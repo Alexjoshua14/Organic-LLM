@@ -51,3 +51,7 @@ export const subtitle = tv({
     fullWidth: true,
   },
 });
+
+export const page = tv({
+  base: "w-full h-full bg-primary text-primary rounded",
+});
