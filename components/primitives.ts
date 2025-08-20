@@ -57,5 +57,5 @@ export const page = tv({
 });
 
 export const glass = tv({
-  base: "bg-white ",
+  base: "bg-background-tertiary/40 dark:bg-background-tertiary/20 w-full h-full rounded-t-xl backdrop-blur-3xl",
 });
