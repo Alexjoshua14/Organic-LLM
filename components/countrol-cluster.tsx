@@ -15,14 +15,14 @@ export const ControlCluster: FC<ControlClusterProps> = ({
 }) => {
   return (
     <div
-      className="absolute top-4 right-0 w-28 h-14 flex items-center justify-center z-10 bg-background border-l border-b border-primary overflow-hidden"
+      className="absolute top-4 right-0 w-28 h-14 flex items-center justify-center z-10 bg-background-secondary overflow-hidden" //border-l border-b border-primary"
       style={{
         borderBottomLeftRadius: "9rem 7rem",
       }}
     >
       <Link
         className="min-w-8 w-8 h-8 grid place-content-center border-0 hover:bg-background-tertiary rounded"
-        href="localhost:3000/auth"
+        href="/auth"
       >
         <Settings2Icon size={16} />
       </Link>

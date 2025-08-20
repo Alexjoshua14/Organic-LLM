@@ -137,11 +137,11 @@ export const ChatThreadsList = ({
       </div>
       <div className="flex flex-col">
         {threads.map((thread) => {
-          // router.prefetch(`localhost:3000/chat/${thread.id}`);
+          // router.prefetch(`/chat/${thread.id}`);
           return (
             <Link
               key={thread.id}
-              href={`localhost:3000/chat/${thread.id}`}
+              href={`/chat/${thread.id}`}
               className="font-medium text-sm w-full rounded hover:bg-background px-3 py-1 transition-colors duration-150 group overflow-hidden"
             >
               <div className="w-full flex text-foreground-secondary">
