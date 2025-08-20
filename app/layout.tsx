@@ -47,7 +47,7 @@ export default function RootLayout({
           <div className="relative flex">
             <Sidebar />
             <ControlCluster />
-            <main className="container mx-auto max-w-7xl pt-4 flex-grow bg-background-secondary">
+            <main className="container mx-auto max-w-7xl pt-4 grow bg-background-secondary">
               {children}
             </main>
           </div>
