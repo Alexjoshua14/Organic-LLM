@@ -1,3 +1,4 @@
+import { ChatInput } from "@/components/chat/chat-input";
 import Page from "@/components/page";
 import { title, subtitle, page } from "@/components/primitives";
 
@@ -14,6 +15,7 @@ export default async function Chat({
         <span className={title()}>Welcome Chat ;)</span>
         <span className={subtitle()}>Chat ID: {chatId}</span>
       </div>
+      <ChatInput />
     </Page>
   );
 }

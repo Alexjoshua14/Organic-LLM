@@ -55,3 +55,7 @@ export const subtitle = tv({
 export const page = tv({
   base: "w-full h-full bg-primary text-primary rounded",
 });
+
+export const glass = tv({
+  base: "bg-white ",
+});
