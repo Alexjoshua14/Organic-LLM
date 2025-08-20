@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { useCallback } from "react";
 
 const SIDEBAR_WIDTH = "20rem";
 
@@ -24,27 +25,13 @@ type Thread = {
 export function Sidebar() {
   const router = useRouter();
 
-  const pinned_threads: Thread[] = [
-    {
-      title: "AI Explained",
-      id: "550e8400-e29b-41d4-a716-446655440000",
-    },
-  ];
+  const toggleThreadPinAction = useCallback(() => {
+    console.log("toggleThreadPin");
+  }, []);
 
-  const all_threads: Thread[] = [
-    {
-      title: "Introspection",
-      id: "920e2901-e29b-41d4-a716-40127594991",
-    },
-    {
-      title: "Random title that is too long for displaying",
-      id: "891a1200-b93e-22b9-c9544-882931002384",
-    },
-    {
-      title: "AI Explained",
-      id: "550e8400-e29b-41d4-a716-446655440000",
-    },
-  ];
+  const deleteThreadAction = useCallback(() => {
+    console.log("deleteThread");
+  }, []);
 
   return (
     <div className="bg-background-secondary h-screen w-64 p-3">
@@ -93,8 +80,17 @@ export function Sidebar() {
           {/* Threads */}
           <div className="flex-1 flex flex-col gap-6 w-full px-2">
             {/* Pinned threads */}
-            <ChatThreadsList threads={pinned_threads} variant="pinned" />
-            <ChatThreadsList threads={all_threads} />
+            <ChatThreadsList
+              threads={pinned_threads}
+              variant="pinned"
+              toggleThreadPinAction={toggleThreadPinAction}
+              deleteThreadAction={deleteThreadAction}
+            />
+            <ChatThreadsList
+              threads={all_threads}
+              toggleThreadPinAction={toggleThreadPinAction}
+              deleteThreadAction={deleteThreadAction}
+            />
           </div>
         </div>
         <div className="w-full flex gap-4">
@@ -115,9 +111,13 @@ export function Sidebar() {
 export const ChatThreadsList = ({
   threads,
   variant,
+  toggleThreadPinAction,
+  deleteThreadAction,
 }: {
   threads: Thread[];
   variant?: "DEFAULT" | "pinned";
+  toggleThreadPinAction: () => void;
+  deleteThreadAction: () => void;
 }) => {
   return (
     <section className="w-full flex flex-col gap-3">
@@ -147,16 +147,30 @@ export const ChatThreadsList = ({
                 <h3 className="flex-1 truncate text-foreground-secondary py-1">
                   {thread.title}
                 </h3>
-                <div className="relative w-14">
+                <div className="relative w-14 z-10">
                   <div className="absolute -right-18 opacity-0 group-hover:right-0 group-hover:opacity-100 grid grid-cols-2 items-center transition-all duration-250 h-full">
-                    <div className="hover:bg-background-tertiary w-full h-full flex items-center justify-center rounded px-1">
+                    <div
+                      className="hover:bg-background-tertiary w-full h-full flex items-center justify-center rounded px-1"
+                      onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        toggleThreadPinAction();
+                      }}
+                    >
                       {variant === "pinned" ? (
                         <PinOff size={18} />
                       ) : (
                         <Pin size={18} />
                       )}
                     </div>
-                    <div className="hover:bg-background-tertiary w-full h-full flex items-center justify-center rounded px-1">
+                    <div
+                      className="hover:bg-background-tertiary w-full h-full flex items-center justify-center rounded px-1"
+                      onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        deleteThreadAction();
+                      }}
+                    >
                       <XIcon size={18} />
                     </div>
                   </div>
@@ -169,3 +183,25 @@ export const ChatThreadsList = ({
     </section>
   );
 };
+
+const pinned_threads: Thread[] = [
+  {
+    title: "AI Explained",
+    id: "550e8400-e29b-41d4-a716-446655440000",
+  },
+];
+
+const all_threads: Thread[] = [
+  {
+    title: "Introspection",
+    id: "920e2901-e29b-41d4-a716-40127594991",
+  },
+  {
+    title: "Random title that is too long for displaying",
+    id: "891a1200-b93e-22b9-c9544-882931002384",
+  },
+  {
+    title: "AI Explained",
+    id: "550e8400-e29b-41d4-a716-446655440000",
+  },
+];
