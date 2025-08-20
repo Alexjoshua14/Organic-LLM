@@ -3,26 +3,21 @@ import { ChatThread } from "@/components/chat/chat-thread";
 import Page from "@/components/page";
 import { title, subtitle, page } from "@/components/primitives";
 import { UIMessage } from "ai";
+import { useChat } from "@ai-sdk/react";
+import { Chat } from "@/components/chat/chat";
 
-export default async function Chat({
+export default async function ChatPage({
   params,
 }: {
   params: Promise<{ slug: string }>;
 }) {
   const { slug: chatId } = await params;
 
+  const id = chatId;
+
   return (
     <Page>
-      <div className="h-full flex flex-col overflow-hidden items-center">
-        {/*<div className="absolute top-0 w-full inline-block text-center justify-center p-4 bg-white/5 backdrop-blur-xl shadow">
-          <span className={title()}>Welcome Chat ;)</span>
-          <span className={subtitle()}>Chat ID: {chatId}</span>
-        </div>*/}
-        <div className="h-full">
-          <ChatThread messages={sampleMessages} />
-        </div>
-        <ChatInput />
-      </div>
+      <Chat chatId={id} />
     </Page>
   );
 }
@@ -113,3 +108,14 @@ const sampleMessages: UIMessage[] = [
     ],
   },
 ];
+
+// <div className="h-full flex flex-col overflow-hidden items-center">
+//   {/*<div className="absolute top-0 w-full inline-block text-center justify-center p-4 bg-white/5 backdrop-blur-xl shadow">
+//     <span className={title()}>Welcome Chat ;)</span>
+//     <span className={subtitle()}>Chat ID: {chatId}</span>
+//   </div>*/}
+//   <div className="h-full">
+//     <ChatThread id={id} />
+//   </div>
+//   <ChatInput id={id} />
+// </div>
