@@ -49,9 +49,12 @@ export function Sidebar() {
         <div className="h-full w-full flex flex-col gap-4">
           <div className="w-full flex flex-col gap-2">
             {/* New Chat Button */}
-            <div className="w-full rounded-md">
-              <Button className="w-full">New Chat</Button>
-            </div>
+            <Link
+              href="/"
+              className="w-full rounded-xl bg-background-tertiary cursor-pointer flex items-center justify-center py-3 px-4 text-sm font-medium"
+            >
+              New Chat
+            </Link>
 
             {/* Search */}
             <div className="flex items-center gap-2">
