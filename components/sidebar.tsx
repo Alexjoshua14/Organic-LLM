@@ -2,7 +2,15 @@
 
 import { Button } from "@heroui/button";
 import { Input } from "@heroui/input";
-import { LogInIcon, Pin, Search, SquareMenu } from "lucide-react";
+import {
+  CrossIcon,
+  LogInIcon,
+  Pin,
+  PinOff,
+  Search,
+  SquareMenu,
+  XIcon,
+} from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 
@@ -76,7 +84,7 @@ export function Sidebar() {
                     "bg-transparent",
                     "focus-within:bg-transparent",
                   ],
-                  base: ["border-b-1", "border-border"],
+                  base: ["border-b-1", "border-background-tertiary"],
                 }}
               />
             </div>
@@ -85,49 +93,8 @@ export function Sidebar() {
           {/* Threads */}
           <div className="flex-1 flex flex-col gap-6 w-full px-2">
             {/* Pinned threads */}
-            <div className="w-full flex flex-col gap-3">
-              {/*TODO Make collapsable*/}
-              <div className="flex w-full items-end gap-1">
-                <Pin size={12} />
-                <h2 className="text-xs font-bold">Pinned</h2>
-              </div>
-              <div className="flex flex-col gap-2 px-2">
-                {pinned_threads.map((thread) => {
-                  // router.prefetch(`localhost:3000/chat/${thread.id}`);
-                  return (
-                    <Link
-                      key={thread.id}
-                      href={`localhost:3000/chat/${thread.id}`}
-                      className="font-medium text-sm"
-                    >
-                      <h3 className="truncate">{thread.title}</h3>
-                    </Link>
-                  );
-                })}
-              </div>
-            </div>
-            <div className="w-full flex flex-col gap-3">
-              {/*TODO Make collapsable*/}
-              <div className="flex w-full items-end gap-1">
-                <h2 className="text-xs font-bold">Yesterday</h2>
-              </div>
-              <div className="flex flex-col gap-2 px-2">
-                {all_threads.map((thread, index) => {
-                  // if (index < 3) {
-                  //   router.prefetch(`localhost:3000/chat/${thread.id}`);
-                  // }
-                  return (
-                    <Link
-                      key={thread.id}
-                      href={`localhost:3000/chat/${thread.id}`}
-                      className="font-medium text-sm"
-                    >
-                      <h3 className="truncate">{thread.title}</h3>
-                    </Link>
-                  );
-                })}
-              </div>
-            </div>
+            <ChatThreadsList threads={pinned_threads} variant="pinned" />
+            <ChatThreadsList threads={all_threads} />
           </div>
         </div>
         <div className="w-full flex gap-4">
@@ -144,3 +111,61 @@ export function Sidebar() {
     </div>
   );
 }
+
+export const ChatThreadsList = ({
+  threads,
+  variant,
+}: {
+  threads: Thread[];
+  variant?: "DEFAULT" | "pinned";
+}) => {
+  return (
+    <section className="w-full flex flex-col gap-3">
+      {/*TODO Make collapsable*/}
+      <div className="flex w-full items-end gap-1">
+        {variant === "pinned" ? (
+          <>
+            <Pin size={12} />
+            <h2 className="text-xs font-bold">Pinned</h2>
+          </>
+        ) : (
+          <>
+            <h2 className="text-xs font-bold">Yesterday</h2>
+          </>
+        )}
+      </div>
+      <div className="flex flex-col">
+        {threads.map((thread) => {
+          // router.prefetch(`localhost:3000/chat/${thread.id}`);
+          return (
+            <Link
+              key={thread.id}
+              href={`localhost:3000/chat/${thread.id}`}
+              className="font-medium text-sm w-full rounded hover:bg-background px-3 py-1 transition-colors duration-150 group overflow-hidden"
+            >
+              <div className="w-full flex">
+                <h3 className="flex-1 truncate text-foreground-secondary py-1">
+                  {thread.title}
+                </h3>
+                <div className="relative w-14">
+                  <div className="absolute -right-18 opacity-0 group-hover:right-0 group-hover:opacity-100 grid grid-cols-2 items-center transition-all duration-250 h-full">
+                    <div className="hover:bg-background-tertiary w-full h-full flex items-center justify-center rounded px-1">
+                      {variant === "pinned" ? (
+                        <PinOff size={18} />
+                      ) : (
+                        <Pin size={18} />
+                      )}
+                    </div>
+                    <div className="hover:bg-background-tertiary w-full h-full flex items-center justify-center rounded px-1">
+                      <XIcon size={18} />
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </Link>
+          );
+        })}
+      </div>
+    </section>
+  );
+};
