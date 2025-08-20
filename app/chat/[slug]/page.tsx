@@ -13,11 +13,11 @@ export default async function Chat({
 
   return (
     <Page>
-      <div className="flex flex-col overflow-hidden items-center">
-        <div className="absolute top-0 w-full inline-block text-center justify-center p-4 bg-white/5 backdrop-blur-xl shadow">
+      <div className="h-full flex flex-col overflow-hidden items-center">
+        {/*<div className="absolute top-0 w-full inline-block text-center justify-center p-4 bg-white/5 backdrop-blur-xl shadow">
           <span className={title()}>Welcome Chat ;)</span>
           <span className={subtitle()}>Chat ID: {chatId}</span>
-        </div>
+        </div>*/}
         <div className="h-full">
           <ChatThread messages={sampleMessages} />
         </div>
