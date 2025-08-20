@@ -9,6 +9,7 @@ import { siteConfig } from "@/config/site";
 import { fontSans } from "@/config/fonts";
 import { Navbar } from "@/components/navbar";
 import { Sidebar } from "@/components/sidebar";
+import { ControlCluster } from "@/components/countrol-cluster";
 
 export const metadata: Metadata = {
   title: {
@@ -45,6 +46,7 @@ export default function RootLayout({
         <Providers themeProps={{ attribute: "class", defaultTheme: "system" }}>
           <div className="relative flex">
             <Sidebar />
+            <ControlCluster />
             <main className="container mx-auto max-w-7xl pt-4 flex-grow bg-background-secondary">
               {children}
             </main>
