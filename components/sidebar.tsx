@@ -2,6 +2,7 @@
 
 import { Button } from "@heroui/button";
 import { Input } from "@heroui/input";
+import { Tooltip } from "@heroui/tooltip";
 import {
   CrossIcon,
   LogInIcon,
@@ -78,7 +79,7 @@ export function Sidebar() {
           </div>
 
           {/* Threads */}
-          <div className="flex-1 flex flex-col gap-6 w-full px-2">
+          <div className="flex-1 flex flex-col gap-4 w-full px-1">
             {/* Pinned threads */}
             <ChatThreadsList
               threads={pinned_threads}
@@ -120,17 +121,17 @@ export const ChatThreadsList = ({
   deleteThreadAction: () => void;
 }) => {
   return (
-    <section className="w-full flex flex-col gap-3">
+    <section className="w-full flex flex-col">
       {/*TODO Make collapsable*/}
-      <div className="flex w-full items-end gap-1">
+      <div className="flex w-full items-end gap-1 text-xs font-bold">
         {variant === "pinned" ? (
           <>
             <Pin size={12} />
-            <h2 className="text-xs font-bold">Pinned</h2>
+            <h2 className="">Pinned</h2>
           </>
         ) : (
           <>
-            <h2 className="text-xs font-bold">Yesterday</h2>
+            <h2 className="">Yesterday</h2>
           </>
         )}
       </div>
@@ -143,36 +144,52 @@ export const ChatThreadsList = ({
               href={`localhost:3000/chat/${thread.id}`}
               className="font-medium text-sm w-full rounded hover:bg-background px-3 py-1 transition-colors duration-150 group overflow-hidden"
             >
-              <div className="w-full flex">
-                <h3 className="flex-1 truncate text-foreground-secondary py-1">
-                  {thread.title}
-                </h3>
+              <div className="w-full flex text-foreground-secondary">
+                <h3 className="flex-1 truncate py-1">{thread.title}</h3>
                 <div className="relative w-14 z-10">
                   <div className="absolute -right-18 opacity-0 group-hover:right-0 group-hover:opacity-100 grid grid-cols-2 items-center transition-all duration-250 h-full">
-                    <div
-                      className="hover:bg-background-tertiary w-full h-full flex items-center justify-center rounded px-1"
-                      onClick={(e) => {
-                        e.preventDefault();
-                        e.stopPropagation();
-                        toggleThreadPinAction();
-                      }}
+                    <Tooltip
+                      placement="bottom"
+                      content={
+                        variant === "pinned" ? "Unpin Thread" : "Pin Thread"
+                      }
+                      size="sm"
+                      offset={1}
+                      closeDelay={50}
                     >
-                      {variant === "pinned" ? (
-                        <PinOff size={18} />
-                      ) : (
-                        <Pin size={18} />
-                      )}
-                    </div>
-                    <div
-                      className="hover:bg-background-tertiary w-full h-full flex items-center justify-center rounded px-1"
-                      onClick={(e) => {
-                        e.preventDefault();
-                        e.stopPropagation();
-                        deleteThreadAction();
-                      }}
+                      <div
+                        className="hover:bg-background-tertiary w-full h-full flex items-center justify-center rounded px-1"
+                        onClick={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          toggleThreadPinAction();
+                        }}
+                      >
+                        {variant === "pinned" ? (
+                          <PinOff size={18} />
+                        ) : (
+                          <Pin size={18} />
+                        )}
+                      </div>
+                    </Tooltip>
+                    <Tooltip
+                      placement="bottom"
+                      content={"Delete Thread"}
+                      size="sm"
+                      offset={1}
+                      closeDelay={50}
                     >
-                      <XIcon size={18} />
-                    </div>
+                      <div
+                        className="hover:bg-background-tertiary w-full h-full flex items-center justify-center rounded px-1"
+                        onClick={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          deleteThreadAction();
+                        }}
+                      >
+                        <XIcon size={18} />
+                      </div>
+                    </Tooltip>
                   </div>
                 </div>
               </div>
