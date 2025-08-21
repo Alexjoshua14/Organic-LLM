@@ -1,5 +1,6 @@
 "use client";
 
+import { Fragment } from "react";
 import { Button, ButtonGroup, useButton } from "@heroui/button";
 import { Divider } from "@heroui/divider";
 import {
@@ -87,13 +88,13 @@ export const NewChat: React.FC<NewChatProps> = ({ hidden }) => {
       </div>
       <div className="flex flex-col gap-2 w-full">
         {promptIdeas.map(({ title, prompt }, index) => (
-          <>
+          <Fragment key={`${title}-${index}`}>
             <ChatTopicButton
               title={title}
               onPress={() => chatGeneratorButton(prompt)}
             />
             {index < promptIdeas.length - 1 && <Divider />}
-          </>
+          </Fragment>
         ))}
       </div>
     </div>
