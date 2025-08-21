@@ -13,6 +13,7 @@
     "@ai-sdk/react": "^2.0.19",
     "@heroui/button": "2.2.24",
     "@heroui/code": "2.2.18",
+    "@heroui/divider": "^2.2.17",
     "@heroui/input": "2.4.25",
     "@heroui/kbd": "2.2.19",
     "@heroui/link": "2.2.21",
@@ -30,10 +31,13 @@
     "framer-motion": "11.18.2",
     "intl-messageformat": "10.7.16",
     "lucide-react": "^0.540.0",
+    "marked": "^16.2.0",
     "next": "15.3.1",
     "next-themes": "0.4.6",
     "react": "18.3.1",
     "react-dom": "18.3.1",
+    "react-markdown": "^10.1.0",
+    "remark-gfm": "^4.0.1",
     "zod": "^4.0.17"
   },
   "devDependencies": {

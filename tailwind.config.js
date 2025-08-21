@@ -30,6 +30,9 @@ const config = {
               secondary: "#EAECEA",
               tertiary: "#DCDDDC",
             },
+            border: {
+              DEFAULT: "#DCDDDC",
+            },
           },
         },
         dark: {
@@ -42,6 +45,9 @@ const config = {
               DEFAULT: "#141516",
               secondary: "#1C1E1F",
               tertiary: "#2A2C2D",
+            },
+            border: {
+              DEFAULT: "#2A2C2D",
             },
           },
         },

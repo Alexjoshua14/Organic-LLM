@@ -15,7 +15,7 @@ export const ControlCluster: FC<ControlClusterProps> = ({
 }) => {
   return (
     <div
-      className="absolute top-4 right-0 w-28 h-14 flex items-center justify-center z-10 bg-background-secondary overflow-hidden" //border-l border-b border-primary"
+      className="absolute top-4 right-0 w-28 h-14 flex items-center justify-center z-10 bg-background-secondary overflow-hidden border-l border-b border-border"
       style={{
         borderBottomLeftRadius: "9rem 7rem",
       }}

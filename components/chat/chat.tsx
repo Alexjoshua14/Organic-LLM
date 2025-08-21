@@ -12,7 +12,7 @@ export const Chat: React.FC<ChatProps> = ({ chatId }) => {
   const { messages, sendMessage, id } = useChat();
 
   return (
-    <div className="h-full w-full flex flex-col overflow-hidden items-center">
+    <div className="h-full max-w-4xl w-full flex flex-col overflow-hidden items-center">
       {/*<div className="absolute top-0 w-full inline-block text-center justify-center p-4 bg-white/5 backdrop-blur-xl shadow">
       <span className={title()}>Welcome Chat ;)</span>
       <span className={subtitle()}>Chat ID: {chatId}</span>

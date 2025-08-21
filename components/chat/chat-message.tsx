@@ -1,5 +1,6 @@
 import { FC } from "react";
 import { UIMessage } from "ai";
+import { ChatMessageMarkdown } from "./chat-message-markdown";
 
 type ChatMessageProps = {
   message: UIMessage;
@@ -18,11 +19,17 @@ export const ChatMessage: FC<ChatMessageProps> = ({ message }) => {
 
 const AIMessage: FC<ChatMessageProps> = ({ message }) => {
   return (
-    <div className="rounded-lg p-4 mb-4 text-foreground">
+    <div className="rounded-lg p-4 prose space-y-2 text-foreground max-w-full">
       {message.parts.map((part, i) => {
         switch (part.type) {
           case "text":
-            return <div key={`${message.id}-${i}`}>{part.text}</div>;
+            return (
+              <ChatMessageMarkdown
+                key={`${message.id}-${i}`}
+                id={message.id}
+                content={part.text}
+              />
+            );
         }
       })}
     </div>

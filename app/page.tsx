@@ -7,12 +7,14 @@ import { siteConfig } from "@/config/site";
 import { title, subtitle } from "@/components/primitives";
 import { GithubIcon } from "@/components/icons";
 import Page from "@/components/page";
+import { NewChat } from "@/components/chat/new-chat";
 
 export default function Home() {
   return (
     <Page>
-      <div className="inline-block max-w-xl text-center justify-center">
-        <span className={title()}>Make&nbsp;</span>
+      <div className="relative inline-block max-w-4xl h-full w-full text-center justify-center">
+        <NewChat />
+        {/*<span className={title()}>Make&nbsp;</span>
         <span className={title({ color: "violet" })}>beautiful&nbsp;</span>
         <br />
         <span className={title()}>
@@ -20,7 +22,7 @@ export default function Home() {
         </span>
         <div className={subtitle({ class: "mt-4" })}>
           Beautiful, fast and modern React UI library.
-        </div>
+        </div>*/}
       </div>
     </Page>
   );

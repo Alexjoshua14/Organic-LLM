@@ -35,7 +35,7 @@ export function Sidebar() {
   }, []);
 
   return (
-    <div className="bg-background-secondary h-screen w-64 p-3">
+    <div className="bg-background-secondary h-screen w-64 p-3 subpixel-antialiased">
       <div className="w-full h-full flex flex-col items-center gap-4">
         <div className="w-full flex items-center justify-center h-8">
           <div className="absolute top-5 left-4 right-0">
