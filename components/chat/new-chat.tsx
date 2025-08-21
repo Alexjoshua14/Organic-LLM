@@ -124,7 +124,7 @@ const ChatTopicButton: React.FC<{
     <Button
       variant="light"
       onPress={onPress}
-      className="flex  justify-start text-primary text-base"
+      className="flex justify-start text-primary text-base"
     >
       {title}
     </Button>

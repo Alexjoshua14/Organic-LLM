@@ -1,9 +1,4 @@
-import { ChatInput } from "@/components/chat/chat-input";
-import { ChatThread } from "@/components/chat/chat-thread";
 import Page from "@/components/page";
-import { title, subtitle, page } from "@/components/primitives";
-import { UIMessage } from "ai";
-import { useChat } from "@ai-sdk/react";
 import { Chat } from "@/components/chat/chat";
 
 export default async function ChatPage({

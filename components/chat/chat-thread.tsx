@@ -12,7 +12,7 @@ export const ChatThread: FC<ChatThreadProps> = ({ messages }) => {
   // const { messages } = useChat()
 
   return (
-    <section className="w-full h-full flex flex-col gap-2 p-8 overflow-y-auto pt-20 pb-60">
+    <section className="max-w-4xl w-full h-fit flex flex-col gap-2 px-8 pt-20 pb-40">
       {messages.map((message) => {
         return <ChatMessage key={message.id} message={message} />;
       })}

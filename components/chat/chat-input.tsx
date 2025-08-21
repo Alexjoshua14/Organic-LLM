@@ -1,18 +1,8 @@
-"use client";
-
-import { Input, Textarea } from "@heroui/input";
+import { Textarea } from "@heroui/input";
 import { glass } from "../primitives";
 import { Button, PressEvent } from "@heroui/button";
-import {
-  ArrowUpIcon,
-  ChevronDown,
-  File,
-  Globe,
-  PaperclipIcon,
-  SendIcon,
-} from "lucide-react";
-import { useCallback, useState } from "react";
-import { CreateUIMessage, UIMessage, useChat } from "@ai-sdk/react";
+import { ArrowUpIcon, ChevronDown, Globe, PaperclipIcon } from "lucide-react";
+import { useCallback, useState, KeyboardEvent } from "react";
 
 type ChatInputProps = {
   id: string;
@@ -21,17 +11,38 @@ type ChatInputProps = {
 
 export const ChatInput: React.FC<ChatInputProps> = ({ id, sendMessage }) => {
   const [input, setInput] = useState("");
+  const [error, setError] = useState<boolean>(false);
   //const { sendMessage, stop } = useChat({ id });
 
   const handleSendMessage = useCallback(
     async (e: React.FormEvent | PressEvent): Promise<void> => {
-      // if (e instanceof React.FormEvent) {
-      //   e.preventDefault();
-      // }
+      if (input.trim().length === 0) {
+        setError(true);
+        return;
+      } else {
+        setError(false);
+      }
       sendMessage({ text: input });
-      setInput("a");
+      setInput("");
     },
     [input, sendMessage],
+  );
+
+  const handleInputChange = useCallback((v: string) => {
+    if (error && v.trim().length > 0) {
+      setError(false);
+    }
+    setInput(v);
+  }, []);
+
+  const handleKeyDown = useCallback(
+    (e: KeyboardEvent<HTMLInputElement>) => {
+      if (e.key === "Enter" && !e.shiftKey) {
+        e.preventDefault();
+        handleSendMessage(e as any);
+      }
+    },
+    [handleSendMessage],
   );
 
   return (
@@ -58,7 +69,9 @@ export const ChatInput: React.FC<ChatInputProps> = ({ id, sendMessage }) => {
                 maxRows={8}
                 placeholder="Type your message here..."
                 value={input}
-                onChange={(e) => setInput(e.currentTarget.value)}
+                onValueChange={handleInputChange}
+                onKeyDown={handleKeyDown}
+                isInvalid={error}
               />
               <div className="h-12 flex items-center justify-between py-2">
                 <div className="flex items-center gap-3 ">
