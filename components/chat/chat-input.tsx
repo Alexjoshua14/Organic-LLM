@@ -3,6 +3,7 @@ import { glass } from "../primitives";
 import { Button, PressEvent } from "@heroui/button";
 import { ArrowUpIcon, ChevronDown, Globe, PaperclipIcon } from "lucide-react";
 import { useCallback, useState, KeyboardEvent } from "react";
+import { ModelSelector } from "./model-selector";
 
 type ChatInputProps = {
   id: string;
@@ -75,9 +76,10 @@ export const ChatInput: React.FC<ChatInputProps> = ({ id, sendMessage }) => {
               />
               <div className="h-12 flex items-center justify-between py-2">
                 <div className="flex items-center gap-3 ">
-                  <div className="w-20 flex justify-between items-center">
-                    <p>GPT 5</p>
-                    <ChevronDown size={20} />
+                  <div className="w-32 flex justify-between items-center">
+                    <ModelSelector setSelectedModel={console.log} />
+                    {/*<p>GPT 5</p>
+                    <ChevronDown size={20} />*/}
                   </div>
                   <div>
                     <Button className="text-xs bg-transparent text-foreground">
