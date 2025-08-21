@@ -8,6 +8,8 @@ import { siteConfig } from "@/config/site";
 import { fontSans } from "@/config/fonts";
 import { Sidebar } from "@/components/sidebar";
 import { ControlCluster } from "@/components/countrol-cluster";
+import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
+import { Sidebar as NewSidebar } from "@/components/sidebar/sidebar";
 
 export const metadata: Metadata = {
   title: {
@@ -42,13 +44,17 @@ export default function RootLayout({
         )}
       >
         <Providers themeProps={{ attribute: "class", defaultTheme: "system" }}>
-          <div className="relative flex">
-            <Sidebar />
+          <SidebarProvider>
+            <NewSidebar />
+            {/*<div className="relative flex">*/}
+            {/*<Sidebar />*/}
             <ControlCluster />
-            <main className="container mx-auto max-w-7xl pt-4 grow bg-background-secondary">
+            <main className="pt-4 grow bg-background-secondary">
+              <SidebarTrigger className="absolute top-3 left-3 z-20" />
               {children}
             </main>
-          </div>
+            {/*</div>*/}
+          </SidebarProvider>
         </Providers>
       </body>
     </html>

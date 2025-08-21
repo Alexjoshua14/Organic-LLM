@@ -33,6 +33,7 @@ const config = {
             border: {
               DEFAULT: "#DCDDDC",
             },
+            sidebar: {},
           },
         },
         dark: {
