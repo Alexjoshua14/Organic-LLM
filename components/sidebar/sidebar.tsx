@@ -27,6 +27,8 @@ import {
   CollapsibleContent,
   CollapsibleTrigger,
 } from "../ui/collapsible";
+import { ThreadLink } from "@/types";
+import { SidebarChatList } from "./sidebar-chat-list";
 
 const items = [
   {
@@ -59,10 +61,10 @@ const items = [
 export function Sidebar() {
   return (
     <ShadcnSidebar>
-      <SidebarHeader className="h-12 bg-pink-200 pl-7 grid place-content-center">
+      <SidebarHeader className="h-12 pl-7 grid place-content-center bg-background-secondary">
         <h1 className="font-bold tracking-tight text-lg">Organic LLM</h1>
       </SidebarHeader>
-      <SidebarContent>
+      <SidebarContent className="bg-background-secondary">
         <SidebarGroup>
           <SidebarGroupContent>
             <SidebarMenuButton asChild>
@@ -104,48 +106,38 @@ export function Sidebar() {
               </CollapsibleTrigger>
             </SidebarGroupLabel>
             <CollapsibleContent>
-              <SidebarGroupContent>
-                <SidebarMenu>
-                  {items.map((item) => (
-                    <SidebarMenuItem key={item.title}>
-                      <SidebarMenuButton asChild>
-                        <a href={item.url}>
-                          <item.icon />
-                          <span>{item.title}</span>
-                        </a>
-                      </SidebarMenuButton>
-                    </SidebarMenuItem>
-                  ))}
-                </SidebarMenu>
-              </SidebarGroupContent>
+              <SidebarChatList threads={all_threads.filter((t) => t.pinned)} />
             </CollapsibleContent>
           </SidebarGroup>
         </Collapsible>
+        <SidebarGroup>
+          <SidebarGroupLabel asChild>
+            <h2 className="">All Threads</h2>
+          </SidebarGroupLabel>
+          <SidebarChatList threads={all_threads.filter((t) => !t.pinned)} />
+        </SidebarGroup>
       </SidebarContent>
     </ShadcnSidebar>
   );
 }
 
-type Thread = {
-  title: string;
-  id: string;
-  pinned: boolean;
-};
-
-const all_threads: Thread[] = [
+const all_threads: ThreadLink[] = [
   {
     title: "Introspection",
     id: "920e2901-e29b-41d4-a716-40127594991",
     pinned: false,
+    date: "2025-08-21T00:00:00.000Z",
   },
   {
     title: "Random title that is too long for displaying",
     id: "891a1200-b93e-22b9-c9544-882931002384",
     pinned: false,
+    date: "2025-08-20T00:00:00.000Z",
   },
   {
     title: "AI Explained",
     id: "550e8400-e29b-41d4-a716-446655440000",
     pinned: true,
+    date: "2025-08-21T00:00:00.000Z",
   },
 ];
