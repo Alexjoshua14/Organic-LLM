@@ -40,7 +40,7 @@ export const SidebarChatList: FC<SidebarChatListProps> = ({ threads }) => {
               <Link
                 key={thread.id}
                 href={`/chat/${thread.id}`}
-                className={`font-medium text-sm w-full rounded hover:bg-background px-3 py-1 transition-colors duration-150 group/thread overflow-hidden`}
+                className={`font-medium text-sm w-full rounded hover:bg-background px-3 transition-colors duration-150 group/thread overflow-hidden`}
               >
                 <div className="w-full flex text-foreground-secondary">
                   <h3 className="flex-1 truncate py-1">{thread.title}</h3>

@@ -61,10 +61,10 @@ const items = [
 export function Sidebar() {
   return (
     <ShadcnSidebar>
-      <SidebarHeader className="h-12 pl-7 grid place-content-center bg-background-secondary">
+      <SidebarHeader className="h-12 pl-7 grid place-content-center bg-background-secondary subpixel-antialiased">
         <h1 className="font-bold tracking-tight text-lg">Organic LLM</h1>
       </SidebarHeader>
-      <SidebarContent className="bg-background-secondary">
+      <SidebarContent className="bg-background-secondary subpixel-antialiased">
         <SidebarGroup>
           <SidebarGroupContent>
             <SidebarMenuButton asChild>
@@ -98,9 +98,9 @@ export function Sidebar() {
           <SidebarGroup>
             <SidebarGroupLabel asChild>
               <CollapsibleTrigger>
-                <div className="flex items-end gap-1">
+                <div className="flex items-end gap-1 text-foreground">
                   <Pin size={13} />
-                  <h2 className="">Pinned</h2>
+                  <h2>Pinned</h2>
                 </div>
                 <ChevronUp className="ml-auto transition-transform group-data-[state=open]/collapsible:rotate-180" />
               </CollapsibleTrigger>
@@ -111,8 +111,10 @@ export function Sidebar() {
           </SidebarGroup>
         </Collapsible>
         <SidebarGroup>
-          <SidebarGroupLabel asChild>
-            <h2 className="">All Threads</h2>
+          <SidebarGroupLabel>
+            <div className="text-foreground">
+              <h2>All Threads</h2>
+            </div>
           </SidebarGroupLabel>
           <SidebarChatList threads={all_threads.filter((t) => !t.pinned)} />
         </SidebarGroup>
