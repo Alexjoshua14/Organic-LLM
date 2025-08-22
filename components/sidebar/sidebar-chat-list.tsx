@@ -31,6 +31,12 @@ export const SidebarChatList: FC<SidebarChatListProps> = ({ threads }) => {
     [threads],
   );
 
+  function shouldPretch(thread: ThreadLink): boolean {
+    if (thread.pinned) return true;
+
+    return false;
+  }
+
   return (
     <SidebarGroupContent>
       <SidebarMenu>
@@ -41,6 +47,7 @@ export const SidebarChatList: FC<SidebarChatListProps> = ({ threads }) => {
                 key={thread.id}
                 href={`/chat/${thread.id}`}
                 className={`font-medium text-sm w-full rounded hover:bg-background px-3 transition-colors duration-150 group/thread overflow-hidden`}
+                prefetch={shouldPretch(thread)}
               >
                 <div className="w-full flex text-foreground-secondary">
                   <h3 className="flex-1 truncate py-1">{thread.title}</h3>
