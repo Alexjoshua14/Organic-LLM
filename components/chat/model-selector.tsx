@@ -1,4 +1,5 @@
 import { Select, SelectItem } from "@heroui/select";
+import { useState } from "react";
 
 type ModelSelectorProps = {
   setSelectedModel: () => void;
@@ -35,8 +36,23 @@ export const ModelSelector: React.FC<ModelSelectorProps> = () => {
     },
   ];
 
+  const [selectedModel, setSelectedModel] = useState<string>(
+    availableModels[0].key,
+  );
+
+  const handleSelectedModelChange = (
+    e: React.ChangeEvent<HTMLSelectElement>,
+  ) => {
+    setSelectedModel(e.target.value);
+  };
+
   return (
-    <Select className="text-foreground" items={availableModels}>
+    <Select
+      selectedKeys={[selectedModel]}
+      onChange={handleSelectedModelChange}
+      className="text-foreground"
+      items={availableModels}
+    >
       {(model) => <SelectItem>{model.label}</SelectItem>}
     </Select>
   );
