@@ -12,6 +12,7 @@ import {
 import {
   Sidebar as ShadcnSidebar,
   SidebarContent,
+  SidebarFooter,
   SidebarGroup,
   SidebarGroupContent,
   SidebarGroupLabel,
@@ -29,6 +30,13 @@ import {
 } from "../ui/collapsible";
 import { ThreadLink } from "@/types";
 import { SidebarChatList } from "./sidebar-chat-list";
+import {
+  SignedIn,
+  SignedOut,
+  SignInButton,
+  SignOutButton,
+  SignUpButton,
+} from "@clerk/nextjs";
 
 const items = [
   {
@@ -65,60 +73,87 @@ export function Sidebar() {
         <h1 className="font-bold tracking-tight text-lg">Organic LLM</h1>
       </SidebarHeader>
       <SidebarContent className="bg-background-secondary subpixel-antialiased">
-        <SidebarGroup>
-          <SidebarGroupContent>
-            <SidebarMenuButton asChild>
-              <Link
-                href="/"
-                className="w-full rounded bg-background-tertiary cursor-pointer flex items-center justify-center py-5 px-4 text-sm font-medium"
-              >
-                New Chat
-              </Link>
-            </SidebarMenuButton>
-            <Input
-              label={<Search size={18} />}
-              labelPlacement="outside-left"
-              placeholder="Search your threads..."
-              classNames={{
-                input: ["bg-transparent", "hover:bg-transparent"],
-                innerWrapper: ["bg-transparent", "hover:bg-transparent"],
-                inputWrapper: [
-                  "bg-transparent",
-                  "hover:bg-transparent",
-                  "group-data-[focus=true]:bg-transparent",
-                  "data-[hover=true]:bg-transparent",
-                ],
-                mainWrapper: ["bg-transparent", "focus-within:bg-transparent"],
-                base: ["border-b-1", "border-background-tertiary"],
-              }}
-            />
-          </SidebarGroupContent>
-        </SidebarGroup>
-        <Collapsible className="group/collapsible" defaultOpen>
+        <SignedOut>
           <SidebarGroup>
-            <SidebarGroupLabel asChild>
-              <CollapsibleTrigger>
-                <div className="flex items-end gap-1 text-foreground">
-                  <Pin size={13} />
-                  <h2>Pinned</h2>
-                </div>
-                <ChevronUp className="ml-auto transition-transform group-data-[state=open]/collapsible:rotate-180" />
-              </CollapsibleTrigger>
-            </SidebarGroupLabel>
-            <CollapsibleContent>
-              <SidebarChatList threads={all_threads.filter((t) => t.pinned)} />
-            </CollapsibleContent>
+            <SidebarGroupContent className="w-full flex flex-col gap-4 items-center justify-center">
+              <SidebarMenuButton>
+                <SignInButton />
+              </SidebarMenuButton>
+
+              <SidebarMenuButton>
+                <SignUpButton />
+              </SidebarMenuButton>
+            </SidebarGroupContent>
           </SidebarGroup>
-        </Collapsible>
-        <SidebarGroup>
-          <SidebarGroupLabel>
-            <div className="text-foreground">
-              <h2>All Threads</h2>
-            </div>
-          </SidebarGroupLabel>
-          <SidebarChatList threads={all_threads.filter((t) => !t.pinned)} />
-        </SidebarGroup>
+        </SignedOut>
+        <SignedIn>
+          <>
+            <SidebarGroup>
+              <SidebarGroupContent>
+                <SidebarMenuButton asChild>
+                  <Link
+                    href="/"
+                    className="w-full rounded bg-background-tertiary cursor-pointer flex items-center justify-center py-5 px-4 text-sm font-medium"
+                  >
+                    New Chat
+                  </Link>
+                </SidebarMenuButton>
+                <Input
+                  label={<Search size={18} />}
+                  labelPlacement="outside-left"
+                  placeholder="Search your threads..."
+                  classNames={{
+                    input: ["bg-transparent", "hover:bg-transparent"],
+                    innerWrapper: ["bg-transparent", "hover:bg-transparent"],
+                    inputWrapper: [
+                      "bg-transparent",
+                      "hover:bg-transparent",
+                      "group-data-[focus=true]:bg-transparent",
+                      "data-[hover=true]:bg-transparent",
+                    ],
+                    mainWrapper: [
+                      "bg-transparent",
+                      "focus-within:bg-transparent",
+                    ],
+                    base: ["border-b-1", "border-background-tertiary"],
+                  }}
+                />
+              </SidebarGroupContent>
+            </SidebarGroup>
+            <Collapsible className="group/collapsible" defaultOpen>
+              <SidebarGroup>
+                <SidebarGroupLabel asChild>
+                  <CollapsibleTrigger>
+                    <div className="flex items-end gap-1 text-foreground">
+                      <Pin size={13} />
+                      <h2>Pinned</h2>
+                    </div>
+                    <ChevronUp className="ml-auto transition-transform group-data-[state=open]/collapsible:rotate-180" />
+                  </CollapsibleTrigger>
+                </SidebarGroupLabel>
+                <CollapsibleContent>
+                  <SidebarChatList
+                    threads={all_threads.filter((t) => t.pinned)}
+                  />
+                </CollapsibleContent>
+              </SidebarGroup>
+            </Collapsible>
+            <SidebarGroup>
+              <SidebarGroupLabel>
+                <div className="text-foreground">
+                  <h2>All Threads</h2>
+                </div>
+              </SidebarGroupLabel>
+              <SidebarChatList threads={all_threads.filter((t) => !t.pinned)} />
+            </SidebarGroup>
+          </>
+        </SignedIn>
       </SidebarContent>
+      <SidebarFooter>
+        <SignedIn>
+          <SignOutButton />
+        </SignedIn>
+      </SidebarFooter>
     </ShadcnSidebar>
   );
 }

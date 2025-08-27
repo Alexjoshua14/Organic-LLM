@@ -11,6 +11,7 @@
   "dependencies": {
     "@ai-sdk/openai": "^2.0.17",
     "@ai-sdk/react": "^2.0.19",
+    "@clerk/nextjs": "^6.31.5",
     "@heroui/button": "2.2.24",
     "@heroui/code": "2.2.18",
     "@heroui/divider": "^2.2.17",

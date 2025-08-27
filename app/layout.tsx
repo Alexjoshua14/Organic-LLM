@@ -10,6 +10,7 @@ import { Sidebar } from "@/components/sidebar";
 import { ControlCluster } from "@/components/countrol-cluster";
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { Sidebar as NewSidebar } from "@/components/sidebar/sidebar";
+import { ClerkProvider } from "@clerk/nextjs";
 
 export const metadata: Metadata = {
   title: {
@@ -35,28 +36,32 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html suppressHydrationWarning lang="en">
-      <head />
-      <body
-        className={clsx(
-          "min-h-screen text-foreground bg-background font-sans antialiased",
-          fontSans.variable,
-        )}
-      >
-        <Providers themeProps={{ attribute: "class", defaultTheme: "system" }}>
-          <SidebarProvider>
-            <NewSidebar />
-            {/*<div className="relative flex">*/}
-            {/*<Sidebar />*/}
-            <ControlCluster />
-            <main className="pt-4 grow bg-background-secondary">
-              <SidebarTrigger className="absolute top-3 left-3 z-20" />
-              {children}
-            </main>
-            {/*</div>*/}
-          </SidebarProvider>
-        </Providers>
-      </body>
-    </html>
+    <ClerkProvider>
+      <html suppressHydrationWarning lang="en">
+        <head />
+        <body
+          className={clsx(
+            "min-h-screen text-foreground bg-background font-sans antialiased",
+            fontSans.variable,
+          )}
+        >
+          <Providers
+            themeProps={{ attribute: "class", defaultTheme: "system" }}
+          >
+            <SidebarProvider>
+              <NewSidebar />
+              {/*<div className="relative flex">*/}
+              {/*<Sidebar />*/}
+              <ControlCluster />
+              <main className="pt-4 grow bg-background-secondary">
+                <SidebarTrigger className="absolute top-3 left-3 z-20" />
+                {children}
+              </main>
+              {/*</div>*/}
+            </SidebarProvider>
+          </Providers>
+        </body>
+      </html>
+    </ClerkProvider>
   );
 }
