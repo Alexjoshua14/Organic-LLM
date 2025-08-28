@@ -1,19 +1,28 @@
 "use client";
 
-import { useChat } from "@ai-sdk/react";
+import { UIMessage, useChat } from "@ai-sdk/react";
 import { ChatInput } from "./chat-input";
 import { ChatThread } from "./chat-thread";
 import { StickToBottom, useStickToBottom } from "use-stick-to-bottom";
 import { ChatScrollButton } from "./chat-scroll-button";
+import { DefaultChatTransport } from "ai";
 
 type ChatProps = {
+  initialMessages?: UIMessage[];
   chatId: string;
 };
 
-export const Chat: React.FC<ChatProps> = ({ chatId }) => {
-  // const initialMessages: UIMessage[] = [];
-
-  const { messages, sendMessage, id } = useChat();
+export const Chat: React.FC<ChatProps> = ({ initialMessages, chatId }) => {
+  const { messages, sendMessage, id } = useChat({
+    id: chatId,
+    messages: initialMessages,
+    transport: new DefaultChatTransport({
+      api: "/api/chat",
+      prepareSendMessagesRequest({ messages, id }) {
+        return { body: { message: messages[messages.length - 1], id } };
+      },
+    }),
+  });
 
   return (
     <StickToBottom

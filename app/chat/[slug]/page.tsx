@@ -1,5 +1,8 @@
 import Page from "@/components/page";
 import { Chat } from "@/components/chat/chat";
+import { createChat, loadChat } from "@/util/chat-store";
+import { redirect } from "next/navigation";
+import { UIMessage } from "ai";
 
 export default async function ChatPage({
   params,
@@ -10,9 +13,20 @@ export default async function ChatPage({
 
   const id = chatId;
 
+  let messages: UIMessage[] = [];
+
+  try {
+    messages = await loadChat(id);
+  } catch (err) {
+    console.error(err);
+    const id = await createChat();
+    console.log(`Chat created with ID: ${id}.. Redirecting user..`);
+    redirect(`/chat/${id}`);
+  }
+
   return (
     <Page>
-      <Chat chatId={id} />
+      <Chat chatId={id} initialMessages={messages} />
     </Page>
   );
 }
