@@ -3,9 +3,11 @@ import { NextResponse } from "next/server";
 
 const isProtectedRoute = createRouteMatcher(["/chat/(.*)"]);
 
-export default clerkMiddleware(async (auth, req) => {
-  const { userId } = await auth();
+/**
+ * Make sure /api/webhooks stays public
+ */
 
+export default clerkMiddleware(async (auth, req) => {
   // Create a base response we can mutate
   const res = NextResponse.next();
 

@@ -4,9 +4,11 @@
   "private": true,
   "scripts": {
     "dev": "next dev --turbopack",
+    "dev:full": "concurrently -k -n APP,WEBHOOK \"bun run dev\" \"bun run webhook:local\"",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint --fix"
+    "lint": "eslint --fix",
+    "webhook:local": "ngrok http --url=specially-delicate-dinosaur.ngrok-free.app 3000"
   },
   "dependencies": {
     "@ai-sdk/openai": "^2.0.17",
@@ -33,6 +35,8 @@
     "@radix-ui/react-tooltip": "^1.2.8",
     "@react-aria/ssr": "3.9.10",
     "@react-aria/visually-hidden": "3.8.26",
+    "@supabase/ssr": "^0.7.0",
+    "@supabase/supabase-js": "^2.56.0",
     "ai": "^5.0.19",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
@@ -46,6 +50,7 @@
     "react-dom": "18.3.1",
     "react-markdown": "^10.1.0",
     "remark-gfm": "^4.0.1",
+    "svix": "^1.75.0",
     "tailwind-merge": "^3.3.1",
     "use-stick-to-bottom": "^1.1.1",
     "zod": "^4.0.17"
@@ -59,6 +64,7 @@
     "@types/react-dom": "18.3.0",
     "@typescript-eslint/eslint-plugin": "8.34.1",
     "@typescript-eslint/parser": "8.34.1",
+    "concurrently": "^9.2.1",
     "eslint": "9.25.1",
     "eslint-config-next": "15.3.4",
     "eslint-config-prettier": "9.1.0",

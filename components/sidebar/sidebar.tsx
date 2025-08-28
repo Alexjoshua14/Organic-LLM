@@ -76,11 +76,11 @@ export function Sidebar() {
         <SignedOut>
           <SidebarGroup>
             <SidebarGroupContent className="w-full flex flex-col gap-4 items-center justify-center">
-              <SidebarMenuButton>
+              <SidebarMenuButton asChild>
                 <SignInButton />
               </SidebarMenuButton>
 
-              <SidebarMenuButton>
+              <SidebarMenuButton asChild>
                 <SignUpButton />
               </SidebarMenuButton>
             </SidebarGroupContent>
