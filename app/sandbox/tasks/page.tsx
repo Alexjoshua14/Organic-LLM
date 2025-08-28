@@ -132,6 +132,16 @@ export default function Home() {
                 />
               </label>
 
+              <label className="text-sm opacity-70">
+                Status:
+                <select name="status" defaultValue="todo" className="ml-2 rounded border px-2 py-1">
+                  <option value="todo">Todo</option>
+                  <option value="doing">Doing</option>
+                  <option value="done">Done</option>
+                  <option value="archived">Archived</option>
+                </select>
+              </label>
+
               <div className="ml-auto">
                 <SubmitButton />
               </div>

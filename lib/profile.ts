@@ -27,7 +27,7 @@ function normalizeUserData(user: any) {
     user?.email_addresses?.[0]?.email_address ??
     (user?.primary_email_address_id &&
       user.email_addresses?.find(
-        (e: any) => e.id === u.primary_email_address_id,
+        (e: any) => e.id === user.primary_email_address_id
       )?.email_address) ??
     null;
 
