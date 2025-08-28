@@ -25,7 +25,7 @@ export const Chat: React.FC<ChatProps> = ({ chatId }) => {
       <span className={title()}>Welcome Chat ;)</span>
       <span className={subtitle()}>Chat ID: {chatId}</span>
     </div>*/}
-      <ChatThread messages={sampleMessages} />
+      <ChatThread messages={messages} />
       <ChatScrollButton />
       <ChatInput id={id} sendMessage={sendMessage} />
     </StickToBottom>

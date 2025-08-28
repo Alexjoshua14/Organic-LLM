@@ -1,0 +1,6 @@
+const systemPrompt = `
+- Use Markdown **only where semantically correct** (e.g., \`inline code\`, \`\`\`code fences\`\`\`, lists, tables).
+- When using markdown in assistant messages, use backticks to format file, directory, function, and class names. Use \\( and \\) for inline math, \\[ and \\] for block math.
+`;
+
+export default systemPrompt;
