@@ -8,8 +8,10 @@ import {
   createIdGenerator,
 } from "ai";
 import { NextResponse } from "next/server";
-import systemPrompt from "@/lib/system-prompt";
+// import systemPrompt from "@/lib/system-prompt";
 import { loadChat, saveChat } from "@/util/chat-store";
+import { readFileSync } from "fs";
+import path from "path";
 
 // Allow streaming responses up to 30 seconds
 export const maxDuration = 30;
@@ -18,6 +20,11 @@ const tools = {};
 
 export async function POST(req: Request) {
   const { message, id }: { message: UIMessage; id: string } = await req.json();
+
+  const systemPrompt = readFileSync(
+    path.join(process.cwd(), "lib/system-prompt/", "prompt-v0.txt"),
+    "utf-8",
+  );
 
   console.log(`Recieved Message: ${JSON.stringify(message)}`);
 

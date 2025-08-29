@@ -19,7 +19,7 @@ export const ChatMessage: FC<ChatMessageProps> = ({ message }) => {
 
 const AIMessage: FC<ChatMessageProps> = ({ message }) => {
   return (
-    <div className="rounded-lg p-4 prose space-y-2 text-foreground max-w-full">
+    <div className="rounded-lg p-4 ai-message space-y-2 text-foreground max-w-full prose dark:prose-invert">
       {message.parts.map((part, i) => {
         switch (part.type) {
           case "text":

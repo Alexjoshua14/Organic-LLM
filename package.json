@@ -37,6 +37,7 @@
     "@react-aria/visually-hidden": "3.8.26",
     "@supabase/ssr": "^0.7.0",
     "@supabase/supabase-js": "^2.56.0",
+    "@tailwindcss/typography": "^0.5.16",
     "ai": "^5.0.19",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",

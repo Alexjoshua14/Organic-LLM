@@ -1,9 +1,11 @@
+@config "../tailwind.config.mjs";
+
+@plugin "@tailwindcss/typography";
+
 @import "tailwindcss";
 @import "tw-animate-css";
 
 @custom-variant dark (&:is(.dark *));
-
-@config "../tailwind.config.js";
 
 @theme inline {
   --radius-sm: calc(var(--radius) - 4px);
