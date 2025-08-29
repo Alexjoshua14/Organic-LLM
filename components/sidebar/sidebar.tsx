@@ -37,6 +37,7 @@ import {
   SignOutButton,
   SignUpButton,
 } from "@clerk/nextjs";
+import { SidebarChats } from "./sidebar-chats";
 
 const items = [
   {
@@ -120,7 +121,8 @@ export function Sidebar() {
                 />
               </SidebarGroupContent>
             </SidebarGroup>
-            <Collapsible className="group/collapsible" defaultOpen>
+            <SidebarChats />
+            {/*<Collapsible className="group/collapsible" defaultOpen>
               <SidebarGroup>
                 <SidebarGroupLabel asChild>
                   <CollapsibleTrigger>
@@ -145,7 +147,7 @@ export function Sidebar() {
                 </div>
               </SidebarGroupLabel>
               <SidebarChatList threads={all_threads.filter((t) => !t.pinned)} />
-            </SidebarGroup>
+            </SidebarGroup>*/}
           </>
         </SignedIn>
       </SidebarContent>

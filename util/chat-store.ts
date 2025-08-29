@@ -1,5 +1,7 @@
+"use server";
+
 import { generateId, UIMessage } from "ai";
-import { existsSync, mkdirSync } from "fs";
+import { existsSync, mkdirSync, readdirSync } from "fs";
 import { readFile, writeFile } from "fs/promises";
 import path from "path";
 
@@ -22,6 +24,12 @@ export async function saveChat({
   messages: UIMessage[];
 }): Promise<void> {
   await writeFile(getChatFile(id), JSON.stringify(messages));
+}
+
+export async function getChats(): Promise<string[]> {
+  const chatDir = path.join(process.cwd(), ".chats");
+  const chats = readdirSync(chatDir);
+  return chats.map((chat) => chat.replace(".json", ""));
 }
 
 function getChatFile(id: string): string {

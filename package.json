@@ -41,6 +41,7 @@
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "framer-motion": "11.18.2",
+    "fs": "^0.0.1-security",
     "intl-messageformat": "10.7.16",
     "lucide-react": "^0.540.0",
     "marked": "^16.2.0",
