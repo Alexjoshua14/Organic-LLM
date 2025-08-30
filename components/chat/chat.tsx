@@ -6,6 +6,7 @@ import { ChatThread } from "./chat-thread";
 import { StickToBottom, useStickToBottom } from "use-stick-to-bottom";
 import { ChatScrollButton } from "./chat-scroll-button";
 import { DefaultChatTransport } from "ai";
+import { generateUUID } from "@/util";
 
 type ChatProps = {
   initialMessages?: UIMessage[];
@@ -16,6 +17,7 @@ export const Chat: React.FC<ChatProps> = ({ initialMessages, chatId }) => {
   const { messages, sendMessage, id } = useChat({
     id: chatId,
     messages: initialMessages,
+    generateId: generateUUID,
     transport: new DefaultChatTransport({
       api: "/api/chat",
       prepareSendMessagesRequest({ messages, id }) {

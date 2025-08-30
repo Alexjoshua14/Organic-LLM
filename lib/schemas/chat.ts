@@ -8,17 +8,21 @@ export const MessageSchemaKind = z.enum(["ui_message"]);
 
 // Thread schema
 export const ThreadCreate = z.object({
-  title: z.string().max(255).optional(),
+  title: z.string().max(255).optional().nullable(),
+  id: z.uuid().optional(),
   owner_id: z.uuid().optional(),
-  created_at: z.date(),
-  updated_at: z.date(),
+  created_at: z.string(),
+  updated_at: z.string(),
 });
 
-export const ThreadSchema = ThreadCreate.partial({ owner_id: true });
+export const ThreadSchema = ThreadCreate.partial({ owner_id: true }).extend({
+  id: z.uuid(),
+});
 
 export const ThreadUpdate = z.object({
   title: z.string().max(255).optional(),
-  owner_id: z.string().uuid(),
+  id: z.uuid(),
+  owner_id: z.uuid(),
 });
 
 // Message schema

@@ -1,10 +1,7 @@
 import {
   Calendar,
-  ChevronDown,
-  ChevronUp,
   Home,
   Inbox,
-  Pin,
   Search,
   Settings,
 } from "lucide-react";
@@ -15,21 +12,12 @@ import {
   SidebarFooter,
   SidebarGroup,
   SidebarGroupContent,
-  SidebarGroupLabel,
   SidebarHeader,
-  SidebarMenu,
   SidebarMenuButton,
-  SidebarMenuItem,
 } from "@/components/ui/sidebar";
 import Link from "next/link";
 import { Input } from "@heroui/input";
-import {
-  Collapsible,
-  CollapsibleContent,
-  CollapsibleTrigger,
-} from "../ui/collapsible";
 import { ThreadLink } from "@/types";
-import { SidebarChatList } from "./sidebar-chat-list";
 import {
   SignedIn,
   SignedOut,
@@ -38,6 +26,7 @@ import {
   SignUpButton,
 } from "@clerk/nextjs";
 import { SidebarChats } from "./sidebar-chats";
+import { SidebarNewChat } from "./sidebar-new-chat";
 
 const items = [
   {
@@ -91,14 +80,7 @@ export function Sidebar() {
           <>
             <SidebarGroup>
               <SidebarGroupContent>
-                <SidebarMenuButton asChild>
-                  <Link
-                    href="/"
-                    className="w-full rounded bg-background-tertiary cursor-pointer flex items-center justify-center py-5 px-4 text-sm font-medium"
-                  >
-                    New Chat
-                  </Link>
-                </SidebarMenuButton>
+                <SidebarNewChat />
                 <Input
                   label={<Search size={18} />}
                   labelPlacement="outside-left"

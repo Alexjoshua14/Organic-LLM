@@ -11,7 +11,7 @@ import { Result, SimpleResult } from "@/types";
 import { Thread } from "@/lib/schemas/chat";
 import { createLogger } from "./logger";
 
-const logger = createLogger(__filename);
+const logger = createLogger(`util/chat-store.ts`);
 
 export async function createChat(): Promise<Result<string>> {
   const res = await createChatSupabase();

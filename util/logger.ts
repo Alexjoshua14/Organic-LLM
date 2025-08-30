@@ -5,7 +5,7 @@ export class Logger {
 
   constructor(filepath: string) {
     // Extract just the filename from the full path
-    this.filename = path.basename(filepath);
+    this.filename = filepath;
   }
 
   log(functionName: string, message: string, ...args: any[]) {

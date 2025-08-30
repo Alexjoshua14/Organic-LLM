@@ -11,6 +11,11 @@ import { SidebarChatList } from "./sidebar-chat-list";
 import { useEffect, useState } from "react";
 import { getChats } from "@/util/chat-store";
 import { ThreadLink } from "@/types";
+import { createLogger } from "@/util/logger";
+
+
+const logger = createLogger(`components/sidebar/sidebar-chats.tsx`);
+
 
 export const SidebarChats = () => {
   const [chats, setChats] = useState<ThreadLink[]>([]);
@@ -18,12 +23,17 @@ export const SidebarChats = () => {
   useEffect(() => {
     async function fetchChats() {
       const fetchedChats = await getChats();
+      if (fetchedChats.error || fetchedChats.data === null) {
+        logger.error("fetchChats", `Error getting chats: ${fetchedChats.error?.message ?? "Unknown error"}`);
+        return;
+      }
+      const threads = fetchedChats.data;
 
-      const normalizedChats: ThreadLink[] = fetchedChats.map((chatId) => ({
-        title: chatId,
-        id: chatId,
+      const normalizedChats: ThreadLink[] = threads.map((thread) => ({
+        title: thread.title ?? "Unknown title",
+        id: thread.id,
         pinned: false,
-        date: new Date().toISOString(),
+        date: new Date(thread.created_at).toISOString(),
       }));
 
       setChats(normalizedChats);

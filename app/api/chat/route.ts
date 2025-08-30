@@ -23,7 +23,7 @@ export async function POST(req: Request) {
 
   const systemPrompt = readFileSync(
     path.join(process.cwd(), "lib/system-prompt/", "prompt-v0.txt"),
-    "utf-8",
+    "utf-8"
   );
 
   console.log(`Recieved Message: ${JSON.stringify(message)}`);
@@ -31,7 +31,9 @@ export async function POST(req: Request) {
   let validatedMessages: UIMessage[];
 
   try {
-    const previousMessages = await loadChat(id);
+    const previousMessages = await loadChat(id).then(
+      (res) => res.data?.messages ?? []
+    );
 
     validatedMessages = await validateUIMessages({
       messages: [...previousMessages, message],
@@ -57,7 +59,7 @@ export async function POST(req: Request) {
   return result.toUIMessageStreamResponse({
     originalMessages: validatedMessages,
     onFinish: ({ messages }) => {
-      saveChat({ id, messages });
+      saveChat({ chatId: id, messages });
     },
     generateMessageId: createIdGenerator({
       prefix: "msg",

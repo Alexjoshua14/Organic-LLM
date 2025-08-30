@@ -41,10 +41,9 @@ export const SidebarChatList: FC<SidebarChatListProps> = ({ threads }) => {
     <SidebarGroupContent>
       <SidebarMenu>
         {threads.map((thread) => (
-          <SidebarMenuItem key={thread.title}>
+          <SidebarMenuItem key={thread.id}>
             <SidebarMenuButton asChild>
               <Link
-                key={thread.id}
                 href={`/chat/${thread.id}`}
                 className={`font-medium text-sm w-full rounded hover:bg-background px-3 transition-colors duration-150 group/thread overflow-hidden`}
                 prefetch={shouldPretch(thread)}

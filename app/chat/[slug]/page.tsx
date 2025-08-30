@@ -16,12 +16,17 @@ export default async function ChatPage({
   let messages: UIMessage[] = [];
 
   try {
-    messages = await loadChat(id);
+    messages = await loadChat(id).then((res) => res.data?.messages ?? []);
   } catch (err) {
     console.error(err);
-    const id = await createChat();
-    console.log(`Chat created with ID: ${id}.. Redirecting user..`);
-    redirect(`/chat/${id}`);
+    // const id = await createChat().then((res) => res.data ?? "");
+    // console.log(`Chat created with ID: ${id}.. Redirecting user..`);
+    // if (id === null || id === "") {
+    //   console.error("Chat creation failed");
+    //   return <div>Chat creation failed</div>;
+    // }
+    // redirect(`/chat/${id}`);
+    return <div>Chat not found</div>;
   }
 
   return (

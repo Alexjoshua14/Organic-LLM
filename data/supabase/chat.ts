@@ -1,13 +1,7 @@
 "use server";
 
 import { UIMessage } from "ai";
-import {
-  MessageCreate,
-  MessageUpdate,
-  Thread,
-  ThreadCreate,
-  ThreadUpdate,
-} from "@/lib/schemas/chat";
+import { Thread, ThreadSchema } from "@/lib/schemas/chat";
 import { Result, SimpleResult } from "@/types";
 import {
   convertMessageToUIMessage,
@@ -59,7 +53,7 @@ export async function loadChat(
   }
 
   const chat = {
-    thread: ThreadCreate.parse(thread),
+    thread: ThreadSchema.parse(thread),
     messages: uiMessages,
   };
   return {
@@ -171,7 +165,7 @@ export async function createChat(chatId?: string): Promise<Result<string>> {
   const { data, error } = await sb
     .from("threads")
     .insert({
-      id: chatId ?? null,
+      id: chatId ?? undefined,
       owner_id: supabaseUserId.data,
     })
     .select("id")
