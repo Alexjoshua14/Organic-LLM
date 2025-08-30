@@ -8,8 +8,6 @@ export async function supabaseServer() {
   const { getToken } = await auth();
   const sbToken = await getToken();
 
-  console.log(`sbToken from supabase server client: ${sbToken}`);
-
   return createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
@@ -27,6 +25,6 @@ export async function supabaseServer() {
       global: sbToken
         ? { headers: { Authorization: `Bearer ${sbToken}` } }
         : {},
-    },
+    }
   );
 }

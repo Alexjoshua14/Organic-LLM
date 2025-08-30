@@ -24,6 +24,7 @@ export async function createChat(): Promise<Result<string>> {
       error: new Error("Chat ID is null"),
     };
   }
+  logger.log("createChat", `Chat created: ${res.data}`);
   return res;
 }
 
@@ -38,6 +39,10 @@ export async function loadChat(
       error: new Error(res.error.message),
     };
   }
+  logger.log(
+    "loadChat",
+    `Chat loaded: ${res.data?.thread.id}, ${res.data?.messages.length} messages`
+  );
   return res;
 }
 
@@ -55,6 +60,7 @@ export async function saveChat({
       `Error saving chat: ${res.error?.message ?? "Unknown error"}`
     );
   }
+  logger.log("saveChat", `Chat saved: ${chatId}`);
   return res;
 }
 
@@ -84,6 +90,8 @@ export async function getChat(
       data: null,
       error: new Error(chat.error.message),
     };
+  } else {
+    logger.log("getChat", `Chat loaded: ${chat.data?.thread.id}`);
   }
   return chat;
 }

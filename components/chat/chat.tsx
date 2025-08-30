@@ -17,7 +17,6 @@ export const Chat: React.FC<ChatProps> = ({ initialMessages, chatId }) => {
   const { messages, sendMessage, id } = useChat({
     id: chatId,
     messages: initialMessages,
-    generateId: generateUUID,
     transport: new DefaultChatTransport({
       api: "/api/chat",
       prepareSendMessagesRequest({ messages, id }) {
