@@ -1,39 +1,89 @@
 "use server";
 
-import { generateId, UIMessage } from "ai";
-import { existsSync, mkdirSync, readdirSync } from "fs";
-import { readFile, writeFile } from "fs/promises";
-import path from "path";
+import { UIMessage } from "ai";
+import {
+  createChat as createChatSupabase,
+  loadChat as loadChatSupabase,
+  saveChat as saveChatSupabase,
+  getChats as getChatsSupabase,
+} from "@/data/supabase/chat";
+import { Result, SimpleResult } from "@/types";
+import { Thread } from "@/lib/schemas/chat";
+import { createLogger } from "./logger";
 
-export async function createChat(): Promise<string> {
-  const id = generateId();
-  await writeFile(getChatFile(id), "[]");
-  return id;
+const logger = createLogger(__filename);
+
+export async function createChat(): Promise<Result<string>> {
+  const res = await createChatSupabase();
+  if (res.error) {
+    logger.error("createChat", `Error creating chat: ${res.error.message}`);
+  } else if (res.data === null) {
+    logger.error("createChat", "Error creating chat: Chat ID is null");
+    return {
+      data: null,
+      error: new Error("Chat ID is null"),
+    };
+  }
+  return res;
 }
 
-export async function loadChat(id: string): Promise<UIMessage[]> {
-  if (!existsSync(getChatFile(id))) throw new Error(`Chat ${id} not found`);
-  return JSON.parse(await readFile(getChatFile(id), "utf8"));
+export async function loadChat(
+  id: string
+): Promise<Result<{ thread: Thread; messages: UIMessage[] }>> {
+  const res = await loadChatSupabase(id);
+  if (res.error) {
+    logger.error("loadChat", `Error loading chat: ${res.error.message}`);
+    return {
+      data: null,
+      error: new Error(res.error.message),
+    };
+  }
+  return res;
 }
 
 export async function saveChat({
-  id,
+  chatId,
   messages,
 }: {
-  id: string;
+  chatId: string;
   messages: UIMessage[];
-}): Promise<void> {
-  await writeFile(getChatFile(id), JSON.stringify(messages));
+}): Promise<SimpleResult> {
+  const res = await saveChatSupabase({ chatId, messages });
+  if (res.error || !res.ok) {
+    logger.error(
+      "saveChat",
+      `Error saving chat: ${res.error?.message ?? "Unknown error"}`
+    );
+  }
+  return res;
 }
 
-export async function getChats(): Promise<string[]> {
-  const chatDir = path.join(process.cwd(), ".chats");
-  const chats = readdirSync(chatDir);
-  return chats.map((chat) => chat.replace(".json", ""));
+/**
+ *
+ * @returns List of chats
+ */
+export async function getChats(): Promise<Result<Thread[]>> {
+  const res = await getChatsSupabase();
+  if (res.error) {
+    logger.error("getChats", `Error getting chats: ${res.error.message}`);
+    return {
+      data: null,
+      error: new Error(res.error.message),
+    };
+  }
+  return res;
 }
 
-function getChatFile(id: string): string {
-  const chatDir = path.join(process.cwd(), ".chats");
-  if (!existsSync(chatDir)) mkdirSync(chatDir, { recursive: true });
-  return path.join(chatDir, `${id}.json`);
+export async function getChat(
+  chatId: string
+): Promise<Result<{ thread: Thread; messages: UIMessage[] }>> {
+  const chat = await loadChat(chatId);
+  if (chat.error) {
+    logger.error("getChat", `Error getting chat: ${chat.error.message}`);
+    return {
+      data: null,
+      error: new Error(chat.error.message),
+    };
+  }
+  return chat;
 }

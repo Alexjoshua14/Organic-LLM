@@ -10,3 +10,13 @@ export type ThreadLink = {
   pinned: boolean;
   date: string;
 };
+
+export type Result<T, E = Error> = {
+  data: T | null;
+  error: E | null;
+};
+
+export type SimpleResult = {
+  ok: boolean;
+  error: Error | null;
+};

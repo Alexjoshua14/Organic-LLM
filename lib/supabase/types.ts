@@ -26,7 +26,7 @@ export type Database = {
         Insert: {
           counts?: Json | null
           id?: number
-          owner_id: string
+          owner_id?: string
           reason?: string | null
           stage: string
           ts?: string
@@ -68,7 +68,7 @@ export type Database = {
           created_at?: string
           id?: string
           notes?: string | null
-          owner_id: string
+          owner_id?: string
           priority?: number
           status?: string
           summary?: string | null
@@ -99,6 +99,47 @@ export type Database = {
           },
         ]
       }
+      messages: {
+        Row: {
+          content: Json
+          created_at: string
+          id: string
+          role: string
+          schema_kind: string
+          schema_version: number
+          text_excerpt: string
+          thread_id: string
+        }
+        Insert: {
+          content: Json
+          created_at?: string
+          id?: string
+          role: string
+          schema_kind?: string
+          schema_version?: number
+          text_excerpt?: string
+          thread_id: string
+        }
+        Update: {
+          content?: Json
+          created_at?: string
+          id?: string
+          role?: string
+          schema_kind?: string
+          schema_version?: number
+          text_excerpt?: string
+          thread_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "messages_thread_id_fkey"
+            columns: ["thread_id"]
+            isOneToOne: false
+            referencedRelation: "threads"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       profiles: {
         Row: {
           clerk_user_id: string
@@ -108,7 +149,7 @@ export type Database = {
           id: string
         }
         Insert: {
-          clerk_user_id: string
+          clerk_user_id?: string
           created_at?: string
           display_name?: string | null
           email?: string | null
@@ -141,7 +182,7 @@ export type Database = {
           due_date?: string | null
           id?: string
           notes?: string | null
-          owner_id: string
+          owner_id?: string
           priority?: number
           status?: string
           tags?: string[]
@@ -170,6 +211,38 @@ export type Database = {
           },
         ]
       }
+      threads: {
+        Row: {
+          created_at: string
+          id: string
+          owner_id: string
+          title: string | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          owner_id: string
+          title?: string | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          owner_id?: string
+          title?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "threads_owner_id_fkey"
+            columns: ["owner_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       transcripts: {
         Row: {
           content: string
@@ -185,7 +258,7 @@ export type Database = {
           extracted_json?: Json | null
           id?: string
           needs_review?: boolean
-          owner_id: string
+          owner_id?: string
         }
         Update: {
           content?: string
@@ -211,6 +284,10 @@ export type Database = {
     }
     Functions: {
       clerk_sub: {
+        Args: Record<PropertyKey, never>
+        Returns: string
+      }
+      current_profile_id: {
         Args: Record<PropertyKey, never>
         Returns: string
       }
