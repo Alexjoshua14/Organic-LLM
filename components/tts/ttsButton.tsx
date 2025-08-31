@@ -54,7 +54,7 @@ export function TTSButton({
     clearAudio();
 
     try {
-      const res = await fetch("/api/tts", {
+      const res = await fetch("/api/ai/tts", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",

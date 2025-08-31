@@ -28,7 +28,7 @@ export default function TTSPage() {
     setResponse("");
 
     try {
-      const res = await fetch("/api/speech", {
+      const res = await fetch("/api/ai/speech", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
