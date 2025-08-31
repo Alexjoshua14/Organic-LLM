@@ -40,7 +40,7 @@ export const Chat: React.FC<ChatProps> = ({ chatData }) => {
   return (
     <StickToBottom
       className="h-full w-full relative mx-2"
-      initial="smooth"
+      initial="instant"
       resize="smooth"
     >
       {/*<div className="absolute top-0 w-full inline-block text-center justify-center p-4 bg-white/5 backdrop-blur-xl shadow">
