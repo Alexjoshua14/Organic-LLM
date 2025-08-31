@@ -31,7 +31,7 @@ export const Chat: React.FC<ChatProps> = ({ chatData }) => {
   useEffect(() => {
     // Simply ensure chat has title when the user leaves
     return () => {
-      if (chatData?.thread.id && messages.length > 3) {
+      if (chatData?.thread.title === null && messages.length > 3) {
         ensureChatHasTitle(chatData.thread.id);
       }
     };

@@ -6,7 +6,7 @@ import {
   CollapsibleContent,
 } from "@radix-ui/react-collapsible";
 import { Pin, ChevronUp } from "lucide-react";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 
 import { SidebarGroup, SidebarGroupLabel } from "../third-party/ui/sidebar";
 
@@ -80,33 +80,55 @@ export const SidebarChats = () => {
     };
   }, [fetchChats]);
 
+  const pinnedChats = useMemo(() => {
+    return chats.filter((t) => t.pinned);
+  }, [chats]);
+
+  // Remove pinned chats from normal chat list
+  const allChats = useMemo(() => {
+    return chats.filter((t) => !t.pinned);
+  }, [chats]);
+
+  const allChatsComponents = useMemo(() => {
+    return allChats.length > 0 ? (
+      <SidebarChatList threads={allChats} />
+    ) : null;
+  }, [allChats]);
+
+  const pinnedChatsComponents = useMemo(() => {
+    return pinnedChats.length > 0 ? (
+      <Collapsible defaultOpen className="group/collapsible">
+        <SidebarGroup>
+          <SidebarGroupLabel asChild>
+            <CollapsibleTrigger>
+              <div className="flex items-end gap-1 text-foreground">
+                <Pin size={13} />
+                <h2>Pinned</h2>
+              </div>
+              <ChevronUp className="ml-auto transition-transform group-data-[state=open]/collapsible:rotate-180" />
+            </CollapsibleTrigger>
+          </SidebarGroupLabel>
+          <CollapsibleContent>
+            <SidebarChatList threads={chats.filter((t) => t.pinned)} />
+          </CollapsibleContent>
+        </SidebarGroup>
+      </Collapsible>
+    ) : null;
+  }, [pinnedChats]);
+
+
   return (
     <>
-      {chats.filter((t) => t.pinned).length > 0 && (
-        <Collapsible defaultOpen className="group/collapsible">
-          <SidebarGroup>
-            <SidebarGroupLabel asChild>
-              <CollapsibleTrigger>
-                <div className="flex items-end gap-1 text-foreground">
-                  <Pin size={13} />
-                  <h2>Pinned</h2>
-                </div>
-                <ChevronUp className="ml-auto transition-transform group-data-[state=open]/collapsible:rotate-180" />
-              </CollapsibleTrigger>
-            </SidebarGroupLabel>
-            <CollapsibleContent>
-              <SidebarChatList threads={chats.filter((t) => t.pinned)} />
-            </CollapsibleContent>
-          </SidebarGroup>
-        </Collapsible>
-      )}
+      {pinnedChatsComponents}
       <SidebarGroup>
         <SidebarGroupLabel>
           <div className="text-foreground">
             <h2>All Threads</h2>
           </div>
         </SidebarGroupLabel>
-        <SidebarChatList threads={chats.filter((t) => !t.pinned)} />
+        {
+          allChatsComponents
+        }
       </SidebarGroup>
     </>
   );
