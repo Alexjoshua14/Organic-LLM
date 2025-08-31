@@ -3,6 +3,9 @@ import { Chat } from "@/components/chat/chat";
 import { createChat, loadChat } from "@/util/chat-store";
 import { redirect } from "next/navigation";
 import { UIMessage } from "ai";
+import { generateChatTitle } from "@/lib/llm/chat-helpers";
+import { updateChatTitle } from "@/data/supabase/chat";
+import { Thread } from "@/lib/schemas/chat";
 
 export default async function ChatPage({
   params,
@@ -13,10 +16,25 @@ export default async function ChatPage({
 
   const id = chatId;
 
-  let messages: UIMessage[] = [];
+  let chatData: { thread: Thread; messages: UIMessage[] } | null = null;
 
   try {
-    messages = await loadChat(id).then((res) => res.data?.messages ?? []);
+    const chatDataRes = await loadChat(id)
+
+    if (chatDataRes.error || chatDataRes.data === null) {
+      throw chatDataRes.error;
+    }
+
+    chatData = chatDataRes.data;
+
+    if (chatData.thread.title === null && chatData.messages.length > 3) {
+      const titleRes = await generateChatTitle(id);
+      if (titleRes.error) {
+        throw titleRes.error;
+      }
+      chatData.thread.title = titleRes.data;
+      await updateChatTitle(id, titleRes.data ?? "");
+    }
   } catch (err) {
     console.error(err);
     // const id = await createChat().then((res) => res.data ?? "");
@@ -26,12 +44,12 @@ export default async function ChatPage({
     //   return <div>Chat creation failed</div>;
     // }
     // redirect(`/chat/${id}`);
-    return <div>Chat not found</div>;
+    return <div>Chat creation failed</div>;
   }
 
   return (
     <Page>
-      <Chat chatId={id} initialMessages={messages} />
+      <Chat chatData={chatData} />
     </Page>
   );
 }

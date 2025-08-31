@@ -12,6 +12,7 @@ import { NextResponse } from "next/server";
 import { loadChat, saveChat } from "@/util/chat-store";
 import { readFileSync } from "fs";
 import path from "path";
+import { ensureChatHasTitle } from "@/lib/llm/chat-helpers";
 
 // Allow streaming responses up to 30 seconds
 export const maxDuration = 30;
@@ -60,6 +61,9 @@ export async function POST(req: Request) {
     originalMessages: validatedMessages,
     onFinish: ({ messages }) => {
       saveChat({ chatId: id, messages });
+      if (messages.length > 3 && messages.length < 5) {
+        ensureChatHasTitle(id);
+      }
     },
     generateMessageId: createIdGenerator({
       prefix: "msg",

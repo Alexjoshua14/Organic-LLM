@@ -11,6 +11,7 @@ export const ThreadCreate = z.object({
   title: z.string().max(255).optional().nullable(),
   id: z.uuid().optional(),
   owner_id: z.uuid().optional(),
+  pinned: z.boolean().optional(),
   created_at: z.string(),
   updated_at: z.string(),
 });

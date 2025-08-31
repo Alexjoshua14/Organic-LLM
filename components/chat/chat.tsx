@@ -7,16 +7,18 @@ import { StickToBottom, useStickToBottom } from "use-stick-to-bottom";
 import { ChatScrollButton } from "./chat-scroll-button";
 import { DefaultChatTransport } from "ai";
 import { generateUUID } from "@/util";
+import { Thread } from "@/lib/schemas/chat";
+import { ensureChatHasTitle } from "@/lib/llm/chat-helpers";
+import { useEffect } from "react";
 
 type ChatProps = {
-  initialMessages?: UIMessage[];
-  chatId: string;
+  chatData: { thread: Thread; messages: UIMessage[] } | null;
 };
 
-export const Chat: React.FC<ChatProps> = ({ initialMessages, chatId }) => {
+export const Chat: React.FC<ChatProps> = ({ chatData }) => {
   const { messages, sendMessage, id } = useChat({
-    id: chatId,
-    messages: initialMessages,
+    id: chatData?.thread.id ?? "",
+    messages: chatData?.messages ?? [],
     transport: new DefaultChatTransport({
       api: "/api/chat",
       prepareSendMessagesRequest({ messages, id }) {
@@ -24,6 +26,15 @@ export const Chat: React.FC<ChatProps> = ({ initialMessages, chatId }) => {
       },
     }),
   });
+
+  useEffect(() => {
+    // Simply ensure chat has title when the user leaves 
+    return () => {
+      if (chatData?.thread.id && messages.length > 3) {
+        ensureChatHasTitle(chatData.thread.id)
+      }
+    }
+  }, [chatData, messages]);
 
   return (
     <StickToBottom

@@ -15,7 +15,7 @@ export async function getChats(): Promise<Result<Thread[]>> {
   const sb = await supabaseServer();
   const { data, error } = await sb
     .from("threads")
-    .select("id, title, owner_id, created_at, updated_at");
+    .select("id, title, owner_id, created_at, updated_at, pinned");
   return {
     data: data,
     error: error,
@@ -243,6 +243,60 @@ export async function getMessages(
 
   return {
     data: uiMessages,
+    error: null,
+  };
+}
+
+export async function updateChatTitle(
+  chatId: string,
+  title: string
+): Promise<SimpleResult> {
+  const sb = await supabaseServer();
+  const { error } = await sb.from("threads").update({ title }).eq("id", chatId);
+  if (error) {
+    return {
+      ok: false,
+      error: new Error(error?.message ?? "Unknown error"),
+    };
+  }
+  return {
+    ok: true,
+    error: null,
+  };
+}
+
+export async function updateChatPinned(
+  chatId: string,
+  pinned: boolean
+): Promise<SimpleResult> {
+  const sb = await supabaseServer();
+  const { error } = await sb
+    .from("threads")
+    .update({ pinned })
+    .eq("id", chatId);
+  if (error) {
+    return {
+      ok: false,
+      error: new Error(error?.message ?? "Unknown error"),
+    };
+  }
+  return {
+    ok: true,
+    error: null,
+  };
+}
+
+export async function deleteChat(chatId: string): Promise<SimpleResult> {
+  const sb = await supabaseServer();
+  const { error } = await sb.from("threads").delete().eq("id", chatId);
+  if (error) {
+    return {
+      ok: false,
+      error: new Error(error?.message ?? "Unknown error"),
+    };
+  }
+  return {
+    ok: true,
     error: null,
   };
 }

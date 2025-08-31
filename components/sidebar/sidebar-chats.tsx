@@ -32,7 +32,7 @@ export const SidebarChats = () => {
       const normalizedChats: ThreadLink[] = threads.map((thread) => ({
         title: thread.title ?? "Unknown title",
         id: thread.id,
-        pinned: false,
+        pinned: thread.pinned ?? false,
         date: new Date(thread.created_at).toISOString(),
       }));
 
@@ -44,22 +44,24 @@ export const SidebarChats = () => {
 
   return (
     <>
-      <Collapsible className="group/collapsible" defaultOpen>
-        <SidebarGroup>
-          <SidebarGroupLabel asChild>
-            <CollapsibleTrigger>
-              <div className="flex items-end gap-1 text-foreground">
-                <Pin size={13} />
-                <h2>Pinned</h2>
-              </div>
-              <ChevronUp className="ml-auto transition-transform group-data-[state=open]/collapsible:rotate-180" />
-            </CollapsibleTrigger>
-          </SidebarGroupLabel>
-          <CollapsibleContent>
-            <SidebarChatList threads={chats.filter((t) => t.pinned)} />
-          </CollapsibleContent>
-        </SidebarGroup>
-      </Collapsible>
+      {chats.filter((t) => t.pinned).length > 0 && (
+        <Collapsible className="group/collapsible" defaultOpen>
+          <SidebarGroup>
+            <SidebarGroupLabel asChild>
+              <CollapsibleTrigger>
+                <div className="flex items-end gap-1 text-foreground">
+                  <Pin size={13} />
+                  <h2>Pinned</h2>
+                </div>
+                <ChevronUp className="ml-auto transition-transform group-data-[state=open]/collapsible:rotate-180" />
+              </CollapsibleTrigger>
+            </SidebarGroupLabel>
+            <CollapsibleContent>
+              <SidebarChatList threads={chats.filter((t) => t.pinned)} />
+            </CollapsibleContent>
+          </SidebarGroup>
+        </Collapsible>
+      )}
       <SidebarGroup>
         <SidebarGroupLabel>
           <div className="text-foreground">
