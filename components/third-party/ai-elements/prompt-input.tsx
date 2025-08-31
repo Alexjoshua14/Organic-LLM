@@ -10,15 +10,15 @@ import type {
 import { Loader2Icon, SendIcon, SquareIcon, XIcon } from "lucide-react";
 import { Children } from "react";
 
-import { Button } from "@/components/ui/button";
+import { Button } from "@/components/third-party/ui/button";
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "@/components/ui/select";
-import { Textarea } from "@/components/ui/textarea";
+} from "@/components/third-party/ui/select";
+import { Textarea } from "@/components/third-party/ui/textarea";
 import { cn } from "@/lib/utils";
 
 export type PromptInputProps = HTMLAttributes<HTMLFormElement>;

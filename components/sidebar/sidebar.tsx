@@ -1,4 +1,4 @@
-import { Calendar, Home, Inbox, Search, Settings } from "lucide-react";
+import { Search } from "lucide-react";
 import { Input } from "@heroui/input";
 import {
   SignedIn,
@@ -7,11 +7,11 @@ import {
   SignOutButton,
   SignUpButton,
 } from "@clerk/nextjs";
+import Link from "next/link";
 
 import { SidebarChats } from "./sidebar-chats";
 import { SidebarNewChat } from "./sidebar-new-chat";
 
-import { ThreadLink } from "@/types";
 import {
   Sidebar as ShadcnSidebar,
   SidebarContent,
@@ -20,15 +20,19 @@ import {
   SidebarGroupContent,
   SidebarHeader,
   SidebarMenuButton,
-} from "@/components/ui/sidebar";
-import Link from "next/link";
+} from "@/components/third-party/ui/sidebar";
 
 export function Sidebar() {
   return (
     <ShadcnSidebar>
       <SidebarHeader className="h-12 pl-7 grid place-content-center bg-background-secondary subpixel-antialiased">
-        <Link href="/" className="group/brand cursor-pointer active:scale-95 transition-transform duration-150">
-          <h1 className="font-bold tracking-tight text-lg bg-gradient-to-tl from-foreground-secondary to-foreground text-transparent bg-clip-text group-hover/brand:from-foreground duration-300 transition-colors">Organic LLM</h1>
+        <Link
+          className="group/brand cursor-pointer active:scale-95 transition-transform duration-150"
+          href="/"
+        >
+          <h1 className="font-bold tracking-tight text-lg bg-gradient-to-tl from-foreground-secondary to-foreground text-transparent bg-clip-text group-hover/brand:from-foreground duration-300 transition-colors">
+            Organic LLM
+          </h1>
         </Link>
       </SidebarHeader>
       <SidebarContent className="bg-background-secondary subpixel-antialiased">

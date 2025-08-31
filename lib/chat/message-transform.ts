@@ -23,7 +23,7 @@ export function convertMessageToUIMessage(message: Message): UIMessage | null {
 
 export function convertUIMessageToMessage(
   uiMessage: UIMessage,
-  chatId: string,
+  chatId: string
 ): Message | null {
   try {
     const message: Message = {

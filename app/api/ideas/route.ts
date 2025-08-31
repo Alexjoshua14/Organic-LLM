@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 
-import { createLogger } from "@/util/logger";
+import { createLogger } from "@/lib/logger";
 
 // Allow streaming responses up to 30 seconds
 export const maxDuration = 30;

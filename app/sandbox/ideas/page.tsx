@@ -2,7 +2,7 @@ import { Divider } from "@heroui/divider";
 
 import SubmitButton from "./submit-button";
 
-import Page from "@/components/page";
+import Page from "@/components/layout/page";
 import { actionCreateIdea } from "@/app/actions/ideas";
 import { listIdeas } from "@/data/supabase/ideas";
 

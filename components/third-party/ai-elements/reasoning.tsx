@@ -13,7 +13,7 @@ import {
   Collapsible,
   CollapsibleContent,
   CollapsibleTrigger,
-} from "@/components/ui/collapsible";
+} from "@/components/third-party/ui/collapsible";
 
 type ReasoningContextValue = {
   isStreaming: boolean;

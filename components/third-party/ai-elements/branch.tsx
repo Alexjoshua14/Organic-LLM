@@ -7,7 +7,7 @@ import { ChevronLeftIcon, ChevronRightIcon } from "lucide-react";
 import { createContext, useContext, useEffect, useState } from "react";
 
 import { cn } from "@/lib/utils";
-import { Button } from "@/components/ui/button";
+import { Button } from "@/components/third-party/ui/button";
 
 type BranchContextType = {
   currentBranch: number;

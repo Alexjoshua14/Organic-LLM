@@ -3,7 +3,7 @@ import { Button, PressEvent } from "@heroui/button";
 import { ArrowUpIcon, Globe, PaperclipIcon } from "lucide-react";
 import { useCallback, useState, KeyboardEvent } from "react";
 
-import { glass } from "../primitives";
+import { glass } from "../design-system/primitives";
 
 import { ModelSelector } from "./model-selector";
 
@@ -12,13 +12,16 @@ type ChatInputProps = {
   sendMessage: ({ text }: { text: string }) => Promise<void>;
 };
 
-export const ChatInput: React.FC<ChatInputProps> = ({ id, sendMessage }) => {
+export const ChatInput: React.FC<ChatInputProps> = ({
+  id: _id,
+  sendMessage,
+}) => {
   const [input, setInput] = useState("");
   const [error, setError] = useState<boolean>(false);
   //const { sendMessage, stop } = useChat({ id });
 
   const handleSendMessage = useCallback(
-    async (e: React.FormEvent | PressEvent): Promise<void> => {
+    async (_e: React.FormEvent | PressEvent): Promise<void> => {
       if (input.trim().length === 0) {
         setError(true);
 
@@ -80,7 +83,7 @@ export const ChatInput: React.FC<ChatInputProps> = ({ id, sendMessage }) => {
               <div className="h-12 flex items-center justify-between py-2">
                 <div className="flex items-center gap-3 ">
                   <div className="w-32 flex justify-between items-center">
-                    <ModelSelector setSelectedModel={console.log} />
+                    <ModelSelector />
                     {/*<p>GPT 5</p>
                     <ChevronDown size={20} />*/}
                   </div>

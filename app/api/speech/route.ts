@@ -1,10 +1,7 @@
-import { readFileSync } from "fs";
-import path from "path";
-
 import { openai } from "@ai-sdk/openai";
 import { generateText } from "ai";
 
-import { createLogger } from "@/util/logger";
+import { createLogger } from "@/lib/logger";
 
 // Allow responses up to 30 seconds
 export const maxDuration = 30;
@@ -40,7 +37,7 @@ export async function POST(req: Request) {
     ) {
       return Response.json(
         { error: "Message is required and must be a non-empty string" },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
@@ -62,7 +59,7 @@ export async function POST(req: Request) {
 
     logger.log(
       "POST",
-      `Generated speech-friendly response: ${result.text.substring(0, 100)}...`
+      `Generated speech-friendly response: ${result.text.substring(0, 100)}...`,
     );
 
     return Response.json({
@@ -75,7 +72,7 @@ export async function POST(req: Request) {
 
     return Response.json(
       { error: "Failed to generate speech-friendly response" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }

@@ -5,19 +5,19 @@ import type { ComponentProps, ReactNode } from "react";
 import { ChevronDownIcon } from "lucide-react";
 import { createContext, useContext, useState } from "react";
 
-import { Button } from "@/components/ui/button";
+import { Button } from "@/components/third-party/ui/button";
 import {
   Collapsible,
   CollapsibleContent,
   CollapsibleTrigger,
-} from "@/components/ui/collapsible";
-import { Input } from "@/components/ui/input";
+} from "@/components/third-party/ui/collapsible";
+import { Input } from "@/components/third-party/ui/input";
 import {
   Tooltip,
   TooltipContent,
   TooltipProvider,
   TooltipTrigger,
-} from "@/components/ui/tooltip";
+} from "@/components/third-party/ui/tooltip";
 import { cn } from "@/lib/utils";
 
 export type WebPreviewContextValue = {

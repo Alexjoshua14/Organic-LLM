@@ -1,4 +1,4 @@
-import Page from "@/components/page";
+import Page from "@/components/layout/page";
 import { NewChat } from "@/components/chat/new-chat";
 
 export default function Home() {

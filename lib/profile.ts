@@ -1,4 +1,7 @@
 import { supabaseAdmin } from "./supabase/supabase-admin";
+import { createLogger } from "./logger";
+
+const logger = createLogger("lib/profile.ts");
 
 /**
  * Creates a new user in Supabase upon creation of a Clerk profile
@@ -12,9 +15,12 @@ export async function upsertProfileFromClerk(user: any) {
     .upsert({ clerk_user_id, email, display_name: displayName });
 
   if (error) {
-    console.error("Error upserting profile:", error);
+    logger.error("upsertProfileFromClerk", "Error upserting profile:", error);
     if (error.code === "23505") {
-      console.log("duplicate profile, for now this is fine");
+      logger.log(
+        "upsertProfileFromClerk",
+        "duplicate profile, for now this is fine"
+      );
 
       return;
     }
@@ -27,7 +33,7 @@ function normalizeUserData(user: any) {
     user?.email_addresses?.[0]?.email_address ??
     (user?.primary_email_address_id &&
       user.email_addresses?.find(
-        (e: any) => e.id === user.primary_email_address_id,
+        (e: any) => e.id === user.primary_email_address_id
       )?.email_address) ??
     null;
 

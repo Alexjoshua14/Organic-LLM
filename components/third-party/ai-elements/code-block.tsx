@@ -11,7 +11,7 @@ import {
 } from "react-syntax-highlighter/dist/esm/styles/prism";
 
 import { cn } from "@/lib/utils";
-import { Button } from "@/components/ui/button";
+import { Button } from "@/components/third-party/ui/button";
 
 type CodeBlockContextType = {
   code: string;

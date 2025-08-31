@@ -8,13 +8,13 @@ import {
 import { Pin, ChevronUp } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 
-import { SidebarGroup, SidebarGroupLabel } from "../ui/sidebar";
+import { SidebarGroup, SidebarGroupLabel } from "../third-party/ui/sidebar";
 
 import { SidebarChatList } from "./sidebar-chat-list";
 
-import { getChats } from "@/util/chat-store";
+import { getChats } from "@/lib/chat/chat-store";
 import { ThreadLink } from "@/types";
-import { createLogger } from "@/util/logger";
+import { createLogger } from "@/lib/logger";
 
 const logger = createLogger(`components/sidebar/sidebar-chats.tsx`);
 
@@ -63,24 +63,6 @@ export const SidebarChats = () => {
 
   /* Fetch chats on mount */
   useEffect(() => {
-    // async function fetchChats() {
-    //   const fetchedChats = await getChats();
-    //   if (fetchedChats.error || fetchedChats.data === null) {
-    //     logger.error("fetchChats", `Error getting chats: ${fetchedChats.error?.message ?? "Unknown error"}`);
-    //     return;
-    //   }
-    //   const threads = fetchedChats.data;
-
-    //   const normalizedChats: ThreadLink[] = threads.map((thread) => ({
-    //     title: thread.title ?? "Unknown title",
-    //     id: thread.id,
-    //     pinned: thread.pinned ?? false,
-    //     date: new Date(thread.updated_at).toISOString(),
-    //   }));
-
-    //   setChats(normalizedChats);
-    // }
-
     /** Expose fetchChats globally for other application components */
     window.refreshSidebar = fetchChats;
 

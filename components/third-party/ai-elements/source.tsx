@@ -8,7 +8,7 @@ import {
   Collapsible,
   CollapsibleContent,
   CollapsibleTrigger,
-} from "@/components/ui/collapsible";
+} from "@/components/third-party/ui/collapsible";
 import { cn } from "@/lib/utils";
 
 export type SourcesProps = ComponentProps<"div">;
@@ -30,7 +30,10 @@ export const SourcesTrigger = ({
   children,
   ...props
 }: SourcesTriggerProps) => (
-  <CollapsibleTrigger className="flex items-center gap-2" {...props}>
+  <CollapsibleTrigger
+    className={cn("flex items-center gap-2", className)}
+    {...props}
+  >
     {children ?? (
       <>
         <p className="font-medium">Used {count} sources</p>

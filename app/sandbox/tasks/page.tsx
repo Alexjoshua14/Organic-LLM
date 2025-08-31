@@ -5,8 +5,11 @@ import { createClient } from "@supabase/supabase-js";
 import { useFormStatus } from "react-dom";
 import { Divider } from "@heroui/divider";
 
-import Page from "@/components/page";
+import Page from "@/components/layout/page";
 import { actionCreateTask } from "@/app/actions/tasks";
+import { createLogger } from "@/lib/logger";
+
+const logger = createLogger("app/sandbox/tasks/page.tsx");
 
 export default function Home() {
   const [tasks, setTasks] = useState<any[]>([]);
@@ -43,7 +46,8 @@ export default function Home() {
       setLoading(true);
       const { data, error } = await client.from("tasks").select();
 
-      console.log(
+      logger.log(
+        "loadTasks",
         `Data: ${JSON.stringify(data)}\nError: ${JSON.stringify(error)}`,
       );
       if (!error) setTasks(data);

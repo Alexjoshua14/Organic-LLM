@@ -5,7 +5,7 @@ import { Button } from "@heroui/button";
 import { Textarea } from "@heroui/input";
 import { Volume2, Loader2 } from "lucide-react";
 
-import Page from "@/components/page";
+import Page from "@/components/layout/page";
 import { TTSButton } from "@/components/tts/ttsButton";
 
 export default function TTSPage() {
@@ -19,6 +19,7 @@ export default function TTSPage() {
 
     if (!input.trim()) {
       setError("Please enter a message");
+
       return;
     }
 
@@ -37,13 +38,19 @@ export default function TTSPage() {
 
       if (!res.ok) {
         const errorData = await res.json();
-        throw new Error(errorData.error || "Failed to generate speech-friendly response");
+
+        throw new Error(
+          errorData.error || "Failed to generate speech-friendly response",
+        );
       }
 
       const data = await res.json();
+
       setResponse(data.text);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "An unexpected error occurred");
+      setError(
+        err instanceof Error ? err.message : "An unexpected error occurred",
+      );
     } finally {
       setIsLoading(false);
     }
@@ -65,24 +72,22 @@ export default function TTSPage() {
             Text-to-Speech Sandbox
           </h1>
           <p className="text-lg text-gray-600 dark:text-gray-400">
-            Generate speech-friendly responses optimized for text-to-speech playback
+            Generate speech-friendly responses optimized for text-to-speech
+            playback
           </p>
         </div>
 
         {/* Input Section */}
         <div className="mb-8">
-          <form onSubmit={handleSubmit} className="space-y-4">
+          <form className="space-y-4" onSubmit={handleSubmit}>
             <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+              <label
+                className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2"
+                htmlFor="message-input"
+              >
                 Your Message
               </label>
               <Textarea
-                value={input}
-                onValueChange={setInput}
-                onKeyDown={handleKeyDown}
-                placeholder="Ask me anything, and I'll respond in a way that sounds great when spoken aloud..."
-                minRows={3}
-                maxRows={6}
                 classNames={{
                   input: ["bg-transparent"],
                   inputWrapper: [
@@ -94,6 +99,13 @@ export default function TTSPage() {
                     "dark:focus-within:border-purple-400",
                   ],
                 }}
+                id="message-input"
+                maxRows={6}
+                minRows={3}
+                placeholder="Ask me anything, and I'll respond in a way that sounds great when spoken aloud..."
+                value={input}
+                onKeyDown={handleKeyDown}
+                onValueChange={setInput}
               />
               {error && (
                 <p className="mt-2 text-sm text-red-600 dark:text-red-400">
@@ -103,10 +115,10 @@ export default function TTSPage() {
             </div>
 
             <Button
-              type="submit"
-              disabled={isLoading || !input.trim()}
               className="w-full bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white"
+              disabled={isLoading || !input.trim()}
               size="lg"
+              type="submit"
             >
               {isLoading ? (
                 <>
@@ -141,7 +153,8 @@ export default function TTSPage() {
 
             <div className="mt-4 pt-4 border-t border-gray-200 dark:border-gray-700">
               <p className="text-xs text-gray-500 dark:text-gray-400">
-                💡 This response has been optimized for text-to-speech playback with natural pacing and speech-friendly formatting.
+                💡 This response has been optimized for text-to-speech playback
+                with natural pacing and speech-friendly formatting.
               </p>
             </div>
           </div>
@@ -153,10 +166,18 @@ export default function TTSPage() {
             About Speech-Friendly Responses
           </h3>
           <ul className="text-sm text-blue-800 dark:text-blue-200 space-y-2">
-            <li>• Responses are optimized for natural speech rhythm and flow</li>
-            <li>• Special characters and formatting are avoided or converted to speech-friendly alternatives</li>
+            <li>
+              • Responses are optimized for natural speech rhythm and flow
+            </li>
+            <li>
+              • Special characters and formatting are avoided or converted to
+              speech-friendly alternatives
+            </li>
             <li>• Acronyms are spelled out for better pronunciation</li>
-            <li>• Sentence length and structure are optimized for listening comprehension</li>
+            <li>
+              • Sentence length and structure are optimized for listening
+              comprehension
+            </li>
             <li>• Ready for integration with text-to-speech functionality</li>
           </ul>
         </div>

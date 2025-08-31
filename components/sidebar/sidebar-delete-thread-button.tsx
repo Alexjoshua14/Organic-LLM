@@ -15,6 +15,9 @@ import { useCallback } from "react";
 
 import { ThreadLink } from "@/types";
 import { deleteChat } from "@/data/supabase/chat";
+import { createLogger } from "@/lib/logger";
+
+const logger = createLogger("components/sidebar/sidebar-delete-thread-button.tsx");
 
 export default function SidebarDeleteThreadButton({
   thread,
@@ -34,15 +37,15 @@ export default function SidebarDeleteThreadButton({
             window.refreshSidebar();
           }
         } catch (error) {
-          console.error(error);
+          logger.error("handleDeleteThread", "Error refreshing sidebar:", error);
         }
         onClose();
       } else {
-        console.error(res.error?.message ?? "Unknown error");
+        logger.error("handleDeleteThread", res.error?.message ?? "Unknown error");
       }
     };
 
-    console.log(`Deleting thread: ${thread.title}`);
+    logger.log("deleteThread", `Deleting thread: ${thread.title}`);
     handleDeleteThread();
   }, [thread]);
 

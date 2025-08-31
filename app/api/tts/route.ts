@@ -1,6 +1,9 @@
 import { openai } from "@ai-sdk/openai";
 import { experimental_generateSpeech as generateSpeech } from "ai";
 import { NextRequest, NextResponse } from "next/server";
+import { createLogger } from "@/lib/logger";
+
+const logger = createLogger("app/api/tts/route.ts");
 
 export async function POST(req: NextRequest) {
   const { text } = await req.json();
@@ -15,7 +18,7 @@ export async function POST(req: NextRequest) {
     voice: "nova",
   });
 
-  console.log(audio);
+  logger.log("POST", "Generated audio:", audio);
 
   return NextResponse.json({ data: audio });
 }

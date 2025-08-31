@@ -85,7 +85,7 @@ North Star: A chat experience that feels alive, remembers meaningfully, and bala
 ### Setup
 
 ```bash
-git clone https://github.com/yourname/organic-llm
+git clone https://github.com/alexjoshua14/organic-llm
 cd organic-llm
 bun install
 ```
@@ -104,7 +104,7 @@ cp .env.example .env.local
 bun dev
 ```
 
-Visit http://localhost:3000 and start chatting.
+Visit [http://localhost:3000](http://localhost:3000) and start chatting.
 
 ## Current Status (v0)
 

@@ -10,12 +10,15 @@ import {
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
-} from "../ui/sidebar";
+} from "../third-party/ui/sidebar";
 
 import SidebarDeleteThreadButton from "./sidebar-delete-thread-button";
 
 import { updateChatPinned } from "@/data/supabase/chat";
 import { ThreadLink } from "@/types";
+import { createLogger } from "@/lib/logger";
+
+const logger = createLogger("components/sidebar/sidebar-chat-list.tsx");
 
 type SidebarChatListProps = {
   threads: ThreadLink[];
@@ -24,7 +27,7 @@ type SidebarChatListProps = {
 export const SidebarChatList: FC<SidebarChatListProps> = ({ threads }) => {
   const togglePinThread = useCallback(
     (thread: ThreadLink) => {
-      console.log(`Toggling pin for thread: ${thread.title}`);
+      logger.log("togglePinThread", `Toggling pin for thread: ${thread.title}`);
       updateChatPinned(thread.id, !thread.pinned);
     },
     [threads],

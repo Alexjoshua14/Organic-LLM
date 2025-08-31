@@ -14,12 +14,12 @@ import {
 
 import { CodeBlock } from "./code-block";
 
-import { Badge } from "@/components/ui/badge";
+import { Badge } from "@/components/third-party/ui/badge";
 import {
   Collapsible,
   CollapsibleContent,
   CollapsibleTrigger,
-} from "@/components/ui/collapsible";
+} from "@/components/third-party/ui/collapsible";
 import { cn } from "@/lib/utils";
 
 export type ToolProps = ComponentProps<typeof Collapsible>;

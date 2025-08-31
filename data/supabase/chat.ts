@@ -10,7 +10,7 @@ import { Result, SimpleResult } from "@/types";
 import {
   convertMessageToUIMessage,
   convertUIMessageToMessage,
-} from "@/util/message-transform";
+} from "@/lib/chat/message-transform";
 import { supabaseServer } from "@/lib/supabase/server";
 
 export async function getChats(): Promise<Result<Thread[]>> {

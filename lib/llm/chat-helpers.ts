@@ -6,8 +6,8 @@ import { convertToModelMessages, generateText } from "ai";
 import { supabaseServer } from "../supabase/server";
 import { Message } from "../schemas/chat";
 
-import { createLogger } from "@/util/logger";
-import { convertMessageToUIMessage } from "@/util/message-transform";
+import { createLogger } from "@/lib/logger";
+import { convertMessageToUIMessage } from "@/lib/chat/message-transform";
 import { updateChatTitle } from "@/data/supabase/chat";
 import { Result } from "@/types";
 

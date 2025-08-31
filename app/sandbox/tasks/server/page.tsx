@@ -4,7 +4,7 @@ import * as React from "react";
 import { useFormStatus } from "react-dom";
 
 import { actionCreateTask } from "@/app/actions/tasks";
-import Page from "@/components/page";
+import Page from "@/components/layout/page";
 
 function SubmitButton() {
   const { pending } = useFormStatus();

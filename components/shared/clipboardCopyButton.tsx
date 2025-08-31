@@ -1,11 +1,9 @@
 import { Button } from "@heroui/button";
-import { CheckIcon, ClipboardCopyIcon, Copy } from "lucide-react";
+import { CheckIcon, Copy } from "lucide-react";
 import { useState } from "react";
-
 
 export const ClipboardCopyButton = ({ text }: { text: string }) => {
   const [isCopied, setIsCopied] = useState(false);
-
 
   const handleCopy = () => {
     navigator.clipboard.writeText(text);
@@ -14,9 +12,13 @@ export const ClipboardCopyButton = ({ text }: { text: string }) => {
   };
 
   return (
-    <Button size="sm" variant="ghost" isIconOnly onPress={() => {
-      handleCopy();
-    }}
+    <Button
+      isIconOnly
+      size="sm"
+      variant="ghost"
+      onPress={() => {
+        handleCopy();
+      }}
     >
       {isCopied ? <CheckIcon size={14} /> : <Copy size={12} />}
     </Button>

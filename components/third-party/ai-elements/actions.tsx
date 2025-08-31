@@ -2,13 +2,13 @@
 
 import type { ComponentProps } from "react";
 
-import { Button } from "@/components/ui/button";
+import { Button } from "@/components/third-party/ui/button";
 import {
   Tooltip,
   TooltipContent,
   TooltipProvider,
   TooltipTrigger,
-} from "@/components/ui/tooltip";
+} from "@/components/third-party/ui/tooltip";
 import { cn } from "@/lib/utils";
 
 export type ActionsProps = ComponentProps<"div">;

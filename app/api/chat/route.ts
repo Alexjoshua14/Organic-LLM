@@ -12,9 +12,9 @@ import {
 } from "ai";
 
 // import systemPrompt from "@/lib/system-prompt";
-import { loadChat, saveChat } from "@/util/chat-store";
+import { loadChat, saveChat } from "@/lib/chat/chat-store";
 import { ensureChatHasTitle } from "@/lib/llm/chat-helpers";
-import { createLogger } from "@/util/logger";
+import { createLogger } from "@/lib/logger";
 
 // Allow streaming responses up to 30 seconds
 export const maxDuration = 30;

@@ -1,8 +1,8 @@
 import { UIMessage } from "ai";
 
-import Page from "@/components/page";
+import Page from "@/components/layout/page";
 import { Chat } from "@/components/chat/chat";
-import { loadChat } from "@/util/chat-store";
+import { loadChat } from "@/lib/chat/chat-store";
 import { generateChatTitle } from "@/lib/llm/chat-helpers";
 import { updateChatTitle } from "@/data/supabase/chat";
 import { Thread } from "@/lib/schemas/chat";

@@ -7,9 +7,12 @@ import { Providers } from "./providers";
 
 import { siteConfig } from "@/config/site";
 import { fontSans } from "@/config/fonts";
-import { ControlCluster } from "@/components/countrol-cluster";
-import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
-import { Sidebar as NewSidebar } from "@/components/sidebar/sidebar";
+import { ControlCluster } from "@/components/layout/countrol-cluster";
+import {
+  SidebarProvider,
+  SidebarTrigger,
+} from "@/components/third-party/ui/sidebar";
+import { Sidebar } from "@/components/sidebar/sidebar";
 
 export const metadata: Metadata = {
   title: {
@@ -48,15 +51,12 @@ export default function RootLayout({
             themeProps={{ attribute: "class", defaultTheme: "system" }}
           >
             <SidebarProvider>
-              <NewSidebar />
-              {/*<div className="relative flex">*/}
-              {/*<Sidebar />*/}
+              <Sidebar />
               <ControlCluster />
               <main className="pt-4 grow bg-background-secondary">
                 <SidebarTrigger className="absolute top-3 left-3 z-20" />
                 {children}
               </main>
-              {/*</div>*/}
             </SidebarProvider>
           </Providers>
         </body>

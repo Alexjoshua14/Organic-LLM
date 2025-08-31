@@ -2,7 +2,7 @@
 
 import { UIMessage } from "ai";
 
-import { createLogger } from "./logger";
+import { createLogger } from "../logger";
 
 import {
   createChat as createChatSupabase,
