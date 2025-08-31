@@ -6,10 +6,9 @@ import { NextResponse } from "next/server";
 export const maxDuration = 30;
 
 export async function POST(req: Request) {
-  console.log(`Recieved Messages: ${JSON.stringify(messages)}`);
-
-  const result = streamText({
-    model: openai("gpt-4o"),
-    messages: convertToModelMessages(messages),
-  });
+  // console.log(`Recieved Messages: ${JSON.stringify(messages)}`);
+  // const result = streamText({
+  //   model: openai("gpt-4o"),
+  //   messages: convertToModelMessages(messages),
+  // });
 }
