@@ -1,8 +1,8 @@
 'use client'
 
 import { Button } from "@heroui/button";
-import { Volume2 } from "lucide-react";
-import { useRef, useState } from "react";
+import { Volume2, X } from "lucide-react";
+import { useCallback, useRef, useState } from "react";
 
 type TTSResponse = {
   data: {
@@ -11,6 +11,10 @@ type TTSResponse = {
     format: "mp3" | "ogg" | "wav";
   };
 };
+
+declare global {
+  var clearAudio: (() => void) | null;
+}
 
 export function TTSButton({ text, iconOnly }: { text: string, iconOnly?: boolean }) {
   const [loading, setLoading] = useState(false);
@@ -28,9 +32,13 @@ export function TTSButton({ text, iconOnly }: { text: string, iconOnly?: boolean
         return;
       }
     }
-    setLoading(true);
-    setURL(null);
-    setError(null);
+
+    if (global.clearAudio && url === null) {
+      global.clearAudio()
+      global.clearAudio = null;
+    }
+
+    clearAudio();
 
     try {
       const res = await fetch("/api/tts", {
@@ -53,6 +61,7 @@ export function TTSButton({ text, iconOnly }: { text: string, iconOnly?: boolean
 
       const objectURL = URL.createObjectURL(blob);
       setURL(objectURL);
+      global.clearAudio = clearAudio;
 
     } catch (error) {
       setError(error instanceof Error ? error.message : "An unexpected error occurred");
@@ -60,6 +69,13 @@ export function TTSButton({ text, iconOnly }: { text: string, iconOnly?: boolean
       setLoading(false);
     }
   }
+
+  const clearAudio = useCallback(() => {
+    audioRef.current?.pause();
+    setURL(null);
+    setLoading(false);
+    setError(null);
+  }, []);
 
   return (
     <>
@@ -74,8 +90,11 @@ export function TTSButton({ text, iconOnly }: { text: string, iconOnly?: boolean
         {iconOnly ? null : "Play Audio"}
       </Button>
       {url &&
-        <div >
-          <audio ref={audioRef} autoPlay src={url} controls className="absolute top-4 left-1/2 -translate-x-1/2 backdrop-blur-sm rounded-lg" />
+        <div className="absolute top-4 left-1/2 -translate-x-1/2 flex items-center gap-2 bg-white/20 backdrop-blur-sm rounded-lg px-2 py-1">
+          <audio ref={audioRef} autoPlay src={url} controls className="backdrop-blur-sm rounded-lg" />
+          <Button size="sm" isIconOnly onPress={clearAudio}>
+            <X className="w-4 h-4" />
+          </Button>
         </div>
       }
     </>
