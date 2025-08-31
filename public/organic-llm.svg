@@ -1,0 +1,38 @@
+<!-- /public/icon.svg -->
+<svg width="512" height="512" viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Organic LLM">
+  <defs>
+    <!-- Use CSS vars if you like; hard-coding here for drop-in simplicity -->
+    <linearGradient id="acc" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#12A389"/>
+      <stop offset="100%" stop-color="#128C74"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Background disc -->
+  <circle cx="256" cy="256" r="248" fill="#141516" />
+
+  <!-- Organic loop (outer ring) -->
+  <circle cx="256" cy="256" r="150"
+          fill="none"
+          stroke="#F3F4F3"
+          stroke-width="26"
+          stroke-linecap="round" />
+
+  <!-- Accent arc (suggests “alive/motion”) -->
+  <path d="M 376 256
+           A 120 120 0 0 1 256 376"
+        fill="none"
+        stroke="url(#acc)"
+        stroke-width="30"
+        stroke-linecap="round" />
+
+  <!-- Subtle 'L' stem (diagonal, organic) -->
+  <path d="M 256 260 L 342 346"
+        fill="none"
+        stroke="#F3F4F3"
+        stroke-width="22"
+        stroke-linecap="round" />
+
+  <!-- Core spark -->
+  <circle cx="256" cy="256" r="14" fill="#F3F4F3" />
+</svg>
