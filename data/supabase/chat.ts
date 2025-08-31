@@ -12,6 +12,9 @@ import {
   convertUIMessageToMessage,
 } from "@/lib/chat/message-transform";
 import { supabaseServer } from "@/lib/supabase/server";
+import { createLogger } from "@/lib/logger";
+
+const logger = createLogger("data/supabase/chat.ts");
 
 export async function getChats(): Promise<Result<Thread[]>> {
   const sb = await supabaseServer();
@@ -127,7 +130,7 @@ export async function saveChat(params: {
     .filter((message) => message !== null);
 
   if (rows.length !== tail.length) {
-    console.error("A message was not converted to supabase message");
+    logger.error("saveChat", "A message was not converted to supabase message");
   }
 
   const { error } = await sb.from("messages").insert(rows);
@@ -252,7 +255,7 @@ export async function getMessages(
     .filter((message) => message !== null);
 
   if (uiMessages.length !== messages.length) {
-    console.error("A message was not converted to UIMessage");
+    logger.error("getMessages", "A message was not converted to UIMessage");
   }
 
   return {

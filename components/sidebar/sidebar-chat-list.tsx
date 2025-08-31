@@ -26,9 +26,18 @@ type SidebarChatListProps = {
 
 export const SidebarChatList: FC<SidebarChatListProps> = ({ threads }) => {
   const togglePinThread = useCallback(
-    (thread: ThreadLink) => {
+    async (thread: ThreadLink) => {
       logger.log("togglePinThread", `Toggling pin for thread: ${thread.title}`);
-      updateChatPinned(thread.id, !thread.pinned);
+      const res = await updateChatPinned(thread.id, !thread.pinned);
+
+      if (res.error) {
+        logger.error("togglePinThread", `Error toggling pin for thread: ${thread.title}`, res.error.message);
+      } else {
+        if (window.refreshSidebar) {
+          window.refreshSidebar();
+        }
+      }
+
     },
     [threads],
   );

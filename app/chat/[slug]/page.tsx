@@ -6,6 +6,9 @@ import { loadChat } from "@/lib/chat/chat-store";
 import { generateChatTitle } from "@/lib/llm/chat-helpers";
 import { updateChatTitle } from "@/data/supabase/chat";
 import { Thread } from "@/lib/schemas/chat";
+import { createLogger } from "@/lib/logger";
+
+const logger = createLogger(`app/chat/[slug]/page.tsx`);
 
 export default async function ChatPage({
   params,
@@ -37,7 +40,7 @@ export default async function ChatPage({
       await updateChatTitle(id, titleRes.data ?? "");
     }
   } catch (err) {
-    console.error(err);
+    logger.error("ChatPage", `Error while loading chat: ${err}`);
 
     // const id = await createChat().then((res) => res.data ?? "");
     // console.log(`Chat created with ID: ${id}.. Redirecting user..`);

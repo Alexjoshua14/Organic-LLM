@@ -1,6 +1,9 @@
 import { UIMessage } from "ai";
 
 import { Message } from "@/lib/schemas/chat";
+import { createLogger } from "@/lib/logger";
+
+const logger = createLogger("lib/chat/message-transform.ts");
 
 export function convertMessageToUIMessage(message: Message): UIMessage | null {
   try {
@@ -10,12 +13,18 @@ export function convertMessageToUIMessage(message: Message): UIMessage | null {
 
         return uiMessage;
       default:
-        console.error(`Unknown schema kind: ${message.schema_kind}`);
+        logger.error(
+          "convertMessageToUIMessage",
+          `Unknown schema kind: ${message.schema_kind}`,
+        );
 
         return null;
     }
   } catch (error) {
-    console.error(`Error converting message to UIMessage: ${error}`);
+    logger.error(
+      "convertMessageToUIMessage",
+      `Error converting message to UIMessage: ${error}`,
+    );
 
     return null;
   }
@@ -23,7 +32,7 @@ export function convertMessageToUIMessage(message: Message): UIMessage | null {
 
 export function convertUIMessageToMessage(
   uiMessage: UIMessage,
-  chatId: string
+  chatId: string,
 ): Message | null {
   try {
     const message: Message = {
@@ -37,7 +46,10 @@ export function convertUIMessageToMessage(
 
     return message;
   } catch (error) {
-    console.error(`Error converting UIMessage to Message: ${error}`);
+    logger.error(
+      "convertUIMessageToMessage",
+      `Error converting UIMessage to Message: ${error}`,
+    );
 
     return null;
   }

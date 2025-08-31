@@ -1,10 +1,13 @@
-import { FC } from "react";
+import { FC, useMemo, useState } from "react";
 import { UIMessage } from "ai";
 
 import { ClipboardCopyButton } from "../shared/clipboardCopyButton";
 import { TTSButton } from "../tts/ttsButton";
 
 import { ChatMessageMarkdown } from "./chat-message-markdown";
+
+import { ChatLoading } from "./chat-loading";
+
 
 type ChatMessageProps = {
   message: UIMessage;
@@ -13,11 +16,11 @@ type ChatMessageProps = {
 export const ChatMessage: FC<ChatMessageProps> = ({ message }) => {
   switch (message.role) {
     case "assistant":
-      return <AIMessage message={message} />;
+      return useMemo(() => <AIMessage message={message} />, [message]);
     case "user":
-      return <UserMessage message={message} />;
+      return useMemo(() => <UserMessage message={message} />, [message]);
     case "system":
-      return <SystemMessage message={message} />;
+      return useMemo(() => <SystemMessage message={message} />, [message]);
   }
 };
 
@@ -26,6 +29,8 @@ const AIMessage: FC<ChatMessageProps> = ({ message }) => {
     .map((part) => {
       switch (part.type) {
         case "text":
+          if (part.state === "done") {
+          }
           return part.text;
       }
     })
@@ -34,6 +39,11 @@ const AIMessage: FC<ChatMessageProps> = ({ message }) => {
   return (
     <div className="group/ai-message rounded-lg p-4 flex flex-col gap-2">
       <div className="ai-message space-y-2 text-foreground max-w-full prose dark:prose-invert">
+        {
+          message.parts.length <= 1 &&
+          <ChatLoading />
+
+        }
         {message.parts.map((part, i) => {
           switch (part.type) {
             case "text":

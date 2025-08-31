@@ -33,7 +33,11 @@ export const SidebarChats = () => {
       const res = await getChats();
 
       if (res.error) {
-        console.error(`Error while fetching chats..`, res.error.message);
+        logger.error(
+          "fetchChats",
+          `Error while fetching chats..`,
+          res.error.message,
+        );
 
         return;
       }
@@ -54,7 +58,7 @@ export const SidebarChats = () => {
 
       setChats(normalizedChats);
     } catch (error) {
-      console.error(`Error while fetching chats..`, error);
+      logger.error("fetchChats", `Error while fetching chats..`, error);
       setChats([]);
     } finally {
       setIsLoading(false);

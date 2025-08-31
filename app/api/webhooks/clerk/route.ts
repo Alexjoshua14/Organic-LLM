@@ -16,7 +16,7 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json(
       { error: "Error verifying webhook" },
-      { status: 400 }
+      { status: 400 },
     );
   }
   // Do something with payload
@@ -26,7 +26,7 @@ export async function POST(req: NextRequest) {
 
   logger.log(
     "POST",
-    `Received webhook with ID ${id} and event type of ${eventType}`
+    `Received webhook with ID ${id} and event type of ${eventType}`,
   );
   logger.log("POST", "Webhook payload:", evt.data);
 

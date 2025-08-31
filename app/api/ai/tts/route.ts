@@ -1,6 +1,7 @@
 import { openai } from "@ai-sdk/openai";
 import { experimental_generateSpeech as generateSpeech } from "ai";
 import { NextRequest, NextResponse } from "next/server";
+
 import { createLogger } from "@/lib/logger";
 
 const logger = createLogger("app/api/tts/route.ts");
