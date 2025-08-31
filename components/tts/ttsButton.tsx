@@ -2,7 +2,7 @@
 
 import { Button } from "@heroui/button";
 import { Volume2 } from "lucide-react";
-import { useState } from "react";
+import { useRef, useState } from "react";
 
 type TTSResponse = {
   data: {
@@ -16,8 +16,18 @@ export function TTSButton({ text }: { text: string }) {
   const [loading, setLoading] = useState(false);
   const [url, setURL] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const audioRef = useRef<HTMLAudioElement>(null);
 
   async function handleSpeak() {
+    if (loading) return;
+    if (url !== null) {
+      console.log("URL is set already, assuming we already have generated the right audio, and avoiding extra costs while in development...")
+      if (audioRef) {
+        console.log("Playing audio");
+        audioRef.current?.play();
+        return;
+      }
+    }
     setLoading(true);
     setURL(null);
     setError(null);
@@ -64,7 +74,7 @@ export function TTSButton({ text }: { text: string }) {
       </Button>
       {url &&
         <div >
-          <audio autoPlay src={url} controls className="absolute top-4 left-1/2 -translate-x-1/2 backdrop-blur-sm rounded-lg" />
+          <audio ref={audioRef} autoPlay src={url} controls className="absolute top-4 left-1/2 -translate-x-1/2 backdrop-blur-sm rounded-lg" />
         </div>
       }
     </>
