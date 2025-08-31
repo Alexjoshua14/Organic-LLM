@@ -48,10 +48,10 @@ export const ModelSelector: React.FC<ModelSelectorProps> = () => {
 
   return (
     <Select
-      selectedKeys={[selectedModel]}
-      onChange={handleSelectedModelChange}
       className="text-foreground"
       items={availableModels}
+      selectedKeys={[selectedModel]}
+      onChange={handleSelectedModelChange}
     >
       {(model) => <SelectItem>{model.label}</SelectItem>}
     </Select>

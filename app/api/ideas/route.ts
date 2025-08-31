@@ -1,9 +1,11 @@
-import { openai } from "@ai-sdk/openai";
-import { streamText, UIMessage, convertToModelMessages } from "ai";
 import { NextResponse } from "next/server";
+
+import { createLogger } from "@/util/logger";
 
 // Allow streaming responses up to 30 seconds
 export const maxDuration = 30;
+
+const logger = createLogger(`app/api/ideas/route.ts`);
 
 export async function POST(req: Request) {
   // console.log(`Recieved Messages: ${JSON.stringify(messages)}`);
@@ -11,4 +13,7 @@ export async function POST(req: Request) {
   //   model: openai("gpt-4o"),
   //   messages: convertToModelMessages(messages),
   // });
+  logger.log("POST", `Recieved req: ${JSON.stringify(req)}`);
+
+  return NextResponse.json({ message: "Hello, world!" });
 }

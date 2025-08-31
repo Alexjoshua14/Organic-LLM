@@ -1,19 +1,15 @@
 "use client";
 
 import { Fragment } from "react";
-import { Button, ButtonGroup, useButton } from "@heroui/button";
+import { Button } from "@heroui/button";
 import { Divider } from "@heroui/divider";
 import {
   CodeIcon,
   GraduationCapIcon,
-  Newspaper,
   NewspaperIcon,
-  Sparkle,
-  SparkleIcon,
   SparklesIcon,
 } from "lucide-react";
-import Link from "next/link";
-import { forwardRef, useCallback } from "react";
+import { useCallback } from "react";
 
 type NewChatProps = {
   hidden?: boolean;
@@ -80,9 +76,9 @@ export const NewChat: React.FC<NewChatProps> = ({ hidden }) => {
         {chatIdeas.map(({ title, prompt, icon }) => (
           <ChatIdeaButton
             key={title}
-            onPress={() => chatGeneratorButton(prompt)}
-            title={title}
             icon={icon}
+            title={title}
+            onPress={() => chatGeneratorButton(prompt)}
           />
         ))}
       </div>
@@ -108,8 +104,8 @@ const ChatIdeaButton: React.FC<{
 }> = ({ onPress, title, icon }) => {
   return (
     <Button
-      onPress={onPress}
       className="rounded-full border border-border bg-background-secondary"
+      onPress={onPress}
     >
       {icon}
       {title}
@@ -123,9 +119,9 @@ const ChatTopicButton: React.FC<{
 }> = ({ onPress, title }) => {
   return (
     <Button
+      className="flex justify-start text-primary text-base"
       variant="light"
       onPress={onPress}
-      className="flex justify-start text-primary text-base"
     >
       {title}
     </Button>

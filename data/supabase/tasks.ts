@@ -27,6 +27,7 @@ export async function createTask(input: TaskInsert) {
     .single();
 
   if (error) throw new Error(error.message);
+
   return data;
 }
 
@@ -37,7 +38,9 @@ export async function listTasks() {
     .from("tasks")
     .select("*")
     .order("created_at", { ascending: false });
+
   if (error) throw new Error(error.message);
+
   return data ?? [];
 }
 
@@ -54,6 +57,7 @@ export async function updateTask(id: string, patch: TaskPatch) {
     .single();
 
   if (error) throw new Error(error.message);
+
   return data;
 }
 
@@ -61,6 +65,8 @@ export async function updateTask(id: string, patch: TaskPatch) {
 export async function deleteTask(id: string) {
   const supabase = await supabaseServer();
   const { error } = await supabase.from("tasks").delete().eq("id", id);
+
   if (error) throw new Error(error.message);
+
   return { ok: true };
 }

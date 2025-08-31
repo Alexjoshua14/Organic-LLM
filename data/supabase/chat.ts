@@ -1,6 +1,10 @@
 "use server";
 
 import { UIMessage } from "ai";
+import { auth } from "@clerk/nextjs/server";
+
+import { getSupabaseUserId } from "./profiles";
+
 import { Thread, ThreadSchema } from "@/lib/schemas/chat";
 import { Result, SimpleResult } from "@/types";
 import {
@@ -8,14 +12,13 @@ import {
   convertUIMessageToMessage,
 } from "@/util/message-transform";
 import { supabaseServer } from "@/lib/supabase/server";
-import { auth } from "@clerk/nextjs/server";
-import { getSupabaseUserId } from "./profiles";
 
 export async function getChats(): Promise<Result<Thread[]>> {
   const sb = await supabaseServer();
   const { data, error } = await sb
     .from("threads")
     .select("id, title, owner_id, created_at, updated_at, pinned");
+
   return {
     data: data,
     error: error,
@@ -29,7 +32,7 @@ export async function getChats(): Promise<Result<Thread[]>> {
  * @returns Array of UIMessage objects
  */
 export async function loadChat(
-  chatId: string
+  chatId: string,
 ): Promise<Result<{ thread: Thread; messages: UIMessage[] }>> {
   const sb = await supabaseServer();
 
@@ -38,6 +41,7 @@ export async function loadChat(
     .select("*")
     .eq("id", chatId)
     .single();
+
   if (threadErr || !thread) {
     return {
       data: null,
@@ -45,6 +49,7 @@ export async function loadChat(
     };
   }
   const { data: uiMessages, error: messagesErr } = await getMessages(chatId);
+
   if (messagesErr || !uiMessages) {
     return {
       data: null,
@@ -56,6 +61,7 @@ export async function loadChat(
     thread: ThreadSchema.parse(thread),
     messages: uiMessages,
   };
+
   return {
     data: chat,
     error: null,
@@ -83,11 +89,12 @@ export async function saveChat(params: {
 
   if (threadErr || !thread) {
     const { error } = await createChat(chatId);
+
     if (error) {
       return {
         ok: false,
         error: new Error(
-          error?.message ?? "Error occured creating chat thread.."
+          error?.message ?? "Error occured creating chat thread..",
         ),
       };
     }
@@ -124,6 +131,7 @@ export async function saveChat(params: {
   }
 
   const { error } = await sb.from("messages").insert(rows);
+
   if (error) {
     return {
       ok: false,
@@ -144,6 +152,7 @@ export async function saveChat(params: {
  */
 export async function createChat(chatId?: string): Promise<Result<string>> {
   const { userId: clerkUserId } = await auth();
+
   if (!clerkUserId) {
     return {
       data: null,
@@ -170,6 +179,7 @@ export async function createChat(chatId?: string): Promise<Result<string>> {
     })
     .select("id")
     .single();
+
   if (error) {
     return {
       data: null,
@@ -191,9 +201,10 @@ export async function createChat(chatId?: string): Promise<Result<string>> {
  */
 export async function addMessage(
   threadId: string,
-  message: UIMessage
+  message: UIMessage,
 ): Promise<SimpleResult> {
   const supabaseMessage = convertUIMessageToMessage(message, threadId);
+
   if (!supabaseMessage) {
     return {
       ok: false,
@@ -204,12 +215,14 @@ export async function addMessage(
   const sb = await supabaseServer();
 
   const { error } = await sb.from("messages").insert(supabaseMessage);
+
   if (error) {
     return {
       ok: false,
       error: new Error(error?.message ?? "Unknown error"),
     };
   }
+
   return {
     ok: true,
     error: null,
@@ -217,7 +230,7 @@ export async function addMessage(
 }
 
 export async function getMessages(
-  chatId: string
+  chatId: string,
 ): Promise<Result<UIMessage[]>> {
   const sb = await supabaseServer();
 
@@ -237,6 +250,7 @@ export async function getMessages(
   const uiMessages = messages
     .map((message) => convertMessageToUIMessage(message))
     .filter((message) => message !== null);
+
   if (uiMessages.length !== messages.length) {
     console.error("A message was not converted to UIMessage");
   }
@@ -249,16 +263,18 @@ export async function getMessages(
 
 export async function updateChatTitle(
   chatId: string,
-  title: string
+  title: string,
 ): Promise<SimpleResult> {
   const sb = await supabaseServer();
   const { error } = await sb.from("threads").update({ title }).eq("id", chatId);
+
   if (error) {
     return {
       ok: false,
       error: new Error(error?.message ?? "Unknown error"),
     };
   }
+
   return {
     ok: true,
     error: null,
@@ -267,19 +283,21 @@ export async function updateChatTitle(
 
 export async function updateChatPinned(
   chatId: string,
-  pinned: boolean
+  pinned: boolean,
 ): Promise<SimpleResult> {
   const sb = await supabaseServer();
   const { error } = await sb
     .from("threads")
     .update({ pinned })
     .eq("id", chatId);
+
   if (error) {
     return {
       ok: false,
       error: new Error(error?.message ?? "Unknown error"),
     };
   }
+
   return {
     ok: true,
     error: null,
@@ -289,12 +307,14 @@ export async function updateChatPinned(
 export async function deleteChat(chatId: string): Promise<SimpleResult> {
   const sb = await supabaseServer();
   const { error } = await sb.from("threads").delete().eq("id", chatId);
+
   if (error) {
     return {
       ok: false,
       error: new Error(error?.message ?? "Unknown error"),
     };
   }
+
   return {
     ok: true,
     error: null,

@@ -1,7 +1,5 @@
-'use client'
+"use client";
 
-import { deleteChat } from "@/data/supabase/chat";
-import { ThreadLink } from "@/types";
 import { Button } from "@heroui/button";
 import {
   Modal,
@@ -9,20 +7,27 @@ import {
   ModalHeader,
   ModalBody,
   ModalFooter,
-  useDisclosure
-} from '@heroui/modal'
+  useDisclosure,
+} from "@heroui/modal";
 import { Tooltip } from "@heroui/tooltip";
 import { XIcon } from "lucide-react";
 import { useCallback } from "react";
 
-export default function SidebarDeleteThreadButton({ thread }: { thread: ThreadLink }) {
-  const { isOpen, onOpen, onClose, onOpenChange } = useDisclosure()
+import { ThreadLink } from "@/types";
+import { deleteChat } from "@/data/supabase/chat";
+
+export default function SidebarDeleteThreadButton({
+  thread,
+}: {
+  thread: ThreadLink;
+}) {
+  const { isOpen, onOpen, onClose, onOpenChange } = useDisclosure();
 
   const deleteThread = useCallback(() => {
     const handleDeleteThread = async () => {
       const res = await deleteChat(thread.id);
-      if (res.ok) {
 
+      if (res.ok) {
         /** Refresh sidebar */
         try {
           if (window.refreshSidebar) {
@@ -31,35 +36,35 @@ export default function SidebarDeleteThreadButton({ thread }: { thread: ThreadLi
         } catch (error) {
           console.error(error);
         }
-        onClose()
+        onClose();
       } else {
         console.error(res.error?.message ?? "Unknown error");
       }
-    }
+    };
+
     console.log(`Deleting thread: ${thread.title}`);
     handleDeleteThread();
-
-  }, [thread])
+  }, [thread]);
 
   return (
     <>
       <Tooltip
-        placement="bottom"
-        content={"Delete Thread"}
-        size="sm"
-        offset={1}
         closeDelay={50}
+        content={"Delete Thread"}
+        offset={1}
+        placement="bottom"
+        size="sm"
       >
-        <div
+        <button
           className="hover:bg-background-tertiary w-full h-full flex items-center justify-center rounded px-1"
           onClick={(e) => {
             e.preventDefault();
             e.stopPropagation();
-            onOpen()
+            onOpen();
           }}
         >
           <XIcon size={18} />
-        </div>
+        </button>
       </Tooltip>
       <Modal isOpen={isOpen} onOpenChange={onOpenChange}>
         <ModalContent>
@@ -72,5 +77,5 @@ export default function SidebarDeleteThreadButton({ thread }: { thread: ThreadLi
         </ModalContent>
       </Modal>
     </>
-  )
+  );
 }

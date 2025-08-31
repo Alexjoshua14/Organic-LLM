@@ -1,11 +1,17 @@
+import { Calendar, Home, Inbox, Search, Settings } from "lucide-react";
+import { Input } from "@heroui/input";
 import {
-  Calendar,
-  Home,
-  Inbox,
-  Search,
-  Settings,
-} from "lucide-react";
+  SignedIn,
+  SignedOut,
+  SignInButton,
+  SignOutButton,
+  SignUpButton,
+} from "@clerk/nextjs";
 
+import { SidebarChats } from "./sidebar-chats";
+import { SidebarNewChat } from "./sidebar-new-chat";
+
+import { ThreadLink } from "@/types";
 import {
   Sidebar as ShadcnSidebar,
   SidebarContent,
@@ -15,18 +21,6 @@ import {
   SidebarHeader,
   SidebarMenuButton,
 } from "@/components/ui/sidebar";
-import Link from "next/link";
-import { Input } from "@heroui/input";
-import { ThreadLink } from "@/types";
-import {
-  SignedIn,
-  SignedOut,
-  SignInButton,
-  SignOutButton,
-  SignUpButton,
-} from "@clerk/nextjs";
-import { SidebarChats } from "./sidebar-chats";
-import { SidebarNewChat } from "./sidebar-new-chat";
 
 const items = [
   {
@@ -82,9 +76,6 @@ export function Sidebar() {
               <SidebarGroupContent>
                 <SidebarNewChat />
                 <Input
-                  label={<Search size={18} />}
-                  labelPlacement="outside-left"
-                  placeholder="Search your threads..."
                   classNames={{
                     input: ["bg-transparent", "hover:bg-transparent"],
                     innerWrapper: ["bg-transparent", "hover:bg-transparent"],
@@ -100,6 +91,9 @@ export function Sidebar() {
                     ],
                     base: ["border-b-1", "border-background-tertiary"],
                   }}
+                  label={<Search size={18} />}
+                  labelPlacement="outside-left"
+                  placeholder="Search your threads..."
                 />
               </SidebarGroupContent>
             </SidebarGroup>

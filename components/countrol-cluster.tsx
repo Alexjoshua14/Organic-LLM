@@ -1,8 +1,8 @@
-import { Button } from "@heroui/button";
 import { Settings2Icon } from "lucide-react";
 import { FC } from "react";
-import { ThemeSwitch } from "./theme-switch";
 import Link from "next/link";
+
+import { ThemeSwitch } from "./theme-switch";
 
 type ControlClusterProps = {
   className?: string;

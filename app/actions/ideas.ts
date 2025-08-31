@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidateTag } from "next/cache";
+
 import { createIdea, updateIdea, deleteIdea } from "@/data/supabase/ideas";
 import { IdeaStatus } from "@/lib/schemas/ideas";
 
@@ -23,13 +24,17 @@ export async function actionCreateIdea(formData: FormData) {
     status,
     tags: [],
   });
+
   revalidateTag("ideas"); // if you use fetch caching + tags
+
   return row;
 }
 
 export async function actionUpdateIdea(id: string, patch: any) {
   const row = await updateIdea(id, patch);
+
   revalidateTag("ideas");
+
   return row;
 }
 

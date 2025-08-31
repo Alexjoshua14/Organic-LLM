@@ -1,8 +1,10 @@
 import { Textarea } from "@heroui/input";
-import { glass } from "../primitives";
 import { Button, PressEvent } from "@heroui/button";
-import { ArrowUpIcon, ChevronDown, Globe, PaperclipIcon } from "lucide-react";
+import { ArrowUpIcon, Globe, PaperclipIcon } from "lucide-react";
 import { useCallback, useState, KeyboardEvent } from "react";
+
+import { glass } from "../primitives";
+
 import { ModelSelector } from "./model-selector";
 
 type ChatInputProps = {
@@ -19,6 +21,7 @@ export const ChatInput: React.FC<ChatInputProps> = ({ id, sendMessage }) => {
     async (e: React.FormEvent | PressEvent): Promise<void> => {
       if (input.trim().length === 0) {
         setError(true);
+
         return;
       } else {
         setError(false);
@@ -67,12 +70,12 @@ export const ChatInput: React.FC<ChatInputProps> = ({ id, sendMessage }) => {
                     "focus-within:bg-transparent",
                   ],
                 }}
+                isInvalid={error}
                 maxRows={8}
                 placeholder="Type your message here..."
                 value={input}
-                onValueChange={handleInputChange}
                 onKeyDown={handleKeyDown}
-                isInvalid={error}
+                onValueChange={handleInputChange}
               />
               <div className="h-12 flex items-center justify-between py-2">
                 <div className="flex items-center gap-3 ">
@@ -94,7 +97,7 @@ export const ChatInput: React.FC<ChatInputProps> = ({ id, sendMessage }) => {
                   </div>
                 </div>
                 <div>
-                  <Button onPress={(e) => handleSendMessage(e)} isIconOnly>
+                  <Button isIconOnly onPress={(e) => handleSendMessage(e)}>
                     <ArrowUpIcon size={20} />
                   </Button>
                 </div>

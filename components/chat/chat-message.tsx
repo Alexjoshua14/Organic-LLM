@@ -1,5 +1,6 @@
 import { FC } from "react";
 import { UIMessage } from "ai";
+
 import { ChatMessageMarkdown } from "./chat-message-markdown";
 
 type ChatMessageProps = {
@@ -26,8 +27,8 @@ const AIMessage: FC<ChatMessageProps> = ({ message }) => {
             return (
               <ChatMessageMarkdown
                 key={`${message.id}-${i}`}
-                id={message.id}
                 content={part.text}
+                id={message.id}
               />
             );
         }

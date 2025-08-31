@@ -1,6 +1,9 @@
 "use server";
 
 import { UIMessage } from "ai";
+
+import { createLogger } from "./logger";
+
 import {
   createChat as createChatSupabase,
   loadChat as loadChatSupabase,
@@ -9,31 +12,35 @@ import {
 } from "@/data/supabase/chat";
 import { Result, SimpleResult } from "@/types";
 import { Thread } from "@/lib/schemas/chat";
-import { createLogger } from "./logger";
 
 const logger = createLogger(`util/chat-store.ts`);
 
 export async function createChat(): Promise<Result<string>> {
   const res = await createChatSupabase();
+
   if (res.error) {
     logger.error("createChat", `Error creating chat: ${res.error.message}`);
   } else if (res.data === null) {
     logger.error("createChat", "Error creating chat: Chat ID is null");
+
     return {
       data: null,
       error: new Error("Chat ID is null"),
     };
   }
   logger.log("createChat", `Chat created: ${res.data}`);
+
   return res;
 }
 
 export async function loadChat(
-  id: string
+  id: string,
 ): Promise<Result<{ thread: Thread; messages: UIMessage[] }>> {
   const res = await loadChatSupabase(id);
+
   if (res.error) {
     logger.error("loadChat", `Error loading chat: ${res.error.message}`);
+
     return {
       data: null,
       error: new Error(res.error.message),
@@ -41,8 +48,9 @@ export async function loadChat(
   }
   logger.log(
     "loadChat",
-    `Chat loaded: ${res.data?.thread.id}, ${res.data?.messages.length} messages`
+    `Chat loaded: ${res.data?.thread.id}, ${res.data?.messages.length} messages`,
   );
+
   return res;
 }
 
@@ -54,13 +62,15 @@ export async function saveChat({
   messages: UIMessage[];
 }): Promise<SimpleResult> {
   const res = await saveChatSupabase({ chatId, messages });
+
   if (res.error || !res.ok) {
     logger.error(
       "saveChat",
-      `Error saving chat: ${res.error?.message ?? "Unknown error"}`
+      `Error saving chat: ${res.error?.message ?? "Unknown error"}`,
     );
   }
   logger.log("saveChat", `Chat saved: ${chatId}`);
+
   return res;
 }
 
@@ -70,22 +80,27 @@ export async function saveChat({
  */
 export async function getChats(): Promise<Result<Thread[]>> {
   const res = await getChatsSupabase();
+
   if (res.error) {
     logger.error("getChats", `Error getting chats: ${res.error.message}`);
+
     return {
       data: null,
       error: new Error(res.error.message),
     };
   }
+
   return res;
 }
 
 export async function getChat(
-  chatId: string
+  chatId: string,
 ): Promise<Result<{ thread: Thread; messages: UIMessage[] }>> {
   const chat = await loadChat(chatId);
+
   if (chat.error) {
     logger.error("getChat", `Error getting chat: ${chat.error.message}`);
+
     return {
       data: null,
       error: new Error(chat.error.message),
@@ -93,5 +108,6 @@ export async function getChat(
   } else {
     logger.log("getChat", `Chat loaded: ${chat.data?.thread.id}`);
   }
+
   return chat;
 }

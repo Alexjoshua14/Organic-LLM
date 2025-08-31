@@ -1,4 +1,3 @@
-import { auth, currentUser } from "@clerk/nextjs/server";
 import { supabaseAdmin } from "./supabase/supabase-admin";
 
 /**
@@ -16,6 +15,7 @@ export async function upsertProfileFromClerk(user: any) {
     console.error("Error upserting profile:", error);
     if (error.code === "23505") {
       console.log("duplicate profile, for now this is fine");
+
       return;
     }
     throw new Error("Failed to add user profile to Supabase");
@@ -27,7 +27,7 @@ function normalizeUserData(user: any) {
     user?.email_addresses?.[0]?.email_address ??
     (user?.primary_email_address_id &&
       user.email_addresses?.find(
-        (e: any) => e.id === user.primary_email_address_id
+        (e: any) => e.id === user.primary_email_address_id,
       )?.email_address) ??
     null;
 

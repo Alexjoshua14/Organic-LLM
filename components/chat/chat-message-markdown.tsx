@@ -5,6 +5,7 @@ import remarkGfm from "remark-gfm";
 
 function parseMarkdownIntoBlocks(markdown: string): string[] {
   const tokens = marked.lexer(markdown);
+
   return tokens.map((token) => token.raw);
 }
 
@@ -14,6 +15,7 @@ const MemoizedMarkdownBlock = memo(
   },
   (prevProps, nextProps) => {
     if (prevProps.content !== nextProps.content) return false;
+
     return true;
   },
 );

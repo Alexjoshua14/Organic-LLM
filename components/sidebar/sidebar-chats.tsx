@@ -6,13 +6,15 @@ import {
   CollapsibleContent,
 } from "@radix-ui/react-collapsible";
 import { Pin, ChevronUp } from "lucide-react";
-import { SidebarGroup, SidebarGroupLabel } from "../ui/sidebar";
-import { SidebarChatList } from "./sidebar-chat-list";
 import { useCallback, useEffect, useState } from "react";
+
+import { SidebarGroup, SidebarGroupLabel } from "../ui/sidebar";
+
+import { SidebarChatList } from "./sidebar-chat-list";
+
 import { getChats } from "@/util/chat-store";
 import { ThreadLink } from "@/types";
 import { createLogger } from "@/util/logger";
-
 
 const logger = createLogger(`components/sidebar/sidebar-chats.tsx`);
 
@@ -22,17 +24,17 @@ declare global {
   }
 }
 
-
 export const SidebarChats = () => {
   const [chats, setChats] = useState<ThreadLink[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
   const fetchChats = useCallback(async () => {
-
     try {
       const res = await getChats();
+
       if (res.error) {
         console.error(`Error while fetching chats..`, res.error.message);
+
         return;
       }
 
@@ -40,6 +42,7 @@ export const SidebarChats = () => {
 
       if (threads === null) {
         setChats([]);
+
         return;
       }
       const normalizedChats: ThreadLink[] = threads.map((thread) => ({
@@ -48,15 +51,15 @@ export const SidebarChats = () => {
         pinned: thread.pinned ?? false,
         date: new Date(thread.updated_at).toISOString(),
       }));
+
       setChats(normalizedChats);
     } catch (error) {
       console.error(`Error while fetching chats..`, error);
       setChats([]);
     } finally {
       setIsLoading(false);
-
     }
-  }, [])
+  }, []);
 
   /* Fetch chats on mount */
   useEffect(() => {
@@ -85,7 +88,7 @@ export const SidebarChats = () => {
     fetchChats();
 
     return () => {
-      if ('refreshSidebar' in window) {
+      if ("refreshSidebar" in window) {
         delete (window as any).refreshSidebar;
       }
     };
@@ -94,7 +97,7 @@ export const SidebarChats = () => {
   return (
     <>
       {chats.filter((t) => t.pinned).length > 0 && (
-        <Collapsible className="group/collapsible" defaultOpen>
+        <Collapsible defaultOpen className="group/collapsible">
           <SidebarGroup>
             <SidebarGroupLabel asChild>
               <CollapsibleTrigger>

@@ -27,6 +27,7 @@ export async function createIdea(input: IdeaInsert) {
     .single();
 
   if (error) throw new Error(error.message);
+
   return data;
 }
 
@@ -37,7 +38,9 @@ export async function listIdeas() {
     .from("ideas")
     .select("*")
     .order("created_at", { ascending: false });
+
   if (error) throw new Error(error.message);
+
   return data ?? [];
 }
 
@@ -54,6 +57,7 @@ export async function updateIdea(id: string, patch: IdeaPatch) {
     .single();
 
   if (error) throw new Error(error.message);
+
   return data;
 }
 
@@ -61,6 +65,8 @@ export async function updateIdea(id: string, patch: IdeaPatch) {
 export async function deleteIdea(id: string) {
   const supabase = await supabaseServer();
   const { error } = await supabase.from("ideas").delete().eq("id", id);
+
   if (error) throw new Error(error.message);
+
   return { ok: true };
 }

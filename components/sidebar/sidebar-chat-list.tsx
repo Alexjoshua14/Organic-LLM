@@ -1,18 +1,21 @@
 "use client";
 
-import { ThreadLink } from "@/types";
 import { FC, useCallback } from "react";
+import Link from "next/link";
+import { Tooltip } from "@heroui/tooltip";
+import { Pin, PinOff } from "lucide-react";
+
 import {
   SidebarGroupContent,
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
 } from "../ui/sidebar";
-import Link from "next/link";
-import { Tooltip } from "@heroui/tooltip";
-import { Pin, PinOff, XIcon } from "lucide-react";
-import { updateChatPinned } from "@/data/supabase/chat";
+
 import SidebarDeleteThreadButton from "./sidebar-delete-thread-button";
+
+import { updateChatPinned } from "@/data/supabase/chat";
+import { ThreadLink } from "@/types";
 
 type SidebarChatListProps = {
   threads: ThreadLink[];
@@ -32,7 +35,8 @@ export const SidebarChatList: FC<SidebarChatListProps> = ({ threads }) => {
     if (thread.pinned) return true;
 
     /* If thread was updated within last day */
-    if (thread.date > new Date(Date.now() - (1000 * 60 * 60 * 24)).toISOString()) return true;
+    if (thread.date > new Date(Date.now() - 1000 * 60 * 60 * 24).toISOString())
+      return true;
 
     return false;
   }
@@ -44,8 +48,8 @@ export const SidebarChatList: FC<SidebarChatListProps> = ({ threads }) => {
           <SidebarMenuItem key={thread.id}>
             <SidebarMenuButton asChild>
               <Link
-                href={`/chat/${thread.id}`}
                 className={`font-medium text-sm w-full rounded hover:bg-background px-3 transition-colors duration-150 group/thread overflow-hidden`}
+                href={`/chat/${thread.id}`}
                 prefetch={shouldPrefetch(thread)}
               >
                 <div className="w-full flex text-foreground-secondary">
@@ -55,13 +59,13 @@ export const SidebarChatList: FC<SidebarChatListProps> = ({ threads }) => {
                       className={`absolute -right-18 opacity-0 group-hover/thread:right-0 group-hover/thread:opacity-100 grid grid-cols-2 items-center transition-all duration-250 h-full`}
                     >
                       <Tooltip
-                        placement="bottom"
-                        content={thread.pinned ? "Unpin Thread" : "Pin Thread"}
-                        size="sm"
-                        offset={1}
                         closeDelay={50}
+                        content={thread.pinned ? "Unpin Thread" : "Pin Thread"}
+                        offset={1}
+                        placement="bottom"
+                        size="sm"
                       >
-                        <div
+                        <button
                           className="hover:bg-background-tertiary w-full h-full flex items-center justify-center rounded px-1"
                           onClick={(e) => {
                             e.preventDefault();
@@ -74,7 +78,7 @@ export const SidebarChatList: FC<SidebarChatListProps> = ({ threads }) => {
                           ) : (
                             <Pin size={18} />
                           )}
-                        </div>
+                        </button>
                       </Tooltip>
                       <SidebarDeleteThreadButton thread={thread} />
                     </div>

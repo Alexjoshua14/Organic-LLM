@@ -1,8 +1,8 @@
+import { UIMessage } from "ai";
+
 import Page from "@/components/page";
 import { Chat } from "@/components/chat/chat";
-import { createChat, loadChat } from "@/util/chat-store";
-import { redirect } from "next/navigation";
-import { UIMessage } from "ai";
+import { loadChat } from "@/util/chat-store";
 import { generateChatTitle } from "@/lib/llm/chat-helpers";
 import { updateChatTitle } from "@/data/supabase/chat";
 import { Thread } from "@/lib/schemas/chat";
@@ -19,7 +19,7 @@ export default async function ChatPage({
   let chatData: { thread: Thread; messages: UIMessage[] } | null = null;
 
   try {
-    const chatDataRes = await loadChat(id)
+    const chatDataRes = await loadChat(id);
 
     if (chatDataRes.error || chatDataRes.data === null) {
       throw chatDataRes.error;
@@ -29,6 +29,7 @@ export default async function ChatPage({
 
     if (chatData.thread.title === null && chatData.messages.length > 3) {
       const titleRes = await generateChatTitle(id);
+
       if (titleRes.error) {
         throw titleRes.error;
       }
@@ -37,6 +38,7 @@ export default async function ChatPage({
     }
   } catch (err) {
     console.error(err);
+
     // const id = await createChat().then((res) => res.data ?? "");
     // console.log(`Chat created with ID: ${id}.. Redirecting user..`);
     // if (id === null || id === "") {

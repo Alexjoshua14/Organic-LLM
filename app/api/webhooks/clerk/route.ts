@@ -1,6 +1,7 @@
-import { upsertProfileFromClerk } from "@/lib/profile";
 import { verifyWebhook, WebhookEvent } from "@clerk/nextjs/webhooks";
 import { NextRequest, NextResponse } from "next/server";
+
+import { upsertProfileFromClerk } from "@/lib/profile";
 
 export async function POST(req: NextRequest) {
   let evt: WebhookEvent;
@@ -9,6 +10,7 @@ export async function POST(req: NextRequest) {
     evt = await verifyWebhook(req);
   } catch (err) {
     console.error("Error verifying webhook:", err);
+
     return NextResponse.json(
       { error: "Error verifying webhook" },
       { status: 400 },
@@ -18,6 +20,7 @@ export async function POST(req: NextRequest) {
   // For this guide, log payload to console
   const { id } = evt.data;
   const eventType = evt.type;
+
   console.log(`Received webhook with ID ${id} and event type of ${eventType}`);
   console.log("Webhook payload:", evt.data);
 

@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidateTag } from "next/cache";
+
 import { createTask, updateTask, deleteTask } from "@/data/supabase/tasks";
 import { TaskStatus } from "@/lib/schemas/tasks";
 
@@ -22,13 +23,17 @@ export async function actionCreateTask(formData: FormData) {
     tags: [],
     status,
   });
+
   revalidateTag("tasks"); // if you use fetch caching + tags
+
   return row;
 }
 
 export async function actionUpdateTask(id: string, patch: any) {
   const row = await updateTask(id, patch);
+
   revalidateTag("tasks");
+
   return row;
 }
 

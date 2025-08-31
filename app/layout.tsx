@@ -1,16 +1,15 @@
 import "@/styles/globals.css";
 import { Metadata, Viewport } from "next";
 import clsx from "clsx";
+import { ClerkProvider } from "@clerk/nextjs";
 
 import { Providers } from "./providers";
 
 import { siteConfig } from "@/config/site";
 import { fontSans } from "@/config/fonts";
-import { Sidebar } from "@/components/sidebar";
 import { ControlCluster } from "@/components/countrol-cluster";
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { Sidebar as NewSidebar } from "@/components/sidebar/sidebar";
-import { ClerkProvider } from "@clerk/nextjs";
 
 export const metadata: Metadata = {
   title: {

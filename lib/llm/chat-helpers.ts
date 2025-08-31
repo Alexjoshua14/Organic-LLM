@@ -1,20 +1,23 @@
 "use server";
 
 import { openai } from "@ai-sdk/openai";
+import { convertToModelMessages, generateText } from "ai";
+
 import { supabaseServer } from "../supabase/server";
+import { Message } from "../schemas/chat";
+
 import { createLogger } from "@/util/logger";
 import { convertMessageToUIMessage } from "@/util/message-transform";
-import { Message } from "../schemas/chat";
-import { convertToModelMessages, generateText } from "ai";
 import { updateChatTitle } from "@/data/supabase/chat";
 import { Result } from "@/types";
 
 const logger = createLogger(`lib/llm/chat-helpers.ts`);
 
 export async function ensureChatHasTitle(
-  chatId: string
+  chatId: string,
 ): Promise<Result<string>> {
   const sb = await supabaseServer();
+
   logger.log("ensureChatHasTitle", `Ensuring chat has title: ${chatId}`);
 
   const res = await sb
@@ -22,6 +25,7 @@ export async function ensureChatHasTitle(
     .select("title")
     .eq("id", chatId)
     .single();
+
   if (res.error) {
     return {
       data: null,
@@ -36,8 +40,9 @@ export async function ensureChatHasTitle(
   ) {
     logger.log(
       "ensureChatHasTitle",
-      `Chat already has title: ${res.data.title}`
+      `Chat already has title: ${res.data.title}`,
     );
+
     return {
       data: res.data.title,
       error: null,
@@ -49,7 +54,7 @@ export async function ensureChatHasTitle(
 }
 
 export async function generateChatTitle(
-  chatId: string
+  chatId: string,
 ): Promise<Result<string>> {
   const sb = await supabaseServer();
 
@@ -58,11 +63,13 @@ export async function generateChatTitle(
     .select("*")
     .eq("thread_id", chatId)
     .order("created_at", { ascending: false });
+
   if (messages.error) {
     logger.error(
       "updateChatTitle",
-      `Error getting message: ${messages.error?.message}`
+      `Error getting message: ${messages.error?.message}`,
     );
+
     return {
       data: null,
       error: new Error(messages.error?.message ?? "Unknown error"),
@@ -75,6 +82,7 @@ export async function generateChatTitle(
 
   if (uiMessages.length === 0) {
     logger.error("updateChatTitle", `No messages found for chat: ${chatId}`);
+
     return {
       data: null,
       error: new Error("No messages found for chat"),
@@ -104,16 +112,19 @@ export async function generateChatTitle(
   });
 
   const res = await updateChatTitle(chatId, titleIdea);
+
   if (res.error) {
     logger.error(
       "updateChatTitle",
-      `Error updating chat title: ${res.error.message}`
+      `Error updating chat title: ${res.error.message}`,
     );
+
     return {
       data: null,
       error: new Error(res.error.message),
     };
   }
+
   return {
     data: titleIdea,
     error: null,

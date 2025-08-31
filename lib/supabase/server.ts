@@ -25,6 +25,6 @@ export async function supabaseServer() {
       global: sbToken
         ? { headers: { Authorization: `Bearer ${sbToken}` } }
         : {},
-    }
+    },
   );
 }

@@ -2,10 +2,11 @@
 import { useEffect, useState } from "react";
 import { useSession, useUser } from "@clerk/nextjs";
 import { createClient } from "@supabase/supabase-js";
-import Page from "@/components/page";
-import { actionCreateTask } from "@/app/actions/tasks";
 import { useFormStatus } from "react-dom";
 import { Divider } from "@heroui/divider";
+
+import Page from "@/components/page";
+import { actionCreateTask } from "@/app/actions/tasks";
 
 export default function Home() {
   const [tasks, setTasks] = useState<any[]>([]);
@@ -41,6 +42,7 @@ export default function Home() {
     async function loadTasks() {
       setLoading(true);
       const { data, error } = await client.from("tasks").select();
+
       console.log(
         `Data: ${JSON.stringify(data)}\nError: ${JSON.stringify(error)}`,
       );
@@ -80,12 +82,11 @@ export default function Home() {
           </div>
           <form onSubmit={createTask}>
             <input
-              autoFocus
-              type="text"
               name="name"
               placeholder="Enter new task"
-              onChange={(e) => setName(e.target.value)}
+              type="text"
               value={name}
+              onChange={(e) => setName(e.target.value)}
             />
             <button type="submit">Add</button>
           </form>
@@ -94,18 +95,18 @@ export default function Home() {
           <h2 style={{ fontSize: "1.75rem" }}>Server Action</h2>
           <form action={actionCreateTask} className={`flex flex-col gap-3`}>
             <input
+              required
+              className="w-full rounded-lg border px-3 py-2"
+              maxLength={140}
+              minLength={2}
               name="title"
               placeholder="Quick task…"
-              required
-              minLength={2}
-              maxLength={140}
-              className="w-full rounded-lg border px-3 py-2"
             />
 
             <textarea
+              className="w-full rounded-lg border px-3 py-2"
               name="notes"
               placeholder="Optional notes"
-              className="w-full rounded-lg border px-3 py-2"
               rows={3}
             />
 
@@ -113,9 +114,9 @@ export default function Home() {
               <label className="text-sm opacity-70">
                 Priority:
                 <select
-                  name="priority"
-                  defaultValue="2"
                   className="ml-2 rounded border px-2 py-1"
+                  defaultValue="2"
+                  name="priority"
                 >
                   <option value="1">High</option>
                   <option value="2">Medium</option>
@@ -126,15 +127,19 @@ export default function Home() {
               <label className="text-sm opacity-70">
                 Due:
                 <input
-                  type="datetime-local"
-                  name="due_date"
                   className="ml-2 rounded border px-2 py-1"
+                  name="due_date"
+                  type="datetime-local"
                 />
               </label>
 
               <label className="text-sm opacity-70">
                 Status:
-                <select name="status" defaultValue="todo" className="ml-2 rounded border px-2 py-1">
+                <select
+                  className="ml-2 rounded border px-2 py-1"
+                  defaultValue="todo"
+                  name="status"
+                >
                   <option value="todo">Todo</option>
                   <option value="doing">Doing</option>
                   <option value="done">Done</option>
@@ -155,12 +160,13 @@ export default function Home() {
 
 function SubmitButton() {
   const { pending } = useFormStatus();
+
   return (
     <button
-      type="submit"
-      disabled={pending}
-      className="rounded-lg px-4 py-2 bg-black text-white disabled:opacity-50 dark:bg-white dark:text-black"
       aria-busy={pending}
+      className="rounded-lg px-4 py-2 bg-black text-white disabled:opacity-50 dark:bg-white dark:text-black"
+      disabled={pending}
+      type="submit"
     >
       {pending ? "Adding…" : "Add"}
     </button>

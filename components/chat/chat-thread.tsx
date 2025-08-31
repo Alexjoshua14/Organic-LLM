@@ -2,8 +2,9 @@
 
 import { FC } from "react";
 import { UIMessage } from "ai";
-import { ChatMessage } from "./chat-message";
 import { StickToBottom } from "use-stick-to-bottom";
+
+import { ChatMessage } from "./chat-message";
 
 type ChatThreadProps = {
   messages: UIMessage[];

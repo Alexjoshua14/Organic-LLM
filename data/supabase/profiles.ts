@@ -8,7 +8,7 @@ import { Profile, ProfileSchema } from "@/lib/schemas/profiles";
  * @returns
  */
 export async function getProfile(
-  clerkUserId: string
+  clerkUserId: string,
 ): Promise<Result<Profile>> {
   const sb = await supabaseServer();
   const res = await sb
@@ -16,6 +16,7 @@ export async function getProfile(
     .select("*")
     .eq("clerk_user_id", clerkUserId)
     .single();
+
   if (res.error) {
     return {
       data: null,
@@ -24,6 +25,7 @@ export async function getProfile(
   }
   try {
     const profile = ProfileSchema.parse(res.data);
+
     return {
       data: profile,
       error: null,
@@ -42,7 +44,7 @@ export async function getProfile(
  * @returns User's supabase ID
  */
 export async function getSupabaseUserId(
-  clerkUserId: string
+  clerkUserId: string,
 ): Promise<Result<string>> {
   const sb = await supabaseServer();
   const { data, error } = await sb
@@ -50,6 +52,7 @@ export async function getSupabaseUserId(
     .select("id")
     .eq("clerk_user_id", clerkUserId)
     .single();
+
   if (error) {
     return {
       data: null,
