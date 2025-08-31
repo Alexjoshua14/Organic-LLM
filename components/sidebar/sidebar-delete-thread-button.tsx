@@ -22,6 +22,15 @@ export default function SidebarDeleteThreadButton({ thread }: { thread: ThreadLi
     const handleDeleteThread = async () => {
       const res = await deleteChat(thread.id);
       if (res.ok) {
+
+        /** Refresh sidebar */
+        try {
+          if (window.refreshSidebar) {
+            window.refreshSidebar();
+          }
+        } catch (error) {
+          console.error(error);
+        }
         onClose()
       } else {
         console.error(res.error?.message ?? "Unknown error");

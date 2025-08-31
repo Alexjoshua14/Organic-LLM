@@ -23,6 +23,15 @@ export const SidebarNewChat = () => {
 
       const id = res.data;
 
+      /** Refresh sidebar */
+      try {
+        if (window.refreshSidebar) {
+          window.refreshSidebar();
+        }
+      } catch (error) {
+        logger.error("handleNewChat", "Error refreshing sidebar");
+      }
+
       router.push(`/chat/${id}`);
     }
 

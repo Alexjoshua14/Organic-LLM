@@ -8,7 +8,7 @@ import {
 import { Pin, ChevronUp } from "lucide-react";
 import { SidebarGroup, SidebarGroupLabel } from "../ui/sidebar";
 import { SidebarChatList } from "./sidebar-chat-list";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { getChats } from "@/util/chat-store";
 import { ThreadLink } from "@/types";
 import { createLogger } from "@/util/logger";
@@ -16,31 +16,80 @@ import { createLogger } from "@/util/logger";
 
 const logger = createLogger(`components/sidebar/sidebar-chats.tsx`);
 
+declare global {
+  interface Window {
+    refreshSidebar: () => void;
+  }
+}
+
 
 export const SidebarChats = () => {
   const [chats, setChats] = useState<ThreadLink[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
 
-  useEffect(() => {
-    async function fetchChats() {
-      const fetchedChats = await getChats();
-      if (fetchedChats.error || fetchedChats.data === null) {
-        logger.error("fetchChats", `Error getting chats: ${fetchedChats.error?.message ?? "Unknown error"}`);
+  const fetchChats = useCallback(async () => {
+
+    try {
+      const res = await getChats();
+      if (res.error) {
+        console.error(`Error while fetching chats..`, res.error.message);
         return;
       }
-      const threads = fetchedChats.data;
 
+      const threads = res.data;
+
+      if (threads === null) {
+        setChats([]);
+        return;
+      }
       const normalizedChats: ThreadLink[] = threads.map((thread) => ({
         title: thread.title ?? "Unknown title",
         id: thread.id,
         pinned: thread.pinned ?? false,
-        date: new Date(thread.created_at).toISOString(),
+        date: new Date(thread.updated_at).toISOString(),
       }));
-
       setChats(normalizedChats);
-    }
+    } catch (error) {
+      console.error(`Error while fetching chats..`, error);
+      setChats([]);
+    } finally {
+      setIsLoading(false);
 
+    }
+  }, [])
+
+  /* Fetch chats on mount */
+  useEffect(() => {
+    // async function fetchChats() {
+    //   const fetchedChats = await getChats();
+    //   if (fetchedChats.error || fetchedChats.data === null) {
+    //     logger.error("fetchChats", `Error getting chats: ${fetchedChats.error?.message ?? "Unknown error"}`);
+    //     return;
+    //   }
+    //   const threads = fetchedChats.data;
+
+    //   const normalizedChats: ThreadLink[] = threads.map((thread) => ({
+    //     title: thread.title ?? "Unknown title",
+    //     id: thread.id,
+    //     pinned: thread.pinned ?? false,
+    //     date: new Date(thread.updated_at).toISOString(),
+    //   }));
+
+    //   setChats(normalizedChats);
+    // }
+
+    /** Expose fetchChats globally for other application components */
+    window.refreshSidebar = fetchChats;
+
+    /** Fetch chats */
     fetchChats();
-  }, []);
+
+    return () => {
+      if ('refreshSidebar' in window) {
+        delete (window as any).refreshSidebar;
+      }
+    };
+  }, [fetchChats]);
 
   return (
     <>

@@ -27,17 +27,12 @@ export const SidebarChatList: FC<SidebarChatListProps> = ({ threads }) => {
     [threads],
   );
 
-  const handleDeleteThread = useCallback(
-    (thread: ThreadLink) => {
-      console.log(`Deleting thread: ${thread.title}`);
-
-
-    },
-    [threads],
-  );
-
   function shouldPrefetch(thread: ThreadLink): boolean {
+    /* If thread is pinned */
     if (thread.pinned) return true;
+
+    /* If thread was updated within last day */
+    if (thread.date > new Date(Date.now() - (1000 * 60 * 60 * 24)).toISOString()) return true;
 
     return false;
   }
