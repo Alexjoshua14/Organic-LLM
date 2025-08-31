@@ -12,7 +12,7 @@ type TTSResponse = {
   };
 };
 
-export function TTSButton({ text }: { text: string }) {
+export function TTSButton({ text, iconOnly }: { text: string, iconOnly?: boolean }) {
   const [loading, setLoading] = useState(false);
   const [url, setURL] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -66,11 +66,12 @@ export function TTSButton({ text }: { text: string }) {
       <Button
         size="sm"
         variant="ghost"
+        isIconOnly={iconOnly}
         className="text-purple-600 hover:text-purple-700 dark:text-purple-400 dark:hover:text-purple-300"
         onPress={handleSpeak}
       >
         <Volume2 className="w-4 h-4 mr-1" />
-        Play Audio
+        {iconOnly ? null : "Play Audio"}
       </Button>
       {url &&
         <div >

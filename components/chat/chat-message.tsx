@@ -2,6 +2,9 @@ import { FC } from "react";
 import { UIMessage } from "ai";
 
 import { ChatMessageMarkdown } from "./chat-message-markdown";
+import { AudioLines, Speaker } from "lucide-react";
+import { ClipboardCopyButton } from "../clipboardCopyButton";
+import { TTSButton } from "../tts/ttsButton";
 
 type ChatMessageProps = {
   message: UIMessage;
@@ -19,21 +22,38 @@ export const ChatMessage: FC<ChatMessageProps> = ({ message }) => {
 };
 
 const AIMessage: FC<ChatMessageProps> = ({ message }) => {
+
+  const text = message.parts.map((part) => {
+    switch (part.type) {
+      case "text":
+        return part.text;
+    }
+  }).join("");
+
+
   return (
-    <div className="rounded-lg p-4 ai-message space-y-2 text-foreground max-w-full prose dark:prose-invert">
-      {message.parts.map((part, i) => {
-        switch (part.type) {
-          case "text":
-            return (
-              <ChatMessageMarkdown
-                key={`${message.id}-${i}`}
-                content={part.text}
-                id={message.id}
-              />
-            );
-        }
-      })}
+    <div className="group/ai-message rounded-lg p-4 flex flex-col gap-2">
+      <div className="ai-message space-y-2 text-foreground max-w-full prose dark:prose-invert">
+        {message.parts.map((part, i) => {
+          switch (part.type) {
+            case "text":
+              return (
+                <ChatMessageMarkdown
+                  key={`${message.id}-${i}`}
+                  content={part.text}
+                  id={message.id}
+                />
+              );
+          }
+        })}
+
+      </div>
+      <div className="w-full flex gap-2 h-8">
+        <TTSButton text={text} iconOnly />
+        <ClipboardCopyButton text={text} />
+      </div>
     </div>
+
   );
 };
 
