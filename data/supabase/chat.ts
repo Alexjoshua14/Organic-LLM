@@ -12,7 +12,6 @@ import {
   convertUIMessageToMessage,
 } from "@/lib/chat/message-transform";
 import { supabaseServer } from "@/lib/supabase/server";
-
 import { createLogger } from "@/lib/logger";
 
 const logger = createLogger("data/supabase/chat.ts");
@@ -285,8 +284,9 @@ export async function getNMessages(
       .from("messages")
       .select("*")
       .eq("thread_id", chatId)
-      .order("created_at", { ascending: true })
-      .limit(limit ?? DEFAULT_MESSAGE_LIMIT);
+      .order("created_at", { ascending: false })
+      .limit(limit ?? DEFAULT_MESSAGE_LIMIT)
+      .order("created_at", { ascending: true });
 
     if (error || !messages) {
       return {
@@ -379,6 +379,11 @@ export async function updateConversationSummary(
   chatId: string,
   conversationSummary: string,
 ): Promise<SimpleResult> {
+  return {
+    ok: true,
+    error: null,
+  };
+
   if (conversationSummary.trim().length === 0) {
     return {
       ok: false,

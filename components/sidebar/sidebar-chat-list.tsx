@@ -31,13 +31,16 @@ export const SidebarChatList: FC<SidebarChatListProps> = ({ threads }) => {
       const res = await updateChatPinned(thread.id, !thread.pinned);
 
       if (res.error) {
-        logger.error("togglePinThread", `Error toggling pin for thread: ${thread.title}`, res.error.message);
+        logger.error(
+          "togglePinThread",
+          `Error toggling pin for thread: ${thread.title}`,
+          res.error.message,
+        );
       } else {
         if (window.refreshSidebar) {
           window.refreshSidebar();
         }
       }
-
     },
     [threads],
   );

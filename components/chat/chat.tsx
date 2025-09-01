@@ -11,7 +11,6 @@ import { ChatScrollButton } from "./chat-scroll-button";
 
 import { Thread } from "@/lib/schemas/chat";
 import { ensureChatHasTitle, summarizeChat } from "@/lib/llm/chat-helpers";
-
 import { createLogger } from "@/lib/logger";
 
 const logger = createLogger("components/chat/chat");

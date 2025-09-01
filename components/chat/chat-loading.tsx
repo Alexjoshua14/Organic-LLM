@@ -1,5 +1,3 @@
-
-
 export const ChatLoading = () => {
   return (
     <div className="flex gap-2 py-2">

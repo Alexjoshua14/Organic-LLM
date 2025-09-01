@@ -1,13 +1,11 @@
-import { FC, useMemo, useState } from "react";
+import { FC, useMemo } from "react";
 import { UIMessage } from "ai";
 
 import { ClipboardCopyButton } from "../shared/clipboardCopyButton";
 import { TTSButton } from "../tts/ttsButton";
 
 import { ChatMessageMarkdown } from "./chat-message-markdown";
-
 import { ChatLoading } from "./chat-loading";
-
 
 type ChatMessageProps = {
   message: UIMessage;
@@ -31,6 +29,7 @@ const AIMessage: FC<ChatMessageProps> = ({ message }) => {
         case "text":
           if (part.state === "done") {
           }
+
           return part.text;
       }
     })
@@ -39,11 +38,7 @@ const AIMessage: FC<ChatMessageProps> = ({ message }) => {
   return (
     <div className="group/ai-message rounded-lg p-4 flex flex-col gap-2">
       <div className="ai-message space-y-2 text-foreground max-w-full prose dark:prose-invert">
-        {
-          message.parts.length <= 1 &&
-          <ChatLoading />
-
-        }
+        {message.parts.length <= 1 && <ChatLoading />}
         {message.parts.map((part, i) => {
           switch (part.type) {
             case "text":

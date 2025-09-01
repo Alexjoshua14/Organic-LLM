@@ -1,10 +1,11 @@
 "use server";
 
 import { openai } from "@ai-sdk/openai";
-import { convertToModelMessages, generateText, UIMessage } from "ai";
+import { convertToModelMessages, generateObject, generateText } from "ai";
 
 import { supabaseServer } from "../supabase/server";
 import { Message } from "../schemas/chat";
+import { ValidSummarySchema } from "../schemas/llm-tools";
 
 import { createLogger } from "@/lib/logger";
 import { convertMessageToUIMessage } from "@/lib/chat/message-transform";
@@ -18,7 +19,7 @@ import { Result } from "@/types";
 const logger = createLogger(`lib/llm/chat-helpers.ts`);
 
 export async function ensureChatHasTitle(
-  chatId: string,
+  chatId: string
 ): Promise<Result<string>> {
   const sb = await supabaseServer();
 
@@ -44,7 +45,7 @@ export async function ensureChatHasTitle(
   ) {
     logger.log(
       "ensureChatHasTitle",
-      `Chat already has title: ${res.data.title}`,
+      `Chat already has title: ${res.data.title}`
     );
 
     return {
@@ -58,7 +59,7 @@ export async function ensureChatHasTitle(
 }
 
 export async function generateChatTitle(
-  chatId: string,
+  chatId: string
 ): Promise<Result<string>> {
   const sb = await supabaseServer();
 
@@ -71,7 +72,7 @@ export async function generateChatTitle(
   if (messages.error) {
     logger.error(
       "updateChatTitle",
-      `Error getting message: ${messages.error?.message}`,
+      `Error getting message: ${messages.error?.message}`
     );
 
     return {
@@ -120,7 +121,7 @@ export async function generateChatTitle(
   if (res.error) {
     logger.error(
       "updateChatTitle",
-      `Error updating chat title: ${res.error.message}`,
+      `Error updating chat title: ${res.error.message}`
     );
 
     return {
@@ -136,10 +137,13 @@ export async function generateChatTitle(
 }
 
 export async function summarizeChat(
-  chatId: string,
+  chatId: string
 ): Promise<Result<string, string>> {
+  logger.log("summarizeChat", `Summarizing chat ${chatId}`);
   // Get all chat messages
   let { data: messages, error } = await getMessages(chatId);
+
+  let summaryGenerationCount = 0;
 
   if (error || !messages) {
     return {
@@ -149,17 +153,31 @@ export async function summarizeChat(
   }
 
   // Safeguard for development, cap messages to 200
-  if (messages.length > 200) {
-    messages = messages.slice(-200);
+  if (messages.length > 75) {
+    logger.warn(
+      "summarizeChat",
+      `Chat ${chatId} has more than 75 messages, truncating`
+    );
+    messages = messages.slice(-75);
   }
 
   const modelMessages = convertToModelMessages(messages);
 
+  logger.log(
+    "summarizeChat",
+    `Messages to be summarized\n${JSON.stringify(modelMessages)}`
+  );
+
+  logger.log(
+    "summarizeChat",
+    `Summarizing chat ${chatId} with ${modelMessages.length} messages`
+  );
+
   let { text: conversationSummary } = await generateText({
-    model: openai("gpt-5-nano"),
+    model: openai("gpt-5-mini"),
     system: `
   You are Organic LLM’s conversation summarizer.
-  Given the full set of messages in this thread, write a single concise paragraph (2–4 sentences) that captures:
+  Given the full set of messages in this thread, look at all of them and write a single concise paragraph (2–4 sentences) that captures:
   – what the user and assistant have been working on,
   – any key decisions or questions,
   – and the current focus or next step.
@@ -170,12 +188,19 @@ export async function summarizeChat(
     messages: modelMessages,
   });
 
+  summaryGenerationCount++;
+
+  logger.log(
+    "summarizeChat",
+    `Generated initial conversation summary for chat ${chatId}\nConversation Summary (v${summaryGenerationCount}): ${conversationSummary}`
+  );
+
   // Generate conversation summary and validate result
   for (let i = 0; i < 3; i++) {
-    const { text: validSummary } = await generateText({
+    const { object: validSummary } = await generateObject({
       model: openai("gpt-5-nano"),
       system: `
-    ou are a strict validator.
+    You are a strict validator.
     Given a conversation summary, answer YES if it clearly includes:
       1.	The main objectives or tasks being worked on,
       2.	Any important decisions or open questions,
@@ -186,18 +211,28 @@ export async function summarizeChat(
     `,
       temperature: 0.1,
       messages: modelMessages,
+      schema: ValidSummarySchema,
     });
 
     // If validator is satisfied with summary,
     // break and continue with current summary
-    if (validSummary === "YES") {
+    if (validSummary.valid) {
+      logger.log(
+        "summarizeChat",
+        `Validator has approved summary v${summaryGenerationCount}`
+      );
       break;
     }
+
+    logger.log(
+      "summarizeChat",
+      `Validator has rejected summary v${summaryGenerationCount}\nWith response: ${validSummary}`
+    );
 
     let { text: updatedConversationSummary } = await generateText({
       model: openai("gpt-5-nano"),
       system: `
-    YYou are Organic LLM’s summary reviser.
+    You are Organic LLM’s summary reviser.
     You are given:
 	1.	The current summary (which is incomplete or low-quality), and
 	2.	The full conversation messages.
@@ -213,14 +248,21 @@ export async function summarizeChat(
       temperature: 0.2,
       messages: modelMessages,
     });
+
     conversationSummary = updatedConversationSummary;
+
+    logger.log(
+      "summarizeChat",
+      `Generated updated conversation summary for chat ${chatId}\nConversation Summary (v${summaryGenerationCount}): ${conversationSummary}`
+    );
   }
 
   if (conversationSummary === null) {
     logger.error(
       "summarizeChat",
-      "Conversation summary could not be generated.",
+      "Conversation summary could not be generated."
     );
+
     return {
       data: null,
       error: "Conversation summary could not be generated.",
@@ -229,15 +271,16 @@ export async function summarizeChat(
 
   const { error: sbError } = await updateConversationSummary(
     chatId,
-    conversationSummary,
+    conversationSummary
   );
 
   if (sbError) {
     logger.error(
       "summarizeChat",
       "Conversation summary could not be updated.",
-      sbError,
+      sbError
     );
+
     return {
       data: conversationSummary,
       error: `Conversation summary could not be updated. ${sbError}`,

@@ -90,9 +90,7 @@ export const SidebarChats = () => {
   }, [chats]);
 
   const allChatsComponents = useMemo(() => {
-    return allChats.length > 0 ? (
-      <SidebarChatList threads={allChats} />
-    ) : null;
+    return allChats.length > 0 ? <SidebarChatList threads={allChats} /> : null;
   }, [allChats]);
 
   const pinnedChatsComponents = useMemo(() => {
@@ -116,7 +114,6 @@ export const SidebarChats = () => {
     ) : null;
   }, [pinnedChats]);
 
-
   return (
     <>
       {pinnedChatsComponents}
@@ -126,9 +123,7 @@ export const SidebarChats = () => {
             <h2>All Threads</h2>
           </div>
         </SidebarGroupLabel>
-        {
-          allChatsComponents
-        }
+        {allChatsComponents}
       </SidebarGroup>
     </>
   );

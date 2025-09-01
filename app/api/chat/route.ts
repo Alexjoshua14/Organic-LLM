@@ -28,7 +28,7 @@ export async function POST(req: Request) {
 
   const systemPrompt = readFileSync(
     path.join(process.cwd(), "lib/system-prompt/", "prompt-v0.txt"),
-    "utf-8"
+    "utf-8",
   );
 
   logger.log("POST", `Recieved Message: ${JSON.stringify(message)}`);
@@ -37,7 +37,7 @@ export async function POST(req: Request) {
 
   try {
     const previousMessages = await loadChat(id).then(
-      (res) => res.data?.messages ?? []
+      (res) => res.data?.messages ?? [],
     );
 
     validatedMessages = await validateUIMessages({
@@ -48,7 +48,7 @@ export async function POST(req: Request) {
     if (err instanceof TypeValidationError) {
       logger.error(
         "POST",
-        `Database messages validation failed: ${err.message}`
+        `Database messages validation failed: ${err.message}`,
       );
       validatedMessages = [];
     } else {
