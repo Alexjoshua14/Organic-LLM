@@ -13,9 +13,9 @@ const logger = createLogger(`app/chat/[slug]/page.tsx`);
 export default async function ChatPage({
   params,
 }: {
-  params: Promise<{ slug: string }>;
+  params: Promise<{ slug: string, initialMessage?: string }>;
 }) {
-  const { slug: chatId } = await params;
+  const { slug: chatId, initialMessage } = await params;
 
   const id = chatId;
 
@@ -54,7 +54,7 @@ export default async function ChatPage({
 
   return (
     <Page>
-      <Chat chatData={chatData} />
+      <Chat chatData={chatData} initialMessage={initialMessage} />
     </Page>
   );
 }

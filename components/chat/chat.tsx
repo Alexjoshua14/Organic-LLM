@@ -17,9 +17,10 @@ const logger = createLogger("components/chat/chat");
 
 type ChatProps = {
   chatData: { thread: Thread; messages: UIMessage[] } | null;
+  initialMessage?: string;
 };
 
-export const Chat: React.FC<ChatProps> = ({ chatData }) => {
+export const Chat: React.FC<ChatProps> = ({ chatData, initialMessage }) => {
   const [updatingSummary, setUpdatingSummary] = useState(false);
 
   const { messages, sendMessage, id } = useChat({
@@ -41,6 +42,14 @@ export const Chat: React.FC<ChatProps> = ({ chatData }) => {
       }
     };
   }, [chatData, messages]);
+
+  useEffect(() => {
+    if (initialMessage && messages.length === 0) {
+      sendMessage({
+        text: initialMessage,
+      })
+    }
+  }, [])
 
   const handleUpdateSummary = async () => {
     if (!chatData?.thread.id) {
@@ -82,10 +91,6 @@ export const Chat: React.FC<ChatProps> = ({ chatData }) => {
       initial="instant"
       resize="smooth"
     >
-      {/*<div className="absolute top-0 w-full inline-block text-center justify-center p-4 bg-white/5 backdrop-blur-xl shadow">
-      <span className={title()}>Welcome Chat ;)</span>
-      <span className={subtitle()}>Chat ID: {chatId}</span>
-    </div>*/}
       <ChatThread messages={messages} />
       <ChatScrollButton />
       <ChatInput id={id} sendMessage={sendMessage} />
