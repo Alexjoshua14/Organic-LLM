@@ -1,14 +1,18 @@
 "use server";
 
 import { openai } from "@ai-sdk/openai";
-import { convertToModelMessages, generateText } from "ai";
+import { convertToModelMessages, generateText, UIMessage } from "ai";
 
 import { supabaseServer } from "../supabase/server";
 import { Message } from "../schemas/chat";
 
 import { createLogger } from "@/lib/logger";
 import { convertMessageToUIMessage } from "@/lib/chat/message-transform";
-import { updateChatTitle } from "@/data/supabase/chat";
+import {
+  getMessages,
+  updateChatTitle,
+  updateConversationSummary,
+} from "@/data/supabase/chat";
 import { Result } from "@/types";
 
 const logger = createLogger(`lib/llm/chat-helpers.ts`);
@@ -127,6 +131,121 @@ export async function generateChatTitle(
 
   return {
     data: titleIdea,
+    error: null,
+  };
+}
+
+export async function summarizeChat(
+  chatId: string,
+): Promise<Result<string, string>> {
+  // Get all chat messages
+  let { data: messages, error } = await getMessages(chatId);
+
+  if (error || !messages) {
+    return {
+      data: null,
+      error: "No messages found for chat",
+    };
+  }
+
+  // Safeguard for development, cap messages to 200
+  if (messages.length > 200) {
+    messages = messages.slice(-200);
+  }
+
+  const modelMessages = convertToModelMessages(messages);
+
+  let { text: conversationSummary } = await generateText({
+    model: openai("gpt-5-nano"),
+    system: `
+  You are Organic LLM’s conversation summarizer.
+  Given the full set of messages in this thread, write a single concise paragraph (2–4 sentences) that captures:
+  – what the user and assistant have been working on,
+  – any key decisions or questions,
+  – and the current focus or next step.
+  The summary must be clear, compact, and neutral, without filler or repetition. It should be under 600 tokens.
+  Do not include formatting, lists, or citations — just one plain text blurb suitable for storage in a database field.
+  `,
+    temperature: 0.2,
+    messages: modelMessages,
+  });
+
+  // Generate conversation summary and validate result
+  for (let i = 0; i < 3; i++) {
+    const { text: validSummary } = await generateText({
+      model: openai("gpt-5-nano"),
+      system: `
+    ou are a strict validator.
+    Given a conversation summary, answer YES if it clearly includes:
+      1.	The main objectives or tasks being worked on,
+      2.	Any important decisions or open questions,
+      3.	The current focus or next step.
+    Otherwise, answer NO.
+    Reply with only YES or NO — no explanation.
+    Here is the summary: ${conversationSummary}
+    `,
+      temperature: 0.1,
+      messages: modelMessages,
+    });
+
+    // If validator is satisfied with summary,
+    // break and continue with current summary
+    if (validSummary === "YES") {
+      break;
+    }
+
+    let { text: updatedConversationSummary } = await generateText({
+      model: openai("gpt-5-nano"),
+      system: `
+    YYou are Organic LLM’s summary reviser.
+    You are given:
+	1.	The current summary (which is incomplete or low-quality), and
+	2.	The full conversation messages.
+
+    Your task: Rewrite the summary into one concise paragraph (under 600 tokens) that clearly includes:
+    – the main objectives or tasks being worked on,
+    – any important decisions or open questions,
+    – the current focus or next step.
+
+    The output must be clear, neutral, and compact, with no lists, no formatting, and no explanations. Output only the improved summary paragraph.
+    Current summary: ${conversationSummary}
+    `,
+      temperature: 0.2,
+      messages: modelMessages,
+    });
+    conversationSummary = updatedConversationSummary;
+  }
+
+  if (conversationSummary === null) {
+    logger.error(
+      "summarizeChat",
+      "Conversation summary could not be generated.",
+    );
+    return {
+      data: null,
+      error: "Conversation summary could not be generated.",
+    };
+  }
+
+  const { error: sbError } = await updateConversationSummary(
+    chatId,
+    conversationSummary,
+  );
+
+  if (sbError) {
+    logger.error(
+      "summarizeChat",
+      "Conversation summary could not be updated.",
+      sbError,
+    );
+    return {
+      data: conversationSummary,
+      error: `Conversation summary could not be updated. ${sbError}`,
+    };
+  }
+
+  return {
+    data: conversationSummary,
     error: null,
   };
 }

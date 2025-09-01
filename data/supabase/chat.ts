@@ -12,9 +12,12 @@ import {
   convertUIMessageToMessage,
 } from "@/lib/chat/message-transform";
 import { supabaseServer } from "@/lib/supabase/server";
+
 import { createLogger } from "@/lib/logger";
 
 const logger = createLogger("data/supabase/chat.ts");
+
+const DEFAULT_MESSAGE_LIMIT = 10;
 
 export async function getChats(): Promise<Result<Thread[]>> {
   const sb = await supabaseServer();
@@ -264,6 +267,54 @@ export async function getMessages(
   };
 }
 
+export async function getNMessages(
+  chatId: string,
+  limit?: number,
+): Promise<Result<UIMessage[], string>> {
+  if (limit === 0) {
+    return {
+      data: [],
+      error: "Limit should not be zero",
+    };
+  }
+
+  try {
+    const sb = await supabaseServer();
+
+    const { data: messages, error } = await sb
+      .from("messages")
+      .select("*")
+      .eq("thread_id", chatId)
+      .order("created_at", { ascending: true })
+      .limit(limit ?? DEFAULT_MESSAGE_LIMIT);
+
+    if (error || !messages) {
+      return {
+        data: [],
+        error: error?.message ?? "Unknown error",
+      };
+    }
+
+    const uiMessages = messages
+      .map((message) => convertMessageToUIMessage(message))
+      .filter((message) => message !== null);
+
+    if (uiMessages.length !== messages.length) {
+      logger.error("getNMessages", "A message was not converted to UIMessage");
+    }
+
+    return {
+      data: uiMessages,
+      error: null,
+    };
+  } catch (err) {
+    return {
+      data: [],
+      error: err instanceof Error ? err.message : "Unknown error",
+    };
+  }
+}
+
 export async function updateChatTitle(
   chatId: string,
   title: string,
@@ -310,6 +361,37 @@ export async function updateChatPinned(
 export async function deleteChat(chatId: string): Promise<SimpleResult> {
   const sb = await supabaseServer();
   const { error } = await sb.from("threads").delete().eq("id", chatId);
+
+  if (error) {
+    return {
+      ok: false,
+      error: new Error(error?.message ?? "Unknown error"),
+    };
+  }
+
+  return {
+    ok: true,
+    error: null,
+  };
+}
+
+export async function updateConversationSummary(
+  chatId: string,
+  conversationSummary: string,
+): Promise<SimpleResult> {
+  if (conversationSummary.trim().length === 0) {
+    return {
+      ok: false,
+      error: new Error("Conversation summary cannot be empty"),
+    };
+  }
+
+  const sb = await supabaseServer();
+
+  const { error } = await sb
+    .from("threads")
+    .update({ conversation_summary: conversationSummary })
+    .eq("id", chatId);
 
   if (error) {
     return {

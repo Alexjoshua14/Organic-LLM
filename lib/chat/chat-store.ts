@@ -9,6 +9,7 @@ import {
   loadChat as loadChatSupabase,
   saveChat as saveChatSupabase,
   getChats as getChatsSupabase,
+  getNMessages,
 } from "@/data/supabase/chat";
 import { Result, SimpleResult } from "@/types";
 import { Thread } from "@/lib/schemas/chat";
@@ -110,4 +111,35 @@ export async function getChat(
   }
 
   return chat;
+}
+
+export async function getMessagesForChatPrompt(
+  chatId: string,
+  limit?: number,
+): Promise<Result<{ prompt: string; messages: UIMessage[] }, string>> {
+  const { data: messages, error } = await getNMessages(chatId, limit);
+
+  if (error || messages === null) {
+    logger.error(
+      "getMessagesForChatPrompt",
+      `Error getting messages: ${error}`,
+    );
+
+    return {
+      data: null,
+      error: error,
+    };
+  }
+
+  const prompt = `
+    Summary of Conversation so far: <unknown>
+  `;
+
+  return {
+    data: {
+      prompt: prompt,
+      messages,
+    },
+    error: null,
+  };
 }
