@@ -163,10 +163,10 @@ export async function summarizeChat(
 
   const modelMessages = convertToModelMessages(messages);
 
-  logger.log(
-    "summarizeChat",
-    `Messages to be summarized\n${JSON.stringify(modelMessages)}`
-  );
+  // logger.log(
+  //   "summarizeChat",
+  //   `Messages to be summarized\n${JSON.stringify(modelMessages)}`
+  // );
 
   logger.log(
     "summarizeChat",
