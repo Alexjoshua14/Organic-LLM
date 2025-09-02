@@ -1,6 +1,3 @@
-import { readFileSync } from "fs";
-import path from "path";
-
 import { openai } from "@ai-sdk/openai";
 import {
   streamText,
@@ -12,7 +9,11 @@ import {
 } from "ai";
 
 // import systemPrompt from "@/lib/system-prompt";
-import { loadChat, saveChat } from "@/lib/chat/chat-store";
+import {
+  getMessagesForChatPrompt,
+  loadChat,
+  saveChat,
+} from "@/lib/chat/chat-store";
 import { ensureChatHasTitle } from "@/lib/llm/chat-helpers";
 import { createLogger } from "@/lib/logger";
 import { SYSTEM_PROMPT } from "@/lib/system-prompt/prompt-v0";
@@ -24,7 +25,7 @@ const tools = {};
 
 const logger = createLogger(`app/api/chat/route.ts`);
 
-const systemPrompt = SYSTEM_PROMPT;
+let systemPrompt = SYSTEM_PROMPT;
 
 export async function POST(req: Request) {
   const { message, id }: { message: UIMessage; id: string } = await req.json();
@@ -34,14 +35,27 @@ export async function POST(req: Request) {
   let validatedMessages: UIMessage[];
 
   try {
-    const previousMessages = await loadChat(id).then(
-      (res) => res.data?.messages ?? []
-    );
+    const chatContextResult = await getMessagesForChatPrompt(id);
 
-    validatedMessages = await validateUIMessages({
-      messages: [...previousMessages, message],
-      tools,
-    });
+    if (chatContextResult.error) {
+      logger.error(
+        "POST",
+        `Error getting chat context: ${chatContextResult.error}`
+      );
+      validatedMessages = [];
+    } else {
+      validatedMessages = chatContextResult.data?.messages ?? [];
+      systemPrompt = chatContextResult.data?.prompt ?? systemPrompt;
+    }
+
+    // const previousMessages = await loadChat(id).then(
+    //   (res) => res.data?.messages ?? [],
+    // );
+
+    // validatedMessages = await validateUIMessages({
+    //   messages: [...previousMessages, message],
+    //   tools,
+    // });
   } catch (err) {
     if (err instanceof TypeValidationError) {
       logger.error(
@@ -54,8 +68,16 @@ export async function POST(req: Request) {
     }
   }
 
+  logger.log(
+    "POST",
+    `System Prompt: ${systemPrompt}
+    \n\n--------------------------------\n\n
+    ${validatedMessages.length} messages being sent to LLM
+    `
+  );
+
   const result = streamText({
-    model: openai("gpt-5"),
+    model: openai("gpt-5-mini"),
     messages: convertToModelMessages(validatedMessages),
     system: systemPrompt,
   });

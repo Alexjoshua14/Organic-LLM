@@ -19,7 +19,7 @@ import { Result } from "@/types";
 const logger = createLogger(`lib/llm/chat-helpers.ts`);
 
 export async function ensureChatHasTitle(
-  chatId: string
+  chatId: string,
 ): Promise<Result<string>> {
   const sb = await supabaseServer();
 
@@ -45,7 +45,7 @@ export async function ensureChatHasTitle(
   ) {
     logger.log(
       "ensureChatHasTitle",
-      `Chat already has title: ${res.data.title}`
+      `Chat already has title: ${res.data.title}`,
     );
 
     return {
@@ -59,7 +59,7 @@ export async function ensureChatHasTitle(
 }
 
 export async function generateChatTitle(
-  chatId: string
+  chatId: string,
 ): Promise<Result<string>> {
   const sb = await supabaseServer();
 
@@ -72,7 +72,7 @@ export async function generateChatTitle(
   if (messages.error) {
     logger.error(
       "updateChatTitle",
-      `Error getting message: ${messages.error?.message}`
+      `Error getting message: ${messages.error?.message}`,
     );
 
     return {
@@ -121,7 +121,7 @@ export async function generateChatTitle(
   if (res.error) {
     logger.error(
       "updateChatTitle",
-      `Error updating chat title: ${res.error.message}`
+      `Error updating chat title: ${res.error.message}`,
     );
 
     return {
@@ -137,7 +137,7 @@ export async function generateChatTitle(
 }
 
 export async function summarizeChat(
-  chatId: string
+  chatId: string,
 ): Promise<Result<string, string>> {
   logger.log("summarizeChat", `Summarizing chat ${chatId}`);
   // Get all chat messages
@@ -156,7 +156,7 @@ export async function summarizeChat(
   if (messages.length > 75) {
     logger.warn(
       "summarizeChat",
-      `Chat ${chatId} has more than 75 messages, truncating`
+      `Chat ${chatId} has more than 75 messages, truncating`,
     );
     messages = messages.slice(-75);
   }
@@ -170,7 +170,7 @@ export async function summarizeChat(
 
   logger.log(
     "summarizeChat",
-    `Summarizing chat ${chatId} with ${modelMessages.length} messages`
+    `Summarizing chat ${chatId} with ${modelMessages.length} messages`,
   );
 
   let { text: conversationSummary } = await generateText({
@@ -192,7 +192,7 @@ export async function summarizeChat(
 
   logger.log(
     "summarizeChat",
-    `Generated initial conversation summary for chat ${chatId}\nConversation Summary (v${summaryGenerationCount}): ${conversationSummary}`
+    `Generated initial conversation summary for chat ${chatId}\nConversation Summary (v${summaryGenerationCount}): ${conversationSummary}`,
   );
 
   // Generate conversation summary and validate result
@@ -219,14 +219,14 @@ export async function summarizeChat(
     if (validSummary.valid) {
       logger.log(
         "summarizeChat",
-        `Validator has approved summary v${summaryGenerationCount}`
+        `Validator has approved summary v${summaryGenerationCount}`,
       );
       break;
     }
 
     logger.log(
       "summarizeChat",
-      `Validator has rejected summary v${summaryGenerationCount}\nWith response: ${validSummary}`
+      `Validator has rejected summary v${summaryGenerationCount}\nWith response: ${validSummary}`,
     );
 
     let { text: updatedConversationSummary } = await generateText({
@@ -253,14 +253,14 @@ export async function summarizeChat(
 
     logger.log(
       "summarizeChat",
-      `Generated updated conversation summary for chat ${chatId}\nConversation Summary (v${summaryGenerationCount}): ${conversationSummary}`
+      `Generated updated conversation summary for chat ${chatId}\nConversation Summary (v${summaryGenerationCount}): ${conversationSummary}`,
     );
   }
 
   if (conversationSummary === null) {
     logger.error(
       "summarizeChat",
-      "Conversation summary could not be generated."
+      "Conversation summary could not be generated.",
     );
 
     return {
@@ -271,14 +271,14 @@ export async function summarizeChat(
 
   const { error: sbError } = await updateConversationSummary(
     chatId,
-    conversationSummary
+    conversationSummary,
   );
 
   if (sbError) {
     logger.error(
       "summarizeChat",
       "Conversation summary could not be updated.",
-      sbError
+      sbError,
     );
 
     return {

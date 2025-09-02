@@ -10,9 +10,11 @@ import {
   saveChat as saveChatSupabase,
   getChats as getChatsSupabase,
   getNMessages,
+  getConversationSummary,
 } from "@/data/supabase/chat";
 import { Result, SimpleResult } from "@/types";
 import { Thread } from "@/lib/schemas/chat";
+import { SYSTEM_PROMPT } from "../system-prompt/prompt-v0";
 
 const logger = createLogger(`util/chat-store.ts`);
 
@@ -35,7 +37,7 @@ export async function createChat(): Promise<Result<string>> {
 }
 
 export async function loadChat(
-  id: string,
+  id: string
 ): Promise<Result<{ thread: Thread; messages: UIMessage[] }>> {
   const res = await loadChatSupabase(id);
 
@@ -49,7 +51,7 @@ export async function loadChat(
   }
   logger.log(
     "loadChat",
-    `Chat loaded: ${res.data?.thread.id}, ${res.data?.messages.length} messages`,
+    `Chat loaded: ${res.data?.thread.id}, ${res.data?.messages.length} messages`
   );
 
   return res;
@@ -67,7 +69,7 @@ export async function saveChat({
   if (res.error || !res.ok) {
     logger.error(
       "saveChat",
-      `Error saving chat: ${res.error?.message ?? "Unknown error"}`,
+      `Error saving chat: ${res.error?.message ?? "Unknown error"}`
     );
   }
   logger.log("saveChat", `Chat saved: ${chatId}`);
@@ -95,7 +97,7 @@ export async function getChats(): Promise<Result<Thread[]>> {
 }
 
 export async function getChat(
-  chatId: string,
+  chatId: string
 ): Promise<Result<{ thread: Thread; messages: UIMessage[] }>> {
   const chat = await loadChat(chatId);
 
@@ -115,14 +117,14 @@ export async function getChat(
 
 export async function getMessagesForChatPrompt(
   chatId: string,
-  limit?: number,
+  limit?: number
 ): Promise<Result<{ prompt: string; messages: UIMessage[] }, string>> {
   const { data: messages, error } = await getNMessages(chatId, limit);
 
   if (error || messages === null) {
     logger.error(
       "getMessagesForChatPrompt",
-      `Error getting messages: ${error}`,
+      `Error getting messages: ${error}`
     );
 
     return {
@@ -131,13 +133,30 @@ export async function getMessagesForChatPrompt(
     };
   }
 
-  const prompt = `
-    Summary of Conversation so far: <unknown>
-  `;
+  const conversationSummaryResult = await getConversationSummary(chatId);
+
+  if (conversationSummaryResult.error) {
+    logger.error(
+      "getMessagesForChatPrompt",
+      `Error getting conversation summary: ${conversationSummaryResult.error.message}`
+    );
+    return {
+      data: null,
+      error: conversationSummaryResult.error.message,
+    };
+  }
+
+  const conversationSummary = conversationSummaryResult.data;
+
+  const prompt = SYSTEM_PROMPT;
+
+  const systemPrompt = prompt
+    .replace("{{currentDateTime}}", new Date().toISOString())
+    .concat(`\n\nConversation Summary:\n${conversationSummary}`);
 
   return {
     data: {
-      prompt: prompt,
+      prompt: systemPrompt,
       messages,
     },
     error: null,
