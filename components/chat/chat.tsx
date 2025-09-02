@@ -34,22 +34,22 @@ export const Chat: React.FC<ChatProps> = ({ chatData, initialMessage }) => {
     }),
   });
 
-  useEffect(() => {
-    // Simply ensure chat has title when the user leaves
-    return () => {
-      if (chatData?.thread.title === null && messages.length > 3) {
-        ensureChatHasTitle(chatData.thread.id);
-      }
-    };
-  }, [chatData, messages]);
+  // useEffect(() => {
+  //   // Simply ensure chat has title when the user leaves
+  //   return () => {
+  //     if (chatData?.thread.title === null && messages.length > 3) {
+  //       ensureChatHasTitle(chatData.thread.id);
+  //     }
+  //   };
+  // }, [chatData, messages]);
 
   useEffect(() => {
     if (initialMessage && messages.length === 0) {
       sendMessage({
         text: initialMessage,
-      })
+      });
     }
-  }, [])
+  }, []);
 
   const handleUpdateSummary = async () => {
     if (!chatData?.thread.id) {

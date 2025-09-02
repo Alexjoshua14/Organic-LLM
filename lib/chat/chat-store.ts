@@ -11,6 +11,7 @@ import {
   getChats as getChatsSupabase,
   getNMessages,
   getConversationSummary,
+  upsertMessages,
 } from "@/data/supabase/chat";
 import { Result, SimpleResult } from "@/types";
 import { Thread } from "@/lib/schemas/chat";
@@ -64,7 +65,7 @@ export async function saveChat({
   chatId: string;
   messages: UIMessage[];
 }): Promise<SimpleResult> {
-  const res = await saveChatSupabase({ chatId, messages });
+  const res = await upsertMessages({ chatId, messages });
 
   if (res.error || !res.ok) {
     logger.error(

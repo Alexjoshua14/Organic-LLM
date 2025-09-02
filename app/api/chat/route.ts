@@ -42,9 +42,12 @@ export async function POST(req: Request) {
         "POST",
         `Error getting chat context: ${chatContextResult.error}`
       );
-      validatedMessages = [];
+      validatedMessages = [message];
     } else {
-      validatedMessages = chatContextResult.data?.messages ?? [];
+      validatedMessages = [
+        ...(chatContextResult.data?.messages ?? []),
+        message,
+      ];
       systemPrompt = chatContextResult.data?.prompt ?? systemPrompt;
     }
 
@@ -62,7 +65,7 @@ export async function POST(req: Request) {
         "POST",
         `Database messages validation failed: ${err.message}`
       );
-      validatedMessages = [];
+      validatedMessages = [message];
     } else {
       throw err;
     }
@@ -70,7 +73,8 @@ export async function POST(req: Request) {
 
   logger.log(
     "POST",
-    `System Prompt: ${systemPrompt}
+    `
+    System Prompt: ${systemPrompt.length} characters
     \n\n--------------------------------\n\n
     ${validatedMessages.length} messages being sent to LLM
     `
@@ -82,7 +86,7 @@ export async function POST(req: Request) {
     system: systemPrompt,
   });
 
-  logger.log("POST", `Result: ${JSON.stringify(result)}`);
+  // logger.log("POST", `Result: ${JSON.stringify(result)}`);
 
   return result.toUIMessageStreamResponse({
     originalMessages: validatedMessages,

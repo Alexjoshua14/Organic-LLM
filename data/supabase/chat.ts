@@ -234,6 +234,58 @@ export async function addMessage(
   };
 }
 
+export async function upsertMessages(params: {
+  chatId: string;
+  messages: UIMessage[];
+}): Promise<SimpleResult> {
+  const { chatId, messages } = params;
+
+  const sb = await supabaseServer();
+
+  // Check if Chat thread exists
+  const { data: thread, error: threadErr } = await sb
+    .from("threads")
+    .select("*")
+    .eq("id", chatId)
+    .single();
+
+  if (threadErr || !thread) {
+    const { error } = await createChat(chatId);
+
+    if (error) {
+      return {
+        ok: false,
+        error: new Error(
+          error?.message ?? "Error occured creating chat thread.."
+        ),
+      };
+    }
+  }
+
+  const rows = messages.map((message) =>
+    convertUIMessageToMessage(message, chatId)
+  );
+
+  const { error } = await sb.from("messages").upsert(rows, {
+    ignoreDuplicates: true,
+  });
+
+  if (error) {
+    logger.error("upsertMessages", "Error upserting messages:", error);
+    return {
+      ok: false,
+      error: new Error(error?.message ?? "Unknown error"),
+    };
+  }
+
+  logger.log("upsertMessages", "Messages upserted successfully");
+
+  return {
+    ok: true,
+    error: null,
+  };
+}
+
 export async function getMessages(
   chatId: string
 ): Promise<Result<UIMessage[]>> {

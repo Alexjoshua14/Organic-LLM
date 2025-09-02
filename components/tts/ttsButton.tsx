@@ -5,6 +5,8 @@ import { Volume2, X } from "lucide-react";
 import { useCallback, useRef, useState } from "react";
 
 import { createLogger } from "../../lib/logger";
+import { Skeleton } from "../third-party/ui/skeleton";
+import { Loader } from "../third-party/ai-elements/loader";
 
 const logger = createLogger("components/tts/ttsButton.tsx");
 
@@ -55,6 +57,7 @@ export function TTSButton({
     clearAudio();
 
     try {
+      setLoading(true);
       const res = await fetch("/api/ai/tts", {
         method: "POST",
         headers: {
@@ -105,17 +108,22 @@ export function TTSButton({
         <Volume2 className="w-4 h-4 mr-1" />
         {iconOnly ? null : "Play Audio"}
       </Button>
-      {url && (
+      {(loading || url) && (
         <div className="absolute top-4 left-1/2 -translate-x-1/2 flex items-center gap-2 bg-white/20 backdrop-blur-sm rounded-lg px-2 py-1">
-          <audio
-            ref={audioRef}
-            autoPlay
-            controls
-            className="backdrop-blur-sm rounded-lg"
-            src={url}
-          >
-            <track kind="captions" />
-          </audio>
+          {url ? (
+            <audio
+              ref={audioRef}
+              autoPlay
+              controls
+              className="backdrop-blur-sm rounded-lg"
+              src={url ?? undefined}
+            >
+              <track kind="captions" />
+            </audio>
+          ) : (
+            <Loader className="w-4 h-4" />
+          )}
+
           <Button isIconOnly size="sm" onPress={clearAudio}>
             <X className="w-4 h-4" />
           </Button>

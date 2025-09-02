@@ -1,4 +1,4 @@
-import { FC } from "react";
+import { FC, memo } from "react";
 import { UIMessage } from "ai";
 
 import { ClipboardCopyButton } from "../shared/clipboardCopyButton";
@@ -11,7 +11,8 @@ type ChatMessageProps = {
   message: UIMessage;
 };
 
-export const ChatMessage: FC<ChatMessageProps> = ({ message }) => {
+export const ChatMessage = memo<ChatMessageProps>(({ message }) => {
+  console.log("Rendering ChatMessage: ", message.id, message.role);
   switch (message.role) {
     case "assistant":
       return <AIMessage message={message} />;
@@ -20,7 +21,7 @@ export const ChatMessage: FC<ChatMessageProps> = ({ message }) => {
     case "system":
       return <SystemMessage message={message} />;
   }
-};
+});
 
 const AIMessage: FC<ChatMessageProps> = ({ message }) => {
   const text = message.parts
