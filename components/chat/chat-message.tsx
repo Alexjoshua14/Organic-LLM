@@ -14,11 +14,11 @@ type ChatMessageProps = {
 export const ChatMessage: FC<ChatMessageProps> = ({ message }) => {
   switch (message.role) {
     case "assistant":
-      return useMemo(() => <AIMessage message={message} />, [message]);
+      return <AIMessage message={message} />;
     case "user":
-      return useMemo(() => <UserMessage message={message} />, [message]);
+      return <UserMessage message={message} />;
     case "system":
-      return useMemo(() => <SystemMessage message={message} />, [message]);
+      return <SystemMessage message={message} />;
   }
 };
 
