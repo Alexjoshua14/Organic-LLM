@@ -15,6 +15,7 @@ import {
 import { loadChat, saveChat } from "@/lib/chat/chat-store";
 import { ensureChatHasTitle } from "@/lib/llm/chat-helpers";
 import { createLogger } from "@/lib/logger";
+import { SYSTEM_PROMPT } from "@/lib/system-prompt/prompt-v0";
 
 // Allow streaming responses up to 30 seconds
 export const maxDuration = 30;
@@ -23,13 +24,10 @@ const tools = {};
 
 const logger = createLogger(`app/api/chat/route.ts`);
 
+const systemPrompt = SYSTEM_PROMPT;
+
 export async function POST(req: Request) {
   const { message, id }: { message: UIMessage; id: string } = await req.json();
-
-  const systemPrompt = readFileSync(
-    path.join(process.cwd(), "lib/system-prompt/", "prompt-v0.txt"),
-    "utf-8",
-  );
 
   logger.log("POST", `Recieved Message: ${JSON.stringify(message)}`);
 
@@ -37,7 +35,7 @@ export async function POST(req: Request) {
 
   try {
     const previousMessages = await loadChat(id).then(
-      (res) => res.data?.messages ?? [],
+      (res) => res.data?.messages ?? []
     );
 
     validatedMessages = await validateUIMessages({
@@ -48,7 +46,7 @@ export async function POST(req: Request) {
     if (err instanceof TypeValidationError) {
       logger.error(
         "POST",
-        `Database messages validation failed: ${err.message}`,
+        `Database messages validation failed: ${err.message}`
       );
       validatedMessages = [];
     } else {
@@ -57,7 +55,7 @@ export async function POST(req: Request) {
   }
 
   const result = streamText({
-    model: openai("gpt-5-nano"),
+    model: openai("gpt-5"),
     messages: convertToModelMessages(validatedMessages),
     system: systemPrompt,
   });
