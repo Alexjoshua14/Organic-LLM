@@ -153,6 +153,7 @@ export async function getMessagesForChatPrompt(
   } else {
     conversationSummary = conversationSummaryResult.data;
   }
+
   const prompt = SYSTEM_PROMPT;
 
   const systemPrompt = prompt

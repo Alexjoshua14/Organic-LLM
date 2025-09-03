@@ -16,7 +16,7 @@ import {
   ThreadSummary,
   ThreadSummarySchema,
 } from "../schemas/chat";
-import { ValidSummarySchema } from "../schemas/llm-tools";
+import { ValidSummary, ValidSummarySchema } from "../schemas/llm-tools";
 
 import { createLogger } from "@/lib/logger";
 import { convertMessageToUIMessage } from "@/lib/chat/message-transform";
@@ -539,11 +539,13 @@ export async function updateChatSummary(
 const validateSummary = async (
   conversationSummary: string,
   messages: ModelMessage[],
-  currentPersistedConversationSummary?: string
+  currentPersistedConversationSummary?: string,
+  forceGeneration?: boolean
 ): Promise<Result<string, string>> => {
+  let validSummary: ValidSummary | null = null;
   // Generate conversation summary and validate result
   for (let i = 1; i <= 3; i++) {
-    const { object: validSummary } = await generateObject({
+    const validatorRes = await generateObject({
       model: MODEL_SELECTION.validator,
       system: ValidatorSystemPrompt.replace(
         "{{currentPersistedConversationSummary}}",
@@ -553,6 +555,8 @@ const validateSummary = async (
       messages: messages,
       schema: ValidSummarySchema,
     });
+
+    validSummary = validatorRes.object;
 
     // If validator is satisfied with summary,
     // break and continue with current summary
@@ -587,6 +591,17 @@ const validateSummary = async (
       "validateSummary",
       `\nConversation Summary (v${i}): ${conversationSummary}`
     );
+  }
+
+  // If we're allowing validator to fail to provide valid summary
+  // and we don't get an approved summary, return null
+  if (!forceGeneration) {
+    if (!validSummary?.valid) {
+      return {
+        data: null,
+        error: "Validator failed to provide valid summary",
+      };
+    }
   }
 
   return {
