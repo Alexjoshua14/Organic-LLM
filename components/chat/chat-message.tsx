@@ -5,7 +5,7 @@ import { ClipboardCopyButton } from "../shared/clipboardCopyButton";
 import { TTSButton } from "../tts/ttsButton";
 
 import { ChatMessageMarkdown } from "./chat-message-markdown";
-import { ChatLoading, ChatThinking } from "./chat-loading";
+import { ChatLoading, ChatReasoning, ChatThinking } from "./chat-loading";
 
 type ChatMessageProps = {
   message: UIMessage;
@@ -39,19 +39,28 @@ const AIMessage: FC<ChatMessageProps> = ({ message }) => {
   return (
     <div className="group/ai-message rounded-lg p-4 flex flex-col gap-2">
       <div className="ai-message space-y-2 text-foreground max-w-full prose dark:prose-invert">
-        {message.parts.filter((part) => part.type === "text").length < 1 && <ChatThinking />}
-        {message.parts.map((part, i) => {
-          switch (part.type) {
-            case "text":
-              return (
-                <ChatMessageMarkdown
-                  key={`${message.id}-${i}`}
-                  content={part.text}
-                  id={message.id}
-                />
-              );
-          }
-        })}
+        {message.parts.length < 1 ? <ChatThinking /> :
+          message.parts.map((part, i) => {
+            switch (part.type) {
+              case "reasoning":
+                if (part.state === "streaming") {
+                  return (
+                    <ChatReasoning key={`${message.id}-${i}`} />
+                  )
+                }
+                return null;
+
+              case "text":
+                return (
+                  <ChatMessageMarkdown
+                    key={`${message.id}-${i}`}
+                    content={part.text}
+                    id={message.id}
+                  />
+                );
+
+            }
+          })}
       </div>
       <div className="w-full flex gap-2 h-8">
         <TTSButton iconOnly text={text} />
