@@ -1,3 +1,7 @@
+import ShinyText from "../ShinyText";
+
+const TEXT_ANIMATION_SPEED = 1.8
+
 export const ChatLoading = () => {
   return (
     <div className="flex gap-2 py-2">
@@ -7,3 +11,24 @@ export const ChatLoading = () => {
     </div>
   );
 };
+
+export const ChatThinking = () => {
+  return (
+    <ShinyText
+      text="Thinking..."
+      disabled={false}
+      speed={TEXT_ANIMATION_SPEED}
+    />
+  )
+}
+
+export const ChatReasoning = () => {
+  return (
+    <ShinyText
+      text="Reasoning..."
+      disabled={false}
+      speed={TEXT_ANIMATION_SPEED}
+      className='custom-class'
+    />
+  )
+}

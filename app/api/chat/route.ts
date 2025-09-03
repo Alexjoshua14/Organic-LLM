@@ -6,6 +6,7 @@ import {
   validateUIMessages,
   TypeValidationError,
   createIdGenerator,
+  smoothStream,
 } from "ai";
 
 // import systemPrompt from "@/lib/system-prompt";
@@ -84,6 +85,10 @@ export async function POST(req: Request) {
     model: openai("gpt-5-mini"),
     messages: convertToModelMessages(validatedMessages),
     system: systemPrompt,
+    experimental_transform: smoothStream({
+      delayInMs: 20, // optional: defaults to 10ms
+      chunking: "word", // optional: defaults to 'word'
+    }),
   });
 
   // logger.log("POST", `Result: ${JSON.stringify(result)}`);

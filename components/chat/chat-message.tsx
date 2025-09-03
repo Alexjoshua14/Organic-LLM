@@ -5,7 +5,7 @@ import { ClipboardCopyButton } from "../shared/clipboardCopyButton";
 import { TTSButton } from "../tts/ttsButton";
 
 import { ChatMessageMarkdown } from "./chat-message-markdown";
-import { ChatLoading } from "./chat-loading";
+import { ChatLoading, ChatThinking } from "./chat-loading";
 
 type ChatMessageProps = {
   message: UIMessage;
@@ -39,7 +39,7 @@ const AIMessage: FC<ChatMessageProps> = ({ message }) => {
   return (
     <div className="group/ai-message rounded-lg p-4 flex flex-col gap-2">
       <div className="ai-message space-y-2 text-foreground max-w-full prose dark:prose-invert">
-        {message.parts.length <= 1 && <ChatLoading />}
+        {message.parts.filter((part) => part.type === "text").length < 1 && <ChatThinking />}
         {message.parts.map((part, i) => {
           switch (part.type) {
             case "text":
