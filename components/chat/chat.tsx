@@ -10,7 +10,7 @@ import { ChatThread } from "./chat-thread";
 import { ChatScrollButton } from "./chat-scroll-button";
 
 import { Thread } from "@/lib/schemas/chat";
-import { ensureChatHasTitle, summarizeChat } from "@/lib/llm/chat-helpers";
+import { ensureChatHasTitle, summarizeChat, updateChatSummary } from "@/lib/llm/chat-helpers";
 import { createLogger } from "@/lib/logger";
 
 const logger = createLogger("components/chat/chat");
@@ -65,7 +65,7 @@ export const Chat: React.FC<ChatProps> = ({ chatData, initialMessage }) => {
 
     setUpdatingSummary(true);
     try {
-      const { data, error } = await summarizeChat(chatData.thread.id);
+      const { data, error } = await updateChatSummary(chatData.thread.id);
 
       if (error) {
         logger.error(

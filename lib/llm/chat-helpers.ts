@@ -1,10 +1,15 @@
 "use server";
 
 import { openai } from "@ai-sdk/openai";
-import { convertToModelMessages, generateObject, generateText } from "ai";
+import {
+  convertToModelMessages,
+  generateObject,
+  generateText,
+  UIMessage,
+} from "ai";
 
 import { supabaseServer } from "../supabase/server";
-import { Message } from "../schemas/chat";
+import { Message, ThreadSummary, ThreadSummarySchema } from "../schemas/chat";
 import { ValidSummarySchema } from "../schemas/llm-tools";
 
 import { createLogger } from "@/lib/logger";
@@ -16,10 +21,50 @@ import {
 } from "@/data/supabase/chat";
 import { Result } from "@/types";
 
+const SummarizerSystemPrompt = `
+You are Organic LLM's conversation summarizer.
+Given the full set of messages in this thread, look at all of them and write a single concise paragraph (2-4 sentences) that captures:
+- what the user and assistant have been working on,
+- any key decisions or questions,
+- and the current focus or next step.
+The summary must be clear, compact, and neutral, without filler or repetition. It should be under 600 tokens.
+Do not include formatting, lists, or citations — just one plain text blurb suitable for storage in a database field.
+`;
+
+const ValidatorSystemPrompt = `
+You are a strict validator.
+Given a conversation summary, answer valid = TRUE if it clearly includes:
+  1.	The main objectives or tasks being worked on,
+  2.	Any important decisions or open questions,
+  3.	The current focus or next step.
+Otherwise, answer valid = FALSE.
+Reply with only boolean value — no explanation.
+
+Proposed conversation summary:
+{{conversationSummary}}
+`;
+
+const ReviserSystemPrompt = `
+You are Organic LLM's summary reviser.
+You are given:
+	1.	The current summary (which is incomplete or low-quality), and
+	2.	The full conversation messages.
+
+Your task: Rewrite the summary into one concise paragraph (under 600 tokens) that clearly includes:
+    - the main objectives or tasks being worked on,
+    - any important decisions or open questions,
+    - the current focus or next step.
+
+The output must be clear, neutral, and compact, with no lists, no formatting, and no explanations. Output only the improved summary paragraph.
+
+Current conversation summary:
+{{conversationSummary}}
+`;
+
 const logger = createLogger(`lib/llm/chat-helpers.ts`);
 
 export async function ensureChatHasTitle(
-  chatId: string,
+  chatId: string
 ): Promise<Result<string>> {
   const sb = await supabaseServer();
 
@@ -45,7 +90,7 @@ export async function ensureChatHasTitle(
   ) {
     logger.log(
       "ensureChatHasTitle",
-      `Chat already has title: ${res.data.title}`,
+      `Chat already has title: ${res.data.title}`
     );
 
     return {
@@ -59,7 +104,7 @@ export async function ensureChatHasTitle(
 }
 
 export async function generateChatTitle(
-  chatId: string,
+  chatId: string
 ): Promise<Result<string>> {
   const sb = await supabaseServer();
 
@@ -72,7 +117,7 @@ export async function generateChatTitle(
   if (messages.error) {
     logger.error(
       "updateChatTitle",
-      `Error getting message: ${messages.error?.message}`,
+      `Error getting message: ${messages.error?.message}`
     );
 
     return {
@@ -121,7 +166,7 @@ export async function generateChatTitle(
   if (res.error) {
     logger.error(
       "updateChatTitle",
-      `Error updating chat title: ${res.error.message}`,
+      `Error updating chat title: ${res.error.message}`
     );
 
     return {
@@ -137,7 +182,7 @@ export async function generateChatTitle(
 }
 
 export async function summarizeChat(
-  chatId: string,
+  chatId: string
 ): Promise<Result<string, string>> {
   logger.log("summarizeChat", `Summarizing chat ${chatId}`);
   // Get all chat messages
@@ -156,7 +201,7 @@ export async function summarizeChat(
   if (messages.length > 75) {
     logger.warn(
       "summarizeChat",
-      `Chat ${chatId} has more than 75 messages, truncating`,
+      `Chat ${chatId} has more than 75 messages, truncating`
     );
     messages = messages.slice(-75);
   }
@@ -170,20 +215,12 @@ export async function summarizeChat(
 
   logger.log(
     "summarizeChat",
-    `Summarizing chat ${chatId} with ${modelMessages.length} messages`,
+    `Summarizing chat ${chatId} with ${modelMessages.length} messages`
   );
 
   let { text: conversationSummary } = await generateText({
     model: openai("gpt-5-mini"),
-    system: `
-  You are Organic LLM’s conversation summarizer.
-  Given the full set of messages in this thread, look at all of them and write a single concise paragraph (2–4 sentences) that captures:
-  – what the user and assistant have been working on,
-  – any key decisions or questions,
-  – and the current focus or next step.
-  The summary must be clear, compact, and neutral, without filler or repetition. It should be under 600 tokens.
-  Do not include formatting, lists, or citations — just one plain text blurb suitable for storage in a database field.
-  `,
+    system: SummarizerSystemPrompt,
     temperature: 0.2,
     messages: modelMessages,
   });
@@ -192,23 +229,17 @@ export async function summarizeChat(
 
   logger.log(
     "summarizeChat",
-    `Generated initial conversation summary for chat ${chatId}\nConversation Summary (v${summaryGenerationCount}): ${conversationSummary}`,
+    `Generated initial conversation summary for chat ${chatId}\nConversation Summary (v${summaryGenerationCount}): ${conversationSummary}`
   );
 
   // Generate conversation summary and validate result
   for (let i = 0; i < 3; i++) {
     const { object: validSummary } = await generateObject({
-      model: openai("gpt-5-nano"),
-      system: `
-    You are a strict validator.
-    Given a conversation summary, answer YES if it clearly includes:
-      1.	The main objectives or tasks being worked on,
-      2.	Any important decisions or open questions,
-      3.	The current focus or next step.
-    Otherwise, answer NO.
-    Reply with only YES or NO — no explanation.
-    Here is the summary: ${conversationSummary}
-    `,
+      model: openai("gpt-5-mini"),
+      system: ValidatorSystemPrompt.replace(
+        "{{conversationSummary}}",
+        conversationSummary
+      ),
       temperature: 0.1,
       messages: modelMessages,
       schema: ValidSummarySchema,
@@ -219,32 +250,22 @@ export async function summarizeChat(
     if (validSummary.valid) {
       logger.log(
         "summarizeChat",
-        `Validator has approved summary v${summaryGenerationCount}`,
+        `Validator has approved summary v${summaryGenerationCount}`
       );
       break;
     }
 
     logger.log(
       "summarizeChat",
-      `Validator has rejected summary v${summaryGenerationCount}\nWith response: ${validSummary}`,
+      `Validator has rejected summary v${summaryGenerationCount}\nWith response: ${JSON.stringify(validSummary)}`
     );
 
     let { text: updatedConversationSummary } = await generateText({
-      model: openai("gpt-5-nano"),
-      system: `
-    You are Organic LLM’s summary reviser.
-    You are given:
-	1.	The current summary (which is incomplete or low-quality), and
-	2.	The full conversation messages.
-
-    Your task: Rewrite the summary into one concise paragraph (under 600 tokens) that clearly includes:
-    – the main objectives or tasks being worked on,
-    – any important decisions or open questions,
-    – the current focus or next step.
-
-    The output must be clear, neutral, and compact, with no lists, no formatting, and no explanations. Output only the improved summary paragraph.
-    Current summary: ${conversationSummary}
-    `,
+      model: openai("gpt-5-mini"),
+      system: ReviserSystemPrompt.replace(
+        "{{conversationSummary}}",
+        conversationSummary
+      ),
       temperature: 0.2,
       messages: modelMessages,
     });
@@ -253,14 +274,14 @@ export async function summarizeChat(
 
     logger.log(
       "summarizeChat",
-      `Generated updated conversation summary for chat ${chatId}\nConversation Summary (v${summaryGenerationCount}): ${conversationSummary}`,
+      `Generated updated conversation summary for chat ${chatId}\nConversation Summary (v${summaryGenerationCount}): ${conversationSummary}`
     );
   }
 
   if (conversationSummary === null) {
     logger.error(
       "summarizeChat",
-      "Conversation summary could not be generated.",
+      "Conversation summary could not be generated."
     );
 
     return {
@@ -271,14 +292,14 @@ export async function summarizeChat(
 
   const { error: sbError } = await updateConversationSummary(
     chatId,
-    conversationSummary,
+    conversationSummary
   );
 
   if (sbError) {
     logger.error(
       "summarizeChat",
       "Conversation summary could not be updated.",
-      sbError,
+      sbError
     );
 
     return {
@@ -290,5 +311,100 @@ export async function summarizeChat(
   return {
     data: conversationSummary,
     error: null,
+  };
+}
+
+export async function summarizeChatNEW(
+  chatId: string
+): Promise<Result<string, string>> {
+  logger.log("summarizeChatNEW", `Summarizing chat ${chatId}`);
+
+  const { data: summary, error } = await summarizeChat(chatId);
+
+  if (error || !summary) {
+    return {
+      data: null,
+      error: error,
+    };
+  }
+
+  const sb = await supabaseServer();
+
+  // TEMPORARY OVERHEAD
+  const { data: latest_message, error: messagesError } = await sb
+    .from("messages")
+    .select("id")
+    .eq("thread_id", chatId)
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .single();
+  if (messagesError || !latest_message) {
+    return {
+      data: null,
+      error: messagesError.message ?? "No latest message id found",
+    };
+  }
+
+  logger.log("summarizeChatNEW", `Generated summary: ${summary}`);
+  const { error: sbError } = await sb.from("thread_summaries").insert({
+    thread_id: chatId,
+    summary_text: summary,
+    summary_tokens: summary.length,
+    last_summarized_message_id: latest_message.id,
+    last_summarized_at: new Date().toISOString(),
+  });
+  if (sbError) {
+    return {
+      data: null,
+      error: sbError.message,
+    };
+  }
+
+  return {
+    data: summary,
+    error: null,
+  };
+}
+
+export async function updateChatSummary(
+  chatId: string
+): Promise<Result<string, string>> {
+  logger.log("updateChatSummary", `Updating chat summary for chat ${chatId}`);
+  const sb = await supabaseServer();
+
+  const { data: threadSummaryData, error } = await sb
+    .from("thread_summaries")
+    .select(
+      `
+      *
+      `
+    )
+    .eq("thread_id", chatId)
+    .maybeSingle();
+
+  if (error) {
+    logger.error(
+      "updateChatSummary",
+      `Error getting thread summary: ${error.message}`
+    );
+    return {
+      data: null,
+      error: error.message,
+    };
+  } else if (!threadSummaryData) {
+    // If no thread summary data, generate a new one
+    return await summarizeChatNEW(chatId);
+  }
+
+  const threadSummary = ThreadSummarySchema.parse(threadSummaryData);
+
+  logger.log(
+    "updateChatSummary",
+    `Current thread summary: ${JSON.stringify(threadSummary)}`
+  );
+
+  return {
+    data: null,
+    error: "Not implemented",
   };
 }

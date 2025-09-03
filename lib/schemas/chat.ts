@@ -47,6 +47,24 @@ export const MessageUpdate = z.object({
   schema_version: z.number().int().min(1).optional(),
 });
 
+export const ThreadSummarySchema = z.object({
+  id: z.uuid(),
+  thread_id: z.uuid(),
+  summary_text: z.string(),
+  summary_tokens: z.number(),
+  last_summarized_message_id: z.string(),
+  last_summarized_at: z.string(),
+  created_at: z.string(),
+  updated_at: z.string(),
+});
+
+export const ThreadSummaryCreate = ThreadSummarySchema.omit({
+  id: true,
+  created_at: true,
+  updated_at: true,
+});
+export const ThreadSummaryUpdate = ThreadSummarySchema.partial({ id: true });
+
 // Type exports
 export type Thread = z.infer<typeof ThreadSchema>;
 export type ThreadInsert = z.infer<typeof ThreadCreate>;
@@ -55,3 +73,6 @@ export type Message = z.infer<typeof MessageSchema>;
 export type MessageInsert = z.infer<typeof MessageCreate>;
 export type MessagePatch = z.infer<typeof MessageUpdate>;
 export type MessageRoleType = z.infer<typeof MessageRole>;
+export type ThreadSummary = z.infer<typeof ThreadSummarySchema>;
+export type ThreadSummaryInsert = z.infer<typeof ThreadSummaryCreate>;
+export type ThreadSummaryPatch = z.infer<typeof ThreadSummaryUpdate>;

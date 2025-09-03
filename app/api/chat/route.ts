@@ -14,7 +14,7 @@ import {
   loadChat,
   saveChat,
 } from "@/lib/chat/chat-store";
-import { ensureChatHasTitle } from "@/lib/llm/chat-helpers";
+import { ensureChatHasTitle, updateChatSummary } from "@/lib/llm/chat-helpers";
 import { createLogger } from "@/lib/logger";
 import { SYSTEM_PROMPT } from "@/lib/system-prompt/prompt-v0";
 
@@ -90,11 +90,12 @@ export async function POST(req: Request) {
 
   return result.toUIMessageStreamResponse({
     originalMessages: validatedMessages,
-    onFinish: ({ messages }) => {
-      saveChat({ chatId: id, messages });
+    onFinish: async ({ messages }) => {
+      await saveChat({ chatId: id, messages });
       if (messages.length > 3 && messages.length < 5) {
         ensureChatHasTitle(id);
       }
+      await updateChatSummary(id);
     },
     generateMessageId: createIdGenerator({
       prefix: "msg",
