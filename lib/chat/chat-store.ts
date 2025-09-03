@@ -136,19 +136,23 @@ export async function getMessagesForChatPrompt(
 
   const conversationSummaryResult = await getConversationSummary(chatId);
 
+  let conversationSummary = "";
+
   if (conversationSummaryResult.error) {
     logger.error(
       "getMessagesForChatPrompt",
       `Error getting conversation summary: ${conversationSummaryResult.error.message}`
     );
-    return {
-      data: null,
-      error: conversationSummaryResult.error.message,
-    };
+    conversationSummary = "";
+  } else if (conversationSummaryResult.data === null) {
+    logger.error(
+      "getMessagesForChatPrompt",
+      `Error getting conversation summary: Conversation summary is null`
+    );
+    conversationSummary = "";
+  } else {
+    conversationSummary = conversationSummaryResult.data;
   }
-
-  const conversationSummary = conversationSummaryResult.data;
-
   const prompt = SYSTEM_PROMPT;
 
   const systemPrompt = prompt

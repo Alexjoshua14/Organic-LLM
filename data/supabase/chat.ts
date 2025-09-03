@@ -432,8 +432,8 @@ export async function getConversationSummary(
 ): Promise<Result<string>> {
   const sb = await supabaseServer();
   const { data, error } = await sb
-    .from("threads")
-    .select("conversation_summary")
+    .from("thread_summaries")
+    .select("summary_text")
     .eq("id", chatId)
     .single();
 
@@ -445,7 +445,7 @@ export async function getConversationSummary(
   }
 
   return {
-    data: data.conversation_summary,
+    data: data.summary_text,
     error: null,
   };
 }

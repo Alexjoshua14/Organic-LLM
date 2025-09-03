@@ -5,11 +5,17 @@ import {
   convertToModelMessages,
   generateObject,
   generateText,
+  ModelMessage,
   UIMessage,
 } from "ai";
 
 import { supabaseServer } from "../supabase/server";
-import { Message, ThreadSummary, ThreadSummarySchema } from "../schemas/chat";
+import {
+  Message,
+  MessageSchema,
+  ThreadSummary,
+  ThreadSummarySchema,
+} from "../schemas/chat";
 import { ValidSummarySchema } from "../schemas/llm-tools";
 
 import { createLogger } from "@/lib/logger";
@@ -20,45 +26,63 @@ import {
   updateConversationSummary,
 } from "@/data/supabase/chat";
 import { Result } from "@/types";
+import z from "zod";
+
+const MODEL_SELECTION = {
+  summarizer: openai("gpt-5"),
+  updater: openai("gpt-5"),
+  validator: openai("gpt-5-mini"),
+  reviser: openai("gpt-5-mini"),
+  tokenEstimator: openai("gpt-5-nano"),
+};
 
 const SummarizerSystemPrompt = `
-You are Organic LLM's conversation summarizer.
-Given the full set of messages in this thread, look at all of them and write a single concise paragraph (2-4 sentences) that captures:
-- what the user and assistant have been working on,
-- any key decisions or questions,
-- and the current focus or next step.
-The summary must be clear, compact, and neutral, without filler or repetition. It should be under 600 tokens.
-Do not include formatting, lists, or citations — just one plain text blurb suitable for storage in a database field.
+You are Organic LLM's summarizer. 
+Summarize the entire conversation into ONE clear paragraph (2–4 sentences, under 600 tokens). 
+Include: main objectives/tasks, important decisions or open questions, and the current focus/next step. 
+Be concise, neutral, and free of lists, formatting, or citations. Output plain text only.
+`;
+
+const UpdateSummarizerSystemPrompt = `
+You are Organic LLM's summarizer. 
+Update the previous summary by integrating NEW messages since it was last written. 
+Produce ONE clear paragraph (2–4 sentences, under 600 tokens) that preserves all key details from the prior summary while adding new information. 
+Include: objectives/tasks, decisions or questions, and current focus/next step. 
+Be concise, neutral, and output plain text only.
+
+Previous summary:
+{{conversationSummary}}
 `;
 
 const ValidatorSystemPrompt = `
-You are a strict validator.
-Given a conversation summary, answer valid = TRUE if it clearly includes:
-  1.	The main objectives or tasks being worked on,
-  2.	Any important decisions or open questions,
-  3.	The current focus or next step.
-Otherwise, answer valid = FALSE.
-Reply with only boolean value — no explanation.
+You are a strict validator. 
+Given a proposed conversation summary, return valid = TRUE if it clearly includes:
+1. Main objectives or tasks, 
+2. Important decisions or open questions, 
+3. Current focus or next step. 
+Otherwise return valid = FALSE. 
+Reply only with the boolean value and a short reason for the validity of the summary.
 
-Proposed conversation summary:
+Proposed summary:
 {{conversationSummary}}
+Current persisted summary (if any):
+{{currentPersistedConversationSummary}}
 `;
 
 const ReviserSystemPrompt = `
-You are Organic LLM's summary reviser.
-You are given:
-	1.	The current summary (which is incomplete or low-quality), and
-	2.	The full conversation messages.
+You are Organic LLM's summary reviser. 
+Rewrite the current summary into ONE concise paragraph (2–4 sentences, under 600 tokens). 
+It must include: objectives/tasks, important decisions or open questions, and the current focus/next step. 
+Be clear, compact, neutral, and output plain text only—no lists or formatting.
 
-Your task: Rewrite the summary into one concise paragraph (under 600 tokens) that clearly includes:
-    - the main objectives or tasks being worked on,
-    - any important decisions or open questions,
-    - the current focus or next step.
-
-The output must be clear, neutral, and compact, with no lists, no formatting, and no explanations. Output only the improved summary paragraph.
-
-Current conversation summary:
+Current summary:
 {{conversationSummary}}
+
+Reason for invalidity:
+{{reason}}
+
+Previous persisted summary (if any):
+{{currentPersistedConversationSummary}}
 `;
 
 const logger = createLogger(`lib/llm/chat-helpers.ts`);
@@ -140,7 +164,7 @@ export async function generateChatTitle(
   }
 
   const { text: conversationSummary } = await generateText({
-    model: openai("gpt-5-nano"),
+    model: MODEL_SELECTION.tokenEstimator,
     system: `
     You are a helpful assistant that generates a summary of a chat.
     The chat messages will be provided to you.
@@ -150,7 +174,7 @@ export async function generateChatTitle(
   });
 
   const { text: titleIdea } = await generateText({
-    model: openai("gpt-5-mini"),
+    model: MODEL_SELECTION.summarizer,
     system: `
     You are a helpful assistant that generates a title for a chat.
     Generate a title for the chat based on the conversation summary.
@@ -219,7 +243,7 @@ export async function summarizeChat(
   );
 
   let { text: conversationSummary } = await generateText({
-    model: openai("gpt-5-mini"),
+    model: MODEL_SELECTION.summarizer,
     system: SummarizerSystemPrompt,
     temperature: 0.2,
     messages: modelMessages,
@@ -232,51 +256,18 @@ export async function summarizeChat(
     `Generated initial conversation summary for chat ${chatId}\nConversation Summary (v${summaryGenerationCount}): ${conversationSummary}`
   );
 
-  // Generate conversation summary and validate result
-  for (let i = 0; i < 3; i++) {
-    const { object: validSummary } = await generateObject({
-      model: openai("gpt-5-mini"),
-      system: ValidatorSystemPrompt.replace(
-        "{{conversationSummary}}",
-        conversationSummary
-      ),
-      temperature: 0.1,
-      messages: modelMessages,
-      schema: ValidSummarySchema,
-    });
-
-    // If validator is satisfied with summary,
-    // break and continue with current summary
-    if (validSummary.valid) {
-      logger.log(
-        "summarizeChat",
-        `Validator has approved summary v${summaryGenerationCount}`
-      );
-      break;
-    }
-
-    logger.log(
-      "summarizeChat",
-      `Validator has rejected summary v${summaryGenerationCount}\nWith response: ${JSON.stringify(validSummary)}`
-    );
-
-    let { text: updatedConversationSummary } = await generateText({
-      model: openai("gpt-5-mini"),
-      system: ReviserSystemPrompt.replace(
-        "{{conversationSummary}}",
-        conversationSummary
-      ),
-      temperature: 0.2,
-      messages: modelMessages,
-    });
-
-    conversationSummary = updatedConversationSummary;
-
-    logger.log(
-      "summarizeChat",
-      `Generated updated conversation summary for chat ${chatId}\nConversation Summary (v${summaryGenerationCount}): ${conversationSummary}`
-    );
+  const validatedSummaryRes = await validateSummary(
+    conversationSummary,
+    modelMessages
+  );
+  if (validatedSummaryRes.error || !validatedSummaryRes.data) {
+    return {
+      data: null,
+      error: validatedSummaryRes.error,
+    };
   }
+
+  conversationSummary = validatedSummaryRes.data;
 
   if (conversationSummary === null) {
     logger.error(
@@ -314,7 +305,7 @@ export async function summarizeChat(
   };
 }
 
-export async function summarizeChatNEW(
+export async function summarizeNewChat(
   chatId: string
 ): Promise<Result<string, string>> {
   logger.log("summarizeChatNEW", `Summarizing chat ${chatId}`);
@@ -345,11 +336,16 @@ export async function summarizeChatNEW(
     };
   }
 
+  let tokens = await estimateTokenCount(summary);
+  if (tokens === null) {
+    tokens = 600;
+  }
+
   logger.log("summarizeChatNEW", `Generated summary: ${summary}`);
   const { error: sbError } = await sb.from("thread_summaries").insert({
     thread_id: chatId,
     summary_text: summary,
-    summary_tokens: summary.length,
+    summary_tokens: tokens,
     last_summarized_message_id: latest_message.id,
     last_summarized_at: new Date().toISOString(),
   });
@@ -393,7 +389,7 @@ export async function updateChatSummary(
     };
   } else if (!threadSummaryData) {
     // If no thread summary data, generate a new one
-    return await summarizeChatNEW(chatId);
+    return await summarizeNewChat(chatId);
   }
 
   const threadSummary = ThreadSummarySchema.parse(threadSummaryData);
@@ -403,8 +399,221 @@ export async function updateChatSummary(
     `Current thread summary: ${JSON.stringify(threadSummary)}`
   );
 
+  const latestMessageRes = await sb
+    .from("messages")
+    .select("created_at")
+    .eq("id", threadSummary.last_summarized_message_id)
+    .single();
+  if (latestMessageRes.error) {
+    return {
+      data: null,
+      error: latestMessageRes.error.message,
+    };
+  }
+
+  const messagesRes = await sb
+    .from("messages")
+    .select("*")
+    .eq("thread_id", chatId)
+    .filter("created_at", "gt", latestMessageRes.data.created_at)
+    .order("created_at", { ascending: false });
+
+  logger.log(
+    "updateChatSummary",
+    `Messages since latest message: ${messagesRes.data?.length ?? 0} messages`
+  );
+
+  if (messagesRes.data?.length === 0) {
+    logger.log("updateChatSummary", `No messages found since latest message`);
+    return {
+      data: null,
+      error: "No messages found since latest message",
+    };
+  }
+
+  if (messagesRes.error || !messagesRes.data) {
+    logger.error(
+      "updateChatSummary",
+      `Error getting messages: ${messagesRes.error.message}`
+    );
+    return {
+      data: null,
+      error: messagesRes.error.message ?? "No messages found",
+    };
+  }
+
+  const uiMessages = messagesRes.data
+    .map((message) => convertMessageToUIMessage(message))
+    .filter((message) => message !== null);
+
+  if (uiMessages.length !== messagesRes.data.length) {
+    logger.error(
+      "updateChatSummary",
+      "A message was not converted to UIMessage"
+    );
+  }
+
+  const modelMessages = convertToModelMessages(uiMessages);
+
+  const { text: updatedSummary } = await generateText({
+    model: MODEL_SELECTION.updater,
+    system: UpdateSummarizerSystemPrompt.replace(
+      "{{conversationSummary}}",
+      threadSummary.summary_text
+    ),
+    temperature: 0.3,
+    messages: modelMessages,
+  });
+
+  logger.log("updateChatSummary", `Updated summary: ${updatedSummary}`);
+
+  const validatedSummaryRes = await validateSummary(
+    updatedSummary,
+    modelMessages
+  );
+
+  if (validatedSummaryRes.error) {
+    return {
+      data: null,
+      error: validatedSummaryRes.error,
+    };
+  }
+
+  logger.log(
+    "updateChatSummary",
+    `Validated summary: ${validatedSummaryRes.data}`
+  );
+
+  if (!validatedSummaryRes.data) {
+    return {
+      data: null,
+      error: "No validated summary",
+    };
+  }
+
+  const tokens = await estimateTokenCount(validatedSummaryRes.data ?? "");
+
+  if (tokens === null) {
+    return {
+      data: null,
+      error: "Failed to estimate tokens",
+    };
+  }
+
+  logger.log("updateChatSummary", `Estimated tokens: ${tokens}`);
+
+  const { error: sbError } = await sb
+    .from("thread_summaries")
+    .update({
+      summary_text: validatedSummaryRes.data,
+      summary_tokens: tokens,
+      last_summarized_message_id: messagesRes.data[0].id,
+      last_summarized_at: new Date().toISOString(),
+    })
+    .eq("thread_id", chatId);
+  if (sbError) {
+    return {
+      data: null,
+      error: sbError.message,
+    };
+  }
+
   return {
-    data: null,
-    error: "Not implemented",
+    data: validatedSummaryRes.data,
+    error: null,
   };
 }
+
+/**
+ * Validates a conversation summary by generating an object with a valid property.
+ * The validator will be given the current summary and the messages since the last summary was generated.
+ * The validator will then generate a new summary and validate it.
+ * This will be repeated 3 times.
+ * If the validator is satisfied with the summary, the summary will be returned.
+ * If the validator is not satisfied with the summary, the summary will be revised and validated again.
+ *
+ * @param conversationSummary - The conversation summary to validate
+ * @param messages - Messages to use for context
+ * @returns The validated summary
+ */
+const validateSummary = async (
+  conversationSummary: string,
+  messages: ModelMessage[],
+  currentPersistedConversationSummary?: string
+): Promise<Result<string, string>> => {
+  // Generate conversation summary and validate result
+  for (let i = 1; i <= 3; i++) {
+    const { object: validSummary } = await generateObject({
+      model: MODEL_SELECTION.validator,
+      system: ValidatorSystemPrompt.replace(
+        "{{currentPersistedConversationSummary}}",
+        currentPersistedConversationSummary ?? "null"
+      ).replace("{{conversationSummary}}", conversationSummary),
+      temperature: 0.1,
+      messages: messages,
+      schema: ValidSummarySchema,
+    });
+
+    // If validator is satisfied with summary,
+    // break and continue with current summary
+    if (validSummary.valid) {
+      logger.log("validateSummary", `Validator has approved summary v${i}`);
+      break;
+    }
+
+    logger.log(
+      "validateSummary",
+      `Validator has rejected summary v${i}\nWith response: ${JSON.stringify(validSummary)}`
+    );
+
+    let { text: updatedConversationSummary } = await generateText({
+      model: MODEL_SELECTION.reviser,
+      system: ReviserSystemPrompt.replace(
+        "{{conversationSummary}}",
+        conversationSummary
+      )
+        .replace(
+          "{{currentPersistedConversationSummary}}",
+          currentPersistedConversationSummary ?? "null"
+        )
+        .replace("{{reason}}", validSummary.reason),
+      temperature: 0.2,
+      messages: messages,
+    });
+
+    conversationSummary = updatedConversationSummary;
+
+    logger.log(
+      "validateSummary",
+      `\nConversation Summary (v${i}): ${conversationSummary}`
+    );
+  }
+
+  return {
+    data: conversationSummary,
+    error: null,
+  };
+};
+
+export const estimateTokenCount = async (text: string) => {
+  const schema = z.object({
+    tokens: z.number().max(100000),
+  });
+
+  const res = await generateObject({
+    model: MODEL_SELECTION.tokenEstimator,
+    system: `
+    You are a helpful assistant that estimates the token count of a given text.
+    Estimate the token count of the given text.
+    Return only the token count, no other text.
+    `,
+    prompt: text,
+    schema: schema,
+  });
+
+  if (res.finishReason === "error" || !res.object) {
+    return null;
+  }
+
+  return res.object.tokens;
+};
