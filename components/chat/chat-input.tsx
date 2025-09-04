@@ -6,6 +6,7 @@ import { useCallback, useState, KeyboardEvent } from "react";
 import { glass } from "../design-system/primitives";
 
 import { ModelSelector } from "./model-selector";
+import { useSidebar } from "../third-party/ui/sidebar";
 
 type ChatInputProps = {
   id: string;
@@ -16,6 +17,7 @@ export const ChatInput: React.FC<ChatInputProps> = ({
   id: _id,
   sendMessage,
 }) => {
+  const { isMobile, state } = useSidebar()
   const [input, setInput] = useState("");
   const [error, setError] = useState<boolean>(false);
   //const { sendMessage, stop } = useChat({ id });
@@ -53,60 +55,130 @@ export const ChatInput: React.FC<ChatInputProps> = ({
   );
 
   return (
-    <div className="absolute bottom-0 left-1/2 -translate-x-1/2 flex-shrink-0 min-h-24 md:min-h-32 w-4/5 max-w-3xl">
+    <>
+      {
+        isMobile ?
+          <ChatInputMobile
+            handleSendMessage={handleSendMessage}
+            error={error}
+            input={input}
+            handleKeyDown={handleKeyDown}
+            handleInputChange={handleInputChange}
+            state={state}
+          />
+          : <ChatInputDesktop
+            handleSendMessage={handleSendMessage}
+            error={error}
+            input={input}
+            handleKeyDown={handleKeyDown}
+            handleInputChange={handleInputChange}
+            state={state}
+          />
+
+      }
+    </>
+  );
+};
+
+type ChatInputFieldProps = {
+  handleSendMessage: (e: React.FormEvent | PressEvent) => Promise<void>,
+  error: boolean,
+  input: string,
+  handleKeyDown: (e: KeyboardEvent<HTMLInputElement>) => void,
+  handleInputChange: (v: string) => void,
+  state: string
+}
+
+const ChatInputDesktop = ({ handleSendMessage, error, input, handleKeyDown, handleInputChange, state }: ChatInputFieldProps) => {
+  return (
+    <div className={`fixed bottom-0 flex-shrink-0 min-h-10 w-[calc(100dvw-6rem)] max-w-lg sm:max-w-xl md:max-w-3xl ${state === "collapsed" ? "md:w-[calc(100dvw-4rem)]" : "md:w-[calc(100dvw-22rem)]"} transition-size duration-150 ease-linear`}>
       <div className={`${glass()} h-full px-2 pt-2`}>
-        <div>
-          <form onSubmit={(e) => handleSendMessage(e)}>
-            <Textarea
-              classNames={{
-                input: ["bg-transparent", "hover:bg-transparent"],
-                innerWrapper: ["bg-transparent", "hover:bg-transparent"],
-                inputWrapper: [
-                  "bg-transparent",
-                  "hover:bg-transparent",
-                  "group-data-[focus=true]:bg-transparent",
-                  "data-[hover=true]:bg-transparent",
-                ],
-                mainWrapper: [
-                  "bg-transparent",
-                  "focus-within:bg-transparent",
-                ],
-              }}
-              isInvalid={error}
-              maxRows={8}
-              placeholder="Type your message here..."
-              value={input}
-              onKeyDown={handleKeyDown}
-              onValueChange={handleInputChange}
-            />
-            <div className="hidden sm:flex h-12 items-center justify-between py-2">
-              <div className="flex items-center gap-3 ">
-                <div className="w-24 md:w-32 flex justify-between items-center">
-                  <ModelSelector />
-                  {/*<p>GPT 5</p>
+        <form onSubmit={(e) => handleSendMessage(e)}>
+          <Textarea
+            classNames={{
+              input: ["bg-transparent", "hover:bg-transparent", "text-base"],
+              innerWrapper: ["bg-transparent", "hover:bg-transparent"],
+              inputWrapper: [
+                "bg-transparent",
+                "hover:bg-transparent",
+                "group-data-[focus=true]:bg-transparent",
+                "data-[hover=true]:bg-transparent",
+              ],
+              mainWrapper: [
+                "bg-transparent",
+                "focus-within:bg-transparent",
+              ],
+            }}
+            isInvalid={error}
+            maxRows={8}
+            placeholder="Type your message here..."
+            value={input}
+            onKeyDown={handleKeyDown}
+            onValueChange={handleInputChange}
+          />
+          <div className="hidden sm:flex h-12 items-center justify-between py-2">
+            <div className="flex items-center gap-3 ">
+              <div className="w-24 md:w-32 flex justify-between items-center">
+                <ModelSelector />
+                {/*<p>GPT 5</p>
                     <ChevronDown size={20} />*/}
-                </div>
-                <div>
-                  <Button className="text-xs bg-transparent text-foreground">
-                    <Globe size={16} />
-                    <p>Search</p>
-                  </Button>
-                </div>
-                <div>
-                  <Button className="min-w-4 bg-transparent">
-                    <PaperclipIcon size={14} />
-                  </Button>
-                </div>
               </div>
               <div>
-                <Button isIconOnly onPress={(e) => handleSendMessage(e)}>
-                  <ArrowUpIcon size={20} />
+                <Button className="text-xs bg-transparent text-foreground">
+                  <Globe size={16} />
+                  <p>Search</p>
+                </Button>
+              </div>
+              <div>
+                <Button className="min-w-4 bg-transparent">
+                  <PaperclipIcon size={14} />
                 </Button>
               </div>
             </div>
-          </form>
-        </div>
+            <div>
+              <Button isIconOnly onPress={(e) => handleSendMessage(e)}>
+                <ArrowUpIcon size={20} />
+              </Button>
+            </div>
+          </div>
+        </form>
       </div>
     </div>
-  );
-};
+  )
+}
+
+
+const ChatInputMobile = ({ handleSendMessage, error, input, handleKeyDown, handleInputChange }: ChatInputFieldProps) => {
+
+  return (
+    <div className={`fixed bottom-0 flex-shrink-0 min-h-10 w-full max-w-lg sm:max-w-xl px-4`}>
+      <div className={`${glass()} h-full w-full px-2 py-4`}>
+        <form onSubmit={(e) => handleSendMessage(e)}>
+          <Textarea
+            classNames={{
+              input: ["bg-transparent", "hover:bg-transparent", "text-base"],
+              innerWrapper: ["bg-transparent", "hover:bg-transparent"],
+              inputWrapper: [
+                "bg-transparent",
+                "hover:bg-transparent",
+                "group-data-[focus=true]:bg-transparent",
+                "data-[hover=true]:bg-transparent",
+              ],
+              mainWrapper: [
+                "bg-transparent",
+                "focus-within:bg-transparent",
+              ],
+            }}
+            isInvalid={error}
+            maxRows={8}
+            minRows={1}
+            placeholder="Type your message here..."
+            value={input}
+            onKeyDown={handleKeyDown}
+            onValueChange={handleInputChange}
+          />
+        </form>
+      </div>
+    </div>
+  )
+}
