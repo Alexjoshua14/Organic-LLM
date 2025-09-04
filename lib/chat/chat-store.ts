@@ -15,7 +15,10 @@ import {
 } from "@/data/supabase/chat";
 import { Result, SimpleResult } from "@/types";
 import { Thread } from "@/lib/schemas/chat";
-import { SYSTEM_PROMPT } from "../system-prompt/prompt-v0";
+import {
+  SYSTEM_PROMPT,
+  PROMETHEUS_SYSTEM_PROMPT,
+} from "../system-prompt/prompt-v0";
 
 const logger = createLogger(`util/chat-store.ts`);
 
@@ -118,7 +121,8 @@ export async function getChat(
 
 export async function getMessagesForChatPrompt(
   chatId: string,
-  limit?: number
+  limit?: number,
+  persona?: "prometheus" | "spark"
 ): Promise<Result<{ prompt: string; messages: UIMessage[] }, string>> {
   const { data: messages, error } = await getNMessages(chatId, limit);
 
@@ -154,7 +158,8 @@ export async function getMessagesForChatPrompt(
     conversationSummary = conversationSummaryResult.data;
   }
 
-  const prompt = SYSTEM_PROMPT;
+  const prompt =
+    persona === "prometheus" ? PROMETHEUS_SYSTEM_PROMPT : SYSTEM_PROMPT;
 
   const systemPrompt = prompt
     .replace("{{currentDateTime}}", new Date().toISOString())

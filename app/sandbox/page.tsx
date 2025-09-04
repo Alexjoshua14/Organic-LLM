@@ -43,6 +43,16 @@ export default function SandboxPage() {
       gradient: "from-purple-400/20 to-pink-500/20",
       hoverGradient: "hover:from-purple-400/30 hover:to-pink-500/30",
     },
+    {
+      title: "Prometheus",
+      description:
+        "Advanced AI interface with organic design and 3D visualization placeholder",
+      href: "/sandbox/prometheus",
+      icon: "🔥",
+      size: "large",
+      gradient: "from-green-400/20 to-emerald-500/20",
+      hoverGradient: "hover:from-green-400/30 hover:to-emerald-500/30",
+    },
   ];
 
   return (
