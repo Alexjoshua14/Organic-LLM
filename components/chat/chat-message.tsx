@@ -12,7 +12,7 @@ type ChatMessageProps = {
 };
 
 export const ChatMessage = memo<ChatMessageProps>(({ message }) => {
-  console.log("Rendering ChatMessage: ", message.id, message.role);
+  // console.log("Rendering ChatMessage: ", message.id, message.role);
   switch (message.role) {
     case "assistant":
       return <AIMessage message={message} />;
@@ -40,7 +40,7 @@ const AIMessage: FC<ChatMessageProps> = ({ message }) => {
 
   return (
     <div className="group/ai-message rounded-lg p-4 flex flex-col gap-2">
-      <div className="ai-message space-y-2 text-foreground max-w-full prose dark:prose-invert">
+      <div className="ai-message space-y-2 text-foreground max-w-full prose dark:prose-invert text-base leading-snug">
         {message.parts.length < 1 ? (
           <ChatThinking />
         ) : (

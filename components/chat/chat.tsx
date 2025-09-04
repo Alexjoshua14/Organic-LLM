@@ -87,7 +87,7 @@ export const Chat: React.FC<ChatProps> = ({ chatData, initialMessage }) => {
 
   return (
     <StickToBottom
-      className="h-full w-full relative mx-2"
+      className="h-full w-full relative mx-2 flex flex-col items-center"
       initial="instant"
       resize="smooth"
     >
