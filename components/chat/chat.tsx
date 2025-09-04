@@ -94,7 +94,7 @@ export const Chat: React.FC<ChatProps> = ({ chatData, initialMessage }) => {
       <ChatThread messages={messages} />
       <ChatScrollButton />
       <ChatInput id={id} sendMessage={sendMessage} />
-      <div className="absolute top-20 right-0 z-40">
+      {/* <div className="absolute top-20 right-0 z-40">
         <button
           className="px-4 py-2 bg-blue-500 hover:bg-blue-600 disabled:bg-gray-400 text-white rounded-md transition-colors"
           disabled={updatingSummary}
@@ -102,7 +102,7 @@ export const Chat: React.FC<ChatProps> = ({ chatData, initialMessage }) => {
         >
           {updatingSummary ? "Updating..." : "Update Summary"}
         </button>
-      </div>
+      </div> */}
     </StickToBottom>
   );
 };
