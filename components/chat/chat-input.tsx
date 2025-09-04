@@ -91,7 +91,7 @@ type ChatInputFieldProps = {
 
 const ChatInputDesktop = ({ handleSendMessage, error, input, handleKeyDown, handleInputChange, state }: ChatInputFieldProps) => {
   return (
-    <div className={`fixed bottom-0 flex-shrink-0 min-h-10 w-[calc(100dvw-6rem)] max-w-lg sm:max-w-xl md:max-w-3xl ${state === "collapsed" ? "md:w-[calc(100dvw-4rem)]" : "md:w-[calc(100dvw-22rem)]"} transition-size duration-150 ease-linear`}>
+    <div className={`fixed bottom-0 flex-shrink-0 min-h-10 w-[calc(100dvw-6rem)] max-w-lg sm:max-w-xl md:max-w-3xl ${state === "collapsed" ? "md:w-[calc(100dvw-34rem)]" : "md:w-[calc(100dvw-32rem)]"} transition-size duration-150 ease-linear`}>
       <div className={`${glass()} h-full px-2 pt-2`}>
         <form onSubmit={(e) => handleSendMessage(e)}>
           <Textarea

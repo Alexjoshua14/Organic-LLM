@@ -6,6 +6,7 @@ import { TTSButton } from "../tts/ttsButton";
 
 import { ChatMessageMarkdown } from "./chat-message-markdown";
 import { ChatLoading, ChatReasoning, ChatThinking } from "./chat-loading";
+import { glass } from "../design-system/primitives";
 
 type ChatMessageProps = {
   message: UIMessage;
@@ -40,7 +41,7 @@ const AIMessage: FC<ChatMessageProps> = ({ message }) => {
 
   return (
     <div className="group/ai-message rounded-lg p-4 flex flex-col gap-2">
-      <div className="ai-message space-y-2 text-foreground max-w-full prose dark:prose-invert text-base leading-snug">
+      <div className="ai-message space-y-2 text-foreground max-w-full prose dark:prose-invert">
         {message.parts.length < 1 ? (
           <ChatThinking />
         ) : (
@@ -74,13 +75,15 @@ const AIMessage: FC<ChatMessageProps> = ({ message }) => {
 
 const UserMessage: FC<ChatMessageProps> = ({ message }) => {
   return (
-    <div className="max-w-4/5 w-fit rounded-lg p-4 mb-4 bg-background-tertiary text-foreground place-self-end">
-      {message.parts.map((part, i) => {
-        switch (part.type) {
-          case "text":
-            return <div key={`${message.id}-${i}`}>{part.text}</div>;
-        }
-      })}
+    <div className={"max-w-4/5 w-fit mb-4 text-foreground place-self-end overflow-hidden"}>
+      <div className={`${glass()} p-4 rounded-lg`}>
+        {message.parts.map((part, i) => {
+          switch (part.type) {
+            case "text":
+              return <div key={`${message.id}-${i}`}>{part.text}</div>;
+          }
+        })}
+      </div>
     </div>
   );
 };

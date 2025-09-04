@@ -54,7 +54,7 @@ export default function RootLayout({
             <SidebarProvider>
               <Sidebar />
               <ControlCluster />
-              <main className="pt-4 grow bg-background-secondary">
+              <main className="pt-4 grow bg-background sm:bg-background-secondary">
                 <SidebarTrigger className="absolute top-3 left-3 z-20" />
                 {children}
               </main>
