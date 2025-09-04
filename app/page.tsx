@@ -1,7 +1,6 @@
-import Page from "@/components/layout/page";
-import { NewChat } from "@/components/chat/new-chat";
-import { Chat } from "@/components/chat/chat";
 import { UIMessage } from "@ai-sdk/react";
+
+import Page from "@/components/layout/page";
 import { Thread } from "@/lib/schemas/chat";
 import { NewChatNew } from "@/components/chat/new-chat-new";
 

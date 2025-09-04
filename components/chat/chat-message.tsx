@@ -23,6 +23,8 @@ export const ChatMessage = memo<ChatMessageProps>(({ message }) => {
   }
 });
 
+ChatMessage.displayName = "ChatMessage";
+
 const AIMessage: FC<ChatMessageProps> = ({ message }) => {
   const text = message.parts
     .map((part) => {
@@ -39,14 +41,14 @@ const AIMessage: FC<ChatMessageProps> = ({ message }) => {
   return (
     <div className="group/ai-message rounded-lg p-4 flex flex-col gap-2">
       <div className="ai-message space-y-2 text-foreground max-w-full prose dark:prose-invert">
-        {message.parts.length < 1 ? <ChatThinking /> :
+        {message.parts.length < 1 ? (
+          <ChatThinking />
+        ) : (
           message.parts.map((part, i) => {
             switch (part.type) {
               case "reasoning":
                 if (part.state === "streaming") {
-                  return (
-                    <ChatReasoning key={`${message.id}-${i}`} />
-                  )
+                  return <ChatReasoning key={`${message.id}-${i}`} />;
                 }
                 return null;
 
@@ -58,9 +60,9 @@ const AIMessage: FC<ChatMessageProps> = ({ message }) => {
                     id={message.id}
                   />
                 );
-
             }
-          })}
+          })
+        )}
       </div>
       <div className="w-full flex gap-2 h-8">
         <TTSButton iconOnly text={text} />
