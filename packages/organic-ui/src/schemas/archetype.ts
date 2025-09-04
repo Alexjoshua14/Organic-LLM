@@ -1,6 +1,7 @@
 import { z } from "zod";
 
 export const NewsArchetype = z.object({
+  id: z.string(),
   kind: z.literal("news"),
   title: z.string(),
   summary: z.string(),
