@@ -26,49 +26,49 @@ const chatIdeas: {
   prompt: string;
   icon: React.ReactNode;
 }[] = [
-  {
-    title: "Create",
-    prompt: "Help me create something.",
-    icon: <SparklesIcon size={14} />,
-  },
-  {
-    title: "Explore",
-    prompt: "Help me explore something.",
-    icon: <NewspaperIcon size={14} />,
-  },
-  {
-    title: "Code",
-    prompt: "Help me code something.",
-    icon: <CodeIcon size={14} />,
-  },
-  {
-    title: "Learn",
-    prompt: "Help me learn something.",
-    icon: <GraduationCapIcon size={14} />,
-  },
-];
+    {
+      title: "Create",
+      prompt: "Help me create something.",
+      icon: <SparklesIcon size={14} />,
+    },
+    {
+      title: "Explore",
+      prompt: "Help me explore something.",
+      icon: <NewspaperIcon size={14} />,
+    },
+    {
+      title: "Code",
+      prompt: "Help me code something.",
+      icon: <CodeIcon size={14} />,
+    },
+    {
+      title: "Learn",
+      prompt: "Help me learn something.",
+      icon: <GraduationCapIcon size={14} />,
+    },
+  ];
 
 const promptIdeas: {
   title: string;
   prompt: string;
 }[] = [
-  {
-    title: "How does AI work?",
-    prompt: "How does AI work?",
-  },
-  {
-    title: "Are white holes real?",
-    prompt: "Are white holes real?",
-  },
-  {
-    title: 'How many Bs are in the word "blueberry"?',
-    prompt: 'How many Bs are in the word "blueberry"?',
-  },
-  {
-    title: "What is the meaning of chat?",
-    prompt: "What is the meaning of chat?",
-  },
-];
+    {
+      title: "How does AI work?",
+      prompt: "How does AI work?",
+    },
+    {
+      title: "Are white holes real?",
+      prompt: "Are white holes real?",
+    },
+    {
+      title: 'How many Bs are in the word "blueberry"?',
+      prompt: 'How many Bs are in the word "blueberry"?',
+    },
+    {
+      title: "What is the meaning of chat?",
+      prompt: "What is the meaning of chat?",
+    },
+  ];
 
 export const NewChatNew: React.FC<NewChatProps> = ({ hidden: _hidden }) => {
   const [creatingChat, setCreatingChat] = useState(false);
@@ -104,7 +104,7 @@ export const NewChatNew: React.FC<NewChatProps> = ({ hidden: _hidden }) => {
   }, []);
 
   return (
-    <div className="max-w-xl w-full flex flex-col gap-6 items-start px-8 pt-[calc(max(20vh,2.5rem))] subpixel-antialiased">
+    <div className="max-w-[calc(100dvw-2rem)] md:max-w-[calc(100dvw-18rem)] lg:max-w-4xl w-full flex flex-col gap-6 items-start px-8 pt-[calc(max(20vh,2.5rem))] subpixel-antialiased">
       <h1 className="text-3xl font-bold ">How can I help you?</h1>
       <div className="flex gap-2 flex-wrap">
         {chatIdeas.map(({ title, prompt, icon }) => (
