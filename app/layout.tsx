@@ -44,7 +44,7 @@ export default function RootLayout({
         <head />
         <body
           className={clsx(
-            "min-h-dvh text-foreground bg-background font-sans antialiased",
+            "min-h-dvh text-foreground bg-background font-sans antialiased max-w-dvw overflow-x-hidden",
             fontSans.variable,
           )}
         >
@@ -54,7 +54,7 @@ export default function RootLayout({
             <SidebarProvider>
               <Sidebar />
               <ControlCluster />
-              <main className="pt-4 grow bg-background sm:bg-background-secondary">
+              <main className="pt-4 grow w-full overflow-x-hidden bg-background sm:bg-background-secondary">
                 <SidebarTrigger className="absolute top-3 left-3 z-20" />
                 {children}
               </main>
