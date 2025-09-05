@@ -117,23 +117,18 @@ const ChatInputDesktop = ({ handleSendMessage, error, input, handleKeyDown, hand
             onValueChange={handleInputChange}
           />
           <div className="hidden sm:flex h-12 items-center justify-between py-2">
-            <div className="flex items-center gap-3 ">
-
+            <div className="flex items-center gap-1 ">
               <ModelSelector />
-              {/*<p>GPT 5</p>
-                    <ChevronDown size={20} />*/}
-
-              <div>
-                <Button className="text-xs bg-transparent text-foreground">
-                  <Globe size={16} />
-                  <p>Search</p>
-                </Button>
-              </div>
-              <div>
-                <Button className="min-w-4 bg-transparent">
-                  <PaperclipIcon size={14} />
-                </Button>
-              </div>
+              <Button className="lg:hidden text-xs bg-transparent text-foreground" isIconOnly>
+                <Globe size={16} />
+              </Button>
+              <Button className="hidden lg:flex text-xs bg-transparent text-foreground">
+                <Globe size={16} />
+                <p>Search</p>
+              </Button>
+              <Button className="min-w-4 bg-transparent">
+                <PaperclipIcon size={14} />
+              </Button>
             </div>
             <div>
               <Button isIconOnly onPress={(e) => handleSendMessage(e)}>

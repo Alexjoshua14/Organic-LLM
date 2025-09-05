@@ -47,7 +47,7 @@ export const ModelSelector: React.FC<ModelSelectorProps> = () => {
 
   return (
     <Select
-      className={`w-24 md:w-32 text-foreground ${glass()} rounded-xl`}
+      className={`w-20 sm:w-24 lg:w-32 text-foreground ${glass()} rounded-xl`}
       items={availableModels}
       selectedKeys={[selectedModel]}
       onChange={handleSelectedModelChange}
