@@ -92,7 +92,7 @@ type ChatInputFieldProps = {
 const ChatInputDesktop = ({ handleSendMessage, error, input, handleKeyDown, handleInputChange, state }: ChatInputFieldProps) => {
   return (
     <div className={`fixed bottom-0 flex-shrink-0 min-h-10 w-[calc(100dvw-6rem)] max-w-lg sm:max-w-xl md:max-w-3xl ${state === "collapsed" ? "md:w-[calc(100dvw-34rem)]" : "md:w-[calc(100dvw-32rem)]"} transition-size duration-150 ease-linear`}>
-      <div className={`${glass()} h-full px-2 pt-2`}>
+      <div className={`${glass()} border-t-1 border-x-1.5 border-white/25 h-full px-2 pt-2`}>
         <form onSubmit={(e) => handleSendMessage(e)}>
           <Textarea
             classNames={{
@@ -118,11 +118,11 @@ const ChatInputDesktop = ({ handleSendMessage, error, input, handleKeyDown, hand
           />
           <div className="hidden sm:flex h-12 items-center justify-between py-2">
             <div className="flex items-center gap-3 ">
-              <div className="w-24 md:w-32 flex justify-between items-center">
-                <ModelSelector />
-                {/*<p>GPT 5</p>
+
+              <ModelSelector />
+              {/*<p>GPT 5</p>
                     <ChevronDown size={20} />*/}
-              </div>
+
               <div>
                 <Button className="text-xs bg-transparent text-foreground">
                   <Globe size={16} />
@@ -152,7 +152,7 @@ const ChatInputMobile = ({ handleSendMessage, error, input, handleKeyDown, handl
 
   return (
     <div className={`fixed bottom-0 flex-shrink-0 min-h-10 w-full max-w-lg sm:max-w-xl px-4`}>
-      <div className={`${glass()} h-full w-full px-2 py-4`}>
+      <div className={`${glass()} border-t-1 border-x-1.5 border-white/25 h-full w-full px-2 py-4`}>
         <form onSubmit={(e) => handleSendMessage(e)}>
           <Textarea
             classNames={{
