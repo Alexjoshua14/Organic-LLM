@@ -53,7 +53,7 @@ export const ModelSelector: React.FC<ModelSelectorProps> = () => {
       onChange={handleSelectedModelChange}
       variant="bordered"
       classNames={{
-        trigger: "!border-white/25 border-1",
+        trigger: "!border-white/25 border-t-1 border-x-1.5 border-b-1.5",
       }}
     >
       {(model) => <SelectItem>{model.label}</SelectItem>}

@@ -131,7 +131,7 @@ const ChatInputDesktop = ({ handleSendMessage, error, input, handleKeyDown, hand
               </Button>
             </div>
             <div>
-              <Button isIconOnly onPress={(e) => handleSendMessage(e)}>
+              <Button className={`${glass()} border-t-1 border-x-1.5 border-b-1.5 border-white/25  aspect-square`} isIconOnly onPress={(e) => handleSendMessage(e)}>
                 <ArrowUpIcon size={20} />
               </Button>
             </div>
@@ -149,29 +149,36 @@ const ChatInputMobile = ({ handleSendMessage, error, input, handleKeyDown, handl
     <div className={`fixed bottom-0 flex-shrink-0 min-h-10 w-full max-w-lg sm:max-w-xl px-4`}>
       <div className={`${glass()} border-t-1 border-x-1.5 border-white/25 h-full w-full px-2 py-4`}>
         <form onSubmit={(e) => handleSendMessage(e)}>
-          <Textarea
-            classNames={{
-              input: ["bg-transparent", "hover:bg-transparent", "text-base"],
-              innerWrapper: ["bg-transparent", "hover:bg-transparent"],
-              inputWrapper: [
-                "bg-transparent",
-                "hover:bg-transparent",
-                "group-data-[focus=true]:bg-transparent",
-                "data-[hover=true]:bg-transparent",
-              ],
-              mainWrapper: [
-                "bg-transparent",
-                "focus-within:bg-transparent",
-              ],
-            }}
-            isInvalid={error}
-            maxRows={8}
-            minRows={1}
-            placeholder="Type your message here..."
-            value={input}
-            onKeyDown={handleKeyDown}
-            onValueChange={handleInputChange}
-          />
+          <div className="flex gap-2">
+            <Textarea
+              classNames={{
+                input: ["bg-transparent", "hover:bg-transparent", "text-base"],
+                innerWrapper: ["bg-transparent", "hover:bg-transparent"],
+                inputWrapper: [
+                  "bg-transparent",
+                  "hover:bg-transparent",
+                  "group-data-[focus=true]:bg-transparent",
+                  "data-[hover=true]:bg-transparent",
+                ],
+                mainWrapper: [
+                  "bg-transparent",
+                  "focus-within:bg-transparent",
+                ],
+              }}
+              isInvalid={error}
+              maxRows={8}
+              minRows={1}
+              placeholder="Type your message here..."
+              value={input}
+              onKeyDown={handleKeyDown}
+              onValueChange={handleInputChange}
+            />
+            <div>
+              <Button className={`${glass()}`} isIconOnly onPress={(e) => handleSendMessage(e)}>
+                <ArrowUpIcon size={20} />
+              </Button>
+            </div>
+          </div>
         </form>
       </div>
     </div>
