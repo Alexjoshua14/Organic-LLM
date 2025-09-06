@@ -6,7 +6,7 @@ export const ValidSummarySchema = z.object({
     .string()
     .max(400)
     .describe(
-      "The reason for the validity of the summary. Must be under 400 characters."
+      "The reason for the validity of the summary. Must be under 400 characters.",
     ),
 });
 

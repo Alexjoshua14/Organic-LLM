@@ -1,6 +1,6 @@
 import ShinyText from "../ShinyText";
 
-const TEXT_ANIMATION_SPEED = 1.2
+const TEXT_ANIMATION_SPEED = 1.2;
 
 export const ChatLoading = () => {
   return (
@@ -15,19 +15,19 @@ export const ChatLoading = () => {
 export const ChatThinking = () => {
   return (
     <ShinyText
-      text="Thinking..."
       disabled={false}
       speed={TEXT_ANIMATION_SPEED}
+      text="Thinking..."
     />
-  )
-}
+  );
+};
 
 export const ChatReasoning = () => {
   return (
     <ShinyText
-      text="Reasoning..."
       disabled={false}
       speed={TEXT_ANIMATION_SPEED}
+      text="Reasoning..."
     />
-  )
-}
+  );
+};

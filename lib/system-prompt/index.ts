@@ -4,10 +4,10 @@ import { SYSTEM_PROMPT } from "./prompt-v0";
 
 const systemPrompt = SYSTEM_PROMPT.replace(
   "{{FORMATING_GUIDELINES}}",
-  OUTPUT_FORMAT_PROTOCOL
+  OUTPUT_FORMAT_PROTOCOL,
 ).replace(
   "{{STATE_UPDATE_PROTOCOLS_PROMPT}}",
-  STATE_UPDATE_PROTOCOLS_PROMPT_V0
+  STATE_UPDATE_PROTOCOLS_PROMPT_V0,
 );
 
 export default systemPrompt;

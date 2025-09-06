@@ -10,7 +10,6 @@ import { createLogger } from "@/lib/logger";
 
 const logger = createLogger(`app/chat/[slug]/page.tsx`);
 
-
 export default async function ChatPage({
   params,
 }: {

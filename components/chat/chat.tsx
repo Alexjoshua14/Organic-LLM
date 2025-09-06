@@ -10,7 +10,7 @@ import { ChatThread } from "./chat-thread";
 import { ChatScrollButton } from "./chat-scroll-button";
 
 import { Thread } from "@/lib/schemas/chat";
-import { ensureChatHasTitle, summarizeChat, updateChatSummary } from "@/lib/llm/chat-helpers";
+import { updateChatSummary } from "@/lib/llm/chat-helpers";
 import { createLogger } from "@/lib/logger";
 import { useSharedChatContext } from "@/lib/context/chat-context";
 
@@ -23,17 +23,23 @@ type ChatProps = {
   endpoint?: string;
 };
 
-export const Chat: React.FC<ChatProps> = ({ chatData, initialMessage, endpoint, persona }) => {
+export const Chat: React.FC<ChatProps> = ({
+  chatData,
+  initialMessage,
+  endpoint,
+  persona,
+}) => {
   const [updatingSummary, setUpdatingSummary] = useState(false);
 
-  const { setChatId } = useSharedChatContext()
+  const { setChatId } = useSharedChatContext();
 
   useEffect(() => {
-    setChatId(chatData?.thread.id ?? "")
+    setChatId(chatData?.thread.id ?? "");
+
     return () => {
-      setChatId("")
-    }
-  }, [chatData])
+      setChatId("");
+    };
+  }, [chatData]);
 
   const { messages, sendMessage, id } = useChat({
     id: chatData?.thread.id ?? "",

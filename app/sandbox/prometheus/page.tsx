@@ -101,7 +101,6 @@ export default function PrometheusPage() {
               />
             </div>
           </div>
-
         </div>
         {/* Input Area - Fixed at bottom */}
         <div className="flex-shrink-0">
@@ -111,8 +110,6 @@ export default function PrometheusPage() {
     </Page>
   );
 }
-
-
 
 // :root {
 //   /* Organic Earth Tones - Warm, Natural */

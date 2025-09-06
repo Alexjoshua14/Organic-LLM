@@ -4,9 +4,9 @@ import { ArrowUpIcon, Globe, PaperclipIcon } from "lucide-react";
 import { useCallback, useState, KeyboardEvent } from "react";
 
 import { glass } from "../design-system/primitives";
+import { useSidebar } from "../third-party/ui/sidebar";
 
 import { ModelSelector } from "./model-selector";
-import { useSidebar } from "../third-party/ui/sidebar";
 
 type ChatInputProps = {
   id: string;
@@ -17,7 +17,7 @@ export const ChatInput: React.FC<ChatInputProps> = ({
   id: _id,
   sendMessage,
 }) => {
-  const { isMobile, state } = useSidebar()
+  const { isMobile, state } = useSidebar();
   const [input, setInput] = useState("");
   const [error, setError] = useState<boolean>(false);
   //const { sendMessage, stop } = useChat({ id });
@@ -56,43 +56,53 @@ export const ChatInput: React.FC<ChatInputProps> = ({
 
   return (
     <>
-      {
-        isMobile ?
-          <ChatInputMobile
-            handleSendMessage={handleSendMessage}
-            error={error}
-            input={input}
-            handleKeyDown={handleKeyDown}
-            handleInputChange={handleInputChange}
-            state={state}
-          />
-          : <ChatInputDesktop
-            handleSendMessage={handleSendMessage}
-            error={error}
-            input={input}
-            handleKeyDown={handleKeyDown}
-            handleInputChange={handleInputChange}
-            state={state}
-          />
-
-      }
+      {isMobile ? (
+        <ChatInputMobile
+          error={error}
+          handleInputChange={handleInputChange}
+          handleKeyDown={handleKeyDown}
+          handleSendMessage={handleSendMessage}
+          input={input}
+          state={state}
+        />
+      ) : (
+        <ChatInputDesktop
+          error={error}
+          handleInputChange={handleInputChange}
+          handleKeyDown={handleKeyDown}
+          handleSendMessage={handleSendMessage}
+          input={input}
+          state={state}
+        />
+      )}
     </>
   );
 };
 
 type ChatInputFieldProps = {
-  handleSendMessage: (e: React.FormEvent | PressEvent) => Promise<void>,
-  error: boolean,
-  input: string,
-  handleKeyDown: (e: KeyboardEvent<HTMLInputElement>) => void,
-  handleInputChange: (v: string) => void,
-  state: string
-}
+  handleSendMessage: (e: React.FormEvent | PressEvent) => Promise<void>;
+  error: boolean;
+  input: string;
+  handleKeyDown: (e: KeyboardEvent<HTMLInputElement>) => void;
+  handleInputChange: (v: string) => void;
+  state: string;
+};
 
-const ChatInputDesktop = ({ handleSendMessage, error, input, handleKeyDown, handleInputChange, state }: ChatInputFieldProps) => {
+const ChatInputDesktop = ({
+  handleSendMessage,
+  error,
+  input,
+  handleKeyDown,
+  handleInputChange,
+  state,
+}: ChatInputFieldProps) => {
   return (
-    <div className={`fixed bottom-0 flex-shrink-0 min-h-10 w-[calc(100dvw-6rem)] max-w-lg sm:max-w-xl md:max-w-3xl ${state === "collapsed" ? "md:w-[calc(100dvw-34rem)]" : "md:w-[calc(100dvw-32rem)]"} transition-size duration-150 ease-linear`}>
-      <div className={`${glass()} border-t-1 border-x-1.5 border-white/25 h-full px-2 pt-2`}>
+    <div
+      className={`fixed bottom-0 flex-shrink-0 min-h-10 w-[calc(100dvw-6rem)] max-w-lg sm:max-w-xl md:max-w-3xl ${state === "collapsed" ? "md:w-[calc(100dvw-34rem)]" : "md:w-[calc(100dvw-32rem)]"} transition-size duration-150 ease-linear`}
+    >
+      <div
+        className={`${glass()} border-t-1 border-x-1.5 border-white/25 h-full px-2 pt-2`}
+      >
         <form onSubmit={(e) => handleSendMessage(e)}>
           <Textarea
             classNames={{
@@ -104,10 +114,7 @@ const ChatInputDesktop = ({ handleSendMessage, error, input, handleKeyDown, hand
                 "group-data-[focus=true]:bg-transparent",
                 "data-[hover=true]:bg-transparent",
               ],
-              mainWrapper: [
-                "bg-transparent",
-                "focus-within:bg-transparent",
-              ],
+              mainWrapper: ["bg-transparent", "focus-within:bg-transparent"],
             }}
             isInvalid={error}
             maxRows={8}
@@ -119,7 +126,10 @@ const ChatInputDesktop = ({ handleSendMessage, error, input, handleKeyDown, hand
           <div className="hidden sm:flex h-12 items-center justify-between py-2">
             <div className="flex items-center gap-1 ">
               <ModelSelector />
-              <Button className="lg:hidden text-xs bg-transparent text-foreground" isIconOnly>
+              <Button
+                isIconOnly
+                className="lg:hidden text-xs bg-transparent text-foreground"
+              >
                 <Globe size={16} />
               </Button>
               <Button className="hidden lg:flex text-xs bg-transparent text-foreground">
@@ -131,7 +141,11 @@ const ChatInputDesktop = ({ handleSendMessage, error, input, handleKeyDown, hand
               </Button>
             </div>
             <div>
-              <Button className={`${glass()} border-t-1 border-x-1.5 border-b-1.5 border-white/25  aspect-square`} isIconOnly onPress={(e) => handleSendMessage(e)}>
+              <Button
+                isIconOnly
+                className={`${glass()} border-t-1 border-x-1.5 border-b-1.5 border-white/25  aspect-square`}
+                onPress={(e) => handleSendMessage(e)}
+              >
                 <ArrowUpIcon size={20} />
               </Button>
             </div>
@@ -139,15 +153,23 @@ const ChatInputDesktop = ({ handleSendMessage, error, input, handleKeyDown, hand
         </form>
       </div>
     </div>
-  )
-}
+  );
+};
 
-
-const ChatInputMobile = ({ handleSendMessage, error, input, handleKeyDown, handleInputChange }: ChatInputFieldProps) => {
-
+const ChatInputMobile = ({
+  handleSendMessage,
+  error,
+  input,
+  handleKeyDown,
+  handleInputChange,
+}: ChatInputFieldProps) => {
   return (
-    <div className={`fixed bottom-0 flex-shrink-0 min-h-10 w-full max-w-lg sm:max-w-xl px-4`}>
-      <div className={`${glass()} border-t-1 border-x-1.5 border-white/25 h-full w-full px-2 py-4`}>
+    <div
+      className={`fixed bottom-0 flex-shrink-0 min-h-10 w-full max-w-lg sm:max-w-xl px-4`}
+    >
+      <div
+        className={`${glass()} border-t-1 border-x-1.5 border-white/25 h-full w-full px-2 py-4`}
+      >
         <form onSubmit={(e) => handleSendMessage(e)}>
           <div className="flex gap-2">
             <Textarea
@@ -160,10 +182,7 @@ const ChatInputMobile = ({ handleSendMessage, error, input, handleKeyDown, handl
                   "group-data-[focus=true]:bg-transparent",
                   "data-[hover=true]:bg-transparent",
                 ],
-                mainWrapper: [
-                  "bg-transparent",
-                  "focus-within:bg-transparent",
-                ],
+                mainWrapper: ["bg-transparent", "focus-within:bg-transparent"],
               }}
               isInvalid={error}
               maxRows={8}
@@ -174,7 +193,11 @@ const ChatInputMobile = ({ handleSendMessage, error, input, handleKeyDown, handl
               onValueChange={handleInputChange}
             />
             <div>
-              <Button className={`${glass()}`} isIconOnly onPress={(e) => handleSendMessage(e)}>
+              <Button
+                isIconOnly
+                className={`${glass()}`}
+                onPress={(e) => handleSendMessage(e)}
+              >
                 <ArrowUpIcon size={20} />
               </Button>
             </div>
@@ -182,5 +205,5 @@ const ChatInputMobile = ({ handleSendMessage, error, input, handleKeyDown, handl
         </form>
       </div>
     </div>
-  )
-}
+  );
+};

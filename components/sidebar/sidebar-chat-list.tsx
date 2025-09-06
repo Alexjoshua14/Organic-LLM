@@ -1,9 +1,10 @@
 "use client";
 
-import { FC, useCallback, useEffect, useState } from "react";
+import { FC, useCallback } from "react";
 import Link from "next/link";
 import { Tooltip } from "@heroui/tooltip";
 import { Pin, PinOff } from "lucide-react";
+import { AnimatePresence, motion } from "framer-motion";
 
 import {
   SidebarGroupContent,
@@ -18,10 +19,7 @@ import SidebarDeleteThreadButton from "./sidebar-delete-thread-button";
 import { updateChatPinned } from "@/data/supabase/chat";
 import { ThreadLink } from "@/types";
 import { createLogger } from "@/lib/logger";
-import { usePathname, useRouter } from "next/navigation";
 import { useSharedChatContext } from "@/lib/context/chat-context";
-import { glass } from "../design-system/primitives";
-import { AnimatePresence, motion } from "framer-motion";
 
 const logger = createLogger("components/sidebar/sidebar-chat-list.tsx");
 
@@ -30,8 +28,8 @@ type SidebarChatListProps = {
 };
 
 export const SidebarChatList: FC<SidebarChatListProps> = ({ threads }) => {
-  const { setOpenMobile, isMobile } = useSidebar()
-  const { chatId } = useSharedChatContext()//useState<string>()
+  const { setOpenMobile, isMobile } = useSidebar();
+  const { chatId } = useSharedChatContext(); //useState<string>()
 
   const togglePinThread = useCallback(
     async (thread: ThreadLink) => {
@@ -71,14 +69,14 @@ export const SidebarChatList: FC<SidebarChatListProps> = ({ threads }) => {
           <SidebarMenuItem key={thread.id} className="relative">
             <SidebarMenuButton asChild>
               <Link
+                about={`Open ${thread.title}`}
+                aria-label={`Open ${thread.title}`}
                 className={`font-medium text-sm w-full rounded hover:bg-background px-3 transition-colors duration-150 group/thread overflow-hidden`}
                 href={`/chat/${thread.id}`}
                 prefetch={shouldPrefetch(thread)}
                 onClick={() => {
-                  setOpenMobile(false)
+                  setOpenMobile(false);
                 }}
-                aria-label={`Open ${thread.title}`}
-                about={`Open ${thread.title}`}
               >
                 <div className="w-full flex text-foreground-secondary">
                   <h3 className="flex-1 truncate py-1">{thread.title}</h3>
@@ -89,7 +87,9 @@ export const SidebarChatList: FC<SidebarChatListProps> = ({ threads }) => {
                       >
                         <Tooltip
                           closeDelay={50}
-                          content={thread.pinned ? "Unpin Thread" : "Pin Thread"}
+                          content={
+                            thread.pinned ? "Unpin Thread" : "Pin Thread"
+                          }
                           offset={1}
                           placement="bottom"
                           size="sm"
@@ -118,12 +118,12 @@ export const SidebarChatList: FC<SidebarChatListProps> = ({ threads }) => {
             </SidebarMenuButton>
             <AnimatePresence>
               <motion.div
-                className={`absolute top-0 right-0 w-full h-full z-20 pointer-events-none rounded ${chatId === thread.id ? "backdrop-brightness-105 border-1 border-white/25" : "bg-transparent"}`}
-                aria-hidden="true"
                 key={thread.id}
+                aria-hidden="true"
+                className={`absolute top-0 right-0 w-full h-full z-20 pointer-events-none rounded ${chatId === thread.id ? "backdrop-brightness-105 border-1 border-white/25" : "bg-transparent"}`}
+                exit={{ opacity: 0 }}
                 initial={{ opacity: 0 }}
                 style={{ opacity: chatId === thread.id ? 0 : 0 }}
-                exit={{ opacity: 0 }}
                 transition={{ duration: 2 }}
               />
             </AnimatePresence>

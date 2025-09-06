@@ -1,9 +1,11 @@
+import { randomUUID as nodeRandomUUID } from "node:crypto";
+
 import { z } from "zod";
+
 import {
   OrganicState,
   OrganicStateSchema,
 } from "../schemas/organicStateSchema";
-import { randomUUID as nodeRandomUUID } from "node:crypto";
 
 /* UUID that works on Node and Edge */
 const uid = () =>
@@ -74,10 +76,12 @@ export function extractOpsEnvelopeFromText(text: string): OpsEnvelope | null {
   const re = /```json\s*([\s\S]*?)\s*```/gi;
   let m: RegExpExecArray | null;
   let last: RegExpExecArray | null = null;
+
   while ((m = re.exec(text)) !== null) last = m;
   if (!last) return null;
   try {
     const parsed = JSON.parse(last[1]);
+
     return OpsEnvelopeSchema.parse(parsed);
   } catch {
     return null;
@@ -88,8 +92,10 @@ export function extractOpsEnvelopeFromText(text: string): OpsEnvelope | null {
 export function stripOpsFence(text: string): string {
   const re = /```json\s*([\s\S]*?)\s*```/gi;
   const all = Array.from(text.matchAll(re));
+
   if (all.length === 0) return text;
   const last = all[all.length - 1];
+
   return (
     text.slice(0, last.index) + text.slice((last.index ?? 0) + last[0].length)
   );
@@ -98,7 +104,7 @@ export function stripOpsFence(text: string): string {
 /* ---------- Pure transformer ---------- */
 export async function applyOps(
   state: OrganicState,
-  env: OpsEnvelope
+  env: OpsEnvelope,
 ): Promise<OrganicState> {
   const now = new Date().toISOString();
   let next = { ...state };
@@ -122,9 +128,10 @@ export async function applyOps(
 
       case "add_tech_stack_item": {
         const name = op.name.trim();
+
         if (
           !next.techStack.some(
-            (t) => t.name.toLowerCase() === name.toLowerCase()
+            (t) => t.name.toLowerCase() === name.toLowerCase(),
           )
         ) {
           next.techStack = [
@@ -166,7 +173,7 @@ export async function applyOps(
                 evidence: op.note ? [op.note, ...c.evidence] : c.evidence,
                 updatedAt: now,
               }
-            : c
+            : c,
         );
         break;
       }
@@ -181,5 +188,6 @@ export async function applyOps(
   }
 
   next.lastUpdated = now;
+
   return OrganicStateSchema.parse(next);
 }

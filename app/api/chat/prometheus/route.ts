@@ -3,17 +3,12 @@ import {
   streamText,
   UIMessage,
   convertToModelMessages,
-  validateUIMessages,
   TypeValidationError,
   createIdGenerator,
 } from "ai";
 
 // import systemPrompt from "@/lib/system-prompt";
-import {
-  getMessagesForChatPrompt,
-  loadChat,
-  saveChat,
-} from "@/lib/chat/chat-store";
+import { getMessagesForChatPrompt, saveChat } from "@/lib/chat/chat-store";
 import { ensureChatHasTitle } from "@/lib/llm/chat-helpers";
 import { createLogger } from "@/lib/logger";
 import { SYSTEM_PROMPT } from "@/lib/system-prompt/prompt-v0";
@@ -39,13 +34,13 @@ export async function POST(req: Request) {
     const chatContextResult = await getMessagesForChatPrompt(
       id,
       10,
-      "prometheus" as const
+      "prometheus" as const,
     );
 
     if (chatContextResult.error) {
       logger.error(
         "POST",
-        `Error getting chat context: ${chatContextResult.error}`
+        `Error getting chat context: ${chatContextResult.error}`,
       );
       validatedMessages = [message];
     } else {
@@ -59,7 +54,7 @@ export async function POST(req: Request) {
     if (err instanceof TypeValidationError) {
       logger.error(
         "POST",
-        `Database messages validation failed: ${err.message}`
+        `Database messages validation failed: ${err.message}`,
       );
       validatedMessages = [];
     } else {
@@ -69,7 +64,7 @@ export async function POST(req: Request) {
 
   logger.log(
     `POST`,
-    `Reaching out to model now with ${validatedMessages.length} messages`
+    `Reaching out to model now with ${validatedMessages.length} messages`,
   );
 
   const result = streamText({

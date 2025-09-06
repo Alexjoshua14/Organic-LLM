@@ -79,6 +79,7 @@ export type OrganicState = z.infer<typeof OrganicStateSchema>;
 /* ---------- Defaults ---------- */
 export const defaultOrganicState = (): OrganicState => {
   const now = new Date().toISOString();
+
   return {
     version: 1,
     profile: { name: "Alex Joshua", org: "Coalescence Labs" },

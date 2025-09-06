@@ -3,10 +3,10 @@ import { UIMessage } from "ai";
 
 import { ClipboardCopyButton } from "../shared/clipboardCopyButton";
 import { TTSButton } from "../tts/ttsButton";
+import { glass } from "../design-system/primitives";
 
 import { ChatMessageMarkdown } from "./chat-message-markdown";
-import { ChatLoading, ChatReasoning, ChatThinking } from "./chat-loading";
-import { glass } from "../design-system/primitives";
+import { ChatReasoning, ChatThinking } from "./chat-loading";
 
 type ChatMessageProps = {
   message: UIMessage;
@@ -51,6 +51,7 @@ const AIMessage: FC<ChatMessageProps> = ({ message }) => {
                 if (part.state === "streaming") {
                   return <ChatReasoning key={`${message.id}-${i}`} />;
                 }
+
                 return null;
 
               case "text":
@@ -75,7 +76,11 @@ const AIMessage: FC<ChatMessageProps> = ({ message }) => {
 
 const UserMessage: FC<ChatMessageProps> = ({ message }) => {
   return (
-    <div className={"max-w-4/5 w-fit mb-4 text-foreground place-self-end overflow-hidden"}>
+    <div
+      className={
+        "max-w-4/5 w-fit mb-4 text-foreground place-self-end overflow-hidden"
+      }
+    >
       <div className={`${glass()} p-4 rounded-lg`}>
         {message.parts.map((part, i) => {
           switch (part.type) {

@@ -10,7 +10,6 @@ import { createLogger } from "@/lib/logger";
 
 const logger = createLogger(`app/chat/[slug]/page.tsx`);
 
-
 export default async function ChatPage({
   params,
 }: {
@@ -55,7 +54,12 @@ export default async function ChatPage({
 
   return (
     <Page>
-      <Chat chatData={chatData} initialMessage={initialMessage} endpoint="/api/chat/spark" persona="spark" />
+      <Chat
+        chatData={chatData}
+        endpoint="/api/chat/spark"
+        initialMessage={initialMessage}
+        persona="spark"
+      />
     </Page>
   );
 }

@@ -1,5 +1,3 @@
-import { ChatProvider } from "@/lib/context/chat-context";
-
 export default function ChatLayout({
   children,
 }: {

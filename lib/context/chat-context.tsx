@@ -29,7 +29,6 @@ export function ChatProvider({ children }: { children: ReactNode }) {
     setChat(createChat());
   };
 
-
   return (
     <ChatContext.Provider
       value={{

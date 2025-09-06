@@ -5,7 +5,6 @@ import { Volume2, X } from "lucide-react";
 import { useCallback, useRef, useState } from "react";
 
 import { createLogger } from "../../lib/logger";
-import { Skeleton } from "../third-party/ui/skeleton";
 import { Loader } from "../third-party/ai-elements/loader";
 
 const logger = createLogger("components/tts/ttsButton.tsx");

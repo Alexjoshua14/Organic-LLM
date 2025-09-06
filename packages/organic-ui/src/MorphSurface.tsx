@@ -1,5 +1,6 @@
 "use client";
 import { AnimatePresence, motion } from "framer-motion";
+
 import { UIIntent } from "./schemas/archetype";
 
 // import { UIIntent } from "./schemas/archetype";
@@ -17,8 +18,8 @@ export default function MorphSurface({
       <AnimatePresence mode="wait">
         <motion.div
           key={intent.id}
-          className="h-full w-full inset-shadow-sm rounded bg-background"
           animate={{ opacity: 1, scale: 1, filter: "blur(0px)" }}
+          className="h-full w-full inset-shadow-sm rounded bg-background"
           exit={{ opacity: 0, scale: 1.02, filter: "blur(10px)" }}
           initial={{ opacity: 0, scale: 0.98, filter: "blur(6px)" }}
           transition={{ duration: 0.35, ease: [0.2, 0.8, 0.2, 1] }}

@@ -3,14 +3,13 @@ import {
   streamText,
   UIMessage,
   convertToModelMessages,
-  validateUIMessages,
   TypeValidationError,
   createIdGenerator,
   smoothStream,
 } from "ai";
+
 import {
   extractOpsEnvelopeFromText,
-  stripOpsFence,
   applyOps,
 } from "@/lib/llm/organicStateProtocol";
 import { getState, saveState } from "@/lib/supabase/organicStateStore";
@@ -18,7 +17,6 @@ import { getState, saveState } from "@/lib/supabase/organicStateStore";
 // import systemPrompt from "@/lib/system-prompt";
 import {
   getContextAndMessagesChatPrompt,
-  loadChat,
   saveChat,
 } from "@/lib/chat/chat-store";
 import { ensureChatHasTitle, updateChatSummary } from "@/lib/llm/chat-helpers";
@@ -46,13 +44,13 @@ export async function POST(req: Request) {
     const chatContextResult = await getContextAndMessagesChatPrompt(
       id,
       10,
-      "spark" as const
+      "spark" as const,
     );
 
     if (chatContextResult.error) {
       logger.error(
         "POST",
-        `Error getting chat context: ${chatContextResult.error}`
+        `Error getting chat context: ${chatContextResult.error}`,
       );
       validatedMessages = [message];
     } else {
@@ -77,7 +75,7 @@ export async function POST(req: Request) {
     if (err instanceof TypeValidationError) {
       logger.error(
         "POST",
-        `Database messages validation failed: ${err.message}`
+        `Database messages validation failed: ${err.message}`,
       );
       validatedMessages = [message];
     } else {
@@ -92,7 +90,7 @@ export async function POST(req: Request) {
     System Prompt: ${systemPrompt}
     \n\n--------------------------------\n\n
     ${validatedMessages.length} messages being sent to LLM
-    `
+    `,
   );
 
   logger.log("POST", `Sending messages to LLM...`);
@@ -109,9 +107,10 @@ export async function POST(req: Request) {
   });
 
   const end = performance.now();
+
   logger.log(
     "POST",
-    `Messages sent to LLM in ${end - start} milliseconds returning stream now...`
+    `Messages sent to LLM in ${end - start} milliseconds returning stream now...`,
   );
 
   // logger.log("POST", `Result: ${JSON.stringify(result)}`);
@@ -128,31 +127,36 @@ export async function POST(req: Request) {
       // Process organic state operations from the final assistant message
       const lastMessage = messages[messages.length - 1];
       const endStream = performance.now();
+
       logger.log(
         "POST",
-        `Time from initial request recieved to stream complete: ${endStream - start} milliseconds`
+        `Time from initial request recieved to stream complete: ${endStream - start} milliseconds`,
       );
       if (lastMessage.role === "assistant") {
         // Convert the message content to string - UIMessage content can be string or array
         const assistantText = JSON.stringify(lastMessage);
+
         logger.log(
           "POST",
-          `Processing message for ops: ${assistantText.substring(0, 200)}...`
+          `Processing message for ops: ${assistantText.substring(0, 200)}...`,
         );
 
         const startOps = performance.now();
 
         const env = extractOpsEnvelopeFromText(assistantText);
+
         if (env) {
           logger.log("POST", `Extracted ops envelope: ${JSON.stringify(env)}`);
           const current = await getState(id);
           const next = await applyOps(current, env);
+
           await saveState(id, next);
         }
         const endOps = performance.now();
+
         logger.log(
           "POST",
-          `Ops processed in ${endOps - startOps} milliseconds`
+          `Ops processed in ${endOps - startOps} milliseconds`,
         );
 
         console.log("--------------------------------");
@@ -164,13 +168,14 @@ export async function POST(req: Request) {
 
         logger.log(
           "POST",
-          `Time from stream complete to ops processed: ${endOps - endStream} milliseconds`
+          `Time from stream complete to ops processed: ${endOps - endStream} milliseconds`,
         );
       }
       const endOnFinish = performance.now();
+
       logger.log(
         "POST",
-        `Time from initial request recieved to stream's onFinish complete: ${endOnFinish - start} milliseconds`
+        `Time from initial request recieved to stream's onFinish complete: ${endOnFinish - start} milliseconds`,
       );
     },
     generateMessageId: createIdGenerator({
