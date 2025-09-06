@@ -34,6 +34,7 @@ export const OpSchema = z.discriminatedUnion("type", [
       "native",
       "data",
       "design",
+      "diagram",
     ]),
     notes: z.string().optional(),
     link: z.string().url().optional(),
@@ -88,6 +89,15 @@ export function extractOpsEnvelopeFromText(text: string): OpsEnvelope | null {
   }
 }
 
+export function prettyPrintOpsEnvelope(env: OpsEnvelope): string {
+  return [
+    `Insights: ${env.ops.filter((op) => op.type === "add_key_insight").length}`,
+    `Tech: ${env.ops.filter((op) => op.type === "add_tech_stack_item").length}`,
+    `Checkpoints updated: ${env.ops.filter((op) => op.type === "update_checkpoint").length}`,
+    `Other ops: ${env.ops.filter((op) => !["add_key_insight", "add_tech_stack_item", "update_checkpoint"].includes(op.type)).length}`,
+  ].join("\n");
+}
+
 /* Remove only the last fenced block (SUP block), keep earlier code intact */
 export function stripOpsFence(text: string): string {
   const re = /```json\s*([\s\S]*?)\s*```/gi;
@@ -104,7 +114,7 @@ export function stripOpsFence(text: string): string {
 /* ---------- Pure transformer ---------- */
 export async function applyOps(
   state: OrganicState,
-  env: OpsEnvelope,
+  env: OpsEnvelope
 ): Promise<OrganicState> {
   const now = new Date().toISOString();
   let next = { ...state };
@@ -131,7 +141,7 @@ export async function applyOps(
 
         if (
           !next.techStack.some(
-            (t) => t.name.toLowerCase() === name.toLowerCase(),
+            (t) => t.name.toLowerCase() === name.toLowerCase()
           )
         ) {
           next.techStack = [
@@ -173,7 +183,7 @@ export async function applyOps(
                 evidence: op.note ? [op.note, ...c.evidence] : c.evidence,
                 updatedAt: now,
               }
-            : c,
+            : c
         );
         break;
       }

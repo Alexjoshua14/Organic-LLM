@@ -243,8 +243,6 @@ export async function getContextAndMessagesChatPrompt(
         ? `${SPARK_SYSTEM_PROMPT}\n\n${ctx}\n\nConversation Summary:\n${conversationSummary}`
         : `${SYSTEM_PROMPT}\n\nConversation Summary:\n${conversationSummary}`;
 
-  console.log("prompt", prompt);
-
   // Common for all prompts
   const systemPrompt = prompt.replace(
     "{{currentDateTime}}",

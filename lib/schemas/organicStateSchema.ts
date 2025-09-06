@@ -19,6 +19,7 @@ export const TechCategory = z.enum([
   "native",
   "data",
   "design",
+  "diagram",
 ]);
 export type TechCategory = z.infer<typeof TechCategory>;
 

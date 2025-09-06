@@ -8,6 +8,8 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint --fix",
+    "test": "bun test",
+    "test:watch": "bun test --watch",
     "webhook:local": "ngrok http --url=specially-delicate-dinosaur.ngrok-free.app 3000"
   },
   "dependencies": {

@@ -19,11 +19,15 @@ import {
   getContextAndMessagesChatPrompt,
   saveChat,
 } from "@/lib/chat/chat-store";
-import { ensureChatHasTitle, updateChatSummary } from "@/lib/llm/chat-helpers";
+import {
+  ensureChatHasTitle,
+  estimateTokenCount,
+  updateChatSummary,
+} from "@/lib/llm/chat-helpers";
 import { createLogger } from "@/lib/logger";
 // import SYSTEM_PROMPT from "@/lib/system-prompt";
 import SYSTEM_PROMPT from "@/lib/system-prompt";
-import { SparkUIMessage, TokenUsage } from "@/lib/schemas/llm-tools";
+import { SparkUIMessage } from "@/lib/schemas/llm-tools";
 
 // Allow streaming responses up to 30 seconds
 export const maxDuration = 30;
@@ -33,7 +37,7 @@ const tools = {};
 const logger = createLogger(`app/api/chat/route.ts`);
 
 let systemPrompt = SYSTEM_PROMPT;
-const model: Parameters<OpenAIProvider>[0] = "gpt-5-mini";
+const model: Parameters<OpenAIProvider>[0] = "gpt-5";
 
 export async function POST(req: Request) {
   const { message, id }: { message: UIMessage; id: string } = await req.json();
@@ -85,14 +89,16 @@ export async function POST(req: Request) {
     }
   }
 
+  const systemPromptTokens = await estimateTokenCount(systemPrompt);
+
   logger.log(
     "POST",
     `
-    System Prompt: ${systemPrompt.length} characters
-    System Prompt: ${systemPrompt}
-    \n\n--------------------------------\n\n
-    ${validatedMessages.length} messages being sent to LLM
-    `
+    System Prompt: ${systemPrompt.length} characters\n`,
+    `System Prompt ${systemPromptTokens} tokens\n`,
+    //`System Prompt: ${systemPrompt}\n`,
+    `\n\n--------------------------------\n\n`,
+    `${validatedMessages.length} messages being sent to LLM`
   );
 
   logger.log("POST", `Sending messages to LLM...`);
@@ -122,26 +128,18 @@ export async function POST(req: Request) {
     messageMetadata: ({ part }) => {
       switch (part.type) {
         case "start":
-          logger.log("POST", `Start message: ${JSON.stringify(part)}`);
           return {
             createdAt: new Date().getTime(),
             model: model,
           };
         case "finish":
-          logger.log("POST", `Finish message: ${JSON.stringify(part)}`);
-
-          const tokenUsage: TokenUsage = {
-            cachedInputTokens: part.totalUsage?.cachedInputTokens ?? undefined,
-            inputTokens: part.totalUsage?.inputTokens ?? undefined,
-            outputTokens: part.totalUsage?.outputTokens ?? undefined,
-            reasonTokens: part.totalUsage?.reasoningTokens ?? undefined,
-          };
-
-          logger.log("POST", `Token usage: ${JSON.stringify(tokenUsage)}`);
+          logger.log(
+            "POST",
+            `Finish message: ${JSON.stringify(part, null, 2)}`
+          );
 
           return {
             totalTokens: part.totalUsage?.totalTokens ?? undefined,
-            tokenUsage: tokenUsage,
           };
       }
     },
@@ -160,21 +158,26 @@ export async function POST(req: Request) {
         "POST",
         `Time from initial request recieved to stream complete: ${endStream - start} milliseconds`
       );
+
+      /** Ensure this only run on AI messages */
       if (lastMessage.role === "assistant") {
         // Convert the message content to string - UIMessage content can be string or array
-        const assistantText = JSON.stringify(lastMessage);
+        const assistantText = lastMessage.parts
+          .filter((part) => part.type === "text")
+          .map((part) => part.text)
+          .join("");
 
-        logger.log(
-          "POST",
-          `Processing message for ops: ${assistantText.substring(0, 200)}...`
-        );
+        logger.log("POST", `Processing message for ops: ${assistantText}...`);
 
         const startOps = performance.now();
 
         const env = extractOpsEnvelopeFromText(assistantText);
 
         if (env) {
-          logger.log("POST", `Extracted ops envelope: ${JSON.stringify(env)}`);
+          logger.log(
+            "POST",
+            `Extracted ops envelope: ${JSON.stringify(env, null, 2)}`
+          );
           const current = await getState(id);
           const next = await applyOps(current, env);
 
@@ -187,12 +190,15 @@ export async function POST(req: Request) {
           `Ops processed in ${endOps - startOps} milliseconds`
         );
 
-        console.log("--------------------------------");
-        console.log("ASSISTANT_RAW_START");
-        console.log(assistantText);
-        console.log("ASSISTANT_RAW_END");
-        console.log("OPS_ENV_EXTRACTED:", JSON.stringify(env, null, 2));
-        console.log("--------------------------------");
+        logger.log("POST", "--------------------------------");
+        // logger.log("POST", "ASSISTANT_RAW_START");
+        // logger.log("POST", JSON.stringify(assistantText, null, 2));
+        // logger.log("POST", "ASSISTANT_RAW_END");
+        logger.log(
+          "POST",
+          `OPS_ENV_EXTRACTED: ${JSON.stringify(env, null, 2)}`
+        );
+        logger.log("POST", "--------------------------------");
 
         logger.log(
           "POST",

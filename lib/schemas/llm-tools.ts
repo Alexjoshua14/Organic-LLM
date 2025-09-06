@@ -13,21 +13,12 @@ export const ValidSummarySchema = z.object({
 
 export type ValidSummary = z.infer<typeof ValidSummarySchema>;
 
-export const TokenUsageSchema = z.object({
-  cachedInputTokens: z.number().optional(),
-  inputTokens: z.number().optional(),
-  outputTokens: z.number().optional(),
-  reasonTokens: z.number().optional(),
-});
-
 export const SparkUIMessageSchema = z.object({
   createdAt: z.number().optional(),
   model: z.string().optional(),
   totalTokens: z.number().optional(),
-  tokenUsage: TokenUsageSchema.optional(),
 });
 
-export type TokenUsage = z.infer<typeof TokenUsageSchema>;
 export type SparkUIMessageMetadata = z.infer<typeof SparkUIMessageSchema>;
 
 // Create a typed UIMessage
