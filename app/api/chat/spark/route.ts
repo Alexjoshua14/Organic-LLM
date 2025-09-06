@@ -1,4 +1,4 @@
-import { openai } from "@ai-sdk/openai";
+import { openai, OpenAIProvider } from "@ai-sdk/openai";
 import {
   streamText,
   UIMessage,
@@ -23,6 +23,7 @@ import { ensureChatHasTitle, updateChatSummary } from "@/lib/llm/chat-helpers";
 import { createLogger } from "@/lib/logger";
 // import SYSTEM_PROMPT from "@/lib/system-prompt";
 import SYSTEM_PROMPT from "@/lib/system-prompt";
+import { SparkUIMessage, TokenUsage } from "@/lib/schemas/llm-tools";
 
 // Allow streaming responses up to 30 seconds
 export const maxDuration = 30;
@@ -32,6 +33,7 @@ const tools = {};
 const logger = createLogger(`app/api/chat/route.ts`);
 
 let systemPrompt = SYSTEM_PROMPT;
+const model: Parameters<OpenAIProvider>[0] = "gpt-5-mini";
 
 export async function POST(req: Request) {
   const { message, id }: { message: UIMessage; id: string } = await req.json();
@@ -44,13 +46,13 @@ export async function POST(req: Request) {
     const chatContextResult = await getContextAndMessagesChatPrompt(
       id,
       10,
-      "spark" as const,
+      "spark" as const
     );
 
     if (chatContextResult.error) {
       logger.error(
         "POST",
-        `Error getting chat context: ${chatContextResult.error}`,
+        `Error getting chat context: ${chatContextResult.error}`
       );
       validatedMessages = [message];
     } else {
@@ -75,7 +77,7 @@ export async function POST(req: Request) {
     if (err instanceof TypeValidationError) {
       logger.error(
         "POST",
-        `Database messages validation failed: ${err.message}`,
+        `Database messages validation failed: ${err.message}`
       );
       validatedMessages = [message];
     } else {
@@ -90,7 +92,7 @@ export async function POST(req: Request) {
     System Prompt: ${systemPrompt}
     \n\n--------------------------------\n\n
     ${validatedMessages.length} messages being sent to LLM
-    `,
+    `
   );
 
   logger.log("POST", `Sending messages to LLM...`);
@@ -110,13 +112,39 @@ export async function POST(req: Request) {
 
   logger.log(
     "POST",
-    `Messages sent to LLM in ${end - start} milliseconds returning stream now...`,
+    `Messages sent to LLM in ${end - start} milliseconds returning stream now...`
   );
 
   // logger.log("POST", `Result: ${JSON.stringify(result)}`);
 
   return result.toUIMessageStreamResponse({
     originalMessages: validatedMessages,
+    messageMetadata: ({ part }) => {
+      switch (part.type) {
+        case "start":
+          logger.log("POST", `Start message: ${JSON.stringify(part)}`);
+          return {
+            createdAt: new Date().getTime(),
+            model: model,
+          };
+        case "finish":
+          logger.log("POST", `Finish message: ${JSON.stringify(part)}`);
+
+          const tokenUsage: TokenUsage = {
+            cachedInputTokens: part.totalUsage?.cachedInputTokens ?? undefined,
+            inputTokens: part.totalUsage?.inputTokens ?? undefined,
+            outputTokens: part.totalUsage?.outputTokens ?? undefined,
+            reasonTokens: part.totalUsage?.reasoningTokens ?? undefined,
+          };
+
+          logger.log("POST", `Token usage: ${JSON.stringify(tokenUsage)}`);
+
+          return {
+            totalTokens: part.totalUsage?.totalTokens ?? undefined,
+            tokenUsage: tokenUsage,
+          };
+      }
+    },
     onFinish: async ({ messages }) => {
       await saveChat({ chatId: id, messages });
       if (messages.length > 3 && messages.length < 5) {
@@ -130,7 +158,7 @@ export async function POST(req: Request) {
 
       logger.log(
         "POST",
-        `Time from initial request recieved to stream complete: ${endStream - start} milliseconds`,
+        `Time from initial request recieved to stream complete: ${endStream - start} milliseconds`
       );
       if (lastMessage.role === "assistant") {
         // Convert the message content to string - UIMessage content can be string or array
@@ -138,7 +166,7 @@ export async function POST(req: Request) {
 
         logger.log(
           "POST",
-          `Processing message for ops: ${assistantText.substring(0, 200)}...`,
+          `Processing message for ops: ${assistantText.substring(0, 200)}...`
         );
 
         const startOps = performance.now();
@@ -156,7 +184,7 @@ export async function POST(req: Request) {
 
         logger.log(
           "POST",
-          `Ops processed in ${endOps - startOps} milliseconds`,
+          `Ops processed in ${endOps - startOps} milliseconds`
         );
 
         console.log("--------------------------------");
@@ -168,14 +196,14 @@ export async function POST(req: Request) {
 
         logger.log(
           "POST",
-          `Time from stream complete to ops processed: ${endOps - endStream} milliseconds`,
+          `Time from stream complete to ops processed: ${endOps - endStream} milliseconds`
         );
       }
       const endOnFinish = performance.now();
 
       logger.log(
         "POST",
-        `Time from initial request recieved to stream's onFinish complete: ${endOnFinish - start} milliseconds`,
+        `Time from initial request recieved to stream's onFinish complete: ${endOnFinish - start} milliseconds`
       );
     },
     generateMessageId: createIdGenerator({
