@@ -19,6 +19,8 @@ import {
   SYSTEM_PROMPT,
   PROMETHEUS_SYSTEM_PROMPT,
 } from "../system-prompt/prompt-v0";
+import SPARK_SYSTEM_PROMPT from "../system-prompt";
+import { getStateString } from "../supabase/organicStateStore";
 
 const logger = createLogger(`util/chat-store.ts`);
 
@@ -159,11 +161,95 @@ export async function getMessagesForChatPrompt(
   }
 
   const prompt =
-    persona === "prometheus" ? PROMETHEUS_SYSTEM_PROMPT : SYSTEM_PROMPT;
+    persona === "prometheus"
+      ? PROMETHEUS_SYSTEM_PROMPT
+      : persona === "spark"
+        ? SPARK_SYSTEM_PROMPT
+        : SYSTEM_PROMPT;
+  console.log("prompt", prompt);
 
   const systemPrompt = prompt
     .replace("{{currentDateTime}}", new Date().toISOString())
     .concat(`\n\nConversation Summary:\n${conversationSummary}`);
+
+  return {
+    data: {
+      prompt: systemPrompt,
+      messages,
+    },
+    error: null,
+  };
+}
+
+export async function getContextAndMessagesChatPrompt(
+  chatId: string,
+  limit?: number,
+  persona?: "prometheus" | "spark"
+): Promise<Result<{ prompt: string; messages: UIMessage[] }, string>> {
+  const { data: messages, error } = await getNMessages(chatId, limit);
+
+  if (error || messages === null) {
+    logger.error(
+      "getContextAndMessagesChatPrompt",
+      `Error getting messages: ${error}`
+    );
+
+    return {
+      data: null,
+      error: error,
+    };
+  }
+
+  let ctx = "";
+
+  if (persona === "spark") {
+    logger.log("getContextAndMessagesChatPrompt", "Getting context for Spark");
+    try {
+      const ctxResult = await getStateString(chatId);
+      ctx = ctxResult;
+    } catch (error) {
+      logger.error(
+        "getContextAndMessagesChatPrompt",
+        `Error getting context: ${error}`
+      );
+    }
+  }
+
+  let conversationSummary = "";
+
+  if (typeof persona == undefined) {
+    const conversationSummaryResult = await getConversationSummary(chatId);
+
+    if (conversationSummaryResult.error) {
+      logger.error(
+        "getContextAndMessagesChatPrompt",
+        `Error getting conversation summary: ${conversationSummaryResult.error.message}`
+      );
+      conversationSummary = "";
+    } else if (conversationSummaryResult.data === null) {
+      logger.error(
+        "getContextAndMessagesChatPrompt",
+        `Error getting conversation summary: Conversation summary is null`
+      );
+      conversationSummary = "";
+    } else {
+      conversationSummary = conversationSummaryResult.data;
+    }
+  }
+
+  const prompt =
+    persona === "prometheus"
+      ? PROMETHEUS_SYSTEM_PROMPT
+      : persona === "spark"
+        ? `${SPARK_SYSTEM_PROMPT}\n\n${ctx}`
+        : SYSTEM_PROMPT;
+  console.log("prompt", prompt);
+
+  // Common for all prompts
+  const systemPrompt = prompt.replace(
+    "{{currentDateTime}}",
+    new Date().toISOString()
+  );
 
   return {
     data: {

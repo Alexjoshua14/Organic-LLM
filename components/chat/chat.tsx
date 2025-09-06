@@ -19,9 +19,11 @@ const logger = createLogger("components/chat/chat");
 type ChatProps = {
   chatData: { thread: Thread; messages: UIMessage[] } | null;
   initialMessage?: string;
+  persona?: "prometheus" | "spark";
+  endpoint?: string;
 };
 
-export const Chat: React.FC<ChatProps> = ({ chatData, initialMessage }) => {
+export const Chat: React.FC<ChatProps> = ({ chatData, initialMessage, endpoint, persona }) => {
   const [updatingSummary, setUpdatingSummary] = useState(false);
 
   const { setChatId } = useSharedChatContext()
@@ -37,11 +39,14 @@ export const Chat: React.FC<ChatProps> = ({ chatData, initialMessage }) => {
     id: chatData?.thread.id ?? "",
     messages: chatData?.messages ?? [],
     transport: new DefaultChatTransport({
-      api: "/api/chat",
+      api: endpoint ?? `/api/chat/${persona ?? ""}`,
       prepareSendMessagesRequest({ messages, id }) {
         return { body: { message: messages[messages.length - 1], id } };
       },
     }),
+    onToolCall({ toolCall }) {
+      console.log("TOOL_CALL", toolCall);
+    },
   });
 
   // useEffect(() => {
