@@ -13,6 +13,7 @@
     "webhook:local": "ngrok http --url=specially-delicate-dinosaur.ngrok-free.app 3000"
   },
   "dependencies": {
+    "@ai-sdk/elevenlabs": "^1.0.9",
     "@ai-sdk/openai": "^2.0.17",
     "@ai-sdk/react": "^2.0.19",
     "@clerk/nextjs": "^6.31.5",

@@ -6,6 +6,8 @@ import { useCallback, useRef, useState } from "react";
 
 import { createLogger } from "../../lib/logger";
 import { Loader } from "../third-party/ai-elements/loader";
+import { SpeechModel } from "ai";
+import { OpenAIProvider } from "@ai-sdk/openai";
 
 const logger = createLogger("components/tts/ttsButton.tsx");
 
@@ -16,6 +18,8 @@ type TTSResponse = {
     format: "mp3" | "ogg" | "wav";
   };
 };
+
+type ModelSelection = "gpt-4o-mini-tts" | "eleven_multilingual_v2" | "eleven_flash_v2_5";
 
 declare global {
   var clearAudio: (() => void) | null;
@@ -55,6 +59,8 @@ export function TTSButton({
 
     clearAudio();
 
+    const model: ModelSelection = "eleven_flash_v2_5";
+
     try {
       setLoading(true);
       const res = await fetch("/api/ai/tts", {
@@ -62,7 +68,7 @@ export function TTSButton({
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ text }),
+        body: JSON.stringify({ text, model }),
       });
 
       if (!res.ok) {
