@@ -77,6 +77,8 @@ export const SidebarChatList: FC<SidebarChatListProps> = ({ threads }) => {
                 onClick={() => {
                   setOpenMobile(false)
                 }}
+                aria-label={`Open ${thread.title}`}
+                about={`Open ${thread.title}`}
               >
                 <div className="w-full flex text-foreground-secondary">
                   <h3 className="flex-1 truncate py-1">{thread.title}</h3>
