@@ -55,7 +55,7 @@ export default async function ChatPage({
 
   return (
     <Page>
-      <Chat chatData={chatData} initialMessage={initialMessage} endpoint="/api/chat/spark" />
+      <Chat chatData={chatData} initialMessage={initialMessage} endpoint="/api/chat/spark" persona="spark" />
     </Page>
   );
 }
