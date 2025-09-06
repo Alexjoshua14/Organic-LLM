@@ -80,6 +80,9 @@ export async function transformTextToSpeechFriendly(
 ): Promise<string> {
   let result = text;
 
+  const speechFriendlyTextStartGeneration = performance.now();
+
+  const firstAttemptSpeechFriendlyTextStartGeneration = performance.now();
   const speechFriendlyText = await generateText({
     model: openai("gpt-5-nano"),
     system: SpeechFriendlySystemPrompt,
@@ -87,6 +90,13 @@ export async function transformTextToSpeechFriendly(
     temperature: 0,
   });
 
+  const firstAttemptSpeechFriendlyTextEndGeneration = performance.now();
+  logger.log(
+    "transformTextToSpeechFriendly",
+    `First attempt speech-friendly text generation completed in ${firstAttemptSpeechFriendlyTextEndGeneration - firstAttemptSpeechFriendlyTextStartGeneration} milliseconds`
+  );
+
+  const validatedTranscriptStartGeneration = performance.now();
   const validatedTranscript = await generateObject({
     model: openai("gpt-5-nano"),
     system: ValidationSystemPrompt,
@@ -94,11 +104,17 @@ export async function transformTextToSpeechFriendly(
     temperature: 0,
     schema: ValidationSchema,
   });
+  const validatedTranscriptEndGeneration = performance.now();
+  logger.log(
+    "transformTextToSpeechFriendly",
+    `Validated transcript generation completed in ${validatedTranscriptEndGeneration - validatedTranscriptStartGeneration} milliseconds`
+  );
 
   if (!validatedTranscript.object.valid) {
-    // Try to regenerate text
+    // Try to regenerate text, use slightly stronger model
+    const regeneratedTranscriptStartGeneration = performance.now();
     const regeneratedTranscript = await generateText({
-      model: openai("gpt-5-nano"),
+      model: openai("gpt-5-mini"),
       system: CorrectionSystemPrompt.replace(
         "{{validationErrorReasoning}}",
         validatedTranscript.object.reason
@@ -106,7 +122,13 @@ export async function transformTextToSpeechFriendly(
       prompt: `Original text: ${text}\n\nTransformed text: ${speechFriendlyText.text}`,
       temperature: 0,
     });
+    const regeneratedTranscriptEndGeneration = performance.now();
+    logger.log(
+      "transformTextToSpeechFriendly",
+      `Regenerated transcript generation completed in ${regeneratedTranscriptEndGeneration - regeneratedTranscriptStartGeneration} milliseconds`
+    );
 
+    const betterVersionOfTranscriptStartGeneration = performance.now();
     const betterVersionOfTranscript = await generateObject({
       model: openai("gpt-5-nano"),
       system: `Based on the validation criteria, determine whether transcript A, B, or C is best. \nValidation criteria: ${ValidationCriteria}`,
@@ -118,6 +140,11 @@ export async function transformTextToSpeechFriendly(
           .describe("The best transcript based on the validation criteria"),
       }),
     });
+    const betterVersionOfTranscriptEndGeneration = performance.now();
+    logger.log(
+      "transformTextToSpeechFriendly",
+      `Better version of transcript generation completed in ${betterVersionOfTranscriptEndGeneration - betterVersionOfTranscriptStartGeneration} milliseconds`
+    );
 
     logger.log(
       "transformTextToSpeechFriendly",
@@ -134,6 +161,7 @@ export async function transformTextToSpeechFriendly(
         break;
     }
   } else {
+    const betterVersionOfTranscriptStartGeneration = performance.now();
     const betterVersionOfTranscript = await generateObject({
       model: openai("gpt-5-nano"),
       system: `Based on the validation criteria, determine whether transcript A, B, or C is best. \nValidation criteria: ${ValidationCriteria}`,
@@ -145,6 +173,11 @@ export async function transformTextToSpeechFriendly(
           .describe("The best transcript based on the validation criteria"),
       }),
     });
+    const betterVersionOfTranscriptEndGeneration = performance.now();
+    logger.log(
+      "transformTextToSpeechFriendly",
+      `Better version of transcript generation completed in ${betterVersionOfTranscriptEndGeneration - betterVersionOfTranscriptStartGeneration} milliseconds`
+    );
 
     logger.log(
       "transformTextToSpeechFriendly",
@@ -158,6 +191,12 @@ export async function transformTextToSpeechFriendly(
         break;
     }
   }
+
+  const speechFriendlyTextEndGeneration = performance.now();
+  logger.log(
+    "transformTextToSpeechFriendly",
+    `Speech-friendly text generation completed in ${speechFriendlyTextEndGeneration - speechFriendlyTextStartGeneration} milliseconds`
+  );
 
   return result;
 }

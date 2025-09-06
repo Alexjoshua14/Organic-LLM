@@ -15,19 +15,33 @@ let availableSpeechModels: SpeechModel[] = [
 ];
 
 export async function POST(req: NextRequest) {
+  const start = performance.now();
   const { text, model }: { text: string; model: string } = await req.json();
 
   if (!text || typeof text !== "string") {
     return NextResponse.json({ error: "Text is required" }, { status: 400 });
   }
 
+  const parametersObtained = performance.now();
+  logger.log(
+    "TTS Route",
+    `Parameters obtained in ${parametersObtained - start} milliseconds`
+  );
+
   let speechFriendlyText = text;
 
+  const speechFriendlyTextStartGeneration = performance.now();
   try {
     speechFriendlyText = await transformTextToSpeechFriendly(text);
     logger.log("TTS Route", `Speech-friendly text: ${speechFriendlyText}`);
   } catch (error) {
     logger.error("TTS Route", `Error transforming text: ${error}`);
+  } finally {
+    const speechFriendlyTextEndGeneration = performance.now();
+    logger.log(
+      "TTS Route",
+      `Speech-friendly text generation completed in ${speechFriendlyTextEndGeneration - speechFriendlyTextStartGeneration} milliseconds`
+    );
   }
 
   let speechModel: SpeechModel = openai.speech("gpt-4o-mini-tts");
@@ -50,20 +64,29 @@ export async function POST(req: NextRequest) {
     `Using model: ${speechModel.modelId}, from provider: ${speechModel.provider}`
   );
 
-  if (speechModel.provider === "elevenlabs.speech") {
-    const { audio } = await generateSpeech({
-      model: speechModel,
-      text: speechFriendlyText,
-      voice: "pFZP5JQG7iQjIQuC4Bku",
-    });
-    return NextResponse.json({ data: audio });
-  } else {
-    const { audio } = await generateSpeech({
-      model: speechModel,
-      text: speechFriendlyText,
-      voice: "nova",
-    });
-    return NextResponse.json({ data: audio });
+  const speechModelStartGeneration = performance.now();
+  try {
+    if (speechModel.provider === "elevenlabs.speech") {
+      const { audio } = await generateSpeech({
+        model: speechModel,
+        text: speechFriendlyText,
+        voice: "pFZP5JQG7iQjIQuC4Bku",
+      });
+      return NextResponse.json({ data: audio });
+    } else {
+      const { audio } = await generateSpeech({
+        model: speechModel,
+        text: speechFriendlyText,
+        voice: "nova",
+      });
+      return NextResponse.json({ data: audio });
+    }
+  } finally {
+    const speechModelEndGeneration = performance.now();
+    logger.log(
+      "TTS Route",
+      `Speech model generation completed in ${speechModelEndGeneration - speechModelStartGeneration} milliseconds`
+    );
   }
 
   // const { audio } = await generateSpeech({
