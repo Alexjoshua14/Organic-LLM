@@ -7,6 +7,8 @@ import { DefaultChatTransport, UIMessage } from "ai";
 interface ChatContextValue {
   chat: Chat<UIMessage>;
   clearChat: () => void;
+  setChatId: (chatId: string) => void;
+  chatId: string;
 }
 
 const ChatContext = createContext<ChatContextValue | undefined>(undefined);
@@ -21,16 +23,20 @@ function createChat() {
 
 export function ChatProvider({ children }: { children: ReactNode }) {
   const [chat, setChat] = useState(() => createChat());
+  const [chatId, setChatId] = useState<string>("");
 
   const clearChat = () => {
     setChat(createChat());
   };
+
 
   return (
     <ChatContext.Provider
       value={{
         chat,
         clearChat,
+        setChatId,
+        chatId,
       }}
     >
       {children}

@@ -213,6 +213,15 @@
   * {
     @apply border-border outline-ring/50;
   }
+
+  head {
+    @apply hidden;
+  }
+
+  html {
+    @apply overscroll-none bg-background;
+  }
+
   body {
     @apply bg-background text-foreground;
   }

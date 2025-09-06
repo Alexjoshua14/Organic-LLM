@@ -1,6 +1,6 @@
 "use client";
 
-import { FC, useCallback } from "react";
+import { FC, useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { Tooltip } from "@heroui/tooltip";
 import { Pin, PinOff } from "lucide-react";
@@ -18,6 +18,10 @@ import SidebarDeleteThreadButton from "./sidebar-delete-thread-button";
 import { updateChatPinned } from "@/data/supabase/chat";
 import { ThreadLink } from "@/types";
 import { createLogger } from "@/lib/logger";
+import { usePathname, useRouter } from "next/navigation";
+import { useSharedChatContext } from "@/lib/context/chat-context";
+import { glass } from "../design-system/primitives";
+import { AnimatePresence, motion } from "framer-motion";
 
 const logger = createLogger("components/sidebar/sidebar-chat-list.tsx");
 
@@ -27,6 +31,7 @@ type SidebarChatListProps = {
 
 export const SidebarChatList: FC<SidebarChatListProps> = ({ threads }) => {
   const { setOpenMobile, isMobile } = useSidebar()
+  const { chatId } = useSharedChatContext()//useState<string>()
 
   const togglePinThread = useCallback(
     async (thread: ThreadLink) => {
@@ -63,7 +68,7 @@ export const SidebarChatList: FC<SidebarChatListProps> = ({ threads }) => {
     <SidebarGroupContent>
       <SidebarMenu>
         {threads.map((thread) => (
-          <SidebarMenuItem key={thread.id}>
+          <SidebarMenuItem key={thread.id} className="relative">
             <SidebarMenuButton asChild>
               <Link
                 className={`font-medium text-sm w-full rounded hover:bg-background px-3 transition-colors duration-150 group/thread overflow-hidden`}
@@ -109,6 +114,17 @@ export const SidebarChatList: FC<SidebarChatListProps> = ({ threads }) => {
                 </div>
               </Link>
             </SidebarMenuButton>
+            <AnimatePresence>
+              <motion.div
+                className={`absolute top-0 right-0 w-full h-full z-20 pointer-events-none rounded ${chatId === thread.id ? "backdrop-brightness-105 border-1 border-white/25" : "bg-transparent"}`}
+                aria-hidden="true"
+                key={thread.id}
+                initial={{ opacity: 0 }}
+                style={{ opacity: chatId === thread.id ? 0 : 0 }}
+                exit={{ opacity: 0 }}
+                transition={{ duration: 2 }}
+              />
+            </AnimatePresence>
           </SidebarMenuItem>
         ))}
       </SidebarMenu>

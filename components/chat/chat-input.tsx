@@ -111,7 +111,7 @@ const ChatInputDesktop = ({ handleSendMessage, error, input, handleKeyDown, hand
             }}
             isInvalid={error}
             maxRows={8}
-            placeholder="Type your message here..."
+            placeholder="What would you like to say..."
             value={input}
             onKeyDown={handleKeyDown}
             onValueChange={handleInputChange}

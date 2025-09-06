@@ -12,6 +12,7 @@ import { ChatScrollButton } from "./chat-scroll-button";
 import { Thread } from "@/lib/schemas/chat";
 import { ensureChatHasTitle, summarizeChat, updateChatSummary } from "@/lib/llm/chat-helpers";
 import { createLogger } from "@/lib/logger";
+import { useSharedChatContext } from "@/lib/context/chat-context";
 
 const logger = createLogger("components/chat/chat");
 
@@ -22,6 +23,15 @@ type ChatProps = {
 
 export const Chat: React.FC<ChatProps> = ({ chatData, initialMessage }) => {
   const [updatingSummary, setUpdatingSummary] = useState(false);
+
+  const { setChatId } = useSharedChatContext()
+
+  useEffect(() => {
+    setChatId(chatData?.thread.id ?? "")
+    return () => {
+      setChatId("")
+    }
+  }, [chatData])
 
   const { messages, sendMessage, id } = useChat({
     id: chatData?.thread.id ?? "",
@@ -87,7 +97,7 @@ export const Chat: React.FC<ChatProps> = ({ chatData, initialMessage }) => {
 
   return (
     <StickToBottom
-      className="h-full w-full relative mx-2 flex flex-col items-center "
+      className="h-full w-full relative mx-2 flex flex-col items-center"
       initial="instant"
       resize="smooth"
     >

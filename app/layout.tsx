@@ -13,6 +13,7 @@ import {
   SidebarTrigger,
 } from "@/components/third-party/ui/sidebar";
 import { Sidebar } from "@/components/sidebar/sidebar";
+import { ChatProvider } from "@/lib/context/chat-context";
 
 export const metadata: Metadata = {
   title: {
@@ -27,8 +28,8 @@ export const metadata: Metadata = {
 
 export const viewport: Viewport = {
   themeColor: [
-    { media: "(prefers-color-scheme: light)", color: "white" },
-    { media: "(prefers-color-scheme: dark)", color: "black" },
+    { media: "(prefers-color-scheme: light)", color: "#ffffff" },
+    { media: "(prefers-color-scheme: dark)", color: "#000000" },
   ],
   viewportFit: "cover",
 };
@@ -51,14 +52,16 @@ export default function RootLayout({
           <Providers
             themeProps={{ attribute: "class", defaultTheme: "system" }}
           >
-            <SidebarProvider>
-              <Sidebar />
-              <ControlCluster />
-              <main className="pt-4 grow w-full overflow-x-hidden bg-background sm:bg-background-secondary">
-                <SidebarTrigger className="absolute top-3 left-3 z-20" />
-                {children}
-              </main>
-            </SidebarProvider>
+            <ChatProvider>
+              <SidebarProvider>
+                <Sidebar />
+                <ControlCluster />
+                <main className="pt-4 grow w-full overflow-x-hidden bg-background sm:bg-background-secondary">
+                  <SidebarTrigger className="absolute top-3 left-3 z-20" />
+                  {children}
+                </main>
+              </SidebarProvider>
+            </ChatProvider>
           </Providers>
         </body>
       </html>
