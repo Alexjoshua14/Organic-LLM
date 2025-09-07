@@ -1,4 +1,4 @@
-import { openai } from "@ai-sdk/openai";
+import { openai, OpenAIProvider } from "@ai-sdk/openai";
 import {
   streamText,
   UIMessage,
@@ -23,6 +23,8 @@ const logger = createLogger(`app/api/chat/route.ts`);
 
 let systemPrompt = SYSTEM_PROMPT;
 
+const model: Parameters<OpenAIProvider>[0] = "gpt-5";
+
 export async function POST(req: Request) {
   const { message, id }: { message: UIMessage; id: string } = await req.json();
 
@@ -36,7 +38,7 @@ export async function POST(req: Request) {
     if (chatContextResult.error) {
       logger.error(
         "POST",
-        `Error getting chat context: ${chatContextResult.error}`,
+        `Error getting chat context: ${chatContextResult.error}`
       );
       validatedMessages = [message];
     } else {
@@ -59,7 +61,7 @@ export async function POST(req: Request) {
     if (err instanceof TypeValidationError) {
       logger.error(
         "POST",
-        `Database messages validation failed: ${err.message}`,
+        `Database messages validation failed: ${err.message}`
       );
       validatedMessages = [message];
     } else {
@@ -73,17 +75,18 @@ export async function POST(req: Request) {
     System Prompt: ${systemPrompt.length} characters
     \n\n--------------------------------\n\n
     ${validatedMessages.length} messages being sent to LLM
-    `,
+    `
   );
 
   const result = streamText({
-    model: openai("gpt-5-mini"),
+    model: openai(model),
     messages: convertToModelMessages(validatedMessages),
     system: systemPrompt,
     experimental_transform: smoothStream({
       delayInMs: 20, // optional: defaults to 10ms
       chunking: "word", // optional: defaults to 'word'
     }),
+    maxOutputTokens: 3000,
   });
 
   // logger.log("POST", `Result: ${JSON.stringify(result)}`);
