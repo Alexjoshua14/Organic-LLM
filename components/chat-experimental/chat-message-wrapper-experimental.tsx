@@ -19,11 +19,13 @@ export const ChatMessagerWrapperExperimental: FC<ChatMessagerWrapperExperimental
         initial={{
           "display": "flex",
           "bottom": 0,
+          "scale": .25,
           "translateY": "120%",
           "justifyContent": "center",
         }}
         animate={{
           "justifyContent": role === "assistant" ? "start" : "end",
+          "scale": 1,
           "translateY": "0%",
         }}
         transition={{ duration: .75, ease: "easeInOut", }}
