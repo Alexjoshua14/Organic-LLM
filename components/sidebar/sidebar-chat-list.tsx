@@ -29,7 +29,7 @@ type SidebarChatListProps = {
 
 export const SidebarChatList: FC<SidebarChatListProps> = ({ threads }) => {
   const { setOpenMobile, isMobile } = useSidebar();
-  const { chatId } = useSharedChatContext(); //useState<string>()
+  const { chatId, setChatId } = useSharedChatContext(); //useState<string>()
 
   const togglePinThread = useCallback(
     async (thread: ThreadLink) => {
@@ -76,6 +76,7 @@ export const SidebarChatList: FC<SidebarChatListProps> = ({ threads }) => {
                 prefetch={shouldPrefetch(thread)}
                 onClick={() => {
                   setOpenMobile(false);
+                  setChatId(thread.id);
                 }}
               >
                 <div className="w-full flex text-foreground-secondary">

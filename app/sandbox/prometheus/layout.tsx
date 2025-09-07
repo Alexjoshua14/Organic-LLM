@@ -1,4 +1,4 @@
-import { fontCommissioner } from "@/config/fonts";
+import { fontSans as fontCommissioner } from "@/config/fonts";
 
 const commissioner = fontCommissioner;
 
