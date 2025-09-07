@@ -42,7 +42,7 @@ export async function createChat(): Promise<Result<string>> {
 }
 
 export async function loadChat(
-  id: string
+  id: string,
 ): Promise<Result<{ thread: Thread; messages: UIMessage[] }>> {
   const res = await loadChatSupabase(id);
 
@@ -56,7 +56,7 @@ export async function loadChat(
   }
   logger.log(
     "loadChat",
-    `Chat loaded: ${res.data?.thread.id}, ${res.data?.messages.length} messages`
+    `Chat loaded: ${res.data?.thread.id}, ${res.data?.messages.length} messages`,
   );
 
   return res;
@@ -74,7 +74,7 @@ export async function saveChat({
   if (res.error || !res.ok) {
     logger.error(
       "saveChat",
-      `Error saving chat: ${res.error?.message ?? "Unknown error"}`
+      `Error saving chat: ${res.error?.message ?? "Unknown error"}`,
     );
   }
   logger.log("saveChat", `Chat saved: ${chatId}`);
@@ -102,7 +102,7 @@ export async function getChats(): Promise<Result<Thread[]>> {
 }
 
 export async function getChat(
-  chatId: string
+  chatId: string,
 ): Promise<Result<{ thread: Thread; messages: UIMessage[] }>> {
   const chat = await loadChat(chatId);
 
@@ -123,14 +123,14 @@ export async function getChat(
 export async function getMessagesForChatPrompt(
   chatId: string,
   limit?: number,
-  persona?: "prometheus" | "spark"
+  persona?: "prometheus" | "spark",
 ): Promise<Result<{ prompt: string; messages: UIMessage[] }, string>> {
   const { data: messages, error } = await getNMessages(chatId, limit);
 
   if (error || messages === null) {
     logger.error(
       "getMessagesForChatPrompt",
-      `Error getting messages: ${error}`
+      `Error getting messages: ${error}`,
     );
 
     return {
@@ -146,13 +146,13 @@ export async function getMessagesForChatPrompt(
   if (conversationSummaryResult.error) {
     logger.error(
       "getMessagesForChatPrompt",
-      `Error getting conversation summary: ${conversationSummaryResult.error.message}`
+      `Error getting conversation summary: ${conversationSummaryResult.error.message}`,
     );
     conversationSummary = "";
   } else if (conversationSummaryResult.data === null) {
     logger.error(
       "getMessagesForChatPrompt",
-      `Error getting conversation summary: Conversation summary is null`
+      `Error getting conversation summary: Conversation summary is null`,
     );
     conversationSummary = "";
   } else {
@@ -184,14 +184,14 @@ export async function getMessagesForChatPrompt(
 export async function getContextAndMessagesChatPrompt(
   chatId: string,
   limit?: number,
-  persona?: "prometheus" | "spark"
+  persona?: "prometheus" | "spark",
 ): Promise<Result<{ prompt: string; messages: UIMessage[] }, string>> {
   const { data: messages, error } = await getNMessages(chatId, limit);
 
   if (error || messages === null) {
     logger.error(
       "getContextAndMessagesChatPrompt",
-      `Error getting messages: ${error}`
+      `Error getting messages: ${error}`,
     );
 
     return {
@@ -211,7 +211,7 @@ export async function getContextAndMessagesChatPrompt(
     } catch (error) {
       logger.error(
         "getContextAndMessagesChatPrompt",
-        `Error getting context: ${error}`
+        `Error getting context: ${error}`,
       );
     }
   }
@@ -223,13 +223,13 @@ export async function getContextAndMessagesChatPrompt(
   if (conversationSummaryResult.error) {
     logger.error(
       "getContextAndMessagesChatPrompt",
-      `Error getting conversation summary: ${conversationSummaryResult.error.message}`
+      `Error getting conversation summary: ${conversationSummaryResult.error.message}`,
     );
     conversationSummary = "";
   } else if (conversationSummaryResult.data === null) {
     logger.error(
       "getContextAndMessagesChatPrompt",
-      `Error getting conversation summary: Conversation summary is null`
+      `Error getting conversation summary: Conversation summary is null`,
     );
     conversationSummary = "";
   } else {
@@ -246,7 +246,7 @@ export async function getContextAndMessagesChatPrompt(
   // Common for all prompts
   const systemPrompt = prompt.replace(
     "{{currentDateTime}}",
-    new Date().toISOString()
+    new Date().toISOString(),
   );
 
   return {

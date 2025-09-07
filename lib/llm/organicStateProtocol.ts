@@ -114,7 +114,7 @@ export function stripOpsFence(text: string): string {
 /* ---------- Pure transformer ---------- */
 export async function applyOps(
   state: OrganicState,
-  env: OpsEnvelope
+  env: OpsEnvelope,
 ): Promise<OrganicState> {
   const now = new Date().toISOString();
   let next = { ...state };
@@ -141,7 +141,7 @@ export async function applyOps(
 
         if (
           !next.techStack.some(
-            (t) => t.name.toLowerCase() === name.toLowerCase()
+            (t) => t.name.toLowerCase() === name.toLowerCase(),
           )
         ) {
           next.techStack = [
@@ -183,7 +183,7 @@ export async function applyOps(
                 evidence: op.note ? [op.note, ...c.evidence] : c.evidence,
                 updatedAt: now,
               }
-            : c
+            : c,
         );
         break;
       }

@@ -4,10 +4,7 @@ import { experimental_generateSpeech as generateSpeech, SpeechModel } from "ai";
 import { NextRequest, NextResponse } from "next/server";
 
 import { createLogger } from "@/lib/logger";
-import {
-  transformTextToSpeechFriendly,
-  transformTextToSpeechFriendlyV2,
-} from "@/lib/llm/text-to-speech";
+import { transformTextToSpeechFriendlyV2 } from "@/lib/llm/text-to-speech";
 
 const logger = createLogger("app/api/tts/route.ts");
 
@@ -31,15 +28,17 @@ export async function POST(req: NextRequest) {
   }
 
   const parametersObtained = performance.now();
+
   logger.log(
     "TTS Route",
-    `Parameters obtained in ${parametersObtained - start} milliseconds`
+    `Parameters obtained in ${parametersObtained - start} milliseconds`,
   );
 
   let speechFriendlyText = text;
 
   if (skipTransform === undefined || !skipTransform) {
     const speechFriendlyTextStartGeneration = performance.now();
+
     try {
       // speechFriendlyText = await transformTextToSpeechFriendly(text);
       speechFriendlyText = await transformTextToSpeechFriendlyV2(text);
@@ -48,9 +47,10 @@ export async function POST(req: NextRequest) {
       logger.error("TTS Route", `Error transforming text: ${error}`);
     } finally {
       const speechFriendlyTextEndGeneration = performance.now();
+
       logger.log(
         "TTS Route",
-        `Speech-friendly text generation completed in ${speechFriendlyTextEndGeneration - speechFriendlyTextStartGeneration} milliseconds`
+        `Speech-friendly text generation completed in ${speechFriendlyTextEndGeneration - speechFriendlyTextStartGeneration} milliseconds`,
       );
     }
   }
@@ -62,7 +62,7 @@ export async function POST(req: NextRequest) {
   } else {
     try {
       speechModel = availableSpeechModels.find(
-        (m) => m.modelId === model
+        (m) => m.modelId === model,
       ) as SpeechModel;
     } catch (error) {
       logger.error("TTS Route", `Error finding model: ${error}`);
@@ -72,10 +72,11 @@ export async function POST(req: NextRequest) {
 
   logger.log(
     "TTS Route",
-    `Using model: ${speechModel.modelId}, from provider: ${speechModel.provider}`
+    `Using model: ${speechModel.modelId}, from provider: ${speechModel.provider}`,
   );
 
   const speechModelStartGeneration = performance.now();
+
   try {
     if (speechModel.provider === "elevenlabs.speech") {
       const { audio } = await generateSpeech({
@@ -83,6 +84,7 @@ export async function POST(req: NextRequest) {
         text: speechFriendlyText,
         voice: "pFZP5JQG7iQjIQuC4Bku",
       });
+
       return NextResponse.json({ data: audio });
     } else {
       const { audio } = await generateSpeech({
@@ -90,13 +92,15 @@ export async function POST(req: NextRequest) {
         text: speechFriendlyText,
         voice: "nova",
       });
+
       return NextResponse.json({ data: audio });
     }
   } finally {
     const speechModelEndGeneration = performance.now();
+
     logger.log(
       "TTS Route",
-      `Speech model generation completed in ${speechModelEndGeneration - speechModelStartGeneration} milliseconds`
+      `Speech model generation completed in ${speechModelEndGeneration - speechModelStartGeneration} milliseconds`,
     );
   }
 }

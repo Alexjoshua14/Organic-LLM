@@ -16,11 +16,9 @@ import { SYSTEM_PROMPT } from "@/lib/system-prompt/prompt-v0";
 // Allow streaming responses up to 30 seconds
 export const maxDuration = 30;
 
-const tools = {};
+// const tools = {};
 
 const logger = createLogger(`app/api/chat/route.ts`);
-
-const systemPrompt = SYSTEM_PROMPT;
 
 export async function POST(req: Request) {
   const { message, id }: { message: UIMessage; id: string } = await req.json();

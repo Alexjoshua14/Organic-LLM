@@ -49,7 +49,10 @@ const AIMessage: FC<ChatMessageProps> = ({ message }) => {
             switch (part.type) {
               case "reasoning":
                 if (part.state === "streaming") {
-                  console.log(`REASONING_STREAMING: ${part.text}\n${JSON.stringify(part, null, 2)}`);
+                  console.log(
+                    `REASONING_STREAMING: ${part.text}\n${JSON.stringify(part, null, 2)}`,
+                  );
+
                   return <ChatReasoning key={`${message.id}-${i}`} />;
                 }
 

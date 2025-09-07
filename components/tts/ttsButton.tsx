@@ -6,8 +6,6 @@ import { useCallback, useRef, useState } from "react";
 
 import { createLogger } from "../../lib/logger";
 import { Loader } from "../third-party/ai-elements/loader";
-import { SpeechModel } from "ai";
-import { OpenAIProvider } from "@ai-sdk/openai";
 
 const logger = createLogger("components/tts/ttsButton.tsx");
 
@@ -19,7 +17,10 @@ type TTSResponse = {
   };
 };
 
-type ModelSelection = "gpt-4o-mini-tts" | "eleven_multilingual_v2" | "eleven_flash_v2_5";
+type ModelSelection =
+  | "gpt-4o-mini-tts"
+  | "eleven_multilingual_v2"
+  | "eleven_flash_v2_5";
 
 declare global {
   var clearAudio: (() => void) | null;

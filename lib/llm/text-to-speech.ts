@@ -8,6 +8,7 @@ import {
   generateText,
 } from "ai";
 import z from "zod";
+
 import { createLogger } from "../logger";
 
 const logger = createLogger("lib/llm/text-to-speech.ts");
@@ -76,7 +77,7 @@ export async function textToSpeech(text: string): Promise<GeneratedAudioFile> {
 }
 
 export async function transformTextToSpeechFriendly(
-  text: string
+  text: string,
 ): Promise<string> {
   let result = text;
 
@@ -91,9 +92,10 @@ export async function transformTextToSpeechFriendly(
   });
 
   const firstAttemptSpeechFriendlyTextEndGeneration = performance.now();
+
   logger.log(
     "transformTextToSpeechFriendly",
-    `First attempt speech-friendly text generation completed in ${firstAttemptSpeechFriendlyTextEndGeneration - firstAttemptSpeechFriendlyTextStartGeneration} milliseconds`
+    `First attempt speech-friendly text generation completed in ${firstAttemptSpeechFriendlyTextEndGeneration - firstAttemptSpeechFriendlyTextStartGeneration} milliseconds`,
   );
 
   const validatedTranscriptStartGeneration = performance.now();
@@ -105,9 +107,10 @@ export async function transformTextToSpeechFriendly(
     schema: ValidationSchema,
   });
   const validatedTranscriptEndGeneration = performance.now();
+
   logger.log(
     "transformTextToSpeechFriendly",
-    `Validated transcript generation completed in ${validatedTranscriptEndGeneration - validatedTranscriptStartGeneration} milliseconds`
+    `Validated transcript generation completed in ${validatedTranscriptEndGeneration - validatedTranscriptStartGeneration} milliseconds`,
   );
 
   if (!validatedTranscript.object.valid) {
@@ -117,15 +120,16 @@ export async function transformTextToSpeechFriendly(
       model: openai("gpt-5-mini"),
       system: CorrectionSystemPrompt.replace(
         "{{validationErrorReasoning}}",
-        validatedTranscript.object.reason
+        validatedTranscript.object.reason,
       ),
       prompt: `Original text: ${text}\n\nTransformed text: ${speechFriendlyText.text}`,
       temperature: 0,
     });
     const regeneratedTranscriptEndGeneration = performance.now();
+
     logger.log(
       "transformTextToSpeechFriendly",
-      `Regenerated transcript generation completed in ${regeneratedTranscriptEndGeneration - regeneratedTranscriptStartGeneration} milliseconds`
+      `Regenerated transcript generation completed in ${regeneratedTranscriptEndGeneration - regeneratedTranscriptStartGeneration} milliseconds`,
     );
 
     const betterVersionOfTranscriptStartGeneration = performance.now();
@@ -141,14 +145,15 @@ export async function transformTextToSpeechFriendly(
       }),
     });
     const betterVersionOfTranscriptEndGeneration = performance.now();
+
     logger.log(
       "transformTextToSpeechFriendly",
-      `Better version of transcript generation completed in ${betterVersionOfTranscriptEndGeneration - betterVersionOfTranscriptStartGeneration} milliseconds`
+      `Better version of transcript generation completed in ${betterVersionOfTranscriptEndGeneration - betterVersionOfTranscriptStartGeneration} milliseconds`,
     );
 
     logger.log(
       "transformTextToSpeechFriendly",
-      `Better version of transcript: ${betterVersionOfTranscript.object.bestTranscript}`
+      `Better version of transcript: ${betterVersionOfTranscript.object.bestTranscript}`,
     );
     switch (betterVersionOfTranscript.object.bestTranscript) {
       case "A":
@@ -174,14 +179,15 @@ export async function transformTextToSpeechFriendly(
       }),
     });
     const betterVersionOfTranscriptEndGeneration = performance.now();
+
     logger.log(
       "transformTextToSpeechFriendly",
-      `Better version of transcript generation completed in ${betterVersionOfTranscriptEndGeneration - betterVersionOfTranscriptStartGeneration} milliseconds`
+      `Better version of transcript generation completed in ${betterVersionOfTranscriptEndGeneration - betterVersionOfTranscriptStartGeneration} milliseconds`,
     );
 
     logger.log(
       "transformTextToSpeechFriendly",
-      `Better version of transcript: ${betterVersionOfTranscript.object.bestTranscript}`
+      `Better version of transcript: ${betterVersionOfTranscript.object.bestTranscript}`,
     );
     switch (betterVersionOfTranscript.object.bestTranscript) {
       case "A":
@@ -193,9 +199,10 @@ export async function transformTextToSpeechFriendly(
   }
 
   const speechFriendlyTextEndGeneration = performance.now();
+
   logger.log(
     "transformTextToSpeechFriendly",
-    `Speech-friendly text generation completed in ${speechFriendlyTextEndGeneration - speechFriendlyTextStartGeneration} milliseconds`
+    `Speech-friendly text generation completed in ${speechFriendlyTextEndGeneration - speechFriendlyTextStartGeneration} milliseconds`,
   );
 
   return result;
@@ -218,22 +225,22 @@ const SpeechResultSchema = z.object({
   speechFriendlyText: z
     .string()
     .describe(
-      "The speech-friendly text. Do not include any other text in your response."
+      "The speech-friendly text. Do not include any other text in your response.",
     ),
   grade: z
     .number()
     .describe(
-      "Grade for the quality of the speech-friendly text. 100 is the highest grade."
+      "Grade for the quality of the speech-friendly text. 100 is the highest grade.",
     ),
   reason: z
     .string()
     .describe(
-      "Reason for the grade. Be as detailed as possible but keep response under 300 tokens MAX."
+      "Reason for the grade. Be as detailed as possible but keep response under 300 tokens MAX.",
     ),
 });
 
 export async function transformTextToSpeechFriendlyV2(
-  text: string
+  text: string,
 ): Promise<string> {
   const result = await generateObject({
     model: openai("gpt-5-nano"),
@@ -253,7 +260,7 @@ export async function transformTextToSpeechFriendlyV2(
     model: openai("gpt-5-nano"),
     system: CorrectionSystemPrompt.replace(
       "{{validationErrorReasoning}}",
-      result.object.reason
+      result.object.reason,
     ),
     prompt: `Original text: ${text}\n\nTransformed text: ${result.object.speechFriendlyText}`,
     temperature: 0,
@@ -261,9 +268,10 @@ export async function transformTextToSpeechFriendlyV2(
   });
 
   const regeneratedTranscriptEndGeneration = performance.now();
+
   logger.log(
     "transformTextToSpeechFriendlyV2",
-    `Regenerated transcript generation completed in ${regeneratedTranscriptEndGeneration - regeneratedTranscriptStartGeneration} milliseconds`
+    `Regenerated transcript generation completed in ${regeneratedTranscriptEndGeneration - regeneratedTranscriptStartGeneration} milliseconds`,
   );
 
   if (regeneratedTranscript.object.grade >= result.object.grade) {

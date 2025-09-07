@@ -1,12 +1,7 @@
-import { UIMessage } from "@ai-sdk/react";
-
 import Page from "@/components/layout/page";
-import { Thread } from "@/lib/schemas/chat";
 import { NewChatNew } from "@/components/chat/new-chat-new";
 
 export default function Home() {
-  const chatData: { thread: Thread; messages: UIMessage[] } | null = null;
-
   return (
     <Page>
       <div className="relative inline-block max-w-4xl h-full w-full text-center justify-center">

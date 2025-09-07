@@ -1,4 +1,5 @@
 import { ComponentProps, FC } from "react";
+
 import ShinyText from "../ShinyText";
 
 const TEXT_ANIMATION_SPEED = 1.2;
@@ -17,7 +18,9 @@ type ChatThinkingProps = {
   text?: string;
 };
 
-export const ChatThinking: FC<ChatThinkingProps & Partial<ComponentProps<typeof ShinyText>>> = ({ text, ...props }) => {
+export const ChatThinking: FC<
+  ChatThinkingProps & Partial<ComponentProps<typeof ShinyText>>
+> = ({ text, ...props }) => {
   return (
     <ShinyText
       disabled={false}
@@ -32,7 +35,9 @@ type ChatReasoningProps = {
   text?: string;
 };
 
-export const ChatReasoning: FC<ChatReasoningProps & Partial<ComponentProps<typeof ShinyText>>> = ({ text, ...props }) => {
+export const ChatReasoning: FC<
+  ChatReasoningProps & Partial<ComponentProps<typeof ShinyText>>
+> = ({ text, ...props }) => {
   return (
     <ShinyText
       disabled={false}

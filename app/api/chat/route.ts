@@ -17,7 +17,7 @@ import { SYSTEM_PROMPT } from "@/lib/system-prompt/prompt-v0";
 // Allow streaming responses up to 30 seconds
 export const maxDuration = 30;
 
-const tools = {};
+// const tools = {};
 
 const logger = createLogger(`app/api/chat/route.ts`);
 
