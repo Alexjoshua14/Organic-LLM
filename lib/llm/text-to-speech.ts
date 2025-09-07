@@ -200,3 +200,75 @@ export async function transformTextToSpeechFriendly(
 
   return result;
 }
+
+const SpeechFriendlySystemPromptV2 = `
+Developer: You are a helpful assistant that converts text into speech-friendly output.
+Instructions:
+- Only edit the text as needed to make it suitable for speech.
+- If the text is already speech-friendly, return the text as is as quickly as possible.
+- Describe visible elements (like code blocks, lists, images) for listener clarity.
+- Output should closely match the original text in sequence.
+- Convert special characters to be easy for speech.
+- Ensure the result is ready for AI TTS audio generation and aligns with the input.
+- Output ONLY the transformed text.
+- Do not include any other text in your response.
+`;
+
+const SpeechResultSchema = z.object({
+  speechFriendlyText: z
+    .string()
+    .describe(
+      "The speech-friendly text. Do not include any other text in your response."
+    ),
+  grade: z
+    .number()
+    .describe(
+      "Grade for the quality of the speech-friendly text. 100 is the highest grade."
+    ),
+  reason: z
+    .string()
+    .describe(
+      "Reason for the grade. Be as detailed as possible but keep response under 300 tokens MAX."
+    ),
+});
+
+export async function transformTextToSpeechFriendlyV2(
+  text: string
+): Promise<string> {
+  const result = await generateObject({
+    model: openai("gpt-5-nano"),
+    system: SpeechFriendlySystemPromptV2,
+    prompt: text,
+    temperature: 0,
+    schema: SpeechResultSchema,
+  });
+
+  if (result.object.grade <= 80) {
+    return result.object.speechFriendlyText;
+  }
+
+  const regeneratedTranscriptStartGeneration = performance.now();
+
+  const regeneratedTranscript = await generateObject({
+    model: openai("gpt-5-nano"),
+    system: CorrectionSystemPrompt.replace(
+      "{{validationErrorReasoning}}",
+      result.object.reason
+    ),
+    prompt: `Original text: ${text}\n\nTransformed text: ${result.object.speechFriendlyText}`,
+    temperature: 0,
+    schema: SpeechResultSchema,
+  });
+
+  const regeneratedTranscriptEndGeneration = performance.now();
+  logger.log(
+    "transformTextToSpeechFriendlyV2",
+    `Regenerated transcript generation completed in ${regeneratedTranscriptEndGeneration - regeneratedTranscriptStartGeneration} milliseconds`
+  );
+
+  if (regeneratedTranscript.object.grade >= result.object.grade) {
+    return regeneratedTranscript.object.speechFriendlyText;
+  } else {
+    return result.object.speechFriendlyText;
+  }
+}
