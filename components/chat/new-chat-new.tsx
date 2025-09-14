@@ -10,7 +10,7 @@ import {
   SparklesIcon,
 } from "lucide-react";
 import { useCallback } from "react";
-import { redirect } from "next/navigation";
+import { useRouter } from "next/navigation";
 
 import { createChat } from "@/lib/chat/chat-store";
 import { createLogger } from "@/lib/logger";
@@ -26,51 +26,52 @@ const chatIdeas: {
   prompt: string;
   icon: React.ReactNode;
 }[] = [
-  {
-    title: "Create",
-    prompt: "Help me create something.",
-    icon: <SparklesIcon size={14} />,
-  },
-  {
-    title: "Explore",
-    prompt: "Help me explore something.",
-    icon: <NewspaperIcon size={14} />,
-  },
-  {
-    title: "Code",
-    prompt: "Help me code something.",
-    icon: <CodeIcon size={14} />,
-  },
-  {
-    title: "Learn",
-    prompt: "Help me learn something.",
-    icon: <GraduationCapIcon size={14} />,
-  },
-];
+    {
+      title: "Create",
+      prompt: "Help me create something.",
+      icon: <SparklesIcon size={14} />,
+    },
+    {
+      title: "Explore",
+      prompt: "Help me explore something.",
+      icon: <NewspaperIcon size={14} />,
+    },
+    {
+      title: "Code",
+      prompt: "Help me code something.",
+      icon: <CodeIcon size={14} />,
+    },
+    {
+      title: "Learn",
+      prompt: "Help me learn something.",
+      icon: <GraduationCapIcon size={14} />,
+    },
+  ];
 
 const promptIdeas: {
   title: string;
   prompt: string;
 }[] = [
-  {
-    title: "How does AI work?",
-    prompt: "How does AI work?",
-  },
-  {
-    title: "Are white holes real?",
-    prompt: "Are white holes real?",
-  },
-  {
-    title: 'How many Bs are in the word "blueberry"?',
-    prompt: 'How many Bs are in the word "blueberry"?',
-  },
-  {
-    title: "What is the meaning of chat?",
-    prompt: "What is the meaning of chat?",
-  },
-];
+    {
+      title: "How does AI work?",
+      prompt: "How does AI work?",
+    },
+    {
+      title: "Are white holes real?",
+      prompt: "Are white holes real?",
+    },
+    {
+      title: 'How many Bs are in the word "blueberry"?',
+      prompt: 'How many Bs are in the word "blueberry"?',
+    },
+    {
+      title: "What is the meaning of chat?",
+      prompt: "What is the meaning of chat?",
+    },
+  ];
 
 export const NewChatNew: React.FC<NewChatProps> = ({ hidden: _hidden }) => {
+  const router = useRouter();
   const [creatingChat, setCreatingChat] = useState(false);
 
   const chatGeneratorButton = useCallback(async (prompt: string) => {
@@ -95,7 +96,7 @@ export const NewChatNew: React.FC<NewChatProps> = ({ hidden: _hidden }) => {
 
       const chatId = createChatRes.data;
 
-      redirect(`/chat/${chatId}?initialMessage=${prompt}`);
+      router.push(`/chat/${chatId}?initialMessage=${prompt}`);
     } catch (error) {
       logger.error("chatGeneratorButton", `Error creating chat: ${error}`);
     } finally {

@@ -13,9 +13,11 @@ const logger = createLogger(`app/chat/[slug]/page.tsx`);
 export default async function ChatPage({
   params,
 }: {
-  params: Promise<{ slug: string; initialMessage?: string }>;
+  params: Promise<{ slug: string }>;
 }) {
-  const { slug: chatId, initialMessage } = await params;
+  const { slug: chatId } = await params;
+
+  const initialMessage = "Are white holes real?"
 
   const id = chatId;
 

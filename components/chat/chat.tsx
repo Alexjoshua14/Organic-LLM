@@ -66,9 +66,12 @@ export const Chat: React.FC<ChatProps> = ({
 
   useEffect(() => {
     if (initialMessage && messages.length === 0) {
+      logger.log("Chat", `Sending initial message: ${initialMessage}`);
       sendMessage({
         text: initialMessage,
       });
+    } else {
+      logger.log("Chat", `Didn't send initial message.. intialMessage: ${initialMessage}, messages.length: ${messages.length}`)
     }
   }, []);
 
