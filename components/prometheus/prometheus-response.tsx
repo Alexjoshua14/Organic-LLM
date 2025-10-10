@@ -7,7 +7,7 @@ import { ChatMessage } from "../chat/chat-message";
 import { ScrollArea } from "@/components/third-party/ui/scroll-area";
 
 type PrometheusResponseProps = {
-  response: UIMessage;
+  response: UIMessage | null;
   isLoading: boolean;
 };
 
@@ -30,7 +30,7 @@ export const PrometheusResponse: React.FC<PrometheusResponseProps> = ({
         }}
       >
         {/* Header */}
-        <div className="p-6 border-b border-white/10">
+        <div className="p-4 border-b border-white/10">
           <div className="flex items-center justify-between">
             <h3 className="text-lg font-light tracking-wide text-foreground/90">
               Response
@@ -47,7 +47,7 @@ export const PrometheusResponse: React.FC<PrometheusResponseProps> = ({
         </div>
 
         {/* Content */}
-        <div className="flex-1 p-6">
+        <div className="flex-1 p-4">
           <ScrollArea className="h-full">
             <div className="space-y-4">
               {response ? (

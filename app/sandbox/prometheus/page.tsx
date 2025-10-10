@@ -2,7 +2,7 @@
 
 import { useState, useCallback } from "react";
 import { useChat } from "@ai-sdk/react";
-import { DefaultChatTransport } from "ai";
+import { DefaultChatTransport, UIMessage } from "ai";
 
 import { PrometheusInput, PrometheusResponse } from "@/components/prometheus";
 import Page from "@/components/layout/page";
@@ -12,11 +12,16 @@ export default function PrometheusPage() {
 
   const PROMETHEUS_PROJECT = process.env.NEXT_PUBLIC_PROMETHEUS_PROJECT;
 
+  const [messageDisplayed, setMessageDisplayed] = useState<UIMessage | null>(null);
+
   const { messages, sendMessage } = useChat({
     id: PROMETHEUS_PROJECT,
     transport: new DefaultChatTransport({
       api: "/api/chat/prometheus",
     }),
+    onFinish: ({ message }) => {
+      setMessageDisplayed(message);
+    },
   });
 
   const handleSendMessage = useCallback(async ({ text }: { text: string }) => {
@@ -58,7 +63,7 @@ export default function PrometheusPage() {
               className="rounded-3xl shadow-2xl overflow-hidden border border-white/10"
               style={{
                 width: "min(33vh * 0.8, 40vw)",
-                height: "33vh",
+                height: "20vh",
                 background: "var(--gradient-forest)",
                 boxShadow: `
                   0 20px 25px -5px rgba(0, 0, 0, 0.1),
@@ -82,10 +87,7 @@ export default function PrometheusPage() {
                     <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-white/20 flex items-center justify-center backdrop-blur-sm">
                       <div className="w-8 h-8 rounded-full bg-white/30" />
                     </div>
-                    <p className="text-sm font-light tracking-wide">
-                      3D RENDERER
-                    </p>
-                    <p className="text-xs opacity-60 mt-1">PLACEHOLDER</p>
+                    {/* <p className="text-xs opacity-60 mt-1">Prometheus</p> */}
                   </div>
                 </div>
               </div>
@@ -93,11 +95,11 @@ export default function PrometheusPage() {
           </div>
 
           {/* Response Area - Takes up remaining space, only shows when there's a response */}
-          <div className="flex-1 max-w-[45vw] min-w-[350px] flex items-start w-full">
-            <div className="w-full h-full max-h-[70vh]">
+          <div className="flex-1 max-w-[75vw] md:max-w-2xl min-w-[350px] flex items-start w-full">
+            <div className="w-full h-full max-h-[40vh]">
               <PrometheusResponse
                 isLoading={isLoading}
-                response={messages[messages.length - 1]}
+                response={messageDisplayed}
               />
             </div>
           </div>
