@@ -4,17 +4,27 @@ import { useState, useEffect, useRef } from "react";
 import { Button } from "@heroui/button";
 import { Textarea } from "@heroui/input";
 import { Switch } from "@heroui/switch";
-import { Volume2, Loader2, Download, Trash2, Play, Pause, X, Edit3 } from "lucide-react";
+import {
+  Volume2,
+  Loader2,
+  Download,
+  Trash2,
+  Play,
+  Pause,
+  X,
+  Edit3,
+} from "lucide-react";
 
 import Page from "@/components/layout/page";
 import { createLogger } from "@/lib/logger";
 import ShinyText from "@/components/ShinyText";
 import { LiquidChrome } from "@/components/third-party/reactbits/LiquidChrome/LiquidChrome";
 import "@/components/third-party/reactbits/LiquidChrome/LiquidChrome.css";
+import ScrollReveal from "@/components/third-party/reactbits/ScrollReveal/ScrollReveal";
 
 const logger = createLogger("app/speak/page.tsx");
 
-const BACKGROUND_SPEED = .24;
+const BACKGROUND_SPEED = 0.24;
 
 type TTSResponse = {
   data: {
@@ -32,19 +42,22 @@ type AudioHistoryItem = {
   processed: boolean;
 };
 
-type DisplayMode = 'input' | 'processing' | 'ready' | 'playing';
+type DisplayMode = "input" | "processing" | "ready" | "playing";
 
 const STORAGE_KEY = "tts-audio-history";
 const MAX_HISTORY_ITEMS = 10;
 
 export default function SpeakPage() {
   const [inputText, setInputText] = useState("");
-  const [displayMode, setDisplayMode] = useState<DisplayMode>('input');
+  const [displayMode, setDisplayMode] = useState<DisplayMode>("input");
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [processText, setProcessText] = useState(true);
   const [currentAudioUrl, setCurrentAudioUrl] = useState<string | null>(null);
-  const [currentAudioData, setCurrentAudioData] = useState<Record<number, number> | null>(null);
+  const [currentAudioData, setCurrentAudioData] = useState<Record<
+    number,
+    number
+  > | null>(null);
   const [audioHistory, setAudioHistory] = useState<AudioHistoryItem[]>([]);
 
   const currentAudioRef = useRef<HTMLAudioElement>(null);
@@ -79,7 +92,7 @@ export default function SpeakPage() {
 
     setIsLoading(true);
     setError(null);
-    setDisplayMode('processing');
+    setDisplayMode("processing");
 
     try {
       const res = await fetch("/api/ai/tts", {
@@ -107,7 +120,7 @@ export default function SpeakPage() {
 
       setCurrentAudioUrl(url);
       setCurrentAudioData(audioData);
-      setDisplayMode('ready');
+      setDisplayMode("ready");
 
       // Add to history
       const historyItem: AudioHistoryItem = {
@@ -123,9 +136,11 @@ export default function SpeakPage() {
         return newHistory.slice(0, MAX_HISTORY_ITEMS);
       });
     } catch (err) {
-      setError(err instanceof Error ? err.message : "An unexpected error occurred");
+      setError(
+        err instanceof Error ? err.message : "An unexpected error occurred",
+      );
       logger.error("TTS generation failed", String(err));
-      setDisplayMode('input');
+      setDisplayMode("input");
     } finally {
       setIsLoading(false);
     }
@@ -144,22 +159,22 @@ export default function SpeakPage() {
   };
 
   const handleAudioPlay = () => {
-    setDisplayMode('playing');
+    setDisplayMode("playing");
   };
 
   const handleAudioPause = () => {
-    setDisplayMode('ready');
+    setDisplayMode("ready");
   };
 
   const handleAudioEnded = () => {
-    setDisplayMode('ready');
+    setDisplayMode("ready");
   };
 
   const handleEdit = () => {
     if (currentAudioRef.current) {
       currentAudioRef.current.pause();
     }
-    setDisplayMode('input');
+    setDisplayMode("input");
   };
 
   const handleDownloadCurrent = () => {
@@ -172,7 +187,10 @@ export default function SpeakPage() {
     downloadAudio(item.audioData, filename);
   };
 
-  const downloadAudio = (audioData: Record<number, number>, filename: string) => {
+  const downloadAudio = (
+    audioData: Record<number, number>,
+    filename: string,
+  ) => {
     const blob = uint8ArrayToBlob(audioData);
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
@@ -199,7 +217,7 @@ export default function SpeakPage() {
     const url = URL.createObjectURL(blob);
     setCurrentAudioUrl(url);
     setCurrentAudioData(item.audioData);
-    setDisplayMode('ready');
+    setDisplayMode("ready");
 
     // Auto-play after a brief moment to ensure audio element is ready
     setTimeout(() => {
@@ -227,7 +245,7 @@ export default function SpeakPage() {
     setCurrentAudioUrl(null);
     setCurrentAudioData(null);
     setInputText("");
-    setDisplayMode('input');
+    setDisplayMode("input");
   };
 
   const formatTimestamp = (timestamp: number) => {
@@ -247,18 +265,28 @@ export default function SpeakPage() {
 
   return (
     <Page>
-      <div style={{ width: '100%', height: '100%', position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }}>
+      <div
+        style={{
+          width: "100%",
+          height: "100%",
+          position: "absolute",
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+        }}
+      >
         <LiquidChrome
           baseColor={[0.05, 0.08, 0.1]}
           speed={BACKGROUND_SPEED}
-          amplitude={.42}
+          amplitude={0.42}
           interactive={true}
         />
       </div>
       <div className="w-full h-full overflow-y-auto z-10">
         <div className="w-full max-w-5xl mx-auto p-8 space-y-8">
           {/* Header */}
-          <div className="text-center space-y-2 backdrop-blur-3xl rounded px-9 py-3 w-fit mx-auto cursor-default select-none" >
+          <div className="text-center space-y-2 backdrop-blur-3xl rounded px-9 py-3 w-fit mx-auto cursor-default select-none">
             <h1
               className="font-commissioner font-medium tracking-[-0.02em] leading-none cursor-default"
               style={{
@@ -274,7 +302,7 @@ export default function SpeakPage() {
 
           {/* Main Text Display Area */}
           <div className="space-y-4">
-            {displayMode === 'input' ? (
+            {displayMode === "input" ? (
               // Input Mode: Editable Textarea
               <>
                 <Textarea
@@ -309,7 +337,8 @@ export default function SpeakPage() {
                       onValueChange={setProcessText}
                       size="sm"
                       classNames={{
-                        wrapper: "group-data-[selected=true]:bg-gradient-to-r from-purple-600 to-blue-600",
+                        wrapper:
+                          "group-data-[selected=true]:bg-gradient-to-r from-purple-600 to-blue-600",
                       }}
                     >
                       <span className="text-sm text-muted-foreground">
@@ -350,23 +379,25 @@ export default function SpeakPage() {
                     border-2 border-border/50
                     backdrop-blur-sm
                     transition-all duration-300
-                    ${displayMode === 'processing' ? 'animate-pulse' : ''}
                   `}
                 >
-                  {displayMode === 'processing' && (
-                    <div className="flex items-center justify-center mb-6">
-                      <Loader2 className="w-8 h-8 animate-spin text-purple-600" />
-                      <span className="ml-3 text-muted-foreground">Processing your text...</span>
-                    </div>
-                  )}
-
-                  {/* TODO: Add custom processing animation here */}
-                  {/* User can implement their own React-based text animation for processing state */}
-
                   <div className="max-h-40 overflow-y-auto">
-                    <ShinyText text={inputText} className="whitespace-pre-wrap" />
+                    {/*<ScrollReveal
+                      baseOpacity={0}
+                      enableBlur={true}
+                      baseRotation={5}
+                      blurStrength={10}
+                    >*/}
+                    {displayMode == "processing" ? (
+                      <ShinyText
+                        text={inputText}
+                        className="whitespace-pre-wrap"
+                      />
+                    ) : (
+                      <p>{inputText}</p>
+                    )}
+                    {/*</ScrollReveal>*/}
                   </div>
-
                   {/* <div
                     className={`
                       text-xl md:text-2xl
@@ -389,7 +420,7 @@ export default function SpeakPage() {
 
                 {/* Control Buttons for Ready/Playing States */}
                 <div className="flex gap-3 flex-wrap">
-                  {displayMode === 'ready' && (
+                  {displayMode === "ready" && (
                     <>
                       <Button
                         className="bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white font-medium flex-1 sm:flex-none"
@@ -411,7 +442,7 @@ export default function SpeakPage() {
                     </>
                   )}
 
-                  {displayMode === 'playing' && (
+                  {displayMode === "playing" && (
                     <Button
                       className="bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white font-medium flex-1 sm:flex-none"
                       size="lg"
@@ -422,7 +453,7 @@ export default function SpeakPage() {
                     </Button>
                   )}
 
-                  {(displayMode === 'ready' || displayMode === 'playing') && (
+                  {(displayMode === "ready" || displayMode === "playing") && (
                     <>
                       <Button
                         variant="flat"
@@ -540,22 +571,28 @@ export default function SpeakPage() {
           )}
 
           {/* Empty State */}
-          {audioHistory.length === 0 && displayMode === 'input' && !isLoading && (
-            <div className="bg-muted/30 backdrop-blur-sm rounded-xl p-6 border border-border/50 text-center">
-              <Volume2 className="w-12 h-12 mx-auto mb-4 text-muted-foreground opacity-50" />
-              <h3 className="text-lg font-medium mb-2">No audio generated yet</h3>
-              <p className="text-sm text-muted-foreground max-w-md mx-auto">
-                Enter some text above and click "Generate Speech" to create audio.
-                Your recent generations will appear here for easy playback and download.
-              </p>
-            </div>
-          )}
+          {audioHistory.length === 0 &&
+            displayMode === "input" &&
+            !isLoading && (
+              <div className="bg-muted/30 backdrop-blur-sm rounded-xl p-6 border border-border/50 text-center">
+                <Volume2 className="w-12 h-12 mx-auto mb-4 text-muted-foreground opacity-50" />
+                <h3 className="text-lg font-medium mb-2">
+                  No audio generated yet
+                </h3>
+                <p className="text-sm text-muted-foreground max-w-md mx-auto">
+                  Enter some text above and click "Generate Speech" to create
+                  audio. Your recent generations will appear here for easy
+                  playback and download.
+                </p>
+              </div>
+            )}
         </div>
       </div>
 
       <style jsx global>{`
         @keyframes pulse-reading {
-          0%, 100% {
+          0%,
+          100% {
             opacity: 1;
             color: inherit;
           }
@@ -576,4 +613,45 @@ export default function SpeakPage() {
 function uint8ArrayToBlob(uint8ArrayData: Record<number, number>): Blob {
   const uint8Array = new Uint8Array(Object.values(uint8ArrayData));
   return new Blob([uint8Array], { type: "audio/mpeg" });
+}
+
+{
+  /* TODO: Add custom processing animation here */
+}
+{
+  /* User can implement their own React-based text animation for processing state */
+}
+{
+  /*{displayMode === "processing" ? (
+  <div className="max-h-40 overflow-y-auto">
+    <ScrollReveal
+      baseOpacity={0}
+      enableBlur={true}
+      baseRotation={5}
+      blurStrength={10}
+    >
+      <ShinyText
+        text={inputText}
+        className="whitespace-pre-wrap"
+      />
+    </ScrollReveal>
+  </div>
+) : (
+  <div className="max-h-96 overflow-y-auto">
+    <p className="text-lg md:text-xl leading-relaxed tracking-wide whitespace-pre-wrap transition-all duration-300">
+      {inputText}
+    </p>
+  </div>
+  // <ScrollReveal
+  //   containerClassName="max-h-40 overflow-y-auto"
+  //   baseOpacity={0}
+  //   enableBlur={true}
+  //   baseRotation={5}
+  //   blurStrength={10}
+  // >
+  //   <p className="text-xl md:text-xl leading-relaxed tracking-wide whitespace-pre-wrap transition-all duration-300">
+  //     {inputText}
+  //   </p>
+  // </ScrollReveal>
+)}*/
 }
