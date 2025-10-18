@@ -42,10 +42,11 @@ const AIMessage: FC<ChatMessageProps> = ({ message }) => {
   return (
     <div className="group/ai-message rounded-lg p-4 flex flex-col gap-2">
       <div className="ai-message space-y-2 text-foreground max-w-full prose dark:prose-invert">
-        {message.parts.length < 1 ? (
+        {message.parts.length <= 1 ? (
           <ChatThinking />
         ) : (
           message.parts.map((part, i) => {
+            console.log("/n/nPART: ", JSON.stringify(part, null, 2));
             switch (part.type) {
               case "reasoning":
                 if (part.state === "streaming") {

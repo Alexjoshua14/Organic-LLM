@@ -37,7 +37,7 @@ export async function getChats(): Promise<Result<Thread[]>> {
  * @returns Array of UIMessage objects
  */
 export async function loadChat(
-  chatId: string,
+  chatId: string
 ): Promise<Result<{ thread: Thread; messages: UIMessage[] }>> {
   const sb = await supabaseServer();
 
@@ -99,7 +99,7 @@ export async function saveChat(params: {
       return {
         ok: false,
         error: new Error(
-          error?.message ?? "Error occured creating chat thread..",
+          error?.message ?? "Error occured creating chat thread.."
         ),
       };
     }
@@ -206,7 +206,7 @@ export async function createChat(chatId?: string): Promise<Result<string>> {
  */
 export async function addMessage(
   threadId: string,
-  message: UIMessage,
+  message: UIMessage
 ): Promise<SimpleResult> {
   const supabaseMessage = convertUIMessageToMessage(message, threadId);
 
@@ -256,14 +256,14 @@ export async function upsertMessages(params: {
       return {
         ok: false,
         error: new Error(
-          error?.message ?? "Error occured creating chat thread..",
+          error?.message ?? "Error occured creating chat thread.."
         ),
       };
     }
   }
 
   const rows = messages.map((message) =>
-    convertUIMessageToMessage(message, chatId),
+    convertUIMessageToMessage(message, chatId)
   );
 
   const { error } = await sb.from("messages").upsert(rows, {
@@ -288,7 +288,7 @@ export async function upsertMessages(params: {
 }
 
 export async function getMessages(
-  chatId: string,
+  chatId: string
 ): Promise<Result<UIMessage[]>> {
   const sb = await supabaseServer();
 
@@ -321,7 +321,7 @@ export async function getMessages(
 
 export async function getNMessages(
   chatId: string,
-  limit?: number,
+  limit?: number
 ): Promise<Result<UIMessage[], string>> {
   if (limit === 0) {
     return {
@@ -370,7 +370,7 @@ export async function getNMessages(
 
 export async function updateChatTitle(
   chatId: string,
-  title: string,
+  title: string
 ): Promise<SimpleResult> {
   const sb = await supabaseServer();
   const { error } = await sb.from("threads").update({ title }).eq("id", chatId);
@@ -390,7 +390,7 @@ export async function updateChatTitle(
 
 export async function updateChatPinned(
   chatId: string,
-  pinned: boolean,
+  pinned: boolean
 ): Promise<SimpleResult> {
   const sb = await supabaseServer();
   const { error } = await sb
@@ -429,13 +429,13 @@ export async function deleteChat(chatId: string): Promise<SimpleResult> {
 }
 
 export async function getConversationSummary(
-  chatId: string,
+  chatId: string
 ): Promise<Result<string>> {
   const sb = await supabaseServer();
   const { data, error } = await sb
     .from("thread_summaries")
     .select("summary_text")
-    .eq("id", chatId)
+    .eq("thread_id", chatId)
     .single();
 
   if (error || !data) {
@@ -453,7 +453,7 @@ export async function getConversationSummary(
 
 export async function updateConversationSummary(
   chatId: string,
-  conversationSummary: string,
+  conversationSummary: string
 ): Promise<SimpleResult> {
   if (conversationSummary.trim().length === 0) {
     return {
