@@ -12,6 +12,7 @@ let availableSpeechModels: SpeechModel[] = [
   openai.speech("gpt-4o-mini-tts"),
   elevenlabs.speech("eleven_multilingual_v2"),
   elevenlabs.speech("eleven_flash_v2_5"),
+  elevenlabs.speech("eleven_v3"),
 ];
 
 export async function POST(req: NextRequest) {

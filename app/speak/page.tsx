@@ -22,6 +22,7 @@ import { LiquidChrome } from "@/components/third-party/reactbits/LiquidChrome/Li
 import "@/components/third-party/reactbits/LiquidChrome/LiquidChrome.css";
 import ScrollReveal from "@/components/third-party/reactbits/ScrollReveal/ScrollReveal";
 import { APIResponseView } from "@/components/dev/api-response-view";
+import { SpeechModelSelector } from "@/components/chat/speech-model-selector";
 
 const logger = createLogger("app/speak/page.tsx");
 
@@ -55,6 +56,7 @@ export default function SpeakPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [processText, setProcessText] = useState(true);
+  const [selectedModel, setSelectedModel] = useState("eleven_flash_v2_5");
   const [currentAudioUrl, setCurrentAudioUrl] = useState<string | null>(null);
   const [currentAudioData, setCurrentAudioData] = useState<Record<
     number,
@@ -125,7 +127,7 @@ export default function SpeakPage() {
         },
         body: JSON.stringify({
           text: inputText,
-          model: "eleven_flash_v2_5",
+          model: selectedModel,
           skipTransform: !processText,
           timestamps: "word",
         }),
@@ -364,8 +366,8 @@ export default function SpeakPage() {
                 )}
 
                 {/* Controls Row */}
-                <div className="flex flex-col sm:flex-row gap-4 items-stretch sm:items-center justify-between">
-                  <div className="flex items-center gap-3">
+                <div className="flex flex-row gap-4 items-stretch sm:items-center justify-between">
+                  <div className="flex items-center gap-9">
                     <Switch
                       isSelected={processText}
                       onValueChange={setProcessText}
@@ -379,7 +381,13 @@ export default function SpeakPage() {
                         Process Text for Speech
                       </span>
                     </Switch>
+                    <SpeechModelSelector
+                      selectedModel={selectedModel}
+                      onModelChange={setSelectedModel}
+                    />
                   </div>
+
+
 
                   <Button
                     className="bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white font-medium"
