@@ -23,6 +23,7 @@ import "@/components/third-party/reactbits/LiquidChrome/LiquidChrome.css";
 import ScrollReveal from "@/components/third-party/reactbits/ScrollReveal/ScrollReveal";
 import { APIResponseView } from "@/components/dev/api-response-view";
 import { SpeechModelSelector } from "@/components/chat/speech-model-selector";
+import { glass } from "@/components/design-system/primitives";
 
 const logger = createLogger("app/speak/page.tsx");
 
@@ -110,6 +111,11 @@ export default function SpeakPage() {
   }, [currentAudioItem]);
 
   const handleGenerateSpeech = async () => {
+    if (displayMode === 'processing') {
+      logger.log("handleGenerateSpeech", "Already processing, skipping...");
+      return;
+    }
+
     if (!inputText.trim()) {
       setError("Please enter some text");
       return;
@@ -318,17 +324,17 @@ export default function SpeakPage() {
       <div className="w-full h-full overflow-y-auto z-10">
         <div className="w-full max-w-5xl mx-auto p-8 space-y-8">
           {/* Header */}
-          <div className="text-center space-y-2 backdrop-blur-3xl rounded px-9 py-3 w-fit mx-auto cursor-default select-none">
+          <div className={`${glass()} text-center space-y-2 rounded-xl px-9 py-3 w-fit mx-auto cursor-default select-none`}>
             <h1
               className="font-commissioner font-medium tracking-[-0.02em] leading-none cursor-default"
               style={{
                 fontSize: "clamp(2rem, 6vw, 4rem)",
               }}
             >
-              TEXT TO SPEECH
+              Prometheus
             </h1>
             <p className="text-muted-foreground text-sm md:text-base">
-              Generate natural-sounding speech from your text
+              Speech Generation
             </p>
           </div>
 
@@ -425,22 +431,21 @@ export default function SpeakPage() {
                   `}
                 >
                   <div className="max-h-40 overflow-y-auto">
-                    {/*<ScrollReveal
-                      baseOpacity={0}
-                      enableBlur={true}
-                      baseRotation={5}
-                      blurStrength={10}
-                    >*/}
                     {displayMode === "processing" ? (
                       <ShinyText
                         text={inputText}
                         className="whitespace-pre-wrap"
                         speed={4}
                       />
+                    ) : displayMode === "playing" ? (
+                      <ShinyText
+                        text={inputText}
+                        className="whitespace-pre-wrap"
+                        speed={8}
+                      />
                     ) : (
                       <p>{inputText}</p>
                     )}
-                    {/*</ScrollReveal>*/}
                   </div>
                   {/* <div
                     className={`
@@ -542,7 +547,7 @@ export default function SpeakPage() {
                     onPlay={handleAudioPlay}
                     onPause={handleAudioPause}
                     onEnded={handleAudioEnded}
-                    className="hidden"
+                    className="absolute top-0 left-0 w-0 h-0"
                   >
                     <track kind="captions" />
                   </audio>
