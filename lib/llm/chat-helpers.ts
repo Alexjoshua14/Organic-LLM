@@ -21,13 +21,13 @@ import {
   updateConversationSummary,
 } from "@/data/supabase/chat";
 import { Result } from "@/types";
+import { encodingForModel } from "js-tiktoken";
 
 const MODEL_SELECTION = {
   summarizer: openai("gpt-5"),
   updater: openai("gpt-5"),
   validator: openai("gpt-5-mini"),
   reviser: openai("gpt-5-mini"),
-  tokenEstimator: openai("gpt-5-nano"),
 };
 
 const SummarizerSystemPrompt = `
@@ -82,7 +82,7 @@ Previous persisted summary (if any):
 const logger = createLogger(`lib/llm/chat-helpers.ts`);
 
 export async function ensureChatHasTitle(
-  chatId: string,
+  chatId: string
 ): Promise<Result<string>> {
   const sb = await supabaseServer();
 
@@ -108,7 +108,7 @@ export async function ensureChatHasTitle(
   ) {
     logger.log(
       "ensureChatHasTitle",
-      `Chat already has title: ${res.data.title}`,
+      `Chat already has title: ${res.data.title}`
     );
 
     return {
@@ -122,7 +122,7 @@ export async function ensureChatHasTitle(
 }
 
 export async function generateChatTitle(
-  chatId: string,
+  chatId: string
 ): Promise<Result<string>> {
   const sb = await supabaseServer();
 
@@ -135,7 +135,7 @@ export async function generateChatTitle(
   if (messages.error) {
     logger.error(
       "updateChatTitle",
-      `Error getting message: ${messages.error?.message}`,
+      `Error getting message: ${messages.error?.message}`
     );
 
     return {
@@ -158,7 +158,7 @@ export async function generateChatTitle(
   }
 
   const { text: conversationSummary } = await generateText({
-    model: MODEL_SELECTION.tokenEstimator,
+    model: MODEL_SELECTION.summarizer,
     system: `
     You are a helpful assistant that generates a summary of a chat.
     The chat messages will be provided to you.
@@ -184,7 +184,7 @@ export async function generateChatTitle(
   if (res.error) {
     logger.error(
       "updateChatTitle",
-      `Error updating chat title: ${res.error.message}`,
+      `Error updating chat title: ${res.error.message}`
     );
 
     return {
@@ -200,7 +200,7 @@ export async function generateChatTitle(
 }
 
 export async function summarizeChat(
-  chatId: string,
+  chatId: string
 ): Promise<Result<string, string>> {
   logger.log("summarizeChat", `Summarizing chat ${chatId}`);
   // Get all chat messages
@@ -219,7 +219,7 @@ export async function summarizeChat(
   if (messages.length > 75) {
     logger.warn(
       "summarizeChat",
-      `Chat ${chatId} has more than 75 messages, truncating`,
+      `Chat ${chatId} has more than 75 messages, truncating`
     );
     messages = messages.slice(-75);
   }
@@ -233,7 +233,7 @@ export async function summarizeChat(
 
   logger.log(
     "summarizeChat",
-    `Summarizing chat ${chatId} with ${modelMessages.length} messages`,
+    `Summarizing chat ${chatId} with ${modelMessages.length} messages`
   );
 
   let { text: conversationSummary } = await generateText({
@@ -247,13 +247,13 @@ export async function summarizeChat(
 
   logger.log(
     "summarizeChat",
-    `Generated initial conversation summary for chat ${chatId}\n`,
+    `Generated initial conversation summary for chat ${chatId}\n`
     //`Conversation Summary (v${summaryGenerationCount}): ${conversationSummary}`,
   );
 
   const validatedSummaryRes = await validateSummary(
     conversationSummary,
-    modelMessages,
+    modelMessages
   );
 
   if (validatedSummaryRes.error || !validatedSummaryRes.data) {
@@ -268,7 +268,7 @@ export async function summarizeChat(
   if (conversationSummary === null) {
     logger.error(
       "summarizeChat",
-      "Conversation summary could not be generated.",
+      "Conversation summary could not be generated."
     );
 
     return {
@@ -279,14 +279,14 @@ export async function summarizeChat(
 
   const { error: sbError } = await updateConversationSummary(
     chatId,
-    conversationSummary,
+    conversationSummary
   );
 
   if (sbError) {
     logger.error(
       "summarizeChat",
       "Conversation summary could not be updated.",
-      sbError,
+      sbError
     );
 
     return {
@@ -302,7 +302,7 @@ export async function summarizeChat(
 }
 
 export async function summarizeNewChat(
-  chatId: string,
+  chatId: string
 ): Promise<Result<string, string>> {
   logger.log("summarizeChatNEW", `Summarizing chat ${chatId}`);
 
@@ -362,7 +362,7 @@ export async function summarizeNewChat(
 }
 
 export async function updateChatSummary(
-  chatId: string,
+  chatId: string
 ): Promise<Result<string, string>> {
   logger.log("updateChatSummary", `Updating chat summary for chat ${chatId}`);
   const sb = await supabaseServer();
@@ -372,7 +372,7 @@ export async function updateChatSummary(
     .select(
       `
       *
-      `,
+      `
     )
     .eq("thread_id", chatId)
     .maybeSingle();
@@ -380,7 +380,7 @@ export async function updateChatSummary(
   if (error) {
     logger.error(
       "updateChatSummary",
-      `Error getting thread summary: ${error.message}`,
+      `Error getting thread summary: ${error.message}`
     );
 
     return {
@@ -421,7 +421,7 @@ export async function updateChatSummary(
 
   logger.log(
     "updateChatSummary",
-    `Messages since latest message: ${messagesRes.data?.length ?? 0} messages`,
+    `Messages since latest message: ${messagesRes.data?.length ?? 0} messages`
   );
 
   if (messagesRes.data?.length === 0) {
@@ -436,7 +436,7 @@ export async function updateChatSummary(
   if (messagesRes.error || !messagesRes.data) {
     logger.error(
       "updateChatSummary",
-      `Error getting messages: ${messagesRes.error.message}`,
+      `Error getting messages: ${messagesRes.error.message}`
     );
 
     return {
@@ -452,7 +452,7 @@ export async function updateChatSummary(
   if (uiMessages.length !== messagesRes.data.length) {
     logger.error(
       "updateChatSummary",
-      "A message was not converted to UIMessage",
+      "A message was not converted to UIMessage"
     );
   }
 
@@ -462,7 +462,7 @@ export async function updateChatSummary(
     model: MODEL_SELECTION.updater,
     system: UpdateSummarizerSystemPrompt.replace(
       "{{conversationSummary}}",
-      threadSummary.summary_text,
+      threadSummary.summary_text
     ),
     temperature: 0.3,
     messages: modelMessages,
@@ -472,7 +472,7 @@ export async function updateChatSummary(
 
   const validatedSummaryRes = await validateSummary(
     updatedSummary,
-    modelMessages,
+    modelMessages
   );
 
   if (validatedSummaryRes.error) {
@@ -544,7 +544,7 @@ const validateSummary = async (
   conversationSummary: string,
   messages: ModelMessage[],
   currentPersistedConversationSummary?: string,
-  forceGeneration?: boolean,
+  forceGeneration?: boolean
 ): Promise<Result<string, string>> => {
   let validSummary: ValidSummary | null = null;
 
@@ -554,7 +554,7 @@ const validateSummary = async (
       model: MODEL_SELECTION.validator,
       system: ValidatorSystemPrompt.replace(
         "{{currentPersistedConversationSummary}}",
-        currentPersistedConversationSummary ?? "null",
+        currentPersistedConversationSummary ?? "null"
       ).replace("{{conversationSummary}}", conversationSummary),
       temperature: 0.1,
       messages: messages,
@@ -572,18 +572,18 @@ const validateSummary = async (
 
     logger.log(
       "validateSummary",
-      `Validator has rejected summary v${i}\nWith response: ${JSON.stringify(validSummary)}`,
+      `Validator has rejected summary v${i}\nWith response: ${JSON.stringify(validSummary)}`
     );
 
     let { text: updatedConversationSummary } = await generateText({
       model: MODEL_SELECTION.reviser,
       system: ReviserSystemPrompt.replace(
         "{{conversationSummary}}",
-        conversationSummary,
+        conversationSummary
       )
         .replace(
           "{{currentPersistedConversationSummary}}",
-          currentPersistedConversationSummary ?? "null",
+          currentPersistedConversationSummary ?? "null"
         )
         .replace("{{reason}}", validSummary.reason),
       temperature: 0.2,
@@ -615,25 +615,24 @@ const validateSummary = async (
   };
 };
 
-export const estimateTokenCount = async (text: string) => {
-  const schema = z.object({
-    tokens: z.number().max(100000),
-  });
-
-  const res = await generateObject({
-    model: MODEL_SELECTION.tokenEstimator,
-    system: `
-    You are a helpful assistant that estimates the token count of a given text.
-    Estimate the token count of the given text.
-    Return only the token count, no other text.
-    `,
-    prompt: text,
-    schema: schema,
-  });
-
-  if (res.finishReason === "error" || !res.object) {
+/**
+ * Count tokens in text using OpenAI's tiktoken tokenizer.
+ * Uses the cl100k_base encoding which is compatible with GPT-4 and GPT-3.5-turbo models.
+ * This is a close approximation for newer models like GPT-4o and GPT-5.
+ * @param text - The text to count tokens for
+ * @returns The number of tokens, or null if encoding fails
+ */
+export const estimateTokenCount = async (
+  text: string
+): Promise<number | null> => {
+  // TODO: CLEAN UP THIS FUNCTION TO ENSURE IT'S ACCURACY
+  try {
+    // Use gpt-4 encoding (cl100k_base) which is compatible with most modern OpenAI models
+    const encoding = encodingForModel("gpt-5");
+    const tokens = encoding.encode(text);
+    return tokens.length;
+  } catch (error) {
+    logger.error("estimateTokenCount", `Error counting tokens: ${error}`);
     return null;
   }
-
-  return res.object.tokens;
 };

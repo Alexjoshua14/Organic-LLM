@@ -54,6 +54,7 @@ export async function POST(req: Request) {
   const start_preprocessing_time = performance.now();
 
   try {
+    const start_gather_context_time = performance.now();
     const chatContextPromise = getContextAndMessagesChatPrompt(
       id,
       10,
@@ -82,6 +83,11 @@ export async function POST(req: Request) {
       if (chatContextResult.data?.prompt) {
         systemPrompt = chatContextResult.data?.prompt;
       }
+      const end_gather_context_time = performance.now();
+      logger.log(
+        "POST",
+        `Time from initial request recieved to gather context complete: ${end_gather_context_time - start_gather_context_time} milliseconds`
+      );
     }
 
     // const previousMessages = await loadChat(id).then(
@@ -113,7 +119,13 @@ export async function POST(req: Request) {
     }
   }
 
+  const start_estimate_token_count_time = performance.now();
   const systemPromptTokens = await estimateTokenCount(systemPrompt);
+  const end_estimate_token_count_time = performance.now();
+  logger.log(
+    "POST",
+    `Time to estimate token count: ${end_estimate_token_count_time - start_estimate_token_count_time} milliseconds`
+  );
 
   logger.log(
     "POST",
