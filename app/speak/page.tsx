@@ -21,6 +21,7 @@ import ShinyText from "@/components/ShinyText";
 import { LiquidChrome } from "@/components/third-party/reactbits/LiquidChrome/LiquidChrome";
 import "@/components/third-party/reactbits/LiquidChrome/LiquidChrome.css";
 import ScrollReveal from "@/components/third-party/reactbits/ScrollReveal/ScrollReveal";
+import { APIResponseView } from "@/components/dev/api-response-view";
 
 const logger = createLogger("app/speak/page.tsx");
 
@@ -40,6 +41,7 @@ type AudioHistoryItem = {
   timestamp: number;
   audioData: Record<number, number>;
   processed: boolean;
+  apiResponse?: TTSResponse;
 };
 
 type DisplayMode = "input" | "processing" | "ready" | "playing";
@@ -59,6 +61,9 @@ export default function SpeakPage() {
     number
   > | null>(null);
   const [audioHistory, setAudioHistory] = useState<AudioHistoryItem[]>([]);
+  const [currentAudioItem, setCurrentAudioItem] =
+    useState<AudioHistoryItem | null>(null);
+  const [apiResponse, setApiResponse] = useState<string | null>(null);
 
   const currentAudioRef = useRef<HTMLAudioElement>(null);
 
@@ -84,6 +89,24 @@ export default function SpeakPage() {
     }
   }, [audioHistory]);
 
+  useEffect(() => {
+    // Truncate the uint8ArrayData in the preview if present
+    const apiResponseData = currentAudioItem?.apiResponse?.data;
+    let displayApiResponse;
+    if (apiResponseData && apiResponseData.uint8ArrayData) {
+      displayApiResponse = {
+        ...apiResponseData,
+        uint8ArrayData: `[Uint8 data: length ${Object.keys(apiResponseData.uint8ArrayData).length}]`,
+      };
+    } else if (apiResponseData) {
+      displayApiResponse = apiResponseData;
+    } else {
+      displayApiResponse = "Undefined";
+    }
+    const parsedAPIResponse = JSON.stringify(displayApiResponse, null, 2);
+    setApiResponse(parsedAPIResponse);
+  }, [currentAudioItem]);
+
   const handleGenerateSpeech = async () => {
     if (!inputText.trim()) {
       setError("Please enter some text");
@@ -104,6 +127,7 @@ export default function SpeakPage() {
           text: inputText,
           model: "eleven_flash_v2_5",
           skipTransform: !processText,
+          timestamps: "word",
         }),
       });
 
@@ -129,7 +153,10 @@ export default function SpeakPage() {
         timestamp: Date.now(),
         audioData: audioData,
         processed: processText,
+        apiResponse: data,
       };
+
+      setCurrentAudioItem(historyItem);
 
       setAudioHistory((prev) => {
         const newHistory = [historyItem, ...prev];
@@ -217,6 +244,7 @@ export default function SpeakPage() {
     const url = URL.createObjectURL(blob);
     setCurrentAudioUrl(url);
     setCurrentAudioData(item.audioData);
+    setCurrentAudioItem(item);
     setDisplayMode("ready");
 
     // Auto-play after a brief moment to ensure audio element is ready
@@ -244,6 +272,7 @@ export default function SpeakPage() {
     }
     setCurrentAudioUrl(null);
     setCurrentAudioData(null);
+    setCurrentAudioItem(null);
     setInputText("");
     setDisplayMode("input");
   };
@@ -265,6 +294,7 @@ export default function SpeakPage() {
 
   return (
     <Page>
+      <APIResponseView apiResponse={apiResponse ?? "Undefined"} />
       <div
         style={{
           width: "100%",

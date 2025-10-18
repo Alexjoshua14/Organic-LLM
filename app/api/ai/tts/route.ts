@@ -20,8 +20,13 @@ export async function POST(req: NextRequest) {
     text,
     model,
     skipTransform,
-  }: { text: string; model: string; skipTransform?: boolean } =
-    await req.json();
+    timestamps,
+  }: {
+    text: string;
+    model: string;
+    skipTransform?: boolean;
+    timestamps?: "word";
+  } = await req.json();
 
   if (!text || typeof text !== "string") {
     return NextResponse.json({ error: "Text is required" }, { status: 400 });
