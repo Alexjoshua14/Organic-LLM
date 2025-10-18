@@ -6,6 +6,7 @@ import { useCallback, useRef, useState } from "react";
 
 import { createLogger } from "../../lib/logger";
 import { Loader } from "../third-party/ai-elements/loader";
+import { glass } from "../design-system/primitives";
 
 const logger = createLogger("components/tts/ttsButton.tsx");
 
@@ -115,13 +116,15 @@ export function TTSButton({
         {iconOnly ? null : "Play Audio"}
       </Button>
       {(loading || url) && (
-        <div className="absolute top-4 left-1/2 -translate-x-1/2 flex items-center gap-2 bg-white/20 backdrop-blur-sm rounded-lg px-2 py-1">
+        <div
+          className={`${glass()} absolute top-4 left-1/2 -translate-x-1/2 flex items-center gap-2 px-6 py-2 rounded-xl`}
+        >
           {url ? (
             <audio
               ref={audioRef}
               autoPlay
               controls
-              className="backdrop-blur-sm rounded-lg"
+              className={`${glass()} rounded-xl p-1`}
               src={url ?? undefined}
             >
               <track kind="captions" />

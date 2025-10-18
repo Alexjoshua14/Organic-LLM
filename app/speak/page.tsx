@@ -111,7 +111,7 @@ export default function SpeakPage() {
   }, [currentAudioItem]);
 
   const handleGenerateSpeech = async () => {
-    if (displayMode === 'processing') {
+    if (displayMode === "processing") {
       logger.log("handleGenerateSpeech", "Already processing, skipping...");
       return;
     }
@@ -324,7 +324,9 @@ export default function SpeakPage() {
       <div className="w-full h-full overflow-y-auto z-10">
         <div className="w-full max-w-5xl mx-auto p-8 space-y-8">
           {/* Header */}
-          <div className={`${glass()} text-center space-y-2 rounded-xl px-9 py-3 w-fit mx-auto cursor-default select-none`}>
+          <div
+            className={`${glass()} text-center space-y-2 rounded-xl px-9 py-3 w-fit mx-auto cursor-default select-none`}
+          >
             <h1
               className="font-commissioner font-medium tracking-[-0.02em] leading-none cursor-default"
               style={{
@@ -393,10 +395,8 @@ export default function SpeakPage() {
                     />
                   </div>
 
-
-
                   <Button
-                    className="bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white font-medium"
+                    className={`${glass()} w-fit py-3 px-9 border-white/25 border-t-1 border-x-1.5 border-b-1.5 hover:border-teal-300/45`}
                     disabled={isLoading || !inputText.trim()}
                     size="lg"
                     onPress={handleGenerateSpeech}
