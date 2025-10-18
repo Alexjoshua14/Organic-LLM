@@ -307,16 +307,20 @@ export default function SpeakPage() {
               <>
                 <Textarea
                   classNames={{
-                    input: ["bg-transparent", "text-base"],
+                    input: ["bg-transparent", "text-base", "p-2"],
                     inputWrapper: [
                       "border-border",
                       "hover:border-ring",
                       "focus-within:border-primary",
                       "backdrop-blur-sm",
-                      "bg-card/50",
+                      "bg-gradient-to-br",
+                      "from-card/90",
+                      "to-card/75",
+                      "backdrop-invert-75",
+                      "backdrop-brightness-50",
                     ],
                   }}
-                  minRows={6}
+                  minRows={4}
                   maxRows={12}
                   placeholder="Enter your text here. It will be converted to speech using AI..."
                   value={inputText}
@@ -372,13 +376,14 @@ export default function SpeakPage() {
               <div className="space-y-4">
                 <div
                   className={`
-                    bg-gradient-to-br from-card to-card/80
+                    bg-gradient-to-br from-card/90 to-card/75
                     rounded-2xl
                     p-8
                     shadow-xl
                     border-2 border-border/50
                     backdrop-blur-sm
-                    transition-all duration-300
+                    backdrop-invert-75
+                    backdrop-brightness-50
                   `}
                 >
                   <div className="max-h-40 overflow-y-auto">
@@ -388,10 +393,11 @@ export default function SpeakPage() {
                       baseRotation={5}
                       blurStrength={10}
                     >*/}
-                    {displayMode == "processing" ? (
+                    {displayMode === "processing" ? (
                       <ShinyText
                         text={inputText}
                         className="whitespace-pre-wrap"
+                        speed={4}
                       />
                     ) : (
                       <p>{inputText}</p>
@@ -420,26 +426,39 @@ export default function SpeakPage() {
 
                 {/* Control Buttons for Ready/Playing States */}
                 <div className="flex gap-3 flex-wrap">
-                  {displayMode === "ready" && (
-                    <>
-                      <Button
-                        className="bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white font-medium flex-1 sm:flex-none"
-                        size="lg"
-                        onPress={handlePlay}
-                      >
-                        <Play className="w-5 h-5 mr-2" />
-                        Play Audio
-                      </Button>
-                      <Button
-                        variant="flat"
-                        size="lg"
-                        onPress={handleEdit}
-                        className="flex-1 sm:flex-none"
-                      >
-                        <Edit3 className="w-4 h-4 mr-2" />
-                        Edit Text
-                      </Button>
-                    </>
+                  {displayMode === "processing" ? (
+                    <Button
+                      className="bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-600 text-white font-medium flex-1 sm:flex-none w-full"
+                      size="lg"
+                      onPress={() =>
+                        logger.log("Speech Button logic", "Generating...")
+                      }
+                    >
+                      <Loader2 className="w-5 h-5 mr-2 animate-spin" />
+                      Generating...
+                    </Button>
+                  ) : (
+                    displayMode === "ready" && (
+                      <>
+                        <Button
+                          className="bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white font-medium flex-1 sm:flex-none"
+                          size="lg"
+                          onPress={handlePlay}
+                        >
+                          <Play className="w-5 h-5 mr-2" />
+                          Play Audio
+                        </Button>
+                        <Button
+                          variant="flat"
+                          size="lg"
+                          onPress={handleEdit}
+                          className="flex-1 sm:flex-none"
+                        >
+                          <Edit3 className="w-4 h-4 mr-2" />
+                          Edit Text
+                        </Button>
+                      </>
+                    )
                   )}
 
                   {displayMode === "playing" && (
