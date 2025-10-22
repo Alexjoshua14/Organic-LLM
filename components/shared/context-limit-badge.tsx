@@ -1,3 +1,5 @@
+"use client";
+
 // Self contained component, grabbing onto the chat instance itself
 
 import { Badge } from "../third-party/ui/badge";
