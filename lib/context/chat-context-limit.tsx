@@ -11,10 +11,9 @@ interface getContextLimitProps {
   chatId: string;
 }
 
-interface ContextLimitResult {
+export interface ContextLimitResult {
   limit: number;
   used: number;
-  remaining: number;
   warning?: ContextLimitWarning;
   error?: ContextLimitError;
 }
@@ -23,7 +22,6 @@ interface CheckContextProps {
   chatId: string;
   limit: number;
   used: number;
-  remaining: number;
 }
 
 type ContextLimitWarning = {
@@ -79,7 +77,6 @@ export const getContextLimit = ({
   const default_result: ContextLimitResult = {
     limit: DEFAULT_CONTEXT_LIMIT,
     used: 0,
-    remaining: randomInt(0, DEFAULT_CONTEXT_LIMIT),
   };
 
   const processed_result = checkContext({
@@ -94,16 +91,14 @@ const checkContext = ({
   chatId,
   limit,
   used,
-  remaining,
 }: CheckContextProps): ContextLimitResult => {
   let default_result: ContextLimitResult = {
     limit: limit,
     used: used,
-    remaining: remaining,
   };
 
   /** Check for invalid states */
-  if (limit < 0 || used < 0 || remaining < 0) {
+  if (limit < 0 || used < 0) {
     default_result.error = {
       name: "InvalidContextLimitStateError",
       message: "Invalid context limit state",
@@ -114,17 +109,6 @@ const checkContext = ({
     return default_result;
   }
   if (limit < used) {
-    default_result.error = {
-      name: "InvalidContextLimitStateError",
-      message: "Invalid context limit state",
-      stack: new Error().stack,
-      code: "INVALID_CONTEXT_LIMIT_STATE",
-    };
-
-    return default_result;
-  }
-
-  if (remaining < 0) {
     default_result.error = {
       name: "InvalidContextLimitStateError",
       message: "Invalid context limit state",

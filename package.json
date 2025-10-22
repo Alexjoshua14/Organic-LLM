@@ -1,5 +1,5 @@
 {
-  "name": "next-app-template",
+  "name": "organic-llm",
   "version": "0.0.1",
   "private": true,
   "scripts": {
@@ -26,6 +26,7 @@
     "@heroui/listbox": "2.3.23",
     "@heroui/modal": "^2.2.24",
     "@heroui/navbar": "2.2.22",
+    "@heroui/progress": "^2.2.22",
     "@heroui/select": "^2.4.28",
     "@heroui/snippet": "2.2.25",
     "@heroui/switch": "2.2.22",

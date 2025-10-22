@@ -16,7 +16,6 @@ describe("chat-context-limit", () => {
       // expect(result.remaining).toBeDefined();
       expect(typeof result.limit).toBe("number");
       expect(typeof result.used).toBe("number");
-      expect(typeof result.remaining).toBe("number");
     });
 
     test("should have a default limit of 40,000", () => {
