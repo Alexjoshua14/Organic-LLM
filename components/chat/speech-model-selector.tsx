@@ -1,6 +1,7 @@
 "use client";
 
 import { Select, SelectItem } from "@heroui/select";
+
 import { glass } from "../design-system/primitives";
 
 type SpeechModel = {
@@ -75,4 +76,3 @@ export const SpeechModelSelector: React.FC<SpeechModelSelectorProps> = ({
     </Select>
   );
 };
-

@@ -1,4 +1,3 @@
-import Page from "@/components/layout/page";
 // import { NewChatNew } from "@/components/chat/new-chat-new";
 import Home from "@/components/pages/home";
 

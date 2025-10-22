@@ -41,6 +41,7 @@ export default async function ChatPage({
     }
   } catch (err) {
     logger.error("ChatPage", `Error while loading chat: ${err}`);
+
     return <div>Chat creation failed</div>;
   }
 

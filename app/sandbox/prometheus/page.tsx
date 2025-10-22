@@ -12,7 +12,9 @@ export default function PrometheusPage() {
 
   const PROMETHEUS_PROJECT = process.env.NEXT_PUBLIC_PROMETHEUS_PROJECT;
 
-  const [messageDisplayed, setMessageDisplayed] = useState<UIMessage | null>(null);
+  const [messageDisplayed, setMessageDisplayed] = useState<UIMessage | null>(
+    null,
+  );
 
   const { messages, sendMessage } = useChat({
     id: PROMETHEUS_PROJECT,

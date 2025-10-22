@@ -2,7 +2,8 @@
  * Simple test file for chat-context logic
  */
 
-import { describe, test, expect, beforeEach } from "bun:test";
+import { describe, test, expect } from "bun:test";
+
 import { getContextLimit } from "./chat-context-limit";
 
 describe("chat-context-limit", () => {

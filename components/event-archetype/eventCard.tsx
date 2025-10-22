@@ -1,10 +1,9 @@
-'use client';
+"use client";
 
-import React from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
-import { X, Calendar, Clock, MapPin } from 'lucide-react';
-import { z } from 'zod';
-
+import React from "react";
+import { motion, AnimatePresence } from "framer-motion";
+import { X, Clock, MapPin } from "lucide-react";
+import { z } from "zod";
 
 export const EventSchema = z.object({
   id: z.string(),
@@ -18,12 +17,11 @@ export const EventSchema = z.object({
   category: z.string().optional(),
 });
 
-
-export interface Event extends z.infer<typeof EventSchema> { }
+export interface Event extends z.infer<typeof EventSchema> {}
 
 interface EventCardProps {
   event: Event;
-  variant?: 'card' | 'compact';
+  variant?: "card" | "compact";
   isExpanded?: boolean;
   onExpand?: () => void;
   onCollapse?: () => void;
@@ -31,12 +29,11 @@ interface EventCardProps {
 
 export function EventCard({
   event,
-  variant = 'card',
+  variant = "card",
   isExpanded = false,
   onExpand,
-  onCollapse
+  onCollapse,
 }: EventCardProps) {
-
   const handleCardClick = () => {
     if (!isExpanded && onExpand) {
       onExpand();
@@ -51,49 +48,50 @@ export function EventCard({
   };
 
   // Truncate summary to 40 words
-  const truncatedSummary = event.summary.split(' ').slice(0, 40).join(' ') +
-    (event.summary.split(' ').length > 40 ? '...' : '');
+  const truncatedSummary =
+    event.summary.split(" ").slice(0, 40).join(" ") +
+    (event.summary.split(" ").length > 40 ? "..." : "");
 
   return (
     <AnimatePresence>
       <motion.div
         layout
-        initial={{ opacity: 0, y: 20 }}
         animate={{
           opacity: 1,
           y: 0,
           zIndex: isExpanded ? 50 : 1,
-          position: isExpanded ? 'fixed' : 'relative',
-          top: isExpanded ? 0 : 'auto',
-          left: isExpanded ? 0 : 'auto',
-          right: isExpanded ? 0 : 'auto',
-          bottom: isExpanded ? 0 : 'auto',
-          width: isExpanded ? '100vw' : 'auto',
-          height: isExpanded ? '100vh' : 'auto'
-        }}
-        exit={{ opacity: 0, y: -20 }}
-        transition={{
-          duration: 0.4,
-          ease: [0.23, 1, 0.32, 1],
-          layout: { duration: 0.4 }
+          position: isExpanded ? "fixed" : "relative",
+          top: isExpanded ? 0 : "auto",
+          left: isExpanded ? 0 : "auto",
+          right: isExpanded ? 0 : "auto",
+          bottom: isExpanded ? 0 : "auto",
+          width: isExpanded ? "100vw" : "auto",
+          height: isExpanded ? "100vh" : "auto",
         }}
         className={`
           relative overflow-hidden cursor-pointer group
-          ${isExpanded ? 'cursor-default' : ''}
+          ${isExpanded ? "cursor-default" : ""}
         `}
-        onClick={handleCardClick}
+        exit={{ opacity: 0, y: -20 }}
+        initial={{ opacity: 0, y: 20 }}
         style={{
-          aspectRatio: !isExpanded && variant === 'card' ? '4/3' : 'auto'
+          aspectRatio: !isExpanded && variant === "card" ? "4/3" : "auto",
         }}
+        transition={{
+          duration: 0.4,
+          ease: [0.23, 1, 0.32, 1],
+          layout: { duration: 0.4 },
+        }}
+        onClick={handleCardClick}
       >
         {/* Glass morphism background */}
         <motion.div
+          animate={{
+            borderRadius: isExpanded ? 0 : "1rem",
+          }}
           className="absolute inset-0 backdrop-blur-xl bg-white/10 border border-white/20 shadow-2xl"
           style={{
-            borderRadius: isExpanded ? 0 : '1rem'
-          }}
-          animate={{
-            borderRadius: isExpanded ? 0 : '1rem'
+            borderRadius: isExpanded ? 0 : "1rem",
           }}
           transition={{ duration: 0.4 }}
         />
@@ -103,20 +101,20 @@ export function EventCard({
 
         {/* Content */}
         <motion.div
-          className="relative z-10 p-6 h-full flex flex-col"
           animate={{
-            padding: isExpanded ? '2rem' : '1.5rem'
+            padding: isExpanded ? "2rem" : "1.5rem",
           }}
+          className="relative z-10 p-6 h-full flex flex-col"
           transition={{ duration: 0.4 }}
         >
           {/* Header with title and date */}
           <div className="flex justify-between items-start mb-4">
             <motion.h3
-              className="text-white pr-4 leading-tight"
               animate={{
-                fontSize: isExpanded ? '2.5rem' : '1.25rem',
-                fontWeight: 600
+                fontSize: isExpanded ? "2.5rem" : "1.25rem",
+                fontWeight: 600,
               }}
+              className="text-white pr-4 leading-tight"
               transition={{ duration: 0.4 }}
             >
               {event.title}
@@ -124,20 +122,20 @@ export function EventCard({
 
             <div className="flex flex-col items-end text-right shrink-0">
               <motion.div
-                className="text-white/90 text-sm mb-1"
                 animate={{
-                  fontSize: isExpanded ? '1rem' : '0.875rem'
+                  fontSize: isExpanded ? "1rem" : "0.875rem",
                 }}
+                className="text-white/90 text-sm mb-1"
                 transition={{ duration: 0.4 }}
               >
                 {event.dateRange || event.date}
               </motion.div>
               {event.time && (
                 <motion.div
-                  className="text-white/70 text-xs flex items-center gap-1"
                   animate={{
-                    fontSize: isExpanded ? '0.875rem' : '0.75rem'
+                    fontSize: isExpanded ? "0.875rem" : "0.75rem",
                   }}
+                  className="text-white/70 text-xs flex items-center gap-1"
                   transition={{ duration: 0.4 }}
                 >
                   <Clock size={12} />
@@ -150,10 +148,10 @@ export function EventCard({
           {/* Category badge */}
           {event.category && (
             <motion.div
-              className="inline-flex w-fit mb-4"
               animate={{
-                opacity: isExpanded ? 1 : 0.8
+                opacity: isExpanded ? 1 : 0.8,
               }}
+              className="inline-flex w-fit mb-4"
             >
               <span className="px-3 py-1 bg-white/20 text-white text-xs rounded-full backdrop-blur-sm">
                 {event.category}
@@ -163,11 +161,11 @@ export function EventCard({
 
           {/* Summary */}
           <motion.p
-            className="text-white/90 mb-4 flex-grow"
             animate={{
-              fontSize: isExpanded ? '1.125rem' : '0.875rem',
-              lineHeight: isExpanded ? 1.6 : 1.5
+              fontSize: isExpanded ? "1.125rem" : "0.875rem",
+              lineHeight: isExpanded ? 1.6 : 1.5,
             }}
+            className="text-white/90 mb-4 flex-grow"
             transition={{ duration: 0.4 }}
           >
             {isExpanded ? event.summary : truncatedSummary}
@@ -176,13 +174,13 @@ export function EventCard({
           {/* Location */}
           {event.location && (
             <motion.div
-              className="flex items-center gap-2 text-white/70 mt-auto"
-              initial={{ opacity: 0, y: 10 }}
               animate={{
                 opacity: isExpanded ? 1 : 0.8,
                 y: 0,
-                fontSize: isExpanded ? '1rem' : '0.75rem'
+                fontSize: isExpanded ? "1rem" : "0.75rem",
               }}
+              className="flex items-center gap-2 text-white/70 mt-auto"
+              initial={{ opacity: 0, y: 10 }}
               transition={{ duration: 0.4, delay: isExpanded ? 0.2 : 0 }}
             >
               <MapPin size={isExpanded ? 16 : 14} />
@@ -194,15 +192,17 @@ export function EventCard({
           <AnimatePresence>
             {isExpanded && (
               <motion.div
-                initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: 20 }}
-                transition={{ duration: 0.3, delay: 0.2 }}
                 className="mt-8 space-y-6"
+                exit={{ opacity: 0, y: 20 }}
+                initial={{ opacity: 0, y: 20 }}
+                transition={{ duration: 0.3, delay: 0.2 }}
               >
                 {event.description && (
                   <div>
-                    <h4 className="text-white text-lg mb-3">About This Event</h4>
+                    <h4 className="text-white text-lg mb-3">
+                      About This Event
+                    </h4>
                     <p className="text-white/80 leading-relaxed">
                       {event.description}
                     </p>
@@ -226,14 +226,14 @@ export function EventCard({
         <AnimatePresence>
           {isExpanded && (
             <motion.button
-              initial={{ opacity: 0, scale: 0.8 }}
               animate={{ opacity: 1, scale: 1 }}
-              exit={{ opacity: 0, scale: 0.8 }}
-              transition={{ duration: 0.2, delay: 0.2 }}
               className="absolute top-6 right-6 z-20 p-2 bg-white/20 hover:bg-white/30 rounded-full backdrop-blur-sm transition-colors"
+              exit={{ opacity: 0, scale: 0.8 }}
+              initial={{ opacity: 0, scale: 0.8 }}
+              transition={{ duration: 0.2, delay: 0.2 }}
               onClick={handleCloseClick}
             >
-              <X size={20} className="text-white" />
+              <X className="text-white" size={20} />
             </motion.button>
           )}
         </AnimatePresence>
@@ -243,7 +243,7 @@ export function EventCard({
           <motion.div
             className="absolute inset-0 bg-white/5 opacity-0 group-hover:opacity-100 transition-opacity duration-300"
             style={{
-              borderRadius: '1rem'
+              borderRadius: "1rem",
             }}
           />
         )}

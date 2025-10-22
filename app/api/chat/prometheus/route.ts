@@ -3,17 +3,15 @@ import {
   streamText,
   UIMessage,
   convertToModelMessages,
-  TypeValidationError,
   createIdGenerator,
   LanguageModel,
   smoothStream,
 } from "ai";
 
 // import systemPrompt from "@/lib/system-prompt";
-import { getMessagesForChatPrompt, saveChat } from "@/lib/chat/chat-store";
+import { saveChat } from "@/lib/chat/chat-store";
 import { ensureChatHasTitle } from "@/lib/llm/chat-helpers";
 import { createLogger } from "@/lib/logger";
-import { SYSTEM_PROMPT } from "@/lib/system-prompt/prompt-v0";
 import { getContext } from "@/lib/llm/context";
 
 // Allow streaming responses up to 30 seconds
@@ -34,9 +32,11 @@ export async function POST(req: Request) {
 
   if (res.error) {
     logger.error("POST", `Error getting context: ${res.error}`);
+
     return new Response("Error getting context", { status: 500 });
   } else if (res.data === null) {
     logger.error("POST", `Error getting context: Context is null`);
+
     return new Response("Error getting context", { status: 500 });
   }
 
