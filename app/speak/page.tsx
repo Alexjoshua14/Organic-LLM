@@ -252,16 +252,18 @@ export default function SpeakPage() {
     }
     if (currentAudioUrl) {
       URL.revokeObjectURL(currentAudioUrl);
+      setCurrentAudioUrl(null);
     }
 
     // Load history item into main component
+    setCurrentAudioItem(item);
     setInputText(item.text);
+    setCurrentAudioData(item.audioData);
+
     const blob = uint8ArrayToBlob(item.audioData);
     const url = URL.createObjectURL(blob);
 
     setCurrentAudioUrl(url);
-    setCurrentAudioData(item.audioData);
-    setCurrentAudioItem(item);
     setDisplayMode("ready");
 
     // Auto-play after a brief moment to ensure audio element is ready
@@ -274,6 +276,9 @@ export default function SpeakPage() {
 
   const handleDeleteHistoryItem = (id: string) => {
     setAudioHistory((prev) => prev.filter((item) => item.id !== id));
+    if (currentAudioItem?.id === id) {
+      handleClearCurrent();
+    }
   };
 
   const handleClearHistory = () => {
@@ -551,16 +556,19 @@ export default function SpeakPage() {
 
                 {/* Hidden Audio Element */}
                 {currentAudioUrl && (
-                  <audio
-                    ref={currentAudioRef}
-                    className="absolute top-0 left-0 w-0 h-0"
-                    src={currentAudioUrl}
-                    onEnded={handleAudioEnded}
-                    onPause={handleAudioPause}
-                    onPlay={handleAudioPlay}
-                  >
-                    <track kind="captions" />
-                  </audio>
+                  <div className="w-full h-fit max-h-14">
+                    <audio
+                      ref={currentAudioRef}
+                      className="w-full h-full"
+                      src={currentAudioUrl}
+                      controls
+                      onEnded={handleAudioEnded}
+                      onPause={handleAudioPause}
+                      onPlay={handleAudioPlay}
+                    >
+                      <track kind="captions" />
+                    </audio>
+                  </div>
                 )}
               </div>
             )}
