@@ -29,11 +29,15 @@ export async function searchMemories(
     throw new Error("User ID is required");
   }
 
+  logger.log("searchMemories", `Searching for memories: ${query}`);
+
   const result = await memory.search(query, {
     userId,
     limit: options?.limit ?? 3,
     ...options,
   });
+
+  logger.log("searchMemories", `Found ${result.results?.length} memories`);
 
   return result;
 }
@@ -53,6 +57,10 @@ export async function addLatestMessagesToMemory(
   if (!userId) {
     throw new Error("User ID is required");
   }
+  logger.log(
+    "addLatestMessagesToMemory",
+    `Adding ${messages.length} messages to memory`
+  );
 
   const interactions: Message[] = messages.map((message) => ({
     role: message.role,
@@ -65,6 +73,14 @@ export async function addLatestMessagesToMemory(
   const result = await memory.add(interactions, {
     userId,
   });
+  logger.log(
+    "addLatestMessagesToMemory",
+    `Added ${result.results?.length} messages to memory`
+  );
+  logger.log(
+    "addLatestMessagesToMemory",
+    `Results: ${JSON.stringify(result.results)}`
+  );
 
   return result;
 }
@@ -81,6 +97,7 @@ export async function addInteractionToMemory(
   if (!userId) {
     throw new Error("User ID is required");
   }
+  logger.log("addInteractionToMemory", `Adding interaction to memory`);
 
   let result: SearchResult;
 
@@ -99,6 +116,11 @@ export async function addInteractionToMemory(
     result = await memory.add(interaction, {
       userId,
     });
+    logger.log("addInteractionToMemory", `Added interaction to memory`);
+    logger.log(
+      "addInteractionToMemory",
+      `Results: ${JSON.stringify(result.results)}`
+    );
   } catch (error) {
     logger.error(
       "addInteractionToMemory",
