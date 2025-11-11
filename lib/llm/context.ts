@@ -31,6 +31,7 @@ export const getContext = async ({
       chatId,
       limit: 10,
       persona,
+      message,
     });
 
     if (chatContextResult.error) {

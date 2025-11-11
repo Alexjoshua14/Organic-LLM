@@ -639,19 +639,19 @@ export default function SpeakPage() {
               <div className="bg-muted/30 backdrop-blur-sm rounded-xl p-6 border border-border/50 text-center">
                 <Volume2 className="w-12 h-12 mx-auto mb-4 text-muted-foreground opacity-50" />
                 <h3 className="text-lg font-medium mb-2">
-                  No audio generated yet
+                  {`No audio generated yet`}
                 </h3>
                 <p className="text-sm text-muted-foreground max-w-md mx-auto">
-                  Enter some text above and click "Generate Speech" to create
+                  {`Enter some text above and click "Generate Speech" to create
                   audio. Your recent generations will appear here for easy
-                  playback and download.
+                  playback and download.`}
                 </p>
               </div>
             )}
         </div>
       </div>
 
-      <style jsx global>{`
+      {/* <style jsx global>{`
         @keyframes pulse-reading {
           0%,
           100% {
@@ -667,7 +667,7 @@ export default function SpeakPage() {
         .animate-pulse-reading {
           animation: pulse-reading 2s ease-in-out infinite;
         }
-      `}</style>
+      `}</style> */}
     </Page>
   );
 }

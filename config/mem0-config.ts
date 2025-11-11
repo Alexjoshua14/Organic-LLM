@@ -1,5 +1,5 @@
-import "dotenv/config";
 import { MemoryConfig } from "mem0ai/oss";
+import "server-only";
 
 export const config: MemoryConfig = {
   embedder: {
