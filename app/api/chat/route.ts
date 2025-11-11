@@ -9,10 +9,15 @@ import {
 } from "ai";
 
 // import systemPrompt from "@/lib/system-prompt";
-import { getMessagesForChatPrompt, saveChat } from "@/lib/chat/chat-store";
+import {
+  getContext,
+  getMessagesForChatPrompt,
+  saveChat,
+} from "@/lib/chat/chat-store";
 import { ensureChatHasTitle, updateChatSummary } from "@/lib/llm/chat-helpers";
 import { createLogger } from "@/lib/logger";
 import { SYSTEM_PROMPT } from "@/lib/system-prompt/prompt-v0";
+import { addLatestMessagesToMemory } from "@/lib/memory/operations";
 
 // Allow streaming responses up to 30 seconds
 export const maxDuration = 30;
@@ -33,7 +38,11 @@ export async function POST(req: Request) {
   let validatedMessages: UIMessage[];
 
   try {
-    const chatContextResult = await getMessagesForChatPrompt(id);
+    const chatContextResult = await getContext({
+      chatId: id,
+      limit: 10,
+      message,
+    });
 
     if (chatContextResult.error) {
       logger.error(
@@ -46,7 +55,7 @@ export async function POST(req: Request) {
         ...(chatContextResult.data?.messages ?? []),
         message,
       ];
-      systemPrompt = chatContextResult.data?.prompt ?? systemPrompt;
+      systemPrompt = chatContextResult.data?.context ?? systemPrompt;
     }
 
     // const previousMessages = await loadChat(id).then(
@@ -94,11 +103,25 @@ export async function POST(req: Request) {
   return result.toUIMessageStreamResponse({
     originalMessages: validatedMessages,
     onFinish: async ({ messages }) => {
+      /***
+       * Save chat
+       */
       await saveChat({ chatId: id, messages });
       if (messages.length > 3 && messages.length < 5) {
         ensureChatHasTitle(id);
       }
+
+      /***
+       * Update chat summary
+       */
       await updateChatSummary(id);
+
+      /***
+       * Update memory
+       */
+      const userMessage = message;
+      const aiResponse = messages[messages.length - 1];
+      await addLatestMessagesToMemory([userMessage, aiResponse], "test-user");
     },
     generateMessageId: createIdGenerator({
       prefix: "msg",

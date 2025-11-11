@@ -23,14 +23,15 @@ export const getContext = async ({
 }: getContextProps): Promise<
   Result<{ prompt: string; messages: UIMessage[] }, string>
 > => {
+  /** Validated messages holds latest n Messages ready for LLM processing */
   let validatedMessages: UIMessage[];
 
   try {
-    const chatContextResult = await getContextAndMessagesChatPrompt(
+    const chatContextResult = await getContextAndMessagesChatPrompt({
       chatId,
-      10,
-      persona
-    );
+      limit: 10,
+      persona,
+    });
 
     if (chatContextResult.error) {
       logger.error(

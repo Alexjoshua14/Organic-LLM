@@ -55,11 +55,12 @@ export async function POST(req: Request) {
 
   try {
     const start_gather_context_time = performance.now();
-    const chatContextPromise = getContextAndMessagesChatPrompt(
-      id,
-      10,
-      "spark" as const
-    );
+    const chatContextPromise = getContextAndMessagesChatPrompt({
+      chatId: id,
+      limit: 10,
+      persona: "spark" as const,
+      message,
+    });
 
     const preprocess_limit = setTimeout(() => {
       throw new Error("Preprocessing time limit exceeded");
