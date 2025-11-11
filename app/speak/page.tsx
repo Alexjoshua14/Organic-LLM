@@ -66,6 +66,7 @@ export default function SpeakPage() {
   const [currentAudioItem, setCurrentAudioItem] =
     useState<AudioHistoryItem | null>(null);
   const [apiResponse, setApiResponse] = useState<string | null>(null);
+  const [isDragging, setIsDragging] = useState(false);
 
   const currentAudioRef = useRef<HTMLAudioElement>(null);
 
@@ -315,6 +316,92 @@ export default function SpeakPage() {
     return date.toLocaleDateString();
   };
 
+  const handleDragOver = (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(true);
+  };
+
+  const handleDragLeave = (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(false);
+  };
+
+  const handleDrop = async (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(false);
+
+    const files = Array.from(e.dataTransfer.files);
+    const audioFile = files.find(
+      (file) =>
+        file.type === "audio/mpeg" ||
+        file.type === "audio/mp3" ||
+        file.name.toLowerCase().endsWith(".mp3")
+    );
+
+    if (!audioFile) {
+      setError("Please drop an MP3 audio file");
+      return;
+    }
+
+    try {
+      // Read the file as ArrayBuffer
+      const arrayBuffer = await audioFile.arrayBuffer();
+      const uint8Array = new Uint8Array(arrayBuffer);
+
+      // Convert Uint8Array to Record<number, number> format for storage
+      const audioData: Record<number, number> = {};
+      for (let i = 0; i < uint8Array.length; i++) {
+        audioData[i] = uint8Array[i];
+      }
+
+      // Create blob and URL for playback
+      const blob = new Blob([uint8Array], { type: "audio/mpeg" });
+      const url = URL.createObjectURL(blob);
+
+      // Clean up current audio if exists
+      if (currentAudioRef.current) {
+        currentAudioRef.current.pause();
+      }
+      if (currentAudioUrl) {
+        URL.revokeObjectURL(currentAudioUrl);
+      }
+
+      // Set the audio
+      setCurrentAudioUrl(url);
+      setCurrentAudioData(audioData);
+      setInputText(`Dropped file: ${audioFile.name}`);
+      setDisplayMode("ready");
+
+      // Add to history
+      const historyItem: AudioHistoryItem = {
+        id: Date.now().toString(),
+        text: `Dropped file: ${audioFile.name}`,
+        timestamp: Date.now(),
+        audioData: audioData,
+        processed: false,
+      };
+
+      setCurrentAudioItem(historyItem);
+
+      setAudioHistory((prev) => {
+        const newHistory = [historyItem, ...prev];
+        return newHistory.slice(0, MAX_HISTORY_ITEMS);
+      });
+
+      setError(null);
+    } catch (err) {
+      setError(
+        err instanceof Error
+          ? err.message
+          : "Failed to process dropped audio file"
+      );
+      logger.error("Failed to process dropped file", String(err));
+    }
+  };
+
   return (
     <Page>
       <APIResponseView apiResponse={apiResponse ?? "Undefined"} />
@@ -336,7 +423,29 @@ export default function SpeakPage() {
           speed={BACKGROUND_SPEED}
         />
       </div>
-      <div className="w-full h-full overflow-y-auto z-10">
+      <div
+        className="w-full h-full overflow-y-auto z-10 relative"
+        onDragLeave={handleDragLeave}
+        onDragOver={handleDragOver}
+        onDrop={handleDrop}
+      >
+        {/* Drag Overlay */}
+        {isDragging && (
+          <div className="absolute inset-0 z-50 pointer-events-none">
+            <div className="w-full h-full flex items-center justify-center bg-primary/10 backdrop-blur-sm border-4 border-dashed border-primary/50 rounded-2xl">
+              <div className="bg-card/90 backdrop-blur-md rounded-2xl p-8 shadow-2xl border-2 border-primary">
+                <Download className="w-16 h-16 mx-auto mb-4 text-primary" />
+                <p className="text-2xl font-semibold text-primary">
+                  Drop MP3 file here
+                </p>
+                <p className="text-sm text-muted-foreground mt-2">
+                  Load previously downloaded audio
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
+
         <div className="w-full max-w-5xl mx-auto p-8 space-y-8">
           {/* Header */}
           <div
