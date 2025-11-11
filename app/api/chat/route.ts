@@ -38,7 +38,7 @@ export async function POST(req: Request) {
     if (chatContextResult.error) {
       logger.error(
         "POST",
-        `Error getting chat context: ${chatContextResult.error}`
+        `Error getting chat context: ${chatContextResult.error}`,
       );
       validatedMessages = [message];
     } else {
@@ -61,7 +61,7 @@ export async function POST(req: Request) {
     if (err instanceof TypeValidationError) {
       logger.error(
         "POST",
-        `Database messages validation failed: ${err.message}`
+        `Database messages validation failed: ${err.message}`,
       );
       validatedMessages = [message];
     } else {
@@ -75,7 +75,7 @@ export async function POST(req: Request) {
     System Prompt: ${systemPrompt.length} characters
     \n\n--------------------------------\n\n
     ${validatedMessages.length} messages being sent to LLM
-    `
+    `,
   );
 
   const result = streamText({

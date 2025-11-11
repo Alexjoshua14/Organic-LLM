@@ -1,7 +1,3 @@
-import { tool } from "ai";
-import { z } from "zod";
-import { EventSchema } from "@/components/event-archetype/eventCard";
-
 // export const EventSearchTool = tool({
 //   description: "Make up 5 events that fit the expected output format.",
 //   inputSchema: z.object({

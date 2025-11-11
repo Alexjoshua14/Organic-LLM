@@ -20,7 +20,6 @@ import { createLogger } from "@/lib/logger";
 import ShinyText from "@/components/ShinyText";
 import { LiquidChrome } from "@/components/third-party/reactbits/LiquidChrome/LiquidChrome";
 import "@/components/third-party/reactbits/LiquidChrome/LiquidChrome.css";
-import ScrollReveal from "@/components/third-party/reactbits/ScrollReveal/ScrollReveal";
 import { APIResponseView } from "@/components/dev/api-response-view";
 import { SpeechModelSelector } from "@/components/chat/speech-model-selector";
 import { glass } from "@/components/design-system/primitives";
@@ -67,6 +66,7 @@ export default function SpeakPage() {
   const [currentAudioItem, setCurrentAudioItem] =
     useState<AudioHistoryItem | null>(null);
   const [apiResponse, setApiResponse] = useState<string | null>(null);
+  const [isDragging, setIsDragging] = useState(false);
 
   const currentAudioRef = useRef<HTMLAudioElement>(null);
 
@@ -74,8 +74,10 @@ export default function SpeakPage() {
   useEffect(() => {
     try {
       const stored = localStorage.getItem(STORAGE_KEY);
+
       if (stored) {
         const parsed = JSON.parse(stored) as AudioHistoryItem[];
+
         setAudioHistory(parsed);
       }
     } catch (err) {
@@ -96,6 +98,7 @@ export default function SpeakPage() {
     // Truncate the uint8ArrayData in the preview if present
     const apiResponseData = currentAudioItem?.apiResponse?.data;
     let displayApiResponse;
+
     if (apiResponseData && apiResponseData.uint8ArrayData) {
       displayApiResponse = {
         ...apiResponseData,
@@ -107,17 +110,20 @@ export default function SpeakPage() {
       displayApiResponse = "Undefined";
     }
     const parsedAPIResponse = JSON.stringify(displayApiResponse, null, 2);
+
     setApiResponse(parsedAPIResponse);
   }, [currentAudioItem]);
 
   const handleGenerateSpeech = async () => {
     if (displayMode === "processing") {
       logger.log("handleGenerateSpeech", "Already processing, skipping...");
+
       return;
     }
 
     if (!inputText.trim()) {
       setError("Please enter some text");
+
       return;
     }
 
@@ -168,6 +174,7 @@ export default function SpeakPage() {
 
       setAudioHistory((prev) => {
         const newHistory = [historyItem, ...prev];
+
         return newHistory.slice(0, MAX_HISTORY_ITEMS);
       });
     } catch (err) {
@@ -219,6 +226,7 @@ export default function SpeakPage() {
 
   const handleDownloadHistoryItem = (item: AudioHistoryItem) => {
     const filename = `tts-${new Date(item.timestamp).toISOString().slice(0, 19).replace(/:/g, "-")}.mp3`;
+
     downloadAudio(item.audioData, filename);
   };
 
@@ -229,6 +237,7 @@ export default function SpeakPage() {
     const blob = uint8ArrayToBlob(audioData);
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
+
     a.href = url;
     a.download = filename;
     document.body.appendChild(a);
@@ -244,15 +253,18 @@ export default function SpeakPage() {
     }
     if (currentAudioUrl) {
       URL.revokeObjectURL(currentAudioUrl);
+      setCurrentAudioUrl(null);
     }
 
     // Load history item into main component
+    setCurrentAudioItem(item);
     setInputText(item.text);
+    setCurrentAudioData(item.audioData);
+
     const blob = uint8ArrayToBlob(item.audioData);
     const url = URL.createObjectURL(blob);
+
     setCurrentAudioUrl(url);
-    setCurrentAudioData(item.audioData);
-    setCurrentAudioItem(item);
     setDisplayMode("ready");
 
     // Auto-play after a brief moment to ensure audio element is ready
@@ -265,6 +277,9 @@ export default function SpeakPage() {
 
   const handleDeleteHistoryItem = (id: string) => {
     setAudioHistory((prev) => prev.filter((item) => item.id !== id));
+    if (currentAudioItem?.id === id) {
+      handleClearCurrent();
+    }
   };
 
   const handleClearHistory = () => {
@@ -297,7 +312,94 @@ export default function SpeakPage() {
     if (diffMins < 60) return `${diffMins}m ago`;
     if (diffHours < 24) return `${diffHours}h ago`;
     if (diffDays < 7) return `${diffDays}d ago`;
+
     return date.toLocaleDateString();
+  };
+
+  const handleDragOver = (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(true);
+  };
+
+  const handleDragLeave = (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(false);
+  };
+
+  const handleDrop = async (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(false);
+
+    const files = Array.from(e.dataTransfer.files);
+    const audioFile = files.find(
+      (file) =>
+        file.type === "audio/mpeg" ||
+        file.type === "audio/mp3" ||
+        file.name.toLowerCase().endsWith(".mp3")
+    );
+
+    if (!audioFile) {
+      setError("Please drop an MP3 audio file");
+      return;
+    }
+
+    try {
+      // Read the file as ArrayBuffer
+      const arrayBuffer = await audioFile.arrayBuffer();
+      const uint8Array = new Uint8Array(arrayBuffer);
+
+      // Convert Uint8Array to Record<number, number> format for storage
+      const audioData: Record<number, number> = {};
+      for (let i = 0; i < uint8Array.length; i++) {
+        audioData[i] = uint8Array[i];
+      }
+
+      // Create blob and URL for playback
+      const blob = new Blob([uint8Array], { type: "audio/mpeg" });
+      const url = URL.createObjectURL(blob);
+
+      // Clean up current audio if exists
+      if (currentAudioRef.current) {
+        currentAudioRef.current.pause();
+      }
+      if (currentAudioUrl) {
+        URL.revokeObjectURL(currentAudioUrl);
+      }
+
+      // Set the audio
+      setCurrentAudioUrl(url);
+      setCurrentAudioData(audioData);
+      setInputText(`Dropped file: ${audioFile.name}`);
+      setDisplayMode("ready");
+
+      // Add to history
+      const historyItem: AudioHistoryItem = {
+        id: Date.now().toString(),
+        text: `Dropped file: ${audioFile.name}`,
+        timestamp: Date.now(),
+        audioData: audioData,
+        processed: false,
+      };
+
+      setCurrentAudioItem(historyItem);
+
+      setAudioHistory((prev) => {
+        const newHistory = [historyItem, ...prev];
+        return newHistory.slice(0, MAX_HISTORY_ITEMS);
+      });
+
+      setError(null);
+    } catch (err) {
+      setError(
+        err instanceof Error
+          ? err.message
+          : "Failed to process dropped audio file"
+      );
+      logger.error("Failed to process dropped file", String(err));
+    }
   };
 
   return (
@@ -315,13 +417,35 @@ export default function SpeakPage() {
         }}
       >
         <LiquidChrome
-          baseColor={[0.05, 0.08, 0.1]}
-          speed={BACKGROUND_SPEED}
           amplitude={0.42}
+          baseColor={[0.05, 0.08, 0.1]}
           interactive={true}
+          speed={BACKGROUND_SPEED}
         />
       </div>
-      <div className="w-full h-full overflow-y-auto z-10">
+      <div
+        className="w-full h-full overflow-y-auto z-10 relative"
+        onDragLeave={handleDragLeave}
+        onDragOver={handleDragOver}
+        onDrop={handleDrop}
+      >
+        {/* Drag Overlay */}
+        {isDragging && (
+          <div className="absolute inset-0 z-50 pointer-events-none">
+            <div className="w-full h-full flex items-center justify-center bg-primary/10 backdrop-blur-sm border-4 border-dashed border-primary/50 rounded-2xl">
+              <div className="bg-card/90 backdrop-blur-md rounded-2xl p-8 shadow-2xl border-2 border-primary">
+                <Download className="w-16 h-16 mx-auto mb-4 text-primary" />
+                <p className="text-2xl font-semibold text-primary">
+                  Drop MP3 file here
+                </p>
+                <p className="text-sm text-muted-foreground mt-2">
+                  Load previously downloaded audio
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
+
         <div className="w-full max-w-5xl mx-auto p-8 space-y-8">
           {/* Header */}
           <div
@@ -360,8 +484,8 @@ export default function SpeakPage() {
                       "backdrop-brightness-50",
                     ],
                   }}
-                  minRows={4}
                   maxRows={12}
+                  minRows={4}
                   placeholder="Enter your text here. It will be converted to speech using AI..."
                   value={inputText}
                   onValueChange={setInputText}
@@ -377,13 +501,13 @@ export default function SpeakPage() {
                 <div className="flex flex-row gap-4 items-stretch sm:items-center justify-between">
                   <div className="flex items-center gap-9">
                     <Switch
-                      isSelected={processText}
-                      onValueChange={setProcessText}
-                      size="sm"
                       classNames={{
                         wrapper:
                           "group-data-[selected=true]:bg-gradient-to-r from-purple-600 to-blue-600",
                       }}
+                      isSelected={processText}
+                      size="sm"
+                      onValueChange={setProcessText}
                     >
                       <span className="text-sm text-muted-foreground">
                         Process Text for Speech
@@ -433,15 +557,15 @@ export default function SpeakPage() {
                   <div className="max-h-40 overflow-y-auto">
                     {displayMode === "processing" ? (
                       <ShinyText
-                        text={inputText}
                         className="whitespace-pre-wrap"
                         speed={4}
+                        text={inputText}
                       />
                     ) : displayMode === "playing" ? (
                       <ShinyText
-                        text={inputText}
                         className="whitespace-pre-wrap"
                         speed={8}
+                        text={inputText}
                       />
                     ) : (
                       <p>{inputText}</p>
@@ -492,10 +616,10 @@ export default function SpeakPage() {
                           Play Audio
                         </Button>
                         <Button
-                          variant="flat"
-                          size="lg"
-                          onPress={handleEdit}
                           className="flex-1 sm:flex-none"
+                          size="lg"
+                          variant="flat"
+                          onPress={handleEdit}
                         >
                           <Edit3 className="w-4 h-4 mr-2" />
                           Edit Text
@@ -518,19 +642,19 @@ export default function SpeakPage() {
                   {(displayMode === "ready" || displayMode === "playing") && (
                     <>
                       <Button
-                        variant="flat"
-                        size="lg"
-                        onPress={handleDownloadCurrent}
                         className="flex-1 sm:flex-none"
+                        size="lg"
+                        variant="flat"
+                        onPress={handleDownloadCurrent}
                       >
                         <Download className="w-4 h-4 mr-2" />
                         Download
                       </Button>
                       <Button
-                        variant="light"
-                        size="lg"
-                        onPress={handleClearCurrent}
                         className="flex-1 sm:flex-none"
+                        size="lg"
+                        variant="light"
+                        onPress={handleClearCurrent}
                       >
                         <X className="w-4 h-4 mr-2" />
                         Clear
@@ -541,16 +665,19 @@ export default function SpeakPage() {
 
                 {/* Hidden Audio Element */}
                 {currentAudioUrl && (
-                  <audio
-                    ref={currentAudioRef}
-                    src={currentAudioUrl}
-                    onPlay={handleAudioPlay}
-                    onPause={handleAudioPause}
-                    onEnded={handleAudioEnded}
-                    className="absolute top-0 left-0 w-0 h-0"
-                  >
-                    <track kind="captions" />
-                  </audio>
+                  <div className="w-full h-fit max-h-14">
+                    <audio
+                      ref={currentAudioRef}
+                      className="w-full h-full"
+                      src={currentAudioUrl}
+                      controls
+                      onEnded={handleAudioEnded}
+                      onPause={handleAudioPause}
+                      onPlay={handleAudioPlay}
+                    >
+                      <track kind="captions" />
+                    </audio>
+                  </div>
                 )}
               </div>
             )}
@@ -562,9 +689,9 @@ export default function SpeakPage() {
               <div className="flex items-center justify-between">
                 <h2 className="text-xl font-semibold">Recent Audio History</h2>
                 <Button
+                  className="text-destructive"
                   size="sm"
                   variant="light"
-                  className="text-destructive"
                   onPress={handleClearHistory}
                 >
                   <Trash2 className="w-4 h-4 mr-2" />
@@ -599,18 +726,18 @@ export default function SpeakPage() {
 
                     <div className="flex gap-2 mt-3">
                       <Button
+                        className="flex-1"
                         size="sm"
                         variant="flat"
-                        className="flex-1"
                         onPress={() => handleLoadHistoryItem(item)}
                       >
                         <Play className="w-4 h-4 mr-2" />
                         Play
                       </Button>
                       <Button
+                        className="flex-1"
                         size="sm"
                         variant="flat"
-                        className="flex-1"
                         onPress={() => handleDownloadHistoryItem(item)}
                       >
                         <Download className="w-4 h-4 mr-2" />
@@ -618,9 +745,9 @@ export default function SpeakPage() {
                       </Button>
                       <Button
                         isIconOnly
+                        className="text-destructive"
                         size="sm"
                         variant="light"
-                        className="text-destructive"
                         onPress={() => handleDeleteHistoryItem(item.id)}
                       >
                         <Trash2 className="w-4 h-4" />
@@ -642,16 +769,16 @@ export default function SpeakPage() {
                   No audio generated yet
                 </h3>
                 <p className="text-sm text-muted-foreground max-w-md mx-auto">
-                  Enter some text above and click "Generate Speech" to create
+                  {`Enter some text above and click "Generate Speech" to create
                   audio. Your recent generations will appear here for easy
-                  playback and download.
+                  playback and download.`}
                 </p>
               </div>
             )}
         </div>
       </div>
 
-      <style jsx global>{`
+      <style>{`
         @keyframes pulse-reading {
           0%,
           100% {
@@ -674,6 +801,7 @@ export default function SpeakPage() {
 
 function uint8ArrayToBlob(uint8ArrayData: Record<number, number>): Blob {
   const uint8Array = new Uint8Array(Object.values(uint8ArrayData));
+
   return new Blob([uint8Array], { type: "audio/mpeg" });
 }
 
