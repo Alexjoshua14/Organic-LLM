@@ -100,6 +100,8 @@ export async function POST(req: Request) {
     maxOutputTokens: 3000,
   });
 
+  result.consumeStream();
+
   // logger.log("POST", `Result: ${JSON.stringify(result)}`);
 
   return result.toUIMessageStreamResponse({
