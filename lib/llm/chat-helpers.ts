@@ -24,9 +24,9 @@ import { Result } from "@/types";
 import { encodingForModel } from "js-tiktoken";
 
 const MODEL_SELECTION = {
-  summarizer: openai("gpt-5"),
-  updater: openai("gpt-5"),
-  validator: openai("gpt-5-mini"),
+  summarizer: openai("gpt-5-mini"),
+  updater: openai("gpt-5-mini"),
+  validator: openai("gpt-5-nano"),
   reviser: openai("gpt-5-mini"),
 };
 
