@@ -70,6 +70,13 @@ export async function loadChat(
   return res;
 }
 
+/**
+ * Saves the chat idempotently
+ *
+ * @param chatId - The ID of the chat to save
+ * @param messages - The messages to save
+ * @returns
+ */
 export async function saveChat({
   chatId,
   messages,

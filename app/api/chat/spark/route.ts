@@ -27,6 +27,8 @@ import {
 import { createLogger } from "@/lib/logger";
 // import SYSTEM_PROMPT from "@/lib/system-prompt";
 import SYSTEM_PROMPT from "@/lib/system-prompt";
+import { auth } from "@clerk/nextjs/server";
+import { getSupabaseUserId } from "@/data/supabase/profiles";
 
 // Allow streaming responses up to 30 seconds
 export const maxDuration = 30;
@@ -46,6 +48,17 @@ const model: Parameters<OpenAIProvider>[0] = "gpt-5";
 
 export async function POST(req: Request) {
   const { message, id }: { message: UIMessage; id: string } = await req.json();
+  const clerkUser = await auth();
+
+  if (!clerkUser || !clerkUser.userId) {
+    return new Response("Unauthorized", { status: 401 });
+  }
+
+  const sbUserId = await getSupabaseUserId(clerkUser.userId);
+
+  if (sbUserId.error || sbUserId.data === null) {
+    return new Response("User not found in supabase", { status: 404 });
+  }
 
   logger.log("POST", `Recieved Message. Processing now...`);
 
@@ -90,15 +103,6 @@ export async function POST(req: Request) {
         `Time from initial request recieved to gather context complete: ${end_gather_context_time - start_gather_context_time} milliseconds`
       );
     }
-
-    // const previousMessages = await loadChat(id).then(
-    //   (res) => res.data?.messages ?? [],
-    // );
-
-    // validatedMessages = await validateUIMessages({
-    //   messages: [...previousMessages, message],
-    //   tools,
-    // });
   } catch (err) {
     if (err instanceof TypeValidationError) {
       logger.error(

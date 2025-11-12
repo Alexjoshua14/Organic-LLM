@@ -9,15 +9,14 @@ import {
 } from "ai";
 
 // import systemPrompt from "@/lib/system-prompt";
-import {
-  getContext,
-  getMessagesForChatPrompt,
-  saveChat,
-} from "@/lib/chat/chat-store";
+import { getContext, saveChat } from "@/lib/chat/chat-store";
 import { ensureChatHasTitle, updateChatSummary } from "@/lib/llm/chat-helpers";
 import { createLogger } from "@/lib/logger";
 import { SYSTEM_PROMPT } from "@/lib/system-prompt/prompt-v0";
 import { addLatestMessagesToMemory } from "@/lib/memory/operations";
+import { randomUUID } from "crypto";
+import { getSupabaseUserId } from "@/data/supabase/profiles";
+import { auth } from "@clerk/nextjs/server";
 
 // Allow streaming responses up to 30 seconds
 export const maxDuration = 30;
@@ -32,6 +31,18 @@ const model: Parameters<OpenAIProvider>[0] = "gpt-5";
 
 export async function POST(req: Request) {
   const { message, id }: { message: UIMessage; id: string } = await req.json();
+
+  const clerkUser = await auth();
+
+  if (!clerkUser || !clerkUser.userId) {
+    return new Response("Unauthorized", { status: 401 });
+  }
+
+  const sbUserId = await getSupabaseUserId(clerkUser.userId);
+
+  if (sbUserId.error || !sbUserId.data) {
+    return new Response("User not found in supabase", { status: 404 });
+  }
 
   logger.log("POST", `Recieved Message: ${JSON.stringify(message)}`);
 
@@ -57,15 +68,6 @@ export async function POST(req: Request) {
       ];
       systemPrompt = chatContextResult.data?.context ?? systemPrompt;
     }
-
-    // const previousMessages = await loadChat(id).then(
-    //   (res) => res.data?.messages ?? [],
-    // );
-
-    // validatedMessages = await validateUIMessages({
-    //   messages: [...previousMessages, message],
-    //   tools,
-    // });
   } catch (err) {
     if (err instanceof TypeValidationError) {
       logger.error(
@@ -103,29 +105,81 @@ export async function POST(req: Request) {
   return result.toUIMessageStreamResponse({
     originalMessages: validatedMessages,
     onFinish: async ({ messages }) => {
-      /***
-       * Save chat
-       */
-      await saveChat({ chatId: id, messages });
-      if (messages.length > 3 && messages.length < 5) {
-        ensureChatHasTitle(id);
+      try {
+        const startOnFinish = performance.now();
+        /***
+         * Save chat
+         */
+        const startSaveChat = performance.now();
+        const saveResult = await saveChat({ chatId: id, messages });
+        const endSaveChat = performance.now();
+
+        if (saveResult.error) {
+          logger.error(
+            "POST",
+            `Error saving chat: ${saveResult.error.message}`
+          );
+          return; // Don't continue if save fails
+        }
+
+        /***
+         * Ensure chat has a title
+         */
+        const startEnsureChatHasTitle = performance.now();
+        if (messages.length > 3 && messages.length < 5) {
+          ensureChatHasTitle(id);
+        }
+        const endEnsureChatHasTitle = performance.now();
+
+        /***
+         * Update chat summary
+         */
+        const startUpdateChatSummary = performance.now();
+        await updateChatSummary(id);
+        const endUpdateChatSummary = performance.now();
+
+        /***
+         * Update memory
+         */
+        const startAddLatestMessagesToMemory = performance.now();
+        const userMessage = message;
+        const aiResponse = messages[messages.length - 1];
+        await addLatestMessagesToMemory(
+          [userMessage, aiResponse],
+          sbUserId.data!
+        );
+        const endAddLatestMessagesToMemory = performance.now();
+
+        const endOnFinish = performance.now();
+
+        logger.log(
+          "POST",
+          `Time from stream complete to onFinish callback complete: ${endOnFinish - startOnFinish} milliseconds`
+        );
+        logger.log(
+          "POST",
+          `Time from stream complete to save chat: ${endSaveChat - startSaveChat} milliseconds`
+        );
+        logger.log(
+          "POST",
+          `Time from stream complete to ensure chat has title: ${endEnsureChatHasTitle - startEnsureChatHasTitle} milliseconds`
+        );
+        logger.log(
+          "POST",
+          `Time from stream complete to update chat summary: ${endUpdateChatSummary - startUpdateChatSummary} milliseconds`
+        );
+        logger.log(
+          "POST",
+          `Time from stream complete to add latest messages to memory: ${endAddLatestMessagesToMemory - startAddLatestMessagesToMemory} milliseconds`
+        );
+        logger.log(
+          "POST",
+          `Time from initial request recieved to onFinish callback complete: ${endOnFinish - startOnFinish} milliseconds`
+        );
+      } catch (err) {
+        logger.error("POST", `Error in onFinish callback: ${err}`);
       }
-
-      /***
-       * Update chat summary
-       */
-      await updateChatSummary(id);
-
-      /***
-       * Update memory
-       */
-      const userMessage = message;
-      const aiResponse = messages[messages.length - 1];
-      await addLatestMessagesToMemory([userMessage, aiResponse], "test-user");
     },
-    generateMessageId: createIdGenerator({
-      prefix: "msg",
-      size: 16,
-    }),
+    generateMessageId: () => randomUUID(),
   });
 }
