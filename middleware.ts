@@ -1,7 +1,7 @@
 import { clerkMiddleware, createRouteMatcher } from "@clerk/nextjs/server";
 import { NextResponse } from "next/server";
 
-const isProtectedRoute = createRouteMatcher(["/chat/(.*)"]);
+const isProtectedRoute = createRouteMatcher(["/chat/(.*)", "/(api|trpc)(.*)"]);
 
 /**
  * Make sure /api/webhooks stays public
