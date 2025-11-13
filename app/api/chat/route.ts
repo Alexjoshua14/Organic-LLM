@@ -137,7 +137,7 @@ export async function POST(req: Request) {
          * Update chat summary
          */
         const startUpdateChatSummary = performance.now();
-        await updateChatSummary(id);
+        const updateChatSummaryPromise = updateChatSummary(id);
         const endUpdateChatSummary = performance.now();
 
         /***
@@ -146,11 +146,16 @@ export async function POST(req: Request) {
         const startAddLatestMessagesToMemory = performance.now();
         const userMessage = message;
         const aiResponse = messages[messages.length - 1];
-        await addLatestMessagesToMemory(
+        const addLatestMessagesToMemoryPromise = addLatestMessagesToMemory(
           [userMessage, aiResponse],
           sbUserId.data!
         );
         const endAddLatestMessagesToMemory = performance.now();
+
+        await Promise.all([
+          updateChatSummaryPromise,
+          addLatestMessagesToMemoryPromise,
+        ]);
 
         const endOnFinish = performance.now();
 

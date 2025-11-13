@@ -445,6 +445,21 @@ export async function updateChatSummary(
     };
   }
 
+  /**
+   * Only generate new chat summary every 6 messages
+   */
+
+  if (messagesRes.data?.length <= 6) {
+    logger.log(
+      "updateChatSummary",
+      `Not enough messages to generate new chat summary. Only generate every 6 new messages. ${messagesRes.data?.length} messages since last summary`
+    );
+    return {
+      data: null,
+      error: "Not enough new messages to generate new chat summary.",
+    };
+  }
+
   const uiMessages = messagesRes.data
     .map((message) => convertMessageToUIMessage(message))
     .filter((message) => message !== null);
