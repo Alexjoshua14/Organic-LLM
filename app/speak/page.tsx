@@ -20,7 +20,6 @@ import { createLogger } from "@/lib/logger";
 import ShinyText from "@/components/ShinyText";
 import { LiquidChrome } from "@/components/third-party/reactbits/LiquidChrome/LiquidChrome";
 import "@/components/third-party/reactbits/LiquidChrome/LiquidChrome.css";
-import ScrollReveal from "@/components/third-party/reactbits/ScrollReveal/ScrollReveal";
 import { APIResponseView } from "@/components/dev/api-response-view";
 import { SpeechModelSelector } from "@/components/chat/speech-model-selector";
 import { glass } from "@/components/design-system/primitives";
@@ -74,8 +73,10 @@ export default function SpeakPage() {
   useEffect(() => {
     try {
       const stored = localStorage.getItem(STORAGE_KEY);
+
       if (stored) {
         const parsed = JSON.parse(stored) as AudioHistoryItem[];
+
         setAudioHistory(parsed);
       }
     } catch (err) {
@@ -96,6 +97,7 @@ export default function SpeakPage() {
     // Truncate the uint8ArrayData in the preview if present
     const apiResponseData = currentAudioItem?.apiResponse?.data;
     let displayApiResponse;
+
     if (apiResponseData && apiResponseData.uint8ArrayData) {
       displayApiResponse = {
         ...apiResponseData,
@@ -107,17 +109,20 @@ export default function SpeakPage() {
       displayApiResponse = "Undefined";
     }
     const parsedAPIResponse = JSON.stringify(displayApiResponse, null, 2);
+
     setApiResponse(parsedAPIResponse);
   }, [currentAudioItem]);
 
   const handleGenerateSpeech = async () => {
     if (displayMode === "processing") {
       logger.log("handleGenerateSpeech", "Already processing, skipping...");
+
       return;
     }
 
     if (!inputText.trim()) {
       setError("Please enter some text");
+
       return;
     }
 
@@ -168,6 +173,7 @@ export default function SpeakPage() {
 
       setAudioHistory((prev) => {
         const newHistory = [historyItem, ...prev];
+
         return newHistory.slice(0, MAX_HISTORY_ITEMS);
       });
     } catch (err) {
@@ -219,6 +225,7 @@ export default function SpeakPage() {
 
   const handleDownloadHistoryItem = (item: AudioHistoryItem) => {
     const filename = `tts-${new Date(item.timestamp).toISOString().slice(0, 19).replace(/:/g, "-")}.mp3`;
+
     downloadAudio(item.audioData, filename);
   };
 
@@ -229,6 +236,7 @@ export default function SpeakPage() {
     const blob = uint8ArrayToBlob(audioData);
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
+
     a.href = url;
     a.download = filename;
     document.body.appendChild(a);
@@ -250,6 +258,7 @@ export default function SpeakPage() {
     setInputText(item.text);
     const blob = uint8ArrayToBlob(item.audioData);
     const url = URL.createObjectURL(blob);
+
     setCurrentAudioUrl(url);
     setCurrentAudioData(item.audioData);
     setCurrentAudioItem(item);
@@ -297,6 +306,7 @@ export default function SpeakPage() {
     if (diffMins < 60) return `${diffMins}m ago`;
     if (diffHours < 24) return `${diffHours}h ago`;
     if (diffDays < 7) return `${diffDays}d ago`;
+
     return date.toLocaleDateString();
   };
 
@@ -315,10 +325,10 @@ export default function SpeakPage() {
         }}
       >
         <LiquidChrome
-          baseColor={[0.05, 0.08, 0.1]}
-          speed={BACKGROUND_SPEED}
           amplitude={0.42}
+          baseColor={[0.05, 0.08, 0.1]}
           interactive={true}
+          speed={BACKGROUND_SPEED}
         />
       </div>
       <div className="w-full h-full overflow-y-auto z-10">
@@ -360,8 +370,8 @@ export default function SpeakPage() {
                       "backdrop-brightness-50",
                     ],
                   }}
-                  minRows={4}
                   maxRows={12}
+                  minRows={4}
                   placeholder="Enter your text here. It will be converted to speech using AI..."
                   value={inputText}
                   onValueChange={setInputText}
@@ -377,13 +387,13 @@ export default function SpeakPage() {
                 <div className="flex flex-row gap-4 items-stretch sm:items-center justify-between">
                   <div className="flex items-center gap-9">
                     <Switch
-                      isSelected={processText}
-                      onValueChange={setProcessText}
-                      size="sm"
                       classNames={{
                         wrapper:
                           "group-data-[selected=true]:bg-gradient-to-r from-purple-600 to-blue-600",
                       }}
+                      isSelected={processText}
+                      size="sm"
+                      onValueChange={setProcessText}
                     >
                       <span className="text-sm text-muted-foreground">
                         Process Text for Speech
@@ -433,15 +443,15 @@ export default function SpeakPage() {
                   <div className="max-h-40 overflow-y-auto">
                     {displayMode === "processing" ? (
                       <ShinyText
-                        text={inputText}
                         className="whitespace-pre-wrap"
                         speed={4}
+                        text={inputText}
                       />
                     ) : displayMode === "playing" ? (
                       <ShinyText
-                        text={inputText}
                         className="whitespace-pre-wrap"
                         speed={8}
+                        text={inputText}
                       />
                     ) : (
                       <p>{inputText}</p>
@@ -492,10 +502,10 @@ export default function SpeakPage() {
                           Play Audio
                         </Button>
                         <Button
-                          variant="flat"
-                          size="lg"
-                          onPress={handleEdit}
                           className="flex-1 sm:flex-none"
+                          size="lg"
+                          variant="flat"
+                          onPress={handleEdit}
                         >
                           <Edit3 className="w-4 h-4 mr-2" />
                           Edit Text
@@ -518,19 +528,19 @@ export default function SpeakPage() {
                   {(displayMode === "ready" || displayMode === "playing") && (
                     <>
                       <Button
-                        variant="flat"
-                        size="lg"
-                        onPress={handleDownloadCurrent}
                         className="flex-1 sm:flex-none"
+                        size="lg"
+                        variant="flat"
+                        onPress={handleDownloadCurrent}
                       >
                         <Download className="w-4 h-4 mr-2" />
                         Download
                       </Button>
                       <Button
-                        variant="light"
-                        size="lg"
-                        onPress={handleClearCurrent}
                         className="flex-1 sm:flex-none"
+                        size="lg"
+                        variant="light"
+                        onPress={handleClearCurrent}
                       >
                         <X className="w-4 h-4 mr-2" />
                         Clear
@@ -543,11 +553,11 @@ export default function SpeakPage() {
                 {currentAudioUrl && (
                   <audio
                     ref={currentAudioRef}
-                    src={currentAudioUrl}
-                    onPlay={handleAudioPlay}
-                    onPause={handleAudioPause}
-                    onEnded={handleAudioEnded}
                     className="absolute top-0 left-0 w-0 h-0"
+                    src={currentAudioUrl}
+                    onEnded={handleAudioEnded}
+                    onPause={handleAudioPause}
+                    onPlay={handleAudioPlay}
                   >
                     <track kind="captions" />
                   </audio>
@@ -562,9 +572,9 @@ export default function SpeakPage() {
               <div className="flex items-center justify-between">
                 <h2 className="text-xl font-semibold">Recent Audio History</h2>
                 <Button
+                  className="text-destructive"
                   size="sm"
                   variant="light"
-                  className="text-destructive"
                   onPress={handleClearHistory}
                 >
                   <Trash2 className="w-4 h-4 mr-2" />
@@ -599,18 +609,18 @@ export default function SpeakPage() {
 
                     <div className="flex gap-2 mt-3">
                       <Button
+                        className="flex-1"
                         size="sm"
                         variant="flat"
-                        className="flex-1"
                         onPress={() => handleLoadHistoryItem(item)}
                       >
                         <Play className="w-4 h-4 mr-2" />
                         Play
                       </Button>
                       <Button
+                        className="flex-1"
                         size="sm"
                         variant="flat"
-                        className="flex-1"
                         onPress={() => handleDownloadHistoryItem(item)}
                       >
                         <Download className="w-4 h-4 mr-2" />
@@ -618,9 +628,9 @@ export default function SpeakPage() {
                       </Button>
                       <Button
                         isIconOnly
+                        className="text-destructive"
                         size="sm"
                         variant="light"
-                        className="text-destructive"
                         onPress={() => handleDeleteHistoryItem(item.id)}
                       >
                         <Trash2 className="w-4 h-4" />
@@ -639,19 +649,19 @@ export default function SpeakPage() {
               <div className="bg-muted/30 backdrop-blur-sm rounded-xl p-6 border border-border/50 text-center">
                 <Volume2 className="w-12 h-12 mx-auto mb-4 text-muted-foreground opacity-50" />
                 <h3 className="text-lg font-medium mb-2">
-                  No audio generated yet
+                  {`No audio generated yet`}
                 </h3>
                 <p className="text-sm text-muted-foreground max-w-md mx-auto">
-                  Enter some text above and click "Generate Speech" to create
+                  {`Enter some text above and click "Generate Speech" to create
                   audio. Your recent generations will appear here for easy
-                  playback and download.
+                  playback and download.`}
                 </p>
               </div>
             )}
         </div>
       </div>
 
-      <style jsx global>{`
+      {/* <style jsx global>{`
         @keyframes pulse-reading {
           0%,
           100% {
@@ -667,13 +677,14 @@ export default function SpeakPage() {
         .animate-pulse-reading {
           animation: pulse-reading 2s ease-in-out infinite;
         }
-      `}</style>
+      `}</style> */}
     </Page>
   );
 }
 
 function uint8ArrayToBlob(uint8ArrayData: Record<number, number>): Blob {
   const uint8Array = new Uint8Array(Object.values(uint8ArrayData));
+
   return new Blob([uint8Array], { type: "audio/mpeg" });
 }
 

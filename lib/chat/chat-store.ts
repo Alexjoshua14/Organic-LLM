@@ -1,6 +1,7 @@
 "use server";
 
 import { UIMessage } from "ai";
+import { auth } from "@clerk/nextjs/server";
 
 import { createLogger } from "../logger";
 import {
@@ -9,6 +10,8 @@ import {
 } from "../system-prompt/prompt-v0";
 import SPARK_SYSTEM_PROMPT from "../system-prompt";
 import { getStateString } from "../supabase/organicStateStore";
+import { searchMemories } from "../memory/operations";
+import { ContextPiece } from "../schemas/llm-context";
 
 import {
   createChat as createChatSupabase,
@@ -20,8 +23,16 @@ import {
 } from "@/data/supabase/chat";
 import { Result, SimpleResult } from "@/types";
 import { Thread } from "@/lib/schemas/chat";
+import { getSupabaseUserId } from "@/data/supabase/profiles";
 
 const logger = createLogger(`util/chat-store.ts`);
+
+interface getContextProps {
+  chatId: string;
+  limit?: number;
+  persona?: "prometheus" | "spark";
+  message: UIMessage;
+}
 
 export async function createChat(): Promise<Result<string>> {
   const res = await createChatSupabase();
@@ -62,6 +73,13 @@ export async function loadChat(
   return res;
 }
 
+/**
+ * Saves the chat idempotently
+ *
+ * @param chatId - The ID of the chat to save
+ * @param messages - The messages to save
+ * @returns
+ */
 export async function saveChat({
   chatId,
   messages,
@@ -120,11 +138,13 @@ export async function getChat(
   return chat;
 }
 
-export async function getMessagesForChatPrompt(
-  chatId: string,
-  limit?: number,
-  persona?: "prometheus" | "spark",
-): Promise<Result<{ prompt: string; messages: UIMessage[] }, string>> {
+export async function getMessagesForChatPrompt({
+  chatId,
+  limit,
+  persona,
+}: getContextProps): Promise<
+  Result<{ prompt: string; messages: UIMessage[] }, string>
+> {
   const { data: messages, error } = await getNMessages(chatId, limit);
 
   if (error || messages === null) {
@@ -181,11 +201,18 @@ export async function getMessagesForChatPrompt(
   };
 }
 
-export async function getContextAndMessagesChatPrompt(
-  chatId: string,
-  limit?: number,
-  persona?: "prometheus" | "spark",
-): Promise<Result<{ prompt: string; messages: UIMessage[] }, string>> {
+export async function getContextAndMessagesChatPrompt({
+  chatId,
+  limit,
+  persona,
+}: getContextProps): Promise<
+  Result<{ prompt: string; messages: UIMessage[] }, string>
+> {
+  /**
+   * TODO: Determine whether to error out on failing to fetch messages or
+   * continue with no messages
+   * TODO: Parallize messages fetching with other async functions
+   */
   const { data: messages, error } = await getNMessages(chatId, limit);
 
   if (error || messages === null) {
@@ -200,22 +227,67 @@ export async function getContextAndMessagesChatPrompt(
     };
   }
 
-  let ctx = "";
+  /**
+   * Get the system prompt for the persona
+   */
+  let prompt = "";
 
+  switch (persona) {
+    case "prometheus":
+      prompt = PROMETHEUS_SYSTEM_PROMPT;
+      break;
+    case "spark":
+      prompt = SPARK_SYSTEM_PROMPT;
+      break;
+    default:
+      prompt = SYSTEM_PROMPT;
+      break;
+  }
+
+  /**
+   * If the persona is Spark, get the context from the organic state store
+   */
   if (persona === "spark") {
     logger.log("getContextAndMessagesChatPrompt", "Getting context for Spark");
     try {
       const ctxResult = await getStateString(chatId);
 
-      ctx = ctxResult;
+      prompt += `\n\n${ctxResult}`;
     } catch (error) {
       logger.error(
         "getContextAndMessagesChatPrompt",
-        `Error getting context: ${error}`,
+        `Error getting Spark specific context: ${error}`,
       );
     }
   }
 
+  /**
+   * Get the conversation summary for the chat
+   */
+  const conversationSummary = await getConversationSummaryForChatPrompt(chatId);
+
+  prompt += `\n\nConversation Summary:\n${conversationSummary}`;
+
+  /**
+   * Replace the current date time in the prompt
+   */
+  const systemPrompt = prompt.replace(
+    "{{currentDateTime}}",
+    new Date().toISOString(),
+  );
+
+  return {
+    data: {
+      prompt: systemPrompt,
+      messages,
+    },
+    error: null,
+  };
+}
+
+async function getConversationSummaryForChatPrompt(
+  chatId: string,
+): Promise<Result<string>> {
   let conversationSummary = "";
 
   const conversationSummaryResult = await getConversationSummary(chatId);
@@ -236,24 +308,240 @@ export async function getContextAndMessagesChatPrompt(
     conversationSummary = conversationSummaryResult.data;
   }
 
-  const prompt =
-    persona === "prometheus"
-      ? PROMETHEUS_SYSTEM_PROMPT
-      : persona === "spark"
-        ? `${SPARK_SYSTEM_PROMPT}\n\n${ctx}\n\nConversation Summary:\n${conversationSummary}`
-        : `${SYSTEM_PROMPT}\n\nConversation Summary:\n${conversationSummary}`;
+  return conversationSummaryResult;
+}
 
-  // Common for all prompts
-  const systemPrompt = prompt.replace(
-    "{{currentDateTime}}",
-    new Date().toISOString(),
-  );
+/****************************
+ * LATEST VERSION (11/10/25)
+ *
+ * This version will be centralize all context gathering logic
+ * This will grab messages from supabase, persona from wherever, and memories from mem0
+ *
+ * This will be async where possible to parallelize pieces and avoid wait delays
+ *
+ ******************************/
+/**
+ * Gathers the relevant context pieces for LLM query.
+ * Includes:
+ *  - System prompt
+ *  - Latest Messages, not including current message
+ *  - Relevant memories
+ *
+ * Notes:
+ *  - Ensure static pieces are placed on the top to enable better caching
+ *  - Start longer awaits earlier
+ *
+ *
+ * @param chatId - The ID of the chat to get context for
+ * @param message - The user's current message being sent to LLM
+ * @param persona - The persona of the chat (prometheus or spark)
+ * @returns - Context
+ * @returns - Latest messages
+ */
+export async function getContext({
+  chatId,
+  limit,
+  persona,
+  message,
+}: getContextProps): Promise<
+  Result<{ context: string; messages: UIMessage[] }, string>
+> {
+  const startContextCompilationTime = performance.now();
 
-  return {
-    data: {
-      prompt: systemPrompt,
-      messages,
-    },
-    error: null,
-  };
+  /***
+   * Step 0
+   *
+   * Get User ID from supabase
+   */
+
+  const clerkUser = await auth();
+
+  if (!clerkUser || !clerkUser.userId) {
+    logger.error("getContext", "User not authenticated");
+
+    return {
+      data: null,
+      error: "User not authenticated",
+    };
+  }
+  const sbUserIdResult = await getSupabaseUserId(clerkUser.userId);
+
+  if (sbUserIdResult.error || sbUserIdResult.data === null) {
+    logger.error("getContext", "User not found in supabase");
+
+    return {
+      data: null,
+      error: "User not found in supabase",
+    };
+  }
+
+  const sbUserId = sbUserIdResult.data;
+
+  const contextPieces: ContextPiece[] = [];
+
+  try {
+    /***
+     * Step 1
+     *
+     * Get Latest n Messages from Supabase
+     ***/
+    const messagesPromise = getNMessages(chatId, limit);
+
+    /***
+     * Step 2
+     *
+     * Get Conversation Summary from Supabase
+     */
+
+    const conversationSummaryPromise = getConversationSummary(chatId);
+
+    /***
+     * Step 3
+     *
+     * Get Memories from Mem0
+     ***/
+    const userMessage = message.parts
+      .filter((part) => part.type === "text")
+      .reduce((acc, part) => acc + part.text, "");
+
+    logger.log("getContext", `User message: ${userMessage}`);
+    const memoriesPromise = searchMemories(userMessage, sbUserId); // TODO: Get user ID from Supabase
+
+    /***
+     * Step 4
+     *
+     * Get Persona from wherever
+     *
+     ***/
+    let systemPrompt = "";
+
+    switch (persona) {
+      case "prometheus":
+        systemPrompt = PROMETHEUS_SYSTEM_PROMPT;
+        break;
+      case "spark":
+        systemPrompt = SPARK_SYSTEM_PROMPT;
+        break;
+      default:
+        systemPrompt = SYSTEM_PROMPT;
+        break;
+    }
+
+    contextPieces.push({
+      content: systemPrompt,
+    });
+
+    /***
+     * Step 5
+     *
+     * Await and combine context from all places
+     ***/
+
+    /**
+     * Structure:
+     *  - System prompt
+     *  - Conversation summary
+     *  - Memories
+     */
+
+    const [messagesResult, conversationSummaryResult, memoriesResult] =
+      await Promise.all([
+        messagesPromise,
+        conversationSummaryPromise,
+        memoriesPromise,
+      ]);
+
+    /***
+     * Step 5a
+     *
+     * Handle message errors
+     */
+    let messages: UIMessage[] = [];
+
+    if (messagesResult.error) {
+      logger.error(
+        "getContext",
+        `Error getting messages: ${messagesResult.error}`,
+      );
+    }
+    messages = messagesResult.data ?? [];
+
+    /***
+     * Step 5b
+     *
+     * Handle conversation summary errors
+     */
+
+    let conversationSummary = "";
+
+    if (conversationSummaryResult.error) {
+      logger.error(
+        "getContext",
+        `Error getting conversation summary: ${conversationSummaryResult.error}`,
+      );
+    }
+    conversationSummary = conversationSummaryResult.data ?? "";
+
+    contextPieces.push({
+      title: "Conversation Summary",
+      content: conversationSummary,
+    });
+
+    /***
+     * Step 5c
+     *
+     * Handle memories errors
+     */
+    let memories = "";
+
+    if (memoriesResult.results === null) {
+      logger.error(
+        "getContext",
+        `Error getting memories: Memories are null\n${JSON.stringify(memoriesResult)}`,
+      );
+    }
+
+    memories =
+      memoriesResult.results?.map((result) => result.memory).join("\n") ?? "";
+
+    contextPieces.push({
+      title: "Memories",
+      content: memories,
+    });
+
+    /***
+     * Step 5d
+     *
+     * Combine context
+     ***/
+    const context = combineContextPieces(contextPieces);
+
+    return {
+      data: {
+        context,
+        messages,
+      },
+      error: null,
+    };
+  } catch (error) {
+    logger.error("getContext", `Error getting context: ${error}`);
+
+    return {
+      data: null,
+      error: error instanceof Error ? error.message : String(error),
+    };
+  } finally {
+    const endContextCompilationTime = performance.now();
+
+    logger.log(
+      "getContext",
+      `Context compilation time: ${endContextCompilationTime - startContextCompilationTime} milliseconds`,
+    );
+  }
+}
+
+function combineContextPieces(contextPieces: ContextPiece[]): string {
+  return contextPieces
+    .map((piece) => `${piece.title ? `${piece.title}:\n` : ""}${piece.content}`)
+    .join("\n\n");
 }
