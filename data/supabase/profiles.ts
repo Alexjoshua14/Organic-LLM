@@ -1,3 +1,4 @@
+"use server";
 import { supabaseServer } from "@/lib/supabase/server";
 import { Result } from "@/types";
 import { Profile, ProfileSchema } from "@/lib/schemas/profiles";

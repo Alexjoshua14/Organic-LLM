@@ -17,7 +17,7 @@ export default async function ChatPage({
 }) {
   const { slug: chatId } = await params;
 
-  const initialMessage = "Are white holes real?"
+  const initialMessage = "Are white holes real?";
 
   const id = chatId;
 

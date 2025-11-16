@@ -5,10 +5,10 @@ import { StickToBottom } from "use-stick-to-bottom";
 import { DefaultChatTransport } from "ai";
 import { useEffect, useState } from "react";
 
-import { ChatInput } from "@/components/chat/chat-input";
 import { ChatThreadExperimental } from "./chat-thread-experimental";
-import { ChatScrollButton } from "@/components/chat/chat-scroll-button";
 
+import { ChatInput } from "@/components/chat/chat-input";
+import { ChatScrollButton } from "@/components/chat/chat-scroll-button";
 import { Thread } from "@/lib/schemas/chat";
 import { updateChatSummary } from "@/lib/llm/chat-helpers";
 import { createLogger } from "@/lib/logger";
