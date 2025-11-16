@@ -24,7 +24,7 @@ export async function actionCreateTask(formData: FormData) {
     status,
   });
 
-  revalidateTag("tasks"); // if you use fetch caching + tags
+  revalidateTag("tasks", "max"); // if you use fetch caching + tags
 
   return row;
 }
@@ -32,12 +32,12 @@ export async function actionCreateTask(formData: FormData) {
 export async function actionUpdateTask(id: string, patch: any) {
   const row = await updateTask(id, patch);
 
-  revalidateTag("tasks");
+  revalidateTag("tasks", "max");
 
   return row;
 }
 
 export async function actionDeleteTask(id: string) {
   await deleteTask(id);
-  revalidateTag("tasks");
+  revalidateTag("tasks", "max");
 }
