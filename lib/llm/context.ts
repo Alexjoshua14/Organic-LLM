@@ -1,8 +1,11 @@
 import { UIMessage, TypeValidationError } from "ai";
+
 import { getContextAndMessagesChatPrompt } from "../chat/chat-store";
-import { estimateTokenCount } from "./chat-helpers";
 import { SYSTEM_PROMPT } from "../system-prompt/prompt-v0";
 import { createLogger } from "../logger";
+
+import { estimateTokenCount } from "./chat-helpers";
+
 import { Result } from "@/types";
 
 const logger = createLogger("lib/llm/context.ts");
@@ -36,7 +39,7 @@ export const getContext = async ({
     if (chatContextResult.error) {
       logger.error(
         "POST",
-        `Error getting chat context: ${chatContextResult.error}`
+        `Error getting chat context: ${chatContextResult.error}`,
       );
       validatedMessages = [message];
     } else {
@@ -61,7 +64,7 @@ export const getContext = async ({
     if (err instanceof TypeValidationError) {
       logger.error(
         "POST",
-        `Database messages validation failed: ${err.message}`
+        `Database messages validation failed: ${err.message}`,
       );
       validatedMessages = [message];
     } else {
@@ -78,7 +81,7 @@ export const getContext = async ({
     `System Prompt ${systemPromptTokens} tokens\n`,
     //`System Prompt: ${systemPrompt}\n`,
     `\n\n--------------------------------\n\n`,
-    `${validatedMessages.length} messages being sent to LLM`
+    `${validatedMessages.length} messages being sent to LLM`,
   );
 
   return {

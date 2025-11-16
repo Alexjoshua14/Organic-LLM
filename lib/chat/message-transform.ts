@@ -15,7 +15,7 @@ export function convertMessageToUIMessage(message: Message): UIMessage | null {
       default:
         logger.error(
           "convertMessageToUIMessage",
-          `Unknown schema kind: ${message.schema_kind}`
+          `Unknown schema kind: ${message.schema_kind}`,
         );
 
         return null;
@@ -23,7 +23,7 @@ export function convertMessageToUIMessage(message: Message): UIMessage | null {
   } catch (error) {
     logger.error(
       "convertMessageToUIMessage",
-      `Error converting message to UIMessage: ${error}`
+      `Error converting message to UIMessage: ${error}`,
     );
 
     return null;
@@ -32,7 +32,7 @@ export function convertMessageToUIMessage(message: Message): UIMessage | null {
 
 export function convertUIMessageToMessage(
   uiMessage: UIMessage,
-  chatId: string
+  chatId: string,
 ): Message | null {
   try {
     const message: Message = {
@@ -48,7 +48,7 @@ export function convertUIMessageToMessage(
   } catch (error) {
     logger.error(
       "convertUIMessageToMessage",
-      `Error converting UIMessage to Message: ${error}`
+      `Error converting UIMessage to Message: ${error}`,
     );
 
     return null;

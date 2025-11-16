@@ -1,6 +1,5 @@
 import { EventCard, Event } from "./eventCard";
 
-
 const mockEvents: Event[] = [
   {
     id: "1",
