@@ -25,7 +25,7 @@ export async function actionCreateIdea(formData: FormData) {
     tags: [],
   });
 
-  revalidateTag("ideas"); // if you use fetch caching + tags
+  revalidateTag("ideas", "max"); // if you use fetch caching + tags
 
   return row;
 }
@@ -33,12 +33,12 @@ export async function actionCreateIdea(formData: FormData) {
 export async function actionUpdateIdea(id: string, patch: any) {
   const row = await updateIdea(id, patch);
 
-  revalidateTag("ideas");
+  revalidateTag("ideas", "max");
 
   return row;
 }
 
 export async function actionDeleteIdea(id: string) {
   await deleteIdea(id);
-  revalidateTag("ideas");
+  revalidateTag("ideas", "max");
 }
