@@ -24,7 +24,7 @@ export const ControlCluster: FC<ControlClusterProps> = ({ className }) => {
     >
       <Link
         className="min-w-8 w-8 h-8 grid place-content-center border-0 hover:bg-background-tertiary rounded"
-        href="/auth"
+        href="/settings"
       >
         <Settings2Icon size={16} />
       </Link>
