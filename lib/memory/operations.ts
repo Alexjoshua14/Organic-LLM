@@ -4,7 +4,7 @@ import {
   SearchResult,
   type Memory,
 } from "mem0ai/oss";
-import memory from "./client";
+import { getMemory } from "./client";
 
 import { createLogger } from "@/lib/logger";
 import { UIMessage } from "@ai-sdk/react";
@@ -28,6 +28,8 @@ export async function searchMemories(
   if (!userId) {
     throw new Error("User ID is required");
   }
+
+  const memory = getMemory();
 
   logger.log("searchMemories", `Searching for memories: ${query}`);
 
@@ -57,6 +59,9 @@ export async function addLatestMessagesToMemory(
   if (!userId) {
     throw new Error("User ID is required");
   }
+
+  const memory = getMemory();
+
   logger.log(
     "addLatestMessagesToMemory",
     `Adding ${messages.length} messages to memory`
@@ -98,6 +103,8 @@ export async function addInteractionToMemory(
     throw new Error("User ID is required");
   }
   logger.log("addInteractionToMemory", `Adding interaction to memory`);
+
+  const memory = getMemory();
 
   let result: SearchResult;
 
@@ -149,6 +156,7 @@ export async function wipeMemory(userId: string): Promise<boolean> {
   }
 
   try {
+    const memory = getMemory();
     await memory.deleteAll({ userId });
     logger.log("wipeMemory", "Memory wiped successfully");
   } catch (error) {
@@ -167,6 +175,7 @@ export async function wipeMemory(userId: string): Promise<boolean> {
  * TODO: Clean up return type to return a more useful result
  */
 async function deleteMemory(memoryId: string): Promise<boolean> {
+  const memory = getMemory();
   if (!memoryId) {
     throw new Error("Memory ID is required");
   }
