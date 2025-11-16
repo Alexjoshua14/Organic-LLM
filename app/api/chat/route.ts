@@ -38,11 +38,12 @@ export async function POST(req: Request) {
     return new Response("Unauthorized", { status: 401 });
   }
 
-  const sbUserId = await getSupabaseUserId(clerkUser.userId);
+  const sbUserIdResult = await getSupabaseUserId(clerkUser.userId);
 
-  if (sbUserId.error || !sbUserId.data) {
+  if (sbUserIdResult.error || sbUserIdResult.data === null) {
     return new Response("User not found in supabase", { status: 404 });
   }
+  const sbUserId = sbUserIdResult.data;
 
   logger.log("POST", `Recieved Message: ${JSON.stringify(message)}`);
 
@@ -97,7 +98,7 @@ export async function POST(req: Request) {
       delayInMs: 20, // optional: defaults to 10ms
       chunking: "word", // optional: defaults to 'word'
     }),
-    maxOutputTokens: 3000,
+    maxOutputTokens: 3000, // Cap output for dev guardrails
   });
 
   result.consumeStream();
@@ -148,10 +149,13 @@ export async function POST(req: Request) {
         const aiResponse = messages[messages.length - 1];
         const addLatestMessagesToMemoryPromise = addLatestMessagesToMemory(
           [userMessage, aiResponse],
-          sbUserId.data!
+          sbUserId
         );
         const endAddLatestMessagesToMemory = performance.now();
 
+        /**
+         * Await lingering promises
+         */
         await Promise.all([
           updateChatSummaryPromise,
           addLatestMessagesToMemoryPromise,

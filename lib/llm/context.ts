@@ -1,5 +1,4 @@
 import { UIMessage, TypeValidationError } from "ai";
-import { id } from "zod/v4/locales";
 import { getContextAndMessagesChatPrompt } from "../chat/chat-store";
 import { estimateTokenCount } from "./chat-helpers";
 import { SYSTEM_PROMPT } from "../system-prompt/prompt-v0";

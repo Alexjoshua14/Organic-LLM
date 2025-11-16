@@ -421,7 +421,7 @@ export async function updateChatSummary(
 
   logger.log(
     "updateChatSummary",
-    `Messages since latest message: ${messagesRes.data?.length ?? 0} messages`
+    `Messages since latest summary: ${messagesRes.data?.length ?? 0} messages`
   );
 
   if (messagesRes.data?.length === 0) {
