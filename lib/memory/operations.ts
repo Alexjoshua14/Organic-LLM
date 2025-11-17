@@ -1,4 +1,11 @@
-import { Message, SearchMemoryOptions, SearchResult } from "mem0ai/oss";
+"use server";
+
+import {
+  MemoryItem,
+  Message,
+  SearchMemoryOptions,
+  SearchResult,
+} from "mem0ai/oss";
 import { UIMessage } from "@ai-sdk/react";
 
 import { getMemory } from "./client";
@@ -19,7 +26,7 @@ const logger = createLogger("lib/memory/operations.ts");
 export async function searchMemories(
   query: string,
   userId: string,
-  options?: SearchMemoryOptions,
+  options?: SearchMemoryOptions
 ): Promise<SearchResult> {
   if (!userId) {
     throw new Error("User ID is required");
@@ -40,6 +47,18 @@ export async function searchMemories(
   return result;
 }
 
+export async function getAllMemories(userId: string): Promise<SearchResult> {
+  if (!userId) {
+    throw new Error("User ID is required");
+  }
+
+  const memory = getMemory();
+
+  const result: SearchResult = await memory.getAll({ userId });
+
+  return result;
+}
+
 /**
  * Adds the latest messages to memory
  * Should only contain new messages
@@ -50,7 +69,7 @@ export async function searchMemories(
  */
 export async function addLatestMessagesToMemory(
   messages: UIMessage[],
-  userId: string,
+  userId: string
 ): Promise<SearchResult> {
   if (!userId) {
     throw new Error("User ID is required");
@@ -60,7 +79,7 @@ export async function addLatestMessagesToMemory(
 
   logger.log(
     "addLatestMessagesToMemory",
-    `Adding ${messages.length} messages to memory`,
+    `Adding ${messages.length} messages to memory`
   );
 
   const interactions: Message[] = messages.map((message) => ({
@@ -77,11 +96,11 @@ export async function addLatestMessagesToMemory(
 
   logger.log(
     "addLatestMessagesToMemory",
-    `Added ${result.results?.length} messages to memory`,
+    `Added ${result.results?.length} messages to memory`
   );
   logger.log(
     "addLatestMessagesToMemory",
-    `Results: ${JSON.stringify(result.results)}`,
+    `Results: ${JSON.stringify(result.results)}`
   );
 
   return result;
@@ -94,7 +113,7 @@ export async function addLatestMessagesToMemory(
 export async function addInteractionToMemory(
   userQuery: string,
   aiResponse: string,
-  userId: string,
+  userId: string
 ): Promise<SearchResult> {
   if (!userId) {
     throw new Error("User ID is required");
@@ -123,13 +142,13 @@ export async function addInteractionToMemory(
     logger.log("addInteractionToMemory", `Added interaction to memory`);
     logger.log(
       "addInteractionToMemory",
-      `Results: ${JSON.stringify(result.results)}`,
+      `Results: ${JSON.stringify(result.results)}`
     );
   } catch (error) {
     logger.error(
       "addInteractionToMemory",
       "Error adding interaction to memory:",
-      error,
+      error
     );
 
     return {
@@ -174,7 +193,7 @@ export async function wipeMemory(userId: string): Promise<boolean> {
  * @returns - True if memory deleted, false if errored
  * TODO: Clean up return type to return a more useful result
  */
-async function deleteMemory(memoryId: string): Promise<boolean> {
+export async function deleteMemory(memoryId: string): Promise<boolean> {
   const memory = getMemory();
 
   if (!memoryId) {
