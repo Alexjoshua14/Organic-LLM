@@ -13,6 +13,7 @@ import {
 } from "@/components/third-party/ui/tabs";
 import { getProfile } from "@/data/supabase/profiles";
 import { Profile } from "@/lib/schemas/profiles";
+import MemorySettings from "@/components/settings/memorySettings";
 
 export default function SettingsPage() {
   const [profile, setProfile] = useState<Profile>();
@@ -61,7 +62,7 @@ export default function SettingsPage() {
           </TabsContent>
 
           <TabsContent value="memory">
-            <h1>Memory</h1>
+            <MemorySettings />
           </TabsContent>
         </Tabs>
       </div>

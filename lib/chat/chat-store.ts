@@ -258,6 +258,12 @@ export async function getChat(
   return chat;
 }
 
+/**
+ *
+ * OLD FUNCITON, NEW ONE BELOW
+ *
+ * @returns
+ */
 export async function getMessagesForChatPrompt({
   chatId,
   limit,
