@@ -124,10 +124,10 @@ export function RabbitHoleShell({ sessionId }: RabbitHoleShellProps = {}) {
         <header className="shrink-0 px-12 pt-8 pb-6 relative z-20">
           <div className="flex items-center justify-between max-w-7xl mx-auto">
             <Link
-              href="/"
+              href="/rabbitholes/browse"
               className="font-satoshi text-[#5C5E5E] dark:text-[#A0A2A2] hover:text-[#2D2B26] dark:hover:text-[#F3F4F3] transition-colors text-sm tracking-wide pointer-events-auto"
             >
-              ← Back to Organic LLM
+              ← Back to Rabbit Hole Browser
             </Link>
             <h1 className="font-commissioner text-2xl font-light tracking-wide text-[#2D2B26] dark:text-[#F3F4F3]">
               Rabbit Hole Explorer
@@ -149,7 +149,7 @@ export function RabbitHoleShell({ sessionId }: RabbitHoleShellProps = {}) {
           </aside>
 
           {/* Center: Article or Source Analysis */}
-          <section className="flex-1 max-w-3xl mx-auto min-w-0 flex flex-col overflow-hidden">
+          <section className="relative flex-1 max-w-3xl mx-auto min-w-0 flex flex-col overflow-hidden">
             {/* Navigation Arrows */}
             {session && session.path.length > 1 && !selectedSourceId && (
               <div className="flex items-center justify-between mb-6 shrink-0 px-4">
@@ -184,7 +184,7 @@ export function RabbitHoleShell({ sessionId }: RabbitHoleShellProps = {}) {
                 </Button>
               </div>
             )}
-            <div className="flex-1 overflow-y-auto pr-2 px-4">
+            <div className="flex-1 overflow-y-auto pr-2 px-4 pt-4 pb-28">
               <AnimatePresence mode="wait">
                 {isAnalyzingSource && (
                   <RabbitHoleLoadingState
@@ -248,13 +248,15 @@ export function RabbitHoleShell({ sessionId }: RabbitHoleShellProps = {}) {
                 </div>
               )}
             </div>
-            <div className="px-4">
-              <RabbitHolePromptBar
-                onStart={start}
-                onReset={reset}
-                hasSession={!!session}
-                isLoading={isLoading}
-              />
+            <div className="pointer-events-none absolute inset-x-0 bottom-0 px-4 pb-4">
+              <div className="pointer-events-auto max-w-3xl mx-auto">
+                <RabbitHolePromptBar
+                  onStart={start}
+                  onReset={reset}
+                  hasSession={!!session}
+                  isLoading={isLoading}
+                />
+              </div>
             </div>
           </section>
 
