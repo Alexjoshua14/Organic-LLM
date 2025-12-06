@@ -11,6 +11,7 @@ import { UIMessage } from "@ai-sdk/react";
 import { getMemory } from "./client";
 
 import { createLogger } from "@/lib/logger";
+import { convertUIMessageToMem0Message } from "../chat/message-transform";
 
 const logger = createLogger("lib/memory/operations.ts");
 
@@ -82,13 +83,9 @@ export async function addLatestMessagesToMemory(
     `Adding ${messages.length} messages to memory`
   );
 
-  const interactions: Message[] = messages.map((message) => ({
-    role: message.role,
-    content:
-      message.parts
-        .filter((part) => part.type === "text")
-        .reduce((acc, part) => acc + part.text, "") ?? "",
-  }));
+  const interactions: Message[] = messages.map((m) =>
+    convertUIMessageToMem0Message(m, "chat_id_placeholder")
+  );
 
   const result = await memory.add(interactions, {
     userId,

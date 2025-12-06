@@ -7,6 +7,7 @@ import { glass } from "../design-system/primitives";
 
 import { ChatMessageMarkdown } from "./chat-message-markdown";
 import { ChatReasoning, ChatThinking } from "./chat-loading";
+import { RippleText } from "../RippleText";
 
 type ChatMessageProps = {
   message: UIMessage;
@@ -90,7 +91,7 @@ const UserMessage: FC<ChatMessageProps> = ({ message }) => {
         {message.parts.map((part, i) => {
           switch (part.type) {
             case "text":
-              return <div key={`${message.id}-${i}`}>{part.text}</div>;
+              return <RippleText latestMessage={true} key={`${message.id}-${i}`} text={part.text} />;
           }
         })}
       </div>
