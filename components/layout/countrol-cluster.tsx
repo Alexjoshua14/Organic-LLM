@@ -15,12 +15,9 @@ export const ControlCluster: FC<ControlClusterProps> = ({ className }) => {
   return (
     <div
       className={cn(
-        `absolute top-0 sm:translate-y-4 right-0 w-28 h-14 flex items-center justify-center z-10 bg-background-secondary overflow-hidden border-l border-b border-border`,
+        `absolute top-0 sm:translate-y-4 right-0 w-28 h-14 flex items-center justify-center z-10`,
         className,
       )}
-      style={{
-        borderBottomLeftRadius: "9rem 7rem",
-      }}
     >
       <Link
         className="min-w-8 w-8 h-8 grid place-content-center border-0 hover:bg-background-tertiary rounded"

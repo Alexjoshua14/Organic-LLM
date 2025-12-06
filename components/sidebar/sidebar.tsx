@@ -54,6 +54,11 @@ export function Sidebar() {
             <SidebarGroup>
               <SidebarGroupContent>
                 <SidebarNewChat />
+                <SidebarMenuButton asChild>
+                  <Link href="/rabbitholes">
+                    <span>Rabbit Holes</span>
+                  </Link>
+                </SidebarMenuButton>
                 <Input
                   classNames={{
                     input: ["bg-transparent", "hover:bg-transparent"],
