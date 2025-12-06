@@ -8,12 +8,14 @@ import {
   TypeValidationError,
   smoothStream,
   consumeStream,
+  stepCountIs,
 } from "ai";
 // import systemPrompt from "@/lib/system-prompt";
 import { auth } from "@clerk/nextjs/server";
 
 import { deleteChatMessage, getContext, saveChat } from "@/lib/chat/chat-store";
 import { ensureChatHasTitle, updateChatSummary } from "@/lib/llm/chat-helpers";
+import { createMemorySearchTool } from "@/lib/llm/llm-tool-kit";
 import { createLogger } from "@/lib/logger";
 import { SYSTEM_PROMPT } from "@/lib/system-prompt/prompt-v0";
 import { addLatestMessagesToMemory } from "@/lib/memory/operations";
@@ -202,6 +204,10 @@ export async function POST(req: Request) {
     onError({ error }) {
       logger.error("POST", `Stream error: ${error}`);
     },
+    tools: {
+      search_memories: createMemorySearchTool(sbUserId),
+    },
+    stopWhen: stepCountIs(2),
   });
 
   // Start consuming stream early to surface errors before returning the response
