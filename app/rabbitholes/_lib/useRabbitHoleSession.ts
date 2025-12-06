@@ -138,6 +138,57 @@ export function useRabbitHoleSession(initialSessionId?: string) {
       : null;
     const branch = activeNode?.branchSuggestions.find((b) => b.id === branchId);
 
+    // If we've already explored a node with the same prompt/label, reuse it instead of regenerating
+    if (branch) {
+      const existingNodeEntry = Object.entries(session.nodesById).find(
+        ([, node]) => node.prompt === branch.label
+      );
+      if (existingNodeEntry) {
+        const existingNodeId = existingNodeEntry[0];
+        const existingNode = existingNodeEntry[1];
+
+        // Check if this node is already in the path
+        const currentPathIndex = session.activeNodeId
+          ? session.path.findIndex((seg) => seg.nodeId === session.activeNodeId)
+          : -1;
+        const isInPath = session.path.some(
+          (seg) => seg.nodeId === existingNodeId
+        );
+
+        if (isInPath) {
+          // Node is already in path, just activate it
+          setActiveNode(existingNodeId);
+        } else {
+          // Node exists but isn't in path - add it to path after current node and activate
+          const pathSegment = {
+            nodeId: existingNodeId,
+            label:
+              branch.label.substring(0, 60) +
+              (branch.label.length > 60 ? "..." : ""),
+          };
+
+          // Insert after current node, or at end if current node not found
+          const newPath =
+            currentPathIndex >= 0
+              ? [
+                  ...session.path.slice(0, currentPathIndex + 1),
+                  pathSegment,
+                  ...session.path.slice(currentPathIndex + 1),
+                ]
+              : [...session.path, pathSegment];
+
+          setSession({
+            ...session,
+            path: newPath,
+            activeNodeId: existingNodeId,
+          });
+        }
+        setError(null);
+        setPreview(null);
+        return;
+      }
+    }
+
     setIsLoading(true);
     setError(null);
     setPreview(null);

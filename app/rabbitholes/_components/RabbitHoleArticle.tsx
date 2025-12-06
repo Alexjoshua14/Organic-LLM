@@ -119,7 +119,7 @@ export function RabbitHoleArticle({
       transition={{ duration: 0.4, ease: [0.2, 0.8, 0.2, 1] }}
       className="max-w-2xl mx-auto"
     >
-      <div className="flex items-center justify-end mb-6">
+      <div className="mb-4">
         <RabbitHoleTTSButton nodeId={nodeId} text={articleText} />
       </div>
       <div
