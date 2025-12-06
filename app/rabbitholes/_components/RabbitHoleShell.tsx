@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import { AnimatePresence } from "framer-motion";
 import { useRabbitHoleSession } from "../_lib/useRabbitHoleSession";
 import { RabbitHolePathRail } from "./RabbitHolePathRail";
@@ -19,7 +20,12 @@ import { Button } from "@heroui/button";
 import Link from "next/link";
 import { cn } from "@/lib/utils";
 
-export function RabbitHoleShell() {
+interface RabbitHoleShellProps {
+  sessionId?: string;
+}
+
+export function RabbitHoleShell({ sessionId }: RabbitHoleShellProps = {}) {
+  const router = useRouter();
   const {
     session,
     isLoading,
@@ -30,7 +36,7 @@ export function RabbitHoleShell() {
     followBranch,
     setActiveNode,
     reset,
-  } = useRabbitHoleSession();
+  } = useRabbitHoleSession(sessionId);
 
   const [activeTakeawayIndex, setActiveTakeawayIndex] = useState<number | null>(
     null,
@@ -38,6 +44,17 @@ export function RabbitHoleShell() {
   const [selectedSourceId, setSelectedSourceId] = useState<string | null>(null);
   const [sourceAnalysis, setSourceAnalysis] = useState<SourceAnalysisType | null>(null);
   const [isAnalyzingSource, setIsAnalyzingSource] = useState(false);
+
+  // If sessionId was provided but session is null after mount, redirect to browse
+  useEffect(() => {
+    if (sessionId && !session && !isLoading) {
+      // Session not found, redirect to browse after a short delay
+      const timer = setTimeout(() => {
+        router.push("/rabbitholes/browse");
+      }, 2000);
+      return () => clearTimeout(timer);
+    }
+  }, [sessionId, session, isLoading, router]);
 
   const activeNode = session?.activeNodeId
     ? session.nodesById[session.activeNodeId]

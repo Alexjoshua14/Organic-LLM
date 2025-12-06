@@ -5,6 +5,11 @@ import { Textarea } from "@heroui/input";
 import { Button } from "@heroui/button";
 import { ArrowUpIcon, RotateCcw } from "lucide-react";
 import { glass } from "@/components/design-system/primitives";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/third-party/ui/tooltip";
 
 interface RabbitHolePromptBarProps {
   onStart: (question: string) => void;
@@ -91,24 +96,38 @@ export function RabbitHolePromptBar({
           </div>
           <div className="flex gap-2">
             {hasSession && (
-              <Button
-                isIconOnly
-                variant="ghost"
-                onPress={onReset}
-                isDisabled={isLoading}
-                className="text-[#5C5E5E] dark:text-[#A0A2A2] hover:text-[#2D2B26] dark:hover:text-[#F3F4F3]"
-              >
-                <RotateCcw size={18} />
-              </Button>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    isIconOnly
+                    variant="ghost"
+                    onPress={onReset}
+                    isDisabled={isLoading}
+                    className="text-[#5C5E5E] dark:text-[#A0A2A2] hover:text-[#2D2B26] dark:hover:text-[#F3F4F3]"
+                  >
+                    <RotateCcw size={18} />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>Start new rabbit hole</p>
+                </TooltipContent>
+              </Tooltip>
             )}
-            <Button
-              isIconOnly
-              type="submit"
-              isDisabled={isLoading || !input.trim()}
-              className="bg-[#2D2B26] dark:bg-[#F3F4F3] text-[#F3F4F3] dark:text-[#2D2B26] hover:opacity-80 disabled:opacity-50 aspect-square"
-            >
-              <ArrowUpIcon size={20} />
-            </Button>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  isIconOnly
+                  type="submit"
+                  isDisabled={isLoading || !input.trim()}
+                  className="bg-[#2D2B26] dark:bg-[#F3F4F3] text-[#F3F4F3] dark:text-[#2D2B26] hover:opacity-80 disabled:opacity-50 aspect-square"
+                >
+                  <ArrowUpIcon size={20} />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>
+                <p>{hasSession ? "Explore deeper" : "Start exploration"}</p>
+              </TooltipContent>
+            </Tooltip>
           </div>
         </form>
       </div>
