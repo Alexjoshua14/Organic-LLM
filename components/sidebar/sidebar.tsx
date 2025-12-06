@@ -55,7 +55,7 @@ export function Sidebar() {
               <SidebarGroupContent>
                 <SidebarNewChat />
                 <SidebarMenuButton asChild>
-                  <Link href="/rabbitholes">
+                  <Link href="/rabbitholes/browse">
                     <span>Rabbit Holes</span>
                   </Link>
                 </SidebarMenuButton>

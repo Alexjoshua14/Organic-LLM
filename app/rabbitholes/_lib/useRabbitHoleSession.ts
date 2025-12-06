@@ -11,13 +11,20 @@ import {
   followRabbitHoleBranch,
   generateQuickPreview,
 } from "../actions";
+import { saveSession, getSessionById } from "./sessionStorage";
 
-const STORAGE_KEY = "rabbit-hole-session";
+const STORAGE_KEY = "rabbit-hole-session"; // Keep for backward compatibility
 
-function getStoredSession(): RabbitHoleSession | null {
+function getStoredSession(sessionId?: string): RabbitHoleSession | null {
   if (typeof window === "undefined") return null;
 
   try {
+    // If sessionId is provided, load that specific session
+    if (sessionId) {
+      return getSessionById(sessionId);
+    }
+
+    // Otherwise, try to load the current session (for backward compatibility)
     const stored = localStorage.getItem(STORAGE_KEY);
     if (!stored) return null;
 
@@ -43,6 +50,9 @@ function saveSessionToStorage(session: RabbitHoleSession | null): void {
 
   try {
     if (session) {
+      // Save to new multi-session storage
+      saveSession(session);
+      // Also save to old key for backward compatibility
       localStorage.setItem(STORAGE_KEY, JSON.stringify(session));
     } else {
       localStorage.removeItem(STORAGE_KEY);
@@ -53,10 +63,10 @@ function saveSessionToStorage(session: RabbitHoleSession | null): void {
   }
 }
 
-export function useRabbitHoleSession() {
+export function useRabbitHoleSession(initialSessionId?: string) {
   const [session, setSession] = useState<RabbitHoleSession | null>(() => {
     // Initialize from localStorage on mount
-    return getStoredSession();
+    return getStoredSession(initialSessionId);
   });
   const [isLoading, setIsLoading] = useState(false);
   const [generatingNodeId, setGeneratingNodeId] = useState<string | null>(null);
