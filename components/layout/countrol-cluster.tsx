@@ -15,7 +15,7 @@ export const ControlCluster: FC<ControlClusterProps> = ({ className }) => {
   return (
     <div
       className={cn(
-        `absolute top-0 sm:translate-y-4 right-0 w-28 h-14 flex items-center justify-center z-10`,
+        `absolute top-0 sm:translate-y-4 right-0 w-28 h-14 flex items-center justify-center z-30`,
         className,
       )}
     >
