@@ -8,6 +8,9 @@ export const RabbitHoleSourceSchema = z.object({
   url: z.string().url(),
   faviconUrl: z.string().url().optional(),
   snippet: z.string().optional(),
+  publishedDate: z.string().optional(),
+  author: z.string().optional(),
+  highlights: z.array(z.string()).optional(),
 });
 
 export const RabbitHoleBranchSuggestionSchema = z.object({
@@ -54,11 +57,8 @@ export type RabbitHoleBranchSuggestion = z.infer<
   typeof RabbitHoleBranchSuggestionSchema
 >;
 export type RabbitHoleNode = z.infer<typeof RabbitHoleNodeSchema>;
-export type RabbitHolePathSegment = z.infer<
-  typeof RabbitHolePathSegmentSchema
->;
+export type RabbitHolePathSegment = z.infer<typeof RabbitHolePathSegmentSchema>;
 export type RabbitHoleSession = z.infer<typeof RabbitHoleSessionSchema>;
 export type RabbitHoleSourceAnalysis = z.infer<
   typeof RabbitHoleSourceAnalysisSchema
 >;
-
