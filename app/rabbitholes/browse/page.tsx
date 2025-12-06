@@ -11,6 +11,7 @@ import {
   deleteSession,
   type RabbitHoleSessionMetadata,
 } from "../_lib/sessionStorage";
+import { formatDate } from "../_lib/dateUtils";
 import { cn } from "@/lib/utils";
 
 export default function RabbitHolesBrowsePage() {
@@ -100,12 +101,17 @@ export default function RabbitHolesBrowsePage() {
                     <h3 className="font-commissioner text-lg font-light text-[#2D2B26] dark:text-[#F3F4F3] mb-2 line-clamp-2">
                       {session.rootQuestion}
                     </h3>
+                    {session.summary && (
+                      <p className="font-satoshi text-sm text-[#5C5E5E] dark:text-[#A0A2A2] mb-3 line-clamp-2">
+                        {session.summary}
+                      </p>
+                    )}
                     <div className="flex items-center gap-4 text-xs text-[#5C5E5E] dark:text-[#A0A2A2]">
                       <span>
-                        {new Date(session.updatedAt).toLocaleDateString()}
+                        {formatDate(session.updatedAt)}
                       </span>
                       <span>•</span>
-                      <span>{session.pathLength} step{session.pathLength !== 1 ? "s" : ""}</span>
+                      <span>{session.pathLength} level{session.pathLength !== 1 ? "s" : ""} explored</span>
                     </div>
                   </div>
                   <div className="flex items-center gap-2 shrink-0">

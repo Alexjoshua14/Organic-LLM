@@ -11,6 +11,7 @@ export interface RabbitHoleSessionMetadata {
   createdAt: string;
   updatedAt: string;
   pathLength: number;
+  summary?: string;
 }
 
 export function getAllSessions(): RabbitHoleSessionMetadata[] {
@@ -67,6 +68,13 @@ export function saveSession(session: RabbitHoleSession): void {
       (s) => s.sessionId === session.sessionId
     );
 
+    // Generate a summary from the root node's key takeaways
+    const rootNodeId = session.path[0]?.nodeId;
+    const rootNode = rootNodeId ? session.nodesById[rootNodeId] : null;
+    const summary = rootNode?.keyTakeaways
+      ? rootNode.keyTakeaways.slice(0, 2).join(" • ")
+      : undefined;
+
     const metadata: RabbitHoleSessionMetadata = {
       sessionId: session.sessionId,
       rootQuestion: session.rootQuestion,
@@ -76,6 +84,7 @@ export function saveSession(session: RabbitHoleSession): void {
           : new Date().toISOString(),
       updatedAt: new Date().toISOString(),
       pathLength: session.path.length,
+      summary,
     };
 
     if (existingIndex >= 0) {
