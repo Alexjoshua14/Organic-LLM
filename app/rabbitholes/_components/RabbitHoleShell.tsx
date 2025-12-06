@@ -43,6 +43,9 @@ export function RabbitHoleShell({ sessionId }: RabbitHoleShellProps = {}) {
   );
   const [selectedSourceId, setSelectedSourceId] = useState<string | null>(null);
   const [sourceAnalysis, setSourceAnalysis] = useState<SourceAnalysisType | null>(null);
+  const [sourceAnalysisCache, setSourceAnalysisCache] = useState<
+    Record<string, SourceAnalysisType>
+  >({});
   const [isAnalyzingSource, setIsAnalyzingSource] = useState(false);
 
   // If sessionId was provided but session is null after mount, redirect to browse
@@ -62,6 +65,13 @@ export function RabbitHoleShell({ sessionId }: RabbitHoleShellProps = {}) {
 
   const handleSourceClick = async (source: RabbitHoleSource) => {
     setSelectedSourceId(source.id);
+
+    // If we already have analysis cached, use it immediately
+    if (sourceAnalysisCache[source.id]) {
+      setSourceAnalysis(sourceAnalysisCache[source.id]);
+      return;
+    }
+
     setIsAnalyzingSource(true);
     setSourceAnalysis(null);
 
@@ -72,6 +82,10 @@ export function RabbitHoleShell({ sessionId }: RabbitHoleShellProps = {}) {
         setSelectedSourceId(null);
       } else if (result.data) {
         setSourceAnalysis(result.data);
+        setSourceAnalysisCache((prev) => ({
+          ...prev,
+          [source.id]: result.data!,
+        }));
       }
     } catch (error) {
       console.error("Error analyzing source:", error);
@@ -82,6 +96,13 @@ export function RabbitHoleShell({ sessionId }: RabbitHoleShellProps = {}) {
   };
 
   const handleBackToArticle = () => {
+    setSelectedSourceId(null);
+    setSourceAnalysis(null);
+  };
+
+  const handleReset = () => {
+    reset();
+    setSourceAnalysisCache({});
     setSelectedSourceId(null);
     setSourceAnalysis(null);
   };
@@ -144,7 +165,7 @@ export function RabbitHoleShell({ sessionId }: RabbitHoleShellProps = {}) {
               activeNodeId={session?.activeNodeId ?? null}
               generatingNodeId={generatingNodeId}
               onNodeClick={setActiveNode}
-              onNewRabbitHole={reset}
+              onNewRabbitHole={handleReset}
             />
           </aside>
 
@@ -184,7 +205,7 @@ export function RabbitHoleShell({ sessionId }: RabbitHoleShellProps = {}) {
                 </Button>
               </div>
             )}
-            <div className="flex-1 overflow-y-auto pr-2 px-4 pt-4 pb-28">
+            <div className="flex-1 overflow-y-auto pr-2 px-4 pt-4 pb-36">
               <AnimatePresence mode="wait">
                 {isAnalyzingSource && (
                   <RabbitHoleLoadingState
@@ -247,12 +268,13 @@ export function RabbitHoleShell({ sessionId }: RabbitHoleShellProps = {}) {
                   {error}
                 </div>
               )}
+              <div className="h-24" /> {/** Spacer */}
             </div>
             <div className="pointer-events-none absolute inset-x-0 bottom-0 px-4 pb-4">
               <div className="pointer-events-auto max-w-3xl mx-auto">
                 <RabbitHolePromptBar
                   onStart={start}
-                  onReset={reset}
+                  onReset={handleReset}
                   hasSession={!!session}
                   isLoading={isLoading}
                 />
