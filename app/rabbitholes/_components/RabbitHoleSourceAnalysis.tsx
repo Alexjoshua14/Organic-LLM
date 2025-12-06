@@ -36,11 +36,10 @@ export function RabbitHoleSourceAnalysis({
       {/* Header with back button and source link */}
       <div className="mb-8 flex items-start justify-between gap-4">
         <div className="flex-1">
-          <div className="flex items-center justify-between mb-2">
+          <div className="mb-3">
             <h1 className="font-commissioner text-3xl font-light tracking-tight text-[#2D2B26] dark:text-[#F3F4F3]">
               {analysis.title}
             </h1>
-            <RabbitHoleTTSButton nodeId={`source-${sourceId}`} text={ttsText} />
           </div>
           {onBack && (
             <button
@@ -50,6 +49,9 @@ export function RabbitHoleSourceAnalysis({
               ← Back to article
             </button>
           )}
+          <div className="max-w-lg">
+            <RabbitHoleTTSButton nodeId={`source-${sourceId}`} text={ttsText} />
+          </div>
         </div>
         <a
           href={analysis.originalUrl}
