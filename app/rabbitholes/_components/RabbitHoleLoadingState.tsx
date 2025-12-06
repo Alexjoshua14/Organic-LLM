@@ -29,7 +29,7 @@ export function RabbitHoleLoadingState({
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
       transition={{ duration: 0.3 }}
-      className="flex flex-col items-center justify-center h-full min-h-[400px] gap-8 pointer-events-none"
+      className="flex flex-col items-center justify-center h-fit min-h-[220px] gap-6 pointer-events-none"
     >
       <motion.div
         animate={{ rotate: 360 }}
@@ -69,18 +69,18 @@ export function RabbitHoleLoadingState({
         </motion.div>
       )}
 
-      {/* Skeleton loader for article structure */}
-      <div className="w-full max-w-2xl space-y-8 mt-8">
+      {/* Condensed skeleton loader */}
+      <div className="w-full max-w-xl space-y-4 mt-4">
         {/* Key takeaways skeleton */}
-        <div className="space-y-4">
-          <div className="h-4 w-32 bg-[#DCDDDC] dark:bg-[#2A2C2D] rounded animate-pulse" />
-          <div className="space-y-3">
-            {[1, 2, 3].map((i) => (
+        <div className="space-y-3">
+          <div className="h-3 w-28 bg-[#DCDDDC] dark:bg-[#2A2C2D] rounded animate-pulse" />
+          <div className="space-y-2">
+            {[1, 2].map((i) => (
               <div
                 key={i}
-                className="h-4 bg-[#DCDDDC] dark:bg-[#2A2C2D] rounded animate-pulse"
+                className="h-3 bg-[#DCDDDC] dark:bg-[#2A2C2D] rounded animate-pulse"
                 style={{
-                  width: `${85 - i * 5}%`,
+                  width: `${88 - i * 8}%`,
                   animationDelay: `${i * 0.1}s`,
                 }}
               />
@@ -89,33 +89,21 @@ export function RabbitHoleLoadingState({
         </div>
 
         {/* Article skeleton */}
-        <div className="space-y-6 pt-8">
-          <div className="h-8 w-3/4 bg-[#DCDDDC] dark:bg-[#2A2C2D] rounded animate-pulse" />
-          <div className="space-y-4">
-            {[1, 2, 3, 4].map((i) => (
-              <div
-                key={i}
-                className="h-4 bg-[#DCDDDC] dark:bg-[#2A2C2D] rounded animate-pulse"
-                style={{
-                  width: `${100 - i * 2}%`,
-                  animationDelay: `${i * 0.15}s`,
-                }}
-              />
-            ))}
-          </div>
-          <div className="h-6 w-1/2 bg-[#DCDDDC] dark:bg-[#2A2C2D] rounded animate-pulse mt-8" />
-          <div className="space-y-4">
+        <div className="space-y-3 pt-4">
+          <div className="h-5 w-2/3 bg-[#DCDDDC] dark:bg-[#2A2C2D] rounded animate-pulse" />
+          <div className="space-y-2">
             {[1, 2, 3].map((i) => (
               <div
                 key={i}
-                className="h-4 bg-[#DCDDDC] dark:bg-[#2A2C2D] rounded animate-pulse"
+                className="h-3 bg-[#DCDDDC] dark:bg-[#2A2C2D] rounded animate-pulse"
                 style={{
-                  width: `${95 - i * 3}%`,
-                  animationDelay: `${(i + 4) * 0.15}s`,
+                  width: `${96 - i * 6}%`,
+                  animationDelay: `${i * 0.12}s`,
                 }}
               />
             ))}
           </div>
+          <div className="h-4 w-1/2 bg-[#DCDDDC] dark:bg-[#2A2C2D] rounded animate-pulse mt-4" />
         </div>
       </div>
     </motion.div>
