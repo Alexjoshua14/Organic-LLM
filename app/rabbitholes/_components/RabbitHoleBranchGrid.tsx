@@ -39,22 +39,22 @@ export function RabbitHoleBranchGrid({
   return (
     <div
       className={cn(
-        "bg-white/80 dark:bg-[#1C1E1F]/80 backdrop-blur-sm rounded-lg border border-[#DCDDDC] dark:border-[#2A2C2D] shadow-sm",
+        "bg-card/80 backdrop-blur-sm rounded-lg border border-border shadow-sm",
         "flex flex-col overflow-hidden",
         hasSources ? "h-1/2" : "flex-1",
       )}
     >
       <button
         onClick={() => setIsExpanded(!isExpanded)}
-        className="flex items-center justify-between p-4 hover:bg-white/30 dark:hover:bg-[#1C1E1F]/30 transition-colors"
+        className="flex items-center justify-between p-4 hover:bg-card/30 transition-colors"
       >
-        <h2 className="font-commissioner text-xs uppercase tracking-[0.2em] text-[#5C5E5E] dark:text-[#A0A2A2] font-light">
+        <h2 className="font-commissioner text-xs uppercase tracking-[0.2em] text-muted-foreground font-light">
           Explore Further
         </h2>
         {isExpanded ? (
-          <ChevronUp size={16} className="text-[#5C5E5E] dark:text-[#A0A2A2]" />
+          <ChevronUp size={16} className="text-muted-foreground" />
         ) : (
-          <ChevronDown size={16} className="text-[#5C5E5E] dark:text-[#A0A2A2]" />
+          <ChevronDown size={16} className="text-muted-foreground" />
         )}
       </button>
       <AnimatePresence>
@@ -82,7 +82,7 @@ export function RabbitHoleBranchGrid({
                       stiffness: 300,
                       damping: 30,
                     }}
-                    className="border border-[#DCDDDC]/50 dark:border-[#2A2C2D]/50 rounded-md overflow-hidden"
+                    className="border border-border/50 rounded-md overflow-hidden"
                   >
                     <div className="flex items-start gap-2">
                       <motion.button
@@ -90,13 +90,13 @@ export function RabbitHoleBranchGrid({
                         disabled={isLoading}
                         className={cn(
                           "flex-1 text-left px-3 py-2 rounded-md transition-all",
-                          "hover:bg-white/50 dark:hover:bg-[#1C1E1F]/50",
+                          "hover:bg-card/50",
                           "disabled:opacity-50 disabled:cursor-not-allowed",
                         )}
                         whileHover={{ scale: 1.01 }}
                         whileTap={{ scale: 0.99 }}
                       >
-                        <p className="font-satoshi text-sm font-medium text-[#2D2B26] dark:text-[#F3F4F3]">
+                        <p className="font-satoshi text-sm font-medium text-foreground">
                           {branch.label}
                         </p>
                       </motion.button>
@@ -106,17 +106,17 @@ export function RabbitHoleBranchGrid({
                             e.stopPropagation();
                             toggleDescription(branch.id);
                           }}
-                          className="p-2 hover:bg-white/30 dark:hover:bg-[#1C1E1F]/30 transition-colors shrink-0"
+                          className="p-2 hover:bg-card/30 transition-colors shrink-0"
                         >
                           {isDescriptionExpanded ? (
                             <ChevronUp
                               size={14}
-                              className="text-[#5C5E5E] dark:text-[#A0A2A2]"
+                              className="text-muted-foreground"
                             />
                           ) : (
                             <ChevronDown
                               size={14}
-                              className="text-[#5C5E5E] dark:text-[#A0A2A2]"
+                              className="text-muted-foreground"
                             />
                           )}
                         </button>
@@ -131,7 +131,7 @@ export function RabbitHoleBranchGrid({
                           transition={{ duration: 0.2 }}
                           className="overflow-hidden"
                         >
-                          <p className="px-3 pb-2 font-satoshi text-xs text-[#5C5E5E]/70 dark:text-[#A0A2A2]/70 leading-relaxed">
+                          <p className="px-3 pb-2 text-xs text-muted-foreground/70 leading-relaxed">
                             {branch.shortDescription}
                           </p>
                         </motion.div>

@@ -160,7 +160,7 @@ export function RabbitHoleTTSButton({
   return (
     <div
       className={cn(
-        "flex items-center gap-3 bg-white/70 dark:bg-[#1C1E1F]/70 border border-[#DCDDDC] dark:border-[#2A2C2D] rounded-lg px-3 py-2",
+        "flex items-center gap-3 bg-card/70 border border-border rounded-lg px-3 py-2",
         "shadow-sm",
         className,
       )}
@@ -171,7 +171,7 @@ export function RabbitHoleTTSButton({
         size="sm"
         onPress={isPlaying ? handlePause : handlePlay}
         isDisabled={loading}
-        className="text-[#5C5E5E] dark:text-[#A0A2A2] hover:text-[#2D2B26] dark:hover:text-[#F3F4F3]"
+        className="text-muted-foreground hover:text-foreground"
       >
         {loading ? (
           <Loader2 className="w-4 h-4 animate-spin" />
@@ -182,11 +182,11 @@ export function RabbitHoleTTSButton({
         )}
       </Button>
       <div className="flex-1 min-w-0">
-        <p className="font-satoshi text-xs text-[#5C5E5E] dark:text-[#A0A2A2] truncate">
+        <p className="text-xs text-muted-foreground truncate">
           {playbackLabel}
         </p>
         {error && (
-          <p className="font-satoshi text-[11px] text-red-600 dark:text-red-400">
+          <p className="text-[11px] text-destructive">
             {error}
           </p>
         )}
