@@ -6,6 +6,9 @@ import { cn } from "@/lib/utils";
 import { RabbitHoleTTSButton } from "./RabbitHoleTTSButton";
 
 interface RabbitHoleArticleProps {
+  title: string;
+  takeaways: string[];
+  activeTakeawayIndex?: number | null;
   articleHtml: string;
   nodeId: string;
   onBranchClick: (branchId: string) => void;
@@ -13,6 +16,9 @@ interface RabbitHoleArticleProps {
 }
 
 export function RabbitHoleArticle({
+  title,
+  takeaways,
+  activeTakeawayIndex,
   articleHtml,
   nodeId,
   onBranchClick,
@@ -20,6 +26,7 @@ export function RabbitHoleArticle({
 }: RabbitHoleArticleProps) {
   const articleRef = useRef<HTMLDivElement>(null);
   const [articleText, setArticleText] = useState("");
+  const [takeawaysOpen, setTakeawaysOpen] = useState(true);
 
   // Extract plain text from HTML for TTS
   useEffect(() => {
@@ -81,11 +88,12 @@ export function RabbitHoleArticle({
     const observers: IntersectionObserver[] = [];
 
     sections.forEach((section, index) => {
+      const idx = index; // capture per-observer index
       const observer = new IntersectionObserver((entries) => {
         entries.forEach((entry) => {
           if (entry.isIntersecting) {
-            setActiveSectionIndex(index);
-            onActiveSectionChange(index);
+            setActiveSectionIndex(idx);
+            onActiveSectionChange(idx);
           }
         });
       }, observerOptions);
@@ -119,8 +127,70 @@ export function RabbitHoleArticle({
       transition={{ duration: 0.4, ease: [0.2, 0.8, 0.2, 1] }}
       className="max-w-2xl mx-auto"
     >
-      <div className="mb-4">
-        <RabbitHoleTTSButton nodeId={nodeId} text={articleText} />
+      <div className="mb-6">
+        <h1 className="font-commissioner text-3xl font-light tracking-tight text-[#2D2B26] dark:text-[#F3F4F3] mb-3">
+          {title}
+        </h1>
+        <div className="max-w-xl">
+          <RabbitHoleTTSButton nodeId={nodeId} text={articleText} />
+        </div>
+      </div>
+      <div className="bg-white/80 dark:bg-[#1C1E1F]/80 backdrop-blur-sm rounded-lg border border-[#DCDDDC] dark:border-[#2A2C2D] shadow-sm mb-10">
+        <button
+          type="button"
+          onClick={() => setTakeawaysOpen((v) => !v)}
+          className="w-full flex items-center justify-between px-5 py-4 text-left"
+        >
+          <span className="font-commissioner text-xs uppercase tracking-[0.2em] text-[#5C5E5E] dark:text-[#A0A2A2] font-light">
+            Key Takeaways
+          </span>
+          <span className="text-[#5C5E5E] dark:text-[#A0A2A2] text-sm">
+            {takeawaysOpen ? "−" : "+"}
+          </span>
+        </button>
+        {takeawaysOpen && (
+          <div className="px-5 pb-5">
+            <ul className="space-y-4">
+              {takeaways.map((takeaway, index) => {
+                const isActive = activeTakeawayIndex === index;
+                return (
+                  <motion.li
+                    key={index}
+                    className={cn(
+                      "flex items-start gap-4 font-satoshi text-base leading-relaxed cursor-pointer transition-all duration-200",
+                      isActive
+                        ? "text-[#2D2B26] dark:text-[#F3F4F3]"
+                        : "text-[#5C5E5E] dark:text-[#A0A2A2] hover:text-[#2D2B26] dark:hover:text-[#F3F4F3]",
+                    )}
+                    initial={{ opacity: 0, x: -8 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    transition={{ duration: 0.25, delay: index * 0.05 }}
+                    onClick={() => {
+                      const sectionId = `takeaway-${index}`;
+                      const section = document.getElementById(sectionId);
+                      if (section) {
+                        section.scrollIntoView({ behavior: "smooth", block: "start" });
+                      }
+                    }}
+                    whileHover={{ x: 2 }}
+                  >
+                    <span
+                      className={cn(
+                        "mt-1 shrink-0 transition-colors text-lg",
+                        isActive
+                          ? "text-[#2D2B26] dark:text-[#F3F4F3]"
+                          : "text-[#5C5E5E] dark:text-[#A0A2A2]",
+                      )}
+                    >
+                      •
+                    </span>
+                    <span className="flex-1">{takeaway}</span>
+                  </motion.li>
+                );
+              })}
+            </ul>
+          </div>
+        )}
       </div>
       <div
         ref={articleRef}

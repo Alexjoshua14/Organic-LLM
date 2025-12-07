@@ -11,7 +11,7 @@ import {
   followRabbitHoleBranch,
   generateQuickPreview,
 } from "../actions";
-import { saveSession, getSessionById } from "./sessionStorage";
+import { saveSession, getSessionById, migrateSession } from "./sessionStorage";
 
 const STORAGE_KEY = "rabbit-hole-session"; // Keep for backward compatibility
 
@@ -29,10 +29,10 @@ function getStoredSession(sessionId?: string): RabbitHoleSession | null {
     if (!stored) return null;
 
     const parsed = JSON.parse(stored);
-    const validated = RabbitHoleSessionSchema.safeParse(parsed);
+    const migrated = migrateSession(parsed);
 
-    if (validated.success) {
-      return validated.data;
+    if (migrated) {
+      return migrated;
     }
 
     // Invalid schema - clear it
@@ -50,6 +50,13 @@ function saveSessionToStorage(session: RabbitHoleSession | null): void {
 
   try {
     if (session) {
+      // Avoid persisting optimistic/pending nodes to storage
+      const hasPending = session.path.some(
+        (seg) =>
+          typeof seg.nodeId === "string" && seg.nodeId.startsWith("pending-")
+      );
+      if (hasPending) return;
+
       // Save to new multi-session storage
       saveSession(session);
       // Also save to old key for backward compatibility
@@ -133,6 +140,8 @@ export function useRabbitHoleSession(initialSessionId?: string) {
       return;
     }
 
+    const previousSession = session;
+
     const activeNode = session.activeNodeId
       ? session.nodesById[session.activeNodeId]
       : null;
@@ -155,9 +164,27 @@ export function useRabbitHoleSession(initialSessionId?: string) {
           (seg) => seg.nodeId === existingNodeId
         );
 
+        const edgeExists =
+          session.activeNodeId &&
+          (session.edges ?? []).some(
+            (e) => e.from === session.activeNodeId && e.to === existingNodeId
+          );
+
         if (isInPath) {
-          // Node is already in path, just activate it
-          setActiveNode(existingNodeId);
+          // Node is already in path, ensure edge exists then activate it
+          const updatedEdges =
+            session.activeNodeId && !edgeExists
+              ? [
+                  ...(session.edges ?? []),
+                  { from: session.activeNodeId, to: existingNodeId },
+                ]
+              : (session.edges ?? []);
+
+          setSession({
+            ...session,
+            edges: updatedEdges,
+            activeNodeId: existingNodeId,
+          });
         } else {
           // Node exists but isn't in path - add it to path after current node and activate
           const pathSegment = {
@@ -165,6 +192,7 @@ export function useRabbitHoleSession(initialSessionId?: string) {
             label:
               branch.label.substring(0, 60) +
               (branch.label.length > 60 ? "..." : ""),
+            parentNodeId: session.activeNodeId ?? null,
           };
 
           // Insert after current node, or at end if current node not found
@@ -177,10 +205,19 @@ export function useRabbitHoleSession(initialSessionId?: string) {
                 ]
               : [...session.path, pathSegment];
 
+          const updatedEdges =
+            session.activeNodeId && !edgeExists
+              ? [
+                  ...(session.edges ?? []),
+                  { from: session.activeNodeId, to: existingNodeId },
+                ]
+              : (session.edges ?? []);
+
           setSession({
             ...session,
             path: newPath,
             activeNodeId: existingNodeId,
+            edges: updatedEdges,
           });
         }
         setError(null);
@@ -192,6 +229,30 @@ export function useRabbitHoleSession(initialSessionId?: string) {
     setIsLoading(true);
     setError(null);
     setPreview(null);
+
+    // Optimistically add a placeholder path entry so it shows up immediately
+    const tempNodeId = `pending-${branchId}-${Date.now()}`;
+    const optimisticPathSegment = {
+      nodeId: tempNodeId,
+      label:
+        branch?.label.substring(0, 60) +
+          ((branch?.label.length ?? 0) > 60 ? "..." : "") || branchId,
+      parentNodeId: session.activeNodeId ?? null,
+    };
+    const optimisticEdge =
+      session.activeNodeId != null
+        ? { from: session.activeNodeId, to: tempNodeId }
+        : null;
+
+    setGeneratingNodeId(tempNodeId);
+    setSession({
+      ...session,
+      path: [...session.path, optimisticPathSegment],
+      edges: optimisticEdge
+        ? [...(session.edges ?? []), optimisticEdge]
+        : session.edges,
+      activeNodeId: tempNodeId,
+    });
 
     // Generate quick preview first
     if (branch) {
@@ -213,9 +274,9 @@ export function useRabbitHoleSession(initialSessionId?: string) {
         if (result.error) {
           // Preserve session on error so user can see previous content and retry
           setError(result.error.message);
+          setSession(previousSession);
           setGeneratingNodeId(null);
           setPreview(null);
-          // Session remains unchanged - user can still navigate existing nodes
         } else if (result.data) {
           setSession(result.data);
           setError(null);
@@ -227,9 +288,9 @@ export function useRabbitHoleSession(initialSessionId?: string) {
         // Preserve session on error so user can see previous content and retry
         const message = err instanceof Error ? err.message : "Unknown error";
         setError(message);
+        setSession(previousSession);
         setGeneratingNodeId(null);
         setPreview(null);
-        // Session remains unchanged - user can still navigate existing nodes
       } finally {
         setIsLoading(false);
         setGeneratingNodeId(null);
