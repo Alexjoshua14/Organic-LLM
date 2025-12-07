@@ -11,7 +11,7 @@ import {
   deleteSession,
   type RabbitHoleSessionMetadata,
 } from "../_lib/sessionStorage";
-import { formatDate } from "../_lib/dateUtils";
+import { formatDate } from "@/lib/format/stringFormatting";
 import { cn } from "@/lib/utils";
 
 export default function RabbitHolesBrowsePage() {

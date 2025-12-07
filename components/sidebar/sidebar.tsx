@@ -52,11 +52,15 @@ export function Sidebar() {
         <SignedIn>
           <>
             <SidebarGroup>
-              <SidebarGroupContent>
+              <SidebarGroupContent className="flex flex-col gap-3">
                 <SidebarNewChat />
-                <SidebarMenuButton asChild>
-                  <Link href="/rabbitholes/browse">
-                    <span>Rabbit Holes</span>
+                <SidebarMenuButton
+                  asChild
+                  tooltip="Browse rabbit holes"
+                  className="w-full rounded bg-background-tertiary cursor-pointer flex items-center justify-center py-5 px-4 text-sm font-medium"
+                >
+                  <Link href="/rabbitholes/browse" className="w-full text-center">
+                    Rabbit Holes
                   </Link>
                 </SidebarMenuButton>
                 <Input

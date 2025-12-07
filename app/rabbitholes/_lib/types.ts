@@ -33,6 +33,12 @@ export const RabbitHoleNodeSchema = z.object({
 export const RabbitHolePathSegmentSchema = z.object({
   nodeId: z.string(),
   label: z.string(),
+  parentNodeId: z.string().nullable(),
+});
+
+export const RabbitHoleEdgeSchema = z.object({
+  from: z.string(),
+  to: z.string(),
 });
 
 export const RabbitHoleSessionSchema = z.object({
@@ -41,6 +47,7 @@ export const RabbitHoleSessionSchema = z.object({
   path: z.array(RabbitHolePathSegmentSchema),
   nodesById: z.record(z.string(), RabbitHoleNodeSchema),
   activeNodeId: z.string().nullable(),
+  edges: z.array(RabbitHoleEdgeSchema).optional(),
 });
 
 export const RabbitHoleSourceAnalysisSchema = z.object({
@@ -58,6 +65,7 @@ export type RabbitHoleBranchSuggestion = z.infer<
 >;
 export type RabbitHoleNode = z.infer<typeof RabbitHoleNodeSchema>;
 export type RabbitHolePathSegment = z.infer<typeof RabbitHolePathSegmentSchema>;
+export type RabbitHoleEdge = z.infer<typeof RabbitHoleEdgeSchema>;
 export type RabbitHoleSession = z.infer<typeof RabbitHoleSessionSchema>;
 export type RabbitHoleSourceAnalysis = z.infer<
   typeof RabbitHoleSourceAnalysisSchema
