@@ -6,7 +6,7 @@ import { ClerkProvider } from "@clerk/nextjs";
 import { Providers } from "./providers";
 
 import { siteConfig } from "@/config/site";
-import { fontSans, fontSatoshi, fontCommissioner } from "@/config/fonts";
+import { fontInter, fontSatoshi, fontCommissioner } from "@/config/fonts";
 import { ControlCluster } from "@/components/layout/countrol-cluster";
 import {
   SidebarProvider,
@@ -46,7 +46,7 @@ export default function RootLayout({
         <body
           className={clsx(
             "h-dvh text-foreground bg-background font-sans antialiased max-w-dvw overflow-hidden",
-            fontSans.variable,
+            fontInter.variable,
             fontSatoshi.variable,
             fontCommissioner.variable,
           )}
