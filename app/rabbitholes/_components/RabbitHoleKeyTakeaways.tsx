@@ -26,12 +26,12 @@ export function RabbitHoleKeyTakeaways({
 
   return (
     <motion.div
-      className="bg-white/80 dark:bg-[#1C1E1F]/80 backdrop-blur-sm rounded-lg p-8 mb-12 border border-[#DCDDDC] dark:border-[#2A2C2D] shadow-sm"
+      className="bg-card/80 backdrop-blur-sm rounded-lg p-8 mb-12 border border-border shadow-sm"
       initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.3 }}
     >
-      <h2 className="font-commissioner text-xs uppercase tracking-[0.2em] text-[#5C5E5E] dark:text-[#A0A2A2] mb-6 font-light">
+      <h2 className="font-commissioner text-xs uppercase tracking-[0.2em] text-muted-foreground mb-6 font-light">
         Key Takeaways
       </h2>
       <ul className="space-y-4">
@@ -42,11 +42,11 @@ export function RabbitHoleKeyTakeaways({
             <motion.li
               key={index}
               className={cn(
-                "flex items-start gap-4 font-satoshi text-base leading-relaxed",
+                "flex items-start gap-4 text-base leading-relaxed",
                 "cursor-pointer transition-all duration-200",
                 isActive
-                  ? "text-[#2D2B26] dark:text-[#F3F4F3]"
-                  : "text-[#5C5E5E] dark:text-[#A0A2A2] hover:text-[#2D2B26] dark:hover:text-[#F3F4F3]",
+                  ? "text-foreground"
+                  : "text-muted-foreground hover:text-foreground",
               )}
               initial={{ opacity: 0, x: -10 }}
               animate={{ opacity: 1, x: 0 }}
@@ -61,8 +61,8 @@ export function RabbitHoleKeyTakeaways({
                 className={cn(
                   "mt-1 shrink-0 transition-colors text-lg",
                   isActive
-                    ? "text-[#2D2B26] dark:text-[#F3F4F3]"
-                    : "text-[#5C5E5E] dark:text-[#A0A2A2]",
+                    ? "text-foreground"
+                    : "text-muted-foreground",
                 )}
               >
                 •

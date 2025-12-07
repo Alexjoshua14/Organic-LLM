@@ -53,7 +53,7 @@ export function RabbitHolePromptBar({
 
   return (
     <div className="sticky bottom-0 w-full mt-8 z-10">
-      <div className="bg-white/90 dark:bg-[#1C1E1F]/90 backdrop-blur-md border border-[#DCDDDC] dark:border-[#2A2C2D] w-full px-6 py-4 rounded-lg shadow-lg">
+      <div className="bg-card/90 backdrop-blur-md border border-border w-full px-6 py-4 rounded-lg shadow-lg">
         <form onSubmit={handleSubmit} className="flex gap-3 items-end">
           <div className="flex-1">
             <Textarea
@@ -61,10 +61,10 @@ export function RabbitHolePromptBar({
                 input: [
                   "bg-transparent",
                   "hover:bg-transparent",
-                  "font-satoshi text-base",
+                  "text-base",
                   "resize-none",
-                  "text-[#2D2B26] dark:text-[#F3F4F3]",
-                  "placeholder:text-[#5C5E5E]/50 dark:placeholder:text-[#A0A2A2]/50",
+                  "text-foreground",
+                  "placeholder:text-muted-foreground/50",
                 ],
                 innerWrapper: ["bg-transparent", "hover:bg-transparent"],
                 inputWrapper: [
@@ -72,7 +72,7 @@ export function RabbitHolePromptBar({
                   "hover:bg-transparent",
                   "group-data-[focus=true]:bg-transparent",
                   "data-[hover=true]:bg-transparent",
-                  "border-[#DCDDDC] dark:border-[#2A2C2D]",
+                  "border-border",
                 ],
                 mainWrapper: ["bg-transparent", "focus-within:bg-transparent"],
               }}
@@ -103,7 +103,7 @@ export function RabbitHolePromptBar({
                     variant="ghost"
                     onPress={onReset}
                     isDisabled={isLoading}
-                    className="text-[#5C5E5E] dark:text-[#A0A2A2] hover:text-[#2D2B26] dark:hover:text-[#F3F4F3]"
+                    className="text-muted-foreground hover:text-foreground"
                   >
                     <RotateCcw size={18} />
                   </Button>
@@ -119,7 +119,7 @@ export function RabbitHolePromptBar({
                   isIconOnly
                   type="submit"
                   isDisabled={isLoading || !input.trim()}
-                  className="bg-[#2D2B26] dark:bg-[#F3F4F3] text-[#F3F4F3] dark:text-[#2D2B26] hover:opacity-80 disabled:opacity-50 aspect-square"
+                  className="bg-foreground text-background hover:opacity-80 disabled:opacity-50 aspect-square"
                 >
                   <ArrowUpIcon size={20} />
                 </Button>
