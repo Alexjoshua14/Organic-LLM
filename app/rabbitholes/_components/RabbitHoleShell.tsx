@@ -153,11 +153,11 @@ export function RabbitHoleShell({ sessionId }: RabbitHoleShellProps = {}) {
           <div className="flex items-center justify-between max-w-7xl mx-auto">
             <Link
               href="/rabbitholes/browse"
-              className="font-satoshi text-[#5C5E5E] dark:text-[#A0A2A2] hover:text-[#2D2B26] dark:hover:text-[#F3F4F3] transition-colors text-sm tracking-wide pointer-events-auto"
+              className="text-muted-foreground hover:text-foreground transition-colors text-sm tracking-wide pointer-events-auto"
             >
               ← Back to Rabbit Hole Browser
             </Link>
-            <h1 className="font-commissioner text-2xl font-light tracking-wide text-[#2D2B26] dark:text-[#F3F4F3]">
+            <h1 className="font-commissioner text-2xl font-light tracking-wide text-foreground">
               Rabbit Hole Explorer
             </h1>
             <div className="w-24" /> {/* Spacer for centering */}
@@ -187,14 +187,14 @@ export function RabbitHoleShell({ sessionId }: RabbitHoleShellProps = {}) {
                   onPress={handleNavigateBack}
                   isDisabled={!canGoBack()}
                   className={cn(
-                    "text-[#5C5E5E] dark:text-[#A0A2A2]",
-                    "hover:text-[#2D2B26] dark:hover:text-[#F3F4F3]",
+                    "text-muted-foreground",
+                    "hover:text-foreground",
                     "disabled:opacity-30 disabled:cursor-not-allowed",
                   )}
                 >
                   <ChevronLeft size={20} />
                 </Button>
-                <div className="font-satoshi text-xs text-[#5C5E5E] dark:text-[#A0A2A2]">
+                <div className="text-xs text-muted-foreground">
                   {getCurrentPathIndex() + 1} / {session.path.length}
                 </div>
                 <Button
@@ -203,8 +203,8 @@ export function RabbitHoleShell({ sessionId }: RabbitHoleShellProps = {}) {
                   onPress={handleNavigateForward}
                   isDisabled={!canGoForward()}
                   className={cn(
-                    "text-[#5C5E5E] dark:text-[#A0A2A2]",
-                    "hover:text-[#2D2B26] dark:hover:text-[#F3F4F3]",
+                    "text-muted-foreground",
+                    "hover:text-foreground",
                     "disabled:opacity-30 disabled:cursor-not-allowed",
                   )}
                 >
@@ -253,10 +253,10 @@ export function RabbitHoleShell({ sessionId }: RabbitHoleShellProps = {}) {
                     key="empty"
                     className="flex flex-col items-center justify-center h-full text-center px-8"
                   >
-                    <p className="font-commissioner text-[#5C5E5E] dark:text-[#A0A2A2] text-xl mb-4 font-light">
+                    <p className="font-commissioner text-muted-foreground text-xl mb-4 font-light">
                       Start exploring a topic
                     </p>
-                    <p className="font-satoshi text-[#5C5E5E]/70 dark:text-[#A0A2A2]/70 text-sm">
+                    <p className="text-muted-foreground/70 text-sm">
                       Enter a question below to begin your rabbit hole journey
                     </p>
                   </div>
