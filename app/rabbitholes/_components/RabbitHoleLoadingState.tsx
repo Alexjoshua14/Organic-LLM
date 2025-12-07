@@ -39,13 +39,13 @@ export function RabbitHoleLoadingState({
           ease: "linear",
         }}
       >
-        <Loader2 className="w-8 h-8 text-[#5C5E5E] dark:text-[#A0A2A2]" />
+        <Loader2 className="w-8 h-8 text-muted-foreground" />
       </motion.div>
       <motion.p
         initial={{ opacity: 0, y: 10 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.1 }}
-        className="font-satoshi text-[#5C5E5E] dark:text-[#A0A2A2] text-sm tracking-wide"
+        className="text-muted-foreground text-sm tracking-wide"
       >
         {displayMessage}
       </motion.p>
@@ -58,11 +58,11 @@ export function RabbitHoleLoadingState({
           transition={{ delay: 0.2 }}
           className="w-full max-w-2xl"
         >
-          <div className="bg-white/50 dark:bg-[#1C1E1F]/50 backdrop-blur-sm border border-[#DCDDDC] dark:border-[#2A2C2D] rounded-lg p-6">
-            <p className="font-commissioner text-xs uppercase tracking-[0.2em] text-[#5C5E5E] dark:text-[#A0A2A2] mb-3 font-light">
+          <div className="bg-card/50 backdrop-blur-sm border border-border rounded-lg p-6">
+            <p className="font-commissioner text-xs uppercase tracking-[0.2em] text-muted-foreground mb-3 font-light">
               Preview
             </p>
-            <p className="font-satoshi text-[#2D2B26] dark:text-[#F3F4F3] text-base leading-relaxed">
+            <p className="text-foreground text-base leading-relaxed">
               {preview}
             </p>
           </div>
@@ -73,12 +73,12 @@ export function RabbitHoleLoadingState({
       <div className="w-full max-w-xl space-y-4 mt-4">
         {/* Key takeaways skeleton */}
         <div className="space-y-3">
-          <div className="h-3 w-28 bg-[#DCDDDC] dark:bg-[#2A2C2D] rounded animate-pulse" />
+          <div className="h-3 w-28 bg-border rounded animate-pulse" />
           <div className="space-y-2">
             {[1, 2].map((i) => (
               <div
                 key={i}
-                className="h-3 bg-[#DCDDDC] dark:bg-[#2A2C2D] rounded animate-pulse"
+                className="h-3 bg-border rounded animate-pulse"
                 style={{
                   width: `${88 - i * 8}%`,
                   animationDelay: `${i * 0.1}s`,
@@ -90,12 +90,12 @@ export function RabbitHoleLoadingState({
 
         {/* Article skeleton */}
         <div className="space-y-3 pt-4">
-          <div className="h-5 w-2/3 bg-[#DCDDDC] dark:bg-[#2A2C2D] rounded animate-pulse" />
+          <div className="h-5 w-2/3 bg-border rounded animate-pulse" />
           <div className="space-y-2">
             {[1, 2, 3].map((i) => (
               <div
                 key={i}
-                className="h-3 bg-[#DCDDDC] dark:bg-[#2A2C2D] rounded animate-pulse"
+                className="h-3 bg-border rounded animate-pulse"
                 style={{
                   width: `${96 - i * 6}%`,
                   animationDelay: `${i * 0.12}s`,
@@ -103,7 +103,7 @@ export function RabbitHoleLoadingState({
               />
             ))}
           </div>
-          <div className="h-4 w-1/2 bg-[#DCDDDC] dark:bg-[#2A2C2D] rounded animate-pulse mt-4" />
+          <div className="h-4 w-1/2 bg-border rounded animate-pulse mt-4" />
         </div>
       </div>
     </motion.div>
