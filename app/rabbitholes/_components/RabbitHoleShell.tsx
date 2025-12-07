@@ -5,7 +5,6 @@ import { useRouter } from "next/navigation";
 import { AnimatePresence } from "framer-motion";
 import { useRabbitHoleSession } from "../_lib/useRabbitHoleSession";
 import { RabbitHolePathRail } from "./RabbitHolePathRail";
-import { RabbitHoleKeyTakeaways } from "./RabbitHoleKeyTakeaways";
 import { RabbitHoleArticle } from "./RabbitHoleArticle";
 import { RabbitHoleBranchGrid } from "./RabbitHoleBranchGrid";
 import { RabbitHoleSourceList } from "./RabbitHoleSourceList";
@@ -19,6 +18,7 @@ import { ChevronLeft, ChevronRight } from "lucide-react";
 import { Button } from "@heroui/button";
 import Link from "next/link";
 import { cn } from "@/lib/utils";
+import { toast } from "sonner";
 
 interface RabbitHoleShellProps {
   sessionId?: string;
@@ -58,6 +58,13 @@ export function RabbitHoleShell({ sessionId }: RabbitHoleShellProps = {}) {
       return () => clearTimeout(timer);
     }
   }, [sessionId, session, isLoading, router]);
+
+  // Surface errors via toast
+  useEffect(() => {
+    if (error) {
+      toast.error(error);
+    }
+  }, [error]);
 
   const activeNode = session?.activeNodeId
     ? session.nodesById[session.activeNodeId]
@@ -230,11 +237,10 @@ export function RabbitHoleShell({ sessionId }: RabbitHoleShellProps = {}) {
                 )}
                 {!isAnalyzingSource && !selectedSourceId && activeNode && (!isLoading || generatingNodeId !== activeNode.id) && (
                   <div key={activeNode.id}>
-                    <RabbitHoleKeyTakeaways
+                    <RabbitHoleArticle
+                      title={activeNode.question}
                       takeaways={activeNode.keyTakeaways}
                       activeTakeawayIndex={activeTakeawayIndex}
-                    />
-                    <RabbitHoleArticle
                       articleHtml={activeNode.articleHtml}
                       nodeId={activeNode.id}
                       onBranchClick={followBranch}
@@ -263,11 +269,6 @@ export function RabbitHoleShell({ sessionId }: RabbitHoleShellProps = {}) {
                   />
                 )}
               </AnimatePresence>
-              {error && (
-                <div className="bg-red-50/80 dark:bg-red-950/30 border border-red-200 dark:border-red-800 rounded-lg p-4 text-red-700 dark:text-red-400 mt-4 font-satoshi">
-                  {error}
-                </div>
-              )}
               <div className="h-24" /> {/** Spacer */}
             </div>
             <div className="pointer-events-none absolute inset-x-0 bottom-0 px-4 pb-4">
