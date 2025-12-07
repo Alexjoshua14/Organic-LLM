@@ -12,7 +12,6 @@ import {
   RabbitHoleNode,
   RabbitHolePathSegment,
   RabbitHoleEdge,
-  RabbitHoleBranchSuggestion,
   RabbitHoleSourceAnalysisSchema,
   RabbitHoleSourceAnalysis,
 } from "./_lib/types";
