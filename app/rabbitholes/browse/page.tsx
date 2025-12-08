@@ -7,10 +7,13 @@ import { Trash2, ArrowRight, Plus } from "lucide-react";
 import { Button } from "@heroui/button";
 import Link from "next/link";
 import {
-  getAllSessions,
-  deleteSession,
   type RabbitHoleSessionMetadata,
 } from "../_lib/sessionStorage";
+import {
+  getAllSessions,
+  deleteSession
+} from '@/data/local/rabbitholes'
+
 import { formatDate } from "@/lib/format/stringFormatting";
 import { cn } from "@/lib/utils";
 
@@ -20,7 +23,17 @@ export default function RabbitHolesBrowsePage() {
   const [deletingId, setDeletingId] = useState<string | null>(null);
 
   useEffect(() => {
-    setSessions(getAllSessions());
+    const fetchSessions = async () => {
+      const res = await getAllSessions()
+
+      if (res.data) {
+        setSessions(res.data)
+      } else {
+        console.log(res.error ?? "No data retrieved from getAllSessions call")
+      }
+    }
+
+    fetchSessions()
   }, []);
 
   const handleDelete = (sessionId: string, e: React.MouseEvent) => {
