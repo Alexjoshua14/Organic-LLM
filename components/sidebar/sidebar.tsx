@@ -30,7 +30,7 @@ export function Sidebar() {
           className="group/brand cursor-pointer active:scale-95 transition-transform duration-150 font-commissioner"
           href="/"
         >
-          <h1 className="font-medium tracking-tight text-lg bg-gradient-to-tl from-foreground-secondary to-foreground text-transparent bg-clip-text group-hover/brand:from-foreground duration-300 transition-colors">
+          <h1 className="font-medium tracking-tight text-lg bg-linear-to-tl from-foreground-secondary to-foreground text-transparent bg-clip-text group-hover/brand:from-foreground duration-300 transition-colors">
             Organic LLM
           </h1>
         </Link>
