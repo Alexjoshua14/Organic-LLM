@@ -19,6 +19,10 @@ export interface RabbitHoleSessionMetadata {
   summary?: string;
 }
 
+/**
+ *
+ * @deprecated
+ */
 export function getAllSessions(): RabbitHoleSessionMetadata[] {
   if (typeof window === "undefined") return [];
 
@@ -108,6 +112,10 @@ export function getSessionById(sessionId: string): RabbitHoleSession | null {
   }
 }
 
+/**
+ *
+ * @deprecated
+ */
 export function saveSession(session: RabbitHoleSession): void {
   if (typeof window === "undefined") return;
 
@@ -157,6 +165,10 @@ export function saveSession(session: RabbitHoleSession): void {
   }
 }
 
+/**
+ *
+ * @deprecated
+ */
 export function deleteSession(sessionId: string): void {
   if (typeof window === "undefined") return;
 
