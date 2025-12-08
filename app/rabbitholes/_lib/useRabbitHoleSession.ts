@@ -11,7 +11,8 @@ import {
   followRabbitHoleBranch,
   generateQuickPreview,
 } from "../actions";
-import { saveSession, getSessionById, migrateSession } from "./sessionStorage";
+import { getSessionById, migrateSession } from "./sessionStorage";
+import { saveSession } from "@/data/local/rabbitholes";
 
 const STORAGE_KEY = "rabbit-hole-session"; // Keep for backward compatibility
 
