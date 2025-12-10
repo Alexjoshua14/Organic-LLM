@@ -26,8 +26,8 @@ import {
 
 const logger = createLogger("app/rabbitholes/actions.ts");
 
-const model = openai("gpt-5");
-const quickModel = openai("gpt-5-mini");
+const model = openai("gpt-5-mini");
+const quickModel = openai("gpt-5-nano");
 
 export async function createRabbitHoleSession(
   question: string
@@ -81,6 +81,11 @@ export async function createRabbitHoleSession(
         ? "Use only the provided sources for citations; do not invent new URLs."
         : "If no sources are provided, you may infer plausible URLs but prefer authoritative sites.";
 
+    logger.log(
+      "createRabbitHoleSession",
+      `Starting AI generation for rabbit hole node\n\tprompt: ${question}`
+    );
+    const aiResponseGenerationStart = performance.now();
     const { object } = await generateObject({
       model,
       system: RABBIT_HOLE_SYSTEM_PROMPT,
@@ -91,6 +96,18 @@ export async function createRabbitHoleSession(
       schema: RabbitHoleNodeSchema,
       temperature: 0.7,
     });
+
+    const aiResponseGenerationEnd = performance.now();
+
+    logger.log(
+      "createRabbitHoleSession",
+      `AI response completed in ${(aiResponseGenerationEnd - aiResponseGenerationStart).toFixed(2)} ms`
+    );
+
+    logger.log(
+      "createRabbitHoleSession",
+      `First AI response key takeaway: ${object.keyTakeaways?.[0] ?? "(none)"}`
+    );
 
     const nodeId = randomUUID();
     const sessionId = randomUUID();
@@ -376,7 +393,7 @@ Provide a comprehensive analysis that helps the user understand this source's ke
       model,
       system: SOURCE_ANALYSIS_SYSTEM_PROMPT,
       prompt,
-      schema: RabbitHoleSourceAnalysisSchema,
+      schema: RabbitHoleSourceAnalysisSchema.omit({ originalUrl: true }),
       temperature: 0.7,
     });
 
@@ -424,16 +441,20 @@ export async function generateQuickPreview(
       prompt = `Generate a quick preview of exploring "${context.branchLabel}" in the context of "${context.rootQuestion}". Path so far: ${context.pathHistory || "Starting"}`;
     }
 
-    const { text } = await generateText({
+    const res = await generateText({
       model: quickModel,
       system: QUICK_PREVIEW_SYSTEM_PROMPT,
       prompt,
-      maxOutputTokens: 100,
-      temperature: 0.7,
+      maxOutputTokens: 1000,
     });
 
+    logger.log(
+      "generateQuickPreview",
+      `Quick preview generated: ${res.text}\nFull object: ${JSON.stringify(res, null, 2)}`
+    );
+
     return {
-      data: text.trim(),
+      data: res.text.trim(),
       error: null,
     };
   } catch (error) {

@@ -2,15 +2,24 @@ import { z } from "zod";
 
 export type RabbitHoleNodeId = string;
 
+export const RabbitHoleSourceAnalysisSchema = z.object({
+  title: z.string(),
+  summary: z.string(),
+  keyPoints: z.array(z.string()).min(3).max(7),
+  relevance: z.string(),
+  originalUrl: z.url(),
+});
+
 export const RabbitHoleSourceSchema = z.object({
   id: z.string(),
   title: z.string(),
-  url: z.string().url(),
-  faviconUrl: z.string().url().optional(),
+  url: z.url(),
+  faviconUrl: z.url().optional(),
   snippet: z.string().optional(),
   publishedDate: z.string().optional(),
   author: z.string().optional(),
   highlights: z.array(z.string()).optional(),
+  analysis: RabbitHoleSourceAnalysisSchema.optional(), // Might shift to linking by id instead
 });
 
 export const RabbitHoleBranchSuggestionSchema = z.object({
@@ -48,14 +57,6 @@ export const RabbitHoleSessionSchema = z.object({
   nodesById: z.record(z.string(), RabbitHoleNodeSchema),
   activeNodeId: z.string().nullable(),
   edges: z.array(RabbitHoleEdgeSchema).optional(),
-});
-
-export const RabbitHoleSourceAnalysisSchema = z.object({
-  title: z.string(),
-  summary: z.string(),
-  keyPoints: z.array(z.string()).min(3).max(7),
-  relevance: z.string(),
-  originalUrl: z.string().url(),
 });
 
 // Type exports
