@@ -29,6 +29,239 @@ const logger = createLogger("app/rabbitholes/actions.ts");
 const model = openai("gpt-5-mini");
 const quickModel = openai("gpt-5-nano");
 
+type ExternalSourcesResult = {
+  exaSources: RabbitHoleNode["sources"];
+  exaError: Error | null;
+  sourcesContext: string;
+  sourcesInstruction: string;
+};
+
+type NodeContentResult = {
+  object: RabbitHoleNode;
+};
+
+type InitialSessionResult = {
+  session: RabbitHoleSession;
+  sessionId: string;
+};
+
+type BranchBuildResult = {
+  updatedSession: RabbitHoleSession;
+  nodeId: string;
+};
+
+/**
+ * Fetch external sources and produce formatted context/instructions for prompts.
+ * Keeps logging consistent across entry points.
+ */
+async function fetchExternalSources(
+  prompt: string,
+  logContext: string
+): Promise<ExternalSourcesResult> {
+  const { sources: exaSources, error: exaError } = await searchWeb(prompt, {
+    numResults: 6,
+    type: "auto",
+  });
+
+  if (exaError) {
+    logger.log(
+      logContext,
+      `Exa search failed, falling back to LLM-only: ${exaError}`
+    );
+  }
+  logger.log(logContext, `Exa sources count=${exaSources.length}`);
+
+  const sourcesContext =
+    exaSources.length > 0
+      ? exaSources
+          .map(
+            (s, idx) =>
+              `[${idx + 1}] ${s.title} (${s.url})${
+                s.snippet ? `\n${s.snippet}` : ""
+              }`
+          )
+          .join("\n\n")
+      : "No external sources available.";
+
+  const sourcesInstruction =
+    exaSources.length > 0
+      ? "Use only the provided sources for citations; do not invent new URLs."
+      : "If no sources are provided, you may infer plausible URLs but prefer authoritative sites.";
+
+  return { exaSources, exaError, sourcesContext, sourcesInstruction };
+}
+
+/**
+ * Generate the initial AI node content, tracking latency and logging key takeaway.
+ */
+async function generateInitialNodeContent(
+  question: string,
+  sourcesContext: string,
+  sourcesInstruction: string
+): Promise<NodeContentResult> {
+  logger.log(
+    "createRabbitHoleSession",
+    `Starting AI generation for rabbit hole node\n\tprompt: ${question}`
+  );
+  const aiResponseGenerationStart = performance.now();
+
+  const { object } = await generateObject({
+    model,
+    system: RABBIT_HOLE_SYSTEM_PROMPT,
+    prompt:
+      `Generate a comprehensive Rabbit Hole exploration for the following question:\n\n${question}\n\n` +
+      `Real-world sources:\n${sourcesContext}\n\n${sourcesInstruction}\n\n` +
+      `Provide key takeaways, a detailed article, sources, and branch suggestions.`,
+    schema: RabbitHoleNodeSchema,
+    temperature: 0.7,
+  });
+
+  const aiResponseGenerationEnd = performance.now();
+  const durationMs = aiResponseGenerationEnd - aiResponseGenerationStart;
+
+  logger.log(
+    "createRabbitHoleSession",
+    `AI response completed in ${durationMs.toFixed(2)} ms`
+  );
+
+  logger.log(
+    "createRabbitHoleSession",
+    `First AI response key takeaway: ${object.keyTakeaways?.[0] ?? "(none)"}`
+  );
+
+  return { object };
+}
+
+/**
+ * Build the initial session and node structures with IDs and truncated labels.
+ */
+function buildInitialSession(
+  question: string,
+  aiObject: RabbitHoleNode,
+  exaSources: RabbitHoleNode["sources"]
+): InitialSessionResult {
+  const nodeId = randomUUID();
+  const sessionId = randomUUID();
+  const createdAt = new Date().toISOString();
+
+  const node: RabbitHoleNode = {
+    ...aiObject,
+    id: nodeId,
+    prompt: question,
+    createdAt,
+    sources: exaSources.length > 0 ? exaSources : aiObject.sources,
+  };
+
+  const pathSegment: RabbitHolePathSegment = {
+    nodeId,
+    label: question.substring(0, 60) + (question.length > 60 ? "..." : ""),
+    parentNodeId: null,
+  };
+
+  const session: RabbitHoleSession = {
+    sessionId,
+    rootQuestion: question,
+    path: [pathSegment],
+    nodesById: {
+      [nodeId]: node,
+    },
+    activeNodeId: nodeId,
+    edges: [],
+  };
+
+  return { session, sessionId };
+}
+
+/**
+ * Generate content for a branch follow-up, tracking latency and key takeaway.
+ */
+async function generateBranchNodeContent(
+  branchLabel: string,
+  branchDescription: string,
+  sourcesContext: string,
+  sourcesInstruction: string,
+  systemPrompt: string
+): Promise<NodeContentResult> {
+  logger.log(
+    "followRabbitHoleBranch",
+    `Starting AI generation for branch: ${branchLabel}`
+  );
+  const aiResponseGenerationStart = performance.now();
+
+  const { object } = await generateObject({
+    model,
+    system: systemPrompt,
+    prompt:
+      `Continue the Rabbit Hole exploration by diving deep into: ${branchLabel}\n\n${branchDescription}\n\n` +
+      `Real-world sources:\n${sourcesContext}\n\n${sourcesInstruction}\n\n` +
+      `Generate a comprehensive article that builds on the exploration path.`,
+    schema: RabbitHoleNodeSchema,
+    temperature: 0.7,
+  });
+
+  const aiResponseGenerationEnd = performance.now();
+  const durationMs = aiResponseGenerationEnd - aiResponseGenerationStart;
+
+  logger.log(
+    "followRabbitHoleBranch",
+    `AI response completed for branch in ${durationMs.toFixed(2)} ms`
+  );
+
+  logger.log(
+    "followRabbitHoleBranch",
+    `Branch first key takeaway: ${object.keyTakeaways?.[0] ?? "(none)"}`
+  );
+
+  return { object };
+}
+
+/**
+ * Build a new node from branch content and update the session graph.
+ */
+function buildBranchNode(
+  session: RabbitHoleSession,
+  branchLabel: string,
+  aiObject: RabbitHoleNode,
+  exaSources: RabbitHoleNode["sources"]
+): BranchBuildResult {
+  const nodeId = randomUUID();
+  const createdAt = new Date().toISOString();
+
+  const node: RabbitHoleNode = {
+    ...aiObject,
+    id: nodeId,
+    prompt: branchLabel,
+    createdAt,
+    sources: exaSources.length > 0 ? exaSources : aiObject.sources,
+  };
+
+  const pathSegment: RabbitHolePathSegment = {
+    nodeId,
+    label:
+      branchLabel.substring(0, 60) + (branchLabel.length > 60 ? "..." : ""),
+    parentNodeId: session.activeNodeId ?? null,
+  };
+
+  const newEdge: RabbitHoleEdge | null = session.activeNodeId
+    ? { from: session.activeNodeId, to: nodeId }
+    : null;
+
+  const updatedSession: RabbitHoleSession = {
+    ...session,
+    path: [...session.path, pathSegment],
+    nodesById: {
+      ...session.nodesById,
+      [nodeId]: node,
+    },
+    activeNodeId: nodeId,
+    edges: newEdge
+      ? [...(session.edges ?? []), newEdge]
+      : [...(session.edges ?? [])],
+  };
+
+  return { updatedSession, nodeId };
+}
+
 export async function createRabbitHoleSession(
   question: string
 ): Promise<Result<RabbitHoleSession>> {
@@ -47,96 +280,23 @@ export async function createRabbitHoleSession(
       `Creating session for question: ${question}`
     );
 
-    // Search real sources via Exa
-    const { sources: exaSources, error: exaError } = await searchWeb(question, {
-      numResults: 6,
-      type: "auto",
-    });
+    // Pull external sources and derive prompt context.
+    const { exaSources, sourcesContext, sourcesInstruction } =
+      await fetchExternalSources(question, "createRabbitHoleSession");
 
-    if (exaError) {
-      logger.log(
-        "createRabbitHoleSession",
-        `Exa search failed, falling back to LLM-only: ${exaError}`
-      );
-    }
-    logger.log(
-      "createRabbitHoleSession",
-      `Exa sources count=${exaSources.length}`
+    // Ask the model for the initial rabbit hole content.
+    const { object } = await generateInitialNodeContent(
+      question,
+      sourcesContext,
+      sourcesInstruction
     );
 
-    const sourcesContext =
-      exaSources.length > 0
-        ? exaSources
-            .map(
-              (s, idx) =>
-                `[${idx + 1}] ${s.title} (${s.url})${
-                  s.snippet ? `\n${s.snippet}` : ""
-                }`
-            )
-            .join("\n\n")
-        : "No external sources available.";
-
-    const sourcesInstruction =
-      exaSources.length > 0
-        ? "Use only the provided sources for citations; do not invent new URLs."
-        : "If no sources are provided, you may infer plausible URLs but prefer authoritative sites.";
-
-    logger.log(
-      "createRabbitHoleSession",
-      `Starting AI generation for rabbit hole node\n\tprompt: ${question}`
+    // Create the node and session shells that mirror the AI output.
+    const { session, sessionId } = buildInitialSession(
+      question,
+      object,
+      exaSources
     );
-    const aiResponseGenerationStart = performance.now();
-    const { object } = await generateObject({
-      model,
-      system: RABBIT_HOLE_SYSTEM_PROMPT,
-      prompt:
-        `Generate a comprehensive Rabbit Hole exploration for the following question:\n\n${question}\n\n` +
-        `Real-world sources:\n${sourcesContext}\n\n${sourcesInstruction}\n\n` +
-        `Provide key takeaways, a detailed article, sources, and branch suggestions.`,
-      schema: RabbitHoleNodeSchema,
-      temperature: 0.7,
-    });
-
-    const aiResponseGenerationEnd = performance.now();
-
-    logger.log(
-      "createRabbitHoleSession",
-      `AI response completed in ${(aiResponseGenerationEnd - aiResponseGenerationStart).toFixed(2)} ms`
-    );
-
-    logger.log(
-      "createRabbitHoleSession",
-      `First AI response key takeaway: ${object.keyTakeaways?.[0] ?? "(none)"}`
-    );
-
-    const nodeId = randomUUID();
-    const sessionId = randomUUID();
-    const createdAt = new Date().toISOString();
-
-    const node: RabbitHoleNode = {
-      ...object,
-      id: nodeId,
-      prompt: question,
-      createdAt,
-      sources: exaSources.length > 0 ? exaSources : object.sources,
-    };
-
-    const pathSegment: RabbitHolePathSegment = {
-      nodeId,
-      label: question.substring(0, 60) + (question.length > 60 ? "..." : ""),
-      parentNodeId: null,
-    };
-
-    const session: RabbitHoleSession = {
-      sessionId,
-      rootQuestion: question,
-      path: [pathSegment],
-      nodesById: {
-        [nodeId]: node,
-      },
-      activeNodeId: nodeId,
-      edges: [],
-    };
 
     logger.log("createRabbitHoleSession", `Session created: ${sessionId}`);
 
@@ -192,43 +352,14 @@ export async function followRabbitHoleBranch(
       `Following branch: ${branch.label} in session: ${session.sessionId}`
     );
 
-    // Search sources for this branch
-    const { sources: exaSources, error: exaError } = await searchWeb(
-      `${branch.label} (${session.rootQuestion})`,
-      {
-        numResults: 6,
-        type: "auto",
-      }
-    );
-
-    if (exaError) {
-      logger.log(
-        "followRabbitHoleBranch",
-        `Exa search failed for branch; falling back to LLM-only: ${exaError}`
+    // Search sources for this branch.
+    const { exaSources, sourcesContext, sourcesInstruction } =
+      await fetchExternalSources(
+        `${branch.label} (${session.rootQuestion})`,
+        "followRabbitHoleBranch"
       );
-    }
-    logger.log(
-      "followRabbitHoleBranch",
-      `Exa sources count=${exaSources.length} for branch=${branch.label}`
-    );
 
-    const sourcesContext =
-      exaSources.length > 0
-        ? exaSources
-            .map(
-              (s, idx) =>
-                `[${idx + 1}] ${s.title} (${s.url})${
-                  s.snippet ? `\n${s.snippet}` : ""
-                }`
-            )
-            .join("\n\n")
-        : "No external sources available.";
-
-    const sourcesInstruction =
-      exaSources.length > 0
-        ? "Use only the provided sources for citations; do not invent new URLs."
-        : "If no sources are provided, you may infer plausible URLs but prefer authoritative sites.";
-
+    // Build branch-specific system prompt and path history.
     const pathHistory = session.path.map((seg) => seg.label).join(" → ");
 
     const systemPrompt = FOLLOW_BRANCH_SYSTEM_PROMPT.replace(
@@ -238,51 +369,22 @@ export async function followRabbitHoleBranch(
       .replace("{{pathHistory}}", pathHistory)
       .replace("{{branchLabel}}", branch.label);
 
-    const { object } = await generateObject({
-      model,
-      system: systemPrompt,
-      prompt:
-        `Continue the Rabbit Hole exploration by diving deep into: ${branch.label}\n\n${branch.shortDescription || ""}\n\n` +
-        `Real-world sources:\n${sourcesContext}\n\n${sourcesInstruction}\n\n` +
-        `Generate a comprehensive article that builds on the exploration path.`,
-      schema: RabbitHoleNodeSchema,
-      temperature: 0.7,
-    });
+    // Ask the model for the branch continuation content.
+    const { object } = await generateBranchNodeContent(
+      branch.label,
+      branch.shortDescription || "",
+      sourcesContext,
+      sourcesInstruction,
+      systemPrompt
+    );
 
-    const nodeId = randomUUID();
-    const createdAt = new Date().toISOString();
-
-    const node: RabbitHoleNode = {
-      ...object,
-      id: nodeId,
-      prompt: branch.label,
-      createdAt,
-      sources: exaSources.length > 0 ? exaSources : object.sources,
-    };
-
-    const pathSegment: RabbitHolePathSegment = {
-      nodeId,
-      label:
-        branch.label.substring(0, 60) + (branch.label.length > 60 ? "..." : ""),
-      parentNodeId: session.activeNodeId ?? null,
-    };
-
-    const newEdge: RabbitHoleEdge | null = session.activeNodeId
-      ? { from: session.activeNodeId, to: nodeId }
-      : null;
-
-    const updatedSession: RabbitHoleSession = {
-      ...session,
-      path: [...session.path, pathSegment],
-      nodesById: {
-        ...session.nodesById,
-        [nodeId]: node,
-      },
-      activeNodeId: nodeId,
-      edges: newEdge
-        ? [...(session.edges ?? []), newEdge]
-        : [...(session.edges ?? [])],
-    };
+    // Build the node and updated session graph for this branch.
+    const { updatedSession, nodeId } = buildBranchNode(
+      session,
+      branch.label,
+      object,
+      exaSources
+    );
 
     logger.log(
       "followRabbitHoleBranch",
@@ -445,9 +547,13 @@ export async function generateQuickPreview(
       model: quickModel,
       system: QUICK_PREVIEW_SYSTEM_PROMPT,
       prompt,
-      maxOutputTokens: 1000,
+      maxOutputTokens: 400,
+      providerOptions: {
+        openai: {
+          reasoningEffort: "minimal",
+        },
+      },
     });
-
     logger.log(
       "generateQuickPreview",
       `Quick preview generated: ${res.text}\nFull object: ${JSON.stringify(res, null, 2)}`
