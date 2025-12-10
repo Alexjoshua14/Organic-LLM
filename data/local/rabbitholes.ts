@@ -73,10 +73,37 @@ export async function getSessionById(
     error: new Error("Failed to read session from localStorage"),
   };
 
-  return {
-    data: null,
-    error: new Error("Not Yet Implemented"),
-  };
+  if (typeof window === "undefined")
+    return {
+      data: null,
+      error: null,
+    };
+
+  try {
+    const stored = localStorage.getItem(`${CURRENT_SESSION_KEY}-${sessionId}`);
+    if (!stored) return error;
+
+    const parsed = JSON.parse(stored);
+
+    // Validate parsed
+    const sessionData = RabbitHoleSessionSchema.safeParse(parsed);
+
+    if (sessionData.error) {
+      throw new Error(sessionData.error.message);
+    }
+
+    if (!sessionData.data) {
+      throw new Error("Unable to parse session data");
+    }
+
+    return {
+      data: sessionData.data,
+      error: null,
+    };
+  } catch (err) {
+    console.warn("Failed to read session from localStorage:", error);
+    return error;
+  }
 }
 
 /**
