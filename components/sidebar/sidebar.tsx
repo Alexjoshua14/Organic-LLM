@@ -21,6 +21,7 @@ import {
   SidebarHeader,
   SidebarMenuButton,
 } from "@/components/third-party/ui/sidebar";
+import { SidebarProjectLink } from "./sidebar-project-link";
 
 export function Sidebar() {
   return (
@@ -54,15 +55,7 @@ export function Sidebar() {
             <SidebarGroup>
               <SidebarGroupContent className="flex flex-col gap-3">
                 <SidebarNewChat />
-                <SidebarMenuButton
-                  asChild
-                  tooltip="Browse rabbit holes"
-                  className="w-full rounded bg-background-tertiary cursor-pointer flex items-center justify-center py-5 px-4 text-sm font-medium"
-                >
-                  <Link href="/rabbitholes/browse" className="w-full text-center">
-                    Rabbit Holes
-                  </Link>
-                </SidebarMenuButton>
+                <SidebarProjectLink href="/rabbitholes/browse" title="Rabbit Holes" tooltip="Browse rabbit holes" />
                 <Input
                   classNames={{
                     input: ["bg-transparent", "hover:bg-transparent"],
