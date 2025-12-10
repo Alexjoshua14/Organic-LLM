@@ -12,8 +12,7 @@ import { RabbitHoleSourceAnalysis } from "./RabbitHoleSourceAnalysis";
 import { RabbitHoleAmbientLayer } from "./RabbitHoleAmbientLayer";
 import { RabbitHolePromptBar } from "./RabbitHolePromptBar";
 import { RabbitHoleLoadingState } from "./RabbitHoleLoadingState";
-import { analyzeSource } from "../actions";
-import { RabbitHoleSource, RabbitHoleSourceAnalysis as SourceAnalysisType } from "../_lib/types";
+import { RabbitHoleSource } from "../_lib/types";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { Button } from "@heroui/button";
 import Link from "next/link";
@@ -35,18 +34,17 @@ export function RabbitHoleShell({ sessionId }: RabbitHoleShellProps = {}) {
     start,
     followBranch,
     setActiveNode,
+    selectedSourceId,
+    sourceAnalysis,
+    isAnalyzingSource,
+    selectSource,
+    clearSourceSelection,
     reset,
   } = useRabbitHoleSession(sessionId);
 
   const [activeTakeawayIndex, setActiveTakeawayIndex] = useState<number | null>(
     null,
   );
-  const [selectedSourceId, setSelectedSourceId] = useState<string | null>(null);
-  const [sourceAnalysis, setSourceAnalysis] = useState<SourceAnalysisType | null>(null);
-  const [sourceAnalysisCache, setSourceAnalysisCache] = useState<
-    Record<string, SourceAnalysisType>
-  >({});
-  const [isAnalyzingSource, setIsAnalyzingSource] = useState(false);
 
   // If sessionId was provided but session is null after mount, redirect to browse
   useEffect(() => {
@@ -70,48 +68,12 @@ export function RabbitHoleShell({ sessionId }: RabbitHoleShellProps = {}) {
     ? session.nodesById[session.activeNodeId]
     : null;
 
-  const handleSourceClick = async (source: RabbitHoleSource) => {
-    setSelectedSourceId(source.id);
-
-    // If we already have analysis cached, use it immediately
-    if (sourceAnalysisCache[source.id]) {
-      setSourceAnalysis(sourceAnalysisCache[source.id]);
-      return;
-    }
-
-    setIsAnalyzingSource(true);
-    setSourceAnalysis(null);
-
-    try {
-      const result = await analyzeSource(source.url, source.title, source.snippet);
-      if (result.error) {
-        console.error("Error analyzing source:", result.error);
-        setSelectedSourceId(null);
-      } else if (result.data) {
-        setSourceAnalysis(result.data);
-        setSourceAnalysisCache((prev) => ({
-          ...prev,
-          [source.id]: result.data!,
-        }));
-      }
-    } catch (error) {
-      console.error("Error analyzing source:", error);
-      setSelectedSourceId(null);
-    } finally {
-      setIsAnalyzingSource(false);
-    }
-  };
-
   const handleBackToArticle = () => {
-    setSelectedSourceId(null);
-    setSourceAnalysis(null);
+    clearSourceSelection();
   };
 
   const handleReset = () => {
     reset();
-    setSourceAnalysisCache({});
-    setSelectedSourceId(null);
-    setSourceAnalysis(null);
   };
 
   // Navigation helpers
@@ -290,7 +252,7 @@ export function RabbitHoleShell({ sessionId }: RabbitHoleShellProps = {}) {
                 <div key={activeNode.id} className="flex flex-col h-full">
                   <RabbitHoleSourceList
                     sources={activeNode.sources}
-                    onSourceClick={handleSourceClick}
+                    onSourceClick={selectSource}
                     hasBranches={activeNode.branchSuggestions.length > 0}
                   />
                   <RabbitHoleBranchGrid

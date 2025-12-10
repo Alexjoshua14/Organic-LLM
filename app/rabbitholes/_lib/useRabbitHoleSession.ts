@@ -5,24 +5,37 @@ import {
   RabbitHoleSession,
   RabbitHoleNodeId,
   RabbitHoleSessionSchema,
+  RabbitHoleSource,
+  RabbitHoleSourceAnalysis,
 } from "./types";
 import {
   createRabbitHoleSession,
   followRabbitHoleBranch,
   generateQuickPreview,
+  analyzeSource,
 } from "../actions";
-import { getSessionById, migrateSession } from "./sessionStorage";
-import { saveSession } from "@/data/local/rabbitholes";
+import { migrateSession } from "./sessionStorage";
+import { saveSession, getSessionById } from "@/data/local/rabbitholes";
+import { createLogger } from "@/lib/logger";
+
+const logger = createLogger("useRabbitHoleSession");
 
 const STORAGE_KEY = "rabbit-hole-session"; // Keep for backward compatibility
 
-function getStoredSession(sessionId?: string): RabbitHoleSession | null {
+async function getStoredSession(
+  sessionId?: string
+): Promise<RabbitHoleSession | null> {
   if (typeof window === "undefined") return null;
 
   try {
     // If sessionId is provided, load that specific session
     if (sessionId) {
-      return getSessionById(sessionId);
+      const res = await getSessionById(sessionId);
+      if (res.data) {
+        return res.data;
+      } else {
+        return null;
+      }
     }
 
     // Otherwise, try to load the current session (for backward compatibility)
@@ -50,21 +63,20 @@ function saveSessionToStorage(session: RabbitHoleSession | null): void {
   if (typeof window === "undefined") return;
 
   try {
-    if (session) {
-      // Avoid persisting optimistic/pending nodes to storage
-      const hasPending = session.path.some(
-        (seg) =>
-          typeof seg.nodeId === "string" && seg.nodeId.startsWith("pending-")
-      );
-      if (hasPending) return;
-
-      // Save to new multi-session storage
-      saveSession(session);
-      // Also save to old key for backward compatibility
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(session));
-    } else {
-      localStorage.removeItem(STORAGE_KEY);
+    if (!session) {
+      // localStorage.removeItem(STORAGE_KEY); // TODO: Check whether this should be here
+      return;
     }
+
+    // Avoid persisting optimistic/pending nodes to storage
+    const hasPending = session.path.some(
+      (seg) =>
+        typeof seg.nodeId === "string" && seg.nodeId.startsWith("pending-")
+    );
+    if (hasPending) return;
+
+    // Save to new multi-session storage
+    saveSession(session);
   } catch (error) {
     // Handle quota exceeded, disabled, etc.
     console.warn("Failed to save to localStorage:", error);
@@ -72,14 +84,18 @@ function saveSessionToStorage(session: RabbitHoleSession | null): void {
 }
 
 export function useRabbitHoleSession(initialSessionId?: string) {
-  const [session, setSession] = useState<RabbitHoleSession | null>(() => {
-    // Initialize from localStorage on mount
-    return getStoredSession(initialSessionId);
-  });
+  const [session, setSession] = useState<RabbitHoleSession | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [generatingNodeId, setGeneratingNodeId] = useState<string | null>(null);
   const [preview, setPreview] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [selectedSourceId, setSelectedSourceId] = useState<string | null>(null);
+  const [sourceAnalysis, setSourceAnalysis] =
+    useState<RabbitHoleSourceAnalysis | null>(null);
+  const [sourceAnalysisCache, setSourceAnalysisCache] = useState<
+    Record<string, RabbitHoleSourceAnalysis>
+  >({});
+  const [isAnalyzingSource, setIsAnalyzingSource] = useState(false);
   const [isPending, startTransition] = useTransition();
 
   // Save session to localStorage whenever it changes
@@ -87,6 +103,32 @@ export function useRabbitHoleSession(initialSessionId?: string) {
     saveSessionToStorage(session);
   }, [session]);
 
+  useEffect(() => {
+    const retrieveSession = async () => {
+      const res = await getStoredSession(initialSessionId);
+      setSession(res);
+    };
+
+    retrieveSession();
+  }, [initialSessionId]);
+
+  /**
+   * Handles search for new question
+   *
+   * Structure to be implemented:
+   * 1. Validate question
+   * 2.
+   *  a. Create new root node
+   *  b. Generate quick preview
+   * 3. Start server job to generate full node data
+   *      Server job should create a new node first so that if user clicks away
+   *       when they return they either see that the data is still loading or full response.
+   *
+   * Note subitems should happen in parallel
+   *
+   * @param question
+   * @returns
+   */
   async function start(question: string) {
     if (!question.trim()) {
       setError("Please enter a question");
@@ -99,9 +141,14 @@ export function useRabbitHoleSession(initialSessionId?: string) {
 
     // Generate quick preview first
     generateQuickPreview(question).then((previewResult) => {
-      if (previewResult.data) {
-        setPreview(previewResult.data);
+      if (previewResult.error || previewResult.data === null) {
+        logger.error(
+          "start",
+          `Issue generating quick preview: ${JSON.stringify(previewResult.error, null, 2)}`
+        );
+        return;
       }
+      setPreview(previewResult.data);
     });
 
     startTransition(async () => {
@@ -127,12 +174,70 @@ export function useRabbitHoleSession(initialSessionId?: string) {
         setError(message);
         setSession(null);
         setGeneratingNodeId(null);
-        setPreview(null);
       } finally {
         setIsLoading(false);
         setGeneratingNodeId(null);
+        setPreview(null);
       }
     });
+  }
+
+  async function selectSource(source: RabbitHoleSource) {
+    setSelectedSourceId(source.id);
+
+    // If cached, use immediately
+    if (sourceAnalysisCache[source.id]) {
+      setSourceAnalysis(sourceAnalysisCache[source.id]);
+      return;
+    }
+
+    setIsAnalyzingSource(true);
+    setSourceAnalysis(null);
+
+    try {
+      setPreview(`Analyzing the following source, ${source.title}..`);
+
+      const result = await analyzeSource(
+        source.url,
+        source.title,
+        source.snippet
+      );
+      if (result.error || !result.data) {
+        logger.error(
+          "selectSource",
+          `Error analyzing source ${source.id}: ${result.error?.message ?? "unknown"}`
+        );
+        setSelectedSourceId(null);
+      } else {
+        setSourceAnalysis(result.data);
+        setSourceAnalysisCache((prev) => ({
+          ...prev,
+          [source.id]: result.data!,
+        }));
+      }
+    } catch (err) {
+      logger.error(
+        "selectSource",
+        `Unexpected error analyzing source ${source.id}: ${
+          err instanceof Error ? err.message : String(err)
+        }`
+      );
+      setSelectedSourceId(null);
+    } finally {
+      setIsAnalyzingSource(false);
+    }
+  }
+
+  function clearSourceSelection() {
+    setSelectedSourceId(null);
+    setSourceAnalysis(null);
+  }
+
+  function resetSourceAnalysisState() {
+    setSelectedSourceId(null);
+    setSourceAnalysis(null);
+    setSourceAnalysisCache({});
+    setIsAnalyzingSource(false);
   }
 
   async function followBranch(branchId: string) {
@@ -273,11 +378,8 @@ export function useRabbitHoleSession(initialSessionId?: string) {
         const result = await followRabbitHoleBranch(session, branchId);
 
         if (result.error) {
-          // Preserve session on error so user can see previous content and retry
-          setError(result.error.message);
-          setSession(previousSession);
-          setGeneratingNodeId(null);
-          setPreview(null);
+          // Direct to error handler section
+          throw result.error;
         } else if (result.data) {
           setSession(result.data);
           setError(null);
@@ -315,6 +417,7 @@ export function useRabbitHoleSession(initialSessionId?: string) {
     setSession(null);
     setError(null);
     setIsLoading(false);
+    resetSourceAnalysisState();
     // localStorage will be cleared by the useEffect above
   }
 
@@ -324,8 +427,14 @@ export function useRabbitHoleSession(initialSessionId?: string) {
     generatingNodeId,
     preview,
     error,
+    selectedSourceId,
+    sourceAnalysis,
+    isAnalyzingSource,
     start,
     followBranch,
+    selectSource,
+    clearSourceSelection,
+    resetSourceAnalysisState,
     setActiveNode,
     reset,
   };
