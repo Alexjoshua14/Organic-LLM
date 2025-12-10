@@ -97,6 +97,10 @@ export function migrateSession(raw: any): RabbitHoleSession | null {
   return null;
 }
 
+/**
+ *
+ * @deprecated
+ */
 export function getSessionById(sessionId: string): RabbitHoleSession | null {
   if (typeof window === "undefined") return null;
 
@@ -105,7 +109,19 @@ export function getSessionById(sessionId: string): RabbitHoleSession | null {
     if (!stored) return null;
 
     const parsed = JSON.parse(stored);
-    return migrateSession(parsed);
+
+    // Validate parsed
+    const sessionData = RabbitHoleSessionSchema.safeParse(parsed);
+
+    if (sessionData.error) {
+      throw new Error(sessionData.error.message);
+    }
+
+    if (!sessionData.data) {
+      throw new Error("Unable to parse session data");
+    }
+
+    return sessionData.data;
   } catch (error) {
     console.warn("Failed to read session from localStorage:", error);
     return null;
