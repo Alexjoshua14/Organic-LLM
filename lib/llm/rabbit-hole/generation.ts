@@ -1,6 +1,6 @@
 "use server";
 
-import { generateObject, generateText } from "ai";
+import { generateObject, generateText, NoObjectGeneratedError } from "ai";
 import { RabbitHoleNodeSchema } from "@/app/rabbitholes/_lib/types";
 import { Result } from "@/types";
 
@@ -17,6 +17,10 @@ const logger = createLogger("lib/llm/rabbit-hole/generation.ts");
 
 const model = openai("gpt-5.1");
 const quickModel = openai("gpt-5-nano");
+
+function validateZodSchema({ object }: { object: unknown }) {
+  return RabbitHoleNodeSchema.safeParse(object);
+}
 
 // Parameters for invoking the LLM for Rabbit Hole objects with consistent logging.
 type GenerateRabbitHoleObjectParams<T> = {
@@ -75,7 +79,14 @@ export async function generateRabbitHoleObject<T>({
 
     return { data: object, error: null };
   } catch (err) {
-    logger.error("generateInitialNodeContent", JSON.stringify(err, null, 2));
+    if (NoObjectGeneratedError.isInstance(err)) {
+      console.log("NoObjectGeneratedError");
+      console.log("Cause:", err.cause);
+      console.log("Text:", err.text);
+      console.log("Response:", err.response);
+      console.log("Usage:", err.usage);
+      console.log("Finish Reason:", err.finishReason);
+    }
 
     throw err;
   }

@@ -44,14 +44,22 @@ export const RabbitHoleNodeSchema = z.object({
     .string()
     .describe("The full system prompt string for generation"),
   userQuestion: z.string().describe("User-visible question"),
-  keyTakeaways: z.array(z.string()).min(3).max(6),
+  keyTakeaways: z
+    .array(z.string())
+    .min(3)
+    .max(6)
+    .describe("3-5 key takeaways from article"),
   articleHtml: z
     .string()
     .describe(
       "HTML string containing section tags, paragraphs, and inline spans only"
     ),
-  sources: z.array(RabbitHoleSourceSchema),
-  branchSuggestions: z.array(RabbitHoleBranchSuggestionSchema).min(5).max(11),
+  sources: z.array(RabbitHoleSourceSchema).optional(),
+  branchSuggestions: z
+    .array(RabbitHoleBranchSuggestionSchema)
+    .min(5)
+    .max(11)
+    .optional(),
   createdAt: z.string(),
 });
 
