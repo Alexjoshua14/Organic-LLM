@@ -17,7 +17,7 @@ const MemorySettings = () => {
   }, []);
 
   return (
-    <section className="flex flex-col gap-8 border-2 border-red-700">
+    <section className="flex flex-col gap-8">
       <div className="flex flex-col gap-2">
         <h1 className="text-2xl font-bold">
           {`Memories`}
