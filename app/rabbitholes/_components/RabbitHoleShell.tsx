@@ -251,15 +251,15 @@ export function RabbitHoleShell({ sessionId }: RabbitHoleShellProps = {}) {
               {!isLoading && activeNode && (
                 <div key={activeNode.id} className="flex flex-col h-full">
                   <RabbitHoleSourceList
-                    sources={activeNode.sources}
+                    sources={activeNode.sources ?? []}
                     onSourceClick={selectSource}
-                    hasBranches={activeNode.branchSuggestions.length > 0}
+                    hasBranches={(activeNode.branchSuggestions ?? []).length > 0}
                   />
                   <RabbitHoleBranchGrid
-                    branches={activeNode.branchSuggestions}
+                    branches={activeNode.branchSuggestions ?? []}
                     onBranchClick={followBranch}
                     isLoading={isLoading}
-                    hasSources={activeNode.sources.length > 0}
+                    hasSources={(activeNode.sources ?? []).length > 0}
                   />
                 </div>
               )}
