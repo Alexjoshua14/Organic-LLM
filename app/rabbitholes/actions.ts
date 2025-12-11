@@ -1,8 +1,6 @@
 "use server";
 
 import { randomUUID } from "crypto";
-import { openai } from "@ai-sdk/openai";
-import { generateObject, generateText } from "ai";
 import { auth } from "@clerk/nextjs/server";
 
 import { createLogger } from "@/lib/logger";
@@ -12,29 +10,21 @@ import {
   RabbitHoleNode,
   RabbitHolePathSegment,
   RabbitHoleEdge,
-  RabbitHoleSourceAnalysisSchema,
   RabbitHoleSourceAnalysis,
 } from "./_lib/types";
 import { Result } from "@/types";
-import { searchWeb, getContents } from "@/lib/exa/client";
 import {
   RABBIT_HOLE_SYSTEM_PROMPT,
   FOLLOW_BRANCH_SYSTEM_PROMPT,
-  SOURCE_ANALYSIS_SYSTEM_PROMPT,
-  QUICK_PREVIEW_SYSTEM_PROMPT,
 } from "@/lib/system-prompt/rabbit-hole";
+import {
+  generateQuickPreviewLLM,
+  generateRabbitHoleObject,
+  generateSourceAnalysis,
+} from "@/lib/llm/rabbit-hole/generation";
+import { fetchExternalSources, getWebpageContent } from "@/lib/exa/sources";
 
 const logger = createLogger("app/rabbitholes/actions.ts");
-
-const model = openai("gpt-5-mini");
-const quickModel = openai("gpt-5-nano");
-
-type ExternalSourcesResult = {
-  exaSources: RabbitHoleNode["sources"];
-  exaError: Error | null;
-  sourcesContext: string;
-  sourcesInstruction: string;
-};
 
 type NodeContentResult = {
   object: RabbitHoleNode;
@@ -51,44 +41,93 @@ type BranchBuildResult = {
 };
 
 /**
- * Fetch external sources and produce formatted context/instructions for prompts.
- * Keeps logging consistent across entry points.
+ * ===============================
+ *         Generation Functions
+ * ===============================
+ *
+ * These functions are responsible for generating Rabbit Hole node content
+ * (either initial nodes or branch follow-ups) using LLMs and external sources.
  */
-async function fetchExternalSources(
-  prompt: string,
-  logContext: string
-): Promise<ExternalSourcesResult> {
-  const { sources: exaSources, error: exaError } = await searchWeb(prompt, {
-    numResults: 6,
-    type: "auto",
+
+/**
+ * Generate content for a branch follow-up, tracking latency and key takeaway.
+ */
+async function generateBranchNodeContent(
+  branchLabel: string,
+  branchDescription: string,
+  sourcesContext: string,
+  sourcesInstruction: string,
+  systemPrompt: string
+): Promise<NodeContentResult> {
+  const { data } = await generateRabbitHoleObject<RabbitHoleNode>({
+    logContext: "followRabbitHoleBranch",
+    startMessage: `Starting AI generation for branch: ${branchLabel}`,
+    durationMessageBuilder: (durationMs) =>
+      `AI response completed for branch in ${durationMs.toFixed(2)} ms`,
+    keyTakeawayLabel: "Branch first key takeaway",
+    systemPrompt,
+    prompt:
+      `Continue the Rabbit Hole exploration by diving deep into: ${branchLabel}\n\n${branchDescription}\n\n` +
+      `Real-world sources:\n${sourcesContext}\n\n${sourcesInstruction}\n\n` +
+      `Generate a comprehensive article that builds on the exploration path.`,
   });
 
-  if (exaError) {
-    logger.log(
-      logContext,
-      `Exa search failed, falling back to LLM-only: ${exaError}`
-    );
+  const object = RabbitHoleNodeSchema.parse(data);
+
+  return { object };
+}
+
+/**
+ * Calls the model to generate content for a branch follow-up node in a rabbit hole session.
+ *
+ * @param branchLabel - The label of the branch being followed.
+ * @param branchDescription - A short description of the branch.
+ * @param sourcesContext - String containing context from real-world sources to inform content.
+ * @param sourcesInstruction - Instruction string for incorporating sources.
+ * @param systemPrompt - System prompt string for the LLM.
+ * @returns A promise that resolves to an object containing the generated RabbitHoleNode.
+ */
+export async function generateQuickPreview(
+  question: string,
+  context?: {
+    rootQuestion?: string;
+    pathHistory?: string;
+    branchLabel?: string;
   }
-  logger.log(logContext, `Exa sources count=${exaSources.length}`);
+): Promise<Result<string>> {
+  const clerkUser = await auth();
 
-  const sourcesContext =
-    exaSources.length > 0
-      ? exaSources
-          .map(
-            (s, idx) =>
-              `[${idx + 1}] ${s.title} (${s.url})${
-                s.snippet ? `\n${s.snippet}` : ""
-              }`
-          )
-          .join("\n\n")
-      : "No external sources available.";
+  if (!clerkUser || !clerkUser.userId) {
+    return {
+      data: null,
+      error: new Error("Unauthorized"),
+    };
+  }
 
-  const sourcesInstruction =
-    exaSources.length > 0
-      ? "Use only the provided sources for citations; do not invent new URLs."
-      : "If no sources are provided, you may infer plausible URLs but prefer authoritative sites.";
+  try {
+    let prompt = `Generate a quick preview of what will be explored for: ${question}`;
 
-  return { exaSources, exaError, sourcesContext, sourcesInstruction };
+    if (context?.rootQuestion && context?.branchLabel) {
+      prompt = `Generate a quick preview of exploring "${context.branchLabel}" in the context of "${context.rootQuestion}". Path so far: ${context.pathHistory || "Starting"}`;
+    }
+
+    const { text } = await generateQuickPreviewLLM({ prompt });
+    // logger.log(
+    //   "generateQuickPreview",
+    //   `Quick preview generated: ${res.text}\nFull object: ${JSON.stringify(res, null, 2)}`
+    // );
+
+    return {
+      data: text.trim(),
+      error: null,
+    };
+  } catch (error) {
+    logger.error("generateQuickPreview", `Error generating preview: ${error}`);
+    return {
+      data: null,
+      error: error instanceof Error ? error : new Error("Unknown error"),
+    };
+  }
 }
 
 /**
@@ -99,38 +138,33 @@ async function generateInitialNodeContent(
   sourcesContext: string,
   sourcesInstruction: string
 ): Promise<NodeContentResult> {
-  logger.log(
-    "createRabbitHoleSession",
-    `Starting AI generation for rabbit hole node\n\tprompt: ${question}`
-  );
-  const aiResponseGenerationStart = performance.now();
-
-  const { object } = await generateObject({
-    model,
-    system: RABBIT_HOLE_SYSTEM_PROMPT,
+  const { data } = await generateRabbitHoleObject<RabbitHoleNode>({
+    logContext: "createRabbitHoleSession",
+    startMessage: `Starting AI generation for rabbit hole node\n\tprompt: ${question}`,
+    durationMessageBuilder: (durationMs) =>
+      `AI response completed in ${durationMs.toFixed(2)} ms`,
+    keyTakeawayLabel: "First AI response key takeaway",
+    systemPrompt: RABBIT_HOLE_SYSTEM_PROMPT,
     prompt:
       `Generate a comprehensive Rabbit Hole exploration for the following question:\n\n${question}\n\n` +
       `Real-world sources:\n${sourcesContext}\n\n${sourcesInstruction}\n\n` +
       `Provide key takeaways, a detailed article, sources, and branch suggestions.`,
-    schema: RabbitHoleNodeSchema,
     temperature: 0.7,
   });
 
-  const aiResponseGenerationEnd = performance.now();
-  const durationMs = aiResponseGenerationEnd - aiResponseGenerationStart;
-
-  logger.log(
-    "createRabbitHoleSession",
-    `AI response completed in ${durationMs.toFixed(2)} ms`
-  );
-
-  logger.log(
-    "createRabbitHoleSession",
-    `First AI response key takeaway: ${object.keyTakeaways?.[0] ?? "(none)"}`
-  );
+  const object = RabbitHoleNodeSchema.parse(data);
 
   return { object };
 }
+
+/**
+ * ===============================
+ *         Builder Functions
+ * ===============================
+ *
+ * These helpers construct nodes, path segments, and session graphs
+ * from generated content and external sources.
+ */
 
 /**
  * Build the initial session and node structures with IDs and truncated labels.
@@ -147,7 +181,7 @@ function buildInitialSession(
   const node: RabbitHoleNode = {
     ...aiObject,
     id: nodeId,
-    prompt: question,
+    rawPrompt: question,
     createdAt,
     sources: exaSources.length > 0 ? exaSources : aiObject.sources,
   };
@@ -167,52 +201,10 @@ function buildInitialSession(
     },
     activeNodeId: nodeId,
     edges: [],
+    createdAt: Date.now().toString(),
   };
 
   return { session, sessionId };
-}
-
-/**
- * Generate content for a branch follow-up, tracking latency and key takeaway.
- */
-async function generateBranchNodeContent(
-  branchLabel: string,
-  branchDescription: string,
-  sourcesContext: string,
-  sourcesInstruction: string,
-  systemPrompt: string
-): Promise<NodeContentResult> {
-  logger.log(
-    "followRabbitHoleBranch",
-    `Starting AI generation for branch: ${branchLabel}`
-  );
-  const aiResponseGenerationStart = performance.now();
-
-  const { object } = await generateObject({
-    model,
-    system: systemPrompt,
-    prompt:
-      `Continue the Rabbit Hole exploration by diving deep into: ${branchLabel}\n\n${branchDescription}\n\n` +
-      `Real-world sources:\n${sourcesContext}\n\n${sourcesInstruction}\n\n` +
-      `Generate a comprehensive article that builds on the exploration path.`,
-    schema: RabbitHoleNodeSchema,
-    temperature: 0.7,
-  });
-
-  const aiResponseGenerationEnd = performance.now();
-  const durationMs = aiResponseGenerationEnd - aiResponseGenerationStart;
-
-  logger.log(
-    "followRabbitHoleBranch",
-    `AI response completed for branch in ${durationMs.toFixed(2)} ms`
-  );
-
-  logger.log(
-    "followRabbitHoleBranch",
-    `Branch first key takeaway: ${object.keyTakeaways?.[0] ?? "(none)"}`
-  );
-
-  return { object };
 }
 
 /**
@@ -230,7 +222,7 @@ function buildBranchNode(
   const node: RabbitHoleNode = {
     ...aiObject,
     id: nodeId,
-    prompt: branchLabel,
+    rawPrompt: branchLabel,
     createdAt,
     sources: exaSources.length > 0 ? exaSources : aiObject.sources,
   };
@@ -262,6 +254,27 @@ function buildBranchNode(
   return { updatedSession, nodeId };
 }
 
+/**
+ * ===============================
+ *         Session Actions
+ * ===============================
+ *
+ * These server actions orchestrate session creation and branch following,
+ * combining auth, source fetching, LLM generation, and graph updates.
+ */
+
+/**
+ * Creates a new Rabbit Hole session for the given question.
+ *
+ * This function:
+ * - Authenticates the user.
+ * - Fetches external sources relevant to the question.
+ * - Generates the initial Rabbit Hole node content via LLM.
+ * - Builds and returns the session object containing the starting node and relevant metadata.
+ *
+ * @param {string} question - The user's root question for exploration.
+ * @returns {Promise<Result<RabbitHoleSession>>} The result object containing the session or an error.
+ */
 export async function createRabbitHoleSession(
   question: string
 ): Promise<Result<RabbitHoleSession>> {
@@ -313,6 +326,14 @@ export async function createRabbitHoleSession(
   }
 }
 
+/**
+ * Follows a selected branch in a rabbit hole session by generating new content for that branch,
+ * updating the session graph with a new node, and fetching external sources relevant to the branch.
+ *
+ * @param session - The current RabbitHoleSession object.
+ * @param branchId - The ID of the branch to follow, as specified in the current node's branch suggestions.
+ * @returns A promise that resolves to a Result containing the updated RabbitHoleSession or an error.
+ */
 export async function followRabbitHoleBranch(
   session: RabbitHoleSession,
   branchId: string
@@ -378,6 +399,11 @@ export async function followRabbitHoleBranch(
       systemPrompt
     );
 
+    logger.log(
+      "followRabbitHoleBranch",
+      `AI branch node object: ${JSON.stringify(object, null, 2)}`
+    );
+
     // Build the node and updated session graph for this branch.
     const { updatedSession, nodeId } = buildBranchNode(
       session,
@@ -404,6 +430,29 @@ export async function followRabbitHoleBranch(
   }
 }
 
+/**
+ * ===============================
+ *   Analysis & Preview Actions
+ * ===============================
+ *
+ * Actions for analyzing external sources and generating quick previews.
+ */
+
+/**
+ * Analyzes a source by fetching its content and generating an AI-powered summary/analysis.
+ *
+ * This function:
+ * - Authenticates the user.
+ * - Retrieves webpage content for the given source URL.
+ * - Constructs a prompt including the title, URL, snippet (if available), and the page content.
+ * - Calls the language model to analyze and summarize the source.
+ * - Returns a comprehensive analysis object with original URL and model-generated insights.
+ *
+ * @param {string} sourceUrl - The URL of the source to analyze.
+ * @param {string} sourceTitle - The title of the source to analyze.
+ * @param {string} [sourceSnippet] - An optional text snippet from the source to provide additional context.
+ * @returns {Promise<Result<RabbitHoleSourceAnalysis>>} - The result containing the source analysis or an error.
+ */
 export async function analyzeSource(
   sourceUrl: string,
   sourceTitle: string,
@@ -421,61 +470,7 @@ export async function analyzeSource(
   try {
     logger.log("analyzeSource", `Analyzing source: ${sourceUrl}`);
 
-    // Try to fetch webpage content via Exa
-    let webpageContent = "";
-    try {
-      const { contents, error: exaError } = await getContents([sourceUrl]);
-      if (!exaError && contents.length > 0) {
-        webpageContent = contents[0].text?.substring(0, 5000) || "";
-        logger.log(
-          "analyzeSource",
-          `Exa content fetched length=${webpageContent.length} for ${sourceUrl}`
-        );
-      } else if (exaError) {
-        logger.log(
-          "analyzeSource",
-          `Exa content fetch failed, falling back to direct fetch: ${exaError}`
-        );
-      }
-    } catch (exaFetchError) {
-      logger.log(
-        "analyzeSource",
-        `Exa content fetch threw, falling back: ${exaFetchError}`
-      );
-    }
-
-    // Fallback: direct fetch if Exa content missing
-    if (!webpageContent) {
-      try {
-        const response = await fetch(sourceUrl, {
-          headers: {
-            "User-Agent":
-              "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
-          },
-          signal: AbortSignal.timeout(10000), // 10 second timeout
-        });
-
-        if (response.ok) {
-          const html = await response.text();
-          webpageContent = html
-            .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, "")
-            .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, "")
-            .replace(/<[^>]+>/g, " ")
-            .replace(/\s+/g, " ")
-            .trim()
-            .substring(0, 5000); // Limit to first 5000 chars
-          logger.log(
-            "analyzeSource",
-            `Fallback fetch length=${webpageContent.length} for ${sourceUrl}`
-          );
-        }
-      } catch (fetchError) {
-        logger.log(
-          "analyzeSource",
-          `Failed to fetch webpage content, using metadata only: ${fetchError}`
-        );
-      }
-    }
+    const webpageContent = await getWebpageContent(sourceUrl);
 
     const contextInfo = webpageContent
       ? `Webpage content (first 5000 chars):\n${webpageContent}\n\n`
@@ -491,13 +486,14 @@ ${contextInfo}
 
 Provide a comprehensive analysis that helps the user understand this source's key information and relevance.`;
 
-    const { object } = await generateObject({
-      model,
-      system: SOURCE_ANALYSIS_SYSTEM_PROMPT,
-      prompt,
-      schema: RabbitHoleSourceAnalysisSchema.omit({ originalUrl: true }),
-      temperature: 0.7,
-    });
+    const { object, usage } = await generateSourceAnalysis({ prompt });
+
+    if (usage) {
+      logger.log(
+        "createRabbitHoleSession",
+        `AI usage: input tokens=${usage.inputTokens ?? "?"}, reasoning tokens=${usage.reasoningTokens ?? "?"}, output tokens=${usage.outputTokens ?? "?"}, total tokens=${usage.totalTokens ?? "?"}`
+      );
+    }
 
     const analysis: RabbitHoleSourceAnalysis = {
       ...object,
@@ -512,59 +508,6 @@ Provide a comprehensive analysis that helps the user understand this source's ke
     };
   } catch (error) {
     logger.error("analyzeSource", `Error analyzing source: ${error}`);
-    return {
-      data: null,
-      error: error instanceof Error ? error : new Error("Unknown error"),
-    };
-  }
-}
-
-export async function generateQuickPreview(
-  question: string,
-  context?: {
-    rootQuestion?: string;
-    pathHistory?: string;
-    branchLabel?: string;
-  }
-): Promise<Result<string>> {
-  const clerkUser = await auth();
-
-  if (!clerkUser || !clerkUser.userId) {
-    return {
-      data: null,
-      error: new Error("Unauthorized"),
-    };
-  }
-
-  try {
-    let prompt = `Generate a quick preview of what will be explored for: ${question}`;
-
-    if (context?.rootQuestion && context?.branchLabel) {
-      prompt = `Generate a quick preview of exploring "${context.branchLabel}" in the context of "${context.rootQuestion}". Path so far: ${context.pathHistory || "Starting"}`;
-    }
-
-    const res = await generateText({
-      model: quickModel,
-      system: QUICK_PREVIEW_SYSTEM_PROMPT,
-      prompt,
-      maxOutputTokens: 400,
-      providerOptions: {
-        openai: {
-          reasoningEffort: "minimal",
-        },
-      },
-    });
-    logger.log(
-      "generateQuickPreview",
-      `Quick preview generated: ${res.text}\nFull object: ${JSON.stringify(res, null, 2)}`
-    );
-
-    return {
-      data: res.text.trim(),
-      error: null,
-    };
-  } catch (error) {
-    logger.error("generateQuickPreview", `Error generating preview: ${error}`);
     return {
       data: null,
       error: error instanceof Error ? error : new Error("Unknown error"),
