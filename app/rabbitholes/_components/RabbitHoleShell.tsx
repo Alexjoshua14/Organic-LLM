@@ -200,7 +200,7 @@ export function RabbitHoleShell({ sessionId }: RabbitHoleShellProps = {}) {
                 {!isAnalyzingSource && !selectedSourceId && activeNode && (!isLoading || generatingNodeId !== activeNode.id) && (
                   <div key={activeNode.id}>
                     <RabbitHoleArticle
-                      title={activeNode.question}
+                      title={activeNode.userQuestion}
                       takeaways={activeNode.keyTakeaways}
                       activeTakeawayIndex={activeTakeawayIndex}
                       articleHtml={activeNode.articleHtml}
