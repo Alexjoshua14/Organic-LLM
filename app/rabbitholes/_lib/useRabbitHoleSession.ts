@@ -251,7 +251,9 @@ export function useRabbitHoleSession(initialSessionId?: string) {
     const activeNode = session.activeNodeId
       ? session.nodesById[session.activeNodeId]
       : null;
-    const branch = activeNode?.branchSuggestions.find((b) => b.id === branchId);
+    const branch = activeNode?.branchSuggestions?.find(
+      (b) => b.id === branchId
+    );
 
     // If we've already explored a node with the same prompt/label, reuse it instead of regenerating
     if (branch) {

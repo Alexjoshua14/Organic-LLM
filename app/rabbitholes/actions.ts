@@ -183,7 +183,7 @@ function buildInitialSession(
     id: nodeId,
     rawPrompt: question,
     createdAt,
-    sources: exaSources.length > 0 ? exaSources : aiObject.sources,
+    sources: (exaSources?.length ?? 0 > 0) ? exaSources : aiObject.sources,
   };
 
   const pathSegment: RabbitHolePathSegment = {
@@ -224,7 +224,7 @@ function buildBranchNode(
     id: nodeId,
     rawPrompt: branchLabel,
     createdAt,
-    sources: exaSources.length > 0 ? exaSources : aiObject.sources,
+    sources: (exaSources?.length ?? 0 > 0) ? exaSources : aiObject.sources,
   };
 
   const pathSegment: RabbitHolePathSegment = {
@@ -359,7 +359,7 @@ export async function followRabbitHoleBranch(
       };
     }
 
-    const branch = activeNode.branchSuggestions.find((b) => b.id === branchId);
+    const branch = activeNode.branchSuggestions?.find((b) => b.id === branchId);
 
     if (!branch) {
       return {
