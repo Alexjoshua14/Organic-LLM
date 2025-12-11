@@ -43,10 +43,22 @@ export async function getAllSessions(): Promise<
       .map((r) => {
         // extract relevant metadata for session list view
         const session = r.data;
+        const rootNodeId = session.path[0]?.nodeId;
+        const rootNode = rootNodeId ? session.nodesById[rootNodeId] : null;
+        const summary = rootNode?.keyTakeaways
+          ? rootNode.keyTakeaways.slice(0, 2).join(" • ")
+          : undefined;
+
+        const createdAt = session.createdAt ?? new Date().toISOString();
+        const updatedAt = session.updatedAt ?? createdAt;
+
         return {
           sessionId: session.sessionId,
           rootQuestion: session.rootQuestion,
+          createdAt,
+          updatedAt,
           pathLength: session.path?.length ?? 0,
+          summary,
         } as RabbitHoleSessionMetadata;
       });
 
@@ -101,7 +113,7 @@ export async function getSessionById(
       error: null,
     };
   } catch (err) {
-    console.warn("Failed to read session from localStorage:", error);
+    console.warn("Failed to read session from localStorage:", err);
     return error;
   }
 }

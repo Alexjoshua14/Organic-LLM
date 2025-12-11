@@ -256,7 +256,7 @@ export function useRabbitHoleSession(initialSessionId?: string) {
     // If we've already explored a node with the same prompt/label, reuse it instead of regenerating
     if (branch) {
       const existingNodeEntry = Object.entries(session.nodesById).find(
-        ([, node]) => node.prompt === branch.label
+        ([, node]) => node.rawPrompt === branch.label
       );
       if (existingNodeEntry) {
         const existingNodeId = existingNodeEntry[0];
