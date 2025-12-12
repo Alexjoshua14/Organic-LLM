@@ -27,9 +27,6 @@ export const RabbitHoleSourceSchema = z.object({
   analysis: RabbitHoleSourceAnalysisSchema.optional().describe(
     "User-triggered optional analysis"
   ), // Might shift to linking by id instead
-  sourceType: z
-    .enum(["article", "book", "paper", "video", "blog", "forum"])
-    .optional(),
 });
 
 export const RabbitHoleBranchSuggestionSchema = z.object({
@@ -63,6 +60,15 @@ export const RabbitHoleNodeSchema = z.object({
   createdAt: z.string(),
 });
 
+export const RabbitHoleAIResponseSchema = RabbitHoleNodeSchema.omit({
+  id: true,
+  rawPrompt: true,
+  userQuestion: true,
+  sources: true,
+  createdAt: true,
+  branchSuggestions: true,
+});
+
 export const RabbitHolePathSegmentSchema = z.object({
   nodeId: z.string(),
   label: z.string(),
@@ -92,6 +98,7 @@ export type RabbitHoleBranchSuggestion = z.infer<
   typeof RabbitHoleBranchSuggestionSchema
 >;
 export type RabbitHoleNode = z.infer<typeof RabbitHoleNodeSchema>;
+export type RabbitHoleAIResponse = z.infer<typeof RabbitHoleAIResponseSchema>;
 export type RabbitHolePathSegment = z.infer<typeof RabbitHolePathSegmentSchema>;
 export type RabbitHoleEdge = z.infer<typeof RabbitHoleEdgeSchema>;
 export type RabbitHoleSession = z.infer<typeof RabbitHoleSessionSchema>;
