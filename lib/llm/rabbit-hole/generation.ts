@@ -66,6 +66,7 @@ export async function generateRabbitHoleObject<T>({
       system: systemPrompt,
       prompt,
       schema: RabbitHoleAIResponseSchema,
+      maxOutputTokens: 7000,
       ...(temperature !== undefined ? { temperature } : {}),
     });
 
