@@ -154,8 +154,7 @@ async function generateInitialNodeContent(
 ): Promise<NodeContentResult> {
   const prompt =
     `Generate a comprehensive Rabbit Hole exploration for the following question:\n\n${question}\n\n` +
-    `Real-world sources:\n${sourcesContext}\n\n${sourcesInstruction}\n\n` +
-    `Provide key takeaways, a detailed article, sources, and branch suggestions.`;
+    `Real-world sources:\n${sourcesContext}\n\n${sourcesInstruction}\n\n`;
 
   const { data } = await generateRabbitHoleObject<RabbitHoleNode>({
     logContext: "createRabbitHoleSession",

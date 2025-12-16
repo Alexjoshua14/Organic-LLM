@@ -23,40 +23,37 @@ const config = {
   plugins: [
     typography,
     heroui({
+      addCommonColors: true,
       themes: {
         light: {
-          extend: {
-            colors: {
-              foreground: {
-                DEFAULT: "var(--foreground)",
-                secondary: "var(--muted-foreground)",
-              },
-              background: {
-                DEFAULT: "var(--background)",
-                secondary: "var(--secondary)",
-                tertiary: "var(--border)",
-              },
-              border: {
-                DEFAULT: "var(--border)",
-              },
+          colors: {
+            foreground: {
+              DEFAULT: "#2D2B26",
+              secondary: "#5C5E5E",
+            },
+            background: {
+              DEFAULT: "#FFFFFF",
+              secondary: "#F7F7F7",
+              tertiary: "#DCDDDC",
+            },
+            border: {
+              DEFAULT: "#DCDDDC",
             },
           },
         },
         dark: {
-          extend: {
-            colors: {
-              foreground: {
-                DEFAULT: "var(--foreground)",
-                secondary: "var(--muted-foreground)",
-              },
-              background: {
-                DEFAULT: "var(--background)",
-                secondary: "var(--secondary)",
-                tertiary: "var(--muted)",
-              },
-              border: {
-                DEFAULT: "var(--border)",
-              },
+          colors: {
+            foreground: {
+              DEFAULT: "#F3F4F3",
+              secondary: "#A0A2A2",
+            },
+            background: {
+              DEFAULT: "#141516",
+              secondary: "#1C1E1F",
+              tertiary: "#2A2C2D",
+            },
+            border: {
+              DEFAULT: "#2A2C2D",
             },
           },
         },
