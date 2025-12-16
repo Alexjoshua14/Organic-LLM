@@ -59,11 +59,23 @@ async function getStoredSession(
   }
 }
 
-function saveSessionToStorage(session: RabbitHoleSession | null): void {
-  if (typeof window === "undefined") return;
+async function saveSessionToStorage(
+  session: RabbitHoleSession | null
+): Promise<void> {
+  if (typeof window === "undefined") {
+    logger.log(
+      "saveSessionToStorage",
+      "Not running in a browser environment; skipping saveSessionToStorage."
+    );
+    return;
+  }
 
   try {
     if (!session) {
+      logger.log(
+        "saveSessionToStorage",
+        "No session provided to saveSessionToStorage; skipping save."
+      );
       // localStorage.removeItem(STORAGE_KEY); // TODO: Check whether this should be here
       return;
     }
@@ -73,13 +85,29 @@ function saveSessionToStorage(session: RabbitHoleSession | null): void {
       (seg) =>
         typeof seg.nodeId === "string" && seg.nodeId.startsWith("pending-")
     );
-    if (hasPending) return;
+    if (hasPending) {
+      logger.log(
+        "saveSessionToStorage",
+        `Session ${session.sessionId} has pending nodes; skipping save to storage.`
+      );
+      return;
+    }
 
-    // Save to new multi-session storage
-    saveSession(session);
+    logger.log(
+      "saveSessionToStorage",
+      `Saving session with ID ${session.sessionId} to storage...`
+    );
+    const res = await saveSession(session);
+    logger.log(
+      "saveSessionToStorage",
+      `Session save result: ${JSON.stringify(res, null, 2)}`
+    );
   } catch (error) {
     // Handle quota exceeded, disabled, etc.
-    console.warn("Failed to save to localStorage:", error);
+    logger.warn(
+      "saveSessionToStorage",
+      `Failed to save to localStorage: ${error}`
+    );
   }
 }
 
@@ -100,6 +128,7 @@ export function useRabbitHoleSession(initialSessionId?: string) {
 
   // Save session to localStorage whenever it changes
   useEffect(() => {
+    console.log("Saving session");
     saveSessionToStorage(session);
   }, [session]);
 
@@ -439,5 +468,6 @@ export function useRabbitHoleSession(initialSessionId?: string) {
     resetSourceAnalysisState,
     setActiveNode,
     reset,
+    saveSessionToStorage,
   };
 }

@@ -40,6 +40,7 @@ export function RabbitHoleShell({ sessionId }: RabbitHoleShellProps = {}) {
     selectSource,
     clearSourceSelection,
     reset,
+    saveSessionToStorage
   } = useRabbitHoleSession(sessionId);
 
   const [activeTakeawayIndex, setActiveTakeawayIndex] = useState<number | null>(
@@ -109,6 +110,9 @@ export function RabbitHoleShell({ sessionId }: RabbitHoleShellProps = {}) {
 
   return (
     <div className="relative h-screen bg-background overflow-hidden">
+      <Button className="z-40 absolute top-20 right-0" onPress={() => saveSessionToStorage(session)}>
+        Manual Save
+      </Button>
       <RabbitHoleAmbientLayer />
       <div className="relative z-10 flex flex-col h-full overflow-hidden">
         <header className="shrink-0 px-12 pt-8 pb-6 relative z-20">
