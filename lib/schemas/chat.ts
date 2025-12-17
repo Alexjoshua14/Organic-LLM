@@ -47,6 +47,34 @@ export const MessageUpdate = z.object({
   schema_version: z.number().int().min(1).optional(),
 });
 
+const TextPartSchema = z.object({
+  type: z.literal("text"),
+  text: z.string(),
+});
+
+export const UIMessageSchema = z
+  .object({
+    id: z.string().optional(),
+    role: z.enum(["user", "assistant", "system", "data"]),
+    parts: z.array(TextPartSchema).default([]),
+    content: z.string().optional(),
+    createdAt: z.number().optional(),
+    model: z.string().optional(),
+    totalTokens: z.number().optional(),
+  })
+  .refine(
+    (message) =>
+      message.parts.length > 0 || typeof message.content === "string",
+    {
+      message: "Message must include parts or content",
+    }
+  );
+
+export const ChatRequestSchema = z.object({
+  message: UIMessageSchema,
+  id: z.string().uuid(),
+});
+
 export const ThreadSummarySchema = z.object({
   id: z.uuid(),
   thread_id: z.uuid(),
@@ -76,3 +104,4 @@ export type MessageRoleType = z.infer<typeof MessageRole>;
 export type ThreadSummary = z.infer<typeof ThreadSummarySchema>;
 export type ThreadSummaryInsert = z.infer<typeof ThreadSummaryCreate>;
 export type ThreadSummaryPatch = z.infer<typeof ThreadSummaryUpdate>;
+export type ChatRequest = z.infer<typeof ChatRequestSchema>;
