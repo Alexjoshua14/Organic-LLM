@@ -3,7 +3,7 @@
 import { UIMessage, useChat } from "@ai-sdk/react";
 import { StickToBottom } from "use-stick-to-bottom";
 import { DefaultChatTransport } from "ai";
-import { useEffect, useRef } from "react";
+import { useCallback, useEffect, useRef } from "react";
 
 import { ChatInput } from "./chat-input";
 import { ChatThread } from "./chat-thread";
@@ -43,7 +43,7 @@ export const Chat: React.FC<ChatProps> = ({
     };
   }, [chatData]);
 
-  const { messages, sendMessage, id, stop, status } = useChat({
+  const { messages, sendMessage, id, stop, status, setMessages } = useChat({
     id: chatData?.thread.id ?? "",
     messages: chatData?.messages ?? [],
     transport: new DefaultChatTransport({
@@ -63,6 +63,38 @@ export const Chat: React.FC<ChatProps> = ({
     },
   });
 
+  const handleStop = useCallback(async () => {
+    // Remove the latest user message and partially completed AI message from messages
+    // Remove the latest user message and any partially completed AI response
+    stop()
+    setMessages((prevMessages) => {
+      // Find the last user message
+      const lastUserIndex = [...prevMessages]
+        .reverse()
+        .findIndex((msg) => msg.role === "user");
+      if (lastUserIndex === -1) {
+        return prevMessages;
+      }
+      // Calculate the index in the original array
+      const lastUserMsgIdx = prevMessages.length - 1 - lastUserIndex;
+
+      // Remove the last user message and any AI message immediately after it (if exists)
+      let newMessages = prevMessages.slice(0, lastUserMsgIdx);
+      // Check if there's an AI message after the last user
+      if (
+        prevMessages[lastUserMsgIdx + 1] &&
+        prevMessages[lastUserMsgIdx + 1].role === "assistant"
+      ) {
+        // Remove the AI message as well
+        newMessages = prevMessages.slice(0, lastUserMsgIdx);
+      } else {
+        // If not, just slice off including the user message
+        newMessages = prevMessages.slice(0, lastUserMsgIdx);
+      }
+      return newMessages;
+    });
+  }, [messages])
+
   return (
     <StickToBottom
       className="h-full w-full relative mx-2 flex flex-col items-center"
@@ -75,7 +107,7 @@ export const Chat: React.FC<ChatProps> = ({
         id={id}
         sendMessage={sendMessage}
         selectedModelRef={selectedModelRef}
-        stop={stop}
+        stop={handleStop}
         status={status}
       />
     </StickToBottom>
