@@ -16,7 +16,13 @@ import { ensureChatHasTitle, updateChatSummary } from "@/lib/llm/chat-helpers";
 import { createLogger } from "@/lib/logger";
 import { SYSTEM_PROMPT } from "@/lib/system-prompt/prompt-v0";
 import { addLatestMessagesToMemory } from "@/lib/memory/operations";
-import { ChatRequestSchema } from "@/lib/schemas/chat";
+import { z } from "zod";
+
+import {
+  ChatRequestSchema,
+  ChatModel,
+  type ChatModelType,
+} from "@/lib/schemas/chat";
 import { getSupabaseUserId } from "@/data/supabase/profiles";
 
 // Allow streaming responses up to 30 seconds
@@ -26,10 +32,39 @@ export const maxDuration = 30;
 
 const logger = createLogger(`app/api/chat/route.ts`);
 
+// Default model configuration
+const DEFAULT_CHAT_MODEL: ChatModelType = "gpt-5";
 const CHAT_MODEL = {
-  name: "gpt-5" as const,
+  name: DEFAULT_CHAT_MODEL,
   maxOutputTokens: 3000,
 };
+
+/**
+ * Gets a validated chat model, falling back to default if invalid
+ * @param model - Optional model string to validate
+ * @returns Validated chat model
+ */
+function getChatModel(model?: string): ChatModelType {
+  if (!model) {
+    logger.log(
+      "getChatModel",
+      `No model provided, using default: ${DEFAULT_CHAT_MODEL}`
+    );
+    return DEFAULT_CHAT_MODEL;
+  }
+
+  const parseResult = ChatModel.safeParse(model);
+  if (!parseResult.success) {
+    logger.error(
+      "getChatModel",
+      `Invalid model "${model}", falling back to default: ${DEFAULT_CHAT_MODEL}`
+    );
+    return DEFAULT_CHAT_MODEL;
+  }
+
+  logger.log("getChatModel", `Validated model: ${parseResult.data}`);
+  return parseResult.data;
+}
 
 type MeasureResult<T> = { result: T; durationMs: number };
 
@@ -45,7 +80,22 @@ async function measureAsync<T>(
 
 export async function POST(req: Request) {
   const body = await req.json();
+
+  logger.log("POST", `Received request body: ${JSON.stringify(body)}`);
+
   const parseResult = ChatRequestSchema.safeParse(body);
+  // Grab the selectedModel from either the parsed request body or default to DEFAULT_CHAT_MODEL
+  const requestedModel = body?.model;
+  const selectedModel = requestedModel
+    ? getChatModel(requestedModel)
+    : DEFAULT_CHAT_MODEL;
+
+  const memoryEnabled = process.env.MEMORY_ENABLED === "TRUE";
+
+  logger.log(
+    "POST",
+    `Model selection - Requested: ${requestedModel ?? "none"}, Using: ${selectedModel}`
+  );
 
   if (!parseResult.success) {
     logger.error(
@@ -82,6 +132,7 @@ export async function POST(req: Request) {
       chatId: id,
       limit: 10,
       message,
+      memoryEnabled,
     });
 
     if (chatContextResult.error) {
@@ -116,15 +167,20 @@ export async function POST(req: Request) {
     System Prompt: ${systemPromptForRequest.length} characters
     \n\n--------------------------------\n\n
     ${validatedMessages.length} messages being sent to LLM
+    Model: ${selectedModel}
     `
   );
 
+  logger.log("POST", `Calling streamText with model: ${selectedModel}`);
+
+  const streamStartTime = performance.now();
+
   const result = streamText({
-    model: openai(CHAT_MODEL.name),
+    model: openai(selectedModel),
     messages: convertToModelMessages(validatedMessages),
     system: systemPromptForRequest,
     experimental_transform: smoothStream({
-      delayInMs: 20, // optional: defaults to 10ms
+      delayInMs: 5, // optional: defaults to 10ms
       chunking: "word", // optional: defaults to 'word'
     }),
     maxOutputTokens: CHAT_MODEL.maxOutputTokens, // Cap output for dev guardrails
@@ -153,7 +209,17 @@ export async function POST(req: Request) {
     },
     onFinish: async ({ messages }) => {
       const onFinishStart = performance.now();
-      const metrics: Record<string, number> = {};
+      const streamEndTime = performance.now();
+      const modelGenerationTime = streamEndTime - streamStartTime;
+
+      const metrics: Record<string, number> = {
+        modelGenerationTimeMs: modelGenerationTime,
+      };
+
+      logger.log(
+        "POST",
+        `Model (${selectedModel}) generated response in ${modelGenerationTime.toFixed(2)}ms (${(modelGenerationTime / 1000).toFixed(2)}s)`
+      );
 
       try {
         const { result: saveResult, durationMs: saveChatMs } =
@@ -196,23 +262,28 @@ export async function POST(req: Request) {
           return;
         }
 
+        const promises: Promise<any>[] = [];
+
         const updateChatSummaryPromise = measureAsync(() =>
           updateChatSummary(id)
         );
-        const addLatestMessagesToMemoryPromise = measureAsync(() =>
-          addLatestMessagesToMemory([userMessage, aiResponse], sbUserId)
-        );
+        promises.push(updateChatSummaryPromise);
+        if (memoryEnabled) {
+          const addLatestMessagesToMemoryPromise = measureAsync(() =>
+            addLatestMessagesToMemory([userMessage, aiResponse], sbUserId)
+          );
+          promises.push(addLatestMessagesToMemoryPromise);
+        }
 
         const [
           { result: updateSummaryResult, durationMs: updateChatSummaryMs },
           { durationMs: addMemoryMs },
-        ] = await Promise.all([
-          updateChatSummaryPromise,
-          addLatestMessagesToMemoryPromise,
-        ]);
+        ] = await Promise.all(promises);
 
         metrics.updateChatSummaryMs = updateChatSummaryMs;
-        metrics.addLatestMessagesToMemoryMs = addMemoryMs;
+        if (memoryEnabled) {
+          metrics.addLatestMessagesToMemoryMs = addMemoryMs;
+        }
 
         if (updateSummaryResult?.error) {
           logger.error(

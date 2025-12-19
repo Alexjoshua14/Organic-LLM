@@ -3,7 +3,7 @@
 import { UIMessage, useChat } from "@ai-sdk/react";
 import { StickToBottom } from "use-stick-to-bottom";
 import { DefaultChatTransport } from "ai";
-import { useEffect, useState } from "react";
+import { useEffect, useRef } from "react";
 
 import { ChatInput } from "./chat-input";
 import { ChatThread } from "./chat-thread";
@@ -13,6 +13,8 @@ import { Thread } from "@/lib/schemas/chat";
 import { updateChatSummary } from "@/lib/llm/chat-helpers";
 import { createLogger } from "@/lib/logger";
 import { useSharedChatContext } from "@/lib/context/chat-context";
+import { ChatModelType, DEFAULT_CHAT_MODEL } from "@/lib/schemas/chat";
+import { getNMessages } from "@/data/supabase/chat";
 
 const logger = createLogger("components/chat/chat");
 
@@ -29,9 +31,9 @@ export const Chat: React.FC<ChatProps> = ({
   endpoint,
   persona,
 }) => {
-  const [updatingSummary, setUpdatingSummary] = useState(false);
 
   const { setChatId } = useSharedChatContext();
+  const selectedModelRef = useRef<ChatModelType>(DEFAULT_CHAT_MODEL);
 
   useEffect(() => {
     setChatId(chatData?.thread.id ?? "");
@@ -47,67 +49,19 @@ export const Chat: React.FC<ChatProps> = ({
     transport: new DefaultChatTransport({
       api: endpoint ?? `/api/chat/${persona ?? ""}`,
       prepareSendMessagesRequest({ messages, id }) {
-        return { body: { message: messages[messages.length - 1], id } };
+        return {
+          body: {
+            message: messages[messages.length - 1],
+            id,
+            model: selectedModelRef.current,
+          },
+        };
       },
     }),
     onToolCall({ toolCall }) {
       console.log("TOOL_CALL", toolCall);
     },
   });
-
-  // useEffect(() => {
-  //   // Simply ensure chat has title when the user leaves
-  //   return () => {
-  //     if (chatData?.thread.title === null && messages.length > 3) {
-  //       ensureChatHasTitle(chatData.thread.id);
-  //     }
-  //   };
-  // }, [chatData, messages]);
-
-  // useEffect(() => {
-  //   if (initialMessage && messages.length === 0) {
-  //     logger.log("Chat", `Sending initial message: ${initialMessage}`);
-  //     sendMessage({
-  //       text: initialMessage,
-  //     });
-  //   } else {
-  //     logger.log("Chat", `Didn't send initial message.. intialMessage: ${initialMessage}, messages.length: ${messages.length}`)
-  //   }
-  // }, []);
-
-  const handleUpdateSummary = async () => {
-    if (!chatData?.thread.id) {
-      logger.error("handleUpdateSummary", "Chat ID is missing");
-
-      return;
-    }
-    if (updatingSummary) {
-      logger.error("handleUpdateSummary", "Already updating summary");
-
-      return;
-    }
-
-    setUpdatingSummary(true);
-    try {
-      const { data, error } = await updateChatSummary(chatData.thread.id);
-
-      if (error) {
-        logger.error(
-          "handleUpdateSummary",
-          `Failed to update chat summary: ${error}`,
-        );
-      } else {
-        logger.log("handleUpdateSummary", `Updated chat summary: ${data}`);
-      }
-    } catch (error) {
-      logger.error(
-        "handleUpdateSummary",
-        `Failed to update chat summary: ${error}`,
-      );
-    } finally {
-      setUpdatingSummary(false);
-    }
-  };
 
   return (
     <StickToBottom
@@ -117,16 +71,11 @@ export const Chat: React.FC<ChatProps> = ({
     >
       <ChatThread messages={messages} />
       <ChatScrollButton />
-      <ChatInput id={id} sendMessage={sendMessage} />
-      {/* <div className="absolute top-20 right-0 z-40">
-        <button
-          className="px-4 py-2 bg-blue-500 hover:bg-blue-600 disabled:bg-gray-400 text-white rounded-md transition-colors"
-          disabled={updatingSummary}
-          onClick={handleUpdateSummary}
-        >
-          {updatingSummary ? "Updating..." : "Update Summary"}
-        </button>
-      </div> */}
+      <ChatInput
+        id={id}
+        sendMessage={sendMessage}
+        selectedModelRef={selectedModelRef}
+      />
     </StickToBottom>
   );
 };

@@ -2,24 +2,31 @@ import { Textarea } from "@heroui/input";
 import { Button, PressEvent } from "@heroui/button";
 import { ArrowUpIcon, Globe, PaperclipIcon } from "lucide-react";
 import { useCallback, useState, KeyboardEvent } from "react";
+import { useChat } from "@ai-sdk/react";
 
 import { glass } from "../design-system/primitives";
 import { useSidebar } from "../third-party/ui/sidebar";
 
 import { ModelSelector } from "./model-selector";
+import { ChatModelType, DEFAULT_CHAT_MODEL } from "@/lib/schemas/chat";
 
 type ChatInputProps = {
   id: string;
-  sendMessage: ({ text }: { text: string }) => Promise<void>;
+  sendMessage: ReturnType<typeof useChat>["sendMessage"];
+  selectedModelRef: React.MutableRefObject<ChatModelType>;
 };
 
 export const ChatInput: React.FC<ChatInputProps> = ({
   id: _id,
   sendMessage,
+  selectedModelRef,
 }) => {
   const { isMobile, state } = useSidebar();
   const [input, setInput] = useState("");
   const [error, setError] = useState<boolean>(false);
+  const [selectedModel, setSelectedModel] = useState<ChatModelType>(
+    selectedModelRef.current
+  );
   //const { sendMessage, stop } = useChat({ id });
 
   const handleSendMessage = useCallback(
@@ -31,10 +38,20 @@ export const ChatInput: React.FC<ChatInputProps> = ({
       } else {
         setError(false);
       }
+      // Update the ref so prepareSendMessagesRequest can access it
+      selectedModelRef.current = selectedModel;
       sendMessage({ text: input });
       setInput("");
     },
-    [input, sendMessage],
+    [input, sendMessage, selectedModel, selectedModelRef],
+  );
+
+  const handleModelSelection = useCallback(
+    (m: ChatModelType) => {
+      setSelectedModel(m);
+      selectedModelRef.current = m;
+    },
+    [selectedModelRef]
   );
 
   const handleInputChange = useCallback((v: string) => {
@@ -64,6 +81,8 @@ export const ChatInput: React.FC<ChatInputProps> = ({
           handleSendMessage={handleSendMessage}
           input={input}
           state={state}
+          selectedModel={selectedModel}
+          handleModelSelection={handleModelSelection}
         />
       ) : (
         <ChatInputDesktop
@@ -73,6 +92,8 @@ export const ChatInput: React.FC<ChatInputProps> = ({
           handleSendMessage={handleSendMessage}
           input={input}
           state={state}
+          selectedModel={selectedModel}
+          handleModelSelection={handleModelSelection}
         />
       )}
     </>
@@ -86,6 +107,8 @@ type ChatInputFieldProps = {
   handleKeyDown: (e: KeyboardEvent<HTMLInputElement>) => void;
   handleInputChange: (v: string) => void;
   state: string;
+  selectedModel: ChatModelType;
+  handleModelSelection: (m: ChatModelType) => void;
 };
 
 const ChatInputDesktop = ({
@@ -95,6 +118,8 @@ const ChatInputDesktop = ({
   handleKeyDown,
   handleInputChange,
   state,
+  selectedModel,
+  handleModelSelection,
 }: ChatInputFieldProps) => {
   return (
     <div
@@ -125,7 +150,7 @@ const ChatInputDesktop = ({
           />
           <div className="hidden sm:flex h-12 items-center justify-between py-2">
             <div className="flex items-center gap-1 ">
-              <ModelSelector />
+              <ModelSelector selectedModel={selectedModel} handleModelSelection={handleModelSelection} />
               <Button
                 isIconOnly
                 className="lg:hidden text-xs bg-transparent text-foreground"
@@ -162,6 +187,8 @@ const ChatInputMobile = ({
   input,
   handleKeyDown,
   handleInputChange,
+  selectedModel,
+  handleModelSelection,
 }: ChatInputFieldProps) => {
   return (
     <div
