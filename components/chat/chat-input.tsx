@@ -60,6 +60,9 @@ export const ChatInput: React.FC<ChatInputProps> = ({
       setInput(lastSentMessageRef.current);
       lastSentMessageRef.current = ""; // Clear the ref after restoring
     }
+
+    // And clean up UI since we are not persistencing aborted messages
+
   }, [stop]);
 
   const handleModelSelection = useCallback(
