@@ -3,13 +3,13 @@
 import { UIMessage, useChat } from "@ai-sdk/react";
 import { StickToBottom } from "use-stick-to-bottom";
 import { DefaultChatTransport } from "ai";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import { ChatThreadExperimental } from "./chat-thread-experimental";
 
 import { ChatInput } from "@/components/chat/chat-input";
 import { ChatScrollButton } from "@/components/chat/chat-scroll-button";
-import { Thread } from "@/lib/schemas/chat";
+import { ChatModelType, DEFAULT_CHAT_MODEL, Thread } from "@/lib/schemas/chat";
 import { updateChatSummary } from "@/lib/llm/chat-helpers";
 import { createLogger } from "@/lib/logger";
 import { useSharedChatContext } from "@/lib/context/chat-context";
@@ -32,6 +32,7 @@ export const ChatExperimental: React.FC<ChatProps> = ({
   const [updatingSummary, setUpdatingSummary] = useState(false);
 
   const { setChatId } = useSharedChatContext();
+  const selectedModelRef = useRef<ChatModelType>(DEFAULT_CHAT_MODEL);
 
   useEffect(() => {
     setChatId(chatData?.thread.id ?? "");
@@ -47,7 +48,13 @@ export const ChatExperimental: React.FC<ChatProps> = ({
     transport: new DefaultChatTransport({
       api: endpoint ?? `/api/chat/${persona ?? ""}`,
       prepareSendMessagesRequest({ messages, id }) {
-        return { body: { message: messages[messages.length - 1], id } };
+        return {
+          body: {
+            message: messages?.length ? messages[messages.length - 1] : undefined,
+            id,
+            model: selectedModelRef.current,
+          },
+        };
       },
     }),
     onToolCall({ toolCall }) {
@@ -114,7 +121,7 @@ export const ChatExperimental: React.FC<ChatProps> = ({
     >
       <ChatThreadExperimental messages={messages} />
       <ChatScrollButton />
-      <ChatInput id={id} sendMessage={sendMessage} />
+      <ChatInput id={id} sendMessage={sendMessage} selectedModelRef={selectedModelRef} />
       {/* <div className="absolute top-20 right-0 z-40">
         <button
           className="px-4 py-2 bg-blue-500 hover:bg-blue-600 disabled:bg-gray-400 text-white rounded-md transition-colors"

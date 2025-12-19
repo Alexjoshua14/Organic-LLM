@@ -32,6 +32,7 @@ interface getContextProps {
   limit?: number;
   persona?: "prometheus" | "spark";
   message: UIMessage;
+  memoryEnabled?: boolean;
 }
 
 export async function createChat(): Promise<Result<string>> {
@@ -53,7 +54,7 @@ export async function createChat(): Promise<Result<string>> {
 }
 
 export async function loadChat(
-  id: string,
+  id: string
 ): Promise<Result<{ thread: Thread; messages: UIMessage[] }>> {
   const res = await loadChatSupabase(id);
 
@@ -67,7 +68,7 @@ export async function loadChat(
   }
   logger.log(
     "loadChat",
-    `Chat loaded: ${res.data?.thread.id}, ${res.data?.messages.length} messages`,
+    `Chat loaded: ${res.data?.thread.id}, ${res.data?.messages.length} messages`
   );
 
   return res;
@@ -92,7 +93,7 @@ export async function saveChat({
   if (res.error || !res.ok) {
     logger.error(
       "saveChat",
-      `Error saving chat: ${res.error?.message ?? "Unknown error"}`,
+      `Error saving chat: ${res.error?.message ?? "Unknown error"}`
     );
   }
   logger.log("saveChat", `Chat saved: ${chatId}`);
@@ -120,7 +121,7 @@ export async function getChats(): Promise<Result<Thread[]>> {
 }
 
 export async function getChat(
-  chatId: string,
+  chatId: string
 ): Promise<Result<{ thread: Thread; messages: UIMessage[] }>> {
   const chat = await loadChat(chatId);
 
@@ -150,7 +151,7 @@ export async function getMessagesForChatPrompt({
   if (error || messages === null) {
     logger.error(
       "getMessagesForChatPrompt",
-      `Error getting messages: ${error}`,
+      `Error getting messages: ${error}`
     );
 
     return {
@@ -166,13 +167,13 @@ export async function getMessagesForChatPrompt({
   if (conversationSummaryResult.error) {
     logger.error(
       "getMessagesForChatPrompt",
-      `Error getting conversation summary: ${conversationSummaryResult.error.message}`,
+      `Error getting conversation summary: ${conversationSummaryResult.error.message}`
     );
     conversationSummary = "";
   } else if (conversationSummaryResult.data === null) {
     logger.error(
       "getMessagesForChatPrompt",
-      `Error getting conversation summary: Conversation summary is null`,
+      `Error getting conversation summary: Conversation summary is null`
     );
     conversationSummary = "";
   } else {
@@ -218,7 +219,7 @@ export async function getContextAndMessagesChatPrompt({
   if (error || messages === null) {
     logger.error(
       "getContextAndMessagesChatPrompt",
-      `Error getting messages: ${error}`,
+      `Error getting messages: ${error}`
     );
 
     return {
@@ -256,7 +257,7 @@ export async function getContextAndMessagesChatPrompt({
     } catch (error) {
       logger.error(
         "getContextAndMessagesChatPrompt",
-        `Error getting Spark specific context: ${error}`,
+        `Error getting Spark specific context: ${error}`
       );
     }
   }
@@ -273,7 +274,7 @@ export async function getContextAndMessagesChatPrompt({
    */
   const systemPrompt = prompt.replace(
     "{{currentDateTime}}",
-    new Date().toISOString(),
+    new Date().toISOString()
   );
 
   return {
@@ -286,7 +287,7 @@ export async function getContextAndMessagesChatPrompt({
 }
 
 async function getConversationSummaryForChatPrompt(
-  chatId: string,
+  chatId: string
 ): Promise<Result<string>> {
   let conversationSummary = "";
 
@@ -295,13 +296,13 @@ async function getConversationSummaryForChatPrompt(
   if (conversationSummaryResult.error) {
     logger.error(
       "getContextAndMessagesChatPrompt",
-      `Error getting conversation summary: ${conversationSummaryResult.error.message}`,
+      `Error getting conversation summary: ${conversationSummaryResult.error.message}`
     );
     conversationSummary = "";
   } else if (conversationSummaryResult.data === null) {
     logger.error(
       "getContextAndMessagesChatPrompt",
-      `Error getting conversation summary: Conversation summary is null`,
+      `Error getting conversation summary: Conversation summary is null`
     );
     conversationSummary = "";
   } else {
@@ -343,6 +344,7 @@ export async function getContext({
   limit,
   persona,
   message,
+  memoryEnabled,
 }: getContextProps): Promise<
   Result<{ context: string; messages: UIMessage[] }, string>
 > {
@@ -380,13 +382,14 @@ export async function getContext({
   const contextPieces: ContextPiece[] = [];
 
   try {
+    const promises: Promise<any>[] = [];
     /***
      * Step 1
      *
      * Get Latest n Messages from Supabase
      ***/
     const messagesPromise = getNMessages(chatId, limit);
-
+    promises.push(messagesPromise);
     /***
      * Step 2
      *
@@ -394,6 +397,7 @@ export async function getContext({
      */
 
     const conversationSummaryPromise = getConversationSummary(chatId);
+    promises.push(conversationSummaryPromise);
 
     /***
      * Step 3
@@ -405,7 +409,11 @@ export async function getContext({
       .reduce((acc, part) => acc + part.text, "");
 
     logger.log("getContext", `User message: ${userMessage}`);
-    const memoriesPromise = searchMemories(userMessage, sbUserId); // TODO: Get user ID from Supabase
+
+    if (memoryEnabled) {
+      const memoriesPromise = searchMemories(userMessage, sbUserId); // TODO: Get user ID from Supabase
+      promises.push(memoriesPromise);
+    }
 
     /***
      * Step 4
@@ -445,11 +453,7 @@ export async function getContext({
      */
 
     const [messagesResult, conversationSummaryResult, memoriesResult] =
-      await Promise.all([
-        messagesPromise,
-        conversationSummaryPromise,
-        memoriesPromise,
-      ]);
+      await Promise.all(promises);
 
     /***
      * Step 5a
@@ -461,7 +465,7 @@ export async function getContext({
     if (messagesResult.error) {
       logger.error(
         "getContext",
-        `Error getting messages: ${messagesResult.error}`,
+        `Error getting messages: ${messagesResult.error}`
       );
     }
     messages = messagesResult.data ?? [];
@@ -477,7 +481,7 @@ export async function getContext({
     if (conversationSummaryResult.error) {
       logger.error(
         "getContext",
-        `Error getting conversation summary: ${conversationSummaryResult.error}`,
+        `Error getting conversation summary: ${conversationSummaryResult.error}`
       );
     }
     conversationSummary = conversationSummaryResult.data ?? "";
@@ -492,22 +496,32 @@ export async function getContext({
      *
      * Handle memories errors
      */
-    let memories = "";
+    if (memoryEnabled) {
+      let memories = "";
 
-    if (memoriesResult.results === null) {
-      logger.error(
-        "getContext",
-        `Error getting memories: Memories are null\n${JSON.stringify(memoriesResult)}`,
-      );
+      if (
+        memoriesResult.results === null ||
+        memoriesResult.results === undefined
+      ) {
+        logger.error(
+          "getContext",
+          `Error getting memories: Memories are null\n${JSON.stringify(memoriesResult)}`
+        );
+        memories = "";
+      } else {
+        memories = memoriesResult.results
+          .map((result: { memory?: string }) => result.memory)
+          .filter(
+            (memory: string | undefined): memory is string => memory != null
+          )
+          .join("\n");
+      }
+
+      contextPieces.push({
+        title: "Memories",
+        content: memories,
+      });
     }
-
-    memories =
-      memoriesResult.results?.map((result) => result.memory).join("\n") ?? "";
-
-    contextPieces.push({
-      title: "Memories",
-      content: memories,
-    });
 
     /***
      * Step 5d
@@ -535,7 +549,7 @@ export async function getContext({
 
     logger.log(
       "getContext",
-      `Context compilation time: ${endContextCompilationTime - startContextCompilationTime} milliseconds`,
+      `Context compilation time: ${endContextCompilationTime - startContextCompilationTime} milliseconds`
     );
   }
 }

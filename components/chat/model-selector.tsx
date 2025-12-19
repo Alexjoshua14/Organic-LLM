@@ -2,48 +2,52 @@ import { Select, SelectItem } from "@heroui/select";
 import { useState } from "react";
 
 import { glass } from "../design-system/primitives";
+import { ChatModelType } from "@/lib/schemas/chat";
 
-type ModelSelectorProps = {};
+type ModelSelectorProps = {
+  selectedModel: ChatModelType;
+  handleModelSelection: (m: ChatModelType) => void;
+};
 
-export const ModelSelector: React.FC<ModelSelectorProps> = () => {
+export const ModelSelector: React.FC<ModelSelectorProps> = ({ selectedModel, handleModelSelection }) => {
   const availableModels: {
-    key: string;
+    key: ChatModelType;
     label: string;
   }[] = [
-    {
-      key: "gpt-5",
-      label: "GPT-5",
-    },
-    {
-      key: "Claude 4 Sonnet",
-      label: "Claude 4 Sonnet",
-    },
-    {
-      key: "Kimi v4",
-      label: "Kimi v4",
-    },
-    {
-      key: "Gemini 2.5 Flash",
-      label: "Gemini 2.5 Flash",
-    },
-    {
-      key: "Gemini 2.5 Pro",
-      label: "Gemini 2.5 Pro",
-    },
-    {
-      key: "Gemini Imagen 4",
-      label: "Gemini Imagen 4",
-    },
-  ];
-
-  const [selectedModel, setSelectedModel] = useState<string>(
-    availableModels[0].key,
-  );
+      {
+        key: "gpt-5",
+        label: "GPT-5",
+      },
+      {
+        key: "gpt-5-mini",
+        label: "GPT-5 Mini",
+      },
+      {
+        key: "gpt-5.2",
+        label: "GPT-5.2",
+      },
+      {
+        key: "gpt-5-nano",
+        label: "GPT-5 Nano",
+      },
+      {
+        key: "gpt-4o",
+        label: "GPT-4o",
+      },
+      {
+        key: "gpt-4o-mini",
+        label: "GPT-4o Mini",
+      },
+      {
+        key: "gpt-4-turbo",
+        label: "GPT-4 Turbo",
+      },
+    ];
 
   const handleSelectedModelChange = (
     e: React.ChangeEvent<HTMLSelectElement>,
   ) => {
-    setSelectedModel(e.target.value);
+    handleModelSelection(e.target.value as ChatModelType);
   };
 
   return (
