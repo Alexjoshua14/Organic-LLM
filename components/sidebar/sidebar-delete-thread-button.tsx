@@ -16,6 +16,7 @@ import { useCallback } from "react";
 import { ThreadLink } from "@/types";
 import { deleteChat } from "@/data/supabase/chat";
 import { createLogger } from "@/lib/logger";
+import { redirect, usePathname } from "next/navigation";
 
 const logger = createLogger(
   "components/sidebar/sidebar-delete-thread-button.tsx",
@@ -27,6 +28,7 @@ export default function SidebarDeleteThreadButton({
   thread: ThreadLink;
 }) {
   const { isOpen, onOpen, onClose, onOpenChange } = useDisclosure();
+  const pathname = usePathname()
 
   const deleteThread = useCallback(() => {
     const handleDeleteThread = async () => {
@@ -46,6 +48,8 @@ export default function SidebarDeleteThreadButton({
           );
         }
         onClose();
+        if (pathname === `/chat/${thread.id}`)
+          redirect("/");
       } else {
         logger.error(
           "handleDeleteThread",
