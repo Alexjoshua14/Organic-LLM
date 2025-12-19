@@ -150,7 +150,7 @@ const ChatInputDesktop = ({
 }: ChatInputFieldProps) => {
   return (
     <div
-      className={`fixed bottom-0 flex-shrink-0 min-h-10 w-[calc(100dvw-6rem)] max-w-lg sm:max-w-xl md:max-w-3xl ${state === "collapsed" ? "md:w-[calc(100dvw-34rem)]" : "md:w-[calc(100dvw-32rem)]"} transition-size duration-150 ease-linear`}
+      className={`fixed bottom-0 shrink-0 min-h-10 w-[calc(100dvw-6rem)] max-w-lg sm:max-w-xl md:max-w-3xl ${state === "collapsed" ? "md:w-[calc(100dvw-34rem)]" : "md:w-[calc(100dvw-32rem)]"} transition-size duration-150 ease-linear`}
     >
       <div
         className={`${glass()} border-t-1 border-x-1.5 border-white/25 h-full px-2 pt-2`}
@@ -197,16 +197,16 @@ const ChatInputDesktop = ({
                 isIconOnly
                 className={`${glass()} border-t-1 border-x-1.5 border-b-1.5 border-white/25  aspect-square`}
                 onPress={(e) => {
-                  if (status === "submitted" || status === "streaming") {
-                    stop();
-                  } else {
+                  if (status === "ready") {
                     handleSendMessage(e);
+                  } else {
+                    stop();
                   }
                 }}
               >
-                {status === 'submitted' || status == 'streaming' ?
-                  <Pause size={20} />
-                  : <ArrowUpIcon size={20} />}
+                {status === 'ready'
+                  ? <ArrowUpIcon size={20} />
+                  : <Pause size={20} />}
               </Button>
             </div>
           </div>
@@ -229,7 +229,7 @@ const ChatInputMobile = ({
 }: ChatInputFieldProps) => {
   return (
     <div
-      className={`fixed bottom-0 flex-shrink-0 min-h-10 w-full max-w-lg sm:max-w-xl px-4`}
+      className={`fixed bottom-0 shrink-0 min-h-10 w-full max-w-lg sm:max-w-xl px-4`}
     >
       <div
         className={`${glass()} border-t-1 border-x-1.5 border-white/25 h-full w-full px-2 py-4`}
