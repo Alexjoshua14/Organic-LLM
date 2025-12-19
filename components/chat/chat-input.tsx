@@ -1,7 +1,7 @@
 import { Textarea } from "@heroui/input";
 import { Button, PressEvent } from "@heroui/button";
-import { ArrowUpIcon, Globe, PaperclipIcon } from "lucide-react";
-import { useCallback, useState, KeyboardEvent } from "react";
+import { ArrowUpIcon, Globe, PaperclipIcon, Pause } from "lucide-react";
+import { useCallback, useState, KeyboardEvent, useRef } from "react";
 import { useChat } from "@ai-sdk/react";
 
 import { glass } from "../design-system/primitives";
@@ -14,11 +14,15 @@ type ChatInputProps = {
   id: string;
   sendMessage: ReturnType<typeof useChat>["sendMessage"];
   selectedModelRef: React.MutableRefObject<ChatModelType>;
+  stop: ReturnType<typeof useChat>["stop"];
+  status: ReturnType<typeof useChat>["status"];
 };
 
 export const ChatInput: React.FC<ChatInputProps> = ({
   id: _id,
   sendMessage,
+  stop,
+  status,
   selectedModelRef,
 }) => {
   const { isMobile, state } = useSidebar();
@@ -27,7 +31,8 @@ export const ChatInput: React.FC<ChatInputProps> = ({
   const [selectedModel, setSelectedModel] = useState<ChatModelType>(
     selectedModelRef.current
   );
-  //const { sendMessage, stop } = useChat({ id });
+  // Store the last sent message text to restore on abort
+  const lastSentMessageRef = useRef<string>("");
 
   const handleSendMessage = useCallback(
     async (_e: React.FormEvent | PressEvent): Promise<void> => {
@@ -38,6 +43,8 @@ export const ChatInput: React.FC<ChatInputProps> = ({
       } else {
         setError(false);
       }
+      // Store the message before clearing
+      lastSentMessageRef.current = input;
       // Update the ref so prepareSendMessagesRequest can access it
       selectedModelRef.current = selectedModel;
       sendMessage({ text: input });
@@ -45,6 +52,15 @@ export const ChatInput: React.FC<ChatInputProps> = ({
     },
     [input, sendMessage, selectedModel, selectedModelRef],
   );
+
+  const handleStop = useCallback(async () => {
+    stop();
+    // Restore the last sent message to the input field
+    if (lastSentMessageRef.current) {
+      setInput(lastSentMessageRef.current);
+      lastSentMessageRef.current = ""; // Clear the ref after restoring
+    }
+  }, [stop]);
 
   const handleModelSelection = useCallback(
     (m: ChatModelType) => {
@@ -83,6 +99,8 @@ export const ChatInput: React.FC<ChatInputProps> = ({
           state={state}
           selectedModel={selectedModel}
           handleModelSelection={handleModelSelection}
+          stop={handleStop}
+          status={status}
         />
       ) : (
         <ChatInputDesktop
@@ -94,6 +112,8 @@ export const ChatInput: React.FC<ChatInputProps> = ({
           state={state}
           selectedModel={selectedModel}
           handleModelSelection={handleModelSelection}
+          stop={handleStop}
+          status={status}
         />
       )}
     </>
@@ -109,6 +129,8 @@ type ChatInputFieldProps = {
   state: string;
   selectedModel: ChatModelType;
   handleModelSelection: (m: ChatModelType) => void;
+  stop: ReturnType<typeof useChat>["stop"];
+  status: ReturnType<typeof useChat>["status"];
 };
 
 const ChatInputDesktop = ({
@@ -120,6 +142,8 @@ const ChatInputDesktop = ({
   state,
   selectedModel,
   handleModelSelection,
+  stop,
+  status
 }: ChatInputFieldProps) => {
   return (
     <div
@@ -169,9 +193,17 @@ const ChatInputDesktop = ({
               <Button
                 isIconOnly
                 className={`${glass()} border-t-1 border-x-1.5 border-b-1.5 border-white/25  aspect-square`}
-                onPress={(e) => handleSendMessage(e)}
+                onPress={(e) => {
+                  if (status === "submitted" || status === "streaming") {
+                    stop();
+                  } else {
+                    handleSendMessage(e);
+                  }
+                }}
               >
-                <ArrowUpIcon size={20} />
+                {status === 'submitted' || status == 'streaming' ?
+                  <Pause size={20} />
+                  : <ArrowUpIcon size={20} />}
               </Button>
             </div>
           </div>
@@ -189,6 +221,8 @@ const ChatInputMobile = ({
   handleInputChange,
   selectedModel,
   handleModelSelection,
+  stop,
+  status,
 }: ChatInputFieldProps) => {
   return (
     <div
@@ -223,9 +257,17 @@ const ChatInputMobile = ({
               <Button
                 isIconOnly
                 className={`${glass()}`}
-                onPress={(e) => handleSendMessage(e)}
+                onPress={(e) => {
+                  if (status === "submitted" || status === "streaming") {
+                    stop();
+                  } else {
+                    handleSendMessage(e);
+                  }
+                }}
               >
-                <ArrowUpIcon size={20} />
+                {status === 'submitted' || status == 'streaming' ?
+                  <Pause size={20} />
+                  : <ArrowUpIcon size={20} />}
               </Button>
             </div>
           </div>

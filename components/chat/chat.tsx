@@ -43,7 +43,7 @@ export const Chat: React.FC<ChatProps> = ({
     };
   }, [chatData]);
 
-  const { messages, sendMessage, id } = useChat({
+  const { messages, sendMessage, id, stop, status } = useChat({
     id: chatData?.thread.id ?? "",
     messages: chatData?.messages ?? [],
     transport: new DefaultChatTransport({
@@ -75,6 +75,8 @@ export const Chat: React.FC<ChatProps> = ({
         id={id}
         sendMessage={sendMessage}
         selectedModelRef={selectedModelRef}
+        stop={stop}
+        status={status}
       />
     </StickToBottom>
   );

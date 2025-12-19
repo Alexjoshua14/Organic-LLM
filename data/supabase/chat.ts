@@ -429,6 +429,23 @@ export async function updateChatPinned(
   };
 }
 
+export async function deleteMessage(messageId: string): Promise<SimpleResult> {
+  const sb = await supabaseServer();
+  const { error } = await sb.from("messages").delete().eq("id", messageId);
+
+  if (error) {
+    return {
+      ok: false,
+      error: new Error(error?.message ?? "Unknown error"),
+    };
+  }
+
+  return {
+    ok: true,
+    error: null,
+  };
+}
+
 export async function deleteChat(chatId: string): Promise<SimpleResult> {
   const sb = await supabaseServer();
   const { error } = await sb.from("threads").delete().eq("id", chatId);

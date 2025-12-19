@@ -20,10 +20,17 @@ import {
   getNMessages,
   getConversationSummary,
   upsertMessages,
+  deleteMessage,
+  addMessage,
 } from "@/data/supabase/chat";
 import { Result, SimpleResult } from "@/types";
 import { Thread } from "@/lib/schemas/chat";
 import { getSupabaseUserId } from "@/data/supabase/profiles";
+import {
+  retryWithBackoff,
+  DEFAULT_RETRY_CONFIG,
+  type RetryConfig,
+} from "@/lib/utils";
 
 const logger = createLogger(`util/chat-store.ts`);
 
@@ -75,7 +82,7 @@ export async function loadChat(
 }
 
 /**
- * Saves the chat idempotently
+ * Saves the chat idempotently with retry logic and exponential backoff
  *
  * @param chatId - The ID of the chat to save
  * @param messages - The messages to save
@@ -88,17 +95,129 @@ export async function saveChat({
   chatId: string;
   messages: UIMessage[];
 }): Promise<SimpleResult> {
-  const res = await upsertMessages({ chatId, messages });
+  const retryConfig: RetryConfig = {
+    maxRetries: DEFAULT_RETRY_CONFIG.maxRetries,
+    initialDelayMs: DEFAULT_RETRY_CONFIG.initialDelayMs,
+    maxDelayMs: DEFAULT_RETRY_CONFIG.maxDelayMs,
+    backoffMultiplier: DEFAULT_RETRY_CONFIG.backoffMultiplier,
+    onRetry: (attempt, error, delayMs) => {
+      logger.log(
+        "saveChat",
+        `Attempt ${attempt} failed, retrying in ${delayMs}ms: ${error instanceof Error ? error.message : String(error)}`
+      );
+    },
+  };
 
-  if (res.error || !res.ok) {
+  try {
+    const res = await retryWithBackoff(async () => {
+      const result = await upsertMessages({ chatId, messages });
+
+      // Throw error if the operation failed to trigger retry
+      if (result.error || !result.ok) {
+        throw new Error(result.error?.message ?? "Unknown error saving chat");
+      }
+
+      return result;
+    }, retryConfig);
+
+    logger.log("saveChat", `Chat saved: ${chatId}`);
+    return res;
+  } catch (error) {
+    const errorMessage =
+      error instanceof Error ? error.message : "Unknown error";
     logger.error(
       "saveChat",
-      `Error saving chat: ${res.error?.message ?? "Unknown error"}`
+      `Error saving chat after ${(retryConfig.maxRetries ?? DEFAULT_RETRY_CONFIG.maxRetries) + 1} attempts: ${errorMessage}`
     );
-  }
-  logger.log("saveChat", `Chat saved: ${chatId}`);
 
-  return res;
+    return {
+      ok: false,
+      error: error instanceof Error ? error : new Error(errorMessage),
+    };
+  }
+}
+
+/**
+ * Adds a single message to a chat thread.
+ * @param chatId - The thread/chat ID
+ * @param message - The UIMessage to add
+ * @returns SimpleResult indicating success or failure
+ */
+export async function saveMessage({
+  chatId,
+  message,
+}: {
+  chatId: string;
+  message: UIMessage;
+}): Promise<SimpleResult> {
+  try {
+    // This will upsert/create the thread if it doesn't exist, then insert the message
+    const result = await addMessage(chatId, message);
+    if (!result.ok) {
+      logger.error(
+        "saveMessage",
+        `Failed to save message to thread ${chatId}: ${result.error?.message}`
+      );
+      return {
+        ok: false,
+        error: result.error ?? new Error("Unknown error saving message"),
+      };
+    }
+    logger.log("saveMessage", `Message saved to thread: ${chatId}`);
+    return { ok: true, error: null };
+  } catch (error) {
+    logger.error(
+      "saveMessage",
+      `Error saving message: ${error instanceof Error ? error.message : String(error)}`
+    );
+    return {
+      ok: false,
+      error:
+        error instanceof Error
+          ? error
+          : new Error("Unknown error saving message"),
+    };
+  }
+}
+
+/**
+ * Deletes a specific message by its ID.
+ *
+ * @param messageId - The ID of the message to delete.
+ * @returns A SimpleResult indicating the outcome of the deletion.
+ */
+export async function deleteChatMessage(
+  messageId: string
+): Promise<SimpleResult> {
+  try {
+    const result = await deleteMessage(messageId);
+
+    if (!result.ok) {
+      logger.error(
+        "deleteChatMessage",
+        `Failed to delete message ${messageId}: ${result.error?.message}`
+      );
+      return {
+        ok: false,
+        error: result.error ?? new Error("Unknown error deleting message"),
+      };
+    }
+
+    logger.log("deleteChatMessage", `Message deleted: ${messageId}`);
+    return { ok: true, error: null };
+  } catch (error) {
+    logger.error(
+      "deleteChatMessage",
+      `Error deleting message: ${error instanceof Error ? error.message : String(error)}`
+    );
+    return {
+      ok: false,
+      error:
+        error instanceof Error
+          ? error
+          : new Error("Unknown error deleting message"),
+    };
+  }
 }
 
 /**

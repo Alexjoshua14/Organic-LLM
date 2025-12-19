@@ -7,11 +7,12 @@ import {
   convertToModelMessages,
   TypeValidationError,
   smoothStream,
+  consumeStream,
 } from "ai";
 // import systemPrompt from "@/lib/system-prompt";
 import { auth } from "@clerk/nextjs/server";
 
-import { getContext, saveChat } from "@/lib/chat/chat-store";
+import { deleteChatMessage, getContext, saveChat } from "@/lib/chat/chat-store";
 import { ensureChatHasTitle, updateChatSummary } from "@/lib/llm/chat-helpers";
 import { createLogger } from "@/lib/logger";
 import { SYSTEM_PROMPT } from "@/lib/system-prompt/prompt-v0";
@@ -191,6 +192,7 @@ export async function POST(req: Request) {
     model: openai(selectedModel),
     messages: convertToModelMessages(validatedMessages),
     system: systemPromptForRequest,
+    abortSignal: req.signal,
     experimental_transform: smoothStream({
       delayInMs: 5, // optional: defaults to 10ms
       chunking: "word", // optional: defaults to 'word'
@@ -202,12 +204,13 @@ export async function POST(req: Request) {
   });
 
   // Start consuming stream early to surface errors before returning the response
-  result.consumeStream();
+  // result.consumeStream();
 
   // logger.log("POST", `Result: ${JSON.stringify(result)}`);
 
   return result.toUIMessageStreamResponse({
     originalMessages: validatedMessages,
+    consumeSseStream: consumeStream,
     onError: (error) => {
       logger.error("POST", `UI stream error: ${error}`);
       if (error instanceof Error) {
@@ -219,99 +222,109 @@ export async function POST(req: Request) {
 
       return "An unexpected error occurred";
     },
-    onFinish: async ({ messages }) => {
-      const onFinishStart = performance.now();
-      const streamEndTime = performance.now();
-      const modelGenerationTime = streamEndTime - streamStartTime;
+    onFinish: async ({ messages, isAborted }) => {
+      // Handle abort
+      if (isAborted) {
+        // Remove optimsitcally saved user message
+        logger.log(
+          "POST",
+          `Abort detected: removing optimistically saved user message`
+        );
+        deleteChatMessage(message.id);
+      } else {
+        const onFinishStart = performance.now();
+        const streamEndTime = performance.now();
+        const modelGenerationTime = streamEndTime - streamStartTime;
 
-      const metrics: Record<string, number> = {
-        modelGenerationTimeMs: modelGenerationTime,
-      };
+        const metrics: Record<string, number> = {
+          modelGenerationTimeMs: modelGenerationTime,
+        };
 
-      logger.log(
-        "POST",
-        `Model (${selectedModel}) generated response in ${modelGenerationTime.toFixed(2)}ms (${(modelGenerationTime / 1000).toFixed(2)}s)`
-      );
+        logger.log(
+          "POST",
+          `Model (${selectedModel}) generated response in ${modelGenerationTime.toFixed(2)}ms (${(modelGenerationTime / 1000).toFixed(2)}s)`
+        );
 
-      try {
-        const { result: saveResult, durationMs: saveChatMs } =
-          await measureAsync(() => saveChat({ chatId: id, messages }));
-        metrics.saveChatMs = saveChatMs;
+        try {
+          const { result: saveResult, durationMs: saveChatMs } =
+            await measureAsync(() => saveChat({ chatId: id, messages }));
+          metrics.saveChatMs = saveChatMs;
 
-        if (saveResult.error) {
-          logger.error(
-            "POST",
-            `Error saving chat: ${saveResult.error.message}`
-          );
-
-          return; // Don't continue if save fails
-        }
-
-        let ensureChatHasTitleMs: number | undefined;
-
-        if (messages.length > 3 && messages.length < 5) {
-          const { result: titleResult, durationMs } = await measureAsync(() =>
-            ensureChatHasTitle(id)
-          );
-          ensureChatHasTitleMs = durationMs;
-
-          if (titleResult.error) {
+          if (saveResult.error) {
             logger.error(
               "POST",
-              `Error ensuring chat has title: ${titleResult.error.message}`
+              `Error saving chat: ${saveResult.error.message}`
+            );
+
+            return; // Don't continue if save fails
+          }
+
+          let ensureChatHasTitleMs: number | undefined;
+
+          if (messages.length > 3 && messages.length < 5) {
+            const { result: titleResult, durationMs } = await measureAsync(() =>
+              ensureChatHasTitle(id)
+            );
+            ensureChatHasTitleMs = durationMs;
+
+            if (titleResult.error) {
+              logger.error(
+                "POST",
+                `Error ensuring chat has title: ${titleResult.error.message}`
+              );
+            }
+          }
+
+          const userMessage = message;
+          const aiResponse = messages[messages.length - 1];
+
+          if (!aiResponse) {
+            logger.error(
+              "POST",
+              "No AI response found in messages; skipping post-processing"
+            );
+            return;
+          }
+
+          const promises: Promise<any>[] = [];
+
+          const updateChatSummaryPromise = measureAsync(() =>
+            updateChatSummary(id)
+          );
+          promises.push(updateChatSummaryPromise);
+          if (memoryEnabled) {
+            const addLatestMessagesToMemoryPromise = measureAsync(() =>
+              addLatestMessagesToMemory([userMessage, aiResponse], sbUserId)
+            );
+            promises.push(addLatestMessagesToMemoryPromise);
+          }
+
+          const [
+            { result: updateSummaryResult, durationMs: updateChatSummaryMs },
+            { durationMs: addMemoryMs },
+          ] = await Promise.all(promises);
+
+          metrics.updateChatSummaryMs = updateChatSummaryMs;
+          if (memoryEnabled) {
+            metrics.addLatestMessagesToMemoryMs = addMemoryMs;
+          }
+
+          if (updateSummaryResult?.error) {
+            logger.error(
+              "POST",
+              `Error updating chat summary: ${updateSummaryResult.error}`
             );
           }
+
+          metrics.onFinishTotalMs = performance.now() - onFinishStart;
+          if (ensureChatHasTitleMs !== undefined) {
+            metrics.ensureChatHasTitleMs = ensureChatHasTitleMs;
+          }
+
+          logger.log("POST", `onFinish metrics: ${JSON.stringify(metrics)}`);
+        } catch (err) {
+          logger.error("POST", `Error in onFinish callback: ${err}`);
         }
-
-        const userMessage = message;
-        const aiResponse = messages[messages.length - 1];
-
-        if (!aiResponse) {
-          logger.error(
-            "POST",
-            "No AI response found in messages; skipping post-processing"
-          );
-          return;
-        }
-
-        const promises: Promise<any>[] = [];
-
-        const updateChatSummaryPromise = measureAsync(() =>
-          updateChatSummary(id)
-        );
-        promises.push(updateChatSummaryPromise);
-        if (memoryEnabled) {
-          const addLatestMessagesToMemoryPromise = measureAsync(() =>
-            addLatestMessagesToMemory([userMessage, aiResponse], sbUserId)
-          );
-          promises.push(addLatestMessagesToMemoryPromise);
-        }
-
-        const [
-          { result: updateSummaryResult, durationMs: updateChatSummaryMs },
-          { durationMs: addMemoryMs },
-        ] = await Promise.all(promises);
-
-        metrics.updateChatSummaryMs = updateChatSummaryMs;
-        if (memoryEnabled) {
-          metrics.addLatestMessagesToMemoryMs = addMemoryMs;
-        }
-
-        if (updateSummaryResult?.error) {
-          logger.error(
-            "POST",
-            `Error updating chat summary: ${updateSummaryResult.error}`
-          );
-        }
-
-        metrics.onFinishTotalMs = performance.now() - onFinishStart;
-        if (ensureChatHasTitleMs !== undefined) {
-          metrics.ensureChatHasTitleMs = ensureChatHasTitleMs;
-        }
-
-        logger.log("POST", `onFinish metrics: ${JSON.stringify(metrics)}`);
-      } catch (err) {
-        logger.error("POST", `Error in onFinish callback: ${err}`);
       }
     },
     generateMessageId: () => randomUUID(),
