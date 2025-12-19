@@ -321,7 +321,8 @@ export async function getMessages(
 
 export async function getNMessages(
   chatId: string,
-  limit?: number
+  limit?: number,
+  debug?: boolean
 ): Promise<Result<UIMessage[], string>> {
   if (limit === 0) {
     return {
@@ -357,19 +358,21 @@ export async function getNMessages(
       logger.error("getNMessages", "A message was not converted to UIMessage");
     }
 
-    logger.log(
-      "getNMessages",
-      uiMessages
-        .map((m, idx) => {
-          const text = m.parts
-            .filter((p) => p.type === "text")
-            .map((p) => p.text)
-            .join(" ");
-          const trimmed = text.length > 40 ? text.slice(0, 40) + "..." : text;
-          return `${idx}: ${trimmed}`;
-        })
-        .join("\n")
-    );
+    if (debug) {
+      logger.log(
+        "getNMessages",
+        uiMessages
+          .map((m, idx) => {
+            const text = m.parts
+              .filter((p) => p.type === "text")
+              .map((p) => p.text)
+              .join(" ");
+            const trimmed = text.length > 40 ? text.slice(0, 40) + "..." : text;
+            return `${idx}: ${trimmed}`;
+          })
+          .join("\n")
+      );
+    }
 
     return {
       data: uiMessages,

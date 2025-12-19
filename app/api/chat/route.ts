@@ -124,6 +124,18 @@ export async function POST(req: Request) {
 
   logger.log("POST", `Recieved Message: ${JSON.stringify(message)}`);
 
+  // Save the user message
+  try {
+    await saveChat({
+      chatId: id,
+      messages: [message], // Just the user's message
+    });
+    logger.log("POST", "User message saved optimistically");
+  } catch (err) {
+    logger.error("POST", `Failed to save user message optimistically: ${err}`);
+    // Continue anyway - onFinish will try to save again
+  }
+
   let validatedMessages: UIMessage[];
   let systemPromptForRequest = SYSTEM_PROMPT;
 
