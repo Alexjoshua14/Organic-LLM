@@ -66,7 +66,7 @@ export const Chat: React.FC<ChatProps> = ({
   const handleStop = useCallback(async () => {
     // Remove the latest user message and partially completed AI message from messages
     // Remove the latest user message and any partially completed AI response
-    stop()
+    stop();
     setMessages((prevMessages) => {
       // Find the last user message
       const lastUserIndex = [...prevMessages]
