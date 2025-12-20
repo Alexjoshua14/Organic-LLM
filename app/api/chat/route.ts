@@ -191,16 +191,10 @@ export async function POST(req: Request) {
   const streamStartTime = performance.now();
 
   const result = streamText({
-<<<<<<< HEAD
     model: openai(selectedModel),
     messages: convertToModelMessages(validatedMessages),
     system: systemPromptForRequest,
     abortSignal: req.signal,
-=======
-    model: openai(CHAT_MODEL.name),
-    messages: convertToModelMessages(validatedMessages),
-    system: systemPromptForRequest,
->>>>>>> 518f64f (Clean up chat route.ts)
     experimental_transform: smoothStream({
       delayInMs: 5, // optional: defaults to 10ms
       chunking: "word", // optional: defaults to 'word'
@@ -208,30 +202,21 @@ export async function POST(req: Request) {
     maxOutputTokens: CHAT_MODEL.maxOutputTokens, // Cap output for dev guardrails
     onError({ error }) {
       logger.error("POST", `Stream error: ${error}`);
-<<<<<<< HEAD
     },
     tools: {
       search_memories: createMemorySearchTool(sbUserId),
-=======
->>>>>>> 518f64f (Clean up chat route.ts)
     },
+    stopWhen: stepCountIs(2),
   });
 
   // Start consuming stream early to surface errors before returning the response
-<<<<<<< HEAD
   // result.consumeStream();
-=======
-  result.consumeStream();
->>>>>>> 518f64f (Clean up chat route.ts)
 
   // logger.log("POST", `Result: ${JSON.stringify(result)}`);
 
   return result.toUIMessageStreamResponse({
     originalMessages: validatedMessages,
-<<<<<<< HEAD
     consumeSseStream: consumeStream,
-=======
->>>>>>> 518f64f (Clean up chat route.ts)
     onError: (error) => {
       logger.error("POST", `UI stream error: ${error}`);
       if (error instanceof Error) {
@@ -240,20 +225,6 @@ export async function POST(req: Request) {
       if (typeof error === "string") {
         return error;
       }
-<<<<<<< HEAD
-=======
-
-      return "An unexpected error occurred";
-    },
-    onFinish: async ({ messages }) => {
-      const onFinishStart = performance.now();
-      const metrics: Record<string, number> = {};
-
-      try {
-        const { result: saveResult, durationMs: saveChatMs } =
-          await measureAsync(() => saveChat({ chatId: id, messages }));
-        metrics.saveChatMs = saveChatMs;
->>>>>>> 518f64f (Clean up chat route.ts)
 
       return "An unexpected error occurred";
     },
@@ -360,70 +331,6 @@ export async function POST(req: Request) {
         } catch (err) {
           logger.error("POST", `Error in onFinish callback: ${err}`);
         }
-<<<<<<< HEAD
-=======
-
-        let ensureChatHasTitleMs: number | undefined;
-
-        if (messages.length > 3 && messages.length < 5) {
-          const { result: titleResult, durationMs } = await measureAsync(() =>
-            ensureChatHasTitle(id)
-          );
-          ensureChatHasTitleMs = durationMs;
-
-          if (titleResult.error) {
-            logger.error(
-              "POST",
-              `Error ensuring chat has title: ${titleResult.error.message}`
-            );
-          }
-        }
-
-        const userMessage = message;
-        const aiResponse = messages[messages.length - 1];
-
-        if (!aiResponse) {
-          logger.error(
-            "POST",
-            "No AI response found in messages; skipping post-processing"
-          );
-          return;
-        }
-
-        const updateChatSummaryPromise = measureAsync(() =>
-          updateChatSummary(id)
-        );
-        const addLatestMessagesToMemoryPromise = measureAsync(() =>
-          addLatestMessagesToMemory([userMessage, aiResponse], sbUserId)
-        );
-
-        const [
-          { result: updateSummaryResult, durationMs: updateChatSummaryMs },
-          { durationMs: addMemoryMs },
-        ] = await Promise.all([
-          updateChatSummaryPromise,
-          addLatestMessagesToMemoryPromise,
-        ]);
-
-        metrics.updateChatSummaryMs = updateChatSummaryMs;
-        metrics.addLatestMessagesToMemoryMs = addMemoryMs;
-
-        if (updateSummaryResult?.error) {
-          logger.error(
-            "POST",
-            `Error updating chat summary: ${updateSummaryResult.error}`
-          );
-        }
-
-        metrics.onFinishTotalMs = performance.now() - onFinishStart;
-        if (ensureChatHasTitleMs !== undefined) {
-          metrics.ensureChatHasTitleMs = ensureChatHasTitleMs;
-        }
-
-        logger.log("POST", `onFinish metrics: ${JSON.stringify(metrics)}`);
-      } catch (err) {
-        logger.error("POST", `Error in onFinish callback: ${err}`);
->>>>>>> 518f64f (Clean up chat route.ts)
       }
     },
     generateMessageId: () => randomUUID(),
