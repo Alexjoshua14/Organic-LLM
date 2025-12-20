@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useCallback, KeyboardEvent } from "react";
+import { PressEvent } from "@heroui/button";
 
 import { UnifiedChatInput } from "@/components/chat/unified-chat-input";
 
@@ -21,8 +22,10 @@ export function RabbitHolePromptBar({
   const [error, setError] = useState(false);
 
   const handleSubmit = useCallback(
-    (e?: React.FormEvent) => {
-      e?.preventDefault();
+    (e?: React.FormEvent | PressEvent) => {
+      if (e && "preventDefault" in e) {
+        e.preventDefault();
+      }
       if (input.trim().length === 0) {
         setError(true);
         return;
