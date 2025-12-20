@@ -168,17 +168,24 @@ export const UnifiedChatInput: React.FC<UnifiedChatInputProps> = ({
                 </Button>
               </div>
             </div>
-            {!isMobile ? (
-              <div className="flex items-center justify-between gap-3">
-                <div className="flex items-center gap-2">
-                  {showModelSelector ? (
+            {showModelSelector ? (
+              isMobile ? (
+                <div className="flex items-center justify-between gap-2 pt-1">
+                  <ModelSelector
+                    selectedModel={selectedModel}
+                    handleModelSelection={onModelChange}
+                  />
+                </div>
+              ) : (
+                <div className="flex items-center justify-between gap-3">
+                  <div className="flex items-center gap-2">
                     <ModelSelector
                       selectedModel={selectedModel}
                       handleModelSelection={onModelChange}
                     />
-                  ) : null}
+                  </div>
                 </div>
-              </div>
+              )
             ) : null}
           </div>
         </form>

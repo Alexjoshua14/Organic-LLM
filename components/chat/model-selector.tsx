@@ -51,17 +51,23 @@ export const ModelSelector: React.FC<ModelSelectorProps> = ({ selectedModel, han
   };
 
   return (
-    <Select
-      className={`w-20 sm:w-24 lg:w-32 text-foreground ${glass()} rounded-xl`}
-      classNames={{
-        trigger: "!border-white/25 border-t-1 border-x-1.5 border-b-1.5",
-      }}
-      items={availableModels}
-      selectedKeys={[selectedModel]}
-      variant="bordered"
-      onChange={handleSelectedModelChange}
-    >
-      {(model) => <SelectItem>{model.label}</SelectItem>}
-    </Select>
+    <div className="sm:w-48">
+      <Select
+        style={{ minWidth: "12rem" }}
+        className={`sm:w-48 lg:sm:w-48 text-foreground ${glass()} rounded-xl`}
+        classNames={{
+          trigger:
+            "!border-white/25 border-t-1 border-x-1.5 border-b-1.5 min-sm:w-48",
+          listbox: "min-sm:w-48",
+          popoverContent: "min-sm:w-48",
+        }}
+        items={availableModels}
+        selectedKeys={[selectedModel]}
+        variant="bordered"
+        onChange={handleSelectedModelChange}
+      >
+        {(model) => <SelectItem>{model.label}</SelectItem>}
+      </Select>
+    </div>
   );
 };
