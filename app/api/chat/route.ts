@@ -127,6 +127,7 @@ export async function POST(req: Request) {
 
   // Save the user message
   try {
+    // TODO: Make this async and nonblocking
     await saveChat({
       chatId: id,
       messages: [message], // Just the user's message
