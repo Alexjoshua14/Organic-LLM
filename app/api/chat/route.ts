@@ -292,33 +292,24 @@ export async function POST(req: Request) {
             return;
           }
 
-          const promises: Promise<any>[] = [];
-
-          const updateChatSummaryPromise = measureAsync(() =>
+          const updateSummaryResult = await measureAsync(() =>
             updateChatSummary(id)
           );
-          promises.push(updateChatSummaryPromise);
+          metrics.updateChatSummaryMs = updateSummaryResult.durationMs;
+
+          let addMemoryMs: number | undefined;
           if (memoryEnabled) {
-            const addLatestMessagesToMemoryPromise = measureAsync(() =>
+            const addMemoryResult = await measureAsync(() =>
               addLatestMessagesToMemory([userMessage, aiResponse], sbUserId)
             );
-            promises.push(addLatestMessagesToMemoryPromise);
-          }
-
-          const [
-            { result: updateSummaryResult, durationMs: updateChatSummaryMs },
-            { durationMs: addMemoryMs },
-          ] = await Promise.all(promises);
-
-          metrics.updateChatSummaryMs = updateChatSummaryMs;
-          if (memoryEnabled) {
+            addMemoryMs = addMemoryResult.durationMs;
             metrics.addLatestMessagesToMemoryMs = addMemoryMs;
           }
 
-          if (updateSummaryResult?.error) {
+          if (updateSummaryResult.result?.error) {
             logger.error(
               "POST",
-              `Error updating chat summary: ${updateSummaryResult.error}`
+              `Error updating chat summary: ${updateSummaryResult.result.error}`
             );
           }
 
