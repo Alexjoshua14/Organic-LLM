@@ -1,0 +1,40 @@
+/* RippleText CSS Animations - GPU-accelerated character reveal */
+
+@keyframes ripple-reveal {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes ripple-highlight {
+  0% {
+    color: var(--ripple-highlight-color, var(--destructive));
+  }
+  100% {
+    color: inherit;
+  }
+}
+
+.ripple-character {
+  opacity: 0;
+  /* Reserve space even when hidden to prevent layout shift */
+  visibility: hidden;
+}
+
+.ripple-character.revealed {
+  visibility: visible;
+  animation: ripple-reveal 0.05s forwards;
+  animation-delay: calc(var(--ripple-char-index, 0) * var(--ripple-speed, 5ms));
+}
+
+.ripple-character.highlighted {
+  color: var(--ripple-highlight-color, var(--destructive));
+  animation:
+    ripple-reveal 0.05s forwards,
+    ripple-highlight var(--ripple-transition-duration, 150ms) ease-out
+      var(--ripple-transition-delay, 0ms) forwards;
+  animation-delay: calc(var(--ripple-char-index, 0) * var(--ripple-speed, 5ms));
+}
