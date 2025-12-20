@@ -21,16 +21,17 @@ import {
   SidebarHeader,
   SidebarMenuButton,
 } from "@/components/third-party/ui/sidebar";
+import { SidebarProjectLink } from "./sidebar-project-link";
 
 export function Sidebar() {
   return (
     <ShadcnSidebar>
       <SidebarHeader className="h-12 pl-7 grid place-content-center bg-background-secondary subpixel-antialiased">
         <Link
-          className="group/brand cursor-pointer active:scale-95 transition-transform duration-150"
+          className="group/brand cursor-pointer active:scale-95 transition-transform duration-150 font-commissioner"
           href="/"
         >
-          <h1 className="font-bold tracking-tight text-lg bg-gradient-to-tl from-foreground-secondary to-foreground text-transparent bg-clip-text group-hover/brand:from-foreground duration-300 transition-colors">
+          <h1 className="font-medium tracking-tight text-lg bg-gradient-to-tl from-foreground-secondary to-foreground text-transparent bg-clip-text group-hover/brand:from-foreground duration-300 transition-colors">
             Organic LLM
           </h1>
         </Link>
@@ -52,8 +53,9 @@ export function Sidebar() {
         <SignedIn>
           <>
             <SidebarGroup>
-              <SidebarGroupContent>
+              <SidebarGroupContent className="flex flex-col gap-3">
                 <SidebarNewChat />
+                <SidebarProjectLink href="/rabbitholes/browse" title="Rabbit Holes" tooltip="Browse rabbit holes" />
                 <Input
                   classNames={{
                     input: ["bg-transparent", "hover:bg-transparent"],
