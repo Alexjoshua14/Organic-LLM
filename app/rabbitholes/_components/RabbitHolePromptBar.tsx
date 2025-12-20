@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, KeyboardEvent } from "react";
+import { useState, useCallback, KeyboardEvent, useRef } from "react";
 import { PressEvent } from "@heroui/button";
 
 import { UnifiedChatInput } from "@/components/chat/unified-chat-input";
@@ -18,7 +18,7 @@ export function RabbitHolePromptBar({
   hasSession,
   isLoading,
 }: RabbitHolePromptBarProps) {
-  const [input, setInput] = useState("");
+  const input = useRef("")
   const [error, setError] = useState(false);
 
   const handleSubmit = useCallback(
@@ -26,22 +26,22 @@ export function RabbitHolePromptBar({
       if (e && "preventDefault" in e) {
         e.preventDefault();
       }
-      if (input.trim().length === 0) {
+      if (input.current.trim().length === 0) {
         setError(true);
         return;
       }
       setError(false);
-      onStart(input.trim());
-      setInput("");
+      onStart(input.current.trim());
+      input.current = "";
     },
     [input, onStart],
   );
 
   return (
     <UnifiedChatInput
-      value={input}
+      value={input.current}
       onValueChange={(v) => {
-        setInput(v);
+        input.current = v
         if (error && v.trim().length > 0) {
           setError(false);
         }
