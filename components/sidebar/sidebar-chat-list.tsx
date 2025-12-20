@@ -62,6 +62,10 @@ export const SidebarChatList: FC<SidebarChatListProps> = ({ threads }) => {
     return false;
   }
 
+
+  /**
+   * TODO: Correct cursor pointer
+   */
   return (
     <SidebarGroupContent>
       <SidebarMenu>
@@ -71,7 +75,7 @@ export const SidebarChatList: FC<SidebarChatListProps> = ({ threads }) => {
               <Link
                 about={`Open ${thread.title}`}
                 aria-label={`Open ${thread.title}`}
-                className={`font-medium text-sm w-full rounded hover:bg-background px-3 transition-colors duration-150 group/thread overflow-hidden`}
+                className={`font-extralight text-sm w-full rounded hover:bg-background px-3 transition-colors duration-150 group/thread overflow-hidden`}
                 href={`/chat/${thread.id}`}
                 prefetch={shouldPrefetch(thread)}
                 onClick={() => {

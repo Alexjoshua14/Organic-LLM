@@ -6,7 +6,7 @@ import { ClerkProvider } from "@clerk/nextjs";
 import { Providers } from "./providers";
 
 import { siteConfig } from "@/config/site";
-import { fontSans } from "@/config/fonts";
+import { fontInter, fontSatoshi, fontCommissioner } from "@/config/fonts";
 import { ControlCluster } from "@/components/layout/countrol-cluster";
 import {
   SidebarProvider,
@@ -41,12 +41,14 @@ export default function RootLayout({
 }) {
   return (
     <ClerkProvider>
-      <html suppressHydrationWarning lang="en">
+      <html suppressHydrationWarning lang="en" className="h-full overflow-hidden">
         <head />
         <body
           className={clsx(
-            "min-h-dvh text-foreground bg-background font-sans antialiased max-w-dvw overflow-x-hidden",
-            fontSans.variable,
+            "h-dvh text-foreground bg-background font-sans antialiased max-w-dvw overflow-hidden",
+            fontInter.variable,
+            fontSatoshi.variable,
+            fontCommissioner.variable,
           )}
         >
           <Providers
@@ -56,8 +58,8 @@ export default function RootLayout({
               <SidebarProvider>
                 <Sidebar />
                 <ControlCluster />
-                <main className="pt-4 grow w-full overflow-x-hidden bg-background sm:bg-background-secondary">
-                  <SidebarTrigger className="absolute top-3 left-3 z-20" />
+                <main className="pt-4 grow w-full overflow-hidden bg-background sm:bg-background-secondary h-full">
+                  <SidebarTrigger className="absolute top-4 left-4 z-20" />
                   {children}
                 </main>
               </SidebarProvider>
