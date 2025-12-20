@@ -31,17 +31,14 @@ export function RippleText({
   speed = 5,
 }: RippleTextProps) {
   const prevTextLengthRef = useRef(0);
-  const [revealedLength, setRevealedLength] = useState(0);
   const [animationKey, setAnimationKey] = useState(0);
 
   // Reset and start animation when latestMessage becomes true
   useEffect(() => {
     if (latestMessage) {
-      setRevealedLength(text.length);
       setAnimationKey(prev => prev + 1); // Force re-animation
       prevTextLengthRef.current = text.length;
     } else {
-      setRevealedLength(0);
       prevTextLengthRef.current = 0;
     }
   }, [latestMessage, text.length]);
@@ -70,7 +67,7 @@ export function RippleText({
       }}
     >
       {characters.map((char, idx) => {
-        const isRevealed = latestMessage && idx < revealedLength;
+        const isRevealed = latestMessage && idx < text.length;
         const isHighlighted = latestMessage &&
           highlightStart !== null &&
           idx >= highlightStart &&

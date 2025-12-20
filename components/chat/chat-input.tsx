@@ -5,7 +5,7 @@ import { useChat } from "@ai-sdk/react";
 import { useSidebar } from "../third-party/ui/sidebar";
 
 import { UnifiedChatInput } from "./unified-chat-input";
-import { ChatModelType, DEFAULT_CHAT_MODEL } from "@/lib/schemas/chat";
+import { ChatModelType } from "@/lib/schemas/chat";
 
 type ChatInputProps = {
   id: string;

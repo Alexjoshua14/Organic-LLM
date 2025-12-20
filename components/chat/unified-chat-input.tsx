@@ -190,7 +190,7 @@ export const UnifiedChatInput: React.FC<UnifiedChatInputProps> = ({
           </div>
         </form>
       </div>
-      {shouldShowEffects ? <KeypressEffect effect={keypressEffect} /> : null}
+      {/* {shouldShowEffects ? <KeypressEffect effect={keypressEffect} /> : null} */}
     </div>
   );
 };

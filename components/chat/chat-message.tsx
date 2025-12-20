@@ -91,7 +91,8 @@ const UserMessage: FC<ChatMessageProps> = ({ message }) => {
         {message.parts.map((part, i) => {
           switch (part.type) {
             case "text":
-              return <RippleText latestMessage={true} key={`${message.id}-${i}`} text={part.text} />;
+              // return <RippleText latestMessage={true} key={`${message.id}-${i}`} text={part.text} />;
+              return <p key={`${message.id}-${i}`}>{part.text}</p>
           }
         })}
       </div>
