@@ -32,7 +32,7 @@ export const ChatInput: React.FC<ChatInputProps> = ({
   const lastSentMessageRef = useRef<string>("");
 
   const handleSendMessage = useCallback(
-    async (_e: React.FormEvent | PressEvent): Promise<void> => {
+    async (_e?: React.FormEvent | PressEvent): Promise<void> => {
       if (input.trim().length === 0) {
         setError(true);
 

@@ -53,7 +53,7 @@ export const UnifiedChatInput: React.FC<UnifiedChatInputProps> = ({
   onModelChange,
   hasSession,
   onReset,
-  enableKeypressEffects = true,
+  enableKeypressEffects = false,
   isMobile = false,
   className = "",
   widthState,
