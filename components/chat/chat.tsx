@@ -26,21 +26,13 @@ type ChatProps = {
 
 export const Chat: React.FC<ChatProps> = ({
   chatData,
-  initialMessage,
   endpoint,
   persona,
 }) => {
 
-  const { setChatId } = useSharedChatContext();
   const selectedModelRef = useRef<ChatModel>(DEFAULT_CHAT_MODEL);
-
-  useEffect(() => {
-    setChatId(chatData?.thread.id ?? "");
-
-    return () => {
-      setChatId("");
-    };
-  }, [chatData]);
+  const useWebSearchRef = useRef<boolean>(false);
+  const useMemoriesRef = useRef<boolean>(true);
 
   const { messages, sendMessage, id, stop, status, setMessages } = useChat({
     id: chatData?.thread.id ?? "",
@@ -48,13 +40,17 @@ export const Chat: React.FC<ChatProps> = ({
     transport: new DefaultChatTransport({
       api: endpoint ?? `/api/chat/${persona ?? ""}`,
       prepareSendMessagesRequest({ messages, id }) {
-        return {
+        const req = {
           body: {
             message: messages[messages.length - 1],
             id,
             model: selectedModelRef.current,
+            webSearch: useWebSearchRef.current,
+            memory: useMemoriesRef.current,
           },
-        };
+        }
+        console.log(`Request being sent: ${JSON.stringify(req, null, 2)}`)
+        return req;
       },
     }),
     onToolCall({ toolCall }) {
@@ -102,7 +98,14 @@ export const Chat: React.FC<ChatProps> = ({
     >
       <ChatThread messages={messages} />
       <ChatScrollButton />
-      <NewChatInput />
+      <NewChatInput
+        modelRef={selectedModelRef}
+        useWebSearchRef={useWebSearchRef}
+        useMemoriesRef={useMemoriesRef}
+        sendMessage={sendMessage}
+        stop={handleStop}
+        status={status}
+      />
       {/* <ChatInput
         id={id}
         sendMessage={sendMessage}

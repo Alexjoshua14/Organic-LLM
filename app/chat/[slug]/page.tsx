@@ -7,6 +7,7 @@ import { generateChatTitle } from "@/lib/llm/chat-helpers";
 import { getNMessages, updateChatTitle } from "@/data/supabase/chat";
 import { Thread } from "@/lib/schemas/chat";
 import { createLogger } from "@/lib/logger";
+import { useSharedChatContext } from "@/lib/context/chat-context";
 
 const logger = createLogger(`app/chat/[slug]/page.tsx`);
 
@@ -16,8 +17,6 @@ export default async function ChatPage({
   params: Promise<{ slug: string }>;
 }) {
   const { slug: chatId } = await params;
-
-  // const initialMessage = "Are white holes real?";
 
   const id = chatId;
 
@@ -35,15 +34,6 @@ export default async function ChatPage({
     logger.log("test", "Hey")
     getNMessages(chatId, 5)
 
-    // if (chatData.thread.title === null && chatData.messages.length > 3) {
-    //   const titleRes = await generateChatTitle(id);
-
-    //   if (titleRes.error) {
-    //     throw titleRes.error;
-    //   }
-    //   chatData.thread.title = titleRes.data;
-    //   await updateChatTitle(id, titleRes.data ?? "");
-    // }
   } catch (err) {
     logger.error("ChatPage", `Error while loading chat: ${err}`);
     return <div>Chat creation failed</div>;
