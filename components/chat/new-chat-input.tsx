@@ -1,45 +1,76 @@
-'use clietn'
+'use client'
 
-import { ChangeEventHandler, FormEvent, useCallback, useRef, useState } from 'react'
-import { PromptInput, PromptInputHeader, PromptInputAttachments, PromptInputAttachment, PromptInputBody, PromptInputMessage, PromptInputTextarea, PromptInputTools, PromptInputActionAddAttachments, PromptInputActionMenu, PromptInputActionMenuContent, PromptInputActionMenuTrigger, PromptInputButton, PromptInputFooter, PromptInputSelect, PromptInputSelectContent, PromptInputSelectItem, PromptInputSelectTrigger, PromptInputSelectValue, PromptInputSpeechButton, PromptInputSubmit } from "../ai-elements/prompt-input";
-import { useSharedChatContext } from '@/lib/context/chat-context';
+import { ChangeEventHandler, FormEvent, useCallback, useEffect, useRef, useState } from 'react'
+import {
+  PromptInput,
+  PromptInputHeader,
+  PromptInputAttachments,
+  PromptInputAttachment,
+  PromptInputBody,
+  PromptInputMessage,
+  PromptInputTextarea,
+  PromptInputTools,
+  PromptInputActionAddAttachments,
+  PromptInputActionMenu,
+  PromptInputActionMenuContent,
+  PromptInputActionMenuTrigger,
+  PromptInputButton,
+  PromptInputFooter,
+  PromptInputSelect,
+  PromptInputSelectContent,
+  PromptInputSelectItem,
+  PromptInputSelectTrigger,
+  PromptInputSelectValue,
+  PromptInputSpeechButton,
+  PromptInputSubmit
+} from "../ai-elements/prompt-input";
 import { useChat } from '@ai-sdk/react';
 import { BrainCircuit, GlobeIcon } from 'lucide-react';
-import { ChatModels } from "@/lib/schemas/chat";
-import { DefaultChatTransport } from 'ai';
+import { ChatModel, ChatModels, DEFAULT_CHAT_MODEL } from "@/lib/schemas/chat";
 
 
 type NewChatInputProps = {
-
+  modelRef: React.RefObject<ChatModel>,
+  useWebSearchRef: React.RefObject<boolean>,
+  useMemoriesRef: React.RefObject<boolean>,
+  sendMessage: ReturnType<typeof useChat>["sendMessage"],
+  stop: ReturnType<typeof useChat>["stop"],
+  status: ReturnType<typeof useChat>["status"],
 };
 
 export const NewChatInput: React.FC<NewChatInputProps> = ({
-
+  modelRef,
+  useWebSearchRef,
+  useMemoriesRef,
+  sendMessage,
+  stop,
+  status,
 }) => {
 
   const [text, setText] = useState<string>('');
-  const [model, setModel] = useState<string>();
+  const [model, setModel] = useState<ChatModel>(DEFAULT_CHAT_MODEL);
   const [useWebSearch, setUseWebSearch] = useState<boolean>(false);
   const [useMemories, setUseMemories] = useState<boolean>(true);
-  const [inputError, setError] = useState<boolean>(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
-  const chat = useSharedChatContext()
+  // Set refs when any of the values change, so they are current for next send
+  useEffect(() => {
+    if (modelRef && modelRef.current !== model) {
+      modelRef.current = model;
+    }
+  }, [model, modelRef]);
 
-  const { sendMessage, stop, status, error, setMessages } = useChat({
-    id: chat.chatId,
-    transport: new DefaultChatTransport({
-      prepareSendMessagesRequest({ messages, id }) {
-        return {
-          body: {
-            message: messages[messages.length - 1],
-            id,
-            model: model
-          },
-        };
-      },
-    }),
-  })
+  useEffect(() => {
+    if (useWebSearchRef && useWebSearchRef.current !== useWebSearch) {
+      useWebSearchRef.current = useWebSearch;
+    }
+  }, [useWebSearch, useWebSearchRef]);
+
+  useEffect(() => {
+    if (useMemoriesRef && useMemoriesRef.current !== useMemories) {
+      useMemoriesRef.current = useMemories;
+    }
+  }, [useMemories, useMemoriesRef]);
 
 
   const handleSubmit = (message: PromptInputMessage, event: FormEvent<HTMLFormElement>) => {
@@ -48,50 +79,30 @@ export const NewChatInput: React.FC<NewChatInputProps> = ({
     const hasAttachments = Boolean(message.files?.length);
 
     if (!(hasText || hasAttachments)) {
-      setError(true)
       return;
     }
 
-    sendMessage(
-      {
-        text: message.text || 'Sent with attachments',
-        files: message.files
-      },
-      {
-        body: {
-          model: model,
-          webSearch: useWebSearch,
-          useMemories: useMemories,
-        },
-      },
-    );
+    sendMessage({
+      text: message.text || 'Sent with attachments',
+      files: message.files
+    });
     setText('');
   };
 
+  const handleModelSelection = (id: string) => {
+    // Find the model object from ChatModels array with matching id
+    const selectedModel = ChatModels.find((modelObj) => modelObj.id === id);
+
+    if (selectedModel)
+      setModel(selectedModel)
+  }
+
   const handleInputChange: ChangeEventHandler<HTMLTextAreaElement> = useCallback((e) => {
     setText(e.target.value);
-    if (error && e.target.value.trim().length > 0) {
-      setError(false);
-    }
   }, []);
 
-
-
-  /**
-   * Handle certain keyboard events:
-   *  1. Send message on `Enter`
-   */
-  // const handleKeyDown: KeyboardEventHandler<HTMLTextAreaElement> = useCallback(
-  //   (e) => {
-  //     if (e.key === "Enter" && !e.shiftKey) {
-  //       e.preventDefault();
-  //       handleSubmit();
-  //     }
-  //   }, []
-  // )
-
   return (
-    <PromptInput onSubmit={handleSubmit} globalDrop multiple>
+    <PromptInput onSubmit={handleSubmit} globalDrop multiple className="max-w-xl md:max-w-2xl">
       <PromptInputHeader>
         <PromptInputAttachments>
           {(attachment) => <PromptInputAttachment data={attachment} />}
@@ -130,15 +141,15 @@ export const NewChatInput: React.FC<NewChatInputProps> = ({
             <span>Memory</span>
           </PromptInputButton>
           <PromptInputSelect
-            onValueChange={(value) => {
-              setModel(value);
-            }}
-            value={model}
+            defaultValue={DEFAULT_CHAT_MODEL.id}
+            onValueChange={handleModelSelection}
+            value={model.id}
+            required
           >
             <PromptInputSelectTrigger>
               <PromptInputSelectValue />
             </PromptInputSelectTrigger>
-            <PromptInputSelectContent>
+            <PromptInputSelectContent defaultValue={DEFAULT_CHAT_MODEL.id}>
               {ChatModels.map((model) => (
                 <PromptInputSelectItem key={model.id} value={model.id}>
                   {model.name}

@@ -48,11 +48,11 @@ const CHAT_MODEL = {
  * @param model - Optional model string to validate
  * @returns Validated chat model
  */
-function getChatModel(model?: string): ChatModel {
+function getChatModel(model?: ChatModel): ChatModel {
   if (!model) {
     logger.log(
       "getChatModel",
-      `No model provided, using default: ${DEFAULT_CHAT_MODEL}`
+      `No model provided, using default: ${DEFAULT_CHAT_MODEL.name}`
     );
     return DEFAULT_CHAT_MODEL;
   }
@@ -61,7 +61,7 @@ function getChatModel(model?: string): ChatModel {
   if (!parseResult.success) {
     logger.error(
       "getChatModel",
-      `Invalid model "${model}", falling back to default: ${DEFAULT_CHAT_MODEL}`
+      `Invalid model "${model}", falling back to default: ${DEFAULT_CHAT_MODEL.name}`
     );
     return DEFAULT_CHAT_MODEL;
   }
@@ -97,7 +97,7 @@ export async function POST(req: Request) {
 
   logger.log(
     "POST",
-    `Model selection - Requested: ${requestedModel ?? "none"}, Using: ${selectedModel}`
+    `Model selection - Requested: ${JSON.stringify(requestedModel) ?? "none"}, Using: ${JSON.stringify(selectedModel)}`
   );
 
   if (!parseResult.success) {
