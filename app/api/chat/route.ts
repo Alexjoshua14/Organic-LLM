@@ -231,7 +231,19 @@ export async function POST(req: Request) {
 
       return "An unexpected error occurred";
     },
-    onFinish: async ({ messages, isAborted }) => {
+    onFinish: async ({ messages, isAborted, finishReason }) => {
+      switch (finishReason) {
+        case "error":
+          logger.error("POST", "LLM encountered an error.");
+          break;
+        case "length":
+          logger.warn(
+            "POST",
+            "LLM response stopped due to reaching max limit."
+          );
+          break;
+      }
+
       // Handle abort
       if (isAborted) {
         // Remove optimsitcally saved user message
