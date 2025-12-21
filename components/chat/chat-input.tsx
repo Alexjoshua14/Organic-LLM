@@ -5,12 +5,12 @@ import { useChat } from "@ai-sdk/react";
 import { useSidebar } from "../third-party/ui/sidebar";
 
 import { UnifiedChatInput } from "./unified-chat-input";
-import { ChatModelType } from "@/lib/schemas/chat";
+import { ChatModel } from "@/lib/schemas/chat";
 
 type ChatInputProps = {
   id: string;
   sendMessage: ReturnType<typeof useChat>["sendMessage"];
-  selectedModelRef: React.MutableRefObject<ChatModelType>;
+  selectedModelRef: React.MutableRefObject<ChatModel>;
   stop: ReturnType<typeof useChat>["stop"];
   status: ReturnType<typeof useChat>["status"];
 };
@@ -25,7 +25,7 @@ export const ChatInput: React.FC<ChatInputProps> = ({
   const { isMobile, state } = useSidebar();
   const [input, setInput] = useState("");
   const [error, setError] = useState<boolean>(false);
-  const [selectedModel, setSelectedModel] = useState<ChatModelType>(
+  const [selectedModel, setSelectedModel] = useState<ChatModel>(
     selectedModelRef.current
   );
   // Store the last sent message text to restore on abort
@@ -63,7 +63,7 @@ export const ChatInput: React.FC<ChatInputProps> = ({
   }, [stop]);
 
   const handleModelSelection = useCallback(
-    (m: ChatModelType) => {
+    (m: ChatModel) => {
       setSelectedModel(m);
       selectedModelRef.current = m;
     },
