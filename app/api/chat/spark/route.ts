@@ -86,7 +86,7 @@ export async function POST(req: Request) {
     if (chatContextResult.error) {
       logger.error(
         "POST",
-        `Error getting chat context: ${chatContextResult.error}`,
+        `Error getting chat context: ${chatContextResult.error}`
       );
       validatedMessages = [message];
     } else {
@@ -101,14 +101,14 @@ export async function POST(req: Request) {
 
       logger.log(
         "POST",
-        `Time from initial request recieved to gather context complete: ${end_gather_context_time - start_gather_context_time} milliseconds`,
+        `Time from initial request recieved to gather context complete: ${end_gather_context_time - start_gather_context_time} milliseconds`
       );
     }
   } catch (err) {
     if (err instanceof TypeValidationError) {
       logger.error(
         "POST",
-        `Database messages validation failed: ${err.message}`,
+        `Database messages validation failed: ${err.message}`
       );
       validatedMessages = [message];
     } else if (
@@ -117,7 +117,7 @@ export async function POST(req: Request) {
     ) {
       logger.error(
         "POST",
-        `\n\n\nPreprocessing time limit exceeded: ${err.message}\n\n`,
+        `\n\n\nPreprocessing time limit exceeded: ${err.message}\n\n`
       );
       validatedMessages = [message];
     } else {
@@ -131,7 +131,7 @@ export async function POST(req: Request) {
 
   logger.log(
     "POST",
-    `Time to estimate token count: ${end_estimate_token_count_time - start_estimate_token_count_time} milliseconds`,
+    `Time to estimate token count: ${end_estimate_token_count_time - start_estimate_token_count_time} milliseconds`
   );
 
   logger.log(
@@ -141,14 +141,14 @@ export async function POST(req: Request) {
     `System Prompt ${systemPromptTokens} tokens\n`,
     minimize_logging ? "" : `System Prompt: ${systemPrompt}\n`,
     `\n\n--------------------------------\n\n`,
-    `${validatedMessages.length} messages being sent to LLM`,
+    `${validatedMessages.length} messages being sent to LLM`
   );
 
   const end_preprocessing_time = performance.now();
 
   logger.log(
     "POST",
-    `Preprocessing time: ${end_preprocessing_time - start_preprocessing_time} milliseconds`,
+    `Preprocessing time: ${end_preprocessing_time - start_preprocessing_time} milliseconds`
   );
 
   logger.log("POST", `Sending messages to LLM...`);
@@ -171,7 +171,7 @@ export async function POST(req: Request) {
 
   logger.log(
     "POST",
-    `Messages sent to LLM in ${end - start} milliseconds returning stream now...`,
+    `Messages sent to LLM in ${end - start} milliseconds returning stream now...`
   );
 
   // logger.log("POST", `Result: ${JSON.stringify(result)}`);
@@ -188,7 +188,7 @@ export async function POST(req: Request) {
         case "finish":
           logger.log(
             "POST",
-            `Finish message: ${JSON.stringify(part, null, 2)}`,
+            `Finish message: ${JSON.stringify(part, null, 2)}`
           );
 
           return {
@@ -209,7 +209,7 @@ export async function POST(req: Request) {
 
       logger.log(
         "POST",
-        `Time from initial request recieved to stream complete: ${endStream - start} milliseconds`,
+        `Time from initial request recieved to stream complete: ${endStream - start} milliseconds`
       );
 
       /** Ensure this only run on AI messages */
@@ -229,7 +229,7 @@ export async function POST(req: Request) {
         if (env) {
           logger.log(
             "POST",
-            `Extracted ops envelope: ${JSON.stringify(env, null, 2)}`,
+            `Extracted ops envelope: ${JSON.stringify(env, null, 2)}`
           );
           const current = await getState(id);
           const next = await applyOps(current, env);
@@ -240,7 +240,7 @@ export async function POST(req: Request) {
 
         logger.log(
           "POST",
-          `Ops processed in ${endOps - startOps} milliseconds`,
+          `Ops processed in ${endOps - startOps} milliseconds`
         );
 
         logger.log("POST", "--------------------------------");
@@ -249,20 +249,20 @@ export async function POST(req: Request) {
         // logger.log("POST", "ASSISTANT_RAW_END");
         logger.log(
           "POST",
-          `OPS_ENV_EXTRACTED: ${JSON.stringify(env, null, 2)}`,
+          `OPS_ENV_EXTRACTED: ${JSON.stringify(env, null, 2)}`
         );
         logger.log("POST", "--------------------------------");
 
         logger.log(
           "POST",
-          `Time from stream complete to ops processed: ${endOps - endStream} milliseconds`,
+          `Time from stream complete to ops processed: ${endOps - endStream} milliseconds`
         );
       }
       const endOnFinish = performance.now();
 
       logger.log(
         "POST",
-        `Time from initial request recieved to stream's onFinish complete: ${endOnFinish - start} milliseconds`,
+        `Time from initial request recieved to stream's onFinish complete: ${endOnFinish - start} milliseconds`
       );
     },
     generateMessageId: createIdGenerator({
