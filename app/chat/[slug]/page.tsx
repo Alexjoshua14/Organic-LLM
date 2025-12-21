@@ -31,7 +31,6 @@ export default async function ChatPage({
 
     chatData = chatDataRes.data;
 
-    logger.log("test", "Hey")
     getNMessages(chatId, 5)
 
   } catch (err) {

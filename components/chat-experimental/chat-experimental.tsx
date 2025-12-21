@@ -9,7 +9,7 @@ import { ChatThreadExperimental } from "./chat-thread-experimental";
 
 import { ChatInput } from "@/components/chat/chat-input";
 import { ChatScrollButton } from "@/components/chat/chat-scroll-button";
-import { ChatModelType, DEFAULT_CHAT_MODEL, Thread } from "@/lib/schemas/chat";
+import { ChatModel, DEFAULT_CHAT_MODEL, Thread } from "@/lib/schemas/chat";
 import { updateChatSummary } from "@/lib/llm/chat-helpers";
 import { createLogger } from "@/lib/logger";
 import { useSharedChatContext } from "@/lib/context/chat-context";
@@ -32,7 +32,7 @@ export const ChatExperimental: React.FC<ChatProps> = ({
   const [updatingSummary, setUpdatingSummary] = useState(false);
 
   const { setChatId } = useSharedChatContext();
-  const selectedModelRef = useRef<ChatModelType>(DEFAULT_CHAT_MODEL);
+  const selectedModelRef = useRef<ChatModel>(DEFAULT_CHAT_MODEL);
 
   useEffect(() => {
     setChatId(chatData?.thread.id ?? "");

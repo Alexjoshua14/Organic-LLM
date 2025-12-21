@@ -322,7 +322,7 @@ export async function getMessages(
 export async function getNMessages(
   chatId: string,
   limit?: number,
-  debug?: boolean
+  debug: boolean = false
 ): Promise<Result<UIMessage[], string>> {
   if (limit === 0) {
     return {

@@ -12,6 +12,7 @@ import SPARK_SYSTEM_PROMPT from "../system-prompt";
 import { getStateString } from "../supabase/organicStateStore";
 import { searchMemories } from "../memory/operations";
 import { ContextPiece } from "../schemas/llm-context";
+import { estimateTokenCount } from "../llm/chat-helpers";
 
 import {
   createChat as createChatSupabase,
@@ -505,6 +506,7 @@ export async function getContext({
   const sbUserId = sbUserIdResult.data;
 
   const contextPieces: ContextPiece[] = [];
+  const contextTokenSizes: Array<{ name: string; tokens: number }> = [];
 
   try {
     const promises: Promise<any>[] = [];
@@ -536,7 +538,9 @@ export async function getContext({
     logger.log("getContext", `User message: ${userMessage}`);
 
     if (memoryEnabled) {
-      const memoriesPromise = searchMemories(userMessage, sbUserId); // TODO: Get user ID from Supabase
+      const memoriesPromise = searchMemories(userMessage, sbUserId, {
+        limit: 5,
+      });
       promises.push(memoriesPromise);
     }
 
@@ -563,6 +567,15 @@ export async function getContext({
     contextPieces.push({
       content: systemPrompt,
     });
+
+    // Calculate token count for system prompt
+    const systemPromptTokens = await estimateTokenCount(systemPrompt);
+    if (systemPromptTokens !== null) {
+      contextTokenSizes.push({
+        name: "System Prompt",
+        tokens: systemPromptTokens,
+      });
+    }
 
     /***
      * Step 5
@@ -616,6 +629,16 @@ export async function getContext({
       content: conversationSummary,
     });
 
+    // Calculate token count for conversation summary
+    const conversationSummaryTokens =
+      await estimateTokenCount(conversationSummary);
+    if (conversationSummaryTokens !== null) {
+      contextTokenSizes.push({
+        name: "Conversation Summary",
+        tokens: conversationSummaryTokens,
+      });
+    }
+
     /***
      * Step 5c
      *
@@ -643,9 +666,18 @@ export async function getContext({
       }
 
       contextPieces.push({
-        title: "Memories",
+        title: "Memories from past conversations:",
         content: memories,
       });
+
+      // Calculate token count for memories
+      const memoriesTokens = await estimateTokenCount(memories);
+      if (memoriesTokens !== null) {
+        contextTokenSizes.push({
+          name: "Memories",
+          tokens: memoriesTokens,
+        });
+      }
     }
 
     /***
@@ -672,9 +704,20 @@ export async function getContext({
   } finally {
     const endContextCompilationTime = performance.now();
 
+    // Log token sizes for each context piece
+    const totalTokens = contextTokenSizes.reduce(
+      (sum, piece) => sum + piece.tokens,
+      0
+    );
+
     logger.log(
       "getContext",
-      `Context compilation time: ${endContextCompilationTime - startContextCompilationTime} milliseconds`
+      `Context compilation time: ${endContextCompilationTime - startContextCompilationTime} milliseconds\n` +
+        `Context token sizes:\n` +
+        contextTokenSizes
+          .map((piece) => `  - ${piece.name}: ${piece.tokens} tokens`)
+          .join("\n") +
+        `\n  - Total context tokens: ${totalTokens} tokens`
     );
   }
 }
