@@ -1,6 +1,6 @@
 'use client'
 
-import { ChangeEventHandler, FormEvent, useCallback, useEffect, useRef, useState } from 'react'
+import { ChangeEventHandler, ComponentProps, FormEvent, useCallback, useEffect, useRef, useState, MouseEvent } from 'react'
 import {
   PromptInput,
   PromptInputHeader,
@@ -22,11 +22,13 @@ import {
   PromptInputSelectTrigger,
   PromptInputSelectValue,
   PromptInputSpeechButton,
-  PromptInputSubmit
 } from "../ai-elements/prompt-input";
 import { useChat } from '@ai-sdk/react';
-import { BrainCircuit, GlobeIcon } from 'lucide-react';
+import { BrainCircuit, CornerDownLeftIcon, GlobeIcon, Loader2Icon, SquareIcon, XIcon } from 'lucide-react';
 import { ChatModel, ChatModels, DEFAULT_CHAT_MODEL } from "@/lib/schemas/chat";
+import { ChatStatus } from 'ai';
+import { InputGroupButton } from '../third-party/ui/input-group';
+import { cn } from '@/lib/utils'
 
 
 type NewChatInputProps = {
@@ -158,8 +160,54 @@ export const NewChatInput: React.FC<NewChatInputProps> = ({
             </PromptInputSelectContent>
           </PromptInputSelect>
         </PromptInputTools>
-        <PromptInputSubmit disabled={!text && !status} status={status} />
+        <PromptInputSubmit disabled={!text && !status} status={status} stop={stop} />
       </PromptInputFooter>
     </PromptInput>
+  );
+};
+
+
+
+export type PromptInputSubmitProps = ComponentProps<typeof InputGroupButton> & {
+  status?: ChatStatus;
+  stop?: () => void;
+};
+
+export const PromptInputSubmit = ({
+  className,
+  variant = "default",
+  size = "icon-sm",
+  status,
+  children,
+  stop,
+  ...props
+}: PromptInputSubmitProps) => {
+  let Icon = <CornerDownLeftIcon className="size-4" />;
+
+  if (status === "submitted" || status === 'streaming') {
+    Icon = <SquareIcon className="size-4" />;
+  } else if (status === "error") {
+    Icon = <XIcon className="size-4" />;
+  }
+
+  const handleClick = useCallback((e: MouseEvent<HTMLButtonElement>) => {
+    if (stop && (status === 'streaming' || status === 'submitted')) {
+      e.preventDefault()
+      stop()
+    }
+  }, [stop, status])
+
+  return (
+    <InputGroupButton
+      aria-label={status === 'ready' ? "Submit" : "Abort"}
+      className={cn(className)}
+      size={size}
+      type={status === 'ready' ? "submit" : "button"}
+      variant={variant}
+      {...props}
+      onClick={handleClick}
+    >
+      {children ?? Icon}
+    </InputGroupButton>
   );
 };
