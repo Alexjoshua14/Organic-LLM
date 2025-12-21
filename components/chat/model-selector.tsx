@@ -1,53 +1,27 @@
 import { Select, SelectItem } from "@heroui/select";
-import { useState } from "react";
+import type { SharedSelection } from "@heroui/system";
 
 import { glass } from "../design-system/primitives";
-import { ChatModelType } from "@/lib/schemas/chat";
+import { ChatModels, ChatModel } from "@/lib/schemas/chat";
 
 type ModelSelectorProps = {
-  selectedModel: ChatModelType;
-  handleModelSelection: (m: ChatModelType) => void;
+  selectedModel: ChatModel;
+  handleModelSelection: (m: ChatModel) => void;
 };
 
-export const ModelSelector: React.FC<ModelSelectorProps> = ({ selectedModel, handleModelSelection }) => {
-  const availableModels: {
-    key: ChatModelType;
-    label: string;
-  }[] = [
-      {
-        key: "gpt-5",
-        label: "GPT-5",
-      },
-      {
-        key: "gpt-5-mini",
-        label: "GPT-5 Mini",
-      },
-      {
-        key: "gpt-5.2",
-        label: "GPT-5.2",
-      },
-      {
-        key: "gpt-5-nano",
-        label: "GPT-5 Nano",
-      },
-      {
-        key: "gpt-4o",
-        label: "GPT-4o",
-      },
-      {
-        key: "gpt-4o-mini",
-        label: "GPT-4o Mini",
-      },
-      {
-        key: "gpt-4-turbo",
-        label: "GPT-4 Turbo",
-      },
-    ];
-
-  const handleSelectedModelChange = (
-    e: React.ChangeEvent<HTMLSelectElement>,
-  ) => {
-    handleModelSelection(e.target.value as ChatModelType);
+export const ModelSelector: React.FC<ModelSelectorProps> = ({
+  selectedModel,
+  handleModelSelection,
+}) => {
+  // heroui/select expects the keys to be strings, using the id field of ChatModel as primary key
+  // When the value is changed, call the parent with the full model object.
+  const handleSelectedModelChange = (keys: SharedSelection) => {
+    // Handle both string and Set<string> cases
+    const selectedId = typeof keys === "string" ? keys : Array.from(keys)[0];
+    const foundModel = ChatModels.find((m) => m.id === selectedId);
+    if (foundModel) {
+      handleModelSelection(foundModel);
+    }
   };
 
   return (
@@ -61,12 +35,13 @@ export const ModelSelector: React.FC<ModelSelectorProps> = ({ selectedModel, han
           listbox: "min-sm:w-48",
           popoverContent: "min-sm:w-48",
         }}
-        items={availableModels}
-        selectedKeys={[selectedModel]}
+        items={ChatModels}
+        selectedKeys={selectedModel ? [selectedModel.id] : []}
         variant="bordered"
-        onChange={handleSelectedModelChange}
+        onSelectionChange={handleSelectedModelChange}
+        disallowEmptySelection
       >
-        {(model) => <SelectItem>{model.label}</SelectItem>}
+        {(model) => <SelectItem key={model.id} textValue={model.name}>{model.name}</SelectItem>}
       </Select>
     </div>
   );

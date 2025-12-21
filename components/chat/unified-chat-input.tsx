@@ -11,7 +11,7 @@ import {
   categorizeKey,
   KeyAnimationConfig,
 } from "@/lib/utils/key-categorization";
-import { ChatModelType } from "@/lib/schemas/chat";
+import { ChatModel } from "@/lib/schemas/chat";
 
 export type UnifiedChatInputProps = {
   value: string;
@@ -25,8 +25,8 @@ export type UnifiedChatInputProps = {
   variant?: "chat" | "rabbit-hole" | "custom";
   status?: "ready" | "submitted" | "streaming" | string;
   onStop?: () => void;
-  selectedModel?: ChatModelType;
-  onModelChange?: (model: ChatModelType) => void;
+  selectedModel?: ChatModel;
+  onModelChange?: (model: ChatModel) => void;
   hasSession?: boolean;
   onReset?: () => void;
   enableKeypressEffects?: boolean;

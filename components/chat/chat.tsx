@@ -10,11 +10,10 @@ import { ChatThread } from "./chat-thread";
 import { ChatScrollButton } from "./chat-scroll-button";
 
 import { Thread } from "@/lib/schemas/chat";
-import { updateChatSummary } from "@/lib/llm/chat-helpers";
 import { createLogger } from "@/lib/logger";
 import { useSharedChatContext } from "@/lib/context/chat-context";
-import { ChatModelType, DEFAULT_CHAT_MODEL } from "@/lib/schemas/chat";
-import { getNMessages } from "@/data/supabase/chat";
+import { ChatModel, DEFAULT_CHAT_MODEL } from "@/lib/schemas/chat";
+import { NewChatInput } from "./new-chat-input";
 
 const logger = createLogger("components/chat/chat");
 
@@ -33,7 +32,7 @@ export const Chat: React.FC<ChatProps> = ({
 }) => {
 
   const { setChatId } = useSharedChatContext();
-  const selectedModelRef = useRef<ChatModelType>(DEFAULT_CHAT_MODEL);
+  const selectedModelRef = useRef<ChatModel>(DEFAULT_CHAT_MODEL);
 
   useEffect(() => {
     setChatId(chatData?.thread.id ?? "");
@@ -103,13 +102,14 @@ export const Chat: React.FC<ChatProps> = ({
     >
       <ChatThread messages={messages} />
       <ChatScrollButton />
-      <ChatInput
+      <NewChatInput />
+      {/* <ChatInput
         id={id}
         sendMessage={sendMessage}
         selectedModelRef={selectedModelRef}
         stop={handleStop}
         status={status}
-      />
+      /> */}
     </StickToBottom>
   );
 };

@@ -7,17 +7,24 @@ export const MessageRole = z.enum(["user", "assistant", "system"]);
 export const MessageSchemaKind = z.enum(["ui_message"]);
 
 // Approved chat models enum
-export const ChatModel = z.enum([
-  "gpt-5.2",
-  "gpt-5",
-  "gpt-5-mini",
-  "gpt-5-nano",
-  "gpt-4o",
-  "gpt-4o-mini",
-  "gpt-4-turbo",
-]);
+export const ChatModelSchema = z.object({
+  id: z.string(),
+  name: z.string(),
+});
 
-export const DEFAULT_CHAT_MODEL: ChatModelType = "gpt-5";
+export type ChatModel = z.infer<typeof ChatModelSchema>;
+
+export const ChatModels: ChatModel[] = [
+  { id: "gpt-5.2", name: "GPT-5.2" },
+  { id: "gpt-5", name: "GPT-5" },
+  { id: "gpt-5-mini", name: "GPT-5 Mini" },
+  { id: "gpt-5-nano", name: "GPT-5 Nano" },
+  { id: "gpt-4o", name: "GPT-4o" },
+  { id: "gpt-4o-mini", name: "GPT-4o Mini" },
+  { id: "gpt-4-turbo", name: "GPT-4 Turbo" },
+] as const;
+
+export const DEFAULT_CHAT_MODEL: ChatModel = ChatModels[0];
 
 // Thread schema
 export const ThreadCreate = z.object({
@@ -85,8 +92,10 @@ export const UIMessageSchema = z
 
 export const ChatRequestSchema = z.object({
   message: UIMessageSchema,
-  id: z.string().uuid(),
-  model: ChatModel.optional(),
+  id: z.uuid(),
+  model: ChatModelSchema.optional(),
+  webSearch: z.boolean().optional(),
+  memory: z.boolean().optional().default(true),
 });
 
 export const ThreadSummarySchema = z.object({
@@ -119,4 +128,3 @@ export type ThreadSummary = z.infer<typeof ThreadSummarySchema>;
 export type ThreadSummaryInsert = z.infer<typeof ThreadSummaryCreate>;
 export type ThreadSummaryPatch = z.infer<typeof ThreadSummaryUpdate>;
 export type ChatRequest = z.infer<typeof ChatRequestSchema>;
-export type ChatModelType = z.infer<typeof ChatModel>;

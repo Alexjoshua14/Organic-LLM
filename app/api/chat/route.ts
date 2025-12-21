@@ -9,6 +9,7 @@ import {
   smoothStream,
   consumeStream,
   stepCountIs,
+  type Tool,
 } from "ai";
 // import systemPrompt from "@/lib/system-prompt";
 import { auth } from "@clerk/nextjs/server";
@@ -23,8 +24,9 @@ import { z } from "zod";
 
 import {
   ChatRequestSchema,
-  ChatModel,
-  type ChatModelType,
+  DEFAULT_CHAT_MODEL,
+  ChatModelSchema,
+  type ChatModel,
 } from "@/lib/schemas/chat";
 import { getSupabaseUserId } from "@/data/supabase/profiles";
 
@@ -36,7 +38,6 @@ export const maxDuration = 30;
 const logger = createLogger(`app/api/chat/route.ts`);
 
 // Default model configuration
-const DEFAULT_CHAT_MODEL: ChatModelType = "gpt-5";
 const CHAT_MODEL = {
   name: DEFAULT_CHAT_MODEL,
   maxOutputTokens: 3000,
@@ -47,7 +48,7 @@ const CHAT_MODEL = {
  * @param model - Optional model string to validate
  * @returns Validated chat model
  */
-function getChatModel(model?: string): ChatModelType {
+function getChatModel(model?: string): ChatModel {
   if (!model) {
     logger.log(
       "getChatModel",
@@ -56,7 +57,7 @@ function getChatModel(model?: string): ChatModelType {
     return DEFAULT_CHAT_MODEL;
   }
 
-  const parseResult = ChatModel.safeParse(model);
+  const parseResult = ChatModelSchema.safeParse(model);
   if (!parseResult.success) {
     logger.error(
       "getChatModel",
@@ -186,12 +187,14 @@ export async function POST(req: Request) {
     `
   );
 
+  // const tools = compileTools({ useSearch, useMemory});
+
   logger.log("POST", `Calling streamText with model: ${selectedModel}`);
 
   const streamStartTime = performance.now();
 
   const result = streamText({
-    model: openai(selectedModel),
+    model: openai(selectedModel.id),
     messages: convertToModelMessages(validatedMessages),
     system: systemPromptForRequest,
     abortSignal: req.signal,
@@ -327,3 +330,22 @@ export async function POST(req: Request) {
     generateMessageId: () => randomUUID(),
   });
 }
+
+// TODO: Make this work
+const compileTools = ({
+  useSearch,
+  useMemory,
+  sbUserId,
+}: {
+  useSearch: boolean;
+  useMemory: boolean;
+  sbUserId: string;
+}): Tool[] => {
+  // Compile and return an array of tools as expected by streamText({ tools })
+  const tools: Tool[] = []; // TODO: Fill this in based on req or other context
+
+  if (useMemory) {
+    // tools.push({ search_memories: createMemorySearchTool(sbUserId) });
+  }
+  return tools;
+};
