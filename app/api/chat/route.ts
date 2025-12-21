@@ -88,12 +88,12 @@ export async function POST(req: Request) {
 
   const parseResult = ChatRequestSchema.safeParse(body);
   // Grab the selectedModel from either the parsed request body or default to DEFAULT_CHAT_MODEL
-  const requestedModel = body?.model;
+  const requestedModel = parseResult.data?.model;
   const selectedModel = requestedModel
     ? getChatModel(requestedModel)
     : DEFAULT_CHAT_MODEL;
 
-  const memoryEnabled = process.env.MEMORY_ENABLED === "TRUE";
+  const memoryEnabled = parseResult.data?.memory;
 
   logger.log(
     "POST",

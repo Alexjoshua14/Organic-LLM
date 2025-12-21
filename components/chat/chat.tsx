@@ -106,13 +106,6 @@ export const Chat: React.FC<ChatProps> = ({
         stop={handleStop}
         status={status}
       />
-      {/* <ChatInput
-        id={id}
-        sendMessage={sendMessage}
-        selectedModelRef={selectedModelRef}
-        stop={handleStop}
-        status={status}
-      /> */}
     </StickToBottom>
   );
 };
