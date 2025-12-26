@@ -106,7 +106,7 @@ export const Chat: React.FC<ChatProps> = ({
           "items-center",
         ].join(" ")
       }
-      style={{ paddingBottom: "5rem" }}
+      style={{ paddingBottom: "7rem" }}
       initial="instant"
       resize="smooth"
     >
@@ -119,7 +119,7 @@ export const Chat: React.FC<ChatProps> = ({
         sendMessage={sendMessage}
         stop={handleStop}
         status={status}
-        className="absolute bottom-0"
+        className="absolute bottom-4"
       />
     </StickToBottom>
   );

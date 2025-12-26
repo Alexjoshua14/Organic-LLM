@@ -13,6 +13,7 @@ export const ClipboardCopyButton = ({ text }: { text: string }) => {
 
   return (
     <Button
+      className="text-secondary-foreground hover:scale-110 border"
       isIconOnly
       size="sm"
       variant="ghost"

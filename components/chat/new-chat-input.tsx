@@ -24,7 +24,7 @@ import {
   PromptInputSpeechButton,
 } from "../ai-elements/prompt-input";
 import { useChat } from '@ai-sdk/react';
-import { BrainCircuit, CornerDownLeftIcon, GlobeIcon, Loader2Icon, SquareIcon, XIcon } from 'lucide-react';
+import { ArrowUp, ArrowUpNarrowWideIcon, BrainCircuit, CornerDownLeftIcon, GlobeIcon, Loader2Icon, SquareIcon, XIcon } from 'lucide-react';
 import { ChatModel, ChatModels, DEFAULT_CHAT_MODEL } from "@/lib/schemas/chat";
 import { ChatStatus } from 'ai';
 import { InputGroupButton } from '../third-party/ui/input-group';
@@ -184,7 +184,7 @@ export const PromptInputSubmit = ({
   stop,
   ...props
 }: PromptInputSubmitProps) => {
-  let Icon = <CornerDownLeftIcon className="size-4" />;
+  let Icon = <ArrowUp className="size-4" />;
 
   if (status === "submitted" || status === 'streaming') {
     Icon = <SquareIcon className="size-4" />;
