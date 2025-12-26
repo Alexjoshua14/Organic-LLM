@@ -790,7 +790,7 @@ export const PromptInput = ({
         ref={formRef}
         {...props}
       >
-        <InputGroup className={`${glass()} overflow-hidden`}>{children}</InputGroup>
+        <InputGroup className={`${glass()} overflow-hidden rounded-xl`}>{children}</InputGroup>
       </form>
     </>
   );
