@@ -92,7 +92,21 @@ export const Chat: React.FC<ChatProps> = ({
 
   return (
     <StickToBottom
-      className="h-full w-full relative mx-2 flex flex-col items-center"
+      className={
+        [
+          "h-full",
+          "w-full",
+          "max-w-[calc(100dvw-2rem)]",
+          "md:max-w-[calc(100dvw-18rem)]",
+          "lg:max-w-4xl",
+          "relative",
+          "mx-2",
+          "flex",
+          "flex-col",
+          "items-center",
+        ].join(" ")
+      }
+      style={{ paddingBottom: "5rem" }}
       initial="instant"
       resize="smooth"
     >
@@ -105,6 +119,7 @@ export const Chat: React.FC<ChatProps> = ({
         sendMessage={sendMessage}
         stop={handleStop}
         status={status}
+        className="absolute bottom-0"
       />
     </StickToBottom>
   );

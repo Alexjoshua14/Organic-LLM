@@ -38,6 +38,7 @@ type NewChatInputProps = {
   sendMessage: ReturnType<typeof useChat>["sendMessage"],
   stop: ReturnType<typeof useChat>["stop"],
   status: ReturnType<typeof useChat>["status"],
+  className?: string;
 };
 
 export const NewChatInput: React.FC<NewChatInputProps> = ({
@@ -47,6 +48,7 @@ export const NewChatInput: React.FC<NewChatInputProps> = ({
   sendMessage,
   stop,
   status,
+  className,
 }) => {
 
   const [text, setText] = useState<string>('');
@@ -104,7 +106,7 @@ export const NewChatInput: React.FC<NewChatInputProps> = ({
   }, []);
 
   return (
-    <PromptInput onSubmit={handleSubmit} globalDrop multiple className="max-w-xl md:max-w-2xl">
+    <PromptInput onSubmit={handleSubmit} globalDrop multiple className={className}>
       <PromptInputHeader>
         <PromptInputAttachments>
           {(attachment) => <PromptInputAttachment data={attachment} />}

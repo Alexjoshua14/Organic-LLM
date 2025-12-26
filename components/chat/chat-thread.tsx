@@ -3,21 +3,25 @@
 import { FC } from "react";
 import { UIMessage } from "ai";
 import { StickToBottom } from "use-stick-to-bottom";
+import { cn } from "@/lib/utils";
 
 import { ChatMessage } from "./chat-message";
 
 type ChatThreadProps = {
   messages: UIMessage[];
   variant?: "default" | "compact";
+  className?: string;
 };
 
 export const ChatThread: FC<ChatThreadProps> = ({
   messages,
   variant = "default",
+  className,
 }) => {
   return (
     <StickToBottom.Content
-      className={`w-full mx-auto  flex flex-col gap-2 px-8 pt-20 ${variant === "default" ? "max-w-[calc(100dvw-2rem)] md:max-w-[calc(100dvw-18rem)] lg:max-w-4xl" : "max-w-[calc(100dvw-2rem)] md:max-w-[calc(100dvw-18rem)] lg:max-w-4xl"} `}
+      className={cn("w-full mx-auto flex flex-col gap-2 pr-3 pt-20", className)}
+      style={{ paddingBottom: '3rem' }}
     >
       {messages.map((message) => {
         return <ChatMessage key={message.id} message={message} />;
