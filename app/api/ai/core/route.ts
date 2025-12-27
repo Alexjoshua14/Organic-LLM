@@ -18,6 +18,8 @@ import { createCoreToolKit } from "@/lib/llm/core/coreToolKit";
 // TODO: Make this stream resumable, using some external source to the client for tracking running job
 import { createResumableStreamContext } from "resumable-stream";
 
+const MAX_STEP_COUNT = 3;
+
 const logger = createLogger("api/ai/core/route");
 
 // Allow streaming responses up to 30 seconds
@@ -74,9 +76,7 @@ export async function POST(req: Request) {
   let systemPrompt = Aion_SYSTEM_INSTRUCTION.replace(
     "{{currentDateTime}}",
     currentDateTime
-  )
-    // Fill in any additional instrucitons
-    .replace("{{ADDITIONAL_INSTRUCTIONS}}", "");
+  );
 
   // Convert message to model format
   const messages = convertToModelMessages([message]);
@@ -87,7 +87,13 @@ export async function POST(req: Request) {
   );
 
   // Create core toolkit with user context
-  const tools = createCoreToolKit(sbUserId);
+  const { toolset, instructions } = createCoreToolKit(sbUserId);
+
+  // Fill in any additional instrucitons
+  systemPrompt = systemPrompt.replace(
+    "{{ADDITIONAL_INSTRUCTIONS}}",
+    instructions ?? ""
+  );
 
   const result = streamText({
     model: openai(selectedModel.id),
@@ -98,11 +104,11 @@ export async function POST(req: Request) {
       chunking: "word",
     }),
     maxOutputTokens: CHAT_MODEL.maxOutputTokens,
-    tools: tools,
+    tools: toolset,
     toolChoice: "required",
     stopWhen: (ctx) => {
-      // Stop if stepCount is above 3
-      if (ctx.steps.length > 3) return true;
+      // Stop if stepCount is above max
+      if (ctx.steps.length > MAX_STEP_COUNT) return true;
 
       // Stop if any tool call is to 'navigate'
       for (const step of ctx.steps) {

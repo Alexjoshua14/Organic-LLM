@@ -92,6 +92,12 @@ export async function POST(req: NextRequest) {
       });
 
       return NextResponse.json({ data: audio });
+
+      // Convert Uint8Array to array for JSON serialization
+      // const audioData = Array.from(audio.uint8Array);
+      // const mimeType = audio.format || "mpeg";
+
+      // return NextResponse.json({ data: audio });
     } else {
       const { audio } = await generateSpeech({
         model: speechModel,
