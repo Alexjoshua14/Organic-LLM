@@ -18,6 +18,9 @@ const logger = createLogger("data/supabase/chat.ts");
 
 const DEFAULT_MESSAGE_LIMIT = 10;
 
+/**
+ * Needs to run with local user credentials, can not use service id
+ */
 export async function getChats(): Promise<Result<Thread[]>> {
   const sb = await supabaseServer();
   const { data, error } = await sb
