@@ -238,7 +238,8 @@ export async function POST(req: Request) {
 
           let ensureChatHasTitleMs: number | undefined;
 
-          if (messages.length > 3 && messages.length < 5) {
+          // Ensure chat title for a sensible range (e.g. after 4–8 messages)
+          if (messages.length >= 4 && messages.length <= 8) {
             const { result: titleResult, durationMs } = await measureAsync(() =>
               ensureChatHasTitle(id)
             );
@@ -271,7 +272,15 @@ export async function POST(req: Request) {
           let addMemoryMs: number | undefined;
           if (memoryEnabled) {
             const addMemoryResult = await measureAsync(() =>
-              addLatestMessagesToMemory([userMessage, aiResponse], sbUserId)
+              addLatestMessagesToMemory(
+                [userMessage, aiResponse],
+                sbUserId
+              ).catch((err) => {
+                logger.error(
+                  "POST",
+                  `Error adding latest messages to memory: ${err}`
+                );
+              })
             );
             addMemoryMs = addMemoryResult.durationMs;
             metrics.addLatestMessagesToMemoryMs = addMemoryMs;

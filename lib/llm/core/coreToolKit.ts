@@ -7,13 +7,65 @@ import { createChat } from "@/lib/chat/chat-store";
 
 const logger = createLogger("lib/llm/core/coreToolKit");
 
+const PageMetadataSchema = z.object({
+  relativeURL: z.url(),
+  section: z.enum(["Chat", "Rabbit Holes", "Settings"]),
+  description: z.string(),
+  additionalDescription: z.string().max(40).optional(),
+});
+
+const chat = {
+  relativeURL: "/chat",
+  section: "Chat",
+  description: "Chat page for user conversations. ",
+  additionalDescription:
+    "Core chat interface. Use this page for existing and new chats.",
+};
+
+const chatLoading = {
+  relativeURL: "/chat/loading",
+  section: "Chat",
+  description: "Demonstration loading state for the chat page.",
+  additionalDescription: "Temporary demo loading indicator for the chat page.",
+};
+
+const rabbitHoles = {
+  relativeURL: "/rabbitholes",
+  section: "Rabbit Holes",
+  description: "Deep-dive exploration page for focused investigations.",
+  additionalDescription: "For extended research and multi-step investigations.",
+};
+
+const settings = {
+  relativeURL: "/settings",
+  section: "Settings",
+  description: "Page for user and system configuration.",
+  additionalDescription: "Use to configure preferences and system options.",
+};
+
+export const pageMetadataObjects = {
+  chat,
+  chatLoading,
+  rabbitHoles,
+  settings,
+};
+
 /**
  * Input schema for the navigate tool
  */
+export const NavigablePagesSchema = z.enum([
+  ...Object.entries(pageMetadataObjects).map((page) => page[1].relativeURL),
+]);
+
+export const NavigablePagesData = [
+  pageMetadataObjects.chat,
+  pageMetadataObjects.chatLoading,
+  pageMetadataObjects.rabbitHoles,
+  pageMetadataObjects.settings,
+];
+
 export const NavigateToolInputSchema = z.object({
-  page: z
-    .enum(["chat", "rabbit-hole", "settings"])
-    .describe("The page or section to navigate to"),
+  page: NavigablePagesSchema.describe("The page or section to navigate to"),
   reason: z
     .string()
     .optional()
@@ -37,10 +89,13 @@ export const ListThreadsToolInputSchema = z.object({
  * @param userId - Optional user ID for user-specific operations
  * @returns Object containing core tools (navigate, listThreads)
  */
-export function createCoreToolKit(userId?: string): ToolSet {
-  const availableTools: ToolSet = {};
+export function createCoreToolKit(userId?: string): {
+  toolset: ToolSet;
+  instructions?: string;
+} {
+  const toolset: ToolSet = {};
 
-  if (userId) availableTools["memorySearch"] = createMemorySearchTool(userId);
+  if (userId) toolset["memorySearch"] = createMemorySearchTool(userId);
 
   const navigate = tool({
     description:
@@ -56,7 +111,7 @@ export function createCoreToolKit(userId?: string): ToolSet {
 
       // Create new thread if navigating to chat
 
-      if (page === "chat") {
+      if (page === chat.relativeURL) {
         let threadId: string | null = null;
         const chatResult = await createChat();
         if (chatResult.error || !chatResult.data) {
@@ -94,7 +149,7 @@ export function createCoreToolKit(userId?: string): ToolSet {
       logger.log("navigate", "Completed input");
     },
   });
-  availableTools["navigate"] = navigate;
+  toolset["navigate"] = navigate;
 
   const listThreads = tool({
     description:
@@ -142,7 +197,7 @@ export function createCoreToolKit(userId?: string): ToolSet {
       }
     },
   });
-  availableTools["listThreads"] = listThreads;
+  toolset["listThreads"] = listThreads;
 
-  return availableTools;
+  return { toolset, instructions: JSON.stringify(pageMetadataObjects) };
 }

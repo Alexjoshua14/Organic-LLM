@@ -39,6 +39,13 @@ export function TTSButton({
   const [error, setError] = useState<string | null>(null);
   const audioRef = useRef<HTMLAudioElement>(null);
 
+  const clearAudio = useCallback(() => {
+    audioRef.current?.pause();
+    setURL(null);
+    setLoading(false);
+    setError(null);
+  }, []);
+
   async function handleSpeak() {
     if (loading) return;
     if (url !== null) {
@@ -95,13 +102,6 @@ export function TTSButton({
       setLoading(false);
     }
   }
-
-  const clearAudio = useCallback(() => {
-    audioRef.current?.pause();
-    setURL(null);
-    setLoading(false);
-    setError(null);
-  }, []);
 
   return (
     <>

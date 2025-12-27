@@ -69,6 +69,7 @@ export const AIInput: React.FC = () => {
       <AiInputForm
         onSubmit={handleSubmit}
         isLoading={isProcessing}
+        status={aion.status}
         className="w-full max-w-xl"
       />
       <div className="flex gap-10 justify-center">
