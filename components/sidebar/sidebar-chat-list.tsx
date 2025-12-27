@@ -74,8 +74,6 @@ export const SidebarChatList: FC<SidebarChatListProps> = ({ threads }) => {
     <SidebarGroupContent>
       <SidebarMenu>
         {threads.map((thread) => {
-          console.log(`${thread.id === currentChatId}, ${thread.id === currentChatId ? thread.title : ''} ${thread.id} === ${currentChatId}`)
-
           return (
             <SidebarMenuItem key={thread.id} className="relative">
               <SidebarMenuButton asChild>
@@ -133,7 +131,7 @@ export const SidebarChatList: FC<SidebarChatListProps> = ({ threads }) => {
                   <motion.div
                     key={thread.id}
                     aria-hidden="true"
-                    className="absolute top-0 right-0 w-full h-full z-20 pointer-events-none rounded backdrop-brightness-125 border border-white/25"
+                    className="absolute top-0 right-0 w-full h-full z-20 pointer-events-none rounded-lg backdrop-brightness-110 dark:backdrop-brightness-150 border"
                     initial={{ opacity: 0 }}
                     animate={{ opacity: 1 }}
                     exit={{ opacity: 0 }}
