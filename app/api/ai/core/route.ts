@@ -12,10 +12,9 @@ import {
   convertToModelMessages,
   smoothStream,
   consumeStream,
-  stepCountIs,
 } from "ai";
 import { Aion_SYSTEM_INSTRUCTION } from "@/lib/system-prompt/aion";
-import coreToolKit, { createCoreToolKit } from "@/lib/llm/core/coreToolKit";
+import { createCoreToolKit } from "@/lib/llm/core/coreToolKit";
 // TODO: Make this stream resumable, using some external source to the client for tracking running job
 import { createResumableStreamContext } from "resumable-stream";
 

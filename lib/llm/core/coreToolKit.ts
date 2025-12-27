@@ -1,6 +1,5 @@
-import { Tool, tool, ToolSet } from "ai";
+import { tool, ToolSet } from "ai";
 import { z } from "zod";
-import { routeUser } from "@/app/actions/routing";
 import { getChats } from "@/data/supabase/chat";
 import { createLogger } from "@/lib/logger";
 import { createMemorySearchTool } from "../llm-tool-kit";
@@ -147,24 +146,3 @@ export function createCoreToolKit(userId?: string): ToolSet {
 
   return availableTools;
 }
-
-// Default export for backward compatibility
-// Note: Tools without execute functions won't work - use createCoreToolKit instead
-const navigate = tool({
-  description: "Navigate to a particular page or section",
-  inputSchema: NavigateToolInputSchema.omit({ reason: true }),
-});
-
-const listThreads = tool({
-  description: "Lets the LLM browse the user's existing conversation threads.",
-  inputSchema: z.object({}),
-});
-
-const coreToolKit = {
-  tools: {
-    navigate,
-    listThreads,
-  },
-};
-
-export default coreToolKit;
