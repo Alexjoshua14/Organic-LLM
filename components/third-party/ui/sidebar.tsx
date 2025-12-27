@@ -25,6 +25,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/third-party/ui/tooltip";
+import { glass } from "@/components/design-system/primitives";
 
 const logger = createLogger("components/third-party/ui/sidebar.tsx");
 
@@ -266,9 +267,10 @@ function SidebarTrigger({
 }: React.ComponentProps<typeof Button>) {
   const { toggleSidebar } = useSidebar();
 
+
   return (
     <Button
-      className={cn("size-7", className)}
+      className={cn(className)}
       data-sidebar="trigger"
       data-slot="sidebar-trigger"
       size="icon"
@@ -574,7 +576,7 @@ function SidebarMenuAction({
         "peer-data-[size=lg]/menu-button:top-2.5",
         "group-data-[collapsible=icon]:hidden",
         showOnHover &&
-          "peer-data-[active=true]/menu-button:text-sidebar-accent-foreground group-focus-within/menu-item:opacity-100 group-hover/menu-item:opacity-100 data-[state=open]:opacity-100 md:opacity-0",
+        "peer-data-[active=true]/menu-button:text-sidebar-accent-foreground group-focus-within/menu-item:opacity-100 group-hover/menu-item:opacity-100 data-[state=open]:opacity-100 md:opacity-0",
         className,
       )}
       data-sidebar="menu-action"
