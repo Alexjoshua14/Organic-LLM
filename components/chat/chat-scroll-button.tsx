@@ -12,7 +12,7 @@ export const ChatScrollButton: FC = () => {
   return (
     !isAtBottom && (
       <Button
-        className={`${glass('ghost')} backdrop-blur absolute rounded-lg w-14 left-1/2 -tranlsate-x-1/2 bottom-44 z-40`}
+        className={`${glass()} backdrop-blur absolute rounded-lg w-14 left-1/2 -tranlsate-x-1/2 bottom-44 z-40`}
         onPress={() => scrollToBottom()}
       >
         <ChevronDown size={24} />

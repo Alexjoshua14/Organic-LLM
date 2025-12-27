@@ -15,6 +15,7 @@ type ChatInputProps = {
   status: ReturnType<typeof useChat>["status"];
 };
 
+/** @deprecated ChatInput is deprecated. Use NewChatInput instead. */
 export const ChatInput: React.FC<ChatInputProps> = ({
   id: _id,
   sendMessage,
