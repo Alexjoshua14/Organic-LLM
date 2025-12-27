@@ -5,6 +5,8 @@ import { useRouter } from "next/navigation";
 import { AiInputForm } from "./ai-input-form";
 import { useAion } from "@/hooks/use-aion";
 import { createLogger } from "@/lib/logger";
+import { Button } from "@heroui/button";
+import { glass } from "../design-system/primitives";
 
 const logger = createLogger("ai-input");
 
@@ -63,10 +65,24 @@ export const AIInput: React.FC = () => {
 
 
   return (
-    <AiInputForm
-      onSubmit={handleSubmit}
-      isLoading={isProcessing}
-      className="w-full max-w-xl"
-    />
+    <div className="flex flex-col w-full gap-4">
+      <AiInputForm
+        onSubmit={handleSubmit}
+        isLoading={isProcessing}
+        className="w-full max-w-xl"
+      />
+      <div className="flex gap-10 justify-center">
+        {/* TODO: THis chat button can be converted to programmatic */}
+        <Button className={`${glass()} hover:scale-110 duration-1000`} onPress={() => aion.sendMessage({ text: "Navigate to new chat" })}>
+          {`Let's Chat`}
+        </Button>
+        <Button className={`${glass()} hover:scale-110 duration-1000`} onPress={() => aion.navigate('/rabbitholes/browse')}>
+          {`Rabbit Holes`}
+        </Button>
+        <Button className={`${glass()} hover:scale-110 duration-1000`} onPress={() => aion.navigate('/settings')}>
+          Settings
+        </Button>
+      </div>
+    </div>
   );
 };
