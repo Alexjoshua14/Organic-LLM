@@ -20,7 +20,6 @@ import { createMemorySearchTool } from "@/lib/llm/llm-tool-kit";
 import { createLogger } from "@/lib/logger";
 import { SYSTEM_PROMPT } from "@/lib/system-prompt/prompt-v0";
 import { addLatestMessagesToMemory } from "@/lib/memory/operations";
-import { z } from "zod";
 
 import {
   ChatRequestSchema,
@@ -29,6 +28,7 @@ import {
   type ChatModel,
 } from "@/lib/schemas/chat";
 import { getSupabaseUserId } from "@/data/supabase/profiles";
+import { CHAT_MODEL, getChatModel, measureAsync } from "@/lib/llm/helpers";
 
 // Allow streaming responses up to 30 seconds
 export const maxDuration = 30;
@@ -36,50 +36,6 @@ export const maxDuration = 30;
 // const tools = {};
 
 const logger = createLogger(`app/api/chat/route.ts`);
-
-// Default model configuration
-const CHAT_MODEL = {
-  name: DEFAULT_CHAT_MODEL,
-  maxOutputTokens: 3000,
-};
-
-/**
- * Gets a validated chat model, falling back to default if invalid
- * @param model - Optional model string to validate
- * @returns Validated chat model
- */
-function getChatModel(model?: ChatModel): ChatModel {
-  if (!model) {
-    logger.log(
-      "getChatModel",
-      `No model provided, using default: ${DEFAULT_CHAT_MODEL.name}`
-    );
-    return DEFAULT_CHAT_MODEL;
-  }
-
-  const parseResult = ChatModelSchema.safeParse(model);
-  if (!parseResult.success) {
-    logger.error(
-      "getChatModel",
-      `Invalid model "${model}", falling back to default: ${DEFAULT_CHAT_MODEL.name}`
-    );
-    return DEFAULT_CHAT_MODEL;
-  }
-
-  logger.log("getChatModel", `Validated model: ${parseResult.data}`);
-  return parseResult.data;
-}
-type MeasureResult<T> = { result: T; durationMs: number };
-
-async function measureAsync<T>(
-  fn: () => Promise<T>
-): Promise<MeasureResult<T>> {
-  const start = performance.now();
-  const result = await fn();
-  const durationMs = performance.now() - start;
-
-  return { result, durationMs };
-}
 
 export async function POST(req: Request) {
   const body = await req.json();
