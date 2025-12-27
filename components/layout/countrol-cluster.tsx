@@ -5,6 +5,7 @@ import Link from "next/link";
 import { ThemeSwitch } from "../shared/theme-switch";
 
 import { cn } from "@/lib/utils";
+import { glass } from "../design-system/primitives";
 
 type ControlClusterProps = {
   className?: string;
@@ -15,7 +16,7 @@ export const ControlCluster: FC<ControlClusterProps> = ({ className }) => {
   return (
     <div
       className={cn(
-        `absolute top-0 sm:translate-y-4 right-0 w-28 h-14 flex items-center justify-center z-30`,
+        `${glass()} absolute top-0 md:translate-y-4 right-0 w-24 h-14 flex items-center justify-center z-30 rounded-bl-lg`,
         className,
       )}
     >

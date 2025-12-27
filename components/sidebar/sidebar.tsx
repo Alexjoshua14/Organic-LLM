@@ -26,7 +26,7 @@ import { SidebarProjectLink } from "./sidebar-project-link";
 export function Sidebar() {
   return (
     <ShadcnSidebar>
-      <SidebarHeader className="h-12 pl-7 grid place-content-center bg-background-secondary subpixel-antialiased">
+      <SidebarHeader className="h-16 pl-7 grid place-content-center bg-background-secondary subpixel-antialiased">
         <Link
           className="group/brand cursor-pointer active:scale-95 transition-transform duration-150 font-commissioner"
           href="/"

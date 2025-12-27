@@ -14,6 +14,7 @@ import {
 } from "@/components/third-party/ui/sidebar";
 import { Sidebar } from "@/components/sidebar/sidebar";
 import { ChatProvider } from "@/lib/context/chat-context";
+import { glass } from "@/components/design-system/primitives";
 
 export const metadata: Metadata = {
   title: {
@@ -58,8 +59,13 @@ export default function RootLayout({
               <SidebarProvider>
                 <Sidebar />
                 <ControlCluster />
-                <main className="pt-4 grow w-full overflow-hidden bg-background sm:bg-background-secondary h-full">
-                  <SidebarTrigger className="absolute top-4 left-4 z-20" />
+                <main className="md:pt-4 grow w-full overflow-hidden bg-background sm:bg-background-secondary h-full">
+                  <div className={`${glass()} absolute top-0 left-0 pl-4 z-30 w-20 h-14 flex items-center rounded-br-lg md:hidden`}>
+                    <SidebarTrigger />
+                  </div>
+                  <div className={`hidden md:flex absolute top-4 left-0 pl-4 z-30`}>
+                    <SidebarTrigger />
+                  </div>
                   {children}
                 </main>
               </SidebarProvider>
