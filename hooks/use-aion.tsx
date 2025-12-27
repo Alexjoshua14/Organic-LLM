@@ -92,6 +92,10 @@ export function useAion(options: UseAionOptions = {}) {
     memoryRef.current = memory;
   }
 
+  const navigate = (route: string) => {
+    push(route);
+  }
+
   const chat = useChat({
     id: id,
     messages: initialMessages,
@@ -136,7 +140,7 @@ export function useAion(options: UseAionOptions = {}) {
                 const result = toolResultPart.output as { route?: string; success?: boolean; reason?: string; message?: string };
                 if (result?.route) {
                   logger.log("onFinish", `Navigating to: ${result.route}`);
-                  push(result.route);
+                  navigate(result.route)
                 }
               }
             }
@@ -170,5 +174,6 @@ export function useAion(options: UseAionOptions = {}) {
     // Expose current model and memory settings for convenience
     model: modelRef.current,
     memory: memoryRef.current,
+    navigate,
   };
 }
