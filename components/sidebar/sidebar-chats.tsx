@@ -103,7 +103,7 @@ export const SidebarChats = () => {
                 <Pin size={13} />
                 <h2>Pinned</h2>
               </div>
-              <ChevronUp className="ml-auto transition-transform group-data-[state=open]/collapsible:rotate-180" />
+              <ChevronUp className="ml-auto transition-transform group-data-[state=open]/collapsible:rotate-180 cursor-pointer hover:scale-110" />
             </CollapsibleTrigger>
           </SidebarGroupLabel>
           <CollapsibleContent>
