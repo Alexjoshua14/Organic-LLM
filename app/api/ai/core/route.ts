@@ -16,7 +16,6 @@ import {
 import { Aion_SYSTEM_INSTRUCTION } from "@/lib/system-prompt/aion";
 import { createCoreToolKit } from "@/lib/llm/core/coreToolKit";
 // TODO: Make this stream resumable, using some external source to the client for tracking running job
-import { createResumableStreamContext } from "resumable-stream";
 
 const MAX_STEP_COUNT = 3;
 
