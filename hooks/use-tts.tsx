@@ -7,25 +7,25 @@ import { mergeAlignments, processAudioChunk, processAudioStream, waitForSourceBu
 
 const logger = createLogger("hooks/use-tts.tsx");
 
-const MIN_BUFFERED_SECONDS = 0.5;
-
 
 export function useTTS({
   onStatusChange,
   onTimeUpdate,
   onDurationChange,
   onAlignment,
-  audioRef
+  audioRef,
+  autoplay = true,
 }: {
-  onStatusChange?: (status: "ready" | "processing" | "playing" | "paused" | "error" | "complete") => void;
+  onStatusChange?: (status: "ready" | "processing" | "readyToPlay" | "playing" | "paused" | "error" | "complete") => void;
   onTimeUpdate?: (time: number) => void;
   onDurationChange?: (duration: number) => void;
   onAlignment?: (alignment: { alignment?: AlignmentData; normalizedAlignment?: AlignmentData }) => void;
   audioRef?: React.RefObject<HTMLAudioElement | null>;
+  autoplay?: boolean;
 } = {}) {
   const mediaSourceRef = useRef<MediaSource | null>(null);
   const timeUpdateIntervalRef = useRef<number | null>(null);
-  const [status, setStatus] = useState<"ready" | "processing" | "playing" | "paused" | "error" | "complete">("ready")
+  const [status, setStatus] = useState<"ready" | "processing" | "readyToPlay" | "playing" | "paused" | "error" | "complete">("ready")
   const [duration, setDuration] = useState<number | null>(null);
   const [currentTime, setCurrentTime] = useState<number | null>(null);
   const [allAlignments, setAllAlignments] = useState<Array<{ alignment?: AlignmentData; normalizedAlignment?: AlignmentData }>>([]);
@@ -58,6 +58,23 @@ export function useTTS({
     return indices;
   }, [mergedAlignment, currentTime]);
 
+  const onReadyToPlay = useCallback(async () => {
+
+    try {
+      setStatus('readyToPlay')
+      onStatusChange?.('readyToPlay')
+      if (audioRef?.current) {
+        audioRef.current.controls = true;
+        if (autoplay) {
+          await audioRef.current.play();
+        }
+      }
+      logger.log("streamAudio", `Ready to play audio, current duration of ready audio is: ${audioRef?.current?.duration}`);
+    } catch (err) {
+      logger.error("streamAudio", `Error playing audio early: ${err}`);
+    }
+  }, [audioRef])
+
   const streamAudio = useCallback(async ({ text, processText = true }: { text: string, processText?: boolean }) => {
     // Reset alignments for new stream
     setAllAlignments([]);
@@ -86,6 +103,7 @@ export function useTTS({
     audio.addEventListener("durationchange", () => {
       onDurationChange?.(audio.duration || 0);
       setDuration(audio.duration || 0);
+      logger.log("streamAudio", `Duration changed: ${audio.duration}`);
     });
 
     audio.addEventListener("timeupdate", () => {
@@ -121,7 +139,6 @@ export function useTTS({
     // Begin streaming audio for TTS using MediaSource, fetch response, and decode chunks.
     mediaSource.addEventListener("sourceopen", async () => {
       setStatus("processing")
-      let readyToPlay = false;
       onStatusChange?.("processing")
       const sourceBuffer = mediaSource.addSourceBuffer("audio/mpeg");
 
@@ -146,7 +163,9 @@ export function useTTS({
 
       const reader = res.body.getReader();
       const callbacks = {
-        onAlignment, setAllAlignments
+        onAlignment,
+        setAllAlignments,
+        onReadyToPlay
       }
       // Process stream
       const remainingBuffer = await processAudioStream(reader, sourceBuffer, callbacks);
@@ -164,15 +183,8 @@ export function useTTS({
       // Finalize
       await waitForSourceBuffer(sourceBuffer);
       mediaSource.endOfStream();
-      audio.controls = true;
-
-      try {
-        await audio.play();
-      } catch (err) {
-        logger.error("streamAudio", `Error playing audio: ${err}`);
-      }
     });
-  }, [onAlignment, audioRef]);
+  }, [onAlignment, audioRef, autoplay]);
 
 
   // Media Playback handles

@@ -1,7 +1,22 @@
-import { AudioStreamChunkSchema, type AlignmentData } from "@/lib/schemas/tts";
+import {
+  AudioStreamChunk,
+  AudioStreamChunkSchema,
+  type AlignmentData,
+} from "@/lib/schemas/tts";
 import { createLogger } from "@/lib/logger";
 
 const logger = createLogger("lib/llm/tts/helpers.ts");
+
+const MIN_BUFFERED_SECONDS = 0.5;
+
+/**
+ * Estimates time in milliseconds based on MP3 at 128kbps, which == 16KB per second
+ * @param chunk
+ */
+export function calculateChunkLength(chunk: AudioStreamChunk): number {
+  const chunkSizeBytes = atob(chunk.audioBase64).length;
+  return chunkSizeBytes / 16384;
+}
 
 /**
  * Helper function to merge multiple alignment chunks into a single alignment
@@ -175,12 +190,17 @@ export async function processAudioStream(
         }>
       >
     >;
+    onReadyToPlay?: () => Promise<void>;
   }
 ): Promise<string> {
   const decoder = new TextDecoder();
   let buffer = "";
+  let totalBufferedTime = 0;
+  let hasCalledReadyToPlay = false;
 
+  let i = 0;
   while (true) {
+    logger.log("processAudioStream", `${i} iteration`);
     const { value, done } = await reader.read();
     if (done) break;
 
@@ -194,6 +214,21 @@ export async function processAudioStream(
       try {
         const chunk = AudioStreamChunkSchema.parse(JSON.parse(line));
         await processAudioChunk(chunk, sourceBuffer, callbacks);
+
+        const actualBufferedTime =
+          sourceBuffer.buffered.length > 0
+            ? sourceBuffer.buffered.end(sourceBuffer.buffered.length - 1) -
+              sourceBuffer.buffered.start(0)
+            : 0;
+
+        // Mark audio as ready to play once we have enough buffer
+        if (
+          !hasCalledReadyToPlay &&
+          actualBufferedTime >= MIN_BUFFERED_SECONDS
+        ) {
+          hasCalledReadyToPlay = true;
+          await callbacks.onReadyToPlay?.();
+        }
       } catch (err) {
         logger.error("streamAudio", `Error parsing chunk: ${err}`);
       }
@@ -201,4 +236,32 @@ export async function processAudioStream(
   }
 
   return buffer; // Return remaining buffer
+}
+
+/**
+ * Helper function to get the current character index being spoken
+ * based on the current audio time and alignment data
+ */
+export function getCurrentCharacterIndex(
+  currentTime: number,
+  alignment: AlignmentData
+): number | null {
+  if (
+    !alignment ||
+    !alignment.characterStartTimesSeconds ||
+    !alignment.characterEndTimesSeconds
+  ) {
+    return null;
+  }
+
+  for (let i = 0; i < alignment.characterStartTimesSeconds.length; i++) {
+    const startTime = alignment.characterStartTimesSeconds[i];
+    const endTime = alignment.characterEndTimesSeconds[i];
+
+    if (currentTime >= startTime && currentTime <= endTime) {
+      return i;
+    }
+  }
+
+  return null;
 }
