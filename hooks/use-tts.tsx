@@ -2,10 +2,18 @@
 import { useRef, useState, useCallback, useMemo } from "react";
 import { AlignmentData, AudioStreamChunkSchema } from "@/lib/schemas/tts";
 import { createLogger } from "@/lib/logger";
-import { mergeAlignments, processAudioChunk, processAudioStream, waitForSourceBuffer } from "@/lib/llm/tts/helpers";
+import { mergeAlignments, processAudioChunk, processAudioStream, waitForSourceBuffer, decodeAudioBase64 } from "@/lib/llm/tts/helpers";
 
 // Create a logger instance for this hook file
 const logger = createLogger("hooks/use-tts.tsx");
+
+/**
+ * Check if MediaSource API is supported in this browser
+ * MediaSource is not well-supported on iOS Safari and some mobile browsers
+ */
+function isMediaSourceSupported(): boolean {
+  return typeof MediaSource !== "undefined" && MediaSource.isTypeSupported("audio/mpeg");
+}
 
 /**
  * Custom React hook to handle Text-to-Speech (TTS) streaming audio, playback control,
@@ -131,36 +139,9 @@ export function useTTS({
   }, [])
 
   /**
-   * Stream audio from TTS backend, process chunks, manage alignments, and control the MediaSource/audio lifecycle.
-   * This is the core logic for fetching, decoding, and playing TTS audio streams.
+   * Set up audio element event listeners (shared between MediaSource and blob approaches)
    */
-  const streamAudio = useCallback(async ({ text, processText = true }: { text: string, processText?: boolean }) => {
-    // Reset alignments for new stream
-    setAllAlignments([]);
-
-    if (!audioRef?.current) {
-      logger.error("streamAudio", "No audio ref");
-      return;
-    }
-
-    const audio = audioRef.current;
-
-    // Cleanup old object URLs if any to prevent memory leaks
-    const oldSrc = audio.src;
-    if (oldSrc && oldSrc.startsWith('blob:')) {
-      URL.revokeObjectURL(oldSrc);
-    }
-
-    // Create a new MediaSource for this stream
-    const mediaSource = new MediaSource();
-    mediaSourceRef.current = mediaSource;
-
-    // Set audio's source to the new MediaSource object URL
-    const blobUrl = URL.createObjectURL(mediaSource);
-    audio.src = blobUrl;
-
-    // --- Audio element event listeners for state management and reporting ---
-
+  const setupAudioEventListeners = useCallback((audio: HTMLAudioElement) => {
     // Duration update event
     audio.addEventListener("durationchange", () => {
       onDurationChange?.(audio.duration || 0);
@@ -201,62 +182,188 @@ export function useTTS({
       onStatusChange?.("error");
       logger.error("streamAudio", `Audio error: ${e}`);
     });
+  }, [onDurationChange, onTimeUpdate, onStatusChange]);
 
-    // --- MediaSource streaming and TTS data handling logic ---
-    mediaSource.addEventListener("sourceopen", async () => {
-      setStatus("processing");
-      onStatusChange?.("processing");
-      // Create an MPEG audio buffer for the stream
-      const sourceBuffer = mediaSource.addSourceBuffer("audio/mpeg");
+  /**
+   * Process alignment data from a chunk (shared between both approaches)
+   */
+  const processChunkAlignment = useCallback((chunk: { alignment?: AlignmentData; normalizedAlignment?: AlignmentData }) => {
+    if (chunk.alignment || chunk.normalizedAlignment) {
+      const alignmentData = {
+        alignment: chunk.alignment,
+        normalizedAlignment: chunk.normalizedAlignment,
+      };
+      onAlignment?.(alignmentData);
+      setAllAlignments((prev) => [...prev, alignmentData]);
+    }
+  }, [onAlignment]);
 
-      // Make TTS request to backend API
-      const res = await fetch("/api/ai/tts-v2", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          text,
-          model: "eleven_multilingual_v2",
-          skipTransform: !processText,
-        }),
-      });
+  /**
+   * Unified stream audio function that handles both MediaSource and blob-based approaches
+   */
+  const streamAudio = useCallback(async ({ text, processText = true }: { text: string, processText?: boolean }) => {
+    // Reset alignments for new stream
+    setAllAlignments([]);
 
-      if (!res.body) {
-        logger.error("streamAudio", "No response body");
+    if (!audioRef?.current) {
+      logger.error("streamAudio", "No audio ref");
+      return;
+    }
+
+    const audio = audioRef.current;
+    const useMediaSource = isMediaSourceSupported();
+
+    // Cleanup old object URLs if any to prevent memory leaks
+    const oldSrc = audio.src;
+    if (oldSrc && oldSrc.startsWith('blob:')) {
+      URL.revokeObjectURL(oldSrc);
+    }
+
+    // Set up event listeners (shared)
+    setupAudioEventListeners(audio);
+
+    // Make TTS request to backend API (shared)
+    const res = await fetch("/api/ai/tts-v2", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        text,
+        model: "eleven_multilingual_v2",
+        skipTransform: !processText,
+      }),
+    });
+
+    if (!res.body) {
+      logger.error("streamAudio", "No response body");
+      setStatus("error");
+      onStatusChange?.("error");
+      return;
+    }
+
+    setStatus("processing");
+    onStatusChange?.("processing");
+
+    if (useMediaSource) {
+      // MediaSource path: stream chunks directly to SourceBuffer
+      const mediaSource = new MediaSource();
+      mediaSourceRef.current = mediaSource;
+      const blobUrl = URL.createObjectURL(mediaSource);
+      audio.src = blobUrl;
+
+      mediaSource.addEventListener("sourceopen", async () => {
+        const sourceBuffer = mediaSource.addSourceBuffer("audio/mpeg");
+        const reader = res.body!.getReader();
+
+        const callbacks = {
+          onAlignment,
+          setAllAlignments,
+          onReadyToPlay
+        };
+
+        const remainingBuffer = await processAudioStream(reader, sourceBuffer, callbacks);
+
+        if (remainingBuffer.trim()) {
+          try {
+            const chunk = AudioStreamChunkSchema.parse(JSON.parse(remainingBuffer));
+            await processAudioChunk(chunk, sourceBuffer, callbacks);
+          } catch (err) {
+            logger.error("streamAudio", `Error parsing final chunk: ${err}`);
+          }
+        }
+
+        await waitForSourceBuffer(sourceBuffer);
         mediaSource.endOfStream();
-        onStatusChange?.("error");
-        return;
+      });
+    } else {
+      // Blob path: collect all chunks, then create blob
+      logger.log("streamAudio", "Using blob fallback (MediaSource not supported)");
+
+      const reader = res.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = "";
+      const audioChunks: Uint8Array[] = [];
+
+      while (true) {
+        const { value, done } = await reader.read();
+        if (done) break;
+
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split("\n");
+        buffer = lines.pop() || "";
+
+        for (const line of lines) {
+          if (!line.trim()) continue;
+
+          try {
+            const chunk = AudioStreamChunkSchema.parse(JSON.parse(line));
+            processChunkAlignment(chunk);
+
+            if (chunk.audioBase64) {
+              const audioBytes = decodeAudioBase64(chunk.audioBase64);
+              audioChunks.push(audioBytes);
+            }
+          } catch (err) {
+            logger.error("streamAudio", `Error parsing chunk: ${err}`);
+          }
+        }
       }
 
-      // Reader for NDJSON chunked response
-      const reader = res.body.getReader();
-      // Callbacks for processing alignments and early play
-      const callbacks = {
-        onAlignment,
-        setAllAlignments,
-        onReadyToPlay
-      };
-
-      // Process and append each audio chunk as it's streamed from backend
-      const remainingBuffer = await processAudioStream(reader, sourceBuffer, callbacks);
-
-      // If any text left in buffer, process as a final chunk (handles incomplete responses gracefully)
-      if (remainingBuffer.trim()) {
+      // Process remaining buffer
+      if (buffer.trim()) {
         try {
-          const chunk = AudioStreamChunkSchema.parse(JSON.parse(remainingBuffer));
-          await processAudioChunk(chunk, sourceBuffer, callbacks);
+          const chunk = AudioStreamChunkSchema.parse(JSON.parse(buffer));
+          processChunkAlignment(chunk);
+          if (chunk.audioBase64) {
+            const audioBytes = decodeAudioBase64(chunk.audioBase64);
+            audioChunks.push(audioBytes);
+          }
         } catch (err) {
           logger.error("streamAudio", `Error parsing final chunk: ${err}`);
         }
       }
 
-      // Ensure all data has been appended before signaling end-of-stream
-      await waitForSourceBuffer(sourceBuffer);
-      mediaSource.endOfStream();
-    });
-    // Note: [onAlignment, audioRef, autoplay] in deps. If you add/remove any more props, update this!
-  }, [onAlignment, audioRef, autoplay]);
+      // Combine chunks into blob
+      const totalLength = audioChunks.reduce((sum, chunk) => sum + chunk.length, 0);
+      const combinedAudio = new Uint8Array(totalLength);
+      let offset = 0;
+      for (const chunk of audioChunks) {
+        combinedAudio.set(chunk, offset);
+        offset += chunk.length;
+      }
+
+      const blob = new Blob([combinedAudio], { type: "audio/mpeg" });
+      const blobUrl = URL.createObjectURL(blob);
+      audio.src = blobUrl;
+
+      // Wait for metadata to load
+      await new Promise<void>((resolve, reject) => {
+        const onLoadedMetadata = () => {
+          audio.removeEventListener("loadedmetadata", onLoadedMetadata);
+          audio.removeEventListener("error", onError);
+          resolve();
+        };
+        const onError = (e: Event) => {
+          audio.removeEventListener("loadedmetadata", onLoadedMetadata);
+          audio.removeEventListener("error", onError);
+          reject(e);
+        };
+        audio.addEventListener("loadedmetadata", onLoadedMetadata);
+        audio.addEventListener("error", onError);
+        audio.load();
+      });
+
+      setStatus("readyToPlay");
+      onStatusChange?.("readyToPlay");
+      onDurationChange?.(audio.duration || 0);
+      setDuration(audio.duration || 0);
+
+      if (autoplay) {
+        await audio.play();
+      }
+    }
+  }, [audioRef, autoplay, onAlignment, onStatusChange, onDurationChange, onTimeUpdate, setupAudioEventListeners, processChunkAlignment]);
 
   // ---- Media Playback Controls ----
 

@@ -1,5 +1,5 @@
-import React, { ChangeEventHandler, FormEvent, useCallback, useState } from "react";
-import { PromptInput, PromptInputBody, PromptInputTextarea, PromptInputFooter, PromptInputMessage } from "../ai-elements/prompt-input";
+import React, { FormEvent, useState } from "react";
+import { PromptInput, PromptInputBody, PromptInputTextarea, PromptInputFooter, PromptInputMessage, PromptInputProvider, usePromptInputController } from "../ai-elements/prompt-input";
 import { PromptInputSubmit } from "../chat/new-chat-input";
 import { glass } from "../design-system/primitives";
 import { ChatStatus } from "ai";
@@ -12,18 +12,14 @@ export interface AiInputFormProps extends Omit<React.HTMLAttributes<HTMLFormElem
   className?: string;
 }
 
-/**
- * AI Input Form for one-off prompts that route users to different parts of Organic LLM.
- * This is NOT a chat interface - it's for single prompts that trigger routing/actions.
- */
-export const AiInputForm: React.FC<AiInputFormProps> = ({
+const AiInputFormContent: React.FC<AiInputFormProps> = ({
   onSubmit,
   isLoading = false,
   className,
   status,
   ...props
 }) => {
-  const [text, setText] = useState<string>('');
+  const { textInput } = usePromptInputController();
   const [userQuery, setUserQuery] = useState<string>('')
 
   const handleSubmit = async (message: PromptInputMessage, event: FormEvent<HTMLFormElement>) => {
@@ -33,15 +29,11 @@ export const AiInputForm: React.FC<AiInputFormProps> = ({
     if (!hasText || isLoading) {
       return;
     }
-    setUserQuery(text)
+    setUserQuery(message.text)
 
     await onSubmit(message.text);
-    setText('');
+    textInput.clear();
   };
-
-  const handleInputChange: ChangeEventHandler<HTMLTextAreaElement> = useCallback((e) => {
-    setText(e.target.value);
-  }, []);
 
   return (
     <PromptInput onSubmit={handleSubmit} multiple className={className}>
@@ -49,8 +41,6 @@ export const AiInputForm: React.FC<AiInputFormProps> = ({
 
         {status === 'ready' ?
           <PromptInputTextarea
-            onChange={handleInputChange}
-            value={text}
             disabled={isLoading}
             placeholder="What do you want to explore?"
             className="text-lg! md:text-lg! placeholder:text-lg! caret-accent w-full"
@@ -63,10 +53,23 @@ export const AiInputForm: React.FC<AiInputFormProps> = ({
       </PromptInputBody>
       <PromptInputFooter className="flex justify-end">
         <PromptInputSubmit
-          disabled={!text.trim() || isLoading}
+          status={status || 'ready'}
+          disabled={!textInput.value.trim() || isLoading}
         />
       </PromptInputFooter>
     </PromptInput>
+  );
+};
+
+/**
+ * AI Input Form for one-off prompts that route users to different parts of Organic LLM.
+ * This is NOT a chat interface - it's for single prompts that trigger routing/actions.
+ */
+export const AiInputForm: React.FC<AiInputFormProps> = (props) => {
+  return (
+    <PromptInputProvider>
+      <AiInputFormContent {...props} />
+    </PromptInputProvider>
   );
 };
 
