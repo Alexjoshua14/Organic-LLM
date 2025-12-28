@@ -7,6 +7,7 @@ import { useCallback, useRef, useState } from "react";
 import { createLogger } from "../../lib/logger";
 import { Loader } from "../third-party/ai-elements/loader";
 import { glass } from "../design-system/primitives";
+import { useTTS } from "@/hooks/use-tts";
 
 const logger = createLogger("components/tts/ttsButton.tsx");
 
@@ -34,74 +35,25 @@ export function TTSButton({
   text: string;
   iconOnly?: boolean;
 }) {
-  const [loading, setLoading] = useState(false);
-  const [url, setURL] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(null);
   const audioRef = useRef<HTMLAudioElement>(null);
 
+  const { streamAudio, status, play, close } = useTTS({ audioRef, autoplay: true })
+
+  const handleSpeak = useCallback(() => {
+    if (status === 'processing' || status === 'playing') {
+      return;
+    } else if (status === 'complete' || status == 'readyToPlay' || status == 'paused') {
+      play();
+    }
+
+    streamAudio({ text })
+
+  }, [text, status])
+
+
   const clearAudio = useCallback(() => {
-    audioRef.current?.pause();
-    setURL(null);
-    setLoading(false);
-    setError(null);
+    close()
   }, []);
-
-  async function handleSpeak() {
-    if (loading) return;
-    if (url !== null) {
-      logger.log(
-        "handleSpeak",
-        "URL is set already, assuming we already have generated the right audio, and avoiding extra costs while in development...",
-      );
-      if (audioRef) {
-        logger.log("handleSpeak", "Playing audio");
-        audioRef.current?.play();
-
-        return;
-      }
-    }
-
-    if (global.clearAudio && url === null) {
-      global.clearAudio();
-      global.clearAudio = null;
-    }
-
-    clearAudio();
-
-    const model: ModelSelection = "eleven_flash_v2_5";
-
-    try {
-      setLoading(true);
-      const res = await fetch("/api/ai/tts", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ text, model }),
-      });
-
-      if (!res.ok) {
-        throw new Error("Failed to generate speech-friendly response");
-      }
-
-      const data = (await res.json()) as TTSResponse;
-
-      logger.log("handleSpeak", "TTS response received:", data);
-
-      const blob = uint8ArrayToBlob(data.data.uint8ArrayData);
-
-      const objectURL = URL.createObjectURL(blob);
-
-      setURL(objectURL);
-      global.clearAudio = clearAudio;
-    } catch (error) {
-      setError(
-        error instanceof Error ? error.message : "An unexpected error occurred",
-      );
-    } finally {
-      setLoading(false);
-    }
-  }
 
   return (
     <>
@@ -115,29 +67,28 @@ export function TTSButton({
         <Volume2 className="w-4 h-4 mr-1" />
         {iconOnly ? null : "Play Audio"}
       </Button>
-      {(loading || url) && (
-        <div
-          className={`${glass()} absolute top-4 left-1/2 -translate-x-1/2 flex items-center gap-2 px-6 py-2 rounded-xl`}
-        >
-          {url ? (
-            <audio
-              ref={audioRef}
-              autoPlay
-              controls
-              className={`${glass()} rounded-xl p-1`}
-              src={url ?? undefined}
-            >
-              <track kind="captions" />
-            </audio>
-          ) : (
+      {/* {['readyToPlay', 'playing', 'processing', 'paused', 'complete'].includes(status) && ( */}
+      <div
+        className={`${glass()} absolute top-4 left-1/2 -translate-x-1/2 flex items-center gap-2 px-6 py-2 rounded-xl ${status !== 'readyToPlay' && status !== 'playing' && status !== 'paused' && status !== 'complete' ? 'hidden' : ''}`}
+      >
+        {/* {status === 'processing' ? (
             <Loader className="w-4 h-4" />
-          )}
+          ) : ( */}
+        <audio
+          ref={audioRef}
+          autoPlay
+          controls
+          className={`${glass()} rounded-xl p-1 min-w-20`}
+        >
+          {/* <track kind="captions" /> */}
+        </audio>
+        {/* )} */}
 
-          <Button isIconOnly size="sm" onPress={clearAudio}>
-            <X className="w-4 h-4" />
-          </Button>
-        </div>
-      )}
+        <Button isIconOnly size="sm" onPress={clearAudio}>
+          <X className="w-4 h-4" />
+        </Button>
+      </div>
+      {/* )} */}
     </>
   );
 }

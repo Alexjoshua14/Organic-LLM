@@ -89,6 +89,47 @@ export function useTTS({
     }
   }, []);
 
+  const close = useCallback(async () => {
+    // Cleanup: abort stream, clear MediaSource, remove audio URL, reset state.
+    // Pause audio if playing
+    if (audioRef?.current) {
+      try {
+        audioRef.current.pause();
+      } catch (e) {
+        // Ignore pause errors
+      }
+
+      // Remove event listeners if any (in case you attached some outside React effect)
+      // Optionally: audioRef.current.src = ''
+      // Revoke object URL if present
+      const src = audioRef.current.src;
+      if (src && src.startsWith('blob:')) {
+        URL.revokeObjectURL(src);
+      }
+      audioRef.current.src = '';
+      audioRef.current.load();
+    }
+
+    // Close MediaSource if present
+    if (mediaSourceRef.current && mediaSourceRef.current.readyState === "open") {
+      try {
+        mediaSourceRef.current.endOfStream();
+      } catch (e) {
+        // ignore
+      }
+    }
+    mediaSourceRef.current = null;
+
+    // Reset states
+    setAllAlignments([]);
+    setStatus("ready");
+    setDuration(0);
+    setCurrentTime(0);
+
+    // Optionally: abort fetch controller or streaming, if implemented elsewhere
+
+  }, [])
+
   /**
    * Stream audio from TTS backend, process chunks, manage alignments, and control the MediaSource/audio lifecycle.
    * This is the core logic for fetching, decoding, and playing TTS audio streams.
@@ -264,12 +305,14 @@ export function useTTS({
 
   // ---- API: Return all controls and state for use in TTS components ----
   return {
+    // Expose TTS controls, audio state, and alignment data for use in consuming components
     streamAudio,                   // Function to start TTS streaming for a new text
     status,                        // Current playback/processing status
     play,                          // Play audio
     pause,                         // Pause audio
     stop,                          // Stop (pause + reset to beginning)
     seek,                          // Seek to specific time
+    close,                         // Close and clean up audio/MediaSource
     duration,                      // Total audio duration (seconds)
     currentTime,                   // Current playback time (seconds)
     allAlignments,                 // All accumulated alignment data
