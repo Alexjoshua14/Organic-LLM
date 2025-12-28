@@ -98,7 +98,13 @@ export function decodeAudioBase64(
 }
 
 /**
- * Process alignment data from a chunk
+ * Process alignment data from a TTS audio chunk.
+ * - Calls the onAlignment callback and accumulates all alignments for later merging.
+ *
+ * @param chunk - The audio chunk with optional alignment and normalizedAlignment data
+ * @param callbacks - Object containing:
+ *   - onAlignment: Optional callback fired for each chunk's alignment data (for UI highlighting, etc.)
+ *   - setAllAlignments: State setter for accumulating all received alignment data (for merging at end)
  */
 export function processAlignmentData(
   chunk: { alignment?: AlignmentData; normalizedAlignment?: AlignmentData },
@@ -117,15 +123,20 @@ export function processAlignmentData(
     >;
   }
 ): void {
+  // Only process if at least one type of alignment is present in the chunk
   if (chunk.alignment || chunk.normalizedAlignment) {
     const alignmentData = {
       alignment: chunk.alignment,
       normalizedAlignment: chunk.normalizedAlignment,
     };
 
+    // Trigger any registered callback for new alignment data (e.g. for real-time highlighting)
     callbacks.onAlignment?.(alignmentData);
+
+    // Accumulate all alignment data so we can later merge for a full alignment for the audio
     callbacks.setAllAlignments((prev) => [...prev, alignmentData]);
 
+    // Debug/log for development purposes
     logger.log("streamAudio", `Alignment data received:`, {
       hasAlignment: !!chunk.alignment,
       hasNormalized: !!chunk.normalizedAlignment,
@@ -136,7 +147,11 @@ export function processAlignmentData(
 }
 
 /**
- * Process a single audio chunk: extract alignment, decode, and append to sourceBuffer
+ * Process a single audio chunk: extract alignment, decode audio, and append to a SourceBuffer.
+ *
+ * @param chunk - An audio chunk which may have alignment info and base64-encoded audio data
+ * @param sourceBuffer - The MediaSource SourceBuffer to append decoded audio bytes to
+ * @param callbacks - Object containing onAlignment and setAllAlignments for alignment processing
  */
 export async function processAudioChunk(
   chunk: {
@@ -160,19 +175,29 @@ export async function processAudioChunk(
     >;
   }
 ): Promise<void> {
+  // Skip if there's no audio data
   if (!chunk.audioBase64) return;
 
-  // Process alignment data
+  // Process any alignment metadata in the chunk
   processAlignmentData(chunk, callbacks);
 
-  // Decode and append audio
+  // Decode base64 audio to Uint8Array and append to the MediaSource SourceBuffer
   const audioBytes = decodeAudioBase64(chunk.audioBase64);
-  await waitForSourceBuffer(sourceBuffer);
+  await waitForSourceBuffer(sourceBuffer); // Wait for buffer to be ready (not updating)
   sourceBuffer.appendBuffer(audioBytes);
 }
 
 /**
- * Process NDJSON stream and append audio chunks to sourceBuffer
+ * Process an NDJSON stream of audio chunks, appending each to a SourceBuffer as they arrive.
+ * Also calls an onReadyToPlay callback as soon as a minimum buffered audio duration is met.
+ *
+ * @param reader - A stream reader for the NDJSON audio+alignment data (from fetch response)
+ * @param sourceBuffer - The MediaSource SourceBuffer to append decoded audio to
+ * @param callbacks - Object containing:
+ *   - onAlignment: Per-chunk alignment event callback
+ *   - setAllAlignments: Cumulative state setter for alignments
+ *   - onReadyToPlay: Called once enough buffer is present for responsive playback
+ * @returns The remainder of the textual buffer (part of a possibly incomplete last chunk)
  */
 export async function processAudioStream(
   reader: ReadableStreamDefaultReader<Uint8Array>,
@@ -195,33 +220,38 @@ export async function processAudioStream(
 ): Promise<string> {
   const decoder = new TextDecoder();
   let buffer = "";
-  let totalBufferedTime = 0;
+  // let totalBufferedTime = 0; // Unused, but might track cumulative buffered seconds
   let hasCalledReadyToPlay = false;
 
-  let i = 0;
+  let i = 0; // Counter for debug logging
   while (true) {
     logger.log("processAudioStream", `${i} iteration`);
     const { value, done } = await reader.read();
     if (done) break;
 
+    // Decode incoming bytes, accumulate to buffer, then split by newline for NDJSON lines
     buffer += decoder.decode(value, { stream: true });
     const lines = buffer.split("\n");
+    // The last element may be an incomplete JSON object, so keep it in buffer
     buffer = lines.pop() || "";
 
     for (const line of lines) {
-      if (!line.trim()) continue;
+      if (!line.trim()) continue; // skip empty lines
 
       try {
+        // Parse and validate the chunk's structure
         const chunk = AudioStreamChunkSchema.parse(JSON.parse(line));
+        // Process audio and alignment for this chunk
         await processAudioChunk(chunk, sourceBuffer, callbacks);
 
+        // Calculate how much audio is buffered in seconds
         const actualBufferedTime =
           sourceBuffer.buffered.length > 0
             ? sourceBuffer.buffered.end(sourceBuffer.buffered.length - 1) -
               sourceBuffer.buffered.start(0)
             : 0;
 
-        // Mark audio as ready to play once we have enough buffer
+        // As soon as we have enough buffered audio, trigger the "ready to play" event (once)
         if (
           !hasCalledReadyToPlay &&
           actualBufferedTime >= MIN_BUFFERED_SECONDS
@@ -230,12 +260,15 @@ export async function processAudioStream(
           await callbacks.onReadyToPlay?.();
         }
       } catch (err) {
+        // If the NDJSON is incomplete/corrupt on this line, log and skip
         logger.error("streamAudio", `Error parsing chunk: ${err}`);
       }
     }
+    i++; // increment debug iteration count
   }
 
-  return buffer; // Return remaining buffer
+  // Return any unparsed trailing buffer (outside the loop) for possible final processing
+  return buffer;
 }
 
 /**
