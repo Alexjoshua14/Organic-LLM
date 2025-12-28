@@ -11,7 +11,7 @@ export default function SpeakPage() {
         <p className="text-muted-foreground mb-3 text-center">
           Click the button below to generate and stream speech using ElevenLabs!
         </p>
-        <TTSButtonV2 />
+        <TTSButtonV2 text="Hello, this is a test of the streaming TTS system." />
       </section>
     </main>
   );

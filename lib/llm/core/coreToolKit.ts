@@ -9,7 +9,7 @@ const logger = createLogger("lib/llm/core/coreToolKit");
 
 const PageMetadataSchema = z.object({
   relativeURL: z.url(),
-  section: z.enum(["Chat", "Rabbit Holes", "Settings"]),
+  section: z.enum(["Chat", "Rabbit Holes", "Settings", "Voice"]),
   description: z.string(),
   additionalDescription: z.string().max(40).optional(),
 });
@@ -43,11 +43,19 @@ const settings = {
   additionalDescription: "Use to configure preferences and system options.",
 };
 
+const speakDemo = {
+  relativeURL: "/speak/v2",
+  section: "Voice",
+  description: "Speak demo page for streaming ElevenLabs TTS.",
+  additionalDescription: "Try streaming text-to-speech with ElevenLabs.",
+};
+
 export const pageMetadataObjects = {
   chat,
   chatLoading,
   rabbitHoles,
   settings,
+  speakDemo,
 };
 
 /**
