@@ -69,7 +69,7 @@ export function TTSButton({
       </Button>
       {/* {['readyToPlay', 'playing', 'processing', 'paused', 'complete'].includes(status) && ( */}
       <div
-        className={`${glass()} absolute top-4 left-1/2 -translate-x-1/2 flex items-center gap-2 px-6 py-2 rounded-xl ${status !== 'readyToPlay' && status !== 'playing' && status !== 'paused' && status !== 'complete' ? 'hidden' : ''}`}
+        className={`${glass()} absolute top-10 md:top-4 left-1/2 -translate-x-1/2 flex items-center gap-2 px-6 py-2 rounded-xl ${status !== 'readyToPlay' && status !== 'playing' && status !== 'paused' && status !== 'complete' ? 'hidden' : ''}`}
       >
         {/* {status === 'processing' ? (
             <Loader className="w-4 h-4" />

@@ -91,9 +91,7 @@ export async function waitForSourceBuffer(
 /**
  * Decode base64 audio string to Uint8Array
  */
-export function decodeAudioBase64(
-  audioBase64: string
-): Uint8Array<ArrayBuffer> {
+export function decodeAudioBase64(audioBase64: string): Uint8Array {
   return Uint8Array.from(atob(audioBase64), (c) => c.charCodeAt(0));
 }
 
@@ -184,7 +182,7 @@ export async function processAudioChunk(
   // Decode base64 audio to Uint8Array and append to the MediaSource SourceBuffer
   const audioBytes = decodeAudioBase64(chunk.audioBase64);
   await waitForSourceBuffer(sourceBuffer); // Wait for buffer to be ready (not updating)
-  sourceBuffer.appendBuffer(audioBytes);
+  sourceBuffer.appendBuffer(audioBytes as BufferSource);
 }
 
 /**
