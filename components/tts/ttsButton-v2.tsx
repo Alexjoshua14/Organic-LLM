@@ -5,13 +5,18 @@ import { Button } from "@heroui/button";
 import { AudioLines } from "lucide-react";
 import { glass } from "../design-system/primitives";
 import { useRef, type ReactNode } from "react";
-import { useTTS, AlignmentData } from "@/hooks/use-tts";
+import { useTTS } from "@/hooks/use-tts";
+
 
 const logger = createLogger("components/tts/ttsButton-v2.tsx");
+
+const DEFAULT_TTS_TEXT = "Welcome to our advanced text-to-speech demonstration! This feature allows you to listen to the text as it is read aloud, with real-time highlighting. Notice how each part of the sentence is spoken clearly and marked as it is being read. Try listening to this entire message for a complete experience.";
 
 
 export default function TTSButtonV2({ text }: { text: string }) {
   const audioRef = useRef<HTMLAudioElement>(null)
+
+  text = DEFAULT_TTS_TEXT
 
   const speech = useTTS({
     audioRef,
@@ -87,7 +92,7 @@ export default function TTSButtonV2({ text }: { text: string }) {
       <div className="flex flex-col gap-2 items-center text-default">
         <div className="flex flex-col gap-2 h-24 items-center w-full">
           <Button
-            onPress={() => speech.streamAudio({ text })}
+            onPress={() => speech.streamAudio({ text, processText: false })}
             className={
               `${glass()} transition-transform duration-300 active:scale-90 hover:scale-105 hover:shadow-lg h-14`
             }
@@ -109,30 +114,3 @@ export default function TTSButtonV2({ text }: { text: string }) {
     </div>
   )
 }
-
-
-
-/**
- * Helper function to get the current character index being spoken
- * based on the current audio time and alignment data
- */
-export function getCurrentCharacterIndex(
-  currentTime: number,
-  alignment: AlignmentData
-): number | null {
-  if (!alignment || !alignment.characterStartTimesSeconds || !alignment.characterEndTimesSeconds) {
-    return null;
-  }
-
-  for (let i = 0; i < alignment.characterStartTimesSeconds.length; i++) {
-    const startTime = alignment.characterStartTimesSeconds[i];
-    const endTime = alignment.characterEndTimesSeconds[i];
-
-    if (currentTime >= startTime && currentTime <= endTime) {
-      return i;
-    }
-  }
-
-  return null;
-}
-

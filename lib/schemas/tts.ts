@@ -17,3 +17,5 @@ export type AlignmentData = {
   characterStartTimesSeconds: number[];
   characterEndTimesSeconds: number[];
 };
+export type AudioStreamChunk = z.infer<typeof AudioStreamChunkSchema>;
+export type Alignment = z.infer<typeof AlignmentSchema>;
