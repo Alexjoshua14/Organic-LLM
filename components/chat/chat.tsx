@@ -39,7 +39,7 @@ export const Chat: React.FC<ChatProps> = ({
     id: chatData?.thread.id ?? "",
     messages: chatData?.messages ?? [],
     transport: new DefaultChatTransport({
-      api: persona === 'aion' ? '/api/ai/aion' : endpoint ?? `/api/chat/${persona ?? ""}`,
+      api: persona === 'aion' ? '/api/ai/aion/v2' : endpoint ?? `/api/chat/${persona ?? ""}`,
       prepareSendMessagesRequest({ messages, id }) {
         const req = {
           body: {
@@ -59,6 +59,9 @@ export const Chat: React.FC<ChatProps> = ({
     onToolCall({ toolCall }) {
       console.log("TOOL_CALL", toolCall);
     },
+    onData: (data) => {
+      console.log(JSON.stringify(data, null, 2))
+    }
   });
 
   const handleStop = useCallback(async () => {

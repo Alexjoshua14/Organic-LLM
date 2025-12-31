@@ -14,6 +14,7 @@ import {
   TickerSchema,
 } from "@/lib/schemas/llm-context";
 import { z } from "zod";
+import { Input } from "@heroui/input";
 
 const logger = createLogger(`app/sandbox/aion/page.tsx`);
 

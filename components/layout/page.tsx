@@ -8,12 +8,12 @@ export default function Page({ children, transparentBackground }: PageProps) {
     <section
       className={`
         relative
-        h-[calc(100dvh-1rem)] w-full
+        h-dvh md:h-[calc(100dvh-1rem)] w-full
         ${transparentBackground ? "" : "bg-background"}
         text-primary
-        sm:rounded-tl-xl sm:inset-shadow-xs
+        md:rounded-tl-xl md:inset-shadow-xs
         flex flex-col items-center justify-center gap-4
-        sm:border-l-1 sm:border-t-1 sm:border-border`}
+        md:border-l-1 md:border-t-1 md:border-border`}
     >
       {children}
     </section>
