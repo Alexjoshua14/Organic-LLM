@@ -54,7 +54,7 @@ export const NewChatInput: React.FC<NewChatInputProps> = ({
   const [text, setText] = useState<string>('');
   const [model, setModel] = useState<ChatModel>(DEFAULT_CHAT_MODEL);
   const [useWebSearch, setUseWebSearch] = useState<boolean>(false);
-  const [useMemories, setUseMemories] = useState<boolean>(true);
+  const [useMemories, setUseMemories] = useState<boolean>(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   // Set refs when any of the values change, so they are current for next send

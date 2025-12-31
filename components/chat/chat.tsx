@@ -20,7 +20,7 @@ const logger = createLogger("components/chat/chat");
 type ChatProps = {
   chatData: { thread: Thread; messages: UIMessage[] } | null;
   initialMessage?: string;
-  persona?: "prometheus" | "spark";
+  persona?: "prometheus" | "spark" | "aion";
   endpoint?: string;
 };
 
@@ -32,13 +32,14 @@ export const Chat: React.FC<ChatProps> = ({
 
   const selectedModelRef = useRef<ChatModel>(DEFAULT_CHAT_MODEL);
   const useWebSearchRef = useRef<boolean>(false);
-  const useMemoriesRef = useRef<boolean>(true);
+  const useMemoriesRef = useRef<boolean>(false);
+  const usePersistedSchemas = useRef<boolean>(persona === 'aion');
 
   const { messages, sendMessage, id, stop, status, setMessages } = useChat({
     id: chatData?.thread.id ?? "",
     messages: chatData?.messages ?? [],
     transport: new DefaultChatTransport({
-      api: endpoint ?? `/api/chat/${persona ?? ""}`,
+      api: persona === 'aion' ? '/api/ai/aion' : endpoint ?? `/api/chat/${persona ?? ""}`,
       prepareSendMessagesRequest({ messages, id }) {
         const req = {
           body: {
@@ -47,6 +48,8 @@ export const Chat: React.FC<ChatProps> = ({
             model: selectedModelRef.current,
             webSearch: useWebSearchRef.current,
             memory: useMemoriesRef.current,
+            // Only include persistedSchemas in payload if true
+            ...(usePersistedSchemas.current ? { persistedSchemas: true } : {}),
           },
         }
         console.log(`Request being sent: ${JSON.stringify(req, null, 2)}`)
