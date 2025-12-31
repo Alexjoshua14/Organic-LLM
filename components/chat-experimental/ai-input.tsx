@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useCallback, useEffect } from "react";
+import React, { useCallback, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { AiInputForm } from "./ai-input-form";
 import { useAion } from "@/hooks/use-aion";
@@ -18,6 +18,7 @@ const logger = createLogger("ai-input");
  */
 export const AIInput: React.FC = () => {
   const router = useRouter();
+  const elementActive = useRef<boolean>(false);
 
   const aion = useAion({
     onFinish: ({ message }) => {
@@ -71,7 +72,10 @@ export const AIInput: React.FC = () => {
       initial={{ opacity: 0, y: 32, scale: 0.94 }}
       animate={{ opacity: 1, y: 0, scale: 0.97 }}
       whileFocus={{ scale: 1 }}
-      whileTap={{ scale: 1.03 }}
+      // If element active and submit button not disabled, opacity animation should happen on click
+      // Else, scale animation can happen
+      // Ensentially differentiate interactions, like user click on submit button versus user focusing in on main component for text input
+      whileTap={elementActive.current ? { opacity: 0.92 } : { scale: 1.03 }}
       transition={{ type: "spring", stiffness: 120, damping: 18, duration: 0.7 }}
       className="flex flex-col w-full gap-4"
       tabIndex={-1}
