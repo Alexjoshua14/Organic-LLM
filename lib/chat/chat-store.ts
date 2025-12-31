@@ -11,7 +11,14 @@ import {
 import SPARK_SYSTEM_PROMPT from "../system-prompt";
 import { getStateString } from "../supabase/organicStateStore";
 import { searchMemories } from "../memory/operations";
-import { ContextPiece } from "../schemas/llm-context";
+import {
+  CodeBlockSchema,
+  ContextPiece,
+  KeyValueSchema,
+  ListSchema,
+  RecipeCardSchema,
+  TickerSchema,
+} from "../schemas/llm-context";
 import { estimateTokenCount } from "../llm/chat-helpers";
 
 import {
@@ -32,6 +39,12 @@ import {
   DEFAULT_RETRY_CONFIG,
   type RetryConfig,
 } from "@/lib/utils";
+import {
+  PersistedSchema,
+  PersistedSchemasContainer,
+  PersistedSchemaType,
+} from "@/app/sandbox/aion/_components/persisted-schemas-container";
+import { getPersistedSchemas } from "../persistedSchemas";
 
 const logger = createLogger(`util/chat-store.ts`);
 
@@ -41,6 +54,7 @@ interface getContextProps {
   persona?: "prometheus" | "spark";
   message: UIMessage;
   memoryEnabled?: boolean;
+  persistedSchemasEnabled?: boolean;
 }
 
 export async function createChat(): Promise<Result<string>> {
@@ -471,6 +485,7 @@ export async function getContext({
   persona,
   message,
   memoryEnabled,
+  persistedSchemasEnabled = false,
 }: getContextProps): Promise<
   Result<{ context: string; messages: UIMessage[] }, string>
 > {
@@ -545,6 +560,17 @@ export async function getContext({
     }
 
     /***
+     * Step 3b
+     *
+     * Get Persisted Schemas from database
+     */
+
+    if (persistedSchemasEnabled) {
+      const persistedSchemaPromise = getPersistedSchemas(chatId);
+      promises.push(persistedSchemaPromise);
+    }
+
+    /***
      * Step 4
      *
      * Get Persona from wherever
@@ -590,8 +616,12 @@ export async function getContext({
      *  - Memories
      */
 
-    const [messagesResult, conversationSummaryResult, memoriesResult] =
-      await Promise.all(promises);
+    const [
+      messagesResult,
+      conversationSummaryResult,
+      memoriesResult,
+      persistedSchemaResult,
+    ] = await Promise.all(promises);
 
     /***
      * Step 5a
@@ -678,6 +708,82 @@ export async function getContext({
           tokens: memoriesTokens,
         });
       }
+    }
+
+    /***
+     * Step 5d
+     *
+     * Handle persistedSchemas errors
+     */
+
+    if (persistedSchemasEnabled) {
+      let persitedSchemas: PersistedSchemaType[] = [];
+      logger.log(
+        "getContext",
+        "Handling persistedSchemas and preparing persistedSchemasResult"
+      );
+
+      logger.log(
+        "getContext",
+        `persistedSchemaResult: ${JSON.stringify(persistedSchemaResult)}`
+      );
+
+      let persistedSchemaObject = PersistedSchema.decode(
+        persistedSchemaResult.data
+      );
+
+      logger.log(
+        "getContext",
+        `persistedSchemaObject: ${JSON.stringify(persistedSchemaObject)}`
+      );
+
+      if (persistedSchemaResult.error) {
+        logger.error(
+          "getContext",
+          `Error getting persisted Schema summary: ${persistedSchemaResult.error}`
+        );
+      }
+      if (persistedSchemaResult.data) {
+        // Validate/parse with zod here using all schemas
+        for (const item of persistedSchemaResult.data) {
+          try {
+            logger.log(
+              "getContext",
+              `Validating persisted schema item: ${JSON.stringify(item)}`
+            );
+            // Try each schema until one succeeds, push to persitedSchemas
+            switch (item.type) {
+              case "list":
+                persitedSchemas.push(ListSchema.parse(item));
+              case "keyValue":
+                persitedSchemas.push(KeyValueSchema.parse(item));
+              case "codeBlock":
+                persitedSchemas.push(CodeBlockSchema.parse(item));
+              case "recipeCard":
+                persitedSchemas.push(RecipeCardSchema.parse(item));
+              case "ticker":
+                persitedSchemas.push(TickerSchema.parse(item));
+            }
+          } catch (e) {
+            logger.error(
+              "getContext",
+              `Invalid persisted schema item: ${JSON.stringify(item)}`
+            );
+            // Optionally continue on error or throw, we choose to skip invalid items here
+            continue;
+          }
+        }
+      } else {
+        logger.log("getContext", "No persisted schema data found");
+        persitedSchemas = [];
+      }
+
+      contextPieces.push({
+        title: "Persisted Schemas",
+        content: persitedSchemas
+          .map((schema) => JSON.stringify(schema))
+          .join("\n"),
+      });
     }
 
     /***
