@@ -30,7 +30,7 @@ export const metadata: Metadata = {
 export const viewport: Viewport = {
   themeColor: [
     { media: "(prefers-color-scheme: light)", color: "#ffffff" },
-    { media: "(prefers-color-scheme: dark)", color: "#000000" },
+    { media: "(prefers-color-scheme: dark)", color: "#141516" },
   ],
   viewportFit: "cover",
 };
@@ -43,7 +43,6 @@ export default function RootLayout({
   return (
     <ClerkProvider>
       <html suppressHydrationWarning lang="en" className="h-full overflow-hidden">
-        <head />
         <body
           className={clsx(
             "h-dvh text-foreground bg-background font-sans antialiased max-w-dvw overflow-hidden",

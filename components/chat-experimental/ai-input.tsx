@@ -7,6 +7,8 @@ import { useAion } from "@/hooks/use-aion";
 import { createLogger } from "@/lib/logger";
 import { Button } from "@heroui/button";
 import { glass } from "../design-system/primitives";
+import { motion } from "framer-motion";
+
 
 const logger = createLogger("ai-input");
 
@@ -65,7 +67,15 @@ export const AIInput: React.FC = () => {
 
 
   return (
-    <div className="flex flex-col w-full gap-4">
+    <motion.div
+      initial={{ opacity: 0, y: 32, scale: 0.94 }}
+      animate={{ opacity: 1, y: 0, scale: 0.97 }}
+      whileFocus={{ scale: 1 }}
+      whileTap={{ scale: 1.03 }}
+      transition={{ type: "spring", stiffness: 120, damping: 18, duration: 0.7 }}
+      className="flex flex-col w-full gap-4"
+      tabIndex={-1}
+    >
       <AiInputForm
         onSubmit={handleSubmit}
         isLoading={isProcessing}
@@ -84,6 +94,6 @@ export const AIInput: React.FC = () => {
           Settings
         </Button>
       </div>
-    </div>
+    </motion.div>
   );
 };
