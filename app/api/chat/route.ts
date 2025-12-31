@@ -10,6 +10,7 @@ import {
   consumeStream,
   stepCountIs,
   type Tool,
+  createUIMessageStream,
 } from "ai";
 // import systemPrompt from "@/lib/system-prompt";
 import { auth } from "@clerk/nextjs/server";
@@ -202,7 +203,7 @@ export async function POST(req: Request) {
 
       // Handle abort
       if (isAborted) {
-        // Remove optimsitcally saved user message
+        // Remove optimistically saved user message
         logger.log(
           "POST",
           `Abort detected: removing optimistically saved user message`

@@ -963,8 +963,15 @@ export const PromptInputButton = ({
   size,
   ...props
 }: PromptInputButtonProps) => {
-  const newSize =
-    size ?? (Children.count(props.children) > 1 ? "sm" : "icon-sm");
+  let newSize = size;
+  if (size === 'sm' || !size) {
+    newSize =
+      size ?? (Children.count(props.children) > 1 ? "sm" : "icon-sm");
+  }
+  else if (size === 'xs') {
+    newSize =
+      size ?? (Children.count(props.children) > 1 ? "xs" : "icon-xs");
+  }
 
   return (
     <InputGroupButton

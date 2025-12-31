@@ -22,6 +22,7 @@ import {
   PromptInputSelectTrigger,
   PromptInputSelectValue,
   PromptInputSpeechButton,
+  PromptInputCommandGroup,
 } from "../ai-elements/prompt-input";
 import { useChat } from '@ai-sdk/react';
 import { ArrowUp, ArrowUpNarrowWideIcon, BrainCircuit, CornerDownLeftIcon, GlobeIcon, Loader2Icon, SquareIcon, XIcon } from 'lucide-react';
@@ -30,7 +31,6 @@ import { ChatStatus } from 'ai';
 import { InputGroupButton } from '../third-party/ui/input-group';
 import { cn } from '@/lib/utils'
 import { motion } from "framer-motion";
-
 
 type NewChatInputProps = {
   modelRef: React.RefObject<ChatModel>,
@@ -120,31 +120,37 @@ export const NewChatInput: React.FC<NewChatInputProps> = ({
         />
       </PromptInputBody>
       <PromptInputFooter>
-        <PromptInputTools>
-          <PromptInputActionMenu>
-            <PromptInputActionMenuTrigger />
-            <PromptInputActionMenuContent>
-              <PromptInputActionAddAttachments />
-            </PromptInputActionMenuContent>
-          </PromptInputActionMenu>
-          <PromptInputSpeechButton
-            onTranscriptionChange={setText}
-            textareaRef={textareaRef}
-          />
-          <PromptInputButton
-            onClick={() => setUseWebSearch(!useWebSearch)}
-            variant={useWebSearch ? 'default' : 'ghost'}
-          >
-            <GlobeIcon size={16} />
-            <span>Search</span>
-          </PromptInputButton>
-          <PromptInputButton
-            onClick={() => setUseMemories(!useMemories)}
-            variant={useMemories ? 'default' : 'ghost'}
-          >
-            <BrainCircuit />
-            <span>Memory</span>
-          </PromptInputButton>
+        <PromptInputTools className="gap-6">
+          <div className="flex gap-1">
+            <PromptInputActionMenu>
+              <PromptInputActionMenuTrigger />
+              <PromptInputActionMenuContent>
+                <PromptInputActionAddAttachments />
+              </PromptInputActionMenuContent>
+            </PromptInputActionMenu>
+            <PromptInputSpeechButton
+              onTranscriptionChange={setText}
+              textareaRef={textareaRef}
+            />
+          </div>
+          <div className="flex gap-1">
+            <PromptInputButton
+              onClick={() => setUseWebSearch(!useWebSearch)}
+              variant={useWebSearch ? 'default' : 'ghost'}
+              size={'dynamic-sm'}
+            >
+              <GlobeIcon size={16} />
+              <span className="hidden sm:flex">Search</span>
+            </PromptInputButton>
+            <PromptInputButton
+              onClick={() => setUseMemories(!useMemories)}
+              variant={useMemories ? 'default' : 'ghost'}
+              size={'dynamic-sm'}
+            >
+              <BrainCircuit />
+              <span className="hidden sm:flex">Memory</span>
+            </PromptInputButton>
+          </div>
           <PromptInputSelect
             defaultValue={DEFAULT_CHAT_MODEL.id}
             onValueChange={handleModelSelection}
