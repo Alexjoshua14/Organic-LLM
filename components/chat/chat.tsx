@@ -122,7 +122,7 @@ export const Chat: React.FC<ChatProps> = ({
         sendMessage={sendMessage}
         stop={handleStop}
         status={status}
-        className="absolute bottom-4"
+        className="absolute bottom-0 md:bottom-4"
       />
     </StickToBottom>
   );
