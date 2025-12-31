@@ -29,6 +29,7 @@ import { ChatModel, ChatModels, DEFAULT_CHAT_MODEL } from "@/lib/schemas/chat";
 import { ChatStatus } from 'ai';
 import { InputGroupButton } from '../third-party/ui/input-group';
 import { cn } from '@/lib/utils'
+import { motion } from "framer-motion";
 
 
 type NewChatInputProps = {
@@ -200,16 +201,23 @@ export const PromptInputSubmit = ({
   }, [stop, status])
 
   return (
-    <InputGroupButton
-      aria-label={status === 'ready' ? "Submit" : "Abort"}
-      className={cn(className)}
-      size={size}
-      type={status === 'ready' ? "submit" : "button"}
-      variant={variant}
-      {...props}
-      onClick={handleClick}
+    // TODO: Could make cursor more fun for this specific element
+    <motion.div
+      whileTap={{ scale: 0.93 }}
+      whileHover={{ scale: 1.09 }}
+      className="inline-block cursor-pointer"
     >
-      {children ?? Icon}
-    </InputGroupButton>
+      <InputGroupButton
+        aria-label={status === 'ready' ? "Submit" : "Abort"}
+        className={cn(className)}
+        size={size}
+        type={status === 'ready' ? "submit" : "button"}
+        variant={variant}
+        {...props}
+        onClick={handleClick}
+      >
+        {children ?? Icon}
+      </InputGroupButton>
+    </motion.div>
   );
 };
