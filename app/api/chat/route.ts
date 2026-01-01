@@ -29,6 +29,7 @@ import {
 } from "@/lib/schemas/chat";
 import { getSupabaseUserId } from "@/data/supabase/profiles";
 import { CHAT_MODEL, getChatModel, measureAsync } from "@/lib/llm/helpers";
+import { OpenAIResponsesProviderOptions } from "@ai-sdk/openai";
 
 // Allow streaming responses up to 30 seconds
 export const maxDuration = 30;
@@ -149,9 +150,11 @@ export async function POST(req: Request) {
 
   const streamStartTime = performance.now();
 
+  const messages = convertToModelMessages(validatedMessages);
+
   const result = streamText({
     model: selectedModel.id,
-    messages: convertToModelMessages(validatedMessages),
+    messages,
     system: systemPromptForRequest,
     abortSignal: req.signal,
     experimental_transform: smoothStream({

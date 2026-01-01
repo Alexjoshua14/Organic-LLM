@@ -5,7 +5,6 @@ import { StickToBottom } from "use-stick-to-bottom";
 import { DefaultChatTransport } from "ai";
 import { useCallback, useEffect, useRef } from "react";
 
-import { ChatInput } from "./chat-input";
 import { ChatThread } from "./chat-thread";
 import { ChatScrollButton } from "./chat-scroll-button";
 
@@ -14,6 +13,7 @@ import { createLogger } from "@/lib/logger";
 import { useSharedChatContext } from "@/lib/context/chat-context";
 import { ChatModel, DEFAULT_CHAT_MODEL } from "@/lib/schemas/chat";
 import { NewChatInput } from "./new-chat-input";
+import { Conversation, ConversationScrollButton } from "../third-party/ai-elements/conversation";
 
 const logger = createLogger("components/chat/chat");
 
@@ -97,27 +97,53 @@ export const Chat: React.FC<ChatProps> = ({
   }, [messages])
 
   return (
-    <StickToBottom
-      className={
-        [
-          "h-full",
-          "w-full",
-          "max-w-[calc(100dvw-2rem)]",
-          "md:max-w-[calc(100dvw-18rem)]",
-          "lg:max-w-4xl",
-          "relative",
-          "mx-2",
-          "flex",
-          "flex-col",
-          "items-center",
-        ].join(" ")
-      }
-      style={{ paddingBottom: "7rem" }}
-      initial="instant"
-      resize="smooth"
+    // <StickToBottom
+    //   className={
+    //     [
+    //       "h-full",
+    //       "w-full",
+    //       "max-w-[calc(100dvw-2rem)]",
+    //       "md:max-w-[calc(100dvw-18rem)]",
+    //       "lg:max-w-4xl",
+    //       "relative",
+    //       "mx-2",
+    //       "flex",
+    //       "flex-col",
+    //       "items-center",
+    //     ].join(" ")
+    //   }
+    //   style={{ paddingBottom: "7rem" }}
+    //   initial="instant"
+    //   resize="smooth"
+    // >
+    <div
+      className={[
+        "w-full",
+        "h-full",
+        "flex",
+        "items-center",
+        "justify-center",
+        "max-w-[calc(100dvw-2rem)]",
+        "md:max-w-[calc(100dvw-18rem)]",
+        "lg:max-w-4xl",
+      ].join(" ")}
     >
-      <ChatThread messages={messages} />
-      <ChatScrollButton />
+      <Conversation
+        className={
+          [
+            "h-full",
+            "w-full",
+            "relative",
+            "flex",
+            "flex-col",
+            "items-center",
+          ].join(" ")
+        }
+        style={{ paddingBottom: "8rem" }}
+      >
+        <ChatThread messages={messages} />
+        <ConversationScrollButton />
+      </Conversation>
       <NewChatInput
         modelRef={selectedModelRef}
         useWebSearchRef={useWebSearchRef}
@@ -125,8 +151,9 @@ export const Chat: React.FC<ChatProps> = ({
         sendMessage={sendMessage}
         stop={handleStop}
         status={status}
-        className="absolute bottom-1 md:bottom-4"
+        className="absolute bottom-1 md:bottom-4 px-8 max-w-232 w-full"
       />
-    </StickToBottom>
+    </div>
+
   );
 };
