@@ -1,4 +1,4 @@
-// DIRECTLY COPIED FROM CHAT 12/28/25
+// DIRECTLY COPIED FROM CHAT 12/28/25  and then expanded upon
 // PLANNING TO REINTERGRATE EVENTUALLY ONCE I HAVE THINGS STABLE ENOUGH
 // REENTRY SHOULD ENABLE/DISABLE various optional params, like persistedSchemas
 // alowing currrent chat to stay as is forever and then aion dashboard to be enhanced.
@@ -15,6 +15,8 @@ import {
   consumeStream,
   stepCountIs,
   type Tool,
+  createUIMessageStream,
+  createUIMessageStreamResponse,
 } from "ai";
 // import systemPrompt from "@/lib/system-prompt";
 import { auth } from "@clerk/nextjs/server";
@@ -38,6 +40,7 @@ import {
 } from "@/lib/schemas/chat";
 import { getSupabaseUserId } from "@/data/supabase/profiles";
 import { CHAT_MODEL, getChatModel, measureAsync } from "@/lib/llm/helpers";
+import { MyUIMessage } from "@/types/ai";
 
 // Allow streaming responses up to 30 seconds
 export const maxDuration = 30;
@@ -52,18 +55,8 @@ export async function POST(req: Request) {
   logger.log("POST", `Received request body: ${JSON.stringify(body)}`);
 
   const parseResult = ChatRequestSchema.safeParse(body);
-  // Grab the selectedModel from either the parsed request body or default to DEFAULT_CHAT_MODEL
-  const requestedModel = parseResult.data?.model;
-  const selectedModel = requestedModel
-    ? getChatModel(requestedModel)
-    : DEFAULT_CHAT_MODEL;
 
   const memoryEnabled = parseResult.data?.memory;
-
-  logger.log(
-    "POST",
-    `Model selection - Requested: ${JSON.stringify(requestedModel) ?? "none"}, Using: ${JSON.stringify(selectedModel)}`
-  );
 
   if (!parseResult.success) {
     logger.error(
@@ -105,246 +98,397 @@ export async function POST(req: Request) {
     // Continue anyway - onFinish will try to save again
   }
 
-  let validatedMessages: UIMessage[];
-  let systemPromptForRequest = SYSTEM_PROMPT;
+  const stream = createUIMessageStream<MyUIMessage>({
+    execute: async ({ writer }) => {
+      writer.write({
+        type: "data-notification",
+        data: { message: "Determining AI model selection", level: "info" },
+        transient: true, // Won't be added to message history
+      });
 
-  try {
-    const chatContextResult = await getContext({
-      chatId: id,
-      limit: 30,
-      message,
-      memoryEnabled,
-      persistedSchemasEnabled: true,
-    });
+      // Grab the selectedModel from either the parsed request body or default to DEFAULT_CHAT_MODEL
+      const requestedModel = parseResult.data?.model;
+      const selectedModel = requestedModel
+        ? getChatModel(requestedModel)
+        : DEFAULT_CHAT_MODEL;
 
-    if (chatContextResult.error) {
-      logger.error(
-        "POST",
-        `Error getting chat context: ${chatContextResult.error}`
-      );
-      validatedMessages = [message];
-    } else {
-      validatedMessages = [
-        ...(chatContextResult.data?.messages ?? []),
-        message,
-      ];
-      systemPromptForRequest =
-        chatContextResult.data?.context ?? systemPromptForRequest;
-    }
-
-    // Log chatContext persistedSchema
-    if (chatContextResult.data && "persistedSchema" in chatContextResult.data) {
       logger.log(
         "POST",
-        `persistedSchema: ${JSON.stringify(chatContextResult.data.context)}`
+        `Model selection - Requested: ${JSON.stringify(requestedModel) ?? "none"}, Using: ${JSON.stringify(selectedModel)}`
       );
-    }
-  } catch (err) {
-    if (err instanceof TypeValidationError) {
-      logger.error(
-        "POST",
-        `Database messages validation failed: ${err.message}`
-      );
-      validatedMessages = [message];
-    } else {
-      throw err;
-    }
-  }
 
-  logger.log(
-    "POST",
-    `
+      writer.write({
+        type: "data-notification",
+        data: { message: `Using ${selectedModel.name}`, level: "info" },
+        transient: true, // Won't be added to message history
+      });
+
+      let validatedMessages: UIMessage[];
+      let systemPromptForRequest = SYSTEM_PROMPT;
+
+      try {
+        writer.write({
+          type: "data-notification",
+          data: { message: "Gathering context", level: "info" },
+          transient: true, // Won't be added to message history
+        });
+        const chatContextResult = await getContext({
+          chatId: id,
+          limit: 30,
+          message,
+          memoryEnabled,
+          persistedSchemasEnabled: true,
+        });
+
+        if (chatContextResult.error) {
+          logger.error(
+            "POST",
+            `Error getting chat context: ${chatContextResult.error}`
+          );
+
+          validatedMessages = [message];
+        } else {
+          validatedMessages = [
+            ...(chatContextResult.data?.messages ?? []),
+            message,
+          ];
+          systemPromptForRequest =
+            chatContextResult.data?.context ?? systemPromptForRequest;
+        }
+
+        // Log chatContext persistedSchema
+        if (
+          chatContextResult.data &&
+          "persistedSchema" in chatContextResult.data
+        ) {
+          logger.log(
+            "POST",
+            `persistedSchema: ${JSON.stringify(chatContextResult.data.context)}`
+          );
+        }
+
+        writer.write({
+          type: "data-notification",
+          data: { message: "Gathered context", level: "info" },
+          transient: true, // Won't be added to message history
+        });
+      } catch (err) {
+        if (err instanceof TypeValidationError) {
+          logger.error(
+            "POST",
+            `Database messages validation failed: ${err.message}`
+          );
+          validatedMessages = [message];
+        } else {
+          throw err;
+        }
+      }
+
+      logger.log(
+        "POST",
+        `
     System Prompt: ${systemPromptForRequest.length} characters
     \n\n--------------------------------\n\n
     ${validatedMessages.length} messages being sent to LLM
     Model: ${selectedModel}
     `
-  );
+      );
 
-  // const tools = compileTools({ useSearch, useMemory});
+      // const tools = compileTools({ useSearch, useMemory});
 
-  const messages = convertToModelMessages(validatedMessages);
+      const messages = convertToModelMessages(validatedMessages);
 
-  logger.log("POST", `Calling streamText with model: ${selectedModel}`);
+      logger.log("POST", `Calling streamText with model: ${selectedModel}`);
 
-  const streamStartTime = performance.now();
+      const streamStartTime = performance.now();
+      // 1. Send initial status (transient - won't be added to message history)
+      writer.write({
+        type: "data-notification",
+        data: { message: "Processing your request...", level: "info" },
+        transient: true, // This part won't be added to message history
+      });
 
-  const result = streamText({
-    model: openai(selectedModel.id),
-    messages: messages,
-    system: systemPromptForRequest,
-    abortSignal: req.signal,
-    experimental_transform: smoothStream({
-      delayInMs: 5, // optional: defaults to 10ms
-      chunking: "word", // optional: defaults to 'word'
-    }),
-    maxOutputTokens: CHAT_MODEL.maxOutputTokens, // Cap output for dev guardrails
-    onError({ error }) {
-      logger.error("POST", `Stream error: ${error}`);
-    },
-    tools: {
-      search_memories: createMemorySearchTool(sbUserId),
-      add_schema: addSchemaTool,
-      update_schema: updateSchemaTool,
-    },
-    stopWhen: stepCountIs(2),
-  });
+      const result = streamText({
+        model: openai(selectedModel.id),
+        messages: messages,
+        system: systemPromptForRequest,
+        abortSignal: req.signal,
+        experimental_transform: smoothStream({
+          delayInMs: 5, // optional: defaults to 10ms
+          chunking: "word", // optional: defaults to 'word'
+        }),
+        maxOutputTokens: CHAT_MODEL.maxOutputTokens, // Cap output for dev guardrails
+        onError({ error }) {
+          logger.error("POST", `Stream error: ${error}`);
+        },
+        tools: {
+          search_memories: createMemorySearchTool(sbUserId),
+          add_schema: addSchemaTool,
+          update_schema: updateSchemaTool,
+        },
+        stopWhen: stepCountIs(2),
+        onFinish() {
+          // 4. Update the same data part (reconciliation)
 
-  // Start consuming stream early to surface errors before returning the response
-  // result.consumeStream();
+          // 5. Send completion notification (transient)
+          writer.write({
+            type: "data-notification",
+            data: { message: "Request completed", level: "info" },
+            transient: true, // Won't be added to message history
+          });
+        },
+      });
 
-  // logger.log("POST", `Result: ${JSON.stringify(result)}`);
-
-  return result.toUIMessageStreamResponse({
-    originalMessages: validatedMessages,
-    consumeSseStream: consumeStream,
-    onError: (error) => {
-      logger.error("POST", `UI stream error: ${error}`);
-      if (error instanceof Error) {
-        return error.message;
-      }
-      if (typeof error === "string") {
-        return error;
-      }
-
-      return "An unexpected error occurred";
-    },
-    onFinish: async ({ messages, isAborted, finishReason }) => {
-      switch (finishReason) {
-        case "error":
-          logger.error("POST", "LLM encountered an error.");
-          break;
-        case "length":
-          logger.warn(
-            "POST",
-            "LLM response stopped due to reaching max limit."
-          );
-          break;
-      }
-
-      // Handle abort
-      if (isAborted) {
-        // Remove optimsitcally saved user message
-        logger.log(
-          "POST",
-          `Abort detected: removing optimistically saved user message`
-        );
-        deleteChatMessage(message.id);
-      } else {
-        const onFinishStart = performance.now();
-        const streamEndTime = performance.now();
-        const modelGenerationTime = streamEndTime - streamStartTime;
-
-        const metrics: Record<string, number> = {
-          modelGenerationTimeMs: modelGenerationTime,
-        };
-
-        logger.log(
-          "POST",
-          `Model (${selectedModel}) generated response in ${modelGenerationTime.toFixed(2)}ms (${(modelGenerationTime / 1000).toFixed(2)}s)`
-        );
-
-        try {
-          const { result: saveResult, durationMs: saveChatMs } =
-            await measureAsync(() => saveChat({ chatId: id, messages }));
-          metrics.saveChatMs = saveChatMs;
-
-          if (saveResult.error) {
-            logger.error(
-              "POST",
-              `Error saving chat: ${saveResult.error.message}`
-            );
-
-            return; // Don't continue if save fails
-          }
-
-          let ensureChatHasTitleMs: number | undefined;
-
-          // Ensure chat title for a sensible range (e.g. after 4–8 messages)
-          if (messages.length >= 4 && messages.length <= 8) {
-            const { result: titleResult, durationMs } = await measureAsync(() =>
-              ensureChatHasTitle(id)
-            );
-            ensureChatHasTitleMs = durationMs;
-
-            if (titleResult.error) {
-              logger.error(
-                "POST",
-                `Error ensuring chat has title: ${titleResult.error.message}`
-              );
+      writer.merge(
+        result.toUIMessageStream({
+          generateMessageId: () => randomUUID(),
+          onError: (error) => {
+            logger.error("POST", `UI stream error: ${error}`);
+            if (error instanceof Error) {
+              return error.message;
             }
-          }
+            if (typeof error === "string") {
+              return error;
+            }
 
-          const userMessage = message;
-          const aiResponse = messages[messages.length - 1];
+            writer.write({
+              type: "data-notification",
+              transient: true,
+              data: {
+                message: "An unexpected error occured",
+                level: "error",
+              },
+            });
 
-          if (!aiResponse) {
-            logger.error(
-              "POST",
-              "No AI response found in messages; skipping post-processing"
-            );
-            return;
-          }
-
-          const updateSummaryResult = await measureAsync(() =>
-            updateChatSummary(id)
-          );
-          metrics.updateChatSummaryMs = updateSummaryResult.durationMs;
-
-          let addMemoryMs: number | undefined;
-          if (memoryEnabled) {
-            const addMemoryResult = await measureAsync(() =>
-              addLatestMessagesToMemory(
-                [userMessage, aiResponse],
-                sbUserId
-              ).catch((err) => {
-                logger.error(
+            return "An unexpected error occurred";
+          },
+          onFinish: async ({ messages, isAborted, finishReason }) => {
+            switch (finishReason) {
+              case "error":
+                logger.error("POST", "LLM encountered an error.");
+                break;
+              case "length":
+                logger.warn(
                   "POST",
-                  `Error adding latest messages to memory: ${err}`
+                  "LLM response stopped due to reaching max limit."
                 );
-              })
-            );
-            addMemoryMs = addMemoryResult.durationMs;
-            metrics.addLatestMessagesToMemoryMs = addMemoryMs;
-          }
+                break;
+            }
 
-          if (updateSummaryResult.result?.error) {
-            logger.error(
-              "POST",
-              `Error updating chat summary: ${updateSummaryResult.result.error}`
-            );
-          }
+            // Handle abort
+            if (isAborted) {
+              // Remove optimsitcally saved user message
+              logger.log(
+                "POST",
+                `Abort detected: removing optimistically saved user message`
+              );
+              deleteChatMessage(message.id);
+            } else {
+              const onFinishStart = performance.now();
+              const streamEndTime = performance.now();
+              const modelGenerationTime = streamEndTime - streamStartTime;
 
-          metrics.onFinishTotalMs = performance.now() - onFinishStart;
-          if (ensureChatHasTitleMs !== undefined) {
-            metrics.ensureChatHasTitleMs = ensureChatHasTitleMs;
-          }
+              const metrics: Record<string, number> = {
+                modelGenerationTimeMs: modelGenerationTime,
+              };
 
-          logger.log("POST", `onFinish metrics: ${JSON.stringify(metrics)}`);
-        } catch (err) {
-          logger.error("POST", `Error in onFinish callback: ${err}`);
-        }
-      }
+              logger.log(
+                "POST",
+                `Model (${selectedModel}) generated response in ${modelGenerationTime.toFixed(2)}ms (${(modelGenerationTime / 1000).toFixed(2)}s)`
+              );
+
+              try {
+                writer.write({
+                  type: "data-notification",
+                  transient: true,
+                  data: {
+                    message: "Saving latest messages",
+                    level: "info",
+                  },
+                });
+                const { result: saveResult, durationMs: saveChatMs } =
+                  await measureAsync(() => saveChat({ chatId: id, messages }));
+                metrics.saveChatMs = saveChatMs;
+
+                if (saveResult.error) {
+                  logger.error(
+                    "POST",
+                    `Error saving chat: ${saveResult.error.message}`
+                  );
+
+                  writer.write({
+                    type: "data-notification",
+                    transient: true,
+                    data: {
+                      message: "Failed to save latest messages",
+                      level: "error",
+                    },
+                  });
+
+                  return; // Don't continue if save fails
+                } else {
+                  writer.write({
+                    type: "data-notification",
+                    transient: true,
+                    data: {
+                      message: "Saved latest messages",
+                      level: "info",
+                    },
+                  });
+                }
+
+                let ensureChatHasTitleMs: number | undefined;
+
+                // Ensure chat title for a sensible range (e.g. after 4–8 messages)
+                if (messages.length >= 4 && messages.length <= 8) {
+                  writer.write({
+                    type: "data-notification",
+                    transient: true,
+                    data: {
+                      message: "Updating conversation title",
+                      level: "info",
+                    },
+                  });
+                  const { result: titleResult, durationMs } =
+                    await measureAsync(() => ensureChatHasTitle(id));
+                  ensureChatHasTitleMs = durationMs;
+
+                  if (titleResult.error) {
+                    logger.error(
+                      "POST",
+                      `Error ensuring chat has title: ${titleResult.error.message}`
+                    );
+                    writer.write({
+                      type: "data-notification",
+                      transient: true,
+                      data: {
+                        message: "Failed to update conversation title",
+                        level: "error",
+                      },
+                    });
+                  } else {
+                    writer.write({
+                      type: "data-notification",
+                      transient: true,
+                      data: {
+                        message: "Updated conversation title",
+                        level: "info",
+                      },
+                    });
+                  }
+                }
+
+                const userMessage = message;
+                const aiResponse = messages[messages.length - 1];
+
+                if (!aiResponse) {
+                  logger.error(
+                    "POST",
+                    "No AI response found in messages; skipping post-processing"
+                  );
+                  return;
+                }
+
+                writer.write({
+                  type: "data-notification",
+                  transient: true,
+                  data: {
+                    message: "Updating conversation summary",
+                    level: "info",
+                  },
+                });
+                const updateSummaryResult = await measureAsync(() =>
+                  updateChatSummary(id)
+                );
+                writer.write({
+                  type: "data-notification",
+                  transient: true,
+                  data: {
+                    message: "Updated conversation summary",
+                    level: "info",
+                  },
+                });
+                metrics.updateChatSummaryMs = updateSummaryResult.durationMs;
+
+                let addMemoryMs: number | undefined;
+                if (memoryEnabled) {
+                  writer.write({
+                    type: "data-notification",
+                    transient: true,
+                    data: {
+                      message: "Updating memory",
+                      level: "info",
+                    },
+                  });
+                  const addMemoryResult = await measureAsync(() =>
+                    addLatestMessagesToMemory(
+                      [userMessage, aiResponse],
+                      sbUserId
+                    )
+                      .catch((err) => {
+                        logger.error(
+                          "POST",
+                          `Error adding latest messages to memory: ${err}`
+                        );
+                        writer.write({
+                          type: "data-notification",
+                          transient: true,
+                          data: {
+                            message: "Failed to update memory",
+                            level: "error",
+                          },
+                        });
+                      })
+                      .then(() => {
+                        writer.write({
+                          type: "data-notification",
+                          transient: true,
+                          data: {
+                            message: "Updated memory",
+                            level: "info",
+                          },
+                        });
+                      })
+                  );
+                  addMemoryMs = addMemoryResult.durationMs;
+                  metrics.addLatestMessagesToMemoryMs = addMemoryMs;
+                }
+
+                if (updateSummaryResult.result?.error) {
+                  logger.error(
+                    "POST",
+                    `Error updating chat summary: ${updateSummaryResult.result.error}`
+                  );
+                }
+
+                metrics.onFinishTotalMs = performance.now() - onFinishStart;
+                if (ensureChatHasTitleMs !== undefined) {
+                  metrics.ensureChatHasTitleMs = ensureChatHasTitleMs;
+                }
+
+                logger.log(
+                  "POST",
+                  `onFinish metrics: ${JSON.stringify(metrics)}`
+                );
+              } catch (err) {
+                logger.error("POST", `Error in onFinish callback: ${err}`);
+              }
+            }
+
+            // Final notification
+            writer.write({
+              type: "data-notification",
+              transient: true,
+              data: {
+                message: "Stream completed",
+                level: "info",
+              },
+            });
+          },
+        })
+      );
     },
-    generateMessageId: () => randomUUID(),
   });
+
+  return createUIMessageStreamResponse({ stream });
 }
-
-// TODO: Make this work
-const compileTools = ({
-  useSearch,
-  useMemory,
-  sbUserId,
-}: {
-  useSearch: boolean;
-  useMemory: boolean;
-  sbUserId: string;
-}): Tool[] => {
-  // Compile and return an array of tools as expected by streamText({ tools })
-  const tools: Tool[] = []; // TODO: Fill this in based on req or other context
-
-  if (useMemory) {
-    // tools.push({ search_memories: createMemorySearchTool(sbUserId) });
-  }
-  return tools;
-};
