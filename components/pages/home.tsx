@@ -9,7 +9,7 @@ export default function Home() {
     <Page transparentBackground>
       <LiquidChrome />
       <div className={`fixed inset-0 flex flex-col items-center justify-center h-full w-full gap-10`}>
-        <div className={`bg-secondary/75 flex flex-col items-center justify-center rounded-xl w-full max-w-sm sm:max-w-xl`}>
+        <div className={`flex flex-col items-center justify-center rounded-xl w-full max-w-sm sm:max-w-xl`}>
           <AIInput />
         </div>
       </div>

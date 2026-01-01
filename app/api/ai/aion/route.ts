@@ -194,7 +194,7 @@ export async function POST(req: Request) {
     `
       );
 
-      // const tools = compileTools({ useSearch, useMemory});
+      // const tools = compileTo ols({ useSearch, useMemory});
 
       const messages = convertToModelMessages(validatedMessages);
 
