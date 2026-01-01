@@ -158,12 +158,17 @@ export async function POST(req: Request) {
     system: systemPromptForRequest,
     abortSignal: req.signal,
     experimental_transform: smoothStream({
-      delayInMs: 5, // optional: defaults to 10ms
-      chunking: "word", // optional: defaults to 'word'
+      delayInMs: 20, // optional: defaults to 10ms
+      chunking: /(```[\s\S]*?```|^#{1,6}\s.*$|.*?(?:\n|$))/gm, // optional: defaults to 'word'
     }),
     maxOutputTokens: CHAT_MODEL.maxOutputTokens, // Cap output for dev guardrails
     onError({ error }) {
       logger.error("POST", `Stream error: ${error}`);
+    },
+    providerOptions: {
+      openai: {
+        include: ["reasoning.encrypted_content"],
+      } satisfies OpenAIResponsesProviderOptions,
     },
     tools: {
       search_memories: createMemorySearchTool(sbUserId),
