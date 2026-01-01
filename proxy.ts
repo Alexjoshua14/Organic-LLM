@@ -23,27 +23,25 @@ const MAX_REQUESTS = 5; // 5 chats per minute
 function chatMiddleware(request: NextRequest) {
   if (request.nextUrl.pathname === "/chat") {
     // Use x-forwarded-for header as a fallback since NextRequest.ip is not available
-    const ip =
+    const userId =
+      request.headers.get("x-clerk-user-id") ||
       request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ||
-      request.headers.get("x-real-ip") ||
       "unknown";
     const now = Date.now();
 
     // Clean old entries
-    const requests = rateLimitMap.get(ip) || [];
+    const requests = rateLimitMap.get(userId) || [];
     const recentRequests = requests.filter(
       (time) => now - time < RATE_LIMIT_WINDOW
     );
 
     if (recentRequests.length >= MAX_REQUESTS) {
-      return NextResponse.json(
-        { error: "Too many chat creation requests. Please wait." },
-        { status: 429 }
-      );
+      // Redirect to home page if too many requests
+      return NextResponse.redirect(new URL("/", request.url), { status: 302 });
     }
 
     recentRequests.push(now);
-    rateLimitMap.set(ip, recentRequests);
+    rateLimitMap.set(userId, recentRequests);
   }
 
   return NextResponse.next();
