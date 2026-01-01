@@ -1,12 +1,10 @@
 "use client";
 
 import { UIMessage, useChat } from "@ai-sdk/react";
-import { StickToBottom } from "use-stick-to-bottom";
 import { DefaultChatTransport } from "ai";
 import { useCallback, useEffect, useRef } from "react";
 
 import { ChatThread } from "./chat-thread";
-import { ChatScrollButton } from "./chat-scroll-button";
 
 import { Thread } from "@/lib/schemas/chat";
 import { createLogger } from "@/lib/logger";
@@ -52,15 +50,15 @@ export const Chat: React.FC<ChatProps> = ({
             ...(usePersistedSchemas.current ? { persistedSchemas: true } : {}),
           },
         }
-        console.log(`Request being sent: ${JSON.stringify(req, null, 2)}`)
+        logger.log("chat", `Request being sent: ${JSON.stringify(req, null, 2)}`)
         return req;
       },
     }),
     onToolCall({ toolCall }) {
-      console.log("TOOL_CALL", toolCall);
+      logger.log("chat", "TOOL_CALL", toolCall);
     },
     onData: (data) => {
-      console.log(JSON.stringify(data, null, 2))
+      logger.log("chat", JSON.stringify(data, null, 2))
     }
   });
 
@@ -97,25 +95,6 @@ export const Chat: React.FC<ChatProps> = ({
   }, [messages])
 
   return (
-    // <StickToBottom
-    //   className={
-    //     [
-    //       "h-full",
-    //       "w-full",
-    //       "max-w-[calc(100dvw-2rem)]",
-    //       "md:max-w-[calc(100dvw-18rem)]",
-    //       "lg:max-w-4xl",
-    //       "relative",
-    //       "mx-2",
-    //       "flex",
-    //       "flex-col",
-    //       "items-center",
-    //     ].join(" ")
-    //   }
-    //   style={{ paddingBottom: "7rem" }}
-    //   initial="instant"
-    //   resize="smooth"
-    // >
     <div
       className={[
         "w-full",
@@ -154,6 +133,5 @@ export const Chat: React.FC<ChatProps> = ({
         className="absolute bottom-1 md:bottom-4 px-8 max-w-232 w-full"
       />
     </div>
-
   );
 };
