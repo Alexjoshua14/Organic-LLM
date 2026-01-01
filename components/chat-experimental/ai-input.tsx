@@ -33,7 +33,9 @@ export const AIInput: React.FC = () => {
 
       // Handle navigation tool calls
       if (params.toolCall.toolName === "navigate") {
-        const { page } = params.toolCall.args as { page: string; reason?: string };
+        const { page } = params.toolCall.input as { page: string; reason?: string };
+
+        logger.log("onToolCall:navigate", `Navigating to page: ${page}`);
 
         switch (page) {
           case "chat":
