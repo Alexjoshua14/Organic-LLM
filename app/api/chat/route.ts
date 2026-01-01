@@ -1,6 +1,5 @@
 import { randomUUID } from "crypto";
 
-import { openai } from "@ai-sdk/openai";
 import {
   streamText,
   UIMessage,
@@ -151,7 +150,7 @@ export async function POST(req: Request) {
   const streamStartTime = performance.now();
 
   const result = streamText({
-    model: openai(selectedModel.id),
+    model: selectedModel.id,
     messages: convertToModelMessages(validatedMessages),
     system: systemPromptForRequest,
     abortSignal: req.signal,
@@ -179,6 +178,7 @@ export async function POST(req: Request) {
     consumeSseStream: consumeStream,
     onError: (error) => {
       logger.error("POST", `UI stream error: ${error}`);
+
       if (error instanceof Error) {
         return error.message;
       }
@@ -189,6 +189,11 @@ export async function POST(req: Request) {
       return "An unexpected error occurred";
     },
     onFinish: async ({ messages, isAborted, finishReason }) => {
+      logger.log("POST", `FINISH REASON: ${finishReason}`);
+      if (!finishReason) {
+        logger.error("POST", "No finish reason provided, assuming failure");
+        return;
+      }
       switch (finishReason) {
         case "error":
           logger.error("POST", "LLM encountered an error.");
@@ -220,7 +225,7 @@ export async function POST(req: Request) {
 
         logger.log(
           "POST",
-          `Model (${selectedModel}) generated response in ${modelGenerationTime.toFixed(2)}ms (${(modelGenerationTime / 1000).toFixed(2)}s)`
+          `Model (${selectedModel.id}) generated response in ${modelGenerationTime.toFixed(2)}ms (${(modelGenerationTime / 1000).toFixed(2)}s)`
         );
 
         try {
