@@ -15,13 +15,18 @@ export const ChatModelSchema = z.object({
 export type ChatModel = z.infer<typeof ChatModelSchema>;
 
 export const ChatModels: ChatModel[] = [
-  { id: "gpt-5.2", name: "GPT-5.2" },
-  { id: "gpt-5", name: "GPT-5" },
-  { id: "gpt-5-mini", name: "GPT-5 Mini" },
-  { id: "gpt-5-nano", name: "GPT-5 Nano" },
-  { id: "gpt-4o", name: "GPT-4o" },
-  { id: "gpt-4o-mini", name: "GPT-4o Mini" },
-  { id: "gpt-4-turbo", name: "GPT-4 Turbo" },
+  { id: "openai/gpt-5.2", name: "GPT-5.2" },
+  { id: "openai/gpt-5", name: "GPT-5" },
+  { id: "openai/gpt-5-mini", name: "GPT-5 Mini" },
+  { id: "openai/gpt-5-nano", name: "GPT-5 Nano" },
+  { id: "openai/gpt-4o", name: "GPT-4o" },
+  { id: "openai/gpt-4o-mini", name: "GPT-4o Mini" },
+  { id: "openai/gpt-4-turbo", name: "GPT-4 Turbo" },
+  { id: "google/gemini-3-pro-preview", name: "Gemini 3 Pro" },
+  { id: "google/gemini-3-flash", name: "Gemini 3 Flash" },
+  { id: "anthropic/claude-sonnet-4.5", name: "Claude Sonnet 4.5" },
+  { id: "openai/gpt-oss-120b", name: "GPT OSS [120b]" },
+  { id: "openai/gpt-oss-20b", name: "GPT OSS [20b]" },
 ] as const;
 
 export const DEFAULT_CHAT_MODEL: ChatModel = ChatModels[0];

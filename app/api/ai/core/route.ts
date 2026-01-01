@@ -95,7 +95,7 @@ export async function POST(req: Request) {
   );
 
   const result = streamText({
-    model: openai(selectedModel.id),
+    model: selectedModel.id,
     messages: messages,
     system: systemPrompt,
     experimental_transform: smoothStream({
