@@ -8,6 +8,7 @@ import { createLogger } from "@/lib/logger";
 import { Button } from "@heroui/button";
 import { glass } from "../design-system/primitives";
 import { motion } from "framer-motion";
+import { cn } from "@/lib/utils";
 
 
 const logger = createLogger("ai-input");
@@ -88,16 +89,27 @@ export const AIInput: React.FC = () => {
       />
       <div className="flex gap-10 justify-center">
         {/* TODO: THis chat button can be converted to programmatic */}
-        <Button className={`${glass()} hover:scale-110 duration-1000`} onPress={() => aion.sendMessage({ text: "Navigate to new chat" })}>
-          {`Let's Chat`}
-        </Button>
-        <Button className={`${glass()} hover:scale-110 duration-1000`} onPress={() => aion.navigate('/rabbitholes/browse')}>
-          {`Rabbit Holes`}
-        </Button>
-        <Button className={`${glass()} hover:scale-110 duration-1000`} onPress={() => aion.navigate('/settings')}>
-          Settings
-        </Button>
+        <ActionButton
+          title="Let's Chat"
+          onPress={() => aion.sendMessage({ text: "Navigate to new chat" })}
+        />
+        <ActionButton
+          title="Rabbit Holes"
+          onPress={() => aion.navigate('/rabbitholes/browse')}
+        />
+        <ActionButton
+          title="Settings"
+          onPress={() => aion.navigate('/settings')}
+        />
       </div>
     </motion.div>
   );
 };
+
+const ActionButton = ({ title, onPress, className, ...props }: React.ComponentProps<typeof Button> & { title: string }) => {
+  return (
+    <Button className={cn(`${glass()} backdrop-invert-25 hover:backdrop-invert-100 transition-all hover:scale-110 duration-1000`, className)} onPress={onPress} {...props}>
+      {title}
+    </Button>
+  )
+}
