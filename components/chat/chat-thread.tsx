@@ -20,10 +20,6 @@ export const ChatThread: FC<ChatThreadProps> = ({
   className,
 }) => {
   return (
-    // <StickToBottom.Content
-    //   className={cn("w-full mx-auto flex flex-col gap-2 pr-3 pt-20", className)}
-    //   style={{ paddingBottom: '3rem' }}
-    // >
     <ConversationContent className="px-4 flex flex-col">
       {messages.map((message) => {
         return <ChatMessage key={message.id} message={message} />;
