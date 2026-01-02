@@ -57,6 +57,8 @@ export const NewChatInput: React.FC<NewChatInputProps> = ({
   const [useWebSearch, setUseWebSearch] = useState<boolean>(false);
   const [useMemories, setUseMemories] = useState<boolean>(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const toolsRef = useRef<HTMLDivElement | null>(null);
+  const [showLabels, setShowLabels] = useState(true);
 
   // Set refs when any of the values change, so they are current for next send
   useEffect(() => {
@@ -76,6 +78,19 @@ export const NewChatInput: React.FC<NewChatInputProps> = ({
       useMemoriesRef.current = useMemories;
     }
   }, [useMemories, useMemoriesRef]);
+
+  useEffect(() => {
+    const el = toolsRef.current;
+    if (!el || typeof ResizeObserver === "undefined") return;
+
+    const observer = new ResizeObserver((entries) => {
+      const width = entries[0]?.contentRect.width ?? 0;
+      // Toggle labels based on available width, not viewport breakpoint
+      setShowLabels(width >= 360);
+    });
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, []);
 
 
   const handleSubmit = (message: PromptInputMessage, event: FormEvent<HTMLFormElement>) => {
@@ -120,56 +135,58 @@ export const NewChatInput: React.FC<NewChatInputProps> = ({
         />
       </PromptInputBody>
       <PromptInputFooter>
-        <PromptInputTools className="flex justify-between w-full">
-          <div className="flex gap-1">
-            <PromptInputButton
-              onClick={() => setUseWebSearch(!useWebSearch)}
-              variant={useWebSearch ? 'default' : 'ghost'}
-              size={'dynamic-sm'}
-            >
-              <GlobeIcon size={16} />
-              <span className="hidden sm:flex">Search</span>
-            </PromptInputButton>
-            <PromptInputButton
-              onClick={() => setUseMemories(!useMemories)}
-              variant={useMemories ? 'default' : 'ghost'}
-              size={'dynamic-sm'}
-            >
-              <BrainCircuit />
-              <span className="hidden sm:flex">Memory</span>
-            </PromptInputButton>
+        <div ref={toolsRef} className="w-full">
+          <PromptInputTools className="flex justify-between w-full">
+            <div className="flex gap-1">
+              <PromptInputButton
+                onClick={() => setUseWebSearch(!useWebSearch)}
+                variant={useWebSearch ? 'default' : 'ghost'}
+                size={'dynamic-sm'}
+              >
+                <GlobeIcon size={16} />
+                <span className={cn(showLabels ? "inline-flex" : "hidden")}>Search</span>
+              </PromptInputButton>
+              <PromptInputButton
+                onClick={() => setUseMemories(!useMemories)}
+                variant={useMemories ? 'default' : 'ghost'}
+                size={'dynamic-sm'}
+              >
+                <BrainCircuit />
+                <span className={cn(showLabels ? "inline-flex" : "hidden")}>Memory</span>
+              </PromptInputButton>
 
-            <PromptInputSelect
-              defaultValue={DEFAULT_CHAT_MODEL.id}
-              onValueChange={handleModelSelection}
-              value={model.id}
-              required
-            >
-              <PromptInputSelectTrigger className="max-w-32 min-w-0">
-                <PromptInputSelectValue className="truncate min-w-0" />
-              </PromptInputSelectTrigger>
-              <PromptInputSelectContent defaultValue={DEFAULT_CHAT_MODEL.id}>
-                {ChatModels.map((model) => (
-                  <PromptInputSelectItem key={model.id} value={model.id}>
-                    {model.name}
-                  </PromptInputSelectItem>
-                ))}
-              </PromptInputSelectContent>
-            </PromptInputSelect>
-          </div>
-          <div className="flex gap-1">
-            <PromptInputActionMenu>
-              <PromptInputActionMenuTrigger />
-              <PromptInputActionMenuContent>
-                <PromptInputActionAddAttachments />
-              </PromptInputActionMenuContent>
-            </PromptInputActionMenu>
-            <PromptInputSpeechButton
-              onTranscriptionChange={setText}
-              textareaRef={textareaRef}
-            />
-          </div>
-        </PromptInputTools>
+              <PromptInputSelect
+                defaultValue={DEFAULT_CHAT_MODEL.id}
+                onValueChange={handleModelSelection}
+                value={model.id}
+                required
+              >
+                <PromptInputSelectTrigger className="max-w-32 min-w-0">
+                  <PromptInputSelectValue className="truncate min-w-0" />
+                </PromptInputSelectTrigger>
+                <PromptInputSelectContent defaultValue={DEFAULT_CHAT_MODEL.id}>
+                  {ChatModels.map((model) => (
+                    <PromptInputSelectItem key={model.id} value={model.id}>
+                      {model.name}
+                    </PromptInputSelectItem>
+                  ))}
+                </PromptInputSelectContent>
+              </PromptInputSelect>
+            </div>
+            <div className="flex gap-1">
+              <PromptInputActionMenu>
+                <PromptInputActionMenuTrigger />
+                <PromptInputActionMenuContent>
+                  <PromptInputActionAddAttachments />
+                </PromptInputActionMenuContent>
+              </PromptInputActionMenu>
+              <PromptInputSpeechButton
+                onTranscriptionChange={setText}
+                textareaRef={textareaRef}
+              />
+            </div>
+          </PromptInputTools>
+        </div>
         <PromptInputSubmit disabled={!text && !status} status={status} stop={stop} />
       </PromptInputFooter>
     </PromptInput>

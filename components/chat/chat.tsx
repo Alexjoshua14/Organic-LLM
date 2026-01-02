@@ -105,7 +105,8 @@ export const Chat: React.FC<ChatProps> = ({
         "items-center",
         "justify-center",
         "overflow-hidden",
-        "relative"
+        "relative",
+        "min-w-fit"
       ].join(" ")}
     >
       <Conversation
