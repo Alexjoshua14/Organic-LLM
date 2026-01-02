@@ -11,6 +11,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/third-part
 import { Spinner } from "@/components/third-party/ui/spinner";
 import { dateStringCompare, sleep } from "@/lib/utils";
 import { formatDate } from "@/lib/format/stringFormatting";
+import { AnimatePresence, motion } from "framer-motion";
 
 const logger = createLogger("components/archetype/interfaces/memory.tsx");
 
@@ -84,10 +85,11 @@ const MemoryItem: React.FC<MemoryItemProps> = ({ memory }) => {
                     Edit Memory
                   </h1>
                 </ModalHeader>
-                <ModalBody className="flex flex-col justify-between max-h-[75dvh] border-2">
+                <ModalBody className="flex flex-col justify-between max-h-[75dvh]">
                   <div className="flex-1 w-full font-medium overflow-y-auto">
                     {memory.memory}
                   </div>
+                  <Separator />
                   <div
                     className={
                       [
@@ -126,24 +128,35 @@ const MemoryItem: React.FC<MemoryItemProps> = ({ memory }) => {
                 <ModalFooter>
                   {
                     requestConfirmDelete ? (
-                      <div className="flex gap-2 items-center">
-                        <span>Confirm Delete:</span>
-                        <Tooltip>
-                          <TooltipTrigger asChild>
-                            <Button
-                              variant="destructive"
-                              color="var(--destructive)"
-                              onClick={handleConfirmedMemoryDeletion}
-                              disabled={isDeleting}
-                              className="w-24 flex items-center justify-center"
-                            >
-                              {isDeleting ? <Spinner /> : "Delete"}
-                            </Button>
-                          </TooltipTrigger>
-                          <TooltipContent>
-                            {isDeleting ? "Deleting memory..." : "Delete memory"}
-                          </TooltipContent>
-                        </Tooltip>
+                      <div className="flex gap-4 items-center">
+                        <AnimatePresence>
+                          <motion.div
+                            initial={{ opacity: 0, y: "100%" }}
+                            animate={{ opacity: 1, y: 0 }}
+                            exit={{ opacity: 0, y: "100%" }}
+                            transition={{ duration: 0.18 }}
+                            whileHover={{ scale: 1.03 }}
+                            whileTap={{ scale: 0.97 }}
+                          >
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <Button
+                                  variant="destructive"
+                                  color="var(--destructive)"
+                                  onClick={handleConfirmedMemoryDeletion}
+                                  disabled={isDeleting}
+                                  className="w-28 flex items-center justify-center"
+                                >
+                                  {isDeleting ? <Spinner /> : "Confirm Delete"}
+                                </Button>
+                              </TooltipTrigger>
+                              <TooltipContent
+                              >
+                                {isDeleting ? "Deleting memory..." : "Delete memory"}
+                              </TooltipContent>
+                            </Tooltip>
+                          </motion.div>
+                        </AnimatePresence>
                         <Tooltip>
                           <TooltipTrigger asChild>
                             <Button
