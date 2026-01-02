@@ -12,6 +12,7 @@ import { useSharedChatContext } from "@/lib/context/chat-context";
 import { ChatModel, DEFAULT_CHAT_MODEL } from "@/lib/schemas/chat";
 import { NewChatInput } from "./new-chat-input";
 import { Conversation, ConversationScrollButton } from "../third-party/ai-elements/conversation";
+import { useArchetypeContext } from "@/lib/context/archetype-context";
 
 const logger = createLogger("components/chat/chat");
 
@@ -32,6 +33,8 @@ export const Chat: React.FC<ChatProps> = ({
   const useWebSearchRef = useRef<boolean>(false);
   const useMemoriesRef = useRef<boolean>(false);
   const usePersistedSchemas = useRef<boolean>(persona === 'aion');
+
+  const { showArchetype, setArchetypeData, setAndOpen } = useArchetypeContext();
 
   const { messages, sendMessage, id, stop, status, setMessages } = useChat({
     id: chatData?.thread.id ?? "",
@@ -55,7 +58,8 @@ export const Chat: React.FC<ChatProps> = ({
       },
     }),
     onToolCall({ toolCall }) {
-      logger.log("chat", "TOOL_CALL", toolCall);
+      logger.log("chat", `TOOL_CALL ${JSON.stringify(toolCall, null, 2)}`);
+
     },
     onData: (data) => {
       logger.log("chat", JSON.stringify(data, null, 2))

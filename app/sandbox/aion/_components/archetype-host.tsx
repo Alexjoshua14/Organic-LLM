@@ -11,6 +11,11 @@ import { sampleMemories } from "@/test-data/sampleData";
 import { useArchetypeContext } from "@/lib/context/archetype-context";
 import { Button } from "@/components/third-party/ui/button";
 import { ScrollShadow } from "@heroui/scroll-shadow";
+import { getAllMemories } from "@/lib/memory/operations";
+import { useAuth } from "@clerk/nextjs";
+import { createLogger } from "@/lib/logger";
+
+const logger = createLogger("app/sandbox/aion/_components/archetype-host.tsx");
 
 type ArchetypeHostProps = {
   showGlass?: boolean;
@@ -51,13 +56,39 @@ export function ArchetypeHost({
   className,
 }: ArchetypeHostProps) {
 
+  // Get clerk user id
+  const { userId } = useAuth();
+
   const { archetypeData, setArchetypeData } = useArchetypeContext();
 
+  // TODO: Refactor into actual logic, this is a temporary placeholder while developing Archetypes
   useEffect(() => {
-    if (!archetypeData) {
-      setArchetypeData(sampleArchetypeData);
+    const fetchMemories = async (): Promise<ArchetypePayload | undefined> => {
+      let memoryArchetypeData: ArchetypePayload | undefined;
+      if (!userId) {
+        logger.error("ArchetypeHost", "No user ID found");
+        return;
+      }
+      try {
+        const res = await getAllMemories(userId);
+        memoryArchetypeData = {
+          id: "f11aac23-ca87-4a79-a5a9-5c7115abec2b",
+          kind: "memory" as const,
+          memories: res.results,
+        }
+      } catch (error) {
+        logger.error("ArchetypeHost", "Error fetching memories", error);
+        memoryArchetypeData = sampleArchetypeData;
+      }
+
+      setArchetypeData(memoryArchetypeData);
     }
-  }, [setArchetypeData]);
+
+    if (!archetypeData) {
+      fetchMemories();
+    }
+
+  }, [setArchetypeData, userId]);
 
   return (
     <aside

@@ -12,6 +12,8 @@ import { getMemory } from "./client";
 
 import { createLogger } from "@/lib/logger";
 import { convertUIMessageToMem0Message } from "../chat/message-transform";
+import { auth } from "@clerk/nextjs/server";
+import { Result } from "@/types";
 
 const logger = createLogger("lib/memory/operations.ts");
 
@@ -20,7 +22,7 @@ const logger = createLogger("lib/memory/operations.ts");
  * By default grabs top 3 relevant memories.
  *
  * @param query - The query to search for
- * @param userId - The ID of the user to search memories for
+ * @param userId - The clerk ID of the user to search memories for
  * @param options - Optional search options
  * @returns - The search results
  */
@@ -46,6 +48,40 @@ export async function searchMemories(
   logger.log("searchMemories", `Found ${result.results?.length} memories`);
 
   return result;
+}
+
+// TODO: Ensure function is secure
+export async function searchMemoriesServer(
+  query: string,
+  options?: SearchMemoryOptions
+): Promise<Result<SearchResult, string>> {
+  const { userId } = await auth();
+
+  if (!userId) {
+    return {
+      data: null,
+      error: "User ID is required",
+    };
+  }
+
+  const memory = getMemory();
+
+  try {
+    const result = await memory.search(query, {
+      userId,
+      limit: options?.limit ?? 3,
+      ...options,
+    });
+    return {
+      data: result,
+      error: null,
+    };
+  } catch (error) {
+    return {
+      data: null,
+      error: error instanceof Error ? error.message : "Unknown error",
+    };
+  }
 }
 
 export async function getAllMemories(userId: string): Promise<SearchResult> {

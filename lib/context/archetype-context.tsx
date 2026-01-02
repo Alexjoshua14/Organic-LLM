@@ -3,6 +3,7 @@
 import { createContext, useContext, ReactNode, useState, useCallback } from "react";
 import { ArchetypePayload } from "@/packages/organic-ui/src/schemas/archetype";
 import { Result } from "@/types";
+import { useSharedChatContext } from "./chat-context";
 
 interface ArchetypeContextValue {
   // Data
