@@ -6,8 +6,10 @@ import { ScrollArea } from "@/components/third-party/ui/scroll-area";
 import { cn } from "@/lib/utils";
 import { MemoryItem } from "mem0ai/oss";
 import { ArchetypePayload } from "@/packages/organic-ui/src/schemas/archetype";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { sampleMemories } from "@/test-data/sampleData";
+import { useArchetypeContext } from "@/lib/context/archetype-context";
+import { Button } from "@/components/third-party/ui/button";
 
 type ArchetypeHostProps = {
   showGlass?: boolean;
@@ -44,8 +46,11 @@ export function ArchetypeHost({
   className,
 }: ArchetypeHostProps) {
 
-  // TODO: Transition this to context
-  const [archetypeData, setArchetypeData] = useState<ArchetypePayload>(sampleArchetypeData);
+  const { archetypeData, setArchetypeData } = useArchetypeContext();
+
+  useEffect(() => {
+    setArchetypeData(sampleArchetypeData);
+  }, [])
 
   return (
     <aside
@@ -64,13 +69,21 @@ export function ArchetypeHost({
         className
       )}
     >
-      <div className="text-xs uppercase tracking-wide text-foreground/60">
-        {archetypeData.kind}
-      </div>
-
-      <div className="h-full pt-6 pb-12">
-        <ArchetypeComponent archetypeData={archetypeData} />
-      </div>
+      {archetypeData ?
+        <>
+          <div className="text-xs uppercase tracking-wide text-foreground/60">
+            {archetypeData.kind}
+          </div>
+          <div className="h-full pt-6 pb-12">
+            <ArchetypeComponent archetypeData={archetypeData} />
+          </div>
+        </>
+        : <>
+          <div className="h-full pt-6 pb-12">
+            <p>No archetype data</p>
+            <Button onClick={() => setArchetypeData(sampleArchetypeData)}>Set archetype data</Button>
+          </div>
+        </>}
 
     </aside >
   );
