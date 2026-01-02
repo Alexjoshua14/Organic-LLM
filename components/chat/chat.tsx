@@ -1,132 +1,137 @@
 "use client";
 
 import { UIMessage, useChat } from "@ai-sdk/react";
-import { StickToBottom } from "use-stick-to-bottom";
 import { DefaultChatTransport } from "ai";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useRef } from "react";
 
-import { ChatInput } from "./chat-input";
 import { ChatThread } from "./chat-thread";
-import { ChatScrollButton } from "./chat-scroll-button";
 
 import { Thread } from "@/lib/schemas/chat";
-import { updateChatSummary } from "@/lib/llm/chat-helpers";
 import { createLogger } from "@/lib/logger";
 import { useSharedChatContext } from "@/lib/context/chat-context";
+import { ChatModel, DEFAULT_CHAT_MODEL } from "@/lib/schemas/chat";
+import { NewChatInput } from "./new-chat-input";
+import { Conversation, ConversationScrollButton } from "../third-party/ai-elements/conversation";
 
 const logger = createLogger("components/chat/chat");
 
 type ChatProps = {
   chatData: { thread: Thread; messages: UIMessage[] } | null;
   initialMessage?: string;
-  persona?: "prometheus" | "spark";
+  persona?: "prometheus" | "spark" | "aion";
   endpoint?: string;
 };
 
 export const Chat: React.FC<ChatProps> = ({
   chatData,
-  initialMessage,
   endpoint,
   persona,
 }) => {
-  const [updatingSummary, setUpdatingSummary] = useState(false);
 
-  const { setChatId } = useSharedChatContext();
+  const selectedModelRef = useRef<ChatModel>(DEFAULT_CHAT_MODEL);
+  const useWebSearchRef = useRef<boolean>(false);
+  const useMemoriesRef = useRef<boolean>(false);
+  const usePersistedSchemas = useRef<boolean>(persona === 'aion');
 
-  useEffect(() => {
-    setChatId(chatData?.thread.id ?? "");
-
-    return () => {
-      setChatId("");
-    };
-  }, [chatData]);
-
-  const { messages, sendMessage, id } = useChat({
+  const { messages, sendMessage, id, stop, status, setMessages } = useChat({
     id: chatData?.thread.id ?? "",
     messages: chatData?.messages ?? [],
     transport: new DefaultChatTransport({
-      api: endpoint ?? `/api/chat/${persona ?? ""}`,
+      api: persona === 'aion' ? '/api/ai/aion' : endpoint ?? `/api/chat/${persona ?? ""}`,
       prepareSendMessagesRequest({ messages, id }) {
-        return { body: { message: messages[messages.length - 1], id } };
+        const req = {
+          body: {
+            message: messages[messages.length - 1],
+            id,
+            model: selectedModelRef.current,
+            webSearch: useWebSearchRef.current,
+            memory: useMemoriesRef.current,
+            // Only include persistedSchemas in payload if true
+            ...(usePersistedSchemas.current ? { persistedSchemas: true } : {}),
+          },
+        }
+        logger.log("chat", `Request being sent: ${JSON.stringify(req, null, 2)}`)
+        return req;
       },
     }),
     onToolCall({ toolCall }) {
-      console.log("TOOL_CALL", toolCall);
+      logger.log("chat", "TOOL_CALL", toolCall);
     },
+    onData: (data) => {
+      logger.log("chat", JSON.stringify(data, null, 2))
+    }
   });
 
-  // useEffect(() => {
-  //   // Simply ensure chat has title when the user leaves
-  //   return () => {
-  //     if (chatData?.thread.title === null && messages.length > 3) {
-  //       ensureChatHasTitle(chatData.thread.id);
-  //     }
-  //   };
-  // }, [chatData, messages]);
-
-  // useEffect(() => {
-  //   if (initialMessage && messages.length === 0) {
-  //     logger.log("Chat", `Sending initial message: ${initialMessage}`);
-  //     sendMessage({
-  //       text: initialMessage,
-  //     });
-  //   } else {
-  //     logger.log("Chat", `Didn't send initial message.. intialMessage: ${initialMessage}, messages.length: ${messages.length}`)
-  //   }
-  // }, []);
-
-  const handleUpdateSummary = async () => {
-    if (!chatData?.thread.id) {
-      logger.error("handleUpdateSummary", "Chat ID is missing");
-
-      return;
-    }
-    if (updatingSummary) {
-      logger.error("handleUpdateSummary", "Already updating summary");
-
-      return;
-    }
-
-    setUpdatingSummary(true);
-    try {
-      const { data, error } = await updateChatSummary(chatData.thread.id);
-
-      if (error) {
-        logger.error(
-          "handleUpdateSummary",
-          `Failed to update chat summary: ${error}`,
-        );
-      } else {
-        logger.log("handleUpdateSummary", `Updated chat summary: ${data}`);
+  const handleStop = useCallback(async () => {
+    // Remove the latest user message and partially completed AI message from messages
+    // Remove the latest user message and any partially completed AI response
+    stop();
+    setMessages((prevMessages) => {
+      // Find the last user message
+      const lastUserIndex = [...prevMessages]
+        .reverse()
+        .findIndex((msg) => msg.role === "user");
+      if (lastUserIndex === -1) {
+        return prevMessages;
       }
-    } catch (error) {
-      logger.error(
-        "handleUpdateSummary",
-        `Failed to update chat summary: ${error}`,
-      );
-    } finally {
-      setUpdatingSummary(false);
-    }
-  };
+      // Calculate the index in the original array
+      const lastUserMsgIdx = prevMessages.length - 1 - lastUserIndex;
+
+      // Remove the last user message and any AI message immediately after it (if exists)
+      let newMessages = prevMessages.slice(0, lastUserMsgIdx);
+      // Check if there's an AI message after the last user
+      if (
+        prevMessages[lastUserMsgIdx + 1] &&
+        prevMessages[lastUserMsgIdx + 1].role === "assistant"
+      ) {
+        // Remove the AI message as well
+        newMessages = prevMessages.slice(0, lastUserMsgIdx);
+      } else {
+        // If not, just slice off including the user message
+        newMessages = prevMessages.slice(0, lastUserMsgIdx);
+      }
+      return newMessages;
+    });
+  }, [messages])
 
   return (
-    <StickToBottom
-      className="h-full w-full relative mx-2 flex flex-col items-center"
-      initial="instant"
-      resize="smooth"
+    <div
+      className={[
+        "w-full",
+        "h-full",
+        "flex",
+        "items-center",
+        "justify-center",
+        "max-w-[calc(100dvw-2rem)]",
+        "md:max-w-[calc(100dvw-18rem)]",
+        "lg:max-w-4xl",
+      ].join(" ")}
     >
-      <ChatThread messages={messages} />
-      <ChatScrollButton />
-      <ChatInput id={id} sendMessage={sendMessage} />
-      {/* <div className="absolute top-20 right-0 z-40">
-        <button
-          className="px-4 py-2 bg-blue-500 hover:bg-blue-600 disabled:bg-gray-400 text-white rounded-md transition-colors"
-          disabled={updatingSummary}
-          onClick={handleUpdateSummary}
-        >
-          {updatingSummary ? "Updating..." : "Update Summary"}
-        </button>
-      </div> */}
-    </StickToBottom>
+      <Conversation
+        className={
+          [
+            "h-full",
+            "w-full",
+            "relative",
+            "flex",
+            "flex-col",
+            "items-center",
+          ].join(" ")
+        }
+        style={{ paddingBottom: "8rem" }}
+      >
+        <ChatThread messages={messages} />
+        <ConversationScrollButton />
+      </Conversation>
+      <NewChatInput
+        modelRef={selectedModelRef}
+        useWebSearchRef={useWebSearchRef}
+        useMemoriesRef={useMemoriesRef}
+        sendMessage={sendMessage}
+        stop={handleStop}
+        status={status}
+        className="absolute bottom-1 md:bottom-4 px-8 max-w-232 w-full"
+      />
+    </div>
   );
 };

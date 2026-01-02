@@ -26,12 +26,12 @@ import { SidebarProjectLink } from "./sidebar-project-link";
 export function Sidebar() {
   return (
     <ShadcnSidebar>
-      <SidebarHeader className="h-12 pl-7 grid place-content-center bg-background-secondary subpixel-antialiased">
+      <SidebarHeader className="h-16 pl-7 grid place-content-center bg-background-secondary subpixel-antialiased">
         <Link
           className="group/brand cursor-pointer active:scale-95 transition-transform duration-150 font-commissioner"
           href="/"
         >
-          <h1 className="font-medium tracking-tight text-lg bg-gradient-to-tl from-foreground-secondary to-foreground text-transparent bg-clip-text group-hover/brand:from-foreground duration-300 transition-colors">
+          <h1 className="font-medium tracking-tight text-lg bg-linear-to-tl from-foreground-secondary to-foreground text-transparent bg-clip-text group-hover/brand:from-foreground duration-300 transition-colors">
             Organic LLM
           </h1>
         </Link>

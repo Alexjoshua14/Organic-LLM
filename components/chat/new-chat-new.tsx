@@ -26,49 +26,49 @@ export const chatIdeas: {
   prompt: string;
   icon: React.ReactNode;
 }[] = [
-  {
-    title: "Create",
-    prompt: "Help me create something.",
-    icon: <SparklesIcon size={14} />,
-  },
-  {
-    title: "Explore",
-    prompt: "Help me explore something.",
-    icon: <NewspaperIcon size={14} />,
-  },
-  {
-    title: "Code",
-    prompt: "Help me code something.",
-    icon: <CodeIcon size={14} />,
-  },
-  {
-    title: "Learn",
-    prompt: "Help me learn something.",
-    icon: <GraduationCapIcon size={14} />,
-  },
-];
+    {
+      title: "Create",
+      prompt: "Help me create something.",
+      icon: <SparklesIcon size={14} />,
+    },
+    {
+      title: "Explore",
+      prompt: "Help me explore something.",
+      icon: <NewspaperIcon size={14} />,
+    },
+    {
+      title: "Code",
+      prompt: "Help me code something.",
+      icon: <CodeIcon size={14} />,
+    },
+    {
+      title: "Learn",
+      prompt: "Help me learn something.",
+      icon: <GraduationCapIcon size={14} />,
+    },
+  ];
 
 export const promptIdeas: {
   title: string;
   prompt: string;
 }[] = [
-  {
-    title: "How does AI work?",
-    prompt: "How does AI work?",
-  },
-  {
-    title: "Are white holes real?",
-    prompt: "Are white holes real?",
-  },
-  {
-    title: 'How many Bs are in the word "blueberry"?',
-    prompt: 'How many Bs are in the word "blueberry"?',
-  },
-  {
-    title: "What is the meaning of chat?",
-    prompt: "What is the meaning of chat?",
-  },
-];
+    {
+      title: "How does AI work?",
+      prompt: "How does AI work?",
+    },
+    {
+      title: "Are white holes real?",
+      prompt: "Are white holes real?",
+    },
+    {
+      title: 'How many Bs are in the word "blueberry"?',
+      prompt: 'How many Bs are in the word "blueberry"?',
+    },
+    {
+      title: "What is the meaning of chat?",
+      prompt: "What is the meaning of chat?",
+    },
+  ];
 
 export const NewChatNew: React.FC<NewChatProps> = ({ hidden: _hidden }) => {
   const router = useRouter();
