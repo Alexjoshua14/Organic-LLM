@@ -11,7 +11,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/third-par
 import { glass } from "@/components/design-system/primitives";
 import { ArchetypeProvider, useArchetypeContext } from "@/lib/context/archetype-context";
 import { ChatPayloadT, MemoryPayloadT, NewsPayloadT } from "@/packages/organic-ui";
-import { sampleMemories } from "@/test-data/memory";
+import { sampleMemories } from "@/test-data/sampleData";
 
 type AionShellProps = {
   chatData: { thread: Thread; messages: UIMessage[] } | null;

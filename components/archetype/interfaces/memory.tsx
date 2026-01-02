@@ -9,7 +9,8 @@ import { useArchetypeContext } from "@/lib/context/archetype-context";
 import { createLogger } from "@/lib/logger";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/third-party/ui/tooltip";
 import { Spinner } from "@/components/third-party/ui/spinner";
-import { sleep } from "@/lib/utils";
+import { dateStringCompare, sleep } from "@/lib/utils";
+import { formatDate } from "@/lib/format/stringFormatting";
 
 const logger = createLogger("components/archetype/interfaces/memory.tsx");
 
@@ -76,13 +77,51 @@ const MemoryItem: React.FC<MemoryItemProps> = ({ memory }) => {
         </Button>
         <Modal isOpen={isOpen} onOpenChange={onOpenChange}>
           <ModalContent>
-            {(onClose) => (
+            {() => (
               <>
                 <ModalHeader>
-                  Edit Memory:
+                  <h1>
+                    Edit Memory
+                  </h1>
                 </ModalHeader>
-                <ModalBody>
-                  {memory.memory}
+                <ModalBody className="flex flex-col justify-between max-h-[75dvh] border-2">
+                  <div className="flex-1 w-full font-medium overflow-y-auto">
+                    {memory.memory}
+                  </div>
+                  <div
+                    className={
+                      [
+                        "w-fit",
+                        "min-h-fit max-h-[10dvh]",
+                        "grid grid-cols-[1fr_auto]",
+                        "space-x-2 space-y-1",
+                        "justify-end items-end",
+                        "[&>h3]:m-0 [&>p]:m-0",
+                        "*:px-2 *:py-1",
+                        "text-xs",
+                        "[&>h3]:leading-none [&>p]:leading-none",
+                        "text-secondary-foreground",
+                      ].join(" ")
+                    }
+                  >
+                    {dateStringCompare(memory.updatedAt, memory.createdAt) > 0 &&
+                      <>
+                        <h3 className="text-xs">
+                          Last Updated:
+                        </h3>
+                        <p className="text-xs italic">
+                          {memory.updatedAt ? formatDate(memory.updatedAt) : 'unknown'}
+                        </p>
+                      </>
+                    }
+                    <h3 className="text-xs">
+                      Created:
+                    </h3>
+                    <p className="text-xs italic">
+                      {memory.createdAt ? formatDate(memory.createdAt) : 'unknown'}
+                    </p>
+
+                  </div>
                 </ModalBody>
                 <ModalFooter>
                   {

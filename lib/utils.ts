@@ -81,3 +81,36 @@ export async function retryWithBackoff<T>(
   // This should never be reached, but TypeScript needs it
   throw lastError;
 }
+
+/**
+ * Compares two date strings (ISO or RFC, or values parseable by Date).
+ * Returns:
+ *   - -1 if a < b,
+ *   -  1 if a > b,
+ *   -  0 if a == b (or both are falsy/invalid/undefined)
+ *
+ * @param a - First date string or Date or undefined/null
+ * @param b - Second date string or Date or undefined/null
+ */
+export function dateStringCompare(
+  a?: string | Date | null,
+  b?: string | Date | null
+): -1 | 0 | 1 {
+  const toDate = (x: string | Date | null | undefined): number => {
+    if (!x) return NaN;
+    if (x instanceof Date) return x.getTime();
+    const d = new Date(x);
+    return isNaN(d.getTime()) ? NaN : d.getTime();
+  };
+
+  const aTime = toDate(a);
+  const bTime = toDate(b);
+
+  if (isNaN(aTime) && isNaN(bTime)) return 0;
+  if (!isNaN(aTime) && isNaN(bTime)) return 1;
+  if (isNaN(aTime) && !isNaN(bTime)) return -1;
+
+  if (aTime < bTime) return -1;
+  if (aTime > bTime) return 1;
+  return 0;
+}
