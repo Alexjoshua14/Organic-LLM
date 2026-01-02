@@ -98,14 +98,14 @@ export const Chat: React.FC<ChatProps> = ({
     <div
       className={[
         "w-full",
+        "max-w-232",
         "h-full",
+        "max-h-[calc(100dvh-2rem)]",
         "flex",
         "items-center",
         "justify-center",
-        "max-w-[calc(100dvw-2rem)]",
-        "md:max-w-[calc(100dvw-18rem)]",
-        "lg:max-w-4xl",
-        "min-w-fit",
+        "overflow-hidden",
+        "relative"
       ].join(" ")}
     >
       <Conversation
@@ -131,7 +131,7 @@ export const Chat: React.FC<ChatProps> = ({
         sendMessage={sendMessage}
         stop={handleStop}
         status={status}
-        className="absolute bottom-1 md:bottom-4 px-8 max-w-232 w-full"
+        className="absolute bottom-1 md:bottom-4 px-8 w-full"
       />
     </div>
   );
