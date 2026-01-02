@@ -117,7 +117,7 @@ export const SidebarChats = () => {
   return (
     <>
       {pinnedChatsComponents}
-      <SidebarGroup>
+      <SidebarGroup className="h-full overflow-hidden">
         <SidebarGroupLabel>
           <div className="text-foreground">
             <h2>All Threads</h2>

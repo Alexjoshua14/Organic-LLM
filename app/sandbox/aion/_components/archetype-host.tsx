@@ -6,10 +6,11 @@ import { ScrollArea } from "@/components/third-party/ui/scroll-area";
 import { cn } from "@/lib/utils";
 import { MemoryItem } from "mem0ai/oss";
 import { ArchetypePayload } from "@/packages/organic-ui/src/schemas/archetype";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect } from "react";
 import { sampleMemories } from "@/test-data/sampleData";
 import { useArchetypeContext } from "@/lib/context/archetype-context";
 import { Button } from "@/components/third-party/ui/button";
+import { ScrollShadow } from "@heroui/scroll-shadow";
 
 type ArchetypeHostProps = {
   showGlass?: boolean;
@@ -30,9 +31,9 @@ const ArchetypeComponent = ({ archetypeData }: { archetypeData: ArchetypePayload
   switch (archetypeData.kind) {
     case "memory":
       return (
-        <ScrollArea className="h-full w-full pr-6 flex-1 min-h-0">
+        <ScrollShadow className="h-full w-full pr-6 flex-1 min-h-0">
           <MemoryList memories={archetypeData.memories} />
-        </ScrollArea>
+        </ScrollShadow>
       );
     default:
       return (

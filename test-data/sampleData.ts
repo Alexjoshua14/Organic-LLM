@@ -83,11 +83,6 @@ export const sampleMemories: SearchResult[] = [
         createdAt: "2025-01-06T14:15:00Z",
         updatedAt: "2025-01-06T14:15:00Z",
       },
-    ],
-    relations: [],
-  },
-  {
-    results: [
       {
         id: "mem-011",
         memory:

@@ -36,7 +36,7 @@ export function Sidebar() {
           </h1>
         </Link>
       </SidebarHeader>
-      <SidebarContent className="bg-background-secondary subpixel-antialiased">
+      <SidebarContent className="bg-background-secondary subpixel-antialiased flex flex-col overflow-hidden">
         <SignedOut>
           <SidebarGroup>
             <SidebarGroupContent className="w-full flex flex-col gap-4 items-center justify-center">
@@ -52,7 +52,7 @@ export function Sidebar() {
         </SignedOut>
         <SignedIn>
           <>
-            <SidebarGroup>
+            <SidebarGroup className="flex-1">
               <SidebarGroupContent className="flex flex-col gap-3">
                 <SidebarNewChat />
                 <SidebarProjectLink href="/rabbitholes/browse" title="Rabbit Holes" tooltip="Browse rabbit holes" />
