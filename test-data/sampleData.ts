@@ -9,7 +9,7 @@ export const sampleMemories: SearchResult[] = [
           "User prefers dark mode for all applications and interfaces. They find it easier on their eyes during long coding sessions.",
         score: 0.95,
         createdAt: "2025-01-15T10:30:00Z",
-        updatedAt: "2025-01-15T10:30:00Z",
+        updatedAt: "2025-01-16T10:30:00Z",
       },
       {
         id: "mem-002",
