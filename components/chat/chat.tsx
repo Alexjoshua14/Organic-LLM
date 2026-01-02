@@ -105,8 +105,8 @@ export const Chat: React.FC<ChatProps> = ({
         "items-center",
         "justify-center",
         "overflow-hidden",
+        "overscroll-x-none",
         "relative",
-        "min-w-fit"
       ].join(" ")}
     >
       <Conversation
@@ -118,12 +118,14 @@ export const Chat: React.FC<ChatProps> = ({
             "flex",
             "flex-col",
             "items-center",
+            "overflow-x-hidden",
+            "overscroll-x-none",
           ].join(" ")
         }
         style={{ paddingBottom: "8rem" }}
       >
         <ChatThread messages={messages} />
-        <ConversationScrollButton />
+        <ConversationScrollButton className="bottom-40" />
       </Conversation>
       <NewChatInput
         modelRef={selectedModelRef}
@@ -132,7 +134,7 @@ export const Chat: React.FC<ChatProps> = ({
         sendMessage={sendMessage}
         stop={handleStop}
         status={status}
-        className="absolute bottom-1 md:bottom-4 px-8 w-full"
+        className="absolute bottom-1 md:bottom-4 px-4 sm:px-7 w-full"
       />
     </div>
   );

@@ -1,12 +1,25 @@
 "use client";
 
 import { glass } from "@/components/design-system/primitives";
+import { cn } from "@/lib/utils";
 
-export function ArchetypeHost() {
+type ArchetypeHostProps = {
+  showGlass?: boolean;
+  opaque?: boolean;
+  border?: "all" | "left" | "right" | "none";
+  className?: string;
+};
+
+export function ArchetypeHost({
+  showGlass = true,
+  opaque = false,
+  border = "left",
+  className,
+}: ArchetypeHostProps) {
   return (
     <aside
-      className={[
-        glass({ border: "left" }),
+      className={cn(
+        showGlass && glass({ border, opaque }),
         "min-w-72",
         "max-w-lg",
         "h-full",
@@ -16,7 +29,8 @@ export function ArchetypeHost() {
         "flex",
         "flex-col",
         "gap-3",
-      ].join(" ")}
+        className
+      )}
     >
       <div className="text-xs uppercase tracking-wide text-foreground/60">
         Archetype (coming soon)
