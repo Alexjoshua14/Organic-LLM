@@ -23,6 +23,7 @@ type MemoryListProps = {
 type MemoryItemProps = {
   memory: MemoryItemType;
 };
+
 const MemoryItem: React.FC<MemoryItemProps> = ({ memory }) => {
   const { isOpen, onOpen, onOpenChange, onClose } = useDisclosure();
 

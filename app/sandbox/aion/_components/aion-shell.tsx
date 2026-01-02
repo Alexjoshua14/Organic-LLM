@@ -1,7 +1,7 @@
 "use client";
 
 import { AnimatePresence, motion } from "framer-motion";
-import { useState } from "react";
+import { Suspense, useState } from "react";
 
 import { Chat } from "@/components/chat/chat";
 import { ArchetypeHost } from "./archetype-host";
@@ -114,21 +114,23 @@ export function AionShell({ chatData }: AionShellProps) {
         >
           <Chat chatData={chatData} persona="aion" endpoint="/api/ai/aion" />
         </motion.div>
-        <AnimatePresence initial={false} mode="popLayout">
-          {showArchetype ? (
-            <motion.div
-              key="archetype"
-              layout
-              initial={{ x: 320, opacity: 0 }}
-              animate={{ x: 0, opacity: 1 }}
-              exit={{ x: 320, opacity: 0 }}
-              transition={{ type: "spring", stiffness: 260, damping: 32 }}
-              className="h-full flex-1 min-w-0 flex flex-col"
-            >
-              <ArchetypeHost />
-            </motion.div>
-          ) : null}
-        </AnimatePresence>
+        <Suspense fallback={<div>Loading...</div>}>
+          <AnimatePresence initial={false} mode="popLayout">
+            {showArchetype ? (
+              <motion.div
+                key="archetype"
+                layout
+                initial={{ x: 320, opacity: 0 }}
+                animate={{ x: 0, opacity: 1 }}
+                exit={{ x: 320, opacity: 0 }}
+                transition={{ type: "spring", stiffness: 260, damping: 32 }}
+                className="h-full flex-1 min-w-0 flex flex-col"
+              >
+                <ArchetypeHost />
+              </motion.div>
+            ) : null}
+          </AnimatePresence>
+        </Suspense>
       </motion.div>
 
       {/* Mobile layout handled by Tabs above */}

@@ -41,6 +41,10 @@ import {
 import { getSupabaseUserId } from "@/data/supabase/profiles";
 import { CHAT_MODEL, getChatModel, measureAsync } from "@/lib/llm/helpers";
 import { MyUIMessage } from "@/types/ai";
+import {
+  searchAndShowMemoriesTool,
+  showMemoriesTool,
+} from "@/lib/llm/archetype/memory";
 
 // Allow streaming responses up to 30 seconds
 export const maxDuration = 30;
@@ -214,8 +218,8 @@ export async function POST(req: Request) {
         system: systemPromptForRequest,
         abortSignal: req.signal,
         experimental_transform: smoothStream({
-          delayInMs: 5, // optional: defaults to 10ms
-          chunking: "word", // optional: defaults to 'word'
+          delayInMs: 20, // optional: defaults to 10ms
+          chunking: /(```[\s\S]*?```|^#{1,6}\s.*$|.*?(?:\n|$))/gm, // optional: defaults to 'word'
         }),
         maxOutputTokens: CHAT_MODEL.maxOutputTokens, // Cap output for dev guardrails
         onError({ error }) {
@@ -225,6 +229,8 @@ export async function POST(req: Request) {
           search_memories: createMemorySearchTool(sbUserId),
           add_schema: addSchemaTool,
           update_schema: updateSchemaTool,
+          show_memories: showMemoriesTool,
+          search_and_show_memories: searchAndShowMemoriesTool,
         },
         stopWhen: stepCountIs(2),
         onFinish() {
@@ -235,6 +241,17 @@ export async function POST(req: Request) {
             type: "data-notification",
             data: { message: "Request completed", level: "info" },
             transient: true, // Won't be added to message history
+          });
+        },
+        onStepFinish(step) {
+          logger.log("POST", `STEP_FINISH ${JSON.stringify(step, null, 2)}`);
+          writer.write({
+            type: "data-notification",
+            transient: true,
+            data: {
+              message: `STEP_FINISH ${JSON.stringify(step, null, 2)}`,
+              level: "info",
+            },
           });
         },
       });

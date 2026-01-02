@@ -22,6 +22,7 @@ import {
   SidebarMenuButton,
 } from "@/components/third-party/ui/sidebar";
 import { SidebarProjectLink } from "./sidebar-project-link";
+import { Suspense } from "react";
 
 export function Sidebar() {
   return (
@@ -78,7 +79,9 @@ export function Sidebar() {
                 />
               </SidebarGroupContent>
             </SidebarGroup>
-            <SidebarChats />
+            <Suspense fallback={<div className="flex items-center justify-center h-full">Loading...</div>}>
+              <SidebarChats />
+            </Suspense>
           </>
         </SignedIn>
       </SidebarContent>
