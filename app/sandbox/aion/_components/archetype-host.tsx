@@ -1,16 +1,15 @@
 "use client";
 
+import { glass } from "@/components/design-system/primitives";
+
 export function ArchetypeHost() {
   return (
     <aside
       className={[
+        glass({ border: "left" }),
         "min-w-72",
         "max-w-lg",
         "h-full",
-        "border-l",
-        "border-border",
-        "bg-background/70",
-        "backdrop-blur-md",
         "px-4",
         "pt-14",
         "pb-6",
