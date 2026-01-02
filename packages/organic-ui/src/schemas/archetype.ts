@@ -26,6 +26,9 @@ export const ArchetypePayload = z.discriminatedUnion("kind", [
   NewsArchetype,
 ]);
 
+export type ChatPayloadT = z.infer<typeof ChatPayload>;
+export type MemoryPayloadT = z.infer<typeof MemoryPayload>;
+export type NewsPayloadT = z.infer<typeof NewsArchetype>;
 export type ArchetypePayload = z.infer<typeof ArchetypePayload>;
 export type ArchetypePayloadT = z.infer<typeof ArchetypePayload>;
 export type Archetype = ArchetypePayload["kind"];

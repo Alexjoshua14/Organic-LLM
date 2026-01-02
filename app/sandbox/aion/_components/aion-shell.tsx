@@ -10,6 +10,8 @@ import { UIMessage } from "ai";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/third-party/ui/tabs";
 import { glass } from "@/components/design-system/primitives";
 import { ArchetypeProvider, useArchetypeContext } from "@/lib/context/archetype-context";
+import { ChatPayloadT, MemoryPayloadT, NewsPayloadT } from "@/packages/organic-ui";
+import { sampleMemories } from "@/test-data/memory";
 
 type AionShellProps = {
   chatData: { thread: Thread; messages: UIMessage[] } | null;
@@ -18,17 +20,61 @@ type AionShellProps = {
 export function AionShell({ chatData }: AionShellProps) {
   const [activeTab, setActiveTab] = useState<"chat" | "archetype">("chat");
 
-  const { showArchetype, open, close, toggle, setAndOpen } = useArchetypeContext();
+  const { showArchetype, open, close, toggle, setAndOpen, archetypeData, setArchetypeData } = useArchetypeContext();
+
+  const handleTestingCycleArchetypeTypes = () => {
+    const archetypeTypes = ["chat", "memory", "news"];
+
+    const sampleChatData: ChatPayloadT = { id: "f11aac23-ca87-4a79-a5a9-5c7115abec2b", kind: "chat" };
+    const sampleMemoryData: MemoryPayloadT = {
+      id: "f11aac23-ca87-4a79-a5a9-5c7115abec2b",
+      kind: "memory",
+      memories: sampleMemories[0].results,
+    }
+    const sampleNewsData: NewsPayloadT = {
+      id: "f11aac23-ca87-4a79-a5a9-5c7115abec2b",
+      kind: "news",
+      title: "Sample News Title",
+      summary: "Sample News Summary",
+      content: "Sample News Content",
+    }
+
+
+    return () => {
+      const nextArchetypeType = archetypeTypes[(archetypeTypes.indexOf(archetypeData?.kind || "chat") + 1) % archetypeTypes.length];
+
+      switch (nextArchetypeType) {
+        case "chat":
+          setArchetypeData(sampleChatData);
+          break;
+        case "memory":
+          setArchetypeData(sampleMemoryData);
+          break;
+        case "news":
+          setArchetypeData(sampleNewsData);
+          break;
+      }
+    }
+  }
+
+
 
   return (
     <div className="w-full h-full relative overflow-hidden">
       {/* Desktop toggle, TODO: Likely temporary */}
-      <button
-        onClick={toggle}
-        className="hidden md:block absolute top-3 right-32 z-20 rounded-md border border-border bg-background/80 px-3 py-1 text-sm hover:bg-background-secondary transition-colors"
-      >
-        {showArchetype ? "Hide archetype" : "Show archetype"}
-      </button>
+      <div className="hidden md:flex absolute top-3 right-32 z-20 gap-2">
+        <button onClick={handleTestingCycleArchetypeTypes()}
+          className="rounded-md border border-border bg-background/80 px-3 py-1 text-sm hover:bg-background-secondary transition-colors"
+        >
+          Cycle Archetypes
+        </button>
+        <button
+          onClick={toggle}
+          className="rounded-md border border-border bg-background/80 px-3 py-1 text-sm hover:bg-background-secondary transition-colors"
+        >
+          {showArchetype ? "Hide archetype" : "Show archetype"}
+        </button>
+      </div>
 
       {/* Mobile tabs */}
       {/* TODO: Hide tabs when no archetype open */}
@@ -58,7 +104,7 @@ export function AionShell({ chatData }: AionShellProps) {
       {/* Desktop layout */}
       <motion.div
         layout
-        className="hidden md:flex w-full h-full flex-row items-center justify-center overflow-hidden gap-0"
+        className="hidden md:flex w-full h-full flex-row overflow-hidden justify-center gap-0"
         transition={{ type: "spring", stiffness: 260, damping: 32 }}
       >
         <motion.div
@@ -77,7 +123,7 @@ export function AionShell({ chatData }: AionShellProps) {
               animate={{ x: 0, opacity: 1 }}
               exit={{ x: 320, opacity: 0 }}
               transition={{ type: "spring", stiffness: 260, damping: 32 }}
-              className="h-full shrink-0"
+              className="h-full flex-1 min-w-0 flex flex-col"
             >
               <ArchetypeHost />
             </motion.div>

@@ -30,12 +30,16 @@ const ArchetypeComponent = ({ archetypeData }: { archetypeData: ArchetypePayload
   switch (archetypeData.kind) {
     case "memory":
       return (
-        <ScrollArea className="h-full w-full pr-6">
+        <ScrollArea className="h-full w-full pr-6 flex-1 min-h-0">
           <MemoryList memories={archetypeData.memories} />
         </ScrollArea>
       );
     default:
-      return null;
+      return (
+        <div className="h-full pt-6 pb-12">
+          <p>Archetype <span className="font-mono">{archetypeData.kind}</span> is not yet supported</p>
+        </div>
+      );
   }
 };
 
@@ -49,8 +53,10 @@ export function ArchetypeHost({
   const { archetypeData, setArchetypeData } = useArchetypeContext();
 
   useEffect(() => {
-    setArchetypeData(sampleArchetypeData);
-  }, [])
+    if (!archetypeData) {
+      setArchetypeData(sampleArchetypeData);
+    }
+  }, [setArchetypeData]);
 
   return (
     <aside
@@ -60,12 +66,14 @@ export function ArchetypeHost({
         "w-full",
         "max-w-lg",
         "h-full",
+        "flex-1",
         "px-4",
         "pt-14",
         "pb-6",
         "flex",
         "flex-col",
         "gap-3",
+        "min-h-0",
         className
       )}
     >
@@ -74,7 +82,7 @@ export function ArchetypeHost({
           <div className="text-xs uppercase tracking-wide text-foreground/60">
             {archetypeData.kind}
           </div>
-          <div className="h-full pt-6 pb-12">
+          <div className="flex-1 min-h-0 pt-6 pb-12">
             <ArchetypeComponent archetypeData={archetypeData} />
           </div>
         </>
