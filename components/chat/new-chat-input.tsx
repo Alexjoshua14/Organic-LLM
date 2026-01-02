@@ -107,7 +107,7 @@ export const NewChatInput: React.FC<NewChatInputProps> = ({
   }, []);
 
   return (
-    <PromptInput onSubmit={handleSubmit} globalDrop multiple className={className}>
+    <PromptInput onSubmit={handleSubmit} globalDrop multiple className={cn("min-w-fit", className)}>
       <PromptInputHeader>
         <PromptInputAttachments>
           {(attachment) => <PromptInputAttachment data={attachment} />}
@@ -120,19 +120,7 @@ export const NewChatInput: React.FC<NewChatInputProps> = ({
         />
       </PromptInputBody>
       <PromptInputFooter>
-        <PromptInputTools className="gap-6">
-          <div className="flex gap-1">
-            <PromptInputActionMenu>
-              <PromptInputActionMenuTrigger />
-              <PromptInputActionMenuContent>
-                <PromptInputActionAddAttachments />
-              </PromptInputActionMenuContent>
-            </PromptInputActionMenu>
-            <PromptInputSpeechButton
-              onTranscriptionChange={setText}
-              textareaRef={textareaRef}
-            />
-          </div>
+        <PromptInputTools className="flex justify-between w-full">
           <div className="flex gap-1">
             <PromptInputButton
               onClick={() => setUseWebSearch(!useWebSearch)}
@@ -150,24 +138,37 @@ export const NewChatInput: React.FC<NewChatInputProps> = ({
               <BrainCircuit />
               <span className="hidden sm:flex">Memory</span>
             </PromptInputButton>
+
+            <PromptInputSelect
+              defaultValue={DEFAULT_CHAT_MODEL.id}
+              onValueChange={handleModelSelection}
+              value={model.id}
+              required
+            >
+              <PromptInputSelectTrigger className="max-w-32 min-w-0">
+                <PromptInputSelectValue className="truncate min-w-0" />
+              </PromptInputSelectTrigger>
+              <PromptInputSelectContent defaultValue={DEFAULT_CHAT_MODEL.id}>
+                {ChatModels.map((model) => (
+                  <PromptInputSelectItem key={model.id} value={model.id}>
+                    {model.name}
+                  </PromptInputSelectItem>
+                ))}
+              </PromptInputSelectContent>
+            </PromptInputSelect>
           </div>
-          <PromptInputSelect
-            defaultValue={DEFAULT_CHAT_MODEL.id}
-            onValueChange={handleModelSelection}
-            value={model.id}
-            required
-          >
-            <PromptInputSelectTrigger>
-              <PromptInputSelectValue />
-            </PromptInputSelectTrigger>
-            <PromptInputSelectContent defaultValue={DEFAULT_CHAT_MODEL.id}>
-              {ChatModels.map((model) => (
-                <PromptInputSelectItem key={model.id} value={model.id}>
-                  {model.name}
-                </PromptInputSelectItem>
-              ))}
-            </PromptInputSelectContent>
-          </PromptInputSelect>
+          <div className="flex gap-1">
+            <PromptInputActionMenu>
+              <PromptInputActionMenuTrigger />
+              <PromptInputActionMenuContent>
+                <PromptInputActionAddAttachments />
+              </PromptInputActionMenuContent>
+            </PromptInputActionMenu>
+            <PromptInputSpeechButton
+              onTranscriptionChange={setText}
+              textareaRef={textareaRef}
+            />
+          </div>
         </PromptInputTools>
         <PromptInputSubmit disabled={!text && !status} status={status} stop={stop} />
       </PromptInputFooter>

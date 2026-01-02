@@ -105,6 +105,7 @@ export const Chat: React.FC<ChatProps> = ({
         "max-w-[calc(100dvw-2rem)]",
         "md:max-w-[calc(100dvw-18rem)]",
         "lg:max-w-4xl",
+        "min-w-fit",
       ].join(" ")}
     >
       <Conversation
