@@ -23,8 +23,8 @@ export function AionShell({ chatData }: AionShellProps) {
         {showArchetype ? "Hide archetype" : "Show archetype"}
       </button>
 
-      <div className="w-full h-full flex flex-row">
-        <div className="flex-1 h-full flex items-center justify-center p-4 w-sm">
+      <div className="w-full h-full flex flex-row items-center justify-center">
+        <div className="flex-1 h-full p-4 max-w-4xl">
           <Chat chatData={chatData} persona="aion" endpoint="/api/ai/aion" />
         </div>
         {showArchetype ? <ArchetypeHost /> : null}
