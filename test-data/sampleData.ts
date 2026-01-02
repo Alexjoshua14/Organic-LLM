@@ -10,10 +10,6 @@ export const sampleMemories: SearchResult[] = [
         score: 0.95,
         createdAt: "2025-01-15T10:30:00Z",
         updatedAt: "2025-01-15T10:30:00Z",
-        metadata: {
-          category: "preferences",
-          userId: "user-123",
-        },
       },
       {
         id: "mem-002",
@@ -22,10 +18,6 @@ export const sampleMemories: SearchResult[] = [
         score: 0.92,
         createdAt: "2025-01-14T14:20:00Z",
         updatedAt: "2025-01-14T14:20:00Z",
-        metadata: {
-          category: "project",
-          userId: "user-123",
-        },
       },
       {
         id: "mem-003",
@@ -34,10 +26,6 @@ export const sampleMemories: SearchResult[] = [
         score: 0.88,
         createdAt: "2025-01-13T09:15:00Z",
         updatedAt: "2025-01-13T09:15:00Z",
-        metadata: {
-          category: "preferences",
-          userId: "user-123",
-        },
       },
       {
         id: "mem-004",
@@ -46,10 +34,6 @@ export const sampleMemories: SearchResult[] = [
         score: 0.9,
         createdAt: "2025-01-12T16:45:00Z",
         updatedAt: "2025-01-12T16:45:00Z",
-        metadata: {
-          category: "conversation",
-          userId: "user-123",
-        },
       },
       {
         id: "mem-005",
@@ -58,10 +42,6 @@ export const sampleMemories: SearchResult[] = [
         score: 0.85,
         createdAt: "2025-01-11T11:00:00Z",
         updatedAt: "2025-01-11T11:00:00Z",
-        metadata: {
-          category: "preferences",
-          userId: "user-123",
-        },
       },
       {
         id: "mem-006",
@@ -70,10 +50,6 @@ export const sampleMemories: SearchResult[] = [
         score: 0.87,
         createdAt: "2025-01-10T13:30:00Z",
         updatedAt: "2025-01-10T13:30:00Z",
-        metadata: {
-          category: "project",
-          userId: "user-123",
-        },
       },
       {
         id: "mem-007",
@@ -82,10 +58,6 @@ export const sampleMemories: SearchResult[] = [
         score: 0.91,
         createdAt: "2025-01-09T15:20:00Z",
         updatedAt: "2025-01-09T15:20:00Z",
-        metadata: {
-          category: "preferences",
-          userId: "user-123",
-        },
       },
       {
         id: "mem-008",
@@ -94,10 +66,6 @@ export const sampleMemories: SearchResult[] = [
         score: 0.83,
         createdAt: "2025-01-08T10:00:00Z",
         updatedAt: "2025-01-08T10:00:00Z",
-        metadata: {
-          category: "project",
-          userId: "user-123",
-        },
       },
       {
         id: "mem-009",
@@ -106,10 +74,6 @@ export const sampleMemories: SearchResult[] = [
         score: 0.79,
         createdAt: "2025-01-07T08:45:00Z",
         updatedAt: "2025-01-07T08:45:00Z",
-        metadata: {
-          category: "preferences",
-          userId: "user-123",
-        },
       },
       {
         id: "mem-010",
@@ -118,10 +82,6 @@ export const sampleMemories: SearchResult[] = [
         score: 0.89,
         createdAt: "2025-01-06T14:15:00Z",
         updatedAt: "2025-01-06T14:15:00Z",
-        metadata: {
-          category: "conversation",
-          userId: "user-123",
-        },
       },
     ],
     relations: [],
@@ -135,10 +95,6 @@ export const sampleMemories: SearchResult[] = [
         score: 0.86,
         createdAt: "2025-01-05T12:00:00Z",
         updatedAt: "2025-01-05T12:00:00Z",
-        metadata: {
-          category: "preferences",
-          userId: "user-123",
-        },
       },
       {
         id: "mem-012",
@@ -147,10 +103,6 @@ export const sampleMemories: SearchResult[] = [
         score: 0.93,
         createdAt: "2025-01-04T16:30:00Z",
         updatedAt: "2025-01-04T16:30:00Z",
-        metadata: {
-          category: "project",
-          userId: "user-123",
-        },
       },
       {
         id: "mem-013",
@@ -159,10 +111,6 @@ export const sampleMemories: SearchResult[] = [
         score: 0.82,
         createdAt: "2025-01-03T10:20:00Z",
         updatedAt: "2025-01-03T10:20:00Z",
-        metadata: {
-          category: "preferences",
-          userId: "user-123",
-        },
       },
       {
         id: "mem-014",
@@ -171,10 +119,6 @@ export const sampleMemories: SearchResult[] = [
         score: 0.88,
         createdAt: "2025-01-02T14:10:00Z",
         updatedAt: "2025-01-02T14:10:00Z",
-        metadata: {
-          category: "project",
-          userId: "user-123",
-        },
       },
       {
         id: "mem-015",
@@ -183,10 +127,6 @@ export const sampleMemories: SearchResult[] = [
         score: 0.84,
         createdAt: "2025-01-01T11:30:00Z",
         updatedAt: "2025-01-01T11:30:00Z",
-        metadata: {
-          category: "preferences",
-          userId: "user-123",
-        },
       },
       {
         id: "mem-016",
@@ -195,10 +135,6 @@ export const sampleMemories: SearchResult[] = [
         score: 0.91,
         createdAt: "2024-12-31T09:45:00Z",
         updatedAt: "2024-12-31T09:45:00Z",
-        metadata: {
-          category: "project",
-          userId: "user-123",
-        },
       },
       {
         id: "mem-017",
@@ -207,10 +143,6 @@ export const sampleMemories: SearchResult[] = [
         score: 0.87,
         createdAt: "2024-12-30T16:20:00Z",
         updatedAt: "2024-12-30T16:20:00Z",
-        metadata: {
-          category: "conversation",
-          userId: "user-123",
-        },
       },
       {
         id: "mem-018",
@@ -219,10 +151,6 @@ export const sampleMemories: SearchResult[] = [
         score: 0.89,
         createdAt: "2024-12-29T13:15:00Z",
         updatedAt: "2024-12-29T13:15:00Z",
-        metadata: {
-          category: "project",
-          userId: "user-123",
-        },
       },
       {
         id: "mem-019",
@@ -231,10 +159,6 @@ export const sampleMemories: SearchResult[] = [
         score: 0.83,
         createdAt: "2024-12-28T10:50:00Z",
         updatedAt: "2024-12-28T10:50:00Z",
-        metadata: {
-          category: "preferences",
-          userId: "user-123",
-        },
       },
       {
         id: "mem-020",
@@ -243,10 +167,6 @@ export const sampleMemories: SearchResult[] = [
         score: 0.92,
         createdAt: "2024-12-27T15:30:00Z",
         updatedAt: "2024-12-27T15:30:00Z",
-        metadata: {
-          category: "project",
-          userId: "user-123",
-        },
       },
       {
         id: "mem-021",
@@ -255,10 +175,6 @@ export const sampleMemories: SearchResult[] = [
         score: 0.81,
         createdAt: "2024-12-26T12:00:00Z",
         updatedAt: "2024-12-26T12:00:00Z",
-        metadata: {
-          category: "preferences",
-          userId: "user-123",
-        },
       },
       {
         id: "mem-022",
@@ -267,10 +183,6 @@ export const sampleMemories: SearchResult[] = [
         score: 0.9,
         createdAt: "2024-12-25T14:40:00Z",
         updatedAt: "2024-12-25T14:40:00Z",
-        metadata: {
-          category: "conversation",
-          userId: "user-123",
-        },
       },
       {
         id: "mem-023",
@@ -279,10 +191,6 @@ export const sampleMemories: SearchResult[] = [
         score: 0.86,
         createdAt: "2024-12-24T11:25:00Z",
         updatedAt: "2024-12-24T11:25:00Z",
-        metadata: {
-          category: "project",
-          userId: "user-123",
-        },
       },
     ],
     relations: [],

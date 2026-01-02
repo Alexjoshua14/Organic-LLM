@@ -15,12 +15,12 @@ type AionShellProps = {
 };
 
 export function AionShell({ chatData }: AionShellProps) {
-  const [showArchetype, setShowArchetype] = useState(true);
+  const [showArchetype, setShowArchetype] = useState(false);
   const [activeTab, setActiveTab] = useState<"chat" | "archetype">("chat");
 
   return (
     <div className="w-full h-full relative overflow-hidden">
-      {/* Desktop toggle */}
+      {/* Desktop toggle, TODO: Likely temporary */}
       <button
         onClick={() => setShowArchetype((prev) => !prev)}
         className="hidden md:block absolute top-3 right-32 z-20 rounded-md border border-border bg-background/80 px-3 py-1 text-sm hover:bg-background-secondary transition-colors"
@@ -61,7 +61,7 @@ export function AionShell({ chatData }: AionShellProps) {
       >
         <motion.div
           layout
-          className="flex-1 h-full p-4 max-w-4xl min-w-0 flex items-center justify-center"
+          className="flex-1 h-full p-4 max-w-3xl min-w-0 flex items-center justify-center"
           transition={{ type: "spring", stiffness: 260, damping: 32 }}
         >
           <Chat chatData={chatData} persona="aion" endpoint="/api/ai/aion" />
