@@ -13,17 +13,11 @@ import { ChatModel, DEFAULT_CHAT_MODEL } from "@/lib/schemas/chat";
 import { NewChatInput } from "./new-chat-input";
 import { Conversation, ConversationScrollButton } from "../third-party/ai-elements/conversation";
 import { useArchetypeContext } from "@/lib/context/archetype-context";
+import { ChatProps } from "./chat";
 
-const logger = createLogger("components/chat/chat");
+const logger = createLogger("components/chat/aionChat");
 
-export type ChatProps = {
-  chatData: { thread: Thread; messages: UIMessage[] } | null;
-  initialMessage?: string;
-  persona?: "prometheus" | "spark" | "aion";
-  endpoint?: string;
-};
-
-export const Chat: React.FC<ChatProps> = ({
+export const AionChat: React.FC<ChatProps> = ({
   chatData,
   endpoint,
   persona,
@@ -33,6 +27,8 @@ export const Chat: React.FC<ChatProps> = ({
   const useWebSearchRef = useRef<boolean>(false);
   const useMemoriesRef = useRef<boolean>(false);
   const usePersistedSchemas = useRef<boolean>(persona === 'aion');
+
+  const { setArchetypeData, open: openArchetype, close: closeArchetype, setAndOpen } = useArchetypeContext();
 
   const { messages, sendMessage, id, stop, status, setMessages, addToolOutput } = useChat({
     id: chatData?.thread.id ?? "",
@@ -60,7 +56,36 @@ export const Chat: React.FC<ChatProps> = ({
 
 
       // If expecting tool call on UI side add output here
+      if (toolCall.toolName === "set_state_archetype") {
+        let error: string | undefined = undefined;
 
+        let new_archetype_state: boolean = false;
+
+        const { open } = toolCall.input as { open: boolean };
+
+        try {
+          if (open) {
+            openArchetype();
+            new_archetype_state = true;
+          } else {
+            closeArchetype();
+            new_archetype_state = false;
+          }
+        } catch (error) {
+          logger.error("chat", `Error opening archetype: ${error}`);
+
+        }
+
+        addToolOutput({
+          tool: toolCall.toolName,
+          toolCallId: toolCall.toolCallId,
+          output: {
+            state: new_archetype_state,
+          },
+          errorText: error,
+        })
+
+      }
     },
     onData: (data) => {
       logger.log("chat", JSON.stringify(data, null, 2))

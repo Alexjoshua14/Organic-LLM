@@ -7,6 +7,16 @@ import { MemoryItem } from "@/lib/schemas/memory";
 import { Tool, tool } from "ai";
 import { z } from "zod";
 
+export const setArchetypeStateTool = tool({
+  description: "Open the archetype",
+  inputSchema: z.object({
+    open: z.boolean().describe("Whether to open the archetype"),
+  }),
+  outputSchema: z.object({
+    state: z.boolean().describe("The new state of the archetype"),
+  }),
+});
+
 export const showMemoriesTool = tool({
   description:
     "Show the user's memories, use memory search tool to get memories",
