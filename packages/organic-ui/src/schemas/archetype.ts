@@ -1,3 +1,4 @@
+import { MemoryItem } from "@/lib/schemas/memory";
 import { z } from "zod";
 
 export const NewsArchetype = z.object({
@@ -13,8 +14,15 @@ export const ChatPayload = z.object({
   id: z.string(),
 });
 
+export const MemoryPayload = z.object({
+  id: z.string(),
+  kind: z.literal("memory"),
+  memories: z.array(MemoryItem),
+});
+
 export const ArchetypePayload = z.discriminatedUnion("kind", [
   ChatPayload,
+  MemoryPayload,
   NewsArchetype,
 ]);
 

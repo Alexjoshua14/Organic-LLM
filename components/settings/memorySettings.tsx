@@ -3,7 +3,7 @@
  */
 
 import { MemoryCard } from '@/components/memory/memoryCard'
-import { sampleMemories } from '@/test-data/memory'
+import { sampleMemories } from '@/test-data/sampleData'
 import { Suspense, useMemo } from 'react'
 import { Separator } from '../third-party/ui/separator';
 import { Button } from '../third-party/ui/button';
