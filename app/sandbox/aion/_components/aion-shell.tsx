@@ -12,6 +12,7 @@ import { glass } from "@/components/design-system/primitives";
 import { ArchetypeProvider, useArchetypeContext } from "@/lib/context/archetype-context";
 import { ChatPayloadT, MemoryPayloadT, NewsPayloadT } from "@/packages/organic-ui";
 import { sampleMemories } from "@/test-data/sampleData";
+import { AionChat } from "@/components/chat/aionChat";
 
 type AionShellProps = {
   chatData: { thread: Thread; messages: UIMessage[] } | null;
@@ -112,7 +113,7 @@ export function AionShell({ chatData }: AionShellProps) {
           className="flex-1 h-full p-4 max-w-3xl min-w-0 flex items-center justify-center"
           transition={{ type: "spring", stiffness: 260, damping: 32 }}
         >
-          <Chat chatData={chatData} persona="aion" endpoint="/api/ai/aion" />
+          <AionChat chatData={chatData} persona="aion" endpoint="/api/ai/aion" />
         </motion.div>
         <Suspense fallback={<div>Loading...</div>}>
           <AnimatePresence initial={false} mode="popLayout">

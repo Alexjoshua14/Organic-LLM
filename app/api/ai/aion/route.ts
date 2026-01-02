@@ -43,6 +43,7 @@ import { CHAT_MODEL, getChatModel, measureAsync } from "@/lib/llm/helpers";
 import { MyUIMessage } from "@/types/ai";
 import {
   searchAndShowMemoriesTool,
+  setArchetypeStateTool,
   showMemoriesTool,
 } from "@/lib/llm/archetype/memory";
 
@@ -231,8 +232,9 @@ export async function POST(req: Request) {
           update_schema: updateSchemaTool,
           show_memories: showMemoriesTool,
           search_and_show_memories: searchAndShowMemoriesTool,
+          set_state_archetype: setArchetypeStateTool,
         },
-        stopWhen: stepCountIs(2),
+        stopWhen: stepCountIs(5),
         onFinish() {
           // 4. Update the same data part (reconciliation)
 

@@ -20,6 +20,12 @@ interface ArchetypeContextValue {
 
 const ArchetypeContext = createContext<ArchetypeContextValue | undefined>(undefined);
 
+/**
+ * ArchetypeProvider is the centralized orchestrator for Archetype functionality
+ * 
+ * @param children - The children to render
+ * @returns 
+ */
 export function ArchetypeProvider({ children }: { children: ReactNode }) {
   const [archetypeData, setArchetypeData] = useState<ArchetypePayload | null>(null);
   const [showArchetype, setShowArchetype] = useState(false);
