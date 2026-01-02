@@ -5,6 +5,7 @@ import { loadChat } from "@/lib/chat/chat-store";
 import { Thread } from "@/lib/schemas/chat";
 import { createLogger } from "@/lib/logger";
 import { AionShell } from "./_components/aion-shell";
+import { ArchetypeProvider } from "@/lib/context/archetype-context";
 
 const logger = createLogger(`app/sandbox/aion/page.tsx`);
 
@@ -27,8 +28,10 @@ export default async function AionPage() {
   }
 
   return (
-    <Page className="overflow-x-auto md:pt-0 pt-10 md:px-0 px-4">
-      <AionShell chatData={chatData} />
-    </Page>
+    <ArchetypeProvider>
+      <Page className="overflow-x-auto md:pt-0 pt-10 md:px-0 px-4">
+        <AionShell chatData={chatData} />
+      </Page>
+    </ArchetypeProvider>
   );
 }

@@ -9,20 +9,22 @@ import { Thread } from "@/lib/schemas/chat";
 import { UIMessage } from "ai";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/third-party/ui/tabs";
 import { glass } from "@/components/design-system/primitives";
+import { ArchetypeProvider, useArchetypeContext } from "@/lib/context/archetype-context";
 
 type AionShellProps = {
   chatData: { thread: Thread; messages: UIMessage[] } | null;
 };
 
 export function AionShell({ chatData }: AionShellProps) {
-  const [showArchetype, setShowArchetype] = useState(false);
   const [activeTab, setActiveTab] = useState<"chat" | "archetype">("chat");
+
+  const { showArchetype, open, close, toggle, setAndOpen } = useArchetypeContext();
 
   return (
     <div className="w-full h-full relative overflow-hidden">
       {/* Desktop toggle, TODO: Likely temporary */}
       <button
-        onClick={() => setShowArchetype((prev) => !prev)}
+        onClick={toggle}
         className="hidden md:block absolute top-3 right-32 z-20 rounded-md border border-border bg-background/80 px-3 py-1 text-sm hover:bg-background-secondary transition-colors"
       >
         {showArchetype ? "Hide archetype" : "Show archetype"}
@@ -32,8 +34,8 @@ export function AionShell({ chatData }: AionShellProps) {
       {/* TODO: Hide tabs when no archetype open */}
       <div className="md:hidden w-full h-full pt-3 flex flex-col overflow-x-hidden">
         <Tabs
-          value={activeTab}
-          onValueChange={(val) => setActiveTab(val as "chat" | "archetype")}
+          value={showArchetype ? "archetype" : "chat"}
+          onValueChange={(val) => val === "archetype" ? open() : close()}
           className="w-full flex-1 flex flex-col min-h-0"
         >
           <TabsList className={`${glass({ opaque: true })} z-20 w-full grid grid-cols-2 mt-2`}>
