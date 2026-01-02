@@ -6,7 +6,7 @@
     "dev": "next dev --webpack",
     "dev:full": "concurrently -k -n APP,WEBHOOK \"bun run dev\" \"bun run webhook:local\"",
     "build": "next build",
-    "start": "next start -H 127.0.0.1 -p 3000",
+    "start": "next start",
     "lint": "eslint --fix",
     "test": "bun test",
     "test:watch": "bun test --watch",
