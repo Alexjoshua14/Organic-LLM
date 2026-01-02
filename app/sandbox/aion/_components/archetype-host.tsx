@@ -66,7 +66,7 @@ export function ArchetypeHost({
     const fetchMemories = async (): Promise<ArchetypePayload | undefined> => {
       let memoryArchetypeData: ArchetypePayload | undefined;
       if (!userId) {
-        logger.error("ArchetypeHost", "No user ID found");
+        logger.warn("ArchetypeHost", "No user ID found");
         return;
       }
       try {
@@ -77,7 +77,8 @@ export function ArchetypeHost({
           memories: res.results,
         }
       } catch (error) {
-        logger.error("ArchetypeHost", "Error fetching memories", error);
+        // Temporarily silence error
+        //logger.error("ArchetypeHost", "Error fetching memories", error);
         memoryArchetypeData = sampleArchetypeData;
       }
 
