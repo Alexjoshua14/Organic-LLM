@@ -27,7 +27,7 @@ export default async function AionPage() {
   }
 
   return (
-    <Page className="overflow-x-auto">
+    <Page className="overflow-x-auto md:pt-0 pt-10 md:px-0 px-4">
       <AionShell chatData={chatData} />
     </Page>
   );

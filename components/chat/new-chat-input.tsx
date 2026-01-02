@@ -122,7 +122,7 @@ export const NewChatInput: React.FC<NewChatInputProps> = ({
   }, []);
 
   return (
-    <PromptInput onSubmit={handleSubmit} globalDrop multiple className={cn("min-w-fit", className)}>
+    <PromptInput onSubmit={handleSubmit} globalDrop multiple className={cn("min-w-fit z-40", className)}>
       <PromptInputHeader>
         <PromptInputAttachments>
           {(attachment) => <PromptInputAttachment data={attachment} />}
