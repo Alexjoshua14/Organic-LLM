@@ -37,7 +37,7 @@ export async function POST(req: NextRequest) {
 
   logger.log(
     "TTS Route",
-    `Parameters obtained in ${parametersObtained - start} milliseconds`,
+    `Parameters obtained in ${parametersObtained - start} milliseconds`
   );
 
   let speechFriendlyText = text;
@@ -56,19 +56,19 @@ export async function POST(req: NextRequest) {
 
       logger.log(
         "TTS Route",
-        `Speech-friendly text generation completed in ${speechFriendlyTextEndGeneration - speechFriendlyTextStartGeneration} milliseconds`,
+        `Speech-friendly text generation completed in ${speechFriendlyTextEndGeneration - speechFriendlyTextStartGeneration} milliseconds`
       );
     }
   }
 
-  let speechModel: SpeechModel = openai.speech("gpt-4o-mini-tts");
+  let speechModel: SpeechModel;
 
   if (!model || typeof model !== "string") {
     speechModel = availableSpeechModels[0];
   } else {
     try {
       speechModel = availableSpeechModels.find(
-        (m) => m.modelId === model,
+        (m) => m.modelId === model
       ) as SpeechModel;
     } catch (error) {
       logger.error("TTS Route", `Error finding model: ${error}`);
@@ -78,7 +78,7 @@ export async function POST(req: NextRequest) {
 
   logger.log(
     "TTS Route",
-    `Using model: ${speechModel.modelId}, from provider: ${speechModel.provider}`,
+    `Using model: ${speechModel.modelId}, from provider: ${speechModel.provider}`
   );
 
   const speechModelStartGeneration = performance.now();
@@ -92,6 +92,12 @@ export async function POST(req: NextRequest) {
       });
 
       return NextResponse.json({ data: audio });
+
+      // Convert Uint8Array to array for JSON serialization
+      // const audioData = Array.from(audio.uint8Array);
+      // const mimeType = audio.format || "mpeg";
+
+      // return NextResponse.json({ data: audio });
     } else {
       const { audio } = await generateSpeech({
         model: speechModel,
@@ -106,7 +112,7 @@ export async function POST(req: NextRequest) {
 
     logger.log(
       "TTS Route",
-      `Speech model generation completed in ${speechModelEndGeneration - speechModelStartGeneration} milliseconds`,
+      `Speech model generation completed in ${speechModelEndGeneration - speechModelStartGeneration} milliseconds`
     );
   }
 }

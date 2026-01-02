@@ -1,18 +1,18 @@
+import { AIInput } from "../chat-experimental/ai-input";
+import { glass } from "../design-system/primitives";
 import Page from "../layout/page";
 
 import LiquidChrome from "@/components/background/LiquidChrome";
 
 export default function Home() {
   return (
-    <>
+    <Page transparentBackground>
       <LiquidChrome />
-      <Page transparentBackground>
-        <div className="relative inline-block max-w-4xl h-full w-full text-center justify-center">
-          <div className="w-full max-w-5xl mx-auto p-8 space-y-8">
-            <h1 className="text-3xl font-bold ">How can I help you?</h1>
-          </div>
+      <div className={`fixed inset-0 flex flex-col items-center justify-center h-full w-full gap-10`}>
+        <div className={`flex flex-col items-center justify-center rounded-xl w-full max-w-sm sm:max-w-xl`}>
+          <AIInput />
         </div>
-      </Page>
-    </>
+      </div>
+    </Page>
   );
 }

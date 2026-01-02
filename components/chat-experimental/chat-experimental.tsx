@@ -3,13 +3,13 @@
 import { UIMessage, useChat } from "@ai-sdk/react";
 import { StickToBottom } from "use-stick-to-bottom";
 import { DefaultChatTransport } from "ai";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 import { ChatThreadExperimental } from "./chat-thread-experimental";
 
 import { ChatInput } from "@/components/chat/chat-input";
 import { ChatScrollButton } from "@/components/chat/chat-scroll-button";
-import { Thread } from "@/lib/schemas/chat";
+import { ChatModel, DEFAULT_CHAT_MODEL, Thread } from "@/lib/schemas/chat";
 import { updateChatSummary } from "@/lib/llm/chat-helpers";
 import { createLogger } from "@/lib/logger";
 import { useSharedChatContext } from "@/lib/context/chat-context";
@@ -32,6 +32,7 @@ export const ChatExperimental: React.FC<ChatProps> = ({
   const [updatingSummary, setUpdatingSummary] = useState(false);
 
   const { setChatId } = useSharedChatContext();
+  const selectedModelRef = useRef<ChatModel>(DEFAULT_CHAT_MODEL);
 
   useEffect(() => {
     setChatId(chatData?.thread.id ?? "");
@@ -41,13 +42,19 @@ export const ChatExperimental: React.FC<ChatProps> = ({
     };
   }, [chatData]);
 
-  const { messages, sendMessage, id } = useChat({
+  const { messages, sendMessage, id, stop, setMessages, status } = useChat({
     id: chatData?.thread.id ?? "",
     messages: chatData?.messages ?? [],
     transport: new DefaultChatTransport({
       api: endpoint ?? `/api/chat/${persona ?? ""}`,
       prepareSendMessagesRequest({ messages, id }) {
-        return { body: { message: messages[messages.length - 1], id } };
+        return {
+          body: {
+            message: messages?.length ? messages[messages.length - 1] : undefined,
+            id,
+            model: selectedModelRef.current,
+          },
+        };
       },
     }),
     onToolCall({ toolCall }) {
@@ -106,6 +113,38 @@ export const ChatExperimental: React.FC<ChatProps> = ({
     }
   };
 
+  const handleStop = useCallback(async () => {
+    // Remove the latest user message and partially completed AI message from messages
+    // Remove the latest user message and any partially completed AI response
+    stop();
+    setMessages((prevMessages) => {
+      // Find the last user message
+      const lastUserIndex = [...prevMessages]
+        .reverse()
+        .findIndex((msg) => msg.role === "user");
+      if (lastUserIndex === -1) {
+        return prevMessages;
+      }
+      // Calculate the index in the original array
+      const lastUserMsgIdx = prevMessages.length - 1 - lastUserIndex;
+
+      // Remove the last user message and any AI message immediately after it (if exists)
+      let newMessages = prevMessages.slice(0, lastUserMsgIdx);
+      // Check if there's an AI message after the last user
+      if (
+        prevMessages[lastUserMsgIdx + 1] &&
+        prevMessages[lastUserMsgIdx + 1].role === "assistant"
+      ) {
+        // Remove the AI message as well
+        newMessages = prevMessages.slice(0, lastUserMsgIdx);
+      } else {
+        // If not, just slice off including the user message
+        newMessages = prevMessages.slice(0, lastUserMsgIdx);
+      }
+      return newMessages;
+    });
+  }, [messages])
+
   return (
     <StickToBottom
       className="h-full w-full relative mx-2 flex flex-col items-center"
@@ -114,7 +153,7 @@ export const ChatExperimental: React.FC<ChatProps> = ({
     >
       <ChatThreadExperimental messages={messages} />
       <ChatScrollButton />
-      <ChatInput id={id} sendMessage={sendMessage} />
+      <ChatInput id={id} sendMessage={sendMessage} selectedModelRef={selectedModelRef} stop={handleStop} status={status} />
       {/* <div className="absolute top-20 right-0 z-40">
         <button
           className="px-4 py-2 bg-blue-500 hover:bg-blue-600 disabled:bg-gray-400 text-white rounded-md transition-colors"

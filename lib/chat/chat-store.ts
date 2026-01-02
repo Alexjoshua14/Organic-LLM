@@ -11,7 +11,15 @@ import {
 import SPARK_SYSTEM_PROMPT from "../system-prompt";
 import { getStateString } from "../supabase/organicStateStore";
 import { searchMemories } from "../memory/operations";
-import { ContextPiece } from "../schemas/llm-context";
+import {
+  CodeBlockSchema,
+  ContextPiece,
+  KeyValueSchema,
+  ListSchema,
+  RecipeCardSchema,
+  TickerSchema,
+} from "../schemas/llm-context";
+import { estimateTokenCount } from "../llm/chat-helpers";
 
 import {
   createChat as createChatSupabase,
@@ -20,10 +28,23 @@ import {
   getNMessages,
   getConversationSummary,
   upsertMessages,
+  deleteMessage,
+  addMessage,
 } from "@/data/supabase/chat";
 import { Result, SimpleResult } from "@/types";
 import { Thread } from "@/lib/schemas/chat";
 import { getSupabaseUserId } from "@/data/supabase/profiles";
+import {
+  retryWithBackoff,
+  DEFAULT_RETRY_CONFIG,
+  type RetryConfig,
+} from "@/lib/utils";
+import {
+  PersistedSchema,
+  PersistedSchemasContainer,
+  PersistedSchemaType,
+} from "@/app/sandbox/aion/_components/persisted-schemas-container";
+import { getPersistedSchemas } from "../persistedSchemas";
 
 const logger = createLogger(`util/chat-store.ts`);
 
@@ -32,6 +53,8 @@ interface getContextProps {
   limit?: number;
   persona?: "prometheus" | "spark";
   message: UIMessage;
+  memoryEnabled?: boolean;
+  persistedSchemasEnabled?: boolean;
 }
 
 export async function createChat(): Promise<Result<string>> {
@@ -74,7 +97,7 @@ export async function loadChat(
 }
 
 /**
- * Saves the chat idempotently
+ * Saves the chat idempotently with retry logic and exponential backoff
  *
  * @param chatId - The ID of the chat to save
  * @param messages - The messages to save
@@ -87,17 +110,129 @@ export async function saveChat({
   chatId: string;
   messages: UIMessage[];
 }): Promise<SimpleResult> {
-  const res = await upsertMessages({ chatId, messages });
+  const retryConfig: RetryConfig = {
+    maxRetries: DEFAULT_RETRY_CONFIG.maxRetries,
+    initialDelayMs: DEFAULT_RETRY_CONFIG.initialDelayMs,
+    maxDelayMs: DEFAULT_RETRY_CONFIG.maxDelayMs,
+    backoffMultiplier: DEFAULT_RETRY_CONFIG.backoffMultiplier,
+    onRetry: (attempt, error, delayMs) => {
+      logger.log(
+        "saveChat",
+        `Attempt ${attempt} failed, retrying in ${delayMs}ms: ${error instanceof Error ? error.message : String(error)}`
+      );
+    },
+  };
 
-  if (res.error || !res.ok) {
+  try {
+    const res = await retryWithBackoff(async () => {
+      const result = await upsertMessages({ chatId, messages });
+
+      // Throw error if the operation failed to trigger retry
+      if (result.error || !result.ok) {
+        throw new Error(result.error?.message ?? "Unknown error saving chat");
+      }
+
+      return result;
+    }, retryConfig);
+
+    logger.log("saveChat", `Chat saved: ${chatId}`);
+    return res;
+  } catch (error) {
+    const errorMessage =
+      error instanceof Error ? error.message : "Unknown error";
     logger.error(
       "saveChat",
-      `Error saving chat: ${res.error?.message ?? "Unknown error"}`
+      `Error saving chat after ${(retryConfig.maxRetries ?? DEFAULT_RETRY_CONFIG.maxRetries) + 1} attempts: ${errorMessage}`
     );
-  }
-  logger.log("saveChat", `Chat saved: ${chatId}`);
 
-  return res;
+    return {
+      ok: false,
+      error: error instanceof Error ? error : new Error(errorMessage),
+    };
+  }
+}
+
+/**
+ * Adds a single message to a chat thread.
+ * @param chatId - The thread/chat ID
+ * @param message - The UIMessage to add
+ * @returns SimpleResult indicating success or failure
+ */
+export async function saveMessage({
+  chatId,
+  message,
+}: {
+  chatId: string;
+  message: UIMessage;
+}): Promise<SimpleResult> {
+  try {
+    // This will upsert/create the thread if it doesn't exist, then insert the message
+    const result = await addMessage(chatId, message);
+    if (!result.ok) {
+      logger.error(
+        "saveMessage",
+        `Failed to save message to thread ${chatId}: ${result.error?.message}`
+      );
+      return {
+        ok: false,
+        error: result.error ?? new Error("Unknown error saving message"),
+      };
+    }
+    logger.log("saveMessage", `Message saved to thread: ${chatId}`);
+    return { ok: true, error: null };
+  } catch (error) {
+    logger.error(
+      "saveMessage",
+      `Error saving message: ${error instanceof Error ? error.message : String(error)}`
+    );
+    return {
+      ok: false,
+      error:
+        error instanceof Error
+          ? error
+          : new Error("Unknown error saving message"),
+    };
+  }
+}
+
+/**
+ * Deletes a specific message by its ID.
+ *
+ * @param messageId - The ID of the message to delete.
+ * @returns A SimpleResult indicating the outcome of the deletion.
+ */
+export async function deleteChatMessage(
+  messageId: string
+): Promise<SimpleResult> {
+  try {
+    const result = await deleteMessage(messageId);
+
+    if (!result.ok) {
+      logger.error(
+        "deleteChatMessage",
+        `Failed to delete message ${messageId}: ${result.error?.message}`
+      );
+      return {
+        ok: false,
+        error: result.error ?? new Error("Unknown error deleting message"),
+      };
+    }
+
+    logger.log("deleteChatMessage", `Message deleted: ${messageId}`);
+    return { ok: true, error: null };
+  } catch (error) {
+    logger.error(
+      "deleteChatMessage",
+      `Error deleting message: ${error instanceof Error ? error.message : String(error)}`
+    );
+    return {
+      ok: false,
+      error:
+        error instanceof Error
+          ? error
+          : new Error("Unknown error deleting message"),
+    };
+  }
 }
 
 /**
@@ -349,6 +484,8 @@ export async function getContext({
   limit,
   persona,
   message,
+  memoryEnabled,
+  persistedSchemasEnabled = false,
 }: getContextProps): Promise<
   Result<{ context: string; messages: UIMessage[] }, string>
 > {
@@ -384,15 +521,17 @@ export async function getContext({
   const sbUserId = sbUserIdResult.data;
 
   const contextPieces: ContextPiece[] = [];
+  const contextTokenSizes: Array<{ name: string; tokens: number }> = [];
 
   try {
+    const promises: Promise<any>[] = [];
     /***
      * Step 1
      *
      * Get Latest n Messages from Supabase
      ***/
     const messagesPromise = getNMessages(chatId, limit);
-
+    promises.push(messagesPromise);
     /***
      * Step 2
      *
@@ -400,6 +539,7 @@ export async function getContext({
      */
 
     const conversationSummaryPromise = getConversationSummary(chatId);
+    promises.push(conversationSummaryPromise);
 
     /***
      * Step 3
@@ -411,7 +551,24 @@ export async function getContext({
       .reduce((acc, part) => acc + part.text, "");
 
     logger.log("getContext", `User message: ${userMessage}`);
-    const memoriesPromise = searchMemories(userMessage, sbUserId); // TODO: Get user ID from Supabase
+
+    if (memoryEnabled) {
+      const memoriesPromise = searchMemories(userMessage, sbUserId, {
+        limit: 5,
+      });
+      promises.push(memoriesPromise);
+    }
+
+    /***
+     * Step 3b
+     *
+     * Get Persisted Schemas from database
+     */
+
+    if (persistedSchemasEnabled) {
+      const persistedSchemaPromise = getPersistedSchemas(chatId);
+      promises.push(persistedSchemaPromise);
+    }
 
     /***
      * Step 4
@@ -437,6 +594,15 @@ export async function getContext({
       content: systemPrompt,
     });
 
+    // Calculate token count for system prompt
+    const systemPromptTokens = await estimateTokenCount(systemPrompt);
+    if (systemPromptTokens !== null) {
+      contextTokenSizes.push({
+        name: "System Prompt",
+        tokens: systemPromptTokens,
+      });
+    }
+
     /***
      * Step 5
      *
@@ -450,12 +616,12 @@ export async function getContext({
      *  - Memories
      */
 
-    const [messagesResult, conversationSummaryResult, memoriesResult] =
-      await Promise.all([
-        messagesPromise,
-        conversationSummaryPromise,
-        memoriesPromise,
-      ]);
+    const [
+      messagesResult,
+      conversationSummaryResult,
+      memoriesResult,
+      persistedSchemaResult,
+    ] = await Promise.all(promises);
 
     /***
      * Step 5a
@@ -493,27 +659,132 @@ export async function getContext({
       content: conversationSummary,
     });
 
+    // Calculate token count for conversation summary
+    const conversationSummaryTokens =
+      await estimateTokenCount(conversationSummary);
+    if (conversationSummaryTokens !== null) {
+      contextTokenSizes.push({
+        name: "Conversation Summary",
+        tokens: conversationSummaryTokens,
+      });
+    }
+
     /***
      * Step 5c
      *
      * Handle memories errors
      */
-    let memories = "";
+    if (memoryEnabled) {
+      let memories = "";
 
-    if (memoriesResult.results === null) {
-      logger.error(
-        "getContext",
-        `Error getting memories: Memories are null\n${JSON.stringify(memoriesResult)}`
-      );
+      if (
+        memoriesResult.results === null ||
+        memoriesResult.results === undefined
+      ) {
+        logger.error(
+          "getContext",
+          `Error getting memories: Memories are null\n${JSON.stringify(memoriesResult)}`
+        );
+        memories = "";
+      } else {
+        memories = memoriesResult.results
+          .map((result: { memory?: string }) => result.memory)
+          .filter(
+            (memory: string | undefined): memory is string => memory != null
+          )
+          .join("\n");
+      }
+
+      contextPieces.push({
+        title: "Memories from past conversations:",
+        content: memories,
+      });
+
+      // Calculate token count for memories
+      const memoriesTokens = await estimateTokenCount(memories);
+      if (memoriesTokens !== null) {
+        contextTokenSizes.push({
+          name: "Memories",
+          tokens: memoriesTokens,
+        });
+      }
     }
 
-    memories =
-      memoriesResult.results?.map((result) => result.memory).join("\n") ?? "";
+    /***
+     * Step 5d
+     *
+     * Handle persistedSchemas errors
+     */
 
-    contextPieces.push({
-      title: "Memories",
-      content: memories,
-    });
+    if (persistedSchemasEnabled) {
+      let persitedSchemas: PersistedSchemaType[] = [];
+      logger.log(
+        "getContext",
+        "Handling persistedSchemas and preparing persistedSchemasResult"
+      );
+
+      logger.log(
+        "getContext",
+        `persistedSchemaResult: ${JSON.stringify(persistedSchemaResult)}`
+      );
+
+      let persistedSchemaObject = PersistedSchema.decode(
+        persistedSchemaResult.data
+      );
+
+      logger.log(
+        "getContext",
+        `persistedSchemaObject: ${JSON.stringify(persistedSchemaObject)}`
+      );
+
+      if (persistedSchemaResult.error) {
+        logger.error(
+          "getContext",
+          `Error getting persisted Schema summary: ${persistedSchemaResult.error}`
+        );
+      }
+      if (persistedSchemaResult.data) {
+        // Validate/parse with zod here using all schemas
+        for (const item of persistedSchemaResult.data) {
+          try {
+            logger.log(
+              "getContext",
+              `Validating persisted schema item: ${JSON.stringify(item)}`
+            );
+            // Try each schema until one succeeds, push to persitedSchemas
+            switch (item.type) {
+              case "list":
+                persitedSchemas.push(ListSchema.parse(item));
+              case "keyValue":
+                persitedSchemas.push(KeyValueSchema.parse(item));
+              case "codeBlock":
+                persitedSchemas.push(CodeBlockSchema.parse(item));
+              case "recipeCard":
+                persitedSchemas.push(RecipeCardSchema.parse(item));
+              case "ticker":
+                persitedSchemas.push(TickerSchema.parse(item));
+            }
+          } catch (e) {
+            logger.error(
+              "getContext",
+              `Invalid persisted schema item: ${JSON.stringify(item)}`
+            );
+            // Optionally continue on error or throw, we choose to skip invalid items here
+            continue;
+          }
+        }
+      } else {
+        logger.log("getContext", "No persisted schema data found");
+        persitedSchemas = [];
+      }
+
+      contextPieces.push({
+        title: "Persisted Schemas",
+        content: persitedSchemas
+          .map((schema) => JSON.stringify(schema))
+          .join("\n"),
+      });
+    }
 
     /***
      * Step 5d
@@ -539,9 +810,20 @@ export async function getContext({
   } finally {
     const endContextCompilationTime = performance.now();
 
+    // Log token sizes for each context piece
+    const totalTokens = contextTokenSizes.reduce(
+      (sum, piece) => sum + piece.tokens,
+      0
+    );
+
     logger.log(
       "getContext",
-      `Context compilation time: ${endContextCompilationTime - startContextCompilationTime} milliseconds`
+      `Context compilation time: ${endContextCompilationTime - startContextCompilationTime} milliseconds\n` +
+        `Context token sizes:\n` +
+        contextTokenSizes
+          .map((piece) => `  - ${piece.name}: ${piece.tokens} tokens`)
+          .join("\n") +
+        `\n  - Total context tokens: ${totalTokens} tokens`
     );
   }
 }
