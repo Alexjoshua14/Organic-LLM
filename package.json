@@ -27,6 +27,7 @@
     "@heroui/listbox": "2.3.23",
     "@heroui/modal": "^2.2.26",
     "@heroui/navbar": "2.2.22",
+    "@heroui/scroll-shadow": "^2.3.19",
     "@heroui/select": "^2.4.30",
     "@heroui/snippet": "2.2.25",
     "@heroui/switch": "2.2.22",
