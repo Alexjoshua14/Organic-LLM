@@ -127,7 +127,7 @@ export const AionChat: React.FC<ChatProps> = ({
     },
     onData: (data) => {
       logger.log("chat", JSON.stringify(data, null, 2))
-    }
+    },
   });
 
 

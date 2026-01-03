@@ -91,10 +91,12 @@ export async function POST(req: Request) {
   // Save the user message
   try {
     // TODO: Make this async and nonblocking
-    await saveChat({
-      chatId: id,
-      messages: [message], // Just the user's message
-    });
+    if (message.role === "user") {
+      await saveChat({
+        chatId: id,
+        messages: [message], // Just the user's message
+      });
+    }
     logger.log("POST", "User message saved optimistically");
   } catch (err) {
     logger.error("POST", `Failed to save user message optimistically: ${err}`);
@@ -259,7 +261,23 @@ export async function POST(req: Request) {
 
       writer.merge(
         result.toUIMessageStream({
-          generateMessageId: () => randomUUID(),
+          generateMessageId: () => {
+            // Check if last message is assistant with only tool calls
+            const lastMessage = validatedMessages[validatedMessages.length - 1];
+            if (
+              lastMessage?.role === "assistant" &&
+              lastMessage.id &&
+              lastMessage.parts?.every(
+                (p) =>
+                  p.type === "step-start" ||
+                  (typeof p.type === "string" && p.type.startsWith("tool-"))
+              )
+            ) {
+              // Reuse the ID so response merges into same message
+              return lastMessage.id;
+            }
+            return randomUUID();
+          },
           onError: (error) => {
             logger.error("POST", `UI stream error: ${error}`);
             if (error instanceof Error) {
@@ -281,6 +299,10 @@ export async function POST(req: Request) {
             return "An unexpected error occurred";
           },
           onFinish: async ({ messages, isAborted, finishReason }) => {
+            logger.log(
+              "POST",
+              `onFinish: ----------------------------------${JSON.stringify(messages, null, 2)}`
+            );
             switch (finishReason) {
               case "error":
                 logger.error("POST", "LLM encountered an error.");
