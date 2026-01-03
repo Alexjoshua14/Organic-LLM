@@ -12,38 +12,26 @@ import {
   convertToModelMessages,
   TypeValidationError,
   smoothStream,
-  consumeStream,
   stepCountIs,
-  type Tool,
   createUIMessageStream,
   createUIMessageStreamResponse,
-  lastAssistantMessageIsCompleteWithToolCalls,
 } from "ai";
 // import systemPrompt from "@/lib/system-prompt";
 import { auth } from "@clerk/nextjs/server";
 
 import { deleteChatMessage, getContext, saveChat } from "@/lib/chat/chat-store";
 import { ensureChatHasTitle, updateChatSummary } from "@/lib/llm/chat-helpers";
-import {
-  addSchemaTool,
-  createMemorySearchTool,
-  updateSchemaTool,
-} from "@/lib/llm/llm-tool-kit";
+import { createMemorySearchTool } from "@/lib/llm/llm-tool-kit";
 import { createLogger } from "@/lib/logger";
 import { SYSTEM_PROMPT } from "@/lib/system-prompt/prompt-v0";
 import { addLatestMessagesToMemory } from "@/lib/memory/operations";
 
-import {
-  ChatRequestSchema,
-  DEFAULT_CHAT_MODEL,
-  ChatModelSchema,
-  type ChatModel,
-} from "@/lib/schemas/chat";
+import { ChatRequestSchema, DEFAULT_CHAT_MODEL } from "@/lib/schemas/chat";
 import { getSupabaseUserId } from "@/data/supabase/profiles";
 import { CHAT_MODEL, getChatModel, measureAsync } from "@/lib/llm/helpers";
 import { MyUIMessage } from "@/types/ai";
 import {
-  searchAndShowMemoriesTool,
+  searchMemoriesTool,
   showMemoriesTool,
 } from "@/lib/llm/archetype/memory";
 import { setArchetypeStateTool, viewArchetypeTool } from "@/lib/llm/archetype";
@@ -231,7 +219,6 @@ export async function POST(req: Request) {
           // add_schema: addSchemaTool,
           // update_schema: updateSchemaTool,
           show_memories: showMemoriesTool,
-          search_and_show_memories: searchAndShowMemoriesTool,
           set_state_archetype: setArchetypeStateTool,
           view_archetype: viewArchetypeTool,
         },
@@ -299,231 +286,259 @@ export async function POST(req: Request) {
             return "An unexpected error occurred";
           },
           onFinish: async ({ messages, isAborted, finishReason }) => {
-            logger.log(
-              "POST",
-              `onFinish: ----------------------------------${JSON.stringify(messages, null, 2)}`
-            );
-            switch (finishReason) {
-              case "error":
-                logger.error("POST", "LLM encountered an error.");
-                break;
-              case "length":
-                logger.warn(
-                  "POST",
-                  "LLM response stopped due to reaching max limit."
-                );
-                break;
-            }
-
-            // Handle abort
-            if (isAborted) {
-              // Remove optimsitcally saved user message
+            try {
               logger.log(
                 "POST",
-                `Abort detected: removing optimistically saved user message`
+                `onFinish: ----------------------------------${JSON.stringify(messages, null, 2)}`
               );
-              deleteChatMessage(message.id);
-            } else {
-              const onFinishStart = performance.now();
-              const streamEndTime = performance.now();
-              const modelGenerationTime = streamEndTime - streamStartTime;
-
-              const metrics: Record<string, number> = {
-                modelGenerationTimeMs: modelGenerationTime,
-              };
-
-              logger.log(
-                "POST",
-                `Model (${selectedModel}) generated response in ${modelGenerationTime.toFixed(2)}ms (${(modelGenerationTime / 1000).toFixed(2)}s)`
-              );
-
-              try {
-                writer.write({
-                  type: "data-notification",
-                  transient: true,
-                  data: {
-                    message: "Saving latest messages",
-                    level: "info",
-                  },
-                });
-                const { result: saveResult, durationMs: saveChatMs } =
-                  await measureAsync(() => saveChat({ chatId: id, messages }));
-                metrics.saveChatMs = saveChatMs;
-
-                if (saveResult.error) {
-                  logger.error(
+              switch (finishReason) {
+                case "error":
+                  logger.error("POST", "LLM encountered an error.");
+                  break;
+                case "length":
+                  logger.warn(
                     "POST",
-                    `Error saving chat: ${saveResult.error.message}`
+                    "LLM response stopped due to reaching max limit."
+                  );
+                  break;
+              }
+
+              // Handle abort
+              if (isAborted) {
+                // Remove optimsitcally saved user message
+                logger.log(
+                  "POST",
+                  `Abort detected: removing optimistically saved user message`
+                );
+                deleteChatMessage(message.id);
+              } else {
+                const onFinishStart = performance.now();
+                const streamEndTime = performance.now();
+                const modelGenerationTime = streamEndTime - streamStartTime;
+
+                const metrics: Record<string, number> = {
+                  modelGenerationTimeMs: modelGenerationTime,
+                };
+
+                logger.log(
+                  "POST",
+                  `Model (${selectedModel}) generated response in ${modelGenerationTime.toFixed(2)}ms (${(modelGenerationTime / 1000).toFixed(2)}s)`
+                );
+
+                try {
+                  writer.write({
+                    type: "data-notification",
+                    transient: true,
+                    data: {
+                      message: "Saving latest messages",
+                      level: "info",
+                    },
+                  });
+
+                  logger.log(
+                    "POST",
+                    `About to call saveChat with ${messages.length} messages`
+                  );
+                  logger.log(
+                    "POST",
+                    `Last message ID: ${messages[messages.length - 1]?.id}`
+                  );
+                  logger.log(
+                    "POST",
+                    `Last message: ${JSON.stringify(messages[messages.length - 1], null, 2)}`
                   );
 
-                  writer.write({
-                    type: "data-notification",
-                    transient: true,
-                    data: {
-                      message: "Failed to save latest messages",
-                      level: "error",
-                    },
-                  });
+                  const { result: saveResult, durationMs: saveChatMs } =
+                    await measureAsync(() =>
+                      saveChat({ chatId: id, messages })
+                    );
 
-                  return; // Don't continue if save fails
-                } else {
-                  writer.write({
-                    type: "data-notification",
-                    transient: true,
-                    data: {
-                      message: "Saved latest messages",
-                      level: "info",
-                    },
-                  });
-                }
+                  logger.log(
+                    "POST",
+                    `Save completed. Result: ${JSON.stringify(saveResult)}`
+                  );
+                  metrics.saveChatMs = saveChatMs;
 
-                let ensureChatHasTitleMs: number | undefined;
-
-                // Ensure chat title for a sensible range (e.g. after 4–8 messages)
-                if (messages.length >= 4 && messages.length <= 8) {
-                  writer.write({
-                    type: "data-notification",
-                    transient: true,
-                    data: {
-                      message: "Updating conversation title",
-                      level: "info",
-                    },
-                  });
-                  const { result: titleResult, durationMs } =
-                    await measureAsync(() => ensureChatHasTitle(id));
-                  ensureChatHasTitleMs = durationMs;
-
-                  if (titleResult.error) {
+                  if (saveResult.error) {
                     logger.error(
                       "POST",
-                      `Error ensuring chat has title: ${titleResult.error.message}`
+                      `Error saving chat: ${saveResult.error.message}`
                     );
+
                     writer.write({
                       type: "data-notification",
                       transient: true,
                       data: {
-                        message: "Failed to update conversation title",
+                        message: "Failed to save latest messages",
                         level: "error",
                       },
                     });
+
+                    return; // Don't continue if save fails
                   } else {
                     writer.write({
                       type: "data-notification",
                       transient: true,
                       data: {
-                        message: "Updated conversation title",
+                        message: "Saved latest messages",
                         level: "info",
                       },
                     });
                   }
-                }
 
-                const userMessage = message;
-                const aiResponse = messages[messages.length - 1];
+                  let ensureChatHasTitleMs: number | undefined;
 
-                if (!aiResponse) {
-                  logger.error(
-                    "POST",
-                    "No AI response found in messages; skipping post-processing"
-                  );
-                  return;
-                }
+                  // Ensure chat title for a sensible range (e.g. after 4–8 messages)
+                  if (messages.length >= 4 && messages.length <= 8) {
+                    writer.write({
+                      type: "data-notification",
+                      transient: true,
+                      data: {
+                        message: "Updating conversation title",
+                        level: "info",
+                      },
+                    });
+                    const { result: titleResult, durationMs } =
+                      await measureAsync(() => ensureChatHasTitle(id));
+                    ensureChatHasTitleMs = durationMs;
 
-                writer.write({
-                  type: "data-notification",
-                  transient: true,
-                  data: {
-                    message: "Updating conversation summary",
-                    level: "info",
-                  },
-                });
-                const updateSummaryResult = await measureAsync(() =>
-                  updateChatSummary(id)
-                );
-                writer.write({
-                  type: "data-notification",
-                  transient: true,
-                  data: {
-                    message: "Updated conversation summary",
-                    level: "info",
-                  },
-                });
-                metrics.updateChatSummaryMs = updateSummaryResult.durationMs;
+                    if (titleResult.error) {
+                      logger.error(
+                        "POST",
+                        `Error ensuring chat has title: ${titleResult.error.message}`
+                      );
+                      writer.write({
+                        type: "data-notification",
+                        transient: true,
+                        data: {
+                          message: "Failed to update conversation title",
+                          level: "error",
+                        },
+                      });
+                    } else {
+                      writer.write({
+                        type: "data-notification",
+                        transient: true,
+                        data: {
+                          message: "Updated conversation title",
+                          level: "info",
+                        },
+                      });
+                    }
+                  }
 
-                let addMemoryMs: number | undefined;
-                if (memoryEnabled) {
+                  const userMessage = message;
+                  const aiResponse = messages[messages.length - 1];
+
+                  if (!aiResponse) {
+                    logger.error(
+                      "POST",
+                      "No AI response found in messages; skipping post-processing"
+                    );
+                    return;
+                  }
+
                   writer.write({
                     type: "data-notification",
                     transient: true,
                     data: {
-                      message: "Updating memory",
+                      message: "Updating conversation summary",
                       level: "info",
                     },
                   });
-                  const addMemoryResult = await measureAsync(() =>
-                    addLatestMessagesToMemory(
-                      [userMessage, aiResponse],
-                      sbUserId
-                    )
-                      .catch((err) => {
-                        logger.error(
-                          "POST",
-                          `Error adding latest messages to memory: ${err}`
-                        );
-                        writer.write({
-                          type: "data-notification",
-                          transient: true,
-                          data: {
-                            message: "Failed to update memory",
-                            level: "error",
-                          },
-                        });
-                      })
-                      .then(() => {
-                        writer.write({
-                          type: "data-notification",
-                          transient: true,
-                          data: {
-                            message: "Updated memory",
-                            level: "info",
-                          },
-                        });
-                      })
+                  const updateSummaryResult = await measureAsync(() =>
+                    updateChatSummary(id)
                   );
-                  addMemoryMs = addMemoryResult.durationMs;
-                  metrics.addLatestMessagesToMemoryMs = addMemoryMs;
-                }
+                  writer.write({
+                    type: "data-notification",
+                    transient: true,
+                    data: {
+                      message: "Updated conversation summary",
+                      level: "info",
+                    },
+                  });
+                  metrics.updateChatSummaryMs = updateSummaryResult.durationMs;
 
-                if (updateSummaryResult.result?.error) {
-                  logger.error(
+                  let addMemoryMs: number | undefined;
+                  if (memoryEnabled) {
+                    writer.write({
+                      type: "data-notification",
+                      transient: true,
+                      data: {
+                        message: "Updating memory",
+                        level: "info",
+                      },
+                    });
+                    const addMemoryResult = await measureAsync(() =>
+                      addLatestMessagesToMemory(
+                        [userMessage, aiResponse],
+                        sbUserId
+                      )
+                        .catch((err) => {
+                          logger.error(
+                            "POST",
+                            `Error adding latest messages to memory: ${err}`
+                          );
+                          writer.write({
+                            type: "data-notification",
+                            transient: true,
+                            data: {
+                              message: "Failed to update memory",
+                              level: "error",
+                            },
+                          });
+                        })
+                        .then(() => {
+                          writer.write({
+                            type: "data-notification",
+                            transient: true,
+                            data: {
+                              message: "Updated memory",
+                              level: "info",
+                            },
+                          });
+                        })
+                    );
+                    addMemoryMs = addMemoryResult.durationMs;
+                    metrics.addLatestMessagesToMemoryMs = addMemoryMs;
+                  }
+
+                  if (updateSummaryResult.result?.error) {
+                    logger.error(
+                      "POST",
+                      `Error updating chat summary: ${updateSummaryResult.result.error}`
+                    );
+                  }
+
+                  metrics.onFinishTotalMs = performance.now() - onFinishStart;
+                  if (ensureChatHasTitleMs !== undefined) {
+                    metrics.ensureChatHasTitleMs = ensureChatHasTitleMs;
+                  }
+
+                  logger.log(
                     "POST",
-                    `Error updating chat summary: ${updateSummaryResult.result.error}`
+                    `onFinish metrics: ${JSON.stringify(metrics)}`
                   );
+                } catch (err) {
+                  logger.error("POST", `Error in onFinish callback: ${err}`);
                 }
-
-                metrics.onFinishTotalMs = performance.now() - onFinishStart;
-                if (ensureChatHasTitleMs !== undefined) {
-                  metrics.ensureChatHasTitleMs = ensureChatHasTitleMs;
-                }
-
-                logger.log(
-                  "POST",
-                  `onFinish metrics: ${JSON.stringify(metrics)}`
-                );
-              } catch (err) {
-                logger.error("POST", `Error in onFinish callback: ${err}`);
               }
-            }
 
-            // Final notification
-            writer.write({
-              type: "data-notification",
-              transient: true,
-              data: {
-                message: "Stream completed",
-                level: "info",
-              },
-            });
+              // Final notification
+              writer.write({
+                type: "data-notification",
+                transient: true,
+                data: {
+                  message: "Stream completed",
+                  level: "info",
+                },
+              });
+            } catch (err) {
+              logger.error(
+                "POST",
+                `Error in onFinish callback: !!!!!!!!!!!!!!!!!!!!${err}`
+              );
+            }
           },
         })
       );
