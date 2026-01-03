@@ -30,10 +30,7 @@ import { ChatRequestSchema, DEFAULT_CHAT_MODEL } from "@/lib/schemas/chat";
 import { getSupabaseUserId } from "@/data/supabase/profiles";
 import { CHAT_MODEL, getChatModel, measureAsync } from "@/lib/llm/helpers";
 import { MyUIMessage } from "@/types/ai";
-import {
-  searchMemoriesTool,
-  showMemoriesTool,
-} from "@/lib/llm/archetype/memory";
+import { showMemoriesTool } from "@/lib/llm/archetype/memory";
 import { setArchetypeStateTool, viewArchetypeTool } from "@/lib/llm/archetype";
 
 // Allow streaming responses up to 30 seconds
