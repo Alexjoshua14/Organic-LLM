@@ -98,7 +98,7 @@ export const AionChat: React.FC<ChatProps> = ({
 
           break;
         case "view_archetype":
-          const currentArchetype = sampleArchetypeData;
+          const currentArchetype = handleViewArchetype();
           const archetypeState = showArchetype;
 
           logger.log("chat", `TOOL_CALL OUTPUT: view_archetype | archetype: ${JSON.stringify(currentArchetype)}, state: ${archetypeState}`);
