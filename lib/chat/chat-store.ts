@@ -45,6 +45,7 @@ import {
   PersistedSchemaType,
 } from "@/app/sandbox/aion/_components/persisted-schemas-container";
 import { getPersistedSchemas } from "../persistedSchemas";
+import { MyUIMessage } from "@/types/ai";
 
 const logger = createLogger(`util/chat-store.ts`);
 
