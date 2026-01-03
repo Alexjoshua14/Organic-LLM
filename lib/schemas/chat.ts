@@ -77,16 +77,37 @@ const TextPartSchema = z.object({
   text: z.string(),
 });
 
+const ToolInvocationPartSchema = z.object({
+  type: z.literal("tool-invocation"),
+  toolInvocationId: z.string(),
+  toolName: z.string(),
+  args: z.unknown().optional(),
+  state: z.enum(["partial-call", "call", "result", "output-error"]),
+  result: z.any().optional(),
+  errorText: z.string().optional(),
+});
+
+const UnknownPartSchema = z
+  .object({
+    type: z.string(),
+  })
+  .loose();
+
+const MessagePartSchema = z
+  .union([TextPartSchema, ToolInvocationPartSchema])
+  .or(UnknownPartSchema);
+
 export const UIMessageSchema = z
   .object({
     id: z.string().optional(),
     role: z.enum(["user", "assistant", "system", "data"]),
-    parts: z.array(TextPartSchema).default([]),
+    parts: z.array(MessagePartSchema).default([]),
     content: z.string().optional(),
     createdAt: z.number().optional(),
     model: z.string().optional(),
     totalTokens: z.number().optional(),
   })
+  .loose() // Allow extra fields
   .refine(
     (message) =>
       message.parts.length > 0 || typeof message.content === "string",

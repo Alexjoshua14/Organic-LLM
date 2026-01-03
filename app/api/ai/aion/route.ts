@@ -17,6 +17,7 @@ import {
   type Tool,
   createUIMessageStream,
   createUIMessageStreamResponse,
+  lastAssistantMessageIsCompleteWithToolCalls,
 } from "ai";
 // import systemPrompt from "@/lib/system-prompt";
 import { auth } from "@clerk/nextjs/server";
@@ -45,10 +46,7 @@ import {
   searchAndShowMemoriesTool,
   showMemoriesTool,
 } from "@/lib/llm/archetype/memory";
-import {
-  setArchetypeStateTool,
-  viewArchetypeTool,
-} from "@/lib/context/archetype-context";
+import { setArchetypeStateTool, viewArchetypeTool } from "@/lib/llm/archetype";
 
 // Allow streaming responses up to 30 seconds
 export const maxDuration = 30;
@@ -67,10 +65,7 @@ export async function POST(req: Request) {
   const memoryEnabled = parseResult.data?.memory;
 
   if (!parseResult.success) {
-    logger.error(
-      "POST",
-      `Invalid request body: ${parseResult.error.flatten().formErrors.join(", ")}`
-    );
+    logger.error("POST", `Invalid request body: ${parseResult.error.message}`);
 
     return new Response("Invalid request body", { status: 400 });
   }
@@ -250,7 +245,7 @@ export async function POST(req: Request) {
           });
         },
         onStepFinish(step) {
-          logger.log("POST", `STEP_FINISH ${JSON.stringify(step, null, 2)}`);
+          // logger.log("POST", `STEP_FINISH ${JSON.stringify(step, null, 2)}`);
           writer.write({
             type: "data-notification",
             transient: true,

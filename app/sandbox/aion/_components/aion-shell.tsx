@@ -3,7 +3,6 @@
 import { AnimatePresence, motion } from "framer-motion";
 import { Suspense, useState } from "react";
 
-import { Chat } from "@/components/chat/chat";
 import { ArchetypeHost } from "./archetype-host";
 import { Thread } from "@/lib/schemas/chat";
 import { UIMessage } from "ai";
@@ -91,7 +90,7 @@ export function AionShell({ chatData }: AionShellProps) {
           </TabsList>
           <TabsContent forceMount value="chat" className={`data-[state=inactive]:opacity-0 transition-all duration-400 data-[state=inactive]:z-0 z-10 absolute w-full h-full mt-2 flex-1 min-h-0 overflow-hidden`}>
             <div className="w-full h-full flex items-center justify-center">
-              <Chat chatData={chatData} persona="aion" endpoint="/api/ai/aion" />
+              <AionChat chatData={chatData} persona="aion" endpoint="/api/ai/aion" />
             </div>
           </TabsContent>
           <TabsContent forceMount value="archetype" className={`data-[state=inactive]:opacity-0 transition-all duration-400 data-[state=inactive]:z-0 z-10 mt-2 flex-1 min-h-0 overflow-hidden`}>
