@@ -10,7 +10,7 @@ import { ArchetypeProvider } from "@/lib/context/archetype-context";
 const logger = createLogger(`app/sandbox/aion/page.tsx`);
 
 export default async function AionPage() {
-  const id = "f11aac23-ca87-4a79-a5a9-5c7115abec2b";
+  const id = "3b77ce42-e44b-4cb0-aa53-c4611dcf97f2";
 
   let chatData: { thread: Thread; messages: UIMessage[] } | null = null;
 

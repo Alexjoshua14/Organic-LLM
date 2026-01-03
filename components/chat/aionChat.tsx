@@ -14,6 +14,7 @@ import { NewChatInput } from "./new-chat-input";
 import { Conversation, ConversationScrollButton } from "../third-party/ai-elements/conversation";
 import { useArchetypeContext } from "@/lib/context/archetype-context";
 import { ChatProps } from "./chat";
+import { sampleArchetypeData } from "@/test-data/sampleData";
 
 const logger = createLogger("components/chat/aionChat");
 
@@ -30,9 +31,14 @@ export const AionChat: React.FC<ChatProps> = ({
 
   const { setArchetypeData, open: openArchetype, close: closeArchetype, setAndOpen, archetypeData, showArchetype } = useArchetypeContext();
 
-  const { messages, sendMessage, id, stop, status, setMessages, addToolOutput } = useChat({
+  const handleViewArchetype = useCallback(() => {
+    return archetypeData;
+  }, [archetypeData])
+
+  const { messages, sendMessage, id, stop, status, setMessages, addToolOutput, error, clearError } = useChat({
     id: chatData?.thread.id ?? "",
     messages: chatData?.messages ?? [],
+    sendAutomaticallyWhen: lastAssistantMessageIsCompleteWithToolCalls,
     transport: new DefaultChatTransport({
       api: persona === 'aion' ? '/api/ai/aion' : endpoint ?? `/api/chat/${persona ?? ""}`,
       prepareSendMessagesRequest({ messages, id }) {
@@ -54,6 +60,8 @@ export const AionChat: React.FC<ChatProps> = ({
     // sendAutomaticallyWhen: lastAssistantMessageIsCompleteWithToolCalls,
     onToolCall({ toolCall }) {
       logger.log("chat", `TOOL_CALL ${JSON.stringify(toolCall, null, 2)}`);
+
+      logger.log("chat", `TOOL_CALL Name: ${toolCall.toolName}`);
 
 
       // If expecting tool call on UI side add output here
@@ -77,6 +85,7 @@ export const AionChat: React.FC<ChatProps> = ({
           } catch (error) {
             logger.error("chat", `Error opening archetype: ${error}`);
           } finally {
+            logger.log("chat", `Returning Tool Output: Archetype state changed: ${new_archetype_state ? "opened" : "closed"}`);
             addToolOutput({
               tool: toolCall.toolName,
               toolCallId: toolCall.toolCallId,
@@ -89,17 +98,29 @@ export const AionChat: React.FC<ChatProps> = ({
 
           break;
         case "view_archetype":
-          const currentArchetype = archetypeData;
+          const currentArchetype = sampleArchetypeData;
           const archetypeState = showArchetype;
 
-          addToolOutput({
-            tool: toolCall.toolName,
-            toolCallId: toolCall.toolCallId,
-            output: {
-              archetype: currentArchetype,
-              state: archetypeState,
-            },
-          })
+          logger.log("chat", `TOOL_CALL OUTPUT: view_archetype | archetype: ${JSON.stringify(currentArchetype)}, state: ${archetypeState}`);
+          if (currentArchetype) {
+            addToolOutput({
+              tool: toolCall.toolName,
+              toolCallId: toolCall.toolCallId,
+              output: {
+                archetype: currentArchetype,
+                state: archetypeState,
+              },
+            })
+          } else {
+            addToolOutput({
+              tool: toolCall.toolName,
+              toolCallId: toolCall.toolCallId,
+              output: {
+                message: "No archetype is currently active",
+                state: archetypeState,
+              },
+            })
+          }
           break;
 
       }
@@ -108,6 +129,13 @@ export const AionChat: React.FC<ChatProps> = ({
       logger.log("chat", JSON.stringify(data, null, 2))
     }
   });
+
+
+  useEffect(() => {
+    if (error) {
+      logger.error("chat", `Error: ${error}`);
+    }
+  }, [error])
 
   const handleStop = useCallback(async () => {
     // Remove the latest user message and partially completed AI message from messages

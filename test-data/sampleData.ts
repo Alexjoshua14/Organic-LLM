@@ -1,3 +1,4 @@
+import { ArchetypePayload } from "@/packages/organic-ui/src/schemas/archetype";
 import { SearchResult } from "mem0ai/oss";
 
 export const sampleMemories: SearchResult[] = [
@@ -191,3 +192,9 @@ export const sampleMemories: SearchResult[] = [
     relations: [],
   },
 ];
+
+export const sampleArchetypeData: ArchetypePayload = {
+  id: "f11aac23-ca87-4a79-a5a9-5c7115abec2b",
+  kind: "memory",
+  memories: sampleMemories[0].results,
+};

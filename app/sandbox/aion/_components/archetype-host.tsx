@@ -32,7 +32,18 @@ const sampleArchetypeData: ArchetypePayload = {
   memories: initialSampleMemories,
 }
 
-const ArchetypeComponent = ({ archetypeData }: { archetypeData: ArchetypePayload }) => {
+const ArchetypeComponent = ({ }) => {
+
+  const { archetypeData } = useArchetypeContext();
+
+  if (!archetypeData) {
+    return (
+      <div className="h-full pt-6 pb-12">
+        <p>No archetype data</p>
+      </div>
+    );
+  }
+
   switch (archetypeData.kind) {
     case "memory":
       return (
@@ -59,7 +70,7 @@ export function ArchetypeHost({
   // Get clerk user id
   const { userId } = useAuth();
 
-  const { archetypeData, setArchetypeData } = useArchetypeContext();
+  const { setArchetypeData, archetypeData } = useArchetypeContext();
 
   // TODO: Refactor into actual logic, this is a temporary placeholder while developing Archetypes
   useEffect(() => {
@@ -116,7 +127,7 @@ export function ArchetypeHost({
             {archetypeData.kind}
           </div>
           <div className="flex-1 min-h-0 pt-6 pb-12">
-            <ArchetypeComponent archetypeData={archetypeData} />
+            <ArchetypeComponent />
           </div>
         </>
         : <>
