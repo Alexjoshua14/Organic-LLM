@@ -1,7 +1,7 @@
 "use client";
 
 import { UIMessage, useChat } from "@ai-sdk/react";
-import { DefaultChatTransport } from "ai";
+import { DefaultChatTransport, lastAssistantMessageIsCompleteWithToolCalls } from "ai";
 import { useCallback, useEffect, useRef } from "react";
 
 import { ChatThread } from "./chat-thread";
@@ -28,7 +28,7 @@ export const AionChat: React.FC<ChatProps> = ({
   const useMemoriesRef = useRef<boolean>(false);
   const usePersistedSchemas = useRef<boolean>(persona === 'aion');
 
-  const { setArchetypeData, open: openArchetype, close: closeArchetype, setAndOpen } = useArchetypeContext();
+  const { setArchetypeData, open: openArchetype, close: closeArchetype, setAndOpen, archetypeData, showArchetype } = useArchetypeContext();
 
   const { messages, sendMessage, id, stop, status, setMessages, addToolOutput } = useChat({
     id: chatData?.thread.id ?? "",
@@ -51,39 +51,56 @@ export const AionChat: React.FC<ChatProps> = ({
         return req;
       },
     }),
+    // sendAutomaticallyWhen: lastAssistantMessageIsCompleteWithToolCalls,
     onToolCall({ toolCall }) {
       logger.log("chat", `TOOL_CALL ${JSON.stringify(toolCall, null, 2)}`);
 
 
       // If expecting tool call on UI side add output here
-      if (toolCall.toolName === "set_state_archetype") {
-        let error: string | undefined = undefined;
+      switch (toolCall.toolName) {
+        case "set_state_archetype":
 
-        let new_archetype_state: boolean = false;
+          let error: string | undefined = undefined;
 
-        const { open } = toolCall.input as { open: boolean };
+          let new_archetype_state: boolean = false;
 
-        try {
-          if (open) {
-            openArchetype();
-            new_archetype_state = true;
-          } else {
-            closeArchetype();
-            new_archetype_state = false;
+          try {
+            const { open } = toolCall.input as { open: boolean };
+
+            if (open) {
+              openArchetype();
+              new_archetype_state = true;
+            } else {
+              closeArchetype();
+              new_archetype_state = false;
+            }
+          } catch (error) {
+            logger.error("chat", `Error opening archetype: ${error}`);
+          } finally {
+            addToolOutput({
+              tool: toolCall.toolName,
+              toolCallId: toolCall.toolCallId,
+              output: {
+                state: new_archetype_state,
+              },
+              errorText: error,
+            })
           }
-        } catch (error) {
-          logger.error("chat", `Error opening archetype: ${error}`);
 
-        }
+          break;
+        case "view_archetype":
+          const currentArchetype = archetypeData;
+          const archetypeState = showArchetype;
 
-        addToolOutput({
-          tool: toolCall.toolName,
-          toolCallId: toolCall.toolCallId,
-          output: {
-            state: new_archetype_state,
-          },
-          errorText: error,
-        })
+          addToolOutput({
+            tool: toolCall.toolName,
+            toolCallId: toolCall.toolCallId,
+            output: {
+              archetype: currentArchetype,
+              state: archetypeState,
+            },
+          })
+          break;
 
       }
     },

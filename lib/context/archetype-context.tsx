@@ -4,6 +4,8 @@ import { createContext, useContext, ReactNode, useState, useCallback } from "rea
 import { ArchetypePayload } from "@/packages/organic-ui/src/schemas/archetype";
 import { Result } from "@/types";
 import { useSharedChatContext } from "./chat-context";
+import z from "zod";
+import { tool } from "ai";
 
 interface ArchetypeContextValue {
   // Data
@@ -79,3 +81,28 @@ export function useArchetypeContext() {
   }
   return context;
 }
+
+
+/**
+ * LLM Handles
+ */
+
+/**
+ * Set the state of the archetype
+ */
+export const setArchetypeStateTool = tool({
+  description: "Open the archetype",
+  inputSchema: z.object({
+    open: z.boolean().describe("Whether to open the archetype"),
+  }),
+  execute: () => { }
+});
+
+/**
+ * View the currently opened Archetype
+ */
+export const viewArchetypeTool = tool({
+  description: "View the currently opened Archetype",
+  inputSchema: z.object({}),
+  execute: () => { }
+});

@@ -43,9 +43,12 @@ import { CHAT_MODEL, getChatModel, measureAsync } from "@/lib/llm/helpers";
 import { MyUIMessage } from "@/types/ai";
 import {
   searchAndShowMemoriesTool,
-  setArchetypeStateTool,
   showMemoriesTool,
 } from "@/lib/llm/archetype/memory";
+import {
+  setArchetypeStateTool,
+  viewArchetypeTool,
+} from "@/lib/context/archetype-context";
 
 // Allow streaming responses up to 30 seconds
 export const maxDuration = 30;
@@ -228,11 +231,12 @@ export async function POST(req: Request) {
         },
         tools: {
           search_memories: createMemorySearchTool(sbUserId),
-          add_schema: addSchemaTool,
-          update_schema: updateSchemaTool,
+          // add_schema: addSchemaTool,
+          // update_schema: updateSchemaTool,
           show_memories: showMemoriesTool,
           search_and_show_memories: searchAndShowMemoriesTool,
           set_state_archetype: setArchetypeStateTool,
+          view_archetype: viewArchetypeTool,
         },
         stopWhen: stepCountIs(5),
         onFinish() {
