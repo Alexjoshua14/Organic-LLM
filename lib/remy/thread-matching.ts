@@ -57,18 +57,18 @@ function normalizeDate(dateStr: string): string {
       const month = parseInt(parts[0], 10);
       const day = parseInt(parts[1], 10);
       let year = parseInt(parts[2], 10);
-      
+
       // Convert 4-digit year to 2-digit
       if (year > 100) {
         year = year % 100;
       }
-      
+
       return `${month}/${day}/${year}`;
     }
   } catch (e) {
     // If parsing fails, return original
   }
-  
+
   return dateStr;
 }
 
@@ -158,7 +158,7 @@ export async function matchesThread(
 
   // Check text similarity
   const similarity = calculateSimilarity(normalizedQuery, normalizedTitle);
-  
+
   // Check date matching if dates are present
   const queryDate = extractDate(query);
   const titleDate = extractDate(threadTitle);
@@ -182,7 +182,7 @@ export async function matchesThread(
       const normalizedFmt = normalizeDate(fmt);
       return normalizedTitleDate === normalizedFmt;
     });
-    
+
     if (titleMatchesToday) {
       // Title date matches today, require lower similarity
       return similarity >= 0.5;
@@ -204,7 +204,10 @@ export async function getRemyThreads(): Promise<Result<Thread[]>> {
   try {
     const result = await getChats();
     if (result.error) {
-      logger.error("getRemyThreads", `Error fetching threads: ${result.error.message}`);
+      logger.error(
+        "getRemyThreads",
+        `Error fetching threads: ${result.error.message}`
+      );
       return result;
     }
 
@@ -250,7 +253,7 @@ export async function findMatchingThread(
     let bestMatch: { thread: Thread; score: number } | null = null;
 
     for (const thread of threads) {
-      if (await matchesThread(thread.title, query, date)) {
+      if (await matchesThread(thread.title ?? null, query, date)) {
         const similarity = calculateSimilarity(
           normalizeText(query),
           normalizeText(thread.title ?? "")
@@ -287,4 +290,3 @@ export async function findMatchingThread(
     };
   }
 }
-
