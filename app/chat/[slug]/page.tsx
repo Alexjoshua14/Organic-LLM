@@ -40,7 +40,7 @@ export default async function ChatPage({
 
   return (
     <Page>
-      <div className="max-w-[calc(100dvw-2rem)] md:max-w-[calc(100dvw-18rem)] lg:max-w-4xl">
+      <div className="max-w-[calc(100dvw-2rem)] md:max-w-[calc(100dvw-18rem)] lg:max-w-4xl w-full h-full">
         <Chat chatData={chatData} />
       </div>
     </Page>
