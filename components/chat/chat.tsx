@@ -19,7 +19,7 @@ const logger = createLogger("components/chat/chat");
 export type ChatProps = {
   chatData: { thread: Thread; messages: UIMessage[] } | null;
   initialMessage?: string;
-  persona?: "prometheus" | "spark" | "aion";
+  persona?: "prometheus" | "spark" | "aion" | "remy";
   endpoint?: string;
 };
 
@@ -27,18 +27,20 @@ export const Chat: React.FC<ChatProps> = ({
   chatData,
   endpoint,
   persona,
+  initialMessage,
 }) => {
 
   const selectedModelRef = useRef<ChatModel>(DEFAULT_CHAT_MODEL);
   const useWebSearchRef = useRef<boolean>(false);
   const useMemoriesRef = useRef<boolean>(false);
   const usePersistedSchemas = useRef<boolean>(persona === 'aion');
+  const initialMessageSent = useRef<boolean>(false);
 
   const { messages, sendMessage, id, stop, status, setMessages, addToolOutput } = useChat({
     id: chatData?.thread.id ?? "",
     messages: chatData?.messages ?? [],
     transport: new DefaultChatTransport({
-      api: persona === 'aion' ? '/api/ai/aion' : endpoint ?? `/api/chat/${persona ?? ""}`,
+      api: persona === 'aion' ? '/api/ai/aion' : persona === 'remy' ? '/api/ai/remy' : endpoint ?? `/api/chat/${persona ?? ""}`,
       prepareSendMessagesRequest({ messages, id }) {
         const req = {
           body: {
@@ -66,6 +68,14 @@ export const Chat: React.FC<ChatProps> = ({
       logger.log("chat", JSON.stringify(data, null, 2))
     }
   });
+
+  // Send initial message if provided
+  useEffect(() => {
+    if (initialMessage && !initialMessageSent.current && messages.length === 0 && status === "ready") {
+      initialMessageSent.current = true;
+      sendMessage({ text: initialMessage });
+    }
+  }, [initialMessage, messages.length, status, sendMessage]);
 
   const handleStop = useCallback(async () => {
     // Remove the latest user message and partially completed AI message from messages
@@ -118,7 +128,7 @@ export const Chat: React.FC<ChatProps> = ({
         className={
           [
             "h-full",
-            "w-full",
+            "w-232",
             "relative",
             "flex",
             "flex-col",

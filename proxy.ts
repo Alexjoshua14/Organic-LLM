@@ -8,6 +8,7 @@ const isProtectedRoute = createRouteMatcher([
   "/archetype(.*)",
   "/speak(.*)",
   "/settings(.*)",
+  "/remy(.*)",
   "/(api|trpc)(.*)",
 ]);
 
