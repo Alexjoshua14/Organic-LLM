@@ -57,6 +57,7 @@ export function Sidebar() {
               <SidebarGroupContent className="flex flex-col gap-3">
                 <SidebarNewChat />
                 <SidebarProjectLink href="/rabbitholes/browse" title="Rabbit Holes" tooltip="Browse rabbit holes" />
+                <SidebarProjectLink href="/remy" title="Remy" tooltip="Chat with Remy, your culinary co-chef" />
                 <Input
                   classNames={{
                     input: ["bg-transparent", "hover:bg-transparent"],
