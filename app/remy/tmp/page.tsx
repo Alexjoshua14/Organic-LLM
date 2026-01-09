@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState, useRef, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { UIMessage, useChat } from "@ai-sdk/react";
 import { DefaultChatTransport } from "ai";
@@ -21,7 +21,7 @@ import { useCallback } from "react";
 
 const logger = createLogger("app/remy/tmp/page.tsx");
 
-export default function RemyTmpPage() {
+function RemyTmpPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const initialMessage = searchParams.get("initialMessage");
@@ -107,7 +107,7 @@ export default function RemyTmpPage() {
       // Save to localStorage
       if (tmpChat) {
         const shouldSaveToSupabase = messages.length >= 2 && !tmpChat.saved;
-        
+
         const updatedChat: RemyTmpChat = {
           ...tmpChat,
           messages,
@@ -227,6 +227,20 @@ export default function RemyTmpPage() {
         </div>
       </div>
     </Page>
+  );
+}
+
+export default function RemyTmpPage() {
+  return (
+    <Suspense fallback={
+      <Page>
+        <div className="flex items-center justify-center h-full">
+          <p className="text-muted-foreground">Loading...</p>
+        </div>
+      </Page>
+    }>
+      <RemyTmpPageContent />
+    </Suspense>
   );
 }
 
