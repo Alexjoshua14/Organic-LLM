@@ -175,7 +175,8 @@ export const AionChat: React.FC<ChatProps> = ({
         "w-full",
         "max-w-232",
         "h-full",
-        "max-h-[calc(100dvh-2rem)]",
+        "max-h-full",
+        "min-h-0",
         "flex",
         "items-center",
         "justify-center",
@@ -200,7 +201,7 @@ export const AionChat: React.FC<ChatProps> = ({
         style={{ paddingBottom: "8rem" }}
       >
         <ChatThread messages={messages} />
-        <ConversationScrollButton className="bottom-40" />
+        <ConversationScrollButton className="bottom-46" />
       </Conversation>
       <NewChatInput
         modelRef={selectedModelRef}
@@ -209,7 +210,7 @@ export const AionChat: React.FC<ChatProps> = ({
         sendMessage={sendMessage}
         stop={handleStop}
         status={status}
-        className="absolute bottom-1 md:bottom-4 px-4 sm:px-7 w-full"
+        className="absolute bottom-8 md:bottom-4 px-4 sm:px-7 w-full"
       />
     </div>
   );

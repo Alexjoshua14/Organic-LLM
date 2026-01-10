@@ -1,6 +1,6 @@
 'use client'
 
-import { ChangeEventHandler, ComponentProps, FormEvent, useCallback, useEffect, useRef, useState, MouseEvent } from 'react'
+import { ChangeEventHandler, ComponentProps, FormEvent, useCallback, useEffect, useRef, useState, MouseEvent, useLayoutEffect } from 'react'
 import {
   PromptInput,
   PromptInputHeader,
@@ -52,6 +52,12 @@ export const NewChatInput: React.FC<NewChatInputProps> = ({
   className,
 }) => {
 
+  const STORAGE_KEY_MODEL = 'organic-llm-selected-model';
+  const STORAGE_KEY_WEB_SEARCH = 'organic-llm-web-search';
+  const STORAGE_KEY_MEMORIES = 'organic-llm-memories';
+  const STORAGE_KEY_TIMESTAMP = 'organic-llm-prefs-timestamp';
+  const EXPIRY_MS = 24 * 60 * 60 * 1000; // 24 hours in milliseconds
+
   const [text, setText] = useState<string>('');
   const [model, setModel] = useState<ChatModel>(DEFAULT_CHAT_MODEL);
   const [useWebSearch, setUseWebSearch] = useState<boolean>(false);
@@ -59,23 +65,74 @@ export const NewChatInput: React.FC<NewChatInputProps> = ({
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const toolsRef = useRef<HTMLDivElement | null>(null);
   const [showLabels, setShowLabels] = useState(true);
+  const hasLoadedPrefs = useRef(false);
 
-  // Set refs when any of the values change, so they are current for next send
+  // Load preferences from localStorage on mount
+  useLayoutEffect(() => {
+    if (hasLoadedPrefs.current) return;
+    hasLoadedPrefs.current = true;
+
+    const timestamp = localStorage.getItem(STORAGE_KEY_TIMESTAMP);
+    const isExpired = !timestamp || (Date.now() - parseInt(timestamp, 10)) > EXPIRY_MS;
+
+    if (isExpired) {
+      // Clear expired preferences
+      localStorage.removeItem(STORAGE_KEY_MODEL);
+      localStorage.removeItem(STORAGE_KEY_WEB_SEARCH);
+      localStorage.removeItem(STORAGE_KEY_MEMORIES);
+      localStorage.removeItem(STORAGE_KEY_TIMESTAMP);
+      return;
+    }
+
+    // Load stored preferences
+    const storedModel = localStorage.getItem(STORAGE_KEY_MODEL);
+    if (storedModel) {
+      const found = ChatModels.find((m) => m.id === storedModel);
+      if (found) setModel(found);
+    }
+
+    const storedWebSearch = localStorage.getItem(STORAGE_KEY_WEB_SEARCH);
+    if (storedWebSearch === 'true') setUseWebSearch(true);
+
+    const storedMemories = localStorage.getItem(STORAGE_KEY_MEMORIES);
+    if (storedMemories === 'true') setUseMemories(true);
+  }, []);
+
+  // Update timestamp whenever preferences are saved
+  const updatePrefsTimestamp = () => {
+    localStorage.setItem(STORAGE_KEY_TIMESTAMP, String(Date.now()));
+  };
+
+  // Sync model to ref and persist to localStorage
   useEffect(() => {
     if (modelRef && modelRef.current !== model) {
       modelRef.current = model;
     }
+    if (hasLoadedPrefs.current) {
+      localStorage.setItem(STORAGE_KEY_MODEL, model.id);
+      updatePrefsTimestamp();
+    }
   }, [model, modelRef]);
 
+  // Sync web search to ref and persist to localStorage
   useEffect(() => {
     if (useWebSearchRef && useWebSearchRef.current !== useWebSearch) {
       useWebSearchRef.current = useWebSearch;
     }
+    if (hasLoadedPrefs.current) {
+      localStorage.setItem(STORAGE_KEY_WEB_SEARCH, String(useWebSearch));
+      updatePrefsTimestamp();
+    }
   }, [useWebSearch, useWebSearchRef]);
 
+  // Sync memories to ref and persist to localStorage
   useEffect(() => {
     if (useMemoriesRef && useMemoriesRef.current !== useMemories) {
       useMemoriesRef.current = useMemories;
+    }
+    if (hasLoadedPrefs.current) {
+      localStorage.setItem(STORAGE_KEY_MEMORIES, String(useMemories));
+      updatePrefsTimestamp();
     }
   }, [useMemories, useMemoriesRef]);
 
@@ -156,7 +213,7 @@ export const NewChatInput: React.FC<NewChatInputProps> = ({
               </PromptInputButton>
 
               <PromptInputSelect
-                defaultValue={DEFAULT_CHAT_MODEL.id}
+                defaultValue={model.id}
                 onValueChange={handleModelSelection}
                 value={model.id}
                 required
@@ -164,7 +221,7 @@ export const NewChatInput: React.FC<NewChatInputProps> = ({
                 <PromptInputSelectTrigger className="max-w-32 min-w-0">
                   <PromptInputSelectValue className="truncate min-w-0" />
                 </PromptInputSelectTrigger>
-                <PromptInputSelectContent defaultValue={DEFAULT_CHAT_MODEL.id}>
+                <PromptInputSelectContent defaultValue={model.id}>
                   {ChatModels.map((model) => (
                     <PromptInputSelectItem key={model.id} value={model.id}>
                       {model.name}

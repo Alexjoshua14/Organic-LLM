@@ -235,7 +235,12 @@
   }
 
   p {
-    @apply text-base leading-normal;
+    @apply text-base leading-snug sm:leading-normal;
+  }
+
+  ul li,
+  ol li {
+    @apply leading-snug;
   }
 
   h1,
