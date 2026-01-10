@@ -1,5 +1,6 @@
 {
   "lockfileVersion": 1,
+  "configVersion": 0,
   "workspaces": {
     "": {
       "name": "organic-llm",
@@ -64,6 +65,7 @@
         "react-markdown": "^10.1.0",
         "react-spinners": "^0.17.0",
         "react-syntax-highlighter": "^15.6.6",
+        "react-textarea-autosize": "^8.5.9",
         "remark-gfm": "^4.0.1",
         "server-only": "^0.0.1",
         "sonner": "^2.0.7",
