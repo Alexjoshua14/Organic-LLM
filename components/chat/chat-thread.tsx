@@ -20,7 +20,7 @@ export const ChatThread: FC<ChatThreadProps> = ({
   className,
 }) => {
   return (
-    <ConversationContent className="w-full px-4 pt-16 flex flex-col">
+    <ConversationContent className="w-full px-4 pt-16 pb-12 flex flex-col">
       {messages.map((message) => {
         return <ChatMessage key={message.id} message={message} />;
       })}

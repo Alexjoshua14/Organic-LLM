@@ -60,7 +60,7 @@ export function AionShell({ chatData }: AionShellProps) {
 
 
   return (
-    <div className="w-full h-full relative overflow-hidden">
+    <div className="w-full h-full flex relative overflow-hidden">
       {/* Desktop toggle, TODO: Likely temporary */}
       <div className="hidden md:flex absolute top-3 right-32 z-20 gap-2">
         <button onClick={handleTestingCycleArchetypeTypes()}
@@ -78,28 +78,26 @@ export function AionShell({ chatData }: AionShellProps) {
 
       {/* Mobile tabs */}
       {/* TODO: Hide tabs when no archetype open */}
-      <div className="md:hidden w-full h-full pt-3 flex flex-col overflow-x-hidden">
-        <Tabs
-          value={showArchetype ? "archetype" : "chat"}
-          onValueChange={(val) => val === "archetype" ? open() : close()}
-          className="w-full flex-1 flex flex-col min-h-0"
-        >
-          <TabsList className={`${glass({ opaque: true })} z-20 w-full grid grid-cols-2 mt-2`}>
-            <TabsTrigger value="chat">Chat</TabsTrigger>
-            <TabsTrigger value="archetype">Archetype</TabsTrigger>
-          </TabsList>
-          <TabsContent forceMount value="chat" className={`data-[state=inactive]:opacity-0 transition-all duration-400 data-[state=inactive]:z-0 z-10 absolute w-full h-full mt-2 flex-1 min-h-0 overflow-hidden`}>
-            <div className="w-full h-full flex items-center justify-center">
-              <AionChat chatData={chatData} persona="aion" endpoint="/api/ai/aion" />
-            </div>
-          </TabsContent>
-          <TabsContent forceMount value="archetype" className={`data-[state=inactive]:opacity-0 transition-all duration-400 data-[state=inactive]:z-0 z-10 mt-2 flex-1 min-h-0 overflow-hidden`}>
-            <div className="w-full h-full">
-              <ArchetypeHost showGlass={false} />
-            </div>
-          </TabsContent>
-        </Tabs>
-      </div>
+      <Tabs
+        value={showArchetype ? "archetype" : "chat"}
+        onValueChange={(val) => val === "archetype" ? open() : close()}
+        className="md:hidden w-full flex-1 relative mt-3 pt-3 flex flex-col min-h-0 overflow-hidden"
+      >
+        <TabsList className={`${glass({ opaque: true })} z-20 w-full grid grid-cols-2 mt-2`}>
+          <TabsTrigger value="chat">Chat</TabsTrigger>
+          <TabsTrigger value="archetype">Archetype</TabsTrigger>
+        </TabsList>
+        <TabsContent forceMount value="chat" className={`data-[state=inactive]:opacity-0 transition-all duration-400 data-[state=inactive]:z-0 z-10 absolute w-full h-full mt-2 flex-1 min-h-0 overflow-hidden`}>
+          <div className="w-full h-full flex items-center justify-center">
+            <AionChat chatData={chatData} persona="aion" endpoint="/api/ai/aion" />
+          </div>
+        </TabsContent>
+        <TabsContent forceMount value="archetype" className={`data-[state=inactive]:opacity-0 transition-all duration-400 data-[state=inactive]:z-0 z-10 mt-2 flex-1 min-h-0 overflow-hidden`}>
+          <div className="w-full h-full">
+            <ArchetypeHost showGlass={false} />
+          </div>
+        </TabsContent>
+      </Tabs>
 
       {/* Desktop layout */}
       <motion.div
