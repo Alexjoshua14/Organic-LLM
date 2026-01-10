@@ -117,40 +117,36 @@ export const Chat: React.FC<ChatProps> = ({
         "h-full",
         "max-h-[calc(100dvh-2rem)]",
         "flex",
-        "items-center",
-        "justify-center",
+        "flex-col",
         "overflow-hidden",
-        "overscroll-x-none",
-        "relative",
       ].join(" ")}
     >
       <Conversation
-        className={
-          [
-            "h-full",
-            "w-232",
-            "relative",
-            "flex",
-            "flex-col",
-            "items-center",
-            "overflow-x-hidden",
-            "overscroll-x-none",
-          ].join(" ")
-        }
-        style={{ paddingBottom: "8rem" }}
+        className={[
+          "flex-1",
+          "min-h-0",
+          "w-full",
+          "relative",
+          "flex",
+          "flex-col",
+          "items-center",
+          "overflow-x-hidden",
+          "overscroll-x-none",
+        ].join(" ")}
       >
         <ChatThread messages={messages} />
-        <ConversationScrollButton className="bottom-40" />
+        <ConversationScrollButton className="bottom-14" />
       </Conversation>
-      <NewChatInput
-        modelRef={selectedModelRef}
-        useWebSearchRef={useWebSearchRef}
-        useMemoriesRef={useMemoriesRef}
-        sendMessage={sendMessage}
-        stop={handleStop}
-        status={status}
-        className="absolute bottom-1 md:bottom-4 px-4 sm:px-7 w-full"
-      />
+      <div className="shrink-0 px-4 sm:px-7 pb-1 md:pb-4 w-full -mt-10">
+        <NewChatInput
+          modelRef={selectedModelRef}
+          useWebSearchRef={useWebSearchRef}
+          useMemoriesRef={useMemoriesRef}
+          sendMessage={sendMessage}
+          stop={handleStop}
+          status={status}
+        />
+      </div>
     </div>
   );
 };

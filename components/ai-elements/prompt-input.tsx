@@ -27,6 +27,7 @@ import {
   InputGroupButton,
   InputGroupTextarea,
 } from "@/components/third-party/ui/input-group";
+import TextareaAutosize from "react-textarea-autosize";
 import {
   Select,
   SelectContent,
@@ -813,9 +814,8 @@ export const PromptInputBody = ({
   <div className={cn("contents", className)} {...props} />
 );
 
-export type PromptInputTextareaProps = ComponentProps<
-  typeof InputGroupTextarea
->;
+
+export interface PromptInputTextareaProps extends React.ComponentProps<typeof TextareaAutosize> { }
 
 export const PromptInputTextarea = ({
   onChange,
@@ -900,16 +900,27 @@ export const PromptInputTextarea = ({
     };
 
   return (
-    <InputGroupTextarea
-      className={cn("field-sizing-content max-h-48 min-h-16", className)}
+    <TextareaAutosize
+      className={cn(
+        // Minimal styles - let TextareaAutosize control height
+        "w-full bg-transparent px-3 py-3 text-base outline-none resize-none",
+        "placeholder:text-muted-foreground",
+        "border-0 shadow-none focus-visible:ring-0 rounded-none",
+        "disabled:cursor-not-allowed disabled:opacity-50 md:text-sm",
+        className
+      )}
+      data-slot="input-group-control"
+      minRows={1}
+      maxRows={5}
       name="message"
       onCompositionEnd={() => setIsComposing(false)}
       onCompositionStart={() => setIsComposing(true)}
       onKeyDown={handleKeyDown}
       onPaste={handlePaste}
       placeholder={placeholder}
-      {...props}
       {...controlledProps}
+      aria-multiline="true"
+
     />
   );
 };
