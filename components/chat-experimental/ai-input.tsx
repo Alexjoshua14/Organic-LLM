@@ -85,7 +85,7 @@ export const AIInput: React.FC = () => {
         onSubmit={handleSubmit}
         isLoading={isProcessing}
         status={aion.status}
-        className="w-full max-w-xl"
+        className="w-full max-w-xl rounded-xl"
       />
       <div className="flex gap-10 justify-center">
         {/* TODO: THis chat button can be converted to programmatic */}
