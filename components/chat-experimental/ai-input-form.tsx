@@ -43,7 +43,7 @@ const AiInputFormContent: React.FC<AiInputFormProps> = ({
           <PromptInputTextarea
             disabled={isLoading}
             placeholder="What do you want to explore?"
-            className="text-lg! md:text-lg! placeholder:text-lg! caret-accent w-full"
+            className="text-lg! md:text-lg! placeholder:text-lg! caret-accent w-full placeholder:text-foreground/80"
             autoFocus
           />
           : status === 'submitted' || status === 'streaming' ?
