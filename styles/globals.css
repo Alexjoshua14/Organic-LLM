@@ -114,7 +114,7 @@
 
   --accent: oklch(0.573 0.1049 174.44); /* #128C74 */
 
-  --accent-foreground: oklch(0.573 0.1049 174.44);
+  --accent-foreground: oklch(0.985 0 0);
 
   --destructive: oklch(0.577 0.245 27.325);
 

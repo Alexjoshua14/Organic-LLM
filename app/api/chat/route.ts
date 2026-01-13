@@ -198,7 +198,7 @@ export async function POST(req: Request) {
     },
     onFinish: async ({ messages, isAborted, finishReason }) => {
       logger.log("POST", `FINISH REASON: ${finishReason}`);
-      if (!finishReason) {
+      if (!finishReason && !isAborted) {
         logger.error("POST", "No finish reason provided, assuming failure");
         return;
       }
@@ -217,105 +217,106 @@ export async function POST(req: Request) {
       // Handle abort
       if (isAborted) {
         // Remove optimistically saved user message
-        logger.log(
-          "POST",
-          `Abort detected: removing optimistically saved user message`
-        );
-        deleteChatMessage(message.id);
-      } else {
-        const onFinishStart = performance.now();
-        const streamEndTime = performance.now();
-        const modelGenerationTime = streamEndTime - streamStartTime;
+        logger.log("POST", `Abort detected`);
 
-        const metrics: Record<string, number> = {
-          modelGenerationTimeMs: modelGenerationTime,
-        };
+        /** The following commented out section would full abort, dropping current generation */
+        // logger.log("POST", "Removing optimistically saved user message");
+        // deleteChatMessage(message.id);
+        // return;
+      }
 
-        logger.log(
-          "POST",
-          `Model (${selectedModel.id}) generated response in ${modelGenerationTime.toFixed(2)}ms (${(modelGenerationTime / 1000).toFixed(2)}s)`
-        );
+      const onFinishStart = performance.now();
+      const streamEndTime = performance.now();
+      const modelGenerationTime = streamEndTime - streamStartTime;
 
-        try {
-          const { result: saveResult, durationMs: saveChatMs } =
-            await measureAsync(() => saveChat({ chatId: id, messages }));
-          metrics.saveChatMs = saveChatMs;
+      const metrics: Record<string, number> = {
+        modelGenerationTimeMs: modelGenerationTime,
+      };
 
-          if (saveResult.error) {
+      logger.log(
+        "POST",
+        `Model (${selectedModel.id}) generated response in ${modelGenerationTime.toFixed(2)}ms (${(modelGenerationTime / 1000).toFixed(2)}s)`
+      );
+
+      try {
+        const { result: saveResult, durationMs: saveChatMs } =
+          await measureAsync(() => saveChat({ chatId: id, messages }));
+        metrics.saveChatMs = saveChatMs;
+
+        if (saveResult.error) {
+          logger.error(
+            "POST",
+            `Error saving chat: ${saveResult.error.message}`
+          );
+
+          return; // Don't continue if save fails
+        }
+
+        let ensureChatHasTitleMs: number | undefined;
+
+        // Ensure chat title for a sensible range (e.g. after 4–8 messages)
+        if (messages.length >= 4 && messages.length <= 8) {
+          const { result: titleResult, durationMs } = await measureAsync(() =>
+            ensureChatHasTitle(id)
+          );
+          ensureChatHasTitleMs = durationMs;
+
+          if (titleResult.error) {
             logger.error(
               "POST",
-              `Error saving chat: ${saveResult.error.message}`
+              `Error ensuring chat has title: ${titleResult.error.message}`
             );
-
-            return; // Don't continue if save fails
           }
+        }
 
-          let ensureChatHasTitleMs: number | undefined;
+        const userMessage = message;
+        const aiResponse = messages[messages.length - 1];
 
-          // Ensure chat title for a sensible range (e.g. after 4–8 messages)
-          if (messages.length >= 4 && messages.length <= 8) {
-            const { result: titleResult, durationMs } = await measureAsync(() =>
-              ensureChatHasTitle(id)
-            );
-            ensureChatHasTitleMs = durationMs;
+        if (!aiResponse) {
+          logger.error(
+            "POST",
+            "No AI response found in messages; skipping post-processing"
+          );
+          return;
+        }
 
-            if (titleResult.error) {
+        const updateSummaryResult = await measureAsync(() =>
+          updateChatSummary(id)
+        );
+        metrics.updateChatSummaryMs = updateSummaryResult.durationMs;
+
+        let addMemoryMs: number | undefined;
+        if (memoryEnabled) {
+          const addMemoryResult = await measureAsync(() =>
+            addLatestMessagesToMemory(
+              [userMessage, aiResponse],
+              sbUserId
+            ).catch((err) => {
               logger.error(
                 "POST",
-                `Error ensuring chat has title: ${titleResult.error.message}`
+                `Error adding latest messages to memory: ${err}`
               );
-            }
-          }
-
-          const userMessage = message;
-          const aiResponse = messages[messages.length - 1];
-
-          if (!aiResponse) {
-            logger.error(
-              "POST",
-              "No AI response found in messages; skipping post-processing"
-            );
-            return;
-          }
-
-          const updateSummaryResult = await measureAsync(() =>
-            updateChatSummary(id)
+            })
           );
-          metrics.updateChatSummaryMs = updateSummaryResult.durationMs;
-
-          let addMemoryMs: number | undefined;
-          if (memoryEnabled) {
-            const addMemoryResult = await measureAsync(() =>
-              addLatestMessagesToMemory(
-                [userMessage, aiResponse],
-                sbUserId
-              ).catch((err) => {
-                logger.error(
-                  "POST",
-                  `Error adding latest messages to memory: ${err}`
-                );
-              })
-            );
-            addMemoryMs = addMemoryResult.durationMs;
-            metrics.addLatestMessagesToMemoryMs = addMemoryMs;
-          }
-
-          if (updateSummaryResult.result?.error) {
-            logger.error(
-              "POST",
-              `Error updating chat summary: ${updateSummaryResult.result.error}`
-            );
-          }
-
-          metrics.onFinishTotalMs = performance.now() - onFinishStart;
-          if (ensureChatHasTitleMs !== undefined) {
-            metrics.ensureChatHasTitleMs = ensureChatHasTitleMs;
-          }
-
-          logger.log("POST", `onFinish metrics: ${JSON.stringify(metrics)}`);
-        } catch (err) {
-          logger.error("POST", `Error in onFinish callback: ${err}`);
+          addMemoryMs = addMemoryResult.durationMs;
+          metrics.addLatestMessagesToMemoryMs = addMemoryMs;
         }
+
+        if (updateSummaryResult.result?.error) {
+          logger.error(
+            "POST",
+            `Error updating chat summary: ${updateSummaryResult.result.error}`
+          );
+        }
+
+        metrics.onFinishTotalMs = performance.now() - onFinishStart;
+        if (ensureChatHasTitleMs !== undefined) {
+          metrics.ensureChatHasTitleMs = ensureChatHasTitleMs;
+        }
+
+        logger.log("POST", `onFinish metrics: ${JSON.stringify(metrics)}`);
+      } catch (err) {
+        logger.error("POST", `Error in onFinish callback: ${err}`);
       }
     },
     generateMessageId: () => randomUUID(),
