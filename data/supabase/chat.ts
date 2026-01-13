@@ -25,7 +25,8 @@ export async function getChats(): Promise<Result<Thread[]>> {
   const sb = await supabaseServer();
   const { data, error } = await sb
     .from("threads")
-    .select("id, title, owner_id, created_at, updated_at, pinned");
+    .select("id, title, owner_id, created_at, updated_at, pinned")
+    .order("updated_at", { ascending: false });
 
   return {
     data: data,
