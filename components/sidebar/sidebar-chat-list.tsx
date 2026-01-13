@@ -16,12 +16,13 @@ import {
 
 import SidebarDeleteThreadButton from "./sidebar-delete-thread-button";
 
-import { updateChatPinned } from "@/data/supabase/chat";
+import { updateChatPinned, updateChatTitle } from "@/data/supabase/chat";
 import { ThreadLink } from "@/types";
 import { createLogger } from "@/lib/logger";
 import { useSharedChatContext } from "@/lib/context/chat-context";
 import { useChatId } from "@/hooks/use-chat-id";
 import { ScrollShadow } from "@heroui/scroll-shadow";
+import { SidebarChatTitle } from "./sidebar-chat-title";
 
 const logger = createLogger("components/sidebar/sidebar-chat-list.tsx");
 
@@ -35,6 +36,24 @@ export const SidebarChatList: FC<SidebarChatListProps> = ({ threads }) => {
 
   // Alternative way to get chatID based on pathname (this version works other doesn't currently)
   const currentChatId = useChatId()
+
+  const handleSaveTitle = useCallback(
+    async (threadId: string, title: string) => {
+      const res = await updateChatTitle(threadId, title);
+      if (res.error) {
+        logger.error(
+          "handleSaveTitle",
+          `Error saving title for thread: ${threadId}`,
+          res.error.message,
+        );
+
+      }
+      if (window.refreshSidebar) {
+        window.refreshSidebar();
+      }
+    },
+    [currentChatId],
+  );
 
   const togglePinThread = useCallback(
     async (thread: ThreadLink) => {
@@ -76,6 +95,7 @@ export const SidebarChatList: FC<SidebarChatListProps> = ({ threads }) => {
       <ScrollShadow className="h-full w-full">
         <SidebarMenu className="h-fit w-full">
           {threads.map((thread) => {
+            const isActiveThread = currentChatId === thread.id;
             return (
               <SidebarMenuItem key={thread.id} className="relative">
                 <SidebarMenuButton asChild>
@@ -85,13 +105,17 @@ export const SidebarChatList: FC<SidebarChatListProps> = ({ threads }) => {
                     className={`font-extralight text-sm w-full rounded hover:bg-background px-3 transition-colors duration-150 group/thread overflow-hidden cursor-pointer`}
                     href={`/chat/${thread.id}`}
                     prefetch={shouldPrefetch(thread)}
-                    onClick={() => {
+                    onNavigate={(e) => {
+                      if (isActiveThread) {
+                        e.preventDefault();
+                        return;
+                      }
                       setOpenMobile(false);
                       setChatId(thread.id);
                     }}
                   >
                     <div className="w-full flex text-foreground-secondary">
-                      <h3 className="flex-1 truncate py-1">{thread.title}</h3>
+                      <SidebarChatTitle title={thread.title} onSave={(title) => handleSaveTitle(thread.id, title)} editable={isActiveThread} />
                       {!isMobile && (
                         <div className="relative w-14 z-10">
                           <div

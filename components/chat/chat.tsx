@@ -81,32 +81,34 @@ export const Chat: React.FC<ChatProps> = ({
     // Remove the latest user message and partially completed AI message from messages
     // Remove the latest user message and any partially completed AI response
     stop();
-    setMessages((prevMessages) => {
-      // Find the last user message
-      const lastUserIndex = [...prevMessages]
-        .reverse()
-        .findIndex((msg) => msg.role === "user");
-      if (lastUserIndex === -1) {
-        return prevMessages;
-      }
-      // Calculate the index in the original array
-      const lastUserMsgIdx = prevMessages.length - 1 - lastUserIndex;
 
-      // Remove the last user message and any AI message immediately after it (if exists)
-      let newMessages = prevMessages.slice(0, lastUserMsgIdx);
-      // Check if there's an AI message after the last user
-      if (
-        prevMessages[lastUserMsgIdx + 1] &&
-        prevMessages[lastUserMsgIdx + 1].role === "assistant"
-      ) {
-        // Remove the AI message as well
-        newMessages = prevMessages.slice(0, lastUserMsgIdx);
-      } else {
-        // If not, just slice off including the user message
-        newMessages = prevMessages.slice(0, lastUserMsgIdx);
-      }
-      return newMessages;
-    });
+    /** The following commented out section would revert messages, fully aborting current generation */
+    // setMessages((prevMessages) => {
+    //   // Find the last user message
+    //   const lastUserIndex = [...prevMessages]
+    //     .reverse()
+    //     .findIndex((msg) => msg.role === "user");
+    //   if (lastUserIndex === -1) {
+    //     return prevMessages;
+    //   }
+    //   // Calculate the index in the original array
+    //   const lastUserMsgIdx = prevMessages.length - 1 - lastUserIndex;
+
+    //   // Remove the last user message and any AI message immediately after it (if exists)
+    //   let newMessages = prevMessages.slice(0, lastUserMsgIdx);
+    //   // Check if there's an AI message after the last user
+    //   if (
+    //     prevMessages[lastUserMsgIdx + 1] &&
+    //     prevMessages[lastUserMsgIdx + 1].role === "assistant"
+    //   ) {
+    //     // Remove the AI message as well
+    //     newMessages = prevMessages.slice(0, lastUserMsgIdx);
+    //   } else {
+    //     // If not, just slice off including the user message
+    //     newMessages = prevMessages.slice(0, lastUserMsgIdx);
+    //   }
+    //   return newMessages;
+    // });
   }, [messages])
 
   return (
@@ -133,6 +135,7 @@ export const Chat: React.FC<ChatProps> = ({
           "overflow-x-hidden",
           "overscroll-x-none",
         ].join(" ")}
+
       >
         <ChatThread messages={messages} />
         <ConversationScrollButton className="bottom-14" />
