@@ -1,9 +1,11 @@
 "use client";
 
-import { useState, useCallback, KeyboardEvent, useRef } from "react";
-import { PressEvent } from "@heroui/button";
+import { useRef, useCallback } from "react";
+import { ChatStatus } from "ai";
+import { useChat } from "@ai-sdk/react";
 
-import { UnifiedChatInput } from "@/components/chat/unified-chat-input";
+import { NewChatInput } from "@/components/chat/new-chat-input";
+import { ChatModel, DEFAULT_CHAT_MODEL } from "@/lib/schemas/chat";
 
 interface RabbitHolePromptBarProps {
   onStart: (question: string) => void;
@@ -18,46 +20,38 @@ export function RabbitHolePromptBar({
   hasSession,
   isLoading,
 }: RabbitHolePromptBarProps) {
-  const input = useRef("")
-  const [error, setError] = useState(false);
+  // Create refs for NewChatInput (these features aren't used in rabbit hole but are required)
+  const modelRef = useRef<ChatModel>(DEFAULT_CHAT_MODEL);
+  const useWebSearchRef = useRef<boolean>(false);
+  const useMemoriesRef = useRef<boolean>(false);
 
-  const handleSubmit = useCallback(
-    (e?: React.FormEvent | PressEvent) => {
-      if (e && "preventDefault" in e) {
-        e.preventDefault();
+  // Adapt onStart to the sendMessage interface expected by NewChatInput
+  const sendMessage: ReturnType<typeof useChat>["sendMessage"] = useCallback(
+    async (message) => {
+      if (message && "text" in message && message.text?.trim()) {
+        onStart(message.text.trim());
       }
-      if (input.current.trim().length === 0) {
-        setError(true);
-        return;
-      }
-      setError(false);
-      onStart(input.current.trim());
-      input.current = "";
+      return undefined as unknown as ReturnType<ReturnType<typeof useChat>["sendMessage"]>;
     },
-    [input, onStart],
+    [onStart]
   );
 
+  // Adapt onReset to return a Promise as expected by stop
+  const stop: ReturnType<typeof useChat>["stop"] = useCallback(async () => {
+    onReset();
+  }, [onReset]);
+
+  // Map isLoading to ChatStatus
+  const status: ChatStatus = isLoading ? "streaming" : "ready";
+
   return (
-    <UnifiedChatInput
-      value={input.current}
-      onValueChange={(v) => {
-        input.current = v
-        if (error && v.trim().length > 0) {
-          setError(false);
-        }
-      }}
-      onSubmit={handleSubmit}
-      placeholder={
-        hasSession
-          ? "Dive deeper into this topic..."
-          : "What would you like to explore?"
-      }
-      error={error}
-      isLoading={isLoading}
-      variant="rabbit-hole"
-      hasSession={hasSession}
-      onReset={onReset}
-      isMobile
+    <NewChatInput
+      modelRef={modelRef}
+      useWebSearchRef={useWebSearchRef}
+      useMemoriesRef={useMemoriesRef}
+      sendMessage={sendMessage}
+      stop={stop}
+      status={status}
     />
   );
 }
