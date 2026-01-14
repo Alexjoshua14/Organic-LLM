@@ -23,7 +23,7 @@ import {
   PromptInputSelectValue,
   PromptInputSpeechButton,
   PromptInputCommandGroup,
-} from "../ai-elements/prompt-input";
+} from "../third-party/ai-elements/prompt-input";
 import { useChat } from '@ai-sdk/react';
 import { ArrowUp, ArrowUpNarrowWideIcon, BrainCircuit, CornerDownLeftIcon, GlobeIcon, Loader2Icon, SquareIcon, XIcon } from 'lucide-react';
 import { ChatModel, ChatModels, DEFAULT_CHAT_MODEL } from "@/lib/schemas/chat";

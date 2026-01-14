@@ -1,5 +1,5 @@
 import React, { FormEvent, useState } from "react";
-import { PromptInput, PromptInputBody, PromptInputTextarea, PromptInputFooter, PromptInputMessage, PromptInputProvider, usePromptInputController } from "../ai-elements/prompt-input";
+import { PromptInput, PromptInputBody, PromptInputTextarea, PromptInputFooter, PromptInputMessage, PromptInputProvider, usePromptInputController } from "../third-party/ai-elements/prompt-input";
 import { PromptInputSubmit } from "../chat/new-chat-input";
 import { glass } from "../design-system/primitives";
 import { ChatStatus } from "ai";

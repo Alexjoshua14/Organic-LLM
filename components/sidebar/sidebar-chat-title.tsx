@@ -28,7 +28,6 @@ export const SidebarChatTitle = ({ title, onSave, editable }: { title: string, o
   }, []);
 
   const handleSave = useCallback(() => {
-    setEditing(false);
     if (editedTitle.trim() === "") {
       setEditedTitle(title);
       return;
@@ -40,9 +39,9 @@ export const SidebarChatTitle = ({ title, onSave, editable }: { title: string, o
     if (e.key === "Enter") {
       handleSave();
     } else if (e.key === "Escape") {
-      setEditing(false);
       setEditedTitle(title);
     }
+    setEditing(false);
   };
 
   if (editing) {

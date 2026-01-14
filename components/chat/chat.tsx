@@ -135,7 +135,6 @@ export const Chat: React.FC<ChatProps> = ({
           "overflow-x-hidden",
           "overscroll-x-none",
         ].join(" ")}
-
       >
         <ChatThread messages={messages} />
         <ConversationScrollButton className="bottom-14" />
