@@ -13,13 +13,13 @@ export const RabbitHoleSourceAnalysisSchema = z.object({
 });
 
 export const RabbitHoleSourceSchema = z.object({
-  id: z.string(),
+  id: z.uuid(),
   title: z.string(),
   url: z.url(),
   faviconUrl: z.url().optional().or(z.literal("")).or(z.null()),
-  snippet: z.string().optional(),
-  publishedDate: z.string().optional(),
-  author: z.string().optional(),
+  snippet: z.string().optional().or(z.null()),
+  publishedDate: z.string().optional().or(z.null()),
+  author: z.string().optional().or(z.null()),
   highlights: z
     .array(z.string())
     .optional()
@@ -30,17 +30,27 @@ export const RabbitHoleSourceSchema = z.object({
 });
 
 export const RabbitHoleBranchSuggestionSchema = z.object({
-  id: z.string(),
+  id: z.uuid(),
   label: z.string(),
   shortDescription: z.string().max(200).optional(),
 });
 
 export const RabbitHoleNodeSchema = z.object({
-  id: z.string(),
+  id: z.uuid(),
   rawPrompt: z
     .string()
     .describe("The full system prompt string for generation"),
   userQuestion: z.string().describe("User-visible question"),
+  refinedQuestion: z
+    .string()
+    .describe("Refined question for LLM to respond to")
+    .optional()
+    .or(z.null()),
+  preview: z
+    .string()
+    .describe("Preview of the node content")
+    .optional()
+    .or(z.null()),
   keyTakeaways: z
     .array(z.string())
     .min(3)
@@ -70,7 +80,7 @@ export const RabbitHoleAIResponseSchema = RabbitHoleNodeSchema.omit({
 });
 
 export const RabbitHolePathSegmentSchema = z.object({
-  nodeId: z.string(),
+  nodeId: z.uuid(),
   label: z.string(),
   parentNodeId: z.string().nullable(),
 });
@@ -82,8 +92,11 @@ export const RabbitHoleEdgeSchema = z.object({
 });
 
 export const RabbitHoleSessionSchema = z.object({
-  sessionId: z.string(),
-  rootQuestion: z.string(),
+  sessionId: z.uuid().describe("The unique identifier for the session"),
+  rootQuestion: z
+    .string()
+    .describe("The initial question that started the session"),
+  rootNodeId: z.uuid().optional().or(z.null()),
   path: z.array(RabbitHolePathSegmentSchema),
   nodesById: z.record(z.string(), RabbitHoleNodeSchema),
   activeNodeId: z.string().nullable(),

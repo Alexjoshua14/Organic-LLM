@@ -2,11 +2,67 @@ import { Result } from "@/types";
 import {
   RabbitHoleSession,
   RabbitHoleSessionSchema,
-} from "@/app/rabbitholes/_lib/types";
+} from "@/lib/schemas/rabbitHoleSchemas";
 import type { RabbitHoleSessionMetadata } from "@/app/rabbitholes/_lib/sessionStorage";
 
 const SESSIONS_KEY = "rabbit-hole-sessions";
 const CURRENT_SESSION_KEY = "rabbit-hole-session";
+
+// Flag to prevent infinite recursion between cleanup and getAllSessions
+let isCleaningUp = false;
+
+/**
+ * Clean up orphaned full sessions that are no longer in the metadata list
+ * This helps prevent localStorage quota issues
+ */
+export function cleanupOrphanedSessions(): void {
+  if (typeof window === "undefined" || isCleaningUp) return;
+
+  isCleaningUp = true;
+  try {
+    // Read metadata directly to avoid recursion
+    const stored = localStorage.getItem(SESSIONS_KEY);
+    if (!stored) {
+      isCleaningUp = false;
+      return;
+    }
+
+    const parsed = JSON.parse(stored);
+    if (!Array.isArray(parsed)) {
+      isCleaningUp = false;
+      return;
+    }
+
+    const validSessionIds = new Set(parsed.map((s: any) => s?.sessionId).filter(Boolean));
+
+    // Find all localStorage keys that match the session pattern
+    const allKeys: string[] = [];
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i);
+      if (key && key.startsWith(`${CURRENT_SESSION_KEY}-`)) {
+        allKeys.push(key);
+      }
+    }
+
+    // Delete sessions that are no longer in the metadata list
+    let cleanedCount = 0;
+    for (const key of allKeys) {
+      const sessionId = key.replace(`${CURRENT_SESSION_KEY}-`, "");
+      if (!validSessionIds.has(sessionId)) {
+        localStorage.removeItem(key);
+        cleanedCount++;
+      }
+    }
+
+    if (cleanedCount > 0) {
+      console.log(`Cleaned up ${cleanedCount} orphaned RabbitHole sessions`);
+    }
+  } catch (err) {
+    console.warn("Failed to cleanup orphaned sessions:", err);
+  } finally {
+    isCleaningUp = false;
+  }
+}
 
 /**
  * List session metadata (index view)
@@ -26,6 +82,9 @@ export async function getAllSessions(): Promise<
     };
 
   try {
+    // Clean up orphaned sessions when listing (helps prevent quota issues)
+    cleanupOrphanedSessions();
+
     const stored = localStorage.getItem(SESSIONS_KEY);
     if (!stored)
       return {
@@ -136,11 +195,52 @@ export async function saveSession(
     };
 
   try {
+    // Clean up orphaned sessions before saving to prevent quota issues
+    cleanupOrphanedSessions();
+
     // Save the full session
-    localStorage.setItem(
-      `${CURRENT_SESSION_KEY}-${session.sessionId}`,
-      JSON.stringify(session)
-    );
+    try {
+      localStorage.setItem(
+        `${CURRENT_SESSION_KEY}-${session.sessionId}`,
+        JSON.stringify(session)
+      );
+    } catch (quotaError: any) {
+      // If quota exceeded, try cleaning up more aggressively and retry
+      if (quotaError?.name === "QuotaExceededError") {
+        console.warn("localStorage quota exceeded, attempting aggressive cleanup...");
+        
+        // Get current sessions and keep only the most recent 20
+        const sessionsRes = await getAllSessions();
+        if (!sessionsRes.error && sessionsRes.data) {
+          const limitedSessions = sessionsRes.data.slice(0, 20);
+          const validSessionIds = new Set(limitedSessions.map((s) => s.sessionId));
+          
+          // Delete all sessions not in the top 20
+          for (let i = 0; i < localStorage.length; i++) {
+            const key = localStorage.key(i);
+            if (key && key.startsWith(`${CURRENT_SESSION_KEY}-`)) {
+              const sessionId = key.replace(`${CURRENT_SESSION_KEY}-`, "");
+              if (!validSessionIds.has(sessionId)) {
+                localStorage.removeItem(key);
+              }
+            }
+          }
+          
+          // Update metadata list
+          localStorage.setItem(SESSIONS_KEY, JSON.stringify(limitedSessions));
+          
+          // Retry saving
+          localStorage.setItem(
+            `${CURRENT_SESSION_KEY}-${session.sessionId}`,
+            JSON.stringify(session)
+          );
+        } else {
+          throw quotaError;
+        }
+      } else {
+        throw quotaError;
+      }
+    }
 
     // Update the sessions list
     const sessionsRes = await getAllSessions();
@@ -184,6 +284,10 @@ export async function saveSession(
     // Keep only the most recent 50 sessions
     const limitedSessions = sessions.slice(0, 50);
     localStorage.setItem(SESSIONS_KEY, JSON.stringify(limitedSessions));
+
+    // Clean up old full sessions that are no longer in the metadata list
+    // This prevents localStorage quota from being exceeded
+    cleanupOrphanedSessions();
 
     return {
       data: true,

@@ -13,7 +13,7 @@ import {
   RabbitHoleAIResponse,
   RabbitHoleAIResponseSchema,
   RabbitHoleBranchSuggestion,
-} from "./_lib/types";
+} from "@/lib/schemas/rabbitHoleSchemas";
 import { Result } from "@/types";
 import {
   RABBIT_HOLE_SYSTEM_PROMPT,

@@ -7,7 +7,7 @@ import {
   RabbitHoleBranchSuggestionSchema,
   RabbitHoleNodeSchema,
   RabbitHoleSourceAnalysisSchema,
-} from "@/app/rabbitholes/_lib/types";
+} from "@/lib/schemas/rabbitHoleSchemas";
 import { Result } from "@/types";
 
 import { createLogger } from "@/lib/logger";

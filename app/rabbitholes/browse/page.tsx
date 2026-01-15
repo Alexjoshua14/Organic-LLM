@@ -1,14 +1,12 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useContext, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
 import { Trash2, ArrowRight, Plus } from "lucide-react";
 import { Button } from "@heroui/button";
 import Link from "next/link";
-import {
-  type RabbitHoleSessionMetadata,
-} from "../_lib/sessionStorage";
+import { RabbitHoleContext } from "@/lib/context/rabbithole-context";
 import {
   getAllSessions,
   deleteSession
@@ -16,11 +14,13 @@ import {
 
 import { formatDate } from "@/lib/format/stringFormatting";
 import { cn } from "@/lib/utils";
+import { removeSessionAudio } from "../_lib/audioStorage";
 
 export default function RabbitHolesBrowsePage() {
   const router = useRouter();
-  const [sessions, setSessions] = useState<RabbitHoleSessionMetadata[]>([]);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+
+  const { sessions, setSessions, setSessionId, sessionId, clearSession } = useContext(RabbitHoleContext);
 
   useEffect(() => {
     const fetchSessions = async () => {
@@ -36,20 +36,29 @@ export default function RabbitHolesBrowsePage() {
     fetchSessions()
   }, []);
 
-  const handleDelete = (sessionId: string, e: React.MouseEvent) => {
+  const handleDelete = async (sessionIdToDelete: string, e: React.MouseEvent) => {
     e.stopPropagation();
     e.preventDefault();
 
     if (confirm("Are you sure you want to delete this rabbit hole?")) {
-      setDeletingId(sessionId);
-      deleteSession(sessionId);
-      setSessions((prev) => prev.filter((s) => s.sessionId !== sessionId));
+      setDeletingId(sessionIdToDelete);
+      deleteSession(sessionIdToDelete);
+      setSessions((prev) => prev.filter((s) => s.sessionId !== sessionIdToDelete));
       setDeletingId(null);
+      // Handle cleaning up any now orphaned audio
+      await removeSessionAudio(sessionIdToDelete);
+      // If current session is opened, close it
+      if (sessionId === sessionIdToDelete) {
+        clearSession();
+      }
     }
   };
 
-  const handleSessionClick = (sessionId: string) => {
-    router.push(`/rabbitholes?session=${sessionId}`);
+  const handleSessionClick = (clickedSessionId: string) => {
+    if (sessionId !== clickedSessionId) {
+      setSessionId(clickedSessionId);
+    }
+    router.push(`/rabbitholes`);
   };
 
   return (

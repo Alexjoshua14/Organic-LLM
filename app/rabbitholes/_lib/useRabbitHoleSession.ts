@@ -1,13 +1,13 @@
 "use client";
 
-import { useState, useTransition, useEffect } from "react";
+import { useState, useTransition, useEffect, useContext } from "react";
 import {
   RabbitHoleSession,
   RabbitHoleNodeId,
   RabbitHoleSessionSchema,
   RabbitHoleSource,
   RabbitHoleSourceAnalysis,
-} from "./types";
+} from "@/lib/schemas/rabbitHoleSchemas";
 import {
   createRabbitHoleSession,
   followRabbitHoleBranch,
@@ -15,8 +15,10 @@ import {
   analyzeSource,
 } from "../actions";
 import { migrateSession } from "./sessionStorage";
-import { saveSession, getSessionById } from "@/data/local/rabbitholes";
+import { saveSession, getSessionById } from "@/data/supabase/rabbitholes";
 import { createLogger } from "@/lib/logger";
+import { cleanupOldAudio } from "./audioStorage";
+import { RabbitHoleContext } from "@/lib/context/rabbithole-context";
 
 const logger = createLogger("useRabbitHoleSession");
 
@@ -62,14 +64,6 @@ async function getStoredSession(
 async function saveSessionToStorage(
   session: RabbitHoleSession | null
 ): Promise<void> {
-  if (typeof window === "undefined") {
-    logger.log(
-      "saveSessionToStorage",
-      "Not running in a browser environment; skipping saveSessionToStorage."
-    );
-    return;
-  }
-
   try {
     if (!session) {
       logger.log(
@@ -95,26 +89,38 @@ async function saveSessionToStorage(
 
     logger.log(
       "saveSessionToStorage",
+      "Serializing session for transmission to server side.."
+    );
+
+    const serialized = JSON.stringify(session);
+    logger.log("saveSessionToStorage", `Serialized session.`);
+
+    logger.log(
+      "saveSessionToStorage",
       `Saving session with ID ${session.sessionId} to storage...`
     );
-    const res = await saveSession(session);
+    const res = await saveSession(serialized);
     logger.log(
       "saveSessionToStorage",
       `Session save result: ${JSON.stringify(res, null, 2)}`
     );
   } catch (error) {
     // Handle quota exceeded, disabled, etc.
-    logger.warn(
-      "saveSessionToStorage",
-      `Failed to save to localStorage: ${error}`
-    );
+    logger.warn("saveSessionToStorage", `Failed to save to Database: ${error}`);
   }
 }
 
-export function useRabbitHoleSession(initialSessionId?: string) {
-  const [session, setSession] = useState<RabbitHoleSession | null>(null);
-  const [isLoading, setIsLoading] = useState(false);
-  const [generatingNodeId, setGeneratingNodeId] = useState<string | null>(null);
+export function useRabbitHoleSession() {
+  const {
+    sessionId,
+    session,
+    setSession,
+    clearSession,
+    isLoading,
+    setIsLoading,
+    generatingNodeId,
+    setGeneratingNodeId,
+  } = useContext(RabbitHoleContext);
   const [preview, setPreview] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [selectedSourceId, setSelectedSourceId] = useState<string | null>(null);
@@ -133,13 +139,44 @@ export function useRabbitHoleSession(initialSessionId?: string) {
   }, [session]);
 
   useEffect(() => {
-    const retrieveSession = async () => {
-      const res = await getStoredSession(initialSessionId);
-      setSession(res);
-    };
+    if (sessionId && (session === null || sessionId !== session.sessionId)) {
+      clearSession();
+      setIsLoading(true);
+      const retrieveSession = async () => {
+        const res = await getStoredSession(sessionId);
+        if (res) {
+          setSession(res);
+        } else {
+          logger.error("useRabbitHoleSession", "New session detected");
+          setSession({
+            sessionId: sessionId,
+            rootQuestion: "",
+            activeNodeId: null,
+            nodesById: {},
+            edges: [],
+            path: [],
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString(),
+          });
+        }
+        setIsLoading(false);
+      };
 
-    retrieveSession();
-  }, [initialSessionId]);
+      retrieveSession();
+    } else {
+      if (!sessionId) {
+        logger.log("useRabbitHoleSession", "No session ID provided");
+      } else {
+        logger.log("useRabbitHoleSession", "Session is already loaded");
+      }
+    }
+  }, [sessionId]);
+
+  // Cleanup old audio on mount
+  useEffect(() => {
+    logger.log("useRabbitHoleSession", "Cleaning up old audio...");
+    cleanupOldAudio();
+  }, []);
 
   /**
    * Handles search for new question
@@ -229,7 +266,7 @@ export function useRabbitHoleSession(initialSessionId?: string) {
       const result = await analyzeSource(
         source.url,
         source.title,
-        source.snippet
+        source.snippet ?? undefined
       );
       if (result.error || !result.data) {
         logger.error(

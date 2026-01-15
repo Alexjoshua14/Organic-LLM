@@ -1,6 +1,6 @@
 "use server";
 
-import { RabbitHoleSource } from "@/app/rabbitholes/_lib/types";
+import { RabbitHoleSource } from "@/lib/schemas/rabbitHoleSchemas";
 import { createLogger } from "@/lib/logger";
 
 import {

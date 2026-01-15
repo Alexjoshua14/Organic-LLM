@@ -10,6 +10,7 @@ const isProtectedRoute = createRouteMatcher([
   "/settings(.*)",
   "/remy(.*)",
   "/(api|trpc)(.*)",
+  "/_next/server-actions(.*)",
 ]);
 
 /**

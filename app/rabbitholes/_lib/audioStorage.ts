@@ -1,8 +1,9 @@
 const DB_NAME = "rabbit-hole-audio";
-const DB_VERSION = 1;
+const DB_VERSION = 2;
 const STORE_NAME = "audio";
 
 interface AudioRecord {
+  sessionId: string;
   nodeId: string;
   audioUrl: string;
   generatedAt: number;
@@ -26,6 +27,9 @@ function initDB(): Promise<IDBDatabase> {
           keyPath: "nodeId",
         });
         objectStore.createIndex("generatedAt", "generatedAt", {
+          unique: false,
+        });
+        objectStore.createIndex("sessionId", "sessionId", {
           unique: false,
         });
       }
@@ -57,6 +61,7 @@ export async function getAudioForNode(nodeId: string): Promise<string | null> {
 }
 
 export async function saveAudioForNode(
+  sessionId: string,
   nodeId: string,
   audioData: Uint8Array
 ): Promise<string> {
@@ -72,6 +77,7 @@ export async function saveAudioForNode(
       const transaction = db.transaction([STORE_NAME], "readwrite");
       const store = transaction.objectStore(STORE_NAME);
       const record: AudioRecord = {
+        sessionId,
         nodeId,
         audioUrl,
         generatedAt: Date.now(),
@@ -121,5 +127,39 @@ export async function cleanupOldAudio(
     });
   } catch (error) {
     console.warn("Failed to cleanup old audio:", error);
+  }
+}
+
+/**
+ * Delete all audio for a given session
+ * @param sessionId - The ID of the session to remove audio for
+ */
+export async function removeSessionAudio(sessionId: string) {
+  try {
+    const db = await initDB();
+    const transaction = db.transaction([STORE_NAME], "readwrite");
+    const store = transaction.objectStore(STORE_NAME);
+    const index = store.index("sessionId");
+
+    return new Promise<void>((resolve, reject) => {
+      const request = index.openCursor(IDBKeyRange.only(sessionId));
+
+      request.onsuccess = (event) => {
+        const cursor = (event.target as IDBRequest<IDBCursorWithValue>).result;
+        if (cursor) {
+          const record = cursor.value as AudioRecord;
+          URL.revokeObjectURL(record.audioUrl); // Free memory
+          cursor.delete();
+          cursor.continue();
+        } else {
+          resolve();
+        }
+      };
+
+      request.onerror = () => reject(request.error);
+    });
+  } catch (error) {
+    console.warn("Failed to remove session audio:", error);
+    return Promise.reject(error);
   }
 }
