@@ -1,11 +1,21 @@
 "use server";
 
-export interface ExaSearchOptions {
-  numResults?: number;
-  type?: "auto" | "neural" | "keyword";
-  includeDomains?: string[];
-  excludeDomains?: string[];
-}
+import z from "zod";
+
+export const exaSearchOptionsSchema = z.object({
+  numResults: z.number().describe("The number of results to return"),
+  type: z
+    .enum(["auto", "neural", "keyword"])
+    .describe("The type of search to perform"),
+  includeDomains: z
+    .array(z.string())
+    .describe("The domains to include in the search"),
+  excludeDomains: z
+    .array(z.string())
+    .describe("The domains to exclude from the search"),
+});
+
+export type ExaSearchOptions = z.infer<typeof exaSearchOptionsSchema>;
 
 export interface ExaSearchDocument {
   id?: string;

@@ -1,14 +1,11 @@
 "use client";
 
-import { Suspense } from "react";
-import { useSearchParams } from "next/navigation";
+import { Suspense, useContext } from "react";
 import { RabbitHoleShell } from "./_components/RabbitHoleShell";
+import { RabbitHoleContext } from "@/lib/context/rabbithole-context";
 
 function RabbitHoleShellWrapper() {
-  const searchParams = useSearchParams();
-  const sessionId = searchParams.get("session") || undefined;
-
-  return <RabbitHoleShell sessionId={sessionId} />;
+  return <RabbitHoleShell />;
 }
 
 export default function RabbitHolesPage() {

@@ -1,10 +1,12 @@
 "use client";
 
+import { useContext } from "react";
 import { motion } from "framer-motion";
-import type { RabbitHoleSourceAnalysis } from "../_lib/types";
+import type { RabbitHoleSourceAnalysis } from "@/lib/schemas/rabbitHoleSchemas";
 import { ExternalLink } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { RabbitHoleTTSButton } from "./RabbitHoleTTSButton";
+import { RabbitHoleContext } from "@/lib/context/rabbithole-context";
 
 interface RabbitHoleSourceAnalysisProps {
   analysis: RabbitHoleSourceAnalysis;

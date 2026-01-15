@@ -12,18 +12,21 @@ import { RabbitHoleSourceAnalysis } from "./RabbitHoleSourceAnalysis";
 import { RabbitHoleAmbientLayer } from "./RabbitHoleAmbientLayer";
 import { RabbitHolePromptBar } from "./RabbitHolePromptBar";
 import { RabbitHoleLoadingState } from "./RabbitHoleLoadingState";
-import { RabbitHoleSource } from "../_lib/types";
+import { RabbitHoleSource } from "@/lib/schemas/rabbitHoleSchemas";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { Button } from "@heroui/button";
 import Link from "next/link";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
+import { createLogger } from "@/lib/logger";
+
+const logger = createLogger("RabbitHoleShell");
 
 interface RabbitHoleShellProps {
   sessionId?: string;
 }
 
-export function RabbitHoleShell({ sessionId }: RabbitHoleShellProps = {}) {
+export function RabbitHoleShell() {
   const router = useRouter();
   const {
     session,
@@ -41,7 +44,7 @@ export function RabbitHoleShell({ sessionId }: RabbitHoleShellProps = {}) {
     clearSourceSelection,
     reset,
     saveSessionToStorage
-  } = useRabbitHoleSession(sessionId);
+  } = useRabbitHoleSession();
 
   const [activeTakeawayIndex, setActiveTakeawayIndex] = useState<number | null>(
     null,
@@ -49,14 +52,16 @@ export function RabbitHoleShell({ sessionId }: RabbitHoleShellProps = {}) {
 
   // If sessionId was provided but session is null after mount, redirect to browse
   useEffect(() => {
-    if (sessionId && !session && !isLoading) {
+    if (!session && !isLoading) {
       // Session not found, redirect to browse after a short delay
       const timer = setTimeout(() => {
+        logger.log("RabbitHoleShell", "No session found, redirecting to browse");
+        logger.log("RabbitHoleShell", "Session: " + JSON.stringify(session));
         router.push("/rabbitholes/browse");
       }, 2000);
       return () => clearTimeout(timer);
     }
-  }, [sessionId, session, isLoading, router]);
+  }, [session, isLoading, router]);
 
   // Surface errors via toast
   useEffect(() => {

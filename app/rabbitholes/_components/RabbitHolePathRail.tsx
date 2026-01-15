@@ -1,7 +1,7 @@
 "use client";
 
 import { motion } from "framer-motion";
-import { RabbitHoleSession, RabbitHoleNodeId } from "../_lib/types";
+import { RabbitHoleSession, RabbitHoleNodeId } from "@/lib/schemas/rabbitHoleSchemas";
 import { cn } from "@/lib/utils";
 
 function NewRabbitHoleButton({ onClick }: { onClick: () => void }) {

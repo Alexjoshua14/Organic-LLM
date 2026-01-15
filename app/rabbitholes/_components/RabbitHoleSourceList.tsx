@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { RabbitHoleSource } from "../_lib/types";
+import { RabbitHoleSource } from "@/lib/schemas/rabbitHoleSchemas";
 import { ChevronDown, ChevronUp } from "lucide-react";
 import { cn } from "@/lib/utils";
 

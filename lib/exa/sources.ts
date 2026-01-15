@@ -1,8 +1,11 @@
 "use server";
 
 import { getContents, searchWeb } from "./client";
-import { RabbitHoleNode } from "@/app/rabbitholes/_lib/types";
+import { RabbitHoleNode } from "@/lib/schemas/rabbitHoleSchemas";
 import { createLogger } from "@/lib/logger";
+import z from "zod";
+import { tool } from "ai";
+import { exaSearchOptionsSchema } from "./types";
 
 const logger = createLogger("lib/exa/sources.ts");
 
@@ -12,6 +15,17 @@ type ExternalSourcesResult = {
   sourcesContext: string;
   sourcesInstruction: string;
 };
+
+export const exaWebSearchTool = tool({
+  description: "Search the web for information",
+  inputSchema: z.object({
+    query: z.string().describe("The query to search for"),
+    options: exaSearchOptionsSchema.optional(),
+  }),
+  execute: async ({ query, options }) => {
+    return await searchWeb(query, options);
+  },
+});
 
 /**
  * Fetch external sources and produce formatted context/instructions for prompts.
@@ -23,6 +37,8 @@ export async function fetchExternalSources(
 ): Promise<ExternalSourcesResult> {
   const { sources: exaSources, error: exaError } = await searchWeb(prompt, {
     numResults: 6,
+    includeDomains: [],
+    excludeDomains: [],
     type: "auto",
   });
 

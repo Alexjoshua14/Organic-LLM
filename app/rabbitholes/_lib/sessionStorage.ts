@@ -5,7 +5,7 @@ import {
   RabbitHolePathSegment,
   RabbitHoleSession,
   RabbitHoleSessionSchema,
-} from "./types";
+} from "@/lib/schemas/rabbitHoleSchemas";
 
 const SESSIONS_KEY = "rabbit-hole-sessions";
 const CURRENT_SESSION_KEY = "rabbit-hole-session";

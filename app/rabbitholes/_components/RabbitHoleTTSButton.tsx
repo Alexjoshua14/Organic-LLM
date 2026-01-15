@@ -1,10 +1,14 @@
 "use client";
 
-import { useState, useRef, useCallback, useEffect } from "react";
+import { useState, useRef, useCallback, useEffect, useContext } from "react";
 import { Button } from "@heroui/button";
 import { Volume2, VolumeX, Loader2 } from "lucide-react";
 import { getAudioForNode, saveAudioForNode } from "../_lib/audioStorage";
 import { cn } from "@/lib/utils";
+import { RabbitHoleContext } from "@/lib/context/rabbithole-context";
+import { createLogger } from "@/lib/logger";
+
+const logger = createLogger("RabbitHoleTTSButton");
 
 interface RabbitHoleTTSButtonProps {
   nodeId: string;
@@ -30,6 +34,7 @@ export function RabbitHoleTTSButton({
   text,
   className,
 }: RabbitHoleTTSButtonProps) {
+  const { sessionId } = useContext(RabbitHoleContext);
   const [loading, setLoading] = useState(false);
   const [audioUrl, setAudioUrl] = useState<string | null>(null);
   const [isPlaying, setIsPlaying] = useState(false);
@@ -106,13 +111,17 @@ export function RabbitHoleTTSButton({
       const uint8Array = new Uint8Array(Object.values(data.data.uint8ArrayData));
 
       // Save to IndexedDB
-      const url = await saveAudioForNode(nodeId, uint8Array);
-      setAudioUrl(url);
+      if (sessionId) {
+        const url = await saveAudioForNode(sessionId, nodeId, uint8Array);
+        setAudioUrl(url);
 
-      if (audioRef.current) {
-        audioRef.current.src = url;
-        audioRef.current.play();
-        setIsPlaying(true);
+        if (audioRef.current) {
+          audioRef.current.src = url;
+          audioRef.current.play();
+          setIsPlaying(true);
+        }
+      } else {
+        logger.error("RabbitHoleTTSButton", "No session ID found");
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to generate audio");
