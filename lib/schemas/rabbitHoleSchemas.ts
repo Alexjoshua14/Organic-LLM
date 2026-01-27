@@ -13,6 +13,7 @@ export const RabbitHoleSourceAnalysisSchema = z.object({
 });
 
 export const RabbitHoleSourceSchema = z.object({
+  status: z.enum(["none", "pending", "complete", "error"]).default("none"),
   id: z.uuid(),
   title: z.string(),
   url: z.url(),
@@ -25,7 +26,7 @@ export const RabbitHoleSourceSchema = z.object({
     .optional()
     .describe("Notable excerpts extracted from the source"),
   analysis: RabbitHoleSourceAnalysisSchema.optional().describe(
-    "User-triggered optional analysis"
+    "User-triggered optional analysis",
   ), // Might shift to linking by id instead
 });
 
@@ -59,7 +60,7 @@ export const RabbitHoleNodeSchema = z.object({
   articleHtml: z
     .string()
     .describe(
-      "HTML string containing section tags, paragraphs, and inline spans only"
+      "HTML string containing section tags, paragraphs, and inline spans only",
     ),
   sources: z.array(RabbitHoleSourceSchema).optional(),
   branchSuggestions: z
