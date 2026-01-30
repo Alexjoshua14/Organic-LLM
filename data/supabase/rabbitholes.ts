@@ -1,6 +1,6 @@
 "use server";
 
-import { Result } from "@/types";
+import { Result, SimpleResult } from "@/types";
 import {
   RabbitHoleSession,
   RabbitHoleSessionSchema,
@@ -36,8 +36,9 @@ export async function getAllSessions(): Promise<
  * Fetch a full session by ID
  */
 export async function getSessionById(
-  sessionId: string
+  sessionId: string,
 ): Promise<Result<RabbitHoleSession | null>> {
+  logger.log("getSessionById", `Not yet implemented`);
   return {
     data: null,
     error: new Error("Not yet implemented"),
@@ -45,14 +46,14 @@ export async function getSessionById(
 }
 
 async function deserializeSession(
-  serialized: string
+  serialized: string,
 ): Promise<RabbitHoleSession> {
   // PArse using Zod
   const parsed = RabbitHoleSessionSchema.safeParse(JSON.parse(serialized));
   if (!parsed.success) {
     logger.error(
       "deserializeSession",
-      `Failed to deserialize session: ${parsed.error.message}`
+      `Failed to deserialize session: ${parsed.error.message}`,
     );
     throw new Error(`Failed to deserialize session: ${parsed.error.message}`);
   }
@@ -62,21 +63,21 @@ async function deserializeSession(
 /**
  * Persist a session (upsert)
  */
-export async function saveSession(serialized: string): Promise<Result<void>> {
+export async function saveSession(serialized: string): Promise<SimpleResult> {
   const supabase = await supabaseServer();
 
   try {
     if (DEBUG_MODE) {
       logger.log(
         "saveSession",
-        `Starting save operation. Serialized length: ${serialized.length} chars`
+        `Starting save operation. Serialized length: ${serialized.length} chars`,
       );
     }
 
     if (DEBUG_MODE) {
       logger.log(
         "saveSession",
-        `Deserializing session: ${serialized.substring(0, 100)}...`
+        `Deserializing session: ${serialized.substring(0, 100)}...`,
       );
     }
     const session = await deserializeSession(serialized);
@@ -84,7 +85,7 @@ export async function saveSession(serialized: string): Promise<Result<void>> {
     if (DEBUG_MODE) {
       logger.log(
         "saveSession",
-        `Deserialized session ${session.sessionId} with ${Object.keys(session.nodesById).length} nodes, ${session.path.length} path segments`
+        `Deserialized session ${session.sessionId} with ${Object.keys(session.nodesById).length} nodes, ${session.path.length} path segments`,
       );
     }
 
@@ -116,10 +117,10 @@ export async function saveSession(serialized: string): Promise<Result<void>> {
     if (sessionError) {
       logger.error(
         "saveSession",
-        `Failed to upsert session: ${sessionError.message}`
+        `Failed to upsert session: ${sessionError.message}`,
       );
       return {
-        data: null,
+        ok: false,
         error: new Error(`Failed to save session: ${sessionError.message}`),
       };
     }
@@ -151,17 +152,17 @@ export async function saveSession(serialized: string): Promise<Result<void>> {
       if (nodesError) {
         logger.error(
           "saveSession",
-          `Failed to upsert nodes: ${nodesError.message}`
+          `Failed to upsert nodes: ${nodesError.message}`,
         );
         return {
-          data: null,
+          ok: false,
           error: new Error(`Failed to save nodes: ${nodesError.message}`),
         };
       }
       if (DEBUG_MODE) {
         logger.log(
           "saveSession",
-          `Successfully upserted ${nodes.length} nodes`
+          `Successfully upserted ${nodes.length} nodes`,
         );
       }
     } else {
@@ -183,7 +184,7 @@ export async function saveSession(serialized: string): Promise<Result<void>> {
       if (DEBUG_MODE) {
         logger.log(
           "saveSession",
-          `Upserting ${pathSegments.length} path segments`
+          `Upserting ${pathSegments.length} path segments`,
         );
       }
       const { error: pathError } = await supabase
@@ -193,19 +194,19 @@ export async function saveSession(serialized: string): Promise<Result<void>> {
       if (pathError) {
         logger.error(
           "saveSession",
-          `Failed to upsert path segments: ${pathError.message}`
+          `Failed to upsert path segments: ${pathError.message}`,
         );
         return {
-          data: null,
+          ok: false,
           error: new Error(
-            `Failed to save path segments: ${pathError.message}`
+            `Failed to save path segments: ${pathError.message}`,
           ),
         };
       }
       if (DEBUG_MODE) {
         logger.log(
           "saveSession",
-          `Successfully upserted ${pathSegments.length} path segments`
+          `Successfully upserted ${pathSegments.length} path segments`,
         );
       }
     } else {
@@ -233,17 +234,17 @@ export async function saveSession(serialized: string): Promise<Result<void>> {
       if (edgesError) {
         logger.error(
           "saveSession",
-          `Failed to upsert edges: ${edgesError.message}`
+          `Failed to upsert edges: ${edgesError.message}`,
         );
         return {
-          data: null,
+          ok: false,
           error: new Error(`Failed to save edges: ${edgesError.message}`),
         };
       }
       if (DEBUG_MODE) {
         logger.log(
           "saveSession",
-          `Successfully upserted ${edges.length} edges`
+          `Successfully upserted ${edges.length} edges`,
         );
       }
     } else {
@@ -287,17 +288,17 @@ export async function saveSession(serialized: string): Promise<Result<void>> {
       if (sourcesError) {
         logger.error(
           "saveSession",
-          `Failed to upsert sources: ${sourcesError.message}`
+          `Failed to upsert sources: ${sourcesError.message}`,
         );
         return {
-          data: null,
+          ok: false,
           error: new Error(`Failed to save sources: ${sourcesError.message}`),
         };
       }
       if (DEBUG_MODE) {
         logger.log(
           "saveSession",
-          `Successfully upserted ${sources.length} sources`
+          `Successfully upserted ${sources.length} sources`,
         );
       }
     } else {
@@ -326,7 +327,7 @@ export async function saveSession(serialized: string): Promise<Result<void>> {
       if (DEBUG_MODE) {
         logger.log(
           "saveSession",
-          `Upserting ${branchSuggestions.length} branch suggestions`
+          `Upserting ${branchSuggestions.length} branch suggestions`,
         );
       }
       const { error: branchesError } = await supabase
@@ -338,19 +339,19 @@ export async function saveSession(serialized: string): Promise<Result<void>> {
       if (branchesError) {
         logger.error(
           "saveSession",
-          `Failed to upsert branch suggestions: ${branchesError.message}`
+          `Failed to upsert branch suggestions: ${branchesError.message}`,
         );
         return {
-          data: null,
+          ok: false,
           error: new Error(
-            `Failed to save branch suggestions: ${branchesError.message}`
+            `Failed to save branch suggestions: ${branchesError.message}`,
           ),
         };
       }
       if (DEBUG_MODE) {
         logger.log(
           "saveSession",
-          `Successfully upserted ${branchSuggestions.length} branch suggestions`
+          `Successfully upserted ${branchSuggestions.length} branch suggestions`,
         );
       }
     } else {
@@ -362,20 +363,20 @@ export async function saveSession(serialized: string): Promise<Result<void>> {
     if (DEBUG_MODE) {
       logger.log(
         "saveSession",
-        `Successfully saved session ${session.sessionId}`
+        `Successfully saved session ${session.sessionId}`,
       );
     }
     return {
-      data: null,
+      ok: true,
       error: null,
     };
   } catch (error) {
     logger.error(
       "saveSession",
-      `Unexpected error saving session: ${error instanceof Error ? error.message : String(error)}`
+      `Unexpected error saving session: ${error instanceof Error ? error.message : String(error)}`,
     );
     return {
-      data: null,
+      ok: false,
       error:
         error instanceof Error
           ? error

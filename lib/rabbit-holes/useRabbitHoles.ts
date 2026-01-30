@@ -7,38 +7,14 @@ import {
   RabbitHoleSourceAnalysis,
   RabbitHoleNode,
 } from "@/lib/schemas/rabbitHoleSchemas";
-import { randomUUID } from "crypto";
 import { useEffect, useState, useTransition } from "react";
 import { createLogger } from "@/lib/logger";
 import { analyzeSource, generateQuickPreview } from "@/app/rabbitholes/actions";
 import { generateRabbitHoleNode } from "./actions";
-import { SimpleResult } from "@/types";
+import { Result, SimpleResult } from "@/types";
+import { getSessionById, saveSession } from "@/data/supabase/rabbitholes";
 
 const logger = createLogger("useRabbitHoles");
-
-/**
- * Retrieves a stored rabbit hole session by ID or from localStorage
- * @param sessionId - Optional session ID to load a specific session
- * @returns The session if found, null otherwise
- */
-async function getStoredSession(
-  sessionId?: string,
-): Promise<RabbitHoleSession | null> {
-  // Null implementation for temporary
-  return null;
-}
-
-/**
- * Saves a rabbit hole session to storage
- * @param session - The session to save, or null to clear
- * @returns Promise that resolves when save is complete
- */
-async function saveSessionToStorage(
-  session: RabbitHoleSession | null,
-): Promise<void> {
-  // Null implementation for temporary
-  return;
-}
 
 /**
  * Hook return type for useRabbitHoles
@@ -53,9 +29,10 @@ export interface UseRabbitHolesReturn {
   selectedSourceId: string | null;
   sourceAnalysis: RabbitHoleSourceAnalysis | null;
   isAnalyzingSource: boolean;
-  newSession: () => void;
-  loadExistingSession: (sessionId: string) => SimpleResult;
-  exploreQuestion: (question: string) => Promise<SimpleResult>;
+  createSession: () => void;
+  loadExistingSession: (sessionId: string) => Promise<SimpleResult>;
+  exploreQuestion: (question: string, id?: string) => Promise<SimpleResult>;
+  followBranch: (branchId: string) => Promise<SimpleResult>;
   selectSource: (source: RabbitHoleSource) => Promise<void>;
   clearSourceSelection: () => void;
   resetSourceAnalysisState: () => void;
@@ -74,6 +51,7 @@ export function useRabbitHoles(): UseRabbitHolesReturn {
     null,
   );
   const [isLoading, setIsLoading] = useState(false);
+  const [isSavingSession, setIsSavingSession] = useState(false);
   const [isGeneratingNode, startTransition] = useTransition();
   const [generatingNodeId, setGeneratingNodeId] =
     useState<RabbitHoleNodeId | null>(null);
@@ -84,12 +62,14 @@ export function useRabbitHoles(): UseRabbitHolesReturn {
     useState<RabbitHoleSourceAnalysis | null>(null);
   const [isAnalyzingSource, setIsAnalyzingSource] = useState(false);
 
-  function newSession() {
-    setIsLoading(true);
-
+  /**
+   * @internal
+   * @returns A result object containing a new RabbitHoleSession or an error.
+   */
+  function newSession(): Result<RabbitHoleSession, Error> {
     try {
       const newSession: RabbitHoleSession = {
-        sessionId: randomUUID(),
+        sessionId: globalThis.crypto.randomUUID(),
         rootQuestion: "",
         activeNodeId: null,
         createdAt: new Date().toISOString(),
@@ -99,18 +79,68 @@ export function useRabbitHoles(): UseRabbitHolesReturn {
         edges: [],
       };
 
-      setSession(newSession);
+      return {
+        data: newSession,
+        error: null,
+      };
     } catch (error) {
       logger.error("newSession", "Error creating new session", error);
-    } finally {
-      setIsLoading(false);
+      return {
+        data: null,
+        error: error instanceof Error ? error : new Error("Unknown error"),
+      };
     }
   }
 
-  function loadExistingSession(sessionId: string): SimpleResult {
+  /**
+   * Creates a new rabbit hole session and updates the session state.
+   * If there is an error creating the session, sets the error state accordingly.
+   */
+  function createSession() {
+    const res = newSession();
+    if (res.error || !res.data) {
+      setError(res.error?.message ?? "Unknown error creating new session");
+      return;
+    }
+
+    setSession(res.data);
+  }
+
+  async function saveSessionToStorage(session: RabbitHoleSession | null) {
+    // Null implementation
+    setIsSavingSession(true);
+    logger.log("saveSession", "Not yet implemented");
+    const serilizedSession = JSON.stringify(session);
+    const res = await saveSession(serilizedSession);
+
+    if (res.error) {
+      logger.error("saveSessionToStorage", "Error saving session", res.error);
+      setError(res.error?.message ?? "Unknown error saving session");
+    }
+
+    setIsSavingSession(false);
+  }
+
+  async function loadExistingSession(sessionId: string): Promise<SimpleResult> {
     setIsLoading(true);
     try {
-      const session = getStoredSession(sessionId);
+      const res = await getSessionById(sessionId);
+      if (res.error || !res.data) {
+        logger.error(
+          "loadExistingSession",
+          "Error loading existing session",
+          res.error,
+        );
+        setError(res.error?.message ?? "Unknown error loading session");
+        return {
+          ok: false,
+          error: res.error ?? new Error("Unknown error loading session"),
+        };
+      }
+
+      const session = res.data;
+      setSession(session);
+      setActiveNodeId(session.activeNodeId ?? session.rootNodeId ?? null);
       return {
         ok: true,
         error: null,
@@ -143,9 +173,9 @@ export function useRabbitHoles(): UseRabbitHolesReturn {
    * @param question - The user's question for the node
    * @returns A fully constructed RabbitHoleNode object
    */
-  function createNode(question: string): RabbitHoleNode {
+  function createNode(question: string, id?: string): RabbitHoleNode {
     const node: RabbitHoleNode = {
-      id: randomUUID(),
+      id: id ?? globalThis.crypto.randomUUID(),
       rawPrompt: question,
       userQuestion: question,
       createdAt: new Date().toISOString(),
@@ -164,14 +194,16 @@ export function useRabbitHoles(): UseRabbitHolesReturn {
    * Handles validation, session management, optimistic node creation,
    * preview generation, and state updates.
    * @param question The question string to explore.
-   /**
-    * @returns A Promise that resolves to a SimpleResult:
-    *   - { ok: true, error: null } if the exploration was successful
-    *   - { ok: false, error: Error } if there was a validation or generation error
-    * The result indicates whether the exploration and node creation succeeded or failed,
-    * and provides an Error object describing the issue if it failed.
-    */
-  async function exploreQuestion(question: string): Promise<SimpleResult> {
+   * @returns A Promise that resolves to a SimpleResult:
+   *   - { ok: true, error: null } if the exploration was successful
+   *   - { ok: false, error: Error } if there was a validation or generation error
+   * The result indicates whether the exploration and node creation succeeded or failed,
+   * and provides an Error object describing the issue if it failed.
+   */
+  async function exploreQuestion(
+    question: string,
+    id?: string,
+  ): Promise<SimpleResult> {
     if (!question.trim()) {
       setError("Please enter a question");
       return {
@@ -185,40 +217,60 @@ export function useRabbitHoles(): UseRabbitHolesReturn {
     setPreview(null);
 
     try {
+      let baseSession: RabbitHoleSession;
       /** Create new session if one doesn't exist */
       if (!session) {
-        newSession();
-      }
+        const newSessionResult = await newSession();
+        if (newSessionResult.error || !newSessionResult.data) {
+          logger.error(
+            "exploreQuestion",
+            "Error creating new session",
+            newSessionResult.error,
+          );
+          setError(
+            newSessionResult.error?.message ??
+              "Unknown error creating new session",
+          );
+          return {
+            ok: false,
+            error:
+              newSessionResult.error ??
+              new Error("Unknown error creating new session"),
+          };
+        }
 
-      /** If session is still not found, throw an error */
-      if (!session) {
-        throw new Error("Session not found");
-      }
-
-      /** Create copy of session object for temporary updates */
-      let updatedSession: RabbitHoleSession = { ...session };
-
-      /* If no root question, set it to the new question */
-      if (session.rootQuestion === "") {
-        updatedSession.rootQuestion = question;
+        baseSession = newSessionResult.data;
+      } else {
+        baseSession = session;
       }
 
       /* Create new node for this question */
-      const node = createNode(question);
+      const node = createNode(question, id);
 
-      /* Add new node to session */
-      updatedSession.nodesById[node.id] = node;
-      const previousNode = session.activeNodeId; // TODO: Consider making this decoupled from active state
-      updatedSession.activeNodeId = node.id;
-
-      updatedSession.path.push({
-        nodeId: node.id,
-        label: question,
-        parentNodeId: previousNode ?? null,
-      });
+      /** Create copy of session object for temporary updates */
+      let updatedSession: RabbitHoleSession = {
+        ...baseSession,
+        rootQuestion:
+          baseSession.rootQuestion === "" ? question : baseSession.rootQuestion,
+        activeNodeId: node.id,
+        updatedAt: new Date().toISOString(),
+        nodesById: {
+          ...baseSession.nodesById,
+          [node.id]: node,
+        },
+        path: [
+          ...baseSession.path,
+          {
+            nodeId: node.id,
+            label: question,
+            parentNodeId: baseSession.activeNodeId ?? null,
+          },
+        ],
+      };
 
       /* Set the generating node ID to the new node ID */
       setGeneratingNodeId(node.id);
+      setActiveNodeId(node.id);
 
       /* Generate quick preview of the new node */
       const quickPreview = await generateQuickPreview(question);
@@ -298,9 +350,44 @@ export function useRabbitHoles(): UseRabbitHolesReturn {
     }
   }
 
-  async function followBranch(branchId: string) {
-    logger.log("followBranch", "Not yet implemented");
-    return;
+  async function followBranch(branchId: string): Promise<SimpleResult> {
+    if (!session || !activeNodeId) {
+      setError("No active session or node");
+      return {
+        ok: false,
+        error: new Error("No active session or node"),
+      };
+    }
+
+    const activeNode = session.nodesById[activeNodeId];
+    if (!activeNode) {
+      setError("No active node");
+      return {
+        ok: false,
+        error: new Error("No active node"),
+      };
+    }
+
+    const branch = activeNode.branchSuggestions?.find((b) => b.id === branchId);
+    if (!branch) {
+      setError("Branch not found");
+      return {
+        ok: false,
+        error: new Error("Branch not found"),
+      };
+    }
+
+    if (session.nodesById[branchId]) {
+      setActiveNodeId(branchId);
+      return {
+        ok: true,
+        error: null,
+      };
+    }
+
+    // Rely on main generation function, providing branchId for
+    // proper linking
+    return await exploreQuestion(branch.label, branchId);
   }
 
   async function selectSource(source: RabbitHoleSource) {
@@ -323,7 +410,7 @@ export function useRabbitHoles(): UseRabbitHolesReturn {
     }
 
     // Immediately mark as pending (non-blocking, synchronous update)
-    updateSourceStatus("pending");
+    updateSourceStatus("pending", undefined, source.id);
     setIsAnalyzingSource(true);
     setSourceAnalysis(null);
 
@@ -338,14 +425,14 @@ export function useRabbitHoles(): UseRabbitHolesReturn {
         }
 
         // Update to complete with analysis
-        updateSourceStatus("complete", result.data);
+        updateSourceStatus("complete", result.data, source.id);
         setSourceAnalysis(result.data);
       } catch (error) {
         logger.error("selectSource", "Error analyzing source", error);
         const errorMessage =
           error instanceof Error ? error.message : "Error analyzing source";
         setError(errorMessage);
-        updateSourceStatus("error");
+        updateSourceStatus("error", undefined, source.id);
       } finally {
         setIsAnalyzingSource(false);
       }
@@ -364,8 +451,10 @@ export function useRabbitHoles(): UseRabbitHolesReturn {
   const updateSourceStatus = (
     status: "pending" | "complete" | "error",
     analysis?: RabbitHoleSourceAnalysis,
+    sourceId?: string | null,
   ) => {
     if (!session || !activeNodeId) return;
+    if (!sourceId) sourceId = selectedSourceId;
 
     setSession((prevSession) => {
       if (!prevSession || !activeNodeId) return prevSession;
@@ -375,7 +464,7 @@ export function useRabbitHoles(): UseRabbitHolesReturn {
 
       const updatedSources =
         node.sources?.map((s) =>
-          s.id === selectedSourceId
+          s.id === sourceId
             ? { ...s, status, ...(analysis && { analysis }) }
             : s,
         ) ?? [];
@@ -423,12 +512,6 @@ export function useRabbitHoles(): UseRabbitHolesReturn {
     return;
   }
 
-  async function saveSessionToStorage(session: RabbitHoleSession | null) {
-    // Null implementation
-    logger.log("saveSessionToStorage", "Not yet implemented");
-    return;
-  }
-
   // Null implementation for temporary (all methods do nothing or return null/defaults)
   return {
     session: session,
@@ -440,9 +523,10 @@ export function useRabbitHoles(): UseRabbitHolesReturn {
     selectedSourceId: selectedSourceId,
     sourceAnalysis: sourceAnalysis,
     isAnalyzingSource: isAnalyzingSource,
-    newSession,
+    createSession,
     loadExistingSession,
     exploreQuestion,
+    followBranch,
     selectSource,
     clearSourceSelection,
     resetSourceAnalysisState,
@@ -450,67 +534,4 @@ export function useRabbitHoles(): UseRabbitHolesReturn {
     reset,
     saveSessionToStorage,
   };
-}
-
-/**
- * Starts a new rabbit hole session with a question
- * @param question - The initial question to explore
- * @returns Promise that resolves when the session is created
- */
-async function start(question: string): Promise<void> {
-  // Null implementation for temporary
-  return;
-}
-
-/**
- * Follows a branch suggestion to explore a new direction
- * @param branchId - The ID of the branch to follow
- * @returns Promise that resolves when the branch is explored
- */
-async function followBranch(branchId: string): Promise<void> {
-  // Null implementation for temporary
-  return;
-}
-
-/**
- * Selects and analyzes a source from the current node
- * @param source - The source to analyze
- * @returns Promise that resolves when analysis is complete
- */
-async function selectSource(source: RabbitHoleSource): Promise<void> {
-  // Null implementation for temporary
-  return;
-}
-
-/**
- * Clears the currently selected source and its analysis
- */
-function clearSourceSelection(): void {
-  // Null implementation for temporary
-  return;
-}
-
-/**
- * Resets all source analysis state including cache
- */
-function resetSourceAnalysisState(): void {
-  // Null implementation for temporary
-  return;
-}
-
-/**
- * Sets the active node in the session
- * @param nodeId - The ID of the node to activate
- */
-function setActiveNode(nodeId: RabbitHoleNodeId): void {
-  // Null implementation for temporary
-  return;
-}
-
-/**
- * Resets the entire session and clears all state
- */
-function reset(): void {
-  // Null implementation for temporary
-  return;
 }
