@@ -36,6 +36,7 @@ function mapToSources(
       (doc.highlights && doc.highlights.length > 0 ? doc.highlights[0] : "");
 
     return {
+      status: "none",
       id: doc.id || doc.url || `exa-${index}`,
       title: doc.title || doc.url,
       url: doc.url,
@@ -50,7 +51,7 @@ function mapToSources(
 
 export async function searchWeb(
   query: string,
-  options: ExaSearchOptions = {}
+  options: Partial<ExaSearchOptions> = {},
 ): Promise<{ sources: RabbitHoleSource[]; error: Error | null }> {
   const apiKey = getApiKey();
   if (!apiKey) {
