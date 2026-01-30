@@ -43,3 +43,7 @@ package-lock.json
 .chats
 memory.db
 
+# Private analysis and notes
+.private/
+.context/
+

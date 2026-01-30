@@ -6,11 +6,11 @@ interface LiquidChromeProps {
   speed?: number;
 }
 
-export default function LiquidChrome({ speed = 0.05 }: LiquidChromeProps) {
+export default function LiquidChrome({ speed = 0.03 }: LiquidChromeProps) {
   const { theme } = useTheme();
 
   const baseColor: [number, number, number] =
-    theme === "dark" ? [0.05, 0.08, 0.1] : [0.45, 0.54, 0.6];
+    theme === "dark" ? [0.03, 0.05, 0.07] : [0.45, 0.54, 0.6];
 
   return (
     <div
@@ -25,7 +25,7 @@ export default function LiquidChrome({ speed = 0.05 }: LiquidChromeProps) {
       }}
     >
       <LiquidChromeComponent
-        amplitude={0.42}
+        amplitude={0.2}
         baseColor={baseColor}
         interactive={true}
         speed={speed}

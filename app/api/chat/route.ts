@@ -54,13 +54,13 @@ export async function POST(req: Request) {
 
   logger.log(
     "POST",
-    `Model selection - Requested: ${JSON.stringify(requestedModel) ?? "none"}, Using: ${JSON.stringify(selectedModel)}`
+    `Model selection - Requested: ${JSON.stringify(requestedModel) ?? "none"}, Using: ${JSON.stringify(selectedModel)}`,
   );
 
   if (!parseResult.success) {
     logger.error(
       "POST",
-      `Invalid request body: ${parseResult.error.flatten().formErrors.join(", ")}`
+      `Invalid request body: ${parseResult.error.flatten().formErrors.join(", ")}`,
     );
 
     return new Response("Invalid request body", { status: 400 });
@@ -85,17 +85,14 @@ export async function POST(req: Request) {
   logger.log("POST", `Recieved Message: ${JSON.stringify(message)}`);
 
   // Save the user message
-  try {
-    // TODO: Make this async and nonblocking
-    await saveChat({
-      chatId: id,
-      messages: [message], // Just the user's message
+
+  saveChat({ chatId: id, messages: [message] })
+    .then(() => {
+      logger.log("POST", "User message saved optimistically");
+    })
+    .catch((err) => {
+      logger.error("POST", `Failed to save user message: ${err}`);
     });
-    logger.log("POST", "User message saved optimistically");
-  } catch (err) {
-    logger.error("POST", `Failed to save user message optimistically: ${err}`);
-    // Continue anyway - onFinish will try to save again
-  }
 
   let validatedMessages: UIMessage[];
   let systemPromptForRequest = SYSTEM_PROMPT;
@@ -111,7 +108,7 @@ export async function POST(req: Request) {
     if (chatContextResult.error) {
       logger.error(
         "POST",
-        `Error getting chat context: ${chatContextResult.error}`
+        `Error getting chat context: ${chatContextResult.error}`,
       );
       validatedMessages = [message];
     } else {
@@ -126,7 +123,7 @@ export async function POST(req: Request) {
     if (err instanceof TypeValidationError) {
       logger.error(
         "POST",
-        `Database messages validation failed: ${err.message}`
+        `Database messages validation failed: ${err.message}`,
       );
       validatedMessages = [message];
     } else {
@@ -141,7 +138,7 @@ export async function POST(req: Request) {
     \n\n--------------------------------\n\n
     ${validatedMessages.length} messages being sent to LLM
     Model: ${selectedModel}
-    `
+    `,
   );
 
   // const tools = compileTools({ useSearch, useMemory});
@@ -209,7 +206,7 @@ export async function POST(req: Request) {
         case "length":
           logger.warn(
             "POST",
-            "LLM response stopped due to reaching max limit."
+            "LLM response stopped due to reaching max limit.",
           );
           break;
       }
@@ -235,7 +232,7 @@ export async function POST(req: Request) {
 
       logger.log(
         "POST",
-        `Model (${selectedModel.id}) generated response in ${modelGenerationTime.toFixed(2)}ms (${(modelGenerationTime / 1000).toFixed(2)}s)`
+        `Model (${selectedModel.id}) generated response in ${modelGenerationTime.toFixed(2)}ms (${(modelGenerationTime / 1000).toFixed(2)}s)`,
       );
 
       try {
@@ -246,75 +243,79 @@ export async function POST(req: Request) {
         if (saveResult.error) {
           logger.error(
             "POST",
-            `Error saving chat: ${saveResult.error.message}`
+            `Error saving chat: ${saveResult.error.message}`,
           );
 
           return; // Don't continue if save fails
         }
 
-        let ensureChatHasTitleMs: number | undefined;
+        // Fire-and-forget post-processing (don't block `onFinish`)
+        void (async () => {
+          let ensureChatHasTitleMs: number | undefined;
 
-        // Ensure chat title for a sensible range (e.g. after 4–8 messages)
-        if (messages.length >= 4 && messages.length <= 8) {
-          const { result: titleResult, durationMs } = await measureAsync(() =>
-            ensureChatHasTitle(id)
-          );
-          ensureChatHasTitleMs = durationMs;
-
-          if (titleResult.error) {
-            logger.error(
-              "POST",
-              `Error ensuring chat has title: ${titleResult.error.message}`
+          // Ensure chat title for a sensible range (e.g. after 4–8 messages)
+          if (messages.length >= 4 && messages.length <= 8) {
+            const { result: titleResult, durationMs } = await measureAsync(() =>
+              ensureChatHasTitle(id),
             );
-          }
-        }
+            ensureChatHasTitleMs = durationMs;
 
-        const userMessage = message;
-        const aiResponse = messages[messages.length - 1];
-
-        if (!aiResponse) {
-          logger.error(
-            "POST",
-            "No AI response found in messages; skipping post-processing"
-          );
-          return;
-        }
-
-        const updateSummaryResult = await measureAsync(() =>
-          updateChatSummary(id)
-        );
-        metrics.updateChatSummaryMs = updateSummaryResult.durationMs;
-
-        let addMemoryMs: number | undefined;
-        if (memoryEnabled) {
-          const addMemoryResult = await measureAsync(() =>
-            addLatestMessagesToMemory(
-              [userMessage, aiResponse],
-              sbUserId
-            ).catch((err) => {
+            if (titleResult.error) {
               logger.error(
                 "POST",
-                `Error adding latest messages to memory: ${err}`
+                `Error ensuring chat has title: ${titleResult.error.message}`,
               );
-            })
+            }
+          }
+
+          const userMessage = message;
+          const aiResponse = messages[messages.length - 1];
+
+          if (!aiResponse) {
+            logger.error(
+              "POST",
+              "No AI response found in messages; skipping post-processing",
+            );
+            return;
+          }
+
+          const updateSummaryResult = await measureAsync(() =>
+            updateChatSummary(id),
           );
-          addMemoryMs = addMemoryResult.durationMs;
-          metrics.addLatestMessagesToMemoryMs = addMemoryMs;
-        }
+          metrics.updateChatSummaryMs = updateSummaryResult.durationMs;
 
-        if (updateSummaryResult.result?.error) {
-          logger.error(
-            "POST",
-            `Error updating chat summary: ${updateSummaryResult.result.error}`
-          );
-        }
+          if (memoryEnabled) {
+            const addMemoryResult = await measureAsync(() =>
+              addLatestMessagesToMemory(
+                [userMessage, aiResponse],
+                sbUserId,
+                id,
+              ).catch((err) => {
+                logger.error(
+                  "POST",
+                  `Error adding latest messages to memory: ${err}`,
+                );
+              }),
+            );
+            metrics.addLatestMessagesToMemoryMs = addMemoryResult.durationMs;
+          }
 
-        metrics.onFinishTotalMs = performance.now() - onFinishStart;
-        if (ensureChatHasTitleMs !== undefined) {
-          metrics.ensureChatHasTitleMs = ensureChatHasTitleMs;
-        }
+          if (updateSummaryResult.result?.error) {
+            logger.error(
+              "POST",
+              `Error updating chat summary: ${updateSummaryResult.result.error}`,
+            );
+          }
 
-        logger.log("POST", `onFinish metrics: ${JSON.stringify(metrics)}`);
+          metrics.onFinishTotalMs = performance.now() - onFinishStart;
+          if (ensureChatHasTitleMs !== undefined) {
+            metrics.ensureChatHasTitleMs = ensureChatHasTitleMs;
+          }
+
+          logger.log("POST", `onFinish metrics: ${JSON.stringify(metrics)}`);
+        })().catch((err) => {
+          logger.error("POST", `Error in post-processing task: ${err}`);
+        });
       } catch (err) {
         logger.error("POST", `Error in onFinish callback: ${err}`);
       }
