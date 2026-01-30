@@ -1,730 +1,1216 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useMemo, useCallback } from "react";
 import { Button } from "@heroui/button";
-import { Textarea } from "@heroui/input";
-import { Switch } from "@heroui/switch";
+import { motion, AnimatePresence } from "framer-motion";
 import {
   Volume2,
   Loader2,
   Download,
-  Trash2,
   Play,
   Pause,
   X,
   Edit3,
+  Sparkles,
+  Check,
+  RefreshCw,
+  ChevronRight,
+  Clock,
+  Wand2,
+  Layers,
+  SplitSquareHorizontal,
+  FileText,
+  Maximize2,
+  Minimize2,
+  Library,
 } from "lucide-react";
 
 import Page from "@/components/layout/page";
 import { createLogger } from "@/lib/logger";
 import ShinyText from "@/components/ShinyText";
-import { LiquidChrome } from "@/components/third-party/reactbits/LiquidChrome/LiquidChrome";
-import "@/components/third-party/reactbits/LiquidChrome/LiquidChrome.css";
-import { APIResponseView } from "@/components/dev/api-response-view";
+import AdaptiveLiquidChrome from "@/components/background/AdaptiveLiquidChrome";
+import { AdaptiveOrganicPresence } from "@/components/ambient/AdaptiveOrganicPresence";
 import { SpeechModelSelector } from "@/components/chat/speech-model-selector";
-import { glass } from "@/components/design-system/primitives";
+import { TokenUsageDisplay, CompactTokenUsageDisplay } from "@/components/tts/TokenUsageDisplay";
+import { SegmentManager, TextSegment, SegmentStatus } from "@/components/tts/SegmentManager";
+import { GenerationProgress } from "@/components/tts/GenerationProgress";
+import { UnifiedPlayback } from "@/components/tts/UnifiedPlayback";
+import { TTSModel, splitTextIntoSegments, calculateTokenUsage, formatCost, formatDuration, formatAudioDuration } from "@/lib/tts/token-calculator";
+import { ClipBrowser } from "@/components/tts/ClipBrowser";
+import { makeClipTitle, saveTtsClip, type TtsClip } from "@/lib/tts/clip-store";
 
 const logger = createLogger("app/speak/page.tsx");
 
-const BACKGROUND_SPEED = 0.24;
+const BACKGROUND_SPEED = 0.06;
 
-type TTSResponse = {
-  data: {
-    uint8ArrayData: Record<number, number>;
-    mediaType: string;
-    format: "mp3" | "ogg" | "wav";
-  };
+type DisplayMode =
+  | "input"
+  | "review"
+  | "segments"
+  | "transforming"
+  | "generating"
+  | "playback";
+type PresenceState = "idle" | "active" | "thinking" | "responding";
+
+function getPresenceState(displayMode: DisplayMode, isInputFocused: boolean, isPlaying: boolean): PresenceState {
+  if (isPlaying) return "responding";
+  switch (displayMode) {
+    case "input": return isInputFocused ? "active" : "idle";
+    case "segments": return "active";
+    case "review": return "active";
+    case "transforming":
+    case "generating": return "thinking";
+    case "playback": return "active";
+    default: return "idle";
+  }
+}
+
+const glassPanel = `backdrop-blur-xl bg-white/[0.03] border border-white/[0.08] shadow-[0_8px_32px_rgba(0,0,0,0.12)]`;
+const glassCard = `backdrop-blur-md bg-white/[0.02] border border-white/[0.06]`;
+
+const fadeInUp = {
+  initial: { opacity: 0, y: 20 },
+  animate: { opacity: 1, y: 0 },
+  exit: { opacity: 0, y: -10 },
 };
-
-type AudioHistoryItem = {
-  id: string;
-  text: string;
-  timestamp: number;
-  audioData: Record<number, number>;
-  processed: boolean;
-  apiResponse?: TTSResponse;
-};
-
-type DisplayMode = "input" | "processing" | "ready" | "playing";
-
-const STORAGE_KEY = "tts-audio-history";
-const MAX_HISTORY_ITEMS = 10;
 
 export default function SpeakPage() {
+  // Core state
   const [inputText, setInputText] = useState("");
   const [displayMode, setDisplayMode] = useState<DisplayMode>("input");
-  const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [isInputFocused, setIsInputFocused] = useState(false);
   const [processText, setProcessText] = useState(true);
-  const [selectedModel, setSelectedModel] = useState("eleven_flash_v2_5");
-  const [currentAudioUrl, setCurrentAudioUrl] = useState<string | null>(null);
-  const [currentAudioData, setCurrentAudioData] = useState<Record<
-    number,
-    number
-  > | null>(null);
-  const [audioHistory, setAudioHistory] = useState<AudioHistoryItem[]>([]);
-  const [currentAudioItem, setCurrentAudioItem] =
-    useState<AudioHistoryItem | null>(null);
-  const [apiResponse, setApiResponse] = useState<string | null>(null);
+  const [selectedModel, setSelectedModel] = useState<TTSModel>("eleven_flash_v2_5");
+  const [error, setError] = useState<string | null>(null);
 
-  const currentAudioRef = useRef<HTMLAudioElement>(null);
+  // Enhanced-text review state (separate from segmentation)
+  const [enhancedText, setEnhancedText] = useState<string>("");
+  const [isEnhancing, setIsEnhancing] = useState(false);
 
-  // Load history from localStorage on mount
+  // Saved clip browser
+  const [isLibraryOpen, setIsLibraryOpen] = useState(false);
+
+  // Input expansion state
+  const [isInputExpanded, setIsInputExpanded] = useState(false);
+  const [isFullscreen, setIsFullscreen] = useState(false);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  // Segmentation state
+  const [segments, setSegments] = useState<TextSegment[]>([]);
+  const [isSegmented, setIsSegmented] = useState(false);
+  
+  // Generation state
+  const [isLoading, setIsLoading] = useState(false);
+  const [currentGeneratingId, setCurrentGeneratingId] = useState<string | null>(null);
+  const [generationProgress, setGenerationProgress] = useState(0);
+  const [estimatedDurationMs, setEstimatedDurationMs] = useState(0);
+  
+  // Playback state
+  const [isPlaying, setIsPlaying] = useState(false);
+  
+  const presenceState = getPresenceState(displayMode, isInputFocused, isPlaying);
+
+  // Keyboard shortcut for fullscreen toggle (Ctrl+E)
   useEffect(() => {
-    try {
-      const stored = localStorage.getItem(STORAGE_KEY);
-
-      if (stored) {
-        const parsed = JSON.parse(stored) as AudioHistoryItem[];
-
-        setAudioHistory(parsed);
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key === "e") {
+        e.preventDefault();
+        if (displayMode === "input") {
+          setIsFullscreen((prev) => !prev);
+          // Focus textarea when entering fullscreen
+          if (!isFullscreen) {
+            setTimeout(() => textareaRef.current?.focus(), 100);
+          }
+        }
       }
-    } catch (err) {
-      logger.error("Failed to load audio history", String(err));
+      // Escape to exit fullscreen
+      if (e.key === "Escape" && isFullscreen) {
+        setIsFullscreen(false);
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [displayMode, isFullscreen]);
+
+  // Auto-expand when user scrolls within textarea
+  useEffect(() => {
+    const textarea = textareaRef.current;
+    if (!textarea) return;
+
+    const handleScroll = () => {
+      if (isInputFocused && textarea.scrollTop > 0) {
+        setIsInputExpanded(true);
+      }
+    };
+
+    textarea.addEventListener("scroll", handleScroll);
+    return () => textarea.removeEventListener("scroll", handleScroll);
+  }, [isInputFocused]);
+
+  // Collapse when focus leaves and scroll is at top
+  useEffect(() => {
+    if (!isInputFocused && textareaRef.current?.scrollTop === 0) {
+      setIsInputExpanded(false);
+    }
+  }, [isInputFocused]);
+
+  // Calculate estimates for current input
+  const inputEstimates = useMemo(() => {
+    if (!inputText.trim()) return null;
+    return calculateTokenUsage(inputText, selectedModel);
+  }, [inputText, selectedModel]);
+
+  // Create segments from text
+  const handleSegmentText = useCallback(() => {
+    const textSegments = splitTextIntoSegments(inputText, "paragraph");
+    const newSegments: TextSegment[] = textSegments.map((text, idx) => ({
+      id: `segment-${Date.now()}-${idx}`,
+      index: idx,
+      originalText: text,
+      processedText: null,
+      status: "pending",
+      audioData: null,
+      audioUrl: null,
+      generationStatus: "generate",
+    }));
+    setSegments(newSegments);
+    setIsSegmented(true);
+    setDisplayMode("segments");
+  }, [inputText]);
+
+  const revokeSegmentUrls = useCallback((segs: TextSegment[]) => {
+    for (const s of segs) {
+      if (s.audioUrl) {
+        try {
+          URL.revokeObjectURL(s.audioUrl);
+        } catch {
+          // ignore
+        }
+      }
     }
   }, []);
 
-  // Save history to localStorage whenever it changes
-  useEffect(() => {
-    try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(audioHistory));
-    } catch (err) {
-      logger.error("Failed to save audio history", String(err));
-    }
-  }, [audioHistory]);
-
-  useEffect(() => {
-    // Truncate the uint8ArrayData in the preview if present
-    const apiResponseData = currentAudioItem?.apiResponse?.data;
-    let displayApiResponse;
-
-    if (apiResponseData && apiResponseData.uint8ArrayData) {
-      displayApiResponse = {
-        ...apiResponseData,
-        uint8ArrayData: `[Uint8 data: length ${Object.keys(apiResponseData.uint8ArrayData).length}]`,
-      };
-    } else if (apiResponseData) {
-      displayApiResponse = apiResponseData;
-    } else {
-      displayApiResponse = "Undefined";
-    }
-    const parsedAPIResponse = JSON.stringify(displayApiResponse, null, 2);
-
-    setApiResponse(parsedAPIResponse);
-  }, [currentAudioItem]);
-
-  const handleGenerateSpeech = async () => {
-    if (displayMode === "processing") {
-      logger.log("handleGenerateSpeech", "Already processing, skipping...");
-
-      return;
-    }
-
+  // Transform-only: review enhanced text before generating (as a whole or as segments)
+  const handleReviewEnhancedText = useCallback(async () => {
     if (!inputText.trim()) {
       setError("Please enter some text");
-
       return;
     }
 
-    setIsLoading(true);
     setError(null);
-    setDisplayMode("processing");
+    setIsEnhancing(true);
+    setEnhancedText("");
+    setDisplayMode("review");
 
     try {
-      const res = await fetch("/api/ai/tts", {
+      const res = await fetch("/api/ai/tts/transform", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          text: inputText,
-          model: selectedModel,
-          skipTransform: !processText,
-          timestamps: "word",
-        }),
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ text: inputText }),
       });
 
       if (!res.ok) {
-        throw new Error("Failed to generate speech");
+        const errText = await res.text().catch(() => "");
+        throw new Error(errText || "Transform failed");
       }
 
-      const data = (await res.json()) as TTSResponse;
-      const audioData = data.data.uint8ArrayData;
-
-      // Create blob and URL for playback
-      const blob = uint8ArrayToBlob(audioData);
-      const url = URL.createObjectURL(blob);
-
-      setCurrentAudioUrl(url);
-      setCurrentAudioData(audioData);
-      setDisplayMode("ready");
-
-      // Add to history
-      const historyItem: AudioHistoryItem = {
-        id: Date.now().toString(),
-        text: inputText,
-        timestamp: Date.now(),
-        audioData: audioData,
-        processed: processText,
-        apiResponse: data,
-      };
-
-      setCurrentAudioItem(historyItem);
-
-      setAudioHistory((prev) => {
-        const newHistory = [historyItem, ...prev];
-
-        return newHistory.slice(0, MAX_HISTORY_ITEMS);
-      });
+      const data = await res.json();
+      setEnhancedText(String(data.transformedText ?? ""));
     } catch (err) {
-      setError(
-        err instanceof Error ? err.message : "An unexpected error occurred",
-      );
-      logger.error("TTS generation failed", String(err));
+      setError(err instanceof Error ? err.message : "Transform failed");
       setDisplayMode("input");
     } finally {
-      setIsLoading(false);
+      setIsEnhancing(false);
     }
-  };
+  }, [inputText]);
 
-  const handlePlay = () => {
-    if (currentAudioRef.current) {
-      currentAudioRef.current.play();
-    }
-  };
-
-  const handlePause = () => {
-    if (currentAudioRef.current) {
-      currentAudioRef.current.pause();
-    }
-  };
-
-  const handleAudioPlay = () => {
-    setDisplayMode("playing");
-  };
-
-  const handleAudioPause = () => {
-    setDisplayMode("ready");
-  };
-
-  const handleAudioEnded = () => {
-    setDisplayMode("ready");
-  };
-
-  const handleEdit = () => {
-    if (currentAudioRef.current) {
-      currentAudioRef.current.pause();
-    }
-    setDisplayMode("input");
-  };
-
-  const handleDownloadCurrent = () => {
-    if (!currentAudioData) return;
-    downloadAudio(currentAudioData, `tts-${Date.now()}.mp3`);
-  };
-
-  const handleDownloadHistoryItem = (item: AudioHistoryItem) => {
-    const filename = `tts-${new Date(item.timestamp).toISOString().slice(0, 19).replace(/:/g, "-")}.mp3`;
-
-    downloadAudio(item.audioData, filename);
-  };
-
-  const downloadAudio = (
-    audioData: Record<number, number>,
-    filename: string,
-  ) => {
-    const blob = uint8ArrayToBlob(audioData);
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-
-    a.href = url;
-    a.download = filename;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
-  };
-
-  const handleLoadHistoryItem = (item: AudioHistoryItem) => {
-    // Clean up current audio if exists
-    if (currentAudioRef.current) {
-      currentAudioRef.current.pause();
-    }
-    if (currentAudioUrl) {
-      URL.revokeObjectURL(currentAudioUrl);
+  const handleGenerateEnhancedWhole = useCallback(async () => {
+    const text = (enhancedText || "").trim();
+    if (!text) {
+      setError("Enhanced text is empty");
+      return;
     }
 
-    // Load history item into main component
-    setInputText(item.text);
-    const blob = uint8ArrayToBlob(item.audioData);
-    const url = URL.createObjectURL(blob);
+    const segment: TextSegment = {
+      id: `segment-${Date.now()}-0`,
+      index: 0,
+      originalText: inputText,
+      processedText: enhancedText,
+      status: "pending",
+      audioData: null,
+      audioUrl: null,
+      generationStatus: "generate",
+    };
 
-    setCurrentAudioUrl(url);
-    setCurrentAudioData(item.audioData);
-    setCurrentAudioItem(item);
-    setDisplayMode("ready");
+    revokeSegmentUrls(segments);
+    setSegments([segment]);
+    setIsSegmented(false);
+    await generateSegment(segment.id, [segment]);
+  }, [enhancedText, inputText, revokeSegmentUrls, segments]);
 
-    // Auto-play after a brief moment to ensure audio element is ready
-    setTimeout(() => {
-      if (currentAudioRef.current) {
-        currentAudioRef.current.play();
+  const handleSplitEnhancedText = useCallback(() => {
+    const text = (enhancedText || "").trim();
+    if (!text) {
+      setError("Enhanced text is empty");
+      return;
+    }
+    const textSegments = splitTextIntoSegments(text, "paragraph");
+    const newSegments: TextSegment[] = textSegments.map((t, idx) => ({
+      id: `segment-${Date.now()}-${idx}`,
+      index: idx,
+      originalText: t,
+      processedText: t, // already enhanced; skip per-segment transform
+      status: "pending",
+      audioData: null,
+      audioUrl: null,
+      generationStatus: "generate",
+    }));
+    revokeSegmentUrls(segments);
+    setSegments(newSegments);
+    setIsSegmented(true);
+    setDisplayMode("segments");
+  }, [enhancedText, revokeSegmentUrls, segments]);
+
+  const handleLoadClip = useCallback(
+    (clip: TtsClip) => {
+      setIsLibraryOpen(false);
+
+      const url = URL.createObjectURL(clip.audioBlob);
+      const segment: TextSegment = {
+        id: `segment-${Date.now()}-0`,
+        index: 0,
+        originalText: clip.originalText,
+        processedText: clip.enhancedText,
+        status: "generated",
+        audioData: null,
+        audioUrl: url,
+        generationStatus: "generate",
+      };
+
+      revokeSegmentUrls(segments);
+      setInputText(clip.originalText);
+      setEnhancedText(clip.enhancedText ?? "");
+      setSegments([segment]);
+      setIsSegmented(false);
+      setDisplayMode("playback");
+    },
+    [revokeSegmentUrls, segments],
+  );
+
+  // Handle simple (non-segmented) flow
+  const handleSimpleGenerate = async () => {
+    // Create single segment
+    const segment: TextSegment = {
+      id: `segment-${Date.now()}-0`,
+      index: 0,
+      originalText: inputText,
+      processedText: null,
+      status: "pending",
+      audioData: null,
+      audioUrl: null,
+      generationStatus: "generate",
+    };
+    revokeSegmentUrls(segments);
+    setSegments([segment]);
+    setIsSegmented(false);
+    await generateSegment(segment.id, [segment]);
+  };
+
+  // Update segment status
+  const handleSegmentStatusChange = (segmentId: string, status: "generate" | "skip" | "preview") => {
+    setSegments((prev) =>
+      prev.map((s) => (s.id === segmentId ? { ...s, generationStatus: status } : s))
+    );
+  };
+
+  // Generate single segment with streaming progress
+  async function generateSegment(segmentId: string, currentSegments?: TextSegment[]) {
+    const segs = currentSegments || segments;
+    const segment = segs.find((s) => s.id === segmentId);
+    if (!segment || segment.generationStatus === "skip") return;
+
+    setCurrentGeneratingId(segmentId);
+    setIsLoading(true);
+    setDisplayMode("generating");
+    setGenerationProgress(0);
+    setSegments((prev) =>
+      prev.map((s) => (s.id === segmentId ? { ...s, status: "generating" } : s)),
+    );
+
+    // Use a local variable so we don't rely on async state updates during transform.
+    let textToGenerate = segment.processedText || segment.originalText;
+    const estimate = calculateTokenUsage(textToGenerate, selectedModel);
+    setEstimatedDurationMs(estimate.estimatedDurationMs);
+
+    try {
+      // First transform if needed
+      if (processText && !segment.processedText) {
+        setDisplayMode("transforming");
+        const transformRes = await fetch("/api/ai/tts/transform", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ text: segment.originalText }),
+        });
+        
+        if (!transformRes.ok) {
+          const errText = await transformRes.text().catch(() => "");
+          throw new Error(errText || "Transform failed");
+        }
+        const transformData = await transformRes.json();
+        
+        setSegments((prev) =>
+          prev.map((s) =>
+            s.id === segmentId ? { ...s, processedText: transformData.transformedText } : s
+          )
+        );
+        
+        textToGenerate = transformData.transformedText;
+        const newEstimate = calculateTokenUsage(transformData.transformedText, selectedModel);
+        setEstimatedDurationMs(newEstimate.estimatedDurationMs);
       }
-    }, 100);
-  };
 
-  const handleDeleteHistoryItem = (id: string) => {
-    setAudioHistory((prev) => prev.filter((item) => item.id !== id));
-  };
+      setDisplayMode("generating");
 
-  const handleClearHistory = () => {
-    setAudioHistory([]);
-  };
+      // Use streaming API for generation with progress
+      const response = await fetch("/api/ai/tts/stream", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          text: textToGenerate,
+          model: selectedModel,
+          segmentId,
+        }),
+      });
 
-  const handleClearCurrent = () => {
-    if (currentAudioRef.current) {
-      currentAudioRef.current.pause();
+      if (!response.ok) {
+        const errText = await response.text().catch(() => "");
+        throw new Error(errText || "Failed to generate speech");
+      }
+      if (!response.body) throw new Error("No response body");
+
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = "";
+      let gotComplete = false;
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        buffer += decoder.decode(value, { stream: true });
+
+        // SSE events are separated by a blank line.
+        // We must buffer because events can be split across network chunks.
+        while (true) {
+          const separatorIndex = buffer.indexOf("\n\n");
+          if (separatorIndex === -1) break;
+
+          const rawEvent = buffer.slice(0, separatorIndex);
+          buffer = buffer.slice(separatorIndex + 2);
+
+          // Collect all `data:` lines for this event (SSE spec allows multi-line data).
+          const dataLines = rawEvent
+            .split("\n")
+            .filter((l) => l.startsWith("data:"))
+            .map((l) => l.slice(5).trimStart());
+
+          const payload = dataLines.join("\n");
+          if (!payload) continue;
+
+          let data: any;
+          try {
+            data = JSON.parse(payload);
+          } catch {
+            // Incomplete JSON (event got split oddly). Put it back and wait for more.
+            buffer = `${rawEvent}\n\n${buffer}`;
+            break;
+          }
+
+          if (data.type === "progress") {
+            setGenerationProgress(data.progress);
+            if (data.estimatedMs) setEstimatedDurationMs(data.estimatedMs);
+          } else if (data.type === "complete") {
+            gotComplete = true;
+            const blob = uint8ArrayToBlob(data.audioData);
+            const url = URL.createObjectURL(blob);
+
+            // Persist to local audio library (IndexedDB) for later browsing.
+            const createdAt = Date.now();
+            const enhanced =
+              typeof textToGenerate === "string" && textToGenerate !== segment.originalText
+                ? textToGenerate
+                : null;
+            void saveTtsClip({
+              id: `clip-${createdAt}-${segmentId}`,
+              createdAt,
+              model: selectedModel,
+              title: makeClipTitle(textToGenerate),
+              originalText: segment.originalText,
+              enhancedText: enhanced,
+              audioBlob: blob,
+              mimeType: String(data.mediaType ?? "audio/mpeg"),
+              format: String(data.format ?? "mp3"),
+            }).catch((e) => {
+              logger.error("Clip save failed", String(e));
+            });
+
+            setSegments((prev) =>
+              prev.map((s) =>
+                s.id === segmentId
+                  ? { ...s, status: "generated", audioData: data.audioData, audioUrl: url }
+                  : s,
+              ),
+            );
+            setGenerationProgress(100);
+
+            // Stop reading once complete; don't rely on the server to close promptly.
+            try {
+              await reader.cancel();
+            } catch {
+              // ignore
+            }
+            break;
+          } else if (data.type === "error") {
+            throw new Error(data.error);
+          }
+        }
+
+        if (gotComplete) break;
+      }
+
+      if (!gotComplete) {
+        throw new Error("TTS stream ended without a completion event");
+      }
+
+      setDisplayMode("playback");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Generation failed");
+      logger.error("Generation failed", String(err));
+      setSegments((prev) =>
+        prev.map((s) => (s.id === segmentId ? { ...s, status: "pending" } : s)),
+      );
+    } finally {
+      setIsLoading(false);
+      setCurrentGeneratingId(null);
     }
-    if (currentAudioUrl) {
-      URL.revokeObjectURL(currentAudioUrl);
+  }
+
+  // Generate all pending segments
+  const handleGenerateAll = async () => {
+    const pendingSegments = segments.filter(
+      (s) => s.generationStatus === "generate" && s.status !== "generated"
+    );
+
+    for (const segment of pendingSegments) {
+      await generateSegment(segment.id);
     }
-    setCurrentAudioUrl(null);
-    setCurrentAudioData(null);
-    setCurrentAudioItem(null);
-    setInputText("");
+  };
+
+  // Download combined audio
+  const handleDownload = () => {
+    // For now, download first available generated clip (audioData or audioUrl)
+    const first = segments.find((s) => s.audioData || s.audioUrl);
+    if (!first) return;
+
+    const filename = `prometheus-${Date.now()}.mp3`;
+    if (first.audioData) {
+      const blob = uint8ArrayToBlob(first.audioData);
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      return;
+    }
+
+    if (first.audioUrl) {
+      fetch(first.audioUrl)
+        .then((r) => r.blob())
+        .then((blob) => {
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement("a");
+          a.href = url;
+          a.download = filename;
+          document.body.appendChild(a);
+          a.click();
+          document.body.removeChild(a);
+          URL.revokeObjectURL(url);
+        })
+        .catch((e) => logger.error("Download failed", String(e)));
+    }
+  };
+
+  // Reset to input
+  const handleReset = () => {
+    revokeSegmentUrls(segments);
+    setSegments([]);
+    setIsSegmented(false);
     setDisplayMode("input");
+    setError(null);
+    setGenerationProgress(0);
   };
 
-  const formatTimestamp = (timestamp: number) => {
-    const date = new Date(timestamp);
-    const now = new Date();
-    const diffMs = now.getTime() - date.getTime();
-    const diffMins = Math.floor(diffMs / 60000);
-    const diffHours = Math.floor(diffMs / 3600000);
-    const diffDays = Math.floor(diffMs / 86400000);
-
-    if (diffMins < 1) return "Just now";
-    if (diffMins < 60) return `${diffMins}m ago`;
-    if (diffHours < 24) return `${diffHours}h ago`;
-    if (diffDays < 7) return `${diffDays}d ago`;
-
-    return date.toLocaleDateString();
+  // Stage indicator
+  const getStageNumber = () => {
+    switch (displayMode) {
+      case "input": return 1;
+      case "review": return 2;
+      case "segments": return 2;
+      case "transforming":
+      case "generating": return 3;
+      case "playback": return 4;
+      default: return 1;
+    }
   };
 
   return (
     <Page>
-      <APIResponseView apiResponse={apiResponse ?? "Undefined"} />
-      <div
-        style={{
-          width: "100%",
-          height: "100%",
-          position: "absolute",
-          top: 0,
-          left: 0,
-          right: 0,
-          bottom: 0,
-        }}
-      >
-        <LiquidChrome
-          amplitude={0.42}
-          baseColor={[0.05, 0.08, 0.1]}
-          interactive={true}
-          speed={BACKGROUND_SPEED}
-        />
-      </div>
+      <AdaptiveLiquidChrome speed={BACKGROUND_SPEED} dimIntensity={0.35} restDelay={3500} />
+      <AdaptiveOrganicPresence state={presenceState} position="bottom-left" size={100} />
+
       <div className="w-full h-full overflow-y-auto z-10">
-        <div className="w-full max-w-5xl mx-auto p-8 space-y-8">
+        <div className="min-h-full flex flex-col">
           {/* Header */}
-          <div
-            className={`${glass()} text-center space-y-2 rounded-xl px-9 py-3 w-fit mx-auto cursor-default select-none`}
-          >
-            <h1
-              className="font-commissioner font-medium tracking-[-0.02em] leading-none cursor-default"
-              style={{
-                fontSize: "clamp(2rem, 6vw, 4rem)",
-              }}
-            >
-              Prometheus
-            </h1>
-            <p className="text-muted-foreground text-sm md:text-base">
-              Speech Generation
-            </p>
-          </div>
-
-          {/* Main Text Display Area */}
-          <div className="space-y-4">
-            {displayMode === "input" ? (
-              // Input Mode: Editable Textarea
-              <>
-                <Textarea
-                  classNames={{
-                    input: ["bg-transparent", "text-base", "p-2"],
-                    inputWrapper: [
-                      "border-border",
-                      "hover:border-ring",
-                      "focus-within:border-primary",
-                      "backdrop-blur-sm",
-                      "bg-gradient-to-br",
-                      "from-card/90",
-                      "to-card/75",
-                      "backdrop-invert-75",
-                      "backdrop-brightness-50",
-                    ],
-                  }}
-                  maxRows={12}
-                  minRows={4}
-                  placeholder="Enter your text here. It will be converted to speech using AI..."
-                  value={inputText}
-                  onValueChange={setInputText}
-                />
-
-                {error && (
-                  <div className="text-sm text-destructive bg-destructive/10 rounded-lg px-4 py-2">
-                    {error}
-                  </div>
-                )}
-
-                {/* Controls Row */}
-                <div className="flex flex-row gap-4 items-stretch sm:items-center justify-between">
-                  <div className="flex items-center gap-9">
-                    <Switch
-                      classNames={{
-                        wrapper:
-                          "group-data-[selected=true]:bg-gradient-to-r from-purple-600 to-blue-600",
-                      }}
-                      isSelected={processText}
-                      size="sm"
-                      onValueChange={setProcessText}
-                    >
-                      <span className="text-sm text-muted-foreground">
-                        Process Text for Speech
-                      </span>
-                    </Switch>
-                    <SpeechModelSelector
-                      selectedModel={selectedModel}
-                      onModelChange={setSelectedModel}
-                    />
-                  </div>
-
-                  <Button
-                    className={`${glass()} w-fit py-3 px-9 border-white/25 border-t-1 border-x-1.5 border-b-1.5 hover:border-teal-300/45`}
-                    disabled={isLoading || !inputText.trim()}
-                    size="lg"
-                    onPress={handleGenerateSpeech}
-                  >
-                    {isLoading ? (
-                      <>
-                        <Loader2 className="w-5 h-5 mr-2 animate-spin" />
-                        Generating...
-                      </>
-                    ) : (
-                      <>
-                        <Volume2 className="w-5 h-5 mr-2" />
-                        Generate Speech
-                      </>
-                    )}
-                  </Button>
+          <header className="w-full pt-8 pb-6 px-6">
+            <div className="max-w-5xl mx-auto">
+              <motion.div
+                initial={{ opacity: 0, y: -20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.8, ease: [0.25, 0.46, 0.45, 0.94] }}
+                className="flex items-center justify-between"
+              >
+                <div className="space-y-1">
+                  <h1 className="text-3xl md:text-4xl font-light tracking-[-0.03em] text-foreground/90">
+                    Prometheus
+                  </h1>
+                  <p className="text-sm text-muted-foreground/60 font-light tracking-wide">
+                    Voice Synthesis Engine
+                  </p>
                 </div>
-              </>
-            ) : (
-              // Processing/Ready/Playing Modes: Engraved Text Display
-              <div className="space-y-4">
-                <div
-                  className={`
-                    bg-gradient-to-br from-card/90 to-card/75
-                    rounded-2xl
-                    p-8
-                    shadow-xl
-                    border-2 border-border/50
-                    backdrop-blur-sm
-                    backdrop-invert-75
-                    backdrop-brightness-50
-                  `}
-                >
-                  <div className="max-h-40 overflow-y-auto">
-                    {displayMode === "processing" ? (
-                      <ShinyText
-                        className="whitespace-pre-wrap"
-                        speed={4}
-                        text={inputText}
-                      />
-                    ) : displayMode === "playing" ? (
-                      <ShinyText
-                        className="whitespace-pre-wrap"
-                        speed={8}
-                        text={inputText}
-                      />
-                    ) : (
-                      <p>{inputText}</p>
-                    )}
-                  </div>
-                  {/* <div
+
+                <div className="flex items-center gap-3">
+                  <button
+                    onClick={() => setIsLibraryOpen(true)}
                     className={`
-                      text-xl md:text-2xl
-                      leading-relaxed
-                      tracking-wide
-                      whitespace-pre-wrap
+                      px-4 py-2.5 rounded-2xl
+                      bg-gradient-to-r from-violet-600/90 to-fuchsia-600/90
+                      text-white border border-white/10
+                      shadow-lg shadow-violet-500/20 hover:shadow-violet-500/30
+                      hover:scale-[1.02] active:scale-[0.99]
                       transition-all duration-300
-                      ${displayMode === 'playing' ? 'animate-pulse-reading' : ''}
                     `}
-                    style={{
-                      fontFamily: 'var(--font-commissioner, system-ui)',
-                    }}
+                    title="Open audio library"
+                    data-dim-background
                   >
-                    {inputText}
-                  </div> */}
+                    <span className="flex items-center gap-2 text-sm font-medium">
+                      <Library className="w-4.5 h-4.5" />
+                      Library
+                    </span>
+                  </button>
 
-                  {/* TODO: For playing state, user can add word-by-word highlighting animation */}
-                  {/* Example: Split text by words, track current word index via audio timeupdate event */}
-                </div>
-
-                {/* Control Buttons for Ready/Playing States */}
-                <div className="flex gap-3 flex-wrap">
-                  {displayMode === "processing" ? (
-                    <Button
-                      className="bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-600 text-white font-medium flex-1 sm:flex-none w-full"
-                      size="lg"
-                      onPress={() =>
-                        logger.log("Speech Button logic", "Generating...")
-                      }
-                    >
-                      <Loader2 className="w-5 h-5 mr-2 animate-spin" />
-                      Generating...
-                    </Button>
-                  ) : (
-                    displayMode === "ready" && (
-                      <>
-                        <Button
-                          className="bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white font-medium flex-1 sm:flex-none"
-                          size="lg"
-                          onPress={handlePlay}
+                  {/* Stage Indicator */}
+                  <div className="hidden sm:flex items-center gap-2">
+                    {[1, 2, 3, 4].map((stage) => (
+                      <div key={stage} className="flex items-center gap-2">
+                        <div
+                          className={`
+                            w-8 h-8 rounded-full flex items-center justify-center text-xs font-medium
+                            transition-all duration-700 ease-out
+                            ${getStageNumber() >= stage
+                              ? "bg-white/10 text-foreground/80 border border-white/20"
+                              : "bg-white/[0.02] text-foreground/30 border border-white/[0.05]"}
+                          `}
                         >
-                          <Play className="w-5 h-5 mr-2" />
-                          Play Audio
-                        </Button>
-                        <Button
-                          className="flex-1 sm:flex-none"
-                          size="lg"
-                          variant="flat"
-                          onPress={handleEdit}
-                        >
-                          <Edit3 className="w-4 h-4 mr-2" />
-                          Edit Text
-                        </Button>
-                      </>
-                    )
-                  )}
-
-                  {displayMode === "playing" && (
-                    <Button
-                      className="bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white font-medium flex-1 sm:flex-none"
-                      size="lg"
-                      onPress={handlePause}
-                    >
-                      <Pause className="w-5 h-5 mr-2" />
-                      Pause
-                    </Button>
-                  )}
-
-                  {(displayMode === "ready" || displayMode === "playing") && (
-                    <>
-                      <Button
-                        className="flex-1 sm:flex-none"
-                        size="lg"
-                        variant="flat"
-                        onPress={handleDownloadCurrent}
-                      >
-                        <Download className="w-4 h-4 mr-2" />
-                        Download
-                      </Button>
-                      <Button
-                        className="flex-1 sm:flex-none"
-                        size="lg"
-                        variant="light"
-                        onPress={handleClearCurrent}
-                      >
-                        <X className="w-4 h-4 mr-2" />
-                        Clear
-                      </Button>
-                    </>
-                  )}
+                          {stage}
+                        </div>
+                        {stage < 4 && (
+                          <div className={`w-6 h-px transition-colors duration-700 ${getStageNumber() > stage ? "bg-white/20" : "bg-white/[0.05]"}`} />
+                        )}
+                      </div>
+                    ))}
+                  </div>
                 </div>
+              </motion.div>
+            </div>
+          </header>
 
-                {/* Hidden Audio Element */}
-                {currentAudioUrl && (
-                  <audio
-                    ref={currentAudioRef}
-                    className="absolute top-0 left-0 w-0 h-0"
-                    src={currentAudioUrl}
-                    onEnded={handleAudioEnded}
-                    onPause={handleAudioPause}
-                    onPlay={handleAudioPlay}
+          {/* Main Content */}
+          <main className="flex-1 px-6 pb-8">
+            <div className="max-w-5xl mx-auto">
+              <AnimatePresence mode="wait">
+                {/* === INPUT MODE === */}
+                {displayMode === "input" && (
+                  <motion.div
+                    key="input"
+                    {...fadeInUp}
+                    transition={{ duration: 0.5 }}
+                    className={`
+                      ${isFullscreen ? "fixed inset-0 z-50 p-4 md:p-8 flex flex-col" : "space-y-6"}
+                    `}
                   >
-                    <track kind="captions" />
-                  </audio>
-                )}
-              </div>
-            )}
-          </div>
+                    {/* Fullscreen backdrop */}
+                    {isFullscreen && (
+                      <motion.div
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        exit={{ opacity: 0 }}
+                        className="absolute inset-0 bg-black/80 backdrop-blur-xl -z-10"
+                      />
+                    )}
 
-          {/* Audio History */}
-          {audioHistory.length > 0 && (
-            <div className="space-y-4">
-              <div className="flex items-center justify-between">
-                <h2 className="text-xl font-semibold">Recent Audio History</h2>
-                <Button
-                  className="text-destructive"
-                  size="sm"
-                  variant="light"
-                  onPress={handleClearHistory}
-                >
-                  <Trash2 className="w-4 h-4 mr-2" />
-                  Clear All
-                </Button>
-              </div>
+                    <div
+                      className={`
+                        ${glassPanel} rounded-3xl overflow-hidden
+                        transition-all duration-500 ease-out
+                        ${isFullscreen ? "flex-1 flex flex-col max-w-6xl mx-auto w-full" : ""}
+                      `}
+                      data-dim-background
+                    >
+                      <div className={`p-6 md:p-8 ${isFullscreen ? "flex-1 flex flex-col" : ""}`}>
+                        {/* Input Header */}
+                        <div className="flex items-center justify-between mb-6">
+                          <div className="flex items-center gap-3">
+                            <div className="w-10 h-10 rounded-2xl bg-gradient-to-br from-violet-500/20 to-fuchsia-500/20 flex items-center justify-center">
+                              <Edit3 className="w-5 h-5 text-violet-400/80" />
+                            </div>
+                            <div>
+                              <h2 className="text-lg font-medium text-foreground/90">Compose</h2>
+                              <p className="text-xs text-muted-foreground/50">Enter text to synthesize</p>
+                            </div>
+                          </div>
 
-              <div className="grid gap-3">
-                {audioHistory.map((item) => (
-                  <div
-                    key={item.id}
-                    className="bg-card/50 backdrop-blur-sm rounded-xl p-4 border border-border/50 hover:border-border transition-colors"
-                  >
-                    <div className="flex items-start gap-3">
-                      <div className="flex-1 min-w-0 space-y-2">
-                        <div className="flex items-start justify-between gap-2">
-                          <p className="text-sm text-foreground line-clamp-2 flex-1">
-                            {item.text}
-                          </p>
-                          <span className="text-xs text-muted-foreground whitespace-nowrap">
-                            {formatTimestamp(item.timestamp)}
-                          </span>
+                          <div className="flex items-center gap-4">
+                            {inputEstimates && (
+                              <div className="hidden md:flex items-center gap-4 text-xs text-muted-foreground/50">
+                                <span className="flex items-center gap-1.5">
+                                  <Clock className="w-3.5 h-3.5" />
+                                  {formatDuration(inputEstimates.estimatedDurationMs)} gen
+                                </span>
+                                <span className="flex items-center gap-1.5">
+                                  <Volume2 className="w-3.5 h-3.5" />
+                                  {formatAudioDuration(inputEstimates.estimatedAudioDurationSec)} audio
+                                </span>
+                                <span className="flex items-center gap-1.5 text-emerald-400/70">
+                                  {formatCost(inputEstimates.estimatedCost)}
+                                </span>
+                              </div>
+                            )}
+
+                            {/* Fullscreen toggle button */}
+                            <button
+                              onClick={() => setIsFullscreen(!isFullscreen)}
+                              className={`
+                                p-2 rounded-xl transition-all duration-300
+                                hover:bg-white/10 text-muted-foreground/50 hover:text-foreground/80
+                                ${isFullscreen ? "bg-white/5" : ""}
+                              `}
+                              title={isFullscreen ? "Exit fullscreen (Esc)" : "Fullscreen (Ctrl+E)"}
+                            >
+                              {isFullscreen ? (
+                                <Minimize2 className="w-4 h-4" />
+                              ) : (
+                                <Maximize2 className="w-4 h-4" />
+                              )}
+                            </button>
+                          </div>
                         </div>
 
-                        {item.processed && (
-                          <span className="inline-flex items-center text-xs text-purple-600 dark:text-purple-400">
-                            Processed for speech
-                          </span>
+                        {/* Textarea */}
+                        <div className={`relative ${isFullscreen ? "flex-1 flex flex-col" : ""}`}>
+                          <textarea
+                            ref={textareaRef}
+                            value={inputText}
+                            onChange={(e) => setInputText(e.target.value)}
+                            onFocus={() => setIsInputFocused(true)}
+                            onBlur={() => setIsInputFocused(false)}
+                            placeholder="Write something beautiful..."
+                            className={`
+                              w-full p-5 rounded-2xl resize-none
+                              bg-white/[0.02] border border-white/[0.06]
+                              text-foreground/90 leading-relaxed
+                              placeholder:text-muted-foreground/30
+                              focus:outline-none focus:border-violet-500/30 focus:bg-white/[0.03]
+                              transition-all duration-500 ease-out
+                              ${isFullscreen
+                                ? "flex-1 text-lg md:text-xl"
+                                : isInputExpanded || isInputFocused
+                                  ? "min-h-[400px] md:min-h-[500px] text-base md:text-lg"
+                                  : "min-h-[200px] md:min-h-[260px] text-base md:text-lg"
+                              }
+                            `}
+                          />
+                          <div className={`
+                            absolute bottom-4 right-4 flex items-center gap-3
+                            text-xs text-muted-foreground/40 tabular-nums
+                          `}>
+                            {!isFullscreen && (
+                              <span className="hidden sm:inline text-muted-foreground/30">
+                                Ctrl+E to expand
+                              </span>
+                            )}
+                            {inputText.length.toLocaleString()} chars
+                          </div>
+                        </div>
+
+                        {error && (
+                          <motion.div
+                            initial={{ opacity: 0, y: -10 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            className="mt-4 p-4 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 text-sm"
+                          >
+                            {error}
+                          </motion.div>
                         )}
+                      </div>
+
+                      {/* Controls */}
+                      <div className={`
+                        px-6 md:px-8 py-5 bg-white/[0.01] border-t border-white/[0.04]
+                        ${isFullscreen ? "shrink-0" : ""}
+                      `}>
+                        <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4">
+                          <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4">
+                            {/* AI Enhancement Toggle */}
+                            <label className="flex items-center gap-3 cursor-pointer group">
+                              <div
+                                className={`
+                                  relative w-11 h-6 rounded-full transition-all duration-300
+                                  ${processText ? "bg-gradient-to-r from-violet-600 to-fuchsia-600" : "bg-white/10"}
+                                `}
+                                onClick={() => setProcessText(!processText)}
+                              >
+                                <div
+                                  className={`
+                                    absolute top-1 w-4 h-4 rounded-full bg-white shadow-lg
+                                    transition-all duration-300 ease-out
+                                    ${processText ? "left-6" : "left-1"}
+                                  `}
+                                />
+                              </div>
+                              <span className="text-sm text-muted-foreground/70">AI Enhancement</span>
+                            </label>
+
+                            <div data-dim-background>
+                              <SpeechModelSelector
+                                selectedModel={selectedModel}
+                                onModelChange={(m) => setSelectedModel(m as TTSModel)}
+                              />
+                            </div>
+
+                            {/* Library shortcut (prominent in-context prompt) */}
+                            <button
+                              onClick={() => setIsLibraryOpen(true)}
+                              className={`
+                                px-4 py-2.5 rounded-xl text-sm font-medium
+                                bg-white/5 text-foreground/70 border border-white/10
+                                hover:bg-white/10 transition-all duration-300
+                              `}
+                              title="Browse saved audio clips"
+                              data-dim-background
+                            >
+                              <span className="flex items-center gap-2">
+                                <Library className="w-4 h-4" />
+                                Browse Library
+                              </span>
+                            </button>
+                          </div>
+
+                          <div className="flex items-center gap-3 w-full sm:w-auto">
+                            {/* Segment Button */}
+                            <button
+                              onClick={() => {
+                                if (isFullscreen) setIsFullscreen(false);
+                                handleSegmentText();
+                              }}
+                              disabled={!inputText.trim()}
+                              className={`
+                                flex-1 sm:flex-none px-5 py-3 rounded-xl text-sm font-medium
+                                bg-white/5 text-foreground/70 border border-white/10
+                                hover:bg-white/10 transition-all duration-300
+                                disabled:opacity-40 disabled:cursor-not-allowed
+                              `}
+                            >
+                              <span className="flex items-center justify-center gap-2">
+                                <SplitSquareHorizontal className="w-4 h-4" />
+                                Split & Customize
+                              </span>
+                            </button>
+
+                            {/* Review Enhanced Text Button */}
+                            <button
+                              onClick={() => {
+                                if (isFullscreen) setIsFullscreen(false);
+                                void handleReviewEnhancedText();
+                              }}
+                              disabled={isLoading || isEnhancing || !inputText.trim()}
+                              className={`
+                                flex-1 sm:flex-none px-5 py-3 rounded-xl text-sm font-medium
+                                bg-white/5 text-foreground/70 border border-white/10
+                                hover:bg-white/10 transition-all duration-300
+                                disabled:opacity-40 disabled:cursor-not-allowed
+                              `}
+                            >
+                              <span className="flex items-center justify-center gap-2">
+                                {isEnhancing ? (
+                                  <Loader2 className="w-4 h-4 animate-spin" />
+                                ) : (
+                                  <Sparkles className="w-4 h-4" />
+                                )}
+                                Review Enhanced
+                              </span>
+                            </button>
+
+                            {/* Quick Generate Button */}
+                            <button
+                              onClick={() => {
+                                if (isFullscreen) setIsFullscreen(false);
+                                handleSimpleGenerate();
+                              }}
+                              disabled={isLoading || !inputText.trim()}
+                              className={`
+                                flex-1 sm:flex-none px-6 py-3 rounded-xl text-sm font-medium
+                                bg-gradient-to-r from-violet-600 to-fuchsia-600 text-white
+                                shadow-lg shadow-violet-500/25 hover:shadow-violet-500/40
+                                hover:scale-[1.02] transition-all duration-500
+                                disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:scale-100
+                              `}
+                            >
+                              <span className="flex items-center justify-center gap-2">
+                                {isLoading ? (
+                                  <Loader2 className="w-4 h-4 animate-spin" />
+                                ) : (
+                                  <Wand2 className="w-4 h-4" />
+                                )}
+                                Quick Generate
+                              </span>
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </motion.div>
+                )}
+
+                {/* === REVIEW ENHANCED TEXT MODE === */}
+                {displayMode === "review" && (
+                  <motion.div
+                    key="review"
+                    {...fadeInUp}
+                    transition={{ duration: 0.5 }}
+                    className="space-y-6"
+                  >
+                    <div className={`${glassPanel} rounded-3xl overflow-hidden`} data-dim-background>
+                      <div className="p-6 md:p-8">
+                        <div className="flex items-center justify-between gap-4 mb-6">
+                          <div className="flex items-center gap-3">
+                            <div className="w-10 h-10 rounded-2xl bg-gradient-to-br from-violet-500/20 to-fuchsia-500/20 flex items-center justify-center">
+                              <Sparkles className="w-5 h-5 text-violet-400/80" />
+                            </div>
+                            <div>
+                              <h2 className="text-lg font-medium text-foreground/90">Review Enhanced Text</h2>
+                              <p className="text-xs text-muted-foreground/50">
+                                Preview and optionally edit the speech-friendly version before generating.
+                              </p>
+                            </div>
+                          </div>
+
+                          <div className="flex items-center gap-2">
+                            <button
+                              onClick={() => setDisplayMode("input")}
+                              className="px-4 py-2 rounded-xl text-sm text-muted-foreground/60 hover:text-foreground/80 hover:bg-white/[0.03] transition-all"
+                            >
+                              Back
+                            </button>
+                            <button
+                              onClick={() => void handleReviewEnhancedText()}
+                              disabled={isEnhancing}
+                              className="px-4 py-2 rounded-xl text-sm text-foreground/70 bg-white/5 border border-white/10 hover:bg-white/10 transition-all disabled:opacity-40"
+                              title="Re-run enhancement"
+                            >
+                              <span className="flex items-center gap-2">
+                                <RefreshCw className={`w-4 h-4 ${isEnhancing ? "animate-spin" : ""}`} />
+                                Re-enhance
+                              </span>
+                            </button>
+                          </div>
+                        </div>
+
+                        {isEnhancing ? (
+                          <GenerationProgress
+                            isActive={true}
+                            estimatedDurationMs={Math.max(estimatedDurationMs, 1200)}
+                            stage="transforming"
+                            className="max-w-xl"
+                          />
+                        ) : (
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div className="space-y-2">
+                              <div className="text-xs text-muted-foreground/60">Original</div>
+                              <textarea
+                                value={inputText}
+                                readOnly
+                                className={`
+                                  w-full min-h-[280px] p-4 rounded-2xl resize-none
+                                  bg-white/[0.02] border border-white/[0.06]
+                                  text-foreground/70 leading-relaxed
+                                  focus:outline-none
+                                `}
+                              />
+                            </div>
+                            <div className="space-y-2">
+                              <div className="text-xs text-muted-foreground/60">Enhanced (editable)</div>
+                              <textarea
+                                value={enhancedText}
+                                onChange={(e) => setEnhancedText(e.target.value)}
+                                placeholder="Enhanced text will appear here…"
+                                className={`
+                                  w-full min-h-[280px] p-4 rounded-2xl resize-none
+                                  bg-white/[0.03] border border-white/[0.10]
+                                  text-foreground/90 leading-relaxed
+                                  placeholder:text-muted-foreground/30
+                                  focus:outline-none focus:border-violet-500/30
+                                `}
+                              />
+                            </div>
+                          </div>
+                        )}
+
+                        {error && (
+                          <motion.div
+                            initial={{ opacity: 0, y: -10 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            className="mt-4 p-4 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 text-sm"
+                          >
+                            {error}
+                          </motion.div>
+                        )}
+                      </div>
+
+                      <div className="px-6 md:px-8 py-5 bg-white/[0.01] border-t border-white/[0.04]">
+                        <div className="flex flex-col sm:flex-row gap-3 justify-end">
+                          <button
+                            onClick={handleSplitEnhancedText}
+                            disabled={isEnhancing || !enhancedText.trim()}
+                            className={`
+                              px-5 py-3 rounded-xl text-sm font-medium
+                              bg-white/5 text-foreground/70 border border-white/10
+                              hover:bg-white/10 transition-all duration-300
+                              disabled:opacity-40 disabled:cursor-not-allowed
+                            `}
+                          >
+                            <span className="flex items-center justify-center gap-2">
+                              <SplitSquareHorizontal className="w-4 h-4" />
+                              Split Enhanced
+                            </span>
+                          </button>
+                          <button
+                            onClick={() => void handleGenerateEnhancedWhole()}
+                            disabled={isEnhancing || isLoading || !enhancedText.trim()}
+                            className={`
+                              px-6 py-3 rounded-xl text-sm font-medium
+                              bg-gradient-to-r from-violet-600 to-fuchsia-600 text-white
+                              shadow-lg shadow-violet-500/25 hover:shadow-violet-500/40
+                              hover:scale-[1.02] transition-all duration-500
+                              disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:scale-100
+                            `}
+                          >
+                            <span className="flex items-center justify-center gap-2">
+                              {isLoading ? (
+                                <Loader2 className="w-4 h-4 animate-spin" />
+                              ) : (
+                                <Wand2 className="w-4 h-4" />
+                              )}
+                              Generate Enhanced
+                            </span>
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  </motion.div>
+                )}
+
+                {/* === SEGMENTS MODE === */}
+                {displayMode === "segments" && (
+                  <motion.div
+                    key="segments"
+                    {...fadeInUp}
+                    transition={{ duration: 0.5 }}
+                    className="space-y-6"
+                  >
+                    <div className={`${glassPanel} rounded-3xl overflow-hidden`}>
+                      <div className="p-6 md:p-8">
+                        <div className="flex items-center justify-between mb-6">
+                          <div className="flex items-center gap-3">
+                            <div className="w-10 h-10 rounded-2xl bg-gradient-to-br from-blue-500/20 to-cyan-500/20 flex items-center justify-center">
+                              <Layers className="w-5 h-5 text-blue-400/80" />
+                            </div>
+                            <div>
+                              <h2 className="text-lg font-medium text-foreground/90">Segments</h2>
+                              <p className="text-xs text-muted-foreground/50">
+                                {segments.length} sections • Choose what to generate
+                              </p>
+                            </div>
+                          </div>
+
+                          <button
+                            onClick={handleReset}
+                            className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm text-muted-foreground/60 hover:text-foreground/80 hover:bg-white/[0.03] transition-all"
+                          >
+                            <Edit3 className="w-4 h-4" />
+                            Edit Text
+                          </button>
+                        </div>
+
+                        <SegmentManager
+                          segments={segments}
+                          onSegmentStatusChange={handleSegmentStatusChange}
+                          onGenerateSegment={generateSegment}
+                          onGenerateAll={handleGenerateAll}
+                          model={selectedModel}
+                          isGenerating={isLoading}
+                          currentGeneratingId={currentGeneratingId}
+                        />
+                      </div>
+                    </div>
+                  </motion.div>
+                )}
+
+                {/* === TRANSFORMING/GENERATING MODE === */}
+                {(displayMode === "transforming" || displayMode === "generating") && (
+                  <motion.div
+                    key="generating"
+                    {...fadeInUp}
+                    transition={{ duration: 0.5 }}
+                    className="space-y-6"
+                  >
+                    <div className={`${glassPanel} rounded-3xl p-8 md:p-12`}>
+                      <div className="flex flex-col items-center text-center max-w-lg mx-auto">
+                        <div className="relative mb-8">
+                          <div className={`
+                            w-20 h-20 rounded-3xl flex items-center justify-center
+                            ${displayMode === "transforming"
+                              ? "bg-gradient-to-br from-violet-500/20 to-fuchsia-500/20"
+                              : "bg-gradient-to-br from-amber-500/20 to-orange-500/20"
+                            }
+                          `}>
+                            {displayMode === "transforming" ? (
+                              <Sparkles className="w-8 h-8 text-violet-400 animate-pulse" />
+                            ) : (
+                              <Volume2 className="w-8 h-8 text-amber-400 animate-pulse" />
+                            )}
+                          </div>
+                          <div className={`
+                            absolute inset-0 rounded-3xl blur-xl animate-pulse
+                            ${displayMode === "transforming" ? "bg-violet-500/20" : "bg-amber-500/20"}
+                          `} />
+                        </div>
+
+                        <GenerationProgress
+                          isActive={true}
+                          estimatedDurationMs={estimatedDurationMs}
+                          stage={displayMode}
+                          className="w-full"
+                        />
+                      </div>
+                    </div>
+                  </motion.div>
+                )}
+
+                {/* === PLAYBACK MODE === */}
+                {displayMode === "playback" && (
+                  <motion.div
+                    key="playback"
+                    {...fadeInUp}
+                    transition={{ duration: 0.5 }}
+                    className="space-y-6"
+                  >
+                    <div className={`${glassPanel} rounded-3xl overflow-hidden`} data-dim-background>
+                      <div className="p-6 md:p-8">
+                        <div className="flex items-center justify-between mb-6">
+                          <div className="flex items-center gap-3">
+                            <div className="w-10 h-10 rounded-2xl bg-gradient-to-br from-emerald-500/20 to-teal-500/20 flex items-center justify-center">
+                              <Check className="w-5 h-5 text-emerald-400/80" />
+                            </div>
+                            <div>
+                              <h2 className="text-lg font-medium text-foreground/90">Ready</h2>
+                              <p className="text-xs text-muted-foreground/50">
+                                {segments.filter((s) => s.status === "generated").length} of {segments.length} segments generated
+                              </p>
+                            </div>
+                          </div>
+
+                          <button
+                            onClick={handleReset}
+                            className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm text-muted-foreground/60 hover:text-foreground/80 hover:bg-white/[0.03] transition-all"
+                          >
+                            <FileText className="w-4 h-4" />
+                            New Text
+                          </button>
+                        </div>
+
+                        <UnifiedPlayback
+                          segments={segments}
+                          onDownload={handleDownload}
+                        />
                       </div>
                     </div>
 
-                    <div className="flex gap-2 mt-3">
-                      <Button
-                        className="flex-1"
-                        size="sm"
-                        variant="flat"
-                        onPress={() => handleLoadHistoryItem(item)}
-                      >
-                        <Play className="w-4 h-4 mr-2" />
-                        Play
-                      </Button>
-                      <Button
-                        className="flex-1"
-                        size="sm"
-                        variant="flat"
-                        onPress={() => handleDownloadHistoryItem(item)}
-                      >
-                        <Download className="w-4 h-4 mr-2" />
-                        Download
-                      </Button>
-                      <Button
-                        isIconOnly
-                        className="text-destructive"
-                        size="sm"
-                        variant="light"
-                        onPress={() => handleDeleteHistoryItem(item.id)}
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </Button>
-                    </div>
-                  </div>
-                ))}
-              </div>
+                    {/* Segment breakdown */}
+                    {isSegmented && (
+                      <div className={`${glassCard} rounded-2xl p-4`}>
+                        <p className="text-xs text-muted-foreground/50 mb-3">Segment Details</p>
+                        <div className="space-y-2">
+                          {segments.map((seg, idx) => (
+                            <div
+                              key={seg.id}
+                              className="flex items-center gap-3 text-sm"
+                            >
+                              <span className="w-5 h-5 rounded bg-white/5 flex items-center justify-center text-xs text-foreground/50">
+                                {idx + 1}
+                              </span>
+                              <span className={`
+                                text-xs px-2 py-0.5 rounded
+                                ${seg.status === "generated"
+                                  ? "bg-emerald-500/10 text-emerald-400"
+                                  : seg.generationStatus === "skip"
+                                    ? "bg-white/5 text-muted-foreground/40"
+                                    : "bg-amber-500/10 text-amber-400"
+                                }
+                              `}>
+                                {seg.status === "generated" ? "Ready" : seg.generationStatus === "skip" ? "Skipped" : "Pending"}
+                              </span>
+                              <span className="text-foreground/50 truncate flex-1">
+                                {(seg.processedText || seg.originalText).slice(0, 50)}...
+                              </span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </motion.div>
+                )}
+              </AnimatePresence>
             </div>
-          )}
+          </main>
 
-          {/* Empty State */}
-          {audioHistory.length === 0 &&
-            displayMode === "input" &&
-            !isLoading && (
-              <div className="bg-muted/30 backdrop-blur-sm rounded-xl p-6 border border-border/50 text-center">
-                <Volume2 className="w-12 h-12 mx-auto mb-4 text-muted-foreground opacity-50" />
-                <h3 className="text-lg font-medium mb-2">
-                  {`No audio generated yet`}
-                </h3>
-                <p className="text-sm text-muted-foreground max-w-md mx-auto">
-                  {`Enter some text above and click "Generate Speech" to create
-                  audio. Your recent generations will appear here for easy
-                  playback and download.`}
-                </p>
-              </div>
-            )}
+          <div className="h-20" />
         </div>
       </div>
 
-      {/* <style jsx global>{`
-        @keyframes pulse-reading {
-          0%,
-          100% {
-            opacity: 1;
-            color: inherit;
-          }
-          50% {
-            opacity: 0.8;
-            color: rgb(147, 51, 234);
-          }
-        }
-
-        .animate-pulse-reading {
-          animation: pulse-reading 2s ease-in-out infinite;
-        }
-      `}</style> */}
+      <ClipBrowser
+        isOpen={isLibraryOpen}
+        onClose={() => setIsLibraryOpen(false)}
+        onLoadClip={handleLoadClip}
+      />
     </Page>
   );
 }
 
 function uint8ArrayToBlob(uint8ArrayData: Record<number, number>): Blob {
   const uint8Array = new Uint8Array(Object.values(uint8ArrayData));
-
   return new Blob([uint8Array], { type: "audio/mpeg" });
-}
-
-{
-  /* TODO: Add custom processing animation here */
-}
-{
-  /* User can implement their own React-based text animation for processing state */
-}
-{
-  /*{displayMode === "processing" ? (
-  <div className="max-h-40 overflow-y-auto">
-    <ScrollReveal
-      baseOpacity={0}
-      enableBlur={true}
-      baseRotation={5}
-      blurStrength={10}
-    >
-      <ShinyText
-        text={inputText}
-        className="whitespace-pre-wrap"
-      />
-    </ScrollReveal>
-  </div>
-) : (
-  <div className="max-h-96 overflow-y-auto">
-    <p className="text-lg md:text-xl leading-relaxed tracking-wide whitespace-pre-wrap transition-all duration-300">
-      {inputText}
-    </p>
-  </div>
-  // <ScrollReveal
-  //   containerClassName="max-h-40 overflow-y-auto"
-  //   baseOpacity={0}
-  //   enableBlur={true}
-  //   baseRotation={5}
-  //   blurStrength={10}
-  // >
-  //   <p className="text-xl md:text-xl leading-relaxed tracking-wide whitespace-pre-wrap transition-all duration-300">
-  //     {inputText}
-  //   </p>
-  // </ScrollReveal>
-)}*/
 }
