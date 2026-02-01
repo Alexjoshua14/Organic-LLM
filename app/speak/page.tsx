@@ -98,16 +98,16 @@ export default function SpeakPage() {
   // Segmentation state
   const [segments, setSegments] = useState<TextSegment[]>([]);
   const [isSegmented, setIsSegmented] = useState(false);
-  
+
   // Generation state
   const [isLoading, setIsLoading] = useState(false);
   const [currentGeneratingId, setCurrentGeneratingId] = useState<string | null>(null);
   const [generationProgress, setGenerationProgress] = useState(0);
   const [estimatedDurationMs, setEstimatedDurationMs] = useState(0);
-  
+
   // Playback state
   const [isPlaying, setIsPlaying] = useState(false);
-  
+
   const presenceState = getPresenceState(displayMode, isInputFocused, isPlaying);
 
   // Keyboard shortcut for fullscreen toggle (Ctrl+E)
@@ -352,19 +352,19 @@ export default function SpeakPage() {
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ text: segment.originalText }),
         });
-        
+
         if (!transformRes.ok) {
           const errText = await transformRes.text().catch(() => "");
           throw new Error(errText || "Transform failed");
         }
         const transformData = await transformRes.json();
-        
+
         setSegments((prev) =>
           prev.map((s) =>
             s.id === segmentId ? { ...s, processedText: transformData.transformedText } : s
           )
         );
-        
+
         textToGenerate = transformData.transformedText;
         const newEstimate = calculateTokenUsage(transformData.transformedText, selectedModel);
         setEstimatedDurationMs(newEstimate.estimatedDurationMs);
@@ -595,21 +595,11 @@ export default function SpeakPage() {
                 <div className="flex items-center gap-3">
                   <button
                     onClick={() => setIsLibraryOpen(true)}
-                    className={`
-                      px-4 py-2.5 rounded-2xl
-                      bg-gradient-to-r from-violet-600/90 to-fuchsia-600/90
-                      text-white border border-white/10
-                      shadow-lg shadow-violet-500/20 hover:shadow-violet-500/30
-                      hover:scale-[1.02] active:scale-[0.99]
-                      transition-all duration-300
-                    `}
+                    className="p-2.5 rounded-2xl bg-white/[0.03] border border-white/[0.06] hover:bg-white/[0.06] transition-colors"
                     title="Open audio library"
                     data-dim-background
                   >
-                    <span className="flex items-center gap-2 text-sm font-medium">
-                      <Library className="w-4.5 h-4.5" />
-                      Library
-                    </span>
+                    <Library className="w-4.5 h-4.5 text-foreground/70" />
                   </button>
 
                   {/* Stage Indicator */}
@@ -800,23 +790,6 @@ export default function SpeakPage() {
                                 onModelChange={(m) => setSelectedModel(m as TTSModel)}
                               />
                             </div>
-
-                            {/* Library shortcut (prominent in-context prompt) */}
-                            <button
-                              onClick={() => setIsLibraryOpen(true)}
-                              className={`
-                                px-4 py-2.5 rounded-xl text-sm font-medium
-                                bg-white/5 text-foreground/70 border border-white/10
-                                hover:bg-white/10 transition-all duration-300
-                              `}
-                              title="Browse saved audio clips"
-                              data-dim-background
-                            >
-                              <span className="flex items-center gap-2">
-                                <Library className="w-4 h-4" />
-                                Browse Library
-                              </span>
-                            </button>
                           </div>
 
                           <div className="flex items-center gap-3 w-full sm:w-auto">
