@@ -93,7 +93,7 @@ export function GenerationProgress({
           animate={{ width: `${progress}%` }}
           transition={{ duration: 0.3, ease: "easeOut" }}
         />
-        
+
         {/* Shimmer effect */}
         <motion.div
           className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent"
@@ -117,11 +117,11 @@ export function GenerationProgress({
 /**
  * Compact inline progress indicator
  */
-export function InlineProgress({ 
-  progress, 
-  label 
-}: { 
-  progress: number; 
+export function InlineProgress({
+  progress,
+  label
+}: {
+  progress: number;
   label?: string;
 }) {
   return (

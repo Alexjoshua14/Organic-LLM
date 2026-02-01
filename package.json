@@ -10,6 +10,9 @@
     "lint": "eslint --fix",
     "test": "bun test",
     "test:watch": "bun test --watch",
+    "test:unit": "bun test tests/unit",
+    "test:integration": "bun test tests/integration",
+    "test:e2e": "bunx playwright test",
     "webhook:local": "ngrok http --url=specially-delicate-dinosaur.ngrok-free.app 3000"
   },
   "dependencies": {
@@ -88,6 +91,7 @@
   "devDependencies": {
     "@eslint/compat": "^1.4.1",
     "@next/eslint-plugin-next": "16.0.3",
+    "@playwright/test": "^1.58.1",
     "@react-types/shared": "3.30.0",
     "@tailwindcss/postcss": "^4.1.18",
     "@types/node": "20.5.7",

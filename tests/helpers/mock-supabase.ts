@@ -19,7 +19,6 @@ class MessagesQueryBuilder {
   private filters: { thread_id?: string } = {};
   private orderBy?: { column: string; ascending: boolean };
   private limitValue?: number;
-  private orderCallCount = 0;
 
   constructor(rows: MessageRow[]) {
     this.rows = rows;
@@ -35,19 +34,30 @@ class MessagesQueryBuilder {
   }
 
   order(column: string, options?: { ascending?: boolean }) {
-    this.orderCallCount += 1;
     this.orderBy = { column, ascending: options?.ascending ?? true };
-
-    // getNMessages awaits the final call; in our chain the second order() returns the promise.
-    if (this.orderCallCount >= 2) {
-      return this.execute();
-    }
     return this;
   }
 
   limit(value: number) {
     this.limitValue = value;
     return this;
+  }
+
+  /**
+   * Make the builder awaitable (Supabase query builders are thenables).
+   * This lets code do: `await sb.from(...).select(...).eq(...).order(...).limit(...)`
+   */
+  then<TResult1 = QueryResult, TResult2 = never>(
+    onfulfilled?:
+      | ((value: QueryResult) => TResult1 | PromiseLike<TResult1>)
+      | undefined
+      | null,
+    onrejected?:
+      | ((reason: unknown) => TResult2 | PromiseLike<TResult2>)
+      | undefined
+      | null
+  ): Promise<TResult1 | TResult2> {
+    return this.execute().then(onfulfilled, onrejected);
   }
 
   private execute(): Promise<QueryResult> {

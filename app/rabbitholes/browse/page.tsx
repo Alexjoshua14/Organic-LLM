@@ -10,7 +10,7 @@ import { RabbitHoleContext } from "@/lib/context/rabbithole-context";
 import {
   getAllSessions,
   deleteSession
-} from '@/data/local/rabbitholes'
+} from '@/data/supabase/rabbitholes'
 
 import { formatDate } from "@/lib/format/stringFormatting";
 import { cn } from "@/lib/utils";

@@ -1,5 +1,14 @@
 "use server";
 
+/**
+ * @deprecated Rabbit Holes server actions have moved to `lib/rabbit-holes/*`.
+ * This file is kept temporarily for backward compatibility while imports are migrated.
+ *
+ * Prefer:
+ * - `lib/rabbit-holes/actions.ts` for server-side Rabbit Hole actions
+ * - `lib/rabbit-holes/useRabbitHoles.ts` for the client hook orchestrating session state
+ */
+
 import { randomUUID } from "crypto";
 import { auth } from "@clerk/nextjs/server";
 
@@ -56,6 +65,8 @@ type BranchBuildResult = {
 
 /**
  * Generate content for a branch follow-up, tracking latency and key takeaway.
+ *
+ * @deprecated Use `lib/rabbit-holes/actions.ts` generation pipeline instead.
  */
 async function generateBranchNodeContent(
   branchLabel: string,
@@ -100,6 +111,8 @@ async function generateBranchNodeContent(
  * @param sourcesInstruction - Instruction string for incorporating sources.
  * @param systemPrompt - System prompt string for the LLM.
  * @returns A promise that resolves to an object containing the generated RabbitHoleNode.
+ *
+ * @deprecated Use `generateQuickPreview` from `lib/rabbit-holes/actions.ts`.
  */
 export async function generateQuickPreview(
   question: string,
@@ -146,6 +159,8 @@ export async function generateQuickPreview(
 
 /**
  * Generate the initial AI node content, tracking latency and logging key takeaway.
+ *
+ * @deprecated Use `lib/rabbit-holes/actions.ts` generation pipeline instead.
  */
 async function generateInitialNodeContent(
   question: string,
@@ -190,6 +205,8 @@ async function generateInitialNodeContent(
 
 /**
  * Build the initial session and node structures with IDs and truncated labels.
+ *
+ * @deprecated Use `lib/rabbit-holes/*` session construction instead.
  */
 type BuildInitialSessionParams = {
   rawPrompt: string;
@@ -244,6 +261,8 @@ function buildInitialSession({
 
 /**
  * Build a new node from branch content and update the session graph.
+ *
+ * @deprecated Use `lib/rabbit-holes/*` session graph updates instead.
  */
 function buildBranchNode(
   session: RabbitHoleSession,
@@ -309,6 +328,8 @@ function buildBranchNode(
  *
  * @param {string} question - The user's root question for exploration.
  * @returns {Promise<Result<RabbitHoleSession>>} The result object containing the session or an error.
+ *
+ * @deprecated Prefer `lib/rabbit-holes/useRabbitHoles.ts` (`exploreQuestion`) and `lib/rabbit-holes/actions.ts`.
  */
 export async function createRabbitHoleSession(
   question: string
@@ -370,6 +391,8 @@ export async function createRabbitHoleSession(
  * @param session - The current RabbitHoleSession object.
  * @param branchId - The ID of the branch to follow, as specified in the current node's branch suggestions.
  * @returns A promise that resolves to a Result containing the updated RabbitHoleSession or an error.
+ *
+ * @deprecated Prefer `lib/rabbit-holes/useRabbitHoles.ts` (`followBranch`) and `lib/rabbit-holes/actions.ts`.
  */
 export async function followRabbitHoleBranch(
   session: RabbitHoleSession,
@@ -500,6 +523,8 @@ export async function followRabbitHoleBranch(
  * @param {string} sourceTitle - The title of the source to analyze.
  * @param {string} [sourceSnippet] - An optional text snippet from the source to provide additional context.
  * @returns {Promise<Result<RabbitHoleSourceAnalysis>>} - The result containing the source analysis or an error.
+ *
+ * @deprecated Use `analyzeSource` from `lib/rabbit-holes/actions.ts`.
  */
 export async function analyzeSource(
   sourceUrl: string,

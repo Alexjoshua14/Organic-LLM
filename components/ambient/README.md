@@ -5,19 +5,25 @@ Subtle, organic UI elements that add life to the interface without demanding att
 ## Available Components
 
 ### OrganicPresence
+
 A basic breathing presence indicator with morphing blob animation.
+
 - **Best for**: Static indicators, ambient presence
 - **Size**: Configurable, default 80px
 - **States**: Show/hide only
 
 ### CompactOrganicPresence
+
 Smaller, more subtle version of OrganicPresence.
+
 - **Best for**: Corner indicators, minimal presence
 - **Size**: Fixed at 50px
 - **States**: Show/hide only
 
 ### AdaptiveOrganicPresence
+
 Intelligent presence that adapts to application state.
+
 - **Best for**: Interactive pages, state-aware feedback
 - **Size**: Configurable, default 100px
 - **States**: idle, active, thinking, responding
@@ -25,25 +31,24 @@ Intelligent presence that adapts to application state.
 ## Quick Start
 
 ### 1. Simple ambient presence
+
 ```tsx
 import { OrganicPresence } from "@/components/ambient/OrganicPresence";
 
-<OrganicPresence 
-  show={true}
-  position="bottom-right" 
-/>
+<OrganicPresence show={true} position="bottom-right" />;
 ```
 
 ### 2. State-aware presence
+
 ```tsx
-import { 
+import {
   AdaptiveOrganicPresence,
-  useOrganicPresenceState 
+  useOrganicPresenceState,
 } from "@/components/ambient/AdaptiveOrganicPresence";
 
 function MyComponent() {
   const { state, setActive, setIdle } = useOrganicPresenceState();
-  
+
   return (
     <>
       <AdaptiveOrganicPresence state={state} />
@@ -56,12 +61,14 @@ function MyComponent() {
 ## Integration Tips
 
 ### Positioning Strategy
+
 - **Single page apps**: Bottom-right or bottom-left
 - **Chat interfaces**: Near input area, not overlapping
 - **Content pages**: Top corners to avoid scroll interference
 - **Modals**: Consider hiding the presence entirely
 
 ### When to Show
+
 - ✅ During user interaction
 - ✅ When processing/loading
 - ✅ As ambient background element
@@ -69,6 +76,7 @@ function MyComponent() {
 - ❌ Over important content
 
 ### State Management
+
 ```tsx
 // Example: Chat interface
 onInputFocus     → setActive()
@@ -80,6 +88,7 @@ onStreamComplete → setIdle()
 ## Performance
 
 All components are:
+
 - **Client-rendered**: React hooks ensure no SSR issues
 - **Lightweight**: ~2KB total, pure SVG + CSS
 - **GPU-accelerated**: Only opacity and transform animations
