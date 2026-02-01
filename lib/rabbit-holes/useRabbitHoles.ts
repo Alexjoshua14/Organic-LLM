@@ -7,7 +7,7 @@ import {
   RabbitHoleSourceAnalysis,
   RabbitHoleNode,
 } from "@/lib/schemas/rabbitHoleSchemas";
-import { useEffect, useState, useTransition } from "react";
+import { useState, useTransition } from "react";
 import { createLogger } from "@/lib/logger";
 import { analyzeSource, generateQuickPreview } from "@/app/rabbitholes/actions";
 import { generateRabbitHoleNode } from "./actions";

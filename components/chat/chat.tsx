@@ -65,7 +65,11 @@ export const Chat: React.FC<ChatProps> = ({
 
     },
     onData: (data) => {
+      /** Side channel for UI events */
       logger.log("chat", JSON.stringify(data, null, 2))
+      if (data.type === "data-notification") {
+        logger.log("chat", `DATA_NOTIFICATION ${JSON.stringify(data.data, null, 2)}`);
+      }
     }
   });
 

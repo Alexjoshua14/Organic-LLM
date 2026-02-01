@@ -46,6 +46,7 @@ import {
 } from "@/app/sandbox/aion/_components/persisted-schemas-container";
 import { getPersistedSchemas } from "../persistedSchemas";
 import { MyUIMessage } from "@/types/ai";
+import { SearchResult } from "mem0ai/oss";
 
 const logger = createLogger(`util/chat-store.ts`);
 
@@ -488,7 +489,10 @@ export async function getContext({
   memoryEnabled,
   persistedSchemasEnabled = false,
 }: getContextProps): Promise<
-  Result<{ context: string; messages: UIMessage[] }, string>
+  Result<
+    { context: string; messages: UIMessage[]; memories?: string[] },
+    string
+  >
 > {
   const startContextCompilationTime = performance.now();
 
@@ -678,6 +682,9 @@ export async function getContext({
     if (memoryEnabled) {
       let memories = "";
 
+      // TODO: Grab memory objects for streaming back to user
+      let memoriesArray: SearchResult[] = [];
+
       if (
         memoriesResult.results === null ||
         memoriesResult.results === undefined
@@ -686,7 +693,6 @@ export async function getContext({
           "getContext",
           `Error getting memories: Memories are null\n${JSON.stringify(memoriesResult)}`,
         );
-        memories = "";
       } else {
         memories = memoriesResult.results
           .map((result: { memory?: string }) => result.memory)
