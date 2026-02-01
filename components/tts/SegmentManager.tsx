@@ -219,9 +219,9 @@ export function SegmentManager({
                   <span className="w-6 h-6 rounded-lg bg-white/[0.05] flex items-center justify-center text-xs font-medium text-foreground/50">
                     {idx + 1}
                   </span>
-                  
+
                   {getStatusIcon(segment)}
-                  
+
                   <p className="text-sm text-foreground/70 truncate flex-1">
                     {preview}
                   </p>

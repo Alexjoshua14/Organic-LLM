@@ -1,19 +1,25 @@
 "use server";
 
-import { generateRabbitHoleObject } from "../llm/rabbit-hole/generation";
+import {
+  generateBranchSuggestions,
+  generateQuickPreviewLLM,
+  generateRabbitHoleObject,
+  generateSourceAnalysis,
+} from "../llm/rabbit-hole/generation";
 import {
   RabbitHoleAIResponse,
   RabbitHoleBranchSuggestion,
   RabbitHoleNode,
-  RabbitHoleNodeSchema,
+  RabbitHoleAIResponseSchema,
   RabbitHoleSession,
+  RabbitHoleSourceAnalysis,
 } from "../schemas/rabbitHoleSchemas";
 import { RABBIT_HOLE_SYSTEM_PROMPT } from "../system-prompt/rabbit-hole";
 import { createLogger } from "../logger";
 import { auth } from "@clerk/nextjs/server";
 import { Result } from "@/types";
-import { exaWebSearchTool, fetchExternalSources } from "../exa/sources";
-import { generateObject, generateText } from "ai";
+import { fetchExternalSources, getWebpageContent } from "../exa/sources";
+import { generateText } from "ai";
 import { openai } from "@ai-sdk/openai";
 
 const logger = createLogger("lib/rabbit-holes/actions.ts");
@@ -25,11 +31,11 @@ type NodeContentResult = {
 
 const initialNodePrompt =
   `Generate a comprehensive Rabbit Hole exploration for the following question:\n\n{{question}}\n\n` +
-  `Real-world sources:\n{{sourcesContext}}\n\n`;
+  `Real-world sources:\n{{sourcesContext}}\n\n{{sourcesInstruction}}\n\n`;
 
 const newNodePrompt =
   `Continue the Rabbit Hole exploration by diving deep into: {{question}}\n\n{{branchDescription}}\n\n` +
-  `Real-world sources:\n {{sourcesContext}}\n\n` +
+  `Real-world sources:\n{{sourcesContext}}\n\n{{sourcesInstruction}}\n\n` +
   `Generate a comprehensive article that builds on the exploration path.\n\n` +
   `Path history: {{pathHistory}}`;
 
@@ -44,21 +50,29 @@ const newNodePrompt =
  * @returns
  */
 async function generateRabbitHoleNodeContent(
-  prompt: string
+  prompt: string,
+  branchSuggestionRootQuestion: string
 ): Promise<NodeContentResult> {
   const { data } = await generateRabbitHoleObject<RabbitHoleNode>({
-    logContext: "followRabbitHoleBranch",
+    logContext: "generateRabbitHoleNode",
     startMessage: `Starting AI generation for rabbit hole node`,
     durationMessageBuilder: (durationMs) =>
-      `AI response completed for branch in ${durationMs.toFixed(2)} ms`,
-    keyTakeawayLabel: "Branch first key takeaway",
+      `AI response completed in ${durationMs.toFixed(2)} ms`,
+    keyTakeawayLabel: "First key takeaway",
     systemPrompt: RABBIT_HOLE_SYSTEM_PROMPT,
     prompt,
   });
 
-  const object = RabbitHoleNodeSchema.parse(data);
+  const object = RabbitHoleAIResponseSchema.parse(data);
 
-  return { object, branchSuggestions: [] };
+  const res = await generateBranchSuggestions({
+    context: object.articleHtml,
+    rootQuestion: branchSuggestionRootQuestion,
+  });
+
+  const branchSuggestions = res && res.data ? res.data : [];
+
+  return { object, branchSuggestions };
 }
 
 /**
@@ -118,29 +132,127 @@ function buildPrompt(
   isInitialNode: boolean,
   refinedQuestion: string,
   pathHistory: string,
-  sources: RabbitHoleNode["sources"]
+  sourcesContext: string,
+  sourcesInstruction: string,
+  branchDescription?: string
 ): string {
   let prompt = "";
-
-  const sourcesContext =
-    sources
-      ?.map((source, index) => {
-        return `Source ${index + 1}: ${source.url}\n${source.snippet}`;
-      })
-      .join("\n") ?? "No sources found";
 
   if (isInitialNode) {
     prompt += initialNodePrompt;
     prompt = prompt.replace("{{sourcesContext}}", sourcesContext);
+    prompt = prompt.replace("{{sourcesInstruction}}", sourcesInstruction);
   } else {
     prompt += newNodePrompt;
     prompt = prompt.replace("{{sourcesContext}}", sourcesContext);
+    prompt = prompt.replace("{{sourcesInstruction}}", sourcesInstruction);
     prompt = prompt.replace("{{pathHistory}}", pathHistory);
+    prompt = prompt.replace("{{branchDescription}}", branchDescription ?? "");
   }
 
   prompt = prompt.replace("{{question}}", refinedQuestion);
 
   return prompt;
+}
+
+/**
+ * Generate a quick preview of what will be explored (client-safe server action).
+ */
+export async function generateQuickPreview(
+  question: string,
+  context?: {
+    rootQuestion?: string;
+    pathHistory?: string;
+    branchLabel?: string;
+  }
+): Promise<Result<string>> {
+  const clerkUser = await auth();
+
+  if (!clerkUser || !clerkUser.userId) {
+    return {
+      data: null,
+      error: new Error("Unauthorized"),
+    };
+  }
+
+  try {
+    let prompt = `Generate a quick preview of what will be explored for: ${question}`;
+
+    if (context?.rootQuestion && context?.branchLabel) {
+      prompt = `Generate a quick preview of exploring "${context.branchLabel}" in the context of "${context.rootQuestion}". Path so far: ${context.pathHistory || "Starting"}`;
+    }
+
+    const { text } = await generateQuickPreviewLLM({ prompt });
+
+    return {
+      data: text.trim(),
+      error: null,
+    };
+  } catch (error) {
+    logger.error("generateQuickPreview", `Error generating preview: ${error}`);
+    return {
+      data: null,
+      error: error instanceof Error ? error : new Error("Unknown error"),
+    };
+  }
+}
+
+/**
+ * Analyze a source by fetching its content + generating LLM analysis.
+ */
+export async function analyzeSource(
+  sourceUrl: string,
+  sourceTitle: string,
+  sourceSnippet?: string
+): Promise<Result<RabbitHoleSourceAnalysis>> {
+  const clerkUser = await auth();
+
+  if (!clerkUser || !clerkUser.userId) {
+    return {
+      data: null,
+      error: new Error("Unauthorized"),
+    };
+  }
+
+  try {
+    logger.log("analyzeSource", `Analyzing source: ${sourceUrl}`);
+
+    const webpageContent = await getWebpageContent(sourceUrl);
+
+    const contextInfo = webpageContent
+      ? `Webpage content (first 5000 chars):\n${webpageContent}\n\n`
+      : "";
+
+    const prompt = `Analyze the following source:
+
+Title: ${sourceTitle}
+URL: ${sourceUrl}
+${sourceSnippet ? `Snippet: ${sourceSnippet}` : ""}
+
+${contextInfo}
+
+Provide a comprehensive analysis that helps the user understand this source's key information and relevance.`;
+
+    const { object } = await generateSourceAnalysis({ prompt });
+
+    const analysis: RabbitHoleSourceAnalysis = {
+      ...object,
+      originalUrl: sourceUrl,
+    };
+
+    logger.log("analyzeSource", `Analysis completed for: ${sourceUrl}`);
+
+    return {
+      data: analysis,
+      error: null,
+    };
+  } catch (error) {
+    logger.error("analyzeSource", `Error analyzing source: ${error}`);
+    return {
+      data: null,
+      error: error instanceof Error ? error : new Error("Unknown error"),
+    };
+  }
 }
 
 /**
@@ -213,11 +325,16 @@ export async function generateRabbitHoleNode(
       isInitialNode,
       updatedNode.refinedQuestion ?? updatedNode.userQuestion,
       pathHistory,
-      exaSources
+      sourcesContext,
+      sourcesInstruction,
+      ""
     );
 
     const { object, branchSuggestions } =
-      await generateRabbitHoleNodeContent(prompt);
+      await generateRabbitHoleNodeContent(
+        prompt,
+        session.rootQuestion || (updatedNode.refinedQuestion ?? updatedNode.userQuestion)
+      );
 
     /** Update node */
     updatedNode.articleHtml = object.articleHtml;

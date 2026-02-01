@@ -1,11 +1,11 @@
 /**
  * Token Calculator for TTS Models
  * Estimates token usage, costs, and generation time for various TTS providers
- * 
+ *
  * Pricing updated: January 2026
  */
 
-export type TTSModel = 
+export type TTSModel =
   | "gpt-4o-mini-tts"
   | "eleven_multilingual_v2"
   | "eleven_flash_v2_5"
@@ -25,14 +25,17 @@ export type TokenUsageData = {
 
 // Pricing data (as of January 2026, in USD)
 // Sources: OpenAI API pricing, ElevenLabs pricing page
-const PRICING_CONFIG: Record<TTSModel, {
-  costPerMillionChars: number;
-  provider: string;
-  displayName: string;
-  charsPerSecondGeneration: number; // How fast it generates (chars processed per second)
-  charsPerSecondAudio: number; // Average speaking rate (chars per second of audio)
-  tier: "budget" | "standard" | "premium";
-}> = {
+const PRICING_CONFIG: Record<
+  TTSModel,
+  {
+    costPerMillionChars: number;
+    provider: string;
+    displayName: string;
+    charsPerSecondGeneration: number; // How fast it generates (chars processed per second)
+    charsPerSecondAudio: number; // Average speaking rate (chars per second of audio)
+    tier: "budget" | "standard" | "premium";
+  }
+> = {
   "gpt-4o-mini-tts": {
     costPerMillionChars: 12, // $0.012 per 1000 characters (reduced in 2026)
     provider: "OpenAI",
@@ -41,7 +44,7 @@ const PRICING_CONFIG: Record<TTSModel, {
     charsPerSecondAudio: 15, // ~15 chars/sec speaking rate
     tier: "budget",
   },
-  "eleven_multilingual_v2": {
+  eleven_multilingual_v2: {
     costPerMillionChars: 180, // $0.18 per 1000 characters (Creator tier)
     provider: "ElevenLabs",
     displayName: "Multilingual v2",
@@ -49,7 +52,7 @@ const PRICING_CONFIG: Record<TTSModel, {
     charsPerSecondAudio: 14,
     tier: "standard",
   },
-  "eleven_flash_v2_5": {
+  eleven_flash_v2_5: {
     costPerMillionChars: 80, // $0.08 per 1000 characters (Flash - optimized for speed)
     provider: "ElevenLabs",
     displayName: "Flash v2.5",
@@ -57,7 +60,7 @@ const PRICING_CONFIG: Record<TTSModel, {
     charsPerSecondAudio: 15,
     tier: "budget",
   },
-  "eleven_v3": {
+  eleven_v3: {
     costPerMillionChars: 300, // $0.30 per 1000 characters (Premium quality)
     provider: "ElevenLabs",
     displayName: "v3 (Premium)",
@@ -73,19 +76,25 @@ export const PREVIEW_COST_PER_CHAR = 0.000001; // Negligible cost for skip notic
 /**
  * Calculate token usage, cost, and time estimates for given text and model
  */
-export function calculateTokenUsage(text: string, model: TTSModel): TokenUsageData {
+export function calculateTokenUsage(
+  text: string,
+  model: TTSModel,
+): TokenUsageData {
   const characterCount = text.length;
   const estimatedTokens = characterCount;
-  
+
   const config = PRICING_CONFIG[model];
-  const estimatedCost = (characterCount / 1_000_000) * config.costPerMillionChars;
-  
+  const estimatedCost =
+    (characterCount / 1_000_000) * config.costPerMillionChars;
+
   // Estimate generation time (processing time on server)
-  const estimatedDurationMs = Math.ceil((characterCount / config.charsPerSecondGeneration) * 1000);
-  
+  const estimatedDurationMs = Math.ceil(
+    (characterCount / config.charsPerSecondGeneration) * 1000,
+  );
+
   // Estimate resulting audio duration
   const estimatedAudioDurationSec = characterCount / config.charsPerSecondAudio;
-  
+
   return {
     characterCount,
     estimatedTokens,
@@ -104,14 +113,19 @@ export function calculateTokenUsage(text: string, model: TTSModel): TokenUsageDa
  */
 export function calculateSegmentedCost(
   segments: Array<{ text: string; status: "generate" | "skip" | "preview" }>,
-  model: TTSModel
+  model: TTSModel,
 ): {
   totalCost: number;
   generatedCost: number;
   previewCost: number;
   totalDurationMs: number;
   totalAudioDurationSec: number;
-  breakdown: Array<{ index: number; cost: number; durationMs: number; audioDurationSec: number }>;
+  breakdown: Array<{
+    index: number;
+    cost: number;
+    durationMs: number;
+    audioDurationSec: number;
+  }>;
 } {
   const config = PRICING_CONFIG[model];
   let totalCost = 0;
@@ -119,7 +133,12 @@ export function calculateSegmentedCost(
   let previewCost = 0;
   let totalDurationMs = 0;
   let totalAudioDurationSec = 0;
-  const breakdown: Array<{ index: number; cost: number; durationMs: number; audioDurationSec: number }> = [];
+  const breakdown: Array<{
+    index: number;
+    cost: number;
+    durationMs: number;
+    audioDurationSec: number;
+  }> = [];
 
   segments.forEach((segment, index) => {
     const charCount = segment.text.length;
@@ -129,7 +148,9 @@ export function calculateSegmentedCost(
 
     if (segment.status === "generate") {
       cost = (charCount / 1_000_000) * config.costPerMillionChars;
-      durationMs = Math.ceil((charCount / config.charsPerSecondGeneration) * 1000);
+      durationMs = Math.ceil(
+        (charCount / config.charsPerSecondGeneration) * 1000,
+      );
       generatedCost += cost;
     } else if (segment.status === "preview") {
       // Preview uses cheap placeholder audio
@@ -142,7 +163,7 @@ export function calculateSegmentedCost(
     totalCost += cost;
     totalDurationMs += durationMs;
     totalAudioDurationSec += audioDurationSec;
-    
+
     breakdown.push({ index, cost, durationMs, audioDurationSec });
   });
 
@@ -187,7 +208,7 @@ export function formatAudioDuration(seconds: number): string {
   if (seconds < 60) return `${Math.round(seconds)}s`;
   const minutes = Math.floor(seconds / 60);
   const remainingSeconds = Math.round(seconds % 60);
-  return `${minutes}:${remainingSeconds.toString().padStart(2, '0')}`;
+  return `${minutes}:${remainingSeconds.toString().padStart(2, "0")}`;
 }
 
 /**
@@ -207,26 +228,32 @@ export function getModelInfo(model: TTSModel) {
 /**
  * Split text into segments (by paragraph or sentence)
  */
-export function splitTextIntoSegments(text: string, mode: "paragraph" | "sentence" = "paragraph"): string[] {
+export function splitTextIntoSegments(
+  text: string,
+  mode: "paragraph" | "sentence" = "paragraph",
+): string[] {
   if (mode === "paragraph") {
     // Split by double newlines or single newlines with significant content
     return text
       .split(/\n\n+/)
-      .map(p => p.trim())
-      .filter(p => p.length > 0);
+      .map((p) => p.trim())
+      .filter((p) => p.length > 0);
   } else {
     // Split by sentences (rough heuristic)
     return text
       .split(/(?<=[.!?])\s+/)
-      .map(s => s.trim())
-      .filter(s => s.length > 0);
+      .map((s) => s.trim())
+      .filter((s) => s.length > 0);
   }
 }
 
 /**
  * Generate placeholder text for skipped audio section
  */
-export function generateSkipPlaceholderText(segmentIndex: number, originalText: string): string {
+export function generateSkipPlaceholderText(
+  segmentIndex: number,
+  originalText: string,
+): string {
   const wordCount = originalText.split(/\s+/).length;
   return `Section ${segmentIndex + 1} skipped. ${wordCount} words not generated.`;
 }

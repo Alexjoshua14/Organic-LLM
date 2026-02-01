@@ -9,8 +9,11 @@ import {
 } from "@/lib/schemas/rabbitHoleSchemas";
 import { useState, useTransition } from "react";
 import { createLogger } from "@/lib/logger";
-import { analyzeSource, generateQuickPreview } from "@/app/rabbitholes/actions";
-import { generateRabbitHoleNode } from "./actions";
+import {
+  analyzeSource,
+  generateQuickPreview,
+  generateRabbitHoleNode,
+} from "./actions";
 import { Result, SimpleResult } from "@/types";
 import { getSessionById, saveSession } from "@/data/supabase/rabbitholes";
 
@@ -107,9 +110,7 @@ export function useRabbitHoles(): UseRabbitHolesReturn {
   }
 
   async function saveSessionToStorage(session: RabbitHoleSession | null) {
-    // Null implementation
     setIsSavingSession(true);
-    logger.log("saveSession", "Not yet implemented");
     const serilizedSession = JSON.stringify(session);
     const res = await saveSession(serilizedSession);
 
@@ -247,11 +248,16 @@ export function useRabbitHoles(): UseRabbitHolesReturn {
       /* Create new node for this question */
       const node = createNode(question, id);
 
+      /* Check if this is the root node */
+      const isFirstNode =
+        !baseSession.rootNodeId && baseSession.path.length === 0;
+
       /** Create copy of session object for temporary updates */
       let updatedSession: RabbitHoleSession = {
         ...baseSession,
         rootQuestion:
           baseSession.rootQuestion === "" ? question : baseSession.rootQuestion,
+        rootNodeId: isFirstNode ? node.id : baseSession.rootNodeId,
         activeNodeId: node.id,
         updatedAt: new Date().toISOString(),
         nodesById: {
@@ -391,7 +397,6 @@ export function useRabbitHoles(): UseRabbitHolesReturn {
   }
 
   async function selectSource(source: RabbitHoleSource) {
-    logger.log("selectSource", "Not yet implemented");
     setSelectedSourceId(source.id);
 
     if (source.status === "complete" && source.analysis) {
@@ -483,7 +488,7 @@ export function useRabbitHoles(): UseRabbitHolesReturn {
   };
 
   function clearSourceSelection() {
-    logger.log("clearSourceSelection", "Not yet implemented");
+    logger.log("clearSourceSelection", "Not yet fully implemented");
     setSelectedSourceId(null);
     setIsAnalyzingSource(false);
     return;
@@ -495,8 +500,27 @@ export function useRabbitHoles(): UseRabbitHolesReturn {
   }
 
   function setActiveNode(nodeId: RabbitHoleNodeId) {
-    logger.log("setActiveNode", "Not yet implemented");
-    return;
+    /** Don't allow setting any arbitrary node as active */
+    if (!session?.nodesById[nodeId]) {
+      logger.error("setActiveNode", "Node not found", nodeId);
+      setError("Node not found");
+      return;
+    }
+
+    /** Skip updates when node is already active */
+    if (nodeId === activeNodeId) {
+      logger.log("setActiveNode", "Node is already active", nodeId);
+      return;
+    }
+
+    setActiveNodeId(nodeId);
+    setSession((prevSession) => {
+      if (!prevSession) return prevSession;
+      return {
+        ...prevSession,
+        activeNodeId: nodeId,
+      };
+    });
   }
 
   function reset() {
@@ -512,7 +536,6 @@ export function useRabbitHoles(): UseRabbitHolesReturn {
     return;
   }
 
-  // Null implementation for temporary (all methods do nothing or return null/defaults)
   return {
     session: session,
     isLoading: isLoading,

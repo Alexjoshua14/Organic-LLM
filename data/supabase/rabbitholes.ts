@@ -26,9 +26,106 @@ function isUnixTimestamp(value: string): boolean {
 export async function getAllSessions(): Promise<
   Result<RabbitHoleSessionMetadata[]>
 > {
+  const supabase = await supabaseServer();
+
+  const { data: sessions, error: sessionsError } = await supabase
+    .from("rabbit_hole_sessions")
+    .select("session_id, root_question, created_at, updated_at")
+    .order("updated_at", { ascending: false });
+
+  if (sessionsError) {
+    return {
+      data: [],
+      error: new Error(
+        sessionsError?.message ?? "Error fetching sessions from Supabase"
+      ),
+    };
+  }
+
+  if (!sessions || sessions.length === 0) {
+    return { data: [], error: null };
+  }
+
+  const sessionIds = sessions.map((s) => s.session_id);
+
+  // Fetch path segments to compute pathLength and locate root node IDs.
+  const { data: pathSegments, error: pathError } = await supabase
+    .from("rabbit_hole_path_segments")
+    .select("session_id, node_id, position")
+    .in("session_id", sessionIds);
+
+  if (pathError) {
+    return {
+      data: [],
+      error: new Error(
+        pathError?.message ?? "Error fetching session path segments from Supabase"
+      ),
+    };
+  }
+
+  const pathLengthBySession = new Map<string, number>();
+  const rootNodeIdBySession = new Map<string, string>();
+
+  for (const seg of pathSegments ?? []) {
+    pathLengthBySession.set(
+      seg.session_id,
+      (pathLengthBySession.get(seg.session_id) ?? 0) + 1
+    );
+    if (seg.position === 0 && typeof seg.node_id === "string") {
+      rootNodeIdBySession.set(seg.session_id, seg.node_id);
+    }
+  }
+
+  // Fetch root nodes to compute a short summary (first 2 takeaways).
+  const rootNodeIds = Array.from(rootNodeIdBySession.values());
+  const summaryBySession = new Map<string, string>();
+
+  if (rootNodeIds.length > 0) {
+    const { data: rootNodes, error: rootNodesError } = await supabase
+      .from("rabbit_hole_nodes")
+      .select("session_id, node_id, key_takeaways")
+      .in("session_id", sessionIds)
+      .in("node_id", rootNodeIds);
+
+    if (rootNodesError) {
+      return {
+        data: [],
+        error: new Error(
+          rootNodesError?.message ??
+            "Error fetching root nodes from Supabase for session summaries"
+        ),
+      };
+    }
+
+    for (const node of rootNodes ?? []) {
+      const takeaways = Array.isArray(node.key_takeaways)
+        ? (node.key_takeaways as string[])
+        : [];
+      const summary =
+        takeaways.length > 0 ? takeaways.slice(0, 2).join(" • ") : undefined;
+      if (summary) summaryBySession.set(node.session_id, summary);
+    }
+  }
+
+  const metadata: RabbitHoleSessionMetadata[] = sessions.map((s) => {
+    const createdAt =
+      typeof s.created_at === "string" ? s.created_at : new Date().toISOString();
+    const updatedAt =
+      typeof s.updated_at === "string" ? s.updated_at : createdAt;
+
+    return {
+      sessionId: s.session_id,
+      rootQuestion: s.root_question,
+      createdAt,
+      updatedAt,
+      pathLength: pathLengthBySession.get(s.session_id) ?? 0,
+      summary: summaryBySession.get(s.session_id),
+    };
+  });
+
   return {
-    data: [],
-    error: new Error("Not yet implemented"),
+    data: metadata,
+    error: null,
   };
 }
 
@@ -38,10 +135,179 @@ export async function getAllSessions(): Promise<
 export async function getSessionById(
   sessionId: string,
 ): Promise<Result<RabbitHoleSession | null>> {
-  logger.log("getSessionById", `Not yet implemented`);
+  const supabase = await supabaseServer();
+
+  const { data: sessionRow, error: sessionError } = await supabase
+    .from("rabbit_hole_sessions")
+    .select("session_id, root_question, active_node_id, created_at, updated_at")
+    .eq("session_id", sessionId)
+    .single();
+
+  if (sessionError) {
+    return {
+      data: null,
+      error: new Error(
+        sessionError?.message ?? "Error fetching session from Supabase",
+      ),
+    };
+  }
+
+  if (!sessionRow) {
+    return { data: null, error: null };
+  }
+
+  // Fetch all related entities for the session.
+  const [
+    pathRes,
+    nodesRes,
+    edgesRes,
+    sourcesRes,
+    branchesRes,
+  ] = await Promise.all([
+    supabase
+      .from("rabbit_hole_path_segments")
+      .select("node_id, label, parent_node_id, position")
+      .eq("session_id", sessionId)
+      .order("position", { ascending: true }),
+    supabase
+      .from("rabbit_hole_nodes")
+      .select(
+        "node_id, raw_prompt, user_question, key_takeaways, article_html, created_at"
+      )
+      .eq("session_id", sessionId),
+    supabase
+      .from("rabbit_hole_edges")
+      .select("from_node_id, to_node_id, edge_type")
+      .eq("session_id", sessionId),
+    supabase
+      .from("rabbit_hole_sources")
+      .select(
+        "node_id, source_id, title, url, favicon_url, snippet, published_date, author, highlights, analysis"
+      )
+      .eq("session_id", sessionId),
+    supabase
+      .from("rabbit_hole_branch_suggestions")
+      .select("node_id, branch_id, label, short_description")
+      .eq("session_id", sessionId),
+  ]);
+
+  const firstError =
+    pathRes.error ||
+    nodesRes.error ||
+    edgesRes.error ||
+    sourcesRes.error ||
+    branchesRes.error;
+
+  if (firstError) {
+    return {
+      data: null,
+      error: new Error(
+        firstError.message ?? "Error fetching session details from Supabase",
+      ),
+    };
+  }
+
+  const path = (pathRes.data ?? []).map((seg) => ({
+    nodeId: seg.node_id,
+    label: seg.label,
+    parentNodeId: seg.parent_node_id ?? null,
+  }));
+
+  const rootNodeId = path[0]?.nodeId ?? null;
+
+  // Sources grouped by node
+  const sourcesByNodeId = new Map<string, any[]>();
+  for (const s of sourcesRes.data ?? []) {
+    const arr = sourcesByNodeId.get(s.node_id) ?? [];
+    arr.push({
+      status: "none",
+      id: s.source_id,
+      title: s.title,
+      url: s.url,
+      faviconUrl: s.favicon_url ?? null,
+      snippet: s.snippet ?? null,
+      publishedDate: s.published_date ?? null,
+      author: s.author ?? null,
+      highlights: s.highlights ?? undefined,
+      analysis: s.analysis ?? undefined,
+    });
+    sourcesByNodeId.set(s.node_id, arr);
+  }
+
+  // Branch suggestions grouped by node
+  const branchesByNodeId = new Map<string, any[]>();
+  for (const b of branchesRes.data ?? []) {
+    const arr = branchesByNodeId.get(b.node_id) ?? [];
+    arr.push({
+      id: b.branch_id,
+      label: b.label,
+      shortDescription: b.short_description ?? undefined,
+    });
+    branchesByNodeId.set(b.node_id, arr);
+  }
+
+  const nodesById: RabbitHoleSession["nodesById"] = {};
+  for (const node of nodesRes.data ?? []) {
+    nodesById[node.node_id] = {
+      id: node.node_id,
+      rawPrompt: node.raw_prompt,
+      userQuestion: node.user_question,
+      refinedQuestion: null,
+      preview: null,
+      keyTakeaways: Array.isArray(node.key_takeaways)
+        ? (node.key_takeaways as string[])
+        : [],
+      articleHtml: node.article_html,
+      sources: sourcesByNodeId.get(node.node_id) ?? [],
+      branchSuggestions: branchesByNodeId.get(node.node_id) ?? [],
+      createdAt:
+        typeof node.created_at === "string"
+          ? node.created_at
+          : new Date().toISOString(),
+    };
+  }
+
+  const edges = (edgesRes.data ?? []).map((e) => ({
+    from: e.from_node_id,
+    to: e.to_node_id,
+    type: e.edge_type ?? undefined,
+  }));
+
+  const assembled: RabbitHoleSession = {
+    sessionId: sessionRow.session_id,
+    rootQuestion: sessionRow.root_question,
+    rootNodeId,
+    path,
+    nodesById,
+    activeNodeId: sessionRow.active_node_id ?? rootNodeId,
+    edges,
+    createdAt:
+      typeof sessionRow.created_at === "string"
+        ? sessionRow.created_at
+        : new Date().toISOString(),
+    updatedAt:
+      typeof sessionRow.updated_at === "string" ? sessionRow.updated_at : undefined,
+  };
+
+  const validated = RabbitHoleSessionSchema.safeParse(assembled);
+  if (!validated.success) {
+    if (DEBUG_MODE) {
+      logger.error(
+        "getSessionById",
+        `Failed to validate assembled session: ${validated.error.message}`
+      );
+    }
+    return {
+      data: null,
+      error: new Error(
+        validated.error.message ?? "Error validating assembled session"
+      ),
+    };
+  }
+
   return {
-    data: null,
-    error: new Error("Not yet implemented"),
+    data: validated.data,
+    error: null,
   };
 }
 
@@ -388,9 +654,25 @@ export async function saveSession(serialized: string): Promise<SimpleResult> {
 /**
  * Delete a session by ID
  */
-export async function deleteSession(sessionId: string): Promise<Result<void>> {
+export async function deleteSession(sessionId: string): Promise<SimpleResult> {
+  const supabase = await supabaseServer();
+
+  const { error } = await supabase
+    .from("rabbit_hole_sessions")
+    .delete()
+    .eq("session_id", sessionId);
+
+  if (error) {
+    return {
+      ok: false,
+      error: new Error(
+        error?.message ?? "Error deleting session from Supabase",
+      ),
+    };
+  }
+
   return {
-    data: null,
-    error: new Error("Not yet implemented"),
+    ok: true,
+    error: null,
   };
 }

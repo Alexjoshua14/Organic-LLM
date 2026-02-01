@@ -4,13 +4,13 @@ import { useMemo } from "react";
 import { Zap, Type, DollarSign, Clock, Volume2 } from "lucide-react";
 import { Tooltip } from "@heroui/tooltip";
 
-import { 
-  calculateTokenUsage, 
-  formatCost, 
+import {
+  calculateTokenUsage,
+  formatCost,
   formatNumber,
   formatDuration,
   formatAudioDuration,
-  TTSModel 
+  TTSModel
 } from "@/lib/tts/token-calculator";
 import { glass } from "@/components/design-system/primitives";
 
@@ -71,7 +71,7 @@ export function TokenUsageDisplay({ text, model, className = "", showTime = true
   ];
 
   return (
-    <div 
+    <div
       className={`
         ${glass()} 
         rounded-lg 
@@ -84,7 +84,7 @@ export function TokenUsageDisplay({ text, model, className = "", showTime = true
       <div className="flex items-center gap-4 md:gap-6">
         {metrics.map((metric, index) => {
           const Icon = metric.icon;
-          
+
           return (
             <Tooltip
               key={metric.label}
@@ -104,8 +104,8 @@ export function TokenUsageDisplay({ text, model, className = "", showTime = true
                   hover:scale-105
                 `}
               >
-                <Icon 
-                  className={`w-3.5 h-3.5 ${metric.color} opacity-70`} 
+                <Icon
+                  className={`w-3.5 h-3.5 ${metric.color} opacity-70`}
                   strokeWidth={2.5}
                 />
                 <div className="flex flex-col">
@@ -164,7 +164,7 @@ export function CompactTokenUsageDisplay({ text, model, className = "" }: TokenU
       }
       delay={200}
     >
-      <div 
+      <div
         className={`
           ${glass()} 
           rounded-md 

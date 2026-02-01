@@ -1,5 +1,14 @@
 "use client";
 
+/**
+ * @deprecated The Rabbit Hole client hook has moved to `lib/rabbit-holes/useRabbitHoles.ts`.
+ * This file is kept temporarily for backward compatibility while UI imports are migrated.
+ *
+ * Prefer:
+ * - `lib/rabbit-holes/useRabbitHoles.ts` for the client hook
+ * - `lib/rabbit-holes/actions.ts` for server-side Rabbit Hole actions
+ */
+
 import { useState, useTransition, useEffect, useContext } from "react";
 import {
   RabbitHoleSession,
@@ -24,6 +33,9 @@ const logger = createLogger("useRabbitHoleSession");
 
 const STORAGE_KEY = "rabbit-hole-session"; // Keep for backward compatibility
 
+/**
+ * @deprecated Legacy storage helper for the old `app/rabbitholes/*` implementation.
+ */
 async function getStoredSession(
   sessionId?: string
 ): Promise<RabbitHoleSession | null> {
@@ -61,6 +73,9 @@ async function getStoredSession(
   }
 }
 
+/**
+ * @deprecated Legacy persistence helper for the old `app/rabbitholes/*` implementation.
+ */
 async function saveSessionToStorage(
   session: RabbitHoleSession | null
 ): Promise<void> {
@@ -110,6 +125,9 @@ async function saveSessionToStorage(
   }
 }
 
+/**
+ * @deprecated Use `useRabbitHoles` from `lib/rabbit-holes/useRabbitHoles.ts`.
+ */
 export function useRabbitHoleSession() {
   const {
     sessionId,

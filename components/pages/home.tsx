@@ -7,12 +7,12 @@ import AdaptiveLiquidChrome from "@/components/background/AdaptiveLiquidChrome";
 export default function Home() {
   return (
     <Page transparentBackground>
-      <AdaptiveLiquidChrome 
+      <AdaptiveLiquidChrome
         dimIntensity={0.45}
         restDelay={2400}
       />
       <div className={`fixed inset-0 flex flex-col items-center justify-center h-full w-full gap-10`}>
-        <div 
+        <div
           data-dim-background
           className={`flex flex-col items-center justify-center rounded-xl w-full max-w-sm sm:max-w-xl`}
         >
