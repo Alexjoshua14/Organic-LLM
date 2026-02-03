@@ -53,7 +53,7 @@ export function Sidebar() {
         </SignedOut>
         <SignedIn>
           <>
-            <SidebarGroup className="flex-1">
+            <SidebarGroup className="shrink-0">
               <SidebarGroupContent className="flex flex-col gap-3">
                 <SidebarNewChat />
                 <SidebarProjectLink href="/rabbitholes/browse" title="Rabbit Holes" tooltip="Browse rabbit holes" />
@@ -81,9 +81,11 @@ export function Sidebar() {
                 />
               </SidebarGroupContent>
             </SidebarGroup>
-            <Suspense fallback={<div className="flex items-center justify-center h-full">Loading...</div>}>
-              <SidebarChats />
-            </Suspense>
+            <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden">
+              <Suspense fallback={<div className="flex items-center justify-center py-8">Loading...</div>}>
+                <SidebarChats />
+              </Suspense>
+            </div>
           </>
         </SignedIn>
       </SidebarContent>

@@ -115,9 +115,9 @@ export const SidebarChats = () => {
   }, [pinnedChats]);
 
   return (
-    <>
+    <div className="flex flex-col gap-1 py-1">
       {pinnedChatsComponents}
-      <SidebarGroup className="h-full overflow-hidden">
+      <SidebarGroup className="shrink-0">
         <SidebarGroupLabel>
           <div className="text-foreground">
             <h2>All Threads</h2>
@@ -125,6 +125,6 @@ export const SidebarChats = () => {
         </SidebarGroupLabel>
         {allChatsComponents}
       </SidebarGroup>
-    </>
+    </div>
   );
 };
