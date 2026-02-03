@@ -48,7 +48,7 @@ export function AdaptiveOrganicPresence({
     active: {
       opacity: 0.25,
       blur: 14,
-      speed: "3.5s",
+      speed: "1.5s",
       scale: 0.9,
       color: "rgb(139, 92, 246)", // purple
     },

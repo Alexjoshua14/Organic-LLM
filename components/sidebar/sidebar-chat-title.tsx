@@ -2,46 +2,73 @@
 
 import React, { useCallback, useEffect, useRef, useState } from "react";
 
+type SidebarChatTitleProps = {
+  title: string;
+  editing: boolean;
+  onSave: (title: string) => void;
+  onEditingChange?: (editing: boolean) => void;
+};
 
-export const SidebarChatTitle = ({ title, onSave, editable }: { title: string, onSave: (title: string) => void, editable?: boolean }) => {
-  const [editing, setEditing] = useState<boolean>(false);
+const BLUR_GUARD_MS = 600;
+
+export function SidebarChatTitle({
+  title,
+  editing,
+  onSave,
+  onEditingChange,
+}: SidebarChatTitleProps) {
   const [editedTitle, setEditedTitle] = useState<string>(title);
   const inputRef = useRef<HTMLInputElement>(null);
+  const editStartedAtRef = useRef(0);
 
-  // Sync with prop changes
   useEffect(() => {
     if (!editing) {
       setEditedTitle(title);
     }
   }, [title, editing]);
 
-  // Auto-focus and select when entering edit mode
   useEffect(() => {
-    if (editing && inputRef.current) {
-      inputRef.current.focus();
-      inputRef.current.select();
-    }
+    if (!editing) return;
+    editStartedAtRef.current = Date.now();
+    const id = setTimeout(() => {
+      inputRef.current?.focus();
+      inputRef.current?.select();
+    }, 100);
+    return () => clearTimeout(id);
   }, [editing]);
-
-  const handleEdit = useCallback(() => {
-    setEditing(true);
-  }, []);
 
   const handleSave = useCallback(() => {
     if (editedTitle.trim() === "") {
       setEditedTitle(title);
+    } else {
+      onSave(editedTitle.trim());
+    }
+    onEditingChange?.(false);
+  }, [editedTitle, title, onSave, onEditingChange]);
+
+  const handleBlur = useCallback(() => {
+    const elapsed = Date.now() - editStartedAtRef.current;
+    if (elapsed < BLUR_GUARD_MS) {
+      // Refocus so user can type; something (dropdown, etc.) stole focus.
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          inputRef.current?.focus();
+        });
+      });
       return;
     }
-    onSave(editedTitle.trim());
-  }, [editedTitle, title, onSave]);
+    handleSave();
+  }, [handleSave]);
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === "Enter") {
+      e.preventDefault();
       handleSave();
     } else if (e.key === "Escape") {
+      e.preventDefault();
       setEditedTitle(title);
+      onEditingChange?.(false);
     }
-    setEditing(false);
   };
 
   if (editing) {
@@ -51,20 +78,20 @@ export const SidebarChatTitle = ({ title, onSave, editable }: { title: string, o
         type="text"
         value={editedTitle}
         onChange={(e) => setEditedTitle(e.target.value)}
-        onBlur={handleSave}
-        onKeyDown={handleKeyDown}
+        onBlur={handleBlur}
+        onKeyDown={(e) => {
+          e.stopPropagation();
+          handleKeyDown(e);
+        }}
         onClick={(e) => e.stopPropagation()}
-        className="flex-1 w-full py-1 bg-transparent outline-none border-b border-foreground/20 focus:border-foreground/50"
+        className="flex-1 min-w-0 w-full py-1 bg-transparent outline-none border-b border-foreground/20 focus:border-foreground/50"
       />
     );
   }
 
   return (
-    <h3
-      className="flex-1 truncate py-1"
-      onDoubleClick={editable ? handleEdit : undefined}
-    >
+    <h3 className="flex-1 truncate py-1 min-w-0" title={title}>
       {title}
     </h3>
   );
-};
+}
