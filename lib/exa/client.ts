@@ -1,52 +1,59 @@
 "use server";
 
-import { RabbitHoleSource } from "@/lib/schemas/rabbitHoleSchemas";
 import { createLogger } from "@/lib/logger";
-
+import { RabbitHoleSource } from "@/lib/schemas/rabbitHoleSchemas";
+import Exa, { RegularSearchOptions, SearchResponse } from "exa-js";
 import {
   ExaContentResponse,
   ExaSearchOptions,
   ExaSearchResponse,
 } from "./types";
+import { getApiKey, mapToSources } from "./utils";
+import { Result } from "@/types";
 
 const logger = createLogger("lib/exa/client");
 
 const EXA_SEARCH_URL = "https://api.exa.ai/search";
 const EXA_CONTENTS_URL = "https://api.exa.ai/contents";
 
-function getApiKey(): string | null {
-  return process.env.EXA_API_KEY ?? null;
-}
+const DEFAULT_NUM_RESULTS = 8;
 
-function buildFavicon(url: string): string | undefined {
+const exa = new Exa(getApiKey() ?? undefined);
+
+export async function searchWebWithQuery(
+  query: string,
+  options: Partial<RegularSearchOptions> = {},
+): Promise<
+  Result<
+    | SearchResponse<{ highlights: true }>
+    | SearchResponse<{ text: true }>
+    | SearchResponse<{ highlights: true; text: true }>,
+    Error
+  >
+> {
   try {
-    const parsed = new URL(url);
-    return `https://www.google.com/s2/favicons?domain=${parsed.hostname}`;
-  } catch {
-    return undefined;
-  }
-}
+    const start = performance.now();
 
-function mapToSources(
-  results: ExaSearchResponse["results"]
-): RabbitHoleSource[] {
-  return results.map((doc, index) => {
-    const snippet =
-      doc.text?.slice(0, 280) ||
-      (doc.highlights && doc.highlights.length > 0 ? doc.highlights[0] : "");
+    const searchResult = await exa.search(query, {
+      ...options,
+      numResults: options.numResults ?? DEFAULT_NUM_RESULTS,
+      type: options.type ?? "auto",
+    });
 
+    const end = performance.now();
+    logger.log(
+      "searchWebWithQuery",
+      `Query="${query}" results=${searchResult.results.length} elapsed=${(end - start).toFixed(1)}ms`,
+    );
+
+    return { data: searchResult, error: null };
+  } catch (error) {
+    logger.error("searchWebWithQuery", `Error for query="${query}": ${error}`);
     return {
-      status: "none",
-      id: doc.id || doc.url || `exa-${index}`,
-      title: doc.title || doc.url,
-      url: doc.url,
-      faviconUrl: buildFavicon(doc.url),
-      snippet,
-      publishedDate: doc.publishedDate,
-      author: doc.author,
-      highlights: doc.highlights,
+      data: null,
+      error: error instanceof Error ? error : new Error("Unknown Exa error"),
     };
-  });
+  }
 }
 
 export async function searchWeb(
@@ -109,7 +116,7 @@ export async function searchWeb(
 }
 
 export async function getContents(
-  urls: string[]
+  urls: string[],
 ): Promise<{ contents: ExaContentResponse["results"]; error: Error | null }> {
   const apiKey = getApiKey();
   if (!apiKey) {
@@ -141,7 +148,7 @@ export async function getContents(
       return {
         contents: [],
         error: new Error(
-          `Exa contents failed: ${res.status} ${res.statusText}`
+          `Exa contents failed: ${res.status} ${res.statusText}`,
         ),
       };
     }

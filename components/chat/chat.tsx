@@ -2,7 +2,7 @@
 
 import { UIMessage, useChat } from "@ai-sdk/react";
 import { DefaultChatTransport } from "ai";
-import { useCallback, useEffect, useRef } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 import { ChatThread } from "./chat-thread";
 
@@ -13,6 +13,8 @@ import { ChatModel, DEFAULT_CHAT_MODEL } from "@/lib/schemas/chat";
 import { NewChatInput } from "./new-chat-input";
 import { Conversation, ConversationScrollButton } from "../third-party/ai-elements/conversation";
 import { useArchetypeContext } from "@/lib/context/archetype-context";
+import { ChatAIActionEnum } from "@/types/ai";
+import type { ExaSearchResultSource } from "@/lib/exa/types";
 
 const logger = createLogger("components/chat/chat");
 
@@ -35,6 +37,8 @@ export const Chat: React.FC<ChatProps> = ({
   const useMemoriesRef = useRef<boolean>(false);
   const usePersistedSchemas = useRef<boolean>(persona === 'aion');
   const initialMessageSent = useRef<boolean>(false);
+  const [aiAction, setAiAction] = useState<{ action: ChatAIActionEnum; message?: string; sources?: ExaSearchResultSource[] } | undefined>(undefined);
+  const errorRef = useRef<Error | undefined>(undefined);
 
   const { messages, sendMessage, id, stop, status, setMessages, addToolOutput } = useChat({
     id: chatData?.thread.id ?? "",
@@ -57,20 +61,65 @@ export const Chat: React.FC<ChatProps> = ({
         return req;
       },
     }),
-    onToolCall({ toolCall }) {
-      logger.log("chat", `TOOL_CALL ${JSON.stringify(toolCall, null, 2)}`);
-
-
-      // If expecting tool call on UI side add output here
-
-    },
     onData: (data) => {
       /** Side channel for UI events */
       logger.log("chat", JSON.stringify(data, null, 2))
       if (data.type === "data-notification") {
         logger.log("chat", `DATA_NOTIFICATION ${JSON.stringify(data.data, null, 2)}`);
+        const dataObject = data.data as { message?: string };
+
+      } else if (data.type === "data-aiAction") {
+        logger.log("chat", `DATA_AIACTION ${JSON.stringify(data.data, null, 2)}`);
+
+        const dataObject = data.data as { action: ChatAIActionEnum; message?: string; sources?: ExaSearchResultSource[] };
+
+        switch (dataObject.action) {
+          case ChatAIActionEnum.Reasoning:
+            setAiAction({ action: ChatAIActionEnum.Reasoning, message: dataObject.message });
+            break;
+          case ChatAIActionEnum.Tool:
+            let toolName = undefined;
+            if (dataObject.message) {
+              toolName = dataObject.message.split(": ")[1];
+            }
+            switch (toolName) {
+              case "web_search":
+                setAiAction((prev) => {
+                  let sources: ExaSearchResultSource[] | undefined = undefined;
+                  if (prev && prev.action === ChatAIActionEnum.Search) {
+                    sources = [...(prev.sources ?? []), ...(dataObject.sources ?? [])];
+                    // Make sources unique based on id
+                    sources = sources.filter((source, index, self) =>
+                      index === self.findIndex((t) => t.id === source.id)
+                    );
+                  } else {
+                    sources = dataObject.sources;
+                  }
+                  return { action: ChatAIActionEnum.Search, message: dataObject.message, sources: sources };
+                });
+                break;
+              case "memory_search":
+                setAiAction({ action: ChatAIActionEnum.Memory, message: dataObject.message });
+                break;
+              default:
+                setAiAction({ action: ChatAIActionEnum.Tool, message: dataObject.message });
+                break;
+            }
+            break;
+          default:
+            setAiAction({ action: dataObject.action, message: dataObject.message, sources: dataObject.sources });
+            break;
+        }
       }
-    }
+    },
+    onError: (error) => {
+      logger.error("chat", `ERROR ${JSON.stringify(error, null, 2)}`);
+      setAiAction({ action: ChatAIActionEnum.Errored, message: undefined });
+      errorRef.current = error;
+    },
+    onFinish: () => {
+      setAiAction(undefined);
+    },
   });
 
   // Send initial message if provided
@@ -140,7 +189,7 @@ export const Chat: React.FC<ChatProps> = ({
           "overscroll-x-none",
         ].join(" ")}
       >
-        <ChatThread messages={messages} />
+        <ChatThread messages={messages} aiActionPayload={aiAction} />
         <ConversationScrollButton className="bottom-14" />
       </Conversation>
       <div className="shrink-0 px-4 sm:px-7 pb-1 md:pb-4 w-full -mt-10">

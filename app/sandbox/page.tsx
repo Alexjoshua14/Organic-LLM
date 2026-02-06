@@ -53,6 +53,16 @@ export default function SandboxPage() {
       gradient: "from-green-400/20 to-emerald-500/20",
       hoverGradient: "hover:from-green-400/30 hover:to-emerald-500/30",
     },
+    {
+      title: "Prototypes",
+      description:
+        "UI and background experiments — silk-fabric gradient and more",
+      href: "/sandbox/prototypes",
+      icon: "✨",
+      size: "small",
+      gradient: "from-stone-300/20 to-amber-200/20",
+      hoverGradient: "hover:from-stone-300/30 hover:to-amber-200/30",
+    },
   ];
 
   return (

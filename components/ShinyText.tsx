@@ -17,7 +17,7 @@ const ShinyText: React.FC<ShinyTextProps> = ({
 
   return (
     <div
-      className={`shiny-text ${disabled ? "disabled" : ""} ${className}`}
+      className={`shiny-text ${disabled ? "disabled" : ""} cursor-default select-none ${className}`}
       style={{ animationDuration }}
     >
       {text}
