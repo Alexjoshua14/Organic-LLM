@@ -6,34 +6,35 @@ import {
   convertToModelMessages,
   TypeValidationError,
   smoothStream,
-  consumeStream,
   stepCountIs,
-  type Tool,
   createUIMessageStream,
   createUIMessageStreamResponse,
+  ToolSet,
 } from "ai";
 // import systemPrompt from "@/lib/system-prompt";
 import { auth } from "@clerk/nextjs/server";
 
 import { deleteChatMessage, getContext, saveChat } from "@/lib/chat/chat-store";
 import { ensureChatHasTitle, updateChatSummary } from "@/lib/llm/chat-helpers";
-import { createMemorySearchTool } from "@/lib/llm/llm-tool-kit";
+import {
+  createMemorySearchTool,
+  createWebSearchTool,
+  type WebSearchStreamWriter,
+} from "@/lib/llm/llm-tool-kit";
 import { createLogger } from "@/lib/logger";
 import { SYSTEM_PROMPT } from "@/lib/system-prompt/prompt-v0";
 import { addLatestMessagesToMemory } from "@/lib/memory/operations";
 
-import {
-  ChatRequestSchema,
-  DEFAULT_CHAT_MODEL,
-  ChatModelSchema,
-  type ChatModel,
-} from "@/lib/schemas/chat";
+import { ChatRequestSchema, DEFAULT_CHAT_MODEL } from "@/lib/schemas/chat";
 import { getSupabaseUserId } from "@/data/supabase/profiles";
 import { CHAT_MODEL, getChatModel, measureAsync } from "@/lib/llm/helpers";
 import { OpenAIResponsesProviderOptions } from "@ai-sdk/openai";
+import { ChatUIMessage, ChatAIActionEnum } from "@/types/ai";
 
 // Allow streaming responses up to 30 seconds
 export const maxDuration = 30;
+
+const MAX_TOOL_STEPS = 10;
 
 // const tools = {};
 
@@ -100,11 +101,14 @@ export async function POST(req: Request) {
       logger.error("POST", `Failed to save user message: ${err}`);
     });
 
-  const stream = createUIMessageStream({
+  const stream = createUIMessageStream<ChatUIMessage>({
     execute: async ({ writer }) => {
       writer.write({
-        type: "data-notification",
-        data: { message: "Gathering context", level: "info" },
+        type: "data-aiAction",
+        data: {
+          action: ChatAIActionEnum.Processing,
+          message: "Gathering context",
+        },
         transient: true,
       });
 
@@ -165,6 +169,25 @@ export async function POST(req: Request) {
 
       const streamStartTime = performance.now();
       const messages = convertToModelMessages(validatedMessages);
+      const { tools, toolInstructions } = await compileTools({
+        useSearch: parseResult.data.webSearch ?? false,
+        useMemory: parseResult.data.memory ?? false,
+        sbUserId,
+        writer,
+      });
+
+      const hasTools = Object.keys(tools).length > 0;
+      // One round of tool use + one round of response; avoids redundant multi-step searches
+      const maxSteps = hasTools ? MAX_TOOL_STEPS : 2;
+      if (hasTools) {
+        systemPromptForRequest += `\n\nTool Instructions:\n${toolInstructions}`;
+      }
+
+      writer.write({
+        type: "data-aiAction",
+        data: { action: ChatAIActionEnum.Processing, message: "Thinking..." },
+        transient: true,
+      });
 
       const result = streamText({
         model: selectedModel.id,
@@ -186,15 +209,33 @@ export async function POST(req: Request) {
             transient: true,
           });
         },
+        onChunk: (chunk) => {
+          logger.log("POST", `Chunk: ${chunk.chunk.type}`);
+          if (chunk.chunk.type === "reasoning-delta") {
+            writer.write({
+              type: "data-aiAction",
+              data: { action: ChatAIActionEnum.Reasoning },
+              transient: true,
+            });
+          } else if (chunk.chunk.type === "tool-call") {
+            writer.write({
+              type: "data-aiAction",
+              data: {
+                action: ChatAIActionEnum.Tool,
+                message: `Using tool: ${chunk.chunk.toolName}`,
+              },
+              transient: true,
+            });
+          }
+        },
         providerOptions: {
           openai: {
             include: ["reasoning.encrypted_content"],
           } satisfies OpenAIResponsesProviderOptions,
         },
-        tools: {
-          search_memories: createMemorySearchTool(sbUserId),
-        },
-        stopWhen: stepCountIs(2),
+        tools,
+        toolChoice: hasTools ? "auto" : "none",
+        stopWhen: stepCountIs(maxSteps),
       });
 
       writer.merge(
@@ -353,21 +394,36 @@ export async function POST(req: Request) {
   return createUIMessageStreamResponse({ stream });
 }
 
-// TODO: Make this work
-const compileTools = ({
+const compileTools = async ({
   useSearch,
   useMemory,
   sbUserId,
+  writer,
 }: {
   useSearch: boolean;
   useMemory: boolean;
   sbUserId: string;
-}): Tool[] => {
+  writer?: WebSearchStreamWriter;
+}): Promise<{ tools: ToolSet; toolInstructions: string }> => {
   // Compile and return an array of tools as expected by streamText({ tools })
-  const tools: Tool[] = []; // TODO: Fill this in based on req or other context
+  const tools: ToolSet = {};
+  let toolInstructions = "";
 
   if (useMemory) {
-    // tools.push({ search_memories: createMemorySearchTool(sbUserId) });
+    const memorySearchTool = createMemorySearchTool(sbUserId);
+    tools["search_memories"] = memorySearchTool;
+    toolInstructions +=
+      "You have access to a vector based memory search tool. Use this when you need to recall specific details, preferences, or context from previous interactions.\n";
   }
-  return tools;
+  if (useSearch) {
+    tools["web_search"] = createWebSearchTool({ maxNumResults: 3, writer });
+    toolInstructions +=
+      "You have access to an advanced web search tool. When using the web search tool, prefer to use a few searches. If the first result answers the question, respond to the user without calling tools again.\n";
+  }
+
+  if (toolInstructions.length > 0) {
+    toolInstructions +=
+      "Prefer fewer tool calls when possible. If the first result answers the question, respond to the user without calling tools again.\n";
+  }
+  return { tools, toolInstructions: toolInstructions.trim() };
 };

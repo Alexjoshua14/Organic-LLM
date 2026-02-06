@@ -3,9 +3,6 @@
 import { getContents, searchWeb } from "./client";
 import { RabbitHoleNode } from "@/lib/schemas/rabbitHoleSchemas";
 import { createLogger } from "@/lib/logger";
-import z from "zod";
-import { tool } from "ai";
-import { exaSearchOptionsSchema } from "./types";
 
 const logger = createLogger("lib/exa/sources.ts");
 
@@ -16,24 +13,13 @@ type ExternalSourcesResult = {
   sourcesInstruction: string;
 };
 
-export const exaWebSearchTool = tool({
-  description: "Search the web for information",
-  inputSchema: z.object({
-    query: z.string().describe("The query to search for"),
-    options: exaSearchOptionsSchema.optional(),
-  }),
-  execute: async ({ query, options }) => {
-    return await searchWeb(query, options);
-  },
-});
-
 /**
  * Fetch external sources and produce formatted context/instructions for prompts.
  * Keeps logging consistent across entry points.
  */
 export async function fetchExternalSources(
   prompt: string,
-  logContext: string
+  logContext: string,
 ): Promise<ExternalSourcesResult> {
   const { sources: exaSources, error: exaError } = await searchWeb(prompt, {
     numResults: 6,
@@ -45,7 +31,7 @@ export async function fetchExternalSources(
   if (exaError) {
     logger.log(
       logContext,
-      `Exa search failed, falling back to LLM-only: ${exaError}`
+      `Exa search failed, falling back to LLM-only: ${exaError}`,
     );
   }
   logger.log(logContext, `Exa sources count=${exaSources.length}`);
@@ -57,7 +43,7 @@ export async function fetchExternalSources(
             (s, idx) =>
               `[${idx + 1}] ${s.title} (${s.url})${
                 s.snippet ? `\n${s.snippet}` : ""
-              }`
+              }`,
           )
           .join("\n\n")
       : "No external sources available.";
@@ -81,18 +67,18 @@ export async function getWebpageContent(sourceUrl: string): Promise<string> {
       webpageContent = contents[0].text?.substring(0, 5000) || "";
       logger.log(
         "analyzeSource",
-        `Exa content fetched length=${webpageContent.length} for ${sourceUrl}`
+        `Exa content fetched length=${webpageContent.length} for ${sourceUrl}`,
       );
     } else if (exaError) {
       logger.log(
         "analyzeSource",
-        `Exa content fetch failed, falling back to direct fetch: ${exaError}`
+        `Exa content fetch failed, falling back to direct fetch: ${exaError}`,
       );
     }
   } catch (exaFetchError) {
     logger.log(
       "analyzeSource",
-      `Exa content fetch threw, falling back: ${exaFetchError}`
+      `Exa content fetch threw, falling back: ${exaFetchError}`,
     );
   }
 
@@ -118,13 +104,13 @@ export async function getWebpageContent(sourceUrl: string): Promise<string> {
           .substring(0, 5000); // Limit to first 5000 chars
         logger.log(
           "analyzeSource",
-          `Fallback fetch length=${webpageContent.length} for ${sourceUrl}`
+          `Fallback fetch length=${webpageContent.length} for ${sourceUrl}`,
         );
       }
     } catch (fetchError) {
       logger.log(
         "analyzeSource",
-        `Failed to fetch webpage content, using metadata only: ${fetchError}`
+        `Failed to fetch webpage content, using metadata only: ${fetchError}`,
       );
     }
   }
