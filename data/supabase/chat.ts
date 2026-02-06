@@ -41,7 +41,7 @@ export async function getChats(): Promise<Result<Thread[]>> {
  * @returns Array of UIMessage objects
  */
 export async function loadChat(
-  chatId: string
+  chatId: string,
 ): Promise<Result<{ thread: Thread; messages: UIMessage[] }>> {
   const sb = await supabaseServer();
 
@@ -103,7 +103,7 @@ export async function saveChat(params: {
       return {
         ok: false,
         error: new Error(
-          error?.message ?? "Error occured creating chat thread.."
+          error?.message ?? "Error occured creating chat thread..",
         ),
       };
     }
@@ -210,7 +210,7 @@ export async function createChat(chatId?: string): Promise<Result<string>> {
  */
 export async function addMessage(
   threadId: string,
-  message: UIMessage
+  message: UIMessage,
 ): Promise<SimpleResult> {
   const supabaseMessage = convertUIMessageToMessage(message, threadId);
 
@@ -260,14 +260,14 @@ export async function upsertMessages(params: {
       return {
         ok: false,
         error: new Error(
-          error?.message ?? "Error occured creating chat thread.."
+          error?.message ?? "Error occured creating chat thread..",
         ),
       };
     }
   }
 
   const rows = messages.map((message) =>
-    convertUIMessageToMessage(message, chatId)
+    convertUIMessageToMessage(message, chatId),
   );
 
   const { error } = await sb.from("messages").upsert(rows, {
@@ -292,7 +292,7 @@ export async function upsertMessages(params: {
 }
 
 export async function getMessages(
-  chatId: string
+  chatId: string,
 ): Promise<Result<UIMessage[]>> {
   const sb = await supabaseServer();
 
@@ -323,10 +323,60 @@ export async function getMessages(
   };
 }
 
+/**
+ * Returns messages in a thread on or after a given date (UTC).
+ * @param chatId - Thread ID
+ * @param since - ISO date string (YYYY-MM-DD); messages with created_at >= that day (00:00:00 UTC) are included
+ */
+export async function getMessagesSince(
+  chatId: string,
+  since: string,
+): Promise<Result<UIMessage[], string>> {
+  try {
+    const sb = await supabaseServer();
+    const sinceTimestamp = `${since.trim()}T00:00:00.000Z`;
+
+    const { data: messages, error } = await sb
+      .from("messages")
+      .select("*")
+      .eq("thread_id", chatId)
+      .gte("created_at", sinceTimestamp)
+      .order("created_at", { ascending: true });
+
+    if (error || !messages) {
+      return {
+        data: [],
+        error: error?.message ?? "Unknown error",
+      };
+    }
+
+    const uiMessages = messages
+      .map((message) => convertMessageToUIMessage(message))
+      .filter((message) => message !== null);
+
+    if (uiMessages.length !== messages.length) {
+      logger.error(
+        "getMessagesSince",
+        "A message was not converted to UIMessage",
+      );
+    }
+
+    return {
+      data: uiMessages,
+      error: null,
+    };
+  } catch (err) {
+    return {
+      data: [],
+      error: err instanceof Error ? err.message : "Unknown error",
+    };
+  }
+}
+
 export async function getNMessages(
   chatId: string,
   limit?: number,
-  debug: boolean = false
+  debug: boolean = false,
 ): Promise<Result<UIMessage[], string>> {
   if (limit === 0) {
     return {
@@ -374,7 +424,7 @@ export async function getNMessages(
             const trimmed = text.length > 40 ? text.slice(0, 40) + "..." : text;
             return `${idx}: ${trimmed}`;
           })
-          .join("\n")
+          .join("\n"),
       );
     }
 
@@ -390,9 +440,34 @@ export async function getNMessages(
   }
 }
 
+/**
+ * Returns the total number of messages in a thread (for LLM context).
+ */
+export async function getMessageCount(
+  chatId: string,
+): Promise<Result<number, string>> {
+  try {
+    const sb = await supabaseServer();
+    const { count, error } = await sb
+      .from("messages")
+      .select("*", { count: "exact", head: true })
+      .eq("thread_id", chatId);
+
+    if (error) {
+      return { data: null, error: error.message };
+    }
+    return { data: Math.max(0, count ?? 0), error: null };
+  } catch (err) {
+    return {
+      data: null,
+      error: err instanceof Error ? err.message : "Unknown error",
+    };
+  }
+}
+
 export async function updateChatTitle(
   chatId: string,
-  title: string
+  title: string,
 ): Promise<SimpleResult> {
   const sb = await supabaseServer();
   const { error } = await sb.from("threads").update({ title }).eq("id", chatId);
@@ -412,7 +487,7 @@ export async function updateChatTitle(
 
 export async function updateChatPinned(
   chatId: string,
-  pinned: boolean
+  pinned: boolean,
 ): Promise<SimpleResult> {
   const sb = await supabaseServer();
   const { error } = await sb
@@ -468,7 +543,7 @@ export async function deleteChat(chatId: string): Promise<SimpleResult> {
 }
 
 export async function getConversationSummary(
-  chatId: string
+  chatId: string,
 ): Promise<Result<string>> {
   const sb = await supabaseServer();
   const { data, error } = await sb
@@ -492,7 +567,7 @@ export async function getConversationSummary(
 
 export async function updateConversationSummary(
   chatId: string,
-  conversationSummary: string
+  conversationSummary: string,
 ): Promise<SimpleResult> {
   if (conversationSummary.trim().length === 0) {
     return {
