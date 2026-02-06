@@ -25,6 +25,7 @@ import {
   createChat as createChatSupabase,
   loadChat as loadChatSupabase,
   getChats as getChatsSupabase,
+  getMessageCount,
   getNMessages,
   getConversationSummary,
   upsertMessages,
@@ -595,6 +596,11 @@ export async function getContext({
         break;
     }
 
+    systemPrompt = systemPrompt.replace(
+      "{{currentDateTime}}",
+      new Date().toISOString(),
+    );
+
     contextPieces.push({
       content: systemPrompt,
     });
@@ -796,6 +802,23 @@ export async function getContext({
           .join("\n"),
       });
     }
+
+    /***
+     * Step 5e
+     *
+     * Current chat context (total message count + context window size for get_more_chat_history)
+     ***/
+    const totalCountResult = await getMessageCount(chatId);
+    const totalCount = totalCountResult.data ?? null;
+    const messagesInContext = messages.length;
+    const currentChatContent =
+      totalCount !== null
+        ? `This thread has ${totalCount} message${totalCount === 1 ? "" : "s"} in total. You have the most recent ${messagesInContext} in your context. When the user refers to something earlier in the conversation that you don't see, use get_more_chat_history to fetch older messages.`
+        : `You have the most recent ${messagesInContext} message${messagesInContext === 1 ? "" : "s"} in your context. Use get_more_chat_history when the user refers to something earlier in the conversation.`;
+    contextPieces.push({
+      title: "Current chat",
+      content: currentChatContent,
+    });
 
     /***
      * Step 5d

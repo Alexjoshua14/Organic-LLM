@@ -17,6 +17,9 @@ import { auth } from "@clerk/nextjs/server";
 import { deleteChatMessage, getContext, saveChat } from "@/lib/chat/chat-store";
 import { ensureChatHasTitle, updateChatSummary } from "@/lib/llm/chat-helpers";
 import {
+  createGetFullChatHistoryTool,
+  createGetMessagesFromDateTool,
+  createGetMoreMessagesTool,
   createMemorySearchTool,
   createWebSearchTool,
   type WebSearchStreamWriter,
@@ -169,9 +172,13 @@ export async function POST(req: Request) {
 
       const streamStartTime = performance.now();
       const messages = convertToModelMessages(validatedMessages);
+      const initialMessageCount = validatedMessages.length;
       const { tools, toolInstructions } = await compileTools({
         useSearch: parseResult.data.webSearch ?? false,
         useMemory: parseResult.data.memory ?? false,
+        useGetMoreMessages: true,
+        chatId: id,
+        initialMessageCount,
         sbUserId,
         writer,
       });
@@ -397,11 +404,17 @@ export async function POST(req: Request) {
 const compileTools = async ({
   useSearch,
   useMemory,
+  useGetMoreMessages,
+  chatId,
+  initialMessageCount,
   sbUserId,
   writer,
 }: {
   useSearch: boolean;
   useMemory: boolean;
+  useGetMoreMessages?: boolean;
+  chatId?: string;
+  initialMessageCount?: number;
   sbUserId: string;
   writer?: WebSearchStreamWriter;
 }): Promise<{ tools: ToolSet; toolInstructions: string }> => {
@@ -419,6 +432,20 @@ const compileTools = async ({
     tools["web_search"] = createWebSearchTool({ maxNumResults: 3, writer });
     toolInstructions +=
       "You have access to an advanced web search tool. When using the web search tool, prefer to use a few searches. If the first result answers the question, respond to the user without calling tools again.\n";
+  }
+  if (useGetMoreMessages && chatId != null && initialMessageCount != null) {
+    tools["get_more_chat_history"] = createGetMoreMessagesTool(
+      chatId,
+      initialMessageCount,
+    );
+    tools["get_full_chat_history"] = createGetFullChatHistoryTool(chatId);
+    tools["get_messages_from_date"] = createGetMessagesFromDateTool(chatId);
+    toolInstructions +=
+      "You can fetch older messages from this conversation when the user refers to something earlier in the chat that you don't have in context. Use get_more_chat_history with a limit (e.g. 5 or 10) to retrieve those messages.\n";
+    toolInstructions +=
+      "Use get_full_chat_history only when the user explicitly asks for the entire conversation, a full summary of the thread, or 'everything we discussed'—not for routine context. It returns up to 24000 tokens.\n";
+    toolInstructions +=
+      "Use get_messages_from_date with a date (YYYY-MM-DD) when the user asks about what was said on a specific date or 'messages from [date]'.\n";
   }
 
   if (toolInstructions.length > 0) {
