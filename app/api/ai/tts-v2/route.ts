@@ -74,7 +74,7 @@ export async function POST(req: NextRequest) {
         headers: {
           "Content-Type": "application/json",
         },
-      }
+      },
     );
   }
 
@@ -82,7 +82,7 @@ export async function POST(req: NextRequest) {
 
   logger.log(
     "TTS Route",
-    `Parameters obtained in ${parametersObtained - start} milliseconds`
+    `Parameters obtained in ${parametersObtained - start} milliseconds`,
   );
 
   const elevenlabs = new ElevenLabsClient({
@@ -105,7 +105,7 @@ export async function POST(req: NextRequest) {
 
       logger.log(
         "TTS Route",
-        `Speech-friendly text generation completed in ${speechFriendlyTextEndGeneration - speechFriendlyTextStartGeneration} milliseconds`
+        `Speech-friendly text generation completed in ${speechFriendlyTextEndGeneration - speechFriendlyTextStartGeneration} milliseconds`,
       );
     }
   }
@@ -183,6 +183,34 @@ export async function POST(req: NextRequest) {
             streamData: completeStream,
             timestamp: Date.now(),
           });
+
+          // --- TEST FIXTURE LOG ---
+          // Copy the JSON below into tests/fixtures/elevenlabs-stream-response.json
+          // to use real ElevenLabs data in the test suite.
+          if (process.env.LOG_TTS_FIXTURE === "1") {
+            const fixtureChunks = streamChunks.map((line) =>
+              JSON.parse(line.trim()),
+            );
+            logger.log(
+              "TTS_FIXTURE",
+              `\n--- START ELEVENLABS STREAM FIXTURE (${fixtureChunks.length} chunks) ---\n` +
+                JSON.stringify(
+                  {
+                    _meta: {
+                      text: speechFriendlyText,
+                      model: "eleven_multilingual_v2",
+                      voiceId: VOICE_ID,
+                      chunkCount: fixtureChunks.length,
+                      capturedAt: new Date().toISOString(),
+                    },
+                    chunks: fixtureChunks,
+                  },
+                  null,
+                  2,
+                ) +
+                `\n--- END ELEVENLABS STREAM FIXTURE ---\n`,
+            );
+          }
         } catch (err) {
           controller.error(err);
         } finally {
@@ -206,14 +234,14 @@ export async function POST(req: NextRequest) {
         headers: {
           "Content-Type": "application/json",
         },
-      }
+      },
     );
   } finally {
     const speechModelEndGeneration = performance.now();
 
     logger.log(
       "TTS Route",
-      `Speech model generation completed in ${speechModelEndGeneration - speechModelStartGeneration} milliseconds`
+      `Speech model generation completed in ${speechModelEndGeneration - speechModelStartGeneration} milliseconds`,
     );
   }
 }

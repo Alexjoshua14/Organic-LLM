@@ -38,6 +38,8 @@ export function useTTS({
   const mediaSourceRef = useRef<MediaSource | null>(null);
   // Ref for a possible time update interval (not used directly)
   const timeUpdateIntervalRef = useRef<number | null>(null);
+  // Ref to remove previous audio listeners when setting up again (avoids duplicates)
+  const audioListenersRef = useRef<{ el: HTMLAudioElement; handlers: Array<{ type: string; fn: EventListener }> } | null>(null);
 
   // Status of TTS playback/processing lifecycle
   const [status, setStatus] = useState<"ready" | "processing" | "readyToPlay" | "playing" | "paused" | "error" | "complete">("ready");
@@ -139,49 +141,56 @@ export function useTTS({
   }, [])
 
   /**
-   * Set up audio element event listeners (shared between MediaSource and blob approaches)
+   * Set up audio element event listeners (shared between MediaSource and blob approaches).
+   * Removes any previous listeners we added to the same element to avoid duplicates when
+   * streamAudio is called multiple times.
    */
   const setupAudioEventListeners = useCallback((audio: HTMLAudioElement) => {
-    // Duration update event
-    audio.addEventListener("durationchange", () => {
+    if (audioListenersRef.current?.el === audio) {
+      for (const { type, fn } of audioListenersRef.current.handlers) {
+        audio.removeEventListener(type, fn);
+      }
+      audioListenersRef.current = null;
+    }
+
+    const handlers: Array<{ type: string; fn: EventListener }> = [];
+
+    const add = (type: string, fn: EventListener) => {
+      audio.addEventListener(type, fn);
+      handlers.push({ type, fn });
+    };
+
+    add("durationchange", () => {
       onDurationChange?.(audio.duration || 0);
       setDuration(audio.duration || 0);
       logger.log("streamAudio", `Duration changed: ${audio.duration}`);
     });
-
-    // Time update event (fires during playback)
-    audio.addEventListener("timeupdate", () => {
+    add("timeupdate", () => {
       setCurrentTime(audio.currentTime);
       onTimeUpdate?.(audio.currentTime);
     });
-
-    // When playback starts
-    audio.addEventListener("play", () => {
+    add("play", () => {
       setStatus("playing");
       onStatusChange?.("playing");
     });
-
-    // When playback is paused
-    audio.addEventListener("pause", () => {
+    add("pause", () => {
       setStatus("paused");
       onStatusChange?.("paused");
     });
-
-    // When playback ends (audio fully played)
-    audio.addEventListener("ended", () => {
+    add("ended", () => {
       setStatus("complete");
       onStatusChange?.("ready");
       if (timeUpdateIntervalRef.current) {
         clearInterval(timeUpdateIntervalRef.current);
       }
     });
-
-    // Playback or loading error
-    audio.addEventListener("error", (e) => {
+    add("error", (e) => {
       setStatus("error");
       onStatusChange?.("error");
       logger.error("streamAudio", `Audio error: ${e}`);
     });
+
+    audioListenersRef.current = { el: audio, handlers };
   }, [onDurationChange, onTimeUpdate, onStatusChange]);
 
   /**
@@ -264,9 +273,10 @@ export function useTTS({
 
         const remainingBuffer = await processAudioStream(reader, sourceBuffer, callbacks);
 
-        if (remainingBuffer.trim()) {
+        const trimmed = remainingBuffer.trim();
+        if (trimmed && trimmed.startsWith("{")) {
           try {
-            const chunk = AudioStreamChunkSchema.parse(JSON.parse(remainingBuffer));
+            const chunk = AudioStreamChunkSchema.parse(JSON.parse(trimmed));
             await processAudioChunk(chunk, sourceBuffer, callbacks);
           } catch (err) {
             logger.error("streamAudio", `Error parsing final chunk: ${err}`);
@@ -275,6 +285,21 @@ export function useTTS({
 
         await waitForSourceBuffer(sourceBuffer);
         mediaSource.endOfStream();
+
+        // Always set readyToPlay when stream completes. onReadyToPlay may not have
+        // fired for short clips (< MIN_BUFFERED_SECONDS), so the UI can stay stuck
+        // on "processing" and the audio element hidden; calling play here covers
+        // autoplay for short clips and ensures the element is in a playable state.
+        setStatus("readyToPlay");
+        onStatusChange?.("readyToPlay");
+        if (audioRef?.current) {
+          audioRef.current.controls = true;
+          if (autoplay) {
+            audioRef.current.play().catch((err) =>
+              logger.error("streamAudio", `Error playing after stream complete: ${err}`)
+            );
+          }
+        }
       });
     } else {
       // Blob path: collect all chunks, then create blob
@@ -310,10 +335,11 @@ export function useTTS({
         }
       }
 
-      // Process remaining buffer
-      if (buffer.trim()) {
+      // Process remaining buffer (only if it looks like a complete JSON object)
+      const trimmedBuffer = buffer.trim();
+      if (trimmedBuffer && trimmedBuffer.startsWith("{")) {
         try {
-          const chunk = AudioStreamChunkSchema.parse(JSON.parse(buffer));
+          const chunk = AudioStreamChunkSchema.parse(JSON.parse(trimmedBuffer));
           processChunkAlignment(chunk);
           if (chunk.audioBase64) {
             const audioBytes = decodeAudioBase64(chunk.audioBase64);
