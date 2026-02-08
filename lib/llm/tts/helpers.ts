@@ -19,14 +19,16 @@ export function calculateChunkLength(chunk: AudioStreamChunk): number {
 }
 
 /**
- * Helper function to merge multiple alignment chunks into a single alignment
- * Useful when you want to combine all chunks into one complete alignment
+ * Helper function to merge multiple alignment chunks into a single alignment.
+ * Each chunk from the TTS API has timestamps relative to the start of that chunk's
+ * audio, so we must add a time offset for every chunk after the first (cumulative
+ * duration of all previous chunks).
  */
 export function mergeAlignments(
   alignments: Array<{
     alignment?: AlignmentData;
     normalizedAlignment?: AlignmentData;
-  }>
+  }>,
 ): { alignment?: AlignmentData; normalizedAlignment?: AlignmentData } | null {
   if (alignments.length === 0) return null;
 
@@ -45,25 +47,40 @@ export function mergeAlignments(
   let hasAlignment = false;
   let hasNormalized = false;
 
+  // Global offset (seconds): position on the merged timeline for the next chunk.
+  // Each chunk's timestamps are relative to that chunk; we add this offset so
+  // the merged alignment has a single continuous timeline.
+  let alignmentOffsetSeconds = 0;
+  let normalizedOffsetSeconds = 0;
+
   for (const chunk of alignments) {
     if (chunk.alignment) {
-      mergedAlignment.characters.push(...chunk.alignment.characters);
+      const a = chunk.alignment;
+      mergedAlignment.characters.push(...a.characters);
       mergedAlignment.characterStartTimesSeconds.push(
-        ...chunk.alignment.characterStartTimesSeconds
+        ...a.characterStartTimesSeconds.map((t) => t + alignmentOffsetSeconds),
       );
       mergedAlignment.characterEndTimesSeconds.push(
-        ...chunk.alignment.characterEndTimesSeconds
+        ...a.characterEndTimesSeconds.map((t) => t + alignmentOffsetSeconds),
       );
+      // Next chunk's alignment starts after this chunk's end time
+      const lastEnd =
+        a.characterEndTimesSeconds[a.characterEndTimesSeconds.length - 1];
+      alignmentOffsetSeconds += lastEnd ?? 0;
       hasAlignment = true;
     }
     if (chunk.normalizedAlignment) {
-      mergedNormalized.characters.push(...chunk.normalizedAlignment.characters);
+      const n = chunk.normalizedAlignment;
+      mergedNormalized.characters.push(...n.characters);
       mergedNormalized.characterStartTimesSeconds.push(
-        ...chunk.normalizedAlignment.characterStartTimesSeconds
+        ...n.characterStartTimesSeconds.map((t) => t + normalizedOffsetSeconds),
       );
       mergedNormalized.characterEndTimesSeconds.push(
-        ...chunk.normalizedAlignment.characterEndTimesSeconds
+        ...n.characterEndTimesSeconds.map((t) => t + normalizedOffsetSeconds),
       );
+      const lastEnd =
+        n.characterEndTimesSeconds[n.characterEndTimesSeconds.length - 1];
+      normalizedOffsetSeconds += lastEnd ?? 0;
       hasNormalized = true;
     }
   }
@@ -78,7 +95,7 @@ export function mergeAlignments(
  * Wait for sourceBuffer to be ready before appending
  */
 export async function waitForSourceBuffer(
-  sourceBuffer: SourceBuffer
+  sourceBuffer: SourceBuffer,
 ): Promise<void> {
   return new Promise((resolve) => {
     if (!sourceBuffer.updating) {
@@ -119,7 +136,7 @@ export function processAlignmentData(
         }>
       >
     >;
-  }
+  },
 ): void {
   // Only process if at least one type of alignment is present in the chunk
   if (chunk.alignment || chunk.normalizedAlignment) {
@@ -171,7 +188,7 @@ export async function processAudioChunk(
         }>
       >
     >;
-  }
+  },
 ): Promise<void> {
   // Skip if there's no audio data
   if (!chunk.audioBase64) return;
@@ -214,7 +231,7 @@ export async function processAudioStream(
       >
     >;
     onReadyToPlay?: () => Promise<void>;
-  }
+  },
 ): Promise<string> {
   const decoder = new TextDecoder();
   let buffer = "";
@@ -275,7 +292,7 @@ export async function processAudioStream(
  */
 export function getCurrentCharacterIndex(
   currentTime: number,
-  alignment: AlignmentData
+  alignment: AlignmentData,
 ): number | null {
   if (
     !alignment ||

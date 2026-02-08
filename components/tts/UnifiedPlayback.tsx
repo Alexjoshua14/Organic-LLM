@@ -11,6 +11,9 @@ import {
 import { TextSegment } from "./SegmentManager";
 import { formatAudioDuration } from "@/lib/tts/token-calculator";
 import { glass } from "@/components/design-system/primitives";
+import { createLogger } from "@/lib/logger";
+
+const logger = createLogger("UnifiedPlayback");
 
 type UnifiedPlaybackProps = {
   segments: TextSegment[];
@@ -73,7 +76,7 @@ export function UnifiedPlayback({
       if (generatedIndices.length > 0 && generatedPosition < generatedIndices.length - 1) {
         goToGenerated(generatedPosition + 1);
         // allow the src to update before playing
-        setTimeout(() => audioRef.current?.play().catch(() => {}), 0);
+        setTimeout(() => audioRef.current?.play().catch(() => { }), 0);
       }
     };
     el.addEventListener("ended", handler);

@@ -330,6 +330,8 @@ export default function SpeakPage() {
     const segment = segs.find((s) => s.id === segmentId);
     if (!segment || segment.generationStatus === "skip") return;
 
+    logger.log("generateSegment", "start", { segmentId, textLength: (segment.processedText || segment.originalText).length });
+
     setCurrentGeneratingId(segmentId);
     setIsLoading(true);
     setDisplayMode("generating");
@@ -372,6 +374,8 @@ export default function SpeakPage() {
 
       setDisplayMode("generating");
 
+      logger.log("generateSegment", "fetching /api/ai/tts/stream", { textLength: textToGenerate.length, model: selectedModel });
+
       // Use streaming API for generation with progress
       const response = await fetch("/api/ai/tts/stream", {
         method: "POST",
@@ -388,6 +392,8 @@ export default function SpeakPage() {
         throw new Error(errText || "Failed to generate speech");
       }
       if (!response.body) throw new Error("No response body");
+
+      logger.log("generateSegment", "stream connected, reading SSE");
 
       const reader = response.body.getReader();
       const decoder = new TextDecoder();
@@ -434,6 +440,62 @@ export default function SpeakPage() {
             gotComplete = true;
             const blob = uint8ArrayToBlob(data.audioData);
             const url = URL.createObjectURL(blob);
+            const blobSize = blob.size;
+
+            // --- CLIENT DIAGNOSTICS ---
+            // Test if the blob is actually playable, bypassing UnifiedPlayback entirely.
+            const audioDataKeys = typeof data.audioData === "object" ? Object.keys(data.audioData).length : 0;
+            const firstValues = typeof data.audioData === "object"
+              ? Object.values(data.audioData).slice(0, 10) as number[]
+              : [];
+            logger.log("generateSegment", "complete event", {
+              segmentId,
+              blobSize,
+              blobType: blob.type,
+              urlPrefix: url.slice(0, 30) + "...",
+              audioDataKeys,
+              firstBytes: firstValues,
+              firstBytesHex: firstValues.map((b) => b.toString(16).padStart(2, "0")).join(" "),
+            });
+
+            // Direct blob playback test — does the blob actually produce playable audio?
+            try {
+              const testAudio = new Audio(url);
+              testAudio.addEventListener("loadedmetadata", () => {
+                logger.log("generateSegment", "BLOB TEST: loadedmetadata", {
+                  duration: testAudio.duration,
+                  readyState: testAudio.readyState,
+                });
+              });
+              testAudio.addEventListener("canplay", () => {
+                logger.log("generateSegment", "BLOB TEST: canplay ✅", {
+                  readyState: testAudio.readyState,
+                  duration: testAudio.duration,
+                });
+              });
+              testAudio.addEventListener("error", () => {
+                const err = testAudio.error;
+                logger.error("generateSegment", "BLOB TEST: error ❌", {
+                  code: err?.code,
+                  message: err?.message,
+                  readyState: testAudio.readyState,
+                });
+              });
+              // Give it 3s then log the final state
+              setTimeout(() => {
+                logger.log("generateSegment", "BLOB TEST: final state after 3s", {
+                  readyState: testAudio.readyState,
+                  networkState: testAudio.networkState,
+                  duration: testAudio.duration,
+                  error: testAudio.error ? { code: testAudio.error.code, message: testAudio.error.message } : null,
+                  paused: testAudio.paused,
+                  src: testAudio.src?.slice(0, 40),
+                });
+              }, 3000);
+            } catch (e) {
+              logger.error("generateSegment", "BLOB TEST: Audio constructor threw", String(e));
+            }
+            // --- END CLIENT DIAGNOSTICS ---
 
             // Persist to local audio library (IndexedDB) for later browsing.
             const createdAt = Date.now();
@@ -454,6 +516,8 @@ export default function SpeakPage() {
             }).catch((e) => {
               logger.error("Clip save failed", String(e));
             });
+
+            logger.log("generateSegment", "calling setSegments with audioUrl for segmentId", segmentId);
 
             setSegments((prev) =>
               prev.map((s) =>
@@ -483,6 +547,7 @@ export default function SpeakPage() {
         throw new Error("TTS stream ended without a completion event");
       }
 
+      logger.log("generateSegment", "calling setDisplayMode(playback)");
       setDisplayMode("playback");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Generation failed");
