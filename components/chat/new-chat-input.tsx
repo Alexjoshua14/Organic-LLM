@@ -221,7 +221,7 @@ export const NewChatInput: React.FC<NewChatInputProps> = ({
                 <PromptInputSelectTrigger className="max-w-32 min-w-0">
                   <PromptInputSelectValue className="truncate min-w-0" />
                 </PromptInputSelectTrigger>
-                <PromptInputSelectContent defaultValue={model.id}>
+                <PromptInputSelectContent defaultValue={model.id} className="max-h-80 overflow-y-auto">
                   {ChatModels.map((model) => (
                     <PromptInputSelectItem key={model.id} value={model.id}>
                       {model.name}
