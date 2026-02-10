@@ -15,7 +15,11 @@ type ChatInputProps = {
   status: ReturnType<typeof useChat>["status"];
 };
 
-/** @deprecated ChatInput is deprecated. Use NewChatInput instead. */
+/**
+ * @deprecated Use NewChatInput instead. This component is a thin wrapper around UnifiedChatInput
+ * and lacks attachments, speech input, web search/memory toggles, and persisted preferences (localStorage).
+ * NewChatInput uses the ai-elements PromptInput and is the supported chat input going forward.
+ */
 export const ChatInput: React.FC<ChatInputProps> = ({
   id: _id,
   sendMessage,

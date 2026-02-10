@@ -7,7 +7,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 
 import { ChatThreadExperimental } from "./chat-thread-experimental";
 
-import { ChatInput } from "@/components/chat/chat-input";
+import { NewChatInput } from "@/components/chat/new-chat-input";
 import { ChatScrollButton } from "@/components/chat/chat-scroll-button";
 import { ChatModel, DEFAULT_CHAT_MODEL, Thread } from "@/lib/schemas/chat";
 import { updateChatSummary } from "@/lib/llm/chat-helpers";
@@ -32,7 +32,9 @@ export const ChatExperimental: React.FC<ChatProps> = ({
   const [updatingSummary, setUpdatingSummary] = useState(false);
 
   const { setChatId } = useSharedChatContext();
-  const selectedModelRef = useRef<ChatModel>(DEFAULT_CHAT_MODEL);
+  const modelRef = useRef<ChatModel>(DEFAULT_CHAT_MODEL);
+  const useWebSearchRef = useRef<boolean>(false);
+  const useMemoriesRef = useRef<boolean>(false);
 
   useEffect(() => {
     setChatId(chatData?.thread.id ?? "");
@@ -52,7 +54,7 @@ export const ChatExperimental: React.FC<ChatProps> = ({
           body: {
             message: messages?.length ? messages[messages.length - 1] : undefined,
             id,
-            model: selectedModelRef.current,
+            model: modelRef.current,
           },
         };
       },
@@ -153,7 +155,7 @@ export const ChatExperimental: React.FC<ChatProps> = ({
     >
       <ChatThreadExperimental messages={messages} />
       <ChatScrollButton />
-      <ChatInput id={id} sendMessage={sendMessage} selectedModelRef={selectedModelRef} stop={handleStop} status={status} />
+      <NewChatInput modelRef={modelRef} useWebSearchRef={useWebSearchRef} useMemoriesRef={useMemoriesRef} sendMessage={sendMessage} stop={handleStop} status={status} />
       {/* <div className="absolute top-20 right-0 z-40">
         <button
           className="px-4 py-2 bg-blue-500 hover:bg-blue-600 disabled:bg-gray-400 text-white rounded-md transition-colors"
