@@ -253,6 +253,17 @@
   }
 }
 
+/* User font preference (applied by FontProvider) */
+body.font-theme-satoshi {
+  font-family: var(--font-satoshi), sans-serif;
+}
+body.font-theme-inter {
+  font-family: var(--font-inter), sans-serif;
+}
+body.font-theme-commissioner {
+  font-family: var(--font-commissioner), sans-serif;
+}
+
 /* Mobile safe area support */
 @supports (padding: env(safe-area-inset-bottom)) {
   .mobile-safe-bottom {

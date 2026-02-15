@@ -14,6 +14,7 @@ import {
 } from "@/components/third-party/ui/sidebar";
 import { Sidebar } from "@/components/sidebar/sidebar";
 import { ChatProvider } from "@/lib/context/chat-context";
+import { FontProvider } from "@/components/FontProvider";
 import { glass } from "@/components/design-system/primitives";
 
 export const metadata: Metadata = {
@@ -54,6 +55,7 @@ export default function RootLayout({
           <Providers
             themeProps={{ attribute: "class", defaultTheme: "system" }}
           >
+            <FontProvider>
             <ChatProvider>
               <SidebarProvider>
                 <Sidebar />
@@ -69,6 +71,7 @@ export default function RootLayout({
                 </main>
               </SidebarProvider>
             </ChatProvider>
+            </FontProvider>
           </Providers>
         </body>
       </html>
