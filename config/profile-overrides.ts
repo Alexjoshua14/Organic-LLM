@@ -37,7 +37,8 @@ function load(): ProfileOverrides {
 
   try {
     // Dynamic require so the build doesn't fail when the file is absent.
-    const mod = require("@/../.local-profile-overrides") as Partial<ProfileOverrides>;
+    const mod =
+      require("@/.local-profile-overrides") as Partial<ProfileOverrides>;
     _overrides = { ...DEFAULTS, ...mod };
   } catch {
     _overrides = DEFAULTS;
