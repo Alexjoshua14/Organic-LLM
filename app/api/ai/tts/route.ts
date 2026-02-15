@@ -5,6 +5,7 @@ import { NextRequest, NextResponse } from "next/server";
 
 import { createLogger } from "@/lib/logger";
 import { transformTextToSpeechFriendlyV2 } from "@/lib/llm/text-to-speech";
+import { stripSpeechTags } from "@/lib/tts/speech-tags";
 
 const logger = createLogger("app/api/tts/route.ts");
 
@@ -83,11 +84,13 @@ export async function POST(req: NextRequest) {
 
   const speechModelStartGeneration = performance.now();
 
+  const textForTTS = stripSpeechTags(speechFriendlyText);
+
   try {
     if (speechModel.provider === "elevenlabs.speech") {
       const { audio } = await generateSpeech({
         model: speechModel,
-        text: speechFriendlyText,
+        text: textForTTS,
         voice: "pFZP5JQG7iQjIQuC4Bku",
       });
 
@@ -101,7 +104,7 @@ export async function POST(req: NextRequest) {
     } else {
       const { audio } = await generateSpeech({
         model: speechModel,
-        text: speechFriendlyText,
+        text: textForTTS,
         voice: "nova",
       });
 

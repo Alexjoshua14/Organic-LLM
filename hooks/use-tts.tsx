@@ -3,9 +3,16 @@ import { useRef, useState, useCallback, useMemo } from "react";
 import { AlignmentData, AudioStreamChunkSchema } from "@/lib/schemas/tts";
 import { createLogger } from "@/lib/logger";
 import { mergeAlignments, processAudioChunk, processAudioStream, waitForSourceBuffer, decodeAudioBase64 } from "@/lib/llm/tts/helpers";
+import { getTTSCacheKey, getTTSFromCache, setTTSInCache } from "@/lib/tts/audio-cache";
 
 // Create a logger instance for this hook file
 const logger = createLogger("hooks/use-tts.tsx");
+
+/** Play was aborted (e.g. user closed, or source cleared). Don't log as error. */
+function isPlayAbortError(err: unknown): boolean {
+  if (err instanceof DOMException && err.name === "AbortError") return true;
+  return (err as { name?: string })?.name === "AbortError";
+}
 
 /**
  * Check if MediaSource API is supported in this browser
@@ -95,7 +102,9 @@ export function useTTS({
       }
       logger.log("streamAudio", `Ready to play audio, current duration of ready audio is: ${audioRef?.current?.duration}`);
     } catch (err) {
-      logger.error("streamAudio", `Error playing audio early: ${err}`);
+      if (!isPlayAbortError(err)) {
+        logger.error("streamAudio", `Error playing audio early: ${err}`);
+      }
     }
   }, []);
 
@@ -208,7 +217,8 @@ export function useTTS({
   }, [onAlignment]);
 
   /**
-   * Unified stream audio function that handles both MediaSource and blob-based approaches
+   * Unified stream audio function that handles both MediaSource and blob-based approaches.
+   * Uses IndexedDB cache so the same message is not regenerated (secure, same-origin only).
    */
   const streamAudio = useCallback(async ({ text, processText = true }: { text: string, processText?: boolean }) => {
     // Reset alignments for new stream
@@ -222,6 +232,10 @@ export function useTTS({
     const audio = audioRef.current;
     const useMediaSource = isMediaSourceSupported();
 
+    // Show loading state immediately so the user knows the click was registered
+    setStatus("processing");
+    onStatusChange?.("processing");
+
     // Cleanup old object URLs if any to prevent memory leaks
     const oldSrc = audio.src;
     if (oldSrc && oldSrc.startsWith('blob:')) {
@@ -230,6 +244,33 @@ export function useTTS({
 
     // Set up event listeners (shared)
     setupAudioEventListeners(audio);
+
+    const cacheKeyInput = {
+      text,
+      model: "eleven_multilingual_v2",
+      skipTransform: !processText,
+    };
+    const cacheKey = await getTTSCacheKey(cacheKeyInput);
+    const cached = await getTTSFromCache(cacheKey).catch(() => null);
+    if (cached && cached.size > 0) {
+      logger.log("streamAudio", "Playing from local cache");
+      const blobUrl = URL.createObjectURL(cached);
+      audio.src = blobUrl;
+      audio.load();
+      setStatus("readyToPlay");
+      onStatusChange?.("readyToPlay");
+      if (audioRef?.current) {
+        audioRef.current.controls = true;
+        if (autoplay) {
+          audioRef.current.play().catch((err) => {
+            if (!isPlayAbortError(err)) {
+              logger.error("streamAudio", `Error playing cached audio: ${err}`);
+            }
+          });
+        }
+      }
+      return;
+    }
 
     // Make TTS request to backend API (shared)
     const res = await fetch("/api/ai/tts-v2", {
@@ -261,6 +302,7 @@ export function useTTS({
       const blobUrl = URL.createObjectURL(mediaSource);
       audio.src = blobUrl;
 
+      const mediaSourceAudioChunks: Uint8Array[] = [];
       mediaSource.addEventListener("sourceopen", async () => {
         const sourceBuffer = mediaSource.addSourceBuffer("audio/mpeg");
         const reader = res.body!.getReader();
@@ -268,7 +310,8 @@ export function useTTS({
         const callbacks = {
           onAlignment,
           setAllAlignments,
-          onReadyToPlay
+          onReadyToPlay,
+          onAudioChunk: (bytes: Uint8Array) => mediaSourceAudioChunks.push(bytes),
         };
 
         const remainingBuffer = await processAudioStream(reader, sourceBuffer, callbacks);
@@ -286,6 +329,21 @@ export function useTTS({
         await waitForSourceBuffer(sourceBuffer);
         mediaSource.endOfStream();
 
+        // Cache the full audio for next time (same message => no refetch)
+        if (mediaSourceAudioChunks.length > 0) {
+          const totalLength = mediaSourceAudioChunks.reduce((s, c) => s + c.length, 0);
+          const combined = new Uint8Array(totalLength);
+          let offset = 0;
+          for (const c of mediaSourceAudioChunks) {
+            combined.set(c, offset);
+            offset += c.length;
+          }
+          const blob = new Blob([combined], { type: "audio/mpeg" });
+          setTTSInCache(cacheKey, blob).catch((err) =>
+            logger.error("streamAudio", `Failed to cache audio: ${err}`)
+          );
+        }
+
         // Always set readyToPlay when stream completes. onReadyToPlay may not have
         // fired for short clips (< MIN_BUFFERED_SECONDS), so the UI can stay stuck
         // on "processing" and the audio element hidden; calling play here covers
@@ -295,9 +353,11 @@ export function useTTS({
         if (audioRef?.current) {
           audioRef.current.controls = true;
           if (autoplay) {
-            audioRef.current.play().catch((err) =>
-              logger.error("streamAudio", `Error playing after stream complete: ${err}`)
-            );
+            audioRef.current.play().catch((err) => {
+              if (!isPlayAbortError(err)) {
+                logger.error("streamAudio", `Error playing after stream complete: ${err}`);
+              }
+            });
           }
         }
       });
@@ -360,6 +420,9 @@ export function useTTS({
       }
 
       const blob = new Blob([combinedAudio], { type: "audio/mpeg" });
+      setTTSInCache(cacheKey, blob).catch((err) =>
+        logger.error("streamAudio", `Failed to cache audio: ${err}`)
+      );
       const blobUrl = URL.createObjectURL(blob);
       audio.src = blobUrl;
 
@@ -399,8 +462,10 @@ export function useTTS({
   const play = useCallback(() => {
     logger.log("play", "Attempting to play audio");
     if (audioRef?.current) {
-      audioRef.current.play().catch(err => {
-        logger.error("play", `Error playing: ${err}`);
+      audioRef.current.play().catch((err) => {
+        if (!isPlayAbortError(err)) {
+          logger.error("play", `Error playing: ${err}`);
+        }
       });
     }
   }, []);

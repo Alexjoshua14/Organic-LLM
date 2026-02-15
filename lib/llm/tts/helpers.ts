@@ -188,6 +188,8 @@ export async function processAudioChunk(
         }>
       >
     >;
+    /** Optional: called with raw audio bytes for each chunk (e.g. for caching the full response). */
+    onAudioChunk?: (bytes: Uint8Array) => void;
   },
 ): Promise<void> {
   // Skip if there's no audio data
@@ -198,6 +200,7 @@ export async function processAudioChunk(
 
   // Decode base64 audio to Uint8Array and append to the MediaSource SourceBuffer
   const audioBytes = decodeAudioBase64(chunk.audioBase64);
+  callbacks.onAudioChunk?.(audioBytes);
   await waitForSourceBuffer(sourceBuffer); // Wait for buffer to be ready (not updating)
   sourceBuffer.appendBuffer(audioBytes as BufferSource);
 }
@@ -231,6 +234,7 @@ export async function processAudioStream(
       >
     >;
     onReadyToPlay?: () => Promise<void>;
+    onAudioChunk?: (bytes: Uint8Array) => void;
   },
 ): Promise<string> {
   const decoder = new TextDecoder();

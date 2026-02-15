@@ -3,6 +3,7 @@ import { UIMessage } from "ai";
 
 import { ClipboardCopyButton } from "../shared/clipboardCopyButton";
 import { TTSButton } from "../tts/ttsButton";
+import { PinToSpeakButton } from "./PinToSpeakButton";
 import { glass } from "../design-system/primitives";
 
 import { ChatMessageMarkdown } from "./chat-message-markdown";
@@ -87,6 +88,7 @@ const AIMessage: FC<ChatMessageProps> = ({ message, aiActionPayload }) => {
       {!isStreaming && (
         <div className="w-full flex gap-2 h-8">
           <TTSButton iconOnly text={text} />
+          <PinToSpeakButton text={text} />
           <ClipboardCopyButton text={text} />
         </div>
       )}

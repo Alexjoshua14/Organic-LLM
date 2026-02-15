@@ -1,7 +1,8 @@
 "use client";
 
 import { Suspense, useEffect, useState } from "react";
-import { useAuth } from "@clerk/nextjs";
+import { useAuth, useUser } from "@clerk/nextjs";
+import { Switch } from "@heroui/switch";
 
 import Page from "@/components/layout/page";
 import { ReturnButton } from "@/components/ReturnButton";
@@ -13,17 +14,30 @@ import {
 } from "@/components/third-party/ui/tabs";
 import { getProfile } from "@/data/supabase/profiles";
 import { Profile } from "@/lib/schemas/profiles";
+import { SETTINGS_PAGE_TITLE } from "@/config/settings-page";
 import MemorySettings from "@/components/settings/memorySettings";
+import FontSetting from "@/components/settings/FontSetting";
+import { ProfileView } from "@/components/settings/profile";
+import { ThemeSwitch } from "@/components/shared/theme-switch";
+import { getSettings, setSettings } from "@/lib/user-settings";
+
+const showDevSettings = process.env.NEXT_PUBLIC_SHOW_DEV_SETTINGS === "true";
 
 export default function SettingsPage() {
-  const [profile, setProfile] = useState<Profile>();
+  const [profile, setProfile] = useState<Profile | null>(null);
+  const [ttsWholeMessage, setTtsWholeMessage] = useState(true);
   const { userId } = useAuth();
+  const { user } = useUser();
+  const clerkEmail = user?.primaryEmailAddress?.emailAddress ?? null;
+
+  useEffect(() => {
+    if (typeof window !== "undefined") setTtsWholeMessage(getSettings().ttsWholeMessage);
+  }, []);
 
   useEffect(() => {
     const fetchUserProfile = async () => {
       if (!userId) return;
       const supabaseProfile = await getProfile(userId);
-
       if (
         !supabaseProfile ||
         supabaseProfile.error ||
@@ -32,38 +46,81 @@ export default function SettingsPage() {
         return;
       setProfile(supabaseProfile.data);
     };
-
     fetchUserProfile();
   }, [userId]);
 
   return (
     <Page>
-      <div className="flex items-center justify-start w-full h-14 px-8 border-2 border-teal-700">
+      <div className="flex w-full items-center justify-between border-b border-border px-4 py-3 md:px-8">
         <ReturnButton />
+        <h1 className="text-lg font-semibold text-foreground">{SETTINGS_PAGE_TITLE}</h1>
+        <div className="w-20" aria-hidden />
       </div>
-      <div className="flex-1 flex flex-row gap-8 w-full px-4">
-        <section className="max-w-lg border-2 border-yellow-700 ">
-          <Suspense fallback={<div>Loading...</div>}>
-            {profile && <p>{profile.display_name}</p>}
-          </Suspense>
-        </section>
-        <Tabs defaultValue="profile">
-          <TabsList>
+      <div className="flex-1 w-full overflow-auto px-4 py-6 md:px-8">
+        <Tabs defaultValue="profile" className="w-full max-w-2xl mx-auto">
+          <TabsList className={`grid w-full mb-6 ${showDevSettings ? "grid-cols-4" : "grid-cols-3"}`}>
             <TabsTrigger value="profile">Profile</TabsTrigger>
-            <TabsTrigger value="customization">Customization</TabsTrigger>
+            <TabsTrigger value="appearance">Appearance</TabsTrigger>
             <TabsTrigger value="memory">Memory</TabsTrigger>
+            {showDevSettings && <TabsTrigger value="advanced">Advanced</TabsTrigger>}
           </TabsList>
-          <TabsContent value="profile">
-            <h1>Profile</h1>
+
+          <TabsContent value="profile" className="mt-0">
+            <div className="space-y-6">
+              <p className="text-sm text-muted-foreground">
+                Your profile uses your account info plus an about me that can be AI-generated or written by you, cached locally.
+              </p>
+              <Suspense fallback={<div className="animate-pulse h-48 rounded-xl bg-muted" />}>
+                <ProfileView profile={profile} email={clerkEmail} />
+              </Suspense>
+            </div>
           </TabsContent>
 
-          <TabsContent value="customization">
-            <h1>Customization</h1>
+          <TabsContent value="appearance" className="mt-0">
+            <div className="flex flex-col gap-8">
+              <h2 className="text-xl font-semibold text-foreground">Appearance</h2>
+              <section className="space-y-6">
+                <div>
+                  <h3 className="text-sm font-medium text-foreground mb-2">Theme</h3>
+                  <div className="flex items-center gap-3">
+                    <ThemeSwitch />
+                    <span className="text-sm text-muted-foreground">Light / Dark</span>
+                  </div>
+                </div>
+                <FontSetting />
+              </section>
+            </div>
           </TabsContent>
 
-          <TabsContent value="memory">
+          <TabsContent value="memory" className="mt-0">
             <MemorySettings />
           </TabsContent>
+
+          {showDevSettings && (
+            <TabsContent value="advanced" className="mt-0">
+              <div className="flex flex-col gap-8">
+                <h2 className="text-xl font-semibold text-foreground">Advanced</h2>
+                <section className="space-y-6">
+                  <div className="flex flex-col gap-2">
+                    <h3 className="text-sm font-medium text-foreground">TTS (developer)</h3>
+                    <div className="flex items-center gap-3">
+                      <Switch
+                        isSelected={ttsWholeMessage}
+                        onValueChange={(whole) => {
+                          setTtsWholeMessage(whole);
+                          setSettings({ ttsWholeMessage: whole });
+                        }}
+                        aria-label="TTS: whole message or first section only"
+                      />
+                      <span className="text-sm text-muted-foreground">
+                        Play whole message when clicking TTS (off = first section only)
+                      </span>
+                    </div>
+                  </div>
+                </section>
+              </div>
+            </TabsContent>
+          )}
         </Tabs>
       </div>
     </Page>

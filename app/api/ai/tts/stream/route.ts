@@ -4,6 +4,7 @@ import { experimental_generateSpeech as generateSpeech, SpeechModel } from "ai";
 import { NextRequest } from "next/server";
 
 import { createLogger } from "@/lib/logger";
+import { stripSpeechTags } from "@/lib/tts/speech-tags";
 
 const logger = createLogger("app/api/tts/stream/route.ts");
 
@@ -52,6 +53,8 @@ export async function POST(req: NextRequest) {
     });
   }
 
+  const textForTTS = stripSpeechTags(text);
+
   // Find speech model
   let speechModel: SpeechModel;
   if (!model || typeof model !== "string") {
@@ -63,7 +66,7 @@ export async function POST(req: NextRequest) {
   }
 
   // Estimate generation time based on model and text length
-  const charCount = text.length;
+  const charCount = textForTTS.length;
   const charsPerSecond = speechModel.modelId.includes("flash")
     ? 1200
     : speechModel.modelId.includes("gpt")
@@ -121,14 +124,14 @@ export async function POST(req: NextRequest) {
           if (speechModel.provider === "elevenlabs.speech") {
             const result = await generateSpeech({
               model: speechModel,
-              text,
+              text: textForTTS,
               voice: "pFZP5JQG7iQjIQuC4Bku",
             });
             audio = result.audio;
           } else {
             const result = await generateSpeech({
               model: speechModel,
-              text,
+              text: textForTTS,
               voice: "nova",
             });
             audio = result.audio;

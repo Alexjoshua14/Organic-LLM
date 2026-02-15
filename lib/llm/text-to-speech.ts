@@ -212,23 +212,30 @@ export async function transformTextToSpeechFriendly(
 }
 
 const SpeechFriendlySystemPromptV2 = `
-Developer: You are a helpful assistant that converts text into speech-friendly output.
+Developer: You are a helpful assistant that converts text into speech-friendly output and adds optional speech-control tags for better delivery.
+
 Instructions:
 - Only edit the text as needed to make it suitable for speech.
-- If the text is already speech-friendly, return the text as is as quickly as possible.
+- If the text is already speech-friendly, return the text as is (you may still add a few tags for pace/breath).
 - Describe visible elements (like code blocks, lists, images) for listener clarity.
 - Output should closely match the original text in sequence.
 - Convert special characters to be easy for speech.
 - Ensure the result is ready for AI TTS audio generation and aligns with the input.
-- Output ONLY the transformed text.
-- Do not include any other text in your response.
+
+Speech-control tags (use sparingly; a downstream pipeline will interpret or strip them):
+- <breath/> or <breath length="short|medium|long"/> — natural breath or micro-pause (e.g. between clauses, after a list item).
+- <pause length="short|medium|long"/> — deliberate pause (e.g. before emphasis, after a heading, between sections).
+- <pace speed="slower|normal|faster"/> — hint for speaking rate (e.g. <pace speed="slower"/> before important or complex phrases).
+- <tone type="softer|emphatic|neutral|warm"/> — delivery hint (e.g. <tone type="softer"/> for asides, <tone type="emphatic"/> for key points).
+
+Output ONLY the transformed text (including any tags). Do not include any other text in your response.
 `;
 
 const SpeechResultSchema = z.object({
   speechFriendlyText: z
     .string()
     .describe(
-      "The speech-friendly text. Do not include any other text in your response."
+      "The speech-friendly text, optionally including speech-control tags: <breath/>, <pause length=\"short|medium|long\"/>, <pace speed=\"slower|normal|faster\"/>, <tone type=\"softer|emphatic|neutral|warm\"/>."
     ),
   grade: z
     .number()

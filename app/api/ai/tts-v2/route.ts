@@ -5,6 +5,7 @@ import { ElevenLabsClient } from "@elevenlabs/elevenlabs-js";
 
 import { createLogger } from "@/lib/logger";
 import { transformTextToSpeechFriendlyV2 } from "@/lib/llm/text-to-speech";
+import { stripSpeechTags } from "@/lib/tts/speech-tags";
 import { createHash } from "crypto";
 
 const logger = createLogger("app/api/tts/route.ts");
@@ -110,8 +111,10 @@ export async function POST(req: NextRequest) {
     }
   }
 
-  // Generate cache key based on final speech-friendly text
-  const cacheKey = getCacheKey(speechFriendlyText, skipTransform ?? false);
+  const textForTTS = stripSpeechTags(speechFriendlyText);
+
+  // Generate cache key based on final speech-friendly text (after stripping tags)
+  const cacheKey = getCacheKey(textForTTS, skipTransform ?? false);
 
   // Check cache first
   const cached = audioCache.get(cacheKey);
@@ -159,7 +162,7 @@ export async function POST(req: NextRequest) {
           const audioStream =
             await elevenlabs.textToSpeech.streamWithTimestamps(VOICE_ID, {
               modelId: "eleven_multilingual_v2",
-              text: speechFriendlyText,
+              text: textForTTS,
               outputFormat: "mp3_44100_128",
               voiceSettings: {
                 stability: 0,
@@ -197,7 +200,7 @@ export async function POST(req: NextRequest) {
                 JSON.stringify(
                   {
                     _meta: {
-                      text: speechFriendlyText,
+                      text: textForTTS,
                       model: "eleven_multilingual_v2",
                       voiceId: VOICE_ID,
                       chunkCount: fixtureChunks.length,

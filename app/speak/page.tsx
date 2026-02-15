@@ -23,6 +23,8 @@ import {
   Maximize2,
   Minimize2,
   Library,
+  Pin,
+  Trash2,
 } from "lucide-react";
 
 import Page from "@/components/layout/page";
@@ -38,6 +40,11 @@ import { UnifiedPlayback } from "@/components/tts/UnifiedPlayback";
 import { TTSModel, splitTextIntoSegments, calculateTokenUsage, formatCost, formatDuration, formatAudioDuration } from "@/lib/tts/token-calculator";
 import { ClipBrowser } from "@/components/tts/ClipBrowser";
 import { makeClipTitle, saveTtsClip, type TtsClip } from "@/lib/tts/clip-store";
+import {
+  listPinnedForSpeak,
+  removePinnedForSpeak,
+  type PinnedForSpeak,
+} from "@/lib/tts/pinned-to-speak";
 
 const logger = createLogger("app/speak/page.tsx");
 
@@ -89,6 +96,9 @@ export default function SpeakPage() {
 
   // Saved clip browser
   const [isLibraryOpen, setIsLibraryOpen] = useState(false);
+
+  // Pinned from chat (load into input)
+  const [pinnedList, setPinnedList] = useState<PinnedForSpeak[]>([]);
 
   // Input expansion state
   const [isInputExpanded, setIsInputExpanded] = useState(false);
@@ -154,6 +164,41 @@ export default function SpeakPage() {
       setIsInputExpanded(false);
     }
   }, [isInputFocused]);
+
+  // Load pinned-from-chat list when on Speak page (input mode)
+  const refreshPinnedList = useCallback(async () => {
+    try {
+      const list = await listPinnedForSpeak();
+      setPinnedList(list);
+    } catch {
+      setPinnedList([]);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (displayMode === "input") {
+      void refreshPinnedList();
+    }
+  }, [displayMode, refreshPinnedList]);
+
+  const handleLoadPinned = useCallback(
+    (item: PinnedForSpeak) => {
+      setInputText(item.content);
+      setDisplayMode("input");
+      setError(null);
+      setTimeout(() => textareaRef.current?.focus(), 100);
+    },
+    [],
+  );
+
+  const handleRemovePinned = useCallback(
+    async (e: React.MouseEvent, id: string) => {
+      e.stopPropagation();
+      await removePinnedForSpeak(id);
+      await refreshPinnedList();
+    },
+    [refreshPinnedList],
+  );
 
   // Calculate estimates for current input
   const inputEstimates = useMemo(() => {
@@ -773,6 +818,44 @@ export default function SpeakPage() {
                             </button>
                           </div>
                         </div>
+
+                        {/* Pinned from Chat */}
+                        {pinnedList.length > 0 && (
+                          <div className="mb-4">
+                            <p className="text-xs font-medium text-muted-foreground/70 mb-2 flex items-center gap-1.5">
+                              <Pin className="w-3.5 h-3.5" />
+                              Pinned from Chat
+                            </p>
+                            <div className="flex flex-wrap gap-2">
+                              {pinnedList.map((item) => (
+                                <button
+                                  key={item.id}
+                                  type="button"
+                                  onClick={() => handleLoadPinned(item)}
+                                  className={`
+                                    group flex items-center gap-2 max-w-full
+                                    px-3 py-2 rounded-xl text-left
+                                    bg-white/[0.04] border border-white/[0.06]
+                                    hover:bg-white/[0.08] hover:border-white/[0.1]
+                                    transition-colors
+                                  `}
+                                >
+                                  <span className="text-sm text-foreground/90 truncate flex-1 min-w-0">
+                                    {item.title}
+                                  </span>
+                                  <button
+                                    type="button"
+                                    onClick={(e) => handleRemovePinned(e, item.id)}
+                                    aria-label="Remove from pinned"
+                                    className="opacity-0 group-hover:opacity-100 p-1 rounded-md hover:bg-white/10 text-muted-foreground"
+                                  >
+                                    <Trash2 className="w-3.5 h-3.5" />
+                                  </button>
+                                </button>
+                              ))}
+                            </div>
+                          </div>
+                        )}
 
                         {/* Textarea */}
                         <div className={`relative ${isFullscreen ? "flex-1 flex flex-col" : ""}`}>
