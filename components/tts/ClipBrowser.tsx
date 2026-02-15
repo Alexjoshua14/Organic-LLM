@@ -7,20 +7,31 @@ import { X, Download, Trash2, ArrowUpRight, Library } from "lucide-react";
 import type { TtsClip } from "@/lib/tts/clip-store";
 import { deleteTtsClip, downloadBlob, listTtsClips } from "@/lib/tts/clip-store";
 import { glass } from "@/components/design-system/primitives";
+import { cn } from "@/lib/utils";
 
 type ClipBrowserProps = {
-  isOpen: boolean;
-  onClose: () => void;
+  /** When "inline", renders as a panel (no modal). When "modal", uses isOpen/onClose. */
+  variant?: "modal" | "inline";
+  isOpen?: boolean;
+  onClose?: () => void;
   onLoadClip: (clip: TtsClip) => void;
+  className?: string;
 };
 
-export function ClipBrowser({ isOpen, onClose, onLoadClip }: ClipBrowserProps) {
+export function ClipBrowser({
+  variant = "modal",
+  isOpen = true,
+  onClose,
+  onLoadClip,
+  className,
+}: ClipBrowserProps) {
   const [clips, setClips] = useState<TtsClip[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const urlRef = useRef<string | null>(null);
+  const isInline = variant === "inline";
 
   const selected = useMemo(
     () => clips.find((c) => c.id === selectedId) ?? null,
@@ -54,10 +65,10 @@ export function ClipBrowser({ isOpen, onClose, onLoadClip }: ClipBrowserProps) {
   };
 
   useEffect(() => {
-    if (!isOpen) return;
-    void refresh();
+    if (isInline) void refresh();
+    else if (isOpen) void refresh();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isOpen]);
+  }, [isInline, isOpen]);
 
   useEffect(() => {
     return () => {
@@ -75,50 +86,36 @@ export function ClipBrowser({ isOpen, onClose, onLoadClip }: ClipBrowserProps) {
     setSelectedId(nextId);
   };
 
-  return (
-    <AnimatePresence>
-      {isOpen && (
-        <motion.div
-          className="fixed inset-0 z-[60]"
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          exit={{ opacity: 0 }}
-        >
-          <div className="absolute inset-0 bg-black/70 backdrop-blur-xl" onClick={onClose} />
-
-          <motion.div
-            className="absolute inset-x-0 top-6 md:top-10 mx-auto w-[min(1000px,calc(100%-2rem))]"
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: 10 }}
-            transition={{ duration: 0.35 }}
-          >
-            <div className={`${glass()} rounded-3xl border border-white/10 overflow-hidden`}>
-              <div className="flex items-center justify-between px-6 py-4 border-b border-white/[0.06]">
-                <div className="flex items-center gap-3">
-                  <div className="w-9 h-9 rounded-2xl bg-white/[0.04] border border-white/[0.06] flex items-center justify-center">
-                    <Library className="w-4.5 h-4.5 text-foreground/70" />
-                  </div>
-                  <div>
-                    <div className="text-sm font-medium text-foreground/80">Audio Library</div>
-                    <div className="text-xs text-muted-foreground/60">
-                      {clips.length} saved clip{clips.length === 1 ? "" : "s"}
-                    </div>
-                  </div>
-                </div>
-
-                <button
-                  onClick={onClose}
-                  className="p-2 rounded-xl hover:bg-white/5 transition-colors"
-                >
-                  <X className="w-4 h-4 text-foreground/70" />
-                </button>
+  const content = (
+    <div className={cn(isInline ? "h-full flex flex-col min-h-0" : "", className)}>
+      <div className={`${glass()} rounded-3xl border border-white/10 overflow-hidden flex flex-col h-full min-h-0`}>
+        <div className="flex items-center justify-between px-6 py-4 border-b border-white/[0.06] shrink-0">
+          <div className="flex items-center gap-3">
+            <div className="w-9 h-9 rounded-2xl bg-white/[0.04] border border-white/[0.06] flex items-center justify-center">
+              <Library className="w-4.5 h-4.5 text-foreground/70" />
+            </div>
+            <div>
+              <div className="text-sm font-medium text-foreground/80">Audio Library</div>
+              <div className="text-xs text-muted-foreground/60">
+                {clips.length} saved clip{clips.length === 1 ? "" : "s"}
               </div>
+            </div>
+          </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-[360px_1fr]">
+          {!isInline && onClose && (
+            <button
+              onClick={onClose}
+              className="p-2 rounded-xl hover:bg-white/5 transition-colors"
+            >
+              <X className="w-4 h-4 text-foreground/70" />
+            </button>
+          )}
+        </div>
+
+        <div className={cn("grid flex-1 min-h-0", isInline ? "grid-cols-1" : "grid-cols-1 md:grid-cols-[360px_1fr]")}>
                 {/* List */}
-                <div className="border-b md:border-b-0 md:border-r border-white/[0.06]">
-                  <div className="max-h-[60vh] overflow-auto">
+                <div className={cn("border-white/[0.06] min-h-0 flex flex-col", isInline ? "border-b" : "border-b md:border-b-0 md:border-r")}>
+                  <div className={cn("overflow-auto", isInline ? "flex-1 min-h-0" : "max-h-[60vh]")}>
                     {isLoading ? (
                       <div className="p-6 text-sm text-muted-foreground/60">Loading…</div>
                     ) : error ? (
@@ -176,7 +173,7 @@ export function ClipBrowser({ isOpen, onClose, onLoadClip }: ClipBrowserProps) {
                         <div className="flex items-center gap-2 shrink-0">
                           <button
                             onClick={() =>
-                              downloadBlob(selected.audioBlob, `prometheus-${selected.createdAt}.mp3`)
+                              downloadBlob(selected.audioBlob, `speak-clip-${selected.createdAt}.mp3`)
                             }
                             className="p-2 rounded-xl hover:bg-white/5 transition-colors"
                             title="Download"
@@ -204,12 +201,7 @@ export function ClipBrowser({ isOpen, onClose, onLoadClip }: ClipBrowserProps) {
                       <div className="flex items-center justify-between gap-3">
                         <button
                           onClick={() => onLoadClip(selected)}
-                          className={`
-                            flex-1 px-5 py-3 rounded-2xl text-sm font-medium
-                            bg-gradient-to-r from-violet-600 to-fuchsia-600 text-white
-                            shadow-lg shadow-violet-500/20 hover:shadow-violet-500/30
-                            hover:scale-[1.01] transition-all duration-300
-                          `}
+                          className="flex-1 px-5 py-3 rounded-2xl text-sm font-medium bg-primary text-primary-foreground hover:bg-primary/90 transition-colors"
                         >
                           <span className="flex items-center justify-center gap-2">
                             <ArrowUpRight className="w-4 h-4" />
@@ -231,8 +223,31 @@ export function ClipBrowser({ isOpen, onClose, onLoadClip }: ClipBrowserProps) {
                     </div>
                   )}
                 </div>
-              </div>
-            </div>
+        </div>
+      </div>
+    </div>
+  );
+
+  if (isInline) return content;
+
+  return (
+    <AnimatePresence>
+      {isOpen && (
+        <motion.div
+          className="fixed inset-0 z-[60]"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+        >
+          <div className="absolute inset-0 bg-black/70 backdrop-blur-xl" onClick={onClose} />
+          <motion.div
+            className="absolute inset-x-0 top-6 md:top-10 mx-auto w-[min(1000px,calc(100%-2rem))]"
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: 10 }}
+            transition={{ duration: 0.35 }}
+          >
+            {content}
           </motion.div>
         </motion.div>
       )}

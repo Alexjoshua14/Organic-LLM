@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef, useMemo, useCallback } from "react";
+import React, { useState, useEffect, useRef, useMemo, useCallback } from "react";
 import { Button } from "@heroui/button";
 import { motion, AnimatePresence } from "framer-motion";
 import {
@@ -22,18 +22,15 @@ import {
   FileText,
   Maximize2,
   Minimize2,
-  Library,
   Pin,
   Trash2,
 } from "lucide-react";
 
 import Page from "@/components/layout/page";
 import { createLogger } from "@/lib/logger";
-import ShinyText from "@/components/ShinyText";
-import AdaptiveLiquidChrome from "@/components/background/AdaptiveLiquidChrome";
-import { AdaptiveOrganicPresence } from "@/components/ambient/AdaptiveOrganicPresence";
+import { glass } from "@/components/design-system/primitives";
+import { cn } from "@/lib/utils";
 import { SpeechModelSelector } from "@/components/chat/speech-model-selector";
-import { TokenUsageDisplay, CompactTokenUsageDisplay } from "@/components/tts/TokenUsageDisplay";
 import { SegmentManager, TextSegment, SegmentStatus } from "@/components/tts/SegmentManager";
 import { GenerationProgress } from "@/components/tts/GenerationProgress";
 import { UnifiedPlayback } from "@/components/tts/UnifiedPlayback";
@@ -48,8 +45,6 @@ import {
 
 const logger = createLogger("app/speak/page.tsx");
 
-const BACKGROUND_SPEED = 0.06;
-
 type DisplayMode =
   | "input"
   | "review"
@@ -57,24 +52,6 @@ type DisplayMode =
   | "transforming"
   | "generating"
   | "playback";
-type PresenceState = "idle" | "active" | "thinking" | "responding";
-
-function getPresenceState(displayMode: DisplayMode, isInputFocused: boolean, isPlaying: boolean): PresenceState {
-  if (isPlaying) return "responding";
-  switch (displayMode) {
-    case "input": return isInputFocused ? "active" : "idle";
-    case "segments": return "active";
-    case "review": return "active";
-    case "transforming":
-    case "generating": return "thinking";
-    case "playback": return "active";
-    default: return "idle";
-  }
-}
-
-const glassPanel = `backdrop-blur-xl bg-white/[0.03] border border-white/[0.08] shadow-[0_8px_32px_rgba(0,0,0,0.12)]`;
-const glassCard = `backdrop-blur-md bg-white/[0.02] border border-white/[0.06]`;
-
 const fadeInUp = {
   initial: { opacity: 0, y: 20 },
   animate: { opacity: 1, y: 0 },
@@ -93,9 +70,6 @@ export default function SpeakPage() {
   // Enhanced-text review state (separate from segmentation)
   const [enhancedText, setEnhancedText] = useState<string>("");
   const [isEnhancing, setIsEnhancing] = useState(false);
-
-  // Saved clip browser
-  const [isLibraryOpen, setIsLibraryOpen] = useState(false);
 
   // Pinned from chat (load into input)
   const [pinnedList, setPinnedList] = useState<PinnedForSpeak[]>([]);
@@ -117,8 +91,6 @@ export default function SpeakPage() {
 
   // Playback state
   const [isPlaying, setIsPlaying] = useState(false);
-
-  const presenceState = getPresenceState(displayMode, isInputFocused, isPlaying);
 
   // Keyboard shortcut for fullscreen toggle (Ctrl+E)
   useEffect(() => {
@@ -319,8 +291,6 @@ export default function SpeakPage() {
 
   const handleLoadClip = useCallback(
     (clip: TtsClip) => {
-      setIsLibraryOpen(false);
-
       const url = URL.createObjectURL(clip.audioBlob);
       const segment: TextSegment = {
         id: `segment-${Date.now()}-0`,
@@ -487,60 +457,11 @@ export default function SpeakPage() {
             const url = URL.createObjectURL(blob);
             const blobSize = blob.size;
 
-            // --- CLIENT DIAGNOSTICS ---
-            // Test if the blob is actually playable, bypassing UnifiedPlayback entirely.
-            const audioDataKeys = typeof data.audioData === "object" ? Object.keys(data.audioData).length : 0;
-            const firstValues = typeof data.audioData === "object"
-              ? Object.values(data.audioData).slice(0, 10) as number[]
-              : [];
             logger.log("generateSegment", "complete event", {
               segmentId,
               blobSize,
               blobType: blob.type,
-              urlPrefix: url.slice(0, 30) + "...",
-              audioDataKeys,
-              firstBytes: firstValues,
-              firstBytesHex: firstValues.map((b) => b.toString(16).padStart(2, "0")).join(" "),
             });
-
-            // Direct blob playback test — does the blob actually produce playable audio?
-            try {
-              const testAudio = new Audio(url);
-              testAudio.addEventListener("loadedmetadata", () => {
-                logger.log("generateSegment", "BLOB TEST: loadedmetadata", {
-                  duration: testAudio.duration,
-                  readyState: testAudio.readyState,
-                });
-              });
-              testAudio.addEventListener("canplay", () => {
-                logger.log("generateSegment", "BLOB TEST: canplay ✅", {
-                  readyState: testAudio.readyState,
-                  duration: testAudio.duration,
-                });
-              });
-              testAudio.addEventListener("error", () => {
-                const err = testAudio.error;
-                logger.error("generateSegment", "BLOB TEST: error ❌", {
-                  code: err?.code,
-                  message: err?.message,
-                  readyState: testAudio.readyState,
-                });
-              });
-              // Give it 3s then log the final state
-              setTimeout(() => {
-                logger.log("generateSegment", "BLOB TEST: final state after 3s", {
-                  readyState: testAudio.readyState,
-                  networkState: testAudio.networkState,
-                  duration: testAudio.duration,
-                  error: testAudio.error ? { code: testAudio.error.code, message: testAudio.error.message } : null,
-                  paused: testAudio.paused,
-                  src: testAudio.src?.slice(0, 40),
-                });
-              }, 3000);
-            } catch (e) {
-              logger.error("generateSegment", "BLOB TEST: Audio constructor threw", String(e));
-            }
-            // --- END CLIENT DIAGNOSTICS ---
 
             // Persist to local audio library (IndexedDB) for later browsing.
             const createdAt = Date.now();
@@ -623,7 +544,7 @@ export default function SpeakPage() {
     const first = segments.find((s) => s.audioData || s.audioUrl);
     if (!first) return;
 
-    const filename = `prometheus-${Date.now()}.mp3`;
+    const filename = `speak-${Date.now()}.mp3`;
     if (first.audioData) {
       const blob = uint8ArrayToBlob(first.audioData);
       const url = URL.createObjectURL(blob);
@@ -654,7 +575,6 @@ export default function SpeakPage() {
     }
   };
 
-  // Reset to input
   const handleReset = () => {
     revokeSegmentUrls(segments);
     setSegments([]);
@@ -664,669 +584,483 @@ export default function SpeakPage() {
     setGenerationProgress(0);
   };
 
-  // Stage indicator
-  const getStageNumber = () => {
-    switch (displayMode) {
-      case "input": return 1;
-      case "review": return 2;
-      case "segments": return 2;
-      case "transforming":
-      case "generating": return 3;
-      case "playback": return 4;
-      default: return 1;
-    }
-  };
-
   return (
-    <Page>
-      <AdaptiveLiquidChrome speed={BACKGROUND_SPEED} dimIntensity={0.35} restDelay={3500} />
-      <AdaptiveOrganicPresence state={presenceState} position="bottom-left" size={100} />
+    <Page className="justify-start! overflow-y-auto">
+      <div className={cn("w-full flex flex-col flex-1 mx-auto px-4 py-6 md:px-6", displayMode === "input" ? "max-w-6xl" : "max-w-3xl")}>
+        {/* Header */}
+        <header className="flex items-center justify-between mb-6">
+          <div>
+            <h1 className="text-xl font-semibold text-foreground tracking-tight">
+              Speak
+            </h1>
+            <p className="text-sm text-muted-foreground">
+              Text to speech — generate and download audio
+            </p>
+          </div>
+        </header>
 
-      <div className="w-full h-full overflow-y-auto z-10">
-        <div className="min-h-full flex flex-col">
-          {/* Header */}
-          <header className="w-full pt-8 pb-6 px-6">
-            <div className="max-w-5xl mx-auto">
+        <main className="flex-1 min-w-0 flex flex-col min-h-0">
+          <AnimatePresence mode="wait">
+            {/* === INPUT MODE === */}
+            {displayMode === "input" ? (
               <motion.div
-                initial={{ opacity: 0, y: -20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.8, ease: [0.25, 0.46, 0.45, 0.94] }}
-                className="flex items-center justify-between"
+                key="input"
+                {...fadeInUp}
+                transition={{ duration: 0.3 }}
+                className={isFullscreen ? "fixed inset-0 z-50 p-4 md:p-6 flex flex-col bg-background" : "flex-1 grid grid-cols-1 lg:grid-cols-[320px_1fr] gap-6 min-h-0"}
               >
-                <div className="space-y-1">
-                  <h1 className="text-3xl md:text-4xl font-light tracking-[-0.03em] text-foreground/90">
-                    Prometheus
-                  </h1>
-                  <p className="text-sm text-muted-foreground/60 font-light tracking-wide">
-                    Voice Synthesis Engine
-                  </p>
-                </div>
+                {isFullscreen ? <div className="absolute inset-0 bg-background -z-10" /> : null}
 
-                <div className="flex items-center gap-3">
-                  <button
-                    onClick={() => setIsLibraryOpen(true)}
-                    className="p-2.5 rounded-2xl bg-white/[0.03] border border-white/[0.06] hover:bg-white/[0.06] transition-colors"
-                    title="Open audio library"
-                    data-dim-background
-                  >
-                    <Library className="w-4.5 h-4.5 text-foreground/70" />
-                  </button>
-
-                  {/* Stage Indicator */}
-                  <div className="hidden sm:flex items-center gap-2">
-                    {[1, 2, 3, 4].map((stage) => (
-                      <div key={stage} className="flex items-center gap-2">
-                        <div
-                          className={`
-                            w-8 h-8 rounded-full flex items-center justify-center text-xs font-medium
-                            transition-all duration-700 ease-out
-                            ${getStageNumber() >= stage
-                              ? "bg-white/10 text-foreground/80 border border-white/20"
-                              : "bg-white/[0.02] text-foreground/30 border border-white/[0.05]"}
-                          `}
-                        >
-                          {stage}
+                {!isFullscreen ? (
+                  <aside className="flex flex-col gap-4 min-h-0 lg:min-h-[420px]">
+                    {/* Pinned from Chat */}
+                    {pinnedList.length > 0 && (
+                      <div className={glass()} style={{ borderRadius: "var(--radius-2xl, 1rem)" }}>
+                        <div className="p-3 border-b border-white/6">
+                          <p className="text-xs font-medium text-muted-foreground flex items-center gap-1.5">
+                            <Pin className="w-3.5 h-3.5" />
+                            Pinned from Chat
+                          </p>
                         </div>
-                        {stage < 4 && (
-                          <div className={`w-6 h-px transition-colors duration-700 ${getStageNumber() > stage ? "bg-white/20" : "bg-white/[0.05]"}`} />
-                        )}
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              </motion.div>
-            </div>
-          </header>
-
-          {/* Main Content */}
-          <main className="flex-1 px-6 pb-8">
-            <div className="max-w-5xl mx-auto">
-              <AnimatePresence mode="wait">
-                {/* === INPUT MODE === */}
-                {displayMode === "input" && (
-                  <motion.div
-                    key="input"
-                    {...fadeInUp}
-                    transition={{ duration: 0.5 }}
-                    className={`
-                      ${isFullscreen ? "fixed inset-0 z-50 p-4 md:p-8 flex flex-col" : "space-y-6"}
-                    `}
-                  >
-                    {/* Fullscreen backdrop */}
-                    {isFullscreen && (
-                      <motion.div
-                        initial={{ opacity: 0 }}
-                        animate={{ opacity: 1 }}
-                        exit={{ opacity: 0 }}
-                        className="absolute inset-0 bg-black/80 backdrop-blur-xl -z-10"
-                      />
-                    )}
-
-                    <div
-                      className={`
-                        ${glassPanel} rounded-3xl overflow-hidden
-                        transition-all duration-500 ease-out
-                        ${isFullscreen ? "flex-1 flex flex-col max-w-6xl mx-auto w-full" : ""}
-                      `}
-                      data-dim-background
-                    >
-                      <div className={`p-6 md:p-8 ${isFullscreen ? "flex-1 flex flex-col" : ""}`}>
-                        {/* Input Header */}
-                        <div className="flex items-center justify-between mb-6">
-                          <div className="flex items-center gap-3">
-                            <div className="w-10 h-10 rounded-2xl bg-gradient-to-br from-violet-500/20 to-fuchsia-500/20 flex items-center justify-center">
-                              <Edit3 className="w-5 h-5 text-violet-400/80" />
-                            </div>
-                            <div>
-                              <h2 className="text-lg font-medium text-foreground/90">Compose</h2>
-                              <p className="text-xs text-muted-foreground/50">Enter text to synthesize</p>
-                            </div>
-                          </div>
-
-                          <div className="flex items-center gap-4">
-                            {inputEstimates && (
-                              <div className="hidden md:flex items-center gap-4 text-xs text-muted-foreground/50">
-                                <span className="flex items-center gap-1.5">
-                                  <Clock className="w-3.5 h-3.5" />
-                                  {formatDuration(inputEstimates.estimatedDurationMs)} gen
-                                </span>
-                                <span className="flex items-center gap-1.5">
-                                  <Volume2 className="w-3.5 h-3.5" />
-                                  {formatAudioDuration(inputEstimates.estimatedAudioDurationSec)} audio
-                                </span>
-                                <span className="flex items-center gap-1.5 text-emerald-400/70">
-                                  {formatCost(inputEstimates.estimatedCost)}
-                                </span>
-                              </div>
-                            )}
-
-                            {/* Fullscreen toggle button */}
+                        <div className="p-2 flex flex-wrap gap-2">
+                          {pinnedList.map((item) => (
                             <button
-                              onClick={() => setIsFullscreen(!isFullscreen)}
-                              className={`
-                                p-2 rounded-xl transition-all duration-300
-                                hover:bg-white/10 text-muted-foreground/50 hover:text-foreground/80
-                                ${isFullscreen ? "bg-white/5" : ""}
-                              `}
-                              title={isFullscreen ? "Exit fullscreen (Esc)" : "Fullscreen (Ctrl+E)"}
+                              key={item.id}
+                              type="button"
+                              onClick={() => handleLoadPinned(item)}
+                              className="group flex items-center gap-2 max-w-full px-3 py-2 rounded-lg text-left bg-background-tertiary/50 border border-border hover:bg-background-tertiary transition-colors"
                             >
-                              {isFullscreen ? (
-                                <Minimize2 className="w-4 h-4" />
-                              ) : (
-                                <Maximize2 className="w-4 h-4" />
-                              )}
-                            </button>
-                          </div>
-                        </div>
-
-                        {/* Pinned from Chat */}
-                        {pinnedList.length > 0 && (
-                          <div className="mb-4">
-                            <p className="text-xs font-medium text-muted-foreground/70 mb-2 flex items-center gap-1.5">
-                              <Pin className="w-3.5 h-3.5" />
-                              Pinned from Chat
-                            </p>
-                            <div className="flex flex-wrap gap-2">
-                              {pinnedList.map((item) => (
-                                <button
-                                  key={item.id}
-                                  type="button"
-                                  onClick={() => handleLoadPinned(item)}
-                                  className={`
-                                    group flex items-center gap-2 max-w-full
-                                    px-3 py-2 rounded-xl text-left
-                                    bg-white/[0.04] border border-white/[0.06]
-                                    hover:bg-white/[0.08] hover:border-white/[0.1]
-                                    transition-colors
-                                  `}
-                                >
-                                  <span className="text-sm text-foreground/90 truncate flex-1 min-w-0">
-                                    {item.title}
-                                  </span>
-                                  <button
-                                    type="button"
-                                    onClick={(e) => handleRemovePinned(e, item.id)}
-                                    aria-label="Remove from pinned"
-                                    className="opacity-0 group-hover:opacity-100 p-1 rounded-md hover:bg-white/10 text-muted-foreground"
-                                  >
-                                    <Trash2 className="w-3.5 h-3.5" />
-                                  </button>
-                                </button>
-                              ))}
-                            </div>
-                          </div>
-                        )}
-
-                        {/* Textarea */}
-                        <div className={`relative ${isFullscreen ? "flex-1 flex flex-col" : ""}`}>
-                          <textarea
-                            ref={textareaRef}
-                            value={inputText}
-                            onChange={(e) => setInputText(e.target.value)}
-                            onFocus={() => setIsInputFocused(true)}
-                            onBlur={() => setIsInputFocused(false)}
-                            placeholder="Write something beautiful..."
-                            className={`
-                              w-full p-5 rounded-2xl resize-none
-                              bg-white/[0.02] border border-white/[0.06]
-                              text-foreground/90 leading-relaxed
-                              placeholder:text-muted-foreground/30
-                              focus:outline-none focus:border-violet-500/30 focus:bg-white/[0.03]
-                              transition-all duration-500 ease-out
-                              ${isFullscreen
-                                ? "flex-1 text-lg md:text-xl"
-                                : isInputExpanded || isInputFocused
-                                  ? "min-h-[400px] md:min-h-[500px] text-base md:text-lg"
-                                  : "min-h-[200px] md:min-h-[260px] text-base md:text-lg"
-                              }
-                            `}
-                          />
-                          <div className={`
-                            absolute bottom-4 right-4 flex items-center gap-3
-                            text-xs text-muted-foreground/40 tabular-nums
-                          `}>
-                            {!isFullscreen && (
-                              <span className="hidden sm:inline text-muted-foreground/30">
-                                Ctrl+E to expand
+                              <span className="text-sm text-foreground truncate flex-1 min-w-0">
+                                {item.title}
                               </span>
-                            )}
-                            {inputText.length.toLocaleString()} chars
-                          </div>
-                        </div>
-
-                        {error && (
-                          <motion.div
-                            initial={{ opacity: 0, y: -10 }}
-                            animate={{ opacity: 1, y: 0 }}
-                            className="mt-4 p-4 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 text-sm"
-                          >
-                            {error}
-                          </motion.div>
-                        )}
-                      </div>
-
-                      {/* Controls */}
-                      <div className={`
-                        px-6 md:px-8 py-5 bg-white/[0.01] border-t border-white/[0.04]
-                        ${isFullscreen ? "shrink-0" : ""}
-                      `}>
-                        <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4">
-                          <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4">
-                            {/* AI Enhancement Toggle */}
-                            <label className="flex items-center gap-3 cursor-pointer group">
-                              <div
-                                className={`
-                                  relative w-11 h-6 rounded-full transition-all duration-300
-                                  ${processText ? "bg-gradient-to-r from-violet-600 to-fuchsia-600" : "bg-white/10"}
-                                `}
-                                onClick={() => setProcessText(!processText)}
+                              <button
+                                type="button"
+                                onClick={(e) => handleRemovePinned(e, item.id)}
+                                aria-label="Remove from pinned"
+                                className="opacity-0 group-hover:opacity-100 p-1 rounded hover:bg-background-tertiary text-muted-foreground"
                               >
-                                <div
-                                  className={`
-                                    absolute top-1 w-4 h-4 rounded-full bg-white shadow-lg
-                                    transition-all duration-300 ease-out
-                                    ${processText ? "left-6" : "left-1"}
-                                  `}
-                                />
-                              </div>
-                              <span className="text-sm text-muted-foreground/70">AI Enhancement</span>
-                            </label>
-
-                            <div data-dim-background>
-                              <SpeechModelSelector
-                                selectedModel={selectedModel}
-                                onModelChange={(m) => setSelectedModel(m as TTSModel)}
-                              />
-                            </div>
-                          </div>
-
-                          <div className="flex items-center gap-3 w-full sm:w-auto">
-                            {/* Segment Button */}
-                            <button
-                              onClick={() => {
-                                if (isFullscreen) setIsFullscreen(false);
-                                handleSegmentText();
-                              }}
-                              disabled={!inputText.trim()}
-                              className={`
-                                flex-1 sm:flex-none px-5 py-3 rounded-xl text-sm font-medium
-                                bg-white/5 text-foreground/70 border border-white/10
-                                hover:bg-white/10 transition-all duration-300
-                                disabled:opacity-40 disabled:cursor-not-allowed
-                              `}
-                            >
-                              <span className="flex items-center justify-center gap-2">
-                                <SplitSquareHorizontal className="w-4 h-4" />
-                                Split & Customize
-                              </span>
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
                             </button>
-
-                            {/* Review Enhanced Text Button */}
-                            <button
-                              onClick={() => {
-                                if (isFullscreen) setIsFullscreen(false);
-                                void handleReviewEnhancedText();
-                              }}
-                              disabled={isLoading || isEnhancing || !inputText.trim()}
-                              className={`
-                                flex-1 sm:flex-none px-5 py-3 rounded-xl text-sm font-medium
-                                bg-white/5 text-foreground/70 border border-white/10
-                                hover:bg-white/10 transition-all duration-300
-                                disabled:opacity-40 disabled:cursor-not-allowed
-                              `}
-                            >
-                              <span className="flex items-center justify-center gap-2">
-                                {isEnhancing ? (
-                                  <Loader2 className="w-4 h-4 animate-spin" />
-                                ) : (
-                                  <Sparkles className="w-4 h-4" />
-                                )}
-                                Review Enhanced
-                              </span>
-                            </button>
-
-                            {/* Quick Generate Button */}
-                            <button
-                              onClick={() => {
-                                if (isFullscreen) setIsFullscreen(false);
-                                handleSimpleGenerate();
-                              }}
-                              disabled={isLoading || !inputText.trim()}
-                              className={`
-                                flex-1 sm:flex-none px-6 py-3 rounded-xl text-sm font-medium
-                                bg-gradient-to-r from-violet-600 to-fuchsia-600 text-white
-                                shadow-lg shadow-violet-500/25 hover:shadow-violet-500/40
-                                hover:scale-[1.02] transition-all duration-500
-                                disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:scale-100
-                              `}
-                            >
-                              <span className="flex items-center justify-center gap-2">
-                                {isLoading ? (
-                                  <Loader2 className="w-4 h-4 animate-spin" />
-                                ) : (
-                                  <Wand2 className="w-4 h-4" />
-                                )}
-                                Quick Generate
-                              </span>
-                            </button>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  </motion.div>
-                )}
-
-                {/* === REVIEW ENHANCED TEXT MODE === */}
-                {displayMode === "review" && (
-                  <motion.div
-                    key="review"
-                    {...fadeInUp}
-                    transition={{ duration: 0.5 }}
-                    className="space-y-6"
-                  >
-                    <div className={`${glassPanel} rounded-3xl overflow-hidden`} data-dim-background>
-                      <div className="p-6 md:p-8">
-                        <div className="flex items-center justify-between gap-4 mb-6">
-                          <div className="flex items-center gap-3">
-                            <div className="w-10 h-10 rounded-2xl bg-gradient-to-br from-violet-500/20 to-fuchsia-500/20 flex items-center justify-center">
-                              <Sparkles className="w-5 h-5 text-violet-400/80" />
-                            </div>
-                            <div>
-                              <h2 className="text-lg font-medium text-foreground/90">Review Enhanced Text</h2>
-                              <p className="text-xs text-muted-foreground/50">
-                                Preview and optionally edit the speech-friendly version before generating.
-                              </p>
-                            </div>
-                          </div>
-
-                          <div className="flex items-center gap-2">
-                            <button
-                              onClick={() => setDisplayMode("input")}
-                              className="px-4 py-2 rounded-xl text-sm text-muted-foreground/60 hover:text-foreground/80 hover:bg-white/[0.03] transition-all"
-                            >
-                              Back
-                            </button>
-                            <button
-                              onClick={() => void handleReviewEnhancedText()}
-                              disabled={isEnhancing}
-                              className="px-4 py-2 rounded-xl text-sm text-foreground/70 bg-white/5 border border-white/10 hover:bg-white/10 transition-all disabled:opacity-40"
-                              title="Re-run enhancement"
-                            >
-                              <span className="flex items-center gap-2">
-                                <RefreshCw className={`w-4 h-4 ${isEnhancing ? "animate-spin" : ""}`} />
-                                Re-enhance
-                              </span>
-                            </button>
-                          </div>
-                        </div>
-
-                        {isEnhancing ? (
-                          <GenerationProgress
-                            isActive={true}
-                            estimatedDurationMs={Math.max(estimatedDurationMs, 1200)}
-                            stage="transforming"
-                            className="max-w-xl"
-                          />
-                        ) : (
-                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            <div className="space-y-2">
-                              <div className="text-xs text-muted-foreground/60">Original</div>
-                              <textarea
-                                value={inputText}
-                                readOnly
-                                className={`
-                                  w-full min-h-[280px] p-4 rounded-2xl resize-none
-                                  bg-white/[0.02] border border-white/[0.06]
-                                  text-foreground/70 leading-relaxed
-                                  focus:outline-none
-                                `}
-                              />
-                            </div>
-                            <div className="space-y-2">
-                              <div className="text-xs text-muted-foreground/60">Enhanced (editable)</div>
-                              <textarea
-                                value={enhancedText}
-                                onChange={(e) => setEnhancedText(e.target.value)}
-                                placeholder="Enhanced text will appear here…"
-                                className={`
-                                  w-full min-h-[280px] p-4 rounded-2xl resize-none
-                                  bg-white/[0.03] border border-white/[0.10]
-                                  text-foreground/90 leading-relaxed
-                                  placeholder:text-muted-foreground/30
-                                  focus:outline-none focus:border-violet-500/30
-                                `}
-                              />
-                            </div>
-                          </div>
-                        )}
-
-                        {error && (
-                          <motion.div
-                            initial={{ opacity: 0, y: -10 }}
-                            animate={{ opacity: 1, y: 0 }}
-                            className="mt-4 p-4 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 text-sm"
-                          >
-                            {error}
-                          </motion.div>
-                        )}
-                      </div>
-
-                      <div className="px-6 md:px-8 py-5 bg-white/[0.01] border-t border-white/[0.04]">
-                        <div className="flex flex-col sm:flex-row gap-3 justify-end">
-                          <button
-                            onClick={handleSplitEnhancedText}
-                            disabled={isEnhancing || !enhancedText.trim()}
-                            className={`
-                              px-5 py-3 rounded-xl text-sm font-medium
-                              bg-white/5 text-foreground/70 border border-white/10
-                              hover:bg-white/10 transition-all duration-300
-                              disabled:opacity-40 disabled:cursor-not-allowed
-                            `}
-                          >
-                            <span className="flex items-center justify-center gap-2">
-                              <SplitSquareHorizontal className="w-4 h-4" />
-                              Split Enhanced
-                            </span>
-                          </button>
-                          <button
-                            onClick={() => void handleGenerateEnhancedWhole()}
-                            disabled={isEnhancing || isLoading || !enhancedText.trim()}
-                            className={`
-                              px-6 py-3 rounded-xl text-sm font-medium
-                              bg-gradient-to-r from-violet-600 to-fuchsia-600 text-white
-                              shadow-lg shadow-violet-500/25 hover:shadow-violet-500/40
-                              hover:scale-[1.02] transition-all duration-500
-                              disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:scale-100
-                            `}
-                          >
-                            <span className="flex items-center justify-center gap-2">
-                              {isLoading ? (
-                                <Loader2 className="w-4 h-4 animate-spin" />
-                              ) : (
-                                <Wand2 className="w-4 h-4" />
-                              )}
-                              Generate Enhanced
-                            </span>
-                          </button>
-                        </div>
-                      </div>
-                    </div>
-                  </motion.div>
-                )}
-
-                {/* === SEGMENTS MODE === */}
-                {displayMode === "segments" && (
-                  <motion.div
-                    key="segments"
-                    {...fadeInUp}
-                    transition={{ duration: 0.5 }}
-                    className="space-y-6"
-                  >
-                    <div className={`${glassPanel} rounded-3xl overflow-hidden`}>
-                      <div className="p-6 md:p-8">
-                        <div className="flex items-center justify-between mb-6">
-                          <div className="flex items-center gap-3">
-                            <div className="w-10 h-10 rounded-2xl bg-gradient-to-br from-blue-500/20 to-cyan-500/20 flex items-center justify-center">
-                              <Layers className="w-5 h-5 text-blue-400/80" />
-                            </div>
-                            <div>
-                              <h2 className="text-lg font-medium text-foreground/90">Segments</h2>
-                              <p className="text-xs text-muted-foreground/50">
-                                {segments.length} sections • Choose what to generate
-                              </p>
-                            </div>
-                          </div>
-
-                          <button
-                            onClick={handleReset}
-                            className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm text-muted-foreground/60 hover:text-foreground/80 hover:bg-white/[0.03] transition-all"
-                          >
-                            <Edit3 className="w-4 h-4" />
-                            Edit Text
-                          </button>
-                        </div>
-
-                        <SegmentManager
-                          segments={segments}
-                          onSegmentStatusChange={handleSegmentStatusChange}
-                          onGenerateSegment={generateSegment}
-                          onGenerateAll={handleGenerateAll}
-                          model={selectedModel}
-                          isGenerating={isLoading}
-                          currentGeneratingId={currentGeneratingId}
-                        />
-                      </div>
-                    </div>
-                  </motion.div>
-                )}
-
-                {/* === TRANSFORMING/GENERATING MODE === */}
-                {(displayMode === "transforming" || displayMode === "generating") && (
-                  <motion.div
-                    key="generating"
-                    {...fadeInUp}
-                    transition={{ duration: 0.5 }}
-                    className="space-y-6"
-                  >
-                    <div className={`${glassPanel} rounded-3xl p-8 md:p-12`}>
-                      <div className="flex flex-col items-center text-center max-w-lg mx-auto">
-                        <div className="relative mb-8">
-                          <div className={`
-                            w-20 h-20 rounded-3xl flex items-center justify-center
-                            ${displayMode === "transforming"
-                              ? "bg-gradient-to-br from-violet-500/20 to-fuchsia-500/20"
-                              : "bg-gradient-to-br from-amber-500/20 to-orange-500/20"
-                            }
-                          `}>
-                            {displayMode === "transforming" ? (
-                              <Sparkles className="w-8 h-8 text-violet-400 animate-pulse" />
-                            ) : (
-                              <Volume2 className="w-8 h-8 text-amber-400 animate-pulse" />
-                            )}
-                          </div>
-                          <div className={`
-                            absolute inset-0 rounded-3xl blur-xl animate-pulse
-                            ${displayMode === "transforming" ? "bg-violet-500/20" : "bg-amber-500/20"}
-                          `} />
-                        </div>
-
-                        <GenerationProgress
-                          isActive={true}
-                          estimatedDurationMs={estimatedDurationMs}
-                          stage={displayMode}
-                          className="w-full"
-                        />
-                      </div>
-                    </div>
-                  </motion.div>
-                )}
-
-                {/* === PLAYBACK MODE === */}
-                {displayMode === "playback" && (
-                  <motion.div
-                    key="playback"
-                    {...fadeInUp}
-                    transition={{ duration: 0.5 }}
-                    className="space-y-6"
-                  >
-                    <div className={`${glassPanel} rounded-3xl overflow-hidden`} data-dim-background>
-                      <div className="p-6 md:p-8">
-                        <div className="flex items-center justify-between mb-6">
-                          <div className="flex items-center gap-3">
-                            <div className="w-10 h-10 rounded-2xl bg-gradient-to-br from-emerald-500/20 to-teal-500/20 flex items-center justify-center">
-                              <Check className="w-5 h-5 text-emerald-400/80" />
-                            </div>
-                            <div>
-                              <h2 className="text-lg font-medium text-foreground/90">Ready</h2>
-                              <p className="text-xs text-muted-foreground/50">
-                                {segments.filter((s) => s.status === "generated").length} of {segments.length} segments generated
-                              </p>
-                            </div>
-                          </div>
-
-                          <button
-                            onClick={handleReset}
-                            className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm text-muted-foreground/60 hover:text-foreground/80 hover:bg-white/[0.03] transition-all"
-                          >
-                            <FileText className="w-4 h-4" />
-                            New Text
-                          </button>
-                        </div>
-
-                        <UnifiedPlayback
-                          segments={segments}
-                          onDownload={handleDownload}
-                        />
-                      </div>
-                    </div>
-
-                    {/* Segment breakdown */}
-                    {isSegmented && (
-                      <div className={`${glassCard} rounded-2xl p-4`}>
-                        <p className="text-xs text-muted-foreground/50 mb-3">Segment Details</p>
-                        <div className="space-y-2">
-                          {segments.map((seg, idx) => (
-                            <div
-                              key={seg.id}
-                              className="flex items-center gap-3 text-sm"
-                            >
-                              <span className="w-5 h-5 rounded bg-white/5 flex items-center justify-center text-xs text-foreground/50">
-                                {idx + 1}
-                              </span>
-                              <span className={`
-                                text-xs px-2 py-0.5 rounded
-                                ${seg.status === "generated"
-                                  ? "bg-emerald-500/10 text-emerald-400"
-                                  : seg.generationStatus === "skip"
-                                    ? "bg-white/5 text-muted-foreground/40"
-                                    : "bg-amber-500/10 text-amber-400"
-                                }
-                              `}>
-                                {seg.status === "generated" ? "Ready" : seg.generationStatus === "skip" ? "Skipped" : "Pending"}
-                              </span>
-                              <span className="text-foreground/50 truncate flex-1">
-                                {(seg.processedText || seg.originalText).slice(0, 50)}...
-                              </span>
-                            </div>
                           ))}
                         </div>
                       </div>
                     )}
-                  </motion.div>
+                    <div className="flex-1 min-h-0 flex flex-col">
+                      <ClipBrowser
+                        variant="inline"
+                        onLoadClip={handleLoadClip}
+                        className="flex-1 min-h-0"
+                      />
+                    </div>
+                  </aside>
+                ) : null}
+
+                <div
+                  className={cn(
+                    "flex flex-col min-h-0",
+                    isFullscreen && "flex-1 max-w-3xl mx-auto w-full",
+                    glass(),
+                    "rounded-lg overflow-hidden transition-all",
+                    isFullscreen && "flex-1 flex flex-col",
+                  )}
+                >
+                  <div className={`p-4 md:p-6 ${isFullscreen ? "flex-1 flex flex-col" : ""}`}>
+                    <div className="flex items-center justify-between gap-4 mb-4">
+                      <div className="flex items-center gap-3 min-w-0">
+                        <div className="w-9 h-9 rounded-lg bg-background-tertiary flex items-center justify-center shrink-0">
+                          <Edit3 className="w-4 h-4 text-foreground" />
+                        </div>
+                        <div className="min-w-0">
+                          <h2 className="text-sm font-medium text-foreground">Compose</h2>
+                          <p className="text-xs text-muted-foreground">Enter text to synthesize</p>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-2 shrink-0">
+                        {inputEstimates && (
+                          <div className="hidden sm:flex items-center gap-3 text-xs text-muted-foreground">
+                            <span className="flex items-center gap-1">
+                              <Clock className="w-3.5 h-3.5" />
+                              {formatDuration(inputEstimates.estimatedDurationMs)}
+                            </span>
+                            <span className="flex items-center gap-1">
+                              <Volume2 className="w-3.5 h-3.5" />
+                              {formatAudioDuration(inputEstimates.estimatedAudioDurationSec)}
+                            </span>
+                            <span className="text-foreground/70">{formatCost(inputEstimates.estimatedCost)}</span>
+                          </div>
+                        )}
+
+                        <Button
+                          isIconOnly
+                          size="sm"
+                          variant="flat"
+                          className={glass()}
+                          onPress={() => setIsFullscreen(!isFullscreen)}
+                          aria-label={isFullscreen ? "Exit fullscreen" : "Fullscreen"}
+                        >
+                          {isFullscreen ? <Minimize2 className="w-4 h-4" /> : <Maximize2 className="w-4 h-4" />}
+                        </Button>
+                      </div>
+                    </div>
+
+                    {/* Textarea */}
+                    <div className={`relative ${isFullscreen ? "flex-1 flex flex-col" : ""}`}>
+                      <textarea
+                        ref={textareaRef}
+                        value={inputText}
+                        onChange={(e) => setInputText(e.target.value)}
+                        onFocus={() => setIsInputFocused(true)}
+                        onBlur={() => setIsInputFocused(false)}
+                        placeholder="Paste or type text to turn into speech..."
+                        className={`
+                              w-full p-4 rounded-lg resize-none
+                              bg-background border border-border
+                              text-foreground leading-relaxed
+                              placeholder:text-muted-foreground
+                              focus:outline-none focus:ring-2 focus:ring-foreground/10 focus:border-foreground/20
+                              transition-colors
+                              ${isFullscreen
+                            ? "flex-1 text-base md:text-lg"
+                            : isInputExpanded || isInputFocused
+                              ? "min-h-[320px] md:min-h-[400px] text-base"
+                              : "min-h-[180px] md:min-h-[220px] text-base"
+                          }
+                            `}
+                      />
+                      <div className="absolute bottom-3 right-3 flex items-center gap-2 text-xs text-muted-foreground tabular-nums">
+                        {!isFullscreen && (
+                          <span className="hidden sm:inline">Ctrl+E to expand</span>
+                        )}
+                        {inputText.length.toLocaleString()} chars
+                      </div>
+                    </div>
+
+                    {error && (
+                      <motion.div
+                        initial={{ opacity: 0, y: -10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        className="mt-4 p-4 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 text-sm"
+                      >
+                        {error}
+                      </motion.div>
+                    )}
+                  </div>
+
+                  {/* Controls */}
+                  <div className={`px-4 md:px-6 py-4 border-t border-border bg-background-tertiary/30 ${isFullscreen ? "shrink-0" : ""}`}>
+                    <div className="flex flex-col lg:flex-row items-stretch lg:items-center justify-between gap-4">
+                      <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
+                        <label className="flex items-center gap-2 cursor-pointer">
+                          <input
+                            type="checkbox"
+                            checked={processText}
+                            onChange={() => setProcessText(!processText)}
+                            className="rounded border-border bg-background text-foreground focus:ring-foreground/20"
+                          />
+                          <span className="text-sm text-muted-foreground">AI Enhancement</span>
+                        </label>
+                        <SpeechModelSelector
+                          selectedModel={selectedModel}
+                          onModelChange={(m) => setSelectedModel(m as TTSModel)}
+                          className={glass()}
+                        />
+                      </div>
+
+                      <div className="flex flex-wrap items-center gap-2">
+                        <Button
+                          size="sm"
+                          variant="bordered"
+                          className={glass()}
+                          onPress={() => {
+                            if (isFullscreen) setIsFullscreen(false);
+                            handleSegmentText();
+                          }}
+                          isDisabled={!inputText.trim()}
+                          startContent={<SplitSquareHorizontal className="w-4 h-4" />}
+                        >
+                          Split & Customize
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="bordered"
+                          className={glass()}
+                          onPress={() => {
+                            if (isFullscreen) setIsFullscreen(false);
+                            void handleReviewEnhancedText();
+                          }}
+                          isDisabled={isLoading || isEnhancing || !inputText.trim()}
+                          startContent={isEnhancing ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
+                        >
+                          Review Enhanced
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="solid"
+                          color="default"
+                          className="bg-foreground text-background"
+                          onPress={() => {
+                            if (isFullscreen) setIsFullscreen(false);
+                            handleSimpleGenerate();
+                          }}
+                          isDisabled={isLoading || !inputText.trim()}
+                          startContent={isLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Wand2 className="w-4 h-4" />}
+                        >
+                          Quick Generate
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </motion.div>
+            ) : null}
+
+            {/* === REVIEW ENHANCED TEXT MODE === */}
+            {displayMode === "review" && (
+              <motion.div
+                key="review"
+                {...fadeInUp}
+                transition={{ duration: 0.3 }}
+                className="space-y-4"
+              >
+                <div className={`${glass()} rounded-lg overflow-hidden`}>
+                  <div className="p-4 md:p-6">
+                    <div className="flex items-center justify-between gap-4 mb-4">
+                      <div className="flex items-center gap-3">
+                        <div className="w-9 h-9 rounded-lg bg-background-tertiary flex items-center justify-center">
+                          <Sparkles className="w-4 h-4 text-foreground" />
+                        </div>
+                        <div>
+                          <h2 className="text-sm font-medium text-foreground">Review Enhanced Text</h2>
+                          <p className="text-xs text-muted-foreground">
+                            Edit the speech-friendly version before generating.
+                          </p>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-2">
+                        <Button size="sm" variant="flat" onPress={() => setDisplayMode("input")}>
+                          Back
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="bordered"
+                          className={glass()}
+                          onPress={() => void handleReviewEnhancedText()}
+                          isDisabled={isEnhancing}
+                          startContent={<RefreshCw className={`w-4 h-4 ${isEnhancing ? "animate-spin" : ""}`} />}
+                        >
+                          Re-enhance
+                        </Button>
+                      </div>
+                    </div>
+
+                    {isEnhancing ? (
+                      <GenerationProgress
+                        isActive={true}
+                        estimatedDurationMs={Math.max(estimatedDurationMs, 1200)}
+                        stage="transforming"
+                        className="max-w-xl"
+                      />
+                    ) : (
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                          <div className="text-xs text-muted-foreground">Original</div>
+                          <textarea
+                            value={inputText}
+                            readOnly
+                            className="w-full min-h-[240px] p-4 rounded-lg resize-none bg-background border border-border text-foreground leading-relaxed focus:outline-none"
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <div className="text-xs text-muted-foreground">Enhanced (editable)</div>
+                          <textarea
+                            value={enhancedText}
+                            onChange={(e) => setEnhancedText(e.target.value)}
+                            placeholder="Enhanced text will appear here…"
+                            className="w-full min-h-[240px] p-4 rounded-lg resize-none bg-background border border-border text-foreground leading-relaxed placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-foreground/10 focus:border-foreground/20"
+                          />
+                        </div>
+                      </div>
+                    )}
+
+                    {error && (
+                      <motion.div
+                        initial={{ opacity: 0, y: -10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        className="mt-4 p-4 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 text-sm"
+                      >
+                        {error}
+                      </motion.div>
+                    )}
+                  </div>
+
+                  <div className="px-4 md:px-6 py-4 border-t border-border bg-background-tertiary/30 flex flex-col sm:flex-row gap-2 justify-end">
+                    <Button
+                      size="sm"
+                      variant="bordered"
+                      className={glass()}
+                      onPress={handleSplitEnhancedText}
+                      isDisabled={isEnhancing || !enhancedText.trim()}
+                      startContent={<SplitSquareHorizontal className="w-4 h-4" />}
+                    >
+                      Split Enhanced
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="solid"
+                      color="default"
+                      className="bg-foreground text-background"
+                      onPress={() => void handleGenerateEnhancedWhole()}
+                      isDisabled={isEnhancing || isLoading || !enhancedText.trim()}
+                      startContent={isLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Wand2 className="w-4 h-4" />}
+                    >
+                      Generate Enhanced
+                    </Button>
+                  </div>
+                </div>
+              </motion.div>
+            )}
+
+            {/* === SEGMENTS MODE === */}
+            {displayMode === "segments" && (
+              <motion.div
+                key="segments"
+                {...fadeInUp}
+                transition={{ duration: 0.3 }}
+                className="space-y-4"
+              >
+                <div className={`${glass()} rounded-lg overflow-hidden`}>
+                  <div className="p-4 md:p-6">
+                    <div className="flex items-center justify-between gap-4 mb-4">
+                      <div className="flex items-center gap-3">
+                        <div className="w-9 h-9 rounded-lg bg-background-tertiary flex items-center justify-center">
+                          <Layers className="w-4 h-4 text-foreground" />
+                        </div>
+                        <div>
+                          <h2 className="text-sm font-medium text-foreground">Segments</h2>
+                          <p className="text-xs text-muted-foreground">
+                            {segments.length} sections • Choose what to generate
+                          </p>
+                        </div>
+                      </div>
+
+                      <Button size="sm" variant="flat" onPress={handleReset} startContent={<Edit3 className="w-4 h-4" />}>
+                        Edit Text
+                      </Button>
+                    </div>
+
+                    <SegmentManager
+                      segments={segments}
+                      onSegmentStatusChange={handleSegmentStatusChange}
+                      onGenerateSegment={generateSegment}
+                      onGenerateAll={handleGenerateAll}
+                      model={selectedModel}
+                      isGenerating={isLoading}
+                      currentGeneratingId={currentGeneratingId}
+                    />
+                  </div>
+                </div>
+              </motion.div>
+            )}
+
+            {/* === TRANSFORMING/GENERATING MODE === */}
+            {(displayMode === "transforming" || displayMode === "generating") && (
+              <motion.div
+                key="generating"
+                {...fadeInUp}
+                transition={{ duration: 0.3 }}
+                className="space-y-4"
+              >
+                <div className={`${glass()} rounded-lg p-8 md:p-10`}>
+                  <div className="flex flex-col items-center text-center max-w-md mx-auto">
+                    <div className="w-14 h-14 rounded-xl bg-background-tertiary flex items-center justify-center mb-6">
+                      {displayMode === "transforming" ? (
+                        <Sparkles className="w-7 h-7 text-foreground animate-pulse" />
+                      ) : (
+                        <Volume2 className="w-7 h-7 text-foreground animate-pulse" />
+                      )}
+                    </div>
+                    <GenerationProgress
+                      isActive={true}
+                      estimatedDurationMs={estimatedDurationMs}
+                      stage={displayMode}
+                      className="w-full"
+                    />
+                  </div>
+                </div>
+              </motion.div>
+            )}
+
+            {/* === PLAYBACK MODE === */}
+            {displayMode === "playback" && (
+              <motion.div
+                key="playback"
+                {...fadeInUp}
+                transition={{ duration: 0.3 }}
+                className="space-y-4"
+              >
+                <div className={`${glass()} rounded-lg overflow-hidden`}>
+                  <div className="p-4 md:p-6">
+                    <div className="flex items-center justify-between gap-4 mb-4">
+                      <div className="flex items-center gap-3">
+                        <div className="w-9 h-9 rounded-lg bg-background-tertiary flex items-center justify-center">
+                          <Check className="w-4 h-4 text-foreground" />
+                        </div>
+                        <div>
+                          <h2 className="text-sm font-medium text-foreground">Ready</h2>
+                          <p className="text-xs text-muted-foreground">
+                            {segments.filter((s) => s.status === "generated").length} of {segments.length} segments generated
+                          </p>
+                        </div>
+                      </div>
+
+                      <Button size="sm" variant="flat" onPress={handleReset} startContent={<FileText className="w-4 h-4" />}>
+                        New Text
+                      </Button>
+                    </div>
+
+                    <UnifiedPlayback
+                      segments={segments}
+                      onDownload={handleDownload}
+                    />
+                  </div>
+                </div>
+
+                {/* Segment breakdown */}
+                {isSegmented && (
+                  <div className={`${glass()} rounded-lg p-4 mt-4`}>
+                    <p className="text-xs text-muted-foreground mb-3">Segment Details</p>
+                    <div className="space-y-2">
+                      {segments.map((seg, idx) => (
+                        <div key={seg.id} className="flex items-center gap-3 text-sm">
+                          <span className="w-5 h-5 rounded bg-background-tertiary flex items-center justify-center text-xs text-muted-foreground">
+                            {idx + 1}
+                          </span>
+                          <span
+                            className={`text-xs px-2 py-0.5 rounded ${seg.status === "generated"
+                                ? "bg-foreground/10 text-foreground"
+                                : seg.generationStatus === "skip"
+                                  ? "bg-background-tertiary text-muted-foreground"
+                                  : "bg-background-tertiary text-muted-foreground"
+                              }`}
+                          >
+                            {seg.status === "generated" ? "Ready" : seg.generationStatus === "skip" ? "Skipped" : "Pending"}
+                          </span>
+                          <span className="text-muted-foreground truncate flex-1">
+                            {(seg.processedText || seg.originalText).slice(0, 50)}…
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
                 )}
-              </AnimatePresence>
-            </div>
-          </main>
-
-          <div className="h-20" />
-        </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </main>
       </div>
-
-      <ClipBrowser
-        isOpen={isLibraryOpen}
-        onClose={() => setIsLibraryOpen(false)}
-        onLoadClip={handleLoadClip}
-      />
     </Page>
   );
 }

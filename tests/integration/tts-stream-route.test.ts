@@ -246,7 +246,7 @@ describe("POST /api/ai/tts/stream", () => {
 
     const call = mockGenerateSpeech.mock.calls[0][0] as any;
     expect(call.model.provider).toBe("elevenlabs.speech");
-    expect(call.voice).toBe("pFZP5JQG7iQjIQuC4Bku");
+    expect(call.voice).toBe("19STyYD15bswVz51nqLf");
   });
 
   test("uses OpenAI voice for OpenAI models", async () => {

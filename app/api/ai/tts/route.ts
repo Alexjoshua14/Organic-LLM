@@ -91,7 +91,7 @@ export async function POST(req: NextRequest) {
       const { audio } = await generateSpeech({
         model: speechModel,
         text: textForTTS,
-        voice: "pFZP5JQG7iQjIQuC4Bku",
+        voice: "19STyYD15bswVz51nqLf",
       });
 
       return NextResponse.json({ data: audio });

@@ -17,7 +17,7 @@ const logger = createLogger("app/api/tts/route.ts");
 //   elevenlabs.speech("eleven_v3"),
 // ];
 
-const VOICE_ID = "JBFqnCBsd6RMkjVDRZzb";
+const VOICE_ID = "19STyYD15bswVz51nqLf";
 
 // Cache for TTS audio streams
 const audioCache = new Map<
