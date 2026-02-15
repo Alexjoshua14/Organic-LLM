@@ -24,7 +24,7 @@ export const ChatThread: FC<ChatThreadProps> = ({
 }) => {
   const lastMessageIndex = messages.length - 1;
   return (
-    <ConversationContent className="w-full px-4 pt-16 pb-12 flex flex-col">
+    <ConversationContent className="w-full px-4 pt-16 pb-12 flex flex-col" scrollClassName="touch-manipulation">
       {messages.length === 0 ? (
         <ConversationEmptyState
           icon={<MessageSquare className="size-12" />}
