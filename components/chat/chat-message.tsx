@@ -11,6 +11,13 @@ import { RippleText } from "../RippleText";
 import { ChatAIActionEnum } from "@/types/ai";
 import type { ExaSearchResultSource } from "@/lib/exa/types";
 
+/**
+ * When true, the current AI action (tool, search, reasoning, etc.) is shown
+ * even while streamed text is already visible. Set to false to restore the
+ * previous behavior (action only when no text has been streamed yet).
+ */
+const SHOW_ACTION_WHILE_STREAMING_TEXT = true;
+
 type ChatMessageProps = {
   message: UIMessage;
   isLastMessage?: boolean;
@@ -51,29 +58,31 @@ const AIMessage: FC<ChatMessageProps> = ({ message, aiActionPayload }) => {
   return (
     <div className="group/ai-message rounded-lg p-4 flex flex-col gap-2">
       <div className="ai-message space-y-2 text-foreground max-w-full prose dark:prose-invert">
-        {
-          message.parts.some(part => part.type === "text") ? (
-            message.parts.map((part, i) => {
-              switch (part.type) {
-                case "reasoning":
-                  if (part.state === "streaming") {
-                    return <ChatReasoning key={`${message.id}-${i}`} />;
-                  }
-                  return null;
+        {/* Streamed content: reasoning + text parts when present */}
+        {message.parts.some(part => part.type === "text") && (
+          message.parts.map((part, i) => {
+            switch (part.type) {
+              case "reasoning":
+                if (part.state === "streaming") {
+                  return <ChatReasoning key={`${message.id}-${i}`} />;
+                }
+                return null;
 
-                case "text":
-                  return (
-                    <ChatMessageMarkdown
-                      key={`${message.id}-${i}`}
-                      content={part.text}
-                      id={message.id}
-                    />
-                  )
-              }
-            })
-          ) : (
-            <ChatAIAction aiActionPayload={aiActionPayload} />
-          )}
+              case "text":
+                return (
+                  <ChatMessageMarkdown
+                    key={`${message.id}-${i}`}
+                    content={part.text}
+                    id={message.id}
+                  />
+                )
+            }
+          })
+        )}
+        {/* Action indicator: when no text yet, show only action; when SHOW_ACTION_WHILE_STREAMING_TEXT, also show action below streamed text */}
+        {(aiActionPayload && (!message.parts.some(part => part.type === "text") || SHOW_ACTION_WHILE_STREAMING_TEXT)) && (
+          <ChatAIAction aiActionPayload={aiActionPayload} />
+        )}
       </div>
       {!isStreaming && (
         <div className="w-full flex gap-2 h-8">

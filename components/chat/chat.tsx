@@ -35,6 +35,7 @@ export const Chat: React.FC<ChatProps> = ({
   const selectedModelRef = useRef<ChatModel>(DEFAULT_CHAT_MODEL);
   const useWebSearchRef = useRef<boolean>(false);
   const useMemoriesRef = useRef<boolean>(false);
+  const useSpeechFriendlyRef = useRef<boolean>(false);
   const usePersistedSchemas = useRef<boolean>(persona === 'aion');
   const initialMessageSent = useRef<boolean>(false);
   const [aiAction, setAiAction] = useState<{ action: ChatAIActionEnum; message?: string; sources?: ExaSearchResultSource[] } | undefined>(undefined);
@@ -53,6 +54,7 @@ export const Chat: React.FC<ChatProps> = ({
             model: selectedModelRef.current,
             webSearch: useWebSearchRef.current,
             memory: useMemoriesRef.current,
+            speechFriendly: useSpeechFriendlyRef.current,
             // Only include persistedSchemas in payload if true
             ...(usePersistedSchemas.current ? { persistedSchemas: true } : {}),
           },
@@ -197,6 +199,7 @@ export const Chat: React.FC<ChatProps> = ({
           modelRef={selectedModelRef}
           useWebSearchRef={useWebSearchRef}
           useMemoriesRef={useMemoriesRef}
+          useSpeechFriendlyRef={useSpeechFriendlyRef}
           sendMessage={sendMessage}
           stop={handleStop}
           status={status}

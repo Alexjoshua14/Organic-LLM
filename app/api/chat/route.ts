@@ -190,6 +190,10 @@ export async function POST(req: Request) {
         systemPromptForRequest += `\n\nTool Instructions:\n${toolInstructions}`;
       }
 
+      if (parseResult.data.speechFriendly) {
+        systemPromptForRequest += `\n\nOutput format (speech-friendly mode): Format your response for both clear on-screen reading and later use as a script for audio. Use clear structure, headings, and visually appealing formatting. A separate pipeline will convert your text into a speech-friendly script and handle text-to-speech, so focus on clarity, structure, and readability—not on pronouncing abbreviations or avoiding punctuation.`;
+      }
+
       writer.write({
         type: "data-aiAction",
         data: { action: ChatAIActionEnum.Processing, message: "Thinking..." },

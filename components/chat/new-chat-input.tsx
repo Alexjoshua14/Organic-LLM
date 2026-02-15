@@ -25,7 +25,7 @@ import {
   PromptInputCommandGroup,
 } from "../third-party/ai-elements/prompt-input";
 import { useChat } from '@ai-sdk/react';
-import { ArrowUp, ArrowUpNarrowWideIcon, BrainCircuit, CornerDownLeftIcon, GlobeIcon, Loader2Icon, SquareIcon, XIcon } from 'lucide-react';
+import { ArrowUp, ArrowUpNarrowWideIcon, BrainCircuit, CornerDownLeftIcon, GlobeIcon, Loader2Icon, SquareIcon, Volume2, XIcon } from 'lucide-react';
 import { ChatModel, ChatModels, DEFAULT_CHAT_MODEL } from "@/lib/schemas/chat";
 import { ChatStatus } from 'ai';
 import { InputGroupButton } from '../third-party/ui/input-group';
@@ -36,6 +36,7 @@ type NewChatInputProps = {
   modelRef: React.RefObject<ChatModel>,
   useWebSearchRef: React.RefObject<boolean>,
   useMemoriesRef: React.RefObject<boolean>,
+  useSpeechFriendlyRef?: React.RefObject<boolean>,
   sendMessage: ReturnType<typeof useChat>["sendMessage"],
   stop: ReturnType<typeof useChat>["stop"],
   status: ReturnType<typeof useChat>["status"],
@@ -46,6 +47,7 @@ export const NewChatInput: React.FC<NewChatInputProps> = ({
   modelRef,
   useWebSearchRef,
   useMemoriesRef,
+  useSpeechFriendlyRef,
   sendMessage,
   stop,
   status,
@@ -55,6 +57,7 @@ export const NewChatInput: React.FC<NewChatInputProps> = ({
   const STORAGE_KEY_MODEL = 'organic-llm-selected-model';
   const STORAGE_KEY_WEB_SEARCH = 'organic-llm-web-search';
   const STORAGE_KEY_MEMORIES = 'organic-llm-memories';
+  const STORAGE_KEY_SPEECH_FRIENDLY = 'organic-llm-speech-friendly';
   const STORAGE_KEY_TIMESTAMP = 'organic-llm-prefs-timestamp';
   const EXPIRY_MS = 24 * 60 * 60 * 1000; // 24 hours in milliseconds
 
@@ -62,6 +65,7 @@ export const NewChatInput: React.FC<NewChatInputProps> = ({
   const [model, setModel] = useState<ChatModel>(DEFAULT_CHAT_MODEL);
   const [useWebSearch, setUseWebSearch] = useState<boolean>(false);
   const [useMemories, setUseMemories] = useState<boolean>(false);
+  const [useSpeechFriendly, setUseSpeechFriendly] = useState<boolean>(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const toolsRef = useRef<HTMLDivElement | null>(null);
   const [showLabels, setShowLabels] = useState(true);
@@ -80,6 +84,7 @@ export const NewChatInput: React.FC<NewChatInputProps> = ({
       localStorage.removeItem(STORAGE_KEY_MODEL);
       localStorage.removeItem(STORAGE_KEY_WEB_SEARCH);
       localStorage.removeItem(STORAGE_KEY_MEMORIES);
+      localStorage.removeItem(STORAGE_KEY_SPEECH_FRIENDLY);
       localStorage.removeItem(STORAGE_KEY_TIMESTAMP);
       return;
     }
@@ -96,6 +101,9 @@ export const NewChatInput: React.FC<NewChatInputProps> = ({
 
     const storedMemories = localStorage.getItem(STORAGE_KEY_MEMORIES);
     if (storedMemories === 'true') setUseMemories(true);
+
+    const storedSpeechFriendly = localStorage.getItem(STORAGE_KEY_SPEECH_FRIENDLY);
+    if (storedSpeechFriendly === 'true') setUseSpeechFriendly(true);
   }, []);
 
   // Update timestamp whenever preferences are saved
@@ -135,6 +143,17 @@ export const NewChatInput: React.FC<NewChatInputProps> = ({
       updatePrefsTimestamp();
     }
   }, [useMemories, useMemoriesRef]);
+
+  // Sync speech-friendly to ref and persist to localStorage
+  useEffect(() => {
+    if (useSpeechFriendlyRef && useSpeechFriendlyRef.current !== useSpeechFriendly) {
+      useSpeechFriendlyRef.current = useSpeechFriendly;
+    }
+    if (hasLoadedPrefs.current) {
+      localStorage.setItem(STORAGE_KEY_SPEECH_FRIENDLY, String(useSpeechFriendly));
+      updatePrefsTimestamp();
+    }
+  }, [useSpeechFriendly, useSpeechFriendlyRef]);
 
   useEffect(() => {
     const el = toolsRef.current;
@@ -211,6 +230,18 @@ export const NewChatInput: React.FC<NewChatInputProps> = ({
                 <BrainCircuit />
                 <span className={cn(showLabels ? "inline-flex" : "hidden")}>Memory</span>
               </PromptInputButton>
+              {useSpeechFriendlyRef && (
+                <PromptInputButton
+                  onClick={() => setUseSpeechFriendly(!useSpeechFriendly)}
+                  variant={useSpeechFriendly ? 'default' : 'ghost'}
+                  size={'dynamic-sm'}
+                  title="Format replies for reading and TTS; a separate pipeline converts to speech-friendly script."
+                  aria-label={useSpeechFriendly ? 'Speech-friendly on' : 'Speech-friendly off'}
+                >
+                  <Volume2 size={16} />
+                  <span className={cn(showLabels ? "inline-flex" : "hidden")}>Speech</span>
+                </PromptInputButton>
+              )}
 
               <PromptInputSelect
                 defaultValue={model.id}

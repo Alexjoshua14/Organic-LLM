@@ -130,6 +130,7 @@ export const ChatRequestSchema = z.object({
   model: ChatModelSchema.optional(),
   webSearch: z.boolean().optional(),
   memory: z.boolean().optional().default(true),
+  speechFriendly: z.boolean().optional(),
 });
 
 export const ThreadSummarySchema = z.object({
