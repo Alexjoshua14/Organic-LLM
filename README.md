@@ -8,6 +8,8 @@ Organic LLM is both a UI Lab (reimagining human–AI chat interactions) and a Co
 
 North Star: A chat experience that feels alive, remembers meaningfully, and balances speed with depth — portable into other projects like Spark, Stratum, and Ascend.
 
+**Structured knowledge:** For a holistic view of goals, design, and architecture (and to review how everything links), see **[docs/PROJECT_KNOWLEDGE.md](docs/PROJECT_KNOWLEDGE.md)**. For an index of all documentation, see **[docs/INDEX.md](docs/INDEX.md)**.
+
 ## Core Concepts
 
 • Threads → container for conversations (chat sessions)
