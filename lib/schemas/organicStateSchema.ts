@@ -67,7 +67,7 @@ export const OrganicStateSchema = z.object({
   version: z.literal(1),
   profile: z.object({
     name: z.string(),
-    org: z.string().default("Coalescence Labs"),
+    org: z.string().default("Independent"),
   }),
   keyInsights: z.array(InsightSchema),
   techStack: z.array(TechItemSchema),
@@ -83,7 +83,7 @@ export const defaultOrganicState = (): OrganicState => {
 
   return {
     version: 1,
-    profile: { name: "Alex Joshua", org: "Coalescence Labs" },
+    profile: { name: "User", org: "Independent" },
     keyInsights: [],
     techStack: [],
     goals: [],

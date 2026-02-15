@@ -13,7 +13,7 @@ Output a single code block (no markdown around it, just the raw JSON) in this ex
 
 Requirements:
 - headline: string, max 120 characters. One punchy line (e.g. "Builder at the intersection of X and Y").
-- bio: string, max 500 characters. 2–4 sentences: what I focus on, my approach, and any org/context (e.g. Coalescence Labs) if relevant.
+- bio: string, max 500 characters. 2–4 sentences: what I focus on, my approach, and any org/context if relevant.
 - tags: array of 4–8 strings, each max 32 characters. Mix of domains, methods, and aspirations (e.g. "AI systems", "Human-centered design", "Organic interfaces").
 
 Example shape (replace with your improved copy):
@@ -31,10 +31,10 @@ Output only that JSON object with your improved headline, bio, and tags. No expl
 
 ## Where it goes in the codebase
 
-After ChatGPT returns the JSON, the values map into `config/tailored-profiles.ts`:
+After ChatGPT returns the JSON, update the owner entry values in `.local-profile-overrides.ts` (gitignored). The committed `config/tailored-profiles.ts` reads from it automatically:
 
-- `headline` → `TAILORED["alexanderjoshua@comcast.net"].headline`
-- `bio` → `TAILORED["alexanderjoshua@comcast.net"].bio`
-- `tags` → `TAILORED["alexanderjoshua@comcast.net"].tags`
+- `headline` — set in the `buildTailored()` owner entry
+- `bio` — `OWNER_BIO` in `.local-profile-overrides.ts`
+- `tags` — set in the `buildTailored()` owner entry
 
-Keep the email key as `"alexanderjoshua@comcast.net"`; only the three fields above are replaced.
+The owner email key comes from `OWNER_EMAIL` in `.local-profile-overrides.ts` — no personal email in committed code.

@@ -49,4 +49,5 @@ memory.db
 
 # Local profile (personal data, never committed)
 .local-profile.md
+.local-profile-overrides.ts
 

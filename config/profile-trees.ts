@@ -1,18 +1,20 @@
 import type { ProfileTree } from "@/lib/schemas/profileTree";
 import type { ProfileSummary } from "@/lib/schemas/profileSummary";
+import { getOwnerEmail, getOwnerAbout, getOwnerTrajectory } from "./profile-overrides";
 
-/** Your tailored info as a tiered tree (roles + signature + sections). */
-const TAILORED_TREE: ProfileTree = {
-  headline:
-    "Architecting adaptive AI systems with world-class design and long-term vision",
-  roles: ["Software engineer", "Creative technologist", "Forward-deployed engineer"],
-  signature: "Building a cohesive AI ecosystem under Coalescence Labs.",
-  sections: [
-    {
-      id: "about",
-      title: "About",
-      body: "Forward-deployed engineer at Arista Networks, embedded with a large financial customer modernizing data center infrastructure. Simultaneously building a constellation of interrelated AI projects — Organic LLM, Stratum, Introspection, Inferno, Ascend, Remy — all connected by a shared vision: externalizing metacognition into tools that help me understand how I think, learn, and evolve.",
-    },
+/** Tailored info as a tiered tree (roles + signature + sections). */
+function buildTailoredTree(): ProfileTree {
+  return {
+    headline:
+      "Architecting adaptive AI systems with world-class design and long-term vision",
+    roles: ["Software engineer", "Creative technologist"],
+    signature: "Building a cohesive AI ecosystem.",
+    sections: [
+      {
+        id: "about",
+        title: "About",
+        body: getOwnerAbout(),
+      },
     {
       id: "focus",
       title: "Focus areas",
@@ -80,10 +82,11 @@ const TAILORED_TREE: ProfileTree = {
     {
       id: "trajectory",
       title: "Trajectory",
-      body: "Currently deep in automation + infrastructure at scale. Moving toward AI-native system design, agent orchestration, memory-centric AI platforms, and visually refined, technically serious products. Goal: be among the top technologists shaping how humans interact with AI — not just using models, but designing the interaction layer.",
+      body: getOwnerTrajectory(),
     },
   ],
-};
+  };
+}
 
 /** Realistic placeholder for demo user (exploring the UI). */
 const DEMO_TREE: ProfileTree = {
@@ -155,7 +158,6 @@ const EMPTY_TREE: ProfileTree = {
   ],
 };
 
-const TAILORED_EMAIL = "alexanderjoshua@comcast.net";
 const DEMO_EMAIL = "demo@example.com";
 
 function normalizedEmail(email: string): string {
@@ -188,7 +190,8 @@ export function getProfileTree(
   generatedSummary?: ProfileSummary | null,
 ): { tree: ProfileTree; variant: ProfileTreeVariant } {
   const norm = email && typeof email === "string" ? normalizedEmail(email) : "";
-  if (norm === TAILORED_EMAIL) return { tree: TAILORED_TREE, variant: "tailored" };
+  const ownerEmail = normalizedEmail(getOwnerEmail());
+  if (norm && norm === ownerEmail) return { tree: buildTailoredTree(), variant: "tailored" };
   if (norm === DEMO_EMAIL) return { tree: DEMO_TREE, variant: "demo" };
   if (generatedSummary?.headline)
     return { tree: treeFromSummary(generatedSummary), variant: "generated" };
@@ -196,7 +199,7 @@ export function getProfileTree(
 }
 
 export function isTailoredTree(email: string | null | undefined): boolean {
-  return normalizedEmail(email ?? "") === TAILORED_EMAIL;
+  return normalizedEmail(email ?? "") === normalizedEmail(getOwnerEmail());
 }
 export function isDemoTree(email: string | null | undefined): boolean {
   return normalizedEmail(email ?? "") === DEMO_EMAIL;
