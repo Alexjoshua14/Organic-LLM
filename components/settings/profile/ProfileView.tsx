@@ -5,7 +5,7 @@ import { Button } from "@heroui/button";
 import type { Profile } from "@/lib/schemas/profiles";
 import type { ProfileSummary } from "@/lib/schemas/profileSummary";
 import { getProfileSummary, setProfileSummary } from "@/lib/profile-summary";
-import { getTailoredProfileSummary } from "@/config/tailored-profiles";
+import { getTailoredProfileSummary, getTailoredDisplayName } from "@/config/tailored-profiles";
 import { getProfileTree } from "@/config/profile-trees";
 import {
   DEFAULT_PROFILE_LAYOUT,
@@ -17,18 +17,27 @@ type ProfileViewProps = {
   profile: Profile | null;
   /** Clerk email, used for tailored profile when profile.email isn't set yet */
   email?: string | null;
+  /** Clerk full name, used when profile.display_name isn't set */
+  displayName?: string | null;
 };
 
-export function ProfileView({ profile, email }: ProfileViewProps) {
+export function ProfileView({ profile, email, displayName }: ProfileViewProps) {
   const [summary, setSummary] = useState<ProfileSummary | null>(() =>
     getProfileSummary(),
   );
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  const resolvedEmail = profile?.email ?? email ?? null;
+
   const tailoredSummary = useMemo(
-    () => getTailoredProfileSummary(profile?.email ?? email ?? null),
-    [profile?.email, email],
+    () => getTailoredProfileSummary(resolvedEmail),
+    [resolvedEmail],
+  );
+
+  const tailoredName = useMemo(
+    () => getTailoredDisplayName(resolvedEmail),
+    [resolvedEmail],
   );
 
   const displaySummary = tailoredSummary ?? summary;
@@ -74,12 +83,14 @@ export function ProfileView({ profile, email }: ProfileViewProps) {
     summary: displaySummary,
     tree,
     treeVariant,
+    email: profile?.email ?? email ?? null,
+    displayName: tailoredName || displayName || null,
   };
   const layout = DEFAULT_PROFILE_LAYOUT;
 
   return (
-    <div className="mx-auto flex max-w-md flex-col gap-8">
-      <div className="flex flex-col gap-6">
+    <div className="mx-auto flex w-full max-w-2xl flex-col gap-14">
+      <div className="flex flex-col gap-10">
         {layout.map((blockId: ProfileBlockId) => {
           const Block = PROFILE_BLOCK_REGISTRY[blockId];
           if (!Block) return null;

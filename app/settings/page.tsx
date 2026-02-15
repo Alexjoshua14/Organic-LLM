@@ -1,8 +1,9 @@
 "use client";
 
-import { Suspense, useEffect, useState } from "react";
+import { Suspense, useCallback, useEffect, useState } from "react";
 import { useAuth, useUser } from "@clerk/nextjs";
 import { Switch } from "@heroui/switch";
+import { X } from "lucide-react";
 
 import Page from "@/components/layout/page";
 import { ReturnButton } from "@/components/ReturnButton";
@@ -30,6 +31,15 @@ export default function SettingsPage() {
   const { user } = useUser();
   const clerkEmail = user?.primaryEmailAddress?.emailAddress ?? null;
 
+  const [profileHintDismissed, setProfileHintDismissed] = useState(true); // default hidden to avoid flash
+  useEffect(() => {
+    setProfileHintDismissed(localStorage.getItem("profile-hint-dismissed") === "1");
+  }, []);
+  const dismissProfileHint = useCallback(() => {
+    setProfileHintDismissed(true);
+    localStorage.setItem("profile-hint-dismissed", "1");
+  }, []);
+
   useEffect(() => {
     if (typeof window !== "undefined") setTtsWholeMessage(getSettings().ttsWholeMessage);
   }, []);
@@ -51,7 +61,7 @@ export default function SettingsPage() {
 
   return (
     <Page>
-      <div className="flex w-full items-center justify-between border-b border-border px-4 py-3 md:px-8">
+      <div className="flex w-full items-center justify-between border-b border-border pl-20 pr-4 py-3 md:pl-8 md:pr-8">
         <ReturnButton />
         <h1 className="text-lg font-semibold text-foreground">{SETTINGS_PAGE_TITLE}</h1>
         <div className="w-20" aria-hidden />
@@ -67,11 +77,23 @@ export default function SettingsPage() {
 
           <TabsContent value="profile" className="mt-0">
             <div className="space-y-6">
-              <p className="text-sm text-muted-foreground">
-                Your profile uses your account info plus an about me that can be AI-generated or written by you, cached locally.
-              </p>
+              {!profileHintDismissed && (
+                <div className="flex items-start gap-2 rounded-lg border border-border/60 bg-muted/40 px-3 py-2 text-[11px] leading-snug text-muted-foreground shadow-sm animate-in fade-in slide-in-from-top-1 duration-200">
+                  <span className="flex-1">
+                    Your profile uses your account info plus an about me that can be AI-generated or written by you, cached locally.
+                  </span>
+                  <button
+                    type="button"
+                    onClick={dismissProfileHint}
+                    className="shrink-0 rounded p-0.5 text-muted-foreground/60 hover:text-foreground hover:bg-muted transition-colors"
+                    aria-label="Dismiss"
+                  >
+                    <X className="size-3.5" />
+                  </button>
+                </div>
+              )}
               <Suspense fallback={<div className="animate-pulse h-48 rounded-xl bg-muted" />}>
-                <ProfileView profile={profile} email={clerkEmail} />
+                <ProfileView profile={profile} email={clerkEmail} displayName={profile?.display_name ?? null} />
               </Suspense>
             </div>
           </TabsContent>

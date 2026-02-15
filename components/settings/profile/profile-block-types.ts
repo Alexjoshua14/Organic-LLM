@@ -17,6 +17,10 @@ export type ProfileBlockProps = {
   /** Set when using tiered tree view (tailored / demo / generated / empty). */
   tree?: ProfileTree | null;
   treeVariant?: ProfileTreeVariant;
+  /** Clerk email (fallback when profile.email isn't set). */
+  email?: string | null;
+  /** Clerk full name (fallback when profile.display_name isn't set). */
+  displayName?: string | null;
 };
 
 /** Tree-based layout: hero + optional signature + tiered sections. */

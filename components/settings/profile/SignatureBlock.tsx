@@ -1,24 +1,20 @@
 "use client";
 
-import { glass } from "@/components/design-system/primitives";
-
 /**
- * High-level affiliation / signature line as a distinct block.
- * Uses your glass() style; left accent bar for emphasis.
+ * High-level affiliation / signature line.
+ * No card background — sits directly on the page with a thin accent bar.
  */
 export function SignatureBlock({ signature }: { signature: string }) {
   if (!signature?.trim()) return null;
 
   return (
-    <blockquote
-      className={`relative overflow-hidden rounded-2xl px-6 py-5 md:px-8 md:py-6 ${glass()}`}
-    >
-      {/* Left accent */}
+    <blockquote className="relative pl-5 md:pl-6">
+      {/* Thin accent bar */}
       <div
-        className="absolute left-0 top-0 h-full w-1 rounded-l-2xl bg-linear-to-b from-accent/70 to-accent/40"
+        className="absolute left-0 top-0 h-full w-[2px] rounded-full bg-foreground/15"
         aria-hidden
       />
-      <p className="font-commissioner text-base font-medium leading-snug text-foreground pl-4 md:text-lg md:leading-snug md:pl-5">
+      <p className="font-commissioner text-sm font-medium leading-relaxed text-foreground/55 md:text-base">
         {signature}
       </p>
     </blockquote>

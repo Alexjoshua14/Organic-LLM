@@ -47,3 +47,6 @@ memory.db
 .private/
 .context/
 
+# Local profile (personal data, never committed)
+.local-profile.md
+

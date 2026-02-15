@@ -5,27 +5,82 @@ import type { ProfileSummary } from "@/lib/schemas/profileSummary";
 const TAILORED_TREE: ProfileTree = {
   headline:
     "Architecting adaptive AI systems with world-class design and long-term vision",
-  roles: ["Software engineer", "Creative technologist"],
+  roles: ["Software engineer", "Creative technologist", "Forward-deployed engineer"],
   signature: "Building a cohesive AI ecosystem under Coalescence Labs.",
   sections: [
     {
       id: "about",
       title: "About",
-      body: "I design full-stack, privacy-conscious systems that blend rigorous engineering with refined, organic interfaces. My work spans AI orchestration, memory-aware systems, and immersive UI/UX—aimed at shaping tools that elevate thinking, learning, and human potential.",
+      body: "Forward-deployed engineer at Arista Networks, embedded with a large financial customer modernizing data center infrastructure. Simultaneously building a constellation of interrelated AI projects — Organic LLM, Stratum, Introspection, Inferno, Ascend, Remy — all connected by a shared vision: externalizing metacognition into tools that help me understand how I think, learn, and evolve.",
     },
     {
       id: "focus",
       title: "Focus areas",
       items: [
         "AI orchestration",
-        "Full-stack systems",
-        "Memory-aware AI",
+        "Memory-aware systems",
+        "Full-stack architecture",
         "Organic interfaces",
-        "Human-centered design",
-        "Next.js & Supabase",
         "Privacy-first infrastructure",
-        "Future-ready engineering",
+        "Agent orchestration patterns",
+        "Next.js & Supabase",
       ],
+    },
+    {
+      id: "design",
+      title: "Design orientation",
+      body: "Interfaces should feel alive but not noisy. Calm, powerful, intentional.",
+      items: [
+        "Organic-futuristic-modernism",
+        "Bauhaus + Japandi restraint",
+        "Dimensional dark themes with depth",
+        "Generative / morphing UI",
+        "Physics-informed animation",
+      ],
+    },
+    {
+      id: "kitchen",
+      title: "In the Kitchen",
+      body: "I approach cooking the same way I approach building software — iterative, detail-oriented, quietly ambitious. The kitchen is both laboratory and studio. Technique first, flavor depth always, aesthetics matter.",
+      children: [
+        {
+          id: "dishes",
+          title: "Recent dishes",
+          items: [
+            "Pear tart with laminated puff pastry",
+            "Refined homemade puff pastry",
+            "Black garlic salmon",
+            "Dialed-in specialty espresso drinks",
+          ],
+        },
+        {
+          id: "cuisines",
+          title: "Drawn to",
+          items: [
+            "French-inspired pastry technique",
+            "Modern American flavor composition",
+            "Mediterranean-leaning ingredients",
+            "Deep, layered umami",
+          ],
+        },
+      ],
+    },
+    {
+      id: "lifestyle",
+      title: "Lifestyle & Interests",
+      items: [
+        "Specialty coffee exploration",
+        "Strength training & structured fitness",
+        "Architecture & design inspiration",
+        "Sci-fi reading (Carlo Rovelli, speculative futures)",
+        "Local infrastructure (Raspberry Pi \"Aetherion\")",
+        "Financial independence & systems thinking",
+      ],
+    },
+    {
+      id: "trajectory",
+      title: "Trajectory",
+      body: "Currently deep in automation + infrastructure at scale. Moving toward AI-native system design, agent orchestration, memory-centric AI platforms, and visually refined, technically serious products. Goal: be among the top technologists shaping how humans interact with AI — not just using models, but designing the interaction layer.",
     },
   ],
 };
@@ -53,6 +108,32 @@ const DEMO_TREE: ProfileTree = {
       id: "stack",
       title: "Stack",
       items: ["Figma", "React", "LLM APIs"],
+    },
+    {
+      id: "kitchen",
+      title: "In the Kitchen",
+      body: "Cooking is my reset button — equal parts meditative and creative. I gravitate toward simple dishes done well, with a weakness for anything involving fresh pasta or a perfectly balanced broth. Weekends usually involve a farmers market haul and whatever inspires me in the moment.",
+      children: [
+        {
+          id: "dishes",
+          title: "Recent dishes",
+          items: [
+            "Hand-rolled tagliatelle with brown butter and sage",
+            "Slow-roasted tomato galette",
+            "Miso-glazed eggplant",
+            "Cold-brew tonic with house-made vanilla syrup",
+          ],
+        },
+        {
+          id: "cuisines",
+          title: "Cuisines",
+          items: [
+            "Italian comfort",
+            "Japanese-inflected home cooking",
+            "Seasonal farm-to-table",
+          ],
+        },
+      ],
     },
   ],
 };
