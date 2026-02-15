@@ -1,7 +1,7 @@
 /* eslint-disable @next/next/no-img-element */
 "use client";
 
-import { useEffect, useState } from "react";
+import { useContext, useEffect, useState } from "react";
 import { AnimatePresence } from "framer-motion";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { Button } from "@heroui/button";
@@ -10,6 +10,7 @@ import { toast } from "sonner";
 
 import { cn } from "@/lib/utils";
 import { createLogger } from "@/lib/logger";
+import { RabbitHoleContext } from "@/lib/context/rabbithole-context";
 import { useRabbitHoles } from "@/lib/rabbit-holes/useRabbitHoles";
 
 // UI subcomponents still live under app/ during migration
@@ -26,6 +27,9 @@ import { RabbitHolePromptBar } from "@/components/rabbit-holes/RabbitHolePromptB
 const logger = createLogger("components/rabbit-holes/RabbitHoleShell");
 
 export function RabbitHoleShell() {
+  const { sessionId: contextSessionId, setSessionId: setContextSessionId } =
+    useContext(RabbitHoleContext);
+
   const {
     session,
     isLoading,
@@ -43,6 +47,7 @@ export function RabbitHoleShell() {
     clearSourceSelection,
     reset,
     saveSessionToStorage,
+    loadExistingSession,
   } = useRabbitHoles();
 
   const [activeTakeawayIndex, setActiveTakeawayIndex] = useState<number | null>(
@@ -50,6 +55,27 @@ export function RabbitHoleShell() {
   );
 
   const isBusy = isLoading || isGeneratingNode || generatingNodeId != null;
+
+  // When user clicked a session in the browse page, context has sessionId set; load that session
+  useEffect(() => {
+    if (!contextSessionId) return;
+    const currentId = session?.sessionId ?? null;
+    if (currentId === contextSessionId) {
+      setContextSessionId(null);
+      return;
+    }
+    let cancelled = false;
+    loadExistingSession(contextSessionId).then((result) => {
+      if (cancelled) return;
+      setContextSessionId(null);
+      if (!result.ok) {
+        logger.error("RabbitHoleShell", "Failed to load session from browse", result.error);
+      }
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [contextSessionId, loadExistingSession, setContextSessionId, session?.sessionId]);
 
   // Surface errors via toast
   useEffect(() => {
