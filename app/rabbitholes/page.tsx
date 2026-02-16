@@ -1,8 +1,5 @@
-"use client";
-
-import { Suspense, useContext } from "react";
+import { Suspense } from "react";
 import { RabbitHoleShell } from "components/rabbit-holes/RabbitHoleShell";
-import { RabbitHoleContext } from "@/lib/context/rabbithole-context";
 
 export default function RabbitHolesPage() {
   return (

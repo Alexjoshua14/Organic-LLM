@@ -58,7 +58,8 @@ export default function RabbitHolesBrowsePage() {
     if (sessionId !== clickedSessionId) {
       setSessionId(clickedSessionId);
     }
-    router.push(`/rabbitholes`);
+    // Pass sessionId in URL so the explorer loads it on mount (avoids race with context update)
+    router.push(`/rabbitholes?sessionId=${encodeURIComponent(clickedSessionId)}`);
   };
 
   return (

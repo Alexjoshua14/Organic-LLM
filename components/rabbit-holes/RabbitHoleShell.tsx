@@ -1,16 +1,25 @@
 /* eslint-disable @next/next/no-img-element */
 "use client";
 
-import { useContext, useEffect, useState } from "react";
+/**
+ * RabbitHoleShell — Main explorer UI for Rabbit Hole sessions.
+ *
+ * Renders a three-column layout: path rail (left), article/source view (center),
+ * and sources + branch suggestions (right). Handles loading a past session from
+ * the browse page via URL search param (?sessionId=) or context, and coordinates
+ * navigation, source analysis, and prompt bar with the useRabbitHoles hook.
+ */
+
+import { useEffect, useMemo, useState } from "react";
 import { AnimatePresence } from "framer-motion";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { Button } from "@heroui/button";
 import Link from "next/link";
+import { useRouter, useSearchParams } from "next/navigation";
 import { toast } from "sonner";
 
 import { cn } from "@/lib/utils";
 import { createLogger } from "@/lib/logger";
-import { RabbitHoleContext } from "@/lib/context/rabbithole-context";
 import { useRabbitHoles } from "@/lib/rabbit-holes/useRabbitHoles";
 
 // UI subcomponents still live under app/ during migration
@@ -23,13 +32,26 @@ import { RabbitHoleAmbientLayer } from "@/app/rabbitholes/_components/RabbitHole
 import { RabbitHoleLoadingState } from "@/app/rabbitholes/_components/RabbitHoleLoadingState";
 
 import { RabbitHolePromptBar } from "@/components/rabbit-holes/RabbitHolePromptBar";
+import { RabbitHoleEmptyState } from "@/components/rabbit-holes/main/RabbitHoleEmptyState";
+import { glass } from "../design-system/primitives";
 
 const logger = createLogger("components/rabbit-holes/RabbitHoleShell");
 
-export function RabbitHoleShell() {
-  const { sessionId: contextSessionId, setSessionId: setContextSessionId } =
-    useContext(RabbitHoleContext);
+/** Centralized center-column view state. One of these is active at a time. */
+type CenterViewState =
+  | { kind: "loading_previous_session" }
+  | { kind: "empty" }
+  | { kind: "article_loaded"; nodeId: string }
+  | { kind: "generating_new_node"; variant: "initial" | "branch" }
+  | { kind: "loading_source_analysis" }
+  | { kind: "viewing_source_analysis"; sourceId: string };
 
+export function RabbitHoleShell() {
+  // --- Routing & context (for loading a session from browse) ---
+  const router = useRouter();
+  const searchParams = useSearchParams();
+
+  // --- Session state and actions from useRabbitHoles ---
   const {
     session,
     isLoading,
@@ -54,20 +76,29 @@ export function RabbitHoleShell() {
     null,
   );
 
+  /** True when we're loading, generating a node, or a specific node is generating (blocks some UI). */
   const isBusy = isLoading || isGeneratingNode || generatingNodeId != null;
 
-  // When user clicked a session in the browse page, context has sessionId set; load that session
+  // --- Load past session when opened from browse ---
+  // Prefer URL search param so the ID is available on mount (avoids race with context update).
+  const sessionIdToLoad =
+    searchParams.get("sessionId") ?? null;
+
   useEffect(() => {
-    if (!contextSessionId) return;
+    if (!sessionIdToLoad || error) return;
     const currentId = session?.sessionId ?? null;
-    if (currentId === contextSessionId) {
-      setContextSessionId(null);
+    if (currentId === sessionIdToLoad) {
+      if (searchParams.get("sessionId")) {
+        router.replace("/rabbitholes", { scroll: false });
+      }
       return;
     }
     let cancelled = false;
-    loadExistingSession(contextSessionId).then((result) => {
+    loadExistingSession(sessionIdToLoad).then((result) => {
       if (cancelled) return;
-      setContextSessionId(null);
+      if (searchParams.get("sessionId")) {
+        router.replace("/rabbitholes", { scroll: false });
+      }
       if (!result.ok) {
         logger.error("RabbitHoleShell", "Failed to load session from browse", result.error);
       }
@@ -75,17 +106,58 @@ export function RabbitHoleShell() {
     return () => {
       cancelled = true;
     };
-  }, [contextSessionId, loadExistingSession, setContextSessionId, session?.sessionId]);
+  }, [
+    sessionIdToLoad,
+    loadExistingSession,
+    session?.sessionId,
+    router,
+  ]);
 
-  // Surface errors via toast
+  // --- Error feedback ---
   useEffect(() => {
     if (error) toast.error(error);
   }, [error]);
 
+  // --- Derived: the node currently being viewed (article + sources/branches) ---
   const activeNode = session?.activeNodeId
     ? session.nodesById[session.activeNodeId]
     : null;
 
+  // --- Centralized center-column view state (single source of truth for what we show) ---
+  const centerViewState: CenterViewState = useMemo(() => {
+    const loadingPrevious =
+      sessionIdToLoad != null &&
+      isLoading &&
+      (session == null || session.sessionId !== sessionIdToLoad);
+    if (loadingPrevious) return { kind: "loading_previous_session" };
+
+    if (isAnalyzingSource) return { kind: "loading_source_analysis" };
+
+    if (selectedSourceId && sourceAnalysis)
+      return { kind: "viewing_source_analysis", sourceId: selectedSourceId };
+
+    if (isBusy) {
+      const variant = activeNode ? "branch" : "initial";
+      return { kind: "generating_new_node", variant };
+    }
+
+    if (activeNode)
+      return { kind: "article_loaded", nodeId: activeNode.id };
+
+    return { kind: "empty" };
+  }, [
+    sessionIdToLoad,
+    isLoading,
+    session?.sessionId,
+    session,
+    isAnalyzingSource,
+    selectedSourceId,
+    sourceAnalysis,
+    isBusy,
+    activeNode,
+  ]);
+
+  // --- Event handlers (thin wrappers around hook actions) ---
   const handleBackToArticle = () => {
     clearSourceSelection();
   };
@@ -98,7 +170,7 @@ export function RabbitHoleShell() {
     await exploreQuestion(question);
   };
 
-  // Navigation helpers
+  // --- Path navigation (back/forward along session.path) ---
   const getCurrentPathIndex = () => {
     if (!session || !session.activeNodeId) return -1;
     return session.path.findIndex((seg) => seg.nodeId === session.activeNodeId);
@@ -129,14 +201,9 @@ export function RabbitHoleShell() {
     setActiveNode(nextNodeId);
   };
 
+  // --- Layout: ambient layer + header + main (path rail | article | sources & branches) ---
   return (
     <div className="relative h-screen bg-background overflow-hidden">
-      <Button
-        className="z-40 absolute top-20 right-0"
-        onPress={() => saveSessionToStorage(session)}
-      >
-        Manual Save
-      </Button>
       <RabbitHoleAmbientLayer />
       <div className="relative z-10 flex flex-col h-full overflow-hidden">
         <header className="shrink-0 px-12 pt-8 pb-6 relative z-20">
@@ -155,7 +222,7 @@ export function RabbitHoleShell() {
         </header>
 
         <main className="flex-1 flex flex-col lg:flex-row gap-12 px-12 pt-8 min-h-0 max-h-full max-w-7xl mx-auto w-full overflow-hidden">
-          {/* Left: Path Rail */}
+          {/* Left: breadcrumb path through nodes; click to switch node, option to start new session. */}
           <aside className="w-full lg:w-[20%] shrink-0 overflow-y-auto pr-2">
             <RabbitHolePathRail
               session={session}
@@ -168,118 +235,98 @@ export function RabbitHoleShell() {
 
           {/* Center: Article or Source Analysis */}
           <section className="relative flex-1 max-w-3xl mx-auto min-w-0 flex flex-col overflow-hidden">
-            {/* Navigation Arrows */}
-            {session && session.path.length > 1 && !selectedSourceId && (
-              <div className="flex items-center justify-between mb-6 shrink-0 px-4">
-                <Button
-                  isIconOnly
-                  variant="ghost"
-                  onPress={handleNavigateBack}
-                  isDisabled={!canGoBack()}
-                  className={cn(
-                    "text-muted-foreground",
-                    "hover:text-foreground",
-                    "disabled:opacity-30 disabled:cursor-not-allowed",
-                  )}
-                >
-                  <ChevronLeft size={20} />
-                </Button>
-                <div className="text-xs text-muted-foreground">
-                  {getCurrentPathIndex() + 1} / {session.path.length}
+            {/* Navigation Arrows (only when viewing article, not source analysis) */}
+            {session &&
+              session.path.length > 1 &&
+              centerViewState.kind === "article_loaded" && (
+                <div className="flex items-center justify-between mb-6 shrink-0 px-4">
+                  <Button
+                    isIconOnly
+                    variant="ghost"
+                    onPress={handleNavigateBack}
+                    isDisabled={!canGoBack()}
+                    className={cn(
+                      "text-muted-foreground",
+                      "hover:text-foreground",
+                      "disabled:opacity-30 disabled:cursor-not-allowed",
+                    )}
+                  >
+                    <ChevronLeft size={20} />
+                  </Button>
+                  <div className="text-xs text-muted-foreground">
+                    {getCurrentPathIndex() + 1} / {session.path.length}
+                  </div>
+                  <Button
+                    isIconOnly
+                    variant="ghost"
+                    onPress={handleNavigateForward}
+                    isDisabled={!canGoForward()}
+                    className={cn(
+                      "text-muted-foreground",
+                      "hover:text-foreground",
+                      "disabled:opacity-30 disabled:cursor-not-allowed",
+                    )}
+                  >
+                    <ChevronRight size={20} />
+                  </Button>
                 </div>
-                <Button
-                  isIconOnly
-                  variant="ghost"
-                  onPress={handleNavigateForward}
-                  isDisabled={!canGoForward()}
-                  className={cn(
-                    "text-muted-foreground",
-                    "hover:text-foreground",
-                    "disabled:opacity-30 disabled:cursor-not-allowed",
-                  )}
-                >
-                  <ChevronRight size={20} />
-                </Button>
-              </div>
-            )}
+              )}
 
             <div className="flex-1 overflow-y-auto pr-2 px-4 pt-4 pb-36">
               <AnimatePresence mode="wait">
-                {isAnalyzingSource && (
+                {centerViewState.kind === "loading_previous_session" && (
+                  <RabbitHoleLoadingState
+                    key="loading-session"
+                    variant="sources"
+                    message="Loading session..."
+                  />
+                )}
+
+                {centerViewState.kind === "loading_source_analysis" && (
                   <RabbitHoleLoadingState
                     key="analyzing-source"
                     variant="sources"
                   />
                 )}
 
-                {!isAnalyzingSource && selectedSourceId && sourceAnalysis && (
-                  <RabbitHoleSourceAnalysis
-                    key={selectedSourceId}
-                    analysis={sourceAnalysis}
-                    sourceId={selectedSourceId}
-                    onBack={handleBackToArticle}
+                {centerViewState.kind === "viewing_source_analysis" &&
+                  sourceAnalysis && (
+                    <RabbitHoleSourceAnalysis
+                      key={centerViewState.sourceId}
+                      analysis={sourceAnalysis}
+                      sourceId={centerViewState.sourceId}
+                      onBack={handleBackToArticle}
+                    />
+                  )}
+
+                {centerViewState.kind === "generating_new_node" && (
+                  <RabbitHoleLoadingState
+                    key={`generating-${centerViewState.variant}`}
+                    variant={centerViewState.variant}
+                    preview={preview}
                   />
                 )}
 
-                {!isAnalyzingSource &&
-                  !selectedSourceId &&
-                  isBusy &&
-                  generatingNodeId === activeNode?.id && (
-                    <RabbitHoleLoadingState
-                      key="loading-active"
-                      variant={session ? "branch" : "initial"}
-                      preview={preview}
+                {centerViewState.kind === "article_loaded" && activeNode && (
+                  <div key={activeNode.id}>
+                    <RabbitHoleArticle
+                      title={activeNode.userQuestion}
+                      takeaways={activeNode.keyTakeaways}
+                      activeTakeawayIndex={activeTakeawayIndex}
+                      articleHtml={activeNode.articleHtml}
+                      nodeId={activeNode.id}
+                      onBranchClick={followBranch}
+                      onActiveSectionChange={setActiveTakeawayIndex}
                     />
-                  )}
+                  </div>
+                )}
 
-                {!isAnalyzingSource &&
-                  !selectedSourceId &&
-                  activeNode &&
-                  (!isBusy || generatingNodeId !== activeNode.id) && (
-                    <div key={activeNode.id}>
-                      <RabbitHoleArticle
-                        title={activeNode.userQuestion}
-                        takeaways={activeNode.keyTakeaways}
-                        activeTakeawayIndex={activeTakeawayIndex}
-                        articleHtml={activeNode.articleHtml}
-                        nodeId={activeNode.id}
-                        onBranchClick={followBranch}
-                        onActiveSectionChange={setActiveTakeawayIndex}
-                      />
-                    </div>
-                  )}
-
-                {!isAnalyzingSource &&
-                  !selectedSourceId &&
-                  !activeNode &&
-                  !isBusy && (
-                    <div
-                      key="empty"
-                      className="flex flex-col items-center justify-center h-full text-center px-8"
-                    >
-                      <p className="font-commissioner text-muted-foreground text-xl mb-4 font-light">
-                        Start exploring a topic
-                      </p>
-                      <p className="text-muted-foreground/70 text-sm">
-                        Enter a question below to begin your rabbit hole journey
-                      </p>
-                    </div>
-                  )}
-
-                {!isAnalyzingSource &&
-                  !selectedSourceId &&
-                  !activeNode &&
-                  isBusy && (
-                    <RabbitHoleLoadingState
-                      key="loading-initial"
-                      variant="initial"
-                      preview={preview}
-                    />
-                  )}
+                {centerViewState.kind === "empty" && <RabbitHoleEmptyState />}
               </AnimatePresence>
               <div className="h-24" /> {/** Spacer */}
             </div>
 
+            {/* Fixed at bottom; parent is pointer-events-none so scroll doesn't capture, child re-enables. */}
             <div className="pointer-events-none absolute inset-x-0 bottom-0 px-4 pb-4">
               <div className="pointer-events-auto max-w-3xl mx-auto">
                 <RabbitHolePromptBar
@@ -292,10 +339,10 @@ export function RabbitHoleShell() {
             </div>
           </section>
 
-          {/* Right: Sources & Branches */}
+          {/* Right: sources and branches (only when viewing an article). */}
           <aside className="w-full lg:w-[20%] shrink-0 overflow-y-auto pr-2">
             <AnimatePresence>
-              {!isBusy && activeNode && (
+              {centerViewState.kind === "article_loaded" && activeNode && (
                 <div key={activeNode.id} className="flex flex-col h-full">
                   <RabbitHoleSourceList
                     sources={activeNode.sources ?? []}
@@ -317,4 +364,3 @@ export function RabbitHoleShell() {
     </div>
   );
 }
-

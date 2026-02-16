@@ -14,7 +14,7 @@ export const RabbitHoleSourceAnalysisSchema = z.object({
 
 export const RabbitHoleSourceSchema = z.object({
   status: z.enum(["none", "pending", "complete", "error"]).default("none"),
-  id: z.uuid(),
+  id: z.string().min(1), // TODO: Tighten up cosntraints
   title: z.string(),
   url: z.url(),
   faviconUrl: z.url().optional().or(z.literal("")).or(z.null()),
@@ -31,7 +31,7 @@ export const RabbitHoleSourceSchema = z.object({
 });
 
 export const RabbitHoleBranchSuggestionSchema = z.object({
-  id: z.uuid(),
+  id: z.string().min(1), // TODO: Tighten up cosntraints
   label: z.string(),
   shortDescription: z.string().max(200).optional(),
 });
