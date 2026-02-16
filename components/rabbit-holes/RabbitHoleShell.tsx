@@ -11,8 +11,8 @@
  */
 
 import { useEffect, useMemo, useState } from "react";
-import { AnimatePresence } from "framer-motion";
-import { ChevronLeft, ChevronRight } from "lucide-react";
+import { AnimatePresence, motion } from "framer-motion";
+import { ChevronLeft, ChevronRight, PanelRightClose, PanelRightOpen } from "lucide-react";
 import { Button } from "@heroui/button";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -75,6 +75,7 @@ export function RabbitHoleShell() {
   const [activeTakeawayIndex, setActiveTakeawayIndex] = useState<number | null>(
     null,
   );
+  const [debugPanelOpen, setDebugPanelOpen] = useState(false);
 
   /** True when we're loading, generating a node, or a specific node is generating (blocks some UI). */
   const isBusy = isLoading || isGeneratingNode || generatingNodeId != null;
@@ -220,6 +221,68 @@ export function RabbitHoleShell() {
             <div className="w-24" /> {/* Spacer for centering */}
           </div>
         </header>
+        {/* Dev-only collapsible debug panel — remove this block when done developing */}
+        {process.env.NODE_ENV === "development" && (
+          <div className="fixed right-0 top-1/2 z-50 flex -translate-y-1/2">
+            <button
+              type="button"
+              onClick={() => setDebugPanelOpen((o) => !o)}
+              className={cn(
+                "flex h-12 w-6 items-center justify-center rounded-l-md border border-r-0 border-border/60 bg-muted/80 text-muted-foreground shadow-sm transition-colors hover:bg-muted hover:text-foreground",
+                debugPanelOpen && "border-r border-border/60",
+              )}
+              aria-label={debugPanelOpen ? "Close debug panel" : "Open debug panel"}
+            >
+              {debugPanelOpen ? (
+                <PanelRightClose className="size-4" />
+              ) : (
+                <PanelRightOpen className="size-4" />
+              )}
+            </button>
+            <AnimatePresence>
+              {debugPanelOpen && (
+                <motion.div
+                  className={cn(
+                    "w-80 max-h-[50vh] overflow-hidden rounded-l-lg border border-r-0 border-border/60 shadow-lg",
+                    glass(),
+                  )}
+                  initial={{ width: 0, opacity: 0 }}
+                  animate={{ width: 320, opacity: 1 }}
+                  exit={{ width: 0, opacity: 0 }}
+                  transition={{ duration: 0.2 }}
+                >
+                  <div className="flex flex-col gap-3 overflow-y-auto p-4 text-xs">
+                    <h2 className="font-semibold text-foreground">Debug</h2>
+                    <div className="flex flex-col gap-1">
+                      <h3 className="font-medium text-muted-foreground">Session</h3>
+                      <pre className="overflow-x-auto rounded bg-muted/50 p-2 text-[10px]">
+                        {JSON.stringify(session, null, 2)}
+                      </pre>
+                    </div>
+                    <div className="flex flex-col gap-1">
+                      <h3 className="font-medium text-muted-foreground">Active node</h3>
+                      <pre className="overflow-x-auto rounded bg-muted/50 p-2 text-[10px]">
+                        {JSON.stringify(activeNode, null, 2)}
+                      </pre>
+                    </div>
+                    <div className="flex flex-col gap-1">
+                      <h3 className="font-medium text-muted-foreground">Center view state</h3>
+                      <pre className="overflow-x-auto rounded bg-muted/50 p-2 text-[10px]">
+                        {JSON.stringify(centerViewState, null, 2)}
+                      </pre>
+                    </div>
+                    <div className="flex flex-col gap-1">
+                      <h3 className="font-medium text-muted-foreground">Generating node ID</h3>
+                      <pre className="overflow-x-auto rounded bg-muted/50 p-2 text-[10px]">
+                        {JSON.stringify(generatingNodeId, null, 2)}
+                      </pre>
+                    </div>
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </div>
+        )}
 
         <main className="flex-1 flex flex-col lg:flex-row gap-12 px-12 pt-8 min-h-0 max-h-full max-w-7xl mx-auto w-full overflow-hidden">
           {/* Left: breadcrumb path through nodes; click to switch node, option to start new session. */}
