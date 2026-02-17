@@ -67,7 +67,7 @@ export function SettingsOverlay({
         </SheetHeader>
 
         <div className="flex flex-col gap-6 px-0 pt-4 md:gap-12 md:pt-14">
-          <section className="space-y-3 md:space-y-4">
+          <section className="space-y-3">
             <h3 className="text-sm font-medium text-foreground">Theme</h3>
             <div className="flex items-center gap-3">
               <ThemeSwitch className="text-foreground" />
@@ -77,7 +77,7 @@ export function SettingsOverlay({
             </div>
           </section>
 
-          <section className="space-y-3 md:space-y-4">
+          <section className="space-y-3">
             <h3 className="text-sm font-medium text-foreground">Font</h3>
             <Select
               selectedKeys={[fontId]}

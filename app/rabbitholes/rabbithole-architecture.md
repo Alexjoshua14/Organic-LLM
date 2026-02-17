@@ -23,28 +23,29 @@ graph TB
 
     subgraph ActionGroup["⚙️ Exposed Actions"]
         direction TB
-        A1["newSession()"]
+        A1["createSession()"]
         A2["loadExistingSession()"]
         A3["exploreQuestion()"]
-        A4["selectSource()"]
-        A5["clearSourceSelection()"]
-        A6["resetSourceAnalysisState()"]
-        A7["setActiveNode()"]
-        A8["reset()"]
-        A9["saveSessionToStorage()"]
+        A4["followBranch()"]
+        A5["selectSource()"]
+        A6["clearSourceSelection()"]
+        A7["resetSourceAnalysisState()"]
+        A8["setActiveNode()"]
+        A9["reset()"]
+        A10["saveSessionToStorage()"]
     end
 
     subgraph InternalHelpers["🔧 Internal Helpers"]
         direction TB
         H1["createNode()<br/>(internal)"]
-        H2["getStoredSession()<br/>(internal, not implemented)"]
-        H3["saveSessionToStorage()<br/>(internal, not implemented)"]
+        H2["updateSourceStatus()<br/>(internal)"]
     end
-    
+
     subgraph DepGroup["🔗 External Dependencies"]
         direction TB
-        D1["generateQuickPreview<br/>app/rabbitholes/actions.ts"]
+        D1["generateQuickPreview<br/>lib/rabbit-holes/actions.ts"]
         D2["generateRabbitHoleNode<br/>lib/rabbit-holes/actions.ts"]
+        D3["getSessionById / saveSession<br/>data/supabase/rabbitholes"]
         D5["React hooks<br/>useState, startTransition"]
         D6["createLogger"]
         D7["randomUUID"]
@@ -52,8 +53,9 @@ graph TB
 
     A3 -.->|uses| D1
     A3 -.->|uses| D2
+    A4 -.->|uses| D2
     A2 -.->|uses| D3
-    A9 -.->|uses| D4
+    A10 -.->|uses| D3
 
     style Hook fill:#e1f5ff,stroke:#0066cc,stroke-width:3px
     style StateGroup fill:#d4edda,stroke:#28a745
@@ -191,13 +193,13 @@ startTransition(async () => {
 
 ### Action Methods
 
-#### `newSession(): void`
+#### `createSession(): void`
 
-Creates a new empty session with a fresh UUID. Initializes an empty session structure with no nodes or path.
+Creates a new empty session with a fresh UUID and sets it as the current session. Initializes an empty session structure with no nodes or path.
 
-#### `loadExistingSession(sessionId: string): SimpleResult`
+#### `loadExistingSession(sessionId: string): Promise<SimpleResult>`
 
-Loads an existing session by ID from storage. Currently returns a result but doesn't actually load the session (implementation pending).
+Loads an existing session by ID from storage (Supabase via `getSessionById`). Sets session state and `activeNodeId` (from `session.activeNodeId` or `session.rootNodeId`). Returns a `SimpleResult` indicating success or failure.
 
 #### `exploreQuestion(question: string): Promise<SimpleResult>`
 
@@ -216,27 +218,31 @@ Returns a `SimpleResult` indicating success or failure.
 
 #### `selectSource(source: RabbitHoleSource): Promise<void>`
 
-Selects a source for detailed analysis. Currently stubbed (not implemented).
+Selects a source for detailed analysis. Sets `selectedSourceId`; if the source already has `status === "complete"` and `analysis`, shows it immediately. Otherwise runs `analyzeSource(source.url, source.title)` in a transition, updates the source's status and `analysis` in the session via `updateSourceStatus`, and sets `sourceAnalysis` when complete.
 
 #### `clearSourceSelection(): void`
 
-Clears the currently selected source and its analysis. Currently stubbed (not implemented).
+Clears the currently selected source and analysis UI state (`selectedSourceId`, `isAnalyzingSource`). **Partially implemented:** does not yet clear `sourceAnalysis`, so the previous analysis can still be visible until another source is selected or state is reset.
 
 #### `resetSourceAnalysisState(): void`
 
-Resets all source analysis state including cache. Currently stubbed (not implemented).
+Intended to reset all source analysis state including cache. **Not implemented:** currently a no-op (logs only). A full implementation would clear selection/analysis state and optionally clear each source's `analysis` and `status` across all nodes in the session.
 
 #### `setActiveNode(nodeId: RabbitHoleNodeId): void`
 
-Changes the active node in the session, allowing navigation between nodes. Currently stubbed (not implemented).
+Changes the active node in the session. Validates that the node exists in `session.nodesById`, then updates local `activeNodeId` state and `session.activeNodeId`. No-op if the node is already active.
 
 #### `reset(): void`
 
-Clears all session state and resets the hook to initial state. Currently stubbed (not implemented).
+Clears all session and UI state: `session`, `error`, loading flags, `preview`, `generatingNodeId`, `selectedSourceId`, `sourceAnalysis`, and `isAnalyzingSource`. Resets the hook to its initial state.
 
 #### `saveSessionToStorage(session: RabbitHoleSession | null): Promise<void>`
 
-Persists the session to storage. Currently stubbed (not implemented).
+Persists the session to storage via `saveSession` (Supabase, `data/supabase/rabbitholes`). Serializes the session to JSON before saving. Sets `isSavingSession` and surfaces errors via `error` state on failure.
+
+#### `followBranch(branchId: string): Promise<SimpleResult>`
+
+Follows a branch suggestion from the active node. If the branch node already exists in the session, switches to it with `setActiveNode`. Otherwise calls `exploreQuestion(branch.label, branchId)` to generate the node and link it in the path.
 
 ## Dependencies
 
@@ -244,7 +250,7 @@ Persists the session to storage. Currently stubbed (not implemented).
 
 #### `generateQuickPreview(question: string)`
 
-**Location**: `app/rabbitholes/actions.ts`
+**Location**: `lib/rabbit-holes/actions.ts`
 
 Generates a quick text preview of what will be explored for a given question. Used by `exploreQuestion` to provide immediate feedback while full content is generated.
 
@@ -266,15 +272,17 @@ Performs the heavy lifting of generating complete node content:
 
 **Note**: This runs in a `startTransition` to avoid blocking the UI during generation.
 
-### Internal Helpers (Not Implemented)
+### Storage (data layer)
 
-#### `getStoredSession(sessionId?: string): Promise<RabbitHoleSession | null>`
+Session persistence is implemented in `data/supabase/rabbitholes.ts`:
 
-Should retrieve a stored session from localStorage or database. Currently returns `null`.
+- **`getSessionById(sessionId)`** – Used by `loadExistingSession` to load a session from Supabase and assemble `RabbitHoleSession` from `rabbit_hole_sessions`, `rabbit_hole_nodes`, `rabbit_hole_path_segments`, `rabbit_hole_edges`, `rabbit_hole_sources`, and `rabbit_hole_branch_suggestions`.
+- **`saveSession(serializedSession)`** – Used by `saveSessionToStorage` to persist the serialized session to Supabase.
 
-#### `saveSessionToStorage(session: RabbitHoleSession | null): Promise<void>`
+### Internal Helpers
 
-Should persist a session to storage. Currently a no-op.
+- **`createNode(question, id?)`** – Builds a new `RabbitHoleNode` with empty content, used when starting an exploration.
+- **`updateSourceStatus(status, analysis?, sourceId?)`** – Updates the status and optional analysis of a source on the active node in `session.nodesById`; used by `selectSource` when analysis completes or errors.
 
 ### React Dependencies
 
@@ -325,24 +333,25 @@ The hook uses React's `useState` for all state management. State updates follow 
 
 ### ✅ Implemented
 
-- `newSession()` - Creates empty sessions
-- `exploreQuestion()` - Full exploration flow with preview and generation
+- **`createSession()`** – Creates empty sessions and sets session state
+- **`loadExistingSession()`** – Loads session from Supabase via `getSessionById`, sets session and `activeNodeId`
+- **`exploreQuestion()`** – Full exploration flow with preview and background generation via `generateRabbitHoleNode`
+- **`followBranch()`** – Switches to existing branch node or generates it via `exploreQuestion`
+- **`selectSource()`** – Source selection, `analyzeSource` call, and session update via `updateSourceStatus`
+- **`setActiveNode()`** – Node navigation; updates `activeNodeId` and session
+- **`reset()`** – Full state reset (session, error, loading, preview, source state)
+- **`saveSessionToStorage()`** – Persists session to Supabase via `saveSession`
 - State management for all exposed properties
-- Integration with `generateQuickPreview` and `generateRabbitHoleNode`
+- Integration with `generateQuickPreview`, `generateRabbitHoleNode`, and `analyzeSource` (`lib/rabbit-holes/actions.ts`)
+- Storage via `getSessionById` and `saveSession` (`data/supabase/rabbitholes`)
 
 ### ⚠️ Partially Implemented
 
-- `loadExistingSession()` - Structure exists but doesn't actually load sessions
-- Return statement - Currently missing some methods from the interface
+- **`clearSourceSelection()`** – Clears `selectedSourceId` and `isAnalyzingSource` but does not clear `sourceAnalysis`, so the previous analysis can still be shown in the UI
 
 ### ❌ Not Implemented
 
-- `selectSource()` - Source analysis functionality
-- `clearSourceSelection()` - Source state management
-- `resetSourceAnalysisState()` - Analysis cache clearing
-- `setActiveNode()` - Node navigation
-- `reset()` - Full state reset
-- `saveSessionToStorage()` / `getStoredSession()` - Storage persistence
+- **`resetSourceAnalysisState()`** – No-op; intended to reset all source analysis state (and optionally clear analysis cache on all nodes)
 
 ## Type Definitions
 

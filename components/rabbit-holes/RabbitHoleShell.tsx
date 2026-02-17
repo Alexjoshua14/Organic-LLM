@@ -89,17 +89,11 @@ export function RabbitHoleShell() {
     if (!sessionIdToLoad || error) return;
     const currentId = session?.sessionId ?? null;
     if (currentId === sessionIdToLoad) {
-      if (searchParams.get("sessionId")) {
-        router.replace("/rabbitholes", { scroll: false });
-      }
       return;
     }
     let cancelled = false;
     loadExistingSession(sessionIdToLoad).then((result) => {
       if (cancelled) return;
-      if (searchParams.get("sessionId")) {
-        router.replace("/rabbitholes", { scroll: false });
-      }
       if (!result.ok) {
         logger.error("RabbitHoleShell", "Failed to load session from browse", result.error);
       }

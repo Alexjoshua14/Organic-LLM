@@ -157,7 +157,7 @@ export function RabbitHoleArticle({
                   <motion.li
                     key={index}
                     className={cn(
-                      "flex items-start gap-4 font-satoshi text-base leading-relaxed cursor-pointer transition-all duration-200",
+                      "flex items-start gap-4 font-satoshi text-base cursor-pointer transition-all duration-200",
                       isActive
                         ? "text-foreground"
                         : "text-muted-foreground hover:text-foreground",

@@ -6,7 +6,7 @@
 
 import { RabbitHoleSessionMetadata } from "@/app/rabbitholes/_lib/sessionStorage";
 import { RabbitHoleSession } from "@/lib/schemas/rabbitHoleSchemas";
-import { createContext, Dispatch, SetStateAction, useState } from "react";
+import { createContext, Dispatch, SetStateAction, useEffect, useState } from "react";
 
 interface RabbitHoleContextValue {
   sessionId: string | null;
@@ -48,6 +48,14 @@ export function RabbitHoleProvider({ children }: { children: React.ReactNode }) 
   const [session, setSession] = useState<RabbitHoleSession | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [generatingNodeId, setGeneratingNodeId] = useState<string | null>(null);
+
+
+  useEffect(() => {
+    // Keep context in sync
+    if (session && session.sessionId !== sessionId) {
+      setSessionId(session.sessionId);
+    }
+  }, [session]);
 
   function clearSession() {
     setSessionId(null);

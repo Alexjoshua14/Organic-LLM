@@ -38,7 +38,7 @@ export async function POST(req: NextRequest) {
 
   logger.log(
     "TTS Route",
-    `Parameters obtained in ${parametersObtained - start} milliseconds`
+    `Parameters obtained in ${parametersObtained - start} milliseconds`,
   );
 
   let speechFriendlyText = text;
@@ -48,7 +48,8 @@ export async function POST(req: NextRequest) {
 
     try {
       // speechFriendlyText = await transformTextToSpeechFriendly(text);
-      speechFriendlyText = await transformTextToSpeechFriendlyV2(text);
+      // TODO: Uncomment this when ready
+      // speechFriendlyText = await transformTextToSpeechFriendlyV2(text);
       logger.log("TTS Route", `Speech-friendly text: ${speechFriendlyText}`);
     } catch (error) {
       logger.error("TTS Route", `Error transforming text: ${error}`);
@@ -57,7 +58,7 @@ export async function POST(req: NextRequest) {
 
       logger.log(
         "TTS Route",
-        `Speech-friendly text generation completed in ${speechFriendlyTextEndGeneration - speechFriendlyTextStartGeneration} milliseconds`
+        `Speech-friendly text generation completed in ${speechFriendlyTextEndGeneration - speechFriendlyTextStartGeneration} milliseconds`,
       );
     }
   }
@@ -69,7 +70,7 @@ export async function POST(req: NextRequest) {
   } else {
     try {
       speechModel = availableSpeechModels.find(
-        (m) => m.modelId === model
+        (m) => m.modelId === model,
       ) as SpeechModel;
     } catch (error) {
       logger.error("TTS Route", `Error finding model: ${error}`);
@@ -79,7 +80,7 @@ export async function POST(req: NextRequest) {
 
   logger.log(
     "TTS Route",
-    `Using model: ${speechModel.modelId}, from provider: ${speechModel.provider}`
+    `Using model: ${speechModel.modelId}, from provider: ${speechModel.provider}`,
   );
 
   const speechModelStartGeneration = performance.now();
@@ -105,7 +106,7 @@ export async function POST(req: NextRequest) {
       const { audio } = await generateSpeech({
         model: speechModel,
         text: textForTTS,
-        voice: "nova",
+        voice: "marin",
       });
 
       return NextResponse.json({ data: audio });
@@ -115,7 +116,7 @@ export async function POST(req: NextRequest) {
 
     logger.log(
       "TTS Route",
-      `Speech model generation completed in ${speechModelEndGeneration - speechModelStartGeneration} milliseconds`
+      `Speech model generation completed in ${speechModelEndGeneration - speechModelStartGeneration} milliseconds`,
     );
   }
 }

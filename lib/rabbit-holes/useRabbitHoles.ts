@@ -7,7 +7,7 @@ import {
   RabbitHoleSourceAnalysis,
   RabbitHoleNode,
 } from "@/lib/schemas/rabbitHoleSchemas";
-import { useState, useTransition } from "react";
+import { useContext, useEffect, useState, useTransition } from "react";
 import { createLogger } from "@/lib/logger";
 import {
   analyzeSource,
@@ -16,6 +16,7 @@ import {
 } from "./actions";
 import { Result, SimpleResult } from "@/types";
 import { getSessionById, saveSession } from "@/data/supabase/rabbitholes";
+import { RabbitHoleContext } from "../context/rabbithole-context";
 
 const logger = createLogger("useRabbitHoles");
 
@@ -64,6 +65,16 @@ export function useRabbitHoles(): UseRabbitHolesReturn {
   const [sourceAnalysis, setSourceAnalysis] =
     useState<RabbitHoleSourceAnalysis | null>(null);
   const [isAnalyzingSource, setIsAnalyzingSource] = useState(false);
+
+  const { session: ctxSession, setSession: setCtxSession } =
+    useContext(RabbitHoleContext);
+
+  useEffect(() => {
+    // Keep context in sync
+    if (session && session.sessionId !== ctxSession?.sessionId) {
+      setCtxSession(session);
+    }
+  }, [session]);
 
   /**
    * @internal

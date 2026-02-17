@@ -7,20 +7,28 @@ import { getAudioForNode, saveAudioForNode } from "../_lib/audioStorage";
 import { cn } from "@/lib/utils";
 import { RabbitHoleContext } from "@/lib/context/rabbithole-context";
 import { createLogger } from "@/lib/logger";
+import { Switch } from "@/components/third-party/ui/switch";
+import { Field, FieldGroup, FieldLabel } from "@/components/third-party/ui/field";
 
 const logger = createLogger("RabbitHoleTTSButton");
 
 interface RabbitHoleTTSButtonProps {
   nodeId: string;
-  text: string;
+  /** Legacy: single combined text. Ignored when title/summary/content are provided. */
+  text?: string;
+  title?: string;
+  summary?: string;
+  content?: string;
   className?: string;
 }
 
+/** API returns AI SDK shape: data.uint8Array; legacy shape uses data.uint8ArrayData */
 type TTSResponse = {
   data: {
-    uint8ArrayData: Record<number, number>;
-    mediaType: string;
-    format: "mp3" | "ogg" | "wav";
+    uint8Array?: Record<string, number>;
+    uint8ArrayData?: Record<number, number>;
+    mediaType?: string;
+    format?: string;
   };
 };
 
@@ -31,44 +39,92 @@ function uint8ArrayToBlob(uint8ArrayData: Record<number, number>): Blob {
 
 export function RabbitHoleTTSButton({
   nodeId,
-  text,
+  text: textProp,
+  title,
+  summary,
+  content,
   className,
 }: RabbitHoleTTSButtonProps) {
+
+  const segments = (textProp
+    ? [{ section: "full" as const, text: textProp }]
+    : ([
+      { section: "title" as const, text: title },
+      { section: "summary" as const, text: summary },
+      { section: "content" as const, text: content },
+    ].filter((s) => !!s.text) as { section: "title" | "summary" | "content"; text: string }[])
+      .map((s) => ({ ...s, text: s.text.trim() }))
+      .filter((s) => s.text.length > 0)
+  )
+
+  const combinedText = segments.map((s) => s.text).join(".\n");
+
+
+
+
   const { sessionId } = useContext(RabbitHoleContext);
   const [loading, setLoading] = useState(false);
-  const [audioUrl, setAudioUrl] = useState<string | null>(null);
+  const [audioUrls, setAudioUrls] = useState<Record<string, string | null>>({});
+  const [activeSegmentKey, setActiveSegmentKey] = useState<string | null>(null);
+  const segmentIndexRef = useRef<number>(0);
+  const audioUrlsRef = useRef<Record<string, string | null>>({});
   const [isPlaying, setIsPlaying] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [actualDuration, setActualDuration] = useState<number | null>(null);
   const [estimatedDuration, setEstimatedDuration] = useState<number | null>(null);
   const audioRef = useRef<HTMLAudioElement>(null);
 
+  const [playSummary, setPlaySummary] = useState(true);
+  const [playContent, setPlayContent] = useState(false);
+
   // Check for existing audio on mount
   useEffect(() => {
-    getAudioForNode(nodeId).then((url) => {
-      if (url) {
-        setAudioUrl(url);
+    let cancelled = false;
+
+    (async () => {
+      const entries = await Promise.all(
+        segments.map(async (s) => {
+          const key = `${nodeId}:${s.section}`;
+          const url = await getAudioForNode(key);
+          return [key, url ?? null] as const;
+        }),
+      );
+
+      if (cancelled) return;
+
+      const next: Record<string, string | null> = {};
+      for (const [k, v] of entries) next[k] = v;
+      setAudioUrls(next);
+
+      // If we already have at least one segment cached, set it as active for metadata
+      const first = segments[0];
+      if (first) {
+        const firstKey = `${nodeId}:${first.section}`;
+        setActiveSegmentKey(firstKey);
       }
-    });
-  }, [nodeId]);
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [nodeId, segments]);
+
+  audioUrlsRef.current = audioUrls;
+
 
   // Estimate duration from text (roughly 2.5 words/sec)
   useEffect(() => {
-    const words = text.trim().split(/\s+/).filter(Boolean).length;
+    const words = combinedText.trim().split(/\s+/).filter(Boolean).length;
     if (words > 0) {
       const estSeconds = Math.ceil(words / 2.5);
       setEstimatedDuration(estSeconds);
     } else {
       setEstimatedDuration(null);
     }
-  }, [text]);
+  }, [combinedText]);
 
   const handlePlay = useCallback(async () => {
-    if (audioUrl && audioRef.current) {
-      audioRef.current.play();
-      setIsPlaying(true);
-      return;
-    }
+    if (segments.length === 0) return;
 
     // Generate new audio
     if (loading) return;
@@ -77,58 +133,86 @@ export function RabbitHoleTTSButton({
     setError(null);
 
     try {
-      // Check IndexedDB first
-      const existingUrl = await getAudioForNode(nodeId);
-      if (existingUrl) {
-        setAudioUrl(existingUrl);
-        setLoading(false);
-        if (audioRef.current) {
-          audioRef.current.src = existingUrl;
-          audioRef.current.play();
-          setIsPlaying(true);
-        }
+      if (!sessionId) {
+        logger.error("RabbitHoleTTSButton", "No session ID found");
+        setError("No session ID found");
         return;
       }
+      // Get audio for each segment, either from storage or generated
 
-      // Generate new audio
-      const res = await fetch("/api/ai/tts", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          text,
-          model: "eleven_flash_v2_5",
-        }),
-      });
+      // Check if audio exists
+      const existing: Record<string, string> = {}
 
-      if (!res.ok) {
-        throw new Error("Failed to generate speech");
-      }
 
-      const data = (await res.json()) as TTSResponse;
-      const blob = uint8ArrayToBlob(data.data.uint8ArrayData);
-      const uint8Array = new Uint8Array(Object.values(data.data.uint8ArrayData));
+      for (const s of segments) {
+        if (!playSummary && s.section === "summary") continue;
+        if (!playContent && s.section === "content") continue;
 
-      // Save to IndexedDB
-      if (sessionId) {
-        const url = await saveAudioForNode(sessionId, nodeId, uint8Array);
-        setAudioUrl(url);
-
-        if (audioRef.current) {
-          audioRef.current.src = url;
-          audioRef.current.play();
-          setIsPlaying(true);
+        const key = `${nodeId}:${s.section}`;
+        const existingInState = audioUrls[key];
+        if (existingInState) {
+          existing[key] = existingInState;
+          continue;
         }
-      } else {
-        logger.error("RabbitHoleTTSButton", "No session ID found");
+
+        // Generate new audio
+        const res = await fetch("/api/ai/tts", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            text: s.text,
+          }),
+        });
+
+        if (!res.ok) {
+          throw new Error("Failed to generate speech");
+        }
+
+        const data = (await res.json()) as TTSResponse;
+        const raw = data.data.uint8Array ?? data.data.uint8ArrayData;
+        if (!raw) throw new Error("No audio data in response");
+        const uint8Array = new Uint8Array(Object.values(raw));
+
+        const url = await saveAudioForNode(sessionId, key, uint8Array);
+        existing[key] = url;
+        setAudioUrls((prev) => ({ ...prev, [key]: url }));
       }
+
+      const firstEnabledSegment = segments.find((s) => {
+        if (!playSummary && s.section === "summary") return false;
+        if (!playContent && s.section === "content") return false;
+        const k = `${nodeId}:${s.section}`;
+        return existing[k] != null;
+      });
+      const firstKey = firstEnabledSegment
+        ? `${nodeId}:${firstEnabledSegment.section}`
+        : null;
+      const firstUrl = firstKey ? existing[firstKey] : undefined;
+
+      if (!firstUrl || !audioRef.current) return;
+
+      const firstIndex = segments.findIndex(
+        (s) => `${nodeId}:${s.section}` === firstKey,
+      );
+      segmentIndexRef.current = firstIndex >= 0 ? firstIndex : 0;
+
+      setActiveSegmentKey(firstKey);
+      audioRef.current.src = firstUrl;
+      await audioRef.current.play();
+      setIsPlaying(true);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to generate audio");
+      const isAborted =
+        (err instanceof DOMException && err.name === "AbortError") ||
+        (err instanceof Error && err.name === "AbortError");
+      if (!isAborted) {
+        setError(err instanceof Error ? err.message : "Failed to generate audio");
+      }
     } finally {
       setLoading(false);
     }
-  }, [nodeId, text, audioUrl, loading]);
+  }, [nodeId, segments, playSummary, playContent, audioUrls, sessionId, loading]);
 
   const handlePause = useCallback(() => {
     if (audioRef.current) {
@@ -138,10 +222,38 @@ export function RabbitHoleTTSButton({
   }, []);
 
   const handleEnded = useCallback(() => {
-    setIsPlaying(false);
-  }, []);
+    const nextIndex = segmentIndexRef.current + 1;
+
+    if (nextIndex >= segments.length) {
+      setIsPlaying(false);
+      return;
+    }
+
+    segmentIndexRef.current = nextIndex;
+    const nextSeg = segments[nextIndex];
+    const nextKey = `${nodeId}:${nextSeg.section}`;
+    const nextUrl = audioUrlsRef.current[nextKey] ?? audioUrls[nextKey];
+
+    if (!audioRef.current || !nextUrl) {
+      setIsPlaying(false);
+      return;
+    }
+
+    setActiveSegmentKey(nextKey);
+    audioRef.current.src = nextUrl;
+    audioRef.current.play().catch((err) => {
+      const isAborted =
+        (err instanceof DOMException && err.name === "AbortError") ||
+        (err instanceof Error && err.name === "AbortError");
+      if (!isAborted) {
+        setError(err instanceof Error ? err.message : "Playback failed");
+      }
+      setIsPlaying(false);
+    });
+  }, [nodeId, segments, audioUrls]);
 
   const handleLoadedMetadata = useCallback(() => {
+    setActualDuration(null);
     if (audioRef.current?.duration && isFinite(audioRef.current.duration)) {
       setActualDuration(audioRef.current.duration);
     }
@@ -155,12 +267,17 @@ export function RabbitHoleTTSButton({
     return `${mins}m ${secs.toString().padStart(2, "0")}s`;
   };
 
+  const totalSegments = segments.length;
+  const cachedCount = segments.filter((s) => audioUrls[`${nodeId}:${s.section}`]).length;
+
   const playbackLabel =
     loading
-      ? "Generating audio..."
+      ? totalSegments > 1
+        ? `Generating audio... (${cachedCount}/${totalSegments})`
+        : "Generating audio..."
       : actualDuration
         ? `Playback: ${formatDuration(actualDuration)}`
-        : audioUrl
+        : activeSegmentKey && audioUrls[activeSegmentKey]
           ? "Playback: calculating..."
           : estimatedDuration
             ? `Est. playback: ${formatDuration(estimatedDuration) ?? `${estimatedDuration}s`}`
@@ -169,48 +286,73 @@ export function RabbitHoleTTSButton({
   return (
     <div
       className={cn(
-        "flex items-center gap-3 bg-card/70 border border-border rounded-lg px-3 py-2",
+        "flex flex-col gap-2 bg-card/70 border border-border rounded-lg px-3 py-2",
         "shadow-sm",
         className,
       )}
     >
-      <Button
-        isIconOnly
-        variant="ghost"
-        size="sm"
-        onPress={isPlaying ? handlePause : handlePlay}
-        isDisabled={loading}
-        className="text-muted-foreground hover:text-foreground"
-      >
-        {loading ? (
-          <Loader2 className="w-4 h-4 animate-spin" />
-        ) : isPlaying ? (
-          <VolumeX className="w-4 h-4" />
-        ) : (
-          <Volume2 className="w-4 h-4" />
-        )}
-      </Button>
-      <div className="flex-1 min-w-0">
-        <p className="text-xs text-muted-foreground truncate">
-          {playbackLabel}
-        </p>
-        {error && (
-          <p className="text-[11px] text-destructive">
-            {error}
-          </p>
-        )}
+      <div className="flex items-center gap-6">
+        <div className="flex items-center gap-2">
+          <Button
+            isIconOnly
+            variant="ghost"
+            size="sm"
+            onPress={isPlaying ? handlePause : handlePlay}
+            isDisabled={loading}
+            className="text-muted-foreground hover:text-foreground"
+          >
+            {loading ? (
+              <Loader2 className="w-4 h-4 animate-spin" />
+            ) : isPlaying ? (
+              <VolumeX className="w-4 h-4" />
+            ) : (
+              <Volume2 className="w-4 h-4" />
+            )}
+          </Button>
+          <div className="flex-1 min-w-0">
+            <p className="text-xs text-muted-foreground truncate">
+              {playbackLabel}
+            </p>
+            {error && (
+              <p className="text-[11px] text-destructive">
+                {error}
+              </p>
+            )}
+          </div>
+        </div>
+        <audio
+          ref={audioRef}
+          src={(activeSegmentKey ? audioUrls[activeSegmentKey] : null) ?? undefined}
+          controls
+          preload="metadata"
+          onEnded={handleEnded}
+          onPause={() => setIsPlaying(false)}
+          onPlay={() => setIsPlaying(true)}
+          onLoadedMetadata={handleLoadedMetadata}
+          className={cn(
+            "h-8",
+            activeSegmentKey && audioUrls[activeSegmentKey] ? "block" : "block",
+          )}
+        />
       </div>
-      <audio
-        ref={audioRef}
-        src={audioUrl ?? undefined}
-        controls
-        preload="metadata"
-        onEnded={handleEnded}
-        onPause={() => setIsPlaying(false)}
-        onPlay={() => setIsPlaying(true)}
-        onLoadedMetadata={handleLoadedMetadata}
-        className={cn("h-8", audioUrl ? "block" : "hidden")}
-      />
+      <FieldGroup className="flex flex-row items-center gap-4 w-full">
+        <Field orientation="horizontal" className="flex items-center gap-2 w-fit">
+          <Switch
+            checked={playSummary}
+            onCheckedChange={setPlaySummary}
+            id="summary-switch"
+          />
+          <FieldLabel htmlFor="summary-switch" className="text-xs">Summary</FieldLabel>
+        </Field>
+        <Field orientation="horizontal" className="flex items-center gap-2 w-fit">
+          <Switch
+            checked={playContent}
+            onCheckedChange={setPlayContent}
+            id="content-switch"
+          />
+          <FieldLabel htmlFor="content-switch" className="text-xs">Content</FieldLabel>
+        </Field>
+      </FieldGroup>
     </div>
   );
 }
