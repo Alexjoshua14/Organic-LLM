@@ -5,6 +5,7 @@ import {
   generateQuickPreviewLLM,
   generateRabbitHoleObject,
   generateSourceAnalysis,
+  generateTitle,
 } from "../llm/rabbit-hole/generation";
 import {
   RabbitHoleAIResponse,
@@ -14,7 +15,10 @@ import {
   RabbitHoleSession,
   RabbitHoleSourceAnalysis,
 } from "../schemas/rabbitHoleSchemas";
-import { RABBIT_HOLE_SYSTEM_PROMPT } from "../system-prompt/rabbit-hole";
+import {
+  RABBIT_HOLE_SYSTEM_PROMPT,
+  REFINE_QUESTION_SYSTEM_PROMPT,
+} from "../system-prompt/rabbit-hole";
 import { createLogger } from "../logger";
 import { auth } from "@clerk/nextjs/server";
 import { Result } from "@/types";
@@ -51,7 +55,7 @@ const newNodePrompt =
  */
 async function generateRabbitHoleNodeContent(
   prompt: string,
-  branchSuggestionRootQuestion: string
+  branchSuggestionRootQuestion: string,
 ): Promise<NodeContentResult> {
   const { data } = await generateRabbitHoleObject<RabbitHoleNode>({
     logContext: "generateRabbitHoleNode",
@@ -65,12 +69,16 @@ async function generateRabbitHoleNodeContent(
 
   const object = RabbitHoleAIResponseSchema.parse(data);
 
-  const res = await generateBranchSuggestions({
+  const branchSuggestionsPromise = generateBranchSuggestions({
     context: object.articleHtml,
     rootQuestion: branchSuggestionRootQuestion,
   });
 
-  const branchSuggestions = res && res.data ? res.data : [];
+  const [branchSuggestionsResult] = await Promise.all([
+    branchSuggestionsPromise,
+  ]);
+
+  const branchSuggestions = branchSuggestionsResult.data ?? [];
 
   return { object, branchSuggestions };
 }
@@ -87,11 +95,12 @@ async function generateRabbitHoleNodeContent(
 async function generateRefinedQuestion(
   session: RabbitHoleSession,
   question: string,
-  pathHistory: string
+  pathHistory: string,
 ): Promise<string> {
   const { text } = await generateText({
     model: openai("gpt-5-nano"),
-    prompt: `Refine the following question: ${question} based on the following path history: ${pathHistory}`,
+    system: REFINE_QUESTION_SYSTEM_PROMPT,
+    prompt: `Question to refine: ${question}\n\nPath history: ${pathHistory}`,
   });
 
   return text;
@@ -134,7 +143,7 @@ function buildPrompt(
   pathHistory: string,
   sourcesContext: string,
   sourcesInstruction: string,
-  branchDescription?: string
+  branchDescription?: string,
 ): string {
   let prompt = "";
 
@@ -164,7 +173,7 @@ export async function generateQuickPreview(
     rootQuestion?: string;
     pathHistory?: string;
     branchLabel?: string;
-  }
+  },
 ): Promise<Result<string>> {
   const clerkUser = await auth();
 
@@ -203,7 +212,7 @@ export async function generateQuickPreview(
 export async function analyzeSource(
   sourceUrl: string,
   sourceTitle: string,
-  sourceSnippet?: string
+  sourceSnippet?: string,
 ): Promise<Result<RabbitHoleSourceAnalysis>> {
   const clerkUser = await auth();
 
@@ -265,7 +274,7 @@ Provide a comprehensive analysis that helps the user understand this source's ke
  */
 export async function generateRabbitHoleNode(
   session: RabbitHoleSession,
-  nodeId: string
+  nodeId: string,
 ): Promise<Result<RabbitHoleSession>> {
   let updatedNode: RabbitHoleNode;
   try {
@@ -298,7 +307,7 @@ export async function generateRabbitHoleNode(
     const refinedQuestion = await generateRefinedQuestion(
       session,
       updatedNode.userQuestion,
-      pathHistory
+      pathHistory,
     );
 
     updatedNode.refinedQuestion = refinedQuestion;
@@ -327,14 +336,14 @@ export async function generateRabbitHoleNode(
       pathHistory,
       sourcesContext,
       sourcesInstruction,
-      ""
+      "",
     );
 
-    const { object, branchSuggestions } =
-      await generateRabbitHoleNodeContent(
-        prompt,
-        session.rootQuestion || (updatedNode.refinedQuestion ?? updatedNode.userQuestion)
-      );
+    const { object, branchSuggestions } = await generateRabbitHoleNodeContent(
+      prompt,
+      session.rootQuestion ||
+        (updatedNode.refinedQuestion ?? updatedNode.userQuestion),
+    );
 
     /** Update node */
     updatedNode.articleHtml = object.articleHtml;
@@ -363,7 +372,7 @@ export async function generateRabbitHoleNode(
   } catch (error) {
     logger.error(
       "generateRabbitHoleNode",
-      `Error generating rabbit hole node: ${error}`
+      `Error generating rabbit hole node: ${error}`,
     );
     return {
       data: null,

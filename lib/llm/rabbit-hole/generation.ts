@@ -15,6 +15,7 @@ import { openai } from "@ai-sdk/openai";
 
 import {
   BRANCH_SUGGESTIONS_SYSTEM_PROMPT,
+  CREATE_TITLE_SYSTEM_PROMPT,
   QUICK_PREVIEW_SYSTEM_PROMPT,
   SOURCE_ANALYSIS_SYSTEM_PROMPT,
 } from "@/lib/system-prompt/rabbit-hole";
@@ -78,13 +79,13 @@ export async function generateRabbitHoleObject<T>({
     if (usage) {
       logger.log(
         logContext,
-        `AI usage: input tokens=${usage.inputTokens ?? "?"}, reasoning tokens=${usage.reasoningTokens ?? "?"}, output tokens=${usage.outputTokens ?? "?"}, total tokens=${usage.totalTokens ?? "?"}`
+        `AI usage: input tokens=${usage.inputTokens ?? "?"}, reasoning tokens=${usage.reasoningTokens ?? "?"}, output tokens=${usage.outputTokens ?? "?"}, total tokens=${usage.totalTokens ?? "?"}`,
       );
     }
 
     logger.log(
       logContext,
-      `${keyTakeawayLabel}: ${(object as any).keyTakeaways?.[0] ?? "(none)"}`
+      `${keyTakeawayLabel}: ${(object as any).keyTakeaways?.[0] ?? "(none)"}`,
     );
 
     return { data: object, error: null };
@@ -177,7 +178,7 @@ export async function generateBranchSuggestions({
   const logContext = "generateBranchSuggestions";
   logger.log(
     logContext,
-    `Generating branch suggestions for context: ${context.substring(0, 100)}...`
+    `Generating branch suggestions for context: ${context.substring(0, 100)}...`,
   );
 
   const generationStart = performance.now();
@@ -210,13 +211,13 @@ export async function generateBranchSuggestions({
 
     logger.log(
       logContext,
-      `Branch suggestions generated in ${durationMs.toFixed(2)} ms (${object.length} suggestions)`
+      `Branch suggestions generated in ${durationMs.toFixed(2)} ms (${object.length} suggestions)`,
     );
 
     if (usage) {
       logger.log(
         logContext,
-        `AI usage: input tokens=${usage.inputTokens ?? "?"}, reasoning tokens=${usage.reasoningTokens ?? "?"}, output tokens=${usage.outputTokens ?? "?"}, total tokens=${usage.totalTokens ?? "?"}`
+        `AI usage: input tokens=${usage.inputTokens ?? "?"}, reasoning tokens=${usage.reasoningTokens ?? "?"}, output tokens=${usage.outputTokens ?? "?"}, total tokens=${usage.totalTokens ?? "?"}`,
       );
     }
 
@@ -227,7 +228,7 @@ export async function generateBranchSuggestions({
   } catch (err) {
     logger.error(
       logContext,
-      `Error generating branch suggestions: ${err instanceof Error ? err.message : "Unknown error"}`
+      `Error generating branch suggestions: ${err instanceof Error ? err.message : "Unknown error"}`,
     );
 
     if (NoObjectGeneratedError.isInstance(err)) {
@@ -244,4 +245,30 @@ export async function generateBranchSuggestions({
       error: err instanceof Error ? err : new Error("Unknown error"),
     };
   }
+}
+
+export async function generateTitle({
+  html,
+}: {
+  html: string;
+}): Promise<Result<string>> {
+  let res;
+  try {
+    res = await generateText({
+      model: quickModel,
+      system: CREATE_TITLE_SYSTEM_PROMPT,
+      prompt: html,
+      maxOutputTokens: 80,
+    });
+
+    logger.log("generateTitle", `Title generated: ${res.text.trim()}`);
+  } catch (error) {
+    logger.error("generateTitle", `Error generating title: ${error}`);
+    return {
+      data: null,
+      error: error instanceof Error ? error : new Error("Unknown error"),
+    };
+  }
+
+  return { data: res.text.trim(), error: null };
 }

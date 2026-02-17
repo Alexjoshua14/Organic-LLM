@@ -331,6 +331,8 @@ export function useRabbitHoles(): UseRabbitHolesReturn {
           }
           updatedSession = result.data;
 
+          await saveSessionToStorage(updatedSession);
+
           setSession(updatedSession);
         } catch (error) {
           logger.error(
@@ -349,6 +351,7 @@ export function useRabbitHoles(): UseRabbitHolesReturn {
       });
 
       setSession(updatedSession);
+
       return {
         ok: true,
         error: null,
@@ -404,6 +407,11 @@ export function useRabbitHoles(): UseRabbitHolesReturn {
 
     // Rely on main generation function, providing branchId for
     // proper linking
+    logger.log(
+      "followBranch",
+      "Following branch:\n",
+      JSON.stringify(branch, null, 2),
+    );
     return await exploreQuestion(branch.label, branchId);
   }
 

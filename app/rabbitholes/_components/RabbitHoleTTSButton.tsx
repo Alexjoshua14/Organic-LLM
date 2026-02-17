@@ -335,7 +335,7 @@ export function RabbitHoleTTSButton({
           )}
         />
       </div>
-      <FieldGroup className="flex flex-row items-center gap-4 w-full">
+      {/* <FieldGroup className="flex flex-row items-center gap-4 w-full">
         <Field orientation="horizontal" className="flex items-center gap-2 w-fit">
           <Switch
             checked={playSummary}
@@ -352,7 +352,7 @@ export function RabbitHoleTTSButton({
           />
           <FieldLabel htmlFor="content-switch" className="text-xs">Content</FieldLabel>
         </Field>
-      </FieldGroup>
+      </FieldGroup> */}
     </div>
   );
 }

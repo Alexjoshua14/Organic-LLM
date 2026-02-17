@@ -11,7 +11,7 @@ import { createLogger } from "@/lib/logger";
 
 const logger = createLogger("data/supabase/rabbitholes.ts");
 
-const DEBUG_MODE = true;
+const DEBUG_MODE = process.env.NODE_ENV === "development";
 
 /**
  * Check if a string is a Unix timestamp (numeric string)
@@ -37,7 +37,7 @@ export async function getAllSessions(): Promise<
     return {
       data: [],
       error: new Error(
-        sessionsError?.message ?? "Error fetching sessions from Supabase"
+        sessionsError?.message ?? "Error fetching sessions from Supabase",
       ),
     };
   }
@@ -58,7 +58,8 @@ export async function getAllSessions(): Promise<
     return {
       data: [],
       error: new Error(
-        pathError?.message ?? "Error fetching session path segments from Supabase"
+        pathError?.message ??
+          "Error fetching session path segments from Supabase",
       ),
     };
   }
@@ -69,7 +70,7 @@ export async function getAllSessions(): Promise<
   for (const seg of pathSegments ?? []) {
     pathLengthBySession.set(
       seg.session_id,
-      (pathLengthBySession.get(seg.session_id) ?? 0) + 1
+      (pathLengthBySession.get(seg.session_id) ?? 0) + 1,
     );
     if (seg.position === 0 && typeof seg.node_id === "string") {
       rootNodeIdBySession.set(seg.session_id, seg.node_id);
@@ -92,7 +93,7 @@ export async function getAllSessions(): Promise<
         data: [],
         error: new Error(
           rootNodesError?.message ??
-            "Error fetching root nodes from Supabase for session summaries"
+            "Error fetching root nodes from Supabase for session summaries",
         ),
       };
     }
@@ -109,7 +110,9 @@ export async function getAllSessions(): Promise<
 
   const metadata: RabbitHoleSessionMetadata[] = sessions.map((s) => {
     const createdAt =
-      typeof s.created_at === "string" ? s.created_at : new Date().toISOString();
+      typeof s.created_at === "string"
+        ? s.created_at
+        : new Date().toISOString();
     const updatedAt =
       typeof s.updated_at === "string" ? s.updated_at : createdAt;
 
@@ -157,39 +160,34 @@ export async function getSessionById(
   }
 
   // Fetch all related entities for the session.
-  const [
-    pathRes,
-    nodesRes,
-    edgesRes,
-    sourcesRes,
-    branchesRes,
-  ] = await Promise.all([
-    supabase
-      .from("rabbit_hole_path_segments")
-      .select("node_id, label, parent_node_id, position")
-      .eq("session_id", sessionId)
-      .order("position", { ascending: true }),
-    supabase
-      .from("rabbit_hole_nodes")
-      .select(
-        "node_id, raw_prompt, user_question, key_takeaways, article_html, created_at"
-      )
-      .eq("session_id", sessionId),
-    supabase
-      .from("rabbit_hole_edges")
-      .select("from_node_id, to_node_id, edge_type")
-      .eq("session_id", sessionId),
-    supabase
-      .from("rabbit_hole_sources")
-      .select(
-        "node_id, source_id, title, url, favicon_url, snippet, published_date, author, highlights, analysis"
-      )
-      .eq("session_id", sessionId),
-    supabase
-      .from("rabbit_hole_branch_suggestions")
-      .select("node_id, branch_id, label, short_description")
-      .eq("session_id", sessionId),
-  ]);
+  const [pathRes, nodesRes, edgesRes, sourcesRes, branchesRes] =
+    await Promise.all([
+      supabase
+        .from("rabbit_hole_path_segments")
+        .select("node_id, label, parent_node_id, position")
+        .eq("session_id", sessionId)
+        .order("position", { ascending: true }),
+      supabase
+        .from("rabbit_hole_nodes")
+        .select(
+          "node_id, raw_prompt, user_question, key_takeaways, article_html, created_at",
+        )
+        .eq("session_id", sessionId),
+      supabase
+        .from("rabbit_hole_edges")
+        .select("from_node_id, to_node_id, edge_type")
+        .eq("session_id", sessionId),
+      supabase
+        .from("rabbit_hole_sources")
+        .select(
+          "node_id, source_id, title, url, favicon_url, snippet, published_date, author, highlights, analysis",
+        )
+        .eq("session_id", sessionId),
+      supabase
+        .from("rabbit_hole_branch_suggestions")
+        .select("node_id, branch_id, label, short_description")
+        .eq("session_id", sessionId),
+    ]);
 
   const firstError =
     pathRes.error ||
@@ -286,7 +284,9 @@ export async function getSessionById(
         ? sessionRow.created_at
         : new Date().toISOString(),
     updatedAt:
-      typeof sessionRow.updated_at === "string" ? sessionRow.updated_at : undefined,
+      typeof sessionRow.updated_at === "string"
+        ? sessionRow.updated_at
+        : undefined,
   };
 
   const validated = RabbitHoleSessionSchema.safeParse(assembled);
@@ -294,13 +294,13 @@ export async function getSessionById(
     if (DEBUG_MODE) {
       logger.error(
         "getSessionById",
-        `Failed to validate assembled session: ${validated.error.message}`
+        `Failed to validate assembled session: ${validated.error.message}`,
       );
     }
     return {
       data: null,
       error: new Error(
-        validated.error.message ?? "Error validating assembled session"
+        validated.error.message ?? "Error validating assembled session",
       ),
     };
   }
@@ -372,13 +372,18 @@ export async function saveSession(serialized: string): Promise<SimpleResult> {
 
     const { error: sessionError } = await supabase
       .from("rabbit_hole_sessions")
-      .upsert({
-        session_id: session.sessionId,
-        root_question: session.rootQuestion,
-        active_node_id: session.activeNodeId,
-        created_at: createdAt,
-        updated_at: updatedAt,
-      });
+      .upsert(
+        {
+          session_id: session.sessionId,
+          root_question: session.rootQuestion,
+          active_node_id: session.activeNodeId,
+          created_at: createdAt,
+          updated_at: updatedAt,
+        },
+        {
+          onConflict: "session_id",
+        },
+      );
 
     if (sessionError) {
       logger.error(

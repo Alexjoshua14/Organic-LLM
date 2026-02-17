@@ -15,6 +15,7 @@ import {
 import { formatDate } from "@/lib/format/stringFormatting";
 import { cn } from "@/lib/utils";
 import { removeSessionAudio } from "../_lib/audioStorage";
+import { RabbitHoleSessionMetadata } from "../_lib/sessionStorage";
 
 export default function RabbitHolesBrowsePage() {
   const router = useRouter();
@@ -107,7 +108,7 @@ export default function RabbitHolesBrowsePage() {
           </motion.div>
         ) : (
           <div className="grid gap-4">
-            {sessions.map((session, index) => (
+            {sessions.map((session: RabbitHoleSessionMetadata, index: number) => (
               <motion.div
                 key={session.sessionId}
                 initial={{ opacity: 0, y: 20 }}

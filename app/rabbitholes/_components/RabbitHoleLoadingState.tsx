@@ -11,7 +11,7 @@ interface RabbitHoleLoadingStateProps {
 
 const loadingMessages = {
   initial: "Starting your exploration...",
-  branch: "Following the rabbit hole...",
+  branch: "Going deeper down the rabbit hole...",
   article: "Crafting your article...",
   sources: "Collecting sources...",
 };

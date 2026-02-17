@@ -367,7 +367,7 @@ export function RabbitHoleShell() {
                 {centerViewState.kind === "article_loaded" && activeNode && (
                   <div key={activeNode.id}>
                     <RabbitHoleArticle
-                      title={activeNode.userQuestion}
+                      title={activeNode.title ?? activeNode.userQuestion}
                       takeaways={activeNode.keyTakeaways}
                       activeTakeawayIndex={activeTakeawayIndex}
                       articleHtml={activeNode.articleHtml}

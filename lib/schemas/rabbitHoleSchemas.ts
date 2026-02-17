@@ -37,7 +37,8 @@ export const RabbitHoleBranchSuggestionSchema = z.object({
 });
 
 export const RabbitHoleNodeSchema = z.object({
-  id: z.uuid(),
+  id: z.string().min(1),
+  title: z.string().describe("Title of the node").min(4).max(80).optional(),
   rawPrompt: z
     .string()
     .describe("The full system prompt string for generation"),
@@ -81,7 +82,7 @@ export const RabbitHoleAIResponseSchema = RabbitHoleNodeSchema.omit({
 });
 
 export const RabbitHolePathSegmentSchema = z.object({
-  nodeId: z.uuid(),
+  nodeId: z.string().min(1),
   label: z.string(),
   parentNodeId: z.string().nullable(),
 });
