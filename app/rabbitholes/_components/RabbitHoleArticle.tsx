@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { motion } from "framer-motion";
 import { cn } from "@/lib/utils";
 import { RabbitHoleTTSButton } from "./RabbitHoleTTSButton";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/third-party/ui/collapsible";
 
 interface RabbitHoleArticleProps {
   title: string;
@@ -135,20 +136,20 @@ export function RabbitHoleArticle({
           <RabbitHoleTTSButton nodeId={nodeId} text={articleText} />
         </div>
       </div>
-      <div className="bg-card/80 backdrop-blur-sm rounded-lg border border-border shadow-sm mb-10">
-        <button
-          type="button"
-          onClick={() => setTakeawaysOpen((v) => !v)}
-          className="w-full flex items-center justify-between px-5 py-4 text-left"
-        >
+
+      <Collapsible
+        open={takeawaysOpen}
+        onOpenChange={setTakeawaysOpen}
+        className="bg-card/80 backdrop-blur-sm rounded-lg border border-border shadow-sm mb-10">
+        <CollapsibleTrigger className="w-full flex items-center justify-between px-5 py-4 text-left cursor-pointer group">
           <h3 className="font-commissioner text-xs uppercase tracking-[0.2em] text-muted-foreground font-light">
             Key Takeaways
           </h3>
-          <span className="text-muted-foreground text-sm">
+          <span className="text-muted-foreground text-xl group-hover:text-foreground group-hover:scale-110 transition-all duration-400">
             {takeawaysOpen ? "−" : "+"}
           </span>
-        </button>
-        {takeawaysOpen && (
+        </CollapsibleTrigger>
+        <CollapsibleContent>
           <div className="px-5 pb-5">
             <ul className="space-y-4">
               {takeaways.map((takeaway, index) => {
@@ -157,7 +158,7 @@ export function RabbitHoleArticle({
                   <motion.li
                     key={index}
                     className={cn(
-                      "flex items-start gap-4 font-satoshi text-base cursor-pointer transition-all duration-200",
+                      "flex items-start gap-4 font-satoshi text-base cursor-pointer",
                       isActive
                         ? "text-foreground"
                         : "text-muted-foreground hover:text-foreground",
@@ -165,6 +166,7 @@ export function RabbitHoleArticle({
                     initial={{ opacity: 0, x: -8 }}
                     animate={{ opacity: 1, x: 0 }}
                     transition={{ duration: 0.25, delay: index * 0.05 }}
+                    viewport={{ once: true }}
                     onClick={() => {
                       const sectionId = `takeaway-${index}`;
                       const section = document.getElementById(sectionId);
@@ -190,8 +192,12 @@ export function RabbitHoleArticle({
               })}
             </ul>
           </div>
-        )}
-      </div>
+        </CollapsibleContent>
+
+      </Collapsible>
+
+
+
       <div
         ref={articleRef}
         className={cn(
