@@ -23,7 +23,7 @@ export const ChatModels: ChatModel[] = [
   { id: "google/gemini-3-flash", name: "Gemini 3 Flash" },
   { id: "google/gemini-2.5-flash-lite", name: "Gemini 2.5 Flash Lite" },
   { id: "anthropic/claude-opus-4-6", name: "Claude Opus 4.6" },
-  { id: "anthropic/claude-sonnet-4.5", name: "Claude Sonnet 4.5" },
+  { id: "anthropic/claude-sonnet-4.6", name: "Claude Sonnet 4.6" },
   { id: "anthropic/claude-haiku-4.5", name: "Claude Haiku 4.5" },
   { id: "perplexity/sonar-pro", name: "Sonar Pro" },
   { id: "perplexity/sonar-reasoning-pro", name: "Sonar Reasoning Pro" },
@@ -121,7 +121,7 @@ export const UIMessageSchema = z
       message.parts.length > 0 || typeof message.content === "string",
     {
       message: "Message must include parts or content",
-    }
+    },
   );
 
 export const ChatRequestSchema = z.object({
