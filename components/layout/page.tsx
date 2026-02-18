@@ -1,6 +1,8 @@
+'use client';
 import React from "react";
 
 import { cn } from "@/lib/utils";
+import { useSidebar } from "../third-party/ui/sidebar";
 
 type PageProps = {
   children: React.ReactNode;
@@ -13,16 +15,18 @@ export default function Page({
   transparentBackground,
   className,
 }: PageProps) {
+  const { open } = useSidebar();
+
   return (
     <section
       className={cn(
         "relative",
-        "h-dvh md:h-[calc(100dvh-1rem)] w-full max-w-dvw overflow-x-hidden",
+        `h-dvh w-full max-w-dvw overflow-x-hidden page-transform`,
         !transparentBackground && "bg-background",
         "text-primary",
-        "md:rounded-tl-xl md:inset-shadow-xs",
+        "md:inset-shadow-xs",
         "flex flex-col items-center justify-center gap-4",
-        "md:border-l-1 md:border-t-1 md:border-border",
+        `${open ? "md:mt-4 md:rounded-tl-xl  md:border-l-1 md:border-t-1 md:border-border" : ""}`,
         className,
       )}
     >

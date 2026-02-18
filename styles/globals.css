@@ -251,6 +251,10 @@
   h6 {
     @apply cursor-default select-none font-commissioner;
   }
+
+  .page-transform {
+    @apply transition-all duration-150;
+  }
 }
 
 /* User font preference (applied by FontProvider) */

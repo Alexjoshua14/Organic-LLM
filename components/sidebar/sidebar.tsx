@@ -37,7 +37,7 @@ export function Sidebar() {
           </h1>
         </Link>
       </SidebarHeader>
-      <SidebarContent className="bg-background-secondary subpixel-antialiased flex flex-col overflow-hidden">
+      <SidebarContent className="bg-background-secondary subpixel-antialiased flex flex-col overflow-hidden ">
         <SignedOut>
           <SidebarGroup>
             <SidebarGroupContent className="w-full flex flex-col gap-4 items-center justify-center">
@@ -73,7 +73,6 @@ export function Sidebar() {
                       "bg-transparent",
                       "focus-within:bg-transparent",
                     ],
-                    base: ["border-b-1", "border-background-tertiary"],
                   }}
                   label={<Search size={18} />}
                   labelPlacement="outside-left"

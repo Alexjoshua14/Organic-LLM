@@ -56,21 +56,21 @@ export default function RootLayout({
             themeProps={{ attribute: "class", defaultTheme: "system" }}
           >
             <FontProvider>
-            <ChatProvider>
-              <SidebarProvider>
-                <Sidebar />
-                <ControlCluster />
-                <main className="md:pt-4 grow w-full overflow-hidden bg-background sm:bg-background-secondary h-full">
-                  <div className={`${glass()} absolute top-0 left-0 pl-4 z-30 w-20 h-14 flex items-center rounded-br-lg md:hidden`}>
-                    <SidebarTrigger />
-                  </div>
-                  <div className={`hidden md:flex absolute top-4 left-0 pl-4 z-30`}>
-                    <SidebarTrigger />
-                  </div>
-                  {children}
-                </main>
-              </SidebarProvider>
-            </ChatProvider>
+              <ChatProvider>
+                <SidebarProvider>
+                  <Sidebar />
+                  <ControlCluster />
+                  <main className="grow w-full overflow-hidden bg-background sm:bg-background-secondary h-full">
+                    <div className={`${glass()} absolute top-0 left-0 pl-4 z-30 w-20 h-14 flex items-center rounded-br-lg md:hidden`}>
+                      <SidebarTrigger />
+                    </div>
+                    <div className={`hidden md:flex absolute top-4 left-0 pl-4 z-30`}>
+                      <SidebarTrigger />
+                    </div>
+                    {children}
+                  </main>
+                </SidebarProvider>
+              </ChatProvider>
             </FontProvider>
           </Providers>
         </body>

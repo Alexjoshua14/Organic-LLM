@@ -64,6 +64,7 @@ export function RabbitHoleTTSButton({
 
   const { sessionId } = useContext(RabbitHoleContext);
   const [loading, setLoading] = useState(false);
+  const [isLoaded, setIsLoaded] = useState(false);
   const [audioUrls, setAudioUrls] = useState<Record<string, string | null>>({});
   const [activeSegmentKey, setActiveSegmentKey] = useState<string | null>(null);
   const segmentIndexRef = useRef<number>(0);
@@ -200,6 +201,7 @@ export function RabbitHoleTTSButton({
 
       setActiveSegmentKey(firstKey);
       audioRef.current.src = firstUrl;
+      setIsLoaded(true);
       await audioRef.current.play();
       setIsPlaying(true);
     } catch (err) {
@@ -331,7 +333,7 @@ export function RabbitHoleTTSButton({
           onLoadedMetadata={handleLoadedMetadata}
           className={cn(
             "h-8",
-            activeSegmentKey && audioUrls[activeSegmentKey] ? "block" : "block",
+            isLoaded ? "block" : "hidden",
           )}
         />
       </div>

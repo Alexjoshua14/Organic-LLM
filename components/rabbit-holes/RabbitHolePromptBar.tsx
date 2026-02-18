@@ -11,6 +11,7 @@ interface RabbitHolePromptBarProps {
   onStart: (question: string) => void;
   onReset: () => void;
   hasSession: boolean;
+  isBusy: boolean;
   isLoading: boolean;
 }
 
@@ -18,6 +19,7 @@ export function RabbitHolePromptBar({
   onStart,
   onReset,
   hasSession,
+  isBusy,
   isLoading,
 }: RabbitHolePromptBarProps) {
   // Create refs for NewChatInput (these features aren't used in rabbit hole but are required)
@@ -45,7 +47,7 @@ export function RabbitHolePromptBar({
   }, [onReset]);
 
   // Map isLoading to ChatStatus
-  const status: ChatStatus = isLoading ? "streaming" : "ready";
+  const status: ChatStatus = isBusy ? "streaming" : "ready";
 
   return (
     <NewChatInput
@@ -55,6 +57,7 @@ export function RabbitHolePromptBar({
       sendMessage={sendMessage}
       stop={stop}
       status={status}
+      disabled={isLoading}
     />
   );
 }

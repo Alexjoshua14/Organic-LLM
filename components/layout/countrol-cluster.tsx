@@ -7,6 +7,7 @@ import { ThemeSwitch } from "../shared/theme-switch";
 import { SettingsOverlay } from "../settings/SettingsOverlay";
 import { cn } from "@/lib/utils";
 import { glass } from "../design-system/primitives";
+import { useSidebar } from "../third-party/ui/sidebar";
 
 type ControlClusterProps = {
   className?: string;
@@ -15,12 +16,13 @@ type ControlClusterProps = {
 
 export const ControlCluster: FC<ControlClusterProps> = ({ className }) => {
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const { open } = useSidebar();
 
   return (
     <>
       <div
         className={cn(
-          `${glass()} absolute top-0 md:translate-y-4 right-0 w-24 h-14 flex items-center justify-center z-30 rounded-bl-lg`,
+          `${glass()} absolute top-0 ${open ? "md:translate-y-4" : ""} right-0 w-24 h-14 flex items-center justify-center z-30 rounded-bl-lg transition-all duration-200`,
           className,
         )}
       >

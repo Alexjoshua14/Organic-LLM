@@ -40,6 +40,7 @@ type NewChatInputProps = {
   sendMessage: ReturnType<typeof useChat>["sendMessage"],
   stop: ReturnType<typeof useChat>["stop"],
   status: ReturnType<typeof useChat>["status"],
+  disabled: boolean,
   className?: string;
 };
 
@@ -51,6 +52,7 @@ export const NewChatInput: React.FC<NewChatInputProps> = ({
   sendMessage,
   stop,
   status,
+  disabled,
   className,
 }) => {
 
@@ -198,7 +200,12 @@ export const NewChatInput: React.FC<NewChatInputProps> = ({
   }, []);
 
   return (
-    <PromptInput onSubmit={handleSubmit} globalDrop multiple className={cn("min-w-fit z-40", className)}>
+    <PromptInput
+      onSubmit={handleSubmit}
+      globalDrop
+      multiple
+      className={cn("min-w-fit z-40", className)}
+    >
       <PromptInputHeader>
         <PromptInputAttachments>
           {(attachment) => <PromptInputAttachment data={attachment} />}
@@ -275,7 +282,7 @@ export const NewChatInput: React.FC<NewChatInputProps> = ({
             </div>
           </PromptInputTools>
         </div>
-        <PromptInputSubmit disabled={!text && !status} status={status} stop={stop} />
+        <PromptInputSubmit disabled={!text && !status || disabled} status={status} stop={stop} />
       </PromptInputFooter>
     </PromptInput>
   );

@@ -36,6 +36,7 @@ import { RabbitHoleEmptyState } from "@/components/rabbit-holes/main/RabbitHoleE
 import { glass } from "../design-system/primitives";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/third-party/ui/collapsible";
 import { RabbitHoleNode, RabbitHoleSession } from "@/lib/schemas/rabbitHoleSchemas";
+import { useSidebar } from "../third-party/ui/sidebar";
 
 const logger = createLogger("components/rabbit-holes/RabbitHoleShell");
 
@@ -77,10 +78,11 @@ export function RabbitHoleShell() {
   const [activeTakeawayIndex, setActiveTakeawayIndex] = useState<number | null>(
     null,
   );
-  const [debugPanelOpen, setDebugPanelOpen] = useState(false);
+  const { open } = useSidebar();
+
 
   /** True when we're loading, generating a node, or a specific node is generating (blocks some UI). */
-  const isBusy = isLoading || isGeneratingNode || generatingNodeId != null;
+  const isBusy = isGeneratingNode || generatingNodeId != null;
 
   // --- Load past session when opened from browse ---
   // Prefer URL search param so the ID is available on mount (avoids race with context update).
@@ -203,15 +205,17 @@ export function RabbitHoleShell() {
     <div className="relative h-screen bg-background overflow-hidden">
       <RabbitHoleAmbientLayer />
       <div className="relative z-10 flex flex-col h-full overflow-hidden">
-        <header className="shrink-0 px-12 pt-8 pb-6 relative z-20">
-          <div className="flex items-center justify-between max-w-7xl mx-auto">
-            <Link
-              href="/rabbitholes/browse"
-              className="text-muted-foreground hover:text-foreground transition-colors text-sm tracking-wide pointer-events-auto"
-            >
-              ← Back to Rabbit Hole Browser
-            </Link>
-            <h1 className="font-commissioner text-2xl font-light tracking-wide text-foreground">
+        <header className="px-8 md:px-10 lg:px-12 pt-16 md:pt-8 pb-6 relative z-20 w-full">
+          <div className="flex items-center justify-between max-w-7xl mx-auto h-6">
+            {!open && (
+              <Link
+                href="/rabbitholes/browse"
+                className="text-muted-foreground hover:text-foreground transition-colors text-sm tracking-wide pointer-events-auto"
+              >
+                ← Back to Browser
+              </Link>
+            )}
+            <h1 className="absolute left-1/2 -translate-x-1/2 font-commissioner text-2xl font-light tracking-wide text-foreground">
               Rabbit Hole Explorer
             </h1>
             <div className="w-24" /> {/* Spacer for centering */}
@@ -220,9 +224,9 @@ export function RabbitHoleShell() {
         {/* Dev-only collapsible debug panel — remove this block when done developing */}
         <RabbitHoleDebugPanel session={session} activeNode={activeNode} centerViewState={centerViewState} generatingNodeId={generatingNodeId} />
 
-        <main className="flex-1 flex flex-col lg:flex-row gap-12 px-12 pt-8 min-h-0 max-h-full max-w-7xl mx-auto w-full overflow-hidden">
+        <main className="flex-1 flex flex-col lg:flex-row gap-12 px-12 pt-8 min-h-0 max-w-7xl mx-auto w-full overflow-y-auto">
           {/* Left: breadcrumb path through nodes; click to switch node, option to start new session. */}
-          <aside className="w-full lg:w-[20%] shrink-0 overflow-y-auto pr-2">
+          <aside className="lg:sticky lg:top-0 w-full lg:w-[20%] shrink-0 overflow-y-auto pr-2">
             <RabbitHolePathRail
               session={session}
               activeNodeId={session?.activeNodeId ?? null}
@@ -233,7 +237,7 @@ export function RabbitHoleShell() {
           </aside>
 
           {/* Center: Article or Source Analysis */}
-          <section className="relative flex-1 max-w-3xl mx-auto min-w-0 flex flex-col overflow-hidden">
+          <section className="flex-1 max-w-3xl mx-auto min-w-0 flex flex-col">
             {/* Navigation Arrows (only when viewing article, not source analysis) */}
             {session &&
               session.path.length > 1 &&
@@ -271,7 +275,7 @@ export function RabbitHoleShell() {
                 </div>
               )}
 
-            <div className="flex-1 overflow-y-auto pr-2 px-4 pt-4 pb-36">
+            <div className="flex-1 h-full pr-2 px-4 pt-4 pb-36">
               <AnimatePresence mode="wait">
                 {centerViewState.kind === "loading_previous_session" && (
                   <RabbitHoleLoadingState
@@ -326,12 +330,13 @@ export function RabbitHoleShell() {
             </div>
 
             {/* Fixed at bottom; parent is pointer-events-none so scroll doesn't capture, child re-enables. */}
-            <div className="pointer-events-none absolute inset-x-0 bottom-0 px-4 pb-4">
-              <div className="pointer-events-auto max-w-3xl mx-auto">
+            <div className="pointer-events-none absolute inset-x-0 left-1/2 -translate-x-1/2 bottom-0 px-4 pb-4 flex justify-center items-center">
+              <div className="pointer-events-auto min-w-fit md:max-w-xl w-full mx-auto">
                 <RabbitHolePromptBar
                   onStart={handleStart}
                   onReset={handleReset}
                   hasSession={!!session}
+                  isBusy={isBusy}
                   isLoading={isBusy}
                 />
               </div>
@@ -339,7 +344,7 @@ export function RabbitHoleShell() {
           </section>
 
           {/* Right: sources and branches (only when viewing an article). */}
-          <aside className="w-full lg:w-[20%] shrink-0 overflow-y-auto pr-2">
+          <aside className="w-full lg:w-[20%] shrink-0 pr-2">
             <AnimatePresence>
               {centerViewState.kind === "article_loaded" && activeNode && (
                 <div key={activeNode.id} className="flex flex-col h-full">
