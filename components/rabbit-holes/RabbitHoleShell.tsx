@@ -12,7 +12,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
-import { ChevronLeft, ChevronRight, PanelRightClose, PanelRightOpen } from "lucide-react";
+import { Bug, ChevronDown, ChevronLeft, ChevronRight, PanelRightClose, PanelRightOpen } from "lucide-react";
 import { Button } from "@heroui/button";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -34,6 +34,8 @@ import { RabbitHoleLoadingState } from "@/app/rabbitholes/_components/RabbitHole
 import { RabbitHolePromptBar } from "@/components/rabbit-holes/RabbitHolePromptBar";
 import { RabbitHoleEmptyState } from "@/components/rabbit-holes/main/RabbitHoleEmptyState";
 import { glass } from "../design-system/primitives";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/third-party/ui/collapsible";
+import { RabbitHoleNode, RabbitHoleSession } from "@/lib/schemas/rabbitHoleSchemas";
 
 const logger = createLogger("components/rabbit-holes/RabbitHoleShell");
 
@@ -216,67 +218,7 @@ export function RabbitHoleShell() {
           </div>
         </header>
         {/* Dev-only collapsible debug panel — remove this block when done developing */}
-        {process.env.NODE_ENV === "development" && (
-          <div className="fixed right-0 top-1/2 z-50 flex -translate-y-1/2">
-            <button
-              type="button"
-              onClick={() => setDebugPanelOpen((o) => !o)}
-              className={cn(
-                "flex h-12 w-6 items-center justify-center rounded-l-md border border-r-0 border-border/60 bg-muted/80 text-muted-foreground shadow-sm transition-colors hover:bg-muted hover:text-foreground",
-                debugPanelOpen && "border-r border-border/60",
-              )}
-              aria-label={debugPanelOpen ? "Close debug panel" : "Open debug panel"}
-            >
-              {debugPanelOpen ? (
-                <PanelRightClose className="size-4" />
-              ) : (
-                <PanelRightOpen className="size-4" />
-              )}
-            </button>
-            <AnimatePresence>
-              {debugPanelOpen && (
-                <motion.div
-                  className={cn(
-                    "w-80 max-h-[50vh] overflow-hidden rounded-l-lg border border-r-0 border-border/60 shadow-lg",
-                    glass(),
-                  )}
-                  initial={{ width: 0, opacity: 0 }}
-                  animate={{ width: 320, opacity: 1 }}
-                  exit={{ width: 0, opacity: 0 }}
-                  transition={{ duration: 0.2 }}
-                >
-                  <div className="flex flex-col gap-3 overflow-y-auto p-4 text-xs">
-                    <h2 className="font-semibold text-foreground">Debug</h2>
-                    <div className="flex flex-col gap-1">
-                      <h3 className="font-medium text-muted-foreground">Session</h3>
-                      <pre className="overflow-x-auto rounded bg-muted/50 p-2 text-[10px]">
-                        {JSON.stringify(session, null, 2)}
-                      </pre>
-                    </div>
-                    <div className="flex flex-col gap-1">
-                      <h3 className="font-medium text-muted-foreground">Active node</h3>
-                      <pre className="overflow-x-auto rounded bg-muted/50 p-2 text-[10px]">
-                        {JSON.stringify(activeNode, null, 2)}
-                      </pre>
-                    </div>
-                    <div className="flex flex-col gap-1">
-                      <h3 className="font-medium text-muted-foreground">Center view state</h3>
-                      <pre className="overflow-x-auto rounded bg-muted/50 p-2 text-[10px]">
-                        {JSON.stringify(centerViewState, null, 2)}
-                      </pre>
-                    </div>
-                    <div className="flex flex-col gap-1">
-                      <h3 className="font-medium text-muted-foreground">Generating node ID</h3>
-                      <pre className="overflow-x-auto rounded bg-muted/50 p-2 text-[10px]">
-                        {JSON.stringify(generatingNodeId, null, 2)}
-                      </pre>
-                    </div>
-                  </div>
-                </motion.div>
-              )}
-            </AnimatePresence>
-          </div>
-        )}
+        <RabbitHoleDebugPanel session={session} activeNode={activeNode} centerViewState={centerViewState} generatingNodeId={generatingNodeId} />
 
         <main className="flex-1 flex flex-col lg:flex-row gap-12 px-12 pt-8 min-h-0 max-h-full max-w-7xl mx-auto w-full overflow-hidden">
           {/* Left: breadcrumb path through nodes; click to switch node, option to start new session. */}
@@ -421,3 +363,80 @@ export function RabbitHoleShell() {
     </div>
   );
 }
+
+
+const RabbitHoleDebugPanel = ({ session, activeNode, centerViewState, generatingNodeId }: { session: RabbitHoleSession | null, activeNode: RabbitHoleNode | null, centerViewState: CenterViewState, generatingNodeId: string | null }) => {
+  const [debugPanelOpen, setDebugPanelOpen] = useState(false);
+
+  if (process.env.NODE_ENV === "development") {
+    const debugSections = [
+      { label: "Session", value: session },
+      { label: "Active node", value: activeNode },
+      { label: "Center view state", value: centerViewState },
+      { label: "Generating node ID", value: generatingNodeId },
+    ] as const;
+
+    return (
+      <div className="fixed right-0 top-1/2 z-50 flex -translate-y-1/2 flex-row items-center justify-end">
+        <button
+          type="button"
+          onClick={() => setDebugPanelOpen((o) => !o)}
+          className={cn(
+            "flex h-12 w-6 shrink-0 items-center justify-center rounded-l-md border border-r-0 border-border/60 bg-muted/80 text-muted-foreground shadow-sm transition-all duration-200 hover:bg-muted hover:text-foreground hover:w-7",
+            debugPanelOpen && "border-r border-border/60 bg-muted",
+          )}
+          aria-label={debugPanelOpen ? "Close debug panel" : "Open debug panel"}
+        >
+          {debugPanelOpen ? (
+            <PanelRightClose className="size-4" />
+          ) : (
+            <PanelRightOpen className="size-4" />
+          )}
+        </button>
+        <AnimatePresence>
+          {debugPanelOpen && (
+            <motion.div
+              className={cn(
+                "flex w-80 max-h-[55vh] shrink-0 flex-col overflow-hidden rounded-l-xl border border-r-0 border-border/60 shadow-xl",
+                glass(),
+              )}
+              initial={{ width: 0, height: 0, opacity: 0 }}
+              animate={{ width: 320, height: "55vh", opacity: 1 }}
+              exit={{ width: 0, height: 0, opacity: 0 }}
+              transition={{ duration: 0.2, ease: "easeOut" }}
+            >
+              <div className="flex items-center gap-2 border-b border-border/40 px-4 py-3">
+                <Bug className="size-4 text-amber-500/90" aria-hidden />
+                <span className="font-commissioner text-sm font-medium tracking-tight text-foreground">
+                  Debug
+                </span>
+                <span className="rounded bg-amber-500/10 px-1.5 py-0.5 font-mono text-[10px] uppercase tracking-wider text-amber-600 dark:text-amber-400/90">
+                  dev
+                </span>
+              </div>
+              <div className="flex flex-1 flex-col gap-2 overflow-y-auto p-3">
+                {debugSections.map(({ label, value }) => (
+                  <Collapsible key={label} defaultOpen className="rounded-lg border border-border/30 bg-muted/20">
+                    <CollapsibleTrigger className="group flex w-full items-center justify-between px-2.5 py-2 text-left transition-colors hover:bg-muted/30 data-[state=open]:rounded-t-lg">
+                      <h3 className="font-commissioner text-[10px] font-medium uppercase tracking-widest text-muted-foreground">
+                        {label}
+                      </h3>
+                      <ChevronDown className="size-3.5 shrink-0 text-muted-foreground transition-transform duration-200 group-data-[state=open]:rotate-180" aria-hidden />
+                    </CollapsibleTrigger>
+                    <CollapsibleContent>
+                      <pre className="min-h-8 overflow-x-auto rounded-b-lg rounded-t-none border-t border-border/20 bg-background/60 px-2.5 py-2 font-mono text-[10px] leading-relaxed text-foreground/90">
+                        {JSON.stringify(value, null, 2)}
+                      </pre>
+                    </CollapsibleContent>
+                  </Collapsible>
+                ))}
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </div>
+    );
+  }
+
+  return null;
+};
