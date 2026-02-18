@@ -40,7 +40,7 @@ type NewChatInputProps = {
   sendMessage: ReturnType<typeof useChat>["sendMessage"],
   stop: ReturnType<typeof useChat>["stop"],
   status: ReturnType<typeof useChat>["status"],
-  disabled: boolean,
+  disabled?: boolean,
   className?: string;
 };
 

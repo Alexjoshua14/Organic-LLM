@@ -90,7 +90,7 @@ export function SidebarChatTitle({
   }
 
   return (
-    <h3 className="flex-1 truncate py-1 min-w-0" title={title}>
+    <h3 className="flex-1 truncate py-1 min-w-0 cursor-pointer" title={title}>
       {title}
     </h3>
   );
