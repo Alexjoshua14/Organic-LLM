@@ -16,6 +16,7 @@ import { Sidebar } from "@/components/sidebar/sidebar";
 import { ChatProvider } from "@/lib/context/chat-context";
 import { FontProvider } from "@/components/FontProvider";
 import { glass } from "@/components/design-system/primitives";
+import { Analytics } from "@vercel/analytics/next";
 
 export const metadata: Metadata = {
   title: {
@@ -68,6 +69,7 @@ export default function RootLayout({
                       <SidebarTrigger />
                     </div>
                     {children}
+                    <Analytics />
                   </main>
                 </SidebarProvider>
               </ChatProvider>
