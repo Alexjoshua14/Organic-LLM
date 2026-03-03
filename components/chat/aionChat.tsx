@@ -6,6 +6,7 @@ import { useCallback, useEffect, useRef } from "react";
 
 import { ChatThread } from "./chat-thread";
 
+import { getSettings } from "@/lib/user-settings";
 import { Thread } from "@/lib/schemas/chat";
 import { createLogger } from "@/lib/logger";
 import { useSharedChatContext } from "@/lib/context/chat-context";
@@ -49,6 +50,7 @@ export const AionChat: React.FC<ChatProps> = ({
             model: selectedModelRef.current,
             webSearch: useWebSearchRef.current,
             memory: useMemoriesRef.current,
+            zeroDataRetention: getSettings().zeroDataRetention,
             // Only include persistedSchemas in payload if true
             ...(usePersistedSchemas.current ? { persistedSchemas: true } : {}),
           },

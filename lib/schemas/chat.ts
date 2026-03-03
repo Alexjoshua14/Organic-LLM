@@ -131,6 +131,8 @@ export const ChatRequestSchema = z.object({
   webSearch: z.boolean().optional(),
   memory: z.boolean().optional().default(true),
   speechFriendly: z.boolean().optional(),
+  /** When true, request is in zero-data-retention mode (no persistence). */
+  zeroDataRetention: z.boolean().optional(),
 });
 
 export const ThreadSummarySchema = z.object({

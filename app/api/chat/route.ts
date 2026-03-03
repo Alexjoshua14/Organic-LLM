@@ -13,6 +13,7 @@ import {
 } from "ai";
 // import systemPrompt from "@/lib/system-prompt";
 import { auth } from "@clerk/nextjs/server";
+import { GatewayProviderOptions } from "@ai-sdk/gateway";
 
 import { deleteChatMessage, getContext, saveChat } from "@/lib/chat/chat-store";
 import { ensureChatHasTitle, updateChatSummary } from "@/lib/llm/chat-helpers";
@@ -71,8 +72,12 @@ export async function POST(req: Request) {
     return new Response("Invalid request body", { status: 400 });
   }
 
-  const { message: incomingMessage, id } = parseResult.data;
+  const { message: incomingMessage, id, zeroDataRetention } = parseResult.data;
   const message = incomingMessage as UIMessage;
+
+  // Zero Data Retention Policy is in regards to external LLMs, not Organic LLM at this time
+  // If enabled, we only use LLMs that have ZDR compatibility
+  const isZeroDataRetention = zeroDataRetention === true;
 
   const clerkUser = await auth();
 
@@ -243,6 +248,9 @@ export async function POST(req: Request) {
           openai: {
             include: ["reasoning.encrypted_content"],
           } satisfies OpenAIResponsesProviderOptions,
+          gateway: {
+            zeroDataRetention: isZeroDataRetention,
+          } satisfies GatewayProviderOptions,
         },
         tools,
         toolChoice: hasTools ? "auto" : "none",

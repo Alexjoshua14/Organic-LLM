@@ -6,6 +6,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 
 import { ChatThread } from "./chat-thread";
 
+import { getSettings } from "@/lib/user-settings";
 import { Thread } from "@/lib/schemas/chat";
 import { createLogger } from "@/lib/logger";
 import { useSharedChatContext } from "@/lib/context/chat-context";
@@ -55,6 +56,7 @@ export const Chat: React.FC<ChatProps> = ({
             webSearch: useWebSearchRef.current,
             memory: useMemoriesRef.current,
             speechFriendly: useSpeechFriendlyRef.current,
+            zeroDataRetention: getSettings().zeroDataRetention,
             // Only include persistedSchemas in payload if true
             ...(usePersistedSchemas.current ? { persistedSchemas: true } : {}),
           },

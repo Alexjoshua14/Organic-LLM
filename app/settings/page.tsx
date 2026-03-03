@@ -19,6 +19,9 @@ import { SETTINGS_PAGE_TITLE } from "@/config/settings-page";
 import MemorySettings from "@/components/settings/memorySettings";
 import FontSetting from "@/components/settings/FontSetting";
 import { ProfileView } from "@/components/settings/profile";
+import { AccountDeletion } from "@/components/settings/AccountDeletion";
+import { DangerZone } from "@/components/settings/DangerZone";
+import { SettingsRow } from "@/components/settings/SettingsRow";
 import { ThemeSwitch } from "@/components/shared/theme-switch";
 import { getSettings, setSettings } from "@/lib/user-settings";
 
@@ -27,6 +30,7 @@ const showDevSettings = process.env.NEXT_PUBLIC_SHOW_DEV_SETTINGS === "true";
 export default function SettingsPage() {
   const [profile, setProfile] = useState<Profile | null>(null);
   const [ttsWholeMessage, setTtsWholeMessage] = useState(true);
+  const [zeroDataRetention, setZeroDataRetention] = useState(false);
   const { userId } = useAuth();
   const { user } = useUser();
   const clerkEmail = user?.primaryEmailAddress?.emailAddress ?? null;
@@ -41,7 +45,10 @@ export default function SettingsPage() {
   }, []);
 
   useEffect(() => {
-    if (typeof window !== "undefined") setTtsWholeMessage(getSettings().ttsWholeMessage);
+    if (typeof window !== "undefined") {
+      setTtsWholeMessage(getSettings().ttsWholeMessage);
+      setZeroDataRetention(getSettings().zeroDataRetention);
+    }
   }, []);
 
   useEffect(() => {
@@ -68,10 +75,11 @@ export default function SettingsPage() {
       </div>
       <div className="flex-1 w-full overflow-auto px-4 py-6 md:px-8">
         <Tabs defaultValue="profile" className="w-full max-w-2xl mx-auto">
-          <TabsList className={`grid w-full mb-6 ${showDevSettings ? "grid-cols-4" : "grid-cols-3"}`}>
+          <TabsList className={`grid w-full mb-6 select-none ${showDevSettings ? "grid-cols-5" : "grid-cols-4"}`}>
             <TabsTrigger value="profile">Profile</TabsTrigger>
             <TabsTrigger value="appearance">Appearance</TabsTrigger>
             <TabsTrigger value="memory">Memory</TabsTrigger>
+            <TabsTrigger value="privacy">Privacy</TabsTrigger>
             {showDevSettings && <TabsTrigger value="advanced">Advanced</TabsTrigger>}
           </TabsList>
 
@@ -116,6 +124,35 @@ export default function SettingsPage() {
 
           <TabsContent value="memory" className="mt-0">
             <MemorySettings />
+          </TabsContent>
+
+          <TabsContent value="privacy" className="mt-0">
+            <div className="flex flex-col gap-8">
+              <h2 className="text-xl font-semibold text-foreground">Privacy</h2>
+              <section className="space-y-6">
+                <SettingsRow
+                  title="Zero Data Retention"
+                  mainText={
+                    zeroDataRetention
+                      ? "External LLMs do not retain your prompts, outputs, or data."
+                      : "External LLMs may retain your prompts, outputs, or data."
+                  }
+                  subtext="When on, external LLMs do not retain prompts, outputs, or other sensitive data. Your data is deleted immediately and permanently after each request. No action is needed on your side. With Organic LLM, use Memory off and delete threads to ensure no data is retained."
+                >
+                  <Switch
+                    isSelected={zeroDataRetention}
+                    onValueChange={(zdr) => {
+                      setZeroDataRetention(zdr);
+                      setSettings({ zeroDataRetention: zdr });
+                    }}
+                    aria-label="Zero Data Retention"
+                  />
+                </SettingsRow>
+                <DangerZone>
+                  <AccountDeletion />
+                </DangerZone>
+              </section>
+            </div>
           </TabsContent>
 
           {showDevSettings && (
