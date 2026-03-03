@@ -194,7 +194,7 @@ export const SidebarChatList: FC<SidebarChatListProps> = ({ threads }) => {
                 </div>
               </SidebarMenuButton>
               {isMobile && (
-                <div className="absolute right-0 top-0 bottom-0 flex items-center z-10 pr-1">
+                <div className={`absolute right-0 top-0 bottom-0 flex items-center z-10 pr-1 ${isActiveThread ? "opacity-100" : "opacity-0 group-hover/thread:opacity-100"}`}>
                   <SidebarThreadActionsMenu
                     thread={thread}
                     open={isMenuOpen}
