@@ -42,7 +42,7 @@ export async function POST(req: Request) {
 
   try {
     const { object } = await generateObject({
-      model: openai("gpt-4o-mini"),
+      model: "google/gemini-3-flash",
       system: SYSTEM,
       prompt,
       schema: ResponseSchema,
