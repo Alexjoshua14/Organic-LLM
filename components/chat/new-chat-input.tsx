@@ -164,7 +164,7 @@ export const NewChatInput: React.FC<NewChatInputProps> = ({
     const observer = new ResizeObserver((entries) => {
       const width = entries[0]?.contentRect.width ?? 0;
       // Toggle labels based on available width, not viewport breakpoint
-      setShowLabels(width >= 360);
+      setShowLabels(width >= 420);
     });
     observer.observe(el);
     return () => observer.disconnect();
