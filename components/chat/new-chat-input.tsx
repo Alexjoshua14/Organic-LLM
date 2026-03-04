@@ -70,7 +70,7 @@ export const NewChatInput: React.FC<NewChatInputProps> = ({
   const [useSpeechFriendly, setUseSpeechFriendly] = useState<boolean>(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const toolsRef = useRef<HTMLDivElement | null>(null);
-  const [showLabels, setShowLabels] = useState(true);
+  const [showLabels, setShowLabels] = useState(false);
   const hasLoadedPrefs = useRef(false);
 
   // Load preferences from localStorage on mount
@@ -157,13 +157,16 @@ export const NewChatInput: React.FC<NewChatInputProps> = ({
     }
   }, [useSpeechFriendly, useSpeechFriendlyRef]);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     const el = toolsRef.current;
-    if (!el || typeof ResizeObserver === "undefined") return;
+    if (!el) return;
 
+    const update = (width: number) => setShowLabels(width >= 628);
+    update(el.getBoundingClientRect().width);
+
+    if (typeof ResizeObserver === "undefined") return;
     const observer = new ResizeObserver((entries) => {
-      const width = entries[0]?.contentRect.width ?? 0;
-      setShowLabels(width >= 628);
+      update(entries[0]?.contentRect.width ?? 0);
     });
     observer.observe(el);
     return () => observer.disconnect();
