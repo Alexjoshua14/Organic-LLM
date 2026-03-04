@@ -12,31 +12,6 @@ export type Database = {
   __InternalSupabase: {
     PostgrestVersion: "13.0.4"
   }
-  graphql_public: {
-    Tables: {
-      [_ in never]: never
-    }
-    Views: {
-      [_ in never]: never
-    }
-    Functions: {
-      graphql: {
-        Args: {
-          extensions?: Json
-          operationName?: string
-          query?: string
-          variables?: Json
-        }
-        Returns: Json
-      }
-    }
-    Enums: {
-      [_ in never]: never
-    }
-    CompositeTypes: {
-      [_ in never]: never
-    }
-  }
   public: {
     Tables: {
       extraction_logs: {
@@ -541,6 +516,8 @@ export type Database = {
       }
       threads: {
         Row: {
+          active_stream_id: string | null
+          active_stream_started_at: string | null
           conversation_summary: string | null
           created_at: string
           id: string
@@ -551,6 +528,8 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          active_stream_id?: string | null
+          active_stream_started_at?: string | null
           conversation_summary?: string | null
           created_at?: string
           id?: string
@@ -561,6 +540,8 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          active_stream_id?: string | null
+          active_stream_started_at?: string | null
           conversation_summary?: string | null
           created_at?: string
           id?: string
@@ -751,9 +732,6 @@ export type CompositeTypes<
     : never
 
 export const Constants = {
-  graphql_public: {
-    Enums: {},
-  },
   public: {
     Enums: {
       message_schema_kind: ["ui_message"],

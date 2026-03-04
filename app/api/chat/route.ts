@@ -10,6 +10,7 @@ import {
   createUIMessageStream,
   createUIMessageStreamResponse,
   ToolSet,
+  generateId,
 } from "ai";
 // import systemPrompt from "@/lib/system-prompt";
 import { auth } from "@clerk/nextjs/server";
@@ -34,6 +35,8 @@ import { getSupabaseUserId } from "@/data/supabase/profiles";
 import { CHAT_MODEL, getChatModel, measureAsync } from "@/lib/llm/helpers";
 import { OpenAIResponsesProviderOptions } from "@ai-sdk/openai";
 import { ChatUIMessage, ChatAIActionEnum } from "@/types/ai";
+import { after } from "next/server";
+import { createResumableStreamContext } from "resumable-stream";
 
 // Allow streaming responses up to 30 seconds
 export const maxDuration = 30;
@@ -137,7 +140,10 @@ export async function POST(req: Request) {
             `Error getting chat context: ${chatContextResult.error}`,
           );
           validatedMessages = [message];
-          logger.debug("context", "Context failed; using only incoming message");
+          logger.debug(
+            "context",
+            "Context failed; using only incoming message",
+          );
         } else {
           validatedMessages = [
             ...(chatContextResult.data?.messages ?? []),
@@ -148,7 +154,12 @@ export async function POST(req: Request) {
           logger.debug("context", "Context gathered", {
             historyMessageCount: chatContextResult.data?.messages?.length ?? 0,
             contextLength: chatContextResult.data?.context?.length ?? 0,
-            contextPreview: chatContextResult.data?.context?.slice(0, 200) + (chatContextResult.data?.context && chatContextResult.data.context.length > 200 ? "…" : ""),
+            contextPreview:
+              chatContextResult.data?.context?.slice(0, 200) +
+              (chatContextResult.data?.context &&
+              chatContextResult.data.context.length > 200
+                ? "…"
+                : ""),
             memoriesCount: chatContextResult.data?.memories?.length ?? 0,
           });
         }
@@ -177,12 +188,21 @@ export async function POST(req: Request) {
       logger.debug("messages", "Messages being sent to LLM", {
         count: validatedMessages.length,
         summary: validatedMessages.map((m) => {
-          const msg = m as { role?: string; id?: string; content?: string | unknown[] };
+          const msg = m as {
+            role?: string;
+            id?: string;
+            content?: string | unknown[];
+          };
           const content = msg.content;
           return {
             role: msg.role ?? "unknown",
             id: msg.id,
-            contentLength: typeof content === "string" ? content.length : Array.isArray(content) ? content.length : 0,
+            contentLength:
+              typeof content === "string"
+                ? content.length
+                : Array.isArray(content)
+                  ? content.length
+                  : 0,
           };
         }),
       });
@@ -213,7 +233,9 @@ export async function POST(req: Request) {
         toolNames,
         toolCount: toolNames.length,
         toolInstructionsLength: toolInstructions.length,
-        toolInstructionsPreview: toolInstructions.slice(0, 300) + (toolInstructions.length > 300 ? "…" : ""),
+        toolInstructionsPreview:
+          toolInstructions.slice(0, 300) +
+          (toolInstructions.length > 300 ? "…" : ""),
       });
 
       const hasTools = toolNames.length > 0;
@@ -246,7 +268,6 @@ export async function POST(req: Request) {
         model: selectedModel.id,
         messages,
         system: systemPromptForRequest,
-        abortSignal: req.signal,
         experimental_transform: smoothStream({
           delayInMs: 20, // optional: defaults to 10ms
           chunking: /(```[\s\S]*?```|^#{1,6}\s.*$|.*?(?:\n|$))/gm, // optional: defaults to 'word'
@@ -355,8 +376,11 @@ export async function POST(req: Request) {
             );
 
             try {
+              // TODO: Consider moving activeStreamId clearing to after successful save
               const { result: saveResult, durationMs: saveChatMs } =
-                await measureAsync(() => saveChat({ chatId: id, messages }));
+                await measureAsync(() =>
+                  saveChat({ chatId: id, messages, activeStreamId: null }),
+                );
               metrics.saveChatMs = saveChatMs;
 
               if (saveResult.error) {
@@ -447,7 +471,17 @@ export async function POST(req: Request) {
     },
   });
 
-  return createUIMessageStreamResponse({ stream });
+  return createUIMessageStreamResponse({
+    stream,
+    async consumeSseStream({ stream }) {
+      const streamId = generateId();
+      const streamContext = createResumableStreamContext({ waitUntil: after });
+
+      await streamContext.createNewResumableStream(streamId, () => stream);
+
+      await saveChat({ chatId: id, activeStreamId: streamId });
+    },
+  });
 }
 
 const compileTools = async ({

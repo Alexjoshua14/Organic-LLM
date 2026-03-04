@@ -84,6 +84,7 @@ export async function loadChat(
 export async function saveChat(params: {
   chatId: string;
   messages: UIMessage[];
+  activeStreamId?: string;
 }): Promise<SimpleResult> {
   const { chatId, messages } = params;
 
@@ -119,6 +120,19 @@ export async function saveChat(params: {
       ok: false,
       error: new Error(countErr?.message ?? "Unknown error"),
     };
+  }
+
+  if (params.activeStreamId !== undefined) {
+    const { error: streamError } = await sb
+      .from("threads")
+      .update({ active_stream_id: params.activeStreamId })
+      .eq("id", chatId);
+    if (streamError) {
+      return {
+        ok: false,
+        error: new Error(streamError?.message ?? "Unknown error"),
+      };
+    }
   }
 
   const alreadySaved = Math.max(0, count ?? 0);
@@ -581,6 +595,31 @@ export async function updateConversationSummary(
   const { error } = await sb
     .from("threads")
     .update({ conversation_summary: conversationSummary })
+    .eq("id", chatId);
+
+  if (error) {
+    return {
+      ok: false,
+      error: new Error(error?.message ?? "Unknown error"),
+    };
+  }
+
+  return {
+    ok: true,
+    error: null,
+  };
+}
+
+export async function updateChatStream(params: {
+  chatId: string;
+  activeStreamId: string | null;
+}): Promise<SimpleResult> {
+  const { chatId, activeStreamId } = params;
+
+  const sb = await supabaseServer();
+  const { error } = await sb
+    .from("threads")
+    .update({ active_stream_id: activeStreamId })
     .eq("id", chatId);
 
   if (error) {

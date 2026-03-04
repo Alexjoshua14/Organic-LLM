@@ -51,12 +51,16 @@ export const ThreadCreate = z.object({
 
 export const ThreadSchema = ThreadCreate.partial({ owner_id: true }).extend({
   id: z.uuid(),
+  active_stream_id: z.string().nullable().optional(),
+  active_stream_started_at: z.string().nullable().optional(),
 });
 
 export const ThreadUpdate = z.object({
   title: z.string().max(255).optional(),
   id: z.uuid(),
   owner_id: z.uuid(),
+  active_stream_id: z.string().nullable().optional(),
+  active_stream_started_at: z.string().nullable().optional(),
 });
 
 // Message schema

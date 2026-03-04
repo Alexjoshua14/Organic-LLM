@@ -31,6 +31,7 @@ import {
   upsertMessages,
   deleteMessage,
   addMessage,
+  updateChatStream,
 } from "@/data/supabase/chat";
 import { Result, SimpleResult } from "@/types";
 import { Thread } from "@/lib/schemas/chat";
@@ -100,6 +101,22 @@ export async function loadChat(
 }
 
 /**
+ *
+ * Reads the chat from the database and returns the thread and messages
+ * TODO: Either add additional functionality for stream resumption or condense into loadChat function
+ *
+ * @param id - Chat Id
+ * @returns
+ */
+export async function readChat(
+  id: string,
+): Promise<Result<{ thread: Thread; messages: UIMessage[] }>> {
+  const res = await loadChat(id);
+
+  return res;
+}
+
+/**
  * Saves the chat idempotently with retry logic and exponential backoff
  *
  * @param chatId - The ID of the chat to save
@@ -109,9 +126,11 @@ export async function loadChat(
 export async function saveChat({
   chatId,
   messages,
+  activeStreamId,
 }: {
   chatId: string;
-  messages: UIMessage[];
+  messages?: UIMessage[];
+  activeStreamId?: string | null;
 }): Promise<SimpleResult> {
   const retryConfig: RetryConfig = {
     maxRetries: DEFAULT_RETRY_CONFIG.maxRetries,
@@ -127,18 +146,26 @@ export async function saveChat({
   };
 
   try {
-    const res = await retryWithBackoff(async () => {
-      const result = await upsertMessages({ chatId, messages });
+    let res: SimpleResult = { ok: true, error: new Error("Unknown error") };
+    if (messages && messages.length > 0) {
+      res = await retryWithBackoff(async () => {
+        const result = await upsertMessages({ chatId, messages });
 
-      // Throw error if the operation failed to trigger retry
-      if (result.error || !result.ok) {
-        throw new Error(result.error?.message ?? "Unknown error saving chat");
-      }
+        // Throw error if the operation failed to trigger retry
+        if (result.error || !result.ok) {
+          throw new Error(result.error?.message ?? "Unknown error saving chat");
+        }
 
-      return result;
-    }, retryConfig);
+        return result;
+      }, retryConfig);
+      logger.log("saveChat", `Chat saved: ${chatId}`);
+    } else if (activeStreamId !== undefined) {
+      const result = await retryWithBackoff(async () => {
+        const result = await updateChatStream({ chatId, activeStreamId });
+      }, retryConfig);
+      logger.log("saveChat", `Chat stream updated: ${chatId}`);
+    }
 
-    logger.log("saveChat", `Chat saved: ${chatId}`);
     return res;
   } catch (error) {
     const errorMessage =

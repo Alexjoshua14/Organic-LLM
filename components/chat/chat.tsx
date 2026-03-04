@@ -42,9 +42,13 @@ export const Chat: React.FC<ChatProps> = ({
   const [aiAction, setAiAction] = useState<{ action: ChatAIActionEnum; message?: string; sources?: ExaSearchResultSource[] } | undefined>(undefined);
   const errorRef = useRef<Error | undefined>(undefined);
 
-  const { messages, sendMessage, id, stop, status, setMessages, addToolOutput } = useChat({
+  // Temporary
+  const stop = () => logger.log("chat", "stop called but functionality is currently disabled");
+
+  const { messages, sendMessage, id, status, setMessages, addToolOutput } = useChat({
     id: chatData?.thread.id ?? "",
     messages: chatData?.messages ?? [],
+    resume: true,
     transport: new DefaultChatTransport({
       api: persona === 'aion' ? '/api/ai/aion' : persona === 'remy' ? '/api/ai/remy' : endpoint ?? `/api/chat/${persona ?? ""}`,
       prepareSendMessagesRequest({ messages, id }) {
