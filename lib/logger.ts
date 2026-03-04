@@ -1,3 +1,10 @@
+/** True when DEBUG=1, DEBUG=true, or DEBUG includes "chat" (and NODE_ENV is development). */
+export const isDebug =
+  process.env.NODE_ENV === "development" &&
+  (process.env.DEBUG === "1" ||
+    process.env.DEBUG === "true" ||
+    process.env.DEBUG?.includes("chat"));
+
 export class Logger {
   private filename: string;
 
@@ -16,6 +23,13 @@ export class Logger {
 
   error(functionName: string, message: string, ...args: any[]) {
     console.error(`[${this.filename}]/[${functionName}]`, message, ...args);
+  }
+
+  /** Logs only when isDebug is true. Tag is included in the log (e.g. "context", "tools"). */
+  debug(tag: string, message: string, data?: unknown) {
+    if (!isDebug) return;
+    const payload = data !== undefined ? ` ${JSON.stringify(data)}` : "";
+    this.log(`[DEBUG] ${tag}`, message + payload);
   }
 }
 

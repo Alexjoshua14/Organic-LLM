@@ -137,6 +137,7 @@ export async function POST(req: Request) {
             `Error getting chat context: ${chatContextResult.error}`,
           );
           validatedMessages = [message];
+          logger.debug("context", "Context failed; using only incoming message");
         } else {
           validatedMessages = [
             ...(chatContextResult.data?.messages ?? []),
@@ -144,6 +145,12 @@ export async function POST(req: Request) {
           ];
           systemPromptForRequest =
             chatContextResult.data?.context ?? systemPromptForRequest;
+          logger.debug("context", "Context gathered", {
+            historyMessageCount: chatContextResult.data?.messages?.length ?? 0,
+            contextLength: chatContextResult.data?.context?.length ?? 0,
+            contextPreview: chatContextResult.data?.context?.slice(0, 200) + (chatContextResult.data?.context && chatContextResult.data.context.length > 200 ? "…" : ""),
+            memoriesCount: chatContextResult.data?.memories?.length ?? 0,
+          });
         }
       } catch (err) {
         if (err instanceof TypeValidationError) {
@@ -167,6 +174,19 @@ export async function POST(req: Request) {
     `,
       );
 
+      logger.debug("messages", "Messages being sent to LLM", {
+        count: validatedMessages.length,
+        summary: validatedMessages.map((m) => {
+          const msg = m as { role?: string; id?: string; content?: string | unknown[] };
+          const content = msg.content;
+          return {
+            role: msg.role ?? "unknown",
+            id: msg.id,
+            contentLength: typeof content === "string" ? content.length : Array.isArray(content) ? content.length : 0,
+          };
+        }),
+      });
+
       writer.write({
         type: "data-notification",
         data: { message: `Using ${selectedModel.name}`, level: "info" },
@@ -188,7 +208,15 @@ export async function POST(req: Request) {
         writer,
       });
 
-      const hasTools = Object.keys(tools).length > 0;
+      const toolNames = Object.keys(tools);
+      logger.debug("tools", "Compiled tools", {
+        toolNames,
+        toolCount: toolNames.length,
+        toolInstructionsLength: toolInstructions.length,
+        toolInstructionsPreview: toolInstructions.slice(0, 300) + (toolInstructions.length > 300 ? "…" : ""),
+      });
+
+      const hasTools = toolNames.length > 0;
       // One round of tool use + one round of response; avoids redundant multi-step searches
       const maxSteps = hasTools ? MAX_TOOL_STEPS : 2;
       if (hasTools) {
@@ -203,6 +231,15 @@ export async function POST(req: Request) {
         type: "data-aiAction",
         data: { action: ChatAIActionEnum.Processing, message: "Thinking..." },
         transient: true,
+      });
+
+      logger.debug("streamText", "Calling streamText", {
+        model: selectedModel.id,
+        modelName: selectedModel.name,
+        messageCount: messages.length,
+        systemPromptLength: systemPromptForRequest.length,
+        maxSteps,
+        toolChoice: hasTools ? "auto" : "none",
       });
 
       const result = streamText({
