@@ -26,7 +26,7 @@ export default function Page({
         "text-primary",
         "md:inset-shadow-xs",
         "flex flex-col items-center justify-center gap-4",
-        `${open ? "md:mt-4 md:rounded-tl-xl  md:border-l-1 md:border-t-1 md:border-border" : ""}`,
+        `${open ? "md:mt-4 md:h-[calc(100dvh-1rem)] md:rounded-tl-xl md:border-l-1 md:border-t-1 md:border-border" : ""}`,
         className,
       )}
     >

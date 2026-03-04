@@ -61,7 +61,7 @@ export default function RootLayout({
                 <SidebarProvider>
                   <Sidebar />
                   <ControlCluster />
-                  <main className="grow w-full overflow-hidden bg-background sm:bg-background-secondary h-full">
+                  <main className="grow w-full overflow-hidden bg-background sm:bg-background-secondary h-full min-h-dvh">
                     <div className={`${glass()} absolute top-0 left-0 pl-4 z-30 w-20 h-14 flex items-center rounded-br-lg md:hidden`}>
                       <SidebarTrigger />
                     </div>
