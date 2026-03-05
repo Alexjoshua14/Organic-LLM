@@ -3,8 +3,18 @@
 import { UIMessage, useChat } from "@ai-sdk/react";
 import { DefaultChatTransport } from "ai";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { BrainCircuit } from "lucide-react";
 
 import { ChatThread } from "./chat-thread";
+import { MemoryEphemeralCards } from "@/components/memory/memory-ephemeral-cards";
+import { MemoryLens } from "@/components/memory/memory-lens";
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+  SheetTrigger,
+} from "@/components/third-party/ui/sheet";
 
 import { getSettings } from "@/lib/user-settings";
 import { Thread } from "@/lib/schemas/chat";
@@ -40,6 +50,8 @@ export const Chat: React.FC<ChatProps> = ({
   const usePersistedSchemas = useRef<boolean>(persona === 'aion');
   const initialMessageSent = useRef<boolean>(false);
   const [aiAction, setAiAction] = useState<{ action: ChatAIActionEnum; message?: string; sources?: ExaSearchResultSource[] } | undefined>(undefined);
+  const [mem0Retrieved, setMem0Retrieved] = useState<{ memory: string }[]>([]);
+  const [mem0Added, setMem0Added] = useState<{ memory: string }[]>([]);
   const errorRef = useRef<Error | undefined>(undefined);
 
   // Temporary
@@ -71,8 +83,16 @@ export const Chat: React.FC<ChatProps> = ({
     }),
     onData: (data) => {
       /** Side channel for UI events */
-      logger.log("chat", JSON.stringify(data, null, 2))
-      if (data.type === "data-notification") {
+      logger.log("chat", JSON.stringify(data, null, 2));
+
+      if (data.type === "data-mem0-get") {
+        const payload = data.data as { memories?: { memory: string }[] };
+        setMem0Retrieved(payload.memories ?? []);
+        setMem0Added([]);
+      } else if (data.type === "data-mem0-update") {
+        const payload = data.data as { memories?: { memory: string }[] };
+        setMem0Added(payload.memories ?? []);
+      } else if (data.type === "data-notification") {
         logger.log("chat", `DATA_NOTIFICATION ${JSON.stringify(data.data, null, 2)}`);
         const dataObject = data.data as { message?: string };
 
@@ -198,9 +218,38 @@ export const Chat: React.FC<ChatProps> = ({
         ].join(" ")}
       >
         <ChatThread messages={messages} aiActionPayload={aiAction} />
+        {persona === "remy" && (
+          <MemoryEphemeralCards
+            retrieved={mem0Retrieved}
+            added={mem0Added}
+            autoClearMs={12000}
+          />
+        )}
         <ConversationScrollButton className="bottom-14" />
       </Conversation>
-      <div className="shrink-0 px-4 sm:px-7 pb-1 md:pb-4 w-full -mt-10">
+      <div className="shrink-0 px-4 sm:px-7 pb-1 md:pb-4 w-full -mt-10 flex flex-col gap-2">
+        {persona === "remy" && (
+          <Sheet>
+            <SheetTrigger asChild>
+              <button
+                type="button"
+                className="flex items-center gap-2 text-xs text-muted-foreground hover:text-cyan-600 dark:hover:text-cyan-400 transition-colors"
+              >
+                <BrainCircuit className="size-3.5" />
+                View persisted memory
+              </button>
+            </SheetTrigger>
+            <SheetContent
+              side="right"
+              className="w-full sm:max-w-md overflow-y-auto flex flex-col"
+            >
+              <SheetHeader>
+                <SheetTitle className="sr-only">Persisted memory</SheetTitle>
+              </SheetHeader>
+              <MemoryLens variant="sheet" className="flex-1 min-h-0" />
+            </SheetContent>
+          </Sheet>
+        )}
         <NewChatInput
           modelRef={selectedModelRef}
           useWebSearchRef={useWebSearchRef}

@@ -84,6 +84,35 @@ export async function searchMemoriesServer(
   }
 }
 
+/**
+ * Fetches all persisted memories for the current user (for Memory Lens UI).
+ * Uses Clerk auth + Supabase profile to resolve user id for Mem0.
+ */
+export async function getCurrentUserMemories(): Promise<
+  Result<SearchResult, string>
+> {
+  const { userId: clerkUserId } = await auth();
+  if (!clerkUserId) {
+    return { data: null, error: "Not signed in" };
+  }
+
+  const { getSupabaseUserId } = await import("@/data/supabase/profiles");
+  const sbResult = await getSupabaseUserId(clerkUserId);
+  if (sbResult.error || sbResult.data === null) {
+    return { data: null, error: "User profile not found" };
+  }
+
+  try {
+    const result = await getAllMemories(sbResult.data);
+    return { data: result, error: null };
+  } catch (error) {
+    return {
+      data: null,
+      error: error instanceof Error ? error.message : "Unknown error",
+    };
+  }
+}
+
 export async function getAllMemories(userId: string): Promise<SearchResult> {
   if (!userId) {
     throw new Error("User ID is required");

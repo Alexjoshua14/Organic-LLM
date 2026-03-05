@@ -63,6 +63,16 @@ export default function SandboxPage() {
       gradient: "from-stone-300/20 to-amber-200/20",
       hoverGradient: "hover:from-stone-300/30 hover:to-amber-200/30",
     },
+    {
+      title: "Memory",
+      description:
+        "Persisted memory lens, cards, and ephemeral in-chat preview",
+      href: "/sandbox/memory",
+      icon: "🧠",
+      size: "small",
+      gradient: "from-cyan-400/20 to-emerald-500/20",
+      hoverGradient: "hover:from-cyan-400/30 hover:to-emerald-500/30",
+    },
   ];
 
   return (
