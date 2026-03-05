@@ -7,20 +7,29 @@ import Page from "@/components/layout/page";
 /** Warm amber / natural sunlight — same as sidebar Showcase link (heliophysics-inspired). */
 const SHOWCASE_GLOW_HUE = "75";
 
+type ShowcasePageEntry = {
+  title: string;
+  description: string;
+  href: string;
+  icon: string;
+  size: "small" | "large";
+  edgeGlow?: boolean;
+};
+
 /**
  * Public showcase gateway. Pages here are snapshots promoted from sandbox —
  * layout/content is fixed until you rebase from sandbox; shared components
  * (e.g. MemoryLensCard) update automatically.
  */
 export default function ShowcasePage() {
-  const showcasePages = [
+  const showcasePages: ShowcasePageEntry[] = [
     {
       title: "Memory",
       description:
         "Persisted memory lens, cards, and ephemeral in-chat components — what Organic LLM stores and how it surfaces across threads.",
       href: "/showcase/memory",
       icon: "🧠",
-      size: "small" as const,
+      size: "small",
       edgeGlow: true,
     },
   ];
