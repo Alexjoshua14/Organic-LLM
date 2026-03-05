@@ -17,6 +17,7 @@ import { auth } from "@clerk/nextjs/server";
 import { GatewayProviderOptions } from "@ai-sdk/gateway";
 
 import { deleteChatMessage, getContext, saveChat } from "@/lib/chat/chat-store";
+import { getThreadHasTitle } from "@/data/supabase/chat";
 import { ensureChatHasTitle, updateChatSummary } from "@/lib/llm/chat-helpers";
 import {
   createGetFullChatHistoryTool,
@@ -94,6 +95,11 @@ export async function POST(req: Request) {
     return new Response("User not found in supabase", { status: 404 });
   }
   const sbUserId = sbUserIdResult.data;
+
+  // Cache whether this thread already has a title so we don't call ensureChatHasTitle on every request
+  const threadAlreadyHasTitle =
+    parseResult.data.threadHasTitle === true ||
+    (await getThreadHasTitle(id)).data === true;
 
   /**
    * Generate stable message ID for this entire response
@@ -396,8 +402,8 @@ export async function POST(req: Request) {
               void (async () => {
                 let ensureChatHasTitleMs: number | undefined;
 
-                // Ensure chat title for a sensible range (e.g. after 4–8 messages)
-                if (messages.length >= 4 && messages.length <= 8) {
+                // Ensure chat has an LLM-generated title only when we have enough messages and don't already have one
+                if (!threadAlreadyHasTitle && messages.length >= 4) {
                   const { result: titleResult, durationMs } =
                     await measureAsync(() => ensureChatHasTitle(id));
                   ensureChatHasTitleMs = durationMs;

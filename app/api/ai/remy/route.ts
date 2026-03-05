@@ -12,6 +12,7 @@ import { getMemories, addMemories } from "@mem0/vercel-ai-provider";
 import { UIMessage } from "ai";
 import { getContext } from "@/lib/chat/chat-store";
 import { saveChat } from "@/lib/chat/chat-store";
+import { GUARDRAIL_MAX_OUTPUT_TOKENS } from "@/lib/llm/helpers";
 import { createLogger } from "@/lib/logger";
 
 export const maxDuration = 30;
@@ -216,6 +217,7 @@ export async function POST(req: Request) {
     model: openai("gpt-4o"),
     messages: convertToModelMessages(validatedMessages),
     system: finalSystemPrompt,
+    maxOutputTokens: GUARDRAIL_MAX_OUTPUT_TOKENS,
   };
 
   // Only include tools if they're provided and have execute functions

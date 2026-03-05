@@ -1,6 +1,7 @@
 import { FC, memo, useEffect, useState } from "react";
 import { UIMessage } from "ai";
 
+import { cn } from "@/lib/utils";
 import { ClipboardCopyButton } from "../shared/clipboardCopyButton";
 import { TTSButton } from "../tts/ttsButton";
 import { PinToSpeakButton } from "./PinToSpeakButton";
@@ -96,7 +97,21 @@ const AIMessage: FC<ChatMessageProps> = ({ message, aiActionPayload }) => {
   );
 };
 
+const COLLAPSED_LINES = 6;
+const COLLAPSED_CHAR_THRESHOLD = 500;
+
+function isLongUserMessage(text: string): boolean {
+  const lines = text.split(/\n/).length;
+  return lines > COLLAPSED_LINES || text.length > COLLAPSED_CHAR_THRESHOLD;
+}
+
 const UserMessage: FC<ChatMessageProps> = ({ message }) => {
+  const [expanded, setExpanded] = useState(false);
+  const text = message.parts
+    .map((part) => (part.type === "text" ? part.text : ""))
+    .join("");
+  const long = isLongUserMessage(text);
+
   return (
     <div
       className={
@@ -104,17 +119,33 @@ const UserMessage: FC<ChatMessageProps> = ({ message }) => {
       }
     >
       <div className={`${glass()} p-4 rounded-lg`}>
-        {message.parts.map((part, i) => {
-          switch (part.type) {
-            case "text":
-              // return <RippleText latestMessage={true} key={`${message.id}-${i}`} text={part.text} />;
-              return <ChatMessageMarkdown
-                key={`${message.id}-${i}`}
-                content={part.text}
-                id={message.id}
-              />
-          }
-        })}
+        <div
+          className={cn(
+            long && !expanded && "line-clamp-6"
+          )}
+        >
+          {message.parts.map((part, i) => {
+            switch (part.type) {
+              case "text":
+                return (
+                  <ChatMessageMarkdown
+                    key={`${message.id}-${i}`}
+                    content={part.text}
+                    id={message.id}
+                  />
+                );
+            }
+          })}
+        </div>
+        {long && (
+          <button
+            type="button"
+            onClick={() => setExpanded((e) => !e)}
+            className="mt-2 text-sm text-muted-foreground hover:text-foreground underline underline-offset-2"
+          >
+            {expanded ? "Show less" : "Show more"}
+          </button>
+        )}
       </div>
     </div>
   );

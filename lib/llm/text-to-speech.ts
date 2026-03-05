@@ -10,6 +10,7 @@ import {
 import z from "zod";
 
 import { createLogger } from "../logger";
+import { GUARDRAIL_MAX_OUTPUT_TOKENS } from "./helpers";
 
 const logger = createLogger("lib/llm/text-to-speech.ts");
 
@@ -92,6 +93,7 @@ export async function transformTextToSpeechFriendly(
     system: SpeechFriendlySystemPrompt,
     prompt: text,
     temperature: 0,
+    maxOutputTokens: GUARDRAIL_MAX_OUTPUT_TOKENS,
   });
 
   const firstAttemptSpeechFriendlyTextEndGeneration = performance.now();
@@ -108,6 +110,7 @@ export async function transformTextToSpeechFriendly(
     prompt: `Original text: ${text}\n\nTransformed text: ${speechFriendlyText.text}`,
     temperature: 0,
     schema: ValidationSchema,
+    maxOutputTokens: GUARDRAIL_MAX_OUTPUT_TOKENS,
   });
   const validatedTranscriptEndGeneration = performance.now();
 
@@ -127,6 +130,7 @@ export async function transformTextToSpeechFriendly(
       ),
       prompt: `Original text: ${text}\n\nTransformed text: ${speechFriendlyText.text}`,
       temperature: 0,
+      maxOutputTokens: GUARDRAIL_MAX_OUTPUT_TOKENS,
     });
     const regeneratedTranscriptEndGeneration = performance.now();
 
@@ -146,6 +150,7 @@ export async function transformTextToSpeechFriendly(
           .enum(["A", "B", "C"])
           .describe("The best transcript based on the validation criteria"),
       }),
+      maxOutputTokens: GUARDRAIL_MAX_OUTPUT_TOKENS,
     });
     const betterVersionOfTranscriptEndGeneration = performance.now();
 
@@ -180,6 +185,7 @@ export async function transformTextToSpeechFriendly(
           .enum(["A", "B"])
           .describe("The best transcript based on the validation criteria"),
       }),
+      maxOutputTokens: GUARDRAIL_MAX_OUTPUT_TOKENS,
     });
     const betterVersionOfTranscriptEndGeneration = performance.now();
 
@@ -266,6 +272,7 @@ export async function transformTextToSpeechFriendlyV2(
     prompt: text,
     temperature: 0,
     schema: SpeechResultSchema,
+    maxOutputTokens: GUARDRAIL_MAX_OUTPUT_TOKENS,
   });
 
   if (result.object.grade >= 80) {
@@ -285,6 +292,7 @@ export async function transformTextToSpeechFriendlyV2(
     prompt: `Original text: ${text}\n\nTransformed text: ${result.object.speechFriendlyText}`,
     temperature: 0,
     schema: SpeechResultSchema,
+    maxOutputTokens: GUARDRAIL_MAX_OUTPUT_TOKENS,
   });
 
   const regeneratedTranscriptEndGeneration = performance.now();

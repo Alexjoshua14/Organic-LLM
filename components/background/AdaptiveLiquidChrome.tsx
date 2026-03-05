@@ -8,6 +8,8 @@ interface AdaptiveLiquidChromeProps {
   speed?: number;
   dimOnHover?: boolean;
   dimIntensity?: number; // 0-1, how much to dim (0 = no dim, 1 = fully dimmed)
+  /** When an element has data-dim-background="full", use this intensity (e.g. 0.6 → ~40% opacity). */
+  dimIntensityFull?: number;
   restDelay?: number; // milliseconds to wait before returning to rest state
   /** Called when dimmed state changes (e.g. for realtime display / debugging). */
   onDimChange?: (dimmed: boolean) => void;
@@ -26,11 +28,13 @@ export default function AdaptiveLiquidChrome({
   speed = 0.03,
   dimOnHover = true,
   dimIntensity = 0.7, // 0.7 = reduce to 30% opacity when hovering
+  dimIntensityFull = 0.6, // "full" dim → ~40% opacity when hovering data-dim-background="full"
   restDelay = 2800, // ~3 seconds delay before returning - feels thoughtful and intentional
   onDimChange,
 }: AdaptiveLiquidChromeProps) {
   const { resolvedTheme } = useTheme();
   const [isDimmed, setIsDimmed] = useState(false);
+  const [effectiveDimIntensity, setEffectiveDimIntensity] = useState(dimIntensity);
   const restTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const onDimChangeRef = useRef(onDimChange);
   const hoverActiveRef = useRef(false);
@@ -64,11 +68,15 @@ export default function AdaptiveLiquidChrome({
       }, restDelay);
     };
 
-    const handleMouseEnter = () => {
+    const handleMouseEnter = (e: Event) => {
+      const el = e.currentTarget as Element;
+      if (!el) return;
       if (restTimeoutRef.current) {
         clearTimeout(restTimeoutRef.current);
         restTimeoutRef.current = null;
       }
+      const isFull = el.getAttribute("data-dim-background") === "full";
+      setEffectiveDimIntensity(isFull ? dimIntensityFull : dimIntensity);
       hoverActiveRef.current = true;
       setIsDimmed(true);
       onDimChangeRef.current?.(true);
@@ -81,14 +89,16 @@ export default function AdaptiveLiquidChrome({
 
     const handleFocusIn = (e: FocusEvent) => {
       const target = e.target as Node;
-      const inDimArea = Array.from(document.querySelectorAll("[data-dim-background]")).some(
+      const dimEl = Array.from(document.querySelectorAll("[data-dim-background]")).find(
         (el: Element) => el.contains(target),
       );
-      if (!inDimArea) return;
+      if (!dimEl) return;
       if (restTimeoutRef.current) {
         clearTimeout(restTimeoutRef.current);
         restTimeoutRef.current = null;
       }
+      const isFull = dimEl.getAttribute("data-dim-background") === "full";
+      setEffectiveDimIntensity(isFull ? dimIntensityFull : dimIntensity);
       focusActiveRef.current = true;
       setIsDimmed(true);
       onDimChangeRef.current?.(true);
@@ -130,7 +140,7 @@ export default function AdaptiveLiquidChrome({
       });
       if (restTimeoutRef.current) clearTimeout(restTimeoutRef.current);
     };
-  }, [dimOnHover, restDelay]);
+  }, [dimOnHover, restDelay, dimIntensity, dimIntensityFull]);
 
   return (
     <div
@@ -142,7 +152,7 @@ export default function AdaptiveLiquidChrome({
         left: 0,
         right: 0,
         bottom: 0,
-        opacity: (isDimmed ? 1 - dimIntensity : 1) * baseOpacity,
+        opacity: (isDimmed ? 1 - effectiveDimIntensity : 1) * baseOpacity,
         transition: "opacity 2.5s cubic-bezier(0.25, 0.46, 0.45, 0.94)",
         willChange: "opacity",
       }}

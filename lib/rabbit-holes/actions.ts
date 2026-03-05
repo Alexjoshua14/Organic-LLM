@@ -25,6 +25,7 @@ import { Result } from "@/types";
 import { fetchExternalSources, getWebpageContent } from "../exa/sources";
 import { generateText } from "ai";
 import { openai } from "@ai-sdk/openai";
+import { GUARDRAIL_MAX_OUTPUT_TOKENS } from "@/lib/llm/helpers";
 
 const logger = createLogger("lib/rabbit-holes/actions.ts");
 
@@ -101,6 +102,7 @@ async function generateRefinedQuestion(
     model: openai("gpt-5-nano"),
     system: REFINE_QUESTION_SYSTEM_PROMPT,
     prompt: `Question to refine: ${question}\n\nPath history: ${pathHistory}`,
+    maxOutputTokens: GUARDRAIL_MAX_OUTPUT_TOKENS,
   });
 
   return text;

@@ -10,6 +10,7 @@ import {
 
 // import systemPrompt from "@/lib/system-prompt";
 import { saveChat } from "@/lib/chat/chat-store";
+import { GUARDRAIL_MAX_OUTPUT_TOKENS } from "@/lib/llm/helpers";
 import { ensureChatHasTitle } from "@/lib/llm/chat-helpers";
 import { createLogger } from "@/lib/logger";
 import { getContext } from "@/lib/llm/context";
@@ -46,6 +47,7 @@ export async function POST(req: Request) {
     model: model,
     system: prompt,
     messages: convertToModelMessages(messages),
+    maxOutputTokens: GUARDRAIL_MAX_OUTPUT_TOKENS,
     experimental_transform: smoothStream({
       delayInMs: 20, // optional: defaults to 10ms
       chunking: "word", // optional: defaults to 'word'

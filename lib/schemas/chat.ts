@@ -137,6 +137,8 @@ export const ChatRequestSchema = z.object({
   speechFriendly: z.boolean().optional(),
   /** When true, request is in zero-data-retention mode (no persistence). */
   zeroDataRetention: z.boolean().optional(),
+  /** Client hint: thread already has a title; server can skip ensureChatHasTitle and optionally getThreadHasTitle. */
+  threadHasTitle: z.boolean().optional(),
 });
 
 export const ThreadSummarySchema = z.object({

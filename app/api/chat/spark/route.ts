@@ -20,6 +20,7 @@ import {
   getContextAndMessagesChatPrompt,
   saveChat,
 } from "@/lib/chat/chat-store";
+import { GUARDRAIL_MAX_OUTPUT_TOKENS } from "@/lib/llm/helpers";
 import {
   ensureChatHasTitle,
   estimateTokenCount,
@@ -158,6 +159,7 @@ export async function POST(req: Request) {
     model: openai("gpt-5-mini"),
     messages: convertToModelMessages(validatedMessages),
     system: systemPrompt,
+    maxOutputTokens: GUARDRAIL_MAX_OUTPUT_TOKENS,
     tools: {
       web_search_preview: openai.tools.webSearchPreview({}),
     },

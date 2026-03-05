@@ -7,6 +7,11 @@ import {
 
 const logger = createLogger("lib/llm/helpers");
 
+/** ~5¢ at $25/M out — guardrail for routes that don't set their own limit */
+export const GUARDRAIL_MAX_OUTPUT_TOKENS = 2_000;
+/** ~5¢ at $5/M in — guardrail for input/context (use where provider supports it) */
+export const GUARDRAIL_MAX_INPUT_TOKENS = 10_000;
+
 // Default model configuration
 export const CHAT_MODEL = {
   name: DEFAULT_CHAT_MODEL,

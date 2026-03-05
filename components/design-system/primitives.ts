@@ -73,3 +73,19 @@ export const glass = tv({
     border: "all",
   },
 });
+
+/**
+ * Secondary-interactive: for secondary yet clearly available actions
+ * (e.g. copy-to-clipboard on code blocks). Gradient aligns with Organic LLM’s
+ * warm neutrals and accent teal; use on buttons and small interactive controls.
+ */
+export const secondaryInteractive = tv({
+  base: [
+    "border border-border shadow-sm text-foreground",
+    "bg-gradient-to-br from-secondary to-[#e8e6e1]",
+    "dark:from-[#252625] dark:to-[#1e1f1e]",
+    "hover:from-accent/15 hover:to-accent/5 hover:border-accent/30",
+    "dark:hover:from-accent/20 dark:hover:to-accent/10 dark:hover:border-accent/40",
+    "transition-all duration-200",
+  ].join(" "),
+});

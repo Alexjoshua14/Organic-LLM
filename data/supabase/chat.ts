@@ -8,6 +8,11 @@ import { getSupabaseUserId } from "./profiles";
 import { Thread, ThreadSchema } from "@/lib/schemas/chat";
 import { Result, SimpleResult } from "@/types";
 import {
+  decodeThreadFlags,
+  setFlag,
+  THREAD_FLAGS,
+} from "@/lib/thread-flags";
+import {
   convertMessageToUIMessage,
   convertUIMessageToMessage,
 } from "@/lib/chat/message-transform";
@@ -479,12 +484,54 @@ export async function getMessageCount(
   }
 }
 
+/**
+ * Returns whether the thread already has a title.
+ * Use this to skip ensureChatHasTitle when true (e.g. once per request).
+ * Uses only the title column so it works before/without the flags migration.
+ */
+export async function getThreadHasTitle(
+  chatId: string,
+): Promise<Result<boolean>> {
+  const sb = await supabaseServer();
+  const { data, error } = await sb
+    .from("threads")
+    .select("title")
+    .eq("id", chatId)
+    .single();
+
+  if (error) {
+    return {
+      data: null,
+      error: new Error(error?.message ?? "Unknown error"),
+    };
+  }
+  const hasTitle =
+    data?.title != null && String(data.title).trim() !== "";
+  return {
+    data: hasTitle,
+    error: null,
+  };
+}
+
 export async function updateChatTitle(
   chatId: string,
   title: string,
 ): Promise<SimpleResult> {
   const sb = await supabaseServer();
-  const { error } = await sb.from("threads").update({ title }).eq("id", chatId);
+  const updatePayload: { title: string; flags?: number } = { title };
+  // Set HAS_TITLE bit when flags column exists (after migration)
+  const { data: row, error: flagsErr } = await sb
+    .from("threads")
+    .select("flags")
+    .eq("id", chatId)
+    .single();
+  if (!flagsErr && row != null) {
+    updatePayload.flags = setFlag(row.flags ?? 0, THREAD_FLAGS.HAS_TITLE);
+  }
+  const { error } = await sb
+    .from("threads")
+    .update(updatePayload)
+    .eq("id", chatId);
 
   if (error) {
     return {

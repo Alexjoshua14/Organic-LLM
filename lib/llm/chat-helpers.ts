@@ -6,6 +6,7 @@ import {
   generateObject,
   generateText,
   ModelMessage,
+  type UIMessage,
 } from "ai";
 import { encodingForModel } from "js-tiktoken";
 
@@ -13,6 +14,7 @@ import { supabaseServer } from "../supabase/server";
 import { Message, ThreadSummarySchema } from "../schemas/chat";
 import { ValidSummary, ValidSummarySchema } from "../schemas/llm-tools";
 
+import { GUARDRAIL_MAX_OUTPUT_TOKENS } from "@/lib/llm/helpers";
 import { createLogger } from "@/lib/logger";
 import { convertMessageToUIMessage } from "@/lib/chat/message-transform";
 import {
@@ -28,6 +30,12 @@ const MODEL_SELECTION = {
   validator: openai("gpt-5-nano"),
   reviser: openai("gpt-5-mini"),
 };
+
+/** ZDR-capable model used for chat title generation (gateway model id). */
+const CHAT_TITLE_MODEL_ID = "google/gemini-3-flash";
+
+/** Max input tokens for title generation (keeps cost low for long threads). */
+const CHAT_TITLE_MAX_INPUT_TOKENS = 2_000;
 
 const SummarizerSystemPrompt = `
 You are Organic LLM's summarizer. 
@@ -80,6 +88,39 @@ Previous persisted summary (if any):
 
 const logger = createLogger(`lib/llm/chat-helpers.ts`);
 
+/** Extract plain text from a UIMessage for token estimation. */
+function getMessageTextForTokenEstimate(message: UIMessage): string {
+  const parts = message.parts ?? [];
+  const text = parts
+    .map((p) => (p.type === "text" && "text" in p ? (p as { text: string }).text : ""))
+    .join("");
+  const role = message.role ?? "user";
+  return `${role}: ${text}`;
+}
+
+/**
+ * Trim messages to fit within a token budget, keeping the most recent (relevant for title).
+ * Chronological order = oldest first; we keep the tail that fits.
+ */
+async function trimMessagesToTokenBudget(
+  chronologicalMessages: UIMessage[],
+  maxTokens: number,
+): Promise<UIMessage[]> {
+  if (chronologicalMessages.length === 0) return [];
+  let total = 0;
+  let startIndex = chronologicalMessages.length;
+  // Walk from newest (end) backward, counting tokens until we'd exceed budget
+  for (let i = chronologicalMessages.length - 1; i >= 0; i--) {
+    const text = getMessageTextForTokenEstimate(chronologicalMessages[i]);
+    const tokens = await estimateTokenCount(text);
+    const n = tokens ?? Math.ceil(text.length / 4);
+    if (total + n > maxTokens) break;
+    total += n;
+    startIndex = i;
+  }
+  return chronologicalMessages.slice(startIndex);
+}
+
 export async function ensureChatHasTitle(
   chatId: string,
 ): Promise<Result<string>> {
@@ -100,18 +141,15 @@ export async function ensureChatHasTitle(
     };
   }
 
-  if (
-    res.data?.title !== null &&
-    res.data?.title.trim() !== "" &&
-    res.data?.title !== undefined
-  ) {
+  const hasTitle =
+    res.data?.title != null && String(res.data.title).trim() !== "";
+  if (hasTitle) {
     logger.log(
       "ensureChatHasTitle",
-      `Chat already has title: ${res.data.title}`,
+      `Chat already has title: ${res.data!.title}`,
     );
-
     return {
-      data: res.data.title,
+      data: String(res.data!.title).trim(),
       error: null,
     };
   }
@@ -145,7 +183,7 @@ export async function generateChatTitle(
 
   const uiMessages = messages.data
     .map((message) => convertMessageToUIMessage(message as Message))
-    .filter((message) => message !== null);
+    .filter((message): message is UIMessage => message !== null);
 
   if (uiMessages.length === 0) {
     logger.error("updateChatTitle", `No messages found for chat: ${chatId}`);
@@ -156,29 +194,78 @@ export async function generateChatTitle(
     };
   }
 
-  const { text: conversationSummary } = await generateText({
-    model: MODEL_SELECTION.summarizer,
-    system: `
+  // Chronological order (oldest first) for coherent summary/title
+  const chronologicalMessages = [...uiMessages].reverse();
+  const messagesForTitle = await trimMessagesToTokenBudget(
+    chronologicalMessages,
+    CHAT_TITLE_MAX_INPUT_TOKENS,
+  );
+  if (messagesForTitle.length < chronologicalMessages.length) {
+    logger.log(
+      "generateChatTitle",
+      `Trimmed ${chronologicalMessages.length} messages to ${messagesForTitle.length} (${CHAT_TITLE_MAX_INPUT_TOKENS} token cap)`,
+    );
+  }
+
+  let conversationSummary: string;
+  let titleIdea: string;
+
+  try {
+    const summaryResult = await generateText({
+      model: CHAT_TITLE_MODEL_ID,
+      system: `
     You are a helpful assistant that generates a summary of a chat.
     The chat messages will be provided to you.
-    Generate a summary of the chat.
+    Generate a short summary of the chat in one or two sentences.
     `,
-    messages: convertToModelMessages(uiMessages),
-  });
+      messages: convertToModelMessages(messagesForTitle),
+      maxOutputTokens: GUARDRAIL_MAX_OUTPUT_TOKENS,
+    });
+    conversationSummary = summaryResult.text ?? "";
+  } catch (err) {
+    logger.error(
+      "generateChatTitle",
+      `Error generating conversation summary: ${err instanceof Error ? err.message : String(err)}`,
+    );
+    return {
+      data: null,
+      error: new Error(
+        err instanceof Error ? err.message : "Failed to generate summary",
+      ),
+    };
+  }
 
-  const { text: titleIdea } = await generateText({
-    model: MODEL_SELECTION.summarizer,
-    system: `
+  try {
+    const titleResult = await generateText({
+      model: CHAT_TITLE_MODEL_ID,
+      system: `
     You are a helpful assistant that generates a title for a chat.
     Generate a title for the chat based on the conversation summary.
     The title should be no more than 20 characters.
     But can be up to 40 characters if truly necessary.
-    Return only the title, no other text.
+    Return only the title, no other text. No quotes.
     `,
-    prompt: conversationSummary,
-  });
+      prompt: conversationSummary,
+      maxOutputTokens: GUARDRAIL_MAX_OUTPUT_TOKENS,
+    });
+    titleIdea = (titleResult.text ?? "").trim().replace(/^["']|["']$/g, "");
+  } catch (err) {
+    logger.error(
+      "generateChatTitle",
+      `Error generating title: ${err instanceof Error ? err.message : String(err)}`,
+    );
+    return {
+      data: null,
+      error: new Error(
+        err instanceof Error ? err.message : "Failed to generate title",
+      ),
+    };
+  }
 
-  const res = await updateChatTitle(chatId, titleIdea);
+  const finalTitle =
+    titleIdea.length > 0 ? titleIdea.slice(0, 255) : "Chat";
+
+  const res = await updateChatTitle(chatId, finalTitle);
 
   if (res.error) {
     logger.error(
@@ -193,7 +280,7 @@ export async function generateChatTitle(
   }
 
   return {
-    data: titleIdea,
+    data: finalTitle,
     error: null,
   };
 }
@@ -240,6 +327,7 @@ export async function summarizeChat(
     system: SummarizerSystemPrompt,
     temperature: 0.2,
     messages: modelMessages,
+    maxOutputTokens: GUARDRAIL_MAX_OUTPUT_TOKENS,
   });
 
   summaryGenerationCount++;
@@ -481,6 +569,7 @@ export async function updateChatSummary(
     ),
     temperature: 0.3,
     messages: modelMessages,
+    maxOutputTokens: GUARDRAIL_MAX_OUTPUT_TOKENS,
   });
 
   // logger.log("updateChatSummary", `Updated summary: ${updatedSummary}`);
@@ -574,6 +663,7 @@ const validateSummary = async (
       temperature: 0.1,
       messages: messages,
       schema: ValidSummarySchema,
+      maxOutputTokens: GUARDRAIL_MAX_OUTPUT_TOKENS,
     });
 
     validSummary = validatorRes.object;
@@ -603,6 +693,7 @@ const validateSummary = async (
         .replace("{{reason}}", validSummary.reason),
       temperature: 0.2,
       messages: messages,
+      maxOutputTokens: GUARDRAIL_MAX_OUTPUT_TOKENS,
     });
 
     conversationSummary = updatedConversationSummary;
