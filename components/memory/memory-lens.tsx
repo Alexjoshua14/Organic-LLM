@@ -1,7 +1,10 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { getCurrentUserMemories } from "@/lib/memory/operations";
+import {
+  getCurrentUserMemories,
+  getCurrentUserMemoriesBySearch,
+} from "@/lib/memory/operations";
 import { MemoryLensCard } from "./memory-lens-card";
 import { SearchResult } from "mem0ai/oss";
 import { cn } from "@/lib/utils";
@@ -10,9 +13,18 @@ export type MemoryLensProps = {
   /** Inline mode (e.g. Settings tab) vs sheet (narrower, with padding) */
   variant?: "inline" | "sheet";
   className?: string;
+  /** When set, show only memories matching this semantic query (e.g. for sandbox demo). */
+  searchQuery?: string;
+  /** Max number of memories when using searchQuery; default 5. */
+  searchLimit?: number;
 };
 
-export function MemoryLens({ variant = "inline", className }: MemoryLensProps) {
+export function MemoryLens({
+  variant = "inline",
+  className,
+  searchQuery,
+  searchLimit = 5,
+}: MemoryLensProps) {
   const [result, setResult] = useState<SearchResult | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -20,7 +32,9 @@ export function MemoryLens({ variant = "inline", className }: MemoryLensProps) {
   const load = useCallback(async () => {
     setLoading(true);
     setError(null);
-    const res = await getCurrentUserMemories();
+    const res = searchQuery
+      ? await getCurrentUserMemoriesBySearch(searchQuery, searchLimit)
+      : await getCurrentUserMemories();
     if (res.error) {
       setError(res.error);
       setResult(null);
@@ -28,7 +42,7 @@ export function MemoryLens({ variant = "inline", className }: MemoryLensProps) {
       setResult(res.data ?? null);
     }
     setLoading(false);
-  }, []);
+  }, [searchQuery, searchLimit]);
 
   useEffect(() => {
     load();
@@ -105,6 +119,11 @@ export function MemoryLens({ variant = "inline", className }: MemoryLensProps) {
           What Organic LLM has stored and can retrieve across any thread.
           Semantically searchable so the right context surfaces when you need it.
         </p>
+        {searchQuery && (
+          <p className="text-xs text-muted-foreground/80 italic">
+            Showing up to {searchLimit} memories for: “{searchQuery}”
+          </p>
+        )}
       </header>
 
       {isEmpty ? (

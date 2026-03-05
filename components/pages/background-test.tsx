@@ -19,11 +19,7 @@ export default function BackgroundTestPage() {
 
   return (
     <Page transparentBackground>
-      <AdaptiveLiquidChrome
-        dimIntensity={0.45}
-        restDelay={REST_DELAY_MS}
-        onDimChange={setDimmed}
-      />
+      <AdaptiveLiquidChrome dimIntensity={0.45} onDimChange={setDimmed} />
       <div className="relative z-10 flex flex-col items-center justify-center gap-8 p-6">
         <p className="text-sm text-muted-foreground text-center max-w-sm">
           AdaptiveLiquidChrome — hover or focus the controls to see the

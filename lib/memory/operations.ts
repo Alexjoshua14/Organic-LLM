@@ -113,6 +113,36 @@ export async function getCurrentUserMemories(): Promise<
   }
 }
 
+/**
+ * Fetches up to N memories for the current user matching a semantic search query.
+ * Uses Clerk auth + Supabase profile; useful for curated lens views (e.g. sandbox demo).
+ */
+export async function getCurrentUserMemoriesBySearch(
+  query: string,
+  limit: number = 5,
+): Promise<Result<SearchResult, string>> {
+  const { userId: clerkUserId } = await auth();
+  if (!clerkUserId) {
+    return { data: null, error: "Not signed in" };
+  }
+
+  const { getSupabaseUserId } = await import("@/data/supabase/profiles");
+  const sbResult = await getSupabaseUserId(clerkUserId);
+  if (sbResult.error || sbResult.data === null) {
+    return { data: null, error: "User profile not found" };
+  }
+
+  try {
+    const result = await searchMemories(query, sbResult.data, { limit });
+    return { data: result, error: null };
+  } catch (error) {
+    return {
+      data: null,
+      error: error instanceof Error ? error.message : "Unknown error",
+    };
+  }
+}
+
 export async function getAllMemories(userId: string): Promise<SearchResult> {
   if (!userId) {
     throw new Error("User ID is required");

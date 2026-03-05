@@ -10,10 +10,17 @@ interface AdaptiveLiquidChromeProps {
   dimIntensity?: number; // 0-1, how much to dim (0 = no dim, 1 = fully dimmed)
   /** When an element has data-dim-background="full", use this intensity (e.g. 0.6 → ~40% opacity). */
   dimIntensityFull?: number;
-  restDelay?: number; // milliseconds to wait before returning to rest state
+  /** Duration (ms) for transition into dimmed state (quick response to hover/focus). */
+  dimTransitionMs?: number;
+  /** Duration (ms) for phase 1 of brightening: dimmed → 65% opacity (quickish, still slower than dim). */
+  to65TransitionMs?: number;
+  /** Duration (ms) for phase 2 of brightening: 65% → 100% (slow, ease). */
+  to100TransitionMs?: number;
   /** Called when dimmed state changes (e.g. for realtime display / debugging). */
   onDimChange?: (dimmed: boolean) => void;
 }
+
+type BrightnessState = "dimmed" | "to65" | "rest";
 
 /**
  * AdaptiveLiquidChrome - A smart background that dims when hovering or when focus
@@ -24,18 +31,25 @@ interface AdaptiveLiquidChromeProps {
  * Example: <Button data-dim-background>Click me</Button>
  * Focusable descendants (e.g. <Input>) keep the background dimmed while active.
  */
+const EASE_SMOOTH = "cubic-bezier(0.25, 0.46, 0.45, 0.94)";
+
+const BRIGHTEN_65 = 0.65; // first-phase target (65% opacity)
+
 export default function AdaptiveLiquidChrome({
-  speed = 0.03,
+  speed = 0.012,
   dimOnHover = true,
   dimIntensity = 0.7, // 0.7 = reduce to 30% opacity when hovering
   dimIntensityFull = 0.6, // "full" dim → ~40% opacity when hovering data-dim-background="full"
-  restDelay = 2800, // ~3 seconds delay before returning - feels thoughtful and intentional
+  dimTransitionMs = 700, // quick to dim when you hover/focus
+  to65TransitionMs = 1200, // quickish to 65% when no longer active (still slower than dim)
+  to100TransitionMs = 2800, // slow the rest of the way to full, with ease
   onDimChange,
 }: AdaptiveLiquidChromeProps) {
   const { resolvedTheme } = useTheme();
-  const [isDimmed, setIsDimmed] = useState(false);
+  const [brightnessState, setBrightnessState] = useState<BrightnessState>("rest");
   const [effectiveDimIntensity, setEffectiveDimIntensity] = useState(dimIntensity);
-  const restTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const [transitionDuration, setTransitionDuration] = useState(`${to100TransitionMs}ms`);
+  const phase2TimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const onDimChangeRef = useRef(onDimChange);
   const hoverActiveRef = useRef(false);
   const focusActiveRef = useRef(false);
@@ -61,24 +75,34 @@ export default function AdaptiveLiquidChrome({
 
     const tryRest = () => {
       if (hoverActiveRef.current || focusActiveRef.current) return;
-      restTimeoutRef.current = setTimeout(() => {
-        restTimeoutRef.current = null;
-        setIsDimmed(false);
-        onDimChangeRef.current?.(false);
-      }, restDelay);
+      if (phase2TimeoutRef.current) {
+        clearTimeout(phase2TimeoutRef.current);
+        phase2TimeoutRef.current = null;
+      }
+      // Start brightening immediately: phase 1 dimmed → 65% (quickish)
+      setTransitionDuration(`${to65TransitionMs}ms`);
+      setBrightnessState("to65");
+      onDimChangeRef.current?.(false);
+      phase2TimeoutRef.current = setTimeout(() => {
+        phase2TimeoutRef.current = null;
+        // Phase 2: 65% → 100% (slow, ease)
+        setTransitionDuration(`${to100TransitionMs}ms`);
+        setBrightnessState("rest");
+      }, to65TransitionMs);
     };
 
     const handleMouseEnter = (e: Event) => {
       const el = e.currentTarget as Element;
       if (!el) return;
-      if (restTimeoutRef.current) {
-        clearTimeout(restTimeoutRef.current);
-        restTimeoutRef.current = null;
+      if (phase2TimeoutRef.current) {
+        clearTimeout(phase2TimeoutRef.current);
+        phase2TimeoutRef.current = null;
       }
+      setTransitionDuration(`${dimTransitionMs}ms`);
       const isFull = el.getAttribute("data-dim-background") === "full";
       setEffectiveDimIntensity(isFull ? dimIntensityFull : dimIntensity);
       hoverActiveRef.current = true;
-      setIsDimmed(true);
+      setBrightnessState("dimmed");
       onDimChangeRef.current?.(true);
     };
 
@@ -93,14 +117,15 @@ export default function AdaptiveLiquidChrome({
         (el: Element) => el.contains(target),
       );
       if (!dimEl) return;
-      if (restTimeoutRef.current) {
-        clearTimeout(restTimeoutRef.current);
-        restTimeoutRef.current = null;
+      if (phase2TimeoutRef.current) {
+        clearTimeout(phase2TimeoutRef.current);
+        phase2TimeoutRef.current = null;
       }
+      setTransitionDuration(`${dimTransitionMs}ms`);
       const isFull = dimEl.getAttribute("data-dim-background") === "full";
       setEffectiveDimIntensity(isFull ? dimIntensityFull : dimIntensity);
       focusActiveRef.current = true;
-      setIsDimmed(true);
+      setBrightnessState("dimmed");
       onDimChangeRef.current?.(true);
     };
 
@@ -138,9 +163,16 @@ export default function AdaptiveLiquidChrome({
         el.removeEventListener("mouseenter", handleMouseEnter);
         el.removeEventListener("mouseleave", handleMouseLeave);
       });
-      if (restTimeoutRef.current) clearTimeout(restTimeoutRef.current);
+      if (phase2TimeoutRef.current) clearTimeout(phase2TimeoutRef.current);
     };
-  }, [dimOnHover, restDelay, dimIntensity, dimIntensityFull]);
+  }, [dimOnHover, dimIntensity, dimIntensityFull, dimTransitionMs, to65TransitionMs, to100TransitionMs]);
+
+  const opacity =
+    brightnessState === "dimmed"
+      ? (1 - effectiveDimIntensity) * baseOpacity
+      : brightnessState === "to65"
+        ? BRIGHTEN_65 * baseOpacity
+        : baseOpacity;
 
   return (
     <div
@@ -152,8 +184,8 @@ export default function AdaptiveLiquidChrome({
         left: 0,
         right: 0,
         bottom: 0,
-        opacity: (isDimmed ? 1 - effectiveDimIntensity : 1) * baseOpacity,
-        transition: "opacity 2.5s cubic-bezier(0.25, 0.46, 0.45, 0.94)",
+        opacity,
+        transition: `opacity ${transitionDuration} ${EASE_SMOOTH}`,
         willChange: "opacity",
       }}
     >

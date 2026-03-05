@@ -1,5 +1,11 @@
 "use client";
 
+/**
+ * Showcase snapshot: Memory UI.
+ * Layout/content is fixed here until you rebase from app/sandbox/memory/page.tsx.
+ * Shared components (MemoryLens, MemoryLensCard, etc.) update automatically.
+ */
+
 import Link from "next/link";
 import Page from "@/components/layout/page";
 import { MemoryLens } from "@/components/memory/memory-lens";
@@ -18,17 +24,16 @@ const sampleAdded = [
   { memory: "User asked to preview memory UI components in the sandbox." },
 ];
 
-export default function MemorySandboxPage() {
-
+export default function MemoryShowcasePage() {
   return (
     <Page>
       <div className="w-full max-w-2xl mx-auto p-6 pb-16">
         <Link
-          href="/sandbox"
+          href="/showcase"
           className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground mb-8"
         >
           <ArrowLeft className="size-4" />
-          Sandbox
+          Showcase
         </Link>
 
         <h1 className="text-2xl font-semibold tracking-tight mb-1">
