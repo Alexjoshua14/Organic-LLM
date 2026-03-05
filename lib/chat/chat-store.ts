@@ -159,13 +159,7 @@ export async function saveChat({
         return result;
       }, retryConfig);
       logger.log("saveChat", `Chat saved: ${chatId}`);
-    } else if (activeStreamId !== undefined) {
-      const result = await retryWithBackoff(async () => {
-        const result = await updateChatStream({ chatId, activeStreamId });
-      }, retryConfig);
-      logger.log("saveChat", `Chat stream updated: ${chatId}`);
     }
-
     return res;
   } catch (error) {
     const errorMessage =
@@ -179,6 +173,18 @@ export async function saveChat({
       ok: false,
       error: error instanceof Error ? error : new Error(errorMessage),
     };
+  } finally {
+    if (activeStreamId !== undefined) {
+      const result = await retryWithBackoff(async () => {
+        return await updateChatStream({ chatId, activeStreamId });
+      }, retryConfig);
+      if (!result.ok) {
+        logger.error(
+          "saveChat",
+          `Error updating chat stream: ${result.error?.message}`,
+        );
+      }
+    }
   }
 }
 
