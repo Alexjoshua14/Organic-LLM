@@ -28,13 +28,20 @@ function ArrowSvg({ className }: { className?: string }) {
   );
 }
 
-/** Accent hue ~174 (teal); complement 174+180 = 354 (red-magenta). Same L, C. */
-const ACCENT_COMPLEMENT_HUE = "354";
+/**
+ * Warm amber / natural sunlight color temperature (heliophysics-inspired).
+ * oklch hue ~75 = warm gold; L/C tuned for a soft “sun on glass” glow.
+ */
+const SHOWCASE_SUNLIGHT_HUE = "75";
+const SUNLIGHT_L = "0.72";
+const SUNLIGHT_C = "0.09";
+const SUNLIGHT_C_SOFT = "0.05";
+const SUNLIGHT_C_MID = "0.07";
 
 /**
  * Renders a Showcase gateway entry when the signed-in user can see the sandbox
  * (same visibility as SandboxGatewayButton). Uses shared showGatewayCache.
- * Styled with the accent's complementary color.
+ * Styled with a warm amber / sunlight glow.
  */
 export function ShowcaseGatewayButton() {
   const { userId } = useAuth();
@@ -80,13 +87,13 @@ export function ShowcaseGatewayButton() {
           "hover:scale-[1.03] active:scale-[0.98]",
         )}
         style={
-          { "--showcase-ring": `oklch(0.573 0.105 ${ACCENT_COMPLEMENT_HUE} / 0.5)` } as React.CSSProperties
+          { "--showcase-ring": `oklch(${SUNLIGHT_L} ${SUNLIGHT_C} ${SHOWCASE_SUNLIGHT_HUE} / 0.22)` } as React.CSSProperties
         }
         aria-label="Open Showcase"
       >
         <span
-          className="absolute -inset-3 rounded-3xl blur-2xl opacity-80"
-          style={{ background: `oklch(0.573 0.105 ${ACCENT_COMPLEMENT_HUE} / 0.25)` }}
+          className="absolute -inset-3 rounded-3xl blur-2xl opacity-40"
+          style={{ background: `oklch(${SUNLIGHT_L} ${SUNLIGHT_C} ${SHOWCASE_SUNLIGHT_HUE} / 0.12)` }}
           aria-hidden
         />
         <span className="absolute inset-0 rounded-2xl brightness-90 dark:brightness-75" aria-hidden>
@@ -94,7 +101,7 @@ export function ShowcaseGatewayButton() {
           <span
             className="absolute inset-0 rounded-2xl animate-[sandbox-border-shift_8s_ease-in-out_infinite]"
             style={{
-              background: `linear-gradient(115deg, transparent 0%, transparent 32%, oklch(0.72 0.045 ${ACCENT_COMPLEMENT_HUE} / 0.55) 42%, oklch(0.6 0.07 ${ACCENT_COMPLEMENT_HUE} / 0.7) 50%, oklch(0.72 0.045 ${ACCENT_COMPLEMENT_HUE} / 0.55) 58%, transparent 68%, transparent 100%)`,
+              background: `linear-gradient(115deg, transparent 0%, transparent 32%, oklch(0.78 ${SUNLIGHT_C_SOFT} ${SHOWCASE_SUNLIGHT_HUE} / 0.22) 42%, oklch(0.68 ${SUNLIGHT_C_MID} ${SHOWCASE_SUNLIGHT_HUE} / 0.28) 50%, oklch(0.78 ${SUNLIGHT_C_SOFT} ${SHOWCASE_SUNLIGHT_HUE} / 0.22) 58%, transparent 68%, transparent 100%)`,
               backgroundSize: "200% 200%",
               backgroundPosition: "0% 50%",
             }}
@@ -106,16 +113,16 @@ export function ShowcaseGatewayButton() {
               glass(),
               "border border-white/20 dark:border-white/10",
               "transition-colors duration-300",
-              "group-hover/showcase:border-[oklch(0.573_0.105_354/0.3)] group-hover/showcase:bg-[oklch(0.573_0.105_354/0.05)]",
-              "dark:group-hover/showcase:border-[oklch(0.573_0.105_354/0.4)] dark:group-hover/showcase:bg-[oklch(0.573_0.105_354/0.1)]",
+              "group-hover/showcase:border-[oklch(0.72_0.09_75/0.14)] group-hover/showcase:bg-[oklch(0.72_0.09_75/0.02)]",
+              "dark:group-hover/showcase:border-[oklch(0.72_0.09_75/0.2)] dark:group-hover/showcase:bg-[oklch(0.72_0.09_75/0.04)]",
             )}
           />
           <span
             className={cn(
               "absolute inset-0 rounded-2xl opacity-0 blur-xl transition-opacity duration-500",
-              "group-hover/showcase:opacity-100",
+              "group-hover/showcase:opacity-[0.35]",
             )}
-            style={{ background: `oklch(0.573 0.105 ${ACCENT_COMPLEMENT_HUE} / 0.2)` }}
+            style={{ background: `oklch(${SUNLIGHT_L} ${SUNLIGHT_C} ${SHOWCASE_SUNLIGHT_HUE} / 0.15)` }}
             aria-hidden
           />
         </span>

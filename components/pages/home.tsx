@@ -3,6 +3,7 @@ import { glass } from "../design-system/primitives";
 import Page from "../layout/page";
 
 import AdaptiveLiquidChrome from "@/components/background/AdaptiveLiquidChrome";
+import { AdminBlogLink } from "./admin-blog-link";
 import { SandboxGatewayButton } from "./sandbox-gateway-button";
 import { ShowcaseGatewayButton } from "./showcase-gateway-button";
 
@@ -19,6 +20,7 @@ export default function Home() {
           <div className="flex flex-wrap items-center justify-center gap-3">
             <SandboxGatewayButton />
             <ShowcaseGatewayButton />
+            <AdminBlogLink />
           </div>
         </div>
       </div>
