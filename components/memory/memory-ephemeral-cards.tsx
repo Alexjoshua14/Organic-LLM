@@ -11,6 +11,9 @@ export type MemoryEphemeralCardsProps = {
   /** Clear after this many ms; 0 = never auto-clear */
   autoClearMs?: number;
   className?: string;
+  /** When true, position absolute so cards overlay the conversation and don't affect layout. */
+  overlay?: boolean;
+  onOpenChange?: (opened: boolean) => void;
 };
 
 function EphemeralCard({
@@ -51,11 +54,21 @@ export function MemoryEphemeralCards({
   added = [],
   autoClearMs = 12_000,
   className,
+  overlay = false,
+  onOpenChange,
 }: MemoryEphemeralCardsProps) {
   const [dismissed, setDismissed] = useState(false);
   const hasRetrieved = retrieved.length > 0;
   const hasAdded = added.length > 0;
   const show = !dismissed && (hasRetrieved || hasAdded);
+
+  const hasContent = hasRetrieved || hasAdded;
+
+  useEffect(() => {
+    if (onOpenChange) {
+      onOpenChange(show);
+    }
+  }, [show, onOpenChange]);
 
   useEffect(() => {
     if (!show || autoClearMs <= 0) return;
@@ -63,23 +76,45 @@ export function MemoryEphemeralCards({
     return () => clearTimeout(t);
   }, [show, autoClearMs]);
 
-  if (!show) return null;
+  if (!hasContent) return null;
+
+  if (dismissed) {
+    return (
+      <div
+        className={cn(
+          overlay && "absolute bottom-14 left-0 right-0 z-10 pointer-events-auto",
+          className,
+          "flex items-center justify-center py-1 min-h-0 h-auto!"
+        )}
+      >
+        <button
+          type="button"
+          onClick={() => setDismissed(false)}
+          className="text-2xs uppercase tracking-wider font-light hover:text-accent transition-colors cursor-pointer"
+          aria-label="View memory"
+        >
+          Memory
+        </button>
+      </div>
+    );
+  }
 
   return (
     <div
       className={cn(
         "flex flex-col gap-3 px-4 pb-2 animate-in fade-in slide-in-from-bottom-2 duration-300",
+        overlay && "absolute bottom-14 left-0 right-0 z-10 pointer-events-auto",
         className
       )}
     >
       <div className="flex items-center justify-between gap-2">
-        <span className="text-[11px] font-medium uppercase tracking-wider text-cyan-500/90 dark:text-cyan-400/90">
+        <h2 className="m-0 text-2xs font-medium uppercase tracking-wider text-cyan-500/90 dark:text-cyan-400/90">
           Memory
-        </span>
+        </h2>
         <button
           type="button"
           onClick={() => setDismissed(true)}
-          className="text-[11px] text-muted-foreground hover:text-foreground transition-colors"
+          className="text-2xs text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
           aria-label="Dismiss"
         >
           Dismiss

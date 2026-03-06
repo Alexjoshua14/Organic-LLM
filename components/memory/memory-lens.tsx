@@ -7,6 +7,7 @@ import {
 } from "@/lib/memory/operations";
 import { MemoryLensCard } from "./memory-lens-card";
 import { SearchResult } from "mem0ai/oss";
+import { glass } from "@/components/design-system/primitives";
 import { cn } from "@/lib/utils";
 
 export type MemoryLensProps = {
@@ -67,7 +68,8 @@ export function MemoryLens({
     return (
       <div
         className={cn(
-          "flex flex-col gap-4",
+          glass(),
+          "rounded-2xl p-5 flex flex-col gap-4",
           variant === "sheet" && "px-2",
           className
         )}
@@ -106,7 +108,8 @@ export function MemoryLens({
   return (
     <div
       className={cn(
-        "flex flex-col gap-5",
+        glass(),
+        "rounded-2xl p-5 flex flex-col gap-5",
         variant === "sheet" && "px-2 pb-6",
         className
       )}

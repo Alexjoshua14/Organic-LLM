@@ -5,6 +5,7 @@ import Page from "@/components/layout/page";
 import { MemoryLens } from "@/components/memory/memory-lens";
 import { MemoryLensCard } from "@/components/memory/memory-lens-card";
 import { MemoryEphemeralCards } from "@/components/memory/memory-ephemeral-cards";
+import { InChatMemoryDemo } from "@/components/sandbox/in-chat-memory-demo";
 import { PhoneMockup } from "@/components/sandbox/phone-mockup";
 import { sampleMemories } from "@/test-data/sampleData";
 import { ArrowLeft } from "lucide-react";
@@ -37,6 +38,17 @@ export default function MemorySandboxPage() {
         <p className="text-muted-foreground text-sm mb-10">
           Persisted memory lens, cards, and ephemeral in-chat components.
         </p>
+
+        {/* In-chat Memory UI: streaming messages + ephemeral cards */}
+        <section className="mb-14" aria-labelledby="in-chat-demo-heading">
+          <h2 id="in-chat-demo-heading" className="text-sm font-medium text-muted-foreground uppercase tracking-wider mb-4">
+            In-chat memory UI (demo)
+          </h2>
+          <p className="text-sm text-muted-foreground mb-4 max-w-xl">
+            Simulated Remy chat: user message, then retrieved memories, then the assistant reply streaming in with new memories saved mid-stream. Use &quot;View persisted memory&quot; to open the lens sheet.
+          </p>
+          <InChatMemoryDemo className="w-full max-w-xl" />
+        </section>
 
         {/* Live Memory Lens: semantic search, 5 results (signed-in user) */}
         <section className="mb-14">

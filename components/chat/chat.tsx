@@ -5,7 +5,7 @@ import { DefaultChatTransport } from "ai";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { BrainCircuit } from "lucide-react";
 
-import { ChatThread } from "./chat-thread";
+import { ChatThread, MEMORY_PANEL_RESERVE_PADDING } from "./chat-thread";
 import { MemoryEphemeralCards } from "@/components/memory/memory-ephemeral-cards";
 import { MemoryLens } from "@/components/memory/memory-lens";
 import {
@@ -217,12 +217,17 @@ export const Chat: React.FC<ChatProps> = ({
           "overscroll-x-none",
         ].join(" ")}
       >
-        <ChatThread messages={messages} aiActionPayload={aiAction} />
+        <ChatThread
+          messages={messages}
+          aiActionPayload={aiAction}
+          contentClassName={persona === "remy" ? MEMORY_PANEL_RESERVE_PADDING : undefined}
+        />
         {persona === "remy" && (
           <MemoryEphemeralCards
             retrieved={mem0Retrieved}
             added={mem0Added}
             autoClearMs={12000}
+            overlay
           />
         )}
         <ConversationScrollButton className="bottom-14" />
@@ -241,7 +246,8 @@ export const Chat: React.FC<ChatProps> = ({
             </SheetTrigger>
             <SheetContent
               side="right"
-              className="w-full sm:max-w-md overflow-y-auto flex flex-col"
+              overlayPriority
+              className="w-full sm:max-w-md overflow-y-auto flex flex-col top-0 bottom-20 right-0 h-auto border-t-0"
             >
               <SheetHeader>
                 <SheetTitle className="sr-only">Persisted memory</SheetTitle>

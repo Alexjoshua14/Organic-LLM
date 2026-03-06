@@ -23,9 +23,16 @@ function SheetClose({
 }
 
 function SheetPortal({
+  container = typeof document !== "undefined" ? document.body : undefined,
   ...props
 }: React.ComponentProps<typeof SheetPrimitive.Portal>) {
-  return <SheetPrimitive.Portal data-slot="sheet-portal" {...props} />;
+  return (
+    <SheetPrimitive.Portal
+      data-slot="sheet-portal"
+      container={container}
+      {...props}
+    />
+  );
 }
 
 function SheetOverlay({
@@ -48,16 +55,21 @@ function SheetContent({
   className,
   children,
   side = "right",
+  overlayPriority,
   ...props
 }: React.ComponentProps<typeof SheetPrimitive.Content> & {
   side?: "top" | "right" | "bottom" | "left";
+  /** When true, overlay and content use z-[100] so the sheet sits above surrounding layout (e.g. over chat messages). */
+  overlayPriority?: boolean;
 }) {
+  const zClass = overlayPriority ? "z-[100]" : "z-50";
   return (
     <SheetPortal>
-      <SheetOverlay />
+      <SheetOverlay className={zClass} />
       <SheetPrimitive.Content
         className={cn(
-          "bg-background data-[state=open]:animate-in data-[state=closed]:animate-out fixed z-50 flex flex-col gap-4 shadow-lg transition ease-in-out data-[state=closed]:duration-300 data-[state=open]:duration-500",
+          "bg-background data-[state=open]:animate-in data-[state=closed]:animate-out fixed flex flex-col gap-4 shadow-lg transition ease-in-out data-[state=closed]:duration-300 data-[state=open]:duration-500",
+          zClass,
           side === "right" &&
             "data-[state=closed]:slide-out-to-right data-[state=open]:slide-in-from-right inset-y-0 right-0 h-full w-3/4 border-l sm:max-w-sm",
           side === "left" &&
