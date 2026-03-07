@@ -96,10 +96,10 @@ export async function POST(req: Request) {
   }
   const sbUserId = sbUserIdResult.data;
 
-  // Cache whether this thread already has a title so we don't call ensureChatHasTitle on every request
-  const threadAlreadyHasTitle =
-    parseResult.data.threadHasTitle === true ||
-    (await getThreadHasTitle(id)).data === true;
+  // Start fetching thread title status early; result is only needed in onFinish (non-blocking). Uses cache / client hint when possible.
+  const threadHasTitlePromise = getThreadHasTitle(id, {
+    knownHasTitle: parseResult.data.threadHasTitle === true,
+  });
 
   /**
    * Generate stable message ID for this entire response
@@ -402,6 +402,12 @@ export async function POST(req: Request) {
               void (async () => {
                 let ensureChatHasTitleMs: number | undefined;
 
+                // Use title status fetched earlier (or from request); by now the promise has had time to resolve
+                const threadHasTitleResult = await threadHasTitlePromise;
+                const threadAlreadyHasTitle =
+                  parseResult.data.threadHasTitle === true ||
+                  threadHasTitleResult.data === true;
+
                 // Ensure chat has an LLM-generated title only when we have enough messages and don't already have one
                 if (!threadAlreadyHasTitle && messages.length >= 4) {
                   const { result: titleResult, durationMs } =
@@ -414,6 +420,11 @@ export async function POST(req: Request) {
                       `Error ensuring chat has title: ${titleResult.error.message}`,
                     );
                   }
+                } else {
+                  logger.log(
+                    "POST",
+                    "Chat already has title; skipping title generation",
+                  );
                 }
 
                 const userMessage = message;

@@ -484,14 +484,27 @@ export async function getMessageCount(
   }
 }
 
+/** In-memory cache: thread id -> hasTitle. Avoids repeated Supabase calls in the same process. */
+const threadHasTitleCache = new Map<string, boolean>();
+
 /**
  * Returns whether the thread already has a title.
+ * Uses optional client hint and in-memory cache to avoid Supabase when possible.
  * Use this to skip ensureChatHasTitle when true (e.g. once per request).
- * Uses only the title column so it works before/without the flags migration.
  */
 export async function getThreadHasTitle(
   chatId: string,
+  options?: { knownHasTitle?: boolean },
 ): Promise<Result<boolean>> {
+  if (options?.knownHasTitle === true) {
+    threadHasTitleCache.set(chatId, true);
+    return { data: true, error: null };
+  }
+  const cached = threadHasTitleCache.get(chatId);
+  if (cached !== undefined) {
+    return { data: cached, error: null };
+  }
+
   const sb = await supabaseServer();
   const { data, error } = await sb
     .from("threads")
@@ -507,6 +520,7 @@ export async function getThreadHasTitle(
   }
   const hasTitle =
     data?.title != null && String(data.title).trim() !== "";
+  threadHasTitleCache.set(chatId, hasTitle);
   return {
     data: hasTitle,
     error: null,
@@ -540,6 +554,7 @@ export async function updateChatTitle(
     };
   }
 
+  threadHasTitleCache.set(chatId, true);
   return {
     ok: true,
     error: null,

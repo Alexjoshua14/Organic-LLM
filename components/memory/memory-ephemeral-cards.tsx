@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { motion } from "framer-motion";
 import { cn } from "@/lib/utils";
 
 export type MemoryEphemeralCardsProps = {
@@ -16,35 +17,50 @@ export type MemoryEphemeralCardsProps = {
   onOpenChange?: (opened: boolean) => void;
 };
 
+const CARD_ENTER_DURATION = 0.2;
+const CARD_STAGGER_DELAY = 0.04;
+
 function EphemeralCard({
   text,
   variant,
+  index = 0,
 }: {
   text: string;
   variant: "retrieved" | "added";
+  index?: number;
 }) {
   const isAdded = variant === "added";
   return (
-    <div
-      className={cn(
-        "rounded-xl border backdrop-blur-sm px-3 py-2.5",
-        isAdded
-          ? "border-emerald-500/20 dark:border-emerald-400/15 bg-emerald-500/5 dark:bg-emerald-400/5"
-          : "border-cyan-500/15 dark:border-cyan-400/10 bg-cyan-500/5 dark:bg-cyan-400/5"
-      )}
+    <motion.div
+      initial={{ height: 0, opacity: 0 }}
+      animate={{ height: "auto", opacity: 1 }}
+      transition={{
+        height: { duration: CARD_ENTER_DURATION, delay: index * CARD_STAGGER_DELAY },
+        opacity: { duration: CARD_ENTER_DURATION * 0.6, delay: index * CARD_STAGGER_DELAY },
+      }}
+      className="overflow-hidden"
     >
-      <div className="flex gap-2">
-        <div
-          className={cn(
-            "shrink-0 w-1 rounded-full",
-            isAdded
-              ? "bg-linear-to-b from-emerald-400/80 to-cyan-500/80"
-              : "bg-linear-to-b from-cyan-400/80 to-cyan-600/60"
-          )}
-        />
-        <p className="text-sm text-foreground leading-snug">{text}</p>
+      <div
+        className={cn(
+          "rounded-xl border backdrop-blur-sm px-3 py-2.5",
+          isAdded
+            ? "border-emerald-500/20 dark:border-emerald-400/15 bg-emerald-500/5 dark:bg-emerald-400/5"
+            : "border-cyan-500/15 dark:border-cyan-400/10 bg-cyan-500/5 dark:bg-cyan-400/5"
+        )}
+      >
+        <div className="flex gap-2">
+          <div
+            className={cn(
+              "shrink-0 w-1 rounded-full",
+              isAdded
+                ? "bg-linear-to-b from-emerald-400/80 to-cyan-500/80"
+                : "bg-linear-to-b from-cyan-400/80 to-cyan-600/60"
+            )}
+          />
+          <p className="text-sm text-foreground leading-snug">{text}</p>
+        </div>
       </div>
-    </div>
+    </motion.div>
   );
 }
 
@@ -128,7 +144,7 @@ export function MemoryEphemeralCards({
           </p>
           <div className="flex flex-col gap-2">
             {retrieved.map((m, i) => (
-              <EphemeralCard key={`r-${i}`} text={m.memory} variant="retrieved" />
+              <EphemeralCard key={`r-${m.memory}`} text={m.memory} variant="retrieved" index={i} />
             ))}
           </div>
         </section>
@@ -141,7 +157,7 @@ export function MemoryEphemeralCards({
           </p>
           <div className="flex flex-col gap-2">
             {added.map((m, i) => (
-              <EphemeralCard key={`a-${i}`} text={m.memory} variant="added" />
+              <EphemeralCard key={`a-${m.memory}`} text={m.memory} variant="added" index={i} />
             ))}
           </div>
         </section>

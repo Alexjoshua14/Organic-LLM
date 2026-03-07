@@ -128,14 +128,14 @@ export function ShowcaseGatewayButton() {
         </span>
         <span className="relative z-10 inline-flex items-center justify-center gap-2.5">
           <span
-            className="flex items-center gap-2.5 text-black mix-blend-multiply"
+            className="flex items-center gap-2.5 text-white dark:text-black mix-blend-multiply"
             aria-hidden
           >
             Showcase
             <ArrowSvg className="h-4 w-4 shrink-0" />
           </span>
           <span
-            className="absolute inset-0 flex items-center justify-start gap-2.5 text-white mix-blend-screen"
+            className="absolute inset-0 flex items-center justify-start gap-2.5 text-black dark:text-white mix-blend-screen"
             aria-hidden
           >
             Showcase

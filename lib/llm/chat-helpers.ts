@@ -35,7 +35,7 @@ const MODEL_SELECTION = {
 const CHAT_TITLE_MODEL_ID = "google/gemini-3-flash";
 
 /** Max input tokens for title generation (keeps cost low for long threads). */
-const CHAT_TITLE_MAX_INPUT_TOKENS = 2_000;
+const CHAT_TITLE_MAX_INPUT_TOKENS = 3_000;
 
 const SummarizerSystemPrompt = `
 You are Organic LLM's summarizer. 
@@ -92,7 +92,9 @@ const logger = createLogger(`lib/llm/chat-helpers.ts`);
 function getMessageTextForTokenEstimate(message: UIMessage): string {
   const parts = message.parts ?? [];
   const text = parts
-    .map((p) => (p.type === "text" && "text" in p ? (p as { text: string }).text : ""))
+    .map((p) =>
+      p.type === "text" && "text" in p ? (p as { text: string }).text : "",
+    )
     .join("");
   const role = message.role ?? "user";
   return `${role}: ${text}`;
@@ -262,8 +264,7 @@ export async function generateChatTitle(
     };
   }
 
-  const finalTitle =
-    titleIdea.length > 0 ? titleIdea.slice(0, 255) : "Chat";
+  const finalTitle = titleIdea.length > 0 ? titleIdea.slice(0, 255) : "Chat";
 
   const res = await updateChatTitle(chatId, finalTitle);
 
