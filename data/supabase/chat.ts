@@ -24,14 +24,28 @@ const logger = createLogger("data/supabase/chat.ts");
 const DEFAULT_MESSAGE_LIMIT = 10;
 
 /**
- * Needs to run with local user credentials, can not use service id
+ * Fetches thread list for the current (or specified) user.
+ * Needs to run with local user credentials; cannot use service role.
+ *
+ * When `ownerId` is provided, the query explicitly filters by `owner_id` as a
+ * defense-in-depth safeguard alongside RLS. When omitted, RLS alone enforces
+ * row access (existing callers).
+ *
+ * @param options.ownerId - Optional Supabase profile ID; when set, only threads
+ *   with this owner_id are returned.
  */
-export async function getChats(): Promise<Result<Thread[]>> {
+export async function getChats(options?: {
+  ownerId?: string;
+}): Promise<Result<Thread[]>> {
   const sb = await supabaseServer();
-  const { data, error } = await sb
+  const baseQuery = sb
     .from("threads")
     .select("id, title, owner_id, created_at, updated_at, pinned")
     .order("updated_at", { ascending: false });
+
+  const { data, error } = options?.ownerId
+    ? await baseQuery.eq("owner_id", options.ownerId)
+    : await baseQuery;
 
   return {
     data: data,

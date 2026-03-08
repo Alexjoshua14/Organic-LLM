@@ -32,7 +32,7 @@ type SidebarChatListProps = {
 
 export const SidebarChatList: FC<SidebarChatListProps> = ({ threads }) => {
   const { setOpenMobile, isMobile } = useSidebar();
-  const { setChatId } = useSharedChatContext();
+  const { setChatId, refreshSidebarChats } = useSharedChatContext();
   const currentChatId = useChatId();
   const router = useRouter();
 
@@ -58,12 +58,10 @@ export const SidebarChatList: FC<SidebarChatListProps> = ({ threads }) => {
           res.error.message,
         );
       }
-      if (window.refreshSidebar) {
-        window.refreshSidebar();
-      }
+      refreshSidebarChats();
       setEditingThreadId(null);
     },
-    [],
+    [refreshSidebarChats],
   );
 
   const togglePinThread = useCallback(async (thread: ThreadLink) => {
@@ -75,10 +73,10 @@ export const SidebarChatList: FC<SidebarChatListProps> = ({ threads }) => {
         `Error toggling pin for thread: ${thread.title}`,
         res.error.message,
       );
-    } else if (window.refreshSidebar) {
-      window.refreshSidebar();
+    } else {
+      refreshSidebarChats();
     }
-  }, []);
+  }, [refreshSidebarChats]);
 
   const handleLongPressStart = useCallback(
     (threadId: string) => {

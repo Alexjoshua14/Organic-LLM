@@ -6,11 +6,13 @@ import { SidebarMenuButton } from "../third-party/ui/sidebar";
 
 import { Logger } from "@/lib/logger";
 import { createChat } from "@/lib/chat/chat-store";
+import { useSharedChatContext } from "@/lib/context/chat-context";
 
 const logger = new Logger(`components/sidebar/sidebar-new-chat.tsx`);
 
 export const SidebarNewChat = () => {
   const router = useRouter();
+  const { refreshSidebarChats } = useSharedChatContext();
 
   const handleNewChat = () => {
     async function createNewChat() {
@@ -24,16 +26,7 @@ export const SidebarNewChat = () => {
       }
 
       const id = res.data;
-
-      /** Refresh sidebar */
-      try {
-        if (window.refreshSidebar) {
-          window.refreshSidebar();
-        }
-      } catch (_error) {
-        logger.error("handleNewChat", "Error refreshing sidebar");
-      }
-
+      refreshSidebarChats();
       router.push(`/chat/${id}`);
     }
 

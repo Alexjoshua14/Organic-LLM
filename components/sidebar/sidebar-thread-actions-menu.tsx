@@ -23,6 +23,7 @@ import { useRouter, usePathname } from "next/navigation";
 import { ThreadLink } from "@/types";
 import { deleteChat } from "@/data/supabase/chat";
 import { createLogger } from "@/lib/logger";
+import { useSharedChatContext } from "@/lib/context/chat-context";
 
 const logger = createLogger("components/sidebar/sidebar-thread-actions-menu.tsx");
 
@@ -47,6 +48,7 @@ export function SidebarThreadActionsMenu({
     useDisclosure();
   const pathname = usePathname();
   const router = useRouter();
+  const { refreshSidebarChats } = useSharedChatContext();
 
   const handleEditTitle = useCallback(() => {
     onOpenChange(false);
@@ -69,17 +71,7 @@ export function SidebarThreadActionsMenu({
       const res = await deleteChat(threadID);
 
       if (res.ok) {
-        try {
-          if (window.refreshSidebar) {
-            window.refreshSidebar();
-          }
-        } catch (error) {
-          logger.error(
-            "handleDeleteThread",
-            "Error refreshing sidebar:",
-            error,
-          );
-        }
+        refreshSidebarChats();
         onClose();
         if (pathname === `/chat/${threadID}`) {
           router.push("/");
@@ -94,7 +86,7 @@ export function SidebarThreadActionsMenu({
 
     logger.log("deleteThread", `Deleting thread: ${thread.title}`);
     handleDeleteThread();
-  }, [thread, pathname, router]);
+  }, [thread, pathname, router, refreshSidebarChats, onClose]);
 
   return (
     <>

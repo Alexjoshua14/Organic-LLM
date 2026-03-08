@@ -16,6 +16,7 @@ import { useCallback } from "react";
 import { ThreadLink } from "@/types";
 import { deleteChat } from "@/data/supabase/chat";
 import { createLogger } from "@/lib/logger";
+import { useSharedChatContext } from "@/lib/context/chat-context";
 import { useRouter, usePathname } from "next/navigation";
 
 const logger = createLogger(
@@ -28,8 +29,9 @@ export default function SidebarDeleteThreadButton({
   thread: ThreadLink;
 }) {
   const { isOpen, onOpen, onClose, onOpenChange } = useDisclosure();
-  const pathname = usePathname()
-  const router = useRouter()
+  const pathname = usePathname();
+  const router = useRouter();
+  const { refreshSidebarChats } = useSharedChatContext();
 
   const deleteThread = useCallback(() => {
     const handleDeleteThread = async () => {
@@ -37,18 +39,7 @@ export default function SidebarDeleteThreadButton({
       const res = await deleteChat(threadID);
 
       if (res.ok) {
-        /** Refresh sidebar */
-        try {
-          if (window.refreshSidebar) {
-            window.refreshSidebar();
-          }
-        } catch (error) {
-          logger.error(
-            "handleDeleteThread",
-            "Error refreshing sidebar:",
-            error,
-          );
-        }
+        refreshSidebarChats();
         onClose();
         if (pathname === `/chat/${threadID}`)
           router.push("/");
@@ -65,7 +56,7 @@ export default function SidebarDeleteThreadButton({
 
     logger.log("deleteThread", `Deleting thread: ${thread.title}`);
     handleDeleteThread();
-  }, [thread, pathname, router]);
+  }, [thread, pathname, router, refreshSidebarChats, onClose]);
 
   return (
     <>
