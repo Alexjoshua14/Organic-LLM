@@ -54,7 +54,7 @@ export default function RootLayout({
           )}
         >
           <Providers
-            themeProps={{ attribute: "class", defaultTheme: "system" }}
+            themeProps={{ attribute: "class", defaultTheme: "system", enableSystem: true }}
           >
             <FontProvider>
               <ChatProvider>

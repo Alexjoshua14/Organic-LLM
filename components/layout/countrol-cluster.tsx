@@ -35,7 +35,7 @@ export const ControlCluster: FC<ControlClusterProps> = ({ className }) => {
           <Settings2Icon size={16} />
         </button>
         <div className="w-8 h-8 grid place-content-center">
-          <ThemeSwitch />
+          <ThemeSwitch variant="compact" />
         </div>
       </div>
       <SettingsOverlay open={settingsOpen} onOpenChange={setSettingsOpen} />

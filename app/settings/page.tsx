@@ -114,7 +114,7 @@ export default function SettingsPage() {
                   <h3 className="text-sm font-medium text-foreground mb-2">Theme</h3>
                   <div className="flex items-center gap-3">
                     <ThemeSwitch />
-                    <span className="text-sm text-muted-foreground">Light / Dark</span>
+                    <span className="text-sm text-muted-foreground">System / Light / Dark</span>
                   </div>
                 </div>
                 <FontSetting />

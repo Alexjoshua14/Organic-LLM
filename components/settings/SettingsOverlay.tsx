@@ -72,7 +72,7 @@ export function SettingsOverlay({
             <div className="flex items-center gap-3">
               <ThemeSwitch className="text-foreground" />
               <span className="text-xs text-muted-foreground">
-                Light / Dark
+                System / Light / Dark
               </span>
             </div>
           </section>
