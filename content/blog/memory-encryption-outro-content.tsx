@@ -1,6 +1,9 @@
 import { BlogSection } from "@/components/blog/blog-section";
 import { MermaidDiagram } from "@/components/blog/mermaid-diagram";
-import { CodeBlock } from "@/components/blog/code-block";
+import {
+  PipelineDiagram,
+  type PipelineSection,
+} from "@/components/blog/pipeline-diagram";
 
 const LAYERS_MERMAID = `flowchart LR
   subgraph env [Config]
@@ -54,20 +57,34 @@ const LAYERS_MERMAID = `flowchart LR
   decrypt --> decSummary
 `;
 
-const PIPELINE_CODE = `User
- │
-TLS 1.3
- │
-Next.js server
- │
-HKDF-derived user encryption keys
- │
-AES-256-GCM field encryption
- │
-Supabase (AES-256 at rest)
- │
-disk
-`;
+const PIPELINE_SECTIONS: PipelineSection[] = [
+  { boundary: "User", steps: [] },
+  {
+    tunnel: {
+      from: "User",
+      to: "Next.js server",
+      label: "Message encapsulated in transit (TLS 1.3)",
+    },
+  },
+  {
+    boundary: "Next.js server",
+    steps: [
+      "Message sent to external LLM; response returned to user via TLS",
+      "In parallel: HKDF-derived user keys → AES-256-GCM encryption → send to Supabase",
+    ],
+  },
+  {
+    tunnel: {
+      from: "Next.js server",
+      to: "Database",
+      label: "Encrypted payload (TLS to Supabase)",
+    },
+  },
+  {
+    boundary: "Database",
+    steps: ["Supabase (AES-256 at rest)"],
+  },
+];
 
 export function MemoryEncryptionOutroContent() {
   return (
@@ -160,12 +177,12 @@ export function MemoryEncryptionOutroContent() {
       <hr />
 
       <h2>Final architecture and security properties</h2>
-      <p>End-to-end pipeline:</p>
-      <CodeBlock code={PIPELINE_CODE} language="text" />
+      <p className="mb-1">End-to-end pipeline:</p>
+      <PipelineDiagram sections={PIPELINE_SECTIONS} />
 
       <p>
         <strong>Ciphertext format:</strong> A versioned prefix, key id, then
-        IV, tag, and ciphertext (e.g.{" "}
+        initialization vector (IV), tag, and ciphertext (e.g.{" "}
         <code>enc:v1:&lt;keyId&gt;:&lt;iv&gt;:&lt;tag&gt;:&lt;ciphertext&gt;</code>).
       </p>
       <p>

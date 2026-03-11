@@ -70,89 +70,110 @@ export function MemoryEncryptionIntroContent() {
       </p>
 
       <h3>Encryption model evaluation</h3>
-      <p>
-        <strong>Database-only encryption</strong>
-        <br />
+      <h3 className="text-base font-semibold mt-4">Option A — Database-only encryption</h3>
+      <div className="pl-4 text-sm text-foreground/90 space-y-0.5">
         Protects physical disk.
         <br />
         Does not protect against database compromise or admin access.
         <br />
-        <strong>Insufficient.</strong>
-      </p>
-      <p>
-        <strong>Application-layer encryption</strong>
-        <br />
+        <em className="font-semibold">Insufficient.</em>
+      </div>
+      <h3 className="text-base font-semibold mt-4">Option B — Application-layer encryption</h3>
+      <div className="pl-4 text-sm text-foreground/90 space-y-0.5">
         Encrypt before writing to the DB.
         <br />
         Protects against DB leaks.
         <br />
         Common in privacy-focused apps; adds moderate complexity.
         <br />
-        <strong>Best approach.</strong>
-      </p>
+        <em className="font-semibold">Best approach.</em>
+      </div>
 
       <h3>Encryption algorithm research</h3>
-      <ul>
-        <li>
-          <strong>AES-256-GCM:</strong> Hardware-accelerated, built into
-          Node.js, authenticated encryption (AEAD), widely audited. Requires
-          careful IV handling. <strong>Chosen</strong> for Node, built-in
-          primitives, fewer dependencies.
-        </li>
-        <li>
-          <strong>XChaCha20-Poly1305:</strong> Forgiving nonce model, excellent
-          design. Requires external library; slower on systems with AES
-          acceleration. Good alternative but unnecessary for this rollout.
-        </li>
-      </ul>
+      <h3 className="text-base font-semibold mt-4">Option A — AES-256-GCM</h3>
+      <div className="pl-4 text-sm text-foreground/90 space-y-0.5">
+        Hardware-accelerated, built into Node.js.
+        <br />
+        Authenticated encryption (AEAD), widely audited.
+        <br />
+        The initialization vector, which varies ciphertext per encryption, must be unique and correctly generated each time.
+        <br />
+        <em className="font-semibold">Chosen</em> for Node, built-in
+        primitives, fewer dependencies.
+      </div>
+      <h3 className="text-base font-semibold mt-4">Option B — XChaCha20-Poly1305</h3>
+      <div className="pl-4 text-sm text-foreground/90 space-y-0.5">
+        Forgiving nonce model, excellent design.
+        <br />
+        Requires external library; slower on systems with AES acceleration.
+        <br />
+        <em className="font-semibold">Good alternative</em> but unnecessary for
+        this rollout.
+      </div>
 
       <h3>Key management research</h3>
-      <ul>
-        <li>
-          <strong>Single global key:</strong> One compromise exposes all users.{" "}
-          <strong>Rejected.</strong>
-        </li>
-        <li>
-          <strong>HKDF-derived per-user keys:</strong> Root secret → HKDF →
-          user key. Isolates user data, no extra key storage. Root compromise
-          still affects all. <strong>Chosen</strong> for near-term.
-        </li>
-        <li>
-          <strong>Per-user stored DEKs (KMS):</strong> Strong isolation.
-          Requires key storage and KMS. <strong>Future improvement.</strong>
-        </li>
-      </ul>
+      <h3 className="text-base font-semibold mt-4">Option A — Single global key</h3>
+      <div className="pl-4 text-sm text-foreground/90 space-y-0.5">
+        One compromise exposes all users.
+        <br />
+        <em className="font-semibold">Rejected.</em>
+      </div>
+      <h3 className="text-base font-semibold mt-4">Option B — HKDF-derived per-user keys</h3>
+      <div className="pl-4 text-sm text-foreground/90 space-y-0.5">
+        Root secret → HKDF → user key.
+        <br />
+        Isolates user data, no extra key storage.
+        <br />
+        Root compromise still affects all.
+        <br />
+        <em className="font-semibold">Chosen</em> for near-term.
+      </div>
+      <h3 className="text-base font-semibold mt-4">Option C — Per-user stored DEKs (KMS)</h3>
+      <div className="pl-4 text-sm text-foreground/90 space-y-0.5">
+        Strong isolation.
+        <br />
+        Requires key storage and KMS.
+        <br />
+        <em className="font-semibold">Future improvement.</em>
+      </div>
 
       <h3>Data sensitivity analysis</h3>
-      <p>
-        <strong>Sensitive:</strong> Message content and thread summaries (raw
-        conversations, summaries, insights).
-      </p>
-      <p>
-        <strong>Non-sensitive:</strong> Short excerpts, thread titles,
-        timestamps, IDs.
-      </p>
-      <p>
+      <h3 className="text-base font-semibold mt-4">Sensitive</h3>
+      <div className="pl-4 text-sm text-foreground/90 space-y-0.5">
+        Message content and thread summaries (raw conversations, summaries,
+        insights).
+      </div>
+      <h3 className="text-base font-semibold mt-4">Non-sensitive</h3>
+      <div className="pl-4 text-sm text-foreground/90 space-y-0.5">
+        Short excerpts, thread titles, timestamps, IDs.
+      </div>
+      <p className="mt-2">
         <strong>Conclusion:</strong> Field-level encryption.
       </p>
 
       <h3>Safe deployment strategy</h3>
-      <ul>
-        <li>
-          <strong>Full migration:</strong> Encrypt all rows at once. Downtime
-          and risk. <strong>Rejected.</strong>
-        </li>
-        <li>
-          <strong>Mixed-mode:</strong> Rows may be plaintext or{" "}
-          <code>enc:v1:</code> ciphertext. Decrypt when prefix present;
-          otherwise treat as plaintext. Zero downtime, gradual rollout.{" "}
-          <strong>Chosen.</strong>
-        </li>
-      </ul>
+      <h3 className="text-base font-semibold mt-4">Option A — Full migration</h3>
+      <div className="pl-4 text-sm text-foreground/90 space-y-0.5">
+        Encrypt all rows at once.
+        <br />
+        Downtime and risk.
+        <br />
+        <em className="font-semibold">Rejected.</em>
+      </div>
+      <h3 className="text-base font-semibold mt-4">Option B — Mixed-mode</h3>
+      <div className="pl-4 text-sm text-foreground/90 space-y-0.5">
+        Rows may be plaintext or <code>enc:v1:</code> ciphertext.
+        <br />
+        Decrypt when prefix present; otherwise treat as plaintext.
+        <br />
+        Zero downtime, gradual rollout.
+        <br />
+        <em className="font-semibold">Chosen.</em>
+      </div>
 
       <h3>Ciphertext versioning</h3>
       <p>
-        Self-describing format: a versioned prefix, key id, then IV, tag, and
+        Self-describing format: a versioned prefix, key id, then initialization vector (IV), tag, and
         ciphertext. Supports algorithm upgrades, key rotation, and mixed data.
       </p>
 
