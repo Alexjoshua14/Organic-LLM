@@ -8,6 +8,7 @@ import { getSupabaseUserId } from "./profiles";
 import { Message, Thread, ThreadSchema } from "@/lib/schemas/chat";
 import { Result, SimpleResult } from "@/types";
 import {
+  clearFlag,
   setFlag,
   THREAD_FLAGS,
 } from "@/lib/thread-flags";
@@ -724,27 +725,14 @@ export async function getMessageCount(
   }
 }
 
-/** In-memory cache: thread id -> hasTitle. Avoids repeated Supabase calls in the same process. */
-const threadHasTitleCache = new Map<string, boolean>();
-
 /**
  * Returns whether the thread already has a title.
- * Uses optional client hint and in-memory cache to avoid Supabase when possible.
- * Use this to skip ensureChatHasTitle when true (e.g. once per request).
+ * Always reads from the DB so we never skip title generation due to stale state.
  */
 export async function getThreadHasTitle(
   chatId: string,
-  options?: { knownHasTitle?: boolean },
+  _options?: { knownHasTitle?: boolean },
 ): Promise<Result<boolean>> {
-  if (options?.knownHasTitle === true) {
-    threadHasTitleCache.set(chatId, true);
-    return { data: true, error: null };
-  }
-  const cached = threadHasTitleCache.get(chatId);
-  if (cached !== undefined) {
-    return { data: cached, error: null };
-  }
-
   const sb = await supabaseServer();
   const { data, error } = await sb
     .from("threads")
@@ -760,7 +748,6 @@ export async function getThreadHasTitle(
   }
   const hasTitle =
     data?.title != null && String(data.title).trim() !== "";
-  threadHasTitleCache.set(chatId, hasTitle);
   return {
     data: hasTitle,
     error: null,
@@ -772,15 +759,18 @@ export async function updateChatTitle(
   title: string,
 ): Promise<SimpleResult> {
   const sb = await supabaseServer();
+  const hasTitle = title.trim() !== "";
   const updatePayload: { title: string; flags?: number } = { title };
-  // Set HAS_TITLE bit when flags column exists (after migration)
+  // Set or clear HAS_TITLE bit when flags column exists (after migration)
   const { data: row, error: flagsErr } = await sb
     .from("threads")
     .select("flags")
     .eq("id", chatId)
     .single();
   if (!flagsErr && row != null) {
-    updatePayload.flags = setFlag(row.flags ?? 0, THREAD_FLAGS.HAS_TITLE);
+    updatePayload.flags = hasTitle
+      ? setFlag(row.flags ?? 0, THREAD_FLAGS.HAS_TITLE)
+      : clearFlag(row.flags ?? 0, THREAD_FLAGS.HAS_TITLE);
   }
   const { error } = await sb
     .from("threads")
@@ -794,7 +784,6 @@ export async function updateChatTitle(
     };
   }
 
-  threadHasTitleCache.set(chatId, true);
   return {
     ok: true,
     error: null,

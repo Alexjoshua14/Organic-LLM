@@ -16,7 +16,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/third-party/ui/dropdown-menu";
-import { MoreVertical, Pencil, Pin, PinOff, Trash2 } from "lucide-react";
+import { MoreVertical, Pencil, Pin, PinOff, Sparkles, Trash2 } from "lucide-react";
 import { useCallback } from "react";
 import { useRouter, usePathname } from "next/navigation";
 
@@ -65,6 +65,25 @@ export function SidebarThreadActionsMenu({
     onOpen();
   }, [onOpenChange, onOpen]);
 
+  const handleGenerateTitle = useCallback(() => {
+    onOpenChange(false);
+    const threadId = thread.id;
+    fetch(`/api/chat/${threadId}/generate-title`, { method: "POST" })
+      .then((res) => {
+        if (res.ok) {
+          refreshSidebarChats();
+        } else {
+          logger.error(
+            "handleGenerateTitle",
+            `Failed to generate title: ${res.status}`,
+          );
+        }
+      })
+      .catch((err) => {
+        logger.error("handleGenerateTitle", err);
+      });
+  }, [thread.id, onOpenChange, refreshSidebarChats]);
+
   const deleteThread = useCallback(() => {
     const handleDeleteThread = async () => {
       const threadID = thread.id;
@@ -97,6 +116,12 @@ export function SidebarThreadActionsMenu({
             <Pencil className="size-4" />
             Edit title
           </DropdownMenuItem>
+          {thread.hasNoTitle === true && (
+            <DropdownMenuItem onSelect={handleGenerateTitle}>
+              <Sparkles className="size-4" />
+              Generate title (AI)
+            </DropdownMenuItem>
+          )}
           <DropdownMenuItem onSelect={handleTogglePin}>
             {thread.pinned ? (
               <>

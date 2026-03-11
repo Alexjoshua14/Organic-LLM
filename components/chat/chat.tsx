@@ -42,6 +42,7 @@ export const Chat: React.FC<ChatProps> = ({
   persona,
   initialMessage,
 }) => {
+  const { refreshSidebarChats } = useSharedChatContext();
 
   const selectedModelRef = useRef<ChatModel>(DEFAULT_CHAT_MODEL);
   const useWebSearchRef = useRef<boolean>(false);
@@ -95,6 +96,9 @@ export const Chat: React.FC<ChatProps> = ({
       } else if (data.type === "data-notification") {
         logger.log("chat", `DATA_NOTIFICATION ${JSON.stringify(data.data, null, 2)}`);
         const dataObject = data.data as { message?: string };
+        if (dataObject.message === "chat-title-generated") {
+          refreshSidebarChats();
+        }
 
       } else if (data.type === "data-aiAction") {
         logger.log("chat", `DATA_AIACTION ${JSON.stringify(data.data, null, 2)}`);

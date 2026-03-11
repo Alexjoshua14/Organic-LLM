@@ -53,6 +53,8 @@ function normalizeToThreadLinks(rows: ChatsApiResponse["data"]): ThreadLink[] {
     id: thread.id,
     pinned: thread.pinned ?? false,
     date: new Date(thread.updated_at).toISOString(),
+    hasNoTitle:
+      thread.title == null || String(thread.title).trim() === "",
   }));
 }
 

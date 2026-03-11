@@ -17,7 +17,7 @@ import { auth } from "@clerk/nextjs/server";
 import { GatewayProviderOptions } from "@ai-sdk/gateway";
 
 import { deleteChatMessage, getContext, saveChat } from "@/lib/chat/chat-store";
-import { getThreadHasTitle } from "@/data/supabase/chat";
+import { getMessageCount, getThreadHasTitle } from "@/data/supabase/chat";
 import { ensureChatHasTitle, updateChatSummary } from "@/lib/llm/chat-helpers";
 import {
   createGetFullChatHistoryTool,
@@ -94,10 +94,9 @@ export async function POST(req: Request) {
   }
   const sbUserId = sbUserIdResult.data;
 
-  // Start fetching thread title status early; result is only needed in onFinish (non-blocking). Uses cache / client hint when possible.
-  const threadHasTitlePromise = getThreadHasTitle(id, {
-    knownHasTitle: parseResult.data.threadHasTitle === true,
-  });
+  // Start fetching thread title status early; result is only needed in onFinish (non-blocking).
+  // We rely on DB state here to avoid false positives from stale client hints.
+  const threadHasTitlePromise = getThreadHasTitle(id);
 
   /**
    * Generate stable message ID for this entire response
@@ -400,11 +399,21 @@ export async function POST(req: Request) {
                 // Use title status fetched earlier (or from request); by now the promise has had time to resolve
                 const threadHasTitleResult = await threadHasTitlePromise;
                 const threadAlreadyHasTitle =
-                  parseResult.data.threadHasTitle === true ||
                   threadHasTitleResult.data === true;
 
-                // Ensure chat has an LLM-generated title only when we have enough messages and don't already have one
-                if (!threadAlreadyHasTitle && messages.length >= 4) {
+                // Use persisted message count so title generation is based on DB state, not transient stream state.
+                const messageCountResult = await getMessageCount(id);
+                const persistedMessageCount =
+                  messageCountResult.data ?? messages.length;
+                if (messageCountResult.error) {
+                  logger.error(
+                    "POST",
+                    `Error getting message count for title generation: ${messageCountResult.error}`,
+                  );
+                }
+
+                // Ensure chat has an LLM-generated title only when we have enough persisted messages and don't already have one
+                if (!threadAlreadyHasTitle && persistedMessageCount >= 4) {
                   const { result: titleResult, durationMs } =
                     await measureAsync(() => ensureChatHasTitle(id));
                   ensureChatHasTitleMs = durationMs;
@@ -414,11 +423,25 @@ export async function POST(req: Request) {
                       "POST",
                       `Error ensuring chat has title: ${titleResult.error.message}`,
                     );
+                  } else {
+                    writer.write({
+                      type: "data-notification",
+                      data: {
+                        message: "chat-title-generated",
+                        level: "info",
+                      },
+                      transient: true,
+                    });
                   }
-                } else {
+                } else if (threadAlreadyHasTitle) {
                   logger.log(
                     "POST",
                     "Chat already has title; skipping title generation",
+                  );
+                } else {
+                  logger.log(
+                    "POST",
+                    `Skipping title generation: only ${persistedMessageCount} persisted messages (need >= 4)`,
                   );
                 }
 

@@ -9,6 +9,8 @@ export type ThreadLink = {
   id: string;
   pinned: boolean;
   date: string;
+  /** True when the thread has no title (null or empty); used to show "Generate title (AI)" in the sidebar menu. */
+  hasNoTitle?: boolean;
 };
 
 export type Result<T, E = Error> = {
