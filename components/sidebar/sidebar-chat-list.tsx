@@ -13,14 +13,13 @@ import {
   useSidebar,
 } from "../third-party/ui/sidebar";
 
-import { SidebarThreadActionsMenu } from "./sidebar-thread-actions-menu";
-import { SidebarChatTitle } from "./sidebar-chat-title";
-
 import { updateChatPinned, updateChatTitle } from "@/data/supabase/chat";
 import { ThreadLink } from "@/types";
 import { createLogger } from "@/lib/logger";
 import { useSharedChatContext } from "@/lib/context/chat-context";
 import { useChatId } from "@/hooks/use-chat-id";
+import { SidebarThreadActionsMenu } from "@/components/sidebar/sidebar-thread-actions-menu";
+import { SidebarChatTitle } from "@/components/sidebar/sidebar-chat-title";
 
 const logger = createLogger("components/sidebar/sidebar-chat-list.tsx");
 

@@ -129,7 +129,7 @@ export function SandboxGatewayButton() {
         <span className="relative z-10 inline-flex items-center justify-center gap-2.5">
           {/* Layer 1: black + multiply → reads on light areas */}
           <span
-            className="flex items-center gap-2.5 text-black mix-blend-multiply"
+            className="flex items-center gap-2.5 text-secondary-foreground text-sm mix-blend-multiply"
             aria-hidden
           >
             Sandbox
@@ -137,7 +137,7 @@ export function SandboxGatewayButton() {
           </span>
           {/* Layer 2: white + screen → reads on dark areas */}
           <span
-            className="absolute inset-0 flex items-center justify-start gap-2.5 text-white mix-blend-screen"
+            className="absolute inset-0 flex items-center justify-start gap-2.5 text-secondary-background text-sm mix-blend-screen"
             aria-hidden
           >
             Sandbox

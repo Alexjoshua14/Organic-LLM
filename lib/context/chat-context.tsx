@@ -56,7 +56,7 @@ function normalizeToThreadLinks(rows: ChatsApiResponse["data"]): ThreadLink[] {
   }));
 }
 
-interface ChatContextValue {
+export interface ChatContextValue {
   chat: Chat<UIMessage>;
   clearChat: () => void;
   setChatId: (chatId: string) => void;
@@ -69,7 +69,7 @@ interface ChatContextValue {
   refreshSidebarChats: () => void;
 }
 
-const ChatContext = createContext<ChatContextValue | undefined>(undefined);
+export const ChatContext = createContext<ChatContextValue | undefined>(undefined);
 
 function createChat() {
   return new Chat<UIMessage>({
