@@ -27,7 +27,10 @@ const logger = createLogger(`app/api/chat/route.ts`);
 export async function POST(req: Request) {
   const { message, id }: { message: UIMessage; id: string } = await req.json();
 
-  logger.log("POST", `Recieved Message: ${JSON.stringify(message)}`);
+  logger.log(
+    "POST",
+    `Received message metadata: id=${message.id ?? "unknown"} role=${message.role} parts=${message.parts?.length ?? 0}`,
+  );
 
   const res = await getContext({ chatId: id, message, persona: "prometheus" });
 

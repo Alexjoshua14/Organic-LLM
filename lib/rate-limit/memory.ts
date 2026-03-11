@@ -22,7 +22,7 @@ const memorySearchLimiter = new Ratelimit({
   prefix: "ratelimit:memory:search",
 });
 
-/** List / get all: 120 per minute per user. */
+/** List / get all: 60 per minute per user. */
 const memoryListLimiter = new Ratelimit({
   redis,
   limiter: Ratelimit.slidingWindow(60, "1 m"),

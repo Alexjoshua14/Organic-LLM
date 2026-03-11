@@ -1,10 +1,6 @@
 import "server-only";
 
-import {
-  Message,
-  SearchMemoryOptions,
-  SearchResult,
-} from "mem0ai/oss";
+import { Message, SearchMemoryOptions, SearchResult } from "mem0ai/oss";
 import { UIMessage } from "@ai-sdk/react";
 
 import { getMemory } from "./client";
@@ -12,6 +8,8 @@ import { createLogger } from "@/lib/logger";
 import { convertUIMessageToMem0Message } from "../chat/message-transform";
 
 const logger = createLogger("lib/memory/store.ts");
+
+const NO_CHAT_ID_PLACEHOLDER = "no-chat-id" as const;
 
 /**
  * Searches for memories based on a query. Low-level: expects Mem0 user id
@@ -79,7 +77,7 @@ export async function addLatestMessagesToMemory(
   );
 
   const interactions: Message[] = messages.map((m) =>
-    convertUIMessageToMem0Message(m, "chat_id_placeholder"),
+    convertUIMessageToMem0Message(m, chatId ?? NO_CHAT_ID_PLACEHOLDER),
   );
 
   const result = await memory.add(interactions, {
