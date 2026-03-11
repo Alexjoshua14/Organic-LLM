@@ -20,21 +20,32 @@ const GRID_COLS = `${COL_USER}px ${COL_TUNNEL}px ${COL_NEXTJS}px ${COL_TUNNEL}px
 const TOTAL_WIDTH =
   COL_USER + GAP + COL_TUNNEL + GAP + COL_NEXTJS + GAP + COL_TUNNEL + GAP + COL_DATABASE;
 
-type SlotName = "user" | "nextjs" | "database" | "llm";
+/** Scale factor for animation speed. 1 = normal, > 1 = slower (e.g. 1.25 = 25% slower). */
+const ANIMATION_SPEED_SCALE = 1.25;
+
+type SlotName = "userUser" | "userLlm" | "nextjsUser" | "nextjsLlm" | "database" | "databaseUser" | "databaseLlm" | "llm";
 type SlotPosition = { x: number; y: number };
 
 const FALLBACK_SLOTS: Record<SlotName, SlotPosition> = {
-  user: { x: 13, y: 29 },
-  nextjs: { x: 48, y: 29 },
+  userUser: { x: 13, y: 25 },
+  userLlm: { x: 13, y: 33 },
+  nextjsUser: { x: 48, y: 25 },
+  nextjsLlm: { x: 48, y: 33 },
   database: { x: 90, y: 29 },
+  databaseUser: { x: 90, y: 24 },
+  databaseLlm: { x: 90, y: 34 },
   llm: { x: 48, y: 72 },
 };
 
 export function PipelineAnimation({ className }: { className?: string }) {
   const stageRef = useRef<HTMLDivElement>(null);
-  const userAnchorRef = useRef<HTMLDivElement>(null);
-  const nextjsAnchorRef = useRef<HTMLDivElement>(null);
+  const userUserAnchorRef = useRef<HTMLDivElement>(null);
+  const userLlmAnchorRef = useRef<HTMLDivElement>(null);
+  const nextjsUserAnchorRef = useRef<HTMLDivElement>(null);
+  const nextjsLlmAnchorRef = useRef<HTMLDivElement>(null);
   const databaseAnchorRef = useRef<HTMLDivElement>(null);
+  const dbUserSlotRef = useRef<HTMLDivElement>(null);
+  const dbLlmSlotRef = useRef<HTMLDivElement>(null);
   const llmAnchorRef = useRef<HTMLDivElement>(null);
   const [slots, setSlots] = useState<Record<SlotName, SlotPosition>>(FALLBACK_SLOTS);
 
@@ -45,15 +56,14 @@ export function PipelineAnimation({ className }: { className?: string }) {
   const chunk1Slot = useAnimation();
   const chunk2Slot = useAnimation();
   const chunk3Slot = useAnimation();
-  const streamChunk1Slot = useAnimation();
-  const streamChunk2Slot = useAnimation();
-  const streamChunk3Slot = useAnimation();
   const nextJsAccum1 = useAnimation();
   const nextJsAccum2 = useAnimation();
   const nextJsAccum3 = useAnimation();
   const userAccum1 = useAnimation();
   const userAccum2 = useAnimation();
   const userAccum3 = useAnimation();
+  const nextJsLlmContainerVis = useAnimation();
+  const userLlmContainerVis = useAnimation();
 
   useLayoutEffect(() => {
     const stage = stageRef.current;
@@ -73,9 +83,13 @@ export function PipelineAnimation({ className }: { className?: string }) {
 
     const measure = () => {
       const nextSlots = {
-        user: getSlotPosition(userAnchorRef.current),
-        nextjs: getSlotPosition(nextjsAnchorRef.current),
+        userUser: getSlotPosition(userUserAnchorRef.current),
+        userLlm: getSlotPosition(userLlmAnchorRef.current),
+        nextjsUser: getSlotPosition(nextjsUserAnchorRef.current),
+        nextjsLlm: getSlotPosition(nextjsLlmAnchorRef.current),
         database: getSlotPosition(databaseAnchorRef.current),
+        databaseUser: getSlotPosition(dbUserSlotRef.current),
+        databaseLlm: getSlotPosition(dbLlmSlotRef.current),
         llm: getSlotPosition(llmAnchorRef.current),
       };
 
@@ -100,9 +114,13 @@ export function PipelineAnimation({ className }: { className?: string }) {
 
     const resizeObserver = new ResizeObserver(measure);
     resizeObserver.observe(stage);
-    if (userAnchorRef.current) resizeObserver.observe(userAnchorRef.current);
-    if (nextjsAnchorRef.current) resizeObserver.observe(nextjsAnchorRef.current);
+    if (userUserAnchorRef.current) resizeObserver.observe(userUserAnchorRef.current);
+    if (userLlmAnchorRef.current) resizeObserver.observe(userLlmAnchorRef.current);
+    if (nextjsUserAnchorRef.current) resizeObserver.observe(nextjsUserAnchorRef.current);
+    if (nextjsLlmAnchorRef.current) resizeObserver.observe(nextjsLlmAnchorRef.current);
     if (databaseAnchorRef.current) resizeObserver.observe(databaseAnchorRef.current);
+    if (dbUserSlotRef.current) resizeObserver.observe(dbUserSlotRef.current);
+    if (dbLlmSlotRef.current) resizeObserver.observe(dbLlmSlotRef.current);
     if (llmAnchorRef.current) resizeObserver.observe(llmAnchorRef.current);
 
     window.addEventListener("resize", measure);
@@ -114,14 +132,15 @@ export function PipelineAnimation({ className }: { className?: string }) {
 
   useEffect(() => {
     let cancelled = false;
+    const scale = (n: number) => n * ANIMATION_SPEED_SCALE;
 
     const sleep = async (ms: number) => {
       await new Promise((resolve) => setTimeout(resolve, ms));
     };
 
-    const toSlot = (slot: SlotName) => {
+    const toSlot = (slot: SlotName, yOffsetPercent = 0) => {
       const { x, y } = slots[slot];
-      return { left: `${x}%`, top: `${y}%`, opacity: 1, transition: { duration: 0.01 } };
+      return { left: `${x}%`, top: `${y + yOffsetPercent}%`, opacity: 1, transition: { duration: scale(0.01) } };
     };
     const fromSlot = (slot: SlotName) => {
       const { x, y } = slots[slot];
@@ -130,131 +149,127 @@ export function PipelineAnimation({ className }: { className?: string }) {
     const run = async () => {
       while (!cancelled) {
         // 1. User message appears in user slot
-        await userMsgSlot.set({ ...fromSlot("user"), opacity: 0 });
-        await userMsgSlot.start({ ...toSlot("user"), transition: { duration: 0.4 } });
-        await sleep(600);
+        await userMsgSlot.set({ ...fromSlot("userUser"), opacity: 0 });
+        await userMsgSlot.start({ ...toSlot("userUser"), transition: { duration: scale(0.4) } });
+        await sleep(scale(600));
         if (cancelled) break;
 
         // 2. Move to nextjs slot (through tunnel 1)
         await userMsgSlot.start({
-          ...toSlot("nextjs"),
-          transition: { duration: 1.2, ease: "easeInOut" },
+          ...toSlot("nextjsUser"),
+          transition: { duration: scale(1.2), ease: "easeInOut" },
         });
-        await sleep(300);
+        await sleep(scale(300));
         if (cancelled) break;
 
-        // 3. User message hides; copy appears in nextjs then moves to llm
-        await userMsgSlot.start({ opacity: 0 });
-        await msgToLlmSlot.set({ ...fromSlot("nextjs"), opacity: 0 });
-        await msgToLlmSlot.start({ ...toSlot("nextjs"), transition: { duration: 0.2 } });
-        await msgToLlmSlot.start({
-          ...toSlot("llm"),
-          transition: { duration: 0.9, ease: "easeInOut" },
-        });
+        // 3. User message stays at server. Copy goes to Cloud LLM and encrypted user message goes to DB (simultaneously)
+        await msgToLlmSlot.set({ ...fromSlot("nextjsUser"), opacity: 0 });
+        await msgToLlmSlot.start({ ...toSlot("nextjsUser"), transition: { duration: scale(0.2) } });
+        await toDbSlot.set({ ...fromSlot("nextjsUser"), opacity: 0 });
+        await toDbSlot.start({ ...toSlot("nextjsUser"), transition: { duration: scale(0.2) } });
+        await userMsgSlot.start({ opacity: 0, transition: { duration: scale(0.2) } });
+        await sleep(scale(250));
+        if (cancelled) break;
+        await Promise.all([
+          msgToLlmSlot.start({
+            ...toSlot("llm"),
+            transition: { duration: scale(0.9), ease: "easeInOut" },
+          }),
+          toDbSlot.start({
+            ...toSlot("databaseUser"),
+            transition: { duration: scale(1), ease: "easeInOut" },
+          }),
+        ]);
+        await sleep(scale(900));
+        if (cancelled) break;
         await msgToLlmSlot.start({ opacity: 0 });
-        await sleep(400);
+        await sleep(scale(400));
         if (cancelled) break;
 
-        // 4. Encrypt → DB: nextjs to database
-        await toDbSlot.set({ ...fromSlot("nextjs"), opacity: 0 });
-        await toDbSlot.start({ ...toSlot("nextjs"), transition: { duration: 0.2 } });
-        await toDbSlot.start({
-          ...toSlot("database"),
-          transition: { duration: 1, ease: "easeInOut" },
-        });
-        await toDbSlot.start({ opacity: 0 });
-        await sleep(400);
-        if (cancelled) break;
-
-        // 5. Chunks from LLM to Next.js (z-index under compiled message)
+        // 4. Chunks from LLM to Next.js (same components move LLM → Next.js → User) (z-index under compiled message)
         await chunk1Slot.set({ ...fromSlot("llm"), opacity: 0 });
-        await chunk1Slot.start({ ...toSlot("llm"), transition: { duration: 0.2 } });
+        await chunk1Slot.start({ ...toSlot("llm"), transition: { duration: scale(0.2) } });
         await chunk1Slot.start({
-          ...toSlot("nextjs"),
-          transition: { duration: 0.6, ease: "easeInOut" },
+          ...toSlot("nextjsLlm"),
+          transition: { duration: scale(0.6), ease: "easeInOut" },
+        });
+        await nextJsLlmContainerVis.start({ opacity: 1 });
+        await nextJsAccum1.start({ opacity: 1 });
+        await chunk1Slot.start({
+          ...toSlot("userLlm"),
+          transition: { duration: scale(0.7), ease: "linear" },
         });
         await chunk1Slot.start({ opacity: 0 });
-        await nextJsAccum1.start({ opacity: 1 });
-
-        await chunk2Slot.set({ ...fromSlot("llm"), opacity: 0 });
-        await chunk2Slot.start({ ...toSlot("llm"), transition: { duration: 0.2 } });
-        await chunk2Slot.start({
-          ...toSlot("nextjs"),
-          transition: { duration: 0.5, ease: "easeInOut" },
-        });
-        await chunk2Slot.start({ opacity: 0 });
-        await nextJsAccum2.start({ opacity: 1 });
-
-        await chunk3Slot.set({ ...fromSlot("llm"), opacity: 0 });
-        await chunk3Slot.start({ ...toSlot("llm"), transition: { duration: 0.2 } });
-        await chunk3Slot.start({
-          ...toSlot("nextjs"),
-          transition: { duration: 0.5, ease: "easeInOut" },
-        });
-        await chunk3Slot.start({ opacity: 0 });
-        await nextJsAccum3.start({ opacity: 1 });
-        await sleep(300);
-        if (cancelled) break;
-
-        // 6. Stream chunks: nextjs to user (z-index under compiled message)
-        await streamChunk1Slot.set({ ...fromSlot("nextjs"), opacity: 0 });
-        await streamChunk1Slot.start({ ...toSlot("nextjs"), transition: { duration: 0.2 } });
-        await streamChunk1Slot.start({
-          ...toSlot("user"),
-          transition: { duration: 0.7, ease: "linear" },
-        });
-        await streamChunk1Slot.start({ opacity: 0 });
+        await userLlmContainerVis.start({ opacity: 1 });
         await userAccum1.start({ opacity: 1 });
 
-        await streamChunk2Slot.set({ ...fromSlot("nextjs"), opacity: 0 });
-        await streamChunk2Slot.start({ ...toSlot("nextjs"), transition: { duration: 0.2 } });
-        await streamChunk2Slot.start({
-          ...toSlot("user"),
-          transition: { duration: 0.6, ease: "linear" },
+        await chunk2Slot.set({ ...fromSlot("llm"), opacity: 0 });
+        await chunk2Slot.start({ ...toSlot("llm"), transition: { duration: scale(0.2) } });
+        await chunk2Slot.start({
+          ...toSlot("nextjsLlm"),
+          transition: { duration: scale(0.5), ease: "easeInOut" },
         });
-        await streamChunk2Slot.start({ opacity: 0 });
+        await nextJsAccum2.start({ opacity: 1 });
+        await chunk2Slot.start({
+          ...toSlot("userLlm"),
+          transition: { duration: scale(0.6), ease: "linear" },
+        });
+        await chunk2Slot.start({ opacity: 0 });
         await userAccum2.start({ opacity: 1 });
 
-        await streamChunk3Slot.set({ ...fromSlot("nextjs"), opacity: 0 });
-        await streamChunk3Slot.start({ ...toSlot("nextjs"), transition: { duration: 0.2 } });
-        await streamChunk3Slot.start({
-          ...toSlot("user"),
-          transition: { duration: 0.6, ease: "linear" },
+        await chunk3Slot.set({ ...fromSlot("llm"), opacity: 0 });
+        await chunk3Slot.start({ ...toSlot("llm"), transition: { duration: scale(0.2) } });
+        await chunk3Slot.start({
+          ...toSlot("nextjsLlm"),
+          transition: { duration: scale(0.5), ease: "easeInOut" },
         });
-        await streamChunk3Slot.start({ opacity: 0 });
+        await nextJsAccum3.start({ opacity: 1 });
+        await chunk3Slot.start({
+          ...toSlot("userLlm"),
+          transition: { duration: scale(0.6), ease: "linear" },
+        });
+        await chunk3Slot.start({ opacity: 0 });
         await userAccum3.start({ opacity: 1 });
-        await sleep(400);
+        await sleep(scale(400));
         if (cancelled) break;
 
-        // 7. Final → DB
-        await finalToDbSlot.set({ ...fromSlot("nextjs"), opacity: 0 });
-        await finalToDbSlot.start({ ...toSlot("nextjs"), transition: { duration: 0.2 } });
+        // 7. Final → DB: encrypted payload appears over message slot, placeholder disappears, then moves to DB
+        await finalToDbSlot.set({ ...fromSlot("nextjsLlm"), opacity: 0 });
+        await finalToDbSlot.start({ ...toSlot("nextjsLlm"), transition: { duration: scale(0.2) } });
+        await sleep(scale(400));
+        if (cancelled) break;
+        await nextJsAccum1.start({ opacity: 0 });
+        await nextJsAccum2.start({ opacity: 0 });
+        await nextJsAccum3.start({ opacity: 0 });
+        await nextJsLlmContainerVis.start({ opacity: 0 });
+        await sleep(scale(200));
+        if (cancelled) break;
         await finalToDbSlot.start({
-          ...toSlot("database"),
-          transition: { duration: 1, ease: "easeInOut" },
+          ...toSlot("databaseLlm"),
+          transition: { duration: scale(1), ease: "easeInOut" },
         });
-        await finalToDbSlot.start({ opacity: 0 });
-        await sleep(800);
+        await sleep(scale(1500));
+        if (cancelled) break;
+        await sleep(scale(1200));
         if (cancelled) break;
 
         // Reset
-        await userMsgSlot.set({ ...fromSlot("user"), opacity: 0 });
-        await msgToLlmSlot.set({ ...fromSlot("nextjs"), opacity: 0 });
-        await toDbSlot.set({ ...fromSlot("nextjs"), opacity: 0 });
-        await finalToDbSlot.set({ ...fromSlot("nextjs"), opacity: 0 });
+        await userMsgSlot.set({ ...fromSlot("userUser"), opacity: 0 });
+        await msgToLlmSlot.set({ ...fromSlot("nextjsUser"), opacity: 0 });
+        await toDbSlot.set({ ...fromSlot("nextjsUser"), opacity: 0 });
+        await finalToDbSlot.set({ ...fromSlot("nextjsLlm"), opacity: 0 });
         await chunk1Slot.set({ ...fromSlot("llm"), opacity: 0 });
         await chunk2Slot.set({ ...fromSlot("llm"), opacity: 0 });
         await chunk3Slot.set({ ...fromSlot("llm"), opacity: 0 });
         await nextJsAccum1.start({ opacity: 0 });
         await nextJsAccum2.start({ opacity: 0 });
         await nextJsAccum3.start({ opacity: 0 });
-        await streamChunk1Slot.set({ ...fromSlot("nextjs"), opacity: 0 });
-        await streamChunk2Slot.set({ ...fromSlot("nextjs"), opacity: 0 });
-        await streamChunk3Slot.set({ ...fromSlot("nextjs"), opacity: 0 });
+        await nextJsLlmContainerVis.start({ opacity: 0 });
         await userAccum1.start({ opacity: 0 });
         await userAccum2.start({ opacity: 0 });
         await userAccum3.start({ opacity: 0 });
-        await sleep(2200);
+        await userLlmContainerVis.start({ opacity: 0 });
+        await sleep(scale(3200));
       }
     };
     run();
@@ -270,15 +285,14 @@ export function PipelineAnimation({ className }: { className?: string }) {
     chunk1Slot,
     chunk2Slot,
     chunk3Slot,
-    streamChunk1Slot,
-    streamChunk2Slot,
-    streamChunk3Slot,
     nextJsAccum1,
     nextJsAccum2,
     nextJsAccum3,
     userAccum1,
     userAccum2,
     userAccum3,
+    nextJsLlmContainerVis,
+    userLlmContainerVis,
   ]);
 
   return (
@@ -299,31 +313,17 @@ export function PipelineAnimation({ className }: { className?: string }) {
         <div className="absolute inset-0 z-0 pointer-events-none overflow-visible">
           <motion.div
             animate={userMsgSlot}
-            initial={{ left: `${slots.user.x}%`, top: `${slots.user.y}%`, opacity: 0 }}
-            className="absolute z-20 rounded-md border border-border/60 bg-background px-2.5 py-2 text-xs text-foreground shadow-sm -translate-x-1/2 -translate-y-1/2"
+            initial={{ left: `${slots.userUser.x}%`, top: `${slots.userUser.y}%`, opacity: 0 }}
+            className="absolute z-20 rounded-2xl rounded-br-md px-4 py-2.5 text-xs font-medium bg-primary text-primary-foreground shadow-md -translate-x-1/2 -translate-y-1/2"
           >
             Hello
           </motion.div>
           <motion.div
             animate={msgToLlmSlot}
-            initial={{ left: `${slots.nextjs.x}%`, top: `${slots.nextjs.y}%`, opacity: 0 }}
-            className="absolute z-20 rounded-md border border-border/60 bg-background px-2 py-1 text-[10px] text-foreground -translate-x-1/2 -translate-y-1/2"
+            initial={{ left: `${slots.nextjsUser.x}%`, top: `${slots.nextjsUser.y}%`, opacity: 0 }}
+            className="absolute z-20 rounded-2xl rounded-bl-md px-4 py-2.5 text-xs font-medium bg-primary text-primary-foreground shadow-md -translate-x-1/2 -translate-y-1/2"
           >
             Hello
-          </motion.div>
-          <motion.div
-            animate={toDbSlot}
-            initial={{ left: `${slots.nextjs.x}%`, top: `${slots.nextjs.y}%`, opacity: 0 }}
-            className="absolute z-20 rounded border border-amber-600/50 bg-amber-500/15 px-2 py-1 text-[10px] text-foreground flex items-center gap-1 -translate-x-1/2 -translate-y-1/2"
-          >
-            <span aria-hidden>🔒</span> Encrypt → DB
-          </motion.div>
-          <motion.div
-            animate={finalToDbSlot}
-            initial={{ left: `${slots.nextjs.x}%`, top: `${slots.nextjs.y}%`, opacity: 0 }}
-            className="absolute z-20 rounded border border-amber-600/50 bg-amber-500/15 px-2 py-1 text-[10px] text-foreground flex items-center gap-1 -translate-x-1/2 -translate-y-1/2"
-          >
-            <span aria-hidden>🔒</span> Final → DB
           </motion.div>
           <motion.div
             animate={chunk1Slot}
@@ -346,26 +346,29 @@ export function PipelineAnimation({ className }: { className?: string }) {
           >
             !
           </motion.div>
+        </div>
+
+        {/* Encrypt overlay: toDbSlot and finalToDbSlot paint over the grid so they appear over the message slot */}
+        <div className="absolute inset-0 z-20 pointer-events-none overflow-visible">
           <motion.div
-            animate={streamChunk1Slot}
-            initial={{ left: `${slots.nextjs.x}%`, top: `${slots.nextjs.y}%`, opacity: 0 }}
-            className="absolute z-10 rounded bg-primary/20 px-1.5 py-0.5 text-[10px] -translate-x-1/2 -translate-y-1/2"
+            animate={toDbSlot}
+            initial={{ left: `${slots.nextjsUser.x}%`, top: `${slots.nextjsUser.y}%`, opacity: 0 }}
+            className="absolute rounded border border-amber-600/50 bg-amber-500/15 backdrop-blur-sm px-3 py-1.5 text-[10px] text-foreground flex flex-col items-center gap-0.5 w-[140px] min-w-[140px] box-border -translate-x-1/2 -translate-y-1/2"
           >
-            Hi
+            <span className="flex items-center gap-1.5">
+              <span aria-hidden>🔒</span> User
+            </span>
+            <span className="text-[8px] italic text-muted-foreground">AES-256-GCM encryption</span>
           </motion.div>
           <motion.div
-            animate={streamChunk2Slot}
-            initial={{ left: `${slots.nextjs.x}%`, top: `${slots.nextjs.y}%`, opacity: 0 }}
-            className="absolute z-10 rounded bg-primary/20 px-1.5 py-0.5 text-[10px] -translate-x-1/2 -translate-y-1/2"
+            animate={finalToDbSlot}
+            initial={{ left: `${slots.nextjsLlm.x}%`, top: `${slots.nextjsLlm.y}%`, opacity: 0 }}
+            className="absolute rounded border border-amber-600/50 bg-amber-500/15 backdrop-blur-sm px-3 py-1.5 text-[10px] text-foreground flex flex-col items-center gap-0.5 w-[140px] min-w-[140px] box-border -translate-x-1/2 -translate-y-1/2"
           >
-            there
-          </motion.div>
-          <motion.div
-            animate={streamChunk3Slot}
-            initial={{ left: `${slots.nextjs.x}%`, top: `${slots.nextjs.y}%`, opacity: 0 }}
-            className="absolute z-10 rounded bg-primary/20 px-1.5 py-0.5 text-[10px] -translate-x-1/2 -translate-y-1/2"
-          >
-            !
+            <span className="flex items-center gap-1.5">
+              <span aria-hidden>🔒</span> LLM
+            </span>
+            <span className="text-[8px] italic text-muted-foreground">AES-256-GCM encryption</span>
           </motion.div>
         </div>
 
@@ -379,100 +382,134 @@ export function PipelineAnimation({ className }: { className?: string }) {
             <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
               User
             </span>
-            <div className="relative mt-2 min-h-[48px] w-full overflow-visible">
+            <div className="mt-2 flex flex-col gap-2 min-h-[48px]">
               <div
-                ref={userAnchorRef}
-                className="absolute left-0 top-0 rounded-md border border-primary/40 bg-primary/10 px-3 py-2.5 text-xs text-foreground w-fit min-w-26 z-10"
+                ref={userUserAnchorRef}
+                className="h-8 flex items-center shrink-0"
+                aria-hidden
+              />
+              <motion.div
+                animate={userLlmContainerVis}
+                initial={{ opacity: 0 }}
+                className="w-fit self-start"
               >
-                <motion.span animate={userAccum1} initial={{ opacity: 0 }}>Hi</motion.span>
-                <motion.span animate={userAccum2} initial={{ opacity: 0 }}> there</motion.span>
-                <motion.span animate={userAccum3} initial={{ opacity: 0 }}>!</motion.span>
-              </div>
+                <div
+                  ref={userLlmAnchorRef}
+                  className="rounded-2xl rounded-bl-md px-4 py-2.5 text-xs font-medium bg-muted border border-border/60 shadow-md min-w-26 z-20"
+                >
+                  <motion.span animate={userAccum1} initial={{ opacity: 0 }}>Hi</motion.span>
+                  <motion.span animate={userAccum2} initial={{ opacity: 0 }}> there</motion.span>
+                  <motion.span animate={userAccum3} initial={{ opacity: 0 }}>!</motion.span>
+                </div>
+              </motion.div>
             </div>
           </div>
 
-        <div className={cn(TUNNEL_STYLE, "w-[70px]")}>
-          <span className="text-[10px] text-muted-foreground relative z-10">
-            TLS
-          </span>
-        </div>
-
-        <div className={cn(BOUNDARY_STYLE, "relative w-[192px] overflow-visible z-10")}>
-          <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-            Next.js server
-          </span>
-          <div className="relative mt-2 min-h-[60px] overflow-visible">
-            <div
-              ref={nextjsAnchorRef}
-              className="absolute left-0 top-0 rounded-md border border-primary/40 bg-primary/10 px-3 py-2.5 text-xs text-foreground w-fit min-w-26 z-10"
-            >
-              <motion.span animate={nextJsAccum1} initial={{ opacity: 0 }}>Hi</motion.span>
-              <motion.span animate={nextJsAccum2} initial={{ opacity: 0 }}> there</motion.span>
-              <motion.span animate={nextJsAccum3} initial={{ opacity: 0 }}>!</motion.span>
-            </div>
-          </div>
-        </div>
-
-        <div className={cn(TUNNEL_STYLE, "w-[70px]")}>
-          <span className="text-[10px] text-muted-foreground relative z-10">
-            TLS
-          </span>
-        </div>
-
-        <div className={cn(BOUNDARY_STYLE, "w-[120px] relative")}>
-          <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-            Database
-          </span>
-          <span className="mt-1 text-[10px] text-muted-foreground">
-            Supabase
-          </span>
-          <div
-            ref={databaseAnchorRef}
-            className="absolute left-1/2 top-[56%] h-0 w-0 -translate-x-1/2 -translate-y-1/2"
-            aria-hidden
-          />
-        </div>
-
-        {/* Row 2: connector + TLS boundary + Cloud LLM */}
-        <div className="col-span-2" />
-        <div className="relative flex flex-col items-center">
-          <div
-            className="w-0 h-4 border-l-2 border-dashed border-border/50 -mb-px shrink-0"
-            aria-hidden
-          />
-          <div
-            className={cn(
-              TUNNEL_STYLE,
-              "w-full min-h-[32px] py-2 pt-0 justify-center",
-            )}
-          >
+          <div className={cn(TUNNEL_STYLE, "w-[70px]")}>
             <span className="text-[10px] text-muted-foreground relative z-10">
               TLS
             </span>
           </div>
-          <div
-            className="w-0 h-4 border-l-2 border-dashed border-border/50 -mb-px shrink-0"
-            aria-hidden
-          />
-          <div
-            className={cn(
-              BOUNDARY_STYLE,
-              "w-full min-h-[72px] relative overflow-visible",
-            )}
-          >
+
+          <div className={cn(BOUNDARY_STYLE, "relative w-[192px] overflow-visible z-10")}>
             <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-              Cloud LLM
+              Next.js server
             </span>
-            <div className="relative mt-2 min-h-[54px]">
+            <div className="mt-2 flex flex-col gap-2 min-h-[60px]">
               <div
-                ref={llmAnchorRef}
-                className="absolute left-1/2 top-1/2 h-0 w-0 -translate-x-1/2 -translate-y-1/2"
+                ref={nextjsUserAnchorRef}
+                className="h-8 flex items-center shrink-0"
+                aria-hidden
+              />
+              <motion.div
+                animate={nextJsLlmContainerVis}
+                initial={{ opacity: 0 }}
+                className="w-fit self-start"
+              >
+                <div
+                  ref={nextjsLlmAnchorRef}
+                  className="rounded-2xl rounded-bl-md px-4 py-2.5 text-xs font-medium bg-muted border border-border/60 shadow-md min-w-26 z-20"
+                >
+                  <motion.span animate={nextJsAccum1} initial={{ opacity: 0 }}>Hi</motion.span>
+                  <motion.span animate={nextJsAccum2} initial={{ opacity: 0 }}> there</motion.span>
+                  <motion.span animate={nextJsAccum3} initial={{ opacity: 0 }}>!</motion.span>
+                </div>
+              </motion.div>
+            </div>
+          </div>
+
+          <div className={cn(TUNNEL_STYLE, "w-[70px]")}>
+            <span className="text-[10px] text-muted-foreground relative z-10">
+              TLS
+            </span>
+          </div>
+
+          <div className={cn(BOUNDARY_STYLE, "w-[168px] relative")}>
+            <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+              Database
+            </span>
+            <span className="mt-1 text-[10px] text-muted-foreground">
+              Supabase
+            </span>
+            <div className="mt-2 flex flex-col gap-2">
+              <div
+                ref={dbUserSlotRef}
+                className="h-6 flex items-center justify-center"
+                aria-hidden
+              />
+              <div
+                ref={dbLlmSlotRef}
+                className="h-6 flex items-center justify-center"
                 aria-hidden
               />
             </div>
+            <div
+              ref={databaseAnchorRef}
+              className="absolute left-1/2 top-[56%] h-0 w-0 -translate-x-1/2 -translate-y-1/2 pointer-events-none"
+              aria-hidden
+            />
           </div>
-        </div>
-        <div className="col-span-2" />
+
+          {/* Row 2: connector + TLS boundary + Cloud LLM */}
+          <div className="col-span-2" />
+          <div className="relative flex flex-col items-center">
+            <div
+              className="w-0 h-4 border-l-2 border-dashed border-border/50 -mb-px shrink-0"
+              aria-hidden
+            />
+            <div
+              className={cn(
+                TUNNEL_STYLE,
+                "w-full min-h-[32px] py-2 pt-0 justify-center",
+              )}
+            >
+              <span className="text-[10px] text-muted-foreground relative z-10">
+                TLS
+              </span>
+            </div>
+            <div
+              className="w-0 h-4 border-l-2 border-dashed border-border/50 -mb-px shrink-0"
+              aria-hidden
+            />
+            <div
+              className={cn(
+                BOUNDARY_STYLE,
+                "w-full min-h-[72px] relative overflow-visible",
+              )}
+            >
+              <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                Cloud LLM
+              </span>
+              <div className="relative mt-2 min-h-[54px]">
+                <div
+                  ref={llmAnchorRef}
+                  className="absolute left-1/2 top-1/2 h-0 w-0 -translate-x-1/2 -translate-y-1/2"
+                  aria-hidden
+                />
+              </div>
+            </div>
+          </div>
+          <div className="col-span-2" />
         </div>
       </div>
     </div>
