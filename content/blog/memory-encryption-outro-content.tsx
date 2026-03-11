@@ -4,6 +4,7 @@ import {
   PipelineDiagram,
   type PipelineSection,
 } from "@/components/blog/pipeline-diagram";
+import { PipelineAnimation } from "@/components/blog/pipeline-animation";
 
 const LAYERS_MERMAID = `flowchart LR
   subgraph env [Config]
@@ -179,6 +180,10 @@ export function MemoryEncryptionOutroContent() {
       <h2>Final architecture and security properties</h2>
       <p className="mb-1">End-to-end pipeline:</p>
       <PipelineDiagram sections={PIPELINE_SECTIONS} />
+      <p className="mt-4 mb-1 text-sm text-muted-foreground">
+        Animated flow (message and encrypted payloads move through TLS; boundaries static):
+      </p>
+      <PipelineAnimation />
 
       <p>
         <strong>Ciphertext format:</strong> A versioned prefix, key id, then
