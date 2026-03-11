@@ -632,6 +632,28 @@ export async function deleteChat(chatId: string): Promise<SimpleResult> {
   };
 }
 
+/**
+ * Deletes a chat only if it has no messages. Use for auto-cleanup of blank chats.
+ * Returns error if the chat has any messages (so we check emptiness in two places: UI + server).
+ */
+export async function deleteEmptyChat(chatId: string): Promise<SimpleResult> {
+  const countResult = await getMessageCount(chatId);
+  if (countResult.error !== null) {
+    return {
+      ok: false,
+      error: new Error(countResult.error),
+    };
+  }
+  const count = countResult.data ?? 0;
+  if (count > 0) {
+    return {
+      ok: false,
+      error: new Error("Chat is not empty"),
+    };
+  }
+  return deleteChat(chatId);
+}
+
 export async function getConversationSummary(
   chatId: string,
 ): Promise<Result<string>> {

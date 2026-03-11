@@ -31,6 +31,8 @@ import { ChatStatus } from 'ai';
 import { InputGroupButton } from '../third-party/ui/input-group';
 import { cn } from '@/lib/utils'
 import { motion } from "framer-motion";
+import { deleteEmptyChat } from "@/data/supabase/chat";
+import { useSharedChatContext } from "@/lib/context/chat-context";
 
 type NewChatInputProps = {
   modelRef: React.RefObject<ChatModel>,
@@ -42,6 +44,9 @@ type NewChatInputProps = {
   status: ReturnType<typeof useChat>["status"],
   disabled?: boolean,
   className?: string;
+  /** When set with isBlankChat, blank chat is auto-deleted on unmount if input is empty. */
+  chatId?: string;
+  isBlankChat?: boolean;
 };
 
 export const NewChatInput: React.FC<NewChatInputProps> = ({
@@ -54,7 +59,10 @@ export const NewChatInput: React.FC<NewChatInputProps> = ({
   status,
   disabled,
   className,
+  chatId,
+  isBlankChat,
 }) => {
+  const { refreshSidebarChats } = useSharedChatContext();
 
   const STORAGE_KEY_MODEL = 'organic-llm-selected-model';
   const STORAGE_KEY_WEB_SEARCH = 'organic-llm-web-search';
@@ -72,6 +80,28 @@ export const NewChatInput: React.FC<NewChatInputProps> = ({
   const toolsRef = useRef<HTMLDivElement | null>(null);
   const [showLabels, setShowLabels] = useState(false);
   const hasLoadedPrefs = useRef(false);
+
+  // Refs for unmount cleanup: must see latest values when component unmounts
+  const inputEmptyRef = useRef(false);
+  const statusRef = useRef<typeof status>("ready");
+  inputEmptyRef.current = text.trim() === "";
+  statusRef.current = status ?? "ready";
+
+  // Auto-delete blank chat when user navigates away with empty input
+  useEffect(() => {
+    return () => {
+      if (
+        chatId &&
+        isBlankChat &&
+        inputEmptyRef.current &&
+        statusRef.current === "ready"
+      ) {
+        deleteEmptyChat(chatId).then((res) => {
+          if (res.ok) refreshSidebarChats();
+        });
+      }
+    };
+  }, [chatId, isBlankChat, refreshSidebarChats]);
 
   // Load preferences from localStorage on mount
   useLayoutEffect(() => {

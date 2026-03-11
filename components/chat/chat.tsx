@@ -264,6 +264,8 @@ export const Chat: React.FC<ChatProps> = ({
           sendMessage={sendMessage}
           stop={handleStop}
           status={status}
+          chatId={chatData?.thread.id}
+          isBlankChat={messages.length === 0}
         />
       </div>
     </div>
