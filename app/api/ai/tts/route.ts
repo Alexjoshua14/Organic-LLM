@@ -50,7 +50,7 @@ export async function POST(req: NextRequest) {
       // speechFriendlyText = await transformTextToSpeechFriendly(text);
       // TODO: Uncomment this when ready
       // speechFriendlyText = await transformTextToSpeechFriendlyV2(text);
-      logger.log("TTS Route", `Speech-friendly text: ${speechFriendlyText}`);
+      logger.log("TTS Route", `Speech-friendly text length: ${speechFriendlyText?.length ?? 0}`);
     } catch (error) {
       logger.error("TTS Route", `Error transforming text: ${error}`);
     } finally {

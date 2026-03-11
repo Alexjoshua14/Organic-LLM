@@ -27,8 +27,6 @@ export const maxDuration = 30;
 export async function POST(req: Request) {
   const body = await req.json();
 
-  logger.log("POST", `Received request body: ${JSON.stringify(body)}`);
-
   const parseResult = ChatRequestSchema.safeParse(body);
   // Grab the selectedModel from either the parsed request body or default to DEFAULT_CHAT_MODEL
   const requestedModel = parseResult.data?.model;
@@ -68,7 +66,10 @@ export async function POST(req: Request) {
   }
   const sbUserId = sbUserIdResult.data;
 
-  logger.log("POST", `Received Message: ${JSON.stringify(message)}`);
+  logger.log(
+    "POST",
+    `Received message metadata: id=${message.id ?? "unknown"} role=${message.role} parts=${message.parts?.length ?? 0}`,
+  );
 
   // Format system prompt with current date
   const currentDateTime = new Date().toISOString();

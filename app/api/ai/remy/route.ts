@@ -109,7 +109,10 @@ export async function POST(req: Request) {
     logger.log("POST", `Tmp mode: Received ${messages.length} messages`);
   } else if (message) {
     // Normal mode: use single message and load context
-    logger.log("POST", `Received Message: ${JSON.stringify(message)}`);
+    logger.log(
+      "POST",
+      `Received message metadata: id=${message.id ?? "unknown"} role=${message.role} parts=${message.parts?.length ?? 0}`,
+    );
 
     // Save the user message (only if persisting to Supabase)
     if (persistToSupabase) {

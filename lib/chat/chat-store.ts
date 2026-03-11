@@ -363,7 +363,6 @@ export async function getMessagesForChatPrompt({
         ? SPARK_SYSTEM_PROMPT
         : SYSTEM_PROMPT;
 
-  console.log("prompt", prompt);
 
   const systemPrompt = prompt
     .replace("{{currentDateTime}}", new Date().toISOString())
@@ -589,7 +588,7 @@ export async function getContext({
       .filter((part) => part.type === "text")
       .reduce((acc, part) => acc + part.text, "");
 
-    logger.log("getContext", `User message: ${userMessage}`);
+    logger.log("getContext", `User message length: ${userMessage.length}`);
 
     if (memoryEnabled) {
       const memoriesPromise = searchMemories(userMessage, sbUserId, {

@@ -128,7 +128,7 @@ export function useAion(options: UseAionOptions = {}) {
     }),
     onFinish: ({ message }) => {
       try {
-        logger.log("onFinish", JSON.stringify(message, null, 2));
+        logger.log("onFinish", `Message finished, role=${message?.role} parts=${message?.parts?.length ?? 0}`);
 
         // Handle navigation from tool results in the message
         if (message?.parts) {

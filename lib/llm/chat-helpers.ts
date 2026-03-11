@@ -13,12 +13,17 @@ import { encodingForModel } from "js-tiktoken";
 import { supabaseServer } from "../supabase/server";
 import { Message, ThreadSummarySchema } from "../schemas/chat";
 import { ValidSummary, ValidSummarySchema } from "../schemas/llm-tools";
+import {
+  decryptFromStorage,
+  encryptForStorage,
+} from "../crypto/message-encryption";
 
 import { GUARDRAIL_MAX_OUTPUT_TOKENS } from "@/lib/llm/helpers";
 import { createLogger } from "@/lib/logger";
 import { convertMessageToUIMessage } from "@/lib/chat/message-transform";
 import {
   getMessages,
+  getThreadOwnerContext,
   updateChatTitle,
   updateConversationSummary,
 } from "@/data/supabase/chat";
@@ -87,6 +92,33 @@ Previous persisted summary (if any):
 `;
 
 const logger = createLogger(`lib/llm/chat-helpers.ts`);
+
+function decryptMessageForThread(message: Message, ownerId: string): Message {
+  return {
+    ...message,
+    content: decryptFromStorage(String(message.content), {
+      userId: ownerId,
+      threadId: message.thread_id,
+      fieldName: "messages.content",
+    }),
+  };
+}
+
+function encryptThreadSummary(summaryText: string, ownerId: string, chatId: string) {
+  return encryptForStorage(summaryText, {
+    userId: ownerId,
+    threadId: chatId,
+    fieldName: "thread_summaries.summary_text",
+  });
+}
+
+function decryptThreadSummary(summaryText: string, ownerId: string, chatId: string) {
+  return decryptFromStorage(summaryText, {
+    userId: ownerId,
+    threadId: chatId,
+    fieldName: "thread_summaries.summary_text",
+  });
+}
 
 /** Extract plain text from a UIMessage for token estimation. */
 function getMessageTextForTokenEstimate(message: UIMessage): string {
@@ -164,6 +196,16 @@ export async function generateChatTitle(
   chatId: string,
 ): Promise<Result<string>> {
   const sb = await supabaseServer();
+  const threadOwnerContext = await getThreadOwnerContext(chatId);
+
+  if (threadOwnerContext.error || !threadOwnerContext.data) {
+    return {
+      data: null,
+      error: threadOwnerContext.error ?? new Error("Thread owner not found"),
+    };
+  }
+
+  const ownerId = threadOwnerContext.data.ownerId;
 
   const messages = await sb
     .from("messages")
@@ -184,7 +226,11 @@ export async function generateChatTitle(
   }
 
   const uiMessages = messages.data
-    .map((message) => convertMessageToUIMessage(message as Message))
+    .map((message) =>
+      convertMessageToUIMessage(
+        decryptMessageForThread(message as Message, ownerId),
+      ),
+    )
     .filter((message): message is UIMessage => message !== null);
 
   if (uiMessages.length === 0) {
@@ -427,10 +473,25 @@ export async function summarizeNewChat(
     tokens = 600;
   }
 
+  const threadOwnerContext = await getThreadOwnerContext(chatId);
+
+  if (threadOwnerContext.error || !threadOwnerContext.data) {
+    return {
+      data: null,
+      error: threadOwnerContext.error?.message ?? "Thread owner not found",
+    };
+  }
+
+  const ownerId = threadOwnerContext.data.ownerId;
+
   // logger.log("summarizeChatNEW", `Generated summary: ${summary}`);
   const { error: sbError } = await sb.from("thread_summaries").insert({
     thread_id: chatId,
-    summary_text: summary,
+    summary_text: encryptThreadSummary(
+      summary,
+      ownerId,
+      chatId,
+    ),
     summary_tokens: tokens,
     last_summarized_message_id: latest_message.id,
     last_summarized_at: new Date().toISOString(),
@@ -454,6 +515,16 @@ export async function updateChatSummary(
 ): Promise<Result<string, string>> {
   logger.log("updateChatSummary", `Updating chat summary for chat ${chatId}`);
   const sb = await supabaseServer();
+  const threadOwnerContext = await getThreadOwnerContext(chatId);
+
+  if (threadOwnerContext.error || !threadOwnerContext.data) {
+    return {
+      data: null,
+      error: threadOwnerContext.error?.message ?? "Thread owner not found",
+    };
+  }
+
+  const ownerId = threadOwnerContext.data.ownerId;
 
   const { data: threadSummaryData, error } = await sb
     .from("thread_summaries")
@@ -480,7 +551,10 @@ export async function updateChatSummary(
     return await summarizeNewChat(chatId);
   }
 
-  const threadSummary = ThreadSummarySchema.parse(threadSummaryData);
+  const threadSummary = ThreadSummarySchema.parse({
+    ...threadSummaryData,
+    summary_text: decryptThreadSummary(threadSummaryData.summary_text, ownerId, chatId),
+  });
 
   // logger.log(
   //   "updateChatSummary",
@@ -550,7 +624,9 @@ export async function updateChatSummary(
   }
 
   const uiMessages = messagesRes.data
-    .map((message) => convertMessageToUIMessage(message))
+    .map((message) =>
+      convertMessageToUIMessage(decryptMessageForThread(message, ownerId)),
+    )
     .filter((message) => message !== null);
 
   if (uiMessages.length !== messagesRes.data.length) {
@@ -613,7 +689,11 @@ export async function updateChatSummary(
   const { error: sbError } = await sb
     .from("thread_summaries")
     .update({
-      summary_text: validatedSummaryRes.data,
+      summary_text: encryptThreadSummary(
+        validatedSummaryRes.data,
+        threadOwnerContext.data.ownerId,
+        chatId,
+      ),
       summary_tokens: tokens,
       last_summarized_message_id: messagesRes.data[0].id,
       last_summarized_at: new Date().toISOString(),

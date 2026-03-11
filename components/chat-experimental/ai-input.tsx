@@ -46,7 +46,7 @@ export const AIInput: React.FC = () => {
 
   const aion = useAion({
     onFinish: ({ message }) => {
-      logger.log("onFinish", `Message finished streaming ${JSON.stringify(message, null, 2)}`);
+      logger.log("onFinish", `Message finished streaming, role=${message?.role} parts=${message?.parts?.length ?? 0}`);
 
       // Aion will handle routing through its tools if needed
       // The response will contain the result of any tool calls
@@ -80,7 +80,7 @@ export const AIInput: React.FC = () => {
     if (!prompt.trim() || aion.status !== "ready") return;
 
     try {
-      logger.log("handleSubmit", `Sending message to Aion ${prompt}`);
+      logger.log("handleSubmit", `Sending message to Aion, length: ${prompt?.length ?? 0}`);
       aion.sendMessage({ text: prompt });
     } catch (error) {
       logger.error("handleSubmit", `Error sending message ${error}`);
