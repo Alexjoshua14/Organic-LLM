@@ -61,7 +61,7 @@ export const AIInput: React.FC = () => {
         switch (page) {
           case "chat":
             // Aion will create/route to chat - navigation can happen after response
-            break;
+            handleLetsChat();
           case "rabbit-hole":
             // Aion will create rabbit hole session
             break;
