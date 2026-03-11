@@ -51,8 +51,6 @@ const logger = createLogger(`app/api/chat/route.ts`);
 export async function POST(req: Request) {
   const body = await req.json();
 
-  logger.log("POST", `Received request body: ${JSON.stringify(body)}`);
-
   const parseResult = ChatRequestSchema.safeParse(body);
   // Grab the selectedModel from either the parsed request body or default to DEFAULT_CHAT_MODEL
   const requestedModel = parseResult.data?.model;
@@ -106,7 +104,10 @@ export async function POST(req: Request) {
    */
   const assistantMessageId = randomUUID();
 
-  logger.log("POST", `Recieved Message: ${JSON.stringify(message)}`);
+  logger.log(
+    "POST",
+    `Received message metadata: id=${message.id ?? "unknown"} role=${message.role} parts=${message.parts?.length ?? 0}`,
+  );
 
   // Save the user message
 
@@ -160,12 +161,6 @@ export async function POST(req: Request) {
           logger.debug("context", "Context gathered", {
             historyMessageCount: chatContextResult.data?.messages?.length ?? 0,
             contextLength: chatContextResult.data?.context?.length ?? 0,
-            contextPreview:
-              chatContextResult.data?.context?.slice(0, 200) +
-              (chatContextResult.data?.context &&
-              chatContextResult.data.context.length > 200
-                ? "…"
-                : ""),
             memoriesCount: chatContextResult.data?.memories?.length ?? 0,
           });
         }

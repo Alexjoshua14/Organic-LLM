@@ -90,8 +90,6 @@ export function createAionHandler(deps: AionDeps) {
   return async function POST(req: Request) {
     const body = await req.json();
 
-    logger.log("POST", `Received request body: ${JSON.stringify(body)}`);
-
     const parseResult = ChatRequestSchema.safeParse(body);
     const memoryEnabled = parseResult.data?.memory;
 
@@ -114,7 +112,10 @@ export function createAionHandler(deps: AionDeps) {
     }
     const sbUserId = sbUserIdResult.data;
 
-    logger.log("POST", `Recieved Message: ${JSON.stringify(message)}`);
+    logger.log(
+      "POST",
+      `Received message metadata: id=${message.id ?? "unknown"} role=${message.role} parts=${message.parts?.length ?? 0}`,
+    );
 
     // Save the user message
     try {

@@ -222,7 +222,7 @@ export async function POST(req: Request) {
           .map((part) => part.text)
           .join("");
 
-        logger.log("POST", `Processing message for ops: ${assistantText}...`);
+        logger.log("POST", `Processing message for ops, length: ${assistantText.length}`);
 
         const startOps = performance.now();
 
@@ -231,7 +231,7 @@ export async function POST(req: Request) {
         if (env) {
           logger.log(
             "POST",
-            `Extracted ops envelope: ${JSON.stringify(env, null, 2)}`
+            `Extracted ops envelope, op count: ${env.ops?.length ?? 0}`
           );
           const current = await getState(id);
           const next = await applyOps(current, env);

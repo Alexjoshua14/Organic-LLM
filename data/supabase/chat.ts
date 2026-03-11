@@ -5,13 +5,17 @@ import { auth } from "@clerk/nextjs/server";
 
 import { getSupabaseUserId } from "./profiles";
 
-import { Thread, ThreadSchema } from "@/lib/schemas/chat";
+import { Message, Thread, ThreadSchema } from "@/lib/schemas/chat";
 import { Result, SimpleResult } from "@/types";
 import {
-  decodeThreadFlags,
   setFlag,
   THREAD_FLAGS,
 } from "@/lib/thread-flags";
+import {
+  type EncryptionContext,
+  decryptFromStorage,
+  encryptForStorage,
+} from "@/lib/crypto/message-encryption";
 import {
   convertMessageToUIMessage,
   convertUIMessageToMessage,
@@ -22,6 +26,135 @@ import { createLogger } from "@/lib/logger";
 const logger = createLogger("data/supabase/chat.ts");
 
 const DEFAULT_MESSAGE_LIMIT = 10;
+
+type ThreadOwnerContext = {
+  threadId: string;
+  ownerId: string;
+};
+
+function normalizeStoredString(value: unknown): string {
+  return typeof value === "string" ? value : JSON.stringify(value);
+}
+
+function buildMessageContentContext(
+  ownerId: string,
+  threadId: string,
+): EncryptionContext {
+  return {
+    userId: ownerId,
+    threadId,
+    fieldName: "messages.content",
+  };
+}
+
+function buildThreadSummaryContext(
+  ownerId: string,
+  threadId: string,
+): EncryptionContext {
+  return {
+    userId: ownerId,
+    threadId,
+    fieldName: "thread_summaries.summary_text",
+  };
+}
+
+function buildConversationSummaryContext(
+  ownerId: string,
+  threadId: string,
+): EncryptionContext {
+  return {
+    userId: ownerId,
+    threadId,
+    fieldName: "threads.conversation_summary",
+  };
+}
+
+function encryptMessageRowContent(message: Message, ownerId: string): Message {
+  return {
+    ...message,
+    content: encryptForStorage(
+      normalizeStoredString(message.content),
+      buildMessageContentContext(ownerId, message.thread_id),
+    ),
+  };
+}
+
+function decryptMessageRowContent(message: Message, ownerId: string): Message {
+  return {
+    ...message,
+    content: decryptFromStorage(
+      normalizeStoredString(message.content),
+      buildMessageContentContext(ownerId, message.thread_id),
+    ),
+  };
+}
+
+function encryptThreadSummaryText(
+  summaryText: string,
+  ownerId: string,
+  chatId: string,
+): string {
+  return encryptForStorage(
+    summaryText,
+    buildThreadSummaryContext(ownerId, chatId),
+  );
+}
+
+function decryptThreadSummaryText(
+  summaryText: string,
+  ownerId: string,
+  chatId: string,
+): string {
+  return decryptFromStorage(
+    summaryText,
+    buildThreadSummaryContext(ownerId, chatId),
+  );
+}
+
+function encryptConversationSummaryValue(
+  conversationSummary: string,
+  ownerId: string,
+  chatId: string,
+): string {
+  return encryptForStorage(
+    conversationSummary,
+    buildConversationSummaryContext(ownerId, chatId),
+  );
+}
+
+async function getThreadOwnerContextWithClient(
+  sb: Awaited<ReturnType<typeof supabaseServer>>,
+  chatId: string,
+): Promise<Result<ThreadOwnerContext>> {
+  const { data, error } = await sb
+    .from("threads")
+    .select("id, owner_id")
+    .eq("id", chatId)
+    .single();
+
+  if (error || !data) {
+    return {
+      data: null,
+      error: new Error(error?.message ?? "Thread not found"),
+    };
+  }
+
+  return {
+    data: {
+      threadId: data.id,
+      ownerId: data.owner_id,
+    },
+    error: null,
+  };
+}
+
+export async function getThreadOwnerContext(
+  chatId: string,
+): Promise<Result<ThreadOwnerContext>> {
+  const sb = await supabaseServer();
+
+  return getThreadOwnerContextWithClient(sb, chatId);
+}
 
 /**
  * Fetches thread list for the current (or specified) user.
@@ -109,14 +242,9 @@ export async function saveChat(params: {
 
   const sb = await supabaseServer();
 
-  // Check if Chat thread exists
-  const { data: thread, error: threadErr } = await sb
-    .from("threads")
-    .select("*")
-    .eq("id", chatId)
-    .single();
+  let threadOwnerContextResult = await getThreadOwnerContextWithClient(sb, chatId);
 
-  if (threadErr || !thread) {
+  if (threadOwnerContextResult.error || !threadOwnerContextResult.data) {
     const { error } = await createChat(chatId);
 
     if (error) {
@@ -127,6 +255,16 @@ export async function saveChat(params: {
         ),
       };
     }
+
+    threadOwnerContextResult = await getThreadOwnerContextWithClient(sb, chatId);
+  }
+
+  if (threadOwnerContextResult.error || !threadOwnerContextResult.data) {
+    return {
+      ok: false,
+      error:
+        threadOwnerContextResult.error ?? new Error("Thread owner not found"),
+    };
   }
 
   const { count, error: countErr } = await sb
@@ -164,9 +302,12 @@ export async function saveChat(params: {
     };
   }
 
+  const ownerId = threadOwnerContextResult.data.ownerId;
+
   const rows = tail
     .map((message) => convertUIMessageToMessage(message, chatId))
-    .filter((message) => message !== null);
+    .filter((message): message is Message => message !== null)
+    .map((message) => encryptMessageRowContent(message, ownerId));
 
   if (rows.length !== tail.length) {
     logger.error("saveChat", "A message was not converted to supabase message");
@@ -245,6 +386,16 @@ export async function addMessage(
   threadId: string,
   message: UIMessage,
 ): Promise<SimpleResult> {
+  const sb = await supabaseServer();
+  const threadOwnerContext = await getThreadOwnerContextWithClient(sb, threadId);
+
+  if (threadOwnerContext.error || !threadOwnerContext.data) {
+    return {
+      ok: false,
+      error: threadOwnerContext.error ?? new Error("Thread owner not found"),
+    };
+  }
+
   const supabaseMessage = convertUIMessageToMessage(message, threadId);
 
   if (!supabaseMessage) {
@@ -254,9 +405,12 @@ export async function addMessage(
     };
   }
 
-  const sb = await supabaseServer();
-
-  const { error } = await sb.from("messages").insert(supabaseMessage);
+  const { error } = await sb.from("messages").insert(
+    encryptMessageRowContent(
+      supabaseMessage,
+      threadOwnerContext.data.ownerId,
+    ),
+  );
 
   if (error) {
     return {
@@ -279,14 +433,9 @@ export async function upsertMessages(params: {
 
   const sb = await supabaseServer();
 
-  // Check if Chat thread exists
-  const { data: thread, error: threadErr } = await sb
-    .from("threads")
-    .select("*")
-    .eq("id", chatId)
-    .single();
+  let threadOwnerContextResult = await getThreadOwnerContextWithClient(sb, chatId);
 
-  if (threadErr || !thread) {
+  if (threadOwnerContextResult.error || !threadOwnerContextResult.data) {
     const { error } = await createChat(chatId);
 
     if (error) {
@@ -297,11 +446,24 @@ export async function upsertMessages(params: {
         ),
       };
     }
+
+    threadOwnerContextResult = await getThreadOwnerContextWithClient(sb, chatId);
   }
 
-  const rows = messages.map((message) =>
-    convertUIMessageToMessage(message, chatId),
-  );
+  if (threadOwnerContextResult.error || !threadOwnerContextResult.data) {
+    return {
+      ok: false,
+      error:
+        threadOwnerContextResult.error ?? new Error("Thread owner not found"),
+    };
+  }
+
+  const ownerId = threadOwnerContextResult.data.ownerId;
+
+  const rows = messages
+    .map((message) => convertUIMessageToMessage(message, chatId))
+    .filter((message): message is Message => message !== null)
+    .map((message) => encryptMessageRowContent(message, ownerId));
 
   const { error } = await sb.from("messages").upsert(rows, {
     ignoreDuplicates: true,
@@ -342,8 +504,30 @@ export async function getMessages(
     };
   }
 
+  if (messages.length === 0) {
+    return {
+      data: [],
+      error: null,
+    };
+  }
+
+  const threadOwnerContext = await getThreadOwnerContextWithClient(sb, chatId);
+
+  if (threadOwnerContext.error || !threadOwnerContext.data) {
+    return {
+      data: null,
+      error: threadOwnerContext.error ?? new Error("Thread owner not found"),
+    };
+  }
+
+  const ownerId = threadOwnerContext.data.ownerId;
+
   const uiMessages = messages
-    .map((message) => convertMessageToUIMessage(message))
+    .map((message) =>
+      convertMessageToUIMessage(
+        decryptMessageRowContent(message as Message, ownerId),
+      ),
+    )
     .filter((message) => message !== null);
 
   if (uiMessages.length !== messages.length) {
@@ -383,8 +567,31 @@ export async function getMessagesSince(
       };
     }
 
+    if (messages.length === 0) {
+      return {
+        data: [],
+        error: null,
+      };
+    }
+
+    const threadOwnerContext = await getThreadOwnerContextWithClient(sb, chatId);
+
+    if (threadOwnerContext.error || !threadOwnerContext.data) {
+      return {
+        data: [],
+        error:
+          threadOwnerContext.error?.message ?? "Thread owner not found",
+      };
+    }
+
+    const ownerId = threadOwnerContext.data.ownerId;
+
     const uiMessages = messages
-      .map((message) => convertMessageToUIMessage(message))
+      .map((message) =>
+        convertMessageToUIMessage(
+          decryptMessageRowContent(message as Message, ownerId),
+        ),
+      )
       .filter((message) => message !== null);
 
     if (uiMessages.length !== messages.length) {
@@ -435,9 +642,32 @@ export async function getNMessages(
       };
     }
 
+    if (messages.length === 0) {
+      return {
+        data: [],
+        error: null,
+      };
+    }
+
+    const threadOwnerContext = await getThreadOwnerContextWithClient(sb, chatId);
+
+    if (threadOwnerContext.error || !threadOwnerContext.data) {
+      return {
+        data: [],
+        error:
+          threadOwnerContext.error?.message ?? "Thread owner not found",
+      };
+    }
+
+    const ownerId = threadOwnerContext.data.ownerId;
+
     // Convert to UIMessage format and put into chronological order
     const uiMessages = messages
-      .map((message) => convertMessageToUIMessage(message))
+      .map((message) =>
+        convertMessageToUIMessage(
+          decryptMessageRowContent(message as Message, ownerId),
+        ),
+      )
       .filter((message) => message !== null)
       .reverse();
 
@@ -450,12 +680,8 @@ export async function getNMessages(
         "getNMessages",
         uiMessages
           .map((m, idx) => {
-            const text = m.parts
-              .filter((p) => p.type === "text")
-              .map((p) => p.text)
-              .join(" ");
-            const trimmed = text.length > 40 ? text.slice(0, 40) + "..." : text;
-            return `${idx}: ${trimmed}`;
+            const textPartCount = m.parts.filter((p) => p.type === "text").length;
+            return `${idx}: role=${m.role} text_parts=${textPartCount}`;
           })
           .join("\n"),
       );
@@ -658,6 +884,15 @@ export async function getConversationSummary(
   chatId: string,
 ): Promise<Result<string>> {
   const sb = await supabaseServer();
+  const threadOwnerContext = await getThreadOwnerContextWithClient(sb, chatId);
+
+  if (threadOwnerContext.error || !threadOwnerContext.data) {
+    return {
+      data: null,
+      error: threadOwnerContext.error ?? new Error("Thread owner not found"),
+    };
+  }
+
   const { data, error } = await sb
     .from("thread_summaries")
     .select("summary_text")
@@ -672,7 +907,11 @@ export async function getConversationSummary(
   }
 
   return {
-    data: data.summary_text,
+    data: decryptThreadSummaryText(
+      data.summary_text,
+      threadOwnerContext.data.ownerId,
+      chatId,
+    ),
     error: null,
   };
 }
@@ -689,10 +928,24 @@ export async function updateConversationSummary(
   }
 
   const sb = await supabaseServer();
+  const threadOwnerContext = await getThreadOwnerContextWithClient(sb, chatId);
+
+  if (threadOwnerContext.error || !threadOwnerContext.data) {
+    return {
+      ok: false,
+      error: threadOwnerContext.error ?? new Error("Thread owner not found"),
+    };
+  }
 
   const { error } = await sb
     .from("threads")
-    .update({ conversation_summary: conversationSummary })
+    .update({
+      conversation_summary: encryptConversationSummaryValue(
+        conversationSummary,
+        threadOwnerContext.data.ownerId,
+        chatId,
+      ),
+    })
     .eq("id", chatId);
 
   if (error) {

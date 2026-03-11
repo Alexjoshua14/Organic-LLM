@@ -28,7 +28,7 @@ export async function POST(req: Request) {
   try {
     const { message }: { message: string } = await req.json();
 
-    logger.log("POST", `Received message for speech generation: ${message}`);
+    logger.log("POST", `Received message for speech generation, length: ${message?.length ?? 0}`);
 
     if (
       !message ||
