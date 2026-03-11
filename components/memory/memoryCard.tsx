@@ -7,7 +7,7 @@ import { useCallback, useMemo } from "react"
 import { glass } from "../design-system/primitives"
 import { cn } from "@/lib/utils"
 import { createLogger } from "@/lib/logger";
-import { deleteMemory } from "@/lib/memory/operations";
+import { deleteMemoryForCurrentUser } from "@/lib/memory/operations";
 
 interface MemoryCardProps {
   memory: MemoryItem
@@ -20,18 +20,16 @@ export const MemoryCard = ({ memory }: MemoryCardProps) => {
   const handleDeleteMemory = useCallback(async () => {
     logger.log("MemoryCard", "Deleting memory", memory.id);
 
-    try {
-      const res = await deleteMemory(memory.id);
-      if (!res) {
-        logger.error("MemoryCard", "Error deleting memory");
-        return;
-      }
-    } catch (error) {
-      logger.error("MemoryCard", "Error deleting memory", error);
+    const result = await deleteMemoryForCurrentUser(memory.id);
+    if (result.error) {
+      logger.error("MemoryCard", "Error deleting memory", result.error);
+      return;
+    }
+    if (result.data !== true) {
+      logger.error("MemoryCard", "Error deleting memory");
       return;
     }
     logger.log("MemoryCard", "Memory deleted successfully");
-
   }, [memory]);
 
   const dateString = useMemo(() => {

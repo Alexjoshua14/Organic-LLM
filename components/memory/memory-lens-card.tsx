@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { MemoryItem } from "mem0ai/oss";
 import { cn } from "@/lib/utils";
-import { deleteMemory } from "@/lib/memory/operations";
+import { deleteMemoryForCurrentUser } from "@/lib/memory/operations";
 import { createLogger } from "@/lib/logger";
 
 const logger = createLogger("memory-lens-card");
@@ -69,13 +69,9 @@ export function MemoryLensCard({
         return;
       }
       (async () => {
-        try {
-          const ok = await deleteMemory(memory.id);
-          if (!ok) logger.error("MemoryLensCard", "Delete failed");
-          else onDeleted?.(memory.id);
-        } catch (err) {
-          logger.error("MemoryLensCard", "Delete error", err);
-        }
+        const result = await deleteMemoryForCurrentUser(memory.id);
+        if (result.error) logger.error("MemoryLensCard", "Delete failed", result.error);
+        else if (result.data === true) onDeleted?.(memory.id);
       })();
     },
     [isExiting, memory.id, onDeleted, previewRemove, resetForPreview]

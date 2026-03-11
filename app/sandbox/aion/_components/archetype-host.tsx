@@ -11,8 +11,7 @@ import { sampleMemories } from "@/test-data/sampleData";
 import { useArchetypeContext } from "@/lib/context/archetype-context";
 import { Button } from "@/components/third-party/ui/button";
 import { ScrollShadow } from "@heroui/scroll-shadow";
-import { getAllMemories } from "@/lib/memory/operations";
-import { useAuth } from "@clerk/nextjs";
+import { getCurrentUserMemories } from "@/lib/memory/operations";
 import { createLogger } from "@/lib/logger";
 
 const logger = createLogger("app/sandbox/aion/_components/archetype-host.tsx");
@@ -67,40 +66,30 @@ export function ArchetypeHost({
   className,
 }: ArchetypeHostProps) {
 
-  // Get clerk user id
-  const { userId } = useAuth();
-
   const { setArchetypeData, archetypeData } = useArchetypeContext();
 
   // TODO: Refactor into actual logic, this is a temporary placeholder while developing Archetypes
   useEffect(() => {
-    const fetchMemories = async (): Promise<ArchetypePayload | undefined> => {
-      let memoryArchetypeData: ArchetypePayload | undefined;
-      if (!userId) {
-        logger.warn("ArchetypeHost", "No user ID found");
+    const fetchMemories = async () => {
+      if (archetypeData) return;
+
+      const result = await getCurrentUserMemories();
+      if (result.error) {
+        if (result.error === "Not signed in") return;
+        setArchetypeData(sampleArchetypeData);
         return;
       }
-      try {
-        const res = await getAllMemories(userId);
-        memoryArchetypeData = {
+      if (result.data) {
+        setArchetypeData({
           id: "f11aac23-ca87-4a79-a5a9-5c7115abec2b",
           kind: "memory" as const,
-          memories: res.results,
-        }
-      } catch (error) {
-        // Temporarily silence error
-        //logger.error("ArchetypeHost", "Error fetching memories", error);
-        memoryArchetypeData = sampleArchetypeData;
+          memories: result.data.results,
+        });
       }
+    };
 
-      setArchetypeData(memoryArchetypeData);
-    }
-
-    if (!archetypeData) {
-      fetchMemories();
-    }
-
-  }, [setArchetypeData, userId]);
+    fetchMemories();
+  }, [setArchetypeData, archetypeData]);
 
   return (
     <aside
