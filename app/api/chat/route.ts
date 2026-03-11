@@ -29,7 +29,7 @@ import {
 } from "@/lib/llm/llm-tool-kit";
 import { createLogger } from "@/lib/logger";
 import { SYSTEM_PROMPT } from "@/lib/system-prompt/prompt-v0";
-import { addLatestMessagesToMemory } from "@/lib/memory/operations";
+import { addLatestMessagesToMemory } from "@/lib/memory/store";
 
 import { ChatRequestSchema, DEFAULT_CHAT_MODEL } from "@/lib/schemas/chat";
 import { getSupabaseUserId } from "@/data/supabase/profiles";

@@ -2,7 +2,6 @@
 // Functions to control
 //   - Set memory archetype displaay
 
-import { searchMemories, searchMemoriesServer } from "@/lib/memory/operations";
 import { MemoryItem } from "@/lib/schemas/memory";
 import { Tool, tool } from "ai";
 import { z } from "zod";

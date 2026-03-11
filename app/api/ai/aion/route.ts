@@ -11,7 +11,7 @@ import { deleteChatMessage, getContext, saveChat } from "@/lib/chat/chat-store";
 import { ensureChatHasTitle, updateChatSummary } from "@/lib/llm/chat-helpers";
 import { fakeStreamText } from "@/lib/llm/fake-stream-text";
 import { createMemorySearchTool } from "@/lib/llm/llm-tool-kit";
-import { addLatestMessagesToMemory } from "@/lib/memory/operations";
+import { addLatestMessagesToMemory } from "@/lib/memory/store";
 import { createAionHandler, type AionDeps } from "@/lib/api/aion-handler";
 
 // Allow streaming responses up to 30 seconds

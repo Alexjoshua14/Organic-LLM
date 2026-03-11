@@ -10,7 +10,7 @@ import {
 } from "../system-prompt/prompt-v0";
 import SPARK_SYSTEM_PROMPT from "../system-prompt";
 import { getStateString } from "../supabase/organicStateStore";
-import { searchMemories } from "../memory/operations";
+import { searchMemories } from "../memory/store";
 import {
   CodeBlockSchema,
   ContextPiece,

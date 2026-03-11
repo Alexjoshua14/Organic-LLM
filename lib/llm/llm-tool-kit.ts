@@ -8,7 +8,7 @@ import {
   getNMessages,
 } from "@/data/supabase/chat";
 import { estimateTokenCount } from "@/lib/llm/chat-helpers";
-import { searchMemories } from "@/lib/memory/operations";
+import { searchMemories } from "@/lib/memory/store";
 import { SearchMemoryToolSchema } from "@/lib/schemas/llm-tools";
 import { createLogger } from "../logger";
 import { exaSearchOptionsSchema, searchOptionsSchema } from "../exa/types";
