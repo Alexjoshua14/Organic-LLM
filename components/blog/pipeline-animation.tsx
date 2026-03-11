@@ -1,24 +1,43 @@
 "use client";
 
-import { motion, useAnimation } from "framer-motion";
+import { motion, useAnimation, type AnimationControls } from "framer-motion";
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { cn } from "@/lib/utils";
 
 const FIGURE_HEIGHT = 180;
 
+const ENCRYPTED_BUBBLE_CLASS =
+  "absolute rounded border border-amber-600/50 bg-amber-500/15 backdrop-blur-sm px-3 py-0.5 text-[10px] text-foreground flex flex-col items-center gap-0.5 w-fit min-w-[120px] box-border -translate-x-1/2 -translate-y-1/2";
+
+function EncryptedMessageBubble({
+  animate,
+  initialLeft,
+  initialTop,
+  label,
+}: {
+  animate: AnimationControls;
+  initialLeft: number;
+  initialTop: number;
+  label: string;
+}) {
+  return (
+    <motion.div
+      animate={animate}
+      initial={{ left: `${initialLeft}%`, top: `${initialTop}%`, opacity: 0 }}
+      className={ENCRYPTED_BUBBLE_CLASS}
+    >
+      <span className="flex items-center gap-0.5">
+        <span aria-hidden>🔒</span> {label}
+      </span>
+      <span className="text-[8px] italic font-light text-muted-foreground">AES-256-GCM encryption</span>
+    </motion.div>
+  );
+}
+
 const BOUNDARY_STYLE =
   "rounded-lg border-2 border-border/60 bg-muted/30 px-4 py-3 min-h-[96px] flex flex-col justify-start shrink-0";
 const TUNNEL_STYLE =
   "rounded-md border-2 border-dashed border-border/50 flex flex-col items-center justify-start pt-3 min-h-[96px] relative overflow-visible shrink-0 bg-primary/[0.15] backdrop-blur-[2px] z-30";
-
-const GAP = 8;
-const COL_USER = 152;
-const COL_TUNNEL = 70;
-const COL_NEXTJS = 192;
-const COL_DATABASE = 120;
-const GRID_COLS = `${COL_USER}px ${COL_TUNNEL}px ${COL_NEXTJS}px ${COL_TUNNEL}px ${COL_DATABASE}px`;
-const TOTAL_WIDTH =
-  COL_USER + GAP + COL_TUNNEL + GAP + COL_NEXTJS + GAP + COL_TUNNEL + GAP + COL_DATABASE;
 
 /** Scale factor for animation speed. 1 = normal, > 1 = slower (e.g. 1.25 = 25% slower). */
 const ANIMATION_SPEED_SCALE = 1.25;
@@ -298,7 +317,7 @@ export function PipelineAnimation({ className }: { className?: string }) {
   return (
     <div
       className={cn(
-        "my-6 relative overflow-visible rounded-xl border border-border/50 bg-muted/10 p-2 sm:p-5",
+        "my-6 relative overflow-visible rounded-xl border border-border/50 bg-muted/10 px-4 py-2 sm:p-5 w-full",
         className,
       )}
       role="figure"
@@ -306,8 +325,8 @@ export function PipelineAnimation({ className }: { className?: string }) {
     >
       <div
         ref={stageRef}
-        className="relative mx-auto overflow-visible"
-        style={{ width: TOTAL_WIDTH, maxWidth: "100%", minHeight: FIGURE_HEIGHT }}
+        className="relative mx-auto overflow-visible w-full sm:w-fit max-w-full"
+        style={{ minHeight: FIGURE_HEIGHT }}
       >
         {/* Overlay: moving elements animate between measured anchor points. */}
         <div className="absolute inset-0 z-0 pointer-events-none overflow-visible">
@@ -350,33 +369,25 @@ export function PipelineAnimation({ className }: { className?: string }) {
 
         {/* Encrypt overlay: toDbSlot and finalToDbSlot paint over the grid so they appear over the message slot */}
         <div className="absolute inset-0 z-20 pointer-events-none overflow-visible">
-          <motion.div
+          <EncryptedMessageBubble
             animate={toDbSlot}
-            initial={{ left: `${slots.nextjsUser.x}%`, top: `${slots.nextjsUser.y}%`, opacity: 0 }}
-            className="absolute rounded border border-amber-600/50 bg-amber-500/15 backdrop-blur-sm px-3 py-1.5 text-[10px] text-foreground flex flex-col items-center gap-0.5 w-[116px] min-w-[116px] box-border -translate-x-1/2 -translate-y-1/2"
-          >
-            <span className="flex items-center gap-1.5">
-              <span aria-hidden>🔒</span> User
-            </span>
-            <span className="text-[8px] italic text-muted-foreground">AES-256-GCM encryption</span>
-          </motion.div>
-          <motion.div
+            initialLeft={slots.nextjsUser.x}
+            initialTop={slots.nextjsUser.y}
+            label="User"
+          />
+          <EncryptedMessageBubble
             animate={finalToDbSlot}
-            initial={{ left: `${slots.nextjsLlm.x}%`, top: `${slots.nextjsLlm.y}%`, opacity: 0 }}
-            className="absolute rounded border border-amber-600/50 bg-amber-500/15 backdrop-blur-sm px-3 py-1.5 text-[10px] text-foreground flex flex-col items-center gap-0.5 w-[116px] min-w-[116px] box-border -translate-x-1/2 -translate-y-1/2"
-          >
-            <span className="flex items-center gap-1.5">
-              <span aria-hidden>🔒</span> LLM
-            </span>
-            <span className="text-[8px] italic text-muted-foreground">AES-256-GCM encryption</span>
-          </motion.div>
+            initialLeft={slots.nextjsLlm.x}
+            initialTop={slots.nextjsLlm.y}
+            label="LLM"
+          />
         </div>
 
         {/* Vertical layout: left = User, TLS, Server, TLS, Database (centered); right = TLS (server height) + Cloud LLM, horizontally centered */}
         <div className="grid grid-cols-[1fr_auto] gap-x-4 overflow-visible relative z-10 items-center min-h-[180px]">
           {/* Left: User, TLS, Server, TLS, Database stacked; TLS same width as server (192px); vertically centered */}
           <div className="flex flex-col justify-center items-center gap-y-1">
-            <div className={cn(BOUNDARY_STYLE, "w-[192px] relative z-10")}>
+            <div className={cn(BOUNDARY_STYLE, "w-[162px] relative z-10")}>
               <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
                 User
               </span>
@@ -403,13 +414,13 @@ export function PipelineAnimation({ className }: { className?: string }) {
               </div>
             </div>
 
-            <div className={cn(TUNNEL_STYLE, "w-[192px] min-h-[32px] py-2 justify-center")}>
+            <div className={cn(TUNNEL_STYLE, "w-[162px] min-h-[32px] py-2 justify-center")}>
               <span className="text-[10px] text-muted-foreground relative z-10">
                 TLS
               </span>
             </div>
 
-            <div className={cn(BOUNDARY_STYLE, "relative w-[192px] overflow-visible z-10")}>
+            <div className={cn(BOUNDARY_STYLE, "relative w-[162px] overflow-visible z-10")}>
               <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
                 Next.js server
               </span>
@@ -436,28 +447,28 @@ export function PipelineAnimation({ className }: { className?: string }) {
               </div>
             </div>
 
-            <div className={cn(TUNNEL_STYLE, "w-[192px] min-h-[32px] py-2 justify-center")}>
+            <div className={cn(TUNNEL_STYLE, "w-[162px] min-h-[32px] py-2 justify-center")}>
               <span className="text-[10px] text-muted-foreground relative z-10">
                 TLS
               </span>
             </div>
 
-            <div className={cn(BOUNDARY_STYLE, "w-[192px] relative")}>
+            <div className={cn(BOUNDARY_STYLE, "w-[162px] relative min-h-[168px]")}>
               <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
                 Database
               </span>
               <span className="mt-1 text-[10px] text-muted-foreground">
                 Supabase
               </span>
-              <div className="mt-2 flex flex-col gap-2">
+              <div className="mt-3 flex flex-1 flex-col justify-center gap-3">
                 <div
                   ref={dbUserSlotRef}
-                  className="h-6 flex items-center justify-center"
+                  className="h-8 flex items-center justify-center"
                   aria-hidden
                 />
                 <div
                   ref={dbLlmSlotRef}
-                  className="h-6 flex items-center justify-center"
+                  className="h-8 flex items-center justify-center"
                   aria-hidden
                 />
               </div>
@@ -470,11 +481,11 @@ export function PipelineAnimation({ className }: { className?: string }) {
           </div>
 
           {/* Right: TLS (between server and LLM, same height as server) + Cloud LLM, horizontally centered */}
-          <div className="flex flex-row justify-center items-center gap-x-2">
+          <div className="flex flex-row justify-center items-center gap-x-1">
             <div
               className={cn(
                 TUNNEL_STYLE,
-                "w-[192px] min-h-[96px] py-2 justify-center shrink-0",
+                "w-[66px] min-h-[96px] pt-0 justify-center shrink-0",
               )}
             >
               <span className="text-[10px] text-muted-foreground relative z-10">
@@ -484,7 +495,7 @@ export function PipelineAnimation({ className }: { className?: string }) {
             <div
               className={cn(
                 BOUNDARY_STYLE,
-                "w-[192px] min-h-[96px] relative overflow-visible shrink-0",
+                "w-[162px] min-h-[96px] relative overflow-visible shrink-0",
               )}
             >
               <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
