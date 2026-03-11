@@ -1,10 +1,12 @@
 'use client'
 
-import React, { useCallback, useEffect, useRef } from "react";
+import React, { useCallback, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { AiInputForm } from "./ai-input-form";
 import { useAion } from "@/hooks/use-aion";
 import { createLogger } from "@/lib/logger";
+import { createChat } from "@/lib/chat/chat-store";
+import { useSharedChatContext } from "@/lib/context/chat-context";
 import { Button } from "@heroui/button";
 import { glass } from "../design-system/primitives";
 import { motion } from "framer-motion";
@@ -20,6 +22,27 @@ const logger = createLogger("ai-input");
 export const AIInput: React.FC = () => {
   const router = useRouter();
   const elementActive = useRef<boolean>(false);
+  const { refreshSidebarChats } = useSharedChatContext();
+  const [creating, setCreating] = useState(false);
+
+  const handleLetsChat = useCallback(async () => {
+    if (creating) return;
+    setCreating(true);
+    try {
+      const res = await createChat();
+      if (res.error || res.data === null) {
+        logger.error("handleLetsChat", res.error ? res.error.message : "Chat ID is null");
+        return;
+      }
+      const id = res.data;
+      refreshSidebarChats();
+      router.push(`/chat/${id}`);
+    } catch (error) {
+      logger.error("handleLetsChat", `Error creating chat: ${error}`);
+    } finally {
+      setCreating(false);
+    }
+  }, [creating, refreshSidebarChats, router]);
 
   const aion = useAion({
     onFinish: ({ message }) => {
@@ -88,10 +111,10 @@ export const AIInput: React.FC = () => {
         className="w-full max-w-xl rounded-xl"
       />
       <div className="flex gap-10 justify-center">
-        {/* TODO: THis chat button can be converted to programmatic */}
         <ActionButton
           title="Let's Chat"
-          onPress={() => aion.sendMessage({ text: "Navigate to new chat" })}
+          onPress={handleLetsChat}
+          isDisabled={creating}
         />
         <ActionButton
           title="Rabbit Holes"
