@@ -3,20 +3,20 @@ import path from "path";
 import Link from "next/link";
 import { BlogProse } from "@/components/blog/blog-prose";
 
-const DOC_PATH = path.join(
+const CONTENT_PATH = path.join(
   process.cwd(),
-  "components/background/ADAPTIVE_LIQUID_CHROME.md",
+  "content/blog/chat-message-flow.md",
 );
 
 function getContent(): string {
   try {
-    return fs.readFileSync(DOC_PATH, "utf-8");
+    return fs.readFileSync(CONTENT_PATH, "utf-8");
   } catch {
-    return "# Adaptive Liquid Chrome\n\nDocumentation could not be loaded.";
+    return "# Chat Message Flow\n\nContent could not be loaded.";
   }
 }
 
-export default function AdaptiveLiquidChromePostPage() {
+export default function ChatMessageFlowPostPage() {
   const content = getContent();
 
   return (
