@@ -298,7 +298,7 @@ export function PipelineAnimation({ className }: { className?: string }) {
   return (
     <div
       className={cn(
-        "my-6 relative overflow-visible rounded-xl border border-border/50 bg-muted/10 p-5",
+        "my-6 relative overflow-visible rounded-xl border border-border/50 bg-muted/10 p-2 sm:p-5",
         className,
       )}
       role="figure"
@@ -353,7 +353,7 @@ export function PipelineAnimation({ className }: { className?: string }) {
           <motion.div
             animate={toDbSlot}
             initial={{ left: `${slots.nextjsUser.x}%`, top: `${slots.nextjsUser.y}%`, opacity: 0 }}
-            className="absolute rounded border border-amber-600/50 bg-amber-500/15 backdrop-blur-sm px-3 py-1.5 text-[10px] text-foreground flex flex-col items-center gap-0.5 w-[140px] min-w-[140px] box-border -translate-x-1/2 -translate-y-1/2"
+            className="absolute rounded border border-amber-600/50 bg-amber-500/15 backdrop-blur-sm px-3 py-1.5 text-[10px] text-foreground flex flex-col items-center gap-0.5 w-[116px] min-w-[116px] box-border -translate-x-1/2 -translate-y-1/2"
           >
             <span className="flex items-center gap-1.5">
               <span aria-hidden>🔒</span> User
@@ -363,7 +363,7 @@ export function PipelineAnimation({ className }: { className?: string }) {
           <motion.div
             animate={finalToDbSlot}
             initial={{ left: `${slots.nextjsLlm.x}%`, top: `${slots.nextjsLlm.y}%`, opacity: 0 }}
-            className="absolute rounded border border-amber-600/50 bg-amber-500/15 backdrop-blur-sm px-3 py-1.5 text-[10px] text-foreground flex flex-col items-center gap-0.5 w-[140px] min-w-[140px] box-border -translate-x-1/2 -translate-y-1/2"
+            className="absolute rounded border border-amber-600/50 bg-amber-500/15 backdrop-blur-sm px-3 py-1.5 text-[10px] text-foreground flex flex-col items-center gap-0.5 w-[116px] min-w-[116px] box-border -translate-x-1/2 -translate-y-1/2"
           >
             <span className="flex items-center gap-1.5">
               <span aria-hidden>🔒</span> LLM
@@ -372,115 +372,109 @@ export function PipelineAnimation({ className }: { className?: string }) {
           </motion.div>
         </div>
 
-        {/* Static grid: boundaries and tunnels; z-10 so compiled message (accum) paints above overlay stream chunks */}
-        <div
-          className="grid gap-x-2 gap-y-1 overflow-visible relative z-10"
-          style={{ gridTemplateColumns: GRID_COLS }}
-        >
-          {/* Row 1 */}
-          <div className={cn(BOUNDARY_STYLE, "w-[152px] relative z-10")}>
-            <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-              User
-            </span>
-            <div className="mt-2 flex flex-col gap-2 min-h-[48px]">
-              <div
-                ref={userUserAnchorRef}
-                className="h-8 flex items-center shrink-0"
-                aria-hidden
-              />
-              <motion.div
-                animate={userLlmContainerVis}
-                initial={{ opacity: 0 }}
-                className="w-fit self-start"
-              >
+        {/* Vertical layout: left = User, TLS, Server, TLS, Database (centered); right = TLS (server height) + Cloud LLM, horizontally centered */}
+        <div className="grid grid-cols-[1fr_auto] gap-x-4 overflow-visible relative z-10 items-center min-h-[180px]">
+          {/* Left: User, TLS, Server, TLS, Database stacked; TLS same width as server (192px); vertically centered */}
+          <div className="flex flex-col justify-center items-center gap-y-1">
+            <div className={cn(BOUNDARY_STYLE, "w-[192px] relative z-10")}>
+              <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                User
+              </span>
+              <div className="mt-2 flex flex-col gap-2 min-h-[48px]">
                 <div
-                  ref={userLlmAnchorRef}
-                  className="rounded-2xl rounded-bl-md px-4 py-2.5 text-xs font-medium bg-muted border border-border/60 shadow-md min-w-26 z-20"
+                  ref={userUserAnchorRef}
+                  className="h-8 flex items-center shrink-0"
+                  aria-hidden
+                />
+                <motion.div
+                  animate={userLlmContainerVis}
+                  initial={{ opacity: 0 }}
+                  className="w-fit self-start"
                 >
-                  <motion.span animate={userAccum1} initial={{ opacity: 0 }}>Hi</motion.span>
-                  <motion.span animate={userAccum2} initial={{ opacity: 0 }}> there</motion.span>
-                  <motion.span animate={userAccum3} initial={{ opacity: 0 }}>!</motion.span>
-                </div>
-              </motion.div>
+                  <div
+                    ref={userLlmAnchorRef}
+                    className="rounded-2xl rounded-bl-md px-4 py-2.5 text-xs font-medium bg-muted border border-border/60 shadow-md min-w-26 z-20"
+                  >
+                    <motion.span animate={userAccum1} initial={{ opacity: 0 }}>Hi</motion.span>
+                    <motion.span animate={userAccum2} initial={{ opacity: 0 }}> there</motion.span>
+                    <motion.span animate={userAccum3} initial={{ opacity: 0 }}>!</motion.span>
+                  </div>
+                </motion.div>
+              </div>
             </div>
-          </div>
 
-          <div className={cn(TUNNEL_STYLE, "w-[70px]")}>
-            <span className="text-[10px] text-muted-foreground relative z-10">
-              TLS
-            </span>
-          </div>
+            <div className={cn(TUNNEL_STYLE, "w-[192px] min-h-[32px] py-2 justify-center")}>
+              <span className="text-[10px] text-muted-foreground relative z-10">
+                TLS
+              </span>
+            </div>
 
-          <div className={cn(BOUNDARY_STYLE, "relative w-[192px] overflow-visible z-10")}>
-            <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-              Next.js server
-            </span>
-            <div className="mt-2 flex flex-col gap-2 min-h-[60px]">
-              <div
-                ref={nextjsUserAnchorRef}
-                className="h-8 flex items-center shrink-0"
-                aria-hidden
-              />
-              <motion.div
-                animate={nextJsLlmContainerVis}
-                initial={{ opacity: 0 }}
-                className="w-fit self-start"
-              >
+            <div className={cn(BOUNDARY_STYLE, "relative w-[192px] overflow-visible z-10")}>
+              <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                Next.js server
+              </span>
+              <div className="mt-2 flex flex-col gap-2 min-h-[60px]">
                 <div
-                  ref={nextjsLlmAnchorRef}
-                  className="rounded-2xl rounded-bl-md px-4 py-2.5 text-xs font-medium bg-muted border border-border/60 shadow-md min-w-26 z-20"
+                  ref={nextjsUserAnchorRef}
+                  className="h-8 flex items-center shrink-0"
+                  aria-hidden
+                />
+                <motion.div
+                  animate={nextJsLlmContainerVis}
+                  initial={{ opacity: 0 }}
+                  className="w-fit self-start"
                 >
-                  <motion.span animate={nextJsAccum1} initial={{ opacity: 0 }}>Hi</motion.span>
-                  <motion.span animate={nextJsAccum2} initial={{ opacity: 0 }}> there</motion.span>
-                  <motion.span animate={nextJsAccum3} initial={{ opacity: 0 }}>!</motion.span>
-                </div>
-              </motion.div>
+                  <div
+                    ref={nextjsLlmAnchorRef}
+                    className="rounded-2xl rounded-bl-md px-4 py-2.5 text-xs font-medium bg-muted border border-border/60 shadow-md min-w-26 z-20"
+                  >
+                    <motion.span animate={nextJsAccum1} initial={{ opacity: 0 }}>Hi</motion.span>
+                    <motion.span animate={nextJsAccum2} initial={{ opacity: 0 }}> there</motion.span>
+                    <motion.span animate={nextJsAccum3} initial={{ opacity: 0 }}>!</motion.span>
+                  </div>
+                </motion.div>
+              </div>
+            </div>
+
+            <div className={cn(TUNNEL_STYLE, "w-[192px] min-h-[32px] py-2 justify-center")}>
+              <span className="text-[10px] text-muted-foreground relative z-10">
+                TLS
+              </span>
+            </div>
+
+            <div className={cn(BOUNDARY_STYLE, "w-[192px] relative")}>
+              <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                Database
+              </span>
+              <span className="mt-1 text-[10px] text-muted-foreground">
+                Supabase
+              </span>
+              <div className="mt-2 flex flex-col gap-2">
+                <div
+                  ref={dbUserSlotRef}
+                  className="h-6 flex items-center justify-center"
+                  aria-hidden
+                />
+                <div
+                  ref={dbLlmSlotRef}
+                  className="h-6 flex items-center justify-center"
+                  aria-hidden
+                />
+              </div>
+              <div
+                ref={databaseAnchorRef}
+                className="absolute left-1/2 top-[56%] h-0 w-0 -translate-x-1/2 -translate-y-1/2 pointer-events-none"
+                aria-hidden
+              />
             </div>
           </div>
 
-          <div className={cn(TUNNEL_STYLE, "w-[70px]")}>
-            <span className="text-[10px] text-muted-foreground relative z-10">
-              TLS
-            </span>
-          </div>
-
-          <div className={cn(BOUNDARY_STYLE, "w-[168px] relative")}>
-            <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-              Database
-            </span>
-            <span className="mt-1 text-[10px] text-muted-foreground">
-              Supabase
-            </span>
-            <div className="mt-2 flex flex-col gap-2">
-              <div
-                ref={dbUserSlotRef}
-                className="h-6 flex items-center justify-center"
-                aria-hidden
-              />
-              <div
-                ref={dbLlmSlotRef}
-                className="h-6 flex items-center justify-center"
-                aria-hidden
-              />
-            </div>
-            <div
-              ref={databaseAnchorRef}
-              className="absolute left-1/2 top-[56%] h-0 w-0 -translate-x-1/2 -translate-y-1/2 pointer-events-none"
-              aria-hidden
-            />
-          </div>
-
-          {/* Row 2: connector + TLS boundary + Cloud LLM */}
-          <div className="col-span-2" />
-          <div className="relative flex flex-col items-center">
-            <div
-              className="w-0 h-4 border-l-2 border-dashed border-border/50 -mb-px shrink-0"
-              aria-hidden
-            />
+          {/* Right: TLS (between server and LLM, same height as server) + Cloud LLM, horizontally centered */}
+          <div className="flex flex-row justify-center items-center gap-x-2">
             <div
               className={cn(
                 TUNNEL_STYLE,
-                "w-full min-h-[32px] py-2 pt-0 justify-center",
+                "w-[192px] min-h-[96px] py-2 justify-center shrink-0",
               )}
             >
               <span className="text-[10px] text-muted-foreground relative z-10">
@@ -488,13 +482,9 @@ export function PipelineAnimation({ className }: { className?: string }) {
               </span>
             </div>
             <div
-              className="w-0 h-4 border-l-2 border-dashed border-border/50 -mb-px shrink-0"
-              aria-hidden
-            />
-            <div
               className={cn(
                 BOUNDARY_STYLE,
-                "w-full min-h-[72px] relative overflow-visible",
+                "w-[192px] min-h-[96px] relative overflow-visible shrink-0",
               )}
             >
               <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
@@ -509,7 +499,6 @@ export function PipelineAnimation({ className }: { className?: string }) {
               </div>
             </div>
           </div>
-          <div className="col-span-2" />
         </div>
       </div>
     </div>

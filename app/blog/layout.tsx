@@ -8,7 +8,7 @@ export default function BlogLayout({
 }) {
   return (
     <Page className="bg-background text-foreground">
-      <div className="w-full max-w-2xl mx-auto flex flex-col h-full">
+      <div className="w-full sm:max-w-[calc(100dvw-2rem)] md:max-w-[calc(100dvw-18rem)] lg:max-w-4xl mx-auto flex flex-col h-full">
         <div className="px-6 pt-14 flex justify-start">
           <BackToHomeButton />
         </div>
