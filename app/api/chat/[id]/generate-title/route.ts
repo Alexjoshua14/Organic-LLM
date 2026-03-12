@@ -4,6 +4,7 @@ import { NextResponse } from "next/server";
 import { getSupabaseUserId } from "@/data/supabase/profiles";
 import { generateChatTitle } from "@/lib/llm/chat-helpers";
 import { createLogger } from "@/lib/logger";
+import { checkTitleGenerationLimit } from "@/lib/rate-limit/title";
 
 export const maxDuration = 30;
 
@@ -39,6 +40,15 @@ export async function POST(
   }
 
   const { id } = await params;
+  const sbUserId = sbUserIdResult.data;
+
+  const limitResult = await checkTitleGenerationLimit(sbUserId, id);
+  if (!limitResult.success) {
+    return NextResponse.json(
+      { error: limitResult.error ?? "Too many requests" },
+      { status: 429 },
+    );
+  }
 
   const result = await generateChatTitle(id);
 
