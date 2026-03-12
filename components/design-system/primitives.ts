@@ -56,6 +56,13 @@ export const page = tv({
   base: "w-full h-full bg-primary text-primary rounded",
 });
 
+/**
+ * Caption: small muted text for short descriptions under headings (e.g. settings sections).
+ */
+export const caption = tv({
+  base: "text-xs text-muted-foreground font-light leading-snug",
+});
+
 export const glass = tv({
   base: "bg-background-tertiary/30 dark:bg-background-tertiary/20 backdrop-brightness-110 dark:backdrop-brightness-200 backdrop-blur-2xl  border-foreground/5",
   variants: {

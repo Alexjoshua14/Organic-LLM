@@ -1,7 +1,7 @@
 "use client";
 
 import { MemoryLensCard } from "./memory-lens-card";
-import { glass } from "@/components/design-system/primitives";
+import { glass, caption } from "@/components/design-system/primitives";
 import { cn } from "@/lib/utils";
 import { Input } from "@/components/third-party/ui/input";
 import {
@@ -16,6 +16,7 @@ import type { MemoryLensContentProps, SortOption } from "@/types/memory-lens";
 export function MemoryLensContent({
   variant,
   className,
+  hideHeading = false,
   searchInput,
   setSearchInput,
   sortBy,
@@ -33,34 +34,50 @@ export function MemoryLensContent({
   isRefreshing = false,
 }: MemoryLensContentProps) {
   return (
-    <div
+    <section
       className={cn(
         glass(),
         "rounded-2xl p-5 flex flex-col gap-5",
         variant === "sheet" && "px-2 pb-6",
+        variant === "inline" && "px-2 w-full",
         className
       )}
+      aria-labelledby={hideHeading ? undefined : "memory-lens-heading"}
+      aria-describedby="memory-lens-description"
     >
       <header className="space-y-1">
-        <h2 className="text-xl font-semibold tracking-tight bg-clip-text text-transparent bg-linear-to-b from-cyan-400 to-emerald-500">
-          Persisted memory
-        </h2>
-        <p className="text-sm text-muted-foreground max-w-md">
-          What Organic LLM has stored and can retrieve across any thread.
-          Semantically searchable so the right context surfaces when you need it.
-        </p>
+        {!hideHeading && (
+          <div>
+            <h2 id="memory-lens-heading" className="text-xl font-semibold text-foreground">
+              Persisted memory
+            </h2>
+            <p id="memory-lens-description" className={caption({ className: "max-w-md" })}>
+              What Organic LLM has stored and can retrieve across any thread.
+              Semantically searchable so the right context surfaces when you need it.
+            </p>
+          </div>
+        )}
         {showSearchBar ? (
           <div className="grid grid-cols-1 sm:grid-cols-[1fr_auto] gap-x-4 gap-y-1 pt-2 items-start">
             <div className="flex flex-col gap-1 min-w-0">
-              <Input
-                type="search"
-                placeholder="Search memories..."
-                value={searchInput}
-                onChange={(e) => setSearchInput(e.target.value)}
-                className="max-w-sm"
-                aria-label="Search memories"
-              />
-              <p className="text-xs text-muted-foreground/80 italic min-h-5">
+              <div
+                className={cn(
+                  glass(),
+                  "overflow-hidden rounded-xl",
+                  variant === "inline" ? "max-w-xl" : "max-w-sm"
+                )}
+              >
+                <Input
+                  type="search"
+                  placeholder="Search memories..."
+                  value={searchInput}
+                  onChange={(e) => setSearchInput(e.target.value)}
+                  className="w-full border-0 shadow-none focus-visible:ring-0 rounded-none bg-transparent px-3 py-2"
+                  aria-label="Search memories"
+                  aria-describedby="memory-lens-search-hint"
+                />
+              </div>
+              <p id="memory-lens-search-hint" className="text-xs text-muted-foreground/80 italic min-h-5" aria-live="polite">
                 {hasSearch ? (
                   <>Showing up to {searchLimitDisplay} memories for: “{effectiveQuery}”</>
                 ) : (
@@ -70,14 +87,18 @@ export function MemoryLensContent({
             </div>
             <div className="flex flex-col gap-1">
               <div className="flex items-center gap-2 flex-wrap">
-                <span className="text-xs text-muted-foreground whitespace-nowrap">
+                <span id="memory-lens-sort-label" className="text-xs text-muted-foreground whitespace-nowrap">
                   Sort by
                 </span>
                 <Select
                   value={sortBy}
                   onValueChange={(v) => setSortBy(v as SortOption)}
                 >
-                  <SelectTrigger size="sm" className="w-[160px]">
+                  <SelectTrigger
+                    size="sm"
+                    className={cn(glass(), "rounded-xl")}
+                    aria-labelledby="memory-lens-sort-label"
+                  >
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -104,14 +125,18 @@ export function MemoryLensContent({
           </div>
         ) : (
           <div className="flex items-center gap-2 pt-2 flex-wrap">
-            <span className="text-xs text-muted-foreground whitespace-nowrap">
+            <span id="memory-lens-sort-label-inline" className="text-xs text-muted-foreground whitespace-nowrap">
               Sort by
             </span>
             <Select
               value={sortBy}
               onValueChange={(v) => setSortBy(v as SortOption)}
             >
-              <SelectTrigger size="sm" className="w-[160px]">
+              <SelectTrigger
+                size="sm"
+                className={cn(glass({ opaque: true }), "w-[160px] rounded-xl border-0 shadow-none")}
+                aria-labelledby="memory-lens-sort-label-inline"
+              >
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -125,6 +150,19 @@ export function MemoryLensContent({
         )}
       </header>
 
+      {!isInitialLoad && (!isEmpty || error) && (
+        <div className="flex justify-end w-full">
+          <button
+            type="button"
+            onClick={onRefresh}
+            className="text-xs text-muted-foreground hover:text-foreground transition-colors"
+            aria-label="Refresh memory list"
+          >
+            Refresh list
+          </button>
+        </div>
+      )}
+
       <div
         className={cn(
           "relative transition-opacity duration-150",
@@ -137,7 +175,7 @@ export function MemoryLensContent({
           </p>
         )}
         {isInitialLoad ? (
-          <div className="flex flex-col gap-3" aria-busy="true" aria-live="polite">
+          <div className="flex flex-col gap-3" aria-busy="true" aria-live="polite" aria-label="Loading memories">
             <div className="h-4 w-24 rounded bg-muted/50 animate-pulse" />
             <div className="flex flex-col gap-3">
               {[1, 2, 3].map((i) => (
@@ -151,6 +189,8 @@ export function MemoryLensContent({
           </div>
         ) : isEmpty ? (
           <div
+            role="status"
+            aria-live="polite"
             className={cn(
               "rounded-2xl border border-dashed border-foreground/15 bg-background-tertiary/20 px-6 py-10 text-center space-y-2",
               "text-muted-foreground text-sm"
@@ -173,13 +213,13 @@ export function MemoryLensContent({
           </div>
         ) : (
           <div className="flex flex-col gap-3">
-            <p className="text-xs text-muted-foreground">
+            <p className="text-xs text-muted-foreground" aria-live="polite">
               {sortedMemories.length}{" "}
               {sortedMemories.length === 1 ? "memory" : "memories"}
             </p>
-            <ul className="flex flex-col gap-3 list-none p-0 m-0">
-              {sortedMemories.map((m) => (
-                <li key={m.id}>
+            <ul className="flex flex-col gap-3 list-none p-0 m-0" aria-label="Memory list">
+              {sortedMemories.map((m, index) => (
+                <li key={m.id} aria-posinset={index + 1} aria-setsize={sortedMemories.length}>
                   <MemoryLensCard
                     memory={m}
                     onDeleted={handleDeleted}
@@ -191,16 +231,6 @@ export function MemoryLensContent({
           </div>
         )}
       </div>
-
-      {!isInitialLoad && (!isEmpty || error) && (
-        <button
-          type="button"
-          onClick={onRefresh}
-          className="text-xs text-muted-foreground hover:text-foreground transition-colors self-start"
-        >
-          Refresh list
-        </button>
-      )}
-    </div>
+    </section>
   );
 }

@@ -10,11 +10,15 @@ export type MemoryLensProps = {
   searchQuery?: string;
   /** Max number of memories when using searchQuery; default 5. */
   searchLimit?: number;
+  /** When true, do not render the heading (e.g. when parent provides it, as on settings page). */
+  hideHeading?: boolean;
 };
 
 export type MemoryLensContentProps = {
   variant: "inline" | "sheet";
   className?: string;
+  /** When true, do not render the heading; parent provides it (e.g. settings tab). */
+  hideHeading?: boolean;
   searchInput: string;
   setSearchInput: (v: string) => void;
   sortBy: SortOption;

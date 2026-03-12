@@ -201,7 +201,7 @@ export function MemoryLensCard({
             className={cn(
               "shrink-0 self-start rounded-lg px-2.5 py-1 text-xs font-medium",
               "text-muted-foreground hover:text-destructive hover:bg-destructive/10",
-              "opacity-0 group-hover:opacity-100 transition-opacity"
+              "opacity-0 group-hover:opacity-100 focus-visible:opacity-100 transition-opacity"
             )}
             aria-label="Remove from memory"
           >

@@ -21,6 +21,7 @@ export function MemoryLens({
   className,
   searchQuery,
   searchLimit = 5,
+  hideHeading = false,
 }: MemoryLensProps) {
   const [result, setResult] = useState<SearchResult | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -115,6 +116,7 @@ export function MemoryLens({
     <MemoryLensContent
       variant={variant}
       className={className}
+      hideHeading={hideHeading}
       searchInput={searchInput}
       setSearchInput={setSearchInput}
       sortBy={sortBy}

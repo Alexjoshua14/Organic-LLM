@@ -16,6 +16,7 @@ import {
 import { getProfile } from "@/data/supabase/profiles";
 import { Profile } from "@/lib/schemas/profiles";
 import { SETTINGS_PAGE_TITLE } from "@/config/settings-page";
+import { caption } from "@/components/design-system/primitives";
 import MemorySettings from "@/components/settings/memorySettings";
 import FontSetting from "@/components/settings/FontSetting";
 import { ProfileView } from "@/components/settings/profile";
@@ -123,7 +124,16 @@ export default function SettingsPage() {
           </TabsContent>
 
           <TabsContent value="memory" className="mt-0">
-            <MemorySettings />
+            <div className="flex flex-col gap-8">
+              <div className="space-y-1">
+                <h2 className="text-xl font-semibold text-foreground">Persisted memory</h2>
+                <p id="memory-lens-description" className={caption({ className: "max-w-md" })}>
+                  What Organic LLM has stored and can retrieve across any thread.
+                  <br />Semantically searchable so the right context surfaces when you need it.
+                </p>
+              </div>
+              <MemorySettings />
+            </div>
           </TabsContent>
 
           <TabsContent value="privacy" className="mt-0">
