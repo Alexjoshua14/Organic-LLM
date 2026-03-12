@@ -5,6 +5,7 @@ import {
   convertToModelMessages,
   generateObject,
   generateText,
+  LanguageModel,
   ModelMessage,
   type UIMessage,
 } from "ai";
@@ -29,18 +30,17 @@ import {
 } from "@/data/supabase/chat";
 import { Result } from "@/types";
 
-const MODEL_SELECTION = {
-  summarizer: openai("gpt-5-mini"),
-  updater: openai("gpt-5-mini"),
-  validator: openai("gpt-5-nano"),
-  reviser: openai("gpt-5-mini"),
+/** Model Selections: Each ZDR compatible */
+const MODEL_SELECTION: Record<string, LanguageModel> = {
+  summarizer: "google/gemini-3-flash",
+  updater: "google/gemini-3-flash",
+  validator: "google/gemini-3-flash",
+  reviser: "google/gemini-3-flash",
+  chatTitle: "anthropic/claude-opus-4.6",
 };
 
-/** ZDR-capable model used for chat title generation (gateway model id). */
-const CHAT_TITLE_MODEL_ID = "google/gemini-3-flash";
-
-/** Max input tokens for title generation (keeps cost low for long threads). */
-const CHAT_TITLE_MAX_INPUT_TOKENS = 3_000;
+/** Max input tokens for title generation (allows long-thread context). */
+const CHAT_TITLE_MAX_INPUT_TOKENS = 100_000;
 
 const SummarizerSystemPrompt = `
 You are Organic LLM's summarizer. 
@@ -104,7 +104,11 @@ function decryptMessageForThread(message: Message, ownerId: string): Message {
   };
 }
 
-function encryptThreadSummary(summaryText: string, ownerId: string, chatId: string) {
+function encryptThreadSummary(
+  summaryText: string,
+  ownerId: string,
+  chatId: string,
+) {
   return encryptForStorage(summaryText, {
     userId: ownerId,
     threadId: chatId,
@@ -112,7 +116,11 @@ function encryptThreadSummary(summaryText: string, ownerId: string, chatId: stri
   });
 }
 
-function decryptThreadSummary(summaryText: string, ownerId: string, chatId: string) {
+function decryptThreadSummary(
+  summaryText: string,
+  ownerId: string,
+  chatId: string,
+) {
   return decryptFromStorage(summaryText, {
     userId: ownerId,
     threadId: chatId,
@@ -135,19 +143,20 @@ function getMessageTextForTokenEstimate(message: UIMessage): string {
 /**
  * Trim messages to fit within a token budget, keeping the most recent (relevant for title).
  * Chronological order = oldest first; we keep the tail that fits.
+ * Uses tiktoken (cl100k_base) for token counting.
  */
-async function trimMessagesToTokenBudget(
+function trimMessagesToTokenBudget(
   chronologicalMessages: UIMessage[],
   maxTokens: number,
-): Promise<UIMessage[]> {
+): UIMessage[] {
   if (chronologicalMessages.length === 0) return [];
+  const encoding = encodingForModel("gpt-5");
   let total = 0;
   let startIndex = chronologicalMessages.length;
   // Walk from newest (end) backward, counting tokens until we'd exceed budget
   for (let i = chronologicalMessages.length - 1; i >= 0; i--) {
     const text = getMessageTextForTokenEstimate(chronologicalMessages[i]);
-    const tokens = await estimateTokenCount(text);
-    const n = tokens ?? Math.ceil(text.length / 4);
+    const n = encoding.encode(text).length;
     if (total + n > maxTokens) break;
     total += n;
     startIndex = i;
@@ -244,7 +253,7 @@ export async function generateChatTitle(
 
   // Chronological order (oldest first) for coherent summary/title
   const chronologicalMessages = [...uiMessages].reverse();
-  const messagesForTitle = await trimMessagesToTokenBudget(
+  const messagesForTitle = trimMessagesToTokenBudget(
     chronologicalMessages,
     CHAT_TITLE_MAX_INPUT_TOKENS,
   );
@@ -255,18 +264,28 @@ export async function generateChatTitle(
     );
   }
 
+  // Gemini models require well-formed tool call parts (with thought_signature).
+  // For title generation we don't need tool traces, so strip any non-text parts
+  // (tool calls, tool results, etc.) before sending messages to the model.
+  const messagesForTitleClean = messagesForTitle.map((message) => ({
+    ...message,
+    parts: (message.parts ?? []).filter(
+      (part) => part.type === "text" && "text" in part,
+    ),
+  }));
+
   let conversationSummary: string;
   let titleIdea: string;
 
   try {
     const summaryResult = await generateText({
-      model: CHAT_TITLE_MODEL_ID,
+      model: MODEL_SELECTION.summarizer,
       system: `
     You are a helpful assistant that generates a summary of a chat.
     The chat messages will be provided to you.
-    Generate a short summary of the chat in one or two sentences.
+    Generate a summary of the chat of up to 400 words.
     `,
-      messages: convertToModelMessages(messagesForTitle),
+      messages: convertToModelMessages(messagesForTitleClean),
       maxOutputTokens: GUARDRAIL_MAX_OUTPUT_TOKENS,
     });
     conversationSummary = summaryResult.text ?? "";
@@ -285,12 +304,12 @@ export async function generateChatTitle(
 
   try {
     const titleResult = await generateText({
-      model: CHAT_TITLE_MODEL_ID,
+      model: MODEL_SELECTION.chatTitle,
       system: `
     You are a helpful assistant that generates a title for a chat.
     Generate a title for the chat based on the conversation summary.
     The title should be no more than 20 characters.
-    But can be up to 40 characters if truly necessary.
+    But can be up to 30 characters if truly necessary.
     Return only the title, no other text. No quotes.
     `,
       prompt: conversationSummary,
@@ -487,11 +506,7 @@ export async function summarizeNewChat(
   // logger.log("summarizeChatNEW", `Generated summary: ${summary}`);
   const { error: sbError } = await sb.from("thread_summaries").insert({
     thread_id: chatId,
-    summary_text: encryptThreadSummary(
-      summary,
-      ownerId,
-      chatId,
-    ),
+    summary_text: encryptThreadSummary(summary, ownerId, chatId),
     summary_tokens: tokens,
     last_summarized_message_id: latest_message.id,
     last_summarized_at: new Date().toISOString(),
@@ -553,7 +568,11 @@ export async function updateChatSummary(
 
   const threadSummary = ThreadSummarySchema.parse({
     ...threadSummaryData,
-    summary_text: decryptThreadSummary(threadSummaryData.summary_text, ownerId, chatId),
+    summary_text: decryptThreadSummary(
+      threadSummaryData.summary_text,
+      ownerId,
+      chatId,
+    ),
   });
 
   // logger.log(
