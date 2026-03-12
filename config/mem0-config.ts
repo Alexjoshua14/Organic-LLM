@@ -23,7 +23,7 @@ export const config: MemoryConfig = {
     provider: "openai",
     config: {
       apiKey: process.env.OPENAI_API_KEY || "",
-      model: "gpt-5-nano",
+      model: "gpt-5-mini",
     },
   },
 };
