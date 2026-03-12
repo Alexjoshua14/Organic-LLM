@@ -26,6 +26,10 @@ import { Conversation, ConversationScrollButton } from "../third-party/ai-elemen
 import { useArchetypeContext } from "@/lib/context/archetype-context";
 import { ChatAIActionEnum } from "@/types/ai";
 import type { ExaSearchResultSource } from "@/lib/exa/types";
+import { AlertCircle, X } from "lucide-react";
+import { getChatErrorMessage } from "@/lib/chat/error-messages";
+import { cn } from "@/lib/utils";
+import { toast } from "sonner";
 
 const logger = createLogger("components/chat/chat");
 
@@ -54,11 +58,13 @@ export const Chat: React.FC<ChatProps> = ({
   const [mem0Retrieved, setMem0Retrieved] = useState<{ memory: string }[]>([]);
   const [mem0Added, setMem0Added] = useState<{ memory: string }[]>([]);
   const errorRef = useRef<Error | undefined>(undefined);
+  /** Stored when onError runs; useChat may not expose error/status for pre-stream failures (e.g. 429). */
+  const [chatError, setChatError] = useState<unknown>(undefined);
 
   // Temporary
   const stop = () => logger.log("chat", "stop called but functionality is currently disabled");
 
-  const { messages, sendMessage, id, status, setMessages, addToolOutput } = useChat({
+  const { messages, sendMessage, id, status, setMessages, addToolOutput, error, clearError } = useChat({
     id: chatData?.thread.id ?? "",
     messages: chatData?.messages ?? [],
     resume: true,
@@ -138,6 +144,9 @@ export const Chat: React.FC<ChatProps> = ({
                 break;
             }
             break;
+          case ChatAIActionEnum.Memory:
+            setAiAction({ action: ChatAIActionEnum.Memory });
+            break;
           default:
             setAiAction({ action: dataObject.action, message: dataObject.message, sources: dataObject.sources });
             break;
@@ -148,6 +157,10 @@ export const Chat: React.FC<ChatProps> = ({
       logger.error("chat", `ERROR ${JSON.stringify(error, null, 2)}`);
       setAiAction({ action: ChatAIActionEnum.Errored, message: undefined });
       errorRef.current = error;
+      setChatError(error);
+      const errorMessage = getChatErrorMessage(error);
+      toast.error(errorMessage);
+      logger.error("chat", `Chat onError: ${errorMessage}`);
     },
     onFinish: () => {
       setAiAction(undefined);
@@ -270,6 +283,9 @@ export const Chat: React.FC<ChatProps> = ({
           status={status}
           chatId={chatData?.thread.id}
           isBlankChat={messages.length === 0}
+          error={error ?? chatError}
+          clearError={clearError}
+          onErrorCleared={() => setChatError(undefined)}
         />
       </div>
     </div>

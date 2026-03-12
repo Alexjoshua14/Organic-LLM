@@ -8,6 +8,7 @@ import { useRouter } from "next/navigation";
 import { ThemeProvider as NextThemesProvider } from "next-themes";
 
 import { ThrottledThemeProvider } from "@/lib/theme/ThrottledThemeProvider";
+import { Toaster } from "@/components/third-party/ui/sonner";
 
 export interface ProvidersProps {
   children: React.ReactNode;
@@ -28,7 +29,10 @@ export function Providers({ children, themeProps }: ProvidersProps) {
   return (
     <HeroUIProvider navigate={router.push}>
       <NextThemesProvider {...themeProps}>
-        <ThrottledThemeProvider>{children}</ThrottledThemeProvider>
+        <ThrottledThemeProvider>
+          {children}
+          <Toaster position="bottom-right" />
+        </ThrottledThemeProvider>
       </NextThemesProvider>
     </HeroUIProvider>
   );
