@@ -6,6 +6,7 @@ import { useChat } from "@ai-sdk/react";
 
 import { NewChatInput } from "@/components/chat/new-chat-input";
 import { ChatModel, DEFAULT_CHAT_MODEL } from "@/lib/schemas/chat";
+import { PromptInputProvider } from "@/components/third-party/ai-elements/prompt-input";
 
 interface RabbitHolePromptBarProps {
   onStart: (question: string) => void;
@@ -50,15 +51,17 @@ export function RabbitHolePromptBar({
   const status: ChatStatus = isBusy ? "streaming" : "ready";
 
   return (
-    <NewChatInput
-      modelRef={modelRef}
-      useWebSearchRef={useWebSearchRef}
-      useMemoriesRef={useMemoriesRef}
-      sendMessage={sendMessage}
-      stop={stop}
-      status={status}
-      disabled={isLoading}
-    />
+    <PromptInputProvider>
+      <NewChatInput
+        modelRef={modelRef}
+        useWebSearchRef={useWebSearchRef}
+        useMemoriesRef={useMemoriesRef}
+        sendMessage={sendMessage}
+        stop={stop}
+        status={status}
+        disabled={isLoading}
+      />
+    </PromptInputProvider>
   );
 }
 
