@@ -1,3 +1,4 @@
+import { custom_fact_extraction_prompt } from "@/lib/system-prompt/memory";
 import { MemoryConfig } from "mem0ai/oss";
 import "server-only";
 
@@ -26,4 +27,5 @@ export const config: MemoryConfig = {
       model: "gpt-5-mini",
     },
   },
+  customPrompt: custom_fact_extraction_prompt,
 };
