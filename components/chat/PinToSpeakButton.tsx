@@ -36,6 +36,7 @@ export function PinToSpeakButton({ text }: { text: string }) {
       variant="ghost"
       onPress={handlePin}
       aria-label={isPinned ? "Pinned to Speak" : "Pin to Speak page"}
+      tabIndex={-1}
     >
       {isPinned ? <Check className="w-4 h-4" /> : <Pin className="w-4 h-4" />}
     </Button>

@@ -57,6 +57,7 @@ export const ClipboardCopyButton = ({ text }: { text: string }) => {
       size="sm"
       variant="ghost"
       onPress={handleCopy}
+      tabIndex={-1}
     >
       {isCopied ? <CheckIcon size={14} /> : <Copy size={12} />}
     </Button>

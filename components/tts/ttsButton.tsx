@@ -70,6 +70,7 @@ export function TTSButton({
         onPress={handleSpeak}
         isDisabled={status === "processing"}
         aria-busy={status === "processing"}
+        tabIndex={-1}
       >
         {status === "processing" ? (
           <Loader className="w-4 h-4 mr-1 shrink-0" />
