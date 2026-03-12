@@ -6,7 +6,6 @@ import {
   getCurrentUserMemoriesBySearch,
 } from "@/lib/memory/operations";
 import type { SearchResult } from "mem0ai/oss";
-import { MemoryLensSkeleton } from "./MemoryLensSkeleton";
 import { MemoryLensContent } from "./MemoryLensContent";
 import { sortMemories } from "@/lib/memory/sort-memories";
 import type { MemoryLensProps, SortOption } from "@/types/memory-lens";
@@ -110,9 +109,7 @@ export function MemoryLens({
   const searchLimitDisplay =
     searchQuery !== undefined ? searchLimit : SEARCH_LIMIT;
 
-  if (loading) {
-    return <MemoryLensSkeleton variant={variant} className={className} />;
-  }
+  const isInitialLoad = loading && result === null && error === null;
 
   return (
     <MemoryLensContent
@@ -131,6 +128,8 @@ export function MemoryLens({
       error={error}
       handleDeleted={handleDeleted}
       onRefresh={load}
+      isInitialLoad={isInitialLoad}
+      isRefreshing={loading && !isInitialLoad}
     />
   );
 }

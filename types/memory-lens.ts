@@ -28,4 +28,8 @@ export type MemoryLensContentProps = {
   error: string | null;
   handleDeleted: (id: string) => void;
   onRefresh: () => Promise<void>;
+  /** True on first load when no data yet; show skeleton in list area only. */
+  isInitialLoad?: boolean;
+  /** True while a search or refresh is in progress; show subtle loading in list area. */
+  isRefreshing?: boolean;
 };
