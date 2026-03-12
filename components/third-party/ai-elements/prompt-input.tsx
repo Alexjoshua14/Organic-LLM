@@ -920,7 +920,7 @@ export const PromptInputTextarea = ({
       placeholder={placeholder}
       {...controlledProps}
       aria-multiline="true"
-
+      {...props}
     />
   );
 };

@@ -40,6 +40,10 @@ type NewChatInputProps = {
   useMemoriesRef: React.RefObject<boolean>,
   useSpeechFriendlyRef?: React.RefObject<boolean>,
   sendMessage: ReturnType<typeof useChat>["sendMessage"],
+  error?: Error | unknown;
+  clearError?: ReturnType<typeof useChat>["clearError"];
+  /** Called when input restores text after error; use to clear parent-held error (e.g. chatError). */
+  onErrorCleared?: () => void;
   stop: ReturnType<typeof useChat>["stop"],
   status: ReturnType<typeof useChat>["status"],
   disabled?: boolean,
@@ -55,6 +59,9 @@ export const NewChatInput: React.FC<NewChatInputProps> = ({
   useMemoriesRef,
   useSpeechFriendlyRef,
   sendMessage,
+  error,
+  clearError,
+  onErrorCleared,
   stop,
   status,
   disabled,
@@ -72,6 +79,8 @@ export const NewChatInput: React.FC<NewChatInputProps> = ({
   const EXPIRY_MS = 24 * 60 * 60 * 1000; // 24 hours in milliseconds
 
   const [text, setText] = useState<string>('');
+  const [recentlySentText, setRecentlySentText] = useState<string>(''); // For failed/aborted sends
+  const recentlySentTextRef = useRef<string>(''); // So restore effect sees value before state flushes
   const [model, setModel] = useState<ChatModel>(DEFAULT_CHAT_MODEL);
   const [useWebSearch, setUseWebSearch] = useState<boolean>(false);
   const [useMemories, setUseMemories] = useState<boolean>(false);
@@ -102,6 +111,26 @@ export const NewChatInput: React.FC<NewChatInputProps> = ({
       }
     };
   }, [chatId, isBlankChat, refreshSidebarChats]);
+
+  // Restore input text when the last send failed (e.g. rate limit). Use ref so we have the
+  // sent text even when the error arrives before React has committed setRecentlySentText.
+  useEffect(() => {
+    const hasError = status === "error" || error;
+    const toRestore = recentlySentText || recentlySentTextRef.current;
+    if (hasError && toRestore && text.trim() === "") {
+      setText(toRestore);
+      setRecentlySentText("");
+      recentlySentTextRef.current = "";
+      // Sync into the actual textarea (PromptInput internal state) so the user sees it
+      if (textareaRef.current) {
+        textareaRef.current.value = toRestore;
+        textareaRef.current.dispatchEvent(new Event("input", { bubbles: true }));
+        textareaRef.current.focus();
+      }
+      clearError?.();
+      onErrorCleared?.();
+    }
+  }, [status, error, recentlySentText, text.trim(), clearError, onErrorCleared]);
 
   // Load preferences from localStorage on mount
   useLayoutEffect(() => {
@@ -212,6 +241,10 @@ export const NewChatInput: React.FC<NewChatInputProps> = ({
       return;
     }
 
+    // Store the text of the recently sent message for failed/aborted sends (ref = no race with effect)
+    recentlySentTextRef.current = message.text;
+    setRecentlySentText(message.text);
+
     sendMessage({
       text: message.text || 'Sent with attachments',
       files: message.files
@@ -246,6 +279,7 @@ export const NewChatInput: React.FC<NewChatInputProps> = ({
 
       <PromptInputBody>
         <PromptInputTextarea
+          ref={textareaRef}
           onChange={handleInputChange}
         />
       </PromptInputBody>
