@@ -9,6 +9,10 @@ import { ChatThreadExperimental } from "./chat-thread-experimental";
 
 import { ChatInput } from "@/components/chat/chat-input";
 import { ChatScrollButton } from "@/components/chat/chat-scroll-button";
+import {
+  isClientPIIRedactionEnabled,
+  redactUIMessages,
+} from "@/lib/pii/redact";
 import { ChatModel, DEFAULT_CHAT_MODEL, Thread } from "@/lib/schemas/chat";
 import { updateChatSummary } from "@/lib/llm/chat-helpers";
 import { createLogger } from "@/lib/logger";
@@ -48,9 +52,13 @@ export const ChatExperimental: React.FC<ChatProps> = ({
     transport: new DefaultChatTransport({
       api: endpoint ?? `/api/chat/${persona ?? ""}`,
       prepareSendMessagesRequest({ messages, id }) {
+        const lastMessage = messages?.length ? messages[messages.length - 1] : undefined;
+        const message = lastMessage && isClientPIIRedactionEnabled()
+          ? redactUIMessages([lastMessage])[0]
+          : lastMessage;
         return {
           body: {
-            message: messages?.length ? messages[messages.length - 1] : undefined,
+            message,
             id,
             model: selectedModelRef.current,
           },

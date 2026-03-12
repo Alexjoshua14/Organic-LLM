@@ -9,6 +9,10 @@ import { ChatThread } from "@/components/chat/chat-thread";
 import { NewChatInput } from "@/components/chat/new-chat-input";
 import { Conversation, ConversationScrollButton } from "@/components/third-party/ai-elements/conversation";
 import { ChatModel, DEFAULT_CHAT_MODEL } from "@/lib/schemas/chat";
+import {
+  isClientPIIRedactionEnabled,
+  redactUIMessages,
+} from "@/lib/pii/redact";
 import { createLogger } from "@/lib/logger";
 import {
   getTmpChat,
@@ -82,9 +86,15 @@ function RemyTmpPageContent() {
         const shouldPersist =
           currentTmpChat?.saved || (messages.length >= 2 && !currentTmpChat?.saved);
 
+        const messagesToSend = isClientPIIRedactionEnabled()
+          ? (redactUIMessages(
+              messages as Parameters<typeof redactUIMessages>[0],
+            ) as typeof messages)
+          : messages;
+
         const req = {
           body: {
-            messages: messages, // Send all messages in tmp mode
+            messages: messagesToSend, // Send all messages in tmp mode
             id,
             model: selectedModelRef.current,
             webSearch: useWebSearchRef.current,

@@ -6,6 +6,11 @@ import { UIMessage } from "@ai-sdk/react";
 import { getMemory } from "./client";
 import { createLogger } from "@/lib/logger";
 import { convertUIMessageToMem0Message } from "../chat/message-transform";
+import {
+  isRedactPIIInMemoryEnabled,
+  redactPII,
+  redactUIMessages,
+} from "@/lib/pii/redact";
 
 const logger = createLogger("lib/memory/store.ts");
 
@@ -82,7 +87,12 @@ export async function addLatestMessagesToMemory(
     `Adding ${messages.length} messages to memory`,
   );
 
-  const interactions: Message[] = messages.map((m) =>
+  const messagesToStore = isRedactPIIInMemoryEnabled()
+    ? (redactUIMessages(
+        messages as Parameters<typeof redactUIMessages>[0],
+      ) as UIMessage[])
+    : messages;
+  const interactions: Message[] = messagesToStore.map((m) =>
     convertUIMessageToMem0Message(m, chatId ?? NO_CHAT_ID_PLACEHOLDER),
   );
 
@@ -118,17 +128,24 @@ export async function addInteractionToMemory(
 
   const memory = getMemory();
 
+  const safeUserQuery = isRedactPIIInMemoryEnabled()
+    ? redactPII(userQuery)
+    : userQuery;
+  const safeAiResponse = isRedactPIIInMemoryEnabled()
+    ? redactPII(aiResponse)
+    : aiResponse;
+
   let result: SearchResult;
 
   try {
     const interaction: Message[] = [
       {
         role: "user",
-        content: userQuery,
+        content: safeUserQuery,
       },
       {
         role: "assistant",
-        content: aiResponse,
+        content: safeAiResponse,
       },
     ];
 

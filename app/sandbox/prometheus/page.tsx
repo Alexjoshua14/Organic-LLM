@@ -6,6 +6,10 @@ import { DefaultChatTransport, UIMessage } from "ai";
 
 import { PrometheusInput, PrometheusResponse } from "@/components/prometheus";
 import Page from "@/components/layout/page";
+import {
+  isClientPIIRedactionEnabled,
+  redactPII,
+} from "@/lib/pii/redact";
 
 export default function PrometheusPage() {
   const [isLoading, setIsLoading] = useState(false);
@@ -29,8 +33,9 @@ export default function PrometheusPage() {
   const handleSendMessage = useCallback(async ({ text }: { text: string }) => {
     setIsLoading(true);
     try {
+      const textToSend = isClientPIIRedactionEnabled() ? redactPII(text) : text;
       sendMessage({
-        text: text,
+        text: textToSend,
       });
     } catch (error) {
       console.error("Error sending message:", error);

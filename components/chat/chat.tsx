@@ -16,6 +16,10 @@ import {
   SheetTrigger,
 } from "@/components/third-party/ui/sheet";
 
+import {
+  isClientPIIRedactionEnabled,
+  redactUIMessages,
+} from "@/lib/pii/redact";
 import { getSettings } from "@/lib/user-settings";
 import { Thread } from "@/lib/schemas/chat";
 import { createLogger } from "@/lib/logger";
@@ -71,9 +75,13 @@ export const Chat: React.FC<ChatProps> = ({
     transport: new DefaultChatTransport({
       api: persona === 'aion' ? '/api/ai/aion' : persona === 'remy' ? '/api/ai/remy' : endpoint ?? `/api/chat/${persona ?? ""}`,
       prepareSendMessagesRequest({ messages, id }) {
+        const lastMessage = messages[messages.length - 1];
+        const message = isClientPIIRedactionEnabled()
+          ? redactUIMessages([lastMessage])[0]
+          : lastMessage;
         const req = {
           body: {
-            message: messages[messages.length - 1],
+            message,
             id,
             model: selectedModelRef.current,
             webSearch: useWebSearchRef.current,
