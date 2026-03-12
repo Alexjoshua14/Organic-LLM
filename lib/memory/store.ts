@@ -15,6 +15,7 @@ const NO_CHAT_ID_PLACEHOLDER = "no-chat-id" as const;
  * Searches for memories based on a query. Low-level: expects Mem0 user id
  * (Supabase user id in this app), not Clerk id.
  * By default grabs top 3 relevant memories.
+ * On Qdrant/mem0 failure, throws a simple Error so callers can return Result.
  */
 export async function searchMemories(
   query: string,
@@ -25,35 +26,40 @@ export async function searchMemories(
     throw new Error("User ID is required");
   }
 
-  const memory = getMemory();
-
-  logger.log("searchMemories", `Searching for memories: ${query}`);
-
-  const result = await memory.search(query, {
-    userId,
-    limit: options?.limit ?? 3,
-    ...options,
-  });
-
-  logger.log("searchMemories", `Found ${result.results?.length} memories`);
-
-  return result;
+  try {
+    const memory = getMemory();
+    logger.log("searchMemories", `Searching for memories: ${query}`);
+    const result = await memory.search(query, {
+      userId,
+      limit: options?.limit ?? 3,
+      ...options,
+    });
+    logger.log("searchMemories", `Found ${result.results?.length} memories`);
+    return result;
+  } catch {
+    logger.warn("searchMemories", "Memory search failed (service unavailable).");
+    throw new Error("Memory service may be unavailable.");
+  }
 }
 
 /**
  * Fetches all memories for a user. Low-level: expects Mem0 user id
  * (Supabase user id in this app), not Clerk id.
+ * On Qdrant/mem0 failure, throws a simple Error so callers can return Result.
  */
 export async function getAllMemories(userId: string): Promise<SearchResult> {
   if (!userId) {
     throw new Error("User ID is required");
   }
 
-  const memory = getMemory();
-
-  const result: SearchResult = await memory.getAll({ userId });
-
-  return result;
+  try {
+    const memory = getMemory();
+    const result: SearchResult = await memory.getAll({ userId });
+    return result;
+  } catch {
+    logger.warn("getAllMemories", "Memory fetch failed (service unavailable).");
+    throw new Error("Memory service may be unavailable.");
+  }
 }
 
 /**

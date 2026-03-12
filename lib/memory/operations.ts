@@ -51,26 +51,23 @@ export async function searchMemoriesServer(
   query: string,
   options?: SearchMemoryOptions,
 ): Promise<Result<SearchResult, string>> {
-  const userIdResult = await getCurrentUserMem0UserId();
-  if (userIdResult.error || userIdResult.data === null) {
-    return { data: null, error: userIdResult.error ?? "Not signed in" };
-  }
-
-  const limitResult = await checkMemorySearchLimit(userIdResult.data);
-  if (!limitResult.success) {
-    return { data: null, error: limitResult.error ?? "Too many requests" };
-  }
-
-  if (typeof query !== "string" || query.length > 2000) {
-    return { data: null, error: "Invalid or too long query" };
-  }
-
   try {
+    const userIdResult = await getCurrentUserMem0UserId();
+    if (userIdResult.error || userIdResult.data === null) {
+      return { data: null, error: userIdResult.error ?? "Not signed in" };
+    }
+
+    const limitResult = await checkMemorySearchLimit(userIdResult.data);
+    if (!limitResult.success) {
+      return { data: null, error: limitResult.error ?? "Too many requests" };
+    }
+
+    if (typeof query !== "string" || query.length > 2000) {
+      return { data: null, error: "Invalid or too long query" };
+    }
+
     const result = await storeSearchMemories(query, userIdResult.data, options);
-    return {
-      data: result,
-      error: null,
-    };
+    return { data: result, error: null };
   } catch (error) {
     return {
       data: null,
@@ -86,17 +83,17 @@ export async function searchMemoriesServer(
 export async function getCurrentUserMemories(): Promise<
   Result<SearchResult, string>
 > {
-  const userIdResult = await getCurrentUserMem0UserId();
-  if (userIdResult.error || userIdResult.data === null) {
-    return { data: null, error: userIdResult.error ?? "Not signed in" };
-  }
-
-  const limitResult = await checkMemoryListLimit(userIdResult.data);
-  if (!limitResult.success) {
-    return { data: null, error: limitResult.error ?? "Too many requests" };
-  }
-
   try {
+    const userIdResult = await getCurrentUserMem0UserId();
+    if (userIdResult.error || userIdResult.data === null) {
+      return { data: null, error: userIdResult.error ?? "Not signed in" };
+    }
+
+    const limitResult = await checkMemoryListLimit(userIdResult.data);
+    if (!limitResult.success) {
+      return { data: null, error: limitResult.error ?? "Too many requests" };
+    }
+
     const result = await storeGetAllMemories(userIdResult.data);
     return { data: result, error: null };
   } catch (error) {
@@ -115,22 +112,22 @@ export async function getCurrentUserMemoriesBySearch(
   query: string,
   limit: number = 5,
 ): Promise<Result<SearchResult, string>> {
-  const userIdResult = await getCurrentUserMem0UserId();
-  if (userIdResult.error || userIdResult.data === null) {
-    return { data: null, error: userIdResult.error ?? "Not signed in" };
-  }
-
-  const limitResult = await checkMemorySearchLimit(userIdResult.data);
-  if (!limitResult.success) {
-    return { data: null, error: limitResult.error ?? "Too many requests" };
-  }
-
-  if (typeof query !== "string" || query.length > 2000) {
-    return { data: null, error: "Invalid or too long query" };
-  }
-  const clampedLimit = Math.min(100, Math.max(1, Number(limit) || 5));
-
   try {
+    const userIdResult = await getCurrentUserMem0UserId();
+    if (userIdResult.error || userIdResult.data === null) {
+      return { data: null, error: userIdResult.error ?? "Not signed in" };
+    }
+
+    const limitResult = await checkMemorySearchLimit(userIdResult.data);
+    if (!limitResult.success) {
+      return { data: null, error: limitResult.error ?? "Too many requests" };
+    }
+
+    if (typeof query !== "string" || query.length > 2000) {
+      return { data: null, error: "Invalid or too long query" };
+    }
+    const clampedLimit = Math.min(100, Math.max(1, Number(limit) || 5));
+
     const result = await storeSearchMemories(query, userIdResult.data, {
       limit: clampedLimit,
     });
@@ -151,28 +148,28 @@ export async function getCurrentUserMemoriesBySearch(
 export async function deleteMemoryForCurrentUser(
   memoryId: string,
 ): Promise<Result<boolean, string>> {
-  const userIdResult = await getCurrentUserMem0UserId();
-  if (userIdResult.error || userIdResult.data === null) {
-    return { data: null, error: userIdResult.error ?? "Not signed in" };
-  }
-
-  const limitResult = await checkMemoryDeleteLimit(userIdResult.data);
-  if (!limitResult.success) {
-    return { data: null, error: limitResult.error ?? "Too many requests" };
-  }
-
-  const trimmedId = typeof memoryId === "string" ? memoryId.trim() : "";
-  if (!trimmedId || trimmedId.length > 256) {
-    return { data: null, error: "Invalid memory ID" };
-  }
-
-  const owned = await storeGetAllMemories(userIdResult.data);
-  const belongsToUser = owned.results?.some((m) => m.id === trimmedId);
-  if (!belongsToUser) {
-    return { data: null, error: "Memory not found" };
-  }
-
   try {
+    const userIdResult = await getCurrentUserMem0UserId();
+    if (userIdResult.error || userIdResult.data === null) {
+      return { data: null, error: userIdResult.error ?? "Not signed in" };
+    }
+
+    const limitResult = await checkMemoryDeleteLimit(userIdResult.data);
+    if (!limitResult.success) {
+      return { data: null, error: limitResult.error ?? "Too many requests" };
+    }
+
+    const trimmedId = typeof memoryId === "string" ? memoryId.trim() : "";
+    if (!trimmedId || trimmedId.length > 256) {
+      return { data: null, error: "Invalid memory ID" };
+    }
+
+    const owned = await storeGetAllMemories(userIdResult.data);
+    const belongsToUser = owned.results?.some((m) => m.id === trimmedId);
+    if (!belongsToUser) {
+      return { data: null, error: "Memory not found" };
+    }
+
     const ok = await storeDeleteMemory(trimmedId);
     return { data: ok, error: null };
   } catch (error) {
@@ -190,17 +187,17 @@ export async function deleteMemoryForCurrentUser(
 export async function wipeMemoryForCurrentUser(): Promise<
   Result<boolean, string>
 > {
-  const userIdResult = await getCurrentUserMem0UserId();
-  if (userIdResult.error || userIdResult.data === null) {
-    return { data: null, error: userIdResult.error ?? "Not signed in" };
-  }
-
-  const limitResult = await checkMemoryWipeLimit(userIdResult.data);
-  if (!limitResult.success) {
-    return { data: null, error: limitResult.error ?? "Too many requests" };
-  }
-
   try {
+    const userIdResult = await getCurrentUserMem0UserId();
+    if (userIdResult.error || userIdResult.data === null) {
+      return { data: null, error: userIdResult.error ?? "Not signed in" };
+    }
+
+    const limitResult = await checkMemoryWipeLimit(userIdResult.data);
+    if (!limitResult.success) {
+      return { data: null, error: limitResult.error ?? "Too many requests" };
+    }
+
     const ok = await storeWipeMemory(userIdResult.data);
     return { data: ok, error: null };
   } catch (error) {

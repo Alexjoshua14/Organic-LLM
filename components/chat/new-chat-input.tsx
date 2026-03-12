@@ -234,19 +234,25 @@ export const NewChatInput: React.FC<NewChatInputProps> = ({
 
   const handleSubmit = (message: PromptInputMessage, event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    const hasText = Boolean(message.text.trim());
+    // Use form payload first; fallback to current input state (covers FormData quirks e.g. when no PromptInputProvider)
+    const textFromForm = (message.text ?? '').trim();
+    const textFromState = text.trim();
+    const textToSend = textFromForm || textFromState || (textareaRef.current?.value ?? '').trim();
+    const hasText = Boolean(textToSend);
     const hasAttachments = Boolean(message.files?.length);
 
     if (!(hasText || hasAttachments)) {
       return;
     }
 
+    const finalText = textToSend || 'Sent with attachments';
+
     // Store the text of the recently sent message for failed/aborted sends (ref = no race with effect)
-    recentlySentTextRef.current = message.text;
-    setRecentlySentText(message.text);
+    recentlySentTextRef.current = finalText;
+    setRecentlySentText(finalText);
 
     sendMessage({
-      text: message.text || 'Sent with attachments',
+      text: finalText,
       files: message.files
     });
     setText('');

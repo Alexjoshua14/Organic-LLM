@@ -18,6 +18,8 @@ export type MemoryLensCardProps = {
   compact?: boolean;
   /** When true: animate out, keep in layout, no onDeleted; reset after delay so card reappears. */
   previewRemove?: boolean;
+  /** When true, show relevance score (e.g. "85% match") when memory has a score. */
+  showScore?: boolean;
 };
 
 export function MemoryLensCard({
@@ -25,6 +27,7 @@ export function MemoryLensCard({
   onDeleted,
   compact = false,
   previewRemove = false,
+  showScore = false,
 }: MemoryLensCardProps) {
   const [isExiting, setIsExiting] = useState(false);
   const [containerHeight, setContainerHeight] = useState<number | null>(null);
@@ -88,6 +91,13 @@ export function MemoryLensCard({
       minute: "2-digit",
     });
   }, [memory.createdAt]);
+
+  const scoreLabel =
+    showScore &&
+    typeof memory.score === "number" &&
+    Number.isFinite(memory.score)
+      ? `${Math.round(memory.score * 100)}% match`
+      : null;
 
   const useLayoutContainer = previewRemove && containerHeight !== null;
 
@@ -169,15 +179,20 @@ export function MemoryLensCard({
             >
               {memory.memory}
             </p>
-            {dateLabel && (
-              <p
+            {(dateLabel || scoreLabel) && (
+              <div
                 className={cn(
-                  "text-muted-foreground mt-1.5",
+                  "text-muted-foreground mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-0.5",
                   compact ? "text-[11px]" : "text-xs"
                 )}
               >
-                {dateLabel}
-              </p>
+                {dateLabel && <span>{dateLabel}</span>}
+                {scoreLabel && (
+                  <span className="text-cyan-600 dark:text-cyan-400/90 font-medium">
+                    {scoreLabel}
+                  </span>
+                )}
+              </div>
             )}
           </div>
           <button
