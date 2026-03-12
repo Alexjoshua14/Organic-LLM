@@ -29,6 +29,7 @@ import {
   updateConversationSummary,
 } from "@/data/supabase/chat";
 import { Result } from "@/types";
+import { recordLlmCall } from "@/lib/llm/metrics";
 
 /** Model Selections: Each ZDR compatible */
 const MODEL_SELECTION: Record<string, LanguageModel> = {
@@ -278,6 +279,7 @@ export async function generateChatTitle(
   let titleIdea: string;
 
   try {
+    const summaryStart = performance.now();
     const summaryResult = await generateText({
       model: MODEL_SELECTION.summarizer,
       system: `
@@ -287,6 +289,13 @@ export async function generateChatTitle(
     `,
       messages: convertToModelMessages(messagesForTitleClean),
       maxOutputTokens: GUARDRAIL_MAX_OUTPUT_TOKENS,
+    });
+    const summaryDuration = performance.now() - summaryStart;
+    recordLlmCall({
+      model: MODEL_SELECTION.summarizer as string,
+      usage: summaryResult.usage,
+      durationMs: summaryDuration,
+      metadata: { operation: "chatTitle-summary", contextId: chatId },
     });
     conversationSummary = summaryResult.text ?? "";
   } catch (err) {
@@ -303,6 +312,7 @@ export async function generateChatTitle(
   }
 
   try {
+    const titleStart = performance.now();
     const titleResult = await generateText({
       model: MODEL_SELECTION.chatTitle,
       system: `
@@ -314,6 +324,13 @@ export async function generateChatTitle(
     `,
       prompt: conversationSummary,
       maxOutputTokens: GUARDRAIL_MAX_OUTPUT_TOKENS,
+    });
+    const titleDuration = performance.now() - titleStart;
+    recordLlmCall({
+      model: MODEL_SELECTION.chatTitle as string,
+      usage: titleResult.usage,
+      durationMs: titleDuration,
+      metadata: { operation: "chatTitle-title", contextId: chatId },
     });
     titleIdea = (titleResult.text ?? "").trim().replace(/^["']|["']$/g, "");
   } catch (err) {
@@ -388,13 +405,23 @@ export async function summarizeChat(
     `Summarizing chat ${chatId} with ${modelMessages.length} messages`,
   );
 
-  let { text: conversationSummary } = await generateText({
+  const summarizeStart = performance.now();
+  const summarizeResult = await generateText({
     model: MODEL_SELECTION.summarizer,
     system: SummarizerSystemPrompt,
     temperature: 0.2,
     messages: modelMessages,
     maxOutputTokens: GUARDRAIL_MAX_OUTPUT_TOKENS,
   });
+  const summarizeDuration = performance.now() - summarizeStart;
+  recordLlmCall({
+    model: MODEL_SELECTION.summarizer as string,
+    usage: summarizeResult.usage,
+    durationMs: summarizeDuration,
+    metadata: { operation: "chat-summary", contextId: chatId },
+  });
+
+  let conversationSummary = summarizeResult.text ?? "";
 
   summaryGenerationCount++;
 
@@ -754,6 +781,7 @@ const validateSummary = async (
 
   // Generate conversation summary and validate result
   for (let i = 1; i <= 3; i++) {
+    const validatorStart = performance.now();
     const validatorRes = await generateObject({
       model: MODEL_SELECTION.validator,
       system: ValidatorSystemPrompt.replace(
@@ -764,6 +792,13 @@ const validateSummary = async (
       messages: messages,
       schema: ValidSummarySchema,
       maxOutputTokens: GUARDRAIL_MAX_OUTPUT_TOKENS,
+    });
+    const validatorDuration = performance.now() - validatorStart;
+    recordLlmCall({
+      model: MODEL_SELECTION.validator as string,
+      usage: validatorRes.usage,
+      durationMs: validatorDuration,
+      metadata: { operation: "summary-validator" },
     });
 
     validSummary = validatorRes.object;
@@ -780,7 +815,8 @@ const validateSummary = async (
       `Validator has rejected summary v${i}\nWith response: ${JSON.stringify(validSummary)}`,
     );
 
-    let { text: updatedConversationSummary } = await generateText({
+    const reviserStart = performance.now();
+    const reviserResult = await generateText({
       model: MODEL_SELECTION.reviser,
       system: ReviserSystemPrompt.replace(
         "{{conversationSummary}}",
@@ -795,6 +831,15 @@ const validateSummary = async (
       messages: messages,
       maxOutputTokens: GUARDRAIL_MAX_OUTPUT_TOKENS,
     });
+    const reviserDuration = performance.now() - reviserStart;
+    recordLlmCall({
+      model: MODEL_SELECTION.reviser as string,
+      usage: reviserResult.usage,
+      durationMs: reviserDuration,
+      metadata: { operation: "summary-reviser" },
+    });
+
+    let { text: updatedConversationSummary } = reviserResult;
 
     conversationSummary = updatedConversationSummary;
 

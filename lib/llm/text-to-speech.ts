@@ -11,6 +11,7 @@ import z from "zod";
 
 import { createLogger } from "../logger";
 import { GUARDRAIL_MAX_OUTPUT_TOKENS } from "./helpers";
+import { recordLlmCall } from "@/lib/llm/metrics";
 
 const logger = createLogger("lib/llm/text-to-speech.ts");
 
@@ -119,6 +120,23 @@ export async function transformTextToSpeechFriendly(
     `Validated transcript generation completed in ${validatedTranscriptEndGeneration - validatedTranscriptStartGeneration} milliseconds`
   );
 
+  recordLlmCall({
+    model: "gpt-5-nano",
+    usage: speechFriendlyText.usage,
+    durationMs:
+      firstAttemptSpeechFriendlyTextEndGeneration -
+      firstAttemptSpeechFriendlyTextStartGeneration,
+    metadata: { operation: "tts-speech-friendly-v1" },
+  });
+
+  recordLlmCall({
+    model: "gpt-5-nano",
+    usage: validatedTranscript.usage,
+    durationMs:
+      validatedTranscriptEndGeneration - validatedTranscriptStartGeneration,
+    metadata: { operation: "tts-validate-v1" },
+  });
+
   if (!validatedTranscript.object.valid) {
     // Try to regenerate text, use slightly stronger model
     const regeneratedTranscriptStartGeneration = performance.now();
@@ -139,6 +157,15 @@ export async function transformTextToSpeechFriendly(
       `Regenerated transcript generation completed in ${regeneratedTranscriptEndGeneration - regeneratedTranscriptStartGeneration} milliseconds`
     );
 
+    recordLlmCall({
+      model: "gpt-5-mini",
+      usage: regeneratedTranscript.usage,
+      durationMs:
+        regeneratedTranscriptEndGeneration -
+        regeneratedTranscriptStartGeneration,
+      metadata: { operation: "tts-regenerate-v1" },
+    });
+
     const betterVersionOfTranscriptStartGeneration = performance.now();
     const betterVersionOfTranscript = await generateObject({
       model: openai("gpt-5-nano"),
@@ -158,6 +185,15 @@ export async function transformTextToSpeechFriendly(
       "transformTextToSpeechFriendly",
       `Better version of transcript generation completed in ${betterVersionOfTranscriptEndGeneration - betterVersionOfTranscriptStartGeneration} milliseconds`
     );
+
+    recordLlmCall({
+      model: "gpt-5-nano",
+      usage: betterVersionOfTranscript.usage,
+      durationMs:
+        betterVersionOfTranscriptEndGeneration -
+        betterVersionOfTranscriptStartGeneration,
+      metadata: { operation: "tts-compare-abc-v1" },
+    });
 
     logger.log(
       "transformTextToSpeechFriendly",
@@ -193,6 +229,15 @@ export async function transformTextToSpeechFriendly(
       "transformTextToSpeechFriendly",
       `Better version of transcript generation completed in ${betterVersionOfTranscriptEndGeneration - betterVersionOfTranscriptStartGeneration} milliseconds`
     );
+
+    recordLlmCall({
+      model: "gpt-5-nano",
+      usage: betterVersionOfTranscript.usage,
+      durationMs:
+        betterVersionOfTranscriptEndGeneration -
+        betterVersionOfTranscriptStartGeneration,
+      metadata: { operation: "tts-compare-ab-v1" },
+    });
 
     logger.log(
       "transformTextToSpeechFriendly",
@@ -301,6 +346,21 @@ export async function transformTextToSpeechFriendlyV2(
     "transformTextToSpeechFriendlyV2",
     `Regenerated transcript generation completed in ${regeneratedTranscriptEndGeneration - regeneratedTranscriptStartGeneration} milliseconds`
   );
+
+  recordLlmCall({
+    model: "gpt-5-nano",
+    usage: result.usage,
+    durationMs: 0,
+    metadata: { operation: "tts-v2-initial" },
+  });
+
+  recordLlmCall({
+    model: "gpt-5-nano",
+    usage: regeneratedTranscript.usage,
+    durationMs:
+      regeneratedTranscriptEndGeneration - regeneratedTranscriptStartGeneration,
+    metadata: { operation: "tts-v2-regenerate" },
+  });
 
   let finalResult = text;
 

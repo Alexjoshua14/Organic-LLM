@@ -3,6 +3,7 @@ import { generateObject } from "ai";
 import { openai } from "@ai-sdk/openai";
 import { z } from "zod";
 import { ProfileSummarySchema } from "@/lib/schemas/profileSummary";
+import { recordLlmCall } from "@/lib/llm/metrics";
 
 const ResponseSchema = z.object({
   headline: z.string().max(120).describe("One short professional headline"),
@@ -41,12 +42,21 @@ export async function POST(req: Request) {
     : `Display name: ${displayName}. No email. Generate headline, bio, and tags.`;
 
   try {
-    const { object } = await generateObject({
+    const start = performance.now();
+    const { object, usage } = await generateObject({
       model: "google/gemini-3-flash",
       system: SYSTEM,
       prompt,
       schema: ResponseSchema,
       maxOutputTokens: 400,
+    });
+    const durationMs = performance.now() - start;
+
+    recordLlmCall({
+      model: "google/gemini-3-flash",
+      usage,
+      durationMs,
+      metadata: { operation: "profile-summary", route: "/api/profile/summary" },
     });
 
     const summary = ProfileSummarySchema.parse({

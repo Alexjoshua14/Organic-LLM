@@ -5,6 +5,7 @@ import { auth } from "@clerk/nextjs/server";
 import { getSupabaseUserId } from "@/data/supabase/profiles";
 import { checkLlmMessageLimit } from "@/lib/rate-limit/llm";
 import { createLogger } from "@/lib/logger";
+import { recordLlmCall } from "@/lib/llm/metrics";
 
 // Allow responses up to 30 seconds
 export const maxDuration = 30;
@@ -62,6 +63,7 @@ export async function POST(req: Request) {
       );
     }
 
+    const start = performance.now();
     const result = await generateText({
       model: openai("gpt-4o-mini"), // Using a faster model for speech generation
       messages: [
@@ -76,6 +78,14 @@ export async function POST(req: Request) {
       ],
       maxOutputTokens: 500, // Reasonable limit for speech responses
       temperature: 0.7, // Slightly creative but consistent
+    });
+    const durationMs = performance.now() - start;
+
+    recordLlmCall({
+      model: "gpt-4o-mini",
+      usage: result.usage,
+      durationMs,
+      metadata: { operation: "speech-route", route: "/api/ai/speech" },
     });
 
     logger.log(
