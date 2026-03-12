@@ -120,76 +120,75 @@ export const SidebarChatList: FC<SidebarChatListProps> = ({ threads }) => {
 
           return (
             <SidebarMenuItem key={thread.id} className="relative">
-              <SidebarMenuButton asChild>
+              <div
+                className="font-extralight text-sm w-full rounded hover:bg-background px-3 transition-colors duration-150 group/thread cursor-pointer min-w-0 relative flex text-foreground-secondary items-center"
+                onTouchStart={() => handleLongPressStart(thread.id)}
+                onTouchEnd={handleLongPressEnd}
+                onTouchCancel={handleLongPressEnd}
+              >
                 <div
-                  className="font-extralight text-sm w-full rounded hover:bg-background px-3 transition-colors duration-150 group/thread cursor-pointer min-w-0 relative flex text-foreground-secondary items-center"
-                  onTouchStart={() => handleLongPressStart(thread.id)}
-                  onTouchEnd={handleLongPressEnd}
-                  onTouchCancel={handleLongPressEnd}
-                >
-                  <div
-                    className="flex-1 min-w-0 overflow-hidden pr-10 py-1"
-                    role={isEditing ? undefined : "button"}
-                    tabIndex={isEditing ? undefined : 0}
-                    aria-label={isEditing ? undefined : `Open ${thread.title}`}
-                    onClick={
-                      isEditing
-                        ? undefined
-                        : (e) => {
+                  className="flex-1 min-w-0 overflow-hidden pr-10 py-1"
+                  role={isEditing ? undefined : "button"}
+                  tabIndex={isEditing ? undefined : 0}
+                  aria-label={isEditing ? undefined : `Open ${thread.title}`}
+                  aria-current={isActiveThread ? "page" : undefined}
+                  onClick={
+                    isEditing
+                      ? undefined
+                      : (e) => {
+                        e.preventDefault();
+                        handleTitleClick(thread.id);
+                      }
+                  }
+                  onKeyDown={
+                    isEditing
+                      ? undefined
+                      : (e) => {
+                        if (e.key === "Enter" || e.key === " ") {
                           e.preventDefault();
                           handleTitleClick(thread.id);
                         }
-                    }
-                    onKeyDown={
-                      isEditing
-                        ? undefined
-                        : (e) => {
-                          if (e.key === "Enter" || e.key === " ") {
-                            e.preventDefault();
-                            handleTitleClick(thread.id);
-                          }
-                        }
-                    }
-                  >
-                    <SidebarChatTitle
-                      title={thread.title}
-                      editing={isEditing}
-                      onSave={(title) => handleSaveTitle(thread.id, title)}
-                      onEditingChange={(editing) =>
-                        setEditingThreadId(editing ? thread.id : null)
                       }
-                    />
-                  </div>
-                  {!isMobile && (
-                    <div
-                      className={`absolute right-0 top-0 bottom-0 flex items-center z-10 pr-1 transition-opacity duration-250 ${isActiveThread || isMenuOpen ? "opacity-100" : "opacity-0 group-hover/thread:opacity-100"}`}
-                    >
-                      <SidebarThreadActionsMenu
-                        thread={thread}
-                        open={isMenuOpen}
-                        onOpenChange={(open) =>
-                          setMenuOpen(open ? thread.id : null)
-                        }
-                        onEditTitle={() => setEditingThreadId(thread.id)}
-                        onTogglePin={() => togglePinThread(thread)}
-                      >
-                        <button
-                          type="button"
-                          className="p-1.5 rounded hover:bg-background-tertiary flex items-center justify-center"
-                          aria-label="Thread options"
-                          onClick={(e) => {
-                            e.preventDefault();
-                            e.stopPropagation();
-                            setMenuOpen(thread.id);
-                          }}
-                        >
-                          <MoreVertical size={18} />
-                        </button>
-                      </SidebarThreadActionsMenu>
-                    </div>
-                  )}
+                  }
+                >
+                  <SidebarChatTitle
+                    title={thread.title}
+                    editing={isEditing}
+                    onSave={(title) => handleSaveTitle(thread.id, title)}
+                    onEditingChange={(editing) =>
+                      setEditingThreadId(editing ? thread.id : null)
+                    }
+                  />
                 </div>
-              </SidebarMenuButton>
+                {!isMobile && (
+                  <div
+                    className={`absolute right-0 top-0 bottom-0 flex items-center z-10 pr-1 transition-opacity duration-250 ${isActiveThread || isMenuOpen ? "opacity-100" : "opacity-0 group-hover/thread:opacity-100"}`}
+                  >
+                    <SidebarThreadActionsMenu
+                      thread={thread}
+                      open={isMenuOpen}
+                      onOpenChange={(open) =>
+                        setMenuOpen(open ? thread.id : null)
+                      }
+                      onEditTitle={() => setEditingThreadId(thread.id)}
+                      onTogglePin={() => togglePinThread(thread)}
+                    >
+                      <span
+                        role="button"
+                        className="p-1.5 rounded hover:bg-background-tertiary flex items-center justify-center"
+                        aria-label="Thread options"
+                        onClick={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          setMenuOpen(thread.id);
+                        }}
+                      >
+                        <MoreVertical size={18} />
+                      </span>
+                    </SidebarThreadActionsMenu>
+                  </div>
+                )}
+              </div>
               {isMobile && (
                 <div className={`absolute right-0 top-0 bottom-0 flex items-center z-10 pr-1 ${isActiveThread ? "opacity-100" : "opacity-0 group-hover/thread:opacity-100"}`}>
                   <SidebarThreadActionsMenu
@@ -200,9 +199,10 @@ export const SidebarChatList: FC<SidebarChatListProps> = ({ threads }) => {
                     }
                     onEditTitle={() => setEditingThreadId(thread.id)}
                     onTogglePin={() => togglePinThread(thread)}
+
                   >
-                    <button
-                      type="button"
+                    <span
+                      role="button"
                       className="p-1.5 rounded hover:bg-background-tertiary flex items-center justify-center touch-manipulation"
                       aria-label="Thread options"
                       onClick={(e) => {
@@ -212,7 +212,7 @@ export const SidebarChatList: FC<SidebarChatListProps> = ({ threads }) => {
                       }}
                     >
                       <MoreVertical size={18} />
-                    </button>
+                    </span>
                   </SidebarThreadActionsMenu>
                 </div>
               )}
