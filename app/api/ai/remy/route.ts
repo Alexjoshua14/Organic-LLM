@@ -12,6 +12,7 @@ import { getMemories, addMemories } from "@mem0/vercel-ai-provider";
 import { UIMessage } from "ai";
 import { getContext } from "@/lib/chat/chat-store";
 import { saveChat } from "@/lib/chat/chat-store";
+import { checkLlmMessageLimit } from "@/lib/rate-limit/llm";
 import { GUARDRAIL_MAX_OUTPUT_TOKENS } from "@/lib/llm/helpers";
 import { createLogger } from "@/lib/logger";
 
@@ -98,6 +99,14 @@ export async function POST(req: Request) {
     return new Response("User not found in supabase", { status: 404 });
   }
   const sbUserId = sbUserIdResult.data;
+
+  const messageLimitResult = await checkLlmMessageLimit(sbUserId);
+  if (!messageLimitResult.success) {
+    return new Response(
+      JSON.stringify({ error: messageLimitResult.error ?? "Too many requests" }),
+      { status: 429, headers: { "Content-Type": "application/json" } },
+    );
+  }
 
   // Determine validated messages based on mode
   let validatedMessages: UIMessage[];

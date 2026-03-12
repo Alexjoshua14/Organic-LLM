@@ -1,5 +1,6 @@
 import { randomUUID } from "crypto";
 import { getSupabaseUserId } from "@/data/supabase/profiles";
+import { checkLlmMessageLimit } from "@/lib/rate-limit/llm";
 import { getChatModel } from "@/lib/llm/helpers";
 import { createLogger } from "@/lib/logger";
 import { ChatRequestSchema, DEFAULT_CHAT_MODEL } from "@/lib/schemas/chat";
@@ -65,6 +66,14 @@ export async function POST(req: Request) {
     return new Response("User not found in supabase", { status: 404 });
   }
   const sbUserId = sbUserIdResult.data;
+
+  const messageLimitResult = await checkLlmMessageLimit(sbUserId);
+  if (!messageLimitResult.success) {
+    return new Response(
+      JSON.stringify({ error: messageLimitResult.error ?? "Too many requests" }),
+      { status: 429, headers: { "Content-Type": "application/json" } },
+    );
+  }
 
   logger.log(
     "POST",

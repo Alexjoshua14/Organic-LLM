@@ -1,6 +1,9 @@
 import { openai } from "@ai-sdk/openai";
 import { generateText } from "ai";
+import { auth } from "@clerk/nextjs/server";
 
+import { getSupabaseUserId } from "@/data/supabase/profiles";
+import { checkLlmMessageLimit } from "@/lib/rate-limit/llm";
 import { createLogger } from "@/lib/logger";
 
 // Allow responses up to 30 seconds
@@ -38,6 +41,24 @@ export async function POST(req: Request) {
       return Response.json(
         { error: "Message is required and must be a non-empty string" },
         { status: 400 },
+      );
+    }
+
+    const clerkUser = await auth();
+    if (!clerkUser?.userId) {
+      return new Response("Unauthorized", { status: 401 });
+    }
+    const sbUserIdResult = await getSupabaseUserId(clerkUser.userId);
+    if (sbUserIdResult.error || sbUserIdResult.data === null) {
+      return new Response("User not found in supabase", { status: 404 });
+    }
+    const sbUserId = sbUserIdResult.data;
+
+    const messageLimitResult = await checkLlmMessageLimit(sbUserId);
+    if (!messageLimitResult.success) {
+      return Response.json(
+        { error: messageLimitResult.error ?? "Too many requests" },
+        { status: 429 },
       );
     }
 

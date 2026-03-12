@@ -14,6 +14,7 @@ import {
   applyOps,
 } from "@/lib/llm/organicStateProtocol";
 import { getState, saveState } from "@/lib/supabase/organicStateStore";
+import { checkLlmMessageLimit } from "@/lib/rate-limit/llm";
 
 // import systemPrompt from "@/lib/system-prompt";
 import {
@@ -59,6 +60,14 @@ export async function POST(req: Request) {
 
   if (sbUserId.error || sbUserId.data === null) {
     return new Response("User not found in supabase", { status: 404 });
+  }
+
+  const messageLimitResult = await checkLlmMessageLimit(sbUserId.data);
+  if (!messageLimitResult.success) {
+    return new Response(
+      JSON.stringify({ error: messageLimitResult.error ?? "Too many requests" }),
+      { status: 429, headers: { "Content-Type": "application/json" } },
+    );
   }
 
   logger.log("POST", `Recieved Message. Processing now...`);

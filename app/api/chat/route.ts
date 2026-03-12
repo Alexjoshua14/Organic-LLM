@@ -33,6 +33,7 @@ import { addLatestMessagesToMemory } from "@/lib/memory/store";
 
 import { ChatRequestSchema, DEFAULT_CHAT_MODEL } from "@/lib/schemas/chat";
 import { getSupabaseUserId } from "@/data/supabase/profiles";
+import { checkLlmMessageLimit } from "@/lib/rate-limit/llm";
 import { CHAT_MODEL, getChatModel, measureAsync } from "@/lib/llm/helpers";
 import { OpenAIResponsesProviderOptions } from "@ai-sdk/openai";
 import { ChatUIMessage, ChatAIActionEnum } from "@/types/ai";
@@ -71,7 +72,10 @@ export async function POST(req: Request) {
       `Invalid request body: ${parseResult.error.flatten().formErrors.join(", ")}`,
     );
 
-    return new Response("Invalid request body", { status: 400 });
+    return new Response(
+      JSON.stringify({ error: "Invalid request body", status: 400 }),
+      { status: 400, headers: { "Content-Type": "application/json" } },
+    );
   }
 
   const { message: incomingMessage, id, zeroDataRetention } = parseResult.data;
@@ -84,15 +88,35 @@ export async function POST(req: Request) {
   const clerkUser = await auth();
 
   if (!clerkUser || !clerkUser.userId) {
-    return new Response("Unauthorized", { status: 401 });
+    return new Response(
+      JSON.stringify({ error: "Unauthorized", status: 401 }),
+      { status: 401, headers: { "Content-Type": "application/json" } },
+    );
   }
 
   const sbUserIdResult = await getSupabaseUserId(clerkUser.userId);
 
   if (sbUserIdResult.error || sbUserIdResult.data === null) {
-    return new Response("User not found in supabase", { status: 404 });
+    return new Response(
+      JSON.stringify({
+        error: "User not found in supabase",
+        status: 404,
+      }),
+      { status: 404, headers: { "Content-Type": "application/json" } },
+    );
   }
   const sbUserId = sbUserIdResult.data;
+
+  const messageLimitResult = await checkLlmMessageLimit(sbUserId);
+  if (!messageLimitResult.success) {
+    return new Response(
+      JSON.stringify({
+        error: messageLimitResult.error ?? "Too many requests",
+        status: 429,
+      }),
+      { status: 429, headers: { "Content-Type": "application/json" } },
+    );
+  }
 
   // Start fetching thread title status early; result is only needed in onFinish (non-blocking).
   // We rely on DB state here to avoid false positives from stale client hints.

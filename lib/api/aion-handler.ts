@@ -12,6 +12,7 @@ import {
 
 import { MyUIMessage } from "@/types/ai";
 import { ChatRequestSchema, DEFAULT_CHAT_MODEL } from "@/lib/schemas/chat";
+import { checkLlmMessageLimit } from "@/lib/rate-limit/llm";
 import { CHAT_MODEL, getChatModel, measureAsync } from "@/lib/llm/helpers";
 import { SYSTEM_PROMPT } from "@/lib/system-prompt/prompt-v0";
 import { createLogger } from "@/lib/logger";
@@ -111,6 +112,14 @@ export function createAionHandler(deps: AionDeps) {
       return new Response("User not found in supabase", { status: 404 });
     }
     const sbUserId = sbUserIdResult.data;
+
+    const messageLimitResult = await checkLlmMessageLimit(sbUserId);
+    if (!messageLimitResult.success) {
+      return new Response(
+        JSON.stringify({ error: messageLimitResult.error ?? "Too many requests" }),
+        { status: 429, headers: { "Content-Type": "application/json" } },
+      );
+    }
 
     logger.log(
       "POST",
