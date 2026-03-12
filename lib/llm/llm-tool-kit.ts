@@ -88,13 +88,23 @@ export const weatherTool = tool({
  * @param userId - The user ID to search memories for
  * @returns A tool instance that can search the user's memories
  */
-export function createMemorySearchTool(userId: string) {
+export function createMemorySearchTool(
+  userId: string,
+  writer?: WebSearchStreamWriter,
+) {
   return tool({
     description:
       "Search through the user's stored memories to find relevant information from past conversations. Use this when you need to recall specific details, preferences, or context from previous interactions.",
     inputSchema: SearchMemoryToolSchema,
     execute: async ({ query, limit }) => {
       logger.log("createMemorySearchToool", "LLM has invoked memory search");
+      if (writer) {
+        writer.write({
+          type: "data-aiAction",
+          data: { action: ChatAIActionEnum.Memory, query },
+          transient: true,
+        });
+      }
       try {
         const result = await searchMemories(query, userId, { limit });
         return {
@@ -304,10 +314,19 @@ export function createGetMessagesFromDateTool(chatId: string) {
 export type WebSearchStreamWriter = {
   write: (part: {
     type: "data-aiAction";
-    data: {
-      action: ChatAIActionEnum.Search;
-      sources?: ExaSearchResultSource[];
-    };
+    data:
+      | {
+          action: ChatAIActionEnum.Search;
+          sources?: ExaSearchResultSource[];
+        }
+      | {
+          action: ChatAIActionEnum.Memory;
+          query?: string;
+        }
+      | {
+          action: ChatAIActionEnum.Tool;
+          message?: string;
+        };
     transient?: boolean;
   }) => void;
 };
