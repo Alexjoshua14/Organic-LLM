@@ -116,12 +116,12 @@ export function SidebarThreadActionsMenu({
             <Pencil className="size-4" />
             Edit title
           </DropdownMenuItem>
-          {thread.hasNoTitle === true && (
-            <DropdownMenuItem onSelect={handleGenerateTitle}>
-              <Sparkles className="size-4" />
-              Generate title (AI)
-            </DropdownMenuItem>
-          )}
+          <DropdownMenuItem onSelect={handleGenerateTitle}>
+            <Sparkles className="size-4" />
+            {thread.hasNoTitle === true
+              ? "Generate title (AI)"
+              : "Regenerate title (AI)"}
+          </DropdownMenuItem>
           <DropdownMenuItem onSelect={handleTogglePin}>
             {thread.pinned ? (
               <>
