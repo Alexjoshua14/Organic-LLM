@@ -7,7 +7,7 @@ import { REFINE_QUESTION_SYSTEM_PROMPT } from "@/lib/system-prompt/rabbit-hole";
 import { GUARDRAIL_MAX_OUTPUT_TOKENS } from "@/lib/llm/helpers";
 import type { RabbitHoleBranchSuggestion } from "@/lib/schemas/rabbitHoleSchemas";
 import type { PipelineTrace } from "./trace";
-import { createTrace } from "./trace";
+import { createTrace, normalizeUsage } from "./trace";
 
 export type RabbitHoleTitleRunResult = {
   title: string | null;
@@ -33,13 +33,17 @@ export async function runRabbitHoleTitleScenario(html: string): Promise<RabbitHo
   const rawInput = { html };
 
   try {
-    const { data: title, error } = await generateTitle({ html });
+    const { data: title, error, usage } = await generateTitle({ html });
     const latencyMs = performance.now() - start;
 
     const trace = createTrace(rawInput, "generateTitle", latencyMs, {
       transformedPrompt: html.slice(0, 500) + (html.length > 500 ? "…" : ""),
       error: error ?? undefined,
       normalizedProps: title != null ? { title } : undefined,
+      tokenUsage: usage ? normalizeUsage(usage) : undefined,
+      tokenUsageByCall: usage
+        ? [{ modelOrFunction: "generateTitle", usage: normalizeUsage(usage) }]
+        : undefined,
     });
 
     return {
@@ -71,7 +75,7 @@ export async function runBranchSuggestionScenario(params: {
   const rawInput = { ...params };
 
   try {
-    const { data: branches, error } = await generateBranchSuggestions({
+    const { data: branches, error, usage } = await generateBranchSuggestions({
       context: params.context,
       rootQuestion: params.rootQuestion,
       pathHistory: params.pathHistory,
@@ -82,6 +86,15 @@ export async function runBranchSuggestionScenario(params: {
       error: error ?? undefined,
       normalizedProps:
         branches != null ? { branches, count: branches.length } : undefined,
+      tokenUsage: usage ? normalizeUsage(usage) : undefined,
+      tokenUsageByCall: usage
+        ? [
+            {
+              modelOrFunction: "generateBranchSuggestions",
+              usage: normalizeUsage(usage),
+            },
+          ]
+        : undefined,
     });
 
     return {
@@ -113,7 +126,7 @@ export async function runQuestionRefinementScenario(params: {
   const prompt = `Question to refine: ${params.question}\n\nPath history: ${params.pathHistory}`;
 
   try {
-    const { text } = await generateText({
+    const { text, usage } = await generateText({
       model: openai("gpt-5-nano"),
       system: REFINE_QUESTION_SYSTEM_PROMPT,
       prompt,
@@ -125,6 +138,15 @@ export async function runQuestionRefinementScenario(params: {
     const trace = createTrace(rawInput, "generateText (refine question)", latencyMs, {
       transformedPrompt: prompt,
       normalizedProps: refinedQuestion != null ? { refinedQuestion } : undefined,
+      tokenUsage: usage ? normalizeUsage(usage) : undefined,
+      tokenUsageByCall: usage
+        ? [
+            {
+              modelOrFunction: "generateText (refine question)",
+              usage: normalizeUsage(usage),
+            },
+          ]
+        : undefined,
     });
 
     return {

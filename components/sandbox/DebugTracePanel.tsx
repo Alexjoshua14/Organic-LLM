@@ -1,15 +1,69 @@
 "use client";
 
 import { useState } from "react";
-import { ChevronDown, ChevronRight } from "lucide-react";
+import { ChevronDown, ChevronRight, HelpCircle } from "lucide-react";
 import { cn } from "@/lib/utils";
-import type { PipelineTrace } from "@/lib/sandbox/pipelines/trace";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/third-party/ui/tooltip";
+import type {
+  PipelineTrace,
+  TokenUsage,
+  TokenUsageEntry,
+} from "@/lib/sandbox/pipelines/trace";
 
 export interface DebugTracePanelProps {
   trace: PipelineTrace | null;
   /** Extra keys from scenario getDebugData (e.g. title, branchesCount) */
   extra?: Record<string, unknown>;
   className?: string;
+  /** Tooltip text for the panel header */
+  headerTooltip?: string;
+}
+
+function formatTokens(n: number | undefined): string {
+  if (n == null) return "—";
+  return n.toLocaleString();
+}
+
+function TokenUsageRow({
+  label,
+  usage,
+}: {
+  label: string;
+  usage: TokenUsage;
+}) {
+  const input =
+    usage.inputTokens ?? usage.promptTokens ?? 0;
+  const output =
+    usage.outputTokens ?? usage.completionTokens ?? 0;
+  const total = usage.totalTokens ?? ((input + output) || undefined);
+  const reasoning = usage.reasoningTokens;
+  return (
+    <div className="rounded-md border border-border/50 bg-card/30 p-2 text-xs">
+      <div className="font-medium text-muted-foreground mb-1.5">{label}</div>
+      <div className="grid grid-cols-2 gap-x-3 gap-y-0.5 text-foreground">
+        <span>Input</span>
+        <span>{formatTokens(input || undefined)}</span>
+        <span>Output</span>
+        <span>{formatTokens(output || undefined)}</span>
+        {total != null && total > 0 && (
+          <>
+            <span>Total</span>
+            <span>{formatTokens(total)}</span>
+          </>
+        )}
+        {reasoning != null && reasoning > 0 && (
+          <>
+            <span>Reasoning</span>
+            <span>{formatTokens(reasoning)}</span>
+          </>
+        )}
+      </div>
+    </div>
+  );
 }
 
 function JsonBlock({ label, value }: { label: string; value: unknown }) {
@@ -39,7 +93,12 @@ function JsonBlock({ label, value }: { label: string; value: unknown }) {
   );
 }
 
-export function DebugTracePanel({ trace, extra, className }: DebugTracePanelProps) {
+export function DebugTracePanel({
+  trace,
+  extra,
+  className,
+  headerTooltip,
+}: DebugTracePanelProps) {
   const [collapsed, setCollapsed] = useState(false);
 
   if (!trace) {
@@ -67,7 +126,24 @@ export function DebugTracePanel({ trace, extra, className }: DebugTracePanelProp
         className="flex items-center justify-between w-full px-4 py-2 text-sm font-medium text-foreground hover:bg-muted/50"
         onClick={() => setCollapsed((c) => !c)}
       >
-        <span>Debug / trace</span>
+        <span className="flex items-center gap-1.5">
+          Debug / trace
+          {headerTooltip != null && (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <span
+                  className="inline-flex cursor-help text-muted-foreground hover:text-foreground"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  <HelpCircle size={14} aria-hidden />
+                </span>
+              </TooltipTrigger>
+              <TooltipContent side="left" className="max-w-xs">
+                {headerTooltip}
+              </TooltipContent>
+            </Tooltip>
+          )}
+        </span>
         {collapsed ? <ChevronRight size={16} /> : <ChevronDown size={16} />}
       </button>
       {!collapsed && (
@@ -84,6 +160,30 @@ export function DebugTracePanel({ trace, extra, className }: DebugTracePanelProp
             </span>
             <p className="text-sm text-foreground">{trace.latencyMs.toFixed(0)} ms</p>
           </div>
+          {(trace.tokenUsage != null || (trace.tokenUsageByCall?.length ?? 0) > 0) && (
+            <div className="grid gap-1">
+              <span className="text-xs font-medium text-muted-foreground">
+                Token usage
+              </span>
+              <div className="space-y-2">
+                {trace.tokenUsageByCall != null &&
+                trace.tokenUsageByCall.length > 0 ? (
+                  trace.tokenUsageByCall.map((entry: TokenUsageEntry, i: number) => (
+                    <TokenUsageRow
+                      key={`${entry.modelOrFunction}-${i}`}
+                      label={entry.modelOrFunction}
+                      usage={entry.usage}
+                    />
+                  ))
+                ) : trace.tokenUsage != null ? (
+                  <TokenUsageRow
+                    label={trace.modelOrFunction}
+                    usage={trace.tokenUsage}
+                  />
+                ) : null}
+              </div>
+            </div>
+          )}
           {trace.error != null && (
             <div className="grid gap-1">
               <span className="text-xs font-medium text-destructive">Error</span>

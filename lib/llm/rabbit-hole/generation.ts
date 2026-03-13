@@ -11,6 +11,16 @@ import {
 import { Result } from "@/types";
 
 import { createLogger } from "@/lib/logger";
+
+/** Optional usage from AI SDK (generateText / generateObject). */
+type LanguageModelUsage = {
+  inputTokens?: number;
+  outputTokens?: number;
+  promptTokens?: number;
+  completionTokens?: number;
+  totalTokens?: number;
+  reasoningTokens?: number;
+};
 import { openai } from "@ai-sdk/openai";
 
 import {
@@ -173,7 +183,9 @@ export async function generateBranchSuggestions({
   pathHistory,
   temperature = 0.7,
 }: GenerateBranchSuggestionsParams): Promise<
-  Result<z.infer<typeof RabbitHoleBranchSuggestionSchema>[]>
+  Result<z.infer<typeof RabbitHoleBranchSuggestionSchema>[]> & {
+    usage?: LanguageModelUsage;
+  }
 > {
   const logContext = "generateBranchSuggestions";
   logger.log(
@@ -224,6 +236,7 @@ export async function generateBranchSuggestions({
     return {
       data: object,
       error: null,
+      usage: usage ?? undefined,
     };
   } catch (err) {
     logger.error(
@@ -251,7 +264,7 @@ export async function generateTitle({
   html,
 }: {
   html: string;
-}): Promise<Result<string>> {
+}): Promise<Result<string> & { usage?: LanguageModelUsage }> {
   let res;
   try {
     res = await generateText({
@@ -270,5 +283,9 @@ export async function generateTitle({
     };
   }
 
-  return { data: res.text.trim(), error: null };
+  return {
+    data: res.text.trim(),
+    error: null,
+    usage: res.usage ?? undefined,
+  };
 }
