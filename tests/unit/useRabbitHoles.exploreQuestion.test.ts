@@ -76,7 +76,7 @@ beforeEach(() => {
   });
   mockGetSessionById.mockReset();
   mockGetSessionById.mockResolvedValue({ data: null, error: null });
-  globalThis.fetch = mockFetch as typeof fetch;
+  globalThis.fetch = mockFetch as unknown as typeof fetch;
 });
 
 afterEach(() => {
@@ -107,17 +107,17 @@ describe("useRabbitHoles exploreQuestion generate API", () => {
     expect(mockFetch.mock.calls.length).toBe(1);
     const [url, init] = (mockFetch.mock.calls as unknown as [string, RequestInit][])[0] ?? [];
     expect(init?.method).toBe("POST");
-    expect(url).toMatch(/^\/api\/rabbitholes\/[^/]+\/generate$/);
-    expect(init?.headers).toBeDefined();
+    expect(/^\/api\/rabbitholes\/[^/]+\/generate$/.test(url)).toBe(true);
+    expect(init?.headers != null).toBe(true);
     const headers = new Headers(init?.headers as HeadersInit);
     expect(headers.get("Content-Type")).toBe("application/json");
     const body = JSON.parse((init?.body as string) ?? "{}");
-    expect(body.nodeId).toBeDefined();
+    expect(body.nodeId != null).toBe(true);
     expect(typeof body.nodeId).toBe("string");
-    expect(body.session).toBeDefined();
+    expect(body.session != null).toBe(true);
     expect(typeof body.session).toBe("string");
     const parsedSession = JSON.parse(body.session as string) as { sessionId: string };
-    expect(parsedSession.sessionId).toBeDefined();
+    expect(parsedSession.sessionId != null).toBe(true);
   });
 
   test("on 202, updates session to include generatingNodeId", async () => {
@@ -140,7 +140,7 @@ describe("useRabbitHoles exploreQuestion generate API", () => {
     });
 
     expect(result.current.session?.generatingNodeId).toBe(returnedNodeId);
-    expect(result.current.generatingNodeId).toBeTruthy();
+    expect(result.current.generatingNodeId != null).toBe(true);
   });
 
   test("on 4xx, sets error and clears generating state", async () => {
