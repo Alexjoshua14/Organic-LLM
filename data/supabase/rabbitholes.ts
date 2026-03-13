@@ -8,66 +8,12 @@ import {
 import type { RabbitHoleSessionMetadata } from "@/app/rabbitholes/_lib/sessionStorage";
 import { supabaseServer } from "@/lib/supabase/server";
 import { createLogger } from "@/lib/logger";
+import { isUnixTimestamp } from "@/lib/utils";
+import { nodeToRabbitHoleNodeRow } from "./rabbitHoleNodeRow";
 
 const logger = createLogger("data/supabase/rabbitholes.ts");
 
 const DEBUG_MODE = process.env.NODE_ENV === "development";
-
-/**
- * Check if a string is a Unix timestamp (numeric string)
- */
-function isUnixTimestamp(value: string): boolean {
-  return /^\d+$/.test(value) && value.length >= 10;
-}
-
-/** Placeholder key_takeaways for stub/optimistic nodes (DB requires length >= 3). */
-const STUB_NODE_KEY_TAKEAWAYS = ["Generating…", "…", "…"] as const;
-
-/** Minimal node shape used when building DB rows (optimistic nodes may have keyTakeaways.length < 3). */
-type NodeForRow = {
-  id: string;
-  rawPrompt: string;
-  userQuestion: string;
-  keyTakeaways: string[];
-  articleHtml: string;
-  createdAt: string;
-};
-
-/**
- * Map a session node to a rabbit_hole_nodes row for upsert.
- * Uses placeholder key_takeaways when the node has fewer than 3 (stub/optimistic nodes).
- * Exported for unit tests.
- */
-export function nodeToRabbitHoleNodeRow(
-  node: NodeForRow,
-  sessionId: string,
-): {
-  session_id: string;
-  node_id: string;
-  raw_prompt: string;
-  user_question: string;
-  key_takeaways: string[];
-  article_html: string;
-  created_at: string;
-} {
-  const keyTakeaways =
-    node.keyTakeaways.length >= 3
-      ? node.keyTakeaways
-      : node.keyTakeaways.length === 0
-        ? [...STUB_NODE_KEY_TAKEAWAYS]
-        : [...node.keyTakeaways, ...STUB_NODE_KEY_TAKEAWAYS].slice(0, 3);
-  return {
-    session_id: sessionId,
-    node_id: node.id,
-    raw_prompt: node.rawPrompt,
-    user_question: node.userQuestion,
-    key_takeaways: keyTakeaways,
-    article_html: node.articleHtml,
-    created_at: isUnixTimestamp(node.createdAt)
-      ? new Date(Number(node.createdAt)).toISOString()
-      : node.createdAt,
-  };
-}
 
 /**
  * List session metadata (index view)
@@ -191,7 +137,9 @@ export async function getSessionById(
 
   const { data: sessionRow, error: sessionError } = await supabase
     .from("rabbit_hole_sessions")
-    .select("session_id, root_question, active_node_id, created_at, updated_at")
+    .select(
+      "session_id, root_question, active_node_id, generating_node_id, created_at, updated_at",
+    )
     .eq("session_id", sessionId)
     .single();
 
@@ -327,6 +275,7 @@ export async function getSessionById(
     path,
     nodesById,
     activeNodeId: sessionRow.active_node_id ?? rootNodeId,
+    generatingNodeId: sessionRow.generating_node_id ?? null,
     edges,
     createdAt:
       typeof sessionRow.created_at === "string"
@@ -426,6 +375,7 @@ export async function saveSession(serialized: string): Promise<SimpleResult> {
           session_id: session.sessionId,
           root_question: session.rootQuestion,
           active_node_id: session.activeNodeId,
+          generating_node_id: session.generatingNodeId ?? null,
           created_at: createdAt,
           updated_at: updatedAt,
         },

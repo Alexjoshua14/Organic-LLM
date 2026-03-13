@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 
-import { nodeToRabbitHoleNodeRow } from "@/data/supabase/rabbitholes";
+import { nodeToRabbitHoleNodeRow } from "@/data/supabase/rabbitHoleNodeRow";
 
 const baseNode = {
   id: "node-1",

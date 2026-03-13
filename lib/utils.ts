@@ -114,3 +114,10 @@ export function dateStringCompare(
   if (aTime > bTime) return 1;
   return 0;
 }
+
+/**
+ * Check if a string is a Unix timestamp (numeric string)
+ */
+export function isUnixTimestamp(value: string): boolean {
+  return /^\d+$/.test(value) && value.length >= 10;
+}
