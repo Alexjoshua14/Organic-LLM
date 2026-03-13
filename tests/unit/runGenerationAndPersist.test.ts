@@ -47,6 +47,8 @@ mock.module("@/data/supabase/rabbitholes", () => ({
 }));
 mock.module("@/lib/rabbit-holes/actions", () => ({
   generateRabbitHoleNode: mockGenerateRabbitHoleNode,
+  generateQuickPreview: mock(async () => ({ data: null, error: null })),
+  analyzeSource: mock(async () => ({ data: null, error: null })),
 }));
 
 const { clearGeneratingNodeId, runGenerationAndPersist } = await import(

@@ -7,13 +7,16 @@ import {
   RabbitHoleSourceAnalysis,
   RabbitHoleNode,
 } from "@/lib/schemas/rabbitHoleSchemas";
-import { useContext, useEffect, useState, useTransition } from "react";
-import { createLogger } from "@/lib/logger";
 import {
-  analyzeSource,
-  generateQuickPreview,
-  generateRabbitHoleNode,
-} from "./actions";
+  useCallback,
+  useContext,
+  useEffect,
+  useState,
+  useTransition,
+} from "react";
+import { useGenerationCompletion } from "@/lib/rabbit-holes/useGenerationCompletion";
+import { createLogger } from "@/lib/logger";
+import { analyzeSource, generateQuickPreview } from "./actions";
 import { Result, SimpleResult } from "@/types";
 import { getSessionById, saveSession } from "@/data/supabase/rabbitholes";
 import { RabbitHoleContext } from "../context/rabbithole-context";
@@ -75,6 +78,21 @@ export function useRabbitHoles(): UseRabbitHolesReturn {
       setCtxSession(session);
     }
   }, [session]);
+
+  const handleGenerationComplete = useCallback(
+    (updated: RabbitHoleSession) => {
+      setSession(updated);
+      setGeneratingNodeId(null);
+      setPreview(null);
+    },
+    [],
+  );
+
+  useGenerationCompletion(
+    session?.sessionId ?? null,
+    session?.generatingNodeId ?? null,
+    handleGenerationComplete,
+  );
 
   /**
    * @internal
@@ -309,48 +327,39 @@ export function useRabbitHoles(): UseRabbitHolesReturn {
         setPreview(quickPreview.data);
       }
 
-      /*
-       *
-       *  Perform heavy work of generating actual node content now
-       * Using startTransition to avoid blocking main processes
-       *
-       */
-
-      startTransition(async () => {
-        try {
-          const result = await generateRabbitHoleNode(updatedSession, node.id);
-
-          if (result.error || result.data === null) {
-            logger.error(
-              "exploreQuestion",
-              "Error generating rabbit hole node",
-              result.error,
-            );
-            setError(result.error?.message ?? "Unknown generation error");
-            return;
-          }
-          updatedSession = result.data;
-
-          await saveSessionToStorage(updatedSession);
-
-          setSession(updatedSession);
-        } catch (error) {
-          logger.error(
-            "exploreQuestion",
-            "Error generating rabbit hole node",
-            error,
-          );
-          setError(
-            error instanceof Error ? error.message : "Unknown generation error",
-          );
-          return;
-        } finally {
-          setGeneratingNodeId(null);
-          setPreview(null);
-        }
-      });
-
       setSession(updatedSession);
+
+      /*
+       * Schedule generation via API; server runs generation after 202 response.
+       */
+      const res = await fetch(
+        `/api/rabbitholes/${baseSession.sessionId}/generate`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            nodeId: node.id,
+            session: JSON.stringify(updatedSession),
+          }),
+        },
+      );
+
+      if (res.status === 202) {
+        const json = (await res.json()) as {
+          jobId: string;
+          sessionId: string;
+          nodeId: string;
+        };
+        setSession({
+          ...updatedSession,
+          generatingNodeId: json.nodeId,
+        });
+      } else {
+        const body = await res.json().catch(() => ({})) as { error?: string };
+        setError(body?.error ?? `Request failed (${res.status})`);
+        setGeneratingNodeId(null);
+        setPreview(null);
+      }
 
       return {
         ok: true,
