@@ -6,6 +6,12 @@ const mockLimit = mock(async (_id: string, _opts?: { rate?: number }) => ({
 }));
 const mockGetRemaining = mock(async (_id: string) => ({ remaining: 100_000 }));
 
+// Mock Redis so no network calls in CI (applied before llm module loads)
+mock.module("@upstash/redis", () => ({
+  Redis: class {
+    request = () => Promise.resolve({ data: undefined, error: null });
+  },
+}));
 mock.module("@upstash/ratelimit", () => ({
   Ratelimit: class {
     static slidingWindow = (_n: number, _w: string) => ({});

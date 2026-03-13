@@ -2,6 +2,16 @@ import { afterEach, beforeAll, beforeEach, describe, expect, mock, test } from "
 
 mock.module("server-only", () => ({}));
 
+// Prevent any transitive load of Redis from making network calls in CI
+mock.module("@upstash/redis", () => ({
+  Redis: class {
+    request = () => Promise.resolve({ data: undefined, error: null });
+  },
+}));
+mock.module("@/lib/redis/redis", () => ({
+  redis: { request: () => Promise.resolve({ data: undefined, error: null }) },
+}));
+
 const SESSION_ID = "550e8400-e29b-41d4-a716-446655440000";
 const NODE_ID = "660e8400-e29b-41d4-a716-446655440001";
 
@@ -128,10 +138,13 @@ describe("advanceGenerationStep", () => {
     expect(result.updated).toBe(true);
     expect(advanceUpdatePayload).not.toBeNull();
     expect(advanceUpdatePayload!.generation_step).toBe("article");
-    expect(advanceUpdatePayload!.updated_at).toBeDefined();
-    expect(advanceEqCalls[0]).toEqual(["session_id", SESSION_ID]);
-    expect(advanceEqCalls[1]).toEqual(["generating_node_id", NODE_ID]);
-    expect(advanceEqCalls[2]).toEqual(["generation_step", "sources"]);
+    expect(advanceUpdatePayload!.updated_at != null).toBe(true);
+    expect(advanceEqCalls[0]?.[0]).toBe("session_id");
+    expect(advanceEqCalls[0]?.[1]).toBe(SESSION_ID);
+    expect(advanceEqCalls[1]?.[0]).toBe("generating_node_id");
+    expect(advanceEqCalls[1]?.[1]).toBe(NODE_ID);
+    expect(advanceEqCalls[2]?.[0]).toBe("generation_step");
+    expect(advanceEqCalls[2]?.[1]).toBe("sources");
   });
 
   test("update with toStep null clears generating_node_id and generation_step", async () => {
@@ -150,8 +163,9 @@ describe("advanceGenerationStep", () => {
     expect(advanceUpdatePayload).not.toBeNull();
     expect(advanceUpdatePayload!.generating_node_id).toBeNull();
     expect(advanceUpdatePayload!.generation_step).toBeNull();
-    expect(advanceUpdatePayload!.updated_at).toBeDefined();
-    expect(advanceEqCalls[2]).toEqual(["generation_step", "branch_suggestions"]);
+    expect(advanceUpdatePayload!.updated_at != null).toBe(true);
+    expect(advanceEqCalls[2]?.[0]).toBe("generation_step");
+    expect(advanceEqCalls[2]?.[1]).toBe("branch_suggestions");
   });
 });
 
@@ -188,19 +202,19 @@ describe("with mocked rabbitholes", () => {
   });
 
   describe("clearGeneratingNodeId", () => {
-  test("clears generating_node_id and generation_step for session_id", async () => {
-    await clearGeneratingNodeId(SESSION_ID);
+    test("clears generating_node_id and generation_step for session_id", async () => {
+      await clearGeneratingNodeId(SESSION_ID);
 
-    expect(updatePayload).not.toBeNull();
-    expect(updatePayload!.generating_node_id).toBeNull();
-    expect(updatePayload!.generation_step).toBeNull();
-    expect(eqColumn).toBe("session_id");
-    expect(eqValue).toBe(SESSION_ID);
+      expect(updatePayload).not.toBeNull();
+      expect(updatePayload!.generating_node_id).toBeNull();
+      expect(updatePayload!.generation_step).toBeNull();
+      expect(eqColumn).toBe("session_id");
+      expect(eqValue).toBe(SESSION_ID);
+    });
   });
-});
 
-describe("runGenerationAndPersist", () => {
-  test("clears generating_node_id when session is not found", async () => {
+  describe("runGenerationAndPersist", () => {
+    test("clears generating_node_id when session is not found", async () => {
     mockGetSessionById.mockResolvedValue({
       data: null,
       error: new Error("Not found"),
@@ -216,9 +230,9 @@ describe("runGenerationAndPersist", () => {
     expect(updatePayload).not.toBeNull();
     expect(updatePayload!.generating_node_id).toBeNull();
     expect(eqValue).toBe(SESSION_ID);
-  });
+    });
 
-  test("clears generating_node_id when node already has content", async () => {
+    test("clears generating_node_id when node already has content", async () => {
     const sessionWithContent = {
       sessionId: SESSION_ID,
       rootQuestion: "Q",
@@ -250,9 +264,9 @@ describe("runGenerationAndPersist", () => {
     expect(mockRunOneGenerationStep.mock.calls.length).toBe(0);
     expect(updatePayload!.generating_node_id).toBeNull();
     expect(mockSaveSession.mock.calls.length).toBe(0);
-  });
+    });
 
-  test("runs steps (sources, article, branches), saves three times, and advances step", async () => {
+    test("runs steps (sources, article, branches), saves three times, and advances step", async () => {
     const emptyNodeSession = {
       sessionId: SESSION_ID,
       rootQuestion: "Q",
@@ -348,9 +362,9 @@ describe("runGenerationAndPersist", () => {
     expect(advanceCalls[1]?.[3]).toBe("branch_suggestions");
     expect(advanceCalls[2]?.[2]).toBe("branch_suggestions");
     expect(advanceCalls[2]?.[3]).toBeNull();
-  });
+    });
 
-  test("exits when advanceGenerationStep returns updated false (singularity)", async () => {
+    test("exits when advanceGenerationStep returns updated false (singularity)", async () => {
     const emptyNodeSession = {
       sessionId: SESSION_ID,
       rootQuestion: "Q",
@@ -400,9 +414,9 @@ describe("runGenerationAndPersist", () => {
     expect(mockRunOneGenerationStep.mock.calls.length).toBe(1);
     expect(mockSaveSession.mock.calls.length).toBe(1);
     expect(mockAdvanceGenerationStep.mock.calls.length).toBe(1);
-  });
+    });
 
-  test("clears generating_node_id when step fails", async () => {
+    test("clears generating_node_id when step fails", async () => {
     const emptyNodeSession = {
       sessionId: SESSION_ID,
       rootQuestion: "Q",
@@ -439,6 +453,6 @@ describe("runGenerationAndPersist", () => {
     expect(mockSaveSession.mock.calls.length).toBe(0);
     expect(updatePayload!.generating_node_id).toBeNull();
     expect(eqValue).toBe(SESSION_ID);
+    });
   });
-});
 });
