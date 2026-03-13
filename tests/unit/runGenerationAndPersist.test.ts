@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, mock, test } from "bun:test";
+import { afterEach, beforeAll, beforeEach, describe, expect, mock, test } from "bun:test";
 
 mock.module("server-only", () => ({}));
 
@@ -53,42 +53,141 @@ mock.module("@/lib/supabase/server", () => ({
 mock.module("@/lib/supabase/supabase-admin", () => ({
   supabaseAdmin: createSupabaseMock(),
 }));
-mock.module("@/data/supabase/rabbitholes", () => ({
-  getSessionById: mockGetSessionById,
-  saveSession: mockSaveSession,
-  advanceGenerationStep: mockAdvanceGenerationStep,
-}));
 mock.module("@/lib/rabbit-holes/actions", () => ({
   runOneGenerationStep: mockRunOneGenerationStep,
   generateQuickPreview: mock(async () => ({ data: null, error: null })),
   analyzeSource: mock(async () => ({ data: null, error: null })),
 }));
 
-const { clearGeneratingNodeId, runGenerationAndPersist } = await import(
-  "@/lib/rabbit-holes/runGenerationAndPersist"
-);
+let clearGeneratingNodeId: (sessionId: string) => Promise<void>;
+let runGenerationAndPersist: (sessionId: string, nodeId: string) => Promise<void>;
 
-beforeEach(() => {
-  updatePayload = null;
-  eqColumn = null;
-  eqValue = null;
-  mockGetSessionById.mockReset();
-  mockSaveSession.mockReset();
-  mockSaveSession.mockResolvedValue({ ok: true, error: null });
-  mockAdvanceGenerationStep.mockReset();
-  mockAdvanceGenerationStep.mockResolvedValue({ updated: true });
-  mockRunOneGenerationStep.mockReset();
-  mockSupabaseServer.mockReset();
-  mockSupabaseServer.mockResolvedValue(createSupabaseMock());
+describe("advanceGenerationStep", () => {
+  let advanceUpdatePayload: Record<string, unknown> | null = null;
+  const advanceEqCalls: Array<[string, string]> = [];
+
+  const createAdvanceMockClient = () => ({
+    from: (table: string) => {
+      if (table !== "rabbit_hole_sessions") {
+        throw new Error(`Unexpected table: ${table}`);
+      }
+      return {
+        update: (payload: Record<string, unknown>) => {
+          advanceUpdatePayload = payload;
+          return {
+            eq: (col: string, val: string) => {
+              advanceEqCalls.push([col, val]);
+              return {
+                eq: (col2: string, val2: string) => {
+                  advanceEqCalls.push([col2, val2]);
+                  return {
+                    eq: (col3: string, val3: string) => {
+                      advanceEqCalls.push([col3, val3]);
+                      return {
+                        select: () => ({
+                          maybeSingle: () =>
+                            Promise.resolve({
+                              data: { session_id: SESSION_ID },
+                              error: null,
+                            }),
+                        }),
+                      };
+                  },
+                };
+              },
+            };
+          },
+        };
+      },
+    };
+  },
+  });
+
+  beforeEach(() => {
+    advanceUpdatePayload = null;
+    advanceEqCalls.length = 0;
+  });
+
+  afterEach(() => {
+    advanceUpdatePayload = null;
+    advanceEqCalls.length = 0;
+  });
+
+  test("update with toStep sets generation_step and updated_at", async () => {
+    const { advanceGenerationStep } = await import("@/data/supabase/rabbitholes");
+    const client = createAdvanceMockClient() as any;
+
+    const result = await advanceGenerationStep(
+      SESSION_ID,
+      NODE_ID,
+      "sources",
+      "article",
+      client,
+    );
+
+    expect(result.updated).toBe(true);
+    expect(advanceUpdatePayload).not.toBeNull();
+    expect(advanceUpdatePayload!.generation_step).toBe("article");
+    expect(advanceUpdatePayload!.updated_at).toBeDefined();
+    expect(advanceEqCalls[0]).toEqual(["session_id", SESSION_ID]);
+    expect(advanceEqCalls[1]).toEqual(["generating_node_id", NODE_ID]);
+    expect(advanceEqCalls[2]).toEqual(["generation_step", "sources"]);
+  });
+
+  test("update with toStep null clears generating_node_id and generation_step", async () => {
+    const { advanceGenerationStep } = await import("@/data/supabase/rabbitholes");
+    const client = createAdvanceMockClient() as any;
+
+    const result = await advanceGenerationStep(
+      SESSION_ID,
+      NODE_ID,
+      "branch_suggestions",
+      null,
+      client,
+    );
+
+    expect(result.updated).toBe(true);
+    expect(advanceUpdatePayload).not.toBeNull();
+    expect(advanceUpdatePayload!.generating_node_id).toBeNull();
+    expect(advanceUpdatePayload!.generation_step).toBeNull();
+    expect(advanceUpdatePayload!.updated_at).toBeDefined();
+    expect(advanceEqCalls[2]).toEqual(["generation_step", "branch_suggestions"]);
+  });
 });
 
-afterEach(() => {
-  updatePayload = null;
-  eqColumn = null;
-  eqValue = null;
-});
+describe("with mocked rabbitholes", () => {
+  beforeAll(async () => {
+    mock.module("@/data/supabase/rabbitholes", () => ({
+      getSessionById: mockGetSessionById,
+      saveSession: mockSaveSession,
+      advanceGenerationStep: mockAdvanceGenerationStep,
+    }));
+    const mod = await import("@/lib/rabbit-holes/runGenerationAndPersist");
+    clearGeneratingNodeId = mod.clearGeneratingNodeId;
+    runGenerationAndPersist = mod.runGenerationAndPersist;
+  });
 
-describe("clearGeneratingNodeId", () => {
+  beforeEach(() => {
+    updatePayload = null;
+    eqColumn = null;
+    eqValue = null;
+    mockGetSessionById.mockReset();
+    mockSaveSession.mockReset();
+    mockSaveSession.mockResolvedValue({ ok: true, error: null });
+    mockAdvanceGenerationStep.mockReset();
+    mockAdvanceGenerationStep.mockResolvedValue({ updated: true });
+    mockRunOneGenerationStep.mockReset();
+    mockSupabaseServer.mockReset();
+    mockSupabaseServer.mockResolvedValue(createSupabaseMock());
+  });
+
+  afterEach(() => {
+    updatePayload = null;
+    eqColumn = null;
+    eqValue = null;
+  });
+
+  describe("clearGeneratingNodeId", () => {
   test("clears generating_node_id and generation_step for session_id", async () => {
     await clearGeneratingNodeId(SESSION_ID);
 
@@ -341,4 +440,5 @@ describe("runGenerationAndPersist", () => {
     expect(updatePayload!.generating_node_id).toBeNull();
     expect(eqValue).toBe(SESSION_ID);
   });
+});
 });
