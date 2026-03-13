@@ -20,6 +20,7 @@ import { analyzeSource, generateQuickPreview } from "./actions";
 import { Result, SimpleResult } from "@/types";
 import { getSessionById, saveSession } from "@/data/supabase/rabbitholes";
 import { RabbitHoleContext } from "../context/rabbithole-context";
+import { clientRandomUUID } from "@/lib/client-uuid";
 
 const logger = createLogger("useRabbitHoles");
 
@@ -101,7 +102,7 @@ export function useRabbitHoles(): UseRabbitHolesReturn {
   function newSession(): Result<RabbitHoleSession, Error> {
     try {
       const newSession: RabbitHoleSession = {
-        sessionId: globalThis.crypto.randomUUID(),
+        sessionId: clientRandomUUID(),
         rootQuestion: "",
         activeNodeId: null,
         createdAt: new Date().toISOString(),
@@ -213,7 +214,7 @@ export function useRabbitHoles(): UseRabbitHolesReturn {
    */
   function createNode(question: string, id?: string): RabbitHoleNode {
     const node: RabbitHoleNode = {
-      id: id ?? globalThis.crypto.randomUUID(),
+      id: id ?? clientRandomUUID(),
       rawPrompt: question,
       userQuestion: question,
       createdAt: new Date().toISOString(),
