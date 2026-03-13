@@ -5,6 +5,7 @@ import { DefaultChatTransport, tool, UIMessage } from "ai";
 import { useRef } from "react";
 import { ChatModel, DEFAULT_CHAT_MODEL } from "@/lib/schemas/chat";
 import { useRouter } from "next/navigation";
+import { clientRandomUUID } from "@/lib/client-uuid";
 import { createLogger } from "@/lib/logger";
 import { NavigateToolInputSchema } from "@/lib/llm/core/coreToolKit";
 import z from "zod";
@@ -113,7 +114,7 @@ export function useAion(options: UseAionOptions = {}) {
         } else if (id && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id)) {
           requestId = id;
         } else {
-          requestId = crypto.randomUUID();
+          requestId = clientRandomUUID();
         }
 
         return {

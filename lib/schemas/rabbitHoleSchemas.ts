@@ -55,24 +55,36 @@ export const RabbitHoleNodeSchema = z.object({
     .or(z.null()),
   keyTakeaways: z
     .array(z.string())
-    .min(3)
     .max(6)
-    .describe("3-5 key takeaways from article"),
+    .describe(
+      "0-6 key takeaways; UI expects 3+ when articleHtml is present",
+    ),
   articleHtml: z
     .string()
     .describe(
       "HTML string containing section tags, paragraphs, and inline spans only",
-    ),
+    )
+    .optional().nullable(),
   sources: z.array(RabbitHoleSourceSchema).optional(),
   branchSuggestions: z
     .array(RabbitHoleBranchSuggestionSchema)
-    .min(5)
-    .max(11)
-    .optional(),
+    .optional()
+    .transform((arr) =>
+      arr && arr.length > 11 ? arr.slice(0, 11) : arr,
+    ),
   createdAt: z.string(),
 });
 
-export const RabbitHoleAIResponseSchema = RabbitHoleNodeSchema.omit({
+// Stricter schema for fully generated AI responses (article + 3-6 takeaways).
+export const RabbitHoleAIResponseSchema = RabbitHoleNodeSchema.extend({
+  keyTakeaways: z.array(z.string()).min(3).max(6),
+  articleHtml: z
+    .string()
+    .min(1)
+    .describe(
+      "HTML string containing section tags, paragraphs, and inline spans only",
+    ),
+}).omit({
   id: true,
   rawPrompt: true,
   userQuestion: true,
@@ -93,6 +105,13 @@ export const RabbitHoleEdgeSchema = z.object({
   type: z.enum(["follow", "reference", "source"]).optional(),
 });
 
+export const GenerationStep = z.enum([
+  "sources",
+  "article",
+  "branch_suggestions",
+]);
+export type GenerationStep = z.infer<typeof GenerationStep>;
+
 export const RabbitHoleSessionSchema = z.object({
   sessionId: z.uuid().describe("The unique identifier for the session"),
   rootQuestion: z
@@ -102,6 +121,8 @@ export const RabbitHoleSessionSchema = z.object({
   path: z.array(RabbitHolePathSegmentSchema),
   nodesById: z.record(z.string(), RabbitHoleNodeSchema),
   activeNodeId: z.string().nullable(),
+  generatingNodeId: z.string().optional().nullable(),
+  generationStep: GenerationStep.optional().nullable(),
   edges: z.array(RabbitHoleEdgeSchema).optional(),
   createdAt: z.string(),
   updatedAt: z.string().optional(),

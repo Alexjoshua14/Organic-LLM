@@ -73,7 +73,7 @@ async function generateBranchNodeContent(
   branchDescription: string,
   sourcesContext: string,
   sourcesInstruction: string,
-  systemPrompt: string
+  systemPrompt: string,
 ): Promise<NodeContentResult> {
   const prompt =
     `Continue the Rabbit Hole exploration by diving deep into: ${branchLabel}\n\n${branchDescription}\n\n` +
@@ -91,6 +91,10 @@ async function generateBranchNodeContent(
   });
 
   const object = RabbitHoleAIResponseSchema.parse(data);
+
+  if (!object.articleHtml) {
+    return { object, prompt, branchSuggestions: [] };
+  }
 
   const res = await generateBranchSuggestions({
     context: object.articleHtml,
@@ -120,7 +124,7 @@ export async function generateQuickPreview(
     rootQuestion?: string;
     pathHistory?: string;
     branchLabel?: string;
-  }
+  },
 ): Promise<Result<string>> {
   const clerkUser = await auth();
 
@@ -165,7 +169,7 @@ export async function generateQuickPreview(
 async function generateInitialNodeContent(
   question: string,
   sourcesContext: string,
-  sourcesInstruction: string
+  sourcesInstruction: string,
 ): Promise<NodeContentResult> {
   const prompt =
     `Generate a comprehensive Rabbit Hole exploration for the following question:\n\n${question}\n\n` +
@@ -185,7 +189,7 @@ async function generateInitialNodeContent(
   const object = RabbitHoleAIResponseSchema.parse(data);
 
   const res = await generateBranchSuggestions({
-    context: object.articleHtml,
+    context: object.articleHtml ?? "",
     rootQuestion: question,
   });
 
@@ -268,7 +272,7 @@ function buildBranchNode(
   session: RabbitHoleSession,
   branchLabel: string,
   aiObject: RabbitHoleNode,
-  exaSources: RabbitHoleNode["sources"]
+  exaSources: RabbitHoleNode["sources"],
 ): BranchBuildResult {
   const nodeId = randomUUID();
   const createdAt = new Date().toISOString();
@@ -332,7 +336,7 @@ function buildBranchNode(
  * @deprecated Prefer `lib/rabbit-holes/useRabbitHoles.ts` (`exploreQuestion`) and `lib/rabbit-holes/actions.ts`.
  */
 export async function createRabbitHoleSession(
-  question: string
+  question: string,
 ): Promise<Result<RabbitHoleSession>> {
   const clerkUser = await auth();
 
@@ -346,7 +350,7 @@ export async function createRabbitHoleSession(
   try {
     logger.log(
       "createRabbitHoleSession",
-      `Creating session for question: ${question}`
+      `Creating session for question: ${question}`,
     );
 
     // Pull external sources and derive prompt context.
@@ -358,7 +362,7 @@ export async function createRabbitHoleSession(
       await generateInitialNodeContent(
         question,
         sourcesContext,
-        sourcesInstruction
+        sourcesInstruction,
       );
     // Create the node and session shells that mirror the AI output.
     const { session, sessionId } = buildInitialSession({
@@ -396,7 +400,7 @@ export async function createRabbitHoleSession(
  */
 export async function followRabbitHoleBranch(
   session: RabbitHoleSession,
-  branchId: string
+  branchId: string,
 ): Promise<Result<RabbitHoleSession>> {
   const clerkUser = await auth();
 
@@ -430,14 +434,14 @@ export async function followRabbitHoleBranch(
 
     logger.log(
       "followRabbitHoleBranch",
-      `Following branch: ${branch.label} in session: ${session.sessionId}`
+      `Following branch: ${branch.label} in session: ${session.sessionId}`,
     );
 
     // Search sources for this branch.
     const { exaSources, sourcesContext, sourcesInstruction } =
       await fetchExternalSources(
         `${branch.label} (${session.rootQuestion})`,
-        "followRabbitHoleBranch"
+        "followRabbitHoleBranch",
       );
 
     // Build branch-specific system prompt and path history.
@@ -445,7 +449,7 @@ export async function followRabbitHoleBranch(
 
     const systemPrompt = FOLLOW_BRANCH_SYSTEM_PROMPT.replace(
       "{{rootQuestion}}",
-      session.rootQuestion
+      session.rootQuestion,
     )
       .replace("{{pathHistory}}", pathHistory)
       .replace("{{branchLabel}}", branch.label);
@@ -457,7 +461,7 @@ export async function followRabbitHoleBranch(
         branch.shortDescription || "",
         sourcesContext,
         sourcesInstruction,
-        systemPrompt
+        systemPrompt,
       );
 
     const node: RabbitHoleNode = {
@@ -472,7 +476,7 @@ export async function followRabbitHoleBranch(
 
     logger.log(
       "followRabbitHoleBranch",
-      `AI branch node object: ${JSON.stringify(object, null, 2)}`
+      `AI branch node object: ${JSON.stringify(object, null, 2)}`,
     );
 
     // Build the node and updated session graph for this branch.
@@ -480,12 +484,12 @@ export async function followRabbitHoleBranch(
       session,
       branch.label,
       node,
-      exaSources
+      exaSources,
     );
 
     logger.log(
       "followRabbitHoleBranch",
-      `Branch followed, new node: ${nodeId}`
+      `Branch followed, new node: ${nodeId}`,
     );
 
     return {
@@ -529,7 +533,7 @@ export async function followRabbitHoleBranch(
 export async function analyzeSource(
   sourceUrl: string,
   sourceTitle: string,
-  sourceSnippet?: string
+  sourceSnippet?: string,
 ): Promise<Result<RabbitHoleSourceAnalysis>> {
   const clerkUser = await auth();
 
@@ -564,7 +568,7 @@ Provide a comprehensive analysis that helps the user understand this source's ke
     if (usage) {
       logger.log(
         "createRabbitHoleSession",
-        `AI usage: input tokens=${usage.inputTokens ?? "?"}, reasoning tokens=${usage.reasoningTokens ?? "?"}, output tokens=${usage.outputTokens ?? "?"}, total tokens=${usage.totalTokens ?? "?"}`
+        `AI usage: input tokens=${usage.inputTokens ?? "?"}, reasoning tokens=${usage.reasoningTokens ?? "?"}, output tokens=${usage.outputTokens ?? "?"}, total tokens=${usage.totalTokens ?? "?"}`,
       );
     }
 

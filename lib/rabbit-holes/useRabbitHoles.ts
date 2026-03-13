@@ -7,16 +7,20 @@ import {
   RabbitHoleSourceAnalysis,
   RabbitHoleNode,
 } from "@/lib/schemas/rabbitHoleSchemas";
-import { useContext, useEffect, useState, useTransition } from "react";
-import { createLogger } from "@/lib/logger";
 import {
-  analyzeSource,
-  generateQuickPreview,
-  generateRabbitHoleNode,
-} from "./actions";
+  useCallback,
+  useContext,
+  useEffect,
+  useState,
+  useTransition,
+} from "react";
+import { useGenerationCompletion } from "@/lib/rabbit-holes/useGenerationCompletion";
+import { createLogger } from "@/lib/logger";
+import { analyzeSource, generateQuickPreview } from "./actions";
 import { Result, SimpleResult } from "@/types";
 import { getSessionById, saveSession } from "@/data/supabase/rabbitholes";
 import { RabbitHoleContext } from "../context/rabbithole-context";
+import { clientRandomUUID } from "@/lib/client-uuid";
 
 const logger = createLogger("useRabbitHoles");
 
@@ -76,6 +80,21 @@ export function useRabbitHoles(): UseRabbitHolesReturn {
     }
   }, [session]);
 
+  const handleGenerationComplete = useCallback(
+    (updated: RabbitHoleSession) => {
+      setSession(updated);
+      setGeneratingNodeId(null);
+      setPreview(null);
+    },
+    [],
+  );
+
+  useGenerationCompletion(
+    session?.sessionId ?? null,
+    session?.generatingNodeId ?? null,
+    handleGenerationComplete,
+  );
+
   /**
    * @internal
    * @returns A result object containing a new RabbitHoleSession or an error.
@@ -83,7 +102,7 @@ export function useRabbitHoles(): UseRabbitHolesReturn {
   function newSession(): Result<RabbitHoleSession, Error> {
     try {
       const newSession: RabbitHoleSession = {
-        sessionId: globalThis.crypto.randomUUID(),
+        sessionId: clientRandomUUID(),
         rootQuestion: "",
         activeNodeId: null,
         createdAt: new Date().toISOString(),
@@ -153,6 +172,14 @@ export function useRabbitHoles(): UseRabbitHolesReturn {
       const session = res.data;
       setSession(session);
       setActiveNodeId(session.activeNodeId ?? session.rootNodeId ?? null);
+      // If a node is still generating, restore generating state + preview from the session
+      if (session.generatingNodeId) {
+        setGeneratingNodeId(session.generatingNodeId);
+        const generatingNode = session.nodesById[session.generatingNodeId];
+        if (generatingNode && generatingNode.preview) {
+          setPreview(generatingNode.preview);
+        }
+      }
       return {
         ok: true,
         error: null,
@@ -187,7 +214,7 @@ export function useRabbitHoles(): UseRabbitHolesReturn {
    */
   function createNode(question: string, id?: string): RabbitHoleNode {
     const node: RabbitHoleNode = {
-      id: id ?? globalThis.crypto.randomUUID(),
+      id: id ?? clientRandomUUID(),
       rawPrompt: question,
       userQuestion: question,
       createdAt: new Date().toISOString(),
@@ -285,72 +312,80 @@ export function useRabbitHoles(): UseRabbitHolesReturn {
         ],
       };
 
-      /* Set the generating node ID to the new node ID */
       setGeneratingNodeId(node.id);
       setActiveNodeId(node.id);
+      setSession(updatedSession);
 
-      /* Generate quick preview of the new node */
-      const quickPreview = await generateQuickPreview(question);
+      /* First save on send: call generate API before preview so server persists session and kicks off orchestrator. */
+      const res = await fetch(
+        `/api/rabbitholes/${baseSession.sessionId}/generate`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            nodeId: node.id,
+            session: JSON.stringify(updatedSession),
+          }),
+        },
+      );
 
-      // On preview error, continue node creation but inform user via error message
-      if (quickPreview.error) {
-        logger.error(
-          "exploreQuestion",
-          "Error generating quick preview",
-          quickPreview.error,
-        );
-        setError(quickPreview.error.message);
-        setPreview("Unable to generate preview");
-      } else {
-        /* Update the new node with the preview data
-         * and set the preview object for quick UI feedback
-         */
-        updatedSession.nodesById[node.id].preview = quickPreview.data;
-        setPreview(quickPreview.data);
-      }
-
-      /*
-       *
-       *  Perform heavy work of generating actual node content now
-       * Using startTransition to avoid blocking main processes
-       *
-       */
-
-      startTransition(async () => {
-        try {
-          const result = await generateRabbitHoleNode(updatedSession, node.id);
-
-          if (result.error || result.data === null) {
+      if (res.status === 202) {
+        const json = (await res.json()) as {
+          jobId: string;
+          sessionId: string;
+          nodeId: string;
+        };
+        setSession({
+          ...updatedSession,
+          generatingNodeId: json.nodeId,
+          generationStep: "sources",
+        });
+        /* Preview in parallel after 202 so UI can show it without blocking first save. */
+        generateQuickPreview(question).then((quickPreview) => {
+          if (quickPreview.error) {
             logger.error(
               "exploreQuestion",
-              "Error generating rabbit hole node",
-              result.error,
+              "Error generating quick preview",
+              quickPreview.error,
             );
-            setError(result.error?.message ?? "Unknown generation error");
+            setError(quickPreview.error.message);
+            setPreview("Unable to generate preview");
             return;
           }
-          updatedSession = result.data;
 
-          await saveSessionToStorage(updatedSession);
+          if (quickPreview.data) {
+            setPreview(quickPreview.data);
 
-          setSession(updatedSession);
-        } catch (error) {
-          logger.error(
-            "exploreQuestion",
-            "Error generating rabbit hole node",
-            error,
-          );
-          setError(
-            error instanceof Error ? error.message : "Unknown generation error",
-          );
-          return;
-        } finally {
-          setGeneratingNodeId(null);
-          setPreview(null);
-        }
-      });
+            // Persist preview on the generating node so it survives refresh.
+            setSession((prev) => {
+              if (!prev || !prev.generatingNodeId) return prev;
+              const node = prev.nodesById[prev.generatingNodeId];
+              if (!node) return prev;
 
-      setSession(updatedSession);
+              const updatedNode: RabbitHoleNode = {
+                ...node,
+                preview: quickPreview.data,
+              };
+              const updatedSession: RabbitHoleSession = {
+                ...prev,
+                nodesById: {
+                  ...prev.nodesById,
+                  [updatedNode.id]: updatedNode,
+                },
+              };
+
+              // Fire-and-forget save; errors will surface via logger in saveSessionToStorage.
+              void saveSessionToStorage(updatedSession);
+              return updatedSession;
+            });
+          }
+        });
+      } else {
+        const body = await res.json().catch(() => ({})) as { error?: string };
+        setError(body?.error ?? `Request failed (${res.status})`);
+        setGeneratingNodeId(null);
+        setPreview(null);
+      }
 
       return {
         ok: true,

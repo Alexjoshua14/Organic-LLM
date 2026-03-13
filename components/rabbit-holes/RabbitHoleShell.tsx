@@ -25,11 +25,12 @@ import { useRabbitHoles } from "@/lib/rabbit-holes/useRabbitHoles";
 // UI subcomponents still live under app/ during migration
 import { RabbitHolePathRail } from "@/app/rabbitholes/_components/RabbitHolePathRail";
 import { RabbitHoleArticle } from "@/app/rabbitholes/_components/RabbitHoleArticle";
-import { RabbitHoleBranchGrid } from "@/app/rabbitholes/_components/RabbitHoleBranchGrid";
+import { RabbitHoleBranchSuggestionsBlock } from "@/app/rabbitholes/_components/RabbitHoleBranchSuggestionsBlock";
 import { RabbitHoleSourceList } from "@/app/rabbitholes/_components/RabbitHoleSourceList";
 import { RabbitHoleSourceAnalysis } from "@/app/rabbitholes/_components/RabbitHoleSourceAnalysis";
 import { RabbitHoleAmbientLayer } from "@/app/rabbitholes/_components/RabbitHoleAmbientLayer";
 import { RabbitHoleLoadingState } from "@/app/rabbitholes/_components/RabbitHoleLoadingState";
+import { DelayedContent } from "@/app/rabbitholes/_components/DelayedContent";
 
 import { RabbitHolePromptBar } from "@/components/rabbit-holes/RabbitHolePromptBar";
 import { RabbitHoleEmptyState } from "@/components/rabbit-holes/main/RabbitHoleEmptyState";
@@ -135,7 +136,10 @@ export function RabbitHoleShell() {
     if (selectedSourceId && sourceAnalysis)
       return { kind: "viewing_source_analysis", sourceId: selectedSourceId };
 
-    if (isBusy) {
+    const isGeneratingThisNode =
+      activeNode && generatingNodeId === activeNode.id;
+    const hasRealArticle = !!activeNode?.articleHtml?.trim();
+    if (isGeneratingThisNode && !hasRealArticle) {
       const variant = activeNode ? "branch" : "initial";
       return { kind: "generating_new_node", variant };
     }
@@ -154,6 +158,7 @@ export function RabbitHoleShell() {
     sourceAnalysis,
     isBusy,
     activeNode,
+    generatingNodeId,
   ]);
 
   // --- Event handlers (thin wrappers around hook actions) ---
@@ -167,6 +172,17 @@ export function RabbitHoleShell() {
 
   const handleStart = async (question: string) => {
     await exploreQuestion(question);
+
+    // After a new session is created and generation starts, ensure the URL
+    // includes ?sessionId= so refreshes stay attached to the same session/node.
+    if (session?.sessionId) {
+      const current = sessionIdToLoad;
+      if (current !== session.sessionId) {
+        const params = new URLSearchParams(searchParams.toString());
+        params.set("sessionId", session.sessionId);
+        router.replace(`?${params.toString()}`);
+      }
+    }
   };
 
   // --- Path navigation (back/forward along session.path) ---
@@ -278,18 +294,18 @@ export function RabbitHoleShell() {
             <div className="flex-1 h-full pr-2 px-4 pt-4 pb-36">
               <AnimatePresence mode="wait">
                 {centerViewState.kind === "loading_previous_session" && (
-                  <RabbitHoleLoadingState
-                    key="loading-session"
-                    variant="sources"
-                    message="Loading session..."
-                  />
+                  <DelayedContent key="loading-session" delayMs={400}>
+                    <RabbitHoleLoadingState
+                      variant="sources"
+                      message="Loading session..."
+                    />
+                  </DelayedContent>
                 )}
 
                 {centerViewState.kind === "loading_source_analysis" && (
-                  <RabbitHoleLoadingState
-                    key="analyzing-source"
-                    variant="sources"
-                  />
+                  <DelayedContent key="analyzing-source" delayMs={400}>
+                    <RabbitHoleLoadingState variant="sources" />
+                  </DelayedContent>
                 )}
 
                 {centerViewState.kind === "viewing_source_analysis" &&
@@ -303,14 +319,18 @@ export function RabbitHoleShell() {
                   )}
 
                 {centerViewState.kind === "generating_new_node" && (
-                  <RabbitHoleLoadingState
+                  <DelayedContent
                     key={`generating-${centerViewState.variant}`}
-                    variant={centerViewState.variant}
-                    preview={preview}
-                  />
+                    delayMs={400}
+                  >
+                    <RabbitHoleLoadingState
+                      variant={centerViewState.variant}
+                      preview={preview}
+                    />
+                  </DelayedContent>
                 )}
 
-                {centerViewState.kind === "article_loaded" && activeNode && (
+                {centerViewState.kind === "article_loaded" && activeNode && activeNode.articleHtml && (
                   <div key={activeNode.id}>
                     <RabbitHoleArticle
                       title={activeNode.title ?? activeNode.userQuestion}
@@ -343,7 +363,7 @@ export function RabbitHoleShell() {
             </div>
           </section>
 
-          {/* Right: sources and branches (only when viewing an article). */}
+          {/* Right: sources and branches (only when viewing an article). Explore Further only when branch suggestions are generated. */}
           <aside className="w-full lg:w-[20%] shrink-0 pr-2">
             <AnimatePresence>
               {centerViewState.kind === "article_loaded" && activeNode && (
@@ -351,14 +371,19 @@ export function RabbitHoleShell() {
                   <RabbitHoleSourceList
                     sources={activeNode.sources ?? []}
                     onSourceClick={selectSource}
-                    hasBranches={(activeNode.branchSuggestions ?? []).length > 0}
+                    hasBranches={
+                      generatingNodeId !== activeNode.id &&
+                      (activeNode.branchSuggestions ?? []).length > 0
+                    }
                   />
-                  <RabbitHoleBranchGrid
-                    branches={activeNode.branchSuggestions ?? []}
-                    onBranchClick={followBranch}
-                    isLoading={isBusy}
-                    hasSources={(activeNode.sources ?? []).length > 0}
-                  />
+                  {generatingNodeId !== activeNode.id && (
+                    <RabbitHoleBranchSuggestionsBlock
+                      branches={activeNode.branchSuggestions ?? []}
+                      onBranchClick={followBranch}
+                      isLoading={isBusy}
+                      hasSources={(activeNode.sources ?? []).length > 0}
+                    />
+                  )}
                 </div>
               )}
             </AnimatePresence>

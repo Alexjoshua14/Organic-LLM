@@ -1,6 +1,10 @@
 import { describe, test, expect, mock, beforeEach } from "bun:test";
 
-import { createAionHandler } from "@/lib/api/aion-handler";
+mock.module("@/lib/rate-limit/llm", () => ({
+  checkLlmMessageLimit: async () => ({ success: true, remaining: 10 }),
+}));
+
+const { createAionHandler } = await import("@/lib/api/aion-handler");
 
 import { createMockStreamText } from "../helpers/mock-stream-text";
 import {

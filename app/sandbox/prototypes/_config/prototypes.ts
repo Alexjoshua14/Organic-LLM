@@ -22,6 +22,12 @@ export const prototypes: PrototypeEntry[] = [
     description:
       "All chat loading and action states (thinking, reasoning, search, memory, tool, errored) in one place for development.",
   },
+  {
+    slug: "line-list",
+    title: "Wine line list",
+    description:
+      "Tell me a wine; I show a table (Wine, Style, Key Food Affinities). Editable rows, reorder, sort by category or attributes.",
+  },
 ];
 
 export function getPrototypeHref(slug: string): string {

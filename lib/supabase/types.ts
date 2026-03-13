@@ -251,31 +251,34 @@ export type Database = {
       }
       rabbit_hole_nodes: {
         Row: {
-          article_html: string
+          article_html: string | null
           created_at: string
           id: string
           key_takeaways: string[]
           node_id: string
+          preview: string | null
           raw_prompt: string
           session_id: string
           user_question: string
         }
         Insert: {
-          article_html: string
+          article_html?: string | null
           created_at?: string
           id?: string
           key_takeaways: string[]
           node_id: string
+          preview?: string | null
           raw_prompt: string
           session_id: string
           user_question: string
         }
         Update: {
-          article_html?: string
+          article_html?: string | null
           created_at?: string
           id?: string
           key_takeaways?: string[]
           node_id?: string
+          preview?: string | null
           raw_prompt?: string
           session_id?: string
           user_question?: string
@@ -329,6 +332,8 @@ export type Database = {
         Row: {
           active_node_id: string | null
           created_at: string
+          generating_node_id: string | null
+          generation_step: string | null
           id: string
           owner_id: string
           root_question: string
@@ -338,6 +343,8 @@ export type Database = {
         Insert: {
           active_node_id?: string | null
           created_at?: string
+          generating_node_id?: string | null
+          generation_step?: string | null
           id?: string
           owner_id?: string
           root_question: string
@@ -347,6 +354,8 @@ export type Database = {
         Update: {
           active_node_id?: string | null
           created_at?: string
+          generating_node_id?: string | null
+          generation_step?: string | null
           id?: string
           owner_id?: string
           root_question?: string
@@ -520,6 +529,7 @@ export type Database = {
           active_stream_started_at: string | null
           conversation_summary: string | null
           created_at: string
+          flags: number
           id: string
           owner_id: string
           persisted_schemas: Json | null
@@ -532,6 +542,7 @@ export type Database = {
           active_stream_started_at?: string | null
           conversation_summary?: string | null
           created_at?: string
+          flags?: number
           id?: string
           owner_id: string
           persisted_schemas?: Json | null
@@ -544,6 +555,7 @@ export type Database = {
           active_stream_started_at?: string | null
           conversation_summary?: string | null
           created_at?: string
+          flags?: number
           id?: string
           owner_id?: string
           persisted_schemas?: Json | null
