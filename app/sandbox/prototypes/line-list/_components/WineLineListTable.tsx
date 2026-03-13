@@ -1,12 +1,9 @@
 "use client";
 
-import { useCallback, useMemo, useRef, useState } from "react";
-import { UIMessage } from "ai";
+import { useCallback, useMemo, useState } from "react";
 import { ChevronDownIcon, ChevronUpIcon } from "lucide-react";
 
 import type { WineEntry } from "@/lib/schemas/wine-line-list";
-import { getWinesFromMessage } from "@/lib/schemas/wine-line-list";
-import { updateWineListMessage } from "../actions";
 import { Button } from "@/components/third-party/ui/button";
 import { Input } from "@/components/third-party/ui/input";
 import {
@@ -19,8 +16,10 @@ import {
 import { cn } from "@/lib/utils";
 
 type WineLineListTableProps = {
-  message: UIMessage;
+  wines: WineEntry[];
   threadId: string;
+  listMessageId: string | null;
+  onWinesChange: (wines: WineEntry[]) => void;
 };
 
 const SORT_OPTIONS = [
@@ -37,72 +36,38 @@ const ATTRIBUTE_OPTIONS = [
   "crowd pleaser",
 ] as const;
 
-function buildMessageWithWines(message: UIMessage, wines: WineEntry[]): UIMessage {
-  const parts = message.parts.map((part) => {
-    if (part.type === "data-wineLineList") {
-      return { type: "data-wineLineList" as const, data: { wines } };
-    }
-    return part;
-  });
-  return { ...message, parts };
-}
-
-export function WineLineListTable({ message, threadId }: WineLineListTableProps) {
-  const initialWines = useMemo(
-    () =>
-      getWinesFromMessage(
-        message.parts as Array<{ type: string; data?: { wines?: WineEntry[] } }>,
-      ),
-    [message.parts],
-  );
-
-  const [wines, setWines] = useState<WineEntry[]>(initialWines);
-  const winesRef = useRef<WineEntry[]>(wines);
-  winesRef.current = wines;
-
+export function WineLineListTable({
+  wines,
+  threadId: _threadId,
+  listMessageId: _listMessageId,
+  onWinesChange,
+}: WineLineListTableProps) {
   const [sortBy, setSortBy] = useState<string>("default");
   const [attributeFilter, setAttributeFilter] = useState<string>("all");
-  const [saving, setSaving] = useState(false);
 
-  const persist = useCallback(
-    async (nextWines: WineEntry[]) => {
-      setSaving(true);
-      const updated = buildMessageWithWines(message, nextWines);
-      const result = await updateWineListMessage(threadId, message.id, updated);
-      setSaving(false);
-      if (!result.ok) {
-        console.error("Failed to save wine list:", result.error);
-      }
-    },
-    [message, threadId],
-  );
-
-  const updateRow = useCallback((index: number, field: keyof WineEntry, value: string | string[] | undefined) => {
-    setWines((prev) => {
-      const next = [...prev];
+  const updateRow = useCallback(
+    (index: number, field: keyof WineEntry, value: string | string[] | undefined) => {
+      const next = [...wines];
       const row = { ...next[index], [field]: value };
       next[index] = row;
-      winesRef.current = next;
-      return next;
-    });
-  }, []);
+      onWinesChange(next);
+    },
+    [wines, onWinesChange],
+  );
 
   const handleBlur = useCallback(() => {
-    persist(winesRef.current);
-  }, [persist]);
+    onWinesChange(wines);
+  }, [wines, onWinesChange]);
 
   const moveRow = useCallback(
     (index: number, direction: "up" | "down") => {
       const newIndex = direction === "up" ? index - 1 : index + 1;
       if (newIndex < 0 || newIndex >= wines.length) return;
-      setWines((prev) => {
-        const next = [...prev];
-        [next[index], next[newIndex]] = [next[newIndex], next[index]];
-        persist(next);
-        return next;
-      });
+      const next = [...wines];
+      [next[index], next[newIndex]] = [next[newIndex], next[index]];
+      onWinesChange(next);
     },
-    [wines.length, persist],
+    [wines, onWinesChange],
   );
 
   const displayedWines = useMemo(() => {
@@ -158,9 +123,6 @@ export function WineLineListTable({ message, threadId }: WineLineListTableProps)
             ))}
           </SelectContent>
         </Select>
-        {saving && (
-          <span className="text-xs text-muted-foreground self-center">Saving…</span>
-        )}
       </div>
       <div className="overflow-x-auto">
         <table className="w-full text-sm">

@@ -3,8 +3,11 @@ import { z } from "zod";
 import { generateObject } from "ai";
 import { openai } from "@ai-sdk/openai";
 
+import { createLogger } from "@/lib/logger";
 import type { WineEntry } from "@/lib/schemas/wine-line-list";
 import { WineEntrySchema } from "@/lib/schemas/wine-line-list";
+
+const logger = createLogger("lib/llm/sommelier/extractor.ts");
 
 const WINE_FIELDS = `- wine: The wine name and key detail (e.g. "Heya \\"Kanz\\" (Grenache/Syrah)" or "Dar Richi \\"Helem\\" (skin-contact Chardonnay)"). Use the producer/cuvee name and varietal or style from the user's text.
 - style: A short style note (e.g. "Light, juicy red — serve slightly chilled", "Textured, savory orange wine"). Summarize from tasting notes, body, and serving advice in the message.
@@ -53,6 +56,12 @@ export async function extractWines(
 
   const maxOutputTokens = Math.min(400 * expectedCount, 2000);
 
+  logger.debug("extractWines", "input", {
+    expectedCount,
+    promptLength: prompt.length,
+    userTextPreview: userText.slice(0, 150) + (userText.length > 150 ? "…" : ""),
+  });
+
   const { object } = await generateObject({
     model: "anthropic/claude-sonnet-4.6",
     system,
@@ -62,8 +71,21 @@ export async function extractWines(
   });
 
   const list = object as { wines: WineEntry[] };
-  return (list.wines ?? []).map((w, i) => ({
+  const rawWines = list.wines ?? [];
+  logger.debug("extractWines", "raw output", {
+    requestedCount: expectedCount,
+    rawArrayLength: rawWines.length,
+    rawWineNames: rawWines.map((w) => w.wine),
+    rawIds: rawWines.map((w) => w.id),
+  });
+
+  const result = rawWines.map((w, i) => ({
     ...w,
     id: w.id ?? `wine-${i}-${randomUUID().slice(0, 8)}`,
   }));
+  logger.debug("extractWines", "after id assignment", {
+    resultCount: result.length,
+    resultIds: result.map((w) => w.id),
+  });
+  return result;
 }

@@ -35,3 +35,15 @@ export function getWinesFromMessage(
   const part = parts.find((p) => p.type === "data-wineLineList" && p.data?.wines);
   return part?.data?.wines ?? [];
 }
+
+/** Build a minimal UIMessage for persisting the wine list (e.g. after merge). */
+export function buildWineListMessage(
+  messageId: string,
+  wines: WineEntry[],
+): { id: string; role: "assistant"; parts: WineLineListPart[] } {
+  return {
+    id: messageId,
+    role: "assistant",
+    parts: [{ type: "data-wineLineList", data: { wines } }],
+  };
+}

@@ -76,14 +76,28 @@ export async function POST(req: Request) {
         transient: true,
       });
 
+      logger.debug("POST", "wine-line-list userText", {
+        length: userText.length,
+        preview: userText.slice(0, 200) + (userText.length > 200 ? "…" : ""),
+      });
+
       let count = 1;
       try {
         count = await parseWineCount(userText);
-      } catch {
+        logger.debug("POST", "wine-line-list parseWineCount result", { count });
+      } catch (err) {
+        logger.debug("POST", "wine-line-list parseWineCount failed, using 1", { err });
         count = 1;
       }
 
       const wines = await extractWines(userText, count);
+      logger.debug("POST", "wine-line-list extractWines result", {
+        expectedCount: count,
+        returnedCount: wines.length,
+        wineIds: wines.map((w) => w.id),
+        wineNames: wines.map((w) => w.wine),
+      });
+
       writer.write({
         type: "data-wineLineList",
         data: { wines },
