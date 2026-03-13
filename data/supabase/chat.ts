@@ -426,6 +426,63 @@ export async function addMessage(
   };
 }
 
+/**
+ * Updates a single message by id (e.g. after editing wine list content).
+ * Message must belong to the given thread.
+ */
+export async function updateMessage(
+  threadId: string,
+  messageId: string,
+  uiMessage: UIMessage,
+): Promise<SimpleResult> {
+  const sb = await supabaseServer();
+  const threadOwnerContext = await getThreadOwnerContextWithClient(sb, threadId);
+
+  if (threadOwnerContext.error || !threadOwnerContext.data) {
+    return {
+      ok: false,
+      error: threadOwnerContext.error ?? new Error("Thread owner not found"),
+    };
+  }
+
+  const supabaseMessage = convertUIMessageToMessage(uiMessage, threadId);
+
+  if (!supabaseMessage) {
+    return {
+      ok: false,
+      error: new Error("Invalid message"),
+    };
+  }
+
+  const row = encryptMessageRowContent(
+    supabaseMessage,
+    threadOwnerContext.data.ownerId,
+  );
+
+  const { error } = await sb
+    .from("messages")
+    .update({
+      content: row.content,
+      role: row.role,
+      text_excerpt: row.text_excerpt ?? null,
+    })
+    .eq("id", messageId)
+    .eq("thread_id", threadId);
+
+  if (error) {
+    logger.error("updateMessage", "Error updating message:", error);
+    return {
+      ok: false,
+      error: new Error(error?.message ?? "Unknown error"),
+    };
+  }
+
+  return {
+    ok: true,
+    error: null,
+  };
+}
+
 export async function upsertMessages(params: {
   chatId: string;
   messages: UIMessage[];

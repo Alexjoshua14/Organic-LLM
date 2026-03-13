@@ -7,9 +7,10 @@ const NODE_ID = "660e8400-e29b-41d4-a716-446655440001";
 
 const mockGetSessionById = mock(async () => ({ data: null, error: null }));
 const mockSaveSession = mock(async () => ({ ok: true, error: null }));
-const mockGenerateRabbitHoleNode = mock(async () => ({
+const mockAdvanceGenerationStep = mock(async () => ({ updated: true }));
+const mockRunOneGenerationStep = mock(async () => ({
   data: null,
-  error: new Error("Generation failed"),
+  error: new Error("Step failed"),
 }));
 
 let updatePayload: Record<string, unknown> | null = null;
@@ -25,10 +26,18 @@ const createSupabaseMock = () => ({
       update: (data: Record<string, unknown>) => {
         updatePayload = data;
         return {
-          eq: (column: string, value: string) => {
-            eqColumn = column;
+          eq: (_column: string, value: string) => {
+            eqColumn = _column;
             eqValue = value;
-            return Promise.resolve({ error: null });
+            return {
+              eq: (_c2: string, _v2: string) => ({
+                eq: (_c3: string, _v3: string) =>
+                  Promise.resolve({
+                    data: { session_id: SESSION_ID },
+                    error: null,
+                  }),
+              }),
+            };
           },
         };
       },
@@ -47,9 +56,10 @@ mock.module("@/lib/supabase/supabase-admin", () => ({
 mock.module("@/data/supabase/rabbitholes", () => ({
   getSessionById: mockGetSessionById,
   saveSession: mockSaveSession,
+  advanceGenerationStep: mockAdvanceGenerationStep,
 }));
 mock.module("@/lib/rabbit-holes/actions", () => ({
-  generateRabbitHoleNode: mockGenerateRabbitHoleNode,
+  runOneGenerationStep: mockRunOneGenerationStep,
   generateQuickPreview: mock(async () => ({ data: null, error: null })),
   analyzeSource: mock(async () => ({ data: null, error: null })),
 }));
@@ -65,7 +75,9 @@ beforeEach(() => {
   mockGetSessionById.mockReset();
   mockSaveSession.mockReset();
   mockSaveSession.mockResolvedValue({ ok: true, error: null });
-  mockGenerateRabbitHoleNode.mockReset();
+  mockAdvanceGenerationStep.mockReset();
+  mockAdvanceGenerationStep.mockResolvedValue({ updated: true });
+  mockRunOneGenerationStep.mockReset();
   mockSupabaseServer.mockReset();
   mockSupabaseServer.mockResolvedValue(createSupabaseMock());
 });
@@ -77,11 +89,12 @@ afterEach(() => {
 });
 
 describe("clearGeneratingNodeId", () => {
-  test("updates rabbit_hole_sessions with generating_node_id null for session_id", async () => {
+  test("clears generating_node_id and generation_step for session_id", async () => {
     await clearGeneratingNodeId(SESSION_ID);
 
     expect(updatePayload).not.toBeNull();
     expect(updatePayload!.generating_node_id).toBeNull();
+    expect(updatePayload!.generation_step).toBeNull();
     expect(eqColumn).toBe("session_id");
     expect(eqValue).toBe(SESSION_ID);
   });
@@ -100,7 +113,7 @@ describe("runGenerationAndPersist", () => {
     expect(
       (mockGetSessionById.mock.calls as unknown as Array<[string]>)[0]?.[0],
     ).toBe(SESSION_ID);
-    expect(mockGenerateRabbitHoleNode.mock.calls.length).toBe(0);
+    expect(mockRunOneGenerationStep.mock.calls.length).toBe(0);
     expect(updatePayload).not.toBeNull();
     expect(updatePayload!.generating_node_id).toBeNull();
     expect(eqValue).toBe(SESSION_ID);
@@ -135,12 +148,12 @@ describe("runGenerationAndPersist", () => {
 
     await runGenerationAndPersist(SESSION_ID, NODE_ID);
 
-    expect(mockGenerateRabbitHoleNode.mock.calls.length).toBe(0);
+    expect(mockRunOneGenerationStep.mock.calls.length).toBe(0);
     expect(updatePayload!.generating_node_id).toBeNull();
     expect(mockSaveSession.mock.calls.length).toBe(0);
   });
 
-  test("saves session three times (sources, article, branches) when generation succeeds", async () => {
+  test("runs steps (sources, article, branches), saves three times, and advances step", async () => {
     const emptyNodeSession = {
       sessionId: SESSION_ID,
       rootQuestion: "Q",
@@ -161,49 +174,84 @@ describe("runGenerationAndPersist", () => {
       edges: [],
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
+      generationStep: "sources" as const,
     };
-    const updatedSession = {
+    const sessionAfterSources = {
       ...emptyNodeSession,
       nodesById: {
         [NODE_ID]: {
           ...emptyNodeSession.nodesById[NODE_ID],
+          sources: [
+            {
+              id: "s1",
+              title: "S",
+              url: "https://example.com/",
+              status: "none" as const,
+            },
+          ],
+          articleHtml: "",
+        },
+      },
+    };
+    const sessionAfterArticle = {
+      ...sessionAfterSources,
+      nodesById: {
+        [NODE_ID]: {
+          ...sessionAfterSources.nodesById[NODE_ID],
           articleHtml: "<p>Content</p>",
           keyTakeaways: ["K1", "K2", "K3"],
         },
       },
     };
+    const sessionAfterBranches = {
+      ...sessionAfterArticle,
+      nodesById: {
+        [NODE_ID]: {
+          ...sessionAfterArticle.nodesById[NODE_ID],
+          branchSuggestions: [
+            { id: "b1", label: "Branch 1", shortDescription: undefined },
+          ],
+        },
+      },
+    };
     mockGetSessionById.mockResolvedValue({
       data: emptyNodeSession,
       error: null,
     } as any);
-    mockGenerateRabbitHoleNode.mockImplementation(
-      async (session, nodeId, options) => {
-        if (options?.onAfterSources) await options.onAfterSources(session);
-        if (options?.onAfterArticle) await options.onAfterArticle(session);
-        if (options?.onAfterBranches)
-          await options.onAfterBranches(updatedSession);
-        return { data: updatedSession, error: null };
-      },
+    mockRunOneGenerationStep.mockImplementation(
+      (async (_session: unknown, nodeId: string, step: string) => {
+        if (nodeId !== NODE_ID)
+          return { data: null, error: new Error("bad node") };
+        if (step === "sources")
+          return { data: sessionAfterSources, error: null };
+        if (step === "article")
+          return { data: sessionAfterArticle, error: null };
+        if (step === "branch_suggestions")
+          return { data: sessionAfterBranches, error: null };
+        return {
+          data: null,
+          error: new Error(`Unknown step: ${step}`),
+        };
+      }) as any,
     );
 
     await runGenerationAndPersist(SESSION_ID, NODE_ID);
 
-    expect(mockGenerateRabbitHoleNode.mock.calls.length).toBe(1);
-    const genCalls = mockGenerateRabbitHoleNode.mock.calls as unknown as Array<
-      [typeof emptyNodeSession, string, { onAfterSources?: (s: unknown) => Promise<void>; onAfterArticle?: (s: unknown) => Promise<void>; onAfterBranches?: (s: unknown) => Promise<void> }]
-    >;
-    expect(genCalls[0]?.[0]).toBe(emptyNodeSession);
-    expect(genCalls[0]?.[1]).toBe(NODE_ID);
-    expect(genCalls[0]?.[2]?.onAfterSources).toBeDefined();
-    expect(genCalls[0]?.[2]?.onAfterArticle).toBeDefined();
-    expect(genCalls[0]?.[2]?.onAfterBranches).toBeDefined();
+    expect(mockRunOneGenerationStep.mock.calls.length).toBe(3);
     expect(mockSaveSession.mock.calls.length).toBe(3);
-    const lastCall = (mockSaveSession.mock.calls as unknown as Array<[string]>)[2]!;
-    const saved = JSON.parse(lastCall[0]) as { generatingNodeId: string | null };
-    expect(saved.generatingNodeId).toBeNull();
+    expect(mockAdvanceGenerationStep.mock.calls.length).toBe(3);
+    const advanceCalls = mockAdvanceGenerationStep.mock.calls as unknown as Array<
+      [string, string, string, string | null, unknown]
+    >;
+    expect(advanceCalls[0]?.[2]).toBe("sources");
+    expect(advanceCalls[0]?.[3]).toBe("article");
+    expect(advanceCalls[1]?.[2]).toBe("article");
+    expect(advanceCalls[1]?.[3]).toBe("branch_suggestions");
+    expect(advanceCalls[2]?.[2]).toBe("branch_suggestions");
+    expect(advanceCalls[2]?.[3]).toBeNull();
   });
 
-  test("clears generating_node_id when generation fails", async () => {
+  test("exits when advanceGenerationStep returns updated false (singularity)", async () => {
     const emptyNodeSession = {
       sessionId: SESSION_ID,
       rootQuestion: "Q",
@@ -224,12 +272,65 @@ describe("runGenerationAndPersist", () => {
       edges: [],
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
+      generationStep: "sources" as const,
+    };
+    const sessionAfterSources = {
+      ...emptyNodeSession,
+      nodesById: {
+        [NODE_ID]: {
+          ...emptyNodeSession.nodesById[NODE_ID],
+          sources: [
+            { id: "s1", title: "S", url: "https://example.com/", status: "none" as const },
+          ],
+          articleHtml: "",
+        },
+      },
     };
     mockGetSessionById.mockResolvedValue({
       data: emptyNodeSession,
       error: null,
     } as any);
-    mockGenerateRabbitHoleNode.mockResolvedValue({
+    mockRunOneGenerationStep.mockResolvedValue({
+      data: sessionAfterSources,
+      error: null,
+    } as any);
+    mockAdvanceGenerationStep.mockResolvedValueOnce({ updated: false });
+
+    await runGenerationAndPersist(SESSION_ID, NODE_ID);
+
+    expect(mockRunOneGenerationStep.mock.calls.length).toBe(1);
+    expect(mockSaveSession.mock.calls.length).toBe(1);
+    expect(mockAdvanceGenerationStep.mock.calls.length).toBe(1);
+  });
+
+  test("clears generating_node_id when step fails", async () => {
+    const emptyNodeSession = {
+      sessionId: SESSION_ID,
+      rootQuestion: "Q",
+      path: [{ nodeId: NODE_ID, label: "L", parentNodeId: null }],
+      nodesById: {
+        [NODE_ID]: {
+          id: NODE_ID,
+          rawPrompt: "P",
+          userQuestion: "Q",
+          keyTakeaways: ["Generating…", "…", "…"],
+          articleHtml: "",
+          sources: [],
+          branchSuggestions: [],
+          createdAt: new Date().toISOString(),
+        },
+      },
+      activeNodeId: NODE_ID,
+      edges: [],
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+      generationStep: "sources" as const,
+    };
+    mockGetSessionById.mockResolvedValue({
+      data: emptyNodeSession,
+      error: null,
+    } as any);
+    mockRunOneGenerationStep.mockResolvedValue({
       data: null,
       error: new Error("LLM error"),
     } as any);

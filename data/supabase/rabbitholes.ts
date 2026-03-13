@@ -1,6 +1,7 @@
 "use server";
 
 import { Result, SimpleResult } from "@/types";
+import type { GenerationStep as GenerationStepType } from "@/lib/schemas/rabbitHoleSchemas";
 import {
   RabbitHoleSession,
   RabbitHoleSessionSchema,
@@ -132,6 +133,50 @@ export async function getAllSessions(): Promise<
 export type RabbitHolesSupabaseClient = SupabaseClient;
 
 /**
+ * Advance generation_step for a session (or clear when toStep is null).
+ * Uses conditional update so only one process can advance; returns { updated: true } only when the row was updated.
+ */
+export async function advanceGenerationStep(
+  sessionId: string,
+  nodeId: string,
+  fromStep: GenerationStepType,
+  toStep: GenerationStepType | null,
+  client?: RabbitHolesSupabaseClient,
+): Promise<{ updated: boolean }> {
+  const supabase = client ?? (await supabaseServer());
+
+  const updatePayload =
+    toStep === null
+      ? {
+          generating_node_id: null,
+          generation_step: null,
+          updated_at: new Date().toISOString(),
+        }
+      : {
+          generation_step: toStep,
+          updated_at: new Date().toISOString(),
+        };
+
+  const { data, error } = await supabase
+    .from("rabbit_hole_sessions")
+    .update(updatePayload)
+    .eq("session_id", sessionId)
+    .eq("generating_node_id", nodeId)
+    .eq("generation_step", fromStep)
+    .select("session_id")
+    .maybeSingle();
+
+  if (error) {
+    logger.error(
+      "advanceGenerationStep",
+      `Failed to advance step: ${error.message}`,
+    );
+    throw error;
+  }
+  return { updated: data != null };
+}
+
+/**
  * Fetch a full session by ID
  */
 export async function getSessionById(
@@ -143,7 +188,7 @@ export async function getSessionById(
   const { data: sessionRow, error: sessionError } = await supabase
     .from("rabbit_hole_sessions")
     .select(
-      "session_id, root_question, active_node_id, generating_node_id, created_at, updated_at",
+      "session_id, root_question, active_node_id, generating_node_id, generation_step, created_at, updated_at",
     )
     .eq("session_id", sessionId)
     .single();
@@ -172,7 +217,7 @@ export async function getSessionById(
       supabase
         .from("rabbit_hole_nodes")
         .select(
-          "node_id, raw_prompt, user_question, key_takeaways, article_html, created_at",
+          "node_id, raw_prompt, user_question, key_takeaways, article_html, preview, created_at",
         )
         .eq("session_id", sessionId),
       supabase
@@ -253,7 +298,7 @@ export async function getSessionById(
       rawPrompt: node.raw_prompt,
       userQuestion: node.user_question,
       refinedQuestion: null,
-      preview: null,
+      preview: node.preview ?? null,
       keyTakeaways: Array.isArray(node.key_takeaways)
         ? (node.key_takeaways as string[])
         : [],
@@ -281,6 +326,8 @@ export async function getSessionById(
     nodesById,
     activeNodeId: sessionRow.active_node_id ?? rootNodeId,
     generatingNodeId: sessionRow.generating_node_id ?? null,
+    generationStep:
+      (sessionRow.generation_step as RabbitHoleSession["generationStep"]) ?? null,
     edges,
     createdAt:
       typeof sessionRow.created_at === "string"
@@ -317,7 +364,6 @@ export async function getSessionById(
 async function deserializeSession(
   serialized: string,
 ): Promise<RabbitHoleSession> {
-  // PArse using Zod
   const parsed = RabbitHoleSessionSchema.safeParse(JSON.parse(serialized));
   if (!parsed.success) {
     logger.error(
@@ -404,6 +450,12 @@ export async function saveSession(
       created_at: createdAt,
       updated_at: updatedAt,
     };
+    // Only write generation_step when the serialized session explicitly includes it.
+    // This lets the orchestrator control generation_step via advanceGenerationStep
+    // without saveSession accidentally overwriting it back to an older value.
+    if (session.generationStep !== undefined) {
+      sessionRow.generation_step = session.generationStep ?? null;
+    }
     if (ownerId != null) {
       sessionRow.owner_id = ownerId;
     }

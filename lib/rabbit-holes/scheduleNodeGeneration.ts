@@ -5,16 +5,6 @@ import { saveSession } from "@/data/supabase/rabbitholes";
 import { RabbitHoleSessionSchema } from "@/lib/schemas/rabbitHoleSchemas";
 import { runGenerationAndPersist } from "./runGenerationAndPersist";
 
-const STUB_KEY_TAKEAWAYS = ["Generating…", "…", "…"] as const;
-
-function stubBranchSuggestionsForNode(nodeId: string) {
-  return Array.from({ length: 5 }, (_, i) => ({
-    id: `stub-${nodeId}-${i}`,
-    label: "…",
-    shortDescription: undefined,
-  }));
-}
-
 /**
  * Normalize a raw session so stub/optimistic nodes satisfy schema (keyTakeaways >= 3,
  * branchSuggestions >= 5 when present). Client sends nodes with empty/short arrays.
@@ -31,23 +21,18 @@ function normalizeSessionForSchedule(raw: unknown): unknown {
       normalizedNodes[nodeId] = node as Record<string, unknown>;
       continue;
     }
-    const keyTakeaways = Array.isArray(node.keyTakeaways) ? (node.keyTakeaways as string[]) : [];
-    const branchSuggestions = Array.isArray(node.branchSuggestions)
-      ? (node.branchSuggestions as Record<string, unknown>[])
+    const keyTakeaways = Array.isArray(node.keyTakeaways)
+      ? (node.keyTakeaways as string[])
       : [];
-    const stubs = stubBranchSuggestionsForNode(nodeId);
+    const defaultKeyTakeaways = ["Generating…", "…", "…"];
     normalizedNodes[nodeId] = {
       ...node,
       keyTakeaways:
         keyTakeaways.length >= 3
           ? keyTakeaways
           : keyTakeaways.length === 0
-            ? [...STUB_KEY_TAKEAWAYS]
-            : [...keyTakeaways, ...STUB_KEY_TAKEAWAYS].slice(0, 3),
-      branchSuggestions:
-        branchSuggestions.length >= 5
-          ? branchSuggestions
-          : [...branchSuggestions, ...stubs].slice(0, 5),
+            ? [...defaultKeyTakeaways]
+            : [...keyTakeaways, ...defaultKeyTakeaways].slice(0, 3),
     };
   }
   return { ...o, nodesById: normalizedNodes };
@@ -87,6 +72,7 @@ export async function scheduleNodeGeneration(
     const sessionWithGenerating = {
       ...session,
       generatingNodeId: nodeId,
+      generationStep: "sources" as const,
     };
     const { ok, error } = await saveSession(
       JSON.stringify(sessionWithGenerating),

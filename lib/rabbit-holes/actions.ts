@@ -7,6 +7,7 @@ import {
   generateSourceAnalysis,
   generateTitle,
 } from "../llm/rabbit-hole/generation";
+import type { GenerationStep } from "../schemas/rabbitHoleSchemas";
 import {
   RabbitHoleAIResponse,
   RabbitHoleBranchSuggestion,
@@ -28,9 +29,6 @@ import { openai } from "@ai-sdk/openai";
 import { GUARDRAIL_MAX_OUTPUT_TOKENS } from "@/lib/llm/helpers";
 
 const logger = createLogger("lib/rabbit-holes/actions.ts");
-
-/** Placeholder article_html for DB when only sources have been saved (NOT NULL constraint). */
-const PLACEHOLDER_ARTICLE_HTML = "<p>Generating…</p>";
 
 const initialNodePrompt =
   `Generate a comprehensive Rabbit Hole exploration for the following question:\n\n{{question}}\n\n` +
@@ -251,6 +249,166 @@ export type GenerateRabbitHoleNodeOptions = {
 };
 
 /**
+ * Run a single generation step (no auth). Used by runGenerationAndPersist for step-aware resumable orchestration.
+ */
+function applySourcesStep(
+  session: RabbitHoleSession,
+  nodeId: string,
+  node: RabbitHoleNode,
+  pathHistory: ReturnType<typeof buildPathHistory>,
+): Promise<Result<RabbitHoleSession>> {
+  return (async () => {
+    const updatedNode: RabbitHoleNode & {
+      _sourcesContext?: string;
+      _sourcesInstruction?: string;
+    } = { ...node };
+
+    const refinedQuestion =
+      updatedNode.refinedQuestion ??
+      (await generateRefinedQuestion(
+        session,
+        updatedNode.userQuestion,
+        pathHistory,
+      ));
+    updatedNode.refinedQuestion = refinedQuestion;
+
+    const { exaSources, sourcesContext, sourcesInstruction } =
+      await fetchExternalSources(refinedQuestion, "runOneGenerationStep");
+    updatedNode.sources = exaSources;
+    updatedNode._sourcesContext = sourcesContext;
+    updatedNode._sourcesInstruction = sourcesInstruction;
+
+    const updatedSession: RabbitHoleSession = {
+      ...session,
+      nodesById: { ...session.nodesById, [nodeId]: updatedNode },
+      updatedAt: new Date().toISOString(),
+    };
+    return { data: updatedSession, error: null };
+  })();
+}
+
+function applyArticleStep(
+  session: RabbitHoleSession,
+  nodeId: string,
+  node: RabbitHoleNode,
+  pathHistory: ReturnType<typeof buildPathHistory>,
+  isInitialNode: boolean,
+): Promise<Result<RabbitHoleSession>> {
+  return (async () => {
+    const updatedNode: RabbitHoleNode & {
+      _sourcesContext?: string;
+      _sourcesInstruction?: string;
+    } = { ...node };
+
+    const refinedQuestion =
+      updatedNode.refinedQuestion ?? updatedNode.userQuestion;
+
+    let sourcesContext = updatedNode._sourcesContext;
+    let sourcesInstruction = updatedNode._sourcesInstruction;
+    if (sourcesContext === undefined || sourcesInstruction === undefined) {
+      const fromExa = await fetchExternalSources(
+        refinedQuestion,
+        "runOneGenerationStep-article",
+      );
+      sourcesContext = fromExa.sourcesContext;
+      sourcesInstruction = fromExa.sourcesInstruction;
+    }
+
+    const prompt = buildPrompt(
+      isInitialNode,
+      refinedQuestion,
+      pathHistory,
+      sourcesContext,
+      sourcesInstruction,
+      "",
+    );
+    const object = await generateArticleOnly(prompt);
+    updatedNode.articleHtml = object.articleHtml;
+    updatedNode.keyTakeaways = object.keyTakeaways;
+    updatedNode.rawPrompt = updatedNode.userQuestion;
+    updatedNode.userQuestion =
+      updatedNode.refinedQuestion ?? updatedNode.userQuestion;
+    updatedNode.createdAt = new Date().toISOString();
+
+    const updatedSession: RabbitHoleSession = {
+      ...session,
+      nodesById: { ...session.nodesById, [nodeId]: updatedNode },
+      updatedAt: new Date().toISOString(),
+    };
+    return { data: updatedSession, error: null };
+  })();
+}
+
+function applyBranchSuggestionsStep(
+  session: RabbitHoleSession,
+  nodeId: string,
+  node: RabbitHoleNode,
+): Promise<Result<RabbitHoleSession>> {
+  return (async () => {
+    const updatedNode = { ...node };
+    const branchSuggestionRootQuestion =
+      session.rootQuestion ||
+      (updatedNode.refinedQuestion ?? updatedNode.userQuestion);
+    const branchResult = await generateBranchSuggestions({
+      context: updatedNode.articleHtml ?? "",
+      rootQuestion: branchSuggestionRootQuestion,
+    });
+    updatedNode.branchSuggestions = branchResult.data ?? [];
+    const updatedSession: RabbitHoleSession = {
+      ...session,
+      nodesById: { ...session.nodesById, [nodeId]: updatedNode },
+      updatedAt: new Date().toISOString(),
+    };
+    return { data: updatedSession, error: null };
+  })();
+}
+
+export async function runOneGenerationStep(
+  session: RabbitHoleSession,
+  nodeId: string,
+  step: GenerationStep,
+): Promise<Result<RabbitHoleSession>> {
+  const node = session.nodesById[nodeId];
+  if (!node) {
+    return { data: null, error: new Error("Node not found") };
+  }
+
+  try {
+    const isInitialNode = nodeId === session.rootNodeId;
+    const pathHistory = buildPathHistory(session);
+
+    if (step === "sources") {
+      return await applySourcesStep(session, nodeId, node, pathHistory);
+    }
+
+    if (step === "article") {
+      return await applyArticleStep(
+        session,
+        nodeId,
+        node,
+        pathHistory,
+        isInitialNode,
+      );
+    }
+
+    if (step === "branch_suggestions") {
+      return await applyBranchSuggestionsStep(session, nodeId, node);
+    }
+
+    return { data: null, error: new Error(`Unknown step: ${step}`) };
+  } catch (error) {
+    logger.error(
+      "runOneGenerationStep",
+      `Error running step ${step}: ${error}`,
+    );
+    return {
+      data: null,
+      error: error instanceof Error ? error : new Error("Unknown error"),
+    };
+  }
+}
+
+/**
  * Parent orchestrator: runs Exa → article → branch suggestions in order,
  * optionally calling checkpoint callbacks after each phase for incremental saves.
  *
@@ -291,9 +449,6 @@ export async function generateRabbitHoleNode(
       await fetchExternalSources(refinedQuestion, "generateRabbitHoleNode");
 
     updatedNode.sources = exaSources;
-    if (!updatedNode.articleHtml?.trim()) {
-      updatedNode.articleHtml = PLACEHOLDER_ARTICLE_HTML;
-    }
     let updatedSession: RabbitHoleSession = {
       ...session,
       nodesById: { ...session.nodesById, [nodeId]: updatedNode },
@@ -330,7 +485,7 @@ export async function generateRabbitHoleNode(
       session.rootQuestion ||
       (updatedNode.refinedQuestion ?? updatedNode.userQuestion);
     const branchResult = await generateBranchSuggestions({
-      context: updatedNode.articleHtml,
+      context: updatedNode.articleHtml ?? "",
       rootQuestion: branchSuggestionRootQuestion,
     });
     updatedNode.branchSuggestions = branchResult.data ?? [];

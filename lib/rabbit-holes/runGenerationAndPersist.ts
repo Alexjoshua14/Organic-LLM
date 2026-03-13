@@ -1,4 +1,5 @@
 import {
+  advanceGenerationStep,
   getSessionById,
   saveSession,
   type RabbitHolesSupabaseClient,
@@ -6,13 +7,16 @@ import {
 import { createLogger } from "@/lib/logger";
 import { supabaseServer } from "@/lib/supabase/server";
 import { supabaseAdmin } from "@/lib/supabase/supabase-admin";
-import type { RabbitHoleSession } from "@/lib/schemas/rabbitHoleSchemas";
-import { generateRabbitHoleNode } from "./actions";
+import type {
+  GenerationStep,
+  RabbitHoleSession,
+} from "@/lib/schemas/rabbitHoleSchemas";
+import { runOneGenerationStep } from "./actions";
 
 const logger = createLogger("lib/rabbit-holes/runGenerationAndPersist");
 
 /**
- * Clears generating_node_id for a session (e.g. on early exit or error).
+ * Clears generating_node_id and generation_step for a session (e.g. on early exit or error).
  * Used so the client stops polling. Pass client when running in background (e.g. after())
  * so we don't rely on the user's JWT which may be expired.
  */
@@ -23,7 +27,11 @@ export async function clearGeneratingNodeId(
   const supabase = client ?? (await supabaseServer());
   const { error } = await supabase
     .from("rabbit_hole_sessions")
-    .update({ generating_node_id: null })
+    .update({
+      generating_node_id: null,
+      generation_step: null,
+      updated_at: new Date().toISOString(),
+    })
     .eq("session_id", sessionId);
 
   if (error) {
@@ -35,17 +43,28 @@ export async function clearGeneratingNodeId(
   }
 }
 
+const STEP_ORDER: GenerationStep[] = [
+  "sources",
+  "article",
+  "branch_suggestions",
+];
+
+function nextStep(step: GenerationStep): GenerationStep | null {
+  const i = STEP_ORDER.indexOf(step);
+  if (i < 0 || i >= STEP_ORDER.length - 1) return null;
+  return STEP_ORDER[i + 1];
+}
+
 /**
- * Loads session, runs node generation, and either persists the updated session
- * (with generatingNodeId cleared) or clears generating_node_id on error/skip.
- * Used by the scheduler (and later by a job worker). No after() here.
+ * Step-aware orchestrator: loads session, reads generation_step, runs that step (with idempotency),
+ * saves, advances step via conditional update (singularity). Loops until step is cleared.
  */
 export async function runGenerationAndPersist(
   sessionId: string,
   nodeId: string,
 ): Promise<void> {
   const admin = supabaseAdmin;
-  const res = await getSessionById(sessionId, admin);
+  let res = await getSessionById(sessionId, admin);
 
   if (res.error || !res.data) {
     logger.error(
@@ -57,7 +76,7 @@ export async function runGenerationAndPersist(
     return;
   }
 
-  const session = res.data;
+  let session = res.data;
   const node = session.nodesById[nodeId];
 
   if (!node) {
@@ -72,31 +91,83 @@ export async function runGenerationAndPersist(
   }
 
   try {
-    const result = await generateRabbitHoleNode(session, nodeId, {
-      onAfterSources: async (s) => {
-        const ok = await saveSession(JSON.stringify(s), admin);
-        if (ok.error) throw ok.error;
-      },
-      onAfterArticle: async (s) => {
-        const ok = await saveSession(JSON.stringify(s), admin);
-        if (ok.error) throw ok.error;
-      },
-      onAfterBranches: async (s) => {
-        const final = { ...s, generatingNodeId: null };
-        const ok = await saveSession(JSON.stringify(final), admin);
-        if (ok.error) throw ok.error;
-        await clearGeneratingNodeId(sessionId, admin);
-      },
-    });
+    let step: GenerationStep | null =
+      session.generationStep ?? "sources";
 
-    if (result.error || !result.data) {
-      logger.error(
-        "runGenerationAndPersist",
-        "Generation failed",
-        result.error,
+    while (step !== null) {
+      const nodeAtStep = session.nodesById[nodeId];
+      if (!nodeAtStep) break;
+
+      let sessionToSave = session;
+
+      if (step === "sources" && nodeAtStep.sources && nodeAtStep.sources.length > 0) {
+        sessionToSave = session;
+      } else if (
+        step === "article" &&
+        nodeAtStep.articleHtml?.trim()
+      ) {
+        sessionToSave = session;
+      } else if (
+        step === "branch_suggestions" &&
+        nodeAtStep.branchSuggestions &&
+        nodeAtStep.branchSuggestions.length > 0
+      ) {
+        sessionToSave = session;
+      } else {
+        const result = await runOneGenerationStep(session, nodeId, step);
+        if (result.error || !result.data) {
+          logger.error(
+            "runGenerationAndPersist",
+            `Step ${step} failed`,
+            result.error,
+          );
+          await clearGeneratingNodeId(sessionId, admin);
+          return;
+        }
+        sessionToSave = result.data;
+      }
+
+      // Do not let the serialized session overwrite generation_step; that column
+      // is the orchestrator's single source of truth and is advanced only via
+      // advanceGenerationStep. Strip generationStep before serialization so
+      // saveSession leaves generation_step untouched.
+      const sessionToPersist: RabbitHoleSession = {
+        ...sessionToSave,
+        generationStep: undefined as any,
+      };
+      const saveResult = await saveSession(
+        JSON.stringify(sessionToPersist),
+        admin,
       );
-      await clearGeneratingNodeId(sessionId, admin);
-      return;
+      if (saveResult.error) {
+        logger.error(
+          "runGenerationAndPersist",
+          `Failed to save after step ${step}`,
+          saveResult.error,
+        );
+        await clearGeneratingNodeId(sessionId, admin);
+        return;
+      }
+
+      const toStep = nextStep(step);
+      const { updated } = await advanceGenerationStep(
+        sessionId,
+        nodeId,
+        step,
+        toStep,
+        admin,
+      );
+      if (!updated) {
+        logger.error(
+          "runGenerationAndPersist",
+          `Advance from ${step} failed (singularity conflict?)`,
+        );
+        return;
+      }
+
+      if (toStep === null) break;
+      session = sessionToSave;
+      step = toStep;
     }
   } catch (err) {
     logger.error("runGenerationAndPersist", "Error during generation", err);

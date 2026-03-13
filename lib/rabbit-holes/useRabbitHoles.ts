@@ -171,6 +171,14 @@ export function useRabbitHoles(): UseRabbitHolesReturn {
       const session = res.data;
       setSession(session);
       setActiveNodeId(session.activeNodeId ?? session.rootNodeId ?? null);
+      // If a node is still generating, restore generating state + preview from the session
+      if (session.generatingNodeId) {
+        setGeneratingNodeId(session.generatingNodeId);
+        const generatingNode = session.nodesById[session.generatingNodeId];
+        if (generatingNode && generatingNode.preview) {
+          setPreview(generatingNode.preview);
+        }
+      }
       return {
         ok: true,
         error: null,
@@ -303,35 +311,11 @@ export function useRabbitHoles(): UseRabbitHolesReturn {
         ],
       };
 
-      /* Set the generating node ID to the new node ID */
       setGeneratingNodeId(node.id);
       setActiveNodeId(node.id);
-
-      /* Generate quick preview of the new node */
-      const quickPreview = await generateQuickPreview(question);
-
-      // On preview error, continue node creation but inform user via error message
-      if (quickPreview.error) {
-        logger.error(
-          "exploreQuestion",
-          "Error generating quick preview",
-          quickPreview.error,
-        );
-        setError(quickPreview.error.message);
-        setPreview("Unable to generate preview");
-      } else {
-        /* Update the new node with the preview data
-         * and set the preview object for quick UI feedback
-         */
-        updatedSession.nodesById[node.id].preview = quickPreview.data;
-        setPreview(quickPreview.data);
-      }
-
       setSession(updatedSession);
 
-      /*
-       * Schedule generation via API; server runs generation after 202 response.
-       */
+      /* First save on send: call generate API before preview so server persists session and kicks off orchestrator. */
       const res = await fetch(
         `/api/rabbitholes/${baseSession.sessionId}/generate`,
         {
@@ -353,6 +337,47 @@ export function useRabbitHoles(): UseRabbitHolesReturn {
         setSession({
           ...updatedSession,
           generatingNodeId: json.nodeId,
+          generationStep: "sources",
+        });
+        /* Preview in parallel after 202 so UI can show it without blocking first save. */
+        generateQuickPreview(question).then((quickPreview) => {
+          if (quickPreview.error) {
+            logger.error(
+              "exploreQuestion",
+              "Error generating quick preview",
+              quickPreview.error,
+            );
+            setError(quickPreview.error.message);
+            setPreview("Unable to generate preview");
+            return;
+          }
+
+          if (quickPreview.data) {
+            setPreview(quickPreview.data);
+
+            // Persist preview on the generating node so it survives refresh.
+            setSession((prev) => {
+              if (!prev || !prev.generatingNodeId) return prev;
+              const node = prev.nodesById[prev.generatingNodeId];
+              if (!node) return prev;
+
+              const updatedNode: RabbitHoleNode = {
+                ...node,
+                preview: quickPreview.data,
+              };
+              const updatedSession: RabbitHoleSession = {
+                ...prev,
+                nodesById: {
+                  ...prev.nodesById,
+                  [updatedNode.id]: updatedNode,
+                },
+              };
+
+              // Fire-and-forget save; errors will surface via logger in saveSessionToStorage.
+              void saveSessionToStorage(updatedSession);
+              return updatedSession;
+            });
+          }
         });
       } else {
         const body = await res.json().catch(() => ({})) as { error?: string };

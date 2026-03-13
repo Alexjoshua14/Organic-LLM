@@ -40,9 +40,6 @@ import { useSidebar } from "../third-party/ui/sidebar";
 
 const logger = createLogger("components/rabbit-holes/RabbitHoleShell");
 
-/** Match server placeholder so we keep showing loading state until real article exists. */
-const PLACEHOLDER_ARTICLE_HTML = "<p>Generating…</p>";
-
 /** Centralized center-column view state. One of these is active at a time. */
 type CenterViewState =
   | { kind: "loading_previous_session" }
@@ -140,9 +137,7 @@ export function RabbitHoleShell() {
 
     const isGeneratingThisNode =
       activeNode && generatingNodeId === activeNode.id;
-    const hasRealArticle =
-      activeNode?.articleHtml?.trim() &&
-      activeNode.articleHtml !== PLACEHOLDER_ARTICLE_HTML;
+    const hasRealArticle = !!activeNode?.articleHtml?.trim();
     if (isGeneratingThisNode && !hasRealArticle) {
       const variant = activeNode ? "branch" : "initial";
       return { kind: "generating_new_node", variant };
@@ -176,6 +171,17 @@ export function RabbitHoleShell() {
 
   const handleStart = async (question: string) => {
     await exploreQuestion(question);
+
+    // After a new session is created and generation starts, ensure the URL
+    // includes ?sessionId= so refreshes stay attached to the same session/node.
+    if (session?.sessionId) {
+      const current = sessionIdToLoad;
+      if (current !== session.sessionId) {
+        const params = new URLSearchParams(searchParams.toString());
+        params.set("sessionId", session.sessionId);
+        router.replace(`?${params.toString()}`);
+      }
+    }
   };
 
   // --- Path navigation (back/forward along session.path) ---
@@ -319,7 +325,7 @@ export function RabbitHoleShell() {
                   />
                 )}
 
-                {centerViewState.kind === "article_loaded" && activeNode && (
+                {centerViewState.kind === "article_loaded" && activeNode && activeNode.articleHtml && (
                   <div key={activeNode.id}>
                     <RabbitHoleArticle
                       title={activeNode.title ?? activeNode.userQuestion}

@@ -11,42 +11,7 @@ const baseNode = {
 };
 
 describe("nodeToRabbitHoleNodeRow", () => {
-  test("uses placeholder key_takeaways when keyTakeaways is empty", () => {
-    const row = nodeToRabbitHoleNodeRow(
-      { ...baseNode, keyTakeaways: [] },
-      "session-1",
-    );
-    expect(row.key_takeaways).toHaveLength(3);
-    expect(row.key_takeaways[0]).toBe("Generating…");
-    expect(row.key_takeaways[1]).toBe("…");
-    expect(row.key_takeaways[2]).toBe("…");
-    expect(row.session_id).toBe("session-1");
-    expect(row.node_id).toBe("node-1");
-  });
-
-  test("pads to 3 preserving real keyTakeaways when length is 1", () => {
-    const row = nodeToRabbitHoleNodeRow(
-      { ...baseNode, keyTakeaways: ["Only one"] },
-      "session-2",
-    );
-    expect(row.key_takeaways).toHaveLength(3);
-    expect(row.key_takeaways[0]).toBe("Only one");
-    expect(row.key_takeaways[1]).toBe("Generating…");
-    expect(row.key_takeaways[2]).toBe("…");
-  });
-
-  test("pads to 3 preserving real keyTakeaways when length is 2", () => {
-    const row = nodeToRabbitHoleNodeRow(
-      { ...baseNode, keyTakeaways: ["First", "Second"] },
-      "session-3",
-    );
-    expect(row.key_takeaways).toHaveLength(3);
-    expect(row.key_takeaways[0]).toBe("First");
-    expect(row.key_takeaways[1]).toBe("Second");
-    expect(row.key_takeaways[2]).toBe("Generating…");
-  });
-
-  test("uses node keyTakeaways unchanged when length is 3", () => {
+  test("passes through keyTakeaways unchanged", () => {
     const takeaways = ["Point A", "Point B", "Point C"];
     const row = nodeToRabbitHoleNodeRow(
       { ...baseNode, keyTakeaways: takeaways },
@@ -58,7 +23,7 @@ describe("nodeToRabbitHoleNodeRow", () => {
     expect(row.key_takeaways[2]).toBe("Point C");
   });
 
-  test("uses node keyTakeaways unchanged when length is 6", () => {
+  test("supports up to 6 keyTakeaways unchanged", () => {
     const takeaways = ["A", "B", "C", "D", "E", "F"];
     const row = nodeToRabbitHoleNodeRow(
       { ...baseNode, keyTakeaways: takeaways },
