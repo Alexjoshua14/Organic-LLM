@@ -329,6 +329,7 @@ export type Database = {
         Row: {
           active_node_id: string | null
           created_at: string
+          generating_node_id: string | null
           id: string
           owner_id: string
           root_question: string
@@ -338,6 +339,7 @@ export type Database = {
         Insert: {
           active_node_id?: string | null
           created_at?: string
+          generating_node_id?: string | null
           id?: string
           owner_id?: string
           root_question: string
@@ -347,6 +349,7 @@ export type Database = {
         Update: {
           active_node_id?: string | null
           created_at?: string
+          generating_node_id?: string | null
           id?: string
           owner_id?: string
           root_question?: string
@@ -520,6 +523,7 @@ export type Database = {
           active_stream_started_at: string | null
           conversation_summary: string | null
           created_at: string
+          flags: number
           id: string
           owner_id: string
           persisted_schemas: Json | null
@@ -532,6 +536,7 @@ export type Database = {
           active_stream_started_at?: string | null
           conversation_summary?: string | null
           created_at?: string
+          flags?: number
           id?: string
           owner_id: string
           persisted_schemas?: Json | null
@@ -544,6 +549,7 @@ export type Database = {
           active_stream_started_at?: string | null
           conversation_summary?: string | null
           created_at?: string
+          flags?: number
           id?: string
           owner_id?: string
           persisted_schemas?: Json | null

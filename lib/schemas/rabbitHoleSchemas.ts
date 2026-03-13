@@ -102,6 +102,7 @@ export const RabbitHoleSessionSchema = z.object({
   path: z.array(RabbitHolePathSegmentSchema),
   nodesById: z.record(z.string(), RabbitHoleNodeSchema),
   activeNodeId: z.string().nullable(),
+  generatingNodeId: z.string().optional().nullable(),
   edges: z.array(RabbitHoleEdgeSchema).optional(),
   createdAt: z.string(),
   updatedAt: z.string().optional(),
