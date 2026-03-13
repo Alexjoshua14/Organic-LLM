@@ -25,7 +25,7 @@ import { useRabbitHoles } from "@/lib/rabbit-holes/useRabbitHoles";
 // UI subcomponents still live under app/ during migration
 import { RabbitHolePathRail } from "@/app/rabbitholes/_components/RabbitHolePathRail";
 import { RabbitHoleArticle } from "@/app/rabbitholes/_components/RabbitHoleArticle";
-import { RabbitHoleBranchGrid } from "@/app/rabbitholes/_components/RabbitHoleBranchGrid";
+import { RabbitHoleBranchSuggestionsBlock } from "@/app/rabbitholes/_components/RabbitHoleBranchSuggestionsBlock";
 import { RabbitHoleSourceList } from "@/app/rabbitholes/_components/RabbitHoleSourceList";
 import { RabbitHoleSourceAnalysis } from "@/app/rabbitholes/_components/RabbitHoleSourceAnalysis";
 import { RabbitHoleAmbientLayer } from "@/app/rabbitholes/_components/RabbitHoleAmbientLayer";
@@ -366,7 +366,7 @@ export function RabbitHoleShell() {
                     }
                   />
                   {generatingNodeId !== activeNode.id && (
-                    <RabbitHoleBranchGrid
+                    <RabbitHoleBranchSuggestionsBlock
                       branches={activeNode.branchSuggestions ?? []}
                       onBranchClick={followBranch}
                       isLoading={isBusy}

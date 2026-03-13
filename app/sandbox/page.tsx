@@ -73,6 +73,16 @@ export default function SandboxPage() {
       gradient: "from-cyan-400/20 to-emerald-500/20",
       hoverGradient: "hover:from-cyan-400/30 hover:to-emerald-500/30",
     },
+    {
+      title: "Sandbox Platform",
+      description:
+        "Inspect and test real UI components, pipelines, and LLM-backed functions (Rabbit Holes scenarios)",
+      href: "/sandbox/platform",
+      icon: "🔬",
+      size: "large",
+      gradient: "from-violet-400/20 to-indigo-500/20",
+      hoverGradient: "hover:from-violet-400/30 hover:to-indigo-500/30",
+    },
   ];
 
   return (

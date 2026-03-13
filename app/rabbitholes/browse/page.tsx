@@ -3,7 +3,7 @@
 import { useContext, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
-import { Trash2, ArrowRight, Plus } from "lucide-react";
+import { Plus } from "lucide-react";
 import { Button } from "@heroui/button";
 import Link from "next/link";
 import { RabbitHoleContext } from "@/lib/context/rabbithole-context";
@@ -12,11 +12,10 @@ import {
   deleteSession
 } from '@/data/supabase/rabbitholes'
 
-import { formatDate } from "@/lib/format/stringFormatting";
-import { cn } from "@/lib/utils";
 import { removeSessionAudio } from "../_lib/audioStorage";
 import { RabbitHoleSessionMetadata } from "../_lib/sessionStorage";
 import Page from "@/components/layout/page";
+import { SessionCard } from "@/components/rabbit-holes/SessionCard";
 
 export default function RabbitHolesBrowsePage() {
   const router = useRouter();
@@ -109,51 +108,15 @@ export default function RabbitHolesBrowsePage() {
       ) : (
         <div className="grid gap-4">
           {sessions.map((session: RabbitHoleSessionMetadata, index: number) => (
-            <motion.div
+            <SessionCard
               key={session.sessionId}
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: index * 0.05 }}
-              className={cn(
-                "bg-card/80 backdrop-blur-sm rounded-lg border border-border shadow-sm",
-                "hover:shadow-md transition-all cursor-pointer group",
-              )}
-              onClick={() => handleSessionClick(session.sessionId)}
-            >
-              <div className="p-6 flex items-start justify-between gap-4">
-                <div className="flex-1 min-w-0">
-                  <h3 className="font-commissioner text-lg font-light text-foreground mb-2 line-clamp-2">
-                    {session.rootQuestion}
-                  </h3>
-                  {session.summary && (
-                    <p className="text-sm text-muted-foreground mb-3 line-clamp-2">
-                      {session.summary}
-                    </p>
-                  )}
-                  <div className="flex items-center gap-4 text-xs text-muted-foreground">
-                    <span>
-                      {formatDate(session.updatedAt)}
-                    </span>
-                    <span>•</span>
-                    <span>{session.pathLength} level{session.pathLength !== 1 ? "s" : ""} explored</span>
-                  </div>
-                </div>
-                <div className="flex items-center gap-2 shrink-0">
-                  <button
-                    type="button"
-                    className="p-2 rounded-md text-muted-foreground hover:text-destructive hover:bg-card/30 opacity-0 group-hover:opacity-100 transition-opacity"
-                    onClick={(e) => handleDelete(session.sessionId, e)}
-                    disabled={deletingId === session.sessionId}
-                  >
-                    <Trash2 size={16} />
-                  </button>
-                  <ArrowRight
-                    size={16}
-                    className="text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity"
-                  />
-                </div>
-              </div>
-            </motion.div>
+              session={session}
+              onDelete={handleDelete}
+              onClick={handleSessionClick}
+              showDelete
+              deletingId={deletingId}
+              transitionDelay={index * 0.05}
+            />
           ))}
         </div>
       )}
