@@ -41,6 +41,9 @@ const mockSupabaseServer = mock(async () => createSupabaseMock());
 mock.module("@/lib/supabase/server", () => ({
   supabaseServer: mockSupabaseServer,
 }));
+mock.module("@/lib/supabase/supabase-admin", () => ({
+  supabaseAdmin: createSupabaseMock(),
+}));
 mock.module("@/data/supabase/rabbitholes", () => ({
   getSessionById: mockGetSessionById,
   saveSession: mockSaveSession,
@@ -137,7 +140,7 @@ describe("runGenerationAndPersist", () => {
     expect(mockSaveSession.mock.calls.length).toBe(0);
   });
 
-  test("saves session with generatingNodeId null when generation succeeds", async () => {
+  test("saves session three times (sources, article, branches) when generation succeeds", async () => {
     const emptyNodeSession = {
       sessionId: SESSION_ID,
       rootQuestion: "Q",
@@ -173,23 +176,30 @@ describe("runGenerationAndPersist", () => {
       data: emptyNodeSession,
       error: null,
     } as any);
-    mockGenerateRabbitHoleNode.mockResolvedValue({
-      data: updatedSession,
-      error: null,
-    } as any);
+    mockGenerateRabbitHoleNode.mockImplementation(
+      async (session, nodeId, options) => {
+        if (options?.onAfterSources) await options.onAfterSources(session);
+        if (options?.onAfterArticle) await options.onAfterArticle(session);
+        if (options?.onAfterBranches)
+          await options.onAfterBranches(updatedSession);
+        return { data: updatedSession, error: null };
+      },
+    );
 
     await runGenerationAndPersist(SESSION_ID, NODE_ID);
 
     expect(mockGenerateRabbitHoleNode.mock.calls.length).toBe(1);
     const genCalls = mockGenerateRabbitHoleNode.mock.calls as unknown as Array<
-      [typeof emptyNodeSession, string]
+      [typeof emptyNodeSession, string, { onAfterSources?: (s: unknown) => Promise<void>; onAfterArticle?: (s: unknown) => Promise<void>; onAfterBranches?: (s: unknown) => Promise<void> }]
     >;
     expect(genCalls[0]?.[0]).toBe(emptyNodeSession);
     expect(genCalls[0]?.[1]).toBe(NODE_ID);
-    expect(mockSaveSession.mock.calls.length).toBe(1);
-    const firstCall = (mockSaveSession.mock.calls as unknown as Array<[string]>)[0]!;
-    const serialized = firstCall[0];
-    const saved = JSON.parse(serialized) as { generatingNodeId: string | null };
+    expect(genCalls[0]?.[2]?.onAfterSources).toBeDefined();
+    expect(genCalls[0]?.[2]?.onAfterArticle).toBeDefined();
+    expect(genCalls[0]?.[2]?.onAfterBranches).toBeDefined();
+    expect(mockSaveSession.mock.calls.length).toBe(3);
+    const lastCall = (mockSaveSession.mock.calls as unknown as Array<[string]>)[2]!;
+    const saved = JSON.parse(lastCall[0]) as { generatingNodeId: string | null };
     expect(saved.generatingNodeId).toBeNull();
   });
 

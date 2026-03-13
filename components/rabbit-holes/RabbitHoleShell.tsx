@@ -40,6 +40,9 @@ import { useSidebar } from "../third-party/ui/sidebar";
 
 const logger = createLogger("components/rabbit-holes/RabbitHoleShell");
 
+/** Match server placeholder so we keep showing loading state until real article exists. */
+const PLACEHOLDER_ARTICLE_HTML = "<p>Generating…</p>";
+
 /** Centralized center-column view state. One of these is active at a time. */
 type CenterViewState =
   | { kind: "loading_previous_session" }
@@ -135,7 +138,12 @@ export function RabbitHoleShell() {
     if (selectedSourceId && sourceAnalysis)
       return { kind: "viewing_source_analysis", sourceId: selectedSourceId };
 
-    if (isBusy) {
+    const isGeneratingThisNode =
+      activeNode && generatingNodeId === activeNode.id;
+    const hasRealArticle =
+      activeNode?.articleHtml?.trim() &&
+      activeNode.articleHtml !== PLACEHOLDER_ARTICLE_HTML;
+    if (isGeneratingThisNode && !hasRealArticle) {
       const variant = activeNode ? "branch" : "initial";
       return { kind: "generating_new_node", variant };
     }
@@ -154,6 +162,7 @@ export function RabbitHoleShell() {
     sourceAnalysis,
     isBusy,
     activeNode,
+    generatingNodeId,
   ]);
 
   // --- Event handlers (thin wrappers around hook actions) ---
@@ -343,7 +352,7 @@ export function RabbitHoleShell() {
             </div>
           </section>
 
-          {/* Right: sources and branches (only when viewing an article). */}
+          {/* Right: sources and branches (only when viewing an article). Explore Further only when branch suggestions are generated. */}
           <aside className="w-full lg:w-[20%] shrink-0 pr-2">
             <AnimatePresence>
               {centerViewState.kind === "article_loaded" && activeNode && (
@@ -351,14 +360,19 @@ export function RabbitHoleShell() {
                   <RabbitHoleSourceList
                     sources={activeNode.sources ?? []}
                     onSourceClick={selectSource}
-                    hasBranches={(activeNode.branchSuggestions ?? []).length > 0}
+                    hasBranches={
+                      generatingNodeId !== activeNode.id &&
+                      (activeNode.branchSuggestions ?? []).length > 0
+                    }
                   />
-                  <RabbitHoleBranchGrid
-                    branches={activeNode.branchSuggestions ?? []}
-                    onBranchClick={followBranch}
-                    isLoading={isBusy}
-                    hasSources={(activeNode.sources ?? []).length > 0}
-                  />
+                  {generatingNodeId !== activeNode.id && (
+                    <RabbitHoleBranchGrid
+                      branches={activeNode.branchSuggestions ?? []}
+                      onBranchClick={followBranch}
+                      isLoading={isBusy}
+                      hasSources={(activeNode.sources ?? []).length > 0}
+                    />
+                  )}
                 </div>
               )}
             </AnimatePresence>

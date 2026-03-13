@@ -7,6 +7,7 @@ import {
 } from "@/lib/schemas/rabbitHoleSchemas";
 import type { RabbitHoleSessionMetadata } from "@/app/rabbitholes/_lib/sessionStorage";
 import { supabaseServer } from "@/lib/supabase/server";
+import type { SupabaseClient } from "@supabase/supabase-js";
 import { createLogger } from "@/lib/logger";
 import { isUnixTimestamp } from "@/lib/utils";
 import { nodeToRabbitHoleNodeRow } from "./rabbitHoleNodeRow";
@@ -127,13 +128,17 @@ export async function getAllSessions(): Promise<
   };
 }
 
+/** Optional Supabase client for background/server-only paths (e.g. after()) where user JWT may be expired. */
+export type RabbitHolesSupabaseClient = SupabaseClient;
+
 /**
  * Fetch a full session by ID
  */
 export async function getSessionById(
   sessionId: string,
+  client?: RabbitHolesSupabaseClient,
 ): Promise<Result<RabbitHoleSession | null>> {
-  const supabase = await supabaseServer();
+  const supabase = client ?? (await supabaseServer());
 
   const { data: sessionRow, error: sessionError } = await supabase
     .from("rabbit_hole_sessions")
@@ -327,8 +332,11 @@ async function deserializeSession(
 /**
  * Persist a session (upsert)
  */
-export async function saveSession(serialized: string): Promise<SimpleResult> {
-  const supabase = await supabaseServer();
+export async function saveSession(
+  serialized: string,
+  client?: RabbitHolesSupabaseClient,
+): Promise<SimpleResult> {
+  const supabase = client ?? (await supabaseServer());
 
   try {
     if (DEBUG_MODE) {
@@ -368,21 +376,43 @@ export async function saveSession(serialized: string): Promise<SimpleResult> {
         : session.updatedAt
       : new Date().toISOString();
 
+    let ownerId: string | undefined;
+    if (client) {
+      logger.log(
+        "saveSession",
+        `Admin client: fetching owner_id for session ${session.sessionId}`,
+      );
+      const { data: existing } = await supabase
+        .from("rabbit_hole_sessions")
+        .select("owner_id")
+        .eq("session_id", session.sessionId)
+        .maybeSingle();
+      ownerId = existing?.owner_id ?? undefined;
+      logger.log(
+        "saveSession",
+        ownerId
+          ? `Admin client: got owner_id, upserting session`
+          : `Admin client: no existing row (owner_id missing), upsert may fail`,
+      );
+    }
+
+    const sessionRow: Record<string, unknown> = {
+      session_id: session.sessionId,
+      root_question: session.rootQuestion,
+      active_node_id: session.activeNodeId,
+      generating_node_id: session.generatingNodeId ?? null,
+      created_at: createdAt,
+      updated_at: updatedAt,
+    };
+    if (ownerId != null) {
+      sessionRow.owner_id = ownerId;
+    }
+
     const { error: sessionError } = await supabase
       .from("rabbit_hole_sessions")
-      .upsert(
-        {
-          session_id: session.sessionId,
-          root_question: session.rootQuestion,
-          active_node_id: session.activeNodeId,
-          generating_node_id: session.generatingNodeId ?? null,
-          created_at: createdAt,
-          updated_at: updatedAt,
-        },
-        {
-          onConflict: "session_id",
-        },
-      );
+      .upsert(sessionRow, {
+        onConflict: "session_id",
+      });
 
     if (sessionError) {
       logger.error(

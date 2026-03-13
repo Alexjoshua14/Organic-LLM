@@ -6,6 +6,10 @@ import { getSessionById } from "@/data/supabase/rabbitholes";
 
 const POLL_INTERVAL_MS = 2500;
 
+/** Set NEXT_PUBLIC_DEBUG=1 or true in .env.local (dev only) to log each poll to the console. */
+const POLL_DEBUG =
+  typeof process !== "undefined" && process.env.NODE_ENV === "development";
+
 /**
  * Polls for session completion when a node is generating. When the server clears
  * generating_node_id (or the node has content), calls onSessionUpdated and stops.
@@ -25,6 +29,14 @@ export function useGenerationCompletion(
     let cancelled = false;
     const intervalId = setInterval(async () => {
       if (cancelled) return;
+      if (POLL_DEBUG) {
+        console.log(
+          "[useGenerationCompletion] poll",
+          sessionId,
+          generatingNodeId,
+          new Date().toISOString(),
+        );
+      }
       const res = await getSessionById(sessionId);
       if (cancelled) return;
       if (res.error || !res.data) return;

@@ -29,6 +29,13 @@ export function RabbitHoleArticle({
   const [articleText, setArticleText] = useState("");
   const [takeawaysOpen, setTakeawaysOpen] = useState(true);
 
+  const isStubTakeaways =
+    takeaways.length >= 3 &&
+    takeaways[0] === "Generating…" &&
+    takeaways[1] === "…" &&
+    takeaways[2] === "…";
+  const showTakeaways = !isStubTakeaways;
+
   // Extract plain text from HTML for TTS
   useEffect(() => {
     if (typeof window !== "undefined" && articleRef.current) {
@@ -137,64 +144,65 @@ export function RabbitHoleArticle({
         </div>
       </div>
 
-      <Collapsible
-        open={takeawaysOpen}
-        onOpenChange={setTakeawaysOpen}
-        className="bg-card/80 backdrop-blur-sm rounded-lg border border-border shadow-sm mb-10">
-        <CollapsibleTrigger className="w-full flex items-center justify-between px-5 py-4 text-left cursor-pointer group">
-          <h3 className="font-commissioner text-xs uppercase tracking-[0.2em] text-muted-foreground font-light">
-            Key Takeaways
-          </h3>
-          <span className="text-muted-foreground text-xl group-hover:text-foreground group-hover:scale-110 transition-all duration-400">
-            {takeawaysOpen ? "−" : "+"}
-          </span>
-        </CollapsibleTrigger>
-        <CollapsibleContent>
-          <div className="px-5 pb-5">
-            <ul className="space-y-4">
-              {takeaways.map((takeaway, index) => {
-                const isActive = activeTakeawayIndex === index;
-                return (
-                  <motion.li
-                    key={index}
-                    className={cn(
-                      "flex items-start gap-4 font-satoshi text-base cursor-pointer",
-                      isActive
-                        ? "text-foreground"
-                        : "text-muted-foreground hover:text-foreground",
-                    )}
-                    initial={{ opacity: 0, x: -8 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    transition={{ duration: 0.25, delay: index * 0.05 }}
-                    viewport={{ once: true }}
-                    onClick={() => {
-                      const sectionId = `takeaway-${index}`;
-                      const section = document.getElementById(sectionId);
-                      if (section) {
-                        section.scrollIntoView({ behavior: "smooth", block: "start" });
-                      }
-                    }}
-                    whileHover={{ x: 2 }}
-                  >
-                    <span
+      {showTakeaways && (
+        <Collapsible
+          open={takeawaysOpen}
+          onOpenChange={setTakeawaysOpen}
+          className="bg-card/80 backdrop-blur-sm rounded-lg border border-border shadow-sm mb-10">
+          <CollapsibleTrigger className="w-full flex items-center justify-between px-5 py-4 text-left cursor-pointer group">
+            <h3 className="font-commissioner text-xs uppercase tracking-[0.2em] text-muted-foreground font-light">
+              Key Takeaways
+            </h3>
+            <span className="text-muted-foreground text-xl group-hover:text-foreground group-hover:scale-110 transition-all duration-400">
+              {takeawaysOpen ? "−" : "+"}
+            </span>
+          </CollapsibleTrigger>
+          <CollapsibleContent>
+            <div className="px-5 pb-5">
+              <ul className="space-y-4">
+                {takeaways.map((takeaway, index) => {
+                  const isActive = activeTakeawayIndex === index;
+                  return (
+                    <motion.li
+                      key={index}
                       className={cn(
-                        "mt-1 shrink-0 transition-colors text-lg",
+                        "flex items-start gap-4 font-satoshi text-base cursor-pointer",
                         isActive
                           ? "text-foreground"
-                          : "text-muted-foreground",
+                          : "text-muted-foreground hover:text-foreground",
                       )}
+                      initial={{ opacity: 0, x: -8 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      transition={{ duration: 0.25, delay: index * 0.05 }}
+                      viewport={{ once: true }}
+                      onClick={() => {
+                        const sectionId = `takeaway-${index}`;
+                        const section = document.getElementById(sectionId);
+                        if (section) {
+                          section.scrollIntoView({ behavior: "smooth", block: "start" });
+                        }
+                      }}
+                      whileHover={{ x: 2 }}
                     >
-                      •
-                    </span>
-                    <span className="flex-1">{takeaway}</span>
-                  </motion.li>
-                );
-              })}
-            </ul>
-          </div>
-        </CollapsibleContent>
-
-      </Collapsible>
+                      <span
+                        className={cn(
+                          "mt-1 shrink-0 transition-colors text-lg",
+                          isActive
+                            ? "text-foreground"
+                            : "text-muted-foreground",
+                        )}
+                      >
+                        •
+                      </span>
+                      <span className="flex-1">{takeaway}</span>
+                    </motion.li>
+                  );
+                })}
+              </ul>
+            </div>
+          </CollapsibleContent>
+        </Collapsible>
+      )}
 
 
 

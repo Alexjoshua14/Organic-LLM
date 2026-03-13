@@ -1,6 +1,11 @@
-import { getSessionById, saveSession } from "@/data/supabase/rabbitholes";
+import {
+  getSessionById,
+  saveSession,
+  type RabbitHolesSupabaseClient,
+} from "@/data/supabase/rabbitholes";
 import { createLogger } from "@/lib/logger";
 import { supabaseServer } from "@/lib/supabase/server";
+import { supabaseAdmin } from "@/lib/supabase/supabase-admin";
 import type { RabbitHoleSession } from "@/lib/schemas/rabbitHoleSchemas";
 import { generateRabbitHoleNode } from "./actions";
 
@@ -8,12 +13,14 @@ const logger = createLogger("lib/rabbit-holes/runGenerationAndPersist");
 
 /**
  * Clears generating_node_id for a session (e.g. on early exit or error).
- * Used so the client stops polling.
+ * Used so the client stops polling. Pass client when running in background (e.g. after())
+ * so we don't rely on the user's JWT which may be expired.
  */
 export async function clearGeneratingNodeId(
   sessionId: string,
+  client?: RabbitHolesSupabaseClient,
 ): Promise<void> {
-  const supabase = await supabaseServer();
+  const supabase = client ?? (await supabaseServer());
   const { error } = await supabase
     .from("rabbit_hole_sessions")
     .update({ generating_node_id: null })
@@ -37,7 +44,8 @@ export async function runGenerationAndPersist(
   sessionId: string,
   nodeId: string,
 ): Promise<void> {
-  const res = await getSessionById(sessionId);
+  const admin = supabaseAdmin;
+  const res = await getSessionById(sessionId, admin);
 
   if (res.error || !res.data) {
     logger.error(
@@ -45,7 +53,7 @@ export async function runGenerationAndPersist(
       "Session not found or error loading",
       res.error,
     );
-    await clearGeneratingNodeId(sessionId);
+    await clearGeneratingNodeId(sessionId, admin);
     return;
   }
 
@@ -54,17 +62,32 @@ export async function runGenerationAndPersist(
 
   if (!node) {
     logger.error("runGenerationAndPersist", "Node not found", nodeId);
-    await clearGeneratingNodeId(sessionId);
+    await clearGeneratingNodeId(sessionId, admin);
     return;
   }
 
   if (node.articleHtml && node.articleHtml.trim().length > 0) {
-    await clearGeneratingNodeId(sessionId);
+    await clearGeneratingNodeId(sessionId, admin);
     return;
   }
 
   try {
-    const result = await generateRabbitHoleNode(session, nodeId);
+    const result = await generateRabbitHoleNode(session, nodeId, {
+      onAfterSources: async (s) => {
+        const ok = await saveSession(JSON.stringify(s), admin);
+        if (ok.error) throw ok.error;
+      },
+      onAfterArticle: async (s) => {
+        const ok = await saveSession(JSON.stringify(s), admin);
+        if (ok.error) throw ok.error;
+      },
+      onAfterBranches: async (s) => {
+        const final = { ...s, generatingNodeId: null };
+        const ok = await saveSession(JSON.stringify(final), admin);
+        if (ok.error) throw ok.error;
+        await clearGeneratingNodeId(sessionId, admin);
+      },
+    });
 
     if (result.error || !result.data) {
       logger.error(
@@ -72,27 +95,11 @@ export async function runGenerationAndPersist(
         "Generation failed",
         result.error,
       );
-      await clearGeneratingNodeId(sessionId);
+      await clearGeneratingNodeId(sessionId, admin);
       return;
-    }
-
-    const updatedSession: RabbitHoleSession = {
-      ...result.data,
-      generatingNodeId: null,
-    };
-    const serialized = JSON.stringify(updatedSession);
-    const saveResult = await saveSession(serialized);
-
-    if (saveResult.error) {
-      logger.error(
-        "runGenerationAndPersist",
-        "Failed to save session after generation",
-        saveResult.error,
-      );
-      await clearGeneratingNodeId(sessionId);
     }
   } catch (err) {
     logger.error("runGenerationAndPersist", "Error during generation", err);
-    await clearGeneratingNodeId(sessionId);
+    await clearGeneratingNodeId(sessionId, admin);
   }
 }

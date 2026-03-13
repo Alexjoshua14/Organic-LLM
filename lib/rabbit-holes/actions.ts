@@ -29,10 +29,8 @@ import { GUARDRAIL_MAX_OUTPUT_TOKENS } from "@/lib/llm/helpers";
 
 const logger = createLogger("lib/rabbit-holes/actions.ts");
 
-type NodeContentResult = {
-  object: RabbitHoleAIResponse;
-  branchSuggestions: RabbitHoleBranchSuggestion[];
-};
+/** Placeholder article_html for DB when only sources have been saved (NOT NULL constraint). */
+const PLACEHOLDER_ARTICLE_HTML = "<p>Generating…</p>";
 
 const initialNodePrompt =
   `Generate a comprehensive Rabbit Hole exploration for the following question:\n\n{{question}}\n\n` +
@@ -45,19 +43,13 @@ const newNodePrompt =
   `Path history: {{pathHistory}}`;
 
 /**
- *
- * @param question - The question to generate a node for, if isInitialNode this is ignored
- * @param questionDescription
- * @param rootQuestion - The rootQuestion for the session
- * @param isInitialNode
- * @param sourcesContext
- * @param sourcesInstruction
- * @returns
+ * Generate article content only (keyTakeaways + articleHtml) for a rabbit hole node.
+ * Used by generateRabbitHoleNode; branch suggestions are generated separately after checkpoint.
+ * Throws on LLM error (caller handles in try/catch).
  */
-async function generateRabbitHoleNodeContent(
+async function generateArticleOnly(
   prompt: string,
-  branchSuggestionRootQuestion: string,
-): Promise<NodeContentResult> {
+): Promise<RabbitHoleAIResponse> {
   const { data } = await generateRabbitHoleObject<RabbitHoleNode>({
     logContext: "generateRabbitHoleNode",
     startMessage: `Starting AI generation for rabbit hole node`,
@@ -67,21 +59,7 @@ async function generateRabbitHoleNodeContent(
     systemPrompt: RABBIT_HOLE_SYSTEM_PROMPT,
     prompt,
   });
-
-  const object = RabbitHoleAIResponseSchema.parse(data);
-
-  const branchSuggestionsPromise = generateBranchSuggestions({
-    context: object.articleHtml,
-    rootQuestion: branchSuggestionRootQuestion,
-  });
-
-  const [branchSuggestionsResult] = await Promise.all([
-    branchSuggestionsPromise,
-  ]);
-
-  const branchSuggestions = branchSuggestionsResult.data ?? [];
-
-  return { object, branchSuggestions };
+  return RabbitHoleAIResponseSchema.parse(data);
 }
 
 /**
@@ -266,72 +244,64 @@ Provide a comprehensive analysis that helps the user understand this source's ke
   }
 }
 
+export type GenerateRabbitHoleNodeOptions = {
+  onAfterSources?: (session: RabbitHoleSession) => Promise<void>;
+  onAfterArticle?: (session: RabbitHoleSession) => Promise<void>;
+  onAfterBranches?: (session: RabbitHoleSession) => Promise<void>;
+};
+
 /**
- * Follows a selected branch in a rabbit hole session by generating new content for that branch,
- * updating the session graph with a new node, and fetching external sources relevant to the branch.
+ * Parent orchestrator: runs Exa → article → branch suggestions in order,
+ * optionally calling checkpoint callbacks after each phase for incremental saves.
  *
  * @param session - The current RabbitHoleSession object.
- * @param nodeId - The ID of the branch to follow, as specified in the current node's branch suggestions.
+ * @param nodeId - The ID of the branch to follow.
+ * @param options - Optional callbacks invoked after sources, article, and branch suggestions.
  * @returns A promise that resolves to a Result containing the updated RabbitHoleSession or an error.
  */
 export async function generateRabbitHoleNode(
   session: RabbitHoleSession,
   nodeId: string,
+  options?: GenerateRabbitHoleNodeOptions,
 ): Promise<Result<RabbitHoleSession>> {
   let updatedNode: RabbitHoleNode;
   try {
     const isInitialNode = nodeId === session.rootNodeId;
 
-    /** Authenticate user */
     const clerkUser = await auth();
-
     if (!clerkUser || !clerkUser.userId) {
-      return {
-        data: null,
-        error: new Error("Unauthorized"),
-      };
+      return { data: null, error: new Error("Unauthorized") };
     }
 
-    /** Verify node is empty */
     updatedNode = { ...session.nodesById[nodeId] };
-
-    if (updatedNode.articleHtml) {
-      return {
-        data: null,
-        error: new Error("Node already has content"),
-      };
+    if (updatedNode.articleHtml?.trim()) {
+      return { data: null, error: new Error("Node already has content") };
     }
 
-    /** Build path summary */
     const pathHistory = buildPathHistory(session);
-
-    /** Refine/Clean the user question */
     const refinedQuestion = await generateRefinedQuestion(
       session,
       updatedNode.userQuestion,
       pathHistory,
     );
-
     updatedNode.refinedQuestion = refinedQuestion;
 
-    /** Gather sources */
-
-    // TODO: Implement LLM boosted search
-    // // Use lightweight LLM with search enable to gather sources
-    // const { data } = await generateObject({
-    //   model: openai("gpt-5-nano"),
-    //   prompt: `Gather sources for the following question: ${refinedQuestion}`
-    //   tools: {
-    //     exa_web_search: exaWebSearchTool
-    //   }
-    // })
-
-    // Search sources for this branch.
+    // Phase 1: Exa sources
     const { exaSources, sourcesContext, sourcesInstruction } =
       await fetchExternalSources(refinedQuestion, "generateRabbitHoleNode");
 
-    /** Build system prompt based on gathered context */
+    updatedNode.sources = exaSources;
+    if (!updatedNode.articleHtml?.trim()) {
+      updatedNode.articleHtml = PLACEHOLDER_ARTICLE_HTML;
+    }
+    let updatedSession: RabbitHoleSession = {
+      ...session,
+      nodesById: { ...session.nodesById, [nodeId]: updatedNode },
+      updatedAt: new Date().toISOString(),
+    };
+    await options?.onAfterSources?.(updatedSession);
 
+    // Phase 2: Article only
     const prompt = buildPrompt(
       isInitialNode,
       updatedNode.refinedQuestion ?? updatedNode.userQuestion,
@@ -340,37 +310,39 @@ export async function generateRabbitHoleNode(
       sourcesInstruction,
       "",
     );
-
-    const { object, branchSuggestions } = await generateRabbitHoleNodeContent(
-      prompt,
-      session.rootQuestion ||
-        (updatedNode.refinedQuestion ?? updatedNode.userQuestion),
-    );
-
-    /** Update node */
+    const object = await generateArticleOnly(prompt);
     updatedNode.articleHtml = object.articleHtml;
     updatedNode.keyTakeaways = object.keyTakeaways;
-    updatedNode.sources = exaSources;
-    updatedNode.branchSuggestions = branchSuggestions;
-    updatedNode.createdAt = new Date().toISOString();
     updatedNode.rawPrompt = updatedNode.userQuestion;
     updatedNode.userQuestion =
       updatedNode.refinedQuestion ?? updatedNode.userQuestion;
+    updatedNode.createdAt = new Date().toISOString();
 
-    /** Update session */
-    const updatedSession: RabbitHoleSession = {
+    updatedSession = {
       ...session,
-      nodesById: {
-        ...session.nodesById,
-        [nodeId]: updatedNode,
-      },
+      nodesById: { ...session.nodesById, [nodeId]: updatedNode },
       updatedAt: new Date().toISOString(),
     };
+    await options?.onAfterArticle?.(updatedSession);
 
-    return {
-      data: updatedSession,
-      error: null,
+    // Phase 3: Branch suggestions
+    const branchSuggestionRootQuestion =
+      session.rootQuestion ||
+      (updatedNode.refinedQuestion ?? updatedNode.userQuestion);
+    const branchResult = await generateBranchSuggestions({
+      context: updatedNode.articleHtml,
+      rootQuestion: branchSuggestionRootQuestion,
+    });
+    updatedNode.branchSuggestions = branchResult.data ?? [];
+
+    updatedSession = {
+      ...session,
+      nodesById: { ...session.nodesById, [nodeId]: updatedNode },
+      updatedAt: new Date().toISOString(),
     };
+    await options?.onAfterBranches?.(updatedSession);
+
+    return { data: updatedSession, error: null };
   } catch (error) {
     logger.error(
       "generateRabbitHoleNode",
