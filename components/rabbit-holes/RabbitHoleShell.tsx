@@ -30,6 +30,7 @@ import { RabbitHoleSourceList } from "@/app/rabbitholes/_components/RabbitHoleSo
 import { RabbitHoleSourceAnalysis } from "@/app/rabbitholes/_components/RabbitHoleSourceAnalysis";
 import { RabbitHoleAmbientLayer } from "@/app/rabbitholes/_components/RabbitHoleAmbientLayer";
 import { RabbitHoleLoadingState } from "@/app/rabbitholes/_components/RabbitHoleLoadingState";
+import { DelayedContent } from "@/app/rabbitholes/_components/DelayedContent";
 
 import { RabbitHolePromptBar } from "@/components/rabbit-holes/RabbitHolePromptBar";
 import { RabbitHoleEmptyState } from "@/components/rabbit-holes/main/RabbitHoleEmptyState";
@@ -293,18 +294,18 @@ export function RabbitHoleShell() {
             <div className="flex-1 h-full pr-2 px-4 pt-4 pb-36">
               <AnimatePresence mode="wait">
                 {centerViewState.kind === "loading_previous_session" && (
-                  <RabbitHoleLoadingState
-                    key="loading-session"
-                    variant="sources"
-                    message="Loading session..."
-                  />
+                  <DelayedContent key="loading-session" delayMs={400}>
+                    <RabbitHoleLoadingState
+                      variant="sources"
+                      message="Loading session..."
+                    />
+                  </DelayedContent>
                 )}
 
                 {centerViewState.kind === "loading_source_analysis" && (
-                  <RabbitHoleLoadingState
-                    key="analyzing-source"
-                    variant="sources"
-                  />
+                  <DelayedContent key="analyzing-source" delayMs={400}>
+                    <RabbitHoleLoadingState variant="sources" />
+                  </DelayedContent>
                 )}
 
                 {centerViewState.kind === "viewing_source_analysis" &&
@@ -318,11 +319,15 @@ export function RabbitHoleShell() {
                   )}
 
                 {centerViewState.kind === "generating_new_node" && (
-                  <RabbitHoleLoadingState
+                  <DelayedContent
                     key={`generating-${centerViewState.variant}`}
-                    variant={centerViewState.variant}
-                    preview={preview}
-                  />
+                    delayMs={400}
+                  >
+                    <RabbitHoleLoadingState
+                      variant={centerViewState.variant}
+                      preview={preview}
+                    />
+                  </DelayedContent>
                 )}
 
                 {centerViewState.kind === "article_loaded" && activeNode && activeNode.articleHtml && (
