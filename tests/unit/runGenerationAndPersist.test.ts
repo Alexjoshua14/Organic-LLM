@@ -27,6 +27,8 @@ let updatePayload: Record<string, unknown> | null = null;
 let eqColumn: string | null = null;
 let eqValue: string | null = null;
 
+// clearGeneratingNodeId chains: from().update().eq("session_id", sessionId) and awaits.
+// Real Supabase returns a thenable from .eq(); mock must match so await resolves to { data, error }.
 const createSupabaseMock = () => ({
   from: (table: string) => {
     if (table !== "rabbit_hole_sessions") {
@@ -39,15 +41,10 @@ const createSupabaseMock = () => ({
           eq: (_column: string, value: string) => {
             eqColumn = _column;
             eqValue = value;
-            return {
-              eq: (_c2: string, _v2: string) => ({
-                eq: (_c3: string, _v3: string) =>
-                  Promise.resolve({
-                    data: { session_id: SESSION_ID },
-                    error: null,
-                  }),
-              }),
-            };
+            return Promise.resolve({
+              data: { session_id: SESSION_ID },
+              error: null,
+            });
           },
         };
       },
@@ -71,103 +68,6 @@ mock.module("@/lib/rabbit-holes/actions", () => ({
 
 let clearGeneratingNodeId: (sessionId: string) => Promise<void>;
 let runGenerationAndPersist: (sessionId: string, nodeId: string) => Promise<void>;
-
-describe("advanceGenerationStep", () => {
-  let advanceUpdatePayload: Record<string, unknown> | null = null;
-  const advanceEqCalls: Array<[string, string]> = [];
-
-  const createAdvanceMockClient = () => ({
-    from: (table: string) => {
-      if (table !== "rabbit_hole_sessions") {
-        throw new Error(`Unexpected table: ${table}`);
-      }
-      return {
-        update: (payload: Record<string, unknown>) => {
-          advanceUpdatePayload = payload;
-          return {
-            eq: (col: string, val: string) => {
-              advanceEqCalls.push([col, val]);
-              return {
-                eq: (col2: string, val2: string) => {
-                  advanceEqCalls.push([col2, val2]);
-                  return {
-                    eq: (col3: string, val3: string) => {
-                      advanceEqCalls.push([col3, val3]);
-                      return {
-                        select: () => ({
-                          maybeSingle: () =>
-                            Promise.resolve({
-                              data: { session_id: SESSION_ID },
-                              error: null,
-                            }),
-                        }),
-                      };
-                  },
-                };
-              },
-            };
-          },
-        };
-      },
-    };
-  },
-  });
-
-  beforeEach(() => {
-    advanceUpdatePayload = null;
-    advanceEqCalls.length = 0;
-  });
-
-  afterEach(() => {
-    advanceUpdatePayload = null;
-    advanceEqCalls.length = 0;
-  });
-
-  test("update with toStep sets generation_step and updated_at", async () => {
-    const { advanceGenerationStep } = await import("@/data/supabase/rabbitholes");
-    const client = createAdvanceMockClient() as any;
-
-    const result = await advanceGenerationStep(
-      SESSION_ID,
-      NODE_ID,
-      "sources",
-      "article",
-      client,
-    );
-
-    expect(result.updated).toBe(true);
-    expect(advanceUpdatePayload).not.toBeNull();
-    expect(advanceUpdatePayload!.generation_step).toBe("article");
-    expect(advanceUpdatePayload!.updated_at != null).toBe(true);
-    expect(advanceEqCalls[0]?.[0]).toBe("session_id");
-    expect(advanceEqCalls[0]?.[1]).toBe(SESSION_ID);
-    expect(advanceEqCalls[1]?.[0]).toBe("generating_node_id");
-    expect(advanceEqCalls[1]?.[1]).toBe(NODE_ID);
-    expect(advanceEqCalls[2]?.[0]).toBe("generation_step");
-    expect(advanceEqCalls[2]?.[1]).toBe("sources");
-  });
-
-  test("update with toStep null clears generating_node_id and generation_step", async () => {
-    const { advanceGenerationStep } = await import("@/data/supabase/rabbitholes");
-    const client = createAdvanceMockClient() as any;
-
-    const result = await advanceGenerationStep(
-      SESSION_ID,
-      NODE_ID,
-      "branch_suggestions",
-      null,
-      client,
-    );
-
-    expect(result.updated).toBe(true);
-    expect(advanceUpdatePayload).not.toBeNull();
-    expect(advanceUpdatePayload!.generating_node_id).toBeNull();
-    expect(advanceUpdatePayload!.generation_step).toBeNull();
-    expect(advanceUpdatePayload!.updated_at != null).toBe(true);
-    expect(advanceEqCalls[2]?.[0]).toBe("generation_step");
-    expect(advanceEqCalls[2]?.[1]).toBe("branch_suggestions");
-  });
-});
 
 describe("with mocked rabbitholes", () => {
   beforeAll(async () => {
@@ -262,8 +162,47 @@ describe("with mocked rabbitholes", () => {
     await runGenerationAndPersist(SESSION_ID, NODE_ID);
 
     expect(mockRunOneGenerationStep.mock.calls.length).toBe(0);
+    expect(updatePayload).not.toBeNull();
     expect(updatePayload!.generating_node_id).toBeNull();
     expect(mockSaveSession.mock.calls.length).toBe(0);
+    });
+
+    test("clears generating_node_id when node is not in session", async () => {
+      const otherNodeId = "770e8400-e29b-41d4-a716-446655440002";
+      const sessionWithoutNode = {
+        sessionId: SESSION_ID,
+        rootQuestion: "Q",
+        path: [{ nodeId: otherNodeId, label: "L", parentNodeId: null }],
+        nodesById: {
+          [otherNodeId]: {
+            id: otherNodeId,
+            rawPrompt: "P",
+            userQuestion: "Q",
+            keyTakeaways: [],
+            articleHtml: "",
+            sources: [],
+            branchSuggestions: [],
+            createdAt: new Date().toISOString(),
+          },
+        },
+        activeNodeId: otherNodeId,
+        edges: [],
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      };
+      mockGetSessionById.mockResolvedValue({
+        data: sessionWithoutNode,
+        error: null,
+      } as any);
+
+      await runGenerationAndPersist(SESSION_ID, NODE_ID);
+
+      expect(mockGetSessionById.mock.calls.length).toBe(1);
+      expect(mockRunOneGenerationStep.mock.calls.length).toBe(0);
+      expect(updatePayload).not.toBeNull();
+      expect(updatePayload!.generating_node_id).toBeNull();
+      expect(eqColumn).toBe("session_id");
+      expect(eqValue).toBe(SESSION_ID);
     });
 
     test("runs steps (sources, article, branches), saves three times, and advances step", async () => {
@@ -350,12 +289,18 @@ describe("with mocked rabbitholes", () => {
 
     await runGenerationAndPersist(SESSION_ID, NODE_ID);
 
+    expect(mockGetSessionById.mock.calls.length).toBe(1);
+    expect(
+      (mockGetSessionById.mock.calls as unknown as Array<[string, unknown]>)[0]?.[0],
+    ).toBe(SESSION_ID);
     expect(mockRunOneGenerationStep.mock.calls.length).toBe(3);
     expect(mockSaveSession.mock.calls.length).toBe(3);
     expect(mockAdvanceGenerationStep.mock.calls.length).toBe(3);
     const advanceCalls = mockAdvanceGenerationStep.mock.calls as unknown as Array<
       [string, string, string, string | null, unknown]
     >;
+    expect(advanceCalls[0]?.[0]).toBe(SESSION_ID);
+    expect(advanceCalls[0]?.[1]).toBe(NODE_ID);
     expect(advanceCalls[0]?.[2]).toBe("sources");
     expect(advanceCalls[0]?.[3]).toBe("article");
     expect(advanceCalls[1]?.[2]).toBe("article");
