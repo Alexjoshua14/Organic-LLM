@@ -1,7 +1,7 @@
 "use client";
 
 import { motion, useAnimation, type AnimationControls } from "framer-motion";
-import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { cn } from "@/lib/utils";
 
 const FIGURE_HEIGHT = 180;
@@ -67,6 +67,8 @@ export function PipelineAnimation({ className }: { className?: string }) {
   const dbLlmSlotRef = useRef<HTMLDivElement>(null);
   const llmAnchorRef = useRef<HTMLDivElement>(null);
   const [slots, setSlots] = useState<Record<SlotName, SlotPosition>>(FALLBACK_SLOTS);
+  const [restartKey, setRestartKey] = useState(0);
+  const restart = useCallback(() => setRestartKey((k) => k + 1), []);
 
   const userMsgSlot = useAnimation();
   const msgToLlmSlot = useAnimation();
@@ -165,7 +167,25 @@ export function PipelineAnimation({ className }: { className?: string }) {
       const { x, y } = slots[slot];
       return { left: `${x}%`, top: `${y}%` };
     };
+    const resetToInitial = async () => {
+      await userMsgSlot.set({ ...fromSlot("userUser"), opacity: 0 });
+      await msgToLlmSlot.set({ ...fromSlot("nextjsUser"), opacity: 0 });
+      await toDbSlot.set({ ...fromSlot("nextjsUser"), opacity: 0 });
+      await finalToDbSlot.set({ ...fromSlot("nextjsLlm"), opacity: 0 });
+      await chunk1Slot.set({ ...fromSlot("llm"), opacity: 0 });
+      await chunk2Slot.set({ ...fromSlot("llm"), opacity: 0 });
+      await chunk3Slot.set({ ...fromSlot("llm"), opacity: 0 });
+      await nextJsAccum1.start({ opacity: 0 });
+      await nextJsAccum2.start({ opacity: 0 });
+      await nextJsAccum3.start({ opacity: 0 });
+      await nextJsLlmContainerVis.start({ opacity: 0 });
+      await userAccum1.start({ opacity: 0 });
+      await userAccum2.start({ opacity: 0 });
+      await userAccum3.start({ opacity: 0 });
+      await userLlmContainerVis.start({ opacity: 0 });
+    };
     const run = async () => {
+      await resetToInitial();
       while (!cancelled) {
         // 1. User message appears in user slot
         await userMsgSlot.set({ ...fromSlot("userUser"), opacity: 0 });
@@ -272,22 +292,8 @@ export function PipelineAnimation({ className }: { className?: string }) {
         await sleep(scale(1200));
         if (cancelled) break;
 
-        // Reset
-        await userMsgSlot.set({ ...fromSlot("userUser"), opacity: 0 });
-        await msgToLlmSlot.set({ ...fromSlot("nextjsUser"), opacity: 0 });
-        await toDbSlot.set({ ...fromSlot("nextjsUser"), opacity: 0 });
-        await finalToDbSlot.set({ ...fromSlot("nextjsLlm"), opacity: 0 });
-        await chunk1Slot.set({ ...fromSlot("llm"), opacity: 0 });
-        await chunk2Slot.set({ ...fromSlot("llm"), opacity: 0 });
-        await chunk3Slot.set({ ...fromSlot("llm"), opacity: 0 });
-        await nextJsAccum1.start({ opacity: 0 });
-        await nextJsAccum2.start({ opacity: 0 });
-        await nextJsAccum3.start({ opacity: 0 });
-        await nextJsLlmContainerVis.start({ opacity: 0 });
-        await userAccum1.start({ opacity: 0 });
-        await userAccum2.start({ opacity: 0 });
-        await userAccum3.start({ opacity: 0 });
-        await userLlmContainerVis.start({ opacity: 0 });
+        // Reset for next cycle
+        await resetToInitial();
         await sleep(scale(3200));
       }
     };
@@ -296,6 +302,7 @@ export function PipelineAnimation({ className }: { className?: string }) {
       cancelled = true;
     };
   }, [
+    restartKey,
     slots,
     userMsgSlot,
     msgToLlmSlot,
@@ -323,6 +330,14 @@ export function PipelineAnimation({ className }: { className?: string }) {
       role="figure"
       aria-label="Animated end-to-end pipeline"
     >
+      <button
+        type="button"
+        onClick={restart}
+        className="absolute top-2 right-2 z-40 rounded-md border border-border/60 bg-muted/80 px-2.5 py-1 text-xs font-medium text-muted-foreground shadow-sm hover:bg-muted hover:text-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
+        aria-label="Restart animation"
+      >
+        Restart
+      </button>
       <div
         ref={stageRef}
         className="relative mx-auto overflow-visible w-full sm:w-fit max-w-full"
@@ -384,9 +399,9 @@ export function PipelineAnimation({ className }: { className?: string }) {
         </div>
 
         {/* Vertical layout: left = User, TLS, Server, TLS, Database (centered); right = TLS (server height) + Cloud LLM, horizontally centered */}
-        <div className="grid grid-cols-[1fr_auto] gap-x-4 overflow-visible relative z-10 items-center min-h-[180px]">
+        <div className="grid grid-cols-[1fr_auto] overflow-visible relative z-10 items-center min-h-[180px]">
           {/* Left: User, TLS, Server, TLS, Database stacked; TLS same width as server (192px); vertically centered */}
-          <div className="flex flex-col justify-center items-center gap-y-1">
+          <div className="flex flex-col justify-center items-center">
             <div className={cn(BOUNDARY_STYLE, "w-[162px] relative z-10")}>
               <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
                 User
@@ -481,7 +496,7 @@ export function PipelineAnimation({ className }: { className?: string }) {
           </div>
 
           {/* Right: TLS (between server and LLM, same height as server) + Cloud LLM, horizontally centered */}
-          <div className="flex flex-row justify-center items-center gap-x-1">
+          <div className="flex flex-row justify-center items-center">
             <div
               className={cn(
                 TUNNEL_STYLE,

@@ -11,9 +11,10 @@ import {
 } from "@/components/chat/chat-loading";
 import { ChatAIActionEnum } from "@/types/ai";
 import type { ExaSearchResultSource } from "@/lib/exa/types";
+import { glass } from "@/components/design-system/primitives";
 
 const WRAPPER_CLASS =
-  "rounded-lg p-4 mb-4 bg-background-tertiary text-foreground";
+  `rounded-lg p-4 mb-4 shadow-md ${glass()}`
 
 /** Realistic search results for a “white holes” query — used across states. */
 const WHITE_HOLES_SOURCES: ExaSearchResultSource[] = [
