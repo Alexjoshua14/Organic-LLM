@@ -3,7 +3,7 @@
 import { useCallback, useRef, useState } from "react";
 import { useChat } from "@ai-sdk/react";
 import { ChatStatus } from "ai";
-import { NewChatInput } from "@/components/chat/new-chat-input";
+import { CoreInput } from "@/components/chat/core-input";
 import { ChatModel, DEFAULT_CHAT_MODEL } from "@/lib/schemas/chat";
 import { PromptInputProvider } from "@/components/third-party/ai-elements/prompt-input";
 import { Button } from "@heroui/button";
@@ -92,7 +92,7 @@ export function AdaptiveSandboxInput({
   if (inputMode === "chat") {
     return (
       <PromptInputProvider>
-        <NewChatInput
+        <CoreInput
           modelRef={modelRef}
           useWebSearchRef={useWebSearchRef}
           useMemoriesRef={useMemoriesRef}

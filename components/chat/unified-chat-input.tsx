@@ -37,7 +37,7 @@ export type UnifiedChatInputProps = {
 
 type KeypressState = (KeyAnimationConfig & { id: number }) | null;
 
-/** @deprecated UnifiedChatInput is deprecated. Use NewChatInput instead. */
+/** @deprecated UnifiedChatInput is deprecated. Use CoreInput instead. */
 export const UnifiedChatInput: React.FC<UnifiedChatInputProps> = ({
   value,
   onValueChange,

@@ -1,6 +1,6 @@
 import React, { FormEvent, useEffect, useState } from "react";
 import { PromptInput, PromptInputBody, PromptInputTextarea, PromptInputFooter, PromptInputMessage, PromptInputProvider, usePromptInputController } from "../third-party/ai-elements/prompt-input";
-import { PromptInputSubmit } from "../chat/new-chat-input";
+import { PromptInputSubmit } from "../chat/core-input";
 import { glass } from "../design-system/primitives";
 import { ChatStatus } from "ai";
 import ShinyText from "../ShinyText";

@@ -15,7 +15,7 @@ import { Thread } from "@/lib/schemas/chat";
 import { createLogger } from "@/lib/logger";
 import { useSharedChatContext } from "@/lib/context/chat-context";
 import { ChatModel, DEFAULT_CHAT_MODEL } from "@/lib/schemas/chat";
-import { NewChatInput } from "./new-chat-input";
+import { CoreInput } from "./core-input";
 import { Conversation, ConversationScrollButton } from "../third-party/ai-elements/conversation";
 import { useArchetypeContext } from "@/lib/context/archetype-context";
 import { ChatProps } from "./chat";
@@ -213,7 +213,7 @@ export const AionChat: React.FC<ChatProps> = ({
         <ChatThread messages={messages} />
         <ConversationScrollButton className="bottom-46" />
       </Conversation>
-      <NewChatInput
+      <CoreInput
         modelRef={selectedModelRef}
         useWebSearchRef={useWebSearchRef}
         useMemoriesRef={useMemoriesRef}

@@ -13,7 +13,7 @@ import {
   getWinesFromMessage,
   buildWineListMessage,
 } from "@/lib/schemas/wine-line-list";
-import { NewChatInput } from "@/components/chat/new-chat-input";
+import { CoreInput } from "@/components/chat/core-input";
 import { WineLineListStatus } from "./WineLineListStatus";
 import { WineLineListTable } from "./WineLineListTable";
 import { updateWineListMessage } from "../actions";
@@ -181,7 +181,7 @@ export function LineListShell({ chatData }: LineListShellProps) {
 
       <div className="absolute bottom-0 left-0 right-0 z-10">
         <div className="mx-auto max-w-3xl px-4 py-4 sm:px-6">
-          <NewChatInput
+          <CoreInput
             modelRef={modelRef}
             useWebSearchRef={useWebSearchRef}
             useMemoriesRef={useMemoriesRef}

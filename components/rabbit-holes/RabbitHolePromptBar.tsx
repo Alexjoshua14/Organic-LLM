@@ -4,7 +4,7 @@ import { useCallback, useRef } from "react";
 import { ChatStatus } from "ai";
 import { useChat } from "@ai-sdk/react";
 
-import { NewChatInput } from "@/components/chat/new-chat-input";
+import { CoreInput } from "@/components/chat/core-input";
 import { ChatModel, DEFAULT_CHAT_MODEL } from "@/lib/schemas/chat";
 import { PromptInputProvider } from "@/components/third-party/ai-elements/prompt-input";
 
@@ -23,18 +23,18 @@ export function RabbitHolePromptBar({
   isBusy,
   isLoading,
 }: RabbitHolePromptBarProps) {
-  // Create refs for NewChatInput (these features aren't used in rabbit hole but are required)
+  // Create refs for CoreInput (these features aren't used in rabbit hole but are required)
   const modelRef = useRef<ChatModel>(DEFAULT_CHAT_MODEL);
   const useWebSearchRef = useRef<boolean>(false);
   const useMemoriesRef = useRef<boolean>(false);
 
-  // Adapt onStart to the sendMessage interface expected by NewChatInput
+  // Adapt onStart to the sendMessage interface expected by CoreInput
   const sendMessage: ReturnType<typeof useChat>["sendMessage"] = useCallback(
     async (message) => {
       if (message && "text" in message && message.text?.trim()) {
         onStart(message.text.trim());
       }
-      // NewChatInput expects a Promise return; we don't use it for rabbit holes.
+      // CoreInput expects a Promise return; we don't use it for rabbit holes.
       return undefined as unknown as ReturnType<
         ReturnType<typeof useChat>["sendMessage"]
       >;
@@ -52,7 +52,7 @@ export function RabbitHolePromptBar({
 
   return (
     <PromptInputProvider>
-      <NewChatInput
+      <CoreInput
         modelRef={modelRef}
         useWebSearchRef={useWebSearchRef}
         useMemoriesRef={useMemoriesRef}

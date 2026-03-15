@@ -6,7 +6,7 @@ import { UIMessage, useChat } from "@ai-sdk/react";
 import { DefaultChatTransport } from "ai";
 import Page from "@/components/layout/page";
 import { ChatThread } from "@/components/chat/chat-thread";
-import { NewChatInput } from "@/components/chat/new-chat-input";
+import { CoreInput } from "@/components/chat/core-input";
 import { Conversation, ConversationScrollButton } from "@/components/third-party/ai-elements/conversation";
 import { ChatModel, DEFAULT_CHAT_MODEL } from "@/lib/schemas/chat";
 import {
@@ -225,7 +225,7 @@ function RemyTmpPageContent() {
             <ChatThread messages={messages} />
             <ConversationScrollButton className="bottom-40" />
           </Conversation>
-          <NewChatInput
+          <CoreInput
             modelRef={selectedModelRef}
             useWebSearchRef={useWebSearchRef}
             useMemoriesRef={useMemoriesRef}

@@ -34,7 +34,7 @@ import { motion } from "framer-motion";
 import { deleteEmptyChat } from "@/data/supabase/chat";
 import { useSharedChatContext } from "@/lib/context/chat-context";
 
-type NewChatInputProps = {
+type CoreInputProps = {
   modelRef: React.RefObject<ChatModel>,
   useWebSearchRef: React.RefObject<boolean>,
   useMemoriesRef: React.RefObject<boolean>,
@@ -53,7 +53,7 @@ type NewChatInputProps = {
   isBlankChat?: boolean;
 };
 
-export const NewChatInput: React.FC<NewChatInputProps> = ({
+export const CoreInput: React.FC<CoreInputProps> = ({
   modelRef,
   useWebSearchRef,
   useMemoriesRef,
@@ -328,7 +328,7 @@ export const NewChatInput: React.FC<NewChatInputProps> = ({
                 value={model.id}
                 required
               >
-                <PromptInputSelectTrigger className="max-w-32 min-w-0">
+                <PromptInputSelectTrigger className="flex-1 max-w-32 sm:max-w-48 min-w-0">
                   <PromptInputSelectValue className="truncate min-w-0" />
                 </PromptInputSelectTrigger>
                 <PromptInputSelectContent defaultValue={model.id} className="max-h-80 overflow-y-auto">

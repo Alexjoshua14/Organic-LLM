@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { UIMessage } from "ai";
 
 import { ChatThread, MEMORY_PANEL_RESERVE_PADDING } from "@/components/chat/chat-thread";
-import { NewChatInput } from "@/components/chat/new-chat-input";
+import { CoreInput } from "@/components/chat/core-input";
 import { MemoryEphemeralCards } from "@/components/memory/memory-ephemeral-cards";
 import { Conversation, ConversationScrollButton } from "@/components/third-party/ai-elements/conversation";
 import { glass } from "@/components/design-system/primitives";
@@ -214,7 +214,7 @@ export function InChatMemoryDemo({ className }: { className?: string }) {
             onOpenChange={onMemoryPanelOpenChange}
           />
           <div className="relative z-20">
-            <NewChatInput
+            <CoreInput
               modelRef={modelRef}
               useWebSearchRef={useWebSearchRef}
               useMemoriesRef={useMemoriesRef}
