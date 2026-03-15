@@ -81,42 +81,34 @@ export default function PrivacyAndSecurityPage() {
 
           <section id="what-we-do">
             <h2 className="text-foreground">What we do</h2>
-            <div className="relative left-1/2 right-0 mt-2 w-screen -translate-x-1/2">
-              <div className="mx-auto flex max-w-384 flex-wrap justify-center gap-3 px-4">
-                <div className="min-w-[min(100%,20rem)] flex-1 basis-80">
+            <div className="mx-auto mt-2 w-full max-w-384">
+              <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-4">
+                <PrivacyFeatureCard
+                  title={<DecryptedText text="Encryption" speed={60} />}
+                  subtitle="Your data stays protected"
+                  body="Conversations and personalized content is encrypted using AES-256, so that your information remains only yours."
+                />
+                <PrivacyFeatureCard
+                  title={
+                    <span className="font-mono text-foreground">
+                      [REDACTION]
+                    </span>
+                  }
+                  subtitle="Common personal data is redacted before even leaving your device"
+                  body="Safeguards ensure that even if you accidentally enter personal information such as emails, phone numbers, SSNs, and credit cards, we will never look at it."
+                />
+                <PrivacyFeatureCard
+                  title="We don't sell your data"
+                  subtitle="We will never share or sell your data for ads"
+                  body="We do not sell or share user data. We use opt-in analytics to improve the product only."
+                />
+                <ScrollOutDisappear scrollContainerRef={scrollContainerRef}>
                   <PrivacyFeatureCard
-                    title={<DecryptedText text="Encryption" speed={60} />}
-                    subtitle="Your data stays protected"
-                    body="Conversations and personalized content is encrypted using AES-256, so that your information remains only yours."
+                    title="Zero Data Retention"
+                    subtitle="We support third-party ZDR"
+                    body="You can opt in to zero data retention at any time. When enabled, third-party providers (including LLM providers) will not retain your prompts or outputs—so your conversations stay yours."
                   />
-                </div>
-                <div className="min-w-[min(100%,20rem)] flex-1 basis-80">
-                  <PrivacyFeatureCard
-                    title={
-                      <span className="font-mono text-foreground">
-                        [REDACTION]
-                      </span>
-                    }
-                    subtitle="Common personal data is redacted before even leaving your device"
-                    body="Safeguards ensure that even if you accidentally enter personal information such as emails, phone numbers, SSNs, and credit cards, we will never look at it."
-                  />
-                </div>
-                <div className="min-w-[min(100%,20rem)] flex-1 basis-80">
-                  <PrivacyFeatureCard
-                    title="We don't sell your data"
-                    subtitle="We will never share or sell your data for ads"
-                    body="We do not sell or share user data. We use opt-in analytics to improve the product only."
-                  />
-                </div>
-                <div className="min-w-[min(100%,20rem)] flex-1 basis-80">
-                  <ScrollOutDisappear scrollContainerRef={scrollContainerRef}>
-                    <PrivacyFeatureCard
-                      title="Zero Data Retention"
-                      subtitle="We support third-party ZDR"
-                      body="You can opt in to zero data retention at any time. When enabled, third-party providers (including LLM providers) will not retain your prompts or outputs—so your conversations stay yours."
-                    />
-                  </ScrollOutDisappear>
-                </div>
+                </ScrollOutDisappear>
               </div>
             </div>
           </section>

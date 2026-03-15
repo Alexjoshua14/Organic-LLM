@@ -23,7 +23,7 @@ export function ScrollOutDisappear({
     const observer = new IntersectionObserver(
       (entries) => {
         const [entry] = entries;
-        if (!entry.isIntersecting) setHasScrolledOut(true);
+        setHasScrolledOut(!entry.isIntersecting);
       },
       { root, rootMargin: "0px", threshold: 0 },
     );
