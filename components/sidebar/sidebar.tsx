@@ -8,9 +8,11 @@ import {
   SignUpButton,
 } from "@clerk/nextjs";
 import Link from "next/link";
+import { Suspense } from "react";
 
 import { SidebarChats } from "./sidebar-chats";
 import { SidebarNewChat } from "./sidebar-new-chat";
+import { SidebarProjectLink } from "./sidebar-project-link";
 
 import {
   Sidebar as ShadcnSidebar,
@@ -21,8 +23,6 @@ import {
   SidebarHeader,
   SidebarMenuButton,
 } from "@/components/third-party/ui/sidebar";
-import { SidebarProjectLink } from "./sidebar-project-link";
-import { Suspense } from "react";
 
 export function Sidebar() {
   return (
@@ -56,9 +56,21 @@ export function Sidebar() {
             <SidebarGroup className="shrink-0">
               <SidebarGroupContent className="flex flex-col gap-3">
                 <SidebarNewChat />
-                <SidebarProjectLink href="/rabbitholes/browse" title="Rabbit Holes" tooltip="Browse rabbit holes" />
-                <SidebarProjectLink href="/speak" title="Speak" tooltip="Prometheus text-to-speech" />
-                <SidebarProjectLink href="/remy" title="Remy" tooltip="Chat with Remy, your culinary co-chef" />
+                <SidebarProjectLink
+                  href="/rabbitholes/browse"
+                  title="Rabbit Holes"
+                  tooltip="Browse rabbit holes"
+                />
+                <SidebarProjectLink
+                  href="/speak"
+                  title="Speak"
+                  tooltip="Prometheus text-to-speech"
+                />
+                <SidebarProjectLink
+                  href="/remy"
+                  title="Remy"
+                  tooltip="Chat with Remy, your culinary co-chef"
+                />
                 <Input
                   classNames={{
                     input: ["bg-transparent", "hover:bg-transparent"],
@@ -81,15 +93,27 @@ export function Sidebar() {
               </SidebarGroupContent>
             </SidebarGroup>
             <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden">
-              <Suspense fallback={<div className="flex items-center justify-center py-8">Loading...</div>}>
+              <Suspense
+                fallback={
+                  <div className="flex items-center justify-center py-8">
+                    Loading...
+                  </div>
+                }
+              >
                 <SidebarChats />
               </Suspense>
             </div>
           </>
         </SignedIn>
       </SidebarContent>
-      <SidebarFooter>
+      <SidebarFooter className="flex flex-col gap-2">
         <SignedIn>
+          <Link
+            href="/privacy-and-security"
+            className="text-xs text-muted-foreground hover:text-foreground underline decoration-transparent hover:decoration-foreground/40"
+          >
+            Privacy & Security
+          </Link>
           <SignOutButton />
         </SignedIn>
       </SidebarFooter>
