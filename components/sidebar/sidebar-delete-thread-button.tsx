@@ -12,24 +12,20 @@ import {
 import { Tooltip } from "@heroui/tooltip";
 import { XIcon } from "lucide-react";
 import { useCallback } from "react";
+import { useRouter, usePathname } from "next/navigation";
 
 import { ThreadLink } from "@/types";
 import { deleteChat } from "@/data/supabase/chat";
 import { createLogger } from "@/lib/logger";
-import { useRouter, usePathname } from "next/navigation";
+import { useSharedChatContext } from "@/lib/context/chat-context";
 
-const logger = createLogger(
-  "components/sidebar/sidebar-delete-thread-button.tsx",
-);
+const logger = createLogger("components/sidebar/sidebar-delete-thread-button.tsx");
 
-export default function SidebarDeleteThreadButton({
-  thread,
-}: {
-  thread: ThreadLink;
-}) {
+export default function SidebarDeleteThreadButton({ thread }: { thread: ThreadLink }) {
   const { isOpen, onOpen, onClose, onOpenChange } = useDisclosure();
-  const pathname = usePathname()
-  const router = useRouter()
+  const pathname = usePathname();
+  const router = useRouter();
+  const { refreshSidebarChats } = useSharedChatContext();
 
   const deleteThread = useCallback(() => {
     const handleDeleteThread = async () => {
@@ -37,45 +33,27 @@ export default function SidebarDeleteThreadButton({
       const res = await deleteChat(threadID);
 
       if (res.ok) {
-        /** Refresh sidebar */
-        try {
-          if (window.refreshSidebar) {
-            window.refreshSidebar();
-          }
-        } catch (error) {
-          logger.error(
+        refreshSidebarChats();
+        onClose();
+        if (pathname === `/chat/${threadID}`) router.push("/");
+        else {
+          logger.log(
             "handleDeleteThread",
-            "Error refreshing sidebar:",
-            error,
+            `No redirect needed for path: ${pathname} !== /chat/${threadID}`
           );
         }
-        onClose();
-        if (pathname === `/chat/${threadID}`)
-          router.push("/");
-        else {
-          logger.log("handleDeleteThread", `No redirect needed for path: ${pathname} !== /chat/${threadID}`);
-        }
       } else {
-        logger.error(
-          "handleDeleteThread",
-          res.error?.message ?? "Unknown error",
-        );
+        logger.error("handleDeleteThread", res.error?.message ?? "Unknown error");
       }
     };
 
     logger.log("deleteThread", `Deleting thread: ${thread.title}`);
     handleDeleteThread();
-  }, [thread, pathname, router]);
+  }, [thread, pathname, router, refreshSidebarChats, onClose]);
 
   return (
     <>
-      <Tooltip
-        closeDelay={50}
-        content={"Delete Thread"}
-        offset={1}
-        placement="bottom"
-        size="sm"
-      >
+      <Tooltip closeDelay={50} content={"Delete Thread"} offset={1} placement="bottom" size="sm">
         <button
           className="hover:bg-background-tertiary w-full h-full flex items-center justify-center rounded px-1"
           onClick={(e) => {

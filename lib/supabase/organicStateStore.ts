@@ -8,11 +8,9 @@ import {
   defaultOrganicState,
 } from "../schemas/organicStateSchema";
 
-const supabase = createClient(
-  process.env.SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!,
-  { auth: { persistSession: false } },
-);
+const supabase = createClient(process.env.SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!, {
+  auth: { persistSession: false },
+});
 
 export async function getState(clerkUserId: string): Promise<OrganicState> {
   const { data, error } = await supabase
@@ -45,10 +43,7 @@ export async function getStateString(clerkUserId: string): Promise<string> {
   return JSON.stringify(state);
 }
 
-export async function saveState(
-  clerkUserId: string,
-  state: OrganicState,
-): Promise<void> {
+export async function saveState(clerkUserId: string, state: OrganicState): Promise<void> {
   const { error } = await supabase.from("organic_state").upsert({
     clerk_user_id: clerkUserId,
     state,

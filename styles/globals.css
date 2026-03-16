@@ -12,6 +12,8 @@
 @custom-variant dark (&:is(.dark *));
 
 @theme inline {
+  --text-2xs: 0.625rem; /* 10px, smaller than xs (12px) */
+
   --radius-sm: calc(var(--radius) - 4px);
 
   --radius-md: calc(var(--radius) - 2px);
@@ -114,7 +116,7 @@
 
   --accent: oklch(0.573 0.1049 174.44); /* #128C74 */
 
-  --accent-foreground: oklch(0.573 0.1049 174.44);
+  --accent-foreground: oklch(0.985 0 0);
 
   --destructive: oklch(0.577 0.245 27.325);
 
@@ -235,7 +237,12 @@
   }
 
   p {
-    @apply text-base leading-normal;
+    @apply text-base leading-snug sm:leading-normal;
+  }
+
+  ul li,
+  ol li {
+    @apply leading-snug;
   }
 
   h1,
@@ -245,6 +252,42 @@
   h5,
   h6 {
     @apply cursor-default select-none font-commissioner;
+  }
+
+  .page-transform {
+    @apply transition-all duration-150;
+  }
+}
+
+/* User font preference (applied by FontProvider) */
+body.font-theme-satoshi {
+  font-family: var(--font-satoshi), sans-serif;
+}
+body.font-theme-inter {
+  font-family: var(--font-inter), sans-serif;
+}
+body.font-theme-commissioner {
+  font-family: var(--font-commissioner), sans-serif;
+}
+
+/* Sandbox gateway button — organic motion */
+@keyframes sandbox-border-shift {
+  0%,
+  100% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+}
+
+@keyframes sandbox-shimmer {
+  0%,
+  100% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
   }
 }
 

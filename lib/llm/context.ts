@@ -22,9 +22,7 @@ export const getContext = async ({
   chatId,
   message,
   persona,
-}: getContextProps): Promise<
-  Result<{ prompt: string; messages: UIMessage[] }, string>
-> => {
+}: getContextProps): Promise<Result<{ prompt: string; messages: UIMessage[] }, string>> => {
   /** Validated messages holds latest n Messages ready for LLM processing */
   let validatedMessages: UIMessage[];
 
@@ -37,16 +35,10 @@ export const getContext = async ({
     });
 
     if (chatContextResult.error) {
-      logger.error(
-        "POST",
-        `Error getting chat context: ${chatContextResult.error}`,
-      );
+      logger.error("POST", `Error getting chat context: ${chatContextResult.error}`);
       validatedMessages = [message];
     } else {
-      validatedMessages = [
-        ...(chatContextResult.data?.messages ?? []),
-        message,
-      ];
+      validatedMessages = [...(chatContextResult.data?.messages ?? []), message];
       if (chatContextResult.data?.prompt) {
         systemPrompt = chatContextResult.data?.prompt;
       }
@@ -62,10 +54,7 @@ export const getContext = async ({
     // });
   } catch (err) {
     if (err instanceof TypeValidationError) {
-      logger.error(
-        "POST",
-        `Database messages validation failed: ${err.message}`,
-      );
+      logger.error("POST", `Database messages validation failed: ${err.message}`);
       validatedMessages = [message];
     } else {
       throw err;
@@ -81,7 +70,7 @@ export const getContext = async ({
     `System Prompt ${systemPromptTokens} tokens\n`,
     //`System Prompt: ${systemPrompt}\n`,
     `\n\n--------------------------------\n\n`,
-    `${validatedMessages.length} messages being sent to LLM`,
+    `${validatedMessages.length} messages being sent to LLM`
   );
 
   return {

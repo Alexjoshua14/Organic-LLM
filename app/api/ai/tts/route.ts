@@ -4,7 +4,7 @@ import { experimental_generateSpeech as generateSpeech, SpeechModel } from "ai";
 import { NextRequest, NextResponse } from "next/server";
 
 import { createLogger } from "@/lib/logger";
-import { transformTextToSpeechFriendlyV2 } from "@/lib/llm/text-to-speech";
+import { stripSpeechTags } from "@/lib/tts/speech-tags";
 
 const logger = createLogger("app/api/tts/route.ts");
 
@@ -35,10 +35,7 @@ export async function POST(req: NextRequest) {
 
   const parametersObtained = performance.now();
 
-  logger.log(
-    "TTS Route",
-    `Parameters obtained in ${parametersObtained - start} milliseconds`
-  );
+  logger.log("TTS Route", `Parameters obtained in ${parametersObtained - start} milliseconds`);
 
   let speechFriendlyText = text;
 
@@ -47,8 +44,9 @@ export async function POST(req: NextRequest) {
 
     try {
       // speechFriendlyText = await transformTextToSpeechFriendly(text);
-      speechFriendlyText = await transformTextToSpeechFriendlyV2(text);
-      logger.log("TTS Route", `Speech-friendly text: ${speechFriendlyText}`);
+      // TODO: Uncomment this when ready
+      // speechFriendlyText = await transformTextToSpeechFriendlyV2(text);
+      logger.log("TTS Route", `Speech-friendly text length: ${speechFriendlyText?.length ?? 0}`);
     } catch (error) {
       logger.error("TTS Route", `Error transforming text: ${error}`);
     } finally {
@@ -67,9 +65,7 @@ export async function POST(req: NextRequest) {
     speechModel = availableSpeechModels[0];
   } else {
     try {
-      speechModel = availableSpeechModels.find(
-        (m) => m.modelId === model
-      ) as SpeechModel;
+      speechModel = availableSpeechModels.find((m) => m.modelId === model) as SpeechModel;
     } catch (error) {
       logger.error("TTS Route", `Error finding model: ${error}`);
       speechModel = availableSpeechModels[0];
@@ -83,12 +79,14 @@ export async function POST(req: NextRequest) {
 
   const speechModelStartGeneration = performance.now();
 
+  const textForTTS = stripSpeechTags(speechFriendlyText);
+
   try {
     if (speechModel.provider === "elevenlabs.speech") {
       const { audio } = await generateSpeech({
         model: speechModel,
-        text: speechFriendlyText,
-        voice: "pFZP5JQG7iQjIQuC4Bku",
+        text: textForTTS,
+        voice: "19STyYD15bswVz51nqLf",
       });
 
       return NextResponse.json({ data: audio });
@@ -101,8 +99,8 @@ export async function POST(req: NextRequest) {
     } else {
       const { audio } = await generateSpeech({
         model: speechModel,
-        text: speechFriendlyText,
-        voice: "nova",
+        text: textForTTS,
+        voice: "marin",
       });
 
       return NextResponse.json({ data: audio });

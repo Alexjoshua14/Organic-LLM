@@ -47,11 +47,7 @@ export default async function ChatPage({
 
   return (
     <Page>
-      <ChatExperimental
-        chatData={chatData}
-        endpoint="/api/chat"
-        initialMessage={initialMessage}
-      />
+      <ChatExperimental chatData={chatData} endpoint="/api/chat" initialMessage={initialMessage} />
     </Page>
   );
 }

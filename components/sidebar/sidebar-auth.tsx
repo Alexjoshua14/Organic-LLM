@@ -1,10 +1,4 @@
-import {
-  SignedOut,
-  SignInButton,
-  SignUpButton,
-  SignedIn,
-  UserButton,
-} from "@clerk/nextjs";
+import { SignedOut, SignInButton, SignUpButton, SignedIn, UserButton } from "@clerk/nextjs";
 
 export const SidebarAuth = () => {
   return (

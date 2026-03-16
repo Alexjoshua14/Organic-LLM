@@ -3,12 +3,7 @@
 import { Fragment, useState } from "react";
 import { Button } from "@heroui/button";
 import { Divider } from "@heroui/divider";
-import {
-  CodeIcon,
-  GraduationCapIcon,
-  NewspaperIcon,
-  SparklesIcon,
-} from "lucide-react";
+import { CodeIcon, GraduationCapIcon, NewspaperIcon, SparklesIcon } from "lucide-react";
 import { useCallback } from "react";
 import { useRouter } from "next/navigation";
 
@@ -26,49 +21,49 @@ export const chatIdeas: {
   prompt: string;
   icon: React.ReactNode;
 }[] = [
-    {
-      title: "Create",
-      prompt: "Help me create something.",
-      icon: <SparklesIcon size={14} />,
-    },
-    {
-      title: "Explore",
-      prompt: "Help me explore something.",
-      icon: <NewspaperIcon size={14} />,
-    },
-    {
-      title: "Code",
-      prompt: "Help me code something.",
-      icon: <CodeIcon size={14} />,
-    },
-    {
-      title: "Learn",
-      prompt: "Help me learn something.",
-      icon: <GraduationCapIcon size={14} />,
-    },
-  ];
+  {
+    title: "Create",
+    prompt: "Help me create something.",
+    icon: <SparklesIcon size={14} />,
+  },
+  {
+    title: "Explore",
+    prompt: "Help me explore something.",
+    icon: <NewspaperIcon size={14} />,
+  },
+  {
+    title: "Code",
+    prompt: "Help me code something.",
+    icon: <CodeIcon size={14} />,
+  },
+  {
+    title: "Learn",
+    prompt: "Help me learn something.",
+    icon: <GraduationCapIcon size={14} />,
+  },
+];
 
 export const promptIdeas: {
   title: string;
   prompt: string;
 }[] = [
-    {
-      title: "How does AI work?",
-      prompt: "How does AI work?",
-    },
-    {
-      title: "Are white holes real?",
-      prompt: "Are white holes real?",
-    },
-    {
-      title: 'How many Bs are in the word "blueberry"?',
-      prompt: 'How many Bs are in the word "blueberry"?',
-    },
-    {
-      title: "What is the meaning of chat?",
-      prompt: "What is the meaning of chat?",
-    },
-  ];
+  {
+    title: "How does AI work?",
+    prompt: "How does AI work?",
+  },
+  {
+    title: "Are white holes real?",
+    prompt: "Are white holes real?",
+  },
+  {
+    title: 'How many Bs are in the word "blueberry"?',
+    prompt: 'How many Bs are in the word "blueberry"?',
+  },
+  {
+    title: "What is the meaning of chat?",
+    prompt: "What is the meaning of chat?",
+  },
+];
 
 export const NewChatNew: React.FC<NewChatProps> = ({ hidden: _hidden }) => {
   const router = useRouter();
@@ -120,10 +115,7 @@ export const NewChatNew: React.FC<NewChatProps> = ({ hidden: _hidden }) => {
       <div className="flex flex-col gap-2 w-full">
         {promptIdeas.map(({ title, prompt }, index) => (
           <Fragment key={`${title}-${index}`}>
-            <ChatTopicButton
-              title={title}
-              onPress={() => chatGeneratorButton(prompt)}
-            />
+            <ChatTopicButton title={title} onPress={() => chatGeneratorButton(prompt)} />
             {index < promptIdeas.length - 1 && <Divider />}
           </Fragment>
         ))}
@@ -138,10 +130,7 @@ export const ChatIdeaButton: React.FC<{
   icon: React.ReactNode;
 }> = ({ onPress, title, icon }) => {
   return (
-    <Button
-      className="rounded-full border border-border bg-background-secondary"
-      onPress={onPress}
-    >
+    <Button className="rounded-full border border-border bg-background-secondary" onPress={onPress}>
       {icon}
       {title}
     </Button>
@@ -153,11 +142,7 @@ export const ChatTopicButton: React.FC<{
   title: string;
 }> = ({ onPress, title }) => {
   return (
-    <Button
-      className="flex justify-start text-primary text-base"
-      variant="light"
-      onPress={onPress}
-    >
+    <Button className="flex justify-start text-primary text-base" variant="light" onPress={onPress}>
       {title}
     </Button>
   );

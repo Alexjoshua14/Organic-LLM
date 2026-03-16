@@ -1,23 +1,34 @@
 "use server";
 
 import { generateObject, generateText, NoObjectGeneratedError } from "ai";
+
 import {
   RabbitHoleAIResponse,
   RabbitHoleAIResponseSchema,
   RabbitHoleBranchSuggestionSchema,
-  RabbitHoleNodeSchema,
   RabbitHoleSourceAnalysisSchema,
-} from "@/app/rabbitholes/_lib/types";
+} from "@/lib/schemas/rabbitHoleSchemas";
 import { Result } from "@/types";
-
 import { createLogger } from "@/lib/logger";
+
+/** Optional usage from AI SDK (generateText / generateObject). */
+type LanguageModelUsage = {
+  inputTokens?: number;
+  outputTokens?: number;
+  promptTokens?: number;
+  completionTokens?: number;
+  totalTokens?: number;
+  reasoningTokens?: number;
+};
 import { openai } from "@ai-sdk/openai";
 
 import {
   BRANCH_SUGGESTIONS_SYSTEM_PROMPT,
+  CREATE_TITLE_SYSTEM_PROMPT,
   QUICK_PREVIEW_SYSTEM_PROMPT,
   SOURCE_ANALYSIS_SYSTEM_PROMPT,
 } from "@/lib/system-prompt/rabbit-hole";
+
 import { z } from "zod";
 
 const logger = createLogger("lib/llm/rabbit-hole/generation.ts");
@@ -82,10 +93,7 @@ export async function generateRabbitHoleObject<T>({
       );
     }
 
-    logger.log(
-      logContext,
-      `${keyTakeawayLabel}: ${(object as any).keyTakeaways?.[0] ?? "(none)"}`
-    );
+    logger.log(logContext, `${keyTakeawayLabel}: ${(object as any).keyTakeaways?.[0] ?? "(none)"}`);
 
     return { data: object, error: null };
   } catch (err) {
@@ -121,6 +129,7 @@ export async function generateSourceAnalysis({
     schema: RabbitHoleSourceAnalysisSchema.omit({ originalUrl: true }),
     temperature: 0.7,
   });
+
   return { object, usage };
 }
 
@@ -172,9 +181,12 @@ export async function generateBranchSuggestions({
   pathHistory,
   temperature = 0.7,
 }: GenerateBranchSuggestionsParams): Promise<
-  Result<z.infer<typeof RabbitHoleBranchSuggestionSchema>[]>
+  Result<z.infer<typeof RabbitHoleBranchSuggestionSchema>[]> & {
+    usage?: LanguageModelUsage;
+  }
 > {
   const logContext = "generateBranchSuggestions";
+
   logger.log(
     logContext,
     `Generating branch suggestions for context: ${context.substring(0, 100)}...`
@@ -223,6 +235,7 @@ export async function generateBranchSuggestions({
     return {
       data: object,
       error: null,
+      usage: usage ?? undefined,
     };
   } catch (err) {
     logger.error(
@@ -244,4 +257,36 @@ export async function generateBranchSuggestions({
       error: err instanceof Error ? err : new Error("Unknown error"),
     };
   }
+}
+
+export async function generateTitle({
+  html,
+}: {
+  html: string;
+}): Promise<Result<string> & { usage?: LanguageModelUsage }> {
+  let res;
+
+  try {
+    res = await generateText({
+      model: quickModel,
+      system: CREATE_TITLE_SYSTEM_PROMPT,
+      prompt: html,
+      maxOutputTokens: 80,
+    });
+
+    logger.log("generateTitle", `Title generated: ${res.text.trim()}`);
+  } catch (error) {
+    logger.error("generateTitle", `Error generating title: ${error}`);
+
+    return {
+      data: null,
+      error: error instanceof Error ? error : new Error("Unknown error"),
+    };
+  }
+
+  return {
+    data: res.text.trim(),
+    error: null,
+    usage: res.usage ?? undefined,
+  };
 }

@@ -30,7 +30,7 @@ export default function Home() {
         async accessToken() {
           return session?.getToken() ?? null;
         },
-      },
+      }
     );
   }
 
@@ -46,10 +46,7 @@ export default function Home() {
       setLoading(true);
       const { data, error } = await client.from("tasks").select();
 
-      logger.log(
-        "loadTasks",
-        `Data: ${JSON.stringify(data)}\nError: ${JSON.stringify(error)}`,
-      );
+      logger.log("loadTasks", `Data: ${JSON.stringify(data)}\nError: ${JSON.stringify(error)}`);
       if (!error) setTasks(data);
       setLoading(false);
     }
@@ -117,11 +114,7 @@ export default function Home() {
             <div className="flex items-center gap-3">
               <label className="text-sm opacity-70">
                 Priority:
-                <select
-                  className="ml-2 rounded border px-2 py-1"
-                  defaultValue="2"
-                  name="priority"
-                >
+                <select className="ml-2 rounded border px-2 py-1" defaultValue="2" name="priority">
                   <option value="1">High</option>
                   <option value="2">Medium</option>
                   <option value="3">Low</option>
@@ -139,11 +132,7 @@ export default function Home() {
 
               <label className="text-sm opacity-70">
                 Status:
-                <select
-                  className="ml-2 rounded border px-2 py-1"
-                  defaultValue="todo"
-                  name="status"
-                >
+                <select className="ml-2 rounded border px-2 py-1" defaultValue="todo" name="status">
                   <option value="todo">Todo</option>
                   <option value="doing">Doing</option>
                   <option value="done">Done</option>

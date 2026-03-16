@@ -164,6 +164,126 @@ export const sampleMemories: SearchResult[] = [
           userId: "user-123",
         },
       },
+      {
+        id: "mem-014",
+        memory:
+          "User frequently uses vector databases for semantic search and has experience with Qdrant for storing embeddings. They understand the importance of proper embedding dimensions.",
+        score: 0.88,
+        createdAt: "2025-01-02T14:10:00Z",
+        updatedAt: "2025-01-02T14:10:00Z",
+        metadata: {
+          category: "project",
+          userId: "user-123",
+        },
+      },
+      {
+        id: "mem-015",
+        memory:
+          "User prefers to test features incrementally rather than building large features all at once. They value quick feedback loops and iterative development.",
+        score: 0.84,
+        createdAt: "2025-01-01T11:30:00Z",
+        updatedAt: "2025-01-01T11:30:00Z",
+        metadata: {
+          category: "preferences",
+          userId: "user-123",
+        },
+      },
+      {
+        id: "mem-016",
+        memory:
+          "User is building a system that uses both Clerk for authentication and Supabase for database operations. They need to maintain user ID mappings between these services.",
+        score: 0.91,
+        createdAt: "2024-12-31T09:45:00Z",
+        updatedAt: "2024-12-31T09:45:00Z",
+        metadata: {
+          category: "project",
+          userId: "user-123",
+        },
+      },
+      {
+        id: "mem-017",
+        memory:
+          "User asked about implementing real-time updates in their chat interface and wants to ensure messages appear instantly without page refreshes.",
+        score: 0.87,
+        createdAt: "2024-12-30T16:20:00Z",
+        updatedAt: "2024-12-30T16:20:00Z",
+        metadata: {
+          category: "conversation",
+          userId: "user-123",
+        },
+      },
+      {
+        id: "mem-018",
+        memory:
+          "User mentioned they're experimenting with different LLM providers and wants to be able to switch between OpenAI, Anthropic, and local models easily.",
+        score: 0.89,
+        createdAt: "2024-12-29T13:15:00Z",
+        updatedAt: "2024-12-29T13:15:00Z",
+        metadata: {
+          category: "project",
+          userId: "user-123",
+        },
+      },
+      {
+        id: "mem-019",
+        memory:
+          "User prefers when AI assistants provide code examples with explanations rather than just code snippets. They learn better when they understand the reasoning.",
+        score: 0.83,
+        createdAt: "2024-12-28T10:50:00Z",
+        updatedAt: "2024-12-28T10:50:00Z",
+        metadata: {
+          category: "preferences",
+          userId: "user-123",
+        },
+      },
+      {
+        id: "mem-020",
+        memory:
+          "User is working on a feature that allows users to export their conversation history and memories. They want to ensure data portability and user control over their data.",
+        score: 0.92,
+        createdAt: "2024-12-27T15:30:00Z",
+        updatedAt: "2024-12-27T15:30:00Z",
+        metadata: {
+          category: "project",
+          userId: "user-123",
+        },
+      },
+      {
+        id: "mem-021",
+        memory:
+          "User mentioned they struggle with managing state in complex React applications and prefer using context providers or state management libraries for shared state.",
+        score: 0.81,
+        createdAt: "2024-12-26T12:00:00Z",
+        updatedAt: "2024-12-26T12:00:00Z",
+        metadata: {
+          category: "preferences",
+          userId: "user-123",
+        },
+      },
+      {
+        id: "mem-022",
+        memory:
+          "User asked about implementing streaming responses from AI models and wants to show tokens as they arrive rather than waiting for the complete response.",
+        score: 0.9,
+        createdAt: "2024-12-25T14:40:00Z",
+        updatedAt: "2024-12-25T14:40:00Z",
+        metadata: {
+          category: "conversation",
+          userId: "user-123",
+        },
+      },
+      {
+        id: "mem-023",
+        memory:
+          "User is interested in implementing role-based access control for their application and needs to ensure different user roles have appropriate permissions for memory access.",
+        score: 0.86,
+        createdAt: "2024-12-24T11:25:00Z",
+        updatedAt: "2024-12-24T11:25:00Z",
+        metadata: {
+          category: "project",
+          userId: "user-123",
+        },
+      },
     ],
     relations: [],
   },

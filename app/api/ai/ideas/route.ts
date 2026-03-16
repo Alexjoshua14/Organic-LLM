@@ -13,7 +13,7 @@ export async function POST(req: Request) {
   //   model: openai("gpt-4o"),
   //   messages: convertToModelMessages(messages),
   // });
-  logger.log("POST", `Recieved req: ${JSON.stringify(req)}`);
+  logger.log("POST", "Received ideas request");
 
   return NextResponse.json({ message: "Hello, world!" });
 }

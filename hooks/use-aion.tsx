@@ -1,16 +1,15 @@
 "use client";
 
 import { useChat } from "@ai-sdk/react";
-import { DefaultChatTransport, tool, UIMessage } from "ai";
+import { DefaultChatTransport, UIMessage } from "ai";
 import { useRef } from "react";
-import { ChatModel, DEFAULT_CHAT_MODEL } from "@/lib/schemas/chat";
 import { useRouter } from "next/navigation";
+
+import { ChatModel, DEFAULT_CHAT_MODEL } from "@/lib/schemas/chat";
+import { clientRandomUUID } from "@/lib/client-uuid";
 import { createLogger } from "@/lib/logger";
-import { NavigateToolInputSchema } from "@/lib/llm/core/coreToolKit";
-import z from "zod";
 
 const logger = createLogger("use-aion");
-
 
 export interface UseAionOptions {
   /**
@@ -53,7 +52,7 @@ export interface UseAionOptions {
  * Hook for interacting with the Aion core intelligence endpoint.
  * Provides a useChat-like interface for sending messages to /api/ai/core
  * and receiving streamed responses.
- * 
+ *
  * @example
  * ```tsx
  * const { messages, sendMessage, status, stop } = useAion({
@@ -63,7 +62,7 @@ export interface UseAionOptions {
  *     console.log("Message finished:", message);
  *   }
  * });
- * 
+ *
  * // Send a message
  * sendMessage({ text: "Hello, Aion!" });
  * ```
@@ -82,7 +81,7 @@ export function useAion(options: UseAionOptions = {}) {
   // Use refs to ensure we always send the latest model/memory settings
   const modelRef = useRef<ChatModel>(model);
   const memoryRef = useRef<boolean>(memory);
-  const { push } = useRouter()
+  const { push } = useRouter();
 
   // Update refs when options change
   if (modelRef.current !== model) {
@@ -94,7 +93,7 @@ export function useAion(options: UseAionOptions = {}) {
 
   const navigate = (route: string) => {
     push(route);
-  }
+  };
 
   const chat = useChat({
     id: id,
@@ -108,12 +107,19 @@ export function useAion(options: UseAionOptions = {}) {
         // Ensure we have a valid UUID for the request
         // Use conversationId from useChat if it's a valid UUID, otherwise generate one
         let requestId: string;
-        if (conversationId && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(conversationId)) {
+
+        if (
+          conversationId &&
+          /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(conversationId)
+        ) {
           requestId = conversationId;
-        } else if (id && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id)) {
+        } else if (
+          id &&
+          /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id)
+        ) {
           requestId = id;
         } else {
-          requestId = crypto.randomUUID();
+          requestId = clientRandomUUID();
         }
 
         return {
@@ -128,7 +134,10 @@ export function useAion(options: UseAionOptions = {}) {
     }),
     onFinish: ({ message }) => {
       try {
-        logger.log("onFinish", JSON.stringify(message, null, 2));
+        logger.log(
+          "onFinish",
+          `Message finished, role=${message?.role} parts=${message?.parts?.length ?? 0}`
+        );
 
         // Handle navigation from tool results in the message
         if (message?.parts) {
@@ -136,11 +145,18 @@ export function useAion(options: UseAionOptions = {}) {
             // Check for tool-result parts with navigate tool
             if (part.type === "tool-navigate") {
               const toolResultPart = part as { output?: unknown };
+
               if (toolResultPart.output) {
-                const result = toolResultPart.output as { route?: string; success?: boolean; reason?: string; message?: string };
+                const result = toolResultPart.output as {
+                  route?: string;
+                  success?: boolean;
+                  reason?: string;
+                  message?: string;
+                };
+
                 if (result?.route) {
                   logger.log("onFinish", `Navigating to: ${result.route}`);
-                  navigate(result.route)
+                  navigate(result.route);
                 }
               }
             }
@@ -164,7 +180,7 @@ export function useAion(options: UseAionOptions = {}) {
       }
     },
     onData: (data) => {
-      logger.log("Data Recieved in useAion's useChat", JSON.stringify(data, null, 2))
+      logger.log("Data Recieved in useAion's useChat", JSON.stringify(data, null, 2));
     },
     onError: onError,
   });

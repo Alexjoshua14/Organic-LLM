@@ -6,24 +6,22 @@ type ExperimentalLayout1Props = {
   userComponent: ReactNode;
 };
 
-
-
-export default function ExperimentalLayout1({ title, aiComponent, userComponent }: ExperimentalLayout1Props) {
-
-
+export default function ExperimentalLayout1({
+  title,
+  aiComponent,
+  userComponent,
+}: ExperimentalLayout1Props) {
   return (
-    <div> {/** Main Layout */}
-      <main> {/** Main content */}
-        <div>
-          {title}
-        </div>
-        <div>
-          {aiComponent}
-        </div>
-        <div>
-          {userComponent}
-        </div>
+    <div>
+      {" "}
+      {/** Main Layout */}
+      <main>
+        {" "}
+        {/** Main content */}
+        <div>{title}</div>
+        <div>{aiComponent}</div>
+        <div>{userComponent}</div>
       </main>
     </div>
-  )
+  );
 }

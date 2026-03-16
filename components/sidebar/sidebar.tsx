@@ -1,16 +1,12 @@
 import { Search } from "lucide-react";
 import { Input } from "@heroui/input";
-import {
-  SignedIn,
-  SignedOut,
-  SignInButton,
-  SignOutButton,
-  SignUpButton,
-} from "@clerk/nextjs";
+import { SignedIn, SignedOut, SignInButton, SignOutButton, SignUpButton } from "@clerk/nextjs";
 import Link from "next/link";
+import { Suspense } from "react";
 
 import { SidebarChats } from "./sidebar-chats";
 import { SidebarNewChat } from "./sidebar-new-chat";
+import { SidebarProjectLink } from "./sidebar-project-link";
 
 import {
   Sidebar as ShadcnSidebar,
@@ -21,7 +17,6 @@ import {
   SidebarHeader,
   SidebarMenuButton,
 } from "@/components/third-party/ui/sidebar";
-import { SidebarProjectLink } from "./sidebar-project-link";
 
 export function Sidebar() {
   return (
@@ -31,12 +26,12 @@ export function Sidebar() {
           className="group/brand cursor-pointer active:scale-95 transition-transform duration-150 font-commissioner"
           href="/"
         >
-          <h1 className="font-medium tracking-tight text-lg bg-linear-to-tl from-foreground-secondary to-foreground text-transparent bg-clip-text group-hover/brand:from-foreground duration-300 transition-colors">
+          <h1 className="font-medium tracking-tight text-lg bg-linear-to-tl from-foreground-secondary to-foreground text-transparent bg-clip-text group-hover/brand:from-foreground duration-300 transition-colors cursor-pointer">
             Organic LLM
           </h1>
         </Link>
       </SidebarHeader>
-      <SidebarContent className="bg-background-secondary subpixel-antialiased">
+      <SidebarContent className="bg-background-secondary subpixel-antialiased flex flex-col overflow-hidden ">
         <SignedOut>
           <SidebarGroup>
             <SidebarGroupContent className="w-full flex flex-col gap-4 items-center justify-center">
@@ -52,10 +47,24 @@ export function Sidebar() {
         </SignedOut>
         <SignedIn>
           <>
-            <SidebarGroup>
+            <SidebarGroup className="shrink-0">
               <SidebarGroupContent className="flex flex-col gap-3">
                 <SidebarNewChat />
-                <SidebarProjectLink href="/rabbitholes/browse" title="Rabbit Holes" tooltip="Browse rabbit holes" />
+                <SidebarProjectLink
+                  href="/rabbitholes/browse"
+                  title="Rabbit Holes"
+                  tooltip="Browse rabbit holes"
+                />
+                <SidebarProjectLink
+                  href="/speak"
+                  title="Speak"
+                  tooltip="Prometheus text-to-speech"
+                />
+                <SidebarProjectLink
+                  href="/remy"
+                  title="Remy"
+                  tooltip="Chat with Remy, your culinary co-chef"
+                />
                 <Input
                   classNames={{
                     input: ["bg-transparent", "hover:bg-transparent"],
@@ -66,11 +75,7 @@ export function Sidebar() {
                       "group-data-[focus=true]:bg-transparent",
                       "data-[hover=true]:bg-transparent",
                     ],
-                    mainWrapper: [
-                      "bg-transparent",
-                      "focus-within:bg-transparent",
-                    ],
-                    base: ["border-b-1", "border-background-tertiary"],
+                    mainWrapper: ["bg-transparent", "focus-within:bg-transparent"],
                   }}
                   label={<Search size={18} />}
                   labelPlacement="outside-left"
@@ -78,11 +83,17 @@ export function Sidebar() {
                 />
               </SidebarGroupContent>
             </SidebarGroup>
-            <SidebarChats />
+            <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden">
+              <Suspense
+                fallback={<div className="flex items-center justify-center py-8">Loading...</div>}
+              >
+                <SidebarChats />
+              </Suspense>
+            </div>
           </>
         </SignedIn>
       </SidebarContent>
-      <SidebarFooter>
+      <SidebarFooter className="flex flex-col gap-2">
         <SignedIn>
           <SignOutButton />
         </SignedIn>

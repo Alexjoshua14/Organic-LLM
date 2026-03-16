@@ -1,41 +1,15 @@
 /**
- * Container for Memory Settings Component
+ * Memory settings: persisted memory lens (what Organic LLM has stored and can retrieve).
  */
 
-import { MemoryCard } from '@/components/memory/memoryCard'
-import { sampleMemories } from '@/test-data/memory'
-import { Suspense, useMemo } from 'react'
-import { Separator } from '../third-party/ui/separator';
-import { Button } from '../third-party/ui/button';
-import { MemoryContainer } from '../memory/memoryContainer';
-
+import { MemoryLens } from "@/components/memory/memory-lens";
 
 const MemorySettings = () => {
-
-  const memories = useMemo(() => {
-    return sampleMemories;
-  }, []);
-
   return (
-    <section className="flex flex-col gap-8">
-      <div className="flex flex-col gap-2">
-        <h1 className="text-2xl font-bold">
-          {`Memories`}
-        </h1>
-
-        <div className="flex gap-4">
-          <Button variant="outline" size="sm" >
-            {`Add new memory`}
-          </Button>
-        </div>
-      </div>
-
-      <Suspense fallback={<div>Loading...</div>}>
-        <MemoryContainer />
-      </Suspense>
-
+    <section aria-label="Memory settings" className="flex flex-col gap-8 w-full">
+      <MemoryLens hideHeading className="w-full" variant="inline" />
     </section>
-  )
-}
+  );
+};
 
 export default MemorySettings;

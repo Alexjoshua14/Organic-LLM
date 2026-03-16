@@ -1,8 +1,16 @@
-import React, { FormEvent, useState } from "react";
-import { PromptInput, PromptInputBody, PromptInputTextarea, PromptInputFooter, PromptInputMessage, PromptInputProvider, usePromptInputController } from "../ai-elements/prompt-input";
-import { PromptInputSubmit } from "../chat/new-chat-input";
-import { glass } from "../design-system/primitives";
+import React, { FormEvent, useEffect, useState } from "react";
 import { ChatStatus } from "ai";
+
+import {
+  PromptInput,
+  PromptInputBody,
+  PromptInputTextarea,
+  PromptInputFooter,
+  PromptInputMessage,
+  PromptInputProvider,
+  usePromptInputController,
+} from "../third-party/ai-elements/prompt-input";
+import { PromptInputSubmit } from "../chat/core-input";
 import ShinyText from "../ShinyText";
 
 export interface AiInputFormProps extends Omit<React.HTMLAttributes<HTMLFormElement>, "onSubmit"> {
@@ -12,6 +20,9 @@ export interface AiInputFormProps extends Omit<React.HTMLAttributes<HTMLFormElem
   className?: string;
 }
 
+/** Max length to display in the "preserved" state to avoid layout/performance issues; full text is still sent. */
+const DISPLAY_MAX_LENGTH = 2000;
+
 const AiInputFormContent: React.FC<AiInputFormProps> = ({
   onSubmit,
   isLoading = false,
@@ -20,7 +31,14 @@ const AiInputFormContent: React.FC<AiInputFormProps> = ({
   ...props
 }) => {
   const { textInput } = usePromptInputController();
-  const [userQuery, setUserQuery] = useState<string>('')
+  const [userQuery, setUserQuery] = useState<string>("");
+
+  // Clear preserved text when we return to ready so we don't show stale content
+  useEffect(() => {
+    if (status === "ready") {
+      setUserQuery("");
+    }
+  }, [status]);
 
   const handleSubmit = async (message: PromptInputMessage, event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -29,32 +47,39 @@ const AiInputFormContent: React.FC<AiInputFormProps> = ({
     if (!hasText || isLoading) {
       return;
     }
-    setUserQuery(message.text)
+    // Preserve exactly what the user typed for display (React will escape on render — no innerHTML)
+    setUserQuery(message.text);
 
     await onSubmit(message.text);
     textInput.clear();
   };
 
-  return (
-    <PromptInput onSubmit={handleSubmit} multiple className={className}>
-      <PromptInputBody>
+  // Safe display: React escapes {text}; truncate only for layout, not for security
+  const displayText =
+    userQuery.length > DISPLAY_MAX_LENGTH
+      ? `${userQuery.slice(0, DISPLAY_MAX_LENGTH)}\u2026`
+      : userQuery || " ";
 
-        {status === 'ready' ?
+  return (
+    <PromptInput multiple className={className} onSubmit={handleSubmit}>
+      <PromptInputBody>
+        {status === "ready" ? (
           <PromptInputTextarea
+            autoFocus
+            className="text-lg! md:text-lg! placeholder:text-lg! caret-accent w-full placeholder:text-foreground/80"
             disabled={isLoading}
             placeholder="What do you want to explore?"
-            className="text-lg! md:text-lg! placeholder:text-lg! caret-accent w-full"
-            autoFocus
           />
-          : status === 'submitted' || status === 'streaming' ?
-            <ShinyText text={"HEY HEY HEY"} className="w-full h-24 p-4" />
-            : <h2 className="text-warning">An error has occured..</h2>
-        }
+        ) : status === "submitted" || status === "streaming" ? (
+          <ShinyText className="w-full h-24 p-4 min-h-24 overflow-auto" text={displayText} />
+        ) : (
+          <h2 className="text-warning">An error has occured..</h2>
+        )}
       </PromptInputBody>
       <PromptInputFooter className="flex justify-end">
         <PromptInputSubmit
-          status={status || 'ready'}
           disabled={!textInput.value.trim() || isLoading}
+          status={status || "ready"}
         />
       </PromptInputFooter>
     </PromptInput>

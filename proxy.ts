@@ -8,7 +8,9 @@ const isProtectedRoute = createRouteMatcher([
   "/archetype(.*)",
   "/speak(.*)",
   "/settings(.*)",
+  "/remy(.*)",
   "/(api|trpc)(.*)",
+  "/_next/server-actions(.*)",
 ]);
 
 /**
@@ -31,9 +33,7 @@ function chatMiddleware(request: NextRequest) {
 
     // Clean old entries
     const requests = rateLimitMap.get(userId) || [];
-    const recentRequests = requests.filter(
-      (time) => now - time < RATE_LIMIT_WINDOW
-    );
+    const recentRequests = requests.filter((time) => now - time < RATE_LIMIT_WINDOW);
 
     if (recentRequests.length >= MAX_REQUESTS) {
       // Redirect to home page if too many requests
@@ -52,10 +52,7 @@ export default clerkMiddleware(async (auth, req) => {
   const res = NextResponse.next();
 
   // Exclude webhooks from protection
-  if (
-    isProtectedRoute(req) &&
-    !req.nextUrl.pathname.startsWith("/api/webhooks")
-  ) {
+  if (isProtectedRoute(req) && !req.nextUrl.pathname.startsWith("/api/webhooks")) {
     await auth.protect();
   }
 

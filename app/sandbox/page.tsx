@@ -16,8 +16,7 @@ export default function SandboxPage() {
     },
     {
       title: "Tasks",
-      description:
-        "Full-featured task management with client and server-side functionality",
+      description: "Full-featured task management with client and server-side functionality",
       href: "/sandbox/tasks",
       icon: "✅",
       size: "large",
@@ -35,8 +34,7 @@ export default function SandboxPage() {
     },
     {
       title: "Text-to-Speech",
-      description:
-        "Generate speech-friendly responses optimized for audio playback",
+      description: "Generate speech-friendly responses optimized for audio playback",
       href: "/sandbox/tts",
       icon: "🔊",
       size: "large",
@@ -45,13 +43,40 @@ export default function SandboxPage() {
     },
     {
       title: "Prometheus",
-      description:
-        "Advanced AI interface with organic design and 3D visualization placeholder",
+      description: "Advanced AI interface with organic design and 3D visualization placeholder",
       href: "/sandbox/prometheus",
       icon: "🔥",
       size: "large",
       gradient: "from-green-400/20 to-emerald-500/20",
       hoverGradient: "hover:from-green-400/30 hover:to-emerald-500/30",
+    },
+    {
+      title: "Prototypes",
+      description: "UI and background experiments — silk-fabric gradient and more",
+      href: "/sandbox/prototypes",
+      icon: "✨",
+      size: "small",
+      gradient: "from-stone-300/20 to-amber-200/20",
+      hoverGradient: "hover:from-stone-300/30 hover:to-amber-200/30",
+    },
+    {
+      title: "Memory",
+      description: "Persisted memory lens, cards, and ephemeral in-chat preview",
+      href: "/sandbox/memory",
+      icon: "🧠",
+      size: "small",
+      gradient: "from-cyan-400/20 to-emerald-500/20",
+      hoverGradient: "hover:from-cyan-400/30 hover:to-emerald-500/30",
+    },
+    {
+      title: "Sandbox Platform",
+      description:
+        "Inspect and test real UI components, pipelines, and LLM-backed functions (Rabbit Holes scenarios)",
+      href: "/sandbox/platform",
+      icon: "🔬",
+      size: "large",
+      gradient: "from-violet-400/20 to-indigo-500/20",
+      hoverGradient: "hover:from-violet-400/30 hover:to-indigo-500/30",
     },
   ];
 
@@ -64,8 +89,8 @@ export default function SandboxPage() {
             Sandbox Gateway
           </h1>
           <p className="text-lg text-gray-600 dark:text-gray-400 max-w-2xl mx-auto">
-            Welcome to your development playground. Explore and experiment with
-            different features and tools.
+            Welcome to your development playground. Explore and experiment with different features
+            and tools.
           </p>
         </div>
 
@@ -144,8 +169,7 @@ export default function SandboxPage() {
         {/* Footer */}
         <div className="mt-12 text-center">
           <p className="text-sm text-gray-500 dark:text-gray-500">
-            Each sandbox is a self-contained experiment. Feel free to break
-            things and learn! 🚀
+            Each sandbox is a self-contained experiment. Feel free to break things and learn! 🚀
           </p>
         </div>
       </div>

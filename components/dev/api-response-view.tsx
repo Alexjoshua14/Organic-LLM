@@ -11,9 +11,7 @@ interface APIResponseProps {
   apiResponse: string;
 }
 
-export const APIResponseView: React.FC<APIResponseProps> = ({
-  apiResponse,
-}) => {
+export const APIResponseView: React.FC<APIResponseProps> = ({ apiResponse }) => {
   return (
     <Dialog>
       <DialogTrigger asChild>

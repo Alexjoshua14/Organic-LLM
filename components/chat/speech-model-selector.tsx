@@ -44,9 +44,7 @@ export const SpeechModelSelector: React.FC<SpeechModelSelectorProps> = ({
     },
   ];
 
-  const handleSelectedModelChange = (
-    e: React.ChangeEvent<HTMLSelectElement>,
-  ) => {
+  const handleSelectedModelChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     onModelChange(e.target.value);
   };
 
@@ -67,9 +65,7 @@ export const SpeechModelSelector: React.FC<SpeechModelSelectorProps> = ({
         <SelectItem key={model.key} textValue={model.label}>
           <div className="flex flex-col">
             <span className="text-sm">{model.label}</span>
-            <span className="text-xs text-muted-foreground">
-              {model.provider}
-            </span>
+            <span className="text-xs text-muted-foreground">{model.provider}</span>
           </div>
         </SelectItem>
       )}

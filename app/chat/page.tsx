@@ -1,4 +1,5 @@
 import { redirect } from "next/navigation";
+
 import { createChat } from "@/lib/chat/chat-store";
 import { createLogger } from "@/lib/logger";
 
@@ -15,5 +16,5 @@ export default async function ChatPage() {
 
   const id = res.data;
 
-  redirect(`/chat/${id}`)
+  redirect(`/chat/${id}`);
 }

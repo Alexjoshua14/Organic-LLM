@@ -1,11 +1,6 @@
 "use server";
 
-import {
-  IdeaCreate,
-  IdeaUpdate,
-  IdeaInsert,
-  IdeaPatch,
-} from "@/lib/schemas/ideas";
+import { IdeaCreate, IdeaUpdate, IdeaInsert, IdeaPatch } from "@/lib/schemas/ideas";
 import { supabaseServer } from "@/lib/supabase/server";
 
 // Create

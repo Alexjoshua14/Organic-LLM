@@ -22,9 +22,7 @@ export async function supabaseServer() {
           });
         },
       },
-      global: sbToken
-        ? { headers: { Authorization: `Bearer ${sbToken}` } }
-        : {},
-    },
+      global: sbToken ? { headers: { Authorization: `Bearer ${sbToken}` } } : {},
+    }
   );
 }

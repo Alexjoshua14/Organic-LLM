@@ -7,6 +7,7 @@ export function RabbitHoleAmbientLayer() {
     // Add keyframe animations via style tag if not already present
     if (typeof document !== "undefined" && !document.getElementById("rabbit-hole-ambient-styles")) {
       const style = document.createElement("style");
+
       style.id = "rabbit-hole-ambient-styles";
       style.textContent = `
         @keyframes rabbit-hole-ambient-shift {
@@ -56,4 +57,3 @@ export function RabbitHoleAmbientLayer() {
     </div>
   );
 }
-

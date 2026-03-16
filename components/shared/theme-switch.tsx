@@ -1,81 +1,107 @@
 "use client";
 
 import { FC } from "react";
-import { VisuallyHidden } from "@react-aria/visually-hidden";
-import { SwitchProps, useSwitch } from "@heroui/switch";
-import { useTheme } from "next-themes";
+import { Sun, Moon, SunMoon } from "lucide-react";
 import { useIsSSR } from "@react-aria/ssr";
 import clsx from "clsx";
 
-import { SunFilledIcon, MoonFilledIcon } from "@/components/shared/icons";
+import { useThrottledTheme } from "@/hooks/useThrottledTheme";
+
+export type ThemeOption = "system" | "light" | "dark";
+
+const THEME_OPTIONS: {
+  value: ThemeOption;
+  label: string;
+  Icon: FC<{ size?: number }>;
+}[] = [
+  { value: "system", label: "System", Icon: SunMoon },
+  { value: "light", label: "Light", Icon: Sun },
+  { value: "dark", label: "Dark", Icon: Moon },
+];
+
+const CYCLE_ORDER: ThemeOption[] = ["system", "light", "dark"];
+
+function nextTheme(current: ThemeOption): ThemeOption {
+  const i = CYCLE_ORDER.indexOf(current);
+
+  return CYCLE_ORDER[(i + 1) % CYCLE_ORDER.length];
+}
 
 export interface ThemeSwitchProps {
   className?: string;
-  classNames?: SwitchProps["classNames"];
+  /** Show text labels next to icons (e.g. in settings). Default false for icon-only. */
+  showLabels?: boolean;
+  /** Single button that cycles system → light → dark. Use in tight layouts (e.g. header). */
+  variant?: "segmented" | "compact";
 }
 
 export const ThemeSwitch: FC<ThemeSwitchProps> = ({
   className,
-  classNames,
+  showLabels = false,
+  variant = "segmented",
 }) => {
-  const { theme, setTheme } = useTheme();
+  const { theme, setTheme } = useThrottledTheme();
   const isSSR = useIsSSR();
 
-  const onChange = () => {
-    theme === "light" ? setTheme("dark") : setTheme("light");
-  };
+  const current: ThemeOption = isSSR
+    ? "system"
+    : theme === "light" || theme === "dark"
+      ? theme
+      : "system";
+  const option = THEME_OPTIONS.find((o) => o.value === current)!;
+  const { Icon } = option;
 
-  const {
-    Component,
-    slots,
-    isSelected,
-    getBaseProps,
-    getInputProps,
-    getWrapperProps,
-  } = useSwitch({
-    isSelected: theme === "light" || isSSR,
-    "aria-label": `Switch to ${theme === "light" || isSSR ? "dark" : "light"} mode`,
-    onChange,
-  });
+  if (variant === "compact") {
+    return (
+      <button
+        aria-label={`Theme: ${option.label}. Click to switch.`}
+        className={clsx(
+          "flex items-center justify-center rounded-md p-1.5 text-muted-foreground transition-colors",
+          "hover:bg-muted/60 hover:text-foreground",
+          "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",
+          className
+        )}
+        title={`${option.label} (click to change)`}
+        type="button"
+        onClick={() => setTheme(nextTheme(current))}
+      >
+        <Icon size={20} />
+      </button>
+    );
+  }
 
   return (
-    <Component
-      {...getBaseProps({
-        className: clsx(
-          "px-px transition-opacity hover:opacity-80 cursor-pointer",
-          className,
-          classNames?.base,
-        ),
-      })}
+    <div
+      aria-label="Theme"
+      className={clsx(
+        "inline-flex rounded-lg border border-border/60 bg-muted/30 p-0.5",
+        className
+      )}
+      role="group"
     >
-      <VisuallyHidden>
-        <input {...getInputProps()} />
-      </VisuallyHidden>
-      <div
-        {...getWrapperProps()}
-        className={slots.wrapper({
-          class: clsx(
-            [
-              "w-auto h-auto",
-              "bg-transparent",
-              "rounded-lg",
-              "flex items-center justify-center",
-              "group-data-[selected=true]:bg-transparent",
-              "text-default-500!",
-              "pt-px",
-              "px-0",
-              "mx-0",
-            ],
-            classNames?.wrapper,
-          ),
-        })}
-      >
-        {!isSelected || isSSR ? (
-          <SunFilledIcon size={22} />
-        ) : (
-          <MoonFilledIcon size={22} />
-        )}
-      </div>
-    </Component>
+      {THEME_OPTIONS.map(({ value, label, Icon: OptionIcon }) => {
+        const isSelected = current === value;
+
+        return (
+          <button
+            key={value}
+            aria-label={`${label} mode`}
+            aria-pressed={isSelected}
+            className={clsx(
+              "flex items-center justify-center gap-1.5 rounded-md px-2 py-1.5 text-muted-foreground transition-colors",
+              "hover:bg-muted/60 hover:text-foreground",
+              "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",
+              isSelected && "bg-background text-foreground shadow-sm"
+            )}
+            title={label}
+            type="button"
+            onClick={() => setTheme(value)}
+          >
+            <OptionIcon size={showLabels ? 18 : 20} />
+            {showLabels && <span className="text-xs font-medium">{label}</span>}
+          </button>
+        );
+      })}
+    </div>
   );
 };

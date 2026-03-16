@@ -3,19 +3,13 @@ import { UIMessage } from "ai";
 import Page from "@/components/layout/page";
 import { Chat } from "@/components/chat/chat";
 import { loadChat } from "@/lib/chat/chat-store";
-import { generateChatTitle } from "@/lib/llm/chat-helpers";
-import { getNMessages, updateChatTitle } from "@/data/supabase/chat";
+import { getNMessages } from "@/data/supabase/chat";
 import { Thread } from "@/lib/schemas/chat";
 import { createLogger } from "@/lib/logger";
-import { useSharedChatContext } from "@/lib/context/chat-context";
 
 const logger = createLogger(`app/chat/[slug]/page.tsx`);
 
-export default async function ChatPage({
-  params,
-}: {
-  params: Promise<{ slug: string }>;
-}) {
+export default async function ChatPage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug: chatId } = await params;
 
   const id = chatId;
@@ -31,16 +25,18 @@ export default async function ChatPage({
 
     chatData = chatDataRes.data;
 
-    getNMessages(chatId, 5)
-
+    getNMessages(chatId, 5);
   } catch (err) {
     logger.error("ChatPage", `Error while loading chat: ${err}`);
+
     return <div>Chat creation failed</div>;
   }
 
   return (
     <Page>
-      <Chat chatData={chatData} />
+      <div className="sm:max-w-[calc(100dvw-2rem)] md:max-w-[calc(100dvw-18rem)] lg:max-w-4xl w-full h-full">
+        <Chat chatData={chatData} />
+      </div>
     </Page>
   );
 }

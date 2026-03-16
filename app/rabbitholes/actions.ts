@@ -1,6 +1,16 @@
 "use server";
 
+/**
+ * @deprecated Rabbit Holes server actions have moved to `lib/rabbit-holes/*`.
+ * This file is kept temporarily for backward compatibility while imports are migrated.
+ *
+ * Prefer:
+ * - `lib/rabbit-holes/actions.ts` for server-side Rabbit Hole actions
+ * - `lib/rabbit-holes/useRabbitHoles.ts` for the client hook orchestrating session state
+ */
+
 import { randomUUID } from "crypto";
+
 import { auth } from "@clerk/nextjs/server";
 
 import { createLogger } from "@/lib/logger";
@@ -13,7 +23,7 @@ import {
   RabbitHoleAIResponse,
   RabbitHoleAIResponseSchema,
   RabbitHoleBranchSuggestion,
-} from "./_lib/types";
+} from "@/lib/schemas/rabbitHoleSchemas";
 import { Result } from "@/types";
 import {
   RABBIT_HOLE_SYSTEM_PROMPT,
@@ -56,6 +66,8 @@ type BranchBuildResult = {
 
 /**
  * Generate content for a branch follow-up, tracking latency and key takeaway.
+ *
+ * @deprecated Use `lib/rabbit-holes/actions.ts` generation pipeline instead.
  */
 async function generateBranchNodeContent(
   branchLabel: string,
@@ -81,6 +93,10 @@ async function generateBranchNodeContent(
 
   const object = RabbitHoleAIResponseSchema.parse(data);
 
+  if (!object.articleHtml) {
+    return { object, prompt, branchSuggestions: [] };
+  }
+
   const res = await generateBranchSuggestions({
     context: object.articleHtml,
     rootQuestion: `${branchLabel}\n${branchDescription}`,
@@ -100,6 +116,8 @@ async function generateBranchNodeContent(
  * @param sourcesInstruction - Instruction string for incorporating sources.
  * @param systemPrompt - System prompt string for the LLM.
  * @returns A promise that resolves to an object containing the generated RabbitHoleNode.
+ *
+ * @deprecated Use `generateQuickPreview` from `lib/rabbit-holes/actions.ts`.
  */
 export async function generateQuickPreview(
   question: string,
@@ -137,6 +155,7 @@ export async function generateQuickPreview(
     };
   } catch (error) {
     logger.error("generateQuickPreview", `Error generating preview: ${error}`);
+
     return {
       data: null,
       error: error instanceof Error ? error : new Error("Unknown error"),
@@ -146,6 +165,8 @@ export async function generateQuickPreview(
 
 /**
  * Generate the initial AI node content, tracking latency and logging key takeaway.
+ *
+ * @deprecated Use `lib/rabbit-holes/actions.ts` generation pipeline instead.
  */
 async function generateInitialNodeContent(
   question: string,
@@ -159,8 +180,7 @@ async function generateInitialNodeContent(
   const { data } = await generateRabbitHoleObject<RabbitHoleNode>({
     logContext: "createRabbitHoleSession",
     startMessage: `Starting AI generation for rabbit hole node\n\tprompt: ${question}`,
-    durationMessageBuilder: (durationMs) =>
-      `AI response completed in ${durationMs.toFixed(2)} ms`,
+    durationMessageBuilder: (durationMs) => `AI response completed in ${durationMs.toFixed(2)} ms`,
     keyTakeawayLabel: "First AI response key takeaway",
     systemPrompt: RABBIT_HOLE_SYSTEM_PROMPT,
     prompt,
@@ -170,7 +190,7 @@ async function generateInitialNodeContent(
   const object = RabbitHoleAIResponseSchema.parse(data);
 
   const res = await generateBranchSuggestions({
-    context: object.articleHtml,
+    context: object.articleHtml ?? "",
     rootQuestion: question,
   });
 
@@ -190,6 +210,8 @@ async function generateInitialNodeContent(
 
 /**
  * Build the initial session and node structures with IDs and truncated labels.
+ *
+ * @deprecated Use `lib/rabbit-holes/*` session construction instead.
  */
 type BuildInitialSessionParams = {
   rawPrompt: string;
@@ -222,8 +244,7 @@ function buildInitialSession({
 
   const pathSegment: RabbitHolePathSegment = {
     nodeId,
-    label:
-      userQuestion.substring(0, 60) + (userQuestion.length > 60 ? "..." : ""),
+    label: userQuestion.substring(0, 60) + (userQuestion.length > 60 ? "..." : ""),
     parentNodeId: null,
   };
 
@@ -244,6 +265,8 @@ function buildInitialSession({
 
 /**
  * Build a new node from branch content and update the session graph.
+ *
+ * @deprecated Use `lib/rabbit-holes/*` session graph updates instead.
  */
 function buildBranchNode(
   session: RabbitHoleSession,
@@ -264,8 +287,7 @@ function buildBranchNode(
 
   const pathSegment: RabbitHolePathSegment = {
     nodeId,
-    label:
-      branchLabel.substring(0, 60) + (branchLabel.length > 60 ? "..." : ""),
+    label: branchLabel.substring(0, 60) + (branchLabel.length > 60 ? "..." : ""),
     parentNodeId: session.activeNodeId ?? null,
   };
 
@@ -281,9 +303,7 @@ function buildBranchNode(
       [nodeId]: node,
     },
     activeNodeId: nodeId,
-    edges: newEdge
-      ? [...(session.edges ?? []), newEdge]
-      : [...(session.edges ?? [])],
+    edges: newEdge ? [...(session.edges ?? []), newEdge] : [...(session.edges ?? [])],
   };
 
   return { updatedSession, nodeId };
@@ -309,6 +329,8 @@ function buildBranchNode(
  *
  * @param {string} question - The user's root question for exploration.
  * @returns {Promise<Result<RabbitHoleSession>>} The result object containing the session or an error.
+ *
+ * @deprecated Prefer `lib/rabbit-holes/useRabbitHoles.ts` (`exploreQuestion`) and `lib/rabbit-holes/actions.ts`.
  */
 export async function createRabbitHoleSession(
   question: string
@@ -323,22 +345,20 @@ export async function createRabbitHoleSession(
   }
 
   try {
-    logger.log(
-      "createRabbitHoleSession",
-      `Creating session for question: ${question}`
-    );
+    logger.log("createRabbitHoleSession", `Creating session for question: ${question}`);
 
     // Pull external sources and derive prompt context.
-    const { exaSources, sourcesContext, sourcesInstruction } =
-      await fetchExternalSources(question, "createRabbitHoleSession");
+    const { exaSources, sourcesContext, sourcesInstruction } = await fetchExternalSources(
+      question,
+      "createRabbitHoleSession"
+    );
 
     // Ask the model for the initial rabbit hole content.
-    const { object, prompt, branchSuggestions } =
-      await generateInitialNodeContent(
-        question,
-        sourcesContext,
-        sourcesInstruction
-      );
+    const { object, prompt, branchSuggestions } = await generateInitialNodeContent(
+      question,
+      sourcesContext,
+      sourcesInstruction
+    );
     // Create the node and session shells that mirror the AI output.
     const { session, sessionId } = buildInitialSession({
       rawPrompt: prompt,
@@ -356,6 +376,7 @@ export async function createRabbitHoleSession(
     };
   } catch (error) {
     logger.error("createRabbitHoleSession", `Error creating session: ${error}`);
+
     return {
       data: null,
       error: error instanceof Error ? error : new Error("Unknown error"),
@@ -370,6 +391,8 @@ export async function createRabbitHoleSession(
  * @param session - The current RabbitHoleSession object.
  * @param branchId - The ID of the branch to follow, as specified in the current node's branch suggestions.
  * @returns A promise that resolves to a Result containing the updated RabbitHoleSession or an error.
+ *
+ * @deprecated Prefer `lib/rabbit-holes/useRabbitHoles.ts` (`followBranch`) and `lib/rabbit-holes/actions.ts`.
  */
 export async function followRabbitHoleBranch(
   session: RabbitHoleSession,
@@ -385,9 +408,7 @@ export async function followRabbitHoleBranch(
   }
 
   try {
-    const activeNode = session.activeNodeId
-      ? session.nodesById[session.activeNodeId]
-      : null;
+    const activeNode = session.activeNodeId ? session.nodesById[session.activeNodeId] : null;
 
     if (!activeNode) {
       return {
@@ -411,11 +432,10 @@ export async function followRabbitHoleBranch(
     );
 
     // Search sources for this branch.
-    const { exaSources, sourcesContext, sourcesInstruction } =
-      await fetchExternalSources(
-        `${branch.label} (${session.rootQuestion})`,
-        "followRabbitHoleBranch"
-      );
+    const { exaSources, sourcesContext, sourcesInstruction } = await fetchExternalSources(
+      `${branch.label} (${session.rootQuestion})`,
+      "followRabbitHoleBranch"
+    );
 
     // Build branch-specific system prompt and path history.
     const pathHistory = session.path.map((seg) => seg.label).join(" → ");
@@ -428,14 +448,13 @@ export async function followRabbitHoleBranch(
       .replace("{{branchLabel}}", branch.label);
 
     // Ask the model for the branch continuation content.
-    const { object, prompt, branchSuggestions } =
-      await generateBranchNodeContent(
-        branch.label,
-        branch.shortDescription || "",
-        sourcesContext,
-        sourcesInstruction,
-        systemPrompt
-      );
+    const { object, prompt, branchSuggestions } = await generateBranchNodeContent(
+      branch.label,
+      branch.shortDescription || "",
+      sourcesContext,
+      sourcesInstruction,
+      systemPrompt
+    );
 
     const node: RabbitHoleNode = {
       id: branchId,
@@ -453,17 +472,9 @@ export async function followRabbitHoleBranch(
     );
 
     // Build the node and updated session graph for this branch.
-    const { updatedSession, nodeId } = buildBranchNode(
-      session,
-      branch.label,
-      node,
-      exaSources
-    );
+    const { updatedSession, nodeId } = buildBranchNode(session, branch.label, node, exaSources);
 
-    logger.log(
-      "followRabbitHoleBranch",
-      `Branch followed, new node: ${nodeId}`
-    );
+    logger.log("followRabbitHoleBranch", `Branch followed, new node: ${nodeId}`);
 
     return {
       data: updatedSession,
@@ -471,6 +482,7 @@ export async function followRabbitHoleBranch(
     };
   } catch (error) {
     logger.error("followRabbitHoleBranch", `Error following branch: ${error}`);
+
     return {
       data: null,
       error: error instanceof Error ? error : new Error("Unknown error"),
@@ -500,6 +512,8 @@ export async function followRabbitHoleBranch(
  * @param {string} sourceTitle - The title of the source to analyze.
  * @param {string} [sourceSnippet] - An optional text snippet from the source to provide additional context.
  * @returns {Promise<Result<RabbitHoleSourceAnalysis>>} - The result containing the source analysis or an error.
+ *
+ * @deprecated Use `analyzeSource` from `lib/rabbit-holes/actions.ts`.
  */
 export async function analyzeSource(
   sourceUrl: string,
@@ -556,6 +570,7 @@ Provide a comprehensive analysis that helps the user understand this source's ke
     };
   } catch (error) {
     logger.error("analyzeSource", `Error analyzing source: ${error}`);
+
     return {
       data: null,
       error: error instanceof Error ? error : new Error("Unknown error"),

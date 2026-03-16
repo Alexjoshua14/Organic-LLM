@@ -39,18 +39,14 @@ export default function TTSPage() {
       if (!res.ok) {
         const errorData = await res.json();
 
-        throw new Error(
-          errorData.error || "Failed to generate speech-friendly response",
-        );
+        throw new Error(errorData.error || "Failed to generate speech-friendly response");
       }
 
       const data = await res.json();
 
       setResponse(data.text);
     } catch (err) {
-      setError(
-        err instanceof Error ? err.message : "An unexpected error occurred",
-      );
+      setError(err instanceof Error ? err.message : "An unexpected error occurred");
     } finally {
       setIsLoading(false);
     }
@@ -72,8 +68,7 @@ export default function TTSPage() {
             Text-to-Speech Sandbox
           </h1>
           <p className="text-lg text-gray-600 dark:text-gray-400">
-            Generate speech-friendly responses optimized for text-to-speech
-            playback
+            Generate speech-friendly responses optimized for text-to-speech playback
           </p>
         </div>
 
@@ -107,11 +102,7 @@ export default function TTSPage() {
                 onKeyDown={handleKeyDown}
                 onValueChange={setInput}
               />
-              {error && (
-                <p className="mt-2 text-sm text-red-600 dark:text-red-400">
-                  {error}
-                </p>
-              )}
+              {error && <p className="mt-2 text-sm text-red-600 dark:text-red-400">{error}</p>}
             </div>
 
             <Button
@@ -153,8 +144,8 @@ export default function TTSPage() {
 
             <div className="mt-4 pt-4 border-t border-gray-200 dark:border-gray-700">
               <p className="text-xs text-gray-500 dark:text-gray-400">
-                💡 This response has been optimized for text-to-speech playback
-                with natural pacing and speech-friendly formatting.
+                💡 This response has been optimized for text-to-speech playback with natural pacing
+                and speech-friendly formatting.
               </p>
             </div>
           </div>
@@ -166,18 +157,13 @@ export default function TTSPage() {
             About Speech-Friendly Responses
           </h3>
           <ul className="text-sm text-blue-800 dark:text-blue-200 space-y-2">
+            <li>• Responses are optimized for natural speech rhythm and flow</li>
             <li>
-              • Responses are optimized for natural speech rhythm and flow
-            </li>
-            <li>
-              • Special characters and formatting are avoided or converted to
-              speech-friendly alternatives
+              • Special characters and formatting are avoided or converted to speech-friendly
+              alternatives
             </li>
             <li>• Acronyms are spelled out for better pronunciation</li>
-            <li>
-              • Sentence length and structure are optimized for listening
-              comprehension
-            </li>
+            <li>• Sentence length and structure are optimized for listening comprehension</li>
             <li>• Ready for integration with text-to-speech functionality</li>
           </ul>
         </div>

@@ -1,18 +1,14 @@
 import { randomUUID } from "crypto";
+
+import { auth } from "@clerk/nextjs/server";
+import { streamText, UIMessage, convertToModelMessages, smoothStream, consumeStream } from "ai";
+
 import { getSupabaseUserId } from "@/data/supabase/profiles";
+import { checkLlmMessageLimit } from "@/lib/rate-limit/llm";
 import { getChatModel } from "@/lib/llm/helpers";
 import { createLogger } from "@/lib/logger";
 import { ChatRequestSchema, DEFAULT_CHAT_MODEL } from "@/lib/schemas/chat";
 import { CHAT_MODEL } from "@/lib/llm/helpers";
-import { openai } from "@ai-sdk/openai";
-import { auth } from "@clerk/nextjs/server";
-import {
-  streamText,
-  UIMessage,
-  convertToModelMessages,
-  smoothStream,
-  consumeStream,
-} from "ai";
 import { Aion_SYSTEM_INSTRUCTION } from "@/lib/system-prompt/aion";
 import { createCoreToolKit } from "@/lib/llm/core/coreToolKit";
 // TODO: Make this stream resumable, using some external source to the client for tracking running job
@@ -27,14 +23,10 @@ export const maxDuration = 30;
 export async function POST(req: Request) {
   const body = await req.json();
 
-  logger.log("POST", `Received request body: ${JSON.stringify(body)}`);
-
   const parseResult = ChatRequestSchema.safeParse(body);
   // Grab the selectedModel from either the parsed request body or default to DEFAULT_CHAT_MODEL
   const requestedModel = parseResult.data?.model;
-  const selectedModel = requestedModel
-    ? getChatModel(requestedModel)
-    : DEFAULT_CHAT_MODEL;
+  const selectedModel = requestedModel ? getChatModel(requestedModel) : DEFAULT_CHAT_MODEL;
 
   const memoryEnabled = parseResult.data?.memory;
 
@@ -68,14 +60,25 @@ export async function POST(req: Request) {
   }
   const sbUserId = sbUserIdResult.data;
 
-  logger.log("POST", `Received Message: ${JSON.stringify(message)}`);
+  const messageLimitResult = await checkLlmMessageLimit(sbUserId);
+
+  if (!messageLimitResult.success) {
+    return new Response(
+      JSON.stringify({
+        error: messageLimitResult.error ?? "Too many requests",
+      }),
+      { status: 429, headers: { "Content-Type": "application/json" } }
+    );
+  }
+
+  logger.log(
+    "POST",
+    `Received message metadata: id=${message.id ?? "unknown"} role=${message.role} parts=${message.parts?.length ?? 0}`
+  );
 
   // Format system prompt with current date
   const currentDateTime = new Date().toISOString();
-  let systemPrompt = Aion_SYSTEM_INSTRUCTION.replace(
-    "{{currentDateTime}}",
-    currentDateTime
-  );
+  let systemPrompt = Aion_SYSTEM_INSTRUCTION.replace("{{currentDateTime}}", currentDateTime);
 
   // Convert message to model format
   const messages = convertToModelMessages([message]);
@@ -89,10 +92,7 @@ export async function POST(req: Request) {
   const { toolset, instructions } = createCoreToolKit(sbUserId);
 
   // Fill in any additional instrucitons
-  systemPrompt = systemPrompt.replace(
-    "{{ADDITIONAL_INSTRUCTIONS}}",
-    instructions ?? ""
-  );
+  systemPrompt = systemPrompt.replace("{{ADDITIONAL_INSTRUCTIONS}}", instructions ?? "");
 
   const result = streamText({
     model: selectedModel.id,
@@ -111,9 +111,7 @@ export async function POST(req: Request) {
 
       // Stop if any tool call is to 'navigate'
       for (const step of ctx.steps) {
-        if (
-          step.toolCalls?.some((toolCall) => toolCall.toolName === "navigate")
-        ) {
+        if (step.toolCalls?.some((toolCall) => toolCall.toolName === "navigate")) {
           return true;
         }
       }
@@ -136,6 +134,7 @@ export async function POST(req: Request) {
       if (typeof error === "string") {
         return error;
       }
+
       return "An unexpected error occurred";
     },
     onFinish: async ({ messages }) => {

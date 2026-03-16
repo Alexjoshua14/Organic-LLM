@@ -1,4 +1,6 @@
 "use server";
+import { auth } from "@clerk/nextjs/server";
+
 import { supabaseServer } from "@/lib/supabase/server";
 import { Result } from "@/types";
 import { Profile, ProfileSchema } from "@/lib/schemas/profiles";
@@ -8,15 +10,9 @@ import { Profile, ProfileSchema } from "@/lib/schemas/profiles";
  * @param clerkUserId
  * @returns
  */
-export async function getProfile(
-  clerkUserId: string,
-): Promise<Result<Profile>> {
+export async function getProfile(clerkUserId: string): Promise<Result<Profile>> {
   const sb = await supabaseServer();
-  const res = await sb
-    .from("profiles")
-    .select("*")
-    .eq("clerk_user_id", clerkUserId)
-    .single();
+  const res = await sb.from("profiles").select("*").eq("clerk_user_id", clerkUserId).single();
 
   if (res.error) {
     return {
@@ -44,9 +40,7 @@ export async function getProfile(
  * @param clerkUserId
  * @returns User's supabase ID
  */
-export async function getSupabaseUserId(
-  clerkUserId: string,
-): Promise<Result<string>> {
+export async function getSupabaseUserId(clerkUserId: string): Promise<Result<string>> {
   const sb = await supabaseServer();
   const { data, error } = await sb
     .from("profiles")
@@ -65,4 +59,29 @@ export async function getSupabaseUserId(
     data: data.id,
     error: null,
   };
+}
+
+/**
+ * Whether the given user should see the sandbox gateway (admin-only entry).
+ * Defaults to true until the profiles.admin column exists; once it exists, respects profile.admin.
+ * Cached per user on the client — call from a server action for the current user.
+ */
+export async function getShowSandboxGateway(clerkUserId: string): Promise<boolean> {
+  const result = await getProfile(clerkUserId);
+
+  if (result.error || !result.data) return true;
+
+  return result.data.admin !== false;
+}
+
+/**
+ * Server action: whether the signed-in user should see the sandbox gateway.
+ * Use from the client and cache the result per userId.
+ */
+export async function getShowSandboxGatewayForCurrentUser(): Promise<boolean> {
+  const { userId } = await auth();
+
+  if (!userId) return false;
+
+  return getShowSandboxGateway(userId);
 }

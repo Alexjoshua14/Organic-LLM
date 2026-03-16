@@ -1,10 +1,4 @@
-export type Json =
-  | string
-  | number
-  | boolean
-  | null
-  | { [key: string]: Json | undefined }
-  | Json[];
+export type Json = string | number | boolean | null | { [key: string]: Json | undefined } | Json[];
 
 export type Database = {
   // Allows to automatically instantiate createClient with right options
@@ -140,6 +134,24 @@ export type Database = {
           },
         ];
       };
+      organic_state: {
+        Row: {
+          clerk_user_id: string;
+          state: Json;
+          updated_at: string;
+        };
+        Insert: {
+          clerk_user_id: string;
+          state: Json;
+          updated_at?: string;
+        };
+        Update: {
+          clerk_user_id?: string;
+          state?: Json;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
       profiles: {
         Row: {
           clerk_user_id: string;
@@ -163,6 +175,249 @@ export type Database = {
           id?: string;
         };
         Relationships: [];
+      };
+      rabbit_hole_branch_suggestions: {
+        Row: {
+          branch_id: string;
+          id: string;
+          label: string;
+          node_id: string;
+          session_id: string;
+          short_description: string | null;
+        };
+        Insert: {
+          branch_id: string;
+          id?: string;
+          label: string;
+          node_id: string;
+          session_id: string;
+          short_description?: string | null;
+        };
+        Update: {
+          branch_id?: string;
+          id?: string;
+          label?: string;
+          node_id?: string;
+          session_id?: string;
+          short_description?: string | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "rabbit_hole_branch_suggestions_session_id_fkey";
+            columns: ["session_id"];
+            isOneToOne: false;
+            referencedRelation: "rabbit_hole_sessions";
+            referencedColumns: ["session_id"];
+          },
+        ];
+      };
+      rabbit_hole_edges: {
+        Row: {
+          edge_type: string | null;
+          from_node_id: string;
+          id: string;
+          session_id: string;
+          to_node_id: string;
+        };
+        Insert: {
+          edge_type?: string | null;
+          from_node_id: string;
+          id?: string;
+          session_id: string;
+          to_node_id: string;
+        };
+        Update: {
+          edge_type?: string | null;
+          from_node_id?: string;
+          id?: string;
+          session_id?: string;
+          to_node_id?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "rabbit_hole_edges_session_id_fkey";
+            columns: ["session_id"];
+            isOneToOne: false;
+            referencedRelation: "rabbit_hole_sessions";
+            referencedColumns: ["session_id"];
+          },
+        ];
+      };
+      rabbit_hole_nodes: {
+        Row: {
+          article_html: string | null;
+          created_at: string;
+          id: string;
+          key_takeaways: string[];
+          node_id: string;
+          preview: string | null;
+          raw_prompt: string;
+          session_id: string;
+          user_question: string;
+        };
+        Insert: {
+          article_html?: string | null;
+          created_at?: string;
+          id?: string;
+          key_takeaways: string[];
+          node_id: string;
+          preview?: string | null;
+          raw_prompt: string;
+          session_id: string;
+          user_question: string;
+        };
+        Update: {
+          article_html?: string | null;
+          created_at?: string;
+          id?: string;
+          key_takeaways?: string[];
+          node_id?: string;
+          preview?: string | null;
+          raw_prompt?: string;
+          session_id?: string;
+          user_question?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "rabbit_hole_nodes_session_id_fkey";
+            columns: ["session_id"];
+            isOneToOne: false;
+            referencedRelation: "rabbit_hole_sessions";
+            referencedColumns: ["session_id"];
+          },
+        ];
+      };
+      rabbit_hole_path_segments: {
+        Row: {
+          id: string;
+          label: string;
+          node_id: string;
+          parent_node_id: string | null;
+          position: number;
+          session_id: string;
+        };
+        Insert: {
+          id?: string;
+          label: string;
+          node_id: string;
+          parent_node_id?: string | null;
+          position: number;
+          session_id: string;
+        };
+        Update: {
+          id?: string;
+          label?: string;
+          node_id?: string;
+          parent_node_id?: string | null;
+          position?: number;
+          session_id?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "rabbit_hole_path_segments_session_id_fkey";
+            columns: ["session_id"];
+            isOneToOne: false;
+            referencedRelation: "rabbit_hole_sessions";
+            referencedColumns: ["session_id"];
+          },
+        ];
+      };
+      rabbit_hole_sessions: {
+        Row: {
+          active_node_id: string | null;
+          created_at: string;
+          generating_node_id: string | null;
+          generation_step: string | null;
+          id: string;
+          owner_id: string;
+          root_question: string;
+          session_id: string;
+          updated_at: string;
+        };
+        Insert: {
+          active_node_id?: string | null;
+          created_at?: string;
+          generating_node_id?: string | null;
+          generation_step?: string | null;
+          id?: string;
+          owner_id?: string;
+          root_question: string;
+          session_id: string;
+          updated_at?: string;
+        };
+        Update: {
+          active_node_id?: string | null;
+          created_at?: string;
+          generating_node_id?: string | null;
+          generation_step?: string | null;
+          id?: string;
+          owner_id?: string;
+          root_question?: string;
+          session_id?: string;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "rabbit_hole_sessions_owner_id_fkey";
+            columns: ["owner_id"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      rabbit_hole_sources: {
+        Row: {
+          analysis: Json | null;
+          author: string | null;
+          favicon_url: string | null;
+          highlights: string[] | null;
+          id: string;
+          node_id: string;
+          published_date: string | null;
+          session_id: string;
+          snippet: string | null;
+          source_id: string;
+          title: string;
+          url: string;
+        };
+        Insert: {
+          analysis?: Json | null;
+          author?: string | null;
+          favicon_url?: string | null;
+          highlights?: string[] | null;
+          id?: string;
+          node_id: string;
+          published_date?: string | null;
+          session_id: string;
+          snippet?: string | null;
+          source_id: string;
+          title: string;
+          url: string;
+        };
+        Update: {
+          analysis?: Json | null;
+          author?: string | null;
+          favicon_url?: string | null;
+          highlights?: string[] | null;
+          id?: string;
+          node_id?: string;
+          published_date?: string | null;
+          session_id?: string;
+          snippet?: string | null;
+          source_id?: string;
+          title?: string;
+          url?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "rabbit_hole_sources_session_id_fkey";
+            columns: ["session_id"];
+            isOneToOne: false;
+            referencedRelation: "rabbit_hole_sessions";
+            referencedColumns: ["session_id"];
+          },
+        ];
       };
       tasks: {
         Row: {
@@ -264,28 +519,40 @@ export type Database = {
       };
       threads: {
         Row: {
+          active_stream_id: string | null;
+          active_stream_started_at: string | null;
           conversation_summary: string | null;
           created_at: string;
+          flags: number;
           id: string;
           owner_id: string;
+          persisted_schemas: Json | null;
           pinned: boolean;
           title: string | null;
           updated_at: string;
         };
         Insert: {
+          active_stream_id?: string | null;
+          active_stream_started_at?: string | null;
           conversation_summary?: string | null;
           created_at?: string;
+          flags?: number;
           id?: string;
           owner_id: string;
+          persisted_schemas?: Json | null;
           pinned?: boolean;
           title?: string | null;
           updated_at?: string;
         };
         Update: {
+          active_stream_id?: string | null;
+          active_stream_started_at?: string | null;
           conversation_summary?: string | null;
           created_at?: string;
+          flags?: number;
           id?: string;
           owner_id?: string;
+          persisted_schemas?: Json | null;
           pinned?: boolean;
           title?: string | null;
           updated_at?: string;
@@ -340,14 +607,8 @@ export type Database = {
       [_ in never]: never;
     };
     Functions: {
-      clerk_sub: {
-        Args: Record<PropertyKey, never>;
-        Returns: string;
-      };
-      current_profile_id: {
-        Args: Record<PropertyKey, never>;
-        Returns: string;
-      };
+      clerk_sub: { Args: never; Returns: string };
+      current_profile_id: { Args: never; Returns: string };
     };
     Enums: {
       message_schema_kind: "ui_message";
@@ -361,10 +622,7 @@ export type Database = {
 
 type DatabaseWithoutInternals = Omit<Database, "__InternalSupabase">;
 
-type DefaultSchema = DatabaseWithoutInternals[Extract<
-  keyof Database,
-  "public"
->];
+type DefaultSchema = DatabaseWithoutInternals[Extract<keyof Database, "public">];
 
 export type Tables<
   DefaultSchemaTableNameOrOptions extends
@@ -385,10 +643,8 @@ export type Tables<
     }
     ? R
     : never
-  : DefaultSchemaTableNameOrOptions extends keyof (DefaultSchema["Tables"] &
-        DefaultSchema["Views"])
-    ? (DefaultSchema["Tables"] &
-        DefaultSchema["Views"])[DefaultSchemaTableNameOrOptions] extends {
+  : DefaultSchemaTableNameOrOptions extends keyof (DefaultSchema["Tables"] & DefaultSchema["Views"])
+    ? (DefaultSchema["Tables"] & DefaultSchema["Views"])[DefaultSchemaTableNameOrOptions] extends {
         Row: infer R;
       }
       ? R

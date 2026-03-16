@@ -1,209 +1,226 @@
 "use server";
 
+/**
+ * Public memory server actions — zero client-supplied identity.
+ *
+ * The client never sends userId or memoryId (except memoryId for delete, which is
+ * validated against ownership). Identity is always resolved server-side via
+ * getCurrentUserMem0UserId() (Clerk auth + Supabase profile). Only these five
+ * actions are callable from the client; low-level store functions are server-only.
+ */
+
+import { SearchMemoryOptions, SearchResult } from "mem0ai/oss";
+import { auth } from "@clerk/nextjs/server";
+
 import {
-  MemoryItem,
-  Message,
-  SearchMemoryOptions,
-  SearchResult,
-} from "mem0ai/oss";
-import { UIMessage } from "@ai-sdk/react";
+  searchMemories as storeSearchMemories,
+  getAllMemories as storeGetAllMemories,
+  deleteMemory as storeDeleteMemory,
+  wipeMemory as storeWipeMemory,
+} from "./store";
 
-import { getMemory } from "./client";
-
-import { createLogger } from "@/lib/logger";
-import { convertUIMessageToMem0Message } from "../chat/message-transform";
-
-const logger = createLogger("lib/memory/operations.ts");
+import { Result } from "@/types";
+import { getSupabaseUserId } from "@/data/supabase/profiles";
+import {
+  checkMemorySearchLimit,
+  checkMemoryListLimit,
+  checkMemoryDeleteLimit,
+  checkMemoryWipeLimit,
+} from "@/lib/rate-limit/memory";
 
 /**
- * Searches for memories based on a query.
- * By default grabs top 3 relevant memories.
- *
- * @param query - The query to search for
- * @param userId - The ID of the user to search memories for
- * @param options - Optional search options
- * @returns - The search results
+ * Resolves the current request's user to the Mem0 user key (Supabase user id).
+ * Use this in server-only entry points that operate on the "current user's" memories.
  */
-export async function searchMemories(
+async function getCurrentUserMem0UserId(): Promise<Result<string, string>> {
+  const { userId: clerkUserId } = await auth();
+
+  if (!clerkUserId) {
+    return { data: null, error: "Not signed in" };
+  }
+  const sbResult = await getSupabaseUserId(clerkUserId);
+
+  if (sbResult.error || sbResult.data === null) {
+    return { data: null, error: "User profile not found" };
+  }
+
+  return { data: sbResult.data, error: null };
+}
+
+/**
+ * Server-only memory search for the current user. Uses Clerk auth and Supabase
+ * profile to resolve the Mem0 user key before searching.
+ */
+export async function searchMemoriesServer(
   query: string,
-  userId: string,
   options?: SearchMemoryOptions
-): Promise<SearchResult> {
-  if (!userId) {
-    throw new Error("User ID is required");
-  }
-
-  const memory = getMemory();
-
-  logger.log("searchMemories", `Searching for memories: ${query}`);
-
-  const result = await memory.search(query, {
-    userId,
-    limit: options?.limit ?? 3,
-    ...options,
-  });
-
-  logger.log("searchMemories", `Found ${result.results?.length} memories`);
-
-  return result;
-}
-
-export async function getAllMemories(userId: string): Promise<SearchResult> {
-  if (!userId) {
-    throw new Error("User ID is required");
-  }
-
-  const memory = getMemory();
-
-  const result: SearchResult = await memory.getAll({ userId });
-
-  return result;
-}
-
-/**
- * Adds the latest messages to memory
- * Should only contain new messages
- *
- * @param messages - The messages to add to memory
- * @param userId
- * @returns
- */
-export async function addLatestMessagesToMemory(
-  messages: UIMessage[],
-  userId: string
-): Promise<SearchResult> {
-  if (!userId) {
-    throw new Error("User ID is required");
-  }
-
-  const memory = getMemory();
-
-  logger.log(
-    "addLatestMessagesToMemory",
-    `Adding ${messages.length} messages to memory`
-  );
-
-  const interactions: Message[] = messages.map((m) =>
-    convertUIMessageToMem0Message(m, "chat_id_placeholder")
-  );
-
-  const result = await memory.add(interactions, {
-    userId,
-  });
-
-  logger.log(
-    "addLatestMessagesToMemory",
-    `Added ${result.results?.length} messages to memory`
-  );
-  logger.log(
-    "addLatestMessagesToMemory",
-    `Results: ${JSON.stringify(result.results)}`
-  );
-
-  return result;
-}
-
-/**
- * Adds an interaction to a memory, should just be latest message to AI and it's response
- *
- */
-export async function addInteractionToMemory(
-  userQuery: string,
-  aiResponse: string,
-  userId: string
-): Promise<SearchResult> {
-  if (!userId) {
-    throw new Error("User ID is required");
-  }
-  logger.log("addInteractionToMemory", `Adding interaction to memory`);
-
-  const memory = getMemory();
-
-  let result: SearchResult;
-
+): Promise<Result<SearchResult, string>> {
   try {
-    const interaction: Message[] = [
-      {
-        role: "user",
-        content: userQuery,
-      },
-      {
-        role: "assistant",
-        content: aiResponse,
-      },
-    ];
+    const userIdResult = await getCurrentUserMem0UserId();
 
-    result = await memory.add(interaction, {
-      userId,
-    });
-    logger.log("addInteractionToMemory", `Added interaction to memory`);
-    logger.log(
-      "addInteractionToMemory",
-      `Results: ${JSON.stringify(result.results)}`
-    );
+    if (userIdResult.error || userIdResult.data === null) {
+      return { data: null, error: userIdResult.error ?? "Not signed in" };
+    }
+
+    const limitResult = await checkMemorySearchLimit(userIdResult.data);
+
+    if (!limitResult.success) {
+      return { data: null, error: limitResult.error ?? "Too many requests" };
+    }
+
+    if (typeof query !== "string" || query.length > 2000) {
+      return { data: null, error: "Invalid or too long query" };
+    }
+
+    const result = await storeSearchMemories(query, userIdResult.data, options);
+
+    return { data: result, error: null };
   } catch (error) {
-    logger.error(
-      "addInteractionToMemory",
-      "Error adding interaction to memory:",
-      error
-    );
-
     return {
-      results: [],
-      relations: [],
+      data: null,
+      error: error instanceof Error ? error.message : "Unknown error",
     };
   }
-
-  return result;
 }
 
 /**
- * Wipes all memories for a user
- *
- * @param userId - The ID of the user to wipe memory for
- * @returns True if memory wiped, false if errored
- * TODO: Clean up return type to return a more useful result
+ * Fetches all persisted memories for the current user (for Memory Lens UI).
+ * Uses Clerk auth + Supabase profile to resolve user id for Mem0.
  */
-export async function wipeMemory(userId: string): Promise<boolean> {
-  if (!userId) {
-    throw new Error("User ID is required");
-  }
-
+export async function getCurrentUserMemories(): Promise<Result<SearchResult, string>> {
   try {
-    const memory = getMemory();
+    const userIdResult = await getCurrentUserMem0UserId();
 
-    await memory.deleteAll({ userId });
-    logger.log("wipeMemory", "Memory wiped successfully");
+    if (userIdResult.error || userIdResult.data === null) {
+      return { data: null, error: userIdResult.error ?? "Not signed in" };
+    }
+
+    const limitResult = await checkMemoryListLimit(userIdResult.data);
+
+    if (!limitResult.success) {
+      return { data: null, error: limitResult.error ?? "Too many requests" };
+    }
+
+    const result = await storeGetAllMemories(userIdResult.data);
+
+    return { data: result, error: null };
   } catch (error) {
-    logger.error("wipeMemory", "Error wiping memory:", error);
-
-    return false;
+    return {
+      data: null,
+      error: error instanceof Error ? error.message : "Unknown error",
+    };
   }
-
-  return true;
 }
 
 /**
- * Deletes a memory from the database
- *
- * @param memoryId - The ID of the memory to delete
- * @returns - True if memory deleted, false if errored
- * TODO: Clean up return type to return a more useful result
+ * Fetches up to N memories for the current user matching a semantic search query.
+ * Uses Clerk auth + Supabase profile; useful for curated lens views (e.g. sandbox demo).
  */
-export async function deleteMemory(memoryId: string): Promise<boolean> {
-  const memory = getMemory();
-
-  if (!memoryId) {
-    throw new Error("Memory ID is required");
-  }
-
+export async function getCurrentUserMemoriesBySearch(
+  query: string,
+  limit: number = 5
+): Promise<Result<SearchResult, string>> {
   try {
-    await memory.delete(memoryId);
+    const userIdResult = await getCurrentUserMem0UserId();
+
+    if (userIdResult.error || userIdResult.data === null) {
+      return { data: null, error: userIdResult.error ?? "Not signed in" };
+    }
+
+    const limitResult = await checkMemorySearchLimit(userIdResult.data);
+
+    if (!limitResult.success) {
+      return { data: null, error: limitResult.error ?? "Too many requests" };
+    }
+
+    if (typeof query !== "string" || query.length > 2000) {
+      return { data: null, error: "Invalid or too long query" };
+    }
+    const clampedLimit = Math.min(100, Math.max(1, Number(limit) || 5));
+
+    const result = await storeSearchMemories(query, userIdResult.data, {
+      limit: clampedLimit,
+    });
+
+    return { data: result, error: null };
   } catch (error) {
-    logger.error("deleteMemory", "Error deleting memory:", error);
-
-    return false;
+    return {
+      data: null,
+      error: error instanceof Error ? error.message : "Unknown error",
+    };
   }
+}
 
-  return true;
+/**
+ * Server-only delete for the current user. Verifies the memory belongs to the
+ * current user (via scoped getAll) before calling Mem0 delete. Use this from
+ * the UI instead of deleteMemory.
+ */
+export async function deleteMemoryForCurrentUser(
+  memoryId: string
+): Promise<Result<boolean, string>> {
+  try {
+    const userIdResult = await getCurrentUserMem0UserId();
+
+    if (userIdResult.error || userIdResult.data === null) {
+      return { data: null, error: userIdResult.error ?? "Not signed in" };
+    }
+
+    const limitResult = await checkMemoryDeleteLimit(userIdResult.data);
+
+    if (!limitResult.success) {
+      return { data: null, error: limitResult.error ?? "Too many requests" };
+    }
+
+    const trimmedId = typeof memoryId === "string" ? memoryId.trim() : "";
+
+    if (!trimmedId || trimmedId.length > 256) {
+      return { data: null, error: "Invalid memory ID" };
+    }
+
+    const owned = await storeGetAllMemories(userIdResult.data);
+    const belongsToUser = owned.results?.some((m) => m.id === trimmedId);
+
+    if (!belongsToUser) {
+      return { data: null, error: "Memory not found" };
+    }
+
+    const ok = await storeDeleteMemory(trimmedId);
+
+    return { data: ok, error: null };
+  } catch (error) {
+    return {
+      data: null,
+      error: error instanceof Error ? error.message : "Unknown error",
+    };
+  }
+}
+
+/**
+ * Server-only wipe for the current user. Resolves the current user and wipes
+ * all their memories. Use this from the UI for the "wipe memory" button.
+ */
+export async function wipeMemoryForCurrentUser(): Promise<Result<boolean, string>> {
+  try {
+    const userIdResult = await getCurrentUserMem0UserId();
+
+    if (userIdResult.error || userIdResult.data === null) {
+      return { data: null, error: userIdResult.error ?? "Not signed in" };
+    }
+
+    const limitResult = await checkMemoryWipeLimit(userIdResult.data);
+
+    if (!limitResult.success) {
+      return { data: null, error: limitResult.error ?? "Too many requests" };
+    }
+
+    const ok = await storeWipeMemory(userIdResult.data);
+
+    return { data: ok, error: null };
+  } catch (error) {
+    return {
+      data: null,
+      error: error instanceof Error ? error.message : "Unknown error",
+    };
+  }
 }

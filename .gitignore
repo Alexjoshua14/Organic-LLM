@@ -43,3 +43,11 @@ package-lock.json
 .chats
 memory.db
 
+# Private analysis and notes
+.private/
+.context/
+
+# Local profile (personal data, never committed)
+.local-profile.md
+.local-profile-overrides.ts
+

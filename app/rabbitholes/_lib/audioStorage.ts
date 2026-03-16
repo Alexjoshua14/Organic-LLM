@@ -1,8 +1,9 @@
 const DB_NAME = "rabbit-hole-audio";
-const DB_VERSION = 1;
+const DB_VERSION = 2;
 const STORE_NAME = "audio";
 
 interface AudioRecord {
+  sessionId: string;
   nodeId: string;
   audioUrl: string;
   generatedAt: number;
@@ -21,11 +22,16 @@ function initDB(): Promise<IDBDatabase> {
 
     request.onupgradeneeded = (event) => {
       const db = (event.target as IDBOpenDBRequest).result;
+
       if (!db.objectStoreNames.contains(STORE_NAME)) {
         const objectStore = db.createObjectStore(STORE_NAME, {
           keyPath: "nodeId",
         });
+
         objectStore.createIndex("generatedAt", "generatedAt", {
+          unique: false,
+        });
+        objectStore.createIndex("sessionId", "sessionId", {
           unique: false,
         });
       }
@@ -38,6 +44,7 @@ function initDB(): Promise<IDBDatabase> {
 export async function getAudioForNode(nodeId: string): Promise<string | null> {
   try {
     const db = await initDB();
+
     return new Promise((resolve, reject) => {
       const transaction = db.transaction([STORE_NAME], "readonly");
       const store = transaction.objectStore(STORE_NAME);
@@ -45,6 +52,7 @@ export async function getAudioForNode(nodeId: string): Promise<string | null> {
 
       request.onsuccess = () => {
         const record = request.result as AudioRecord | undefined;
+
         resolve(record?.audioUrl || null);
       };
 
@@ -52,11 +60,13 @@ export async function getAudioForNode(nodeId: string): Promise<string | null> {
     });
   } catch (error) {
     console.warn("Failed to get audio from IndexedDB:", error);
+
     return null;
   }
 }
 
 export async function saveAudioForNode(
+  sessionId: string,
   nodeId: string,
   audioData: Uint8Array
 ): Promise<string> {
@@ -68,10 +78,12 @@ export async function saveAudioForNode(
 
     // Save to IndexedDB
     const db = await initDB();
+
     return new Promise((resolve, reject) => {
       const transaction = db.transaction([STORE_NAME], "readwrite");
       const store = transaction.objectStore(STORE_NAME);
       const record: AudioRecord = {
+        sessionId,
         nodeId,
         audioUrl,
         generatedAt: Date.now(),
@@ -87,13 +99,12 @@ export async function saveAudioForNode(
     // Still return URL even if save fails
     const data = new Uint8Array(audioData);
     const blob = new Blob([data], { type: "audio/mpeg" });
+
     return URL.createObjectURL(blob);
   }
 }
 
-export async function cleanupOldAudio(
-  maxAge: number = 7 * 24 * 60 * 60 * 1000
-) {
+export async function cleanupOldAudio(maxAge: number = 7 * 24 * 60 * 60 * 1000) {
   try {
     const db = await initDB();
     const transaction = db.transaction([STORE_NAME], "readwrite");
@@ -106,8 +117,10 @@ export async function cleanupOldAudio(
 
       request.onsuccess = (event) => {
         const cursor = (event.target as IDBRequest<IDBCursorWithValue>).result;
+
         if (cursor) {
           const record = cursor.value as AudioRecord;
+
           // Revoke URL to free memory
           URL.revokeObjectURL(record.audioUrl);
           cursor.delete();
@@ -121,5 +134,42 @@ export async function cleanupOldAudio(
     });
   } catch (error) {
     console.warn("Failed to cleanup old audio:", error);
+  }
+}
+
+/**
+ * Delete all audio for a given session
+ * @param sessionId - The ID of the session to remove audio for
+ */
+export async function removeSessionAudio(sessionId: string) {
+  try {
+    const db = await initDB();
+    const transaction = db.transaction([STORE_NAME], "readwrite");
+    const store = transaction.objectStore(STORE_NAME);
+    const index = store.index("sessionId");
+
+    return new Promise<void>((resolve, reject) => {
+      const request = index.openCursor(IDBKeyRange.only(sessionId));
+
+      request.onsuccess = (event) => {
+        const cursor = (event.target as IDBRequest<IDBCursorWithValue>).result;
+
+        if (cursor) {
+          const record = cursor.value as AudioRecord;
+
+          URL.revokeObjectURL(record.audioUrl); // Free memory
+          cursor.delete();
+          cursor.continue();
+        } else {
+          resolve();
+        }
+      };
+
+      request.onerror = () => reject(request.error);
+    });
+  } catch (error) {
+    console.warn("Failed to remove session audio:", error);
+
+    return Promise.reject(error);
   }
 }

@@ -5,6 +5,7 @@ import { useChat } from "@ai-sdk/react";
 import { useSidebar } from "../third-party/ui/sidebar";
 
 import { UnifiedChatInput } from "./unified-chat-input";
+
 import { ChatModel } from "@/lib/schemas/chat";
 
 type ChatInputProps = {
@@ -15,7 +16,7 @@ type ChatInputProps = {
   status: ReturnType<typeof useChat>["status"];
 };
 
-/** @deprecated ChatInput is deprecated. Use NewChatInput instead. */
+/** @deprecated ChatInput is deprecated. Use CoreInput instead. */
 export const ChatInput: React.FC<ChatInputProps> = ({
   id: _id,
   sendMessage,
@@ -26,9 +27,7 @@ export const ChatInput: React.FC<ChatInputProps> = ({
   const { isMobile, state } = useSidebar();
   const [input, setInput] = useState("");
   const [error, setError] = useState<boolean>(false);
-  const [selectedModel, setSelectedModel] = useState<ChatModel>(
-    selectedModelRef.current
-  );
+  const [selectedModel, setSelectedModel] = useState<ChatModel>(selectedModelRef.current);
   // Store the last sent message text to restore on abort
   const lastSentMessageRef = useRef<string>("");
 
@@ -48,7 +47,7 @@ export const ChatInput: React.FC<ChatInputProps> = ({
       sendMessage({ text: input });
       setInput("");
     },
-    [input, sendMessage, selectedModel, selectedModelRef],
+    [input, sendMessage, selectedModel, selectedModelRef]
   );
 
   const handleStop = useCallback(async () => {
@@ -60,7 +59,6 @@ export const ChatInput: React.FC<ChatInputProps> = ({
     }
 
     // And clean up UI since we are not persistencing aborted messages
-
   }, [stop]);
 
   const handleModelSelection = useCallback(
@@ -85,24 +83,24 @@ export const ChatInput: React.FC<ChatInputProps> = ({
         handleSendMessage(e as any);
       }
     },
-    [handleSendMessage],
+    [handleSendMessage]
   );
 
   return (
     <UnifiedChatInput
-      value={input}
-      onValueChange={handleInputChange}
-      onSubmit={handleSendMessage}
-      onKeyDown={handleKeyDown}
-      placeholder={isMobile ? "Type your message here..." : "What would you like to say..."}
       error={error}
-      variant="chat"
-      status={status}
-      onStop={handleStop}
-      selectedModel={selectedModel}
-      onModelChange={handleModelSelection}
       isMobile={isMobile}
+      placeholder={isMobile ? "Type your message here..." : "What would you like to say..."}
+      selectedModel={selectedModel}
+      status={status}
+      value={input}
+      variant="chat"
       widthState={state}
+      onKeyDown={handleKeyDown}
+      onModelChange={handleModelSelection}
+      onStop={handleStop}
+      onSubmit={handleSendMessage}
+      onValueChange={handleInputChange}
     />
   );
 };

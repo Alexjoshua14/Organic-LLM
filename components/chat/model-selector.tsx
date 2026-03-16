@@ -1,7 +1,9 @@
-import { Select, SelectItem } from "@heroui/select";
 import type { SharedSelection } from "@heroui/system";
 
+import { Select, SelectItem } from "@heroui/select";
+
 import { glass } from "../design-system/primitives";
+
 import { ChatModels, ChatModel } from "@/lib/schemas/chat";
 
 type ModelSelectorProps = {
@@ -19,6 +21,7 @@ export const ModelSelector: React.FC<ModelSelectorProps> = ({
     // Handle both string and Set<string> cases
     const selectedId = typeof keys === "string" ? keys : Array.from(keys)[0];
     const foundModel = ChatModels.find((m) => m.id === selectedId);
+
     if (foundModel) {
       handleModelSelection(foundModel);
     }
@@ -27,21 +30,24 @@ export const ModelSelector: React.FC<ModelSelectorProps> = ({
   return (
     <div className="sm:w-48">
       <Select
-        style={{ minWidth: "12rem" }}
+        disallowEmptySelection
         className={`sm:w-48 lg:sm:w-48 text-foreground ${glass()} rounded-xl`}
         classNames={{
-          trigger:
-            "!border-white/25 border-t-1 border-x-1.5 border-b-1.5 min-sm:w-48",
+          trigger: "!border-white/25 border-t-1 border-x-1.5 border-b-1.5 min-sm:w-48",
           listbox: "min-sm:w-48",
           popoverContent: "min-sm:w-48",
         }}
         items={ChatModels}
         selectedKeys={selectedModel ? [selectedModel.id] : []}
+        style={{ minWidth: "12rem" }}
         variant="bordered"
         onSelectionChange={handleSelectedModelChange}
-        disallowEmptySelection
       >
-        {(model) => <SelectItem key={model.id} textValue={model.name}>{model.name}</SelectItem>}
+        {(model) => (
+          <SelectItem key={model.id} textValue={model.name}>
+            {model.name}
+          </SelectItem>
+        )}
       </Select>
     </div>
   );

@@ -9,6 +9,7 @@ import { ChatThreadExperimental } from "./chat-thread-experimental";
 
 import { ChatInput } from "@/components/chat/chat-input";
 import { ChatScrollButton } from "@/components/chat/chat-scroll-button";
+import { isClientPIIRedactionEnabled, redactUIMessages } from "@/lib/pii/redact";
 import { ChatModel, DEFAULT_CHAT_MODEL, Thread } from "@/lib/schemas/chat";
 import { updateChatSummary } from "@/lib/llm/chat-helpers";
 import { createLogger } from "@/lib/logger";
@@ -48,9 +49,15 @@ export const ChatExperimental: React.FC<ChatProps> = ({
     transport: new DefaultChatTransport({
       api: endpoint ?? `/api/chat/${persona ?? ""}`,
       prepareSendMessagesRequest({ messages, id }) {
+        const lastMessage = messages?.length ? messages[messages.length - 1] : undefined;
+        const message =
+          lastMessage && isClientPIIRedactionEnabled()
+            ? redactUIMessages([lastMessage])[0]
+            : lastMessage;
+
         return {
           body: {
-            message: messages?.length ? messages[messages.length - 1] : undefined,
+            message,
             id,
             model: selectedModelRef.current,
           },
@@ -96,18 +103,12 @@ export const ChatExperimental: React.FC<ChatProps> = ({
       const { data, error } = await updateChatSummary(chatData.thread.id);
 
       if (error) {
-        logger.error(
-          "handleUpdateSummary",
-          `Failed to update chat summary: ${error}`,
-        );
+        logger.error("handleUpdateSummary", `Failed to update chat summary: ${error}`);
       } else {
         logger.log("handleUpdateSummary", `Updated chat summary: ${data}`);
       }
     } catch (error) {
-      logger.error(
-        "handleUpdateSummary",
-        `Failed to update chat summary: ${error}`,
-      );
+      logger.error("handleUpdateSummary", `Failed to update chat summary: ${error}`);
     } finally {
       setUpdatingSummary(false);
     }
@@ -119,9 +120,8 @@ export const ChatExperimental: React.FC<ChatProps> = ({
     stop();
     setMessages((prevMessages) => {
       // Find the last user message
-      const lastUserIndex = [...prevMessages]
-        .reverse()
-        .findIndex((msg) => msg.role === "user");
+      const lastUserIndex = [...prevMessages].reverse().findIndex((msg) => msg.role === "user");
+
       if (lastUserIndex === -1) {
         return prevMessages;
       }
@@ -130,6 +130,7 @@ export const ChatExperimental: React.FC<ChatProps> = ({
 
       // Remove the last user message and any AI message immediately after it (if exists)
       let newMessages = prevMessages.slice(0, lastUserMsgIdx);
+
       // Check if there's an AI message after the last user
       if (
         prevMessages[lastUserMsgIdx + 1] &&
@@ -141,9 +142,10 @@ export const ChatExperimental: React.FC<ChatProps> = ({
         // If not, just slice off including the user message
         newMessages = prevMessages.slice(0, lastUserMsgIdx);
       }
+
       return newMessages;
     });
-  }, [messages])
+  }, [messages]);
 
   return (
     <StickToBottom
@@ -153,7 +155,13 @@ export const ChatExperimental: React.FC<ChatProps> = ({
     >
       <ChatThreadExperimental messages={messages} />
       <ChatScrollButton />
-      <ChatInput id={id} sendMessage={sendMessage} selectedModelRef={selectedModelRef} stop={handleStop} status={status} />
+      <ChatInput
+        id={id}
+        selectedModelRef={selectedModelRef}
+        sendMessage={sendMessage}
+        status={status}
+        stop={handleStop}
+      />
       {/* <div className="absolute top-20 right-0 z-40">
         <button
           className="px-4 py-2 bg-blue-500 hover:bg-blue-600 disabled:bg-gray-400 text-white rounded-md transition-colors"

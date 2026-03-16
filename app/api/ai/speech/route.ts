@@ -1,7 +1,11 @@
 import { openai } from "@ai-sdk/openai";
 import { generateText } from "ai";
+import { auth } from "@clerk/nextjs/server";
 
+import { getSupabaseUserId } from "@/data/supabase/profiles";
+import { checkLlmMessageLimit } from "@/lib/rate-limit/llm";
 import { createLogger } from "@/lib/logger";
+import { recordLlmCall } from "@/lib/llm/metrics";
 
 // Allow responses up to 30 seconds
 export const maxDuration = 30;
@@ -28,19 +32,37 @@ export async function POST(req: Request) {
   try {
     const { message }: { message: string } = await req.json();
 
-    logger.log("POST", `Received message for speech generation: ${message}`);
+    logger.log("POST", `Received message for speech generation, length: ${message?.length ?? 0}`);
 
-    if (
-      !message ||
-      typeof message !== "string" ||
-      message.trim().length === 0
-    ) {
+    if (!message || typeof message !== "string" || message.trim().length === 0) {
       return Response.json(
         { error: "Message is required and must be a non-empty string" },
-        { status: 400 },
+        { status: 400 }
       );
     }
 
+    const clerkUser = await auth();
+
+    if (!clerkUser?.userId) {
+      return new Response("Unauthorized", { status: 401 });
+    }
+    const sbUserIdResult = await getSupabaseUserId(clerkUser.userId);
+
+    if (sbUserIdResult.error || sbUserIdResult.data === null) {
+      return new Response("User not found in supabase", { status: 404 });
+    }
+    const sbUserId = sbUserIdResult.data;
+
+    const messageLimitResult = await checkLlmMessageLimit(sbUserId);
+
+    if (!messageLimitResult.success) {
+      return Response.json(
+        { error: messageLimitResult.error ?? "Too many requests" },
+        { status: 429 }
+      );
+    }
+
+    const start = performance.now();
     const result = await generateText({
       model: openai("gpt-4o-mini"), // Using a faster model for speech generation
       messages: [
@@ -56,11 +78,16 @@ export async function POST(req: Request) {
       maxOutputTokens: 500, // Reasonable limit for speech responses
       temperature: 0.7, // Slightly creative but consistent
     });
+    const durationMs = performance.now() - start;
 
-    logger.log(
-      "POST",
-      `Generated speech-friendly response: ${result.text.substring(0, 100)}...`,
-    );
+    recordLlmCall({
+      model: "gpt-4o-mini",
+      usage: result.usage,
+      durationMs,
+      metadata: { operation: "speech-route", route: "/api/ai/speech" },
+    });
+
+    logger.log("POST", `Generated speech-friendly response: ${result.text.substring(0, 100)}...`);
 
     return Response.json({
       text: result.text,
@@ -70,9 +97,6 @@ export async function POST(req: Request) {
   } catch (error) {
     logger.error("POST", `Error generating speech response: ${error}`);
 
-    return Response.json(
-      { error: "Failed to generate speech-friendly response" },
-      { status: 500 },
-    );
+    return Response.json({ error: "Failed to generate speech-friendly response" }, { status: 500 });
   }
 }

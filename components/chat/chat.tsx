@@ -1,137 +1,339 @@
 "use client";
 
+import type { ExaSearchResultSource } from "@/lib/exa/types";
+
 import { UIMessage, useChat } from "@ai-sdk/react";
 import { DefaultChatTransport } from "ai";
-import { useCallback, useEffect, useRef } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { BrainCircuit } from "lucide-react";
+import { toast } from "sonner";
 
-import { ChatThread } from "./chat-thread";
+import { Conversation, ConversationScrollButton } from "../third-party/ai-elements/conversation";
 
+import { ChatThread, MEMORY_PANEL_RESERVE_PADDING } from "./chat-thread";
+import { CoreInput } from "./core-input";
+
+import { MemoryEphemeralCards } from "@/components/memory/memory-ephemeral-cards";
+import { MemoryLens } from "@/components/memory/memory-lens";
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+  SheetTrigger,
+} from "@/components/third-party/ui/sheet";
+import { isClientPIIRedactionEnabled, redactUIMessages } from "@/lib/pii/redact";
+import { getSettings } from "@/lib/user-settings";
 import { Thread } from "@/lib/schemas/chat";
 import { createLogger } from "@/lib/logger";
 import { useSharedChatContext } from "@/lib/context/chat-context";
 import { ChatModel, DEFAULT_CHAT_MODEL } from "@/lib/schemas/chat";
-import { NewChatInput } from "./new-chat-input";
-import { Conversation, ConversationScrollButton } from "../third-party/ai-elements/conversation";
+import { ChatAIActionEnum } from "@/types/ai";
+import { getChatErrorMessage } from "@/lib/chat/error-messages";
 
 const logger = createLogger("components/chat/chat");
 
-type ChatProps = {
+export type ChatProps = {
   chatData: { thread: Thread; messages: UIMessage[] } | null;
   initialMessage?: string;
-  persona?: "prometheus" | "spark" | "aion";
+  persona?: "prometheus" | "spark" | "aion" | "remy";
   endpoint?: string;
 };
 
-export const Chat: React.FC<ChatProps> = ({
-  chatData,
-  endpoint,
-  persona,
-}) => {
+export const Chat: React.FC<ChatProps> = ({ chatData, endpoint, persona, initialMessage }) => {
+  const { refreshSidebarChats } = useSharedChatContext();
 
   const selectedModelRef = useRef<ChatModel>(DEFAULT_CHAT_MODEL);
   const useWebSearchRef = useRef<boolean>(false);
   const useMemoriesRef = useRef<boolean>(false);
-  const usePersistedSchemas = useRef<boolean>(persona === 'aion');
+  const useSpeechFriendlyRef = useRef<boolean>(false);
+  const usePersistedSchemas = useRef<boolean>(persona === "aion");
+  const initialMessageSent = useRef<boolean>(false);
+  const [aiAction, setAiAction] = useState<
+    | {
+        action: ChatAIActionEnum;
+        message?: string;
+        sources?: ExaSearchResultSource[];
+      }
+    | undefined
+  >(undefined);
+  const [mem0Retrieved, setMem0Retrieved] = useState<{ memory: string }[]>([]);
+  const [mem0Added, setMem0Added] = useState<{ memory: string }[]>([]);
+  const errorRef = useRef<Error | undefined>(undefined);
+  /** Stored when onError runs; useChat may not expose error/status for pre-stream failures (e.g. 429). */
+  const [chatError, setChatError] = useState<unknown>(undefined);
 
-  const { messages, sendMessage, id, stop, status, setMessages } = useChat({
-    id: chatData?.thread.id ?? "",
-    messages: chatData?.messages ?? [],
-    transport: new DefaultChatTransport({
-      api: persona === 'aion' ? '/api/ai/aion' : endpoint ?? `/api/chat/${persona ?? ""}`,
-      prepareSendMessagesRequest({ messages, id }) {
-        const req = {
-          body: {
-            message: messages[messages.length - 1],
-            id,
-            model: selectedModelRef.current,
-            webSearch: useWebSearchRef.current,
-            memory: useMemoriesRef.current,
-            // Only include persistedSchemas in payload if true
-            ...(usePersistedSchemas.current ? { persistedSchemas: true } : {}),
-          },
+  // Temporary
+  const stop = () => logger.log("chat", "stop called but functionality is currently disabled");
+
+  const { messages, sendMessage, id, status, setMessages, addToolOutput, error, clearError } =
+    useChat({
+      id: chatData?.thread.id ?? "",
+      messages: chatData?.messages ?? [],
+      resume: true,
+      transport: new DefaultChatTransport({
+        api:
+          persona === "aion"
+            ? "/api/ai/aion"
+            : persona === "remy"
+              ? "/api/ai/remy"
+              : (endpoint ?? `/api/chat/${persona ?? ""}`),
+        prepareSendMessagesRequest({ messages, id }) {
+          const lastMessage = messages[messages.length - 1];
+          const message = isClientPIIRedactionEnabled()
+            ? redactUIMessages([lastMessage])[0]
+            : lastMessage;
+          const req = {
+            body: {
+              message,
+              id,
+              model: selectedModelRef.current,
+              webSearch: useWebSearchRef.current,
+              memory: useMemoriesRef.current,
+              speechFriendly: useSpeechFriendlyRef.current,
+              zeroDataRetention: getSettings().zeroDataRetention,
+              // Only include persistedSchemas in payload if true
+              ...(usePersistedSchemas.current ? { persistedSchemas: true } : {}),
+            },
+          };
+
+          logger.log("chat", `Request being sent: ${JSON.stringify(req, null, 2)}`);
+
+          return req;
+        },
+      }),
+      onData: (data) => {
+        /** Side channel for UI events */
+        logger.log("chat", JSON.stringify(data, null, 2));
+
+        if (data.type === "data-mem0-get") {
+          const payload = data.data as { memories?: { memory: string }[] };
+
+          setMem0Retrieved(payload.memories ?? []);
+          setMem0Added([]);
+        } else if (data.type === "data-mem0-update") {
+          const payload = data.data as { memories?: { memory: string }[] };
+
+          setMem0Added(payload.memories ?? []);
+        } else if (data.type === "data-notification") {
+          logger.log("chat", `DATA_NOTIFICATION ${JSON.stringify(data.data, null, 2)}`);
+          const dataObject = data.data as { message?: string };
+
+          if (dataObject.message === "chat-title-generated") {
+            refreshSidebarChats();
+          }
+        } else if (data.type === "data-aiAction") {
+          logger.log("chat", `DATA_AIACTION ${JSON.stringify(data.data, null, 2)}`);
+
+          const dataObject = data.data as {
+            action: ChatAIActionEnum;
+            message?: string;
+            sources?: ExaSearchResultSource[];
+          };
+
+          switch (dataObject.action) {
+            case ChatAIActionEnum.Reasoning:
+              setAiAction({
+                action: ChatAIActionEnum.Reasoning,
+                message: dataObject.message,
+              });
+              break;
+            case ChatAIActionEnum.Tool:
+              let toolName = undefined;
+
+              if (dataObject.message) {
+                toolName = dataObject.message.split(": ")[1];
+              }
+              switch (toolName) {
+                case "web_search":
+                  setAiAction((prev) => {
+                    let sources: ExaSearchResultSource[] | undefined = undefined;
+
+                    if (prev && prev.action === ChatAIActionEnum.Search) {
+                      sources = [...(prev.sources ?? []), ...(dataObject.sources ?? [])];
+                      // Make sources unique based on id
+                      sources = sources.filter(
+                        (source, index, self) => index === self.findIndex((t) => t.id === source.id)
+                      );
+                    } else {
+                      sources = dataObject.sources;
+                    }
+
+                    return {
+                      action: ChatAIActionEnum.Search,
+                      message: dataObject.message,
+                      sources: sources,
+                    };
+                  });
+                  break;
+                case "memory_search":
+                  setAiAction({
+                    action: ChatAIActionEnum.Memory,
+                    message: dataObject.message,
+                  });
+                  break;
+                default:
+                  setAiAction({
+                    action: ChatAIActionEnum.Tool,
+                    message: dataObject.message,
+                  });
+                  break;
+              }
+              break;
+            case ChatAIActionEnum.Memory:
+              setAiAction({ action: ChatAIActionEnum.Memory });
+              break;
+            default:
+              setAiAction({
+                action: dataObject.action,
+                message: dataObject.message,
+                sources: dataObject.sources,
+              });
+              break;
+          }
         }
-        logger.log("chat", `Request being sent: ${JSON.stringify(req, null, 2)}`)
-        return req;
       },
-    }),
-    onToolCall({ toolCall }) {
-      logger.log("chat", "TOOL_CALL", toolCall);
-    },
-    onData: (data) => {
-      logger.log("chat", JSON.stringify(data, null, 2))
+      onError: (error) => {
+        logger.error("chat", `ERROR ${JSON.stringify(error, null, 2)}`);
+        setAiAction({ action: ChatAIActionEnum.Errored, message: undefined });
+        errorRef.current = error;
+        setChatError(error);
+        const errorMessage = getChatErrorMessage(error);
+
+        toast.error(errorMessage);
+        logger.error("chat", `Chat onError: ${errorMessage}`);
+      },
+      onFinish: () => {
+        setAiAction(undefined);
+      },
+    });
+
+  // Send initial message if provided
+  useEffect(() => {
+    if (
+      initialMessage &&
+      !initialMessageSent.current &&
+      messages.length === 0 &&
+      status === "ready"
+    ) {
+      initialMessageSent.current = true;
+      sendMessage({ text: initialMessage });
     }
-  });
+  }, [initialMessage, messages.length, status, sendMessage]);
 
   const handleStop = useCallback(async () => {
     // Remove the latest user message and partially completed AI message from messages
     // Remove the latest user message and any partially completed AI response
     stop();
-    setMessages((prevMessages) => {
-      // Find the last user message
-      const lastUserIndex = [...prevMessages]
-        .reverse()
-        .findIndex((msg) => msg.role === "user");
-      if (lastUserIndex === -1) {
-        return prevMessages;
-      }
-      // Calculate the index in the original array
-      const lastUserMsgIdx = prevMessages.length - 1 - lastUserIndex;
 
-      // Remove the last user message and any AI message immediately after it (if exists)
-      let newMessages = prevMessages.slice(0, lastUserMsgIdx);
-      // Check if there's an AI message after the last user
-      if (
-        prevMessages[lastUserMsgIdx + 1] &&
-        prevMessages[lastUserMsgIdx + 1].role === "assistant"
-      ) {
-        // Remove the AI message as well
-        newMessages = prevMessages.slice(0, lastUserMsgIdx);
-      } else {
-        // If not, just slice off including the user message
-        newMessages = prevMessages.slice(0, lastUserMsgIdx);
-      }
-      return newMessages;
-    });
-  }, [messages])
+    /** The following commented out section would revert messages, fully aborting current generation */
+    // setMessages((prevMessages) => {
+    //   // Find the last user message
+    //   const lastUserIndex = [...prevMessages]
+    //     .reverse()
+    //     .findIndex((msg) => msg.role === "user");
+    //   if (lastUserIndex === -1) {
+    //     return prevMessages;
+    //   }
+    //   // Calculate the index in the original array
+    //   const lastUserMsgIdx = prevMessages.length - 1 - lastUserIndex;
+
+    //   // Remove the last user message and any AI message immediately after it (if exists)
+    //   let newMessages = prevMessages.slice(0, lastUserMsgIdx);
+    //   // Check if there's an AI message after the last user
+    //   if (
+    //     prevMessages[lastUserMsgIdx + 1] &&
+    //     prevMessages[lastUserMsgIdx + 1].role === "assistant"
+    //   ) {
+    //     // Remove the AI message as well
+    //     newMessages = prevMessages.slice(0, lastUserMsgIdx);
+    //   } else {
+    //     // If not, just slice off including the user message
+    //     newMessages = prevMessages.slice(0, lastUserMsgIdx);
+    //   }
+    //   return newMessages;
+    // });
+  }, [messages]);
 
   return (
     <div
       className={[
         "w-full",
+        "max-w-232",
         "h-full",
+        "max-h-[calc(100dvh-2rem)]",
         "flex",
-        "items-center",
-        "justify-center",
-        "max-w-[calc(100dvw-2rem)]",
-        "md:max-w-[calc(100dvw-18rem)]",
-        "lg:max-w-4xl",
+        "flex-col",
+        "overflow-hidden",
       ].join(" ")}
     >
       <Conversation
-        className={
-          [
-            "h-full",
-            "w-full",
-            "relative",
-            "flex",
-            "flex-col",
-            "items-center",
-          ].join(" ")
-        }
-        style={{ paddingBottom: "8rem" }}
+        className={[
+          "flex-1",
+          "min-h-0",
+          "w-full",
+          "relative",
+          "flex",
+          "flex-col",
+          "items-center",
+          "overflow-x-hidden",
+          "overscroll-x-none",
+        ].join(" ")}
       >
-        <ChatThread messages={messages} />
-        <ConversationScrollButton />
+        <ChatThread
+          aiActionPayload={aiAction}
+          contentClassName={persona === "remy" ? MEMORY_PANEL_RESERVE_PADDING : undefined}
+          messages={messages}
+        />
+        {persona === "remy" && (
+          <MemoryEphemeralCards
+            overlay
+            added={mem0Added}
+            autoClearMs={12000}
+            retrieved={mem0Retrieved}
+          />
+        )}
+        <ConversationScrollButton className="bottom-14" />
       </Conversation>
-      <NewChatInput
-        modelRef={selectedModelRef}
-        useWebSearchRef={useWebSearchRef}
-        useMemoriesRef={useMemoriesRef}
-        sendMessage={sendMessage}
-        stop={handleStop}
-        status={status}
-        className="absolute bottom-1 md:bottom-4 px-8 max-w-232 w-full"
-      />
+      <div className="shrink-0 px-4 sm:px-7 pb-1 md:pb-4 w-full -mt-10 flex flex-col gap-2">
+        {persona === "remy" && (
+          <Sheet>
+            <SheetTrigger asChild>
+              <button
+                className="flex items-center gap-2 text-xs text-muted-foreground hover:text-cyan-600 dark:hover:text-cyan-400 transition-colors"
+                type="button"
+              >
+                <BrainCircuit className="size-3.5" />
+                View persisted memory
+              </button>
+            </SheetTrigger>
+            <SheetContent
+              overlayPriority
+              className="w-full sm:max-w-md overflow-y-auto flex flex-col top-0 bottom-20 right-0 h-auto border-t-0"
+              side="right"
+            >
+              <SheetHeader>
+                <SheetTitle className="sr-only">Persisted memory</SheetTitle>
+              </SheetHeader>
+              <MemoryLens className="flex-1 min-h-0" variant="sheet" />
+            </SheetContent>
+          </Sheet>
+        )}
+        <CoreInput
+          chatId={chatData?.thread.id}
+          clearError={clearError}
+          error={error ?? chatError}
+          isBlankChat={messages.length === 0}
+          modelRef={selectedModelRef}
+          sendMessage={sendMessage}
+          status={status}
+          stop={handleStop}
+          useMemoriesRef={useMemoriesRef}
+          useSpeechFriendlyRef={useSpeechFriendlyRef}
+          useWebSearchRef={useWebSearchRef}
+          onErrorCleared={() => setChatError(undefined)}
+        />
+      </div>
     </div>
   );
 };

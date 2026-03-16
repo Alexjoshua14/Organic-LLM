@@ -1,29 +1,66 @@
 "use client";
 
+import type { ExaSearchResultSource } from "@/lib/exa/types";
+
 import { FC } from "react";
 import { UIMessage } from "ai";
-import { StickToBottom } from "use-stick-to-bottom";
-import { cn } from "@/lib/utils";
+import { MessageSquare } from "lucide-react";
+
+import {
+  ConversationContent,
+  ConversationEmptyState,
+} from "../third-party/ai-elements/conversation";
 
 import { ChatMessage } from "./chat-message";
-import { ConversationContent } from "../third-party/ai-elements/conversation";
+
+import { ChatAIActionEnum } from "@/types/ai";
+import { cn } from "@/lib/utils";
+
+/** Bottom padding to reserve when memory (ephemeral cards) can appear. Use same value always to avoid layout shift. */
+export const MEMORY_PANEL_RESERVE_PADDING = "pb-40";
 
 type ChatThreadProps = {
   messages: UIMessage[];
   variant?: "default" | "compact";
   className?: string;
+  /** Extra class for the scrollable content (e.g. bottom padding when memory panel can overlay). */
+  contentClassName?: string;
+  aiActionPayload?: {
+    action: ChatAIActionEnum;
+    message?: string;
+    sources?: ExaSearchResultSource[];
+  };
 };
 
 export const ChatThread: FC<ChatThreadProps> = ({
   messages,
   variant = "default",
   className,
+  contentClassName,
+  aiActionPayload,
 }) => {
+  const lastMessageIndex = messages.length - 1;
+
   return (
-    <ConversationContent className="px-4 pt-16 flex flex-col">
-      {messages.map((message) => {
-        return <ChatMessage key={message.id} message={message} />;
-      })}
+    <ConversationContent
+      className={cn("w-full px-4 pt-16 pb-12 flex flex-col", contentClassName)}
+      scrollClassName="touch-manipulation"
+    >
+      {messages.length === 0 ? (
+        <ConversationEmptyState
+          description="Type a message below to begin chatting"
+          icon={<MessageSquare className="size-12" />}
+          title="Start a conversation"
+        />
+      ) : (
+        messages.map((message, index) => (
+          <ChatMessage
+            key={message.id}
+            aiActionPayload={index === lastMessageIndex ? aiActionPayload : undefined}
+            message={message}
+          />
+        ))
+      )}
     </ConversationContent>
   );
 };

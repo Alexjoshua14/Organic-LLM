@@ -3,12 +3,7 @@
 import { Fragment } from "react";
 import { Button } from "@heroui/button";
 import { Divider } from "@heroui/divider";
-import {
-  CodeIcon,
-  GraduationCapIcon,
-  NewspaperIcon,
-  SparklesIcon,
-} from "lucide-react";
+import { CodeIcon, GraduationCapIcon, NewspaperIcon, SparklesIcon } from "lucide-react";
 import { useCallback } from "react";
 
 type NewChatProps = {
@@ -86,10 +81,7 @@ export const NewChat: React.FC<NewChatProps> = ({ hidden: _hidden }) => {
       <div className="flex flex-col gap-2 w-full">
         {promptIdeas.map(({ title, prompt }, index) => (
           <Fragment key={`${title}-${index}`}>
-            <ChatTopicButton
-              title={title}
-              onPress={() => chatGeneratorButton(prompt)}
-            />
+            <ChatTopicButton title={title} onPress={() => chatGeneratorButton(prompt)} />
             {index < promptIdeas.length - 1 && <Divider />}
           </Fragment>
         ))}
@@ -104,10 +96,7 @@ const ChatIdeaButton: React.FC<{
   icon: React.ReactNode;
 }> = ({ onPress, title, icon }) => {
   return (
-    <Button
-      className="rounded-full border border-border bg-background-secondary"
-      onPress={onPress}
-    >
+    <Button className="rounded-full border border-border bg-background-secondary" onPress={onPress}>
       {icon}
       {title}
     </Button>
@@ -119,11 +108,7 @@ const ChatTopicButton: React.FC<{
   title: string;
 }> = ({ onPress, title }) => {
   return (
-    <Button
-      className="flex justify-start text-primary text-base"
-      variant="light"
-      onPress={onPress}
-    >
+    <Button className="flex justify-start text-primary text-base" variant="light" onPress={onPress}>
       {title}
     </Button>
   );

@@ -1,93 +1,25 @@
 "use client";
 
-import {
-  Collapsible,
-  CollapsibleTrigger,
-  CollapsibleContent,
-} from "@radix-ui/react-collapsible";
+import { Collapsible, CollapsibleTrigger, CollapsibleContent } from "@radix-ui/react-collapsible";
 import { Pin, ChevronUp } from "lucide-react";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useMemo } from "react";
 
 import { SidebarGroup, SidebarGroupLabel } from "../third-party/ui/sidebar";
 
 import { SidebarChatList } from "./sidebar-chat-list";
 
-import { getChats } from "@/lib/chat/chat-store";
-import { ThreadLink } from "@/types";
-import { createLogger } from "@/lib/logger";
+import { useSharedChatContext } from "@/lib/context/chat-context";
 
-const logger = createLogger(`components/sidebar/sidebar-chats.tsx`);
-
-declare global {
-  interface Window {
-    refreshSidebar: () => void;
-  }
-}
-
+/**
+ * Renders the sidebar chat list (pinned + all threads). Data is owned by
+ * ChatProvider and loaded via SWR on app mount, so the list is available
+ * even when the sidebar starts collapsed.
+ */
 export const SidebarChats = () => {
-  const [chats, setChats] = useState<ThreadLink[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const { sidebarChats: chats, isSidebarChatsLoading } = useSharedChatContext();
 
-  const fetchChats = useCallback(async () => {
-    try {
-      const res = await getChats();
-
-      if (res.error) {
-        logger.error(
-          "fetchChats",
-          `Error while fetching chats..`,
-          res.error.message,
-        );
-
-        return;
-      }
-
-      const threads = res.data;
-
-      if (threads === null) {
-        setChats([]);
-
-        return;
-      }
-      const normalizedChats: ThreadLink[] = threads.map((thread) => ({
-        title: thread.title ?? "Unknown title",
-        id: thread.id,
-        pinned: thread.pinned ?? false,
-        date: new Date(thread.updated_at).toISOString(),
-      }));
-
-      setChats(normalizedChats);
-    } catch (error) {
-      logger.error("fetchChats", `Error while fetching chats..`, error);
-      setChats([]);
-    } finally {
-      setIsLoading(false);
-    }
-  }, []);
-
-  /* Fetch chats on mount */
-  useEffect(() => {
-    /** Expose fetchChats globally for other application components */
-    window.refreshSidebar = fetchChats;
-
-    /** Fetch chats */
-    fetchChats();
-
-    return () => {
-      if ("refreshSidebar" in window) {
-        delete (window as any).refreshSidebar;
-      }
-    };
-  }, [fetchChats]);
-
-  const pinnedChats = useMemo(() => {
-    return chats.filter((t) => t.pinned);
-  }, [chats]);
-
-  // Remove pinned chats from normal chat list
-  const allChats = useMemo(() => {
-    return chats.filter((t) => !t.pinned);
-  }, [chats]);
+  const pinnedChats = useMemo(() => chats.filter((t) => t.pinned), [chats]);
+  const allChats = useMemo(() => chats.filter((t) => !t.pinned), [chats]);
 
   const allChatsComponents = useMemo(() => {
     return allChats.length > 0 ? <SidebarChatList threads={allChats} /> : null;
@@ -107,17 +39,25 @@ export const SidebarChats = () => {
             </CollapsibleTrigger>
           </SidebarGroupLabel>
           <CollapsibleContent>
-            <SidebarChatList threads={chats.filter((t) => t.pinned)} />
+            <SidebarChatList threads={pinnedChats} />
           </CollapsibleContent>
         </SidebarGroup>
       </Collapsible>
     ) : null;
   }, [pinnedChats]);
 
+  if (isSidebarChatsLoading && chats.length === 0) {
+    return (
+      <div className="flex items-center justify-center py-8 text-muted-foreground text-sm">
+        Loading threads…
+      </div>
+    );
+  }
+
   return (
-    <>
+    <div className="flex flex-col gap-1 py-1">
       {pinnedChatsComponents}
-      <SidebarGroup>
+      <SidebarGroup className="shrink-0">
         <SidebarGroupLabel>
           <div className="text-foreground">
             <h2>All Threads</h2>
@@ -125,6 +65,6 @@ export const SidebarChats = () => {
         </SidebarGroupLabel>
         {allChatsComponents}
       </SidebarGroup>
-    </>
+    </div>
   );
 };

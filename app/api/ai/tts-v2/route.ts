@@ -1,11 +1,11 @@
-import { openai } from "@ai-sdk/openai";
-import { experimental_generateSpeech as generateSpeech, SpeechModel } from "ai";
+import { createHash } from "crypto";
+
 import { NextRequest, NextResponse } from "next/server";
 import { ElevenLabsClient } from "@elevenlabs/elevenlabs-js";
 
 import { createLogger } from "@/lib/logger";
 import { transformTextToSpeechFriendlyV2 } from "@/lib/llm/text-to-speech";
-import { createHash } from "crypto";
+import { stripSpeechTags } from "@/lib/tts/speech-tags";
 
 const logger = createLogger("app/api/tts/route.ts");
 
@@ -16,7 +16,7 @@ const logger = createLogger("app/api/tts/route.ts");
 //   elevenlabs.speech("eleven_v3"),
 // ];
 
-const VOICE_ID = "JBFqnCBsd6RMkjVDRZzb";
+const VOICE_ID = "19STyYD15bswVz51nqLf";
 
 // Cache for TTS audio streams
 const audioCache = new Map<
@@ -31,6 +31,7 @@ const CACHE_TTL = 1000 * 60 * 60 * 24; // 24 hours
 // Generate cache key from text and options
 function getCacheKey(text: string, skipTransform: boolean): string {
   const key = `${text}:${skipTransform ? "raw" : "processed"}:eleven_multilingual_v2:${VOICE_ID}`;
+
   return createHash("sha256").update(key).digest("hex");
 }
 
@@ -80,10 +81,7 @@ export async function POST(req: NextRequest) {
 
   const parametersObtained = performance.now();
 
-  logger.log(
-    "TTS Route",
-    `Parameters obtained in ${parametersObtained - start} milliseconds`
-  );
+  logger.log("TTS Route", `Parameters obtained in ${parametersObtained - start} milliseconds`);
 
   const elevenlabs = new ElevenLabsClient({
     apiKey: process.env.ELEVENLABS_API_KEY,
@@ -97,7 +95,7 @@ export async function POST(req: NextRequest) {
     try {
       // speechFriendlyText = await transformTextToSpeechFriendly(text);
       speechFriendlyText = await transformTextToSpeechFriendlyV2(text);
-      logger.log("TTS Route", `Speech-friendly text: ${speechFriendlyText}`);
+      logger.log("TTS Route", `Speech-friendly text length: ${speechFriendlyText?.length ?? 0}`);
     } catch (error) {
       logger.error("TTS Route", `Error transforming text: ${error}`);
     } finally {
@@ -110,11 +108,14 @@ export async function POST(req: NextRequest) {
     }
   }
 
-  // Generate cache key based on final speech-friendly text
-  const cacheKey = getCacheKey(speechFriendlyText, skipTransform ?? false);
+  const textForTTS = stripSpeechTags(speechFriendlyText);
+
+  // Generate cache key based on final speech-friendly text (after stripping tags)
+  const cacheKey = getCacheKey(textForTTS, skipTransform ?? false);
 
   // Check cache first
   const cached = audioCache.get(cacheKey);
+
   if (cached && Date.now() - cached.timestamp < CACHE_TTL) {
     logger.log("TTS Route", "Returning cached audio stream");
 
@@ -156,33 +157,61 @@ export async function POST(req: NextRequest) {
     const readable = new ReadableStream({
       async start(controller) {
         try {
-          const audioStream =
-            await elevenlabs.textToSpeech.streamWithTimestamps(VOICE_ID, {
-              modelId: "eleven_multilingual_v2",
-              text: speechFriendlyText,
-              outputFormat: "mp3_44100_128",
-              voiceSettings: {
-                stability: 0,
-                similarityBoost: 1.0,
-                useSpeakerBoost: true,
-                speed: 1.0,
-              },
-            });
+          const audioStream = await elevenlabs.textToSpeech.streamWithTimestamps(VOICE_ID, {
+            modelId: "eleven_multilingual_v2",
+            text: textForTTS,
+            outputFormat: "mp3_44100_128",
+            voiceSettings: {
+              stability: 0,
+              similarityBoost: 1.0,
+              useSpeakerBoost: true,
+              speed: 1.0,
+            },
+          });
 
           const encoder = new TextEncoder();
 
           for await (const chunk of audioStream) {
             const jsonLine = JSON.stringify(chunk) + "\n";
+
             streamChunks.push(jsonLine);
             controller.enqueue(encoder.encode(jsonLine));
           }
 
           // Cache the complete stream after collection
           const completeStream = streamChunks.join("");
+
           audioCache.set(cacheKey, {
             streamData: completeStream,
             timestamp: Date.now(),
           });
+
+          // --- TEST FIXTURE LOG ---
+          // Copy the JSON below into tests/fixtures/elevenlabs-stream-response.json
+          // to use real ElevenLabs data in the test suite.
+          if (process.env.LOG_TTS_FIXTURE === "1") {
+            const fixtureChunks = streamChunks.map((line) => JSON.parse(line.trim()));
+
+            logger.log(
+              "TTS_FIXTURE",
+              `\n--- START ELEVENLABS STREAM FIXTURE (${fixtureChunks.length} chunks) ---\n` +
+                JSON.stringify(
+                  {
+                    _meta: {
+                      text: textForTTS,
+                      model: "eleven_multilingual_v2",
+                      voiceId: VOICE_ID,
+                      chunkCount: fixtureChunks.length,
+                      capturedAt: new Date().toISOString(),
+                    },
+                    chunks: fixtureChunks,
+                  },
+                  null,
+                  2
+                ) +
+                `\n--- END ELEVENLABS STREAM FIXTURE ---\n`
+            );
+          }
         } catch (err) {
           controller.error(err);
         } finally {

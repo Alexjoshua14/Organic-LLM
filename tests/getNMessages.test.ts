@@ -1,18 +1,43 @@
 import { describe, test, expect, mock, beforeEach } from "bun:test";
-import { getNMessages } from "@/data/supabase/chat";
 import {
   MockSupabaseClient,
   createTestMessages,
 } from "./helpers/mock-supabase";
 
+mock.module("server-only", () => ({}));
+
+function threadFor(chatId: string) {
+  const now = new Date().toISOString();
+  return {
+    id: chatId,
+    owner_id: "test-owner",
+    title: null,
+    created_at: now,
+    updated_at: now,
+  };
+}
+
 describe("getNMessages", () => {
   let mockClient: MockSupabaseClient;
+  let getNMessages: typeof import("@/data/supabase/chat").getNMessages;
 
-  beforeEach(() => {
+  beforeEach(async () => {
+    process.env.ORGANIC_LLM_ROOT_SECRET = "test-root-secret";
+    process.env.ORGANIC_LLM_ACTIVE_KEY_ID = "k1";
     mockClient = new MockSupabaseClient();
+    mockClient.insertThreads([
+      threadFor("chat-1"),
+      threadFor("chat-2"),
+      threadFor("chat-3"),
+      threadFor("chat-4"),
+      threadFor("chat-5"),
+      threadFor("chat-a"),
+      threadFor("chat-b"),
+    ]);
     mock.module("@/lib/supabase/server", () => ({
       supabaseServer: () => Promise.resolve(mockClient),
     }));
+    ({ getNMessages } = await import("@/data/supabase/chat"));
   });
 
   test("returns N newest messages in chronological order", async () => {
@@ -67,6 +92,7 @@ describe("getNMessages", () => {
     mock.module("@/lib/supabase/server", () => ({
       supabaseServer: () => Promise.reject(new Error("DB down")),
     }));
+    ({ getNMessages } = await import("@/data/supabase/chat"));
 
     const result = await getNMessages("chat-5", 5);
 

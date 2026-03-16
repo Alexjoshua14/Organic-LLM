@@ -40,10 +40,7 @@ type ChatThreadProps = {
  *  provides us a sort of buffer time for AI to start streaming response, something 'useful'/visually interesting is always happening
  */
 
-export const ChatThreadExperimental: FC<ChatThreadProps> = ({
-  messages,
-  variant = "default",
-}) => {
+export const ChatThreadExperimental: FC<ChatThreadProps> = ({ messages, variant = "default" }) => {
   // const { messages } = useChat()
   // NOTE: Might be a better datastructure/feature for history
   const [history, setHistory] = useState<UIMessage[]>([]);
@@ -110,12 +107,9 @@ export const ChatThreadExperimental: FC<ChatThreadProps> = ({
     }
   };
 
-  const handleNewMessageAnimationComplete = useCallback(
-    (message: UIMessage) => {
-      handleNewMessageToHistoryUpdate();
-    },
-    [],
-  );
+  const handleNewMessageAnimationComplete = useCallback((message: UIMessage) => {
+    handleNewMessageToHistoryUpdate();
+  }, []);
 
   return (
     <StickToBottom.Content
@@ -129,9 +123,7 @@ export const ChatThreadExperimental: FC<ChatThreadProps> = ({
         <ChatMessagerWrapperExperimental
           key={`${newMessages[0].id}-wrapper`}
           role={newMessages[0].role}
-          onAnimComplete={() =>
-            handleNewMessageAnimationComplete(newMessages[0])
-          }
+          onAnimComplete={() => handleNewMessageAnimationComplete(newMessages[0])}
         >
           <ChatMessage key={newMessages[0].id} message={newMessages[0]} />
         </ChatMessagerWrapperExperimental>

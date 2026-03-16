@@ -1,4 +1,6 @@
 import { MemoryConfig } from "mem0ai/oss";
+
+import { custom_fact_extraction_prompt } from "@/lib/system-prompt/memory";
 import "server-only";
 
 export const config: MemoryConfig = {
@@ -23,7 +25,8 @@ export const config: MemoryConfig = {
     provider: "openai",
     config: {
       apiKey: process.env.OPENAI_API_KEY || "",
-      model: "gpt-5-nano",
+      model: "gpt-5-mini",
     },
   },
+  customPrompt: custom_fact_extraction_prompt,
 };

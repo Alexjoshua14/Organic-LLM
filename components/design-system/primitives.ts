@@ -26,15 +26,7 @@ export const title = tv({
   },
   compoundVariants: [
     {
-      color: [
-        "violet",
-        "yellow",
-        "blue",
-        "cyan",
-        "green",
-        "pink",
-        "foreground",
-      ],
+      color: ["violet", "yellow", "blue", "cyan", "green", "pink", "foreground"],
       class: "bg-clip-text text-transparent bg-linear-to-b",
     },
   ],
@@ -56,11 +48,43 @@ export const page = tv({
   base: "w-full h-full bg-primary text-primary rounded",
 });
 
+/**
+ * Caption: small muted text for short descriptions under headings (e.g. settings sections).
+ */
+export const caption = tv({
+  base: "text-xs text-muted-foreground font-light leading-snug",
+});
+
 export const glass = tv({
-  base: "bg-background-tertiary/30 dark:bg-background-tertiary/20 backdrop-brightness-110 dark:backdrop-brightness-200 backdrop-blur-2xl border-1 border-foreground/5",
+  base: "bg-background-tertiary/30 dark:bg-background-tertiary/20 backdrop-brightness-110 dark:backdrop-brightness-200 backdrop-blur-2xl  border-foreground/5",
   variants: {
     opaque: {
       true: "bg-background-tertiary/75 dark:bg-background-tertiary/75",
     },
+    border: {
+      all: "border-1",
+      right: "border-r-1",
+      left: "border-l-1",
+      none: "",
+    },
   },
+  defaultVariants: {
+    border: "all",
+  },
+});
+
+/**
+ * Secondary-interactive: for secondary yet clearly available actions
+ * (e.g. copy-to-clipboard on code blocks). Gradient aligns with Organic LLM’s
+ * warm neutrals and accent teal; use on buttons and small interactive controls.
+ */
+export const secondaryInteractive = tv({
+  base: [
+    "border border-border shadow-sm text-foreground",
+    "bg-gradient-to-br from-secondary to-[#e8e6e1]",
+    "dark:from-[#252625] dark:to-[#1e1f1e]",
+    "hover:from-accent/15 hover:to-accent/5 hover:border-accent/30",
+    "dark:hover:from-accent/20 dark:hover:to-accent/10 dark:hover:border-accent/40",
+    "transition-all duration-200",
+  ].join(" "),
 });
