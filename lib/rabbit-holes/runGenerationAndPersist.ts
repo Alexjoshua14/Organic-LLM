@@ -1,6 +1,6 @@
 import type { GenerationStep, RabbitHoleSession } from "@/lib/schemas/rabbitHoleSchemas";
 
-import { runOneGenerationStep } from "./actions";
+import { runOneGenerationStep } from "./runOneGenerationStep";
 
 import {
   advanceGenerationStep,

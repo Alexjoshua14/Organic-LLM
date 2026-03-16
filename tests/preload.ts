@@ -36,7 +36,14 @@ mock.module("@upstash/redis", () => ({
 }));
 mock.module("@/lib/redis/redis", () => ({ redis: {} }));
 
-// Mock actions before any test loads it so Bun never validates the real module (CI fails with "Export named 'runOneGenerationStep' not found" for "use server" modules). Tests override via globalThis.__runOneGenerationStepHandler.
+// Mock the runOneGenerationStep barrel so runGenerationAndPersist never loads actions.ts ("use server"); CI fails with "Export named 'runOneGenerationStep' not found" when the real file is loaded. Tests override via globalThis.__runOneGenerationStepHandler.
+mock.module("@/lib/rabbit-holes/runOneGenerationStep", () => ({
+  runOneGenerationStep: (async (...args: unknown[]) => {
+    const fn = globalThis.__runOneGenerationStepHandler;
+    return fn ? (fn as (...a: unknown[]) => Promise<unknown>)(...args) : { data: null, error: new Error("mocked") };
+  }) as never,
+}));
+// Mock actions for any test that imports it directly (e.g. useRabbitHoles).
 mock.module("@/lib/rabbit-holes/actions", () => ({
   runOneGenerationStep: (async (...args: unknown[]) => {
     const fn = globalThis.__runOneGenerationStepHandler;
