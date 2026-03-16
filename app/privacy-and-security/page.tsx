@@ -84,9 +84,9 @@ export default function PrivacyAndSecurityPage() {
             <div className="mx-auto mt-2 w-full max-w-384">
               <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-4">
                 <PrivacyFeatureCard
-                  title={<DecryptedText text="Encryption" speed={60} />}
+                  title={<DecryptedText text="Encryption" speed={60} loop />}
                   subtitle="Your data stays protected"
-                  body="Conversations and personalized content is encrypted using AES-256, so that your information remains only yours."
+                  body="Conversations and personalized content are encrypted at rest using AES-256, so sensitive data stays protected in our systems."
                 />
                 <PrivacyFeatureCard
                   title={
@@ -100,13 +100,13 @@ export default function PrivacyAndSecurityPage() {
                 <PrivacyFeatureCard
                   title="We don't sell your data"
                   subtitle="We will never share or sell your data for ads"
-                  body="We do not sell or share user data. We use opt-in analytics to improve the product only."
+                  body="We do not sell or share your data for advertising. We use analytics only to improve Organic LLM, and your conversation content is not included in analytics."
                 />
                 <ScrollOutDisappear scrollContainerRef={scrollContainerRef}>
                   <PrivacyFeatureCard
                     title="Zero Data Retention"
                     subtitle="We support third-party ZDR"
-                    body="You can opt in to zero data retention at any time. When enabled, third-party providers (including LLM providers) will not retain your prompts or outputs—so your conversations stay yours."
+                    body="You can opt in to zero data retention at any time. When enabled, we instruct supported external LLM providers not to retain your prompts, outputs, or other request data after processing—so your conversations stay yours."
                   />
                 </ScrollOutDisappear>
               </div>
@@ -116,7 +116,7 @@ export default function PrivacyAndSecurityPage() {
           <section id="data-we-store">
             <h2 className="text-foreground">Data we store</h2>
             <p className="text-foreground">
-              We store your threads and messages in our database (Supabase).
+              We store your threads and messages in our database.
               Message and summary content is protected with{" "}
               <TermWithDefinition
                 term="encryption at rest"
@@ -124,7 +124,7 @@ export default function PrivacyAndSecurityPage() {
               />
               . Access to your data is restricted by{" "}
               <TermWithDefinition
-                term="RLS"
+                term="Row Level Security"
                 definition="Row Level Security; database policies that ensure each user can only read or write their own rows (e.g. their own threads and messages)."
               />
               —you only see and modify your own conversations. We also store
@@ -137,7 +137,8 @@ export default function PrivacyAndSecurityPage() {
               (so they do not retain your data). It does not change how long
               Organic LLM keeps your threads and messages in our own database;
               you can delete threads and use the options in Settings to control
-              memory and retention.
+              memory and retention. Organic LLM aims to provide you full control
+              over your data and privacy.
             </p>
           </section>
 
@@ -172,25 +173,63 @@ export default function PrivacyAndSecurityPage() {
                 evolve.
               </li>
               <li>
-                <strong>Analytics</strong>: We use analytics to improve the
-                product. We are transparent that this includes things like page
-                views and performance metrics. We do not sell or share your data
-                for ads, and we do not include your conversation content in
-                analytics.
+                <strong>Analytics</strong>: We will never sell or share your
+                data for ads, and we do not include your conversation content in
+                analytics. We use analytics only for product improvement—things
+                like page views and performance metrics—and we're transparent
+                about that.
               </li>
             </ul>
           </section>
 
           <section id="security">
             <h2 className="text-foreground">Security measures</h2>
-            <p className="text-foreground">
-              We use Clerk for authentication (including passkeys and
-              biometrics). All access to your data is scoped by your identity:
-              our database enforces row-level security so that you can only
-              access your own threads, messages, and related data. We apply
-              rate limits to protect against abuse. All traffic between your
-              device and our servers is encrypted in transit (TLS).
-            </p>
+            <div className="mt-2 space-y-4">
+              <div>
+                <h3 className="text-sm font-semibold text-foreground">
+                  Authentication
+                </h3>
+                <p className="mt-1 text-foreground">
+                  We use Clerk as our authentication provider. Clerk supports
+                  passkeys and biometrics so you can sign in without passwords
+                  when you choose. All access to the app is gated by your
+                  verified identity.
+                </p>
+              </div>
+              <div>
+                <h3 className="text-sm font-semibold text-foreground">
+                  Data access
+                </h3>
+                <p className="mt-1 text-foreground">
+                  Access to your data is scoped by your identity. Our database
+                  enforces{" "}
+                  <TermWithDefinition
+                    term="RLS"
+                    definition="Row Level Security; database policies that ensure each user can only read or write their own rows (e.g. their own threads and messages)."
+                  />{" "}
+                  so that you can only access your own threads, messages, and
+                  related data.
+                </p>
+              </div>
+              <div>
+                <h3 className="text-sm font-semibold text-foreground">
+                  Rate limiting
+                </h3>
+                <p className="mt-1 text-foreground">
+                  We apply rate limits to protect against abuse and to keep the
+                  service stable for everyone.
+                </p>
+              </div>
+              <div>
+                <h3 className="text-sm font-semibold text-foreground">
+                  Secure connections
+                </h3>
+                <p className="mt-1 text-foreground">
+                  All traffic between your device and our servers is encrypted
+                  in transit (TLS).
+                </p>
+              </div>
+            </div>
           </section>
 
           <section id="your-choices">
@@ -201,10 +240,10 @@ export default function PrivacyAndSecurityPage() {
                 term="Zero Data Retention"
                 definition="When enabled, we instruct external LLM providers not to retain your prompts, outputs, or other data after the request. Your data is not used to train their models or stored on their side."
               />
-              so that external LLMs do not retain your data. You can also
+              {" "}so that external LLMs do not retain your data. You can also
               control whether we redact common{" "}
               <TermWithDefinition
-                term="PII"
+                term="Personally Identifiable Information"
                 definition="Personally Identifiable Information; data that can identify an individual, such as email, phone number, SSN, or credit card number. We redact these with placeholders before sending text to external services when the option is on."
               />{" "}
               before sending text to external services (default on). You can

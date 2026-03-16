@@ -1,12 +1,6 @@
 import { Search } from "lucide-react";
 import { Input } from "@heroui/input";
-import {
-  SignedIn,
-  SignedOut,
-  SignInButton,
-  SignOutButton,
-  SignUpButton,
-} from "@clerk/nextjs";
+import { SignedIn, SignedOut, SignInButton, SignOutButton, SignUpButton } from "@clerk/nextjs";
 import Link from "next/link";
 import { Suspense } from "react";
 
@@ -81,10 +75,7 @@ export function Sidebar() {
                       "group-data-[focus=true]:bg-transparent",
                       "data-[hover=true]:bg-transparent",
                     ],
-                    mainWrapper: [
-                      "bg-transparent",
-                      "focus-within:bg-transparent",
-                    ],
+                    mainWrapper: ["bg-transparent", "focus-within:bg-transparent"],
                   }}
                   label={<Search size={18} />}
                   labelPlacement="outside-left"
@@ -94,11 +85,7 @@ export function Sidebar() {
             </SidebarGroup>
             <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden">
               <Suspense
-                fallback={
-                  <div className="flex items-center justify-center py-8">
-                    Loading...
-                  </div>
-                }
+                fallback={<div className="flex items-center justify-center py-8">Loading...</div>}
               >
                 <SidebarChats />
               </Suspense>
@@ -108,12 +95,6 @@ export function Sidebar() {
       </SidebarContent>
       <SidebarFooter className="flex flex-col gap-2">
         <SignedIn>
-          <Link
-            href="/privacy-and-security"
-            className="text-xs text-muted-foreground hover:text-foreground underline decoration-transparent hover:decoration-foreground/40"
-          >
-            Privacy & Security
-          </Link>
           <SignOutButton />
         </SignedIn>
       </SidebarFooter>
