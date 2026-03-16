@@ -23,6 +23,10 @@ const mockRunOneGenerationStep = mock(async () => ({
   error: new Error("Step failed"),
 }));
 
+// Set handler as soon as this file loads so the preload's actions mock uses it even if runGenerationAndPersist is imported before this describe's beforeAll (e.g. in CI).
+(globalThis as unknown as { __runOneGenerationStepHandler: typeof mockRunOneGenerationStep }).__runOneGenerationStepHandler =
+  mockRunOneGenerationStep;
+
 let updatePayload: Record<string, unknown> | null = null;
 let eqColumn: string | null = null;
 let eqValue: string | null = null;
@@ -60,20 +64,18 @@ mock.module("@/lib/supabase/server", () => ({
 mock.module("@/lib/supabase/supabase-admin", () => ({
   supabaseAdmin: createSupabaseMock(),
 }));
-// actions is mocked in preload so real module never loads (avoids CI "Export not found" for "use server"). We wire our mock via globalThis.
-const setActionsHandler = () => {
-  (globalThis as unknown as { __runOneGenerationStepHandler: typeof mockRunOneGenerationStep }).__runOneGenerationStepHandler =
-    mockRunOneGenerationStep;
-};
-
 let clearGeneratingNodeId: (sessionId: string) => Promise<void>;
 let runGenerationAndPersist: (sessionId: string, nodeId: string) => Promise<void>;
 
 describe("with mocked rabbitholes", () => {
   beforeAll(async () => {
-    setActionsHandler();
     const real = (globalThis as unknown as { __realRabbitholes: typeof import("@/data/supabase/rabbitholes") })
       .__realRabbitholes;
+    if (!real) {
+      throw new Error(
+        "Preload did not set __realRabbitholes. Run tests with: bun test --preload ./tests/preload.ts ..."
+      );
+    }
     mock.module("@/data/supabase/rabbitholes", () => ({
       ...real,
       getSessionById: mockGetSessionById,
