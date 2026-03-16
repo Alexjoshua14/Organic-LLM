@@ -12,6 +12,18 @@ mock.module("@/lib/redis/redis", () => ({
   redis: { request: () => Promise.resolve({ data: undefined, error: null }) },
 }));
 
+// Mock actions in this file so the same process/worker that runs the test has the mock (CI may not apply preload mocks to workers). Handler read at call time via globalThis.
+mock.module("@/lib/rabbit-holes/actions", () => ({
+  runOneGenerationStep: (async (...args: unknown[]) => {
+    const fn = (globalThis as unknown as { __runOneGenerationStepHandler?: (...a: unknown[]) => Promise<unknown> })
+      .__runOneGenerationStepHandler;
+    return fn ? fn(...args) : { data: null, error: new Error("mocked") };
+  }) as never,
+  generateQuickPreview: async () => ({ data: null, error: null }),
+  analyzeSource: async () => ({ data: null, error: null }),
+  generateRabbitHoleNode: async () => ({ data: null, error: new Error("mocked") }),
+}));
+
 const SESSION_ID = "550e8400-e29b-41d4-a716-446655440000";
 const NODE_ID = "660e8400-e29b-41d4-a716-446655440001";
 
