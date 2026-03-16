@@ -23,17 +23,12 @@ mock.module("@/lib/supabase/server", () => ({
     }) as never,
 }));
 
-// Prevent any test from loading real Redis (avoids "fetch() URL is invalid" in CI)
+// Prevent any test from loading real Redis (avoids "fetch() URL is invalid" in CI).
+// Do not mock @upstash/ratelimit here so llm-rate-limit.test's mock (with mockLimit) is
+// used when lib/rate-limit/llm loads; that test runs first (00-llm-rate-limit.test.ts).
 mock.module("@upstash/redis", () => ({
   Redis: class {
     request = () => Promise.resolve({ data: undefined, error: null });
-  },
-}));
-mock.module("@upstash/ratelimit", () => ({
-  Ratelimit: class {
-    static slidingWindow = (_n: number, _w: string) => ({});
-    limit = () => Promise.resolve({ success: true, remaining: 10 });
-    getRemaining = () => Promise.resolve({ remaining: 100_000 });
   },
 }));
 mock.module("@/lib/redis/redis", () => ({ redis: {} }));
