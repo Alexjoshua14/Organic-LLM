@@ -36,6 +36,8 @@ const mockGetSessionById = mock(async () => ({
 }));
 
 mock.module("@/data/supabase/rabbitholes", () => ({
+  ...(globalThis as unknown as { __realRabbitholes: typeof import("@/data/supabase/rabbitholes") })
+    .__realRabbitholes,
   getSessionById: mockGetSessionById,
 }));
 

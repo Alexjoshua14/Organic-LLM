@@ -37,6 +37,8 @@ mock.module("@/lib/rabbit-holes/actions", () => ({
 }));
 
 mock.module("@/data/supabase/rabbitholes", () => ({
+  ...(globalThis as unknown as { __realRabbitholes: typeof import("@/data/supabase/rabbitholes") })
+    .__realRabbitholes,
   getSessionById: mockGetSessionById,
   saveSession: mock(async () => ({ ok: true, error: null })),
 }));

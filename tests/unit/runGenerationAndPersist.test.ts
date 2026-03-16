@@ -71,7 +71,10 @@ let runGenerationAndPersist: (sessionId: string, nodeId: string) => Promise<void
 
 describe("with mocked rabbitholes", () => {
   beforeAll(async () => {
+    const real = (globalThis as unknown as { __realRabbitholes: typeof import("@/data/supabase/rabbitholes") })
+      .__realRabbitholes;
     mock.module("@/data/supabase/rabbitholes", () => ({
+      ...real,
       getSessionById: mockGetSessionById,
       saveSession: mockSaveSession,
       advanceGenerationStep: mockAdvanceGenerationStep,
