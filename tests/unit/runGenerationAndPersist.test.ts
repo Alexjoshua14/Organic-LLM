@@ -60,19 +60,18 @@ mock.module("@/lib/supabase/server", () => ({
 mock.module("@/lib/supabase/supabase-admin", () => ({
   supabaseAdmin: createSupabaseMock(),
 }));
-// Provide all exports from actions so Bun's mock validation passes (no load of real actions → no Exa/EXA_API_KEY)
-mock.module("@/lib/rabbit-holes/actions", () => ({
-  runOneGenerationStep: mockRunOneGenerationStep,
-  generateQuickPreview: mock(async () => ({ data: null, error: null })),
-  analyzeSource: mock(async () => ({ data: null, error: null })),
-  generateRabbitHoleNode: mock(async () => ({ data: null, error: new Error("mocked") })),
-}));
+// actions is mocked in preload so real module never loads (avoids CI "Export not found" for "use server"). We wire our mock via globalThis.
+const setActionsHandler = () => {
+  (globalThis as unknown as { __runOneGenerationStepHandler: typeof mockRunOneGenerationStep }).__runOneGenerationStepHandler =
+    mockRunOneGenerationStep;
+};
 
 let clearGeneratingNodeId: (sessionId: string) => Promise<void>;
 let runGenerationAndPersist: (sessionId: string, nodeId: string) => Promise<void>;
 
 describe("with mocked rabbitholes", () => {
   beforeAll(async () => {
+    setActionsHandler();
     const real = (globalThis as unknown as { __realRabbitholes: typeof import("@/data/supabase/rabbitholes") })
       .__realRabbitholes;
     mock.module("@/data/supabase/rabbitholes", () => ({
