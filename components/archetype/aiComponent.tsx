@@ -11,11 +11,7 @@ const AiComponent: React.FC<AiComponentProps> = ({ message, loading }) => {
       <div>
         <strong>AI Response:</strong>
       </div>
-      {loading ? (
-        <div>Loading...</div>
-      ) : (
-        <div>{message ?? "No response yet."}</div>
-      )}
+      {loading ? <div>Loading...</div> : <div>{message ?? "No response yet."}</div>}
     </div>
   );
 };

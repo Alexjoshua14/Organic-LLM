@@ -4,7 +4,6 @@ import { experimental_generateSpeech as generateSpeech, SpeechModel } from "ai";
 import { NextRequest, NextResponse } from "next/server";
 
 import { createLogger } from "@/lib/logger";
-import { transformTextToSpeechFriendlyV2 } from "@/lib/llm/text-to-speech";
 import { stripSpeechTags } from "@/lib/tts/speech-tags";
 
 const logger = createLogger("app/api/tts/route.ts");
@@ -36,10 +35,7 @@ export async function POST(req: NextRequest) {
 
   const parametersObtained = performance.now();
 
-  logger.log(
-    "TTS Route",
-    `Parameters obtained in ${parametersObtained - start} milliseconds`,
-  );
+  logger.log("TTS Route", `Parameters obtained in ${parametersObtained - start} milliseconds`);
 
   let speechFriendlyText = text;
 
@@ -58,7 +54,7 @@ export async function POST(req: NextRequest) {
 
       logger.log(
         "TTS Route",
-        `Speech-friendly text generation completed in ${speechFriendlyTextEndGeneration - speechFriendlyTextStartGeneration} milliseconds`,
+        `Speech-friendly text generation completed in ${speechFriendlyTextEndGeneration - speechFriendlyTextStartGeneration} milliseconds`
       );
     }
   }
@@ -69,9 +65,7 @@ export async function POST(req: NextRequest) {
     speechModel = availableSpeechModels[0];
   } else {
     try {
-      speechModel = availableSpeechModels.find(
-        (m) => m.modelId === model,
-      ) as SpeechModel;
+      speechModel = availableSpeechModels.find((m) => m.modelId === model) as SpeechModel;
     } catch (error) {
       logger.error("TTS Route", `Error finding model: ${error}`);
       speechModel = availableSpeechModels[0];
@@ -80,7 +74,7 @@ export async function POST(req: NextRequest) {
 
   logger.log(
     "TTS Route",
-    `Using model: ${speechModel.modelId}, from provider: ${speechModel.provider}`,
+    `Using model: ${speechModel.modelId}, from provider: ${speechModel.provider}`
   );
 
   const speechModelStartGeneration = performance.now();
@@ -116,7 +110,7 @@ export async function POST(req: NextRequest) {
 
     logger.log(
       "TTS Route",
-      `Speech model generation completed in ${speechModelEndGeneration - speechModelStartGeneration} milliseconds`,
+      `Speech model generation completed in ${speechModelEndGeneration - speechModelStartGeneration} milliseconds`
     );
   }
 }

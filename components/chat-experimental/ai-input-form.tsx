@@ -1,8 +1,16 @@
 import React, { FormEvent, useEffect, useState } from "react";
-import { PromptInput, PromptInputBody, PromptInputTextarea, PromptInputFooter, PromptInputMessage, PromptInputProvider, usePromptInputController } from "../third-party/ai-elements/prompt-input";
-import { PromptInputSubmit } from "../chat/core-input";
-import { glass } from "../design-system/primitives";
 import { ChatStatus } from "ai";
+
+import {
+  PromptInput,
+  PromptInputBody,
+  PromptInputTextarea,
+  PromptInputFooter,
+  PromptInputMessage,
+  PromptInputProvider,
+  usePromptInputController,
+} from "../third-party/ai-elements/prompt-input";
+import { PromptInputSubmit } from "../chat/core-input";
 import ShinyText from "../ShinyText";
 
 export interface AiInputFormProps extends Omit<React.HTMLAttributes<HTMLFormElement>, "onSubmit"> {
@@ -53,26 +61,25 @@ const AiInputFormContent: React.FC<AiInputFormProps> = ({
       : userQuery || " ";
 
   return (
-    <PromptInput onSubmit={handleSubmit} multiple className={className}>
+    <PromptInput multiple className={className} onSubmit={handleSubmit}>
       <PromptInputBody>
-
         {status === "ready" ? (
           <PromptInputTextarea
+            autoFocus
+            className="text-lg! md:text-lg! placeholder:text-lg! caret-accent w-full placeholder:text-foreground/80"
             disabled={isLoading}
             placeholder="What do you want to explore?"
-            className="text-lg! md:text-lg! placeholder:text-lg! caret-accent w-full placeholder:text-foreground/80"
-            autoFocus
           />
         ) : status === "submitted" || status === "streaming" ? (
-          <ShinyText text={displayText} className="w-full h-24 p-4 min-h-24 overflow-auto" />
+          <ShinyText className="w-full h-24 p-4 min-h-24 overflow-auto" text={displayText} />
         ) : (
           <h2 className="text-warning">An error has occured..</h2>
         )}
       </PromptInputBody>
       <PromptInputFooter className="flex justify-end">
         <PromptInputSubmit
-          status={status || 'ready'}
           disabled={!textInput.value.trim() || isLoading}
+          status={status || "ready"}
         />
       </PromptInputFooter>
     </PromptInput>

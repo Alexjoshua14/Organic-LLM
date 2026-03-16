@@ -19,7 +19,7 @@ import type { UserSettings } from "@/lib/schemas/userSettings";
 
 /** Fetch user settings from Supabase. When Supabase is set up, implement and use after login to hydrate localStorage. */
 export async function fetchUserSettingsFromSupabase(
-  _clerkUserId: string,
+  _clerkUserId: string
 ): Promise<UserSettings | null> {
   // TODO: when Supabase is configured, e.g.:
   // const sb = await supabaseServer();
@@ -32,7 +32,7 @@ export async function fetchUserSettingsFromSupabase(
 /** Persist user settings to Supabase. When Supabase is set up, call after setSettings() when user is logged in. */
 export async function persistUserSettingsToSupabase(
   _clerkUserId: string,
-  _settings: UserSettings,
+  _settings: UserSettings
 ): Promise<void> {
   // TODO: when Supabase is configured, e.g.:
   // const sb = await supabaseServer();

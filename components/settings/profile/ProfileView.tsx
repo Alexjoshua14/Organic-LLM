@@ -1,17 +1,17 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
-import { Button } from "@heroui/button";
 import type { Profile } from "@/lib/schemas/profiles";
 import type { ProfileSummary } from "@/lib/schemas/profileSummary";
+
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { Button } from "@heroui/button";
+
+import { DEFAULT_PROFILE_LAYOUT, type ProfileBlockId } from "./profile-block-types";
+import { PROFILE_BLOCK_REGISTRY } from "./profile-block-registry";
+
 import { getProfileSummary, setProfileSummary } from "@/lib/profile-summary";
 import { getTailoredProfileSummary, getTailoredDisplayName } from "@/config/tailored-profiles";
 import { getProfileTree } from "@/config/profile-trees";
-import {
-  DEFAULT_PROFILE_LAYOUT,
-  type ProfileBlockId,
-} from "./profile-block-types";
-import { PROFILE_BLOCK_REGISTRY } from "./profile-block-registry";
 
 type ProfileViewProps = {
   profile: Profile | null;
@@ -22,29 +22,21 @@ type ProfileViewProps = {
 };
 
 export function ProfileView({ profile, email, displayName }: ProfileViewProps) {
-  const [summary, setSummary] = useState<ProfileSummary | null>(() =>
-    getProfileSummary(),
-  );
+  const [summary, setSummary] = useState<ProfileSummary | null>(() => getProfileSummary());
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const resolvedEmail = profile?.email ?? email ?? null;
 
-  const tailoredSummary = useMemo(
-    () => getTailoredProfileSummary(resolvedEmail),
-    [resolvedEmail],
-  );
+  const tailoredSummary = useMemo(() => getTailoredProfileSummary(resolvedEmail), [resolvedEmail]);
 
-  const tailoredName = useMemo(
-    () => getTailoredDisplayName(resolvedEmail),
-    [resolvedEmail],
-  );
+  const tailoredName = useMemo(() => getTailoredDisplayName(resolvedEmail), [resolvedEmail]);
 
   const displaySummary = tailoredSummary ?? summary;
 
   const { tree, variant: treeVariant } = useMemo(
     () => getProfileTree(profile?.email ?? email ?? null, displaySummary),
-    [profile?.email, email, displaySummary],
+    [profile?.email, email, displaySummary]
   );
 
   const generateSummary = useCallback(async () => {
@@ -59,11 +51,14 @@ export function ProfileView({ profile, email, displayName }: ProfileViewProps) {
           email: profile?.email ?? "",
         }),
       });
+
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
+
         throw new Error(data.error ?? "Failed to generate");
       }
       const data = await res.json();
+
       setProfileSummary(data);
       setSummary(data);
     } catch (e) {
@@ -75,6 +70,7 @@ export function ProfileView({ profile, email, displayName }: ProfileViewProps) {
 
   useEffect(() => {
     const cached = getProfileSummary();
+
     if (cached) setSummary(cached);
   }, []);
 
@@ -93,7 +89,9 @@ export function ProfileView({ profile, email, displayName }: ProfileViewProps) {
       <div className="flex flex-col gap-10">
         {layout.map((blockId: ProfileBlockId) => {
           const Block = PROFILE_BLOCK_REGISTRY[blockId];
+
           if (!Block) return null;
+
           return <Block key={blockId} {...blockProps} />;
         })}
       </div>
@@ -114,13 +112,12 @@ export function ProfileView({ profile, email, displayName }: ProfileViewProps) {
                 ? "Profile copy is generated and cached locally. Regenerate to refresh."
                 : "Generate a summary below or add your own; the LLM can tier it into sections."}
         </p>
-        <Button
-          size="sm"
-          variant="bordered"
-          onPress={generateSummary}
-          isDisabled={loading}
-        >
-          {loading ? "Generating…" : summary ? "Regenerate profile summary" : "Generate profile summary"}
+        <Button isDisabled={loading} size="sm" variant="bordered" onPress={generateSummary}>
+          {loading
+            ? "Generating…"
+            : summary
+              ? "Regenerate profile summary"
+              : "Generate profile summary"}
         </Button>
       </div>
     </div>

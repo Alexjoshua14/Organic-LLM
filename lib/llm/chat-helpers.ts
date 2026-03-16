@@ -1,6 +1,5 @@
 "use server";
 
-import { openai } from "@ai-sdk/openai";
 import {
   convertToModelMessages,
   generateObject,
@@ -14,10 +13,7 @@ import { encodingForModel } from "js-tiktoken";
 import { supabaseServer } from "../supabase/server";
 import { Message, ThreadSummarySchema } from "../schemas/chat";
 import { ValidSummary, ValidSummarySchema } from "../schemas/llm-tools";
-import {
-  decryptFromStorage,
-  encryptForStorage,
-} from "../crypto/message-encryption";
+import { decryptFromStorage, encryptForStorage } from "../crypto/message-encryption";
 
 import { GUARDRAIL_MAX_OUTPUT_TOKENS } from "@/lib/llm/helpers";
 import { createLogger } from "@/lib/logger";
@@ -105,11 +101,7 @@ function decryptMessageForThread(message: Message, ownerId: string): Message {
   };
 }
 
-function encryptThreadSummary(
-  summaryText: string,
-  ownerId: string,
-  chatId: string,
-) {
+function encryptThreadSummary(summaryText: string, ownerId: string, chatId: string) {
   return encryptForStorage(summaryText, {
     userId: ownerId,
     threadId: chatId,
@@ -117,11 +109,7 @@ function encryptThreadSummary(
   });
 }
 
-function decryptThreadSummary(
-  summaryText: string,
-  ownerId: string,
-  chatId: string,
-) {
+function decryptThreadSummary(summaryText: string, ownerId: string, chatId: string) {
   return decryptFromStorage(summaryText, {
     userId: ownerId,
     threadId: chatId,
@@ -133,11 +121,10 @@ function decryptThreadSummary(
 function getMessageTextForTokenEstimate(message: UIMessage): string {
   const parts = message.parts ?? [];
   const text = parts
-    .map((p) =>
-      p.type === "text" && "text" in p ? (p as { text: string }).text : "",
-    )
+    .map((p) => (p.type === "text" && "text" in p ? (p as { text: string }).text : ""))
     .join("");
   const role = message.role ?? "user";
+
   return `${role}: ${text}`;
 }
 
@@ -148,35 +135,32 @@ function getMessageTextForTokenEstimate(message: UIMessage): string {
  */
 function trimMessagesToTokenBudget(
   chronologicalMessages: UIMessage[],
-  maxTokens: number,
+  maxTokens: number
 ): UIMessage[] {
   if (chronologicalMessages.length === 0) return [];
   const encoding = encodingForModel("gpt-5");
   let total = 0;
   let startIndex = chronologicalMessages.length;
+
   // Walk from newest (end) backward, counting tokens until we'd exceed budget
   for (let i = chronologicalMessages.length - 1; i >= 0; i--) {
     const text = getMessageTextForTokenEstimate(chronologicalMessages[i]);
     const n = encoding.encode(text).length;
+
     if (total + n > maxTokens) break;
     total += n;
     startIndex = i;
   }
+
   return chronologicalMessages.slice(startIndex);
 }
 
-export async function ensureChatHasTitle(
-  chatId: string,
-): Promise<Result<string>> {
+export async function ensureChatHasTitle(chatId: string): Promise<Result<string>> {
   const sb = await supabaseServer();
 
   logger.log("ensureChatHasTitle", `Ensuring chat has title: ${chatId}`);
 
-  const res = await sb
-    .from("threads")
-    .select("title")
-    .eq("id", chatId)
-    .single();
+  const res = await sb.from("threads").select("title").eq("id", chatId).single();
 
   if (res.error) {
     return {
@@ -185,13 +169,11 @@ export async function ensureChatHasTitle(
     };
   }
 
-  const hasTitle =
-    res.data?.title != null && String(res.data.title).trim() !== "";
+  const hasTitle = res.data?.title != null && String(res.data.title).trim() !== "";
+
   if (hasTitle) {
-    logger.log(
-      "ensureChatHasTitle",
-      `Chat already has title: ${res.data!.title}`,
-    );
+    logger.log("ensureChatHasTitle", `Chat already has title: ${res.data!.title}`);
+
     return {
       data: String(res.data!.title).trim(),
       error: null,
@@ -202,9 +184,7 @@ export async function ensureChatHasTitle(
   return await generateChatTitle(chatId);
 }
 
-export async function generateChatTitle(
-  chatId: string,
-): Promise<Result<string>> {
+export async function generateChatTitle(chatId: string): Promise<Result<string>> {
   const sb = await supabaseServer();
   const threadOwnerContext = await getThreadOwnerContext(chatId);
 
@@ -224,10 +204,7 @@ export async function generateChatTitle(
     .order("created_at", { ascending: false });
 
   if (messages.error) {
-    logger.error(
-      "updateChatTitle",
-      `Error getting message: ${messages.error?.message}`,
-    );
+    logger.error("updateChatTitle", `Error getting message: ${messages.error?.message}`);
 
     return {
       data: null,
@@ -237,9 +214,7 @@ export async function generateChatTitle(
 
   const uiMessages = messages.data
     .map((message) =>
-      convertMessageToUIMessage(
-        decryptMessageForThread(message as Message, ownerId),
-      ),
+      convertMessageToUIMessage(decryptMessageForThread(message as Message, ownerId))
     )
     .filter((message): message is UIMessage => message !== null);
 
@@ -256,12 +231,13 @@ export async function generateChatTitle(
   const chronologicalMessages = [...uiMessages].reverse();
   const messagesForTitle = trimMessagesToTokenBudget(
     chronologicalMessages,
-    CHAT_TITLE_MAX_INPUT_TOKENS,
+    CHAT_TITLE_MAX_INPUT_TOKENS
   );
+
   if (messagesForTitle.length < chronologicalMessages.length) {
     logger.log(
       "generateChatTitle",
-      `Trimmed ${chronologicalMessages.length} messages to ${messagesForTitle.length} (${CHAT_TITLE_MAX_INPUT_TOKENS} token cap)`,
+      `Trimmed ${chronologicalMessages.length} messages to ${messagesForTitle.length} (${CHAT_TITLE_MAX_INPUT_TOKENS} token cap)`
     );
   }
 
@@ -270,9 +246,7 @@ export async function generateChatTitle(
   // (tool calls, tool results, etc.) before sending messages to the model.
   const messagesForTitleClean = messagesForTitle.map((message) => ({
     ...message,
-    parts: (message.parts ?? []).filter(
-      (part) => part.type === "text" && "text" in part,
-    ),
+    parts: (message.parts ?? []).filter((part) => part.type === "text" && "text" in part),
   }));
 
   let conversationSummary: string;
@@ -291,6 +265,7 @@ export async function generateChatTitle(
       maxOutputTokens: GUARDRAIL_MAX_OUTPUT_TOKENS,
     });
     const summaryDuration = performance.now() - summaryStart;
+
     recordLlmCall({
       model: MODEL_SELECTION.summarizer as string,
       usage: summaryResult.usage,
@@ -301,13 +276,12 @@ export async function generateChatTitle(
   } catch (err) {
     logger.error(
       "generateChatTitle",
-      `Error generating conversation summary: ${err instanceof Error ? err.message : String(err)}`,
+      `Error generating conversation summary: ${err instanceof Error ? err.message : String(err)}`
     );
+
     return {
       data: null,
-      error: new Error(
-        err instanceof Error ? err.message : "Failed to generate summary",
-      ),
+      error: new Error(err instanceof Error ? err.message : "Failed to generate summary"),
     };
   }
 
@@ -326,6 +300,7 @@ export async function generateChatTitle(
       maxOutputTokens: GUARDRAIL_MAX_OUTPUT_TOKENS,
     });
     const titleDuration = performance.now() - titleStart;
+
     recordLlmCall({
       model: MODEL_SELECTION.chatTitle as string,
       usage: titleResult.usage,
@@ -336,13 +311,12 @@ export async function generateChatTitle(
   } catch (err) {
     logger.error(
       "generateChatTitle",
-      `Error generating title: ${err instanceof Error ? err.message : String(err)}`,
+      `Error generating title: ${err instanceof Error ? err.message : String(err)}`
     );
+
     return {
       data: null,
-      error: new Error(
-        err instanceof Error ? err.message : "Failed to generate title",
-      ),
+      error: new Error(err instanceof Error ? err.message : "Failed to generate title"),
     };
   }
 
@@ -351,10 +325,7 @@ export async function generateChatTitle(
   const res = await updateChatTitle(chatId, finalTitle);
 
   if (res.error) {
-    logger.error(
-      "updateChatTitle",
-      `Error updating chat title: ${res.error.message}`,
-    );
+    logger.error("updateChatTitle", `Error updating chat title: ${res.error.message}`);
 
     return {
       data: null,
@@ -368,9 +339,7 @@ export async function generateChatTitle(
   };
 }
 
-export async function summarizeChat(
-  chatId: string,
-): Promise<Result<string, string>> {
+export async function summarizeChat(chatId: string): Promise<Result<string, string>> {
   logger.log("summarizeChat", `Summarizing chat ${chatId}`);
   // Get all chat messages
   let { data: messages, error } = await getMessages(chatId);
@@ -386,10 +355,7 @@ export async function summarizeChat(
 
   // Safeguard for development, cap messages to 200
   if (messages.length > 75) {
-    logger.warn(
-      "summarizeChat",
-      `Chat ${chatId} has more than 75 messages, truncating`,
-    );
+    logger.warn("summarizeChat", `Chat ${chatId} has more than 75 messages, truncating`);
     messages = messages.slice(-75);
   }
 
@@ -400,10 +366,7 @@ export async function summarizeChat(
   //   `Messages to be summarized\n${JSON.stringify(modelMessages)}`
   // );
 
-  logger.log(
-    "summarizeChat",
-    `Summarizing chat ${chatId} with ${modelMessages.length} messages`,
-  );
+  logger.log("summarizeChat", `Summarizing chat ${chatId} with ${modelMessages.length} messages`);
 
   const summarizeStart = performance.now();
   const summarizeResult = await generateText({
@@ -414,6 +377,7 @@ export async function summarizeChat(
     maxOutputTokens: GUARDRAIL_MAX_OUTPUT_TOKENS,
   });
   const summarizeDuration = performance.now() - summarizeStart;
+
   recordLlmCall({
     model: MODEL_SELECTION.summarizer as string,
     usage: summarizeResult.usage,
@@ -427,14 +391,11 @@ export async function summarizeChat(
 
   logger.log(
     "summarizeChat",
-    `Generated initial conversation summary for chat ${chatId}\n`,
+    `Generated initial conversation summary for chat ${chatId}\n`
     //`Conversation Summary (v${summaryGenerationCount}): ${conversationSummary}`,
   );
 
-  const validatedSummaryRes = await validateSummary(
-    conversationSummary,
-    modelMessages,
-  );
+  const validatedSummaryRes = await validateSummary(conversationSummary, modelMessages);
 
   if (validatedSummaryRes.error || !validatedSummaryRes.data) {
     return {
@@ -446,10 +407,7 @@ export async function summarizeChat(
   conversationSummary = validatedSummaryRes.data;
 
   if (conversationSummary === null) {
-    logger.error(
-      "summarizeChat",
-      "Conversation summary could not be generated.",
-    );
+    logger.error("summarizeChat", "Conversation summary could not be generated.");
 
     return {
       data: null,
@@ -457,17 +415,10 @@ export async function summarizeChat(
     };
   }
 
-  const { error: sbError } = await updateConversationSummary(
-    chatId,
-    conversationSummary,
-  );
+  const { error: sbError } = await updateConversationSummary(chatId, conversationSummary);
 
   if (sbError) {
-    logger.error(
-      "summarizeChat",
-      "Conversation summary could not be updated.",
-      sbError,
-    );
+    logger.error("summarizeChat", "Conversation summary could not be updated.", sbError);
 
     return {
       data: conversationSummary,
@@ -481,9 +432,7 @@ export async function summarizeChat(
   };
 }
 
-export async function summarizeNewChat(
-  chatId: string,
-): Promise<Result<string, string>> {
+export async function summarizeNewChat(chatId: string): Promise<Result<string, string>> {
   logger.log("summarizeChatNEW", `Summarizing chat ${chatId}`);
 
   const { data: summary, error } = await summarizeChat(chatId);
@@ -552,9 +501,7 @@ export async function summarizeNewChat(
   };
 }
 
-export async function updateChatSummary(
-  chatId: string,
-): Promise<Result<string, string>> {
+export async function updateChatSummary(chatId: string): Promise<Result<string, string>> {
   logger.log("updateChatSummary", `Updating chat summary for chat ${chatId}`);
   const sb = await supabaseServer();
   const threadOwnerContext = await getThreadOwnerContext(chatId);
@@ -573,16 +520,13 @@ export async function updateChatSummary(
     .select(
       `
       *
-      `,
+      `
     )
     .eq("thread_id", chatId)
     .maybeSingle();
 
   if (error) {
-    logger.error(
-      "updateChatSummary",
-      `Error getting thread summary: ${error.message}`,
-    );
+    logger.error("updateChatSummary", `Error getting thread summary: ${error.message}`);
 
     return {
       data: null,
@@ -595,11 +539,7 @@ export async function updateChatSummary(
 
   const threadSummary = ThreadSummarySchema.parse({
     ...threadSummaryData,
-    summary_text: decryptThreadSummary(
-      threadSummaryData.summary_text,
-      ownerId,
-      chatId,
-    ),
+    summary_text: decryptThreadSummary(threadSummaryData.summary_text, ownerId, chatId),
   });
 
   // logger.log(
@@ -629,7 +569,7 @@ export async function updateChatSummary(
 
   logger.log(
     "updateChatSummary",
-    `Messages since latest summary: ${messagesRes.data?.length ?? 0} messages`,
+    `Messages since latest summary: ${messagesRes.data?.length ?? 0} messages`
   );
 
   if (messagesRes.data?.length === 0) {
@@ -642,10 +582,7 @@ export async function updateChatSummary(
   }
 
   if (messagesRes.error || !messagesRes.data) {
-    logger.error(
-      "updateChatSummary",
-      `Error getting messages: ${messagesRes.error.message}`,
-    );
+    logger.error("updateChatSummary", `Error getting messages: ${messagesRes.error.message}`);
 
     return {
       data: null,
@@ -660,7 +597,7 @@ export async function updateChatSummary(
   if (messagesRes.data?.length <= 6) {
     logger.log(
       "updateChatSummary",
-      `Not enough messages to generate new chat summary. Only generate every 6 new messages. ${messagesRes.data?.length} messages since last summary`,
+      `Not enough messages to generate new chat summary. Only generate every 6 new messages. ${messagesRes.data?.length} messages since last summary`
     );
 
     return {
@@ -670,16 +607,11 @@ export async function updateChatSummary(
   }
 
   const uiMessages = messagesRes.data
-    .map((message) =>
-      convertMessageToUIMessage(decryptMessageForThread(message, ownerId)),
-    )
+    .map((message) => convertMessageToUIMessage(decryptMessageForThread(message, ownerId)))
     .filter((message) => message !== null);
 
   if (uiMessages.length !== messagesRes.data.length) {
-    logger.error(
-      "updateChatSummary",
-      "A message was not converted to UIMessage",
-    );
+    logger.error("updateChatSummary", "A message was not converted to UIMessage");
   }
 
   const modelMessages = convertToModelMessages(uiMessages);
@@ -688,7 +620,7 @@ export async function updateChatSummary(
     model: MODEL_SELECTION.updater,
     system: UpdateSummarizerSystemPrompt.replace(
       "{{conversationSummary}}",
-      threadSummary.summary_text,
+      threadSummary.summary_text
     ),
     temperature: 0.3,
     messages: modelMessages,
@@ -697,10 +629,7 @@ export async function updateChatSummary(
 
   // logger.log("updateChatSummary", `Updated summary: ${updatedSummary}`);
 
-  const validatedSummaryRes = await validateSummary(
-    updatedSummary,
-    modelMessages,
-  );
+  const validatedSummaryRes = await validateSummary(updatedSummary, modelMessages);
 
   if (validatedSummaryRes.error) {
     return {
@@ -738,7 +667,7 @@ export async function updateChatSummary(
       summary_text: encryptThreadSummary(
         validatedSummaryRes.data,
         threadOwnerContext.data.ownerId,
-        chatId,
+        chatId
       ),
       summary_tokens: tokens,
       last_summarized_message_id: messagesRes.data[0].id,
@@ -775,7 +704,7 @@ const validateSummary = async (
   conversationSummary: string,
   messages: ModelMessage[],
   currentPersistedConversationSummary?: string,
-  forceGeneration?: boolean,
+  forceGeneration?: boolean
 ): Promise<Result<string, string>> => {
   let validSummary: ValidSummary | null = null;
 
@@ -786,7 +715,7 @@ const validateSummary = async (
       model: MODEL_SELECTION.validator,
       system: ValidatorSystemPrompt.replace(
         "{{currentPersistedConversationSummary}}",
-        currentPersistedConversationSummary ?? "null",
+        currentPersistedConversationSummary ?? "null"
       ).replace("{{conversationSummary}}", conversationSummary),
       temperature: 0.1,
       messages: messages,
@@ -794,6 +723,7 @@ const validateSummary = async (
       maxOutputTokens: GUARDRAIL_MAX_OUTPUT_TOKENS,
     });
     const validatorDuration = performance.now() - validatorStart;
+
     recordLlmCall({
       model: MODEL_SELECTION.validator as string,
       usage: validatorRes.usage,
@@ -812,19 +742,16 @@ const validateSummary = async (
 
     logger.log(
       "validateSummary",
-      `Validator has rejected summary v${i}\nWith response: ${JSON.stringify(validSummary)}`,
+      `Validator has rejected summary v${i}\nWith response: ${JSON.stringify(validSummary)}`
     );
 
     const reviserStart = performance.now();
     const reviserResult = await generateText({
       model: MODEL_SELECTION.reviser,
-      system: ReviserSystemPrompt.replace(
-        "{{conversationSummary}}",
-        conversationSummary,
-      )
+      system: ReviserSystemPrompt.replace("{{conversationSummary}}", conversationSummary)
         .replace(
           "{{currentPersistedConversationSummary}}",
-          currentPersistedConversationSummary ?? "null",
+          currentPersistedConversationSummary ?? "null"
         )
         .replace("{{reason}}", validSummary.reason),
       temperature: 0.2,
@@ -832,6 +759,7 @@ const validateSummary = async (
       maxOutputTokens: GUARDRAIL_MAX_OUTPUT_TOKENS,
     });
     const reviserDuration = performance.now() - reviserStart;
+
     recordLlmCall({
       model: MODEL_SELECTION.reviser as string,
       usage: reviserResult.usage,
@@ -873,9 +801,7 @@ const validateSummary = async (
  * @param text - The text to count tokens for
  * @returns The number of tokens, or null if encoding fails
  */
-export const estimateTokenCount = async (
-  text: string,
-): Promise<number | null> => {
+export const estimateTokenCount = async (text: string): Promise<number | null> => {
   // TODO: CLEAN UP THIS FUNCTION TO ENSURE IT'S ACCURACY
   try {
     // Use gpt-5 encoding (cl100k_base) which is compatible with most modern OpenAI models

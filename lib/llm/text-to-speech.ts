@@ -10,7 +10,9 @@ import {
 import z from "zod";
 
 import { createLogger } from "../logger";
+
 import { GUARDRAIL_MAX_OUTPUT_TOKENS } from "./helpers";
+
 import { recordLlmCall } from "@/lib/llm/metrics";
 
 const logger = createLogger("lib/llm/text-to-speech.ts");
@@ -81,9 +83,7 @@ export async function textToSpeech(text: string): Promise<GeneratedAudioFile> {
   return audio;
 }
 
-export async function transformTextToSpeechFriendly(
-  text: string
-): Promise<string> {
+export async function transformTextToSpeechFriendly(text: string): Promise<string> {
   let result = text;
 
   const speechFriendlyTextStartGeneration = performance.now();
@@ -124,16 +124,14 @@ export async function transformTextToSpeechFriendly(
     model: "gpt-5-nano",
     usage: speechFriendlyText.usage,
     durationMs:
-      firstAttemptSpeechFriendlyTextEndGeneration -
-      firstAttemptSpeechFriendlyTextStartGeneration,
+      firstAttemptSpeechFriendlyTextEndGeneration - firstAttemptSpeechFriendlyTextStartGeneration,
     metadata: { operation: "tts-speech-friendly-v1" },
   });
 
   recordLlmCall({
     model: "gpt-5-nano",
     usage: validatedTranscript.usage,
-    durationMs:
-      validatedTranscriptEndGeneration - validatedTranscriptStartGeneration,
+    durationMs: validatedTranscriptEndGeneration - validatedTranscriptStartGeneration,
     metadata: { operation: "tts-validate-v1" },
   });
 
@@ -160,9 +158,7 @@ export async function transformTextToSpeechFriendly(
     recordLlmCall({
       model: "gpt-5-mini",
       usage: regeneratedTranscript.usage,
-      durationMs:
-        regeneratedTranscriptEndGeneration -
-        regeneratedTranscriptStartGeneration,
+      durationMs: regeneratedTranscriptEndGeneration - regeneratedTranscriptStartGeneration,
       metadata: { operation: "tts-regenerate-v1" },
     });
 
@@ -189,9 +185,7 @@ export async function transformTextToSpeechFriendly(
     recordLlmCall({
       model: "gpt-5-nano",
       usage: betterVersionOfTranscript.usage,
-      durationMs:
-        betterVersionOfTranscriptEndGeneration -
-        betterVersionOfTranscriptStartGeneration,
+      durationMs: betterVersionOfTranscriptEndGeneration - betterVersionOfTranscriptStartGeneration,
       metadata: { operation: "tts-compare-abc-v1" },
     });
 
@@ -233,9 +227,7 @@ export async function transformTextToSpeechFriendly(
     recordLlmCall({
       model: "gpt-5-nano",
       usage: betterVersionOfTranscript.usage,
-      durationMs:
-        betterVersionOfTranscriptEndGeneration -
-        betterVersionOfTranscriptStartGeneration,
+      durationMs: betterVersionOfTranscriptEndGeneration - betterVersionOfTranscriptStartGeneration,
       metadata: { operation: "tts-compare-ab-v1" },
     });
 
@@ -286,13 +278,11 @@ const SpeechResultSchema = z.object({
   speechFriendlyText: z
     .string()
     .describe(
-      "The speech-friendly text, optionally including speech-control tags: <breath/>, <pause length=\"short|medium|long\"/>, <pace speed=\"slower|normal|faster\"/>, <tone type=\"softer|emphatic|neutral|warm\"/>."
+      'The speech-friendly text, optionally including speech-control tags: <breath/>, <pause length="short|medium|long"/>, <pace speed="slower|normal|faster"/>, <tone type="softer|emphatic|neutral|warm"/>.'
     ),
   grade: z
     .number()
-    .describe(
-      "Grade for the quality of the speech-friendly text. 100 is the highest grade."
-    ),
+    .describe("Grade for the quality of the speech-friendly text. 100 is the highest grade."),
   reason: z
     .string()
     .describe(
@@ -300,14 +290,14 @@ const SpeechResultSchema = z.object({
     ),
 });
 
-export async function transformTextToSpeechFriendlyV2(
-  text: string
-): Promise<string> {
+export async function transformTextToSpeechFriendlyV2(text: string): Promise<string> {
   // Check cache first
   const cacheKey = text.trim().toLowerCase();
   const cached = textCache.get(cacheKey);
+
   if (cached && Date.now() - cached.timestamp < CACHE_TTL) {
     logger.log("transformTextToSpeechFriendlyV2", "Returning cached result");
+
     return cached.text;
   }
 
@@ -322,7 +312,9 @@ export async function transformTextToSpeechFriendlyV2(
 
   if (result.object.grade >= 80) {
     const finalResult = result.object.speechFriendlyText;
+
     textCache.set(cacheKey, { text: finalResult, timestamp: Date.now() });
+
     return finalResult;
   }
 
@@ -330,10 +322,7 @@ export async function transformTextToSpeechFriendlyV2(
 
   const regeneratedTranscript = await generateObject({
     model: openai("gpt-5-nano"),
-    system: CorrectionSystemPrompt.replace(
-      "{{validationErrorReasoning}}",
-      result.object.reason
-    ),
+    system: CorrectionSystemPrompt.replace("{{validationErrorReasoning}}", result.object.reason),
     prompt: `Original text: ${text}\n\nTransformed text: ${result.object.speechFriendlyText}`,
     temperature: 0,
     schema: SpeechResultSchema,
@@ -357,8 +346,7 @@ export async function transformTextToSpeechFriendlyV2(
   recordLlmCall({
     model: "gpt-5-nano",
     usage: regeneratedTranscript.usage,
-    durationMs:
-      regeneratedTranscriptEndGeneration - regeneratedTranscriptStartGeneration,
+    durationMs: regeneratedTranscriptEndGeneration - regeneratedTranscriptStartGeneration,
     metadata: { operation: "tts-v2-regenerate" },
   });
 
@@ -370,5 +358,6 @@ export async function transformTextToSpeechFriendlyV2(
     finalResult = result.object.speechFriendlyText;
   }
   textCache.set(cacheKey, { text: finalResult, timestamp: Date.now() });
+
   return finalResult;
 }

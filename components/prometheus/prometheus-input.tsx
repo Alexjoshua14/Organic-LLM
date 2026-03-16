@@ -9,9 +9,7 @@ type PrometheusInputProps = {
   onSendMessage: ({ text }: { text: string }) => Promise<void>;
 };
 
-export const PrometheusInput: React.FC<PrometheusInputProps> = ({
-  onSendMessage,
-}) => {
+export const PrometheusInput: React.FC<PrometheusInputProps> = ({ onSendMessage }) => {
   const [input, setInput] = useState("");
   const [error, setError] = useState<boolean>(false);
   const [isLoading, setIsLoading] = useState(false);
@@ -36,7 +34,7 @@ export const PrometheusInput: React.FC<PrometheusInputProps> = ({
         setIsLoading(false);
       }
     },
-    [input, onSendMessage],
+    [input, onSendMessage]
   );
 
   const handleInputChange = useCallback(
@@ -46,7 +44,7 @@ export const PrometheusInput: React.FC<PrometheusInputProps> = ({
       }
       setInput(v);
     },
-    [error],
+    [error]
   );
 
   const handleKeyDown = useCallback(
@@ -56,7 +54,7 @@ export const PrometheusInput: React.FC<PrometheusInputProps> = ({
         handleSendMessage(e as any);
       }
     },
-    [handleSendMessage],
+    [handleSendMessage]
   );
 
   return (
@@ -94,10 +92,7 @@ export const PrometheusInput: React.FC<PrometheusInputProps> = ({
                     "border-none",
                     "shadow-none",
                   ],
-                  mainWrapper: [
-                    "bg-transparent",
-                    "focus-within:bg-transparent",
-                  ],
+                  mainWrapper: ["bg-transparent", "focus-within:bg-transparent"],
                 }}
                 disabled={isLoading}
                 isInvalid={error}

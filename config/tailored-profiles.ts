@@ -1,9 +1,6 @@
 import type { ProfileSummary } from "@/lib/schemas/profileSummary";
-import {
-  getOwnerEmail,
-  getOwnerDisplayName,
-  getOwnerBio,
-} from "./profile-overrides";
+
+import { getOwnerEmail, getOwnerDisplayName, getOwnerBio } from "./profile-overrides";
 
 /**
  * Tailored profile content for specific users. Shown when the user's email
@@ -13,7 +10,9 @@ import {
  * (gitignored). When that file is absent, a generic placeholder is used.
  */
 
-type TailoredEntry = Omit<ProfileSummary, "generatedAt"> & { displayName?: string };
+type TailoredEntry = Omit<ProfileSummary, "generatedAt"> & {
+  displayName?: string;
+};
 
 function buildTailored(): Record<string, TailoredEntry> {
   const entries: Record<string, TailoredEntry> = {};
@@ -21,8 +20,7 @@ function buildTailored(): Record<string, TailoredEntry> {
   // Owner entry — personal details loaded from gitignored overrides
   entries[getOwnerEmail()] = {
     displayName: getOwnerDisplayName() ?? undefined,
-    headline:
-      "Architecting adaptive AI systems with world-class design and long-term vision",
+    headline: "Architecting adaptive AI systems with world-class design and long-term vision",
     bio: getOwnerBio(),
     tags: [
       "AI orchestration",
@@ -55,8 +53,10 @@ function buildTailored(): Record<string, TailoredEntry> {
 }
 
 let _tailored: Record<string, TailoredEntry> | null = null;
+
 function getTailored(): Record<string, TailoredEntry> {
   if (!_tailored) _tailored = buildTailored();
+
   return _tailored;
 }
 
@@ -73,13 +73,13 @@ export const TAILORED_PROFILE_EMAILS = (() => {
  * Returns a full ProfileSummary for the given email if tailored content exists.
  * Otherwise null.
  */
-export function getTailoredProfileSummary(
-  email: string | null | undefined,
-): ProfileSummary | null {
+export function getTailoredProfileSummary(email: string | null | undefined): ProfileSummary | null {
   if (!email || typeof email !== "string") return null;
   const normalized = email.trim().toLowerCase();
   const content = getTailored()[normalized];
+
   if (!content) return null;
+
   return {
     ...content,
     generatedAt: new Date().toISOString(),
@@ -89,10 +89,9 @@ export function getTailoredProfileSummary(
 /**
  * Returns the tailored display name for the given email, or null.
  */
-export function getTailoredDisplayName(
-  email: string | null | undefined,
-): string | null {
+export function getTailoredDisplayName(email: string | null | undefined): string | null {
   if (!email || typeof email !== "string") return null;
+
   return getTailored()[normalizedEmail(email)]?.displayName ?? null;
 }
 
@@ -101,6 +100,7 @@ export function getTailoredDisplayName(
  */
 export function hasTailoredProfile(email: string | null | undefined): boolean {
   if (!email || typeof email !== "string") return false;
+
   return normalizedEmail(email) in getTailored();
 }
 

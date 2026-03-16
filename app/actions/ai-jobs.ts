@@ -1,7 +1,8 @@
 "use server";
 
 import { auth } from "@clerk/nextjs/server";
-import { createAIJob, type AIJobInsert } from "@/data/supabase/ai-jobs";
+
+import { createAIJob } from "@/data/supabase/ai-jobs";
 import { AIServerFunction } from "@/lib/schemas/ai-jobs";
 import { Result } from "@/types";
 

@@ -32,10 +32,7 @@ export const CodeBlockSchema = z.object({
     ),
   language: z.string().describe("The programming language of the code block."),
   code: z.string().describe("The code content of the code block."),
-  caption: z
-    .string()
-    .describe("An optional caption or description for the code block.")
-    .optional(),
+  caption: z.string().describe("An optional caption or description for the code block.").optional(),
 });
 
 export const RecipeCardSchema = z.object({
@@ -55,41 +52,21 @@ export const RecipeCardSchema = z.object({
       "The use case or category for this recipe, e.g., main_dish, dessert, beverage, appetizer, snack, breakfast, other."
     ),
   title: z.string().describe("The title of the recipe."),
-  description: z
-    .string()
-    .describe("A short description of the recipe.")
-    .optional(),
-  ingredients: z
-    .array(z.string())
-    .describe("A list of ingredients for the recipe."),
-  steps: z
-    .array(z.string())
-    .describe("Step-by-step instructions for preparing the recipe."),
+  description: z.string().describe("A short description of the recipe.").optional(),
+  ingredients: z.array(z.string()).describe("A list of ingredients for the recipe."),
+  steps: z.array(z.string()).describe("Step-by-step instructions for preparing the recipe."),
   time: z
     .object({
-      prep: z
-        .string()
-        .describe("Preparation time (e.g. '10 mins').")
-        .optional(),
+      prep: z.string().describe("Preparation time (e.g. '10 mins').").optional(),
       cook: z.string().describe("Cooking time (e.g. '20 mins').").optional(),
       total: z.string().describe("Total time (e.g. '30 mins').").optional(),
     })
     .partial()
     .describe("Time durations related to the recipe. All fields optional.")
     .optional(),
-  servings: z
-    .string()
-    .describe("Number of servings (e.g. 'Serves 4').")
-    .optional(),
-  notes: z
-    .array(z.string())
-    .describe("Additional notes or tips for the recipe.")
-    .optional(),
-  image: z
-    .string()
-    .url()
-    .describe("A URL to an image of the finished dish.")
-    .optional(),
+  servings: z.string().describe("Number of servings (e.g. 'Serves 4').").optional(),
+  notes: z.array(z.string()).describe("Additional notes or tips for the recipe.").optional(),
+  image: z.string().url().describe("A URL to an image of the finished dish.").optional(),
 });
 
 export const TickerSchema = z.object({
@@ -110,36 +87,22 @@ export const TickerSchema = z.object({
     .describe(
       "The use case or type of security for the stock ticker, e.g., equity, etf, index, crypto, bond, etc."
     ),
-  symbol: z
-    .string()
-    .describe("The ticker symbol of the stock, e.g., 'AAPL' for Apple Inc."),
+  symbol: z.string().describe("The ticker symbol of the stock, e.g., 'AAPL' for Apple Inc."),
   name: z
     .string()
-    .describe(
-      "The full company name associated with the ticker, e.g., 'Apple Inc.'."
-    )
+    .describe("The full company name associated with the ticker, e.g., 'Apple Inc.'.")
     .optional(),
-  currentPrice: z
-    .number()
-    .describe("The latest price of one share of the stock."),
-  previousClose: z
-    .number()
-    .describe("The previous closing price of the stock.")
-    .optional(),
+  currentPrice: z.number().describe("The latest price of one share of the stock."),
+  previousClose: z.number().describe("The previous closing price of the stock.").optional(),
   currency: z
     .string()
     .describe("The currency in which the stock is traded, e.g., 'USD'.")
     .optional(),
   market: z
     .string()
-    .describe(
-      "The market or exchange the stock trades on, e.g., 'NASDAQ', 'NYSE'."
-    )
+    .describe("The market or exchange the stock trades on, e.g., 'NASDAQ', 'NYSE'.")
     .optional(),
-  change: z
-    .number()
-    .describe("The net change in price since previous close.")
-    .optional(),
+  change: z.number().describe("The net change in price since previous close.").optional(),
   percentChange: z
     .number()
     .describe("The percent change in price since previous close.")
@@ -176,11 +139,7 @@ export const ContextSchema = z.object({
  * Schema for context portion that will be combined into the prompt for LLM call
  */
 export const ContextPieceSchema = z.object({
-  title: z
-    .string()
-    .describe("The title of the context piece.")
-    .max(100)
-    .optional(),
+  title: z.string().describe("The title of the context piece.").max(100).optional(),
   content: z.string().describe("The content of the context piece.").max(10000),
 });
 

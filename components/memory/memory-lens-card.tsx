@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { MemoryItem } from "mem0ai/oss";
+
 import { cn } from "@/lib/utils";
 import { deleteMemoryForCurrentUser } from "@/lib/memory/operations";
 import { createLogger } from "@/lib/logger";
@@ -59,20 +60,18 @@ export function MemoryLensCard({
 
   const handleTransitionEnd = useCallback(
     (e: React.TransitionEvent<HTMLDivElement>) => {
-      if (e.target !== e.currentTarget || !isExiting || exitDoneRef.current)
-        return;
+      if (e.target !== e.currentTarget || !isExiting || exitDoneRef.current) return;
       if (e.propertyName !== "opacity") return;
       exitDoneRef.current = true;
       if (previewRemove) {
         setShowDeletedState(true);
-        resetTimeoutRef.current = setTimeout(
-          resetForPreview,
-          PREVIEW_RESET_DELAY_MS
-        );
+        resetTimeoutRef.current = setTimeout(resetForPreview, PREVIEW_RESET_DELAY_MS);
+
         return;
       }
       (async () => {
         const result = await deleteMemoryForCurrentUser(memory.id);
+
         if (result.error) logger.error("MemoryLensCard", "Delete failed", result.error);
         else if (result.data === true) onDeleted?.(memory.id);
       })();
@@ -83,6 +82,7 @@ export function MemoryLensCard({
   const dateLabel = useMemo(() => {
     if (!memory.createdAt) return null;
     const d = new Date(memory.createdAt);
+
     return d.toLocaleDateString(undefined, {
       day: "numeric",
       month: "short",
@@ -93,9 +93,7 @@ export function MemoryLensCard({
   }, [memory.createdAt]);
 
   const scoreLabel =
-    showScore &&
-    typeof memory.score === "number" &&
-    Number.isFinite(memory.score)
+    showScore && typeof memory.score === "number" && Number.isFinite(memory.score)
       ? `${Math.round(memory.score * 100)}% match`
       : null;
 
@@ -103,37 +101,35 @@ export function MemoryLensCard({
 
   return (
     <div
+      aria-hidden={useLayoutContainer}
       className={cn("min-w-0", useLayoutContainer && "relative")}
       style={
         useLayoutContainer
           ? { minHeight: `${containerHeight}px`, transition: "min-height 0s" }
           : undefined
       }
-      aria-hidden={useLayoutContainer}
     >
       {useLayoutContainer && (
         <div
-          className="absolute inset-0 flex flex-col items-center justify-center gap-2 rounded-2xl border border-dashed border-muted-foreground/25 bg-muted/30 dark:bg-muted/20 transition-opacity duration-150 ease-out pointer-events-none"
-          style={{ opacity: showDeletedState ? 1 : 0 }}
-          aria-live="polite"
-          role="status"
           aria-hidden={!showDeletedState}
+          aria-live="polite"
+          className="absolute inset-0 flex flex-col items-center justify-center gap-2 rounded-2xl border border-dashed border-muted-foreground/25 bg-muted/30 dark:bg-muted/20 transition-opacity duration-150 ease-out pointer-events-none"
+          role="status"
+          style={{ opacity: showDeletedState ? 1 : 0 }}
         >
           <svg
+            aria-hidden
             className="size-8 text-muted-foreground/70"
-            viewBox="0 0 24 24"
             fill="none"
             stroke="currentColor"
-            strokeWidth={1.5}
             strokeLinecap="round"
             strokeLinejoin="round"
-            aria-hidden
+            strokeWidth={1.5}
+            viewBox="0 0 24 24"
           >
             <path d="M20 6L9 17l-5-5" />
           </svg>
-          <span className="text-xs font-medium text-muted-foreground">
-            Deleted
-          </span>
+          <span className="text-xs font-medium text-muted-foreground">Deleted</span>
         </div>
       )}
       <article
@@ -164,18 +160,15 @@ export function MemoryLensCard({
           onTransitionEnd={handleTransitionEnd}
         >
           <div
+            aria-hidden
             className={cn(
               "shrink-0 w-1 rounded-full bg-linear-to-b from-cyan-400/80 to-emerald-500/80",
               compact ? "min-h-8" : "min-h-10"
             )}
-            aria-hidden
           />
           <div className="min-w-0 flex-1">
             <p
-              className={cn(
-                "text-foreground leading-relaxed",
-                compact ? "text-sm" : "text-[15px]"
-              )}
+              className={cn("text-foreground leading-relaxed", compact ? "text-sm" : "text-[15px]")}
             >
               {memory.memory}
             </p>
@@ -196,14 +189,14 @@ export function MemoryLensCard({
             )}
           </div>
           <button
-            type="button"
-            onClick={handleRemove}
+            aria-label="Remove from memory"
             className={cn(
               "shrink-0 self-start rounded-lg px-2.5 py-1 text-xs font-medium",
               "text-muted-foreground hover:text-destructive hover:bg-destructive/10",
               "opacity-0 group-hover:opacity-100 focus-visible:opacity-100 transition-opacity"
             )}
-            aria-label="Remove from memory"
+            type="button"
+            onClick={handleRemove}
           >
             Remove
           </button>

@@ -24,6 +24,7 @@ export function MermaidDiagram({ code }: { code: string }) {
       })
       .then(() => {
         const svg = containerRef.current?.querySelector?.("svg");
+
         if (svg) {
           svg.setAttribute("role", "img");
           svg.setAttribute("aria-label", "Diagram");

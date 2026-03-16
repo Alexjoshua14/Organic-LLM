@@ -22,10 +22,8 @@ export async function getTTSCacheKey(input: TTSCacheKeyInput): Promise<string> {
     model: input.model ?? "eleven_multilingual_v2",
     skipTransform: input.skipTransform ?? false,
   });
-  const digest = await crypto.subtle.digest(
-    "SHA-256",
-    new TextEncoder().encode(payload)
-  );
+  const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(payload));
+
   return Array.from(new Uint8Array(digest))
     .map((b) => b.toString(16).padStart(2, "0"))
     .join("");
@@ -35,13 +33,16 @@ function openDB(): Promise<IDBDatabase> {
   return new Promise((resolve, reject) => {
     if (typeof indexedDB === "undefined") {
       reject(new Error("IndexedDB not available"));
+
       return;
     }
     const req = indexedDB.open(DB_NAME, DB_VERSION);
+
     req.onerror = () => reject(req.error);
     req.onsuccess = () => resolve(req.result);
     req.onupgradeneeded = () => {
       const db = req.result;
+
       if (!db.objectStoreNames.contains(STORE_NAME)) {
         db.createObjectStore(STORE_NAME);
       }
@@ -52,10 +53,12 @@ function openDB(): Promise<IDBDatabase> {
 /** Get cached audio blob for a key, or null if miss. */
 export async function getTTSFromCache(key: string): Promise<Blob | null> {
   const db = await openDB();
+
   return new Promise((resolve, reject) => {
     const tx = db.transaction(STORE_NAME, "readonly");
     const store = tx.objectStore(STORE_NAME);
     const req = store.get(key);
+
     req.onerror = () => {
       db.close();
       reject(req.error);
@@ -63,6 +66,7 @@ export async function getTTSFromCache(key: string): Promise<Blob | null> {
     req.onsuccess = () => {
       db.close();
       const value = req.result;
+
       resolve(value != null ? (value as Blob) : null);
     };
   });
@@ -71,10 +75,12 @@ export async function getTTSFromCache(key: string): Promise<Blob | null> {
 /** Store an audio blob for a key. Overwrites if the key already exists. */
 export async function setTTSInCache(key: string, blob: Blob): Promise<void> {
   const db = await openDB();
+
   return new Promise((resolve, reject) => {
     const tx = db.transaction(STORE_NAME, "readwrite");
     const store = tx.objectStore(STORE_NAME);
     const req = store.put(blob, key);
+
     req.onerror = () => {
       db.close();
       reject(req.error);

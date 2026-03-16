@@ -10,9 +10,11 @@ type ChatMessagerWrapperExperimentalProps = {
   onAnimComplete: () => void;
 };
 
-export const ChatMessagerWrapperExperimental: FC<
-  ChatMessagerWrapperExperimentalProps
-> = ({ children, role, onAnimComplete }) => {
+export const ChatMessagerWrapperExperimental: FC<ChatMessagerWrapperExperimentalProps> = ({
+  children,
+  role,
+  onAnimComplete,
+}) => {
   return (
     <AnimatePresence>
       <motion.div

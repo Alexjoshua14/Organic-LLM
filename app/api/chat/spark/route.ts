@@ -9,24 +9,14 @@ import {
 } from "ai";
 import { auth } from "@clerk/nextjs/server";
 
-import {
-  extractOpsEnvelopeFromText,
-  applyOps,
-} from "@/lib/llm/organicStateProtocol";
+import { extractOpsEnvelopeFromText, applyOps } from "@/lib/llm/organicStateProtocol";
 import { getState, saveState } from "@/lib/supabase/organicStateStore";
 import { checkLlmMessageLimit } from "@/lib/rate-limit/llm";
 
 // import systemPrompt from "@/lib/system-prompt";
-import {
-  getContextAndMessagesChatPrompt,
-  saveChat,
-} from "@/lib/chat/chat-store";
+import { getContextAndMessagesChatPrompt, saveChat } from "@/lib/chat/chat-store";
 import { GUARDRAIL_MAX_OUTPUT_TOKENS } from "@/lib/llm/helpers";
-import {
-  ensureChatHasTitle,
-  estimateTokenCount,
-  updateChatSummary,
-} from "@/lib/llm/chat-helpers";
+import { ensureChatHasTitle, estimateTokenCount, updateChatSummary } from "@/lib/llm/chat-helpers";
 import { createLogger } from "@/lib/logger";
 // import SYSTEM_PROMPT from "@/lib/system-prompt";
 import SYSTEM_PROMPT from "@/lib/system-prompt";
@@ -63,10 +53,13 @@ export async function POST(req: Request) {
   }
 
   const messageLimitResult = await checkLlmMessageLimit(sbUserId.data);
+
   if (!messageLimitResult.success) {
     return new Response(
-      JSON.stringify({ error: messageLimitResult.error ?? "Too many requests" }),
-      { status: 429, headers: { "Content-Type": "application/json" } },
+      JSON.stringify({
+        error: messageLimitResult.error ?? "Too many requests",
+      }),
+      { status: 429, headers: { "Content-Type": "application/json" } }
     );
   }
 
@@ -94,16 +87,10 @@ export async function POST(req: Request) {
     clearTimeout(preprocess_limit);
 
     if (chatContextResult.error) {
-      logger.error(
-        "POST",
-        `Error getting chat context: ${chatContextResult.error}`
-      );
+      logger.error("POST", `Error getting chat context: ${chatContextResult.error}`);
       validatedMessages = [message];
     } else {
-      validatedMessages = [
-        ...(chatContextResult.data?.messages ?? []),
-        message,
-      ];
+      validatedMessages = [...(chatContextResult.data?.messages ?? []), message];
       if (chatContextResult.data?.prompt) {
         systemPrompt = chatContextResult.data?.prompt;
       }
@@ -116,19 +103,10 @@ export async function POST(req: Request) {
     }
   } catch (err) {
     if (err instanceof TypeValidationError) {
-      logger.error(
-        "POST",
-        `Database messages validation failed: ${err.message}`
-      );
+      logger.error("POST", `Database messages validation failed: ${err.message}`);
       validatedMessages = [message];
-    } else if (
-      err instanceof Error &&
-      err.message === "Preprocessing time limit exceeded"
-    ) {
-      logger.error(
-        "POST",
-        `\n\n\nPreprocessing time limit exceeded: ${err.message}\n\n`
-      );
+    } else if (err instanceof Error && err.message === "Preprocessing time limit exceeded") {
+      logger.error("POST", `\n\n\nPreprocessing time limit exceeded: ${err.message}\n\n`);
       validatedMessages = [message];
     } else {
       throw err;
@@ -180,10 +158,7 @@ export async function POST(req: Request) {
 
   const end = performance.now();
 
-  logger.log(
-    "POST",
-    `Messages sent to LLM in ${end - start} milliseconds returning stream now...`
-  );
+  logger.log("POST", `Messages sent to LLM in ${end - start} milliseconds returning stream now...`);
 
   // logger.log("POST", `Result: ${JSON.stringify(result)}`);
 
@@ -197,10 +172,7 @@ export async function POST(req: Request) {
             model: model,
           };
         case "finish":
-          logger.log(
-            "POST",
-            `Finish message: ${JSON.stringify(part, null, 2)}`
-          );
+          logger.log("POST", `Finish message: ${JSON.stringify(part, null, 2)}`);
 
           return {
             totalTokens: part.totalUsage?.totalTokens ?? undefined,
@@ -238,10 +210,7 @@ export async function POST(req: Request) {
         const env = extractOpsEnvelopeFromText(assistantText);
 
         if (env) {
-          logger.log(
-            "POST",
-            `Extracted ops envelope, op count: ${env.ops?.length ?? 0}`
-          );
+          logger.log("POST", `Extracted ops envelope, op count: ${env.ops?.length ?? 0}`);
           const current = await getState(id);
           const next = await applyOps(current, env);
 
@@ -249,19 +218,11 @@ export async function POST(req: Request) {
         }
         const endOps = performance.now();
 
-        logger.log(
-          "POST",
-          `Ops processed in ${endOps - startOps} milliseconds`
-        );
+        logger.log("POST", `Ops processed in ${endOps - startOps} milliseconds`);
 
         logger.log("POST", "--------------------------------");
-        // logger.log("POST", "ASSISTANT_RAW_START");
-        // logger.log("POST", JSON.stringify(assistantText, null, 2));
-        // logger.log("POST", "ASSISTANT_RAW_END");
-        logger.log(
-          "POST",
-          `OPS_ENV_EXTRACTED: ${JSON.stringify(env, null, 2)}`
-        );
+        // Do not log env payload in production; it may contain user-related state.
+        logger.debug("POST", `OPS_ENV_EXTRACTED (op count: ${env?.ops?.length ?? 0})`, env);
         logger.log("POST", "--------------------------------");
 
         logger.log(

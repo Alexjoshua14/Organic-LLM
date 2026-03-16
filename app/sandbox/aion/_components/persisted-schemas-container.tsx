@@ -1,13 +1,7 @@
 "use client";
 
 import { z } from "zod";
-import {
-  ListSchema,
-  KeyValueSchema,
-  CodeBlockSchema,
-  RecipeCardSchema,
-  TickerSchema,
-} from "@/lib/schemas/llm-context";
+
 import {
   ListRenderer,
   KeyValueRenderer,
@@ -16,6 +10,13 @@ import {
   TickerRenderer,
 } from "./schema-renderers";
 
+import {
+  ListSchema,
+  KeyValueSchema,
+  CodeBlockSchema,
+  RecipeCardSchema,
+  TickerSchema,
+} from "@/lib/schemas/llm-context";
 
 // Zod union for any persisted schema type
 export const PersistedSchema = z.union([
@@ -25,7 +26,6 @@ export const PersistedSchema = z.union([
   RecipeCardSchema,
   TickerSchema,
 ]);
-
 
 export type PersistedSchemaType =
   | z.infer<typeof ListSchema>
@@ -38,9 +38,7 @@ type PersistedSchemasContainerProps = {
   schemas?: PersistedSchemaType[];
 };
 
-export function PersistedSchemasContainer({
-  schemas = [],
-}: PersistedSchemasContainerProps) {
+export function PersistedSchemasContainer({ schemas = [] }: PersistedSchemasContainerProps) {
   if (schemas.length === 0) {
     return (
       <div className="w-full h-full flex items-center justify-center text-foreground/40 text-sm">
@@ -70,4 +68,3 @@ export function PersistedSchemasContainer({
     </div>
   );
 }
-

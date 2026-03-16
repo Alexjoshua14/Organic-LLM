@@ -5,6 +5,7 @@ import { toast } from "sonner";
 
 function copyViaExecCommand(text: string): boolean {
   const textarea = document.createElement("textarea");
+
   textarea.value = text;
   textarea.setAttribute("readonly", "");
   textarea.style.position = "absolute";
@@ -13,7 +14,9 @@ function copyViaExecCommand(text: string): boolean {
   textarea.select();
   textarea.setSelectionRange(0, text.length);
   const ok = document.execCommand("copy");
+
   document.body.removeChild(textarea);
+
   return ok;
 }
 
@@ -21,14 +24,14 @@ export const ClipboardCopyButton = ({ text }: { text: string }) => {
   const [isCopied, setIsCopied] = useState(false);
 
   const handleCopy = useCallback(async () => {
-    const hasClipboard =
-      typeof navigator !== "undefined" && navigator.clipboard?.writeText;
+    const hasClipboard = typeof navigator !== "undefined" && navigator.clipboard?.writeText;
 
     try {
       if (hasClipboard) {
         await navigator.clipboard.writeText(text);
       } else {
         const ok = copyViaExecCommand(text);
+
         if (!ok) throw new Error("execCommand copy failed");
       }
       setIsCopied(true);
@@ -41,6 +44,7 @@ export const ClipboardCopyButton = ({ text }: { text: string }) => {
           setIsCopied(true);
           setTimeout(() => setIsCopied(false), 2000);
           toast.success("Copied to clipboard");
+
           return;
         }
       } catch {
@@ -52,12 +56,12 @@ export const ClipboardCopyButton = ({ text }: { text: string }) => {
 
   return (
     <Button
-      className="text-secondary-foreground hover:scale-110 border touch-none"
       isIconOnly
+      className="text-secondary-foreground hover:scale-110 border touch-none"
       size="sm"
+      tabIndex={-1}
       variant="ghost"
       onPress={handleCopy}
-      tabIndex={-1}
     >
       {isCopied ? <CheckIcon size={14} /> : <Copy size={12} />}
     </Button>

@@ -7,12 +7,14 @@
  * - <pace speed="slower|normal|faster"/> — change speaking rate for the following segment
  * - <tone type="softer|emphatic|neutral|warm"/> — delivery tone hint
  */
-const SPEECH_TAG_PATTERN =
-  /<\s*(?:breath|pause|pace|tone)(?:\s+[^>]*)?\s*\/?>/gi;
+const SPEECH_TAG_PATTERN = /<\s*(?:breath|pause|pace|tone)(?:\s+[^>]*)?\s*\/?>/gi;
 
 /**
  * Removes speech-control tags from text so it can be sent to TTS engines that expect plain text.
  */
 export function stripSpeechTags(text: string): string {
-  return text.replace(SPEECH_TAG_PATTERN, "").replace(/\s{2,}/g, " ").trim();
+  return text
+    .replace(SPEECH_TAG_PATTERN, "")
+    .replace(/\s{2,}/g, " ")
+    .trim();
 }

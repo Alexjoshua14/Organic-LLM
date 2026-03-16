@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
-import { Loader2, Check, Clock, Zap } from "lucide-react";
+import { Loader2, Clock, Zap } from "lucide-react";
 
 type GenerationProgressProps = {
   isActive: boolean;
@@ -55,6 +55,7 @@ export function GenerationProgress({
     if (remainingSec < 60) return `~${remainingSec}s remaining`;
     const mins = Math.floor(remainingSec / 60);
     const secs = remainingSec % 60;
+
     return `~${mins}m ${secs}s remaining`;
   };
 
@@ -88,16 +89,16 @@ export function GenerationProgress({
       {/* Progress Bar */}
       <div className="relative h-2 bg-white/[0.05] rounded-full overflow-hidden">
         <motion.div
+          animate={{ width: `${progress}%` }}
           className="absolute inset-y-0 left-0 bg-gradient-to-r from-violet-500 to-fuchsia-500 rounded-full"
           initial={{ width: "0%" }}
-          animate={{ width: `${progress}%` }}
           transition={{ duration: 0.3, ease: "easeOut" }}
         />
 
         {/* Shimmer effect */}
         <motion.div
-          className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent"
           animate={{ x: ["-100%", "100%"] }}
+          className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent"
           transition={{ duration: 1.5, repeat: Infinity, ease: "linear" }}
         />
       </div>
@@ -117,20 +118,14 @@ export function GenerationProgress({
 /**
  * Compact inline progress indicator
  */
-export function InlineProgress({
-  progress,
-  label
-}: {
-  progress: number;
-  label?: string;
-}) {
+export function InlineProgress({ progress, label }: { progress: number; label?: string }) {
   return (
     <div className="flex items-center gap-2">
       <div className="relative w-24 h-1.5 bg-white/[0.05] rounded-full overflow-hidden">
         <motion.div
+          animate={{ width: `${progress}%` }}
           className="absolute inset-y-0 left-0 bg-gradient-to-r from-violet-500 to-fuchsia-500 rounded-full"
           initial={{ width: "0%" }}
-          animate={{ width: `${progress}%` }}
           transition={{ duration: 0.2 }}
         />
       </div>

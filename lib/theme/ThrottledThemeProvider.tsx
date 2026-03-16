@@ -1,12 +1,6 @@
 "use client";
 
-import {
-  createContext,
-  useCallback,
-  useContext,
-  useMemo,
-  type ReactNode,
-} from "react";
+import { createContext, useCallback, useContext, useMemo, type ReactNode } from "react";
 import { useTheme } from "next-themes";
 
 /** Max one theme update per second app-wide. Prevents flashing and abuse. */
@@ -28,32 +22,31 @@ export function ThrottledThemeProvider({ children }: { children: ReactNode }) {
   const setTheme = useCallback<ThrottledThemeValue["setTheme"]>(
     (value) => {
       const now = Date.now();
+
       if (now - lastAppliedAt >= THROTTLE_MS) {
         lastAppliedAt = now;
         nextTheme.setTheme(value);
       }
     },
-    [nextTheme.setTheme],
+    [nextTheme.setTheme]
   );
 
   const value = useMemo<ThrottledThemeValue>(
     () => ({ ...nextTheme, setTheme }),
-    [nextTheme, setTheme],
+    [nextTheme, setTheme]
   );
 
-  return (
-    <ThrottledThemeContext.Provider value={value}>
-      {children}
-    </ThrottledThemeContext.Provider>
-  );
+  return <ThrottledThemeContext.Provider value={value}>{children}</ThrottledThemeContext.Provider>;
 }
 
 export function useThrottledTheme(): ThrottledThemeValue {
   const ctx = useContext(ThrottledThemeContext);
+
   if (ctx == null) {
     throw new Error(
-      "useThrottledTheme must be used within ThrottledThemeProvider (inside next-themes ThemeProvider).",
+      "useThrottledTheme must be used within ThrottledThemeProvider (inside next-themes ThemeProvider)."
     );
   }
+
   return ctx;
 }

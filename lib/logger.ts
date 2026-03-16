@@ -29,6 +29,7 @@ export class Logger {
   debug(tag: string, message: string, data?: unknown) {
     if (!isDebug) return;
     const payload = data !== undefined ? ` ${JSON.stringify(data)}` : "";
+
     this.log(`[DEBUG] ${tag}`, message + payload);
   }
 }

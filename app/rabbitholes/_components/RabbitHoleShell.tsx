@@ -7,4 +7,3 @@
  * - `RabbitHoleShell` from `components/rabbit-holes/RabbitHoleShell.tsx`
  */
 export { RabbitHoleShell } from "@/components/rabbit-holes/RabbitHoleShell";
-

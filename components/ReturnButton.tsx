@@ -13,11 +13,7 @@ export const ReturnButton = () => {
   };
 
   return (
-    <Button
-      className="text-sm font-medium"
-      variant="ghost"
-      onClick={handleReturn}
-    >
+    <Button className="text-sm font-medium" variant="ghost" onClick={handleReturn}>
       <ArrowLeft size={16} />
       Return
     </Button>

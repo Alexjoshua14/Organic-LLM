@@ -10,16 +10,16 @@ export function ProfileBlockTags({ summary }: ProfileBlockProps) {
 
   return (
     <section
+      aria-labelledby="interests-heading"
       className={
         hasContent
           ? "rounded-xl border border-border bg-card/50 px-5 py-5 backdrop-blur-sm md:px-6 md:py-6"
           : "rounded-xl border border-dashed border-border bg-muted/30 px-5 py-5 md:px-6 md:py-6"
       }
-      aria-labelledby="interests-heading"
     >
       <h2
-        id="interests-heading"
         className="mb-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground"
+        id="interests-heading"
       >
         Interests
       </h2>

@@ -11,8 +11,8 @@ export function useChatId(): string | null {
   // Match pattern: /chat/[id]
   const match = pathname.match(/^\/chat\/([^/]+)$/);
   const chatId = match ? match[1] : null;
+
   // Optionally, you can uncomment the next line for debugging:
   // console.log("THREAD OPENED: ", chatId);
   return chatId;
 }
-

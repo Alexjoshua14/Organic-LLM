@@ -25,7 +25,7 @@ export async function POST(req: NextRequest) {
 
   logger.log(
     "Transform Route",
-    `Parameters obtained in ${parametersObtained - start} milliseconds`,
+    `Parameters obtained in ${parametersObtained - start} milliseconds`
   );
 
   try {
@@ -35,7 +35,7 @@ export async function POST(req: NextRequest) {
 
     logger.log(
       "Transform Route",
-      `Text transformation completed in ${transformEnd - transformStart} milliseconds`,
+      `Text transformation completed in ${transformEnd - transformStart} milliseconds`
     );
 
     return NextResponse.json({
@@ -46,9 +46,7 @@ export async function POST(req: NextRequest) {
     });
   } catch (error) {
     logger.error("Transform Route", `Error transforming text: ${error}`);
-    return NextResponse.json(
-      { error: "Failed to transform text" },
-      { status: 500 },
-    );
+
+    return NextResponse.json({ error: "Failed to transform text" }, { status: 500 });
   }
 }

@@ -1,12 +1,11 @@
-import { openai } from "@ai-sdk/openai";
-import { experimental_generateSpeech as generateSpeech, SpeechModel } from "ai";
+import { createHash } from "crypto";
+
 import { NextRequest, NextResponse } from "next/server";
 import { ElevenLabsClient } from "@elevenlabs/elevenlabs-js";
 
 import { createLogger } from "@/lib/logger";
 import { transformTextToSpeechFriendlyV2 } from "@/lib/llm/text-to-speech";
 import { stripSpeechTags } from "@/lib/tts/speech-tags";
-import { createHash } from "crypto";
 
 const logger = createLogger("app/api/tts/route.ts");
 
@@ -32,6 +31,7 @@ const CACHE_TTL = 1000 * 60 * 60 * 24; // 24 hours
 // Generate cache key from text and options
 function getCacheKey(text: string, skipTransform: boolean): string {
   const key = `${text}:${skipTransform ? "raw" : "processed"}:eleven_multilingual_v2:${VOICE_ID}`;
+
   return createHash("sha256").update(key).digest("hex");
 }
 
@@ -75,16 +75,13 @@ export async function POST(req: NextRequest) {
         headers: {
           "Content-Type": "application/json",
         },
-      },
+      }
     );
   }
 
   const parametersObtained = performance.now();
 
-  logger.log(
-    "TTS Route",
-    `Parameters obtained in ${parametersObtained - start} milliseconds`,
-  );
+  logger.log("TTS Route", `Parameters obtained in ${parametersObtained - start} milliseconds`);
 
   const elevenlabs = new ElevenLabsClient({
     apiKey: process.env.ELEVENLABS_API_KEY,
@@ -106,7 +103,7 @@ export async function POST(req: NextRequest) {
 
       logger.log(
         "TTS Route",
-        `Speech-friendly text generation completed in ${speechFriendlyTextEndGeneration - speechFriendlyTextStartGeneration} milliseconds`,
+        `Speech-friendly text generation completed in ${speechFriendlyTextEndGeneration - speechFriendlyTextStartGeneration} milliseconds`
       );
     }
   }
@@ -118,6 +115,7 @@ export async function POST(req: NextRequest) {
 
   // Check cache first
   const cached = audioCache.get(cacheKey);
+
   if (cached && Date.now() - cached.timestamp < CACHE_TTL) {
     logger.log("TTS Route", "Returning cached audio stream");
 
@@ -159,29 +157,30 @@ export async function POST(req: NextRequest) {
     const readable = new ReadableStream({
       async start(controller) {
         try {
-          const audioStream =
-            await elevenlabs.textToSpeech.streamWithTimestamps(VOICE_ID, {
-              modelId: "eleven_multilingual_v2",
-              text: textForTTS,
-              outputFormat: "mp3_44100_128",
-              voiceSettings: {
-                stability: 0,
-                similarityBoost: 1.0,
-                useSpeakerBoost: true,
-                speed: 1.0,
-              },
-            });
+          const audioStream = await elevenlabs.textToSpeech.streamWithTimestamps(VOICE_ID, {
+            modelId: "eleven_multilingual_v2",
+            text: textForTTS,
+            outputFormat: "mp3_44100_128",
+            voiceSettings: {
+              stability: 0,
+              similarityBoost: 1.0,
+              useSpeakerBoost: true,
+              speed: 1.0,
+            },
+          });
 
           const encoder = new TextEncoder();
 
           for await (const chunk of audioStream) {
             const jsonLine = JSON.stringify(chunk) + "\n";
+
             streamChunks.push(jsonLine);
             controller.enqueue(encoder.encode(jsonLine));
           }
 
           // Cache the complete stream after collection
           const completeStream = streamChunks.join("");
+
           audioCache.set(cacheKey, {
             streamData: completeStream,
             timestamp: Date.now(),
@@ -191,9 +190,8 @@ export async function POST(req: NextRequest) {
           // Copy the JSON below into tests/fixtures/elevenlabs-stream-response.json
           // to use real ElevenLabs data in the test suite.
           if (process.env.LOG_TTS_FIXTURE === "1") {
-            const fixtureChunks = streamChunks.map((line) =>
-              JSON.parse(line.trim()),
-            );
+            const fixtureChunks = streamChunks.map((line) => JSON.parse(line.trim()));
+
             logger.log(
               "TTS_FIXTURE",
               `\n--- START ELEVENLABS STREAM FIXTURE (${fixtureChunks.length} chunks) ---\n` +
@@ -209,9 +207,9 @@ export async function POST(req: NextRequest) {
                     chunks: fixtureChunks,
                   },
                   null,
-                  2,
+                  2
                 ) +
-                `\n--- END ELEVENLABS STREAM FIXTURE ---\n`,
+                `\n--- END ELEVENLABS STREAM FIXTURE ---\n`
             );
           }
         } catch (err) {
@@ -237,14 +235,14 @@ export async function POST(req: NextRequest) {
         headers: {
           "Content-Type": "application/json",
         },
-      },
+      }
     );
   } finally {
     const speechModelEndGeneration = performance.now();
 
     logger.log(
       "TTS Route",
-      `Speech model generation completed in ${speechModelEndGeneration - speechModelStartGeneration} milliseconds`,
+      `Speech model generation completed in ${speechModelEndGeneration - speechModelStartGeneration} milliseconds`
     );
   }
 }

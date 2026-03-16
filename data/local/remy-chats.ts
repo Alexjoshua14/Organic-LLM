@@ -1,6 +1,7 @@
 "use client";
 
 import { UIMessage } from "ai";
+
 import { Result } from "@/types";
 
 const REMY_TMP_CHAT_KEY = "remy-tmp-chat";
@@ -33,6 +34,7 @@ export async function getTmpChat(): Promise<Result<RemyTmpChat | null>> {
 
   try {
     const stored = localStorage.getItem(REMY_TMP_CHAT_KEY);
+
     if (!stored) {
       return { data: null, error: null };
     }
@@ -42,12 +44,12 @@ export async function getTmpChat(): Promise<Result<RemyTmpChat | null>> {
     // Check if expired (2 business days)
     const updatedAt = new Date(chat.updatedAt);
     const now = new Date();
-    const daysSinceUpdate =
-      (now.getTime() - updatedAt.getTime()) / (1000 * 60 * 60 * 24);
+    const daysSinceUpdate = (now.getTime() - updatedAt.getTime()) / (1000 * 60 * 60 * 24);
 
     if (daysSinceUpdate > REMY_TMP_CHAT_EXPIRY_DAYS) {
       // Clean up expired chat
       localStorage.removeItem(REMY_TMP_CHAT_KEY);
+
       return { data: null, error: null };
     }
 
@@ -78,8 +80,7 @@ export async function saveTmpChat(chat: RemyTmpChat): Promise<Result<boolean>> {
 
     // Also update the list of tmp chats
     const chatsList = await getTmpChatsList();
-    const existingIndex =
-      chatsList.data?.findIndex((c) => c.id === chat.id) ?? -1;
+    const existingIndex = chatsList.data?.findIndex((c) => c.id === chat.id) ?? -1;
 
     const metadata: RemyTmpChatMetadata = {
       id: chat.id,
@@ -94,6 +95,7 @@ export async function saveTmpChat(chat: RemyTmpChat): Promise<Result<boolean>> {
     };
 
     const updatedList = chatsList.data ?? [];
+
     if (existingIndex >= 0) {
       updatedList[existingIndex] = metadata;
     } else {
@@ -102,6 +104,7 @@ export async function saveTmpChat(chat: RemyTmpChat): Promise<Result<boolean>> {
 
     // Keep only recent 50
     const limited = updatedList.slice(0, 50);
+
     localStorage.setItem(REMY_TMP_CHATS_KEY, JSON.stringify(limited));
 
     return { data: true, error: null };
@@ -116,15 +119,14 @@ export async function saveTmpChat(chat: RemyTmpChat): Promise<Result<boolean>> {
 /**
  * Get list of temporary chats metadata
  */
-export async function getTmpChatsList(): Promise<
-  Result<RemyTmpChatMetadata[]>
-> {
+export async function getTmpChatsList(): Promise<Result<RemyTmpChatMetadata[]>> {
   if (typeof window === "undefined") {
     return { data: [], error: null };
   }
 
   try {
     const stored = localStorage.getItem(REMY_TMP_CHATS_KEY);
+
     if (!stored) {
       return { data: [], error: null };
     }
@@ -135,8 +137,8 @@ export async function getTmpChatsList(): Promise<
     const now = new Date();
     const validChats = chats.filter((chat) => {
       const updatedAt = new Date(chat.updatedAt);
-      const daysSinceUpdate =
-        (now.getTime() - updatedAt.getTime()) / (1000 * 60 * 60 * 24);
+      const daysSinceUpdate = (now.getTime() - updatedAt.getTime()) / (1000 * 60 * 60 * 24);
+
       return daysSinceUpdate <= REMY_TMP_CHAT_EXPIRY_DAYS;
     });
 
@@ -149,8 +151,7 @@ export async function getTmpChatsList(): Promise<
   } catch (err) {
     return {
       data: [],
-      error:
-        err instanceof Error ? err : new Error("Failed to load tmp chats list"),
+      error: err instanceof Error ? err : new Error("Failed to load tmp chats list"),
     };
   }
 }
@@ -166,6 +167,7 @@ export async function deleteTmpChat(id: string): Promise<Result<boolean>> {
   try {
     // Remove from current chat if it matches
     const current = await getTmpChat();
+
     if (current.data?.id === id) {
       localStorage.removeItem(REMY_TMP_CHAT_KEY);
     }
@@ -173,14 +175,14 @@ export async function deleteTmpChat(id: string): Promise<Result<boolean>> {
     // Remove from list
     const chatsList = await getTmpChatsList();
     const updated = (chatsList.data ?? []).filter((c) => c.id !== id);
+
     localStorage.setItem(REMY_TMP_CHATS_KEY, JSON.stringify(updated));
 
     return { data: true, error: null };
   } catch (err) {
     return {
       data: false,
-      error:
-        err instanceof Error ? err : new Error("Failed to delete tmp chat"),
+      error: err instanceof Error ? err : new Error("Failed to delete tmp chat"),
     };
   }
 }
@@ -200,8 +202,7 @@ export async function cleanupExpiredTmpChats(): Promise<Result<number>> {
 
     for (const chat of chatsList.data ?? []) {
       const updatedAt = new Date(chat.updatedAt);
-      const daysSinceUpdate =
-        (now.getTime() - updatedAt.getTime()) / (1000 * 60 * 60 * 24);
+      const daysSinceUpdate = (now.getTime() - updatedAt.getTime()) / (1000 * 60 * 60 * 24);
 
       if (daysSinceUpdate > REMY_TMP_CHAT_EXPIRY_DAYS) {
         await deleteTmpChat(chat.id);
@@ -213,8 +214,7 @@ export async function cleanupExpiredTmpChats(): Promise<Result<number>> {
   } catch (err) {
     return {
       data: 0,
-      error:
-        err instanceof Error ? err : new Error("Failed to cleanup tmp chats"),
+      error: err instanceof Error ? err : new Error("Failed to cleanup tmp chats"),
     };
   }
 }

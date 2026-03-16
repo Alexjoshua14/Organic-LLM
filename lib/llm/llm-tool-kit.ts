@@ -1,22 +1,20 @@
+import type { ExaSearchResultSource } from "../exa/types";
+
 import { tool } from "ai";
 import { z } from "zod";
 import { UIMessage } from "ai";
+import { ContentsOptions } from "exa-js";
 
-import {
-  getMessages,
-  getMessagesSince,
-  getNMessages,
-} from "@/data/supabase/chat";
-import { estimateTokenCount } from "@/lib/llm/chat-helpers";
-import { searchMemories } from "@/lib/memory/store";
-import { SearchMemoryToolSchema } from "@/lib/schemas/llm-tools";
 import { createLogger } from "../logger";
 import { exaSearchOptionsSchema, searchOptionsSchema } from "../exa/types";
 import { searchWeb, searchWebWithQuery } from "../exa/client";
 import { mapSearchResponseToExaSources } from "../exa/utils";
-import { ContentsOptions } from "exa-js";
+
+import { getMessages, getMessagesSince, getNMessages } from "@/data/supabase/chat";
+import { estimateTokenCount } from "@/lib/llm/chat-helpers";
+import { searchMemories } from "@/lib/memory/store";
+import { SearchMemoryToolSchema } from "@/lib/schemas/llm-tools";
 import { ChatAIActionEnum } from "@/types/ai";
-import type { ExaSearchResultSource } from "../exa/types";
 
 const logger = createLogger("llm-tool-kit");
 
@@ -34,6 +32,7 @@ function formatMessagesForContext(messages: UIMessage[]): string {
         .filter((p): p is { type: "text"; text: string } => p.type === "text")
         .map((p) => p.text)
         .join("");
+
       return `[${m.role}]: ${text.trim() || "(no text)"}`;
     })
     .join("\n\n");
@@ -42,7 +41,7 @@ function formatMessagesForContext(messages: UIMessage[]): string {
 /** Truncate messages from the start (oldest) until formatted string is within token cap. */
 async function formatAndCapMessagesByTokens(
   messages: UIMessage[],
-  maxTokens: number,
+  maxTokens: number
 ): Promise<{
   formatted: string;
   messagesUsed: UIMessage[];
@@ -51,6 +50,7 @@ async function formatAndCapMessagesByTokens(
   let slice = messages;
   let formatted = formatMessagesForContext(slice);
   let tokenCount = (await estimateTokenCount(formatted)) ?? 0;
+
   while (tokenCount > maxTokens && slice.length > 1) {
     slice = slice.slice(1);
     formatted = formatMessagesForContext(slice);
@@ -58,12 +58,12 @@ async function formatAndCapMessagesByTokens(
   }
   if (tokenCount > maxTokens && slice.length === 1) {
     return {
-      formatted:
-        "(Messages exceed token limit; skipping to protect context window.)",
+      formatted: "(Messages exceed token limit; skipping to protect context window.)",
       messagesUsed: [],
       tokenCount: 0,
     };
   }
+
   return {
     formatted: formatted || "(No messages.)",
     messagesUsed: slice,
@@ -88,10 +88,7 @@ export const weatherTool = tool({
  * @param userId - The user ID to search memories for
  * @returns A tool instance that can search the user's memories
  */
-export function createMemorySearchTool(
-  userId: string,
-  writer?: WebSearchStreamWriter,
-) {
+export function createMemorySearchTool(userId: string, writer?: WebSearchStreamWriter) {
   return tool({
     description:
       "Search through the user's stored memories to find relevant information from past conversations. Use this when you need to recall specific details, preferences, or context from previous interactions.",
@@ -107,6 +104,7 @@ export function createMemorySearchTool(
       }
       try {
         const result = await searchMemories(query, userId, { limit });
+
         return {
           success: true,
           query,
@@ -132,7 +130,7 @@ const GetMoreMessagesToolSchema = z.object({
     .min(1)
     .max(50)
     .describe(
-      "Number of older messages to fetch from the conversation (1–50). Use when you need more history to answer accurately.",
+      "Number of older messages to fetch from the conversation (1–50). Use when you need more history to answer accurately."
     ),
 });
 
@@ -143,23 +141,22 @@ const GetMoreMessagesToolSchema = z.object({
  * @param chatId - Current chat/thread ID
  * @param alreadySentCount - Number of messages already in context (so we fetch only older ones)
  */
-export function createGetMoreMessagesTool(
-  chatId: string,
-  alreadySentCount: number,
-) {
+export function createGetMoreMessagesTool(chatId: string, alreadySentCount: number) {
   return tool({
     description:
       "Fetch older messages from this conversation when you need more context to answer the user. Call this when the user refers to something earlier in the chat that you don't have in your current context (e.g. a prior decision, topic, or detail).",
     inputSchema: GetMoreMessagesToolSchema,
     execute: async ({ limit }) => {
       const MAX_LIMIT = 50;
+
       limit = Math.min(limit, MAX_LIMIT);
       logger.log(
         "createGetMoreMessagesTool",
-        `Fetching ${limit} older messages for chat ${chatId} (already have ${alreadySentCount})`,
+        `Fetching ${limit} older messages for chat ${chatId} (already have ${alreadySentCount})`
       );
       try {
         const result = await getNMessages(chatId, alreadySentCount + limit);
+
         if (result.error) {
           return {
             success: false,
@@ -170,12 +167,14 @@ export function createGetMoreMessagesTool(
         }
         const all = result.data ?? [];
         const olderOnly = all.slice(0, limit);
-        const { formatted, messagesUsed, tokenCount } =
-          await formatAndCapMessagesByTokens(olderOnly, MAX_TOKENS_FOR_HISTORY);
+        const { formatted, messagesUsed, tokenCount } = await formatAndCapMessagesByTokens(
+          olderOnly,
+          MAX_TOKENS_FOR_HISTORY
+        );
 
         logger.log(
           "createGetMoreMessagesTool",
-          `Returning ${messagesUsed.length} message(s), ~${tokenCount} tokens${messagesUsed.length < olderOnly.length ? " (truncated to stay under cap)" : ""}`,
+          `Returning ${messagesUsed.length} message(s), ~${tokenCount} tokens${messagesUsed.length < olderOnly.length ? " (truncated to stay under cap)" : ""}`
         );
 
         return {
@@ -186,8 +185,9 @@ export function createGetMoreMessagesTool(
       } catch (error) {
         logger.error(
           "createGetMoreMessagesTool",
-          `Error: ${error instanceof Error ? error.message : String(error)}`,
+          `Error: ${error instanceof Error ? error.message : String(error)}`
         );
+
         return {
           success: false,
           error: error instanceof Error ? error.message : "Unknown error",
@@ -209,12 +209,10 @@ export function createGetFullChatHistoryTool(chatId: string) {
       "Fetch the entire conversation history for this thread (up to 24000 tokens). Use only when the user explicitly asks for the full conversation, a complete summary of the thread, or 'everything we discussed'—not for routine context. Prefer get_more_chat_history for targeted lookbacks.",
     inputSchema: z.object({}),
     execute: async () => {
-      logger.log(
-        "createGetFullChatHistoryTool",
-        `Fetching full history for chat ${chatId}`,
-      );
+      logger.log("createGetFullChatHistoryTool", `Fetching full history for chat ${chatId}`);
       try {
         const result = await getMessages(chatId);
+
         if (result.error || !result.data) {
           return {
             success: false,
@@ -224,12 +222,16 @@ export function createGetFullChatHistoryTool(chatId: string) {
           };
         }
         const messages = result.data;
-        const { formatted, messagesUsed, tokenCount } =
-          await formatAndCapMessagesByTokens(messages, MAX_TOKENS_FULL_HISTORY);
+        const { formatted, messagesUsed, tokenCount } = await formatAndCapMessagesByTokens(
+          messages,
+          MAX_TOKENS_FULL_HISTORY
+        );
+
         logger.log(
           "createGetFullChatHistoryTool",
-          `Returning ${messagesUsed.length} message(s), ~${tokenCount} tokens`,
+          `Returning ${messagesUsed.length} message(s), ~${tokenCount} tokens`
         );
+
         return {
           success: true,
           count: messagesUsed.length,
@@ -238,8 +240,9 @@ export function createGetFullChatHistoryTool(chatId: string) {
       } catch (error) {
         logger.error(
           "createGetFullChatHistoryTool",
-          `Error: ${error instanceof Error ? error.message : String(error)}`,
+          `Error: ${error instanceof Error ? error.message : String(error)}`
         );
+
         return {
           success: false,
           error: error instanceof Error ? error.message : "Unknown error",
@@ -255,7 +258,7 @@ const GetMessagesFromDateToolSchema = z.object({
   date: z
     .string()
     .describe(
-      "Date in YYYY-MM-DD format (e.g. 2025-02-01). Returns all messages on or after this date (UTC).",
+      "Date in YYYY-MM-DD format (e.g. 2025-02-01). Returns all messages on or after this date (UTC)."
     ),
 });
 
@@ -270,10 +273,11 @@ export function createGetMessagesFromDateTool(chatId: string) {
     execute: async ({ date }) => {
       logger.log(
         "createGetMessagesFromDateTool",
-        `Fetching messages since ${date} for chat ${chatId}`,
+        `Fetching messages since ${date} for chat ${chatId}`
       );
       try {
         const result = await getMessagesSince(chatId, date);
+
         if (result.error) {
           return {
             success: false,
@@ -283,12 +287,16 @@ export function createGetMessagesFromDateTool(chatId: string) {
           };
         }
         const messages = result.data ?? [];
-        const { formatted, messagesUsed, tokenCount } =
-          await formatAndCapMessagesByTokens(messages, MAX_TOKENS_FULL_HISTORY);
+        const { formatted, messagesUsed, tokenCount } = await formatAndCapMessagesByTokens(
+          messages,
+          MAX_TOKENS_FULL_HISTORY
+        );
+
         logger.log(
           "createGetMessagesFromDateTool",
-          `Returning ${messagesUsed.length} message(s) since ${date}, ~${tokenCount} tokens`,
+          `Returning ${messagesUsed.length} message(s) since ${date}, ~${tokenCount} tokens`
         );
+
         return {
           success: true,
           count: messagesUsed.length,
@@ -297,8 +305,9 @@ export function createGetMessagesFromDateTool(chatId: string) {
       } catch (error) {
         logger.error(
           "createGetMessagesFromDateTool",
-          `Error: ${error instanceof Error ? error.message : String(error)}`,
+          `Error: ${error instanceof Error ? error.message : String(error)}`
         );
+
         return {
           success: false,
           error: error instanceof Error ? error.message : "Unknown error",
@@ -346,10 +355,7 @@ export const createWebSearchTool = ({
       options: searchOptionsSchema.partial().optional(),
     }),
     execute: async ({ query, options }) => {
-      const numResultsToUse = Math.min(
-        options?.numResults ?? 3,
-        maxNumResults ?? 10,
-      );
+      const numResultsToUse = Math.min(options?.numResults ?? 3, maxNumResults ?? 10);
 
       const contentsToUse: ContentsOptions = {
         highlights: true,
@@ -362,9 +368,8 @@ export const createWebSearchTool = ({
       });
 
       if (writer && webSearchResult.data?.results?.length) {
-        const sources = mapSearchResponseToExaSources(
-          webSearchResult.data.results,
-        );
+        const sources = mapSearchResponseToExaSources(webSearchResult.data.results);
+
         writer.write({
           type: "data-aiAction",
           data: { action: ChatAIActionEnum.Search, sources },
@@ -398,13 +403,8 @@ export const addSchemaTool = tool({
     schemaName: z.string().describe("Proposed name for the new schema"),
     schemaDefinition: z
       .string()
-      .describe(
-        "Definition of the schema, such as a JSON schema or description.",
-      ),
-    reason: z
-      .string()
-      .optional()
-      .describe("Reason or motivation for adding this new schema"),
+      .describe("Definition of the schema, such as a JSON schema or description."),
+    reason: z.string().optional().describe("Reason or motivation for adding this new schema"),
   }),
   execute: async ({ schemaName, schemaDefinition, reason }) => {
     switch (schemaName) {
@@ -433,13 +433,8 @@ export const updateSchemaTool = tool({
     schemaName: z.string().describe("Name of the schema to update"),
     newSchemaDefinition: z
       .string()
-      .describe(
-        "New definition of the schema, such as a JSON schema or updated description.",
-      ),
-    reason: z
-      .string()
-      .optional()
-      .describe("Reason or motivation for updating this schema"),
+      .describe("New definition of the schema, such as a JSON schema or updated description."),
+    reason: z.string().optional().describe("Reason or motivation for updating this schema"),
   }),
   execute: async ({ schemaName, newSchemaDefinition, reason }) => {
     // In a real implementation, you would update the schema definition here

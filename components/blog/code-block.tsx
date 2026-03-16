@@ -1,10 +1,8 @@
 "use client";
 
 import { Prism as SyntaxHighlighter } from "react-syntax-highlighter";
-import {
-  oneDark,
-  oneLight,
-} from "react-syntax-highlighter/dist/esm/styles/prism";
+import { oneDark, oneLight } from "react-syntax-highlighter/dist/esm/styles/prism";
+
 import { cn } from "@/lib/utils";
 
 const glassPreClass =
@@ -20,13 +18,12 @@ export function CodeBlock({
   className?: string;
 }) {
   const trimmed = code.trim();
+
   return (
-    <div
-      className={cn(glassPreClass, "overflow-hidden my-4", className)}
-      data-syntax-highlighted
-    >
+    <div data-syntax-highlighted className={cn(glassPreClass, "overflow-hidden my-4", className)}>
       <SyntaxHighlighter
         PreTag="div"
+        className="my-0! overflow-x-auto rounded-lg dark:hidden"
         codeTagProps={{ className: "font-mono text-sm" }}
         customStyle={{
           margin: 0,
@@ -37,12 +34,12 @@ export function CodeBlock({
         }}
         language={language}
         style={oneLight}
-        className="my-0! overflow-x-auto rounded-lg dark:hidden"
       >
         {trimmed}
       </SyntaxHighlighter>
       <SyntaxHighlighter
         PreTag="div"
+        className="my-0! hidden overflow-x-auto rounded-lg dark:block"
         codeTagProps={{ className: "font-mono text-sm" }}
         customStyle={{
           margin: 0,
@@ -53,7 +50,6 @@ export function CodeBlock({
         }}
         language={language}
         style={oneDark}
-        className="my-0! hidden overflow-x-auto rounded-lg dark:block"
       >
         {trimmed}
       </SyntaxHighlighter>

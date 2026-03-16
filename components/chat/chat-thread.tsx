@@ -1,13 +1,19 @@
 "use client";
 
+import type { ExaSearchResultSource } from "@/lib/exa/types";
+
 import { FC } from "react";
 import { UIMessage } from "ai";
 import { MessageSquare } from "lucide-react";
 
+import {
+  ConversationContent,
+  ConversationEmptyState,
+} from "../third-party/ai-elements/conversation";
+
 import { ChatMessage } from "./chat-message";
+
 import { ChatAIActionEnum } from "@/types/ai";
-import type { ExaSearchResultSource } from "@/lib/exa/types";
-import { ConversationContent, ConversationEmptyState } from "../third-party/ai-elements/conversation";
 import { cn } from "@/lib/utils";
 
 /** Bottom padding to reserve when memory (ephemeral cards) can appear. Use same value always to avoid layout shift. */
@@ -19,7 +25,11 @@ type ChatThreadProps = {
   className?: string;
   /** Extra class for the scrollable content (e.g. bottom padding when memory panel can overlay). */
   contentClassName?: string;
-  aiActionPayload?: { action: ChatAIActionEnum; message?: string; sources?: ExaSearchResultSource[] };
+  aiActionPayload?: {
+    action: ChatAIActionEnum;
+    message?: string;
+    sources?: ExaSearchResultSource[];
+  };
 };
 
 export const ChatThread: FC<ChatThreadProps> = ({
@@ -30,6 +40,7 @@ export const ChatThread: FC<ChatThreadProps> = ({
   aiActionPayload,
 }) => {
   const lastMessageIndex = messages.length - 1;
+
   return (
     <ConversationContent
       className={cn("w-full px-4 pt-16 pb-12 flex flex-col", contentClassName)}
@@ -37,13 +48,17 @@ export const ChatThread: FC<ChatThreadProps> = ({
     >
       {messages.length === 0 ? (
         <ConversationEmptyState
+          description="Type a message below to begin chatting"
           icon={<MessageSquare className="size-12" />}
           title="Start a conversation"
-          description="Type a message below to begin chatting"
         />
       ) : (
         messages.map((message, index) => (
-          <ChatMessage key={message.id} message={message} aiActionPayload={index === lastMessageIndex ? aiActionPayload : undefined} />
+          <ChatMessage
+            key={message.id}
+            aiActionPayload={index === lastMessageIndex ? aiActionPayload : undefined}
+            message={message}
+          />
         ))
       )}
     </ConversationContent>

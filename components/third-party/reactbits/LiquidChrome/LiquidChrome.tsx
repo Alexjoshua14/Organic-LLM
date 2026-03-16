@@ -111,10 +111,7 @@ export const LiquidChrome: React.FC<LiquidChromeProps> = ({
     function resize() {
       const scale = 1;
 
-      renderer.setSize(
-        container.offsetWidth * scale,
-        container.offsetHeight * scale,
-      );
+      renderer.setSize(container.offsetWidth * scale, container.offsetHeight * scale);
       const resUniform = program.uniforms.uResolution.value as Float32Array;
 
       resUniform[0] = gl.canvas.width;
@@ -177,9 +174,7 @@ export const LiquidChrome: React.FC<LiquidChromeProps> = ({
     };
   }, [baseColor, speed, amplitude, frequencyX, frequencyY, interactive]);
 
-  return (
-    <div ref={containerRef} className="liquidChrome-container" {...props} />
-  );
+  return <div ref={containerRef} className="liquidChrome-container" {...props} />;
 };
 
 export default LiquidChrome;

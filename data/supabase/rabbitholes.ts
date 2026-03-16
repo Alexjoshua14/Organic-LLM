@@ -1,17 +1,16 @@
 "use server";
 
-import { Result, SimpleResult } from "@/types";
 import type { GenerationStep as GenerationStepType } from "@/lib/schemas/rabbitHoleSchemas";
-import {
-  RabbitHoleSession,
-  RabbitHoleSessionSchema,
-} from "@/lib/schemas/rabbitHoleSchemas";
 import type { RabbitHoleSessionMetadata } from "@/app/rabbitholes/_lib/sessionStorage";
-import { supabaseServer } from "@/lib/supabase/server";
 import type { SupabaseClient } from "@supabase/supabase-js";
+
+import { nodeToRabbitHoleNodeRow } from "./rabbitHoleNodeRow";
+
+import { Result, SimpleResult } from "@/types";
+import { RabbitHoleSession, RabbitHoleSessionSchema } from "@/lib/schemas/rabbitHoleSchemas";
+import { supabaseServer } from "@/lib/supabase/server";
 import { createLogger } from "@/lib/logger";
 import { isUnixTimestamp } from "@/lib/utils";
-import { nodeToRabbitHoleNodeRow } from "./rabbitHoleNodeRow";
 
 const logger = createLogger("data/supabase/rabbitholes.ts");
 
@@ -20,9 +19,7 @@ const DEBUG_MODE = process.env.NODE_ENV === "development";
 /**
  * List session metadata (index view)
  */
-export async function getAllSessions(): Promise<
-  Result<RabbitHoleSessionMetadata[]>
-> {
+export async function getAllSessions(): Promise<Result<RabbitHoleSessionMetadata[]>> {
   const supabase = await supabaseServer();
 
   const { data: sessions, error: sessionsError } = await supabase
@@ -33,9 +30,7 @@ export async function getAllSessions(): Promise<
   if (sessionsError) {
     return {
       data: [],
-      error: new Error(
-        sessionsError?.message ?? "Error fetching sessions from Supabase",
-      ),
+      error: new Error(sessionsError?.message ?? "Error fetching sessions from Supabase"),
     };
   }
 
@@ -54,10 +49,7 @@ export async function getAllSessions(): Promise<
   if (pathError) {
     return {
       data: [],
-      error: new Error(
-        pathError?.message ??
-          "Error fetching session path segments from Supabase",
-      ),
+      error: new Error(pathError?.message ?? "Error fetching session path segments from Supabase"),
     };
   }
 
@@ -65,10 +57,7 @@ export async function getAllSessions(): Promise<
   const rootNodeIdBySession = new Map<string, string>();
 
   for (const seg of pathSegments ?? []) {
-    pathLengthBySession.set(
-      seg.session_id,
-      (pathLengthBySession.get(seg.session_id) ?? 0) + 1,
-    );
+    pathLengthBySession.set(seg.session_id, (pathLengthBySession.get(seg.session_id) ?? 0) + 1);
     if (seg.position === 0 && typeof seg.node_id === "string") {
       rootNodeIdBySession.set(seg.session_id, seg.node_id);
     }
@@ -89,29 +78,22 @@ export async function getAllSessions(): Promise<
       return {
         data: [],
         error: new Error(
-          rootNodesError?.message ??
-            "Error fetching root nodes from Supabase for session summaries",
+          rootNodesError?.message ?? "Error fetching root nodes from Supabase for session summaries"
         ),
       };
     }
 
     for (const node of rootNodes ?? []) {
-      const takeaways = Array.isArray(node.key_takeaways)
-        ? (node.key_takeaways as string[])
-        : [];
-      const summary =
-        takeaways.length > 0 ? takeaways.slice(0, 2).join(" • ") : undefined;
+      const takeaways = Array.isArray(node.key_takeaways) ? (node.key_takeaways as string[]) : [];
+      const summary = takeaways.length > 0 ? takeaways.slice(0, 2).join(" • ") : undefined;
+
       if (summary) summaryBySession.set(node.session_id, summary);
     }
   }
 
   const metadata: RabbitHoleSessionMetadata[] = sessions.map((s) => {
-    const createdAt =
-      typeof s.created_at === "string"
-        ? s.created_at
-        : new Date().toISOString();
-    const updatedAt =
-      typeof s.updated_at === "string" ? s.updated_at : createdAt;
+    const createdAt = typeof s.created_at === "string" ? s.created_at : new Date().toISOString();
+    const updatedAt = typeof s.updated_at === "string" ? s.updated_at : createdAt;
 
     return {
       sessionId: s.session_id,
@@ -141,7 +123,7 @@ export async function advanceGenerationStep(
   nodeId: string,
   fromStep: GenerationStepType,
   toStep: GenerationStepType | null,
-  client?: RabbitHolesSupabaseClient,
+  client?: RabbitHolesSupabaseClient
 ): Promise<{ updated: boolean }> {
   const supabase = client ?? (await supabaseServer());
 
@@ -167,12 +149,10 @@ export async function advanceGenerationStep(
     .maybeSingle();
 
   if (error) {
-    logger.error(
-      "advanceGenerationStep",
-      `Failed to advance step: ${error.message}`,
-    );
+    logger.error("advanceGenerationStep", `Failed to advance step: ${error.message}`);
     throw error;
   }
+
   return { updated: data != null };
 }
 
@@ -181,14 +161,14 @@ export async function advanceGenerationStep(
  */
 export async function getSessionById(
   sessionId: string,
-  client?: RabbitHolesSupabaseClient,
+  client?: RabbitHolesSupabaseClient
 ): Promise<Result<RabbitHoleSession | null>> {
   const supabase = client ?? (await supabaseServer());
 
   const { data: sessionRow, error: sessionError } = await supabase
     .from("rabbit_hole_sessions")
     .select(
-      "session_id, root_question, active_node_id, generating_node_id, generation_step, created_at, updated_at",
+      "session_id, root_question, active_node_id, generating_node_id, generation_step, created_at, updated_at"
     )
     .eq("session_id", sessionId)
     .single();
@@ -196,9 +176,7 @@ export async function getSessionById(
   if (sessionError) {
     return {
       data: null,
-      error: new Error(
-        sessionError?.message ?? "Error fetching session from Supabase",
-      ),
+      error: new Error(sessionError?.message ?? "Error fetching session from Supabase"),
     };
   }
 
@@ -207,48 +185,41 @@ export async function getSessionById(
   }
 
   // Fetch all related entities for the session.
-  const [pathRes, nodesRes, edgesRes, sourcesRes, branchesRes] =
-    await Promise.all([
-      supabase
-        .from("rabbit_hole_path_segments")
-        .select("node_id, label, parent_node_id, position")
-        .eq("session_id", sessionId)
-        .order("position", { ascending: true }),
-      supabase
-        .from("rabbit_hole_nodes")
-        .select(
-          "node_id, raw_prompt, user_question, key_takeaways, article_html, preview, created_at",
-        )
-        .eq("session_id", sessionId),
-      supabase
-        .from("rabbit_hole_edges")
-        .select("from_node_id, to_node_id, edge_type")
-        .eq("session_id", sessionId),
-      supabase
-        .from("rabbit_hole_sources")
-        .select(
-          "node_id, source_id, title, url, favicon_url, snippet, published_date, author, highlights, analysis",
-        )
-        .eq("session_id", sessionId),
-      supabase
-        .from("rabbit_hole_branch_suggestions")
-        .select("node_id, branch_id, label, short_description")
-        .eq("session_id", sessionId),
-    ]);
+  const [pathRes, nodesRes, edgesRes, sourcesRes, branchesRes] = await Promise.all([
+    supabase
+      .from("rabbit_hole_path_segments")
+      .select("node_id, label, parent_node_id, position")
+      .eq("session_id", sessionId)
+      .order("position", { ascending: true }),
+    supabase
+      .from("rabbit_hole_nodes")
+      .select(
+        "node_id, raw_prompt, user_question, key_takeaways, article_html, preview, created_at"
+      )
+      .eq("session_id", sessionId),
+    supabase
+      .from("rabbit_hole_edges")
+      .select("from_node_id, to_node_id, edge_type")
+      .eq("session_id", sessionId),
+    supabase
+      .from("rabbit_hole_sources")
+      .select(
+        "node_id, source_id, title, url, favicon_url, snippet, published_date, author, highlights, analysis"
+      )
+      .eq("session_id", sessionId),
+    supabase
+      .from("rabbit_hole_branch_suggestions")
+      .select("node_id, branch_id, label, short_description")
+      .eq("session_id", sessionId),
+  ]);
 
   const firstError =
-    pathRes.error ||
-    nodesRes.error ||
-    edgesRes.error ||
-    sourcesRes.error ||
-    branchesRes.error;
+    pathRes.error || nodesRes.error || edgesRes.error || sourcesRes.error || branchesRes.error;
 
   if (firstError) {
     return {
       data: null,
-      error: new Error(
-        firstError.message ?? "Error fetching session details from Supabase",
-      ),
+      error: new Error(firstError.message ?? "Error fetching session details from Supabase"),
     };
   }
 
@@ -262,8 +233,10 @@ export async function getSessionById(
 
   // Sources grouped by node
   const sourcesByNodeId = new Map<string, any[]>();
+
   for (const s of sourcesRes.data ?? []) {
     const arr = sourcesByNodeId.get(s.node_id) ?? [];
+
     arr.push({
       status: "none",
       id: s.source_id,
@@ -281,8 +254,10 @@ export async function getSessionById(
 
   // Branch suggestions grouped by node
   const branchesByNodeId = new Map<string, any[]>();
+
   for (const b of branchesRes.data ?? []) {
     const arr = branchesByNodeId.get(b.node_id) ?? [];
+
     arr.push({
       id: b.branch_id,
       label: b.label,
@@ -292,6 +267,7 @@ export async function getSessionById(
   }
 
   const nodesById: RabbitHoleSession["nodesById"] = {};
+
   for (const node of nodesRes.data ?? []) {
     nodesById[node.node_id] = {
       id: node.node_id,
@@ -299,16 +275,11 @@ export async function getSessionById(
       userQuestion: node.user_question,
       refinedQuestion: null,
       preview: node.preview ?? null,
-      keyTakeaways: Array.isArray(node.key_takeaways)
-        ? (node.key_takeaways as string[])
-        : [],
+      keyTakeaways: Array.isArray(node.key_takeaways) ? (node.key_takeaways as string[]) : [],
       articleHtml: node.article_html,
       sources: sourcesByNodeId.get(node.node_id) ?? [],
       branchSuggestions: branchesByNodeId.get(node.node_id) ?? [],
-      createdAt:
-        typeof node.created_at === "string"
-          ? node.created_at
-          : new Date().toISOString(),
+      createdAt: typeof node.created_at === "string" ? node.created_at : new Date().toISOString(),
     };
   }
 
@@ -326,32 +297,26 @@ export async function getSessionById(
     nodesById,
     activeNodeId: sessionRow.active_node_id ?? rootNodeId,
     generatingNodeId: sessionRow.generating_node_id ?? null,
-    generationStep:
-      (sessionRow.generation_step as RabbitHoleSession["generationStep"]) ?? null,
+    generationStep: (sessionRow.generation_step as RabbitHoleSession["generationStep"]) ?? null,
     edges,
     createdAt:
-      typeof sessionRow.created_at === "string"
-        ? sessionRow.created_at
-        : new Date().toISOString(),
-    updatedAt:
-      typeof sessionRow.updated_at === "string"
-        ? sessionRow.updated_at
-        : undefined,
+      typeof sessionRow.created_at === "string" ? sessionRow.created_at : new Date().toISOString(),
+    updatedAt: typeof sessionRow.updated_at === "string" ? sessionRow.updated_at : undefined,
   };
 
   const validated = RabbitHoleSessionSchema.safeParse(assembled);
+
   if (!validated.success) {
     if (DEBUG_MODE) {
       logger.error(
         "getSessionById",
-        `Failed to validate assembled session: ${validated.error.message}`,
+        `Failed to validate assembled session: ${validated.error.message}`
       );
     }
+
     return {
       data: null,
-      error: new Error(
-        validated.error.message ?? "Error validating assembled session",
-      ),
+      error: new Error(validated.error.message ?? "Error validating assembled session"),
     };
   }
 
@@ -361,17 +326,14 @@ export async function getSessionById(
   };
 }
 
-async function deserializeSession(
-  serialized: string,
-): Promise<RabbitHoleSession> {
+async function deserializeSession(serialized: string): Promise<RabbitHoleSession> {
   const parsed = RabbitHoleSessionSchema.safeParse(JSON.parse(serialized));
+
   if (!parsed.success) {
-    logger.error(
-      "deserializeSession",
-      `Failed to deserialize session: ${parsed.error.message}`,
-    );
+    logger.error("deserializeSession", `Failed to deserialize session: ${parsed.error.message}`);
     throw new Error(`Failed to deserialize session: ${parsed.error.message}`);
   }
+
   return parsed.data;
 }
 
@@ -380,7 +342,7 @@ async function deserializeSession(
  */
 export async function saveSession(
   serialized: string,
-  client?: RabbitHolesSupabaseClient,
+  client?: RabbitHolesSupabaseClient
 ): Promise<SimpleResult> {
   const supabase = client ?? (await supabaseServer());
 
@@ -388,22 +350,19 @@ export async function saveSession(
     if (DEBUG_MODE) {
       logger.log(
         "saveSession",
-        `Starting save operation. Serialized length: ${serialized.length} chars`,
+        `Starting save operation. Serialized length: ${serialized.length} chars`
       );
     }
 
     if (DEBUG_MODE) {
-      logger.log(
-        "saveSession",
-        `Deserializing session: ${serialized.substring(0, 100)}...`,
-      );
+      logger.log("saveSession", `Deserializing session: ${serialized.substring(0, 100)}...`);
     }
     const session = await deserializeSession(serialized);
 
     if (DEBUG_MODE) {
       logger.log(
         "saveSession",
-        `Deserialized session ${session.sessionId} with ${Object.keys(session.nodesById).length} nodes, ${session.path.length} path segments`,
+        `Deserialized session ${session.sessionId} with ${Object.keys(session.nodesById).length} nodes, ${session.path.length} path segments`
       );
     }
 
@@ -423,22 +382,21 @@ export async function saveSession(
       : new Date().toISOString();
 
     let ownerId: string | undefined;
+
     if (client) {
-      logger.log(
-        "saveSession",
-        `Admin client: fetching owner_id for session ${session.sessionId}`,
-      );
+      logger.log("saveSession", `Admin client: fetching owner_id for session ${session.sessionId}`);
       const { data: existing } = await supabase
         .from("rabbit_hole_sessions")
         .select("owner_id")
         .eq("session_id", session.sessionId)
         .maybeSingle();
+
       ownerId = existing?.owner_id ?? undefined;
       logger.log(
         "saveSession",
         ownerId
           ? `Admin client: got owner_id, upserting session`
-          : `Admin client: no existing row (owner_id missing), upsert may fail`,
+          : `Admin client: no existing row (owner_id missing), upsert may fail`
       );
     }
 
@@ -450,6 +408,7 @@ export async function saveSession(
       created_at: createdAt,
       updated_at: updatedAt,
     };
+
     // Only write generation_step when the serialized session explicitly includes it.
     // This lets the orchestrator control generation_step via advanceGenerationStep
     // without saveSession accidentally overwriting it back to an older value.
@@ -460,17 +419,13 @@ export async function saveSession(
       sessionRow.owner_id = ownerId;
     }
 
-    const { error: sessionError } = await supabase
-      .from("rabbit_hole_sessions")
-      .upsert(sessionRow, {
-        onConflict: "session_id",
-      });
+    const { error: sessionError } = await supabase.from("rabbit_hole_sessions").upsert(sessionRow, {
+      onConflict: "session_id",
+    });
 
     if (sessionError) {
-      logger.error(
-        "saveSession",
-        `Failed to upsert session: ${sessionError.message}`,
-      );
+      logger.error("saveSession", `Failed to upsert session: ${sessionError.message}`);
+
       return {
         ok: false,
         error: new Error(`Failed to save session: ${sessionError.message}`),
@@ -482,7 +437,7 @@ export async function saveSession(
 
     // Upsert nodes (unique on session_id + node_id)
     const nodes = Object.values(session.nodesById).map((node) =>
-      nodeToRabbitHoleNodeRow(node, session.sessionId),
+      nodeToRabbitHoleNodeRow(node, session.sessionId)
     );
 
     if (nodes.length > 0) {
@@ -494,20 +449,15 @@ export async function saveSession(
         .upsert(nodes, { onConflict: "session_id,node_id" });
 
       if (nodesError) {
-        logger.error(
-          "saveSession",
-          `Failed to upsert nodes: ${nodesError.message}`,
-        );
+        logger.error("saveSession", `Failed to upsert nodes: ${nodesError.message}`);
+
         return {
           ok: false,
           error: new Error(`Failed to save nodes: ${nodesError.message}`),
         };
       }
       if (DEBUG_MODE) {
-        logger.log(
-          "saveSession",
-          `Successfully upserted ${nodes.length} nodes`,
-        );
+        logger.log("saveSession", `Successfully upserted ${nodes.length} nodes`);
       }
     } else {
       if (DEBUG_MODE) {
@@ -526,32 +476,22 @@ export async function saveSession(
 
     if (pathSegments.length > 0) {
       if (DEBUG_MODE) {
-        logger.log(
-          "saveSession",
-          `Upserting ${pathSegments.length} path segments`,
-        );
+        logger.log("saveSession", `Upserting ${pathSegments.length} path segments`);
       }
       const { error: pathError } = await supabase
         .from("rabbit_hole_path_segments")
         .upsert(pathSegments, { onConflict: "session_id,node_id,position" });
 
       if (pathError) {
-        logger.error(
-          "saveSession",
-          `Failed to upsert path segments: ${pathError.message}`,
-        );
+        logger.error("saveSession", `Failed to upsert path segments: ${pathError.message}`);
+
         return {
           ok: false,
-          error: new Error(
-            `Failed to save path segments: ${pathError.message}`,
-          ),
+          error: new Error(`Failed to save path segments: ${pathError.message}`),
         };
       }
       if (DEBUG_MODE) {
-        logger.log(
-          "saveSession",
-          `Successfully upserted ${pathSegments.length} path segments`,
-        );
+        logger.log("saveSession", `Successfully upserted ${pathSegments.length} path segments`);
       }
     } else {
       if (DEBUG_MODE) {
@@ -576,20 +516,15 @@ export async function saveSession(
         .upsert(edges, { onConflict: "session_id,from_node_id,to_node_id" });
 
       if (edgesError) {
-        logger.error(
-          "saveSession",
-          `Failed to upsert edges: ${edgesError.message}`,
-        );
+        logger.error("saveSession", `Failed to upsert edges: ${edgesError.message}`);
+
         return {
           ok: false,
           error: new Error(`Failed to save edges: ${edgesError.message}`),
         };
       }
       if (DEBUG_MODE) {
-        logger.log(
-          "saveSession",
-          `Successfully upserted ${edges.length} edges`,
-        );
+        logger.log("saveSession", `Successfully upserted ${edges.length} edges`);
       }
     } else {
       if (DEBUG_MODE) {
@@ -599,6 +534,7 @@ export async function saveSession(
 
     // Upsert sources (unique on session_id + node_id + source_id)
     const sources = [];
+
     for (const node of Object.values(session.nodesById)) {
       if (node.sources && node.sources.length > 0) {
         for (const source of node.sources) {
@@ -613,9 +549,7 @@ export async function saveSession(
             published_date: source.publishedDate || null,
             author: source.author || null,
             highlights: source.highlights || null,
-            analysis: source.analysis
-              ? JSON.parse(JSON.stringify(source.analysis))
-              : null,
+            analysis: source.analysis ? JSON.parse(JSON.stringify(source.analysis)) : null,
           });
         }
       }
@@ -630,20 +564,15 @@ export async function saveSession(
         .upsert(sources, { onConflict: "session_id,node_id,source_id" });
 
       if (sourcesError) {
-        logger.error(
-          "saveSession",
-          `Failed to upsert sources: ${sourcesError.message}`,
-        );
+        logger.error("saveSession", `Failed to upsert sources: ${sourcesError.message}`);
+
         return {
           ok: false,
           error: new Error(`Failed to save sources: ${sourcesError.message}`),
         };
       }
       if (DEBUG_MODE) {
-        logger.log(
-          "saveSession",
-          `Successfully upserted ${sources.length} sources`,
-        );
+        logger.log("saveSession", `Successfully upserted ${sources.length} sources`);
       }
     } else {
       if (DEBUG_MODE) {
@@ -653,6 +582,7 @@ export async function saveSession(
 
     // Upsert branch suggestions (unique on session_id + node_id + branch_id)
     const branchSuggestions = [];
+
     for (const node of Object.values(session.nodesById)) {
       if (node.branchSuggestions && node.branchSuggestions.length > 0) {
         for (const branch of node.branchSuggestions) {
@@ -669,10 +599,7 @@ export async function saveSession(
 
     if (branchSuggestions.length > 0) {
       if (DEBUG_MODE) {
-        logger.log(
-          "saveSession",
-          `Upserting ${branchSuggestions.length} branch suggestions`,
-        );
+        logger.log("saveSession", `Upserting ${branchSuggestions.length} branch suggestions`);
       }
       const { error: branchesError } = await supabase
         .from("rabbit_hole_branch_suggestions")
@@ -683,19 +610,18 @@ export async function saveSession(
       if (branchesError) {
         logger.error(
           "saveSession",
-          `Failed to upsert branch suggestions: ${branchesError.message}`,
+          `Failed to upsert branch suggestions: ${branchesError.message}`
         );
+
         return {
           ok: false,
-          error: new Error(
-            `Failed to save branch suggestions: ${branchesError.message}`,
-          ),
+          error: new Error(`Failed to save branch suggestions: ${branchesError.message}`),
         };
       }
       if (DEBUG_MODE) {
         logger.log(
           "saveSession",
-          `Successfully upserted ${branchSuggestions.length} branch suggestions`,
+          `Successfully upserted ${branchSuggestions.length} branch suggestions`
         );
       }
     } else {
@@ -705,11 +631,9 @@ export async function saveSession(
     }
 
     if (DEBUG_MODE) {
-      logger.log(
-        "saveSession",
-        `Successfully saved session ${session.sessionId}`,
-      );
+      logger.log("saveSession", `Successfully saved session ${session.sessionId}`);
     }
+
     return {
       ok: true,
       error: null,
@@ -717,14 +641,12 @@ export async function saveSession(
   } catch (error) {
     logger.error(
       "saveSession",
-      `Unexpected error saving session: ${error instanceof Error ? error.message : String(error)}`,
+      `Unexpected error saving session: ${error instanceof Error ? error.message : String(error)}`
     );
+
     return {
       ok: false,
-      error:
-        error instanceof Error
-          ? error
-          : new Error("Unknown error saving session"),
+      error: error instanceof Error ? error : new Error("Unknown error saving session"),
     };
   }
 }
@@ -743,9 +665,7 @@ export async function deleteSession(sessionId: string): Promise<SimpleResult> {
   if (error) {
     return {
       ok: false,
-      error: new Error(
-        error?.message ?? "Error deleting session from Supabase",
-      ),
+      error: new Error(error?.message ?? "Error deleting session from Supabase"),
     };
   }
 

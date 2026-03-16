@@ -2,15 +2,9 @@ import z from "zod";
 
 export const exaSearchOptionsSchema = z.object({
   numResults: z.number().describe("The number of results to return"),
-  type: z
-    .enum(["auto", "neural", "keyword"])
-    .describe("The type of search to perform"),
-  includeDomains: z
-    .array(z.string())
-    .describe("The domains to include in the search"),
-  excludeDomains: z
-    .array(z.string())
-    .describe("The domains to exclude from the search"),
+  type: z.enum(["auto", "neural", "keyword"]).describe("The type of search to perform"),
+  includeDomains: z.array(z.string()).describe("The domains to include in the search"),
+  excludeDomains: z.array(z.string()).describe("The domains to exclude from the search"),
 });
 
 export const searchOptionsSchema = z.object({
@@ -18,12 +12,8 @@ export const searchOptionsSchema = z.object({
   type: z
     .enum(["auto", "neural", "keyword", "hybrid", "fast"])
     .describe("The type of search to perform"),
-  includeDomains: z
-    .array(z.string())
-    .describe("The domains to include in the search"),
-  excludeDomains: z
-    .array(z.string())
-    .describe("The domains to exclude from the search"),
+  includeDomains: z.array(z.string()).describe("The domains to include in the search"),
+  excludeDomains: z.array(z.string()).describe("The domains to exclude from the search"),
 });
 
 export type ExaSearchOptions = z.infer<typeof exaSearchOptionsSchema>;

@@ -1,8 +1,10 @@
 import { tool, ToolSet } from "ai";
 import { z } from "zod";
+
+import { createMemorySearchTool } from "../llm-tool-kit";
+
 import { getChats } from "@/data/supabase/chat";
 import { createLogger } from "@/lib/logger";
-import { createMemorySearchTool } from "../llm-tool-kit";
 import { createChat } from "@/lib/chat/chat-store";
 
 const logger = createLogger("lib/llm/core/coreToolKit");
@@ -18,8 +20,7 @@ const chat = {
   relativeURL: "/chat",
   section: "Chat",
   description: "Chat page for user conversations. ",
-  additionalDescription:
-    "Core chat interface. Use this page for existing and new chats.",
+  additionalDescription: "Core chat interface. Use this page for existing and new chats.",
 };
 
 const chatLoading = {
@@ -74,20 +75,14 @@ export const NavigablePagesData = [
 
 export const NavigateToolInputSchema = z.object({
   page: NavigablePagesSchema.describe("The page or section to navigate to"),
-  reason: z
-    .string()
-    .optional()
-    .describe("Brief reason for why this route was chosen"),
+  reason: z.string().optional().describe("Brief reason for why this route was chosen"),
 });
 
 /**
  * Input schema for the listThreads tool
  */
 export const ListThreadsToolInputSchema = z.object({
-  limit: z
-    .number()
-    .optional()
-    .describe("Maximum number of threads to return (default: all)"),
+  limit: z.number().optional().describe("Maximum number of threads to return (default: all)"),
 });
 
 /**
@@ -110,10 +105,7 @@ export function createCoreToolKit(userId?: string): {
       "Navigate to a particular page or section. Use this when the user's intent clearly indicates they should be routed to a specific interface (chat, rabbit-hole, or settings).",
     inputSchema: NavigateToolInputSchema,
     execute: async ({ page, reason }) => {
-      logger.log(
-        "navigate",
-        `Navigating to ${page}. Reason: ${reason || "Not provided"}`
-      );
+      logger.log("navigate", `Navigating to ${page}. Reason: ${reason || "Not provided"}`);
 
       let routeTarget: string = page;
 
@@ -122,11 +114,13 @@ export function createCoreToolKit(userId?: string): {
       if (page === chat.relativeURL) {
         let threadId: string | null = null;
         const chatResult = await createChat();
+
         if (chatResult.error || !chatResult.data) {
           logger.error(
             "navigate",
             `Failed to create chat thread: ${chatResult.error?.message || "Unknown error"}`
           );
+
           return {
             success: false,
             route: page,
@@ -157,6 +151,7 @@ export function createCoreToolKit(userId?: string): {
       logger.log("navigate", "Completed input");
     },
   });
+
   toolset["navigate"] = navigate;
 
   const listThreads = tool({
@@ -164,10 +159,7 @@ export function createCoreToolKit(userId?: string): {
       "Browse the user's existing conversation threads. Use this when you need to check if there are relevant existing conversations before deciding whether to start a new thread or continue an existing one.",
     inputSchema: ListThreadsToolInputSchema,
     execute: async ({ limit }) => {
-      logger.log(
-        "listThreads",
-        `Fetching threads${limit ? ` (limit: ${limit})` : ""}`
-      );
+      logger.log("listThreads", `Fetching threads${limit ? ` (limit: ${limit})` : ""}`);
 
       try {
         const result = await getChats();
@@ -196,6 +188,7 @@ export function createCoreToolKit(userId?: string): {
         };
       } catch (error) {
         logger.error("listThreads", `Error fetching threads: ${error}`);
+
         return {
           success: false,
           threads: [],
@@ -205,6 +198,7 @@ export function createCoreToolKit(userId?: string): {
       }
     },
   });
+
   toolset["listThreads"] = listThreads;
 
   return { toolset, instructions: JSON.stringify(pageMetadataObjects) };

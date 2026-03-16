@@ -20,8 +20,7 @@ export const MEMORY_ENCRYPTION_DESIGN_SPACE = [
   },
   {
     title: "Key architecture",
-    overview:
-      "Single key rejected; HKDF-derived user keys chosen; per-user DEKs deferred.",
+    overview: "Single key rejected; HKDF-derived user keys chosen; per-user DEKs deferred.",
     tableMarkdown: `| Option | Pros | Cons | Verdict |
 |--------|------|------|---------|
 | A — Single global key | Simplest | One compromise = entire DB | Too risky |
@@ -30,8 +29,7 @@ export const MEMORY_ENCRYPTION_DESIGN_SPACE = [
   },
   {
     title: "Key management",
-    overview:
-      "Env variable chosen for now; Cloud KMS planned for later.",
+    overview: "Env variable chosen for now; Cloud KMS planned for later.",
     tableMarkdown: `| Option | Pros | Cons | Verdict |
 |--------|------|------|---------|
 | **A — Env variable** | Simple; deployable now | Server compromise exposes root | **Chosen for now** |
@@ -48,8 +46,7 @@ export const MEMORY_ENCRYPTION_DESIGN_SPACE = [
   },
   {
     title: "Rollout strategy",
-    overview:
-      "Mixed-mode chosen for zero downtime; full migration rejected.",
+    overview: "Mixed-mode chosen for zero downtime; full migration rejected.",
     tableMarkdown: `| Option | Pros | Cons | Verdict |
 |--------|------|------|---------|
 | A — Full DB migration | Clean state | Risk; downtime | Rejected |
@@ -57,8 +54,7 @@ export const MEMORY_ENCRYPTION_DESIGN_SPACE = [
   },
   {
     title: "Encryption location",
-    overview:
-      "Server-side chosen; client-side impossible for AI chat.",
+    overview: "Server-side chosen; client-side impossible for AI chat.",
     tableMarkdown: `| Option | Pros | Cons | Verdict |
 |--------|------|------|---------|
 | A — Client-side | Strongest privacy | LLM cannot process encrypted text | Impossible for AI chat |
@@ -66,8 +62,7 @@ export const MEMORY_ENCRYPTION_DESIGN_SPACE = [
   },
   {
     title: "Logging security",
-    overview:
-      "Log only metadata; never plaintext prompts or conversation content.",
+    overview: "Log only metadata; never plaintext prompts or conversation content.",
     tableMarkdown: `Log only metadata (message ID, thread ID, token counts, model, timings). Never log plaintext prompts.`,
   },
   {

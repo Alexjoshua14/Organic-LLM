@@ -1,24 +1,27 @@
 "use client";
 
+import type { RabbitHoleTitleRunResult } from "../pipelines/rabbit-holes";
+import type { BranchSuggestionRunResult } from "../pipelines/rabbit-holes";
+import type { QuestionRefinementRunResult } from "../pipelines/rabbit-holes";
+import type { SandboxScenario, SandboxScenarioRecord } from "./registry";
+import type { RabbitHoleSessionMetadata } from "@/app/rabbitholes/_lib/sessionStorage";
+
 import React from "react";
+
 import {
   runRabbitHoleTitleScenario,
   runBranchSuggestionScenario,
   runQuestionRefinementScenario,
 } from "../pipelines/rabbit-holes";
-import type { RabbitHoleTitleRunResult } from "../pipelines/rabbit-holes";
-import type { BranchSuggestionRunResult } from "../pipelines/rabbit-holes";
-import type { QuestionRefinementRunResult } from "../pipelines/rabbit-holes";
-import type { SandboxScenario, SandboxScenarioRecord } from "./registry";
-import type { SandboxEnvironment } from "../environment";
-import { SessionCard } from "@/components/rabbit-holes/SessionCard";
-import { RabbitHoleBranchSuggestionsBlock } from "@/app/rabbitholes/_components/RabbitHoleBranchSuggestionsBlock";
+
 import {
   TITLE_SCENARIO_SEED_SESSION,
   SAMPLE_ARTICLES,
   REFINEMENT_SCENARIO_SEED,
 } from "./fixtures/rabbit-holes";
-import type { RabbitHoleSessionMetadata } from "@/app/rabbitholes/_lib/sessionStorage";
+
+import { SessionCard } from "@/components/rabbit-holes/SessionCard";
+import { RabbitHoleBranchSuggestionsBlock } from "@/app/rabbitholes/_components/RabbitHoleBranchSuggestionsBlock";
 
 // --- Title generation scenario ---
 
@@ -36,6 +39,7 @@ const titleScenario: SandboxScenario<TitleSeed, TitleInput, TitleRunResult> = {
   getSeedData: () => ({ ...TITLE_SCENARIO_SEED_SESSION }),
   run: async (input) => {
     const text = (input as TitleInput).text ?? "";
+
     return runRabbitHoleTitleScenario(text);
   },
   normalize: (raw) => ({
@@ -44,15 +48,11 @@ const titleScenario: SandboxScenario<TitleSeed, TitleInput, TitleRunResult> = {
   render: ({ seedData, normalizedResult, runState }) => {
     const session: RabbitHoleSessionMetadata =
       (normalizedResult as { session: RabbitHoleSessionMetadata } | null)?.session ??
-      (runState?.title != null
-        ? { ...seedData, rootQuestion: runState.title }
-        : seedData);
+      (runState?.title != null ? { ...seedData, rootQuestion: runState.title } : seedData);
+
     return (
       <div className="max-w-xl mx-auto">
-        <SessionCard
-          session={session}
-          showDelete={false}
-        />
+        <SessionCard session={session} showDelete={false} />
       </div>
     );
   },
@@ -65,7 +65,11 @@ const titleScenario: SandboxScenario<TitleSeed, TitleInput, TitleRunResult> = {
 // --- Branch suggestions scenario ---
 
 type BranchSeed = { articles: typeof SAMPLE_ARTICLES; selectedIndex: number };
-type BranchInput = { context: string; rootQuestion?: string; pathHistory?: string };
+type BranchInput = {
+  context: string;
+  rootQuestion?: string;
+  pathHistory?: string;
+};
 type BranchRunResult = BranchSuggestionRunResult;
 
 const branchScenario: SandboxScenario<BranchSeed, BranchInput, BranchRunResult> = {
@@ -81,6 +85,7 @@ const branchScenario: SandboxScenario<BranchSeed, BranchInput, BranchRunResult> 
   }),
   run: async (input) => {
     const i = input as BranchInput;
+
     return runBranchSuggestionScenario({
       context: i.context,
       rootQuestion: i.rootQuestion,
@@ -90,13 +95,14 @@ const branchScenario: SandboxScenario<BranchSeed, BranchInput, BranchRunResult> 
   normalize: (raw) => ({ branches: raw.branches }),
   render: ({ seedData, runState }) => {
     const branches = runState?.branches ?? [];
+
     return (
       <div className="max-w-xl mx-auto w-full flex flex-col items-center justify-center min-h-[200px]">
         <RabbitHoleBranchSuggestionsBlock
           branches={branches}
-          onBranchClick={() => {}}
-          isLoading={false}
           hasSources={false}
+          isLoading={false}
+          onBranchClick={() => {}}
         />
       </div>
     );
@@ -124,6 +130,7 @@ const refinementScenario: SandboxScenario<RefineSeed, RefineInput, RefineRunResu
   run: async (input, seedData) => {
     const i = input as RefineInput & { text?: string };
     const question = typeof i.text === "string" ? i.text : i.question;
+
     return runQuestionRefinementScenario({
       question,
       pathHistory: i.pathHistory ?? seedData.pathHistory,
@@ -136,7 +143,13 @@ const refinementScenario: SandboxScenario<RefineSeed, RefineInput, RefineRunResu
   render: ({ seedData, runState, lastInput }) => {
     const refined = runState?.refinedQuestion ?? null;
     const originalQuestion =
-      lastInput && ("question" in lastInput ? (lastInput as RefineInput).question : "text" in lastInput ? (lastInput as { text: string }).text : null);
+      lastInput &&
+      ("question" in lastInput
+        ? (lastInput as RefineInput).question
+        : "text" in lastInput
+          ? (lastInput as { text: string }).text
+          : null);
+
     return (
       <div className="max-w-xl mx-auto space-y-4">
         <div className="rounded-lg border border-border bg-card/80 p-4">

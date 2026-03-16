@@ -7,20 +7,13 @@ import { getSupabaseUserId } from "./profiles";
 
 import { Message, Thread, ThreadSchema } from "@/lib/schemas/chat";
 import { Result, SimpleResult } from "@/types";
-import {
-  clearFlag,
-  setFlag,
-  THREAD_FLAGS,
-} from "@/lib/thread-flags";
+import { clearFlag, setFlag, THREAD_FLAGS } from "@/lib/thread-flags";
 import {
   type EncryptionContext,
   decryptFromStorage,
   encryptForStorage,
 } from "@/lib/crypto/message-encryption";
-import {
-  convertMessageToUIMessage,
-  convertUIMessageToMessage,
-} from "@/lib/chat/message-transform";
+import { convertMessageToUIMessage, convertUIMessageToMessage } from "@/lib/chat/message-transform";
 import { supabaseServer } from "@/lib/supabase/server";
 import { createLogger } from "@/lib/logger";
 
@@ -37,10 +30,7 @@ function normalizeStoredString(value: unknown): string {
   return typeof value === "string" ? value : JSON.stringify(value);
 }
 
-function buildMessageContentContext(
-  ownerId: string,
-  threadId: string,
-): EncryptionContext {
+function buildMessageContentContext(ownerId: string, threadId: string): EncryptionContext {
   return {
     userId: ownerId,
     threadId,
@@ -48,10 +38,7 @@ function buildMessageContentContext(
   };
 }
 
-function buildThreadSummaryContext(
-  ownerId: string,
-  threadId: string,
-): EncryptionContext {
+function buildThreadSummaryContext(ownerId: string, threadId: string): EncryptionContext {
   return {
     userId: ownerId,
     threadId,
@@ -59,10 +46,7 @@ function buildThreadSummaryContext(
   };
 }
 
-function buildConversationSummaryContext(
-  ownerId: string,
-  threadId: string,
-): EncryptionContext {
+function buildConversationSummaryContext(ownerId: string, threadId: string): EncryptionContext {
   return {
     userId: ownerId,
     threadId,
@@ -75,7 +59,7 @@ function encryptMessageRowContent(message: Message, ownerId: string): Message {
     ...message,
     content: encryptForStorage(
       normalizeStoredString(message.content),
-      buildMessageContentContext(ownerId, message.thread_id),
+      buildMessageContentContext(ownerId, message.thread_id)
     ),
   };
 }
@@ -85,53 +69,32 @@ function decryptMessageRowContent(message: Message, ownerId: string): Message {
     ...message,
     content: decryptFromStorage(
       normalizeStoredString(message.content),
-      buildMessageContentContext(ownerId, message.thread_id),
+      buildMessageContentContext(ownerId, message.thread_id)
     ),
   };
 }
 
-function encryptThreadSummaryText(
-  summaryText: string,
-  ownerId: string,
-  chatId: string,
-): string {
-  return encryptForStorage(
-    summaryText,
-    buildThreadSummaryContext(ownerId, chatId),
-  );
+function encryptThreadSummaryText(summaryText: string, ownerId: string, chatId: string): string {
+  return encryptForStorage(summaryText, buildThreadSummaryContext(ownerId, chatId));
 }
 
-function decryptThreadSummaryText(
-  summaryText: string,
-  ownerId: string,
-  chatId: string,
-): string {
-  return decryptFromStorage(
-    summaryText,
-    buildThreadSummaryContext(ownerId, chatId),
-  );
+function decryptThreadSummaryText(summaryText: string, ownerId: string, chatId: string): string {
+  return decryptFromStorage(summaryText, buildThreadSummaryContext(ownerId, chatId));
 }
 
 function encryptConversationSummaryValue(
   conversationSummary: string,
   ownerId: string,
-  chatId: string,
+  chatId: string
 ): string {
-  return encryptForStorage(
-    conversationSummary,
-    buildConversationSummaryContext(ownerId, chatId),
-  );
+  return encryptForStorage(conversationSummary, buildConversationSummaryContext(ownerId, chatId));
 }
 
 async function getThreadOwnerContextWithClient(
   sb: Awaited<ReturnType<typeof supabaseServer>>,
-  chatId: string,
+  chatId: string
 ): Promise<Result<ThreadOwnerContext>> {
-  const { data, error } = await sb
-    .from("threads")
-    .select("id, owner_id")
-    .eq("id", chatId)
-    .single();
+  const { data, error } = await sb.from("threads").select("id, owner_id").eq("id", chatId).single();
 
   if (error || !data) {
     return {
@@ -149,9 +112,7 @@ async function getThreadOwnerContextWithClient(
   };
 }
 
-export async function getThreadOwnerContext(
-  chatId: string,
-): Promise<Result<ThreadOwnerContext>> {
+export async function getThreadOwnerContext(chatId: string): Promise<Result<ThreadOwnerContext>> {
   const sb = await supabaseServer();
 
   return getThreadOwnerContextWithClient(sb, chatId);
@@ -168,9 +129,7 @@ export async function getThreadOwnerContext(
  * @param options.ownerId - Optional Supabase profile ID; when set, only threads
  *   with this owner_id are returned.
  */
-export async function getChats(options?: {
-  ownerId?: string;
-}): Promise<Result<Thread[]>> {
+export async function getChats(options?: { ownerId?: string }): Promise<Result<Thread[]>> {
   const sb = await supabaseServer();
   const baseQuery = sb
     .from("threads")
@@ -194,7 +153,7 @@ export async function getChats(options?: {
  * @returns Array of UIMessage objects
  */
 export async function loadChat(
-  chatId: string,
+  chatId: string
 ): Promise<Result<{ thread: Thread; messages: UIMessage[] }>> {
   const sb = await supabaseServer();
 
@@ -251,9 +210,7 @@ export async function saveChat(params: {
     if (error) {
       return {
         ok: false,
-        error: new Error(
-          error?.message ?? "Error occured creating chat thread..",
-        ),
+        error: new Error(error?.message ?? "Error occured creating chat thread.."),
       };
     }
 
@@ -263,8 +220,7 @@ export async function saveChat(params: {
   if (threadOwnerContextResult.error || !threadOwnerContextResult.data) {
     return {
       ok: false,
-      error:
-        threadOwnerContextResult.error ?? new Error("Thread owner not found"),
+      error: threadOwnerContextResult.error ?? new Error("Thread owner not found"),
     };
   }
 
@@ -285,6 +241,7 @@ export async function saveChat(params: {
       .from("threads")
       .update({ active_stream_id: params.activeStreamId })
       .eq("id", chatId);
+
     if (streamError) {
       return {
         ok: false,
@@ -383,10 +340,7 @@ export async function createChat(chatId?: string): Promise<Result<string>> {
  * @param message - The UIMessage to add
  * @returns The created message record
  */
-export async function addMessage(
-  threadId: string,
-  message: UIMessage,
-): Promise<SimpleResult> {
+export async function addMessage(threadId: string, message: UIMessage): Promise<SimpleResult> {
   const sb = await supabaseServer();
   const threadOwnerContext = await getThreadOwnerContextWithClient(sb, threadId);
 
@@ -406,12 +360,9 @@ export async function addMessage(
     };
   }
 
-  const { error } = await sb.from("messages").insert(
-    encryptMessageRowContent(
-      supabaseMessage,
-      threadOwnerContext.data.ownerId,
-    ),
-  );
+  const { error } = await sb
+    .from("messages")
+    .insert(encryptMessageRowContent(supabaseMessage, threadOwnerContext.data.ownerId));
 
   if (error) {
     return {
@@ -433,7 +384,7 @@ export async function addMessage(
 export async function updateMessage(
   threadId: string,
   messageId: string,
-  uiMessage: UIMessage,
+  uiMessage: UIMessage
 ): Promise<SimpleResult> {
   const sb = await supabaseServer();
   const threadOwnerContext = await getThreadOwnerContextWithClient(sb, threadId);
@@ -454,10 +405,7 @@ export async function updateMessage(
     };
   }
 
-  const row = encryptMessageRowContent(
-    supabaseMessage,
-    threadOwnerContext.data.ownerId,
-  );
+  const row = encryptMessageRowContent(supabaseMessage, threadOwnerContext.data.ownerId);
 
   const { error } = await sb
     .from("messages")
@@ -471,6 +419,7 @@ export async function updateMessage(
 
   if (error) {
     logger.error("updateMessage", "Error updating message:", error);
+
     return {
       ok: false,
       error: new Error(error?.message ?? "Unknown error"),
@@ -499,9 +448,7 @@ export async function upsertMessages(params: {
     if (error) {
       return {
         ok: false,
-        error: new Error(
-          error?.message ?? "Error occured creating chat thread..",
-        ),
+        error: new Error(error?.message ?? "Error occured creating chat thread.."),
       };
     }
 
@@ -511,8 +458,7 @@ export async function upsertMessages(params: {
   if (threadOwnerContextResult.error || !threadOwnerContextResult.data) {
     return {
       ok: false,
-      error:
-        threadOwnerContextResult.error ?? new Error("Thread owner not found"),
+      error: threadOwnerContextResult.error ?? new Error("Thread owner not found"),
     };
   }
 
@@ -544,9 +490,7 @@ export async function upsertMessages(params: {
   };
 }
 
-export async function getMessages(
-  chatId: string,
-): Promise<Result<UIMessage[]>> {
+export async function getMessages(chatId: string): Promise<Result<UIMessage[]>> {
   const sb = await supabaseServer();
 
   const { data: messages, error: messagesErr } = await sb
@@ -582,9 +526,7 @@ export async function getMessages(
 
   const uiMessages = messages
     .map((message) =>
-      convertMessageToUIMessage(
-        decryptMessageRowContent(message as Message, ownerId),
-      ),
+      convertMessageToUIMessage(decryptMessageRowContent(message as Message, ownerId))
     )
     .filter((message) => message !== null);
 
@@ -605,7 +547,7 @@ export async function getMessages(
  */
 export async function getMessagesSince(
   chatId: string,
-  since: string,
+  since: string
 ): Promise<Result<UIMessage[], string>> {
   try {
     const sb = await supabaseServer();
@@ -637,8 +579,7 @@ export async function getMessagesSince(
     if (threadOwnerContext.error || !threadOwnerContext.data) {
       return {
         data: [],
-        error:
-          threadOwnerContext.error?.message ?? "Thread owner not found",
+        error: threadOwnerContext.error?.message ?? "Thread owner not found",
       };
     }
 
@@ -646,17 +587,12 @@ export async function getMessagesSince(
 
     const uiMessages = messages
       .map((message) =>
-        convertMessageToUIMessage(
-          decryptMessageRowContent(message as Message, ownerId),
-        ),
+        convertMessageToUIMessage(decryptMessageRowContent(message as Message, ownerId))
       )
       .filter((message) => message !== null);
 
     if (uiMessages.length !== messages.length) {
-      logger.error(
-        "getMessagesSince",
-        "A message was not converted to UIMessage",
-      );
+      logger.error("getMessagesSince", "A message was not converted to UIMessage");
     }
 
     return {
@@ -674,7 +610,7 @@ export async function getMessagesSince(
 export async function getNMessages(
   chatId: string,
   limit?: number,
-  debug: boolean = false,
+  debug: boolean = false
 ): Promise<Result<UIMessage[], string>> {
   if (limit === 0) {
     return {
@@ -712,8 +648,7 @@ export async function getNMessages(
     if (threadOwnerContext.error || !threadOwnerContext.data) {
       return {
         data: [],
-        error:
-          threadOwnerContext.error?.message ?? "Thread owner not found",
+        error: threadOwnerContext.error?.message ?? "Thread owner not found",
       };
     }
 
@@ -722,9 +657,7 @@ export async function getNMessages(
     // Convert to UIMessage format and put into chronological order
     const uiMessages = messages
       .map((message) =>
-        convertMessageToUIMessage(
-          decryptMessageRowContent(message as Message, ownerId),
-        ),
+        convertMessageToUIMessage(decryptMessageRowContent(message as Message, ownerId))
       )
       .filter((message) => message !== null)
       .reverse();
@@ -739,9 +672,10 @@ export async function getNMessages(
         uiMessages
           .map((m, idx) => {
             const textPartCount = m.parts.filter((p) => p.type === "text").length;
+
             return `${idx}: role=${m.role} text_parts=${textPartCount}`;
           })
-          .join("\n"),
+          .join("\n")
       );
     }
 
@@ -760,9 +694,7 @@ export async function getNMessages(
 /**
  * Returns the total number of messages in a thread (for LLM context).
  */
-export async function getMessageCount(
-  chatId: string,
-): Promise<Result<number, string>> {
+export async function getMessageCount(chatId: string): Promise<Result<number, string>> {
   try {
     const sb = await supabaseServer();
     const { count, error } = await sb
@@ -773,6 +705,7 @@ export async function getMessageCount(
     if (error) {
       return { data: null, error: error.message };
     }
+
     return { data: Math.max(0, count ?? 0), error: null };
   } catch (err) {
     return {
@@ -788,14 +721,10 @@ export async function getMessageCount(
  */
 export async function getThreadHasTitle(
   chatId: string,
-  _options?: { knownHasTitle?: boolean },
+  _options?: { knownHasTitle?: boolean }
 ): Promise<Result<boolean>> {
   const sb = await supabaseServer();
-  const { data, error } = await sb
-    .from("threads")
-    .select("title")
-    .eq("id", chatId)
-    .single();
+  const { data, error } = await sb.from("threads").select("title").eq("id", chatId).single();
 
   if (error) {
     return {
@@ -803,18 +732,15 @@ export async function getThreadHasTitle(
       error: new Error(error?.message ?? "Unknown error"),
     };
   }
-  const hasTitle =
-    data?.title != null && String(data.title).trim() !== "";
+  const hasTitle = data?.title != null && String(data.title).trim() !== "";
+
   return {
     data: hasTitle,
     error: null,
   };
 }
 
-export async function updateChatTitle(
-  chatId: string,
-  title: string,
-): Promise<SimpleResult> {
+export async function updateChatTitle(chatId: string, title: string): Promise<SimpleResult> {
   const sb = await supabaseServer();
   const hasTitle = title.trim() !== "";
   const updatePayload: { title: string; flags?: number } = { title };
@@ -824,15 +750,13 @@ export async function updateChatTitle(
     .select("flags")
     .eq("id", chatId)
     .single();
+
   if (!flagsErr && row != null) {
     updatePayload.flags = hasTitle
       ? setFlag(row.flags ?? 0, THREAD_FLAGS.HAS_TITLE)
       : clearFlag(row.flags ?? 0, THREAD_FLAGS.HAS_TITLE);
   }
-  const { error } = await sb
-    .from("threads")
-    .update(updatePayload)
-    .eq("id", chatId);
+  const { error } = await sb.from("threads").update(updatePayload).eq("id", chatId);
 
   if (error) {
     return {
@@ -847,15 +771,9 @@ export async function updateChatTitle(
   };
 }
 
-export async function updateChatPinned(
-  chatId: string,
-  pinned: boolean,
-): Promise<SimpleResult> {
+export async function updateChatPinned(chatId: string, pinned: boolean): Promise<SimpleResult> {
   const sb = await supabaseServer();
-  const { error } = await sb
-    .from("threads")
-    .update({ pinned })
-    .eq("id", chatId);
+  const { error } = await sb.from("threads").update({ pinned }).eq("id", chatId);
 
   if (error) {
     return {
@@ -910,6 +828,7 @@ export async function deleteChat(chatId: string): Promise<SimpleResult> {
  */
 export async function deleteEmptyChat(chatId: string): Promise<SimpleResult> {
   const countResult = await getMessageCount(chatId);
+
   if (countResult.error !== null) {
     return {
       ok: false,
@@ -917,18 +836,18 @@ export async function deleteEmptyChat(chatId: string): Promise<SimpleResult> {
     };
   }
   const count = countResult.data ?? 0;
+
   if (count > 0) {
     return {
       ok: false,
       error: new Error("Chat is not empty"),
     };
   }
+
   return deleteChat(chatId);
 }
 
-export async function getConversationSummary(
-  chatId: string,
-): Promise<Result<string>> {
+export async function getConversationSummary(chatId: string): Promise<Result<string>> {
   const sb = await supabaseServer();
   const threadOwnerContext = await getThreadOwnerContextWithClient(sb, chatId);
 
@@ -953,18 +872,14 @@ export async function getConversationSummary(
   }
 
   return {
-    data: decryptThreadSummaryText(
-      data.summary_text,
-      threadOwnerContext.data.ownerId,
-      chatId,
-    ),
+    data: decryptThreadSummaryText(data.summary_text, threadOwnerContext.data.ownerId, chatId),
     error: null,
   };
 }
 
 export async function updateConversationSummary(
   chatId: string,
-  conversationSummary: string,
+  conversationSummary: string
 ): Promise<SimpleResult> {
   if (conversationSummary.trim().length === 0) {
     return {
@@ -989,7 +904,7 @@ export async function updateConversationSummary(
       conversation_summary: encryptConversationSummaryValue(
         conversationSummary,
         threadOwnerContext.data.ownerId,
-        chatId,
+        chatId
       ),
     })
     .eq("id", chatId);

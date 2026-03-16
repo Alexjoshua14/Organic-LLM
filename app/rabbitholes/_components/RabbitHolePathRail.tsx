@@ -1,34 +1,33 @@
 "use client";
 
 import { motion } from "framer-motion";
+
 import { RabbitHoleSession, RabbitHoleNodeId } from "@/lib/schemas/rabbitHoleSchemas";
 import { cn } from "@/lib/utils";
 
 function NewRabbitHoleButton({ onClick }: { onClick: () => void }) {
   return (
     <motion.button
-      onClick={onClick}
+      animate={{ opacity: 1, x: 0 }}
       className={cn(
         "text-left px-4 py-3 rounded-md transition-all cursor-pointer",
         "border-2 border-dashed border-border",
         "hover:bg-card/50 hover:border-muted-foreground",
-        "flex items-center gap-3",
+        "flex items-center gap-3"
       )}
-      whileHover={{ scale: 1.01 }}
-      whileTap={{ scale: 0.99 }}
       initial={{ opacity: 0, x: -10 }}
-      animate={{ opacity: 1, x: 0 }}
       transition={{
         duration: 0.2,
         type: "spring",
         stiffness: 300,
         damping: 30,
       }}
+      whileHover={{ scale: 1.01 }}
+      whileTap={{ scale: 0.99 }}
+      onClick={onClick}
     >
       <span className="text-xl text-muted-foreground">+</span>
-      <span className="text-sm font-medium text-muted-foreground">
-        New Rabbit Hole
-      </span>
+      <span className="text-sm font-medium text-muted-foreground">New Rabbit Hole</span>
     </motion.button>
   );
 }
@@ -55,7 +54,7 @@ function PathRailItem({
   return (
     <motion.button
       key={segment.nodeId}
-      onClick={onClick}
+      animate={{ opacity: 1, x: 0 }}
       className={cn(
         "text-left py-3 rounded-md transition-all w-full relative pl-10 pr-4",
         "border",
@@ -63,13 +62,10 @@ function PathRailItem({
           ? "bg-card/50 border-border shadow-sm"
           : "border-transparent hover:bg-card/30 cursor-pointer",
         isGenerating && "border-muted-foreground/50",
-        depth > 0 && "ml-4",
+        depth > 0 && "ml-4"
       )}
-      style={{ marginLeft: depth > 0 ? depth * 12 : 0 }}
-      whileHover={{ scale: 1.01 }}
-      whileTap={{ scale: 0.99 }}
       initial={{ opacity: 0, x: -10 }}
-      animate={{ opacity: 1, x: 0 }}
+      style={{ marginLeft: depth > 0 ? depth * 12 : 0 }}
       transition={{
         duration: 0.2,
         delay: index * 0.05,
@@ -77,15 +73,16 @@ function PathRailItem({
         stiffness: 300,
         damping: 30,
       }}
+      whileHover={{ scale: 1.01 }}
+      whileTap={{ scale: 0.99 }}
+      onClick={onClick}
     >
       <div className="absolute left-3 top-0 bottom-0 w-px bg-border" />
       <div className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-px bg-border" />
       <div
         className={cn(
           "absolute left-4.5 top-1/2 -translate-y-1/2 w-2 h-2 rounded-full transition-colors",
-          isActive
-            ? "bg-foreground"
-            : "bg-muted-foreground/50",
+          isActive ? "bg-foreground" : "bg-muted-foreground/50"
         )}
       />
 
@@ -94,18 +91,12 @@ function PathRailItem({
           className={cn(
             "leading-relaxed",
             depth === 0 ? "text-sm" : "text-xs",
-            isActive
-              ? "text-foreground font-medium"
-              : "text-muted-foreground",
+            isActive ? "text-foreground font-medium" : "text-muted-foreground"
           )}
         >
           {segment.label}
         </p>
-        {nodeLabel && (
-          <p className="text-xs text-muted-foreground/70 mt-1">
-            {nodeLabel}
-          </p>
-        )}
+        {nodeLabel && <p className="text-xs text-muted-foreground/70 mt-1">{nodeLabel}</p>}
       </div>
     </motion.button>
   );
@@ -132,9 +123,7 @@ export function RabbitHolePathRail({
         <p className="font-commissioner text-xs uppercase tracking-[0.2em] text-muted-foreground mb-3 font-light">
           Path
         </p>
-        <p className="text-sm text-muted-foreground/70">
-          No exploration yet
-        </p>
+        <p className="text-sm text-muted-foreground/70">No exploration yet</p>
       </div>
     );
   }
@@ -149,13 +138,17 @@ export function RabbitHolePathRail({
     visited.add(nodeId);
 
     const seg = findSegment(nodeId);
+
     if (!seg || !seg.parentNodeId) {
       depthCache.set(nodeId, 0);
+
       return 0;
     }
     const parentDepth = computeDepth(seg.parentNodeId, visited);
     const depth = parentDepth + 1;
+
     depthCache.set(nodeId, depth);
+
     return depth;
   };
 
@@ -165,9 +158,7 @@ export function RabbitHolePathRail({
         Exploration Path
       </p>
       <div className="flex flex-col gap-3">
-        {onNewRabbitHole && (
-          <NewRabbitHoleButton onClick={onNewRabbitHole} />
-        )}
+        {onNewRabbitHole && <NewRabbitHoleButton onClick={onNewRabbitHole} />}
         {session.path.map((segment, index) => {
           const isActive = segment.nodeId === activeNodeId;
           const isGenerating = segment.nodeId === generatingNodeId;
@@ -178,12 +169,12 @@ export function RabbitHolePathRail({
           return (
             <PathRailItem
               key={segment.nodeId}
-              segment={segment}
-              nodeLabel={nodeLabel}
-              isActive={isActive}
-              isGenerating={isGenerating}
               depth={depth}
               index={index}
+              isActive={isActive}
+              isGenerating={isGenerating}
+              nodeLabel={nodeLabel}
+              segment={segment}
               onClick={() => onNodeClick(segment.nodeId)}
             />
           );
@@ -192,4 +183,3 @@ export function RabbitHolePathRail({
     </div>
   );
 }
-

@@ -1,11 +1,6 @@
 import "server-only";
 
-import {
-  createCipheriv,
-  createDecipheriv,
-  hkdfSync,
-  randomBytes,
-} from "node:crypto";
+import { createCipheriv, createDecipheriv, hkdfSync, randomBytes } from "node:crypto";
 
 const ENCRYPTED_PREFIX = "enc";
 const PAYLOAD_VERSION = "v1";
@@ -45,9 +40,7 @@ type MessageEncryptionServiceConfig = {
   hkdfInfoPrefix?: string;
 };
 
-export type MessageEncryptionService = ReturnType<
-  typeof createMessageEncryptionService
->;
+export type MessageEncryptionService = ReturnType<typeof createMessageEncryptionService>;
 
 function toBytes(value: string | Uint8Array): Uint8Array {
   return typeof value === "string" ? new Uint8Array(Buffer.from(value, "utf8")) : value;
@@ -81,7 +74,7 @@ function normalizeRegistry(input: KeyRegistryInput): Record<string, Uint8Array> 
       }
 
       return [keyId, buffer];
-    }),
+    })
   );
 }
 
@@ -116,13 +109,11 @@ function concatBytes(parts: Uint8Array[]): Uint8Array {
 
 export function buildAad(context: EncryptionContext): Uint8Array {
   return new Uint8Array(
-    Buffer.from(`${context.userId}:${context.threadId}:${context.fieldName}`, "utf8"),
+    Buffer.from(`${context.userId}:${context.threadId}:${context.fieldName}`, "utf8")
   );
 }
 
-export function parseEncryptedPayload(
-  value: string,
-): ParsedEncryptedPayload | null {
+export function parseEncryptedPayload(value: string): ParsedEncryptedPayload | null {
   if (!value.startsWith(`${ENCRYPTED_PREFIX}:`)) {
     return null;
   }
@@ -175,8 +166,7 @@ function buildDefaultService(): MessageEncryptionService {
     throw new Error("Missing ORGANIC_LLM_ROOT_SECRET");
   }
 
-  const activeKeyId =
-    process.env.ORGANIC_LLM_ACTIVE_KEY_ID ?? DEFAULT_ACTIVE_KEY_ID;
+  const activeKeyId = process.env.ORGANIC_LLM_ACTIVE_KEY_ID ?? DEFAULT_ACTIVE_KEY_ID;
 
   let parsedRegistry: KeyRegistryInput = {};
   const rawRegistry = process.env.ORGANIC_LLM_KEY_REGISTRY_JSON;
@@ -184,11 +174,8 @@ function buildDefaultService(): MessageEncryptionService {
   if (rawRegistry) {
     try {
       const parsed = JSON.parse(rawRegistry);
-      if (
-        parsed == null ||
-        typeof parsed !== "object" ||
-        Array.isArray(parsed)
-      ) {
+
+      if (parsed == null || typeof parsed !== "object" || Array.isArray(parsed)) {
         throw new Error("Key registry JSON must be an object");
       }
       parsedRegistry = parsed as Record<string, string>;
@@ -196,7 +183,7 @@ function buildDefaultService(): MessageEncryptionService {
       throw new Error(
         `Invalid ORGANIC_LLM_KEY_REGISTRY_JSON: ${
           error instanceof Error ? error.message : String(error)
-        }`,
+        }`
       );
     }
   }
@@ -218,12 +205,11 @@ export function getMessageEncryptionService(): MessageEncryptionService {
   if (defaultServiceCache.current === null) {
     defaultServiceCache.current = buildDefaultService();
   }
+
   return defaultServiceCache.current;
 }
 
-export function createMessageEncryptionService(
-  config: MessageEncryptionServiceConfig,
-) {
+export function createMessageEncryptionService(config: MessageEncryptionServiceConfig) {
   if (config.activeKeyId.trim().length === 0) {
     throw new Error("Message encryption active key id must not be empty");
   }
@@ -232,13 +218,12 @@ export function createMessageEncryptionService(
 
   if (!(config.activeKeyId in keyRegistry)) {
     throw new Error(
-      `Active message encryption key id is missing from registry: ${config.activeKeyId}`,
+      `Active message encryption key id is missing from registry: ${config.activeKeyId}`
     );
   }
 
   const hkdfSalt = toBytes(config.hkdfSalt ?? DEFAULT_HKDF_SALT);
-  const hkdfInfoPrefix =
-    config.hkdfInfoPrefix?.trim() || DEFAULT_HKDF_INFO_PREFIX;
+  const hkdfInfoPrefix = config.hkdfInfoPrefix?.trim() || DEFAULT_HKDF_INFO_PREFIX;
 
   function deriveUserKey(userId: string, keyId: string = config.activeKeyId) {
     if (userId.trim().length === 0) {
@@ -257,8 +242,8 @@ export function createMessageEncryptionService(
         rootSecret,
         hkdfSalt,
         new Uint8Array(Buffer.from(`${hkdfInfoPrefix}:${userId}`, "utf8")),
-        AES_KEY_BYTES,
-      ),
+        AES_KEY_BYTES
+      )
     );
   }
 
@@ -266,6 +251,7 @@ export function createMessageEncryptionService(
     const key = deriveUserKey(context.userId, config.activeKeyId);
     const iv = new Uint8Array(randomBytes(AES_GCM_IV_BYTES));
     const cipher = createCipheriv(AES_ALGORITHM, key, iv);
+
     cipher.setAAD(buildAad(context));
 
     const ciphertext = concatBytes([
@@ -291,6 +277,7 @@ export function createMessageEncryptionService(
 
     const key = deriveUserKey(context.userId, payload.keyId);
     const decipher = createDecipheriv(AES_ALGORITHM, key, payload.iv);
+
     decipher.setAAD(buildAad(context));
     decipher.setAuthTag(payload.tag);
 
@@ -298,7 +285,7 @@ export function createMessageEncryptionService(
       concatBytes([
         new Uint8Array(decipher.update(payload.ciphertext)),
         new Uint8Array(decipher.final()),
-      ]),
+      ])
     ).toString("utf8");
   }
 
@@ -315,17 +302,11 @@ export function createMessageEncryptionService(
   };
 }
 
-export function encryptForStorage(
-  plaintext: string,
-  context: EncryptionContext,
-): string {
+export function encryptForStorage(plaintext: string, context: EncryptionContext): string {
   return getMessageEncryptionService().encryptForStorage(plaintext, context);
 }
 
-export function decryptFromStorage(
-  value: string,
-  context: EncryptionContext,
-): string {
+export function decryptFromStorage(value: string, context: EncryptionContext): string {
   return getMessageEncryptionService().decryptFromStorage(value, context);
 }
 

@@ -76,21 +76,15 @@ export const PREVIEW_COST_PER_CHAR = 0.000001; // Negligible cost for skip notic
 /**
  * Calculate token usage, cost, and time estimates for given text and model
  */
-export function calculateTokenUsage(
-  text: string,
-  model: TTSModel,
-): TokenUsageData {
+export function calculateTokenUsage(text: string, model: TTSModel): TokenUsageData {
   const characterCount = text.length;
   const estimatedTokens = characterCount;
 
   const config = PRICING_CONFIG[model];
-  const estimatedCost =
-    (characterCount / 1_000_000) * config.costPerMillionChars;
+  const estimatedCost = (characterCount / 1_000_000) * config.costPerMillionChars;
 
   // Estimate generation time (processing time on server)
-  const estimatedDurationMs = Math.ceil(
-    (characterCount / config.charsPerSecondGeneration) * 1000,
-  );
+  const estimatedDurationMs = Math.ceil((characterCount / config.charsPerSecondGeneration) * 1000);
 
   // Estimate resulting audio duration
   const estimatedAudioDurationSec = characterCount / config.charsPerSecondAudio;
@@ -113,7 +107,7 @@ export function calculateTokenUsage(
  */
 export function calculateSegmentedCost(
   segments: Array<{ text: string; status: "generate" | "skip" | "preview" }>,
-  model: TTSModel,
+  model: TTSModel
 ): {
   totalCost: number;
   generatedCost: number;
@@ -148,9 +142,7 @@ export function calculateSegmentedCost(
 
     if (segment.status === "generate") {
       cost = (charCount / 1_000_000) * config.costPerMillionChars;
-      durationMs = Math.ceil(
-        (charCount / config.charsPerSecondGeneration) * 1000,
-      );
+      durationMs = Math.ceil((charCount / config.charsPerSecondGeneration) * 1000);
       generatedCost += cost;
     } else if (segment.status === "preview") {
       // Preview uses cheap placeholder audio
@@ -185,6 +177,7 @@ export function formatCost(cost: number): string {
   if (cost < 0.0001) return "~$0.00";
   if (cost < 0.01) return `$${cost.toFixed(4)}`;
   if (cost < 1) return `$${cost.toFixed(3)}`;
+
   return `$${cost.toFixed(2)}`;
 }
 
@@ -194,10 +187,13 @@ export function formatCost(cost: number): string {
 export function formatDuration(ms: number): string {
   if (ms < 1000) return "<1s";
   const seconds = Math.ceil(ms / 1000);
+
   if (seconds < 60) return `~${seconds}s`;
   const minutes = Math.floor(seconds / 60);
   const remainingSeconds = seconds % 60;
+
   if (remainingSeconds === 0) return `~${minutes}m`;
+
   return `~${minutes}m ${remainingSeconds}s`;
 }
 
@@ -208,6 +204,7 @@ export function formatAudioDuration(seconds: number): string {
   if (seconds < 60) return `${Math.round(seconds)}s`;
   const minutes = Math.floor(seconds / 60);
   const remainingSeconds = Math.round(seconds % 60);
+
   return `${minutes}:${remainingSeconds.toString().padStart(2, "0")}`;
 }
 
@@ -230,7 +227,7 @@ export function getModelInfo(model: TTSModel) {
  */
 export function splitTextIntoSegments(
   text: string,
-  mode: "paragraph" | "sentence" = "paragraph",
+  mode: "paragraph" | "sentence" = "paragraph"
 ): string[] {
   if (mode === "paragraph") {
     // Split by double newlines or single newlines with significant content
@@ -250,10 +247,8 @@ export function splitTextIntoSegments(
 /**
  * Generate placeholder text for skipped audio section
  */
-export function generateSkipPlaceholderText(
-  segmentIndex: number,
-  originalText: string,
-): string {
+export function generateSkipPlaceholderText(segmentIndex: number, originalText: string): string {
   const wordCount = originalText.split(/\s+/).length;
+
   return `Section ${segmentIndex + 1} skipped. ${wordCount} words not generated.`;
 }

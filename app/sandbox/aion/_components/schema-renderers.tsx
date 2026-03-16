@@ -1,5 +1,7 @@
 "use client";
 
+import { z } from "zod";
+
 import {
   ListSchema,
   KeyValueSchema,
@@ -7,7 +9,6 @@ import {
   RecipeCardSchema,
   TickerSchema,
 } from "@/lib/schemas/llm-context";
-import { z } from "zod";
 
 type ListSchemaType = z.infer<typeof ListSchema>;
 type KeyValueSchemaType = z.infer<typeof KeyValueSchema>;
@@ -18,9 +19,7 @@ type TickerSchemaType = z.infer<typeof TickerSchema>;
 export function ListRenderer({ schema }: { schema: ListSchemaType }) {
   return (
     <div className="p-4 rounded-lg border border-border bg-background">
-      <h3 className="text-sm font-semibold mb-2 capitalize">
-        {schema.useCase.replace("_", " ")}
-      </h3>
+      <h3 className="text-sm font-semibold mb-2 capitalize">{schema.useCase.replace("_", " ")}</h3>
       <ul className="space-y-1">
         {schema.items.map((item, idx) => (
           <li key={idx} className="text-sm text-foreground/80">
@@ -35,9 +34,7 @@ export function ListRenderer({ schema }: { schema: ListSchemaType }) {
 export function KeyValueRenderer({ schema }: { schema: KeyValueSchemaType }) {
   return (
     <div className="p-4 rounded-lg border border-border bg-background">
-      <h3 className="text-sm font-semibold mb-2 capitalize">
-        {schema.useCase.replace("_", " ")}
-      </h3>
+      <h3 className="text-sm font-semibold mb-2 capitalize">{schema.useCase.replace("_", " ")}</h3>
       <div className="space-y-1">
         <div className="text-sm">
           <span className="font-medium text-foreground/90">{schema.key}:</span>{" "}
@@ -52,16 +49,12 @@ export function CodeBlockRenderer({ schema }: { schema: CodeBlockSchemaType }) {
   return (
     <div className="p-4 rounded-lg border border-border bg-background">
       <div className="flex items-center justify-between mb-2">
-        <h3 className="text-sm font-semibold capitalize">
-          {schema.useCase.replace("_", " ")}
-        </h3>
+        <h3 className="text-sm font-semibold capitalize">{schema.useCase.replace("_", " ")}</h3>
         <span className="text-xs text-foreground/60 px-2 py-1 rounded bg-background-tertiary">
           {schema.language}
         </span>
       </div>
-      {schema.caption && (
-        <p className="text-xs text-foreground/60 mb-2">{schema.caption}</p>
-      )}
+      {schema.caption && <p className="text-xs text-foreground/60 mb-2">{schema.caption}</p>}
       <pre className="text-xs bg-background-tertiary p-3 rounded overflow-x-auto">
         <code>{schema.code}</code>
       </pre>
@@ -84,9 +77,7 @@ export function RecipeCardRenderer({ schema }: { schema: RecipeCardSchemaType })
             {schema.time.total && <span className="ml-3">Total: {schema.time.total}</span>}
           </div>
         )}
-        {schema.servings && (
-          <div className="text-xs text-foreground/60">{schema.servings}</div>
-        )}
+        {schema.servings && <div className="text-xs text-foreground/60">{schema.servings}</div>}
         <div>
           <h4 className="text-sm font-medium mb-1">Ingredients:</h4>
           <ul className="text-xs space-y-1 text-foreground/80">
@@ -127,9 +118,7 @@ export function TickerRenderer({ schema }: { schema: TickerSchemaType }) {
       <div className="flex items-center justify-between mb-2">
         <div>
           <h3 className="text-lg font-semibold">{schema.symbol}</h3>
-          {schema.name && (
-            <p className="text-xs text-foreground/60">{schema.name}</p>
-          )}
+          {schema.name && <p className="text-xs text-foreground/60">{schema.name}</p>}
         </div>
         <div className="text-right">
           <div className="text-lg font-semibold">
@@ -152,11 +141,8 @@ export function TickerRenderer({ schema }: { schema: TickerSchemaType }) {
           <div>Previous Close: {schema.previousClose.toFixed(2)}</div>
         )}
         {schema.market && <div>Market: {schema.market}</div>}
-        {schema.updatedAt && (
-          <div>Updated: {new Date(schema.updatedAt).toLocaleString()}</div>
-        )}
+        {schema.updatedAt && <div>Updated: {new Date(schema.updatedAt).toLocaleString()}</div>}
       </div>
     </div>
   );
 }
-

@@ -11,8 +11,8 @@ export function SignatureBlock({ signature }: { signature: string }) {
     <blockquote className="relative pl-5 md:pl-6">
       {/* Thin accent bar */}
       <div
-        className="absolute left-0 top-0 h-full w-[2px] rounded-full bg-foreground/15"
         aria-hidden
+        className="absolute left-0 top-0 h-full w-[2px] rounded-full bg-foreground/15"
       />
       <p className="font-commissioner text-sm font-medium leading-relaxed text-foreground/55 md:text-base">
         {signature}

@@ -7,12 +7,8 @@ import { TaskStatus } from "@/lib/schemas/tasks";
 
 export async function actionCreateTask(formData: FormData) {
   const title = String(formData.get("title") || "");
-  const notes = formData.get("notes")
-    ? String(formData.get("notes"))
-    : undefined;
-  const due = formData.get("due_date")
-    ? String(formData.get("due_date"))
-    : undefined;
+  const notes = formData.get("notes") ? String(formData.get("notes")) : undefined;
+  const due = formData.get("due_date") ? String(formData.get("due_date")) : undefined;
   const priority = Number(formData.get("priority") || 2);
   const status = TaskStatus.parse(String(formData.get("status") || "todo"));
   const row = await createTask({

@@ -2,17 +2,15 @@
 // Functions to control
 //   - Set memory archetype displaay
 
-import { MemoryItem } from "@/lib/schemas/memory";
 import { Tool, tool } from "ai";
 import { z } from "zod";
 
+import { MemoryItem } from "@/lib/schemas/memory";
+
 export const showMemoriesTool = tool({
-  description:
-    "Show the user's memories, use memory search tool to get memories",
+  description: "Show the user's memories, use memory search tool to get memories",
   inputSchema: z.object({
-    memories: z
-      .array(MemoryItem)
-      .describe("The memories to display to the user"),
+    memories: z.array(MemoryItem).describe("The memories to display to the user"),
   }),
   execute: async ({ memories }) => {
     // Set archetype on Client Side

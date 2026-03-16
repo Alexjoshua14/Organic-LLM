@@ -1,5 +1,6 @@
-import { custom_fact_extraction_prompt } from "@/lib/system-prompt/memory";
 import { MemoryConfig } from "mem0ai/oss";
+
+import { custom_fact_extraction_prompt } from "@/lib/system-prompt/memory";
 import "server-only";
 
 export const config: MemoryConfig = {

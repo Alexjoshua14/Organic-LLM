@@ -1,46 +1,47 @@
-'use client';
+"use client";
 /**
  * Creates context for sharing current Session ID
- * 
+ *
  */
+
+import { createContext, Dispatch, SetStateAction, useEffect, useState } from "react";
 
 import { RabbitHoleSessionMetadata } from "@/app/rabbitholes/_lib/sessionStorage";
 import { RabbitHoleSession } from "@/lib/schemas/rabbitHoleSchemas";
-import { createContext, Dispatch, SetStateAction, useEffect, useState } from "react";
 
 interface RabbitHoleContextValue {
   sessionId: string | null;
   setSessionId: (sessionId: string | null) => void;
   sessions: RabbitHoleSessionMetadata[];
-  setSessions: Dispatch<SetStateAction<RabbitHoleSessionMetadata[]>>
+  setSessions: Dispatch<SetStateAction<RabbitHoleSessionMetadata[]>>;
   session: RabbitHoleSession | null;
-  setSession: Dispatch<SetStateAction<RabbitHoleSession | null>>
+  setSession: Dispatch<SetStateAction<RabbitHoleSession | null>>;
   isLoading: boolean;
-  setIsLoading: Dispatch<SetStateAction<boolean>>
+  setIsLoading: Dispatch<SetStateAction<boolean>>;
   generatingNodeId: string | null;
-  setGeneratingNodeId: Dispatch<SetStateAction<string | null>>
+  setGeneratingNodeId: Dispatch<SetStateAction<string | null>>;
   clearSession: () => void;
 }
 
 export const RabbitHoleContext = createContext<RabbitHoleContextValue>({
   sessionId: null,
-  setSessionId: () => { },
+  setSessionId: () => {},
   sessions: [],
-  setSessions: () => { },
+  setSessions: () => {},
   session: null,
-  setSession: () => { },
+  setSession: () => {},
   isLoading: false,
-  setIsLoading: () => { },
+  setIsLoading: () => {},
   generatingNodeId: null,
-  setGeneratingNodeId: () => { },
-  clearSession: () => { }
+  setGeneratingNodeId: () => {},
+  clearSession: () => {},
 });
 
 /**
  * RabbitHoleProvider is the centralized orchestrator for Rabbit Hole functionality
- * 
+ *
  * @param children - The children to render
- * @returns 
+ * @returns
  */
 export function RabbitHoleProvider({ children }: { children: React.ReactNode }) {
   const [sessionId, setSessionId] = useState<string | null>(null);
@@ -48,7 +49,6 @@ export function RabbitHoleProvider({ children }: { children: React.ReactNode }) 
   const [session, setSession] = useState<RabbitHoleSession | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [generatingNodeId, setGeneratingNodeId] = useState<string | null>(null);
-
 
   useEffect(() => {
     // Keep context in sync
@@ -77,8 +77,9 @@ export function RabbitHoleProvider({ children }: { children: React.ReactNode }) 
         setIsLoading,
         generatingNodeId,
         setGeneratingNodeId,
-        clearSession
-      }}>
+        clearSession,
+      }}
+    >
       {children}
     </RabbitHoleContext.Provider>
   );

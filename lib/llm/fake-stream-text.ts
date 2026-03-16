@@ -1,5 +1,6 @@
-import { randomUUID } from "crypto";
 import type { UIMessage } from "ai";
+
+import { randomUUID } from "crypto";
 
 /**
  * Minimal fake `streamText()` for local/E2E testing.
@@ -31,7 +32,7 @@ export function fakeStreamText(_args: any): {
               messages: [assistantMessage],
               isAborted: false,
               finishReason: "stop",
-            }),
+            })
           ).finally(() => {
             controller.close();
           });
@@ -39,4 +40,3 @@ export function fakeStreamText(_args: any): {
       }),
   };
 }
-

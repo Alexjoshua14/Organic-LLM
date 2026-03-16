@@ -13,14 +13,14 @@ interface OrganicPresenceProps {
 
 /**
  * OrganicPresence - A lightweight, breathing SVG indicator that adds organic life to the UI.
- * 
+ *
  * Features:
  * - Subtle pulsing animation (3s cycle)
  * - Organic blob shape that morphs
  * - Absolutely positioned, won't affect layout
  * - Fully client-rendered, lightweight
  * - Can be shown/hidden with smooth fade
- * 
+ *
  * Usage:
  * <OrganicPresence show={isActive} position="bottom-right" />
  */
@@ -61,14 +61,14 @@ export function OrganicPresence({
       }}
     >
       <svg
-        width={size}
-        height={size}
-        viewBox="0 0 100 100"
         fill="none"
-        xmlns="http://www.w3.org/2000/svg"
+        height={size}
         style={{
           filter: "blur(12px)",
         }}
+        viewBox="0 0 100 100"
+        width={size}
+        xmlns="http://www.w3.org/2000/svg"
       >
         {/* Outer organic blob - slower pulse */}
         <path
@@ -107,19 +107,8 @@ export function OrganicPresence({
         </path>
 
         {/* Inner core - fastest pulse */}
-        <circle
-          cx="50"
-          cy="50"
-          r="15"
-          fill={color}
-          opacity="0.25"
-        >
-          <animate
-            attributeName="r"
-            dur="2.5s"
-            repeatCount="indefinite"
-            values="15;18;15"
-          />
+        <circle cx="50" cy="50" fill={color} opacity="0.25" r="15">
+          <animate attributeName="r" dur="2.5s" repeatCount="indefinite" values="15;18;15" />
           <animate
             attributeName="opacity"
             dur="2.5s"
@@ -143,12 +132,12 @@ export function CompactOrganicPresence({
 }: Omit<OrganicPresenceProps, "size" | "intensity">) {
   return (
     <OrganicPresence
-      show={show}
-      position={position}
-      size={50}
+      className={className}
       color={color}
       intensity={0.2}
-      className={className}
+      position={position}
+      show={show}
+      size={50}
     />
   );
 }

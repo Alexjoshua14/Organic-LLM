@@ -1,6 +1,22 @@
-'use client'
+"use client";
 
-import { ChangeEventHandler, ComponentProps, FormEvent, useCallback, useEffect, useRef, useState, MouseEvent, useLayoutEffect } from 'react'
+import {
+  ChangeEventHandler,
+  ComponentProps,
+  FormEvent,
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+  MouseEvent,
+  useLayoutEffect,
+} from "react";
+import { useChat } from "@ai-sdk/react";
+import { ArrowUp, BrainCircuit, GlobeIcon, SquareIcon, Volume2, XIcon } from "lucide-react";
+import { ChatStatus } from "ai";
+import { motion } from "framer-motion";
+
+import { InputGroupButton } from "../third-party/ui/input-group";
 import {
   PromptInput,
   PromptInputHeader,
@@ -22,31 +38,26 @@ import {
   PromptInputSelectTrigger,
   PromptInputSelectValue,
   PromptInputSpeechButton,
-  PromptInputCommandGroup,
 } from "../third-party/ai-elements/prompt-input";
-import { useChat } from '@ai-sdk/react';
-import { ArrowUp, ArrowUpNarrowWideIcon, BrainCircuit, CornerDownLeftIcon, GlobeIcon, Loader2Icon, SquareIcon, Volume2, XIcon } from 'lucide-react';
+
+import { cn } from "@/lib/utils";
 import { ChatModel, ChatModels, DEFAULT_CHAT_MODEL } from "@/lib/schemas/chat";
-import { ChatStatus } from 'ai';
-import { InputGroupButton } from '../third-party/ui/input-group';
-import { cn } from '@/lib/utils'
-import { motion } from "framer-motion";
 import { deleteEmptyChat } from "@/data/supabase/chat";
 import { useSharedChatContext } from "@/lib/context/chat-context";
 
 type CoreInputProps = {
-  modelRef: React.RefObject<ChatModel>,
-  useWebSearchRef: React.RefObject<boolean>,
-  useMemoriesRef: React.RefObject<boolean>,
-  useSpeechFriendlyRef?: React.RefObject<boolean>,
-  sendMessage: ReturnType<typeof useChat>["sendMessage"],
+  modelRef: React.RefObject<ChatModel>;
+  useWebSearchRef: React.RefObject<boolean>;
+  useMemoriesRef: React.RefObject<boolean>;
+  useSpeechFriendlyRef?: React.RefObject<boolean>;
+  sendMessage: ReturnType<typeof useChat>["sendMessage"];
   error?: Error | unknown;
   clearError?: ReturnType<typeof useChat>["clearError"];
   /** Called when input restores text after error; use to clear parent-held error (e.g. chatError). */
   onErrorCleared?: () => void;
-  stop: ReturnType<typeof useChat>["stop"],
-  status: ReturnType<typeof useChat>["status"],
-  disabled?: boolean,
+  stop: ReturnType<typeof useChat>["stop"];
+  status: ReturnType<typeof useChat>["status"];
+  disabled?: boolean;
   className?: string;
   /** When set with isBlankChat, blank chat is auto-deleted on unmount if input is empty. */
   chatId?: string;
@@ -71,16 +82,16 @@ export const CoreInput: React.FC<CoreInputProps> = ({
 }) => {
   const { refreshSidebarChats } = useSharedChatContext();
 
-  const STORAGE_KEY_MODEL = 'organic-llm-selected-model';
-  const STORAGE_KEY_WEB_SEARCH = 'organic-llm-web-search';
-  const STORAGE_KEY_MEMORIES = 'organic-llm-memories';
-  const STORAGE_KEY_SPEECH_FRIENDLY = 'organic-llm-speech-friendly';
-  const STORAGE_KEY_TIMESTAMP = 'organic-llm-prefs-timestamp';
+  const STORAGE_KEY_MODEL = "organic-llm-selected-model";
+  const STORAGE_KEY_WEB_SEARCH = "organic-llm-web-search";
+  const STORAGE_KEY_MEMORIES = "organic-llm-memories";
+  const STORAGE_KEY_SPEECH_FRIENDLY = "organic-llm-speech-friendly";
+  const STORAGE_KEY_TIMESTAMP = "organic-llm-prefs-timestamp";
   const EXPIRY_MS = 24 * 60 * 60 * 1000; // 24 hours in milliseconds
 
-  const [text, setText] = useState<string>('');
-  const [recentlySentText, setRecentlySentText] = useState<string>(''); // For failed/aborted sends
-  const recentlySentTextRef = useRef<string>(''); // So restore effect sees value before state flushes
+  const [text, setText] = useState<string>("");
+  const [recentlySentText, setRecentlySentText] = useState<string>(""); // For failed/aborted sends
+  const recentlySentTextRef = useRef<string>(""); // So restore effect sees value before state flushes
   const [model, setModel] = useState<ChatModel>(DEFAULT_CHAT_MODEL);
   const [useWebSearch, setUseWebSearch] = useState<boolean>(false);
   const [useMemories, setUseMemories] = useState<boolean>(false);
@@ -93,18 +104,14 @@ export const CoreInput: React.FC<CoreInputProps> = ({
   // Refs for unmount cleanup: must see latest values when component unmounts
   const inputEmptyRef = useRef(false);
   const statusRef = useRef<typeof status>("ready");
+
   inputEmptyRef.current = text.trim() === "";
   statusRef.current = status ?? "ready";
 
   // Auto-delete blank chat when user navigates away with empty input
   useEffect(() => {
     return () => {
-      if (
-        chatId &&
-        isBlankChat &&
-        inputEmptyRef.current &&
-        statusRef.current === "ready"
-      ) {
+      if (chatId && isBlankChat && inputEmptyRef.current && statusRef.current === "ready") {
         deleteEmptyChat(chatId).then((res) => {
           if (res.ok) refreshSidebarChats();
         });
@@ -117,6 +124,7 @@ export const CoreInput: React.FC<CoreInputProps> = ({
   useEffect(() => {
     const hasError = status === "error" || error;
     const toRestore = recentlySentText || recentlySentTextRef.current;
+
     if (hasError && toRestore && text.trim() === "") {
       setText(toRestore);
       setRecentlySentText("");
@@ -138,7 +146,7 @@ export const CoreInput: React.FC<CoreInputProps> = ({
     hasLoadedPrefs.current = true;
 
     const timestamp = localStorage.getItem(STORAGE_KEY_TIMESTAMP);
-    const isExpired = !timestamp || (Date.now() - parseInt(timestamp, 10)) > EXPIRY_MS;
+    const isExpired = !timestamp || Date.now() - parseInt(timestamp, 10) > EXPIRY_MS;
 
     if (isExpired) {
       // Clear expired preferences
@@ -147,24 +155,30 @@ export const CoreInput: React.FC<CoreInputProps> = ({
       localStorage.removeItem(STORAGE_KEY_MEMORIES);
       localStorage.removeItem(STORAGE_KEY_SPEECH_FRIENDLY);
       localStorage.removeItem(STORAGE_KEY_TIMESTAMP);
+
       return;
     }
 
     // Load stored preferences
     const storedModel = localStorage.getItem(STORAGE_KEY_MODEL);
+
     if (storedModel) {
       const found = ChatModels.find((m) => m.id === storedModel);
+
       if (found) setModel(found);
     }
 
     const storedWebSearch = localStorage.getItem(STORAGE_KEY_WEB_SEARCH);
-    if (storedWebSearch === 'true') setUseWebSearch(true);
+
+    if (storedWebSearch === "true") setUseWebSearch(true);
 
     const storedMemories = localStorage.getItem(STORAGE_KEY_MEMORIES);
-    if (storedMemories === 'true') setUseMemories(true);
+
+    if (storedMemories === "true") setUseMemories(true);
 
     const storedSpeechFriendly = localStorage.getItem(STORAGE_KEY_SPEECH_FRIENDLY);
-    if (storedSpeechFriendly === 'true') setUseSpeechFriendly(true);
+
+    if (storedSpeechFriendly === "true") setUseSpeechFriendly(true);
   }, []);
 
   // Update timestamp whenever preferences are saved
@@ -218,26 +232,29 @@ export const CoreInput: React.FC<CoreInputProps> = ({
 
   useLayoutEffect(() => {
     const el = toolsRef.current;
+
     if (!el) return;
 
     const update = (width: number) => setShowLabels(width >= 628);
+
     update(el.getBoundingClientRect().width);
 
     if (typeof ResizeObserver === "undefined") return;
     const observer = new ResizeObserver((entries) => {
       update(entries[0]?.contentRect.width ?? 0);
     });
+
     observer.observe(el);
+
     return () => observer.disconnect();
   }, []);
-
 
   const handleSubmit = (message: PromptInputMessage, event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     // Use form payload first; fallback to current input state (covers FormData quirks e.g. when no PromptInputProvider)
-    const textFromForm = (message.text ?? '').trim();
+    const textFromForm = (message.text ?? "").trim();
     const textFromState = text.trim();
-    const textToSend = textFromForm || textFromState || (textareaRef.current?.value ?? '').trim();
+    const textToSend = textFromForm || textFromState || (textareaRef.current?.value ?? "").trim();
     const hasText = Boolean(textToSend);
     const hasAttachments = Boolean(message.files?.length);
 
@@ -245,7 +262,7 @@ export const CoreInput: React.FC<CoreInputProps> = ({
       return;
     }
 
-    const finalText = textToSend || 'Sent with attachments';
+    const finalText = textToSend || "Sent with attachments";
 
     // Store the text of the recently sent message for failed/aborted sends (ref = no race with effect)
     recentlySentTextRef.current = finalText;
@@ -253,18 +270,17 @@ export const CoreInput: React.FC<CoreInputProps> = ({
 
     sendMessage({
       text: finalText,
-      files: message.files
+      files: message.files,
     });
-    setText('');
+    setText("");
   };
 
   const handleModelSelection = (id: string) => {
     // Find the model object from ChatModels array with matching id
     const selectedModel = ChatModels.find((modelObj) => modelObj.id === id);
 
-    if (selectedModel)
-      setModel(selectedModel)
-  }
+    if (selectedModel) setModel(selectedModel);
+  };
 
   const handleInputChange: ChangeEventHandler<HTMLTextAreaElement> = useCallback((e) => {
     setText(e.target.value);
@@ -272,10 +288,10 @@ export const CoreInput: React.FC<CoreInputProps> = ({
 
   return (
     <PromptInput
-      onSubmit={handleSubmit}
       globalDrop
       multiple
       className={cn("min-w-fit z-40", className)}
+      onSubmit={handleSubmit}
     >
       <PromptInputHeader>
         <PromptInputAttachments>
@@ -284,38 +300,35 @@ export const CoreInput: React.FC<CoreInputProps> = ({
       </PromptInputHeader>
 
       <PromptInputBody>
-        <PromptInputTextarea
-          ref={textareaRef}
-          onChange={handleInputChange}
-        />
+        <PromptInputTextarea ref={textareaRef} onChange={handleInputChange} />
       </PromptInputBody>
       <PromptInputFooter>
         <div ref={toolsRef} className="w-full">
           <PromptInputTools className="flex justify-between w-full">
             <div className="flex gap-1">
               <PromptInputButton
+                size={"dynamic-sm"}
+                variant={useWebSearch ? "default" : "ghost"}
                 onClick={() => setUseWebSearch(!useWebSearch)}
-                variant={useWebSearch ? 'default' : 'ghost'}
-                size={'dynamic-sm'}
               >
                 <GlobeIcon size={16} />
                 <span className={cn(showLabels ? "inline-flex" : "hidden")}>Search</span>
               </PromptInputButton>
               <PromptInputButton
+                size={"dynamic-sm"}
+                variant={useMemories ? "default" : "ghost"}
                 onClick={() => setUseMemories(!useMemories)}
-                variant={useMemories ? 'default' : 'ghost'}
-                size={'dynamic-sm'}
               >
                 <BrainCircuit />
                 <span className={cn(showLabels ? "inline-flex" : "hidden")}>Memory</span>
               </PromptInputButton>
               {useSpeechFriendlyRef && (
                 <PromptInputButton
-                  onClick={() => setUseSpeechFriendly(!useSpeechFriendly)}
-                  variant={useSpeechFriendly ? 'default' : 'ghost'}
-                  size={'dynamic-sm'}
+                  aria-label={useSpeechFriendly ? "Speech-friendly on" : "Speech-friendly off"}
+                  size={"dynamic-sm"}
                   title="Format replies for reading and TTS; a separate pipeline converts to speech-friendly script."
-                  aria-label={useSpeechFriendly ? 'Speech-friendly on' : 'Speech-friendly off'}
+                  variant={useSpeechFriendly ? "default" : "ghost"}
+                  onClick={() => setUseSpeechFriendly(!useSpeechFriendly)}
                 >
                   <Volume2 size={16} />
                   <span className={cn(showLabels ? "inline-flex" : "hidden")}>Speech</span>
@@ -323,15 +336,18 @@ export const CoreInput: React.FC<CoreInputProps> = ({
               )}
 
               <PromptInputSelect
-                defaultValue={model.id}
-                onValueChange={handleModelSelection}
-                value={model.id}
                 required
+                defaultValue={model.id}
+                value={model.id}
+                onValueChange={handleModelSelection}
               >
                 <PromptInputSelectTrigger className="flex-1 max-w-32 sm:max-w-48 min-w-0">
                   <PromptInputSelectValue className="truncate min-w-0" />
                 </PromptInputSelectTrigger>
-                <PromptInputSelectContent defaultValue={model.id} className="max-h-80 overflow-y-auto">
+                <PromptInputSelectContent
+                  className="max-h-80 overflow-y-auto"
+                  defaultValue={model.id}
+                >
                   {ChatModels.map((model) => (
                     <PromptInputSelectItem key={model.id} value={model.id}>
                       {model.name}
@@ -347,20 +363,15 @@ export const CoreInput: React.FC<CoreInputProps> = ({
                   <PromptInputActionAddAttachments />
                 </PromptInputActionMenuContent>
               </PromptInputActionMenu>
-              <PromptInputSpeechButton
-                onTranscriptionChange={setText}
-                textareaRef={textareaRef}
-              />
+              <PromptInputSpeechButton textareaRef={textareaRef} onTranscriptionChange={setText} />
             </div>
           </PromptInputTools>
         </div>
-        <PromptInputSubmit disabled={!text && !status || disabled} status={status} stop={stop} />
+        <PromptInputSubmit disabled={(!text && !status) || disabled} status={status} stop={stop} />
       </PromptInputFooter>
     </PromptInput>
   );
 };
-
-
 
 export type PromptInputSubmitProps = ComponentProps<typeof InputGroupButton> & {
   status?: ChatStatus;
@@ -378,31 +389,34 @@ export const PromptInputSubmit = ({
 }: PromptInputSubmitProps) => {
   let Icon = <ArrowUp className="size-4" />;
 
-  if (status === "submitted" || status === 'streaming') {
+  if (status === "submitted" || status === "streaming") {
     Icon = <SquareIcon className="size-4" />;
   } else if (status === "error") {
     Icon = <XIcon className="size-4" />;
   }
 
-  const handleClick = useCallback((e: MouseEvent<HTMLButtonElement>) => {
-    if (stop && (status === 'streaming' || status === 'submitted')) {
-      e.preventDefault()
-      stop()
-    }
-  }, [stop, status])
+  const handleClick = useCallback(
+    (e: MouseEvent<HTMLButtonElement>) => {
+      if (stop && (status === "streaming" || status === "submitted")) {
+        e.preventDefault();
+        stop();
+      }
+    },
+    [stop, status]
+  );
 
   return (
     // TODO: Could make cursor more fun for this specific element
     <motion.div
-      whileTap={{ scale: 0.93 }}
-      whileHover={{ scale: 1.09 }}
       className="inline-block cursor-pointer"
+      whileHover={{ scale: 1.09 }}
+      whileTap={{ scale: 0.93 }}
     >
       <InputGroupButton
-        aria-label={status === 'ready' ? "Submit" : "Abort"}
+        aria-label={status === "ready" ? "Submit" : "Abort"}
         className={cn(className)}
         size={size}
-        type={status === 'ready' ? "submit" : "button"}
+        type={status === "ready" ? "submit" : "button"}
         variant={variant}
         {...props}
         onClick={handleClick}

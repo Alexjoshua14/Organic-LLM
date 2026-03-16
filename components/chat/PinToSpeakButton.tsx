@@ -4,6 +4,7 @@ import { useState, useCallback } from "react";
 import { Button } from "@heroui/button";
 import { Pin, Check } from "lucide-react";
 import { toast } from "sonner";
+
 import { addPinnedFromChat } from "@/lib/tts/pinned-to-speak";
 
 export function PinToSpeakButton({ text }: { text: string }) {
@@ -30,13 +31,13 @@ export function PinToSpeakButton({ text }: { text: string }) {
 
   return (
     <Button
-      className="text-secondary-foreground hover:scale-110 border touch-none"
       isIconOnly
+      aria-label={isPinned ? "Pinned to Speak" : "Pin to Speak page"}
+      className="text-secondary-foreground hover:scale-110 border touch-none"
       size="sm"
+      tabIndex={-1}
       variant="ghost"
       onPress={handlePin}
-      aria-label={isPinned ? "Pinned to Speak" : "Pin to Speak page"}
-      tabIndex={-1}
     >
       {isPinned ? <Check className="w-4 h-4" /> : <Pin className="w-4 h-4" />}
     </Button>

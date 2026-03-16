@@ -2,21 +2,18 @@
 
 import { useCallback, useMemo, useState } from "react";
 import { HelpCircle } from "lucide-react";
+
+import { AdaptiveSandboxInput } from "./AdaptiveSandboxInput";
+import { DebugTracePanel } from "./DebugTracePanel";
+
 import { SANDBOX_SCENARIO_REGISTRY } from "@/lib/sandbox/scenarios";
-import type { SandboxScenarioRecord } from "@/lib/sandbox/scenarios";
 import {
   DEFAULT_ENVIRONMENT,
   createFixtureEnvironment,
   createEphemeralEnvironment,
   type SandboxEnvironment,
 } from "@/lib/sandbox/environment";
-import { AdaptiveSandboxInput } from "./AdaptiveSandboxInput";
-import { DebugTracePanel } from "./DebugTracePanel";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger,
-} from "@/components/third-party/ui/tooltip";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/third-party/ui/tooltip";
 import { cn } from "@/lib/utils";
 
 const SCENARIO_IDS = SANDBOX_SCENARIO_REGISTRY.map((s) => s.id);
@@ -70,7 +67,19 @@ export function SandboxShell() {
 
   const trace = useMemo(() => {
     if (runState == null) return null;
-    const r = runState as { trace?: { rawInput: unknown; modelOrFunction: string; latencyMs: number; error?: string; errorStack?: string; transformedPrompt?: string; intermediateOutputs?: Record<string, unknown>; normalizedProps?: unknown } };
+    const r = runState as {
+      trace?: {
+        rawInput: unknown;
+        modelOrFunction: string;
+        latencyMs: number;
+        error?: string;
+        errorStack?: string;
+        transformedPrompt?: string;
+        intermediateOutputs?: Record<string, unknown>;
+        normalizedProps?: unknown;
+      };
+    };
+
     return r?.trace ?? null;
   }, [runState]);
 
@@ -80,6 +89,7 @@ export function SandboxShell() {
     const timings = { latencyMs: raw?.trace?.latencyMs ?? 0 };
     const data = activeScenario.getDebugData(lastInput, runState, timings);
     const { trace: _t, ...rest } = data;
+
     return Object.keys(rest).length > 0 ? rest : undefined;
   }, [activeScenario, lastInput, runState]);
 
@@ -89,6 +99,7 @@ export function SandboxShell() {
       setLastInput(input);
       try {
         const result = await activeScenario.run(input, seedData, environment);
+
         setRunState(result);
       } catch (err) {
         setRunState({
@@ -106,10 +117,15 @@ export function SandboxShell() {
   );
 
   const hybridOptions = useMemo(() => {
-    if (!activeScenario || activeScenario.inputMode !== "hybrid" || seedData == null) return undefined;
-    const seed = seedData as { articles?: { id: string; title: string; content: string }[] };
+    if (!activeScenario || activeScenario.inputMode !== "hybrid" || seedData == null)
+      return undefined;
+    const seed = seedData as {
+      articles?: { id: string; title: string; content: string }[];
+    };
     const articles = seed.articles ?? [];
+
     if (articles.length === 0) return undefined;
+
     return {
       articles: [...articles],
       selectedIndex: selectedFixtureIndex,
@@ -124,14 +140,13 @@ export function SandboxShell() {
       return (environment.state as { label?: string }).label ?? "Fixture";
     }
     if (environment.type === "ephemeral") return "Ephemeral run";
+
     return environment.type;
   }, [environment]);
 
   if (!activeScenario) {
     return (
-      <div className="p-8 text-muted-foreground">
-        No scenario selected. Registry may be empty.
-      </div>
+      <div className="p-8 text-muted-foreground">No scenario selected. Registry may be empty.</div>
     );
   }
 
@@ -150,10 +165,10 @@ export function SandboxShell() {
             <Tooltip>
               <TooltipTrigger asChild>
                 <span className="inline-flex cursor-help text-muted-foreground hover:text-foreground">
-                  <HelpCircle size={14} aria-hidden />
+                  <HelpCircle aria-hidden size={14} />
                 </span>
               </TooltipTrigger>
-              <TooltipContent side="bottom" className="max-w-xs">
+              <TooltipContent className="max-w-xs" side="bottom">
                 {SCENARIO_TOOLTIP}
               </TooltipContent>
             </Tooltip>
@@ -176,10 +191,10 @@ export function SandboxShell() {
             <Tooltip>
               <TooltipTrigger asChild>
                 <span className="inline-flex cursor-help text-muted-foreground hover:text-foreground">
-                  <HelpCircle size={14} aria-hidden />
+                  <HelpCircle aria-hidden size={14} />
                 </span>
               </TooltipTrigger>
-              <TooltipContent side="bottom" className="max-w-xs">
+              <TooltipContent className="max-w-xs" side="bottom">
                 <span className="block font-medium mb-1">Fixture vs Ephemeral</span>
                 <ul className="list-disc list-inside space-y-0.5 text-left">
                   <li>
@@ -197,6 +212,7 @@ export function SandboxShell() {
             value={environment.type}
             onChange={(e) => {
               const t = e.target.value as SandboxEnvironment["type"];
+
               setEnvironment(
                 t === "fixture"
                   ? createFixtureEnvironment("rabbit-holes", "Rabbit Holes fixtures")
@@ -205,7 +221,7 @@ export function SandboxShell() {
             }}
           >
             {ENVIRONMENTS.map((env) => (
-              <option key={env.id} value={env.id} title={env.tooltip}>
+              <option key={env.id} title={env.tooltip} value={env.id}>
                 {env.label}
               </option>
             ))}
@@ -216,7 +232,7 @@ export function SandboxShell() {
                 {envStatusLabel}
               </span>
             </TooltipTrigger>
-            <TooltipContent side="bottom" className="max-w-xs">
+            <TooltipContent className="max-w-xs" side="bottom">
               {ENVIRONMENTS.find((e) => e.id === environment.type)?.tooltip ??
                 "Current environment. Change the dropdown to switch."}
             </TooltipContent>
@@ -228,7 +244,7 @@ export function SandboxShell() {
               {activeScenario.description}
             </p>
           </TooltipTrigger>
-          <TooltipContent side="bottom" className="max-w-sm">
+          <TooltipContent className="max-w-sm" side="bottom">
             {activeScenario.description}
           </TooltipContent>
         </Tooltip>
@@ -244,10 +260,10 @@ export function SandboxShell() {
             <Tooltip>
               <TooltipTrigger asChild>
                 <span className="inline-flex cursor-help text-muted-foreground hover:text-foreground">
-                  <HelpCircle size={12} aria-hidden />
+                  <HelpCircle aria-hidden size={12} />
                 </span>
               </TooltipTrigger>
-              <TooltipContent side="bottom" className="max-w-xs">
+              <TooltipContent className="max-w-xs" side="bottom">
                 {CENTER_STAGE_TOOLTIP}
               </TooltipContent>
             </Tooltip>
@@ -273,17 +289,18 @@ export function SandboxShell() {
               <Tooltip>
                 <TooltipTrigger asChild>
                   <span className="inline-flex cursor-help text-muted-foreground hover:text-foreground">
-                    <HelpCircle size={12} aria-hidden />
+                    <HelpCircle aria-hidden size={12} />
                   </span>
                 </TooltipTrigger>
-                <TooltipContent side="top" className="max-w-xs">
+                <TooltipContent className="max-w-xs" side="top">
                   {INPUT_TOOLTIP}
                 </TooltipContent>
               </Tooltip>
             </div>
             <AdaptiveSandboxInput
+              buttonLabel="Generate"
+              hybridOptions={hybridOptions}
               inputMode={activeScenario.inputMode}
-              onSubmit={handleSubmit}
               placeholder={
                 activeScenario.inputMode === "chat"
                   ? activeScenario.id === "rabbit-hole-refine"
@@ -291,8 +308,7 @@ export function SandboxShell() {
                     : "Enter text or HTML for title…"
                   : undefined
               }
-              buttonLabel="Generate"
-              hybridOptions={hybridOptions}
+              onSubmit={handleSubmit}
             />
           </section>
         </div>
@@ -300,11 +316,7 @@ export function SandboxShell() {
         {/* Debug panel + scenario actions */}
         <aside className="w-full lg:w-80 shrink-0 border-l border-border flex flex-col overflow-hidden">
           <div className="p-4 overflow-auto">
-            <DebugTracePanel
-              trace={trace}
-              extra={debugExtra}
-              headerTooltip={DEBUG_PANEL_TOOLTIP}
-            />
+            <DebugTracePanel extra={debugExtra} headerTooltip={DEBUG_PANEL_TOOLTIP} trace={trace} />
           </div>
           {activeScenario.actions != null && activeScenario.actions.length > 0 && (
             <div className="p-4 border-t border-border">
@@ -315,13 +327,13 @@ export function SandboxShell() {
                 {activeScenario.actions.map((action) => (
                   <button
                     key={action.id}
-                    type="button"
                     className={cn(
                       "text-sm px-3 py-1.5 rounded-md",
                       action.kind === "destructive"
                         ? "text-destructive hover:bg-destructive/10"
                         : "text-foreground hover:bg-muted"
                     )}
+                    type="button"
                     onClick={() => action.run(environment, seedData, runState)}
                   >
                     {action.label}

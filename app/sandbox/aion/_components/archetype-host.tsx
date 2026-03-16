@@ -1,16 +1,16 @@
 "use client";
 
+import { MemoryItem } from "mem0ai/oss";
+import { useEffect } from "react";
+import { ScrollShadow } from "@heroui/scroll-shadow";
+
 import MemoryList from "@/components/archetype/interfaces/memory";
 import { glass } from "@/components/design-system/primitives";
-import { ScrollArea } from "@/components/third-party/ui/scroll-area";
 import { cn } from "@/lib/utils";
-import { MemoryItem } from "mem0ai/oss";
 import { ArchetypePayload } from "@/packages/organic-ui/src/schemas/archetype";
-import { useEffect } from "react";
 import { sampleMemories } from "@/test-data/sampleData";
 import { useArchetypeContext } from "@/lib/context/archetype-context";
 import { Button } from "@/components/third-party/ui/button";
-import { ScrollShadow } from "@heroui/scroll-shadow";
 import { getCurrentUserMemories } from "@/lib/memory/operations";
 import { createLogger } from "@/lib/logger";
 
@@ -27,12 +27,11 @@ const initialSampleMemories: MemoryItem[] = sampleMemories[0].results;
 
 const sampleArchetypeData: ArchetypePayload = {
   id: "a27b9c91-4e03-40e7-b7a6-14f77b32b709",
-  kind: 'memory',
+  kind: "memory",
   memories: initialSampleMemories,
-}
+};
 
-const ArchetypeComponent = ({ }) => {
-
+const ArchetypeComponent = ({}) => {
   const { archetypeData } = useArchetypeContext();
 
   if (!archetypeData) {
@@ -53,7 +52,9 @@ const ArchetypeComponent = ({ }) => {
     default:
       return (
         <div className="h-full pt-6 pb-12">
-          <p>Archetype <span className="font-mono">{archetypeData.kind}</span> is not yet supported</p>
+          <p>
+            Archetype <span className="font-mono">{archetypeData.kind}</span> is not yet supported
+          </p>
         </div>
       );
   }
@@ -65,7 +66,6 @@ export function ArchetypeHost({
   border = "left",
   className,
 }: ArchetypeHostProps) {
-
   const { setArchetypeData, archetypeData } = useArchetypeContext();
 
   // TODO: Refactor into actual logic, this is a temporary placeholder while developing Archetypes
@@ -74,9 +74,11 @@ export function ArchetypeHost({
       if (archetypeData) return;
 
       const result = await getCurrentUserMemories();
+
       if (result.error) {
         if (result.error === "Not signed in") return;
         setArchetypeData(sampleArchetypeData);
+
         return;
       }
       if (result.data) {
@@ -110,7 +112,7 @@ export function ArchetypeHost({
         className
       )}
     >
-      {archetypeData ?
+      {archetypeData ? (
         <>
           <div className="text-xs uppercase tracking-wide text-foreground/60">
             {archetypeData.kind}
@@ -119,14 +121,16 @@ export function ArchetypeHost({
             <ArchetypeComponent />
           </div>
         </>
-        : <>
+      ) : (
+        <>
           <div className="h-full pt-6 pb-12">
             <p>No archetype data</p>
-            <Button onClick={() => setArchetypeData(sampleArchetypeData)}>Set archetype data</Button>
+            <Button onClick={() => setArchetypeData(sampleArchetypeData)}>
+              Set archetype data
+            </Button>
           </div>
-        </>}
-
-    </aside >
+        </>
+      )}
+    </aside>
   );
 }
-

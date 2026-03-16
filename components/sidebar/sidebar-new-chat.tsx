@@ -26,6 +26,7 @@ export const SidebarNewChat = () => {
       }
 
       const id = res.data;
+
       refreshSidebarChats();
       router.push(`/chat/${id}`);
     }

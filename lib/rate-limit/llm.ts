@@ -1,21 +1,16 @@
 import { Duration, Ratelimit } from "@upstash/ratelimit";
+
 import { redis } from "@/lib/redis/redis";
 import { computeCost, type Usage } from "@/lib/rate-limit/llm-cost";
 
 const MESSAGE_LIMIT = parseInt(process.env.LLM_RATE_LIMIT_MESSAGES ?? "60", 10);
-const MESSAGE_WINDOW: Duration =
-  (process.env.LLM_RATE_LIMIT_WINDOW as Duration) ?? "1 m";
+const MESSAGE_WINDOW: Duration = (process.env.LLM_RATE_LIMIT_WINDOW as Duration) ?? "1 m";
 
 const TOKEN_LIMIT = parseInt(process.env.LLM_RATE_LIMIT_TOKENS ?? "100000", 10);
-const TOKEN_WINDOW: Duration =
-  (process.env.LLM_RATE_LIMIT_TOKENS_WINDOW as Duration) ?? "1 h";
+const TOKEN_WINDOW: Duration = (process.env.LLM_RATE_LIMIT_TOKENS_WINDOW as Duration) ?? "1 h";
 
-const COST_LIMIT_UNITS = parseInt(
-  process.env.LLM_RATE_LIMIT_COST_UNITS ?? "10000",
-  10,
-);
-const COST_WINDOW: Duration =
-  (process.env.LLM_RATE_LIMIT_COST_WINDOW as Duration) ?? "1 d";
+const COST_LIMIT_UNITS = parseInt(process.env.LLM_RATE_LIMIT_COST_UNITS ?? "10000", 10);
+const COST_WINDOW: Duration = (process.env.LLM_RATE_LIMIT_COST_WINDOW as Duration) ?? "1 d";
 
 /** Message-based: N requests per window per user (sliding). */
 const messageLimiter = new Ratelimit({
@@ -56,13 +51,13 @@ function isCostLimitEnabled(): boolean {
  * Check message-based rate limit. Call before each LLM request.
  * Uses Supabase user id as identifier (same as memory limits).
  */
-export async function checkLlmMessageLimit(
-  userId: string,
-): Promise<RateLimitResult> {
+export async function checkLlmMessageLimit(userId: string): Promise<RateLimitResult> {
   const { success, remaining } = await messageLimiter.limit(userId);
+
   if (!success) {
     return { success: false, error: "Too many LLM requests" };
   }
+
   return { success: true, remaining };
 }
 
@@ -72,12 +67,13 @@ export async function checkLlmMessageLimit(
  */
 export async function checkLlmTokenLimit(
   userId: string,
-  estimatedTokens: number,
+  estimatedTokens: number
 ): Promise<RateLimitResult> {
   if (!isTokenLimitEnabled()) {
     return { success: true };
   }
   const { remaining } = await tokenLimiter.getRemaining(userId);
+
   if (remaining < estimatedTokens) {
     return {
       success: false,
@@ -85,6 +81,7 @@ export async function checkLlmTokenLimit(
       remaining,
     };
   }
+
   return { success: true, remaining };
 }
 
@@ -92,10 +89,7 @@ export async function checkLlmTokenLimit(
  * Record actual token usage after a request. Call from onFinish when usage is available.
  * No-op when token limit is disabled.
  */
-export async function recordLlmTokenUsage(
-  userId: string,
-  tokensUsed: number,
-): Promise<void> {
+export async function recordLlmTokenUsage(userId: string, tokensUsed: number): Promise<void> {
   if (!isTokenLimitEnabled() || tokensUsed <= 0) return;
   await tokenLimiter.limit(userId, { rate: tokensUsed });
 }
@@ -105,12 +99,13 @@ export async function recordLlmTokenUsage(
  */
 export async function checkLlmCostLimit(
   userId: string,
-  estimatedCostUnits: number,
+  estimatedCostUnits: number
 ): Promise<RateLimitResult> {
   if (!isCostLimitEnabled()) {
     return { success: true };
   }
   const { remaining } = await costLimiter.getRemaining(userId);
+
   if (remaining < estimatedCostUnits) {
     return {
       success: false,
@@ -118,6 +113,7 @@ export async function checkLlmCostLimit(
       remaining,
     };
   }
+
   return { success: true, remaining };
 }
 
@@ -125,13 +121,10 @@ export async function checkLlmCostLimit(
  * Record actual cost after a request. Call from onFinish with modelId and usage.
  * No-op when cost limit is disabled.
  */
-export async function recordLlmCost(
-  userId: string,
-  modelId: string,
-  usage: Usage,
-): Promise<void> {
+export async function recordLlmCost(userId: string, modelId: string, usage: Usage): Promise<void> {
   if (!isCostLimitEnabled()) return;
   const costUnits = computeCost(modelId, usage);
+
   if (costUnits <= 0) return;
   await costLimiter.limit(userId, { rate: costUnits });
 }

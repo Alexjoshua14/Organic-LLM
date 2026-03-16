@@ -3,8 +3,10 @@
 import { useAuth } from "@clerk/nextjs";
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { getShowSandboxGatewayForCurrentUser } from "@/data/supabase/profiles";
+
 import { showGatewayCache } from "./sandbox-gateway-button";
+
+import { getShowSandboxGatewayForCurrentUser } from "@/data/supabase/profiles";
 
 /**
  * Renders a Blog link when the signed-in user is admin (same visibility as
@@ -14,14 +16,16 @@ import { showGatewayCache } from "./sandbox-gateway-button";
 export function AdminBlogLink() {
   const { userId } = useAuth();
   const [show, setShow] = useState<boolean | null>(() =>
-    userId ? showGatewayCache.get(userId) ?? null : null,
+    userId ? (showGatewayCache.get(userId) ?? null) : null
   );
 
   useEffect(() => {
     if (!userId) return;
     const cached = showGatewayCache.get(userId);
+
     if (cached !== undefined) {
       setShow(cached);
+
       return;
     }
     setShow(null);
@@ -35,9 +39,9 @@ export function AdminBlogLink() {
 
   return (
     <Link
-      href="/blog"
-      className="rounded-xl border border-border bg-secondary px-4 py-2.5 text-sm font-medium text-foreground no-underline transition-colors hover:bg-secondary/80 hover:text-foreground"
       aria-label="Blog"
+      className="rounded-xl border border-border bg-secondary px-4 py-2.5 text-sm font-medium text-foreground no-underline transition-colors hover:bg-secondary/80 hover:text-foreground"
+      href="/blog"
     >
       Blog
     </Link>

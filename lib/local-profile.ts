@@ -16,6 +16,7 @@ const LOCAL_PROFILE_PATH = join(process.cwd(), ".local-profile.md");
 export async function getLocalProfile(): Promise<string | null> {
   try {
     const content = await readFile(LOCAL_PROFILE_PATH, "utf-8");
+
     return content.trim() || null;
   } catch {
     return null;
@@ -28,9 +29,9 @@ export async function getLocalProfile(): Promise<string | null> {
  */
 export function getLocalProfileSync(): string | null {
   try {
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
     const fs = require("node:fs") as typeof import("node:fs");
     const content = fs.readFileSync(LOCAL_PROFILE_PATH, "utf-8");
+
     return content.trim() || null;
   } catch {
     return null;

@@ -26,11 +26,9 @@ export type RabbitHoleNodeRow = {
  * Map a session node to a rabbit_hole_nodes row for upsert.
  * Exported for unit tests.
  */
-export function nodeToRabbitHoleNodeRow(
-  node: NodeForRow,
-  sessionId: string,
-): RabbitHoleNodeRow {
+export function nodeToRabbitHoleNodeRow(node: NodeForRow, sessionId: string): RabbitHoleNodeRow {
   const keyTakeaways = node.keyTakeaways;
+
   return {
     session_id: sessionId,
     node_id: node.id,

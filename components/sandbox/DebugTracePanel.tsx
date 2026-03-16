@@ -1,18 +1,12 @@
 "use client";
 
+import type { PipelineTrace, TokenUsage, TokenUsageEntry } from "@/lib/sandbox/pipelines/trace";
+
 import { useState } from "react";
 import { ChevronDown, ChevronRight, HelpCircle } from "lucide-react";
+
 import { cn } from "@/lib/utils";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger,
-} from "@/components/third-party/ui/tooltip";
-import type {
-  PipelineTrace,
-  TokenUsage,
-  TokenUsageEntry,
-} from "@/lib/sandbox/pipelines/trace";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/third-party/ui/tooltip";
 
 export interface DebugTracePanelProps {
   trace: PipelineTrace | null;
@@ -25,22 +19,16 @@ export interface DebugTracePanelProps {
 
 function formatTokens(n: number | undefined): string {
   if (n == null) return "—";
+
   return n.toLocaleString();
 }
 
-function TokenUsageRow({
-  label,
-  usage,
-}: {
-  label: string;
-  usage: TokenUsage;
-}) {
-  const input =
-    usage.inputTokens ?? usage.promptTokens ?? 0;
-  const output =
-    usage.outputTokens ?? usage.completionTokens ?? 0;
-  const total = usage.totalTokens ?? ((input + output) || undefined);
+function TokenUsageRow({ label, usage }: { label: string; usage: TokenUsage }) {
+  const input = usage.inputTokens ?? usage.promptTokens ?? 0;
+  const output = usage.outputTokens ?? usage.completionTokens ?? 0;
+  const total = usage.totalTokens ?? (input + output || undefined);
   const reasoning = usage.reasoningTokens;
+
   return (
     <div className="rounded-md border border-border/50 bg-card/30 p-2 text-xs">
       <div className="font-medium text-muted-foreground mb-1.5">{label}</div>
@@ -74,8 +62,8 @@ function JsonBlock({ label, value }: { label: string; value: unknown }) {
   return (
     <div className="border border-border/50 rounded-md overflow-hidden">
       <button
-        type="button"
         className="flex items-center gap-1 w-full px-3 py-2 text-left text-xs font-medium text-muted-foreground hover:bg-muted/50"
+        type="button"
         onClick={() => setOpen((o) => !o)}
       >
         {isLong ? open ? <ChevronDown size={14} /> : <ChevronRight size={14} /> : null}
@@ -93,12 +81,7 @@ function JsonBlock({ label, value }: { label: string; value: unknown }) {
   );
 }
 
-export function DebugTracePanel({
-  trace,
-  extra,
-  className,
-  headerTooltip,
-}: DebugTracePanelProps) {
+export function DebugTracePanel({ trace, extra, className, headerTooltip }: DebugTracePanelProps) {
   const [collapsed, setCollapsed] = useState(false);
 
   if (!trace) {
@@ -122,8 +105,8 @@ export function DebugTracePanel({
       )}
     >
       <button
-        type="button"
         className="flex items-center justify-between w-full px-4 py-2 text-sm font-medium text-foreground hover:bg-muted/50"
+        type="button"
         onClick={() => setCollapsed((c) => !c)}
       >
         <span className="flex items-center gap-1.5">
@@ -135,10 +118,10 @@ export function DebugTracePanel({
                   className="inline-flex cursor-help text-muted-foreground hover:text-foreground"
                   onClick={(e) => e.stopPropagation()}
                 >
-                  <HelpCircle size={14} aria-hidden />
+                  <HelpCircle aria-hidden size={14} />
                 </span>
               </TooltipTrigger>
-              <TooltipContent side="left" className="max-w-xs">
+              <TooltipContent className="max-w-xs" side="left">
                 {headerTooltip}
               </TooltipContent>
             </Tooltip>
@@ -149,25 +132,18 @@ export function DebugTracePanel({
       {!collapsed && (
         <div className="p-4 space-y-3 border-t border-border">
           <div className="grid gap-1">
-            <span className="text-xs font-medium text-muted-foreground">
-              Model / function
-            </span>
+            <span className="text-xs font-medium text-muted-foreground">Model / function</span>
             <p className="text-sm text-foreground">{trace.modelOrFunction}</p>
           </div>
           <div className="grid gap-1">
-            <span className="text-xs font-medium text-muted-foreground">
-              Latency
-            </span>
+            <span className="text-xs font-medium text-muted-foreground">Latency</span>
             <p className="text-sm text-foreground">{trace.latencyMs.toFixed(0)} ms</p>
           </div>
           {(trace.tokenUsage != null || (trace.tokenUsageByCall?.length ?? 0) > 0) && (
             <div className="grid gap-1">
-              <span className="text-xs font-medium text-muted-foreground">
-                Token usage
-              </span>
+              <span className="text-xs font-medium text-muted-foreground">Token usage</span>
               <div className="space-y-2">
-                {trace.tokenUsageByCall != null &&
-                trace.tokenUsageByCall.length > 0 ? (
+                {trace.tokenUsageByCall != null && trace.tokenUsageByCall.length > 0 ? (
                   trace.tokenUsageByCall.map((entry: TokenUsageEntry, i: number) => (
                     <TokenUsageRow
                       key={`${entry.modelOrFunction}-${i}`}
@@ -176,10 +152,7 @@ export function DebugTracePanel({
                     />
                   ))
                 ) : trace.tokenUsage != null ? (
-                  <TokenUsageRow
-                    label={trace.modelOrFunction}
-                    usage={trace.tokenUsage}
-                  />
+                  <TokenUsageRow label={trace.modelOrFunction} usage={trace.tokenUsage} />
                 ) : null}
               </div>
             </div>
@@ -198,9 +171,7 @@ export function DebugTracePanel({
           <JsonBlock label="Raw input" value={trace.rawInput} />
           {trace.transformedPrompt != null && (
             <div className="grid gap-1">
-              <span className="text-xs font-medium text-muted-foreground">
-                Transformed prompt
-              </span>
+              <span className="text-xs font-medium text-muted-foreground">Transformed prompt</span>
               <pre className="text-xs text-foreground whitespace-pre-wrap bg-card/50 p-2 rounded">
                 {trace.transformedPrompt}
               </pre>

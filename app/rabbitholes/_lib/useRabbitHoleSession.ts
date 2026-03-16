@@ -10,23 +10,25 @@
  */
 
 import { useState, useTransition, useEffect, useContext } from "react";
-import {
-  RabbitHoleSession,
-  RabbitHoleNodeId,
-  RabbitHoleSessionSchema,
-  RabbitHoleSource,
-  RabbitHoleSourceAnalysis,
-} from "@/lib/schemas/rabbitHoleSchemas";
+
 import {
   createRabbitHoleSession,
   followRabbitHoleBranch,
   generateQuickPreview,
   analyzeSource,
 } from "../actions";
+
 import { migrateSession } from "./sessionStorage";
+import { cleanupOldAudio } from "./audioStorage";
+
+import {
+  RabbitHoleSession,
+  RabbitHoleNodeId,
+  RabbitHoleSource,
+  RabbitHoleSourceAnalysis,
+} from "@/lib/schemas/rabbitHoleSchemas";
 import { saveSession, getSessionById } from "@/data/supabase/rabbitholes";
 import { createLogger } from "@/lib/logger";
-import { cleanupOldAudio } from "./audioStorage";
 import { RabbitHoleContext } from "@/lib/context/rabbithole-context";
 
 const logger = createLogger("useRabbitHoleSession");
@@ -36,15 +38,14 @@ const STORAGE_KEY = "rabbit-hole-session"; // Keep for backward compatibility
 /**
  * @deprecated Legacy storage helper for the old `app/rabbitholes/*` implementation.
  */
-async function getStoredSession(
-  sessionId?: string
-): Promise<RabbitHoleSession | null> {
+async function getStoredSession(sessionId?: string): Promise<RabbitHoleSession | null> {
   if (typeof window === "undefined") return null;
 
   try {
     // If sessionId is provided, load that specific session
     if (sessionId) {
       const res = await getSessionById(sessionId);
+
       if (res.data) {
         return res.data;
       } else {
@@ -54,6 +55,7 @@ async function getStoredSession(
 
     // Otherwise, try to load the current session (for backward compatibility)
     const stored = localStorage.getItem(STORAGE_KEY);
+
     if (!stored) return null;
 
     const parsed = JSON.parse(stored);
@@ -65,10 +67,12 @@ async function getStoredSession(
 
     // Invalid schema - clear it
     localStorage.removeItem(STORAGE_KEY);
+
     return null;
   } catch (error) {
     // Handle quota exceeded, disabled, etc.
     console.warn("Failed to read from localStorage:", error);
+
     return null;
   }
 }
@@ -76,49 +80,42 @@ async function getStoredSession(
 /**
  * @deprecated Legacy persistence helper for the old `app/rabbitholes/*` implementation.
  */
-async function saveSessionToStorage(
-  session: RabbitHoleSession | null
-): Promise<void> {
+async function saveSessionToStorage(session: RabbitHoleSession | null): Promise<void> {
   try {
     if (!session) {
       logger.log(
         "saveSessionToStorage",
         "No session provided to saveSessionToStorage; skipping save."
       );
+
       // localStorage.removeItem(STORAGE_KEY); // TODO: Check whether this should be here
       return;
     }
 
     // Avoid persisting optimistic/pending nodes to storage
     const hasPending = session.path.some(
-      (seg) =>
-        typeof seg.nodeId === "string" && seg.nodeId.startsWith("pending-")
+      (seg) => typeof seg.nodeId === "string" && seg.nodeId.startsWith("pending-")
     );
+
     if (hasPending) {
       logger.log(
         "saveSessionToStorage",
         `Session ${session.sessionId} has pending nodes; skipping save to storage.`
       );
+
       return;
     }
 
-    logger.log(
-      "saveSessionToStorage",
-      "Serializing session for transmission to server side.."
-    );
+    logger.log("saveSessionToStorage", "Serializing session for transmission to server side..");
 
     const serialized = JSON.stringify(session);
+
     logger.log("saveSessionToStorage", `Serialized session.`);
 
-    logger.log(
-      "saveSessionToStorage",
-      `Saving session with ID ${session.sessionId} to storage...`
-    );
+    logger.log("saveSessionToStorage", `Saving session with ID ${session.sessionId} to storage...`);
     const res = await saveSession(serialized);
-    logger.log(
-      "saveSessionToStorage",
-      `Session save result: ${JSON.stringify(res, null, 2)}`
-    );
+
+    logger.log("saveSessionToStorage", `Session save result: ${JSON.stringify(res, null, 2)}`);
   } catch (error) {
     // Handle quota exceeded, disabled, etc.
     logger.warn("saveSessionToStorage", `Failed to save to Database: ${error}`);
@@ -142,8 +139,7 @@ export function useRabbitHoleSession() {
   const [preview, setPreview] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [selectedSourceId, setSelectedSourceId] = useState<string | null>(null);
-  const [sourceAnalysis, setSourceAnalysis] =
-    useState<RabbitHoleSourceAnalysis | null>(null);
+  const [sourceAnalysis, setSourceAnalysis] = useState<RabbitHoleSourceAnalysis | null>(null);
   const [sourceAnalysisCache, setSourceAnalysisCache] = useState<
     Record<string, RabbitHoleSourceAnalysis>
   >({});
@@ -162,6 +158,7 @@ export function useRabbitHoleSession() {
       setIsLoading(true);
       const retrieveSession = async () => {
         const res = await getStoredSession(sessionId);
+
         if (res) {
           setSession(res);
         } else {
@@ -216,6 +213,7 @@ export function useRabbitHoleSession() {
   async function start(question: string) {
     if (!question.trim()) {
       setError("Please enter a question");
+
       return;
     }
 
@@ -230,6 +228,7 @@ export function useRabbitHoleSession() {
           "start",
           `Issue generating quick preview: ${JSON.stringify(previewResult.error, null, 2)}`
         );
+
         return;
       }
       setPreview(previewResult.data);
@@ -255,6 +254,7 @@ export function useRabbitHoleSession() {
       } catch (err) {
         // Clear session on error since we're starting fresh - nothing to show
         const message = err instanceof Error ? err.message : "Unknown error";
+
         setError(message);
         setSession(null);
         setGeneratingNodeId(null);
@@ -272,6 +272,7 @@ export function useRabbitHoleSession() {
     // If cached, use immediately
     if (sourceAnalysisCache[source.id]) {
       setSourceAnalysis(sourceAnalysisCache[source.id]);
+
       return;
     }
 
@@ -281,11 +282,8 @@ export function useRabbitHoleSession() {
     try {
       setPreview(`Analyzing the following source, ${source.title}..`);
 
-      const result = await analyzeSource(
-        source.url,
-        source.title,
-        source.snippet ?? undefined
-      );
+      const result = await analyzeSource(source.url, source.title, source.snippet ?? undefined);
+
       if (result.error || !result.data) {
         logger.error(
           "selectSource",
@@ -327,23 +325,21 @@ export function useRabbitHoleSession() {
   async function followBranch(branchId: string) {
     if (!session) {
       setError("No active session");
+
       return;
     }
 
     const previousSession = session;
 
-    const activeNode = session.activeNodeId
-      ? session.nodesById[session.activeNodeId]
-      : null;
-    const branch = activeNode?.branchSuggestions?.find(
-      (b) => b.id === branchId
-    );
+    const activeNode = session.activeNodeId ? session.nodesById[session.activeNodeId] : null;
+    const branch = activeNode?.branchSuggestions?.find((b) => b.id === branchId);
 
     // If we've already explored a node with the same prompt/label, reuse it instead of regenerating
     if (branch) {
       const existingNodeEntry = Object.entries(session.nodesById).find(
         ([, node]) => node.rawPrompt === branch.label
       );
+
       if (existingNodeEntry) {
         const existingNodeId = existingNodeEntry[0];
         const existingNode = existingNodeEntry[1];
@@ -352,9 +348,7 @@ export function useRabbitHoleSession() {
         const currentPathIndex = session.activeNodeId
           ? session.path.findIndex((seg) => seg.nodeId === session.activeNodeId)
           : -1;
-        const isInPath = session.path.some(
-          (seg) => seg.nodeId === existingNodeId
-        );
+        const isInPath = session.path.some((seg) => seg.nodeId === existingNodeId);
 
         const edgeExists =
           session.activeNodeId &&
@@ -366,10 +360,7 @@ export function useRabbitHoleSession() {
           // Node is already in path, ensure edge exists then activate it
           const updatedEdges =
             session.activeNodeId && !edgeExists
-              ? [
-                  ...(session.edges ?? []),
-                  { from: session.activeNodeId, to: existingNodeId },
-                ]
+              ? [...(session.edges ?? []), { from: session.activeNodeId, to: existingNodeId }]
               : (session.edges ?? []);
 
           setSession({
@@ -381,9 +372,7 @@ export function useRabbitHoleSession() {
           // Node exists but isn't in path - add it to path after current node and activate
           const pathSegment = {
             nodeId: existingNodeId,
-            label:
-              branch.label.substring(0, 60) +
-              (branch.label.length > 60 ? "..." : ""),
+            label: branch.label.substring(0, 60) + (branch.label.length > 60 ? "..." : ""),
             parentNodeId: session.activeNodeId ?? null,
           };
 
@@ -399,10 +388,7 @@ export function useRabbitHoleSession() {
 
           const updatedEdges =
             session.activeNodeId && !edgeExists
-              ? [
-                  ...(session.edges ?? []),
-                  { from: session.activeNodeId, to: existingNodeId },
-                ]
+              ? [...(session.edges ?? []), { from: session.activeNodeId, to: existingNodeId }]
               : (session.edges ?? []);
 
           setSession({
@@ -414,6 +400,7 @@ export function useRabbitHoleSession() {
         }
         setError(null);
         setPreview(null);
+
         return;
       }
     }
@@ -427,22 +414,18 @@ export function useRabbitHoleSession() {
     const optimisticPathSegment = {
       nodeId: tempNodeId,
       label:
-        branch?.label.substring(0, 60) +
-          ((branch?.label.length ?? 0) > 60 ? "..." : "") || branchId,
+        branch?.label.substring(0, 60) + ((branch?.label.length ?? 0) > 60 ? "..." : "") ||
+        branchId,
       parentNodeId: session.activeNodeId ?? null,
     };
     const optimisticEdge =
-      session.activeNodeId != null
-        ? { from: session.activeNodeId, to: tempNodeId }
-        : null;
+      session.activeNodeId != null ? { from: session.activeNodeId, to: tempNodeId } : null;
 
     setGeneratingNodeId(tempNodeId);
     setSession({
       ...session,
       path: [...session.path, optimisticPathSegment],
-      edges: optimisticEdge
-        ? [...(session.edges ?? []), optimisticEdge]
-        : session.edges,
+      edges: optimisticEdge ? [...(session.edges ?? []), optimisticEdge] : session.edges,
       activeNodeId: tempNodeId,
     });
 
@@ -476,6 +459,7 @@ export function useRabbitHoleSession() {
       } catch (err) {
         // Preserve session on error so user can see previous content and retry
         const message = err instanceof Error ? err.message : "Unknown error";
+
         setError(message);
         setSession(previousSession);
         setGeneratingNodeId(null);

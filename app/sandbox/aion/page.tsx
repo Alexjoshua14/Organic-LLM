@@ -1,10 +1,11 @@
 import { UIMessage } from "ai";
 
+import { AionShell } from "./_components/aion-shell";
+
 import Page from "@/components/layout/page";
 import { loadChat } from "@/lib/chat/chat-store";
 import { Thread } from "@/lib/schemas/chat";
 import { createLogger } from "@/lib/logger";
-import { AionShell } from "./_components/aion-shell";
 import { ArchetypeProvider } from "@/lib/context/archetype-context";
 
 const logger = createLogger(`app/sandbox/aion/page.tsx`);
@@ -24,6 +25,7 @@ export default async function AionPage() {
     chatData = chatDataRes.data;
   } catch (err) {
     logger.error("AionPage", `Error while loading chat: ${err}`);
+
     return <div>Chat creation failed</div>;
   }
 

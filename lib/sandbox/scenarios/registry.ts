@@ -8,11 +8,7 @@ export type ScenarioAction = {
   id: string;
   label: string;
   kind?: "default" | "destructive";
-  run: (
-    env: SandboxEnvironment,
-    seedData: unknown,
-    runState: unknown
-  ) => Promise<void>;
+  run: (env: SandboxEnvironment, seedData: unknown, runState: unknown) => Promise<void>;
 };
 
 export interface SandboxScenario<TSeed = unknown, TInput = unknown, TRunResult = unknown> {
@@ -23,11 +19,7 @@ export interface SandboxScenario<TSeed = unknown, TInput = unknown, TRunResult =
   inputMode: SandboxInputMode;
   environmentRequirements?: string[];
   getSeedData: (env: SandboxEnvironment) => TSeed;
-  run: (
-    input: TInput,
-    seedData: TSeed,
-    env: SandboxEnvironment
-  ) => Promise<TRunResult>;
+  run: (input: TInput, seedData: TSeed, env: SandboxEnvironment) => Promise<TRunResult>;
   normalize: (rawRunResult: TRunResult) => unknown;
   render: (props: {
     seedData: TSeed;

@@ -1,14 +1,10 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import {
-  SkipBack,
-  SkipForward,
-  Volume2,
-  Download,
-} from "lucide-react";
+import { SkipBack, SkipForward, Volume2, Download } from "lucide-react";
 
 import { TextSegment } from "./SegmentManager";
+
 import { formatAudioDuration } from "@/lib/tts/token-calculator";
 import { glass } from "@/components/design-system/primitives";
 import { createLogger } from "@/lib/logger";
@@ -21,25 +17,24 @@ type UnifiedPlaybackProps = {
   className?: string;
 };
 
-export function UnifiedPlayback({
-  segments,
-  onDownload,
-  className = "",
-}: UnifiedPlaybackProps) {
+export function UnifiedPlayback({ segments, onDownload, className = "" }: UnifiedPlaybackProps) {
   const audioRef = useRef<HTMLAudioElement>(null);
 
   const [currentSegmentIndex, setCurrentSegmentIndex] = useState(0);
 
   const generatedIndices = useMemo(() => {
     const idxs: number[] = [];
+
     segments.forEach((s, idx) => {
       if (s.status === "generated" && s.audioUrl) idxs.push(idx);
     });
+
     return idxs;
   }, [segments]);
 
   const generatedPosition = useMemo(() => {
     const pos = generatedIndices.indexOf(currentSegmentIndex);
+
     return pos === -1 ? 0 : pos;
   }, [generatedIndices, currentSegmentIndex]);
 
@@ -48,6 +43,7 @@ export function UnifiedPlayback({
     if (segments.length === 0) return;
     if (currentSegmentIndex >= segments.length) {
       setCurrentSegmentIndex(0);
+
       return;
     }
     if (generatedIndices.length > 0 && !generatedIndices.includes(currentSegmentIndex)) {
@@ -57,11 +53,14 @@ export function UnifiedPlayback({
 
   const currentSegment = segments[currentSegmentIndex];
 
-  const hasCurrentAudio = Boolean(currentSegment?.audioUrl && currentSegment.status === "generated");
+  const hasCurrentAudio = Boolean(
+    currentSegment?.audioUrl && currentSegment.status === "generated"
+  );
 
   const goToGenerated = (nextPos: number) => {
     if (generatedIndices.length === 0) return;
     const clamped = Math.max(0, Math.min(nextPos, generatedIndices.length - 1));
+
     setCurrentSegmentIndex(generatedIndices[clamped]);
   };
 
@@ -71,15 +70,18 @@ export function UnifiedPlayback({
   // Auto-advance on end
   useEffect(() => {
     const el = audioRef.current;
+
     if (!el) return;
     const handler = () => {
       if (generatedIndices.length > 0 && generatedPosition < generatedIndices.length - 1) {
         goToGenerated(generatedPosition + 1);
         // allow the src to update before playing
-        setTimeout(() => audioRef.current?.play().catch(() => { }), 0);
+        setTimeout(() => audioRef.current?.play().catch(() => {}), 0);
       }
     };
+
     el.addEventListener("ended", handler);
+
     return () => el.removeEventListener("ended", handler);
   }, [generatedIndices, generatedPosition]);
 
@@ -96,26 +98,28 @@ export function UnifiedPlayback({
         </div>
         <div className="flex items-center gap-2">
           <button
-            onClick={skipToPrevious}
-            disabled={generatedPosition === 0}
             className="p-2 rounded-xl hover:bg-white/5 transition-colors disabled:opacity-30"
+            disabled={generatedPosition === 0}
             title="Previous clip"
+            onClick={skipToPrevious}
           >
             <SkipBack className="w-4.5 h-4.5 text-foreground/70" />
           </button>
           <button
-            onClick={skipToNext}
-            disabled={generatedIndices.length === 0 || generatedPosition === generatedIndices.length - 1}
             className="p-2 rounded-xl hover:bg-white/5 transition-colors disabled:opacity-30"
+            disabled={
+              generatedIndices.length === 0 || generatedPosition === generatedIndices.length - 1
+            }
             title="Next clip"
+            onClick={skipToNext}
           >
             <SkipForward className="w-4.5 h-4.5 text-foreground/70" />
           </button>
           <button
-            onClick={onDownload}
-            disabled={generatedIndices.length === 0}
             className="p-2 rounded-xl hover:bg-white/5 transition-colors disabled:opacity-30"
+            disabled={generatedIndices.length === 0}
             title="Download"
+            onClick={onDownload}
           >
             <Download className="w-4.5 h-4.5 text-foreground/70" />
           </button>
@@ -126,7 +130,7 @@ export function UnifiedPlayback({
         ref={audioRef}
         controls
         className={`${glass()} rounded-2xl p-2 w-full border border-white/10 ${hasCurrentAudio ? "" : "opacity-50"}`}
-        src={hasCurrentAudio ? currentSegment.audioUrl ?? undefined : undefined}
+        src={hasCurrentAudio ? (currentSegment.audioUrl ?? undefined) : undefined}
       >
         <track kind="captions" />
       </audio>
@@ -139,7 +143,7 @@ export function UnifiedPlayback({
             </div>
             <div className="tabular-nums">
               {formatAudioDuration(
-                (currentSegment.processedText || currentSegment.originalText).length / 14,
+                (currentSegment.processedText || currentSegment.originalText).length / 14
               )}
             </div>
           </div>

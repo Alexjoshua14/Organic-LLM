@@ -1,4 +1,5 @@
 import { randomUUID } from "crypto";
+
 import { auth } from "@clerk/nextjs/server";
 import {
   createUIMessageStream,
@@ -28,37 +29,45 @@ function getTextFromMessage(message: UIMessage): string {
 
 export async function POST(req: Request) {
   const body = await req.json();
-  const { message: incomingMessage, id } = body as { message: UIMessage; id: string };
+  const { message: incomingMessage, id } = body as {
+    message: UIMessage;
+    id: string;
+  };
 
   const message = incomingMessage as UIMessage;
+
   if (!message?.parts?.length || !id) {
-    return new Response(
-      JSON.stringify({ error: "Missing message or thread id" }),
-      { status: 400, headers: { "Content-Type": "application/json" } },
-    );
+    return new Response(JSON.stringify({ error: "Missing message or thread id" }), {
+      status: 400,
+      headers: { "Content-Type": "application/json" },
+    });
   }
 
   const clerkUser = await auth();
+
   if (!clerkUser?.userId) {
     return new Response("Unauthorized", { status: 401 });
   }
 
   const sbUserIdResult = await getSupabaseUserId(clerkUser.userId);
+
   if (sbUserIdResult.error || sbUserIdResult.data === null) {
     return new Response("User not found in supabase", { status: 404 });
   }
 
   const messageLimitResult = await checkLlmMessageLimit(sbUserIdResult.data);
+
   if (!messageLimitResult.success) {
     return new Response(
-      JSON.stringify({ error: messageLimitResult.error ?? "Too many requests" }),
-      { status: 429, headers: { "Content-Type": "application/json" } },
+      JSON.stringify({
+        error: messageLimitResult.error ?? "Too many requests",
+      }),
+      { status: 429, headers: { "Content-Type": "application/json" } }
     );
   }
 
   const loadResult = await loadChat(id);
-  const existingMessages: UIMessage[] =
-    loadResult.data?.messages ?? [];
+  const existingMessages: UIMessage[] = loadResult.data?.messages ?? [];
   const validatedMessages: UIMessage[] = [...existingMessages, message];
 
   saveChat({ chatId: id, messages: validatedMessages }).catch((err) => {
@@ -82,15 +91,19 @@ export async function POST(req: Request) {
       });
 
       let count = 1;
+
       try {
         count = await parseWineCount(userText);
         logger.debug("POST", "wine-line-list parseWineCount result", { count });
       } catch (err) {
-        logger.debug("POST", "wine-line-list parseWineCount failed, using 1", { err });
+        logger.debug("POST", "wine-line-list parseWineCount failed, using 1", {
+          err,
+        });
         count = 1;
       }
 
       const wines = await extractWines(userText, count);
+
       logger.debug("POST", "wine-line-list extractWines result", {
         expectedCount: count,
         returnedCount: wines.length,
@@ -123,7 +136,7 @@ export async function POST(req: Request) {
               logger.error("POST", `Error saving chat: ${err}`);
             }
           },
-        }),
+        })
       );
     },
   });

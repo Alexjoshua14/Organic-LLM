@@ -5,8 +5,6 @@
  * This file IS committed — it just re-exports with safe fallbacks.
  */
 
-/* eslint-disable @typescript-eslint/no-require-imports */
-
 interface ProfileOverrides {
   OWNER_EMAIL: string;
   OWNER_DISPLAY_NAME: string | null;
@@ -37,8 +35,8 @@ function load(): ProfileOverrides {
 
   try {
     // Dynamic require so the build doesn't fail when the file is absent.
-    const mod =
-      require("@/.local-profile-overrides") as Partial<ProfileOverrides>;
+    const mod = require("@/.local-profile-overrides") as Partial<ProfileOverrides>;
+
     _overrides = { ...DEFAULTS, ...mod };
   } catch {
     _overrides = DEFAULTS;

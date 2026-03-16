@@ -5,40 +5,36 @@ export function MemoryEncryptionIntroContent() {
     <BlogSection>
       <h1>Memory Encryption</h1>
       <p>
-        Organic LLM encrypts sensitive chat and summary data at rest. This page
-        explains the problem we solved, the research and options we weighed,
-        and the architecture we implemented.
+        Organic LLM encrypts sensitive chat and summary data at rest. This page explains the problem
+        we solved, the research and options we weighed, and the architecture we implemented.
       </p>
 
       <h2>Problem statement</h2>
       <p>
-        Conversations and AI-generated summaries are high-sensitivity data.
-        Storing them in plaintext in a database exposes users to risk if the
-        database is compromised, leaked, or accessed by admins. We wanted
-        application-layer encryption so that even with database access,
-        attackers see only ciphertext. The solution had to fit our Next.js and
-        Supabase stack, avoid risky migrations, and stay compatible with future
-        key rotation or KMS.
+        Conversations and AI-generated summaries are high-sensitivity data. Storing them in
+        plaintext in a database exposes users to risk if the database is compromised, leaked, or
+        accessed by admins. We wanted application-layer encryption so that even with database
+        access, attackers see only ciphertext. The solution had to fit our Next.js and Supabase
+        stack, avoid risky migrations, and stay compatible with future key rotation or KMS.
       </p>
 
       <h2>Research</h2>
       <p>
-        We investigated how to design a practical, production-ready
-        encryption layer for Organic LLM.
+        We investigated how to design a practical, production-ready encryption layer for Organic
+        LLM.
       </p>
 
       <h3>Goal of the research</h3>
       <p>
-        The goal was to protect stored AI conversation data and summaries while
-        integrating cleanly with the existing stack, avoiding high-risk
-        migrations, and remaining compatible with future improvements like KMS
-        and key rotation.
+        The goal was to protect stored AI conversation data and summaries while integrating cleanly
+        with the existing stack, avoiding high-risk migrations, and remaining compatible with future
+        improvements like KMS and key rotation.
       </p>
 
       <h3>Survey of security practices in major AI applications</h3>
       <p>
-        We looked at how leading AI systems secure chat data: ChatGPT, Claude,
-        Gemini, Cursor, Notion AI, Perplexity.
+        We looked at how leading AI systems secure chat data: ChatGPT, Claude, Gemini, Cursor,
+        Notion AI, Perplexity.
       </p>
       <table>
         <thead>
@@ -64,9 +60,9 @@ export function MemoryEncryptionIntroContent() {
       </table>
       <p>
         Most rely on transport and disk encryption but{" "}
-        <strong>rarely use application-layer encryption</strong>—so plaintext
-        prompts are often stored in databases. That gap meant application-layer
-        encryption would significantly strengthen Organic LLM.
+        <strong>rarely use application-layer encryption</strong>—so plaintext prompts are often
+        stored in databases. That gap meant application-layer encryption would significantly
+        strengthen Organic LLM.
       </p>
 
       <h3>Encryption model evaluation</h3>
@@ -96,10 +92,10 @@ export function MemoryEncryptionIntroContent() {
         <br />
         Authenticated encryption (AEAD), widely audited.
         <br />
-        The initialization vector, which varies ciphertext per encryption, must be unique and correctly generated each time.
+        The initialization vector, which varies ciphertext per encryption, must be unique and
+        correctly generated each time.
         <br />
-        <em className="font-semibold">Chosen</em> for Node, built-in
-        primitives, fewer dependencies.
+        <em className="font-semibold">Chosen</em> for Node, built-in primitives, fewer dependencies.
       </div>
       <h3 className="text-base font-semibold mt-4">Option B — XChaCha20-Poly1305</h3>
       <div className="pl-4 text-sm text-foreground/90 space-y-0.5">
@@ -107,8 +103,7 @@ export function MemoryEncryptionIntroContent() {
         <br />
         Requires external library; slower on systems with AES acceleration.
         <br />
-        <em className="font-semibold">Good alternative</em> but unnecessary for
-        this rollout.
+        <em className="font-semibold">Good alternative</em> but unnecessary for this rollout.
       </div>
 
       <h3>Key management research</h3>
@@ -140,8 +135,7 @@ export function MemoryEncryptionIntroContent() {
       <h3>Data sensitivity analysis</h3>
       <h3 className="text-base font-semibold mt-4">Sensitive</h3>
       <div className="pl-4 text-sm text-foreground/90 space-y-0.5">
-        Message content and thread summaries (raw conversations, summaries,
-        insights).
+        Message content and thread summaries (raw conversations, summaries, insights).
       </div>
       <h3 className="text-base font-semibold mt-4">Non-sensitive</h3>
       <div className="pl-4 text-sm text-foreground/90 space-y-0.5">
@@ -173,32 +167,29 @@ export function MemoryEncryptionIntroContent() {
 
       <h3>Ciphertext versioning</h3>
       <p>
-        Self-describing format: a versioned prefix, key id, then initialization vector (IV), tag, and
-        ciphertext. Supports algorithm upgrades, key rotation, and mixed data.
+        Self-describing format: a versioned prefix, key id, then initialization vector (IV), tag,
+        and ciphertext. Supports algorithm upgrades, key rotation, and mixed data.
       </p>
 
       <h3>Logging and operational security</h3>
       <p>
-        Real-world incidents show logs often leak prompts and conversations. We
-        log only metadata (message ID, token counts, model, timings) and never
-        plaintext.
+        Real-world incidents show logs often leak prompts and conversations. We log only metadata
+        (message ID, token counts, model, timings) and never plaintext.
       </p>
 
       <h3>Integrity protection</h3>
       <p>
-        AES-GCM provides ciphertext authentication. We also use AAD (additional
-        authenticated data) to bind <code>user_id</code>,{" "}
-        <code>thread_id</code>, and <code>field_name</code> so ciphertext cannot
-        be copied between records.
+        AES-GCM provides ciphertext authentication. We also use AAD (additional authenticated data)
+        to bind <code>user_id</code>, <code>thread_id</code>, and <code>field_name</code> so
+        ciphertext cannot be copied between records.
       </p>
 
       <h3>Outcome</h3>
       <p>
-        The design provides protection against database compromise,
-        authenticated integrity, user-scoped key compartmentalization, safe
-        rollout without migration risk, and compatibility with future key
-        rotation and KMS—while staying simple enough to implement in the
-        current stack.
+        The design provides protection against database compromise, authenticated integrity,
+        user-scoped key compartmentalization, safe rollout without migration risk, and compatibility
+        with future key rotation and KMS—while staying simple enough to implement in the current
+        stack.
       </p>
       <p>
         <em>Research accelerated with ChatGPT Atlas.</em>

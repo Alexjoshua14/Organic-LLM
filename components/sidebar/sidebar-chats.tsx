@@ -1,10 +1,6 @@
 "use client";
 
-import {
-  Collapsible,
-  CollapsibleTrigger,
-  CollapsibleContent,
-} from "@radix-ui/react-collapsible";
+import { Collapsible, CollapsibleTrigger, CollapsibleContent } from "@radix-ui/react-collapsible";
 import { Pin, ChevronUp } from "lucide-react";
 import { useMemo } from "react";
 
@@ -20,10 +16,7 @@ import { useSharedChatContext } from "@/lib/context/chat-context";
  * even when the sidebar starts collapsed.
  */
 export const SidebarChats = () => {
-  const {
-    sidebarChats: chats,
-    isSidebarChatsLoading,
-  } = useSharedChatContext();
+  const { sidebarChats: chats, isSidebarChatsLoading } = useSharedChatContext();
 
   const pinnedChats = useMemo(() => chats.filter((t) => t.pinned), [chats]);
   const allChats = useMemo(() => chats.filter((t) => !t.pinned), [chats]);

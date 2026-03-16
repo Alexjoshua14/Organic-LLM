@@ -1,5 +1,7 @@
 "use client";
 
+import type { ExaSearchResultSource } from "@/lib/exa/types";
+
 import Link from "next/link";
 
 import Page from "@/components/layout/page";
@@ -10,11 +12,9 @@ import {
   ChatThinking,
 } from "@/components/chat/chat-loading";
 import { ChatAIActionEnum } from "@/types/ai";
-import type { ExaSearchResultSource } from "@/lib/exa/types";
 import { glass } from "@/components/design-system/primitives";
 
-const WRAPPER_CLASS =
-  `rounded-lg p-4 mb-4 shadow-md ${glass()}`
+const WRAPPER_CLASS = `rounded-lg p-4 mb-4 shadow-md ${glass()}`;
 
 /** Realistic search results for a “white holes” query — used across states. */
 const WHITE_HOLES_SOURCES: ExaSearchResultSource[] = [
@@ -50,13 +50,7 @@ const WHITE_HOLES_SOURCES: ExaSearchResultSource[] = [
   },
 ];
 
-function StateBlock({
-  label,
-  children,
-}: {
-  label: string;
-  children: React.ReactNode;
-}) {
+function StateBlock({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <section className="mb-10">
       <h2 className="mb-3 text-sm font-medium text-muted-foreground uppercase tracking-wide">
@@ -73,8 +67,8 @@ export default function PrototypesLLMStatesPage() {
       <div className="mx-auto w-full max-w-2xl px-6 py-12 sm:px-8 sm:py-16">
         <nav className="mb-12 sm:mb-16">
           <Link
-            href="/sandbox/prototypes"
             className="text-sm text-muted-foreground hover:text-foreground transition-colors"
+            href="/sandbox/prototypes"
           >
             ← Prototypes
           </Link>
@@ -85,9 +79,9 @@ export default function PrototypesLLMStatesPage() {
             LLM states
           </h1>
           <p className="mt-2 text-sm text-muted-foreground sm:text-base">
-            All chat loading and action states in one place. Sample flow:
-            &ldquo;What are white holes?&rdquo; — use this to develop and compare
-            styling without triggering real tool calls.
+            All chat loading and action states in one place. Sample flow: &ldquo;What are white
+            holes?&rdquo; — use this to develop and compare styling without triggering real tool
+            calls.
           </p>
         </header>
 
@@ -121,10 +115,7 @@ export default function PrototypesLLMStatesPage() {
           </StateBlock>
 
           <StateBlock label="ChatSearching — with sources">
-            <ChatSearching
-              text="Searching for white holes..."
-              sources={WHITE_HOLES_SOURCES}
-            />
+            <ChatSearching sources={WHITE_HOLES_SOURCES} text="Searching for white holes..." />
           </StateBlock>
 
           <StateBlock label={`aiAction: ${ChatAIActionEnum.Processing}`}>
@@ -140,10 +131,7 @@ export default function PrototypesLLMStatesPage() {
           </StateBlock>
 
           <StateBlock label={`aiAction: ${ChatAIActionEnum.Search} (with sources)`}>
-            <ChatSearching
-              text="Searching for white holes..."
-              sources={WHITE_HOLES_SOURCES}
-            />
+            <ChatSearching sources={WHITE_HOLES_SOURCES} text="Searching for white holes..." />
           </StateBlock>
 
           <StateBlock label={`aiAction: ${ChatAIActionEnum.Memory}`}>

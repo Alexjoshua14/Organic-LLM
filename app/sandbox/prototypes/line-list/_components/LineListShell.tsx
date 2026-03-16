@@ -1,22 +1,22 @@
 "use client";
 
+import type { Thread } from "@/lib/schemas/chat";
+import type { WineEntry } from "@/lib/schemas/wine-line-list";
+
 import Link from "next/link";
 import { useRef, useState, useMemo, useEffect, useCallback } from "react";
 import { useChat } from "@ai-sdk/react";
 import { DefaultChatTransport, type UIMessage } from "ai";
-import { MessageSquare, ChevronDownIcon, ChevronRightIcon, Bug } from "lucide-react";
+import { MessageSquare, ChevronRightIcon, Bug } from "lucide-react";
 
-import type { Thread } from "@/lib/schemas/chat";
-import { ChatModel, DEFAULT_CHAT_MODEL } from "@/lib/schemas/chat";
-import type { WineEntry } from "@/lib/schemas/wine-line-list";
-import {
-  getWinesFromMessage,
-  buildWineListMessage,
-} from "@/lib/schemas/wine-line-list";
-import { CoreInput } from "@/components/chat/core-input";
+import { updateWineListMessage } from "../actions";
+
 import { WineLineListStatus } from "./WineLineListStatus";
 import { WineLineListTable } from "./WineLineListTable";
-import { updateWineListMessage } from "../actions";
+
+import { ChatModel, DEFAULT_CHAT_MODEL } from "@/lib/schemas/chat";
+import { getWinesFromMessage, buildWineListMessage } from "@/lib/schemas/wine-line-list";
+import { CoreInput } from "@/components/chat/core-input";
 
 interface LineListShellProps {
   chatData: { thread: Thread; messages: UIMessage[] };
@@ -24,7 +24,7 @@ interface LineListShellProps {
 
 function hasWineLineListPart(message: UIMessage): boolean {
   return message.parts.some(
-    (p) => p.type === "data-wineLineList" && (p as { data?: { wines?: unknown[] } }).data?.wines,
+    (p) => p.type === "data-wineLineList" && (p as { data?: { wines?: unknown[] } }).data?.wines
   );
 }
 
@@ -34,14 +34,7 @@ export function LineListShell({ chatData }: LineListShellProps) {
   const useMemoriesRef = useRef(false);
   const lastMergedListMessageIdRef = useRef<string | null>(null);
 
-  const {
-    messages,
-    sendMessage,
-    status,
-    stop,
-    error,
-    clearError,
-  } = useChat({
+  const { messages, sendMessage, status, stop, error, clearError } = useChat({
     id: chatData.thread.id,
     messages: chatData.messages,
     resume: true,
@@ -49,6 +42,7 @@ export function LineListShell({ chatData }: LineListShellProps) {
       api: "/api/prototypes/wine-line-list",
       prepareSendMessagesRequest({ messages: msgs, id }) {
         const lastMessage = msgs[msgs.length - 1];
+
         return {
           body: {
             message: lastMessage,
@@ -62,28 +56,38 @@ export function LineListShell({ chatData }: LineListShellProps) {
   const listMessage = useMemo(() => {
     for (let i = messages.length - 1; i >= 0; i--) {
       const m = messages[i];
+
       if (m.role === "assistant" && hasWineLineListPart(m)) return m;
     }
+
     return null;
   }, [messages]);
 
   const [wines, setWines] = useState<WineEntry[]>(() =>
     listMessage
       ? getWinesFromMessage(
-        listMessage.parts as Array<{ type: string; data?: { wines?: WineEntry[] } }>,
-      )
-      : [],
+          listMessage.parts as Array<{
+            type: string;
+            data?: { wines?: WineEntry[] };
+          }>
+        )
+      : []
   );
 
   useEffect(() => {
     if (!listMessage) {
       setWines([]);
       lastMergedListMessageIdRef.current = null;
+
       return;
     }
     const incoming = getWinesFromMessage(
-      listMessage.parts as Array<{ type: string; data?: { wines?: WineEntry[] } }>,
+      listMessage.parts as Array<{
+        type: string;
+        data?: { wines?: WineEntry[] };
+      }>
     );
+
     if (listMessage.id === lastMergedListMessageIdRef.current) return;
 
     const prevId = lastMergedListMessageIdRef.current;
@@ -99,9 +103,11 @@ export function LineListShell({ chatData }: LineListShellProps) {
         setWines((prev) => {
           const merged = [...prev, ...incoming];
           const fullMessage = buildWineListMessage(listMessage.id, merged);
+
           updateWineListMessage(chatData.thread.id, listMessage.id, fullMessage).catch((err) => {
             console.error("Failed to persist merged wine list:", err);
           });
+
           return merged;
         });
       } else {
@@ -114,20 +120,20 @@ export function LineListShell({ chatData }: LineListShellProps) {
 
   const lastMessage = messages[messages.length - 1];
   const showGenerating =
-    (status === "submitted" || status === "streaming") &&
-    lastMessage?.role === "user";
+    (status === "submitted" || status === "streaming") && lastMessage?.role === "user";
 
   const handleWinesChange = useCallback(
     (nextWines: WineEntry[]) => {
       setWines(nextWines);
       if (listMessage?.id) {
         const fullMessage = buildWineListMessage(listMessage.id, nextWines);
+
         updateWineListMessage(chatData.thread.id, listMessage.id, fullMessage).catch((err) => {
           console.error("Failed to save wine list:", err);
         });
       }
     },
-    [listMessage?.id, chatData.thread.id],
+    [listMessage?.id, chatData.thread.id]
   );
 
   return (
@@ -135,27 +141,22 @@ export function LineListShell({ chatData }: LineListShellProps) {
       <div className="grid min-h-0 flex-1 grid-rows-[auto_auto_1fr_2.5rem] gap-0">
         <nav className="mb-4">
           <Link
-            href="/sandbox/prototypes"
             className="text-sm text-muted-foreground hover:text-foreground transition-colors"
+            href="/sandbox/prototypes"
           >
             ← Prototypes
           </Link>
         </nav>
 
         <header className="mb-3">
-          <h1 className="text-xl font-semibold tracking-tight text-foreground">
-            Wine line list
-          </h1>
+          <h1 className="text-xl font-semibold tracking-tight text-foreground">Wine line list</h1>
           <p className="mt-1 text-sm text-muted-foreground">
-            Tell me a wine; I&apos;ll respond with a line list of style and key food affinities. Edit,
-            reorder, and sort the rows below.
+            Tell me a wine; I&apos;ll respond with a line list of style and key food affinities.
+            Edit, reorder, and sort the rows below.
           </p>
         </header>
 
-        <section
-          className="min-h-0 overflow-auto"
-          aria-label="Wine list"
-        >
+        <section aria-label="Wine list" className="min-h-0 overflow-auto">
           {wines.length === 0 && !showGenerating ? (
             <div className="flex flex-col items-center justify-center h-full min-h-[200px] text-center px-4">
               <MessageSquare className="size-12 text-muted-foreground/60 mb-3" />
@@ -165,16 +166,16 @@ export function LineListShell({ chatData }: LineListShellProps) {
           ) : (
             <div className="p-4">
               <WineLineListTable
-                wines={wines}
-                threadId={chatData.thread.id}
                 listMessageId={listMessage?.id ?? null}
+                threadId={chatData.thread.id}
+                wines={wines}
                 onWinesChange={handleWinesChange}
               />
             </div>
           )}
         </section>
 
-        <div className="flex items-center px-1" aria-live="polite">
+        <div aria-live="polite" className="flex items-center px-1">
           {showGenerating && <WineLineListStatus />}
         </div>
       </div>
@@ -182,31 +183,31 @@ export function LineListShell({ chatData }: LineListShellProps) {
       <div className="absolute bottom-0 left-0 right-0 z-10">
         <div className="mx-auto max-w-3xl px-4 py-4 sm:px-6">
           <CoreInput
-            modelRef={modelRef}
-            useWebSearchRef={useWebSearchRef}
-            useMemoriesRef={useMemoriesRef}
-            sendMessage={sendMessage}
-            stop={stop}
-            status={status}
-            error={error}
-            clearError={clearError}
             chatId={chatData.thread.id}
+            clearError={clearError}
+            error={error}
             isBlankChat={messages.length === 0}
+            modelRef={modelRef}
+            sendMessage={sendMessage}
+            status={status}
+            stop={stop}
+            useMemoriesRef={useMemoriesRef}
+            useWebSearchRef={useWebSearchRef}
           />
         </div>
       </div>
 
       <div
-        className="fixed right-0 top-1/3 z-10 flex h-full max-h-[calc(40dvh-2rem)]"
         aria-label="Debug panel"
+        className="fixed right-0 top-1/3 z-10 flex h-full max-h-[calc(40dvh-2rem)]"
       >
         {debugOpen ? (
           <div className="flex w-80 flex-col border-l border-border bg-card shadow-lg">
             <button
+              aria-expanded="true"
+              className="flex shrink-0 items-center gap-2 border-b border-border p-2 text-left text-xs text-muted-foreground hover:text-foreground"
               type="button"
               onClick={() => setDebugOpen(false)}
-              className="flex shrink-0 items-center gap-2 border-b border-border p-2 text-left text-xs text-muted-foreground hover:text-foreground"
-              aria-expanded="true"
             >
               <ChevronRightIcon className="size-3.5 rotate-180" />
               <Bug className="size-3.5" />
@@ -225,23 +226,27 @@ export function LineListShell({ chatData }: LineListShellProps) {
                     listMessageParts:
                       listMessage?.parts.map((p) =>
                         p.type === "data-wineLineList"
-                          ? { type: p.type, winesCount: (p as { data?: { wines?: unknown[] } }).data?.wines?.length }
-                          : { type: p.type },
+                          ? {
+                              type: p.type,
+                              winesCount: (p as { data?: { wines?: unknown[] } }).data?.wines
+                                ?.length,
+                            }
+                          : { type: p.type }
                       ) ?? null,
                   },
                   null,
-                  2,
+                  2
                 )}
               </pre>
             </div>
           </div>
         ) : (
           <button
+            aria-expanded="false"
+            className="flex h-24 w-8 flex-col items-center justify-center gap-1 rounded-l border border-r-0 border-border bg-muted/80 py-2 text-muted-foreground shadow hover:bg-muted hover:text-foreground"
+            title="Open debug panel"
             type="button"
             onClick={() => setDebugOpen(true)}
-            className="flex h-24 w-8 flex-col items-center justify-center gap-1 rounded-l border border-r-0 border-border bg-muted/80 py-2 text-muted-foreground shadow hover:bg-muted hover:text-foreground"
-            aria-expanded="false"
-            title="Open debug panel"
           >
             <Bug className="size-3.5" />
             <span className="text-[10px] font-medium tracking-tight">Debug</span>
@@ -251,4 +256,3 @@ export function LineListShell({ chatData }: LineListShellProps) {
     </div>
   );
 }
-

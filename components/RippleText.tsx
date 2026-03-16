@@ -1,10 +1,10 @@
 /**
  * RippleText - Streaming text with color wave effect
  * Characters transition from highlight color to base color as they appear
- * 
+ *
  * Uses CSS animations for GPU-accelerated performance. Characters are revealed
  * with staggered delays, and new characters are highlighted as they appear.
- * 
+ *
  * Example usage:
  * ```tsx
  * <RippleText text={aiStreamText} latestMessage={true} />
@@ -36,7 +36,7 @@ export function RippleText({
   // Reset and start animation when latestMessage becomes true
   useEffect(() => {
     if (latestMessage) {
-      setAnimationKey(prev => prev + 1); // Force re-animation
+      setAnimationKey((prev) => prev + 1); // Force re-animation
       prevTextLengthRef.current = text.length;
     } else {
       prevTextLengthRef.current = 0;
@@ -47,9 +47,12 @@ export function RippleText({
   const highlightStart = useMemo(() => {
     if (latestMessage && text.length > prevTextLengthRef.current) {
       const start = prevTextLengthRef.current;
+
       prevTextLengthRef.current = text.length;
+
       return start;
     }
+
     return null;
   }, [text.length, latestMessage]);
 
@@ -61,31 +64,29 @@ export function RippleText({
       key={animationKey}
       style={{
         // CSS custom properties for animation control
-        ['--ripple-speed' as string]: `${speed}ms`,
-        ['--ripple-transition-duration' as string]: `${transitionDuration}ms`,
-        ['--ripple-highlight-color' as string]: highlightColor,
+        ["--ripple-speed" as string]: `${speed}ms`,
+        ["--ripple-transition-duration" as string]: `${transitionDuration}ms`,
+        ["--ripple-highlight-color" as string]: highlightColor,
       }}
     >
       {characters.map((char, idx) => {
         const isRevealed = latestMessage && idx < text.length;
-        const isHighlighted = latestMessage &&
-          highlightStart !== null &&
-          idx >= highlightStart &&
-          idx < text.length;
+        const isHighlighted =
+          latestMessage && highlightStart !== null && idx >= highlightStart && idx < text.length;
 
         // Calculate delay for highlight transition (starts after character is revealed)
         const revealDelay = idx * speed;
         const highlightTransitionDelay = isHighlighted
           ? `${revealDelay + 50}ms` // Start highlight transition slightly after reveal
-          : '0ms';
+          : "0ms";
 
         return (
           <span
             key={`${animationKey}-${idx}`}
-            className={`ripple-character ${isRevealed ? 'revealed' : ''} ${isHighlighted ? 'highlighted' : ''}`}
+            className={`ripple-character ${isRevealed ? "revealed" : ""} ${isHighlighted ? "highlighted" : ""}`}
             style={{
-              ['--ripple-char-index' as string]: idx,
-              ['--ripple-transition-delay' as string]: highlightTransitionDelay,
+              ["--ripple-char-index" as string]: idx,
+              ["--ripple-transition-delay" as string]: highlightTransitionDelay,
             }}
           >
             {char}
@@ -95,4 +96,3 @@ export function RippleText({
     </p>
   );
 }
-

@@ -1,5 +1,6 @@
-import Page from "@/components/layout/page";
 import { BrowseLoadingUI } from "./_components/BrowseLoadingUI";
+
+import Page from "@/components/layout/page";
 
 export default function BrowseLoading() {
   return (

@@ -1,151 +1,153 @@
 "use client";
 
-import { UIMessage, useChat } from "@ai-sdk/react";
+import { useChat } from "@ai-sdk/react";
 import { DefaultChatTransport, lastAssistantMessageIsCompleteWithToolCalls } from "ai";
 import { useCallback, useEffect, useRef } from "react";
 
-import { ChatThread } from "./chat-thread";
-
-import {
-  isClientPIIRedactionEnabled,
-  redactUIMessages,
-} from "@/lib/pii/redact";
-import { getSettings } from "@/lib/user-settings";
-import { Thread } from "@/lib/schemas/chat";
-import { createLogger } from "@/lib/logger";
-import { useSharedChatContext } from "@/lib/context/chat-context";
-import { ChatModel, DEFAULT_CHAT_MODEL } from "@/lib/schemas/chat";
-import { CoreInput } from "./core-input";
 import { Conversation, ConversationScrollButton } from "../third-party/ai-elements/conversation";
-import { useArchetypeContext } from "@/lib/context/archetype-context";
+
+import { ChatThread } from "./chat-thread";
+import { CoreInput } from "./core-input";
 import { ChatProps } from "./chat";
-import { sampleArchetypeData } from "@/test-data/sampleData";
+
+import { isClientPIIRedactionEnabled, redactUIMessages } from "@/lib/pii/redact";
+import { getSettings } from "@/lib/user-settings";
+import { createLogger } from "@/lib/logger";
+import { ChatModel, DEFAULT_CHAT_MODEL } from "@/lib/schemas/chat";
+import { useArchetypeContext } from "@/lib/context/archetype-context";
 
 const logger = createLogger("components/chat/aionChat");
 
-export const AionChat: React.FC<ChatProps> = ({
-  chatData,
-  endpoint,
-  persona,
-}) => {
-
+export const AionChat: React.FC<ChatProps> = ({ chatData, endpoint, persona }) => {
   const selectedModelRef = useRef<ChatModel>(DEFAULT_CHAT_MODEL);
   const useWebSearchRef = useRef<boolean>(false);
   const useMemoriesRef = useRef<boolean>(false);
-  const usePersistedSchemas = useRef<boolean>(persona === 'aion');
+  const usePersistedSchemas = useRef<boolean>(persona === "aion");
 
-  const { setArchetypeData, open: openArchetype, close: closeArchetype, setAndOpen, archetypeData, showArchetype } = useArchetypeContext();
+  const {
+    setArchetypeData,
+    open: openArchetype,
+    close: closeArchetype,
+    setAndOpen,
+    archetypeData,
+    showArchetype,
+  } = useArchetypeContext();
 
   const handleViewArchetype = useCallback(() => {
     return archetypeData;
-  }, [archetypeData])
+  }, [archetypeData]);
 
-  const { messages, sendMessage, id, stop, status, setMessages, addToolOutput, error, clearError } = useChat({
-    id: chatData?.thread.id ?? "",
-    messages: chatData?.messages ?? [],
-    sendAutomaticallyWhen: lastAssistantMessageIsCompleteWithToolCalls,
-    transport: new DefaultChatTransport({
-      api: persona === 'aion' ? '/api/ai/aion' : endpoint ?? `/api/chat/${persona ?? ""}`,
-      prepareSendMessagesRequest({ messages, id }) {
-        const lastMessage = messages[messages.length - 1];
-        const message = isClientPIIRedactionEnabled()
-          ? redactUIMessages([lastMessage])[0]
-          : lastMessage;
-        const req = {
-          body: {
-            message,
-            id,
-            model: selectedModelRef.current,
-            webSearch: useWebSearchRef.current,
-            memory: useMemoriesRef.current,
-            zeroDataRetention: getSettings().zeroDataRetention,
-            // Only include persistedSchemas in payload if true
-            ...(usePersistedSchemas.current ? { persistedSchemas: true } : {}),
-          },
-        }
-        logger.log("chat", `Request being sent: ${JSON.stringify(req, null, 2)}`)
-        return req;
-      },
-    }),
-    // sendAutomaticallyWhen: lastAssistantMessageIsCompleteWithToolCalls,
-    onToolCall({ toolCall }) {
-      logger.log("chat", `TOOL_CALL ${JSON.stringify(toolCall, null, 2)}`);
+  const { messages, sendMessage, id, stop, status, setMessages, addToolOutput, error, clearError } =
+    useChat({
+      id: chatData?.thread.id ?? "",
+      messages: chatData?.messages ?? [],
+      sendAutomaticallyWhen: lastAssistantMessageIsCompleteWithToolCalls,
+      transport: new DefaultChatTransport({
+        api: persona === "aion" ? "/api/ai/aion" : (endpoint ?? `/api/chat/${persona ?? ""}`),
+        prepareSendMessagesRequest({ messages, id }) {
+          const lastMessage = messages[messages.length - 1];
+          const message = isClientPIIRedactionEnabled()
+            ? redactUIMessages([lastMessage])[0]
+            : lastMessage;
+          const req = {
+            body: {
+              message,
+              id,
+              model: selectedModelRef.current,
+              webSearch: useWebSearchRef.current,
+              memory: useMemoriesRef.current,
+              zeroDataRetention: getSettings().zeroDataRetention,
+              // Only include persistedSchemas in payload if true
+              ...(usePersistedSchemas.current ? { persistedSchemas: true } : {}),
+            },
+          };
 
-      logger.log("chat", `TOOL_CALL Name: ${toolCall.toolName}`);
+          logger.log("chat", `Request being sent: ${JSON.stringify(req, null, 2)}`);
 
+          return req;
+        },
+      }),
+      // sendAutomaticallyWhen: lastAssistantMessageIsCompleteWithToolCalls,
+      onToolCall({ toolCall }) {
+        logger.log("chat", `TOOL_CALL ${JSON.stringify(toolCall, null, 2)}`);
 
-      // If expecting tool call on UI side add output here
-      switch (toolCall.toolName) {
-        case "set_state_archetype":
+        logger.log("chat", `TOOL_CALL Name: ${toolCall.toolName}`);
 
-          let error: string | undefined = undefined;
+        // If expecting tool call on UI side add output here
+        switch (toolCall.toolName) {
+          case "set_state_archetype":
+            let error: string | undefined = undefined;
 
-          let new_archetype_state: boolean = false;
+            let new_archetype_state: boolean = false;
 
-          try {
-            const { open } = toolCall.input as { open: boolean };
+            try {
+              const { open } = toolCall.input as { open: boolean };
 
-            if (open) {
-              openArchetype();
-              new_archetype_state = true;
-            } else {
-              closeArchetype();
-              new_archetype_state = false;
+              if (open) {
+                openArchetype();
+                new_archetype_state = true;
+              } else {
+                closeArchetype();
+                new_archetype_state = false;
+              }
+            } catch (error) {
+              logger.error("chat", `Error opening archetype: ${error}`);
+            } finally {
+              logger.log(
+                "chat",
+                `Returning Tool Output: Archetype state changed: ${new_archetype_state ? "opened" : "closed"}`
+              );
+              addToolOutput({
+                tool: toolCall.toolName,
+                toolCallId: toolCall.toolCallId,
+                output: {
+                  state: new_archetype_state,
+                },
+                errorText: error,
+              });
             }
-          } catch (error) {
-            logger.error("chat", `Error opening archetype: ${error}`);
-          } finally {
-            logger.log("chat", `Returning Tool Output: Archetype state changed: ${new_archetype_state ? "opened" : "closed"}`);
-            addToolOutput({
-              tool: toolCall.toolName,
-              toolCallId: toolCall.toolCallId,
-              output: {
-                state: new_archetype_state,
-              },
-              errorText: error,
-            })
-          }
 
-          break;
-        case "view_archetype":
-          const currentArchetype = handleViewArchetype();
-          const archetypeState = showArchetype;
+            break;
+          case "view_archetype":
+            const currentArchetype = handleViewArchetype();
+            const archetypeState = showArchetype;
 
-          logger.log("chat", `TOOL_CALL OUTPUT: view_archetype | archetype: ${JSON.stringify(currentArchetype)}, state: ${archetypeState}`);
-          if (currentArchetype) {
-            addToolOutput({
-              tool: toolCall.toolName,
-              toolCallId: toolCall.toolCallId,
-              output: {
-                archetype: currentArchetype,
-                state: archetypeState,
-              },
-            })
-          } else {
-            addToolOutput({
-              tool: toolCall.toolName,
-              toolCallId: toolCall.toolCallId,
-              output: {
-                message: "No archetype is currently active",
-                state: archetypeState,
-              },
-            })
-          }
-          break;
-
-      }
-    },
-    onData: (data) => {
-      logger.log("chat", JSON.stringify(data, null, 2))
-    },
-  });
-
+            logger.log(
+              "chat",
+              `TOOL_CALL OUTPUT: view_archetype | archetype: ${JSON.stringify(currentArchetype)}, state: ${archetypeState}`
+            );
+            if (currentArchetype) {
+              addToolOutput({
+                tool: toolCall.toolName,
+                toolCallId: toolCall.toolCallId,
+                output: {
+                  archetype: currentArchetype,
+                  state: archetypeState,
+                },
+              });
+            } else {
+              addToolOutput({
+                tool: toolCall.toolName,
+                toolCallId: toolCall.toolCallId,
+                output: {
+                  message: "No archetype is currently active",
+                  state: archetypeState,
+                },
+              });
+            }
+            break;
+        }
+      },
+      onData: (data) => {
+        logger.log("chat", JSON.stringify(data, null, 2));
+      },
+    });
 
   useEffect(() => {
     if (error) {
       logger.error("chat", `Error: ${error}`);
     }
-  }, [error])
+  }, [error]);
 
   const handleStop = useCallback(async () => {
     // Remove the latest user message and partially completed AI message from messages
@@ -153,9 +155,8 @@ export const AionChat: React.FC<ChatProps> = ({
     stop();
     setMessages((prevMessages) => {
       // Find the last user message
-      const lastUserIndex = [...prevMessages]
-        .reverse()
-        .findIndex((msg) => msg.role === "user");
+      const lastUserIndex = [...prevMessages].reverse().findIndex((msg) => msg.role === "user");
+
       if (lastUserIndex === -1) {
         return prevMessages;
       }
@@ -164,6 +165,7 @@ export const AionChat: React.FC<ChatProps> = ({
 
       // Remove the last user message and any AI message immediately after it (if exists)
       let newMessages = prevMessages.slice(0, lastUserMsgIdx);
+
       // Check if there's an AI message after the last user
       if (
         prevMessages[lastUserMsgIdx + 1] &&
@@ -175,9 +177,10 @@ export const AionChat: React.FC<ChatProps> = ({
         // If not, just slice off including the user message
         newMessages = prevMessages.slice(0, lastUserMsgIdx);
       }
+
       return newMessages;
     });
-  }, [messages])
+  }, [messages]);
 
   return (
     <div
@@ -196,31 +199,29 @@ export const AionChat: React.FC<ChatProps> = ({
       ].join(" ")}
     >
       <Conversation
-        className={
-          [
-            "h-full",
-            "w-full",
-            "relative",
-            "flex",
-            "flex-col",
-            "items-center",
-            "overflow-x-hidden",
-            "overscroll-x-none",
-          ].join(" ")
-        }
+        className={[
+          "h-full",
+          "w-full",
+          "relative",
+          "flex",
+          "flex-col",
+          "items-center",
+          "overflow-x-hidden",
+          "overscroll-x-none",
+        ].join(" ")}
         style={{ paddingBottom: "8rem" }}
       >
         <ChatThread messages={messages} />
         <ConversationScrollButton className="bottom-46" />
       </Conversation>
       <CoreInput
-        modelRef={selectedModelRef}
-        useWebSearchRef={useWebSearchRef}
-        useMemoriesRef={useMemoriesRef}
-        sendMessage={sendMessage}
-        stop={handleStop}
-        status={status}
         className="absolute bottom-8 md:bottom-4 px-4 sm:px-7 w-full"
+        modelRef={selectedModelRef}
+        sendMessage={sendMessage}
+        status={status}
+        stop={handleStop}
+        useMemoriesRef={useMemoriesRef}
+        useWebSearchRef={useWebSearchRef}
       />
     </div>
   );

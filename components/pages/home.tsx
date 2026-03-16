@@ -1,15 +1,15 @@
 import { AIInput } from "../chat-experimental/ai-input";
-import { glass } from "../design-system/primitives";
 import Page from "../layout/page";
 
-import AdaptiveLiquidChrome from "@/components/background/AdaptiveLiquidChrome";
 import { AdminBlogLink } from "./admin-blog-link";
 import { SandboxGatewayButton } from "./sandbox-gateway-button";
 import { ShowcaseGatewayButton } from "./showcase-gateway-button";
 
+import AdaptiveLiquidChrome from "@/components/background/AdaptiveLiquidChrome";
+
 export default function Home() {
   return (
-    <Page className="overflow-hidden" transparentBackground>
+    <Page transparentBackground className="overflow-hidden">
       <AdaptiveLiquidChrome dimIntensity={0.45} />
       <div className="absolute inset-0 flex flex-col items-center justify-center h-full w-full gap-10">
         <div

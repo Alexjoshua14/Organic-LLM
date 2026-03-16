@@ -14,6 +14,7 @@ export type PhoneMockupProps = {
 
 export function PhoneMockup({ children, className, label }: PhoneMockupProps) {
   const height = Math.round(SCREEN_WIDTH * SCREEN_ASPECT);
+
   return (
     <div className={cn("flex flex-col items-center gap-3", className)}>
       <div
@@ -26,8 +27,8 @@ export function PhoneMockup({ children, className, label }: PhoneMockupProps) {
       >
         {/* Notch / dynamic island */}
         <div
-          className="absolute left-1/2 top-2.5 z-10 h-5 w-20 -translate-x-1/2 rounded-full bg-neutral-950 dark:bg-neutral-950"
           aria-hidden
+          className="absolute left-1/2 top-2.5 z-10 h-5 w-20 -translate-x-1/2 rounded-full bg-neutral-950 dark:bg-neutral-950"
         />
         <div
           className="overflow-hidden rounded-[1.25rem] bg-background"
@@ -41,9 +42,7 @@ export function PhoneMockup({ children, className, label }: PhoneMockupProps) {
           </div>
         </div>
       </div>
-      {label && (
-        <p className="text-xs text-muted-foreground">{label}</p>
-      )}
+      {label && <p className="text-xs text-muted-foreground">{label}</p>}
     </div>
   );
 }

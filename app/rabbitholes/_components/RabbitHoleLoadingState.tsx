@@ -25,11 +25,11 @@ export function RabbitHoleLoadingState({
 
   return (
     <motion.div
-      initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
-      exit={{ opacity: 0 }}
-      transition={{ duration: 0.3 }}
       className="flex flex-col items-center justify-center h-fit min-h-[220px] gap-6 pointer-events-none"
+      exit={{ opacity: 0 }}
+      initial={{ opacity: 0 }}
+      transition={{ duration: 0.3 }}
     >
       <motion.div
         animate={{ rotate: 360 }}
@@ -42,10 +42,10 @@ export function RabbitHoleLoadingState({
         <Loader2 className="w-8 h-8 text-muted-foreground" />
       </motion.div>
       <motion.p
-        initial={{ opacity: 0, y: 10 }}
         animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.1 }}
         className="text-muted-foreground text-sm tracking-wide"
+        initial={{ opacity: 0, y: 10 }}
+        transition={{ delay: 0.1 }}
       >
         {displayMessage}
       </motion.p>
@@ -53,18 +53,16 @@ export function RabbitHoleLoadingState({
       {/* Quick preview if available */}
       {preview && (
         <motion.div
-          initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.2 }}
           className="w-full max-w-2xl"
+          initial={{ opacity: 0, y: 10 }}
+          transition={{ delay: 0.2 }}
         >
           <div className="bg-card/50 backdrop-blur-sm border border-border rounded-lg p-6">
             <p className="font-commissioner text-xs uppercase tracking-[0.2em] text-muted-foreground mb-3 font-light">
               Preview
             </p>
-            <p className="text-foreground text-base leading-relaxed">
-              {preview}
-            </p>
+            <p className="text-foreground text-base leading-relaxed">{preview}</p>
           </div>
         </motion.div>
       )}
@@ -109,4 +107,3 @@ export function RabbitHoleLoadingState({
     </motion.div>
   );
 }
-

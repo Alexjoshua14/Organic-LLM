@@ -24,15 +24,9 @@ export async function GET() {
   const sbUserIdResult = await getSupabaseUserId(userId);
 
   if (sbUserIdResult.error || sbUserIdResult.data === null) {
-    logger.error(
-      "GET",
-      "Supabase user not found for Clerk user",
-      sbUserIdResult.error?.message,
-    );
-    return NextResponse.json(
-      { error: "User not found" },
-      { status: 404 },
-    );
+    logger.error("GET", "Supabase user not found for Clerk user", sbUserIdResult.error?.message);
+
+    return NextResponse.json({ error: "User not found" }, { status: 404 });
   }
 
   const ownerId = sbUserIdResult.data;
@@ -40,10 +34,8 @@ export async function GET() {
 
   if (result.error) {
     logger.error("GET", "Failed to fetch chats", result.error.message);
-    return NextResponse.json(
-      { error: "Failed to fetch chats" },
-      { status: 500 },
-    );
+
+    return NextResponse.json({ error: "Failed to fetch chats" }, { status: 500 });
   }
 
   return NextResponse.json({ data: result.data ?? [] });

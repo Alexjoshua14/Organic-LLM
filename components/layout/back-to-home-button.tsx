@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { ChevronLeft } from "lucide-react";
+
 import { useSidebar } from "@/components/third-party/ui/sidebar";
 import { cn } from "@/lib/utils";
 
@@ -17,17 +18,18 @@ export function BackToHomeButton({ className }: BackToHomeButtonProps) {
   const { open, isMobile } = useSidebar();
 
   const show = isMobile || !open;
+
   if (!show) return null;
 
   return (
     <Link
-      href="/"
       className={cn(
         "inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground transition-colors",
-        className,
+        className
       )}
+      href="/"
     >
-      <ChevronLeft className="size-4 shrink-0" aria-hidden />
+      <ChevronLeft aria-hidden className="size-4 shrink-0" />
       <span>Home</span>
     </Link>
   );

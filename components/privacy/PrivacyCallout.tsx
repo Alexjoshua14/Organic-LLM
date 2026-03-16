@@ -15,7 +15,7 @@ export function PrivacyCallout({
     <div
       className={cn(
         "rounded-lg border border-border/60 bg-muted/30 dark:bg-muted/20 px-4 py-3 text-sm text-foreground",
-        className,
+        className
       )}
     >
       {children}

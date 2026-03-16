@@ -8,10 +8,7 @@ export type MemoryLensSkeletonProps = {
   className?: string;
 };
 
-export function MemoryLensSkeleton({
-  variant,
-  className,
-}: MemoryLensSkeletonProps) {
+export function MemoryLensSkeleton({ variant, className }: MemoryLensSkeletonProps) {
   return (
     <div
       className={cn(

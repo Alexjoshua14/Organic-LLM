@@ -1,13 +1,16 @@
 "use server";
 
+import type { RabbitHoleBranchSuggestion } from "@/lib/schemas/rabbitHoleSchemas";
+import type { PipelineTrace } from "./trace";
+
 import { generateText } from "ai";
 import { openai } from "@ai-sdk/openai";
+
+import { createTrace, normalizeUsage } from "./trace";
+
 import { generateTitle, generateBranchSuggestions } from "@/lib/llm/rabbit-hole/generation";
 import { REFINE_QUESTION_SYSTEM_PROMPT } from "@/lib/system-prompt/rabbit-hole";
 import { GUARDRAIL_MAX_OUTPUT_TOKENS } from "@/lib/llm/helpers";
-import type { RabbitHoleBranchSuggestion } from "@/lib/schemas/rabbitHoleSchemas";
-import type { PipelineTrace } from "./trace";
-import { createTrace, normalizeUsage } from "./trace";
 
 export type RabbitHoleTitleRunResult = {
   title: string | null;
@@ -55,6 +58,7 @@ export async function runRabbitHoleTitleScenario(html: string): Promise<RabbitHo
     const trace = createTrace(rawInput, "generateTitle", latencyMs, {
       error: err instanceof Error ? err : new Error(String(err)),
     });
+
     return {
       title: null,
       trace,
@@ -75,7 +79,11 @@ export async function runBranchSuggestionScenario(params: {
   const rawInput = { ...params };
 
   try {
-    const { data: branches, error, usage } = await generateBranchSuggestions({
+    const {
+      data: branches,
+      error,
+      usage,
+    } = await generateBranchSuggestions({
       context: params.context,
       rootQuestion: params.rootQuestion,
       pathHistory: params.pathHistory,
@@ -84,8 +92,7 @@ export async function runBranchSuggestionScenario(params: {
 
     const trace = createTrace(rawInput, "generateBranchSuggestions", latencyMs, {
       error: error ?? undefined,
-      normalizedProps:
-        branches != null ? { branches, count: branches.length } : undefined,
+      normalizedProps: branches != null ? { branches, count: branches.length } : undefined,
       tokenUsage: usage ? normalizeUsage(usage) : undefined,
       tokenUsageByCall: usage
         ? [
@@ -106,6 +113,7 @@ export async function runBranchSuggestionScenario(params: {
     const trace = createTrace(rawInput, "generateBranchSuggestions", latencyMs, {
       error: err instanceof Error ? err : new Error(String(err)),
     });
+
     return {
       branches: [],
       trace,
@@ -159,6 +167,7 @@ export async function runQuestionRefinementScenario(params: {
       transformedPrompt: prompt,
       error: err instanceof Error ? err : new Error(String(err)),
     });
+
     return {
       refinedQuestion: null,
       trace,

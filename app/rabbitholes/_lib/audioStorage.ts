@@ -22,10 +22,12 @@ function initDB(): Promise<IDBDatabase> {
 
     request.onupgradeneeded = (event) => {
       const db = (event.target as IDBOpenDBRequest).result;
+
       if (!db.objectStoreNames.contains(STORE_NAME)) {
         const objectStore = db.createObjectStore(STORE_NAME, {
           keyPath: "nodeId",
         });
+
         objectStore.createIndex("generatedAt", "generatedAt", {
           unique: false,
         });
@@ -42,6 +44,7 @@ function initDB(): Promise<IDBDatabase> {
 export async function getAudioForNode(nodeId: string): Promise<string | null> {
   try {
     const db = await initDB();
+
     return new Promise((resolve, reject) => {
       const transaction = db.transaction([STORE_NAME], "readonly");
       const store = transaction.objectStore(STORE_NAME);
@@ -49,6 +52,7 @@ export async function getAudioForNode(nodeId: string): Promise<string | null> {
 
       request.onsuccess = () => {
         const record = request.result as AudioRecord | undefined;
+
         resolve(record?.audioUrl || null);
       };
 
@@ -56,6 +60,7 @@ export async function getAudioForNode(nodeId: string): Promise<string | null> {
     });
   } catch (error) {
     console.warn("Failed to get audio from IndexedDB:", error);
+
     return null;
   }
 }
@@ -73,6 +78,7 @@ export async function saveAudioForNode(
 
     // Save to IndexedDB
     const db = await initDB();
+
     return new Promise((resolve, reject) => {
       const transaction = db.transaction([STORE_NAME], "readwrite");
       const store = transaction.objectStore(STORE_NAME);
@@ -93,13 +99,12 @@ export async function saveAudioForNode(
     // Still return URL even if save fails
     const data = new Uint8Array(audioData);
     const blob = new Blob([data], { type: "audio/mpeg" });
+
     return URL.createObjectURL(blob);
   }
 }
 
-export async function cleanupOldAudio(
-  maxAge: number = 7 * 24 * 60 * 60 * 1000
-) {
+export async function cleanupOldAudio(maxAge: number = 7 * 24 * 60 * 60 * 1000) {
   try {
     const db = await initDB();
     const transaction = db.transaction([STORE_NAME], "readwrite");
@@ -112,8 +117,10 @@ export async function cleanupOldAudio(
 
       request.onsuccess = (event) => {
         const cursor = (event.target as IDBRequest<IDBCursorWithValue>).result;
+
         if (cursor) {
           const record = cursor.value as AudioRecord;
+
           // Revoke URL to free memory
           URL.revokeObjectURL(record.audioUrl);
           cursor.delete();
@@ -146,8 +153,10 @@ export async function removeSessionAudio(sessionId: string) {
 
       request.onsuccess = (event) => {
         const cursor = (event.target as IDBRequest<IDBCursorWithValue>).result;
+
         if (cursor) {
           const record = cursor.value as AudioRecord;
+
           URL.revokeObjectURL(record.audioUrl); // Free memory
           cursor.delete();
           cursor.continue();
@@ -160,6 +169,7 @@ export async function removeSessionAudio(sessionId: string) {
     });
   } catch (error) {
     console.warn("Failed to remove session audio:", error);
+
     return Promise.reject(error);
   }
 }

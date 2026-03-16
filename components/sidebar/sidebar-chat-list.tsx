@@ -8,7 +8,6 @@ import { AnimatePresence, motion } from "framer-motion";
 import {
   SidebarGroupContent,
   SidebarMenu,
-  SidebarMenuButton,
   SidebarMenuItem,
   useSidebar,
 } from "../third-party/ui/sidebar";
@@ -50,32 +49,37 @@ export const SidebarChatList: FC<SidebarChatListProps> = ({ threads }) => {
   const handleSaveTitle = useCallback(
     async (threadId: string, title: string) => {
       const res = await updateChatTitle(threadId, title);
+
       if (res.error) {
         logger.error(
           "handleSaveTitle",
           `Error saving title for thread: ${threadId}`,
-          res.error.message,
+          res.error.message
         );
       }
       refreshSidebarChats();
       setEditingThreadId(null);
     },
-    [refreshSidebarChats],
+    [refreshSidebarChats]
   );
 
-  const togglePinThread = useCallback(async (thread: ThreadLink) => {
-    logger.log("togglePinThread", `Toggling pin for thread: ${thread.title}`);
-    const res = await updateChatPinned(thread.id, !thread.pinned);
-    if (res.error) {
-      logger.error(
-        "togglePinThread",
-        `Error toggling pin for thread: ${thread.title}`,
-        res.error.message,
-      );
-    } else {
-      refreshSidebarChats();
-    }
-  }, [refreshSidebarChats]);
+  const togglePinThread = useCallback(
+    async (thread: ThreadLink) => {
+      logger.log("togglePinThread", `Toggling pin for thread: ${thread.title}`);
+      const res = await updateChatPinned(thread.id, !thread.pinned);
+
+      if (res.error) {
+        logger.error(
+          "togglePinThread",
+          `Error toggling pin for thread: ${thread.title}`,
+          res.error.message
+        );
+      } else {
+        refreshSidebarChats();
+      }
+    },
+    [refreshSidebarChats]
+  );
 
   const handleLongPressStart = useCallback(
     (threadId: string) => {
@@ -86,7 +90,7 @@ export const SidebarChatList: FC<SidebarChatListProps> = ({ threads }) => {
         setMenuOpen(threadId);
       }, LONG_PRESS_MS);
     },
-    [isMobile, setMenuOpen],
+    [isMobile, setMenuOpen]
   );
 
   const handleLongPressEnd = useCallback(() => {
@@ -101,13 +105,14 @@ export const SidebarChatList: FC<SidebarChatListProps> = ({ threads }) => {
       if (editingThreadId === threadId) return;
       if (longPressThreadIdRef.current === threadId) {
         longPressThreadIdRef.current = null;
+
         return;
       }
       setOpenMobile(false);
       setChatId(threadId);
       router.push(`/chat/${threadId}`);
     },
-    [editingThreadId, setOpenMobile, setChatId, router],
+    [editingThreadId, setOpenMobile, setChatId, router]
   );
 
   return (
@@ -122,42 +127,40 @@ export const SidebarChatList: FC<SidebarChatListProps> = ({ threads }) => {
             <SidebarMenuItem key={thread.id} className="relative">
               <div
                 className="font-extralight text-sm w-full rounded hover:bg-background px-3 transition-colors duration-150 group/thread cursor-pointer min-w-0 relative flex text-foreground-secondary items-center"
-                onTouchStart={() => handleLongPressStart(thread.id)}
-                onTouchEnd={handleLongPressEnd}
                 onTouchCancel={handleLongPressEnd}
+                onTouchEnd={handleLongPressEnd}
+                onTouchStart={() => handleLongPressStart(thread.id)}
               >
                 <div
+                  aria-current={isActiveThread ? "page" : undefined}
+                  aria-label={isEditing ? undefined : `Open ${thread.title}`}
                   className="flex-1 min-w-0 overflow-hidden pr-10 py-1"
                   role={isEditing ? undefined : "button"}
                   tabIndex={isEditing ? undefined : 0}
-                  aria-label={isEditing ? undefined : `Open ${thread.title}`}
-                  aria-current={isActiveThread ? "page" : undefined}
                   onClick={
                     isEditing
                       ? undefined
                       : (e) => {
-                        e.preventDefault();
-                        handleTitleClick(thread.id);
-                      }
+                          e.preventDefault();
+                          handleTitleClick(thread.id);
+                        }
                   }
                   onKeyDown={
                     isEditing
                       ? undefined
                       : (e) => {
-                        if (e.key === "Enter" || e.key === " ") {
-                          e.preventDefault();
-                          handleTitleClick(thread.id);
+                          if (e.key === "Enter" || e.key === " ") {
+                            e.preventDefault();
+                            handleTitleClick(thread.id);
+                          }
                         }
-                      }
                   }
                 >
                   <SidebarChatTitle
-                    title={thread.title}
                     editing={isEditing}
+                    title={thread.title}
+                    onEditingChange={(editing) => setEditingThreadId(editing ? thread.id : null)}
                     onSave={(title) => handleSaveTitle(thread.id, title)}
-                    onEditingChange={(editing) =>
-                      setEditingThreadId(editing ? thread.id : null)
-                    }
                   />
                 </div>
                 {!isMobile && (
@@ -165,18 +168,16 @@ export const SidebarChatList: FC<SidebarChatListProps> = ({ threads }) => {
                     className={`absolute right-0 top-0 bottom-0 flex items-center z-10 pr-1 transition-opacity duration-250 ${isActiveThread || isMenuOpen ? "opacity-100" : "opacity-0 group-hover/thread:opacity-100"}`}
                   >
                     <SidebarThreadActionsMenu
-                      thread={thread}
                       open={isMenuOpen}
-                      onOpenChange={(open) =>
-                        setMenuOpen(open ? thread.id : null)
-                      }
+                      thread={thread}
                       onEditTitle={() => setEditingThreadId(thread.id)}
+                      onOpenChange={(open) => setMenuOpen(open ? thread.id : null)}
                       onTogglePin={() => togglePinThread(thread)}
                     >
                       <span
-                        role="button"
-                        className="p-1.5 rounded hover:bg-background-tertiary flex items-center justify-center"
                         aria-label="Thread options"
+                        className="p-1.5 rounded hover:bg-background-tertiary flex items-center justify-center"
+                        role="button"
                         onClick={(e) => {
                           e.preventDefault();
                           e.stopPropagation();
@@ -190,21 +191,20 @@ export const SidebarChatList: FC<SidebarChatListProps> = ({ threads }) => {
                 )}
               </div>
               {isMobile && (
-                <div className={`absolute right-0 top-0 bottom-0 flex items-center z-10 pr-1 ${isActiveThread ? "opacity-100" : "opacity-0 group-hover/thread:opacity-100"}`}>
+                <div
+                  className={`absolute right-0 top-0 bottom-0 flex items-center z-10 pr-1 ${isActiveThread ? "opacity-100" : "opacity-0 group-hover/thread:opacity-100"}`}
+                >
                   <SidebarThreadActionsMenu
-                    thread={thread}
                     open={isMenuOpen}
-                    onOpenChange={(open) =>
-                      setMenuOpen(open ? thread.id : null)
-                    }
+                    thread={thread}
                     onEditTitle={() => setEditingThreadId(thread.id)}
+                    onOpenChange={(open) => setMenuOpen(open ? thread.id : null)}
                     onTogglePin={() => togglePinThread(thread)}
-
                   >
                     <span
-                      role="button"
-                      className="p-1.5 rounded hover:bg-background-tertiary flex items-center justify-center touch-manipulation"
                       aria-label="Thread options"
+                      className="p-1.5 rounded hover:bg-background-tertiary flex items-center justify-center touch-manipulation"
+                      role="button"
                       onClick={(e) => {
                         e.preventDefault();
                         e.stopPropagation();
@@ -220,11 +220,11 @@ export const SidebarChatList: FC<SidebarChatListProps> = ({ threads }) => {
                 {isActiveThread && (
                   <motion.div
                     key={thread.id}
+                    animate={{ opacity: 1 }}
                     aria-hidden="true"
                     className="absolute top-0 right-0 w-full h-full z-20 pointer-events-none rounded-lg backdrop-brightness-110 dark:backdrop-brightness-150 border"
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
                     exit={{ opacity: 0 }}
+                    initial={{ opacity: 0 }}
                     transition={{ duration: 0.4 }}
                   />
                 )}

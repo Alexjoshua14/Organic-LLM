@@ -29,4 +29,5 @@ const productionDeps = {
   addLatestMessagesToMemory,
   createMemorySearchTool,
 } satisfies AionDeps;
+
 export const POST = createAionHandler(productionDeps);

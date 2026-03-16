@@ -26,6 +26,7 @@ const DEFAULT_FLAGS = 0;
  */
 export function decodeThreadFlags(flags: number | null | undefined): ThreadFlagsDecoded {
   const f = flags ?? DEFAULT_FLAGS;
+
   return {
     hasTitle: (f & THREAD_FLAGS.HAS_TITLE) !== 0,
   };
@@ -36,6 +37,7 @@ export function decodeThreadFlags(flags: number | null | undefined): ThreadFlags
  */
 export function setFlag(flags: number | null | undefined, flag: number): number {
   const f = flags ?? DEFAULT_FLAGS;
+
   return f | flag;
 }
 
@@ -44,6 +46,7 @@ export function setFlag(flags: number | null | undefined, flag: number): number 
  */
 export function clearFlag(flags: number | null | undefined, flag: number): number {
   const f = flags ?? DEFAULT_FLAGS;
+
   return f & ~flag;
 }
 
@@ -52,6 +55,7 @@ export function clearFlag(flags: number | null | undefined, flag: number): numbe
  */
 export function hasFlag(flags: number | null | undefined, flag: number): boolean {
   const f = flags ?? DEFAULT_FLAGS;
+
   return (f & flag) !== 0;
 }
 
@@ -61,11 +65,15 @@ export function hasFlag(flags: number | null | undefined, flag: number): boolean
  */
 export function updateFlags(
   currentFlags: number | null | undefined,
-  updates: Partial<ThreadFlagsDecoded>,
+  updates: Partial<ThreadFlagsDecoded>
 ): number {
   let f = currentFlags ?? DEFAULT_FLAGS;
+
   if (updates.hasTitle !== undefined) {
-    f = updates.hasTitle ? setFlag(f, THREAD_FLAGS.HAS_TITLE) : clearFlag(f, THREAD_FLAGS.HAS_TITLE);
+    f = updates.hasTitle
+      ? setFlag(f, THREAD_FLAGS.HAS_TITLE)
+      : clearFlag(f, THREAD_FLAGS.HAS_TITLE);
   }
+
   return f;
 }

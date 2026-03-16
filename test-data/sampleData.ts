@@ -1,5 +1,6 @@
-import { ArchetypePayload } from "@/packages/organic-ui/src/schemas/archetype";
 import { SearchResult } from "mem0ai/oss";
+
+import { ArchetypePayload } from "@/packages/organic-ui/src/schemas/archetype";
 
 export const sampleMemories: SearchResult[] = [
   {

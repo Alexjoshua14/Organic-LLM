@@ -24,8 +24,4 @@ export type ProfileBlockProps = {
 };
 
 /** Tree-based layout: hero + optional signature + tiered sections. */
-export const DEFAULT_PROFILE_LAYOUT: ProfileBlockId[] = [
-  "hero",
-  "signature",
-  "tree",
-];
+export const DEFAULT_PROFILE_LAYOUT: ProfileBlockId[] = ["hero", "signature", "tree"];

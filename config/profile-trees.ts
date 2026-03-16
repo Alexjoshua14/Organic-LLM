@@ -1,12 +1,12 @@
 import type { ProfileTree } from "@/lib/schemas/profileTree";
 import type { ProfileSummary } from "@/lib/schemas/profileSummary";
+
 import { getOwnerEmail, getOwnerAbout, getOwnerTrajectory } from "./profile-overrides";
 
 /** Tailored info as a tiered tree (roles + signature + sections). */
 function buildTailoredTree(): ProfileTree {
   return {
-    headline:
-      "Architecting adaptive AI systems with world-class design and long-term vision",
+    headline: "Architecting adaptive AI systems with world-class design and long-term vision",
     roles: ["Software engineer", "Creative technologist"],
     signature: "Building a cohesive AI ecosystem.",
     sections: [
@@ -15,76 +15,76 @@ function buildTailoredTree(): ProfileTree {
         title: "About",
         body: getOwnerAbout(),
       },
-    {
-      id: "focus",
-      title: "Focus areas",
-      items: [
-        "AI orchestration",
-        "Memory-aware systems",
-        "Full-stack architecture",
-        "Organic interfaces",
-        "Privacy-first infrastructure",
-        "Agent orchestration patterns",
-        "Next.js & Supabase",
-      ],
-    },
-    {
-      id: "design",
-      title: "Design orientation",
-      body: "Interfaces should feel alive but not noisy. Calm, powerful, intentional.",
-      items: [
-        "Organic-futuristic-modernism",
-        "Bauhaus + Japandi restraint",
-        "Dimensional dark themes with depth",
-        "Generative / morphing UI",
-        "Physics-informed animation",
-      ],
-    },
-    {
-      id: "kitchen",
-      title: "In the Kitchen",
-      body: "I approach cooking the same way I approach building software — iterative, detail-oriented, quietly ambitious. The kitchen is both laboratory and studio. Technique first, flavor depth always, aesthetics matter.",
-      children: [
-        {
-          id: "dishes",
-          title: "Recent dishes",
-          items: [
-            "Pear tart with laminated puff pastry",
-            "Refined homemade puff pastry",
-            "Black garlic salmon",
-            "Dialed-in specialty espresso drinks",
-          ],
-        },
-        {
-          id: "cuisines",
-          title: "Drawn to",
-          items: [
-            "French-inspired pastry technique",
-            "Modern American flavor composition",
-            "Mediterranean-leaning ingredients",
-            "Deep, layered umami",
-          ],
-        },
-      ],
-    },
-    {
-      id: "lifestyle",
-      title: "Lifestyle & Interests",
-      items: [
-        "Specialty coffee exploration",
-        "Strength training & structured fitness",
-        "Architecture & design inspiration",
-        "Sci-fi reading (Carlo Rovelli, speculative futures)",
-        "Local infrastructure (Raspberry Pi \"Aetherion\")",
-        "Financial independence & systems thinking",
-      ],
-    },
-    {
-      id: "trajectory",
-      title: "Trajectory",
-      body: getOwnerTrajectory(),
-    },
-  ],
+      {
+        id: "focus",
+        title: "Focus areas",
+        items: [
+          "AI orchestration",
+          "Memory-aware systems",
+          "Full-stack architecture",
+          "Organic interfaces",
+          "Privacy-first infrastructure",
+          "Agent orchestration patterns",
+          "Next.js & Supabase",
+        ],
+      },
+      {
+        id: "design",
+        title: "Design orientation",
+        body: "Interfaces should feel alive but not noisy. Calm, powerful, intentional.",
+        items: [
+          "Organic-futuristic-modernism",
+          "Bauhaus + Japandi restraint",
+          "Dimensional dark themes with depth",
+          "Generative / morphing UI",
+          "Physics-informed animation",
+        ],
+      },
+      {
+        id: "kitchen",
+        title: "In the Kitchen",
+        body: "I approach cooking the same way I approach building software — iterative, detail-oriented, quietly ambitious. The kitchen is both laboratory and studio. Technique first, flavor depth always, aesthetics matter.",
+        children: [
+          {
+            id: "dishes",
+            title: "Recent dishes",
+            items: [
+              "Pear tart with laminated puff pastry",
+              "Refined homemade puff pastry",
+              "Black garlic salmon",
+              "Dialed-in specialty espresso drinks",
+            ],
+          },
+          {
+            id: "cuisines",
+            title: "Drawn to",
+            items: [
+              "French-inspired pastry technique",
+              "Modern American flavor composition",
+              "Mediterranean-leaning ingredients",
+              "Deep, layered umami",
+            ],
+          },
+        ],
+      },
+      {
+        id: "lifestyle",
+        title: "Lifestyle & Interests",
+        items: [
+          "Specialty coffee exploration",
+          "Strength training & structured fitness",
+          "Architecture & design inspiration",
+          "Sci-fi reading (Carlo Rovelli, speculative futures)",
+          'Local infrastructure (Raspberry Pi "Aetherion")',
+          "Financial independence & systems thinking",
+        ],
+      },
+      {
+        id: "trajectory",
+        title: "Trajectory",
+        body: getOwnerTrajectory(),
+      },
+    ],
   };
 }
 
@@ -100,12 +100,7 @@ const DEMO_TREE: ProfileTree = {
     {
       id: "focus",
       title: "Focus areas",
-      items: [
-        "Design systems",
-        "Prototyping",
-        "AI-assisted workflows",
-        "User research",
-      ],
+      items: ["Design systems", "Prototyping", "AI-assisted workflows", "User research"],
     },
     {
       id: "stack",
@@ -130,11 +125,7 @@ const DEMO_TREE: ProfileTree = {
         {
           id: "cuisines",
           title: "Cuisines",
-          items: [
-            "Italian comfort",
-            "Japanese-inflected home cooking",
-            "Seasonal farm-to-table",
-          ],
+          items: ["Italian comfort", "Japanese-inflected home cooking", "Seasonal farm-to-table"],
         },
       ],
     },
@@ -173,12 +164,8 @@ function treeFromSummary(summary: ProfileSummary): ProfileTree {
     roles: undefined,
     signature: undefined,
     sections: [
-      ...(summary.bio
-        ? [{ id: "about", title: "About", body: summary.bio }]
-        : []),
-      ...(summary.tags?.length
-        ? [{ id: "focus", title: "Interests", items: summary.tags }]
-        : []),
+      ...(summary.bio ? [{ id: "about", title: "About", body: summary.bio }] : []),
+      ...(summary.tags?.length ? [{ id: "focus", title: "Interests", items: summary.tags }] : []),
     ],
   };
 }
@@ -187,14 +174,16 @@ export type ProfileTreeVariant = "tailored" | "demo" | "generated" | "empty";
 
 export function getProfileTree(
   email: string | null | undefined,
-  generatedSummary?: ProfileSummary | null,
+  generatedSummary?: ProfileSummary | null
 ): { tree: ProfileTree; variant: ProfileTreeVariant } {
   const norm = email && typeof email === "string" ? normalizedEmail(email) : "";
   const ownerEmail = normalizedEmail(getOwnerEmail());
+
   if (norm && norm === ownerEmail) return { tree: buildTailoredTree(), variant: "tailored" };
   if (norm === DEMO_EMAIL) return { tree: DEMO_TREE, variant: "demo" };
   if (generatedSummary?.headline)
     return { tree: treeFromSummary(generatedSummary), variant: "generated" };
+
   return { tree: EMPTY_TREE, variant: "empty" };
 }
 

@@ -12,7 +12,6 @@ export function RoleBadges({ roles }: { roles: string[] }) {
       {roles.map((role) => (
         <span
           key={role}
-          role="listitem"
           className="
             inline-flex items-center rounded-lg border border-border/60
             bg-linear-to-b from-muted/70 to-muted/90
@@ -24,6 +23,7 @@ export function RoleBadges({ roles }: { roles: string[] }) {
             dark:from-muted/50 dark:to-muted/70
             dark:shadow-[inset_0_1px_0_0_rgba(255,255,255,0.04),0_1px_3px_0_rgba(0,0,0,0.25)]
           "
+          role="listitem"
         >
           {role}
         </span>

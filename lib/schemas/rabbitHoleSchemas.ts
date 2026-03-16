@@ -6,9 +6,7 @@ export const RabbitHoleSourceAnalysisSchema = z.object({
   title: z.string(),
   summary: z.string(),
   keyPoints: z.array(z.string()).min(3).max(7),
-  relevance: z
-    .string()
-    .describe("How this source relates to the current RabbitHole node"),
+  relevance: z.string().describe("How this source relates to the current RabbitHole node"),
   originalUrl: z.url(),
 });
 
@@ -21,13 +19,8 @@ export const RabbitHoleSourceSchema = z.object({
   snippet: z.string().optional().or(z.null()),
   publishedDate: z.string().optional().or(z.null()),
   author: z.string().optional().or(z.null()),
-  highlights: z
-    .array(z.string())
-    .optional()
-    .describe("Notable excerpts extracted from the source"),
-  analysis: RabbitHoleSourceAnalysisSchema.optional().describe(
-    "User-triggered optional analysis",
-  ), // Might shift to linking by id instead
+  highlights: z.array(z.string()).optional().describe("Notable excerpts extracted from the source"),
+  analysis: RabbitHoleSourceAnalysisSchema.optional().describe("User-triggered optional analysis"), // Might shift to linking by id instead
 });
 
 export const RabbitHoleBranchSuggestionSchema = z.object({
@@ -39,39 +32,28 @@ export const RabbitHoleBranchSuggestionSchema = z.object({
 export const RabbitHoleNodeSchema = z.object({
   id: z.string().min(1),
   title: z.string().describe("Title of the node").min(4).max(80).optional(),
-  rawPrompt: z
-    .string()
-    .describe("The full system prompt string for generation"),
+  rawPrompt: z.string().describe("The full system prompt string for generation"),
   userQuestion: z.string().describe("User-visible question"),
   refinedQuestion: z
     .string()
     .describe("Refined question for LLM to respond to")
     .optional()
     .or(z.null()),
-  preview: z
-    .string()
-    .describe("Preview of the node content")
-    .optional()
-    .or(z.null()),
+  preview: z.string().describe("Preview of the node content").optional().or(z.null()),
   keyTakeaways: z
     .array(z.string())
     .max(6)
-    .describe(
-      "0-6 key takeaways; UI expects 3+ when articleHtml is present",
-    ),
+    .describe("0-6 key takeaways; UI expects 3+ when articleHtml is present"),
   articleHtml: z
     .string()
-    .describe(
-      "HTML string containing section tags, paragraphs, and inline spans only",
-    )
-    .optional().nullable(),
+    .describe("HTML string containing section tags, paragraphs, and inline spans only")
+    .optional()
+    .nullable(),
   sources: z.array(RabbitHoleSourceSchema).optional(),
   branchSuggestions: z
     .array(RabbitHoleBranchSuggestionSchema)
     .optional()
-    .transform((arr) =>
-      arr && arr.length > 11 ? arr.slice(0, 11) : arr,
-    ),
+    .transform((arr) => (arr && arr.length > 11 ? arr.slice(0, 11) : arr)),
   createdAt: z.string(),
 });
 
@@ -81,9 +63,7 @@ export const RabbitHoleAIResponseSchema = RabbitHoleNodeSchema.extend({
   articleHtml: z
     .string()
     .min(1)
-    .describe(
-      "HTML string containing section tags, paragraphs, and inline spans only",
-    ),
+    .describe("HTML string containing section tags, paragraphs, and inline spans only"),
 }).omit({
   id: true,
   rawPrompt: true,
@@ -105,18 +85,12 @@ export const RabbitHoleEdgeSchema = z.object({
   type: z.enum(["follow", "reference", "source"]).optional(),
 });
 
-export const GenerationStep = z.enum([
-  "sources",
-  "article",
-  "branch_suggestions",
-]);
+export const GenerationStep = z.enum(["sources", "article", "branch_suggestions"]);
 export type GenerationStep = z.infer<typeof GenerationStep>;
 
 export const RabbitHoleSessionSchema = z.object({
   sessionId: z.uuid().describe("The unique identifier for the session"),
-  rootQuestion: z
-    .string()
-    .describe("The initial question that started the session"),
+  rootQuestion: z.string().describe("The initial question that started the session"),
   rootNodeId: z.uuid().optional().or(z.null()),
   path: z.array(RabbitHolePathSegmentSchema),
   nodesById: z.record(z.string(), RabbitHoleNodeSchema),
@@ -130,14 +104,10 @@ export const RabbitHoleSessionSchema = z.object({
 
 // Type exports
 export type RabbitHoleSource = z.infer<typeof RabbitHoleSourceSchema>;
-export type RabbitHoleBranchSuggestion = z.infer<
-  typeof RabbitHoleBranchSuggestionSchema
->;
+export type RabbitHoleBranchSuggestion = z.infer<typeof RabbitHoleBranchSuggestionSchema>;
 export type RabbitHoleNode = z.infer<typeof RabbitHoleNodeSchema>;
 export type RabbitHoleAIResponse = z.infer<typeof RabbitHoleAIResponseSchema>;
 export type RabbitHolePathSegment = z.infer<typeof RabbitHolePathSegmentSchema>;
 export type RabbitHoleEdge = z.infer<typeof RabbitHoleEdgeSchema>;
 export type RabbitHoleSession = z.infer<typeof RabbitHoleSessionSchema>;
-export type RabbitHoleSourceAnalysis = z.infer<
-  typeof RabbitHoleSourceAnalysisSchema
->;
+export type RabbitHoleSourceAnalysis = z.infer<typeof RabbitHoleSourceAnalysisSchema>;

@@ -1,10 +1,11 @@
 import { UIMessage } from "ai";
 
+import { LineListShell } from "../_components/LineListShell";
+
 import Page from "@/components/layout/page";
 import { loadChat } from "@/lib/chat/chat-store";
 import { Thread } from "@/lib/schemas/chat";
 import { createLogger } from "@/lib/logger";
-import { LineListShell } from "../_components/LineListShell";
 
 const logger = createLogger("app/sandbox/prototypes/line-list/[slug]/page.tsx");
 
@@ -27,6 +28,7 @@ export default async function LineListThreadPage({
     chatData = chatDataRes.data;
   } catch (err) {
     logger.error("LineListThreadPage", `Error loading chat: ${err}`);
+
     return (
       <Page>
         <div className="mx-auto w-full max-w-2xl px-6 py-12">

@@ -35,6 +35,7 @@ function coerceCount(value: number | null | undefined): number {
 
 function getOrCreateTotals(model: string): LlmModelTotals {
   const existing = modelTotals.get(model);
+
   if (existing) return existing;
   const created: LlmModelTotals = {
     model,
@@ -45,7 +46,9 @@ function getOrCreateTotals(model: string): LlmModelTotals {
     totalTokens: 0,
     totalDurationMs: 0,
   };
+
   modelTotals.set(model, created);
+
   return created;
 }
 
@@ -60,10 +63,10 @@ export function recordLlmCall(args: {
   const inputTokens = coerceCount(usage?.inputTokens);
   const outputTokens = coerceCount(usage?.outputTokens);
   const reasoningTokens = coerceCount(usage?.reasoningTokens);
-  const totalTokens =
-    coerceCount(usage?.totalTokens) || inputTokens + outputTokens;
+  const totalTokens = coerceCount(usage?.totalTokens) || inputTokens + outputTokens;
 
   const totals = getOrCreateTotals(model);
+
   totals.calls += 1;
   totals.inputTokens += inputTokens;
   totals.outputTokens += outputTokens;
@@ -89,7 +92,7 @@ export function recordLlmCall(args: {
         totalTokens: totals.totalTokens,
         totalDurationMs: totals.totalDurationMs,
       },
-    }),
+    })
   );
 }
 

@@ -1,11 +1,20 @@
 "use client";
 
-import { User } from "lucide-react";
-import { Avatar, AvatarFallback } from "@/components/third-party/ui/avatar";
 import type { ProfileBlockProps } from "./profile-block-types";
+
+import { User } from "lucide-react";
+
 import { RoleBadges } from "./RoleBadges";
 
-export function ProfileBlockHero({ profile, summary, tree, email, displayName }: ProfileBlockProps) {
+import { Avatar, AvatarFallback } from "@/components/third-party/ui/avatar";
+
+export function ProfileBlockHero({
+  profile,
+  summary,
+  tree,
+  email,
+  displayName,
+}: ProfileBlockProps) {
   const isEmail = (v: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v);
   const rawName = displayName || profile?.display_name || null;
   const name = rawName && !isEmail(rawName) ? rawName : null;
@@ -14,7 +23,13 @@ export function ProfileBlockHero({ profile, summary, tree, email, displayName }:
   const displayEmail = profile?.email ?? null;
 
   const initials = name
-    ? name.split(/\s+/).filter(Boolean).map((w) => w[0]).slice(0, 2).join("").toUpperCase()
+    ? name
+        .split(/\s+/)
+        .filter(Boolean)
+        .map((w) => w[0])
+        .slice(0, 2)
+        .join("")
+        .toUpperCase()
     : null;
 
   return (
@@ -49,9 +64,7 @@ export function ProfileBlockHero({ profile, summary, tree, email, displayName }:
           </p>
         )}
 
-        {roles?.length ? (
-          <RoleBadges roles={roles} />
-        ) : null}
+        {roles?.length ? <RoleBadges roles={roles} /> : null}
       </div>
     </div>
   );

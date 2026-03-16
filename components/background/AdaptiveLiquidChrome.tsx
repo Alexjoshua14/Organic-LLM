@@ -2,6 +2,7 @@
 
 import { useTheme } from "next-themes";
 import { useEffect, useState, useRef } from "react";
+
 import { LiquidChrome as LiquidChromeComponent } from "@/components/third-party/reactbits/LiquidChrome/LiquidChrome";
 
 interface AdaptiveLiquidChromeProps {
@@ -53,19 +54,18 @@ export default function AdaptiveLiquidChrome({
   const onDimChangeRef = useRef(onDimChange);
   const hoverActiveRef = useRef(false);
   const focusActiveRef = useRef(false);
+
   onDimChangeRef.current = onDimChange;
 
   const isFocusInsideDimArea = () =>
-    Array.from(document.querySelectorAll("[data-dim-background]")).some(
-      (el: Element) => el.contains(document.activeElement),
+    Array.from(document.querySelectorAll("[data-dim-background]")).some((el: Element) =>
+      el.contains(document.activeElement)
     );
 
   const isDark = resolvedTheme === "dark";
 
   // Dark: deep blue-gray. Light: warmer, richer gray (matches app’s warm neutrals) so it doesn’t feel faded.
-  const baseColor: [number, number, number] = isDark
-    ? [0.03, 0.05, 0.07]
-    : [0.34, 0.32, 0.3]; // RGB 0–1: warm gray
+  const baseColor: [number, number, number] = isDark ? [0.03, 0.05, 0.07] : [0.34, 0.32, 0.3]; // RGB 0–1: warm gray
 
   const baseOpacity = isDark ? 1 : 0.92;
   const amplitude = isDark ? 0.2 : 0.18;
@@ -93,6 +93,7 @@ export default function AdaptiveLiquidChrome({
 
     const handleMouseEnter = (e: Event) => {
       const el = e.currentTarget as Element;
+
       if (!el) return;
       if (phase2TimeoutRef.current) {
         clearTimeout(phase2TimeoutRef.current);
@@ -100,6 +101,7 @@ export default function AdaptiveLiquidChrome({
       }
       setTransitionDuration(`${dimTransitionMs}ms`);
       const isFull = el.getAttribute("data-dim-background") === "full";
+
       setEffectiveDimIntensity(isFull ? dimIntensityFull : dimIntensity);
       hoverActiveRef.current = true;
       setBrightnessState("dimmed");
@@ -114,8 +116,9 @@ export default function AdaptiveLiquidChrome({
     const handleFocusIn = (e: FocusEvent) => {
       const target = e.target as Node;
       const dimEl = Array.from(document.querySelectorAll("[data-dim-background]")).find(
-        (el: Element) => el.contains(target),
+        (el: Element) => el.contains(target)
       );
+
       if (!dimEl) return;
       if (phase2TimeoutRef.current) {
         clearTimeout(phase2TimeoutRef.current);
@@ -123,6 +126,7 @@ export default function AdaptiveLiquidChrome({
       }
       setTransitionDuration(`${dimTransitionMs}ms`);
       const isFull = dimEl.getAttribute("data-dim-background") === "full";
+
       setEffectiveDimIntensity(isFull ? dimIntensityFull : dimIntensity);
       focusActiveRef.current = true;
       setBrightnessState("dimmed");
@@ -141,6 +145,7 @@ export default function AdaptiveLiquidChrome({
 
     const observer = new MutationObserver(() => {
       const elements = document.querySelectorAll("[data-dim-background]");
+
       elements.forEach((el) => {
         el.addEventListener("mouseenter", handleMouseEnter);
         el.addEventListener("mouseleave", handleMouseLeave);
@@ -148,6 +153,7 @@ export default function AdaptiveLiquidChrome({
     });
 
     const elements = document.querySelectorAll("[data-dim-background]");
+
     elements.forEach((el) => {
       el.addEventListener("mouseenter", handleMouseEnter);
       el.addEventListener("mouseleave", handleMouseLeave);
@@ -165,7 +171,14 @@ export default function AdaptiveLiquidChrome({
       });
       if (phase2TimeoutRef.current) clearTimeout(phase2TimeoutRef.current);
     };
-  }, [dimOnHover, dimIntensity, dimIntensityFull, dimTransitionMs, to65TransitionMs, to100TransitionMs]);
+  }, [
+    dimOnHover,
+    dimIntensity,
+    dimIntensityFull,
+    dimTransitionMs,
+    to65TransitionMs,
+    to100TransitionMs,
+  ]);
 
   const opacity =
     brightnessState === "dimmed"

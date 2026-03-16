@@ -1,6 +1,6 @@
-import { ExaSearchResultSource } from "@/lib/exa/types";
 import { UIMessage } from "ai";
-import { ContentsOptions, SearchResult } from "exa-js";
+
+import { ExaSearchResultSource } from "@/lib/exa/types";
 
 // Define your custom message type with data part schemas
 export type MyUIMessage = UIMessage<

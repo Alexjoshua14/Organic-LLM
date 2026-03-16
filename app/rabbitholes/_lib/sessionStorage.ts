@@ -28,14 +28,17 @@ export function getAllSessions(): RabbitHoleSessionMetadata[] {
 
   try {
     const stored = localStorage.getItem(SESSIONS_KEY);
+
     if (!stored) return [];
 
     const parsed = JSON.parse(stored);
+
     if (!Array.isArray(parsed)) return [];
 
     return parsed;
   } catch (error) {
     console.warn("Failed to read sessions from localStorage:", error);
+
     return [];
   }
 }
@@ -45,28 +48,23 @@ export function migrateSession(raw: any): RabbitHoleSession | null {
 
   // Ensure path array
   const path = Array.isArray(raw.path) ? raw.path : [];
-  const nodesById =
-    raw.nodesById && typeof raw.nodesById === "object" ? raw.nodesById : {};
+  const nodesById = raw.nodesById && typeof raw.nodesById === "object" ? raw.nodesById : {};
 
   // Add parentNodeId if missing by inferring from linear order
-  const migratedPath: RabbitHolePathSegment[] = path.map(
-    (seg: any, idx: number) => ({
-      nodeId: seg?.nodeId,
-      label: seg?.label ?? "",
-      parentNodeId:
-        seg?.parentNodeId !== undefined
-          ? seg.parentNodeId
-          : idx === 0
-            ? null
-            : (path[idx - 1]?.nodeId ?? null),
-    })
-  );
+  const migratedPath: RabbitHolePathSegment[] = path.map((seg: any, idx: number) => ({
+    nodeId: seg?.nodeId,
+    label: seg?.label ?? "",
+    parentNodeId:
+      seg?.parentNodeId !== undefined
+        ? seg.parentNodeId
+        : idx === 0
+          ? null
+          : (path[idx - 1]?.nodeId ?? null),
+  }));
 
   // Build edges if missing
   const existingEdges: RabbitHoleEdge[] = Array.isArray(raw.edges)
-    ? raw.edges.filter(
-        (e: any) => e && typeof e.from === "string" && typeof e.to === "string"
-      )
+    ? raw.edges.filter((e: any) => e && typeof e.from === "string" && typeof e.to === "string")
     : [];
 
   const inferredEdges: RabbitHoleEdge[] = migratedPath
@@ -79,8 +77,7 @@ export function migrateSession(raw: any): RabbitHoleSession | null {
   const combinedEdges = [
     ...existingEdges,
     ...inferredEdges.filter(
-      (edge) =>
-        !existingEdges.some((e) => e.from === edge.from && e.to === edge.to)
+      (edge) => !existingEdges.some((e) => e.from === edge.from && e.to === edge.to)
     ),
   ];
 
@@ -93,7 +90,9 @@ export function migrateSession(raw: any): RabbitHoleSession | null {
   };
 
   const validated = RabbitHoleSessionSchema.safeParse(migrated);
+
   if (validated.success) return validated.data;
+
   return null;
 }
 
@@ -106,6 +105,7 @@ export function getSessionById(sessionId: string): RabbitHoleSession | null {
 
   try {
     const stored = localStorage.getItem(`${CURRENT_SESSION_KEY}-${sessionId}`);
+
     if (!stored) return null;
 
     const parsed = JSON.parse(stored);
@@ -124,6 +124,7 @@ export function getSessionById(sessionId: string): RabbitHoleSession | null {
     return sessionData.data;
   } catch (error) {
     console.warn("Failed to read session from localStorage:", error);
+
     return null;
   }
 }
@@ -137,16 +138,11 @@ export function saveSession(session: RabbitHoleSession): void {
 
   try {
     // Save the full session
-    localStorage.setItem(
-      `${CURRENT_SESSION_KEY}-${session.sessionId}`,
-      JSON.stringify(session)
-    );
+    localStorage.setItem(`${CURRENT_SESSION_KEY}-${session.sessionId}`, JSON.stringify(session));
 
     // Update the sessions list
     const sessions = getAllSessions();
-    const existingIndex = sessions.findIndex(
-      (s) => s.sessionId === session.sessionId
-    );
+    const existingIndex = sessions.findIndex((s) => s.sessionId === session.sessionId);
 
     // Generate a summary from the root node's key takeaways
     const rootNodeId = session.path[0]?.nodeId;
@@ -158,10 +154,7 @@ export function saveSession(session: RabbitHoleSession): void {
     const metadata: RabbitHoleSessionMetadata = {
       sessionId: session.sessionId,
       rootQuestion: session.rootQuestion,
-      createdAt:
-        existingIndex >= 0
-          ? sessions[existingIndex].createdAt
-          : new Date().toISOString(),
+      createdAt: existingIndex >= 0 ? sessions[existingIndex].createdAt : new Date().toISOString(),
       updatedAt: new Date().toISOString(),
       pathLength: session.path.length,
       summary,
@@ -175,6 +168,7 @@ export function saveSession(session: RabbitHoleSession): void {
 
     // Keep only the most recent 50 sessions
     const limitedSessions = sessions.slice(0, 50);
+
     localStorage.setItem(SESSIONS_KEY, JSON.stringify(limitedSessions));
   } catch (error) {
     console.warn("Failed to save session to localStorage:", error);
@@ -195,6 +189,7 @@ export function deleteSession(sessionId: string): void {
     // Remove from sessions list
     const sessions = getAllSessions();
     const filtered = sessions.filter((s) => s.sessionId !== sessionId);
+
     localStorage.setItem(SESSIONS_KEY, JSON.stringify(filtered));
   } catch (error) {
     console.warn("Failed to delete session from localStorage:", error);

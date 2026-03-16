@@ -25,9 +25,7 @@ export type AionDeps = {
   // Clerk's `auth` can accept optional parameters depending on runtime,
   // but the Aion route calls it with no args.
   auth: (...args: any[]) => Promise<any>;
-  getSupabaseUserId: (
-    clerkUserId: string,
-  ) => Promise<{ data: string | null; error: Error | null }>;
+  getSupabaseUserId: (clerkUserId: string) => Promise<{ data: string | null; error: Error | null }>;
   getContext: (args: {
     chatId: string;
     limit?: number;
@@ -63,27 +61,28 @@ export type AionDeps = {
   addLatestMessagesToMemory: (
     messages: UIMessage[],
     userId: string,
-    chatId?: string,
+    chatId?: string
   ) => Promise<{ results: any[]; relations?: any[] }>;
   createMemorySearchTool: (userId: string) => any;
 };
 
 export function computeAionGeneratedMessageId(
   validatedMessages: UIMessage[],
-  generateId: () => string = randomUUID,
+  generateId: () => string = randomUUID
 ): string {
   const lastMessage = validatedMessages[validatedMessages.length - 1];
+
   if (
     lastMessage?.role === "assistant" &&
     lastMessage.id &&
     lastMessage.parts?.every(
       (p: any) =>
-        p.type === "step-start" ||
-        (typeof p.type === "string" && p.type.startsWith("tool-")),
+        p.type === "step-start" || (typeof p.type === "string" && p.type.startsWith("tool-"))
     )
   ) {
     return lastMessage.id;
   }
+
   return generateId();
 }
 
@@ -96,6 +95,7 @@ export function createAionHandler(deps: AionDeps) {
 
     if (!parseResult.success) {
       logger.error("POST", `Invalid request body: ${parseResult.error.message}`);
+
       return new Response("Invalid request body", { status: 400 });
     }
 
@@ -103,27 +103,32 @@ export function createAionHandler(deps: AionDeps) {
     const message = incomingMessage as UIMessage;
 
     const clerkUser = await deps.auth();
+
     if (!clerkUser || !clerkUser.userId) {
       return new Response("Unauthorized", { status: 401 });
     }
 
     const sbUserIdResult = await deps.getSupabaseUserId(clerkUser.userId);
+
     if (sbUserIdResult.error || sbUserIdResult.data === null) {
       return new Response("User not found in supabase", { status: 404 });
     }
     const sbUserId = sbUserIdResult.data;
 
     const messageLimitResult = await checkLlmMessageLimit(sbUserId);
+
     if (!messageLimitResult.success) {
       return new Response(
-        JSON.stringify({ error: messageLimitResult.error ?? "Too many requests" }),
-        { status: 429, headers: { "Content-Type": "application/json" } },
+        JSON.stringify({
+          error: messageLimitResult.error ?? "Too many requests",
+        }),
+        { status: 429, headers: { "Content-Type": "application/json" } }
       );
     }
 
     logger.log(
       "POST",
-      `Received message metadata: id=${message.id ?? "unknown"} role=${message.role} parts=${message.parts?.length ?? 0}`,
+      `Received message metadata: id=${message.id ?? "unknown"} role=${message.role} parts=${message.parts?.length ?? 0}`
     );
 
     // Save the user message
@@ -150,13 +155,11 @@ export function createAionHandler(deps: AionDeps) {
         });
 
         const requestedModel = parseResult.data?.model;
-        const selectedModel = requestedModel
-          ? getChatModel(requestedModel)
-          : DEFAULT_CHAT_MODEL;
+        const selectedModel = requestedModel ? getChatModel(requestedModel) : DEFAULT_CHAT_MODEL;
 
         logger.log(
           "POST",
-          `Model selection - Requested: ${JSON.stringify(requestedModel) ?? "none"}, Using: ${JSON.stringify(selectedModel)}`,
+          `Model selection - Requested: ${JSON.stringify(requestedModel) ?? "none"}, Using: ${JSON.stringify(selectedModel)}`
         );
 
         writer.write({
@@ -184,18 +187,11 @@ export function createAionHandler(deps: AionDeps) {
           });
 
           if (chatContextResult.error) {
-            logger.error(
-              "POST",
-              `Error getting chat context: ${chatContextResult.error}`,
-            );
+            logger.error("POST", `Error getting chat context: ${chatContextResult.error}`);
             validatedMessages = [message];
           } else {
-            validatedMessages = [
-              ...(chatContextResult.data?.messages ?? []),
-              message,
-            ];
-            systemPromptForRequest =
-              chatContextResult.data?.context ?? systemPromptForRequest;
+            validatedMessages = [...(chatContextResult.data?.messages ?? []), message];
+            systemPromptForRequest = chatContextResult.data?.context ?? systemPromptForRequest;
           }
 
           writer.write({
@@ -205,10 +201,7 @@ export function createAionHandler(deps: AionDeps) {
           });
         } catch (err) {
           if (err instanceof TypeValidationError) {
-            logger.error(
-              "POST",
-              `Database messages validation failed: ${err.message}`,
-            );
+            logger.error("POST", `Database messages validation failed: ${err.message}`);
             validatedMessages = [message];
           } else {
             throw err;
@@ -218,6 +211,7 @@ export function createAionHandler(deps: AionDeps) {
         const messages = convertToModelMessages(validatedMessages);
 
         const streamStartTime = performance.now();
+
         writer.write({
           type: "data-notification",
           data: { message: "Processing your request...", level: "info" },
@@ -265,8 +259,7 @@ export function createAionHandler(deps: AionDeps) {
 
         writer.merge(
           result.toUIMessageStream({
-            generateMessageId: () =>
-              computeAionGeneratedMessageId(validatedMessages, randomUUID),
+            generateMessageId: () => computeAionGeneratedMessageId(validatedMessages, randomUUID),
             onError: (error: unknown) => {
               logger.error("POST", `UI stream error: ${error}`);
               if (error instanceof Error) return error.message;
@@ -275,7 +268,10 @@ export function createAionHandler(deps: AionDeps) {
               writer.write({
                 type: "data-notification",
                 transient: true,
-                data: { message: "An unexpected error occured", level: "error" },
+                data: {
+                  message: "An unexpected error occured",
+                  level: "error",
+                },
               });
 
               return "An unexpected error occurred";
@@ -295,19 +291,14 @@ export function createAionHandler(deps: AionDeps) {
                     logger.error("POST", "LLM encountered an error.");
                     break;
                   case "length":
-                    logger.warn(
-                      "POST",
-                      "LLM response stopped due to reaching max limit.",
-                    );
+                    logger.warn("POST", "LLM response stopped due to reaching max limit.");
                     break;
                 }
 
                 if (isAborted) {
-                  logger.log(
-                    "POST",
-                    "Abort detected: removing optimistically saved user message",
-                  );
+                  logger.log("POST", "Abort detected: removing optimistically saved user message");
                   void deps.deleteChatMessage((message as any).id);
+
                   return;
                 }
 
@@ -319,21 +310,23 @@ export function createAionHandler(deps: AionDeps) {
                   modelGenerationTimeMs: modelGenerationTime,
                 };
 
-                const { result: saveResult, durationMs: saveChatMs } =
-                  await measureAsync(() => deps.saveChat({ chatId: id, messages }));
+                const { result: saveResult, durationMs: saveChatMs } = await measureAsync(() =>
+                  deps.saveChat({ chatId: id, messages })
+                );
 
                 metrics.saveChatMs = saveChatMs;
 
                 if (saveResult.error) {
-                  logger.error(
-                    "POST",
-                    `Error saving chat: ${saveResult.error.message}`,
-                  );
+                  logger.error("POST", `Error saving chat: ${saveResult.error.message}`);
                   writer.write({
                     type: "data-notification",
                     transient: true,
-                    data: { message: "Failed to save latest messages", level: "error" },
+                    data: {
+                      message: "Failed to save latest messages",
+                      level: "error",
+                    },
                   });
+
                   return;
                 }
 
@@ -341,29 +334,27 @@ export function createAionHandler(deps: AionDeps) {
                 // (LLM summarization, memory writes, title generation).
                 if (process.env.AION_TEST_MODE !== "1") {
                   let ensureChatHasTitleMs: number | undefined;
+
                   if (messages.length >= 4 && messages.length <= 8) {
-                    const { durationMs } = await measureAsync(() =>
-                      deps.ensureChatHasTitle(id),
-                    );
+                    const { durationMs } = await measureAsync(() => deps.ensureChatHasTitle(id));
+
                     ensureChatHasTitleMs = durationMs;
                   }
 
                   const userMessage = message;
                   const aiResponse = messages[messages.length - 1];
+
                   if (!aiResponse) return;
 
-                  const updateSummaryResult = await measureAsync(() =>
-                    deps.updateChatSummary(id),
-                  );
+                  const updateSummaryResult = await measureAsync(() => deps.updateChatSummary(id));
+
                   metrics.updateChatSummaryMs = updateSummaryResult.durationMs;
 
                   if (memoryEnabled) {
                     const addMemoryResult = await measureAsync(() =>
-                      deps.addLatestMessagesToMemory(
-                        [userMessage, aiResponse],
-                        sbUserId,
-                      ),
+                      deps.addLatestMessagesToMemory([userMessage, aiResponse], sbUserId)
                     );
+
                     metrics.addLatestMessagesToMemoryMs = addMemoryResult.durationMs;
                   }
 
@@ -383,7 +374,7 @@ export function createAionHandler(deps: AionDeps) {
                 });
               }
             },
-          }),
+          })
         );
       },
     });
@@ -391,4 +382,3 @@ export function createAionHandler(deps: AionDeps) {
     return createUIMessageStreamResponse({ stream });
   };
 }
-

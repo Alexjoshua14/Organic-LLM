@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
+
 import { cn } from "@/lib/utils";
 
 export type MemoryEphemeralCardsProps = {
@@ -30,15 +31,22 @@ function EphemeralCard({
   index?: number;
 }) {
   const isAdded = variant === "added";
+
   return (
     <motion.div
-      initial={{ height: 0, opacity: 0 }}
       animate={{ height: "auto", opacity: 1 }}
-      transition={{
-        height: { duration: CARD_ENTER_DURATION, delay: index * CARD_STAGGER_DELAY },
-        opacity: { duration: CARD_ENTER_DURATION * 0.6, delay: index * CARD_STAGGER_DELAY },
-      }}
       className="overflow-hidden"
+      initial={{ height: 0, opacity: 0 }}
+      transition={{
+        height: {
+          duration: CARD_ENTER_DURATION,
+          delay: index * CARD_STAGGER_DELAY,
+        },
+        opacity: {
+          duration: CARD_ENTER_DURATION * 0.6,
+          delay: index * CARD_STAGGER_DELAY,
+        },
+      }}
     >
       <div
         className={cn(
@@ -89,6 +97,7 @@ export function MemoryEphemeralCards({
   useEffect(() => {
     if (!show || autoClearMs <= 0) return;
     const t = setTimeout(() => setDismissed(true), autoClearMs);
+
     return () => clearTimeout(t);
   }, [show, autoClearMs]);
 
@@ -104,10 +113,10 @@ export function MemoryEphemeralCards({
         )}
       >
         <button
+          aria-label="View memory"
+          className="text-2xs uppercase tracking-wider font-light hover:text-accent transition-colors cursor-pointer"
           type="button"
           onClick={() => setDismissed(false)}
-          className="text-2xs uppercase tracking-wider font-light hover:text-accent transition-colors cursor-pointer"
-          aria-label="View memory"
         >
           Memory
         </button>
@@ -128,10 +137,10 @@ export function MemoryEphemeralCards({
           Memory
         </h2>
         <button
+          aria-label="Dismiss"
+          className="text-2xs text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
           type="button"
           onClick={() => setDismissed(true)}
-          className="text-2xs text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
-          aria-label="Dismiss"
         >
           Dismiss
         </button>
@@ -139,12 +148,10 @@ export function MemoryEphemeralCards({
 
       {hasRetrieved && (
         <section className="space-y-1.5">
-          <p className="text-[11px] text-muted-foreground px-0.5">
-            Used in this reply
-          </p>
+          <p className="text-[11px] text-muted-foreground px-0.5">Used in this reply</p>
           <div className="flex flex-col gap-2">
             {retrieved.map((m, i) => (
-              <EphemeralCard key={`r-${m.memory}`} text={m.memory} variant="retrieved" index={i} />
+              <EphemeralCard key={`r-${m.memory}`} index={i} text={m.memory} variant="retrieved" />
             ))}
           </div>
         </section>
@@ -157,7 +164,7 @@ export function MemoryEphemeralCards({
           </p>
           <div className="flex flex-col gap-2">
             {added.map((m, i) => (
-              <EphemeralCard key={`a-${m.memory}`} text={m.memory} variant="added" index={i} />
+              <EphemeralCard key={`a-${m.memory}`} index={i} text={m.memory} variant="added" />
             ))}
           </div>
         </section>

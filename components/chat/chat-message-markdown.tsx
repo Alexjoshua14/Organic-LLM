@@ -13,16 +13,14 @@ function parseMarkdownIntoBlocks(markdown: string): string[] {
   return tokens.map((token) => token.raw);
 }
 
-function CodeBlockWrapper({
-  children,
-  ...props
-}: React.ComponentPropsWithoutRef<"pre">) {
+function CodeBlockWrapper({ children, ...props }: React.ComponentPropsWithoutRef<"pre">) {
   const preRef = useRef<HTMLPreElement>(null);
   const [isCopied, setIsCopied] = useState(false);
 
   const handleCopy = useCallback(async () => {
     const el = preRef.current;
     const code = el?.querySelector("code")?.textContent ?? el?.textContent ?? "";
+
     if (!code) return;
     try {
       await navigator.clipboard.writeText(code);
@@ -39,16 +37,16 @@ function CodeBlockWrapper({
         {children}
       </pre>
       <Button
-        type="button"
-        variant="secondaryInteractive"
-        size="icon"
+        aria-label={isCopied ? "Copied" : "Copy code"}
         className={cn(
           "absolute top-2 right-2 h-8 w-8 shrink-0 opacity-0 transition-opacity",
           "group-hover/codeblock:opacity-100 focus:opacity-100",
           "hover:bg-secondary/95! hover:from-secondary/95! hover:to-[#e8e6e1]! dark:hover:from-[#252625]! dark:hover:to-[#1e1f1e]!"
         )}
+        size="icon"
+        type="button"
+        variant="secondaryInteractive"
         onClick={handleCopy}
-        aria-label={isCopied ? "Copied" : "Copy code"}
       >
         {isCopied ? (
           <CheckIcon className="h-4 w-4 text-green-600" />
@@ -67,7 +65,7 @@ const markdownComponents = {
 const MemoizedMarkdownBlock = memo(
   ({ content }: { content: string }) => {
     return (
-      <ReactMarkdown remarkPlugins={[remarkGfm]} components={markdownComponents}>
+      <ReactMarkdown components={markdownComponents} remarkPlugins={[remarkGfm]}>
         {content}
       </ReactMarkdown>
     );
@@ -76,19 +74,17 @@ const MemoizedMarkdownBlock = memo(
     if (prevProps.content !== nextProps.content) return false;
 
     return true;
-  },
+  }
 );
 
 MemoizedMarkdownBlock.displayName = "MemoizedMarkdownBlock";
 
-export const ChatMessageMarkdown = memo(
-  ({ content, id }: { content: string; id: string }) => {
-    const blocks = useMemo(() => parseMarkdownIntoBlocks(content), [content]);
+export const ChatMessageMarkdown = memo(({ content, id }: { content: string; id: string }) => {
+  const blocks = useMemo(() => parseMarkdownIntoBlocks(content), [content]);
 
-    return blocks.map((block, index) => (
-      <MemoizedMarkdownBlock key={`${id}-block_${index}`} content={block} />
-    ));
-  },
-);
+  return blocks.map((block, index) => (
+    <MemoizedMarkdownBlock key={`${id}-block_${index}`} content={block} />
+  ));
+});
 
 ChatMessageMarkdown.displayName = "ChatMessageMarkdown";

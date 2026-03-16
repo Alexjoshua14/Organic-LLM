@@ -2,6 +2,7 @@
 
 import { motion, useAnimation, type AnimationControls } from "framer-motion";
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
+
 import { cn } from "@/lib/utils";
 
 const FIGURE_HEIGHT = 180;
@@ -23,13 +24,15 @@ function EncryptedMessageBubble({
   return (
     <motion.div
       animate={animate}
-      initial={{ left: `${initialLeft}%`, top: `${initialTop}%`, opacity: 0 }}
       className={ENCRYPTED_BUBBLE_CLASS}
+      initial={{ left: `${initialLeft}%`, top: `${initialTop}%`, opacity: 0 }}
     >
       <span className="flex items-center gap-0.5">
         <span aria-hidden>🔒</span> {label}
       </span>
-      <span className="text-[8px] italic font-light text-muted-foreground">AES-256-GCM encryption</span>
+      <span className="text-[8px] italic font-light text-muted-foreground">
+        AES-256-GCM encryption
+      </span>
     </motion.div>
   );
 }
@@ -42,7 +45,15 @@ const TUNNEL_STYLE =
 /** Scale factor for animation speed. 1 = normal, > 1 = slower (e.g. 1.25 = 25% slower). */
 const ANIMATION_SPEED_SCALE = 1.25;
 
-type SlotName = "userUser" | "userLlm" | "nextjsUser" | "nextjsLlm" | "database" | "databaseUser" | "databaseLlm" | "llm";
+type SlotName =
+  | "userUser"
+  | "userLlm"
+  | "nextjsUser"
+  | "nextjsLlm"
+  | "database"
+  | "databaseUser"
+  | "databaseLlm"
+  | "llm";
 type SlotPosition = { x: number; y: number };
 
 const FALLBACK_SLOTS: Record<SlotName, SlotPosition> = {
@@ -88,12 +99,14 @@ export function PipelineAnimation({ className }: { className?: string }) {
 
   useLayoutEffect(() => {
     const stage = stageRef.current;
+
     if (!stage) return;
 
     const getSlotPosition = (element: HTMLElement | null): SlotPosition | null => {
       if (!element) return null;
       const stageRect = stage.getBoundingClientRect();
       const rect = element.getBoundingClientRect();
+
       if (stageRect.width === 0 || stageRect.height === 0) return null;
 
       return {
@@ -121,10 +134,8 @@ export function PipelineAnimation({ className }: { className?: string }) {
         const changed = (Object.keys(measured) as SlotName[]).some((key) => {
           const prevSlot = prev[key];
           const nextSlot = measured[key];
-          return (
-            Math.abs(prevSlot.x - nextSlot.x) > 0.1 ||
-            Math.abs(prevSlot.y - nextSlot.y) > 0.1
-          );
+
+          return Math.abs(prevSlot.x - nextSlot.x) > 0.1 || Math.abs(prevSlot.y - nextSlot.y) > 0.1;
         });
 
         return changed ? measured : prev;
@@ -134,6 +145,7 @@ export function PipelineAnimation({ className }: { className?: string }) {
     measure();
 
     const resizeObserver = new ResizeObserver(measure);
+
     resizeObserver.observe(stage);
     if (userUserAnchorRef.current) resizeObserver.observe(userUserAnchorRef.current);
     if (userLlmAnchorRef.current) resizeObserver.observe(userLlmAnchorRef.current);
@@ -145,6 +157,7 @@ export function PipelineAnimation({ className }: { className?: string }) {
     if (llmAnchorRef.current) resizeObserver.observe(llmAnchorRef.current);
 
     window.addEventListener("resize", measure);
+
     return () => {
       resizeObserver.disconnect();
       window.removeEventListener("resize", measure);
@@ -161,10 +174,17 @@ export function PipelineAnimation({ className }: { className?: string }) {
 
     const toSlot = (slot: SlotName, yOffsetPercent = 0) => {
       const { x, y } = slots[slot];
-      return { left: `${x}%`, top: `${y + yOffsetPercent}%`, opacity: 1, transition: { duration: scale(0.01) } };
+
+      return {
+        left: `${x}%`,
+        top: `${y + yOffsetPercent}%`,
+        opacity: 1,
+        transition: { duration: scale(0.01) },
+      };
     };
     const fromSlot = (slot: SlotName) => {
       const { x, y } = slots[slot];
+
       return { left: `${x}%`, top: `${y}%` };
     };
     const resetToInitial = async () => {
@@ -189,7 +209,10 @@ export function PipelineAnimation({ className }: { className?: string }) {
       while (!cancelled) {
         // 1. User message appears in user slot
         await userMsgSlot.set({ ...fromSlot("userUser"), opacity: 0 });
-        await userMsgSlot.start({ ...toSlot("userUser"), transition: { duration: scale(0.4) } });
+        await userMsgSlot.start({
+          ...toSlot("userUser"),
+          transition: { duration: scale(0.4) },
+        });
         await sleep(scale(600));
         if (cancelled) break;
 
@@ -203,10 +226,19 @@ export function PipelineAnimation({ className }: { className?: string }) {
 
         // 3. User message stays at server. Copy goes to Cloud LLM and encrypted user message goes to DB (simultaneously)
         await msgToLlmSlot.set({ ...fromSlot("nextjsUser"), opacity: 0 });
-        await msgToLlmSlot.start({ ...toSlot("nextjsUser"), transition: { duration: scale(0.2) } });
+        await msgToLlmSlot.start({
+          ...toSlot("nextjsUser"),
+          transition: { duration: scale(0.2) },
+        });
         await toDbSlot.set({ ...fromSlot("nextjsUser"), opacity: 0 });
-        await toDbSlot.start({ ...toSlot("nextjsUser"), transition: { duration: scale(0.2) } });
-        await userMsgSlot.start({ opacity: 0, transition: { duration: scale(0.2) } });
+        await toDbSlot.start({
+          ...toSlot("nextjsUser"),
+          transition: { duration: scale(0.2) },
+        });
+        await userMsgSlot.start({
+          opacity: 0,
+          transition: { duration: scale(0.2) },
+        });
         await sleep(scale(250));
         if (cancelled) break;
         await Promise.all([
@@ -227,7 +259,10 @@ export function PipelineAnimation({ className }: { className?: string }) {
 
         // 4. Chunks from LLM to Next.js (same components move LLM → Next.js → User) (z-index under compiled message)
         await chunk1Slot.set({ ...fromSlot("llm"), opacity: 0 });
-        await chunk1Slot.start({ ...toSlot("llm"), transition: { duration: scale(0.2) } });
+        await chunk1Slot.start({
+          ...toSlot("llm"),
+          transition: { duration: scale(0.2) },
+        });
         await chunk1Slot.start({
           ...toSlot("nextjsLlm"),
           transition: { duration: scale(0.6), ease: "easeInOut" },
@@ -243,7 +278,10 @@ export function PipelineAnimation({ className }: { className?: string }) {
         await userAccum1.start({ opacity: 1 });
 
         await chunk2Slot.set({ ...fromSlot("llm"), opacity: 0 });
-        await chunk2Slot.start({ ...toSlot("llm"), transition: { duration: scale(0.2) } });
+        await chunk2Slot.start({
+          ...toSlot("llm"),
+          transition: { duration: scale(0.2) },
+        });
         await chunk2Slot.start({
           ...toSlot("nextjsLlm"),
           transition: { duration: scale(0.5), ease: "easeInOut" },
@@ -257,7 +295,10 @@ export function PipelineAnimation({ className }: { className?: string }) {
         await userAccum2.start({ opacity: 1 });
 
         await chunk3Slot.set({ ...fromSlot("llm"), opacity: 0 });
-        await chunk3Slot.start({ ...toSlot("llm"), transition: { duration: scale(0.2) } });
+        await chunk3Slot.start({
+          ...toSlot("llm"),
+          transition: { duration: scale(0.2) },
+        });
         await chunk3Slot.start({
           ...toSlot("nextjsLlm"),
           transition: { duration: scale(0.5), ease: "easeInOut" },
@@ -274,7 +315,10 @@ export function PipelineAnimation({ className }: { className?: string }) {
 
         // 7. Final → DB: encrypted payload appears over message slot, placeholder disappears, then moves to DB
         await finalToDbSlot.set({ ...fromSlot("nextjsLlm"), opacity: 0 });
-        await finalToDbSlot.start({ ...toSlot("nextjsLlm"), transition: { duration: scale(0.2) } });
+        await finalToDbSlot.start({
+          ...toSlot("nextjsLlm"),
+          transition: { duration: scale(0.2) },
+        });
         await sleep(scale(400));
         if (cancelled) break;
         await nextJsAccum1.start({ opacity: 0 });
@@ -297,7 +341,9 @@ export function PipelineAnimation({ className }: { className?: string }) {
         await sleep(scale(3200));
       }
     };
+
     run();
+
     return () => {
       cancelled = true;
     };
@@ -323,18 +369,18 @@ export function PipelineAnimation({ className }: { className?: string }) {
 
   return (
     <div
+      aria-label="Animated end-to-end pipeline"
       className={cn(
         "my-6 relative overflow-visible rounded-xl border border-border/50 bg-muted/10 px-4 py-2 sm:p-5 w-full",
-        className,
+        className
       )}
       role="figure"
-      aria-label="Animated end-to-end pipeline"
     >
       <button
+        aria-label="Restart animation"
+        className="absolute top-2 right-2 z-40 rounded-md border border-border/60 bg-muted/80 px-2.5 py-1 text-xs font-medium text-muted-foreground shadow-sm hover:bg-muted hover:text-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
         type="button"
         onClick={restart}
-        className="absolute top-2 right-2 z-40 rounded-md border border-border/60 bg-muted/80 px-2.5 py-1 text-xs font-medium text-muted-foreground shadow-sm hover:bg-muted hover:text-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
-        aria-label="Restart animation"
       >
         Restart
       </button>
@@ -347,36 +393,56 @@ export function PipelineAnimation({ className }: { className?: string }) {
         <div className="absolute inset-0 z-0 pointer-events-none overflow-visible">
           <motion.div
             animate={userMsgSlot}
-            initial={{ left: `${slots.userUser.x}%`, top: `${slots.userUser.y}%`, opacity: 0 }}
             className="absolute z-20 rounded-2xl rounded-br-md px-4 py-2.5 text-xs font-medium bg-primary text-primary-foreground shadow-md -translate-x-1/2 -translate-y-1/2"
+            initial={{
+              left: `${slots.userUser.x}%`,
+              top: `${slots.userUser.y}%`,
+              opacity: 0,
+            }}
           >
             Hello
           </motion.div>
           <motion.div
             animate={msgToLlmSlot}
-            initial={{ left: `${slots.nextjsUser.x}%`, top: `${slots.nextjsUser.y}%`, opacity: 0 }}
             className="absolute z-20 rounded-2xl rounded-bl-md px-4 py-2.5 text-xs font-medium bg-primary text-primary-foreground shadow-md -translate-x-1/2 -translate-y-1/2"
+            initial={{
+              left: `${slots.nextjsUser.x}%`,
+              top: `${slots.nextjsUser.y}%`,
+              opacity: 0,
+            }}
           >
             Hello
           </motion.div>
           <motion.div
             animate={chunk1Slot}
-            initial={{ left: `${slots.llm.x}%`, top: `${slots.llm.y}%`, opacity: 0 }}
             className="absolute z-10 rounded bg-primary/20 px-1.5 py-0.5 text-[10px] -translate-x-1/2 -translate-y-1/2"
+            initial={{
+              left: `${slots.llm.x}%`,
+              top: `${slots.llm.y}%`,
+              opacity: 0,
+            }}
           >
             Hi
           </motion.div>
           <motion.div
             animate={chunk2Slot}
-            initial={{ left: `${slots.llm.x}%`, top: `${slots.llm.y}%`, opacity: 0 }}
             className="absolute z-10 rounded bg-primary/20 px-1.5 py-0.5 text-[10px] -translate-x-1/2 -translate-y-1/2"
+            initial={{
+              left: `${slots.llm.x}%`,
+              top: `${slots.llm.y}%`,
+              opacity: 0,
+            }}
           >
             there
           </motion.div>
           <motion.div
             animate={chunk3Slot}
-            initial={{ left: `${slots.llm.x}%`, top: `${slots.llm.y}%`, opacity: 0 }}
             className="absolute z-10 rounded bg-primary/20 px-1.5 py-0.5 text-[10px] -translate-x-1/2 -translate-y-1/2"
+            initial={{
+              left: `${slots.llm.x}%`,
+              top: `${slots.llm.y}%`,
+              opacity: 0,
+            }}
           >
             !
           </motion.div>
@@ -409,30 +475,35 @@ export function PipelineAnimation({ className }: { className?: string }) {
               <div className="mt-2 flex flex-col gap-2 min-h-[48px]">
                 <div
                   ref={userUserAnchorRef}
-                  className="h-8 flex items-center shrink-0"
                   aria-hidden
+                  className="h-8 flex items-center shrink-0"
                 />
                 <motion.div
                   animate={userLlmContainerVis}
-                  initial={{ opacity: 0 }}
                   className="w-fit self-start"
+                  initial={{ opacity: 0 }}
                 >
                   <div
                     ref={userLlmAnchorRef}
                     className="rounded-2xl rounded-bl-md px-4 py-2.5 text-xs font-medium bg-muted border border-border/60 shadow-md min-w-26 z-20"
                   >
-                    <motion.span animate={userAccum1} initial={{ opacity: 0 }}>Hi</motion.span>
-                    <motion.span animate={userAccum2} initial={{ opacity: 0 }}> there</motion.span>
-                    <motion.span animate={userAccum3} initial={{ opacity: 0 }}>!</motion.span>
+                    <motion.span animate={userAccum1} initial={{ opacity: 0 }}>
+                      Hi
+                    </motion.span>
+                    <motion.span animate={userAccum2} initial={{ opacity: 0 }}>
+                      {" "}
+                      there
+                    </motion.span>
+                    <motion.span animate={userAccum3} initial={{ opacity: 0 }}>
+                      !
+                    </motion.span>
                   </div>
                 </motion.div>
               </div>
             </div>
 
             <div className={cn(TUNNEL_STYLE, "w-[162px] min-h-[32px] py-2 justify-center")}>
-              <span className="text-[10px] text-muted-foreground relative z-10">
-                TLS
-              </span>
+              <span className="text-[10px] text-muted-foreground relative z-10">TLS</span>
             </div>
 
             <div className={cn(BOUNDARY_STYLE, "relative w-[162px] overflow-visible z-10")}>
@@ -442,75 +513,71 @@ export function PipelineAnimation({ className }: { className?: string }) {
               <div className="mt-2 flex flex-col gap-2 min-h-[60px]">
                 <div
                   ref={nextjsUserAnchorRef}
-                  className="h-8 flex items-center shrink-0"
                   aria-hidden
+                  className="h-8 flex items-center shrink-0"
                 />
                 <motion.div
                   animate={nextJsLlmContainerVis}
-                  initial={{ opacity: 0 }}
                   className="w-fit self-start"
+                  initial={{ opacity: 0 }}
                 >
                   <div
                     ref={nextjsLlmAnchorRef}
                     className="rounded-2xl rounded-bl-md px-4 py-2.5 text-xs font-medium bg-muted border border-border/60 shadow-md min-w-26 z-20"
                   >
-                    <motion.span animate={nextJsAccum1} initial={{ opacity: 0 }}>Hi</motion.span>
-                    <motion.span animate={nextJsAccum2} initial={{ opacity: 0 }}> there</motion.span>
-                    <motion.span animate={nextJsAccum3} initial={{ opacity: 0 }}>!</motion.span>
+                    <motion.span animate={nextJsAccum1} initial={{ opacity: 0 }}>
+                      Hi
+                    </motion.span>
+                    <motion.span animate={nextJsAccum2} initial={{ opacity: 0 }}>
+                      {" "}
+                      there
+                    </motion.span>
+                    <motion.span animate={nextJsAccum3} initial={{ opacity: 0 }}>
+                      !
+                    </motion.span>
                   </div>
                 </motion.div>
               </div>
             </div>
 
             <div className={cn(TUNNEL_STYLE, "w-[162px] min-h-[32px] py-2 justify-center")}>
-              <span className="text-[10px] text-muted-foreground relative z-10">
-                TLS
-              </span>
+              <span className="text-[10px] text-muted-foreground relative z-10">TLS</span>
             </div>
 
             <div className={cn(BOUNDARY_STYLE, "w-[162px] relative min-h-[168px]")}>
               <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
                 Database
               </span>
-              <span className="mt-1 text-[10px] text-muted-foreground">
-                Supabase
-              </span>
+              <span className="mt-1 text-[10px] text-muted-foreground">Supabase</span>
               <div className="mt-3 flex flex-1 flex-col justify-center gap-3">
                 <div
                   ref={dbUserSlotRef}
-                  className="h-8 flex items-center justify-center"
                   aria-hidden
+                  className="h-8 flex items-center justify-center"
                 />
                 <div
                   ref={dbLlmSlotRef}
-                  className="h-8 flex items-center justify-center"
                   aria-hidden
+                  className="h-8 flex items-center justify-center"
                 />
               </div>
               <div
                 ref={databaseAnchorRef}
-                className="absolute left-1/2 top-[56%] h-0 w-0 -translate-x-1/2 -translate-y-1/2 pointer-events-none"
                 aria-hidden
+                className="absolute left-1/2 top-[56%] h-0 w-0 -translate-x-1/2 -translate-y-1/2 pointer-events-none"
               />
             </div>
           </div>
 
           {/* Right: TLS (between server and LLM, same height as server) + Cloud LLM, horizontally centered */}
           <div className="flex flex-row justify-center items-center">
-            <div
-              className={cn(
-                TUNNEL_STYLE,
-                "w-[66px] min-h-[96px] pt-0 justify-center shrink-0",
-              )}
-            >
-              <span className="text-[10px] text-muted-foreground relative z-10">
-                TLS
-              </span>
+            <div className={cn(TUNNEL_STYLE, "w-[66px] min-h-[96px] pt-0 justify-center shrink-0")}>
+              <span className="text-[10px] text-muted-foreground relative z-10">TLS</span>
             </div>
             <div
               className={cn(
                 BOUNDARY_STYLE,
-                "w-[162px] min-h-[96px] relative overflow-visible shrink-0",
+                "w-[162px] min-h-[96px] relative overflow-visible shrink-0"
               )}
             >
               <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
@@ -519,8 +586,8 @@ export function PipelineAnimation({ className }: { className?: string }) {
               <div className="relative mt-2 min-h-[54px]">
                 <div
                   ref={llmAnchorRef}
-                  className="absolute left-1/2 top-1/2 h-0 w-0 -translate-x-1/2 -translate-y-1/2"
                   aria-hidden
+                  className="absolute left-1/2 top-1/2 h-0 w-0 -translate-x-1/2 -translate-y-1/2"
                 />
               </div>
             </div>

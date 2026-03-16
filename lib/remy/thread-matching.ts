@@ -35,6 +35,7 @@ function extractDate(text: string): string | null {
 
   for (const pattern of datePatterns) {
     const match = text.match(pattern);
+
     if (match) {
       // Return the first capturing group or the full match
       return match[1] || match[0];
@@ -53,6 +54,7 @@ function normalizeDate(dateStr: string): string {
   try {
     // Handle formats like "1/8/25" or "1/8/2025"
     const parts = dateStr.split(/[\/\-]/);
+
     if (parts.length === 3) {
       const month = parseInt(parts[0], 10);
       const day = parseInt(parts[1], 10);
@@ -167,6 +169,7 @@ export async function matchesThread(
     // If both have dates, normalize and compare them
     const normalizedQueryDate = normalizeDate(queryDate);
     const normalizedTitleDate = normalizeDate(titleDate);
+
     if (normalizedQueryDate === normalizedTitleDate) {
       // Dates match, require lower similarity threshold
       return similarity >= 0.4;
@@ -180,6 +183,7 @@ export async function matchesThread(
     const normalizedTitleDate = normalizeDate(titleDate);
     const titleMatchesToday = currentDateFormats.some((fmt) => {
       const normalizedFmt = normalizeDate(fmt);
+
       return normalizedTitleDate === normalizedFmt;
     });
 
@@ -203,11 +207,10 @@ export async function matchesThread(
 export async function getRemyThreads(): Promise<Result<Thread[]>> {
   try {
     const result = await getChats();
+
     if (result.error) {
-      logger.error(
-        "getRemyThreads",
-        `Error fetching threads: ${result.error.message}`
-      );
+      logger.error("getRemyThreads", `Error fetching threads: ${result.error.message}`);
+
       return result;
     }
 
@@ -222,6 +225,7 @@ export async function getRemyThreads(): Promise<Result<Thread[]>> {
       "getRemyThreads",
       `Error fetching Remy threads: ${error instanceof Error ? error.message : String(error)}`
     );
+
     return {
       data: null,
       error: error instanceof Error ? error : new Error("Unknown error"),
@@ -239,6 +243,7 @@ export async function findMatchingThread(
 ): Promise<Result<string | null>> {
   try {
     const threadsResult = await getRemyThreads();
+
     if (threadsResult.error || !threadsResult.data) {
       return {
         data: null,
@@ -258,6 +263,7 @@ export async function findMatchingThread(
           normalizeText(query),
           normalizeText(thread.title ?? "")
         );
+
         if (!bestMatch || similarity > bestMatch.score) {
           bestMatch = { thread, score: similarity };
         }
@@ -269,6 +275,7 @@ export async function findMatchingThread(
         "findMatchingThread",
         `Found matching thread: ${bestMatch.thread.id} (${bestMatch.thread.title}) with score ${bestMatch.score}`
       );
+
       return {
         data: bestMatch.thread.id,
         error: null,
@@ -284,6 +291,7 @@ export async function findMatchingThread(
       "findMatchingThread",
       `Error finding matching thread: ${error instanceof Error ? error.message : String(error)}`
     );
+
     return {
       data: null,
       error: error instanceof Error ? error : new Error("Unknown error"),

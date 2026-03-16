@@ -2,9 +2,15 @@
 
 import { useEffect, useRef, useState } from "react";
 import { motion } from "framer-motion";
-import { cn } from "@/lib/utils";
+
 import { RabbitHoleTTSButton } from "./RabbitHoleTTSButton";
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/third-party/ui/collapsible";
+
+import { cn } from "@/lib/utils";
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "@/components/third-party/ui/collapsible";
 
 interface RabbitHoleArticleProps {
   title: string;
@@ -41,6 +47,7 @@ export function RabbitHoleArticle({
     if (typeof window !== "undefined" && articleRef.current) {
       // Use the rendered content to extract text
       const text = articleRef.current.textContent || articleRef.current.innerText || "";
+
       setArticleText(text);
     } else {
       // Fallback: strip HTML tags using regex (less accurate but works on server)
@@ -50,15 +57,15 @@ export function RabbitHoleArticle({
         .replace(/<[^>]+>/g, " ")
         .replace(/\s+/g, " ")
         .trim();
+
       setArticleText(text);
     }
   }, [articleHtml]);
-  const [activeSectionIndex, setActiveSectionIndex] = useState<number | null>(
-    null,
-  );
+  const [activeSectionIndex, setActiveSectionIndex] = useState<number | null>(null);
 
   useEffect(() => {
     const article = articleRef.current;
+
     if (!article) return;
 
     const handleClick = (e: MouseEvent) => {
@@ -67,6 +74,7 @@ export function RabbitHoleArticle({
 
       if (branchElement) {
         const branchId = branchElement.getAttribute("data-branch-id");
+
         if (branchId) {
           e.preventDefault();
           onBranchClick(branchId);
@@ -75,6 +83,7 @@ export function RabbitHoleArticle({
     };
 
     article.addEventListener("click", handleClick);
+
     return () => {
       article.removeEventListener("click", handleClick);
     };
@@ -83,9 +92,11 @@ export function RabbitHoleArticle({
   // Intersection Observer to track active section
   useEffect(() => {
     const article = articleRef.current;
+
     if (!article || !onActiveSectionChange) return;
 
     const sections = article.querySelectorAll("h2[id^='takeaway-']");
+
     if (sections.length === 0) return;
 
     const observerOptions = {
@@ -118,9 +129,11 @@ export function RabbitHoleArticle({
   // Add scroll offset styling for sections
   useEffect(() => {
     const article = articleRef.current;
+
     if (!article) return;
 
     const sections = article.querySelectorAll("h2[id^='takeaway-']");
+
     sections.forEach((section) => {
       (section as HTMLElement).style.scrollMarginTop = "80px";
     });
@@ -129,11 +142,11 @@ export function RabbitHoleArticle({
   return (
     <motion.div
       key={articleHtml}
-      initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
-      exit={{ opacity: 0, y: -20 }}
-      transition={{ duration: 0.4, ease: [0.2, 0.8, 0.2, 1] }}
       className="max-w-2xl mx-auto"
+      exit={{ opacity: 0, y: -20 }}
+      initial={{ opacity: 0, y: 20 }}
+      transition={{ duration: 0.4, ease: [0.2, 0.8, 0.2, 1] }}
     >
       <div className="mb-6">
         <h1 className="font-commissioner text-3xl font-light tracking-tight text-foreground mb-3">
@@ -146,9 +159,10 @@ export function RabbitHoleArticle({
 
       {showTakeaways && (
         <Collapsible
+          className="bg-card/80 backdrop-blur-sm rounded-lg border border-border shadow-sm mb-10"
           open={takeawaysOpen}
           onOpenChange={setTakeawaysOpen}
-          className="bg-card/80 backdrop-blur-sm rounded-lg border border-border shadow-sm mb-10">
+        >
           <CollapsibleTrigger className="w-full flex items-center justify-between px-5 py-4 text-left cursor-pointer group">
             <h3 className="font-commissioner text-xs uppercase tracking-[0.2em] text-muted-foreground font-light">
               Key Takeaways
@@ -162,34 +176,35 @@ export function RabbitHoleArticle({
               <ul className="space-y-4">
                 {takeaways.map((takeaway, index) => {
                   const isActive = activeTakeawayIndex === index;
+
                   return (
                     <motion.li
                       key={index}
+                      animate={{ opacity: 1, x: 0 }}
                       className={cn(
                         "flex items-start gap-4 font-satoshi text-base cursor-pointer",
-                        isActive
-                          ? "text-foreground"
-                          : "text-muted-foreground hover:text-foreground",
+                        isActive ? "text-foreground" : "text-muted-foreground hover:text-foreground"
                       )}
                       initial={{ opacity: 0, x: -8 }}
-                      animate={{ opacity: 1, x: 0 }}
                       transition={{ duration: 0.25, delay: index * 0.05 }}
                       viewport={{ once: true }}
+                      whileHover={{ x: 2 }}
                       onClick={() => {
                         const sectionId = `takeaway-${index}`;
                         const section = document.getElementById(sectionId);
+
                         if (section) {
-                          section.scrollIntoView({ behavior: "smooth", block: "start" });
+                          section.scrollIntoView({
+                            behavior: "smooth",
+                            block: "start",
+                          });
                         }
                       }}
-                      whileHover={{ x: 2 }}
                     >
                       <span
                         className={cn(
                           "mt-1 shrink-0 transition-colors text-lg",
-                          isActive
-                            ? "text-foreground"
-                            : "text-muted-foreground",
+                          isActive ? "text-foreground" : "text-muted-foreground"
                         )}
                       >
                         •
@@ -204,9 +219,8 @@ export function RabbitHoleArticle({
         </Collapsible>
       )}
 
-
-
       <div
+        dangerouslySetInnerHTML={{ __html: articleHtml }}
         ref={articleRef}
         className={cn(
           "article-content",
@@ -228,11 +242,9 @@ export function RabbitHoleArticle({
           "[&_span[data-branch-id]]:transition-colors",
           "[&_span[data-branch-id]]:px-0.5",
           "[&_span[data-branch-id]]:rounded",
-          "[&_span[data-branch-id]]:hover:bg-card/20",
+          "[&_span[data-branch-id]]:hover:bg-card/20"
         )}
-        dangerouslySetInnerHTML={{ __html: articleHtml }}
       />
     </motion.div>
   );
 }
-

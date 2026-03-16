@@ -47,9 +47,11 @@ const PII_PATTERNS: Array<{ pattern: RegExp; placeholder: string }> = [
 export function redactPII(text: string): string {
   if (!text || typeof text !== "string") return text;
   let out = text;
+
   for (const { pattern, placeholder } of PII_PATTERNS) {
     out = out.replace(pattern, placeholder);
   }
+
   return out;
 }
 
@@ -57,12 +59,13 @@ export function redactPII(text: string): string {
  * Redacts PII in a UIMessage's text parts only. Returns a new message (shallow copy with new parts).
  */
 function redactMessageParts(
-  parts: Array<{ type: string; text?: string; [k: string]: unknown }>,
+  parts: Array<{ type: string; text?: string; [k: string]: unknown }>
 ): Array<{ type: string; text?: string; [k: string]: unknown }> {
   return parts.map((part) => {
     if (part.type === "text" && typeof part.text === "string") {
       return { ...part, text: redactPII(part.text) };
     }
+
     return part;
   });
 }
@@ -81,14 +84,14 @@ export type UIMessageLike = {
 export function redactUIMessages<T extends UIMessageLike>(messages: T[]): T[] {
   return messages.map((msg) => {
     const next = { ...msg } as T;
+
     if (Array.isArray(msg.parts) && msg.parts.length > 0) {
-      (next as { parts: typeof msg.parts }).parts = redactMessageParts(
-        msg.parts,
-      );
+      (next as { parts: typeof msg.parts }).parts = redactMessageParts(msg.parts);
     }
     if (typeof msg.content === "string") {
       (next as { content: string }).content = redactPII(msg.content);
     }
+
     return next;
   });
 }

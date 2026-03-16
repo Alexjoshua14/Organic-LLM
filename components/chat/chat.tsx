@@ -1,11 +1,18 @@
 "use client";
 
+import type { ExaSearchResultSource } from "@/lib/exa/types";
+
 import { UIMessage, useChat } from "@ai-sdk/react";
 import { DefaultChatTransport } from "ai";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { BrainCircuit } from "lucide-react";
+import { toast } from "sonner";
+
+import { Conversation, ConversationScrollButton } from "../third-party/ai-elements/conversation";
 
 import { ChatThread, MEMORY_PANEL_RESERVE_PADDING } from "./chat-thread";
+import { CoreInput } from "./core-input";
+
 import { MemoryEphemeralCards } from "@/components/memory/memory-ephemeral-cards";
 import { MemoryLens } from "@/components/memory/memory-lens";
 import {
@@ -15,25 +22,14 @@ import {
   SheetTitle,
   SheetTrigger,
 } from "@/components/third-party/ui/sheet";
-
-import {
-  isClientPIIRedactionEnabled,
-  redactUIMessages,
-} from "@/lib/pii/redact";
+import { isClientPIIRedactionEnabled, redactUIMessages } from "@/lib/pii/redact";
 import { getSettings } from "@/lib/user-settings";
 import { Thread } from "@/lib/schemas/chat";
 import { createLogger } from "@/lib/logger";
 import { useSharedChatContext } from "@/lib/context/chat-context";
 import { ChatModel, DEFAULT_CHAT_MODEL } from "@/lib/schemas/chat";
-import { CoreInput } from "./core-input";
-import { Conversation, ConversationScrollButton } from "../third-party/ai-elements/conversation";
-import { useArchetypeContext } from "@/lib/context/archetype-context";
 import { ChatAIActionEnum } from "@/types/ai";
-import type { ExaSearchResultSource } from "@/lib/exa/types";
-import { AlertCircle, X } from "lucide-react";
 import { getChatErrorMessage } from "@/lib/chat/error-messages";
-import { cn } from "@/lib/utils";
-import { toast } from "sonner";
 
 const logger = createLogger("components/chat/chat");
 
@@ -44,21 +40,23 @@ export type ChatProps = {
   endpoint?: string;
 };
 
-export const Chat: React.FC<ChatProps> = ({
-  chatData,
-  endpoint,
-  persona,
-  initialMessage,
-}) => {
+export const Chat: React.FC<ChatProps> = ({ chatData, endpoint, persona, initialMessage }) => {
   const { refreshSidebarChats } = useSharedChatContext();
 
   const selectedModelRef = useRef<ChatModel>(DEFAULT_CHAT_MODEL);
   const useWebSearchRef = useRef<boolean>(false);
   const useMemoriesRef = useRef<boolean>(false);
   const useSpeechFriendlyRef = useRef<boolean>(false);
-  const usePersistedSchemas = useRef<boolean>(persona === 'aion');
+  const usePersistedSchemas = useRef<boolean>(persona === "aion");
   const initialMessageSent = useRef<boolean>(false);
-  const [aiAction, setAiAction] = useState<{ action: ChatAIActionEnum; message?: string; sources?: ExaSearchResultSource[] } | undefined>(undefined);
+  const [aiAction, setAiAction] = useState<
+    | {
+        action: ChatAIActionEnum;
+        message?: string;
+        sources?: ExaSearchResultSource[];
+      }
+    | undefined
+  >(undefined);
   const [mem0Retrieved, setMem0Retrieved] = useState<{ memory: string }[]>([]);
   const [mem0Added, setMem0Added] = useState<{ memory: string }[]>([]);
   const errorRef = useRef<Error | undefined>(undefined);
@@ -68,116 +66,156 @@ export const Chat: React.FC<ChatProps> = ({
   // Temporary
   const stop = () => logger.log("chat", "stop called but functionality is currently disabled");
 
-  const { messages, sendMessage, id, status, setMessages, addToolOutput, error, clearError } = useChat({
-    id: chatData?.thread.id ?? "",
-    messages: chatData?.messages ?? [],
-    resume: true,
-    transport: new DefaultChatTransport({
-      api: persona === 'aion' ? '/api/ai/aion' : persona === 'remy' ? '/api/ai/remy' : endpoint ?? `/api/chat/${persona ?? ""}`,
-      prepareSendMessagesRequest({ messages, id }) {
-        const lastMessage = messages[messages.length - 1];
-        const message = isClientPIIRedactionEnabled()
-          ? redactUIMessages([lastMessage])[0]
-          : lastMessage;
-        const req = {
-          body: {
-            message,
-            id,
-            model: selectedModelRef.current,
-            webSearch: useWebSearchRef.current,
-            memory: useMemoriesRef.current,
-            speechFriendly: useSpeechFriendlyRef.current,
-            zeroDataRetention: getSettings().zeroDataRetention,
-            // Only include persistedSchemas in payload if true
-            ...(usePersistedSchemas.current ? { persistedSchemas: true } : {}),
-          },
+  const { messages, sendMessage, id, status, setMessages, addToolOutput, error, clearError } =
+    useChat({
+      id: chatData?.thread.id ?? "",
+      messages: chatData?.messages ?? [],
+      resume: true,
+      transport: new DefaultChatTransport({
+        api:
+          persona === "aion"
+            ? "/api/ai/aion"
+            : persona === "remy"
+              ? "/api/ai/remy"
+              : (endpoint ?? `/api/chat/${persona ?? ""}`),
+        prepareSendMessagesRequest({ messages, id }) {
+          const lastMessage = messages[messages.length - 1];
+          const message = isClientPIIRedactionEnabled()
+            ? redactUIMessages([lastMessage])[0]
+            : lastMessage;
+          const req = {
+            body: {
+              message,
+              id,
+              model: selectedModelRef.current,
+              webSearch: useWebSearchRef.current,
+              memory: useMemoriesRef.current,
+              speechFriendly: useSpeechFriendlyRef.current,
+              zeroDataRetention: getSettings().zeroDataRetention,
+              // Only include persistedSchemas in payload if true
+              ...(usePersistedSchemas.current ? { persistedSchemas: true } : {}),
+            },
+          };
+
+          logger.log("chat", `Request being sent: ${JSON.stringify(req, null, 2)}`);
+
+          return req;
+        },
+      }),
+      onData: (data) => {
+        /** Side channel for UI events */
+        logger.log("chat", JSON.stringify(data, null, 2));
+
+        if (data.type === "data-mem0-get") {
+          const payload = data.data as { memories?: { memory: string }[] };
+
+          setMem0Retrieved(payload.memories ?? []);
+          setMem0Added([]);
+        } else if (data.type === "data-mem0-update") {
+          const payload = data.data as { memories?: { memory: string }[] };
+
+          setMem0Added(payload.memories ?? []);
+        } else if (data.type === "data-notification") {
+          logger.log("chat", `DATA_NOTIFICATION ${JSON.stringify(data.data, null, 2)}`);
+          const dataObject = data.data as { message?: string };
+
+          if (dataObject.message === "chat-title-generated") {
+            refreshSidebarChats();
+          }
+        } else if (data.type === "data-aiAction") {
+          logger.log("chat", `DATA_AIACTION ${JSON.stringify(data.data, null, 2)}`);
+
+          const dataObject = data.data as {
+            action: ChatAIActionEnum;
+            message?: string;
+            sources?: ExaSearchResultSource[];
+          };
+
+          switch (dataObject.action) {
+            case ChatAIActionEnum.Reasoning:
+              setAiAction({
+                action: ChatAIActionEnum.Reasoning,
+                message: dataObject.message,
+              });
+              break;
+            case ChatAIActionEnum.Tool:
+              let toolName = undefined;
+
+              if (dataObject.message) {
+                toolName = dataObject.message.split(": ")[1];
+              }
+              switch (toolName) {
+                case "web_search":
+                  setAiAction((prev) => {
+                    let sources: ExaSearchResultSource[] | undefined = undefined;
+
+                    if (prev && prev.action === ChatAIActionEnum.Search) {
+                      sources = [...(prev.sources ?? []), ...(dataObject.sources ?? [])];
+                      // Make sources unique based on id
+                      sources = sources.filter(
+                        (source, index, self) => index === self.findIndex((t) => t.id === source.id)
+                      );
+                    } else {
+                      sources = dataObject.sources;
+                    }
+
+                    return {
+                      action: ChatAIActionEnum.Search,
+                      message: dataObject.message,
+                      sources: sources,
+                    };
+                  });
+                  break;
+                case "memory_search":
+                  setAiAction({
+                    action: ChatAIActionEnum.Memory,
+                    message: dataObject.message,
+                  });
+                  break;
+                default:
+                  setAiAction({
+                    action: ChatAIActionEnum.Tool,
+                    message: dataObject.message,
+                  });
+                  break;
+              }
+              break;
+            case ChatAIActionEnum.Memory:
+              setAiAction({ action: ChatAIActionEnum.Memory });
+              break;
+            default:
+              setAiAction({
+                action: dataObject.action,
+                message: dataObject.message,
+                sources: dataObject.sources,
+              });
+              break;
+          }
         }
-        logger.log("chat", `Request being sent: ${JSON.stringify(req, null, 2)}`)
-        return req;
       },
-    }),
-    onData: (data) => {
-      /** Side channel for UI events */
-      logger.log("chat", JSON.stringify(data, null, 2));
+      onError: (error) => {
+        logger.error("chat", `ERROR ${JSON.stringify(error, null, 2)}`);
+        setAiAction({ action: ChatAIActionEnum.Errored, message: undefined });
+        errorRef.current = error;
+        setChatError(error);
+        const errorMessage = getChatErrorMessage(error);
 
-      if (data.type === "data-mem0-get") {
-        const payload = data.data as { memories?: { memory: string }[] };
-        setMem0Retrieved(payload.memories ?? []);
-        setMem0Added([]);
-      } else if (data.type === "data-mem0-update") {
-        const payload = data.data as { memories?: { memory: string }[] };
-        setMem0Added(payload.memories ?? []);
-      } else if (data.type === "data-notification") {
-        logger.log("chat", `DATA_NOTIFICATION ${JSON.stringify(data.data, null, 2)}`);
-        const dataObject = data.data as { message?: string };
-        if (dataObject.message === "chat-title-generated") {
-          refreshSidebarChats();
-        }
-
-      } else if (data.type === "data-aiAction") {
-        logger.log("chat", `DATA_AIACTION ${JSON.stringify(data.data, null, 2)}`);
-
-        const dataObject = data.data as { action: ChatAIActionEnum; message?: string; sources?: ExaSearchResultSource[] };
-
-        switch (dataObject.action) {
-          case ChatAIActionEnum.Reasoning:
-            setAiAction({ action: ChatAIActionEnum.Reasoning, message: dataObject.message });
-            break;
-          case ChatAIActionEnum.Tool:
-            let toolName = undefined;
-            if (dataObject.message) {
-              toolName = dataObject.message.split(": ")[1];
-            }
-            switch (toolName) {
-              case "web_search":
-                setAiAction((prev) => {
-                  let sources: ExaSearchResultSource[] | undefined = undefined;
-                  if (prev && prev.action === ChatAIActionEnum.Search) {
-                    sources = [...(prev.sources ?? []), ...(dataObject.sources ?? [])];
-                    // Make sources unique based on id
-                    sources = sources.filter((source, index, self) =>
-                      index === self.findIndex((t) => t.id === source.id)
-                    );
-                  } else {
-                    sources = dataObject.sources;
-                  }
-                  return { action: ChatAIActionEnum.Search, message: dataObject.message, sources: sources };
-                });
-                break;
-              case "memory_search":
-                setAiAction({ action: ChatAIActionEnum.Memory, message: dataObject.message });
-                break;
-              default:
-                setAiAction({ action: ChatAIActionEnum.Tool, message: dataObject.message });
-                break;
-            }
-            break;
-          case ChatAIActionEnum.Memory:
-            setAiAction({ action: ChatAIActionEnum.Memory });
-            break;
-          default:
-            setAiAction({ action: dataObject.action, message: dataObject.message, sources: dataObject.sources });
-            break;
-        }
-      }
-    },
-    onError: (error) => {
-      logger.error("chat", `ERROR ${JSON.stringify(error, null, 2)}`);
-      setAiAction({ action: ChatAIActionEnum.Errored, message: undefined });
-      errorRef.current = error;
-      setChatError(error);
-      const errorMessage = getChatErrorMessage(error);
-      toast.error(errorMessage);
-      logger.error("chat", `Chat onError: ${errorMessage}`);
-    },
-    onFinish: () => {
-      setAiAction(undefined);
-    },
-  });
+        toast.error(errorMessage);
+        logger.error("chat", `Chat onError: ${errorMessage}`);
+      },
+      onFinish: () => {
+        setAiAction(undefined);
+      },
+    });
 
   // Send initial message if provided
   useEffect(() => {
-    if (initialMessage && !initialMessageSent.current && messages.length === 0 && status === "ready") {
+    if (
+      initialMessage &&
+      !initialMessageSent.current &&
+      messages.length === 0 &&
+      status === "ready"
+    ) {
       initialMessageSent.current = true;
       sendMessage({ text: initialMessage });
     }
@@ -215,7 +253,7 @@ export const Chat: React.FC<ChatProps> = ({
     //   }
     //   return newMessages;
     // });
-  }, [messages])
+  }, [messages]);
 
   return (
     <div
@@ -243,16 +281,16 @@ export const Chat: React.FC<ChatProps> = ({
         ].join(" ")}
       >
         <ChatThread
-          messages={messages}
           aiActionPayload={aiAction}
           contentClassName={persona === "remy" ? MEMORY_PANEL_RESERVE_PADDING : undefined}
+          messages={messages}
         />
         {persona === "remy" && (
           <MemoryEphemeralCards
-            retrieved={mem0Retrieved}
+            overlay
             added={mem0Added}
             autoClearMs={12000}
-            overlay
+            retrieved={mem0Retrieved}
           />
         )}
         <ConversationScrollButton className="bottom-14" />
@@ -262,37 +300,37 @@ export const Chat: React.FC<ChatProps> = ({
           <Sheet>
             <SheetTrigger asChild>
               <button
-                type="button"
                 className="flex items-center gap-2 text-xs text-muted-foreground hover:text-cyan-600 dark:hover:text-cyan-400 transition-colors"
+                type="button"
               >
                 <BrainCircuit className="size-3.5" />
                 View persisted memory
               </button>
             </SheetTrigger>
             <SheetContent
-              side="right"
               overlayPriority
               className="w-full sm:max-w-md overflow-y-auto flex flex-col top-0 bottom-20 right-0 h-auto border-t-0"
+              side="right"
             >
               <SheetHeader>
                 <SheetTitle className="sr-only">Persisted memory</SheetTitle>
               </SheetHeader>
-              <MemoryLens variant="sheet" className="flex-1 min-h-0" />
+              <MemoryLens className="flex-1 min-h-0" variant="sheet" />
             </SheetContent>
           </Sheet>
         )}
         <CoreInput
+          chatId={chatData?.thread.id}
+          clearError={clearError}
+          error={error ?? chatError}
+          isBlankChat={messages.length === 0}
           modelRef={selectedModelRef}
-          useWebSearchRef={useWebSearchRef}
+          sendMessage={sendMessage}
+          status={status}
+          stop={handleStop}
           useMemoriesRef={useMemoriesRef}
           useSpeechFriendlyRef={useSpeechFriendlyRef}
-          sendMessage={sendMessage}
-          stop={handleStop}
-          status={status}
-          chatId={chatData?.thread.id}
-          isBlankChat={messages.length === 0}
-          error={error ?? chatError}
-          clearError={clearError}
+          useWebSearchRef={useWebSearchRef}
           onErrorCleared={() => setChatError(undefined)}
         />
       </div>

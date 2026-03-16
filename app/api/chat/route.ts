@@ -15,8 +15,11 @@ import {
 // import systemPrompt from "@/lib/system-prompt";
 import { auth } from "@clerk/nextjs/server";
 import { GatewayProviderOptions } from "@ai-sdk/gateway";
+import { OpenAIResponsesProviderOptions } from "@ai-sdk/openai";
+import { after } from "next/server";
+import { createResumableStreamContext } from "resumable-stream";
 
-import { deleteChatMessage, getContext, saveChat } from "@/lib/chat/chat-store";
+import { getContext, saveChat } from "@/lib/chat/chat-store";
 import { getMessageCount, getThreadHasTitle } from "@/data/supabase/chat";
 import { ensureChatHasTitle, updateChatSummary } from "@/lib/llm/chat-helpers";
 import {
@@ -30,15 +33,11 @@ import {
 import { createLogger } from "@/lib/logger";
 import { SYSTEM_PROMPT } from "@/lib/system-prompt/prompt-v0";
 import { addLatestMessagesToMemory } from "@/lib/memory/store";
-
 import { ChatRequestSchema, DEFAULT_CHAT_MODEL } from "@/lib/schemas/chat";
 import { getSupabaseUserId } from "@/data/supabase/profiles";
 import { checkLlmMessageLimit } from "@/lib/rate-limit/llm";
 import { CHAT_MODEL, getChatModel, measureAsync } from "@/lib/llm/helpers";
-import { OpenAIResponsesProviderOptions } from "@ai-sdk/openai";
 import { ChatUIMessage, ChatAIActionEnum } from "@/types/ai";
-import { after } from "next/server";
-import { createResumableStreamContext } from "resumable-stream";
 
 // Allow streaming responses up to 30 seconds
 export const maxDuration = 30;
@@ -55,27 +54,25 @@ export async function POST(req: Request) {
   const parseResult = ChatRequestSchema.safeParse(body);
   // Grab the selectedModel from either the parsed request body or default to DEFAULT_CHAT_MODEL
   const requestedModel = parseResult.data?.model;
-  const selectedModel = requestedModel
-    ? getChatModel(requestedModel)
-    : DEFAULT_CHAT_MODEL;
+  const selectedModel = requestedModel ? getChatModel(requestedModel) : DEFAULT_CHAT_MODEL;
 
   const memoryEnabled = parseResult.data?.memory;
 
   logger.log(
     "POST",
-    `Model selection - Requested: ${JSON.stringify(requestedModel) ?? "none"}, Using: ${JSON.stringify(selectedModel)}`,
+    `Model selection - Requested: ${JSON.stringify(requestedModel) ?? "none"}, Using: ${JSON.stringify(selectedModel)}`
   );
 
   if (!parseResult.success) {
     logger.error(
       "POST",
-      `Invalid request body: ${parseResult.error.flatten().formErrors.join(", ")}`,
+      `Invalid request body: ${parseResult.error.flatten().formErrors.join(", ")}`
     );
 
-    return new Response(
-      JSON.stringify({ error: "Invalid request body", status: 400 }),
-      { status: 400, headers: { "Content-Type": "application/json" } },
-    );
+    return new Response(JSON.stringify({ error: "Invalid request body", status: 400 }), {
+      status: 400,
+      headers: { "Content-Type": "application/json" },
+    });
   }
 
   const { message: incomingMessage, id, zeroDataRetention } = parseResult.data;
@@ -88,10 +85,10 @@ export async function POST(req: Request) {
   const clerkUser = await auth();
 
   if (!clerkUser || !clerkUser.userId) {
-    return new Response(
-      JSON.stringify({ error: "Unauthorized", status: 401 }),
-      { status: 401, headers: { "Content-Type": "application/json" } },
-    );
+    return new Response(JSON.stringify({ error: "Unauthorized", status: 401 }), {
+      status: 401,
+      headers: { "Content-Type": "application/json" },
+    });
   }
 
   const sbUserIdResult = await getSupabaseUserId(clerkUser.userId);
@@ -102,19 +99,20 @@ export async function POST(req: Request) {
         error: "User not found in supabase",
         status: 404,
       }),
-      { status: 404, headers: { "Content-Type": "application/json" } },
+      { status: 404, headers: { "Content-Type": "application/json" } }
     );
   }
   const sbUserId = sbUserIdResult.data;
 
   const messageLimitResult = await checkLlmMessageLimit(sbUserId);
+
   if (!messageLimitResult.success) {
     return new Response(
       JSON.stringify({
         error: messageLimitResult.error ?? "Too many requests",
         status: 429,
       }),
-      { status: 429, headers: { "Content-Type": "application/json" } },
+      { status: 429, headers: { "Content-Type": "application/json" } }
     );
   }
 
@@ -129,7 +127,7 @@ export async function POST(req: Request) {
 
   logger.log(
     "POST",
-    `Received message metadata: id=${message.id ?? "unknown"} role=${message.role} parts=${message.parts?.length ?? 0}`,
+    `Received message metadata: id=${message.id ?? "unknown"} role=${message.role} parts=${message.parts?.length ?? 0}`
   );
 
   // Save the user message
@@ -165,22 +163,12 @@ export async function POST(req: Request) {
         });
 
         if (chatContextResult.error) {
-          logger.error(
-            "POST",
-            `Error getting chat context: ${chatContextResult.error}`,
-          );
+          logger.error("POST", `Error getting chat context: ${chatContextResult.error}`);
           validatedMessages = [message];
-          logger.debug(
-            "context",
-            "Context failed; using only incoming message",
-          );
+          logger.debug("context", "Context failed; using only incoming message");
         } else {
-          validatedMessages = [
-            ...(chatContextResult.data?.messages ?? []),
-            message,
-          ];
-          systemPromptForRequest =
-            chatContextResult.data?.context ?? systemPromptForRequest;
+          validatedMessages = [...(chatContextResult.data?.messages ?? []), message];
+          systemPromptForRequest = chatContextResult.data?.context ?? systemPromptForRequest;
           logger.debug("context", "Context gathered", {
             historyMessageCount: chatContextResult.data?.messages?.length ?? 0,
             contextLength: chatContextResult.data?.context?.length ?? 0,
@@ -189,10 +177,7 @@ export async function POST(req: Request) {
         }
       } catch (err) {
         if (err instanceof TypeValidationError) {
-          logger.error(
-            "POST",
-            `Database messages validation failed: ${err.message}`,
-          );
+          logger.error("POST", `Database messages validation failed: ${err.message}`);
           validatedMessages = [message];
         } else {
           throw err;
@@ -206,7 +191,7 @@ export async function POST(req: Request) {
     \n\n--------------------------------\n\n
     ${validatedMessages.length} messages being sent to LLM
     Model: ${selectedModel}
-    `,
+    `
       );
 
       logger.debug("messages", "Messages being sent to LLM", {
@@ -218,6 +203,7 @@ export async function POST(req: Request) {
             content?: string | unknown[];
           };
           const content = msg.content;
+
           return {
             role: msg.role ?? "unknown",
             id: msg.id,
@@ -253,18 +239,19 @@ export async function POST(req: Request) {
       });
 
       const toolNames = Object.keys(tools);
+
       logger.debug("tools", "Compiled tools", {
         toolNames,
         toolCount: toolNames.length,
         toolInstructionsLength: toolInstructions.length,
         toolInstructionsPreview:
-          toolInstructions.slice(0, 300) +
-          (toolInstructions.length > 300 ? "…" : ""),
+          toolInstructions.slice(0, 300) + (toolInstructions.length > 300 ? "…" : ""),
       });
 
       const hasTools = toolNames.length > 0;
       // One round of tool use + one round of response; avoids redundant multi-step searches
       const maxSteps = hasTools ? MAX_TOOL_STEPS : 2;
+
       if (hasTools) {
         systemPromptForRequest += `\n\nTool Instructions:\n${toolInstructions}`;
       }
@@ -357,10 +344,8 @@ export async function POST(req: Request) {
           onFinish: async ({ messages, isAborted, finishReason }) => {
             logger.log("POST", `FINISH REASON: ${finishReason}`);
             if (!finishReason && !isAborted) {
-              logger.error(
-                "POST",
-                "No finish reason provided, assuming failure",
-              );
+              logger.error("POST", "No finish reason provided, assuming failure");
+
               return;
             }
             switch (finishReason) {
@@ -368,10 +353,7 @@ export async function POST(req: Request) {
                 logger.error("POST", "LLM encountered an error.");
                 break;
               case "length":
-                logger.warn(
-                  "POST",
-                  "LLM response stopped due to reaching max limit.",
-                );
+                logger.warn("POST", "LLM response stopped due to reaching max limit.");
                 break;
             }
 
@@ -396,22 +378,19 @@ export async function POST(req: Request) {
 
             logger.log(
               "POST",
-              `Model (${selectedModel.id}) generated response in ${modelGenerationTime.toFixed(2)}ms (${(modelGenerationTime / 1000).toFixed(2)}s)`,
+              `Model (${selectedModel.id}) generated response in ${modelGenerationTime.toFixed(2)}ms (${(modelGenerationTime / 1000).toFixed(2)}s)`
             );
 
             try {
               // TODO: Consider moving activeStreamId clearing to after successful save
-              const { result: saveResult, durationMs: saveChatMs } =
-                await measureAsync(() =>
-                  saveChat({ chatId: id, messages, activeStreamId: null }),
-                );
+              const { result: saveResult, durationMs: saveChatMs } = await measureAsync(() =>
+                saveChat({ chatId: id, messages, activeStreamId: null })
+              );
+
               metrics.saveChatMs = saveChatMs;
 
               if (saveResult.error) {
-                logger.error(
-                  "POST",
-                  `Error saving chat: ${saveResult.error.message}`,
-                );
+                logger.error("POST", `Error saving chat: ${saveResult.error.message}`);
 
                 return; // Don't continue if save fails
               }
@@ -422,30 +401,31 @@ export async function POST(req: Request) {
 
                 // Use title status fetched earlier (or from request); by now the promise has had time to resolve
                 const threadHasTitleResult = await threadHasTitlePromise;
-                const threadAlreadyHasTitle =
-                  threadHasTitleResult.data === true;
+                const threadAlreadyHasTitle = threadHasTitleResult.data === true;
 
                 // Use persisted message count so title generation is based on DB state, not transient stream state.
                 const messageCountResult = await getMessageCount(id);
-                const persistedMessageCount =
-                  messageCountResult.data ?? messages.length;
+                const persistedMessageCount = messageCountResult.data ?? messages.length;
+
                 if (messageCountResult.error) {
                   logger.error(
                     "POST",
-                    `Error getting message count for title generation: ${messageCountResult.error}`,
+                    `Error getting message count for title generation: ${messageCountResult.error}`
                   );
                 }
 
                 // Ensure chat has an LLM-generated title only when we have enough persisted messages and don't already have one
                 if (!threadAlreadyHasTitle && persistedMessageCount >= 4) {
-                  const { result: titleResult, durationMs } =
-                    await measureAsync(() => ensureChatHasTitle(id));
+                  const { result: titleResult, durationMs } = await measureAsync(() =>
+                    ensureChatHasTitle(id)
+                  );
+
                   ensureChatHasTitleMs = durationMs;
 
                   if (titleResult.error) {
                     logger.error(
                       "POST",
-                      `Error ensuring chat has title: ${titleResult.error.message}`,
+                      `Error ensuring chat has title: ${titleResult.error.message}`
                     );
                   } else {
                     writer.write({
@@ -458,14 +438,11 @@ export async function POST(req: Request) {
                     });
                   }
                 } else if (threadAlreadyHasTitle) {
-                  logger.log(
-                    "POST",
-                    "Chat already has title; skipping title generation",
-                  );
+                  logger.log("POST", "Chat already has title; skipping title generation");
                 } else {
                   logger.log(
                     "POST",
-                    `Skipping title generation: only ${persistedMessageCount} persisted messages (need >= 4)`,
+                    `Skipping title generation: only ${persistedMessageCount} persisted messages (need >= 4)`
                   );
                 }
 
@@ -475,37 +452,32 @@ export async function POST(req: Request) {
                 if (!aiResponse) {
                   logger.error(
                     "POST",
-                    "No AI response found in messages; skipping post-processing",
+                    "No AI response found in messages; skipping post-processing"
                   );
+
                   return;
                 }
 
-                const updateSummaryResult = await measureAsync(() =>
-                  updateChatSummary(id),
-                );
+                const updateSummaryResult = await measureAsync(() => updateChatSummary(id));
+
                 metrics.updateChatSummaryMs = updateSummaryResult.durationMs;
 
                 if (memoryEnabled) {
                   const addMemoryResult = await measureAsync(() =>
-                    addLatestMessagesToMemory(
-                      [userMessage, aiResponse],
-                      sbUserId,
-                      id,
-                    ).catch((err) => {
-                      logger.error(
-                        "POST",
-                        `Error adding latest messages to memory: ${err}`,
-                      );
-                    }),
+                    addLatestMessagesToMemory([userMessage, aiResponse], sbUserId, id).catch(
+                      (err) => {
+                        logger.error("POST", `Error adding latest messages to memory: ${err}`);
+                      }
+                    )
                   );
-                  metrics.addLatestMessagesToMemoryMs =
-                    addMemoryResult.durationMs;
+
+                  metrics.addLatestMessagesToMemoryMs = addMemoryResult.durationMs;
                 }
 
                 if (updateSummaryResult.result?.error) {
                   logger.error(
                     "POST",
-                    `Error updating chat summary: ${updateSummaryResult.result.error}`,
+                    `Error updating chat summary: ${updateSummaryResult.result.error}`
                   );
                 }
 
@@ -514,10 +486,7 @@ export async function POST(req: Request) {
                   metrics.ensureChatHasTitleMs = ensureChatHasTitleMs;
                 }
 
-                logger.log(
-                  "POST",
-                  `onFinish metrics: ${JSON.stringify(metrics)}`,
-                );
+                logger.log("POST", `onFinish metrics: ${JSON.stringify(metrics)}`);
               })().catch((err) => {
                 logger.error("POST", `Error in post-processing task: ${err}`);
               });
@@ -525,7 +494,7 @@ export async function POST(req: Request) {
               logger.error("POST", `Error in onFinish callback: ${err}`);
             }
           },
-        }),
+        })
       );
     },
   });
@@ -566,6 +535,7 @@ const compileTools = async ({
 
   if (useMemory) {
     const memorySearchTool = createMemorySearchTool(sbUserId);
+
     tools["search_memories"] = memorySearchTool;
     toolInstructions +=
       "You have access to a vector based memory search tool. Use this when you need to recall specific details, preferences, or context from previous interactions.\n";
@@ -576,10 +546,7 @@ const compileTools = async ({
       "You have access to an advanced web search tool. When using the web search tool, prefer to use a few searches. If the first result answers the question, respond to the user without calling tools again.\n";
   }
   if (useGetMoreMessages && chatId != null && initialMessageCount != null) {
-    tools["get_more_chat_history"] = createGetMoreMessagesTool(
-      chatId,
-      initialMessageCount,
-    );
+    tools["get_more_chat_history"] = createGetMoreMessagesTool(chatId, initialMessageCount);
     tools["get_full_chat_history"] = createGetFullChatHistoryTool(chatId);
     tools["get_messages_from_date"] = createGetMessagesFromDateTool(chatId);
     toolInstructions +=
@@ -594,5 +561,6 @@ const compileTools = async ({
     toolInstructions +=
       "Prefer fewer tool calls when possible. If the first result answers the question, respond to the user without calling tools again.\n";
   }
+
   return { tools, toolInstructions: toolInstructions.trim() };
 };

@@ -20,6 +20,7 @@ function styleFor(section: ProfileSection): SectionStyle {
   if (section.children?.length) return "card";
   if (section.body && !section.items?.length) return "open";
   if (section.body && section.items?.length) return "open";
+
   return "card";
 }
 
@@ -53,6 +54,7 @@ function buildLayout(sections: ProfileSection[]): LayoutRow[] {
     } else {
       // Card — full-width if it has children, otherwise half (pair-able)
       const needsFull = Boolean(section.children?.length);
+
       if (needsFull) {
         flushPending();
         rows.push({ kind: "cards", sections: [section] });
@@ -65,6 +67,7 @@ function buildLayout(sections: ProfileSection[]): LayoutRow[] {
     }
   }
   flushPending();
+
   return rows;
 }
 
@@ -84,9 +87,9 @@ const NOISE_SVG = `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/
 function NoiseOverlay() {
   return (
     <div
+      aria-hidden
       className="pointer-events-none absolute inset-0 rounded-2xl mix-blend-overlay opacity-60 dark:opacity-40"
       style={{ backgroundImage: NOISE_SVG, backgroundRepeat: "repeat" }}
-      aria-hidden
     />
   );
 }
@@ -104,12 +107,12 @@ function OpenSection({
   const hasItems = Boolean(section.items?.length);
 
   return (
-    <section className="px-1" aria-labelledby={section.id}>
+    <section aria-labelledby={section.id} className="px-1">
       <h2
-        id={section.id}
         className={`mb-4 text-[11px] font-semibold uppercase tracking-widest ${
           isPlaceholder ? "text-muted-foreground/40" : "text-muted-foreground/50"
         }`}
+        id={section.id}
       >
         {section.title}
       </h2>
@@ -117,9 +120,7 @@ function OpenSection({
       {hasBody && (
         <p
           className={`max-w-[58ch] text-[15px] leading-[1.75] md:text-base md:leading-[1.8] ${
-            isPlaceholder
-              ? "text-muted-foreground italic"
-              : "text-foreground/75"
+            isPlaceholder ? "text-muted-foreground italic" : "text-foreground/75"
           }`}
         >
           {section.body}
@@ -133,9 +134,10 @@ function OpenSection({
               key={`${section.id}-${i}`}
               className={`
                 rounded-full px-3 py-1 text-xs font-medium
-                ${isPlaceholder
-                  ? "bg-muted/30 text-muted-foreground/50"
-                  : "bg-muted/50 text-foreground/60 dark:bg-muted/30"
+                ${
+                  isPlaceholder
+                    ? "bg-muted/30 text-muted-foreground/50"
+                    : "bg-muted/50 text-foreground/60 dark:bg-muted/30"
                 }
               `}
             >
@@ -169,12 +171,12 @@ function CardSection({
   if (isPlaceholder) {
     return (
       <section
-        className="rounded-2xl border border-dashed border-border bg-muted/20 px-6 py-6 md:px-8 md:py-8"
         aria-labelledby={section.id}
+        className="rounded-2xl border border-dashed border-border bg-muted/20 px-6 py-6 md:px-8 md:py-8"
       >
         <h2
-          id={section.id}
           className="mb-4 text-[11px] font-semibold uppercase tracking-widest text-muted-foreground/60"
+          id={section.id}
         >
           {section.title}
         </h2>
@@ -201,6 +203,7 @@ function CardSection({
 
   return (
     <section
+      aria-labelledby={section.id}
       className={`
         group relative overflow-hidden rounded-2xl
         border border-border/40
@@ -211,13 +214,12 @@ function CardSection({
         dark:border-border/30
         dark:hover:shadow-black/20
       `}
-      aria-labelledby={section.id}
     >
       <NoiseOverlay />
 
       <h2
-        id={section.id}
         className="relative mb-4 text-[11px] font-semibold uppercase tracking-widest text-muted-foreground/70"
+        id={section.id}
       >
         {section.title}
       </h2>
@@ -250,11 +252,11 @@ function CardSection({
       )}
 
       {hasChildren && (
-        <div className={`relative grid gap-5 ${hasBody ? "mt-6" : ""} ${
-          isFull && section.children!.length >= 2
-            ? "grid-cols-1 sm:grid-cols-2"
-            : "grid-cols-1"
-        }`}>
+        <div
+          className={`relative grid gap-5 ${hasBody ? "mt-6" : ""} ${
+            isFull && section.children!.length >= 2 ? "grid-cols-1 sm:grid-cols-2" : "grid-cols-1"
+          }`}
+        >
           {section.children!.map((child) => (
             <div
               key={child.id}
@@ -269,9 +271,7 @@ function CardSection({
                 {child.title}
               </h3>
               {child.body && (
-                <p className="text-sm leading-relaxed text-foreground/75">
-                  {child.body}
-                </p>
+                <p className="text-sm leading-relaxed text-foreground/75">{child.body}</p>
               )}
               {child.items?.length ? (
                 <div className="flex flex-wrap gap-2">
@@ -310,42 +310,37 @@ export function ProfileTreeView({ tree, isPlaceholder }: ProfileTreeViewProps) {
       {layout.map((row, rowIdx) => {
         if (row.kind === "open") {
           return (
-            <OpenSection
-              key={row.section.id}
-              section={row.section}
-              isPlaceholder={isPlaceholder}
-            />
+            <OpenSection key={row.section.id} isPlaceholder={isPlaceholder} section={row.section} />
           );
         }
 
         // Card row — single or paired
         if (row.sections.length === 1) {
           const idx = cardColorIdx++;
+
           return (
             <CardSection
               key={row.sections[0].id}
-              section={row.sections[0]}
-              isPlaceholder={isPlaceholder}
-              colorIndex={idx}
               isFull
+              colorIndex={idx}
+              isPlaceholder={isPlaceholder}
+              section={row.sections[0]}
             />
           );
         }
 
         return (
-          <div
-            key={`row-${rowIdx}`}
-            className="grid grid-cols-1 gap-5 sm:grid-cols-2"
-          >
+          <div key={`row-${rowIdx}`} className="grid grid-cols-1 gap-5 sm:grid-cols-2">
             {row.sections.map((section) => {
               const idx = cardColorIdx++;
+
               return (
                 <CardSection
                   key={section.id}
-                  section={section}
-                  isPlaceholder={isPlaceholder}
                   colorIndex={idx}
                   isFull={false}
+                  isPlaceholder={isPlaceholder}
+                  section={section}
                 />
               );
             })}

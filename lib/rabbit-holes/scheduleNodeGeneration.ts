@@ -1,9 +1,11 @@
 "use server";
 
 import { after } from "next/server";
+
+import { runGenerationAndPersist } from "./runGenerationAndPersist";
+
 import { saveSession } from "@/data/supabase/rabbitholes";
 import { RabbitHoleSessionSchema } from "@/lib/schemas/rabbitHoleSchemas";
-import { runGenerationAndPersist } from "./runGenerationAndPersist";
 
 /**
  * Normalize a raw session so stub/optimistic nodes satisfy schema (keyTakeaways >= 3,
@@ -13,18 +15,19 @@ function normalizeSessionForSchedule(raw: unknown): unknown {
   if (!raw || typeof raw !== "object") return raw;
   const o = raw as Record<string, unknown>;
   const nodesById = o.nodesById as Record<string, Record<string, unknown>> | undefined;
+
   if (!nodesById || typeof nodesById !== "object") return raw;
 
   const normalizedNodes: Record<string, Record<string, unknown>> = {};
+
   for (const [nodeId, node] of Object.entries(nodesById)) {
     if (!node || typeof node !== "object") {
       normalizedNodes[nodeId] = node as Record<string, unknown>;
       continue;
     }
-    const keyTakeaways = Array.isArray(node.keyTakeaways)
-      ? (node.keyTakeaways as string[])
-      : [];
+    const keyTakeaways = Array.isArray(node.keyTakeaways) ? (node.keyTakeaways as string[]) : [];
     const defaultKeyTakeaways = ["Generating…", "…", "…"];
+
     normalizedNodes[nodeId] = {
       ...node,
       keyTakeaways:
@@ -35,6 +38,7 @@ function normalizeSessionForSchedule(raw: unknown): unknown {
             : [...keyTakeaways, ...defaultKeyTakeaways].slice(0, 3),
     };
   }
+
   return { ...o, nodesById: normalizedNodes };
 }
 
@@ -54,7 +58,7 @@ export type ScheduleNodeGenerationResult = {
  * Option B (later): can be swapped to enqueue a job and return the queue job id.
  */
 export async function scheduleNodeGeneration(
-  params: ScheduleNodeGenerationParams,
+  params: ScheduleNodeGenerationParams
 ): Promise<ScheduleNodeGenerationResult> {
   const { sessionId, nodeId, serializedSession } = params;
   const jobId = crypto.randomUUID();
@@ -63,10 +67,9 @@ export async function scheduleNodeGeneration(
     const raw = JSON.parse(serializedSession) as unknown;
     const normalized = normalizeSessionForSchedule(raw);
     const parsed = RabbitHoleSessionSchema.safeParse(normalized);
+
     if (!parsed.success) {
-      throw new Error(
-        `Invalid session for scheduling: ${parsed.error.message}`,
-      );
+      throw new Error(`Invalid session for scheduling: ${parsed.error.message}`);
     }
     const session = parsed.data;
     const sessionWithGenerating = {
@@ -74,9 +77,8 @@ export async function scheduleNodeGeneration(
       generatingNodeId: nodeId,
       generationStep: "sources" as const,
     };
-    const { ok, error } = await saveSession(
-      JSON.stringify(sessionWithGenerating),
-    );
+    const { ok, error } = await saveSession(JSON.stringify(sessionWithGenerating));
+
     if (!ok && error) {
       throw error;
     }

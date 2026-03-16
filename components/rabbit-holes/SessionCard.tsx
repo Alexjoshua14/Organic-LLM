@@ -1,10 +1,12 @@
 "use client";
 
+import type { RabbitHoleSessionMetadata } from "@/app/rabbitholes/_lib/sessionStorage";
+
 import { motion } from "framer-motion";
 import { Trash2, ArrowRight } from "lucide-react";
+
 import { formatDate } from "@/lib/format/stringFormatting";
 import { cn } from "@/lib/utils";
-import type { RabbitHoleSessionMetadata } from "@/app/rabbitholes/_lib/sessionStorage";
 
 export interface SessionCardProps {
   session: RabbitHoleSessionMetadata;
@@ -30,14 +32,14 @@ export function SessionCard({
   return (
     <motion.div
       key={session.sessionId}
-      initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
-      transition={{ delay: transitionDelay }}
       className={cn(
         "bg-card/80 backdrop-blur-sm rounded-lg border border-border shadow-sm",
         "transition-all group",
-        isInteractive && "hover:shadow-md cursor-pointer",
+        isInteractive && "hover:shadow-md cursor-pointer"
       )}
+      initial={{ opacity: 0, y: 20 }}
+      transition={{ delay: transitionDelay }}
       onClick={() => isInteractive && onClick?.(session.sessionId)}
     >
       <div className="p-6 flex items-start justify-between gap-4">
@@ -46,37 +48,34 @@ export function SessionCard({
             {session.rootQuestion}
           </h3>
           {session.summary && (
-            <p className="text-sm text-muted-foreground mb-3 line-clamp-2">
-              {session.summary}
-            </p>
+            <p className="text-sm text-muted-foreground mb-3 line-clamp-2">{session.summary}</p>
           )}
           <div className="flex items-center gap-4 text-xs text-muted-foreground">
             <span>{formatDate(session.updatedAt)}</span>
             <span>•</span>
             <span>
-              {session.pathLength} level{session.pathLength !== 1 ? "s" : ""}{" "}
-              explored
+              {session.pathLength} level{session.pathLength !== 1 ? "s" : ""} explored
             </span>
           </div>
         </div>
         <div className="flex items-center gap-2 shrink-0">
           {showDelete && onDelete && (
             <button
-              type="button"
               className="p-2 rounded-md text-muted-foreground hover:text-destructive hover:bg-card/30 opacity-0 group-hover:opacity-100 transition-opacity"
+              disabled={isDeleting}
+              type="button"
               onClick={(e) => {
                 e.stopPropagation();
                 onDelete(session.sessionId, e);
               }}
-              disabled={isDeleting}
             >
               <Trash2 size={16} />
             </button>
           )}
           {isInteractive && (
             <ArrowRight
-              size={16}
               className="text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity"
+              size={16}
             />
           )}
         </div>

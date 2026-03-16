@@ -22,24 +22,26 @@ export const WineLineListPartSchema = z.object({
 
 export type WineLineListPart = z.infer<typeof WineLineListPartSchema>;
 
-export function isWineLineListPart(
-  part: { type: string; data?: unknown },
-): part is WineLineListPart {
+export function isWineLineListPart(part: {
+  type: string;
+  data?: unknown;
+}): part is WineLineListPart {
   return part.type === "data-wineLineList" && part.data != null && "wines" in (part.data as object);
 }
 
 /** Extract wines from an assistant message that has a data-wineLineList part. */
 export function getWinesFromMessage(
-  parts: Array<{ type: string; data?: { wines?: WineEntry[] } }>,
+  parts: Array<{ type: string; data?: { wines?: WineEntry[] } }>
 ): WineEntry[] {
   const part = parts.find((p) => p.type === "data-wineLineList" && p.data?.wines);
+
   return part?.data?.wines ?? [];
 }
 
 /** Build a minimal UIMessage for persisting the wine list (e.g. after merge). */
 export function buildWineListMessage(
   messageId: string,
-  wines: WineEntry[],
+  wines: WineEntry[]
 ): { id: string; role: "assistant"; parts: WineLineListPart[] } {
   return {
     id: messageId,

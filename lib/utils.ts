@@ -41,7 +41,7 @@ export interface RetryConfig {
  */
 export async function retryWithBackoff<T>(
   fn: () => Promise<T>,
-  config: RetryConfig = {},
+  config: RetryConfig = {}
 ): Promise<T> {
   const {
     maxRetries = DEFAULT_RETRY_CONFIG.maxRetries,
@@ -92,14 +92,12 @@ export async function retryWithBackoff<T>(
  * @param a - First date string or Date or undefined/null
  * @param b - Second date string or Date or undefined/null
  */
-export function dateStringCompare(
-  a?: string | Date | null,
-  b?: string | Date | null,
-): -1 | 0 | 1 {
+export function dateStringCompare(a?: string | Date | null, b?: string | Date | null): -1 | 0 | 1 {
   const toDate = (x: string | Date | null | undefined): number => {
     if (!x) return NaN;
     if (x instanceof Date) return x.getTime();
     const d = new Date(x);
+
     return isNaN(d.getTime()) ? NaN : d.getTime();
   };
 
@@ -112,6 +110,7 @@ export function dateStringCompare(
 
   if (aTime < bTime) return -1;
   if (aTime > bTime) return 1;
+
   return 0;
 }
 

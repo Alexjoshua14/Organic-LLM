@@ -1,5 +1,6 @@
-import Page from '@/components/layout/page';
-import { PropagateLoader } from 'react-spinners'
+import { PropagateLoader } from "react-spinners";
+
+import Page from "@/components/layout/page";
 
 export default function ChatLoading() {
   return (

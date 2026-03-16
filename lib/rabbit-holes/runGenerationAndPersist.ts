@@ -1,3 +1,7 @@
+import type { GenerationStep, RabbitHoleSession } from "@/lib/schemas/rabbitHoleSchemas";
+
+import { runOneGenerationStep } from "./actions";
+
 import {
   advanceGenerationStep,
   getSessionById,
@@ -7,11 +11,6 @@ import {
 import { createLogger } from "@/lib/logger";
 import { supabaseServer } from "@/lib/supabase/server";
 import { supabaseAdmin } from "@/lib/supabase/supabase-admin";
-import type {
-  GenerationStep,
-  RabbitHoleSession,
-} from "@/lib/schemas/rabbitHoleSchemas";
-import { runOneGenerationStep } from "./actions";
 
 const logger = createLogger("lib/rabbit-holes/runGenerationAndPersist");
 
@@ -22,7 +21,7 @@ const logger = createLogger("lib/rabbit-holes/runGenerationAndPersist");
  */
 export async function clearGeneratingNodeId(
   sessionId: string,
-  client?: RabbitHolesSupabaseClient,
+  client?: RabbitHolesSupabaseClient
 ): Promise<void> {
   const supabase = client ?? (await supabaseServer());
   const { error } = await supabase
@@ -35,23 +34,18 @@ export async function clearGeneratingNodeId(
     .eq("session_id", sessionId);
 
   if (error) {
-    logger.error(
-      "clearGeneratingNodeId",
-      `Failed to clear generating_node_id: ${error.message}`,
-    );
+    logger.error("clearGeneratingNodeId", `Failed to clear generating_node_id: ${error.message}`);
     throw error;
   }
 }
 
-const STEP_ORDER: GenerationStep[] = [
-  "sources",
-  "article",
-  "branch_suggestions",
-];
+const STEP_ORDER: GenerationStep[] = ["sources", "article", "branch_suggestions"];
 
 function nextStep(step: GenerationStep): GenerationStep | null {
   const i = STEP_ORDER.indexOf(step);
+
   if (i < 0 || i >= STEP_ORDER.length - 1) return null;
+
   return STEP_ORDER[i + 1];
 }
 
@@ -59,20 +53,14 @@ function nextStep(step: GenerationStep): GenerationStep | null {
  * Step-aware orchestrator: loads session, reads generation_step, runs that step (with idempotency),
  * saves, advances step via conditional update (singularity). Loops until step is cleared.
  */
-export async function runGenerationAndPersist(
-  sessionId: string,
-  nodeId: string,
-): Promise<void> {
+export async function runGenerationAndPersist(sessionId: string, nodeId: string): Promise<void> {
   const admin = supabaseAdmin;
   let res = await getSessionById(sessionId, admin);
 
   if (res.error || !res.data) {
-    logger.error(
-      "runGenerationAndPersist",
-      "Session not found or error loading",
-      res.error,
-    );
+    logger.error("runGenerationAndPersist", "Session not found or error loading", res.error);
     await clearGeneratingNodeId(sessionId, admin);
+
     return;
   }
 
@@ -82,30 +70,29 @@ export async function runGenerationAndPersist(
   if (!node) {
     logger.error("runGenerationAndPersist", "Node not found", nodeId);
     await clearGeneratingNodeId(sessionId, admin);
+
     return;
   }
 
   if (node.articleHtml && node.articleHtml.trim().length > 0) {
     await clearGeneratingNodeId(sessionId, admin);
+
     return;
   }
 
   try {
-    let step: GenerationStep | null =
-      session.generationStep ?? "sources";
+    let step: GenerationStep | null = session.generationStep ?? "sources";
 
     while (step !== null) {
       const nodeAtStep = session.nodesById[nodeId];
+
       if (!nodeAtStep) break;
 
       let sessionToSave = session;
 
       if (step === "sources" && nodeAtStep.sources && nodeAtStep.sources.length > 0) {
         sessionToSave = session;
-      } else if (
-        step === "article" &&
-        nodeAtStep.articleHtml?.trim()
-      ) {
+      } else if (step === "article" && nodeAtStep.articleHtml?.trim()) {
         sessionToSave = session;
       } else if (
         step === "branch_suggestions" &&
@@ -115,13 +102,11 @@ export async function runGenerationAndPersist(
         sessionToSave = session;
       } else {
         const result = await runOneGenerationStep(session, nodeId, step);
+
         if (result.error || !result.data) {
-          logger.error(
-            "runGenerationAndPersist",
-            `Step ${step} failed`,
-            result.error,
-          );
+          logger.error("runGenerationAndPersist", `Step ${step} failed`, result.error);
           await clearGeneratingNodeId(sessionId, admin);
+
           return;
         }
         sessionToSave = result.data;
@@ -135,33 +120,28 @@ export async function runGenerationAndPersist(
         ...sessionToSave,
         generationStep: undefined as any,
       };
-      const saveResult = await saveSession(
-        JSON.stringify(sessionToPersist),
-        admin,
-      );
+      const saveResult = await saveSession(JSON.stringify(sessionToPersist), admin);
+
       if (saveResult.error) {
         logger.error(
           "runGenerationAndPersist",
           `Failed to save after step ${step}`,
-          saveResult.error,
+          saveResult.error
         );
         await clearGeneratingNodeId(sessionId, admin);
+
         return;
       }
 
       const toStep = nextStep(step);
-      const { updated } = await advanceGenerationStep(
-        sessionId,
-        nodeId,
-        step,
-        toStep,
-        admin,
-      );
+      const { updated } = await advanceGenerationStep(sessionId, nodeId, step, toStep, admin);
+
       if (!updated) {
         logger.error(
           "runGenerationAndPersist",
-          `Advance from ${step} failed (singularity conflict?)`,
+          `Advance from ${step} failed (singularity conflict?)`
         );
+
         return;
       }
 

@@ -1,5 +1,6 @@
 "use client";
 import { useTheme } from "next-themes";
+
 import { LiquidChrome as LiquidChromeComponent } from "@/components/third-party/reactbits/LiquidChrome/LiquidChrome";
 
 interface LiquidChromeProps {

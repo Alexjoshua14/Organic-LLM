@@ -35,14 +35,32 @@ const MODEL_COSTS: Record<string, ModelCost> = {
   "openai/gpt-4o": { inputPerMillion: 2.5, outputPerMillion: 10.0 },
   "openai/gpt-4o-mini": { inputPerMillion: 0.15, outputPerMillion: 0.6 },
   "openai/gpt-4-turbo": { inputPerMillion: 10.0, outputPerMillion: 30.0 },
-  "google/gemini-3-pro-preview": { inputPerMillion: 1.25, outputPerMillion: 10.0 },
+  "google/gemini-3-pro-preview": {
+    inputPerMillion: 1.25,
+    outputPerMillion: 10.0,
+  },
   "google/gemini-3-flash": { inputPerMillion: 0.15, outputPerMillion: 0.6 },
-  "google/gemini-2.5-flash-lite": { inputPerMillion: 0.075, outputPerMillion: 0.3 },
-  "anthropic/claude-opus-4-6": { inputPerMillion: 15.0, outputPerMillion: 75.0 },
-  "anthropic/claude-sonnet-4.6": { inputPerMillion: 3.0, outputPerMillion: 15.0 },
-  "anthropic/claude-haiku-4.5": { inputPerMillion: 0.25, outputPerMillion: 1.25 },
+  "google/gemini-2.5-flash-lite": {
+    inputPerMillion: 0.075,
+    outputPerMillion: 0.3,
+  },
+  "anthropic/claude-opus-4-6": {
+    inputPerMillion: 15.0,
+    outputPerMillion: 75.0,
+  },
+  "anthropic/claude-sonnet-4.6": {
+    inputPerMillion: 3.0,
+    outputPerMillion: 15.0,
+  },
+  "anthropic/claude-haiku-4.5": {
+    inputPerMillion: 0.25,
+    outputPerMillion: 1.25,
+  },
   "perplexity/sonar-pro": { inputPerMillion: 1.0, outputPerMillion: 1.0 },
-  "perplexity/sonar-reasoning-pro": { inputPerMillion: 3.0, outputPerMillion: 15.0 },
+  "perplexity/sonar-reasoning-pro": {
+    inputPerMillion: 3.0,
+    outputPerMillion: 15.0,
+  },
   "perplexity/sonar-reasoning": { inputPerMillion: 1.0, outputPerMillion: 1.0 },
   "moonshotai/kimi-k2.5": { inputPerMillion: 0.5, outputPerMillion: 2.0 },
   "deepseek/deepseek-v3.2": { inputPerMillion: 0.27, outputPerMillion: 1.1 },
@@ -63,12 +81,10 @@ export function getModelCost(modelId: string): ModelCost {
  */
 export function computeCost(modelId: string, usage: Usage): number {
   const cost = getModelCost(modelId);
-  const input =
-    (usage.promptTokens ?? usage.inputTokens ?? 0) / 1_000_000;
-  const output =
-    (usage.completionTokens ?? usage.outputTokens ?? 0) / 1_000_000;
-  const dollars =
-    input * cost.inputPerMillion + output * cost.outputPerMillion;
+  const input = (usage.promptTokens ?? usage.inputTokens ?? 0) / 1_000_000;
+  const output = (usage.completionTokens ?? usage.outputTokens ?? 0) / 1_000_000;
+  const dollars = input * cost.inputPerMillion + output * cost.outputPerMillion;
   const units = Math.ceil(dollars * 10_000);
+
   return Math.max(0, units);
 }

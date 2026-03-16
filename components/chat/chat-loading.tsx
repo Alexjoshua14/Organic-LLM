@@ -1,10 +1,10 @@
+import type { ExaSearchResultSource } from "@/lib/exa/types";
+
 import { ComponentProps, FC } from "react";
+import { ChevronDownIcon } from "lucide-react";
 
 import ShinyText from "../ShinyText";
-import type { ExaSearchResultSource } from "@/lib/exa/types";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "../third-party/ui/collapsible";
-import { ChevronDownIcon } from "lucide-react";
-import { Button } from "../third-party/ui/button";
 
 const TEXT_ANIMATION_SPEED = 1.2;
 
@@ -22,9 +22,10 @@ type ChatThinkingProps = {
   text?: string;
 };
 
-export const ChatThinking: FC<
-  ChatThinkingProps & Partial<ComponentProps<typeof ShinyText>>
-> = ({ text, ...props }) => {
+export const ChatThinking: FC<ChatThinkingProps & Partial<ComponentProps<typeof ShinyText>>> = ({
+  text,
+  ...props
+}) => {
   return (
     <ShinyText
       disabled={false}
@@ -39,9 +40,10 @@ type ChatReasoningProps = {
   text?: string;
 };
 
-export const ChatReasoning: FC<
-  ChatReasoningProps & Partial<ComponentProps<typeof ShinyText>>
-> = ({ text, ...props }) => {
+export const ChatReasoning: FC<ChatReasoningProps & Partial<ComponentProps<typeof ShinyText>>> = ({
+  text,
+  ...props
+}) => {
   return (
     <ShinyText
       disabled={false}
@@ -58,9 +60,12 @@ type ChatSearchingProps = {
   sources?: ExaSearchResultSource[];
 };
 
-export const ChatSearching: FC<
-  ChatSearchingProps & Partial<ComponentProps<typeof ShinyText>>
-> = ({ text, query, sources, ...props }) => {
+export const ChatSearching: FC<ChatSearchingProps & Partial<ComponentProps<typeof ShinyText>>> = ({
+  text,
+  query,
+  sources,
+  ...props
+}) => {
   return (
     <div className="flex flex-col gap-2 py-2">
       <ShinyText
@@ -70,7 +75,7 @@ export const ChatSearching: FC<
         {...props}
       />
       {sources && sources.length > 0 && (
-        <Collapsible className="pl-2 space-y-1" >
+        <Collapsible className="pl-2 space-y-1">
           <CollapsibleTrigger className="text-xs text-muted-foreground line-clamp-1 text-ellipsis flex gap-1.5 items-center justify-start pr-10 cursor-pointer group">
             {`${sources.length} sources`}
             <ChevronDownIcon className="size-3 transition-transform group-data-[state=open]:rotate-180 group-hover:scale-110" />
@@ -88,5 +93,5 @@ export const ChatSearching: FC<
         </Collapsible>
       )}
     </div>
-  )
-}
+  );
+};

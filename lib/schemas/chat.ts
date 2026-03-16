@@ -105,9 +105,7 @@ const UnknownPartSchema = z
   })
   .loose();
 
-const MessagePartSchema = z
-  .union([TextPartSchema, ToolInvocationPartSchema])
-  .or(UnknownPartSchema);
+const MessagePartSchema = z.union([TextPartSchema, ToolInvocationPartSchema]).or(UnknownPartSchema);
 
 export const UIMessageSchema = z
   .object({
@@ -120,13 +118,9 @@ export const UIMessageSchema = z
     totalTokens: z.number().optional(),
   })
   .loose() // Allow extra fields
-  .refine(
-    (message) =>
-      message.parts.length > 0 || typeof message.content === "string",
-    {
-      message: "Message must include parts or content",
-    },
-  );
+  .refine((message) => message.parts.length > 0 || typeof message.content === "string", {
+    message: "Message must include parts or content",
+  });
 
 export const ChatRequestSchema = z.object({
   message: UIMessageSchema,

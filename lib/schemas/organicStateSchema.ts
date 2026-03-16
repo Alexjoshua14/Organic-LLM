@@ -53,9 +53,7 @@ export type Checkpoint = z.infer<typeof CheckpointSchema>;
 export const GoalSchema = z.object({
   id: z.string().uuid(),
   label: z.string().min(1),
-  area: z
-    .enum(["native", "orchestration", "ux", "infra", "research"])
-    .default("native"),
+  area: z.enum(["native", "orchestration", "ux", "infra", "research"]).default("native"),
   targetDate: z.string().datetime().optional(),
   status: z.enum(["planned", "in_progress", "done"]).default("planned"),
   createdAt: z.string().datetime(),

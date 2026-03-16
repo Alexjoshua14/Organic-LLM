@@ -3,11 +3,7 @@
  * v1: fixture and ephemeral only; architecture allows test-user and mem0-sandbox later.
  */
 
-export type SandboxEnvironmentType =
-  | "fixture"
-  | "ephemeral"
-  | "test-user"
-  | "mem0-sandbox";
+export type SandboxEnvironmentType = "fixture" | "ephemeral" | "test-user" | "mem0-sandbox";
 
 export type FixtureState = {
   /** e.g. "rabbit-holes" – which fixture set is loaded */
@@ -47,10 +43,7 @@ export const DEFAULT_ENVIRONMENT: SandboxEnvironment = {
   state: { fixtureSet: "rabbit-holes", label: "Rabbit Holes fixtures" },
 };
 
-export function createFixtureEnvironment(
-  fixtureSet: string,
-  label?: string
-): SandboxEnvironment {
+export function createFixtureEnvironment(fixtureSet: string, label?: string): SandboxEnvironment {
   return {
     type: "fixture",
     state: { fixtureSet, label: label ?? fixtureSet },

@@ -6,19 +6,14 @@ import { DefaultChatTransport, UIMessage } from "ai";
 
 import { PrometheusInput, PrometheusResponse } from "@/components/prometheus";
 import Page from "@/components/layout/page";
-import {
-  isClientPIIRedactionEnabled,
-  redactPII,
-} from "@/lib/pii/redact";
+import { isClientPIIRedactionEnabled, redactPII } from "@/lib/pii/redact";
 
 export default function PrometheusPage() {
   const [isLoading, setIsLoading] = useState(false);
 
   const PROMETHEUS_PROJECT = process.env.NEXT_PUBLIC_PROMETHEUS_PROJECT;
 
-  const [messageDisplayed, setMessageDisplayed] = useState<UIMessage | null>(
-    null,
-  );
+  const [messageDisplayed, setMessageDisplayed] = useState<UIMessage | null>(null);
 
   const { messages, sendMessage } = useChat({
     id: PROMETHEUS_PROJECT,
@@ -34,6 +29,7 @@ export default function PrometheusPage() {
     setIsLoading(true);
     try {
       const textToSend = isClientPIIRedactionEnabled() ? redactPII(text) : text;
+
       sendMessage({
         text: textToSend,
       });
@@ -104,10 +100,7 @@ export default function PrometheusPage() {
           {/* Response Area - Takes up remaining space, only shows when there's a response */}
           <div className="flex-1 max-w-[75vw] md:max-w-2xl min-w-[350px] flex items-start w-full">
             <div className="w-full h-full max-h-[40vh]">
-              <PrometheusResponse
-                isLoading={isLoading}
-                response={messageDisplayed}
-              />
+              <PrometheusResponse isLoading={isLoading} response={messageDisplayed} />
             </div>
           </div>
         </div>

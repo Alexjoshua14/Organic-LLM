@@ -20,13 +20,14 @@ export function AccountDeletion() {
       <div className="flex flex-col gap-2">
         <h4 className="text-sm font-medium text-foreground">Account deletion</h4>
         <p className="text-sm text-muted-foreground">
-          Permanently delete your account and all associated data. This action is destructive and cannot be undone.
+          Permanently delete your account and all associated data. This action is destructive and
+          cannot be undone.
         </p>
         <Button
+          className="w-fit"
+          size="sm"
           type="button"
           variant="destructive"
-          size="sm"
-          className="w-fit"
           onClick={() => setModalOpen(true)}
         >
           Delete account
@@ -38,15 +39,19 @@ export function AccountDeletion() {
           <DialogHeader>
             <DialogTitle>Account deletion</DialogTitle>
             <DialogDescription>
-              Account deletion is not yet implemented in the app. To request deletion of your account and data, please contact us at{" "}
-              <a href="mailto:coalescencelabs@gmail.com" className="text-primary underline hover:no-underline">
+              Account deletion is not yet implemented in the app. To request deletion of your
+              account and data, please contact us at{" "}
+              <a
+                className="text-primary underline hover:no-underline"
+                href="mailto:coalescencelabs@gmail.com"
+              >
                 coalescencelabs@gmail.com
               </a>
               .
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
-            <Button variant="outline" size="sm" onClick={() => setModalOpen(false)}>
+            <Button size="sm" variant="outline" onClick={() => setModalOpen(false)}>
               Close
             </Button>
           </DialogFooter>

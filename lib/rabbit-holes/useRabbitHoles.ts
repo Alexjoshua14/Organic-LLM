@@ -1,5 +1,11 @@
 "use client";
 
+import { useCallback, useContext, useEffect, useState, useTransition } from "react";
+
+import { RabbitHoleContext } from "../context/rabbithole-context";
+
+import { analyzeSource, generateQuickPreview } from "./actions";
+
 import {
   RabbitHoleSession,
   RabbitHoleNodeId,
@@ -7,19 +13,10 @@ import {
   RabbitHoleSourceAnalysis,
   RabbitHoleNode,
 } from "@/lib/schemas/rabbitHoleSchemas";
-import {
-  useCallback,
-  useContext,
-  useEffect,
-  useState,
-  useTransition,
-} from "react";
 import { useGenerationCompletion } from "@/lib/rabbit-holes/useGenerationCompletion";
 import { createLogger } from "@/lib/logger";
-import { analyzeSource, generateQuickPreview } from "./actions";
 import { Result, SimpleResult } from "@/types";
 import { getSessionById, saveSession } from "@/data/supabase/rabbitholes";
-import { RabbitHoleContext } from "../context/rabbithole-context";
 import { clientRandomUUID } from "@/lib/client-uuid";
 
 const logger = createLogger("useRabbitHoles");
@@ -55,23 +52,18 @@ export interface UseRabbitHolesReturn {
  */
 export function useRabbitHoles(): UseRabbitHolesReturn {
   const [session, setSession] = useState<RabbitHoleSession | null>(null);
-  const [activeNodeId, setActiveNodeId] = useState<RabbitHoleNodeId | null>(
-    null,
-  );
+  const [activeNodeId, setActiveNodeId] = useState<RabbitHoleNodeId | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [isSavingSession, setIsSavingSession] = useState(false);
   const [isGeneratingNode, startTransition] = useTransition();
-  const [generatingNodeId, setGeneratingNodeId] =
-    useState<RabbitHoleNodeId | null>(null);
+  const [generatingNodeId, setGeneratingNodeId] = useState<RabbitHoleNodeId | null>(null);
   const [preview, setPreview] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [selectedSourceId, setSelectedSourceId] = useState<string | null>(null);
-  const [sourceAnalysis, setSourceAnalysis] =
-    useState<RabbitHoleSourceAnalysis | null>(null);
+  const [sourceAnalysis, setSourceAnalysis] = useState<RabbitHoleSourceAnalysis | null>(null);
   const [isAnalyzingSource, setIsAnalyzingSource] = useState(false);
 
-  const { session: ctxSession, setSession: setCtxSession } =
-    useContext(RabbitHoleContext);
+  const { session: ctxSession, setSession: setCtxSession } = useContext(RabbitHoleContext);
 
   useEffect(() => {
     // Keep context in sync
@@ -80,19 +72,16 @@ export function useRabbitHoles(): UseRabbitHolesReturn {
     }
   }, [session]);
 
-  const handleGenerationComplete = useCallback(
-    (updated: RabbitHoleSession) => {
-      setSession(updated);
-      setGeneratingNodeId(null);
-      setPreview(null);
-    },
-    [],
-  );
+  const handleGenerationComplete = useCallback((updated: RabbitHoleSession) => {
+    setSession(updated);
+    setGeneratingNodeId(null);
+    setPreview(null);
+  }, []);
 
   useGenerationCompletion(
     session?.sessionId ?? null,
     session?.generatingNodeId ?? null,
-    handleGenerationComplete,
+    handleGenerationComplete
   );
 
   /**
@@ -118,6 +107,7 @@ export function useRabbitHoles(): UseRabbitHolesReturn {
       };
     } catch (error) {
       logger.error("newSession", "Error creating new session", error);
+
       return {
         data: null,
         error: error instanceof Error ? error : new Error("Unknown error"),
@@ -131,8 +121,10 @@ export function useRabbitHoles(): UseRabbitHolesReturn {
    */
   function createSession() {
     const res = newSession();
+
     if (res.error || !res.data) {
       setError(res.error?.message ?? "Unknown error creating new session");
+
       return;
     }
 
@@ -156,13 +148,11 @@ export function useRabbitHoles(): UseRabbitHolesReturn {
     setIsLoading(true);
     try {
       const res = await getSessionById(sessionId);
+
       if (res.error || !res.data) {
-        logger.error(
-          "loadExistingSession",
-          "Error loading existing session",
-          res.error,
-        );
+        logger.error("loadExistingSession", "Error loading existing session", res.error);
         setError(res.error?.message ?? "Unknown error loading session");
+
         return {
           ok: false,
           error: res.error ?? new Error("Unknown error loading session"),
@@ -170,31 +160,27 @@ export function useRabbitHoles(): UseRabbitHolesReturn {
       }
 
       const session = res.data;
+
       setSession(session);
       setActiveNodeId(session.activeNodeId ?? session.rootNodeId ?? null);
       // If a node is still generating, restore generating state + preview from the session
       if (session.generatingNodeId) {
         setGeneratingNodeId(session.generatingNodeId);
         const generatingNode = session.nodesById[session.generatingNodeId];
+
         if (generatingNode && generatingNode.preview) {
           setPreview(generatingNode.preview);
         }
       }
+
       return {
         ok: true,
         error: null,
       };
     } catch (error) {
-      logger.error(
-        "loadExistingSession",
-        "Error loading existing session",
-        error,
-      );
-      setError(
-        error instanceof Error
-          ? error.message
-          : "Unknown loading session error",
-      );
+      logger.error("loadExistingSession", "Error loading existing session", error);
+      setError(error instanceof Error ? error.message : "Unknown loading session error");
+
       return {
         ok: false,
         error: error instanceof Error ? error : new Error("Unknown error"),
@@ -239,12 +225,10 @@ export function useRabbitHoles(): UseRabbitHolesReturn {
    * The result indicates whether the exploration and node creation succeeded or failed,
    * and provides an Error object describing the issue if it failed.
    */
-  async function exploreQuestion(
-    question: string,
-    id?: string,
-  ): Promise<SimpleResult> {
+  async function exploreQuestion(question: string, id?: string): Promise<SimpleResult> {
     if (!question.trim()) {
       setError("Please enter a question");
+
       return {
         ok: false,
         error: new Error("Please enter a question"),
@@ -257,24 +241,18 @@ export function useRabbitHoles(): UseRabbitHolesReturn {
 
     try {
       let baseSession: RabbitHoleSession;
+
       /** Create new session if one doesn't exist */
       if (!session) {
         const newSessionResult = await newSession();
+
         if (newSessionResult.error || !newSessionResult.data) {
-          logger.error(
-            "exploreQuestion",
-            "Error creating new session",
-            newSessionResult.error,
-          );
-          setError(
-            newSessionResult.error?.message ??
-              "Unknown error creating new session",
-          );
+          logger.error("exploreQuestion", "Error creating new session", newSessionResult.error);
+          setError(newSessionResult.error?.message ?? "Unknown error creating new session");
+
           return {
             ok: false,
-            error:
-              newSessionResult.error ??
-              new Error("Unknown error creating new session"),
+            error: newSessionResult.error ?? new Error("Unknown error creating new session"),
           };
         }
 
@@ -287,14 +265,12 @@ export function useRabbitHoles(): UseRabbitHolesReturn {
       const node = createNode(question, id);
 
       /* Check if this is the root node */
-      const isFirstNode =
-        !baseSession.rootNodeId && baseSession.path.length === 0;
+      const isFirstNode = !baseSession.rootNodeId && baseSession.path.length === 0;
 
       /** Create copy of session object for temporary updates */
       let updatedSession: RabbitHoleSession = {
         ...baseSession,
-        rootQuestion:
-          baseSession.rootQuestion === "" ? question : baseSession.rootQuestion,
+        rootQuestion: baseSession.rootQuestion === "" ? question : baseSession.rootQuestion,
         rootNodeId: isFirstNode ? node.id : baseSession.rootNodeId,
         activeNodeId: node.id,
         updatedAt: new Date().toISOString(),
@@ -317,17 +293,14 @@ export function useRabbitHoles(): UseRabbitHolesReturn {
       setSession(updatedSession);
 
       /* First save on send: call generate API before preview so server persists session and kicks off orchestrator. */
-      const res = await fetch(
-        `/api/rabbitholes/${baseSession.sessionId}/generate`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            nodeId: node.id,
-            session: JSON.stringify(updatedSession),
-          }),
-        },
-      );
+      const res = await fetch(`/api/rabbitholes/${baseSession.sessionId}/generate`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          nodeId: node.id,
+          session: JSON.stringify(updatedSession),
+        }),
+      });
 
       if (res.status === 202) {
         const json = (await res.json()) as {
@@ -335,6 +308,7 @@ export function useRabbitHoles(): UseRabbitHolesReturn {
           sessionId: string;
           nodeId: string;
         };
+
         setSession({
           ...updatedSession,
           generatingNodeId: json.nodeId,
@@ -343,13 +317,10 @@ export function useRabbitHoles(): UseRabbitHolesReturn {
         /* Preview in parallel after 202 so UI can show it without blocking first save. */
         generateQuickPreview(question).then((quickPreview) => {
           if (quickPreview.error) {
-            logger.error(
-              "exploreQuestion",
-              "Error generating quick preview",
-              quickPreview.error,
-            );
+            logger.error("exploreQuestion", "Error generating quick preview", quickPreview.error);
             setError(quickPreview.error.message);
             setPreview("Unable to generate preview");
+
             return;
           }
 
@@ -360,6 +331,7 @@ export function useRabbitHoles(): UseRabbitHolesReturn {
             setSession((prev) => {
               if (!prev || !prev.generatingNodeId) return prev;
               const node = prev.nodesById[prev.generatingNodeId];
+
               if (!node) return prev;
 
               const updatedNode: RabbitHoleNode = {
@@ -376,12 +348,14 @@ export function useRabbitHoles(): UseRabbitHolesReturn {
 
               // Fire-and-forget save; errors will surface via logger in saveSessionToStorage.
               void saveSessionToStorage(updatedSession);
+
               return updatedSession;
             });
           }
         });
       } else {
-        const body = await res.json().catch(() => ({})) as { error?: string };
+        const body = (await res.json().catch(() => ({}))) as { error?: string };
+
         setError(body?.error ?? `Request failed (${res.status})`);
         setGeneratingNodeId(null);
         setPreview(null);
@@ -393,9 +367,8 @@ export function useRabbitHoles(): UseRabbitHolesReturn {
       };
     } catch (error) {
       logger.error("exploreQuestion", "Error exploring question", error);
-      setError(
-        error instanceof Error ? error.message : "Unknown exploration error",
-      );
+      setError(error instanceof Error ? error.message : "Unknown exploration error");
+
       return {
         ok: false,
         error: error instanceof Error ? error : new Error("Unknown error"),
@@ -408,6 +381,7 @@ export function useRabbitHoles(): UseRabbitHolesReturn {
   async function followBranch(branchId: string): Promise<SimpleResult> {
     if (!session || !activeNodeId) {
       setError("No active session or node");
+
       return {
         ok: false,
         error: new Error("No active session or node"),
@@ -415,8 +389,10 @@ export function useRabbitHoles(): UseRabbitHolesReturn {
     }
 
     const activeNode = session.nodesById[activeNodeId];
+
     if (!activeNode) {
       setError("No active node");
+
       return {
         ok: false,
         error: new Error("No active node"),
@@ -424,8 +400,10 @@ export function useRabbitHoles(): UseRabbitHolesReturn {
     }
 
     const branch = activeNode.branchSuggestions?.find((b) => b.id === branchId);
+
     if (!branch) {
       setError("Branch not found");
+
       return {
         ok: false,
         error: new Error("Branch not found"),
@@ -434,6 +412,7 @@ export function useRabbitHoles(): UseRabbitHolesReturn {
 
     if (session.nodesById[branchId]) {
       setActiveNodeId(branchId);
+
       return {
         ok: true,
         error: null,
@@ -442,11 +421,8 @@ export function useRabbitHoles(): UseRabbitHolesReturn {
 
     // Rely on main generation function, providing branchId for
     // proper linking
-    logger.log(
-      "followBranch",
-      "Following branch:\n",
-      JSON.stringify(branch, null, 2),
-    );
+    logger.log("followBranch", "Following branch:\n", JSON.stringify(branch, null, 2));
+
     return await exploreQuestion(branch.label, branchId);
   }
 
@@ -455,6 +431,7 @@ export function useRabbitHoles(): UseRabbitHolesReturn {
 
     if (source.status === "complete" && source.analysis) {
       setSourceAnalysis(source.analysis);
+
       return;
     }
 
@@ -465,6 +442,7 @@ export function useRabbitHoles(): UseRabbitHolesReturn {
     if (source.status === "error") {
       logger.error("selectSource", "Source analysis error", source);
       setError("Error analyzing source");
+
       return;
     }
 
@@ -488,8 +466,8 @@ export function useRabbitHoles(): UseRabbitHolesReturn {
         setSourceAnalysis(result.data);
       } catch (error) {
         logger.error("selectSource", "Error analyzing source", error);
-        const errorMessage =
-          error instanceof Error ? error.message : "Error analyzing source";
+        const errorMessage = error instanceof Error ? error.message : "Error analyzing source";
+
         setError(errorMessage);
         updateSourceStatus("error", undefined, source.id);
       } finally {
@@ -510,7 +488,7 @@ export function useRabbitHoles(): UseRabbitHolesReturn {
   const updateSourceStatus = (
     status: "pending" | "complete" | "error",
     analysis?: RabbitHoleSourceAnalysis,
-    sourceId?: string | null,
+    sourceId?: string | null
   ) => {
     if (!session || !activeNodeId) return;
     if (!sourceId) sourceId = selectedSourceId;
@@ -519,13 +497,12 @@ export function useRabbitHoles(): UseRabbitHolesReturn {
       if (!prevSession || !activeNodeId) return prevSession;
 
       const node = prevSession.nodesById[activeNodeId];
+
       if (!node) return prevSession;
 
       const updatedSources =
         node.sources?.map((s) =>
-          s.id === sourceId
-            ? { ...s, status, ...(analysis && { analysis }) }
-            : s,
+          s.id === sourceId ? { ...s, status, ...(analysis && { analysis }) } : s
         ) ?? [];
 
       return {
@@ -545,11 +522,13 @@ export function useRabbitHoles(): UseRabbitHolesReturn {
     logger.log("clearSourceSelection", "Not yet fully implemented");
     setSelectedSourceId(null);
     setIsAnalyzingSource(false);
+
     return;
   }
 
   function resetSourceAnalysisState() {
     logger.log("resetSourceAnalysisState", "Not yet implemented");
+
     return;
   }
 
@@ -558,18 +537,21 @@ export function useRabbitHoles(): UseRabbitHolesReturn {
     if (!session?.nodesById[nodeId]) {
       logger.error("setActiveNode", "Node not found", nodeId);
       setError("Node not found");
+
       return;
     }
 
     /** Skip updates when node is already active */
     if (nodeId === activeNodeId) {
       logger.log("setActiveNode", "Node is already active", nodeId);
+
       return;
     }
 
     setActiveNodeId(nodeId);
     setSession((prevSession) => {
       if (!prevSession) return prevSession;
+
       return {
         ...prevSession,
         activeNodeId: nodeId,
@@ -587,6 +569,7 @@ export function useRabbitHoles(): UseRabbitHolesReturn {
     setSelectedSourceId(null);
     setSourceAnalysis(null);
     setIsAnalyzingSource(false);
+
     return;
   }
 

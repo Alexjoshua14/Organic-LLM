@@ -1,6 +1,7 @@
 "use client";
 
 import { motion } from "framer-motion";
+
 import { cn } from "@/lib/utils";
 
 interface RabbitHoleKeyTakeawaysProps {
@@ -26,9 +27,9 @@ export function RabbitHoleKeyTakeaways({
 
   return (
     <motion.div
+      animate={{ opacity: 1, y: 0 }}
       className="bg-card/80 backdrop-blur-sm rounded-lg p-8 mb-12 border border-border shadow-sm"
       initial={{ opacity: 0, y: 10 }}
-      animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.3 }}
     >
       <h2 className="font-commissioner text-xs uppercase tracking-[0.2em] text-muted-foreground mb-6 font-light">
@@ -41,28 +42,24 @@ export function RabbitHoleKeyTakeaways({
           return (
             <motion.li
               key={index}
+              animate={{ opacity: 1, x: 0 }}
               className={cn(
                 "flex items-start gap-4 text-base leading-relaxed",
                 "cursor-pointer transition-all duration-200",
-                isActive
-                  ? "text-foreground"
-                  : "text-muted-foreground hover:text-foreground",
+                isActive ? "text-foreground" : "text-muted-foreground hover:text-foreground"
               )}
               initial={{ opacity: 0, x: -10 }}
-              animate={{ opacity: 1, x: 0 }}
               transition={{
                 duration: 0.3,
                 delay: index * 0.1,
               }}
-              onClick={() => handleTakeawayClick(index)}
               whileHover={{ x: 2 }}
+              onClick={() => handleTakeawayClick(index)}
             >
               <span
                 className={cn(
                   "mt-1 shrink-0 transition-colors text-lg",
-                  isActive
-                    ? "text-foreground"
-                    : "text-muted-foreground",
+                  isActive ? "text-foreground" : "text-muted-foreground"
                 )}
               >
                 •
@@ -75,4 +72,3 @@ export function RabbitHoleKeyTakeaways({
     </motion.div>
   );
 }
-

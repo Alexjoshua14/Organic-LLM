@@ -10,8 +10,15 @@
  */
 
 import { SearchMemoryOptions, SearchResult } from "mem0ai/oss";
-
 import { auth } from "@clerk/nextjs/server";
+
+import {
+  searchMemories as storeSearchMemories,
+  getAllMemories as storeGetAllMemories,
+  deleteMemory as storeDeleteMemory,
+  wipeMemory as storeWipeMemory,
+} from "./store";
+
 import { Result } from "@/types";
 import { getSupabaseUserId } from "@/data/supabase/profiles";
 import {
@@ -20,12 +27,6 @@ import {
   checkMemoryDeleteLimit,
   checkMemoryWipeLimit,
 } from "@/lib/rate-limit/memory";
-import {
-  searchMemories as storeSearchMemories,
-  getAllMemories as storeGetAllMemories,
-  deleteMemory as storeDeleteMemory,
-  wipeMemory as storeWipeMemory,
-} from "./store";
 
 /**
  * Resolves the current request's user to the Mem0 user key (Supabase user id).
@@ -33,13 +34,16 @@ import {
  */
 async function getCurrentUserMem0UserId(): Promise<Result<string, string>> {
   const { userId: clerkUserId } = await auth();
+
   if (!clerkUserId) {
     return { data: null, error: "Not signed in" };
   }
   const sbResult = await getSupabaseUserId(clerkUserId);
+
   if (sbResult.error || sbResult.data === null) {
     return { data: null, error: "User profile not found" };
   }
+
   return { data: sbResult.data, error: null };
 }
 
@@ -49,15 +53,17 @@ async function getCurrentUserMem0UserId(): Promise<Result<string, string>> {
  */
 export async function searchMemoriesServer(
   query: string,
-  options?: SearchMemoryOptions,
+  options?: SearchMemoryOptions
 ): Promise<Result<SearchResult, string>> {
   try {
     const userIdResult = await getCurrentUserMem0UserId();
+
     if (userIdResult.error || userIdResult.data === null) {
       return { data: null, error: userIdResult.error ?? "Not signed in" };
     }
 
     const limitResult = await checkMemorySearchLimit(userIdResult.data);
+
     if (!limitResult.success) {
       return { data: null, error: limitResult.error ?? "Too many requests" };
     }
@@ -67,6 +73,7 @@ export async function searchMemoriesServer(
     }
 
     const result = await storeSearchMemories(query, userIdResult.data, options);
+
     return { data: result, error: null };
   } catch (error) {
     return {
@@ -80,21 +87,22 @@ export async function searchMemoriesServer(
  * Fetches all persisted memories for the current user (for Memory Lens UI).
  * Uses Clerk auth + Supabase profile to resolve user id for Mem0.
  */
-export async function getCurrentUserMemories(): Promise<
-  Result<SearchResult, string>
-> {
+export async function getCurrentUserMemories(): Promise<Result<SearchResult, string>> {
   try {
     const userIdResult = await getCurrentUserMem0UserId();
+
     if (userIdResult.error || userIdResult.data === null) {
       return { data: null, error: userIdResult.error ?? "Not signed in" };
     }
 
     const limitResult = await checkMemoryListLimit(userIdResult.data);
+
     if (!limitResult.success) {
       return { data: null, error: limitResult.error ?? "Too many requests" };
     }
 
     const result = await storeGetAllMemories(userIdResult.data);
+
     return { data: result, error: null };
   } catch (error) {
     return {
@@ -110,15 +118,17 @@ export async function getCurrentUserMemories(): Promise<
  */
 export async function getCurrentUserMemoriesBySearch(
   query: string,
-  limit: number = 5,
+  limit: number = 5
 ): Promise<Result<SearchResult, string>> {
   try {
     const userIdResult = await getCurrentUserMem0UserId();
+
     if (userIdResult.error || userIdResult.data === null) {
       return { data: null, error: userIdResult.error ?? "Not signed in" };
     }
 
     const limitResult = await checkMemorySearchLimit(userIdResult.data);
+
     if (!limitResult.success) {
       return { data: null, error: limitResult.error ?? "Too many requests" };
     }
@@ -131,6 +141,7 @@ export async function getCurrentUserMemoriesBySearch(
     const result = await storeSearchMemories(query, userIdResult.data, {
       limit: clampedLimit,
     });
+
     return { data: result, error: null };
   } catch (error) {
     return {
@@ -146,31 +157,36 @@ export async function getCurrentUserMemoriesBySearch(
  * the UI instead of deleteMemory.
  */
 export async function deleteMemoryForCurrentUser(
-  memoryId: string,
+  memoryId: string
 ): Promise<Result<boolean, string>> {
   try {
     const userIdResult = await getCurrentUserMem0UserId();
+
     if (userIdResult.error || userIdResult.data === null) {
       return { data: null, error: userIdResult.error ?? "Not signed in" };
     }
 
     const limitResult = await checkMemoryDeleteLimit(userIdResult.data);
+
     if (!limitResult.success) {
       return { data: null, error: limitResult.error ?? "Too many requests" };
     }
 
     const trimmedId = typeof memoryId === "string" ? memoryId.trim() : "";
+
     if (!trimmedId || trimmedId.length > 256) {
       return { data: null, error: "Invalid memory ID" };
     }
 
     const owned = await storeGetAllMemories(userIdResult.data);
     const belongsToUser = owned.results?.some((m) => m.id === trimmedId);
+
     if (!belongsToUser) {
       return { data: null, error: "Memory not found" };
     }
 
     const ok = await storeDeleteMemory(trimmedId);
+
     return { data: ok, error: null };
   } catch (error) {
     return {
@@ -184,21 +200,22 @@ export async function deleteMemoryForCurrentUser(
  * Server-only wipe for the current user. Resolves the current user and wipes
  * all their memories. Use this from the UI for the "wipe memory" button.
  */
-export async function wipeMemoryForCurrentUser(): Promise<
-  Result<boolean, string>
-> {
+export async function wipeMemoryForCurrentUser(): Promise<Result<boolean, string>> {
   try {
     const userIdResult = await getCurrentUserMem0UserId();
+
     if (userIdResult.error || userIdResult.data === null) {
       return { data: null, error: userIdResult.error ?? "Not signed in" };
     }
 
     const limitResult = await checkMemoryWipeLimit(userIdResult.data);
+
     if (!limitResult.success) {
       return { data: null, error: limitResult.error ?? "Too many requests" };
     }
 
     const ok = await storeWipeMemory(userIdResult.data);
+
     return { data: ok, error: null };
   } catch (error) {
     return {

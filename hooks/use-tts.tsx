@@ -1,8 +1,14 @@
-
 import { useRef, useState, useCallback, useMemo } from "react";
+
 import { AlignmentData, AudioStreamChunkSchema } from "@/lib/schemas/tts";
 import { createLogger } from "@/lib/logger";
-import { mergeAlignments, processAudioChunk, processAudioStream, waitForSourceBuffer, decodeAudioBase64 } from "@/lib/llm/tts/helpers";
+import {
+  mergeAlignments,
+  processAudioChunk,
+  processAudioStream,
+  waitForSourceBuffer,
+  decodeAudioBase64,
+} from "@/lib/llm/tts/helpers";
 import { getTTSCacheKey, getTTSFromCache, setTTSInCache } from "@/lib/tts/audio-cache";
 
 // Create a logger instance for this hook file
@@ -11,6 +17,7 @@ const logger = createLogger("hooks/use-tts.tsx");
 /** Play was aborted (e.g. user closed, or source cleared). Don't log as error. */
 function isPlayAbortError(err: unknown): boolean {
   if (err instanceof DOMException && err.name === "AbortError") return true;
+
   return (err as { name?: string })?.name === "AbortError";
 }
 
@@ -34,10 +41,15 @@ export function useTTS({
   audioRef,
   autoplay = true,
 }: {
-  onStatusChange?: (status: "ready" | "processing" | "readyToPlay" | "playing" | "paused" | "error" | "complete") => void;
+  onStatusChange?: (
+    status: "ready" | "processing" | "readyToPlay" | "playing" | "paused" | "error" | "complete"
+  ) => void;
   onTimeUpdate?: (time: number) => void;
   onDurationChange?: (duration: number) => void;
-  onAlignment?: (alignment: { alignment?: AlignmentData; normalizedAlignment?: AlignmentData }) => void;
+  onAlignment?: (alignment: {
+    alignment?: AlignmentData;
+    normalizedAlignment?: AlignmentData;
+  }) => void;
   audioRef?: React.RefObject<HTMLAudioElement | null>;
   autoplay?: boolean;
 } = {}) {
@@ -46,20 +58,28 @@ export function useTTS({
   // Ref for a possible time update interval (not used directly)
   const timeUpdateIntervalRef = useRef<number | null>(null);
   // Ref to remove previous audio listeners when setting up again (avoids duplicates)
-  const audioListenersRef = useRef<{ el: HTMLAudioElement; handlers: Array<{ type: string; fn: EventListener }> } | null>(null);
+  const audioListenersRef = useRef<{
+    el: HTMLAudioElement;
+    handlers: Array<{ type: string; fn: EventListener }>;
+  } | null>(null);
 
   // Status of TTS playback/processing lifecycle
-  const [status, setStatus] = useState<"ready" | "processing" | "readyToPlay" | "playing" | "paused" | "error" | "complete">("ready");
+  const [status, setStatus] = useState<
+    "ready" | "processing" | "readyToPlay" | "playing" | "paused" | "error" | "complete"
+  >("ready");
   // Total audio duration (in seconds)
   const [duration, setDuration] = useState<number | null>(null);
   // Current playback time (in seconds)
   const [currentTime, setCurrentTime] = useState<number | null>(null);
   // Array accumulating all alignment chunks as they are streamed
-  const [allAlignments, setAllAlignments] = useState<Array<{ alignment?: AlignmentData; normalizedAlignment?: AlignmentData }>>([]);
+  const [allAlignments, setAllAlignments] = useState<
+    Array<{ alignment?: AlignmentData; normalizedAlignment?: AlignmentData }>
+  >([]);
 
   // Memoized merged alignment, built from all received alignment chunks
   const mergedAlignment = useMemo(() => {
     if (allAlignments.length === 0) return null;
+
     return mergeAlignments(allAlignments);
   }, [allAlignments]);
 
@@ -69,6 +89,7 @@ export function useTTS({
 
     // Prefer normalized alignment for better accuracy if available
     const alignment = mergedAlignment.normalizedAlignment || mergedAlignment.alignment;
+
     if (!alignment) return new Set<number>();
 
     const indices = new Set<number>();
@@ -92,15 +113,18 @@ export function useTTS({
    */
   const onReadyToPlay = useCallback(async () => {
     try {
-      setStatus('readyToPlay');
-      onStatusChange?.('readyToPlay');
+      setStatus("readyToPlay");
+      onStatusChange?.("readyToPlay");
       if (audioRef?.current) {
         audioRef.current.controls = true;
         if (autoplay) {
           await audioRef.current.play();
         }
       }
-      logger.log("streamAudio", `Ready to play audio, current duration of ready audio is: ${audioRef?.current?.duration}`);
+      logger.log(
+        "streamAudio",
+        `Ready to play audio, current duration of ready audio is: ${audioRef?.current?.duration}`
+      );
     } catch (err) {
       if (!isPlayAbortError(err)) {
         logger.error("streamAudio", `Error playing audio early: ${err}`);
@@ -122,10 +146,11 @@ export function useTTS({
       // Optionally: audioRef.current.src = ''
       // Revoke object URL if present
       const src = audioRef.current.src;
-      if (src && src.startsWith('blob:')) {
+
+      if (src && src.startsWith("blob:")) {
         URL.revokeObjectURL(src);
       }
-      audioRef.current.src = '';
+      audioRef.current.src = "";
       audioRef.current.load();
     }
 
@@ -146,208 +171,128 @@ export function useTTS({
     setCurrentTime(0);
 
     // Optionally: abort fetch controller or streaming, if implemented elsewhere
-
-  }, [])
+  }, []);
 
   /**
    * Set up audio element event listeners (shared between MediaSource and blob approaches).
    * Removes any previous listeners we added to the same element to avoid duplicates when
    * streamAudio is called multiple times.
    */
-  const setupAudioEventListeners = useCallback((audio: HTMLAudioElement) => {
-    if (audioListenersRef.current?.el === audio) {
-      for (const { type, fn } of audioListenersRef.current.handlers) {
-        audio.removeEventListener(type, fn);
+  const setupAudioEventListeners = useCallback(
+    (audio: HTMLAudioElement) => {
+      if (audioListenersRef.current?.el === audio) {
+        for (const { type, fn } of audioListenersRef.current.handlers) {
+          audio.removeEventListener(type, fn);
+        }
+        audioListenersRef.current = null;
       }
-      audioListenersRef.current = null;
-    }
 
-    const handlers: Array<{ type: string; fn: EventListener }> = [];
+      const handlers: Array<{ type: string; fn: EventListener }> = [];
 
-    const add = (type: string, fn: EventListener) => {
-      audio.addEventListener(type, fn);
-      handlers.push({ type, fn });
-    };
+      const add = (type: string, fn: EventListener) => {
+        audio.addEventListener(type, fn);
+        handlers.push({ type, fn });
+      };
 
-    add("durationchange", () => {
-      onDurationChange?.(audio.duration || 0);
-      setDuration(audio.duration || 0);
-      logger.log("streamAudio", `Duration changed: ${audio.duration}`);
-    });
-    add("timeupdate", () => {
-      setCurrentTime(audio.currentTime);
-      onTimeUpdate?.(audio.currentTime);
-    });
-    add("play", () => {
-      setStatus("playing");
-      onStatusChange?.("playing");
-    });
-    add("pause", () => {
-      setStatus("paused");
-      onStatusChange?.("paused");
-    });
-    add("ended", () => {
-      setStatus("complete");
-      onStatusChange?.("ready");
-      if (timeUpdateIntervalRef.current) {
-        clearInterval(timeUpdateIntervalRef.current);
-      }
-    });
-    add("error", (e) => {
-      setStatus("error");
-      onStatusChange?.("error");
-      logger.error("streamAudio", `Audio error: ${e}`);
-    });
+      add("durationchange", () => {
+        onDurationChange?.(audio.duration || 0);
+        setDuration(audio.duration || 0);
+        logger.log("streamAudio", `Duration changed: ${audio.duration}`);
+      });
+      add("timeupdate", () => {
+        setCurrentTime(audio.currentTime);
+        onTimeUpdate?.(audio.currentTime);
+      });
+      add("play", () => {
+        setStatus("playing");
+        onStatusChange?.("playing");
+      });
+      add("pause", () => {
+        setStatus("paused");
+        onStatusChange?.("paused");
+      });
+      add("ended", () => {
+        setStatus("complete");
+        onStatusChange?.("ready");
+        if (timeUpdateIntervalRef.current) {
+          clearInterval(timeUpdateIntervalRef.current);
+        }
+      });
+      add("error", (e) => {
+        setStatus("error");
+        onStatusChange?.("error");
+        logger.error("streamAudio", `Audio error: ${e}`);
+      });
 
-    audioListenersRef.current = { el: audio, handlers };
-  }, [onDurationChange, onTimeUpdate, onStatusChange]);
+      audioListenersRef.current = { el: audio, handlers };
+    },
+    [onDurationChange, onTimeUpdate, onStatusChange]
+  );
 
   /**
    * Process alignment data from a chunk (shared between both approaches)
    */
-  const processChunkAlignment = useCallback((chunk: { alignment?: AlignmentData; normalizedAlignment?: AlignmentData }) => {
-    if (chunk.alignment || chunk.normalizedAlignment) {
-      const alignmentData = {
-        alignment: chunk.alignment,
-        normalizedAlignment: chunk.normalizedAlignment,
-      };
-      onAlignment?.(alignmentData);
-      setAllAlignments((prev) => [...prev, alignmentData]);
-    }
-  }, [onAlignment]);
+  const processChunkAlignment = useCallback(
+    (chunk: { alignment?: AlignmentData; normalizedAlignment?: AlignmentData }) => {
+      if (chunk.alignment || chunk.normalizedAlignment) {
+        const alignmentData = {
+          alignment: chunk.alignment,
+          normalizedAlignment: chunk.normalizedAlignment,
+        };
+
+        onAlignment?.(alignmentData);
+        setAllAlignments((prev) => [...prev, alignmentData]);
+      }
+    },
+    [onAlignment]
+  );
 
   /**
    * Unified stream audio function that handles both MediaSource and blob-based approaches.
    * Uses IndexedDB cache so the same message is not regenerated (secure, same-origin only).
    */
-  const streamAudio = useCallback(async ({ text, processText = true }: { text: string, processText?: boolean }) => {
-    // Reset alignments for new stream
-    setAllAlignments([]);
+  const streamAudio = useCallback(
+    async ({ text, processText = true }: { text: string; processText?: boolean }) => {
+      // Reset alignments for new stream
+      setAllAlignments([]);
 
-    if (!audioRef?.current) {
-      logger.error("streamAudio", "No audio ref");
-      return;
-    }
+      if (!audioRef?.current) {
+        logger.error("streamAudio", "No audio ref");
 
-    const audio = audioRef.current;
-    const useMediaSource = isMediaSourceSupported();
-
-    // Show loading state immediately so the user knows the click was registered
-    setStatus("processing");
-    onStatusChange?.("processing");
-
-    // Cleanup old object URLs if any to prevent memory leaks
-    const oldSrc = audio.src;
-    if (oldSrc && oldSrc.startsWith('blob:')) {
-      URL.revokeObjectURL(oldSrc);
-    }
-
-    // Set up event listeners (shared)
-    setupAudioEventListeners(audio);
-
-    const cacheKeyInput = {
-      text,
-      model: "eleven_multilingual_v2",
-      skipTransform: !processText,
-    };
-    const cacheKey = await getTTSCacheKey(cacheKeyInput);
-    const cached = await getTTSFromCache(cacheKey).catch(() => null);
-    if (cached && cached.size > 0) {
-      logger.log("streamAudio", "Playing from local cache");
-      const blobUrl = URL.createObjectURL(cached);
-      audio.src = blobUrl;
-      audio.load();
-      setStatus("readyToPlay");
-      onStatusChange?.("readyToPlay");
-      if (audioRef?.current) {
-        audioRef.current.controls = true;
-        if (autoplay) {
-          audioRef.current.play().catch((err) => {
-            if (!isPlayAbortError(err)) {
-              logger.error("streamAudio", `Error playing cached audio: ${err}`);
-            }
-          });
-        }
+        return;
       }
-      return;
-    }
 
-    // Make TTS request to backend API (shared)
-    const res = await fetch("/api/ai/tts-v2", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
+      const audio = audioRef.current;
+      const useMediaSource = isMediaSourceSupported();
+
+      // Show loading state immediately so the user knows the click was registered
+      setStatus("processing");
+      onStatusChange?.("processing");
+
+      // Cleanup old object URLs if any to prevent memory leaks
+      const oldSrc = audio.src;
+
+      if (oldSrc && oldSrc.startsWith("blob:")) {
+        URL.revokeObjectURL(oldSrc);
+      }
+
+      // Set up event listeners (shared)
+      setupAudioEventListeners(audio);
+
+      const cacheKeyInput = {
         text,
         model: "eleven_multilingual_v2",
         skipTransform: !processText,
-      }),
-    });
+      };
+      const cacheKey = await getTTSCacheKey(cacheKeyInput);
+      const cached = await getTTSFromCache(cacheKey).catch(() => null);
 
-    if (!res.body) {
-      logger.error("streamAudio", "No response body");
-      setStatus("error");
-      onStatusChange?.("error");
-      return;
-    }
+      if (cached && cached.size > 0) {
+        logger.log("streamAudio", "Playing from local cache");
+        const blobUrl = URL.createObjectURL(cached);
 
-    setStatus("processing");
-    onStatusChange?.("processing");
-
-    if (useMediaSource) {
-      // MediaSource path: stream chunks directly to SourceBuffer
-      const mediaSource = new MediaSource();
-      mediaSourceRef.current = mediaSource;
-      const blobUrl = URL.createObjectURL(mediaSource);
-      audio.src = blobUrl;
-
-      const mediaSourceAudioChunks: Uint8Array[] = [];
-      mediaSource.addEventListener("sourceopen", async () => {
-        const sourceBuffer = mediaSource.addSourceBuffer("audio/mpeg");
-        const reader = res.body!.getReader();
-
-        const callbacks = {
-          onAlignment,
-          setAllAlignments,
-          onReadyToPlay,
-          onAudioChunk: (bytes: Uint8Array) => mediaSourceAudioChunks.push(bytes),
-        };
-
-        const remainingBuffer = await processAudioStream(reader, sourceBuffer, callbacks);
-
-        const trimmed = remainingBuffer.trim();
-        if (trimmed && trimmed.startsWith("{")) {
-          try {
-            const chunk = AudioStreamChunkSchema.parse(JSON.parse(trimmed));
-            await processAudioChunk(chunk, sourceBuffer, callbacks);
-          } catch (err) {
-            logger.error("streamAudio", `Error parsing final chunk: ${err}`);
-          }
-        }
-
-        await waitForSourceBuffer(sourceBuffer);
-        mediaSource.endOfStream();
-
-        // Cache the full audio for next time (same message => no refetch)
-        if (mediaSourceAudioChunks.length > 0) {
-          const totalLength = mediaSourceAudioChunks.reduce((s, c) => s + c.length, 0);
-          const combined = new Uint8Array(totalLength);
-          let offset = 0;
-          for (const c of mediaSourceAudioChunks) {
-            combined.set(c, offset);
-            offset += c.length;
-          }
-          const blob = new Blob([combined], { type: "audio/mpeg" });
-          setTTSInCache(cacheKey, blob).catch((err) =>
-            logger.error("streamAudio", `Failed to cache audio: ${err}`)
-          );
-        }
-
-        // Always set readyToPlay when stream completes. onReadyToPlay may not have
-        // fired for short clips (< MIN_BUFFERED_SECONDS), so the UI can stay stuck
-        // on "processing" and the audio element hidden; calling play here covers
-        // autoplay for short clips and ensures the element is in a playable state.
+        audio.src = blobUrl;
+        audio.load();
         setStatus("readyToPlay");
         onStatusChange?.("readyToPlay");
         if (audioRef?.current) {
@@ -355,104 +300,226 @@ export function useTTS({
           if (autoplay) {
             audioRef.current.play().catch((err) => {
               if (!isPlayAbortError(err)) {
-                logger.error("streamAudio", `Error playing after stream complete: ${err}`);
+                logger.error("streamAudio", `Error playing cached audio: ${err}`);
               }
             });
           }
         }
+
+        return;
+      }
+
+      // Make TTS request to backend API (shared)
+      const res = await fetch("/api/ai/tts-v2", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          text,
+          model: "eleven_multilingual_v2",
+          skipTransform: !processText,
+        }),
       });
-    } else {
-      // Blob path: collect all chunks, then create blob
-      logger.log("streamAudio", "Using blob fallback (MediaSource not supported)");
 
-      const reader = res.body.getReader();
-      const decoder = new TextDecoder();
-      let buffer = "";
-      const audioChunks: Uint8Array[] = [];
+      if (!res.body) {
+        logger.error("streamAudio", "No response body");
+        setStatus("error");
+        onStatusChange?.("error");
 
-      while (true) {
-        const { value, done } = await reader.read();
-        if (done) break;
+        return;
+      }
 
-        buffer += decoder.decode(value, { stream: true });
-        const lines = buffer.split("\n");
-        buffer = lines.pop() || "";
+      setStatus("processing");
+      onStatusChange?.("processing");
 
-        for (const line of lines) {
-          if (!line.trim()) continue;
+      if (useMediaSource) {
+        // MediaSource path: stream chunks directly to SourceBuffer
+        const mediaSource = new MediaSource();
 
+        mediaSourceRef.current = mediaSource;
+        const blobUrl = URL.createObjectURL(mediaSource);
+
+        audio.src = blobUrl;
+
+        const mediaSourceAudioChunks: Uint8Array[] = [];
+
+        mediaSource.addEventListener("sourceopen", async () => {
+          const sourceBuffer = mediaSource.addSourceBuffer("audio/mpeg");
+          const reader = res.body!.getReader();
+
+          const callbacks = {
+            onAlignment,
+            setAllAlignments,
+            onReadyToPlay,
+            onAudioChunk: (bytes: Uint8Array) => mediaSourceAudioChunks.push(bytes),
+          };
+
+          const remainingBuffer = await processAudioStream(reader, sourceBuffer, callbacks);
+
+          const trimmed = remainingBuffer.trim();
+
+          if (trimmed && trimmed.startsWith("{")) {
+            try {
+              const chunk = AudioStreamChunkSchema.parse(JSON.parse(trimmed));
+
+              await processAudioChunk(chunk, sourceBuffer, callbacks);
+            } catch (err) {
+              logger.error("streamAudio", `Error parsing final chunk: ${err}`);
+            }
+          }
+
+          await waitForSourceBuffer(sourceBuffer);
+          mediaSource.endOfStream();
+
+          // Cache the full audio for next time (same message => no refetch)
+          if (mediaSourceAudioChunks.length > 0) {
+            const totalLength = mediaSourceAudioChunks.reduce((s, c) => s + c.length, 0);
+            const combined = new Uint8Array(totalLength);
+            let offset = 0;
+
+            for (const c of mediaSourceAudioChunks) {
+              combined.set(c, offset);
+              offset += c.length;
+            }
+            const blob = new Blob([combined], { type: "audio/mpeg" });
+
+            setTTSInCache(cacheKey, blob).catch((err) =>
+              logger.error("streamAudio", `Failed to cache audio: ${err}`)
+            );
+          }
+
+          // Always set readyToPlay when stream completes. onReadyToPlay may not have
+          // fired for short clips (< MIN_BUFFERED_SECONDS), so the UI can stay stuck
+          // on "processing" and the audio element hidden; calling play here covers
+          // autoplay for short clips and ensures the element is in a playable state.
+          setStatus("readyToPlay");
+          onStatusChange?.("readyToPlay");
+          if (audioRef?.current) {
+            audioRef.current.controls = true;
+            if (autoplay) {
+              audioRef.current.play().catch((err) => {
+                if (!isPlayAbortError(err)) {
+                  logger.error("streamAudio", `Error playing after stream complete: ${err}`);
+                }
+              });
+            }
+          }
+        });
+      } else {
+        // Blob path: collect all chunks, then create blob
+        logger.log("streamAudio", "Using blob fallback (MediaSource not supported)");
+
+        const reader = res.body.getReader();
+        const decoder = new TextDecoder();
+        let buffer = "";
+        const audioChunks: Uint8Array[] = [];
+
+        while (true) {
+          const { value, done } = await reader.read();
+
+          if (done) break;
+
+          buffer += decoder.decode(value, { stream: true });
+          const lines = buffer.split("\n");
+
+          buffer = lines.pop() || "";
+
+          for (const line of lines) {
+            if (!line.trim()) continue;
+
+            try {
+              const chunk = AudioStreamChunkSchema.parse(JSON.parse(line));
+
+              processChunkAlignment(chunk);
+
+              if (chunk.audioBase64) {
+                const audioBytes = decodeAudioBase64(chunk.audioBase64);
+
+                audioChunks.push(audioBytes);
+              }
+            } catch (err) {
+              logger.error("streamAudio", `Error parsing chunk: ${err}`);
+            }
+          }
+        }
+
+        // Process remaining buffer (only if it looks like a complete JSON object)
+        const trimmedBuffer = buffer.trim();
+
+        if (trimmedBuffer && trimmedBuffer.startsWith("{")) {
           try {
-            const chunk = AudioStreamChunkSchema.parse(JSON.parse(line));
-            processChunkAlignment(chunk);
+            const chunk = AudioStreamChunkSchema.parse(JSON.parse(trimmedBuffer));
 
+            processChunkAlignment(chunk);
             if (chunk.audioBase64) {
               const audioBytes = decodeAudioBase64(chunk.audioBase64);
+
               audioChunks.push(audioBytes);
             }
           } catch (err) {
-            logger.error("streamAudio", `Error parsing chunk: ${err}`);
+            logger.error("streamAudio", `Error parsing final chunk: ${err}`);
           }
         }
-      }
 
-      // Process remaining buffer (only if it looks like a complete JSON object)
-      const trimmedBuffer = buffer.trim();
-      if (trimmedBuffer && trimmedBuffer.startsWith("{")) {
-        try {
-          const chunk = AudioStreamChunkSchema.parse(JSON.parse(trimmedBuffer));
-          processChunkAlignment(chunk);
-          if (chunk.audioBase64) {
-            const audioBytes = decodeAudioBase64(chunk.audioBase64);
-            audioChunks.push(audioBytes);
-          }
-        } catch (err) {
-          logger.error("streamAudio", `Error parsing final chunk: ${err}`);
+        // Combine chunks into blob
+        const totalLength = audioChunks.reduce((sum, chunk) => sum + chunk.length, 0);
+        const combinedAudio = new Uint8Array(totalLength);
+        let offset = 0;
+
+        for (const chunk of audioChunks) {
+          combinedAudio.set(chunk, offset);
+          offset += chunk.length;
+        }
+
+        const blob = new Blob([combinedAudio], { type: "audio/mpeg" });
+
+        setTTSInCache(cacheKey, blob).catch((err) =>
+          logger.error("streamAudio", `Failed to cache audio: ${err}`)
+        );
+        const blobUrl = URL.createObjectURL(blob);
+
+        audio.src = blobUrl;
+
+        // Wait for metadata to load
+        await new Promise<void>((resolve, reject) => {
+          const onLoadedMetadata = () => {
+            audio.removeEventListener("loadedmetadata", onLoadedMetadata);
+            audio.removeEventListener("error", onError);
+            resolve();
+          };
+          const onError = (e: Event) => {
+            audio.removeEventListener("loadedmetadata", onLoadedMetadata);
+            audio.removeEventListener("error", onError);
+            reject(e);
+          };
+
+          audio.addEventListener("loadedmetadata", onLoadedMetadata);
+          audio.addEventListener("error", onError);
+          audio.load();
+        });
+
+        setStatus("readyToPlay");
+        onStatusChange?.("readyToPlay");
+        onDurationChange?.(audio.duration || 0);
+        setDuration(audio.duration || 0);
+
+        if (autoplay) {
+          await audio.play();
         }
       }
-
-      // Combine chunks into blob
-      const totalLength = audioChunks.reduce((sum, chunk) => sum + chunk.length, 0);
-      const combinedAudio = new Uint8Array(totalLength);
-      let offset = 0;
-      for (const chunk of audioChunks) {
-        combinedAudio.set(chunk, offset);
-        offset += chunk.length;
-      }
-
-      const blob = new Blob([combinedAudio], { type: "audio/mpeg" });
-      setTTSInCache(cacheKey, blob).catch((err) =>
-        logger.error("streamAudio", `Failed to cache audio: ${err}`)
-      );
-      const blobUrl = URL.createObjectURL(blob);
-      audio.src = blobUrl;
-
-      // Wait for metadata to load
-      await new Promise<void>((resolve, reject) => {
-        const onLoadedMetadata = () => {
-          audio.removeEventListener("loadedmetadata", onLoadedMetadata);
-          audio.removeEventListener("error", onError);
-          resolve();
-        };
-        const onError = (e: Event) => {
-          audio.removeEventListener("loadedmetadata", onLoadedMetadata);
-          audio.removeEventListener("error", onError);
-          reject(e);
-        };
-        audio.addEventListener("loadedmetadata", onLoadedMetadata);
-        audio.addEventListener("error", onError);
-        audio.load();
-      });
-
-      setStatus("readyToPlay");
-      onStatusChange?.("readyToPlay");
-      onDurationChange?.(audio.duration || 0);
-      setDuration(audio.duration || 0);
-
-      if (autoplay) {
-        await audio.play();
-      }
-    }
-  }, [audioRef, autoplay, onAlignment, onStatusChange, onDurationChange, onTimeUpdate, setupAudioEventListeners, processChunkAlignment]);
+    },
+    [
+      audioRef,
+      autoplay,
+      onAlignment,
+      onStatusChange,
+      onDurationChange,
+      onTimeUpdate,
+      setupAudioEventListeners,
+      processChunkAlignment,
+    ]
+  );
 
   // ---- Media Playback Controls ----
 
@@ -504,18 +571,17 @@ export function useTTS({
   // ---- API: Return all controls and state for use in TTS components ----
   return {
     // Expose TTS controls, audio state, and alignment data for use in consuming components
-    streamAudio,                   // Function to start TTS streaming for a new text
-    status,                        // Current playback/processing status
-    play,                          // Play audio
-    pause,                         // Pause audio
-    stop,                          // Stop (pause + reset to beginning)
-    seek,                          // Seek to specific time
-    close,                         // Close and clean up audio/MediaSource
-    duration,                      // Total audio duration (seconds)
-    currentTime,                   // Current playback time (seconds)
-    allAlignments,                 // All accumulated alignment data
-    mergedAlignment,               // Alignment merged from all chunks
-    currentCharacterIndices,       // Current character indices being spoken (for highlighting)
+    streamAudio, // Function to start TTS streaming for a new text
+    status, // Current playback/processing status
+    play, // Play audio
+    pause, // Pause audio
+    stop, // Stop (pause + reset to beginning)
+    seek, // Seek to specific time
+    close, // Close and clean up audio/MediaSource
+    duration, // Total audio duration (seconds)
+    currentTime, // Current playback time (seconds)
+    allAlignments, // All accumulated alignment data
+    mergedAlignment, // Alignment merged from all chunks
+    currentCharacterIndices, // Current character indices being spoken (for highlighting)
   };
 }
-

@@ -16,6 +16,7 @@ function safeParse(stored: string | null): UserSettings {
   if (!stored) return defaultUserSettings();
   try {
     const parsed = JSON.parse(stored);
+
     return UserSettingsSchema.parse(parsed);
   } catch {
     return defaultUserSettings();
@@ -25,10 +26,13 @@ function safeParse(stored: string | null): UserSettings {
 /** One-time migration from legacy organic-llm-font key into unified settings. */
 function migrateFromLegacy(): UserSettings {
   const legacy = localStorage.getItem(LEGACY_FONT_KEY);
+
   if (!legacy) return defaultUserSettings();
   const settings = { ...defaultUserSettings(), fontId: legacy };
+
   localStorage.setItem(USER_SETTINGS_STORAGE_KEY, JSON.stringify(settings));
   localStorage.removeItem(LEGACY_FONT_KEY);
+
   return settings;
 }
 
@@ -36,7 +40,9 @@ function migrateFromLegacy(): UserSettings {
 export function getSettings(): UserSettings {
   if (typeof window === "undefined") return defaultUserSettings();
   const stored = localStorage.getItem(USER_SETTINGS_STORAGE_KEY);
+
   if (!stored) return migrateFromLegacy();
+
   return safeParse(stored);
 }
 
@@ -54,7 +60,9 @@ export function setSettings(partial: Partial<UserSettings>): UserSettings {
   if (typeof window === "undefined") return defaultUserSettings();
   const current = getSettings();
   const next = { ...current, ...partial };
+
   localStorage.setItem(USER_SETTINGS_STORAGE_KEY, JSON.stringify(next));
+
   return next;
 }
 

@@ -11,12 +11,7 @@ export type SettingsRowProps = {
   subtext: React.ReactNode;
 };
 
-export function SettingsRow({
-  title,
-  children,
-  mainText,
-  subtext,
-}: SettingsRowProps) {
+export function SettingsRow({ title, children, mainText, subtext }: SettingsRowProps) {
   return (
     <div className="flex flex-col gap-2">
       <h3 className="text-sm font-medium text-foreground">{title}</h3>

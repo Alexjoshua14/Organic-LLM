@@ -41,6 +41,7 @@ export function DimLevelDisplay({
         returnTimeoutRef.current = null;
       }
       setPhase("dimmed");
+
       return;
     }
     setPhase("returning");
@@ -48,6 +49,7 @@ export function DimLevelDisplay({
       setPhase("resting");
       returnTimeoutRef.current = null;
     }, restDelayMs);
+
     return () => {
       if (returnTimeoutRef.current) clearTimeout(returnTimeoutRef.current);
     };
@@ -64,12 +66,14 @@ export function DimLevelDisplay({
       const tick = (now: number) => {
         const elapsed = now - animStartRef.current;
         const p = Math.min(elapsed / transitionMs, 1);
-        const eased =
-          animFromRef.current + (animToRef.current - animFromRef.current) * ease(p);
+        const eased = animFromRef.current + (animToRef.current - animFromRef.current) * ease(p);
+
         setDisplayLevel(eased);
         if (p < 1) rafRef.current = requestAnimationFrame(tick);
       };
+
       rafRef.current = requestAnimationFrame(tick);
+
       return () => {
         if (rafRef.current) cancelAnimationFrame(rafRef.current);
       };
@@ -83,18 +87,20 @@ export function DimLevelDisplay({
       const tick = (now: number) => {
         const elapsed = now - animStartRef.current;
         const p = Math.min(elapsed / transitionMs, 1);
-        const eased =
-          animFromRef.current + (animToRef.current - animFromRef.current) * ease(p);
+        const eased = animFromRef.current + (animToRef.current - animFromRef.current) * ease(p);
+
         setDisplayLevel(eased);
         if (p < 1) rafRef.current = requestAnimationFrame(tick);
       };
+
       rafRef.current = requestAnimationFrame(tick);
     }, restDelayMs);
+
     return () => {
       clearTimeout(t);
       if (rafRef.current) cancelAnimationFrame(rafRef.current);
     };
-  }, [dimmed]); // eslint-disable-line react-hooks/exhaustive-deps -- animate on dimmed change only
+  }, [dimmed]);
 
   const barTransition = dimmed
     ? `height ${transitionMs}ms ${EASING}`
@@ -113,8 +119,8 @@ export function DimLevelDisplay({
       {/* Vertical bar (volume-style) */}
       <div className="flex items-end gap-2">
         <div
-          className="w-3 h-24 rounded-full bg-muted overflow-hidden flex flex-col justify-end"
           aria-hidden
+          className="w-3 h-24 rounded-full bg-muted overflow-hidden flex flex-col justify-end"
         >
           <div
             className="w-full bg-primary/80 rounded-full"
@@ -126,9 +132,7 @@ export function DimLevelDisplay({
         </div>
       </div>
       <span className="text-xs text-muted-foreground capitalize">
-        {phase === "returning"
-          ? `Returning in ${(restDelayMs / 1000).toFixed(1)}s`
-          : phase}
+        {phase === "returning" ? `Returning in ${(restDelayMs / 1000).toFixed(1)}s` : phase}
       </span>
     </div>
   );

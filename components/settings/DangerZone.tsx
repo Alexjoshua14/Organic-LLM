@@ -7,13 +7,10 @@ type DangerZoneProps = {
 export function DangerZone({ children }: DangerZoneProps) {
   return (
     <section
-      className="rounded-lg border border-destructive/30 bg-destructive/5 p-4 space-y-4"
       aria-labelledby="danger-section-heading"
+      className="rounded-lg border border-destructive/30 bg-destructive/5 p-4 space-y-4"
     >
-      <h3
-        id="danger-section-heading"
-        className="text-sm font-medium text-destructive"
-      >
+      <h3 className="text-sm font-medium text-destructive" id="danger-section-heading">
         Danger zone
       </h3>
       {children}

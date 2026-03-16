@@ -1,6 +1,5 @@
 import { z } from "zod";
 import { generateObject } from "ai";
-import { openai } from "@ai-sdk/openai";
 
 import { createLogger } from "@/lib/logger";
 
@@ -43,10 +42,13 @@ export async function parseWineCount(userText: string): Promise<number> {
     });
     const count = (object as { count: number }).count;
     const clamped = typeof count !== "number" || count < 1 ? 1 : Math.min(count, MAX_WINES);
+
     logger.debug("parseWineCount", "output", { rawCount: count, clamped });
+
     return clamped;
   } catch (err) {
     logger.debug("parseWineCount", "error, returning 1", { err });
+
     return 1;
   }
 }

@@ -1,6 +1,7 @@
 import Link from "next/link";
 
 const CATEGORIES = ["architecture", "design"] as const;
+
 type Category = (typeof CATEGORIES)[number];
 
 const POSTS: Array<{
@@ -47,7 +48,9 @@ export default function BlogPage() {
       <div className="space-y-10">
         {CATEGORIES.map((category) => {
           const postsInCategory = POSTS.filter((p) => p.category === category);
+
           if (postsInCategory.length === 0) return null;
+
           return (
             <section key={category}>
               <h2 className="text-lg font-medium text-foreground mb-4">
@@ -57,13 +60,11 @@ export default function BlogPage() {
                 {postsInCategory.map((post) => (
                   <li key={post.slug}>
                     <Link
-                      href={`/blog/${post.slug}`}
                       className="block rounded-lg border border-border bg-secondary p-4 transition-colors hover:bg-secondary/80 text-foreground no-underline"
+                      href={`/blog/${post.slug}`}
                     >
                       <h3 className="font-medium text-foreground">{post.title}</h3>
-                      <p className="text-sm text-muted-foreground mt-1">
-                        {post.description}
-                      </p>
+                      <p className="text-sm text-muted-foreground mt-1">{post.description}</p>
                     </Link>
                   </li>
                 ))}

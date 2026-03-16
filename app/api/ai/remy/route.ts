@@ -1,15 +1,15 @@
 import {
   createUIMessageStream,
   createUIMessageStreamResponse,
-  jsonSchema,
   streamText,
   convertToModelMessages,
 } from "ai";
 import { openai } from "@ai-sdk/openai";
 import { auth } from "@clerk/nextjs/server";
-import { getSupabaseUserId } from "@/data/supabase/profiles";
 import { getMemories, addMemories } from "@mem0/vercel-ai-provider";
 import { UIMessage } from "ai";
+
+import { getSupabaseUserId } from "@/data/supabase/profiles";
 import { getContext } from "@/lib/chat/chat-store";
 import { saveChat } from "@/lib/chat/chat-store";
 import { checkLlmMessageLimit } from "@/lib/rate-limit/llm";
@@ -89,22 +89,27 @@ export async function POST(req: Request) {
 
   // Get authenticated user
   const clerkUser = await auth();
+
   if (!clerkUser || !clerkUser.userId) {
     return new Response("Unauthorized", { status: 401 });
   }
 
   // Get Supabase user ID for memory operations
   const sbUserIdResult = await getSupabaseUserId(clerkUser.userId);
+
   if (sbUserIdResult.error || sbUserIdResult.data === null) {
     return new Response("User not found in supabase", { status: 404 });
   }
   const sbUserId = sbUserIdResult.data;
 
   const messageLimitResult = await checkLlmMessageLimit(sbUserId);
+
   if (!messageLimitResult.success) {
     return new Response(
-      JSON.stringify({ error: messageLimitResult.error ?? "Too many requests" }),
-      { status: 429, headers: { "Content-Type": "application/json" } },
+      JSON.stringify({
+        error: messageLimitResult.error ?? "Too many requests",
+      }),
+      { status: 429, headers: { "Content-Type": "application/json" } }
     );
   }
 
@@ -120,7 +125,7 @@ export async function POST(req: Request) {
     // Normal mode: use single message and load context
     logger.log(
       "POST",
-      `Received message metadata: id=${message.id ?? "unknown"} role=${message.role} parts=${message.parts?.length ?? 0}`,
+      `Received message metadata: id=${message.id ?? "unknown"} role=${message.role} parts=${message.parts?.length ?? 0}`
     );
 
     // Save the user message (only if persisting to Supabase)
@@ -132,10 +137,7 @@ export async function POST(req: Request) {
         });
         logger.log("POST", "User message saved optimistically");
       } catch (err) {
-        logger.error(
-          "POST",
-          `Failed to save user message optimistically: ${err}`
-        );
+        logger.error("POST", `Failed to save user message optimistically: ${err}`);
         // Continue anyway - onFinish will try to save again
       }
     }
@@ -151,29 +153,17 @@ export async function POST(req: Request) {
       });
 
       if (chatContextResult.error) {
-        logger.error(
-          "POST",
-          `Error getting chat context: ${chatContextResult.error}`
-        );
+        logger.error("POST", `Error getting chat context: ${chatContextResult.error}`);
         validatedMessages = [message];
       } else {
-        validatedMessages = [
-          ...(chatContextResult.data?.messages ?? []),
-          message,
-        ];
+        validatedMessages = [...(chatContextResult.data?.messages ?? []), message];
         // Merge any system prompt from context with Remy's system prompt
         if (chatContextResult.data?.context) {
-          systemPromptForRequest = [
-            SYSTEM_HIGHLIGHT_PROMPT,
-            chatContextResult.data.context,
-            system,
-          ]
+          systemPromptForRequest = [SYSTEM_HIGHLIGHT_PROMPT, chatContextResult.data.context, system]
             .filter(Boolean)
             .join("\n");
         } else {
-          systemPromptForRequest = [SYSTEM_HIGHLIGHT_PROMPT, system]
-            .filter(Boolean)
-            .join("\n");
+          systemPromptForRequest = [SYSTEM_HIGHLIGHT_PROMPT, system].filter(Boolean).join("\n");
         }
       }
     } catch (err) {
@@ -188,11 +178,8 @@ export async function POST(req: Request) {
   // Gracefully handle memory failures
   let memories: Array<{ memory?: string }> = [];
   let mem0Available = false; // Track if Mem0 is available
-  if (
-    validatedMessages &&
-    Array.isArray(validatedMessages) &&
-    validatedMessages.length > 0
-  ) {
+
+  if (validatedMessages && Array.isArray(validatedMessages) && validatedMessages.length > 0) {
     // Validate that all messages have the expected structure
     const validMessages = validatedMessages.filter(
       (msg) => msg && typeof msg === "object" && "role" in msg && "parts" in msg
@@ -208,10 +195,7 @@ export async function POST(req: Request) {
         });
         mem0Available = true; // Mem0 is working
       } catch (err) {
-        logger.error(
-          "POST",
-          `Error searching memories (continuing without memory): ${err}`
-        );
+        logger.error("POST", `Error searching memories (continuing without memory): ${err}`);
         // Continue without memory if search fails
         memories = [];
         mem0Available = false; // Mem0 is not available
@@ -221,9 +205,7 @@ export async function POST(req: Request) {
   const mem0Instructions = retrieveMemories(memories);
 
   // Combine system prompts
-  const finalSystemPrompt = [systemPromptForRequest, mem0Instructions]
-    .filter(Boolean)
-    .join("\n");
+  const finalSystemPrompt = [systemPromptForRequest, mem0Instructions].filter(Boolean).join("\n");
 
   const streamTextConfig: Parameters<typeof streamText>[0] = {
     model: openai("gpt-4o"),
@@ -257,6 +239,7 @@ export async function POST(req: Request) {
   // Only create the task if we have valid messages AND Mem0 is available
   // Skip entirely if Mem0 is not available (e.g., 401 errors)
   let addMemoriesTask: Promise<Array<{ memory?: string }>> | null = null;
+
   if (!mem0Available) {
     logger.log(
       "POST",
@@ -273,6 +256,7 @@ export async function POST(req: Request) {
       if (!msg || typeof msg !== "object") return false;
       if (!("role" in msg) || !("parts" in msg)) return false;
       if (!Array.isArray(msg.parts)) return false;
+
       // Ensure all parts have a type property
       return msg.parts.every(
         (part: unknown) =>
@@ -297,10 +281,7 @@ export async function POST(req: Request) {
         });
         logger.log("POST", "addMemories task created successfully");
       } catch (err) {
-        logger.error(
-          "POST",
-          `Error creating addMemories task (continuing without memory): ${err}`
-        );
+        logger.error("POST", `Error creating addMemories task (continuing without memory): ${err}`);
         if (err instanceof Error) {
           logger.error("POST", `Error stack: ${err.stack}`);
         }
@@ -334,6 +315,7 @@ export async function POST(req: Request) {
       if (addMemoriesTask) {
         try {
           const newMemories = await addMemoriesTask;
+
           if (newMemories && newMemories.length > 0) {
             writer.write({
               type: "data-mem0-update",
@@ -345,10 +327,7 @@ export async function POST(req: Request) {
             });
           }
         } catch (err) {
-          logger.error(
-            "POST",
-            `Error adding messages to memory (continuing): ${err}`
-          );
+          logger.error("POST", `Error adding messages to memory (continuing): ${err}`);
           // Continue even if memory addition fails
         }
       }
@@ -361,10 +340,7 @@ export async function POST(req: Request) {
 
           // If this was a tmp chat with 2+ messages, mark it as saved
           if (isTmpMode && messages.length >= 2) {
-            logger.log(
-              "POST",
-              `Tmp chat ${id} has ${messages.length} messages, saved to Supabase`
-            );
+            logger.log("POST", `Tmp chat ${id} has ${messages.length} messages, saved to Supabase`);
           }
         } else {
           logger.log(

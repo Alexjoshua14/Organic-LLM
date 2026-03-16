@@ -58,4 +58,3 @@ export function categorizeKey(key: string): KeyAnimationConfig {
 
   return KEY_ANIMATIONS.special;
 }
-

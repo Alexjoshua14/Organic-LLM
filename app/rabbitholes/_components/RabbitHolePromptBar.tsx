@@ -7,4 +7,3 @@
  * - `RabbitHolePromptBar` from `components/rabbit-holes/RabbitHolePromptBar.tsx`
  */
 export { RabbitHolePromptBar } from "@/components/rabbit-holes/RabbitHolePromptBar";
-

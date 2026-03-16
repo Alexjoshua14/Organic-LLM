@@ -35,10 +35,8 @@ export async function getPersistedSchemas(
           error: null,
         };
       }
-      logger.error(
-        "getPersistedSchemas",
-        `Error fetching schemas: ${error.message}`
-      );
+      logger.error("getPersistedSchemas", `Error fetching schemas: ${error.message}`);
+
       return {
         data: [],
         error: error,
@@ -47,16 +45,13 @@ export async function getPersistedSchemas(
 
     // Decode schemas with zod to ensure correct types/validation before returning
     let decodedSchemas: PersistedSchemaType[] = [];
+
     if (data?.persisted_schemas && Array.isArray(data.persisted_schemas)) {
       try {
-        decodedSchemas = data.persisted_schemas.map((item: any) =>
-          PersistedSchema.decode(item)
-        );
+        decodedSchemas = data.persisted_schemas.map((item: any) => PersistedSchema.decode(item));
       } catch (e) {
-        logger.error(
-          "getPersistedSchemas",
-          `Error decoding persisted schemas with Zod: ${e}`
-        );
+        logger.error("getPersistedSchemas", `Error decoding persisted schemas with Zod: ${e}`);
+
         // Optionally fall back to empty array if decode fails entirely
         return {
           data: [],
@@ -71,12 +66,10 @@ export async function getPersistedSchemas(
     };
   } catch (error) {
     logger.error("getPersistedSchemas", `Unexpected error: ${error}`);
+
     return {
       data: [],
-      error:
-        error instanceof Error
-          ? error
-          : new Error("Failed to get persisted schemas"),
+      error: error instanceof Error ? error : new Error("Failed to get persisted schemas"),
     };
   }
 }
@@ -94,10 +87,8 @@ export async function setPersistedSchemas(
       .eq("id", threadId);
 
     if (error) {
-      logger.error(
-        "setPersistedSchemas",
-        `Error saving schemas: ${error.message}`
-      );
+      logger.error("setPersistedSchemas", `Error saving schemas: ${error.message}`);
+
       return {
         data: false,
         error: error,
@@ -110,12 +101,10 @@ export async function setPersistedSchemas(
     };
   } catch (error) {
     logger.error("setPersistedSchemas", `Unexpected error: ${error}`);
+
     return {
       data: false,
-      error:
-        error instanceof Error
-          ? error
-          : new Error("Failed to set persisted schemas"),
+      error: error instanceof Error ? error : new Error("Failed to set persisted schemas"),
     };
   }
 }

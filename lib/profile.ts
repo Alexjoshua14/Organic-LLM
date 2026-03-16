@@ -17,10 +17,7 @@ export async function upsertProfileFromClerk(user: any) {
   if (error) {
     logger.error("upsertProfileFromClerk", "Error upserting profile:", error);
     if (error.code === "23505") {
-      logger.log(
-        "upsertProfileFromClerk",
-        "duplicate profile, for now this is fine",
-      );
+      logger.log("upsertProfileFromClerk", "duplicate profile, for now this is fine");
 
       return;
     }
@@ -32,16 +29,13 @@ function normalizeUserData(user: any) {
   const email =
     user?.email_addresses?.[0]?.email_address ??
     (user?.primary_email_address_id &&
-      user.email_addresses?.find(
-        (e: any) => e.id === user.primary_email_address_id,
-      )?.email_address) ??
+      user.email_addresses?.find((e: any) => e.id === user.primary_email_address_id)
+        ?.email_address) ??
     null;
 
   const displayName =
     user.username ??
-    ([user?.first_name, user?.last_name].filter(Boolean).join(" ").trim() ||
-      email ||
-      null);
+    ([user?.first_name, user?.last_name].filter(Boolean).join(" ").trim() || email || null);
 
   return { email, displayName };
 }

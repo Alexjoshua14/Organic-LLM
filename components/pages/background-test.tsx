@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+
 import Page from "@/components/layout/page";
 import AdaptiveLiquidChrome from "@/components/background/AdaptiveLiquidChrome";
 import { Button } from "@/components/third-party/ui/button";
@@ -22,27 +23,22 @@ export default function BackgroundTestPage() {
       <AdaptiveLiquidChrome dimIntensity={0.45} onDimChange={setDimmed} />
       <div className="relative z-10 flex flex-col items-center justify-center gap-8 p-6">
         <p className="text-sm text-muted-foreground text-center max-w-sm">
-          AdaptiveLiquidChrome — hover or focus the controls to see the
-          background dim. The meter shows dim level in real time. Toggle
-          light/dark in the top-right.
+          AdaptiveLiquidChrome — hover or focus the controls to see the background dim. The meter
+          shows dim level in real time. Toggle light/dark in the top-right.
         </p>
         <div className="flex flex-col sm:flex-row items-center gap-6 w-full max-w-md justify-center">
           <div className="flex flex-col items-center gap-4 w-full max-w-xs">
-            <Button variant="outline" size="lg" data-dim-background>
+            <Button data-dim-background size="lg" variant="outline">
               Hover me
             </Button>
             <Input
-              type="text"
-              placeholder="Focus me to dim the background"
-              className="w-full"
               data-dim-background
+              className="w-full"
+              placeholder="Focus me to dim the background"
+              type="text"
             />
           </div>
-          <DimLevelDisplay
-            dimmed={dimmed}
-            restDelayMs={REST_DELAY_MS}
-            transitionMs={2500}
-          />
+          <DimLevelDisplay dimmed={dimmed} restDelayMs={REST_DELAY_MS} transitionMs={2500} />
         </div>
       </div>
     </Page>

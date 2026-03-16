@@ -24,9 +24,7 @@ export default async function Home() {
               ideas.map((idea: any) => (
                 <div key={idea.id} className="p-2 border rounded">
                   <h4 className="font-semibold">{idea.title}</h4>
-                  {idea.summary && (
-                    <p className="text-sm text-gray-600">{idea.summary}</p>
-                  )}
+                  {idea.summary && <p className="text-sm text-gray-600">{idea.summary}</p>}
                   <div className="flex gap-2 text-xs text-gray-500">
                     <span>Priority: {idea.priority}</span>
                     <span>Status: {idea.status}</span>
@@ -39,10 +37,7 @@ export default async function Home() {
         </div>
         <div className="w-full h-1/2 border-2 p-20 flex flex-col items-center gap-2">
           <h2 style={{ fontSize: "1.75rem" }}>Add New Idea</h2>
-          <form
-            action={actionCreateIdea}
-            className={`flex flex-col gap-3 w-full max-w-md`}
-          >
+          <form action={actionCreateIdea} className={`flex flex-col gap-3 w-full max-w-md`}>
             <input
               required
               className="w-full rounded-lg border px-3 py-2"
@@ -69,11 +64,7 @@ export default async function Home() {
             <div className="flex items-center gap-3">
               <label className="text-sm opacity-70">
                 Priority:
-                <select
-                  className="ml-2 rounded border px-2 py-1"
-                  defaultValue="2"
-                  name="priority"
-                >
+                <select className="ml-2 rounded border px-2 py-1" defaultValue="2" name="priority">
                   <option value="1">High</option>
                   <option value="2">Medium</option>
                   <option value="3">Low</option>
@@ -82,11 +73,7 @@ export default async function Home() {
 
               <label className="text-sm opacity-70">
                 Status:
-                <select
-                  className="ml-2 rounded border px-2 py-1"
-                  defaultValue="open"
-                  name="status"
-                >
+                <select className="ml-2 rounded border px-2 py-1" defaultValue="open" name="status">
                   <option value="active">Active</option>
                   <option value="archived">Archived</option>
                 </select>

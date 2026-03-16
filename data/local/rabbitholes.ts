@@ -1,9 +1,7 @@
-import { Result } from "@/types";
-import {
-  RabbitHoleSession,
-  RabbitHoleSessionSchema,
-} from "@/lib/schemas/rabbitHoleSchemas";
 import type { RabbitHoleSessionMetadata } from "@/app/rabbitholes/_lib/sessionStorage";
+
+import { Result } from "@/types";
+import { RabbitHoleSession, RabbitHoleSessionSchema } from "@/lib/schemas/rabbitHoleSchemas";
 
 const SESSIONS_KEY = "rabbit-hole-sessions";
 const CURRENT_SESSION_KEY = "rabbit-hole-session";
@@ -22,14 +20,18 @@ export function cleanupOrphanedSessions(): void {
   try {
     // Read metadata directly to avoid recursion
     const stored = localStorage.getItem(SESSIONS_KEY);
+
     if (!stored) {
       isCleaningUp = false;
+
       return;
     }
 
     const parsed = JSON.parse(stored);
+
     if (!Array.isArray(parsed)) {
       isCleaningUp = false;
+
       return;
     }
 
@@ -37,8 +39,10 @@ export function cleanupOrphanedSessions(): void {
 
     // Find all localStorage keys that match the session pattern
     const allKeys: string[] = [];
+
     for (let i = 0; i < localStorage.length; i++) {
       const key = localStorage.key(i);
+
       if (key && key.startsWith(`${CURRENT_SESSION_KEY}-`)) {
         allKeys.push(key);
       }
@@ -46,8 +50,10 @@ export function cleanupOrphanedSessions(): void {
 
     // Delete sessions that are no longer in the metadata list
     let cleanedCount = 0;
+
     for (const key of allKeys) {
       const sessionId = key.replace(`${CURRENT_SESSION_KEY}-`, "");
+
       if (!validSessionIds.has(sessionId)) {
         localStorage.removeItem(key);
         cleanedCount++;
@@ -67,9 +73,7 @@ export function cleanupOrphanedSessions(): void {
 /**
  * List session metadata (index view)
  */
-export async function getAllSessions(): Promise<
-  Result<RabbitHoleSessionMetadata[]>
-> {
+export async function getAllSessions(): Promise<Result<RabbitHoleSessionMetadata[]>> {
   const error = {
     data: [],
     error: new Error("Failed to read sessions from localStorage"),
@@ -86,6 +90,7 @@ export async function getAllSessions(): Promise<
     cleanupOrphanedSessions();
 
     const stored = localStorage.getItem(SESSIONS_KEY);
+
     if (!stored)
       return {
         data: [],
@@ -93,6 +98,7 @@ export async function getAllSessions(): Promise<
       };
 
     const parsed = JSON.parse(stored);
+
     if (!Array.isArray(parsed)) return error;
 
     // Validate using schema for each session
@@ -129,6 +135,7 @@ export async function getAllSessions(): Promise<
     };
   } catch (err) {
     console.warn("Failed to read sessions from localStorage:", err);
+
     return error;
   }
 }
@@ -136,9 +143,7 @@ export async function getAllSessions(): Promise<
 /**
  * Fetch a full session by ID
  */
-export async function getSessionById(
-  sessionId: string
-): Promise<Result<RabbitHoleSession | null>> {
+export async function getSessionById(sessionId: string): Promise<Result<RabbitHoleSession | null>> {
   const error = {
     data: null,
     error: new Error("Failed to read session from localStorage"),
@@ -152,6 +157,7 @@ export async function getSessionById(
 
   try {
     const stored = localStorage.getItem(`${CURRENT_SESSION_KEY}-${sessionId}`);
+
     if (!stored) return error;
 
     const parsed = JSON.parse(stored);
@@ -173,6 +179,7 @@ export async function getSessionById(
     };
   } catch (err) {
     console.warn("Failed to read session from localStorage:", err);
+
     return error;
   }
 }
@@ -180,9 +187,7 @@ export async function getSessionById(
 /**
  * Persist a session (upsert)
  */
-export async function saveSession(
-  session: RabbitHoleSession
-): Promise<Result<boolean>> {
+export async function saveSession(session: RabbitHoleSession): Promise<Result<boolean>> {
   const error = {
     data: false,
     error: new Error("Failed to save session"),
@@ -200,35 +205,35 @@ export async function saveSession(
 
     // Save the full session
     try {
-      localStorage.setItem(
-        `${CURRENT_SESSION_KEY}-${session.sessionId}`,
-        JSON.stringify(session)
-      );
+      localStorage.setItem(`${CURRENT_SESSION_KEY}-${session.sessionId}`, JSON.stringify(session));
     } catch (quotaError: any) {
       // If quota exceeded, try cleaning up more aggressively and retry
       if (quotaError?.name === "QuotaExceededError") {
         console.warn("localStorage quota exceeded, attempting aggressive cleanup...");
-        
+
         // Get current sessions and keep only the most recent 20
         const sessionsRes = await getAllSessions();
+
         if (!sessionsRes.error && sessionsRes.data) {
           const limitedSessions = sessionsRes.data.slice(0, 20);
           const validSessionIds = new Set(limitedSessions.map((s) => s.sessionId));
-          
+
           // Delete all sessions not in the top 20
           for (let i = 0; i < localStorage.length; i++) {
             const key = localStorage.key(i);
+
             if (key && key.startsWith(`${CURRENT_SESSION_KEY}-`)) {
               const sessionId = key.replace(`${CURRENT_SESSION_KEY}-`, "");
+
               if (!validSessionIds.has(sessionId)) {
                 localStorage.removeItem(key);
               }
             }
           }
-          
+
           // Update metadata list
           localStorage.setItem(SESSIONS_KEY, JSON.stringify(limitedSessions));
-          
+
           // Retry saving
           localStorage.setItem(
             `${CURRENT_SESSION_KEY}-${session.sessionId}`,
@@ -252,9 +257,7 @@ export async function saveSession(
       sessions = sessionsRes.data;
     }
 
-    const existingIndex = sessions.findIndex(
-      (s) => s.sessionId === session.sessionId
-    );
+    const existingIndex = sessions.findIndex((s) => s.sessionId === session.sessionId);
 
     // Generate a summary from the root node's key takeaways
     const rootNodeId = session.path[0]?.nodeId;
@@ -266,10 +269,7 @@ export async function saveSession(
     const metadata: RabbitHoleSessionMetadata = {
       sessionId: session.sessionId,
       rootQuestion: session.rootQuestion,
-      createdAt:
-        existingIndex >= 0
-          ? sessions[existingIndex].createdAt
-          : new Date().toISOString(),
+      createdAt: existingIndex >= 0 ? sessions[existingIndex].createdAt : new Date().toISOString(),
       updatedAt: new Date().toISOString(),
       pathLength: session.path.length,
       summary,
@@ -283,6 +283,7 @@ export async function saveSession(
 
     // Keep only the most recent 50 sessions
     const limitedSessions = sessions.slice(0, 50);
+
     localStorage.setItem(SESSIONS_KEY, JSON.stringify(limitedSessions));
 
     // Clean up old full sessions that are no longer in the metadata list
@@ -295,6 +296,7 @@ export async function saveSession(
     };
   } catch (err) {
     console.warn("Failed to save session to localStorage:", err);
+
     return error;
   }
 }
@@ -302,9 +304,7 @@ export async function saveSession(
 /**
  * Delete a session by ID
  */
-export async function deleteSession(
-  sessionId: string
-): Promise<Result<boolean>> {
+export async function deleteSession(sessionId: string): Promise<Result<boolean>> {
   const error = {
     data: false,
     error: new Error("Failed to delete session"),
@@ -331,13 +331,16 @@ export async function deleteSession(
     }
 
     const filtered = sessions.filter((s) => s.sessionId !== sessionId);
+
     localStorage.setItem(SESSIONS_KEY, JSON.stringify(filtered));
+
     return {
       data: true,
       error: null,
     };
   } catch (err) {
     console.warn("Failed to delete session from localStorage:", err);
+
     return error;
   }
 }

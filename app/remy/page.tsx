@@ -4,11 +4,12 @@ import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
 import { Plus, ChefHat, MessageSquare, Sparkles, ArrowUp } from "lucide-react";
 import { Button } from "@heroui/button";
+import { useState, FormEvent, KeyboardEvent, useEffect } from "react";
+import { Input } from "@heroui/input";
+
 import { createChat } from "@/lib/chat/chat-store";
 import { createLogger } from "@/lib/logger";
 import { cn } from "@/lib/utils";
-import { useState, FormEvent, KeyboardEvent, useEffect } from "react";
-import { Input } from "@heroui/input";
 import { cleanupExpiredTmpChats } from "@/data/local/remy-chats";
 import { glass } from "@/components/design-system/primitives";
 import { findMatchingThread } from "@/lib/remy/thread-matching";
@@ -20,7 +21,10 @@ const logger = createLogger("app/remy/page.tsx");
 const suggestedTopics = [
   { title: "Dinner tonight", prompt: "Help me plan dinner for tonight" },
   { title: "Breakfast", prompt: "What should I make for breakfast?" },
-  { title: "Hosting Event Saturday Plan", prompt: "I'm hosting an event on Saturday. Help me plan the menu and shopping list." },
+  {
+    title: "Hosting Event Saturday Plan",
+    prompt: "I'm hosting an event on Saturday. Help me plan the menu and shopping list.",
+  },
 ];
 
 // Example saved recipes (in a real app, these would come from a database)
@@ -42,6 +46,7 @@ export default function RemyBrowsePage() {
   const handleInputSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     const text = inputText.trim();
+
     if (!text) {
       return;
     }
@@ -54,12 +59,16 @@ export default function RemyBrowsePage() {
       const matchResult = await findMatchingThread(text);
 
       if (matchResult.error) {
-        logger.error("handleInputSubmit", `Error finding matching thread: ${matchResult.error.message}`);
+        logger.error(
+          "handleInputSubmit",
+          `Error finding matching thread: ${matchResult.error.message}`
+        );
         // Fall through to create tmp chat
       } else if (matchResult.data) {
         // Found a matching thread, navigate to it
         logger.log("handleInputSubmit", `Found matching thread: ${matchResult.data}`);
         router.push(`/remy/${matchResult.data}`);
+
         return;
       }
     } catch (err) {
@@ -84,22 +93,29 @@ export default function RemyBrowsePage() {
       const matchResult = await findMatchingThread(topic.title);
 
       if (matchResult.error) {
-        logger.error("handleTopicClick", `Error finding matching thread: ${matchResult.error.message}`);
+        logger.error(
+          "handleTopicClick",
+          `Error finding matching thread: ${matchResult.error.message}`
+        );
         // Fall through to create new chat
       } else if (matchResult.data) {
         // Found a matching thread, navigate to it
         logger.log("handleTopicClick", `Found matching thread: ${matchResult.data}`);
         router.push(`/remy/${matchResult.data}`);
+
         return;
       }
 
       // No match found, create a new chat
       const res = await createChat();
+
       if (res.error || res.data === null) {
         logger.error("handleTopicClick", "Error creating chat");
+
         return;
       }
       const id = res.data;
+
       router.push(`/remy/${id}?initialMessage=${encodeURIComponent(topic.prompt)}`);
     } catch (err) {
       logger.error("handleTopicClick", `Error: ${err}`);
@@ -114,11 +130,14 @@ export default function RemyBrowsePage() {
   const handleNewChat = async () => {
     try {
       const res = await createChat();
+
       if (res.error || res.data === null) {
         logger.error("handleNewChat", "Error creating chat");
+
         return;
       }
       const id = res.data;
+
       router.push(`/remy/${id}`);
     } catch (err) {
       logger.error("handleNewChat", `Error: ${err}`);
@@ -132,9 +151,7 @@ export default function RemyBrowsePage() {
           <h1 className="font-commissioner text-4xl font-light tracking-tight text-foreground mb-2">
             Remy
           </h1>
-          <p className="text-muted-foreground text-sm">
-            Your culinary co-chef assistant
-          </p>
+          <p className="text-muted-foreground text-sm">Your culinary co-chef assistant</p>
         </div>
         <Button
           className="bg-foreground text-background hover:opacity-80"
@@ -147,7 +164,7 @@ export default function RemyBrowsePage() {
 
       {/* Chat Input */}
       <div className="mb-12">
-        <form onSubmit={handleInputSubmit} className="w-full relative">
+        <form className="w-full relative" onSubmit={handleInputSubmit}>
           <div
             className={cn(
               "relative rounded-lg",
@@ -158,10 +175,6 @@ export default function RemyBrowsePage() {
           >
             <div className={cn(glass({ border: "all" }), "rounded-lg relative")}>
               <Input
-                value={inputText}
-                onChange={(e) => setInputText(e.target.value)}
-                onKeyDown={handleKeyDown}
-                placeholder="Ask Remy anything about cooking, recipes, or meal planning... (Press Enter)"
                 classNames={{
                   input: ["text-base", "py-4"],
                   inputWrapper: [
@@ -173,15 +186,19 @@ export default function RemyBrowsePage() {
                 }}
                 endContent={
                   <Button
-                    type="submit"
                     isIconOnly
-                    size="sm"
-                    isDisabled={!inputText.trim()}
                     className="bg-foreground text-background"
+                    isDisabled={!inputText.trim()}
+                    size="sm"
+                    type="submit"
                   >
                     <ArrowUp size={16} />
                   </Button>
                 }
+                placeholder="Ask Remy anything about cooking, recipes, or meal planning... (Press Enter)"
+                value={inputText}
+                onChange={(e) => setInputText(e.target.value)}
+                onKeyDown={handleKeyDown}
               />
             </div>
           </div>
@@ -198,19 +215,19 @@ export default function RemyBrowsePage() {
             {savedRecipes.map((recipe, index) => (
               <motion.div
                 key={recipe.id}
-                initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: index * 0.05 }}
                 className={cn(
                   glass({ border: "all" }),
                   "rounded-lg shadow-sm",
                   "hover:shadow-md transition-all cursor-pointer group",
                   "p-6"
                 )}
+                initial={{ opacity: 0, y: 20 }}
+                transition={{ delay: index * 0.05 }}
                 onClick={() => handleRecipeClick(recipe.id)}
               >
                 <div className="flex items-start gap-3">
-                  <ChefHat size={20} className="text-muted-foreground mt-1 shrink-0" />
+                  <ChefHat className="text-muted-foreground mt-1 shrink-0" size={20} />
                   <div className="flex-1 min-w-0">
                     <h3 className="font-commissioner text-lg font-light text-foreground line-clamp-2">
                       {recipe.title}
@@ -232,19 +249,19 @@ export default function RemyBrowsePage() {
           {suggestedTopics.map((topic, index) => (
             <motion.div
               key={topic.title}
-              initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: index * 0.05 }}
               className={cn(
                 glass({ border: "all" }),
                 "rounded-lg shadow-sm",
                 "hover:shadow-md transition-all cursor-pointer group",
                 "p-6"
               )}
+              initial={{ opacity: 0, y: 20 }}
+              transition={{ delay: index * 0.05 }}
               onClick={() => handleTopicClick(topic)}
             >
               <div className="flex items-start gap-3">
-                <Sparkles size={20} className="text-muted-foreground mt-1 shrink-0" />
+                <Sparkles className="text-muted-foreground mt-1 shrink-0" size={20} />
                 <div className="flex-1 min-w-0">
                   <h3 className="font-commissioner text-lg font-light text-foreground line-clamp-2">
                     {topic.title}
@@ -258,11 +275,9 @@ export default function RemyBrowsePage() {
 
       {/* Recent Chats Section - Placeholder for now */}
       <div>
-        <h2 className="font-commissioner text-2xl font-light text-foreground mb-4">
-          Recent Chats
-        </h2>
+        <h2 className="font-commissioner text-2xl font-light text-foreground mb-4">Recent Chats</h2>
         <div className="flex flex-col items-center justify-center py-12 text-center border border-border rounded-lg bg-card/40">
-          <MessageSquare size={32} className="text-muted-foreground mb-4" />
+          <MessageSquare className="text-muted-foreground mb-4" size={32} />
           <p className="font-commissioner text-lg text-muted-foreground mb-2 font-light">
             No recent chats yet
           </p>

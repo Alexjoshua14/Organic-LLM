@@ -63,6 +63,7 @@ export function useSimulateStream({
       // Split by sentence delimiters
       return text.split(/([.!?]\s*)/).filter((unit) => unit.length > 0);
     }
+
     return [];
   };
 
@@ -95,6 +96,7 @@ export function useSimulateStream({
 
     if (!isPlaying) {
       setIsStreaming(false);
+
       return;
     }
 
@@ -108,6 +110,7 @@ export function useSimulateStream({
           reset();
         }, 3000);
       }
+
       return;
     }
 
@@ -120,9 +123,8 @@ export function useSimulateStream({
         // Reveal next unit
         currentUnitIndexRef.current++;
         // Calculate new revealed length by accumulating units up to current index
-        const accumulated = unitsRef.current
-          .slice(0, currentUnitIndexRef.current)
-          .join("").length;
+        const accumulated = unitsRef.current.slice(0, currentUnitIndexRef.current).join("").length;
+
         setRevealedLength(accumulated);
       } else {
         // Reached the end

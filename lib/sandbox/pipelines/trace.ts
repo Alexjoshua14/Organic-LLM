@@ -52,8 +52,7 @@ export function createTrace(
       : typeof options?.error === "string"
         ? options.error
         : undefined;
-  const errorStack =
-    options?.error instanceof Error ? options.error.stack : undefined;
+  const errorStack = options?.error instanceof Error ? options.error.stack : undefined;
 
   return {
     rawInput,

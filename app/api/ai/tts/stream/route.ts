@@ -10,9 +10,11 @@ const logger = createLogger("app/api/tts/stream/route.ts");
 
 function uint8ArrayToRecord(uint8Array: Uint8Array): Record<number, number> {
   const out: Record<number, number> = {};
+
   for (let i = 0; i < uint8Array.length; i++) {
     out[i] = uint8Array[i]!;
   }
+
   return out;
 }
 
@@ -57,12 +59,12 @@ export async function POST(req: NextRequest) {
 
   // Find speech model
   let speechModel: SpeechModel;
+
   if (!model || typeof model !== "string") {
     speechModel = availableSpeechModels[0];
   } else {
     speechModel =
-      availableSpeechModels.find((m) => m.modelId === model) ||
-      availableSpeechModels[0];
+      availableSpeechModels.find((m) => m.modelId === model) || availableSpeechModels[0];
   }
 
   // Estimate generation time based on model and text length
@@ -91,8 +93,8 @@ export async function POST(req: NextRequest) {
               segmentId,
               segmentIndex,
               totalSegments,
-            })}\n\n`,
-          ),
+            })}\n\n`
+          )
         );
 
         // Start generation
@@ -113,13 +115,14 @@ export async function POST(req: NextRequest) {
                 estimatedMs,
                 remainingMs: Math.max(0, Math.round(estimatedMs - elapsed)),
                 segmentId,
-              })}\n\n`,
-            ),
+              })}\n\n`
+            )
           );
         }, 500);
 
         // Generate audio
         let audio;
+
         try {
           if (speechModel.provider === "elevenlabs.speech") {
             const result = await generateSpeech({
@@ -127,6 +130,7 @@ export async function POST(req: NextRequest) {
               text: textForTTS,
               voice: "19STyYD15bswVz51nqLf",
             });
+
             audio = result.audio;
           } else {
             const result = await generateSpeech({
@@ -134,6 +138,7 @@ export async function POST(req: NextRequest) {
               text: textForTTS,
               voice: "nova",
             });
+
             audio = result.audio;
           }
         } finally {
@@ -148,6 +153,7 @@ export async function POST(req: NextRequest) {
         // Copy the JSON into tests/fixtures/generate-speech-response.json
         if (process.env.LOG_TTS_FIXTURE === "1") {
           const audioAnyDbg = audio as unknown as Record<string, unknown>;
+
           logger.log(
             "TTS_FIXTURE",
             `\n--- START GENERATE_SPEECH FIXTURE ---\n` +
@@ -166,9 +172,9 @@ export async function POST(req: NextRequest) {
                   mediaType: audioAnyDbg.mediaType ?? null,
                 },
                 null,
-                2,
+                2
               ) +
-              `\n--- END GENERATE_SPEECH FIXTURE ---\n`,
+              `\n--- END GENERATE_SPEECH FIXTURE ---\n`
           );
         }
 
@@ -179,6 +185,7 @@ export async function POST(req: NextRequest) {
           mimeType?: string;
           mediaType?: string;
         };
+
         controller.enqueue(
           encoder.encode(
             `data: ${JSON.stringify({
@@ -189,15 +196,14 @@ export async function POST(req: NextRequest) {
               segmentId,
               audioData,
               format: audioAny.format || "mp3",
-              mediaType:
-                audioAny.mimeType || audioAny.mediaType || "audio/mpeg",
-            })}\n\n`,
-          ),
+              mediaType: audioAny.mimeType || audioAny.mediaType || "audio/mpeg",
+            })}\n\n`
+          )
         );
 
         logger.log(
           "TTS Stream",
-          `Generation completed in ${actualDurationMs}ms (estimated: ${estimatedMs}ms)`,
+          `Generation completed in ${actualDurationMs}ms (estimated: ${estimatedMs}ms)`
         );
 
         controller.close();
@@ -208,11 +214,10 @@ export async function POST(req: NextRequest) {
           encoder.encode(
             `data: ${JSON.stringify({
               type: "error",
-              error:
-                error instanceof Error ? error.message : "Generation failed",
+              error: error instanceof Error ? error.message : "Generation failed",
               segmentId,
-            })}\n\n`,
-          ),
+            })}\n\n`
+          )
         );
 
         controller.close();

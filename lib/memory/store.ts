@@ -3,14 +3,12 @@ import "server-only";
 import { Message, SearchMemoryOptions, SearchResult } from "mem0ai/oss";
 import { UIMessage } from "@ai-sdk/react";
 
-import { getMemory } from "./client";
-import { createLogger } from "@/lib/logger";
 import { convertUIMessageToMem0Message } from "../chat/message-transform";
-import {
-  isRedactPIIInMemoryEnabled,
-  redactPII,
-  redactUIMessages,
-} from "@/lib/pii/redact";
+
+import { getMemory } from "./client";
+
+import { createLogger } from "@/lib/logger";
+import { isRedactPIIInMemoryEnabled, redactPII, redactUIMessages } from "@/lib/pii/redact";
 
 const logger = createLogger("lib/memory/store.ts");
 
@@ -25,7 +23,7 @@ const NO_CHAT_ID_PLACEHOLDER = "no-chat-id" as const;
 export async function searchMemories(
   query: string,
   userId: string,
-  options?: SearchMemoryOptions,
+  options?: SearchMemoryOptions
 ): Promise<SearchResult> {
   if (!userId) {
     throw new Error("User ID is required");
@@ -33,13 +31,16 @@ export async function searchMemories(
 
   try {
     const memory = getMemory();
+
     logger.log("searchMemories", `Searching for memories: ${query}`);
     const result = await memory.search(query, {
       userId,
       limit: options?.limit ?? 3,
       ...options,
     });
+
     logger.log("searchMemories", `Found ${result.results?.length} memories`);
+
     return result;
   } catch {
     logger.warn("searchMemories", "Memory search failed (service unavailable).");
@@ -60,6 +61,7 @@ export async function getAllMemories(userId: string): Promise<SearchResult> {
   try {
     const memory = getMemory();
     const result: SearchResult = await memory.getAll({ userId });
+
     return result;
   } catch {
     logger.warn("getAllMemories", "Memory fetch failed (service unavailable).");
@@ -74,7 +76,7 @@ export async function getAllMemories(userId: string): Promise<SearchResult> {
 export async function addLatestMessagesToMemory(
   messages: UIMessage[],
   userId: string,
-  chatId?: string,
+  chatId?: string
 ): Promise<SearchResult> {
   if (!userId) {
     throw new Error("User ID is required");
@@ -82,32 +84,22 @@ export async function addLatestMessagesToMemory(
 
   const memory = getMemory();
 
-  logger.log(
-    "addLatestMessagesToMemory",
-    `Adding ${messages.length} messages to memory`,
-  );
+  logger.log("addLatestMessagesToMemory", `Adding ${messages.length} messages to memory`);
 
   const messagesToStore = isRedactPIIInMemoryEnabled()
-    ? (redactUIMessages(
-        messages as Parameters<typeof redactUIMessages>[0],
-      ) as UIMessage[])
+    ? (redactUIMessages(messages as Parameters<typeof redactUIMessages>[0]) as UIMessage[])
     : messages;
   const interactions: Message[] = messagesToStore.map((m) =>
-    convertUIMessageToMem0Message(m, chatId ?? NO_CHAT_ID_PLACEHOLDER),
+    convertUIMessageToMem0Message(m, chatId ?? NO_CHAT_ID_PLACEHOLDER)
   );
 
   const result = await memory.add(interactions, {
     userId,
   });
 
-  logger.log(
-    "addLatestMessagesToMemory",
-    `Added ${result.results?.length} messages to memory`,
-  );
-  logger.log(
-    "addLatestMessagesToMemory",
-    `Results: ${JSON.stringify(result.results)}`,
-  );
+  logger.log("addLatestMessagesToMemory", `Added ${result.results?.length} messages to memory`);
+  // Do not log result.results in production; it may contain message content.
+  logger.debug("addLatestMessagesToMemory", "Mem0 add results", result.results?.length ?? 0);
 
   return result;
 }
@@ -119,7 +111,7 @@ export async function addLatestMessagesToMemory(
 export async function addInteractionToMemory(
   userQuery: string,
   aiResponse: string,
-  userId: string,
+  userId: string
 ): Promise<SearchResult> {
   if (!userId) {
     throw new Error("User ID is required");
@@ -128,12 +120,8 @@ export async function addInteractionToMemory(
 
   const memory = getMemory();
 
-  const safeUserQuery = isRedactPIIInMemoryEnabled()
-    ? redactPII(userQuery)
-    : userQuery;
-  const safeAiResponse = isRedactPIIInMemoryEnabled()
-    ? redactPII(aiResponse)
-    : aiResponse;
+  const safeUserQuery = isRedactPIIInMemoryEnabled() ? redactPII(userQuery) : userQuery;
+  const safeAiResponse = isRedactPIIInMemoryEnabled() ? redactPII(aiResponse) : aiResponse;
 
   let result: SearchResult;
 
@@ -153,16 +141,9 @@ export async function addInteractionToMemory(
       userId,
     });
     logger.log("addInteractionToMemory", `Added interaction to memory`);
-    logger.log(
-      "addInteractionToMemory",
-      `Results: ${JSON.stringify(result.results)}`,
-    );
+    logger.log("addInteractionToMemory", `Results: ${JSON.stringify(result.results)}`);
   } catch (error) {
-    logger.error(
-      "addInteractionToMemory",
-      "Error adding interaction to memory:",
-      error,
-    );
+    logger.error("addInteractionToMemory", "Error adding interaction to memory:", error);
 
     return {
       results: [],

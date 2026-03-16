@@ -1,4 +1,5 @@
 import { Ratelimit } from "@upstash/ratelimit";
+
 import { redis } from "@/lib/redis/redis";
 
 /** Global: 20 title generations per hour per user (sliding). */
@@ -28,9 +29,10 @@ export type RateLimitResult = {
  */
 export async function checkTitleGenerationLimit(
   userId: string,
-  chatId: string,
+  chatId: string
 ): Promise<RateLimitResult> {
   const global = await titleGlobalLimiter.limit(userId);
+
   if (!global.success) {
     return {
       success: false,
@@ -40,11 +42,11 @@ export async function checkTitleGenerationLimit(
 
   const perChatKey = `${userId}:${chatId}`;
   const perChat = await titlePerChatLimiter.limit(perChatKey);
+
   if (!perChat.success) {
     return {
       success: false,
-      error:
-        "This chat has reached its title generation limit (3 per hour). Try again later.",
+      error: "This chat has reached its title generation limit (3 per hour). Try again later.",
     };
   }
 

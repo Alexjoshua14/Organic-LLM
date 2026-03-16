@@ -28,17 +28,14 @@ const MESSAGE_PATTERNS: { patterns: string[]; status: number }[] = [
  * Prefers `status` from JSON body when present; else matches message text via MESSAGE_PATTERNS.
  */
 export function getChatErrorMessage(error: unknown): string {
-  const raw =
-    error instanceof Error
-      ? error.message
-      : typeof error === "string"
-        ? error
-        : "";
+  const raw = error instanceof Error ? error.message : typeof error === "string" ? error : "";
   const msg = raw.trim();
 
   let status: number | undefined;
+
   try {
     const parsed = JSON.parse(msg) as { status?: number };
+
     if (parsed && typeof parsed.status === "number") status = parsed.status;
   } catch {
     // not JSON, fall through to pattern matching
@@ -50,6 +47,7 @@ export function getChatErrorMessage(error: unknown): string {
   for (const { patterns, status: s } of MESSAGE_PATTERNS) {
     if (patterns.some((p) => msg.includes(p))) {
       const text = CHAT_ERROR_MESSAGES[s];
+
       if (text) return text;
     }
   }

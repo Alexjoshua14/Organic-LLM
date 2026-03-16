@@ -1,11 +1,9 @@
 "use client";
 
 import { createContext, useContext, ReactNode, useState, useCallback } from "react";
+
 import { ArchetypePayload } from "@/packages/organic-ui/src/schemas/archetype";
 import { Result } from "@/types";
-import { useSharedChatContext } from "./chat-context";
-import z from "zod";
-import { tool } from "ai";
 
 interface ArchetypeContextValue {
   // Data
@@ -24,9 +22,9 @@ const ArchetypeContext = createContext<ArchetypeContextValue | undefined>(undefi
 
 /**
  * ArchetypeProvider is the centralized orchestrator for Archetype functionality
- * 
+ *
  * @param children - The children to render
- * @returns 
+ * @returns
  */
 export function ArchetypeProvider({ children }: { children: ReactNode }) {
   const [archetypeData, setArchetypeData] = useState<ArchetypePayload | null>(null);
@@ -38,46 +36,54 @@ export function ArchetypeProvider({ children }: { children: ReactNode }) {
 
   const close = useCallback(() => {
     setShowArchetype(false);
-
   }, [setShowArchetype]);
 
   const toggle = useCallback(() => {
     setShowArchetype((prev) => !prev);
   }, [setShowArchetype]);
 
-  const setAndOpen = useCallback((data: ArchetypePayload) => {
-    setArchetypeData(data);
-    open();
-    return { data: { success: true }, error: null };
-  }, [open, setArchetypeData]);
+  const setAndOpen = useCallback(
+    (data: ArchetypePayload) => {
+      setArchetypeData(data);
+      open();
 
-  const handleSetArchetypeData = useCallback((data: ArchetypePayload | null) => {
-    setArchetypeData(data);
-    return { data: { success: true }, error: null };
-  }, [setArchetypeData]);
+      return { data: { success: true }, error: null };
+    },
+    [open, setArchetypeData]
+  );
 
+  const handleSetArchetypeData = useCallback(
+    (data: ArchetypePayload | null) => {
+      setArchetypeData(data);
+
+      return { data: { success: true }, error: null };
+    },
+    [setArchetypeData]
+  );
 
   return (
-    <ArchetypeContext.Provider value={{
-      archetypeData,
-      setArchetypeData: handleSetArchetypeData,
-      showArchetype,
-      open,
-      close,
-      toggle,
-      setAndOpen
-    }}
+    <ArchetypeContext.Provider
+      value={{
+        archetypeData,
+        setArchetypeData: handleSetArchetypeData,
+        showArchetype,
+        open,
+        close,
+        toggle,
+        setAndOpen,
+      }}
     >
       {children}
     </ArchetypeContext.Provider>
-  )
-
+  );
 }
 
 export function useArchetypeContext() {
   const context = useContext(ArchetypeContext);
+
   if (!context) {
     throw new Error("useArchetypeContext must be used within an ArchetypeProvider");
   }
+
   return context;
 }

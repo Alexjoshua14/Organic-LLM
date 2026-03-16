@@ -34,6 +34,7 @@ export function SidebarChatTitle({
       inputRef.current?.focus();
       inputRef.current?.select();
     }, 100);
+
     return () => clearTimeout(id);
   }, [editing]);
 
@@ -48,6 +49,7 @@ export function SidebarChatTitle({
 
   const handleBlur = useCallback(() => {
     const elapsed = Date.now() - editStartedAtRef.current;
+
     if (elapsed < BLUR_GUARD_MS) {
       // Refocus so user can type; something (dropdown, etc.) stole focus.
       requestAnimationFrame(() => {
@@ -55,6 +57,7 @@ export function SidebarChatTitle({
           inputRef.current?.focus();
         });
       });
+
       return;
     }
     handleSave();
@@ -75,16 +78,16 @@ export function SidebarChatTitle({
     return (
       <input
         ref={inputRef}
+        className="flex-1 min-w-0 w-full py-1 bg-transparent outline-none border-b border-foreground/20 focus:border-foreground/50"
         type="text"
         value={editedTitle}
-        onChange={(e) => setEditedTitle(e.target.value)}
         onBlur={handleBlur}
+        onChange={(e) => setEditedTitle(e.target.value)}
+        onClick={(e) => e.stopPropagation()}
         onKeyDown={(e) => {
           e.stopPropagation();
           handleKeyDown(e);
         }}
-        onClick={(e) => e.stopPropagation()}
-        className="flex-1 min-w-0 w-full py-1 bg-transparent outline-none border-b border-foreground/20 focus:border-foreground/50"
       />
     );
   }

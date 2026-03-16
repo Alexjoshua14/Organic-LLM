@@ -34,32 +34,31 @@ export async function POST(req: Request) {
 
     logger.log("POST", `Received message for speech generation, length: ${message?.length ?? 0}`);
 
-    if (
-      !message ||
-      typeof message !== "string" ||
-      message.trim().length === 0
-    ) {
+    if (!message || typeof message !== "string" || message.trim().length === 0) {
       return Response.json(
         { error: "Message is required and must be a non-empty string" },
-        { status: 400 },
+        { status: 400 }
       );
     }
 
     const clerkUser = await auth();
+
     if (!clerkUser?.userId) {
       return new Response("Unauthorized", { status: 401 });
     }
     const sbUserIdResult = await getSupabaseUserId(clerkUser.userId);
+
     if (sbUserIdResult.error || sbUserIdResult.data === null) {
       return new Response("User not found in supabase", { status: 404 });
     }
     const sbUserId = sbUserIdResult.data;
 
     const messageLimitResult = await checkLlmMessageLimit(sbUserId);
+
     if (!messageLimitResult.success) {
       return Response.json(
         { error: messageLimitResult.error ?? "Too many requests" },
-        { status: 429 },
+        { status: 429 }
       );
     }
 
@@ -88,10 +87,7 @@ export async function POST(req: Request) {
       metadata: { operation: "speech-route", route: "/api/ai/speech" },
     });
 
-    logger.log(
-      "POST",
-      `Generated speech-friendly response: ${result.text.substring(0, 100)}...`,
-    );
+    logger.log("POST", `Generated speech-friendly response: ${result.text.substring(0, 100)}...`);
 
     return Response.json({
       text: result.text,
@@ -101,9 +97,6 @@ export async function POST(req: Request) {
   } catch (error) {
     logger.error("POST", `Error generating speech response: ${error}`);
 
-    return Response.json(
-      { error: "Failed to generate speech-friendly response" },
-      { status: 500 },
-    );
+    return Response.json({ error: "Failed to generate speech-friendly response" }, { status: 500 });
   }
 }

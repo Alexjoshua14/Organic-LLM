@@ -1,11 +1,6 @@
 "use server";
 
-import {
-  TaskCreate,
-  TaskUpdate,
-  TaskInsert,
-  TaskPatch,
-} from "@/lib/schemas/tasks";
+import { TaskCreate, TaskUpdate, TaskInsert, TaskPatch } from "@/lib/schemas/tasks";
 import { supabaseServer } from "@/lib/supabase/server";
 
 // Create

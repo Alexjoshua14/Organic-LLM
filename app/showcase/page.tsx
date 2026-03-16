@@ -35,7 +35,7 @@ export default function ShowcasePage() {
   ];
 
   return (
-    <Page className="overflow-hidden" transparentBackground>
+    <Page transparentBackground className="overflow-hidden">
       <AdaptiveLiquidChrome dimIntensity={0.45} />
       <div className="relative z-10 w-full max-w-6xl mx-auto p-6">
         <div className="text-center mb-14">
@@ -43,8 +43,8 @@ export default function ShowcasePage() {
             Showcase
           </h1>
           <p className="text-lg text-muted-foreground max-w-2xl mx-auto tracking-tight">
-            Public demos and previews I’m comfortable sharing. Each page is a
-            snapshot; components inside stay up to date.
+            Public demos and previews I’m comfortable sharing. Each page is a snapshot; components
+            inside stay up to date.
           </p>
         </div>
 
@@ -67,16 +67,16 @@ export default function ShowcasePage() {
             >
               {page.edgeGlow && (
                 <div
+                  aria-hidden
                   className="absolute inset-y-0 left-0 w-5 rounded-l-2xl opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none"
                   style={{
                     background: `linear-gradient(to right, oklch(0.72 0.09 ${SHOWCASE_GLOW_HUE} / 0.45), oklch(0.78 0.05 ${SHOWCASE_GLOW_HUE} / 0.18), transparent)`,
                   }}
-                  aria-hidden
                 />
               )}
               <div className="relative z-10">
                 <div className="flex items-center gap-3 mb-4">
-                  <span className="text-2xl opacity-90" aria-hidden>
+                  <span aria-hidden className="text-2xl opacity-90">
                     {page.icon}
                   </span>
                   <h2 className="text-xl font-semibold tracking-tight text-foreground">
@@ -92,11 +92,11 @@ export default function ShowcasePage() {
                   View
                 </span>
                 <svg
+                  aria-hidden
                   className="w-5 h-5 text-muted-foreground group-hover:text-foreground group-hover:translate-x-0.5 transition-all duration-200"
                   fill="none"
                   stroke="currentColor"
                   viewBox="0 0 24 24"
-                  aria-hidden
                 >
                   <path
                     d="M17 8l4 4m0 0l-4 4m4-4H3"
@@ -112,8 +112,7 @@ export default function ShowcasePage() {
 
         <div className="mt-14 text-center">
           <p className="text-sm text-muted-foreground/80">
-            Promoted from sandbox. Rebase from sandbox when you want to refresh
-            a page’s layout.
+            Promoted from sandbox. Rebase from sandbox when you want to refresh a page’s layout.
           </p>
         </div>
       </div>

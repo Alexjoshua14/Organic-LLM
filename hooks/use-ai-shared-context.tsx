@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useState } from "react";
+
 import { invokeAIServerAction } from "@/app/actions/ai-jobs";
 import { AIServerFunction } from "@/lib/schemas/ai-jobs";
 import { Result } from "@/types";
@@ -31,7 +32,7 @@ export const SharedAIProvider: React.FC<{ children: React.ReactNode }> = ({ chil
    * Invoke an AI server function and add it to the job queue
    * The job will run on the server even if the user disconnects
    * Automatically updates latestJobId when a job is successfully created
-   * 
+   *
    * @param functionName - The AI server function to invoke (from enum)
    * @param parameters - Optional parameters for the function
    * @param priority - Job priority (1-5, default 3)
@@ -74,8 +75,10 @@ export const SharedAIProvider: React.FC<{ children: React.ReactNode }> = ({ chil
 // Hook to use SharedAIContext
 export function useSharedAIContext() {
   const context = useContext(SharedAIContext);
+
   if (!context) {
     throw new Error("useSharedAIContext must be used within a SharedAIProvider");
   }
+
   return context;
 }

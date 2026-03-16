@@ -1,5 +1,6 @@
-import { RabbitHoleSource } from "@/lib/schemas/rabbitHoleSchemas";
 import { ExaSearchResponse, ExaSearchResultSource } from "./types";
+
+import { RabbitHoleSource } from "@/lib/schemas/rabbitHoleSchemas";
 
 export function getApiKey(): string | null {
   return process.env.EXA_API_KEY ?? null;
@@ -8,15 +9,14 @@ export function getApiKey(): string | null {
 export function buildFavicon(url: string): string | undefined {
   try {
     const parsed = new URL(url);
+
     return `https://www.google.com/s2/favicons?domain=${parsed.hostname}`;
   } catch {
     return undefined;
   }
 }
 
-export function mapToSources(
-  results: ExaSearchResponse["results"],
-): RabbitHoleSource[] {
+export function mapToSources(results: ExaSearchResponse["results"]): RabbitHoleSource[] {
   return results.map((doc, index) => {
     const snippet =
       doc.text?.slice(0, 280) ||
@@ -46,12 +46,13 @@ export function mapSearchResponseToExaSources(
     text?: string;
     publishedDate?: string;
     author?: string;
-  }>,
+  }>
 ): ExaSearchResultSource[] {
   return results.map((doc, index) => {
     const snippet =
       doc.text?.slice(0, 280) ||
       (doc.highlights && doc.highlights.length > 0 ? doc.highlights[0] : "");
+
     return {
       id: doc.id ?? doc.url ?? `exa-${index}`,
       title: doc.title ?? doc.url,

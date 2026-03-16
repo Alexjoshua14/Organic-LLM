@@ -6,11 +6,8 @@ import { Button, PressEvent } from "@heroui/button";
 import { ArrowUpIcon, Pause, RotateCcw } from "lucide-react";
 
 import { ModelSelector } from "./model-selector";
-import { KeypressEffect } from "./keypress-effect";
-import {
-  categorizeKey,
-  KeyAnimationConfig,
-} from "@/lib/utils/key-categorization";
+
+import { categorizeKey, KeyAnimationConfig } from "@/lib/utils/key-categorization";
 import { ChatModel } from "@/lib/schemas/chat";
 
 export type UnifiedChatInputProps = {
@@ -67,16 +64,18 @@ export const UnifiedChatInput: React.FC<UnifiedChatInputProps> = ({
     (e: React.KeyboardEvent<HTMLInputElement>) => {
       if (shouldShowEffects && e.key) {
         const config = categorizeKey(e.key);
+
         setKeypressEffect({ ...config, id: Date.now() });
       }
       onKeyDown?.(e);
     },
-    [onKeyDown, shouldShowEffects],
+    [onKeyDown, shouldShowEffects]
   );
 
   useEffect(() => {
     if (!keypressEffect) return;
     const timeout = setTimeout(() => setKeypressEffect(null), keypressEffect.duration);
+
     return () => clearTimeout(timeout);
   }, [keypressEffect]);
 
@@ -84,6 +83,7 @@ export const UnifiedChatInput: React.FC<UnifiedChatInputProps> = ({
     if (isMobile) return "w-full px-4";
     if (widthState === "collapsed") return "md:w-[calc(100dvw-34rem)]";
     if (widthState === "expanded") return "md:w-[calc(100dvw-32rem)]";
+
     return "w-[calc(100dvw-6rem)]";
   }, [isMobile, widthState]);
 
@@ -114,11 +114,7 @@ export const UnifiedChatInput: React.FC<UnifiedChatInputProps> = ({
 
   const sendDisabled = isDisabled || isLoading || value.trim().length === 0;
 
-  const renderSendIcon = status === "ready" ? (
-    <ArrowUpIcon size={18} />
-  ) : (
-    <Pause size={18} />
-  );
+  const renderSendIcon = status === "ready" ? <ArrowUpIcon size={18} /> : <Pause size={18} />;
 
   const handlePress = (e: React.FormEvent | PressEvent) => {
     if (status === "ready") {
@@ -150,20 +146,20 @@ export const UnifiedChatInput: React.FC<UnifiedChatInputProps> = ({
                 {hasSession && onReset ? (
                   <Button
                     isIconOnly
+                    className="text-muted-foreground hover:text-foreground"
+                    isDisabled={isLoading}
                     variant="ghost"
                     onPress={onReset}
-                    isDisabled={isLoading}
-                    className="text-muted-foreground hover:text-foreground"
                   >
                     <RotateCcw size={18} />
                   </Button>
                 ) : null}
                 <Button
                   isIconOnly
-                  isDisabled={sendDisabled && status === "ready"}
                   className={`aspect-square ${status === "ready" ? "bg-foreground text-background hover:opacity-85" : "bg-background text-foreground border border-border"} `}
-                  onPress={handlePress}
+                  isDisabled={sendDisabled && status === "ready"}
                   type="submit"
+                  onPress={handlePress}
                 >
                   {renderSendIcon}
                 </Button>
@@ -173,16 +169,16 @@ export const UnifiedChatInput: React.FC<UnifiedChatInputProps> = ({
               isMobile ? (
                 <div className="flex items-center justify-between gap-2 pt-1">
                   <ModelSelector
-                    selectedModel={selectedModel}
                     handleModelSelection={onModelChange}
+                    selectedModel={selectedModel}
                   />
                 </div>
               ) : (
                 <div className="flex items-center justify-between gap-3">
                   <div className="flex items-center gap-2">
                     <ModelSelector
-                      selectedModel={selectedModel}
                       handleModelSelection={onModelChange}
+                      selectedModel={selectedModel}
                     />
                   </div>
                 </div>
@@ -195,4 +191,3 @@ export const UnifiedChatInput: React.FC<UnifiedChatInputProps> = ({
     </div>
   );
 };
-

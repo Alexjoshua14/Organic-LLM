@@ -2,17 +2,20 @@
 
 import { useEffect, useState, useRef, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { UIMessage, useChat } from "@ai-sdk/react";
+import { useChat } from "@ai-sdk/react";
 import { DefaultChatTransport } from "ai";
+import { nanoid } from "nanoid";
+import { useCallback } from "react";
+
 import Page from "@/components/layout/page";
 import { ChatThread } from "@/components/chat/chat-thread";
 import { CoreInput } from "@/components/chat/core-input";
-import { Conversation, ConversationScrollButton } from "@/components/third-party/ai-elements/conversation";
-import { ChatModel, DEFAULT_CHAT_MODEL } from "@/lib/schemas/chat";
 import {
-  isClientPIIRedactionEnabled,
-  redactUIMessages,
-} from "@/lib/pii/redact";
+  Conversation,
+  ConversationScrollButton,
+} from "@/components/third-party/ai-elements/conversation";
+import { ChatModel, DEFAULT_CHAT_MODEL } from "@/lib/schemas/chat";
+import { isClientPIIRedactionEnabled, redactUIMessages } from "@/lib/pii/redact";
 import { createLogger } from "@/lib/logger";
 import {
   getTmpChat,
@@ -20,8 +23,6 @@ import {
   RemyTmpChat,
   cleanupExpiredTmpChats,
 } from "@/data/local/remy-chats";
-import { nanoid } from "nanoid";
-import { useCallback } from "react";
 
 const logger = createLogger("app/remy/tmp/page.tsx");
 
@@ -47,6 +48,7 @@ function RemyTmpPageContent() {
         await cleanupExpiredTmpChats();
 
         const result = await getTmpChat();
+
         if (result.data) {
           setTmpChat(result.data);
           tmpChatRef.current = result.data;
@@ -60,6 +62,7 @@ function RemyTmpPageContent() {
             updatedAt: new Date().toISOString(),
             saved: false,
           };
+
           setTmpChat(newChat);
           tmpChatRef.current = newChat;
           await saveTmpChat(newChat);
@@ -88,7 +91,7 @@ function RemyTmpPageContent() {
 
         const messagesToSend = isClientPIIRedactionEnabled()
           ? (redactUIMessages(
-              messages as Parameters<typeof redactUIMessages>[0],
+              messages as Parameters<typeof redactUIMessages>[0]
             ) as typeof messages)
           : messages;
 
@@ -103,7 +106,9 @@ function RemyTmpPageContent() {
             isTmpChat: true, // Flag to indicate this is a tmp chat
           },
         };
+
         logger.log("chat", `Request being sent: ${JSON.stringify(req, null, 2)}`);
+
         return req;
       },
     }),
@@ -124,13 +129,17 @@ function RemyTmpPageContent() {
           updatedAt: new Date().toISOString(),
           saved: shouldSaveToSupabase, // Mark as saved if we have 2+ messages
         };
+
         await saveTmpChat(updatedChat);
         setTmpChat(updatedChat);
         tmpChatRef.current = updatedChat; // Update ref
 
         // If we have 2+ messages and not saved yet, trigger save to Supabase
         if (shouldSaveToSupabase) {
-          logger.log("onFinish", `Chat has ${messages.length} messages, triggering save to Supabase`);
+          logger.log(
+            "onFinish",
+            `Chat has ${messages.length} messages, triggering save to Supabase`
+          );
           // On next request, persistToSupabase will be true
         }
       }
@@ -145,6 +154,7 @@ function RemyTmpPageContent() {
         messages,
         updatedAt: new Date().toISOString(),
       };
+
       saveTmpChat(updatedChat);
       setTmpChat(updatedChat);
       tmpChatRef.current = updatedChat; // Update ref
@@ -153,7 +163,13 @@ function RemyTmpPageContent() {
 
   // Send initial message if provided
   useEffect(() => {
-    if (initialMessage && !initialMessageSent.current && messages.length === 0 && status === "ready" && !isLoading) {
+    if (
+      initialMessage &&
+      !initialMessageSent.current &&
+      messages.length === 0 &&
+      status === "ready" &&
+      !isLoading
+    ) {
       initialMessageSent.current = true;
       sendMessage({ text: initialMessage });
     }
@@ -162,14 +178,14 @@ function RemyTmpPageContent() {
   const handleStop = useCallback(async () => {
     stop();
     setMessages((prevMessages) => {
-      const lastUserIndex = [...prevMessages]
-        .reverse()
-        .findIndex((msg) => msg.role === "user");
+      const lastUserIndex = [...prevMessages].reverse().findIndex((msg) => msg.role === "user");
+
       if (lastUserIndex === -1) {
         return prevMessages;
       }
       const lastUserMsgIdx = prevMessages.length - 1 - lastUserIndex;
       let newMessages = prevMessages.slice(0, lastUserMsgIdx);
+
       if (
         prevMessages[lastUserMsgIdx + 1] &&
         prevMessages[lastUserMsgIdx + 1].role === "assistant"
@@ -178,6 +194,7 @@ function RemyTmpPageContent() {
       } else {
         newMessages = prevMessages.slice(0, lastUserMsgIdx);
       }
+
       return newMessages;
     });
   }, [stop, setMessages]);
@@ -226,13 +243,13 @@ function RemyTmpPageContent() {
             <ConversationScrollButton className="bottom-40" />
           </Conversation>
           <CoreInput
-            modelRef={selectedModelRef}
-            useWebSearchRef={useWebSearchRef}
-            useMemoriesRef={useMemoriesRef}
-            sendMessage={sendMessage}
-            stop={handleStop}
-            status={status}
             className="absolute bottom-1 md:bottom-4 px-4 sm:px-7 w-full"
+            modelRef={selectedModelRef}
+            sendMessage={sendMessage}
+            status={status}
+            stop={handleStop}
+            useMemoriesRef={useMemoriesRef}
+            useWebSearchRef={useWebSearchRef}
           />
         </div>
       </div>
@@ -242,13 +259,15 @@ function RemyTmpPageContent() {
 
 export default function RemyTmpPage() {
   return (
-    <Suspense fallback={
-      <Page>
-        <div className="flex items-center justify-center h-full">
-          <p className="text-muted-foreground">Loading...</p>
-        </div>
-      </Page>
-    }>
+    <Suspense
+      fallback={
+        <Page>
+          <div className="flex items-center justify-center h-full">
+            <p className="text-muted-foreground">Loading...</p>
+          </div>
+        </Page>
+      }
+    >
       <RemyTmpPageContent />
     </Suspense>
   );

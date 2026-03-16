@@ -29,7 +29,7 @@ export async function POST(req: Request) {
 
   logger.log(
     "POST",
-    `Received message metadata: id=${message.id ?? "unknown"} role=${message.role} parts=${message.parts?.length ?? 0}`,
+    `Received message metadata: id=${message.id ?? "unknown"} role=${message.role} parts=${message.parts?.length ?? 0}`
   );
 
   const res = await getContext({ chatId: id, message, persona: "prometheus" });

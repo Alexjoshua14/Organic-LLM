@@ -1,14 +1,14 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
-import {
-  getCurrentUserMemories,
-  getCurrentUserMemoriesBySearch,
-} from "@/lib/memory/operations";
 import type { SearchResult } from "mem0ai/oss";
-import { MemoryLensContent } from "./MemoryLensContent";
-import { sortMemories } from "@/lib/memory/sort-memories";
 import type { MemoryLensProps, SortOption } from "@/types/memory-lens";
+
+import { useCallback, useEffect, useMemo, useState } from "react";
+
+import { MemoryLensContent } from "./MemoryLensContent";
+
+import { getCurrentUserMemories, getCurrentUserMemoriesBySearch } from "@/lib/memory/operations";
+import { sortMemories } from "@/lib/memory/sort-memories";
 
 const SEARCH_DEBOUNCE_MS = 350;
 const SEARCH_LIMIT = 100;
@@ -30,10 +30,7 @@ export function MemoryLens({
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const [sortBy, setSortBy] = useState<SortOption>("recently-added");
 
-  const effectiveQuery =
-    searchQuery !== undefined
-      ? searchQuery
-      : debouncedSearch.trim() || null;
+  const effectiveQuery = searchQuery !== undefined ? searchQuery : debouncedSearch.trim() || null;
   const hasSearch = effectiveQuery !== null && effectiveQuery.length > 0;
 
   const load = useCallback(async () => {
@@ -46,6 +43,7 @@ export function MemoryLens({
             searchQuery !== undefined ? searchLimit : SEARCH_LIMIT
           )
         : await getCurrentUserMemories();
+
       if (!res || typeof res !== "object") {
         setError("Memory service may be unavailable.");
         setResult(null);
@@ -61,21 +59,18 @@ export function MemoryLens({
     } finally {
       setLoading(false);
     }
-  }, [
-    hasSearch,
-    effectiveQuery,
-    searchQuery,
-    searchLimit,
-  ]);
+  }, [hasSearch, effectiveQuery, searchQuery, searchLimit]);
 
   useEffect(() => {
     if (searchQuery !== undefined) {
       load();
+
       return;
     }
     const t = setTimeout(() => {
       setDebouncedSearch(searchInput.trim());
     }, SEARCH_DEBOUNCE_MS);
+
     return () => clearTimeout(t);
   }, [searchQuery, searchInput, load]);
 
@@ -85,53 +80,46 @@ export function MemoryLens({
     }
   }, [debouncedSearch, searchQuery, load]);
 
-  const handleDeleted = useCallback(
-    (id: string) => {
-      setResult((prev) =>
-        prev
-          ? {
-              ...prev,
-              results: prev.results?.filter((m) => m.id !== id) ?? [],
-              relations: prev.relations ?? [],
-            }
-          : null
-      );
-    },
-    []
-  );
+  const handleDeleted = useCallback((id: string) => {
+    setResult((prev) =>
+      prev
+        ? {
+            ...prev,
+            results: prev.results?.filter((m) => m.id !== id) ?? [],
+            relations: prev.relations ?? [],
+          }
+        : null
+    );
+  }, []);
 
   const memories = result?.results ?? [];
-  const sortedMemories = useMemo(
-    () => sortMemories(memories, sortBy),
-    [memories, sortBy]
-  );
+  const sortedMemories = useMemo(() => sortMemories(memories, sortBy), [memories, sortBy]);
   const isEmpty = sortedMemories.length === 0;
   const showSearchBar = searchQuery === undefined;
-  const searchLimitDisplay =
-    searchQuery !== undefined ? searchLimit : SEARCH_LIMIT;
+  const searchLimitDisplay = searchQuery !== undefined ? searchLimit : SEARCH_LIMIT;
 
   const isInitialLoad = loading && result === null && error === null;
 
   return (
     <MemoryLensContent
-      variant={variant}
       className={className}
-      hideHeading={hideHeading}
-      searchInput={searchInput}
-      setSearchInput={setSearchInput}
-      sortBy={sortBy}
-      setSortBy={setSortBy}
-      hasSearch={hasSearch}
-      showSearchBar={showSearchBar}
-      searchLimitDisplay={searchLimitDisplay}
       effectiveQuery={effectiveQuery}
-      sortedMemories={sortedMemories}
-      isEmpty={isEmpty}
       error={error}
       handleDeleted={handleDeleted}
-      onRefresh={load}
+      hasSearch={hasSearch}
+      hideHeading={hideHeading}
+      isEmpty={isEmpty}
       isInitialLoad={isInitialLoad}
       isRefreshing={loading && !isInitialLoad}
+      searchInput={searchInput}
+      searchLimitDisplay={searchLimitDisplay}
+      setSearchInput={setSearchInput}
+      setSortBy={setSortBy}
+      showSearchBar={showSearchBar}
+      sortBy={sortBy}
+      sortedMemories={sortedMemories}
+      variant={variant}
+      onRefresh={load}
     />
   );
 }

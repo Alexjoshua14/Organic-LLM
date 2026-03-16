@@ -1,12 +1,16 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { UIMessage } from "ai";
 
-import { ChatThread, MEMORY_PANEL_RESERVE_PADDING } from "@/components/chat/chat-thread";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+
+import { ChatThread } from "@/components/chat/chat-thread";
 import { CoreInput } from "@/components/chat/core-input";
 import { MemoryEphemeralCards } from "@/components/memory/memory-ephemeral-cards";
-import { Conversation, ConversationScrollButton } from "@/components/third-party/ai-elements/conversation";
+import {
+  Conversation,
+  ConversationScrollButton,
+} from "@/components/third-party/ai-elements/conversation";
 import { glass } from "@/components/design-system/primitives";
 import { ChatModel, DEFAULT_CHAT_MODEL } from "@/lib/schemas/chat";
 import { cn } from "@/lib/utils";
@@ -23,17 +27,19 @@ const SAMPLE_RETRIEVED = [
   { memory: "User prefers dark mode for all applications and interfaces." },
   { memory: "User is working on a web application with AI chat and memory." },
 ];
-const SAMPLE_ADDED = [
-  { memory: "User asked to preview memory UI components in the sandbox." },
-];
+const SAMPLE_ADDED = [{ memory: "User asked to preview memory UI components in the sandbox." }];
 const SAMPLE_RETRIEVED_2 = [
   { memory: "User asked to preview memory UI components in the sandbox." },
 ];
 
 /** Shown at end of demo as “just persisted” */
 const SAMPLE_ADDED_END = [
-  { memory: "User asked to be reminded what was just saved in the conversation." },
-  { memory: "User reviewed the in-chat memory UI demo with streaming and ephemeral cards." },
+  {
+    memory: "User asked to be reminded what was just saved in the conversation.",
+  },
+  {
+    memory: "User reviewed the in-chat memory UI demo with streaming and ephemeral cards.",
+  },
   { memory: "User is exploring Organic LLM memory features in the sandbox." },
 ];
 
@@ -108,11 +114,16 @@ export function InChatMemoryDemo({ className }: { className?: string }) {
       setPhase("streaming");
       const chars = ASSISTANT_FULL.split("");
       const addedShown = { current: false };
+
       streamIntervalRef.current = setInterval(() => {
         streamIndexRef.current += 1;
         const next = chars.slice(0, streamIndexRef.current).join("");
+
         setStreamedText(next);
-        if (!addedShown.current && streamIndexRef.current * STREAM_CHAR_MS >= DELAY_BEFORE_ADDED_MS) {
+        if (
+          !addedShown.current &&
+          streamIndexRef.current * STREAM_CHAR_MS >= DELAY_BEFORE_ADDED_MS
+        ) {
           addedShown.current = true;
           setAdded(SAMPLE_ADDED);
         }
@@ -137,9 +148,11 @@ export function InChatMemoryDemo({ className }: { className?: string }) {
       const t2a = setTimeout(() => {
         setPhase("streaming");
         const chars = ASSISTANT_FULL_2.split("");
+
         streamIntervalRef.current = setInterval(() => {
           streamIndexRef.current += 1;
           const next = chars.slice(0, streamIndexRef.current).join("");
+
           setStreamedText(next);
           if (streamIndexRef.current >= chars.length) {
             if (streamIntervalRef.current) {
@@ -151,15 +164,18 @@ export function InChatMemoryDemo({ className }: { className?: string }) {
           }
         }, STREAM_CHAR_MS);
       }, DELAY_BEFORE_STREAM_MS);
+
       timersRef.current.push(t2a);
     };
 
     const t1 = setTimeout(runRound1, DELAY_BEFORE_STREAM_MS);
+
     timersRef.current.push(t1);
 
     const round1Duration =
       DELAY_BEFORE_STREAM_MS + ASSISTANT_FULL.length * STREAM_CHAR_MS + DELAY_BEFORE_ROUND_2_MS;
     const tAfterRound1 = setTimeout(runRound2, round1Duration);
+
     timersRef.current.push(tAfterRound1);
   }, [clearTimers]);
 
@@ -175,11 +191,13 @@ export function InChatMemoryDemo({ className }: { className?: string }) {
     const asst2 = createAssistantMessage(DEMO_ASSISTANT_2_ID, streamedText);
 
     const out: UIMessage[] = [user1];
+
     if (hasAsst1) out.push(createAssistantMessage(DEMO_ASSISTANT_1_ID, asst1Text));
     if (round >= 2) {
       out.push(user2);
       if (phase === "streaming" || phase === "done") out.push(asst2);
     }
+
     return out;
   }, [round, phase, streamedText]);
 
@@ -202,6 +220,8 @@ export function InChatMemoryDemo({ className }: { className?: string }) {
         </Conversation>
         <div className="shrink-0 px-4 sm:px-7 pb-1 md:pb-4 w-full -mt-10 flex flex-col gap-2 relative z-20">
           <MemoryEphemeralCards
+            added={phase === "streaming" || phase === "done" ? added : []}
+            autoClearMs={0}
             className={cn(
               glass(),
               "absolute bottom-full left-1/2 -translate-x-1/2 w-[90%] h-32 overflow-y-auto z-10 rounded-t-2xl py-3 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)]",
@@ -209,20 +229,22 @@ export function InChatMemoryDemo({ className }: { className?: string }) {
               "transition-transform duration-300"
             )}
             retrieved={retrieved}
-            added={phase === "streaming" || phase === "done" ? added : []}
-            autoClearMs={0}
             onOpenChange={onMemoryPanelOpenChange}
           />
           <div className="relative z-20">
             <CoreInput
+              disabled
               modelRef={modelRef}
-              useWebSearchRef={useWebSearchRef}
+              sendMessage={async () => {
+                await Promise.resolve();
+              }}
+              status="ready"
+              stop={async () => {
+                await Promise.resolve();
+              }}
               useMemoriesRef={useMemoriesRef}
               useSpeechFriendlyRef={useSpeechFriendlyRef}
-              sendMessage={async () => { await Promise.resolve(); }}
-              stop={async () => { await Promise.resolve(); }}
-              status="ready"
-              disabled
+              useWebSearchRef={useWebSearchRef}
             />
           </div>
         </div>
@@ -231,17 +253,17 @@ export function InChatMemoryDemo({ className }: { className?: string }) {
       <div className="absolute top-3 right-4 z-10 flex gap-2">
         {phase === "idle" && round === 1 ? (
           <button
+            className="text-xs font-medium px-3 py-1.5 rounded-lg bg-cyan-500/15 text-cyan-700 dark:text-cyan-300 hover:bg-cyan-500/25 transition-colors"
             type="button"
             onClick={runDemo}
-            className="text-xs font-medium px-3 py-1.5 rounded-lg bg-cyan-500/15 text-cyan-700 dark:text-cyan-300 hover:bg-cyan-500/25 transition-colors"
           >
             Play demo
           </button>
         ) : round === 2 && phase === "done" ? (
           <button
+            className="text-xs font-medium px-3 py-1.5 rounded-lg bg-muted text-muted-foreground hover:bg-muted/80 transition-colors"
             type="button"
             onClick={reset}
-            className="text-xs font-medium px-3 py-1.5 rounded-lg bg-muted text-muted-foreground hover:bg-muted/80 transition-colors"
           >
             Replay
           </button>

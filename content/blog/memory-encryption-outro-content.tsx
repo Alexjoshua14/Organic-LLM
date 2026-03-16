@@ -1,9 +1,6 @@
 import { BlogSection } from "@/components/blog/blog-section";
 import { MermaidDiagram } from "@/components/blog/mermaid-diagram";
-import {
-  PipelineDiagram,
-  type PipelineSection,
-} from "@/components/blog/pipeline-diagram";
+import { PipelineDiagram, type PipelineSection } from "@/components/blog/pipeline-diagram";
 import { PipelineAnimation } from "@/components/blog/pipeline-animation";
 
 const LAYERS_MERMAID = `flowchart LR
@@ -116,31 +113,27 @@ export function MemoryEncryptionOutroContent() {
         </tbody>
       </table>
       <p>
-        <strong>Not encrypted:</strong> Primary keys, timestamps, role,
-        thread titles, short excerpts, etc.
+        <strong>Not encrypted:</strong> Primary keys, timestamps, role, thread titles, short
+        excerpts, etc.
       </p>
 
       <h3>Server-only</h3>
-      <p>
-        The crypto module is server-only and is never imported by client code.
-      </p>
+      <p>The crypto module is server-only and is never imported by client code.</p>
 
       <h3>Key derivation and AAD</h3>
       <ul>
         <li>
-          <strong>Root secret:</strong> Key derivation and AAD use a{" "}
-          <strong>root secret</strong> (supplied at deploy time). Optional: an{" "}
-          <strong>active key id</strong> and a <strong>key registry</strong>{" "}
-          for rotation or multiple keys.
+          <strong>Root secret:</strong> Key derivation and AAD use a <strong>root secret</strong>{" "}
+          (supplied at deploy time). Optional: an <strong>active key id</strong> and a{" "}
+          <strong>key registry</strong> for rotation or multiple keys.
         </li>
         <li>
-          <strong>Per-user key:</strong> HKDF-SHA256 derives a 32-byte key per
-          user from the root secret (with salt and a fixed info string). No
-          per-user keys are stored.
+          <strong>Per-user key:</strong> HKDF-SHA256 derives a 32-byte key per user from the root
+          secret (with salt and a fixed info string). No per-user keys are stored.
         </li>
         <li>
-          <strong>AAD:</strong> Ciphertext is bound to user id, thread id, and
-          field name so it cannot be reused in another context.
+          <strong>AAD:</strong> Ciphertext is bound to user id, thread id, and field name so it
+          cannot be reused in another context.
         </li>
       </ul>
 
@@ -148,27 +141,28 @@ export function MemoryEncryptionOutroContent() {
       <ul>
         <li>
           <strong>Encrypted value:</strong>{" "}
-          <code>enc:v1:&lt;keyId&gt;:&lt;ivBase64&gt;:&lt;tagBase64&gt;:&lt;ciphertextBase64&gt;</code>
+          <code>
+            enc:v1:&lt;keyId&gt;:&lt;ivBase64&gt;:&lt;tagBase64&gt;:&lt;ciphertextBase64&gt;
+          </code>
         </li>
         <li>
-          <strong>Legacy:</strong> Values not starting with <code>enc:</code>{" "}
-          are returned as plaintext.
+          <strong>Legacy:</strong> Values not starting with <code>enc:</code> are returned as
+          plaintext.
         </li>
       </ul>
 
       <h3>Where it runs</h3>
       <ul>
         <li>
-          <strong>Crypto module:</strong> Encrypt/decrypt API and key
-          derivation; server-only.
+          <strong>Crypto module:</strong> Encrypt/decrypt API and key derivation; server-only.
         </li>
         <li>
-          <strong>Data layer:</strong> Encrypt/decrypt messages and both
-          summary fields; resolves thread owner first.
+          <strong>Data layer:</strong> Encrypt/decrypt messages and both summary fields; resolves
+          thread owner first.
         </li>
         <li>
-          <strong>LLM layer:</strong> Decrypt/encrypt summary text when
-          building or updating context.
+          <strong>LLM layer:</strong> Decrypt/encrypt summary text when building or updating
+          context.
         </li>
       </ul>
 
@@ -186,13 +180,13 @@ export function MemoryEncryptionOutroContent() {
       <PipelineAnimation />
 
       <p>
-        <strong>Ciphertext format:</strong> A versioned prefix, key id, then
-        initialization vector (IV), tag, and ciphertext (e.g.{" "}
-        <code>enc:v1:&lt;keyId&gt;:&lt;iv&gt;:&lt;tag&gt;:&lt;ciphertext&gt;</code>).
+        <strong>Ciphertext format:</strong> A versioned prefix, key id, then initialization vector
+        (IV), tag, and ciphertext (e.g.{" "}
+        <code>enc:v1:&lt;keyId&gt;:&lt;iv&gt;:&lt;tag&gt;:&lt;ciphertext&gt;</code>
+        ).
       </p>
       <p>
-        <strong>Encrypted fields:</strong> Message content, thread summary,
-        conversation summary.
+        <strong>Encrypted fields:</strong> Message content, thread summary, conversation summary.
       </p>
 
       <h3>Security properties achieved</h3>
@@ -201,24 +195,21 @@ export function MemoryEncryptionOutroContent() {
           <strong>Database compromise:</strong> Attackers see ciphertext only.
         </li>
         <li>
-          <strong>Row swapping / tampering:</strong> Detected by AEAD
-          authentication tag.
+          <strong>Row swapping / tampering:</strong> Detected by AEAD authentication tag.
         </li>
         <li>
-          <strong>Partial compromise:</strong> User-scoped keys reduce blast
-          radius.
+          <strong>Partial compromise:</strong> User-scoped keys reduce blast radius.
         </li>
         <li>
-          <strong>Operational rollout:</strong> Mixed plaintext/encrypted rows
-          supported.
+          <strong>Operational rollout:</strong> Mixed plaintext/encrypted rows supported.
         </li>
       </ul>
 
       <h3>Why this fits Organic LLM</h3>
       <p>
-        Organic LLM stores personal conversations, long-term AI memory, research
-        notes, and summaries. This architecture protects those while still
-        allowing AI reasoning, efficient queries, and gradual system evolution.
+        Organic LLM stores personal conversations, long-term AI memory, research notes, and
+        summaries. This architecture protects those while still allowing AI reasoning, efficient
+        queries, and gradual system evolution.
       </p>
     </BlogSection>
   );

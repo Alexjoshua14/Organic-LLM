@@ -5,9 +5,10 @@ import { FC, useState } from "react";
 
 import { ThemeSwitch } from "../shared/theme-switch";
 import { SettingsOverlay } from "../settings/SettingsOverlay";
-import { cn } from "@/lib/utils";
 import { glass } from "../design-system/primitives";
 import { useSidebar } from "../third-party/ui/sidebar";
+
+import { cn } from "@/lib/utils";
 
 type ControlClusterProps = {
   className?: string;
@@ -23,14 +24,14 @@ export const ControlCluster: FC<ControlClusterProps> = ({ className }) => {
       <div
         className={cn(
           `${glass()} absolute top-0 ${open ? "md:translate-y-4" : ""} right-0 w-24 h-14 flex items-center justify-center z-30 rounded-bl-lg transition-all duration-200`,
-          className,
+          className
         )}
       >
         <button
-          type="button"
-          className="min-w-8 w-8 h-8 grid place-content-center border-0 hover:bg-background-tertiary rounded"
-          onClick={() => setSettingsOpen(true)}
           aria-label="Open quick settings"
+          className="min-w-8 w-8 h-8 grid place-content-center border-0 hover:bg-background-tertiary rounded"
+          type="button"
+          onClick={() => setSettingsOpen(true)}
         >
           <Settings2Icon size={16} />
         </button>

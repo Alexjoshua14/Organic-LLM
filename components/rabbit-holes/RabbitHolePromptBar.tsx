@@ -34,12 +34,11 @@ export function RabbitHolePromptBar({
       if (message && "text" in message && message.text?.trim()) {
         onStart(message.text.trim());
       }
+
       // CoreInput expects a Promise return; we don't use it for rabbit holes.
-      return undefined as unknown as ReturnType<
-        ReturnType<typeof useChat>["sendMessage"]
-      >;
+      return undefined as unknown as ReturnType<ReturnType<typeof useChat>["sendMessage"]>;
     },
-    [onStart],
+    [onStart]
   );
 
   // Adapt onReset to return a Promise as expected by stop
@@ -53,15 +52,14 @@ export function RabbitHolePromptBar({
   return (
     <PromptInputProvider>
       <CoreInput
-        modelRef={modelRef}
-        useWebSearchRef={useWebSearchRef}
-        useMemoriesRef={useMemoriesRef}
-        sendMessage={sendMessage}
-        stop={stop}
-        status={status}
         disabled={isLoading}
+        modelRef={modelRef}
+        sendMessage={sendMessage}
+        status={status}
+        stop={stop}
+        useMemoriesRef={useMemoriesRef}
+        useWebSearchRef={useWebSearchRef}
       />
     </PromptInputProvider>
   );
 }
-

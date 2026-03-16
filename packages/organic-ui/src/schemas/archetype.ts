@@ -1,5 +1,6 @@
-import { MemoryItem } from "@/lib/schemas/memory";
 import { z } from "zod";
+
+import { MemoryItem } from "@/lib/schemas/memory";
 
 export const NewsArchetype = z.object({
   id: z.string(),

@@ -1,7 +1,8 @@
 "use client";
 
-import { RabbitHoleBranchGrid } from "./RabbitHoleBranchGrid";
 import type { RabbitHoleBranchSuggestion } from "@/lib/schemas/rabbitHoleSchemas";
+
+import { RabbitHoleBranchGrid } from "./RabbitHoleBranchGrid";
 
 export interface RabbitHoleBranchSuggestionsBlockProps {
   branches: RabbitHoleBranchSuggestion[];
@@ -23,9 +24,9 @@ export function RabbitHoleBranchSuggestionsBlock({
   return (
     <RabbitHoleBranchGrid
       branches={branches}
-      onBranchClick={onBranchClick}
-      isLoading={isLoading}
       hasSources={hasSources}
+      isLoading={isLoading}
+      onBranchClick={onBranchClick}
     />
   );
 }

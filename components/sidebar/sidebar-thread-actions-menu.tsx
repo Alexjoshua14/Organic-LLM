@@ -9,6 +9,10 @@ import {
   ModalFooter,
   useDisclosure,
 } from "@heroui/modal";
+import { Pencil, Pin, PinOff, Sparkles, Trash2 } from "lucide-react";
+import { useCallback } from "react";
+import { useRouter, usePathname } from "next/navigation";
+
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -16,10 +20,6 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/third-party/ui/dropdown-menu";
-import { MoreVertical, Pencil, Pin, PinOff, Sparkles, Trash2 } from "lucide-react";
-import { useCallback } from "react";
-import { useRouter, usePathname } from "next/navigation";
-
 import { ThreadLink } from "@/types";
 import { deleteChat } from "@/data/supabase/chat";
 import { createLogger } from "@/lib/logger";
@@ -44,8 +44,7 @@ export function SidebarThreadActionsMenu({
   onTogglePin,
   children,
 }: SidebarThreadActionsMenuProps) {
-  const { isOpen, onOpen, onClose, onOpenChange: onModalOpenChange } =
-    useDisclosure();
+  const { isOpen, onOpen, onClose, onOpenChange: onModalOpenChange } = useDisclosure();
   const pathname = usePathname();
   const router = useRouter();
   const { refreshSidebarChats } = useSharedChatContext();
@@ -68,15 +67,13 @@ export function SidebarThreadActionsMenu({
   const handleGenerateTitle = useCallback(() => {
     onOpenChange(false);
     const threadId = thread.id;
+
     fetch(`/api/chat/${threadId}/generate-title`, { method: "POST" })
       .then((res) => {
         if (res.ok) {
           refreshSidebarChats();
         } else {
-          logger.error(
-            "handleGenerateTitle",
-            `Failed to generate title: ${res.status}`,
-          );
+          logger.error("handleGenerateTitle", `Failed to generate title: ${res.status}`);
         }
       })
       .catch((err) => {
@@ -96,10 +93,7 @@ export function SidebarThreadActionsMenu({
           router.push("/");
         }
       } else {
-        logger.error(
-          "handleDeleteThread",
-          res.error?.message ?? "Unknown error",
-        );
+        logger.error("handleDeleteThread", res.error?.message ?? "Unknown error");
       }
     };
 
@@ -118,9 +112,7 @@ export function SidebarThreadActionsMenu({
           </DropdownMenuItem>
           <DropdownMenuItem onSelect={handleGenerateTitle}>
             <Sparkles className="size-4" />
-            {thread.hasNoTitle === true
-              ? "Generate title (AI)"
-              : "Regenerate title (AI)"}
+            {thread.hasNoTitle === true ? "Generate title (AI)" : "Regenerate title (AI)"}
           </DropdownMenuItem>
           <DropdownMenuItem onSelect={handleTogglePin}>
             {thread.pinned ? (
@@ -136,10 +128,7 @@ export function SidebarThreadActionsMenu({
             )}
           </DropdownMenuItem>
           <DropdownMenuSeparator />
-          <DropdownMenuItem
-            onSelect={handleDeleteClick}
-            className="text-danger focus:text-danger"
-          >
+          <DropdownMenuItem className="text-danger focus:text-danger" onSelect={handleDeleteClick}>
             <Trash2 className="size-4" />
             Delete thread
           </DropdownMenuItem>
@@ -149,8 +138,7 @@ export function SidebarThreadActionsMenu({
         <ModalContent>
           <ModalHeader>Delete thread</ModalHeader>
           <ModalBody>
-            Are you sure you want to delete &quot;{thread.title}&quot;? This
-            cannot be undone.
+            Are you sure you want to delete &quot;{thread.title}&quot;? This cannot be undone.
           </ModalBody>
           <ModalFooter>
             <Button variant="flat" onPress={onClose}>

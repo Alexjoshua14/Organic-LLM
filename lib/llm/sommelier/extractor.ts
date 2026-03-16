@@ -1,10 +1,11 @@
+import type { WineEntry } from "@/lib/schemas/wine-line-list";
+
 import { randomUUID } from "crypto";
+
 import { z } from "zod";
 import { generateObject } from "ai";
-import { openai } from "@ai-sdk/openai";
 
 import { createLogger } from "@/lib/logger";
-import type { WineEntry } from "@/lib/schemas/wine-line-list";
 import { WineEntrySchema } from "@/lib/schemas/wine-line-list";
 
 const logger = createLogger("lib/llm/sommelier/extractor.ts");
@@ -20,7 +21,7 @@ Return exactly one wine in the "wines" array with:
 ${WINE_FIELDS}`;
 
 const WINE_EXTRACT_SYSTEM_MANY = (
-  n: number,
+  n: number
 ) => `You are a wine expert. The user described ${n} wines. Extract exactly ${n} wines in order: first wine in the message = first in the array, second = second, etc.
 
 For each wine in the "wines" array provide:
@@ -36,6 +37,7 @@ function buildExtractPrompt(userText: string, expectedCount: number): string {
   if (expectedCount === 1) {
     return `Extract the single wine described below into one structured entry. Return a JSON object with a "wines" array containing exactly one wine.\n\nUser's message:\n${userText}`;
   }
+
   return `Extract the ${expectedCount} wines described below. Return a JSON object with a "wines" array containing exactly ${expectedCount} wines, in the order they appear.\n\nUser's message:\n${userText}`;
 }
 
@@ -43,15 +45,10 @@ function buildExtractPrompt(userText: string, expectedCount: number): string {
  * Extract exactly expectedCount wines from the user's message into structured entries.
  * Order preserved: first wine in message = first in array.
  */
-export async function extractWines(
-  userText: string,
-  expectedCount: number,
-): Promise<WineEntry[]> {
+export async function extractWines(userText: string, expectedCount: number): Promise<WineEntry[]> {
   const schema = buildWineListSchema(expectedCount);
   const system =
-    expectedCount === 1
-      ? WINE_EXTRACT_SYSTEM_ONE
-      : WINE_EXTRACT_SYSTEM_MANY(expectedCount);
+    expectedCount === 1 ? WINE_EXTRACT_SYSTEM_ONE : WINE_EXTRACT_SYSTEM_MANY(expectedCount);
   const prompt = buildExtractPrompt(userText, expectedCount);
 
   const maxOutputTokens = Math.min(400 * expectedCount, 2000);
@@ -72,6 +69,7 @@ export async function extractWines(
 
   const list = object as { wines: WineEntry[] };
   const rawWines = list.wines ?? [];
+
   logger.debug("extractWines", "raw output", {
     requestedCount: expectedCount,
     rawArrayLength: rawWines.length,
@@ -83,9 +81,11 @@ export async function extractWines(
     ...w,
     id: w.id ?? `wine-${i}-${randomUUID().slice(0, 8)}`,
   }));
+
   logger.debug("extractWines", "after id assignment", {
     resultCount: result.length,
     resultIds: result.map((w) => w.id),
   });
+
   return result;
 }

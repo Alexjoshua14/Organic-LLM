@@ -2,6 +2,7 @@
 
 import { useRef, useState, useCallback, useEffect } from "react";
 import { createPortal } from "react-dom";
+
 import { cn } from "@/lib/utils";
 
 type TermWithDefinitionProps = {
@@ -14,11 +15,7 @@ function stripBackticks(s: string): string {
   return s.replace(/`/g, "").trim() || s;
 }
 
-export function TermWithDefinition({
-  term,
-  definition,
-  className,
-}: TermWithDefinitionProps) {
+export function TermWithDefinition({ term, definition, className }: TermWithDefinitionProps) {
   const displayTerm = stripBackticks(term);
   const triggerRef = useRef<HTMLSpanElement>(null);
   const [open, setOpen] = useState(false);
@@ -26,6 +23,7 @@ export function TermWithDefinition({
 
   const updatePosition = useCallback(() => {
     const el = triggerRef.current;
+
     if (!el || typeof document === "undefined") return;
     const rect = el.getBoundingClientRect();
     const viewportHeight = window.innerHeight;
@@ -33,6 +31,7 @@ export function TermWithDefinition({
     const spaceBelow = viewportHeight - rect.bottom;
     const cardHeight = 80;
     const placeAbove = spaceBelow < cardHeight + 8 && spaceAbove >= spaceBelow;
+
     if (placeAbove) {
       setCardStyle({
         position: "fixed",
@@ -59,6 +58,7 @@ export function TermWithDefinition({
       updatePosition();
       window.addEventListener("scroll", updatePosition, true);
       window.addEventListener("resize", updatePosition);
+
       return () => {
         window.removeEventListener("scroll", updatePosition, true);
         window.removeEventListener("resize", updatePosition);
@@ -77,18 +77,18 @@ export function TermWithDefinition({
     <>
       <span
         ref={triggerRef}
-        role="button"
-        tabIndex={0}
+        aria-describedby={open ? `term-def-${displayTerm.replace(/\s/g, "-")}` : undefined}
         className={cn(
           "cursor-help border-b border-dotted border-muted-foreground text-foreground",
           "hover:text-secondary-foreground focus:text-secondary-foreground focus:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 focus-visible:ring-offset-background",
-          className,
+          className
         )}
+        role="button"
+        tabIndex={0}
+        onBlur={handleClose}
+        onFocus={handleOpen}
         onMouseEnter={handleOpen}
         onMouseLeave={handleClose}
-        onFocus={handleOpen}
-        onBlur={handleClose}
-        aria-describedby={open ? `term-def-${displayTerm.replace(/\s/g, "-")}` : undefined}
       >
         {displayTerm}
       </span>
@@ -96,14 +96,14 @@ export function TermWithDefinition({
         typeof document !== "undefined" &&
         createPortal(
           <div
+            className="rounded-md border border-border bg-popover px-3 py-2 text-sm text-popover-foreground shadow-md"
             id={`term-def-${displayTerm.replace(/\s/g, "-")}`}
             role="tooltip"
-            className="rounded-md border border-border bg-popover px-3 py-2 text-sm text-popover-foreground shadow-md"
             style={cardStyle}
           >
             {definition}
           </div>,
-          document.body,
+          document.body
         )}
     </>
   );

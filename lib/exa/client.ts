@@ -1,14 +1,12 @@
 "use server";
 
-import { createLogger } from "@/lib/logger";
-import { RabbitHoleSource } from "@/lib/schemas/rabbitHoleSchemas";
 import Exa, { RegularSearchOptions, SearchResponse } from "exa-js";
-import {
-  ExaContentResponse,
-  ExaSearchOptions,
-  ExaSearchResponse,
-} from "./types";
+
+import { ExaContentResponse, ExaSearchOptions, ExaSearchResponse } from "./types";
 import { getApiKey, mapToSources } from "./utils";
+
+import { RabbitHoleSource } from "@/lib/schemas/rabbitHoleSchemas";
+import { createLogger } from "@/lib/logger";
 import { Result } from "@/types";
 
 const logger = createLogger("lib/exa/client");
@@ -22,7 +20,7 @@ const exa = new Exa(getApiKey() ?? undefined);
 
 export async function searchWebWithQuery(
   query: string,
-  options: Partial<RegularSearchOptions> = {},
+  options: Partial<RegularSearchOptions> = {}
 ): Promise<
   Result<
     | SearchResponse<{ highlights: true }>
@@ -41,14 +39,16 @@ export async function searchWebWithQuery(
     });
 
     const end = performance.now();
+
     logger.log(
       "searchWebWithQuery",
-      `Query="${query}" results=${searchResult.results.length} elapsed=${(end - start).toFixed(1)}ms`,
+      `Query="${query}" results=${searchResult.results.length} elapsed=${(end - start).toFixed(1)}ms`
     );
 
     return { data: searchResult, error: null };
   } catch (error) {
     logger.error("searchWebWithQuery", `Error for query="${query}": ${error}`);
+
     return {
       data: null,
       error: error instanceof Error ? error : new Error("Unknown Exa error"),
@@ -58,9 +58,10 @@ export async function searchWebWithQuery(
 
 export async function searchWeb(
   query: string,
-  options: Partial<ExaSearchOptions> = {},
+  options: Partial<ExaSearchOptions> = {}
 ): Promise<{ sources: RabbitHoleSource[]; error: Error | null }> {
   const apiKey = getApiKey();
+
   if (!apiKey) {
     return { sources: [], error: new Error("Missing EXA_API_KEY") };
   }
@@ -87,10 +88,8 @@ export async function searchWeb(
     });
 
     if (!res.ok) {
-      logger.error(
-        "searchWeb",
-        `HTTP ${res.status} ${res.statusText} for query="${query}"`,
-      );
+      logger.error("searchWeb", `HTTP ${res.status} ${res.statusText} for query="${query}"`);
+
       return {
         sources: [],
         error: new Error(`Exa search failed: ${res.status} ${res.statusText}`),
@@ -99,15 +98,18 @@ export async function searchWeb(
 
     const data = (await res.json()) as ExaSearchResponse;
     const sources = mapToSources(data.results || []);
+
     logger.log(
       "searchWeb",
-      `query="${query}" results=${sources.length} elapsed=${(
-        performance.now() - start
-      ).toFixed(1)}ms`,
+      `query="${query}" results=${sources.length} elapsed=${(performance.now() - start).toFixed(
+        1
+      )}ms`
     );
+
     return { sources, error: null };
   } catch (error) {
     logger.error("searchWeb", `Error for query="${query}": ${error}`);
+
     return {
       sources: [],
       error: error instanceof Error ? error : new Error("Unknown Exa error"),
@@ -116,9 +118,10 @@ export async function searchWeb(
 }
 
 export async function getContents(
-  urls: string[],
+  urls: string[]
 ): Promise<{ contents: ExaContentResponse["results"]; error: Error | null }> {
   const apiKey = getApiKey();
+
   if (!apiKey) {
     return { contents: [], error: new Error("Missing EXA_API_KEY") };
   }
@@ -141,28 +144,27 @@ export async function getContents(
     });
 
     if (!res.ok) {
-      logger.error(
-        "getContents",
-        `HTTP ${res.status} ${res.statusText} for urls=${urls.length}`,
-      );
+      logger.error("getContents", `HTTP ${res.status} ${res.statusText} for urls=${urls.length}`);
+
       return {
         contents: [],
-        error: new Error(
-          `Exa contents failed: ${res.status} ${res.statusText}`,
-        ),
+        error: new Error(`Exa contents failed: ${res.status} ${res.statusText}`),
       };
     }
 
     const data = (await res.json()) as ExaContentResponse;
+
     logger.log(
       "getContents",
       `urls=${urls.length} results=${data.results?.length ?? 0} elapsed=${(
         performance.now() - start
-      ).toFixed(1)}ms`,
+      ).toFixed(1)}ms`
     );
+
     return { contents: data.results || [], error: null };
   } catch (error) {
     logger.error("getContents", `Error for urls=${urls.length}: ${error}`);
+
     return {
       contents: [],
       error: error instanceof Error ? error : new Error("Unknown Exa error"),

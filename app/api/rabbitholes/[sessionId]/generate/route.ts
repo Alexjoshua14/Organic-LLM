@@ -6,9 +6,7 @@ import { createLogger } from "@/lib/logger";
 
 export const maxDuration = 30;
 
-const logger = createLogger(
-  "app/api/rabbitholes/[sessionId]/generate/route.ts",
-);
+const logger = createLogger("app/api/rabbitholes/[sessionId]/generate/route.ts");
 
 type Body = { nodeId?: string; session?: string };
 
@@ -17,10 +15,7 @@ type Body = { nodeId?: string; session?: string };
  *
  * Schedules async node generation. Returns 202 + jobId; generation runs after response via after().
  */
-export async function POST(
-  req: Request,
-  { params }: { params: Promise<{ sessionId: string }> },
-) {
+export async function POST(req: Request, { params }: { params: Promise<{ sessionId: string }> }) {
   const clerkUser = await auth();
 
   if (!clerkUser?.userId) {
@@ -30,21 +25,17 @@ export async function POST(
   const { sessionId } = await params;
 
   let body: Body;
+
   try {
     body = (await req.json()) as Body;
   } catch {
-    return NextResponse.json(
-      { error: "Invalid JSON body" },
-      { status: 400 },
-    );
+    return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
   }
 
   const nodeId = body?.nodeId;
+
   if (!nodeId || typeof nodeId !== "string") {
-    return NextResponse.json(
-      { error: "Missing or invalid nodeId" },
-      { status: 400 },
-    );
+    return NextResponse.json({ error: "Missing or invalid nodeId" }, { status: 400 });
   }
 
   const session = typeof body?.session === "string" ? body.session : undefined;
@@ -55,16 +46,13 @@ export async function POST(
       nodeId,
       serializedSession: session,
     });
-    return NextResponse.json(
-      { jobId, sessionId, nodeId },
-      { status: 202 },
-    );
+
+    return NextResponse.json({ jobId, sessionId, nodeId }, { status: 202 });
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
+
     logger.error("POST", `scheduleNodeGeneration failed: ${message}`);
-    return NextResponse.json(
-      { error: "Failed to schedule generation" },
-      { status: 500 },
-    );
+
+    return NextResponse.json({ error: "Failed to schedule generation" }, { status: 500 });
   }
 }

@@ -1,14 +1,10 @@
 "use server";
 
-import {
-  AIJobCreate,
-  AIJobInsert,
-  AIJobPatch,
-  AIJobUpdate,
-} from "@/lib/schemas/ai-jobs";
+import { AIJobCreate, AIJobInsert, AIJobPatch, AIJobUpdate } from "@/lib/schemas/ai-jobs";
 
 export type { AIJobInsert };
 import { supabaseServer } from "@/lib/supabase/server";
+
 import { randomUUID } from "crypto";
 
 /**
@@ -61,11 +57,7 @@ export async function updateAIJob(id: string, patch: AIJobPatch) {
  */
 export async function getAIJob(id: string) {
   const supabase = await supabaseServer();
-  const { data, error } = await supabase
-    .from("ai_jobs")
-    .select("*")
-    .eq("id", id)
-    .single();
+  const { data, error } = await supabase.from("ai_jobs").select("*").eq("id", id).single();
 
   if (error) throw new Error(error.message);
 

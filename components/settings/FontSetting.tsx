@@ -2,6 +2,8 @@
 
 import { useState, useEffect, useMemo } from "react";
 import { Button } from "@heroui/button";
+import { useAuth } from "@clerk/nextjs";
+
 import {
   Dialog,
   DialogContent,
@@ -16,16 +18,10 @@ import {
   CommandItem,
   CommandList,
 } from "@/components/third-party/ui/command";
-import {
-  featuredFonts,
-  allFontOptions,
-  getFontById,
-  type FontOption,
-} from "@/config/font-options";
-import { getSettings, setSettings } from "@/lib/user-settings";
+import { featuredFonts, allFontOptions, getFontById, type FontOption } from "@/config/font-options";
+import { getSettings } from "@/lib/user-settings";
 import { applyFontPreference } from "@/components/FontProvider";
 import { persistUserSettingsToSupabase } from "@/data/supabase/user-settings";
-import { useAuth } from "@clerk/nextjs";
 
 function fontFamilyForPreview(font: FontOption | undefined): string | undefined {
   if (!font || font.id === "system") return undefined;
@@ -34,6 +30,7 @@ function fontFamilyForPreview(font: FontOption | undefined): string | undefined 
   if (font.id === "commissioner") return "var(--font-commissioner), sans-serif";
   if (font.googleId) return `'${font.googleId}', sans-serif`;
   if (font.id === "geist") return "'Geist', 'Geist Sans', sans-serif";
+
   return undefined;
 }
 
@@ -61,43 +58,44 @@ export default function FontSetting() {
       <div>
         <h2 className="text-lg font-semibold text-foreground mb-1">Font</h2>
         <p className="text-sm text-muted-foreground mb-3">
-          Choose the font used across the app. Featured picks and fonts used by popular apps are shown first; search for more.
+          Choose the font used across the app. Featured picks and fonts used by popular apps are
+          shown first; search for more.
         </p>
         <div className="flex items-center gap-3">
           <Button
-            variant="bordered"
-            onPress={() => setOpen(true)}
             className="font-medium min-w-[200px] justify-start"
             style={{ fontFamily: fontFamilyForPreview(selectedFont) }}
+            variant="bordered"
+            onPress={() => setOpen(true)}
           >
             {selectedFont?.label ?? "Satoshi"}
           </Button>
           {selectedFont?.tag && (
-            <span className="text-sm text-muted-foreground">
-              {selectedFont.tag}
-            </span>
+            <span className="text-sm text-muted-foreground">{selectedFont.tag}</span>
           )}
         </div>
       </div>
 
-      <Dialog open={open} onOpenChange={(o) => { setOpen(o); if (!o) setSearch(""); }}>
+      <Dialog
+        open={open}
+        onOpenChange={(o) => {
+          setOpen(o);
+          if (!o) setSearch("");
+        }}
+      >
         <DialogContent className="max-w-md gap-0 p-0 overflow-hidden">
           <DialogHeader className="px-4 pt-4 pb-2">
             <DialogTitle>Choose font</DialogTitle>
           </DialogHeader>
           <Command
             className="rounded-lg border-0 shadow-none"
+            shouldFilter={false}
             value={search}
             onValueChange={setSearch}
-            shouldFilter={false}
           >
-            <CommandInput placeholder="Search fonts..." className="border-b rounded-none" />
+            <CommandInput className="border-b rounded-none" placeholder="Search fonts..." />
             <CommandList className="max-h-[320px]">
-              <FontPickerContent
-                search={search}
-                selectedId={selectedId}
-                onSelect={handleSelect}
-              />
+              <FontPickerContent search={search} selectedId={selectedId} onSelect={handleSelect} />
             </CommandList>
           </Command>
         </DialogContent>
@@ -118,10 +116,9 @@ function FontPickerContent({
   const filteredAll = useMemo(() => {
     if (!search.trim()) return [];
     const q = search.trim().toLowerCase();
+
     return allFontOptions.filter(
-      (f) =>
-        f.label.toLowerCase().includes(q) ||
-        (f.tag?.toLowerCase().includes(q) ?? false),
+      (f) => f.label.toLowerCase().includes(q) || (f.tag?.toLowerCase().includes(q) ?? false)
     );
   }, [search]);
 
@@ -135,17 +132,13 @@ function FontPickerContent({
           {featuredFonts.map((font) => (
             <CommandItem
               key={font.id}
+              className="flex items-center justify-between gap-2"
               value={font.id}
               onSelect={() => onSelect(font)}
-              className="flex items-center justify-between gap-2"
             >
-              <span style={{ fontFamily: fontFamilyForPreview(font) }}>
-                {font.label}
-              </span>
+              <span style={{ fontFamily: fontFamilyForPreview(font) }}>{font.label}</span>
               {font.tag && (
-                <span className="text-xs text-muted-foreground shrink-0">
-                  {font.tag}
-                </span>
+                <span className="text-xs text-muted-foreground shrink-0">{font.tag}</span>
               )}
             </CommandItem>
           ))}
@@ -159,9 +152,9 @@ function FontPickerContent({
             filteredAll.map((font) => (
               <CommandItem
                 key={font.id}
+                style={{ fontFamily: fontFamilyForPreview(font) }}
                 value={font.id}
                 onSelect={() => onSelect(font)}
-                style={{ fontFamily: fontFamilyForPreview(font) }}
               >
                 {font.label}
               </CommandItem>

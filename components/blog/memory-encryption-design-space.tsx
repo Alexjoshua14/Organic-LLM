@@ -9,19 +9,11 @@ type Section = {
   tableMarkdown: string;
 };
 
-export function MemoryEncryptionDesignSpace({
-  sections,
-}: {
-  sections: readonly Section[];
-}) {
+export function MemoryEncryptionDesignSpace({ sections }: { sections: readonly Section[] }) {
   return (
     <div className="space-y-1">
       {sections.map((section) => (
-        <CollapsibleSection
-          key={section.title}
-          title={section.title}
-          summary={section.overview}
-        >
+        <CollapsibleSection key={section.title} summary={section.overview} title={section.title}>
           <BlogProse content={section.tableMarkdown} />
         </CollapsibleSection>
       ))}

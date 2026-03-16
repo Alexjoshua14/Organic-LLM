@@ -13,13 +13,13 @@ interface AdaptiveOrganicPresenceProps {
 
 /**
  * AdaptiveOrganicPresence - An intelligent, state-aware organic presence indicator.
- * 
+ *
  * States:
  * - idle: Barely visible, slow breathing (resting)
  * - active: More visible, steady pulse (ready)
  * - thinking: Medium intensity, morphing (processing)
  * - responding: Full intensity, active movement (engaged)
- * 
+ *
  * This component embodies the "alive" feeling - it breathes with the application state.
  */
 export function AdaptiveOrganicPresence({
@@ -75,7 +75,7 @@ export function AdaptiveOrganicPresence({
     "top-right": { top: "2rem", right: "2rem" },
     "bottom-left": { bottom: "2rem", left: "2rem" },
     "bottom-right": { bottom: "2rem", right: "2rem" },
-    "center": { top: "50%", left: "50%", transform: "translate(-50%, -50%)" },
+    center: { top: "50%", left: "50%", transform: "translate(-50%, -50%)" },
   };
 
   return (
@@ -93,15 +93,15 @@ export function AdaptiveOrganicPresence({
       }}
     >
       <svg
-        width={size}
-        height={size}
-        viewBox="0 0 100 100"
         fill="none"
-        xmlns="http://www.w3.org/2000/svg"
+        height={size}
         style={{
           filter: `blur(${config.blur}px)`,
           transition: "filter 2s ease-out",
         }}
+        viewBox="0 0 100 100"
+        width={size}
+        xmlns="http://www.w3.org/2000/svg"
       >
         {/* Outer organic blob */}
         <path
@@ -140,13 +140,7 @@ export function AdaptiveOrganicPresence({
         </path>
 
         {/* Inner core */}
-        <circle
-          cx="50"
-          cy="50"
-          r="12"
-          fill={config.color}
-          opacity="0.5"
-        >
+        <circle cx="50" cy="50" fill={config.color} opacity="0.5" r="12">
           <animate
             attributeName="r"
             dur={`${parseFloat(config.speed) * 0.6}s`}
@@ -163,25 +157,9 @@ export function AdaptiveOrganicPresence({
 
         {/* Subtle shimmer for responding state */}
         {state === "responding" && (
-          <circle
-            cx="50"
-            cy="50"
-            r="8"
-            fill="white"
-            opacity="0"
-          >
-            <animate
-              attributeName="r"
-              dur="1.5s"
-              repeatCount="indefinite"
-              values="8;20;8"
-            />
-            <animate
-              attributeName="opacity"
-              dur="1.5s"
-              repeatCount="indefinite"
-              values="0;0.3;0"
-            />
+          <circle cx="50" cy="50" fill="white" opacity="0" r="8">
+            <animate attributeName="r" dur="1.5s" repeatCount="indefinite" values="8;20;8" />
+            <animate attributeName="opacity" dur="1.5s" repeatCount="indefinite" values="0;0.3;0" />
           </circle>
         )}
       </svg>

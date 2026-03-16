@@ -6,8 +6,8 @@ import { MemoryLens } from "@/components/memory/memory-lens";
 
 const MemorySettings = () => {
   return (
-    <section className="flex flex-col gap-8 w-full" aria-label="Memory settings">
-      <MemoryLens variant="inline" hideHeading className="w-full" />
+    <section aria-label="Memory settings" className="flex flex-col gap-8 w-full">
+      <MemoryLens hideHeading className="w-full" variant="inline" />
     </section>
   );
 };

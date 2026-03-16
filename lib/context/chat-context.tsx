@@ -1,13 +1,6 @@
 "use client";
 
-import React, {
-  createContext,
-  useCallback,
-  useContext,
-  useMemo,
-  ReactNode,
-  useState,
-} from "react";
+import React, { createContext, useCallback, useContext, useMemo, ReactNode, useState } from "react";
 import { Chat } from "@ai-sdk/react";
 import useSWR from "swr";
 import { DefaultChatTransport, UIMessage } from "ai";
@@ -35,11 +28,14 @@ interface ChatsApiResponse {
  */
 async function sidebarChatsFetcher(url: string): Promise<ChatsApiResponse> {
   const res = await fetch(url);
+
   if (!res.ok) {
     const err = new Error(res.status === 401 ? "Unauthorized" : "Failed to fetch chats");
+
     (err as Error & { status?: number }).status = res.status;
     throw err;
   }
+
   return res.json();
 }
 
@@ -48,13 +44,13 @@ async function sidebarChatsFetcher(url: string): Promise<ChatsApiResponse> {
  */
 function normalizeToThreadLinks(rows: ChatsApiResponse["data"]): ThreadLink[] {
   if (!rows || !Array.isArray(rows)) return [];
+
   return rows.map((thread) => ({
     title: thread.title ?? "Unknown title",
     id: thread.id,
     pinned: thread.pinned ?? false,
     date: new Date(thread.updated_at).toISOString(),
-    hasNoTitle:
-      thread.title == null || String(thread.title).trim() === "",
+    hasNoTitle: thread.title == null || String(thread.title).trim() === "",
   }));
 }
 
@@ -101,7 +97,7 @@ export function ChatProvider({ children }: { children: ReactNode }) {
 
   const sidebarChats = useMemo(
     () => normalizeToThreadLinks(chatsResponse?.data),
-    [chatsResponse?.data],
+    [chatsResponse?.data]
   );
 
   const refreshSidebarChats = useCallback(() => {
@@ -123,21 +119,10 @@ export function ChatProvider({ children }: { children: ReactNode }) {
       sidebarChatsError: sidebarChatsError ?? null,
       refreshSidebarChats,
     }),
-    [
-      chat,
-      chatId,
-      sidebarChats,
-      isSidebarChatsLoading,
-      sidebarChatsError,
-      refreshSidebarChats,
-    ],
+    [chat, chatId, sidebarChats, isSidebarChatsLoading, sidebarChatsError, refreshSidebarChats]
   );
 
-  return (
-    <ChatContext.Provider value={value}>
-      {children}
-    </ChatContext.Provider>
-  );
+  return <ChatContext.Provider value={value}>{children}</ChatContext.Provider>;
 }
 
 export function useSharedChatContext() {

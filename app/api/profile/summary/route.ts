@@ -1,7 +1,7 @@
 import { auth } from "@clerk/nextjs/server";
 import { generateObject } from "ai";
-import { openai } from "@ai-sdk/openai";
 import { z } from "zod";
+
 import { ProfileSummarySchema } from "@/lib/schemas/profileSummary";
 import { recordLlmCall } from "@/lib/llm/metrics";
 
@@ -19,6 +19,7 @@ const SYSTEM = `You generate minimal, professional profile copy. Output only val
  */
 export async function POST(req: Request) {
   const user = await auth();
+
   if (!user?.userId) {
     return new Response(JSON.stringify({ error: "Unauthorized" }), {
       status: 401,
@@ -27,14 +28,14 @@ export async function POST(req: Request) {
   }
 
   let body: { displayName?: string; email?: string };
+
   try {
     body = await req.json();
   } catch {
     body = {};
   }
 
-  const displayName =
-    typeof body.displayName === "string" ? body.displayName.trim() : "User";
+  const displayName = typeof body.displayName === "string" ? body.displayName.trim() : "User";
   const email = typeof body.email === "string" ? body.email.trim() : "";
 
   const prompt = email
@@ -67,9 +68,10 @@ export async function POST(req: Request) {
     return Response.json(summary);
   } catch (err) {
     console.error("Profile summary generation failed:", err);
-    return new Response(
-      JSON.stringify({ error: "Failed to generate profile summary" }),
-      { status: 500, headers: { "Content-Type": "application/json" } },
-    );
+
+    return new Response(JSON.stringify({ error: "Failed to generate profile summary" }), {
+      status: 500,
+      headers: { "Content-Type": "application/json" },
+    });
   }
 }

@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo } from "react";
-import { Zap, Type, DollarSign, Clock, Volume2 } from "lucide-react";
+import { Type, DollarSign, Clock, Volume2 } from "lucide-react";
 import { Tooltip } from "@heroui/tooltip";
 
 import {
@@ -10,7 +10,7 @@ import {
   formatNumber,
   formatDuration,
   formatAudioDuration,
-  TTSModel
+  TTSModel,
 } from "@/lib/tts/token-calculator";
 import { glass } from "@/components/design-system/primitives";
 
@@ -25,11 +25,17 @@ type TokenUsageDisplayProps = {
  * TokenUsageDisplay - A beautiful, low-key component that shows token usage and cost estimates
  * for TTS generation. Provides readily viewable deeper insight without calling for attention.
  */
-export function TokenUsageDisplay({ text, model, className = "", showTime = true }: TokenUsageDisplayProps) {
+export function TokenUsageDisplay({
+  text,
+  model,
+  className = "",
+  showTime = true,
+}: TokenUsageDisplayProps) {
   const usageData = useMemo(() => {
     if (!text.trim()) {
       return null;
     }
+
     return calculateTokenUsage(text, model);
   }, [text, model]);
 
@@ -52,22 +58,24 @@ export function TokenUsageDisplay({ text, model, className = "", showTime = true
       tooltip: `Estimated cost at ${formatCost(usageData.costPerUnit / 1_000_000)} per character`,
       color: "text-emerald-500/80",
     },
-    ...(showTime ? [
-      {
-        icon: Clock,
-        label: "Gen. Time",
-        value: formatDuration(usageData.estimatedDurationMs),
-        tooltip: `Estimated time to generate audio`,
-        color: "text-amber-500/80",
-      },
-      {
-        icon: Volume2,
-        label: "Audio",
-        value: formatAudioDuration(usageData.estimatedAudioDurationSec),
-        tooltip: `Estimated audio duration`,
-        color: "text-purple-500/80",
-      },
-    ] : []),
+    ...(showTime
+      ? [
+          {
+            icon: Clock,
+            label: "Gen. Time",
+            value: formatDuration(usageData.estimatedDurationMs),
+            tooltip: `Estimated time to generate audio`,
+            color: "text-amber-500/80",
+          },
+          {
+            icon: Volume2,
+            label: "Audio",
+            value: formatAudioDuration(usageData.estimatedAudioDurationSec),
+            tooltip: `Estimated audio duration`,
+            color: "text-purple-500/80",
+          },
+        ]
+      : []),
   ];
 
   return (
@@ -98,16 +106,13 @@ export function TokenUsageDisplay({ text, model, className = "", showTime = true
               <div
                 className={`
                   flex items-center gap-2 
-                  ${index !== metrics.length - 1 ? 'border-r border-border/30 pr-4 md:pr-6' : ''}
+                  ${index !== metrics.length - 1 ? "border-r border-border/30 pr-4 md:pr-6" : ""}
                   cursor-help
                   transition-all duration-200
                   hover:scale-105
                 `}
               >
-                <Icon
-                  className={`w-3.5 h-3.5 ${metric.color} opacity-70`}
-                  strokeWidth={2.5}
-                />
+                <Icon className={`w-3.5 h-3.5 ${metric.color} opacity-70`} strokeWidth={2.5} />
                 <div className="flex flex-col">
                   <span className="text-[10px] text-muted-foreground/70 uppercase tracking-wider font-medium leading-none">
                     {metric.label}
@@ -133,6 +138,7 @@ export function CompactTokenUsageDisplay({ text, model, className = "" }: TokenU
     if (!text.trim()) {
       return null;
     }
+
     return calculateTokenUsage(text, model);
   }, [text, model]);
 
@@ -150,15 +156,21 @@ export function CompactTokenUsageDisplay({ text, model, className = "" }: TokenU
         <div className="space-y-1 py-1">
           <div className="flex justify-between gap-4">
             <span className="text-muted-foreground">Characters:</span>
-            <span className="font-semibold tabular-nums">{formatNumber(usageData.characterCount)}</span>
+            <span className="font-semibold tabular-nums">
+              {formatNumber(usageData.characterCount)}
+            </span>
           </div>
           <div className="flex justify-between gap-4">
             <span className="text-muted-foreground">Est. Tokens:</span>
-            <span className="font-semibold tabular-nums">{formatNumber(usageData.estimatedTokens)}</span>
+            <span className="font-semibold tabular-nums">
+              {formatNumber(usageData.estimatedTokens)}
+            </span>
           </div>
           <div className="flex justify-between gap-4">
             <span className="text-muted-foreground">Est. Cost:</span>
-            <span className="font-semibold tabular-nums">{formatCost(usageData.estimatedCost)}</span>
+            <span className="font-semibold tabular-nums">
+              {formatCost(usageData.estimatedCost)}
+            </span>
           </div>
         </div>
       }

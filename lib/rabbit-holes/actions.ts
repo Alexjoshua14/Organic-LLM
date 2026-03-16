@@ -1,16 +1,19 @@
 "use server";
 
+import type { GenerationStep } from "../schemas/rabbitHoleSchemas";
+
+import { auth } from "@clerk/nextjs/server";
+import { generateText } from "ai";
+import { openai } from "@ai-sdk/openai";
+
 import {
   generateBranchSuggestions,
   generateQuickPreviewLLM,
   generateRabbitHoleObject,
   generateSourceAnalysis,
-  generateTitle,
 } from "../llm/rabbit-hole/generation";
-import type { GenerationStep } from "../schemas/rabbitHoleSchemas";
 import {
   RabbitHoleAIResponse,
-  RabbitHoleBranchSuggestion,
   RabbitHoleNode,
   RabbitHoleAIResponseSchema,
   RabbitHoleSession,
@@ -21,11 +24,9 @@ import {
   REFINE_QUESTION_SYSTEM_PROMPT,
 } from "../system-prompt/rabbit-hole";
 import { createLogger } from "../logger";
-import { auth } from "@clerk/nextjs/server";
-import { Result } from "@/types";
 import { fetchExternalSources, getWebpageContent } from "../exa/sources";
-import { generateText } from "ai";
-import { openai } from "@ai-sdk/openai";
+
+import { Result } from "@/types";
 import { GUARDRAIL_MAX_OUTPUT_TOKENS } from "@/lib/llm/helpers";
 
 const logger = createLogger("lib/rabbit-holes/actions.ts");
@@ -45,18 +46,16 @@ const newNodePrompt =
  * Used by generateRabbitHoleNode; branch suggestions are generated separately after checkpoint.
  * Throws on LLM error (caller handles in try/catch).
  */
-async function generateArticleOnly(
-  prompt: string,
-): Promise<RabbitHoleAIResponse> {
+async function generateArticleOnly(prompt: string): Promise<RabbitHoleAIResponse> {
   const { data } = await generateRabbitHoleObject<RabbitHoleNode>({
     logContext: "generateRabbitHoleNode",
     startMessage: `Starting AI generation for rabbit hole node`,
-    durationMessageBuilder: (durationMs) =>
-      `AI response completed in ${durationMs.toFixed(2)} ms`,
+    durationMessageBuilder: (durationMs) => `AI response completed in ${durationMs.toFixed(2)} ms`,
     keyTakeawayLabel: "First key takeaway",
     systemPrompt: RABBIT_HOLE_SYSTEM_PROMPT,
     prompt,
   });
+
   return RabbitHoleAIResponseSchema.parse(data);
 }
 
@@ -72,7 +71,7 @@ async function generateArticleOnly(
 async function generateRefinedQuestion(
   session: RabbitHoleSession,
   question: string,
-  pathHistory: string,
+  pathHistory: string
 ): Promise<string> {
   const { text } = await generateText({
     model: openai("gpt-5-nano"),
@@ -121,7 +120,7 @@ function buildPrompt(
   pathHistory: string,
   sourcesContext: string,
   sourcesInstruction: string,
-  branchDescription?: string,
+  branchDescription?: string
 ): string {
   let prompt = "";
 
@@ -151,7 +150,7 @@ export async function generateQuickPreview(
     rootQuestion?: string;
     pathHistory?: string;
     branchLabel?: string;
-  },
+  }
 ): Promise<Result<string>> {
   const clerkUser = await auth();
 
@@ -177,6 +176,7 @@ export async function generateQuickPreview(
     };
   } catch (error) {
     logger.error("generateQuickPreview", `Error generating preview: ${error}`);
+
     return {
       data: null,
       error: error instanceof Error ? error : new Error("Unknown error"),
@@ -190,7 +190,7 @@ export async function generateQuickPreview(
 export async function analyzeSource(
   sourceUrl: string,
   sourceTitle: string,
-  sourceSnippet?: string,
+  sourceSnippet?: string
 ): Promise<Result<RabbitHoleSourceAnalysis>> {
   const clerkUser = await auth();
 
@@ -235,6 +235,7 @@ Provide a comprehensive analysis that helps the user understand this source's ke
     };
   } catch (error) {
     logger.error("analyzeSource", `Error analyzing source: ${error}`);
+
     return {
       data: null,
       error: error instanceof Error ? error : new Error("Unknown error"),
@@ -255,7 +256,7 @@ function applySourcesStep(
   session: RabbitHoleSession,
   nodeId: string,
   node: RabbitHoleNode,
-  pathHistory: ReturnType<typeof buildPathHistory>,
+  pathHistory: ReturnType<typeof buildPathHistory>
 ): Promise<Result<RabbitHoleSession>> {
   return (async () => {
     const updatedNode: RabbitHoleNode & {
@@ -265,15 +266,15 @@ function applySourcesStep(
 
     const refinedQuestion =
       updatedNode.refinedQuestion ??
-      (await generateRefinedQuestion(
-        session,
-        updatedNode.userQuestion,
-        pathHistory,
-      ));
+      (await generateRefinedQuestion(session, updatedNode.userQuestion, pathHistory));
+
     updatedNode.refinedQuestion = refinedQuestion;
 
-    const { exaSources, sourcesContext, sourcesInstruction } =
-      await fetchExternalSources(refinedQuestion, "runOneGenerationStep");
+    const { exaSources, sourcesContext, sourcesInstruction } = await fetchExternalSources(
+      refinedQuestion,
+      "runOneGenerationStep"
+    );
+
     updatedNode.sources = exaSources;
     updatedNode._sourcesContext = sourcesContext;
     updatedNode._sourcesInstruction = sourcesInstruction;
@@ -283,6 +284,7 @@ function applySourcesStep(
       nodesById: { ...session.nodesById, [nodeId]: updatedNode },
       updatedAt: new Date().toISOString(),
     };
+
     return { data: updatedSession, error: null };
   })();
 }
@@ -292,7 +294,7 @@ function applyArticleStep(
   nodeId: string,
   node: RabbitHoleNode,
   pathHistory: ReturnType<typeof buildPathHistory>,
-  isInitialNode: boolean,
+  isInitialNode: boolean
 ): Promise<Result<RabbitHoleSession>> {
   return (async () => {
     const updatedNode: RabbitHoleNode & {
@@ -300,16 +302,14 @@ function applyArticleStep(
       _sourcesInstruction?: string;
     } = { ...node };
 
-    const refinedQuestion =
-      updatedNode.refinedQuestion ?? updatedNode.userQuestion;
+    const refinedQuestion = updatedNode.refinedQuestion ?? updatedNode.userQuestion;
 
     let sourcesContext = updatedNode._sourcesContext;
     let sourcesInstruction = updatedNode._sourcesInstruction;
+
     if (sourcesContext === undefined || sourcesInstruction === undefined) {
-      const fromExa = await fetchExternalSources(
-        refinedQuestion,
-        "runOneGenerationStep-article",
-      );
+      const fromExa = await fetchExternalSources(refinedQuestion, "runOneGenerationStep-article");
+
       sourcesContext = fromExa.sourcesContext;
       sourcesInstruction = fromExa.sourcesInstruction;
     }
@@ -320,14 +320,14 @@ function applyArticleStep(
       pathHistory,
       sourcesContext,
       sourcesInstruction,
-      "",
+      ""
     );
     const object = await generateArticleOnly(prompt);
+
     updatedNode.articleHtml = object.articleHtml;
     updatedNode.keyTakeaways = object.keyTakeaways;
     updatedNode.rawPrompt = updatedNode.userQuestion;
-    updatedNode.userQuestion =
-      updatedNode.refinedQuestion ?? updatedNode.userQuestion;
+    updatedNode.userQuestion = updatedNode.refinedQuestion ?? updatedNode.userQuestion;
     updatedNode.createdAt = new Date().toISOString();
 
     const updatedSession: RabbitHoleSession = {
@@ -335,6 +335,7 @@ function applyArticleStep(
       nodesById: { ...session.nodesById, [nodeId]: updatedNode },
       updatedAt: new Date().toISOString(),
     };
+
     return { data: updatedSession, error: null };
   })();
 }
@@ -342,23 +343,24 @@ function applyArticleStep(
 function applyBranchSuggestionsStep(
   session: RabbitHoleSession,
   nodeId: string,
-  node: RabbitHoleNode,
+  node: RabbitHoleNode
 ): Promise<Result<RabbitHoleSession>> {
   return (async () => {
     const updatedNode = { ...node };
     const branchSuggestionRootQuestion =
-      session.rootQuestion ||
-      (updatedNode.refinedQuestion ?? updatedNode.userQuestion);
+      session.rootQuestion || (updatedNode.refinedQuestion ?? updatedNode.userQuestion);
     const branchResult = await generateBranchSuggestions({
       context: updatedNode.articleHtml ?? "",
       rootQuestion: branchSuggestionRootQuestion,
     });
+
     updatedNode.branchSuggestions = branchResult.data ?? [];
     const updatedSession: RabbitHoleSession = {
       ...session,
       nodesById: { ...session.nodesById, [nodeId]: updatedNode },
       updatedAt: new Date().toISOString(),
     };
+
     return { data: updatedSession, error: null };
   })();
 }
@@ -366,9 +368,10 @@ function applyBranchSuggestionsStep(
 export async function runOneGenerationStep(
   session: RabbitHoleSession,
   nodeId: string,
-  step: GenerationStep,
+  step: GenerationStep
 ): Promise<Result<RabbitHoleSession>> {
   const node = session.nodesById[nodeId];
+
   if (!node) {
     return { data: null, error: new Error("Node not found") };
   }
@@ -382,13 +385,7 @@ export async function runOneGenerationStep(
     }
 
     if (step === "article") {
-      return await applyArticleStep(
-        session,
-        nodeId,
-        node,
-        pathHistory,
-        isInitialNode,
-      );
+      return await applyArticleStep(session, nodeId, node, pathHistory, isInitialNode);
     }
 
     if (step === "branch_suggestions") {
@@ -397,10 +394,8 @@ export async function runOneGenerationStep(
 
     return { data: null, error: new Error(`Unknown step: ${step}`) };
   } catch (error) {
-    logger.error(
-      "runOneGenerationStep",
-      `Error running step ${step}: ${error}`,
-    );
+    logger.error("runOneGenerationStep", `Error running step ${step}: ${error}`);
+
     return {
       data: null,
       error: error instanceof Error ? error : new Error("Unknown error"),
@@ -420,13 +415,15 @@ export async function runOneGenerationStep(
 export async function generateRabbitHoleNode(
   session: RabbitHoleSession,
   nodeId: string,
-  options?: GenerateRabbitHoleNodeOptions,
+  options?: GenerateRabbitHoleNodeOptions
 ): Promise<Result<RabbitHoleSession>> {
   let updatedNode: RabbitHoleNode;
+
   try {
     const isInitialNode = nodeId === session.rootNodeId;
 
     const clerkUser = await auth();
+
     if (!clerkUser || !clerkUser.userId) {
       return { data: null, error: new Error("Unauthorized") };
     }
@@ -440,13 +437,16 @@ export async function generateRabbitHoleNode(
     const refinedQuestion = await generateRefinedQuestion(
       session,
       updatedNode.userQuestion,
-      pathHistory,
+      pathHistory
     );
+
     updatedNode.refinedQuestion = refinedQuestion;
 
     // Phase 1: Exa sources
-    const { exaSources, sourcesContext, sourcesInstruction } =
-      await fetchExternalSources(refinedQuestion, "generateRabbitHoleNode");
+    const { exaSources, sourcesContext, sourcesInstruction } = await fetchExternalSources(
+      refinedQuestion,
+      "generateRabbitHoleNode"
+    );
 
     updatedNode.sources = exaSources;
     let updatedSession: RabbitHoleSession = {
@@ -454,6 +454,7 @@ export async function generateRabbitHoleNode(
       nodesById: { ...session.nodesById, [nodeId]: updatedNode },
       updatedAt: new Date().toISOString(),
     };
+
     await options?.onAfterSources?.(updatedSession);
 
     // Phase 2: Article only
@@ -463,14 +464,14 @@ export async function generateRabbitHoleNode(
       pathHistory,
       sourcesContext,
       sourcesInstruction,
-      "",
+      ""
     );
     const object = await generateArticleOnly(prompt);
+
     updatedNode.articleHtml = object.articleHtml;
     updatedNode.keyTakeaways = object.keyTakeaways;
     updatedNode.rawPrompt = updatedNode.userQuestion;
-    updatedNode.userQuestion =
-      updatedNode.refinedQuestion ?? updatedNode.userQuestion;
+    updatedNode.userQuestion = updatedNode.refinedQuestion ?? updatedNode.userQuestion;
     updatedNode.createdAt = new Date().toISOString();
 
     updatedSession = {
@@ -482,12 +483,12 @@ export async function generateRabbitHoleNode(
 
     // Phase 3: Branch suggestions
     const branchSuggestionRootQuestion =
-      session.rootQuestion ||
-      (updatedNode.refinedQuestion ?? updatedNode.userQuestion);
+      session.rootQuestion || (updatedNode.refinedQuestion ?? updatedNode.userQuestion);
     const branchResult = await generateBranchSuggestions({
       context: updatedNode.articleHtml ?? "",
       rootQuestion: branchSuggestionRootQuestion,
     });
+
     updatedNode.branchSuggestions = branchResult.data ?? [];
 
     updatedSession = {
@@ -499,10 +500,8 @@ export async function generateRabbitHoleNode(
 
     return { data: updatedSession, error: null };
   } catch (error) {
-    logger.error(
-      "generateRabbitHoleNode",
-      `Error generating rabbit hole node: ${error}`,
-    );
+    logger.error("generateRabbitHoleNode", `Error generating rabbit hole node: ${error}`);
+
     return {
       data: null,
       error: error instanceof Error ? error : new Error("Unknown error"),

@@ -1,22 +1,23 @@
-'use client'
+"use client";
 
-import { createLogger } from "@/lib/logger"
 import { Button } from "@heroui/button";
 import { AudioLines } from "lucide-react";
-import { glass } from "../design-system/primitives";
 import { useRef, type ReactNode } from "react";
-import { useTTS } from "@/hooks/use-tts";
 
+import { glass } from "../design-system/primitives";
+
+import { createLogger } from "@/lib/logger";
+import { useTTS } from "@/hooks/use-tts";
 
 const logger = createLogger("components/tts/ttsButton-v2.tsx");
 
-const DEFAULT_TTS_TEXT = "Welcome to our advanced text-to-speech demonstration! This feature allows you to listen to the text as it is read aloud, with real-time highlighting. Notice how each part of the sentence is spoken clearly and marked as it is being read. Try listening to this entire message for a complete experience.";
-
+const DEFAULT_TTS_TEXT =
+  "Welcome to our advanced text-to-speech demonstration! This feature allows you to listen to the text as it is read aloud, with real-time highlighting. Notice how each part of the sentence is spoken clearly and marked as it is being read. Try listening to this entire message for a complete experience.";
 
 export default function TTSButtonV2({ text }: { text: string }) {
-  const audioRef = useRef<HTMLAudioElement>(null)
+  const audioRef = useRef<HTMLAudioElement>(null);
 
-  text = DEFAULT_TTS_TEXT
+  text = DEFAULT_TTS_TEXT;
 
   const speech = useTTS({
     audioRef,
@@ -38,8 +39,6 @@ export default function TTSButtonV2({ text }: { text: string }) {
     },
   });
 
-
-
   // Render text with highlighted characters
   const renderHighlightedText = () => {
     if (!speech.mergedAlignment || speech.currentCharacterIndices.size === 0) {
@@ -47,7 +46,9 @@ export default function TTSButtonV2({ text }: { text: string }) {
     }
 
     // Use normalized alignment if available, otherwise original
-    const alignment = speech.mergedAlignment.normalizedAlignment || speech.mergedAlignment.alignment;
+    const alignment =
+      speech.mergedAlignment.normalizedAlignment || speech.mergedAlignment.alignment;
+
     if (!alignment) {
       return <span>{text}</span>;
     }
@@ -85,32 +86,29 @@ export default function TTSButtonV2({ text }: { text: string }) {
   return (
     <div className="flex flex-col gap-4">
       <div className="w-full flex items-center justify-center">
-        <p>
-          {speech.status}
-        </p>
+        <p>{speech.status}</p>
       </div>
       <div className="flex flex-col gap-2 items-center text-default">
         <div className="flex flex-col gap-2 h-24 items-center w-full">
           <Button
+            className={`${glass()} transition-transform duration-300 active:scale-90 hover:scale-105 hover:shadow-lg h-14`}
             onPress={() => speech.streamAudio({ text, processText: false })}
-            className={
-              `${glass()} transition-transform duration-300 active:scale-90 hover:scale-105 hover:shadow-lg h-14`
-            }
           >
-            <AudioLines color="var(--accent)" className="transition-transform duration-150 group-hover:scale-110 group-active:scale-90" />
+            <AudioLines
+              className="transition-transform duration-150 group-hover:scale-110 group-active:scale-90"
+              color="var(--accent)"
+            />
           </Button>
           <audio
             ref={audioRef}
             controls
-            className={`w-full ${['ready', 'processing'].includes(speech.status) ? 'hidden' : ''}`}
+            className={`w-full ${["ready", "processing"].includes(speech.status) ? "hidden" : ""}`}
           />
         </div>
         <div className="h-10 w-full overflow-auto">
-          <div className="text-sm leading-relaxed wrap-break-word">
-            {renderHighlightedText()}
-          </div>
+          <div className="text-sm leading-relaxed wrap-break-word">{renderHighlightedText()}</div>
         </div>
       </div>
     </div>
-  )
+  );
 }
