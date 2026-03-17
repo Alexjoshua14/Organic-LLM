@@ -242,7 +242,9 @@ export function RabbitHoleShell() {
               </Link>
             )}
             <h1 className="absolute left-1/2 -translate-x-1/2 font-commissioner text-2xl font-light tracking-wide text-foreground">
-              Rabbit Hole Explorer
+              <Link href="/rabbitholes/browse">
+                Rabbit Hole Explorer
+              </Link>
             </h1>
             <div className="w-24" /> {/* Spacer for centering */}
           </div>
