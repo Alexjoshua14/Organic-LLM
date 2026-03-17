@@ -261,7 +261,7 @@ export const Chat: React.FC<ChatProps> = ({ chatData, endpoint, persona, initial
         "w-full",
         "min-w-0",
         "h-full",
-        "max-h-[calc(100dvh-2rem)]",
+        "sm:max-h-[calc(100dvh-2rem)]",
         "flex",
         "flex-col",
         "overflow-hidden",
