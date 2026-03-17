@@ -36,7 +36,7 @@ export default async function ChatPage({ params }: { params: Promise<{ slug: str
 
   return (
     <Page>
-      <div className="sm:max-w-[calc(100dvw-2rem)] md:max-w-[calc(100dvw-18rem)] lg:max-w-4xl w-full h-full">
+      <div className="w-full h-full">
         <Chat chatData={chatData} />
       </div>
     </Page>
