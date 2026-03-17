@@ -44,7 +44,7 @@ export const ChatThread: FC<ChatThreadProps> = ({
   return (
     <ConversationContent
       className={cn("w-full px-4 pt-16 pb-12 flex flex-col", contentClassName)}
-      scrollClassName="touch-manipulation w-full min-w-0"
+      scrollClassName="touch-manipulation w-full min-w-0 [scrollbar-gutter:stable]! overflow-x-hidden"
     >
       <div className="max-w-232 mx-auto w-full flex flex-col gap-8">
         {messages.length === 0 ? (

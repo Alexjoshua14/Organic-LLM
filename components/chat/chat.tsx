@@ -259,11 +259,13 @@ export const Chat: React.FC<ChatProps> = ({ chatData, endpoint, persona, initial
     <div
       className={[
         "w-full",
+        "min-w-0",
         "h-full",
         "max-h-[calc(100dvh-2rem)]",
         "flex",
         "flex-col",
-        "overflow-hidden"
+        "overflow-hidden",
+        "overflow-x-hidden",
       ].join(" ")}
     >
       <Conversation
