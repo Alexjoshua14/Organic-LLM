@@ -5,8 +5,19 @@ const mockLoadChat = mock(async () => ({
   error: new Error("Thread not found"),
 }));
 
+const chatStoreStub = async () => ({ data: null, error: new Error("chat-store mocked") });
 mock.module("@/lib/chat/chat-store", () => ({
+  createChat: chatStoreStub,
   loadChat: mockLoadChat,
+  readChat: chatStoreStub,
+  saveChat: async () => ({ ok: false, error: new Error("chat-store mocked") }),
+  saveMessage: async () => ({ ok: false, error: new Error("chat-store mocked") }),
+  deleteChatMessage: async () => ({ ok: false, error: new Error("chat-store mocked") }),
+  getChats: async () => ({ data: null, error: new Error("chat-store mocked") }),
+  getChat: chatStoreStub,
+  getContext: async () => ({ data: null, error: "chat-store mocked" }),
+  getContextAndMessagesChatPrompt: async () => ({ data: null, error: "chat-store mocked" }),
+  getMessagesForChatPrompt: async () => ({ data: null, error: "chat-store mocked" }),
 }));
 
 mock.module("@/data/supabase/chat", () => ({

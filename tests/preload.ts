@@ -36,6 +36,22 @@ mock.module("@upstash/redis", () => ({
 }));
 mock.module("@/lib/redis/redis", () => ({ redis: {} }));
 
+// Mock chat-store so the real "use server" module is never loaded in tests (Bun fails with "Export named 'createChat' not found"). Integration tests replace this with their own full mocks.
+const chatStoreStub = async () => ({ data: null, error: new Error("chat-store mocked") });
+mock.module("@/lib/chat/chat-store", () => ({
+  createChat: chatStoreStub,
+  loadChat: chatStoreStub,
+  readChat: chatStoreStub,
+  saveChat: async () => ({ ok: false, error: new Error("chat-store mocked") }),
+  saveMessage: async () => ({ ok: false, error: new Error("chat-store mocked") }),
+  deleteChatMessage: async () => ({ ok: false, error: new Error("chat-store mocked") }),
+  getChats: async () => ({ data: null, error: new Error("chat-store mocked") }),
+  getChat: chatStoreStub,
+  getContext: async () => ({ data: null, error: "chat-store mocked" }),
+  getContextAndMessagesChatPrompt: async () => ({ data: null, error: "chat-store mocked" }),
+  getMessagesForChatPrompt: async () => ({ data: null, error: "chat-store mocked" }),
+}));
+
 // Mock the runOneGenerationStep barrel so runGenerationAndPersist never loads actions.ts ("use server"); CI fails with "Export named 'runOneGenerationStep' not found" when the real file is loaded. Tests override via globalThis.__runOneGenerationStepHandler.
 mock.module("@/lib/rabbit-holes/runOneGenerationStep", () => ({
   runOneGenerationStep: (async (...args: unknown[]) => {

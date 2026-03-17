@@ -1,5 +1,4 @@
 "use server";
-import "server-only";
 
 import { UIMessage } from "ai";
 import { auth } from "@clerk/nextjs/server";
