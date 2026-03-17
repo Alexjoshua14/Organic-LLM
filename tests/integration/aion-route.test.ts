@@ -90,7 +90,7 @@ describe("POST /api/ai/aion (integration)", () => {
   test("returns 401 when user is not authenticated", async () => {
     streamTextMock = createMockStreamText();
     const handler = makeHandler();
-    mockAuth.mockResolvedValueOnce(null);
+    mockAuth.mockResolvedValueOnce(null as any);
 
     const res = await handler(createJsonRequest(createTestChatRequest()));
     expect(res.status).toBe(401);
@@ -99,10 +99,9 @@ describe("POST /api/ai/aion (integration)", () => {
   test("returns 404 when user not found in supabase", async () => {
     streamTextMock = createMockStreamText();
     const handler = makeHandler();
-    mockGetSupabaseUserId.mockResolvedValueOnce({
-      data: null,
-      error: new Error("not found"),
-    });
+    mockGetSupabaseUserId.mockResolvedValueOnce(
+      { data: null, error: new Error("not found") } as any
+    );
 
     const res = await handler(createJsonRequest(createTestChatRequest()));
     expect(res.status).toBe(404);
@@ -119,7 +118,7 @@ describe("POST /api/ai/aion (integration)", () => {
     await res.text(); // consume to drive stream execution
 
     expect(res.status).toBe(200);
-    expect(mockSaveChat).toHaveBeenCalled();
+    expect(mockSaveChat.mock.calls.length >= 1).toBe(true);
   });
 
   test("calls getContext with expected parameters", async () => {
@@ -135,13 +134,13 @@ describe("POST /api/ai/aion (integration)", () => {
     await res.text();
 
     expect(res.status).toBe(200);
-    expect(mockGetContext).toHaveBeenCalledWith(
-      expect.objectContaining({
-        limit: 30,
-        memoryEnabled: true,
-        persistedSchemasEnabled: true,
-      }),
-    );
+    expect(mockGetContext.mock.calls.length >= 1).toBe(true);
+    const ctxCall = mockGetContext.mock.calls[0];
+    expect(ctxCall != null).toBe(true);
+    const ctxArg = (ctxCall as unknown as [{ limit?: number; memoryEnabled?: boolean; persistedSchemasEnabled?: boolean }])[0];
+    expect(ctxArg?.limit).toBe(30);
+    expect(ctxArg?.memoryEnabled).toBe(true);
+    expect(ctxArg?.persistedSchemasEnabled).toBe(true);
   });
 
   test("invokes streamText with model, system, messages and tools", async () => {
@@ -161,16 +160,13 @@ describe("POST /api/ai/aion (integration)", () => {
 
     const call = streamTextMock.calls[0]!;
     expect(typeof call.model).toBe("string");
-    expect(call.model.length).toBeGreaterThan(0);
+    expect(call.model.length > 0).toBe(true);
     expect(typeof call.system).toBe("string");
-    expect(call.tools).toEqual(
-      expect.objectContaining({
-        search_memories: expect.anything(),
-        show_memories: expect.anything(),
-        set_state_archetype: expect.anything(),
-        view_archetype: expect.anything(),
-      }),
-    );
+    expect(call.tools != null).toBe(true);
+    expect(call.tools!.search_memories != null).toBe(true);
+    expect(call.tools!.show_memories != null).toBe(true);
+    expect(call.tools!.set_state_archetype != null).toBe(true);
+    expect(call.tools!.view_archetype != null).toBe(true);
   });
 
   test("when memory is enabled, onFinish triggers addLatestMessagesToMemory", async () => {
@@ -191,7 +187,7 @@ describe("POST /api/ai/aion (integration)", () => {
     await res.text();
 
     expect(res.status).toBe(200);
-    expect(mockAddLatestMessagesToMemory).toHaveBeenCalled();
+    expect(mockAddLatestMessagesToMemory.mock.calls.length >= 1).toBe(true);
   });
 
   test("when memory is disabled, onFinish does not call addLatestMessagesToMemory", async () => {
@@ -212,7 +208,7 @@ describe("POST /api/ai/aion (integration)", () => {
     await res.text();
 
     expect(res.status).toBe(200);
-    expect(mockAddLatestMessagesToMemory).not.toHaveBeenCalled();
+    expect(mockAddLatestMessagesToMemory.mock.calls.length).toBe(0);
   });
 
   test("when aborted, deletes the optimistic user message", async () => {
@@ -233,7 +229,7 @@ describe("POST /api/ai/aion (integration)", () => {
     await res.text();
 
     expect(res.status).toBe(200);
-    expect(mockDeleteChatMessage).toHaveBeenCalled();
+    expect(mockDeleteChatMessage.mock.calls.length >= 1).toBe(true);
   });
 });
 
