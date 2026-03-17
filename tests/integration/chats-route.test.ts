@@ -14,6 +14,10 @@ const mockGetChats = mock(async () => ({
   data: [],
   error: null,
 }));
+const mockCheckChatsListLimit = mock(async () => ({
+  success: true,
+  remaining: 240,
+}));
 
 mock.module("@clerk/nextjs/server", () => ({
   auth: mockAuth,
@@ -27,6 +31,10 @@ mock.module("@/data/supabase/chat", () => ({
   getChats: mockGetChats,
 }));
 
+mock.module("@/lib/rate-limit/chats", () => ({
+  checkChatsListLimit: mockCheckChatsListLimit,
+}));
+
 import { GET } from "@/app/api/chats/route";
 
 describe("GET /api/chats", () => {
@@ -34,6 +42,7 @@ describe("GET /api/chats", () => {
     mockAuth.mockClear();
     mockGetSupabaseUserId.mockClear();
     mockGetChats.mockClear();
+    mockCheckChatsListLimit.mockClear();
 
     mockAuth.mockResolvedValue(createMockClerkUser());
     mockGetSupabaseUserId.mockResolvedValue({
@@ -44,6 +53,21 @@ describe("GET /api/chats", () => {
       data: [],
       error: null,
     });
+    mockCheckChatsListLimit.mockResolvedValue({ success: true, remaining: 240 });
+  });
+
+  test("returns 429 when thread list rate limit is exceeded", async () => {
+    mockCheckChatsListLimit.mockResolvedValueOnce({
+      success: false,
+      error: "Too many requests. Thread list is limited to 240 requests per hour. Try again later.",
+    });
+
+    const res = await GET();
+    const body = await res.json();
+
+    expect(res.status).toBe(429);
+    expect(body.error).toContain("240");
+    expect(mockGetChats).not.toHaveBeenCalled();
   });
 
   test("returns 401 when the user is not authenticated", async () => {
@@ -54,6 +78,7 @@ describe("GET /api/chats", () => {
 
     expect(res.status).toBe(401);
     expect(body).toEqual({ error: "Unauthorized" });
+    expect(mockCheckChatsListLimit).not.toHaveBeenCalled();
     expect(mockGetSupabaseUserId).not.toHaveBeenCalled();
     expect(mockGetChats).not.toHaveBeenCalled();
   });

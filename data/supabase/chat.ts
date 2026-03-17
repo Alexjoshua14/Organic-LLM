@@ -1,4 +1,5 @@
 "use server";
+import "server-only";
 
 import { UIMessage } from "ai";
 import { auth } from "@clerk/nextjs/server";
@@ -418,7 +419,7 @@ export async function updateMessage(
     .eq("thread_id", threadId);
 
   if (error) {
-    logger.error("updateMessage", "Error updating message:", error);
+    logger.error("updateMessage", `Error updating message: ${error?.code ?? "unknown"}`);
 
     return {
       ok: false,
@@ -474,7 +475,7 @@ export async function upsertMessages(params: {
   });
 
   if (error) {
-    logger.error("upsertMessages", "Error upserting messages:", error);
+    logger.error("upsertMessages", `Error upserting messages: ${error?.code ?? "unknown"}`);
 
     return {
       ok: false,
