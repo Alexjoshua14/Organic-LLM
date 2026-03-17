@@ -380,15 +380,23 @@ export async function POST(req: Request) {
             );
 
             try {
-              // TODO: Consider moving activeStreamId clearing to after successful save
+              // Use admin client so save succeeds even if the user JWT expired during a long stream (e.g. finish_reason length).
               const { result: saveResult, durationMs: saveChatMs } = await measureAsync(() =>
-                saveChat({ chatId: id, messages, activeStreamId: null })
+                saveChat({
+                  chatId: id,
+                  messages,
+                  activeStreamId: null,
+                  useAdminForSave: true,
+                  ownerId: sbUserId,
+                })
               );
 
               metrics.saveChatMs = saveChatMs;
 
               if (saveResult.error) {
-                logger.error("POST", "Error saving chat");
+                const err = saveResult.error;
+                const msg = err instanceof Error ? err.message : String(err);
+                logger.error("POST", `Error saving chat: ${msg}`);
 
                 return; // Don't continue if save fails
               }
@@ -481,11 +489,11 @@ export async function POST(req: Request) {
                 logger.log("POST", `onFinish metrics: ${JSON.stringify(metrics)}`);
               })().catch((err) => {
                 const e = err instanceof Error ? err : new Error(String(err));
-                logger.error("POST", `Error in post-processing task: ${e.name}`);
+                logger.error("POST", `Error in post-processing task: ${e.name} - ${e.message}`);
               });
             } catch (err) {
               const e = err instanceof Error ? err : new Error(String(err));
-              logger.error("POST", `Error in onFinish callback: ${e.name}`);
+              logger.error("POST", `Error in onFinish callback: ${e.name} - ${e.message}`);
             }
           },
         })
