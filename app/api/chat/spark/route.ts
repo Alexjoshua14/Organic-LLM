@@ -103,10 +103,10 @@ export async function POST(req: Request) {
     }
   } catch (err) {
     if (err instanceof TypeValidationError) {
-      logger.error("POST", `Database messages validation failed: ${err.message}`);
+      logger.error("POST", "Database messages validation failed");
       validatedMessages = [message];
     } else if (err instanceof Error && err.message === "Preprocessing time limit exceeded") {
-      logger.error("POST", `\n\n\nPreprocessing time limit exceeded: ${err.message}\n\n`);
+      logger.error("POST", "Preprocessing time limit exceeded");
       validatedMessages = [message];
     } else {
       throw err;
@@ -172,7 +172,10 @@ export async function POST(req: Request) {
             model: model,
           };
         case "finish":
-          logger.log("POST", `Finish message: ${JSON.stringify(part, null, 2)}`);
+          logger.log(
+            "POST",
+            `Finish message: type=${part.type}, totalTokens=${part.totalUsage?.totalTokens ?? "—"}`
+          );
 
           return {
             totalTokens: part.totalUsage?.totalTokens ?? undefined,
@@ -221,8 +224,7 @@ export async function POST(req: Request) {
         logger.log("POST", `Ops processed in ${endOps - startOps} milliseconds`);
 
         logger.log("POST", "--------------------------------");
-        // Do not log env payload in production; it may contain user-related state.
-        logger.debug("POST", `OPS_ENV_EXTRACTED (op count: ${env?.ops?.length ?? 0})`, env);
+        logger.log("POST", `OPS_ENV_EXTRACTED op count: ${env?.ops?.length ?? 0}`);
         logger.log("POST", "--------------------------------");
 
         logger.log(

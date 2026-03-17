@@ -51,7 +51,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ session
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
 
-    logger.error("POST", `scheduleNodeGeneration failed: ${message}`);
+    logger.error("POST", "scheduleNodeGeneration failed");
 
     return NextResponse.json({ error: "Failed to schedule generation" }, { status: 500 });
   }

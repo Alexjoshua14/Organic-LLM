@@ -20,11 +20,11 @@ export async function GET(_: Request, { params }: { params: Promise<{ id: string
   const chatRes = await readChat(id);
 
   if (chatRes.error) {
-    logger.error("GET", `Error reading chat: ${chatRes.error.message}`);
+    logger.error("GET", "Error reading chat");
 
     return new Response(null, { status: 500 });
   } else if (chatRes.data === null) {
-    logger.error("GET", `Error reading chat: Chat is null`);
+    logger.error("GET", "Error reading chat: Chat is null");
 
     return new Response(null, { status: 500 });
   }
