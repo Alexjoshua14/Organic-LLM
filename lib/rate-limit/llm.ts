@@ -12,6 +12,10 @@ const TOKEN_WINDOW: Duration = (process.env.LLM_RATE_LIMIT_TOKENS_WINDOW as Dura
 const COST_LIMIT_UNITS = parseInt(process.env.LLM_RATE_LIMIT_COST_UNITS ?? "10000", 10);
 const COST_WINDOW: Duration = (process.env.LLM_RATE_LIMIT_COST_WINDOW as Duration) ?? "1 d";
 
+const RABBIT_HOLE_NODE_LIMIT = parseInt(process.env.RABBIT_HOLE_NODE_LIMIT ?? "30", 10);
+const RABBIT_HOLE_NODE_WINDOW: Duration =
+  (process.env.RABBIT_HOLE_NODE_WINDOW as Duration) ?? "1 h";
+
 /** Message-based: N requests per window per user (sliding). */
 const messageLimiter = new Ratelimit({
   redis,
@@ -31,6 +35,13 @@ const costLimiter = new Ratelimit({
   redis,
   limiter: Ratelimit.slidingWindow(COST_LIMIT_UNITS, COST_WINDOW),
   prefix: "ratelimit:llm:cost",
+});
+
+/** Rabbit Hole node generation: N nodes per hour per user (separate bucket). */
+const rabbitHoleNodeLimiter = new Ratelimit({
+  redis,
+  limiter: Ratelimit.slidingWindow(RABBIT_HOLE_NODE_LIMIT, RABBIT_HOLE_NODE_WINDOW),
+  prefix: "ratelimit:llm:rabbithole-node",
 });
 
 export type RateLimitResult = {
@@ -56,6 +67,20 @@ export async function checkLlmMessageLimit(userId: string): Promise<RateLimitRes
 
   if (!success) {
     return { success: false, error: "Too many LLM requests" };
+  }
+
+  return { success: true, remaining };
+}
+
+/**
+ * Check Rabbit Hole node generation rate limit (separate bucket: 30 nodes/hour per user by default).
+ * Call before scheduling node generation in POST /api/rabbitholes/[sessionId]/generate.
+ */
+export async function checkRabbitHoleNodeLimit(userId: string): Promise<RateLimitResult> {
+  const { success, remaining } = await rabbitHoleNodeLimiter.limit(userId);
+
+  if (!success) {
+    return { success: false, error: "Rabbit Hole node limit exceeded" };
   }
 
   return { success: true, remaining };

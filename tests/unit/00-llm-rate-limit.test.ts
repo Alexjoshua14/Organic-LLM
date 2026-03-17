@@ -51,6 +51,26 @@ describe("LLM rate limit (lib/rate-limit/llm)", () => {
     expect(mockLimit.mock.calls.length).toBe(1);
   });
 
+  test("checkRabbitHoleNodeLimit returns success when under limit", async () => {
+    const result = await llmRateLimit.checkRabbitHoleNodeLimit("user-1");
+
+    expect(result.success).toBe(true);
+    expect(result.remaining).toBe(10);
+    expect(result.error).toBe(undefined);
+    expect(mockLimit.mock.calls.length).toBe(1);
+    expect((mockLimit.mock.calls[0] as string[])[0]).toBe("user-1");
+  });
+
+  test("checkRabbitHoleNodeLimit returns error when rate limit exceeded", async () => {
+    mockLimit.mockResolvedValueOnce({ success: false, remaining: 0 });
+
+    const result = await llmRateLimit.checkRabbitHoleNodeLimit("user-1");
+
+    expect(result.success).toBe(false);
+    expect(result.error).toContain("Rabbit Hole node limit exceeded");
+    expect(mockLimit.mock.calls.length).toBe(1);
+  });
+
   test("checkLlmTokenLimit returns success when token limit disabled", async () => {
     const result = await llmRateLimit.checkLlmTokenLimit("user-1", 5000);
 
