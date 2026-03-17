@@ -8,10 +8,24 @@ export const GUARDRAIL_MAX_OUTPUT_TOKENS = 2_000;
 /** ~5¢ at $5/M in — guardrail for input/context (use where provider supports it) */
 export const GUARDRAIL_MAX_INPUT_TOKENS = 10_000;
 
+/** Soft limit we tell the model (so it can wrap up); ~words is approximate. */
+export const CHAT_RESPONSE_SOFT_MAX_TOKENS = 7_500;
+/** Extra tokens after soft max so the model has room to finish its last thought. */
+export const CHAT_RESPONSE_BUFFER_TOKENS = 300;
+
+/** Actual API cap = soft + buffer (model is informed of soft limit in system prompt). */
+export const CHAT_RESPONSE_MAX_OUTPUT_TOKENS =
+  CHAT_RESPONSE_SOFT_MAX_TOKENS + CHAT_RESPONSE_BUFFER_TOKENS;
+
+export function getChatResponseLengthInstruction(): string {
+  const approxWords = Math.round(CHAT_RESPONSE_SOFT_MAX_TOKENS * 0.25); // ~4 tokens per word
+  return `This response has a maximum length of approximately ${CHAT_RESPONSE_SOFT_MAX_TOKENS.toLocaleString()} tokens (roughly ${approxWords.toLocaleString()} words). Structure your answer to fit within this limit and end with a clear conclusion before you run out of space.`;
+}
+
 // Default model configuration
 export const CHAT_MODEL = {
   name: DEFAULT_CHAT_MODEL,
-  maxOutputTokens: 3000,
+  maxOutputTokens: CHAT_RESPONSE_MAX_OUTPUT_TOKENS,
 };
 
 /**

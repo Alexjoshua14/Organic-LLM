@@ -36,7 +36,12 @@ import { addLatestMessagesToMemoryForUser } from "@/lib/memory/operations";
 import { ChatRequestSchema, DEFAULT_CHAT_MODEL } from "@/lib/schemas/chat";
 import { getSupabaseUserId } from "@/data/supabase/profiles";
 import { checkLlmMessageLimit } from "@/lib/rate-limit/llm";
-import { CHAT_MODEL, getChatModel, measureAsync } from "@/lib/llm/helpers";
+import {
+  CHAT_MODEL,
+  getChatModel,
+  getChatResponseLengthInstruction,
+  measureAsync,
+} from "@/lib/llm/helpers";
 import { ChatUIMessage, ChatAIActionEnum } from "@/types/ai";
 
 // Allow streaming responses up to 30 seconds
@@ -262,11 +267,17 @@ export async function POST(req: Request) {
         transient: true,
       });
 
+      const systemPromptWithLength =
+        systemPromptForRequest +
+        "\n\n<response_length>\n" +
+        getChatResponseLengthInstruction() +
+        "\n</response_length>";
+
       logger.debug("streamText", "Calling streamText", {
         model: selectedModel.id,
         modelName: selectedModel.name,
         messageCount: messages.length,
-        systemPromptLength: systemPromptForRequest.length,
+        systemPromptLength: systemPromptWithLength.length,
         maxSteps,
         toolChoice: hasTools ? "auto" : "none",
       });
@@ -274,7 +285,7 @@ export async function POST(req: Request) {
       const result = streamText({
         model: selectedModel.id,
         messages,
-        system: systemPromptForRequest,
+        system: systemPromptWithLength,
         experimental_transform: smoothStream({
           delayInMs: 20, // optional: defaults to 10ms
           chunking: /(```[\s\S]*?```|^#{1,6}\s.*$|.*?(?:\n|$))/gm, // optional: defaults to 'word'
