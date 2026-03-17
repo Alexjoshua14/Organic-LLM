@@ -8,7 +8,7 @@ import { createLogger } from "../logger";
 import { SYSTEM_PROMPT, PROMETHEUS_SYSTEM_PROMPT } from "../system-prompt/prompt-v0";
 import SPARK_SYSTEM_PROMPT from "../system-prompt";
 import { getStateString } from "../supabase/organicStateStore";
-import { searchMemories } from "../memory/store";
+import { searchMemoriesForUser } from "../memory/operations";
 import {
   CodeBlockSchema,
   ContextPiece,
@@ -564,9 +564,9 @@ export async function getContext({
     logger.log("getContext", `User message length: ${userMessage.length}`);
 
     if (memoryEnabled) {
-      const memoriesPromise = searchMemories(userMessage, sbUserId, {
+      const memoriesPromise = searchMemoriesForUser(sbUserId, userMessage, {
         limit: 5,
-      });
+      }).then((r) => (r.error ? { results: [] } : r.data!));
 
       promises.push(memoriesPromise);
     }

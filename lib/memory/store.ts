@@ -1,5 +1,11 @@
 import "server-only";
 
+/**
+ * Memory store — low-level, server-only. No auth, no rate limits.
+ * Expects Mem0 user id (Supabase id). Only operations.ts (and tests) should
+ * import and call these functions. See lib/memory/README.md for contract.
+ */
+
 import { Message, SearchMemoryOptions, SearchResult } from "mem0ai/oss";
 import { UIMessage } from "@ai-sdk/react";
 

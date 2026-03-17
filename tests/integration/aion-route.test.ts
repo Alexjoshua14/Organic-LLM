@@ -41,8 +41,8 @@ describe("POST /api/ai/aion (integration)", () => {
   const mockUpdateChatSummary = mock(async () => ({ ok: true, error: null }));
 
   const mockAddLatestMessagesToMemory = mock(async () => ({
-    results: [],
-    relations: [],
+    data: { results: [], relations: [] },
+    error: null,
   }));
 
   const mockCreateMemorySearchTool = mock((userId: string) => ({

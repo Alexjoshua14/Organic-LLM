@@ -18,6 +18,7 @@ const mockCheckMemorySearchLimit = mock(async () => ({ success: true }));
 const mockCheckMemoryListLimit = mock(async () => ({ success: true }));
 const mockCheckMemoryDeleteLimit = mock(async () => ({ success: true }));
 const mockCheckMemoryWipeLimit = mock(async () => ({ success: true }));
+const mockCheckMemoryAddLimit = mock(async () => ({ success: true }));
 
 const mockSearchMemories = mock(async (): Promise<SearchResult> => ({
   results: [],
@@ -29,6 +30,10 @@ const mockGetAllMemories = mock(async () => ({
 }));
 const mockDeleteMemory = mock(async () => true);
 const mockWipeMemory = mock(async () => true);
+const mockAddLatestMessagesToMemory = mock(async (): Promise<SearchResult> => ({
+  results: [],
+  relations: [],
+}));
 
 mock.module("@clerk/nextjs/server", () => ({ auth: mockAuth }));
 mock.module("@/data/supabase/profiles", () => ({
@@ -39,12 +44,14 @@ mock.module("@/lib/rate-limit/memory", () => ({
   checkMemoryListLimit: mockCheckMemoryListLimit,
   checkMemoryDeleteLimit: mockCheckMemoryDeleteLimit,
   checkMemoryWipeLimit: mockCheckMemoryWipeLimit,
+  checkMemoryAddLimit: mockCheckMemoryAddLimit,
 }));
 mock.module("@/lib/memory/store", () => ({
   searchMemories: mockSearchMemories,
   getAllMemories: mockGetAllMemories,
   deleteMemory: mockDeleteMemory,
   wipeMemory: mockWipeMemory,
+  addLatestMessagesToMemory: mockAddLatestMessagesToMemory,
 }));
 
 describe("Memory operations (secure client–store)", () => {
@@ -58,10 +65,12 @@ describe("Memory operations (secure client–store)", () => {
     mockCheckMemoryListLimit.mockClear();
     mockCheckMemoryDeleteLimit.mockClear();
     mockCheckMemoryWipeLimit.mockClear();
+    mockCheckMemoryAddLimit.mockClear();
     mockSearchMemories.mockClear();
     mockGetAllMemories.mockClear();
     mockDeleteMemory.mockClear();
     mockWipeMemory.mockClear();
+    mockAddLatestMessagesToMemory.mockClear();
 
     mockAuth.mockResolvedValue(createMockClerkUser());
     mockGetSupabaseUserId.mockResolvedValue({
@@ -72,8 +81,13 @@ describe("Memory operations (secure client–store)", () => {
     mockCheckMemoryListLimit.mockResolvedValue({ success: true });
     mockCheckMemoryDeleteLimit.mockResolvedValue({ success: true });
     mockCheckMemoryWipeLimit.mockResolvedValue({ success: true });
+    mockCheckMemoryAddLimit.mockResolvedValue({ success: true });
     mockGetAllMemories.mockResolvedValue({
       results: [{ id: "mem_1", memory: "test", metadata: {} }],
+      relations: [],
+    });
+    mockAddLatestMessagesToMemory.mockResolvedValue({
+      results: [],
       relations: [],
     });
   });
@@ -197,5 +211,107 @@ describe("Memory operations (secure client–store)", () => {
 
     expect(result.error).toContain("Invalid");
     expect(mockGetAllMemories.mock.calls.length).toBe(0);
+  });
+
+  test("searchMemoriesForUser success path applies rate limit and returns validated result", async () => {
+    mockSearchMemories.mockResolvedValueOnce({
+      results: [{ id: "m1", memory: "found", metadata: {} }],
+      relations: [],
+    });
+
+    const result = await operations.searchMemoriesForUser(
+      "sb_test_user",
+      "query",
+      { limit: 5 }
+    );
+
+    expect(result.error).toBeNull();
+    expect(result.data?.results).toHaveLength(1);
+    expect(mockCheckMemorySearchLimit.mock.calls.length).toBe(1);
+    expect(mockSearchMemories.mock.calls.length).toBe(1);
+    const call = mockSearchMemories.mock.calls[0] as unknown as [string, string, { limit: number }];
+    expect(call[0]).toBe("query");
+    expect(call[1]).toBe("sb_test_user");
+    expect(call[2]?.limit).toBe(5);
+  });
+
+  test("searchMemoriesForUser returns error when rate limit exceeded", async () => {
+    mockCheckMemorySearchLimit.mockResolvedValueOnce({
+      success: false,
+      error: "Too many search requests",
+    } as RateLimitResult);
+
+    const result = await operations.searchMemoriesForUser("sb_test_user", "q");
+
+    expect(result.error).toContain("Too many");
+    expect(mockSearchMemories.mock.calls.length).toBe(0);
+  });
+
+  test("searchMemoriesForUser returns error for empty userId", async () => {
+    const result = await operations.searchMemoriesForUser("", "q");
+
+    expect(result.error).toBe("User ID is required");
+    expect(mockSearchMemories.mock.calls.length).toBe(0);
+  });
+
+  test("searchMemoriesForUser returns error for invalid schema from store", async () => {
+    mockSearchMemories.mockResolvedValueOnce({
+      results: [{ id: "m1", memory: 123 } as any], // invalid: memory must be string
+      relations: [],
+    });
+
+    const result = await operations.searchMemoriesForUser("sb_test_user", "q");
+
+    expect(result.error).toBe("Invalid memory response");
+  });
+
+  test("addLatestMessagesToMemoryForUser success path applies rate limit and returns validated result", async () => {
+    mockAddLatestMessagesToMemory.mockResolvedValueOnce({
+      results: [{ id: "m1", memory: "stored", metadata: {} }],
+      relations: [],
+    });
+
+    const messages = [
+      { id: "u1", role: "user" as const, parts: [{ type: "text" as const, text: "hi" }] },
+      { id: "a1", role: "assistant" as const, parts: [{ type: "text" as const, text: "hello" }] },
+    ];
+    const result = await operations.addLatestMessagesToMemoryForUser(
+      "sb_test_user",
+      messages as any,
+      "chat_1"
+    );
+
+    expect(result.error).toBeNull();
+    expect(result.data?.results).toHaveLength(1);
+    expect(mockCheckMemoryAddLimit.mock.calls.length).toBe(1);
+    expect(mockAddLatestMessagesToMemory.mock.calls.length).toBe(1);
+  });
+
+  test("addLatestMessagesToMemoryForUser returns error when rate limit exceeded", async () => {
+    mockCheckMemoryAddLimit.mockResolvedValueOnce({
+      success: false,
+      error: "Too many memory add requests",
+    } as RateLimitResult);
+
+    const messages = [
+      { id: "u1", role: "user" as const, parts: [{ type: "text" as const, text: "hi" }] },
+    ];
+    const result = await operations.addLatestMessagesToMemoryForUser(
+      "sb_test_user",
+      messages as any
+    );
+
+    expect(result.error).toContain("Too many");
+    expect(mockAddLatestMessagesToMemory.mock.calls.length).toBe(0);
+  });
+
+  test("addLatestMessagesToMemoryForUser returns error for empty userId", async () => {
+    const result = await operations.addLatestMessagesToMemoryForUser(
+      "",
+      [{ id: "u1", role: "user", parts: [] }] as any
+    );
+
+    expect(result.error).toBe("User ID is required");
+    expect(mockAddLatestMessagesToMemory.mock.calls.length).toBe(0);
   });
 });

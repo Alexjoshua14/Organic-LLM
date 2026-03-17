@@ -1,24 +1,32 @@
 "use server";
 
 /**
- * Public memory server actions — zero client-supplied identity.
+ * Memory operations — single public server API for memory.
  *
- * The client never sends userId or memoryId (except memoryId for delete, which is
- * validated against ownership). Identity is always resolved server-side via
- * getCurrentUserMem0UserId() (Clerk auth + Supabase profile). Only these five
- * actions are callable from the client; low-level store functions are server-only.
+ * Contract:
+ * - Operations: only public server API; identity from auth or pre-resolved userId;
+ *   all rate limits applied here; no client-supplied identity (except memoryId for
+ *   delete, validated against ownership). Results are validated with lib/schemas/memory.
+ * - Store: server-only; no auth; no rate limits; only operations (and tests) should
+ *   call store. See lib/memory/README.md for full contract.
  */
 
 import { SearchMemoryOptions, SearchResult } from "mem0ai/oss";
 import { auth } from "@clerk/nextjs/server";
+import type { UIMessage } from "ai";
 
 import {
   searchMemories as storeSearchMemories,
   getAllMemories as storeGetAllMemories,
   deleteMemory as storeDeleteMemory,
   wipeMemory as storeWipeMemory,
+  addLatestMessagesToMemory as storeAddLatestMessagesToMemory,
 } from "./store";
 
+import {
+  SearchResult as SearchResultSchema,
+  type SearchResultType,
+} from "@/lib/schemas/memory";
 import { Result } from "@/types";
 import { getSupabaseUserId } from "@/data/supabase/profiles";
 import {
@@ -26,12 +34,27 @@ import {
   checkMemoryListLimit,
   checkMemoryDeleteLimit,
   checkMemoryWipeLimit,
+  checkMemoryAddLimit,
 } from "@/lib/rate-limit/memory";
 
 /**
  * Resolves the current request's user to the Mem0 user key (Supabase user id).
  * Use this in server-only entry points that operate on the "current user's" memories.
  */
+/**
+ * Validates store output against the app memory schema. On failure returns
+ * a generic error so malformed data does not cross the boundary.
+ */
+function validateSearchResult(
+  result: SearchResult
+): Result<SearchResultType, string> {
+  const parsed = SearchResultSchema.safeParse(result);
+  if (!parsed.success) {
+    return { data: null, error: "Invalid memory response" };
+  }
+  return { data: parsed.data, error: null };
+}
+
 async function getCurrentUserMem0UserId(): Promise<Result<string, string>> {
   const { userId: clerkUserId } = await auth();
 
@@ -48,13 +71,82 @@ async function getCurrentUserMem0UserId(): Promise<Result<string, string>> {
 }
 
 /**
+ * Server-internal memory search for a pre-resolved user id. Applies rate limit
+ * and query validation. Use from chat-store, llm-tool-kit, or other server
+ * code that has already resolved userId (e.g. via getSupabaseUserId). Callers
+ * must not pass client-supplied userId.
+ */
+export async function searchMemoriesForUser(
+  userId: string,
+  query: string,
+  options?: SearchMemoryOptions
+): Promise<Result<SearchResultType, string>> {
+  try {
+    if (!userId) {
+      return { data: null, error: "User ID is required" };
+    }
+
+    const limitResult = await checkMemorySearchLimit(userId);
+
+    if (!limitResult.success) {
+      return { data: null, error: limitResult.error ?? "Too many requests" };
+    }
+
+    if (typeof query !== "string" || query.length > 2000) {
+      return { data: null, error: "Invalid or too long query" };
+    }
+
+    const result = await storeSearchMemories(query, userId, options);
+
+    return validateSearchResult(result);
+  } catch (error) {
+    return {
+      data: null,
+      error: error instanceof Error ? error.message : "Unknown error",
+    };
+  }
+}
+
+/**
+ * Server-internal add messages to memory for a pre-resolved user id. Applies
+ * rate limit. Use from chat route, Aion handler, or other server code that
+ * has already resolved userId. Callers must not pass client-supplied userId.
+ */
+export async function addLatestMessagesToMemoryForUser(
+  userId: string,
+  messages: UIMessage[],
+  chatId?: string
+): Promise<Result<SearchResultType, string>> {
+  try {
+    if (!userId) {
+      return { data: null, error: "User ID is required" };
+    }
+
+    const limitResult = await checkMemoryAddLimit(userId);
+
+    if (!limitResult.success) {
+      return { data: null, error: limitResult.error ?? "Too many memory add requests" };
+    }
+
+    const result = await storeAddLatestMessagesToMemory(messages, userId, chatId);
+
+    return validateSearchResult(result);
+  } catch (error) {
+    return {
+      data: null,
+      error: error instanceof Error ? error.message : "Unknown error",
+    };
+  }
+}
+
+/**
  * Server-only memory search for the current user. Uses Clerk auth and Supabase
  * profile to resolve the Mem0 user key before searching.
  */
 export async function searchMemoriesServer(
   query: string,
   options?: SearchMemoryOptions
-): Promise<Result<SearchResult, string>> {
+): Promise<Result<SearchResultType, string>> {
   try {
     const userIdResult = await getCurrentUserMem0UserId();
 
@@ -74,7 +166,7 @@ export async function searchMemoriesServer(
 
     const result = await storeSearchMemories(query, userIdResult.data, options);
 
-    return { data: result, error: null };
+    return validateSearchResult(result);
   } catch (error) {
     return {
       data: null,
@@ -87,7 +179,7 @@ export async function searchMemoriesServer(
  * Fetches all persisted memories for the current user (for Memory Lens UI).
  * Uses Clerk auth + Supabase profile to resolve user id for Mem0.
  */
-export async function getCurrentUserMemories(): Promise<Result<SearchResult, string>> {
+export async function getCurrentUserMemories(): Promise<Result<SearchResultType, string>> {
   try {
     const userIdResult = await getCurrentUserMem0UserId();
 
@@ -103,7 +195,7 @@ export async function getCurrentUserMemories(): Promise<Result<SearchResult, str
 
     const result = await storeGetAllMemories(userIdResult.data);
 
-    return { data: result, error: null };
+    return validateSearchResult(result);
   } catch (error) {
     return {
       data: null,
@@ -119,7 +211,7 @@ export async function getCurrentUserMemories(): Promise<Result<SearchResult, str
 export async function getCurrentUserMemoriesBySearch(
   query: string,
   limit: number = 5
-): Promise<Result<SearchResult, string>> {
+): Promise<Result<SearchResultType, string>> {
   try {
     const userIdResult = await getCurrentUserMem0UserId();
 
@@ -142,7 +234,7 @@ export async function getCurrentUserMemoriesBySearch(
       limit: clampedLimit,
     });
 
-    return { data: result, error: null };
+    return validateSearchResult(result);
   } catch (error) {
     return {
       data: null,
