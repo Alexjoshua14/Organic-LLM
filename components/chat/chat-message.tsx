@@ -306,6 +306,36 @@ type ChatAIActionProps = {
   };
 };
 
+/** Human-readable label for generic "Using tool: …" chunks from the API. */
+function toolActionDisplayText(message: string | undefined): string {
+  const trimmed = message?.trim();
+  if (!trimmed) return "Using a tool...";
+
+  const usingToolMatch = trimmed.match(/^Using tool:\s*([a-z0-9_]+)$/i);
+  if (usingToolMatch?.[1]) {
+    const toolName = usingToolMatch[1].toLowerCase();
+    const knownLabels: Record<string, string> = {
+      make_mermaid_diagram: "Creating diagram...",
+      search_memories: "Searching memories...",
+      web_search: "Searching the web...",
+      get_full_chat_history: "Getting full chat history...",
+      get_more_chat_history: "Getting more chat history...",
+      get_messages_from_date: "Getting chat history for that date...",
+    };
+
+    if (knownLabels[toolName]) {
+      return knownLabels[toolName];
+    }
+
+    const readableToolName = toolName.replace(/_/g, " ").trim();
+    if (readableToolName.length > 0) {
+      return `${readableToolName[0].toUpperCase()}${readableToolName.slice(1)}...`;
+    }
+  }
+
+  return trimmed;
+}
+
 const ChatAIAction: FC<ChatAIActionProps> = ({ aiActionPayload }) => {
   return (
     <div className="rounded-lg p-4 mb-4 text-foreground">
@@ -318,9 +348,13 @@ const ChatAIAction: FC<ChatAIActionProps> = ({ aiActionPayload }) => {
           case "search":
             return <ChatSearching sources={aiActionPayload?.sources} text="Searching the web..." />;
           case "memory":
-            return <ChatThinking text="Searching memories..." />;
+            return (
+              <ChatThinking
+                text={aiActionPayload?.message?.trim() || "Searching memories..."}
+              />
+            );
           case "tool":
-            return <ChatThinking text="Using a tool..." />;
+            return <ChatThinking text={toolActionDisplayText(aiActionPayload?.message)} />;
           default:
             return <ChatThinking />;
         }

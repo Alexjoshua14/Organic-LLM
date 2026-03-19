@@ -60,11 +60,22 @@ async function validateMermaidCode(code: string): Promise<{ ok: boolean; error?:
   }
 }
 
+function stripMermaidSecurityInitLines(source: string): string {
+  return source
+    .split("\n")
+    .filter((line) => {
+      const t = line.trim();
+      if (!t.startsWith("%%")) return true;
+      if (!/init\s*:/i.test(t)) return true;
+      return !/securityLevel/i.test(t);
+    })
+    .join("\n");
+}
+
 function normalizeMermaidCode(raw: string): string {
-  return raw
-    .replace(/^```(?:mermaid)?\s*/i, "")
-    .replace(/```$/i, "")
-    .trim();
+  return stripMermaidSecurityInitLines(
+    raw.replace(/^```(?:mermaid)?\s*/i, "").replace(/```$/i, "").trim()
+  );
 }
 
 /** Format UIMessage[] into a plain string for the model (role + text content). */
