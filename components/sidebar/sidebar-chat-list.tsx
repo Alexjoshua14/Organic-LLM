@@ -19,6 +19,7 @@ import { useSharedChatContext } from "@/lib/context/chat-context";
 import { useChatId } from "@/hooks/use-chat-id";
 import { SidebarThreadActionsMenu } from "@/components/sidebar/sidebar-thread-actions-menu";
 import { SidebarChatTitle } from "@/components/sidebar/sidebar-chat-title";
+import { cn } from "@/lib/utils";
 
 const logger = createLogger("components/sidebar/sidebar-chat-list.tsx");
 
@@ -101,16 +102,16 @@ export const SidebarChatList: FC<SidebarChatListProps> = ({ threads }) => {
   }, []);
 
   const handleTitleClick = useCallback(
-    (threadId: string) => {
-      if (editingThreadId === threadId) return;
-      if (longPressThreadIdRef.current === threadId) {
+    (thread: ThreadLink) => {
+      if (editingThreadId === thread.id) return;
+      if (longPressThreadIdRef.current === thread.id) {
         longPressThreadIdRef.current = null;
 
         return;
       }
       setOpenMobile(false);
-      setChatId(threadId);
-      router.push(`/chat/${threadId}`);
+      setChatId(thread.id);
+      router.push(thread.href ?? `/chat/${thread.id}`);
     },
     [editingThreadId, setOpenMobile, setChatId, router]
   );
@@ -122,11 +123,24 @@ export const SidebarChatList: FC<SidebarChatListProps> = ({ threads }) => {
           const isActiveThread = currentChatId === thread.id;
           const isEditing = editingThreadId === thread.id;
           const isMenuOpen = openMenuThreadId === thread.id;
+          const isArcadia = thread.feature === "arcadia";
 
           return (
             <SidebarMenuItem key={thread.id} className="relative">
               <div
-                className="font-extralight text-sm w-full rounded hover:bg-background px-3 transition-colors duration-150 group/thread cursor-pointer min-w-0 relative flex text-foreground-secondary items-center"
+                className={cn(
+                  "font-extralight text-sm w-full rounded px-3 transition-colors duration-150 group/thread cursor-pointer min-w-0 relative flex items-center",
+                  isArcadia
+                    ? [
+                        "border border-transparent",
+                        "hover:bg-amber-950/10 dark:hover:bg-amber-950/20",
+                        "hover:border-amber-900/10 dark:hover:border-amber-200/10",
+                        "hover:backdrop-saturate-150 hover:backdrop-blur-2xl",
+                        "hover:backdrop-brightness-110 dark:hover:backdrop-brightness-200",
+                      ].join(" ")
+                    : "hover:bg-background",
+                  isArcadia ? "text-foreground" : "text-foreground-secondary"
+                )}
                 onTouchCancel={handleLongPressEnd}
                 onTouchEnd={handleLongPressEnd}
                 onTouchStart={() => handleLongPressStart(thread.id)}
@@ -142,7 +156,7 @@ export const SidebarChatList: FC<SidebarChatListProps> = ({ threads }) => {
                       ? undefined
                       : (e) => {
                           e.preventDefault();
-                          handleTitleClick(thread.id);
+                          handleTitleClick(thread);
                         }
                   }
                   onKeyDown={
@@ -151,7 +165,7 @@ export const SidebarChatList: FC<SidebarChatListProps> = ({ threads }) => {
                       : (e) => {
                           if (e.key === "Enter" || e.key === " ") {
                             e.preventDefault();
-                            handleTitleClick(thread.id);
+                            handleTitleClick(thread);
                           }
                         }
                   }
@@ -161,6 +175,11 @@ export const SidebarChatList: FC<SidebarChatListProps> = ({ threads }) => {
                     title={thread.title}
                     onEditingChange={(editing) => setEditingThreadId(editing ? thread.id : null)}
                     onSave={(title) => handleSaveTitle(thread.id, title)}
+                    className={
+                      isArcadia
+                        ? "bg-linear-to-tr from-emerald-600/85 via-foreground-secondary to-foreground-secondary bg-clip-text text-transparent"
+                        : undefined
+                    }
                   />
                 </div>
                 {!isMobile && (

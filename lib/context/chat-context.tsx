@@ -22,6 +22,8 @@ interface ChatsApiResponse {
     created_at: string;
     updated_at: string;
     pinned?: boolean;
+    feature?: string | null;
+    path?: string | null;
   }>;
 }
 
@@ -48,13 +50,20 @@ async function sidebarChatsFetcher(url: string): Promise<ChatsApiResponse> {
 function normalizeToThreadLinks(rows: ChatsApiResponse["data"]): ThreadLink[] {
   if (!rows || !Array.isArray(rows)) return [];
 
-  return rows.map((thread) => ({
-    title: thread.title ?? "Unknown title",
-    id: thread.id,
-    pinned: thread.pinned ?? false,
-    date: new Date(thread.updated_at).toISOString(),
-    hasNoTitle: thread.title == null || String(thread.title).trim() === "",
-  }));
+  return rows.map((thread) => {
+    const feature = thread.feature ?? undefined;
+    const href = thread.path && String(thread.path).trim() !== "" ? String(thread.path) : `/chat/${thread.id}`;
+
+    return {
+      title: thread.title ?? "Unknown title",
+      id: thread.id,
+      pinned: thread.pinned ?? false,
+      date: new Date(thread.updated_at).toISOString(),
+      href,
+      feature,
+      hasNoTitle: thread.title == null || String(thread.title).trim() === "",
+    };
+  });
 }
 
 export interface ChatContextValue {

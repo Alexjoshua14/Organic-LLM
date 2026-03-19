@@ -77,7 +77,7 @@ export async function POST(req: Request) {
     });
   }
 
-  const { message: incomingMessage, id, zeroDataRetention } = parseResult.data;
+  const { message: incomingMessage, id, zeroDataRetention, experience } = parseResult.data;
   const message = incomingMessage as UIMessage;
 
   // Zero Data Retention Policy is in regards to external LLMs, not Organic LLM at this time
@@ -172,7 +172,7 @@ export async function POST(req: Request) {
           validatedMessages = [message];
           systemPromptForRequest =
             SYSTEM_PROMPT +
-            "\n\n[System note: Chat context (conversation summary and recent messages) could not be loaded for this request. Only the user's latest message is in context. Use get_more_chat_history, get_full_chat_history, or search_memories if you need prior conversation or memories to answer well.]";
+            "\n\n[System note: Chat context (conversation summary and recent messages) could not be loaded for this request. Only the user's latest message is in context. Use get_more_chat_history or get_full_chat_history if you need prior conversation or memories to answer well.]";
           logger.debug("context", "Context failed; using only incoming message");
         } else {
           validatedMessages = [...(chatContextResult.data?.messages ?? []), message];
@@ -189,7 +189,7 @@ export async function POST(req: Request) {
           validatedMessages = [message];
           systemPromptForRequest =
             SYSTEM_PROMPT +
-            "\n\n[System note: Chat context (conversation summary and recent messages) could not be loaded for this request. Only the user's latest message is in context. Use get_more_chat_history, get_full_chat_history, or search_memories if you need prior conversation or memories to answer well.]";
+            "\n\n[System note: Chat context (conversation summary and recent messages) could not be loaded for this request. Only the user's latest message is in context. Use get_more_chat_history or get_full_chat_history if you need prior conversation or memories to answer well.]";
         } else {
           throw err;
         }
@@ -267,6 +267,15 @@ export async function POST(req: Request) {
 
       if (parseResult.data.speechFriendly) {
         systemPromptForRequest += `\n\nOutput format (speech-friendly mode): Format your response for both clear on-screen reading and later use as a script for audio. Use clear structure, headings, and visually appealing formatting. A separate pipeline will convert your text into a speech-friendly script and handle text-to-speech, so focus on clarity, structure, and readability—not on pronouncing abbreviations or avoiding punctuation.`;
+      }
+
+      if (experience === "arcadia") {
+        systemPromptForRequest +=
+          `\n\n[Arcadia mode]\n` +
+          `- Be concise by default. Prefer short answers (aim for ~150–350 words) with tight structure.\n` +
+          `- Mobile readability constraint: avoid responses that would take more than ~1 screen height to read on a phone. If the answer is large, give a crisp summary + a short checklist of next steps, then offer to expand.\n` +
+          `- Prefer tool use over long prose when complexity is high. Use tools to gather/compute, then return a compact synthesis. Avoid repeating raw tool output unless explicitly requested.\n` +
+          `- If the user asks for depth, expand incrementally (sections), not an unbounded wall of text.\n`;
       }
 
       writer.write({
@@ -583,6 +592,8 @@ const compileTools = async ({
   if (toolInstructions.length > 0) {
     toolInstructions +=
       "Prefer fewer tool calls when possible. If the first result answers the question, respond to the user without calling tools again.\n";
+    toolInstructions +=
+      "When you need both web search and memory search (or multiple independent tools), call them in the same turn when possible so the system can run them in parallel and reduce latency.\n";
   }
 
   return { tools, toolInstructions: toolInstructions.trim() };

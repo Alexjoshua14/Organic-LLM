@@ -129,6 +129,8 @@ export const ChatRequestSchema = z.object({
   webSearch: z.boolean().optional(),
   memory: z.boolean().optional().default(true),
   speechFriendly: z.boolean().optional(),
+  /** Client hint: which chat experience initiated the request (e.g. arcadia). */
+  experience: z.string().optional(),
   /** When true, request is in zero-data-retention mode (no persistence). */
   zeroDataRetention: z.boolean().optional(),
   /** Client hint: thread already has a title; server can skip ensureChatHasTitle and optionally getThreadHasTitle. */
