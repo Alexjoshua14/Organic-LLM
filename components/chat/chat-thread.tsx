@@ -12,6 +12,10 @@ import {
 } from "../third-party/ai-elements/conversation";
 
 import { ChatMessage } from "./chat-message";
+import {
+  ARCADIA_HELP_LATEST_ONLY,
+  isArcadiaHelpMessage,
+} from "@/lib/arcadia/help-response";
 
 import { ChatAIActionEnum } from "@/types/ai";
 import { cn } from "@/lib/utils";
@@ -41,6 +45,15 @@ export const ChatThread: FC<ChatThreadProps> = ({
 }) => {
   const lastMessageIndex = messages.length - 1;
 
+  const lastArcadiaHelpMessageId =
+    ARCADIA_HELP_LATEST_ONLY &&
+    (() => {
+      for (let i = messages.length - 1; i >= 0; i--) {
+        if (isArcadiaHelpMessage(messages[i])) return messages[i].id ?? null;
+      }
+      return null;
+    })();
+
   return (
     <ConversationContent
       className={cn("w-full px-4 pt-16 pb-12 flex flex-col", contentClassName)}
@@ -54,13 +67,19 @@ export const ChatThread: FC<ChatThreadProps> = ({
             title="Start a conversation"
           />
         ) : (
-          messages.map((message, index) => (
-            <ChatMessage
-              key={message.id}
-              aiActionPayload={index === lastMessageIndex ? aiActionPayload : undefined}
-              message={message}
-            />
-          ))
+          messages.map((message, index) => {
+            const isLatestArcadiaHelp =
+              !ARCADIA_HELP_LATEST_ONLY ||
+              (lastArcadiaHelpMessageId != null && message.id === lastArcadiaHelpMessageId);
+            return (
+              <ChatMessage
+                key={message.id}
+                aiActionPayload={index === lastMessageIndex ? aiActionPayload : undefined}
+                isLatestArcadiaHelp={isArcadiaHelpMessage(message) ? isLatestArcadiaHelp : undefined}
+                message={message}
+              />
+            );
+          })
         )}
       </div>
     </ConversationContent>

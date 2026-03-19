@@ -28,6 +28,8 @@ const SHOW_ACTION_WHILE_STREAMING_TEXT = true;
 type ChatMessageProps = {
   message: UIMessage;
   isLastMessage?: boolean;
+  /** When true, show custom Arcadia help UI; when false, show markdown. Omitted for non-help messages. */
+  isLatestArcadiaHelp?: boolean;
   aiActionPayload?: {
     action: ChatAIActionEnum;
     message?: string;
@@ -36,11 +38,17 @@ type ChatMessageProps = {
 };
 
 export const ChatMessage = memo<ChatMessageProps>(function ChatMessage(props) {
-  const { message, aiActionPayload } = props;
+  const { message, aiActionPayload, isLatestArcadiaHelp } = props;
 
   switch (message.role) {
     case "assistant":
-      return <AIMessage aiActionPayload={aiActionPayload} message={message} />;
+      return (
+        <AIMessage
+          aiActionPayload={aiActionPayload}
+          isLatestArcadiaHelp={isLatestArcadiaHelp}
+          message={message}
+        />
+      );
     case "user":
       return <UserMessage message={message} />;
     case "system":
@@ -50,7 +58,7 @@ export const ChatMessage = memo<ChatMessageProps>(function ChatMessage(props) {
 
 ChatMessage.displayName = "ChatMessage";
 
-const AIMessage: FC<ChatMessageProps> = ({ message, aiActionPayload }) => {
+const AIMessage: FC<ChatMessageProps> = ({ message, aiActionPayload, isLatestArcadiaHelp }) => {
   const [isStreaming, setIsStreaming] = useState<boolean>(false);
 
   useEffect(() => {
@@ -69,6 +77,8 @@ const AIMessage: FC<ChatMessageProps> = ({ message, aiActionPayload }) => {
     })
     .join("");
   const isArcadiaHelp = text.startsWith(ARCADIA_HELP_PREFIX);
+  const showCustomArcadiaHelp =
+    isArcadiaHelp && (isLatestArcadiaHelp === undefined || isLatestArcadiaHelp);
 
   return (
     <div className="group/ai-message rounded-lg p-4 flex flex-col gap-2">
@@ -85,7 +95,7 @@ const AIMessage: FC<ChatMessageProps> = ({ message, aiActionPayload }) => {
                 return null;
 
               case "text":
-                if (text.startsWith(ARCADIA_HELP_PREFIX)) {
+                if (showCustomArcadiaHelp) {
                   return <ArcadiaHelpMessage key={`${message.id}-${i}`} />;
                 }
                 return (
@@ -107,7 +117,7 @@ const AIMessage: FC<ChatMessageProps> = ({ message, aiActionPayload }) => {
       {!isStreaming && (
         <div className="w-full flex gap-2 h-8">
           <TTSButton iconOnly text={text} />
-          {!isArcadiaHelp && (
+          {!showCustomArcadiaHelp && (
             <>
               <PinToSpeakButton text={text} />
               <ClipboardCopyButton text={text} />
