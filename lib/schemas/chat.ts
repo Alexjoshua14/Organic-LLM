@@ -17,8 +17,8 @@ export type ChatModel = z.infer<typeof ChatModelSchema>;
 export const ChatModels: ChatModel[] = [
   { id: "openai/gpt-5.2", name: "GPT-5.2" },
   { id: "openai/gpt-5", name: "GPT-5" },
-  { id: "openai/gpt-5-mini", name: "GPT-5 Mini" },
-  { id: "openai/gpt-5-nano", name: "GPT-5 Nano" },
+  { id: "openai/gpt-5.4-mini", name: "GPT-5 Mini" },
+  { id: "openai/gpt-5.4-nano", name: "GPT-5 Nano" },
   { id: "google/gemini-3-pro-preview", name: "Gemini 3 Pro" },
   { id: "google/gemini-3-flash", name: "Gemini 3 Flash" },
   { id: "google/gemini-2.5-flash-lite", name: "Gemini 2.5 Flash Lite" },

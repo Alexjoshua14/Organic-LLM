@@ -143,7 +143,7 @@ export async function POST(req: Request) {
   const start = performance.now();
 
   const result = streamText({
-    model: openai("gpt-5-mini"),
+    model: openai("gpt-5.4-mini"),
     messages: convertToModelMessages(validatedMessages),
     system: systemPrompt,
     maxOutputTokens: GUARDRAIL_MAX_OUTPUT_TOKENS,

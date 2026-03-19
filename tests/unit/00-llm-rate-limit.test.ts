@@ -85,7 +85,7 @@ describe("LLM rate limit (lib/rate-limit/llm)", () => {
   });
 
   test("recordLlmCost no-ops when cost limit disabled", async () => {
-    await llmRateLimit.recordLlmCost("user-1", "openai/gpt-5-mini", {
+    await llmRateLimit.recordLlmCost("user-1", "openai/gpt-5.4-mini", {
       promptTokens: 100,
       completionTokens: 50,
     });
@@ -97,12 +97,12 @@ describe("LLM rate limit (lib/rate-limit/llm)", () => {
 describe("LLM cost (lib/rate-limit/llm-cost)", () => {
   test("computeCost returns zero for zero usage", async () => {
     const { computeCost } = await import("@/lib/rate-limit/llm-cost");
-    expect(computeCost("openai/gpt-5-mini", {})).toBe(0);
+    expect(computeCost("openai/gpt-5.4-mini", {})).toBe(0);
   });
 
   test("computeCost returns positive units for token usage", async () => {
     const { computeCost } = await import("@/lib/rate-limit/llm-cost");
-    const units = computeCost("openai/gpt-5-mini", {
+    const units = computeCost("openai/gpt-5.4-mini", {
       promptTokens: 1_000_000,
       completionTokens: 500_000,
     });
