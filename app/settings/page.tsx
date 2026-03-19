@@ -28,6 +28,7 @@ export default function SettingsPage() {
   const [profile, setProfile] = useState<Profile | null>(null);
   const [ttsWholeMessage, setTtsWholeMessage] = useState(true);
   const [zeroDataRetention, setZeroDataRetention] = useState(false);
+  const [coalescenceMode, setCoalescenceMode] = useState(false);
   const { userId } = useAuth();
   const { user } = useUser();
   const clerkEmail = user?.primaryEmailAddress?.emailAddress ?? null;
@@ -46,6 +47,7 @@ export default function SettingsPage() {
     if (typeof window !== "undefined") {
       setTtsWholeMessage(getSettings().ttsWholeMessage);
       setZeroDataRetention(getSettings().zeroDataRetention);
+      setCoalescenceMode(getSettings().coalescenceMode);
     }
   }, []);
 
@@ -119,6 +121,24 @@ export default function SettingsPage() {
                     <span className="text-sm text-muted-foreground">System / Light / Dark</span>
                   </div>
                 </div>
+                <SettingsRow
+                  title="Coalescence Mode"
+                  mainText={
+                    coalescenceMode
+                      ? "Sidebar shows threads from Arcadia and other feature chats."
+                      : "Sidebar shows only main chat threads."
+                  }
+                  subtext="When on, your sidebar coalesces threads across chat experiences. Turn off to keep the sidebar focused on main chat only."
+                >
+                  <Switch
+                    aria-label="Coalescence Mode"
+                    isSelected={coalescenceMode}
+                    onValueChange={(enabled) => {
+                      setCoalescenceMode(enabled);
+                      setSettings({ coalescenceMode: enabled });
+                    }}
+                  />
+                </SettingsRow>
                 <FontSetting />
               </section>
             </div>

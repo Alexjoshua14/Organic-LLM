@@ -58,6 +58,11 @@ export const caption = tv({
 export const glass = tv({
   base: "bg-background-tertiary/30 dark:bg-background-tertiary/20 backdrop-brightness-110 dark:backdrop-brightness-200 backdrop-blur-2xl  border-foreground/5",
   variants: {
+    tone: {
+      default: "",
+      brown:
+        "bg-amber-950/10 dark:bg-amber-950/20 border-amber-900/10 dark:border-amber-200/10 backdrop-saturate-150",
+    },
     opaque: {
       true: "bg-background-tertiary/75 dark:bg-background-tertiary/75",
     },
@@ -69,6 +74,7 @@ export const glass = tv({
     },
   },
   defaultVariants: {
+    tone: "default",
     border: "all",
   },
 });

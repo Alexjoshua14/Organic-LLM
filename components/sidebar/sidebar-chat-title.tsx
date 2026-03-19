@@ -7,6 +7,7 @@ type SidebarChatTitleProps = {
   editing: boolean;
   onSave: (title: string) => void;
   onEditingChange?: (editing: boolean) => void;
+  className?: string;
 };
 
 const BLUR_GUARD_MS = 600;
@@ -16,6 +17,7 @@ export function SidebarChatTitle({
   editing,
   onSave,
   onEditingChange,
+  className,
 }: SidebarChatTitleProps) {
   const [editedTitle, setEditedTitle] = useState<string>(title);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -78,7 +80,12 @@ export function SidebarChatTitle({
     return (
       <input
         ref={inputRef}
-        className="flex-1 min-w-0 w-full py-1 bg-transparent outline-none border-b border-foreground/20 focus:border-foreground/50"
+        className={[
+          "flex-1 min-w-0 w-full py-1 bg-transparent outline-none border-b border-foreground/20 focus:border-foreground/50",
+          className,
+        ]
+          .filter(Boolean)
+          .join(" ")}
         type="text"
         value={editedTitle}
         onBlur={handleBlur}
@@ -93,7 +100,12 @@ export function SidebarChatTitle({
   }
 
   return (
-    <h3 className="flex-1 truncate py-1 min-w-0 cursor-pointer" title={title}>
+    <h3
+      className={["flex-1 truncate py-1 min-w-0 cursor-pointer", className]
+        .filter(Boolean)
+        .join(" ")}
+      title={title}
+    >
       {title}
     </h3>
   );

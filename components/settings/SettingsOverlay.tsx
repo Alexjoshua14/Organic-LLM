@@ -5,13 +5,14 @@ import type { SharedSelection } from "@heroui/system";
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import { Select, SelectItem } from "@heroui/select";
+import { Switch } from "@heroui/switch";
 import { Settings2Icon, ExternalLink } from "lucide-react";
 import { useAuth } from "@clerk/nextjs";
 
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/third-party/ui/sheet";
 import { ThemeSwitch } from "@/components/shared/theme-switch";
 import { featuredFonts, getFontById } from "@/config/font-options";
-import { getSettings } from "@/lib/user-settings";
+import { getSettings, setSettings } from "@/lib/user-settings";
 import { applyFontPreference } from "@/components/FontProvider";
 import { persistUserSettingsToSupabase } from "@/data/supabase/user-settings";
 
@@ -37,9 +38,14 @@ type SettingsOverlayProps = {
 export function SettingsOverlay({ open, onOpenChange, trigger }: SettingsOverlayProps) {
   const { userId } = useAuth();
   const [fontId, setFontId] = useState<string>(() => getSettings().fontId);
+  const [coalescenceMode, setCoalescenceMode] = useState<boolean>(() => getSettings().coalescenceMode);
 
   useEffect(() => {
-    if (open) setFontId(getSettings().fontId);
+    if (open) {
+      const s = getSettings();
+      setFontId(s.fontId);
+      setCoalescenceMode(s.coalescenceMode);
+    }
   }, [open]);
 
   const handleFontChange = (keys: SharedSelection) => {
@@ -70,6 +76,24 @@ export function SettingsOverlay({ open, onOpenChange, trigger }: SettingsOverlay
             <div className="flex items-center gap-3">
               <ThemeSwitch className="text-foreground" />
               <span className="text-xs text-muted-foreground">System / Light / Dark</span>
+            </div>
+          </section>
+
+          <section className="space-y-3">
+            <h3 className="text-sm font-medium text-foreground">Coalescence Mode</h3>
+            <div className="flex items-center justify-between gap-3">
+              <span className="text-xs text-muted-foreground">
+                When on, your sidebar includes Arcadia and other feature threads.
+              </span>
+              <Switch
+                aria-label="Coalescence Mode"
+                isSelected={coalescenceMode}
+                onValueChange={(enabled) => {
+                  setCoalescenceMode(enabled);
+                  setSettings({ coalescenceMode: enabled });
+                  if (userId) void persistUserSettingsToSupabase(userId, getSettings());
+                }}
+              />
             </div>
           </section>
 
