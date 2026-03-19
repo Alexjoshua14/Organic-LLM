@@ -1,6 +1,13 @@
 import type { UIMessage } from "ai";
 
 /**
+ * When true, only the most recent help response in the thread shows the custom Arcadia
+ * help UI; older help messages render as markdown. When false, every help message
+ * shows the custom UI. Toggle at app level; remove one path once you settle.
+ */
+export const ARCADIA_HELP_LATEST_ONLY = true;
+
+/**
  * Stable prefix for the Arcadia help message. Used by the client to detect and render
  * the custom ArcadiaHelpMessage component instead of markdown.
  */
@@ -60,4 +67,18 @@ export function getLastUserMessageText(message: UIMessage): string {
   }
   const m = message as { content?: unknown };
   return typeof m.content === "string" ? m.content.trim() : "";
+}
+
+/**
+ * Extract plain text from any message (for detecting help responses).
+ */
+export function getMessageText(message: UIMessage): string {
+  return getLastUserMessageText(message);
+}
+
+/**
+ * True if this message is an Arcadia help response (assistant message with help prefix).
+ */
+export function isArcadiaHelpMessage(message: UIMessage): boolean {
+  return message.role === "assistant" && getMessageText(message).startsWith(ARCADIA_HELP_PREFIX);
 }
