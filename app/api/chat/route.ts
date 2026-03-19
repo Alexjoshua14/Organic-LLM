@@ -26,6 +26,7 @@ import {
   createGetFullChatHistoryTool,
   createGetMessagesFromDateTool,
   createGetMoreMessagesTool,
+  createMermaidDiagramTool,
   createMemorySearchTool,
   createWebSearchTool,
   type WebSearchStreamWriter,
@@ -43,6 +44,11 @@ import {
   measureAsync,
 } from "@/lib/llm/helpers";
 import { ChatUIMessage, ChatAIActionEnum } from "@/types/ai";
+import {
+  ARCADIA_HELP_RESPONSE,
+  getLastUserMessageText,
+  isArcadiaHelpQuery,
+} from "@/lib/arcadia/help-response";
 
 // Allow streaming responses up to 30 seconds
 export const maxDuration = 30;
@@ -228,6 +234,39 @@ export async function POST(req: Request) {
         }),
       });
 
+      // Arcadia: respond with prepared "what can you do" / help without calling the model
+      if (experience === "arcadia") {
+        const lastText = getLastUserMessageText(message);
+        if (isArcadiaHelpQuery(lastText)) {
+          const textPartId = generateId();
+          writer.write({ type: "text-start", id: textPartId });
+          writer.write({
+            type: "text-delta",
+            id: textPartId,
+            delta: ARCADIA_HELP_RESPONSE,
+          });
+          writer.write({ type: "text-end", id: textPartId });
+          const assistantMessage: UIMessage = {
+            id: assistantMessageId,
+            role: "assistant",
+            parts: [{ type: "text", text: ARCADIA_HELP_RESPONSE }],
+          };
+          const saveResult = await saveChat({
+            chatId: id,
+            messages: [...validatedMessages, assistantMessage],
+            activeStreamId: null,
+            useAdminForSave: true,
+            ownerId: sbUserId,
+          });
+          if (saveResult.error) {
+            logger.error("POST", "Failed to save Arcadia help response", {
+              error: saveResult.error,
+            });
+          }
+          return;
+        }
+      }
+
       writer.write({
         type: "data-notification",
         data: { message: `Using ${selectedModel.name}`, level: "info" },
@@ -243,6 +282,7 @@ export async function POST(req: Request) {
         useSearch: parseResult.data.webSearch ?? false,
         useMemory: parseResult.data.memory ?? false,
         useGetMoreMessages: true,
+        experience,
         chatId: id,
         initialMessageCount,
         sbUserId,
@@ -271,11 +311,12 @@ export async function POST(req: Request) {
 
       if (experience === "arcadia") {
         systemPromptForRequest +=
-          `\n\n[Arcadia mode]\n` +
-          `- Be concise by default. Prefer short answers (aim for ~150–350 words) with tight structure.\n` +
-          `- Mobile readability constraint: avoid responses that would take more than ~1 screen height to read on a phone. If the answer is large, give a crisp summary + a short checklist of next steps, then offer to expand.\n` +
-          `- Prefer tool use over long prose when complexity is high. Use tools to gather/compute, then return a compact synthesis. Avoid repeating raw tool output unless explicitly requested.\n` +
-          `- If the user asks for depth, expand incrementally (sections), not an unbounded wall of text.\n`;
+          `\n\n[Arcadia mode — keep replies short]\n` +
+          `- Target ~50–120 words per reply. Minimize vertical height; mobile should rarely need to scroll for a single answer.\n` +
+          `- Lead with the answer in 1–2 sentences. Use bullets or a tiny list only when necessary; avoid long paragraphs.\n` +
+          `- If more is needed: give a one-screen summary and say "I can expand on X or Y" instead of expanding in the same message.\n` +
+          `- Prefer tool use over prose for complex tasks; then respond with a compact synthesis, not raw output.\n` +
+          `- When the user asks for depth, add a little at a time (one focused follow-up), not a long block.\n`;
       }
 
       writer.write({
@@ -548,6 +589,7 @@ const compileTools = async ({
   useSearch,
   useMemory,
   useGetMoreMessages,
+  experience,
   chatId,
   initialMessageCount,
   sbUserId,
@@ -556,6 +598,7 @@ const compileTools = async ({
   useSearch: boolean;
   useMemory: boolean;
   useGetMoreMessages?: boolean;
+  experience?: string;
   chatId?: string;
   initialMessageCount?: number;
   sbUserId: string;
@@ -587,6 +630,12 @@ const compileTools = async ({
       "Use get_full_chat_history only when the user explicitly asks for the entire conversation, a full summary of the thread, or 'everything we discussed'—not for routine context. It returns up to 24000 tokens.\n";
     toolInstructions +=
       "Use get_messages_from_date with a date (YYYY-MM-DD) when the user asks about what was said on a specific date or 'messages from [date]'.\n";
+  }
+
+  if (experience === "arcadia") {
+    tools["make_mermaid_diagram"] = createMermaidDiagramTool();
+    toolInstructions +=
+      "You can generate Mermaid diagrams using make_mermaid_diagram. Use it when a diagram would clarify a process, architecture, or relationships. Return the diagram in a mermaid code block so the UI can render it.\n";
   }
 
   if (toolInstructions.length > 0) {
