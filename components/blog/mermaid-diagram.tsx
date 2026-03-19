@@ -3,11 +3,18 @@
 import { useEffect, useRef, useState } from "react";
 import mermaid from "mermaid";
 
-mermaid.initialize({
-  startOnLoad: false,
-  theme: "neutral",
-  securityLevel: "loose",
-});
+/** LLM output can include init directives that set securityLevel to strict; that triggers DOMPurify.sanitize, which is missing in some environments (minified as tb.sanitize). */
+function stripSecurityLevelInitDirectives(source: string): string {
+  return source
+    .split("\n")
+    .filter((line) => {
+      const t = line.trim();
+      if (!t.startsWith("%%")) return true;
+      if (!/init\s*:/i.test(t)) return true;
+      return !/securityLevel/i.test(t);
+    })
+    .join("\n");
+}
 
 export function MermaidDiagram({ code }: { code: string }) {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -57,7 +64,14 @@ export function MermaidDiagram({ code }: { code: string }) {
   useEffect(() => {
     if (!code || !containerRef.current) return;
     setError(null);
-    containerRef.current.textContent = code;
+    const safeCode = stripSecurityLevelInitDirectives(code);
+    // Re-apply before every run so diagram %%init%% or internal resets cannot force strict + DOMPurify.
+    mermaid.initialize({
+      startOnLoad: false,
+      theme: "neutral",
+      securityLevel: "loose",
+    });
+    containerRef.current.textContent = safeCode;
     mermaid
       .run({
         nodes: [containerRef.current],
@@ -69,7 +83,6 @@ export function MermaidDiagram({ code }: { code: string }) {
         if (svg) {
           svg.setAttribute("role", "img");
           svg.setAttribute("aria-label", "Diagram");
-          applyGlassStylingToSvg(svg as SVGSVGElement);
         }
       })
       .catch((err) => {
