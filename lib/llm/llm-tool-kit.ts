@@ -1,6 +1,6 @@
 import type { ExaSearchResultSource } from "../exa/types";
 
-import { generateText, tool } from "ai";
+import { GatewayModelId, generateText, tool } from "ai";
 import { z } from "zod";
 import { UIMessage } from "ai";
 import { ContentsOptions } from "exa-js";
@@ -15,6 +15,11 @@ import { estimateTokenCount } from "@/lib/llm/chat-helpers";
 import { searchMemoriesForUser } from "@/lib/memory/operations";
 import { SearchMemoryToolSchema } from "@/lib/schemas/llm-tools";
 import { ChatAIActionEnum } from "@/types/ai";
+import {
+  MERMAID_DIAGRAM_FIX_SYSTEM_PROMPT,
+  MERMAID_DIAGRAM_GENERATOR_SYSTEM_PROMPT,
+  MERMAID_DIAGRAM_PLANNER_SYSTEM_PROMPT,
+} from "@/lib/system-prompt/mermaid-diagram-prompt";
 
 const logger = createLogger("llm-tool-kit");
 
@@ -23,6 +28,42 @@ const MAX_TOKENS_FOR_HISTORY = 4000;
 
 /** Max tokens for full history and date-filtered history tools. */
 const MAX_TOKENS_FULL_HISTORY = 24000;
+
+let mermaidValidationInit: Promise<any> | null = null;
+async function getMermaidForValidation(): Promise<any> {
+  mermaidValidationInit ??=
+    import("mermaid").then((mod: any) => {
+      const m = mod?.default ?? mod;
+      // Server-side validation: we only need parse/render syntax checks.
+      m.initialize({ startOnLoad: false, theme: "neutral", securityLevel: "loose" });
+      return m;
+    });
+  return mermaidValidationInit;
+}
+
+async function validateMermaidCode(code: string): Promise<{ ok: boolean; error?: string }> {
+  try {
+    const mermaid = await getMermaidForValidation();
+    // mermaid.parse throws on invalid syntax.
+    await mermaid.parse(code);
+    return { ok: true };
+  } catch (err) {
+    const e: any = err;
+    const msg =
+      typeof e?.str === "string"
+        ? e.str
+        : e instanceof Error
+          ? e.message
+          : typeof e === "string"
+            ? e
+            : "Mermaid parse failed";
+    return { ok: false, error: msg };
+  }
+}
+
+function normalizeMermaidCode(raw: string): string {
+  return raw.replace(/^```(?:mermaid)?\s*/i, "").replace(/```$/i, "").trim();
+}
 
 /** Format UIMessage[] into a plain string for the model (role + text content). */
 function formatMessagesForContext(messages: UIMessage[]): string {
@@ -478,19 +519,27 @@ const MermaidDiagramToolSchema = z.object({
  * Returns Mermaid source code only (no markdown fences).
  */
 export function createMermaidDiagramTool(options?: {
-  plannerModelId?: string;
-  generatorModelId?: string;
+  plannerModelId?: GatewayModelId;
+  generatorModelId?: GatewayModelId;
+  writer?: WebSearchStreamWriter;
 }) {
-  const plannerModelId = options?.plannerModelId ?? "openai/gpt-5-nano";
-  const generatorModelId = options?.generatorModelId ?? "openai/gpt-5-mini";
+  const plannerModelId: GatewayModelId = options?.plannerModelId ?? "openai/gpt-5.4-nano";
+  const generatorModelId: GatewayModelId = options?.generatorModelId ?? "openai/gpt-5.4-mini";
+  const writer = options?.writer;
 
   return tool({
     description:
       "Generate a Mermaid diagram for the user's request. Use when a visual diagram (flow, sequence, state machine, ERD) would clarify the answer. Returns Mermaid source code only.",
     inputSchema: MermaidDiagramToolSchema,
     execute: async ({ prompt, diagramType }) => {
-      const planningSystem =
-        "You are a diagram planner. Extract the minimal set of nodes, edges, and ordering needed to express the user's request as a mermaid diagram. Output JSON only.";
+      if (writer) {
+        writer.write({
+          type: "data-aiAction",
+          data: { action: ChatAIActionEnum.Tool, message: "Planning Mermaid diagram..." },
+          transient: true,
+        });
+      }
+      const planningSystem = MERMAID_DIAGRAM_PLANNER_SYSTEM_PROMPT;
 
       const plan = await generateText({
         model: plannerModelId,
@@ -498,29 +547,89 @@ export function createMermaidDiagramTool(options?: {
         prompt: JSON.stringify({ prompt, diagramType }),
       });
 
-      const generatorSystem =
-        "You generate Mermaid diagrams.\n" +
-        "- Output ONLY Mermaid source code (no markdown fences).\n" +
-        "- Prefer compact diagrams.\n" +
-        "- Use valid Mermaid syntax.\n" +
-        "- Avoid spaces in node IDs; use PascalCase/camelCase/underscores.\n" +
-        "- If edge labels contain parentheses/brackets, wrap the label in quotes.\n";
+      const generatorSystem = MERMAID_DIAGRAM_GENERATOR_SYSTEM_PROMPT;
+      const fixSystem = MERMAID_DIAGRAM_FIX_SYSTEM_PROMPT;
 
-      const code = await generateText({
-        model: generatorModelId,
-        system: generatorSystem,
-        prompt:
-          "Create the mermaid diagram from this request and plan.\n\n" +
-          `REQUEST:\n${prompt}\n\n` +
-          `PLAN_JSON:\n${plan.text}\n`,
-      });
+      const MAX_VALIDATION_RETRIES = 2; // attempt 0 + 2 fixes
 
+      let lastValidationError: string | undefined;
+      let normalizedCode = "";
+
+      for (let attempt = 0; attempt <= MAX_VALIDATION_RETRIES; attempt++) {
+        if (writer) {
+          writer.write({
+            type: "data-aiAction",
+            data: {
+              action: ChatAIActionEnum.Tool,
+              message: attempt === 0 ? "Generating Mermaid code..." : `Fixing Mermaid code (attempt ${attempt}...)`,
+            },
+            transient: true,
+          });
+        }
+
+        const genOrFixPrompt =
+          attempt === 0
+            ? "Create the Mermaid diagram from this request and plan.\n\n" +
+              `REQUEST:\n${prompt}\n\n` +
+              `PLAN_JSON:\n${plan.text}\n` +
+              (diagramType ? `\nDIAGRAM_TYPE_HINT:\n${diagramType}\n` : "")
+            : "INVALID_MERMAID_CODE:\n" +
+              normalizedCode +
+              "\n\n" +
+              `MERMAID_ERROR_MESSAGE:\n${lastValidationError ?? "Unknown mermaid parse error"}\n` +
+              (diagramType ? `\nDIAGRAM_TYPE_HINT:\n${diagramType}\n` : "") +
+              "\n\n" +
+              `REQUEST:\n${prompt}\n\n` +
+              `PLAN_JSON:\n${plan.text}\n`;
+
+        const system = attempt === 0 ? generatorSystem : fixSystem;
+
+        const gen = await generateText({
+          model: generatorModelId,
+          system,
+          prompt: genOrFixPrompt,
+        });
+
+        normalizedCode = normalizeMermaidCode(gen.text);
+
+        if (writer) {
+          writer.write({
+            type: "data-aiAction",
+            data: { action: ChatAIActionEnum.Tool, message: "Validating Mermaid syntax..." },
+            transient: true,
+          });
+        }
+
+        const v = await validateMermaidCode(normalizedCode);
+        if (v.ok) {
+          return {
+            success: true,
+            diagramType: diagramType ?? null,
+            code: normalizedCode,
+            plannerModelId,
+            generatorModelId,
+          };
+        }
+
+        lastValidationError = v.error;
+        logger.warn("mermaid_validation", `Invalid mermaid (attempt ${attempt}): ${v.error}`);
+      }
+
+      // If we still can't validate after retries, return the last generated code.
+      if (writer) {
+        writer.write({
+          type: "data-aiAction",
+          data: { action: ChatAIActionEnum.Tool, message: "Returning Mermaid code (validation may fail)..." },
+          transient: true,
+        });
+      }
       return {
         success: true,
         diagramType: diagramType ?? null,
-        code: code.text.trim(),
+        code: normalizedCode,
         plannerModelId,
         generatorModelId,
+        validationError: lastValidationError ?? null,
       };
     },
   });

@@ -18,7 +18,7 @@ import { getContext } from "@/lib/llm/context";
 // Allow streaming responses up to 30 seconds
 export const maxDuration = 30;
 
-const model: LanguageModel = openai("gpt-5-mini");
+const model: LanguageModel = openai("gpt-5.4-mini");
 
 // const tools = {};
 

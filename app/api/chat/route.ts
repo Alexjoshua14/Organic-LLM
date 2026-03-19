@@ -633,7 +633,7 @@ const compileTools = async ({
   }
 
   if (experience === "arcadia") {
-    tools["make_mermaid_diagram"] = createMermaidDiagramTool();
+    tools["make_mermaid_diagram"] = createMermaidDiagramTool({ writer });
     toolInstructions +=
       "You can generate Mermaid diagrams using make_mermaid_diagram. Use it when a diagram would clarify a process, architecture, or relationships. Return the diagram in a mermaid code block so the UI can render it.\n";
   }
