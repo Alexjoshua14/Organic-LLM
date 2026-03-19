@@ -1,7 +1,8 @@
 import type { ExaSearchResultSource } from "@/lib/exa/types";
 
-import { FC, memo, useEffect, useState } from "react";
+import { FC, memo, useCallback, useEffect, useMemo, useState } from "react";
 import { UIMessage } from "ai";
+import { Pin, PinOff } from "lucide-react";
 
 import { ClipboardCopyButton } from "../shared/clipboardCopyButton";
 import { TTSButton } from "../tts/ttsButton";
@@ -31,16 +32,21 @@ type ChatMessageProps = {
   };
 };
 
-export const ChatMessage = memo<ChatMessageProps>(({ message, aiActionPayload }) => {
+export const ChatMessage: FC<ChatMessageProps> = memo(function ChatMessage({
+  message,
+  aiActionPayload,
+}) {
   switch (message.role) {
     case "assistant":
-      return <AIMessage aiActionPayload={aiActionPayload} message={message} />;
+      return (
+        <AIMessage aiActionPayload={aiActionPayload} message={message} />
+      );
     case "user":
       return <UserMessage message={message} />;
     case "system":
       return <SystemMessage message={message} />;
   }
-});
+}) as unknown as FC<ChatMessageProps>;
 
 ChatMessage.displayName = "ChatMessage";
 
@@ -87,6 +93,8 @@ const AIMessage: FC<ChatMessageProps> = ({ message, aiActionPayload }) => {
                 );
             }
           })}
+
+        <ArcadiaToolOutputs messageId={message.id} parts={message.parts as unknown[]} />
         {/* Action indicator: when no text yet, show only action; when SHOW_ACTION_WHILE_STREAMING_TEXT, also show action below streamed text */}
         {aiActionPayload &&
           (!message.parts.some((part) => part.type === "text") ||
@@ -102,6 +110,93 @@ const AIMessage: FC<ChatMessageProps> = ({ message, aiActionPayload }) => {
     </div>
   );
 };
+
+type ToolInvocationPartLike = {
+  type: "tool-invocation";
+  toolInvocationId: string;
+  toolName: string;
+  state: "partial-call" | "call" | "result" | "output-error";
+  args?: unknown;
+  result?: unknown;
+  errorText?: string;
+};
+
+function isToolInvocationPart(part: unknown): part is ToolInvocationPartLike {
+  if (!part || typeof part !== "object") return false;
+  const p = part as Record<string, unknown>;
+  return p.type === "tool-invocation" && typeof p.toolInvocationId === "string";
+}
+
+function stableStringify(value: unknown): string {
+  try {
+    return JSON.stringify(value, null, 2);
+  } catch {
+    return String(value);
+  }
+}
+
+function ArcadiaToolOutputs({ messageId, parts }: { messageId: string; parts: unknown[] }) {
+  const toolParts = useMemo(() => parts.filter(isToolInvocationPart), [parts]);
+  const [pinned, setPinned] = useState<Record<string, boolean>>({});
+
+  const visible = useMemo(
+    () => toolParts.filter((p) => p.state === "result" || p.state === "output-error"),
+    [toolParts]
+  );
+
+  const togglePinned = useCallback((id: string) => {
+    setPinned((prev) => ({ ...prev, [id]: !prev[id] }));
+  }, []);
+
+  if (visible.length === 0) return null;
+
+  return (
+    <div className="not-prose flex flex-col gap-2">
+      {visible.map((p, idx) => {
+        const isPinned = pinned[p.toolInvocationId] === true;
+        const label = `${p.toolName}`;
+        const body = p.state === "output-error" ? p.errorText : p.result;
+        const json = stableStringify(body);
+
+        return (
+          <div
+            key={`${messageId}-tool-${p.toolInvocationId}-${idx}`}
+            className={cn(
+              "rounded-lg border border-border/60 bg-background-tertiary/30 dark:bg-background-tertiary/20 backdrop-blur-2xl",
+              "px-3 py-2",
+              isPinned && "sticky top-20 z-30 shadow-[0_8px_30px_-10px_rgba(0,0,0,0.35)]"
+            )}
+          >
+            <div className="flex items-center justify-between gap-2">
+              <div className="text-xs font-medium text-muted-foreground truncate">{label}</div>
+              <button
+                aria-label={isPinned ? "Unpin tool output" : "Pin tool output"}
+                aria-pressed={isPinned}
+                className={cn(
+                  "h-7 w-7 grid place-content-center rounded",
+                  "hover:bg-background-tertiary/60 transition-colors"
+                )}
+                type="button"
+                onClick={() => togglePinned(p.toolInvocationId)}
+              >
+                {isPinned ? <PinOff className="size-3.5" /> : <Pin className="size-3.5" />}
+              </button>
+            </div>
+
+            <details className="mt-1">
+              <summary className="cursor-pointer select-none text-xs text-foreground/80 hover:text-foreground">
+                View output
+              </summary>
+              <pre className="mt-2 max-h-72 overflow-auto rounded bg-background/60 p-2 text-[11px] leading-snug text-foreground/90">
+                {json}
+              </pre>
+            </details>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
 
 const COLLAPSED_LINES = 6;
 const COLLAPSED_CHAR_THRESHOLD = 500;

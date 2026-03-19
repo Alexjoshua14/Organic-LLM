@@ -9,6 +9,10 @@ export type ThreadLink = {
   id: string;
   pinned: boolean;
   date: string;
+  /** Canonical navigation path for this thread (e.g. /chat/<id>, /sandbox/arcadia/<id>). */
+  href?: string;
+  /** Owning feature for this thread (e.g. main, arcadia). */
+  feature?: string;
   /** True when the thread has no title (null or empty); used to show "Generate title (AI)" in the sidebar menu. */
   hasNoTitle?: boolean;
 };

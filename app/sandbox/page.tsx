@@ -5,6 +5,16 @@ import Page from "@/components/layout/page";
 export default function SandboxPage() {
   const sandboxPages = [
     {
+      title: "Arcadia",
+      description:
+        "Sandbox chat experience for experimenting with prompts, context/tooling, and UI variants",
+      href: "/sandbox/arcadia",
+      icon: "🌲",
+      size: "large",
+      gradient: "from-emerald-400/15 to-amber-500/15",
+      hoverGradient: "hover:from-emerald-400/25 hover:to-amber-500/25",
+    },
+    {
       title: "Ideas",
       description:
         "Capture, organize, and manage your creative ideas with priority levels and status tracking",

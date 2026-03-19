@@ -133,7 +133,7 @@ export async function getChats(options?: { ownerId?: string }): Promise<Result<T
   const sb = await supabaseServer();
   const baseQuery = sb
     .from("threads")
-    .select("id, title, owner_id, created_at, updated_at, pinned")
+    .select("id, title, owner_id, created_at, updated_at, pinned, feature, path")
     .order("updated_at", { ascending: false });
 
   const { data, error } = options?.ownerId
@@ -774,6 +774,35 @@ export async function updateChatTitle(chatId: string, title: string): Promise<Si
 export async function updateChatPinned(chatId: string, pinned: boolean): Promise<SimpleResult> {
   const sb = await supabaseServer();
   const { error } = await sb.from("threads").update({ pinned }).eq("id", chatId);
+
+  if (error) {
+    return {
+      ok: false,
+      error: new Error(error?.message ?? "Unknown error"),
+    };
+  }
+
+  return {
+    ok: true,
+    error: null,
+  };
+}
+
+/**
+ * Updates the thread's routing metadata used by the unified sidebar.
+ * Keep values non-sensitive (thread list metadata is not encrypted).
+ */
+export async function updateThreadRouting(
+  chatId: string,
+  routing: { feature?: string; path?: string }
+): Promise<SimpleResult> {
+  const sb = await supabaseServer();
+  const payload: { feature?: string; path?: string } = {};
+
+  if (routing.feature != null) payload.feature = routing.feature;
+  if (routing.path != null) payload.path = routing.path;
+
+  const { error } = await sb.from("threads").update(payload).eq("id", chatId);
 
   if (error) {
     return {

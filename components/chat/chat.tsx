@@ -38,9 +38,10 @@ export type ChatProps = {
   initialMessage?: string;
   persona?: "prometheus" | "spark" | "aion" | "remy";
   endpoint?: string;
+  experience?: string;
 };
 
-export const Chat: React.FC<ChatProps> = ({ chatData, endpoint, persona, initialMessage }) => {
+export const Chat: React.FC<ChatProps> = ({ chatData, endpoint, persona, initialMessage, experience }) => {
   const { refreshSidebarChats } = useSharedChatContext();
 
   const selectedModelRef = useRef<ChatModel>(DEFAULT_CHAT_MODEL);
@@ -91,6 +92,7 @@ export const Chat: React.FC<ChatProps> = ({ chatData, endpoint, persona, initial
               webSearch: useWebSearchRef.current,
               memory: useMemoriesRef.current,
               speechFriendly: useSpeechFriendlyRef.current,
+              experience,
               zeroDataRetention: getSettings().zeroDataRetention,
               // Only include persistedSchemas in payload if true
               ...(usePersistedSchemas.current ? { persistedSchemas: true } : {}),
