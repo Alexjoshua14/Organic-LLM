@@ -135,7 +135,7 @@ export async function runQuestionRefinementScenario(params: {
 
   try {
     const { text, usage } = await generateText({
-      model: openai("gpt-5-nano"),
+      model: openai("gpt-5.4-nano"),
       system: REFINE_QUESTION_SYSTEM_PROMPT,
       prompt,
       maxOutputTokens: GUARDRAIL_MAX_OUTPUT_TOKENS,

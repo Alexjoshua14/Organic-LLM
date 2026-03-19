@@ -70,8 +70,8 @@ export const invokeCodeAgentTool = tool({
       .string()
       .describe(
         "A clear, self-contained description of what the Code Agent should do. " +
-        "Include all relevant context — code snippets, file paths, repo URLs, " +
-        "constraints — so the agent can act without further clarification."
+          "Include all relevant context — code snippets, file paths, repo URLs, " +
+          "constraints — so the agent can act without further clarification."
       ),
     context: z
       .object({
@@ -95,14 +95,14 @@ export const invokeCodeAgentTool = tool({
 
 ### When Aion should delegate vs. handle directly
 
-| Signal | Action |
-|--------|--------|
-| User pastes code and asks "what does this do?" | **Aion handles directly** (pure comprehension, Aion's model is already strong) |
-| User pastes code and asks "refactor this for security" | **Delegate to L1** (needs security specialist) |
-| "Show me recent changes on my GitHub repo" | **Delegate to L1** → L1 delegates to GitHub specialist |
-| "Create an architecture diagram for this service" | **Delegate to L1** → L1 delegates to Diagram specialist |
-| "Is this code accessible?" | **Delegate to L1** → L1 delegates to A11y specialist |
-| General programming question (no tool needed) | **Aion handles directly** |
+| Signal                                                 | Action                                                                         |
+| ------------------------------------------------------ | ------------------------------------------------------------------------------ |
+| User pastes code and asks "what does this do?"         | **Aion handles directly** (pure comprehension, Aion's model is already strong) |
+| User pastes code and asks "refactor this for security" | **Delegate to L1** (needs security specialist)                                 |
+| "Show me recent changes on my GitHub repo"             | **Delegate to L1** → L1 delegates to GitHub specialist                         |
+| "Create an architecture diagram for this service"      | **Delegate to L1** → L1 delegates to Diagram specialist                        |
+| "Is this code accessible?"                             | **Delegate to L1** → L1 delegates to A11y specialist                           |
+| General programming question (no tool needed)          | **Aion handles directly**                                                      |
 
 The heuristic: Aion handles **pure reasoning about code** (explanation, translation, Q&A). It delegates when the task requires **external tools** (GitHub API, file system, diagram rendering) or **specialist knowledge** (security audit, a11y review, architecture patterns).
 
@@ -132,12 +132,12 @@ export const CODE_AGENT_MODELS = {
 
   // L2 models are right-sized per specialist
   layer2: {
-    github:    { primary: "openai/gpt-5-mini",  fallback: "google/gemini-3-flash" },
-    localFiles:{ primary: "openai/gpt-5-mini",  fallback: "google/gemini-3-flash" },
-    architect: { primary: "openai/gpt-5.2",     fallback: "anthropic/claude-sonnet-4.5" },
-    diagrams:  { primary: "openai/gpt-5-mini",  fallback: "google/gemini-3-flash" },
-    security:  { primary: "anthropic/claude-sonnet-4.5", fallback: "openai/gpt-5" },
-    a11y:      { primary: "openai/gpt-5-mini",  fallback: "google/gemini-3-flash" },
+    github: { primary: "openai/gpt-5.4-mini", fallback: "google/gemini-3-flash" },
+    localFiles: { primary: "openai/gpt-5.4-mini", fallback: "google/gemini-3-flash" },
+    architect: { primary: "openai/gpt-5.2", fallback: "anthropic/claude-sonnet-4.5" },
+    diagrams: { primary: "openai/gpt-5.4-mini", fallback: "google/gemini-3-flash" },
+    security: { primary: "anthropic/claude-sonnet-4.5", fallback: "openai/gpt-5" },
+    a11y: { primary: "openai/gpt-5.4-mini", fallback: "google/gemini-3-flash" },
   },
 } as const;
 ```
@@ -207,20 +207,23 @@ Each L2 specialist is implemented as a tool available to L1. Internally, each to
 **Scope:** GitHub API + local git operations (grouped to avoid split-brain on VCS tasks)
 
 **Capabilities:**
+
 - Fetch repo metadata, README, file tree
 - List/read PRs, issues, commits, diffs
 - Compare branches, show recent changes
 - Search code across repos (GitHub code search API)
 - Local git log, git diff, git status
 
-**Model:** `gpt-5-mini` (mostly structured API calls, minimal reasoning)
+**Model:** `gpt-5.4-mini` (mostly structured API calls, minimal reasoning)
 
 **Tools/APIs:**
+
 - GitHub REST/GraphQL API (via `octokit` or direct fetch)
 - Local `git` CLI via sandboxed exec
 - Exa code search as fallback for broader queries
 
 **Example invocations:**
+
 - "Show me the last 5 commits on `main`"
 - "What changed in PR #42?"
 - "Find all files importing `useAuth` in the repo"
@@ -232,20 +235,23 @@ Each L2 specialist is implemented as a tool available to L1. Internally, each to
 **Scope:** Local filesystem access for the user's project(s)
 
 **Capabilities:**
+
 - Read file contents (with token-aware truncation)
 - Search files by name or content (ripgrep-style)
 - Show recent file modifications
 - Diff files or versions
 - List directory structures
 
-**Model:** `gpt-5-mini` (mostly deterministic file I/O, LLM used for summarization)
+**Model:** `gpt-5.4-mini` (mostly deterministic file I/O, LLM used for summarization)
 
 **Tools/APIs:**
+
 - Node.js `fs` APIs (sandboxed to allowed directories)
 - `glob` / `fast-glob` for pattern matching
 - `diff` library for file comparison
 
 **Example invocations:**
+
 - "What's in `src/components/Header.tsx`?"
 - "Find all TODO comments in the project"
 - "Show me files changed in the last 24 hours"
@@ -257,6 +263,7 @@ Each L2 specialist is implemented as a tool available to L1. Internally, each to
 **Scope:** Software architecture analysis, design patterns, system design
 
 **Capabilities:**
+
 - Analyze codebase structure and suggest improvements
 - Recommend design patterns for given problems
 - Evaluate architectural trade-offs (monolith vs. microservices, etc.)
@@ -268,6 +275,7 @@ Each L2 specialist is implemented as a tool available to L1. Internally, each to
 **Note:** This specialist is intentionally heavyweight. Architecture questions require deep reasoning comparable to L1 itself. It exists as a separate agent to keep its system prompt focused and to accumulate architecture-specific few-shot examples over time.
 
 **Example invocations:**
+
 - "How should I structure the authentication layer?"
 - "Evaluate this microservice boundary"
 - "Suggest a caching strategy for this API"
@@ -279,16 +287,18 @@ Each L2 specialist is implemented as a tool available to L1. Internally, each to
 **Scope:** Diagram generation (Mermaid, PlantUML, ASCII)
 
 **Capabilities:**
+
 - Generate Mermaid diagrams from natural language or code
 - Generate sequence diagrams, class diagrams, ER diagrams, flowcharts
 - Convert code structure to visual diagrams
 - Edit/refine existing diagrams
 
-**Model:** `gpt-5-mini` (diagram syntax is well-defined; mini handles it well)
+**Model:** `gpt-5.4-mini` (diagram syntax is well-defined; mini handles it well)
 
 **Output format:** Returns Mermaid/PlantUML source that the frontend can render.
 
 **Example invocations:**
+
 - "Create a sequence diagram for the auth flow"
 - "Generate a class diagram from these TypeScript interfaces"
 - "Show me a flowchart of the checkout process"
@@ -300,6 +310,7 @@ Each L2 specialist is implemented as a tool available to L1. Internally, each to
 **Scope:** Code security analysis, vulnerability detection, remediation
 
 **Capabilities:**
+
 - Static analysis for common vulnerabilities (injection, XSS, CSRF, etc.)
 - OWASP Top 10 compliance checking
 - Dependency vulnerability scanning (advisory databases)
@@ -310,6 +321,7 @@ Each L2 specialist is implemented as a tool available to L1. Internally, each to
 **Model:** `claude-sonnet-4.5` (security requires careful, conservative reasoning — Anthropic models excel here)
 
 **Example invocations:**
+
 - "Audit this Express middleware for security issues"
 - "Check this SQL query for injection vulnerabilities"
 - "Are there any known CVEs in my dependencies?"
@@ -321,6 +333,7 @@ Each L2 specialist is implemented as a tool available to L1. Internally, each to
 **Scope:** Web accessibility auditing and remediation
 
 **Capabilities:**
+
 - WCAG 2.1/2.2 compliance analysis
 - ARIA attribute validation
 - Color contrast checking
@@ -328,13 +341,15 @@ Each L2 specialist is implemented as a tool available to L1. Internally, each to
 - Keyboard navigation audit
 - Accessibility-focused code suggestions
 
-**Model:** `gpt-5-mini` (a11y rules are well-defined; can be largely rule-based with LLM polish)
+**Model:** `gpt-5.4-mini` (a11y rules are well-defined; can be largely rule-based with LLM polish)
 
 **Tools/APIs:**
+
 - `axe-core` for automated checks (when running against live HTML)
 - WCAG guideline reference database
 
 **Example invocations:**
+
 - "Is this form component accessible?"
 - "Check color contrast for these hex values"
 - "Add proper ARIA labels to this navigation"
@@ -357,6 +372,7 @@ lib/llm/subagents/code/
 ```
 
 **Deliverables:**
+
 - [ ] `types.ts` — Define `CodeAgentTask`, `CodeAgentResult`, `SpecialistResult`
 - [ ] `models.ts` — Model config with primary/fallback per layer
 - [ ] `agent.ts` — L1 agent using AI SDK `generateText` with system prompt
@@ -374,6 +390,7 @@ lib/llm/subagents/code/specialists/
 ```
 
 **Deliverables:**
+
 - [ ] `github.ts` — GitHub API integration + local git
 - [ ] `local-files.ts` — Sandboxed file read/search/diff
 - [ ] Register both as tools available to L1
@@ -393,6 +410,7 @@ lib/llm/subagents/code/specialists/
 ```
 
 **Deliverables:**
+
 - [ ] `architect.ts` — Architecture analysis agent
 - [ ] `diagrams.ts` — Mermaid/PlantUML generation
 - [ ] `security.ts` — Security audit agent
@@ -420,14 +438,14 @@ Every L2 specialist returns a consistent shape:
 // lib/llm/subagents/code/types.ts
 export type SpecialistResult = {
   success: boolean;
-  agent: string;           // e.g., "github", "security"
-  data: string;            // primary response content (human-readable)
-  structured?: unknown;    // optional machine-readable data (JSON, diagram source, etc.)
-  error?: string;          // error message if success=false
+  agent: string; // e.g., "github", "security"
+  data: string; // primary response content (human-readable)
+  structured?: unknown; // optional machine-readable data (JSON, diagram source, etc.)
+  error?: string; // error message if success=false
   metadata?: {
-    model: string;         // which model was used
-    tokensUsed?: number;   // token consumption
-    durationMs?: number;   // wall-clock time
+    model: string; // which model was used
+    tokensUsed?: number; // token consumption
+    durationMs?: number; // wall-clock time
   };
 };
 ```
@@ -439,9 +457,9 @@ L1 returns to Aion:
 ```typescript
 export type CodeAgentResult = {
   success: boolean;
-  response: string;        // synthesized, user-facing response
+  response: string; // synthesized, user-facing response
   specialistsUsed: string[]; // which L2 agents were invoked
-  diagrams?: string[];     // any generated diagram source (Mermaid, etc.)
+  diagrams?: string[]; // any generated diagram source (Mermaid, etc.)
   codeBlocks?: Array<{
     language: string;
     code: string;

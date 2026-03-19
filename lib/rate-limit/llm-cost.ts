@@ -25,13 +25,13 @@ const DEFAULT_COST: ModelCost = {
 
 /**
  * Cost per million tokens (USD). Sourced from provider pricing; update periodically.
- * Keys match model ids from lib/schemas/chat.ts (e.g. openai/gpt-5-mini).
+ * Keys match model ids from lib/schemas/chat.ts (e.g. openai/gpt-5.4-mini).
  */
 const MODEL_COSTS: Record<string, ModelCost> = {
   "openai/gpt-5.2": { inputPerMillion: 1.25, outputPerMillion: 10.0 },
   "openai/gpt-5": { inputPerMillion: 1.25, outputPerMillion: 10.0 },
-  "openai/gpt-5-mini": { inputPerMillion: 0.25, outputPerMillion: 2.0 },
-  "openai/gpt-5-nano": { inputPerMillion: 0.05, outputPerMillion: 0.4 },
+  "openai/gpt-5.4-mini": { inputPerMillion: 0.25, outputPerMillion: 2.0 },
+  "openai/gpt-5.4-nano": { inputPerMillion: 0.05, outputPerMillion: 0.4 },
   "openai/gpt-4o": { inputPerMillion: 2.5, outputPerMillion: 10.0 },
   "openai/gpt-4o-mini": { inputPerMillion: 0.15, outputPerMillion: 0.6 },
   "openai/gpt-4-turbo": { inputPerMillion: 10.0, outputPerMillion: 30.0 },

@@ -37,10 +37,10 @@ const logger = createLogger("lib/llm/rabbit-hole/generation.ts");
 const model = openai("gpt-5.2");
 
 // Used for Branch suggestions
-const quickModel = openai("gpt-5-mini");
+const quickModel = openai("gpt-5.4-mini");
 
 // Used for Preview
-const rapidModel = openai("gpt-5-nano");
+const rapidModel = openai("gpt-5.4-nano");
 
 // Parameters for invoking the LLM for Rabbit Hole objects with consistent logging.
 type GenerateRabbitHoleObjectParams<T> = {
