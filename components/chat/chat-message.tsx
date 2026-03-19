@@ -32,21 +32,18 @@ type ChatMessageProps = {
   };
 };
 
-export const ChatMessage: FC<ChatMessageProps> = memo(function ChatMessage({
-  message,
-  aiActionPayload,
-}) {
+export const ChatMessage = memo<ChatMessageProps>(function ChatMessage(props) {
+  const { message, aiActionPayload } = props;
+
   switch (message.role) {
     case "assistant":
-      return (
-        <AIMessage aiActionPayload={aiActionPayload} message={message} />
-      );
+      return <AIMessage aiActionPayload={aiActionPayload} message={message} />;
     case "user":
       return <UserMessage message={message} />;
     case "system":
       return <SystemMessage message={message} />;
   }
-}) as unknown as FC<ChatMessageProps>;
+});
 
 ChatMessage.displayName = "ChatMessage";
 
