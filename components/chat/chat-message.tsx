@@ -10,10 +10,13 @@ import { glass } from "../design-system/primitives";
 
 import { PinToSpeakButton } from "./PinToSpeakButton";
 import { ChatMessageMarkdown } from "./chat-message-markdown";
+import { ArcadiaHelpMessage } from "./arcadia-help-message";
 import { ChatReasoning, ChatThinking, ChatSearching } from "./chat-loading";
+import { ARCADIA_HELP_PREFIX } from "@/lib/arcadia/help-response";
 
 import { cn } from "@/lib/utils";
 import { ChatAIActionEnum } from "@/types/ai";
+import { MermaidDiagram } from "@/components/blog/mermaid-diagram";
 
 /**
  * When true, the current AI action (tool, search, reasoning, etc.) is shown
@@ -65,6 +68,7 @@ const AIMessage: FC<ChatMessageProps> = ({ message, aiActionPayload }) => {
       }
     })
     .join("");
+  const isArcadiaHelp = text.startsWith(ARCADIA_HELP_PREFIX);
 
   return (
     <div className="group/ai-message rounded-lg p-4 flex flex-col gap-2">
@@ -81,6 +85,9 @@ const AIMessage: FC<ChatMessageProps> = ({ message, aiActionPayload }) => {
                 return null;
 
               case "text":
+                if (text.startsWith(ARCADIA_HELP_PREFIX)) {
+                  return <ArcadiaHelpMessage key={`${message.id}-${i}`} />;
+                }
                 return (
                   <ChatMessageMarkdown
                     key={`${message.id}-${i}`}
@@ -100,8 +107,12 @@ const AIMessage: FC<ChatMessageProps> = ({ message, aiActionPayload }) => {
       {!isStreaming && (
         <div className="w-full flex gap-2 h-8">
           <TTSButton iconOnly text={text} />
-          <PinToSpeakButton text={text} />
-          <ClipboardCopyButton text={text} />
+          {!isArcadiaHelp && (
+            <>
+              <PinToSpeakButton text={text} />
+              <ClipboardCopyButton text={text} />
+            </>
+          )}
         </div>
       )}
     </div>
@@ -132,6 +143,24 @@ function stableStringify(value: unknown): string {
   }
 }
 
+function extractMermaidCode(value: unknown): string | null {
+  if (typeof value === "string") {
+    const trimmed = value.trim();
+    if (trimmed.startsWith("graph") || trimmed.startsWith("flowchart") || trimmed.startsWith("sequenceDiagram")) {
+      return trimmed;
+    }
+    const fenceMatch = trimmed.match(/```mermaid\s*([\s\S]*?)```/i);
+    if (fenceMatch?.[1]) return fenceMatch[1].trim();
+    return null;
+  }
+  if (value && typeof value === "object") {
+    const v = value as Record<string, unknown>;
+    const code = v.code;
+    if (typeof code === "string") return code.trim();
+  }
+  return null;
+}
+
 function ArcadiaToolOutputs({ messageId, parts }: { messageId: string; parts: unknown[] }) {
   const toolParts = useMemo(() => parts.filter(isToolInvocationPart), [parts]);
   const [pinned, setPinned] = useState<Record<string, boolean>>({});
@@ -153,6 +182,7 @@ function ArcadiaToolOutputs({ messageId, parts }: { messageId: string; parts: un
         const isPinned = pinned[p.toolInvocationId] === true;
         const label = `${p.toolName}`;
         const body = p.state === "output-error" ? p.errorText : p.result;
+        const mermaid = extractMermaidCode(body);
         const json = stableStringify(body);
 
         return (
@@ -184,6 +214,11 @@ function ArcadiaToolOutputs({ messageId, parts }: { messageId: string; parts: un
               <summary className="cursor-pointer select-none text-xs text-foreground/80 hover:text-foreground">
                 View output
               </summary>
+              {mermaid && (
+                <div className="mt-2">
+                  <MermaidDiagram code={mermaid} />
+                </div>
+              )}
               <pre className="mt-2 max-h-72 overflow-auto rounded bg-background/60 p-2 text-[11px] leading-snug text-foreground/90">
                 {json}
               </pre>
