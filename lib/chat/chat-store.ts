@@ -453,7 +453,8 @@ export async function getContextAndMessagesChatPrompt({
   /**
    * Get the conversation summary for the chat
    */
-  const conversationSummary = await getConversationSummaryForChatPrompt(chatId);
+  const conversationSummaryResult = await getConversationSummaryForChatPrompt(chatId);
+  const conversationSummary = conversationSummaryResult.data ?? "";
 
   prompt += `\n\nConversation Summary:\n${conversationSummary}`;
 
