@@ -166,8 +166,13 @@ export async function POST(req: Request) {
         });
 
         if (chatContextResult.error) {
-          logger.error("POST", "Error getting chat context");
+          logger.error("POST", "Error getting chat context", {
+            error: chatContextResult.error,
+          });
           validatedMessages = [message];
+          systemPromptForRequest =
+            SYSTEM_PROMPT +
+            "\n\n[System note: Chat context (conversation summary and recent messages) could not be loaded for this request. Only the user's latest message is in context. Use get_more_chat_history, get_full_chat_history, or search_memories if you need prior conversation or memories to answer well.]";
           logger.debug("context", "Context failed; using only incoming message");
         } else {
           validatedMessages = [...(chatContextResult.data?.messages ?? []), message];
@@ -182,6 +187,9 @@ export async function POST(req: Request) {
         if (err instanceof TypeValidationError) {
           logger.error("POST", "Database messages validation failed");
           validatedMessages = [message];
+          systemPromptForRequest =
+            SYSTEM_PROMPT +
+            "\n\n[System note: Chat context (conversation summary and recent messages) could not be loaded for this request. Only the user's latest message is in context. Use get_more_chat_history, get_full_chat_history, or search_memories if you need prior conversation or memories to answer well.]";
         } else {
           throw err;
         }
@@ -303,7 +311,9 @@ export async function POST(req: Request) {
           });
         },
         onChunk: (chunk) => {
-          logger.log("POST", `Chunk: ${chunk.chunk.type}`);
+          if (chunk.chunk.type !== "text-delta") {
+            logger.debug("POST", `Chunk: ${chunk.chunk.type}`);
+          }
           if (chunk.chunk.type === "reasoning-delta") {
             writer.write({
               type: "data-aiAction",
