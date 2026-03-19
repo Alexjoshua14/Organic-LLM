@@ -131,6 +131,8 @@ export const Chat: React.FC<ChatProps> = ({ chatData, endpoint, persona, initial
             action: ChatAIActionEnum;
             message?: string;
             sources?: ExaSearchResultSource[];
+            /** Emitted by memory search tool progress (server stream). */
+            query?: string;
           };
 
           switch (dataObject.action) {
@@ -182,9 +184,17 @@ export const Chat: React.FC<ChatProps> = ({ chatData, endpoint, persona, initial
                   break;
               }
               break;
-            case ChatAIActionEnum.Memory:
-              setAiAction({ action: ChatAIActionEnum.Memory });
+            case ChatAIActionEnum.Memory: {
+              const q = dataObject.query?.trim();
+              setAiAction({
+                action: ChatAIActionEnum.Memory,
+                message:
+                  q && q.length > 0
+                    ? `Searching memories for "${q.length > 56 ? `${q.slice(0, 56)}…` : q}"`
+                    : (dataObject.message ?? "Searching memories..."),
+              });
               break;
+            }
             default:
               setAiAction({
                 action: dataObject.action,
