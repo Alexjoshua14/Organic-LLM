@@ -1,6 +1,6 @@
 import type { ExaSearchResultSource } from "../exa/types";
 
-import { tool } from "ai";
+import { generateText, tool } from "ai";
 import { z } from "zod";
 import { UIMessage } from "ai";
 import { ContentsOptions } from "exa-js";
@@ -460,3 +460,68 @@ export const updateSchemaTool = tool({
     };
   },
 });
+
+const MermaidDiagramToolSchema = z.object({
+  prompt: z
+    .string()
+    .describe(
+      "What the diagram should show (entities + relationships + any ordering). Include any constraints like diagram type or nodes to include/exclude."
+    ),
+  diagramType: z
+    .enum(["flowchart", "sequence", "state", "class", "entityRelationship"])
+    .optional()
+    .describe("Optional hint for what kind of mermaid diagram to generate."),
+});
+
+/**
+ * Arcadia tool: generate a Mermaid diagram using a small planner model + a stronger generator model.
+ * Returns Mermaid source code only (no markdown fences).
+ */
+export function createMermaidDiagramTool(options?: {
+  plannerModelId?: string;
+  generatorModelId?: string;
+}) {
+  const plannerModelId = options?.plannerModelId ?? "openai/gpt-5-nano";
+  const generatorModelId = options?.generatorModelId ?? "openai/gpt-5-mini";
+
+  return tool({
+    description:
+      "Generate a Mermaid diagram for the user's request. Use when a visual diagram (flow, sequence, state machine, ERD) would clarify the answer. Returns Mermaid source code only.",
+    inputSchema: MermaidDiagramToolSchema,
+    execute: async ({ prompt, diagramType }) => {
+      const planningSystem =
+        "You are a diagram planner. Extract the minimal set of nodes, edges, and ordering needed to express the user's request as a mermaid diagram. Output JSON only.";
+
+      const plan = await generateText({
+        model: plannerModelId,
+        system: planningSystem,
+        prompt: JSON.stringify({ prompt, diagramType }),
+      });
+
+      const generatorSystem =
+        "You generate Mermaid diagrams.\n" +
+        "- Output ONLY Mermaid source code (no markdown fences).\n" +
+        "- Prefer compact diagrams.\n" +
+        "- Use valid Mermaid syntax.\n" +
+        "- Avoid spaces in node IDs; use PascalCase/camelCase/underscores.\n" +
+        "- If edge labels contain parentheses/brackets, wrap the label in quotes.\n";
+
+      const code = await generateText({
+        model: generatorModelId,
+        system: generatorSystem,
+        prompt:
+          "Create the mermaid diagram from this request and plan.\n\n" +
+          `REQUEST:\n${prompt}\n\n` +
+          `PLAN_JSON:\n${plan.text}\n`,
+      });
+
+      return {
+        success: true,
+        diagramType: diagramType ?? null,
+        code: code.text.trim(),
+        plannerModelId,
+        generatorModelId,
+      };
+    },
+  });
+}

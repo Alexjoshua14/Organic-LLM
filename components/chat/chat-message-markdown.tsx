@@ -4,6 +4,7 @@ import { createContext, memo, useCallback, useMemo, useRef, useState } from "rea
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 
+import { MermaidDiagram } from "@/components/blog/mermaid-diagram";
 import { Button } from "@/components/third-party/ui/button";
 import { cn } from "@/lib/utils";
 
@@ -65,15 +66,24 @@ function CodeBlockWrapper({ children, ...props }: React.ComponentPropsWithoutRef
 function InlineCode({ className, ...props }: React.ComponentPropsWithoutRef<"code">) {
   return (
     <InBlockCodeContext.Consumer>
-      {(inBlockCode) => (
-        <code
-          className={cn(
-            !inBlockCode && "max-w-full wrap-break-word overflow-x-auto",
-            className
-          )}
-          {...props}
-        />
-      )}
+      {(inBlockCode) => {
+        const raw = (props.children ?? "").toString();
+        const language =
+          typeof className === "string" && className.includes("language-")
+            ? className.split("language-")[1]?.split(" ")[0]
+            : undefined;
+
+        if (inBlockCode && language === "mermaid") {
+          return <MermaidDiagram code={raw} />;
+        }
+
+        return (
+          <code
+            className={cn(!inBlockCode && "max-w-full wrap-break-word overflow-x-auto", className)}
+            {...props}
+          />
+        );
+      }}
     </InBlockCodeContext.Consumer>
   );
 }
