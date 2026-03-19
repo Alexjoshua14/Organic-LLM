@@ -31,13 +31,12 @@ const MAX_TOKENS_FULL_HISTORY = 24000;
 
 let mermaidValidationInit: Promise<any> | null = null;
 async function getMermaidForValidation(): Promise<any> {
-  mermaidValidationInit ??=
-    import("mermaid").then((mod: any) => {
-      const m = mod?.default ?? mod;
-      // Server-side validation: we only need parse/render syntax checks.
-      m.initialize({ startOnLoad: false, theme: "neutral", securityLevel: "loose" });
-      return m;
-    });
+  mermaidValidationInit ??= import("mermaid").then((mod: any) => {
+    const m = mod?.default ?? mod;
+    // Server-side validation: we only need parse/render syntax checks.
+    m.initialize({ startOnLoad: false, theme: "neutral", securityLevel: "loose" });
+    return m;
+  });
   return mermaidValidationInit;
 }
 
@@ -62,7 +61,10 @@ async function validateMermaidCode(code: string): Promise<{ ok: boolean; error?:
 }
 
 function normalizeMermaidCode(raw: string): string {
-  return raw.replace(/^```(?:mermaid)?\s*/i, "").replace(/```$/i, "").trim();
+  return raw
+    .replace(/^```(?:mermaid)?\s*/i, "")
+    .replace(/```$/i, "")
+    .trim();
 }
 
 /** Format UIMessage[] into a plain string for the model (role + text content). */
@@ -524,7 +526,7 @@ export function createMermaidDiagramTool(options?: {
   writer?: WebSearchStreamWriter;
 }) {
   const plannerModelId: GatewayModelId = options?.plannerModelId ?? "openai/gpt-5.4-nano";
-  const generatorModelId: GatewayModelId = options?.generatorModelId ?? "openai/gpt-5.4-mini";
+  const generatorModelId: GatewayModelId = options?.generatorModelId ?? "google/gemini-3-flash";
   const writer = options?.writer;
 
   return tool({
@@ -561,7 +563,10 @@ export function createMermaidDiagramTool(options?: {
             type: "data-aiAction",
             data: {
               action: ChatAIActionEnum.Tool,
-              message: attempt === 0 ? "Generating Mermaid code..." : `Fixing Mermaid code (attempt ${attempt}...)`,
+              message:
+                attempt === 0
+                  ? "Generating Mermaid code..."
+                  : `Fixing Mermaid code (attempt ${attempt}...)`,
             },
             transient: true,
           });
@@ -619,7 +624,10 @@ export function createMermaidDiagramTool(options?: {
       if (writer) {
         writer.write({
           type: "data-aiAction",
-          data: { action: ChatAIActionEnum.Tool, message: "Returning Mermaid code (validation may fail)..." },
+          data: {
+            action: ChatAIActionEnum.Tool,
+            message: "Returning Mermaid code (validation may fail)...",
+          },
           transient: true,
         });
       }
