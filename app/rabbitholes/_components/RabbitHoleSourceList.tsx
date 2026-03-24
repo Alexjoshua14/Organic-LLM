@@ -29,7 +29,7 @@ export function RabbitHoleSourceList({
       className={cn(
         "bg-card/80 backdrop-blur-sm rounded-lg border border-border shadow-sm",
         "flex flex-col overflow-hidden",
-        hasBranches ? "h-1/2 mb-3" : "flex-1"
+        hasBranches && "mb-3"
       )}
     >
       <button
@@ -49,12 +49,12 @@ export function RabbitHoleSourceList({
         {isExpanded && (
           <motion.div
             animate={{ height: "auto" }}
-            className="flex-1 overflow-hidden flex flex-col min-h-0"
+            className="flex flex-col"
             exit={{ height: 0 }}
             initial={{ height: 0 }}
             transition={{ duration: 0.2 }}
           >
-            <div className="px-4 pb-4 space-y-2 overflow-y-auto flex-1">
+            <div className="space-y-2 px-4 pb-4">
               {sources.map((source, index) => {
                 return (
                   <motion.button

@@ -41,8 +41,7 @@ export function RabbitHoleBranchGrid({
     <div
       className={cn(
         "bg-card/80 backdrop-blur-sm rounded-lg border border-border shadow-sm",
-        "flex flex-col overflow-hidden",
-        hasSources ? "h-1/2" : "flex-1"
+        "flex flex-col overflow-hidden"
       )}
     >
       <button
@@ -62,12 +61,12 @@ export function RabbitHoleBranchGrid({
         {isExpanded && (
           <motion.div
             animate={{ height: "auto" }}
-            className="flex-1 overflow-hidden flex flex-col min-h-0"
+            className="flex flex-col"
             exit={{ height: 0 }}
             initial={{ height: 0 }}
             transition={{ duration: 0.2 }}
           >
-            <div className="px-4 pb-4 space-y-2 overflow-y-auto flex-1">
+            <div className="space-y-2 px-4 pb-4">
               {branches.map((branch, index) => {
                 const isDescriptionExpanded = expandedDescriptions.has(branch.id);
 
