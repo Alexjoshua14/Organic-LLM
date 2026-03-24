@@ -34,8 +34,8 @@ export const layout = {
 
 export const title = {
   base: "font-commissioner font-light tracking-tight text-foreground",
-  desktop: "mb-2 text-3xl",
-  compact: "mb-2 text-[26px] leading-snug",
+  desktop: "mb-6 text-3xl",
+  compact: "mb-6 text-[26px] leading-snug",
 };
 
 // ─── Page-level header ("Rabbit Hole Explorer") ──────────────────────────────
@@ -75,9 +75,9 @@ export const articleContent = {
 
   h2: {
     desktop:
-      "[&_h2]:font-commissioner [&_h2]:text-2xl [&_h2]:font-light [&_h2]:mt-16 [&_h2]:mb-8 [&_h2]:text-foreground [&_h2]:tracking-tight",
+      "[&_h2]:font-commissioner [&_h2]:text-2xl [&_h2]:font-light [&_h2]:mt-16 [&_h2]:mb-4 [&_h2]:text-foreground [&_h2]:tracking-tight",
     compact:
-      "[&_h2]:font-commissioner [&_h2]:text-xl [&_h2]:font-light [&_h2]:mt-10 [&_h2]:mb-5 [&_h2]:text-foreground [&_h2]:tracking-tight",
+      "[&_h2]:font-commissioner [&_h2]:text-xl [&_h2]:font-light [&_h2]:mt-10 [&_h2]:mb-3 [&_h2]:text-foreground [&_h2]:tracking-tight",
   },
 
   h2Takeaway: {
@@ -88,14 +88,14 @@ export const articleContent = {
 
   h3: {
     desktop:
-      "[&_h3]:font-commissioner [&_h3]:text-xl [&_h3]:font-light [&_h3]:mt-12 [&_h3]:mb-6 [&_h3]:text-foreground",
+      "[&_h3]:font-commissioner [&_h3]:text-xl [&_h3]:font-light [&_h3]:mt-12 [&_h3]:mb-3 [&_h3]:text-foreground",
     compact:
-      "[&_h3]:font-commissioner [&_h3]:text-lg [&_h3]:font-light [&_h3]:mt-8 [&_h3]:mb-4 [&_h3]:text-foreground",
+      "[&_h3]:font-commissioner [&_h3]:text-lg [&_h3]:font-light [&_h3]:mt-8 [&_h3]:mb-2 [&_h3]:text-foreground",
   },
 
   p: {
-    desktop: "[&_p]:mb-8 [&_p]:text-base [&_p]:leading-[1.5]",
-    compact: "[&_p]:mb-6 [&_p]:text-base [&_p]:leading-[1.5]",
+    desktop: "[&_p]:mb-5 [&_p]:text-base [&_p]:leading-[1.5]",
+    compact: "[&_p]:mb-4 [&_p]:text-base [&_p]:leading-[1.5]",
   },
 
   code: "[&_code]:break-words [&_code]:font-mono [&_code]:text-sm",
@@ -129,10 +129,10 @@ export const takeaway = {
   padding: { desktop: "px-5 py-4", compact: "px-4 py-3" },
   innerPadding: { desktop: "px-5 pb-5", compact: "px-4 pb-4" },
   item: {
-    base: "flex cursor-pointer items-start gap-4 font-satoshi",
-    size: { desktop: "text-base", compact: "text-[15px]" },
+    base: "flex cursor-pointer items-start gap-4 font-satoshi text-foreground/85",
+    size: { desktop: "text-sm", compact: "text-sm" },
   },
-  bullet: "mt-1 shrink-0 transition-colors text-lg",
+  bullet: "mt-1 shrink-0 transition-colors text-base",
 };
 
 // ─── Source analysis view ────────────────────────────────────────────────────
