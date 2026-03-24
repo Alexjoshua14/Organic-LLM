@@ -1,5 +1,13 @@
 import { isUnixTimestamp } from "@/lib/utils";
 
+/** Map nullable `rabbit_hole_nodes.title` to optional session node `title`. Exported for tests. */
+export function rabbitHoleNodeTitleFromDb(title: string | null | undefined): string | undefined {
+  if (title == null) return undefined;
+  const t = title.trim();
+
+  return t.length > 0 ? t : undefined;
+}
+
 /** Minimal node shape used when building DB rows (optimistic nodes may have keyTakeaways.length < 3). */
 type NodeForRow = {
   id: string;

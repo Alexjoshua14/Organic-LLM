@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 
-import { nodeToRabbitHoleNodeRow } from "@/data/supabase/rabbitHoleNodeRow";
+import { nodeToRabbitHoleNodeRow, rabbitHoleNodeTitleFromDb } from "@/data/supabase/rabbitHoleNodeRow";
 
 const baseNode = {
   id: "node-1",
@@ -74,5 +74,20 @@ describe("nodeToRabbitHoleNodeRow", () => {
       "sess-u",
     );
     expect(row.title).toBeNull();
+  });
+});
+
+describe("rabbitHoleNodeTitleFromDb", () => {
+  test("returns undefined for null and undefined", () => {
+    expect(rabbitHoleNodeTitleFromDb(null)).toBeUndefined();
+    expect(rabbitHoleNodeTitleFromDb(undefined)).toBeUndefined();
+  });
+
+  test("returns trimmed string for non-empty title", () => {
+    expect(rabbitHoleNodeTitleFromDb("  Hello  ")).toBe("Hello");
+  });
+
+  test("returns undefined for whitespace-only", () => {
+    expect(rabbitHoleNodeTitleFromDb(" \t ")).toBeUndefined();
   });
 });
