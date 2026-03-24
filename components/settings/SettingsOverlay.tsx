@@ -39,12 +39,16 @@ export function SettingsOverlay({ open, onOpenChange, trigger }: SettingsOverlay
   const { userId } = useAuth();
   const [fontId, setFontId] = useState<string>(() => getSettings().fontId);
   const [coalescenceMode, setCoalescenceMode] = useState<boolean>(() => getSettings().coalescenceMode);
+  const [experimentalArcadiaMarkdownPreview, setExperimentalArcadiaMarkdownPreview] = useState(
+    () => getSettings().experimentalArcadiaMarkdownPreview
+  );
 
   useEffect(() => {
     if (open) {
       const s = getSettings();
       setFontId(s.fontId);
       setCoalescenceMode(s.coalescenceMode);
+      setExperimentalArcadiaMarkdownPreview(s.experimentalArcadiaMarkdownPreview);
     }
   }, [open]);
 
@@ -91,6 +95,24 @@ export function SettingsOverlay({ open, onOpenChange, trigger }: SettingsOverlay
                 onValueChange={(enabled) => {
                   setCoalescenceMode(enabled);
                   setSettings({ coalescenceMode: enabled });
+                  if (userId) void persistUserSettingsToSupabase(userId, getSettings());
+                }}
+              />
+            </div>
+          </section>
+
+          <section className="space-y-3">
+            <h3 className="text-sm font-medium text-foreground">Arcadia preview (experimental)</h3>
+            <div className="flex items-center justify-between gap-3">
+              <span className="text-xs text-muted-foreground">
+                Markdown preview toggle on the Arcadia composer.
+              </span>
+              <Switch
+                aria-label="Arcadia markdown preview (experimental)"
+                isSelected={experimentalArcadiaMarkdownPreview}
+                onValueChange={(enabled) => {
+                  setExperimentalArcadiaMarkdownPreview(enabled);
+                  setSettings({ experimentalArcadiaMarkdownPreview: enabled });
                   if (userId) void persistUserSettingsToSupabase(userId, getSettings());
                 }}
               />

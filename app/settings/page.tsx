@@ -29,6 +29,7 @@ export default function SettingsPage() {
   const [ttsWholeMessage, setTtsWholeMessage] = useState(true);
   const [zeroDataRetention, setZeroDataRetention] = useState(false);
   const [coalescenceMode, setCoalescenceMode] = useState(false);
+  const [experimentalArcadiaMarkdownPreview, setExperimentalArcadiaMarkdownPreview] = useState(false);
   const { userId } = useAuth();
   const { user } = useUser();
   const clerkEmail = user?.primaryEmailAddress?.emailAddress ?? null;
@@ -48,6 +49,7 @@ export default function SettingsPage() {
       setTtsWholeMessage(getSettings().ttsWholeMessage);
       setZeroDataRetention(getSettings().zeroDataRetention);
       setCoalescenceMode(getSettings().coalescenceMode);
+      setExperimentalArcadiaMarkdownPreview(getSettings().experimentalArcadiaMarkdownPreview);
     }
   }, []);
 
@@ -140,6 +142,27 @@ export default function SettingsPage() {
                   />
                 </SettingsRow>
                 <FontSetting />
+                <div className="space-y-2">
+                  <h3 className="text-sm font-medium text-foreground">Experimental</h3>
+                  <SettingsRow
+                    title="Arcadia markdown preview"
+                    mainText={
+                      experimentalArcadiaMarkdownPreview
+                        ? "Arcadia chat shows a Preview toggle on the composer."
+                        : "Arcadia composer is plain text only."
+                    }
+                    subtext="Toggle rendered markdown preview while drafting in Arcadia (sandbox). May change or move."
+                  >
+                    <Switch
+                      aria-label="Arcadia markdown preview (experimental)"
+                      isSelected={experimentalArcadiaMarkdownPreview}
+                      onValueChange={(enabled) => {
+                        setExperimentalArcadiaMarkdownPreview(enabled);
+                        setSettings({ experimentalArcadiaMarkdownPreview: enabled });
+                      }}
+                    />
+                  </SettingsRow>
+                </div>
               </section>
             </div>
           </TabsContent>
