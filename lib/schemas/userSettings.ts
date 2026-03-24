@@ -12,6 +12,8 @@ export const UserSettingsSchema = z.object({
   zeroDataRetention: z.boolean().default(false),
   /** When true, show threads from all features in the main sidebar list. */
   coalescenceMode: z.boolean().default(false),
+  /** Experimental: Arcadia composer can show a markdown preview toggle. */
+  experimentalArcadiaMarkdownPreview: z.boolean().default(false),
 });
 
 export type UserSettings = z.infer<typeof UserSettingsSchema>;
@@ -21,4 +23,5 @@ export const defaultUserSettings = (): UserSettings => ({
   ttsWholeMessage: true,
   zeroDataRetention: false,
   coalescenceMode: false,
+  experimentalArcadiaMarkdownPreview: false,
 });
