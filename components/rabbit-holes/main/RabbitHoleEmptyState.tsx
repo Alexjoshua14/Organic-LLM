@@ -38,6 +38,9 @@ export function RabbitHoleEmptyState({
         {title}
       </p>
       <p className="text-muted-foreground/70 text-sm max-w-sm leading-relaxed">{subtitle}</p>
+      <p className="text-muted-foreground/55 text-xs max-w-sm mt-4 leading-relaxed">
+        ⌘⇧F (Ctrl+Shift+F) toggles focus mode — hides the path, sources, and prompt for reading.
+      </p>
     </motion.div>
   );
 }

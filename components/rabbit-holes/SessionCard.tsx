@@ -6,6 +6,7 @@ import { motion } from "framer-motion";
 import { Trash2, ArrowRight } from "lucide-react";
 
 import { formatDate } from "@/lib/format/stringFormatting";
+import { RABBIT_HOLE_UNTITLED } from "@/lib/rabbit-holes/constants";
 import { cn } from "@/lib/utils";
 
 export interface SessionCardProps {
@@ -45,7 +46,7 @@ export function SessionCard({
       <div className="p-6 flex items-start justify-between gap-4">
         <div className="flex-1 min-w-0">
           <h3 className="font-commissioner text-lg font-light text-foreground mb-2 line-clamp-2">
-            {session.rootQuestion}
+            {session.rootTitle?.trim() || RABBIT_HOLE_UNTITLED}
           </h3>
           {session.summary && (
             <p className="text-sm text-muted-foreground mb-3 line-clamp-2">{session.summary}</p>

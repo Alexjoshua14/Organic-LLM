@@ -43,12 +43,12 @@ const titleScenario: SandboxScenario<TitleSeed, TitleInput, TitleRunResult> = {
     return runRabbitHoleTitleScenario(text);
   },
   normalize: (raw) => ({
-    session: raw.title != null ? { ...TITLE_SCENARIO_SEED_SESSION, rootQuestion: raw.title } : null,
+    session: raw.title != null ? { ...TITLE_SCENARIO_SEED_SESSION, rootTitle: raw.title } : null,
   }),
   render: ({ seedData, normalizedResult, runState }) => {
     const session: RabbitHoleSessionMetadata =
       (normalizedResult as { session: RabbitHoleSessionMetadata } | null)?.session ??
-      (runState?.title != null ? { ...seedData, rootQuestion: runState.title } : seedData);
+      (runState?.title != null ? { ...seedData, rootTitle: runState.title } : seedData);
 
     return (
       <div className="max-w-xl mx-auto">

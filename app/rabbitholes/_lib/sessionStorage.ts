@@ -12,7 +12,10 @@ const CURRENT_SESSION_KEY = "rabbit-hole-session";
 
 export interface RabbitHoleSessionMetadata {
   sessionId: string;
+  /** Mirrors `rabbit_hole_sessions.root_question`; reserved for future UI (not browse heading). */
   rootQuestion: string;
+  /** Browse heading: root path segment label (generated article title for the root node). */
+  rootTitle?: string;
   createdAt: string;
   updatedAt: string;
   pathLength: number;
@@ -154,6 +157,7 @@ export function saveSession(session: RabbitHoleSession): void {
     const metadata: RabbitHoleSessionMetadata = {
       sessionId: session.sessionId,
       rootQuestion: session.rootQuestion,
+      rootTitle: session.path[0]?.label,
       createdAt: existingIndex >= 0 ? sessions[existingIndex].createdAt : new Date().toISOString(),
       updatedAt: new Date().toISOString(),
       pathLength: session.path.length,

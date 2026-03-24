@@ -41,8 +41,8 @@ export function RabbitHoleSourceAnalysis({
     >
       {/* Header with back button and source link */}
       <div className="mb-8 flex items-start justify-between gap-4">
-        <div className="flex-1">
-          <div className="mb-3">
+        <div className="flex-1 min-w-0">
+          <div className="snap-start scroll-mt-2 mb-3">
             <h1 className="font-commissioner text-3xl font-light tracking-tight text-foreground">
               {analysis.title}
             </h1>
@@ -55,7 +55,7 @@ export function RabbitHoleSourceAnalysis({
               ← Back to article
             </button>
           )}
-          <div className="max-w-lg">
+          <div className="snap-start scroll-mt-2 max-w-lg">
             <RabbitHoleTTSButton nodeId={`source-${sourceId}`} text={ttsText} />
           </div>
         </div>
@@ -77,13 +77,13 @@ export function RabbitHoleSourceAnalysis({
       </div>
 
       {/* Summary */}
-      <div className="mb-8">
+      <div className="snap-start scroll-mt-2 mb-8">
         <h2 className={rabbitHoleSectionHeaderClass}>Summary</h2>
         <p className="text-base leading-relaxed text-muted-foreground">{analysis.summary}</p>
       </div>
 
       {/* Key Points */}
-      <div className="mb-8 flex flex-col">
+      <div className="snap-start scroll-mt-2 mb-8 flex flex-col">
         <h2 className={rabbitHoleSectionHeaderClass}>Key Points</h2>
         <ul className="space-y-6">
           {analysis.keyPoints.map((point, index) => (
@@ -111,7 +111,7 @@ export function RabbitHoleSourceAnalysis({
       </div>
 
       {/* Relevance */}
-      <div className="bg-card/80 backdrop-blur-sm rounded-lg p-6 border border-border">
+      <div className="snap-start scroll-mt-2 bg-card/80 backdrop-blur-sm rounded-lg p-6 border border-border">
         <h2 className={cn(rabbitHoleSectionHeaderClass, "mb-4")}>Relevance</h2>
         <p className="text-base leading-relaxed text-muted-foreground">{analysis.relevance}</p>
       </div>

@@ -43,7 +43,7 @@ export async function getAllSessions(): Promise<Result<RabbitHoleSessionMetadata
   // Fetch path segments to compute pathLength and locate root node IDs.
   const { data: pathSegments, error: pathError } = await supabase
     .from("rabbit_hole_path_segments")
-    .select("session_id, node_id, position")
+    .select("session_id, node_id, position, label")
     .in("session_id", sessionIds);
 
   if (pathError) {
@@ -55,11 +55,15 @@ export async function getAllSessions(): Promise<Result<RabbitHoleSessionMetadata
 
   const pathLengthBySession = new Map<string, number>();
   const rootNodeIdBySession = new Map<string, string>();
+  const rootTitleBySession = new Map<string, string>();
 
   for (const seg of pathSegments ?? []) {
     pathLengthBySession.set(seg.session_id, (pathLengthBySession.get(seg.session_id) ?? 0) + 1);
     if (seg.position === 0 && typeof seg.node_id === "string") {
       rootNodeIdBySession.set(seg.session_id, seg.node_id);
+      if (typeof seg.label === "string" && seg.label.length > 0) {
+        rootTitleBySession.set(seg.session_id, seg.label);
+      }
     }
   }
 
@@ -98,6 +102,7 @@ export async function getAllSessions(): Promise<Result<RabbitHoleSessionMetadata
     return {
       sessionId: s.session_id,
       rootQuestion: s.root_question,
+      rootTitle: rootTitleBySession.get(s.session_id),
       createdAt,
       updatedAt,
       pathLength: pathLengthBySession.get(s.session_id) ?? 0,
@@ -194,7 +199,7 @@ export async function getSessionById(
     supabase
       .from("rabbit_hole_nodes")
       .select(
-        "node_id, raw_prompt, user_question, key_takeaways, article_html, preview, created_at"
+        "node_id, raw_prompt, user_question, title, key_takeaways, article_html, preview, created_at"
       )
       .eq("session_id", sessionId),
     supabase
@@ -273,6 +278,7 @@ export async function getSessionById(
       id: node.node_id,
       rawPrompt: node.raw_prompt,
       userQuestion: node.user_question,
+      title: node.title ?? undefined,
       refinedQuestion: null,
       preview: node.preview ?? null,
       keyTakeaways: Array.isArray(node.key_takeaways) ? (node.key_takeaways as string[]) : [],

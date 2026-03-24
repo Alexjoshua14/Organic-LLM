@@ -5,6 +5,7 @@ type NodeForRow = {
   id: string;
   rawPrompt: string;
   userQuestion: string;
+  title?: string | null;
   keyTakeaways: string[];
   preview?: string | null;
   articleHtml?: string | null;
@@ -16,6 +17,7 @@ export type RabbitHoleNodeRow = {
   node_id: string;
   raw_prompt: string;
   user_question: string;
+  title?: string | null;
   key_takeaways: string[];
   preview?: string | null;
   article_html?: string | null;
@@ -34,6 +36,7 @@ export function nodeToRabbitHoleNodeRow(node: NodeForRow, sessionId: string): Ra
     node_id: node.id,
     raw_prompt: node.rawPrompt,
     user_question: node.userQuestion,
+    title: node.title?.trim() ? node.title.trim() : null,
     key_takeaways: keyTakeaways,
     preview: node.preview ?? null,
     article_html: node.articleHtml,
