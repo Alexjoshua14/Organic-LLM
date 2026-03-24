@@ -61,11 +61,10 @@ function PathRailItem({
         isActive
           ? "bg-card/50 border-border shadow-sm"
           : "border-transparent hover:bg-card/30 cursor-pointer",
-        isGenerating && "border-muted-foreground/50",
-        depth > 0 && "ml-4"
+        isGenerating && "border-muted-foreground/50"
       )}
       initial={{ opacity: 0, x: -10 }}
-      style={{ marginLeft: depth > 0 ? depth * 12 : 0 }}
+      style={{ marginLeft: depth > 0 ? Math.min(depth * 12, 48) : 0 }}
       transition={{
         duration: 0.2,
         delay: index * 0.05,
@@ -119,7 +118,7 @@ export function RabbitHolePathRail({
 }: RabbitHolePathRailProps) {
   if (!session || session.path.length === 0) {
     return (
-      <div className="bg-card/80 backdrop-blur-sm rounded-lg p-6 border border-border shadow-sm">
+      <div className="overflow-x-hidden rounded-lg border border-border bg-card/80 p-6 shadow-sm backdrop-blur-sm">
         <p className="font-commissioner text-xs uppercase tracking-[0.2em] text-muted-foreground mb-3 font-light">
           Path
         </p>
@@ -153,7 +152,7 @@ export function RabbitHolePathRail({
   };
 
   return (
-    <div className="bg-card/80 backdrop-blur-sm rounded-lg p-6 border border-border shadow-sm h-full">
+    <div className="overflow-x-hidden rounded-lg border border-border bg-card/80 p-6 shadow-sm backdrop-blur-sm">
       <p className="font-commissioner text-xs uppercase tracking-[0.2em] text-muted-foreground mb-6 font-light">
         Exploration Path
       </p>
