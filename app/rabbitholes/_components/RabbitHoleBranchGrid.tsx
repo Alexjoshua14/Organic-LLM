@@ -6,6 +6,7 @@ import { ChevronDown, ChevronUp } from "lucide-react";
 
 import { RabbitHoleBranchSuggestion } from "@/lib/schemas/rabbitHoleSchemas";
 import { cn } from "@/lib/utils";
+import { card, sectionLabel, sidebar } from "@/lib/rabbit-holes/tokens";
 
 interface RabbitHoleBranchGridProps {
   branches: RabbitHoleBranchSuggestion[];
@@ -26,31 +27,22 @@ export function RabbitHoleBranchGrid({
   const toggleDescription = (branchId: string) => {
     setExpandedDescriptions((prev) => {
       const next = new Set(prev);
-
       if (next.has(branchId)) {
         next.delete(branchId);
       } else {
         next.add(branchId);
       }
-
       return next;
     });
   };
 
   return (
-    <div
-      className={cn(
-        "bg-card/80 backdrop-blur-sm rounded-lg border border-border shadow-sm",
-        "flex flex-col overflow-hidden"
-      )}
-    >
+    <div className={cn(card, "flex flex-col overflow-hidden")}>
       <button
         className="flex items-center justify-between p-4 hover:bg-card/30 transition-colors"
         onClick={() => setIsExpanded(!isExpanded)}
       >
-        <h2 className="font-commissioner text-xs uppercase tracking-[0.2em] text-muted-foreground font-light">
-          Explore Further
-        </h2>
+        <h2 className={sectionLabel}>Explore Further</h2>
         {isExpanded ? (
           <ChevronUp className="text-muted-foreground" size={16} />
         ) : (
@@ -96,9 +88,7 @@ export function RabbitHoleBranchGrid({
                         whileTap={{ scale: 0.99 }}
                         onClick={() => !isLoading && onBranchClick(branch.id)}
                       >
-                        <p className="font-satoshi text-sm font-medium text-foreground">
-                          {branch.label}
-                        </p>
+                        <p className={sidebar.branchLabel}>{branch.label}</p>
                       </motion.button>
                       {branch.shortDescription && (
                         <button
@@ -125,7 +115,7 @@ export function RabbitHoleBranchGrid({
                           initial={{ height: 0, opacity: 0 }}
                           transition={{ duration: 0.2 }}
                         >
-                          <p className="px-3 pb-2 text-xs text-muted-foreground/70 leading-relaxed">
+                          <p className={cn("px-3 pb-2", sidebar.branchDescription)}>
                             {branch.shortDescription}
                           </p>
                         </motion.div>

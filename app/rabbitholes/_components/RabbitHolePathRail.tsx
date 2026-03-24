@@ -4,6 +4,7 @@ import { motion } from "framer-motion";
 
 import { RabbitHoleSession, RabbitHoleNodeId } from "@/lib/schemas/rabbitHoleSchemas";
 import { cn } from "@/lib/utils";
+import { card, sectionLabel, sidebar } from "@/lib/rabbit-holes/tokens";
 
 function NewRabbitHoleButton({ onClick }: { onClick: () => void }) {
   return (
@@ -26,8 +27,8 @@ function NewRabbitHoleButton({ onClick }: { onClick: () => void }) {
       whileTap={{ scale: 0.99 }}
       onClick={onClick}
     >
-      <span className="text-xl text-muted-foreground">+</span>
-      <span className="text-sm font-medium text-muted-foreground">New Rabbit Hole</span>
+      <span className={sidebar.newButton.icon}>+</span>
+      <span className={sidebar.newButton.label}>New Rabbit Hole</span>
     </motion.button>
   );
 }
@@ -89,13 +90,13 @@ function PathRailItem({
         <p
           className={cn(
             "leading-relaxed",
-            depth === 0 ? "text-sm" : "text-xs",
+            depth === 0 ? sidebar.pathLabel.root : sidebar.pathLabel.nested,
             isActive ? "text-foreground font-medium" : "text-muted-foreground"
           )}
         >
           {segment.label}
         </p>
-        {nodeLabel && <p className="text-xs text-muted-foreground/70 mt-1">{nodeLabel}</p>}
+        {nodeLabel && <p className={sidebar.pathMeta}>{nodeLabel}</p>}
       </div>
     </motion.button>
   );
@@ -118,10 +119,8 @@ export function RabbitHolePathRail({
 }: RabbitHolePathRailProps) {
   if (!session || session.path.length === 0) {
     return (
-      <div className="overflow-x-hidden rounded-lg border border-border bg-card/80 p-6 shadow-sm backdrop-blur-sm">
-        <p className="font-commissioner text-xs uppercase tracking-[0.2em] text-muted-foreground mb-3 font-light">
-          Path
-        </p>
+      <div className={cn("overflow-x-hidden p-6", card)}>
+        <p className={cn(sectionLabel, "mb-3")}>Path</p>
         <p className="text-sm text-muted-foreground/70">No exploration yet</p>
       </div>
     );
@@ -133,29 +132,23 @@ export function RabbitHolePathRail({
   const depthCache = new Map<string, number>();
   const computeDepth = (nodeId: string, visited: Set<string> = new Set()): number => {
     if (depthCache.has(nodeId)) return depthCache.get(nodeId)!;
-    if (visited.has(nodeId)) return 0; // cycle guard
+    if (visited.has(nodeId)) return 0;
     visited.add(nodeId);
 
     const seg = findSegment(nodeId);
-
     if (!seg || !seg.parentNodeId) {
       depthCache.set(nodeId, 0);
-
       return 0;
     }
     const parentDepth = computeDepth(seg.parentNodeId, visited);
     const depth = parentDepth + 1;
-
     depthCache.set(nodeId, depth);
-
     return depth;
   };
 
   return (
-    <div className="overflow-x-hidden rounded-lg border border-border bg-card/80 p-6 shadow-sm backdrop-blur-sm">
-      <p className="font-commissioner text-xs uppercase tracking-[0.2em] text-muted-foreground mb-6 font-light">
-        Exploration Path
-      </p>
+    <div className={cn("overflow-x-hidden p-6", card)}>
+      <p className={cn(sectionLabel, "mb-6")}>Exploration Path</p>
       <div className="flex flex-col gap-3">
         {onNewRabbitHole && <NewRabbitHoleButton onClick={onNewRabbitHole} />}
         {session.path.map((segment, index) => {
