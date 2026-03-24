@@ -150,11 +150,6 @@ export async function generateQuickPreviewLLM({
     system: QUICK_PREVIEW_SYSTEM_PROMPT,
     prompt,
     maxOutputTokens: 400,
-    providerOptions: {
-      openai: {
-        reasoningEffort: "minimal",
-      },
-    },
   });
 
   return { text: res.text.trim() };

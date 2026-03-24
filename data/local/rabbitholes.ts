@@ -120,6 +120,7 @@ export async function getAllSessions(): Promise<Result<RabbitHoleSessionMetadata
         return {
           sessionId: session.sessionId,
           rootQuestion: session.rootQuestion,
+          rootTitle: session.path[0]?.label,
           createdAt,
           updatedAt,
           pathLength: session.path?.length ?? 0,
@@ -269,6 +270,7 @@ export async function saveSession(session: RabbitHoleSession): Promise<Result<bo
     const metadata: RabbitHoleSessionMetadata = {
       sessionId: session.sessionId,
       rootQuestion: session.rootQuestion,
+      rootTitle: session.path[0]?.label,
       createdAt: existingIndex >= 0 ? sessions[existingIndex].createdAt : new Date().toISOString(),
       updatedAt: new Date().toISOString(),
       pathLength: session.path.length,

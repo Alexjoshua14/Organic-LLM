@@ -55,4 +55,24 @@ describe("nodeToRabbitHoleNodeRow", () => {
     expect(row.article_html).toBe("");
     expect(row.created_at).toBe(createdAt);
   });
+
+  test("maps optional title to row", () => {
+    const row = nodeToRabbitHoleNodeRow(
+      {
+        ...baseNode,
+        keyTakeaways: ["K1", "K2", "K3"],
+        title: "  My Article  ",
+      },
+      "sess-t",
+    );
+    expect(row.title).toBe("My Article");
+  });
+
+  test("omits title when empty or whitespace", () => {
+    const row = nodeToRabbitHoleNodeRow(
+      { ...baseNode, keyTakeaways: ["K1", "K2", "K3"], title: "   " },
+      "sess-u",
+    );
+    expect(row.title).toBeNull();
+  });
 });
