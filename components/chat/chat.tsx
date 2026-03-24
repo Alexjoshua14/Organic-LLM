@@ -36,12 +36,21 @@ const logger = createLogger("components/chat/chat");
 export type ChatProps = {
   chatData: { thread: Thread; messages: UIMessage[] } | null;
   initialMessage?: string;
+  /** Prefills the composer without sending (e.g. homepage semantic route). */
+  initialDraft?: string;
   persona?: "prometheus" | "spark" | "aion" | "remy";
   endpoint?: string;
   experience?: string;
 };
 
-export const Chat: React.FC<ChatProps> = ({ chatData, endpoint, persona, initialMessage, experience }) => {
+export const Chat: React.FC<ChatProps> = ({
+  chatData,
+  endpoint,
+  persona,
+  initialMessage,
+  initialDraft,
+  experience,
+}) => {
   const { refreshSidebarChats } = useSharedChatContext();
 
   const selectedModelRef = useRef<ChatModel>(DEFAULT_CHAT_MODEL);
@@ -63,6 +72,18 @@ export const Chat: React.FC<ChatProps> = ({ chatData, endpoint, persona, initial
   const errorRef = useRef<Error | undefined>(undefined);
   /** Stored when onError runs; useChat may not expose error/status for pre-stream failures (e.g. 429). */
   const [chatError, setChatError] = useState<unknown>(undefined);
+  const [experimentalArcadiaMarkdownPreview, setExperimentalArcadiaMarkdownPreview] = useState(
+    () => getSettings().experimentalArcadiaMarkdownPreview
+  );
+
+  useEffect(() => {
+    const sync = () =>
+      setExperimentalArcadiaMarkdownPreview(getSettings().experimentalArcadiaMarkdownPreview);
+    sync();
+    window.addEventListener("organic-llm-settings", sync);
+
+    return () => window.removeEventListener("organic-llm-settings", sync);
+  }, []);
 
   // Temporary
   const stop = () => logger.log("chat", "stop called but functionality is currently disabled");
@@ -335,7 +356,11 @@ export const Chat: React.FC<ChatProps> = ({ chatData, endpoint, persona, initial
           <CoreInput
             chatId={chatData?.thread.id}
             clearError={clearError}
+            enableMarkdownInputPreview={
+              experience === "arcadia" && experimentalArcadiaMarkdownPreview
+            }
             error={error ?? chatError}
+            initialDraft={initialDraft}
             isBlankChat={messages.length === 0}
             modelRef={selectedModelRef}
             sendMessage={sendMessage}

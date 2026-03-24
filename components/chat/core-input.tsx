@@ -12,7 +12,16 @@ import {
   useLayoutEffect,
 } from "react";
 import { useChat } from "@ai-sdk/react";
-import { ArrowUp, BrainCircuit, GlobeIcon, SquareIcon, Volume2, XIcon } from "lucide-react";
+import {
+  ArrowUp,
+  BrainCircuit,
+  Eye,
+  GlobeIcon,
+  Pencil,
+  SquareIcon,
+  Volume2,
+  XIcon,
+} from "lucide-react";
 import { ChatStatus } from "ai";
 import { motion } from "framer-motion";
 
@@ -40,6 +49,8 @@ import {
   PromptInputSpeechButton,
 } from "../third-party/ai-elements/prompt-input";
 
+import { ChatMessageMarkdown } from "./chat-message-markdown";
+
 import { cn } from "@/lib/utils";
 import { ChatModel, ChatModels, DEFAULT_CHAT_MODEL } from "@/lib/schemas/chat";
 import { deleteEmptyChat } from "@/data/supabase/chat";
@@ -62,6 +73,10 @@ type CoreInputProps = {
   /** When set with isBlankChat, blank chat is auto-deleted on unmount if input is empty. */
   chatId?: string;
   isBlankChat?: boolean;
+  /** Arcadia: toggle between textarea and rendered markdown preview in the same body slot. */
+  enableMarkdownInputPreview?: boolean;
+  /** One-time composer seed from URL (not sent until the user submits). */
+  initialDraft?: string;
 };
 
 export const CoreInput: React.FC<CoreInputProps> = ({
@@ -79,6 +94,8 @@ export const CoreInput: React.FC<CoreInputProps> = ({
   className,
   chatId,
   isBlankChat,
+  enableMarkdownInputPreview = false,
+  initialDraft,
 }) => {
   const { refreshSidebarChats } = useSharedChatContext();
 
@@ -99,7 +116,9 @@ export const CoreInput: React.FC<CoreInputProps> = ({
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const toolsRef = useRef<HTMLDivElement | null>(null);
   const [showLabels, setShowLabels] = useState(false);
+  const [inputMarkdownMode, setInputMarkdownMode] = useState<"edit" | "preview">("edit");
   const hasLoadedPrefs = useRef(false);
+  const appliedInitialDraft = useRef(false);
 
   // Refs for unmount cleanup: must see latest values when component unmounts
   const inputEmptyRef = useRef(false);
@@ -118,6 +137,12 @@ export const CoreInput: React.FC<CoreInputProps> = ({
       }
     };
   }, [chatId, isBlankChat, refreshSidebarChats]);
+
+  useEffect(() => {
+    if (!enableMarkdownInputPreview) {
+      setInputMarkdownMode("edit");
+    }
+  }, [enableMarkdownInputPreview]);
 
   // Restore input text when the last send failed (e.g. rate limit). Use ref so we have the
   // sent text even when the error arrives before React has committed setRecentlySentText.
@@ -139,6 +164,23 @@ export const CoreInput: React.FC<CoreInputProps> = ({
       onErrorCleared?.();
     }
   }, [status, error, recentlySentText, text.trim(), clearError, onErrorCleared]);
+
+  // Seed composer from homepage routing (or similar) once; does not auto-send.
+  useLayoutEffect(() => {
+    if (appliedInitialDraft.current) return;
+    const draft = initialDraft?.trim();
+
+    if (!draft) return;
+    appliedInitialDraft.current = true;
+    setText(draft);
+    const el = textareaRef.current;
+
+    if (el) {
+      el.value = draft;
+      el.dispatchEvent(new Event("input", { bubbles: true }));
+      el.focus();
+    }
+  }, [initialDraft]);
 
   // Load preferences from localStorage on mount
   useLayoutEffect(() => {
@@ -273,6 +315,9 @@ export const CoreInput: React.FC<CoreInputProps> = ({
       files: message.files,
     });
     setText("");
+    if (enableMarkdownInputPreview) {
+      setInputMarkdownMode("edit");
+    }
   };
 
   const handleModelSelection = (id: string) => {
@@ -300,12 +345,69 @@ export const CoreInput: React.FC<CoreInputProps> = ({
       </PromptInputHeader>
 
       <PromptInputBody>
-        <PromptInputTextarea ref={textareaRef} onChange={handleInputChange} />
+        {enableMarkdownInputPreview && inputMarkdownMode === "preview" ? (
+          <>
+            <input name="message" type="hidden" value={text} />
+            <div
+              aria-label="Markdown preview"
+              className={cn(
+                "w-full min-w-0 max-w-full min-h-11 max-h-40 overflow-y-auto overflow-x-auto px-3 py-3 text-base md:text-sm",
+                "prose prose-sm dark:prose-invert max-w-full text-foreground",
+                "[&_table]:block [&_table]:max-w-full [&_table]:overflow-x-auto",
+                "[&_img]:max-w-full [&_img]:h-auto"
+              )}
+              role="region"
+            >
+              {text.trim() ? (
+                <ChatMessageMarkdown
+                  content={text}
+                  id="arcadia-composer-markdown-preview"
+                  wrapCodeBlocks
+                />
+              ) : (
+                <p className="text-muted-foreground not-prose m-0">Nothing to preview</p>
+              )}
+            </div>
+          </>
+        ) : (
+          <PromptInputTextarea
+            ref={textareaRef}
+            value={text}
+            onChange={handleInputChange}
+          />
+        )}
       </PromptInputBody>
       <PromptInputFooter>
         <div ref={toolsRef} className="w-full">
           <PromptInputTools className="flex justify-between w-full">
             <div className="flex gap-1">
+              {enableMarkdownInputPreview && (
+                <PromptInputButton
+                  aria-label={
+                    inputMarkdownMode === "edit" ? "Show markdown preview" : "Back to editing"
+                  }
+                  aria-pressed={inputMarkdownMode === "preview"}
+                  size={"dynamic-sm"}
+                  title={
+                    inputMarkdownMode === "edit"
+                      ? "Show rendered markdown"
+                      : "Edit as plain text"
+                  }
+                  variant={inputMarkdownMode === "preview" ? "default" : "ghost"}
+                  onClick={() =>
+                    setInputMarkdownMode((m) => (m === "edit" ? "preview" : "edit"))
+                  }
+                >
+                  {inputMarkdownMode === "edit" ? (
+                    <Eye className="size-4" />
+                  ) : (
+                    <Pencil className="size-4" />
+                  )}
+                  <span className={cn(showLabels ? "inline-flex" : "hidden")}>
+                    {inputMarkdownMode === "edit" ? "Preview" : "Edit"}
+                  </span>
+                </PromptInputButton>
+              )}
               <PromptInputButton
                 size={"dynamic-sm"}
                 variant={useWebSearch ? "default" : "ghost"}
@@ -363,7 +465,9 @@ export const CoreInput: React.FC<CoreInputProps> = ({
                   <PromptInputActionAddAttachments />
                 </PromptInputActionMenuContent>
               </PromptInputActionMenu>
-              <PromptInputSpeechButton textareaRef={textareaRef} onTranscriptionChange={setText} />
+              {(!enableMarkdownInputPreview || inputMarkdownMode === "edit") && (
+                <PromptInputSpeechButton textareaRef={textareaRef} onTranscriptionChange={setText} />
+              )}
             </div>
           </PromptInputTools>
         </div>
