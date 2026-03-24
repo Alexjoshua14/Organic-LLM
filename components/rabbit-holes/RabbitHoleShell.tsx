@@ -49,6 +49,7 @@ import {
 import { useIsMobile } from "@/hooks/use-mobile";
 import { createLogger } from "@/lib/logger";
 import { RABBIT_HOLE_UNTITLED } from "@/lib/rabbit-holes/constants";
+import { layout as layoutTokens, pageHeader } from "@/lib/rabbit-holes/tokens";
 import { useRabbitHoles } from "@/lib/rabbit-holes/useRabbitHoles";
 import { cn } from "@/lib/utils";
 import { RabbitHoleNode, RabbitHoleSession } from "@/lib/schemas/rabbitHoleSchemas";
@@ -312,13 +313,13 @@ export function RabbitHoleShell() {
             <div className="flex items-center justify-between max-w-7xl mx-auto h-6">
               {!open && (
                 <Link
-                  className="text-muted-foreground hover:text-foreground transition-colors text-sm tracking-wide pointer-events-auto"
+                  className={cn(pageHeader.backLink, "pointer-events-auto")}
                   href="/rabbitholes/browse"
                 >
                   ← Back to Browser
                 </Link>
               )}
-              <h1 className="absolute left-1/2 -translate-x-1/2 font-commissioner text-2xl font-light tracking-wide text-foreground">
+              <h1 className={cn("absolute left-1/2 -translate-x-1/2", pageHeader.text)}>
                 <Link href="/rabbitholes/browse">Rabbit Hole Explorer</Link>
               </h1>
               <div className="w-24" /> {/* Spacer for centering */}
@@ -340,12 +341,10 @@ export function RabbitHoleShell() {
           >
             <div
               className={cn(
-                "mx-auto w-full max-w-7xl",
+                cn("mx-auto w-full", layoutTokens.gridMaxWidth),
                 "flex flex-col gap-12",
                 "lg:grid lg:gap-8",
-                focusMode
-                  ? "lg:grid-cols-[1fr]"
-                  : "lg:grid-cols-[260px_1fr_260px]"
+                focusMode ? layoutTokens.gridColsFocus : layoutTokens.gridCols
               )}
             >
               {/* ── Left column: Exploration Path ── */}

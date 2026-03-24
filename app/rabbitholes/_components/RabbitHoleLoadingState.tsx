@@ -3,6 +3,9 @@
 import { motion } from "framer-motion";
 import { Loader2 } from "lucide-react";
 
+import { cn } from "@/lib/utils";
+import { loading as loadingTokens, sectionLabel } from "@/lib/rabbit-holes/tokens";
+
 interface RabbitHoleLoadingStateProps {
   message?: string;
   variant?: "initial" | "branch" | "article" | "sources";
@@ -39,18 +42,17 @@ export function RabbitHoleLoadingState({
           ease: "linear",
         }}
       >
-        <Loader2 className="w-8 h-8 text-muted-foreground" />
+        <Loader2 className={loadingTokens.spinner} />
       </motion.div>
       <motion.p
         animate={{ opacity: 1, y: 0 }}
-        className="text-muted-foreground text-sm tracking-wide"
+        className={loadingTokens.message}
         initial={{ opacity: 0, y: 10 }}
         transition={{ delay: 0.1 }}
       >
         {displayMessage}
       </motion.p>
 
-      {/* Quick preview if available */}
       {preview && (
         <motion.div
           animate={{ opacity: 1, y: 0 }}
@@ -59,17 +61,14 @@ export function RabbitHoleLoadingState({
           transition={{ delay: 0.2 }}
         >
           <div className="bg-card/50 backdrop-blur-sm border border-border rounded-lg p-6">
-            <p className="font-commissioner text-xs uppercase tracking-[0.2em] text-muted-foreground mb-3 font-light">
-              Preview
-            </p>
-            <p className="text-foreground text-base leading-relaxed">{preview}</p>
+            <p className={cn(sectionLabel, "mb-3")}>Preview</p>
+            <p className={loadingTokens.previewBody}>{preview}</p>
           </div>
         </motion.div>
       )}
 
       {/* Condensed skeleton loader */}
       <div className="w-full max-w-xl space-y-4 mt-4">
-        {/* Key takeaways skeleton */}
         <div className="space-y-3">
           <div className="h-3 w-28 bg-border rounded animate-pulse" />
           <div className="space-y-2">
@@ -86,7 +85,6 @@ export function RabbitHoleLoadingState({
           </div>
         </div>
 
-        {/* Article skeleton */}
         <div className="space-y-3 pt-4">
           <div className="h-5 w-2/3 bg-border rounded animate-pulse" />
           <div className="space-y-2">
