@@ -61,7 +61,6 @@ export function RabbitHoleArticle({
       setArticleText(text);
     }
   }, [articleHtml]);
-  const [activeSectionIndex, setActiveSectionIndex] = useState<number | null>(null);
 
   useEffect(() => {
     const article = articleRef.current;
@@ -111,7 +110,6 @@ export function RabbitHoleArticle({
       const observer = new IntersectionObserver((entries) => {
         entries.forEach((entry) => {
           if (entry.isIntersecting) {
-            setActiveSectionIndex(idx);
             onActiveSectionChange(idx);
           }
         });
@@ -148,18 +146,18 @@ export function RabbitHoleArticle({
       initial={{ opacity: 0, y: 20 }}
       transition={{ duration: 0.4, ease: [0.2, 0.8, 0.2, 1] }}
     >
-      <div className="mb-6">
+      <div className="snap-start scroll-mt-2 mb-3 min-h-[min(28vh,260px)]">
         <h1 className="font-commissioner text-3xl font-light tracking-tight text-foreground mb-3">
           {title}
         </h1>
-        <div className="max-w-xl">
-          <RabbitHoleTTSButton nodeId={nodeId} text={articleText} />
-        </div>
+      </div>
+      <div className="snap-start scroll-mt-2 mb-6 max-w-xl min-h-[min(24vh,220px)]">
+        <RabbitHoleTTSButton nodeId={nodeId} text={articleText} />
       </div>
 
       {showTakeaways && (
         <Collapsible
-          className="bg-card/80 backdrop-blur-sm rounded-lg border border-border shadow-sm mb-10"
+          className="snap-start scroll-mt-2 bg-card/80 backdrop-blur-sm rounded-lg border border-border shadow-sm mb-10"
           open={takeawaysOpen}
           onOpenChange={setTakeawaysOpen}
         >
@@ -227,7 +225,7 @@ export function RabbitHoleArticle({
           "text-muted-foreground",
           "leading-[1.8]",
           "[&_h2]:font-commissioner [&_h2]:text-3xl [&_h2]:font-light [&_h2]:mt-16 [&_h2]:mb-8 [&_h2]:text-foreground [&_h2]:tracking-tight",
-          "[&_h2[id^='takeaway-']]:scroll-mt-20",
+          "[&_h2[id^='takeaway-']]:scroll-mt-20 [&_h2[id^='takeaway-']]:snap-start",
           "[&_h2[id^='takeaway-']]:transition-colors",
           "[&_h3]:font-commissioner [&_h3]:text-2xl [&_h3]:font-light [&_h3]:mt-12 [&_h3]:mb-6 [&_h3]:text-foreground",
           "[&_p]:mb-8 [&_p]:text-lg [&_p]:leading-relaxed",

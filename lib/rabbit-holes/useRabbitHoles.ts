@@ -19,6 +19,8 @@ import { Result, SimpleResult } from "@/types";
 import { getSessionById, saveSession } from "@/data/supabase/rabbitholes";
 import { clientRandomUUID } from "@/lib/client-uuid";
 
+import { RABBIT_HOLE_UNTITLED } from "./constants";
+
 const logger = createLogger("useRabbitHoles");
 
 /**
@@ -282,7 +284,7 @@ export function useRabbitHoles(): UseRabbitHolesReturn {
           ...baseSession.path,
           {
             nodeId: node.id,
-            label: question,
+            label: RABBIT_HOLE_UNTITLED,
             parentNodeId: baseSession.activeNodeId ?? null,
           },
         ],
