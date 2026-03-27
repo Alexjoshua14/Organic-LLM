@@ -3,7 +3,7 @@
 import { motion } from "framer-motion";
 
 import { cn } from "@/lib/utils";
-import { card, sectionLabel, takeaway } from "@/lib/rabbit-holes/tokens";
+import { card, sectionLabel, takeaway } from "@/lib/rabbit-holes/designTokens";
 
 interface RabbitHoleKeyTakeawaysProps {
   takeaways: string[];

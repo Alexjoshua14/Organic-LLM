@@ -51,6 +51,7 @@ describe("Chat page load failure", () => {
     const ChatPage = (await import("@/app/chat/[slug]/page")).default;
     const jsx = await ChatPage({
       params: Promise.resolve({ slug: "non-existent-thread-id" }),
+      searchParams: Promise.resolve({}),
     });
 
     expect(jsx).toBeDefined();

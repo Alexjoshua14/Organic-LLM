@@ -49,7 +49,7 @@ import {
 import { useIsMobile } from "@/hooks/use-mobile";
 import { createLogger } from "@/lib/logger";
 import { RABBIT_HOLE_UNTITLED } from "@/lib/rabbit-holes/constants";
-import { layout as layoutTokens, pageHeader } from "@/lib/rabbit-holes/tokens";
+import { layout as layoutTokens, pageHeader } from "@/lib/rabbit-holes/designTokens";
 import { useRabbitHoles } from "@/lib/rabbit-holes/useRabbitHoles";
 import { cn } from "@/lib/utils";
 import { RabbitHoleNode, RabbitHoleSession } from "@/lib/schemas/rabbitHoleSchemas";
