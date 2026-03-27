@@ -28,6 +28,9 @@ const MAX_TOKENS_FOR_HISTORY = 4000;
 
 /** Max tokens for full history and date-filtered history tools. */
 const MAX_TOKENS_FULL_HISTORY = 24000;
+/** Token caps for Mermaid tool sub-calls to avoid unbounded tool latency/cost. */
+const MERMAID_PLANNER_MAX_OUTPUT_TOKENS = 700;
+const MERMAID_GENERATOR_MAX_OUTPUT_TOKENS = 2200;
 
 let mermaidValidationInit: Promise<any> | null = null;
 async function getMermaidForValidation(): Promise<any> {
@@ -56,6 +59,21 @@ async function validateMermaidCode(code: string): Promise<{ ok: boolean; error?:
           : typeof e === "string"
             ? e
             : "Mermaid parse failed";
+
+    // Mermaid can throw a runtime sanitize error in server environments.
+    // Do not mark this as valid; return a targeted error so the generator can retry/fix.
+    if (/sanitize\s+is\s+not\s+a\s+function/i.test(msg)) {
+      logger.warn(
+        "mermaid_validation",
+        "Server Mermaid validation hit sanitize runtime issue; requesting retry/fix."
+      );
+      return {
+        ok: false,
+        error:
+          "Server-side Mermaid validator hit a sanitize runtime issue. Regenerate with strict Mermaid syntax only (no HTML labels), and keep it compatible with Mermaid run() in browser.",
+      };
+    }
+
     return { ok: false, error: msg };
   }
 }
@@ -558,6 +576,7 @@ export function createMermaidDiagramTool(options?: {
         model: plannerModelId,
         system: planningSystem,
         prompt: JSON.stringify({ prompt, diagramType }),
+        maxOutputTokens: MERMAID_PLANNER_MAX_OUTPUT_TOKENS,
       });
 
       const generatorSystem = MERMAID_DIAGRAM_GENERATOR_SYSTEM_PROMPT;
@@ -604,6 +623,7 @@ export function createMermaidDiagramTool(options?: {
           model: generatorModelId,
           system,
           prompt: genOrFixPrompt,
+          maxOutputTokens: MERMAID_GENERATOR_MAX_OUTPUT_TOKENS,
         });
 
         normalizedCode = normalizeMermaidCode(gen.text);

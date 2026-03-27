@@ -226,7 +226,7 @@ function ArcadiaToolOutputs({ messageId, parts }: { messageId: string; parts: un
               </summary>
               {mermaid && (
                 <div className="mt-2">
-                  <MermaidDiagram code={mermaid} />
+                  <MermaidDiagram code={mermaid} expandOnDoubleClick />
                 </div>
               )}
               <pre className="mt-2 max-h-72 overflow-auto rounded bg-background/60 p-2 text-[11px] leading-snug text-foreground/90">

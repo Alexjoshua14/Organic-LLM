@@ -96,7 +96,7 @@ function getCurrentDateFormats(): string[] {
  * Calculates semantic similarity between two strings
  * Returns a score between 0 and 1
  */
-function calculateSimilarity(text1: string, text2: string): number {
+export async function calculateSimilarity(text1: string, text2: string): Promise<number> {
   const normalized1 = normalizeText(text1);
   const normalized2 = normalizeText(text2);
 
@@ -159,7 +159,7 @@ export async function matchesThread(
   const normalizedTitle = normalizeText(threadTitle);
 
   // Check text similarity
-  const similarity = calculateSimilarity(normalizedQuery, normalizedTitle);
+  const similarity = await calculateSimilarity(normalizedQuery, normalizedTitle);
 
   // Check date matching if dates are present
   const queryDate = extractDate(query);
@@ -259,7 +259,7 @@ export async function findMatchingThread(
 
     for (const thread of threads) {
       if (await matchesThread(thread.title ?? null, query, date)) {
-        const similarity = calculateSimilarity(
+        const similarity = await calculateSimilarity(
           normalizeText(query),
           normalizeText(thread.title ?? "")
         );

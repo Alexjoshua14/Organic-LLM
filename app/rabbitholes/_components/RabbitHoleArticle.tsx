@@ -1,10 +1,12 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { createRoot, type Root } from "react-dom/client";
 import { motion } from "framer-motion";
 
 import { RabbitHoleTTSButton } from "./RabbitHoleTTSButton";
 
+import { CodeBlock } from "@/components/shared/code-block";
 import { cn } from "@/lib/utils";
 import {
   Collapsible,
@@ -20,7 +22,7 @@ import {
   takeaway,
   articleContent,
   articleContentClasses,
-} from "@/lib/rabbit-holes/tokens";
+} from "@/lib/rabbit-holes/designTokens";
 
 interface RabbitHoleArticleProps {
   title: string;
@@ -58,6 +60,7 @@ export function RabbitHoleArticle({
   useEffect(() => {
     if (typeof window !== "undefined" && articleRef.current) {
       const text = articleRef.current.textContent || articleRef.current.innerText || "";
+
       setArticleText(text);
     } else {
       const text = articleHtml
@@ -66,19 +69,23 @@ export function RabbitHoleArticle({
         .replace(/<[^>]+>/g, " ")
         .replace(/\s+/g, " ")
         .trim();
+
       setArticleText(text);
     }
   }, [articleHtml]);
 
   useEffect(() => {
     const article = articleRef.current;
+
     if (!article) return;
 
     const handleClick = (e: MouseEvent) => {
       const target = e.target as HTMLElement;
       const branchElement = target.closest("[data-branch-id]") as HTMLElement;
+
       if (branchElement) {
         const branchId = branchElement.getAttribute("data-branch-id");
+
         if (branchId) {
           e.preventDefault();
           onBranchClick(branchId);
@@ -87,6 +94,7 @@ export function RabbitHoleArticle({
     };
 
     article.addEventListener("click", handleClick);
+
     return () => {
       article.removeEventListener("click", handleClick);
     };
@@ -94,9 +102,11 @@ export function RabbitHoleArticle({
 
   useEffect(() => {
     const article = articleRef.current;
+
     if (!article || !onActiveSectionChange) return;
 
     const sections = article.querySelectorAll("h2[id^='takeaway-']");
+
     if (sections.length === 0) return;
 
     const observerOptions = {
@@ -127,6 +137,7 @@ export function RabbitHoleArticle({
 
   useEffect(() => {
     const article = articleRef.current;
+
     if (!article) return;
 
     const sections = article.querySelectorAll("h2[id^='takeaway-']");
@@ -138,6 +149,70 @@ export function RabbitHoleArticle({
       (section as HTMLElement).style.scrollMarginTop = margin;
     });
   }, [articleHtml, compact]);
+
+  /** Upgrade raw `<pre>` from LLM HTML to the same CodeBlock UI as Chat (before paint). */
+  useLayoutEffect(() => {
+    const article = articleRef.current;
+
+    if (!article) return;
+
+    const entries: Array<{
+      root: Root;
+      mountHost: HTMLDivElement;
+      parent: HTMLElement;
+      preSnapshot: string;
+    }> = [];
+    const pres = Array.from(article.querySelectorAll("pre"));
+
+    pres.forEach((pre) => {
+      const parent = pre.parentElement;
+
+      if (!parent) return;
+
+      const preSnapshot = pre.outerHTML;
+      const preClass = pre.getAttribute("class") ?? "";
+      const innerCode = pre.querySelector("code");
+      const codeClass = innerCode?.getAttribute("class") ?? "";
+      const text = innerCode?.textContent ?? pre.textContent ?? "";
+      const mountHost = document.createElement("div");
+
+      mountHost.className = "rh-article-codeblock-root mb-4 max-w-full min-w-0 last:mb-0";
+
+      parent.replaceChild(mountHost, pre);
+
+      const root = createRoot(mountHost);
+
+      entries.push({ root, mountHost, parent, preSnapshot });
+      root.render(
+        <CodeBlock className={preClass || undefined} containerClassName="w-full min-w-0">
+          <code className={codeClass || undefined}>{text}</code>
+        </CodeBlock>
+      );
+    });
+
+    return () => {
+      const toTeardown = entries;
+
+      queueMicrotask(() => {
+        toTeardown.forEach(({ root, mountHost, parent, preSnapshot }) => {
+          try {
+            root.unmount();
+          } catch {
+            /* ignore */
+          }
+          if (!mountHost.isConnected) return;
+          const wrap = document.createElement("div");
+
+          wrap.innerHTML = preSnapshot;
+          const restored = wrap.firstElementChild;
+
+          if (restored) {
+            parent.replaceChild(restored, mountHost);
+          }
+        });
+      });
+    };
+  }, [articleHtml]);
 
   return (
     <motion.div
@@ -152,12 +227,7 @@ export function RabbitHoleArticle({
       transition={{ duration: 0.4, ease: [0.2, 0.8, 0.2, 1] }}
     >
       <div className={cn("snap-start scroll-mt-2 min-h-0", heroSpacing.titleBlock)}>
-        <h1
-          className={cn(
-            titleToken.base,
-            compact ? titleToken.compact : titleToken.desktop
-          )}
-        >
+        <h1 className={cn(titleToken.base, compact ? titleToken.compact : titleToken.desktop)}>
           {title}
         </h1>
       </div>
@@ -193,10 +263,13 @@ export function RabbitHoleArticle({
             </span>
           </CollapsibleTrigger>
           <CollapsibleContent>
-            <div className={compact ? takeaway.innerPadding.compact : takeaway.innerPadding.desktop}>
+            <div
+              className={compact ? takeaway.innerPadding.compact : takeaway.innerPadding.desktop}
+            >
               <ul className={compact ? takeaway.listGap.compact : takeaway.listGap.desktop}>
                 {takeaways.map((tw, index) => {
                   const isActive = activeTakeawayIndex === index;
+
                   return (
                     <motion.li
                       key={index}
@@ -212,6 +285,7 @@ export function RabbitHoleArticle({
                       whileHover={{ x: 2 }}
                       onClick={() => {
                         const section = document.getElementById(`takeaway-${index}`);
+
                         if (section) {
                           section.scrollIntoView({ behavior: "smooth", block: "start" });
                         }

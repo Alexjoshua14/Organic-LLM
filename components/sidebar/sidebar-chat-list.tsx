@@ -131,13 +131,20 @@ export const SidebarChatList: FC<SidebarChatListProps> = ({ threads }) => {
                 className={cn(
                   "font-extralight text-sm w-full rounded px-3 transition-colors duration-150 group/thread cursor-pointer min-w-0 relative flex items-center",
                   isArcadia
-                    ? [
+                    ? cn(
                         "border border-transparent",
                         "hover:bg-amber-950/10 dark:hover:bg-amber-950/20",
                         "hover:border-amber-900/10 dark:hover:border-amber-200/10",
                         "hover:backdrop-saturate-150 hover:backdrop-blur-2xl",
                         "hover:backdrop-brightness-110 dark:hover:backdrop-brightness-200",
-                      ].join(" ")
+                        isActiveThread &&
+                          cn(
+                            "bg-amber-950/10 dark:bg-amber-950/20",
+                            "border-amber-900/10 dark:border-amber-200/10",
+                            "backdrop-saturate-150 backdrop-blur-2xl",
+                            "backdrop-brightness-110 dark:backdrop-brightness-200"
+                          )
+                      )
                     : "hover:bg-background",
                   isArcadia ? "text-foreground" : "text-foreground-secondary"
                 )}
@@ -236,7 +243,7 @@ export const SidebarChatList: FC<SidebarChatListProps> = ({ threads }) => {
                 </div>
               )}
               <AnimatePresence>
-                {isActiveThread && (
+                {isActiveThread && !isArcadia && (
                   <motion.div
                     key={thread.id}
                     animate={{ opacity: 1 }}

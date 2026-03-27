@@ -65,13 +65,10 @@ export const card = "bg-card/80 backdrop-blur-sm rounded-lg border border-border
 // ─── Article HTML content tokens (applied via [&_*] selectors) ───────────────
 
 export const articleContent = {
-  /** Root text color */
-  base: "text-muted-foreground",
+  /** Root: text color, min-w-0 for flex/grid shrink, clip x-overflow so code blocks can't widen the page */
+  base: "text-muted-foreground min-w-0 overflow-x-hidden",
 
   leading: { desktop: "leading-[1.65]", compact: "leading-[1.55]" },
-
-  /** Compact overflow guard */
-  compactOverflow: "overflow-x-hidden",
 
   h2: {
     desktop:
@@ -98,8 +95,8 @@ export const articleContent = {
     compact: "[&_p]:mb-4 [&_p]:text-base [&_p]:leading-[1.5]",
   },
 
-  code: "[&_code]:break-words [&_code]:font-mono [&_code]:text-sm",
-  pre: "[&_pre]:max-w-full [&_pre]:overflow-x-auto [&_pre]:whitespace-pre-wrap [&_pre]:font-mono [&_pre]:text-sm",
+  /** Inline <code> only — fenced blocks use shared CodeBlock (see RabbitHoleArticle useLayoutEffect). */
+  code: "text-sm [&_p>code]:break-words [&_p>code]:font-mono [&_p>code]:text-sm [&_li>code]:break-words [&_li>code]:font-mono [&_li>code]:text-sm",
   img: "[&_img]:max-w-full [&_img]:h-auto",
   table: "[&_table]:block [&_table]:w-full [&_table]:overflow-x-auto",
   strong: "[&_strong]:font-medium [&_strong]:text-foreground/85",
@@ -196,14 +193,12 @@ export function articleContentClasses(compact: boolean): string[] {
     "article-content",
     articleContent.base,
     pick(compact, articleContent.leading.compact, articleContent.leading.desktop),
-    ...(compact ? [articleContent.compactOverflow] : []),
     pick(compact, articleContent.h2.compact, articleContent.h2.desktop),
     pick(compact, articleContent.h2Takeaway.compact, articleContent.h2Takeaway.desktop),
     articleContent.h2Takeaway.shared,
     pick(compact, articleContent.h3.compact, articleContent.h3.desktop),
     pick(compact, articleContent.p.compact, articleContent.p.desktop),
     articleContent.code,
-    articleContent.pre,
     articleContent.img,
     articleContent.table,
     articleContent.strong,
