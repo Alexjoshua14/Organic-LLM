@@ -11,8 +11,15 @@ import { ChatLoadError } from "./chat-load-error";
 
 const logger = createLogger(`app/chat/[slug]/page.tsx`);
 
-export default async function ChatPage({ params }: { params: Promise<{ slug: string }> }) {
+export default async function ChatPage({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ slug: string }>;
+  searchParams: Promise<{ draft?: string }>;
+}) {
   const { slug: chatId } = await params;
+  const { draft } = await searchParams;
 
   const id = chatId;
 
@@ -37,7 +44,7 @@ export default async function ChatPage({ params }: { params: Promise<{ slug: str
   return (
     <Page>
       <div className="w-full h-full">
-        <Chat chatData={chatData} />
+        <Chat chatData={chatData} initialDraft={draft} />
       </div>
     </Page>
   );

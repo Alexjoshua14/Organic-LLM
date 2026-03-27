@@ -62,7 +62,7 @@ export function SessionCard({
         <div className="flex items-center gap-2 shrink-0">
           {showDelete && onDelete && (
             <button
-              className="p-2 rounded-md text-muted-foreground hover:text-destructive hover:bg-card/30 opacity-0 group-hover:opacity-100 transition-opacity"
+              className="p-2 rounded-md text-muted-foreground opacity-100 transition-opacity hover:text-destructive hover:bg-card/30 md:opacity-0 md:group-hover:opacity-100"
               disabled={isDeleting}
               type="button"
               onClick={(e) => {
@@ -75,7 +75,7 @@ export function SessionCard({
           )}
           {isInteractive && (
             <ArrowRight
-              className="text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity"
+              className="text-muted-foreground opacity-100 transition-opacity md:opacity-0 md:group-hover:opacity-100"
               size={16}
             />
           )}

@@ -12,7 +12,10 @@ import { AiInputForm } from "./ai-input-form";
 import { useAion } from "@/hooks/use-aion";
 import { createLogger } from "@/lib/logger";
 import { createChat } from "@/lib/chat/chat-store";
+import { routeHomepagePrompt } from "@/lib/chat/thread-routing";
+import { appendDraftQueryParam } from "@/lib/chat/thread-routing-candidates";
 import { useSharedChatContext } from "@/lib/context/chat-context";
+import { getSettings } from "@/lib/user-settings";
 import { cn } from "@/lib/utils";
 
 const logger = createLogger("ai-input");
@@ -26,6 +29,7 @@ export const AIInput: React.FC = () => {
   const elementActive = useRef<boolean>(false);
   const { refreshSidebarChats } = useSharedChatContext();
   const [creating, setCreating] = useState(false);
+  const [routing, setRouting] = useState(false);
 
   const handleLetsChat = useCallback(async () => {
     if (creating) return;
@@ -72,7 +76,8 @@ export const AIInput: React.FC = () => {
         switch (page) {
           case "chat":
             // Aion will create/route to chat - navigation can happen after response
-            handleLetsChat();
+            void handleLetsChat();
+            break;
           case "rabbit-hole":
             // Aion will create rabbit hole session
             break;
@@ -89,20 +94,69 @@ export const AIInput: React.FC = () => {
 
   const handleSubmit = useCallback(
     async (prompt: string) => {
-      if (!prompt.trim() || aion.status !== "ready") return;
+      const trimmed = prompt.trim();
+
+      if (
+        !trimmed ||
+        routing ||
+        aion.status === "streaming" ||
+        aion.status === "submitted"
+      ) {
+        return;
+      }
+
+      const clientStart = performance.now();
 
       try {
-        logger.log("handleSubmit", `Sending message to Aion, length: ${prompt?.length ?? 0}`);
-        aion.sendMessage({ text: prompt });
+        setRouting(true);
+        const coalescenceMode = getSettings().coalescenceMode;
+        const routeRes = await routeHomepagePrompt({ prompt: trimmed, coalescenceMode });
+        const clientRoundTripMs = performance.now() - clientStart;
+
+        if (routeRes.error || !routeRes.data) {
+          logger.error(
+            "handleSubmit",
+            `Semantic routing failed: ${routeRes.error?.message ?? "unknown"}`
+          );
+
+          return;
+        }
+
+        const { metrics } = routeRes.data;
+
+        logger.log(
+          "handleSubmit",
+          JSON.stringify({
+            event: "homepage_route_client",
+            clientRoundTripMs,
+            serverTotalMs: metrics.totalServerMs,
+            serverClassificationMs: metrics.classificationMs,
+            serverFetchCandidatesMs: metrics.fetchCandidatesMs,
+            outcome: routeRes.data.outcome,
+            candidateCount: metrics.candidateCount,
+            coalescenceMode,
+          })
+        );
+
+        if (routeRes.data.outcome === "match") {
+          refreshSidebarChats();
+          router.push(appendDraftQueryParam(routeRes.data.href, trimmed));
+
+          return;
+        }
+
+        refreshSidebarChats();
+        router.push(appendDraftQueryParam(`/chat/${routeRes.data.chatId}`, trimmed));
       } catch (error) {
-        logger.error("handleSubmit", `Error sending message ${error}`);
+        logger.error("handleSubmit", `Error routing homepage prompt ${error}`);
+      } finally {
+        setRouting(false);
       }
     },
-    [aion]
+    [aion.status, refreshSidebarChats, router, routing]
   );
 
-  // Determine loading state from useAion status
-  const isProcessing = aion.status === "streaming" || aion.status === "submitted";
+  const isProcessing = routing || aion.status === "streaming" || aion.status === "submitted";
 
   return (
     <motion.div
@@ -120,7 +174,7 @@ export const AIInput: React.FC = () => {
       <AiInputForm
         className="w-full max-w-xl rounded-xl"
         isLoading={isProcessing}
-        status={aion.status}
+        status={routing ? "submitted" : aion.status}
         onSubmit={handleSubmit}
       />
       <div className="flex gap-10 justify-center">

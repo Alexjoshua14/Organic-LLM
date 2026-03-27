@@ -4,7 +4,7 @@ import { motion } from "framer-motion";
 import { Loader2 } from "lucide-react";
 
 import { cn } from "@/lib/utils";
-import { loading as loadingTokens, sectionLabel } from "@/lib/rabbit-holes/tokens";
+import { loading as loadingTokens, sectionLabel } from "@/lib/rabbit-holes/designTokens";
 
 interface RabbitHoleLoadingStateProps {
   message?: string;

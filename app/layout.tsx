@@ -60,7 +60,8 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                   <ControlCluster />
                   <main className="grow w-full overflow-hidden bg-background sm:bg-background-secondary h-full min-h-dvh">
                     <div
-                      className={`${glass()} absolute top-0 left-0 pl-4 z-30 w-20 h-14 flex items-center rounded-br-lg md:hidden`}
+                      className={`${glass()} absolute top-0 left-0 z-30 flex h-14 w-20 items-center rounded-br-lg pl-4 md:hidden`}
+                      data-mobile-nav-chrome="sidebar-trigger"
                     >
                       <SidebarTrigger />
                     </div>

@@ -6,7 +6,7 @@ import { ChevronDown, ChevronUp } from "lucide-react";
 
 import { RabbitHoleSource } from "@/lib/schemas/rabbitHoleSchemas";
 import { cn } from "@/lib/utils";
-import { card, sectionLabel, sidebar } from "@/lib/rabbit-holes/tokens";
+import { card, sectionLabel, sidebar } from "@/lib/rabbit-holes/designTokens";
 
 interface RabbitHoleSourceListProps {
   sources: RabbitHoleSource[];

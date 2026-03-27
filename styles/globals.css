@@ -297,3 +297,29 @@ body.font-theme-commissioner {
     padding-bottom: env(safe-area-inset-bottom);
   }
 }
+
+/* Rabbit Holes — mobile Safari */
+.rabbit-hole-mobile-scroll {
+  -webkit-overflow-scrolling: touch;
+  scroll-padding-bottom: max(1rem, env(safe-area-inset-bottom));
+}
+
+.rabbit-hole-mobile-source-pills {
+  scroll-snap-type: x proximity;
+}
+
+.rabbit-hole-mobile-source-analysis {
+  -webkit-overflow-scrolling: touch;
+}
+
+.rabbit-hole-mobile-bottom-sheet {
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+/* Rabbit Holes explorer only: hide global mobile chrome (browse still shows control cluster) */
+@media (max-width: 767px) {
+  body:has([data-rabbit-hole-explorer]) [data-mobile-nav-chrome="sidebar-trigger"],
+  body:has([data-rabbit-hole-explorer]) .control-cluster {
+    display: none !important;
+  }
+}

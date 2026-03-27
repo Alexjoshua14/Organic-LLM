@@ -18,7 +18,7 @@ export function ChatLoadError() {
         <button
           type="button"
           onClick={() => router.refresh()}
-          className="text-sm font-medium text-primary hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          className="text-sm font-medium text-primary hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-ring cursor-pointer"
         >
           Try again
         </button>

@@ -57,19 +57,19 @@ export function RabbitHolesBrowseContent({ initialSessions }: RabbitHolesBrowseC
   };
 
   return (
-    <Page className="block px-8 py-14">
-      <div className="flex items-center justify-between mb-8">
+    <Page className="block px-5 py-10 sm:px-8 sm:py-14">
+      <div className="mb-6 flex flex-col gap-4 sm:mb-8 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="font-commissioner text-4xl font-light tracking-tight text-foreground mb-2">
+          <h1 className="mb-2 font-commissioner text-3xl font-light tracking-tight text-foreground sm:text-4xl">
             Rabbit Holes
           </h1>
-          <p className="text-muted-foreground text-sm">
+          <p className="text-sm text-muted-foreground">
             Browse and manage your exploration sessions
           </p>
         </div>
-        <Link href="/rabbitholes">
+        <Link className="shrink-0" href="/rabbitholes">
           <Button
-            className="bg-foreground text-background hover:opacity-80"
+            className="w-full bg-foreground text-background hover:opacity-80 sm:w-auto"
             startContent={<Plus size={16} />}
           >
             New Rabbit Hole

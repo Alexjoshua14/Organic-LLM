@@ -13,7 +13,7 @@ import {
   title as titleToken,
   card,
   sourceAnalysis as sa,
-} from "@/lib/rabbit-holes/tokens";
+} from "@/lib/rabbit-holes/designTokens";
 
 interface RabbitHoleSourceAnalysisProps {
   analysis: RabbitHoleSourceAnalysis;
