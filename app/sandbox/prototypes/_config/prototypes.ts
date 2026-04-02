@@ -28,6 +28,12 @@ export const prototypes: PrototypeEntry[] = [
     description:
       "Tell me a wine; I show a table (Wine, Style, Key Food Affinities). Editable rows, reorder, sort by category or attributes.",
   },
+  {
+    slug: "strata",
+    title: "Strata",
+    description:
+      "Five-section desktop prototype: Raw Text, Refined Text, Elaborated, Design Instructions, and AI Instructions with persistent multi-page docs.",
+  },
 ];
 
 export function getPrototypeHref(slug: string): string {
