@@ -26,7 +26,6 @@ import {
   createGetFullChatHistoryTool,
   createGetMessagesFromDateTool,
   createGetMoreMessagesTool,
-  createMermaidDiagramTool,
   createMemorySearchTool,
   createWebSearchTool,
   type WebSearchStreamWriter,
@@ -34,7 +33,7 @@ import {
 import { createLogger } from "@/lib/logger";
 import { SYSTEM_PROMPT } from "@/lib/system-prompt/prompt-v0";
 import { addLatestMessagesToMemoryForUser } from "@/lib/memory/operations";
-import { ChatRequestSchema, DEFAULT_CHAT_MODEL } from "@/lib/schemas/chat";
+import { ChatRequestSchema, DEFAULT_CHAT_MODEL, type SendMode } from "@/lib/schemas/chat";
 import { getSupabaseUserId } from "@/data/supabase/profiles";
 import { checkLlmMessageLimit } from "@/lib/rate-limit/llm";
 import {
@@ -44,11 +43,6 @@ import {
   measureAsync,
 } from "@/lib/llm/helpers";
 import { ChatUIMessage, ChatAIActionEnum } from "@/types/ai";
-import {
-  ARCADIA_HELP_RESPONSE,
-  getLastUserMessageText,
-  isArcadiaHelpQuery,
-} from "@/lib/arcadia/help-response";
 
 // Allow streaming responses up to 30 seconds
 export const maxDuration = 30;
@@ -58,6 +52,17 @@ const MAX_TOOL_STEPS = 10;
 // const tools = {};
 
 const logger = createLogger(`app/api/chat/route.ts`);
+const PROCESS_ONLY_ACK_MODEL_ID = process.env.CHAT_PROCESS_ONLY_ACK_MODEL_ID ?? "openai/gpt-oss-20b";
+const PROCESS_ONLY_ACK_MODEL_NAME =
+  process.env.CHAT_PROCESS_ONLY_ACK_MODEL_NAME ?? "Process Ack Model";
+const PROCESS_ONLY_ACK_MAX_OUTPUT_TOKENS = 96;
+
+function getProcessOnlyAckModel() {
+  return {
+    id: PROCESS_ONLY_ACK_MODEL_ID,
+    name: PROCESS_ONLY_ACK_MODEL_NAME,
+  };
+}
 
 export async function POST(req: Request) {
   const body = await req.json();
@@ -68,6 +73,9 @@ export async function POST(req: Request) {
   const selectedModel = requestedModel ? getChatModel(requestedModel) : DEFAULT_CHAT_MODEL;
 
   const memoryEnabled = parseResult.data?.memory;
+  const sendMode: SendMode = parseResult.data?.sendMode ?? "respond";
+  const processOnlyAckModel = getProcessOnlyAckModel();
+  const activeModel = sendMode === "process_only" ? processOnlyAckModel : selectedModel;
 
   logger.log(
     "POST",
@@ -83,8 +91,11 @@ export async function POST(req: Request) {
     });
   }
 
-  const { message: incomingMessage, id, zeroDataRetention, experience } = parseResult.data;
-  const message = incomingMessage as UIMessage;
+  const { message: incomingMessage, id, zeroDataRetention } = parseResult.data;
+  const message = {
+    ...(incomingMessage as UIMessage),
+    sendMode,
+  } as UIMessage;
 
   // Zero Data Retention Policy is in regards to external LLMs, not Organic LLM at this time
   // If enabled, we only use LLMs that have ZDR compatibility
@@ -155,7 +166,7 @@ export async function POST(req: Request) {
         type: "data-aiAction",
         data: {
           action: ChatAIActionEnum.Processing,
-          message: "Gathering context",
+          message: sendMode === "process_only" ? "Processing message" : "Gathering context",
         },
         transient: true,
       });
@@ -178,7 +189,7 @@ export async function POST(req: Request) {
           validatedMessages = [message];
           systemPromptForRequest =
             SYSTEM_PROMPT +
-            "\n\n[System note: Chat context (conversation summary and recent messages) could not be loaded for this request. Only the user's latest message is in context. Use get_more_chat_history or get_full_chat_history if you need prior conversation or memories to answer well.]";
+            "\n\n[System note: Chat context (conversation summary and recent messages) could not be loaded for this request. Only the user's latest message is in context. Use get_more_chat_history, get_full_chat_history, or search_memories if you need prior conversation or memories to answer well.]";
           logger.debug("context", "Context failed; using only incoming message");
         } else {
           validatedMessages = [...(chatContextResult.data?.messages ?? []), message];
@@ -195,7 +206,7 @@ export async function POST(req: Request) {
           validatedMessages = [message];
           systemPromptForRequest =
             SYSTEM_PROMPT +
-            "\n\n[System note: Chat context (conversation summary and recent messages) could not be loaded for this request. Only the user's latest message is in context. Use get_more_chat_history or get_full_chat_history if you need prior conversation or memories to answer well.]";
+            "\n\n[System note: Chat context (conversation summary and recent messages) could not be loaded for this request. Only the user's latest message is in context. Use get_more_chat_history, get_full_chat_history, or search_memories if you need prior conversation or memories to answer well.]";
         } else {
           throw err;
         }
@@ -207,7 +218,7 @@ export async function POST(req: Request) {
     System Prompt: ${systemPromptForRequest.length} characters
     \n\n--------------------------------\n\n
     ${validatedMessages.length} messages being sent to LLM
-    Model: ${selectedModel}
+    Model: ${activeModel.id}
     `
       );
 
@@ -234,60 +245,29 @@ export async function POST(req: Request) {
         }),
       });
 
-      // Arcadia: respond with prepared "what can you do" / help without calling the model
-      if (experience === "arcadia") {
-        const lastText = getLastUserMessageText(message);
-        if (isArcadiaHelpQuery(lastText)) {
-          const textPartId = generateId();
-          writer.write({ type: "text-start", id: textPartId });
-          writer.write({
-            type: "text-delta",
-            id: textPartId,
-            delta: ARCADIA_HELP_RESPONSE,
-          });
-          writer.write({ type: "text-end", id: textPartId });
-          const assistantMessage: UIMessage = {
-            id: assistantMessageId,
-            role: "assistant",
-            parts: [{ type: "text", text: ARCADIA_HELP_RESPONSE }],
-          };
-          const saveResult = await saveChat({
-            chatId: id,
-            messages: [...validatedMessages, assistantMessage],
-            activeStreamId: null,
-            useAdminForSave: true,
-            ownerId: sbUserId,
-          });
-          if (saveResult.error) {
-            logger.error("POST", "Failed to save Arcadia help response", {
-              error: saveResult.error,
-            });
-          }
-          return;
-        }
-      }
-
       writer.write({
         type: "data-notification",
-        data: { message: `Using ${selectedModel.name}`, level: "info" },
+        data: { message: `Using ${activeModel.name}`, level: "info" },
         transient: true,
       });
 
-      logger.log("POST", `Calling streamText with model: ${selectedModel}`);
+      logger.log("POST", `Calling streamText with model: ${activeModel.id}`);
 
       const streamStartTime = performance.now();
-      const messages = convertToModelMessages(validatedMessages);
+      const modelMessages = convertToModelMessages(validatedMessages);
+      const processOnly = sendMode === "process_only";
       const initialMessageCount = validatedMessages.length;
-      const { tools, toolInstructions } = await compileTools({
-        useSearch: parseResult.data.webSearch ?? false,
-        useMemory: parseResult.data.memory ?? false,
-        useGetMoreMessages: true,
-        experience,
-        chatId: id,
-        initialMessageCount,
-        sbUserId,
-        writer,
-      });
+      const { tools, toolInstructions } = processOnly
+        ? { tools: {} as ToolSet, toolInstructions: "" }
+        : await compileTools({
+            useSearch: parseResult.data.webSearch ?? false,
+            useMemory: parseResult.data.memory ?? false,
+            useGetMoreMessages: true,
+            chatId: id,
+            initialMessageCount,
+            sbUserId,
+            writer,
+          });
 
       const toolNames = Object.keys(tools);
 
@@ -297,9 +277,9 @@ export async function POST(req: Request) {
         toolInstructionsLength: toolInstructions.length,
       });
 
-      const hasTools = toolNames.length > 0;
+      const hasTools = toolNames.length > 0 && !processOnly;
       // One round of tool use + one round of response; avoids redundant multi-step searches
-      const maxSteps = hasTools ? MAX_TOOL_STEPS : 2;
+      const maxSteps = processOnly ? 1 : hasTools ? MAX_TOOL_STEPS : 2;
 
       if (hasTools) {
         systemPromptForRequest += `\n\nTool Instructions:\n${toolInstructions}`;
@@ -309,46 +289,43 @@ export async function POST(req: Request) {
         systemPromptForRequest += `\n\nOutput format (speech-friendly mode): Format your response for both clear on-screen reading and later use as a script for audio. Use clear structure, headings, and visually appealing formatting. A separate pipeline will convert your text into a speech-friendly script and handle text-to-speech, so focus on clarity, structure, and readability—not on pronouncing abbreviations or avoiding punctuation.`;
       }
 
-      if (experience === "arcadia") {
-        systemPromptForRequest +=
-          `\n\n[Arcadia mode — keep replies short]\n` +
-          `- Target ~50–120 words per reply. Minimize vertical height; mobile should rarely need to scroll for a single answer.\n` +
-          `- Lead with the answer in 1–2 sentences. Use bullets or a tiny list only when necessary; avoid long paragraphs.\n` +
-          `- If more is needed: give a one-screen summary and say "I can expand on X or Y" instead of expanding in the same message.\n` +
-          `- Prefer tool use over prose for complex tasks; then respond with a compact synthesis, not raw output.\n` +
-          `- When the user asks for depth, add a little at a time (one focused follow-up), not a long block.\n`;
-      }
-
       writer.write({
         type: "data-aiAction",
         data: { action: ChatAIActionEnum.Processing, message: "Thinking..." },
         transient: true,
       });
 
-      const systemPromptWithLength =
-        systemPromptForRequest +
-        "\n\n<response_length>\n" +
-        getChatResponseLengthInstruction() +
-        "\n</response_length>";
+      const systemPromptWithLength = processOnly
+        ? [
+            "You are Organic assistant acknowledgment mode.",
+            "The user sent a message with process_only enabled.",
+            "Write exactly one concise acknowledgment sentence (max 18 words).",
+            "Do not answer their request, do not provide analysis, and do not ask follow-up questions.",
+            "Tone should be calm and helpful.",
+          ].join("\n")
+        : systemPromptForRequest +
+          "\n\n<response_length>\n" +
+          getChatResponseLengthInstruction() +
+          "\n</response_length>";
 
       logger.debug("streamText", "Calling streamText", {
-        model: selectedModel.id,
-        modelName: selectedModel.name,
-        messageCount: messages.length,
+        model: activeModel.id,
+        modelName: activeModel.name,
+        messageCount: processOnly ? 1 : modelMessages.length,
         systemPromptLength: systemPromptWithLength.length,
         maxSteps,
         toolChoice: hasTools ? "auto" : "none",
       });
 
       const result = streamText({
-        model: selectedModel.id,
-        messages,
+        model: activeModel.id,
+        messages: processOnly ? convertToModelMessages([message]) : modelMessages,
         system: systemPromptWithLength,
         experimental_transform: smoothStream({
           delayInMs: 20, // optional: defaults to 10ms
           chunking: /(```[\s\S]*?```|^#{1,6}\s.*$|.*?(?:\n|$))/gm, // optional: defaults to 'word'
         }),
-        maxOutputTokens: CHAT_MODEL.maxOutputTokens, // Cap output for dev guardrails
+        maxOutputTokens: processOnly ? PROCESS_ONLY_ACK_MAX_OUTPUT_TOKENS : CHAT_MODEL.maxOutputTokens,
         onError({ error }) {
           const e = error instanceof Error ? error : new Error(String(error));
           logger.error("POST", `Stream error: ${e.name}`);
@@ -447,7 +424,7 @@ export async function POST(req: Request) {
 
             logger.log(
               "POST",
-              `Model (${selectedModel.id}) generated response in ${modelGenerationTime.toFixed(2)}ms (${(modelGenerationTime / 1000).toFixed(2)}s)`
+              `Model (${activeModel.id}) generated response in ${modelGenerationTime.toFixed(2)}ms (${(modelGenerationTime / 1000).toFixed(2)}s)`
             );
 
             try {
@@ -589,7 +566,6 @@ const compileTools = async ({
   useSearch,
   useMemory,
   useGetMoreMessages,
-  experience,
   chatId,
   initialMessageCount,
   sbUserId,
@@ -598,7 +574,6 @@ const compileTools = async ({
   useSearch: boolean;
   useMemory: boolean;
   useGetMoreMessages?: boolean;
-  experience?: string;
   chatId?: string;
   initialMessageCount?: number;
   sbUserId: string;
@@ -632,17 +607,9 @@ const compileTools = async ({
       "Use get_messages_from_date with a date (YYYY-MM-DD) when the user asks about what was said on a specific date or 'messages from [date]'.\n";
   }
 
-  if (experience === "arcadia") {
-    tools["make_mermaid_diagram"] = createMermaidDiagramTool({ writer });
-    toolInstructions +=
-      "You can generate Mermaid diagrams using make_mermaid_diagram. Use it when a diagram would clarify a process, architecture, or relationships. Return the diagram in a mermaid code block so the UI can render it.\n";
-  }
-
   if (toolInstructions.length > 0) {
     toolInstructions +=
       "Prefer fewer tool calls when possible. If the first result answers the question, respond to the user without calling tools again.\n";
-    toolInstructions +=
-      "When you need both web search and memory search (or multiple independent tools), call them in the same turn when possible so the system can run them in parallel and reduce latency.\n";
   }
 
   return { tools, toolInstructions: toolInstructions.trim() };

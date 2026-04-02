@@ -8,7 +8,7 @@ import { ChatStatus } from "ai";
 import { Button } from "@heroui/button";
 
 import { CoreInput } from "@/components/chat/core-input";
-import { ChatModel, DEFAULT_CHAT_MODEL } from "@/lib/schemas/chat";
+import { ChatModel, DEFAULT_CHAT_MODEL, SendMode } from "@/lib/schemas/chat";
 import { PromptInputProvider } from "@/components/third-party/ai-elements/prompt-input";
 
 export type AdaptiveSandboxInputProps = {
@@ -40,6 +40,7 @@ export function AdaptiveSandboxInput({
   const modelRef = useRef<ChatModel>(DEFAULT_CHAT_MODEL);
   const useWebSearchRef = useRef<boolean>(false);
   const useMemoriesRef = useRef<boolean>(false);
+  const sendModeRef = useRef<SendMode>("respond");
   const [isSubmitting, setSubmitting] = useState(false);
 
   const effectiveDisabled = disabled || isSubmitting;
@@ -107,6 +108,7 @@ export function AdaptiveSandboxInput({
           disabled={effectiveDisabled}
           modelRef={modelRef}
           sendMessage={sendMessage as ReturnType<typeof useChat>["sendMessage"]}
+          sendModeRef={sendModeRef}
           status={effectiveStatus}
           stop={stop}
           useMemoriesRef={useMemoriesRef}

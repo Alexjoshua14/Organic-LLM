@@ -99,6 +99,48 @@ export type Database = {
           },
         ]
       }
+      message_context_links: {
+        Row: {
+          created_at: string
+          created_by: string
+          id: string
+          message_id: string
+          target_id: string
+          target_type: Database["public"]["Enums"]["pin_target_type"]
+        }
+        Insert: {
+          created_at?: string
+          created_by: string
+          id?: string
+          message_id: string
+          target_id: string
+          target_type: Database["public"]["Enums"]["pin_target_type"]
+        }
+        Update: {
+          created_at?: string
+          created_by?: string
+          id?: string
+          message_id?: string
+          target_id?: string
+          target_type?: Database["public"]["Enums"]["pin_target_type"]
+        }
+        Relationships: [
+          {
+            foreignKeyName: "message_context_links_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "message_context_links_message_id_fkey"
+            columns: ["message_id"]
+            isOneToOne: false
+            referencedRelation: "messages"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       messages: {
         Row: {
           content: Json
@@ -107,6 +149,7 @@ export type Database = {
           role: string
           schema_kind: Database["public"]["Enums"]["message_schema_kind"]
           schema_version: number
+          send_mode: string | null
           text_excerpt: string
           thread_id: string
         }
@@ -117,6 +160,7 @@ export type Database = {
           role: string
           schema_kind?: Database["public"]["Enums"]["message_schema_kind"]
           schema_version?: number
+          send_mode?: string | null
           text_excerpt?: string
           thread_id: string
         }
@@ -127,6 +171,7 @@ export type Database = {
           role?: string
           schema_kind?: Database["public"]["Enums"]["message_schema_kind"]
           schema_version?: number
+          send_mode?: string | null
           text_excerpt?: string
           thread_id?: string
         }
@@ -538,6 +583,7 @@ export type Database = {
           owner_id: string
           path: string | null
           persisted_schemas: Json | null
+          persona: string | null
           pinned: boolean
           title: string | null
           updated_at: string
@@ -553,6 +599,7 @@ export type Database = {
           owner_id: string
           path?: string | null
           persisted_schemas?: Json | null
+          persona?: string | null
           pinned?: boolean
           title?: string | null
           updated_at?: string
@@ -568,6 +615,7 @@ export type Database = {
           owner_id?: string
           path?: string | null
           persisted_schemas?: Json | null
+          persona?: string | null
           pinned?: boolean
           title?: string | null
           updated_at?: string
@@ -624,9 +672,14 @@ export type Database = {
     Functions: {
       clerk_sub: { Args: never; Returns: string }
       current_profile_id: { Args: never; Returns: string }
+      delete_message_with_links: {
+        Args: { p_force?: boolean; p_message_id: string }
+        Returns: boolean
+      }
     }
     Enums: {
       message_schema_kind: "ui_message"
+      pin_target_type: "thread" | "persona"
       summary_status: "idle" | "running" | "dirty"
     }
     CompositeTypes: {
@@ -756,6 +809,7 @@ export const Constants = {
   public: {
     Enums: {
       message_schema_kind: ["ui_message"],
+      pin_target_type: ["thread", "persona"],
       summary_status: ["idle", "running", "dirty"],
     },
   },

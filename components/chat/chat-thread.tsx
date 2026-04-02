@@ -12,13 +12,10 @@ import {
 } from "../third-party/ai-elements/conversation";
 
 import { ChatMessage } from "./chat-message";
-import {
-  ARCADIA_HELP_LATEST_ONLY,
-  isArcadiaHelpMessage,
-} from "@/lib/arcadia/help-response";
 
 import { ChatAIActionEnum } from "@/types/ai";
 import { cn } from "@/lib/utils";
+import { PinTargetType } from "@/lib/schemas/chat";
 
 /** Bottom padding to reserve when memory (ephemeral cards) can appear. Use same value always to avoid layout shift. */
 export const MEMORY_PANEL_RESERVE_PADDING = "pb-40";
@@ -34,6 +31,10 @@ type ChatThreadProps = {
     message?: string;
     sources?: ExaSearchResultSource[];
   };
+  pinStateByMessageId?: Record<string, { threadPinned: boolean; personaPinned: boolean }>;
+  onTogglePin?: (messageId: string, targetType: PinTargetType, shouldPin: boolean) => void;
+  onDeleteMessage?: (messageId: string) => void;
+  personaPinEnabled?: boolean;
 };
 
 export const ChatThread: FC<ChatThreadProps> = ({
@@ -42,17 +43,12 @@ export const ChatThread: FC<ChatThreadProps> = ({
   className,
   contentClassName,
   aiActionPayload,
+  pinStateByMessageId,
+  onTogglePin,
+  onDeleteMessage,
+  personaPinEnabled = false,
 }) => {
   const lastMessageIndex = messages.length - 1;
-
-  const lastArcadiaHelpMessageId =
-    ARCADIA_HELP_LATEST_ONLY &&
-    (() => {
-      for (let i = messages.length - 1; i >= 0; i--) {
-        if (isArcadiaHelpMessage(messages[i])) return messages[i].id ?? null;
-      }
-      return null;
-    })();
 
   return (
     <ConversationContent
@@ -67,19 +63,17 @@ export const ChatThread: FC<ChatThreadProps> = ({
             title="Start a conversation"
           />
         ) : (
-          messages.map((message, index) => {
-            const isLatestArcadiaHelp =
-              !ARCADIA_HELP_LATEST_ONLY ||
-              (lastArcadiaHelpMessageId != null && message.id === lastArcadiaHelpMessageId);
-            return (
-              <ChatMessage
-                key={message.id}
-                aiActionPayload={index === lastMessageIndex ? aiActionPayload : undefined}
-                isLatestArcadiaHelp={isArcadiaHelpMessage(message) ? isLatestArcadiaHelp : undefined}
-                message={message}
-              />
-            );
-          })
+          messages.map((message, index) => (
+            <ChatMessage
+              key={message.id}
+              aiActionPayload={index === lastMessageIndex ? aiActionPayload : undefined}
+              message={message}
+              onTogglePin={onTogglePin}
+              onDeleteMessage={onDeleteMessage}
+              personaPinEnabled={personaPinEnabled}
+              pinState={pinStateByMessageId?.[message.id]}
+            />
+          ))
         )}
       </div>
     </ConversationContent>

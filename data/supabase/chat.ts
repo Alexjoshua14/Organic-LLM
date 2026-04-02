@@ -5,7 +5,13 @@ import { auth } from "@clerk/nextjs/server";
 
 import { getSupabaseUserId } from "./profiles";
 
-import { Message, Thread, ThreadSchema } from "@/lib/schemas/chat";
+import {
+  Message,
+  MessageContextLinkMutationSchema,
+  PinTargetType,
+  Thread,
+  ThreadSchema,
+} from "@/lib/schemas/chat";
 import { Result, SimpleResult } from "@/types";
 import { clearFlag, setFlag, THREAD_FLAGS } from "@/lib/thread-flags";
 import {
@@ -20,6 +26,7 @@ import { createLogger } from "@/lib/logger";
 const logger = createLogger("data/supabase/chat.ts");
 
 const DEFAULT_MESSAGE_LIMIT = 10;
+const PINNED_MESSAGE_ERROR = "Message is pinned. Unpin it first or force delete.";
 
 type ThreadOwnerContext = {
   threadId: string;
@@ -118,6 +125,67 @@ export async function getThreadOwnerContext(chatId: string): Promise<Result<Thre
   return getThreadOwnerContextWithClient(sb, chatId);
 }
 
+async function getCurrentSupabaseUserId(): Promise<Result<string>> {
+  const { userId: clerkUserId } = await auth();
+
+  if (!clerkUserId) {
+    return {
+      data: null,
+      error: new Error("User not authenticated"),
+    };
+  }
+
+  const supabaseUserId = await getSupabaseUserId(clerkUserId);
+
+  if (supabaseUserId.error || supabaseUserId.data === null) {
+    return {
+      data: null,
+      error: supabaseUserId.error ?? new Error("User not found in supabase"),
+    };
+  }
+
+  return {
+    data: supabaseUserId.data,
+    error: null,
+  };
+}
+
+async function assertCurrentUserOwnsThread(
+  sb: Awaited<ReturnType<typeof supabaseServer>>,
+  threadId: string
+): Promise<SimpleResult & { ownerId?: string }> {
+  const currentUser = await getCurrentSupabaseUserId();
+
+  if (currentUser.error || !currentUser.data) {
+    return {
+      ok: false,
+      error: currentUser.error ?? new Error("Unauthorized"),
+    };
+  }
+
+  const ownerCtx = await getThreadOwnerContextWithClient(sb, threadId);
+
+  if (ownerCtx.error || !ownerCtx.data) {
+    return {
+      ok: false,
+      error: ownerCtx.error ?? new Error("Thread owner not found"),
+    };
+  }
+
+  if (ownerCtx.data.ownerId !== currentUser.data) {
+    return {
+      ok: false,
+      error: new Error("Only thread owner can perform this action"),
+    };
+  }
+
+  return {
+    ok: true,
+    error: null,
+    ownerId: currentUser.data,
+  };
+}
+
 /**
  * Fetches thread list for the current (or specified) user.
  * Needs to run with local user credentials; cannot use service role.
@@ -133,7 +201,7 @@ export async function getChats(options?: { ownerId?: string }): Promise<Result<T
   const sb = await supabaseServer();
   const baseQuery = sb
     .from("threads")
-    .select("id, title, owner_id, created_at, updated_at, pinned, feature, path")
+    .select("id, title, owner_id, created_at, updated_at, pinned, persona")
     .order("updated_at", { ascending: false });
 
   const { data, error } = options?.ownerId
@@ -788,21 +856,32 @@ export async function updateChatPinned(chatId: string, pinned: boolean): Promise
   };
 }
 
-/**
- * Updates the thread's routing metadata used by the unified sidebar.
- * Keep values non-sensitive (thread list metadata is not encrypted).
- */
-export async function updateThreadRouting(
-  chatId: string,
-  routing: { feature?: string; path?: string }
-): Promise<SimpleResult> {
+export async function getThreadPersona(chatId: string): Promise<Result<string | null>> {
   const sb = await supabaseServer();
-  const payload: { feature?: string; path?: string } = {};
+  const { data, error } = await sb.from("threads").select("persona").eq("id", chatId).single();
 
-  if (routing.feature != null) payload.feature = routing.feature;
-  if (routing.path != null) payload.path = routing.path;
+  if (error) {
+    return {
+      data: null,
+      error: new Error(error?.message ?? "Unknown error"),
+    };
+  }
 
-  const { error } = await sb.from("threads").update(payload).eq("id", chatId);
+  return {
+    data: data?.persona ?? null,
+    error: null,
+  };
+}
+
+export async function updateThreadPersona(chatId: string, persona: string | null): Promise<SimpleResult> {
+  const sb = await supabaseServer();
+  const ownership = await assertCurrentUserOwnsThread(sb, chatId);
+
+  if (!ownership.ok) {
+    return ownership;
+  }
+
+  const { error } = await sb.from("threads").update({ persona }).eq("id", chatId);
 
   if (error) {
     return {
@@ -817,8 +896,429 @@ export async function updateThreadRouting(
   };
 }
 
-export async function deleteMessage(messageId: string): Promise<SimpleResult> {
+export async function updateThreadRouting(
+  chatId: string,
+  routing: {
+    feature: string;
+    path?: string | null;
+  }
+): Promise<SimpleResult> {
   const sb = await supabaseServer();
+  const ownership = await assertCurrentUserOwnsThread(sb, chatId);
+
+  if (!ownership.ok) {
+    return ownership;
+  }
+
+  const payload: { feature: string; path?: string | null } = {
+    feature: routing.feature,
+  };
+
+  if (routing.path !== undefined) {
+    payload.path = routing.path;
+  }
+
+  const { error } = await (sb.from("threads") as any).update(payload).eq("id", chatId);
+
+  if (error) {
+    return {
+      ok: false,
+      error: new Error(error?.message ?? "Unknown error"),
+    };
+  }
+
+  return {
+    ok: true,
+    error: null,
+  };
+}
+
+function extractMessageText(uiMessage: UIMessage): string {
+  const text = uiMessage.parts
+    .filter((part) => part.type === "text")
+    .map((part) => part.text)
+    .join("\n")
+    .trim();
+
+  if (text.length > 0) {
+    return text;
+  }
+
+  const legacyContent = (uiMessage as { content?: unknown }).content;
+
+  if (typeof legacyContent === "string" && legacyContent.trim().length > 0) {
+    return legacyContent.trim();
+  }
+
+  return "";
+}
+
+export type MessagePinState = {
+  threadPinned: boolean;
+  personaPinned: boolean;
+};
+
+export async function getMessagePinStates(chatId: string): Promise<Result<Record<string, MessagePinState>>> {
+  const sb = await supabaseServer();
+  const ownership = await assertCurrentUserOwnsThread(sb, chatId);
+
+  if (!ownership.ok) {
+    return {
+      data: null,
+      error: ownership.error ?? new Error("Unauthorized"),
+    };
+  }
+
+  const personaResult = await getThreadPersona(chatId);
+  const personaKey = personaResult.data;
+  const threadLinksResult = await sb
+    .from("message_context_links")
+    .select("message_id,target_type,target_id")
+    .eq("target_type", "thread")
+    .eq("target_id", chatId);
+
+  if (threadLinksResult.error) {
+    return {
+      data: null,
+      error: new Error(threadLinksResult.error?.message ?? "Unknown error"),
+    };
+  }
+
+  const personaLinksResult =
+    personaKey && personaKey.trim().length > 0
+      ? await sb
+          .from("message_context_links")
+          .select("message_id,target_type,target_id")
+          .eq("target_type", "persona")
+          .eq("target_id", personaKey)
+      : { data: [], error: null };
+
+  if (personaLinksResult.error) {
+    return {
+      data: null,
+      error: new Error(personaLinksResult.error?.message ?? "Unknown error"),
+    };
+  }
+
+  const pinMap: Record<string, MessagePinState> = {};
+  const allLinks = [...(threadLinksResult.data ?? []), ...(personaLinksResult.data ?? [])];
+
+  for (const row of allLinks) {
+    if (!pinMap[row.message_id]) {
+      pinMap[row.message_id] = {
+        threadPinned: false,
+        personaPinned: false,
+      };
+    }
+    if (row.target_type === "thread") {
+      pinMap[row.message_id].threadPinned = true;
+    }
+    if (row.target_type === "persona") {
+      pinMap[row.message_id].personaPinned = true;
+    }
+  }
+
+  return {
+    data: pinMap,
+    error: null,
+  };
+}
+
+export async function addMessageContextLink(input: {
+  threadId: string;
+  messageId: string;
+  targetType: PinTargetType;
+}): Promise<SimpleResult> {
+  const parsed = MessageContextLinkMutationSchema.safeParse(input);
+
+  if (!parsed.success) {
+    return {
+      ok: false,
+      error: new Error("Invalid pin request"),
+    };
+  }
+
+  const sb = await supabaseServer();
+  const ownership = await assertCurrentUserOwnsThread(sb, parsed.data.threadId);
+
+  if (!ownership.ok || !ownership.ownerId) {
+    return {
+      ok: false,
+      error: ownership.error ?? new Error("Unauthorized"),
+    };
+  }
+
+  let targetId = parsed.data.threadId;
+
+  if (parsed.data.targetType === "persona") {
+    const personaResult = await getThreadPersona(parsed.data.threadId);
+
+    if (personaResult.error) {
+      return {
+        ok: false,
+        error: personaResult.error,
+      };
+    }
+    if (!personaResult.data) {
+      return {
+        ok: false,
+        error: new Error("Persona pinning unavailable for this thread until persona is set"),
+      };
+    }
+    targetId = personaResult.data;
+  }
+
+  const { error } = await sb.from("message_context_links").upsert(
+    {
+      message_id: parsed.data.messageId,
+      target_type: parsed.data.targetType,
+      target_id: targetId,
+      created_by: ownership.ownerId,
+    },
+    {
+      onConflict: "message_id,target_type,target_id",
+      ignoreDuplicates: true,
+    }
+  );
+
+  if (error) {
+    return {
+      ok: false,
+      error: new Error(error?.message ?? "Unknown error"),
+    };
+  }
+
+  return {
+    ok: true,
+    error: null,
+  };
+}
+
+export async function removeMessageContextLink(input: {
+  threadId: string;
+  messageId: string;
+  targetType: PinTargetType;
+}): Promise<SimpleResult> {
+  const parsed = MessageContextLinkMutationSchema.safeParse(input);
+
+  if (!parsed.success) {
+    return {
+      ok: false,
+      error: new Error("Invalid unpin request"),
+    };
+  }
+
+  const sb = await supabaseServer();
+  const ownership = await assertCurrentUserOwnsThread(sb, parsed.data.threadId);
+
+  if (!ownership.ok) {
+    return ownership;
+  }
+
+  let targetId = parsed.data.threadId;
+
+  if (parsed.data.targetType === "persona") {
+    const personaResult = await getThreadPersona(parsed.data.threadId);
+
+    if (personaResult.error || !personaResult.data) {
+      return {
+        ok: false,
+        error: personaResult.error ?? new Error("Persona not set on thread"),
+      };
+    }
+    targetId = personaResult.data;
+  }
+
+  const { error } = await sb
+    .from("message_context_links")
+    .delete()
+    .eq("message_id", parsed.data.messageId)
+    .eq("target_type", parsed.data.targetType)
+    .eq("target_id", targetId);
+
+  if (error) {
+    return {
+      ok: false,
+      error: new Error(error?.message ?? "Unknown error"),
+    };
+  }
+
+  return {
+    ok: true,
+    error: null,
+  };
+}
+
+export type PinnedContextMessage = {
+  messageId: string;
+  source: "thread" | "persona";
+  text: string;
+  role: string;
+  createdAt: string;
+};
+
+export async function getPinnedContextMessages(params: {
+  chatId: string;
+  personaKey?: string | null;
+}): Promise<Result<PinnedContextMessage[]>> {
+  const { chatId, personaKey } = params;
+  const sb = await supabaseServer();
+
+  const ownership = await assertCurrentUserOwnsThread(sb, chatId);
+
+  if (!ownership.ok) {
+    return {
+      data: null,
+      error: ownership.error ?? new Error("Unauthorized"),
+    };
+  }
+
+  const threadLinksResult = await sb
+    .from("message_context_links")
+    .select("message_id,target_type,target_id,created_at")
+    .eq("target_type", "thread")
+    .eq("target_id", chatId);
+
+  if (threadLinksResult.error) {
+    return {
+      data: null,
+      error: new Error(threadLinksResult.error?.message ?? "Unknown error"),
+    };
+  }
+
+  const personaLinksResult =
+    personaKey && personaKey.trim().length > 0
+      ? await sb
+          .from("message_context_links")
+          .select("message_id,target_type,target_id,created_at")
+          .eq("target_type", "persona")
+          .eq("target_id", personaKey)
+      : { data: [], error: null };
+
+  if (personaLinksResult.error) {
+    return {
+      data: null,
+      error: new Error(personaLinksResult.error?.message ?? "Unknown error"),
+    };
+  }
+
+  const allLinks = [...(threadLinksResult.data ?? []), ...(personaLinksResult.data ?? [])];
+  const messageIds = [...new Set(allLinks.map((row) => row.message_id))];
+
+  if (messageIds.length === 0) {
+    return {
+      data: [],
+      error: null,
+    };
+  }
+
+  const { data: linkedMessages, error: linkedMessagesError } = await sb
+    .from("messages")
+    .select("*")
+    .in("id", messageIds);
+
+  if (linkedMessagesError) {
+    return {
+      data: null,
+      error: new Error(linkedMessagesError?.message ?? "Unknown error"),
+    };
+  }
+
+  const messagesById = new Map<string, Message>();
+
+  for (const row of linkedMessages ?? []) {
+    const ownerCtx = await getThreadOwnerContextWithClient(sb, row.thread_id);
+
+    if (ownerCtx.error || !ownerCtx.data) {
+      continue;
+    }
+
+    const decrypted = decryptMessageRowContent(row as Message, ownerCtx.data.ownerId);
+    messagesById.set(row.id, decrypted);
+  }
+
+  const results: PinnedContextMessage[] = [];
+
+  for (const link of allLinks) {
+    const messageRow = messagesById.get(link.message_id);
+
+    if (!messageRow) {
+      continue;
+    }
+    const uiMessage = convertMessageToUIMessage(messageRow);
+
+    if (!uiMessage) {
+      continue;
+    }
+
+    const text = extractMessageText(uiMessage);
+
+    if (text.length === 0) {
+      continue;
+    }
+
+    results.push({
+      messageId: link.message_id,
+      source: link.target_type,
+      text,
+      role: messageRow.role,
+      createdAt: link.created_at,
+    });
+  }
+
+  return {
+    data: results,
+    error: null,
+  };
+}
+
+export async function deleteMessage(
+  messageId: string,
+  options?: {
+    force?: boolean;
+  }
+): Promise<SimpleResult> {
+  const sb = await supabaseServer();
+  const force = options?.force === true;
+
+  const { data: pinLinks, error: pinCheckError } = await sb
+    .from("message_context_links")
+    .select("id")
+    .eq("message_id", messageId);
+
+  if (pinCheckError) {
+    return {
+      ok: false,
+      error: new Error(pinCheckError?.message ?? "Unknown error"),
+    };
+  }
+
+  if (!force && (pinLinks?.length ?? 0) > 0) {
+    return {
+      ok: false,
+      error: new Error(PINNED_MESSAGE_ERROR),
+    };
+  }
+
+  if (force) {
+    const { data: deleted, error: rpcError } = await sb.rpc("delete_message_with_links", {
+      p_message_id: messageId,
+      p_force: true,
+    });
+
+    if (rpcError) {
+      return {
+        ok: false,
+        error: new Error(rpcError?.message ?? "Unknown error"),
+      };
+    }
+
+    return {
+      ok: Boolean(deleted),
+      error: deleted ? null : new Error("Message not found"),
+    };
+  }
+
   const { error } = await sb.from("messages").delete().eq("id", messageId);
 
   if (error) {

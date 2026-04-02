@@ -14,7 +14,7 @@ import {
   Conversation,
   ConversationScrollButton,
 } from "@/components/third-party/ai-elements/conversation";
-import { ChatModel, DEFAULT_CHAT_MODEL } from "@/lib/schemas/chat";
+import { ChatModel, DEFAULT_CHAT_MODEL, SendMode } from "@/lib/schemas/chat";
 import { isClientPIIRedactionEnabled, redactUIMessages } from "@/lib/pii/redact";
 import { createLogger } from "@/lib/logger";
 import {
@@ -39,6 +39,7 @@ function RemyTmpPageContent() {
   const selectedModelRef = useRef<ChatModel>(DEFAULT_CHAT_MODEL);
   const useWebSearchRef = useRef<boolean>(false);
   const useMemoriesRef = useRef<boolean>(false);
+  const sendModeRef = useRef<SendMode>("respond");
 
   // Load tmp chat from localStorage and cleanup expired chats
   useEffect(() => {
@@ -102,6 +103,7 @@ function RemyTmpPageContent() {
             model: selectedModelRef.current,
             webSearch: useWebSearchRef.current,
             memory: useMemoriesRef.current,
+            sendMode: sendModeRef.current,
             persistToSupabase: shouldPersist, // Persist after 2 messages
             isTmpChat: true, // Flag to indicate this is a tmp chat
           },
@@ -246,6 +248,7 @@ function RemyTmpPageContent() {
             className="absolute bottom-1 md:bottom-4 px-4 sm:px-7 w-full"
             modelRef={selectedModelRef}
             sendMessage={sendMessage}
+            sendModeRef={sendModeRef}
             status={status}
             stop={handleStop}
             useMemoriesRef={useMemoriesRef}

@@ -24,19 +24,24 @@ import {
 } from "@/components/third-party/ui/sheet";
 import { isClientPIIRedactionEnabled, redactUIMessages } from "@/lib/pii/redact";
 import { getSettings } from "@/lib/user-settings";
-import { Thread } from "@/lib/schemas/chat";
+import { PinTargetType, SendMode, Thread } from "@/lib/schemas/chat";
 import { createLogger } from "@/lib/logger";
 import { useSharedChatContext } from "@/lib/context/chat-context";
 import { ChatModel, DEFAULT_CHAT_MODEL } from "@/lib/schemas/chat";
 import { ChatAIActionEnum } from "@/types/ai";
 import { getChatErrorMessage } from "@/lib/chat/error-messages";
+import {
+  deleteChatMessage,
+  getMessagePinStateMap,
+  pinMessageToContext,
+  unpinMessageFromContext,
+} from "@/lib/chat/chat-store";
 
 const logger = createLogger("components/chat/chat");
 
 export type ChatProps = {
   chatData: { thread: Thread; messages: UIMessage[] } | null;
   initialMessage?: string;
-  /** Prefills the composer without sending (e.g. homepage semantic route). */
   initialDraft?: string;
   persona?: "prometheus" | "spark" | "aion" | "remy";
   endpoint?: string;
@@ -57,8 +62,12 @@ export const Chat: React.FC<ChatProps> = ({
   const useWebSearchRef = useRef<boolean>(false);
   const useMemoriesRef = useRef<boolean>(false);
   const useSpeechFriendlyRef = useRef<boolean>(false);
+  const sendModeRef = useRef<SendMode>("respond");
   const usePersistedSchemas = useRef<boolean>(persona === "aion");
   const initialMessageSent = useRef<boolean>(false);
+  const [messagePinStateById, setMessagePinStateById] = useState<
+    Record<string, { threadPinned: boolean; personaPinned: boolean }>
+  >({});
   const [aiAction, setAiAction] = useState<
     | {
       action: ChatAIActionEnum;
@@ -72,18 +81,6 @@ export const Chat: React.FC<ChatProps> = ({
   const errorRef = useRef<Error | undefined>(undefined);
   /** Stored when onError runs; useChat may not expose error/status for pre-stream failures (e.g. 429). */
   const [chatError, setChatError] = useState<unknown>(undefined);
-  const [experimentalArcadiaMarkdownPreview, setExperimentalArcadiaMarkdownPreview] = useState(
-    () => getSettings().experimentalArcadiaMarkdownPreview
-  );
-
-  useEffect(() => {
-    const sync = () =>
-      setExperimentalArcadiaMarkdownPreview(getSettings().experimentalArcadiaMarkdownPreview);
-    sync();
-    window.addEventListener("organic-llm-settings", sync);
-
-    return () => window.removeEventListener("organic-llm-settings", sync);
-  }, []);
 
   // Temporary
   const stop = () => logger.log("chat", "stop called but functionality is currently disabled");
@@ -114,6 +111,7 @@ export const Chat: React.FC<ChatProps> = ({
               memory: useMemoriesRef.current,
               speechFriendly: useSpeechFriendlyRef.current,
               experience,
+              sendMode: sendModeRef.current,
               zeroDataRetention: getSettings().zeroDataRetention,
               // Only include persistedSchemas in payload if true
               ...(usePersistedSchemas.current ? { persistedSchemas: true } : {}),
@@ -152,8 +150,6 @@ export const Chat: React.FC<ChatProps> = ({
             action: ChatAIActionEnum;
             message?: string;
             sources?: ExaSearchResultSource[];
-            /** Emitted by memory search tool progress (server stream). */
-            query?: string;
           };
 
           switch (dataObject.action) {
@@ -205,17 +201,9 @@ export const Chat: React.FC<ChatProps> = ({
                   break;
               }
               break;
-            case ChatAIActionEnum.Memory: {
-              const q = dataObject.query?.trim();
-              setAiAction({
-                action: ChatAIActionEnum.Memory,
-                message:
-                  q && q.length > 0
-                    ? `Searching memories for "${q.length > 56 ? `${q.slice(0, 56)}…` : q}"`
-                    : (dataObject.message ?? "Searching memories..."),
-              });
+            case ChatAIActionEnum.Memory:
+              setAiAction({ action: ChatAIActionEnum.Memory });
               break;
-            }
             default:
               setAiAction({
                 action: dataObject.action,
@@ -243,16 +231,17 @@ export const Chat: React.FC<ChatProps> = ({
 
   // Send initial message if provided
   useEffect(() => {
+    const bootMessage = initialMessage ?? initialDraft;
     if (
-      initialMessage &&
+      bootMessage &&
       !initialMessageSent.current &&
       messages.length === 0 &&
       status === "ready"
     ) {
       initialMessageSent.current = true;
-      sendMessage({ text: initialMessage });
+      sendMessage({ text: bootMessage });
     }
-  }, [initialMessage, messages.length, status, sendMessage]);
+  }, [initialMessage, initialDraft, messages.length, status, sendMessage]);
 
   const handleStop = useCallback(async () => {
     // Remove the latest user message and partially completed AI message from messages
@@ -288,6 +277,97 @@ export const Chat: React.FC<ChatProps> = ({
     // });
   }, [messages]);
 
+  const refreshMessagePins = useCallback(async () => {
+    if (!chatData?.thread.id) {
+      return;
+    }
+    const result = await getMessagePinStateMap(chatData.thread.id);
+
+    if (result.error || !result.data) {
+      logger.error("chat", `Failed loading message pin states: ${result.error?.message}`);
+      return;
+    }
+
+    setMessagePinStateById(result.data);
+  }, [chatData?.thread.id]);
+
+  useEffect(() => {
+    void refreshMessagePins();
+  }, [refreshMessagePins, messages.length]);
+
+  const handleToggleMessagePin = useCallback(
+    async (messageId: string, targetType: PinTargetType, shouldPin: boolean) => {
+      if (!chatData?.thread.id) {
+        return;
+      }
+
+      if (targetType === "persona" && !chatData.thread.persona) {
+        toast.error("Persona pinning is unavailable until this thread has a persona key.");
+        return;
+      }
+
+      const actionResult = shouldPin
+        ? await pinMessageToContext({
+            threadId: chatData.thread.id,
+            messageId,
+            targetType,
+          })
+        : await unpinMessageFromContext({
+            threadId: chatData.thread.id,
+            messageId,
+            targetType,
+          });
+
+      if (!actionResult.ok) {
+        toast.error(actionResult.error?.message ?? "Failed to update pin");
+        return;
+      }
+
+      await refreshMessagePins();
+    },
+    [chatData?.thread.id, chatData?.thread.persona, refreshMessagePins]
+  );
+
+  const handleDeleteMessage = useCallback(
+    async (messageId: string) => {
+      const initialResult = await deleteChatMessage(messageId);
+
+      if (initialResult.ok) {
+        setMessages((prev) => prev.filter((msg) => msg.id !== messageId));
+        await refreshMessagePins();
+        return;
+      }
+
+      const errorMessage = initialResult.error?.message ?? "Failed to delete message";
+      const isPinnedBlock = /pinned/i.test(errorMessage);
+
+      if (!isPinnedBlock) {
+        toast.error(errorMessage);
+        return;
+      }
+
+      const shouldForceDelete = window.confirm(
+        "This message is pinned and cannot be deleted normally.\n\nPress OK to force delete it and remove all of its pin links."
+      );
+
+      if (!shouldForceDelete) {
+        return;
+      }
+
+      const forceResult = await deleteChatMessage(messageId, { force: true });
+
+      if (!forceResult.ok) {
+        toast.error(forceResult.error?.message ?? "Failed to force delete pinned message");
+        return;
+      }
+
+      setMessages((prev) => prev.filter((msg) => msg.id !== messageId));
+      await refreshMessagePins();
+      toast.success("Pinned message force-deleted.");
+    },
+    [refreshMessagePins, setMessages]
+  );
+
   return (
     <div
       className={[
@@ -317,6 +397,10 @@ export const Chat: React.FC<ChatProps> = ({
           aiActionPayload={aiAction}
           contentClassName={persona === "remy" ? MEMORY_PANEL_RESERVE_PADDING : undefined}
           messages={messages}
+          onTogglePin={handleToggleMessagePin}
+          onDeleteMessage={handleDeleteMessage}
+          pinStateByMessageId={messagePinStateById}
+          personaPinEnabled={Boolean(chatData?.thread.persona)}
         />
         {persona === "remy" && (
           <MemoryEphemeralCards
@@ -356,14 +440,11 @@ export const Chat: React.FC<ChatProps> = ({
           <CoreInput
             chatId={chatData?.thread.id}
             clearError={clearError}
-            enableMarkdownInputPreview={
-              experience === "arcadia" && experimentalArcadiaMarkdownPreview
-            }
             error={error ?? chatError}
-            initialDraft={initialDraft}
             isBlankChat={messages.length === 0}
             modelRef={selectedModelRef}
             sendMessage={sendMessage}
+            sendModeRef={sendModeRef}
             status={status}
             stop={handleStop}
             useMemoriesRef={useMemoriesRef}

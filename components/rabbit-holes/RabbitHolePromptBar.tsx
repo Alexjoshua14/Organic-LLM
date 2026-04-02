@@ -5,7 +5,7 @@ import { ChatStatus } from "ai";
 import { useChat } from "@ai-sdk/react";
 
 import { CoreInput } from "@/components/chat/core-input";
-import { ChatModel, DEFAULT_CHAT_MODEL } from "@/lib/schemas/chat";
+import { ChatModel, DEFAULT_CHAT_MODEL, SendMode } from "@/lib/schemas/chat";
 import { PromptInputProvider } from "@/components/third-party/ai-elements/prompt-input";
 
 interface RabbitHolePromptBarProps {
@@ -27,6 +27,7 @@ export function RabbitHolePromptBar({
   const modelRef = useRef<ChatModel>(DEFAULT_CHAT_MODEL);
   const useWebSearchRef = useRef<boolean>(false);
   const useMemoriesRef = useRef<boolean>(false);
+  const sendModeRef = useRef<SendMode>("respond");
 
   // Adapt onStart to the sendMessage interface expected by CoreInput
   const sendMessage: ReturnType<typeof useChat>["sendMessage"] = useCallback(
@@ -55,6 +56,7 @@ export function RabbitHolePromptBar({
         disabled={isLoading}
         modelRef={modelRef}
         sendMessage={sendMessage}
+        sendModeRef={sendModeRef}
         status={status}
         stop={stop}
         useMemoriesRef={useMemoriesRef}

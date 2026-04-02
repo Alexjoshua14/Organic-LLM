@@ -13,7 +13,7 @@ import { ChatProps } from "./chat";
 import { isClientPIIRedactionEnabled, redactUIMessages } from "@/lib/pii/redact";
 import { getSettings } from "@/lib/user-settings";
 import { createLogger } from "@/lib/logger";
-import { ChatModel, DEFAULT_CHAT_MODEL } from "@/lib/schemas/chat";
+import { ChatModel, DEFAULT_CHAT_MODEL, SendMode } from "@/lib/schemas/chat";
 import { useArchetypeContext } from "@/lib/context/archetype-context";
 
 const logger = createLogger("components/chat/aionChat");
@@ -22,6 +22,7 @@ export const AionChat: React.FC<ChatProps> = ({ chatData, endpoint, persona }) =
   const selectedModelRef = useRef<ChatModel>(DEFAULT_CHAT_MODEL);
   const useWebSearchRef = useRef<boolean>(false);
   const useMemoriesRef = useRef<boolean>(false);
+  const sendModeRef = useRef<SendMode>("respond");
   const usePersistedSchemas = useRef<boolean>(persona === "aion");
 
   const {
@@ -56,6 +57,7 @@ export const AionChat: React.FC<ChatProps> = ({ chatData, endpoint, persona }) =
               model: selectedModelRef.current,
               webSearch: useWebSearchRef.current,
               memory: useMemoriesRef.current,
+              sendMode: sendModeRef.current,
               zeroDataRetention: getSettings().zeroDataRetention,
               // Only include persistedSchemas in payload if true
               ...(usePersistedSchemas.current ? { persistedSchemas: true } : {}),
@@ -218,6 +220,7 @@ export const AionChat: React.FC<ChatProps> = ({ chatData, endpoint, persona }) =
         className="absolute bottom-8 md:bottom-4 px-4 sm:px-7 w-full"
         modelRef={selectedModelRef}
         sendMessage={sendMessage}
+        sendModeRef={sendModeRef}
         status={status}
         stop={handleStop}
         useMemoriesRef={useMemoriesRef}

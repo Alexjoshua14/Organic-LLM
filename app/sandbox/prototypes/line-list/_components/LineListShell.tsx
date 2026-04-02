@@ -14,7 +14,7 @@ import { updateWineListMessage } from "../actions";
 import { WineLineListStatus } from "./WineLineListStatus";
 import { WineLineListTable } from "./WineLineListTable";
 
-import { ChatModel, DEFAULT_CHAT_MODEL } from "@/lib/schemas/chat";
+import { ChatModel, DEFAULT_CHAT_MODEL, SendMode } from "@/lib/schemas/chat";
 import { getWinesFromMessage, buildWineListMessage } from "@/lib/schemas/wine-line-list";
 import { CoreInput } from "@/components/chat/core-input";
 
@@ -32,6 +32,7 @@ export function LineListShell({ chatData }: LineListShellProps) {
   const modelRef = useRef<ChatModel>(DEFAULT_CHAT_MODEL);
   const useWebSearchRef = useRef(false);
   const useMemoriesRef = useRef(false);
+  const sendModeRef = useRef<SendMode>("respond");
   const lastMergedListMessageIdRef = useRef<string | null>(null);
 
   const { messages, sendMessage, status, stop, error, clearError } = useChat({
@@ -189,6 +190,7 @@ export function LineListShell({ chatData }: LineListShellProps) {
             isBlankChat={messages.length === 0}
             modelRef={modelRef}
             sendMessage={sendMessage}
+            sendModeRef={sendModeRef}
             status={status}
             stop={stop}
             useMemoriesRef={useMemoriesRef}

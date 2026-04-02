@@ -29,11 +29,19 @@ export function convertMessageToUIMessage(message: Message): UIMessage | null {
 
 export function convertUIMessageToMessage(uiMessage: UIMessage, chatId: string): Message | null {
   try {
+    const sendMode =
+      uiMessage.role === "user" &&
+      ((uiMessage as { sendMode?: string }).sendMode === "respond" ||
+        (uiMessage as { sendMode?: string }).sendMode === "process_only")
+        ? ((uiMessage as { sendMode?: "respond" | "process_only" }).sendMode ?? "respond")
+        : null;
+
     const message: Message = {
       content: JSON.stringify(uiMessage),
       role: uiMessage.role,
       id: uiMessage.id,
       thread_id: chatId,
+      send_mode: sendMode,
       schema_kind: "ui_message",
       schema_version: 1,
     };

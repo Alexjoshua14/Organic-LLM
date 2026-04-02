@@ -27,6 +27,11 @@ import {
   getMessageCount,
   getNMessages,
   getConversationSummary,
+  getThreadPersona,
+  getPinnedContextMessages,
+  addMessageContextLink,
+  removeMessageContextLink,
+  getMessagePinStates,
   upsertMessages,
   deleteMessage,
   addMessage,
@@ -37,7 +42,7 @@ import {
   updateChatStreamWithAdmin,
 } from "@/data/supabase/chat-admin";
 import { Result, SimpleResult } from "@/types";
-import { Thread } from "@/lib/schemas/chat";
+import { PinTargetType, Thread } from "@/lib/schemas/chat";
 import { getSupabaseUserId } from "@/data/supabase/profiles";
 import { getSupabaseUserIdWithAdmin } from "@/data/supabase/profiles-admin";
 import { retryWithBackoff, DEFAULT_RETRY_CONFIG, type RetryConfig } from "@/lib/utils";
@@ -47,6 +52,16 @@ import {
 } from "@/app/sandbox/aion/_components/persisted-schemas-container";
 
 const logger = createLogger(`util/chat-store.ts`);
+const THREAD_PERSONA_CACHE_TTL_MS = 30_000;
+const MAX_PINNED_CONTEXT_TOKENS = 1_500;
+
+const threadPersonaCache = new Map<
+  string,
+  {
+    value: string | null;
+    expiresAt: number;
+  }
+>();
 
 interface getContextProps {
   chatId: string;
@@ -263,9 +278,14 @@ export async function saveMessage({
  * @param messageId - The ID of the message to delete.
  * @returns A SimpleResult indicating the outcome of the deletion.
  */
-export async function deleteChatMessage(messageId: string): Promise<SimpleResult> {
+export async function deleteChatMessage(
+  messageId: string,
+  options?: {
+    force?: boolean;
+  }
+): Promise<SimpleResult> {
   try {
-    const result = await deleteMessage(messageId);
+    const result = await deleteMessage(messageId, options);
 
     if (!result.ok) {
       logger.error(
@@ -293,6 +313,40 @@ export async function deleteChatMessage(messageId: string): Promise<SimpleResult
       error: error instanceof Error ? error : new Error("Unknown error deleting message"),
     };
   }
+}
+
+export async function pinMessageToContext(params: {
+  threadId: string;
+  messageId: string;
+  targetType: PinTargetType;
+}): Promise<SimpleResult> {
+  const result = await addMessageContextLink(params);
+
+  if (!result.ok) {
+    logger.error("pinMessageToContext", result.error?.message ?? "Unknown error");
+    return result;
+  }
+
+  return { ok: true, error: null };
+}
+
+export async function unpinMessageFromContext(params: {
+  threadId: string;
+  messageId: string;
+  targetType: PinTargetType;
+}): Promise<SimpleResult> {
+  const result = await removeMessageContextLink(params);
+
+  if (!result.ok) {
+    logger.error("unpinMessageFromContext", result.error?.message ?? "Unknown error");
+    return result;
+  }
+
+  return { ok: true, error: null };
+}
+
+export async function getMessagePinStateMap(chatId: string) {
+  return getMessagePinStates(chatId);
 }
 
 /**
@@ -496,6 +550,89 @@ async function getConversationSummaryForChatPrompt(chatId: string): Promise<Resu
   return conversationSummaryResult;
 }
 
+async function getCachedThreadPersona(chatId: string): Promise<string | null> {
+  const now = Date.now();
+  const cached = threadPersonaCache.get(chatId);
+
+  if (cached && cached.expiresAt > now) {
+    return cached.value;
+  }
+
+  const personaResult = await getThreadPersona(chatId);
+  const value = personaResult.error ? null : (personaResult.data ?? null);
+
+  threadPersonaCache.set(chatId, {
+    value,
+    expiresAt: now + THREAD_PERSONA_CACHE_TTL_MS,
+  });
+
+  return value;
+}
+
+function formatPinnedContextLine(params: {
+  source: "thread" | "persona";
+  role: string;
+  text: string;
+}): string {
+  const scope = params.source === "thread" ? "thread" : "persona";
+  const role = params.role || "unknown";
+  const trimmedText = params.text.trim();
+  return `- [${scope}] (${role}) ${trimmedText}`;
+}
+
+async function compilePinnedContextSection(chatId: string): Promise<string> {
+  const personaKey = await getCachedThreadPersona(chatId);
+  const pinnedResult = await getPinnedContextMessages({
+    chatId,
+    personaKey,
+  });
+
+  if (pinnedResult.error || !pinnedResult.data || pinnedResult.data.length === 0) {
+    return "";
+  }
+
+  // Deterministic order: thread-scoped first, then persona-scoped, oldest first.
+  const ordered = [...pinnedResult.data].sort((a, b) => {
+    if (a.source !== b.source) {
+      return a.source === "thread" ? -1 : 1;
+    }
+    return new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
+  });
+
+  const deduped = new Set<string>();
+  const lines: string[] = [];
+  let tokenBudget = MAX_PINNED_CONTEXT_TOKENS;
+
+  for (const item of ordered) {
+    const dedupeKey = `${item.messageId}:${item.source}`;
+
+    if (deduped.has(dedupeKey)) {
+      continue;
+    }
+    deduped.add(dedupeKey);
+
+    const line = formatPinnedContextLine({
+      source: item.source,
+      role: item.role,
+      text: item.text,
+    });
+    const estimatedTokens = (await estimateTokenCount(line)) ?? Math.max(1, Math.ceil(line.length / 4));
+
+    if (estimatedTokens > tokenBudget) {
+      continue;
+    }
+
+    lines.push(line);
+    tokenBudget -= estimatedTokens;
+
+    if (tokenBudget <= 0) {
+      break;
+    }
+  }
+
+  return lines.join("\n");
+}
+
 /****************************
  * LATEST VERSION (11/10/25)
  *
@@ -568,24 +705,18 @@ export async function getContext({
   const contextTokenSizes: Array<{ name: string; tokens: number }> = [];
 
   try {
-    const promises: Promise<any>[] = [];
     /***
      * Step 1
      *
      * Get Latest n Messages from Supabase
      ***/
     const messagesPromise = getNMessages(chatId, limit);
-
-    promises.push(messagesPromise);
     /***
      * Step 2
      *
      * Get Conversation Summary from Supabase
      */
-
     const conversationSummaryPromise = getConversationSummary(chatId);
-
-    promises.push(conversationSummaryPromise);
 
     /***
      * Step 3
@@ -598,13 +729,11 @@ export async function getContext({
 
     logger.log("getContext", `User message length: ${userMessage.length}`);
 
-    if (memoryEnabled) {
-      const memoriesPromise = searchMemoriesForUser(sbUserId, userMessage, {
-        limit: 5,
-      }).then((r) => (r.error ? { results: [] } : r.data!));
-
-      promises.push(memoriesPromise);
-    }
+    const memoriesPromise = memoryEnabled
+      ? searchMemoriesForUser(sbUserId, userMessage, {
+          limit: 5,
+        }).then((r) => (r.error ? { results: [] } : r.data!))
+      : Promise.resolve({ results: [] as SearchResult[] });
 
     /***
      * Step 3b
@@ -612,11 +741,11 @@ export async function getContext({
      * Get Persisted Schemas from database
      */
 
-    if (persistedSchemasEnabled) {
-      const persistedSchemaPromise = getPersistedSchemas(chatId);
+    const persistedSchemaPromise = persistedSchemasEnabled
+      ? getPersistedSchemas(chatId)
+      : Promise.resolve({ data: [] as PersistedSchemaType[], error: null });
 
-      promises.push(persistedSchemaPromise);
-    }
+    const pinnedContextPromise = compilePinnedContextSection(chatId);
 
     /***
      * Step 4
@@ -667,8 +796,19 @@ export async function getContext({
      *  - Memories
      */
 
-    const [messagesResult, conversationSummaryResult, memoriesResult, persistedSchemaResult] =
-      await Promise.all(promises);
+    const [
+      messagesResult,
+      conversationSummaryResult,
+      memoriesResult,
+      persistedSchemaResult,
+      pinnedContextSection,
+    ] = await Promise.all([
+      messagesPromise,
+      conversationSummaryPromise,
+      memoriesPromise,
+      persistedSchemaPromise,
+      pinnedContextPromise,
+    ]);
 
     /***
      * Step 5a
@@ -711,6 +851,22 @@ export async function getContext({
         name: "Conversation Summary",
         tokens: conversationSummaryTokens,
       });
+    }
+
+    if (pinnedContextSection.trim().length > 0) {
+      contextPieces.push({
+        title: "Pinned Context",
+        content: pinnedContextSection,
+      });
+
+      const pinnedTokens = (await estimateTokenCount(pinnedContextSection)) ?? 0;
+
+      if (pinnedTokens > 0) {
+        contextTokenSizes.push({
+          name: "Pinned Context",
+          tokens: pinnedTokens,
+        });
+      }
     }
 
     /***
@@ -768,10 +924,6 @@ export async function getContext({
       logger.log("getContext", "Handling persistedSchemas and preparing persistedSchemasResult");
 
       logger.log("getContext", `persistedSchemaResult: ${JSON.stringify(persistedSchemaResult)}`);
-
-      let persistedSchemaObject = PersistedSchema.decode(persistedSchemaResult.data);
-
-      logger.log("getContext", `persistedSchemaObject: ${JSON.stringify(persistedSchemaObject)}`);
 
       if (persistedSchemaResult.error) {
         logger.error(

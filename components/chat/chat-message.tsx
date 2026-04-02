@@ -1,8 +1,8 @@
 import type { ExaSearchResultSource } from "@/lib/exa/types";
 
-import { FC, memo, useCallback, useEffect, useMemo, useState } from "react";
+import { FC, memo, useEffect, useState } from "react";
 import { UIMessage } from "ai";
-import { Pin, PinOff } from "lucide-react";
+import { Pin, PinOff, Trash2 } from "lucide-react";
 
 import { ClipboardCopyButton } from "../shared/clipboardCopyButton";
 import { TTSButton } from "../tts/ttsButton";
@@ -10,13 +10,11 @@ import { glass } from "../design-system/primitives";
 
 import { PinToSpeakButton } from "./PinToSpeakButton";
 import { ChatMessageMarkdown } from "./chat-message-markdown";
-import { ArcadiaHelpMessage } from "./arcadia-help-message";
 import { ChatReasoning, ChatThinking, ChatSearching } from "./chat-loading";
-import { ARCADIA_HELP_PREFIX } from "@/lib/arcadia/help-response";
 
 import { cn } from "@/lib/utils";
 import { ChatAIActionEnum } from "@/types/ai";
-import { MermaidDiagram } from "@/components/blog/mermaid-diagram";
+import { PinTargetType } from "@/lib/schemas/chat";
 
 /**
  * When true, the current AI action (tool, search, reasoning, etc.) is shown
@@ -28,8 +26,13 @@ const SHOW_ACTION_WHILE_STREAMING_TEXT = true;
 type ChatMessageProps = {
   message: UIMessage;
   isLastMessage?: boolean;
-  /** When true, show custom Arcadia help UI; when false, show markdown. Omitted for non-help messages. */
-  isLatestArcadiaHelp?: boolean;
+  pinState?: {
+    threadPinned: boolean;
+    personaPinned: boolean;
+  };
+  personaPinEnabled?: boolean;
+  onTogglePin?: (messageId: string, targetType: PinTargetType, shouldPin: boolean) => void;
+  onDeleteMessage?: (messageId: string) => void;
   aiActionPayload?: {
     action: ChatAIActionEnum;
     message?: string;
@@ -37,28 +40,46 @@ type ChatMessageProps = {
   };
 };
 
-export const ChatMessage = memo<ChatMessageProps>(function ChatMessage(props) {
-  const { message, aiActionPayload, isLatestArcadiaHelp } = props;
-
+export const ChatMessage = memo<ChatMessageProps>(
+  ({ message, aiActionPayload, pinState, onTogglePin, personaPinEnabled, onDeleteMessage }) => {
   switch (message.role) {
     case "assistant":
       return (
         <AIMessage
           aiActionPayload={aiActionPayload}
-          isLatestArcadiaHelp={isLatestArcadiaHelp}
           message={message}
+          onDeleteMessage={onDeleteMessage}
+          onTogglePin={onTogglePin}
+          personaPinEnabled={personaPinEnabled}
+          pinState={pinState}
         />
       );
     case "user":
-      return <UserMessage message={message} />;
+      return (
+        <UserMessage
+          message={message}
+          onDeleteMessage={onDeleteMessage}
+          onTogglePin={onTogglePin}
+          personaPinEnabled={personaPinEnabled}
+          pinState={pinState}
+        />
+      );
     case "system":
       return <SystemMessage message={message} />;
   }
-});
+  }
+);
 
 ChatMessage.displayName = "ChatMessage";
 
-const AIMessage: FC<ChatMessageProps> = ({ message, aiActionPayload, isLatestArcadiaHelp }) => {
+const AIMessage: FC<ChatMessageProps> = ({
+  message,
+  aiActionPayload,
+  onDeleteMessage,
+  onTogglePin,
+  personaPinEnabled,
+  pinState,
+}) => {
   const [isStreaming, setIsStreaming] = useState<boolean>(false);
 
   useEffect(() => {
@@ -76,9 +97,6 @@ const AIMessage: FC<ChatMessageProps> = ({ message, aiActionPayload, isLatestArc
       }
     })
     .join("");
-  const isArcadiaHelp = text.startsWith(ARCADIA_HELP_PREFIX);
-  const showCustomArcadiaHelp =
-    isArcadiaHelp && (isLatestArcadiaHelp === undefined || isLatestArcadiaHelp);
 
   return (
     <div className="group/ai-message rounded-lg p-4 flex flex-col gap-2">
@@ -95,9 +113,6 @@ const AIMessage: FC<ChatMessageProps> = ({ message, aiActionPayload, isLatestArc
                 return null;
 
               case "text":
-                if (showCustomArcadiaHelp) {
-                  return <ArcadiaHelpMessage key={`${message.id}-${i}`} />;
-                }
                 return (
                   <ChatMessageMarkdown
                     key={`${message.id}-${i}`}
@@ -107,8 +122,6 @@ const AIMessage: FC<ChatMessageProps> = ({ message, aiActionPayload, isLatestArc
                 );
             }
           })}
-
-        <ArcadiaToolOutputs messageId={message.id} parts={message.parts as unknown[]} />
         {/* Action indicator: when no text yet, show only action; when SHOW_ACTION_WHILE_STREAMING_TEXT, also show action below streamed text */}
         {aiActionPayload &&
           (!message.parts.some((part) => part.type === "text") ||
@@ -117,128 +130,20 @@ const AIMessage: FC<ChatMessageProps> = ({ message, aiActionPayload, isLatestArc
       {!isStreaming && (
         <div className="w-full flex gap-2 h-8">
           <TTSButton iconOnly text={text} />
-          {!showCustomArcadiaHelp && (
-            <>
-              <PinToSpeakButton text={text} />
-              <ClipboardCopyButton text={text} />
-            </>
-          )}
+          <PinToSpeakButton text={text} />
+          <ClipboardCopyButton text={text} />
+          <MessagePinControls
+            messageId={message.id}
+            onDeleteMessage={onDeleteMessage}
+            onTogglePin={onTogglePin}
+            personaPinEnabled={personaPinEnabled}
+            pinState={pinState}
+          />
         </div>
       )}
     </div>
   );
 };
-
-type ToolInvocationPartLike = {
-  type: "tool-invocation";
-  toolInvocationId: string;
-  toolName: string;
-  state: "partial-call" | "call" | "result" | "output-error";
-  args?: unknown;
-  result?: unknown;
-  errorText?: string;
-};
-
-function isToolInvocationPart(part: unknown): part is ToolInvocationPartLike {
-  if (!part || typeof part !== "object") return false;
-  const p = part as Record<string, unknown>;
-  return p.type === "tool-invocation" && typeof p.toolInvocationId === "string";
-}
-
-function stableStringify(value: unknown): string {
-  try {
-    return JSON.stringify(value, null, 2);
-  } catch {
-    return String(value);
-  }
-}
-
-function extractMermaidCode(value: unknown): string | null {
-  if (typeof value === "string") {
-    const trimmed = value.trim();
-    if (trimmed.startsWith("graph") || trimmed.startsWith("flowchart") || trimmed.startsWith("sequenceDiagram")) {
-      return trimmed;
-    }
-    const fenceMatch = trimmed.match(/```mermaid\s*([\s\S]*?)```/i);
-    if (fenceMatch?.[1]) return fenceMatch[1].trim();
-    return null;
-  }
-  if (value && typeof value === "object") {
-    const v = value as Record<string, unknown>;
-    const code = v.code;
-    if (typeof code === "string") return code.trim();
-  }
-  return null;
-}
-
-function ArcadiaToolOutputs({ messageId, parts }: { messageId: string; parts: unknown[] }) {
-  const toolParts = useMemo(() => parts.filter(isToolInvocationPart), [parts]);
-  const [pinned, setPinned] = useState<Record<string, boolean>>({});
-
-  const visible = useMemo(
-    () => toolParts.filter((p) => p.state === "result" || p.state === "output-error"),
-    [toolParts]
-  );
-
-  const togglePinned = useCallback((id: string) => {
-    setPinned((prev) => ({ ...prev, [id]: !prev[id] }));
-  }, []);
-
-  if (visible.length === 0) return null;
-
-  return (
-    <div className="not-prose flex flex-col gap-2">
-      {visible.map((p, idx) => {
-        const isPinned = pinned[p.toolInvocationId] === true;
-        const label = `${p.toolName}`;
-        const body = p.state === "output-error" ? p.errorText : p.result;
-        const mermaid = extractMermaidCode(body);
-        const json = stableStringify(body);
-
-        return (
-          <div
-            key={`${messageId}-tool-${p.toolInvocationId}-${idx}`}
-            className={cn(
-              "rounded-lg border border-border/60 bg-background-tertiary/30 dark:bg-background-tertiary/20 backdrop-blur-2xl",
-              "px-3 py-2",
-              isPinned && "sticky top-20 z-30 shadow-[0_8px_30px_-10px_rgba(0,0,0,0.35)]"
-            )}
-          >
-            <div className="flex items-center justify-between gap-2">
-              <div className="text-xs font-medium text-muted-foreground truncate">{label}</div>
-              <button
-                aria-label={isPinned ? "Unpin tool output" : "Pin tool output"}
-                aria-pressed={isPinned}
-                className={cn(
-                  "h-7 w-7 grid place-content-center rounded",
-                  "hover:bg-background-tertiary/60 transition-colors"
-                )}
-                type="button"
-                onClick={() => togglePinned(p.toolInvocationId)}
-              >
-                {isPinned ? <PinOff className="size-3.5" /> : <Pin className="size-3.5" />}
-              </button>
-            </div>
-
-            <details className="mt-1">
-              <summary className="cursor-pointer select-none text-xs text-foreground/80 hover:text-foreground">
-                View output
-              </summary>
-              {mermaid && (
-                <div className="mt-2">
-                  <MermaidDiagram code={mermaid} expandOnDoubleClick />
-                </div>
-              )}
-              <pre className="mt-2 max-h-72 overflow-auto rounded bg-background/60 p-2 text-[11px] leading-snug text-foreground/90">
-                {json}
-              </pre>
-            </details>
-          </div>
-        );
-      })}
-    </div>
-  );
-}
 
 const COLLAPSED_LINES = 6;
 const COLLAPSED_CHAR_THRESHOLD = 500;
@@ -249,7 +154,13 @@ function isLongUserMessage(text: string): boolean {
   return lines > COLLAPSED_LINES || text.length > COLLAPSED_CHAR_THRESHOLD;
 }
 
-const UserMessage: FC<ChatMessageProps> = ({ message }) => {
+const UserMessage: FC<ChatMessageProps> = ({
+  message,
+  onDeleteMessage,
+  onTogglePin,
+  personaPinEnabled,
+  pinState,
+}) => {
   const [expanded, setExpanded] = useState(false);
   const text = message.parts.map((part) => (part.type === "text" ? part.text : "")).join("");
   const long = isLongUserMessage(text);
@@ -281,6 +192,73 @@ const UserMessage: FC<ChatMessageProps> = ({ message }) => {
           </button>
         )}
       </div>
+      <div className="pt-2 opacity-80 hover:opacity-100 transition-opacity">
+        <MessagePinControls
+          messageId={message.id}
+          onDeleteMessage={onDeleteMessage}
+          onTogglePin={onTogglePin}
+          personaPinEnabled={personaPinEnabled}
+          pinState={pinState}
+        />
+      </div>
+    </div>
+  );
+};
+
+const MessagePinControls: FC<{
+  messageId: string;
+  pinState?: {
+    threadPinned: boolean;
+    personaPinned: boolean;
+  };
+  personaPinEnabled?: boolean;
+  onTogglePin?: (messageId: string, targetType: PinTargetType, shouldPin: boolean) => void;
+  onDeleteMessage?: (messageId: string) => void;
+}> = ({ messageId, pinState, personaPinEnabled, onTogglePin, onDeleteMessage }) => {
+  return (
+    <div className="flex items-center gap-1 text-muted-foreground">
+      <button
+        aria-label={pinState?.threadPinned ? "Unpin from thread context" : "Pin to thread context"}
+        className={cn(
+          "inline-flex items-center gap-1 text-xs px-2 py-1 rounded-md border transition-colors",
+          pinState?.threadPinned
+            ? "border-primary/40 text-primary"
+            : "border-border/50 hover:text-foreground hover:border-border"
+        )}
+        type="button"
+        onClick={() => onTogglePin?.(messageId, "thread", !pinState?.threadPinned)}
+      >
+        {pinState?.threadPinned ? <PinOff className="size-3.5" /> : <Pin className="size-3.5" />}
+        <span>Thread</span>
+      </button>
+      <button
+        aria-label={
+          pinState?.personaPinned ? "Unpin from persona context" : "Pin to persona context"
+        }
+        className={cn(
+          "inline-flex items-center gap-1 text-xs px-2 py-1 rounded-md border transition-colors",
+          pinState?.personaPinned
+            ? "border-primary/40 text-primary"
+            : "border-border/50 hover:text-foreground hover:border-border",
+          !personaPinEnabled && "opacity-50 cursor-not-allowed"
+        )}
+        disabled={!personaPinEnabled}
+        title={!personaPinEnabled ? "Persona key not set for this thread yet." : undefined}
+        type="button"
+        onClick={() => onTogglePin?.(messageId, "persona", !pinState?.personaPinned)}
+      >
+        {pinState?.personaPinned ? <PinOff className="size-3.5" /> : <Pin className="size-3.5" />}
+        <span>Persona</span>
+      </button>
+      <button
+        aria-label="Delete message"
+        className="inline-flex items-center gap-1 text-xs px-2 py-1 rounded-md border border-border/50 hover:text-destructive hover:border-destructive/40 transition-colors"
+        title="Delete message"
+        type="button"
+        onClick={() => onDeleteMessage?.(messageId)}
+      >
+        <Trash2 className="size-3.5" />
+      </button>
     </div>
   );
 };
@@ -306,36 +284,6 @@ type ChatAIActionProps = {
   };
 };
 
-/** Human-readable label for generic "Using tool: …" chunks from the API. */
-function toolActionDisplayText(message: string | undefined): string {
-  const trimmed = message?.trim();
-  if (!trimmed) return "Using a tool...";
-
-  const usingToolMatch = trimmed.match(/^Using tool:\s*([a-z0-9_]+)$/i);
-  if (usingToolMatch?.[1]) {
-    const toolName = usingToolMatch[1].toLowerCase();
-    const knownLabels: Record<string, string> = {
-      make_mermaid_diagram: "Creating diagram...",
-      search_memories: "Searching memories...",
-      web_search: "Searching the web...",
-      get_full_chat_history: "Getting full chat history...",
-      get_more_chat_history: "Getting more chat history...",
-      get_messages_from_date: "Getting chat history for that date...",
-    };
-
-    if (knownLabels[toolName]) {
-      return knownLabels[toolName];
-    }
-
-    const readableToolName = toolName.replace(/_/g, " ").trim();
-    if (readableToolName.length > 0) {
-      return `${readableToolName[0].toUpperCase()}${readableToolName.slice(1)}...`;
-    }
-  }
-
-  return trimmed;
-}
-
 const ChatAIAction: FC<ChatAIActionProps> = ({ aiActionPayload }) => {
   return (
     <div className="rounded-lg p-4 mb-4 text-foreground">
@@ -348,13 +296,9 @@ const ChatAIAction: FC<ChatAIActionProps> = ({ aiActionPayload }) => {
           case "search":
             return <ChatSearching sources={aiActionPayload?.sources} text="Searching the web..." />;
           case "memory":
-            return (
-              <ChatThinking
-                text={aiActionPayload?.message?.trim() || "Searching memories..."}
-              />
-            );
+            return <ChatThinking text="Searching memories..." />;
           case "tool":
-            return <ChatThinking text={toolActionDisplayText(aiActionPayload?.message)} />;
+            return <ChatThinking text="Using a tool..." />;
           default:
             return <ChatThinking />;
         }

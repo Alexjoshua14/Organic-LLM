@@ -12,7 +12,7 @@ import {
   ConversationScrollButton,
 } from "@/components/third-party/ai-elements/conversation";
 import { glass } from "@/components/design-system/primitives";
-import { ChatModel, DEFAULT_CHAT_MODEL } from "@/lib/schemas/chat";
+import { ChatModel, DEFAULT_CHAT_MODEL, SendMode } from "@/lib/schemas/chat";
 import { cn } from "@/lib/utils";
 
 const USER_MSG = "What do you remember about my preferences?";
@@ -75,6 +75,7 @@ export function InChatMemoryDemo({ className }: { className?: string }) {
   const useWebSearchRef = useRef(false);
   const useMemoriesRef = useRef(false);
   const useSpeechFriendlyRef = useRef(false);
+  const sendModeRef = useRef<SendMode>("respond");
 
   const [memoryPanelOpen, setMemoryPanelOpen] = useState(false);
 
@@ -238,6 +239,7 @@ export function InChatMemoryDemo({ className }: { className?: string }) {
               sendMessage={async () => {
                 await Promise.resolve();
               }}
+              sendModeRef={sendModeRef}
               status="ready"
               stop={async () => {
                 await Promise.resolve();

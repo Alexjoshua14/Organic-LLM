@@ -19,6 +19,22 @@ describe("Aion unit logic", () => {
     const parsed = ChatRequestSchema.parse(req);
     expect(parsed.id).toBe(req.id);
     expect(parsed.message.role).toBe("user");
+    expect(parsed.sendMode).toBe("respond");
+  });
+
+  test("ChatRequestSchema: accepts process_only send mode", () => {
+    const req = {
+      id: "7b52de83-bf70-4b7b-8d9b-4a306b8b8d87",
+      message: {
+        id: "msg-1",
+        role: "user",
+        parts: [{ type: "text", text: "store this but do not respond" }],
+      },
+      sendMode: "process_only",
+    };
+
+    const parsed = ChatRequestSchema.parse(req);
+    expect(parsed.sendMode).toBe("process_only");
   });
 
   test("ChatRequestSchema: rejects missing required fields", () => {

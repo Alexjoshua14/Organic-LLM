@@ -5,6 +5,8 @@ export const MessageRole = z.enum(["user", "assistant", "system"]);
 
 // Message schema kind enum
 export const MessageSchemaKind = z.enum(["ui_message"]);
+export const SendModeSchema = z.enum(["respond", "process_only"]);
+export const PinTargetTypeSchema = z.enum(["thread", "persona"]);
 
 // Approved chat models enum
 export const ChatModelSchema = z.object({
@@ -45,6 +47,9 @@ export const ThreadCreate = z.object({
   id: z.uuid().optional(),
   owner_id: z.uuid().optional(),
   pinned: z.boolean().optional(),
+  feature: z.string().optional(),
+  path: z.string().optional().nullable(),
+  persona: z.string().optional().nullable(),
   created_at: z.string(),
   updated_at: z.string(),
 });
@@ -57,6 +62,9 @@ export const ThreadSchema = ThreadCreate.partial({ owner_id: true }).extend({
 
 export const ThreadUpdate = z.object({
   title: z.string().max(255).optional(),
+  feature: z.string().optional(),
+  path: z.string().nullable().optional(),
+  persona: z.string().nullable().optional(),
   id: z.uuid(),
   owner_id: z.uuid(),
   active_stream_id: z.string().nullable().optional(),
@@ -70,6 +78,7 @@ export const MessageSchema = z.object({
   id: z.uuid(),
   thread_id: z.uuid(),
   text_excerpt: z.string().max(1000).optional(),
+  send_mode: SendModeSchema.optional().nullable(),
   schema_kind: MessageSchemaKind,
   schema_version: z.number().int().min(1).default(1),
 });
@@ -80,6 +89,7 @@ export const MessageCreate = MessageSchema;
 export const MessageUpdate = z.object({
   content: z.any().optional(),
   text_excerpt: z.string().max(1000).optional(),
+  send_mode: SendModeSchema.optional().nullable(),
   schema_kind: MessageSchemaKind.optional(),
   schema_version: z.number().int().min(1).optional(),
 });
@@ -116,6 +126,7 @@ export const UIMessageSchema = z
     createdAt: z.number().optional(),
     model: z.string().optional(),
     totalTokens: z.number().optional(),
+    sendMode: SendModeSchema.optional(),
   })
   .loose() // Allow extra fields
   .refine((message) => message.parts.length > 0 || typeof message.content === "string", {
@@ -126,6 +137,7 @@ export const ChatRequestSchema = z.object({
   message: UIMessageSchema,
   id: z.uuid(),
   model: ChatModelSchema.optional(),
+  sendMode: SendModeSchema.optional().default("respond"),
   webSearch: z.boolean().optional(),
   memory: z.boolean().optional().default(true),
   speechFriendly: z.boolean().optional(),
@@ -135,6 +147,21 @@ export const ChatRequestSchema = z.object({
   zeroDataRetention: z.boolean().optional(),
   /** Client hint: thread already has a title; server can skip ensureChatHasTitle and optionally getThreadHasTitle. */
   threadHasTitle: z.boolean().optional(),
+});
+
+export const MessageContextLinkSchema = z.object({
+  id: z.uuid().optional(),
+  message_id: z.string().min(1),
+  target_type: PinTargetTypeSchema,
+  target_id: z.string().min(1),
+  created_by: z.uuid().optional(),
+  created_at: z.string().optional(),
+});
+
+export const MessageContextLinkMutationSchema = z.object({
+  threadId: z.uuid(),
+  messageId: z.string().min(1),
+  targetType: PinTargetTypeSchema,
 });
 
 export const ThreadSummarySchema = z.object({
@@ -167,3 +194,6 @@ export type ThreadSummary = z.infer<typeof ThreadSummarySchema>;
 export type ThreadSummaryInsert = z.infer<typeof ThreadSummaryCreate>;
 export type ThreadSummaryPatch = z.infer<typeof ThreadSummaryUpdate>;
 export type ChatRequest = z.infer<typeof ChatRequestSchema>;
+export type SendMode = z.infer<typeof SendModeSchema>;
+export type PinTargetType = z.infer<typeof PinTargetTypeSchema>;
+export type MessageContextLink = z.infer<typeof MessageContextLinkSchema>;
