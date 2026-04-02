@@ -608,7 +608,9 @@ export function StrataShell({
               <textarea
                 data-dim-background="full"
                 className={cn(
-                  "min-h-[44dvh] w-full flex-1 resize-y rounded-lg border border-border/70 bg-background p-5",
+                  glass(),
+                  "min-h-[44dvh] w-full flex-1 resize-y rounded-lg border border-border/70 p-5",
+                  "focus:bg-background-tertiary/75 dark:focus:bg-background-tertiary/75",
                   "text-[15px] leading-7 text-foreground font-normal",
                   "shadow-inner transition-[background-image,background-size] duration-200",
                   NOTEBOOK_FOCUS_CLASS
