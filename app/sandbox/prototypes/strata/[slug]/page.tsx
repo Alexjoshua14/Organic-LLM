@@ -27,7 +27,7 @@ export default async function StrataPage({
         <AdaptiveLiquidChrome dimIntensity={0.45} dimIntensityFull={0.62} />
       </div>
       <div className="relative z-10 h-full w-full">
-        <StrataShell dbAvailable={dbAvailable && pageData != null} initialData={initialData} />
+        <StrataShell dbAvailable={dbAvailable} initialData={initialData} />
       </div>
     </Page>
   );

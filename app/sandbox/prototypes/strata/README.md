@@ -236,4 +236,3 @@ When you migrate DB:
 - Local-only toggle currently controls write behavior; no full bidirectional conflict merge yet.
 - Knowledge graph tools are stubs by design.
 - Local encrypted storage uses browser `localStorage`; robust backup/export UX is not yet added.
-

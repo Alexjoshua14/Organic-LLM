@@ -1,7 +1,14 @@
 import type { ReactNode, RefObject } from "react";
 
+import { motion } from "framer-motion";
+
 import { glass } from "@/components/design-system/primitives";
 import { cn } from "@/lib/utils";
+
+const sectionVariants = {
+  hidden: { opacity: 0, y: 32, scale: 0.97 },
+  visible: { opacity: 1, y: 0, scale: 1 },
+} as const;
 
 export function SectionCard({
   title,
@@ -28,10 +35,15 @@ export function SectionCard({
           : cn(glass(), "border backdrop-blur-xl");
 
   return (
-    <section
-      ref={sectionRef}
+    <motion.section
+      ref={sectionRef as RefObject<HTMLElement>}
+      initial="hidden"
+      whileInView="visible"
+      viewport={{ once: true, amount: 0.15 }}
+      transition={{ duration: 0.5, ease: "easeOut" }}
+      variants={sectionVariants}
       className={cn(
-        "snap-start snap-always min-h-[82dvh] rounded-xl p-5 sm:p-6",
+        "min-h-[82dvh] rounded-xl p-5 sm:p-6",
         "flex flex-col gap-4",
         variantClass,
         className
@@ -51,6 +63,6 @@ export function SectionCard({
         </p>
       </header>
       <div className="min-h-0 flex-1">{children}</div>
-    </section>
+    </motion.section>
   );
 }

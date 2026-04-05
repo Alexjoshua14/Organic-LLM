@@ -109,7 +109,7 @@ export const StrataRawGenerationMetadataSchema = z.object({
 
 export const StrataGenerateRequestSchema = z
   .object({
-    pageId: z.string().uuid().optional(),
+    pageId: z.uuid().optional(),
     mode: z.enum(["create", "update"]),
     sectionsSnapshot: StrataSectionsSnapshotSchema.optional(),
     rawGenerationMetadata: StrataRawGenerationMetadataSchema.optional(),
