@@ -6,9 +6,12 @@ import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { X } from "lucide-react";
 
+import { motion } from "framer-motion";
+
 import { saveStrataGeneratedSectionsAction, saveStrataSectionAction } from "../actions";
 
 import { SectionCard } from "./SectionCard";
+import { ChatLoading, ChatThinking } from "@/components/chat/chat-loading";
 
 import {
   StrataGenerateResponseSchema,
@@ -29,40 +32,6 @@ import { sanitizeRawUserInput } from "@/lib/strata/input-safety";
 type ActionStatusState = "idle" | "loading" | "completed" | "error";
 const NOTEBOOK_FOCUS_CLASS =
   "focus:bg-[linear-gradient(to_bottom,transparent_31px,rgba(120,120,120,0.12)_32px)] focus:bg-size-[100%_32px]";
-const WHEEL_DELTA_THRESHOLD = 330;
-const WHEEL_VELOCITY_THRESHOLD = 3.45;
-const WHEEL_EVENT_WINDOW_MS = 180;
-const TOUCH_DISTANCE_THRESHOLD = 216;
-const TOUCH_VELOCITY_THRESHOLD = 2.7;
-const GESTURE_COOLDOWN_MS = 560;
-
-function canScrollableElementContinue(
-  target: EventTarget | null,
-  container: HTMLElement,
-  direction: 1 | -1
-) {
-  if (!(target instanceof HTMLElement)) return false;
-  let current: HTMLElement | null = target;
-
-  while (current && current !== container) {
-    const style = window.getComputedStyle(current);
-    const allowsScroll =
-      style.overflowY === "auto" || style.overflowY === "scroll" || style.overflowY === "overlay";
-    const canScroll = current.scrollHeight > current.clientHeight + 1;
-
-    if (allowsScroll && canScroll) {
-      if (direction > 0) {
-        return current.scrollTop + current.clientHeight < current.scrollHeight - 1;
-      }
-
-      return current.scrollTop > 1;
-    }
-
-    current = current.parentElement;
-  }
-
-  return false;
-}
 
 function getSectionLabels(): Record<StrataSectionKey, { title: string; subtitle: string }> {
   return {
@@ -119,13 +88,6 @@ export function StrataShell({
   const designRef = useRef<HTMLElement | null>(null);
   const aiRef = useRef<HTMLElement | null>(null);
   const scrollContainerRef = useRef<HTMLDivElement | null>(null);
-  const wheelStateRef = useRef({ lastTs: 0 });
-  const touchStateRef = useRef<{
-    startY: number;
-    startTs: number;
-    target: EventTarget | null;
-  } | null>(null);
-  const gestureLockUntilRef = useRef(0);
   const [showStickyGenerate, setShowStickyGenerate] = useState(true);
 
   const labels = useMemo(() => getSectionLabels(), []);
@@ -205,126 +167,6 @@ export function StrataShell({
     observer.observe(refinedEl);
 
     return () => observer.disconnect();
-  }, []);
-
-  useEffect(() => {
-    const container = scrollContainerRef.current;
-
-    if (!container) return;
-
-    const jumpByGesture = (direction: 1 | -1) => {
-      const sections = [
-        rawRef.current,
-        refinedRef.current,
-        elaboratedRef.current,
-        designRef.current,
-        aiRef.current,
-      ].filter((section): section is HTMLElement => section instanceof HTMLElement);
-
-      if (sections.length === 0) return false;
-
-      const currentTop = container.scrollTop;
-      const currentIndex = sections.reduce((closestIdx, section, idx, arr) => {
-        const closestDist = Math.abs(arr[closestIdx]!.offsetTop - currentTop);
-        const nextDist = Math.abs(section.offsetTop - currentTop);
-
-        return nextDist < closestDist ? idx : closestIdx;
-      }, 0);
-
-      const nextIndex = Math.max(0, Math.min(sections.length - 1, currentIndex + direction));
-
-      if (nextIndex === currentIndex) return false;
-
-      const nextTop = Math.max(0, sections[nextIndex]!.offsetTop - 8);
-
-      container.scrollTo({ top: nextTop, behavior: "smooth" });
-      gestureLockUntilRef.current = Date.now() + GESTURE_COOLDOWN_MS;
-
-      return true;
-    };
-
-    const onWheel = (event: WheelEvent) => {
-      if (event.ctrlKey) return;
-      const now = Date.now();
-
-      if (now < gestureLockUntilRef.current) return;
-      const absDeltaY = Math.abs(event.deltaY);
-
-      if (absDeltaY === 0) return;
-
-      const dt = now - wheelStateRef.current.lastTs;
-
-      wheelStateRef.current.lastTs = now;
-      const velocity = dt > 0 && dt < WHEEL_EVENT_WINDOW_MS ? absDeltaY / dt : 0;
-      const isFastGesture =
-        absDeltaY >= WHEEL_DELTA_THRESHOLD || velocity >= WHEEL_VELOCITY_THRESHOLD;
-
-      if (!isFastGesture) return;
-
-      const direction: 1 | -1 = event.deltaY > 0 ? 1 : -1;
-
-      if (canScrollableElementContinue(event.target, container, direction)) {
-        return;
-      }
-
-      const jumped = jumpByGesture(direction);
-
-      if (jumped) {
-        event.preventDefault();
-      }
-    };
-
-    const onTouchStart = (event: TouchEvent) => {
-      const touch = event.touches[0];
-
-      if (!touch) return;
-      touchStateRef.current = {
-        startY: touch.clientY,
-        startTs: Date.now(),
-        target: event.target,
-      };
-    };
-
-    const onTouchEnd = (event: TouchEvent) => {
-      const touchState = touchStateRef.current;
-
-      touchStateRef.current = null;
-      if (!touchState) return;
-
-      const now = Date.now();
-
-      if (now < gestureLockUntilRef.current) return;
-      const touch = event.changedTouches[0];
-
-      if (!touch) return;
-
-      const distance = touchState.startY - touch.clientY;
-      const absDistance = Math.abs(distance);
-      const dt = Math.max(1, now - touchState.startTs);
-      const velocity = absDistance / dt;
-      const isFastGesture =
-        absDistance >= TOUCH_DISTANCE_THRESHOLD && velocity >= TOUCH_VELOCITY_THRESHOLD;
-
-      if (!isFastGesture) return;
-
-      const direction: 1 | -1 = distance > 0 ? 1 : -1;
-
-      if (canScrollableElementContinue(touchState.target, container, direction)) {
-        return;
-      }
-
-      jumpByGesture(direction);
-    };
-
-    container.addEventListener("wheel", onWheel, { passive: false });
-    container.addEventListener("touchstart", onTouchStart, { passive: true });
-    container.addEventListener("touchend", onTouchEnd, { passive: true });
-
-    return () => {
-      container.removeEventListener("wheel", onWheel);
-      container.removeEventListener("touchstart", onTouchStart);
-      container.removeEventListener("touchend", onTouchEnd);
-    };
   }, []);
 
   const mode = useMemo(() => {
@@ -502,7 +344,7 @@ export function StrataShell({
   };
 
   return (
-    <div className="relative flex h-full max-h-[calc(100dvh-2rem)] flex-col overflow-hidden">
+    <div className="relative flex h-full min-h-0 max-h-[calc(100dvh-2rem)] flex-col overflow-hidden">
       <div className="mx-auto w-[97vw] max-w-3xl px-3 pt-8 sm:w-[90vw] sm:px-6">
         <nav className="mb-6">
           <Link
@@ -594,7 +436,7 @@ export function StrataShell({
 
       <div
         ref={scrollContainerRef}
-        className="min-h-0 flex-1 w-full overflow-y-auto scroll-smooth snap-y snap-proximity scroll-py-4"
+        className="min-h-0 flex-1 w-full overflow-y-auto overscroll-y-contain"
       >
         <div className="mx-auto w-[97vw] max-w-3xl space-y-4 px-3 pb-6 sm:w-[90vw] sm:px-6">
           <SectionCard
@@ -602,7 +444,6 @@ export function StrataShell({
             subtitle={labels.raw_text.subtitle}
             title={labels.raw_text.title}
             variant="notes"
-            className="scroll-mt-4"
           >
             <div className="flex h-full flex-col gap-3">
               <textarea
@@ -646,7 +487,6 @@ export function StrataShell({
             subtitle={labels.refined_text.subtitle}
             title={labels.refined_text.title}
             variant="editorial"
-            className="scroll-mt-4"
           >
             <article
               className={cn("mx-auto min-h-[44dvh] w-full max-w-2xl whitespace-pre-wrap px-1 py-4")}
@@ -662,10 +502,14 @@ export function StrataShell({
             </article>
           </SectionCard>
 
-          <section
+          <motion.section
             ref={elaboratedRef}
+            initial={{ opacity: 0, y: 32, scale: 0.97 }}
+            whileInView={{ opacity: 1, y: 0, scale: 1 }}
+            viewport={{ once: true, amount: 0.15 }}
+            transition={{ duration: 0.5, ease: "easeOut" }}
             className={cn(
-              "snap-start snap-always min-h-[88dvh] scroll-mt-4 rounded-xl px-4 py-6 sm:px-6 sm:py-8",
+              "min-h-[88dvh] rounded-xl px-4 py-6 sm:px-6 sm:py-8",
               glass({ tone: "brown" }),
               "border border-border/60 backdrop-blur-xl"
             )}
@@ -681,7 +525,7 @@ export function StrataShell({
                 {sections.elaborated.content || "No elaborated content yet."}
               </ReactMarkdown>
             </article>
-          </section>
+          </motion.section>
 
           <SectionCard
             sectionRef={designRef}
@@ -757,7 +601,7 @@ export function StrataShell({
         </div>
       </div>
 
-      <footer className="mx-auto mt-4 flex w-[97vw] max-w-3xl items-center justify-between gap-2 px-3 pb-2 text-xs sm:w-[90vw] sm:px-6">
+      <footer className="mx-auto flex w-full max-w-3xl shrink-0 items-center justify-between gap-2 px-3 pt-2 pb-[max(env(safe-area-inset-bottom),0.75rem)] text-xs sm:px-6">
         {actionStatus.state !== "idle" ? (
           <div
             className={cn(
@@ -792,8 +636,10 @@ export function StrataShell({
         ) : (
           <span className="text-muted-foreground" />
         )}
-        {(isPending || isGenerating) && actionStatus.state !== "loading" && (
-          <span className="text-muted-foreground">Working...</span>
+        {(actionStatus.state === "loading" || isPending || isGenerating) && (
+          <div className="w-16 text-muted-foreground">
+            <ChatThinking text="Working..." />
+          </div>
         )}
       </footer>
     </div>
