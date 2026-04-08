@@ -32,7 +32,7 @@ export function StrataBrowser({
       <header className="space-y-2">
         <h1 className="text-2xl font-semibold tracking-tight text-foreground sm:text-3xl">Strata</h1>
         <p className="text-sm text-muted-foreground sm:text-base">
-          Segment raw notes into refined layers and elaborated output.
+          Transforms raw thoughts into structured, readable artifacts through layered AI orchestration.
         </p>
       </header>
 
