@@ -65,7 +65,7 @@ export default function AdaptiveLiquidChrome({
   const isDark = resolvedTheme === "dark";
 
   // Dark: deep blue-gray. Light: warmer, richer gray (matches app’s warm neutrals) so it doesn’t feel faded.
-  const baseColor: [number, number, number] = isDark ? [0.03, 0.05, 0.07] : [0.34, 0.32, 0.3]; // RGB 0–1: warm gray
+  const baseColor: [number, number, number] = isDark ? [0.03, 0.05, 0.07] : [0.5, 0.48, 0.46]; // RGB 0–1: warm gray
 
   const baseOpacity = isDark ? 1 : 0.92;
   const amplitude = isDark ? 0.2 : 0.18;

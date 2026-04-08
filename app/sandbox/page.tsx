@@ -88,7 +88,7 @@ export default function SandboxPage() {
           <h1 className="text-4xl md:text-5xl font-bold mb-4 bg-linear-to-r from-gray-900 to-gray-600 dark:from-gray-100 dark:to-gray-400 bg-clip-text text-transparent">
             Sandbox Gateway
           </h1>
-          <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
+          <p className="text-lg text-foreground/80 dark:text-muted-foreground max-w-2xl mx-auto">
             Welcome to your development playground. Explore and experiment with different features
             and tools.
           </p>
