@@ -1,6 +1,7 @@
 import Link from "next/link";
 
 import Page from "@/components/layout/page";
+import ShinyText from "@/components/ShinyText";
 import AdaptiveLiquidChrome from "@/components/background/AdaptiveLiquidChrome";
 import { glass } from "@/components/design-system/primitives";
 import { cn } from "@/lib/utils";
@@ -78,12 +79,11 @@ export default function SandboxPage() {
       <AdaptiveLiquidChrome dimIntensity={0.45} />
       <div className="relative z-10 w-full max-w-6xl mx-auto p-6 overflow-y-auto h-full">
         <div className="text-center mb-12">
-          <h1 className="text-4xl md:text-5xl font-bold mb-4 bg-linear-to-r from-gray-900 to-gray-600 dark:from-gray-100 dark:to-gray-400 bg-clip-text text-transparent">
+          <h1 className="mb-2 font-commissioner text-3xl font-light tracking-tight text-foreground sm:text-4xl">
             Sandbox Gateway
           </h1>
-          <p className="text-lg text-foreground/80 dark:text-muted-foreground max-w-2xl mx-auto">
-            Welcome to your development playground. Explore and experiment with different features
-            and tools.
+          <p className="text-sm text-muted-foreground max-w-2xl mx-auto select-none">
+            Where new ideas get built, broken, and refined before they go anywhere else.
           </p>
         </div>
 
@@ -102,21 +102,24 @@ export default function SandboxPage() {
               href={page.href}
             >
               <div>
-                <h2 className="text-lg font-semibold text-foreground mb-2">
+                <h2 className="font-commissioner text-lg font-light text-foreground mb-2">
                   {page.title}
                 </h2>
-                <p className="text-muted-foreground text-sm leading-relaxed">
-                  {page.description}
-                </p>
+                <p className="text-sm text-muted-foreground">{page.description}</p>
               </div>
 
               <div className="flex items-center justify-between mt-4">
-                <span className="text-sm font-medium text-muted-foreground group-hover:text-foreground transition-colors">
-                  Explore
-                </span>
+                <div className="text-xs text-muted-foreground select-none">
+                  <ShinyText
+                    className="cursor-inherit"
+                    shimmerOnParentGroupHover
+                    speed={2.5}
+                    text="Explore"
+                  />
+                </div>
                 <svg
                   aria-hidden
-                  className="w-4 h-4 text-muted-foreground group-hover:text-foreground group-hover:translate-x-0.5 transition-all duration-200"
+                  className="w-4 h-4 text-muted-foreground opacity-100 transition-all duration-200 group-hover:translate-x-0.5 md:opacity-0 md:group-hover:opacity-100"
                   fill="none"
                   stroke="currentColor"
                   viewBox="0 0 24 24"
@@ -131,21 +134,6 @@ export default function SandboxPage() {
               </div>
             </Link>
           ))}
-
-          <div
-            className={cn(
-              glass(),
-              "group relative overflow-hidden rounded-2xl border-2 border-dashed border-border/50 backdrop-blur-xl",
-              "transition-colors duration-300 hover:border-border",
-              "p-5 flex flex-col items-center justify-center text-center"
-            )}
-          >
-            <div className="text-3xl mb-3 opacity-60">➕</div>
-            <h3 className="text-base font-medium text-muted-foreground mb-1">Coming Soon</h3>
-            <p className="text-xs text-muted-foreground/70">
-              More sandbox experiments will appear here as you build them
-            </p>
-          </div>
         </div>
 
         <div className="mt-12 text-center">

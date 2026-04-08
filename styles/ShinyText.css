@@ -26,3 +26,29 @@
 .shiny-text.disabled {
   animation: none;
 }
+
+/* At rest: inherit surrounding color; shimmer only while a `.group` ancestor is hovered */
+.shiny-text.shiny-text--parent-group-hover {
+  animation: none;
+  background: none;
+  background-size: auto;
+  -webkit-background-clip: unset;
+  -webkit-text-fill-color: inherit;
+  background-clip: unset;
+  color: inherit;
+}
+
+.group:hover .shiny-text.shiny-text--parent-group-hover:not(.disabled) {
+  background: linear-gradient(
+    120deg,
+    #b5b5b5 40%,
+    rgba(255, 255, 255, 0.9) 50%,
+    #b5b5b5 60%
+  );
+  background-size: 200% 100%;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  color: transparent;
+  animation: shine 5s linear infinite;
+}
