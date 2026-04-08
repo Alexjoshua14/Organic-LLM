@@ -22,16 +22,16 @@ const sandboxPages: SandboxEntry[] = [
     size: "large",
   },
   {
-    title: "Prototypes",
-    description: "UI and background experiments — silk-fabric gradient and more",
-    href: "/sandbox/prototypes",
-    size: "small",
-  },
-  {
     title: "Ideas",
     description:
       "Capture, organize, and manage your creative ideas with priority levels and status tracking",
     href: "/sandbox/ideas",
+    size: "small",
+  },
+  {
+    title: "Prototypes",
+    description: "UI and background experiments — silk-fabric gradient and more",
+    href: "/sandbox/prototypes",
     size: "large",
   },
   {
