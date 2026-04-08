@@ -32,7 +32,7 @@ export const prototypes: PrototypeEntry[] = [
     slug: "strata",
     title: "Strata",
     description:
-      "Five-section desktop prototype: Raw Text, Refined Text, Elaborated, Design Instructions, and AI Instructions with persistent multi-page docs.",
+      "Transforms raw thoughts into structured, readable artifacts through layered AI orchestration.",
   },
 ];
 
