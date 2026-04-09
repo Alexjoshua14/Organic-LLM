@@ -345,10 +345,10 @@ export function StrataShell({
 
   return (
     <div className="relative flex h-full min-h-0 max-h-[calc(100dvh-2rem)] flex-col overflow-hidden">
-      <div className="mx-auto w-[97vw] max-w-3xl px-3 pt-8 sm:w-[90vw] sm:px-6">
+      <div className="mx-auto w-full max-w-5xl px-6 pt-6 sm:pt-8">
         <nav className="mb-6">
           <Link
-            className="text-sm text-muted-foreground transition-colors hover:text-foreground"
+            className="text-sm text-muted-foreground transition-colors hover:text-foreground select-none"
             href="/sandbox/prototypes/strata"
           >
             ← Strata pages
@@ -356,7 +356,7 @@ export function StrataShell({
         </nav>
 
         <header className="mb-6 space-y-2">
-          <h1 className="text-2xl font-semibold tracking-tight text-foreground sm:text-3xl">
+          <h1 className="font-commissioner text-2xl font-light tracking-tight text-foreground sm:text-3xl">
             {pageData.title}
           </h1>
           <p className="text-sm text-muted-foreground">
@@ -438,7 +438,7 @@ export function StrataShell({
         ref={scrollContainerRef}
         className="min-h-0 flex-1 w-full overflow-y-auto overscroll-y-contain"
       >
-        <div className="mx-auto w-[97vw] max-w-3xl space-y-4 px-3 pb-6 sm:w-[90vw] sm:px-6">
+        <div className="mx-auto w-full max-w-5xl space-y-4 px-6 pb-6">
           <SectionCard
             sectionRef={rawRef}
             subtitle={labels.raw_text.subtitle}

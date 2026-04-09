@@ -23,9 +23,7 @@ export default async function StrataPage({
 
   return (
     <Page transparentBackground className="overflow-hidden">
-      <div className="pointer-events-none absolute inset-0 dark:opacity-75">
-        <AdaptiveLiquidChrome dimIntensity={0.45} dimIntensityFull={0.62} />
-      </div>
+      <AdaptiveLiquidChrome dimIntensity={0.45} dimIntensityFull={0.62} />
       <div className="relative z-10 h-full w-full">
         <StrataShell dbAvailable={dbAvailable} initialData={initialData} />
       </div>
