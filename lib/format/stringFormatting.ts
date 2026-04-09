@@ -1,5 +1,10 @@
 /**
- * Formats a date string to a human-readable format like "December 5th, 2025"
+ * Date/time presentation helpers for UI copy.
+ */
+
+/**
+ * Formats a date string to a human-readable format like "December 5th, 2025" (English ordinals).
+ * Does not use today/yesterday; for that, see {@link formatRecentCalendarDate}.
  */
 export function formatDate(dateString: string): string {
   const date = new Date(dateString);
@@ -39,4 +44,48 @@ export function formatDate(dateString: string): string {
   };
 
   return `${month} ${day}${getOrdinalSuffix(day)}, ${year}`;
+}
+
+/**
+ * Calendar-relative labels for activity / "updated" lines: `today at …`, `yesterday at …`,
+ * or a long locale date (no time) for older instants.
+ *
+ * For a fixed English long date with ordinals, use {@link formatDate} instead — it does not
+ * handle today/yesterday.
+ */
+export function sameLocalCalendarDay(a: Date, b: Date): boolean {
+  return (
+    a.getFullYear() === b.getFullYear() &&
+    a.getMonth() === b.getMonth() &&
+    a.getDate() === b.getDate()
+  );
+}
+
+export type FormatRecentCalendarDateOptions = {
+  /** Anchor "now" for tests; defaults to `new Date()`. */
+  now?: Date;
+  /** BCP 47 locale for time/date strings; defaults to runtime default. */
+  locale?: Intl.UnicodeBCP47LocaleIdentifier;
+};
+
+export function formatRecentCalendarDate(
+  iso: string,
+  options?: FormatRecentCalendarDateOptions
+): string {
+  const now = options?.now ?? new Date();
+  const locale = options?.locale;
+  const d = new Date(iso);
+  const time = d.toLocaleTimeString(locale, { hour: "numeric", minute: "2-digit" });
+
+  if (sameLocalCalendarDay(d, now)) {
+    return `today at ${time}`;
+  }
+
+  const yesterday = new Date(now);
+  yesterday.setDate(yesterday.getDate() - 1);
+  if (sameLocalCalendarDay(d, yesterday)) {
+    return `yesterday at ${time}`;
+  }
+
+  return d.toLocaleDateString(locale, { month: "long", day: "numeric", year: "numeric" });
 }

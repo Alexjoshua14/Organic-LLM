@@ -7,14 +7,24 @@ import { getSupabaseUserId } from "@/data/supabase/profiles";
 import { listStrataPagesCached } from "@/data/supabase/strata";
 import type { StrataPage } from "@/lib/schemas/strata";
 import Page from "@/components/layout/page";
+import AdaptiveLiquidChrome from "@/components/background/AdaptiveLiquidChrome";
 
 export default async function StrataBrowserPage() {
   const clerkUser = await auth();
 
   if (!clerkUser?.userId) {
     return (
-      <Page>
-        <div className="mx-auto w-full max-w-3xl px-6 py-12">
+      <Page transparentBackground className="overflow-hidden">
+        <AdaptiveLiquidChrome dimIntensity={0.45} />
+        <div className="relative z-10 w-full max-w-5xl mx-auto p-6 overflow-y-auto h-full">
+          <nav className="mb-8">
+            <Link
+              className="text-sm text-muted-foreground hover:text-foreground transition-colors select-none"
+              href="/sandbox/prototypes"
+            >
+              ← Prototypes
+            </Link>
+          </nav>
           <p className="text-destructive">You need to sign in to use Strata.</p>
         </div>
       </Page>
@@ -26,8 +36,17 @@ export default async function StrataBrowserPage() {
 
   if (sbUserIdResult.error || !ownerId) {
     return (
-      <Page>
-        <div className="mx-auto w-full max-w-3xl px-6 py-12">
+      <Page transparentBackground className="overflow-hidden">
+        <AdaptiveLiquidChrome dimIntensity={0.45} />
+        <div className="relative z-10 w-full max-w-5xl mx-auto p-6 overflow-y-auto h-full">
+          <nav className="mb-8">
+            <Link
+              className="text-sm text-muted-foreground hover:text-foreground transition-colors select-none"
+              href="/sandbox/prototypes"
+            >
+              ← Prototypes
+            </Link>
+          </nav>
           <p className="text-destructive">Could not resolve your profile for Strata.</p>
         </div>
       </Page>
@@ -43,11 +62,12 @@ export default async function StrataBrowserPage() {
   }
 
   return (
-    <Page>
-      <div className="mx-auto w-full max-w-3xl px-6 py-10 sm:py-14">
-        <nav className="mb-10">
+    <Page transparentBackground className="overflow-hidden">
+      <AdaptiveLiquidChrome dimIntensity={0.45} />
+      <div className="relative z-10 w-full max-w-5xl mx-auto p-6 overflow-y-auto h-full">
+        <nav className="mb-8">
           <Link
-            className="text-sm text-muted-foreground transition-colors hover:text-foreground"
+            className="text-sm text-muted-foreground hover:text-foreground transition-colors select-none"
             href="/sandbox/prototypes"
           >
             ← Prototypes
