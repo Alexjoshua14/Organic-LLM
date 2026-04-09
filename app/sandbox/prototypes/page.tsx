@@ -80,12 +80,6 @@ export default function PrototypesGalleryPage() {
             </Link>
           ))}
         </div>
-
-        <div className="mt-12 text-center">
-          <p className="text-sm text-muted-foreground/70">
-            More entries as we tag stable releases.
-          </p>
-        </div>
       </div>
     </Page>
   );

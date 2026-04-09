@@ -135,12 +135,6 @@ export default function SandboxPage() {
             </Link>
           ))}
         </div>
-
-        <div className="mt-12 text-center">
-          <p className="text-sm text-muted-foreground/70">
-            Each sandbox is a self-contained experiment. Feel free to break things and learn!
-          </p>
-        </div>
       </div>
     </Page>
   );
