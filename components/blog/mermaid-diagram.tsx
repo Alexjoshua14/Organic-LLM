@@ -75,32 +75,56 @@ export function MermaidDiagram({
     const styleEl = document.createElement("style");
     styleEl.setAttribute("id", styleId);
     styleEl.textContent = `
-      /* Glass-like nodes (semi-transparent fill + subtle border) */
+      /* Light mode (no .dark on html): tokens so text/shapes read on light surfaces */
       .mermaid svg .node rect,
       .mermaid svg .node polygon,
       .mermaid svg .node circle,
       .mermaid svg .node ellipse,
       .mermaid svg .node path {
+        fill: color-mix(in srgb, var(--card) 88%, var(--muted-foreground)) !important;
+        stroke: var(--border) !important;
+        stroke-width: 1 !important;
+      }
+
+      .mermaid svg .edgePath path {
+        stroke: var(--muted-foreground) !important;
+      }
+
+      .mermaid svg .label text,
+      .mermaid svg .node text,
+      .mermaid svg text,
+      .mermaid svg tspan {
+        fill: var(--foreground) !important;
+      }
+
+      .mermaid svg line {
+        stroke: var(--muted-foreground) !important;
+      }
+
+      /* Dark mode: glass-like nodes (semi-transparent fill + subtle border) */
+      .dark .mermaid svg .node rect,
+      .dark .mermaid svg .node polygon,
+      .dark .mermaid svg .node circle,
+      .dark .mermaid svg .node ellipse,
+      .dark .mermaid svg .node path {
         fill: rgba(255, 255, 255, 0.045) !important;
         stroke: rgba(255, 255, 255, 0.12) !important;
         stroke-width: 1 !important;
       }
 
-      /* Labels */
-      .mermaid svg .label text,
-      .mermaid svg .node text {
-        fill: rgba(255, 255, 255, 0.85) !important;
-      }
-
-      /* Edges */
-      .mermaid svg .edgePath path {
+      .dark .mermaid svg .edgePath path {
         stroke: rgba(255, 255, 255, 0.35) !important;
       }
 
-      /* Dark mode tweaks (your app uses Tailwind's .dark class) */
       .dark .mermaid svg .label text,
-      .dark .mermaid svg .node text {
+      .dark .mermaid svg .node text,
+      .dark .mermaid svg text,
+      .dark .mermaid svg tspan {
         fill: rgba(255, 255, 255, 0.9) !important;
+      }
+
+      .dark .mermaid svg line {
+        stroke: rgba(255, 255, 255, 0.35) !important;
       }
     `;
 
