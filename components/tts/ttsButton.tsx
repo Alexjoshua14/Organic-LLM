@@ -1,7 +1,7 @@
 "use client";
 
 import { Button } from "@heroui/button";
-import { Volume2, X } from "lucide-react";
+import { Volume2 } from "lucide-react";
 import { useCallback, useMemo } from "react";
 
 import { Loader } from "../third-party/ai-elements/loader";
@@ -13,7 +13,7 @@ import { splitTextIntoSegments } from "@/lib/tts/token-calculator";
 import { cn } from "@/lib/utils";
 
 export function TTSButton({ text, iconOnly }: { text: string; iconOnly?: boolean }) {
-  const { speak, stop, play, status, currentText } = useTTSContext();
+  const { speak, play, status, currentText } = useTTSContext();
 
   const textToPlay = useMemo(() => {
     const { ttsWholeMessage } = getSettings();
@@ -38,11 +38,7 @@ export function TTSButton({ text, iconOnly }: { text: string; iconOnly?: boolean
     speak(textToPlay);
   }, [status, isThisClip, play, speak, textToPlay]);
 
-  const handleStop = useCallback(() => {
-    stop();
-  }, [stop]);
-
-  const showOverlay = status !== "ready" && isThisClip;
+  const showOverlay = status === "processing" && isThisClip;
 
   return (
     <>
@@ -70,17 +66,10 @@ export function TTSButton({ text, iconOnly }: { text: string; iconOnly?: boolean
           showOverlay ? "visible opacity-100" : "invisible pointer-events-none opacity-0"
         )}
       >
-        {status === "processing" && isThisClip && (
+        {showOverlay && (
           <div className="flex items-center gap-2 shrink-0">
             <Loader className="w-5 h-5 shrink-0" />
             <span className="text-sm text-foreground">Loading audio…</span>
-          </div>
-        )}
-        {status !== "processing" && status !== "ready" && (
-          <div className="flex items-center gap-1 shrink-0">
-            <Button isIconOnly size="sm" variant="ghost" aria-label="Stop" onPress={handleStop}>
-              <X className="w-4 h-4" />
-            </Button>
           </div>
         )}
       </div>
