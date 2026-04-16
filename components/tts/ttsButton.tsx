@@ -2,106 +2,88 @@
 
 import { Button } from "@heroui/button";
 import { Volume2, X } from "lucide-react";
-import { useCallback, useRef } from "react";
+import { useCallback, useMemo } from "react";
 
-import { createLogger } from "../../lib/logger";
 import { Loader } from "../third-party/ai-elements/loader";
 import { glass } from "../design-system/primitives";
 
-import { useTTS } from "@/hooks/use-tts";
+import { useTTSContext } from "@/lib/context/tts-context";
 import { getSettings } from "@/lib/user-settings";
 import { splitTextIntoSegments } from "@/lib/tts/token-calculator";
-
-const logger = createLogger("components/tts/ttsButton.tsx");
-
-type TTSResponse = {
-  data: {
-    uint8ArrayData: Record<number, number>; // {0:255,1:243,...}
-    mediaType: string; // "audio/mpeg"
-    format: "mp3" | "ogg" | "wav";
-  };
-};
-
-type ModelSelection = "gpt-4o-mini-tts" | "eleven_multilingual_v2" | "eleven_flash_v2_5";
-
-declare global {
-  var clearAudio: (() => void) | null;
-}
+import { cn } from "@/lib/utils";
 
 export function TTSButton({ text, iconOnly }: { text: string; iconOnly?: boolean }) {
-  const audioRef = useRef<HTMLAudioElement>(null);
+  const { speak, stop, play, status, currentText } = useTTSContext();
 
-  const { streamAudio, status, play, close } = useTTS({
-    audioRef,
-    autoplay: true,
-  });
+  const textToPlay = useMemo(() => {
+    const { ttsWholeMessage } = getSettings();
+
+    return ttsWholeMessage ? text : (splitTextIntoSegments(text, "paragraph")[0] ?? text);
+  }, [text]);
+
+  const isThisClip = currentText === textToPlay;
 
   const handleSpeak = useCallback(() => {
-    if (status === "processing" || status === "playing") {
+    if (status === "processing" && isThisClip) {
       return;
-    } else if (status === "complete" || status == "readyToPlay" || status == "paused") {
-      play();
     }
+    if (status === "playing" && isThisClip) {
+      return;
+    }
+    if ((status === "complete" || status === "readyToPlay" || status === "paused") && isThisClip) {
+      play();
 
-    const { ttsWholeMessage } = getSettings();
-    const textToPlay = ttsWholeMessage
-      ? text
-      : (splitTextIntoSegments(text, "paragraph")[0] ?? text);
+      return;
+    }
+    speak(textToPlay);
+  }, [status, isThisClip, play, speak, textToPlay]);
 
-    streamAudio({ text: textToPlay });
-  }, [text, status, streamAudio, play]);
+  const handleStop = useCallback(() => {
+    stop();
+  }, [stop]);
 
-  const clearAudio = useCallback(() => {
-    close();
-  }, []);
+  const showOverlay = status !== "ready" && isThisClip;
 
   return (
     <>
       <Button
-        aria-busy={status === "processing"}
+        aria-busy={status === "processing" && isThisClip}
         className="text-accent hover:scale-110 border touch-none"
-        isDisabled={status === "processing"}
+        isDisabled={status === "processing" && isThisClip}
         isIconOnly={iconOnly}
         size="sm"
         tabIndex={-1}
         variant="ghost"
         onPress={handleSpeak}
       >
-        {status === "processing" ? (
+        {status === "processing" && isThisClip ? (
           <Loader className="w-4 h-4 mr-1 shrink-0" />
         ) : (
           <Volume2 className="w-4 h-4 mr-1" />
         )}
-        {iconOnly ? null : status === "processing" ? "Loading…" : "Play Audio"}
+        {iconOnly ? null : status === "processing" && isThisClip ? "Loading…" : "Play Audio"}
       </Button>
       <div
-        className={`${glass()} absolute top-10 md:top-4 left-1/2 -translate-x-1/2 flex items-center gap-2 px-6 py-2 rounded-xl ${status === "ready" ? "hidden" : ""}`}
+        className={cn(
+          glass(),
+          "absolute top-10 md:top-4 left-1/2 -translate-x-1/2 flex items-center gap-2 px-6 py-2 rounded-xl transition-opacity",
+          showOverlay ? "visible opacity-100" : "invisible pointer-events-none opacity-0"
+        )}
       >
-        {status === "processing" ? (
-          <>
+        {status === "processing" && isThisClip && (
+          <div className="flex items-center gap-2 shrink-0">
             <Loader className="w-5 h-5 shrink-0" />
             <span className="text-sm text-foreground">Loading audio…</span>
-          </>
-        ) : (
-          <>
-            <audio
-              ref={audioRef}
-              autoPlay
-              controls
-              className={`${glass()} rounded-xl p-1 min-w-20`}
-            />
-            <Button isIconOnly size="sm" onPress={clearAudio}>
+          </div>
+        )}
+        {status !== "processing" && status !== "ready" && (
+          <div className="flex items-center gap-1 shrink-0">
+            <Button isIconOnly size="sm" variant="ghost" aria-label="Stop" onPress={handleStop}>
               <X className="w-4 h-4" />
             </Button>
-          </>
+          </div>
         )}
       </div>
     </>
   );
-}
-
-function uint8ArrayToBlob(uint8ArrayData: Record<number, number>) {
-  const uint8Array = new Uint8Array(Object.values(uint8ArrayData));
-
-  return new Blob([uint8Array], { type: "audio/mpeg" });
 }

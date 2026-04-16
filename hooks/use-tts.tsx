@@ -29,6 +29,16 @@ function isMediaSourceSupported(): boolean {
   return typeof MediaSource !== "undefined" && MediaSource.isTypeSupported("audio/mpeg");
 }
 
+/** Lifecycle + playback status for TTS streaming. */
+export type TTSStatus =
+  | "ready"
+  | "processing"
+  | "readyToPlay"
+  | "playing"
+  | "paused"
+  | "error"
+  | "complete";
+
 /**
  * Custom React hook to handle Text-to-Speech (TTS) streaming audio, playback control,
  * alignment processing, and state management.
@@ -40,10 +50,10 @@ export function useTTS({
   onAlignment,
   audioRef,
   autoplay = true,
+  /** When false, never sets `audio.controls` (app-level / hidden `<audio>`). Default true. */
+  showNativeControls = true,
 }: {
-  onStatusChange?: (
-    status: "ready" | "processing" | "readyToPlay" | "playing" | "paused" | "error" | "complete"
-  ) => void;
+  onStatusChange?: (status: TTSStatus) => void;
   onTimeUpdate?: (time: number) => void;
   onDurationChange?: (duration: number) => void;
   onAlignment?: (alignment: {
@@ -52,6 +62,7 @@ export function useTTS({
   }) => void;
   audioRef?: React.RefObject<HTMLAudioElement | null>;
   autoplay?: boolean;
+  showNativeControls?: boolean;
 } = {}) {
   // Ref for maintaining the MediaSource instance
   const mediaSourceRef = useRef<MediaSource | null>(null);
@@ -64,9 +75,7 @@ export function useTTS({
   } | null>(null);
 
   // Status of TTS playback/processing lifecycle
-  const [status, setStatus] = useState<
-    "ready" | "processing" | "readyToPlay" | "playing" | "paused" | "error" | "complete"
-  >("ready");
+  const [status, setStatus] = useState<TTSStatus>("ready");
   // Total audio duration (in seconds)
   const [duration, setDuration] = useState<number | null>(null);
   // Current playback time (in seconds)
@@ -116,7 +125,9 @@ export function useTTS({
       setStatus("readyToPlay");
       onStatusChange?.("readyToPlay");
       if (audioRef?.current) {
-        audioRef.current.controls = true;
+        if (showNativeControls) {
+          audioRef.current.controls = true;
+        }
         if (autoplay) {
           await audioRef.current.play();
         }
@@ -130,7 +141,7 @@ export function useTTS({
         logger.error("streamAudio", `Error playing audio early: ${err}`);
       }
     }
-  }, []);
+  }, [audioRef, autoplay, onStatusChange, showNativeControls]);
 
   const close = useCallback(async () => {
     // Cleanup: abort stream, clear MediaSource, remove audio URL, reset state.
@@ -138,7 +149,7 @@ export function useTTS({
     if (audioRef?.current) {
       try {
         audioRef.current.pause();
-      } catch (e) {
+      } catch {
         // Ignore pause errors
       }
 
@@ -158,7 +169,7 @@ export function useTTS({
     if (mediaSourceRef.current && mediaSourceRef.current.readyState === "open") {
       try {
         mediaSourceRef.current.endOfStream();
-      } catch (e) {
+      } catch {
         // ignore
       }
     }
@@ -171,7 +182,7 @@ export function useTTS({
     setCurrentTime(0);
 
     // Optionally: abort fetch controller or streaming, if implemented elsewhere
-  }, []);
+  }, [audioRef]);
 
   /**
    * Set up audio element event listeners (shared between MediaSource and blob approaches).
@@ -296,7 +307,9 @@ export function useTTS({
         setStatus("readyToPlay");
         onStatusChange?.("readyToPlay");
         if (audioRef?.current) {
-          audioRef.current.controls = true;
+          if (showNativeControls) {
+            audioRef.current.controls = true;
+          }
           if (autoplay) {
             audioRef.current.play().catch((err) => {
               if (!isPlayAbortError(err)) {
@@ -396,7 +409,9 @@ export function useTTS({
           setStatus("readyToPlay");
           onStatusChange?.("readyToPlay");
           if (audioRef?.current) {
-            audioRef.current.controls = true;
+            if (showNativeControls) {
+              audioRef.current.controls = true;
+            }
             if (autoplay) {
               audioRef.current.play().catch((err) => {
                 if (!isPlayAbortError(err)) {
@@ -504,6 +519,10 @@ export function useTTS({
         onDurationChange?.(audio.duration || 0);
         setDuration(audio.duration || 0);
 
+        if (audioRef?.current && showNativeControls) {
+          audioRef.current.controls = true;
+        }
+
         if (autoplay) {
           await audio.play();
         }
@@ -512,10 +531,12 @@ export function useTTS({
     [
       audioRef,
       autoplay,
+      showNativeControls,
       onAlignment,
       onStatusChange,
       onDurationChange,
       onTimeUpdate,
+      onReadyToPlay,
       setupAudioEventListeners,
       processChunkAlignment,
     ]
@@ -535,7 +556,7 @@ export function useTTS({
         }
       });
     }
-  }, []);
+  }, [audioRef]);
 
   /**
    * Pause the audio (wrapper for audio element pause, with logging)
@@ -545,7 +566,7 @@ export function useTTS({
     if (audioRef?.current) {
       audioRef.current.pause();
     }
-  }, []);
+  }, [audioRef]);
 
   /**
    * Stop playback: pause, reset to start, set status to "ready"
@@ -562,11 +583,14 @@ export function useTTS({
   /**
    * Seek to a certain time (in seconds) in the audio, clamped to valid bounds
    */
-  const seek = useCallback((time: number) => {
-    if (audioRef?.current) {
-      audioRef.current.currentTime = Math.max(0, Math.min(time, audioRef.current.duration || 0));
-    }
-  }, []);
+  const seek = useCallback(
+    (time: number) => {
+      if (audioRef?.current) {
+        audioRef.current.currentTime = Math.max(0, Math.min(time, audioRef.current.duration || 0));
+      }
+    },
+    [audioRef]
+  );
 
   // ---- API: Return all controls and state for use in TTS components ----
   return {
