@@ -1,5 +1,7 @@
 "use client";
 
+import { Button } from "@heroui/button";
+import { X } from "lucide-react";
 import {
   createContext,
   useCallback,
@@ -8,10 +10,12 @@ import {
   useRef,
   useState,
   type ReactNode,
+  type RefObject,
 } from "react";
 
-import { cn } from "@/lib/utils";
+import { glass } from "@/components/design-system/primitives";
 import { useTTS, type TTSStatus } from "@/hooks/use-tts";
+import { cn } from "@/lib/utils";
 
 export type { TTSStatus };
 
@@ -22,6 +26,8 @@ export type TTSContextValue = {
   pause: () => void;
   status: TTSStatus;
   currentText: string | null;
+  /** Mount `TTSDockBar` in `Page` so this ref attaches to `<audio>` inside the page column. */
+  audioRef: RefObject<HTMLAudioElement | null>;
 };
 
 const TTSContext = createContext<TTSContextValue | null>(null);
@@ -60,36 +66,62 @@ export function TTSProvider({ children }: { children: ReactNode }) {
   }, [close]);
 
   const value = useMemo(
-    () => ({ speak, stop, play, pause, status, currentText }),
-    [speak, stop, play, pause, status, currentText]
+    () => ({ speak, stop, play, pause, status, currentText, audioRef }),
+    [speak, stop, play, pause, status, currentText, audioRef]
   );
 
+  return <TTSContext.Provider value={value}>{children}</TTSContext.Provider>;
+}
+
+/**
+ * Renders the docked `<audio controls>` + stop control inside a `relative` page shell (e.g. [`Page`](components/layout/page.tsx)).
+ * Mount once at the end of that shell so positioning is relative to the page column, not the viewport.
+ */
+export function TTSDockBar() {
+  const { audioRef, stop, status, currentText } = useTTSContext();
   const showDockedPlayer = currentText !== null || status !== "ready";
 
   return (
-    <TTSContext.Provider value={value}>
-      {children}
-      {/* Wrapper gives the bar layout + z-index; `z-100` is not a default Tailwind token (was a no-op). */}
+    <div
+      className={cn(
+        !showDockedPlayer
+          ? "sr-only"
+          : "absolute inset-x-0 bottom-0 z-[200] flex justify-center px-2 pt-0.5 pb-[max(0.125rem,env(safe-area-inset-bottom))]"
+      )}
+    >
       <div
         className={cn(
+          "flex items-center gap-2",
           showDockedPlayer
-            ? "pointer-events-auto fixed inset-x-0 bottom-0 z-[200] flex justify-center border-t border-white/10 bg-background px-3 py-2 pb-[max(0.5rem,env(safe-area-inset-bottom))] shadow-[0_-6px_24px_rgba(0,0,0,0.12)] dark:shadow-[0_-6px_24px_rgba(0,0,0,0.35)]"
-            : "sr-only"
+            ? cn(
+                glass({ border: "none" }),
+                "w-fit max-w-[min(100%,40rem)] rounded-xl border border-white/10 px-2 py-0.5 shadow-md"
+              )
+            : "contents"
         )}
       >
+        {/* nomute: Chromium; Safari may still show mute — best-effort per spec */}
         {/* eslint-disable-next-line jsx-a11y/media-has-caption -- TTS playback sink only; no captions stream */}
         <audio
           ref={audioRef}
           controls
+          controlsList="nomute"
           preload="none"
           className={cn(
-            "box-border max-w-2xl bg-transparent",
-            showDockedPlayer ? "block h-14 w-96 min-w-[min(100%,18rem)]" : "h-px w-px min-h-0"
+            "box-border bg-transparent",
+            showDockedPlayer
+              ? "h-auto min-h-0 w-[min(100vw-4rem,28rem)] max-w-full shrink"
+              : "h-px w-px min-h-0"
           )}
           aria-hidden={!showDockedPlayer}
         />
+        {showDockedPlayer ? (
+          <Button isIconOnly size="sm" variant="ghost" aria-label="Stop playback" onPress={stop}>
+            <X className="h-4 w-4 shrink-0" />
+          </Button>
+        ) : null}
       </div>
-    </TTSContext.Provider>
+    </div>
   );
 }
 
