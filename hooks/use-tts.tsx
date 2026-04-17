@@ -73,8 +73,17 @@ export function useTTS({
     el: HTMLAudioElement;
     handlers: Array<{ type: string; fn: EventListener }>;
   } | null>(null);
-  /** Clearing `src` + `load()` fires `error` on the element; ignore that teardown noise. */
-  const suppressAudioElementErrorsRef = useRef(false);
+
+  const removeAttachedAudioListeners = useCallback(() => {
+    const audio = audioRef?.current;
+    const attached = audioListenersRef.current;
+    if (!audio || !attached || attached.el !== audio) return;
+
+    for (const { type, fn } of attached.handlers) {
+      audio.removeEventListener(type, fn);
+    }
+    audioListenersRef.current = null;
+  }, [audioRef]);
 
   // Status of TTS playback/processing lifecycle
   const [status, setStatus] = useState<TTSStatus>("ready");
@@ -164,7 +173,10 @@ export function useTTS({
 
   const close = useCallback(async () => {
     // Cleanup: abort stream, clear MediaSource, remove audio URL, reset state.
-    suppressAudioElementErrorsRef.current = true;
+    // Detach first: `src=""` + `load()` can fire `error` asynchronously; a ref gate
+    // cleared on microtasks loses to that on WebKit.
+    removeAttachedAudioListeners();
+
     // Pause audio if playing
     if (audioRef?.current) {
       try {
@@ -203,10 +215,7 @@ export function useTTS({
     setCurrentTime(0);
 
     // Optionally: abort fetch controller or streaming, if implemented elsewhere
-    queueMicrotask(() => {
-      suppressAudioElementErrorsRef.current = false;
-    });
-  }, [audioRef]);
+  }, [audioRef, removeAttachedAudioListeners]);
 
   /**
    * Set up audio element event listeners (shared between MediaSource and blob approaches).
@@ -254,8 +263,6 @@ export function useTTS({
         }
       });
       add("error", (e) => {
-        if (suppressAudioElementErrorsRef.current) return;
-
         setStatus("error");
         onStatusChange?.("error");
         logger.error("streamAudio", `Audio error: ${e}`);
