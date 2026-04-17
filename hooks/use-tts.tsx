@@ -73,6 +73,8 @@ export function useTTS({
     el: HTMLAudioElement;
     handlers: Array<{ type: string; fn: EventListener }>;
   } | null>(null);
+  /** Clearing `src` + `load()` fires `error` on the element; ignore that teardown noise. */
+  const suppressAudioElementErrorsRef = useRef(false);
 
   // Status of TTS playback/processing lifecycle
   const [status, setStatus] = useState<TTSStatus>("ready");
@@ -116,6 +118,23 @@ export function useTTS({
     return indices;
   }, [mergedAlignment, currentTime]);
 
+
+  // Minimal valid MP3 frame (silence, ~0.03s)
+  const SILENT_MP3 =
+    "data:audio/mpeg;base64,SUQzBAAAAAAAI1RTU0UAAAAPAAADTGF2ZjU4Ljc2LjEwMAAAAAAAAAAAAAAA//tQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAWGluZwAAAA8AAAACAAABhgC7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7//////////////////////////////////////////////////////////////////8AAAAATGF2YzU4LjEzAAAAAAAAAAAAAAAAJAAAAAAAAAAAAYYoRBqpAAAAAAD/+1DEAAAHAALJ9AAAJMIYaz80IAQAABY+gn/BwfB8HwfB8EAQBA5/ygIAgCAIfg+D4Pg+D58EAQBA5/KAgCAIHwfB8HwfB8+CAIAgc/lAQBAED4Pg+D4Pg+fBAEAQOfygIAgCB8HwfB8HwfPggCAIHP+sEAQBA+D4Pg+D5/0AQBA5/KAgCAIHwfB8HwfB8+CAIAgc/5QEAQBA+D4Pg+D4Pn/+1DEMwPAAADSAAAAIAAAGkAAAAQBAEAQOfygIAgCB8HwfB8HwfPggCAIHP5QEAQBAEHwfB8HwfB8+CAIAgc/lAQBAED4Pg+D4Pg+fBAEAQOfygIAgCB8HwfB8HwfPggCAIHP5QEAQBA+D4Pg+D4Pn/QBAEAQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA";
+
+  /**
+   * "Primes" the audio element to allow programmatic playback on platforms
+   * with strict autoplay/user-gesture policies (notably iOS Safari).
+   * Plays a short silent MP3 frame to "unlock" playback.
+   */
+  const prime = useCallback(() => {
+    const audio = audioRef?.current;
+    if (!audio) return;
+    audio.src = SILENT_MP3;
+    audio.play().catch(() => { });
+  }, [audioRef]);
+
   /**
    * Callback triggered when enough audio is buffered for playback.
    * Handles updating state and starting playback (autoplay), and ensures proper UI controls.
@@ -145,12 +164,14 @@ export function useTTS({
 
   const close = useCallback(async () => {
     // Cleanup: abort stream, clear MediaSource, remove audio URL, reset state.
+    suppressAudioElementErrorsRef.current = true;
     // Pause audio if playing
     if (audioRef?.current) {
       try {
         audioRef.current.pause();
-      } catch {
+      } catch (err) {
         // Ignore pause errors
+        logger.error("streamAudio", `Error pausing audio: ${err}`);
       }
 
       // Remove event listeners if any (in case you attached some outside React effect)
@@ -182,6 +203,9 @@ export function useTTS({
     setCurrentTime(0);
 
     // Optionally: abort fetch controller or streaming, if implemented elsewhere
+    queueMicrotask(() => {
+      suppressAudioElementErrorsRef.current = false;
+    });
   }, [audioRef]);
 
   /**
@@ -230,6 +254,8 @@ export function useTTS({
         }
       });
       add("error", (e) => {
+        if (suppressAudioElementErrorsRef.current) return;
+
         setStatus("error");
         onStatusChange?.("error");
         logger.error("streamAudio", `Audio error: ${e}`);
@@ -595,6 +621,7 @@ export function useTTS({
   // ---- API: Return all controls and state for use in TTS components ----
   return {
     // Expose TTS controls, audio state, and alignment data for use in consuming components
+    prime, // Prime the audio element for programmatic playback
     streamAudio, // Function to start TTS streaming for a new text
     status, // Current playback/processing status
     play, // Play audio

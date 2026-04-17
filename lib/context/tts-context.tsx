@@ -6,6 +6,7 @@ import {
   createContext,
   useCallback,
   useContext,
+  useLayoutEffect,
   useMemo,
   useRef,
   useState,
@@ -15,6 +16,7 @@ import {
 
 import { glass } from "@/components/design-system/primitives";
 import { useTTS, type TTSStatus } from "@/hooks/use-tts";
+import { shouldDeferAudioAutoplayToUserGesture } from "@/lib/tts/defer-audio-autoplay";
 import { cn } from "@/lib/utils";
 
 export type { TTSStatus };
@@ -36,8 +38,10 @@ export function TTSProvider({ children }: { children: ReactNode }) {
   const audioRef = useRef<HTMLAudioElement>(null);
   const speakGenerationRef = useRef(0);
   const [currentText, setCurrentText] = useState<string | null>(null);
+  /** iOS WebKit: avoid autoplay after async TTS work — user taps native play (gesture). */
+  // const [deferAutoplay] = useState(() => shouldDeferAudioAutoplayToUserGesture());
 
-  const { streamAudio, status, play, pause, close } = useTTS({
+  const { prime, streamAudio, status, play, pause, close } = useTTS({
     audioRef,
     autoplay: true,
     showNativeControls: true,
@@ -48,21 +52,27 @@ export function TTSProvider({ children }: { children: ReactNode }) {
       setCurrentText(text);
       const gen = ++speakGenerationRef.current;
 
+      const audio = audioRef.current;
+      if (audio) {
+        audio.pause();      // stop whatever's playing — synchronous, fine
+        prime();            // bless the element while still in gesture stack
+      }
+
       void (async () => {
-        await close();
-        if (gen !== speakGenerationRef.current) {
-          return;
-        }
+        // Don't call close() here — it does audio.src = ""; audio.load()
+        // which is redundant (streamAudio sets its own src) and risks
+        // interfering with the prime on some WebKit builds.
+        if (gen !== speakGenerationRef.current) return;
         await streamAudio({ text });
       })();
     },
-    [streamAudio, close]
+    [streamAudio, prime, audioRef]
   );
 
   const stop = useCallback(() => {
     speakGenerationRef.current += 1;
-    void close();
     setCurrentText(null);
+    void close();
   }, [close]);
 
   const value = useMemo(
@@ -86,7 +96,7 @@ export function TTSDockBar() {
       className={cn(
         !showDockedPlayer
           ? "sr-only"
-          : "absolute inset-x-0 bottom-0 z-[200] flex justify-center px-2 pt-0.5 pb-[max(0.125rem,env(safe-area-inset-bottom))]"
+          : "absolute inset-x-0 bottom-0 z-200 flex justify-center px-2 pt-0.5 pb-[max(0.125rem,env(safe-area-inset-bottom))]"
       )}
     >
       <div
@@ -94,9 +104,9 @@ export function TTSDockBar() {
           "flex items-center gap-2",
           showDockedPlayer
             ? cn(
-                glass({ border: "none" }),
-                "w-fit max-w-[min(100%,40rem)] rounded-xl border border-white/10 px-2 py-0.5 shadow-md"
-              )
+              glass({ border: "none" }),
+              "w-fit max-w-[min(100%,40rem)] rounded-xl border border-white/10 px-2 py-0.5 shadow-md"
+            )
             : "contents"
         )}
       >
