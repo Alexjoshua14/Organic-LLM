@@ -6,8 +6,10 @@ import { ElevenLabsClient } from "@elevenlabs/elevenlabs-js";
 import { createLogger } from "@/lib/logger";
 import { transformTextToSpeechFriendlyV2 } from "@/lib/llm/text-to-speech";
 import { stripSpeechTags } from "@/lib/tts/speech-tags";
+import { createTtsV2AudioCache } from "@/lib/tts/tts-v2-audio-cache";
+import type { TTSModel } from "@/lib/tts/token-calculator";
 
-const logger = createLogger("app/api/tts/route.ts");
+const logger = createLogger("app/api/ai/tts-v2/route.ts");
 
 // let availableSpeechModels: SpeechModel[] = [
 //   openai.speech("gpt-4o-mini-tts"),
@@ -17,20 +19,17 @@ const logger = createLogger("app/api/tts/route.ts");
 // ];
 
 const VOICE_ID = "19STyYD15bswVz51nqLf";
+const MODEL_ID = "eleven_v3" satisfies TTSModel;
 
-// Cache for TTS audio streams
-const audioCache = new Map<
-  string,
-  {
-    streamData: string; // Complete NDJSON stream
-    timestamp: number;
-  }
->();
-const CACHE_TTL = 1000 * 60 * 60 * 24; // 24 hours
+// In-memory LRU cache for TTS NDJSON streams (per server instance, max 128 entries).
+const TTS_AUDIO_CACHE_MAX_ENTRIES = 128;
+const CACHE_TTL = 1000 * 60 * 60 * 24 * 7; // 7 days
+const CACHE_MAX_AGE_SEC = Math.floor(CACHE_TTL / 1000);
+const audioCache = createTtsV2AudioCache(TTS_AUDIO_CACHE_MAX_ENTRIES, CACHE_TTL);
 
 // Generate cache key from text and options
 function getCacheKey(text: string, skipTransform: boolean): string {
-  const key = `${text}:${skipTransform ? "raw" : "processed"}:eleven_multilingual_v2:${VOICE_ID}`;
+  const key = `${text}:${skipTransform ? "raw" : "processed"}:${MODEL_ID}:${VOICE_ID}`;
 
   return createHash("sha256").update(key).digest("hex");
 }
@@ -114,16 +113,16 @@ export async function POST(req: NextRequest) {
   // Generate cache key based on final speech-friendly text (after stripping tags)
   const cacheKey = getCacheKey(textForTTS, skipTransform ?? false);
 
-  // Check cache first
+  // Check cache first (TTL + LRU touch handled inside helper)
   const cached = audioCache.get(cacheKey);
 
-  if (cached && Date.now() - cached.timestamp < CACHE_TTL) {
+  if (cached) {
     logger.log("TTS Route", "Returning cached audio stream");
 
     return new Response(createCachedStream(cached.streamData), {
       headers: {
         "Content-Type": "application/x-ndjson",
-        "Cache-control": "public, max-age=86400", // 24 hours
+        "Cache-control": `public, max-age=${CACHE_MAX_AGE_SEC}`,
         Connection: "keep-alive",
       },
     });
@@ -159,7 +158,7 @@ export async function POST(req: NextRequest) {
       async start(controller) {
         try {
           const audioStream = await elevenlabs.textToSpeech.streamWithTimestamps(VOICE_ID, {
-            modelId: "eleven_multilingual_v2",
+            modelId: MODEL_ID,
             text: textForTTS,
             outputFormat: "mp3_44100_128",
             voiceSettings: {
@@ -200,7 +199,7 @@ export async function POST(req: NextRequest) {
                   {
                     _meta: {
                       text: textForTTS,
-                      model: "eleven_multilingual_v2",
+                      model: MODEL_ID,
                       voiceId: VOICE_ID,
                       chunkCount: fixtureChunks.length,
                       capturedAt: new Date().toISOString(),
@@ -213,10 +212,10 @@ export async function POST(req: NextRequest) {
                 `\n--- END ELEVENLABS STREAM FIXTURE ---\n`
             );
           }
+
+          controller.close();
         } catch (err) {
           controller.error(err);
-        } finally {
-          controller.close();
         }
       },
     });
