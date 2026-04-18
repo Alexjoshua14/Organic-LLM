@@ -26,14 +26,15 @@ import {
 } from "@/data/supabase/chat";
 import { Result } from "@/types";
 import { recordLlmCall } from "@/lib/llm/metrics";
+import { generateShortTitleFromSummary } from "@/lib/llm/short-title-from-summary";
+import { TITLE_PIPELINE_SUMMARIZER_MODEL } from "@/lib/llm/title-models";
 
 /** Model Selections: Each ZDR compatible */
 const MODEL_SELECTION: Record<string, LanguageModel> = {
-  summarizer: "google/gemini-3-flash",
+  summarizer: TITLE_PIPELINE_SUMMARIZER_MODEL,
   updater: "google/gemini-3-flash",
   validator: "google/gemini-3-flash",
   reviser: "google/gemini-3-flash",
-  chatTitle: "anthropic/claude-opus-4.6",
 };
 
 /** Max input tokens for title generation (allows long-thread context). */
@@ -337,7 +338,6 @@ export async function generateChatTitle(chatId: string): Promise<Result<string>>
   }));
 
   let conversationSummary: string;
-  let titleIdea: string;
 
   try {
     const summaryStart = performance.now();
@@ -372,42 +372,21 @@ export async function generateChatTitle(chatId: string): Promise<Result<string>>
     };
   }
 
-  try {
-    const titleStart = performance.now();
-    const titleResult = await generateText({
-      model: MODEL_SELECTION.chatTitle,
-      system: `
-    You are a helpful assistant that generates a title for a chat.
-    Generate a title for the chat based on the conversation summary.
-    The title should be no more than 20 characters.
-    But can be up to 30 characters if truly necessary.
-    Return only the title, no other text. No quotes.
-    `,
-      prompt: conversationSummary,
-      maxOutputTokens: GUARDRAIL_MAX_OUTPUT_TOKENS,
-    });
-    const titleDuration = performance.now() - titleStart;
+  const shortTitleResult = await generateShortTitleFromSummary(conversationSummary, {
+    contextId: chatId,
+    operation: "chatTitle-title",
+    subject: "chat",
+  });
 
-    recordLlmCall({
-      model: MODEL_SELECTION.chatTitle as string,
-      usage: titleResult.usage,
-      durationMs: titleDuration,
-      metadata: { operation: "chatTitle-title", contextId: chatId },
-    });
-    titleIdea = (titleResult.text ?? "").trim().replace(/^["']|["']$/g, "");
-  } catch (err) {
-    logger.error(
-      "generateChatTitle",
-      `Error generating title: ${err instanceof Error ? err.message : String(err)}`
-    );
-
+  if (shortTitleResult.error) {
     return {
       data: null,
-      error: new Error(err instanceof Error ? err.message : "Failed to generate title"),
+      error: shortTitleResult.error,
     };
   }
 
-  const finalTitle = titleIdea.length > 0 ? titleIdea.slice(0, 255) : "Chat";
+  const titleIdea = shortTitleResult.data ?? "";
+  const finalTitle = titleIdea.length > 0 ? titleIdea : "Chat";
 
   const res = await updateChatTitle(chatId, finalTitle);
 

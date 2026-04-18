@@ -10,6 +10,7 @@ import {
   upsertStrataSection,
 } from "@/data/supabase/strata";
 import {
+  STRATA_DEFAULT_UNTITLED_TITLE,
   type StrataGenerationContext,
   type StrataSection,
   type StrataSectionKey,
@@ -26,7 +27,7 @@ export async function createAndOpenStrataPageAction(formData: FormData) {
 }
 
 export async function renameStrataPageAction(pageId: string, ownerId: string, title: string) {
-  await renameStrataPage(pageId, title.trim() || "Untitled Strata page");
+  await renameStrataPage(pageId, title.trim() || STRATA_DEFAULT_UNTITLED_TITLE);
   revalidateTag(`strata-pages:${ownerId}`, "max");
   revalidateTag(`strata-page:${pageId}`, "max");
 }

@@ -83,7 +83,7 @@ Thanks for listening.
 Use this in the main prompt box if you’re doing one continuous clip:
 
 ```
-Abstract product explainer. A flowchart or diagram made of glowing nodes and connecting lines forms and evolves on a dark gradient background. Nodes appear one by one, edges draw between them. Soft teal and amber accents, minimal UI aesthetic. Camera: static. Motion: diagram elements assemble and subtle light pulses along the connections. No people. No text. 16:9, clean and abstract.
+Product explainer shot. One person, mid-20s to 30s, speaking to camera in a clean modern room. Soft gradient background, neutral or warm tones. Even soft key light, no harsh shadows. Camera: static or very slow push-in. Subject speaks naturally to lens, minimal movement. Style: professional product walkthrough, calm and clear. No text on screen. 16:9, cinematic but minimal.
 ```
 
 ---
@@ -93,13 +93,13 @@ Abstract product explainer. A flowchart or diagram made of glowing nodes and con
 **Start frame prompt** (describes the opening image/frame):
 
 ```
-Abstract diagram: a few rounded nodes and thin connecting lines on a soft dark gradient. Teal and warm amber glow. No text, no people. Minimal, tech-product style. 16:9.
+Single person from chest up, facing camera, in a minimal indoor setting. Soft gradient background, neutral or warm. Even soft lighting, professional product-video style. Clean, modern, calm expression. No text or graphics. 16:9.
 ```
 
 **Main video prompt** (paste in the main box and Submit):
 
 ```
-Same abstract diagram world. New nodes and edges appear and connect; light flows gently along the lines. Background stays consistent. Camera: locked. Motion: diagram growing and animating slowly. No people. 16:9.
+Same person as start frame, speaking to camera. Minimal movement; slight natural head and hand gestures. Soft gradient background stays consistent. Camera: locked or very slow push-in. Product walkthrough tone. No on-screen text. 16:9.
 ```
 
 ---
@@ -107,7 +107,7 @@ Same abstract diagram world. New nodes and edges appear and connect; light flows
 ### Short alternate (if you need a tighter prompt)
 
 ```
-Glowing nodes and lines forming a diagram on dark gradient. Teal and amber. Slow assembly, static camera. No people, no text. 16:9.
+One person to camera, soft gradient background, even lighting. Static or slow push-in. Professional explainer, minimal movement. 16:9.
 ```
 
 Use the **narration** from the sections above as a separate voiceover in **Studio** (or another tool) and align it to the generated clip.

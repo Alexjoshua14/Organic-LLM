@@ -1,15 +1,39 @@
 import { UIMessage } from "ai";
+import type { Metadata } from "next";
+import { cache } from "react";
 
 import Page from "@/components/layout/page";
 import { Chat } from "@/components/chat/chat";
 import { loadChat } from "@/lib/chat/chat-store";
 import { getNMessages } from "@/data/supabase/chat";
+import { resolveChatBrowserTabTitlePrimary } from "@/lib/metadata/resolve-browser-tab-title";
+import { tabTitleMetadata } from "@/lib/metadata/tab-title";
 import { Thread } from "@/lib/schemas/chat";
 import { createLogger } from "@/lib/logger";
 
 import { ChatLoadError } from "./chat-load-error";
 
 const logger = createLogger(`app/chat/[slug]/page.tsx`);
+
+const loadChatForRequest = cache(loadChat);
+
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ slug: string }>;
+}): Promise<Metadata> {
+  const { slug: chatId } = await params;
+  const res = await loadChatForRequest(chatId);
+  if (res.error || res.data === null) {
+    return tabTitleMetadata(null, "Chat");
+  }
+  const primary = await resolveChatBrowserTabTitlePrimary({
+    experience: "chat",
+    thread: res.data.thread,
+    messages: res.data.messages,
+  });
+  return tabTitleMetadata(primary, "Chat");
+}
 
 export default async function ChatPage({
   params,
@@ -26,7 +50,7 @@ export default async function ChatPage({
   let chatData: { thread: Thread; messages: UIMessage[] } | null = null;
 
   try {
-    const chatDataRes = await loadChat(id);
+    const chatDataRes = await loadChatForRequest(id);
 
     if (chatDataRes.error || chatDataRes.data === null) {
       throw chatDataRes.error;

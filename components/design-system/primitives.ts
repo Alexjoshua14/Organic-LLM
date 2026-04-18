@@ -55,6 +55,21 @@ export const caption = tv({
   base: "text-xs text-muted-foreground font-light leading-snug",
 });
 
+/**
+ * Frosted "glass" surface: returns Tailwind `className` tokens from tailwind-variants. Use with
+ * `cn(glass({ … }), "rounded-xl …")` for radius, padding, and any extra borders.
+ *
+ * Base: translucent `background-tertiary`, `backdrop-blur-2xl`, light backdrop brighten — content
+ * behind stays visible but softened.
+ *
+ * Options (all optional; defaults match `defaultVariants` below):
+ * - `tone` — `"default"`: neutral glass only. `"brown"`: warm amber wash on background/border plus
+ *   `backdrop-saturate-150` for a paper/editorial feel.
+ * - `opaque` — `true`: raises fill to `bg-background-tertiary/75` (light and dark) for legible type
+ *   over busy backgrounds; omit for the lighter standard glass.
+ * - `border` — `"all"` (default): uniform hairline via `border-1`. `"right"` / `"left"`: single-edge
+ *   border. `"none"`: skip built-in border utilities when you supply your own border classes.
+ */
 export const glass = tv({
   base: "bg-background-tertiary/30 dark:bg-background-tertiary/20 backdrop-brightness-110 dark:backdrop-brightness-200 backdrop-blur-2xl  border-foreground/5",
   variants: {

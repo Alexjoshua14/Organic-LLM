@@ -4,6 +4,7 @@ import { unstable_cache } from "next/cache";
 
 import { supabaseServer } from "@/lib/supabase/server";
 import {
+  STRATA_DEFAULT_UNTITLED_TITLE,
   STRATA_SECTION_ORDER,
   type StrataGenerationContext,
   type StrataPage,
@@ -133,7 +134,7 @@ export async function getStrataPageByIdCached(pageId: string): Promise<StrataPag
 
 export async function createStrataPage(input?: { title?: string }): Promise<StrataPage> {
   const sb = (await supabaseServer()) as any;
-  const title = input?.title?.trim() || "Untitled Strata page";
+  const title = input?.title?.trim() || STRATA_DEFAULT_UNTITLED_TITLE;
 
   const { data, error } = await sb
     .from("strata_pages")

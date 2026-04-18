@@ -35,9 +35,6 @@ export const ChatModels: ChatModel[] = [
   { id: "deepseek/deepseek-v3.2-thinking", name: "DeepSeek v3.2 Thinking" },
   { id: "openai/gpt-oss-120b", name: "GPT OSS [120b]" },
   { id: "openai/gpt-oss-20b", name: "GPT OSS [20b]" },
-  { id: "openai/gpt-4o", name: "GPT-4o" },
-  { id: "openai/gpt-4o-mini", name: "GPT-4o Mini" },
-  { id: "openai/gpt-4-turbo", name: "GPT-4 Turbo" },
 ] as const;
 
 export const DEFAULT_CHAT_MODEL: ChatModel = ChatModels[0];
