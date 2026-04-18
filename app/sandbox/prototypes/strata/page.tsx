@@ -1,4 +1,5 @@
 import Link from "next/link";
+import type { Metadata } from "next";
 import { auth } from "@clerk/nextjs/server";
 
 import { StrataBrowser } from "./_components/StrataBrowser";
@@ -8,6 +9,11 @@ import { listStrataPagesCached } from "@/data/supabase/strata";
 import type { StrataPage } from "@/lib/schemas/strata";
 import Page from "@/components/layout/page";
 import AdaptiveLiquidChrome from "@/components/background/AdaptiveLiquidChrome";
+import { tabTitleMetadata } from "@/lib/metadata/tab-title";
+
+export const metadata: Metadata = {
+  ...tabTitleMetadata(null, "Strata"),
+};
 
 export default async function StrataBrowserPage() {
   const clerkUser = await auth();

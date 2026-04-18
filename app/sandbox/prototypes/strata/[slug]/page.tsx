@@ -1,25 +1,51 @@
-import Page from "@/components/layout/page";
-import AdaptiveLiquidChrome from "@/components/background/AdaptiveLiquidChrome";
-import { getStrataPageByIdCached } from "@/data/supabase/strata";
-import { buildStrataPageDefaults } from "@/lib/schemas/strata";
+import type { Metadata } from "next";
+
+import { cache } from "react";
 
 import { StrataShell } from "../_components/StrataShell";
 
-export default async function StrataPage({
+import Page from "@/components/layout/page";
+import AdaptiveLiquidChrome from "@/components/background/AdaptiveLiquidChrome";
+import { getStrataPageByIdCached } from "@/data/supabase/strata";
+import { resolveStrataBrowserTabTitlePrimary } from "@/lib/metadata/resolve-browser-tab-title";
+import { tabTitleMetadata } from "@/lib/metadata/tab-title";
+import { buildStrataPageDefaults, STRATA_DEFAULT_UNTITLED_TITLE } from "@/lib/schemas/strata";
+
+const loadStrataForRequest = cache(
+  async (
+    slug: string
+  ): Promise<{
+    pageData: Awaited<ReturnType<typeof getStrataPageByIdCached>>;
+    dbAvailable: boolean;
+  }> => {
+    try {
+      const pageData = await getStrataPageByIdCached(slug);
+
+      return { pageData, dbAvailable: true };
+    } catch {
+      return { pageData: null, dbAvailable: false };
+    }
+  }
+);
+
+export async function generateMetadata({
   params,
 }: {
   params: Promise<{ slug: string }>;
-}) {
+}): Promise<Metadata> {
   const { slug } = await params;
-  let dbAvailable = true;
-  let pageData = null;
-  try {
-    pageData = await getStrataPageByIdCached(slug);
-  } catch {
-    dbAvailable = false;
-  }
+  const { pageData } = await loadStrataForRequest(slug);
+  const initial = pageData ?? buildStrataPageDefaults(slug, STRATA_DEFAULT_UNTITLED_TITLE);
+  const primary = await resolveStrataBrowserTabTitlePrimary(initial);
 
-  const initialData = pageData ?? buildStrataPageDefaults(slug, "Untitled Strata page");
+  return tabTitleMetadata(primary, "Strata");
+}
+
+export default async function StrataPage({ params }: { params: Promise<{ slug: string }> }) {
+  const { slug } = await params;
+  const { pageData, dbAvailable } = await loadStrataForRequest(slug);
+
+  const initialData = pageData ?? buildStrataPageDefaults(slug, STRATA_DEFAULT_UNTITLED_TITLE);
 
   return (
     <Page transparentBackground className="overflow-hidden">

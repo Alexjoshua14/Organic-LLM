@@ -1,3 +1,5 @@
+import type { Metadata } from "next";
+
 import Link from "next/link";
 
 import { getPrototypeHref, prototypes } from "./_config/prototypes";
@@ -7,6 +9,11 @@ import ShinyText from "@/components/ShinyText";
 import AdaptiveLiquidChrome from "@/components/background/AdaptiveLiquidChrome";
 import { glass } from "@/components/design-system/primitives";
 import { cn } from "@/lib/utils";
+import { tabTitleMetadata } from "@/lib/metadata/tab-title";
+
+export const metadata: Metadata = {
+  ...tabTitleMetadata(null, "Prototypes"),
+};
 
 export default function PrototypesGalleryPage() {
   return (

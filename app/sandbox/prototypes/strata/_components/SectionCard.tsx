@@ -29,7 +29,7 @@ export function SectionCard({
     variant === "notes"
       ? cn(glass({ opaque: true }), "border border-border/70 backdrop-blur-xl")
       : variant === "editorial"
-        ? cn(glass({ tone: "brown" }), "border border-border/60 backdrop-blur-xl")
+        ? cn(glass({ tone: "brown", opaque: true }), "border border-border/60 backdrop-blur-xl")
         : variant === "system"
           ? cn(glass(), "border border-border/40 backdrop-blur-xl opacity-90")
           : cn(glass(), "border backdrop-blur-xl");

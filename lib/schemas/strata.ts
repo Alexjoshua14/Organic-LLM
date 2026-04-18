@@ -18,6 +18,14 @@ export const STRATA_SECTION_ORDER: StrataSectionKey[] = [
   "ai_instructions",
 ];
 
+/** Default DB and local title when the user does not provide one. */
+export const STRATA_DEFAULT_UNTITLED_TITLE = "Untitled Strata page";
+
+export function isUntitledStrataTitle(title: string | null | undefined): boolean {
+  const t = (title ?? "").trim();
+  return t.length === 0 || t === STRATA_DEFAULT_UNTITLED_TITLE;
+}
+
 export const STRATA_DEFAULT_DESIGN_INSTRUCTIONS = `Desktop-first editorial canvas for a 14-inch laptop.
 - Render five distinct full-height sections with clear spacing.
 - Use elegant typography, calm contrast, and generous whitespace.
@@ -101,6 +109,14 @@ export const StrataSectionsSnapshotSchema = z.object({
   elaborated: z.string().default(""),
   design_instructions: z.string().default(""),
   ai_instructions: z.string().default(""),
+});
+
+export const StrataGenerateTitleRequestSchema = z.object({
+  sectionsSnapshot: StrataSectionsSnapshotSchema.optional(),
+  /** From refined_text.contentJson.generatedTitle when using a snapshot (e.g. local / ZDR). */
+  refinedGeneratedTitle: z.string().optional(),
+  /** When false, title is returned only (client updates local); no `strata_pages` update. */
+  applyToDatabase: z.boolean().optional().default(true),
 });
 
 export const StrataRawGenerationMetadataSchema = z.object({

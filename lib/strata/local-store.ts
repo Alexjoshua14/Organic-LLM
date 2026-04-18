@@ -3,6 +3,7 @@
 import {
   buildDefaultStrataSections,
   buildStrataPageDefaults,
+  STRATA_DEFAULT_UNTITLED_TITLE,
   type StrataPage,
   type StrataPageWithSections,
   type StrataSectionKey,
@@ -76,7 +77,7 @@ export async function listLocalStrataPages(): Promise<StrataPage[]> {
 
 export async function createLocalStrataPage(title?: string): Promise<StrataPageWithSections> {
   const pageId = `local-${createLocalIdSuffix()}`;
-  const pageDefaults = buildStrataPageDefaults(pageId, title?.trim() || "Untitled Strata page");
+  const pageDefaults = buildStrataPageDefaults(pageId, title?.trim() || STRATA_DEFAULT_UNTITLED_TITLE);
   await saveLocalStrataPage(pageDefaults);
   return pageDefaults;
 }

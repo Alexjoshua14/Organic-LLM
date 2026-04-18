@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { X } from "lucide-react";
@@ -11,14 +12,17 @@ import { motion } from "framer-motion";
 import { saveStrataGeneratedSectionsAction, saveStrataSectionAction } from "../actions";
 
 import { SectionCard } from "./SectionCard";
-import { ChatLoading, ChatThinking } from "@/components/chat/chat-loading";
+import { StrataElaboratedTTSBar } from "./StrataElaboratedTTSBar";
+import { ChatThinking } from "@/components/chat/chat-loading";
 
 import {
   StrataGenerateResponseSchema,
+  isUntitledStrataTitle,
   type StrataGenerationContext,
   type StrataPageWithSections,
   type StrataSectionKey,
 } from "@/lib/schemas/strata";
+// Glass: full variant docs (tone, opaque, border) on `glass` in components/design-system/primitives.ts
 import { glass } from "@/components/design-system/primitives";
 import { cn } from "@/lib/utils";
 import {
@@ -28,6 +32,7 @@ import {
   setLocalOnlyMode,
 } from "@/lib/strata/local-store";
 import { sanitizeRawUserInput } from "@/lib/strata/input-safety";
+import { buildElaboratedContentJsonAfterModel } from "@/lib/strata/elaborated-tts";
 
 type ActionStatusState = "idle" | "loading" | "completed" | "error";
 const NOTEBOOK_FOCUS_CLASS =
@@ -81,6 +86,7 @@ export function StrataShell({
   const [localOnlyMode, setLocalOnlyModeState] = useState(!dbAvailable);
   const [isGenerating, setIsGenerating] = useState(false);
   const [isPending, startTransition] = useTransition();
+  const router = useRouter();
 
   const rawRef = useRef<HTMLElement | null>(null);
   const refinedRef = useRef<HTMLElement | null>(null);
@@ -199,6 +205,7 @@ export function StrataShell({
             ownerId: initialData.page.owner_id,
             sectionKey,
             content: safeContent,
+            contentJson: nextSections[sectionKey].contentJson ?? null,
           });
         }
 
@@ -224,6 +231,55 @@ export function StrataShell({
         });
       }
     });
+  };
+
+  const persistElaboratedContentJson = async (nextContentJson: Record<string, unknown> | null) => {
+    setActionStatus({
+      state: "loading",
+      text: localOnlyMode || !dbAvailable ? "Saving narration locally" : "Saving narration",
+    });
+    try {
+      let nextSections: typeof sections | undefined;
+      setSections((prev) => {
+        nextSections = {
+          ...prev,
+          elaborated: { ...prev.elaborated, contentJson: nextContentJson },
+        };
+        return nextSections;
+      });
+      if (!nextSections) {
+        throw new Error("Failed to update elaborated section state.");
+      }
+
+      if (!localOnlyMode && dbAvailable) {
+        await saveStrataSectionAction({
+          pageId: initialData.page.id,
+          ownerId: initialData.page.owner_id,
+          sectionKey: "elaborated",
+          content: nextSections.elaborated.content,
+          contentJson: nextContentJson,
+        });
+      }
+
+      await saveLocalStrataPage({
+        page: pageData,
+        sections: nextSections,
+      });
+
+      setActionStatus({
+        state: "completed",
+        text:
+          !localOnlyMode && dbAvailable
+            ? "Narration saved to Supabase + local backup."
+            : "Narration saved to encrypted local storage.",
+      });
+    } catch (err) {
+      setActionStatus({
+        state: "error",
+        text: err instanceof Error ? err.message : "Failed to save narration",
+      });
+      throw err;
+    }
   };
 
   const runGenerate = async () => {
@@ -313,16 +369,54 @@ export function StrataShell({
           ? {
             ...sections.elaborated,
             content: parsed.elaborated,
-            contentJson: parsed.elaboratedArtifacts ?? null,
+            contentJson: buildElaboratedContentJsonAfterModel(parsed.elaboratedArtifacts),
           }
           : sections.elaborated,
       };
 
+      let nextPageTitle = pageData.title;
+      if (isUntitledStrataTitle(pageData.title)) {
+        try {
+          const titleRes = await fetch(
+            `/api/prototypes/strata/${initialData.page.id}/generate-title`,
+            {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                sectionsSnapshot: {
+                  raw_text: sanitizeRawUserInput(sections.raw_text.content),
+                  refined_text: parsed.refinedText,
+                  elaborated: parsed.elaborated,
+                  design_instructions: sections.design_instructions.content,
+                  ai_instructions: sections.ai_instructions.content,
+                },
+                refinedGeneratedTitle: parsed.refinedTitle,
+                applyToDatabase: !localOnlyMode && dbAvailable,
+              }),
+            }
+          );
+          const titlePayload = await titleRes.json();
+          if (titleRes.ok && typeof titlePayload?.data === "string" && titlePayload.data.trim()) {
+            nextPageTitle = titlePayload.data.trim();
+          }
+        } catch {
+          /* title generation is best-effort */
+        }
+      }
+
+      const nextPage = { ...pageData, title: nextPageTitle };
+
       setSections(nextSections);
+      setPageData(nextPage);
       await saveLocalStrataPage({
-        page: pageData,
+        page: nextPage,
         sections: nextSections,
       });
+
+      if (!localOnlyMode && dbAvailable) {
+        router.refresh();
+      }
+
       const completedText =
         localOnlyMode || !dbAvailable
           ? mode === "create"
@@ -502,6 +596,11 @@ export function StrataShell({
             </article>
           </SectionCard>
 
+          {/*
+            Elaborated column: glass({ tone: "brown", opaque: true }) — warm tint + stronger opaque
+            fill so long markdown stays readable on the Strata canvas; pair with explicit border/blur
+            classes below. Full option reference: glass JSDoc in components/design-system/primitives.
+          */}
           <motion.section
             ref={elaboratedRef}
             initial={{ opacity: 0, y: 32, scale: 0.97 }}
@@ -510,7 +609,7 @@ export function StrataShell({
             transition={{ duration: 0.5, ease: "easeOut" }}
             className={cn(
               "min-h-[88dvh] rounded-xl px-4 py-6 sm:px-6 sm:py-8",
-              glass({ tone: "brown" }),
+              glass({ tone: "brown", opaque: true }),
               "border border-border/60 backdrop-blur-xl"
             )}
           >
@@ -520,6 +619,12 @@ export function StrataShell({
               </h2>
               <p className="text-sm text-muted-foreground">{labels.elaborated.subtitle}</p>
             </header>
+            <StrataElaboratedTTSBar
+              contentJson={sections.elaborated.contentJson}
+              disabled={isGenerating}
+              markdown={sections.elaborated.content}
+              onPersist={persistElaboratedContentJson}
+            />
             <article className="prose prose-neutral dark:prose-invert max-w-none text-foreground">
               <ReactMarkdown remarkPlugins={[remarkGfm]}>
                 {sections.elaborated.content || "No elaborated content yet."}
