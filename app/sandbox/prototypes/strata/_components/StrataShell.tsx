@@ -5,17 +5,23 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
-import { X } from "lucide-react";
-
-import { motion } from "framer-motion";
+import { BookOpenText, Columns2, SquarePen, X } from "lucide-react";
+import { motion, useReducedMotion } from "framer-motion";
 
 import { saveStrataGeneratedSectionsAction, saveStrataSectionAction } from "../actions";
 
 import { SectionCard } from "./SectionCard";
 import { StrataAssistantOpenHint } from "./StrataWorkspace";
 import { StrataElaboratedTTSBar } from "./StrataElaboratedTTSBar";
-import { ChatThinking } from "@/components/chat/chat-loading";
 
+import { ChatThinking } from "@/components/chat/chat-loading";
+import {
+  ContextMenu,
+  ContextMenuContent,
+  ContextMenuItem,
+  ContextMenuSeparator,
+  ContextMenuTrigger,
+} from "@/components/third-party/ui/context-menu";
 import {
   StrataGenerateResponseSchema,
   isUntitledStrataTitle,
@@ -38,6 +44,7 @@ import { buildElaboratedContentJsonAfterModel } from "@/lib/strata/elaborated-tt
 type ActionStatusState = "idle" | "loading" | "completed" | "error";
 type StrataMainTab = "source" | "synthesis" | "settings";
 type SourceSaveState = "idle" | "saving" | "saved" | "error";
+type SourceDocLayout = "raw" | "refined" | "split";
 const NOTEBOOK_FOCUS_CLASS =
   "focus:bg-[linear-gradient(to_bottom,transparent_31px,rgba(120,120,120,0.12)_32px)] focus:bg-size-[100%_32px]";
 
@@ -68,7 +75,9 @@ function getSectionLabels(): Record<StrataSectionKey, { title: string; subtitle:
 
 function buildRefinedSectionTitle(refinedText: string): string {
   const cleaned = refinedText.replace(/\s+/g, " ").trim();
+
   if (cleaned.length === 0) return "Refined Draft";
+
   return cleaned.split(" ").filter(Boolean).slice(0, 8).join(" ");
 }
 
@@ -94,16 +103,24 @@ export function StrataShell({
   const elaboratedRef = useRef<HTMLElement | null>(null);
   const scrollContainerRef = useRef<HTMLDivElement | null>(null);
   const rawSaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const [activeTab, setActiveTab] = useState<StrataMainTab>("source");
-  const [showRefinedPreview, setShowRefinedPreview] = useState(false);
+  const [activeTab, setActiveTab] = useState<StrataMainTab>(() =>
+    initialData.sections.elaborated.content.trim().length > 0 ? "synthesis" : "source"
+  );
+  const [sourceDocLayout, setSourceDocLayout] = useState<SourceDocLayout>("raw");
+  const reduceMotion = useReducedMotion();
   const [sourceSave, setSourceSave] = useState<{
     state: SourceSaveState;
     at?: number;
     message?: string;
   }>({ state: "idle" });
+  /** Raw text (sanitized) that last successful generation was aligned with; strip shows when current raw differs. */
+  const [rawGenerationBaseline, setRawGenerationBaseline] = useState(() =>
+    sanitizeRawUserInput(initialData.sections.raw_text.content)
+  );
 
   const sectionsRef = useRef(sections);
   const pageDataRef = useRef(pageData);
+
   sectionsRef.current = sections;
   pageDataRef.current = pageData;
 
@@ -111,8 +128,8 @@ export function StrataShell({
   const refinedSectionTitle = useMemo(
     () =>
       buildRefinedSectionTitle(
-        ((sections.refined_text.contentJson as { generatedTitle?: string } | null)?.generatedTitle ??
-          "")
+        (sections.refined_text.contentJson as { generatedTitle?: string } | null)?.generatedTitle ??
+          ""
       ),
     [sections.refined_text.contentJson]
   );
@@ -137,6 +154,13 @@ export function StrataShell({
       if (localSnapshot) {
         setPageData(localSnapshot.page);
         setSections(localSnapshot.sections);
+        setRawGenerationBaseline(sanitizeRawUserInput(localSnapshot.sections.raw_text.content));
+        if (
+          localSnapshot.sections.elaborated.content.trim().length > 0 &&
+          initialData.sections.elaborated.content.trim().length === 0
+        ) {
+          setActiveTab("synthesis");
+        }
       } else {
         await saveLocalStrataPage(initialData);
       }
@@ -173,6 +197,7 @@ export function StrataShell({
     opts?: { autosaveRaw?: boolean }
   ) => {
     const isAutosaveRaw = Boolean(opts?.autosaveRaw && sectionKey === "raw_text");
+
     if (isAutosaveRaw) {
       setSourceSave({ state: "saving", at: Date.now() });
     } else {
@@ -223,6 +248,7 @@ export function StrataShell({
                   ? "Saved"
                   : "Saved locally",
           });
+
           return;
         }
 
@@ -241,6 +267,7 @@ export function StrataShell({
         setActionStatus({ state: "completed", text: completedText });
       } catch (err) {
         const msg = err instanceof Error ? err.message : "Failed to save";
+
         if (isAutosaveRaw) {
           setSourceSave({ state: "error", at: Date.now(), message: msg });
         } else {
@@ -269,11 +296,13 @@ export function StrataShell({
     });
     try {
       let nextSections: typeof sections | undefined;
+
       setSections((prev) => {
         nextSections = {
           ...prev,
           elaborated: { ...prev.elaborated, contentJson: nextContentJson },
         };
+
         return nextSections;
       });
       if (!nextSections) {
@@ -340,9 +369,11 @@ export function StrataShell({
           },
           rawGenerationMetadata: {
             generationContext:
-              ((sections.raw_text.contentJson as { generationContext?: StrataGenerationContext } | null)
-                ?.generationContext ??
-                undefined),
+              (
+                sections.raw_text.contentJson as {
+                  generationContext?: StrataGenerationContext;
+                } | null
+              )?.generationContext ?? undefined,
           },
         }),
       });
@@ -381,9 +412,9 @@ export function StrataShell({
           ...sections.raw_text,
           contentJson: parsed.rawGenerationContext
             ? {
-              ...((sections.raw_text.contentJson ?? {}) as Record<string, unknown>),
-              generationContext: parsed.rawGenerationContext,
-            }
+                ...((sections.raw_text.contentJson ?? {}) as Record<string, unknown>),
+                generationContext: parsed.rawGenerationContext,
+              }
             : sections.raw_text.contentJson,
         },
         refined_text: {
@@ -396,14 +427,15 @@ export function StrataShell({
         },
         elaborated: shouldOverwriteElaborated
           ? {
-            ...sections.elaborated,
-            content: parsed.elaborated,
-            contentJson: buildElaboratedContentJsonAfterModel(parsed.elaboratedArtifacts),
-          }
+              ...sections.elaborated,
+              content: parsed.elaborated,
+              contentJson: buildElaboratedContentJsonAfterModel(parsed.elaboratedArtifacts),
+            }
           : sections.elaborated,
       };
 
       let nextPageTitle = pageData.title;
+
       if (isUntitledStrataTitle(pageData.title)) {
         try {
           const titleRes = await fetch(
@@ -425,6 +457,7 @@ export function StrataShell({
             }
           );
           const titlePayload = await titleRes.json();
+
           if (titleRes.ok && typeof titlePayload?.data === "string" && titlePayload.data.trim()) {
             nextPageTitle = titlePayload.data.trim();
           }
@@ -437,6 +470,7 @@ export function StrataShell({
 
       setSections(nextSections);
       setPageData(nextPage);
+      setRawGenerationBaseline(sanitizeRawUserInput(nextSections.raw_text.content));
       await saveLocalStrataPage({
         page: nextPage,
         sections: nextSections,
@@ -471,9 +505,13 @@ export function StrataShell({
     if (sourceSave.state === "saving") return "Saving…";
     if (sourceSave.state === "error") return sourceSave.message ?? "Error";
     if (sourceSave.state === "saved" && sourceSave.at) {
-      const t = new Intl.DateTimeFormat(undefined, { timeStyle: "short" }).format(new Date(sourceSave.at));
+      const t = new Intl.DateTimeFormat(undefined, { timeStyle: "short" }).format(
+        new Date(sourceSave.at)
+      );
+
       return `${sourceSave.message ?? "Saved"} · ${t}`;
     }
+
     return sourceSave.message ?? "Saved";
   }, [sourceSave]);
 
@@ -491,7 +529,13 @@ export function StrataShell({
     { id: "settings", label: "Settings" },
   ];
 
-  const showGenerationStrip = activeTab === "source" || activeTab === "synthesis";
+  const rawDriftedFromGeneration = useMemo(
+    () => sanitizeRawUserInput(sections.raw_text.content) !== rawGenerationBaseline,
+    [sections.raw_text.content, rawGenerationBaseline]
+  );
+
+  const showGenerationStrip =
+    rawDriftedFromGeneration && (activeTab === "source" || activeTab === "synthesis");
 
   return (
     <div className="relative flex h-full min-h-0 flex-1 flex-col overflow-hidden">
@@ -515,9 +559,12 @@ export function StrataShell({
               <span
                 className={cn(
                   "shrink-0 rounded-full border px-2.5 py-1 text-xs tabular-nums",
-                  sourceSave.state === "saving" && "border-border/60 bg-muted/30 text-muted-foreground",
-                  sourceSave.state === "saved" && "border-emerald-500/35 bg-emerald-500/5 text-emerald-800 dark:text-emerald-300",
-                  sourceSave.state === "error" && "border-destructive/40 bg-destructive/10 text-destructive"
+                  sourceSave.state === "saving" &&
+                    "border-border/60 bg-muted/30 text-muted-foreground",
+                  sourceSave.state === "saved" &&
+                    "border-emerald-500/35 bg-emerald-500/5 text-emerald-800 dark:text-emerald-300",
+                  sourceSave.state === "error" &&
+                    "border-destructive/40 bg-destructive/10 text-destructive"
                 )}
                 role="status"
               >
@@ -525,9 +572,6 @@ export function StrataShell({
               </span>
             ) : null}
           </div>
-          <p className="text-sm text-muted-foreground">
-            Autosave keeps your Source safe. Elaboration runs only when you choose Generate in Synthesis.
-          </p>
           <div className="flex flex-wrap items-center gap-2 text-xs">
             {localOnlyMode ? (
               <span className="rounded-full border border-emerald-500/40 bg-emerald-500/10 px-2 py-1 text-emerald-700 dark:text-emerald-300">
@@ -547,250 +591,324 @@ export function StrataShell({
         </header>
       </div>
 
-      <div className="mx-auto flex min-h-0 w-full max-w-5xl flex-1 flex-col px-6 pb-1">
+      <div className="relative flex min-h-0 w-full flex-1 flex-col overflow-hidden">
         <div
           ref={scrollContainerRef}
-          className="min-h-0 flex-1 overflow-y-auto overscroll-y-contain pb-3"
+          className="min-h-0 flex-1 overflow-y-auto overscroll-y-contain"
         >
-          {activeTab === "source" ? (
-            <div className="space-y-4 pb-4">
-              <div className="flex flex-wrap items-center justify-between gap-2">
-                <p className="text-xs text-muted-foreground">{labels.raw_text.subtitle}</p>
-                <label className="inline-flex cursor-pointer items-center gap-2 text-xs text-muted-foreground">
-                  <input
-                    checked={showRefinedPreview}
-                    type="checkbox"
-                    onChange={(e) => setShowRefinedPreview(e.target.checked)}
-                  />
-                  Refined preview
-                </label>
-              </div>
-              <div className={cn("grid gap-4", showRefinedPreview ? "lg:grid-cols-2" : "grid-cols-1")}>
-                <textarea
-                  data-dim-background="full"
+          <div className="mx-auto w-full max-w-5xl px-6 pb-32 pt-1">
+            {activeTab === "source" ? (
+              <div className="flex min-h-full flex-col gap-4">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <p className="text-xs text-muted-foreground">{labels.raw_text.subtitle}</p>
+                  <ContextMenu>
+                    <ContextMenuTrigger asChild>
+                      <motion.button
+                        className={cn(
+                          glass({ opaque: true }),
+                          "inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full border transition-colors",
+                          "text-foreground hover:bg-muted/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",
+                          sourceDocLayout !== "raw" && "border-primary/40 bg-muted/30"
+                        )}
+                        title={
+                          sourceDocLayout === "split"
+                            ? "Split view — click to return to raw, or right-click for layout options"
+                            : sourceDocLayout === "raw"
+                              ? "Showing raw — click for refined, right-click for split"
+                              : "Showing refined — click for raw, right-click for layout options"
+                        }
+                        type="button"
+                        aria-label={
+                          sourceDocLayout === "split"
+                            ? "Split view: raw and refined. Activate to return to raw source only."
+                            : sourceDocLayout === "raw"
+                              ? "Raw source active. Activate to show refined only."
+                              : "Refined view active. Activate to show raw source."
+                        }
+                        whileTap={reduceMotion ? undefined : { scale: 0.96 }}
+                        transition={{ type: "spring", stiffness: 520, damping: 28 }}
+                        onClick={() => {
+                          if (sourceDocLayout === "split") {
+                            setSourceDocLayout("raw");
+                          } else if (sourceDocLayout === "raw") {
+                            setSourceDocLayout("refined");
+                          } else {
+                            setSourceDocLayout("raw");
+                          }
+                        }}
+                      >
+                        <motion.span
+                          className="inline-flex items-center justify-center"
+                          initial={false}
+                          animate={{ opacity: 1 }}
+                          transition={{ duration: reduceMotion ? 0 : 0.15 }}
+                        >
+                          {sourceDocLayout === "raw" ? (
+                            <SquarePen aria-hidden className="h-4 w-4" />
+                          ) : sourceDocLayout === "refined" ? (
+                            <BookOpenText aria-hidden className="h-4 w-4" />
+                          ) : (
+                            <Columns2 aria-hidden className="h-4 w-4" />
+                          )}
+                        </motion.span>
+                      </motion.button>
+                    </ContextMenuTrigger>
+                    <ContextMenuContent className="min-w-[10rem]">
+                      <ContextMenuItem onSelect={() => setSourceDocLayout("split")}>
+                        <Columns2 className="h-4 w-4" />
+                        Split view
+                      </ContextMenuItem>
+                      <ContextMenuSeparator />
+                      <ContextMenuItem onSelect={() => setSourceDocLayout("raw")}>
+                        <SquarePen className="h-4 w-4" />
+                        Raw only
+                      </ContextMenuItem>
+                      <ContextMenuItem onSelect={() => setSourceDocLayout("refined")}>
+                        <BookOpenText className="h-4 w-4" />
+                        Refined only
+                      </ContextMenuItem>
+                    </ContextMenuContent>
+                  </ContextMenu>
+                </div>
+                <div
                   className={cn(
-                    glass(),
-                    "min-h-[min(52dvh,28rem)] w-full resize-y rounded-lg border border-border/70 p-5",
-                    "focus:bg-background-tertiary/75 dark:focus:bg-background-tertiary/75",
-                    "text-[15px] leading-7 text-foreground font-normal",
-                    "shadow-inner transition-[background-image,background-size] duration-200",
-                    NOTEBOOK_FOCUS_CLASS
+                    "grid min-h-0 flex-1 gap-4 pb-2",
+                    sourceDocLayout === "split" ? "lg:grid-cols-2 lg:items-stretch" : "grid-cols-1"
                   )}
-                  value={sections.raw_text.content}
-                  onChange={(e) => {
-                    const v = e.target.value;
-                    setSections((prev) => ({
-                      ...prev,
-                      raw_text: { ...prev.raw_text, content: v },
-                    }));
-                    queueRawAutosave();
-                  }}
-                />
-                {showRefinedPreview ? (
-                  <div
-                    className={cn(
-                      glass({ opaque: true }),
-                      "min-h-[min(52dvh,28rem)] overflow-y-auto rounded-lg border border-border/60 p-5"
-                    )}
-                  >
-                    <p className="mb-3 text-xs uppercase tracking-[0.22em] text-muted-foreground">
-                      {refinedSectionTitle}
-                    </p>
-                    <div className="prose prose-neutral dark:prose-invert max-w-none text-[15px] leading-7">
-                      <ReactMarkdown remarkPlugins={[remarkGfm]}>
-                        {sections.refined_text.content ||
-                          "_No refined preview yet. Use **Generate** in Synthesis after saving source._"}
-                      </ReactMarkdown>
-                    </div>
-                  </div>
-                ) : null}
-              </div>
-              <div className="flex flex-wrap items-center justify-between gap-2">
-                <button
-                  className={cn(
-                    glass({ opaque: true }),
-                    "rounded-md border px-3 py-1.5 text-sm font-medium transition-colors hover:bg-muted"
-                  )}
-                  type="button"
-                  onClick={flushSaveRaw}
                 >
-                  Save now
-                </button>
-                <p className="text-xs text-muted-foreground">Edits also save automatically after you pause typing.</p>
+                  {sourceDocLayout !== "refined" ? (
+                    <textarea
+                      data-dim-background="full"
+                      className={cn(
+                        glass(),
+                        "min-h-[min(60dvh,32rem)] w-full flex-1 resize-y rounded-lg border border-border/70 p-5 lg:min-h-[min(calc(100dvh-14rem),42rem)]",
+                        "focus:bg-background-tertiary/75 dark:focus:bg-background-tertiary/75",
+                        "text-[15px] leading-7 text-foreground font-normal",
+                        "shadow-inner transition-[background-image,background-size] duration-200",
+                        NOTEBOOK_FOCUS_CLASS,
+                        sourceDocLayout === "split" ? "max-lg:min-h-[40dvh]" : ""
+                      )}
+                      value={sections.raw_text.content}
+                      onChange={(e) => {
+                        const v = e.target.value;
+
+                        setSections((prev) => ({
+                          ...prev,
+                          raw_text: { ...prev.raw_text, content: v },
+                        }));
+                        queueRawAutosave();
+                      }}
+                    />
+                  ) : null}
+                  {sourceDocLayout !== "raw" ? (
+                    <div
+                      className={cn(
+                        glass({ opaque: true }),
+                        "min-h-[min(60dvh,32rem)] w-full overflow-y-auto rounded-lg border border-border/60 p-5 lg:min-h-[min(calc(100dvh-14rem),42rem)]",
+                        sourceDocLayout === "split" ? "max-lg:min-h-[40dvh]" : ""
+                      )}
+                    >
+                      <p className="mb-3 text-xs uppercase tracking-[0.22em] text-muted-foreground">
+                        {refinedSectionTitle}
+                      </p>
+                      <div className="prose prose-neutral dark:prose-invert max-w-none text-[15px] leading-7">
+                        <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                          {sections.refined_text.content ||
+                            "_No refined preview yet. Use **Generate** in Synthesis after saving source._"}
+                        </ReactMarkdown>
+                      </div>
+                    </div>
+                  ) : null}
+                </div>
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <button
+                    className={cn(
+                      glass({ opaque: true }),
+                      "rounded-md border px-3 py-1.5 text-sm font-medium transition-colors hover:bg-muted"
+                    )}
+                    type="button"
+                    onClick={flushSaveRaw}
+                  >
+                    Save now
+                  </button>
+                  <p className="text-xs text-muted-foreground">
+                    Edits also save automatically after you pause typing.
+                  </p>
+                </div>
               </div>
-            </div>
-          ) : null}
+            ) : null}
 
-          {activeTab === "synthesis" ? (
-            <motion.section
-              ref={elaboratedRef}
-              animate={{ opacity: 1, y: 0, scale: 1 }}
-              initial={{ opacity: 0, y: 16, scale: 0.99 }}
-              transition={{ duration: 0.35, ease: "easeOut" }}
-              className={cn(
-                "min-h-[min(70dvh,36rem)] rounded-xl px-4 py-6 sm:px-6 sm:py-8",
-                glass({ tone: "brown", opaque: true }),
-                "border border-border/60 backdrop-blur-xl"
-              )}
-            >
-              <header className="mb-4 space-y-1">
-                <h2 className="text-xl font-semibold tracking-tight text-foreground sm:text-2xl">
-                  {labels.elaborated.title}
-                </h2>
-                <p className="text-sm text-muted-foreground">
-                  {labels.elaborated.subtitle} Generation runs only when you press the button below — not while you
-                  type.
-                </p>
-              </header>
-              <StrataElaboratedTTSBar
-                contentJson={sections.elaborated.contentJson}
-                disabled={isGenerating}
-                markdown={sections.elaborated.content}
-                onPersist={persistElaboratedContentJson}
-              />
-              <article className="prose prose-neutral dark:prose-invert max-w-none text-foreground">
-                <ReactMarkdown remarkPlugins={[remarkGfm]}>
-                  {sections.elaborated.content || "No elaborated content yet."}
-                </ReactMarkdown>
-              </article>
-            </motion.section>
-          ) : null}
-
-          {activeTab === "settings" ? (
-            <div className="space-y-6 pb-6">
-              <label className="flex cursor-pointer items-start gap-3 rounded-lg border border-border/60 bg-muted/10 p-4 text-sm">
-                <input
-                  checked={localOnlyMode}
-                  className="mt-1"
-                  disabled={!dbAvailable}
-                  type="checkbox"
-                  onChange={(e) => {
-                    const enabled = e.target.checked;
-                    setLocalOnlyMode(initialData.page.id, enabled);
-                    setLocalOnlyModeState(enabled);
-                    setActionStatus({
-                      state: "completed",
-                      text: enabled
-                        ? "Local-only mode enabled for this page (ZDR)."
-                        : "Local-only mode disabled for this page.",
-                    });
-                  }}
+            {activeTab === "synthesis" ? (
+              <motion.section
+                ref={elaboratedRef}
+                animate={{ opacity: 1, y: 0, scale: 1 }}
+                initial={{ opacity: 0, y: 16, scale: 0.99 }}
+                transition={{ duration: 0.35, ease: "easeOut" }}
+                className={cn(
+                  "flex min-h-full min-h-[min(calc(100dvh-14rem),48rem)] flex-col rounded-xl px-4 py-6 sm:px-6 sm:py-8",
+                  glass({ tone: "brown", opaque: true }),
+                  "border border-border/60 backdrop-blur-xl"
+                )}
+              >
+                <StrataElaboratedTTSBar
+                  contentJson={sections.elaborated.contentJson}
+                  disabled={isGenerating}
+                  markdown={sections.elaborated.content}
+                  onPersist={persistElaboratedContentJson}
                 />
-                <span>
-                  <span className="font-medium text-foreground">Local-only for this page (ZDR)</span>
-                  <span className="mt-1 block text-xs text-muted-foreground">
-                    When enabled, this page stays on your device and is not written to Supabase.
-                  </span>
-                </span>
-              </label>
+                <article className="prose prose-neutral dark:prose-invert max-w-none text-foreground">
+                  <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                    {sections.elaborated.content || "No elaborated content yet."}
+                  </ReactMarkdown>
+                </article>
+              </motion.section>
+            ) : null}
 
-              <SectionCard
-                subtitle={labels.design_instructions.subtitle}
-                title={labels.design_instructions.title}
-                variant="system"
-              >
-                <div className="flex flex-col gap-3">
-                  <textarea
-                    data-dim-background="full"
-                    className={cn(
-                      "min-h-[22dvh] w-full resize-y rounded-lg border border-border/50 bg-muted/20 p-3 text-xs leading-6 text-muted-foreground",
-                      NOTEBOOK_FOCUS_CLASS
-                    )}
-                    value={sections.design_instructions.content}
-                    onChange={(e) =>
-                      setSections((prev) => ({
-                        ...prev,
-                        design_instructions: { ...prev.design_instructions, content: e.target.value },
-                      }))
-                    }
-                  />
-                  <button
-                    className={cn(
-                      glass({ opaque: true }),
-                      "w-fit rounded-md border px-3 py-1.5 text-sm font-medium transition-colors hover:bg-muted"
-                    )}
-                    type="button"
-                    onClick={() =>
-                      saveSection("design_instructions", sections.design_instructions.content)
-                    }
-                  >
-                    Save design instructions
-                  </button>
-                </div>
-              </SectionCard>
+            {activeTab === "settings" ? (
+              <div className="space-y-6 pb-6">
+                <div className="flex items-start gap-3 rounded-lg border border-border/60 bg-muted/10 p-4 text-sm">
+                  <input
+                    id="strata-local-only"
+                    aria-describedby="strata-local-only-hint"
+                    checked={localOnlyMode}
+                    className="mt-1 shrink-0"
+                    disabled={!dbAvailable}
+                    type="checkbox"
+                    onChange={(e) => {
+                      const enabled = e.target.checked;
 
-              <SectionCard
-                subtitle={labels.ai_instructions.subtitle}
-                title={labels.ai_instructions.title}
-                variant="system"
-              >
-                <div className="flex flex-col gap-3">
-                  <textarea
-                    data-dim-background="full"
-                    className={cn(
-                      "min-h-[22dvh] w-full resize-y rounded-lg border border-border/50 bg-muted/20 p-3 text-xs leading-6 text-muted-foreground",
-                      NOTEBOOK_FOCUS_CLASS
-                    )}
-                    value={sections.ai_instructions.content}
-                    onChange={(e) =>
-                      setSections((prev) => ({
-                        ...prev,
-                        ai_instructions: { ...prev.ai_instructions, content: e.target.value },
-                      }))
-                    }
+                      setLocalOnlyMode(initialData.page.id, enabled);
+                      setLocalOnlyModeState(enabled);
+                      setActionStatus({
+                        state: "completed",
+                        text: enabled
+                          ? "Local-only mode enabled for this page (ZDR)."
+                          : "Local-only mode disabled for this page.",
+                      });
+                    }}
                   />
-                  <button
-                    className={cn(
-                      glass({ opaque: true }),
-                      "w-fit rounded-md border px-3 py-1.5 text-sm font-medium transition-colors hover:bg-muted"
-                    )}
-                    type="button"
-                    onClick={() => saveSection("ai_instructions", sections.ai_instructions.content)}
+                  <label
+                    className="flex min-w-0 cursor-pointer flex-col gap-1"
+                    htmlFor="strata-local-only"
                   >
-                    Save AI instructions
-                  </button>
+                    <span className="font-medium text-foreground">
+                      Local-only for this page (ZDR)
+                    </span>
+                    <span className="text-xs text-muted-foreground" id="strata-local-only-hint">
+                      When enabled, this page stays on your device and is not written to Supabase.
+                    </span>
+                  </label>
                 </div>
-              </SectionCard>
-            </div>
-          ) : null}
+
+                <SectionCard
+                  subtitle={labels.design_instructions.subtitle}
+                  title={labels.design_instructions.title}
+                  variant="system"
+                >
+                  <div className="flex flex-col gap-3">
+                    <textarea
+                      data-dim-background="full"
+                      className={cn(
+                        "min-h-[22dvh] w-full resize-y rounded-lg border border-border/50 bg-muted/20 p-3 text-xs leading-6 text-muted-foreground",
+                        NOTEBOOK_FOCUS_CLASS
+                      )}
+                      value={sections.design_instructions.content}
+                      onChange={(e) =>
+                        setSections((prev) => ({
+                          ...prev,
+                          design_instructions: {
+                            ...prev.design_instructions,
+                            content: e.target.value,
+                          },
+                        }))
+                      }
+                    />
+                    <button
+                      className={cn(
+                        glass({ opaque: true }),
+                        "w-fit rounded-md border px-3 py-1.5 text-sm font-medium transition-colors hover:bg-muted"
+                      )}
+                      type="button"
+                      onClick={() =>
+                        saveSection("design_instructions", sections.design_instructions.content)
+                      }
+                    >
+                      Save design instructions
+                    </button>
+                  </div>
+                </SectionCard>
+
+                <SectionCard
+                  subtitle={labels.ai_instructions.subtitle}
+                  title={labels.ai_instructions.title}
+                  variant="system"
+                >
+                  <div className="flex flex-col gap-3">
+                    <textarea
+                      data-dim-background="full"
+                      className={cn(
+                        "min-h-[22dvh] w-full resize-y rounded-lg border border-border/50 bg-muted/20 p-3 text-xs leading-6 text-muted-foreground",
+                        NOTEBOOK_FOCUS_CLASS
+                      )}
+                      value={sections.ai_instructions.content}
+                      onChange={(e) =>
+                        setSections((prev) => ({
+                          ...prev,
+                          ai_instructions: { ...prev.ai_instructions, content: e.target.value },
+                        }))
+                      }
+                    />
+                    <button
+                      className={cn(
+                        glass({ opaque: true }),
+                        "w-fit rounded-md border px-3 py-1.5 text-sm font-medium transition-colors hover:bg-muted"
+                      )}
+                      type="button"
+                      onClick={() =>
+                        saveSection("ai_instructions", sections.ai_instructions.content)
+                      }
+                    >
+                      Save AI instructions
+                    </button>
+                  </div>
+                </SectionCard>
+              </div>
+            ) : null}
+          </div>
         </div>
 
-        {showGenerationStrip ? (
-          <div
-            className={cn(
-              glass({ opaque: true }),
-              "mb-2 flex shrink-0 flex-wrap items-center justify-center gap-3 rounded-xl border px-3 py-2.5 sm:justify-end"
-            )}
-          >
-            <label className="flex items-center gap-2 text-xs text-muted-foreground">
-              <input
-                checked={overwriteElaborated}
-                type="checkbox"
-                onChange={(e) => setOverwriteElaborated(e.target.checked)}
-              />
-              Overwrite elaborated when updating
-            </label>
-            <button
-              data-dim-background
-              className="rounded-full bg-foreground px-4 py-1.5 text-xs font-semibold text-background transition-opacity hover:opacity-90 disabled:opacity-50"
-              disabled={isGenerating}
-              type="button"
-              onClick={runGenerate}
+        {/* Overlays bottom of scroll area; main scroll uses full column width so the bar sits at the viewport edge. */}
+        <div className="pointer-events-none absolute inset-x-0 bottom-0 z-20 flex flex-col items-center gap-2 pb-[max(0.5rem,env(safe-area-inset-bottom))]">
+          {showGenerationStrip ? (
+            <div
+              className={cn(
+                glass({ opaque: true }),
+                "pointer-events-auto flex w-full max-w-lg flex-wrap items-center justify-center gap-3 rounded-xl border px-3 py-2.5 shadow-md sm:max-w-none sm:justify-end"
+              )}
             >
-              {isGenerating
-                ? "Working…"
-                : mode === "create"
-                  ? "Generate"
-                  : "Regenerate"}
-            </button>
-          </div>
-        ) : null}
-
-        <div className="flex shrink-0 justify-center pb-2">
+              <label className="flex items-center gap-2 text-xs text-muted-foreground">
+                <input
+                  checked={overwriteElaborated}
+                  type="checkbox"
+                  onChange={(e) => setOverwriteElaborated(e.target.checked)}
+                />
+                Overwrite elaborated when updating
+              </label>
+              <button
+                data-dim-background
+                className="rounded-full bg-foreground px-4 py-1.5 text-xs font-semibold text-background transition-opacity hover:opacity-90 disabled:opacity-50"
+                disabled={isGenerating}
+                type="button"
+                onClick={runGenerate}
+              >
+                {isGenerating ? "Working…" : mode === "create" ? "Generate" : "Regenerate"}
+              </button>
+            </div>
+          ) : null}
           <div
             className={cn(
               glass({ opaque: true }),
-              "inline-flex gap-1 rounded-full border border-border/70 p-1 shadow-sm"
+              "pointer-events-auto inline-flex gap-1 rounded-full border border-border/70 p-1 shadow-md"
             )}
             role="tablist"
             aria-label="Strata main sections"
@@ -823,16 +941,16 @@ export function StrataShell({
               "group inline-flex items-center gap-2 rounded-full border px-3 py-1.5 transition-colors",
               actionStatus.state === "loading" && "border-border/50 bg-muted/20",
               actionStatus.state === "completed" &&
-              "border-emerald-500/30 bg-emerald-500/5 text-emerald-600 dark:text-emerald-400",
+                "border-emerald-500/30 bg-emerald-500/5 text-emerald-600 dark:text-emerald-400",
               actionStatus.state === "error" &&
-              "border-destructive/40 bg-destructive/10 text-destructive"
+                "border-destructive/40 bg-destructive/10 text-destructive"
             )}
           >
             <span
               className={cn(
                 "text-xs",
                 actionStatus.state === "loading" &&
-                "animate-pulse bg-linear-to-r from-muted-foreground/70 via-foreground/80 to-muted-foreground/70 bg-clip-text text-transparent"
+                  "animate-pulse bg-linear-to-r from-muted-foreground/70 via-foreground/80 to-muted-foreground/70 bg-clip-text text-transparent"
               )}
             >
               {actionStatus.text}
