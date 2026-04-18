@@ -1,5 +1,6 @@
 import "@/styles/globals.css";
 import { Metadata, Viewport } from "next";
+import { cookies } from "next/headers";
 import clsx from "clsx";
 import { ClerkProvider } from "@clerk/nextjs";
 import { Analytics } from "@vercel/analytics/next";
@@ -9,7 +10,11 @@ import { Providers } from "./providers";
 import { siteConfig } from "@/config/site";
 import { fontInter, fontSatoshi, fontCommissioner } from "@/config/fonts";
 import { ControlCluster } from "@/components/layout/countrol-cluster";
-import { SidebarProvider, SidebarTrigger } from "@/components/third-party/ui/sidebar";
+import {
+  SIDEBAR_COOKIE_NAME,
+  SidebarProvider,
+  SidebarTrigger,
+} from "@/components/third-party/ui/sidebar";
 import { Sidebar } from "@/components/sidebar/sidebar";
 import { ChatProvider } from "@/lib/context/chat-context";
 import { TTSProvider } from "@/lib/context/tts-context";
@@ -35,7 +40,11 @@ export const viewport: Viewport = {
   viewportFit: "cover",
 };
 
-export default function RootLayout({ children }: { children: React.ReactNode }) {
+export default async function RootLayout({ children }: { children: React.ReactNode }) {
+  const cookieStore = await cookies();
+  const sidebarCookie = cookieStore.get(SIDEBAR_COOKIE_NAME)?.value;
+  const sidebarDefaultOpen = sidebarCookie === undefined ? true : sidebarCookie === "true";
+
   return (
     <ClerkProvider>
       <html suppressHydrationWarning className="h-full overflow-hidden" lang="en">
@@ -57,7 +66,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             <FontProvider>
               <ChatProvider>
                 <TTSProvider>
-                  <SidebarProvider>
+                  <SidebarProvider defaultOpen={sidebarDefaultOpen}>
                     <Sidebar />
                     <ControlCluster />
                     <main className="grow w-full overflow-hidden bg-background sm:bg-background-secondary h-full min-h-dvh">
