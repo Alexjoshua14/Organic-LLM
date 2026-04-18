@@ -57,11 +57,9 @@ async function evictUntilUnderBudget(): Promise<void> {
       return;
     }
 
-    const oldest = (await redis.zrange<string>(LRU_Z, 0, 0)) as unknown;
-    const victim =
-      Array.isArray(oldest) && oldest.length > 0 && typeof oldest[0] === "string"
-        ? oldest[0]
-        : null;
+    const oldest = await redis.zrange<string[]>(LRU_Z, 0, 0);
+    const first = oldest[0];
+    const victim = typeof first === "string" ? first : null;
 
     if (!victim) {
       await redis.set(BYTES_KEY, "0");
