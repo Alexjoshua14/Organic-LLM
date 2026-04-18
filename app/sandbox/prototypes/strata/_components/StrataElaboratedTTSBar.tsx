@@ -215,13 +215,12 @@ export function StrataElaboratedTTSBar(props: {
       )}
     >
       <div className="min-w-0 space-y-1">
-        <p className="text-xs font-medium text-foreground">Elaborated narration</p>
         <p className="text-xs text-muted-foreground">
           {stored && !isStale
-            ? "Audio is saved on this section for replay and sync (Supabase JSON or encrypted local copy)."
+            ? "Audio is saved with this page."
             : stored && isStale
-              ? "Elaborated text changed since this audio was generated. Regenerate to match."
-              : "Generate speech once, then replay without calling the model again."}
+              ? "The text changed since this audio was made. Regenerate to match the current version."
+              : "Create audio from the elaborated text above."}
         </p>
         {ttsBasis.truncated && canGenerate ? (
           <p className="text-[11px] text-muted-foreground">

@@ -15,7 +15,12 @@ const DEFAULT_HKDF_INFO_PREFIX = "organic-llm-user-encryption";
 export type EncryptionFieldName =
   | "messages.content"
   | "thread_summaries.summary_text"
-  | "threads.conversation_summary";
+  | "threads.conversation_summary"
+  | "strata_sections.raw_text"
+  | "strata_sections.refined_text"
+  | "strata_sections.elaborated"
+  | "strata_sections.design_instructions"
+  | "strata_sections.ai_instructions";
 
 export type EncryptionContext = {
   userId: string;

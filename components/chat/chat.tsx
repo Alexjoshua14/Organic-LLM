@@ -41,6 +41,8 @@ export type ChatProps = {
   persona?: "prometheus" | "spark" | "aion" | "remy";
   endpoint?: string;
   experience?: string;
+  /** When using the Strata page assistant, the server loads this page for grounding. */
+  strataPageId?: string;
 };
 
 export const Chat: React.FC<ChatProps> = ({
@@ -50,6 +52,7 @@ export const Chat: React.FC<ChatProps> = ({
   initialMessage,
   initialDraft,
   experience,
+  strataPageId,
 }) => {
   const { refreshSidebarChats } = useSharedChatContext();
 
@@ -114,6 +117,7 @@ export const Chat: React.FC<ChatProps> = ({
               memory: useMemoriesRef.current,
               speechFriendly: useSpeechFriendlyRef.current,
               experience,
+              ...(strataPageId ? { strataPageId } : {}),
               zeroDataRetention: getSettings().zeroDataRetention,
               // Only include persistedSchemas in payload if true
               ...(usePersistedSchemas.current ? { persistedSchemas: true } : {}),
