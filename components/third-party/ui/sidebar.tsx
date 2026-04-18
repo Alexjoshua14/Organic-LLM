@@ -8,6 +8,11 @@ import { PanelLeftIcon } from "lucide-react";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { cn } from "@/lib/utils";
 import { createLogger } from "@/lib/logger";
+import {
+  readSidebarOpenFromDocumentCookie,
+  SIDEBAR_COOKIE_MAX_AGE,
+  SIDEBAR_COOKIE_NAME,
+} from "@/lib/sidebar-cookie";
 import { Button } from "@/components/third-party/ui/button";
 import { Input } from "@/components/third-party/ui/input";
 import { Separator } from "@/components/third-party/ui/separator";
@@ -28,8 +33,6 @@ import {
 
 const logger = createLogger("components/third-party/ui/sidebar.tsx");
 
-export const SIDEBAR_COOKIE_NAME = "sidebar_state";
-const SIDEBAR_COOKIE_MAX_AGE = 60 * 60 * 24 * 7;
 const SIDEBAR_WIDTH = "16rem";
 const SIDEBAR_WIDTH_MOBILE = "18rem";
 const SIDEBAR_WIDTH_ICON = "3rem";
@@ -75,7 +78,7 @@ function SidebarProvider({
 
   // This is the internal state of the sidebar.
   // We use openProp and setOpenProp for control from outside the component.
-  const [_open, _setOpen] = React.useState(defaultOpen);
+  const [_open, _setOpen] = React.useState(() => defaultOpen);
   const open = openProp ?? _open;
   const setOpen = React.useCallback(
     (value: boolean | ((value: boolean) => boolean)) => {
@@ -87,11 +90,19 @@ function SidebarProvider({
         _setOpen(openState);
       }
 
-      // This sets the cookie to keep the sidebar state.
-      document.cookie = `${SIDEBAR_COOKIE_NAME}=${openState}; path=/; max-age=${SIDEBAR_COOKIE_MAX_AGE}`;
+      // This sets the cookie to keep the sidebar state (SameSite so it is sent on top-level navigations).
+      document.cookie = `${SIDEBAR_COOKIE_NAME}=${openState}; path=/; max-age=${SIDEBAR_COOKIE_MAX_AGE}; SameSite=Lax`;
     },
     [setOpenProp, open]
   );
+
+  // If the server request did not include the cookie (cache, proxy, alternate dev host), align from
+  // `document.cookie` before paint so collapsed state still matches after refresh.
+  React.useLayoutEffect(() => {
+    const fromDocument = readSidebarOpenFromDocumentCookie();
+    if (fromDocument === null) return;
+    _setOpen((current) => (current === fromDocument ? current : fromDocument));
+  }, []);
 
   // Helper to toggle the sidebar.
   const toggleSidebar = React.useCallback(() => {

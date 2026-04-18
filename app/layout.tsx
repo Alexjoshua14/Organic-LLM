@@ -10,11 +10,8 @@ import { Providers } from "./providers";
 import { siteConfig } from "@/config/site";
 import { fontInter, fontSatoshi, fontCommissioner } from "@/config/fonts";
 import { ControlCluster } from "@/components/layout/countrol-cluster";
-import {
-  SIDEBAR_COOKIE_NAME,
-  SidebarProvider,
-  SidebarTrigger,
-} from "@/components/third-party/ui/sidebar";
+import { SidebarProvider, SidebarTrigger } from "@/components/third-party/ui/sidebar";
+import { getSidebarDefaultOpenFromCookieValue, SIDEBAR_COOKIE_NAME } from "@/lib/sidebar-cookie";
 import { Sidebar } from "@/components/sidebar/sidebar";
 import { ChatProvider } from "@/lib/context/chat-context";
 import { TTSProvider } from "@/lib/context/tts-context";
@@ -43,7 +40,7 @@ export const viewport: Viewport = {
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
   const cookieStore = await cookies();
   const sidebarCookie = cookieStore.get(SIDEBAR_COOKIE_NAME)?.value;
-  const sidebarDefaultOpen = sidebarCookie === undefined ? true : sidebarCookie === "true";
+  const sidebarDefaultOpen = getSidebarDefaultOpenFromCookieValue(sidebarCookie);
 
   return (
     <ClerkProvider>
