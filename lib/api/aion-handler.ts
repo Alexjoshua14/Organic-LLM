@@ -18,6 +18,8 @@ import { SYSTEM_PROMPT } from "@/lib/system-prompt/prompt-v0";
 import { createLogger } from "@/lib/logger";
 import { showMemoriesTool } from "@/lib/llm/archetype/memory";
 import { setArchetypeStateTool, viewArchetypeTool } from "@/lib/llm/archetype";
+import { getStrataPageById } from "@/data/supabase/strata";
+import { createStrataHubAssistantTools } from "@/lib/llm/strata-assistant-tools";
 
 const logger = createLogger("lib/api/aion-handler.ts");
 
@@ -99,7 +101,7 @@ export function createAionHandler(deps: AionDeps) {
       return new Response("Invalid request body", { status: 400 });
     }
 
-    const { message: incomingMessage, id } = parseResult.data;
+    const { message: incomingMessage, id, experience, strataPageId } = parseResult.data;
     const message = incomingMessage as UIMessage;
 
     const clerkUser = await deps.auth();
@@ -219,10 +221,34 @@ export function createAionHandler(deps: AionDeps) {
           transient: true,
         });
 
+        const trunc = (value: string, max: number) =>
+          value.length <= max ? value : `${value.slice(0, max)}…`;
+
+        let strataSystem = "";
+        let hubTools: Record<string, unknown> = {};
+        let stepLimit = 5;
+
+        if (experience === "strata_hub") {
+          hubTools = createStrataHubAssistantTools(sbUserId) as Record<string, unknown>;
+          strataSystem +=
+            "\n\n[Strata hub mode]\nYou help the user browse and manage Strata pages (structured documents). Prefer concise answers. When the user wants to open a page, call navigate_to_strata_page and give them the returned path as a markdown link. Use search_strata_pages to explore their Strata corpus by topic or keyword.";
+          stepLimit = 8;
+        }
+
+        if (experience === "strata_page" && strataPageId) {
+          const full = await getStrataPageById(strataPageId);
+          if (full && full.page.owner_id === sbUserId) {
+            const { page, sections } = full;
+            strataSystem += `\n\n[Strata page grounding — read only]\nTitle: ${page.title}\nId: ${page.id}\n\nRaw:\n${trunc(sections.raw_text.content, 8000)}\n\nRefined:\n${trunc(sections.refined_text.content, 6000)}\n\nElaborated:\n${trunc(sections.elaborated.content, 8000)}\n\nDesign instructions:\n${trunc(sections.design_instructions.content, 3000)}\n\nAI instructions:\n${trunc(sections.ai_instructions.content, 3000)}\n\nThe editor saves changes automatically; do not imply you edited stored content unless you are quoting what the user already has.`;
+          }
+        }
+
+        const systemWithStrata = `${systemPromptForRequest}${strataSystem}`;
+
         const result = deps.streamText({
           model: selectedModel.id,
           messages: messages,
-          system: systemPromptForRequest,
+          system: systemWithStrata,
           abortSignal: req.signal,
           experimental_transform: smoothStream({
             delayInMs: 20,
@@ -238,8 +264,9 @@ export function createAionHandler(deps: AionDeps) {
             show_memories: showMemoriesTool,
             set_state_archetype: setArchetypeStateTool,
             view_archetype: viewArchetypeTool,
+            ...hubTools,
           },
-          stopWhen: stepCountIs(5),
+          stopWhen: stepCountIs(stepLimit),
           onFinish() {
             writer.write({
               type: "data-notification",

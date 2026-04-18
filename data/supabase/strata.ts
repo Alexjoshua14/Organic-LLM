@@ -16,6 +16,10 @@ import {
   buildDefaultStrataSectionRows,
   buildGeneratedSectionUpserts,
 } from "@/lib/strata/section-utils";
+import {
+  decryptStrataSectionContent,
+  encryptStrataSectionContent,
+} from "@/lib/strata/strata-section-encryption";
 
 type StrataPageRow = {
   id: string;
@@ -35,14 +39,20 @@ type StrataSectionRow = {
   updated_at: string;
 };
 
-function mapRowsToSectionRecord(rows: StrataSectionRow[]): Record<StrataSectionKey, StrataSection> {
+function mapRowsToSectionRecord(
+  rows: StrataSectionRow[],
+  pageId: string,
+  ownerId: string
+): Record<StrataSectionKey, StrataSection> {
   const mapped = {} as Record<StrataSectionKey, StrataSection>;
 
   for (const key of STRATA_SECTION_ORDER) {
     const found = rows.find((r) => r.section_key === key);
+    const raw = found?.content ?? "";
+    const content = raw.length === 0 ? "" : decryptStrataSectionContent(raw, ownerId, pageId, key);
     mapped[key] = {
       key,
-      content: found?.content ?? "",
+      content,
       contentJson: (found?.content_json as Record<string, unknown> | null | undefined) ?? null,
     };
   }
@@ -115,7 +125,7 @@ export async function getStrataPageById(pageId: string): Promise<StrataPageWithS
       created_at: page.created_at,
       updated_at: page.updated_at,
     },
-    sections: mapRowsToSectionRecord(rows),
+    sections: mapRowsToSectionRecord(rows, page.id, page.owner_id),
   };
 }
 
@@ -160,16 +170,23 @@ export async function renameStrataPage(pageId: string, title: string): Promise<v
 
 export async function upsertStrataSection(params: {
   pageId: string;
+  ownerId: string;
   sectionKey: StrataSectionKey;
   content: string;
   contentJson?: Record<string, unknown> | null;
 }): Promise<void> {
   const sb = (await supabaseServer()) as any;
+  const stored = encryptStrataSectionContent(
+    params.content,
+    params.ownerId,
+    params.pageId,
+    params.sectionKey
+  );
   const { error } = await sb.from("strata_sections").upsert(
     {
       page_id: params.pageId,
       section_key: params.sectionKey,
-      content: params.content,
+      content: stored,
       content_json: params.contentJson ?? null,
     },
     { onConflict: "page_id,section_key" }
@@ -179,6 +196,7 @@ export async function upsertStrataSection(params: {
 
 export async function upsertStrataGeneratedSections(params: {
   pageId: string;
+  ownerId: string;
   existing: Record<StrataSectionKey, StrataSection>;
   refinedTitle: string;
   refinedText: string;
@@ -199,6 +217,7 @@ export async function upsertStrataGeneratedSections(params: {
   for (const update of updates) {
     await upsertStrataSection({
       pageId: params.pageId,
+      ownerId: params.ownerId,
       sectionKey: update.sectionKey,
       content: update.content,
       contentJson: update.contentJson ?? null,
@@ -209,6 +228,7 @@ export async function upsertStrataGeneratedSections(params: {
     const rawContentJson = (params.existing.raw_text.contentJson ?? {}) as Record<string, unknown>;
     await upsertStrataSection({
       pageId: params.pageId,
+      ownerId: params.ownerId,
       sectionKey: "raw_text",
       content: params.existing.raw_text.content,
       contentJson: {

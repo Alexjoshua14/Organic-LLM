@@ -1,12 +1,18 @@
 import type { Metadata } from "next";
+import type { UIMessage } from "ai";
 
 import { cache } from "react";
 
+import { StrataAssistantPanel } from "../_components/StrataAssistantPanel";
 import { StrataShell } from "../_components/StrataShell";
+import { StrataWorkspace } from "../_components/StrataWorkspace";
 
 import Page from "@/components/layout/page";
 import AdaptiveLiquidChrome from "@/components/background/AdaptiveLiquidChrome";
+import { ensureStrataAgentThread } from "@/data/supabase/strata-agent";
 import { getStrataPageByIdCached } from "@/data/supabase/strata";
+import { loadChat } from "@/lib/chat/chat-store";
+import type { Thread } from "@/lib/schemas/chat";
 import { resolveStrataBrowserTabTitlePrimary } from "@/lib/metadata/resolve-browser-tab-title";
 import { tabTitleMetadata } from "@/lib/metadata/tab-title";
 import { buildStrataPageDefaults, STRATA_DEFAULT_UNTITLED_TITLE } from "@/lib/schemas/strata";
@@ -47,11 +53,41 @@ export default async function StrataPage({ params }: { params: Promise<{ slug: s
 
   const initialData = pageData ?? buildStrataPageDefaults(slug, STRATA_DEFAULT_UNTITLED_TITLE);
 
+  let pageAgentChatData: { thread: Thread; messages: UIMessage[] } | null = null;
+  const canLoadAgent =
+    dbAvailable &&
+    initialData.page.owner_id !== "local-device" &&
+    !initialData.page.owner_id.startsWith("local-");
+
+  if (canLoadAgent) {
+    try {
+      const threadId = await ensureStrataAgentThread(initialData.page.owner_id, {
+        kind: "page",
+        pageId: initialData.page.id,
+      });
+      const res = await loadChat(threadId);
+      if (!res.error && res.data) pageAgentChatData = res.data;
+    } catch {
+      pageAgentChatData = null;
+    }
+  }
+
   return (
     <Page transparentBackground className="overflow-hidden">
       <AdaptiveLiquidChrome dimIntensity={0.45} dimIntensityFull={0.62} />
-      <div className="relative z-10 h-full w-full">
-        <StrataShell dbAvailable={dbAvailable} initialData={initialData} />
+      <div className="relative z-10 flex h-full min-h-0 w-full flex-col">
+        <StrataWorkspace
+          agentPanel={
+            <StrataAssistantPanel
+              chatData={pageAgentChatData}
+              emptyHint="Assistant needs a synced Strata page (not local-only / offline fallback). Turn off local-only for this page or fix connectivity, then refresh."
+              experience="strata_page"
+              strataPageId={initialData.page.id}
+            />
+          }
+        >
+          <StrataShell dbAvailable={dbAvailable} initialData={initialData} />
+        </StrataWorkspace>
       </div>
     </Page>
   );

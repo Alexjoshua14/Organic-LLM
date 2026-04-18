@@ -131,6 +131,8 @@ export const ChatRequestSchema = z.object({
   speechFriendly: z.boolean().optional(),
   /** Client hint: which chat experience initiated the request (e.g. arcadia). */
   experience: z.string().optional(),
+  /** Strata page assistant: server loads this page for grounding when `experience` is `strata_page`. */
+  strataPageId: z.string().uuid().optional(),
   /** When true, request is in zero-data-retention mode (no persistence). */
   zeroDataRetention: z.boolean().optional(),
   /** Client hint: thread already has a title; server can skip ensureChatHasTitle and optionally getThreadHasTitle. */

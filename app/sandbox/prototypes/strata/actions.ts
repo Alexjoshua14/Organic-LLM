@@ -41,6 +41,7 @@ export async function saveStrataSectionAction(params: {
 }) {
   await upsertStrataSection({
     pageId: params.pageId,
+    ownerId: params.ownerId,
     sectionKey: params.sectionKey,
     content: params.content,
     contentJson: params.contentJson ?? null,
@@ -63,6 +64,7 @@ export async function saveStrataGeneratedSectionsAction(params: {
 }) {
   await upsertStrataGeneratedSections({
     pageId: params.pageId,
+    ownerId: params.ownerId,
     existing: params.existing,
     refinedTitle: params.refinedTitle,
     refinedText: params.refinedText,
