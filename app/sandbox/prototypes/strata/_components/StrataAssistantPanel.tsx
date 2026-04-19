@@ -27,7 +27,7 @@ export function StrataAssistantPanel({
 
   return (
     <div className="flex h-full min-h-0 flex-col">
-      <Chat chatData={chatData} experience={experience} persona="aion" strataPageId={strataPageId} />
+      <Chat chatData={chatData} experience={experience} persona="strata" strataPageId={strataPageId} />
     </div>
   );
 }

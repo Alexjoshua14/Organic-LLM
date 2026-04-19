@@ -856,6 +856,27 @@ export async function deleteChat(chatId: string): Promise<SimpleResult> {
  * Returns error if the chat has any messages (so we check emptiness in two places: UI + server).
  */
 export async function deleteEmptyChat(chatId: string): Promise<SimpleResult> {
+  const sb = await supabaseServer();
+  const { data: threadMeta, error: threadMetaErr } = await sb
+    .from("threads")
+    .select("feature")
+    .eq("id", chatId)
+    .maybeSingle();
+
+  if (threadMetaErr) {
+    return {
+      ok: false,
+      error: new Error(threadMetaErr.message ?? "Unknown error"),
+    };
+  }
+
+  if (threadMeta?.feature === "strata_agent") {
+    return {
+      ok: false,
+      error: new Error("Strata assistant threads are not auto-deleted"),
+    };
+  }
+
   const countResult = await getMessageCount(chatId);
 
   if (countResult.error !== null) {
