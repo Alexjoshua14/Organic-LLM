@@ -33,9 +33,9 @@ export function StrataShell({
       <div className="relative flex min-h-0 w-full flex-1 flex-col overflow-hidden">
         <div
           ref={shell.refs.scrollContainerRef}
-          className="min-h-0 flex-1 overflow-y-auto overscroll-y-contain"
+          className="flex min-h-0 flex-1 flex-col overflow-hidden"
         >
-          <div className="mx-auto w-full max-w-5xl px-6 pb-32 pt-1">
+          <div className="mx-auto flex w-full max-w-5xl flex-1 min-h-0 flex-col px-6 pb-14 pt-1">
             {shell.activeTab === "source" ? (
               <StrataSourceTab
                 flushSaveRaw={shell.flushSaveRaw}
@@ -60,15 +60,17 @@ export function StrataShell({
             ) : null}
 
             {shell.activeTab === "settings" ? (
-              <StrataSettingsTab
-                dbAvailable={shell.dbAvailable}
-                labels={shell.labels}
-                localOnlyMode={shell.localOnlyMode}
-                onLocalOnlyChange={shell.applyLocalOnlyMode}
-                onSaveSection={shell.saveSection}
-                sections={shell.sections}
-                setSections={shell.setSections}
-              />
+              <div className="flex min-h-0 flex-1 flex-col overflow-y-auto overscroll-y-contain px-2 pr-3 sm:pr-4">
+                <StrataSettingsTab
+                  dbAvailable={shell.dbAvailable}
+                  labels={shell.labels}
+                  localOnlyMode={shell.localOnlyMode}
+                  onLocalOnlyChange={shell.applyLocalOnlyMode}
+                  onSaveSection={shell.saveSection}
+                  sections={shell.sections}
+                  setSections={shell.setSections}
+                />
+              </div>
             ) : null}
           </div>
         </div>
