@@ -19,6 +19,18 @@ export function StrataShell({
 }) {
   const shell = useStrataShellController(initialData, dbAvailable);
 
+  const showThinking =
+    shell.actionStatus.state === "loading" || shell.isPending || shell.isGenerating;
+
+  const statusFooterProps = {
+    actionStatus: shell.actionStatus,
+    onDismissStatus: () => shell.setActionStatus({ state: "idle", text: "" }),
+    showThinking,
+  } as const;
+
+  const statusFooterInline = <StrataShellStatusFooter {...statusFooterProps} variant="inline" />;
+  const statusFooterBlock = <StrataShellStatusFooter {...statusFooterProps} variant="block" />;
+
   return (
     <div className="relative flex h-full min-h-0 flex-1 flex-col overflow-hidden">
       <StrataShellHeader
@@ -40,27 +52,33 @@ export function StrataShell({
               <StrataSourceTab
                 flushSaveRaw={shell.flushSaveRaw}
                 queueRawAutosave={shell.queueRawAutosave}
-                rawSubtitle={shell.labels.raw_text.subtitle}
                 reduceMotion={shell.reduceMotion}
                 refinedSectionTitle={shell.refinedSectionTitle}
                 sections={shell.sections}
                 setSections={shell.setSections}
                 setSourceDocLayout={shell.setSourceDocLayout}
                 sourceDocLayout={shell.sourceDocLayout}
+                statusRow={statusFooterInline}
               />
             ) : null}
 
             {shell.activeTab === "synthesis" ? (
-              <StrataSynthesisTab
-                elaboratedRef={shell.refs.elaboratedRef}
-                isGenerating={shell.isGenerating}
-                onPersistElaboratedJson={shell.persistElaboratedContentJson}
-                sections={shell.sections}
-              />
+              <div className="flex min-h-0 flex-1 flex-col gap-2">
+                {statusFooterBlock}
+                <div className="flex min-h-0 flex-1 flex-col">
+                  <StrataSynthesisTab
+                    elaboratedRef={shell.refs.elaboratedRef}
+                    isGenerating={shell.isGenerating}
+                    onPersistElaboratedJson={shell.persistElaboratedContentJson}
+                    sections={shell.sections}
+                  />
+                </div>
+              </div>
             ) : null}
 
             {shell.activeTab === "settings" ? (
               <div className="flex min-h-0 flex-1 flex-col overflow-y-auto overscroll-y-contain px-2 pr-3 sm:pr-4">
+                {statusFooterBlock}
                 <StrataSettingsTab
                   dbAvailable={shell.dbAvailable}
                   labels={shell.labels}
@@ -87,14 +105,6 @@ export function StrataShell({
           tabDefs={shell.tabDefs}
         />
       </div>
-
-      <StrataShellStatusFooter
-        actionStatus={shell.actionStatus}
-        onDismissStatus={() => shell.setActionStatus({ state: "idle", text: "" })}
-        showThinking={
-          shell.actionStatus.state === "loading" || shell.isPending || shell.isGenerating
-        }
-      />
     </div>
   );
 }

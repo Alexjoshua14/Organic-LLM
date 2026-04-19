@@ -1,6 +1,6 @@
 "use client";
 
-import type { Dispatch, SetStateAction } from "react";
+import type { Dispatch, ReactNode, SetStateAction } from "react";
 import type { StrataPageWithSections } from "@/lib/schemas/strata";
 
 import ReactMarkdown from "react-markdown";
@@ -21,7 +21,6 @@ import { glass } from "@/components/design-system/primitives";
 import { cn } from "@/lib/utils";
 
 export function StrataSourceTab({
-  rawSubtitle,
   sourceDocLayout,
   setSourceDocLayout,
   reduceMotion,
@@ -30,8 +29,8 @@ export function StrataSourceTab({
   refinedSectionTitle,
   queueRawAutosave,
   flushSaveRaw,
+  statusRow,
 }: {
-  rawSubtitle: string;
   sourceDocLayout: SourceDocLayout;
   setSourceDocLayout: (layout: SourceDocLayout) => void;
   reduceMotion: boolean | null;
@@ -40,11 +39,12 @@ export function StrataSourceTab({
   refinedSectionTitle: string;
   queueRawAutosave: () => void;
   flushSaveRaw: () => void;
+  statusRow: ReactNode;
 }) {
   return (
     <div className="flex min-h-0 flex-1 flex-col gap-3">
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <p className="min-w-0 flex-1 pr-1 text-xs text-muted-foreground">{rawSubtitle}</p>
+      <div className="flex min-w-0 w-full items-center justify-between gap-3">
+        <div className="flex min-w-0 flex-1 items-center justify-start">{statusRow}</div>
         <div className="flex shrink-0 items-center gap-2">
           <button
             className={cn(
@@ -128,9 +128,6 @@ export function StrataSourceTab({
           </div>
         </div>
       </div>
-      <p className="text-xs text-muted-foreground">
-        Edits also save automatically after you pause typing.
-      </p>
       <div
         className={cn(
           "grid min-h-0 flex-1 gap-3 auto-rows-[minmax(12rem,1fr)]",
