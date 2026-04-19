@@ -30,18 +30,20 @@ export function StrataSynthesisTab({
       initial={{ opacity: 0, y: 16, scale: 0.99 }}
       transition={{ duration: 0.35, ease: "easeOut" }}
       className={cn(
-        "flex min-h-full min-h-[min(calc(100dvh-14rem),48rem)] flex-col rounded-xl px-4 py-6 sm:px-6 sm:py-8",
+        "flex min-h-0 flex-1 flex-col overflow-hidden rounded-xl px-4 py-4 sm:px-6 sm:py-6",
         glass({ tone: "brown", opaque: true }),
         "border border-border/60 backdrop-blur-xl"
       )}
     >
-      <StrataElaboratedTTSBar
-        contentJson={sections.elaborated.contentJson}
-        disabled={isGenerating}
-        markdown={sections.elaborated.content}
-        onPersist={onPersistElaboratedJson}
-      />
-      <article className="prose prose-neutral max-w-none text-foreground dark:prose-invert">
+      <div className="shrink-0">
+        <StrataElaboratedTTSBar
+          contentJson={sections.elaborated.contentJson}
+          disabled={isGenerating}
+          markdown={sections.elaborated.content}
+          onPersist={onPersistElaboratedJson}
+        />
+      </div>
+      <article className="prose prose-neutral min-h-0 flex-1 overflow-y-auto text-foreground dark:prose-invert">
         <ReactMarkdown remarkPlugins={[remarkGfm]}>
           {sections.elaborated.content || "No elaborated content yet."}
         </ReactMarkdown>

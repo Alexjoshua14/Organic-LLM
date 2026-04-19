@@ -1,7 +1,7 @@
 import type { ExaSearchResultSource } from "@/lib/exa/types";
 
-import { FC, memo, useCallback, useEffect, useMemo, useState } from "react";
-import { UIMessage } from "ai";
+import { FC, memo, useCallback, useState } from "react";
+import { getToolOrDynamicToolName, isToolOrDynamicToolUIPart, UIMessage } from "ai";
 import { Pin, PinOff } from "lucide-react";
 
 import { ClipboardCopyButton } from "../shared/clipboardCopyButton";
@@ -17,13 +17,6 @@ import { ARCADIA_HELP_PREFIX } from "@/lib/arcadia/help-response";
 import { cn } from "@/lib/utils";
 import { ChatAIActionEnum } from "@/types/ai";
 import { MermaidDiagram } from "@/components/blog/mermaid-diagram";
-
-/**
- * When true, the current AI action (tool, search, reasoning, etc.) is shown
- * even while streamed text is already visible. Set to false to restore the
- * previous behavior (action only when no text has been streamed yet).
- */
-const SHOW_ACTION_WHILE_STREAMING_TEXT = true;
 
 type ChatMessageProps = {
   message: UIMessage;
@@ -59,15 +52,12 @@ export const ChatMessage = memo<ChatMessageProps>(function ChatMessage(props) {
 ChatMessage.displayName = "ChatMessage";
 
 const AIMessage: FC<ChatMessageProps> = ({ message, aiActionPayload, isLatestArcadiaHelp }) => {
-  const [isStreaming, setIsStreaming] = useState<boolean>(false);
+  const [pinnedToolIds, setPinnedToolIds] = useState<Record<string, boolean>>({});
 
-  useEffect(() => {
-    if (aiActionPayload) {
-      setIsStreaming(true);
-    } else {
-      setIsStreaming(false);
-    }
-  }, [aiActionPayload]);
+  const toggleToolPinned = useCallback((toolInvocationId: string) => {
+    setPinnedToolIds((prev) => ({ ...prev, [toolInvocationId]: !prev[toolInvocationId] }));
+  }, []);
+
   const text = message.parts
     .map((part) => {
       switch (part.type) {
@@ -80,41 +70,109 @@ const AIMessage: FC<ChatMessageProps> = ({ message, aiActionPayload, isLatestArc
   const showCustomArcadiaHelp =
     isArcadiaHelp && (isLatestArcadiaHelp === undefined || isLatestArcadiaHelp);
 
+  const partsUnknown = message.parts as unknown[];
+  const isActivelyStreaming =
+    Boolean(aiActionPayload) || messagePartsIndicateStreaming(message.parts);
+
+  let arcadiaHelpRendered = false;
+
   return (
     <div className="group/ai-message rounded-lg p-4 flex flex-col gap-2">
       <div className="ai-message space-y-2 text-foreground max-w-full prose dark:prose-invert">
-        {/* Streamed content: reasoning + text parts when present */}
-        {message.parts.some((part) => part.type === "text") &&
-          message.parts.map((part, i) => {
-            switch (part.type) {
-              case "reasoning":
-                if (part.state === "streaming") {
-                  return <ChatReasoning key={`${message.id}-${i}`} />;
-                }
+        {message.parts.map((part, i) => {
+          switch (part.type) {
+            case "reasoning":
+              if (part.state === "streaming") {
+                return <ChatReasoning key={`${message.id}-${i}`} />;
+              }
+              return null;
 
+            case "text":
+              if (showCustomArcadiaHelp) {
+                if (arcadiaHelpRendered) return null;
+                arcadiaHelpRendered = true;
+                return <ArcadiaHelpMessage key={`${message.id}-${i}`} />;
+              }
+              return (
+                <ChatMessageMarkdown
+                  key={`${message.id}-${i}`}
+                  content={part.text}
+                  id={message.id}
+                />
+              );
+
+            default:
+              if (isToolOrDynamicToolUIPart(part)) {
+                const toolName = getToolOrDynamicToolName(part);
+                const toolCallId = part.toolCallId;
+                if (part.state === "input-streaming" || part.state === "input-available") {
+                  return (
+                    <div
+                      key={`${message.id}-${i}-tool-active`}
+                      className="not-prose rounded-lg border border-border/40 bg-background-tertiary/20 px-3 py-2"
+                    >
+                      <ChatThinking text={toolInvocationInFlightLabel(toolName)} />
+                    </div>
+                  );
+                }
+                if (part.state === "output-available") {
+                  return (
+                    <ArcadiaToolResultCard
+                      key={`${message.id}-${i}-tool-result`}
+                      displayBody={part.output}
+                      isPinned={pinnedToolIds[toolCallId] === true}
+                      toolName={toolName}
+                      onTogglePin={() => toggleToolPinned(toolCallId)}
+                    />
+                  );
+                }
+                if (part.state === "output-error") {
+                  return (
+                    <ArcadiaToolResultCard
+                      key={`${message.id}-${i}-tool-result`}
+                      displayBody={part.errorText}
+                      isPinned={pinnedToolIds[toolCallId] === true}
+                      toolName={toolName}
+                      onTogglePin={() => toggleToolPinned(toolCallId)}
+                    />
+                  );
+                }
                 return null;
-
-              case "text":
-                if (showCustomArcadiaHelp) {
-                  return <ArcadiaHelpMessage key={`${message.id}-${i}`} />;
+              }
+              const legacyTool = part as unknown;
+              if (isToolInvocationPart(legacyTool)) {
+                const tp = legacyTool;
+                if (tp.state === "partial-call" || tp.state === "call") {
+                  return (
+                    <div
+                      key={`${message.id}-${i}-tool-active`}
+                      className="not-prose rounded-lg border border-border/40 bg-background-tertiary/20 px-3 py-2"
+                    >
+                      <ChatThinking text={toolInvocationInFlightLabel(tp.toolName)} />
+                    </div>
+                  );
                 }
-                return (
-                  <ChatMessageMarkdown
-                    key={`${message.id}-${i}`}
-                    content={part.text}
-                    id={message.id}
-                  />
-                );
-            }
-          })}
+                if (tp.state === "result" || tp.state === "output-error") {
+                  return (
+                    <ArcadiaToolResultCard
+                      key={`${message.id}-${i}-tool-result`}
+                      displayBody={tp.state === "output-error" ? tp.errorText : tp.result}
+                      isPinned={pinnedToolIds[tp.toolInvocationId] === true}
+                      toolName={tp.toolName}
+                      onTogglePin={() => toggleToolPinned(tp.toolInvocationId)}
+                    />
+                  );
+                }
+              }
+              return null;
+          }
+        })}
 
-        <ArcadiaToolOutputs messageId={message.id} parts={message.parts as unknown[]} />
-        {/* Action indicator: when no text yet, show only action; when SHOW_ACTION_WHILE_STREAMING_TEXT, also show action below streamed text */}
-        {aiActionPayload &&
-          (!message.parts.some((part) => part.type === "text") ||
-            SHOW_ACTION_WHILE_STREAMING_TEXT) && <ChatAIAction aiActionPayload={aiActionPayload} />}
+        {aiActionPayload && shouldShowTailAiAction(aiActionPayload, partsUnknown) && (
+          <ChatAIAction aiActionPayload={aiActionPayload} />
+        )}
       </div>
-      {!isStreaming && (
+      {!isActivelyStreaming && (
         <div className="w-full flex gap-2 h-8">
           <TTSButton iconOnly text={text} />
           {!showCustomArcadiaHelp && (
@@ -145,6 +203,126 @@ function isToolInvocationPart(part: unknown): part is ToolInvocationPartLike {
   return p.type === "tool-invocation" && typeof p.toolInvocationId === "string";
 }
 
+function messagePartsIndicateStreaming(
+  parts: UIMessage["parts"]
+): boolean {
+  for (const p of parts) {
+    if (p.type === "reasoning" && p.state === "streaming") return true;
+    if (p.type === "text" && "state" in p && (p as { state?: string }).state === "streaming") {
+      return true;
+    }
+    if (isToolOrDynamicToolUIPart(p)) {
+      if (p.state === "input-streaming" || p.state === "input-available") return true;
+    } else if (isToolInvocationPart(p)) {
+      const lt = p as unknown as ToolInvocationPartLike;
+      if (lt.state === "partial-call" || lt.state === "call") return true;
+    }
+  }
+  return false;
+}
+
+function partListHasStreamingReasoning(parts: unknown[]): boolean {
+  return parts.some(
+    (p) =>
+      p &&
+      typeof p === "object" &&
+      (p as { type?: string }).type === "reasoning" &&
+      (p as { state?: string }).state === "streaming"
+  );
+}
+
+function partListHasInFlightToolInvocation(parts: unknown[]): boolean {
+  return parts.some((p) => {
+    if (!p || typeof p !== "object") return false;
+    const up = p as UIMessage["parts"][number];
+    if (isToolOrDynamicToolUIPart(up)) {
+      return up.state === "input-streaming" || up.state === "input-available";
+    }
+    return isToolInvocationPart(p) && (p.state === "partial-call" || p.state === "call");
+  });
+}
+
+function partListHasInFlightWebSearch(parts: unknown[]): boolean {
+  return parts.some((p) => {
+    if (!p || typeof p !== "object") return false;
+    const up = p as UIMessage["parts"][number];
+    if (isToolOrDynamicToolUIPart(up)) {
+      const inFlight = up.state === "input-streaming" || up.state === "input-available";
+      return inFlight && getToolOrDynamicToolName(up).toLowerCase() === "web_search";
+    }
+    return (
+      isToolInvocationPart(p) &&
+      (p.state === "partial-call" || p.state === "call") &&
+      p.toolName.toLowerCase() === "web_search"
+    );
+  });
+}
+
+function partListHasInFlightMemorySearch(parts: unknown[]): boolean {
+  const names = new Set(["search_memories", "memory_search"]);
+  return parts.some((p) => {
+    if (!p || typeof p !== "object") return false;
+    const up = p as UIMessage["parts"][number];
+    if (isToolOrDynamicToolUIPart(up)) {
+      const inFlight = up.state === "input-streaming" || up.state === "input-available";
+      return inFlight && names.has(getToolOrDynamicToolName(up).toLowerCase());
+    }
+    return (
+      isToolInvocationPart(p) &&
+      (p.state === "partial-call" || p.state === "call") &&
+      names.has(p.toolName.toLowerCase())
+    );
+  });
+}
+
+function shouldShowTailAiAction(
+  payload: NonNullable<ChatMessageProps["aiActionPayload"]>,
+  parts: unknown[]
+): boolean {
+  switch (payload.action) {
+    case ChatAIActionEnum.Processing:
+      return true;
+    case ChatAIActionEnum.Search:
+      if (
+        partListHasInFlightWebSearch(parts) &&
+        (!payload.sources || payload.sources.length === 0)
+      ) {
+        return false;
+      }
+      return true;
+    case ChatAIActionEnum.Memory:
+      return !partListHasInFlightMemorySearch(parts);
+    case ChatAIActionEnum.Tool:
+      return !partListHasInFlightToolInvocation(parts);
+    case ChatAIActionEnum.Reasoning:
+      return !partListHasStreamingReasoning(parts);
+    case ChatAIActionEnum.Errored:
+      return false;
+    default:
+      return true;
+  }
+}
+
+const KNOWN_TOOL_IN_FLIGHT_LABELS: Record<string, string> = {
+  make_mermaid_diagram: "Creating diagram...",
+  search_memories: "Searching memories...",
+  memory_search: "Searching memories...",
+  web_search: "Searching the web...",
+  get_full_chat_history: "Getting full chat history...",
+  get_more_chat_history: "Getting more chat history...",
+  get_messages_from_date: "Getting chat history for that date...",
+};
+
+function toolInvocationInFlightLabel(toolName: string): string {
+  const key = toolName.toLowerCase();
+  if (KNOWN_TOOL_IN_FLIGHT_LABELS[key]) return KNOWN_TOOL_IN_FLIGHT_LABELS[key];
+  const readable = toolName.replace(/_/g, " ").replace(/-/g, " ").trim();
+  if (readable.length > 0) {
+    return `${readable[0].toUpperCase()}${readable.slice(1)}...`;
+  }
+  return "Using a tool...";
+}
+
 function stableStringify(value: unknown): string {
   try {
     return JSON.stringify(value, null, 2);
@@ -171,74 +349,63 @@ function extractMermaidCode(value: unknown): string | null {
   return null;
 }
 
-function ArcadiaToolOutputs({ messageId, parts }: { messageId: string; parts: unknown[] }) {
-  const toolParts = useMemo(() => parts.filter(isToolInvocationPart), [parts]);
-  const [pinned, setPinned] = useState<Record<string, boolean>>({});
-
-  const visible = useMemo(
-    () => toolParts.filter((p) => p.state === "result" || p.state === "output-error"),
-    [toolParts]
-  );
-
-  const togglePinned = useCallback((id: string) => {
-    setPinned((prev) => ({ ...prev, [id]: !prev[id] }));
-  }, []);
-
-  if (visible.length === 0) return null;
+const ArcadiaToolResultCard = memo(function ArcadiaToolResultCard({
+  toolName,
+  displayBody,
+  isPinned,
+  onTogglePin,
+}: {
+  toolName: string;
+  displayBody: unknown;
+  isPinned: boolean;
+  onTogglePin: () => void;
+}) {
+  const label = `${toolName}`;
+  const mermaid = extractMermaidCode(displayBody);
+  const json = stableStringify(displayBody);
 
   return (
-    <div className="not-prose flex flex-col gap-2">
-      {visible.map((p, idx) => {
-        const isPinned = pinned[p.toolInvocationId] === true;
-        const label = `${p.toolName}`;
-        const body = p.state === "output-error" ? p.errorText : p.result;
-        const mermaid = extractMermaidCode(body);
-        const json = stableStringify(body);
+    <div
+      className={cn(
+        "not-prose rounded-lg border border-border/60 bg-background-tertiary/30 dark:bg-background-tertiary/20 backdrop-blur-2xl",
+        "px-3 py-2",
+        isPinned && "sticky top-20 z-30 shadow-[0_8px_30px_-10px_rgba(0,0,0,0.35)]"
+      )}
+    >
+      <div className="flex items-center justify-between gap-2">
+        <div className="text-xs font-medium text-muted-foreground truncate">{label}</div>
+        <button
+          aria-label={isPinned ? "Unpin tool output" : "Pin tool output"}
+          aria-pressed={isPinned}
+          className={cn(
+            "h-7 w-7 grid place-content-center rounded",
+            "hover:bg-background-tertiary/60 transition-colors"
+          )}
+          type="button"
+          onClick={onTogglePin}
+        >
+          {isPinned ? <PinOff className="size-3.5" /> : <Pin className="size-3.5" />}
+        </button>
+      </div>
 
-        return (
-          <div
-            key={`${messageId}-tool-${p.toolInvocationId}-${idx}`}
-            className={cn(
-              "rounded-lg border border-border/60 bg-background-tertiary/30 dark:bg-background-tertiary/20 backdrop-blur-2xl",
-              "px-3 py-2",
-              isPinned && "sticky top-20 z-30 shadow-[0_8px_30px_-10px_rgba(0,0,0,0.35)]"
-            )}
-          >
-            <div className="flex items-center justify-between gap-2">
-              <div className="text-xs font-medium text-muted-foreground truncate">{label}</div>
-              <button
-                aria-label={isPinned ? "Unpin tool output" : "Pin tool output"}
-                aria-pressed={isPinned}
-                className={cn(
-                  "h-7 w-7 grid place-content-center rounded",
-                  "hover:bg-background-tertiary/60 transition-colors"
-                )}
-                type="button"
-                onClick={() => togglePinned(p.toolInvocationId)}
-              >
-                {isPinned ? <PinOff className="size-3.5" /> : <Pin className="size-3.5" />}
-              </button>
-            </div>
-
-            <details className="mt-1">
-              <summary className="cursor-pointer select-none text-xs text-foreground/80 hover:text-foreground">
-                View output
-              </summary>
-              {mermaid && (
-                <div className="mt-2">
-                  <MermaidDiagram code={mermaid} expandOnDoubleClick />
-                </div>
-              )}
-              <pre className="mt-2 max-h-72 overflow-auto rounded bg-background/60 p-2 text-[11px] leading-snug text-foreground/90">
-                {json}
-              </pre>
-            </details>
+      <details className="mt-1">
+        <summary className="cursor-pointer select-none text-xs text-foreground/80 hover:text-foreground">
+          View output
+        </summary>
+        {mermaid && (
+          <div className="mt-2">
+            <MermaidDiagram code={mermaid} expandOnDoubleClick />
           </div>
-        );
-      })}
+        )}
+        <pre className="mt-2 max-h-72 overflow-auto rounded bg-background/60 p-2 text-[11px] leading-snug text-foreground/90">
+          {json}
+        </pre>
+      </details>
     </div>
   );
-}
+});
+
+ArcadiaToolResultCard.displayName = "ArcadiaToolResultCard";
 
 const COLLAPSED_LINES = 6;
 const COLLAPSED_CHAR_THRESHOLD = 500;
