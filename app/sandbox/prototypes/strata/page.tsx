@@ -16,6 +16,9 @@ import Page from "@/components/layout/page";
 import AdaptiveLiquidChrome from "@/components/background/AdaptiveLiquidChrome";
 import { tabTitleMetadata } from "@/lib/metadata/tab-title";
 import { loadChat } from "@/lib/chat/chat-store";
+import { createLogger } from "@/lib/logger";
+
+const logger = createLogger("app/sandbox/prototypes/strata/page.tsx");
 
 export const metadata: Metadata = {
   ...tabTitleMetadata(null, "Strata"),
@@ -69,7 +72,10 @@ export default async function StrataBrowserPage() {
   let pages: StrataPage[] = [];
   try {
     pages = await listStrataPagesCached(ownerId);
-  } catch {
+  } catch (err) {
+    if (process.env.NODE_ENV === "development") {
+      logger.error("StrataBrowserPage", "Failed to list pages from Supabase", err);
+    }
     dbAvailable = false;
   }
 
@@ -79,7 +85,10 @@ export default async function StrataBrowserPage() {
       const hubThreadId = await ensureStrataAgentThread(ownerId, { kind: "hub" });
       const res = await loadChat(hubThreadId);
       if (!res.error && res.data) hubAgentChatData = res.data;
-    } catch {
+    } catch (err) {
+      if (process.env.NODE_ENV === "development") {
+        logger.error("StrataBrowserPage", "Failed to load hub assistant thread", err);
+      }
       hubAgentChatData = null;
     }
   }

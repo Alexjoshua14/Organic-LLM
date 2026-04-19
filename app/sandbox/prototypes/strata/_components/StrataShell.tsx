@@ -599,9 +599,12 @@ export function StrataShell({
           <div className="mx-auto w-full max-w-5xl px-6 pb-32 pt-1">
             {activeTab === "source" ? (
               <div className="flex min-h-full flex-col gap-4">
-                <div className="flex flex-wrap items-center justify-between gap-2">
-                  <p className="text-xs text-muted-foreground">{labels.raw_text.subtitle}</p>
-                  <ContextMenu>
+                <div className="flex flex-wrap items-start justify-between gap-3">
+                  <p className="min-w-0 flex-1 text-xs text-muted-foreground pr-1">
+                    {labels.raw_text.subtitle}
+                  </p>
+                  <div className="sticky top-3 z-30 shrink-0 self-start rounded-full bg-background/85 py-0.5 backdrop-blur-sm supports-[backdrop-filter]:bg-background/70">
+                    <ContextMenu>
                     <ContextMenuTrigger asChild>
                       <motion.button
                         className={cn(
@@ -669,6 +672,7 @@ export function StrataShell({
                       </ContextMenuItem>
                     </ContextMenuContent>
                   </ContextMenu>
+                  </div>
                 </div>
                 <div
                   className={cn(

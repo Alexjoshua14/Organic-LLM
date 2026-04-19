@@ -312,11 +312,14 @@ export function encryptForStorage(plaintext: string, context: EncryptionContext)
 }
 
 export function decryptFromStorage(value: string, context: EncryptionContext): string {
+  if (!value.startsWith(`${ENCRYPTED_PREFIX}:`)) {
+    return value;
+  }
   return getMessageEncryptionService().decryptFromStorage(value, context);
 }
 
 export function isEncryptedPayload(value: string): boolean {
-  return getMessageEncryptionService().isEncryptedPayload(value);
+  return value.startsWith(`${ENCRYPTED_PREFIX}:`);
 }
 
 export function deriveUserKey(userId: string, keyId?: string): Uint8Array {

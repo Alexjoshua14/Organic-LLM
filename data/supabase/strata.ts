@@ -1,7 +1,5 @@
 "use server";
 
-import { unstable_cache } from "next/cache";
-
 import { supabaseServer } from "@/lib/supabase/server";
 import {
   STRATA_DEFAULT_UNTITLED_TITLE,
@@ -82,17 +80,9 @@ export async function listStrataPages(options?: { ownerId?: string }): Promise<S
   }));
 }
 
+/** Avoid `unstable_cache` here — it runs without Clerk/Next request context (`auth()` / `cookies()`). */
 export async function listStrataPagesCached(ownerId: string): Promise<StrataPage[]> {
-  const load = unstable_cache(
-    async () => listStrataPages({ ownerId }),
-    ["strata-pages", ownerId],
-    {
-      tags: [`strata-pages:${ownerId}`],
-      revalidate: 120,
-    }
-  );
-
-  return load();
+  return listStrataPages({ ownerId });
 }
 
 export async function getStrataPageById(pageId: string): Promise<StrataPageWithSections | null> {
@@ -129,17 +119,9 @@ export async function getStrataPageById(pageId: string): Promise<StrataPageWithS
   };
 }
 
+/** Avoid `unstable_cache` here — it runs without Clerk/Next request context (`auth()` / `cookies()`). */
 export async function getStrataPageByIdCached(pageId: string): Promise<StrataPageWithSections | null> {
-  const load = unstable_cache(
-    async () => getStrataPageById(pageId),
-    ["strata-page", pageId],
-    {
-      tags: [`strata-page:${pageId}`],
-      revalidate: 120,
-    }
-  );
-
-  return load();
+  return getStrataPageById(pageId);
 }
 
 export async function createStrataPage(input?: { title?: string }): Promise<StrataPage> {

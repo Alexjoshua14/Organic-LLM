@@ -16,6 +16,9 @@ import type { Thread } from "@/lib/schemas/chat";
 import { resolveStrataBrowserTabTitlePrimary } from "@/lib/metadata/resolve-browser-tab-title";
 import { tabTitleMetadata } from "@/lib/metadata/tab-title";
 import { buildStrataPageDefaults, STRATA_DEFAULT_UNTITLED_TITLE } from "@/lib/schemas/strata";
+import { createLogger } from "@/lib/logger";
+
+const logger = createLogger("app/sandbox/prototypes/strata/[slug]/page.tsx");
 
 const loadStrataForRequest = cache(
   async (
@@ -28,7 +31,10 @@ const loadStrataForRequest = cache(
       const pageData = await getStrataPageByIdCached(slug);
 
       return { pageData, dbAvailable: true };
-    } catch {
+    } catch (err) {
+      if (process.env.NODE_ENV === "development") {
+        logger.error("loadStrataForRequest", "Failed to load page from Supabase", err);
+      }
       return { pageData: null, dbAvailable: false };
     }
   }
@@ -67,7 +73,10 @@ export default async function StrataPage({ params }: { params: Promise<{ slug: s
       });
       const res = await loadChat(threadId);
       if (!res.error && res.data) pageAgentChatData = res.data;
-    } catch {
+    } catch (err) {
+      if (process.env.NODE_ENV === "development") {
+        logger.error("StrataPage", "Failed to load page assistant thread", err);
+      }
       pageAgentChatData = null;
     }
   }
