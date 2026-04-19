@@ -49,6 +49,9 @@ import {
   getLastUserMessageText,
   isArcadiaHelpQuery,
 } from "@/lib/arcadia/help-response";
+import { getStrataPageById } from "@/data/supabase/strata";
+import { buildStrataSystemSuffix } from "@/lib/llm/strata-chat-augmentation";
+import { createStrataHubAssistantTools } from "@/lib/llm/strata-assistant-tools";
 
 // Allow streaming responses up to 30 seconds
 export const maxDuration = 30;
@@ -83,7 +86,8 @@ export async function POST(req: Request) {
     });
   }
 
-  const { message: incomingMessage, id, zeroDataRetention, experience } = parseResult.data;
+  const { message: incomingMessage, id, zeroDataRetention, experience, strataPageId } =
+    parseResult.data;
   const message = incomingMessage as UIMessage;
 
   // Zero Data Retention Policy is in regards to external LLMs, not Organic LLM at this time
@@ -151,6 +155,8 @@ export async function POST(req: Request) {
 
   const stream = createUIMessageStream<ChatUIMessage>({
     execute: async ({ writer }) => {
+      const isStrataExperience = experience === "strata_hub" || experience === "strata_page";
+
       writer.write({
         type: "data-aiAction",
         data: {
@@ -166,9 +172,10 @@ export async function POST(req: Request) {
       try {
         const chatContextResult = await getContext({
           chatId: id,
-          limit: 10,
+          limit: isStrataExperience ? 30 : 10,
           message,
           memoryEnabled,
+          persistedSchemasEnabled: isStrataExperience,
         });
 
         if (chatContextResult.error) {
@@ -200,6 +207,13 @@ export async function POST(req: Request) {
           throw err;
         }
       }
+
+      systemPromptForRequest += await buildStrataSystemSuffix({
+        experience,
+        strataPageId,
+        sbUserId,
+        fetchPage: getStrataPageById,
+      });
 
       logger.log(
         "POST",
@@ -299,7 +313,10 @@ export async function POST(req: Request) {
 
       const hasTools = toolNames.length > 0;
       // One round of tool use + one round of response; avoids redundant multi-step searches
-      const maxSteps = hasTools ? MAX_TOOL_STEPS : 2;
+      let maxSteps = hasTools ? MAX_TOOL_STEPS : 2;
+      if (experience === "strata_hub") {
+        maxSteps = Math.min(maxSteps, 8);
+      }
 
       if (hasTools) {
         systemPromptForRequest += `\n\nTool Instructions:\n${toolInstructions}`;
@@ -636,6 +653,12 @@ const compileTools = async ({
     tools["make_mermaid_diagram"] = createMermaidDiagramTool({ writer });
     toolInstructions +=
       "You can generate Mermaid diagrams using make_mermaid_diagram. Use it when a diagram would clarify a process, architecture, or relationships. Return the diagram in a mermaid code block so the UI can render it.\n";
+  }
+
+  if (experience === "strata_hub") {
+    Object.assign(tools, createStrataHubAssistantTools(sbUserId));
+    toolInstructions +=
+      "You can navigate the user's Strata documents with navigate_to_strata_page (UUID or title fragment) and search or list them with search_strata_pages.\n";
   }
 
   if (toolInstructions.length > 0) {

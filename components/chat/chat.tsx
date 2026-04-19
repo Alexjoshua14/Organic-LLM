@@ -38,7 +38,7 @@ export type ChatProps = {
   initialMessage?: string;
   /** Prefills the composer without sending (e.g. homepage semantic route). */
   initialDraft?: string;
-  persona?: "prometheus" | "spark" | "aion" | "remy";
+  persona?: "prometheus" | "spark" | "aion" | "remy" | "strata";
   endpoint?: string;
   experience?: string;
   /** When using the Strata page assistant, the server loads this page for grounding. */
@@ -60,7 +60,7 @@ export const Chat: React.FC<ChatProps> = ({
   const useWebSearchRef = useRef<boolean>(false);
   const useMemoriesRef = useRef<boolean>(false);
   const useSpeechFriendlyRef = useRef<boolean>(false);
-  const usePersistedSchemas = useRef<boolean>(persona === "aion");
+  const usePersistedSchemas = useRef<boolean>(persona === "aion" || persona === "strata");
   const initialMessageSent = useRef<boolean>(false);
   const [aiAction, setAiAction] = useState<
     | {
@@ -102,7 +102,9 @@ export const Chat: React.FC<ChatProps> = ({
             ? "/api/ai/aion"
             : persona === "remy"
               ? "/api/ai/remy"
-              : (endpoint ?? `/api/chat/${persona ?? ""}`),
+              : persona === "strata"
+                ? "/api/chat"
+                : (endpoint ?? `/api/chat/${persona ?? ""}`),
         prepareSendMessagesRequest({ messages, id }) {
           const lastMessage = messages[messages.length - 1];
           const message = isClientPIIRedactionEnabled()
@@ -365,7 +367,7 @@ export const Chat: React.FC<ChatProps> = ({
             }
             error={error ?? chatError}
             initialDraft={initialDraft}
-            isBlankChat={messages.length === 0}
+            isBlankChat={messages.length === 0 && persona !== "strata"}
             modelRef={selectedModelRef}
             sendMessage={sendMessage}
             status={status}
