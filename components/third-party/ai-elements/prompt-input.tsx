@@ -72,6 +72,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/third-party/ui/select";
+import { useIsMobile } from "@/hooks/use-mobile";
 import { cn } from "@/lib/utils";
 
 // ============================================================================
@@ -815,6 +816,7 @@ export const PromptInputTextarea = ({
   const controller = useOptionalPromptInputController();
   const attachments = usePromptInputAttachments();
   const [isComposing, setIsComposing] = useState(false);
+  const isMobile = useIsMobile();
 
   const handleKeyDown: KeyboardEventHandler<HTMLTextAreaElement> = (e) => {
     if (e.key === "Enter") {
@@ -822,6 +824,10 @@ export const PromptInputTextarea = ({
         return;
       }
       if (e.shiftKey) {
+        return;
+      }
+      // On mobile, Enter should insert a newline; submit via the UI button only.
+      if (isMobile) {
         return;
       }
       e.preventDefault();
@@ -896,6 +902,7 @@ export const PromptInputTextarea = ({
         className
       )}
       data-slot="input-group-control"
+      enterKeyHint={isMobile ? "enter" : "send"}
       maxRows={5}
       minRows={1}
       name="message"

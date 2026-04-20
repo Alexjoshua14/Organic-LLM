@@ -12,6 +12,14 @@ import { PinToSpeakButton } from "./PinToSpeakButton";
 import { ChatMessageMarkdown } from "./chat-message-markdown";
 import { ArcadiaHelpMessage } from "./arcadia-help-message";
 import { ChatReasoning, ChatThinking, ChatSearching } from "./chat-loading";
+import {
+  FullChatHistoryToolResultCard,
+  tryParseFullChatHistoryToolOutput,
+} from "./full-chat-history-tool-result";
+import {
+  tryParseWebSearchToolOutput,
+  WebSearchToolResultCard,
+} from "./web-search-tool-result";
 import { ARCADIA_HELP_PREFIX } from "@/lib/arcadia/help-response";
 
 import { cn } from "@/lib/utils";
@@ -349,7 +357,8 @@ function extractMermaidCode(value: unknown): string | null {
   return null;
 }
 
-const ArcadiaToolResultCard = memo(function ArcadiaToolResultCard({
+/** Generic collapsible tool output (JSON / Mermaid); specialized tools use dedicated cards. */
+export const ArcadiaToolResultCard = memo(function ArcadiaToolResultCard({
   toolName,
   displayBody,
   isPinned,
@@ -360,7 +369,34 @@ const ArcadiaToolResultCard = memo(function ArcadiaToolResultCard({
   isPinned: boolean;
   onTogglePin: () => void;
 }) {
-  const label = `${toolName}`;
+  if (toolName.toLowerCase() === "web_search") {
+    const parsed = tryParseWebSearchToolOutput(displayBody);
+    if (parsed !== null) {
+      return (
+        <WebSearchToolResultCard isPinned={isPinned} parsed={parsed} onTogglePin={onTogglePin} />
+      );
+    }
+  }
+
+  if (toolName.toLowerCase() === "get_full_chat_history") {
+    const parsed = tryParseFullChatHistoryToolOutput(displayBody);
+    if (parsed !== null) {
+      return (
+        <FullChatHistoryToolResultCard
+          isPinned={isPinned}
+          parsed={parsed}
+          onTogglePin={onTogglePin}
+        />
+      );
+    }
+  }
+
+  const label =
+    toolName.toLowerCase() === "web_search"
+      ? "Search Results"
+      : toolName.toLowerCase() === "get_full_chat_history"
+        ? "Fetched full chat history"
+        : `${toolName}`;
   const mermaid = extractMermaidCode(displayBody);
   const json = stableStringify(displayBody);
 
@@ -503,7 +539,8 @@ function toolActionDisplayText(message: string | undefined): string {
   return trimmed;
 }
 
-const ChatAIAction: FC<ChatAIActionProps> = ({ aiActionPayload }) => {
+/** Ephemeral “tail” UI driven by `data-aiAction` (processing, search sources, memory, tool label, etc.). */
+export const ChatAIAction: FC<ChatAIActionProps> = ({ aiActionPayload }) => {
   return (
     <div className="rounded-lg p-4 mb-4 text-foreground">
       {(() => {
