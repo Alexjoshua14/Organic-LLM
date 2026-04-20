@@ -118,12 +118,41 @@ export const WebSearchToolResultCard = memo(function WebSearchToolResultCard({
   isPinned,
   onTogglePin,
 }: WebSearchToolResultCardProps) {
+  if (parsed.status === "error") {
+    return (
+      <div
+        className={cn(
+          "not-prose rounded-lg border border-border/60 bg-background-tertiary/30 dark:bg-background-tertiary/20 backdrop-blur-2xl",
+          "px-3 py-2",
+          isPinned && "sticky top-20 z-30 shadow-[0_8px_30px_-10px_rgba(0,0,0,0.35)]"
+        )}
+      >
+        <div className="flex items-start justify-between gap-2">
+          <div className="min-w-0 flex-1">
+            <div className="text-xs font-medium text-foreground">Search error</div>
+            <p className="mt-1 text-xs leading-snug text-destructive">{parsed.message}</p>
+          </div>
+          <button
+            aria-label={isPinned ? "Unpin tool output" : "Pin tool output"}
+            aria-pressed={isPinned}
+            className={cn(
+              "h-7 w-7 shrink-0 grid place-content-center rounded",
+              "hover:bg-background-tertiary/60 transition-colors"
+            )}
+            type="button"
+            onClick={onTogglePin}
+          >
+            {isPinned ? <PinOff className="size-3.5" /> : <Pin className="size-3.5" />}
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   const summaryLabel =
-    parsed.status === "error"
-      ? "View details"
-      : parsed.rows.length === 0
-        ? "No results"
-        : `${parsed.rows.length} result${parsed.rows.length === 1 ? "" : "s"}`;
+    parsed.rows.length === 0
+      ? "No results"
+      : `${parsed.rows.length} result${parsed.rows.length === 1 ? "" : "s"}`;
 
   return (
     <div
@@ -154,15 +183,11 @@ export const WebSearchToolResultCard = memo(function WebSearchToolResultCard({
           {summaryLabel}
         </summary>
 
-        {parsed.status === "error" && (
-          <p className="mt-2 text-xs text-destructive">{parsed.message}</p>
-        )}
-
-        {parsed.status === "success" && parsed.rows.length === 0 && (
+        {parsed.rows.length === 0 && (
           <p className="mt-2 text-xs text-muted-foreground">No web results for this query.</p>
         )}
 
-        {parsed.status === "success" && parsed.rows.length > 0 && (
+        {parsed.rows.length > 0 && (
           <ul className="mt-2 space-y-3 max-h-80 overflow-y-auto pr-1">
             {parsed.rows.map((row) => (
               <li key={row.id} className="border-b border-border/40 pb-3 last:border-0 last:pb-0">

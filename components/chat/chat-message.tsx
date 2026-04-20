@@ -16,6 +16,11 @@ import {
   FullChatHistoryToolResultCard,
   tryParseFullChatHistoryToolOutput,
 } from "./full-chat-history-tool-result";
+import { MermaidToolAckCard, tryParseMermaidToolOutput } from "./mermaid-tool-ack-card";
+import {
+  MemorySearchToolResultCard,
+  tryParseMemorySearchToolOutput,
+} from "./memory-search-tool-result";
 import {
   tryParseWebSearchToolOutput,
   WebSearchToolResultCard,
@@ -391,12 +396,38 @@ export const ArcadiaToolResultCard = memo(function ArcadiaToolResultCard({
     }
   }
 
+  if (toolName.toLowerCase() === "search_memories") {
+    const parsed = tryParseMemorySearchToolOutput(displayBody);
+    if (parsed !== null) {
+      return (
+        <MemorySearchToolResultCard
+          isPinned={isPinned}
+          parsed={parsed}
+          onTogglePin={onTogglePin}
+        />
+      );
+    }
+  }
+
+  if (toolName.toLowerCase() === "make_mermaid_diagram") {
+    const parsed =
+      tryParseMermaidToolOutput(displayBody) ?? {
+        kind: "error" as const,
+        message: "Unexpected tool output.",
+      };
+    return <MermaidToolAckCard isPinned={isPinned} parsed={parsed} onTogglePin={onTogglePin} />;
+  }
+
   const label =
     toolName.toLowerCase() === "web_search"
       ? "Search Results"
       : toolName.toLowerCase() === "get_full_chat_history"
         ? "Fetched full chat history"
-        : `${toolName}`;
+        : toolName.toLowerCase() === "search_memories"
+          ? "Memory search"
+          : toolName.toLowerCase() === "make_mermaid_diagram"
+            ? "Mermaid diagram"
+            : `${toolName}`;
   const mermaid = extractMermaidCode(displayBody);
   const json = stableStringify(displayBody);
 
