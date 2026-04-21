@@ -4,11 +4,9 @@ import { FC, memo, useCallback, useState } from "react";
 import { getToolOrDynamicToolName, isToolOrDynamicToolUIPart, UIMessage } from "ai";
 import { Pin, PinOff } from "lucide-react";
 
-import { ClipboardCopyButton } from "../shared/clipboardCopyButton";
-import { TTSButton } from "../tts/ttsButton";
 import { glass } from "../design-system/primitives";
 
-import { PinToSpeakButton } from "./PinToSpeakButton";
+import { AssistantMessageActions } from "./assistant-message-actions";
 import { ChatMessageMarkdown } from "./chat-message-markdown";
 import { ArcadiaHelpMessage } from "./arcadia-help-message";
 import { ChatReasoning, ChatThinking, ChatSearching } from "./chat-loading";
@@ -186,15 +184,7 @@ const AIMessage: FC<ChatMessageProps> = ({ message, aiActionPayload, isLatestArc
         )}
       </div>
       {!isActivelyStreaming && (
-        <div className="w-full flex gap-2 h-8">
-          <TTSButton iconOnly text={text} />
-          {!showCustomArcadiaHelp && (
-            <>
-              <PinToSpeakButton text={text} />
-              <ClipboardCopyButton text={text} />
-            </>
-          )}
-        </div>
+        <AssistantMessageActions showPinAndCopy={!showCustomArcadiaHelp} text={text} />
       )}
     </div>
   );

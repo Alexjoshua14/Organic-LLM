@@ -17,8 +17,10 @@ import {
   tryParseWebSearchToolOutput,
   WebSearchToolResultCard,
 } from "@/components/chat/web-search-tool-result";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/third-party/ui/tabs";
 import { ChatAIActionEnum } from "@/types/ai";
 import { glass } from "@/components/design-system/primitives";
+import { cn } from "@/lib/utils";
 
 const WRAPPER_CLASS = `rounded-lg p-4 mb-4 shadow-md ${glass()}`;
 
@@ -105,10 +107,18 @@ function StateBlock({ label, children }: { label: string; children: React.ReactN
   );
 }
 
+function SectionTitle({ children }: { children: React.ReactNode }) {
+  return (
+    <h3 className="mb-4 mt-10 scroll-mt-4 text-sm font-semibold tracking-tight text-foreground first:mt-0">
+      {children}
+    </h3>
+  );
+}
+
 export default function PrototypesLLMStatesPage() {
   return (
     <Page>
-      <div className="mx-auto w-full max-w-2xl px-6 py-12 sm:px-8 sm:py-16">
+      <div className="mx-auto w-full max-w-2xl px-6 py-12 sm:max-w-3xl sm:px-8 sm:py-16">
         <nav className="mb-12 sm:mb-16">
           <Link
             className="text-sm text-muted-foreground hover:text-foreground transition-colors"
@@ -118,7 +128,7 @@ export default function PrototypesLLMStatesPage() {
           </Link>
         </nav>
 
-        <header className="mb-14 sm:mb-20">
+        <header className="mb-8 sm:mb-10">
           <h1 className="text-2xl font-semibold tracking-tight text-foreground sm:text-3xl">
             LLM states
           </h1>
@@ -129,112 +139,154 @@ export default function PrototypesLLMStatesPage() {
           </p>
         </header>
 
-        <div className="space-y-1">
-          <StateBlock label="ChatLoading (dots)">
-            <ChatLoading />
-          </StateBlock>
+        <Tabs className="w-full" defaultValue="primitives">
+          <TabsList
+            className={cn(
+              "mb-8 flex h-auto min-h-9 w-full flex-wrap justify-start gap-1 sm:mb-10",
+              "overflow-x-auto sm:flex-nowrap"
+            )}
+          >
+            <TabsTrigger className="shrink-0" value="primitives">
+              Primitives
+            </TabsTrigger>
+            <TabsTrigger className="shrink-0" value="ephemeral">
+              Ephemeral tail
+            </TabsTrigger>
+            <TabsTrigger className="shrink-0" value="tools">
+              Tool results
+            </TabsTrigger>
+          </TabsList>
 
-          <StateBlock label="ChatThinking — default">
-            <ChatThinking />
-          </StateBlock>
+          <TabsContent className="mt-0 space-y-0 focus-visible:ring-offset-0" value="primitives">
+            <SectionTitle>Loading and thinking</SectionTitle>
+            <div className="space-y-1">
+              <StateBlock label="ChatLoading (dots)">
+                <ChatLoading />
+              </StateBlock>
 
-          <StateBlock label="ChatThinking — custom text">
-            <ChatThinking text="Gathering context on white holes..." />
-          </StateBlock>
+              <StateBlock label="ChatThinking — default">
+                <ChatThinking />
+              </StateBlock>
 
-          <StateBlock label="ChatThinking — Searching memories">
-            <ChatThinking text="Searching memories for white holes..." />
-          </StateBlock>
+              <StateBlock label="ChatThinking — custom text">
+                <ChatThinking text="Gathering context on white holes..." />
+              </StateBlock>
 
-          <StateBlock label="ChatThinking — Using a tool">
-            <ChatThinking text="Looking up white holes and general relativity..." />
-          </StateBlock>
+              <StateBlock label="ChatThinking — Searching memories">
+                <ChatThinking text="Searching memories for white holes..." />
+              </StateBlock>
 
-          <StateBlock label="ChatReasoning">
-            <ChatReasoning />
-          </StateBlock>
+              <StateBlock label="ChatThinking — Using a tool">
+                <ChatThinking text="Looking up white holes and general relativity..." />
+              </StateBlock>
+            </div>
 
-          <StateBlock label="ChatSearching — no sources yet">
-            <ChatSearching text="Searching for white holes..." />
-          </StateBlock>
+            <SectionTitle>Reasoning</SectionTitle>
+            <div className="space-y-1">
+              <StateBlock label="ChatReasoning">
+                <ChatReasoning />
+              </StateBlock>
+            </div>
 
-          <StateBlock label="ChatSearching — with sources">
-            <ChatSearching sources={WHITE_HOLES_SOURCES} text="Searching for white holes..." />
-          </StateBlock>
+            <SectionTitle>Web search (loading UI)</SectionTitle>
+            <div className="space-y-1">
+              <StateBlock label="ChatSearching — no sources yet">
+                <ChatSearching text="Searching for white holes..." />
+              </StateBlock>
 
-          <StateBlock label={`aiAction: ${ChatAIActionEnum.Processing}`}>
-            <ChatThinking text="Gathering context on white holes..." />
-          </StateBlock>
+              <StateBlock label="ChatSearching — with sources">
+                <ChatSearching sources={WHITE_HOLES_SOURCES} text="Searching for white holes..." />
+              </StateBlock>
+            </div>
+          </TabsContent>
 
-          <StateBlock label={`aiAction: ${ChatAIActionEnum.Reasoning}`}>
-            <ChatReasoning />
-          </StateBlock>
-
-          <StateBlock label={`aiAction: ${ChatAIActionEnum.Search} (no sources)`}>
-            <ChatSearching text="Searching for white holes..." />
-          </StateBlock>
-
-          <StateBlock label={`aiAction: ${ChatAIActionEnum.Search} (with sources)`}>
-            <ChatSearching sources={WHITE_HOLES_SOURCES} text="Searching for white holes..." />
-          </StateBlock>
-
-          <StateBlock label={`aiAction: ${ChatAIActionEnum.Memory}`}>
-            <ChatThinking text="Searching memories for white holes..." />
-          </StateBlock>
-
-          <StateBlock label={`aiAction: ${ChatAIActionEnum.Tool}`}>
-            <ChatThinking text="Looking up white holes and general relativity..." />
-          </StateBlock>
-
-          <StateBlock label={`aiAction: ${ChatAIActionEnum.Typing}`}>
-            <ChatThinking text="Writing up the answer..." />
-          </StateBlock>
-
-          <StateBlock label={`aiAction: ${ChatAIActionEnum.Errored}`}>
-            <p className="text-sm text-destructive">
-              Couldn&apos;t complete the search for white holes. Please try again.
+          <TabsContent className="mt-0 space-y-0 focus-visible:ring-offset-0" value="ephemeral">
+            <p className="mb-6 text-sm text-muted-foreground leading-relaxed">
+              These mirror what{" "}
+              <code className="rounded bg-muted px-1 py-0.5 text-xs">ChatAIAction</code> renders when
+              the stream sends <code className="rounded bg-muted px-1 py-0.5 text-xs">data-aiAction</code>{" "}
+              events (ephemeral tail on the streaming assistant message).
             </p>
-          </StateBlock>
-        </div>
 
-        <section className="mt-16 sm:mt-20">
-          <h2 className="mb-2 text-lg font-semibold tracking-tight text-foreground">
-            Tool call UI in the thread
-          </h2>
-          <p className="mb-8 text-sm text-muted-foreground leading-relaxed">
-            These are the pieces rendered inside assistant messages when tools run (ordered with
-            streamed text), plus the optional ephemeral tail from{" "}
-            <code className="rounded bg-muted px-1 py-0.5 text-xs">data-aiAction</code>. Loading
-            primitives (<code className="rounded bg-muted px-1 py-0.5 text-xs">ChatThinking</code>,{" "}
-            <code className="rounded bg-muted px-1 py-0.5 text-xs">ChatSearching</code>, etc.) are
-            listed above; here we focus on tool-specific chrome and the generic result card.
-          </p>
+            <SectionTitle>Processing and reasoning</SectionTitle>
+            <div className="space-y-1">
+              <StateBlock label={`aiAction: ${ChatAIActionEnum.Processing}`}>
+                <ChatThinking text="Gathering context on white holes..." />
+              </StateBlock>
 
-          <div className="space-y-1">
-            <StateBlock label="Tool in flight (inline row before result)">
-              <p className="mb-3 text-xs text-muted-foreground">
-                Bordered row with <code className="rounded bg-muted px-1">ChatThinking</code> and a
-                label from the tool name (same pattern for AI SDK v5 tool parts and legacy
-                tool-invocation).
-              </p>
-              <div className={INLINE_TOOL_ROW_CLASS}>
-                <ChatThinking text="Searching the web..." />
-              </div>
-            </StateBlock>
+              <StateBlock label={`aiAction: ${ChatAIActionEnum.Reasoning}`}>
+                <ChatReasoning />
+              </StateBlock>
+            </div>
 
-            <StateBlock label="Ephemeral tail: ChatAIAction (data-aiAction)">
-              <p className="mb-3 text-xs text-muted-foreground">
-                Shown at the end of the streaming assistant message when side-channel events are
-                not fully represented as message parts (e.g. Processing, Search with sources).
-              </p>
-              <ChatAIAction
-                aiActionPayload={{
-                  action: ChatAIActionEnum.Tool,
-                  message: "Using tool: make_mermaid_diagram",
-                }}
-              />
-            </StateBlock>
+            <SectionTitle>Search and memory</SectionTitle>
+            <div className="space-y-1">
+              <StateBlock label={`aiAction: ${ChatAIActionEnum.Search} (no sources)`}>
+                <ChatSearching text="Searching for white holes..." />
+              </StateBlock>
 
+              <StateBlock label={`aiAction: ${ChatAIActionEnum.Search} (with sources)`}>
+                <ChatSearching sources={WHITE_HOLES_SOURCES} text="Searching for white holes..." />
+              </StateBlock>
+
+              <StateBlock label={`aiAction: ${ChatAIActionEnum.Memory}`}>
+                <ChatThinking text="Searching memories for white holes..." />
+              </StateBlock>
+            </div>
+
+            <SectionTitle>Tool, typing, and errors</SectionTitle>
+            <div className="space-y-1">
+              <StateBlock label={`aiAction: ${ChatAIActionEnum.Tool}`}>
+                <ChatThinking text="Looking up white holes and general relativity..." />
+              </StateBlock>
+
+              <StateBlock label={`aiAction: ${ChatAIActionEnum.Typing}`}>
+                <ChatThinking text="Writing up the answer..." />
+              </StateBlock>
+
+              <StateBlock label={`aiAction: ${ChatAIActionEnum.Errored}`}>
+                <p className="text-sm text-destructive">
+                  Couldn&apos;t complete the search for white holes. Please try again.
+                </p>
+              </StateBlock>
+            </div>
+          </TabsContent>
+
+          <TabsContent className="mt-0 space-y-0 focus-visible:ring-offset-0" value="tools">
+            <p className="mb-6 text-sm text-muted-foreground leading-relaxed">
+              UI rendered inside assistant messages when tools run (with streamed text), plus the
+              generic collapsible where no dedicated card exists.
+            </p>
+
+            <SectionTitle>Inline and tail</SectionTitle>
+            <div className="space-y-1">
+              <StateBlock label="Tool in flight (inline row before result)">
+                <p className="mb-3 text-xs text-muted-foreground">
+                  Bordered row with <code className="rounded bg-muted px-1">ChatThinking</code> and a
+                  label from the tool name (same pattern for AI SDK v5 tool parts and legacy
+                  tool-invocation).
+                </p>
+                <div className={INLINE_TOOL_ROW_CLASS}>
+                  <ChatThinking text="Searching the web..." />
+                </div>
+              </StateBlock>
+
+              <StateBlock label="Ephemeral tail: ChatAIAction (data-aiAction)">
+                <p className="mb-3 text-xs text-muted-foreground">
+                  Shown at the end of the streaming assistant message when side-channel events are
+                  not fully represented as message parts (e.g. Processing, Search with sources).
+                </p>
+                <ChatAIAction
+                  aiActionPayload={{
+                    action: ChatAIActionEnum.Tool,
+                    message: "Using tool: make_mermaid_diagram",
+                  }}
+                />
+              </StateBlock>
+            </div>
+
+            <SectionTitle>Generic and specialized cards</SectionTitle>
+            <div className="space-y-1">
             <StateBlock label="Generic tool result — ArcadiaToolResultCard (JSON)">
               <p className="mb-3 text-xs text-muted-foreground">
                 Default collapsible for tools without a dedicated card (pin, “View output”, raw
@@ -326,7 +378,10 @@ export default function PrototypesLLMStatesPage() {
                 onTogglePin={() => undefined}
               />
             </StateBlock>
+            </div>
 
+            <SectionTitle>Web search and chat history</SectionTitle>
+            <div className="space-y-1">
             <StateBlock label="Search Results — WebSearchToolResultCard">
               <p className="mb-3 text-xs text-muted-foreground">
                 Dedicated UI for <code className="rounded bg-muted px-1">web_search</code> tool
@@ -372,8 +427,9 @@ export default function PrototypesLLMStatesPage() {
                 onTogglePin={() => undefined}
               />
             </StateBlock>
-          </div>
-        </section>
+            </div>
+          </TabsContent>
+        </Tabs>
 
         <p className="mt-14 text-center text-xs text-muted-foreground sm:mt-20">
           Toggle light/dark to verify states in both themes.
