@@ -77,6 +77,8 @@ type CoreInputProps = {
   enableMarkdownInputPreview?: boolean;
   /** One-time composer seed from URL (not sent until the user submits). */
   initialDraft?: string;
+  /** Strata page assistant: web/memory/speech toggles live on the Source tab. */
+  hideWebMemorySpeechToggles?: boolean;
 };
 
 export const CoreInput: React.FC<CoreInputProps> = ({
@@ -96,6 +98,7 @@ export const CoreInput: React.FC<CoreInputProps> = ({
   isBlankChat,
   enableMarkdownInputPreview = false,
   initialDraft,
+  hideWebMemorySpeechToggles = false,
 }) => {
   const { refreshSidebarChats } = useSharedChatContext();
 
@@ -408,34 +411,38 @@ export const CoreInput: React.FC<CoreInputProps> = ({
                   </span>
                 </PromptInputButton>
               )}
-              <PromptInputButton
-                size={"dynamic-sm"}
-                variant={useWebSearch ? "default" : "ghost"}
-                onClick={() => setUseWebSearch(!useWebSearch)}
-              >
-                <GlobeIcon size={16} />
-                <span className={cn(showLabels ? "inline-flex" : "hidden")}>Search</span>
-              </PromptInputButton>
-              <PromptInputButton
-                size={"dynamic-sm"}
-                variant={useMemories ? "default" : "ghost"}
-                onClick={() => setUseMemories(!useMemories)}
-              >
-                <BrainCircuit />
-                <span className={cn(showLabels ? "inline-flex" : "hidden")}>Memory</span>
-              </PromptInputButton>
-              {useSpeechFriendlyRef && (
-                <PromptInputButton
-                  aria-label={useSpeechFriendly ? "Speech-friendly on" : "Speech-friendly off"}
-                  size={"dynamic-sm"}
-                  title="Format replies for reading and TTS; a separate pipeline converts to speech-friendly script."
-                  variant={useSpeechFriendly ? "default" : "ghost"}
-                  onClick={() => setUseSpeechFriendly(!useSpeechFriendly)}
-                >
-                  <Volume2 size={16} />
-                  <span className={cn(showLabels ? "inline-flex" : "hidden")}>Speech</span>
-                </PromptInputButton>
-              )}
+              {!hideWebMemorySpeechToggles ? (
+                <>
+                  <PromptInputButton
+                    size={"dynamic-sm"}
+                    variant={useWebSearch ? "default" : "ghost"}
+                    onClick={() => setUseWebSearch(!useWebSearch)}
+                  >
+                    <GlobeIcon size={16} />
+                    <span className={cn(showLabels ? "inline-flex" : "hidden")}>Search</span>
+                  </PromptInputButton>
+                  <PromptInputButton
+                    size={"dynamic-sm"}
+                    variant={useMemories ? "default" : "ghost"}
+                    onClick={() => setUseMemories(!useMemories)}
+                  >
+                    <BrainCircuit />
+                    <span className={cn(showLabels ? "inline-flex" : "hidden")}>Memory</span>
+                  </PromptInputButton>
+                  {useSpeechFriendlyRef && (
+                    <PromptInputButton
+                      aria-label={useSpeechFriendly ? "Speech-friendly on" : "Speech-friendly off"}
+                      size={"dynamic-sm"}
+                      title="Format replies for reading and TTS; a separate pipeline converts to speech-friendly script."
+                      variant={useSpeechFriendly ? "default" : "ghost"}
+                      onClick={() => setUseSpeechFriendly(!useSpeechFriendly)}
+                    >
+                      <Volume2 size={16} />
+                      <span className={cn(showLabels ? "inline-flex" : "hidden")}>Speech</span>
+                    </PromptInputButton>
+                  )}
+                </>
+              ) : null}
 
               <PromptInputSelect
                 required

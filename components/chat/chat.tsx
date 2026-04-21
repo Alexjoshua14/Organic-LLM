@@ -28,6 +28,8 @@ import { Thread } from "@/lib/schemas/chat";
 import { createLogger } from "@/lib/logger";
 import { useSharedChatContext } from "@/lib/context/chat-context";
 import { ChatModel, DEFAULT_CHAT_MODEL } from "@/lib/schemas/chat";
+import { getStrataAssistantPersona } from "@/lib/personas/strata-assistant";
+import type { StrataPageAssistantSession } from "@/lib/strata/assistant-session";
 import { ChatAIActionEnum } from "@/types/ai";
 import { getChatErrorMessage } from "@/lib/chat/error-messages";
 
@@ -43,6 +45,8 @@ export type ChatProps = {
   experience?: string;
   /** When using the Strata page assistant, the server loads this page for grounding. */
   strataPageId?: string;
+  /** Strata page: tool + persona controls from Source tab session. */
+  assistantSession?: StrataPageAssistantSession | null;
 };
 
 export const Chat: React.FC<ChatProps> = ({
@@ -53,6 +57,7 @@ export const Chat: React.FC<ChatProps> = ({
   initialDraft,
   experience,
   strataPageId,
+  assistantSession,
 }) => {
   const { refreshSidebarChats } = useSharedChatContext();
 
@@ -60,6 +65,8 @@ export const Chat: React.FC<ChatProps> = ({
   const useWebSearchRef = useRef<boolean>(false);
   const useMemoriesRef = useRef<boolean>(false);
   const useSpeechFriendlyRef = useRef<boolean>(false);
+  const assistantSessionRef = useRef<StrataPageAssistantSession | null | undefined>(assistantSession);
+  assistantSessionRef.current = assistantSession;
   const usePersistedSchemas = useRef<boolean>(persona === "aion" || persona === "strata");
   const initialMessageSent = useRef<boolean>(false);
   const [aiAction, setAiAction] = useState<
@@ -88,6 +95,11 @@ export const Chat: React.FC<ChatProps> = ({
     return () => window.removeEventListener("organic-llm-settings", sync);
   }, []);
 
+  useEffect(() => {
+    if (experience !== "strata_page" || !assistantSession) return;
+    selectedModelRef.current = getStrataAssistantPersona(assistantSession.personaId).getDefaultModel();
+  }, [assistantSession, experience]);
+
   // Temporary
   const stop = () => logger.log("chat", "stop called but functionality is currently disabled");
 
@@ -110,13 +122,29 @@ export const Chat: React.FC<ChatProps> = ({
           const message = isClientPIIRedactionEnabled()
             ? redactUIMessages([lastMessage])[0]
             : lastMessage;
+          const sess = assistantSessionRef.current;
+          const strataPageTools =
+            experience === "strata_page" && sess
+              ? {
+                  webSearch: sess.tools.toolWebSearch,
+                  memory: sess.tools.toolMemory,
+                  messageSearch: sess.tools.toolMessageSearch,
+                  knowledgeSearch: sess.tools.toolKnowledgeSearch,
+                  strataAssistantPersona: sess.personaId,
+                }
+              : {
+                  webSearch: useWebSearchRef.current,
+                  memory: useMemoriesRef.current,
+                  messageSearch: true as const,
+                  knowledgeSearch: false as const,
+                };
+
           const req = {
             body: {
               message,
               id,
               model: selectedModelRef.current,
-              webSearch: useWebSearchRef.current,
-              memory: useMemoriesRef.current,
+              ...strataPageTools,
               speechFriendly: useSpeechFriendlyRef.current,
               experience,
               ...(strataPageId ? { strataPageId } : {}),
@@ -366,6 +394,7 @@ export const Chat: React.FC<ChatProps> = ({
               experience === "arcadia" && experimentalArcadiaMarkdownPreview
             }
             error={error ?? chatError}
+            hideWebMemorySpeechToggles={experience === "strata_page" && Boolean(assistantSession)}
             initialDraft={initialDraft}
             isBlankChat={messages.length === 0 && persona !== "strata"}
             modelRef={selectedModelRef}

@@ -54,6 +54,89 @@ export const StrataGenerationContextSchema = z.object({
 
 export type StrataGenerationContext = z.infer<typeof StrataGenerationContextSchema>;
 
+/** Max characters stored per text source body (client + server enforce). */
+export const STRATA_TEXT_SOURCE_BODY_MAX = 120_000;
+
+/** Max number of text sources on one page. */
+export const STRATA_TEXT_SOURCES_MAX = 80;
+
+export const StrataTextSourceKindSchema = z.enum([
+  "user_text",
+  "clipboard",
+  "file",
+  "web_query",
+  "url",
+]);
+
+export type StrataTextSourceKind = z.infer<typeof StrataTextSourceKindSchema>;
+
+export const StrataTextSourceMetaSchema = z
+  .object({
+    url: z.string().max(2048).optional(),
+    filename: z.string().max(512).optional(),
+    query: z.string().max(2000).optional(),
+  })
+  .strict();
+
+export const StrataTextSourceNodeSchema = z.object({
+  id: z.string().uuid(),
+  kind: StrataTextSourceKindSchema,
+  title: z.string().max(512),
+  body: z.string().max(STRATA_TEXT_SOURCE_BODY_MAX),
+  createdAt: z.string(),
+  meta: StrataTextSourceMetaSchema.optional(),
+});
+
+export type StrataTextSourceNode = z.infer<typeof StrataTextSourceNodeSchema>;
+
+export const StrataSourceComposerSettingsSchema = z.object({
+  assistantPersonaId: z.enum(["remy", "spark", "aion", "prometheus"]).optional(),
+  toolMemory: z.boolean().optional(),
+  toolWebSearch: z.boolean().optional(),
+  toolMessageSearch: z.boolean().optional(),
+  toolKnowledgeSearch: z.boolean().optional(),
+});
+
+export type StrataSourceComposerSettings = z.infer<typeof StrataSourceComposerSettingsSchema>;
+
+const pageIdForAuth = z.string().uuid();
+
+export const StrataIngestSearchOpSchema = z.object({
+  pageId: pageIdForAuth,
+  op: z.literal("search"),
+  query: z.string().min(1).max(500),
+});
+
+export const StrataIngestUrlPreviewOpSchema = z.object({
+  pageId: pageIdForAuth,
+  op: z.literal("url_preview"),
+  url: z.string().min(1).max(2048),
+});
+
+export const StrataIngestUrlCommitOpSchema = z.object({
+  pageId: pageIdForAuth,
+  op: z.literal("url_commit"),
+  url: z.string().min(1).max(2048),
+  title: z.string().max(512).optional(),
+});
+
+export const StrataIngestAppendTextOpSchema = z.object({
+  pageId: pageIdForAuth,
+  op: z.literal("append_text"),
+  title: z.string().max(512),
+  body: z.string().max(STRATA_TEXT_SOURCE_BODY_MAX),
+  kind: z.enum(["user_text", "clipboard"]).default("user_text"),
+});
+
+export const StrataIngestRequestSchema = z.discriminatedUnion("op", [
+  StrataIngestSearchOpSchema,
+  StrataIngestUrlPreviewOpSchema,
+  StrataIngestUrlCommitOpSchema,
+  StrataIngestAppendTextOpSchema,
+]);
+
+export type StrataIngestRequest = z.infer<typeof StrataIngestRequestSchema>;
+
 export type StrataPage = {
   id: string;
   title: string;

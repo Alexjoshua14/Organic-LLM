@@ -22,6 +22,7 @@ import {
   type StrataGenerationContext,
   type StrataPageWithSections,
   type StrataSectionKey,
+  type StrataSourceComposerSettings,
 } from "@/lib/schemas/strata";
 import {
   getLocalOnlyMode,
@@ -31,6 +32,10 @@ import {
 } from "@/lib/strata/local-store";
 import { sanitizeRawUserInput } from "@/lib/strata/input-safety";
 import { buildElaboratedContentJsonAfterModel } from "@/lib/strata/elaborated-tts";
+import {
+  parseTextSourcesFromContentJson,
+  setTextSourcesInContentJson,
+} from "@/lib/strata/text-sources";
 
 export function useStrataShellController(
   initialData: StrataPageWithSections,
@@ -235,6 +240,30 @@ export function useStrataShellController(
       saveSection("raw_text", sectionsRef.current.raw_text.content, { autosaveRaw: true });
     }, 1200);
   }, [saveSection]);
+
+  const applySourceComposerSettingsPatch = useCallback(
+    (patch: Partial<StrataSourceComposerSettings>) => {
+      setSections((prev) => {
+        const sources = parseTextSourcesFromContentJson(
+          prev.raw_text.contentJson as Record<string, unknown> | null
+        );
+        const contentJson = setTextSourcesInContentJson(
+          prev.raw_text.contentJson as Record<string, unknown> | null,
+          sources,
+          patch
+        );
+        return {
+          ...prev,
+          raw_text: {
+            ...prev.raw_text,
+            contentJson,
+          },
+        };
+      });
+      queueRawAutosave();
+    },
+    [queueRawAutosave]
+  );
 
   const persistElaboratedContentJson = async (nextContentJson: Record<string, unknown> | null) => {
     setActionStatus({
@@ -530,5 +559,6 @@ export function useStrataShellController(
       scrollContainerRef,
       elaboratedRef,
     },
+    applySourceComposerSettingsPatch,
   };
 }

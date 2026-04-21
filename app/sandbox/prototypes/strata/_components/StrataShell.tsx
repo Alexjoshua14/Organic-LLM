@@ -1,7 +1,10 @@
 "use client";
 
-import type { StrataPageWithSections } from "@/lib/schemas/strata";
+import { useEffect } from "react";
 
+import type { StrataPageWithSections, StrataSourceComposerSettings } from "@/lib/schemas/strata";
+
+import type { StrataPageAssistantSession } from "@/lib/strata/assistant-session";
 import { StrataShellBottomChrome } from "./strata-shell/StrataShellBottomChrome";
 import { StrataShellHeader } from "./strata-shell/StrataShellHeader";
 import { StrataShellStatusFooter } from "./strata-shell/StrataShellStatusFooter";
@@ -13,11 +16,22 @@ import { useStrataShellController } from "./strata-shell/useStrataShellControlle
 export function StrataShell({
   initialData,
   dbAvailable,
+  assistantSession,
+  onRegisterComposerPersist,
 }: {
   initialData: StrataPageWithSections;
   dbAvailable: boolean;
+  assistantSession?: StrataPageAssistantSession;
+  onRegisterComposerPersist?: (
+    fn: (patch: Partial<StrataSourceComposerSettings>) => void
+  ) => void;
 }) {
   const shell = useStrataShellController(initialData, dbAvailable);
+
+  useEffect(() => {
+    if (!onRegisterComposerPersist) return;
+    onRegisterComposerPersist(shell.applySourceComposerSettingsPatch);
+  }, [onRegisterComposerPersist, shell.applySourceComposerSettingsPatch]);
 
   const showThinking =
     shell.actionStatus.state === "loading" || shell.isPending || shell.isGenerating;
@@ -50,7 +64,11 @@ export function StrataShell({
           <div className="mx-auto flex w-full max-w-5xl flex-1 min-h-0 flex-col px-6 pb-14 pt-1">
             {shell.activeTab === "source" ? (
               <StrataSourceTab
+                assistantSession={assistantSession}
+                dbAvailable={shell.dbAvailable}
                 flushSaveRaw={shell.flushSaveRaw}
+                localOnlyMode={shell.localOnlyMode}
+                pageId={shell.pageData.id}
                 queueRawAutosave={shell.queueRawAutosave}
                 reduceMotion={shell.reduceMotion}
                 refinedSectionTitle={shell.refinedSectionTitle}
@@ -70,6 +88,7 @@ export function StrataShell({
                     elaboratedRef={shell.refs.elaboratedRef}
                     isGenerating={shell.isGenerating}
                     onPersistElaboratedJson={shell.persistElaboratedContentJson}
+                    pageId={shell.pageData.id}
                     sections={shell.sections}
                   />
                 </div>

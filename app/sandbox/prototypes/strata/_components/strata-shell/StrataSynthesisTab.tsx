@@ -7,18 +7,23 @@ import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { motion } from "framer-motion";
 
-import { StrataElaboratedTTSBar } from "../StrataElaboratedTTSBar";
+import {
+  StrataElaboratedSummaryTTSBar,
+  StrataElaboratedVerbatimTTSBar,
+} from "../StrataElaboratedTTSBar";
 
 import { glass } from "@/components/design-system/primitives";
 import { cn } from "@/lib/utils";
 
 export function StrataSynthesisTab({
   elaboratedRef,
+  pageId,
   sections,
   isGenerating,
   onPersistElaboratedJson,
 }: {
   elaboratedRef: RefObject<HTMLElement | null>;
+  pageId: string;
   sections: StrataPageWithSections["sections"];
   isGenerating: boolean;
   onPersistElaboratedJson: (next: Record<string, unknown> | null) => Promise<void>;
@@ -35,8 +40,15 @@ export function StrataSynthesisTab({
         "border border-border/60 backdrop-blur-xl"
       )}
     >
-      <div className="shrink-0">
-        <StrataElaboratedTTSBar
+      <div className="shrink-0 flex flex-col gap-0">
+        <StrataElaboratedSummaryTTSBar
+          contentJson={sections.elaborated.contentJson}
+          disabled={isGenerating}
+          markdown={sections.elaborated.content}
+          pageId={pageId}
+          onPersist={onPersistElaboratedJson}
+        />
+        <StrataElaboratedVerbatimTTSBar
           contentJson={sections.elaborated.contentJson}
           disabled={isGenerating}
           markdown={sections.elaborated.content}
