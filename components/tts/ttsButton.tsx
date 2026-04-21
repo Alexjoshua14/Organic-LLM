@@ -2,62 +2,34 @@
 
 import { Button } from "@heroui/button";
 import { Volume2 } from "lucide-react";
-import { useCallback, useMemo } from "react";
 
 import { Loader } from "../third-party/ai-elements/loader";
 import { glass } from "../design-system/primitives";
 
-import { useTTSContext } from "@/lib/context/tts-context";
-import { getSettings } from "@/lib/user-settings";
-import { splitTextIntoSegments } from "@/lib/tts/token-calculator";
+import { useAssistantTtsAction } from "@/hooks/use-assistant-tts-action";
 import { cn } from "@/lib/utils";
 
 export function TTSButton({ text, iconOnly }: { text: string; iconOnly?: boolean }) {
-  const { speak, play, status, currentText } = useTTSContext();
-
-  const textToPlay = useMemo(() => {
-    const { ttsWholeMessage } = getSettings();
-
-    return ttsWholeMessage ? text : (splitTextIntoSegments(text, "paragraph")[0] ?? text);
-  }, [text]);
-
-  const isThisClip = currentText === textToPlay;
-
-  const handleSpeak = useCallback(() => {
-    if (status === "processing" && isThisClip) {
-      return;
-    }
-    if (status === "playing" && isThisClip) {
-      return;
-    }
-    if ((status === "complete" || status === "readyToPlay" || status === "paused") && isThisClip) {
-      play();
-
-      return;
-    }
-    speak(textToPlay);
-  }, [status, isThisClip, play, speak, textToPlay]);
-
-  const showOverlay = status === "processing" && isThisClip;
+  const { handleSpeak, isProcessingThisClip, showOverlay } = useAssistantTtsAction(text);
 
   return (
     <>
       <Button
-        aria-busy={status === "processing" && isThisClip}
+        aria-busy={isProcessingThisClip}
         className="text-accent hover:scale-110 border touch-none"
-        isDisabled={status === "processing" && isThisClip}
+        isDisabled={isProcessingThisClip}
         isIconOnly={iconOnly}
         size="sm"
         tabIndex={-1}
         variant="ghost"
         onPress={handleSpeak}
       >
-        {status === "processing" && isThisClip ? (
+        {isProcessingThisClip ? (
           <Loader className="w-4 h-4 mr-1 shrink-0" />
         ) : (
           <Volume2 className="w-4 h-4 mr-1" />
         )}
-        {iconOnly ? null : status === "processing" && isThisClip ? "Loading…" : "Play Audio"}
+        {iconOnly ? null : isProcessingThisClip ? "Loading…" : "Play Audio"}
       </Button>
       <div
         className={cn(
