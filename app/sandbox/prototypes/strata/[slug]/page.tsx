@@ -3,9 +3,7 @@ import type { UIMessage } from "ai";
 
 import { cache } from "react";
 
-import { StrataAssistantPanel } from "../_components/StrataAssistantPanel";
-import { StrataShell } from "../_components/StrataShell";
-import { StrataWorkspace } from "../_components/StrataWorkspace";
+import { StrataPageClient } from "../_components/StrataPageClient";
 
 import Page from "@/components/layout/page";
 import AdaptiveLiquidChrome from "@/components/background/AdaptiveLiquidChrome";
@@ -85,18 +83,11 @@ export default async function StrataPage({ params }: { params: Promise<{ slug: s
     <Page transparentBackground className="overflow-hidden">
       <AdaptiveLiquidChrome dimIntensity={0.45} dimIntensityFull={0.62} />
       <div className="relative z-10 flex h-full min-h-0 w-full flex-col">
-        <StrataWorkspace
-          agentPanel={
-            <StrataAssistantPanel
-              chatData={pageAgentChatData}
-              emptyHint="Assistant needs a synced Strata page (not local-only / offline fallback). Turn off local-only for this page or fix connectivity, then refresh."
-              experience="strata_page"
-              strataPageId={initialData.page.id}
-            />
-          }
-        >
-          <StrataShell dbAvailable={dbAvailable} initialData={initialData} />
-        </StrataWorkspace>
+        <StrataPageClient
+          dbAvailable={dbAvailable}
+          initialData={initialData}
+          pageAgentChatData={pageAgentChatData}
+        />
       </div>
     </Page>
   );

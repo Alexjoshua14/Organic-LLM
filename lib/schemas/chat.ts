@@ -122,6 +122,8 @@ export const UIMessageSchema = z
     message: "Message must include parts or content",
   });
 
+export const StrataAssistantPersonaRequestSchema = z.enum(["remy", "spark", "aion", "prometheus"]);
+
 export const ChatRequestSchema = z.object({
   message: UIMessageSchema,
   id: z.uuid(),
@@ -129,6 +131,12 @@ export const ChatRequestSchema = z.object({
   webSearch: z.boolean().optional(),
   memory: z.boolean().optional().default(true),
   speechFriendly: z.boolean().optional(),
+  /** When false, chat history retrieval tools are omitted. Default true for backward compatibility. */
+  messageSearch: z.boolean().optional().default(true),
+  /** Strata page assistant: optional knowledge graph tools (stubbed persistence). */
+  knowledgeSearch: z.boolean().optional().default(false),
+  /** Strata page assistant: persona affecting system prompt and default model client-side. */
+  strataAssistantPersona: StrataAssistantPersonaRequestSchema.optional(),
   /** Client hint: which chat experience initiated the request (e.g. arcadia). */
   experience: z.string().optional(),
   /** Strata page assistant: server loads this page for grounding when `experience` is `strata_page`. */

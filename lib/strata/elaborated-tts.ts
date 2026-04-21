@@ -1,10 +1,20 @@
 import z from "zod";
 
 /**
- * Reserved key on `elaborated.contentJson` for app-managed narration.
+ * Legacy key on `elaborated.contentJson` for app-managed narration (verbatim slot).
  * Prefixed to avoid collisions with model-produced `elaboratedArtifacts`.
  */
 export const STRATA_ELABORATED_TTS_JSON_KEY = "_strataElaboratedTts";
+
+export const STRATA_ELABORATED_TTS_SUMMARY_KEY = "_strataElaboratedTtsSummary";
+export const STRATA_ELABORATED_TTS_FULL_KEY = "_strataElaboratedTtsFull";
+
+export type StrataElaboratedTtsSlot = "summary" | "full";
+
+const STRATA_ELABORATED_TTS_SLOT_KEYS: Record<StrataElaboratedTtsSlot, string> = {
+  summary: STRATA_ELABORATED_TTS_SUMMARY_KEY,
+  full: STRATA_ELABORATED_TTS_FULL_KEY,
+};
 
 /** Inline audio for JSONB / local storage; swap for `remoteUrl` when uploading to object storage. */
 export const StrataElaboratedTtsPayloadSchema = z
@@ -15,9 +25,11 @@ export const StrataElaboratedTtsPayloadSchema = z
     /** When set, clients should stream from this URL instead of decoding `audioBase64`. */
     remoteUrl: z.string().url().optional(),
     generatedAt: z.string().min(1),
-    /** SHA-256 (hex) of normalized plain text derived from elaborated markdown at generation time. */
+    /** SHA-256 (hex) of full elaborated plain text at generation time (markdown stripped). */
     sourceContentSha256: z.string().length(64),
     ttsInputWasTruncated: z.boolean().optional(),
+    /** Exact plain text sent to TTS (summary script or clamped verbatim). Omitted on older payloads. */
+    ttsPlainText: z.string().min(1).optional(),
   })
   .refine((v) => Boolean(v.audioBase64 || v.remoteUrl), {
     message: "Strata elaborated TTS requires audioBase64 or remoteUrl",
@@ -26,6 +38,9 @@ export const StrataElaboratedTtsPayloadSchema = z
 export type StrataElaboratedTtsPayload = z.infer<typeof StrataElaboratedTtsPayloadSchema>;
 
 export const STRATA_ELABORATED_TTS_MAX_CHARS = 4000;
+
+/** Max characters of elaborated plain text sent to the speech-summary model. */
+export const STRATA_ELABORATED_SPEECH_SUMMARY_INPUT_MAX_CHARS = 12_000;
 
 export function markdownToTtsPlainText(markdown: string): string {
   let s = markdown;
@@ -95,25 +110,74 @@ export async function sha256HexUtf8(text: string): Promise<string> {
   return [...new Uint8Array(digest)].map((b) => b.toString(16).padStart(2, "0")).join("");
 }
 
-export function parseStrataElaboratedTts(
-  contentJson: Record<string, unknown> | null | undefined
+function parsePayloadAtKey(
+  contentJson: Record<string, unknown> | null | undefined,
+  key: string
 ): StrataElaboratedTtsPayload | null {
   if (!contentJson) return null;
-  const raw = contentJson[STRATA_ELABORATED_TTS_JSON_KEY];
+  const raw = contentJson[key];
   if (!raw || typeof raw !== "object") return null;
   const parsed = StrataElaboratedTtsPayloadSchema.safeParse(raw);
   return parsed.success ? parsed.data : null;
 }
 
+/** Verbatim / full narration: dedicated slot, else legacy `_strataElaboratedTts`. */
+export function parseStrataElaboratedTtsFull(
+  contentJson: Record<string, unknown> | null | undefined
+): StrataElaboratedTtsPayload | null {
+  return (
+    parsePayloadAtKey(contentJson, STRATA_ELABORATED_TTS_FULL_KEY) ??
+    parsePayloadAtKey(contentJson, STRATA_ELABORATED_TTS_JSON_KEY)
+  );
+}
+
+export function parseStrataElaboratedTtsSummary(
+  contentJson: Record<string, unknown> | null | undefined
+): StrataElaboratedTtsPayload | null {
+  return parsePayloadAtKey(contentJson, STRATA_ELABORATED_TTS_SUMMARY_KEY);
+}
+
+/**
+ * @deprecated Use {@link parseStrataElaboratedTtsFull} or {@link parseStrataElaboratedTtsSummary}.
+ */
+export function parseStrataElaboratedTts(
+  contentJson: Record<string, unknown> | null | undefined
+): StrataElaboratedTtsPayload | null {
+  return parseStrataElaboratedTtsFull(contentJson);
+}
+
+export function mergeStrataElaboratedTtsSlotIntoContentJson(
+  contentJson: Record<string, unknown> | null | undefined,
+  slot: StrataElaboratedTtsSlot,
+  payload: StrataElaboratedTtsPayload
+): Record<string, unknown> {
+  const key = STRATA_ELABORATED_TTS_SLOT_KEYS[slot];
+  const base: Record<string, unknown> = { ...(contentJson ?? {}) };
+  if (slot === "full") {
+    delete base[STRATA_ELABORATED_TTS_JSON_KEY];
+  }
+  return {
+    ...base,
+    [key]: payload,
+  };
+}
+
+/**
+ * @deprecated Use {@link mergeStrataElaboratedTtsSlotIntoContentJson} with slot `"full"`.
+ * Writes only the full slot (not legacy key); new reads still resolve legacy via {@link parseStrataElaboratedTtsFull}.
+ */
 export function mergeStrataElaboratedTtsIntoContentJson(
   contentJson: Record<string, unknown> | null | undefined,
   payload: StrataElaboratedTtsPayload
 ): Record<string, unknown> {
-  return {
-    ...(contentJson ?? {}),
-    [STRATA_ELABORATED_TTS_JSON_KEY]: payload,
-  };
+  return mergeStrataElaboratedTtsSlotIntoContentJson(contentJson, "full", payload);
 }
+
+const ALL_STRATA_TTS_JSON_KEYS = [
+  STRATA_ELABORATED_TTS_JSON_KEY,
+  STRATA_ELABORATED_TTS_SUMMARY_KEY,
+  STRATA_ELABORATED_TTS_FULL_KEY,
+] as const;
 
 /**
  * After a model run overwrites elaborated, keep only LLM artifacts (drop any prior inline TTS blob).
@@ -123,6 +187,8 @@ export function buildElaboratedContentJsonAfterModel(
 ): Record<string, unknown> | null {
   if (!artifacts || Object.keys(artifacts).length === 0) return null;
   const next = { ...artifacts };
-  delete next[STRATA_ELABORATED_TTS_JSON_KEY];
+  for (const k of ALL_STRATA_TTS_JSON_KEYS) {
+    delete next[k];
+  }
   return Object.keys(next).length > 0 ? next : null;
 }

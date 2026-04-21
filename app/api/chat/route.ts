@@ -50,8 +50,10 @@ import {
   isArcadiaHelpQuery,
 } from "@/lib/arcadia/help-response";
 import { getStrataPageById } from "@/data/supabase/strata";
+import { getStrataAssistantPersona } from "@/lib/personas/strata-assistant";
 import { buildStrataSystemSuffix } from "@/lib/llm/strata-chat-augmentation";
 import { createStrataHubAssistantTools } from "@/lib/llm/strata-assistant-tools";
+import { createStrataKnowledgeGraphTools } from "@/lib/llm/strata-knowledge-graph-tools";
 
 // Allow streaming responses up to 30 seconds
 export const maxDuration = 30;
@@ -86,8 +88,16 @@ export async function POST(req: Request) {
     });
   }
 
-  const { message: incomingMessage, id, zeroDataRetention, experience, strataPageId } =
-    parseResult.data;
+  const {
+    message: incomingMessage,
+    id,
+    zeroDataRetention,
+    experience,
+    strataPageId,
+    messageSearch,
+    knowledgeSearch,
+    strataAssistantPersona,
+  } = parseResult.data;
   const message = incomingMessage as UIMessage;
 
   // Zero Data Retention Policy is in regards to external LLMs, not Organic LLM at this time
@@ -215,6 +225,10 @@ export async function POST(req: Request) {
         fetchPage: getStrataPageById,
       });
 
+      if (experience === "strata_page" && strataAssistantPersona) {
+        systemPromptForRequest += getStrataAssistantPersona(strataAssistantPersona).getSystemPromptAugmentation();
+      }
+
       logger.log(
         "POST",
         `
@@ -295,7 +309,9 @@ export async function POST(req: Request) {
       const { tools, toolInstructions } = await compileTools({
         useSearch: parseResult.data.webSearch ?? false,
         useMemory: parseResult.data.memory ?? false,
-        useGetMoreMessages: true,
+        useGetMoreMessages: messageSearch ?? true,
+        useKnowledgeSearch:
+          Boolean(knowledgeSearch) && experience === "strata_page",
         experience,
         chatId: id,
         initialMessageCount,
@@ -606,6 +622,7 @@ const compileTools = async ({
   useSearch,
   useMemory,
   useGetMoreMessages,
+  useKnowledgeSearch,
   experience,
   chatId,
   initialMessageCount,
@@ -615,6 +632,7 @@ const compileTools = async ({
   useSearch: boolean;
   useMemory: boolean;
   useGetMoreMessages?: boolean;
+  useKnowledgeSearch?: boolean;
   experience?: string;
   chatId?: string;
   initialMessageCount?: number;
@@ -659,6 +677,12 @@ const compileTools = async ({
     Object.assign(tools, createStrataHubAssistantTools(sbUserId));
     toolInstructions +=
       "You can navigate the user's Strata documents with navigate_to_strata_page (UUID or title fragment) and search or list them with search_strata_pages.\n";
+  }
+
+  if (useKnowledgeSearch && experience === "strata_page") {
+    Object.assign(tools, createStrataKnowledgeGraphTools());
+    toolInstructions +=
+      "Knowledge graph tools are available but persistence is not fully implemented yet; prefer summarizing Strata page content and use these tools only when explicitly helpful. Stubs may return placeholder data.\n";
   }
 
   if (toolInstructions.length > 0) {

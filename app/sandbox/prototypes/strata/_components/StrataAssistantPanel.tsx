@@ -4,17 +4,20 @@ import type { UIMessage } from "ai";
 
 import { Chat } from "@/components/chat/chat";
 import type { Thread } from "@/lib/schemas/chat";
+import type { StrataPageAssistantSession } from "@/lib/strata/assistant-session";
 
 export function StrataAssistantPanel({
   chatData,
   experience,
   strataPageId,
   emptyHint,
+  assistantSession,
 }: {
   chatData: { thread: Thread; messages: UIMessage[] } | null;
   experience: string;
   strataPageId?: string;
   emptyHint?: string;
+  assistantSession?: StrataPageAssistantSession;
 }) {
   if (!chatData) {
     return (
@@ -27,7 +30,13 @@ export function StrataAssistantPanel({
 
   return (
     <div className="flex h-full min-h-0 flex-col">
-      <Chat chatData={chatData} experience={experience} persona="strata" strataPageId={strataPageId} />
+      <Chat
+        assistantSession={assistantSession}
+        chatData={chatData}
+        experience={experience}
+        persona="strata"
+        strataPageId={strataPageId}
+      />
     </div>
   );
 }
