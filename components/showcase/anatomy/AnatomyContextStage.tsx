@@ -8,7 +8,6 @@ import { Database, FileText, Layers, Scissors } from "lucide-react";
 import { useAnatomyMotion } from "./anatomy-motion";
 
 import { glass } from "@/components/design-system/primitives";
-import { ChatModels } from "@/lib/schemas/chat";
 import { cn } from "@/lib/utils";
 
 function StepIcon({ kind }: { kind: ContextPackStep["kind"] }) {
@@ -29,7 +28,6 @@ function StepIcon({ kind }: { kind: ContextPackStep["kind"] }) {
 export function AnatomyContextStage({ stage }: { stage: ContextLoadStage }) {
   const { staggerContainer, staggerItem } = useAnatomyMotion();
   const a = stage.artifact;
-  const selected = ChatModels.find((m) => m.id === a.selectedModelId);
   const budgetRatio = Math.min(1, a.budget.usedByContextPack / a.budget.contextWindowTokens);
 
   return (
@@ -50,42 +48,7 @@ export function AnatomyContextStage({ stage }: { stage: ContextLoadStage }) {
 
       <div>
         <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-          Model selection
-        </h3>
-        <div className="flex gap-2 overflow-x-auto pb-1 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-          {ChatModels.map((m) => {
-            const active = m.id === a.selectedModelId;
-
-            return (
-              <div
-                key={m.id}
-                className={cn(
-                  "min-w-[7.5rem] shrink-0 rounded-xl border px-2.5 py-2 text-left transition-colors",
-                  glass(),
-                  active
-                    ? "border-amber-400/50 bg-amber-500/10 ring-1 ring-amber-400/30"
-                    : "border-border/50 opacity-70 hover:opacity-100"
-                )}
-              >
-                <div className="text-xs font-medium leading-tight text-foreground">{m.name}</div>
-                <div className="mt-0.5 truncate font-mono text-[10px] text-muted-foreground">
-                  {m.id}
-                </div>
-              </div>
-            );
-          })}
-        </div>
-        {selected ? (
-          <p className="mt-2 text-xs text-muted-foreground">
-            Selected for this turn:{" "}
-            <span className="text-foreground font-medium">{selected.name}</span>
-          </p>
-        ) : null}
-      </div>
-
-      <div>
-        <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-          Context pack
+          Context Window
         </h3>
         <motion.ol
           className="relative space-y-0 border-l border-border/60 pl-4"
@@ -111,7 +74,7 @@ export function AnatomyContextStage({ stage }: { stage: ContextLoadStage }) {
                 {step.kind === "attach_summary" ? (
                   <>
                     <div className="text-sm font-medium text-foreground">
-                      {step.label ?? "Rolling summary"}
+                      {step.label ?? "Rolling conversation summary"}
                     </div>
                     <div className="mt-0.5 text-xs text-muted-foreground">
                       ~{step.tokenCount} tokens attached
@@ -124,9 +87,9 @@ export function AnatomyContextStage({ stage }: { stage: ContextLoadStage }) {
                       Memories merged into pack
                     </div>
                     <ul className="mt-2 space-y-1.5">
-                      {step.items.map((it) => (
+                      {step.items.map((it, idx) => (
                         <li
-                          key={it.id ?? it.label}
+                          key={`${it.label}-${idx}`}
                           className={cn(
                             "flex items-center justify-between gap-2 rounded-lg border border-border/40 px-2 py-1.5 text-xs",
                             glass()
@@ -162,7 +125,7 @@ export function AnatomyContextStage({ stage }: { stage: ContextLoadStage }) {
         </h3>
         <div className={cn("rounded-xl border border-border/50 p-3", glass())}>
           <div className="mb-2 flex justify-between text-xs text-muted-foreground">
-            <span>Context pack</span>
+            <span>Context Window</span>
             <span className="font-mono">
               {a.budget.usedByContextPack.toLocaleString()} /{" "}
               {a.budget.contextWindowTokens.toLocaleString()} tok
@@ -185,29 +148,6 @@ export function AnatomyContextStage({ stage }: { stage: ContextLoadStage }) {
             Last-N turns in view: <span className="font-mono">{a.lastNTurns}</span>
           </p>
         </div>
-      </div>
-
-      <div>
-        <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-          Trimmed from pack
-        </h3>
-        <ul className="space-y-2">
-          {a.excluded.map((row) => (
-            <li
-              key={row.label}
-              className={cn(
-                "flex flex-col gap-0.5 rounded-lg border border-dashed border-border/50 px-3 py-2 text-xs",
-                glass()
-              )}
-            >
-              <span className="font-medium text-foreground/90">{row.label}</span>
-              <span className="text-muted-foreground">{row.reason}</span>
-              <span className="font-mono text-[10px] text-muted-foreground">
-                ~{row.estimatedTokens} tokens
-              </span>
-            </li>
-          ))}
-        </ul>
       </div>
     </div>
   );

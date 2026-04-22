@@ -21,6 +21,7 @@ import { AnatomyStreamingStage } from "@/components/showcase/anatomy/AnatomyStre
 import { AnatomyToolRoutingStage } from "@/components/showcase/anatomy/AnatomyToolRoutingStage";
 import { AnatomyTtsStage } from "@/components/showcase/anatomy/AnatomyTtsStage";
 import { useAnatomyMotion } from "@/components/showcase/anatomy/anatomy-motion";
+import { glass } from "@/components/design-system/primitives";
 import { cn } from "@/lib/utils";
 
 type StagePanelProps = {
@@ -28,14 +29,6 @@ type StagePanelProps = {
   index: number;
   sectionRef: (el: HTMLElement | null) => void;
 };
-
-function JsonRaw({ value }: { value: unknown }) {
-  return (
-    <pre className="mt-3 max-h-80 overflow-auto rounded-lg border border-border/50 bg-background/60 p-3 text-[11px] leading-relaxed text-foreground/90">
-      {JSON.stringify(value, null, 2)}
-    </pre>
-  );
-}
 
 function StageArtifact({ stage }: { stage: ShowcaseStage }) {
   switch (stage.id) {
@@ -54,7 +47,7 @@ function StageArtifact({ stage }: { stage: ShowcaseStage }) {
     case "tts":
       return <AnatomyTtsStage stage={stage as TtsStage} />;
     default:
-      return <JsonRaw value={(stage as ShowcaseStage).artifact} />;
+      return null;
   }
 }
 
@@ -66,17 +59,15 @@ export function StagePanel({ stage, index, sectionRef }: StagePanelProps) {
       ref={sectionRef}
       aria-labelledby={`showcase-stage-${index}-title`}
       className={cn(
-        "scroll-mt-28 rounded-2xl border border-border/60 bg-background/30 p-5 shadow-sm backdrop-blur-sm",
+        "scroll-mt-28 rounded-2xl border border-border/60 p-5 shadow-sm",
+        glass({ border: "none" }),
         !reduce && "motion-safe:will-change-transform"
       )}
       data-stage-index={index}
       {...(sectionReveal ?? {})}
     >
-      <div className="mb-1 flex flex-wrap items-baseline gap-2">
+      <div className="mb-1">
         <span className="text-xs font-mono text-muted-foreground">Stage {index + 1}</span>
-        {stage.timingMs != null ? (
-          <span className="text-xs text-muted-foreground">{stage.timingMs} ms</span>
-        ) : null}
       </div>
       <h2
         className="mb-2 font-commissioner text-lg font-light text-foreground"
@@ -84,16 +75,11 @@ export function StagePanel({ stage, index, sectionRef }: StagePanelProps) {
       >
         {stage.title}
       </h2>
-      <p className="mb-4 text-sm leading-relaxed text-muted-foreground">{stage.annotation}</p>
+      <p className="mb-4 whitespace-pre-line text-sm leading-relaxed text-muted-foreground">
+        {stage.annotation}
+      </p>
 
       <StageArtifact stage={stage} />
-
-      <details className="mt-5 border-t border-border/40 pt-4">
-        <summary className="cursor-pointer select-none text-xs font-medium text-foreground/80 hover:text-foreground">
-          Developer: raw JSON
-        </summary>
-        <JsonRaw value={stage} />
-      </details>
     </motion.section>
   );
 }

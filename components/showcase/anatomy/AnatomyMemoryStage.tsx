@@ -14,8 +14,8 @@ export function AnatomyMemoryStage({ stage }: { stage: MemorySearchStage }) {
   const a = stage.artifact;
 
   return (
-    <div className="space-y-5">
-      <div className="flex flex-wrap items-center gap-2">
+    <div className="mt-4 space-y-6">
+      <div className="flex flex-wrap items-center gap-2 pb-1">
         <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
           Query
         </span>
@@ -41,24 +41,23 @@ export function AnatomyMemoryStage({ stage }: { stage: MemorySearchStage }) {
           whileInView="show"
           viewport={{ once: true, amount: 0.2 }}
         >
-          {a.injected.map((m) => (
+          {a.injected.map((m, i) => (
             <motion.li
-              key={m.id}
+              key={i}
               variants={staggerItem}
               className={cn(
-                "rounded-xl border border-emerald-500/20 bg-emerald-500/5 px-3 py-2.5 text-sm leading-snug",
+                "rounded-xl border border-emerald-500/20 bg-emerald-500/5 px-3 py-2.5 leading-snug",
                 glass()
               )}
             >
-              <div className="mb-1 flex items-center justify-between gap-2">
-                <span className="font-mono text-[10px] text-muted-foreground">{m.id}</span>
+              <div className="mb-1 flex items-center justify-end gap-2">
                 {m.score != null ? (
                   <span className="rounded-full bg-background/80 px-2 py-0.5 font-mono text-[10px] text-emerald-600 dark:text-emerald-400">
                     {(m.score * 100).toFixed(0)}% match
                   </span>
                 ) : null}
               </div>
-              <p className="text-foreground/95">{m.memory}</p>
+              <p className="text-xs leading-snug text-foreground/95">{m.memory}</p>
             </motion.li>
           ))}
         </motion.ul>
@@ -69,16 +68,23 @@ export function AnatomyMemoryStage({ stage }: { stage: MemorySearchStage }) {
           Filtered out
         </h3>
         <ul className="space-y-1.5">
-          {a.filteredOut.map((f) => (
+          {a.filteredOut.map((f, i) => (
             <li
-              key={f.id}
+              key={i}
               className={cn(
-                "flex flex-col gap-0.5 rounded-lg border border-border/40 px-3 py-2 text-xs text-muted-foreground",
+                "space-y-1.5 rounded-lg border border-border/40 px-3 py-2.5 leading-snug",
                 glass()
               )}
             >
-              <span className="font-mono text-[10px] text-foreground/60">{f.id}</span>
-              <span>{f.reason}</span>
+              {f.score != null ? (
+                <div className="mb-1 flex items-center justify-end gap-2">
+                  <span className="rounded-full bg-background/80 px-2 py-0.5 font-mono text-[10px] text-amber-700 dark:text-amber-400">
+                    {(f.score * 100).toFixed(0)}% match
+                  </span>
+                </div>
+              ) : null}
+              <p className="text-xs text-foreground/90">{f.memory}</p>
+              <p className="text-[10px] italic text-muted-foreground">{f.reason}</p>
             </li>
           ))}
         </ul>

@@ -9,11 +9,18 @@ describe("showcase demo trace", () => {
     expect(ids).toEqual(["input", "context", "memory", "tools", "budget", "render", "tts"]);
   });
 
-  test("context stage includes model and pipeline steps", () => {
+  test("input stage includes model and tools", () => {
+    const input = demoTrace.stages[0];
+    expect(input.id).toBe("input");
+    if (input.id !== "input") return;
+    expect(input.artifact.selectedModelId).toBe("anthropic/claude-sonnet-4.6");
+    expect(input.artifact.availableTools.length).toBeGreaterThan(0);
+  });
+
+  test("context stage includes pipeline steps", () => {
     const ctx = demoTrace.stages[1];
     expect(ctx.id).toBe("context");
     if (ctx.id !== "context") return;
-    expect(ctx.artifact.selectedModelId).toBe("anthropic/claude-sonnet-4.6");
     expect(ctx.artifact.incomingMessage).toContain("retrieval-augmented generation");
     expect(ctx.artifact.contextPackSteps.length).toBeGreaterThanOrEqual(3);
   });

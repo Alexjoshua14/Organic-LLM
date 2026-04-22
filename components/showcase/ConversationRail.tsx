@@ -19,6 +19,7 @@ import {
   buildAnatomyAssistantMessage,
   buildAnatomyUserMessage,
 } from "@/lib/showcase/build-anatomy-messages";
+import { glass } from "@/components/design-system/primitives";
 import { cn } from "@/lib/utils";
 
 type ConversationRailProps = {
@@ -44,7 +45,8 @@ export function ConversationRail({ trace, className }: ConversationRailProps) {
   return (
     <div
       className={cn(
-        "flex h-[min(520px,58dvh)] min-h-0 flex-col overflow-hidden rounded-2xl border border-border/70 bg-background/60 shadow-sm",
+        "flex h-[min(520px,58dvh)] min-h-0 flex-col overflow-hidden rounded-2xl border border-border/70 shadow-sm",
+        glass({ border: "none", opaque: true }),
         "lg:sticky lg:top-20 lg:h-auto lg:max-h-[calc(100dvh-8rem)]",
         className
       )}

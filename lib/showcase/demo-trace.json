@@ -4,12 +4,12 @@
   "stages": [
     {
       "id": "input",
-      "title": "Input & intent",
-      "annotation": "The message is tokenized and matched against the tool schema the model is allowed to call. Nothing is sent to external services on this page—this is a frozen snapshot of a real-style request.",
+      "title": "Input",
+      "annotation": "When someone hits send, the server gets their message, the model they chose, which tools are enabled, and any files they attached.",
       "timingMs": 12,
       "artifact": {
         "rawMessage": "Summarize the latest thinking on retrieval-augmented generation and show me a diagram of how it works.",
-        "tokenEstimate": 28,
+        "selectedModelId": "anthropic/claude-sonnet-4.6",
         "availableTools": [
           "web_search",
           "search_memories",
@@ -29,29 +29,28 @@
         "rollingSummaryTokens": 420,
         "lastNTurns": 8,
         "incomingMessage": "Summarize the latest thinking on retrieval-augmented generation and show me a diagram of how it works.",
-        "selectedModelId": "anthropic/claude-sonnet-4.6",
         "contextPackSteps": [
           {
             "kind": "load_thread",
-            "label": "Load thread thr_demo_rag_01",
-            "detail": "14 messages hydrated from storage"
+            "label": "Load thread",
+            "detail": "14 latest messages hydrated from storage"
           },
           {
             "kind": "attach_summary",
             "tokenCount": 420,
-            "label": "Rolling summary"
+            "label": "Rolling conversation summary"
           },
           {
             "kind": "attach_memories",
             "items": [
-              { "id": "mem_7a2", "label": "Diagram-friendly explanations", "tokens": 48 },
-              { "id": "mem_4bc", "label": "RAG latency vs quality focus", "tokens": 52 }
+              { "label": "Diagram-friendly explanations", "tokens": 48 },
+              { "label": "RAG latency vs quality focus", "tokens": 52 }
             ]
           }
         ],
         "excluded": [
           {
-            "label": "Turns 1–3 (2026-04-18)",
+            "label": "Turns 1–3",
             "reason": "Outside last-N window; summary already captures intent.",
             "estimatedTokens": 612
           },
@@ -71,30 +70,30 @@
     {
       "id": "memory",
       "title": "Memory search",
-      "annotation": "Mem0-style retrieval runs against persisted memories. High-signal snippets are injected into the system context; low-score or stale rows are dropped so the answer stays grounded and small.",
+      "annotation": "Mem0-style retrieval runs against persisted memories.\n\nHigh-relevance snippets are injected into the system context.\n\nLow-score or stale rows are dropped so the answer stays grounded and small.",
       "timingMs": 56,
       "artifact": {
         "query": "retrieval augmented generation preferences diagram",
         "topK": 8,
         "injected": [
           {
-            "id": "mem_7a2",
             "memory": "User prefers concise technical explanations with diagrams when learning new ML topics.",
             "score": 0.91
           },
           {
-            "id": "mem_4bc",
             "memory": "User is comparing RAG architectures for a product doc and cares about latency vs quality.",
             "score": 0.84
           }
         ],
         "filteredOut": [
           {
-            "id": "mem_991",
+            "memory": "User once asked for a plain-text summary of RAG without diagrams; low relevance to this diagram-heavy query.",
+            "score": 0.31,
             "reason": "Score 0.31 below threshold 0.55"
           },
           {
-            "id": "mem_882",
+            "memory": "Older note: user wanted bullet lists for RAG tradeoffs (latency vs quality) from a prior thread.",
+            "score": 0.62,
             "reason": "Superseded by newer memory on same topic"
           }
         ]
@@ -190,12 +189,10 @@
               "count": 2,
               "memories": [
                 {
-                  "id": "mem_7a2",
                   "memory": "User prefers concise technical explanations with diagrams when learning new ML topics.",
                   "score": 0.91
                 },
                 {
-                  "id": "mem_4bc",
                   "memory": "User is comparing RAG architectures for a product doc and cares about latency vs quality.",
                   "score": 0.84
                 }
@@ -265,12 +262,10 @@
           "count": 2,
           "memories": [
             {
-              "id": "mem_7a2",
               "memory": "User prefers concise technical explanations with diagrams when learning new ML topics.",
               "score": 0.91
             },
             {
-              "id": "mem_4bc",
               "memory": "User is comparing RAG architectures for a product doc and cares about latency vs quality.",
               "score": 0.84
             }

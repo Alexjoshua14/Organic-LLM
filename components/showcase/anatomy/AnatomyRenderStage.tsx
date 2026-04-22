@@ -26,8 +26,8 @@ export function AnatomyRenderStage({ stage }: { stage: RenderStage }) {
           <div className="mb-1 text-xs font-medium text-muted-foreground">Raw markdown</div>
           <pre
             className={cn(
-              "max-h-64 min-h-0 min-w-0 max-w-full overflow-x-auto overflow-y-auto whitespace-pre-wrap break-words rounded-xl border border-border/60 bg-background/40 p-3 text-[11px] leading-relaxed [overflow-wrap:anywhere]",
-              glass()
+              "max-h-64 min-h-0 min-w-0 max-w-full overflow-x-auto overflow-y-auto whitespace-pre-wrap break-words rounded-xl border border-border/60 p-3 text-[11px] leading-relaxed [overflow-wrap:anywhere]",
+              glass({ border: "none", opaque: true })
             )}
           >
             {a.rawMarkdown}
@@ -42,6 +42,7 @@ export function AnatomyRenderStage({ stage }: { stage: RenderStage }) {
           <div
             className={cn(
               "max-h-64 min-h-0 min-w-0 max-w-full overflow-x-auto overflow-y-auto overscroll-x-contain rounded-xl border border-border/60 p-3 text-sm",
+              glass({ border: "none", opaque: true }),
               "prose prose-sm max-w-full dark:prose-invert",
               "[&_.mermaid]:mx-auto [&_.mermaid]:block [&_.mermaid]:max-w-full [&_.mermaid]:min-w-0",
               "[&_.mermaid>svg]:!h-auto [&_.mermaid>svg]:!max-w-full",
