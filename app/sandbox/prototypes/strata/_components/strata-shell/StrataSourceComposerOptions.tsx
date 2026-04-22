@@ -1,6 +1,7 @@
 "use client";
 
-import { Fragment, useMemo, useState } from "react";
+import { ChevronDown } from "lucide-react";
+import { useMemo, useState } from "react";
 import { toast } from "sonner";
 
 import type { StrataPageAssistantSession } from "@/lib/strata/assistant-session";
@@ -13,6 +14,11 @@ import {
   ContextMenuSeparator,
   ContextMenuTrigger,
 } from "@/components/third-party/ui/context-menu";
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "@/components/third-party/ui/collapsible";
 import {
   Dialog,
   DialogContent,
@@ -129,36 +135,34 @@ function AssistantToolSegmentedPill({
       role="group"
       aria-label="Assistant tools"
       className={cn(
-        glass(),
-        "flex min-h-[2.5rem] w-full max-w-full flex-row overflow-hidden rounded-full border border-border/60"
+        "flex min-h-[2.5rem] w-full max-w-full flex-1 gap-0.5 rounded-full border border-border/60 bg-muted/25 p-0.5",
+        "dark:bg-muted/15"
       )}
     >
-      {segments.map((seg, i) => {
+      {segments.map((seg) => {
         const on = tools[seg.key];
         return (
-          <Fragment key={seg.key}>
-            {i > 0 ? (
-              <div
-                aria-hidden
-                className="w-px shrink-0 self-stretch bg-border/60 dark:bg-border/50"
-              />
-            ) : null}
-            <button
-              type="button"
-              title={seg.title}
-              aria-pressed={on}
-              className={cn(
-                "min-w-0 flex-1 px-1.5 py-2 text-center text-[10px] font-semibold uppercase tracking-wide transition-colors sm:px-2.5 sm:text-[11px]",
-                "focus-visible:z-10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",
-                on
-                  ? cn(glass({ opaque: true, border: "none" }), "text-foreground")
-                  : "border-0 bg-transparent text-muted-foreground backdrop-blur-sm hover:bg-muted/35 hover:text-foreground"
-              )}
-              onClick={() => onToggle(seg.key)}
-            >
-              <span className="truncate">{seg.label}</span>
-            </button>
-          </Fragment>
+          <button
+            key={seg.key}
+            type="button"
+            title={seg.title}
+            aria-pressed={on}
+            className={cn(
+              "min-w-0 flex-1 whitespace-nowrap rounded-md px-1.5 py-2 text-center text-[10px] font-semibold uppercase tracking-wide transition-[color,box-shadow,background-color]",
+              "first:rounded-l-[0.65rem] last:rounded-r-[0.65rem]",
+              "focus-visible:z-10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",
+              "sm:px-2.5 sm:text-[11px]",
+              on
+                ? cn(
+                    glass({ opaque: true, border: "none" }),
+                    "text-foreground shadow-sm ring-1 ring-border/40 dark:ring-border/50"
+                  )
+                : "bg-transparent text-muted-foreground hover:bg-muted/45 hover:text-foreground"
+            )}
+            onClick={() => onToggle(seg.key)}
+          >
+            <span className="block truncate">{seg.label}</span>
+          </button>
         );
       })}
     </div>
@@ -167,8 +171,14 @@ function AssistantToolSegmentedPill({
 
 export function StrataSourceComposerOptions({
   assistantSession,
+  collapsibleAssistantTools = false,
+  assistantToolsDefaultOpen = true,
 }: {
   assistantSession: StrataPageAssistantSession;
+  /** Persona stays visible; tools pill moves into a collapsible section. */
+  collapsibleAssistantTools?: boolean;
+  /** Initial open state when `collapsibleAssistantTools` is true. */
+  assistantToolsDefaultOpen?: boolean;
 }) {
   const personas = listStrataAssistantPersonas();
   const [inspectorPersonaId, setInspectorPersonaId] = useState<StrataAssistantPersonaId | null>(null);
@@ -273,12 +283,32 @@ export function StrataSourceComposerOptions({
         </p>
       </div>
 
-      <div>
-        <p className="mb-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">
-          Assistant tools
-        </p>
-        <AssistantToolSegmentedPill tools={assistantSession.tools} onToggle={toggleTool} />
-      </div>
+      {collapsibleAssistantTools ? (
+        <Collapsible defaultOpen={assistantToolsDefaultOpen} className="group">
+          <CollapsibleTrigger
+            type="button"
+            className="flex w-full items-center justify-between gap-2 rounded-lg border border-border/50 bg-muted/10 px-3 py-2.5 text-left text-sm font-medium text-foreground transition-colors hover:bg-muted/25 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+          >
+            <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+              Assistant tools
+            </span>
+            <ChevronDown
+              aria-hidden
+              className="size-4 shrink-0 text-muted-foreground transition-transform duration-200 group-data-[state=open]:rotate-180"
+            />
+          </CollapsibleTrigger>
+          <CollapsibleContent className="overflow-hidden pt-2">
+            <AssistantToolSegmentedPill tools={assistantSession.tools} onToggle={toggleTool} />
+          </CollapsibleContent>
+        </Collapsible>
+      ) : (
+        <div>
+          <p className="mb-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">
+            Assistant tools
+          </p>
+          <AssistantToolSegmentedPill tools={assistantSession.tools} onToggle={toggleTool} />
+        </div>
+      )}
 
       <Dialog
         open={inspectorPersonaId !== null}

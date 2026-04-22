@@ -17,6 +17,7 @@ import {
   sha256HexUtf8,
   type StrataElaboratedTtsPayload,
 } from "@/lib/strata/elaborated-tts";
+import { ELEVENLABS_V3_SPEECH_MODEL_ID } from "@/lib/tts/elevenlabs-v3-speech";
 
 type TtsApiResponse = {
   data: {
@@ -37,11 +38,17 @@ function bytesToBase64(bytes: Uint8Array): string {
   return globalThis.btoa(binary);
 }
 
-async function fetchTtsAudioBytes(ttsText: string): Promise<{ bytes: Uint8Array; mediaType: string }> {
+async function fetchTtsAudioBytes(
+  ttsText: string,
+  options?: { model?: string }
+): Promise<{ bytes: Uint8Array; mediaType: string }> {
   const res = await fetch("/api/ai/tts", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ text: ttsText }),
+    body: JSON.stringify({
+      text: ttsText,
+      ...(options?.model ? { model: options.model } : {}),
+    }),
   });
 
   if (!res.ok) {
@@ -156,7 +163,11 @@ export function StrataElaboratedSummaryTTSBar(props: {
       const sumRes = await fetch("/api/prototypes/strata/elaborated-speech-summary", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ elaboratedMarkdown: markdown, pageId }),
+        body: JSON.stringify({
+          elaboratedMarkdown: markdown,
+          pageId,
+          ttsModel: ELEVENLABS_V3_SPEECH_MODEL_ID,
+        }),
       });
       if (!sumRes.ok) {
         const errBody = await sumRes.json().catch(() => ({}));
@@ -171,7 +182,9 @@ export function StrataElaboratedSummaryTTSBar(props: {
       }
 
       const { text: ttsText, truncated } = clampTtsPlainText(rawScript);
-      const { bytes, mediaType } = await fetchTtsAudioBytes(ttsText).catch((e) => {
+      const { bytes, mediaType } = await fetchTtsAudioBytes(ttsText, {
+        model: ELEVENLABS_V3_SPEECH_MODEL_ID,
+      }).catch((e) => {
         throw new Error(e instanceof Error ? `Speech: ${e.message}` : "Speech: generation failed.");
       });
       const audioBase64 = bytesToBase64(bytes);

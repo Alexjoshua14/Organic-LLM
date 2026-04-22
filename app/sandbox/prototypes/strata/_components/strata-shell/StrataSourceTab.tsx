@@ -6,7 +6,7 @@ import type { StrataPageWithSections } from "@/lib/schemas/strata";
 
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
-import { BookOpenText, Columns2, SquarePen } from "lucide-react";
+import { BookOpenText, ChevronDown, Columns2, SquarePen } from "lucide-react";
 import { motion } from "framer-motion";
 
 import type { StrataPageAssistantSession } from "@/lib/strata/assistant-session";
@@ -15,6 +15,11 @@ import { StrataSourceIngestBar } from "./StrataSourceIngestBar";
 import { StrataTextSourcesList } from "./StrataTextSourcesList";
 import { NOTEBOOK_FOCUS_CLASS, type SourceDocLayout } from "./strata-shell-model";
 
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "@/components/third-party/ui/collapsible";
 import {
   ContextMenu,
   ContextMenuContent,
@@ -151,7 +156,14 @@ export function StrataSourceTab({
   );
 
   return (
-    <div className="flex min-h-0 flex-1 flex-col gap-3">
+    <div className="flex min-h-0 flex-col gap-3">
+      {assistantSession ? (
+        <StrataSourceComposerOptions
+          assistantSession={assistantSession}
+          collapsibleAssistantTools
+          assistantToolsDefaultOpen
+        />
+      ) : null}
       <div className="flex min-w-0 w-full items-center justify-between gap-3">
         <div className="flex min-w-0 flex-1 items-center justify-start">{statusRow}</div>
         <div className="flex shrink-0 items-center gap-2">
@@ -239,60 +251,68 @@ export function StrataSourceTab({
       </div>
       <div
         className={cn(
-          "grid min-h-0 flex-1 gap-3 auto-rows-[minmax(12rem,1fr)]",
+          "grid gap-3 auto-rows-[minmax(12rem,auto)]",
           sourceDocLayout === "split" ? "lg:grid-cols-2 lg:items-stretch" : "grid-cols-1"
         )}
       >
         {sourceDocLayout !== "refined" ? (
           <div className="flex min-h-0 flex-col gap-3">
-            <StrataTextSourcesList
-              sources={textSources}
-              onMove={onMoveSource}
-              onRemove={onRemoveSource}
-            />
-            {assistantSession ? <StrataSourceComposerOptions assistantSession={assistantSession} /> : null}
-            <StrataSourceIngestBar
-              ingestEnabled={ingestEnabled}
-              pageId={pageId}
-              onAppendNodes={onAppendNodes}
-            />
-            {!ingestEnabled ? (
-              <p className="text-xs text-muted-foreground">
-                Web search and URL import require a synced page (turn off local-only and ensure you are
-                online), then refresh.
-              </p>
-            ) : null}
+            <Collapsible defaultOpen className="group rounded-lg border border-border/60 bg-muted/5 dark:bg-muted/10">
+              <CollapsibleTrigger
+                type="button"
+                className="flex w-full items-center justify-between gap-2 rounded-lg px-4 py-3 text-left text-sm font-medium text-foreground transition-colors hover:bg-muted/30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+              >
+                <span>Structured sources & import</span>
+                <ChevronDown
+                  aria-hidden
+                  className="size-4 shrink-0 text-muted-foreground transition-transform duration-200 group-data-[state=open]:rotate-180"
+                />
+              </CollapsibleTrigger>
+              <CollapsibleContent className="overflow-hidden">
+                <div className="space-y-3 border-t border-border/50 px-4 pb-4 pt-3">
+                  <StrataTextSourcesList
+                    sources={textSources}
+                    onMove={onMoveSource}
+                    onRemove={onRemoveSource}
+                  />
+                  <StrataSourceIngestBar
+                    ingestEnabled={ingestEnabled}
+                    pageId={pageId}
+                    onAppendNodes={onAppendNodes}
+                  />
+                  {!ingestEnabled ? (
+                    <p className="text-xs text-muted-foreground">
+                      Web search and URL import require a synced page (turn off local-only and ensure you
+                      are online), then refresh.
+                    </p>
+                  ) : null}
+                </div>
+              </CollapsibleContent>
+            </Collapsible>
             <textarea
               data-dim-background="full"
-              readOnly={hasStructuredSources}
-              aria-readOnly={hasStructuredSources}
               className={cn(
                 glass(),
                 "min-h-[10rem] w-full shrink-0 resize-y overflow-y-auto rounded-lg border border-border/70 p-4",
                 "focus:bg-background-tertiary/75 dark:focus:bg-background-tertiary/75",
                 "text-[15px] leading-7 font-normal text-foreground",
                 "shadow-inner transition-[background-image,background-size] duration-200",
-                NOTEBOOK_FOCUS_CLASS,
-                hasStructuredSources && "cursor-default bg-muted/15 text-muted-foreground"
+                NOTEBOOK_FOCUS_CLASS
               )}
               placeholder={
                 hasStructuredSources
-                  ? "Combined text from sources (read-only). Remove all sources to edit raw directly."
+                  ? "Raw text (editable). Reordering or editing structured sources rebuilds the combined corpus and can overwrite this field."
                   : "Raw source text — or add structured sources above."
               }
               value={sections.raw_text.content}
-              onChange={
-                hasStructuredSources
-                  ? undefined
-                  : (e) => {
-                      const v = e.target.value;
-                      setSections((prev) => ({
-                        ...prev,
-                        raw_text: { ...prev.raw_text, content: v },
-                      }));
-                      queueRawAutosave();
-                    }
-              }
+              onChange={(e) => {
+                const v = e.target.value;
+                setSections((prev) => ({
+                  ...prev,
+                  raw_text: { ...prev.raw_text, content: v },
+                }));
+                queueRawAutosave();
+              }}
             />
           </div>
         ) : null}
@@ -300,7 +320,7 @@ export function StrataSourceTab({
           <div
             className={cn(
               glass({ opaque: true }),
-              "flex min-h-0 flex-col overflow-y-auto rounded-lg border border-border/60 p-5"
+              "flex min-h-0 flex-col rounded-lg border border-border/60 p-5"
             )}
           >
             <p className="mb-3 shrink-0 text-xs uppercase tracking-[0.22em] text-muted-foreground">
