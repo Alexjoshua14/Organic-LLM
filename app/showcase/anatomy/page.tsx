@@ -6,7 +6,7 @@ import { useCallback, useState } from "react";
 import AdaptiveLiquidChrome from "@/components/background/AdaptiveLiquidChrome";
 import { AnatomyHero } from "@/components/showcase/AnatomyHero";
 import { ConversationRail } from "@/components/showcase/ConversationRail";
-import { ShowcaseFooter } from "@/components/showcase/ShowcaseFooter";
+import { ShowcaseOverview } from "@/components/showcase/ShowcaseOverview";
 import { StageMiniMap } from "@/components/showcase/StageMiniMap";
 import { StageRail } from "@/components/showcase/StageRail";
 import Page from "@/components/layout/page";
@@ -37,7 +37,9 @@ export default function AnatomyShowcasePage() {
             </Link>
           </nav>
 
-          <AnatomyHero prompt={demoTrace.prompt} thesis={THESIS} />
+          <ShowcaseOverview placement="intro" />
+
+          <AnatomyHero thesis={THESIS} />
 
           <div className="lg:grid lg:grid-cols-[minmax(0,380px)_minmax(0,1fr)] lg:gap-10 lg:items-start">
             <ConversationRail className="w-full" trace={demoTrace} />
@@ -61,8 +63,6 @@ export default function AnatomyShowcasePage() {
               </div>
             </div>
           </div>
-
-          <ShowcaseFooter />
         </div>
       </div>
     </Page>

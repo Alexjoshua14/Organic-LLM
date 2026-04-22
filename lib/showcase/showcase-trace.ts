@@ -15,7 +15,8 @@ export type ShowcaseStageBase = {
 
 export type InputIntentArtifact = {
   rawMessage: string;
-  tokenEstimate: number;
+  /** Must match an id from `ChatModels` in lib/schemas/chat.ts for the model rail UI. */
+  selectedModelId: string;
   availableTools: string[];
 };
 
@@ -24,7 +25,7 @@ export type ContextPackStep =
   | { kind: "attach_summary"; tokenCount: number; label?: string }
   | {
       kind: "attach_memories";
-      items: Array<{ label: string; tokens: number; id?: string }>;
+      items: Array<{ label: string; tokens: number }>;
     }
   | { kind: "trim"; label: string; reason: string; estimatedTokens: number };
 
@@ -35,8 +36,6 @@ export type ContextLoadArtifact = {
   lastNTurns: number;
   /** Same text as the user turn being packed (may mirror trace.prompt). */
   incomingMessage: string;
-  /** Must match an id from `ChatModels` in lib/schemas/chat.ts for the model rail UI. */
-  selectedModelId: string;
   /** Ordered pipeline narrative for the context stage UI. */
   contextPackSteps: ContextPackStep[];
   excluded: Array<{ label: string; reason: string; estimatedTokens: number }>;
@@ -50,8 +49,8 @@ export type ContextLoadArtifact = {
 export type MemorySearchArtifact = {
   query: string;
   topK: number;
-  injected: Array<{ id: string; memory: string; score?: number }>;
-  filteredOut: Array<{ id: string; reason: string }>;
+  injected: Array<{ memory: string; score?: number }>;
+  filteredOut: Array<{ memory: string; reason: string; score?: number }>;
 };
 
 export type ToolRoutingCall = {
