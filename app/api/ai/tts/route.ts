@@ -4,6 +4,7 @@ import { experimental_generateSpeech as generateSpeech, SpeechModel } from "ai";
 import { NextRequest, NextResponse } from "next/server";
 
 import { createLogger } from "@/lib/logger";
+import { isElevenLabsV3SpeechModelId } from "@/lib/tts/elevenlabs-v3-speech";
 import { stripSpeechTags } from "@/lib/tts/speech-tags";
 
 const logger = createLogger("app/api/tts/route.ts");
@@ -60,19 +61,11 @@ export async function POST(req: NextRequest) {
     }
   }
 
-  let speechModel: SpeechModel;
-
-  if (!model || typeof model !== "string") {
-    speechModel = availableSpeechModels[0];
-  } else {
-    try {
-      speechModel = availableSpeechModels.find((m) => m.modelId === model) as SpeechModel;
-    } catch (error) {
-      const e = error instanceof Error ? error : new Error(String(error));
-      logger.error("TTS Route", `Error finding model: ${e.name}`);
-      speechModel = availableSpeechModels[0];
-    }
-  }
+  const resolvedModel =
+    model && typeof model === "string"
+      ? (availableSpeechModels.find((m) => m.modelId === model) ?? null)
+      : null;
+  const speechModel: SpeechModel = resolvedModel ?? availableSpeechModels[0]!;
 
   logger.log(
     "TTS Route",
@@ -81,7 +74,11 @@ export async function POST(req: NextRequest) {
 
   const speechModelStartGeneration = performance.now();
 
+  /** Eleven v3 interprets inline `[tag]` audio cues; strip only angle-bracket tags (not SSML breaks for v3). */
   const textForTTS = stripSpeechTags(speechFriendlyText);
+  if (isElevenLabsV3SpeechModelId(speechModel.modelId)) {
+    logger.log("TTS Route", "Eleven v3: preserving square-bracket audio tags in input.");
+  }
 
   try {
     if (speechModel.provider === "elevenlabs.speech") {

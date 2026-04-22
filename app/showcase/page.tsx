@@ -25,6 +25,14 @@ type ShowcasePageEntry = {
 export default function ShowcasePage() {
   const showcasePages: ShowcasePageEntry[] = [
     {
+      title: "Anatomy of a Response",
+      description:
+        "Scrollytelling trace of one assistant turn: context, memory, tools, streaming, structured cards, and TTS — recorded data, real chat UI.",
+      href: "/showcase/anatomy",
+      size: "large",
+      edgeGlow: true,
+    },
+    {
       title: "Memory",
       description:
         "Persisted memory lens, cards, and ephemeral in-chat components — what Organic LLM stores and how it surfaces across threads.",

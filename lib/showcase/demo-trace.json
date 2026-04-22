@@ -1,0 +1,319 @@
+{
+  "capturedAt": "2026-04-22T12:00:00.000Z",
+  "prompt": "Summarize the latest thinking on retrieval-augmented generation and show me a diagram of how it works.",
+  "stages": [
+    {
+      "id": "input",
+      "title": "Input & intent",
+      "annotation": "The message is tokenized and matched against the tool schema the model is allowed to call. Nothing is sent to external services on this page—this is a frozen snapshot of a real-style request.",
+      "timingMs": 12,
+      "artifact": {
+        "rawMessage": "Summarize the latest thinking on retrieval-augmented generation and show me a diagram of how it works.",
+        "tokenEstimate": 28,
+        "availableTools": [
+          "web_search",
+          "search_memories",
+          "get_full_chat_history",
+          "make_mermaid_diagram"
+        ]
+      }
+    },
+    {
+      "id": "context",
+      "title": "Context load",
+      "annotation": "The server assembles a compact context pack: recent turns plus a rolling summary. Older turns stay in the UI but are omitted from the model window when they would blow the token budget.",
+      "timingMs": 34,
+      "artifact": {
+        "threadId": "thr_demo_rag_01",
+        "messagesLoaded": 14,
+        "rollingSummaryTokens": 420,
+        "lastNTurns": 8,
+        "incomingMessage": "Summarize the latest thinking on retrieval-augmented generation and show me a diagram of how it works.",
+        "selectedModelId": "anthropic/claude-sonnet-4.6",
+        "contextPackSteps": [
+          {
+            "kind": "load_thread",
+            "label": "Load thread thr_demo_rag_01",
+            "detail": "14 messages hydrated from storage"
+          },
+          {
+            "kind": "attach_summary",
+            "tokenCount": 420,
+            "label": "Rolling summary"
+          },
+          {
+            "kind": "attach_memories",
+            "items": [
+              { "id": "mem_7a2", "label": "Diagram-friendly explanations", "tokens": 48 },
+              { "id": "mem_4bc", "label": "RAG latency vs quality focus", "tokens": 52 }
+            ]
+          }
+        ],
+        "excluded": [
+          {
+            "label": "Turns 1–3 (2026-04-18)",
+            "reason": "Outside last-N window; summary already captures intent.",
+            "estimatedTokens": 612
+          },
+          {
+            "label": "Attached PDF excerpt",
+            "reason": "User disabled file grounding for this thread.",
+            "estimatedTokens": 2400
+          }
+        ],
+        "budget": {
+          "contextWindowTokens": 128000,
+          "reservedForCompletion": 4096,
+          "usedByContextPack": 6840
+        }
+      }
+    },
+    {
+      "id": "memory",
+      "title": "Memory search",
+      "annotation": "Mem0-style retrieval runs against persisted memories. High-signal snippets are injected into the system context; low-score or stale rows are dropped so the answer stays grounded and small.",
+      "timingMs": 56,
+      "artifact": {
+        "query": "retrieval augmented generation preferences diagram",
+        "topK": 8,
+        "injected": [
+          {
+            "id": "mem_7a2",
+            "memory": "User prefers concise technical explanations with diagrams when learning new ML topics.",
+            "score": 0.91
+          },
+          {
+            "id": "mem_4bc",
+            "memory": "User is comparing RAG architectures for a product doc and cares about latency vs quality.",
+            "score": 0.84
+          }
+        ],
+        "filteredOut": [
+          {
+            "id": "mem_991",
+            "reason": "Score 0.31 below threshold 0.55"
+          },
+          {
+            "id": "mem_882",
+            "reason": "Superseded by newer memory on same topic"
+          }
+        ]
+      }
+    },
+    {
+      "id": "tools",
+      "title": "Tool routing",
+      "annotation": "The model emits parallel tool calls: refresh the public literature with web search, then materialize structure as a Mermaid diagram. Each call is validated before execution.",
+      "timingMs": 120,
+      "artifact": {
+        "modelNotes": "User asked for latest thinking (web) and a diagram (Mermaid). Memory already loaded; run web_search then make_mermaid_diagram.",
+        "toolCalls": [
+          {
+            "toolName": "search_memories",
+            "toolCallId": "call_mem_001",
+            "arguments": {
+              "query": "retrieval augmented generation preferences diagram"
+            },
+            "execution": "server",
+            "latencyMs": 38
+          },
+          {
+            "toolName": "web_search",
+            "toolCallId": "call_web_002",
+            "arguments": {
+              "query": "retrieval augmented generation survey 2025 2026 agentic RAG"
+            },
+            "execution": "server",
+            "latencyMs": 410
+          },
+          {
+            "toolName": "make_mermaid_diagram",
+            "toolCallId": "call_mmd_003",
+            "arguments": {
+              "description": "Flowchart: user query through embedding, retrieval, rerank, injection, LLM answer."
+            },
+            "execution": "server",
+            "latencyMs": 120
+          }
+        ]
+      }
+    },
+    {
+      "id": "budget",
+      "title": "Token budget & streaming",
+      "annotation": "Streaming keeps time-to-first-token low while a completion budget protects cost. A short system reminder nudges the model to land cleanly before the buffer runs out.",
+      "timingMs": 8,
+      "artifact": {
+        "promptTokens": 6920,
+        "maxOutputTokens": 2048,
+        "streamBufferTargetChars": 900,
+        "gracefulFinishInstruction": "You are near the end of the allotted completion length. Conclude with at most two short paragraphs and avoid opening new tool calls.",
+        "aiActionTimeline": [
+          { "action": "processing", "message": "Planning response…" },
+          { "action": "memory", "message": "Searching memories for RAG preferences…" },
+          {
+            "action": "search",
+            "message": "Searching the web…",
+            "sources": [
+              {
+                "id": "exa-rag-1",
+                "title": "Retrieval-Augmented Generation for Knowledge-Intensive NLP Tasks",
+                "url": "https://arxiv.org/abs/2005.11401",
+                "snippet": "Introduces RAG as a general-purpose fine-tuning method…"
+              },
+              {
+                "id": "exa-rag-2",
+                "title": "Agentic Retrieval-Augmented Generation: A Survey",
+                "url": "https://example.org/surveys/agentic-rag",
+                "snippet": "Surveys planner–executor loops that iterate retrieval…"
+              }
+            ]
+          },
+          { "action": "tool", "message": "Using tool: make_mermaid_diagram" },
+          { "action": "processing", "message": "Streaming answer…" }
+        ]
+      }
+    },
+    {
+      "id": "render",
+      "title": "Structured card render",
+      "annotation": "Tool JSON becomes first-class UI: Exa rows as glass cards, memory hits as scored rows, and Mermaid as an acknowledged diagram plus inline rendering in markdown.",
+      "timingMs": 44,
+      "artifact": {
+        "rawMarkdown": "## RAG in one pass\n\nModern **retrieval-augmented generation** couples a parametric LM with a non-parametric index. Agentic variants add planning loops, but the core contract stays: *retrieve → compress → condition → generate*.\n\n```mermaid\nflowchart LR\n  Q1[\"User query\"] --> E1[\"Embed\"]\n  E1 --> R1[\"Retrieve top K\"]\n  R1 --> X1[\"Rerank and filter\"]\n  X1 --> I1[\"Inject into prompt\"]\n  I1 --> L1[\"LLM\"]\n  L1 --> A1[\"Answer\"]\n```\n\nThe diagram mirrors the tool-generated flowchart so you can compare raw fences with the diagram card.",
+        "toolCards": [
+          {
+            "toolName": "search_memories",
+            "displayBody": {
+              "success": true,
+              "query": "retrieval augmented generation preferences diagram",
+              "count": 2,
+              "memories": [
+                {
+                  "id": "mem_7a2",
+                  "memory": "User prefers concise technical explanations with diagrams when learning new ML topics.",
+                  "score": 0.91
+                },
+                {
+                  "id": "mem_4bc",
+                  "memory": "User is comparing RAG architectures for a product doc and cares about latency vs quality.",
+                  "score": 0.84
+                }
+              ]
+            }
+          },
+          {
+            "toolName": "web_search",
+            "displayBody": {
+              "data": {
+                "results": [
+                  {
+                    "id": "exa-rag-1",
+                    "title": "Retrieval-Augmented Generation for Knowledge-Intensive NLP Tasks",
+                    "url": "https://arxiv.org/abs/2005.11401",
+                    "highlights": [
+                      "Introduces RAG as a general-purpose fine-tuning method that combines pre-trained parametric and non-parametric memory.",
+                      "Achieves state-of-the-art results on open-domain Natural Questions without expensive intermediate latent retrieval representations."
+                    ],
+                    "publishedDate": "2020-05-22T00:00:00.000Z"
+                  },
+                  {
+                    "id": "exa-rag-2",
+                    "title": "Agentic Retrieval-Augmented Generation: A Survey",
+                    "url": "https://example.org/surveys/agentic-rag",
+                    "highlights": [
+                      "Surveys planner–executor loops that iterate retrieval until a stopping criterion is met.",
+                      "Discusses grounding risks when tools chain without tight budget controls."
+                    ],
+                    "publishedDate": "2025-11-10T00:00:00.000Z"
+                  }
+                ]
+              },
+              "error": null
+            }
+          },
+          {
+            "toolName": "make_mermaid_diagram",
+            "displayBody": {
+              "success": true,
+              "code": "flowchart TD\n  Qd[\"Query\"] --> Ed[\"Embed query\"]\n  Ed --> Rd[\"Retriever top K\"]\n  Rd --> Fd[\"Filter and rerank\"]\n  Fd --> Pd[\"Prompt assembly\"]\n  Pd --> Md[\"LLM\"]\n  Md --> Od[\"Grounded answer\"]"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "tts",
+      "title": "Optional TTS",
+      "annotation": "For read-aloud, citations and code fences are softened into speakable prose. Playback uses the same glass dock styling as chat, but audio here is a short pre-rendered clip—no ElevenLabs call in the browser.",
+      "timingMs": 0,
+      "artifact": {
+        "speechFriendlyBefore": "## RAG in one pass\n\nModern **retrieval-augmented generation** ... ```mermaid\nflowchart LR\n...```",
+        "speechFriendlyAfter": "RAG in one pass. Modern retrieval augmented generation couples a language model with an external index. The diagram branch reads: query, embed, retrieve top results, rerank, inject into the prompt, then answer.",
+        "audioUrl": "/showcase/anatomy-demo-audio.wav"
+      }
+    }
+  ],
+  "finalResponse": {
+    "markdown": "## RAG in one pass\n\nModern **retrieval-augmented generation** couples a parametric LM with a non-parametric index. Agentic variants add planning loops, but the core contract stays: *retrieve → compress → condition → generate*.\n\n```mermaid\nflowchart LR\n  Q1[\"User query\"] --> E1[\"Embed\"]\n  E1 --> R1[\"Retrieve top K\"]\n  R1 --> X1[\"Rerank and filter\"]\n  X1 --> I1[\"Inject into prompt\"]\n  I1 --> L1[\"LLM\"]\n  L1 --> A1[\"Answer\"]\n```\n\nThe diagram mirrors the tool-generated flowchart so you can compare raw fences with the diagram card.",
+    "toolCards": [
+      {
+        "toolName": "search_memories",
+        "displayBody": {
+          "success": true,
+          "query": "retrieval augmented generation preferences diagram",
+          "count": 2,
+          "memories": [
+            {
+              "id": "mem_7a2",
+              "memory": "User prefers concise technical explanations with diagrams when learning new ML topics.",
+              "score": 0.91
+            },
+            {
+              "id": "mem_4bc",
+              "memory": "User is comparing RAG architectures for a product doc and cares about latency vs quality.",
+              "score": 0.84
+            }
+          ]
+        }
+      },
+      {
+        "toolName": "web_search",
+        "displayBody": {
+          "data": {
+            "results": [
+              {
+                "id": "exa-rag-1",
+                "title": "Retrieval-Augmented Generation for Knowledge-Intensive NLP Tasks",
+                "url": "https://arxiv.org/abs/2005.11401",
+                "highlights": [
+                  "Introduces RAG as a general-purpose fine-tuning method that combines pre-trained parametric and non-parametric memory.",
+                  "Achieves state-of-the-art results on open-domain Natural Questions without expensive intermediate latent retrieval representations."
+                ],
+                "publishedDate": "2020-05-22T00:00:00.000Z"
+              },
+              {
+                "id": "exa-rag-2",
+                "title": "Agentic Retrieval-Augmented Generation: A Survey",
+                "url": "https://example.org/surveys/agentic-rag",
+                "highlights": [
+                  "Surveys planner–executor loops that iterate retrieval until a stopping criterion is met.",
+                  "Discusses grounding risks when tools chain without tight budget controls."
+                ],
+                "publishedDate": "2025-11-10T00:00:00.000Z"
+              }
+            ]
+          },
+          "error": null
+        }
+      },
+      {
+        "toolName": "make_mermaid_diagram",
+        "displayBody": {
+          "success": true,
+          "code": "flowchart TD\n  Qd[\"Query\"] --> Ed[\"Embed query\"]\n  Ed --> Rd[\"Retriever top K\"]\n  Rd --> Fd[\"Filter and rerank\"]\n  Fd --> Pd[\"Prompt assembly\"]\n  Pd --> Md[\"LLM\"]\n  Md --> Od[\"Grounded answer\"]"
+        }
+      }
+    ]
+  }
+}

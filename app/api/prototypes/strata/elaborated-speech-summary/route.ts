@@ -13,6 +13,8 @@ const logger = createLogger("app/api/prototypes/strata/elaborated-speech-summary
 const BodySchema = z.object({
   elaboratedMarkdown: z.string(),
   pageId: z.string().min(1).optional(),
+  /** When `eleven_v3`, the script may include ElevenLabs v3 square-bracket audio tags for pacing. */
+  ttsModel: z.string().min(1).optional(),
 });
 
 export async function POST(req: Request) {
@@ -44,6 +46,7 @@ export async function POST(req: Request) {
   const result = await generateStrataElaboratedSpeechSummaryScript({
     elaboratedPlain,
     contextId: parsed.data.pageId,
+    ttsModelId: parsed.data.ttsModel,
   });
 
   if (result.error || result.data == null) {

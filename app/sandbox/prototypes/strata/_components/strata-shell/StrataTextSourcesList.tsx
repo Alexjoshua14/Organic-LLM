@@ -25,7 +25,7 @@ export function StrataTextSourcesList({
   }
 
   return (
-    <ul className="flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto pr-1">
+    <ul className="flex flex-col gap-2 pr-1">
       {sources.map((s, idx) => (
         <li
           key={s.id}
