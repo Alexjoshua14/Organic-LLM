@@ -210,6 +210,9 @@ export type Database = {
           display_name: string | null
           email: string | null
           id: string
+          profile_tree: Json | null
+          profile_tree_source: string | null
+          profile_tree_updated_at: string | null
         }
         Insert: {
           clerk_user_id?: string
@@ -217,6 +220,9 @@ export type Database = {
           display_name?: string | null
           email?: string | null
           id?: string
+          profile_tree?: Json | null
+          profile_tree_source?: string | null
+          profile_tree_updated_at?: string | null
         }
         Update: {
           clerk_user_id?: string
@@ -224,6 +230,9 @@ export type Database = {
           display_name?: string | null
           email?: string | null
           id?: string
+          profile_tree?: Json | null
+          profile_tree_source?: string | null
+          profile_tree_updated_at?: string | null
         }
         Relationships: []
       }

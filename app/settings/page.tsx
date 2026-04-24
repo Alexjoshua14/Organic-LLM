@@ -26,10 +26,13 @@ const showDevSettings = process.env.NEXT_PUBLIC_SHOW_DEV_SETTINGS === "true";
 
 export default function SettingsPage() {
   const [profile, setProfile] = useState<Profile | null>(null);
+  const [profileLoading, setProfileLoading] = useState(true);
+  const [profileError, setProfileError] = useState<string | null>(null);
   const [ttsWholeMessage, setTtsWholeMessage] = useState(true);
   const [zeroDataRetention, setZeroDataRetention] = useState(false);
   const [coalescenceMode, setCoalescenceMode] = useState(false);
-  const [experimentalArcadiaMarkdownPreview, setExperimentalArcadiaMarkdownPreview] = useState(false);
+  const [experimentalArcadiaMarkdownPreview, setExperimentalArcadiaMarkdownPreview] =
+    useState(false);
   const { userId } = useAuth();
   const { user } = useUser();
   const clerkEmail = user?.primaryEmailAddress?.emailAddress ?? null;
@@ -55,11 +58,28 @@ export default function SettingsPage() {
 
   useEffect(() => {
     const fetchUserProfile = async () => {
-      if (!userId) return;
-      const supabaseProfile = await getProfile(userId);
+      if (!userId) {
+        setProfileLoading(false);
 
-      if (!supabaseProfile || supabaseProfile.error || supabaseProfile.data === null) return;
-      setProfile(supabaseProfile.data);
+        return;
+      }
+
+      setProfileLoading(true);
+      setProfileError(null);
+
+      try {
+        const supabaseProfile = await getProfile(userId);
+
+        if (!supabaseProfile || supabaseProfile.error || supabaseProfile.data === null) {
+          throw supabaseProfile?.error ?? new Error("Profile not found");
+        }
+
+        setProfile(supabaseProfile.data);
+      } catch (error) {
+        setProfileError(error instanceof Error ? error.message : "Failed to load profile");
+      } finally {
+        setProfileLoading(false);
+      }
     };
 
     fetchUserProfile();
@@ -103,11 +123,22 @@ export default function SettingsPage() {
                 </div>
               )}
               <Suspense fallback={<div className="animate-pulse h-48 rounded-xl bg-muted" />}>
-                <ProfileView
-                  displayName={profile?.display_name ?? null}
-                  email={clerkEmail}
-                  profile={profile}
-                />
+                {profileLoading ? (
+                  <div className="animate-pulse h-48 rounded-xl bg-muted" />
+                ) : (
+                  <>
+                    {profileError && (
+                      <div className="rounded-lg border border-destructive/30 bg-destructive/5 px-4 py-3 text-sm text-destructive">
+                        {profileError}
+                      </div>
+                    )}
+                    <ProfileView
+                      displayName={profile?.display_name ?? user?.fullName ?? null}
+                      email={clerkEmail}
+                      profile={profile}
+                    />
+                  </>
+                )}
               </Suspense>
             </div>
           </TabsContent>
