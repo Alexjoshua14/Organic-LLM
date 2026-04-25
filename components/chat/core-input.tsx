@@ -80,6 +80,8 @@ type CoreInputProps = {
   initialDraft?: string;
   /** Strata page assistant: web/memory/speech toggles live on the Source tab. */
   hideWebMemorySpeechToggles?: boolean;
+  /** Prototype-only v2 submit treatment; default keeps the current production button unchanged. */
+  submitVariant?: "default" | "organic-glass";
 };
 
 export const CoreInput: React.FC<CoreInputProps> = ({
@@ -100,6 +102,7 @@ export const CoreInput: React.FC<CoreInputProps> = ({
   enableMarkdownInputPreview = false,
   initialDraft,
   hideWebMemorySpeechToggles = false,
+  submitVariant = "default",
 }) => {
   const { refreshSidebarChats } = useSharedChatContext();
 
@@ -334,6 +337,16 @@ export const CoreInput: React.FC<CoreInputProps> = ({
   const handleInputChange: ChangeEventHandler<HTMLTextAreaElement> = useCallback((e) => {
     setText(e.target.value);
   }, []);
+  const organicSubmitState =
+    status === "submitted"
+      ? "sent"
+      : status === "streaming"
+        ? "awaiting"
+        : status === "error"
+          ? "error"
+          : text.trim().length > 0
+            ? "ready"
+            : "idle";
 
   return (
     <PromptInput
@@ -487,11 +500,101 @@ export const CoreInput: React.FC<CoreInputProps> = ({
             </div>
           </PromptInputTools>
         </div>
-        <PromptInputSubmit disabled={(!text && !status) || disabled} status={status} stop={stop} />
+        <PromptInputSubmit
+          className={cn(
+            submitVariant === "organic-glass" &&
+              "organic-glass-preview border border-white/20 bg-linear-to-br from-background/86 via-background/60 to-background-tertiary/42 text-foreground shadow-[0_10px_36px_-18px_rgba(20,21,22,0.65),inset_0_1px_0_rgba(255,255,255,0.38)] backdrop-blur-xl hover:border-accent/25 hover:text-foreground dark:border-white/10 dark:from-background-secondary/82 dark:via-background/62 dark:to-background-tertiary/38"
+          )}
+          disabled={(!text && !status) || disabled}
+          status={status}
+          stop={stop}
+        >
+          {submitVariant === "organic-glass" ? (
+            <OrganicSubmitGlyph state={organicSubmitState} />
+          ) : undefined}
+        </PromptInputSubmit>
       </PromptInputFooter>
     </PromptInput>
   );
 };
+
+type OrganicSubmitState = "idle" | "ready" | "sent" | "awaiting" | "error";
+
+function OrganicSubmitGlyph({ state }: { state: OrganicSubmitState }) {
+  const label = {
+    idle: "Idle",
+    ready: "Ready to send",
+    sent: "Sent",
+    awaiting: "Awaiting completion",
+    error: "Error",
+  }[state];
+
+  return (
+    <motion.svg
+      aria-label={label}
+      className="size-4"
+      fill="none"
+      initial={false}
+      stroke="currentColor"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      strokeWidth="2"
+      viewBox="0 0 24 24"
+    >
+      {state === "idle" ? (
+        <motion.g
+          key="idle"
+          animate={{ opacity: 1, scale: 1 }}
+          initial={{ opacity: 0, scale: 0.82 }}
+          transition={{ duration: 0.18 }}
+        >
+          <circle cx="12" cy="12" r="4" />
+          <path d="M12 5v1.5M12 17.5V19M5 12h1.5M17.5 12H19" opacity="0.55" />
+        </motion.g>
+      ) : null}
+      {state === "ready" ? (
+        <motion.path
+          key="ready"
+          animate={{ opacity: 1, pathLength: 1, y: 0 }}
+          d="M12 19V5m0 0-6 6m6-6 6 6"
+          initial={{ opacity: 0, pathLength: 0, y: 2 }}
+          transition={{ duration: 0.22 }}
+        />
+      ) : null}
+      {state === "sent" ? (
+        <motion.path
+          key="sent"
+          animate={{ opacity: 1, pathLength: 1, scale: 1 }}
+          d="m5 12 4 4L19 6"
+          initial={{ opacity: 0, pathLength: 0, scale: 0.9 }}
+          transition={{ duration: 0.24 }}
+        />
+      ) : null}
+      {state === "awaiting" ? (
+        <motion.g
+          key="awaiting"
+          animate={{ rotate: 360 }}
+          initial={{ opacity: 0.9 }}
+          transition={{ duration: 1.4, repeat: Infinity, ease: "linear" }}
+        >
+          <path d="M12 4a8 8 0 0 1 8 8" />
+          <path d="M20 12a8 8 0 0 1-8 8" opacity="0.45" />
+          <circle cx="12" cy="12" r="2.5" />
+        </motion.g>
+      ) : null}
+      {state === "error" ? (
+        <motion.g
+          key="error"
+          animate={{ opacity: 1, scale: 1 }}
+          initial={{ opacity: 0, scale: 0.85 }}
+          transition={{ duration: 0.18 }}
+        >
+          <path d="M6 6l12 12M18 6 6 18" />
+        </motion.g>
+      ) : null}
+    </motion.svg>
+  );
+}
 
 export type PromptInputSubmitProps = ComponentProps<typeof InputGroupButton> & {
   status?: ChatStatus;
