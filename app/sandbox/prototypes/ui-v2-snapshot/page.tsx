@@ -126,6 +126,17 @@ function Chip({ children, variant }: { children: ReactNode; variant: SnapshotVar
   );
 }
 
+function ShimmerIcon({ children, className }: { children: ReactNode; className?: string }) {
+  return (
+    <span className={cn("relative inline-grid size-5 shrink-0 place-items-center", className)}>
+      <span className="text-foreground/55 transition-colors duration-200 group-hover:text-foreground group-active:text-foreground">
+        {children}
+      </span>
+      <span className="pointer-events-none absolute inset-0 rounded-full bg-[linear-gradient(110deg,transparent,rgba(18,140,116,0.42),transparent)] opacity-0 transition-opacity duration-300 group-hover:opacity-100 group-active:opacity-100" />
+    </span>
+  );
+}
+
 function SidebarPreview({ variant }: { variant: SnapshotVariant }) {
   if (variant === "current") {
     return (
@@ -390,16 +401,18 @@ function RabbitHolesPreview({ variant }: { variant: SnapshotVariant }) {
 
       <div className="grid gap-3 lg:grid-cols-3">
         {rabbitHoles.map((session) => (
-          <article className={mutedSurfaceClass(variant, "p-4")} key={session.title}>
+          <article className={mutedSurfaceClass(variant, "group p-4")} key={session.title}>
             <div className="mb-3 flex items-start justify-between gap-3">
               <h4 className="text-sm font-semibold leading-snug text-foreground">
                 {session.title}
               </h4>
-              <Sparkles className="size-4 shrink-0 text-accent" />
+              <ShimmerIcon>
+                <Sparkles className="size-4" />
+              </ShimmerIcon>
             </div>
             <p className="text-xs leading-5 text-muted-foreground">{session.question}</p>
             <p className="mt-3 text-xs leading-5 text-foreground/80">{session.summary}</p>
-            <div className="mt-4 flex items-center justify-between text-[11px] text-muted-foreground">
+            <div className="mt-4 flex items-center justify-between text-[11px] font-light tracking-[0.01em] text-muted-foreground/70 [font-family:var(--font-inter)] [font-variation-settings:'wght'_330]">
               <span>{session.branches} branches</span>
               <span>{session.updated}</span>
             </div>
@@ -494,10 +507,12 @@ function SettingsPreview({ variant }: { variant: SnapshotVariant }) {
 
             return (
               <div
-                className={mutedSurfaceClass(variant, "flex items-start gap-3 p-3")}
+                className={mutedSurfaceClass(variant, "group flex items-start gap-3 p-3")}
                 key={row.title}
               >
-                <Icon className="mt-0.5 size-4 shrink-0 text-accent" />
+                <ShimmerIcon className="mt-0.5">
+                  <Icon className="size-4" />
+                </ShimmerIcon>
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center justify-between gap-3">
                     <p className="text-sm font-medium text-foreground">{row.title}</p>
