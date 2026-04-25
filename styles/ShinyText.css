@@ -52,3 +52,28 @@
   color: transparent;
   animation: shine 5s linear infinite;
 }
+
+.shiny-text.shiny-text--accent {
+  background: linear-gradient(
+    120deg,
+    color-mix(in oklch, var(--accent) 48%, currentColor) 40%,
+    color-mix(in oklch, var(--accent) 88%, white) 50%,
+    color-mix(in oklch, var(--accent) 48%, currentColor) 60%
+  );
+}
+
+.group:hover
+  .shiny-text.shiny-text--parent-group-hover.shiny-text--accent:not(.disabled) {
+  background: linear-gradient(
+    120deg,
+    color-mix(in oklch, var(--accent) 48%, currentColor) 40%,
+    color-mix(in oklch, var(--accent) 88%, white) 50%,
+    color-mix(in oklch, var(--accent) 48%, currentColor) 60%
+  );
+  background-size: 200% 100%;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  color: transparent;
+  animation: shine 5s linear infinite;
+}

@@ -2,11 +2,22 @@ import type { Metadata } from "next";
 import type { ReactNode } from "react";
 
 import Link from "next/link";
-import { Brain, Lock, MessageSquare, Moon, Search, Settings, Sparkles } from "lucide-react";
+import {
+  Brain,
+  BrainCircuit,
+  GlobeIcon,
+  Lock,
+  MessageSquare,
+  Moon,
+  Search,
+  Settings,
+  Sparkles,
+} from "lucide-react";
 
 import AdaptiveLiquidChrome from "@/components/background/AdaptiveLiquidChrome";
 import { glass, glassPreview } from "@/components/design-system/primitives";
 import Page from "@/components/layout/page";
+import ShinyText from "@/components/ShinyText";
 import { cn } from "@/lib/utils";
 import { tabTitleMetadata } from "@/lib/metadata/tab-title";
 
@@ -91,6 +102,12 @@ const settingsRows = [
 ];
 
 const toolChips = ["Memory", "Search", "Reasoning"];
+
+const coreInputTools = [
+  { label: "Search", icon: GlobeIcon, active: true },
+  { label: "Memory", icon: BrainCircuit, active: true },
+  { label: "Reason", icon: Sparkles, active: false },
+];
 
 function surfaceClass(variant: SnapshotVariant, className?: string) {
   if (variant === "v2") {
@@ -280,7 +297,7 @@ function ChatPreview({ variant }: { variant: SnapshotVariant }) {
         <div className="mx-auto mt-5 flex w-full max-w-2xl items-center gap-3 rounded-lg border border-border bg-background-tertiary/25 p-3">
           <MessageSquare className="size-4 shrink-0 text-muted-foreground" />
           <span className="min-w-0 flex-1 text-sm text-muted-foreground">
-            Ask about memory, tools, or a thread...
+            Ask anything. I can search, remember, reason, and connect what we know.
           </span>
           <button className="rounded bg-foreground px-4 py-2 text-sm text-background" type="button">
             Send
@@ -326,17 +343,44 @@ function ChatPreview({ variant }: { variant: SnapshotVariant }) {
         </div>
       </div>
 
-      <div className={mutedSurfaceClass(variant, "mt-5 flex items-center gap-3 p-3")}>
-        <MessageSquare className="size-4 shrink-0 text-muted-foreground" />
-        <span className="min-w-0 flex-1 text-sm text-muted-foreground">
-          Ask about memory, tools, or a thread...
-        </span>
-        <button
-          className="rounded-full bg-foreground px-4 py-2 text-sm font-medium text-background"
-          type="button"
-        >
-          Send
-        </button>
+      <div className={mutedSurfaceClass(variant, "mt-5 p-3")}>
+        <div className="flex items-center gap-3">
+          <MessageSquare className="size-4 shrink-0 text-muted-foreground" />
+          <span className="min-w-0 flex-1 text-sm text-muted-foreground">
+            Ask anything. I can search, remember, reason, and connect what we know.
+          </span>
+          <button
+            className="rounded-full bg-foreground px-4 py-2 text-sm font-medium text-background"
+            type="button"
+          >
+            Send
+          </button>
+        </div>
+
+        <div className="mt-3 flex items-center justify-between gap-3 border-t border-white/12 pt-3 dark:border-white/8">
+          <div className="flex items-center gap-1.5">
+            {coreInputTools.map((tool) => {
+              const Icon = tool.icon;
+
+              return (
+                <button
+                  className={cn(
+                    "group/tool inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] font-medium transition-colors",
+                    tool.active
+                      ? "border-white/22 bg-background/36 text-foreground dark:border-white/10 dark:bg-background-secondary/36"
+                      : "border-transparent text-muted-foreground hover:border-white/18 hover:bg-background/24"
+                  )}
+                  key={tool.label}
+                  type="button"
+                >
+                  <Icon className="size-3.5 text-foreground/55 transition-colors group-hover/tool:text-foreground" />
+                  <span>{tool.label}</span>
+                </button>
+              );
+            })}
+          </div>
+          <span className="text-[11px] text-muted-foreground">2 active</span>
+        </div>
       </div>
     </section>
   );
@@ -404,7 +448,14 @@ function RabbitHolesPreview({ variant }: { variant: SnapshotVariant }) {
           <article className={mutedSurfaceClass(variant, "group p-4")} key={session.title}>
             <div className="mb-3 flex items-start justify-between gap-3">
               <h4 className="text-sm font-semibold leading-snug text-foreground">
-                {session.title}
+                <ShinyText
+                  accentShimmer
+                  as="span"
+                  className="cursor-inherit"
+                  shimmerOnParentGroupHover
+                  speed={2.8}
+                  text={session.title}
+                />
               </h4>
               <ShimmerIcon>
                 <Sparkles className="size-4" />
