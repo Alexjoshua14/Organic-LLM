@@ -17,8 +17,8 @@ export function CurrentCoreInputPreview() {
 
   const handlers = useMemo(
     () => ({
-      sendMessage: (() => undefined) as CoreInputProps["sendMessage"],
-      stop: (() => undefined) as CoreInputProps["stop"],
+      sendMessage: (async () => undefined) as CoreInputProps["sendMessage"],
+      stop: (async () => undefined) as CoreInputProps["stop"],
       clearError: (() => undefined) as NonNullable<CoreInputProps["clearError"]>,
     }),
     []
