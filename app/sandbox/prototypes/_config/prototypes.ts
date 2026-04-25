@@ -29,6 +29,12 @@ export const prototypes: PrototypeEntry[] = [
       "Candidate Organic Glass material designed to play in tandem with AdaptiveLiquidChrome before becoming the default primitive.",
   },
   {
+    slug: "glass-fonts",
+    title: "Glass font comparison",
+    description:
+      "Compares Organic Glass baseline v2 across Satoshi, Inter, and Commissioner in identical columns.",
+  },
+  {
     slug: "line-list",
     title: "Wine line list",
     description:
