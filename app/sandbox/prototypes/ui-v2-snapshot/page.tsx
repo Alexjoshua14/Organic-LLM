@@ -309,13 +309,6 @@ function ChatPreview({ variant }: { variant: SnapshotVariant }) {
         </div>
 
         <div className={mutedSurfaceClass(variant, "max-w-[88%] p-4")}>
-          <div className="mb-3 flex flex-wrap gap-2">
-            {toolChips.map((chip) => (
-              <Chip key={chip} variant={variant}>
-                {chip}
-              </Chip>
-            ))}
-          </div>
           <p className="text-sm leading-6 text-muted-foreground">
             Treat memory as an inspectable layer: show what was used, let users correct it, and keep
             retrieval narrow enough that the interface still feels fast and grounded.

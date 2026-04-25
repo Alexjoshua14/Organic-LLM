@@ -53,7 +53,7 @@
   animation: shine 5s linear infinite;
 }
 
-.shiny-text.shiny-text--accent {
+.shiny-text.shiny-text--accent:not(.shiny-text--parent-group-hover) {
   background: linear-gradient(
     120deg,
     color-mix(in oklch, var(--accent) 48%, currentColor) 40%,
