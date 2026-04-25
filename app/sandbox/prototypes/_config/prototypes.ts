@@ -35,6 +35,12 @@ export const prototypes: PrototypeEntry[] = [
       "Compares Organic Glass baseline v2 across Satoshi, Inter, and Commissioner in identical columns.",
   },
   {
+    slug: "ui-v2-snapshot",
+    title: "UI v2 snapshot",
+    description:
+      "Side-by-side snapshot comparing current UI with a Commissioner + Organic Glass v2 direction across core surfaces.",
+  },
+  {
     slug: "line-list",
     title: "Wine line list",
     description:
