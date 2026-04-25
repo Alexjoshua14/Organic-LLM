@@ -38,7 +38,9 @@ const TraverseKnowledgeInputSchema = z.object({
   maxNeighborsPerNode: z.number().int().min(1).max(100).default(20),
 });
 
-export async function createKnowledgeNodeStub(input: z.infer<typeof CreateKnowledgeNodeInputSchema>) {
+export async function createKnowledgeNodeStub(
+  input: z.infer<typeof CreateKnowledgeNodeInputSchema>
+) {
   /*
    * TODO(knowledge-graph): Implement node creation persistence + edge handling.
    *
@@ -70,7 +72,9 @@ export async function createKnowledgeNodeStub(input: z.infer<typeof CreateKnowle
   };
 }
 
-export async function updateKnowledgeNodeStub(input: z.infer<typeof UpdateKnowledgeNodeInputSchema>) {
+export async function updateKnowledgeNodeStub(
+  input: z.infer<typeof UpdateKnowledgeNodeInputSchema>
+) {
   /*
    * TODO(knowledge-graph): Implement partial node update semantics.
    *
@@ -130,7 +134,9 @@ export async function searchKnowledgeNodesStub(input: z.infer<typeof SearchKnowl
   };
 }
 
-export async function traverseKnowledgeGraphStub(input: z.infer<typeof TraverseKnowledgeInputSchema>) {
+export async function traverseKnowledgeGraphStub(
+  input: z.infer<typeof TraverseKnowledgeInputSchema>
+) {
   /*
    * TODO(knowledge-graph): Implement graph traversal algorithms.
    *

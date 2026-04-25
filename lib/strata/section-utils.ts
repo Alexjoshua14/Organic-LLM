@@ -10,6 +10,7 @@ export function isGeneratedSectionMissing(
   value: Pick<StrataSection, "content"> | undefined | null
 ): boolean {
   if (!value) return true;
+
   return value.content.trim().length === 0;
 }
 

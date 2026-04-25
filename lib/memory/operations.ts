@@ -11,9 +11,10 @@
  *   call store. See lib/memory/README.md for full contract.
  */
 
+import type { UIMessage } from "ai";
+
 import { SearchMemoryOptions, SearchResult } from "mem0ai/oss";
 import { auth } from "@clerk/nextjs/server";
-import type { UIMessage } from "ai";
 
 import {
   searchMemories as storeSearchMemories,
@@ -23,10 +24,7 @@ import {
   addLatestMessagesToMemory as storeAddLatestMessagesToMemory,
 } from "./store";
 
-import {
-  SearchResult as SearchResultSchema,
-  type SearchResultType,
-} from "@/lib/schemas/memory";
+import { SearchResult as SearchResultSchema, type SearchResultType } from "@/lib/schemas/memory";
 import { Result } from "@/types";
 import { getSupabaseUserId } from "@/data/supabase/profiles";
 import {
@@ -45,13 +43,13 @@ import {
  * Validates store output against the app memory schema. On failure returns
  * a generic error so malformed data does not cross the boundary.
  */
-function validateSearchResult(
-  result: SearchResult
-): Result<SearchResultType, string> {
+function validateSearchResult(result: SearchResult): Result<SearchResultType, string> {
   const parsed = SearchResultSchema.safeParse(result);
+
   if (!parsed.success) {
     return { data: null, error: "Invalid memory response" };
   }
+
   return { data: parsed.data, error: null };
 }
 

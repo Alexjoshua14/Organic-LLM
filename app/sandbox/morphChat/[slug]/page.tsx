@@ -1,5 +1,6 @@
-import { UIMessage } from "ai";
 import type { Metadata } from "next";
+
+import { UIMessage } from "ai";
 import { cache } from "react";
 
 import Page from "@/components/layout/page";
@@ -23,6 +24,7 @@ export async function generateMetadata({
 }): Promise<Metadata> {
   const { slug: chatId } = await params;
   const res = await loadChatForRequest(chatId);
+
   if (res.error || res.data === null) {
     return tabTitleMetadata(null, "Morph chat");
   }
@@ -31,6 +33,7 @@ export async function generateMetadata({
     thread: res.data.thread,
     messages: res.data.messages,
   });
+
   return tabTitleMetadata(primary, "Morph chat");
 }
 

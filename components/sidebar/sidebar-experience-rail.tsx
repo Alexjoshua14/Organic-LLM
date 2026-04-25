@@ -12,7 +12,14 @@ const logger = new Logger(`components/sidebar/sidebar-experience-rail.tsx`);
 
 type RailItem =
   | { id: "chat"; label: "Chat"; type: "action"; tooltip: string }
-  | { id: string; label: string; type: "link"; href: string; tooltip: string; match: (p: string) => boolean };
+  | {
+      id: string;
+      label: string;
+      type: "link";
+      href: string;
+      tooltip: string;
+      match: (p: string) => boolean;
+    };
 
 const RAIL: RailItem[] = [
   { id: "chat", label: "Chat", type: "action", tooltip: "New chat" },
@@ -74,8 +81,10 @@ export function SidebarExperienceRail() {
     async function run() {
       logger.log("SidebarExperienceRail", "Chat segment clicked");
       const res = await createChat();
+
       if (res.error || res.data === null) {
         logger.error("SidebarExperienceRail", "Error creating chat");
+
         return;
       }
       refreshSidebarChats();

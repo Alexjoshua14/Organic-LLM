@@ -252,6 +252,7 @@ export function useStrataShellController(
           sources,
           patch
         );
+
         return {
           ...prev,
           raw_text: {

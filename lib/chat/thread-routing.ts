@@ -1,12 +1,13 @@
 "use server";
 
+import type { HomepageRouteCandidate } from "@/lib/chat/thread-routing-candidates";
+
 import { generateObject } from "ai";
 import { openai } from "@ai-sdk/openai";
 import { z } from "zod";
 
 import { createChat } from "@/lib/chat/chat-store";
 import { loadHomepageRoutingCandidates } from "@/lib/chat/load-homepage-routing-candidates";
-import type { HomepageRouteCandidate } from "@/lib/chat/thread-routing-candidates";
 import { GUARDRAIL_MAX_OUTPUT_TOKENS } from "@/lib/llm/helpers";
 import { recordLlmCall } from "@/lib/llm/metrics";
 import { createLogger } from "@/lib/logger";
@@ -163,6 +164,7 @@ export async function routeHomepagePrompt(params: {
   let matchRouteKey: string | null = null;
 
   const llmStart = performance.now();
+
   try {
     const { object, usage } = await generateObject({
       model: ROUTING_MODEL,
@@ -172,6 +174,7 @@ export async function routeHomepagePrompt(params: {
       maxOutputTokens: GUARDRAIL_MAX_OUTPUT_TOKENS,
       temperature: 0,
     });
+
     classificationMs = performance.now() - llmStart;
 
     recordLlmCall({

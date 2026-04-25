@@ -49,6 +49,7 @@ export const ChatThread: FC<ChatThreadProps> = ({
       for (let i = messages.length - 1; i >= 0; i--) {
         if (isArcadiaHelpMessage(messages[i])) return messages[i].id ?? null;
       }
+
       return null;
     })();
 
@@ -76,6 +77,7 @@ export const ChatThread: FC<ChatThreadProps> = ({
             const isLatestArcadiaHelp =
               !ARCADIA_HELP_LATEST_ONLY ||
               (lastArcadiaHelpMessageId != null && message.id === lastArcadiaHelpMessageId);
+
             return (
               <ChatMessage
                 key={message.id}

@@ -387,11 +387,7 @@ export const CoreInput: React.FC<CoreInputProps> = ({
             </div>
           </>
         ) : (
-          <PromptInputTextarea
-            ref={textareaRef}
-            value={text}
-            onChange={handleInputChange}
-          />
+          <PromptInputTextarea ref={textareaRef} value={text} onChange={handleInputChange} />
         )}
       </PromptInputBody>
       <PromptInputFooter>
@@ -406,14 +402,10 @@ export const CoreInput: React.FC<CoreInputProps> = ({
                   aria-pressed={inputMarkdownMode === "preview"}
                   size={"dynamic-sm"}
                   title={
-                    inputMarkdownMode === "edit"
-                      ? "Show rendered markdown"
-                      : "Edit as plain text"
+                    inputMarkdownMode === "edit" ? "Show rendered markdown" : "Edit as plain text"
                   }
                   variant={inputMarkdownMode === "preview" ? "default" : "ghost"}
-                  onClick={() =>
-                    setInputMarkdownMode((m) => (m === "edit" ? "preview" : "edit"))
-                  }
+                  onClick={() => setInputMarkdownMode((m) => (m === "edit" ? "preview" : "edit"))}
                 >
                   {inputMarkdownMode === "edit" ? (
                     <Eye className="size-4" />
@@ -495,7 +487,10 @@ export const CoreInput: React.FC<CoreInputProps> = ({
                 </PromptInputActionMenuContent>
               </PromptInputActionMenu>
               {(!enableMarkdownInputPreview || inputMarkdownMode === "edit") && (
-                <PromptInputSpeechButton textareaRef={textareaRef} onTranscriptionChange={setText} />
+                <PromptInputSpeechButton
+                  textareaRef={textareaRef}
+                  onTranscriptionChange={setText}
+                />
               )}
             </div>
           </PromptInputTools>

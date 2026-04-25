@@ -7,6 +7,7 @@ import { HeroUIProvider } from "@heroui/system";
 import { useRouter } from "next/navigation";
 import { ThemeProvider as NextThemesProvider } from "next-themes";
 
+import { KnowledgeCacheProvider } from "@/hooks/use-knowledge-cache";
 import { ThrottledThemeProvider } from "@/lib/theme/ThrottledThemeProvider";
 import { Toaster } from "@/components/third-party/ui/sonner";
 
@@ -28,8 +29,10 @@ export function Providers({ children, themeProps }: ProvidersProps) {
     <HeroUIProvider navigate={router.push}>
       <NextThemesProvider {...themeProps}>
         <ThrottledThemeProvider>
-          {children}
-          <Toaster position="bottom-right" />
+          <KnowledgeCacheProvider>
+            {children}
+            <Toaster position="bottom-right" />
+          </KnowledgeCacheProvider>
         </ThrottledThemeProvider>
       </NextThemesProvider>
     </HeroUIProvider>

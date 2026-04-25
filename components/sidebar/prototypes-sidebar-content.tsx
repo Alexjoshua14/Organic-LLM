@@ -26,9 +26,6 @@ export function PrototypesSidebarContent() {
           Prototype area
         </p>
         <h2 className="mt-1 text-base font-semibold text-foreground">Ranked prototypes</h2>
-        <p className="mt-2 text-xs leading-5 text-muted-foreground">
-          Sorted server-side by importance, usage signal, creation date, and latest update.
-        </p>
       </div>
 
       <Link

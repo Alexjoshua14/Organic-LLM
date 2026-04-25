@@ -146,6 +146,7 @@ export function createAionHandler(deps: AionDeps) {
       logger.log("POST", "User message saved optimistically");
     } catch (err) {
       const e = err instanceof Error ? err : new Error(String(err));
+
       logger.error("POST", `Failed to save user message optimistically: ${e.name}`);
       // Continue anyway - onFinish will try to save again
     }
@@ -251,6 +252,7 @@ export function createAionHandler(deps: AionDeps) {
           maxOutputTokens: CHAT_MODEL.maxOutputTokens,
           onError({ error }: { error: unknown }) {
             const e = error instanceof Error ? error : new Error(String(error));
+
             logger.error("POST", `Stream error: ${e.name}`);
           },
           tools: {
@@ -285,6 +287,7 @@ export function createAionHandler(deps: AionDeps) {
             generateMessageId: () => computeAionGeneratedMessageId(validatedMessages, randomUUID),
             onError: (error: unknown) => {
               const e = error instanceof Error ? error : new Error(String(error));
+
               logger.error("POST", `UI stream error: ${e.name}`);
               if (error instanceof Error) return error.message;
               if (typeof error === "string") return error;

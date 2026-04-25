@@ -55,6 +55,7 @@ export async function getAllSessions(): Promise<Result<RabbitHoleSessionMetadata
   }
 
   const rootNodeIdBySession = new Map<string, string>();
+
   for (const seg of pathSegments ?? []) {
     if (seg.position === 0 && typeof seg.node_id === "string") {
       rootNodeIdBySession.set(seg.session_id, seg.node_id);

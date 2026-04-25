@@ -120,6 +120,7 @@ export async function POST(req: Request) {
     },
     onError({ error }) {
       const e = error instanceof Error ? error : new Error(String(error));
+
       logger.error("POST", `Stream error: ${e.name}`);
     },
   });
@@ -129,6 +130,7 @@ export async function POST(req: Request) {
     consumeSseStream: consumeStream,
     onError: (error) => {
       const e = error instanceof Error ? error : new Error(String(error));
+
       logger.error("POST", `UI stream error: ${e.name}`);
       if (error instanceof Error) {
         return error.message;

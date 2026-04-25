@@ -160,6 +160,7 @@ export async function POST(req: Request) {
     })
     .catch((err) => {
       const e = err instanceof Error ? err : new Error(String(err));
+
       logger.error("POST", `Failed to save user message: ${e.name}`);
     });
 
@@ -226,7 +227,8 @@ export async function POST(req: Request) {
       });
 
       if (experience === "strata_page" && strataAssistantPersona) {
-        systemPromptForRequest += getStrataAssistantPersona(strataAssistantPersona).getSystemPromptAugmentation();
+        systemPromptForRequest +=
+          getStrataAssistantPersona(strataAssistantPersona).getSystemPromptAugmentation();
       }
 
       logger.log(
@@ -265,8 +267,10 @@ export async function POST(req: Request) {
       // Arcadia: respond with prepared "what can you do" / help without calling the model
       if (experience === "arcadia") {
         const lastText = getLastUserMessageText(message);
+
         if (isArcadiaHelpQuery(lastText)) {
           const textPartId = generateId();
+
           writer.write({ type: "text-start", id: textPartId });
           writer.write({
             type: "text-delta",
@@ -286,11 +290,13 @@ export async function POST(req: Request) {
             useAdminForSave: true,
             ownerId: sbUserId,
           });
+
           if (saveResult.error) {
             logger.error("POST", "Failed to save Arcadia help response", {
               error: saveResult.error,
             });
           }
+
           return;
         }
       }
@@ -310,8 +316,7 @@ export async function POST(req: Request) {
         useSearch: parseResult.data.webSearch ?? false,
         useMemory: parseResult.data.memory ?? false,
         useGetMoreMessages: messageSearch ?? true,
-        useKnowledgeSearch:
-          Boolean(knowledgeSearch) && experience === "strata_page",
+        useKnowledgeSearch: Boolean(knowledgeSearch) && experience === "strata_page",
         experience,
         chatId: id,
         initialMessageCount,
@@ -330,6 +335,7 @@ export async function POST(req: Request) {
       const hasTools = toolNames.length > 0;
       // One round of tool use + one round of response; avoids redundant multi-step searches
       let maxSteps = hasTools ? MAX_TOOL_STEPS : 2;
+
       if (experience === "strata_hub") {
         maxSteps = Math.min(maxSteps, 8);
       }
@@ -384,6 +390,7 @@ export async function POST(req: Request) {
         maxOutputTokens: CHAT_MODEL.maxOutputTokens, // Cap output for dev guardrails
         onError({ error }) {
           const e = error instanceof Error ? error : new Error(String(error));
+
           logger.error("POST", `Stream error: ${e.name}`);
         },
         onFinish() {
@@ -432,6 +439,7 @@ export async function POST(req: Request) {
           generateMessageId: () => assistantMessageId,
           onError: (error) => {
             const e = error instanceof Error ? error : new Error(String(error));
+
             logger.error("POST", `UI stream error: ${e.name}`);
 
             if (error instanceof Error) {
@@ -506,6 +514,7 @@ export async function POST(req: Request) {
               if (saveResult.error) {
                 const err = saveResult.error;
                 const msg = err instanceof Error ? err.message : String(err);
+
                 logger.error("POST", `Error saving chat: ${msg}`);
 
                 return; // Don't continue if save fails
@@ -579,6 +588,7 @@ export async function POST(req: Request) {
                         if (r.error) {
                           logger.error("POST", "Error adding latest messages to memory");
                         }
+
                         return r.data;
                       }
                     )
@@ -599,10 +609,12 @@ export async function POST(req: Request) {
                 logger.log("POST", `onFinish metrics: ${JSON.stringify(metrics)}`);
               })().catch((err) => {
                 const e = err instanceof Error ? err : new Error(String(err));
+
                 logger.error("POST", `Error in post-processing task: ${e.name} - ${e.message}`);
               });
             } catch (err) {
               const e = err instanceof Error ? err : new Error(String(err));
+
               logger.error("POST", `Error in onFinish callback: ${e.name} - ${e.message}`);
             }
           },

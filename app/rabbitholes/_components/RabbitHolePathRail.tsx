@@ -136,13 +136,17 @@ export function RabbitHolePathRail({
     visited.add(nodeId);
 
     const seg = findSegment(nodeId);
+
     if (!seg || !seg.parentNodeId) {
       depthCache.set(nodeId, 0);
+
       return 0;
     }
     const parentDepth = computeDepth(seg.parentNodeId, visited);
     const depth = parentDepth + 1;
+
     depthCache.set(nodeId, depth);
+
     return depth;
   };
 

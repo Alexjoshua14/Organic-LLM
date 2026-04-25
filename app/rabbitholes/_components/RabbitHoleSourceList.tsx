@@ -26,13 +26,7 @@ export function RabbitHoleSourceList({
   }
 
   return (
-    <div
-      className={cn(
-        card,
-        "flex flex-col overflow-hidden",
-        hasBranches && "mb-3"
-      )}
-    >
+    <div className={cn(card, "flex flex-col overflow-hidden", hasBranches && "mb-3")}>
       <button
         className="flex items-center justify-between p-4 hover:bg-card/30 transition-colors"
         onClick={() => setIsExpanded(!isExpanded)}

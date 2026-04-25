@@ -19,11 +19,13 @@ const BodySchema = z.object({
 
 export async function POST(req: Request) {
   const user = await auth();
+
   if (!user?.userId) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
   let body: unknown;
+
   try {
     body = await req.json();
   } catch {
@@ -31,6 +33,7 @@ export async function POST(req: Request) {
   }
 
   const parsed = BodySchema.safeParse(body);
+
   if (!parsed.success) {
     return NextResponse.json(
       { error: "Invalid request", details: parsed.error.flatten() },
@@ -39,6 +42,7 @@ export async function POST(req: Request) {
   }
 
   const elaboratedPlain = markdownToTtsPlainText(parsed.data.elaboratedMarkdown);
+
   if (!elaboratedPlain) {
     return NextResponse.json({ error: "Elaborated section is empty" }, { status: 400 });
   }
@@ -51,7 +55,9 @@ export async function POST(req: Request) {
 
   if (result.error || result.data == null) {
     const message = result.error?.message ?? "Failed to generate speech script";
+
     logger.error("POST", message);
+
     return NextResponse.json({ error: message }, { status: 500 });
   }
 

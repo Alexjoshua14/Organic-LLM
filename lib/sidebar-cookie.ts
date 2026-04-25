@@ -18,8 +18,10 @@ function decodeCookieValue(encoded: string): string {
 export function getSidebarDefaultOpenFromCookieValue(raw: string | undefined): boolean {
   if (raw === undefined) return true;
   const v = decodeCookieValue(raw).trim().toLowerCase();
+
   if (v === "false") return false;
   if (v === "true") return true;
+
   return true;
 }
 
@@ -29,16 +31,22 @@ export function getSidebarDefaultOpenFromCookieValue(raw: string | undefined): b
 export function readSidebarOpenFromDocumentCookie(): boolean | null {
   if (typeof document === "undefined") return null;
   const parts = document.cookie.split("; ");
+
   for (const part of parts) {
     const eq = part.indexOf("=");
+
     if (eq === -1) continue;
     const name = part.slice(0, eq).trim();
+
     if (name !== SIDEBAR_COOKIE_NAME) continue;
     const raw = decodeCookieValue(part.slice(eq + 1));
     const v = raw.trim().toLowerCase();
+
     if (v === "true") return true;
     if (v === "false") return false;
+
     return null;
   }
+
   return null;
 }

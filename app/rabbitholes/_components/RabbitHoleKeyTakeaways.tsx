@@ -16,6 +16,7 @@ export function RabbitHoleKeyTakeaways({
 }: RabbitHoleKeyTakeawaysProps) {
   const handleTakeawayClick = (index: number) => {
     const section = document.getElementById(`takeaway-${index}`);
+
     if (section) {
       section.scrollIntoView({ behavior: "smooth", block: "start" });
     }

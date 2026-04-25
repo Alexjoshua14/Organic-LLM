@@ -52,7 +52,8 @@ function normalizeToThreadLinks(rows: ChatsApiResponse["data"]): ThreadLink[] {
 
   return rows.map((thread) => {
     const feature = thread.feature ?? undefined;
-    const href = thread.path && String(thread.path).trim() !== "" ? String(thread.path) : `/chat/${thread.id}`;
+    const href =
+      thread.path && String(thread.path).trim() !== "" ? String(thread.path) : `/chat/${thread.id}`;
 
     return {
       title: thread.title ?? "Unknown title",

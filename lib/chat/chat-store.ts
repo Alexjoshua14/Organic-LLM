@@ -32,10 +32,7 @@ import {
   addMessage,
   updateChatStream,
 } from "@/data/supabase/chat";
-import {
-  upsertMessagesWithAdmin,
-  updateChatStreamWithAdmin,
-} from "@/data/supabase/chat-admin";
+import { upsertMessagesWithAdmin, updateChatStreamWithAdmin } from "@/data/supabase/chat-admin";
 import { Result, SimpleResult } from "@/types";
 import { Thread } from "@/lib/schemas/chat";
 import { getSupabaseUserId } from "@/data/supabase/profiles";
@@ -151,17 +148,21 @@ export async function saveChat({
 
   if (useAdmin) {
     const clerkUser = await auth();
+
     if (!clerkUser?.userId) {
       logger.error("saveChat", "useAdminForSave requires an authenticated user");
+
       return { ok: false, error: new Error("Unauthorized") };
     }
     const currentSbUserIdResult = await getSupabaseUserIdWithAdmin(clerkUser.userId);
+
     if (
       currentSbUserIdResult.error ||
       currentSbUserIdResult.data === null ||
       currentSbUserIdResult.data !== ownerId
     ) {
       logger.error("saveChat", "useAdminForSave ownerId does not match authenticated user");
+
       return { ok: false, error: new Error("Unauthorized") };
     }
   }

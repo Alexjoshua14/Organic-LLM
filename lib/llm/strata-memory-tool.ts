@@ -15,6 +15,7 @@ export function createStrataMemorySearchTool(userId: string) {
     inputSchema: StrataMemorySearchSchema,
     execute: async ({ query, limit }) => {
       const result = await searchMemoriesForUser(userId, query, { limit });
+
       if (result.error || !result.data) {
         return {
           success: false,

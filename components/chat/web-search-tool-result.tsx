@@ -23,21 +23,26 @@ export type ParsedWebSearchToolOutput =
 function condenseHighlights(highlights: string[], textFallback?: string): string {
   if (highlights.length > 0) {
     const joined = highlights.join(" · ");
+
     return joined.length > HIGHLIGHTS_MAX_LEN
       ? `${joined.slice(0, HIGHLIGHTS_MAX_LEN).trimEnd()}…`
       : joined;
   }
   if (textFallback?.trim()) {
     const t = textFallback.trim().replace(/\s+/g, " ");
+
     return t.length > HIGHLIGHTS_MAX_LEN ? `${t.slice(0, HIGHLIGHTS_MAX_LEN).trimEnd()}…` : t;
   }
+
   return "";
 }
 
 function safeFormatPublishedDate(iso?: string): string | null {
   if (!iso?.trim()) return null;
   const d = new Date(iso);
+
   if (Number.isNaN(d.getTime())) return null;
+
   return formatDate(iso);
 }
 
@@ -51,8 +56,7 @@ function normalizeHit(r: unknown, index: number): WebSearchResultRowUi {
     : [];
   const text = typeof o.text === "string" ? o.text : undefined;
   const publishedDate = typeof o.publishedDate === "string" ? o.publishedDate : undefined;
-  const id =
-    typeof o.id === "string" && o.id.length > 0 ? o.id : url || `exa-${index}`;
+  const id = typeof o.id === "string" && o.id.length > 0 ? o.id : url || `exa-${index}`;
   const existingFav = typeof o.faviconUrl === "string" ? o.faviconUrl : undefined;
   const faviconUrl = existingFav || (url ? buildFavicon(url) : undefined);
 
@@ -78,6 +82,7 @@ export function tryParseWebSearchToolOutput(body: unknown): ParsedWebSearchToolO
 
   if (b.data !== null && b.data !== undefined && typeof b.data === "object") {
     const d = b.data as Record<string, unknown>;
+
     if (Array.isArray(d.results)) results = d.results;
   }
   if (!results && Array.isArray(b.results)) results = b.results;
@@ -89,8 +94,10 @@ export function tryParseWebSearchToolOutput(body: unknown): ParsedWebSearchToolO
       const err = b.error;
       const message =
         err instanceof Error ? err.message : typeof err === "string" ? err : "Search failed";
+
       return { status: "error", message };
     }
+
     return null;
   }
 
@@ -98,6 +105,7 @@ export function tryParseWebSearchToolOutput(body: unknown): ParsedWebSearchToolO
     const err = b.error;
     const message =
       err instanceof Error ? err.message : typeof err === "string" ? err : "Search failed";
+
     return { status: "error", message };
   }
 
@@ -224,12 +232,15 @@ export const WebSearchToolResultCard = memo(function WebSearchToolResultCard({
                     ) : null}
                     {(() => {
                       const dateLine = safeFormatPublishedDate(row.publishedDate);
+
                       return dateLine ? (
                         <p className="text-[11px] text-muted-foreground">{dateLine}</p>
                       ) : null;
                     })()}
                     {row.highlightsLine ? (
-                      <p className="text-xs leading-snug text-muted-foreground">{row.highlightsLine}</p>
+                      <p className="text-xs leading-snug text-muted-foreground">
+                        {row.highlightsLine}
+                      </p>
                     ) : null}
                   </div>
                 </div>

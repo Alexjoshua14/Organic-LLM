@@ -17,7 +17,8 @@ const FOREST = {
 } as const;
 
 const CONTENT = {
-  tagline: "Sandbox chat inside Organic LLM. Same app, same threads; a dedicated place to experiment.",
+  tagline:
+    "Sandbox chat inside Organic LLM. Same app, same threads; a dedicated place to experiment.",
   capabilities: [
     { key: "concise", label: "Brief answers; expand on request." },
     { key: "tools-first", label: "Tools over long paragraphs." },
@@ -31,10 +32,7 @@ const CONTENT = {
     "On: One list — main + Arcadia threads (Arcadia rows: forest-green hint, brown-glass on hover).",
     "Off: Main chat only. Arcadia threads still exist; open via sandbox or direct link.",
   ],
-  tryExamples: [
-    "Draw a flowchart for X",
-    "Summarize Y in three bullets.",
-  ],
+  tryExamples: ["Draw a flowchart for X", "Summarize Y in three bullets."],
 };
 
 export const ArcadiaHelpMessage: FC<{ className?: string }> = ({ className }) => {
@@ -62,13 +60,21 @@ export const ArcadiaHelpMessage: FC<{ className?: string }> = ({ className }) =>
       <div className="flex flex-col gap-2 sm:hidden">
         <section className={cn(glass(), "rounded-xl border p-3")}>
           <div className="flex items-center gap-2 mb-2">
-            <LayoutGrid className="size-3.5 shrink-0" style={{ color: FOREST.accent }} aria-hidden />
-            <h3 className="text-xs font-medium uppercase tracking-wider text-foreground-secondary">Capabilities</h3>
+            <LayoutGrid
+              className="size-3.5 shrink-0"
+              style={{ color: FOREST.accent }}
+              aria-hidden
+            />
+            <h3 className="text-xs font-medium uppercase tracking-wider text-foreground-secondary">
+              Capabilities
+            </h3>
           </div>
           <ul className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1.5 text-xs items-baseline">
             {CONTENT.capabilities.map((item) => (
               <li key={item.key} className="contents">
-                <span className="font-mono shrink-0" style={{ color: FOREST.helpText }}>{item.key}</span>
+                <span className="font-mono shrink-0" style={{ color: FOREST.helpText }}>
+                  {item.key}
+                </span>
                 <span className="text-muted-foreground">{item.label}</span>
               </li>
             ))}
@@ -78,7 +84,9 @@ export const ArcadiaHelpMessage: FC<{ className?: string }> = ({ className }) =>
         <section className={cn(glass(), "rounded-xl border p-3")}>
           <div className="flex items-center gap-2 mb-2">
             <Box className="size-3.5 text-amber-500/80 shrink-0" aria-hidden />
-            <h3 className="text-xs font-medium uppercase tracking-wider text-foreground-secondary">Sandbox</h3>
+            <h3 className="text-xs font-medium uppercase tracking-wider text-foreground-secondary">
+              Sandbox
+            </h3>
           </div>
           <div className="space-y-0.5">
             <p className="text-sm font-light text-foreground leading-tight tracking-wide text-left pl-0">
@@ -102,7 +110,9 @@ export const ArcadiaHelpMessage: FC<{ className?: string }> = ({ className }) =>
         <section className={cn(glass(), "rounded-xl border p-3")}>
           <div className="flex items-center gap-2 mb-2">
             <PanelRightOpen className="size-3.5 text-amber-500/80 shrink-0" aria-hidden />
-            <h3 className="text-xs font-medium uppercase tracking-wider text-foreground-secondary">Sidebar (Coalescence)</h3>
+            <h3 className="text-xs font-medium uppercase tracking-wider text-foreground-secondary">
+              Sidebar (Coalescence)
+            </h3>
           </div>
           <ul className="space-y-1 text-xs text-muted-foreground list-disc list-inside">
             {CONTENT.sidebar.map((line, i) => (
@@ -114,7 +124,9 @@ export const ArcadiaHelpMessage: FC<{ className?: string }> = ({ className }) =>
         <section className={cn(glass(), "rounded-xl border p-3")}>
           <div className="flex items-center gap-2 mb-1.5">
             <Sparkles className="size-3.5 shrink-0" style={{ color: FOREST.accent }} aria-hidden />
-            <h3 className="text-xs font-medium uppercase tracking-wider text-foreground-secondary">Try</h3>
+            <h3 className="text-xs font-medium uppercase tracking-wider text-foreground-secondary">
+              Try
+            </h3>
           </div>
           <p className="text-xs text-muted-foreground">
             &ldquo;{CONTENT.tryExamples[0]}&rdquo; or &ldquo;{CONTENT.tryExamples[1]}&rdquo;
@@ -127,12 +139,16 @@ export const ArcadiaHelpMessage: FC<{ className?: string }> = ({ className }) =>
         <section className={cn(glass(), "rounded-xl border p-4")}>
           <div className="flex items-center gap-2 mb-3">
             <LayoutGrid className="size-4 shrink-0" style={{ color: FOREST.accent }} aria-hidden />
-            <h3 className="text-sm font-medium uppercase tracking-wider text-foreground-secondary">Capabilities</h3>
+            <h3 className="text-sm font-medium uppercase tracking-wider text-foreground-secondary">
+              Capabilities
+            </h3>
           </div>
           <ul className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-2 text-sm items-baseline">
             {CONTENT.capabilities.map((item) => (
               <li key={item.key} className="contents">
-                <span className="font-mono shrink-0" style={{ color: FOREST.helpText }}>{item.key}</span>
+                <span className="font-mono shrink-0" style={{ color: FOREST.helpText }}>
+                  {item.key}
+                </span>
                 <span className="text-muted-foreground">{item.label}</span>
               </li>
             ))}
@@ -142,7 +158,9 @@ export const ArcadiaHelpMessage: FC<{ className?: string }> = ({ className }) =>
         <section className={cn(glass(), "rounded-xl border p-4")}>
           <div className="flex items-center gap-2 mb-3">
             <Box className="size-4 text-amber-500/80 shrink-0" aria-hidden />
-            <h3 className="text-sm font-medium uppercase tracking-wider text-foreground-secondary">Sandbox</h3>
+            <h3 className="text-sm font-medium uppercase tracking-wider text-foreground-secondary">
+              Sandbox
+            </h3>
           </div>
           <div className="space-y-1">
             <p className="text-base font-light text-foreground leading-tight tracking-wide text-left pl-0">
@@ -166,7 +184,9 @@ export const ArcadiaHelpMessage: FC<{ className?: string }> = ({ className }) =>
         <section className={cn(glass(), "rounded-xl border p-4 sm:col-span-2")}>
           <div className="flex items-center gap-2 mb-3">
             <PanelRightOpen className="size-4 text-amber-500/80 shrink-0" aria-hidden />
-            <h3 className="text-sm font-medium uppercase tracking-wider text-foreground-secondary">Sidebar (Coalescence Mode)</h3>
+            <h3 className="text-sm font-medium uppercase tracking-wider text-foreground-secondary">
+              Sidebar (Coalescence Mode)
+            </h3>
           </div>
           <ul className="space-y-1.5 text-sm text-muted-foreground list-disc list-inside">
             {CONTENT.sidebar.map((line, i) => (
@@ -178,7 +198,9 @@ export const ArcadiaHelpMessage: FC<{ className?: string }> = ({ className }) =>
         <section className={cn(glass(), "rounded-xl border p-4 sm:col-span-2")}>
           <div className="flex items-center gap-2 mb-2">
             <Sparkles className="size-4 shrink-0" style={{ color: FOREST.accent }} aria-hidden />
-            <h3 className="text-sm font-medium uppercase tracking-wider text-foreground-secondary">Try</h3>
+            <h3 className="text-sm font-medium uppercase tracking-wider text-foreground-secondary">
+              Try
+            </h3>
           </div>
           <p className="text-sm text-muted-foreground">
             &ldquo;{CONTENT.tryExamples[0]}&rdquo; or &ldquo;{CONTENT.tryExamples[1]}&rdquo;

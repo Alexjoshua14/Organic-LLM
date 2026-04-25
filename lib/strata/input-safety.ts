@@ -11,7 +11,10 @@ export function sanitizeRawUserInput(input: string): string {
   value = value.replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F]/g, "");
 
   // Remove high-risk tags.
-  value = value.replace(/<\s*(script|style|iframe|object|embed|meta|link)\b[^>]*>[\s\S]*?<\s*\/\s*\1\s*>/gi, "");
+  value = value.replace(
+    /<\s*(script|style|iframe|object|embed|meta|link)\b[^>]*>[\s\S]*?<\s*\/\s*\1\s*>/gi,
+    ""
+  );
   value = value.replace(/<\s*(script|style|iframe|object|embed|meta|link)\b[^>]*\/?\s*>/gi, "");
 
   // Remove inline event handlers (onclick=, onload=, etc).

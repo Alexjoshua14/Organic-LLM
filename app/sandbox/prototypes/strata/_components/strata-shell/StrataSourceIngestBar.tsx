@@ -6,10 +6,7 @@ import { toast } from "sonner";
 
 import { glass } from "@/components/design-system/primitives";
 import { cn } from "@/lib/utils";
-import {
-  STRATA_TEXT_SOURCES_MAX,
-  type StrataTextSourceNode,
-} from "@/lib/schemas/strata";
+import { STRATA_TEXT_SOURCES_MAX, type StrataTextSourceNode } from "@/lib/schemas/strata";
 import { sanitizeRawUserInput } from "@/lib/strata/input-safety";
 import { assertSafePublicHttpsUrl } from "@/lib/strata/safe-url";
 import { clientRandomUUID } from "@/lib/client-uuid";
@@ -31,7 +28,11 @@ export function StrataSourceIngestBar({
   const [title, setTitle] = useState("");
   const [body, setBody] = useState("");
   const [urlInput, setUrlInput] = useState("");
-  const [urlPreview, setUrlPreview] = useState<{ text: string; suggestedTitle: string; href: string } | null>(null);
+  const [urlPreview, setUrlPreview] = useState<{
+    text: string;
+    suggestedTitle: string;
+    href: string;
+  } | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [searchHits, setSearchHits] = useState<SearchHit[]>([]);
   const [busy, setBusy] = useState(false);
@@ -59,8 +60,10 @@ export function StrataSourceIngestBar({
   const submitText = useCallback(() => {
     const t = title.trim() || "Pasted text";
     const b = body.trim();
+
     if (!b) {
       toast.error("Enter some text to add.");
+
       return;
     }
     const node: StrataTextSourceNode = {
@@ -70,16 +73,19 @@ export function StrataSourceIngestBar({
       body: sanitizeRawUserInput(b),
       createdAt: new Date().toISOString(),
     };
+
     appendChecked([node]);
   }, [appendChecked, body, title]);
 
   const pasteFromClipboard = useCallback(async () => {
     try {
       const text = await navigator.clipboard.readText();
+
       if (!text?.trim()) {
         toast.message("Clipboard empty", {
           description: "Copy text first, or paste with ⌘V in the text area.",
         });
+
         return;
       }
       const node: StrataTextSourceNode = {
@@ -89,6 +95,7 @@ export function StrataSourceIngestBar({
         body: sanitizeRawUserInput(text),
         createdAt: new Date().toISOString(),
       };
+
       appendChecked([node]);
     } catch {
       toast.error("Could not read clipboard", {
@@ -101,9 +108,11 @@ export function StrataSourceIngestBar({
     async (files: FileList | null) => {
       if (!files?.length) return;
       const nodes: StrataTextSourceNode[] = [];
+
       for (const file of Array.from(files)) {
         if (nodes.length >= STRATA_TEXT_SOURCES_MAX) break;
         const text = await file.text();
+
         nodes.push({
           id: clientRandomUUID(),
           kind: "file",
@@ -121,12 +130,15 @@ export function StrataSourceIngestBar({
 
   const runSearch = useCallback(async () => {
     const q = searchQuery.trim();
+
     if (!q) {
       toast.error("Enter a search query.");
+
       return;
     }
     if (!canUseNetwork) {
       toast.error("Search needs a synced page (not local-only).");
+
       return;
     }
     setBusy(true);
@@ -137,11 +149,13 @@ export function StrataSourceIngestBar({
         body: JSON.stringify({ pageId, op: "search", query: q }),
       });
       const data = await res.json();
+
       if (!res.ok) {
         throw new Error(typeof data?.error === "string" ? data.error : "Search failed");
       }
       setSearchHits((data.results ?? []) as SearchHit[]);
-      if (!data.results?.length) toast.message("No results", { description: "Try different words." });
+      if (!data.results?.length)
+        toast.message("No results", { description: "Try different words." });
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Search failed");
     } finally {
@@ -157,11 +171,16 @@ export function StrataSourceIngestBar({
         kind: "web_query",
         title: hit.title.slice(0, 512),
         body: sanitizeRawUserInput(
-          [hit.snippet?.trim() || "(no snippet)", "", `Source URL: ${safe.ok ? safe.href : hit.url}`].join("\n")
+          [
+            hit.snippet?.trim() || "(no snippet)",
+            "",
+            `Source URL: ${safe.ok ? safe.href : hit.url}`,
+          ].join("\n")
         ),
         createdAt: new Date().toISOString(),
         meta: { url: hit.url, query: searchQuery.trim() || undefined },
       };
+
       appendChecked([node]);
     },
     [appendChecked, searchQuery]
@@ -170,6 +189,7 @@ export function StrataSourceIngestBar({
   const previewUrl = useCallback(async () => {
     if (!canUseNetwork) {
       toast.error("URL import needs a synced page (not local-only).");
+
       return;
     }
     setBusy(true);
@@ -181,6 +201,7 @@ export function StrataSourceIngestBar({
         body: JSON.stringify({ pageId, op: "url_preview", url: urlInput.trim() }),
       });
       const data = await res.json();
+
       if (!res.ok) {
         throw new Error(typeof data?.error === "string" ? data.error : "Preview failed");
       }
@@ -199,6 +220,7 @@ export function StrataSourceIngestBar({
   const commitUrl = useCallback(async () => {
     if (!canUseNetwork) {
       toast.error("URL import needs a synced page (not local-only).");
+
       return;
     }
     setBusy(true);
@@ -214,6 +236,7 @@ export function StrataSourceIngestBar({
         }),
       });
       const data = await res.json();
+
       if (!res.ok) {
         throw new Error(typeof data?.error === "string" ? data.error : "Import failed");
       }
@@ -226,7 +249,12 @@ export function StrataSourceIngestBar({
   }, [appendChecked, canUseNetwork, pageId, title, urlInput]);
 
   return (
-    <div className={cn(glass({ opaque: true }), "flex flex-col gap-3 rounded-xl border border-border/60 p-4")}>
+    <div
+      className={cn(
+        glass({ opaque: true }),
+        "flex flex-col gap-3 rounded-xl border border-border/60 p-4"
+      )}
+    >
       <div className="flex flex-wrap items-center gap-2">
         {(["text", "search", "url"] as const).map((m) => (
           <button
@@ -337,7 +365,10 @@ export function StrataSourceIngestBar({
           {searchHits.length > 0 ? (
             <ul className="max-h-52 space-y-2 overflow-y-auto rounded-md border border-border/50 bg-muted/10 p-2">
               {searchHits.map((h) => (
-                <li key={h.url} className="flex flex-col gap-1 rounded-md border border-border/40 bg-background/50 p-2 text-xs">
+                <li
+                  key={h.url}
+                  className="flex flex-col gap-1 rounded-md border border-border/40 bg-background/50 p-2 text-xs"
+                >
                   <span className="font-medium text-foreground">{h.title}</span>
                   <span className="line-clamp-2 text-muted-foreground">{h.snippet}</span>
                   <button

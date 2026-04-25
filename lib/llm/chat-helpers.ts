@@ -116,6 +116,7 @@ function ensureThoughtSignaturesForGemini(messages: UIMessage[]): UIMessage[] {
             GEMINI_SKIP_THOUGHT_SIGNATURE,
         };
       }
+
       return part;
     }),
   }));
@@ -155,11 +156,11 @@ function convertToolCallsToTextForSummarizer(messages: UIMessage[]): UIMessage[]
         const argsStr = argsLike !== undefined ? JSON.stringify(argsLike) : "";
         let snippet = `[Tool: ${name}${argsStr ? ` with args: ${argsStr}` : ""}.`;
         const resultLike = p.result ?? p.output;
+
         if (p.state === "result" && resultLike !== undefined) {
           const resultStr =
-            typeof resultLike === "string"
-              ? resultLike
-              : JSON.stringify(resultLike);
+            typeof resultLike === "string" ? resultLike : JSON.stringify(resultLike);
+
           snippet += ` Result: ${resultStr.slice(0, TOOL_RESULT_TEXT_MAX_LEN)}${resultStr.length > TOOL_RESULT_TEXT_MAX_LEN ? "…" : ""}`;
         } else if (p.state === "output-error" && p.errorText) {
           snippet += ` Error: ${p.errorText.slice(0, 200)}`;
@@ -174,6 +175,7 @@ function convertToolCallsToTextForSummarizer(messages: UIMessage[]): UIMessage[]
     if (newParts.length === 0) {
       return { ...msg, parts: [{ type: "text" as const, text: "" }] };
     }
+
     return { ...msg, parts: newParts };
   });
 }

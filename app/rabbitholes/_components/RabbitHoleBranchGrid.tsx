@@ -27,11 +27,13 @@ export function RabbitHoleBranchGrid({
   const toggleDescription = (branchId: string) => {
     setExpandedDescriptions((prev) => {
       const next = new Set(prev);
+
       if (next.has(branchId)) {
         next.delete(branchId);
       } else {
         next.add(branchId);
       }
+
       return next;
     });
   };

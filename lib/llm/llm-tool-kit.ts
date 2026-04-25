@@ -33,21 +33,27 @@ const MERMAID_PLANNER_MAX_OUTPUT_TOKENS = 700;
 const MERMAID_GENERATOR_MAX_OUTPUT_TOKENS = 2200;
 
 let mermaidValidationInit: Promise<any> | null = null;
+
 async function getMermaidForValidation(): Promise<any> {
   mermaidValidationInit ??= import("mermaid").then((mod: any) => {
     const m = mod?.default ?? mod;
+
     // Server-side validation: we only need parse/render syntax checks.
     m.initialize({ startOnLoad: false, theme: "neutral", securityLevel: "loose" });
+
     return m;
   });
+
   return mermaidValidationInit;
 }
 
 async function validateMermaidCode(code: string): Promise<{ ok: boolean; error?: string }> {
   try {
     const mermaid = await getMermaidForValidation();
+
     // mermaid.parse throws on invalid syntax.
     await mermaid.parse(code);
+
     return { ok: true };
   } catch (err) {
     const e: any = err;
@@ -67,6 +73,7 @@ async function validateMermaidCode(code: string): Promise<{ ok: boolean; error?:
         "mermaid_validation",
         "Server Mermaid validation hit sanitize runtime issue; requesting retry/fix."
       );
+
       return {
         ok: false,
         error:
@@ -83,8 +90,10 @@ function stripMermaidSecurityInitLines(source: string): string {
     .split("\n")
     .filter((line) => {
       const t = line.trim();
+
       if (!t.startsWith("%%")) return true;
       if (!/init\s*:/i.test(t)) return true;
+
       return !/securityLevel/i.test(t);
     })
     .join("\n");
@@ -92,7 +101,10 @@ function stripMermaidSecurityInitLines(source: string): string {
 
 function normalizeMermaidCode(raw: string): string {
   return stripMermaidSecurityInitLines(
-    raw.replace(/^```(?:mermaid)?\s*/i, "").replace(/```$/i, "").trim()
+    raw
+      .replace(/^```(?:mermaid)?\s*/i, "")
+      .replace(/```$/i, "")
+      .trim()
   );
 }
 
@@ -188,6 +200,7 @@ export function createMemorySearchTool(userId: string, writer?: WebSearchStreamW
         }
 
         const data = result.data!;
+
         return {
           success: true,
           query,
@@ -637,6 +650,7 @@ export function createMermaidDiagramTool(options?: {
         }
 
         const v = await validateMermaidCode(normalizedCode);
+
         if (v.ok) {
           return {
             success: true,
@@ -662,6 +676,7 @@ export function createMermaidDiagramTool(options?: {
           transient: true,
         });
       }
+
       return {
         success: true,
         diagramType: diagramType ?? null,

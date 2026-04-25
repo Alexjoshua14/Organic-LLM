@@ -315,6 +315,7 @@ export function decryptFromStorage(value: string, context: EncryptionContext): s
   if (!value.startsWith(`${ENCRYPTED_PREFIX}:`)) {
     return value;
   }
+
   return getMessageEncryptionService().decryptFromStorage(value, context);
 }
 

@@ -50,6 +50,7 @@ export async function POST(req: NextRequest) {
       logger.log("TTS Route", `Speech-friendly text length: ${speechFriendlyText?.length ?? 0}`);
     } catch (error) {
       const e = error instanceof Error ? error : new Error(String(error));
+
       logger.error("TTS Route", `Error transforming text: ${e.name}`);
     } finally {
       const speechFriendlyTextEndGeneration = performance.now();
@@ -76,6 +77,7 @@ export async function POST(req: NextRequest) {
 
   /** Eleven v3 interprets inline `[tag]` audio cues; strip only angle-bracket tags (not SSML breaks for v3). */
   const textForTTS = stripSpeechTags(speechFriendlyText);
+
   if (isElevenLabsV3SpeechModelId(speechModel.modelId)) {
     logger.log("TTS Route", "Eleven v3: preserving square-bracket audio tags in input.");
   }

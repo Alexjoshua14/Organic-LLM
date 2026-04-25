@@ -48,6 +48,7 @@ function mapRowsToSectionRecord(
     const found = rows.find((r) => r.section_key === key);
     const raw = found?.content ?? "";
     const content = raw.length === 0 ? "" : decryptStrataSectionContent(raw, ownerId, pageId, key);
+
     mapped[key] = {
       key,
       content,
@@ -120,7 +121,9 @@ export async function getStrataPageById(pageId: string): Promise<StrataPageWithS
 }
 
 /** Avoid `unstable_cache` here — it runs without Clerk/Next request context (`auth()` / `cookies()`). */
-export async function getStrataPageByIdCached(pageId: string): Promise<StrataPageWithSections | null> {
+export async function getStrataPageByIdCached(
+  pageId: string
+): Promise<StrataPageWithSections | null> {
   return getStrataPageById(pageId);
 }
 
@@ -147,6 +150,7 @@ export async function createStrataPage(input?: { title?: string }): Promise<Stra
 export async function renameStrataPage(pageId: string, title: string): Promise<void> {
   const sb = (await supabaseServer()) as any;
   const { error } = await sb.from("strata_pages").update({ title }).eq("id", pageId);
+
   if (error) throw new Error(error.message);
 }
 
@@ -173,6 +177,7 @@ export async function upsertStrataSection(params: {
     },
     { onConflict: "page_id,section_key" }
   );
+
   if (error) throw new Error(error.message);
 }
 
@@ -208,6 +213,7 @@ export async function upsertStrataGeneratedSections(params: {
 
   if (params.rawGenerationContext) {
     const rawContentJson = (params.existing.raw_text.contentJson ?? {}) as Record<string, unknown>;
+
     await upsertStrataSection({
       pageId: params.pageId,
       ownerId: params.ownerId,

@@ -1,56 +1,79 @@
 "use client";
 
-import { useMemo, useState } from "react";
-import { ChevronDown, ChevronUp, ExternalLink, Trash2 } from "lucide-react";
+import { useCallback, useMemo, useState } from "react";
+import { ExternalLink } from "lucide-react";
+import { toast } from "sonner";
+
+import { StrataTextSourceCard } from "./StrataTextSourceCard";
 
 import { glass } from "@/components/design-system/primitives";
 import {
   Dialog,
   DialogContent,
   DialogDescription,
+  DialogFooter,
   DialogHeader,
   DialogTitle,
 } from "@/components/third-party/ui/dialog";
 import { cn } from "@/lib/utils";
-import type { StrataTextSourceNode } from "@/lib/schemas/strata";
-
-function formatKind(kind: StrataTextSourceNode["kind"]): string {
-  switch (kind) {
-    case "user_text":
-      return "User text";
-    case "clipboard":
-      return "Clipboard";
-    case "file":
-      return "File";
-    case "web_query":
-      return "Web search";
-    case "url":
-      return "Imported URL";
-    default:
-      return kind;
-  }
-}
+import { STRATA_TEXT_SOURCE_BODY_MAX, type StrataTextSourceNode } from "@/lib/schemas/strata";
+import { sanitizeRawUserInput } from "@/lib/strata/input-safety";
+import { getStrataTextSourceTypeLabel } from "@/lib/strata/text-sources";
 
 export function StrataTextSourcesList({
   sources,
   onRemove,
   onMove,
+  onUpdateSource,
 }: {
   sources: StrataTextSourceNode[];
   onRemove: (id: string) => void;
   onMove: (id: string, dir: -1 | 1) => void;
+  onUpdateSource: (id: string, patch: { title: string; body: string }) => void;
 }) {
-  const [selectedSourceId, setSelectedSourceId] = useState<string | null>(null);
+  const [readSourceId, setReadSourceId] = useState<string | null>(null);
+  const [editSourceId, setEditSourceId] = useState<string | null>(null);
+  const [editTitle, setEditTitle] = useState("");
+  const [editBody, setEditBody] = useState("");
 
-  const selectedSource = useMemo(
-    () => (selectedSourceId ? sources.find((s) => s.id === selectedSourceId) ?? null : null),
-    [selectedSourceId, sources]
+  const readSource = useMemo(
+    () => (readSourceId ? (sources.find((s) => s.id === readSourceId) ?? null) : null),
+    [readSourceId, sources]
   );
 
-  const selectedIndex = useMemo(
-    () => (selectedSource ? sources.findIndex((s) => s.id === selectedSource.id) : -1),
-    [selectedSource, sources]
+  const editSource = useMemo(
+    () => (editSourceId ? (sources.find((s) => s.id === editSourceId) ?? null) : null),
+    [editSourceId, sources]
   );
+
+  const openEdit = useCallback(
+    (id: string) => {
+      const s = sources.find((x) => x.id === id);
+
+      if (!s) return;
+      setReadSourceId(null);
+      setEditSourceId(id);
+      setEditTitle(s.title);
+      setEditBody(s.body);
+    },
+    [sources]
+  );
+
+  const commitEdit = useCallback(() => {
+    if (!editSource) return;
+    const title = sanitizeRawUserInput(editTitle.trim() || "Untitled").slice(0, 512);
+    const body = sanitizeRawUserInput(editBody);
+
+    if (body.length > STRATA_TEXT_SOURCE_BODY_MAX) {
+      toast.error("Body is too long", {
+        description: `Maximum ${STRATA_TEXT_SOURCE_BODY_MAX.toLocaleString()} characters.`,
+      });
+
+      return;
+    }
+    onUpdateSource(editSource.id, { title, body });
+    setEditSourceId(null);
+  }, [editBody, editSource, editTitle, onUpdateSource]);
 
   if (sources.length === 0) {
     return (
@@ -64,56 +87,60 @@ export function StrataTextSourcesList({
   return (
     <>
       <ul className="grid grid-cols-1 gap-2 pr-1 sm:grid-cols-2">
-        {sources.map((s) => (
+        {sources.map((s, index) => (
           <li key={s.id}>
-            <button
-              type="button"
-              className={cn(
-                glass({ opaque: true }),
-                "group w-full rounded-lg border border-border/60 px-4 py-3 text-left transition-colors hover:bg-muted/25"
-              )}
-              onClick={() => setSelectedSourceId(s.id)}
-            >
-              <span className="block truncate text-sm font-medium text-foreground">{s.title}</span>
-            </button>
+            <StrataTextSourceCard
+              index={index}
+              source={s}
+              total={sources.length}
+              onEdit={openEdit}
+              onMove={onMove}
+              onOpen={() => {
+                setEditSourceId(null);
+                setReadSourceId(s.id);
+              }}
+              onRemove={onRemove}
+            />
           </li>
         ))}
       </ul>
 
-      <Dialog open={selectedSource !== null} onOpenChange={(open) => !open && setSelectedSourceId(null)}>
+      <Dialog open={readSource !== null} onOpenChange={(open) => !open && setReadSourceId(null)}>
         <DialogContent className="max-h-[min(90vh,50rem)] max-w-2xl overflow-hidden p-0">
-          {selectedSource ? (
+          {readSource ? (
             <>
               <DialogHeader className="border-b border-border/60 px-6 py-4 text-left">
-                <DialogTitle className="pr-8">{selectedSource.title}</DialogTitle>
+                <DialogTitle className="pr-8">{readSource.title}</DialogTitle>
                 <DialogDescription>
-                  {formatKind(selectedSource.kind)} ·{" "}
-                  {new Date(selectedSource.createdAt).toLocaleString()}
+                  {getStrataTextSourceTypeLabel(readSource.kind)} ·{" "}
+                  {new Date(readSource.createdAt).toLocaleString()}
                 </DialogDescription>
               </DialogHeader>
 
               <div className="space-y-4 overflow-y-auto px-6 py-5">
-                {selectedSource.meta ? (
+                {readSource.meta ? (
                   <div className="rounded-md border border-border/50 bg-muted/10 p-3 text-xs text-muted-foreground">
-                    <p className="mb-2 font-medium uppercase tracking-wide text-foreground">Metadata</p>
+                    <p className="mb-2 font-medium uppercase tracking-wide text-foreground">
+                      Metadata
+                    </p>
                     <ul className="space-y-1">
-                      {selectedSource.meta.filename ? (
+                      {readSource.meta.filename ? (
                         <li>
                           <span className="font-medium text-foreground">File:</span>{" "}
-                          {selectedSource.meta.filename}
+                          {readSource.meta.filename}
                         </li>
                       ) : null}
-                      {selectedSource.meta.query ? (
+                      {readSource.meta.query ? (
                         <li>
                           <span className="font-medium text-foreground">Query:</span>{" "}
-                          {selectedSource.meta.query}
+                          {readSource.meta.query}
                         </li>
                       ) : null}
-                      {selectedSource.meta.url ? (
+                      {readSource.meta.url ? (
                         <li className="flex items-center gap-1">
                           <span className="font-medium text-foreground">URL:</span>
                           <a
-                            href={selectedSource.meta.url}
+                            href={readSource.meta.url}
                             className="inline-flex items-center gap-1 text-primary hover:underline"
                             rel="noreferrer"
                             target="_blank"
@@ -127,41 +154,70 @@ export function StrataTextSourcesList({
                 ) : null}
 
                 <article className="whitespace-pre-wrap rounded-md border border-border/50 bg-background/40 p-4 text-sm leading-relaxed text-foreground">
-                  {selectedSource.body}
+                  {readSource.body}
                 </article>
-
-                <div className="flex flex-wrap items-center justify-end gap-2 border-t border-border/50 pt-3">
-                  <button
-                    type="button"
-                    className="rounded-md p-2 text-muted-foreground hover:bg-muted hover:text-foreground disabled:opacity-30"
-                    disabled={selectedIndex <= 0}
-                    title="Move up"
-                    onClick={() => selectedSource && onMove(selectedSource.id, -1)}
-                  >
-                    <ChevronUp className="h-4 w-4" />
-                  </button>
-                  <button
-                    type="button"
-                    className="rounded-md p-2 text-muted-foreground hover:bg-muted hover:text-foreground disabled:opacity-30"
-                    disabled={selectedIndex < 0 || selectedIndex >= sources.length - 1}
-                    title="Move down"
-                    onClick={() => selectedSource && onMove(selectedSource.id, 1)}
-                  >
-                    <ChevronDown className="h-4 w-4" />
-                  </button>
-                  <button
-                    type="button"
-                    className="rounded-md p-2 text-destructive/80 hover:bg-destructive/10 hover:text-destructive"
-                    title="Remove source"
-                    onClick={() => {
-                      onRemove(selectedSource.id);
-                      setSelectedSourceId(null);
-                    }}
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </button>
-                </div>
               </div>
+            </>
+          ) : null}
+        </DialogContent>
+      </Dialog>
+
+      <Dialog
+        open={editSource !== null}
+        onOpenChange={(open) => {
+          if (!open) setEditSourceId(null);
+        }}
+      >
+        <DialogContent className="max-h-[min(90dvh,44rem)] max-w-2xl gap-0 overflow-hidden p-0 sm:max-w-2xl">
+          {editSource ? (
+            <>
+              <DialogHeader className="border-b border-border/60 px-6 py-4 text-left">
+                <DialogTitle>Edit source</DialogTitle>
+                <DialogDescription>
+                  {getStrataTextSourceTypeLabel(editSource.kind)} · changes apply to this page only.
+                </DialogDescription>
+              </DialogHeader>
+              <div className="max-h-[min(60dvh,28rem)] space-y-3 overflow-y-auto px-6 py-4">
+                <input
+                  className={cn(
+                    glass(),
+                    "w-full rounded-md border border-border/60 bg-background/40 px-3 py-2 text-sm text-foreground outline-none ring-offset-background focus-visible:ring-2 focus-visible:ring-ring"
+                  )}
+                  value={editTitle}
+                  onChange={(e) => setEditTitle(e.target.value)}
+                />
+                <textarea
+                  className={cn(
+                    glass(),
+                    "min-h-[12rem] w-full resize-y rounded-md border border-border/60 bg-background/40 p-3 text-sm text-foreground outline-none ring-offset-background focus-visible:ring-2 focus-visible:ring-ring"
+                  )}
+                  value={editBody}
+                  onChange={(e) => setEditBody(e.target.value)}
+                />
+                <p className="text-xs text-muted-foreground">
+                  {editBody.length.toLocaleString()} /{" "}
+                  {STRATA_TEXT_SOURCE_BODY_MAX.toLocaleString()} characters
+                </p>
+              </div>
+              <DialogFooter className="border-t border-border/60 px-6 py-4 sm:justify-end">
+                <button
+                  type="button"
+                  className="rounded-md px-3 py-2 text-sm text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                  onClick={() => setEditSourceId(null)}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  className={cn(
+                    glass({ opaque: true }),
+                    "rounded-md border px-4 py-2 text-sm font-medium text-foreground transition-colors hover:bg-muted"
+                  )}
+                  onClick={() => void commitEdit()}
+                >
+                  Save
+                </button>
+              </DialogFooter>
             </>
           ) : null}
         </DialogContent>

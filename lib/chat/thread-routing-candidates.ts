@@ -79,9 +79,7 @@ export function filterThreadCandidatesByCoalescence(
     return candidates;
   }
 
-  return candidates.filter(
-    (c) => c.kind === "thread" && (c.feature ?? "main") === "main"
-  );
+  return candidates.filter((c) => c.kind === "thread" && (c.feature ?? "main") === "main");
 }
 
 export function appendDraftQueryParam(href: string, draft: string): string {

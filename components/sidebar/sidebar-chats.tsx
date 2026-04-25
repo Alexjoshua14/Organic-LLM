@@ -18,13 +18,17 @@ import { getSettings } from "@/lib/user-settings";
  */
 export const SidebarChats = () => {
   const { sidebarChats: chats, isSidebarChatsLoading } = useSharedChatContext();
-  const [coalescenceMode, setCoalescenceMode] = useState<boolean>(() => getSettings().coalescenceMode);
+  const [coalescenceMode, setCoalescenceMode] = useState<boolean>(
+    () => getSettings().coalescenceMode
+  );
 
   useEffect(() => {
     const update = () => setCoalescenceMode(getSettings().coalescenceMode);
+
     update();
     window.addEventListener("organic-llm-settings", update);
     window.addEventListener("storage", update);
+
     return () => {
       window.removeEventListener("organic-llm-settings", update);
       window.removeEventListener("storage", update);
@@ -33,6 +37,7 @@ export const SidebarChats = () => {
 
   const filteredChats = useMemo(() => {
     if (coalescenceMode) return chats;
+
     return chats.filter((t) => (t.feature ?? "main") === "main");
   }, [chats, coalescenceMode]);
 

@@ -9,11 +9,7 @@ import Link from "next/link";
 import { RabbitHoleTTSButton } from "./RabbitHoleTTSButton";
 
 import { cn } from "@/lib/utils";
-import {
-  title as titleToken,
-  card,
-  sourceAnalysis as sa,
-} from "@/lib/rabbit-holes/designTokens";
+import { title as titleToken, card, sourceAnalysis as sa } from "@/lib/rabbit-holes/designTokens";
 
 interface RabbitHoleSourceAnalysisProps {
   analysis: RabbitHoleSourceAnalysis;
@@ -48,12 +44,7 @@ export function RabbitHoleSourceAnalysis({
       >
         <div className="min-w-0 flex-1">
           <div className="snap-start scroll-mt-2 mb-3">
-            <h1
-              className={cn(
-                titleToken.base,
-                mobile ? titleToken.compact : titleToken.desktop
-              )}
-            >
+            <h1 className={cn(titleToken.base, mobile ? titleToken.compact : titleToken.desktop)}>
               {analysis.title}
             </h1>
           </div>
@@ -87,7 +78,12 @@ export function RabbitHoleSourceAnalysis({
 
       {/* Summary */}
       <div className="snap-start scroll-mt-2 mb-8">
-        <h2 className={cn(sa.sectionHeader.base, mobile ? sa.sectionHeader.compact : sa.sectionHeader.desktop)}>
+        <h2
+          className={cn(
+            sa.sectionHeader.base,
+            mobile ? sa.sectionHeader.compact : sa.sectionHeader.desktop
+          )}
+        >
           Summary
         </h2>
         <p className={cn(sa.bodyText.base, mobile ? sa.bodyText.compact : sa.bodyText.desktop)}>
@@ -97,7 +93,12 @@ export function RabbitHoleSourceAnalysis({
 
       {/* Key Points */}
       <div className="snap-start scroll-mt-2 mb-8 flex flex-col">
-        <h2 className={cn(sa.sectionHeader.base, mobile ? sa.sectionHeader.compact : sa.sectionHeader.desktop)}>
+        <h2
+          className={cn(
+            sa.sectionHeader.base,
+            mobile ? sa.sectionHeader.compact : sa.sectionHeader.desktop
+          )}
+        >
           Key Points
         </h2>
         <ul className={mobile ? sa.keyPointListGap.compact : sa.keyPointListGap.desktop}>
@@ -133,7 +134,13 @@ export function RabbitHoleSourceAnalysis({
           mobile ? sa.relevanceCard.compact : sa.relevanceCard.desktop
         )}
       >
-        <h2 className={cn(sa.sectionHeader.base, "mb-4", mobile ? sa.sectionHeader.compact : sa.sectionHeader.desktop)}>
+        <h2
+          className={cn(
+            sa.sectionHeader.base,
+            "mb-4",
+            mobile ? sa.sectionHeader.compact : sa.sectionHeader.desktop
+          )}
+        >
           Relevance
         </h2>
         <p className={cn(sa.bodyText.base, mobile ? sa.bodyText.compact : sa.bodyText.desktop)}>

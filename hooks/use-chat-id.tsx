@@ -11,9 +11,11 @@ export function useChatId(): string | null {
   const pathname = usePathname();
 
   const main = pathname.match(/^\/chat\/([^/]+)$/);
+
   if (main) return main[1];
 
   const arcadia = pathname.match(/^\/sandbox\/arcadia\/([^/]+)$/);
+
   if (arcadia) return arcadia[1];
 
   return null;

@@ -7,9 +7,11 @@ const MAX_PRIMARY_LEN = 44;
 
 export function primarySegment(primary: string | null | undefined, fallback: string): string {
   const raw = (primary?.trim() ? primary.trim() : fallback).trim();
+
   if (raw.length <= MAX_PRIMARY_LEN) {
     return raw;
   }
+
   return `${raw.slice(0, MAX_PRIMARY_LEN - 1)}…`;
 }
 

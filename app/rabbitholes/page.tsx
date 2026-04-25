@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+
 import { Suspense } from "react";
 import { RabbitHoleShell } from "components/rabbit-holes/RabbitHoleShell";
 

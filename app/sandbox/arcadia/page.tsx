@@ -18,10 +18,10 @@ export default async function ArcadiaIndexPage() {
   const path = `/sandbox/arcadia/${id}`;
 
   const routingRes = await updateThreadRouting(id, { feature: "arcadia", path });
+
   if (!routingRes.ok) {
     logger.error("ArcadiaIndexPage", "Failed to set Arcadia thread routing");
   }
 
   redirect(path);
 }
-

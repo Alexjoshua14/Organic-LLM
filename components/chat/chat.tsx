@@ -1,6 +1,7 @@
 "use client";
 
 import type { ExaSearchResultSource } from "@/lib/exa/types";
+import type { StrataPageAssistantSession } from "@/lib/strata/assistant-session";
 
 import { UIMessage, useChat } from "@ai-sdk/react";
 import { DefaultChatTransport } from "ai";
@@ -29,7 +30,6 @@ import { createLogger } from "@/lib/logger";
 import { useSharedChatContext } from "@/lib/context/chat-context";
 import { ChatModel, DEFAULT_CHAT_MODEL } from "@/lib/schemas/chat";
 import { getStrataAssistantPersona } from "@/lib/personas/strata-assistant";
-import type { StrataPageAssistantSession } from "@/lib/strata/assistant-session";
 import { ChatAIActionEnum } from "@/types/ai";
 import { getChatErrorMessage } from "@/lib/chat/error-messages";
 import { StrataAssistantPersonaGuide } from "@/app/sandbox/prototypes/strata/_components/StrataAssistantPersonaGuide";
@@ -67,16 +67,19 @@ export const Chat: React.FC<ChatProps> = ({
   const useWebSearchRef = useRef<boolean>(false);
   const useMemoriesRef = useRef<boolean>(false);
   const useSpeechFriendlyRef = useRef<boolean>(false);
-  const assistantSessionRef = useRef<StrataPageAssistantSession | null | undefined>(assistantSession);
+  const assistantSessionRef = useRef<StrataPageAssistantSession | null | undefined>(
+    assistantSession
+  );
+
   assistantSessionRef.current = assistantSession;
   const usePersistedSchemas = useRef<boolean>(persona === "aion" || persona === "strata");
   const initialMessageSent = useRef<boolean>(false);
   const [aiAction, setAiAction] = useState<
     | {
-      action: ChatAIActionEnum;
-      message?: string;
-      sources?: ExaSearchResultSource[];
-    }
+        action: ChatAIActionEnum;
+        message?: string;
+        sources?: ExaSearchResultSource[];
+      }
     | undefined
   >(undefined);
   const [mem0Retrieved, setMem0Retrieved] = useState<{ memory: string }[]>([]);
@@ -91,6 +94,7 @@ export const Chat: React.FC<ChatProps> = ({
   useEffect(() => {
     const sync = () =>
       setExperimentalArcadiaMarkdownPreview(getSettings().experimentalArcadiaMarkdownPreview);
+
     sync();
     window.addEventListener("organic-llm-settings", sync);
 
@@ -99,7 +103,9 @@ export const Chat: React.FC<ChatProps> = ({
 
   useEffect(() => {
     if (experience !== "strata_page" || !assistantSession) return;
-    selectedModelRef.current = getStrataAssistantPersona(assistantSession.personaId).getDefaultModel();
+    selectedModelRef.current = getStrataAssistantPersona(
+      assistantSession.personaId
+    ).getDefaultModel();
   }, [assistantSession, experience]);
 
   // Temporary
@@ -243,6 +249,7 @@ export const Chat: React.FC<ChatProps> = ({
               break;
             case ChatAIActionEnum.Memory: {
               const q = dataObject.query?.trim();
+
               setAiAction({
                 action: ChatAIActionEnum.Memory,
                 message:
@@ -346,7 +353,7 @@ export const Chat: React.FC<ChatProps> = ({
           "flex-col",
           "items-center",
           "overflow-x-hidden",
-          "overscroll-x-none"
+          "overscroll-x-none",
         ].join(" ")}
       >
         <ChatThread

@@ -28,13 +28,17 @@ type TtsApiResponse = {
   };
 };
 
-function uint8FromResponsePayload(raw: Record<string, number> | Record<number, number>): Uint8Array {
+function uint8FromResponsePayload(
+  raw: Record<string, number> | Record<number, number>
+): Uint8Array {
   return new Uint8Array(Object.values(raw));
 }
 
 function bytesToBase64(bytes: Uint8Array): string {
   let binary = "";
+
   for (let i = 0; i < bytes.byteLength; i++) binary += String.fromCharCode(bytes[i]!);
+
   return globalThis.btoa(binary);
 }
 
@@ -54,15 +58,18 @@ async function fetchTtsAudioBytes(
   if (!res.ok) {
     const errBody = await res.json().catch(() => ({}));
     const msg = typeof errBody?.error === "string" ? errBody.error : "Speech generation failed.";
+
     throw new Error(msg);
   }
 
   const body = (await res.json()) as TtsApiResponse;
   const raw = body.data?.uint8Array ?? body.data?.uint8ArrayData;
+
   if (!raw) throw new Error("No audio data in response.");
 
   const bytes = uint8FromResponsePayload(raw);
   const mediaType = body.data.mediaType || body.data.format || "audio/mpeg";
+
   return { bytes, mediaType };
 }
 
@@ -85,16 +92,19 @@ function useElaboratedTtsPlayback() {
     (tts: StrataElaboratedTtsPayload) => {
       revokeObjectUrl();
       const el = audioRef.current;
+
       if (!el) return;
 
       if (tts.remoteUrl) {
         el.src = tts.remoteUrl;
+
         return;
       }
       if (tts.audioBase64) {
         const bytes = Uint8Array.from(globalThis.atob(tts.audioBase64), (c) => c.charCodeAt(0));
         const blob = new Blob([bytes], { type: tts.mediaType || "audio/mpeg" });
         const url = URL.createObjectURL(blob);
+
         objectUrlRef.current = url;
         el.src = url;
       }
@@ -129,14 +139,18 @@ export function StrataElaboratedSummaryTTSBar(props: {
 
   useEffect(() => {
     let cancelled = false;
+
     (async () => {
       if (!elaboratedPlain) {
         if (!cancelled) setFingerprint(null);
+
         return;
       }
       const fp = await sha256HexUtf8(elaboratedPlain);
+
       if (!cancelled) setFingerprint(fp);
     })();
+
     return () => {
       cancelled = true;
     };
@@ -153,6 +167,7 @@ export function StrataElaboratedSummaryTTSBar(props: {
     setError(null);
     if (!elaboratedPlain) {
       setError("Nothing to summarize yet.");
+
       return;
     }
     setBusy(true);
@@ -169,14 +184,17 @@ export function StrataElaboratedSummaryTTSBar(props: {
           ttsModel: ELEVENLABS_V3_SPEECH_MODEL_ID,
         }),
       });
+
       if (!sumRes.ok) {
         const errBody = await sumRes.json().catch(() => ({}));
         const msg =
           typeof errBody?.error === "string" ? errBody.error : "Failed to generate summary script.";
+
         throw new Error(`Summary: ${msg}`);
       }
       const sumJson = (await sumRes.json()) as { script?: string };
       const rawScript = typeof sumJson.script === "string" ? sumJson.script : "";
+
       if (!rawScript.trim()) {
         throw new Error("Summary: empty script returned.");
       }
@@ -191,7 +209,8 @@ export function StrataElaboratedSummaryTTSBar(props: {
 
       const payload: StrataElaboratedTtsPayload = {
         version: 1,
-        mediaType: typeof mediaType === "string" && mediaType.includes("/") ? mediaType : "audio/mpeg",
+        mediaType:
+          typeof mediaType === "string" && mediaType.includes("/") ? mediaType : "audio/mpeg",
         audioBase64,
         generatedAt: new Date().toISOString(),
         sourceContentSha256,
@@ -200,6 +219,7 @@ export function StrataElaboratedSummaryTTSBar(props: {
       };
 
       const nextJson = mergeStrataElaboratedTtsSlotIntoContentJson(contentJson, "summary", payload);
+
       await onPersist(nextJson);
       ensurePlayableSrc(payload);
     } catch (e) {
@@ -213,8 +233,10 @@ export function StrataElaboratedSummaryTTSBar(props: {
 
   const handleAudioLoadedMetadata = useCallback(() => {
     const el = audioRef.current;
+
     if (!el?.duration || !Number.isFinite(el.duration)) {
       setActualPlaybackSeconds(null);
+
       return;
     }
     setActualPlaybackSeconds(el.duration);
@@ -223,11 +245,15 @@ export function StrataElaboratedSummaryTTSBar(props: {
   const timingLabel = useMemo(() => {
     if (busy) {
       const gen =
-        estimatedGenerationSeconds != null ? formatTtsDurationLabel(estimatedGenerationSeconds) : null;
+        estimatedGenerationSeconds != null
+          ? formatTtsDurationLabel(estimatedGenerationSeconds)
+          : null;
+
       return gen ? `Generating summary audio… (speech est. ~${gen})` : "Generating summary audio…";
     }
     if (actualPlaybackSeconds != null && Number.isFinite(actualPlaybackSeconds)) {
       const label = formatTtsDurationLabel(actualPlaybackSeconds);
+
       return label ? `Playback: ${label}` : null;
     }
     if (stored && !busy) {
@@ -241,11 +267,13 @@ export function StrataElaboratedSummaryTTSBar(props: {
     ) {
       const p = formatTtsDurationLabel(estimatedPlaybackSeconds);
       const g = formatTtsDurationLabel(estimatedGenerationSeconds);
+
       if (p && g) return `Est. before regenerate: ~${g} to synthesize · ~${p} listening`;
     }
     if (canGenerate && !stored) {
       return "Typical listening length ~20–30s (short summary, not verbatim).";
     }
+
     return null;
   }, [
     busy,
@@ -327,14 +355,18 @@ export function StrataElaboratedVerbatimTTSBar(props: {
 
   useEffect(() => {
     let cancelled = false;
+
     (async () => {
       if (!elaboratedPlain) {
         if (!cancelled) setFingerprint(null);
+
         return;
       }
       const fp = await sha256HexUtf8(elaboratedPlain);
+
       if (!cancelled) setFingerprint(fp);
     })();
+
     return () => {
       cancelled = true;
     };
@@ -351,6 +383,7 @@ export function StrataElaboratedVerbatimTTSBar(props: {
     setError(null);
     if (!elaboratedPlain) {
       setError("Nothing to read aloud yet.");
+
       return;
     }
     setBusy(true);
@@ -364,7 +397,8 @@ export function StrataElaboratedVerbatimTTSBar(props: {
 
       const payload: StrataElaboratedTtsPayload = {
         version: 1,
-        mediaType: typeof mediaType === "string" && mediaType.includes("/") ? mediaType : "audio/mpeg",
+        mediaType:
+          typeof mediaType === "string" && mediaType.includes("/") ? mediaType : "audio/mpeg",
         audioBase64,
         generatedAt: new Date().toISOString(),
         sourceContentSha256,
@@ -373,6 +407,7 @@ export function StrataElaboratedVerbatimTTSBar(props: {
       };
 
       const nextJson = mergeStrataElaboratedTtsSlotIntoContentJson(contentJson, "full", payload);
+
       await onPersist(nextJson);
       ensurePlayableSrc(payload);
     } catch (e) {
@@ -387,8 +422,10 @@ export function StrataElaboratedVerbatimTTSBar(props: {
 
   const handleAudioLoadedMetadata = useCallback(() => {
     const el = audioRef.current;
+
     if (!el?.duration || !Number.isFinite(el.duration)) {
       setActualPlaybackSeconds(null);
+
       return;
     }
     setActualPlaybackSeconds(el.duration);
@@ -397,11 +434,15 @@ export function StrataElaboratedVerbatimTTSBar(props: {
   const timingLabel = useMemo(() => {
     if (busy) {
       const gen =
-        estimatedGenerationSeconds != null ? formatTtsDurationLabel(estimatedGenerationSeconds) : null;
+        estimatedGenerationSeconds != null
+          ? formatTtsDurationLabel(estimatedGenerationSeconds)
+          : null;
+
       return gen ? `Generating narration… (est. ~${gen})` : "Generating narration…";
     }
     if (actualPlaybackSeconds != null && Number.isFinite(actualPlaybackSeconds)) {
       const label = formatTtsDurationLabel(actualPlaybackSeconds);
+
       return label ? `Playback: ${label}` : null;
     }
     if (stored && !busy && showAudio) {
@@ -415,8 +456,10 @@ export function StrataElaboratedVerbatimTTSBar(props: {
     ) {
       const p = formatTtsDurationLabel(estimatedPlaybackSeconds);
       const g = formatTtsDurationLabel(estimatedGenerationSeconds);
+
       if (p && g) return `Est. before generate: ~${g} to synthesize · ~${p} listening`;
     }
+
     return null;
   }, [
     busy,

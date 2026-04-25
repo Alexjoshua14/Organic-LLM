@@ -1,5 +1,6 @@
-import { UIMessage } from "ai";
 import type { Metadata } from "next";
+
+import { UIMessage } from "ai";
 import { cache } from "react";
 
 import Page from "@/components/layout/page";
@@ -21,6 +22,7 @@ export async function generateMetadata({
 }): Promise<Metadata> {
   const { slug: chatId } = await params;
   const res = await loadChatForRequest(chatId);
+
   if (res.error || res.data === null) {
     return tabTitleMetadata(null, "Arcadia");
   }
@@ -29,6 +31,7 @@ export async function generateMetadata({
     thread: res.data.thread,
     messages: res.data.messages,
   });
+
   return tabTitleMetadata(primary, "Arcadia");
 }
 
@@ -48,6 +51,7 @@ export default async function ArcadiaChatPage({ params }: { params: Promise<{ sl
     chatData = chatDataRes.data;
   } catch (err) {
     logger.error("ArcadiaChatPage", `Error while loading chat: ${err}`);
+
     return <div>Chat creation failed</div>;
   }
 
@@ -59,4 +63,3 @@ export default async function ArcadiaChatPage({ params }: { params: Promise<{ sl
     </Page>
   );
 }
-

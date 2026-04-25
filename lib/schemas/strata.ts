@@ -23,6 +23,7 @@ export const STRATA_DEFAULT_UNTITLED_TITLE = "Untitled Strata page";
 
 export function isUntitledStrataTitle(title: string | null | undefined): boolean {
   const t = (title ?? "").trim();
+
   return t.length === 0 || t === STRATA_DEFAULT_UNTITLED_TITLE;
 }
 
@@ -174,6 +175,7 @@ export function buildStrataPageDefaults(
   ownerId: string = "local-device"
 ): StrataPageWithSections {
   const now = new Date().toISOString();
+
   return {
     page: {
       id: pageId,

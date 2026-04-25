@@ -7,7 +7,9 @@ const QUERY_DISPLAY_MAX = 56;
 
 function truncateQueryForTitle(query: string): string {
   const t = query.trim();
+
   if (t.length <= QUERY_DISPLAY_MAX) return t;
+
   return `${t.slice(0, QUERY_DISPLAY_MAX)}…`;
 }
 
@@ -27,6 +29,7 @@ export type ParsedMemorySearchToolOutput =
 export function tryParseMemorySearchToolOutput(body: unknown): ParsedMemorySearchToolOutput | null {
   if (body === null || body === undefined || typeof body !== "object") return null;
   const o = body as Record<string, unknown>;
+
   if (typeof o.success !== "boolean") return null;
   if (typeof o.query !== "string") return null;
   if (!Array.isArray(o.memories)) return null;
@@ -35,9 +38,8 @@ export function tryParseMemorySearchToolOutput(body: unknown): ParsedMemorySearc
   if (!o.success) {
     const err = o.error;
     const message =
-      typeof err === "string" && err.trim().length > 0
-        ? err.trim()
-        : "Memory search failed.";
+      typeof err === "string" && err.trim().length > 0 ? err.trim() : "Memory search failed.";
+
     return { status: "error", message };
   }
 
@@ -45,7 +47,9 @@ export function tryParseMemorySearchToolOutput(body: unknown): ParsedMemorySearc
     const row = m && typeof m === "object" ? (m as Record<string, unknown>) : {};
     const id = typeof row.id === "string" && row.id.length > 0 ? row.id : `mem-${i}`;
     const memory = typeof row.memory === "string" ? row.memory : "";
-    const score = typeof row.score === "number" && Number.isFinite(row.score) ? row.score : undefined;
+    const score =
+      typeof row.score === "number" && Number.isFinite(row.score) ? row.score : undefined;
+
     return { id, memory, score };
   });
 
@@ -104,7 +108,9 @@ export const MemorySearchToolResultCard = memo(function MemorySearchToolResultCa
   const titleLine = `Fetched ${count} ${count === 1 ? "memory" : "memories"} on “${qShort}”`;
 
   const summaryLabel =
-    memories.length === 0 ? "No memories" : `${memories.length} memor${memories.length === 1 ? "y" : "ies"}`;
+    memories.length === 0
+      ? "No memories"
+      : `${memories.length} memor${memories.length === 1 ? "y" : "ies"}`;
 
   return (
     <div

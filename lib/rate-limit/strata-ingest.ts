@@ -1,8 +1,8 @@
+import type { RateLimitResult } from "./title";
+
 import { Ratelimit } from "@upstash/ratelimit";
 
 import { redis } from "@/lib/redis/redis";
-
-import type { RateLimitResult } from "./title";
 
 const ingestGlobalLimiter = new Ratelimit({
   redis,

@@ -1,10 +1,10 @@
 "use client";
 
+import type { StrataPageWithSections, StrataSourceComposerSettings } from "@/lib/schemas/strata";
+import type { StrataPageAssistantSession } from "@/lib/strata/assistant-session";
+
 import { useEffect } from "react";
 
-import type { StrataPageWithSections, StrataSourceComposerSettings } from "@/lib/schemas/strata";
-
-import type { StrataPageAssistantSession } from "@/lib/strata/assistant-session";
 import { StrataShellBottomChrome } from "./strata-shell/StrataShellBottomChrome";
 import { StrataShellHeader } from "./strata-shell/StrataShellHeader";
 import { StrataShellStatusFooter } from "./strata-shell/StrataShellStatusFooter";
@@ -22,9 +22,7 @@ export function StrataShell({
   initialData: StrataPageWithSections;
   dbAvailable: boolean;
   assistantSession?: StrataPageAssistantSession;
-  onRegisterComposerPersist?: (
-    fn: (patch: Partial<StrataSourceComposerSettings>) => void
-  ) => void;
+  onRegisterComposerPersist?: (fn: (patch: Partial<StrataSourceComposerSettings>) => void) => void;
 }) {
   const shell = useStrataShellController(initialData, dbAvailable);
 
