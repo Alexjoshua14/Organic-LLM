@@ -6,7 +6,7 @@ import { Suspense } from "react";
 
 import { SidebarChats } from "./sidebar-chats";
 import { SidebarContentSwitcher } from "./sidebar-content-switcher";
-import { SidebarNewChat } from "./sidebar-new-chat";
+import { SidebarExperienceRail } from "./sidebar-experience-rail";
 import { SidebarProjectLink } from "./sidebar-project-link";
 import { PrototypesSidebarContent, PrototypesSidebarFallback } from "./prototypes-sidebar-content";
 
@@ -25,18 +25,8 @@ function NormalSidebarContent() {
     <>
       <SidebarGroup className="shrink-0">
         <SidebarGroupContent className="flex flex-col gap-3">
-          <SidebarNewChat />
-          <SidebarProjectLink
-            href="/rabbitholes/browse"
-            title="Rabbit Holes"
-            tooltip="Browse rabbit holes"
-          />
+          <SidebarExperienceRail />
           <SidebarProjectLink href="/speak" title="Speak" tooltip="Prometheus text-to-speech" />
-          <SidebarProjectLink
-            href="/remy"
-            title="Remy"
-            tooltip="Chat with Remy, your culinary co-chef"
-          />
           <Input
             classNames={{
               input: ["bg-transparent", "hover:bg-transparent"],
