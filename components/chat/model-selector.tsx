@@ -4,6 +4,8 @@ import { Select, SelectItem } from "@heroui/select";
 
 import { glass } from "../design-system/primitives";
 
+import { ModelZdrIndicator } from "./model-zdr-indicator";
+
 import { ChatModels, ChatModel } from "@/lib/schemas/chat";
 
 type ModelSelectorProps = {
@@ -45,7 +47,10 @@ export const ModelSelector: React.FC<ModelSelectorProps> = ({
       >
         {(model) => (
           <SelectItem key={model.id} textValue={model.name}>
-            {model.name}
+            <span className="flex min-w-0 items-center gap-2">
+              <span className="truncate">{model.name}</span>
+              {model.supportsZeroDataRetention && <ModelZdrIndicator />}
+            </span>
           </SelectItem>
         )}
       </Select>

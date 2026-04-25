@@ -50,6 +50,7 @@ import {
 } from "../third-party/ai-elements/prompt-input";
 
 import { ChatMessageMarkdown } from "./chat-message-markdown";
+import { ModelZdrIndicator } from "./model-zdr-indicator";
 
 import { cn } from "@/lib/utils";
 import { ChatModel, ChatModels, DEFAULT_CHAT_MODEL } from "@/lib/schemas/chat";
@@ -451,15 +452,23 @@ export const CoreInput: React.FC<CoreInputProps> = ({
                 onValueChange={handleModelSelection}
               >
                 <PromptInputSelectTrigger className="flex-1 max-w-32 sm:max-w-48 min-w-0">
-                  <PromptInputSelectValue className="truncate min-w-0" />
+                  <PromptInputSelectValue className="truncate min-w-0">
+                    <span className="flex min-w-0 items-center gap-2">
+                      <span className="truncate">{model.name}</span>
+                      {model.supportsZeroDataRetention && <ModelZdrIndicator />}
+                    </span>
+                  </PromptInputSelectValue>
                 </PromptInputSelectTrigger>
                 <PromptInputSelectContent
                   className="max-h-80 overflow-y-auto"
                   defaultValue={model.id}
                 >
                   {ChatModels.map((model) => (
-                    <PromptInputSelectItem key={model.id} value={model.id}>
-                      {model.name}
+                    <PromptInputSelectItem key={model.id} textValue={model.name} value={model.id}>
+                      <span className="flex min-w-0 items-center gap-2">
+                        <span className="truncate">{model.name}</span>
+                        {model.supportsZeroDataRetention && <ModelZdrIndicator />}
+                      </span>
                     </PromptInputSelectItem>
                   ))}
                 </PromptInputSelectContent>

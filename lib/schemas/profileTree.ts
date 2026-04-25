@@ -33,5 +33,10 @@ export const ProfileTreeSchema = z.object({
 });
 export type ProfileTree = z.infer<typeof ProfileTreeSchema>;
 
-export const ProfileTreeSourceSchema = z.enum(["tailored-seed", "llm-generated", "user-edited"]);
+export const ProfileTreeSourceSchema = z.enum([
+  "tailored-seed",
+  "llm-generated",
+  "partial-generated",
+  "user-edited",
+]);
 export type ProfileTreeSource = z.infer<typeof ProfileTreeSourceSchema>;

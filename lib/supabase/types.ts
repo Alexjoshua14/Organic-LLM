@@ -236,6 +236,47 @@ export type Database = {
         }
         Relationships: []
       }
+      profile_tree_revisions: {
+        Row: {
+          created_at: string
+          generation_metadata: Json
+          id: string
+          owner_id: string
+          profile_tree: Json
+          review_score: number | null
+          source: string
+          status: string
+        }
+        Insert: {
+          created_at?: string
+          generation_metadata?: Json
+          id?: string
+          owner_id?: string
+          profile_tree: Json
+          review_score?: number | null
+          source: string
+          status: string
+        }
+        Update: {
+          created_at?: string
+          generation_metadata?: Json
+          id?: string
+          owner_id?: string
+          profile_tree?: Json
+          review_score?: number | null
+          source?: string
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "profile_tree_revisions_owner_id_fkey"
+            columns: ["owner_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       rabbit_hole_branch_suggestions: {
         Row: {
           branch_id: string

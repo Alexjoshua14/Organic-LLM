@@ -48,6 +48,10 @@ const MODEL_COSTS: Record<string, ModelCost> = {
     inputPerMillion: 15.0,
     outputPerMillion: 75.0,
   },
+  "anthropic/claude-opus-4.7": {
+    inputPerMillion: 15.0,
+    outputPerMillion: 75.0,
+  },
   "anthropic/claude-sonnet-4.6": {
     inputPerMillion: 3.0,
     outputPerMillion: 15.0,
