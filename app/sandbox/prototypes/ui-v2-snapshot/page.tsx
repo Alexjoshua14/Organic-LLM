@@ -1,0 +1,405 @@
+import type { Metadata } from "next";
+import type { ReactNode } from "react";
+
+import Link from "next/link";
+import { Brain, Lock, MessageSquare, Moon, Search, Settings, Sparkles } from "lucide-react";
+
+import AdaptiveLiquidChrome from "@/components/background/AdaptiveLiquidChrome";
+import { glassPreview } from "@/components/design-system/primitives";
+import Page from "@/components/layout/page";
+import { cn } from "@/lib/utils";
+import { tabTitleMetadata } from "@/lib/metadata/tab-title";
+
+export const metadata: Metadata = {
+  ...tabTitleMetadata(null, "UI v2 Snapshot"),
+};
+
+type SnapshotVariant = "current" | "v2";
+
+const threads = [
+  {
+    title: "Memory architecture",
+    meta: "Today",
+    status: "Reasoning",
+  },
+  {
+    title: "Liquid glass typography",
+    meta: "Today",
+    status: "Design",
+  },
+  {
+    title: "Rabbit Hole: Agent UX",
+    meta: "Yesterday",
+    status: "Exploration",
+  },
+  {
+    title: "Profile summary review",
+    meta: "Apr 24",
+    status: "Memory",
+  },
+];
+
+const rabbitHoles = [
+  {
+    title: "Agentic UI patterns",
+    question: "How should an AI workspace reveal its reasoning without becoming noisy?",
+    branches: 12,
+    updated: "Today, 8:42 PM",
+    summary: "Mapped progressive disclosure, tool traces, and calm status surfaces.",
+  },
+  {
+    title: "Glass material research",
+    question: "What makes a digital glass surface feel alive while staying readable?",
+    branches: 8,
+    updated: "Today, 6:10 PM",
+    summary: "Collected notes on refraction, blur budgets, contrast, and motion restraint.",
+  },
+  {
+    title: "Memory as product UX",
+    question: "How can memory feel useful, inspectable, and under user control?",
+    branches: 15,
+    updated: "Yesterday",
+    summary: "Compared recall cards, consent flows, summary layers, and privacy controls.",
+  },
+];
+
+const settingsRows = [
+  {
+    icon: Brain,
+    title: "Profile memory",
+    value: "Enabled",
+    description: "Uses saved preferences and working context to personalize responses.",
+  },
+  {
+    icon: Moon,
+    title: "Appearance",
+    value: "System dark",
+    description: "Theme follows the device and keeps chrome intensity balanced.",
+  },
+  {
+    icon: Lock,
+    title: "Zero Data Retention",
+    value: "On",
+    description: "Requests non-retention from supported model providers.",
+  },
+  {
+    icon: Settings,
+    title: "Interface font",
+    value: "Commissioner",
+    description: "Prototype direction for the next Organic LLM interface voice.",
+  },
+];
+
+const toolChips = ["Memory", "Search", "Reasoning"];
+
+function surfaceClass(variant: SnapshotVariant, className?: string) {
+  if (variant === "v2") {
+    return cn(glassPreview({ depth: "raised", interactive: true }), "rounded-3xl", className);
+  }
+
+  return cn("rounded-2xl border border-border bg-background shadow-sm", className);
+}
+
+function mutedSurfaceClass(variant: SnapshotVariant, className?: string) {
+  if (variant === "v2") {
+    return cn(
+      "rounded-2xl border border-white/20 bg-background/32 shadow-inner backdrop-blur-sm dark:border-white/10 dark:bg-background-secondary/32",
+      className
+    );
+  }
+
+  return cn("rounded-xl border border-border/70 bg-background-secondary/70", className);
+}
+
+function Chip({ children, variant }: { children: ReactNode; variant: SnapshotVariant }) {
+  return (
+    <span
+      className={cn(
+        "rounded-full px-2.5 py-1 text-[11px] font-medium",
+        variant === "v2"
+          ? "border border-white/20 bg-background/34 text-foreground shadow-inner dark:border-white/10 dark:bg-background-secondary/34"
+          : "border border-border bg-background text-muted-foreground"
+      )}
+    >
+      {children}
+    </span>
+  );
+}
+
+function SidebarPreview({ variant }: { variant: SnapshotVariant }) {
+  return (
+    <aside
+      className={cn(
+        "flex min-h-[30rem] w-64 shrink-0 flex-col overflow-hidden p-4",
+        surfaceClass(variant),
+        variant === "v2" ? "font-commissioner" : "bg-background-secondary"
+      )}
+    >
+      <div className="mb-5">
+        <p className="text-[11px] font-medium uppercase tracking-[0.24em] text-muted-foreground">
+          Workspace
+        </p>
+        <h3 className="mt-1 text-lg font-semibold tracking-tight text-foreground">Organic LLM</h3>
+      </div>
+
+      <button
+        className={cn(
+          "mb-4 rounded-xl px-3 py-2 text-left text-sm font-medium",
+          variant === "v2" ? "bg-foreground text-background" : "bg-background text-foreground"
+        )}
+        type="button"
+      >
+        New chat
+      </button>
+
+      <div className="mb-4 flex items-center gap-2 rounded-xl border border-border/60 bg-background/50 px-3 py-2 text-xs text-muted-foreground">
+        <Search className="size-3.5" />
+        Search threads
+      </div>
+
+      <div className="space-y-2">
+        {threads.map((thread, index) => (
+          <div
+            className={cn(
+              "rounded-xl px-3 py-2",
+              index === 0
+                ? variant === "v2"
+                  ? "border border-accent/25 bg-accent/10"
+                  : "bg-background"
+                : "bg-transparent"
+            )}
+            key={thread.title}
+          >
+            <div className="truncate text-sm font-medium text-foreground">{thread.title}</div>
+            <div className="mt-1 flex items-center justify-between gap-2 text-[11px] text-muted-foreground">
+              <span>{thread.meta}</span>
+              <span>{thread.status}</span>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      <div className="mt-auto rounded-xl border border-border/60 bg-background/50 px-3 py-2 text-xs text-muted-foreground">
+        Rabbit Holes, Speak, Remy
+      </div>
+    </aside>
+  );
+}
+
+function ChatPreview({ variant }: { variant: SnapshotVariant }) {
+  return (
+    <section className={surfaceClass(variant, "flex min-h-[30rem] flex-1 flex-col p-4 sm:p-5")}>
+      <header className="mb-4 flex items-center justify-between gap-4">
+        <div>
+          <p className="text-[11px] font-medium uppercase tracking-[0.24em] text-muted-foreground">
+            Chat thread
+          </p>
+          <h3 className="mt-1 text-xl font-semibold tracking-tight text-foreground">
+            Memory architecture
+          </h3>
+        </div>
+        <Chip variant={variant}>GPT-5.5</Chip>
+      </header>
+
+      <div className="flex-1 space-y-4 overflow-hidden">
+        <div className={mutedSurfaceClass(variant, "ml-auto max-w-[80%] p-3")}>
+          <p className="text-sm leading-6 text-foreground">
+            Help me turn memory into a user-facing trust feature, not just a backend capability.
+          </p>
+        </div>
+
+        <div className={mutedSurfaceClass(variant, "max-w-[88%] p-4")}>
+          <div className="mb-3 flex flex-wrap gap-2">
+            {toolChips.map((chip) => (
+              <Chip key={chip} variant={variant}>
+                {chip}
+              </Chip>
+            ))}
+          </div>
+          <p className="text-sm leading-6 text-muted-foreground">
+            Treat memory as an inspectable layer: show what was used, let users correct it, and keep
+            retrieval narrow enough that the interface still feels fast and grounded.
+          </p>
+        </div>
+      </div>
+
+      <div className={mutedSurfaceClass(variant, "mt-5 flex items-center gap-3 p-3")}>
+        <MessageSquare className="size-4 shrink-0 text-muted-foreground" />
+        <span className="min-w-0 flex-1 text-sm text-muted-foreground">
+          Ask about memory, tools, or a thread...
+        </span>
+        <button
+          className="rounded-full bg-foreground px-4 py-2 text-sm font-medium text-background"
+          type="button"
+        >
+          Send
+        </button>
+      </div>
+    </section>
+  );
+}
+
+function RabbitHolesPreview({ variant }: { variant: SnapshotVariant }) {
+  return (
+    <section className={surfaceClass(variant, "p-4 sm:p-5")}>
+      <div className="mb-4 flex items-center justify-between gap-4">
+        <div>
+          <p className="text-[11px] font-medium uppercase tracking-[0.24em] text-muted-foreground">
+            Rabbit Holes
+          </p>
+          <h3 className="mt-1 text-xl font-semibold tracking-tight text-foreground">
+            Exploration sessions
+          </h3>
+        </div>
+        <Chip variant={variant}>3 active</Chip>
+      </div>
+
+      <div className="grid gap-3 lg:grid-cols-3">
+        {rabbitHoles.map((session) => (
+          <article className={mutedSurfaceClass(variant, "p-4")} key={session.title}>
+            <div className="mb-3 flex items-start justify-between gap-3">
+              <h4 className="text-sm font-semibold leading-snug text-foreground">
+                {session.title}
+              </h4>
+              <Sparkles className="size-4 shrink-0 text-accent" />
+            </div>
+            <p className="text-xs leading-5 text-muted-foreground">{session.question}</p>
+            <p className="mt-3 text-xs leading-5 text-foreground/80">{session.summary}</p>
+            <div className="mt-4 flex items-center justify-between text-[11px] text-muted-foreground">
+              <span>{session.branches} branches</span>
+              <span>{session.updated}</span>
+            </div>
+          </article>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+function SettingsPreview({ variant }: { variant: SnapshotVariant }) {
+  return (
+    <section className={surfaceClass(variant, "p-4 sm:p-5")}>
+      <div className="mb-4">
+        <p className="text-[11px] font-medium uppercase tracking-[0.24em] text-muted-foreground">
+          Settings
+        </p>
+        <h3 className="mt-1 text-xl font-semibold tracking-tight text-foreground">
+          Profile and controls
+        </h3>
+      </div>
+
+      <div className="grid gap-3 sm:grid-cols-[0.9fr_1.1fr]">
+        <div className={mutedSurfaceClass(variant, "p-4")}>
+          <div className="mb-4 size-12 rounded-2xl bg-foreground text-background grid place-items-center text-lg font-semibold">
+            AJ
+          </div>
+          <h4 className="text-base font-semibold text-foreground">Alex Joshua</h4>
+          <p className="mt-1 text-sm leading-5 text-muted-foreground">
+            Building a cohesive AI workspace with memory, voice, and deep exploration.
+          </p>
+        </div>
+
+        <div className="space-y-2">
+          {settingsRows.map((row) => {
+            const Icon = row.icon;
+
+            return (
+              <div
+                className={mutedSurfaceClass(variant, "flex items-start gap-3 p-3")}
+                key={row.title}
+              >
+                <Icon className="mt-0.5 size-4 shrink-0 text-accent" />
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center justify-between gap-3">
+                    <p className="text-sm font-medium text-foreground">{row.title}</p>
+                    <span className="text-xs text-muted-foreground">{row.value}</span>
+                  </div>
+                  <p className="mt-1 text-xs leading-5 text-muted-foreground">{row.description}</p>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function SnapshotShell({ variant }: { variant: SnapshotVariant }) {
+  const isV2 = variant === "v2";
+
+  return (
+    <section
+      className={cn(
+        "min-w-0 rounded-[2rem] border p-4 sm:p-5",
+        isV2
+          ? "font-commissioner border-white/16 bg-background/18 backdrop-blur-sm dark:bg-background/10"
+          : "border-border bg-background-secondary"
+      )}
+    >
+      <header className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+        <div>
+          <p className="text-xs font-medium uppercase tracking-[0.28em] text-accent/80">
+            {isV2 ? "Working prototype" : "Current UI"}
+          </p>
+          <h2 className="mt-1 text-3xl font-light tracking-[-0.04em] text-foreground">
+            {isV2 ? "Organic LLM v2" : "Organic LLM today"}
+          </h2>
+        </div>
+        <p className="max-w-sm text-sm leading-6 text-muted-foreground">
+          {isV2
+            ? "Commissioner, Organic Glass v2, and a calmer high-contrast surface system."
+            : "A compact approximation of current chat, exploration, and settings surfaces."}
+        </p>
+      </header>
+
+      <div className="space-y-4">
+        <div className="flex gap-4 overflow-hidden">
+          <SidebarPreview variant={variant} />
+          <ChatPreview variant={variant} />
+        </div>
+        <RabbitHolesPreview variant={variant} />
+        <SettingsPreview variant={variant} />
+      </div>
+    </section>
+  );
+}
+
+export default function UiV2SnapshotPrototypePage() {
+  return (
+    <Page transparentBackground className="overflow-hidden">
+      <AdaptiveLiquidChrome dimIntensity={0.48} dimIntensityFull={0.68} speed={0.01} />
+
+      <div className="relative z-10 h-full w-full overflow-y-auto">
+        <div className="mx-auto w-full max-w-[96rem] px-5 py-6 sm:px-8 sm:py-10">
+          <nav className="mb-8">
+            <Link
+              className="text-sm text-muted-foreground transition-colors hover:text-foreground"
+              href="/sandbox/prototypes"
+            >
+              &larr; Prototypes
+            </Link>
+          </nav>
+
+          <header className="mb-8 max-w-4xl">
+            <p className="mb-3 text-xs font-medium uppercase tracking-[0.3em] text-accent/80">
+              UI v2 snapshot
+            </p>
+            <h1 className="text-4xl font-light tracking-[-0.045em] text-foreground sm:text-5xl">
+              Current interface beside the Commissioner glass direction.
+            </h1>
+            <p className="mt-4 text-base leading-7 text-muted-foreground">
+              Placeholder data fills every surface so the next UI can be evaluated as a whole
+              product system, not as isolated components.
+            </p>
+          </header>
+
+          <div className="grid gap-5 xl:grid-cols-2">
+            <SnapshotShell variant="current" />
+            <SnapshotShell variant="v2" />
+          </div>
+        </div>
+      </div>
+    </Page>
+  );
+}
