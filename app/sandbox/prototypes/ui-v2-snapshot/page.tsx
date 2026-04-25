@@ -5,7 +5,7 @@ import Link from "next/link";
 import { Brain, Lock, MessageSquare, Moon, Search, Settings, Sparkles } from "lucide-react";
 
 import AdaptiveLiquidChrome from "@/components/background/AdaptiveLiquidChrome";
-import { glassPreview } from "@/components/design-system/primitives";
+import { glass, glassPreview } from "@/components/design-system/primitives";
 import Page from "@/components/layout/page";
 import { cn } from "@/lib/utils";
 import { tabTitleMetadata } from "@/lib/metadata/tab-title";
@@ -127,6 +127,58 @@ function Chip({ children, variant }: { children: ReactNode; variant: SnapshotVar
 }
 
 function SidebarPreview({ variant }: { variant: SnapshotVariant }) {
+  if (variant === "current") {
+    return (
+      <aside className="flex min-h-[30rem] w-64 shrink-0 flex-col overflow-hidden bg-background-secondary subpixel-antialiased">
+        <div className="grid h-16 shrink-0 place-content-center bg-background-secondary pl-7">
+          <h3 className="font-commissioner text-lg font-medium tracking-tight text-foreground">
+            Organic LLM
+          </h3>
+        </div>
+
+        <div className="flex shrink-0 flex-col gap-3 px-3 pb-3">
+          <button
+            className="flex w-full cursor-pointer items-center justify-center rounded bg-background-tertiary px-4 py-5 text-sm font-medium text-foreground"
+            type="button"
+          >
+            New Chat
+          </button>
+          {["Rabbit Holes", "Speak", "Remy"].map((item) => (
+            <button
+              className="flex w-full cursor-pointer items-center justify-center rounded bg-background-tertiary px-4 py-5 text-sm font-medium text-foreground"
+              key={item}
+              type="button"
+            >
+              {item}
+            </button>
+          ))}
+          <div className="flex items-center gap-2 rounded px-1 py-2 text-sm text-muted-foreground">
+            <Search className="size-4" />
+            <span>Search your threads...</span>
+          </div>
+        </div>
+
+        <div className="min-h-0 flex-1 overflow-y-auto px-2 py-1">
+          <div className="mb-2 px-2 text-xs font-medium text-foreground">All Threads</div>
+          <div className="space-y-1">
+            {threads.map((thread, index) => (
+              <div
+                className={cn(
+                  "group flex items-center justify-between gap-2 rounded px-2 py-2 text-sm",
+                  index === 0 ? "bg-background text-foreground" : "text-muted-foreground"
+                )}
+                key={thread.title}
+              >
+                <span className="truncate">{thread.title}</span>
+                <span className="text-[10px] opacity-60">{thread.meta}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      </aside>
+    );
+  }
+
   return (
     <aside
       className={cn(
@@ -187,6 +239,46 @@ function SidebarPreview({ variant }: { variant: SnapshotVariant }) {
 }
 
 function ChatPreview({ variant }: { variant: SnapshotVariant }) {
+  if (variant === "current") {
+    return (
+      <section className="flex min-h-[30rem] flex-1 flex-col bg-background p-4 sm:p-5">
+        <div className="mx-auto flex w-full max-w-2xl flex-1 flex-col gap-8 px-4 pt-10">
+          <div className="max-w-4/5 place-self-end overflow-hidden text-foreground">
+            <div className={cn(glass(), "rounded-lg p-4")}>
+              <p className="text-sm leading-6">
+                Help me turn memory into a user-facing trust feature, not just a backend capability.
+              </p>
+            </div>
+          </div>
+
+          <div className="max-w-[88%] rounded-lg border border-border/60 bg-background-tertiary/30 p-4 text-foreground backdrop-blur-2xl">
+            <div className="mb-3 flex flex-wrap gap-2">
+              {toolChips.map((chip) => (
+                <Chip key={chip} variant={variant}>
+                  {chip}
+                </Chip>
+              ))}
+            </div>
+            <p className="text-sm leading-6 text-muted-foreground">
+              Treat memory as an inspectable layer: show what was used, let users correct it, and
+              keep retrieval narrow enough that the interface still feels fast and grounded.
+            </p>
+          </div>
+        </div>
+
+        <div className="mx-auto mt-5 flex w-full max-w-2xl items-center gap-3 rounded-lg border border-border bg-background-tertiary/25 p-3">
+          <MessageSquare className="size-4 shrink-0 text-muted-foreground" />
+          <span className="min-w-0 flex-1 text-sm text-muted-foreground">
+            Ask about memory, tools, or a thread...
+          </span>
+          <button className="rounded bg-foreground px-4 py-2 text-sm text-background" type="button">
+            Send
+          </button>
+        </div>
+      </section>
+    );
+  }
+
   return (
     <section className={surfaceClass(variant, "flex min-h-[30rem] flex-1 flex-col p-4 sm:p-5")}>
       <header className="mb-4 flex items-center justify-between gap-4">
@@ -240,6 +332,48 @@ function ChatPreview({ variant }: { variant: SnapshotVariant }) {
 }
 
 function RabbitHolesPreview({ variant }: { variant: SnapshotVariant }) {
+  if (variant === "current") {
+    return (
+      <section className="bg-background px-5 py-6 sm:px-8">
+        <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <h3 className="mb-2 font-commissioner text-3xl font-light tracking-tight text-foreground">
+              Rabbit Holes
+            </h3>
+            <p className="text-sm text-muted-foreground">
+              Browse and manage your exploration sessions
+            </p>
+          </div>
+          <button
+            className="rounded-md bg-foreground px-4 py-2 text-sm text-background"
+            type="button"
+          >
+            New Rabbit Hole
+          </button>
+        </div>
+
+        <div className="grid gap-4">
+          {rabbitHoles.map((session) => (
+            <article
+              className="rounded-lg border border-border bg-card/80 p-6 shadow-sm backdrop-blur-sm"
+              key={session.title}
+            >
+              <h4 className="mb-2 font-commissioner text-lg font-light text-foreground">
+                {session.title}
+              </h4>
+              <p className="mb-3 line-clamp-2 text-sm text-muted-foreground">{session.summary}</p>
+              <div className="flex items-center gap-4 text-xs text-muted-foreground">
+                <span>{session.updated}</span>
+                <span>•</span>
+                <span>{session.branches} levels explored</span>
+              </div>
+            </article>
+          ))}
+        </div>
+      </section>
+    );
+  }
+
   return (
     <section className={surfaceClass(variant, "p-4 sm:p-5")}>
       <div className="mb-4 flex items-center justify-between gap-4">
@@ -277,6 +411,61 @@ function RabbitHolesPreview({ variant }: { variant: SnapshotVariant }) {
 }
 
 function SettingsPreview({ variant }: { variant: SnapshotVariant }) {
+  if (variant === "current") {
+    return (
+      <section className="bg-background">
+        <div className="flex w-full items-center justify-between border-b border-border px-8 py-3">
+          <div aria-hidden className="w-20" />
+          <h3 className="text-lg font-semibold text-foreground">Settings</h3>
+          <div aria-hidden className="w-20" />
+        </div>
+
+        <div className="mx-auto max-w-2xl px-4 py-6 md:px-8">
+          <div className="mb-6 grid w-full grid-cols-4 rounded-lg bg-muted p-1 text-sm">
+            {["Profile", "Appearance", "Memory", "Privacy"].map((tab, index) => (
+              <div
+                className={cn(
+                  "rounded-md px-3 py-1.5 text-center",
+                  index === 0 ? "bg-background text-foreground shadow-sm" : "text-muted-foreground"
+                )}
+                key={tab}
+              >
+                {tab}
+              </div>
+            ))}
+          </div>
+
+          <div className="space-y-6">
+            <div className="rounded-lg border border-border bg-background px-4 py-4 shadow-sm">
+              <h4 className="text-base font-semibold text-foreground">Alex Joshua</h4>
+              <p className="mt-1 text-sm leading-5 text-muted-foreground">
+                Building a cohesive AI workspace with memory, voice, and deep exploration.
+              </p>
+            </div>
+            {settingsRows.slice(0, 3).map((row) => {
+              const Icon = row.icon;
+
+              return (
+                <div className="flex items-start gap-3" key={row.title}>
+                  <Icon className="mt-0.5 size-4 shrink-0 text-muted-foreground" />
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center justify-between gap-3">
+                      <p className="text-sm font-medium text-foreground">{row.title}</p>
+                      <span className="text-sm text-muted-foreground">{row.value}</span>
+                    </div>
+                    <p className="mt-1 text-xs leading-5 text-muted-foreground">
+                      {row.description}
+                    </p>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      </section>
+    );
+  }
+
   return (
     <section className={surfaceClass(variant, "p-4 sm:p-5")}>
       <div className="mb-4">
@@ -349,7 +538,7 @@ function SnapshotShell({ variant }: { variant: SnapshotVariant }) {
         <p className="max-w-sm text-sm leading-6 text-muted-foreground">
           {isV2
             ? "Commissioner, Organic Glass v2, and a calmer high-contrast surface system."
-            : "A compact approximation of current chat, exploration, and settings surfaces."}
+            : "A concise snapshot of today's sidebar, chat, Rabbit Holes, and settings patterns."}
         </p>
       </header>
 
