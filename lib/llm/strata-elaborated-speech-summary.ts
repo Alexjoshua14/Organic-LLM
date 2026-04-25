@@ -1,5 +1,7 @@
 import "server-only";
 
+import type { Result } from "@/types";
+
 import { generateText } from "ai";
 
 import { GUARDRAIL_MAX_OUTPUT_TOKENS } from "@/lib/llm/helpers";
@@ -8,7 +10,6 @@ import { TITLE_PIPELINE_SUMMARIZER_MODEL } from "@/lib/llm/title-models";
 import { STRATA_ELABORATED_SPEECH_SUMMARY_INPUT_MAX_CHARS } from "@/lib/strata/elaborated-tts";
 import { isElevenLabsV3SpeechModelId } from "@/lib/tts/elevenlabs-v3-speech";
 import { normalizeSummaryScriptWhitespace } from "@/lib/tts/strata-summary-script-format";
-import type { Result } from "@/types";
 
 const STRATA_ELABORATED_SPEECH_SUMMARY_SYSTEM_BASE = `
 You write a single spoken paragraph for text-to-speech (no title, no lists, no markdown).
@@ -39,12 +40,15 @@ function buildSpeechSummarySystem(ttsModelId: string | undefined | null): string
   if (isElevenLabsV3SpeechModelId(ttsModelId)) {
     return `${STRATA_ELABORATED_SPEECH_SUMMARY_SYSTEM_BASE}\n\n${STRATA_ELEVEN_V3_TAGGED_SPEECH_APPENDIX}`;
   }
+
   return `${STRATA_ELABORATED_SPEECH_SUMMARY_SYSTEM_BASE}\n\n${STRATA_ELABORATED_SPEECH_SUMMARY_PLAIN_FOOTER}`;
 }
 
 function clampInputForSummarizer(plain: string): string {
   const t = plain.trim();
+
   if (t.length <= STRATA_ELABORATED_SPEECH_SUMMARY_INPUT_MAX_CHARS) return t;
+
   return t.slice(0, STRATA_ELABORATED_SPEECH_SUMMARY_INPUT_MAX_CHARS);
 }
 
@@ -55,11 +59,13 @@ export async function generateStrataElaboratedSpeechSummaryScript(options: {
   ttsModelId?: string | null;
 }): Promise<Result<string>> {
   const input = clampInputForSummarizer(options.elaboratedPlain);
+
   if (!input) {
     return { data: null, error: new Error("No elaborated text to summarize") };
   }
 
   const start = performance.now();
+
   try {
     const result = await generateText({
       model: TITLE_PIPELINE_SUMMARIZER_MODEL,
@@ -80,9 +86,11 @@ export async function generateStrataElaboratedSpeechSummaryScript(options: {
     });
 
     const script = normalizeSummaryScriptWhitespace(result.text ?? "");
+
     if (!script) {
       return { data: null, error: new Error("Summary script was empty") };
     }
+
     return { data: script, error: null };
   } catch (err) {
     return {

@@ -17,17 +17,16 @@ import { buildRawDiffPromptBlock } from "@/lib/strata/raw-diff";
 export const maxDuration = 30;
 
 function clampTitleToEightWords(title: string): string {
-  const words = title
-    .replace(/\s+/g, " ")
-    .trim()
-    .split(" ")
-    .filter(Boolean);
+  const words = title.replace(/\s+/g, " ").trim().split(" ").filter(Boolean);
+
   if (words.length === 0) return "Refined Draft";
+
   return words.slice(0, 8).join(" ");
 }
 
 export async function POST(req: Request) {
   const user = await auth();
+
   if (!user?.userId) {
     return new Response(JSON.stringify({ error: "Unauthorized" }), {
       status: 401,
@@ -36,6 +35,7 @@ export async function POST(req: Request) {
   }
 
   let body: unknown;
+
   try {
     body = await req.json();
   } catch {
@@ -46,6 +46,7 @@ export async function POST(req: Request) {
   }
 
   const parsed = StrataGenerateRequestSchema.safeParse(body);
+
   if (!parsed.success) {
     return new Response(
       JSON.stringify({ error: "Invalid request", details: parsed.error.flatten() }),
@@ -57,6 +58,7 @@ export async function POST(req: Request) {
   }
 
   const sbUserIdResult = await getSupabaseUserId(user.userId);
+
   if (sbUserIdResult.error || sbUserIdResult.data === null) {
     return new Response(JSON.stringify({ error: "User not found in supabase" }), {
       status: 404,
@@ -66,15 +68,13 @@ export async function POST(req: Request) {
   const sbUserId = sbUserIdResult.data;
 
   try {
-    let sections:
-      | {
-          raw_text: { content: string; contentJson?: Record<string, unknown> | null };
-          refined_text: { content: string };
-          elaborated: { content: string };
-          design_instructions: { content: string };
-          ai_instructions: { content: string };
-        }
-      | null = null;
+    let sections: {
+      raw_text: { content: string; contentJson?: Record<string, unknown> | null };
+      refined_text: { content: string };
+      elaborated: { content: string };
+      design_instructions: { content: string };
+      ai_instructions: { content: string };
+    } | null = null;
 
     if (parsed.data.sectionsSnapshot) {
       sections = {
@@ -91,6 +91,7 @@ export async function POST(req: Request) {
       }
     } else if (parsed.data.pageId) {
       const pageData = await getStrataPageById(parsed.data.pageId);
+
       if (!pageData) {
         return new Response(JSON.stringify({ error: "Strata page not found" }), {
           status: 404,
@@ -149,9 +150,7 @@ Return JSON only using the required output schema.`;
     const searchMemoriesTool =
       process.env.NODE_ENV === "test"
         ? ({ __tool: "search_memories_stub" } as any)
-        : (
-            await import("@/lib/llm/strata-memory-tool")
-          ).createStrataMemorySearchTool(sbUserId);
+        : (await import("@/lib/llm/strata-memory-tool")).createStrataMemorySearchTool(sbUserId);
 
     const { text: toolingContext } = await generateText({
       model: "openai/gpt-5.4-mini",

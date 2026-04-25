@@ -1,3 +1,5 @@
+import type { TTSModel } from "@/lib/tts/token-calculator";
+
 import { createHash } from "crypto";
 
 import { NextRequest, NextResponse } from "next/server";
@@ -7,7 +9,6 @@ import { createLogger } from "@/lib/logger";
 import { transformTextToSpeechFriendlyV2 } from "@/lib/llm/text-to-speech";
 import { stripSpeechTags } from "@/lib/tts/speech-tags";
 import { createTtsV2AudioCache } from "@/lib/tts/tts-v2-audio-cache";
-import type { TTSModel } from "@/lib/tts/token-calculator";
 
 const logger = createLogger("app/api/ai/tts-v2/route.ts");
 
@@ -97,6 +98,7 @@ export async function POST(req: NextRequest) {
       logger.log("TTS Route", `Speech-friendly text length: ${speechFriendlyText?.length ?? 0}`);
     } catch (error) {
       const e = error instanceof Error ? error : new Error(String(error));
+
       logger.error("TTS Route", `Error transforming text: ${e.name}`);
     } finally {
       const speechFriendlyTextEndGeneration = performance.now();

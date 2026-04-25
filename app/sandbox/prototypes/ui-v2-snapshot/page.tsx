@@ -2,14 +2,15 @@ import type { Metadata } from "next";
 import type { ReactNode } from "react";
 
 import Link from "next/link";
-import { Brain, Lock, Moon, Search, Settings, Sparkles } from "lucide-react";
+import { Brain, Lock, Moon, Search, Settings } from "lucide-react";
 
+import { AssistantMessageActionsSnapshotPreview } from "./_components/assistant-message-actions-snapshot-preview";
 import { CurrentCoreInputPreview } from "./_components/current-core-input-preview";
 
 import AdaptiveLiquidChrome from "@/components/background/AdaptiveLiquidChrome";
+import { OrganicGlassBaselineSurface } from "@/components/design-system/organic-glass-baseline-surface";
 import { glass, glassPreview } from "@/components/design-system/primitives";
 import Page from "@/components/layout/page";
-import ShinyText from "@/components/ShinyText";
 import { cn } from "@/lib/utils";
 import { tabTitleMetadata } from "@/lib/metadata/tab-title";
 
@@ -93,22 +94,19 @@ const settingsRows = [
   },
 ];
 
-const toolChips = ["Memory", "Search", "Reasoning"];
+const CHAT_USER_SNAPSHOT =
+  "Help me turn memory into a user-facing trust feature, not just a backend capability.";
 
-function surfaceClass(variant: SnapshotVariant, className?: string) {
-  if (variant === "v2") {
-    return cn(glassPreview({ depth: "raised", interactive: true }), "rounded-2xl", className);
-  }
+const CHAT_ASSISTANT_SNAPSHOT =
+  "Treat memory as an inspectable layer: show what was used, let users correct it, and keep retrieval narrow enough that the interface still feels fast and grounded.";
 
-  return cn("rounded-2xl border border-border bg-background shadow-sm", className);
+function currentSurfaceClass(className?: string) {
+  return cn("rounded-2xl border border-border bg-background-secondary", className);
 }
 
 function mutedSurfaceClass(variant: SnapshotVariant, className?: string) {
   if (variant === "v2") {
-    return cn(
-      "rounded-xl border border-white/20 bg-background/32 shadow-inner backdrop-blur-sm dark:border-white/10 dark:bg-background-secondary/32",
-      className
-    );
+    return cn(glassPreview({ depth: "raised", opaque: true }), "rounded-xl", className);
   }
 
   return cn("rounded-xl border border-border/70 bg-background-secondary/70", className);
@@ -194,12 +192,9 @@ function SidebarPreview({ variant }: { variant: SnapshotVariant }) {
   }
 
   return (
-    <aside
-      className={cn(
-        "flex min-h-[30rem] w-64 shrink-0 flex-col overflow-hidden p-4",
-        surfaceClass(variant),
-        variant === "v2" ? "font-commissioner" : "bg-background-secondary"
-      )}
+    <OrganicGlassBaselineSurface
+      className="flex min-h-[30rem] w-64 shrink-0 flex-col font-commissioner"
+      compact
     >
       <div className="mb-5">
         <p className="text-[11px] font-medium uppercase tracking-[0.24em] text-muted-foreground">
@@ -209,10 +204,7 @@ function SidebarPreview({ variant }: { variant: SnapshotVariant }) {
       </div>
 
       <button
-        className={cn(
-          "mb-4 rounded-lg px-3 py-2 text-left text-sm font-medium",
-          variant === "v2" ? "bg-foreground text-background" : "bg-background text-foreground"
-        )}
+        className="mb-4 rounded-lg bg-foreground px-3 py-2 text-left text-sm font-medium text-background"
         type="button"
       >
         New chat
@@ -228,11 +220,7 @@ function SidebarPreview({ variant }: { variant: SnapshotVariant }) {
           <div
             className={cn(
               "rounded-lg px-3 py-2",
-              index === 0
-                ? variant === "v2"
-                  ? "border border-accent/25 bg-accent/10"
-                  : "bg-background"
-                : "bg-transparent"
+              index === 0 ? "border border-accent/25 bg-accent/10" : "bg-transparent"
             )}
             key={thread.title}
           >
@@ -248,7 +236,7 @@ function SidebarPreview({ variant }: { variant: SnapshotVariant }) {
       <div className="mt-auto rounded-lg border border-border/60 bg-background/50 px-3 py-2 text-xs text-muted-foreground">
         Rabbit Holes, Speak, Remy
       </div>
-    </aside>
+    </OrganicGlassBaselineSurface>
   );
 }
 
@@ -257,26 +245,17 @@ function ChatPreview({ variant }: { variant: SnapshotVariant }) {
     return (
       <section className="flex min-h-[30rem] flex-1 flex-col bg-background p-4 sm:p-5">
         <div className="mx-auto flex w-full max-w-2xl flex-1 flex-col gap-8 px-4 pt-10">
-          <div className="max-w-4/5 place-self-end overflow-hidden text-foreground">
+          <div className="max-w-4/5 w-fit self-end overflow-hidden text-foreground">
             <div className={cn(glass(), "rounded-lg p-4")}>
-              <p className="text-sm leading-6">
-                Help me turn memory into a user-facing trust feature, not just a backend capability.
-              </p>
+              <p className="text-sm leading-6 text-foreground">{CHAT_USER_SNAPSHOT}</p>
             </div>
           </div>
 
-          <div className="max-w-[88%] rounded-lg border border-border/60 bg-background-tertiary/30 p-4 text-foreground backdrop-blur-2xl">
-            <div className="mb-3 flex flex-wrap gap-2">
-              {toolChips.map((chip) => (
-                <Chip key={chip} variant={variant}>
-                  {chip}
-                </Chip>
-              ))}
+          <div className="group/ai-message flex max-w-[88%] flex-col gap-2 rounded-lg p-4">
+            <div className="prose dark:prose-invert max-w-full space-y-2 text-sm leading-6 text-foreground">
+              <p className="text-foreground">{CHAT_ASSISTANT_SNAPSHOT}</p>
             </div>
-            <p className="text-sm leading-6 text-muted-foreground">
-              Treat memory as an inspectable layer: show what was used, let users correct it, and
-              keep retrieval narrow enough that the interface still feels fast and grounded.
-            </p>
+            <AssistantMessageActionsSnapshotPreview text={CHAT_ASSISTANT_SNAPSHOT} />
           </div>
         </div>
 
@@ -288,7 +267,7 @@ function ChatPreview({ variant }: { variant: SnapshotVariant }) {
   }
 
   return (
-    <section className={surfaceClass(variant, "flex min-h-[30rem] flex-1 flex-col p-4 sm:p-5")}>
+    <OrganicGlassBaselineSurface className="flex min-h-[30rem] flex-1 flex-col">
       <header className="mb-4 flex items-center justify-between gap-4">
         <div>
           <p className="text-[11px] font-medium uppercase tracking-[0.24em] text-muted-foreground">
@@ -301,25 +280,25 @@ function ChatPreview({ variant }: { variant: SnapshotVariant }) {
         <Chip variant={variant}>GPT-5.5</Chip>
       </header>
 
-      <div className="flex-1 space-y-4 overflow-hidden">
-        <div className={mutedSurfaceClass(variant, "ml-auto max-w-[80%] p-3")}>
-          <p className="text-sm leading-6 text-foreground">
-            Help me turn memory into a user-facing trust feature, not just a backend capability.
-          </p>
+      <div className="min-h-0 flex flex-1 flex-col gap-8 overflow-x-hidden overflow-y-auto py-0.5">
+        <div className="max-w-4/5 w-fit self-end overflow-hidden text-foreground">
+          <div className={cn(glass(), "rounded-lg p-4")}>
+            <p className="text-sm leading-6 text-foreground">{CHAT_USER_SNAPSHOT}</p>
+          </div>
         </div>
 
-        <div className={mutedSurfaceClass(variant, "max-w-[88%] p-4")}>
-          <p className="text-sm leading-6 text-muted-foreground">
-            Treat memory as an inspectable layer: show what was used, let users correct it, and keep
-            retrieval narrow enough that the interface still feels fast and grounded.
-          </p>
+        <div className="group/ai-message flex max-w-[88%] flex-col gap-2 rounded-lg p-4">
+          <div className="prose dark:prose-invert max-w-full space-y-2 text-sm leading-6 text-foreground">
+            <p className="text-foreground">{CHAT_ASSISTANT_SNAPSHOT}</p>
+          </div>
+          <AssistantMessageActionsSnapshotPreview text={CHAT_ASSISTANT_SNAPSHOT} />
         </div>
       </div>
 
-      <div className="mt-5">
+      <div className="mt-5 overflow-visible px-0.5 pb-1">
         <CurrentCoreInputPreview variant="v2" />
       </div>
-    </section>
+    </OrganicGlassBaselineSurface>
   );
 }
 
@@ -367,47 +346,45 @@ function RabbitHolesPreview({ variant }: { variant: SnapshotVariant }) {
   }
 
   return (
-    <section className={surfaceClass(variant, "p-4 sm:p-5")}>
-      <div className="mb-4 flex items-center justify-between gap-4">
-        <div>
-          <p className="text-[11px] font-medium uppercase tracking-[0.24em] text-muted-foreground">
-            Rabbit Holes
-          </p>
-          <h3 className="mt-1 text-xl font-semibold tracking-tight text-foreground">
-            Exploration sessions
-          </h3>
+    <OrganicGlassBaselineSurface className="!p-0">
+      <div className="px-5 py-6 sm:px-8">
+        <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <h3 className="mb-2 font-commissioner text-3xl font-light tracking-tight text-foreground">
+              Rabbit Holes
+            </h3>
+            <p className="text-sm text-muted-foreground">
+              Browse and manage your exploration sessions
+            </p>
+          </div>
+          <button
+            className="rounded-md bg-foreground px-4 py-2 text-sm text-background"
+            type="button"
+          >
+            New Rabbit Hole
+          </button>
         </div>
-        <Chip variant={variant}>3 active</Chip>
-      </div>
 
-      <div className="grid gap-3 lg:grid-cols-3">
-        {rabbitHoles.map((session) => (
-          <article className={mutedSurfaceClass(variant, "group p-4")} key={session.title}>
-            <div className="mb-3 flex items-start justify-between gap-3">
-              <h4 className="text-sm font-semibold leading-snug text-foreground">
-                <ShinyText
-                  accentShimmer
-                  as="span"
-                  className="cursor-inherit"
-                  shimmerOnParentGroupHover
-                  speed={2.8}
-                  text={session.title}
-                />
+        <div className="grid gap-4">
+          {rabbitHoles.map((session) => (
+            <article
+              className="rounded-lg border border-border bg-card/80 p-6 shadow-sm backdrop-blur-sm"
+              key={session.title}
+            >
+              <h4 className="mb-2 font-commissioner text-lg font-light text-foreground">
+                {session.title}
               </h4>
-              <ShimmerIcon>
-                <Sparkles className="size-4" />
-              </ShimmerIcon>
-            </div>
-            <p className="text-xs leading-5 text-muted-foreground">{session.question}</p>
-            <p className="mt-3 text-xs leading-5 text-foreground/80">{session.summary}</p>
-            <div className="mt-4 flex items-center justify-between text-[11px] font-light tracking-[0.01em] text-muted-foreground/70 [font-family:var(--font-inter)] [font-variation-settings:'wght'_330]">
-              <span>{session.branches} branches</span>
-              <span>{session.updated}</span>
-            </div>
-          </article>
-        ))}
+              <p className="mb-3 line-clamp-2 text-sm text-muted-foreground">{session.summary}</p>
+              <div className="flex items-center gap-4 text-xs text-muted-foreground">
+                <span>{session.updated}</span>
+                <span>•</span>
+                <span>{session.branches} levels explored</span>
+              </div>
+            </article>
+          ))}
+        </div>
       </div>
-    </section>
+    </OrganicGlassBaselineSurface>
   );
 }
 
@@ -468,7 +445,7 @@ function SettingsPreview({ variant }: { variant: SnapshotVariant }) {
   }
 
   return (
-    <section className={surfaceClass(variant, "p-4 sm:p-5")}>
+    <OrganicGlassBaselineSurface>
       <div className="mb-4">
         <p className="text-[11px] font-medium uppercase tracking-[0.24em] text-muted-foreground">
           Settings
@@ -513,46 +490,60 @@ function SettingsPreview({ variant }: { variant: SnapshotVariant }) {
           })}
         </div>
       </div>
-    </section>
+    </OrganicGlassBaselineSurface>
   );
 }
 
 function SnapshotShell({ variant }: { variant: SnapshotVariant }) {
   const isV2 = variant === "v2";
 
-  return (
-    <section
-      className={cn(
-        "min-w-0 rounded-2xl border p-4 sm:p-5",
-        isV2
-          ? "font-commissioner border-white/16 bg-background/18 backdrop-blur-sm dark:bg-background/10"
-          : "border-border bg-background-secondary"
-      )}
-    >
-      <header className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
-        <div>
-          <p className="text-xs font-medium uppercase tracking-[0.28em] text-accent/80">
-            {isV2 ? "Working prototype" : "Current UI"}
-          </p>
-          <h2 className="mt-1 text-3xl font-light tracking-[-0.04em] text-foreground">
-            {isV2 ? "Organic LLM v2" : "Organic LLM today"}
-          </h2>
-        </div>
-        <p className="max-w-sm text-sm leading-6 text-muted-foreground">
-          {isV2
-            ? "Commissioner, Organic Glass v2, and a calmer high-contrast surface system."
-            : "A concise snapshot of today's sidebar, chat, Rabbit Holes, and settings patterns."}
+  const header = (
+    <header className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+      <div>
+        <p className="text-xs font-medium uppercase tracking-[0.28em] text-accent/80">
+          {isV2 ? "Working prototype" : "Current UI"}
         </p>
-      </header>
-
-      <div className="space-y-4">
-        <div className="flex gap-4 overflow-hidden">
-          <SidebarPreview variant={variant} />
-          <ChatPreview variant={variant} />
-        </div>
-        <RabbitHolesPreview variant={variant} />
-        <SettingsPreview variant={variant} />
+        <h2 className="mt-1 text-3xl font-light tracking-[-0.04em] text-foreground">
+          {isV2 ? "Organic LLM v2" : "Organic LLM today"}
+        </h2>
       </div>
+      <p className="max-w-sm text-sm leading-6 text-muted-foreground">
+        {isV2
+          ? "Commissioner, Organic Glass baseline candidate, and a calmer high-contrast surface system."
+          : "A concise snapshot of today's sidebar, chat, Rabbit Holes, and settings patterns."}
+      </p>
+    </header>
+  );
+
+  const body = (
+    <div className="space-y-4 overflow-visible py-0.5">
+      <div
+        className={cn(
+          "flex min-w-0 gap-4",
+          isV2 ? "items-stretch overflow-x-auto overflow-y-visible py-0.5" : "overflow-hidden"
+        )}
+      >
+        <SidebarPreview variant={variant} />
+        <ChatPreview variant={variant} />
+      </div>
+      <RabbitHolesPreview variant={variant} />
+      <SettingsPreview variant={variant} />
+    </div>
+  );
+
+  if (isV2) {
+    return (
+      <OrganicGlassBaselineSurface className="min-w-0 font-commissioner" compact>
+        {header}
+        {body}
+      </OrganicGlassBaselineSurface>
+    );
+  }
+
+  return (
+    <section className={currentSurfaceClass("min-w-0 p-4 sm:p-5")}>
+      {header}
+      {body}
     </section>
   );
 }

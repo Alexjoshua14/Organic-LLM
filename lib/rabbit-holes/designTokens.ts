@@ -8,6 +8,8 @@
  * "compact" = mobile Safari layout. Default = desktop.
  */
 
+import { cn } from "@/lib/utils";
+
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
 /** Pick between compact (mobile) and desktop value. */
@@ -118,6 +120,112 @@ export const articleContent = {
   /** Scroll-margin-top for JS-based offset (used in useEffect) */
   scrollMarginTop: { desktop: "80px", compact: "56px" },
 };
+
+// ─── Blog posts (/blog) — tighter vertical rhythm than Rabbit Hole HTML articles ─
+//
+// Titles sit closer to the first paragraph, and h2/h3 blocks stack more tightly so
+// sections read as one continuous page. Use `blogArticleContentClasses()` in blog
+// components; Rabbit Hole continues to use `articleContentClasses()`.
+//
+// `h1.element` and `h1.child` use the same scale — edit in one place conceptually
+// (element = direct <h1>; child = same rules via [&_h1] for BlogSection wrappers).
+
+export const blogArticle = {
+  h1: {
+    element: "font-commissioner text-3xl font-light tracking-tight text-foreground mb-3",
+    child:
+      "[&_h1]:font-commissioner [&_h1]:text-3xl [&_h1]:font-light [&_h1]:tracking-tight [&_h1]:text-foreground [&_h1]:mb-3",
+  },
+  /** h2: major section breaks */
+  h2: {
+    desktop:
+      "[&_h2]:font-commissioner [&_h2]:text-2xl [&_h2]:font-light [&_h2]:mt-10 [&_h2]:mb-3 [&_h2]:text-foreground [&_h2]:tracking-tight",
+    compact:
+      "[&_h2]:font-commissioner [&_h2]:text-xl [&_h2]:font-light [&_h2]:mt-8 [&_h2]:mb-2.5 [&_h2]:text-foreground [&_h2]:tracking-tight",
+  },
+  /** h3: subsections */
+  h3: {
+    desktop:
+      "[&_h3]:font-commissioner [&_h3]:text-xl [&_h3]:font-light [&_h3]:mt-8 [&_h3]:mb-2.5 [&_h3]:text-foreground",
+    compact:
+      "[&_h3]:font-commissioner [&_h3]:text-lg [&_h3]:font-light [&_h3]:mt-6 [&_h3]:mb-2 [&_h3]:text-foreground",
+  },
+  p: {
+    desktop: "[&_p]:mb-4 [&_p]:text-base [&_p]:leading-[1.5]",
+    compact: "[&_p]:mb-3.5 [&_p]:text-base [&_p]:leading-[1.5]",
+  },
+  /** List blocks (GFM / MDX) */
+  list: {
+    ul: "[&_ul]:mb-4 [&_ul]:ml-0 [&_ul]:list-disc [&_ul]:pl-6 [&_ul]:space-y-1.5 [&_ul]:text-muted-foreground",
+    ol: "[&_ol]:mb-4 [&_ol]:ml-0 [&_ol]:list-decimal [&_ol]:pl-6 [&_ol]:space-y-1.5 [&_ol]:text-muted-foreground",
+    li: "[&_li]:text-base [&_li]:leading-[1.5]",
+  },
+  blockquote:
+    "[&_blockquote]:my-5 [&_blockquote]:border-l-2 [&_blockquote]:border-border/50 [&_blockquote]:pl-4 [&_blockquote]:text-muted-foreground [&_blockquote]:italic",
+  link: "[&_a]:text-foreground [&_a]:underline [&_a]:underline-offset-2 [&_a]:decoration-muted-foreground/30 [&_a]:transition-colors hover:[&_a]:decoration-muted-foreground",
+  rule: "[&_hr]:my-8 [&_hr]:border-border/50",
+  table: {
+    wrap: "[&_table]:w-full [&_table]:text-sm",
+    thead: "[&_thead]:text-foreground/90",
+    th: "[&_th]:border [&_th]:border-border/40 [&_th]:px-3 [&_th]:py-2.5 [&_th]:text-left [&_th]:font-medium",
+    td: "[&_td]:border [&_td]:border-border/40 [&_td]:px-3 [&_td]:py-2.5",
+  },
+  /**
+   * Mermaid (and similar block figures) in BlogProse — vertical gutter + width clamp.
+   * Pair with `data-syntax-highlighted` on the same node so the markdown <pre> unwrapper runs.
+   */
+  mermaidBlock: "my-5 w-full min-w-0 max-w-full",
+  /** Fenced `CodeBlock` bottom spacing inside blog markdown */
+  codeBlockContainer: "mb-3 max-w-full min-w-0 last:mb-0",
+} as const;
+
+/** Layout-only classes merged with `blogArticleContentClasses()` for /blog body wrappers. */
+export const blogArticleBodyLayout = cn(
+  blogArticle.h1.child,
+  blogArticle.list.ul,
+  blogArticle.list.ol,
+  blogArticle.list.li,
+  blogArticle.blockquote,
+  blogArticle.link,
+  blogArticle.rule,
+  blogArticle.table.wrap,
+  blogArticle.table.thead,
+  blogArticle.table.th,
+  blogArticle.table.td
+);
+
+/**
+ * Class list for /blog longform: same as Rabbit Hole `articleContent` but blog spacing
+ * tokens for h1–p and lists. Does not set compact; always desktop-scale (matches prior blog).
+ */
+export function blogArticleContentClasses(): string[] {
+  return [
+    "article-content",
+    articleContent.base,
+    articleContent.leading.desktop,
+    blogArticle.h2.desktop,
+    articleContent.h2Takeaway.desktop,
+    articleContent.h2Takeaway.shared,
+    blogArticle.h3.desktop,
+    blogArticle.p.desktop,
+    articleContent.code,
+    articleContent.img,
+    articleContent.table,
+    articleContent.strong,
+    articleContent.em,
+    ...articleContent.branchLink,
+  ];
+}
+
+/**
+ * In-page blog layout: nav-to-content and stacked top-level post sections (e.g. intro
+ * → design body → outro) without editing magic numbers in each `page.tsx`.
+ */
+export const blogArticlePage = {
+  navToContent: "mb-6",
+  /** Between major sibling blocks inside `<article>` */
+  blockStack: "space-y-8",
+} as const;
 
 // ─── Key Takeaways list items ────────────────────────────────────────────────
 

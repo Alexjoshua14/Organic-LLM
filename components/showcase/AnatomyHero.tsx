@@ -20,7 +20,9 @@ export function AnatomyHero({ thesis, className }: AnatomyHeroProps) {
         <h1 className="mb-3 font-commissioner text-3xl font-light tracking-tight text-foreground sm:text-4xl">
           Anatomy of a Response
         </h1>
-        <p className="mx-auto max-w-2xl text-sm leading-relaxed text-muted-foreground sm:mx-0">{thesis}</p>
+        <p className="mx-auto max-w-2xl text-sm leading-relaxed text-muted-foreground sm:mx-0">
+          {thesis}
+        </p>
       </div>
     </header>
   );

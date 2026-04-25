@@ -35,6 +35,7 @@ function tocLineClassName(level: StrataAssistantPersonaGuideSection["level"]): s
 function tocIndentClassName(level: StrataAssistantPersonaGuideSection["level"]): string {
   if (level === 2) return "pl-3";
   if (level === 3) return "pl-6";
+
   return "pl-0";
 }
 
@@ -76,7 +77,8 @@ export function StrataAssistantPersonaGuide({ className }: StrataAssistantPerson
           <DialogHeader className="border-b border-border px-6 py-4 text-left">
             <DialogTitle>Strata assistant persona</DialogTitle>
             <DialogDescription>
-              How persona settings affect the page assistant and what stays unchanged in your sources.
+              How persona settings affect the page assistant and what stays unchanged in your
+              sources.
             </DialogDescription>
           </DialogHeader>
 
@@ -114,6 +116,7 @@ export function StrataAssistantPersonaGuide({ className }: StrataAssistantPerson
               <div className="prose prose-sm dark:prose-invert max-w-none">
                 {STRATA_ASSISTANT_PERSONA_GUIDE_SECTIONS.map((section) => {
                   const HeadingTag = section.level === 1 ? "h2" : "h3";
+
                   return (
                     <section
                       key={section.id}

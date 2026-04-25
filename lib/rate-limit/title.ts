@@ -85,7 +85,8 @@ export async function checkStrataTitleGenerationLimit(
   if (!perStrata.success) {
     return {
       success: false,
-      error: "This Strata page has reached its title generation limit (3 per hour). Try again later.",
+      error:
+        "This Strata page has reached its title generation limit (3 per hour). Try again later.",
     };
   }
 

@@ -15,6 +15,7 @@ export function tryParseFullChatHistoryToolOutput(
 ): ParsedFullChatHistoryToolOutput | null {
   if (body === null || body === undefined || typeof body !== "object") return null;
   const o = body as Record<string, unknown>;
+
   if (typeof o.success !== "boolean") return null;
   if (typeof o.count !== "number" || !Number.isFinite(o.count)) return null;
 
@@ -23,9 +24,8 @@ export function tryParseFullChatHistoryToolOutput(
   }
   const err = o.error;
   const message =
-    typeof err === "string" && err.trim().length > 0
-      ? err.trim()
-      : "Could not load chat history.";
+    typeof err === "string" && err.trim().length > 0 ? err.trim() : "Could not load chat history.";
+
   return { kind: "error", message };
 }
 

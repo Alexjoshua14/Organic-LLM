@@ -1,10 +1,10 @@
 "use client";
 
+import type { StrataPageAssistantSession } from "@/lib/strata/assistant-session";
+
 import { ChevronDown } from "lucide-react";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
-
-import type { StrataPageAssistantSession } from "@/lib/strata/assistant-session";
 
 import { glass } from "@/components/design-system/primitives";
 import {
@@ -46,6 +46,7 @@ function mdTableCell(value: string): string {
 function fencedCodeBlock(body: string, lang: "json" | "text"): string {
   let maxRun = 0;
   let run = 0;
+
   for (const ch of body) {
     if (ch === "`") {
       run += 1;
@@ -55,6 +56,7 @@ function fencedCodeBlock(body: string, lang: "json" | "text"): string {
     }
   }
   const tick = "`".repeat(Math.max(3, maxRun + 1));
+
   return `${tick}${lang}\n${body}\n${tick}`;
 }
 
@@ -141,6 +143,7 @@ function AssistantToolSegmentedPill({
     >
       {segments.map((seg) => {
         const on = tools[seg.key];
+
         return (
           <button
             key={seg.key}
@@ -185,7 +188,9 @@ export function StrataSourceComposerOptions({
 }) {
   const personas = listStrataAssistantPersonas();
   const activePersona = getStrataAssistantPersona(assistantSession.personaId);
-  const [inspectorPersonaId, setInspectorPersonaId] = useState<StrataAssistantPersonaId | null>(null);
+  const [inspectorPersonaId, setInspectorPersonaId] = useState<StrataAssistantPersonaId | null>(
+    null
+  );
 
   const inspectorSnapshot = useMemo(
     () =>
@@ -201,6 +206,7 @@ export function StrataSourceComposerOptions({
   const persistPersona = (id: StrataAssistantPersonaId) => {
     assistantSession.setPersonaId(id);
     const defaults = getStrataAssistantPersona(id).getDefaultToolDefaults();
+
     assistantSession.persistComposerSettingsPatch({
       assistantPersonaId: id,
       toolMemory: defaults.toolMemory,
@@ -291,7 +297,9 @@ export function StrataSourceComposerOptions({
                                 2
                               )
                             );
-                            toast.success("Copied", { description: `${p.shortLabel} inspection JSON` });
+                            toast.success("Copied", {
+                              description: `${p.shortLabel} inspection JSON`,
+                            });
                           } catch {
                             toast.error("Could not copy");
                           }
@@ -355,12 +363,14 @@ export function StrataSourceComposerOptions({
                   {inspectorSnapshot.label}
                 </DialogTitle>
                 <DialogDescription className="mt-2 space-y-1 text-left text-sm leading-snug text-muted-foreground">
-                  <span className="font-mono text-xs text-foreground/85">[{inspectorSnapshot.id}]</span>
+                  <span className="font-mono text-xs text-foreground/85">
+                    [{inspectorSnapshot.id}]
+                  </span>
                   <span className="mx-1.5 text-border">·</span>
                   <span>{inspectorSnapshot.shortLabel}</span>
                   <span className="mt-1 block text-xs text-muted-foreground/90">
-                    Sections below follow a fixed snapshot shape: augmentation text, a table of model
-                    and tool defaults, routing notes, then full JSON.
+                    Sections below follow a fixed snapshot shape: augmentation text, a table of
+                    model and tool defaults, routing notes, then full JSON.
                   </span>
                 </DialogDescription>
               </DialogHeader>

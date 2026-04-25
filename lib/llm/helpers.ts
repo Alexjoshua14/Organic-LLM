@@ -19,6 +19,7 @@ export const CHAT_RESPONSE_MAX_OUTPUT_TOKENS =
 
 export function getChatResponseLengthInstruction(): string {
   const approxWords = Math.round(CHAT_RESPONSE_SOFT_MAX_TOKENS * 0.25); // ~4 tokens per word
+
   return `This response has a maximum length of approximately ${CHAT_RESPONSE_SOFT_MAX_TOKENS.toLocaleString()} tokens (roughly ${approxWords.toLocaleString()} words). Structure your answer to fit within this limit and end with a clear conclusion before you run out of space.`;
 }
 

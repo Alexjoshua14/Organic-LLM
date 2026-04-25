@@ -51,7 +51,9 @@ const HELP_PATTERNS = [
  */
 export function isArcadiaHelpQuery(text: string): boolean {
   const t = text.trim().toLowerCase();
+
   if (!t) return false;
+
   return HELP_PATTERNS.some((p) => p.test(t));
 }
 
@@ -66,6 +68,7 @@ export function getLastUserMessageText(message: UIMessage): string {
       .trim();
   }
   const m = message as { content?: unknown };
+
   return typeof m.content === "string" ? m.content.trim() : "";
 }
 

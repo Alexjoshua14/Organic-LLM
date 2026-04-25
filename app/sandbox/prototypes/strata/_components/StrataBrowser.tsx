@@ -6,10 +6,18 @@ import { useRouter } from "next/navigation";
 import { StrataCreatePageForm } from "./StrataCreatePageForm";
 import { StrataPageCard } from "./StrataPageCard";
 
-import { isUntitledStrataTitle, type StrataPage, type StrataPageWithSections } from "@/lib/schemas/strata";
+import {
+  isUntitledStrataTitle,
+  type StrataPage,
+  type StrataPageWithSections,
+} from "@/lib/schemas/strata";
 import { glass } from "@/components/design-system/primitives";
 import { cn } from "@/lib/utils";
-import { getLocalStrataPage, listLocalStrataPages, saveLocalStrataPage } from "@/lib/strata/local-store";
+import {
+  getLocalStrataPage,
+  listLocalStrataPages,
+  saveLocalStrataPage,
+} from "@/lib/strata/local-store";
 import { sanitizeRawUserInput } from "@/lib/strata/input-safety";
 
 function sectionsSnapshotFromFull(full: StrataPageWithSections) {
@@ -24,8 +32,8 @@ function sectionsSnapshotFromFull(full: StrataPageWithSections) {
 
 function refinedGeneratedTitleFromFull(full: StrataPageWithSections) {
   return (
-    (full.sections.refined_text.contentJson as { generatedTitle?: string } | null)?.generatedTitle ??
-    undefined
+    (full.sections.refined_text.contentJson as { generatedTitle?: string } | null)
+      ?.generatedTitle ?? undefined
   );
 }
 
@@ -40,12 +48,15 @@ export function StrataBrowser({
   const [localPages, setLocalPages] = useState<StrataPage[]>([]);
   const [generatingTitleId, setGeneratingTitleId] = useState<string | null>(null);
   const [bulkGenerating, setBulkGenerating] = useState(false);
-  const [titleMessage, setTitleMessage] = useState<{ kind: "error" | "success"; text: string } | null>(
-    null
-  );
+  const [titleMessage, setTitleMessage] = useState<{
+    kind: "error" | "success";
+    text: string;
+  } | null>(null);
 
   useEffect(() => {
-    listLocalStrataPages().then(setLocalPages).catch(() => setLocalPages([]));
+    listLocalStrataPages()
+      .then(setLocalPages)
+      .catch(() => setLocalPages([]));
   }, []);
 
   const renderedPages = dbAvailable ? pages : localPages;
@@ -68,8 +79,13 @@ export function StrataBrowser({
 
       if (localFlow) {
         const full = await getLocalStrataPage(page.id);
+
         if (!full) {
-          setTitleMessage({ kind: "error", text: "Could not load local page to generate a title." });
+          setTitleMessage({
+            kind: "error",
+            text: "Could not load local page to generate a title.",
+          });
+
           return;
         }
 
@@ -84,21 +100,28 @@ export function StrataBrowser({
         });
 
         const payload = await res.json().catch(() => ({}));
+
         if (!res.ok || typeof payload?.data !== "string" || !payload.data.trim()) {
           setTitleMessage({
             kind: "error",
             text: typeof payload?.error === "string" ? payload.error : "Title generation failed.",
           });
+
           return;
         }
 
         const nextTitle = payload.data.trim();
+
         await saveLocalStrataPage({
           ...full,
           page: { ...full.page, title: nextTitle },
         });
         setLocalPages(await listLocalStrataPages());
-        setTitleMessage({ kind: "success", text: `Updated title for “${nextTitle.slice(0, 48)}${nextTitle.length > 48 ? "…" : ""}”.` });
+        setTitleMessage({
+          kind: "success",
+          text: `Updated title for “${nextTitle.slice(0, 48)}${nextTitle.length > 48 ? "…" : ""}”.`,
+        });
+
         return;
       }
 
@@ -109,11 +132,13 @@ export function StrataBrowser({
       });
 
       const payload = await res.json().catch(() => ({}));
+
       if (!res.ok || typeof payload?.data !== "string" || !payload.data.trim()) {
         setTitleMessage({
           kind: "error",
           text: typeof payload?.error === "string" ? payload.error : "Title generation failed.",
         });
+
         return;
       }
 
@@ -157,7 +182,8 @@ export function StrataBrowser({
           Strata
         </h1>
         <p className="text-sm text-muted-foreground max-w-2xl mx-auto select-none">
-          Transforms raw thoughts into structured, readable artifacts through layered AI orchestration.
+          Transforms raw thoughts into structured, readable artifacts through layered AI
+          orchestration.
         </p>
       </div>
 
@@ -171,7 +197,9 @@ export function StrataBrowser({
         <p
           className={cn(
             "text-center text-sm",
-            titleMessage.kind === "error" ? "text-destructive" : "text-emerald-700 dark:text-emerald-400"
+            titleMessage.kind === "error"
+              ? "text-destructive"
+              : "text-emerald-700 dark:text-emerald-400"
           )}
           role="status"
         >
@@ -190,7 +218,9 @@ export function StrataBrowser({
             type="button"
             onClick={() => void handleGenerateAllMissing()}
           >
-            {bulkGenerating ? "Generating titles…" : `Generate missing titles (${untitledPages.length})`}
+            {bulkGenerating
+              ? "Generating titles…"
+              : `Generate missing titles (${untitledPages.length})`}
           </button>
         )}
         <div className="flex w-full justify-end sm:w-auto">

@@ -77,6 +77,7 @@ export function useTTS({
   const removeAttachedAudioListeners = useCallback(() => {
     const audio = audioRef?.current;
     const attached = audioListenersRef.current;
+
     if (!audio || !attached || attached.el !== audio) return;
 
     for (const { type, fn } of attached.handlers) {
@@ -127,7 +128,6 @@ export function useTTS({
     return indices;
   }, [mergedAlignment, currentTime]);
 
-
   // Minimal valid MP3 frame (silence, ~0.03s)
   const SILENT_MP3 =
     "data:audio/mpeg;base64,SUQzBAAAAAAAI1RTU0UAAAAPAAADTGF2ZjU4Ljc2LjEwMAAAAAAAAAAAAAAA//tQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAWGluZwAAAA8AAAACAAABhgC7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7//////////////////////////////////////////////////////////////////8AAAAATGF2YzU4LjEzAAAAAAAAAAAAAAAAJAAAAAAAAAAAAYYoRBqpAAAAAAD/+1DEAAAHAALJ9AAAJMIYaz80IAQAABY+gn/BwfB8HwfB8EAQBA5/ygIAgCAIfg+D4Pg+D58EAQBA5/KAgCAIHwfB8HwfB8+CAIAgc/lAQBAED4Pg+D4Pg+fBAEAQOfygIAgCB8HwfB8HwfPggCAIHP+sEAQBA+D4Pg+D5/0AQBA5/KAgCAIHwfB8HwfB8+CAIAgc/5QEAQBA+D4Pg+D4Pn/+1DEMwPAAADSAAAAIAAAGkAAAAQBAEAQOfygIAgCB8HwfB8HwfPggCAIHP5QEAQBAEHwfB8HwfB8+CAIAgc/lAQBAED4Pg+D4Pg+fBAEAQOfygIAgCB8HwfB8HwfPggCAIHP5QEAQBA+D4Pg+D4Pn/QBAEAQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA";
@@ -139,9 +139,10 @@ export function useTTS({
    */
   const prime = useCallback(() => {
     const audio = audioRef?.current;
+
     if (!audio) return;
     audio.src = SILENT_MP3;
-    audio.play().catch(() => { });
+    audio.play().catch(() => {});
   }, [audioRef]);
 
   /**

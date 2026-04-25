@@ -1,9 +1,10 @@
+import type { Result } from "@/types";
+
 import { generateText } from "ai";
 
 import { GUARDRAIL_MAX_OUTPUT_TOKENS } from "@/lib/llm/helpers";
 import { createLogger } from "@/lib/logger";
 import { recordLlmCall } from "@/lib/llm/metrics";
-import type { Result } from "@/types";
 import { TITLE_PIPELINE_SHORT_TITLE_MODEL } from "@/lib/llm/title-models";
 
 const logger = createLogger("lib/llm/short-title-from-summary.ts");
@@ -56,6 +57,7 @@ export async function generateShortTitleFromSummary(
     });
 
     const titleIdea = (titleResult.text ?? "").trim().replace(/^["']|["']$/g, "");
+
     return {
       data: titleIdea.slice(0, 255),
       error: null,

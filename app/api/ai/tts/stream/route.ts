@@ -209,6 +209,7 @@ export async function POST(req: NextRequest) {
         controller.close();
       } catch (error) {
         const e = error instanceof Error ? error : new Error(String(error));
+
         logger.error("TTS Stream", `Generation failed: ${e.name}`);
 
         controller.enqueue(

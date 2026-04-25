@@ -109,14 +109,17 @@ const AIMessage: FC<ChatMessageProps> = ({
               if (part.state === "streaming") {
                 return <ChatReasoning key={`${message.id}-${i}`} />;
               }
+
               return null;
 
             case "text":
               if (showCustomArcadiaHelp) {
                 if (arcadiaHelpRendered) return null;
                 arcadiaHelpRendered = true;
+
                 return <ArcadiaHelpMessage key={`${message.id}-${i}`} />;
               }
+
               return (
                 <ChatMessageMarkdown
                   key={`${message.id}-${i}`}
@@ -129,6 +132,7 @@ const AIMessage: FC<ChatMessageProps> = ({
               if (isToolOrDynamicToolUIPart(part)) {
                 const toolName = getToolOrDynamicToolName(part);
                 const toolCallId = part.toolCallId;
+
                 if (part.state === "input-streaming" || part.state === "input-available") {
                   return (
                     <div
@@ -161,11 +165,14 @@ const AIMessage: FC<ChatMessageProps> = ({
                     />
                   );
                 }
+
                 return null;
               }
               const legacyTool = part as unknown;
+
               if (isToolInvocationPart(legacyTool)) {
                 const tp = legacyTool;
+
                 if (tp.state === "partial-call" || tp.state === "call") {
                   return (
                     <div
@@ -188,6 +195,7 @@ const AIMessage: FC<ChatMessageProps> = ({
                   );
                 }
               }
+
               return null;
           }
         })}
@@ -216,12 +224,11 @@ type ToolInvocationPartLike = {
 function isToolInvocationPart(part: unknown): part is ToolInvocationPartLike {
   if (!part || typeof part !== "object") return false;
   const p = part as Record<string, unknown>;
+
   return p.type === "tool-invocation" && typeof p.toolInvocationId === "string";
 }
 
-function messagePartsIndicateStreaming(
-  parts: UIMessage["parts"]
-): boolean {
+function messagePartsIndicateStreaming(parts: UIMessage["parts"]): boolean {
   for (const p of parts) {
     if (p.type === "reasoning" && p.state === "streaming") return true;
     if (p.type === "text" && "state" in p && (p as { state?: string }).state === "streaming") {
@@ -231,9 +238,11 @@ function messagePartsIndicateStreaming(
       if (p.state === "input-streaming" || p.state === "input-available") return true;
     } else if (isToolInvocationPart(p)) {
       const lt = p as unknown as ToolInvocationPartLike;
+
       if (lt.state === "partial-call" || lt.state === "call") return true;
     }
   }
+
   return false;
 }
 
@@ -251,9 +260,11 @@ function partListHasInFlightToolInvocation(parts: unknown[]): boolean {
   return parts.some((p) => {
     if (!p || typeof p !== "object") return false;
     const up = p as UIMessage["parts"][number];
+
     if (isToolOrDynamicToolUIPart(up)) {
       return up.state === "input-streaming" || up.state === "input-available";
     }
+
     return isToolInvocationPart(p) && (p.state === "partial-call" || p.state === "call");
   });
 }
@@ -262,10 +273,13 @@ function partListHasInFlightWebSearch(parts: unknown[]): boolean {
   return parts.some((p) => {
     if (!p || typeof p !== "object") return false;
     const up = p as UIMessage["parts"][number];
+
     if (isToolOrDynamicToolUIPart(up)) {
       const inFlight = up.state === "input-streaming" || up.state === "input-available";
+
       return inFlight && getToolOrDynamicToolName(up).toLowerCase() === "web_search";
     }
+
     return (
       isToolInvocationPart(p) &&
       (p.state === "partial-call" || p.state === "call") &&
@@ -276,13 +290,17 @@ function partListHasInFlightWebSearch(parts: unknown[]): boolean {
 
 function partListHasInFlightMemorySearch(parts: unknown[]): boolean {
   const names = new Set(["search_memories", "memory_search"]);
+
   return parts.some((p) => {
     if (!p || typeof p !== "object") return false;
     const up = p as UIMessage["parts"][number];
+
     if (isToolOrDynamicToolUIPart(up)) {
       const inFlight = up.state === "input-streaming" || up.state === "input-available";
+
       return inFlight && names.has(getToolOrDynamicToolName(up).toLowerCase());
     }
+
     return (
       isToolInvocationPart(p) &&
       (p.state === "partial-call" || p.state === "call") &&
@@ -305,6 +323,7 @@ function shouldShowTailAiAction(
       ) {
         return false;
       }
+
       return true;
     case ChatAIActionEnum.Memory:
       return !partListHasInFlightMemorySearch(parts);
@@ -331,11 +350,14 @@ const KNOWN_TOOL_IN_FLIGHT_LABELS: Record<string, string> = {
 
 function toolInvocationInFlightLabel(toolName: string): string {
   const key = toolName.toLowerCase();
+
   if (KNOWN_TOOL_IN_FLIGHT_LABELS[key]) return KNOWN_TOOL_IN_FLIGHT_LABELS[key];
   const readable = toolName.replace(/_/g, " ").replace(/-/g, " ").trim();
+
   if (readable.length > 0) {
     return `${readable[0].toUpperCase()}${readable.slice(1)}...`;
   }
+
   return "Using a tool...";
 }
 
@@ -350,18 +372,27 @@ function stableStringify(value: unknown): string {
 function extractMermaidCode(value: unknown): string | null {
   if (typeof value === "string") {
     const trimmed = value.trim();
-    if (trimmed.startsWith("graph") || trimmed.startsWith("flowchart") || trimmed.startsWith("sequenceDiagram")) {
+
+    if (
+      trimmed.startsWith("graph") ||
+      trimmed.startsWith("flowchart") ||
+      trimmed.startsWith("sequenceDiagram")
+    ) {
       return trimmed;
     }
     const fenceMatch = trimmed.match(/```mermaid\s*([\s\S]*?)```/i);
+
     if (fenceMatch?.[1]) return fenceMatch[1].trim();
+
     return null;
   }
   if (value && typeof value === "object") {
     const v = value as Record<string, unknown>;
     const code = v.code;
+
     if (typeof code === "string") return code.trim();
   }
+
   return null;
 }
 
@@ -379,6 +410,7 @@ export const ArcadiaToolResultCard = memo(function ArcadiaToolResultCard({
 }) {
   if (toolName.toLowerCase() === "web_search") {
     const parsed = tryParseWebSearchToolOutput(displayBody);
+
     if (parsed !== null) {
       return (
         <WebSearchToolResultCard isPinned={isPinned} parsed={parsed} onTogglePin={onTogglePin} />
@@ -388,6 +420,7 @@ export const ArcadiaToolResultCard = memo(function ArcadiaToolResultCard({
 
   if (toolName.toLowerCase() === "get_full_chat_history") {
     const parsed = tryParseFullChatHistoryToolOutput(displayBody);
+
     if (parsed !== null) {
       return (
         <FullChatHistoryToolResultCard
@@ -401,23 +434,20 @@ export const ArcadiaToolResultCard = memo(function ArcadiaToolResultCard({
 
   if (toolName.toLowerCase() === "search_memories") {
     const parsed = tryParseMemorySearchToolOutput(displayBody);
+
     if (parsed !== null) {
       return (
-        <MemorySearchToolResultCard
-          isPinned={isPinned}
-          parsed={parsed}
-          onTogglePin={onTogglePin}
-        />
+        <MemorySearchToolResultCard isPinned={isPinned} parsed={parsed} onTogglePin={onTogglePin} />
       );
     }
   }
 
   if (toolName.toLowerCase() === "make_mermaid_diagram") {
-    const parsed =
-      tryParseMermaidToolOutput(displayBody) ?? {
-        kind: "error" as const,
-        message: "Unexpected tool output.",
-      };
+    const parsed = tryParseMermaidToolOutput(displayBody) ?? {
+      kind: "error" as const,
+      message: "Unexpected tool output.",
+    };
+
     return <MermaidToolAckCard isPinned={isPinned} parsed={parsed} onTogglePin={onTogglePin} />;
   }
 
@@ -546,9 +576,11 @@ type ChatAIActionProps = {
 /** Human-readable label for generic "Using tool: …" chunks from the API. */
 function toolActionDisplayText(message: string | undefined): string {
   const trimmed = message?.trim();
+
   if (!trimmed) return "Using a tool...";
 
   const usingToolMatch = trimmed.match(/^Using tool:\s*([a-z0-9_]+)$/i);
+
   if (usingToolMatch?.[1]) {
     const toolName = usingToolMatch[1].toLowerCase();
     const knownLabels: Record<string, string> = {
@@ -565,6 +597,7 @@ function toolActionDisplayText(message: string | undefined): string {
     }
 
     const readableToolName = toolName.replace(/_/g, " ").trim();
+
     if (readableToolName.length > 0) {
       return `${readableToolName[0].toUpperCase()}${readableToolName.slice(1)}...`;
     }
@@ -587,9 +620,7 @@ export const ChatAIAction: FC<ChatAIActionProps> = ({ aiActionPayload }) => {
             return <ChatSearching sources={aiActionPayload?.sources} text="Searching the web..." />;
           case "memory":
             return (
-              <ChatThinking
-                text={aiActionPayload?.message?.trim() || "Searching memories..."}
-              />
+              <ChatThinking text={aiActionPayload?.message?.trim() || "Searching memories..."} />
             );
           case "tool":
             return <ChatThinking text={toolActionDisplayText(aiActionPayload?.message)} />;

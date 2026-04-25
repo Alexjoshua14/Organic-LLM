@@ -96,12 +96,7 @@ export const AIInput: React.FC = () => {
     async (prompt: string) => {
       const trimmed = prompt.trim();
 
-      if (
-        !trimmed ||
-        routing ||
-        aion.status === "streaming" ||
-        aion.status === "submitted"
-      ) {
+      if (!trimmed || routing || aion.status === "streaming" || aion.status === "submitted") {
         return;
       }
 

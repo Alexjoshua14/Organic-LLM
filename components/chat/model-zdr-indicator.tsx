@@ -20,7 +20,7 @@ export function ModelZdrIndicator({ className }: ModelZdrIndicatorProps) {
           <ShieldCheck aria-hidden="true" className="size-3.5" />
         </span>
       </TooltipTrigger>
-      <TooltipContent className="max-w-xs" side="top">
+      <TooltipContent className="w-fit max-w-48" side="top">
         Zero Data Retention is available for this model through AI Gateway.
       </TooltipContent>
     </Tooltip>

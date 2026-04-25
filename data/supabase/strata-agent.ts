@@ -10,12 +10,14 @@ import {
 /**
  * Ensures a threads row exists for the Strata hub or per-page assistant (deterministic id per owner + scope).
  */
-export async function ensureStrataAgentThread(ownerId: string, scope: StrataAgentThreadScope): Promise<string> {
+export async function ensureStrataAgentThread(
+  ownerId: string,
+  scope: StrataAgentThreadScope
+): Promise<string> {
   const id = getStrataAgentThreadId(ownerId, scope);
   const sb = (await supabaseServer()) as any;
   const path = strataAgentThreadPath(scope);
-  const title =
-    scope.kind === "hub" ? "Strata hub assistant" : "Strata page assistant";
+  const title = scope.kind === "hub" ? "Strata hub assistant" : "Strata page assistant";
 
   const { error } = await sb.from("threads").upsert(
     {

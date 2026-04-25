@@ -18,11 +18,7 @@ export function AnatomyRenderStage({ stage }: { stage: RenderStage }) {
   return (
     <div className="min-w-0 space-y-5">
       <div className="grid min-w-0 grid-cols-1 gap-4 lg:grid-cols-2">
-        <motion.div
-          className="min-w-0 max-w-full"
-          {...(fadeIn ?? {})}
-          transition={{ delay: 0.05 }}
-        >
+        <motion.div className="min-w-0 max-w-full" {...(fadeIn ?? {})} transition={{ delay: 0.05 }}>
           <div className="mb-1 text-xs font-medium text-muted-foreground">Raw markdown</div>
           <pre
             className={cn(
@@ -33,11 +29,7 @@ export function AnatomyRenderStage({ stage }: { stage: RenderStage }) {
             {a.rawMarkdown}
           </pre>
         </motion.div>
-        <motion.div
-          className="min-w-0 max-w-full"
-          {...(fadeIn ?? {})}
-          transition={{ delay: 0.12 }}
-        >
+        <motion.div className="min-w-0 max-w-full" {...(fadeIn ?? {})} transition={{ delay: 0.12 }}>
           <div className="mb-1 text-xs font-medium text-muted-foreground">Rendered</div>
           <div
             className={cn(

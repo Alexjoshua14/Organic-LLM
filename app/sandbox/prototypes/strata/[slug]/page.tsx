@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import type { UIMessage } from "ai";
+import type { Thread } from "@/lib/schemas/chat";
 
 import { cache } from "react";
 
@@ -10,7 +11,6 @@ import AdaptiveLiquidChrome from "@/components/background/AdaptiveLiquidChrome";
 import { ensureStrataAgentThread } from "@/data/supabase/strata-agent";
 import { getStrataPageByIdCached } from "@/data/supabase/strata";
 import { loadChat } from "@/lib/chat/chat-store";
-import type { Thread } from "@/lib/schemas/chat";
 import { resolveStrataBrowserTabTitlePrimary } from "@/lib/metadata/resolve-browser-tab-title";
 import { tabTitleMetadata } from "@/lib/metadata/tab-title";
 import { buildStrataPageDefaults, STRATA_DEFAULT_UNTITLED_TITLE } from "@/lib/schemas/strata";
@@ -33,6 +33,7 @@ const loadStrataForRequest = cache(
       if (process.env.NODE_ENV === "development") {
         logger.error("loadStrataForRequest", "Failed to load page from Supabase", err);
       }
+
       return { pageData: null, dbAvailable: false };
     }
   }
@@ -70,6 +71,7 @@ export default async function StrataPage({ params }: { params: Promise<{ slug: s
         pageId: initialData.page.id,
       });
       const res = await loadChat(threadId);
+
       if (!res.error && res.data) pageAgentChatData = res.data;
     } catch (err) {
       if (process.env.NODE_ENV === "development") {

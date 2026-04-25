@@ -1,6 +1,9 @@
-import Link from "next/link";
 import type { Metadata } from "next";
 import type { UIMessage } from "ai";
+import type { StrataPage } from "@/lib/schemas/strata";
+import type { Thread } from "@/lib/schemas/chat";
+
+import Link from "next/link";
 import { auth } from "@clerk/nextjs/server";
 
 import { StrataAssistantPanel } from "./_components/StrataAssistantPanel";
@@ -10,8 +13,6 @@ import { StrataAssistantOpenHint, StrataWorkspace } from "./_components/StrataWo
 import { ensureStrataAgentThread } from "@/data/supabase/strata-agent";
 import { getSupabaseUserId } from "@/data/supabase/profiles";
 import { listStrataPagesCached } from "@/data/supabase/strata";
-import type { StrataPage } from "@/lib/schemas/strata";
-import type { Thread } from "@/lib/schemas/chat";
 import Page from "@/components/layout/page";
 import AdaptiveLiquidChrome from "@/components/background/AdaptiveLiquidChrome";
 import { tabTitleMetadata } from "@/lib/metadata/tab-title";
@@ -70,6 +71,7 @@ export default async function StrataBrowserPage() {
 
   let dbAvailable = true;
   let pages: StrataPage[] = [];
+
   try {
     pages = await listStrataPagesCached(ownerId);
   } catch (err) {
@@ -80,10 +82,12 @@ export default async function StrataBrowserPage() {
   }
 
   let hubAgentChatData: { thread: Thread; messages: UIMessage[] } | null = null;
+
   if (dbAvailable) {
     try {
       const hubThreadId = await ensureStrataAgentThread(ownerId, { kind: "hub" });
       const res = await loadChat(hubThreadId);
+
       if (!res.error && res.data) hubAgentChatData = res.data;
     } catch (err) {
       if (process.env.NODE_ENV === "development") {

@@ -15,6 +15,7 @@ export type ParsedMermaidToolOutput =
 export function tryParseMermaidToolOutput(body: unknown): ParsedMermaidToolOutput | null {
   if (typeof body === "string") {
     const t = body.trim();
+
     return { kind: "error", message: t.length > 0 ? t : "Diagram generation failed." };
   }
 
@@ -25,20 +26,22 @@ export function tryParseMermaidToolOutput(body: unknown): ParsedMermaidToolOutpu
   if (o.success === false) {
     const err = o.error ?? o.validationError;
     const message =
-      typeof err === "string" && err.trim().length > 0
-        ? err.trim()
-        : "Diagram generation failed.";
+      typeof err === "string" && err.trim().length > 0 ? err.trim() : "Diagram generation failed.";
+
     return { kind: "error", message };
   }
 
   if (o.success === true && typeof o.code === "string" && o.code.trim().length > 0) {
     const ve = o.validationError;
     let validationWarning: string | undefined;
+
     if (typeof ve === "string" && ve.trim().length > 0) {
       const s = ve.trim();
+
       validationWarning =
         s.length > VALIDATION_NOTE_MAX ? `${s.slice(0, VALIDATION_NOTE_MAX).trimEnd()}…` : s;
     }
+
     return { kind: "ok", validationWarning };
   }
 

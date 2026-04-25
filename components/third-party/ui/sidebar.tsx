@@ -100,6 +100,7 @@ function SidebarProvider({
   // `document.cookie` before paint so collapsed state still matches after refresh.
   React.useLayoutEffect(() => {
     const fromDocument = readSidebarOpenFromDocumentCookie();
+
     if (fromDocument === null) return;
     _setOpen((current) => (current === fromDocument ? current : fromDocument));
   }, []);

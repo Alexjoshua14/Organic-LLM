@@ -1,12 +1,6 @@
 "use client";
 
-import {
-  Modal,
-  ModalBody,
-  ModalContent,
-  ModalHeader,
-  useDisclosure,
-} from "@heroui/modal";
+import { Modal, ModalBody, ModalContent, ModalHeader, useDisclosure } from "@heroui/modal";
 import mermaid from "mermaid";
 import { useCallback, useEffect, useRef, useState, type KeyboardEvent } from "react";
 
@@ -18,8 +12,10 @@ function stripSecurityLevelInitDirectives(source: string): string {
     .split("\n")
     .filter((line) => {
       const t = line.trim();
+
       if (!t.startsWith("%%")) return true;
       if (!/init\s*:/i.test(t)) return true;
+
       return !/securityLevel/i.test(t);
     })
     .join("\n");
@@ -60,6 +56,7 @@ export function MermaidDiagram({
     }
     try {
       const asJson = JSON.stringify(err);
+
       return asJson && asJson !== "{}" ? asJson : String(err);
     } catch {
       return String(err);
@@ -73,6 +70,7 @@ export function MermaidDiagram({
     svgEl.querySelector(`#${styleId}`)?.remove();
 
     const styleEl = document.createElement("style");
+
     styleEl.setAttribute("id", styleId);
     styleEl.textContent = `
       /* Light mode (no .dark on html): tokens so text/shapes read on light surfaces */
@@ -137,6 +135,7 @@ export function MermaidDiagram({
     const safeCode = stripSecurityLevelInitDirectives(code);
 
     let cancelled = false;
+
     setError(null);
     containerRef.current.innerHTML = "";
 
@@ -152,9 +151,7 @@ export function MermaidDiagram({
       const renderId = `mermaid-${Date.now()}-${epoch}`;
       const renderResult = await mermaid.render(renderId, diagramCode);
       const svgMarkup =
-        typeof renderResult === "string"
-          ? renderResult
-          : (renderResult as { svg?: string })?.svg;
+        typeof renderResult === "string" ? renderResult : (renderResult as { svg?: string })?.svg;
 
       if (!svgMarkup) {
         throw new Error("Mermaid render returned empty SVG.");
@@ -166,6 +163,7 @@ export function MermaidDiagram({
 
       containerRef.current.innerHTML = svgMarkup;
       const svg = containerRef.current.querySelector("svg");
+
       if (svg) {
         svg.setAttribute("role", "img");
         svg.setAttribute("aria-label", "Diagram");
@@ -182,8 +180,8 @@ export function MermaidDiagram({
         try {
           await renderOnce(safeCode);
         } catch (retryErr) {
-          const bestError =
-            toRenderErrorMessage(retryErr) || toRenderErrorMessage(firstErr);
+          const bestError = toRenderErrorMessage(retryErr) || toRenderErrorMessage(firstErr);
+
           if (!cancelled && renderEpochRef.current === epoch) {
             setError(bestError);
           }
@@ -212,7 +210,9 @@ export function MermaidDiagram({
   const diagram = (
     <div
       ref={containerRef}
-      aria-label={expandOnDoubleClick ? "Diagram — double-click or press Enter to enlarge" : undefined}
+      aria-label={
+        expandOnDoubleClick ? "Diagram — double-click or press Enter to enlarge" : undefined
+      }
       className={cn(
         "mermaid my-4 flex justify-center overflow-x-auto [&_svg]:max-w-full",
         expandOnDoubleClick &&
@@ -232,12 +232,7 @@ export function MermaidDiagram({
   return (
     <>
       {diagram}
-      <Modal
-        isOpen={isOpen}
-        scrollBehavior="inside"
-        size="5xl"
-        onOpenChange={onOpenChange}
-      >
+      <Modal isOpen={isOpen} scrollBehavior="inside" size="5xl" onOpenChange={onOpenChange}>
         <ModalContent className="max-h-[92dvh]">
           <ModalHeader className="flex flex-col gap-1 pb-1">Diagram</ModalHeader>
           <ModalBody className="max-h-[min(80dvh,720px)] overflow-auto pt-0">

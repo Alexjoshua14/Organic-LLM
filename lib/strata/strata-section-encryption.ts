@@ -1,6 +1,7 @@
 import type { EncryptionContext, EncryptionFieldName } from "@/lib/crypto/message-encryption";
-import { decryptFromStorage, encryptForStorage } from "@/lib/crypto/message-encryption";
 import type { StrataSectionKey } from "@/lib/schemas/strata";
+
+import { decryptFromStorage, encryptForStorage } from "@/lib/crypto/message-encryption";
 
 const FIELD_BY_SECTION: Record<StrataSectionKey, EncryptionFieldName> = {
   raw_text: "strata_sections.raw_text",
@@ -10,7 +11,11 @@ const FIELD_BY_SECTION: Record<StrataSectionKey, EncryptionFieldName> = {
   ai_instructions: "strata_sections.ai_instructions",
 };
 
-function strataEncryptionContext(ownerId: string, pageId: string, sectionKey: StrataSectionKey): EncryptionContext {
+function strataEncryptionContext(
+  ownerId: string,
+  pageId: string,
+  sectionKey: StrataSectionKey
+): EncryptionContext {
   return {
     userId: ownerId,
     threadId: pageId,

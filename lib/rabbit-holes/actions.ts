@@ -26,10 +26,10 @@ import {
 import { createLogger } from "../logger";
 import { fetchExternalSources, getWebpageContent } from "../exa/sources";
 
+import { RABBIT_HOLE_UNTITLED } from "./constants";
+
 import { Result } from "@/types";
 import { GUARDRAIL_MAX_OUTPUT_TOKENS } from "@/lib/llm/helpers";
-
-import { RABBIT_HOLE_UNTITLED } from "./constants";
 
 const logger = createLogger("lib/rabbit-holes/actions.ts");
 
@@ -365,9 +365,7 @@ function applyBranchSuggestionsStep(
   return (async () => {
     const updatedNode = { ...node };
     const branchSuggestionRootQuestion =
-      updatedNode.refinedQuestion ??
-      updatedNode.userQuestion ??
-      session.rootQuestion;
+      updatedNode.refinedQuestion ?? updatedNode.userQuestion ?? session.rootQuestion;
     const branchResult = await generateBranchSuggestions({
       context: updatedNode.articleHtml ?? "",
       rootQuestion: branchSuggestionRootQuestion,
@@ -511,9 +509,7 @@ export async function generateRabbitHoleNode(
 
     // Phase 3: Branch suggestions
     const branchSuggestionRootQuestion =
-      updatedNode.refinedQuestion ??
-      updatedNode.userQuestion ??
-      session.rootQuestion;
+      updatedNode.refinedQuestion ?? updatedNode.userQuestion ?? session.rootQuestion;
     const branchResult = await generateBranchSuggestions({
       context: updatedNode.articleHtml ?? "",
       rootQuestion: branchSuggestionRootQuestion,

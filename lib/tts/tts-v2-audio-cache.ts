@@ -32,15 +32,18 @@ export function createTtsV2AudioCache(
 
   function get(key: string): TtsV2AudioCacheEntry | undefined {
     const entry = map.get(key);
+
     if (!entry) return undefined;
 
     if (now() - entry.timestamp >= ttlMs) {
       map.delete(key);
+
       return undefined;
     }
 
     map.delete(key);
     map.set(key, entry);
+
     return entry;
   }
 
@@ -49,6 +52,7 @@ export function createTtsV2AudioCache(
       map.delete(key);
     } else if (map.size >= maxEntries) {
       const oldest = map.keys().next().value;
+
       if (oldest !== undefined) {
         map.delete(oldest);
       }

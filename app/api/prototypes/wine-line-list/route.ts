@@ -72,6 +72,7 @@ export async function POST(req: Request) {
 
   saveChat({ chatId: id, messages: validatedMessages }).catch((err) => {
     const e = err instanceof Error ? err : new Error(String(err));
+
     logger.error("POST", `Failed to save user message: ${e.name}`);
   });
 
@@ -117,6 +118,7 @@ export async function POST(req: Request) {
         maxOutputTokens: 20,
         onError({ error }) {
           const err = error instanceof Error ? error : new Error(String(error));
+
           logger.error("POST", `Stream error: ${err.name}`);
         },
       });
@@ -129,6 +131,7 @@ export async function POST(req: Request) {
               await saveChat({ chatId: id, messages });
             } catch (err) {
               const e = err instanceof Error ? err : new Error(String(err));
+
               logger.error("POST", `Error saving chat: ${e.name}`);
             }
           },

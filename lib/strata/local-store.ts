@@ -19,7 +19,10 @@ const LOCAL_ZDR_MODE_PREFIX = "strata:zdr-mode:v1:";
 
 type LocalPageData = {
   page: StrataPage;
-  sections: Record<StrataSectionKey, { content: string; contentJson: Record<string, unknown> | null }>;
+  sections: Record<
+    StrataSectionKey,
+    { content: string; contentJson: Record<string, unknown> | null }
+  >;
 };
 
 function safeParse<T>(value: string | null): T | null {
@@ -52,11 +55,13 @@ function createLocalIdSuffix(): string {
 
   if (cryptoApi?.getRandomValues) {
     const bytes = new Uint8Array(16);
+
     cryptoApi.getRandomValues(bytes);
     bytes[6] = (bytes[6] & 0x0f) | 0x40;
     bytes[8] = (bytes[8] & 0x3f) | 0x80;
 
     const hex = [...bytes].map((b) => b.toString(16).padStart(2, "0")).join("");
+
     return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`;
   }
 
@@ -77,23 +82,32 @@ export async function listLocalStrataPages(): Promise<StrataPage[]> {
 
 export async function createLocalStrataPage(title?: string): Promise<StrataPageWithSections> {
   const pageId = `local-${createLocalIdSuffix()}`;
-  const pageDefaults = buildStrataPageDefaults(pageId, title?.trim() || STRATA_DEFAULT_UNTITLED_TITLE);
+  const pageDefaults = buildStrataPageDefaults(
+    pageId,
+    title?.trim() || STRATA_DEFAULT_UNTITLED_TITLE
+  );
+
   await saveLocalStrataPage(pageDefaults);
+
   return pageDefaults;
 }
 
 export async function getLocalStrataPage(pageId: string): Promise<StrataPageWithSections | null> {
   const raw = safeParse<LocalPageData>(globalThis.localStorage.getItem(pageStorageKey(pageId)));
+
   if (!raw) return null;
 
   const sections = buildDefaultStrataSections();
+
   for (const key of Object.keys(sections) as StrataSectionKey[]) {
     const stored = raw.sections[key];
+
     if (!stored) continue;
     const decryptedContent = await decryptStrataSectionFromLocalStorage(stored.content, {
       pageId,
       sectionKey: key,
     });
+
     sections[key] = {
       key,
       content: decryptedContent,
@@ -109,8 +123,10 @@ export async function getLocalStrataPage(pageId: string): Promise<StrataPageWith
 
 export async function saveLocalStrataPage(page: StrataPageWithSections): Promise<void> {
   const encryptedSections = {} as LocalPageData["sections"];
+
   for (const key of Object.keys(page.sections) as StrataSectionKey[]) {
     const section = page.sections[key];
+
     encryptedSections[key] = {
       content: await encryptStrataSectionForLocalStorage(section.content, {
         pageId: page.page.id,
@@ -136,5 +152,6 @@ export async function saveLocalStrataPage(page: StrataPageWithSections): Promise
 
   const pages = readLocalPagesIndex();
   const withoutCurrent = pages.filter((p) => p.id !== nextPage.id);
+
   writeLocalPagesIndex([nextPage, ...withoutCurrent]);
 }

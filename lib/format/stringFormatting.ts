@@ -82,6 +82,7 @@ export function formatRecentCalendarDate(
   }
 
   const yesterday = new Date(now);
+
   yesterday.setDate(yesterday.getDate() - 1);
   if (sameLocalCalendarDay(d, yesterday)) {
     return `yesterday at ${time}`;

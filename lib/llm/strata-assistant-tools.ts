@@ -11,15 +11,13 @@ export function createStrataHubAssistantTools(ownerId: string) {
     description:
       "Find a Strata page and return its in-app path. Use a full page UUID or a distinctive title fragment. When multiple titles match, the tool returns candidates instead of guessing.",
     inputSchema: z.object({
-      target: z
-        .string()
-        .min(1)
-        .describe("Strata page id (UUID) or substring of the page title"),
+      target: z.string().min(1).describe("Strata page id (UUID) or substring of the page title"),
     }),
     execute: async ({ target }) => {
       const pages = await listStrataPages({ ownerId });
       const tid = target.trim();
       const byId = pages.find((p) => p.id === tid);
+
       if (byId) {
         return {
           ok: true as const,
@@ -30,8 +28,10 @@ export function createStrataHubAssistantTools(ownerId: string) {
       }
       const lower = tid.toLowerCase();
       const titleMatches = pages.filter((p) => p.title.toLowerCase().includes(lower));
+
       if (titleMatches.length === 1) {
         const p = titleMatches[0]!;
+
         return {
           ok: true as const,
           path: `/sandbox/prototypes/strata/${p.id}`,
@@ -47,6 +47,7 @@ export function createStrataHubAssistantTools(ownerId: string) {
           candidates: titleMatches.slice(0, 10).map((p) => ({ id: p.id, title: p.title })),
         };
       }
+
       return {
         ok: false as const,
         message: "No Strata page matched that target.",
@@ -68,7 +69,10 @@ export function createStrataHubAssistantTools(ownerId: string) {
       const filtered =
         q.length === 0
           ? pages
-          : pages.filter((p) => p.title.toLowerCase().includes(q) || p.id.toLowerCase().includes(q));
+          : pages.filter(
+              (p) => p.title.toLowerCase().includes(q) || p.id.toLowerCase().includes(q)
+            );
+
       return {
         results: filtered.slice(0, limit).map((p) => ({
           id: p.id,

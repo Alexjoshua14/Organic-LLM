@@ -5,6 +5,7 @@ import { useCallback, useContext, useEffect, useState, useTransition } from "rea
 import { RabbitHoleContext } from "../context/rabbithole-context";
 
 import { analyzeSource, generateQuickPreview } from "./actions";
+import { RABBIT_HOLE_UNTITLED } from "./constants";
 
 import {
   RabbitHoleSession,
@@ -18,8 +19,6 @@ import { createLogger } from "@/lib/logger";
 import { Result, SimpleResult } from "@/types";
 import { getSessionById, saveSession } from "@/data/supabase/rabbitholes";
 import { clientRandomUUID } from "@/lib/client-uuid";
-
-import { RABBIT_HOLE_UNTITLED } from "./constants";
 
 const logger = createLogger("useRabbitHoles");
 

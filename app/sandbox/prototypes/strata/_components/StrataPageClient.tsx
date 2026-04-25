@@ -1,15 +1,16 @@
 "use client";
 
 import type { UIMessage } from "ai";
+import type { Thread } from "@/lib/schemas/chat";
+import type { StrataPageWithSections, StrataSourceComposerSettings } from "@/lib/schemas/strata";
+import type { StrataPageAssistantSession } from "@/lib/strata/assistant-session";
+
 import { useCallback, useMemo, useRef, useState } from "react";
 
 import { StrataAssistantPanel } from "./StrataAssistantPanel";
 import { StrataShell } from "./StrataShell";
 import { StrataWorkspace } from "./StrataWorkspace";
 
-import type { Thread } from "@/lib/schemas/chat";
-import type { StrataPageWithSections, StrataSourceComposerSettings } from "@/lib/schemas/strata";
-import type { StrataPageAssistantSession } from "@/lib/strata/assistant-session";
 import {
   getStrataAssistantPersona,
   type StrataAssistantPersonaId,
@@ -27,7 +28,10 @@ export function StrataPageClient({
   pageAgentChatData: { thread: Thread; messages: UIMessage[] } | null;
 }) {
   const initialSettings = useMemo(
-    () => parseSourceComposerSettings(initialData.sections.raw_text.contentJson as Record<string, unknown> | null),
+    () =>
+      parseSourceComposerSettings(
+        initialData.sections.raw_text.contentJson as Record<string, unknown> | null
+      ),
     [initialData.sections.raw_text.contentJson]
   );
 
@@ -45,8 +49,7 @@ export function StrataPageClient({
     toolMemory: initialSettings?.toolMemory ?? defaultTools.toolMemory,
     toolWebSearch: initialSettings?.toolWebSearch ?? defaultTools.toolWebSearch,
     toolMessageSearch: initialSettings?.toolMessageSearch ?? defaultTools.toolMessageSearch,
-    toolKnowledgeSearch:
-      initialSettings?.toolKnowledgeSearch ?? defaultTools.toolKnowledgeSearch,
+    toolKnowledgeSearch: initialSettings?.toolKnowledgeSearch ?? defaultTools.toolKnowledgeSearch,
   });
 
   const persistComposerRef = useRef<(patch: Partial<StrataSourceComposerSettings>) => void>(
@@ -63,6 +66,7 @@ export function StrataPageClient({
   const setPersonaId = useCallback((id: StrataAssistantPersonaId) => {
     setPersonaIdState(id);
     const next = getStrataAssistantPersona(id).getDefaultToolDefaults();
+
     setToolsState((prev) => ({
       ...prev,
       ...next,

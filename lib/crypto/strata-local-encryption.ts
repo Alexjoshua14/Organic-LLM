@@ -18,23 +18,30 @@ type LocalEncryptionContext = {
 
 function toBase64(bytes: Uint8Array): string {
   let binary = "";
+
   for (let i = 0; i < bytes.length; i++) binary += String.fromCharCode(bytes[i]);
+
   return btoa(binary);
 }
 
 function fromBase64(base64: string): Uint8Array {
   const binary = atob(base64);
   const output = new Uint8Array(binary.length);
+
   for (let i = 0; i < binary.length; i++) output[i] = binary.charCodeAt(i);
+
   return output;
 }
 
 function getOrCreateLocalRootSecret(): Uint8Array {
   const existing = globalThis.localStorage.getItem(ROOT_KEY_STORAGE_KEY);
+
   if (existing) return fromBase64(existing);
 
   const seed = crypto.getRandomValues(new Uint8Array(AES_KEY_BYTES));
+
   globalThis.localStorage.setItem(ROOT_KEY_STORAGE_KEY, toBase64(seed));
+
   return seed;
 }
 
@@ -76,9 +83,12 @@ export async function encryptStrataSectionForLocalStorage(
     new TextEncoder().encode(plaintext)
   );
 
-  return [ENCRYPTED_PREFIX, PAYLOAD_VERSION, toBase64(iv), toBase64(new Uint8Array(encrypted))].join(
-    ":"
-  );
+  return [
+    ENCRYPTED_PREFIX,
+    PAYLOAD_VERSION,
+    toBase64(iv),
+    toBase64(new Uint8Array(encrypted)),
+  ].join(":");
 }
 
 export async function decryptStrataSectionFromLocalStorage(
@@ -88,9 +98,12 @@ export async function decryptStrataSectionFromLocalStorage(
   if (!payload.startsWith(`${ENCRYPTED_PREFIX}:`)) return payload;
 
   const parts = payload.split(":");
+
   if (parts.length !== 4) throw new Error("Malformed encrypted local Strata payload");
   const [, version, ivB64, cipherB64] = parts;
-  if (version !== PAYLOAD_VERSION) throw new Error(`Unsupported Strata payload version: ${version}`);
+
+  if (version !== PAYLOAD_VERSION)
+    throw new Error(`Unsupported Strata payload version: ${version}`);
 
   const key = await deriveSectionCryptoKey(context);
   const iv = fromBase64(ivB64);

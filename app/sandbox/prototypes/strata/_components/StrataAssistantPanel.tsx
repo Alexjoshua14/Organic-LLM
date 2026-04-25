@@ -1,10 +1,10 @@
 "use client";
 
 import type { UIMessage } from "ai";
-
-import { Chat } from "@/components/chat/chat";
 import type { Thread } from "@/lib/schemas/chat";
 import type { StrataPageAssistantSession } from "@/lib/strata/assistant-session";
+
+import { Chat } from "@/components/chat/chat";
 
 export function StrataAssistantPanel({
   chatData,

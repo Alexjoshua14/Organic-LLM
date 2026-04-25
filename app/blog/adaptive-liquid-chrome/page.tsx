@@ -4,6 +4,7 @@ import path from "path";
 import Link from "next/link";
 
 import { BlogProse } from "@/components/blog/blog-prose";
+import { blogArticlePage } from "@/lib/rabbit-holes/designTokens";
 
 const DOC_PATH = path.join(process.cwd(), "components/background/ADAPTIVE_LIQUID_CHROME.md");
 
@@ -20,7 +21,7 @@ export default function AdaptiveLiquidChromePostPage() {
 
   return (
     <div className="w-full max-w-2xl mx-auto px-6 py-12">
-      <nav className="mb-8">
+      <nav className={blogArticlePage.navToContent}>
         <Link className="text-sm text-foreground hover:underline" href="/blog">
           ← Blog
         </Link>

@@ -1,10 +1,11 @@
 "use client";
 
+import type { StrataPage } from "@/lib/schemas/strata";
+
 import { useRouter } from "next/navigation";
 
 import { createAndOpenStrataPageAction } from "../actions";
 
-import type { StrataPage } from "@/lib/schemas/strata";
 import { glass } from "@/components/design-system/primitives";
 import { cn } from "@/lib/utils";
 import { createLocalStrataPage, listLocalStrataPages } from "@/lib/strata/local-store";
@@ -14,7 +15,10 @@ type StrataCreatePageFormProps = {
   onLocalPagesUpdated: (pages: StrataPage[]) => void;
 };
 
-export function StrataCreatePageForm({ dbAvailable, onLocalPagesUpdated }: StrataCreatePageFormProps) {
+export function StrataCreatePageForm({
+  dbAvailable,
+  onLocalPagesUpdated,
+}: StrataCreatePageFormProps) {
   const router = useRouter();
 
   if (dbAvailable) {
@@ -51,6 +55,7 @@ export function StrataCreatePageForm({ dbAvailable, onLocalPagesUpdated }: Strat
       type="button"
       onClick={async () => {
         const page = await createLocalStrataPage();
+
         onLocalPagesUpdated(await listLocalStrataPages());
         router.push(`/sandbox/prototypes/strata/${page.page.id}`);
       }}

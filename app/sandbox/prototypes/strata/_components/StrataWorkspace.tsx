@@ -26,9 +26,11 @@ const StrataAgentUiContext = createContext<StrataAgentUiContextValue | null>(nul
 
 export function useStrataAgentPanel(): StrataAgentUiContextValue {
   const ctx = useContext(StrataAgentUiContext);
+
   if (!ctx) {
     throw new Error("useStrataAgentPanel must be used within StrataWorkspace");
   }
+
   return ctx;
 }
 
@@ -39,6 +41,7 @@ export function useOptionalStrataAgentPanel(): StrataAgentUiContextValue | null 
 /** Opens the Strata assistant panel (only renders under StrataWorkspace). */
 export function StrataAssistantOpenHint() {
   const ctx = useOptionalStrataAgentPanel();
+
   if (!ctx) return null;
 
   return (

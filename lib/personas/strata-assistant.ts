@@ -1,4 +1,5 @@
 import type { ChatModel } from "@/lib/schemas/chat";
+
 import { DEFAULT_CHAT_MODEL, ChatModels } from "@/lib/schemas/chat";
 
 export const STRATA_ASSISTANT_PERSONA_IDS = ["remy", "spark", "aion", "prometheus"] as const;
@@ -30,6 +31,7 @@ const DEFAULT_TOOLS: StrataAssistantToolDefaults = {
 
 function pickModel(id: string): ChatModel {
   const found = ChatModels.find((m) => m.id === id);
+
   return found ?? DEFAULT_CHAT_MODEL;
 }
 
@@ -59,7 +61,11 @@ const DEFINITIONS: Record<StrataAssistantPersonaId, StrataAssistantPersonaDefini
     getSystemPromptAugmentation: () =>
       "\n\n[Persona: Aion]\nUse a calm, encyclopedic tone across domains. Prefer structured explanations and clear definitions when the user spans multiple topics.",
     getDefaultModel: () => pickModel("google/gemini-3.1-pro-preview"),
-    getDefaultToolDefaults: () => ({ ...DEFAULT_TOOLS, toolWebSearch: true, toolKnowledgeSearch: true }),
+    getDefaultToolDefaults: () => ({
+      ...DEFAULT_TOOLS,
+      toolWebSearch: true,
+      toolKnowledgeSearch: true,
+    }),
   },
   prometheus: {
     id: "prometheus",
@@ -68,7 +74,11 @@ const DEFINITIONS: Record<StrataAssistantPersonaId, StrataAssistantPersonaDefini
     getSystemPromptAugmentation: () =>
       "\n\n[Persona: Prometheus]\nLean toward software, systems, scientific reasoning, and engineering tradeoffs when relevant. Prefer precise terminology and reproducible steps.",
     getDefaultModel: () => pickModel("anthropic/claude-sonnet-4.6"),
-    getDefaultToolDefaults: () => ({ ...DEFAULT_TOOLS, toolWebSearch: true, toolMessageSearch: true }),
+    getDefaultToolDefaults: () => ({
+      ...DEFAULT_TOOLS,
+      toolWebSearch: true,
+      toolMessageSearch: true,
+    }),
   },
 };
 
@@ -78,6 +88,7 @@ export function isStrataAssistantPersonaId(v: string): v is StrataAssistantPerso
 
 export function getStrataAssistantPersona(id: string): StrataAssistantPersonaDefinition {
   if (isStrataAssistantPersonaId(id)) return DEFINITIONS[id];
+
   return DEFINITIONS.prometheus;
 }
 

@@ -26,32 +26,20 @@ export function PrototypesSidebarNav({ prototypes }: { prototypes: RankedPrototy
             href={prototype.href}
             key={prototype.slug}
           >
-            <div className="flex items-start justify-between gap-3">
-              <div className="min-w-0 flex-1">
-                <div className="flex items-center gap-2">
-                  <span className="text-[10px] font-medium text-muted-foreground">
-                    {String(index + 1).padStart(2, "0")}
-                  </span>
-                  <p className="truncate text-sm font-medium">{prototype.title}</p>
-                </div>
-                <p className="mt-1 line-clamp-2 text-xs leading-4 text-muted-foreground">
-                  {prototype.description}
-                </p>
-              </div>
-              <span className="shrink-0 rounded-full border border-border/50 px-2 py-0.5 text-[10px] text-muted-foreground">
-                {Math.round(prototype.score)}
-              </span>
-            </div>
-            <div className="mt-2 flex flex-wrap gap-1">
-              {prototype.reasons.map((reason) => (
-                <span
-                  className="rounded-full bg-background-tertiary/50 px-2 py-0.5 text-[10px] text-muted-foreground"
-                  key={reason}
-                >
-                  {reason}
+            <div className="flex w-full justify-center">
+              <div className="inline-flex min-w-0 max-w-full items-center justify-center gap-2 text-center">
+                <span className="shrink-0 text-[10px] font-medium text-muted-foreground">
+                  {String(index + 1).padStart(2, "0")}
                 </span>
-              ))}
+                <p className="min-w-0 truncate text-sm font-medium">{prototype.title}</p>
+                <span className="shrink-0 rounded-full border border-border/50 px-2 py-0.5 text-[10px] text-muted-foreground">
+                  {Math.round(prototype.score)}
+                </span>
+              </div>
             </div>
+            <p className="mt-2 line-clamp-2 text-center text-xs leading-4 text-muted-foreground">
+              {prototype.description}
+            </p>
           </Link>
         );
       })}

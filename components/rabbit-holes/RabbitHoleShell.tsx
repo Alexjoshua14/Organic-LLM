@@ -370,52 +370,44 @@ export function RabbitHoleShell() {
               </AnimatePresence>
 
               {/* ── Center column: Article + Prompt ── */}
-              <section
-                className={cn(
-                  "min-w-0",
-                  focusMode ? "lg:col-span-1" : "lg:col-start-2"
-                )}
-              >
-                {session && session.path.length > 1 && centerViewState.kind === "article_loaded" && (
-                  <div className="flex items-center justify-between mb-6 shrink-0 px-4">
-                    <Button
-                      isIconOnly
-                      className={cn(
-                        "text-muted-foreground",
-                        "hover:text-foreground",
-                        "disabled:opacity-30 disabled:cursor-not-allowed"
-                      )}
-                      isDisabled={!canGoBack()}
-                      variant="ghost"
-                      onPress={handleNavigateBack}
-                    >
-                      <ChevronLeft size={20} />
-                    </Button>
-                    <div className="text-xs text-muted-foreground">
-                      {getCurrentPathIndex() + 1} / {session.path.length}
+              <section className={cn("min-w-0", focusMode ? "lg:col-span-1" : "lg:col-start-2")}>
+                {session &&
+                  session.path.length > 1 &&
+                  centerViewState.kind === "article_loaded" && (
+                    <div className="flex items-center justify-between mb-6 shrink-0 px-4">
+                      <Button
+                        isIconOnly
+                        className={cn(
+                          "text-muted-foreground",
+                          "hover:text-foreground",
+                          "disabled:opacity-30 disabled:cursor-not-allowed"
+                        )}
+                        isDisabled={!canGoBack()}
+                        variant="ghost"
+                        onPress={handleNavigateBack}
+                      >
+                        <ChevronLeft size={20} />
+                      </Button>
+                      <div className="text-xs text-muted-foreground">
+                        {getCurrentPathIndex() + 1} / {session.path.length}
+                      </div>
+                      <Button
+                        isIconOnly
+                        className={cn(
+                          "text-muted-foreground",
+                          "hover:text-foreground",
+                          "disabled:opacity-30 disabled:cursor-not-allowed"
+                        )}
+                        isDisabled={!canGoForward()}
+                        variant="ghost"
+                        onPress={handleNavigateForward}
+                      >
+                        <ChevronRight size={20} />
+                      </Button>
                     </div>
-                    <Button
-                      isIconOnly
-                      className={cn(
-                        "text-muted-foreground",
-                        "hover:text-foreground",
-                        "disabled:opacity-30 disabled:cursor-not-allowed"
-                      )}
-                      isDisabled={!canGoForward()}
-                      variant="ghost"
-                      onPress={handleNavigateForward}
-                    >
-                      <ChevronRight size={20} />
-                    </Button>
-                  </div>
-                )}
-
-                <div
-                  className={cn(
-                    "w-full px-4 pt-4",
-                    focusMode ? "pb-8" : "pb-36"
                   )}
-                >
+
+                <div className={cn("w-full px-4 pt-4", focusMode ? "pb-8" : "pb-36")}>
                   <AnimatePresence mode="wait">
                     {centerViewState.kind === "loading_previous_session" && (
                       <DelayedContent key="loading-session" delayMs={400}>

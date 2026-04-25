@@ -203,9 +203,10 @@ export default function PrototypesLLMStatesPage() {
           <TabsContent className="mt-0 space-y-0 focus-visible:ring-offset-0" value="ephemeral">
             <p className="mb-6 text-sm text-muted-foreground leading-relaxed">
               These mirror what{" "}
-              <code className="rounded bg-muted px-1 py-0.5 text-xs">ChatAIAction</code> renders when
-              the stream sends <code className="rounded bg-muted px-1 py-0.5 text-xs">data-aiAction</code>{" "}
-              events (ephemeral tail on the streaming assistant message).
+              <code className="rounded bg-muted px-1 py-0.5 text-xs">ChatAIAction</code> renders
+              when the stream sends{" "}
+              <code className="rounded bg-muted px-1 py-0.5 text-xs">data-aiAction</code> events
+              (ephemeral tail on the streaming assistant message).
             </p>
 
             <SectionTitle>Processing and reasoning</SectionTitle>
@@ -262,8 +263,8 @@ export default function PrototypesLLMStatesPage() {
             <div className="space-y-1">
               <StateBlock label="Tool in flight (inline row before result)">
                 <p className="mb-3 text-xs text-muted-foreground">
-                  Bordered row with <code className="rounded bg-muted px-1">ChatThinking</code> and a
-                  label from the tool name (same pattern for AI SDK v5 tool parts and legacy
+                  Bordered row with <code className="rounded bg-muted px-1">ChatThinking</code> and
+                  a label from the tool name (same pattern for AI SDK v5 tool parts and legacy
                   tool-invocation).
                 </p>
                 <div className={INLINE_TOOL_ROW_CLASS}>
@@ -287,146 +288,159 @@ export default function PrototypesLLMStatesPage() {
 
             <SectionTitle>Generic and specialized cards</SectionTitle>
             <div className="space-y-1">
-            <StateBlock label="Generic tool result — ArcadiaToolResultCard (JSON)">
-              <p className="mb-3 text-xs text-muted-foreground">
-                Default collapsible for tools without a dedicated card (pin, “View output”, raw
-                JSON). Example uses a placeholder tool name so it is not routed to a specialized
-                card.
-              </p>
-              <ArcadiaToolResultCard
-                displayBody={{ status: "ok", items: [{ id: 1 }, { id: 2 }], note: "Prototype payload" }}
-                isPinned={false}
-                toolName="example_custom_tool"
-                onTogglePin={() => undefined}
-              />
-            </StateBlock>
+              <StateBlock label="Generic tool result — ArcadiaToolResultCard (JSON)">
+                <p className="mb-3 text-xs text-muted-foreground">
+                  Default collapsible for tools without a dedicated card (pin, “View output”, raw
+                  JSON). Example uses a placeholder tool name so it is not routed to a specialized
+                  card.
+                </p>
+                <ArcadiaToolResultCard
+                  displayBody={{
+                    status: "ok",
+                    items: [{ id: 1 }, { id: 2 }],
+                    note: "Prototype payload",
+                  }}
+                  isPinned={false}
+                  toolName="example_custom_tool"
+                  onTogglePin={() => undefined}
+                />
+              </StateBlock>
 
-            <StateBlock label="Memory search — MemorySearchToolResultCard (via ArcadiaToolResultCard)">
-              <p className="mb-3 text-xs text-muted-foreground">
-                <code className="rounded bg-muted px-1">search_memories</code>: title includes count
-                and truncated query; memories listed inside{" "}
-                <code className="rounded bg-muted px-1">details</code>.
-              </p>
-              <ArcadiaToolResultCard
-                displayBody={{
-                  success: true,
-                  query:
-                    "What topics does the user enjoy discussing at length including astronomy and white holes",
-                  count: 2,
-                  memories: [
-                    { id: "m1", memory: "User prefers cosmology analogies when learning new concepts.", score: 0.912 },
-                    { id: "m2", memory: "User asked about white holes and general relativity before.", score: 0.854 },
-                  ],
-                }}
-                isPinned={false}
-                toolName="search_memories"
-                onTogglePin={() => undefined}
-              />
-            </StateBlock>
+              <StateBlock label="Memory search — MemorySearchToolResultCard (via ArcadiaToolResultCard)">
+                <p className="mb-3 text-xs text-muted-foreground">
+                  <code className="rounded bg-muted px-1">search_memories</code>: title includes
+                  count and truncated query; memories listed inside{" "}
+                  <code className="rounded bg-muted px-1">details</code>.
+                </p>
+                <ArcadiaToolResultCard
+                  displayBody={{
+                    success: true,
+                    query:
+                      "What topics does the user enjoy discussing at length including astronomy and white holes",
+                    count: 2,
+                    memories: [
+                      {
+                        id: "m1",
+                        memory: "User prefers cosmology analogies when learning new concepts.",
+                        score: 0.912,
+                      },
+                      {
+                        id: "m2",
+                        memory: "User asked about white holes and general relativity before.",
+                        score: 0.854,
+                      },
+                    ],
+                  }}
+                  isPinned={false}
+                  toolName="search_memories"
+                  onTogglePin={() => undefined}
+                />
+              </StateBlock>
 
-            <StateBlock label="Memory search — error (flat)">
-              <ArcadiaToolResultCard
-                displayBody={{
-                  success: false,
-                  query: "anything",
-                  error: "Memory search rate limit exceeded.",
-                  memories: [],
-                  count: 0,
-                }}
-                isPinned={false}
-                toolName="search_memories"
-                onTogglePin={() => undefined}
-              />
-            </StateBlock>
+              <StateBlock label="Memory search — error (flat)">
+                <ArcadiaToolResultCard
+                  displayBody={{
+                    success: false,
+                    query: "anything",
+                    error: "Memory search rate limit exceeded.",
+                    memories: [],
+                    count: 0,
+                  }}
+                  isPinned={false}
+                  toolName="search_memories"
+                  onTogglePin={() => undefined}
+                />
+              </StateBlock>
 
-            <StateBlock label="Mermaid diagram — MermaidToolAckCard (via ArcadiaToolResultCard)">
-              <p className="mb-3 text-xs text-muted-foreground">
-                <code className="rounded bg-muted px-1">make_mermaid_diagram</code>: one-line
-                acknowledgment only; the diagram is meant to appear in the assistant markdown
-                message, not inside the tool card.
-              </p>
-              <ArcadiaToolResultCard
-                displayBody={{
-                  success: true,
-                  code: "graph TD\n  A[User asks] --> B[Model answers]\n  B --> C[White holes]",
-                }}
-                isPinned={false}
-                toolName="make_mermaid_diagram"
-                onTogglePin={() => undefined}
-              />
-            </StateBlock>
+              <StateBlock label="Mermaid diagram — MermaidToolAckCard (via ArcadiaToolResultCard)">
+                <p className="mb-3 text-xs text-muted-foreground">
+                  <code className="rounded bg-muted px-1">make_mermaid_diagram</code>: one-line
+                  acknowledgment only; the diagram is meant to appear in the assistant markdown
+                  message, not inside the tool card.
+                </p>
+                <ArcadiaToolResultCard
+                  displayBody={{
+                    success: true,
+                    code: "graph TD\n  A[User asks] --> B[Model answers]\n  B --> C[White holes]",
+                  }}
+                  isPinned={false}
+                  toolName="make_mermaid_diagram"
+                  onTogglePin={() => undefined}
+                />
+              </StateBlock>
 
-            <StateBlock label="Mermaid diagram — validation note (optional second line)">
-              <ArcadiaToolResultCard
-                displayBody={{
-                  success: true,
-                  code: "graph TD\n  A-->B",
-                  validationError:
-                    "Server-side validator reported a minor issue; diagram may still render in the thread.",
-                }}
-                isPinned={false}
-                toolName="make_mermaid_diagram"
-                onTogglePin={() => undefined}
-              />
-            </StateBlock>
+              <StateBlock label="Mermaid diagram — validation note (optional second line)">
+                <ArcadiaToolResultCard
+                  displayBody={{
+                    success: true,
+                    code: "graph TD\n  A-->B",
+                    validationError:
+                      "Server-side validator reported a minor issue; diagram may still render in the thread.",
+                  }}
+                  isPinned={false}
+                  toolName="make_mermaid_diagram"
+                  onTogglePin={() => undefined}
+                />
+              </StateBlock>
 
-            <StateBlock label="Mermaid diagram — error (tool output-error string)">
-              <ArcadiaToolResultCard
-                displayBody="Mermaid parse failed: unexpected token at line 4"
-                isPinned={false}
-                toolName="make_mermaid_diagram"
-                onTogglePin={() => undefined}
-              />
-            </StateBlock>
+              <StateBlock label="Mermaid diagram — error (tool output-error string)">
+                <ArcadiaToolResultCard
+                  displayBody="Mermaid parse failed: unexpected token at line 4"
+                  isPinned={false}
+                  toolName="make_mermaid_diagram"
+                  onTogglePin={() => undefined}
+                />
+              </StateBlock>
             </div>
 
             <SectionTitle>Web search and chat history</SectionTitle>
             <div className="space-y-1">
-            <StateBlock label="Search Results — WebSearchToolResultCard">
-              <p className="mb-3 text-xs text-muted-foreground">
-                Dedicated UI for <code className="rounded bg-muted px-1">web_search</code> tool
-                output (parsed from Exa-style <code className="rounded bg-muted px-1">Result</code>
-                ).
-              </p>
-              <WebSearchToolResultCard
-                isPinned={false}
-                parsed={MOCK_WEB_SEARCH_PARSED}
-                onTogglePin={() => undefined}
-              />
-            </StateBlock>
+              <StateBlock label="Search Results — WebSearchToolResultCard">
+                <p className="mb-3 text-xs text-muted-foreground">
+                  Dedicated UI for <code className="rounded bg-muted px-1">web_search</code> tool
+                  output (parsed from Exa-style{" "}
+                  <code className="rounded bg-muted px-1">Result</code>
+                  ).
+                </p>
+                <WebSearchToolResultCard
+                  isPinned={false}
+                  parsed={MOCK_WEB_SEARCH_PARSED}
+                  onTogglePin={() => undefined}
+                />
+              </StateBlock>
 
-            <StateBlock label="Search Results — error (flat card, title Search error)">
-              <p className="mb-3 text-xs text-muted-foreground">
-                Same shell as full-chat-history errors: no collapsible; title + destructive message
-                + pin.
-              </p>
-              <WebSearchToolResultCard
-                isPinned={false}
-                parsed={MOCK_WEB_SEARCH_ERROR_PARSED}
-                onTogglePin={() => undefined}
-              />
-            </StateBlock>
+              <StateBlock label="Search Results — error (flat card, title Search error)">
+                <p className="mb-3 text-xs text-muted-foreground">
+                  Same shell as full-chat-history errors: no collapsible; title + destructive
+                  message + pin.
+                </p>
+                <WebSearchToolResultCard
+                  isPinned={false}
+                  parsed={MOCK_WEB_SEARCH_ERROR_PARSED}
+                  onTogglePin={() => undefined}
+                />
+              </StateBlock>
 
-            <StateBlock label="Fetched full chat history — FullChatHistoryToolResultCard">
-              <p className="mb-3 text-xs text-muted-foreground">
-                Compact, non-collapsible summary for{" "}
-                <code className="rounded bg-muted px-1">get_full_chat_history</code> (message count
-                only; transcript stays in the scrollable thread).
-              </p>
-              <FullChatHistoryToolResultCard
-                isPinned={false}
-                parsed={{ kind: "ok", count: 28 }}
-                onTogglePin={() => undefined}
-              />
-            </StateBlock>
+              <StateBlock label="Fetched full chat history — FullChatHistoryToolResultCard">
+                <p className="mb-3 text-xs text-muted-foreground">
+                  Compact, non-collapsible summary for{" "}
+                  <code className="rounded bg-muted px-1">get_full_chat_history</code> (message
+                  count only; transcript stays in the scrollable thread).
+                </p>
+                <FullChatHistoryToolResultCard
+                  isPinned={false}
+                  parsed={{ kind: "ok", count: 28 }}
+                  onTogglePin={() => undefined}
+                />
+              </StateBlock>
 
-            <StateBlock label="Fetched full chat history — error state">
-              <FullChatHistoryToolResultCard
-                isPinned={false}
-                parsed={{ kind: "error", message: "Failed to load messages from the server." }}
-                onTogglePin={() => undefined}
-              />
-            </StateBlock>
+              <StateBlock label="Fetched full chat history — error state">
+                <FullChatHistoryToolResultCard
+                  isPinned={false}
+                  parsed={{ kind: "error", message: "Failed to load messages from the server." }}
+                  onTogglePin={() => undefined}
+                />
+              </StateBlock>
             </div>
           </TabsContent>
         </Tabs>

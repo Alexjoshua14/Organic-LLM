@@ -7,10 +7,7 @@ import { getSupabaseUserId } from "@/data/supabase/profiles";
 import { generateStrataPageTitleFromSections } from "@/lib/llm/strata-title";
 import { createLogger } from "@/lib/logger";
 import { checkStrataTitleGenerationLimit } from "@/lib/rate-limit/title";
-import {
-  StrataGenerateTitleRequestSchema,
-  isUntitledStrataTitle,
-} from "@/lib/schemas/strata";
+import { StrataGenerateTitleRequestSchema, isUntitledStrataTitle } from "@/lib/schemas/strata";
 
 export const maxDuration = 30;
 
@@ -51,6 +48,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
   }
 
   let bodyJson: unknown;
+
   try {
     bodyJson = await req.json();
   } catch {
@@ -58,6 +56,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
   }
 
   const parsedBody = StrataGenerateTitleRequestSchema.safeParse(bodyJson);
+
   if (!parsedBody.success) {
     return NextResponse.json(
       { error: "Invalid request", details: parsedBody.error.flatten() },

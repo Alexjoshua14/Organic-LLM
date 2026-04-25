@@ -1,3 +1,5 @@
+import type { Result } from "@/types";
+
 import { generateText } from "ai";
 
 import { GUARDRAIL_MAX_OUTPUT_TOKENS } from "@/lib/llm/helpers";
@@ -6,7 +8,6 @@ import { recordLlmCall } from "@/lib/llm/metrics";
 import { generateShortTitleFromSummary } from "@/lib/llm/short-title-from-summary";
 import { TITLE_PIPELINE_SUMMARIZER_MODEL } from "@/lib/llm/title-models";
 import { sanitizeRawUserInput } from "@/lib/strata/input-safety";
-import type { Result } from "@/types";
 
 const logger = createLogger("lib/llm/strata-title.ts");
 
@@ -23,12 +24,14 @@ Be concise, neutral, and free of lists or markdown. Output plain text only.
 function buildTitleSourceText(rawSanitized: string, refinedText: string): string {
   const rawExcerpt = rawSanitized.trim().slice(0, 4_000);
   const refined = refinedText.trim();
+
   if (!refined) {
     return rawExcerpt;
   }
   if (!rawExcerpt) {
     return `Refined:\n${refined}`;
   }
+
   return `Raw excerpt:\n${rawExcerpt}\n\nRefined:\n${refined}`;
 }
 
@@ -37,13 +40,20 @@ function fallbackTitle(
   rawSanitized: string
 ): string {
   const fromJson = refinedGeneratedTitle?.replace(/\s+/g, " ").trim() ?? "";
+
   if (fromJson.length > 0) {
     return fromJson.slice(0, 255);
   }
-  const firstLine = rawSanitized.split("\n").find((l) => l.trim().length > 0)?.trim() ?? "";
+  const firstLine =
+    rawSanitized
+      .split("\n")
+      .find((l) => l.trim().length > 0)
+      ?.trim() ?? "";
+
   if (firstLine.length > 0) {
     return firstLine.slice(0, 255);
   }
+
   return "Strata";
 }
 
@@ -114,6 +124,7 @@ export async function generateStrataPageTitleFromSections(options: {
   }
 
   const idea = (shortTitleResult.data ?? "").trim();
+
   if (idea.length > 0) {
     return { data: idea, error: null };
   }

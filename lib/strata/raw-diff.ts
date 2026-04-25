@@ -20,6 +20,7 @@ export function computeRawTextLineChanges(previousRaw: string, currentRaw: strin
   for (let i = 0; i < max; i++) {
     const b = before[i];
     const a = after[i];
+
     if (b === a) continue;
     if (b === undefined && a !== undefined) {
       changes.push({ kind: "added", after: a });
@@ -50,6 +51,7 @@ export function buildRawDiffSummary(previousRaw: string, currentRaw: string): st
     .map((entry) => {
       if (entry.kind === "added") return `+ ${entry.after ?? ""}`.slice(0, 160);
       if (entry.kind === "removed") return `- ${entry.before ?? ""}`.slice(0, 160);
+
       return `~ ${entry.before ?? ""} => ${entry.after ?? ""}`.slice(0, 160);
     })
     .join("\n");

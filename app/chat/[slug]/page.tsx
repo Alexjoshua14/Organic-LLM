@@ -1,6 +1,9 @@
-import { UIMessage } from "ai";
 import type { Metadata } from "next";
+
+import { UIMessage } from "ai";
 import { cache } from "react";
+
+import { ChatLoadError } from "./chat-load-error";
 
 import Page from "@/components/layout/page";
 import { Chat } from "@/components/chat/chat";
@@ -10,8 +13,6 @@ import { resolveChatBrowserTabTitlePrimary } from "@/lib/metadata/resolve-browse
 import { tabTitleMetadata } from "@/lib/metadata/tab-title";
 import { Thread } from "@/lib/schemas/chat";
 import { createLogger } from "@/lib/logger";
-
-import { ChatLoadError } from "./chat-load-error";
 
 const logger = createLogger(`app/chat/[slug]/page.tsx`);
 
@@ -24,6 +25,7 @@ export async function generateMetadata({
 }): Promise<Metadata> {
   const { slug: chatId } = await params;
   const res = await loadChatForRequest(chatId);
+
   if (res.error || res.data === null) {
     return tabTitleMetadata(null, "Chat");
   }
@@ -32,6 +34,7 @@ export async function generateMetadata({
     thread: res.data.thread,
     messages: res.data.messages,
   });
+
   return tabTitleMetadata(primary, "Chat");
 }
 
