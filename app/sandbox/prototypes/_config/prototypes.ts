@@ -23,6 +23,12 @@ export const prototypes: PrototypeEntry[] = [
       "All chat loading and action states (thinking, reasoning, search, memory, tool, errored) in one place for development.",
   },
   {
+    slug: "glass-primitive",
+    title: "Glass primitive",
+    description:
+      "Candidate Organic Glass material designed to play in tandem with AdaptiveLiquidChrome before becoming the default primitive.",
+  },
+  {
     slug: "line-list",
     title: "Wine line list",
     description:

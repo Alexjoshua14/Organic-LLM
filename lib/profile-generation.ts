@@ -19,9 +19,9 @@ import { ProfileSectionSchema, ProfileTreeSchema } from "@/lib/schemas/profileTr
 
 const logger = createLogger("lib/profile-generation.ts");
 
-const PLANNER_MODEL = "anthropic/claude-opus-4.7";
+const PLANNER_MODEL = "openai/gpt-5.5";
 const SECTION_MODEL = "anthropic/claude-sonnet-4.6";
-const REVIEW_MODEL = "anthropic/claude-opus-4.7";
+const REVIEW_MODEL = "openai/gpt-5.5";
 
 const BASELINE_MEMORY_SEARCH_LIMIT = 50;
 const BASELINE_MEMORY_PROMPT_LIMIT = 30;
@@ -338,6 +338,8 @@ async function callGenerateObject<T>({
   model,
   operation,
   schema,
+  schemaName,
+  schemaDescription,
   system,
   prompt,
   maxOutputTokens,
@@ -346,6 +348,8 @@ async function callGenerateObject<T>({
   model: string;
   operation: string;
   schema: z.ZodType<T>;
+  schemaName?: string;
+  schemaDescription?: string;
   system: string;
   prompt: string;
   maxOutputTokens: number;
@@ -357,6 +361,8 @@ async function callGenerateObject<T>({
     system,
     prompt,
     schema,
+    schemaName,
+    schemaDescription,
     providerOptions: PROVIDER_OPTIONS,
     maxOutputTokens,
   });
@@ -442,57 +448,20 @@ async function planProfileSections({
   budget.plannerCalls += 1;
 
   const prompt = buildPlannerPrompt(displayName, emailDomain, baselineMemories);
+  const plan = await callGenerateObject({
+    model: PLANNER_MODEL,
+    operation: "profile-section-plan",
+    schema: ProfileSectionPlanSchema,
+    schemaName: "ProfileSectionPlan",
+    schemaDescription:
+      "A memory-grounded plan for a ProfileTree, including headline direction, roles, optional signature direction, and 3-8 section plans.",
+    system: PLANNER_SYSTEM,
+    prompt,
+    maxOutputTokens: PLANNER_MAX_OUTPUT_TOKENS,
+    budget,
+  });
 
-  try {
-    const plan = await callGenerateObject({
-      model: PLANNER_MODEL,
-      operation: "profile-section-plan",
-      schema: ProfileSectionPlanSchema,
-      system: PLANNER_SYSTEM,
-      prompt,
-      maxOutputTokens: PLANNER_MAX_OUTPUT_TOKENS,
-      budget,
-    });
-
-    return trimPlanToBudget(plan);
-  } catch (err) {
-    logger.warn(
-      "planProfileSections",
-      "Structured planner failed; retrying with raw JSON text",
-      err
-    );
-
-    const text = await callGenerateText({
-      model: PLANNER_MODEL,
-      operation: "profile-section-plan-retry",
-      system: `${PLANNER_SYSTEM}
-
-Return exactly one raw JSON object. Do not wrap it in Markdown. Do not return an empty object.
-Required shape:
-{
-  "headlineDirection": "short headline direction",
-  "roles": ["optional role"],
-  "signatureDirection": "optional signature direction",
-  "sections": [
-    {
-      "id": "about",
-      "title": "About",
-      "purpose": "short section purpose",
-      "memoryQueries": ["targeted memory query"],
-      "desiredShape": "body" ,
-      "priority": 10
-    }
-  ]
-}`,
-      prompt,
-      maxOutputTokens: PLANNER_MAX_OUTPUT_TOKENS + 400,
-      budget,
-    });
-
-    const parsed = ProfileSectionPlanSchema.parse(parseJsonObjectFromText(text));
-
-    return trimPlanToBudget(parsed);
-  }
+  return trimPlanToBudget(plan);
 }
 
 function trimPlanToBudget(plan: ProfileSectionPlan): ProfileSectionPlan {
@@ -598,6 +567,9 @@ async function reviewGeneratedSections({
     model: REVIEW_MODEL,
     operation: "profile-section-batch-review",
     schema: ProfileSectionBatchReviewSchema,
+    schemaName: "ProfileSectionBatchReview",
+    schemaDescription:
+      "A batched quality review for all generated profile sections, with per-section score, decision, issues, and rewrite instructions.",
     system: `You are a strict quality reviewer for memory-grounded profile sections. ${INJECTION_GUARDRAIL}
 Score specificity, groundedness, section fit, voice, and UI fit. Flag generic labels like Builder, Visionary, and Lifelong Learner when unsupported.`,
     prompt: `Section plan:
@@ -725,6 +697,9 @@ async function reviewProfileTree({
     model: REVIEW_MODEL,
     operation: "profile-tree-review",
     schema: ProfileTreeReviewSchema,
+    schemaName: "ProfileTreeReview",
+    schemaDescription:
+      "A final quality review for a complete ProfileTree, with score, decision, weak section ids, issues, and optional rewrite instructions.",
     system: `You are a final reviewer for a memory-grounded ProfileTree. ${INJECTION_GUARDRAIL}
 Reject unsupported claims, generic resume filler, or weak coverage. Prefer draft over publishing low-quality output.`,
     prompt: `Memory evidence:

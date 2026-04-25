@@ -32,6 +32,7 @@ const MODEL_COSTS: Record<string, ModelCost> = {
   "openai/gpt-5": { inputPerMillion: 1.25, outputPerMillion: 10.0 },
   "openai/gpt-5.4-mini": { inputPerMillion: 0.25, outputPerMillion: 2.0 },
   "openai/gpt-5.4-nano": { inputPerMillion: 0.05, outputPerMillion: 0.4 },
+  "openai/gpt-5.5": { inputPerMillion: 5.0, outputPerMillion: 30.0 },
   "openai/gpt-4o": { inputPerMillion: 2.5, outputPerMillion: 10.0 },
   "openai/gpt-4o-mini": { inputPerMillion: 0.15, outputPerMillion: 0.6 },
   "openai/gpt-4-turbo": { inputPerMillion: 10.0, outputPerMillion: 30.0 },
