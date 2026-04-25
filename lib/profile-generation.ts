@@ -32,6 +32,7 @@ const MAX_SECTION_COUNT = 8;
 const MAX_SECTION_MEMORY_QUERIES = 3;
 const MAX_SECTION_MEMORY_RESULTS = 6;
 const MAX_SECTION_REWRITES = 3;
+const PLANNER_MAX_OUTPUT_TOKENS = 1500;
 
 const PROVIDER_OPTIONS = {
   gateway: {
@@ -198,7 +199,7 @@ function assertBudgetRoom(budget: ProfileGenerationBudget, reserveUsd = 0) {
 
 function estimateWorstCaseCost(sectionCount: number, rewriteCount: number): number {
   return (
-    estimateCostUsd(PLANNER_MODEL, 3000, 700) +
+    estimateCostUsd(PLANNER_MODEL, 3000, PLANNER_MAX_OUTPUT_TOKENS) +
     estimateCostUsd(SECTION_MODEL, 1500, 450) * sectionCount +
     estimateCostUsd(REVIEW_MODEL, 4000, 800) +
     estimateCostUsd(SECTION_MODEL, 1800, 450) * rewriteCount +
@@ -413,6 +414,20 @@ async function callGenerateText({
   return text;
 }
 
+const PLANNER_SYSTEM = `You are planning a memory-grounded profile architecture. ${INJECTION_GUARDRAIL}
+Return only sections supported by memory evidence. Always consider common sections like About and Lifestyle & Interests, but only include them when supported. Add user-specific sections when evidence supports them.
+Keep every string field short: titles under 60 characters, purposes under 160 characters, and memory queries under 120 characters.`;
+
+function buildPlannerPrompt(displayName: string, emailDomain: string, baselineMemories: string) {
+  return `Display name: ${displayName}
+Email domain: ${emailDomain}
+
+Baseline memory evidence:
+${baselineMemories}
+
+Plan the ideal ProfileTree sections for this specific person. Include stable ids, concise titles, section purposes, and targeted memory queries for each section. Prefer 4-6 well-supported sections over 7-8 weak ones.`;
+}
+
 async function planProfileSections({
   displayName,
   emailDomain,
@@ -426,24 +441,58 @@ async function planProfileSections({
 }): Promise<ProfileSectionPlan> {
   budget.plannerCalls += 1;
 
-  const plan = await callGenerateObject({
-    model: PLANNER_MODEL,
-    operation: "profile-section-plan",
-    schema: ProfileSectionPlanSchema,
-    system: `You are planning a memory-grounded profile architecture. ${INJECTION_GUARDRAIL}
-Return only sections supported by memory evidence. Always consider common sections like About and Lifestyle & Interests, but only include them when supported. Add user-specific sections when evidence supports them.`,
-    prompt: `Display name: ${displayName}
-Email domain: ${emailDomain}
+  const prompt = buildPlannerPrompt(displayName, emailDomain, baselineMemories);
 
-Baseline memory evidence:
-${baselineMemories}
+  try {
+    const plan = await callGenerateObject({
+      model: PLANNER_MODEL,
+      operation: "profile-section-plan",
+      schema: ProfileSectionPlanSchema,
+      system: PLANNER_SYSTEM,
+      prompt,
+      maxOutputTokens: PLANNER_MAX_OUTPUT_TOKENS,
+      budget,
+    });
 
-Plan the ideal ProfileTree sections for this specific person. Include stable ids, concise titles, section purposes, and targeted memory queries for each section.`,
-    maxOutputTokens: 700,
-    budget,
-  });
+    return trimPlanToBudget(plan);
+  } catch (err) {
+    logger.warn(
+      "planProfileSections",
+      "Structured planner failed; retrying with raw JSON text",
+      err
+    );
 
-  return trimPlanToBudget(plan);
+    const text = await callGenerateText({
+      model: PLANNER_MODEL,
+      operation: "profile-section-plan-retry",
+      system: `${PLANNER_SYSTEM}
+
+Return exactly one raw JSON object. Do not wrap it in Markdown. Do not return an empty object.
+Required shape:
+{
+  "headlineDirection": "short headline direction",
+  "roles": ["optional role"],
+  "signatureDirection": "optional signature direction",
+  "sections": [
+    {
+      "id": "about",
+      "title": "About",
+      "purpose": "short section purpose",
+      "memoryQueries": ["targeted memory query"],
+      "desiredShape": "body" ,
+      "priority": 10
+    }
+  ]
+}`,
+      prompt,
+      maxOutputTokens: PLANNER_MAX_OUTPUT_TOKENS + 400,
+      budget,
+    });
+
+    const parsed = ProfileSectionPlanSchema.parse(parseJsonObjectFromText(text));
+
+    return trimPlanToBudget(parsed);
+  }
 }
 
 function trimPlanToBudget(plan: ProfileSectionPlan): ProfileSectionPlan {
