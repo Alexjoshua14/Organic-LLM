@@ -65,14 +65,14 @@ function RefractiveGlassSurface({
       )}
       data-dim-background="full"
     >
-      <div className="pointer-events-none absolute -inset-12 rounded-[inherit] bg-[radial-gradient(circle_at_18%_12%,rgba(255,255,255,0.28),transparent_28%),radial-gradient(circle_at_84%_8%,rgba(18,140,116,0.20),transparent_34%),radial-gradient(circle_at_52%_96%,rgba(255,183,77,0.12),transparent_30%)] opacity-55 blur-sm transition-opacity duration-200 group-hover:opacity-70 dark:opacity-42" />
-      <div className="pointer-events-none absolute inset-px rounded-[inherit] border border-white/24 dark:border-white/8" />
-      <div className="pointer-events-none absolute inset-0 rounded-[inherit] bg-[linear-gradient(112deg,rgba(255,255,255,0.34),transparent_20%,transparent_72%,rgba(255,255,255,0.10)),radial-gradient(ellipse_at_28%_8%,rgba(255,255,255,0.24),transparent_36%)] opacity-38 mix-blend-screen dark:opacity-18" />
-      <div className="pointer-events-none absolute inset-2 rounded-[1.9rem] border border-cyan-200/14 opacity-50 blur-[0.4px] dark:border-cyan-100/8" />
-      <div className="pointer-events-none absolute inset-2 translate-x-px rounded-[1.9rem] border border-red-200/12 opacity-38 blur-[0.4px] dark:border-red-100/8" />
-      <div className="pointer-events-none absolute inset-x-8 top-0 h-8 rounded-full bg-white/28 opacity-35 blur-xl transition-opacity duration-200 group-hover:opacity-48 dark:bg-white/10" />
-      <div className="pointer-events-none absolute inset-x-10 bottom-0 h-px bg-linear-to-r from-transparent via-accent/28 to-transparent opacity-60" />
-      <div className="pointer-events-none absolute inset-0 rounded-[inherit] bg-[radial-gradient(circle_at_22%_22%,transparent_0_11%,rgba(255,255,255,0.10)_12%,transparent_22%),radial-gradient(circle_at_72%_30%,transparent_0_8%,rgba(18,140,116,0.09)_9%,transparent_19%)] opacity-48 blur-[1.2px] [mask-image:linear-gradient(135deg,black,transparent_72%)]" />
+      <div className="pointer-events-none absolute -inset-12 rounded-[inherit] bg-[radial-gradient(circle_at_18%_12%,rgba(255,255,255,0.48),transparent_26%),radial-gradient(circle_at_84%_8%,rgba(18,140,116,0.25),transparent_34%),radial-gradient(circle_at_52%_96%,rgba(255,183,77,0.18),transparent_30%)] opacity-75 blur-sm transition-opacity duration-200 group-hover:opacity-100 dark:opacity-55" />
+      <div className="pointer-events-none absolute inset-px rounded-[inherit] border border-white/35 dark:border-white/10" />
+      <div className="pointer-events-none absolute inset-0 rounded-[inherit] bg-[linear-gradient(112deg,rgba(255,255,255,0.72),transparent_18%,transparent_70%,rgba(255,255,255,0.18)),radial-gradient(ellipse_at_28%_8%,rgba(255,255,255,0.5),transparent_34%)] opacity-55 mix-blend-screen dark:opacity-25" />
+      <div className="pointer-events-none absolute inset-2 rounded-[1.9rem] border border-cyan-200/20 opacity-70 blur-[0.4px] dark:border-cyan-100/10" />
+      <div className="pointer-events-none absolute inset-2 translate-x-px rounded-[1.9rem] border border-red-200/18 opacity-55 blur-[0.4px] dark:border-red-100/10" />
+      <div className="pointer-events-none absolute inset-x-7 top-0 h-10 rounded-full bg-white/45 opacity-55 blur-xl transition-opacity duration-200 group-hover:opacity-75 dark:bg-white/16" />
+      <div className="pointer-events-none absolute inset-x-10 bottom-0 h-px bg-linear-to-r from-transparent via-accent/45 to-transparent opacity-90" />
+      <div className="pointer-events-none absolute inset-0 rounded-[inherit] bg-[radial-gradient(circle_at_22%_22%,transparent_0_11%,rgba(255,255,255,0.18)_12%,transparent_22%),radial-gradient(circle_at_72%_30%,transparent_0_8%,rgba(18,140,116,0.12)_9%,transparent_19%)] opacity-70 blur-[1.2px] [mask-image:linear-gradient(135deg,black,transparent_72%)]" />
       <div className="relative z-10">{children}</div>
     </div>
   );
