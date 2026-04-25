@@ -95,6 +95,66 @@ export const glass = tv({
 });
 
 /**
+ * Preview candidate for Organic LLM's next glass material.
+ *
+ * This intentionally keeps the same class-helper shape as `glass()` so the default primitive can
+ * be swapped later without forcing every call site to become a component. The material is tuned as
+ * a foreground lens for `AdaptiveLiquidChrome`: readable by default, responsive through cheap
+ * transform/opacity/shadow changes, and never dependent on animating `backdrop-filter`.
+ */
+export const glassPreview = tv({
+  base: [
+    "organic-glass-preview relative isolate overflow-hidden",
+    "bg-linear-to-br from-background/86 via-background/60 to-background-tertiary/42",
+    "dark:from-background-secondary/82 dark:via-background/62 dark:to-background-tertiary/38",
+    "backdrop-blur-xl backdrop-saturate-150 backdrop-brightness-110",
+    "dark:backdrop-saturate-150 dark:backdrop-brightness-125",
+    "ring-1 ring-inset ring-white/35 dark:ring-white/10",
+    "shadow-[0_18px_60px_-32px_rgba(20,21,22,0.55),inset_0_1px_0_rgba(255,255,255,0.42)]",
+    "dark:shadow-[0_20px_70px_-34px_rgba(0,0,0,0.88),inset_0_1px_0_rgba(255,255,255,0.12)]",
+  ].join(" "),
+  variants: {
+    tone: {
+      default: "",
+      brown:
+        "from-amber-50/82 via-stone-50/58 to-amber-950/12 border-amber-950/12 ring-amber-100/50 dark:from-amber-950/38 dark:via-background/58 dark:to-stone-950/48 dark:border-amber-200/12 dark:ring-amber-100/12",
+    },
+    opaque: {
+      true: [
+        "from-background/95 via-background/88 to-background-tertiary/70",
+        "dark:from-background-secondary/94 dark:via-background/88 dark:to-background-tertiary/66",
+        "backdrop-blur-lg",
+      ].join(" "),
+    },
+    border: {
+      all: "border border-border/45 dark:border-white/10",
+      right: "border-r border-border/45 dark:border-white/10",
+      left: "border-l border-border/45 dark:border-white/10",
+      none: "border-0",
+    },
+    depth: {
+      flat: "shadow-[inset_0_1px_0_rgba(255,255,255,0.34)] dark:shadow-[inset_0_1px_0_rgba(255,255,255,0.10)]",
+      raised: "",
+      floating:
+        "shadow-[0_26px_90px_-38px_rgba(20,21,22,0.72),0_8px_32px_-24px_rgba(18,140,116,0.45),inset_0_1px_0_rgba(255,255,255,0.48)] dark:shadow-[0_28px_100px_-36px_rgba(0,0,0,0.92),0_8px_36px_-28px_rgba(18,140,116,0.55),inset_0_1px_0_rgba(255,255,255,0.14)]",
+    },
+    interactive: {
+      true: [
+        "motion-safe:transition-[transform,box-shadow,background-color,border-color] motion-safe:duration-200 motion-safe:ease-out",
+        "hover:-translate-y-0.5 hover:border-accent/25 hover:ring-accent/20",
+        "focus-within:-translate-y-0.5 focus-within:border-accent/30 focus-within:ring-accent/25",
+        "active:translate-y-0 active:scale-[0.997]",
+      ].join(" "),
+    },
+  },
+  defaultVariants: {
+    tone: "default",
+    border: "all",
+    depth: "raised",
+  },
+});
+
+/**
  * Secondary-interactive: for secondary yet clearly available actions
  * (e.g. copy-to-clipboard on code blocks). Gradient aligns with Organic LLM’s
  * warm neutrals and accent teal; use on buttons and small interactive controls.

@@ -323,3 +323,25 @@ body.font-theme-commissioner {
     display: none !important;
   }
 }
+
+/* Organic Glass preview fallback: keep the material solid and readable when blur is reduced. */
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  .organic-glass-preview {
+    background: color-mix(in oklch, var(--background) 94%, transparent) !important;
+  }
+
+  .dark .organic-glass-preview {
+    background: color-mix(in oklch, var(--secondary) 96%, transparent) !important;
+  }
+}
+
+@media (prefers-reduced-transparency: reduce), (prefers-contrast: more) {
+  .organic-glass-preview {
+    background: color-mix(in oklch, var(--background) 95%, transparent) !important;
+    backdrop-filter: none !important;
+  }
+
+  .dark .organic-glass-preview {
+    background: color-mix(in oklch, var(--secondary) 96%, transparent) !important;
+  }
+}

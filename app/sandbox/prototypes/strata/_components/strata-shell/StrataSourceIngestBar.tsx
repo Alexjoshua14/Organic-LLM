@@ -43,6 +43,9 @@ export function StrataSourceIngestBar({
     (nodes: StrataTextSourceNode[]) => {
       if (nodes.length === 0) return;
       onAppendNodes(nodes);
+      toast.success(
+        nodes.length === 1 ? "Added source to page content" : `Added ${nodes.length} sources`
+      );
       setTitle("");
       setBody("");
       setUrlInput("");
@@ -342,7 +345,7 @@ export function StrataSourceIngestBar({
                     className="self-start text-[11px] font-medium text-primary hover:underline"
                     onClick={() => addSearchHitAsSource(h)}
                   >
-                    Add snippet as source
+                    Approve snippet import
                   </button>
                 </li>
               ))}
@@ -384,22 +387,42 @@ export function StrataSourceIngestBar({
               {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Link2 className="h-4 w-4" />}
               Preview
             </button>
-            <button
-              type="button"
-              disabled={busy || !canUseNetwork}
-              className={cn(
-                glass({ opaque: true }),
-                "inline-flex items-center gap-2 rounded-md border px-3 py-2 text-sm hover:bg-muted disabled:opacity-50"
-              )}
-              onClick={() => void commitUrl()}
-            >
-              Import full page (Exa)
-            </button>
+            {!urlPreview ? (
+              <button
+                type="button"
+                disabled={busy || !canUseNetwork}
+                className={cn(
+                  glass({ opaque: true }),
+                  "inline-flex items-center gap-2 rounded-md border px-3 py-2 text-sm hover:bg-muted disabled:opacity-50"
+                )}
+                onClick={() => void commitUrl()}
+              >
+                Import full page (Exa)
+              </button>
+            ) : null}
           </div>
           {urlPreview ? (
-            <div className="max-h-40 overflow-y-auto rounded-md border border-border/50 bg-muted/10 p-3 text-xs leading-relaxed text-muted-foreground">
-              <p className="mb-1 font-medium text-foreground">{urlPreview.suggestedTitle}</p>
-              {urlPreview.text}
+            <div className="space-y-2 rounded-md border border-border/50 bg-muted/10 p-3">
+              <div className="max-h-40 overflow-y-auto text-xs leading-relaxed text-muted-foreground">
+                <p className="mb-1 font-medium text-foreground">{urlPreview.suggestedTitle}</p>
+                {urlPreview.text}
+              </div>
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <p className="text-[11px] text-muted-foreground">
+                  Preview looks good? Approve to persist this imported text as a source.
+                </p>
+                <button
+                  type="button"
+                  disabled={busy || !canUseNetwork}
+                  className={cn(
+                    glass({ opaque: true }),
+                    "inline-flex items-center gap-2 rounded-md border px-3 py-2 text-sm font-medium hover:bg-muted disabled:opacity-50"
+                  )}
+                  onClick={() => void commitUrl()}
+                >
+                  Approve import
+                </button>
+              </div>
             </div>
           ) : null}
         </div>
