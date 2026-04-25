@@ -173,14 +173,18 @@ export function StrataSourceComposerOptions({
   assistantSession,
   collapsibleAssistantTools = false,
   assistantToolsDefaultOpen = true,
+  defaultOpen = false,
 }: {
   assistantSession: StrataPageAssistantSession;
   /** Persona stays visible; tools pill moves into a collapsible section. */
   collapsibleAssistantTools?: boolean;
   /** Initial open state when `collapsibleAssistantTools` is true. */
   assistantToolsDefaultOpen?: boolean;
+  /** Initial open state for the whole assistant selector card. */
+  defaultOpen?: boolean;
 }) {
   const personas = listStrataAssistantPersonas();
+  const activePersona = getStrataAssistantPersona(assistantSession.personaId);
   const [inspectorPersonaId, setInspectorPersonaId] = useState<StrataAssistantPersonaId | null>(null);
 
   const inspectorSnapshot = useMemo(
@@ -226,89 +230,113 @@ export function StrataSourceComposerOptions({
   };
 
   return (
-    <div className={cn(glass({ opaque: true }), "space-y-3 rounded-xl border border-border/60 p-4")}>
-      <div>
-        <p className="mb-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">
-          Assistant persona
-        </p>
-        <div className="flex flex-wrap gap-2">
-          {personas.map((p) => (
-            <ContextMenu key={p.id}>
-              <ContextMenuTrigger asChild>
-                <button
-                  type="button"
-                  className={cn(
-                    "rounded-full border px-3 py-1 text-xs font-medium transition-colors",
-                    assistantSession.personaId === p.id
-                      ? "border-primary/50 bg-primary/10 text-foreground"
-                      : "border-border/60 text-muted-foreground hover:bg-muted"
-                  )}
-                  onClick={() => persistPersona(p.id)}
-                >
-                  {p.shortLabel}
-                </button>
-              </ContextMenuTrigger>
-              <ContextMenuContent className="min-w-[11rem]">
-                <ContextMenuItem onSelect={() => setInspectorPersonaId(p.id)}>
-                  Inspect persona…
-                </ContextMenuItem>
-                <ContextMenuSeparator />
-                <ContextMenuItem
-                  onSelect={() => {
-                    void (async () => {
-                      try {
-                        await navigator.clipboard.writeText(
-                          JSON.stringify(
-                            buildStrataAssistantPersonaInspectorSnapshot(p.id),
-                            null,
-                            2
-                          )
-                        );
-                        toast.success("Copied", { description: `${p.shortLabel} inspection JSON` });
-                      } catch {
-                        toast.error("Could not copy");
-                      }
-                    })();
-                  }}
-                >
-                  Copy inspection JSON
-                </ContextMenuItem>
-              </ContextMenuContent>
-            </ContextMenu>
-          ))}
-        </div>
-        <p className="mt-2 text-[11px] text-muted-foreground">
-          Applies to the Strata page assistant. Right-click a persona to inspect. Tool defaults refresh
-          when you switch persona.
-        </p>
-      </div>
+    <Collapsible
+      defaultOpen={defaultOpen}
+      className={cn(glass({ opaque: true }), "group rounded-xl border border-border/60")}
+    >
+      <CollapsibleTrigger
+        type="button"
+        className="flex w-full items-center justify-between gap-3 rounded-xl px-4 py-3 text-left transition-colors hover:bg-muted/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+      >
+        <span className="min-w-0">
+          <span className="block text-[10px] font-medium uppercase tracking-[0.2em] text-muted-foreground">
+            Assistant
+          </span>
+          <span className="block truncate text-sm font-semibold text-foreground">
+            {activePersona.shortLabel}
+          </span>
+        </span>
+        <ChevronDown
+          aria-hidden
+          className="size-4 shrink-0 text-muted-foreground transition-transform duration-200 group-data-[state=open]:rotate-180"
+        />
+      </CollapsibleTrigger>
 
-      {collapsibleAssistantTools ? (
-        <Collapsible defaultOpen={assistantToolsDefaultOpen} className="group">
-          <CollapsibleTrigger
-            type="button"
-            className="flex w-full items-center justify-between gap-2 rounded-lg border border-border/50 bg-muted/10 px-3 py-2.5 text-left text-sm font-medium text-foreground transition-colors hover:bg-muted/25 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
-          >
-            <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-              Assistant tools
-            </span>
-            <ChevronDown
-              aria-hidden
-              className="size-4 shrink-0 text-muted-foreground transition-transform duration-200 group-data-[state=open]:rotate-180"
-            />
-          </CollapsibleTrigger>
-          <CollapsibleContent className="overflow-hidden pt-2">
-            <AssistantToolSegmentedPill tools={assistantSession.tools} onToggle={toggleTool} />
-          </CollapsibleContent>
-        </Collapsible>
-      ) : (
-        <div>
-          <p className="mb-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">
-            Assistant tools
-          </p>
-          <AssistantToolSegmentedPill tools={assistantSession.tools} onToggle={toggleTool} />
+      <CollapsibleContent className="overflow-hidden border-t border-border/50 px-4 pb-4 pt-3">
+        <div className="space-y-3">
+          <div>
+            <p className="mb-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">
+              Switch assistant
+            </p>
+            <div className="flex flex-wrap gap-2">
+              {personas.map((p) => (
+                <ContextMenu key={p.id}>
+                  <ContextMenuTrigger asChild>
+                    <button
+                      type="button"
+                      className={cn(
+                        "rounded-full border px-3 py-1 text-xs font-medium transition-colors",
+                        assistantSession.personaId === p.id
+                          ? "border-primary/50 bg-primary/10 text-foreground"
+                          : "border-border/60 text-muted-foreground hover:bg-muted"
+                      )}
+                      onClick={() => persistPersona(p.id)}
+                    >
+                      {p.shortLabel}
+                    </button>
+                  </ContextMenuTrigger>
+                  <ContextMenuContent className="min-w-[11rem]">
+                    <ContextMenuItem onSelect={() => setInspectorPersonaId(p.id)}>
+                      Inspect persona…
+                    </ContextMenuItem>
+                    <ContextMenuSeparator />
+                    <ContextMenuItem
+                      onSelect={() => {
+                        void (async () => {
+                          try {
+                            await navigator.clipboard.writeText(
+                              JSON.stringify(
+                                buildStrataAssistantPersonaInspectorSnapshot(p.id),
+                                null,
+                                2
+                              )
+                            );
+                            toast.success("Copied", { description: `${p.shortLabel} inspection JSON` });
+                          } catch {
+                            toast.error("Could not copy");
+                          }
+                        })();
+                      }}
+                    >
+                      Copy inspection JSON
+                    </ContextMenuItem>
+                  </ContextMenuContent>
+                </ContextMenu>
+              ))}
+            </div>
+            <p className="mt-2 text-[11px] text-muted-foreground">
+              Tool defaults refresh when you switch assistant.
+            </p>
+          </div>
+
+          {collapsibleAssistantTools ? (
+            <Collapsible defaultOpen={assistantToolsDefaultOpen} className="group/tools">
+              <CollapsibleTrigger
+                type="button"
+                className="flex w-full items-center justify-between gap-2 rounded-lg border border-border/50 bg-muted/10 px-3 py-2.5 text-left text-sm font-medium text-foreground transition-colors hover:bg-muted/25 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+              >
+                <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                  Assistant tools
+                </span>
+                <ChevronDown
+                  aria-hidden
+                  className="size-4 shrink-0 text-muted-foreground transition-transform duration-200 group-data-[state=open]/tools:rotate-180"
+                />
+              </CollapsibleTrigger>
+              <CollapsibleContent className="overflow-hidden pt-2">
+                <AssistantToolSegmentedPill tools={assistantSession.tools} onToggle={toggleTool} />
+              </CollapsibleContent>
+            </Collapsible>
+          ) : (
+            <div>
+              <p className="mb-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                Assistant tools
+              </p>
+              <AssistantToolSegmentedPill tools={assistantSession.tools} onToggle={toggleTool} />
+            </div>
+          )}
         </div>
-      )}
+      </CollapsibleContent>
 
       <Dialog
         open={inspectorPersonaId !== null}
@@ -370,6 +398,6 @@ export function StrataSourceComposerOptions({
           ) : null}
         </DialogContent>
       </Dialog>
-    </div>
+    </Collapsible>
   );
 }
