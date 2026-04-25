@@ -484,11 +484,17 @@ export async function POST(req: Request) {
             );
 
             try {
+              const messagesWithModel = messages.map((savedMessage) =>
+                savedMessage.role === "assistant"
+                  ? { ...savedMessage, model: selectedModel.id }
+                  : savedMessage
+              );
+
               // Use admin client so save succeeds even if the user JWT expired during a long stream (e.g. finish_reason length).
               const { result: saveResult, durationMs: saveChatMs } = await measureAsync(() =>
                 saveChat({
                   chatId: id,
-                  messages,
+                  messages: messagesWithModel,
                   activeStreamId: null,
                   useAdminForSave: true,
                   ownerId: sbUserId,

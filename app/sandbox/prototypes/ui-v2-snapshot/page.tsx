@@ -14,6 +14,8 @@ import {
   Sparkles,
 } from "lucide-react";
 
+import { CurrentCoreInputPreview } from "./_components/current-core-input-preview";
+
 import AdaptiveLiquidChrome from "@/components/background/AdaptiveLiquidChrome";
 import { glass, glassPreview } from "@/components/design-system/primitives";
 import Page from "@/components/layout/page";
@@ -294,14 +296,8 @@ function ChatPreview({ variant }: { variant: SnapshotVariant }) {
           </div>
         </div>
 
-        <div className="mx-auto mt-5 flex w-full max-w-2xl items-center gap-3 rounded-lg border border-border bg-background-tertiary/25 p-3">
-          <MessageSquare className="size-4 shrink-0 text-muted-foreground" />
-          <span className="min-w-0 flex-1 text-sm text-muted-foreground">
-            Ask anything. I can search, remember, reason, and connect what we know.
-          </span>
-          <button className="rounded bg-foreground px-4 py-2 text-sm text-background" type="button">
-            Send
-          </button>
+        <div className="mx-auto mt-5 w-full max-w-2xl">
+          <CurrentCoreInputPreview />
         </div>
       </section>
     );

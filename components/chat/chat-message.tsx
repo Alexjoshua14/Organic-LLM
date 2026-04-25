@@ -19,19 +19,18 @@ import {
   MemorySearchToolResultCard,
   tryParseMemorySearchToolOutput,
 } from "./memory-search-tool-result";
-import {
-  tryParseWebSearchToolOutput,
-  WebSearchToolResultCard,
-} from "./web-search-tool-result";
-import { ARCADIA_HELP_PREFIX } from "@/lib/arcadia/help-response";
+import { tryParseWebSearchToolOutput, WebSearchToolResultCard } from "./web-search-tool-result";
 
+import { ARCADIA_HELP_PREFIX } from "@/lib/arcadia/help-response";
 import { cn } from "@/lib/utils";
 import { ChatAIActionEnum } from "@/types/ai";
 import { MermaidDiagram } from "@/components/blog/mermaid-diagram";
+import { getMessageModelId, getModelDisplayName } from "@/lib/chat/message-model";
 
 type ChatMessageProps = {
   message: UIMessage;
   isLastMessage?: boolean;
+  showModelBadge?: boolean;
   /** When true, show custom Arcadia help UI; when false, show markdown. Omitted for non-help messages. */
   isLatestArcadiaHelp?: boolean;
   aiActionPayload?: {
@@ -42,7 +41,7 @@ type ChatMessageProps = {
 };
 
 export const ChatMessage = memo<ChatMessageProps>(function ChatMessage(props) {
-  const { message, aiActionPayload, isLatestArcadiaHelp } = props;
+  const { message, aiActionPayload, isLatestArcadiaHelp, showModelBadge } = props;
 
   switch (message.role) {
     case "assistant":
@@ -51,6 +50,7 @@ export const ChatMessage = memo<ChatMessageProps>(function ChatMessage(props) {
           aiActionPayload={aiActionPayload}
           isLatestArcadiaHelp={isLatestArcadiaHelp}
           message={message}
+          showModelBadge={showModelBadge}
         />
       );
     case "user":
@@ -62,7 +62,12 @@ export const ChatMessage = memo<ChatMessageProps>(function ChatMessage(props) {
 
 ChatMessage.displayName = "ChatMessage";
 
-const AIMessage: FC<ChatMessageProps> = ({ message, aiActionPayload, isLatestArcadiaHelp }) => {
+const AIMessage: FC<ChatMessageProps> = ({
+  message,
+  aiActionPayload,
+  isLatestArcadiaHelp,
+  showModelBadge,
+}) => {
   const [pinnedToolIds, setPinnedToolIds] = useState<Record<string, boolean>>({});
 
   const toggleToolPinned = useCallback((toolInvocationId: string) => {
@@ -84,11 +89,19 @@ const AIMessage: FC<ChatMessageProps> = ({ message, aiActionPayload, isLatestArc
   const partsUnknown = message.parts as unknown[];
   const isActivelyStreaming =
     Boolean(aiActionPayload) || messagePartsIndicateStreaming(message.parts);
+  const modelLabel = showModelBadge ? getModelDisplayName(getMessageModelId(message)) : null;
 
   let arcadiaHelpRendered = false;
 
   return (
     <div className="group/ai-message rounded-lg p-4 flex flex-col gap-2">
+      {modelLabel ? (
+        <div className="not-prose mb-1 flex justify-start">
+          <span className="rounded-full border border-border/50 bg-background-tertiary/35 px-2 py-0.5 text-[11px] font-medium text-muted-foreground">
+            LLM · {modelLabel}
+          </span>
+        </div>
+      ) : null}
       <div className="ai-message space-y-2 text-foreground max-w-full prose dark:prose-invert">
         {message.parts.map((part, i) => {
           switch (part.type) {
