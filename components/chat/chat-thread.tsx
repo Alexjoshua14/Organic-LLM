@@ -12,13 +12,11 @@ import {
 } from "../third-party/ai-elements/conversation";
 
 import { ChatMessage } from "./chat-message";
-import {
-  ARCADIA_HELP_LATEST_ONLY,
-  isArcadiaHelpMessage,
-} from "@/lib/arcadia/help-response";
 
+import { ARCADIA_HELP_LATEST_ONLY, isArcadiaHelpMessage } from "@/lib/arcadia/help-response";
 import { ChatAIActionEnum } from "@/types/ai";
 import { cn } from "@/lib/utils";
+import { getAssistantModelSummary } from "@/lib/chat/message-model";
 
 /** Bottom padding to reserve when memory (ephemeral cards) can appear. Use same value always to avoid layout shift. */
 export const MEMORY_PANEL_RESERVE_PADDING = "pb-40";
@@ -38,12 +36,12 @@ type ChatThreadProps = {
 
 export const ChatThread: FC<ChatThreadProps> = ({
   messages,
-  variant = "default",
   className,
   contentClassName,
   aiActionPayload,
 }) => {
   const lastMessageIndex = messages.length - 1;
+  const modelSummary = getAssistantModelSummary(messages);
 
   const lastArcadiaHelpMessageId =
     ARCADIA_HELP_LATEST_ONLY &&
@@ -56,10 +54,17 @@ export const ChatThread: FC<ChatThreadProps> = ({
 
   return (
     <ConversationContent
-      className={cn("w-full px-4 pt-16 pb-12 flex flex-col", contentClassName)}
+      className={cn("w-full px-4 pt-16 pb-12 flex flex-col", contentClassName, className)}
       scrollClassName="touch-manipulation w-full min-w-0 [scrollbar-gutter:stable]! overflow-x-hidden"
     >
       <div className="max-w-232 mx-auto w-full flex flex-col gap-8">
+        {modelSummary.shouldUseThreadBadge && modelSummary.label ? (
+          <div className="flex justify-end -mb-3">
+            <span className="rounded-full border border-border/50 bg-background-tertiary/35 px-2.5 py-1 text-[11px] font-medium text-muted-foreground">
+              LLM · {modelSummary.label}
+            </span>
+          </div>
+        ) : null}
         {messages.length === 0 ? (
           <ConversationEmptyState
             description="Type a message below to begin chatting"
@@ -75,8 +80,11 @@ export const ChatThread: FC<ChatThreadProps> = ({
               <ChatMessage
                 key={message.id}
                 aiActionPayload={index === lastMessageIndex ? aiActionPayload : undefined}
-                isLatestArcadiaHelp={isArcadiaHelpMessage(message) ? isLatestArcadiaHelp : undefined}
+                isLatestArcadiaHelp={
+                  isArcadiaHelpMessage(message) ? isLatestArcadiaHelp : undefined
+                }
                 message={message}
+                showModelBadge={!modelSummary.shouldUseThreadBadge}
               />
             );
           })
