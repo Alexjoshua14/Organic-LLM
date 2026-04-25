@@ -33,6 +33,22 @@ mock.module("server-only", () => ({}));
 
 mock.module("next/navigation", () => ({
   useRouter: () => ({ push: mockRouterPush }),
+  usePathname: () => "/chat",
+}));
+
+mock.module("next/link", () => ({
+  default: ({
+    children,
+    href,
+    ...p
+  }: {
+    children?: ReactNode;
+    href: string;
+  }) => (
+    <a href={href} {...p}>
+      {children}
+    </a>
+  ),
 }));
 
 mock.module("@/components/third-party/ui/sidebar", () => ({
@@ -49,7 +65,7 @@ mock.module("@/components/third-party/ui/sidebar", () => ({
 
 import { ChatContext, type ChatContextValue } from "@/lib/context/chat-context";
 
-describe("SidebarNewChat", () => {
+describe("SidebarExperienceRail (Chat segment)", () => {
   afterEach(() => {
     cleanup();
     document.body.innerHTML = "";
@@ -67,8 +83,8 @@ describe("SidebarNewChat", () => {
   });
 
   async function renderNewChat() {
-    const { SidebarNewChat } = await import(
-      "@/components/sidebar/sidebar-new-chat"
+    const { SidebarExperienceRail } = await import(
+      "@/components/sidebar/sidebar-experience-rail"
     );
 
     return render(
@@ -86,7 +102,7 @@ describe("SidebarNewChat", () => {
           } as ChatContextValue
         }
       >
-        <SidebarNewChat />
+        <SidebarExperienceRail />
       </ChatContext.Provider>,
     );
   }
@@ -95,7 +111,7 @@ describe("SidebarNewChat", () => {
     const user = userEvent.setup({ document: globalThis.document });
     const view = await renderNewChat();
 
-    await user.click(view.getByText("New Chat"));
+    await user.click(view.getByText("Chat"));
 
     expect(mockCreateChat.mock.calls.length).toBe(1);
     expect(mockRefreshSidebarChats.mock.calls.length).toBe(1);
@@ -112,7 +128,7 @@ describe("SidebarNewChat", () => {
     const user = userEvent.setup({ document: globalThis.document });
     const view = await renderNewChat();
 
-    await user.click(view.getByText("New Chat"));
+    await user.click(view.getByText("Chat"));
 
     expect(mockRefreshSidebarChats.mock.calls.length).toBe(0);
     expect(mockRouterPush.mock.calls.length).toBe(0);

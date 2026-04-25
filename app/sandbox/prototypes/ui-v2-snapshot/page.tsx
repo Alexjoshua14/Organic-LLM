@@ -97,7 +97,7 @@ const toolChips = ["Memory", "Search", "Reasoning"];
 
 function surfaceClass(variant: SnapshotVariant, className?: string) {
   if (variant === "v2") {
-    return cn(glassPreview({ depth: "raised", interactive: true }), "rounded-3xl", className);
+    return cn(glassPreview({ depth: "raised", interactive: true }), "rounded-2xl", className);
   }
 
   return cn("rounded-2xl border border-border bg-background shadow-sm", className);
@@ -106,7 +106,7 @@ function surfaceClass(variant: SnapshotVariant, className?: string) {
 function mutedSurfaceClass(variant: SnapshotVariant, className?: string) {
   if (variant === "v2") {
     return cn(
-      "rounded-2xl border border-white/20 bg-background/32 shadow-inner backdrop-blur-sm dark:border-white/10 dark:bg-background-secondary/32",
+      "rounded-xl border border-white/20 bg-background/32 shadow-inner backdrop-blur-sm dark:border-white/10 dark:bg-background-secondary/32",
       className
     );
   }
@@ -210,7 +210,7 @@ function SidebarPreview({ variant }: { variant: SnapshotVariant }) {
 
       <button
         className={cn(
-          "mb-4 rounded-xl px-3 py-2 text-left text-sm font-medium",
+          "mb-4 rounded-lg px-3 py-2 text-left text-sm font-medium",
           variant === "v2" ? "bg-foreground text-background" : "bg-background text-foreground"
         )}
         type="button"
@@ -218,7 +218,7 @@ function SidebarPreview({ variant }: { variant: SnapshotVariant }) {
         New chat
       </button>
 
-      <div className="mb-4 flex items-center gap-2 rounded-xl border border-border/60 bg-background/50 px-3 py-2 text-xs text-muted-foreground">
+      <div className="mb-4 flex items-center gap-2 rounded-lg border border-border/60 bg-background/50 px-3 py-2 text-xs text-muted-foreground">
         <Search className="size-3.5" />
         Search threads
       </div>
@@ -227,7 +227,7 @@ function SidebarPreview({ variant }: { variant: SnapshotVariant }) {
         {threads.map((thread, index) => (
           <div
             className={cn(
-              "rounded-xl px-3 py-2",
+              "rounded-lg px-3 py-2",
               index === 0
                 ? variant === "v2"
                   ? "border border-accent/25 bg-accent/10"
@@ -245,7 +245,7 @@ function SidebarPreview({ variant }: { variant: SnapshotVariant }) {
         ))}
       </div>
 
-      <div className="mt-auto rounded-xl border border-border/60 bg-background/50 px-3 py-2 text-xs text-muted-foreground">
+      <div className="mt-auto rounded-lg border border-border/60 bg-background/50 px-3 py-2 text-xs text-muted-foreground">
         Rabbit Holes, Speak, Remy
       </div>
     </aside>
@@ -480,7 +480,7 @@ function SettingsPreview({ variant }: { variant: SnapshotVariant }) {
 
       <div className="grid gap-3 sm:grid-cols-[0.9fr_1.1fr]">
         <div className={mutedSurfaceClass(variant, "p-4")}>
-          <div className="mb-4 size-12 rounded-2xl bg-foreground text-background grid place-items-center text-lg font-semibold">
+          <div className="mb-4 size-12 rounded-xl bg-foreground text-background grid place-items-center text-lg font-semibold">
             AJ
           </div>
           <h4 className="text-base font-semibold text-foreground">Alex Joshua</h4>
@@ -523,7 +523,7 @@ function SnapshotShell({ variant }: { variant: SnapshotVariant }) {
   return (
     <section
       className={cn(
-        "min-w-0 rounded-[2rem] border p-4 sm:p-5",
+        "min-w-0 rounded-2xl border p-4 sm:p-5",
         isV2
           ? "font-commissioner border-white/16 bg-background/18 backdrop-blur-sm dark:bg-background/10"
           : "border-border bg-background-secondary"
