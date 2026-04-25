@@ -2,21 +2,7 @@ import type { Metadata } from "next";
 import type { ReactNode } from "react";
 
 import Link from "next/link";
-import {
-  Brain,
-  BrainCircuit,
-  ChevronDown,
-  GlobeIcon,
-  MicIcon,
-  PaperclipIcon,
-  Lock,
-  MessageSquare,
-  Moon,
-  Search,
-  Settings,
-  Sparkles,
-  ArrowUp,
-} from "lucide-react";
+import { Brain, Lock, Moon, Search, Settings, Sparkles } from "lucide-react";
 
 import { CurrentCoreInputPreview } from "./_components/current-core-input-preview";
 
@@ -108,17 +94,6 @@ const settingsRows = [
 ];
 
 const toolChips = ["Memory", "Search", "Reasoning"];
-
-const coreInputTools = [
-  { label: "Search", icon: GlobeIcon, active: true },
-  { label: "Memory", icon: BrainCircuit, active: true },
-  { label: "Reason", icon: Sparkles, active: false },
-];
-
-const coreInputActions = [
-  { label: "Add file", icon: PaperclipIcon },
-  { label: "Voice", icon: MicIcon },
-];
 
 function surfaceClass(variant: SnapshotVariant, className?: string) {
   if (variant === "v2") {
@@ -348,67 +323,8 @@ function ChatPreview({ variant }: { variant: SnapshotVariant }) {
         </div>
       </div>
 
-      <div className={mutedSurfaceClass(variant, "mt-5 p-3")}>
-        <div className="flex items-center gap-3">
-          <MessageSquare className="size-4 shrink-0 text-muted-foreground" />
-          <span className="min-w-0 flex-1 text-sm text-muted-foreground">
-            Ask anything. I can search, remember, reason, and connect what we know.
-          </span>
-        </div>
-
-        <div className="mt-3 flex items-center justify-between gap-3 border-t border-white/12 pt-3 dark:border-white/8">
-          <div className="flex min-w-0 items-center gap-1.5">
-            {coreInputTools.map((tool) => {
-              const Icon = tool.icon;
-
-              return (
-                <button
-                  className={cn(
-                    "group/tool inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] font-medium transition-colors",
-                    tool.active
-                      ? "border-white/22 bg-background/36 text-foreground dark:border-white/10 dark:bg-background-secondary/36"
-                      : "border-transparent text-muted-foreground hover:border-white/18 hover:bg-background/24"
-                  )}
-                  key={tool.label}
-                  type="button"
-                >
-                  <Icon className="size-3.5 text-foreground/55 transition-colors group-hover/tool:text-foreground" />
-                  <span>{tool.label}</span>
-                </button>
-              );
-            })}
-            <button
-              className="ml-1 inline-flex max-w-36 min-w-0 items-center gap-1.5 rounded-full border border-white/18 bg-background/26 px-2.5 py-1 text-[11px] font-medium text-muted-foreground transition-colors hover:text-foreground dark:border-white/10 dark:bg-background-secondary/26"
-              type="button"
-            >
-              <span className="truncate">GPT-5.5</span>
-              <ChevronDown className="size-3" />
-            </button>
-          </div>
-          <div className="flex shrink-0 items-center gap-1">
-            {coreInputActions.map((action) => {
-              const Icon = action.icon;
-
-              return (
-                <button
-                  aria-label={action.label}
-                  className="grid size-7 place-items-center rounded-full text-muted-foreground transition-colors hover:bg-background/28 hover:text-foreground"
-                  key={action.label}
-                  type="button"
-                >
-                  <Icon className="size-3.5" />
-                </button>
-              );
-            })}
-            <button
-              aria-label="Send"
-              className="grid size-7 place-items-center rounded-full bg-foreground text-background transition hover:scale-[1.02] active:scale-[0.98]"
-              type="button"
-            >
-              <ArrowUp className="size-3.5" />
-            </button>
-          </div>
-        </div>
+      <div className="mt-5">
+        <CurrentCoreInputPreview variant="v2" />
       </div>
     </section>
   );
