@@ -5,13 +5,17 @@ import Link from "next/link";
 import {
   Brain,
   BrainCircuit,
+  ChevronDown,
   GlobeIcon,
+  MicIcon,
+  PaperclipIcon,
   Lock,
   MessageSquare,
   Moon,
   Search,
   Settings,
   Sparkles,
+  ArrowUp,
 } from "lucide-react";
 
 import { CurrentCoreInputPreview } from "./_components/current-core-input-preview";
@@ -109,6 +113,11 @@ const coreInputTools = [
   { label: "Search", icon: GlobeIcon, active: true },
   { label: "Memory", icon: BrainCircuit, active: true },
   { label: "Reason", icon: Sparkles, active: false },
+];
+
+const coreInputActions = [
+  { label: "Add file", icon: PaperclipIcon },
+  { label: "Voice", icon: MicIcon },
 ];
 
 function surfaceClass(variant: SnapshotVariant, className?: string) {
@@ -345,16 +354,10 @@ function ChatPreview({ variant }: { variant: SnapshotVariant }) {
           <span className="min-w-0 flex-1 text-sm text-muted-foreground">
             Ask anything. I can search, remember, reason, and connect what we know.
           </span>
-          <button
-            className="rounded-full bg-foreground px-4 py-2 text-sm font-medium text-background"
-            type="button"
-          >
-            Send
-          </button>
         </div>
 
         <div className="mt-3 flex items-center justify-between gap-3 border-t border-white/12 pt-3 dark:border-white/8">
-          <div className="flex items-center gap-1.5">
+          <div className="flex min-w-0 items-center gap-1.5">
             {coreInputTools.map((tool) => {
               const Icon = tool.icon;
 
@@ -374,8 +377,37 @@ function ChatPreview({ variant }: { variant: SnapshotVariant }) {
                 </button>
               );
             })}
+            <button
+              className="ml-1 inline-flex max-w-36 min-w-0 items-center gap-1.5 rounded-full border border-white/18 bg-background/26 px-2.5 py-1 text-[11px] font-medium text-muted-foreground transition-colors hover:text-foreground dark:border-white/10 dark:bg-background-secondary/26"
+              type="button"
+            >
+              <span className="truncate">GPT-5.5</span>
+              <ChevronDown className="size-3" />
+            </button>
           </div>
-          <span className="text-[11px] text-muted-foreground">2 active</span>
+          <div className="flex shrink-0 items-center gap-1">
+            {coreInputActions.map((action) => {
+              const Icon = action.icon;
+
+              return (
+                <button
+                  aria-label={action.label}
+                  className="grid size-7 place-items-center rounded-full text-muted-foreground transition-colors hover:bg-background/28 hover:text-foreground"
+                  key={action.label}
+                  type="button"
+                >
+                  <Icon className="size-3.5" />
+                </button>
+              );
+            })}
+            <button
+              aria-label="Send"
+              className="grid size-7 place-items-center rounded-full bg-foreground text-background transition hover:scale-[1.02] active:scale-[0.98]"
+              type="button"
+            >
+              <ArrowUp className="size-3.5" />
+            </button>
+          </div>
         </div>
       </div>
     </section>
