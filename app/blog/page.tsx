@@ -38,6 +38,13 @@ const POSTS: Array<{
       "Documentation for the full-viewport adaptive background that dims on hover/focus and brightens in two phases.",
     category: "design",
   },
+  {
+    slug: "export-prompt-presets",
+    title: "Export Prompt Presets",
+    description:
+      "How Organic LLM generates app-specific external prompts with minimalist CTA buttons and structured output contracts.",
+    category: "design",
+  },
 ];
 
 const CATEGORY_LABELS: Record<Category, string> = {
