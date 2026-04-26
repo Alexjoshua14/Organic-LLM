@@ -18,6 +18,11 @@ import {
   selectMemoriesForPrompt,
 } from "../memory/memory-relevance";
 import {
+  buildRecentTurnsForMemoryRewrite,
+  mergeMemorySearchResultsByMaxScore,
+  rewriteMemoryQuery,
+} from "../memory/query-rewriter";
+import {
   CodeBlockSchema,
   ContextPiece,
   KeyValueSchema,
@@ -530,7 +535,7 @@ async function getConversationSummaryForChatPrompt(chatId: string): Promise<Resu
  *
  *
  * @param chatId - The ID of the chat to get context for
- * @param message - The user's current message being sent to LLM
+ * @param message - The user's current message (unchanged in returned `messages`; callers append it for the LLM)
  * @param persona - The persona of the chat (prometheus or spark)
  * @returns - Context
  * @returns - Latest messages
@@ -607,22 +612,12 @@ export async function getContext({
 
     logger.log("getContext", `User message length: ${userMessage.length}`);
 
-    const memoriesExec = memoryEnabled
-      ? experience === "arcadia"
-        ? searchMemoriesWithL1Cache(sbUserId, userMessage, ARCADIA_MEMORY_OVERFETCH).then(
-            ({ result, metrics }) => {
-              logger.log(
-                "getContext",
-                `Arcadia memory search: ${metrics.memorySearchMs.toFixed(2)}ms cacheHit=${metrics.cacheHit}`
-              );
-
-              return result.error ? { results: [] } : result.data!;
-            }
-          )
-        : searchMemoriesForUser(sbUserId, userMessage, { limit: 5 }).then((r) =>
+    const memNonArcadiaPromise =
+      memoryEnabled && experience !== "arcadia"
+        ? searchMemoriesForUser(sbUserId, userMessage, { limit: 5 }).then((r) =>
             r.error ? { results: [] } : r.data!
           )
-      : Promise.resolve({ results: [] });
+        : Promise.resolve({ results: [] });
 
     const persistedExec = persistedSchemasEnabled
       ? getPersistedSchemas(chatId)
@@ -677,8 +672,58 @@ export async function getContext({
      *  - Memories
      */
 
-    const [messagesResult, conversationSummaryResult, memoriesResult, persistedSchemaResult] =
-      await Promise.all([messagesPromise, conversationSummaryPromise, memoriesExec, persistedExec]);
+    const [messagesResult, conversationSummaryResult, memNonArcadiaResult, persistedSchemaResult] =
+      await Promise.all([
+        messagesPromise,
+        conversationSummaryPromise,
+        memNonArcadiaPromise,
+        persistedExec,
+      ]);
+
+    let memoriesResult: { results: MemoryItemType[] } = { results: [] };
+    let arcadiaQueryRewriteUsed: boolean | undefined;
+    let arcadiaEffectiveQueryCount: number | undefined;
+
+    if (memoryEnabled && experience === "arcadia") {
+      // Query rewrite is only for Mem0 search below. Returned `messages` are DB history only;
+      // routes append the original request `message` unchanged for the main LLM.
+      const historyMessages = messagesResult.data ?? [];
+      const recentTurns = buildRecentTurnsForMemoryRewrite(historyMessages, message);
+      const rewriteT0 = performance.now();
+      const rewrite = await rewriteMemoryQuery(userMessage, recentTurns);
+      const rewriteMs = performance.now() - rewriteT0;
+
+      arcadiaQueryRewriteUsed = rewrite.usedRewrite;
+      arcadiaEffectiveQueryCount = rewrite.queries.length;
+
+      const searchRuns = await Promise.all(
+        rewrite.queries.map((q) => searchMemoriesWithL1Cache(sbUserId, q, ARCADIA_MEMORY_OVERFETCH))
+      );
+
+      const perQuery = searchRuns.map((run, i) => ({
+        q: rewrite.queries[i]!,
+        cacheHit: run.metrics.cacheHit,
+        searchMs: run.metrics.memorySearchMs,
+      }));
+
+      const batches = searchRuns.map((run) =>
+        run.result.error ? [] : (run.result.data?.results ?? [])
+      );
+      const merged = mergeMemorySearchResultsByMaxScore(batches);
+
+      memoriesResult = { results: merged };
+
+      logger.log("getContext", "Arcadia memory pipeline", {
+        rawQuery: userMessage,
+        rewrittenQueries: rewrite.queries,
+        usedRewrite: rewrite.usedRewrite,
+        rewriteMs,
+        perQuery,
+        mergedCount: merged.length,
+      });
+    } else if (memoryEnabled) {
+      memoriesResult = memNonArcadiaResult;
+    }
 
     /***
      * Step 5a
@@ -763,6 +808,8 @@ export async function getContext({
             tiers,
             overfetchCap: ARCADIA_MEMORY_OVERFETCH,
             minScore: ARCADIA_MEMORY_MIN_SCORE,
+            queryRewriteUsed: arcadiaQueryRewriteUsed ?? false,
+            effectiveQueryCount: arcadiaEffectiveQueryCount ?? 1,
           }),
         });
       } else {

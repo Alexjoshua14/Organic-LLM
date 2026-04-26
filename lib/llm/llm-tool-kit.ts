@@ -176,9 +176,9 @@ export const weatherTool = tool({
 });
 
 /**
- * Creates a memory search tool for a specific user
- * @param userId - The user ID to search memories for
- * @returns A tool instance that can search the user's memories
+ * Creates a memory search tool for a specific user.
+ * Searches Mem0 with the tool `query` exactly as the model supplied (no query rewrite here;
+ * Arcadia-only rewrite for retrieval lives in `getContext` in chat-store).
  */
 export function createMemorySearchTool(userId: string, writer?: WebSearchStreamWriter) {
   return tool({
@@ -201,25 +201,50 @@ export function createMemorySearchTool(userId: string, writer?: WebSearchStreamW
           Math.max(requestedLimit, MEMORY_TOOL_OVERFETCH_MIN)
         );
 
-        const { result, metrics } = await searchMemoriesWithL1Cache(userId, query, limitForStore);
+        const searchRun = await searchMemoriesWithL1Cache(userId, query, limitForStore);
+        const perQuery = [
+          {
+            q: query,
+            cacheHit: searchRun.metrics.cacheHit,
+            searchMs: searchRun.metrics.memorySearchMs,
+            error: searchRun.result.error ?? null,
+          },
+        ];
 
-        logger.log(
-          "createMemorySearchTool",
-          `memory search: ${metrics.memorySearchMs.toFixed(2)}ms cacheHit=${metrics.cacheHit} retrieved=${limitForStore}`
-        );
+        const full = searchRun.result.error ? [] : (searchRun.result.data?.results ?? []);
 
-        if (result.error) {
+        if (searchRun.result.error) {
+          logger.log("createMemorySearchTool", "memory_search_error", {
+            rawQuery: query,
+            rewrittenQueries: [query],
+            queryRewriteUsed: false,
+            rewriteMs: 0,
+            perQuery,
+            error: searchRun.result.error,
+          });
+
           return {
             success: false,
             query,
-            error: result.error,
+            rawQuery: query,
+            queryRewriteUsed: false,
+            rewrittenQueries: [query],
+            error: searchRun.result.error,
             memories: [],
             count: 0,
           };
         }
 
-        const data = result.data!;
-        const full = data.results || [];
+        logger.log("createMemorySearchTool", "memory_search_ok", {
+          rawQuery: query,
+          rewrittenQueries: [query],
+          queryRewriteUsed: false,
+          rewriteMs: 0,
+          perQuery,
+          mergedCount: full.length,
+          limitForStore,
+        });
+
         const tiers = bucketMemoriesByTier(full, ARCADIA_MEMORY_MIN_SCORE);
         const sliced = selectMemoriesForPrompt(full, {
           maxIncluded: requestedLimit,
@@ -234,6 +259,9 @@ export function createMemorySearchTool(userId: string, writer?: WebSearchStreamW
         return {
           success: true,
           query,
+          rawQuery: query,
+          queryRewriteUsed: false,
+          rewrittenQueries: [query],
           memories: sliced,
           count: sliced.length,
           memoryInventory,
@@ -242,6 +270,9 @@ export function createMemorySearchTool(userId: string, writer?: WebSearchStreamW
         return {
           success: false,
           query,
+          rawQuery: query,
+          queryRewriteUsed: false,
+          rewrittenQueries: [query],
           error: error instanceof Error ? error.message : "Unknown error",
           memories: [],
           count: 0,

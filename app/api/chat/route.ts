@@ -663,7 +663,7 @@ const compileTools = async ({
   let toolInstructions = "";
 
   if (useMemory) {
-    const memorySearchTool = createMemorySearchTool(sbUserId);
+    const memorySearchTool = createMemorySearchTool(sbUserId, writer);
 
     tools["search_memories"] = memorySearchTool;
     toolInstructions +=

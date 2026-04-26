@@ -147,12 +147,19 @@ export function buildArcadiaMemoryInventoryText(params: {
   tiers: MemoryTierCounts;
   overfetchCap: number;
   minScore: number;
+  queryRewriteUsed?: boolean;
+  effectiveQueryCount?: number;
 }): string {
   const { tiers, minScore } = params;
+  const rewriteLine =
+    params.queryRewriteUsed !== undefined && params.effectiveQueryCount !== undefined
+      ? `Query rewrite: ${params.queryRewriteUsed ? "on" : "off"}. Effective queries: ${params.effectiveQueryCount}.`
+      : null;
 
   return [
     `Conversation messages in this request (including your latest user message): ${params.conversationMessagesInContext}.`,
     `Injected memories for this turn: ${params.memoriesInjected} (cap ${ARCADIA_MEMORY_MAX_INJECTED}).`,
+    ...(rewriteLine ? [rewriteLine] : []),
     `Semantic search sample: ${tiers.sampleSize} hit(s) among the top-${params.overfetchCap} retrieved for this query.`,
     `Relevance tiers in that sample — tier 1 (score > 0.7): ${tiers.tier1}; tier 2 (0.4 < score ≤ 0.7): ${tiers.tier2}; tier 3 (${minScore} < score ≤ 0.4): ${tiers.tier3}; at or below minimum score (≤ ${minScore}): ${tiers.belowThreshold}; without score: ${tiers.noScore}.`,
     `Counts are only within this sample, not your entire memory store. Call search_memories if you likely need more.`,
