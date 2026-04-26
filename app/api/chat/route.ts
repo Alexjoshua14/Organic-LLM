@@ -187,6 +187,7 @@ export async function POST(req: Request) {
           message,
           memoryEnabled,
           persistedSchemasEnabled: isStrataExperience,
+          experience,
         });
 
         if (chatContextResult.error) {

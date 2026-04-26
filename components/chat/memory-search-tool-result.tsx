@@ -2,6 +2,7 @@ import { memo } from "react";
 import { Pin, PinOff } from "lucide-react";
 
 import { cn } from "@/lib/utils";
+import type { MemorySearchInventory } from "@/lib/memory/memory-relevance";
 
 const QUERY_DISPLAY_MAX = 56;
 
@@ -20,8 +21,45 @@ export type MemorySearchRowUi = {
 };
 
 export type ParsedMemorySearchToolOutput =
-  | { status: "ok"; query: string; count: number; memories: MemorySearchRowUi[] }
+  | {
+      status: "ok";
+      query: string;
+      count: number;
+      memories: MemorySearchRowUi[];
+      /** Present when the server returned tier/sample metadata from the over-fetch search. */
+      inventory?: MemorySearchInventory;
+    }
   | { status: "error"; message: string };
+
+function parseMemoryInventory(raw: unknown): MemorySearchInventory | undefined {
+  if (raw === null || raw === undefined || typeof raw !== "object") return undefined;
+  const inv = raw as Record<string, unknown>;
+  const nums = [
+    ["tier1", inv.tier1],
+    ["tier2", inv.tier2],
+    ["tier3", inv.tier3],
+    ["belowThresholdInSample", inv.belowThresholdInSample],
+    ["noScoreInSample", inv.noScoreInSample],
+    ["sampleSize", inv.sampleSize],
+    ["retrievedLimit", inv.retrievedLimit],
+    ["injectedCap", inv.injectedCap],
+  ] as const;
+
+  for (const [, v] of nums) {
+    if (typeof v !== "number" || !Number.isFinite(v)) return undefined;
+  }
+
+  return {
+    tier1: inv.tier1 as number,
+    tier2: inv.tier2 as number,
+    tier3: inv.tier3 as number,
+    belowThresholdInSample: inv.belowThresholdInSample as number,
+    noScoreInSample: inv.noScoreInSample as number,
+    sampleSize: inv.sampleSize as number,
+    retrievedLimit: inv.retrievedLimit as number,
+    injectedCap: inv.injectedCap as number,
+  };
+}
 
 /**
  * Parses the `search_memories` tool return from {@link createMemorySearchTool}.
@@ -58,6 +96,7 @@ export function tryParseMemorySearchToolOutput(body: unknown): ParsedMemorySearc
     query: o.query,
     count: Math.max(0, Math.floor(o.count)),
     memories,
+    inventory: parseMemoryInventory(o.memoryInventory),
   };
 }
 
@@ -103,9 +142,13 @@ export const MemorySearchToolResultCard = memo(function MemorySearchToolResultCa
     );
   }
 
-  const { count, query, memories } = parsed;
+  const { count, query, memories, inventory } = parsed;
   const qShort = truncateQueryForTitle(query);
   const titleLine = `Fetched ${count} ${count === 1 ? "memory" : "memories"} on “${qShort}”`;
+  const tierLine =
+    inventory !== undefined
+      ? `Sample ${inventory.sampleSize} (top ${inventory.retrievedLimit}): tier1 ${inventory.tier1} · tier2 ${inventory.tier2} · tier3 ${inventory.tier3} · below min ${inventory.belowThresholdInSample} · no score ${inventory.noScoreInSample}`
+      : null;
 
   const summaryLabel =
     memories.length === 0
@@ -123,6 +166,11 @@ export const MemorySearchToolResultCard = memo(function MemorySearchToolResultCa
       <div className="flex items-start justify-between gap-2">
         <div className="min-w-0 flex-1">
           <div className="text-xs font-medium text-foreground">{titleLine}</div>
+          {tierLine ? (
+            <p className="mt-0.5 text-[10px] leading-snug text-muted-foreground tabular-nums">
+              {tierLine}
+            </p>
+          ) : null}
         </div>
         <button
           aria-label={isPinned ? "Unpin tool output" : "Pin tool output"}

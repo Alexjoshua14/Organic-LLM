@@ -12,7 +12,15 @@ import { mapSearchResponseToExaSources } from "../exa/utils";
 
 import { getMessages, getMessagesSince, getNMessages } from "@/data/supabase/chat";
 import { estimateTokenCount } from "@/lib/llm/chat-helpers";
-import { searchMemoriesForUser } from "@/lib/memory/operations";
+import { searchMemoriesWithL1Cache } from "@/lib/memory/memory-search-cache";
+import {
+  ARCADIA_MEMORY_MIN_SCORE,
+  MEMORY_TOOL_OVERFETCH_CAP,
+  MEMORY_TOOL_OVERFETCH_MIN,
+  bucketMemoriesByTier,
+  selectMemoriesForPrompt,
+  toMemorySearchInventory,
+} from "@/lib/memory/memory-relevance";
 import { SearchMemoryToolSchema } from "@/lib/schemas/llm-tools";
 import { ChatAIActionEnum } from "@/types/ai";
 import {
@@ -187,7 +195,18 @@ export function createMemorySearchTool(userId: string, writer?: WebSearchStreamW
         });
       }
       try {
-        const result = await searchMemoriesForUser(userId, query, { limit });
+        const requestedLimit = limit ?? 3;
+        const limitForStore = Math.min(
+          MEMORY_TOOL_OVERFETCH_CAP,
+          Math.max(requestedLimit, MEMORY_TOOL_OVERFETCH_MIN)
+        );
+
+        const { result, metrics } = await searchMemoriesWithL1Cache(userId, query, limitForStore);
+
+        logger.log(
+          "createMemorySearchTool",
+          `memory search: ${metrics.memorySearchMs.toFixed(2)}ms cacheHit=${metrics.cacheHit} retrieved=${limitForStore}`
+        );
 
         if (result.error) {
           return {
@@ -200,12 +219,24 @@ export function createMemorySearchTool(userId: string, writer?: WebSearchStreamW
         }
 
         const data = result.data!;
+        const full = data.results || [];
+        const tiers = bucketMemoriesByTier(full, ARCADIA_MEMORY_MIN_SCORE);
+        const sliced = selectMemoriesForPrompt(full, {
+          maxIncluded: requestedLimit,
+          minScore: ARCADIA_MEMORY_MIN_SCORE,
+        });
+        const memoryInventory = toMemorySearchInventory(
+          tiers,
+          limitForStore,
+          requestedLimit
+        );
 
         return {
           success: true,
           query,
-          memories: data.results || [],
-          count: data.results?.length || 0,
+          memories: sliced,
+          count: sliced.length,
+          memoryInventory,
         };
       } catch (error) {
         return {

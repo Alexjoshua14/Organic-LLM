@@ -2,13 +2,21 @@
 
 import { UIMessage } from "ai";
 import { auth } from "@clerk/nextjs/server";
-import { SearchResult } from "mem0ai/oss";
-
 import { createLogger } from "../logger";
 import { SYSTEM_PROMPT, PROMETHEUS_SYSTEM_PROMPT } from "../system-prompt/prompt-v0";
 import SPARK_SYSTEM_PROMPT from "../system-prompt";
 import { getStateString } from "../supabase/organicStateStore";
 import { searchMemoriesForUser } from "../memory/operations";
+import { searchMemoriesWithL1Cache } from "../memory/memory-search-cache";
+import {
+  ARCADIA_MEMORY_MAX_INJECTED,
+  ARCADIA_MEMORY_MIN_SCORE,
+  ARCADIA_MEMORY_OVERFETCH,
+  bucketMemoriesByTier,
+  buildArcadiaMemoryInventoryText,
+  formatMemoriesForPrompt,
+  selectMemoriesForPrompt,
+} from "../memory/memory-relevance";
 import {
   CodeBlockSchema,
   ContextPiece,
@@ -35,6 +43,7 @@ import {
 import { upsertMessagesWithAdmin, updateChatStreamWithAdmin } from "@/data/supabase/chat-admin";
 import { Result, SimpleResult } from "@/types";
 import { Thread } from "@/lib/schemas/chat";
+import type { MemoryItemType } from "@/lib/schemas/memory";
 import { getSupabaseUserId } from "@/data/supabase/profiles";
 import { getSupabaseUserIdWithAdmin } from "@/data/supabase/profiles-admin";
 import { retryWithBackoff, DEFAULT_RETRY_CONFIG, type RetryConfig } from "@/lib/utils";
@@ -52,6 +61,8 @@ interface getContextProps {
   message: UIMessage;
   memoryEnabled?: boolean;
   persistedSchemasEnabled?: boolean;
+  /** When `arcadia` and memory is on, uses tiered memory bootstrap + L1 cache. */
+  experience?: string;
 }
 
 export async function createChat(): Promise<Result<string>> {
@@ -531,6 +542,7 @@ export async function getContext({
   message,
   memoryEnabled,
   persistedSchemasEnabled = false,
+  experience,
 }: getContextProps): Promise<
   Result<{ context: string; messages: UIMessage[]; memories?: string[] }, string>
 > {
@@ -569,7 +581,6 @@ export async function getContext({
   const contextTokenSizes: Array<{ name: string; tokens: number }> = [];
 
   try {
-    const promises: Promise<any>[] = [];
     /***
      * Step 1
      *
@@ -577,7 +588,6 @@ export async function getContext({
      ***/
     const messagesPromise = getNMessages(chatId, limit);
 
-    promises.push(messagesPromise);
     /***
      * Step 2
      *
@@ -585,8 +595,6 @@ export async function getContext({
      */
 
     const conversationSummaryPromise = getConversationSummary(chatId);
-
-    promises.push(conversationSummaryPromise);
 
     /***
      * Step 3
@@ -599,25 +607,26 @@ export async function getContext({
 
     logger.log("getContext", `User message length: ${userMessage.length}`);
 
-    if (memoryEnabled) {
-      const memoriesPromise = searchMemoriesForUser(sbUserId, userMessage, {
-        limit: 5,
-      }).then((r) => (r.error ? { results: [] } : r.data!));
+    const memoriesExec = memoryEnabled
+      ? experience === "arcadia"
+        ? searchMemoriesWithL1Cache(sbUserId, userMessage, ARCADIA_MEMORY_OVERFETCH).then(
+            ({ result, metrics }) => {
+              logger.log(
+                "getContext",
+                `Arcadia memory search: ${metrics.memorySearchMs.toFixed(2)}ms cacheHit=${metrics.cacheHit}`
+              );
 
-      promises.push(memoriesPromise);
-    }
+              return result.error ? { results: [] } : result.data!;
+            }
+          )
+        : searchMemoriesForUser(sbUserId, userMessage, { limit: 5 }).then((r) =>
+            r.error ? { results: [] } : r.data!
+          )
+      : Promise.resolve({ results: [] });
 
-    /***
-     * Step 3b
-     *
-     * Get Persisted Schemas from database
-     */
-
-    if (persistedSchemasEnabled) {
-      const persistedSchemaPromise = getPersistedSchemas(chatId);
-
-      promises.push(persistedSchemaPromise);
-    }
+    const persistedExec = persistedSchemasEnabled
+      ? getPersistedSchemas(chatId)
+      : Promise.resolve({ data: [], error: null });
 
     /***
      * Step 4
@@ -669,7 +678,7 @@ export async function getContext({
      */
 
     const [messagesResult, conversationSummaryResult, memoriesResult, persistedSchemaResult] =
-      await Promise.all(promises);
+      await Promise.all([messagesPromise, conversationSummaryPromise, memoriesExec, persistedExec]);
 
     /***
      * Step 5a
@@ -722,25 +731,51 @@ export async function getContext({
     if (memoryEnabled) {
       let memories = "";
 
-      // TODO: Grab memory objects for streaming back to user
-      let memoriesArray: SearchResult[] = [];
-
       if (memoriesResult.results === null || memoriesResult.results === undefined) {
         logger.error(
           "getContext",
           `Error getting memories: Memories are null\n${JSON.stringify(memoriesResult)}`
         );
+        contextPieces.push({
+          title: "Memories from past conversations:",
+          content: memories,
+        });
+      } else if (experience === "arcadia") {
+        const items = memoriesResult.results as MemoryItemType[];
+        const tiers = bucketMemoriesByTier(items, ARCADIA_MEMORY_MIN_SCORE);
+        const selected = selectMemoriesForPrompt(items, {
+          maxIncluded: ARCADIA_MEMORY_MAX_INJECTED,
+          minScore: ARCADIA_MEMORY_MIN_SCORE,
+        });
+        memories = formatMemoriesForPrompt(selected);
+        const conversationMessagesInContext = messages.length + 1;
+
+        contextPieces.push({
+          title: "Memories from past conversations:",
+          content: memories,
+        });
+
+        contextPieces.push({
+          title: "Memory inventory (Arcadia)",
+          content: buildArcadiaMemoryInventoryText({
+            conversationMessagesInContext,
+            memoriesInjected: selected.length,
+            tiers,
+            overfetchCap: ARCADIA_MEMORY_OVERFETCH,
+            minScore: ARCADIA_MEMORY_MIN_SCORE,
+          }),
+        });
       } else {
         memories = memoriesResult.results
           .map((result: { memory?: string }) => result.memory)
           .filter((memory: string | undefined): memory is string => memory != null)
           .join("\n");
-      }
 
-      contextPieces.push({
-        title: "Memories from past conversations:",
-        content: memories,
-      });
+        contextPieces.push({
+          title: "Memories from past conversations:",
+          content: memories,
+        });
+      }
 
       contextPieces.push({
         title: "Memory tool usage:",

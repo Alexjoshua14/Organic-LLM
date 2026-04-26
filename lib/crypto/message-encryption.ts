@@ -20,7 +20,8 @@ export type EncryptionFieldName =
   | "strata_sections.refined_text"
   | "strata_sections.elaborated"
   | "strata_sections.design_instructions"
-  | "strata_sections.ai_instructions";
+  | "strata_sections.ai_instructions"
+  | "memory.cache.semantic_search";
 
 export type EncryptionContext = {
   userId: string;
