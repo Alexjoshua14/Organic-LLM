@@ -5,7 +5,7 @@ import { createHash } from "crypto";
 import { createLogger } from "@/lib/logger";
 import { encryptForStorage, decryptFromStorage } from "@/lib/crypto/message-encryption";
 import type { EncryptionContext } from "@/lib/crypto/message-encryption";
-import { SearchResultSchema, type SearchResultType } from "@/lib/schemas/memory";
+import { SearchResult as SearchResultSchema, type SearchResultType } from "@/lib/schemas/memory";
 import { searchMemoriesForUser } from "@/lib/memory/operations";
 import type { Result } from "@/types";
 

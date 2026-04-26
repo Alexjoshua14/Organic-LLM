@@ -805,9 +805,14 @@ export async function getContext({
 
       logger.log("getContext", `persistedSchemaResult: ${JSON.stringify(persistedSchemaResult)}`);
 
-      let persistedSchemaObject = PersistedSchema.decode(persistedSchemaResult.data);
+      const rawPersistedRows = persistedSchemaResult.data ?? [];
+      const persistedSchemaForLog = rawPersistedRows.map((item) => {
+        const parsed = PersistedSchema.safeParse(item);
 
-      logger.log("getContext", `persistedSchemaObject: ${JSON.stringify(persistedSchemaObject)}`);
+        return parsed.success ? parsed.data : item;
+      });
+
+      logger.log("getContext", `persistedSchemaObject: ${JSON.stringify(persistedSchemaForLog)}`);
 
       if (persistedSchemaResult.error) {
         logger.error(
