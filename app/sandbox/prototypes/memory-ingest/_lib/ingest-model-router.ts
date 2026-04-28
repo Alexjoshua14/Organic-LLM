@@ -37,23 +37,23 @@ function firstAnyModelId(): GatewayModelId {
 
 /** Fast, cheap gateway ids for short ingest turns. */
 const REFLEX_IDS_ZDR: GatewayModelId[] = [
-  "openai/gpt-5.4-nano",
-  "google/gemini-2.5-flash-lite",
   "anthropic/claude-haiku-4.5",
+  "google/gemini-2.5-flash-lite",
+  "openai/gpt-5.4-nano",
 ];
 
 /** Heavier ids when ZDR is required. */
 const REASONING_IDS_ZDR: GatewayModelId[] = [
-  "openai/gpt-5.4",
   "anthropic/claude-sonnet-4.6",
   "google/gemini-3-flash",
+  "openai/gpt-5.4",
 ];
 
 /** When ZDR is off, non-ZDR reasoning models are allowed. */
 const REASONING_IDS_ANY: GatewayModelId[] = [
+  "anthropic/claude-sonnet-4.6",
   "perplexity/sonar-reasoning",
   "openai/gpt-5.4",
-  "anthropic/claude-sonnet-4.6",
 ];
 
 function pickFirstAllowed(ids: GatewayModelId[], zdr: boolean): GatewayModelId {

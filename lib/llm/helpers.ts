@@ -52,7 +52,7 @@ export function getChatModel(model?: ChatModel): ChatModel {
     return DEFAULT_CHAT_MODEL;
   }
 
-  logger.log("getChatModel", `Validated model: ${parseResult.data}`);
+  logger.log("getChatModel", `Validated model: ${parseResult.data.id}`);
 
   return parseResult.data;
 }

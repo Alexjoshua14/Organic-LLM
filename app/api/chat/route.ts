@@ -43,6 +43,7 @@ import {
   getChatResponseLengthInstruction,
   measureAsync,
 } from "@/lib/llm/helpers";
+import { serializeError } from "@/lib/llm/log-error";
 import { ChatUIMessage, ChatAIActionEnum } from "@/types/ai";
 import {
   ARCADIA_HELP_RESPONSE,
@@ -240,7 +241,7 @@ export async function POST(req: Request) {
     System Prompt: ${systemPromptForRequest.length} characters
     \n\n--------------------------------\n\n
     ${validatedMessages.length} messages being sent to LLM
-    Model: ${selectedModel}
+    Model: ${selectedModel.id} (${selectedModel.name})
     `
       );
 
@@ -310,9 +311,6 @@ export async function POST(req: Request) {
         transient: true,
       });
 
-      logger.log("POST", `Calling streamText with model: ${selectedModel}`);
-
-      const streamStartTime = performance.now();
       const messages = convertToModelMessages(validatedMessages);
       const initialMessageCount = validatedMessages.length;
       const { tools, toolInstructions } = await compileTools({
@@ -382,6 +380,32 @@ export async function POST(req: Request) {
         toolChoice: hasTools ? "auto" : "none",
       });
 
+      logger.log("POST", `Calling streamText with model: ${selectedModel.id}`);
+
+      const streamStartTime = performance.now();
+
+      type ChunkBreadcrumb = {
+        tMs: number;
+        type: string;
+        toolName?: string;
+        step?: number;
+      };
+      const chunkRing: ChunkBreadcrumb[] = [];
+      const pushChunk = (type: string, extra?: Partial<ChunkBreadcrumb>) => {
+        chunkRing.push({
+          tMs: Math.round(performance.now() - streamStartTime),
+          type,
+          ...extra,
+        });
+        if (chunkRing.length > 24) chunkRing.shift();
+      };
+
+      const providerOptionsSummary = {
+        zeroDataRetention: isZeroDataRetention,
+        openaiInclude: ["reasoning.encrypted_content"] as const,
+      };
+      logger.debug("streamText", "providerOptions", providerOptionsSummary);
+
       const result = streamText({
         model: selectedModel.id,
         messages,
@@ -392,9 +416,13 @@ export async function POST(req: Request) {
         }),
         maxOutputTokens: CHAT_MODEL.maxOutputTokens, // Cap output for dev guardrails
         onError({ error }) {
-          const e = error instanceof Error ? error : new Error(String(error));
-
-          logger.error("POST", `Stream error: ${e.name}`);
+          logger.error("POST", "Stream error", {
+            err: serializeError(error),
+            model: selectedModel.id,
+            providerOptions: providerOptionsSummary,
+            recentChunks: chunkRing.slice(-12),
+            toolNames,
+          });
         },
         onFinish() {
           writer.write({
@@ -404,8 +432,21 @@ export async function POST(req: Request) {
           });
         },
         onChunk: (chunk) => {
-          if (chunk.chunk.type !== "text-delta") {
-            logger.debug("POST", `Chunk: ${chunk.chunk.type}`);
+          const c = chunk.chunk as {
+            type: string;
+            toolName?: string;
+            stepIndex?: number;
+          };
+          if (c.type === "tool-call") {
+            pushChunk(c.type, { toolName: c.toolName, step: c.stepIndex });
+          } else {
+            pushChunk(c.type, { step: c.stepIndex });
+          }
+          if (c.type !== "text-delta") {
+            logger.debug("streamChunk", c.type, {
+              toolName: c.type === "tool-call" ? c.toolName : undefined,
+              step: c.stepIndex,
+            });
           }
           if (chunk.chunk.type === "reasoning-delta") {
             writer.write({
@@ -441,9 +482,12 @@ export async function POST(req: Request) {
         result.toUIMessageStream({
           generateMessageId: () => assistantMessageId,
           onError: (error) => {
-            const e = error instanceof Error ? error : new Error(String(error));
-
-            logger.error("POST", `UI stream error: ${e.name}`);
+            logger.error("POST", "UI stream error", {
+              err: serializeError(error),
+              model: selectedModel.id,
+              stage: "uiStream.toUIMessageStream",
+              recentChunks: chunkRing.slice(-12),
+            });
 
             if (error instanceof Error) {
               return error.message;
@@ -455,7 +499,13 @@ export async function POST(req: Request) {
             return "An unexpected error occurred";
           },
           onFinish: async ({ messages, isAborted, finishReason }) => {
-            logger.log("POST", `FINISH REASON: ${finishReason}`);
+            logger.log("POST", "Stream finished", {
+              finishReason: finishReason ?? "unknown",
+              isAborted,
+              model: selectedModel.id,
+              totalChunks: chunkRing.length,
+              recentChunks: chunkRing.slice(-12),
+            });
             if (!finishReason && !isAborted) {
               logger.error("POST", "No finish reason provided, assuming failure");
 
@@ -611,14 +661,17 @@ export async function POST(req: Request) {
 
                 logger.log("POST", `onFinish metrics: ${JSON.stringify(metrics)}`);
               })().catch((err) => {
-                const e = err instanceof Error ? err : new Error(String(err));
-
-                logger.error("POST", `Error in post-processing task: ${e.name} - ${e.message}`);
+                logger.error("POST", "Error in post-processing task", {
+                  err: serializeError(err),
+                  model: selectedModel.id,
+                });
               });
             } catch (err) {
-              const e = err instanceof Error ? err : new Error(String(err));
-
-              logger.error("POST", `Error in onFinish callback: ${e.name} - ${e.message}`);
+              logger.error("POST", "Error in onFinish callback", {
+                err: serializeError(err),
+                model: selectedModel.id,
+                metrics,
+              });
             }
           },
         })
