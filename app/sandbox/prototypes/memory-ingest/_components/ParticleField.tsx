@@ -2,6 +2,7 @@
 
 import type { AnchorWorld } from "../_lib/lens/uniforms";
 import type { ParticleFieldVisualState } from "../_lib/types";
+import type { LensPerfMetrics } from "./lens/LensPerfHud";
 
 import { useReducedMotion } from "framer-motion";
 import { forwardRef, useEffect, useImperativeHandle, useRef } from "react";
@@ -25,11 +26,21 @@ export type ParticleFieldProps = {
   inputAnchorRef?: React.RefObject<HTMLElement | null>;
   /** Test / story override: bypass WebGL when true. */
   forceReducedMotion?: boolean;
+  devUiEnabled?: boolean;
+  onPerfSample?: (metrics: LensPerfMetrics) => void;
 };
 
 export const ParticleField = forwardRef<ParticleFieldHandle, ParticleFieldProps>(
   function ParticleField(
-    { state, intensity = 0.45, className, inputAnchorRef, forceReducedMotion },
+    {
+      state,
+      intensity = 0.45,
+      className,
+      inputAnchorRef,
+      forceReducedMotion,
+      devUiEnabled = false,
+      onPerfSample,
+    },
     ref
   ) {
     const hookReduced = useReducedMotion();
@@ -133,7 +144,9 @@ export const ParticleField = forwardRef<ParticleFieldHandle, ParticleFieldProps>
       >
         <MemoryLens
           anchorWorldRef={anchorWorldRef}
+          devUiEnabled={devUiEnabled}
           intensity={intensity}
+          onPerfSample={onPerfSample}
           pulseGlowRef={pulseRef}
           state={state}
           themeProbeRef={themeProbeRef}

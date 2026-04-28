@@ -14,24 +14,26 @@ import type { StateName, StateRecipe } from "./fieldLibrary";
 export const RECIPES: Record<StateName, StateRecipe> = {
   idle_ready: {
     fields: {
-      roundedCubeSDF: 1,
-      breath: 0.28,
-      jitter: 0.18,
+      roundedCubeSDF: 0.85,
+      breath: 0.4,
+      curlNoise: 0.25,
+      jitter: 0.05,
       sphereSDF: 0,
       shellMask: 0,
     },
     modulators: {
       tempo: 0.32,
       coherence: 0.6,
-      energy: 0.42,
+      energy: 0.5,
       anisotropy: [0, 0, 0],
     },
   },
   listening: {
     fields: {
-      roundedCubeSDF: 1,
-      breath: 0.35,
-      jitter: 0.22,
+      roundedCubeSDF: 0.75,
+      breath: 0.5,
+      curlNoise: 0.4,
+      jitter: 0.05,
       sphereSDF: 0,
       shellMask: 0,
     },
@@ -44,9 +46,11 @@ export const RECIPES: Record<StateName, StateRecipe> = {
   },
   ingesting: {
     fields: {
-      roundedCubeSDF: 1,
+      roundedCubeSDF: 0.6,
       breath: 0.3,
-      jitter: 0.55,
+      curlNoise: 0.5,
+      jitter: 0.1,
+      absorption: 0.7,
       sphereSDF: 0,
       shellMask: 0,
     },
@@ -59,9 +63,11 @@ export const RECIPES: Record<StateName, StateRecipe> = {
   },
   searching_memory: {
     fields: {
-      roundedCubeSDF: 1,
-      breath: 0.25,
-      jitter: 0.65,
+      roundedCubeSDF: 0.55,
+      breath: 0.2,
+      curlNoise: 0.5,
+      jitter: 0.1,
+      tendrilReach: 0.5,
       sphereSDF: 0,
       shellMask: 0,
     },
@@ -74,10 +80,12 @@ export const RECIPES: Record<StateName, StateRecipe> = {
   },
   reasoning: {
     fields: {
-      roundedCubeSDF: 1,
-      breath: 0.45,
-      jitter: 0.25,
-      sphereSDF: 0,
+      roundedCubeSDF: 0.4,
+      breath: 0.3,
+      curlNoise: 0.7,
+      jitter: 0.05,
+      sphereSDF: 0.5,
+      clusterAttract: 0.4,
       shellMask: 0,
     },
     modulators: {
@@ -89,9 +97,11 @@ export const RECIPES: Record<StateName, StateRecipe> = {
   },
   web_search: {
     fields: {
-      roundedCubeSDF: 1,
-      breath: 0.2,
-      jitter: 0.85,
+      roundedCubeSDF: 0.4,
+      breath: 0.15,
+      curlNoise: 0.4,
+      jitter: 0.05,
+      tendrilReach: 0.7,
       sphereSDF: 0,
       shellMask: 0,
     },
@@ -104,9 +114,10 @@ export const RECIPES: Record<StateName, StateRecipe> = {
   },
   writing_memory: {
     fields: {
-      roundedCubeSDF: 1,
-      breath: 0.5,
-      jitter: 0.2,
+      roundedCubeSDF: 0.9,
+      breath: 0.6,
+      curlNoise: 0.2,
+      jitter: 0.03,
       sphereSDF: 0,
       shellMask: 0,
     },

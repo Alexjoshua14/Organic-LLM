@@ -3,6 +3,7 @@
 import { Button } from "@heroui/button";
 
 import { PARTICLE_FIELD_VISUAL_STATES, type ParticleFieldVisualState } from "../_lib/types";
+import type { LensPerfMetrics } from "./lens/LensPerfHud";
 
 import { cn } from "@/lib/utils";
 
@@ -11,6 +12,7 @@ type MemoryIngestDebugPanelProps = {
   onClose: () => void;
   onSetVisual: (v: ParticleFieldVisualState) => void;
   onPulseWriting: () => void;
+  metrics: LensPerfMetrics | null;
 };
 
 /** Particle state panel; parent gates visibility (dev, env flag, or ?memoryIngestDev=1). */
@@ -19,6 +21,7 @@ export function MemoryIngestDebugPanel({
   onClose,
   onSetVisual,
   onPulseWriting,
+  metrics,
 }: MemoryIngestDebugPanelProps) {
   if (!open) return null;
 
@@ -34,6 +37,15 @@ export function MemoryIngestDebugPanel({
         <Button size="sm" variant="flat" onPress={onClose}>
           Close
         </Button>
+      </div>
+      <div className="mb-2 rounded-md border border-border/60 bg-muted/30 px-2 py-1.5 font-mono text-[11px] leading-relaxed text-muted-foreground">
+        {metrics
+          ? `${metrics.fps.toFixed(0)} fps  ${metrics.meanMs.toFixed(1)} ms  p95 ${metrics.p95Ms.toFixed(
+              1
+            )}\ncalls ${metrics.calls}  tris ${metrics.tris}  count ${metrics.count.toLocaleString()}  dpr ${metrics.dpr.toFixed(
+              2
+            )}`
+          : "Collecting particle metrics..."}
       </div>
       <div className="flex flex-col gap-1.5">
         {PARTICLE_FIELD_VISUAL_STATES.map((v) => (

@@ -11,6 +11,10 @@ const PARTICLE_VERT_MAIN = `
 attribute float aId;
 
 uniform float uTime;
+uniform float uPhaseBase;
+uniform float uPhaseTurbulence;
+uniform float uPhaseFlow;
+uniform float uPhaseShape;
 uniform float uTempo;
 uniform float uCoherence;
 uniform float uEnergy;
@@ -45,8 +49,12 @@ void main() {
   vec3 aRest = position;
 
   vec3 disp = vec3(0.0);
-  disp += wBreath * fieldBreath(aRest, aId, uTime, uTempo);
-  disp += wJitter * fieldJitter(aRest, aId, uTime, uTempo);
+  // Integrate along a looping flow phase to avoid hard displacement snaps.
+  float phase = aId * 6.2831853 + uTime * uTempo * 0.3;
+  vec3 flow = curlNoise(aRest * 0.8 + vec3(0.0, 0.0, phase * 0.1));
+  disp += wCurlNoise * flow * 0.4;
+  disp += wBreath * fieldBreath(aRest, aId, uPhaseBase);
+  disp += wJitter * fieldJitter(aRest, aId, uPhaseTurbulence);
 
   vec3 shaped = aRest;
   shaped = mix(shaped, sphereProject(shaped), wSphere);

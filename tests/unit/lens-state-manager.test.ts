@@ -23,7 +23,7 @@ describe("lerpRecipe", () => {
     const mid = lerpRecipe(a, b, 0.5);
 
     expect(mid.fields.breath).toBeCloseTo((a.fields.breath ?? 0) * 0.5, 6);
-    expect(mid.fields.curlNoise).toBeCloseTo(0.5, 6);
+    expect(mid.fields.curlNoise).toBeCloseTo(((a.fields.curlNoise ?? 0) + 1) * 0.5, 6);
   });
 
   test("anisotropy lerps component-wise", () => {

@@ -1,4 +1,5 @@
 import type { FieldName, ModulatorName, StateRecipe } from "./fieldLibrary";
+import type { MotionClockPhases } from "./motion-clocks";
 
 import * as THREE from "three";
 
@@ -31,11 +32,17 @@ export function applyRecipeToUniforms(
   recipe: StateRecipe,
   timeSeconds: number,
   anchor: AnchorWorld,
-  opts: { intensity: number; pulseGlow: number }
+  opts: { intensity: number; pulseGlow: number; phases?: MotionClockPhases }
 ): void {
   const u = material.uniforms;
 
   u.uTime!.value = timeSeconds;
+  if (opts.phases) {
+    u.uPhaseBase!.value = opts.phases.base;
+    u.uPhaseTurbulence!.value = opts.phases.turbulence;
+    u.uPhaseFlow!.value = opts.phases.flow;
+    u.uPhaseShape!.value = opts.phases.shape;
+  }
 
   u.uTempo!.value = modulatorScalar(recipe.modulators, "tempo");
   u.uCoherence!.value = modulatorScalar(recipe.modulators, "coherence");
@@ -83,6 +90,10 @@ export function createLensParticleUniforms(): Record<string, THREE.IUniform> {
 
   return {
     uTime: { value: 0 },
+    uPhaseBase: { value: 0 },
+    uPhaseTurbulence: { value: 0 },
+    uPhaseFlow: { value: 0 },
+    uPhaseShape: { value: 0 },
     uTempo: { value: 0.35 },
     uCoherence: { value: 0.5 },
     uEnergy: { value: 0.45 },

@@ -3,9 +3,10 @@
 import type { MutableRefObject } from "react";
 import type { StateName } from "../../_lib/lens/fieldLibrary";
 import type { AnchorWorld } from "../../_lib/lens/uniforms";
+import type { LensPerfMetrics } from "./LensPerfHud";
 
 import { Canvas } from "@react-three/fiber";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 
 import { readMemoryIngestDevUiFromSearch } from "../../_lib/memory-ingest-dev-ui";
 import { getDeviceTier, getMemoryIngestTierDefaults } from "../../_lib/lens/device-tier";
@@ -19,6 +20,8 @@ export type MemoryLensProps = {
   themeProbeRef: MutableRefObject<HTMLElement | null>;
   pulseGlowRef: MutableRefObject<number>;
   anchorWorldRef: MutableRefObject<AnchorWorld>;
+  devUiEnabled: boolean;
+  onPerfSample?: (metrics: LensPerfMetrics) => void;
 };
 
 function readParticleCountMul(search: string): number {
@@ -38,44 +41,25 @@ export function MemoryLens({
   themeProbeRef,
   pulseGlowRef,
   anchorWorldRef,
+  devUiEnabled,
+  onPerfSample,
 }: MemoryLensProps) {
   const tier = typeof window !== "undefined" ? getDeviceTier() : "desktop";
-  const { count, pointSize, pixelRatioCap } = getMemoryIngestTierDefaults(tier);
-  const hudRef = useRef<HTMLDivElement | null>(null);
-  const [lensDevHud, setLensDevHud] = useState(false);
+  const { count, pointSize, pixelRatioCap, targetFps } = getMemoryIngestTierDefaults(tier);
+  const [lensDevHud, setLensDevHud] = useState(devUiEnabled);
   const [particleCountMul, setParticleCountMul] = useState(1);
 
   useEffect(() => {
-    setLensDevHud(readMemoryIngestDevUiFromSearch(window.location.search));
+    setLensDevHud(devUiEnabled || readMemoryIngestDevUiFromSearch(window.location.search));
     setParticleCountMul(readParticleCountMul(window.location.search));
-  }, []);
+  }, [devUiEnabled]);
 
   const effectiveCount = lensDevHud
     ? Math.max(1, Math.round(count * particleCountMul))
     : count;
 
   return (
-    <div style={{ position: "relative", width: "100%", height: "100%" }}>
-      {lensDevHud ? (
-        <div
-          ref={hudRef}
-          style={{
-            position: "absolute",
-            top: 8,
-            left: 8,
-            zIndex: 10,
-            maxWidth: "calc(100% - 16px)",
-            fontFamily: "ui-monospace, monospace",
-            fontSize: 11,
-            lineHeight: 1.35,
-            color: "rgba(255,255,255,0.92)",
-            textShadow: "0 1px 2px rgba(0,0,0,0.85)",
-            pointerEvents: "none",
-            whiteSpace: "pre-wrap",
-          }}
-        />
-      ) : null}
-      <Canvas
+    <Canvas
         gl={{
           alpha: true,
           antialias: true,
@@ -94,12 +78,14 @@ export function MemoryLens({
           count={effectiveCount}
           intensity={intensity}
           pointSize={pointSize}
+          targetFps={targetFps}
           pulseGlowRef={pulseGlowRef}
           state={state}
           themeProbeRef={themeProbeRef}
         />
-        {lensDevHud ? <LensPerfHud count={effectiveCount} targetRef={hudRef} /> : null}
+        {lensDevHud && onPerfSample ? (
+          <LensPerfHud count={effectiveCount} onSample={onPerfSample} />
+        ) : null}
       </Canvas>
-    </div>
   );
 }

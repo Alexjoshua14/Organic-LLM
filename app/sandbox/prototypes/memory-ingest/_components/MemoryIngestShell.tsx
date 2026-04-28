@@ -3,6 +3,7 @@
 import type { Thread } from "@/lib/schemas/chat";
 import type { UIMessage } from "ai";
 import type { ParticleFieldVisualState } from "../_lib/types";
+import type { LensPerfMetrics } from "./lens/LensPerfHud";
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Bug } from "lucide-react";
@@ -33,6 +34,7 @@ export function MemoryIngestShell({ chatData }: MemoryIngestShellProps) {
   const useSpeechFriendlyRef = useRef(false);
   const [debugOpen, setDebugOpen] = useState(false);
   const [devUiFromQuery, setDevUiFromQuery] = useState(false);
+  const [perfMetrics, setPerfMetrics] = useState<LensPerfMetrics | null>(null);
 
   useEffect(() => {
     setDevUiFromQuery(readMemoryIngestDevUiFromSearch(window.location.search));
@@ -95,6 +97,10 @@ export function MemoryIngestShell({ chatData }: MemoryIngestShellProps) {
     [debugSetVisual]
   );
 
+  const onPerfSample = useCallback((metrics: LensPerfMetrics) => {
+    setPerfMetrics(metrics);
+  }, []);
+
   return (
     <Page className="text-foreground">
       <div
@@ -117,8 +123,10 @@ export function MemoryIngestShell({ chatData }: MemoryIngestShellProps) {
               <ParticleField
                 ref={particleRef}
                 className="rounded-2xl"
+                devUiEnabled={showPrototypeDevUi}
                 inputAnchorRef={inputWrapRef}
                 intensity={fsm.intensity}
+                onPerfSample={onPerfSample}
                 state={fsm.visual}
               />
             </div>
@@ -179,6 +187,7 @@ export function MemoryIngestShell({ chatData }: MemoryIngestShellProps) {
               <Bug className="h-4 w-4" />
             </Button>
             <MemoryIngestDebugPanel
+              metrics={perfMetrics}
               open={debugOpen}
               onClose={() => setDebugOpen(false)}
               onPulseWriting={debugPulseWriting}

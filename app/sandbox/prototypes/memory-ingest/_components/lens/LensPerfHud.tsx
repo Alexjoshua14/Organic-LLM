@@ -1,20 +1,28 @@
 "use client";
 
-import type { MutableRefObject } from "react";
-
 import { useFrame, useThree } from "@react-three/fiber";
 import { useRef } from "react";
 
+export type LensPerfMetrics = {
+  fps: number;
+  meanMs: number;
+  p95Ms: number;
+  calls: number;
+  tris: number;
+  count: number;
+  dpr: number;
+};
+
 export type LensPerfHudProps = {
   count: number;
-  /** DOM node updated imperatively (~5 Hz) so React does not re-render every frame. */
-  targetRef: MutableRefObject<HTMLElement | null>;
+  /** Callback receives sampled metrics (~5 Hz). */
+  onSample: (metrics: LensPerfMetrics) => void;
 };
 
 /**
  * Dev-only: samples frame deltas inside the R3F loop and writes stats to `targetRef`.
  */
-export function LensPerfHud({ count, targetRef }: LensPerfHudProps) {
+export function LensPerfHud({ count, onSample }: LensPerfHudProps) {
   const { gl } = useThree();
   const samples = useRef<number[]>([]);
   const last = useRef(performance.now());
@@ -26,8 +34,7 @@ export function LensPerfHud({ count, targetRef }: LensPerfHudProps) {
     if (samples.current.length > 120) samples.current.shift();
     last.current = now;
 
-    const el = targetRef.current;
-    if (!el || now < flushAt.current) return;
+    if (now < flushAt.current) return;
 
     flushAt.current = now + 200;
     const ms = samples.current;
@@ -40,10 +47,7 @@ export function LensPerfHud({ count, targetRef }: LensPerfHudProps) {
     const calls = gl.info.render.calls;
     const tris = gl.info.render.triangles;
     const dpr = gl.getPixelRatio();
-
-    el.textContent =
-      `${fps.toFixed(0)} fps  ${mean.toFixed(1)} ms  p95 ${p95.toFixed(1)}  ` +
-      `calls ${calls}  tris ${tris}  count ${count.toLocaleString()}  dpr ${dpr.toFixed(2)}`;
+    onSample({ fps, meanMs: mean, p95Ms: p95, calls, tris, count, dpr });
   });
 
   return null;

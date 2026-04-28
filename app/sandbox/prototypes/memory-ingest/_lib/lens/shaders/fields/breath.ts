@@ -1,6 +1,6 @@
 export const FIELD_BREATH_GLSL = `
-vec3 fieldBreath(vec3 p, float id, float t, float tempo) {
-  float ts = t * (tempo + 0.4) * 2.2;
+vec3 fieldBreath(vec3 p, float id, float phaseBase) {
+  float ts = phaseBase;
   float phase = id * 6.2831853;
   float sway = sin(ts * 1.7 + phase * 0.6);
   float lift = cos(ts * 1.3 + phase * 0.4);

@@ -4,10 +4,15 @@ import type { MutableRefObject } from "react";
 import type { StateName } from "../../_lib/lens/fieldLibrary";
 
 import { useFrame, useThree } from "@react-three/fiber";
-import { useEffect, useMemo } from "react";
+import { useEffect, useMemo, useRef } from "react";
 import * as THREE from "three";
 
 import { buildRoundedCubeRest } from "../../_lib/lens/geometry";
+import {
+  computeMotionClockRates,
+  integrateMotionClockPhases,
+  type MotionClockPhases,
+} from "../../_lib/lens/motion-clocks";
 import {
   applyRecipeToUniforms,
   createLensParticleUniforms,
@@ -39,6 +44,7 @@ export type LensPointsProps = {
   intensity: number;
   count: number;
   pointSize: number;
+  targetFps: number;
   themeProbeRef: MutableRefObject<HTMLElement | null>;
   pulseGlowRef: MutableRefObject<number>;
   anchorWorldRef: MutableRefObject<AnchorWorld>;
@@ -49,12 +55,21 @@ export function LensPoints({
   intensity,
   count,
   pointSize,
+  targetFps,
   themeProbeRef,
   pulseGlowRef,
   anchorWorldRef,
 }: LensPointsProps) {
   const mgr = useStateManager(state);
   const { clock } = useThree();
+  const prevElapsedRef = useRef<number | null>(null);
+  const accumulatorRef = useRef(0);
+  const phasesRef = useRef<MotionClockPhases>({
+    base: 0,
+    turbulence: 0,
+    flow: 0,
+    shape: 0,
+  });
 
   const geometry = useMemo(() => {
     const { positions, ids } = buildRoundedCubeRest(count);
@@ -101,10 +116,25 @@ export function LensPoints({
 
   useFrame(() => {
     const recipe = mgr.current.update(performance.now());
+    const stepInterval = 1 / Math.max(1, targetFps);
+    const currentElapsed = clock.elapsedTime;
+    const prevElapsed = prevElapsedRef.current ?? currentElapsed;
+    prevElapsedRef.current = currentElapsed;
+
+    const rawFrameDt = Math.max(0, currentElapsed - prevElapsed);
+    const frameDt = Math.min(rawFrameDt, 0.1);
+    accumulatorRef.current = Math.min(accumulatorRef.current + frameDt, stepInterval * 5);
+
+    while (accumulatorRef.current >= stepInterval) {
+      const rates = computeMotionClockRates(recipe);
+      phasesRef.current = integrateMotionClockPhases(phasesRef.current, rates, stepInterval);
+      accumulatorRef.current -= stepInterval;
+    }
 
     applyRecipeToUniforms(material, recipe, clock.elapsedTime, anchorWorldRef.current, {
       intensity,
       pulseGlow: pulseGlowRef.current,
+      phases: phasesRef.current,
     });
 
     material.uniforms.uWarmth!.value = warmthForState(state);
