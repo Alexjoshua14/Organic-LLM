@@ -91,6 +91,18 @@ export const prototypes: PrototypeEntry[] = [
     },
   },
   {
+    slug: "memory-ingest",
+    title: "Memory ingest (particles)",
+    description:
+      "Ritual surface: capture a thought into memory with GPU particle state as the primary feedback channel (mobile-first).",
+    ranking: {
+      importance: 8,
+      frequency: 4,
+      createdAt: "2026-04-27",
+      updatedAt: "2026-04-27",
+    },
+  },
+  {
     slug: "strata",
     title: "Strata",
     description:

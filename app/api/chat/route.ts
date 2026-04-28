@@ -181,6 +181,8 @@ export async function POST(req: Request) {
       let systemPromptForRequest = SYSTEM_PROMPT;
 
       try {
+        // `getContext` returns DB history only; we always append the live `message` from the client
+        // so the main model sees the user's exact turn (Arcadia Mem0 rewrite never replaces this).
         const chatContextResult = await getContext({
           chatId: id,
           limit: isStrataExperience ? 30 : 10,
@@ -637,6 +639,29 @@ export async function POST(req: Request) {
   });
 }
 
+/** Which tools `streamText` may call for this request; drives companion system text. */
+type CompileToolsParams = {
+  useSearch: boolean;
+  useMemory: boolean;
+  /** When true with `chatId` + `initialMessageCount`, registers history-fetch tools. */
+  useGetMoreMessages?: boolean;
+  /** Strata page KG stubs (experimental). */
+  useKnowledgeSearch?: boolean;
+  /** Adds Arcadia-only tools (e.g. Mermaid) when `arcadia`. */
+  experience?: string;
+  /** Required for history tools. */
+  chatId?: string;
+  /** `validatedMessages.length` — how many turns the model already has in context. */
+  initialMessageCount?: number;
+  sbUserId: string;
+  writer?: WebSearchStreamWriter;
+};
+
+/**
+ * Builds the `tools` object and a human-readable **Tool Instructions** appendix for the system prompt.
+ *
+ * Memory search uses the tool argument verbatim (rewrite lives only in `getContext` for Arcadia).
+ */
 const compileTools = async ({
   useSearch,
   useMemory,
@@ -647,18 +672,8 @@ const compileTools = async ({
   initialMessageCount,
   sbUserId,
   writer,
-}: {
-  useSearch: boolean;
-  useMemory: boolean;
-  useGetMoreMessages?: boolean;
-  useKnowledgeSearch?: boolean;
-  experience?: string;
-  chatId?: string;
-  initialMessageCount?: number;
-  sbUserId: string;
-  writer?: WebSearchStreamWriter;
-}): Promise<{ tools: ToolSet; toolInstructions: string }> => {
-  // Compile and return an array of tools as expected by streamText({ tools })
+}: CompileToolsParams): Promise<{ tools: ToolSet; toolInstructions: string }> => {
+  // Shape expected by AI SDK `streamText({ tools })`
   const tools: ToolSet = {};
   let toolInstructions = "";
 
