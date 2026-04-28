@@ -1,7 +1,9 @@
 import { buildShader } from "./buildShader";
 import { NOISE_GLSL } from "./noise";
+import { FIELD_ABSORPTION_GLSL } from "./fields/absorption";
 import { FIELD_BREATH_GLSL } from "./fields/breath";
 import { FIELD_JITTER_GLSL } from "./fields/jitter";
+import { FIELD_TENDRIL_REACH_GLSL } from "./fields/tendrilReach";
 import { SHAPE_SPHERE_PROJECT_GLSL } from "./shapes/sphereProject";
 import { SHAPE_SHELL_PROJECT_GLSL } from "./shapes/shellProject";
 
@@ -55,6 +57,8 @@ void main() {
   disp += wCurlNoise * flow * 0.4;
   disp += wBreath * fieldBreath(aRest, aId, uPhaseBase);
   disp += wJitter * fieldJitter(aRest, aId, uPhaseTurbulence);
+  disp += wAbsorption * fieldAbsorption(aRest, uAnisotropy, uPhaseFlow);
+  disp += wTendrilReach * fieldTendrilReach(aRest, aId, uAnisotropy, uPhaseFlow);
 
   vec3 shaped = aRest;
   shaped = mix(shaped, sphereProject(shaped), wSphere);
@@ -70,8 +74,10 @@ void main() {
 
 export const PARTICLE_VERTEX_SHADER = buildShader([
   NOISE_GLSL,
+  FIELD_ABSORPTION_GLSL,
   FIELD_BREATH_GLSL,
   FIELD_JITTER_GLSL,
+  FIELD_TENDRIL_REACH_GLSL,
   SHAPE_SPHERE_PROJECT_GLSL,
   SHAPE_SHELL_PROJECT_GLSL,
   PARTICLE_VERT_MAIN,

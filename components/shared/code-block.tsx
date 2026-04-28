@@ -4,6 +4,7 @@ import { CheckIcon, CopyIcon } from "lucide-react";
 import { useCallback, useRef, useState, type ComponentPropsWithoutRef } from "react";
 
 import { Button } from "@/components/third-party/ui/button";
+import { copyTextToClipboard } from "@/lib/clipboard/copy";
 import { cn } from "@/lib/utils";
 
 export type CodeBlockProps = ComponentPropsWithoutRef<"pre"> & {
@@ -32,12 +33,11 @@ export function CodeBlock({
     const code = el?.querySelector("code")?.textContent ?? el?.textContent ?? "";
 
     if (!code) return;
-    try {
-      await navigator.clipboard.writeText(code);
+    const ok = await copyTextToClipboard(code);
+
+    if (ok) {
       setIsCopied(true);
       setTimeout(() => setIsCopied(false), 2000);
-    } catch {
-      // ignore
     }
   }, []);
 
@@ -52,10 +52,10 @@ export function CodeBlock({
       <pre
         ref={preRef}
         className={cn(
-          "min-w-0 max-w-full",
+          "m-0 min-w-0 max-w-full",
           wrap
             ? "overflow-x-hidden whitespace-pre-wrap wrap-break-word pr-10 [&_code]:min-w-0 [&_code]:wrap-anywhere"
-            : "overflow-x-auto",
+            : "overflow-x-auto pr-10",
           className
         )}
         {...preProps}
@@ -65,7 +65,7 @@ export function CodeBlock({
       <Button
         aria-label={isCopied ? "Copied" : "Copy code"}
         className={cn(
-          "absolute top-2 right-2 h-8 w-8 shrink-0 opacity-0 transition-opacity",
+          "absolute right-2 top-2 z-10 h-8 w-8 shrink-0 opacity-0 transition-opacity",
           "group-hover/codeblock:opacity-100 focus:opacity-100",
           "hover:bg-secondary/95! hover:from-secondary/95! hover:to-[#e8e6e1]! dark:hover:from-[#252625]! dark:hover:to-[#1e1f1e]!"
         )}

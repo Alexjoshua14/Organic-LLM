@@ -9,6 +9,7 @@ import { Loader } from "@/components/third-party/ai-elements/loader";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/third-party/ui/tooltip";
 import { glass } from "@/components/design-system/primitives";
 import { useAssistantTtsAction } from "@/hooks/use-assistant-tts-action";
+import { copyTextToClipboard } from "@/lib/clipboard/copy";
 import { addPinnedFromChat } from "@/lib/tts/pinned-to-speak";
 import { cn } from "@/lib/utils";
 
@@ -28,23 +29,6 @@ const tooltipGlassClass = cn(
   "border border-border/50 text-foreground shadow-md",
   "[&>svg:last-of-type]:hidden"
 );
-
-function copyViaExecCommand(text: string): boolean {
-  const textarea = document.createElement("textarea");
-
-  textarea.value = text;
-  textarea.setAttribute("readonly", "");
-  textarea.style.position = "absolute";
-  textarea.style.left = "-9999px";
-  document.body.appendChild(textarea);
-  textarea.select();
-  textarea.setSelectionRange(0, text.length);
-  const ok = document.execCommand("copy");
-
-  document.body.removeChild(textarea);
-
-  return ok;
-}
 
 function MessageActionIconButton({
   ariaLabel,
@@ -121,33 +105,15 @@ export function AssistantMessageActions({
   }, [text]);
 
   const handleCopy = useCallback(async () => {
-    const hasClipboard = typeof navigator !== "undefined" && navigator.clipboard?.writeText;
-
     try {
-      if (hasClipboard) {
-        await navigator.clipboard.writeText(text);
-      } else {
-        const ok = copyViaExecCommand(text);
-
-        if (!ok) throw new Error("execCommand copy failed");
-      }
+      const ok = await copyTextToClipboard(text);
+      if (!ok) throw new Error("copy failed");
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
       toast.success("Copied to clipboard");
     } catch (err) {
       // eslint-disable-next-line no-console -- surfaced via toast; log aids debugging
       console.warn("Clipboard write failed:", err);
-      try {
-        if (copyViaExecCommand(text)) {
-          setCopied(true);
-          setTimeout(() => setCopied(false), 2000);
-          toast.success("Copied to clipboard");
-
-          return;
-        }
-      } catch {
-        // ignore fallback failure
-      }
       toast.error("Failed to copy to clipboard");
     }
   }, [text]);

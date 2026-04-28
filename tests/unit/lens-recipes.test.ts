@@ -68,4 +68,16 @@ describe("RECIPES", () => {
       expect(jitter).toBeLessThanOrEqual(1);
     }
   });
+
+  test("anisotropy directions are set for ingest/search/web reach modes", () => {
+    expect(RECIPES.ingesting.modulators.anisotropy).toEqual([0, 0, -1]);
+    expect(RECIPES.searching_memory.modulators.anisotropy).toEqual([0, 0, -1]);
+    expect(RECIPES.web_search.modulators.anisotropy).toEqual([0, 0, 1]);
+  });
+
+  test("affected states expose requested tendril/absorption weights", () => {
+    expect(RECIPES.ingesting.fields.absorption).toBeCloseTo(1, 6);
+    expect(RECIPES.searching_memory.fields.tendrilReach).toBeCloseTo(0.85, 6);
+    expect(RECIPES.web_search.fields.tendrilReach).toBeCloseTo(1, 6);
+  });
 });

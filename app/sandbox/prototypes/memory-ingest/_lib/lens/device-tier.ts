@@ -26,10 +26,10 @@ export function getMemoryIngestTierDefaults(tier: DeviceTier): {
 } {
   switch (tier) {
     case "mobile":
-      return { count: 18_000, targetFps: 55, pointSize: 0.014, pixelRatioCap: 1.25 };
+      return { count: 38_000, targetFps: 55, pointSize: 0.014, pixelRatioCap: 1.6 };
     case "tablet":
-      return { count: 28_000, targetFps: 55, pointSize: 0.014, pixelRatioCap: 1.35 };
+      return { count: 48_000, targetFps: 55, pointSize: 0.014, pixelRatioCap: 1.8 };
     default:
-      return { count: 56_000, targetFps: 60, pointSize: 0.014, pixelRatioCap: 2 };
+      return { count: 56_000, targetFps: 60, pointSize: 0.014, pixelRatioCap: 2.6 };
   }
 }

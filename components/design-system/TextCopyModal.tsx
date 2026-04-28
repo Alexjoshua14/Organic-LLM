@@ -21,40 +21,8 @@ import {
   type ExportIntentPreset,
 } from "@/lib/export/prompts";
 import { readLastOpenInProvider } from "@/lib/export/last-provider-storage";
+import { copyTextToClipboard } from "@/lib/clipboard/copy";
 import { cn } from "@/lib/utils";
-
-function copyViaExecCommand(text: string): boolean {
-  const textarea = document.createElement("textarea");
-
-  textarea.value = text;
-  textarea.setAttribute("readonly", "");
-  textarea.style.position = "absolute";
-  textarea.style.left = "-9999px";
-  document.body.appendChild(textarea);
-  textarea.select();
-  textarea.setSelectionRange(0, text.length);
-  const ok = document.execCommand("copy");
-
-  document.body.removeChild(textarea);
-
-  return ok;
-}
-
-async function copyTextToClipboard(text: string): Promise<void> {
-  const hasClipboard = typeof navigator !== "undefined" && navigator.clipboard?.writeText;
-
-  try {
-    if (hasClipboard) {
-      await navigator.clipboard.writeText(text);
-    } else {
-      const ok = copyViaExecCommand(text);
-
-      if (!ok) throw new Error("execCommand copy failed");
-    }
-  } catch {
-    copyViaExecCommand(text);
-  }
-}
 
 export function TextCopyModal({
   open,
@@ -121,15 +89,10 @@ export function TextCopyModal({
   }, [text, externalIntent?.id, open]);
 
   const handleCopy = useCallback(async () => {
-    try {
-      await copyTextToClipboard(text);
+    const ok = await copyTextToClipboard(text);
+    if (ok) {
       setCopied(true);
       setTimeout(() => setCopied(false), 1400);
-    } catch {
-      if (copyViaExecCommand(text)) {
-        setCopied(true);
-        setTimeout(() => setCopied(false), 1400);
-      }
     }
   }, [text]);
 
