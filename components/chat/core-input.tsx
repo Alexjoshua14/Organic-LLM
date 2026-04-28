@@ -49,6 +49,8 @@ import {
   PromptInputSpeechButton,
 } from "../third-party/ai-elements/prompt-input";
 
+import ShinyText from "../ShinyText";
+
 import { ChatMessageMarkdown } from "./chat-message-markdown";
 import { ModelZdrIndicator } from "./model-zdr-indicator";
 
@@ -82,7 +84,20 @@ type CoreInputProps = {
   hideWebMemorySpeechToggles?: boolean;
   /** Prototype-only v2 submit treatment; default keeps the current production button unchanged. */
   submitVariant?: "default" | "organic-glass";
+  /** Optional: notified on every composer text change (for ritual / ambient UIs). */
+  onComposerTextChange?: (text: string) => void;
+  /** When true (default), textarea swaps to shimmer text while status is submitted/streaming. */
+  sentMessageShimmer?: boolean;
 };
+
+/** Max length for the in-flight shimmer copy (matches AiInputForm). */
+const SENT_MESSAGE_DISPLAY_MAX = 2000;
+
+function truncateSentMessageDisplay(raw: string): string {
+  const t = raw.trim() === "" ? " " : raw.trim();
+
+  return t.length > SENT_MESSAGE_DISPLAY_MAX ? `${t.slice(0, SENT_MESSAGE_DISPLAY_MAX)}\u2026` : t;
+}
 
 export const CoreInput: React.FC<CoreInputProps> = ({
   modelRef,
@@ -103,6 +118,8 @@ export const CoreInput: React.FC<CoreInputProps> = ({
   initialDraft,
   hideWebMemorySpeechToggles = false,
   submitVariant = "default",
+  onComposerTextChange,
+  sentMessageShimmer = true,
 }) => {
   const { refreshSidebarChats } = useSharedChatContext();
 
@@ -171,6 +188,13 @@ export const CoreInput: React.FC<CoreInputProps> = ({
       onErrorCleared?.();
     }
   }, [status, error, recentlySentText, text.trim(), clearError, onErrorCleared]);
+
+  // Clear preserved sent text when the round-trip completes (mirrors AiInputForm).
+  useEffect(() => {
+    if (status !== "ready") return;
+    setRecentlySentText("");
+    recentlySentTextRef.current = "";
+  }, [status]);
 
   // Seed composer from homepage routing (or similar) once; does not auto-send.
   useLayoutEffect(() => {
@@ -322,6 +346,7 @@ export const CoreInput: React.FC<CoreInputProps> = ({
       files: message.files,
     });
     setText("");
+    onComposerTextChange?.("");
     if (enableMarkdownInputPreview) {
       setInputMarkdownMode("edit");
     }
@@ -334,9 +359,15 @@ export const CoreInput: React.FC<CoreInputProps> = ({
     if (selectedModel) setModel(selectedModel);
   };
 
-  const handleInputChange: ChangeEventHandler<HTMLTextAreaElement> = useCallback((e) => {
-    setText(e.target.value);
-  }, []);
+  const handleInputChange: ChangeEventHandler<HTMLTextAreaElement> = useCallback(
+    (e) => {
+      const v = e.target.value;
+
+      setText(v);
+      onComposerTextChange?.(v);
+    },
+    [onComposerTextChange]
+  );
   const organicSubmitState =
     status === "submitted"
       ? "sent"
@@ -348,8 +379,14 @@ export const CoreInput: React.FC<CoreInputProps> = ({
             ? "ready"
             : "idle";
 
+  const showSentShimmer =
+    sentMessageShimmer === true && (status === "submitted" || status === "streaming");
+  const sentDisplaySource = recentlySentText || recentlySentTextRef.current;
+  const sentDisplayText = truncateSentMessageDisplay(sentDisplaySource);
+
   return (
     <PromptInput
+      aria-busy={showSentShimmer ? true : undefined}
       globalDrop
       multiple
       className={cn("min-w-fit z-40", className)}
@@ -362,7 +399,20 @@ export const CoreInput: React.FC<CoreInputProps> = ({
       </PromptInputHeader>
 
       <PromptInputBody>
-        {enableMarkdownInputPreview && inputMarkdownMode === "preview" ? (
+        {showSentShimmer ? (
+          <div
+            aria-live="polite"
+            className="w-full min-w-0 max-w-full px-3 py-3"
+            role="status"
+          >
+            <span className="sr-only">Sending message</span>
+            <ShinyText
+              as="div"
+              className="w-full min-h-11 max-h-40 overflow-y-auto whitespace-pre-wrap break-words text-base text-foreground md:text-sm"
+              text={sentDisplayText}
+            />
+          </div>
+        ) : enableMarkdownInputPreview && inputMarkdownMode === "preview" ? (
           <>
             <input name="message" type="hidden" value={text} />
             <div

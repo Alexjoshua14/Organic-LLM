@@ -73,6 +73,9 @@ async function getCurrentUserMem0UserId(): Promise<Result<string, string>> {
  * and query validation. Use from chat-store, llm-tool-kit, or other server
  * code that has already resolved userId (e.g. via getSupabaseUserId). Callers
  * must not pass client-supplied userId.
+ *
+ * @remarks Hits Upstash (rate limit) then Mem0 (network). For cached reads prefer
+ * `searchMemoriesWithL1Cache` in `@/lib/memory/memory-search-cache`.
  */
 export async function searchMemoriesForUser(
   userId: string,

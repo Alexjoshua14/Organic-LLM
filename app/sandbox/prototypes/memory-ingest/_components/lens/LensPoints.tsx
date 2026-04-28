@@ -81,8 +81,8 @@ export function LensPoints({
   );
 
   useEffect(() => {
-    // Smaller sprites keep individual dots legible instead of fusing into a slab.
-    material.uniforms.uPointSize!.value = pointSize * 16;
+    // Larger sprites (+50% from previous tuning) while keeping particle separation legible.
+    material.uniforms.uPointSize!.value = pointSize * 30;
   }, [material, pointSize]);
 
   const points = useMemo(() => new THREE.Points(geometry, material), [geometry, material]);

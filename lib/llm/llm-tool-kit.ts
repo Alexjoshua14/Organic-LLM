@@ -176,9 +176,16 @@ export const weatherTool = tool({
 });
 
 /**
- * Creates a memory search tool for a specific user.
- * Searches Mem0 with the tool `query` exactly as the model supplied (no query rewrite here;
- * Arcadia-only rewrite for retrieval lives in `getContext` in chat-store).
+ * AI SDK tool: **`search_memories`** — vector recall over the user’s Mem0 graph.
+ *
+ * - **Query:** Uses `query` from the model **verbatim** (no LLM rewrite in the tool path).
+ * - **Over-fetch:** Requests a wide Mem0 `limit`, then {@link selectMemoriesForPrompt} slices to
+ *   the tool’s requested `limit` so the model still sees high-signal rows.
+ * - **Cache:** Delegates to {@link searchMemoriesWithL1Cache} for per-process dedupe.
+ *
+ * @param userId - Supabase user id (resolved server-side).
+ * @param writer - Optional UI stream for transient “memory search” actions.
+ * @returns A `tool({ ... })` instance registered under the key `search_memories`.
  */
 export function createMemorySearchTool(userId: string, writer?: WebSearchStreamWriter) {
   return tool({
@@ -186,7 +193,7 @@ export function createMemorySearchTool(userId: string, writer?: WebSearchStreamW
       "Search through the user's stored memories to find relevant information from past conversations. Use this when you need to recall specific details, preferences, or context from previous interactions.",
     inputSchema: SearchMemoryToolSchema,
     execute: async ({ query, limit }) => {
-      logger.log("createMemorySearchToool", "LLM has invoked memory search");
+      logger.log("createMemorySearchTool", "LLM has invoked memory search");
       if (writer) {
         writer.write({
           type: "data-aiAction",

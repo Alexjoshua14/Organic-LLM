@@ -10,7 +10,8 @@ import { useAssistantTtsAction } from "@/hooks/use-assistant-tts-action";
 import { cn } from "@/lib/utils";
 
 export function TTSButton({ text, iconOnly }: { text: string; iconOnly?: boolean }) {
-  const { handleSpeak, isProcessingThisClip, showOverlay } = useAssistantTtsAction(text);
+  const { handleSpeak, isProcessingThisClip, showOverlay, showTapNativePlayHint } =
+    useAssistantTtsAction(text);
 
   return (
     <>
@@ -38,10 +39,16 @@ export function TTSButton({ text, iconOnly }: { text: string; iconOnly?: boolean
           showOverlay ? "visible opacity-100" : "invisible pointer-events-none opacity-0"
         )}
       >
-        {showOverlay && (
+        {isProcessingThisClip && (
           <div className="flex items-center gap-2 shrink-0">
             <Loader className="w-5 h-5 shrink-0" />
             <span className="text-sm text-foreground">Loading audio…</span>
+          </div>
+        )}
+        {showTapNativePlayHint && (
+          <div className="flex items-center gap-2 shrink-0 max-w-[min(280px,85vw)]">
+            <Volume2 className="w-5 h-5 shrink-0 text-accent" aria-hidden />
+            <span className="text-sm text-foreground">Tap play in the player below.</span>
           </div>
         )}
       </div>

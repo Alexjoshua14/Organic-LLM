@@ -181,21 +181,19 @@ export const AIInput: React.FC = () => {
   );
 };
 
-const ActionButton = ({
-  title,
-  onPress,
-  className,
-  ...props
-}: React.ComponentProps<typeof Button> & { title: string }) => {
+type ActionButtonProps = Pick<React.ComponentProps<typeof Button>, "isDisabled" | "onPress"> & {
+  title: string;
+  className?: string;
+};
+
+const ActionButton = ({ title, onPress, className, isDisabled }: ActionButtonProps) => {
+  const actionClassName = cn(
+    `${glass()} backdrop-invert-25 hover:backdrop-invert-100 transition-all hover:scale-110 duration-1000`,
+    className
+  );
+
   return (
-    <Button
-      className={cn(
-        `${glass()} backdrop-invert-25 hover:backdrop-invert-100 transition-all hover:scale-110 duration-1000`,
-        className
-      )}
-      onPress={onPress}
-      {...props}
-    >
+    <Button className={actionClassName} isDisabled={isDisabled} onPress={onPress}>
       {title}
     </Button>
   );

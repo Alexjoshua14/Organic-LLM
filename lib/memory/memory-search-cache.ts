@@ -1,3 +1,13 @@
+/**
+ * In-process **L1 cache** for Mem0 semantic search results.
+ *
+ * **Why:** Repeated or multi-query Arcadia retrieval can hit the same normalized query; this
+ * avoids redundant Mem0 round-trips within the TTL window. Payloads are **encrypted** per user
+ * using the same helpers as message storage (`memory.cache.semantic_search` field).
+ *
+ * **Entry point:** {@link searchMemoriesWithL1Cache} — prefer this over calling
+ * {@link searchMemoriesForUser} directly when latency matters and staleness (~45s) is acceptable.
+ */
 import "server-only";
 
 import { createHash } from "crypto";
@@ -13,9 +23,12 @@ import { createTtsV2AudioCache } from "@/lib/tts/tts-v2-audio-cache";
 
 const logger = createLogger("lib/memory/memory-search-cache.ts");
 
+/** Synthetic thread id passed into encryption context (not a real chat thread). */
 const MEMORY_CACHE_THREAD_ID = "memory-search-l1-cache";
 
+/** LRU-ish cap for cached queries per process. */
 const CACHE_MAX_ENTRIES = 96;
+/** Stale search results are dropped after this window (milliseconds). */
 const CACHE_TTL_MS = 45_000;
 
 const cache = createTtsV2AudioCache(CACHE_MAX_ENTRIES, CACHE_TTL_MS);
@@ -28,10 +41,12 @@ function encryptionContextForUser(userId: string): EncryptionContext {
   };
 }
 
+/** Collapses whitespace and case so trivial spelling differences still hit cache. */
 function normalizeQueryForKey(query: string): string {
   return query.trim().replace(/\s+/g, " ").toLowerCase();
 }
 
+/** Stable key: user + sha256(normalized query + limit). */
 function buildCacheKey(userId: string, query: string, limit: number): string {
   const normalized = normalizeQueryForKey(query);
   const hash = createHash("sha256").update(`${normalized}:${limit}`).digest("hex").slice(0, 32);
@@ -39,6 +54,9 @@ function buildCacheKey(userId: string, query: string, limit: number): string {
   return `${userId}:${hash}`;
 }
 
+/**
+ * Synchronous cache read: decrypt + schema-validate. Returns `null` on miss or corrupt entry.
+ */
 export function tryGetCachedMemorySearch(
   userId: string,
   query: string,
@@ -73,6 +91,7 @@ export function tryGetCachedMemorySearch(
   }
 }
 
+/** Encrypts a successful Mem0 payload and stores it under {@link buildCacheKey}. */
 export function setCachedMemorySearch(
   userId: string,
   query: string,
@@ -100,13 +119,19 @@ export function setCachedMemorySearch(
   }
 }
 
+/** Timing + hit flag for logs and Arcadia pipeline diagnostics. */
 export type MemorySearchWithCacheMetrics = {
   cacheHit: boolean;
   memorySearchMs: number;
 };
 
 /**
- * Rate-limited Mem0 search with optional L1 hit on encrypted in-memory cache.
+ * Mem0 search with optional in-process L1 hit (still applies {@link searchMemoriesForUser} rate limits on miss).
+ *
+ * @param userId - Supabase user id (Mem0 user key).
+ * @param query - Raw search string (cache key includes normalized form + limit).
+ * @param limit - Mem0 `limit` option; must match across calls for the same cache slot.
+ * @returns Validated Mem0 result plus metrics; errors pass through from operations layer.
  */
 export async function searchMemoriesWithL1Cache(
   userId: string,

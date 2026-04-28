@@ -173,7 +173,10 @@ function convertToolCallsToTextForSummarizer(messages: UIMessage[]): UIMessage[]
     }
 
     if (newParts.length === 0) {
-      return { ...msg, parts: [{ type: "text" as const, text: "" }] };
+      return {
+        ...msg,
+        parts: [{ type: "text" as const, text: "[No text or tool output in this message]" }],
+      };
     }
 
     return { ...msg, parts: newParts };
@@ -331,13 +334,10 @@ export async function generateChatTitle(chatId: string): Promise<Result<string>>
     );
   }
 
-  // Gemini models require well-formed tool call parts (with thought_signature).
-  // For title generation we don't need tool traces, so strip any non-text parts
-  // (tool calls, tool results, etc.) before sending messages to the model.
-  const messagesForTitleClean = messagesForTitle.map((message) => ({
-    ...message,
-    parts: (message.parts ?? []).filter((part) => part.type === "text" && "text" in part),
-  }));
+  // Serialize tool parts to plain text (same as updateChatSummary) so Gemini gets no
+  // structured functionCall parts (thought_signature) while Arcadia/tool-heavy threads
+  // still contribute Mermaid, memory search, etc. to the title summary.
+  const messagesForTitleClean = convertToolCallsToTextForSummarizer(messagesForTitle);
 
   let conversationSummary: string;
 

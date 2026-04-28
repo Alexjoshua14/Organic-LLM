@@ -11,7 +11,7 @@ import { getSettings } from "@/lib/user-settings";
  * dedupes in-flight playback for the same clip, and resumes when already buffered.
  */
 export function useAssistantTtsAction(text: string) {
-  const { speak, play, status, currentText } = useTTSContext();
+  const { speak, play, status, currentText, deferPlaybackToUserGesture } = useTTSContext();
 
   const { ttsWholeMessage } = getSettings();
   const textToPlay = assistantTtsTextToPlay(text, ttsWholeMessage);
@@ -34,13 +34,17 @@ export function useAssistantTtsAction(text: string) {
   }, [status, isThisClip, play, speak, textToPlay]);
 
   const isProcessingThisClip = status === "processing" && isThisClip;
-  const showOverlay = isProcessingThisClip;
+  const showTapNativePlayHint =
+    deferPlaybackToUserGesture &&
+    isThisClip &&
+    (status === "readyToPlay" || status === "paused");
 
   return {
     handleSpeak,
     isProcessingThisClip,
     isThisClip,
-    showOverlay,
+    showOverlay: isProcessingThisClip || showTapNativePlayHint,
+    showTapNativePlayHint,
     status,
     textToPlay,
   };

@@ -15,6 +15,7 @@ import {
 
 import { TTSDockLayout, ttsDockAudioSurfaceClass } from "@/components/tts/tts-dock-layout";
 import { useTTS, type TTSStatus } from "@/hooks/use-tts";
+import { shouldDeferAudioAutoplayToUserGesture } from "@/lib/tts/defer-audio-autoplay";
 
 export type { TTSStatus };
 
@@ -27,6 +28,10 @@ export type TTSContextValue = {
   currentText: string | null;
   /** Mount `TTSDockBar` in `Page` so this ref attaches to `<audio>` inside the page column. */
   audioRef: RefObject<HTMLAudioElement | null>;
+  /**
+   * True on iOS WebKit (and iPad-as-Mac): async TTS must not call `play()`; user uses native controls or a second tap.
+   */
+  deferPlaybackToUserGesture: boolean;
 };
 
 const TTSContext = createContext<TTSContextValue | null>(null);
@@ -36,11 +41,11 @@ export function TTSProvider({ children }: { children: ReactNode }) {
   const speakGenerationRef = useRef(0);
   const [currentText, setCurrentText] = useState<string | null>(null);
   /** iOS WebKit: avoid autoplay after async TTS work — user taps native play (gesture). */
-  // const [deferAutoplay] = useState(() => shouldDeferAudioAutoplayToUserGesture());
+  const [deferPlaybackToUserGesture] = useState(() => shouldDeferAudioAutoplayToUserGesture());
 
   const { prime, streamAudio, status, play, pause, close } = useTTS({
     audioRef,
-    autoplay: true,
+    autoplay: !deferPlaybackToUserGesture,
     showNativeControls: true,
   });
 
@@ -74,8 +79,17 @@ export function TTSProvider({ children }: { children: ReactNode }) {
   }, [close]);
 
   const value = useMemo(
-    () => ({ speak, stop, play, pause, status, currentText, audioRef }),
-    [speak, stop, play, pause, status, currentText, audioRef]
+    () => ({
+      speak,
+      stop,
+      play,
+      pause,
+      status,
+      currentText,
+      audioRef,
+      deferPlaybackToUserGesture,
+    }),
+    [speak, stop, play, pause, status, currentText, audioRef, deferPlaybackToUserGesture]
   );
 
   return <TTSContext.Provider value={value}>{children}</TTSContext.Provider>;

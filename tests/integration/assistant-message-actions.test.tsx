@@ -22,7 +22,9 @@ mock.module("@/lib/context/tts-context", () => ({
     status: "ready" as const,
     currentText: null as string | null,
     audioRef: { current: null },
+    deferPlaybackToUserGesture: false,
   }),
+  TTSDockBar: () => null,
 }));
 
 mock.module("@/lib/user-settings", () => ({

@@ -37,6 +37,12 @@ export async function generateShortTitleFromSummary(
     subject: "chat" | "strata";
   }
 ): Promise<Result<string>> {
+  const trimmedSummary = summary.trim();
+
+  if (trimmedSummary.length === 0) {
+    return { data: "", error: null };
+  }
+
   const system = options.subject === "chat" ? CHAT_TITLE_SYSTEM : STRATA_TITLE_SYSTEM;
 
   try {
@@ -44,7 +50,7 @@ export async function generateShortTitleFromSummary(
     const titleResult = await generateText({
       model: TITLE_PIPELINE_SHORT_TITLE_MODEL,
       system,
-      prompt: summary,
+      prompt: trimmedSummary,
       maxOutputTokens: GUARDRAIL_MAX_OUTPUT_TOKENS,
     });
     const titleDuration = performance.now() - titleStart;

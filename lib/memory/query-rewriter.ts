@@ -1,3 +1,13 @@
+/**
+ * Memory **retrieval query** helpers for vector search (Mem0).
+ *
+ * **Where this runs today:** Arcadia `getContext` only — turns the latest user text plus a
+ * short transcript into 1–3 standalone search strings. Output is never written back as the
+ * user's chat message.
+ *
+ * **Controls:** `ARCADIA_QUERY_REWRITE_ENABLED` (see {@link isArcadiaQueryRewriteEnabled}),
+ * heuristics in {@link shouldShortCircuitMemoryRewrite}, and a hard timeout on the LLM call.
+ */
 import type { GatewayModelId } from "@ai-sdk/gateway";
 import { generateText, type UIMessage } from "ai";
 import { z } from "zod";
@@ -8,14 +18,20 @@ import type { MemoryItemType } from "@/lib/schemas/memory";
 
 const logger = createLogger("lib/memory/query-rewriter.ts");
 
+/** Small, fast gateway model for JSON-only rewrite output. */
 const DEFAULT_REWRITE_MODEL: GatewayModelId = "openai/gpt-5.4-nano";
+/** Fail closed to raw query so context build does not block on rewrite latency. */
 const DEFAULT_TIMEOUT_MS = 800;
+/** Per-turn transcript cap inside the rewriter prompt (tokens-ish safety). */
 const TRANSCRIPT_MAX_CHARS = 500;
+/** Mem0 runs at most this many parallel searches after rewrite. */
 const MAX_QUERIES = 3;
 
+/** Used with word-count heuristics: vague references often need transcript grounding. */
 const PRONOUN_PATTERN =
   /\b(it|this|that|these|those|them|they|their|there|here|he|she|him|her|we|us|our|you|your)\b/i;
 
+/** Long Wh-questions are often already explicit enough to skip the rewriter LLM. */
 const CLEAR_QUESTION = /^(what|how|why|when|where|who|which)\b/i;
 
 const RewriterOutputSchema = z.object({
@@ -23,8 +39,11 @@ const RewriterOutputSchema = z.object({
   rationale: z.string().optional(),
 });
 
+/** Options for {@link rewriteMemoryQuery} (tests inject `generateTextImpl`). */
 export type RewriteMemoryQueryOpts = {
+  /** Override default {@link DEFAULT_REWRITE_MODEL}. */
   modelId?: GatewayModelId;
+  /** Override default {@link DEFAULT_TIMEOUT_MS}. */
   timeoutMs?: number;
   /** When false, skip LLM rewrite. When undefined, use env ARCADIA_QUERY_REWRITE_ENABLED. */
   enabled?: boolean;
@@ -32,12 +51,20 @@ export type RewriteMemoryQueryOpts = {
   generateTextImpl?: (options: Parameters<typeof generateText>[0]) => ReturnType<typeof generateText>;
 };
 
+/** Result of rewrite: always at least one string to pass to Mem0 (may be the raw query). */
 export type RewriteMemoryQueryResult = {
+  /** Each entry is one Mem0 search; deduped, at most three strings. */
   queries: string[];
+  /** True when the LLM produced parsed JSON queries (not heuristic-only / fallback). */
   usedRewrite: boolean;
+  /** Optional model rationale from JSON (debug / logging). */
   rationale?: string;
 };
 
+/**
+ * Env gate for Arcadia query rewrite. Empty or unset → enabled.
+ * Set to `0`, `false`, `no`, or `off` (case-insensitive) to disable.
+ */
 export function isArcadiaQueryRewriteEnabled(): boolean {
   const v = process.env.ARCADIA_QUERY_REWRITE_ENABLED;
 
@@ -55,11 +82,20 @@ function wordCount(text: string): number {
   return t.split(/\s+/).length;
 }
 
+/**
+ * Whether the query likely contains a deictic / pronoun reference
+ * (used by {@link shouldShortCircuitMemoryRewrite} heuristics).
+ */
 export function hasPronounToken(rawQuery: string): boolean {
   return PRONOUN_PATTERN.test(rawQuery);
 }
 
-/** True when we should skip LLM and use [rawQuery] only (heuristics). */
+/**
+ * When true, skip the rewriter LLM and search Mem0 with `[rawQuery]` only.
+ *
+ * Short-circuit cases: empty query, too little conversation history, very short queries
+ * without pronouns, or long explicit Wh-questions — saves latency and cost.
+ */
 export function shouldShortCircuitMemoryRewrite(
   rawQuery: string,
   recentMessages: UIMessage[]
@@ -125,6 +161,10 @@ function formatTranscript(recentMessages: UIMessage[]): string {
     .join("\n---\n");
 }
 
+/**
+ * Parses model output into `{ queries, rationale }`.
+ * Accepts raw JSON or ``` / ```json fenced blocks. Returns `null` if invalid.
+ */
 export function parseRewriterJson(text: string): { queries: string[]; rationale?: string } | null {
   const trimmed = text.trim();
   let jsonStr = trimmed;
@@ -192,7 +232,9 @@ Schema: {"queries": string[], "rationale"?: string}
 - queries: 1 to 3 strings, each under 200 characters.`;
 
 /**
- * Build up to the last 4 history messages plus the current user message (deduped by id).
+ * Builds the transcript slice fed into the rewriter: up to the last 4 DB messages plus the
+ * current user message (max 5 turns). If the DB tail already ends with the same message `id`
+ * as `currentUserMessage` (e.g. optimistic save), avoids duplicating that turn.
  */
 export function buildRecentTurnsForMemoryRewrite(
   history: UIMessage[],
@@ -210,9 +252,17 @@ export function buildRecentTurnsForMemoryRewrite(
 }
 
 /**
- * Produce 1–3 standalone search strings for Mem0 only.
- * Callers must use {@link RewriteMemoryQueryResult.queries} exclusively for memory retrieval;
- * they must never replace or rewrite the user's {@link UIMessage} or any message sent to the main chat model.
+ * Produce 1–3 standalone search strings **for Mem0 only**.
+ *
+ * **Contract:** Use {@link RewriteMemoryQueryResult.queries} only as search strings. Never
+ * substitute them into the user's {@link UIMessage} or the main chat model's message list.
+ *
+ * **Flow:** Env off → `[rawQuery]`; empty → `[""]`; {@link shouldShortCircuitMemoryRewrite} →
+ * `[rawQuery]`; else LLM JSON with {@link DEFAULT_TIMEOUT_MS} cap → parse or fallback to `[rawQuery]`.
+ *
+ * @param rawQuery - Latest user text (same as extracted from the current message for memory).
+ * @param recentMessages - Short window from {@link buildRecentTurnsForMemoryRewrite}.
+ * @param opts - Model, timeout, feature flag, or test doubles.
  */
 export async function rewriteMemoryQuery(
   rawQuery: string,

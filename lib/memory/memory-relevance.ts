@@ -1,16 +1,22 @@
+/**
+ * **Arcadia memory UX:** scoring, tier buckets, caps, and human-readable inventory text for the
+ * system prompt. Used by `getContext` (bootstrap) and `search_memories` (tool) after Mem0 returns.
+ */
 import type { MemoryItemType } from "@/lib/schemas/memory";
 
-/** Mem0 semantic search over-fetch for Arcadia bootstrap (single round-trip). */
+/** Mem0 `limit` for Arcadia bootstrap: retrieve this many, then filter/slice for prompt injection. */
 export const ARCADIA_MEMORY_OVERFETCH = 28;
 
-/** Minimum relevance score to inject a memory into the prompt (has score only). */
+/** Memories at or below this score are not injected (unless score is missing — see {@link passesMinScoreForInjection}). */
 export const ARCADIA_MEMORY_MIN_SCORE = 0.25;
 
+/** Hard cap on bullet lines shown under "Memories from past conversations". */
 export const ARCADIA_MEMORY_MAX_INJECTED = 10;
 
-/** Tool path: at least this many hits requested from Mem0 before slicing to tool `limit`. */
+/** Tool path: Mem0 asks for at least this many hits before tiering + slicing to the tool `limit`. */
 export const MEMORY_TOOL_OVERFETCH_MIN = 28;
 
+/** Upper bound on Mem0 `limit` for the memory tool (latency vs recall). */
 export const MEMORY_TOOL_OVERFETCH_CAP = 40;
 
 export type MemoryTierCounts = {
@@ -91,6 +97,10 @@ export function bucketMemoriesByTier(
   };
 }
 
+/**
+ * Injection filter: items **without** a numeric Mem0 score are kept (treated as eligible).
+ * Items with score must satisfy `score >= minScore`.
+ */
 export function passesMinScoreForInjection(m: MemoryItemType, minScore: number): boolean {
   const s = finiteScore(m.score);
 
@@ -118,12 +128,17 @@ export function selectMemoriesForPrompt(
   return sorted.slice(0, maxIncluded);
 }
 
+/** Renders selected memories as markdown-style `-` lines for the system context string. */
 export function formatMemoriesForPrompt(memories: MemoryItemType[]): string {
   if (memories.length === 0) return "";
 
   return memories.map((m) => `- ${m.memory}`).join("\n");
 }
 
+/**
+ * Structured tier counts for tool JSON (UI / debugging). Distinct from
+ * {@link buildArcadiaMemoryInventoryText} which is prose for the model.
+ */
 export function toMemorySearchInventory(
   tiers: MemoryTierCounts,
   retrievedLimit: number,
@@ -141,13 +156,24 @@ export function toMemorySearchInventory(
   };
 }
 
+/**
+ * Second Arcadia context block: explains how many messages are in-window, how many memories
+ * were injected, optional rewrite metadata, and tier breakdown **within the over-fetch sample**.
+ */
 export function buildArcadiaMemoryInventoryText(params: {
+  /** Typically `history.length + 1` (includes latest user turn). */
   conversationMessagesInContext: number;
+  /** After score filter + cap, how many bullets were injected. */
   memoriesInjected: number;
+  /** From {@link bucketMemoriesByTier} on the merged Mem0 sample. */
   tiers: MemoryTierCounts;
+  /** Mem0 retrieve limit for this turn (Arcadia: {@link ARCADIA_MEMORY_OVERFETCH}). */
   overfetchCap: number;
+  /** Same threshold as injection filter. */
   minScore: number;
+  /** When set with `effectiveQueryCount`, adds a one-line rewrite summary for the model. */
   queryRewriteUsed?: boolean;
+  /** Number of parallel Mem0 queries (1–3 after rewrite). */
   effectiveQueryCount?: number;
 }): string {
   const { tiers, minScore } = params;

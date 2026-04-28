@@ -1,6 +1,7 @@
 import type { UIMessage } from "ai";
 import type { Thread } from "@/lib/schemas/chat";
 
+import { MemoryIngestReactScan } from "../_components/MemoryIngestReactScan";
 import { MemoryIngestShell } from "../_components/MemoryIngestShell";
 
 import Page from "@/components/layout/page";
@@ -38,5 +39,10 @@ export default async function MemoryIngestThreadPage({
     );
   }
 
-  return <MemoryIngestShell chatData={chatData} />;
+  return (
+    <>
+      <MemoryIngestReactScan />
+      <MemoryIngestShell chatData={chatData} />
+    </>
+  );
 }

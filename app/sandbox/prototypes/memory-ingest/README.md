@@ -61,3 +61,12 @@ The **particle mode** dev panel (draggable on the right when dev UI is on) and t
 3. **Production build + env** — set **`NEXT_PUBLIC_MEMORY_INGEST_DEV_UI=true`** (or `1` / `yes`) before **`next build`** so the client bundle includes it, then run `next start`.
 
 `next build` / `next start` alone uses `NODE_ENV=production`, so the overlay is hidden unless you use (2) or (3).
+
+## Perf HUD and stress knobs (dev)
+
+When **`?memoryIngestDev=1`** is on the thread URL, [`MemoryLens`](./_components/lens/MemoryLens.tsx) shows a small **monospace overlay** (fps, mean ms, p95, draw calls, triangle count, particle count, DPR). Stats are written imperatively from the R3F loop so React does not re-render every frame.
+
+- **`?particleCountMul=N`** — only honored together with `memoryIngestDev`; scales the tier default count (clamped to **0.25–6**). Use `&particleCountMul=2` to A/B GPU headroom vs. particle count.
+- **`?reactScan=1`** — **`next dev` only**; loads [React Scan](https://github.com/aidenybai/react-scan) from unpkg to highlight unexpected React re-renders. Combine with `memoryIngestDev` as needed; steady-state lens motion should stay quiet in Scan because the hot path is `useFrame`, not React render.
+
+For GPU vs CPU triage, use Chrome **Performance** (GPU track) as described in the lens perf plan.
