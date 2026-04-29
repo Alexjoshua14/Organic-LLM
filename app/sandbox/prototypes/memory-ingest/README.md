@@ -13,7 +13,7 @@ Ritual surface: one-shot “thought → memory” with **motion as the primary s
 
 | State               | Meaning                                      |
 | ------------------- | -------------------------------------------- |
-| `idle_ready`        | Resting, soft drift                          |
+| `idle_ready`        | Resting, soft drift (same as design name `idle`) |
 | `listening`       | Composer has text; subtle pull toward input |
 | `ingesting`       | Request in flight / parsing                  |
 | `searching_memory`| Memory tool / vector recall                  |
@@ -32,6 +32,10 @@ Visual motion is driven by the **Memory Lens** engine: [`_lib/lens/recipes.ts`](
 The **motion receipt** fires on client `onFinish` when the user had **Memories** enabled. Server-side Mem0 persistence in `/api/chat` may still complete asynchronously; the animation is a deliberate UX acknowledgment, not a strict durability signal.
 
 ## Extending states
+
+**LLM-oriented playbook:** [_docs/ADDING_PARTICLE_STATE.md](./_docs/ADDING_PARTICLE_STATE.md) (checklist, file map, pitfalls).
+
+**Living design intent:** [_docs/PARTICLE_STATE_INTENTIONS.md](./_docs/PARTICLE_STATE_INTENTIONS.md) (update when a state’s “why” or feel changes).
 
 1. Add to `ParticleFieldVisualState` in [`_lib/types.ts`](./_lib/types.ts) (same union as `StateName` in [`_lib/lens/fieldLibrary.ts`](./_lib/lens/fieldLibrary.ts)).
 2. Add a `StateRecipe` entry in [`_lib/lens/recipes.ts`](./_lib/lens/recipes.ts) and extend unit coverage in `tests/unit/lens-recipes.test.ts` / `tests/unit/lens-state-manager.test.ts` as needed.
