@@ -5,7 +5,7 @@ import type { UIMessage } from "ai";
 import type { ParticleFieldVisualState } from "../_lib/types";
 import type { LensPerfMetrics } from "./lens/LensPerfHud";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Bug } from "lucide-react";
 import { Button } from "@heroui/button";
 
@@ -22,6 +22,7 @@ import { MemoryIngestParticleModeDevOverlay } from "./MemoryIngestParticleModeDe
 import { ParticleField } from "./ParticleField";
 
 import Page from "@/components/layout/page";
+import { ChatMessageMarkdown } from "@/components/chat/chat-message-markdown";
 import { CoreInput } from "@/components/chat/core-input";
 import { PromptInputProvider } from "@/components/third-party/ai-elements/prompt-input";
 import { cn } from "@/lib/utils";
@@ -71,6 +72,13 @@ export function MemoryIngestShell({ chatData }: MemoryIngestShellProps) {
   /** Shown under particles until real assistant text streams in (UI sample). */
   const assistantCaptionPlaceholder = "Here. Where would you like to start?";
   const assistantCaptionText = assistantText.trim() || assistantCaptionPlaceholder;
+
+  const assistantMarkdownId = useMemo(() => {
+    for (let i = messages.length - 1; i >= 0; i--) {
+      if (messages[i].role === "assistant") return messages[i].id;
+    }
+    return "memory-ingest-assistant-caption";
+  }, [messages]);
 
   const onComposerTextChange = useCallback(
     (t: string) => {
@@ -147,18 +155,27 @@ export function MemoryIngestShell({ chatData }: MemoryIngestShellProps) {
             </div>
             <div
               className={cn(
-                "mb-2 mt-2 w-full max-w-[min(100%,360px)] shrink-0 self-center overflow-x-hidden overflow-y-auto overscroll-y-contain text-center text-[15px] leading-snug sm:max-w-md md:max-w-lg md:text-base lg:max-w-xl",
-                "min-h-[calc(0.9375rem*1.375*3.5)] max-h-[calc(0.9375rem*1.375*3.5)] md:min-h-[calc(1rem*1.375*3.5)] md:max-h-[calc(1rem*1.375*3.5)]",
+                "mb-2 mt-2 w-full max-w-[min(100%,360px)] shrink-0 self-center overflow-x-hidden overflow-y-auto overscroll-y-contain sm:max-w-md md:max-w-lg lg:max-w-xl",
+                "min-h-[calc(0.9375rem*1.375*4)] max-h-[calc(0.9375rem*1.375*4)] md:min-h-[calc(1rem*1.375*4)] md:max-h-[calc(1rem*1.375*4)]",
                 MEMORY_INGEST_LAYOUT_DEBUG_OUTLINES &&
                   "outline outline-2 -outline-offset-1 outline-dashed outline-fuchsia-500"
               )}
+              data-testid="memory-ingest-assistant-text"
             >
-              <p
-                className="text-muted-foreground w-full break-words px-1"
-                data-testid="memory-ingest-assistant-text"
+              <div
+                className={cn(
+                  "ai-message prose prose-sm max-w-full text-left text-foreground dark:prose-invert",
+                  "leading-snug prose-headings:my-1 prose-headings:leading-snug",
+                  "prose-p:my-1 prose-p:leading-snug prose-li:leading-snug",
+                  "prose-ul:my-1 prose-ol:my-1"
+                )}
               >
-                {assistantCaptionText}
-              </p>
+                <ChatMessageMarkdown
+                  content={assistantCaptionText}
+                  id={assistantMarkdownId}
+                  wrapCodeBlocks
+                />
+              </div>
             </div>
           </div>
         </div>

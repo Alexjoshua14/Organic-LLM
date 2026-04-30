@@ -1,0 +1,101 @@
+import type { ToolSet } from "ai";
+
+import {
+  createGetFullChatHistoryTool,
+  createGetMessagesFromDateTool,
+  createGetMoreMessagesTool,
+  createMermaidDiagramTool,
+  createMemorySearchTool,
+  createWebSearchTool,
+  type WebSearchStreamWriter,
+} from "@/lib/llm/llm-tool-kit";
+import { createStrataHubAssistantTools } from "@/lib/llm/strata-assistant-tools";
+import { createStrataKnowledgeGraphTools } from "@/lib/llm/strata-knowledge-graph-tools";
+
+export type CompileChatToolsParams = {
+  useSearch: boolean;
+  useMemory: boolean;
+  /** When true with `chatId` + `initialMessageCount`, registers history-fetch tools. */
+  useGetMoreMessages?: boolean;
+  /** Strata page KG stubs (experimental). */
+  useKnowledgeSearch?: boolean;
+  /** Adds Arcadia-only tools (e.g. Mermaid) when `arcadia`. */
+  experience?: string;
+  /** Required for history tools. */
+  chatId?: string;
+  /** `validatedMessages.length` — how many turns the model already has in context. */
+  initialMessageCount?: number;
+  sbUserId: string;
+  writer?: WebSearchStreamWriter;
+};
+
+/**
+ * Builds the `tools` object and a human-readable **Tool Instructions** appendix for the system prompt.
+ *
+ * Memory search uses the tool argument verbatim (rewrite lives only in `getContext` for Arcadia).
+ */
+export async function compileChatTools({
+  useSearch,
+  useMemory,
+  useGetMoreMessages,
+  useKnowledgeSearch,
+  experience,
+  chatId,
+  initialMessageCount,
+  sbUserId,
+  writer,
+}: CompileChatToolsParams): Promise<{ tools: ToolSet; toolInstructions: string }> {
+  const tools: ToolSet = {};
+  let toolInstructions = "";
+
+  if (useMemory) {
+    const memorySearchTool = createMemorySearchTool(sbUserId, writer);
+
+    tools["search_memories"] = memorySearchTool;
+    toolInstructions +=
+      "You have access to a vector based memory search tool. Use this when you need to recall specific details, preferences, or context from previous interactions.\n";
+  }
+  if (useSearch) {
+    tools["web_search"] = createWebSearchTool({ maxNumResults: 3, writer });
+    toolInstructions +=
+      "You have access to an advanced web search tool. When using the web search tool, prefer to use a few searches. If the first result answers the question, respond to the user without calling tools again.\n";
+  }
+  if (useGetMoreMessages && chatId != null && initialMessageCount != null) {
+    tools["get_more_chat_history"] = createGetMoreMessagesTool(chatId, initialMessageCount);
+    tools["get_full_chat_history"] = createGetFullChatHistoryTool(chatId);
+    tools["get_messages_from_date"] = createGetMessagesFromDateTool(chatId);
+    toolInstructions +=
+      "You can fetch older messages from this conversation when the user refers to something earlier in the chat that you don't have in context. Use get_more_chat_history with a limit (e.g. 5 or 10) to retrieve those messages.\n";
+    toolInstructions +=
+      "Use get_full_chat_history only when the user explicitly asks for the entire conversation, a full summary of the thread, or 'everything we discussed'—not for routine context. It returns up to 24000 tokens.\n";
+    toolInstructions +=
+      "Use get_messages_from_date with a date (YYYY-MM-DD) when the user asks about what was said on a specific date or 'messages from [date]'.\n";
+  }
+
+  if (experience === "arcadia") {
+    tools["make_mermaid_diagram"] = createMermaidDiagramTool({ writer });
+    toolInstructions +=
+      "You can generate Mermaid diagrams using make_mermaid_diagram. Use it when a diagram would clarify a process, architecture, or relationships. Return the diagram in a mermaid code block so the UI can render it.\n";
+  }
+
+  if (experience === "strata_hub") {
+    Object.assign(tools, createStrataHubAssistantTools(sbUserId));
+    toolInstructions +=
+      "You can navigate the user's Strata documents with navigate_to_strata_page (UUID or title fragment) and search or list them with search_strata_pages.\n";
+  }
+
+  if (useKnowledgeSearch && experience === "strata_page") {
+    Object.assign(tools, createStrataKnowledgeGraphTools());
+    toolInstructions +=
+      "Knowledge graph tools are available but persistence is not fully implemented yet; prefer summarizing Strata page content and use these tools only when explicitly helpful. Stubs may return placeholder data.\n";
+  }
+
+  if (toolInstructions.length > 0) {
+    toolInstructions +=
+      "Prefer fewer tool calls when possible. If the first result answers the question, respond to the user without calling tools again.\n";
+    toolInstructions +=
+      "When you need both web search and memory search (or multiple independent tools), call them in the same turn when possible so the system can run them in parallel and reduce latency.\n";
+  }
+
+  return { tools, toolInstructions: toolInstructions.trim() };
+}
