@@ -14,6 +14,7 @@ import {
   isMemoryIngestDevUiPublicFlag,
   readMemoryIngestDevUiFromSearch,
 } from "../_lib/memory-ingest-dev-ui";
+import { memoryIngestDockBandHeightClass } from "../_lib/memory-ingest-layout";
 import { lastAssistantPlaintext } from "../_lib/memory-ingest-messages";
 
 import { MemoryIngestDebugPanel } from "./MemoryIngestDebugPanel";
@@ -24,6 +25,9 @@ import Page from "@/components/layout/page";
 import { CoreInput } from "@/components/chat/core-input";
 import { PromptInputProvider } from "@/components/third-party/ai-elements/prompt-input";
 import { cn } from "@/lib/utils";
+
+/** TEMP: set true to outline particle column / field / caption slot. */
+const MEMORY_INGEST_LAYOUT_DEBUG_OUTLINES = true;
 
 type MemoryIngestShellProps = {
   chatData: { thread: Thread; messages: UIMessage[] };
@@ -64,6 +68,9 @@ export function MemoryIngestShell({ chatData }: MemoryIngestShellProps) {
   });
 
   const assistantText = lastAssistantPlaintext(messages);
+  /** Shown under particles until real assistant text streams in (UI sample). */
+  const assistantCaptionPlaceholder = "Here. Where would you like to start?";
+  const assistantCaptionText = assistantText.trim() || assistantCaptionPlaceholder;
 
   const onComposerTextChange = useCallback(
     (t: string) => {
@@ -105,19 +112,27 @@ export function MemoryIngestShell({ chatData }: MemoryIngestShellProps) {
     <Page className="text-foreground">
       <div
         className={cn(
-          "relative mx-auto flex min-h-dvh w-full max-w-full flex-col",
+          "relative mx-auto flex h-dvh min-h-0 w-full max-w-full flex-col",
           "px-4 pb-[env(safe-area-inset-bottom)] pt-6 sm:px-6 md:px-8",
           "sm:max-w-lg md:max-w-xl lg:max-w-2xl xl:max-w-3xl"
         )}
       >
-        <div className="flex flex-1 flex-col">
+        <div className="flex min-h-0 flex-1 flex-col">
           <h1 className="sr-only">Memory ingest</h1>
-          <div className="relative mx-auto flex w-full max-w-[min(100%,393px)] flex-1 flex-col items-center sm:max-w-full">
+          <div
+            className={cn(
+              "relative mx-auto flex w-full max-w-[min(100%,393px)] min-h-0 flex-1 flex-col items-center justify-start sm:max-w-full",
+              MEMORY_INGEST_LAYOUT_DEBUG_OUTLINES &&
+                "outline outline-2 -outline-offset-1 outline-dashed outline-amber-500"
+            )}
+          >
             <div
               className={cn(
-                "relative w-full shrink-0",
-                "h-[min(78vh,1080px)] sm:h-[min(80vh,1120px)] md:h-[min(82vh,1180px)] lg:h-[min(84vh,1240px)]",
-                "max-w-[min(100%,1080px)] sm:max-w-[min(100%,1120px)] md:max-w-[min(100%,1180px)] lg:max-w-[min(100%,1240px)]"
+                "relative w-full min-h-0 flex-1",
+                "max-h-[min(78vh,1080px)] sm:max-h-[min(80vh,1120px)] md:max-h-[min(82vh,1180px)] lg:max-h-[min(84vh,1240px)]",
+                "max-w-[min(100%,1080px)] sm:max-w-[min(100%,1120px)] md:max-w-[min(100%,1180px)] lg:max-w-[min(100%,1240px)]",
+                MEMORY_INGEST_LAYOUT_DEBUG_OUTLINES &&
+                  "outline outline-2 -outline-offset-1 outline-dashed outline-sky-500"
               )}
             >
               <ParticleField
@@ -130,42 +145,48 @@ export function MemoryIngestShell({ chatData }: MemoryIngestShellProps) {
                 state={fsm.visual}
               />
             </div>
-            {assistantText ? (
+            <div
+              className={cn(
+                "mb-2 mt-2 w-full max-w-[min(100%,360px)] shrink-0 self-center overflow-x-hidden overflow-y-auto overscroll-y-contain text-center text-[15px] leading-snug sm:max-w-md md:max-w-lg md:text-base lg:max-w-xl",
+                "min-h-[calc(0.9375rem*1.375*3.5)] max-h-[calc(0.9375rem*1.375*3.5)] md:min-h-[calc(1rem*1.375*3.5)] md:max-h-[calc(1rem*1.375*3.5)]",
+                MEMORY_INGEST_LAYOUT_DEBUG_OUTLINES &&
+                  "outline outline-2 -outline-offset-1 outline-dashed outline-fuchsia-500"
+              )}
+            >
               <p
-                className={cn(
-                  "text-muted-foreground mt-4 line-clamp-3 w-full text-center text-[15px] leading-snug",
-                  "max-w-[min(100%,360px)] sm:max-w-md md:max-w-lg md:text-base lg:max-w-xl"
-                )}
+                className="text-muted-foreground w-full break-words px-1"
                 data-testid="memory-ingest-assistant-text"
               >
-                {assistantText}
+                {assistantCaptionText}
               </p>
-            ) : (
-              <div className="mt-4 h-[4.5rem]" aria-hidden />
-            )}
+            </div>
           </div>
         </div>
 
         <div
-          ref={inputWrapRef}
-          className="sticky bottom-0 z-10 w-full max-w-full px-0 pb-3 pt-2 sm:pb-4"
+          className={cn(
+            "sticky bottom-0 z-10 box-border flex w-full max-w-full min-h-0 shrink-0 flex-col justify-end overflow-x-hidden pt-1 pb-3 sm:pb-4",
+            memoryIngestDockBandHeightClass
+          )}
         >
-          <PromptInputProvider>
-            <CoreInput
-              chatId={chatData.thread.id}
-              className="border-border bg-card/80 backdrop-blur-sm"
-              clearError={clearError}
-              error={error}
-              modelRef={modelRef}
-              sendMessage={sendMessage as never}
-              status={status}
-              stop={stop}
-              useMemoriesRef={useMemoriesRef}
-              useSpeechFriendlyRef={useSpeechFriendlyRef}
-              useWebSearchRef={useWebSearchRef}
-              onComposerTextChange={onComposerTextChange}
-            />
-          </PromptInputProvider>
+          <div ref={inputWrapRef} className="w-full min-w-0 shrink-0">
+            <PromptInputProvider>
+              <CoreInput
+                chatId={chatData.thread.id}
+                className="border-border bg-card/80 backdrop-blur-sm"
+                clearError={clearError}
+                error={error}
+                modelRef={modelRef}
+                sendMessage={sendMessage as never}
+                status={status}
+                stop={stop}
+                useMemoriesRef={useMemoriesRef}
+                useSpeechFriendlyRef={useSpeechFriendlyRef}
+                useWebSearchRef={useWebSearchRef}
+                onComposerTextChange={onComposerTextChange}
+              />
+            </PromptInputProvider>
+          </div>
         </div>
 
         {showPrototypeDevUi ? (
