@@ -3,23 +3,19 @@
 import type { Dispatch, ReactNode, SetStateAction } from "react";
 import type { StrataPageWithSections } from "@/lib/schemas/strata";
 import type { StrataPageAssistantSession } from "@/lib/strata/assistant-session";
+import type { SourceDocLayout } from "./strata-shell-model";
 
-import { useCallback, useMemo } from "react";
+import dynamic from "next/dynamic";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
-import { BookOpenText, ChevronDown, Columns2, SquarePen } from "lucide-react";
+import { BookOpenText, Columns2, Plus, SquarePen } from "lucide-react";
 import { motion } from "framer-motion";
 
 import { StrataSourceComposerOptions } from "./StrataSourceComposerOptions";
-import { StrataSourceIngestBar } from "./StrataSourceIngestBar";
+import { StrataSourceIngestBar, type StrataIngestMode } from "./StrataSourceIngestBar";
 import { StrataTextSourcesList } from "./StrataTextSourcesList";
-import type { SourceDocLayout } from "./strata-shell-model";
 
-import {
-  Collapsible,
-  CollapsibleContent,
-  CollapsibleTrigger,
-} from "@/components/third-party/ui/collapsible";
 import {
   ContextMenu,
   ContextMenuContent,
@@ -37,6 +33,17 @@ import {
 } from "@/lib/strata/text-sources";
 import { cn } from "@/lib/utils";
 import { STRATA_TEXT_SOURCES_MAX, type StrataTextSourceNode } from "@/lib/schemas/strata";
+
+/**
+ * BlockNote pulls in ProseMirror, TipTap, lib0, and a yjs runtime — all client-only and ~300KB
+ * gzipped. Splitting via `next/dynamic` keeps the rest of the Strata bundle untouched until the
+ * user actually opens the Source tab with a notepad to render.
+ */
+const StrataNotepad = dynamic(() => import("./StrataNotepad").then((m) => m.StrataNotepad), {
+  ssr: false,
+});
+
+const NOTEPAD_DEFAULT_TITLE = "Untitled note";
 
 export function StrataSourceTab({
   sourceDocLayout,
@@ -76,6 +83,27 @@ export function StrataSourceTab({
   );
 
   const ingestEnabled = dbAvailable && !localOnlyMode && !pageId.startsWith("local-");
+  /**
+   * The notepad's CRDT pipeline (Yjs + IndexedDB + Supabase) requires a stable, real page UUID
+   * because the API route authorises by `strata_pages.owner_id`. Local-only or freshly-created
+   * "local-..." pages bypass the notepad and fall back to the legacy Text composer.
+   */
+  const notepadEnabled = ingestEnabled;
+
+  const userTextNotes = useMemo(
+    () => textSources.filter((s) => s.kind === "user_text"),
+    [textSources]
+  );
+
+  const [activeNoteId, setActiveNoteId] = useState<string | null>(() => {
+    if (typeof window === "undefined") return null;
+    const hash = window.location.hash;
+    const match = hash.match(/note=([0-9a-f-]+)/i);
+
+    return match?.[1] ?? null;
+  });
+
+  const [ingestMode, setIngestMode] = useState<StrataIngestMode | null>(null);
 
   const applySources = useCallback(
     (next: StrataTextSourceNode[]) => {
@@ -145,8 +173,9 @@ export function StrataSourceTab({
       const next = textSources.filter((s) => s.id !== id);
 
       applySources(next);
+      if (id === activeNoteId) setActiveNoteId(null);
     },
-    [applySources, textSources]
+    [activeNoteId, applySources, textSources]
   );
 
   const onMoveSource = useCallback(
@@ -174,8 +203,151 @@ export function StrataSourceTab({
     [applySources, textSources]
   );
 
+  /** Ensures there is exactly one active user_text note to drive the notepad. */
+  const ensureActiveNote = useCallback((): string | null => {
+    const userNotes = textSources.filter((s) => s.kind === "user_text");
+
+    if (userNotes.length === 0) {
+      const id = clientRandomUUID();
+      const node: StrataTextSourceNode = {
+        id,
+        kind: "user_text",
+        title: NOTEPAD_DEFAULT_TITLE,
+        body: "",
+        createdAt: new Date().toISOString(),
+        richKind: "blocknote_v1",
+      };
+
+      onAppendNodes([node]);
+      setActiveNoteId(id);
+
+      return id;
+    }
+    if (activeNoteId && userNotes.some((n) => n.id === activeNoteId)) return activeNoteId;
+    const fallback = userNotes[userNotes.length - 1]!.id;
+
+    setActiveNoteId(fallback);
+
+    return fallback;
+  }, [activeNoteId, onAppendNodes, textSources]);
+
+  const ensureActiveNoteRef = useRef(ensureActiveNote);
+
+  ensureActiveNoteRef.current = ensureActiveNote;
+
+  useEffect(() => {
+    if (!notepadEnabled) return;
+    if (activeNoteId && userTextNotes.some((n) => n.id === activeNoteId)) return;
+    if (userTextNotes.length === 0) {
+      ensureActiveNoteRef.current();
+    } else {
+      setActiveNoteId(userTextNotes[userTextNotes.length - 1]!.id);
+    }
+  }, [activeNoteId, notepadEnabled, userTextNotes]);
+
+  const activeNote = useMemo(
+    () => textSources.find((n) => n.id === activeNoteId) ?? null,
+    [activeNoteId, textSources]
+  );
+
+  const handleNotepadTitleChange = useCallback(
+    (title: string) => {
+      if (!activeNote) return;
+      onUpdateSource(activeNote.id, { title, body: activeNote.body });
+    },
+    [activeNote, onUpdateSource]
+  );
+
+  const handleNotepadMarkdownChange = useCallback(
+    (markdown: string) => {
+      if (!activeNote) return;
+      const sanitized = sanitizeRawUserInput(markdown);
+
+      if (sanitized === activeNote.body) return;
+      onUpdateSource(activeNote.id, {
+        title: activeNote.title,
+        body: sanitized,
+      });
+    },
+    [activeNote, onUpdateSource]
+  );
+
+  const handleUpgradedToRich = useCallback(() => {
+    if (!activeNote || activeNote.richKind === "blocknote_v1") return;
+    const next = textSources.map((s) =>
+      s.id === activeNote.id ? { ...s, richKind: "blocknote_v1" as const } : s
+    );
+
+    applySources(next);
+  }, [activeNote, applySources, textSources]);
+
+  const handleNewNote = useCallback(() => {
+    const id = clientRandomUUID();
+    const node: StrataTextSourceNode = {
+      id,
+      kind: "user_text",
+      title: NOTEPAD_DEFAULT_TITLE,
+      body: "",
+      createdAt: new Date().toISOString(),
+      richKind: "blocknote_v1",
+    };
+
+    onAppendNodes([node]);
+    setActiveNoteId(id);
+    setIngestMode(null);
+  }, [onAppendNodes]);
+
+  const handleClipboardPasteToNotepad = useCallback(
+    (text: string, suggestedTitle: string) => {
+      if (!activeNote) {
+        const id = clientRandomUUID();
+        const node: StrataTextSourceNode = {
+          id,
+          kind: "user_text",
+          title: suggestedTitle.slice(0, 512) || NOTEPAD_DEFAULT_TITLE,
+          body: sanitizeRawUserInput(text),
+          createdAt: new Date().toISOString(),
+          richKind: "blocknote_v1",
+        };
+
+        onAppendNodes([node]);
+        setActiveNoteId(id);
+
+        return;
+      }
+      const merged =
+        activeNote.body.trim().length > 0 ? `${activeNote.body.trimEnd()}\n\n${text}` : text;
+      const isUntitled = !activeNote.title || activeNote.title === NOTEPAD_DEFAULT_TITLE;
+
+      onUpdateSource(activeNote.id, {
+        title: isUntitled ? suggestedTitle.slice(0, 512) : activeNote.title,
+        body: sanitizeRawUserInput(merged),
+      });
+    },
+    [activeNote, onAppendNodes, onUpdateSource]
+  );
+
+  const handleActivateUserText = useCallback((id: string) => {
+    setActiveNoteId(id);
+    setIngestMode(null);
+  }, []);
+
+  const ingesting = ingestMode === "web" || ingestMode === "url";
+
+  /** Esc closes the spotlight when an ingest sub-panel is open. */
+  useEffect(() => {
+    if (!ingesting) return undefined;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setIngestMode(null);
+    };
+
+    window.addEventListener("keydown", onKey);
+
+    return () => window.removeEventListener("keydown", onKey);
+  }, [ingesting]);
+
   return (
-    <div className="flex min-h-0 flex-col gap-3">
+    <div className="flex min-h-0 flex-col gap-3" data-spotlight={ingesting ? ingestMode : "none"}>
       <div className="flex min-w-0 w-full items-center justify-between gap-3">
         <div className="flex min-w-0 flex-1 items-center justify-start">{statusRow}</div>
         <div className="flex shrink-0 items-center gap-2">
@@ -261,13 +433,21 @@ export function StrataSourceTab({
           </div>
         </div>
       </div>
-      {assistantSession ? (
-        <StrataSourceComposerOptions
-          assistantSession={assistantSession}
-          collapsibleAssistantTools
-          assistantToolsDefaultOpen
-        />
-      ) : null}
+      <div
+        className={cn(
+          "transition-all duration-200 ease-out",
+          ingesting && "opacity-40 blur-[1px] pointer-events-none"
+        )}
+        inert={ingesting ? true : undefined}
+      >
+        {assistantSession ? (
+          <StrataSourceComposerOptions
+            assistantSession={assistantSession}
+            collapsibleAssistantTools
+            assistantToolsDefaultOpen
+          />
+        ) : null}
+      </div>
       <div
         className={cn(
           "grid gap-3 auto-rows-[minmax(12rem,auto)]",
@@ -276,43 +456,68 @@ export function StrataSourceTab({
       >
         {sourceDocLayout !== "refined" ? (
           <div className="flex h-full min-h-0 min-w-0 flex-col gap-3">
-            <div className="shrink-0 space-y-3">
-              <Collapsible defaultOpen className="group">
-                <CollapsibleTrigger
-                  type="button"
-                  className="flex w-full items-center justify-between gap-2 py-3 text-left text-sm font-medium text-foreground transition-colors hover:bg-muted/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
-                >
-                  <span>Import & add sources</span>
-                  <ChevronDown
-                    aria-hidden
-                    className="size-4 shrink-0 text-muted-foreground transition-transform duration-200 group-data-[state=open]:rotate-180"
-                  />
-                </CollapsibleTrigger>
-                <CollapsibleContent className="overflow-hidden">
-                  <div className="space-y-3 pb-4 pt-1">
-                    <StrataSourceIngestBar
-                      ingestEnabled={ingestEnabled}
-                      pageId={pageId}
-                      reduceMotion={reduceMotion}
-                      onAppendNodes={onAppendNodes}
-                    />
-                    {!ingestEnabled ? (
-                      <p className="text-xs text-muted-foreground">
-                        Web search and URL import require a synced page (turn off local-only and
-                        ensure you are online), then refresh.
-                      </p>
-                    ) : null}
-                  </div>
-                </CollapsibleContent>
-              </Collapsible>
+            {notepadEnabled && activeNoteId ? (
+              <div
+                className={cn(
+                  "transition-all duration-200 ease-out",
+                  ingesting && "opacity-40 blur-[1px] pointer-events-none"
+                )}
+                inert={ingesting ? true : undefined}
+              >
+                <StrataNotepad
+                  key={activeNoteId}
+                  pageId={pageId}
+                  noteId={activeNoteId}
+                  title={activeNote?.title ?? NOTEPAD_DEFAULT_TITLE}
+                  initialMarkdown={activeNote?.body ?? ""}
+                  onTitleChange={handleNotepadTitleChange}
+                  onMarkdownChange={handleNotepadMarkdownChange}
+                  onUpgradedToRich={handleUpgradedToRich}
+                />
+              </div>
+            ) : null}
+
+            <div
+              className={cn(
+                "shrink-0",
+                ingesting && "relative z-30 ring-2 ring-primary/30 rounded-xl"
+              )}
+            >
+              <StrataSourceIngestBar
+                ingestEnabled={ingestEnabled}
+                pageId={pageId}
+                reduceMotion={reduceMotion}
+                mode={ingestMode}
+                onModeChange={setIngestMode}
+                onAppendNodes={onAppendNodes}
+                onClipboardPasteToNotepad={handleClipboardPasteToNotepad}
+              />
             </div>
-            <div className="flex min-h-0 min-w-0 flex-1 flex-col gap-2 overflow-y-auto overscroll-y-contain">
-              <p className="shrink-0 text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                Saved sources
-              </p>
+            <div
+              className={cn(
+                "flex min-h-0 min-w-0 flex-1 flex-col gap-2 overflow-y-auto overscroll-y-contain transition-all duration-200 ease-out",
+                ingesting && "opacity-40 blur-[1px] pointer-events-none"
+              )}
+              inert={ingesting ? true : undefined}
+            >
+              <div className="flex shrink-0 items-center justify-between gap-2">
+                <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                  Saved sources
+                </p>
+                <button
+                  type="button"
+                  onClick={handleNewNote}
+                  className="inline-flex items-center gap-1 rounded-md border border-border/60 bg-background/40 px-2 py-1 text-xs text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                >
+                  <Plus className="size-3.5" aria-hidden />
+                  New note
+                </button>
+              </div>
               <div className="min-h-0 min-w-0 pr-1">
                 <StrataTextSourcesList
+                  activeNoteId={activeNoteId}
                   sources={textSources}
+                  onActivateUserText={handleActivateUserText}
                   onMove={onMoveSource}
                   onRemove={onRemoveSource}
                   onUpdateSource={onUpdateSource}
@@ -325,8 +530,10 @@ export function StrataSourceTab({
           <div
             className={cn(
               glass({ opaque: true }),
-              "flex min-h-0 flex-col rounded-lg border border-border/60 p-5"
+              "flex min-h-0 flex-col rounded-lg border border-border/60 p-5",
+              ingesting && "opacity-40 blur-[1px] pointer-events-none transition-all"
             )}
+            inert={ingesting ? true : undefined}
           >
             <p className="mb-3 shrink-0 text-xs uppercase tracking-[0.22em] text-muted-foreground">
               {refinedSectionTitle}

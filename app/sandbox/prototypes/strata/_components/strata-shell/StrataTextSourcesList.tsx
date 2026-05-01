@@ -22,14 +22,20 @@ import { getStrataTextSourceTypeLabel } from "@/lib/strata/text-sources";
 
 export function StrataTextSourcesList({
   sources,
+  activeNoteId,
   onRemove,
   onMove,
   onUpdateSource,
+  onActivateUserText,
 }: {
   sources: StrataTextSourceNode[];
+  /** The note currently loaded in the notepad — rendered with an "Editing" pill when set. */
+  activeNoteId?: string | null;
   onRemove: (id: string) => void;
   onMove: (id: string, dir: -1 | 1) => void;
   onUpdateSource: (id: string, patch: { title: string; body: string }) => void;
+  /** Click handler for `kind === "user_text"` cards; replaces the read-modal flow for notes. */
+  onActivateUserText?: (id: string) => void;
 }) {
   const [readSourceId, setReadSourceId] = useState<string | null>(null);
   const [editSourceId, setEditSourceId] = useState<string | null>(null);
@@ -87,22 +93,31 @@ export function StrataTextSourcesList({
   return (
     <>
       <ul className="grid grid-cols-1 gap-2 pr-1">
-        {sources.map((s, index) => (
-          <li key={s.id}>
-            <StrataTextSourceCard
-              index={index}
-              source={s}
-              total={sources.length}
-              onEdit={openEdit}
-              onMove={onMove}
-              onOpen={() => {
-                setEditSourceId(null);
-                setReadSourceId(s.id);
-              }}
-              onRemove={onRemove}
-            />
-          </li>
-        ))}
+        {sources.map((s, index) => {
+          const isActive = activeNoteId != null && s.id === activeNoteId;
+          const handleOpen =
+            s.kind === "user_text" && onActivateUserText
+              ? () => onActivateUserText(s.id)
+              : () => {
+                  setEditSourceId(null);
+                  setReadSourceId(s.id);
+                };
+
+          return (
+            <li key={s.id}>
+              <StrataTextSourceCard
+                active={isActive}
+                index={index}
+                source={s}
+                total={sources.length}
+                onEdit={openEdit}
+                onMove={onMove}
+                onOpen={handleOpen}
+                onRemove={onRemove}
+              />
+            </li>
+          );
+        })}
       </ul>
 
       <Dialog open={readSource !== null} onOpenChange={(open) => !open && setReadSourceId(null)}>

@@ -13,7 +13,10 @@ import { useAion } from "@/hooks/use-aion";
 import { createLogger } from "@/lib/logger";
 import { createChat } from "@/lib/chat/chat-store";
 import { routeHomepagePrompt } from "@/lib/chat/thread-routing";
-import { appendDraftQueryParam } from "@/lib/chat/thread-routing-candidates";
+import {
+  appendDraftQueryParam,
+  homepageHrefWithOptionalDraft,
+} from "@/lib/chat/thread-routing-candidates";
 import { useSharedChatContext } from "@/lib/context/chat-context";
 import { getSettings } from "@/lib/user-settings";
 import { cn } from "@/lib/utils";
@@ -135,7 +138,13 @@ export const AIInput: React.FC = () => {
 
         if (routeRes.data.outcome === "match") {
           refreshSidebarChats();
-          router.push(appendDraftQueryParam(routeRes.data.href, trimmed));
+          const kind = routeRes.data.metrics.matchedKind;
+          const href =
+            kind != null
+              ? homepageHrefWithOptionalDraft(routeRes.data.href, kind, trimmed)
+              : appendDraftQueryParam(routeRes.data.href, trimmed);
+
+          router.push(href);
 
           return;
         }

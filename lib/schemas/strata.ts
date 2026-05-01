@@ -97,6 +97,10 @@ export const StrataTextSourceNodeSchema = z.object({
   body: z.string().max(STRATA_TEXT_SOURCE_BODY_MAX),
   createdAt: z.string(),
   meta: StrataTextSourceMetaSchema.optional(),
+  /** Notes backed by a server-side Yjs doc bump this on every server snapshot. */
+  yjsSnapshotVersion: z.number().int().nonnegative().optional(),
+  /** Marker that the note has migrated to the Yjs/BlockNote pipeline. */
+  richKind: z.literal("blocknote_v1").optional(),
 });
 
 export type StrataTextSourceNode = z.infer<typeof StrataTextSourceNodeSchema>;
@@ -240,3 +244,52 @@ export const StrataGenerateResponseSchema = z.object({
 });
 
 export type StrataGenerateResponse = z.infer<typeof StrataGenerateResponseSchema>;
+
+/**
+ * Yjs notepad sync schemas. The wire format always uses **base64** for binary blobs to keep the
+ * route JSON-only; clients decode them to `Uint8Array` before applying.
+ */
+export const StrataYjsBase64Schema = z.string().regex(/^[A-Za-z0-9+/]*={0,2}$/, "base64");
+
+export const StrataYjsClientIdSchema = z.string().min(1).max(64);
+
+export const StrataYjsSnapshotResponseSchema = z.object({
+  noteId: z.string().uuid(),
+  version: z.number().int().nonnegative(),
+  /** Compacted snapshot bytes (base64). May be an empty string when the note has never been compacted. */
+  snapshot: StrataYjsBase64Schema,
+  /** Server state vector at the time the snapshot was written; client sends back as `lastServerSV`. */
+  stateVector: StrataYjsBase64Schema,
+  /** Tail of incremental updates appended after `version`. */
+  updates: z.array(
+    z.object({
+      update: StrataYjsBase64Schema,
+      createdAt: z.string(),
+    })
+  ),
+});
+
+export type StrataYjsSnapshotResponse = z.infer<typeof StrataYjsSnapshotResponseSchema>;
+
+export const StrataYjsAppendUpdateBodySchema = z.object({
+  pageId: pageIdForAuth,
+  noteId: z.string().uuid(),
+  /** Yjs update encoded with `Y.encodeStateAsUpdateV2(doc, lastServerSV)`. */
+  update: StrataYjsBase64Schema,
+  clientId: StrataYjsClientIdSchema,
+});
+
+export type StrataYjsAppendUpdateBody = z.infer<typeof StrataYjsAppendUpdateBodySchema>;
+
+export const StrataYjsAppendUpdateResponseSchema = z.object({
+  noteId: z.string().uuid(),
+  /** Snapshot generation. Bumps on inline compaction; clients can use it to invalidate caches. */
+  version: z.number().int().nonnegative(),
+  /** True when the route compacted this note's pending updates into a fresh snapshot. */
+  compacted: z.boolean(),
+});
+
+export type StrataYjsAppendUpdateResponse = z.infer<typeof StrataYjsAppendUpdateResponseSchema>;
+
+/** When the appended-updates count exceeds this threshold, the route compacts inline. */
+export const STRATA_NOTE_COMPACT_THRESHOLD = 50;

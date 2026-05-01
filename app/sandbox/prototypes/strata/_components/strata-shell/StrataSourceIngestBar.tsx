@@ -1,8 +1,8 @@
 "use client";
 
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { motion } from "framer-motion";
-import { ClipboardPaste, FileUp, Link2, Loader2, Search, Send } from "lucide-react";
+import { ClipboardPaste, FileUp, Link2, Loader2, Search } from "lucide-react";
 import { toast } from "sonner";
 
 import { glass } from "@/components/design-system/primitives";
@@ -16,36 +16,58 @@ import { sanitizeRawUserInput } from "@/lib/strata/input-safety";
 import { assertSafePublicHttpsUrl } from "@/lib/strata/safe-url";
 import { clientRandomUUID } from "@/lib/client-uuid";
 
-type IngestMode = "text" | "search" | "url";
+export type StrataIngestMode = "web" | "url" | "files" | "clipboard";
 
 type SearchHit = { title: string; url: string; snippet: string };
 
+const MODE_LABEL: Record<StrataIngestMode, string> = {
+  web: "Web search",
+  url: "URL",
+  files: "Files",
+  clipboard: "Clipboard",
+};
+
+/**
+ * Source ingest controls. The bar is fully controlled — the parent owns `mode` (so it can also
+ * drive the spotlight overlay) and clipboard pastes route into the notepad via
+ * `onClipboardPasteToNotepad` instead of writing into a local textarea.
+ */
 export function StrataSourceIngestBar({
   pageId,
   ingestEnabled,
   reduceMotion,
+  mode,
+  onModeChange,
   onAppendNodes,
+  onClipboardPasteToNotepad,
 }: {
   pageId: string;
   ingestEnabled: boolean;
   /** From shell `useReducedMotion()`; layout animation duration is zero when true. */
   reduceMotion?: boolean | null;
+  mode: StrataIngestMode | null;
+  onModeChange: (next: StrataIngestMode | null) => void;
   onAppendNodes: (nodes: StrataTextSourceNode[]) => void;
+  /**
+   * Append clipboard text into the active notepad. Implementations should also surface a non-blocking
+   * suggested title (LLM-derived when the page is synced; falls back to "From clipboard" otherwise).
+   */
+  onClipboardPasteToNotepad: (text: string, suggestedTitle: string) => void;
 }) {
-  const [mode, setMode] = useState<IngestMode>("text");
-  const [title, setTitle] = useState("");
-  const [body, setBody] = useState("");
   const [urlInput, setUrlInput] = useState("");
   const [urlPreview, setUrlPreview] = useState<{
     text: string;
     suggestedTitle: string;
     href: string;
   } | null>(null);
+  const [urlTitleOverride, setUrlTitleOverride] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
   const [searchHits, setSearchHits] = useState<SearchHit[]>([]);
   const [busy, setBusy] = useState(false);
   const [clipboardTitleBusy, setClipboardTitleBusy] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
+  const filesAutoOpenedRef = useRef(false);
+  const clipboardAutoFiredRef = useRef(false);
 
   const canUseNetwork = ingestEnabled;
   /** Size-only layout + tween avoids spring overshoot clipping against overflow-hidden. */
@@ -66,9 +88,8 @@ export function StrataSourceIngestBar({
       toast.success(
         nodes.length === 1 ? "Added source to page content" : `Added ${nodes.length} sources`
       );
-      setTitle("");
-      setBody("");
       setUrlInput("");
+      setUrlTitleOverride("");
       setUrlPreview(null);
       setSearchHits([]);
       setSearchQuery("");
@@ -76,97 +97,68 @@ export function StrataSourceIngestBar({
     [onAppendNodes]
   );
 
-  const submitText = useCallback(() => {
-    const t = title.trim() || "Pasted text";
-    const b = body.trim();
-
-    if (!b) {
-      toast.error("Enter some text to add.");
-
-      return;
-    }
-    const node: StrataTextSourceNode = {
-      id: clientRandomUUID(),
-      kind: "user_text",
-      title: t.slice(0, 512),
-      body: sanitizeRawUserInput(b),
-      createdAt: new Date().toISOString(),
-    };
-
-    appendChecked([node]);
-  }, [appendChecked, body, title]);
-
   const pasteFromClipboard = useCallback(async () => {
     try {
       const raw = await navigator.clipboard.readText();
 
       if (!raw?.trim()) {
         toast.message("Clipboard empty", {
-          description: "Copy text first, or paste with ⌘V in the text area.",
+          description: "Copy text first, or paste with ⌘V into the notepad.",
         });
 
         return;
       }
-      let excerptForPaste = raw;
+      let excerpt = raw;
+
       if (raw.length > STRATA_CLIPBOARD_PASTE_MAX_CHARS) {
-        excerptForPaste = raw.slice(0, STRATA_CLIPBOARD_PASTE_MAX_CHARS);
+        excerpt = raw.slice(0, STRATA_CLIPBOARD_PASTE_MAX_CHARS);
         toast.message("Clipboard truncated", {
           description: `Using the first ${STRATA_CLIPBOARD_PASTE_MAX_CHARS.toLocaleString()} characters.`,
         });
       }
 
-      setMode("text");
-      setBody((prev) => {
-        const p = prev.trimEnd();
+      let title = "From clipboard";
 
-        if (!p) return excerptForPaste;
-
-        return `${p}\n\n${excerptForPaste}`;
-      });
-
-      if (!ingestEnabled) {
-        setTitle((prev) => (prev.trim() ? prev : "From clipboard"));
-
-        return;
-      }
-
-      setClipboardTitleBusy(true);
-      try {
-        const res = await fetch("/api/prototypes/strata/clipboard-source-title", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ pageId, excerpt: excerptForPaste }),
-        });
-        let data: { title?: unknown; error?: unknown } = {};
-
+      if (ingestEnabled) {
+        setClipboardTitleBusy(true);
         try {
-          data = (await res.json()) as { title?: unknown; error?: unknown };
-        } catch {
-          data = {};
-        }
-        const nextTitle =
-          res.ok && typeof data.title === "string" && data.title.trim().length > 0
-            ? data.title.trim().slice(0, 512)
-            : null;
+          const res = await fetch("/api/prototypes/strata/clipboard-source-title", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ pageId, excerpt }),
+          });
+          let data: { title?: unknown } = {};
 
-        if (nextTitle) {
-          setTitle(nextTitle);
-        } else {
-          setTitle((prev) => (prev.trim() ? prev : "From clipboard"));
+          try {
+            data = (await res.json()) as { title?: unknown };
+          } catch {
+            data = {};
+          }
+          if (res.ok && typeof data.title === "string" && data.title.trim().length > 0) {
+            title = data.title.trim().slice(0, 512);
+          }
+        } finally {
+          setClipboardTitleBusy(false);
         }
-      } finally {
-        setClipboardTitleBusy(false);
       }
+
+      onClipboardPasteToNotepad(sanitizeRawUserInput(excerpt), title);
     } catch {
       toast.error("Could not read clipboard", {
-        description: "Allow clipboard permission or paste with ⌘V into the text area.",
+        description: "Allow clipboard permission, or paste with ⌘V into the notepad.",
       });
+    } finally {
+      onModeChange(null);
     }
-  }, [ingestEnabled, pageId]);
+  }, [ingestEnabled, onClipboardPasteToNotepad, onModeChange, pageId]);
 
   const onPickFiles = useCallback(
     async (files: FileList | null) => {
-      if (!files?.length) return;
+      if (!files?.length) {
+        onModeChange(null);
+
+        return;
+      }
       const nodes: StrataTextSourceNode[] = [];
 
       for (const file of Array.from(files)) {
@@ -184,9 +176,30 @@ export function StrataSourceIngestBar({
       }
       appendChecked(nodes);
       if (fileRef.current) fileRef.current.value = "";
+      onModeChange(null);
     },
-    [appendChecked]
+    [appendChecked, onModeChange]
   );
+
+  useEffect(() => {
+    if (mode === "files" && !filesAutoOpenedRef.current) {
+      filesAutoOpenedRef.current = true;
+      fileRef.current?.click();
+    }
+    if (mode !== "files") {
+      filesAutoOpenedRef.current = false;
+    }
+  }, [mode]);
+
+  useEffect(() => {
+    if (mode === "clipboard" && !clipboardAutoFiredRef.current) {
+      clipboardAutoFiredRef.current = true;
+      void pasteFromClipboard();
+    }
+    if (mode !== "clipboard") {
+      clipboardAutoFiredRef.current = false;
+    }
+  }, [mode, pasteFromClipboard]);
 
   const runSearch = useCallback(async () => {
     const q = searchQuery.trim();
@@ -292,7 +305,7 @@ export function StrataSourceIngestBar({
           pageId,
           op: "url_commit",
           url: urlInput.trim(),
-          title: title.trim() || undefined,
+          title: urlTitleOverride.trim() || undefined,
         }),
       });
       const data = await res.json();
@@ -306,7 +319,7 @@ export function StrataSourceIngestBar({
     } finally {
       setBusy(false);
     }
-  }, [appendChecked, canUseNetwork, pageId, title, urlInput]);
+  }, [appendChecked, canUseNetwork, pageId, urlInput, urlTitleOverride]);
 
   return (
     <div
@@ -316,43 +329,33 @@ export function StrataSourceIngestBar({
       )}
     >
       <div className="flex flex-wrap items-center gap-2">
-        {(["text", "search", "url"] as const).map((m) => (
-          <button
-            key={m}
-            type="button"
-            className={cn(
-              "rounded-full border px-3 py-1 text-xs font-medium transition-colors",
-              mode === m
-                ? "border-primary/50 bg-primary/10 text-foreground"
-                : "border-transparent text-muted-foreground hover:bg-muted"
-            )}
-            onClick={() => setMode(m)}
-          >
-            {m === "text" ? "Text" : m === "search" ? "Web search" : "URL"}
-          </button>
-        ))}
-        <span className="mx-1 h-4 w-px bg-border" aria-hidden />
-        <button
-          type="button"
-          disabled={clipboardTitleBusy}
-          className="inline-flex items-center gap-1 rounded-full border border-transparent px-3 py-1 text-xs font-medium text-muted-foreground hover:bg-muted hover:text-foreground disabled:pointer-events-none disabled:opacity-50"
-          onClick={() => void pasteFromClipboard()}
-        >
-          {clipboardTitleBusy ? (
-            <Loader2 className="h-3.5 w-3.5 shrink-0 animate-spin" aria-hidden />
-          ) : (
-            <ClipboardPaste className="h-3.5 w-3.5" aria-hidden />
-          )}
-          Clipboard
-        </button>
-        <button
-          type="button"
-          className="inline-flex items-center gap-1 rounded-full border border-transparent px-3 py-1 text-xs font-medium text-muted-foreground hover:bg-muted hover:text-foreground"
-          onClick={() => fileRef.current?.click()}
-        >
-          <FileUp className="h-3.5 w-3.5" />
-          Files
-        </button>
+        {(["web", "url", "files", "clipboard"] as const).map((m) => {
+          const isActive = mode === m;
+          const Icon =
+            m === "web" ? Search : m === "url" ? Link2 : m === "files" ? FileUp : ClipboardPaste;
+          const showLoader = m === "clipboard" && clipboardTitleBusy;
+
+          return (
+            <button
+              key={m}
+              type="button"
+              className={cn(
+                "inline-flex items-center gap-1 rounded-full border px-3 py-1 text-xs font-medium transition-colors",
+                isActive
+                  ? "border-primary/50 bg-primary/10 text-foreground"
+                  : "border-transparent text-muted-foreground hover:bg-muted hover:text-foreground"
+              )}
+              onClick={() => onModeChange(isActive ? null : m)}
+            >
+              {showLoader ? (
+                <Loader2 className="h-3.5 w-3.5 shrink-0 animate-spin" aria-hidden />
+              ) : (
+                <Icon className="h-3.5 w-3.5" aria-hidden />
+              )}
+              {MODE_LABEL[m]}
+            </button>
+          );
+        })}
         <input
           ref={fileRef}
           type="file"
@@ -369,42 +372,7 @@ export function StrataSourceIngestBar({
         className="overflow-hidden rounded-md"
         transition={layoutTransition}
       >
-        {mode === "text" ? (
-          <div className="flex flex-col gap-2">
-            <input
-              className={cn(
-                glass(),
-                "w-full rounded-md border border-border/60 bg-background/40 px-3 py-2 text-sm outline-none ring-offset-background focus-visible:ring-2 focus-visible:ring-ring"
-              )}
-              placeholder="Title (optional)"
-              value={title}
-              onChange={(e) => setTitle(e.target.value)}
-            />
-            <textarea
-              className={cn(
-                glass(),
-                "min-h-[120px] w-full resize-y rounded-md border border-border/60 bg-background/40 p-3 text-sm outline-none ring-offset-background focus-visible:ring-2 focus-visible:ring-ring"
-              )}
-              placeholder="Raw notes, export from ChatGPT / Notebook LM / Perplexity…"
-              value={body}
-              onChange={(e) => setBody(e.target.value)}
-            />
-            <button
-              type="button"
-              disabled={busy}
-              className={cn(
-                glass({ opaque: true }),
-                "inline-flex items-center justify-center gap-2 self-end rounded-md border px-4 py-2 text-sm font-medium hover:bg-muted"
-              )}
-              onClick={submitText}
-            >
-              <Send className="h-4 w-4" />
-              Add as source
-            </button>
-          </div>
-        ) : null}
-
-        {mode === "search" ? (
+        {mode === "web" ? (
           <div className="flex flex-col gap-2">
             <div className="flex gap-2">
               <input
@@ -418,6 +386,9 @@ export function StrataSourceIngestBar({
                 onKeyDown={(e) => {
                   if (e.key === "Enter") void runSearch();
                 }}
+                ref={(node) => {
+                  if (node && document.activeElement !== node) node.focus();
+                }}
               />
               <button
                 type="button"
@@ -429,7 +400,11 @@ export function StrataSourceIngestBar({
                 )}
                 onClick={() => void runSearch()}
               >
-                {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
+                {busy ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Search className="h-4 w-4" />
+                )}
                 Search
               </button>
             </div>
@@ -466,6 +441,9 @@ export function StrataSourceIngestBar({
               placeholder="https://…"
               value={urlInput}
               onChange={(e) => setUrlInput(e.target.value)}
+              ref={(node) => {
+                if (node && document.activeElement !== node) node.focus();
+              }}
             />
             <input
               className={cn(
@@ -473,8 +451,8 @@ export function StrataSourceIngestBar({
                 "w-full rounded-md border border-border/60 bg-background/40 px-3 py-2 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
               )}
               placeholder="Title override (optional)"
-              value={title}
-              onChange={(e) => setTitle(e.target.value)}
+              value={urlTitleOverride}
+              onChange={(e) => setUrlTitleOverride(e.target.value)}
             />
             <div className="flex flex-wrap gap-2">
               <button
@@ -486,7 +464,11 @@ export function StrataSourceIngestBar({
                 )}
                 onClick={() => void previewUrl()}
               >
-                {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Link2 className="h-4 w-4" />}
+                {busy ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Link2 className="h-4 w-4" />
+                )}
                 Preview
               </button>
               {!urlPreview ? (
@@ -530,6 +512,13 @@ export function StrataSourceIngestBar({
           </div>
         ) : null}
       </motion.div>
+
+      {!ingestEnabled && (mode === "web" || mode === "url") ? (
+        <p className="text-xs text-muted-foreground">
+          Web search and URL import require a synced page (turn off local-only and ensure you are
+          online), then refresh.
+        </p>
+      ) : null}
     </div>
   );
 }

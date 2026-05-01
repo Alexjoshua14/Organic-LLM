@@ -16,6 +16,7 @@ export function StrataTextSourceCard({
   source,
   index,
   total,
+  active,
   onOpen,
   onMove,
   onRemove,
@@ -24,6 +25,8 @@ export function StrataTextSourceCard({
   source: StrataTextSourceNode;
   index: number;
   total: number;
+  /** When true the card is the currently-active notepad note. */
+  active?: boolean;
   onOpen: () => void;
   onMove: (id: string, dir: -1 | 1) => void;
   onRemove: (id: string) => void;
@@ -38,9 +41,11 @@ export function StrataTextSourceCard({
     <div
       role="button"
       tabIndex={0}
+      aria-current={active ? "true" : undefined}
       className={cn(
         glass({ opaque: true }),
-        "flex w-full cursor-pointer flex-col gap-2 rounded-xl border border-border/60 p-3 text-left transition-colors hover:border-border"
+        "flex w-full cursor-pointer flex-col gap-2 rounded-xl border border-border/60 p-3 text-left transition-colors hover:border-border",
+        active && "border-primary/60 ring-1 ring-primary/30"
       )}
       onClick={onOpen}
       onKeyDown={(e) => {
@@ -54,9 +59,16 @@ export function StrataTextSourceCard({
         <h3 className="min-w-0 flex-1 truncate text-sm font-medium text-foreground">
           {source.title}
         </h3>
-        <Badge className="shrink-0" variant="outline">
-          {typeLabel}
-        </Badge>
+        <div className="flex shrink-0 items-center gap-1">
+          {active ? (
+            <Badge className="shrink-0 bg-primary/10 text-primary" variant="outline">
+              Editing
+            </Badge>
+          ) : null}
+          <Badge className="shrink-0" variant="outline">
+            {typeLabel}
+          </Badge>
+        </div>
       </div>
       {synopsis ? (
         <p className="line-clamp-2 min-h-10 text-sm leading-snug text-muted-foreground">
