@@ -75,7 +75,7 @@ function buildChatSourceHint(thread: Thread, messages: UIMessage[]): string {
   return lines.join("\n").slice(0, 2_000);
 }
 
-export type ChatTabExperience = "chat" | "arcadia" | "spark" | "morphChat";
+export type ChatTabExperience = "chat" | "arcadia" | "topic_explore" | "spark" | "morphChat";
 
 export async function resolveChatBrowserTabTitlePrimary(options: {
   experience: ChatTabExperience;
@@ -85,6 +85,7 @@ export async function resolveChatBrowserTabTitlePrimary(options: {
   const fallbacks: Record<ChatTabExperience, string> = {
     chat: "Chat",
     arcadia: "Arcadia",
+    topic_explore: "Noesis",
     spark: "Spark",
     morphChat: "Morph chat",
   };

@@ -1,4 +1,8 @@
 import type { UIMessage, UIMessageStreamWriter } from "ai";
+import type { ChatExperience } from "@/lib/chat/chat-experience";
+import type { Logger } from "@/lib/logger";
+import type { ChatUIMessage } from "@/types/ai";
+
 import { generateId } from "ai";
 
 import {
@@ -6,10 +10,7 @@ import {
   getLastUserMessageText,
   isArcadiaHelpQuery,
 } from "@/lib/arcadia/help-response";
-import type { ChatExperience } from "@/lib/chat/chat-experience";
 import { saveChat } from "@/lib/chat/chat-store";
-import type { Logger } from "@/lib/logger";
-import type { ChatUIMessage } from "@/types/ai";
 
 export type TryArcadiaChatHelpShortcutParams = {
   experience: ChatExperience | undefined;
@@ -40,7 +41,7 @@ export async function tryArcadiaChatHelpShortcut(
     logger,
   } = params;
 
-  if (experience !== "arcadia") {
+  if (experience !== "arcadia" && experience !== "topic_explore") {
     return false;
   }
 

@@ -32,6 +32,8 @@ type ChatThreadProps = {
     message?: string;
     sources?: ExaSearchResultSource[];
   };
+  /** When set and there are no messages, replaces the default empty state (e.g. Noesis starters). */
+  renderEmptyState?: () => React.ReactNode;
 };
 
 export const ChatThread: FC<ChatThreadProps> = ({
@@ -39,6 +41,7 @@ export const ChatThread: FC<ChatThreadProps> = ({
   className,
   contentClassName,
   aiActionPayload,
+  renderEmptyState,
 }) => {
   const lastMessageIndex = messages.length - 1;
   const modelSummary = getAssistantModelSummary(messages);
@@ -67,11 +70,15 @@ export const ChatThread: FC<ChatThreadProps> = ({
           </div>
         ) : null}
         {messages.length === 0 ? (
-          <ConversationEmptyState
-            description="Type a message below to begin chatting"
-            icon={<MessageSquare className="size-12" />}
-            title="Start a conversation"
-          />
+          renderEmptyState ? (
+            renderEmptyState()
+          ) : (
+            <ConversationEmptyState
+              description="Type a message below to begin chatting"
+              icon={<MessageSquare className="size-12" />}
+              title="Start a conversation"
+            />
+          )
         ) : (
           messages.map((message, index) => {
             const isLatestArcadiaHelp =

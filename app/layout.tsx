@@ -13,6 +13,7 @@ import { ControlCluster } from "@/components/layout/countrol-cluster";
 import { SidebarProvider, SidebarTrigger } from "@/components/third-party/ui/sidebar";
 import { getSidebarDefaultOpenFromCookieValue, SIDEBAR_COOKIE_NAME } from "@/lib/sidebar-cookie";
 import { Sidebar } from "@/components/sidebar/sidebar";
+import { AionLauncherProvider } from "@/components/aion-launcher/aion-launcher";
 import { ChatProvider } from "@/lib/context/chat-context";
 import { TTSProvider } from "@/lib/context/tts-context";
 import { FontProvider } from "@/components/FontProvider";
@@ -62,25 +63,27 @@ export default async function RootLayout({ children }: { children: React.ReactNo
           >
             <FontProvider>
               <ChatProvider>
-                <TTSProvider>
-                  <SidebarProvider defaultOpen={sidebarDefaultOpen}>
-                    <Sidebar />
-                    <ControlCluster />
-                    <main className="grow w-full overflow-hidden bg-background sm:bg-background-secondary h-full min-h-dvh">
-                      <div
-                        className={`${glass()} absolute top-0 left-0 z-30 flex h-14 w-20 items-center rounded-br-lg pl-4 md:hidden`}
-                        data-mobile-nav-chrome="sidebar-trigger"
-                      >
-                        <SidebarTrigger />
-                      </div>
-                      <div className={`hidden md:flex absolute top-4 left-0 pl-4 z-30`}>
-                        <SidebarTrigger />
-                      </div>
-                      {children}
-                      <Analytics />
-                    </main>
-                  </SidebarProvider>
-                </TTSProvider>
+                <AionLauncherProvider>
+                  <TTSProvider>
+                    <SidebarProvider defaultOpen={sidebarDefaultOpen}>
+                      <Sidebar />
+                      <ControlCluster />
+                      <main className="grow w-full overflow-hidden bg-background sm:bg-background-secondary h-full min-h-dvh">
+                        <div
+                          className={`${glass()} absolute top-0 left-0 z-30 flex h-14 w-20 items-center rounded-br-lg pl-4 md:hidden`}
+                          data-mobile-nav-chrome="sidebar-trigger"
+                        >
+                          <SidebarTrigger />
+                        </div>
+                        <div className={`hidden md:flex absolute top-4 left-0 pl-4 z-30`}>
+                          <SidebarTrigger />
+                        </div>
+                        {children}
+                        <Analytics />
+                      </main>
+                    </SidebarProvider>
+                  </TTSProvider>
+                </AionLauncherProvider>
               </ChatProvider>
             </FontProvider>
           </Providers>

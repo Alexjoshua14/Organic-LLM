@@ -1,12 +1,15 @@
 "use server";
 
-import type { HomepageRouteCandidate } from "@/lib/chat/thread-routing-candidates";
-
 import { generateObject } from "ai";
 import { openai } from "@ai-sdk/openai";
 import { z } from "zod";
 
 import { createChat } from "@/lib/chat/chat-store";
+import type {
+  HomepageRouteCandidate,
+  HomepageRouteCandidateKind,
+} from "@/lib/chat/thread-routing-candidates";
+import { resolveHomepageCandidateByIndex } from "@/lib/chat/thread-routing-candidates";
 import { loadHomepageRoutingCandidates } from "@/lib/chat/load-homepage-routing-candidates";
 import { GUARDRAIL_MAX_OUTPUT_TOKENS } from "@/lib/llm/helpers";
 import { recordLlmCall } from "@/lib/llm/metrics";
@@ -18,11 +21,12 @@ const logger = createLogger("lib/chat/thread-routing.ts");
 const ROUTING_MODEL = openai("gpt-5.4-nano");
 
 const HomepageRoutingDecisionSchema = z.object({
-  matchRouteKey: z
-    .string()
+  selectedCandidateIndex: z
+    .number()
+    .int()
     .nullable()
     .describe(
-      "Exact routeKey from the candidate list (thread UUID or rabbit_hole:<sessionId>), or null if none fit"
+      "0-based index of exactly one candidate from the numbered list [0]..[n-1], or null if none clearly fit"
     ),
 });
 
@@ -34,6 +38,8 @@ export type HomepageRouteMetrics = {
   totalServerMs: number;
   outcome: "match" | "new";
   matchedFeature?: string;
+  /** Set when outcome is match; used client-side for draft= query behavior. */
+  matchedKind?: HomepageRouteCandidateKind;
   createdNewThread: boolean;
 };
 
@@ -62,8 +68,7 @@ function buildClassifierPrompt(userMessage: string, candidates: HomepageRouteCan
     const summary = c.summaryText ? truncateForPrompt(c.summaryText, 400) : "(no summary yet)";
 
     return [
-      `[${i + 1}] routeKey=${c.routeKey}`,
-      `kind=${c.kind}`,
+      `[${i}] kind=${c.kind}`,
       `feature=${c.feature}`,
       `title=${truncateForPrompt(c.title, 200)}`,
       `summary=${summary}`,
@@ -74,21 +79,21 @@ function buildClassifierPrompt(userMessage: string, candidates: HomepageRouteCan
     "User message (what they want to talk about now):",
     truncateForPrompt(userMessage, 2000),
     "",
-    "Candidates (pick at most one):",
+    "Candidates (pick at most one by index):",
     lines.join("\n\n"),
   ].join("\n");
 }
 
-const ROUTING_SYSTEM = `You route the user to an existing conversation when their message clearly continues the same topic as exactly one candidate.
+const ROUTING_SYSTEM = `You route the user to an existing conversation or workspace page when their message clearly continues the same topic as exactly one candidate.
 Rules:
-- Prefer matchRouteKey = null unless the fit is strong and unambiguous.
-- matchRouteKey must be copied exactly from a candidate line (routeKey=...).
-- Do not invent routeKeys.
+- Reply with selectedCandidateIndex = null unless the fit is strong and unambiguous.
+- selectedCandidateIndex must be an integer between 0 and n-1 inclusive, matching the [i] label of one candidate line, or null.
 - If several candidates could fit, return null.
-- Use title and summary semantics; do not match on superficial word overlap alone.`;
+- Use title and summary semantics; do not match on superficial word overlap alone.
+- kind=strata_page is a Strata workspace page; kind=thread is a chat thread; kind=rabbit_hole is a rabbit-hole session.`;
 
 /**
- * Server-side semantic routing for the homepage input: match an existing thread/session or create a new main chat.
+ * Server-side semantic routing for the homepage input: match an existing thread/session/page or create a new main chat.
  */
 export async function routeHomepagePrompt(params: {
   prompt: string;
@@ -159,9 +164,8 @@ export async function routeHomepagePrompt(params: {
     };
   }
 
-  const validKeys = new Set(candidates.map((c) => c.routeKey));
   let classificationMs = 0;
-  let matchRouteKey: string | null = null;
+  let hit: HomepageRouteCandidate | null = null;
 
   const llmStart = performance.now();
 
@@ -184,12 +188,13 @@ export async function routeHomepagePrompt(params: {
       metadata: { operation: "homepage-thread-routing" },
     });
 
-    const key = object.matchRouteKey?.trim() ?? null;
+    hit = resolveHomepageCandidateByIndex(candidates, object.selectedCandidateIndex);
 
-    if (key && validKeys.has(key)) {
-      matchRouteKey = key;
-    } else if (key) {
-      logger.log("routeHomepagePrompt", `Classifier returned unknown routeKey=${key}`);
+    if (object.selectedCandidateIndex != null && !hit) {
+      logger.log(
+        "routeHomepagePrompt",
+        `Classifier returned out-of-range index=${object.selectedCandidateIndex} (len=${candidates.length})`
+      );
     }
   } catch (e) {
     classificationMs = performance.now() - llmStart;
@@ -197,45 +202,43 @@ export async function routeHomepagePrompt(params: {
       "routeHomepagePrompt",
       `Classification failed: ${e instanceof Error ? e.message : String(e)}`
     );
-    matchRouteKey = null;
+    hit = null;
   }
 
-  if (matchRouteKey) {
-    const hit = candidates.find((c) => c.routeKey === matchRouteKey);
+  if (hit) {
     const totalServerMs = performance.now() - serverStart;
 
-    if (hit) {
-      const metrics: HomepageRouteMetrics = {
-        candidateCount: candidates.length,
-        coalescenceMode: params.coalescenceMode,
-        fetchCandidatesMs,
-        classificationMs,
-        totalServerMs,
+    const metrics: HomepageRouteMetrics = {
+      candidateCount: candidates.length,
+      coalescenceMode: params.coalescenceMode,
+      fetchCandidatesMs,
+      classificationMs,
+      totalServerMs,
+      outcome: "match",
+      matchedFeature: hit.feature,
+      matchedKind: hit.kind,
+      createdNewThread: false,
+    };
+
+    logger.log(
+      "routeHomepagePrompt",
+      JSON.stringify({
+        event: "homepage_route_complete",
+        routeKey: hit.routeKey,
+        kind: hit.kind,
+        feature: hit.feature,
+        ...metrics,
+      })
+    );
+
+    return {
+      data: {
         outcome: "match",
-        matchedFeature: hit.feature,
-        createdNewThread: false,
-      };
-
-      logger.log(
-        "routeHomepagePrompt",
-        JSON.stringify({
-          event: "homepage_route_complete",
-          routeKey: hit.routeKey,
-          kind: hit.kind,
-          feature: hit.feature,
-          ...metrics,
-        })
-      );
-
-      return {
-        data: {
-          outcome: "match",
-          href: hit.href,
-          metrics,
-        },
-        error: null,
-      };
-    }
+        href: hit.href,
+        metrics,
+      },
+      error: null,
+    };
   }
 
   const created = await createChat();
@@ -262,7 +265,7 @@ export async function routeHomepagePrompt(params: {
     "routeHomepagePrompt",
     JSON.stringify({
       event: "homepage_route_complete",
-      reason: matchRouteKey ? "invalid_match" : "no_match",
+      reason: "no_match",
       ...metrics,
     })
   );

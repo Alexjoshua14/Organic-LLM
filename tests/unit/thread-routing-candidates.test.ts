@@ -179,4 +179,39 @@ describe("thread-routing-candidates", () => {
     expect(rh?.summaryText).toBe("RH");
     expect(rh?.href).toContain("sessionId=rh1");
   });
+
+  test("buildHomepageRoutingCandidatesFromParts merges Strata rows when coalescence is off", () => {
+    const mainId = "11111111-1111-4111-8111-111111111111";
+    const threads = [
+      {
+        id: mainId,
+        title: "Main chat",
+        feature: "main",
+        created_at: "",
+        updated_at: "",
+      } as ThreadListRow,
+    ];
+    const summaryByThreadId = new Map<string, string | null>([[mainId, "S"]]);
+    const strataRoutingRows = [
+      {
+        id: "33333333-3333-4333-8333-333333333333",
+        title: "Strata doc",
+        updated_at: "2025-01-02T00:00:00Z",
+        excerpt: "Body text…",
+      },
+    ];
+
+    const merged = buildHomepageRoutingCandidatesFromParts({
+      threads,
+      summaryByThreadId,
+      coalescenceMode: false,
+      rabbitHoleSources: [],
+      strataRoutingRows,
+    });
+
+    expect(merged.length).toBe(2);
+    expect(merged[0].kind).toBe("thread");
+    expect(merged[1].kind).toBe("strata_page");
+    expect(merged[1].href).toContain("/sandbox/prototypes/strata/");
+  });
 });

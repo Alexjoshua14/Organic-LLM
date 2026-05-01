@@ -1,6 +1,9 @@
 import type { z } from "zod";
 
-import type { ChatExperience } from "@/lib/chat/chat-experience";
+import {
+  type ChatExperience,
+  isArcadiaStyleMemoryReadExperience,
+} from "@/lib/chat/chat-experience";
 import { getStrataPageById } from "@/data/supabase/strata";
 import { getStrataAssistantPersona } from "@/lib/personas/strata-assistant";
 import { buildStrataSystemSuffix } from "@/lib/llm/strata-chat-augmentation";
@@ -64,8 +67,7 @@ export type AppendMainChatPostToolSystemFragmentsParams = {
 export function appendMainChatPostToolSystemFragments(
   params: AppendMainChatPostToolSystemFragmentsParams
 ): string {
-  const { systemPromptForRequest, hasTools, toolInstructions, speechFriendly, experience } =
-    params;
+  const { systemPromptForRequest, hasTools, toolInstructions, speechFriendly, experience } = params;
 
   let out = systemPromptForRequest;
 
@@ -77,7 +79,7 @@ export function appendMainChatPostToolSystemFragments(
     out += SPEECH_FRIENDLY_APPEND;
   }
 
-  if (experience === "arcadia") {
+  if (isArcadiaStyleMemoryReadExperience(experience)) {
     out += ARCADIA_SHORT_REPLY_APPEND;
   }
 

@@ -1,5 +1,3 @@
-"use server";
-
 import { supabaseServer } from "@/lib/supabase/server";
 import {
   STRATA_DEFAULT_UNTITLED_TITLE,
@@ -84,6 +82,97 @@ export async function listStrataPages(options?: { ownerId?: string }): Promise<S
 /** Avoid `unstable_cache` here — it runs without Clerk/Next request context (`auth()` / `cookies()`). */
 export async function listStrataPagesCached(ownerId: string): Promise<StrataPage[]> {
   return listStrataPages({ ownerId });
+}
+
+/**
+ * **Homepage / launcher routing contract:** recent Strata pages with a short decrypted excerpt
+ * (refined_text preferred, else raw_text) for classifier parity with thread summaries.
+ * Caps and sort are defined here; callers must not inflate the list beyond `maxPages`.
+ */
+export const MAX_STRATA_HOMEPAGE_ROUTING = 24;
+
+export const STRATA_ROUTING_EXCERPT_CHARS = 400;
+
+export type StrataRoutingRow = {
+  id: string;
+  title: string;
+  updated_at: string;
+  excerpt: string | null;
+};
+
+function excerptFromEncryptedSections(
+  ownerId: string,
+  pageId: string,
+  sections: Partial<Record<"refined_text" | "raw_text", string>>
+): string | null {
+  const tryDecrypt = (raw: string, key: "refined_text" | "raw_text"): string | null => {
+    if (!raw || raw.length === 0) return null;
+
+    try {
+      const decrypted = decryptStrataSectionContent(raw, ownerId, pageId, key).trim();
+
+      if (!decrypted) return null;
+
+      return (
+        decrypted.length > STRATA_ROUTING_EXCERPT_CHARS
+          ? `${decrypted.slice(0, STRATA_ROUTING_EXCERPT_CHARS)}…`
+          : decrypted
+      );
+    } catch {
+      return null;
+    }
+  };
+
+  const fromRefined = sections.refined_text
+    ? tryDecrypt(sections.refined_text, "refined_text")
+    : null;
+
+  if (fromRefined) return fromRefined;
+
+  return sections.raw_text ? tryDecrypt(sections.raw_text, "raw_text") : null;
+}
+
+export async function listStrataPagesWithRoutingExcerpts(
+  ownerId: string,
+  maxPages: number = MAX_STRATA_HOMEPAGE_ROUTING
+): Promise<StrataRoutingRow[]> {
+  const pages = await listStrataPages({ ownerId });
+  const slice = pages.slice(0, maxPages);
+
+  if (slice.length === 0) return [];
+
+  const ids = slice.map((p) => p.id);
+  const sb = (await supabaseServer()) as any;
+
+  const { data: sectionRows, error } = await sb
+    .from("strata_sections")
+    .select("page_id, section_key, content")
+    .in("page_id", ids)
+    .in("section_key", ["refined_text", "raw_text"]);
+
+  if (error) throw new Error(error.message);
+
+  const byPage = new Map<string, Partial<Record<"refined_text" | "raw_text", string>>>();
+
+  for (const row of (sectionRows ?? []) as {
+    page_id: string;
+    section_key: string;
+    content: string;
+  }[]) {
+    if (row.section_key !== "refined_text" && row.section_key !== "raw_text") continue;
+
+    const prev = byPage.get(row.page_id) ?? {};
+
+    prev[row.section_key] = row.content;
+    byPage.set(row.page_id, prev);
+  }
+
+  return slice.map((page) => ({
+    id: page.id,
+    title: page.title,
+    updated_at: page.updated_at,
+    excerpt: excerptFromEncryptedSections(ownerId, page.id, byPage.get(page.id) ?? {}),
+  }));
 }
 
 export async function getStrataPageById(pageId: string): Promise<StrataPageWithSections | null> {

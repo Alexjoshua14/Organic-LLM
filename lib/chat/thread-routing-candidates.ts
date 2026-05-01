@@ -1,10 +1,14 @@
+import type { StrataRoutingRow } from "@/data/supabase/strata";
 import { Thread } from "@/lib/schemas/chat";
 
 export const RABBIT_HOLE_ROUTE_PREFIX = "rabbit_hole:" as const;
 
-export type HomepageRouteCandidateKind = "thread" | "rabbit_hole";
+/** Internal prefix for Strata page keys (never shown to the routing LLM; index-only contract). */
+export const STRATA_PAGE_ROUTE_PREFIX = "strata_page:" as const;
 
-/** One reopen target for homepage semantic routing (thread or rabbit hole session). */
+export type HomepageRouteCandidateKind = "thread" | "rabbit_hole" | "strata_page";
+
+/** One reopen target for homepage semantic routing (thread, rabbit hole session, or Strata page). */
 export type HomepageRouteCandidate = {
   routeKey: string;
   kind: HomepageRouteCandidateKind;
@@ -88,11 +92,53 @@ export function appendDraftQueryParam(href: string, draft: string): string {
   return `${href}${sep}draft=${encodeURIComponent(draft)}`;
 }
 
+/** Chat-like destinations accept a composer draft query; Strata pages do not. */
+export function shouldAppendDraftForMatchKind(kind: HomepageRouteCandidateKind): boolean {
+  return kind === "thread" || kind === "rabbit_hole";
+}
+
+export function homepageHrefWithOptionalDraft(
+  href: string,
+  kind: HomepageRouteCandidateKind,
+  draft: string
+): string {
+  if (!shouldAppendDraftForMatchKind(kind)) return href;
+
+  return appendDraftQueryParam(href, draft);
+}
+
+export function strataRoutingRowToCandidate(row: StrataRoutingRow): HomepageRouteCandidate {
+  return {
+    routeKey: `${STRATA_PAGE_ROUTE_PREFIX}${row.id}`,
+    kind: "strata_page",
+    title: row.title?.trim() ? String(row.title) : "Untitled Strata page",
+    feature: "strata_page",
+    href: `/sandbox/prototypes/strata/${row.id}`,
+    summaryText: row.excerpt?.trim() ? row.excerpt.trim() : null,
+  };
+}
+
+/**
+ * Resolves a 0-based classifier index into a candidate, or null if out of range / non-integer.
+ * Used server-side after `generateObject` and in unit tests.
+ */
+export function resolveHomepageCandidateByIndex(
+  candidates: HomepageRouteCandidate[],
+  index: number | null | undefined
+): HomepageRouteCandidate | null {
+  if (index == null || typeof index !== "number" || !Number.isInteger(index)) return null;
+  if (index < 0 || index >= candidates.length) return null;
+
+  return candidates[index] ?? null;
+}
+
 export type BuildHomepageCandidatesParams = {
   threads: ThreadListRow[];
   summaryByThreadId: Map<string, string | null>;
   coalescenceMode: boolean;
   rabbitHoleSources: RabbitHoleRoutingSource[];
+  /** Recent Strata pages with excerpts; capped and ordered in the loader (see load-homepage-routing-candidates). */
+  strataRoutingRows?: StrataRoutingRow[];
 };
 
 /**
@@ -110,11 +156,15 @@ export function buildHomepageRoutingCandidatesFromParts(
     params.coalescenceMode
   );
 
+  const strataCandidates = (params.strataRoutingRows ?? []).map((row) =>
+    strataRoutingRowToCandidate(row)
+  );
+
   if (!params.coalescenceMode) {
-    return scopedThreads;
+    return [...scopedThreads, ...strataCandidates];
   }
 
   const rhCandidates = params.rabbitHoleSources.map((s) => rabbitHoleToCandidate(s));
 
-  return [...scopedThreads, ...rhCandidates];
+  return [...scopedThreads, ...rhCandidates, ...strataCandidates];
 }

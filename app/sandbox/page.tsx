@@ -22,6 +22,13 @@ const sandboxPages: SandboxEntry[] = [
     size: "large",
   },
   {
+    title: "Noesis",
+    description:
+      "Arcadia-style exploration chat: memory-aware sparks, steerable assist for your next line, no Mem0 writes from this mode",
+    href: "/sandbox/topic-explore",
+    size: "large",
+  },
+  {
     title: "Ideas",
     description:
       "Capture, organize, and manage your creative ideas with priority levels and status tracking",

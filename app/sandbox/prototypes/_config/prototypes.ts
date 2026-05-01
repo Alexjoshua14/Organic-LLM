@@ -46,7 +46,7 @@ export const prototypes: PrototypeEntry[] = [
     slug: "glass-primitive",
     title: "Glass primitive",
     description:
-      "Three-column lab: shipped glass(), approved Organic Glass baseline, and working preview — tuned for AdaptiveLiquidChrome before promotion.",
+      "Three-column lab: shipped glass(), approved Organic Glass baseline, and a working surface column for lighting experiments — tuned for AdaptiveLiquidChrome.",
     ranking: {
       importance: 10,
       frequency: 10,

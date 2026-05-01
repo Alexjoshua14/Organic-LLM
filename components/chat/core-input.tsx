@@ -4,6 +4,7 @@ import {
   ChangeEventHandler,
   ComponentProps,
   FormEvent,
+  KeyboardEventHandler,
   useCallback,
   useEffect,
   useRef,
@@ -17,6 +18,7 @@ import {
   BrainCircuit,
   Eye,
   GlobeIcon,
+  Loader2,
   Pencil,
   SquareIcon,
   Volume2,
@@ -48,7 +50,6 @@ import {
   PromptInputSelectValue,
   PromptInputSpeechButton,
 } from "../third-party/ai-elements/prompt-input";
-
 import ShinyText from "../ShinyText";
 
 import { ChatMessageMarkdown } from "./chat-message-markdown";
@@ -90,6 +91,13 @@ type CoreInputProps = {
   sentMessageShimmer?: boolean;
   /** Override persisted model id key (e.g. Delphi vs main chat). Other prefs use global keys. */
   modelLocalStorageKey?: string;
+  /** When `id` changes, replaces composer text (e.g. assist reply injection). */
+  composerInject?: { id: number; text: string } | null;
+  /** Cmd/Ctrl+Enter runs this instead of sending chat; primary submit unchanged. */
+  onSecondarySubmit?: (text: string) => void | Promise<void>;
+  secondarySubmitLabel?: string;
+  secondarySubmitDisabled?: boolean;
+  secondarySubmitPending?: boolean;
 };
 
 /** Max length for the in-flight shimmer copy (matches AiInputForm). */
@@ -123,6 +131,11 @@ export const CoreInput: React.FC<CoreInputProps> = ({
   onComposerTextChange,
   sentMessageShimmer = true,
   modelLocalStorageKey,
+  composerInject,
+  onSecondarySubmit,
+  secondarySubmitLabel = "Steer assist",
+  secondarySubmitDisabled = false,
+  secondarySubmitPending = false,
 }) => {
   const { refreshSidebarChats } = useSharedChatContext();
 
@@ -146,6 +159,7 @@ export const CoreInput: React.FC<CoreInputProps> = ({
   const [inputMarkdownMode, setInputMarkdownMode] = useState<"edit" | "preview">("edit");
   const hasLoadedPrefs = useRef(false);
   const appliedInitialDraft = useRef(false);
+  const appliedComposerInjectId = useRef<number | null>(null);
 
   // Refs for unmount cleanup: must see latest values when component unmounts
   const inputEmptyRef = useRef(false);
@@ -215,6 +229,20 @@ export const CoreInput: React.FC<CoreInputProps> = ({
       el.focus();
     }
   }, [initialDraft]);
+
+  useEffect(() => {
+    if (!composerInject) return;
+    if (appliedComposerInjectId.current === composerInject.id) return;
+    appliedComposerInjectId.current = composerInject.id;
+    setText(composerInject.text);
+    onComposerTextChange?.(composerInject.text);
+    const el = textareaRef.current;
+
+    if (el) {
+      el.value = composerInject.text;
+      el.dispatchEvent(new Event("input", { bubbles: true }));
+    }
+  }, [composerInject, onComposerTextChange]);
 
   // Load preferences from localStorage on mount
   useLayoutEffect(() => {
@@ -371,6 +399,19 @@ export const CoreInput: React.FC<CoreInputProps> = ({
     },
     [onComposerTextChange]
   );
+
+  const handleTextareaKeyDown: KeyboardEventHandler<HTMLTextAreaElement> = useCallback(
+    (e) => {
+      if (!onSecondarySubmit) return;
+      if (!(e.metaKey || e.ctrlKey) || e.key !== "Enter") return;
+      e.preventDefault();
+      const raw = (textareaRef.current?.value ?? text).trim();
+
+      if (!raw || secondarySubmitDisabled || secondarySubmitPending) return;
+      void onSecondarySubmit(raw);
+    },
+    [onSecondarySubmit, secondarySubmitDisabled, secondarySubmitPending, text]
+  );
   const organicSubmitState =
     status === "submitted"
       ? "sent"
@@ -403,11 +444,7 @@ export const CoreInput: React.FC<CoreInputProps> = ({
 
       <PromptInputBody>
         {showSentShimmer ? (
-          <div
-            aria-live="polite"
-            className="w-full min-w-0 max-w-full px-3 py-3"
-            role="status"
-          >
+          <div aria-live="polite" className="w-full min-w-0 max-w-full px-3 py-3" role="status">
             <span className="sr-only">Sending message</span>
             <ShinyText
               as="div"
@@ -440,7 +477,12 @@ export const CoreInput: React.FC<CoreInputProps> = ({
             </div>
           </>
         ) : (
-          <PromptInputTextarea ref={textareaRef} value={text} onChange={handleInputChange} />
+          <PromptInputTextarea
+            ref={textareaRef}
+            value={text}
+            onChange={handleInputChange}
+            onKeyDown={onSecondarySubmit ? handleTextareaKeyDown : undefined}
+          />
         )}
       </PromptInputBody>
       <PromptInputFooter>
@@ -548,19 +590,49 @@ export const CoreInput: React.FC<CoreInputProps> = ({
             </div>
           </PromptInputTools>
         </div>
-        <PromptInputSubmit
-          className={cn(
-            submitVariant === "organic-glass" &&
-              "organic-glass-preview border border-white/20 bg-linear-to-br from-background/86 via-background/60 to-background-tertiary/42 text-foreground shadow-[0_10px_36px_-18px_rgba(20,21,22,0.65),inset_0_1px_0_rgba(255,255,255,0.38)] backdrop-blur-xl hover:border-accent/25 hover:text-foreground dark:border-white/10 dark:from-background-secondary/82 dark:via-background/62 dark:to-background-tertiary/38"
-          )}
-          disabled={(!text && !status) || disabled}
-          status={status}
-          stop={stop}
-        >
-          {submitVariant === "organic-glass" ? (
-            <OrganicSubmitGlyph state={organicSubmitState} />
-          ) : undefined}
-        </PromptInputSubmit>
+        <div className="flex items-center gap-2 shrink-0">
+          {onSecondarySubmit ? (
+            <PromptInputButton
+              disabled={
+                secondarySubmitDisabled ||
+                secondarySubmitPending ||
+                !text.trim() ||
+                disabled ||
+                showSentShimmer
+              }
+              size="dynamic-sm"
+              title="Run steer on the current text (⌘ or Ctrl + Enter)"
+              type="button"
+              variant="ghost"
+              onClick={() => {
+                const raw = (textareaRef.current?.value ?? text).trim();
+
+                if (!raw || secondarySubmitDisabled || secondarySubmitPending) return;
+                void onSecondarySubmit(raw);
+              }}
+            >
+              {secondarySubmitPending ? (
+                <Loader2 aria-hidden className="size-4 animate-spin shrink-0" />
+              ) : null}
+              <span className={cn("max-w-28 truncate text-xs", !showLabels && "sr-only")}>
+                {secondarySubmitLabel}
+              </span>
+            </PromptInputButton>
+          ) : null}
+          <PromptInputSubmit
+            className={cn(
+              submitVariant === "organic-glass" &&
+                "organic-glass-preview border border-white/20 bg-linear-to-br from-background/86 via-background/60 to-background-tertiary/42 text-foreground shadow-[0_10px_36px_-18px_rgba(20,21,22,0.65),inset_0_1px_0_rgba(255,255,255,0.38)] backdrop-blur-xl hover:border-accent/25 hover:text-foreground dark:border-white/10 dark:from-background-secondary/82 dark:via-background/62 dark:to-background-tertiary/38"
+            )}
+            disabled={(!text && !status) || disabled}
+            status={status}
+            stop={stop}
+          >
+            {submitVariant === "organic-glass" ? (
+              <OrganicSubmitGlyph state={organicSubmitState} />
+            ) : undefined}
+          </PromptInputSubmit>
+        </div>
       </PromptInputFooter>
     </PromptInput>
   );

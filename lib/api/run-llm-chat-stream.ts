@@ -1,4 +1,8 @@
 import type { ModelMessage, ToolSet, UIMessage, UIMessageStreamWriter } from "ai";
+import type { Logger } from "@/lib/logger";
+import type { ChatExperience } from "@/lib/chat/chat-experience";
+import type { Result } from "@/types";
+
 import { smoothStream, stepCountIs, streamText } from "ai";
 import { GatewayProviderOptions } from "@ai-sdk/gateway";
 import { OpenAIResponsesProviderOptions } from "@ai-sdk/openai";
@@ -8,10 +12,7 @@ import { saveChat } from "@/lib/chat/chat-store";
 import { ensureChatHasTitle, updateChatSummary } from "@/lib/llm/chat-helpers";
 import { CHAT_MODEL, measureAsync } from "@/lib/llm/helpers";
 import { serializeError } from "@/lib/llm/log-error";
-import type { Logger } from "@/lib/logger";
-import type { ChatExperience } from "@/lib/chat/chat-experience";
 import { addLatestMessagesToMemoryForUser } from "@/lib/memory/operations";
-import type { Result } from "@/types";
 import { ChatAIActionEnum, type ChatUIMessage } from "@/types/ai";
 
 export type RunLLMChatStreamParams = {
@@ -28,7 +29,7 @@ export type RunLLMChatStreamParams = {
   maxSteps: number;
   isZeroDataRetention: boolean;
   memoryEnabled: boolean | undefined;
-  /** When `delphi`, automatic transcript ingest to Mem0 is skipped. */
+  /** When `delphi` or `topic_explore`, automatic transcript ingest to Mem0 is skipped. */
   experience: ChatExperience | undefined;
   userMessage: UIMessage;
   threadHasTitlePromise: Promise<Result<boolean>>;
@@ -89,6 +90,7 @@ export function runLLMChatStream(params: RunLLMChatStreamParams): void {
     zeroDataRetention: isZeroDataRetention,
     openaiInclude: ["reasoning.encrypted_content"] as const,
   };
+
   logger.debug("streamText", "providerOptions", providerOptionsSummary);
 
   const result = streamText({
@@ -122,6 +124,7 @@ export function runLLMChatStream(params: RunLLMChatStreamParams): void {
         toolName?: string;
         stepIndex?: number;
       };
+
       if (c.type === "tool-call") {
         pushChunk(c.type, { toolName: c.toolName, step: c.stepIndex });
       } else {
@@ -315,7 +318,7 @@ export function runLLMChatStream(params: RunLLMChatStreamParams): void {
 
             metrics.updateChatSummaryMs = updateSummaryResult.durationMs;
 
-            if (memoryEnabled && experience !== "delphi") {
+            if (memoryEnabled && experience !== "delphi" && experience !== "topic_explore") {
               const addMemoryResult = await measureAsync(() =>
                 addLatestMessagesToMemoryForUser(sbUserId, [userMessage, aiResponse], chatId).then(
                   (r) => {

@@ -1,6 +1,9 @@
 import type { ToolSet } from "ai";
 
-import type { ChatExperience } from "@/lib/chat/chat-experience";
+import {
+  type ChatExperience,
+  isArcadiaStyleMemoryReadExperience,
+} from "@/lib/chat/chat-experience";
 import {
   DELPHI_SEARCH_MEMORIES_DESCRIPTION,
   createDelphiMemoryTools,
@@ -107,7 +110,7 @@ export async function compileChatTools({
       "Use get_messages_from_date with a date (YYYY-MM-DD) when the user asks about what was said on a specific date or 'messages from [date]'.\n";
   }
 
-  if (experience === "arcadia") {
+  if (isArcadiaStyleMemoryReadExperience(experience)) {
     tools["make_mermaid_diagram"] = createMermaidDiagramTool({ writer });
     toolInstructions +=
       "You can generate Mermaid diagrams using make_mermaid_diagram. Use it when a diagram would clarify a process, architecture, or relationships. Return the diagram in a mermaid code block so the UI can render it.\n";

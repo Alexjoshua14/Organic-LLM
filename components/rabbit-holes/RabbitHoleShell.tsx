@@ -53,16 +53,11 @@ import { layout as layoutTokens, pageHeader } from "@/lib/rabbit-holes/designTok
 import { useRabbitHoles } from "@/lib/rabbit-holes/useRabbitHoles";
 import { cn } from "@/lib/utils";
 import { RabbitHoleNode, RabbitHoleSession } from "@/lib/schemas/rabbitHoleSchemas";
+import { isEditableEventTarget } from "@/lib/dom/is-editable-event-target";
 
 const logger = createLogger("components/rabbit-holes/RabbitHoleShell");
 
 const chromeMotionTransition = { duration: 0.28, ease: [0.2, 0.8, 0.2, 1] as const };
-
-function isEditableEventTarget(target: EventTarget | null): boolean {
-  if (!(target instanceof HTMLElement)) return false;
-
-  return !!target.closest("input, textarea, [contenteditable='true']");
-}
 
 export function RabbitHoleShell() {
   // --- Routing & context (for loading a session from browse) ---

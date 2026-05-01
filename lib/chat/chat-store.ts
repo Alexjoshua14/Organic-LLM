@@ -11,8 +11,11 @@
  * **Memory:** Non-Arcadia uses a single Mem0 search; Arcadia uses rewrite → parallel search →
  * tiered injection (see `lib/memory/*` and internal `docs/architecture/context-building.md`).
  */
+import type { MemoryItemType } from "@/lib/schemas/memory";
+
 import { UIMessage } from "ai";
 import { auth } from "@clerk/nextjs/server";
+
 import { createLogger } from "../logger";
 import { SYSTEM_PROMPT, PROMETHEUS_SYSTEM_PROMPT } from "../system-prompt/prompt-v0";
 import SPARK_SYSTEM_PROMPT from "../system-prompt";
@@ -58,9 +61,11 @@ import {
 } from "@/data/supabase/chat";
 import { upsertMessagesWithAdmin, updateChatStreamWithAdmin } from "@/data/supabase/chat-admin";
 import { Result, SimpleResult } from "@/types";
-import type { ChatExperience } from "@/lib/chat/chat-experience";
+import {
+  type ChatExperience,
+  isArcadiaStyleMemoryReadExperience,
+} from "@/lib/chat/chat-experience";
 import { Thread } from "@/lib/schemas/chat";
-import type { MemoryItemType } from "@/lib/schemas/memory";
 import { getSupabaseUserId } from "@/data/supabase/profiles";
 import { getSupabaseUserIdWithAdmin } from "@/data/supabase/profiles-admin";
 import { retryWithBackoff, DEFAULT_RETRY_CONFIG, type RetryConfig } from "@/lib/utils";
@@ -637,7 +642,7 @@ export async function getContext({
 
     // Arcadia defers memory to phase 2 (needs DB messages for rewrite transcript).
     const memNonArcadiaPromise =
-      memoryEnabled && experience !== "arcadia"
+      memoryEnabled && !isArcadiaStyleMemoryReadExperience(experience)
         ? searchMemoriesForUser(sbUserId, userMessage, { limit: 5 }).then((r) =>
             r.error ? { results: [] } : r.data!
           )
@@ -709,7 +714,7 @@ export async function getContext({
     let arcadiaQueryRewriteUsed: boolean | undefined;
     let arcadiaEffectiveQueryCount: number | undefined;
 
-    if (memoryEnabled && experience === "arcadia") {
+    if (memoryEnabled && isArcadiaStyleMemoryReadExperience(experience)) {
       // Query rewrite is only for Mem0 search below. Returned `messages` are DB history only;
       // routes append the original request `message` unchanged for the main LLM.
       const historyMessages = messagesResult.data ?? [];
@@ -811,7 +816,7 @@ export async function getContext({
           title: "Memories from past conversations:",
           content: memories,
         });
-      } else if (experience === "arcadia") {
+      } else if (isArcadiaStyleMemoryReadExperience(experience)) {
         // Over-fetch sample → tier stats for inventory + score-trimmed bullets for the model.
         const items = memoriesResult.results as MemoryItemType[];
         const tiers = bucketMemoriesByTier(items, ARCADIA_MEMORY_MIN_SCORE);
@@ -819,6 +824,7 @@ export async function getContext({
           maxIncluded: ARCADIA_MEMORY_MAX_INJECTED,
           minScore: ARCADIA_MEMORY_MIN_SCORE,
         });
+
         memories = formatMemoriesForPrompt(selected);
         const conversationMessagesInContext = messages.length + 1;
 

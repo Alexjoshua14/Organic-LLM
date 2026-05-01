@@ -1,3 +1,5 @@
+import { auth } from "@clerk/nextjs/server";
+
 import { getChats } from "@/lib/chat/chat-store";
 import {
   type HomepageRouteCandidate,
@@ -6,12 +8,16 @@ import {
 } from "@/lib/chat/thread-routing-candidates";
 import { getConversationSummary } from "@/data/supabase/chat";
 import { getAllSessions } from "@/data/supabase/rabbitholes";
+import { getSupabaseUserId } from "@/data/supabase/profiles";
+import { listStrataPagesWithRoutingExcerpts, type StrataRoutingRow } from "@/data/supabase/strata";
 import { createLogger } from "@/lib/logger";
 import { Result } from "@/types";
 
 const logger = createLogger("lib/chat/load-homepage-routing-candidates.ts");
 
 const MAX_THREAD_FETCH = 40;
+
+/** Strata routing rows: capped and sorted by `updated_at` in {@link listStrataPagesWithRoutingExcerpts}. */
 
 /**
  * Loads thread rows with summaries plus optional rabbit-hole sessions when coalescence is on.
@@ -80,12 +86,33 @@ export async function loadHomepageRoutingCandidates(
     }
   }
 
+  let strataRoutingRows: StrataRoutingRow[] = [];
+
+  try {
+    const { userId } = await auth();
+
+    if (userId) {
+      const ownerRes = await getSupabaseUserId(userId);
+
+      if (!ownerRes.error && ownerRes.data) {
+        strataRoutingRows = await listStrataPagesWithRoutingExcerpts(ownerRes.data);
+      }
+    }
+  } catch (err) {
+    logger.error(
+      "loadHomepageRoutingCandidates",
+      `Strata routing candidates skipped: ${err instanceof Error ? err.message : String(err)}`
+    );
+    strataRoutingRows = [];
+  }
+
   return {
     data: buildHomepageRoutingCandidatesFromParts({
       threads: rows,
       summaryByThreadId,
       coalescenceMode,
       rabbitHoleSources,
+      strataRoutingRows,
     }),
     error: null,
   };

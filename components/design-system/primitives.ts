@@ -155,6 +155,71 @@ export const glassPreview = tv({
 });
 
 /**
+ * Experimental "organic glass" working material: near-transparent fill, refraction-capable
+ * backdrop-filter (requires `OrganicGlassRefractFilterSvg` in the tree), chromatic rim. No
+ * inset specular or top-edge “rim light” — depth comes from shadow lift only. Lab column only.
+ */
+export const organicGlassWorking = tv({
+  base: [
+    "organic-glass relative isolate overflow-hidden",
+
+    // Refraction (custom utility) + named blur/saturate — composes correctly in v4
+    "backdrop-refract backdrop-blur-3xl backdrop-saturate-[1.8]",
+    "dark:backdrop-saturate-[1.7]",
+
+    // Depth without feigned top light: bottom inner pooling + outer lift only
+    "shadow-[inset_0_-1px_0_rgba(0,0,0,0.06),0_1px_2px_rgba(0,0,0,0.04),0_18px_48px_-22px_rgba(20,21,22,0.45)]",
+    "dark:shadow-[inset_0_-1px_0_rgba(0,0,0,0.4),0_1px_2px_rgba(0,0,0,0.2),0_22px_60px_-24px_rgba(0,0,0,0.75)]",
+  ].join(" "),
+  variants: {
+    tone: {
+      default: "bg-white/[0.04] dark:bg-white/[0.025]",
+      // Brown only adjusts fill + bumps saturation — backdrop-refract + blur from base still apply
+      brown:
+        "bg-amber-100/[0.06] dark:bg-amber-950/[0.10] backdrop-saturate-200 dark:backdrop-saturate-[1.85]",
+    },
+    opaque: {
+      // Legibility-first: heavier fill, drop refraction (it fights text), keep blur
+      true: "bg-background-tertiary/70 dark:bg-background-tertiary/65 [backdrop-filter:none] backdrop-blur-2xl backdrop-saturate-110",
+    },
+    depth: {
+      flat: "shadow-[inset_0_-1px_0_rgba(0,0,0,0.05)] dark:shadow-[inset_0_-1px_0_rgba(0,0,0,0.25)]",
+      raised: "",
+      floating: [
+        "shadow-[inset_0_-1px_0_rgba(0,0,0,0.07),0_2px_4px_rgba(0,0,0,0.05),0_28px_72px_-26px_rgba(20,21,22,0.55)]",
+        "dark:shadow-[inset_0_-1px_0_rgba(0,0,0,0.45),0_2px_4px_rgba(0,0,0,0.3),0_30px_84px_-28px_rgba(0,0,0,0.85)]",
+      ].join(" "),
+    },
+    border: {
+      // Chromatic rim — dispersion tint without a bright “key light” sweep
+      all: [
+        "after:pointer-events-none after:absolute after:inset-0 after:z-[2] after:rounded-[inherit] after:p-px after:content-['']",
+        "after:bg-[linear-gradient(135deg,rgba(190,210,255,0.22)_0%,rgba(170,205,255,0.16)_28%,rgba(255,200,220,0.12)_72%,rgba(210,215,230,0.16)_100%)]",
+        "after:[mask:linear-gradient(#000_0_0)_content-box,linear-gradient(#000_0_0)]",
+        "after:[mask-composite:exclude] after:[-webkit-mask-composite:xor]",
+      ].join(" "),
+      right: "border-r border-white/15 dark:border-white/10",
+      left: "border-l border-white/15 dark:border-white/10",
+      none: "",
+    },
+    interactive: {
+      true: [
+        "motion-safe:transition-[transform,background-color,box-shadow] motion-safe:duration-200 motion-safe:ease-out",
+        "motion-safe:hover:-translate-y-0.5",
+        "motion-safe:focus-within:-translate-y-0.5",
+        "motion-safe:active:translate-y-0 motion-safe:active:scale-[0.997]",
+      ].join(" "),
+    },
+  },
+  defaultVariants: {
+    tone: "default",
+    border: "all",
+    depth: "floating",
+    interactive: true,
+  },
+});
+
+/**
  * Secondary-interactive: for secondary yet clearly available actions
  * (e.g. copy-to-clipboard on code blocks). Gradient aligns with Organic LLM’s
  * warm neutrals and accent teal; use on buttons and small interactive controls.

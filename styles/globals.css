@@ -92,9 +92,7 @@
 
   --foreground: oklch(0.22 0.012 70); /* #2D2B26 - warm brown-gray */
 
-  --card: oklch(
-    1 0 0
-  ); /* Use with /80% opacity + backdrop-blur in components */
+  --card: oklch(1 0 0); /* Use with /80% opacity + backdrop-blur in components */
 
   --card-foreground: oklch(0.22 0.012 70); /* #2D2B26 */
 
@@ -158,9 +156,7 @@
 
   --foreground: oklch(0.96 0.003 145); /* #F3F4F3 - slight green tint */
 
-  --card: oklch(
-    0.17 0.006 220
-  ); /* #1C1E1F - use with /80% opacity + backdrop-blur */
+  --card: oklch(0.17 0.006 220); /* #1C1E1F - use with /80% opacity + backdrop-blur */
 
   --card-foreground: oklch(0.96 0.003 145); /* #F3F4F3 */
 
@@ -321,6 +317,19 @@ body.font-theme-commissioner {
   body:has([data-rabbit-hole-explorer]) [data-mobile-nav-chrome="sidebar-trigger"],
   body:has([data-rabbit-hole-explorer]) .control-cluster {
     display: none !important;
+  }
+}
+
+/* Organic glass working (lab): refraction filter URL for backdrop-filter. */
+@utility backdrop-refract {
+  backdrop-filter: url(#organic-glass-refract);
+  -webkit-backdrop-filter: url(#organic-glass-refract);
+}
+
+@supports not (backdrop-filter: url(#x)) {
+  .backdrop-refract {
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
   }
 }
 

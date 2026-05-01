@@ -7,6 +7,7 @@ describe("parseChatExperience", () => {
     expect(parseChatExperience("Delphi")).toBe("delphi");
     expect(parseChatExperience("ARCADIA")).toBe("arcadia");
     expect(parseChatExperience(" Strata_Page ")).toBe("strata_page");
+    expect(parseChatExperience("TOPIC_EXPLORE")).toBe("topic_explore");
   });
 
   test("returns undefined for unknown or empty", () => {

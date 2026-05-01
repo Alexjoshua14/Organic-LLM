@@ -32,6 +32,14 @@ const RAIL: RailItem[] = [
     match: (p) => p.startsWith("/sandbox/arcadia"),
   },
   {
+    id: "noesis",
+    label: "Noesis",
+    type: "link",
+    href: "/sandbox/topic-explore",
+    tooltip: "Noesis — topic exploration",
+    match: (p) => p.startsWith("/sandbox/topic-explore"),
+  },
+  {
     id: "strata",
     label: "Strata",
     type: "link",
