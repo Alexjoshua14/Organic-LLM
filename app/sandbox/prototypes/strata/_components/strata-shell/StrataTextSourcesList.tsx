@@ -86,7 +86,7 @@ export function StrataTextSourcesList({
 
   return (
     <>
-      <ul className="grid grid-cols-1 gap-2 pr-1 sm:grid-cols-2">
+      <ul className="grid grid-cols-1 gap-2 pr-1">
         {sources.map((s, index) => (
           <li key={s.id}>
             <StrataTextSourceCard

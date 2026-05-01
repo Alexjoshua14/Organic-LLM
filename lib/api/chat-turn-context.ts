@@ -1,6 +1,7 @@
 import type { UIMessage } from "ai";
 import { TypeValidationError } from "ai";
 
+import type { ChatExperience } from "@/lib/chat/chat-experience";
 import { getContext } from "@/lib/chat/chat-store";
 import { SYSTEM_PROMPT } from "@/lib/system-prompt/prompt-v0";
 import type { Logger } from "@/lib/logger";
@@ -12,7 +13,7 @@ export type LoadMainChatTurnContextParams = {
   chatId: string;
   message: UIMessage;
   memoryEnabled: boolean | undefined;
-  experience: string | undefined;
+  experience: ChatExperience | undefined;
 };
 
 export type LoadMainChatTurnContextResult = {
@@ -20,7 +21,7 @@ export type LoadMainChatTurnContextResult = {
   systemPromptForRequest: string;
 };
 
-function isStrataExperience(experience: string | undefined): boolean {
+function isStrataExperience(experience: ChatExperience | undefined): boolean {
   return experience === "strata_hub" || experience === "strata_page";
 }
 

@@ -58,6 +58,17 @@ export type StrataGenerationContext = z.infer<typeof StrataGenerationContextSche
 /** Max characters stored per text source body (client + server enforce). */
 export const STRATA_TEXT_SOURCE_BODY_MAX = 120_000;
 
+/** Max characters accepted when pasting into the Strata text ingest field from the clipboard. */
+export const STRATA_CLIPBOARD_PASTE_MAX_CHARS = 24_000;
+
+/** POST body for `/api/prototypes/strata/clipboard-source-title`. */
+export const StrataClipboardSourceTitleBodySchema = z.object({
+  pageId: z.string().min(1).max(128),
+  excerpt: z.string().min(1).max(STRATA_CLIPBOARD_PASTE_MAX_CHARS),
+});
+
+export type StrataClipboardSourceTitleBody = z.infer<typeof StrataClipboardSourceTitleBodySchema>;
+
 /** Max number of text sources on one page. */
 export const STRATA_TEXT_SOURCES_MAX = 80;
 

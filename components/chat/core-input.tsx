@@ -88,6 +88,8 @@ type CoreInputProps = {
   onComposerTextChange?: (text: string) => void;
   /** When true (default), textarea swaps to shimmer text while status is submitted/streaming. */
   sentMessageShimmer?: boolean;
+  /** Override persisted model id key (e.g. Delphi vs main chat). Other prefs use global keys. */
+  modelLocalStorageKey?: string;
 };
 
 /** Max length for the in-flight shimmer copy (matches AiInputForm). */
@@ -120,10 +122,11 @@ export const CoreInput: React.FC<CoreInputProps> = ({
   submitVariant = "default",
   onComposerTextChange,
   sentMessageShimmer = true,
+  modelLocalStorageKey,
 }) => {
   const { refreshSidebarChats } = useSharedChatContext();
 
-  const STORAGE_KEY_MODEL = "organic-llm-selected-model";
+  const modelStorageKey = modelLocalStorageKey ?? "organic-llm-selected-model";
   const STORAGE_KEY_WEB_SEARCH = "organic-llm-web-search";
   const STORAGE_KEY_MEMORIES = "organic-llm-memories";
   const STORAGE_KEY_SPEECH_FRIENDLY = "organic-llm-speech-friendly";
@@ -223,7 +226,7 @@ export const CoreInput: React.FC<CoreInputProps> = ({
 
     if (isExpired) {
       // Clear expired preferences
-      localStorage.removeItem(STORAGE_KEY_MODEL);
+      localStorage.removeItem(modelStorageKey);
       localStorage.removeItem(STORAGE_KEY_WEB_SEARCH);
       localStorage.removeItem(STORAGE_KEY_MEMORIES);
       localStorage.removeItem(STORAGE_KEY_SPEECH_FRIENDLY);
@@ -233,7 +236,7 @@ export const CoreInput: React.FC<CoreInputProps> = ({
     }
 
     // Load stored preferences
-    const storedModel = localStorage.getItem(STORAGE_KEY_MODEL);
+    const storedModel = localStorage.getItem(modelStorageKey);
 
     if (storedModel) {
       const found = ChatModels.find((m) => m.id === storedModel);
@@ -252,7 +255,7 @@ export const CoreInput: React.FC<CoreInputProps> = ({
     const storedSpeechFriendly = localStorage.getItem(STORAGE_KEY_SPEECH_FRIENDLY);
 
     if (storedSpeechFriendly === "true") setUseSpeechFriendly(true);
-  }, []);
+  }, [modelStorageKey]);
 
   // Update timestamp whenever preferences are saved
   const updatePrefsTimestamp = () => {
@@ -265,10 +268,10 @@ export const CoreInput: React.FC<CoreInputProps> = ({
       modelRef.current = model;
     }
     if (hasLoadedPrefs.current) {
-      localStorage.setItem(STORAGE_KEY_MODEL, model.id);
+      localStorage.setItem(modelStorageKey, model.id);
       updatePrefsTimestamp();
     }
-  }, [model, modelRef]);
+  }, [model, modelRef, modelStorageKey]);
 
   // Sync web search to ref and persist to localStorage
   useEffect(() => {

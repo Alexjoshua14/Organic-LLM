@@ -26,6 +26,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/third-party/ui/dialog";
+import { StrataAssistantPersonaGuide } from "@/app/sandbox/prototypes/strata/_components/StrataAssistantPersonaGuide";
 import { ChatMessageMarkdown } from "@/components/chat/chat-message-markdown";
 import { cn } from "@/lib/utils";
 import {
@@ -240,23 +241,34 @@ export function StrataSourceComposerOptions({
       defaultOpen={defaultOpen}
       className={cn(glass({ opaque: true }), "group rounded-xl border border-border/60")}
     >
-      <CollapsibleTrigger
-        type="button"
-        className="flex w-full items-center justify-between gap-3 rounded-xl px-4 py-3 text-left transition-colors hover:bg-muted/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
-      >
-        <span className="min-w-0">
-          <span className="block text-[10px] font-medium uppercase tracking-[0.2em] text-muted-foreground">
-            Assistant
-          </span>
-          <span className="block truncate text-sm font-semibold text-foreground">
-            {activePersona.shortLabel}
-          </span>
-        </span>
-        <ChevronDown
-          aria-hidden
-          className="size-4 shrink-0 text-muted-foreground transition-transform duration-200 group-data-[state=open]:rotate-180"
-        />
-      </CollapsibleTrigger>
+      <div className="flex w-full items-center gap-2 rounded-xl px-4 py-3 transition-colors hover:bg-muted/20">
+        <CollapsibleTrigger asChild>
+          <button
+            type="button"
+            className="min-w-0 flex-1 rounded-lg text-left outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+          >
+            <span className="block text-[10px] font-medium uppercase tracking-[0.2em] text-muted-foreground">
+              Assistant
+            </span>
+            <span className="block truncate text-sm font-semibold text-foreground">
+              {activePersona.shortLabel}
+            </span>
+          </button>
+        </CollapsibleTrigger>
+        <StrataAssistantPersonaGuide className="shrink-0 justify-center" />
+        <CollapsibleTrigger asChild>
+          <button
+            type="button"
+            className="shrink-0 rounded-md p-1 text-muted-foreground outline-none transition-colors hover:bg-muted hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+            aria-label="Toggle assistant settings"
+          >
+            <ChevronDown
+              aria-hidden
+              className="size-4 transition-transform duration-200 group-data-[state=open]:rotate-180"
+            />
+          </button>
+        </CollapsibleTrigger>
+      </div>
 
       <CollapsibleContent className="overflow-hidden border-t border-border/50 px-4 pb-4 pt-3">
         <div className="space-y-3">

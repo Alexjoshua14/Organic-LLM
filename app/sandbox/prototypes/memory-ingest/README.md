@@ -25,7 +25,7 @@ Visual motion is driven by the **Memory Lens** engine: [`_lib/lens/recipes.ts`](
 
 ## Model routing (stub)
 
-[`_lib/ingest-model-router.ts`](./_lib/ingest-model-router.ts) classifies **reflex** vs **reasoning** from length + keywords, then picks a gateway id honoring **ZDR** via `supportsZeroDataRetention`. Replace `classifyIngestTier` with a real policy when ready.
+[`@/lib/llm/auto-model-router.ts`](../../../../lib/llm/auto-model-router.ts) classifies **reflex** vs **reasoning** from length + keywords, then picks a gateway id honoring **ZDR** via `supportsZeroDataRetention`. Delphi **Auto** (`organic-llm/auto`) is resolved on the server in `/api/chat` using this module. Replace `classifyTaskTier` with a real policy when ready.
 
 ## `writing_memory` vs server persistence
 

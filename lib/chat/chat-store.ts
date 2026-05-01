@@ -58,6 +58,7 @@ import {
 } from "@/data/supabase/chat";
 import { upsertMessagesWithAdmin, updateChatStreamWithAdmin } from "@/data/supabase/chat-admin";
 import { Result, SimpleResult } from "@/types";
+import type { ChatExperience } from "@/lib/chat/chat-experience";
 import { Thread } from "@/lib/schemas/chat";
 import type { MemoryItemType } from "@/lib/schemas/memory";
 import { getSupabaseUserId } from "@/data/supabase/profiles";
@@ -91,7 +92,7 @@ interface getContextProps {
    * Product mode string from the client. **`arcadia` + memory:** rewrite + parallel Mem0 +
    * tiered prompt + inventory block. Other modes use a single Mem0 search when memory is on.
    */
-  experience?: string;
+  experience?: ChatExperience;
 }
 
 export async function createChat(): Promise<Result<string>> {

@@ -101,6 +101,7 @@ export default async function StrataBrowserPage() {
     <Page transparentBackground className="overflow-hidden">
       <AdaptiveLiquidChrome dimIntensity={0.45} />
       <StrataWorkspace
+        agentPanelTitle="Strata hub"
         agentPanel={
           <StrataAssistantPanel
             chatData={hubAgentChatData}

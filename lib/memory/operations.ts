@@ -13,6 +13,7 @@
 
 import type { UIMessage } from "ai";
 
+import type { Message } from "mem0ai/oss";
 import { SearchMemoryOptions, SearchResult } from "mem0ai/oss";
 import { auth } from "@clerk/nextjs/server";
 
@@ -22,6 +23,7 @@ import {
   deleteMemory as storeDeleteMemory,
   wipeMemory as storeWipeMemory,
   addLatestMessagesToMemory as storeAddLatestMessagesToMemory,
+  addMemory as storeAddMemory,
 } from "./store";
 
 import { SearchResult as SearchResultSchema, type SearchResultType } from "@/lib/schemas/memory";
@@ -130,6 +132,64 @@ export async function addLatestMessagesToMemoryForUser(
     }
 
     const result = await storeAddLatestMessagesToMemory(messages, userId, chatId);
+
+    return validateSearchResult(result);
+  } catch (error) {
+    return {
+      data: null,
+      error: error instanceof Error ? error.message : "Unknown error",
+    };
+  }
+}
+
+const MAX_EXPLICIT_MEMORY_MESSAGE_CHARS = 12_000;
+
+/**
+ * Server-internal explicit Mem0 add for a pre-resolved user id (Delphi commits, future callers).
+ * Applies the same add rate limit as transcript ingest. `metadata.source` must be a non-empty string.
+ */
+export async function addMemoryForUser(
+  userId: string,
+  params: {
+    messages: Message[];
+    metadata: Record<string, unknown>;
+    infer?: boolean;
+  }
+): Promise<Result<SearchResultType, string>> {
+  try {
+    if (!userId) {
+      return { data: null, error: "User ID is required" };
+    }
+
+    const source = params.metadata.source;
+
+    if (typeof source !== "string" || source.trim() === "") {
+      return { data: null, error: "metadata.source is required" };
+    }
+
+    if (!Array.isArray(params.messages) || params.messages.length === 0) {
+      return { data: null, error: "At least one message is required" };
+    }
+
+    for (const m of params.messages) {
+      if (typeof m.content !== "string") {
+        return { data: null, error: "Only text message content is supported" };
+      }
+      if (m.content.length > MAX_EXPLICIT_MEMORY_MESSAGE_CHARS) {
+        return { data: null, error: "Message content exceeds maximum length" };
+      }
+    }
+
+    const limitResult = await checkMemoryAddLimit(userId);
+
+    if (!limitResult.success) {
+      return { data: null, error: limitResult.error ?? "Too many memory add requests" };
+    }
+
+    const result = await storeAddMemory(params.messages, userId, {
+      metadata: params.metadata,
+      infer: params.infer,
+    });
 
     return validateSearchResult(result);
   } catch (error) {

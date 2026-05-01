@@ -92,6 +92,7 @@ export function StrataPageClient({
 
   return (
     <StrataWorkspace
+      agentPanelTitle={getStrataAssistantPersona(personaId).shortLabel}
       agentPanel={
         <StrataAssistantPanel
           assistantSession={assistantSession}

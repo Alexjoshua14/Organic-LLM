@@ -13,8 +13,16 @@ import { createResumableStreamContext } from "resumable-stream";
 import { saveChat } from "@/lib/chat/chat-store";
 import { getThreadHasTitle } from "@/data/supabase/chat";
 import { createLogger } from "@/lib/logger";
-import { ChatRequestSchema, DEFAULT_CHAT_MODEL } from "@/lib/schemas/chat";
+import { getLastUserMessageText } from "@/lib/arcadia/help-response";
+import { classifyTaskTier, chatModelForGatewayId, tierToGatewayModelId } from "@/lib/llm/auto-model-router";
 import { getChatModel } from "@/lib/llm/helpers";
+import {
+  AUTO_CHAT_MODEL_ID,
+  AUTO_RESOLVED_SONNET_MODEL_ID,
+  ChatModels,
+  ChatRequestSchema,
+  DEFAULT_CHAT_MODEL,
+} from "@/lib/schemas/chat";
 import { ChatUIMessage, ChatAIActionEnum } from "@/types/ai";
 import { tryArcadiaChatHelpShortcut } from "@/lib/api/arcadia-chat-help-shortcut";
 import { requireLlmChatActor } from "@/lib/api/chat-llm-gate";
@@ -39,16 +47,6 @@ export async function POST(req: Request) {
   const body = await req.json();
 
   const parseResult = ChatRequestSchema.safeParse(body);
-  // Grab the selectedModel from either the parsed request body or default to DEFAULT_CHAT_MODEL
-  const requestedModel = parseResult.data?.model;
-  const selectedModel = requestedModel ? getChatModel(requestedModel) : DEFAULT_CHAT_MODEL;
-
-  const memoryEnabled = parseResult.data?.memory;
-
-  logger.log(
-    "POST",
-    `Model selection - Requested: ${JSON.stringify(requestedModel) ?? "none"}, Using: ${JSON.stringify(selectedModel)}`
-  );
 
   if (!parseResult.success) {
     logger.error("POST", "Invalid request body: validation_failed");
@@ -68,12 +66,41 @@ export async function POST(req: Request) {
     messageSearch,
     knowledgeSearch,
     strataAssistantPersona,
+    model: requestedModel,
+    memory: memoryEnabled,
   } = parseResult.data;
   const message = incomingMessage as UIMessage;
 
   // Zero Data Retention Policy is in regards to external LLMs, not Organic LLM at this time
   // If enabled, we only use LLMs that have ZDR compatibility
   const isZeroDataRetention = zeroDataRetention === true;
+
+  let selectedModel = requestedModel ? getChatModel(requestedModel) : DEFAULT_CHAT_MODEL;
+
+  if (selectedModel.id === AUTO_CHAT_MODEL_ID) {
+    if (experience === "delphi") {
+      const userText = getLastUserMessageText(message);
+      const tier = classifyTaskTier(userText);
+      const gatewayId = tierToGatewayModelId(tier, isZeroDataRetention);
+      selectedModel = getChatModel(chatModelForGatewayId(gatewayId));
+      logger.log(
+        "POST",
+        `Model selection branch: delphi_auto_tier -> ${selectedModel.id} (tier=${tier})`
+      );
+    } else {
+      const sonnet =
+        ChatModels.find((m) => m.id === AUTO_RESOLVED_SONNET_MODEL_ID) ?? DEFAULT_CHAT_MODEL;
+      selectedModel = getChatModel(sonnet);
+      logger.log("POST", `Model selection branch: auto_sonnet_default -> ${selectedModel.id}`);
+    }
+  } else {
+    logger.log("POST", `Model selection explicit -> ${selectedModel.id}`);
+  }
+
+  logger.log(
+    "POST",
+    `Model selection - Requested: ${JSON.stringify(requestedModel) ?? "none"}, Using: ${JSON.stringify(selectedModel)}`
+  );
 
   const authGate = await requireLlmChatActor();
 
@@ -247,6 +274,7 @@ export async function POST(req: Request) {
         maxSteps,
         isZeroDataRetention,
         memoryEnabled,
+        experience,
         userMessage: message,
         threadHasTitlePromise,
       });

@@ -5,7 +5,7 @@ import Link from "next/link";
 
 import AdaptiveLiquidChrome from "@/components/background/AdaptiveLiquidChrome";
 import { OrganicGlassBaselineSurface } from "@/components/design-system/organic-glass-baseline-surface";
-import { glassPreview } from "@/components/design-system/primitives";
+import { glass, glassPreview } from "@/components/design-system/primitives";
 import Page from "@/components/layout/page";
 import { cn } from "@/lib/utils";
 import { tabTitleMetadata } from "@/lib/metadata/tab-title";
@@ -13,6 +13,12 @@ import { tabTitleMetadata } from "@/lib/metadata/tab-title";
 export const metadata: Metadata = {
   ...tabTitleMetadata(null, "Organic Glass"),
 };
+
+const GLASS_LAB_DEMO_ACTIONS = ["Ask", "Remember", "Reason", "Speak"] as const;
+
+/** Shared across columns so only the parent surface material differs. */
+const glassLabActionButtonClass =
+  "rounded-full border border-white/25 bg-background/45 px-4 py-2 text-sm text-foreground shadow-inner transition hover:-translate-y-0.5 hover:border-accent/30 hover:bg-background/60 active:translate-y-0 dark:border-white/10 dark:bg-background-secondary/45";
 
 function RefractiveGlassSurface({
   children,
@@ -43,14 +49,22 @@ function RefractiveGlassSurface({
   );
 }
 
-function VersionBadge({ label, state }: { label: string; state: "stable" | "working" }) {
+function VersionBadge({
+  label,
+  state,
+}: {
+  label: string;
+  state: "production" | "stable" | "working";
+}) {
   return (
     <span
       className={cn(
         "rounded-full border px-3 py-1 text-xs font-medium",
-        state === "stable"
-          ? "border-emerald-500/20 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300"
-          : "border-accent/25 bg-accent/10 text-accent"
+        state === "production" &&
+          "border-zinc-500/25 bg-zinc-500/10 text-zinc-700 dark:border-zinc-400/20 dark:bg-zinc-400/10 dark:text-zinc-200",
+        state === "stable" &&
+          "border-emerald-500/20 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300",
+        state === "working" && "border-accent/25 bg-accent/10 text-accent"
       )}
     >
       {label}
@@ -65,6 +79,100 @@ function SurfaceCase({ title, children }: { title: string; children: ReactNode }
         {title}
       </p>
       {children}
+    </div>
+  );
+}
+
+function GlassLabHeroBody({
+  eyebrow,
+  title,
+  statusPill,
+  surfaceCaseTitle,
+  surfaceCaseBody,
+}: {
+  eyebrow: string;
+  title: string;
+  statusPill: ReactNode;
+  surfaceCaseTitle: string;
+  surfaceCaseBody: ReactNode;
+}) {
+  return (
+    <>
+      <div className="mb-12 flex items-start justify-between gap-6">
+        <div>
+          <p className="text-xs uppercase tracking-[0.26em] text-muted-foreground">{eyebrow}</p>
+          <h3 className="mt-3 text-3xl font-light tracking-tight text-foreground">{title}</h3>
+        </div>
+        {statusPill}
+      </div>
+      <div className="space-y-4">
+        <SurfaceCase title={surfaceCaseTitle}>{surfaceCaseBody}</SurfaceCase>
+        <div className="flex flex-wrap gap-3">
+          {GLASS_LAB_DEMO_ACTIONS.map((action) => (
+            <button className={glassLabActionButtonClass} key={action} type="button">
+              {action}
+            </button>
+          ))}
+        </div>
+      </div>
+    </>
+  );
+}
+
+function GlassLabColumn({
+  sectionClassName,
+  badgeLabel,
+  badgeState,
+  columnTitle,
+  intro,
+  children,
+}: {
+  sectionClassName: string;
+  badgeLabel: string;
+  badgeState: "production" | "stable" | "working";
+  columnTitle: string;
+  intro: ReactNode;
+  children: ReactNode;
+}) {
+  return (
+    <section className={sectionClassName}>
+      <div className="mx-auto max-w-2xl space-y-6">
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <VersionBadge label={badgeLabel} state={badgeState} />
+            <h2 className="mt-4 text-3xl font-light tracking-[-0.035em] text-foreground">
+              {columnTitle}
+            </h2>
+            <div className="mt-3 text-sm leading-6 text-muted-foreground">{intro}</div>
+          </div>
+        </div>
+        {children}
+      </div>
+    </section>
+  );
+}
+
+function GlassLabBottomTiles({
+  leadingSurfaceClassName,
+  trailingSurfaceClassName,
+  denseBody,
+  warmBody,
+}: {
+  leadingSurfaceClassName: string;
+  trailingSurfaceClassName: string;
+  denseBody: ReactNode;
+  warmBody: ReactNode;
+}) {
+  return (
+    <div className="grid gap-3 sm:grid-cols-2">
+      <div className={cn(leadingSurfaceClassName, "rounded-3xl p-5")}>
+        <p className="text-xs uppercase tracking-[0.22em] text-muted-foreground">Dense text</p>
+        <div className="mt-3 text-sm leading-6 text-muted-foreground">{denseBody}</div>
+      </div>
+      <div className={cn(trailingSurfaceClassName, "rounded-3xl p-5")}>
+        <p className="text-xs uppercase tracking-[0.22em] text-muted-foreground">Warm tone</p>
+        <div className="mt-3 text-sm leading-6 text-muted-foreground">{warmBody}</div>
+      </div>
     </div>
   );
 }
@@ -88,167 +196,163 @@ export default function GlassPrimitivePrototypePage() {
                 Organic Glass lab
               </p>
               <h1 className="truncate text-xl font-light tracking-tight text-foreground sm:text-2xl">
-                Stable baseline vs working prototype
+                Shipped glass, lab baseline, and working experiment
               </h1>
             </div>
           </div>
         </header>
 
-        <main className="grid min-h-0 flex-1 grid-cols-1 overflow-hidden lg:grid-cols-2">
-          <section className="min-h-0 overflow-y-auto border-b border-white/10 px-5 py-6 lg:border-b-0 lg:border-r lg:px-8">
-            <div className="mx-auto max-w-2xl space-y-6">
-              <div className="flex items-start justify-between gap-4">
-                <div>
-                  <VersionBadge label="Stable 2.0" state="stable" />
-                  <h2 className="mt-4 text-3xl font-light tracking-[-0.035em] text-foreground">
-                    Approved baseline
-                  </h2>
-                  <p className="mt-3 text-sm leading-6 text-muted-foreground">
-                    This is the first approved layer: the initial Organic Glass direction preserved
-                    as the baseline before refraction experiments are merged back in.
+        <main className="grid min-h-0 flex-1 grid-cols-1 overflow-y-auto lg:grid-cols-3">
+          <GlassLabColumn
+            badgeLabel="Production"
+            badgeState="production"
+            columnTitle="Shipped primitive"
+            intro={
+              <>
+                The default <code className="text-foreground/90">glass()</code> helper used across
+                chat, chrome, and settings: translucent tertiary fill, strong static blur, and a
+                hairline border — no preview-only lens stack.
+              </>
+            }
+            sectionClassName="border-b border-white/10 px-5 py-6 lg:border-b-0 lg:border-r lg:px-8"
+          >
+            <div
+              className={cn(
+                glass(),
+                "relative min-h-[410px] rounded-[2rem] p-6 sm:p-8 motion-safe:transition-shadow motion-safe:duration-200 motion-safe:ease-out hover:shadow-md"
+              )}
+            >
+              <GlassLabHeroBody
+                eyebrow="In production"
+                surfaceCaseBody={
+                  <p className="leading-6 text-muted-foreground">
+                    Backdrop-brightened frosted panels keep type legible over busy chrome without
+                    animating backdrop-filter. Tone and opaque variants map to the same primitive.
                   </p>
-                </div>
-              </div>
-
-              <OrganicGlassBaselineSurface className="min-h-[410px]">
-                <div className="mb-12 flex items-start justify-between gap-6">
-                  <div>
-                    <p className="text-xs uppercase tracking-[0.26em] text-muted-foreground">
-                      Candidate primitive
-                    </p>
-                    <h3 className="mt-3 text-3xl font-light tracking-tight text-foreground">
-                      Organic Glass
-                    </h3>
+                }
+                surfaceCaseTitle="Ship contract"
+                statusPill={
+                  <div className="rounded-full border border-zinc-500/20 bg-zinc-500/10 px-3 py-1 text-xs font-medium text-zinc-700 dark:border-zinc-400/15 dark:bg-zinc-400/10 dark:text-zinc-200">
+                    default
                   </div>
+                }
+                title="Frosted glass"
+              />
+            </div>
+
+            <GlassLabBottomTiles
+              denseBody={
+                <p>
+                  Opaque variant raises fill for readable type over liquid chrome without changing
+                  the material family.
+                </p>
+              }
+              leadingSurfaceClassName={glass({ opaque: true })}
+              trailingSurfaceClassName={glass({ tone: "brown" })}
+              warmBody={
+                <p>Brown tone adds a warm wash and saturate for editorial surfaces in the app.</p>
+              }
+            />
+          </GlassLabColumn>
+
+          <GlassLabColumn
+            badgeLabel="Stable 2.0"
+            badgeState="stable"
+            columnTitle="Approved baseline"
+            intro={
+              <>
+                This is the first approved layer: the initial Organic Glass direction preserved as
+                the baseline before refraction experiments are merged back in.
+              </>
+            }
+            sectionClassName="border-b border-white/10 px-5 py-6 lg:border-b-0 lg:border-r lg:px-8"
+          >
+            <OrganicGlassBaselineSurface className="min-h-[410px]">
+              <GlassLabHeroBody
+                eyebrow="Candidate primitive"
+                surfaceCaseBody={
+                  <p className="leading-6 text-muted-foreground">
+                    Semi-opaque optical fill, moderate static blur, inner edge light, and cheap
+                    hover response. The ambient chrome reads as atmosphere instead of noise.
+                  </p>
+                }
+                surfaceCaseTitle="Stable layer"
+                statusPill={
                   <div className="rounded-full border border-accent/20 bg-accent/10 px-3 py-1 text-xs font-medium text-accent">
                     alive
                   </div>
-                </div>
+                }
+                title="Organic Glass"
+              />
+            </OrganicGlassBaselineSurface>
 
-                <div className="space-y-4">
-                  <SurfaceCase title="Stable layer">
-                    <p className="leading-6 text-muted-foreground">
-                      Semi-opaque optical fill, moderate static blur, inner edge light, and cheap
-                      hover response. The ambient chrome reads as atmosphere instead of noise.
-                    </p>
-                  </SurfaceCase>
-                  <div className="flex flex-wrap gap-3">
-                    {["Ask", "Remember", "Reason", "Speak"].map((action) => (
-                      <button
-                        className="rounded-full border border-white/25 bg-background/45 px-4 py-2 text-sm text-foreground shadow-inner transition hover:-translate-y-0.5 hover:border-accent/30 hover:bg-background/60 active:translate-y-0 dark:border-white/10 dark:bg-background-secondary/45"
-                        key={action}
-                        type="button"
-                      >
-                        {action}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              </OrganicGlassBaselineSurface>
+            <GlassLabBottomTiles
+              denseBody={
+                <p>
+                  Readability remains anchored by fill, ring, and border rather than raw
+                  transparency.
+                </p>
+              }
+              leadingSurfaceClassName={glassPreview({ opaque: true })}
+              trailingSurfaceClassName={glassPreview({ tone: "brown" })}
+              warmBody={<p>Arcadia-style warmth without losing the glass material behavior.</p>}
+            />
+          </GlassLabColumn>
 
-              <div className="grid gap-3 sm:grid-cols-2">
-                <div className={cn(glassPreview({ opaque: true }), "rounded-3xl p-5")}>
-                  <p className="text-xs uppercase tracking-[0.22em] text-muted-foreground">
-                    Dense text
+          <GlassLabColumn
+            badgeLabel="Working 2.01"
+            badgeState="working"
+            columnTitle="Refraction pass"
+            intro={
+              <>
+                Inspired by Fluid Glass: stronger lens thickness, chromatic edge separation,
+                displaced light bands, and more realistic internal reflection while keeping the
+                default performance contract intact.
+              </>
+            }
+            sectionClassName="px-5 py-6 lg:px-8"
+          >
+            <RefractiveGlassSurface className="min-h-[410px]">
+              <GlassLabHeroBody
+                eyebrow="Working prototype"
+                surfaceCaseBody={
+                  <p className="leading-6 text-muted-foreground">
+                    Simulated lensing uses layered highlights, offset cyan/red edges, soft
+                    displacement bands, and inner glow. It suggests bent light without requiring a
+                    shader or animating blur.
                   </p>
-                  <p className="mt-3 text-sm leading-6 text-muted-foreground">
-                    Readability remains anchored by fill, ring, and border rather than raw
-                    transparency.
-                  </p>
-                </div>
-                <div className={cn(glassPreview({ tone: "brown" }), "rounded-3xl p-5")}>
-                  <p className="text-xs uppercase tracking-[0.22em] text-muted-foreground">
-                    Warm tone
-                  </p>
-                  <p className="mt-3 text-sm leading-6 text-muted-foreground">
-                    Arcadia-style warmth without losing the glass material behavior.
-                  </p>
-                </div>
-              </div>
-            </div>
-          </section>
-
-          <section className="min-h-0 overflow-y-auto px-5 py-6 lg:px-8">
-            <div className="mx-auto max-w-2xl space-y-6">
-              <div className="flex items-start justify-between gap-4">
-                <div>
-                  <VersionBadge label="Working 2.01" state="working" />
-                  <h2 className="mt-4 text-3xl font-light tracking-[-0.035em] text-foreground">
-                    Refraction pass
-                  </h2>
-                  <p className="mt-3 text-sm leading-6 text-muted-foreground">
-                    Inspired by Fluid Glass: stronger lens thickness, chromatic edge separation,
-                    displaced light bands, and more realistic internal reflection while keeping the
-                    default performance contract intact.
-                  </p>
-                </div>
-              </div>
-
-              <RefractiveGlassSurface className="min-h-[410px]">
-                <div className="mb-10 flex items-start justify-between gap-6">
-                  <div>
-                    <p className="text-xs uppercase tracking-[0.26em] text-muted-foreground">
-                      Working prototype
-                    </p>
-                    <h3 className="mt-3 text-3xl font-light tracking-tight text-foreground">
-                      Organic Glass 2.01
-                    </h3>
-                  </div>
+                }
+                surfaceCaseTitle="Refraction model"
+                statusPill={
                   <div className="rounded-full border border-cyan-300/25 bg-cyan-300/10 px-3 py-1 text-xs font-medium text-cyan-700 dark:text-cyan-200">
                     refractive
                   </div>
-                </div>
+                }
+                title="Organic Glass 2.01"
+              />
+            </RefractiveGlassSurface>
 
-                <div className="space-y-4">
-                  <SurfaceCase title="Refraction model">
-                    <p className="leading-6 text-muted-foreground">
-                      Simulated lensing uses layered highlights, offset cyan/red edges, soft
-                      displacement bands, and inner glow. It suggests bent light without requiring a
-                      shader or animating blur.
-                    </p>
-                  </SurfaceCase>
-
-                  <div className="rounded-3xl border border-white/24 bg-background/30 p-4 shadow-inner backdrop-blur-md dark:border-white/10 dark:bg-background-secondary/30">
-                    <div className="flex items-center justify-between gap-4">
-                      <div>
-                        <p className="text-xs uppercase tracking-[0.22em] text-muted-foreground">
-                          Chat lens
-                        </p>
-                        <p className="mt-2 text-sm text-foreground">What should we refine next?</p>
-                      </div>
-                      <button
-                        className="rounded-full bg-foreground px-4 py-2 text-sm text-background transition hover:scale-[1.02] active:scale-[0.98]"
-                        type="button"
-                      >
-                        Send
-                      </button>
-                    </div>
-                  </div>
-
-                  <div className="flex flex-wrap items-center gap-2">
-                    {["IOR feel", "edge prism", "inner caustic", "static blur"].map((chip) => (
-                      <span
-                        className="rounded-full border border-white/25 bg-background/38 px-3 py-1.5 text-xs text-foreground shadow-inner dark:border-white/10 dark:bg-background-secondary/38"
-                        key={chip}
-                      >
-                        {chip}
-                      </span>
-                    ))}
-                  </div>
-                </div>
-              </RefractiveGlassSurface>
-
-              <div className={cn(glassPreview({ depth: "flat" }), "rounded-3xl p-5")}>
-                <p className="text-xs uppercase tracking-[0.22em] text-muted-foreground">
-                  Approval workflow
+            <GlassLabBottomTiles
+              denseBody={
+                <p>
+                  Dense preview tiles keep the same contract as production: opaque fill stays calm
+                  over chrome while the lens stack reads on top.
                 </p>
-                <p className="mt-3 text-sm leading-6 text-muted-foreground">
-                  If 2.01 is approved, it becomes the left-side baseline as stable 2.01. The next
-                  experiment starts on the right as 2.02.
-                </p>
-              </div>
-            </div>
-          </section>
+              }
+              leadingSurfaceClassName={glassPreview({ opaque: true })}
+              trailingSurfaceClassName={glassPreview({ tone: "brown" })}
+              warmBody={
+                <>
+                  <p>
+                    Arcadia-style warmth without losing the glass material behavior. Promotion path:{" "}
+                    <code className="text-foreground/90">glass()</code> stays in the product until a
+                    preview ships app-wide; 2.01 would become the center baseline as stable 2.01 and
+                    the next experiment continues on the right as 2.02.
+                  </p>
+                </>
+              }
+            />
+          </GlassLabColumn>
         </main>
       </div>
     </Page>

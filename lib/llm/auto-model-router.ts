@@ -1,11 +1,13 @@
-import type { IngestModelTier } from "./types";
-
 import {
+  AUTO_CHAT_MODEL_ID,
   ChatModels,
   DEFAULT_CHAT_MODEL,
   type ChatModel,
   type GatewayModelId,
 } from "@/lib/schemas/chat";
+
+/** Task complexity tier for tier → gateway routing (Delphi Auto path, etc.). */
+export type TaskComplexityTier = "reflex" | "reasoning";
 
 const REASONING_KEYWORDS =
   /\b(why|how come|analyze|analyse|compare|contrast|prove|justify|implications|trade-?offs?|step by step|deep dive|reason through|elaborate|critique|evaluate)\b/i;
@@ -16,7 +18,7 @@ const REASONING_MIN_LEN = 280;
  * v1 stub classifier — replace with an LLM or policy later.
  * Long drafts or reasoning-ish keywords route to the heavier tier.
  */
-export function classifyIngestTier(input: string): IngestModelTier {
+export function classifyTaskTier(input: string): TaskComplexityTier {
   const t = input.trim();
 
   if (t.length >= REASONING_MIN_LEN) return "reasoning";
@@ -25,17 +27,23 @@ export function classifyIngestTier(input: string): IngestModelTier {
   return "reflex";
 }
 
-function firstZdrModelId(): GatewayModelId {
-  const m = ChatModels.find((c) => c.supportsZeroDataRetention !== false);
+function firstGatewayModel(predicate: (c: ChatModel) => boolean): GatewayModelId {
+  const m = ChatModels.find((c) => c.id !== AUTO_CHAT_MODEL_ID && predicate(c));
+  const fallback = ChatModels.find((c) => c.id !== AUTO_CHAT_MODEL_ID);
+  const row = m ?? fallback ?? DEFAULT_CHAT_MODEL;
 
-  return (m ?? ChatModels[0]).id;
+  return row.id as GatewayModelId;
+}
+
+function firstZdrModelId(): GatewayModelId {
+  return firstGatewayModel((c) => c.supportsZeroDataRetention !== false);
 }
 
 function firstAnyModelId(): GatewayModelId {
-  return ChatModels[0].id;
+  return firstGatewayModel(() => true);
 }
 
-/** Fast, cheap gateway ids for short ingest turns. */
+/** Fast, cheap gateway ids for short turns. */
 const REFLEX_IDS_ZDR: GatewayModelId[] = [
   "anthropic/claude-haiku-4.5",
   "google/gemini-2.5-flash-lite",
@@ -60,7 +68,7 @@ function pickFirstAllowed(ids: GatewayModelId[], zdr: boolean): GatewayModelId {
   for (const id of ids) {
     const row = ChatModels.find((c) => c.id === id);
 
-    if (!row) continue;
+    if (!row || row.id === AUTO_CHAT_MODEL_ID) continue;
     if (zdr && row.supportsZeroDataRetention === false) continue;
 
     return id;
@@ -70,9 +78,9 @@ function pickFirstAllowed(ids: GatewayModelId[], zdr: boolean): GatewayModelId {
 }
 
 /**
- * Maps ingest tier + ZDR flag to a concrete gateway model id present in {@link ChatModels}.
+ * Maps task tier + ZDR flag to a concrete gateway model id present in {@link ChatModels}.
  */
-export function tierToGatewayModelId(tier: IngestModelTier, zdr: boolean): GatewayModelId {
+export function tierToGatewayModelId(tier: TaskComplexityTier, zdr: boolean): GatewayModelId {
   if (tier === "reflex") {
     return pickFirstAllowed(REFLEX_IDS_ZDR, zdr);
   }

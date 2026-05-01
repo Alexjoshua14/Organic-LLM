@@ -9,11 +9,7 @@ import { useChat } from "@ai-sdk/react";
 import { DefaultChatTransport } from "ai";
 import { useCallback, useEffect, useReducer, useRef } from "react";
 
-import {
-  chatModelForGatewayId,
-  classifyIngestTier,
-  tierToGatewayModelId,
-} from "../_lib/ingest-model-router";
+import { classifyTaskTier } from "@/lib/llm/auto-model-router";
 import {
   initialMemoryIngestFsmState,
   mapChatStatusToIngestEvent,
@@ -22,6 +18,7 @@ import {
 } from "../_lib/memory-ingest-fsm";
 
 import { getChatModel } from "@/lib/llm/helpers";
+import { AUTO_CHAT_MODEL } from "@/lib/schemas/chat";
 import { getSettings } from "@/lib/user-settings";
 
 export type UseMemoryIngestSessionParams = {
@@ -32,11 +29,7 @@ export type UseMemoryIngestSessionParams = {
 export function useMemoryIngestSession({ chatId, initialMessages }: UseMemoryIngestSessionParams) {
   const [fsm, dispatch] = useReducer(memoryIngestReducer, initialMemoryIngestFsmState);
   const particleRef = useRef<ParticleFieldHandle>(null);
-  const modelRef = useRef<ChatModel>(
-    getChatModel(
-      chatModelForGatewayId(tierToGatewayModelId("reflex", getSettings().zeroDataRetention))
-    )
-  );
+  const modelRef = useRef<ChatModel>(getChatModel(AUTO_CHAT_MODEL));
   const useWebSearchRef = useRef(false);
   const useMemoriesRef = useRef(true);
   const receiptTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -66,6 +59,7 @@ export function useMemoryIngestSession({ chatId, initialMessages }: UseMemoryIng
             memory: useMemoriesRef.current,
             messageSearch: true,
             knowledgeSearch: false,
+            experience: "Delphi",
             zeroDataRetention: getSettings().zeroDataRetention,
           },
         };
@@ -106,10 +100,7 @@ export function useMemoryIngestSession({ chatId, initialMessages }: UseMemoryIng
 
   const sendIngest = useCallback(
     async (text: string) => {
-      const tier = classifyIngestTier(text);
-      const zdr = getSettings().zeroDataRetention;
-
-      modelRef.current = getChatModel(chatModelForGatewayId(tierToGatewayModelId(tier, zdr)));
+      const tier = classifyTaskTier(text);
       dispatch({ type: "SUBMIT", tier });
       await sendMessage({ text });
     },

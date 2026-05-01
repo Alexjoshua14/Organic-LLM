@@ -32,9 +32,6 @@ import { ChatModel, DEFAULT_CHAT_MODEL } from "@/lib/schemas/chat";
 import { getStrataAssistantPersona } from "@/lib/personas/strata-assistant";
 import { ChatAIActionEnum } from "@/types/ai";
 import { getChatErrorMessage } from "@/lib/chat/error-messages";
-import { StrataAssistantPersonaGuide } from "@/app/sandbox/prototypes/strata/_components/StrataAssistantPersonaGuide";
-import { StrataSourceComposerOptions } from "@/app/sandbox/prototypes/strata/_components/strata-shell/StrataSourceComposerOptions";
-
 const logger = createLogger("components/chat/chat");
 
 export type ChatProps = {
@@ -396,18 +393,6 @@ export const Chat: React.FC<ChatProps> = ({
               </SheetContent>
             </Sheet>
           )}
-          {experience === "strata_page" && assistantSession ? (
-            <>
-              <StrataSourceComposerOptions
-                assistantSession={assistantSession}
-                assistantToolsDefaultOpen={false}
-                collapsibleAssistantTools
-              />
-              <div className="flex justify-end">
-                <StrataAssistantPersonaGuide />
-              </div>
-            </>
-          ) : null}
           <CoreInput
             chatId={chatData?.thread.id}
             clearError={clearError}

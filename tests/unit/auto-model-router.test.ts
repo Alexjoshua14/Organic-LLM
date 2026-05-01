@@ -2,23 +2,23 @@ import { describe, expect, test } from "bun:test";
 
 import {
   chatModelForGatewayId,
-  classifyIngestTier,
+  classifyTaskTier,
   tierToGatewayModelId,
-} from "@/app/sandbox/prototypes/memory-ingest/_lib/ingest-model-router";
-import { ChatModels } from "@/lib/schemas/chat";
+} from "@/lib/llm/auto-model-router";
+import { AUTO_CHAT_MODEL_ID, ChatModels } from "@/lib/schemas/chat";
 
-describe("classifyIngestTier", () => {
+describe("classifyTaskTier", () => {
   test("short plain text is reflex", () => {
-    expect(classifyIngestTier("remember I like oat milk")).toBe("reflex");
+    expect(classifyTaskTier("remember I like oat milk")).toBe("reflex");
   });
 
   test("keyword why routes to reasoning", () => {
-    expect(classifyIngestTier("Why is the sky blue?")).toBe("reasoning");
+    expect(classifyTaskTier("Why is the sky blue?")).toBe("reasoning");
   });
 
   test("long text routes to reasoning", () => {
     const s = "x".repeat(300);
-    expect(classifyIngestTier(s)).toBe("reasoning");
+    expect(classifyTaskTier(s)).toBe("reasoning");
   });
 });
 
@@ -32,15 +32,16 @@ describe("chatModelForGatewayId", () => {
 describe("tierToGatewayModelId", () => {
   test("ZDR reflex picks a ZDR-capable model", () => {
     const id = tierToGatewayModelId("reflex", true);
-    const row = ChatModels.find((c) => c.id === id);
-    expect(row).toBeDefined();
-    expect(row?.supportsZeroDataRetention).not.toBe(false);
+    const row = ChatModels.find((c) => c.id === id)!;
+    expect(row.id).not.toBe(AUTO_CHAT_MODEL_ID);
+    expect(row.supportsZeroDataRetention).not.toBe(false);
   });
 
   test("ZDR reasoning picks a ZDR-capable model", () => {
     const id = tierToGatewayModelId("reasoning", true);
-    const row = ChatModels.find((c) => c.id === id);
-    expect(row?.supportsZeroDataRetention).not.toBe(false);
+    const row = ChatModels.find((c) => c.id === id)!;
+    expect(row.id).not.toBe(AUTO_CHAT_MODEL_ID);
+    expect(row.supportsZeroDataRetention).not.toBe(false);
   });
 
   test("non-ZDR reasoning may use non-ZDR catalog entries", () => {

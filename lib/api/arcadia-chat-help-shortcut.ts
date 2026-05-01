@@ -6,12 +6,13 @@ import {
   getLastUserMessageText,
   isArcadiaHelpQuery,
 } from "@/lib/arcadia/help-response";
+import type { ChatExperience } from "@/lib/chat/chat-experience";
 import { saveChat } from "@/lib/chat/chat-store";
 import type { Logger } from "@/lib/logger";
 import type { ChatUIMessage } from "@/types/ai";
 
 export type TryArcadiaChatHelpShortcutParams = {
-  experience: string | undefined;
+  experience: ChatExperience | undefined;
   message: UIMessage;
   validatedMessages: UIMessage[];
   assistantMessageId: string;

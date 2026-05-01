@@ -46,7 +46,7 @@ export const prototypes: PrototypeEntry[] = [
     slug: "glass-primitive",
     title: "Glass primitive",
     description:
-      "Candidate Organic Glass material designed to play in tandem with AdaptiveLiquidChrome before becoming the default primitive.",
+      "Three-column lab: shipped glass(), approved Organic Glass baseline, and working preview — tuned for AdaptiveLiquidChrome before promotion.",
     ranking: {
       importance: 10,
       frequency: 10,

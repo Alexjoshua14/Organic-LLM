@@ -2,24 +2,44 @@ import type { GatewayModelId } from "@ai-sdk/gateway";
 
 import z from "zod";
 
+import { CHAT_EXPERIENCES, parseChatExperience } from "@/lib/chat/chat-experience";
+
 // Message role enum
 export const MessageRole = z.enum(["user", "assistant", "system"]);
 
 // Message schema kind enum
 export const MessageSchemaKind = z.enum(["ui_message"]);
 
-// Approved chat models enum (`id` matches Vercel AI Gateway / AI SDK model ids)
-export const ChatModelSchema = z.object({
-  id: z.string() as z.ZodType<GatewayModelId>,
+/** Sentinel: resolved on the server before any gateway / streamText call. */
+export const AUTO_CHAT_MODEL_ID = "organic-llm/auto" as const;
+
+/** Non-Delphi `AUTO_CHAT_MODEL_ID` resolves to this gateway id (single policy knob). */
+export const AUTO_RESOLVED_SONNET_MODEL_ID = "anthropic/claude-sonnet-4.6" as const;
+
+export type ChatModelId = GatewayModelId | typeof AUTO_CHAT_MODEL_ID;
+
+export type ChatModel = {
+  id: ChatModelId;
+  name: string;
+  supportsZeroDataRetention?: boolean;
+};
+
+export const ChatModelSchema: z.ZodType<ChatModel> = z.object({
+  id: z.union([z.literal(AUTO_CHAT_MODEL_ID), z.string()]),
   name: z.string(),
   supportsZeroDataRetention: z.boolean().optional(),
-});
+}) as z.ZodType<ChatModel>;
 
-export type ChatModel = z.infer<typeof ChatModelSchema>;
 /** Re-export for call sites that only need the gateway model id union. */
 export type { GatewayModelId };
 
-export const ChatModels: ChatModel[] = [
+export const AUTO_CHAT_MODEL: ChatModel = {
+  id: AUTO_CHAT_MODEL_ID,
+  name: "Auto",
+  supportsZeroDataRetention: true,
+};
+
+const gatewayChatModels: ChatModel[] = [
   { id: "openai/gpt-5.4", name: "GPT-5.4", supportsZeroDataRetention: true },
   { id: "openai/gpt-5.4-mini", name: "GPT-5 Mini", supportsZeroDataRetention: true },
   { id: "openai/gpt-5.4-nano", name: "GPT-5 Nano", supportsZeroDataRetention: true },
@@ -53,9 +73,12 @@ export const ChatModels: ChatModel[] = [
   },
   { id: "openai/gpt-oss-120b", name: "GPT OSS [120b]", supportsZeroDataRetention: true },
   { id: "openai/gpt-oss-20b", name: "GPT OSS [20b]", supportsZeroDataRetention: true },
-] as const;
+];
 
-export const DEFAULT_CHAT_MODEL: ChatModel = ChatModels[0];
+/** First entry is Auto; default fixed model remains the first real gateway id. */
+export const ChatModels: ChatModel[] = [AUTO_CHAT_MODEL, ...gatewayChatModels];
+
+export const DEFAULT_CHAT_MODEL: ChatModel = gatewayChatModels[0];
 
 // Thread schema
 export const ThreadCreate = z.object({
@@ -142,6 +165,18 @@ export const UIMessageSchema = z
 
 export const StrataAssistantPersonaRequestSchema = z.enum(["remy", "spark", "aion", "prometheus"]);
 
+/** Re-export for callers that branch on product mode. */
+export type { ChatExperience } from "@/lib/chat/chat-experience";
+
+const ChatExperienceSchema = z.preprocess(
+  (val) => {
+    if (val === undefined || val === null) return undefined;
+    if (typeof val !== "string") return undefined;
+    return parseChatExperience(val);
+  },
+  z.enum(CHAT_EXPERIENCES).optional()
+);
+
 export const ChatRequestSchema = z.object({
   message: UIMessageSchema,
   id: z.uuid(),
@@ -155,8 +190,8 @@ export const ChatRequestSchema = z.object({
   knowledgeSearch: z.boolean().optional().default(false),
   /** Strata page assistant: persona affecting system prompt and default model client-side. */
   strataAssistantPersona: StrataAssistantPersonaRequestSchema.optional(),
-  /** Client hint: which chat experience initiated the request (e.g. arcadia). */
-  experience: z.string().optional(),
+  /** Client hint: which chat experience initiated the request (case-insensitive; unknown values omitted). */
+  experience: ChatExperienceSchema,
   /** Strata page assistant: server loads this page for grounding when `experience` is `strata_page`. */
   strataPageId: z.string().uuid().optional(),
   /** When true, request is in zero-data-retention mode (no persistence). */

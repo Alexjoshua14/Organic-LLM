@@ -13,7 +13,7 @@ import { motion } from "framer-motion";
 import { StrataSourceComposerOptions } from "./StrataSourceComposerOptions";
 import { StrataSourceIngestBar } from "./StrataSourceIngestBar";
 import { StrataTextSourcesList } from "./StrataTextSourcesList";
-import { NOTEBOOK_FOCUS_CLASS, type SourceDocLayout } from "./strata-shell-model";
+import type { SourceDocLayout } from "./strata-shell-model";
 
 import {
   Collapsible,
@@ -75,7 +75,6 @@ export function StrataSourceTab({
     [sections.raw_text.contentJson]
   );
 
-  const hasStructuredSources = textSources.length > 0;
   const ingestEnabled = dbAvailable && !localOnlyMode && !pageId.startsWith("local-");
 
   const applySources = useCallback(
@@ -177,13 +176,6 @@ export function StrataSourceTab({
 
   return (
     <div className="flex min-h-0 flex-col gap-3">
-      {assistantSession ? (
-        <StrataSourceComposerOptions
-          assistantSession={assistantSession}
-          collapsibleAssistantTools
-          assistantToolsDefaultOpen
-        />
-      ) : null}
       <div className="flex min-w-0 w-full items-center justify-between gap-3">
         <div className="flex min-w-0 flex-1 items-center justify-start">{statusRow}</div>
         <div className="flex shrink-0 items-center gap-2">
@@ -269,6 +261,13 @@ export function StrataSourceTab({
           </div>
         </div>
       </div>
+      {assistantSession ? (
+        <StrataSourceComposerOptions
+          assistantSession={assistantSession}
+          collapsibleAssistantTools
+          assistantToolsDefaultOpen
+        />
+      ) : null}
       <div
         className={cn(
           "grid gap-3 auto-rows-[minmax(12rem,auto)]",
@@ -278,13 +277,10 @@ export function StrataSourceTab({
         {sourceDocLayout !== "refined" ? (
           <div className="flex h-full min-h-0 min-w-0 flex-col gap-3">
             <div className="shrink-0 space-y-3">
-              <Collapsible
-                defaultOpen
-                className="group rounded-lg border border-border/60 bg-muted/5 dark:bg-muted/10"
-              >
+              <Collapsible defaultOpen className="group">
                 <CollapsibleTrigger
                   type="button"
-                  className="flex w-full items-center justify-between gap-2 rounded-lg px-4 py-3 text-left text-sm font-medium text-foreground transition-colors hover:bg-muted/30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+                  className="flex w-full items-center justify-between gap-2 py-3 text-left text-sm font-medium text-foreground transition-colors hover:bg-muted/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
                 >
                   <span>Import & add sources</span>
                   <ChevronDown
@@ -293,10 +289,11 @@ export function StrataSourceTab({
                   />
                 </CollapsibleTrigger>
                 <CollapsibleContent className="overflow-hidden">
-                  <div className="space-y-3 border-t border-border/50 px-4 pb-4 pt-3">
+                  <div className="space-y-3 pb-4 pt-1">
                     <StrataSourceIngestBar
                       ingestEnabled={ingestEnabled}
                       pageId={pageId}
+                      reduceMotion={reduceMotion}
                       onAppendNodes={onAppendNodes}
                     />
                     {!ingestEnabled ? (
@@ -308,32 +305,6 @@ export function StrataSourceTab({
                   </div>
                 </CollapsibleContent>
               </Collapsible>
-              <textarea
-                data-dim-background="full"
-                className={cn(
-                  glass(),
-                  "min-h-[10rem] w-full shrink-0 resize-y overflow-y-auto rounded-lg border border-border/70 p-4",
-                  "focus:bg-background-tertiary/75 dark:focus:bg-background-tertiary/75",
-                  "text-[15px] leading-7 font-normal text-foreground",
-                  "shadow-inner transition-[background-image,background-size] duration-200",
-                  NOTEBOOK_FOCUS_CLASS
-                )}
-                placeholder={
-                  hasStructuredSources
-                    ? "Raw text (editable). Reordering or editing saved sources below rebuilds the combined corpus and can overwrite this field."
-                    : "Raw source text — save sources appear below when you add them."
-                }
-                value={sections.raw_text.content}
-                onChange={(e) => {
-                  const v = e.target.value;
-
-                  setSections((prev) => ({
-                    ...prev,
-                    raw_text: { ...prev.raw_text, content: v },
-                  }));
-                  queueRawAutosave();
-                }}
-              />
             </div>
             <div className="flex min-h-0 min-w-0 flex-1 flex-col gap-2 overflow-y-auto overscroll-y-contain">
               <p className="shrink-0 text-xs font-medium uppercase tracking-wide text-muted-foreground">

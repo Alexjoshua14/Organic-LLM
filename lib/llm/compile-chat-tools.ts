@@ -1,5 +1,10 @@
 import type { ToolSet } from "ai";
 
+import type { ChatExperience } from "@/lib/chat/chat-experience";
+import {
+  DELPHI_SEARCH_MEMORIES_DESCRIPTION,
+  createDelphiMemoryTools,
+} from "@/lib/llm/delphi-memory-tools";
 import {
   createGetFullChatHistoryTool,
   createGetMessagesFromDateTool,
@@ -20,7 +25,7 @@ export type CompileChatToolsParams = {
   /** Strata page KG stubs (experimental). */
   useKnowledgeSearch?: boolean;
   /** Adds Arcadia-only tools (e.g. Mermaid) when `arcadia`. */
-  experience?: string;
+  experience?: ChatExperience;
   /** Required for history tools. */
   chatId?: string;
   /** `validatedMessages.length` — how many turns the model already has in context. */
@@ -45,6 +50,36 @@ export async function compileChatTools({
   sbUserId,
   writer,
 }: CompileChatToolsParams): Promise<{ tools: ToolSet; toolInstructions: string }> {
+  if (experience === "delphi") {
+    const tools: ToolSet = {};
+    let toolInstructions = "";
+
+    if (useMemory) {
+      tools["search_memories"] = createMemorySearchTool(sbUserId, writer, {
+        description: DELPHI_SEARCH_MEMORIES_DESCRIPTION,
+      });
+      toolInstructions +=
+        "You have access to search_memories for the user's memory corpus. Use it at session start and when checking cross-references.\n";
+    }
+
+    const delphi = createDelphiMemoryTools({
+      sbUserId,
+      chatId: chatId ?? "",
+    });
+
+    Object.assign(tools, delphi.tools);
+    toolInstructions += delphi.toolInstructions ? `${delphi.toolInstructions}\n` : "";
+
+    if (toolInstructions.length > 0) {
+      toolInstructions +=
+        "Prefer fewer tool calls when possible. If the first result answers the question, respond to the user without calling tools again.\n";
+      toolInstructions +=
+        "When you need both memory search and another independent tool, call them in the same turn when possible so the system can run them in parallel and reduce latency.\n";
+    }
+
+    return { tools, toolInstructions: toolInstructions.trim() };
+  }
+
   const tools: ToolSet = {};
   let toolInstructions = "";
 

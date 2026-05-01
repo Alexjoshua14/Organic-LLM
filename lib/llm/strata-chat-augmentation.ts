@@ -1,3 +1,4 @@
+import type { ChatExperience } from "@/lib/chat/chat-experience";
 import type { StrataPageWithSections } from "@/lib/schemas/strata";
 
 const trunc = (value: string, max: number) =>
@@ -16,7 +17,7 @@ export async function buildStrataSystemSuffix({
   sbUserId,
   fetchPage,
 }: {
-  experience?: string;
+  experience?: ChatExperience;
   strataPageId?: string;
   sbUserId: string;
   fetchPage: (pageId: string) => Promise<StrataPageWithSections | null>;

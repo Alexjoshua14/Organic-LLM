@@ -1,16 +1,18 @@
 import type { z } from "zod";
 
+import type { ChatExperience } from "@/lib/chat/chat-experience";
 import { getStrataPageById } from "@/data/supabase/strata";
 import { getStrataAssistantPersona } from "@/lib/personas/strata-assistant";
 import { buildStrataSystemSuffix } from "@/lib/llm/strata-chat-augmentation";
 import { getChatResponseLengthInstruction } from "@/lib/llm/helpers";
+import { getDelphiSystemPromptAugmentation } from "@/lib/personas/delphi";
 import { StrataAssistantPersonaRequestSchema } from "@/lib/schemas/chat";
 
 type StrataAssistantPersona = z.infer<typeof StrataAssistantPersonaRequestSchema>;
 
 export type AppendStrataMainChatSystemParams = {
   systemPromptForRequest: string;
-  experience: string | undefined;
+  experience: ChatExperience | undefined;
   strataPageId: string | undefined;
   sbUserId: string;
   strataAssistantPersona: StrataAssistantPersona | undefined;
@@ -55,7 +57,7 @@ export type AppendMainChatPostToolSystemFragmentsParams = {
   hasTools: boolean;
   toolInstructions: string;
   speechFriendly: boolean | undefined;
-  experience: string | undefined;
+  experience: ChatExperience | undefined;
 };
 
 /** Tool Instructions block + speech-friendly + Arcadia length guidance. */
@@ -77,6 +79,10 @@ export function appendMainChatPostToolSystemFragments(
 
   if (experience === "arcadia") {
     out += ARCADIA_SHORT_REPLY_APPEND;
+  }
+
+  if (experience === "delphi") {
+    out += getDelphiSystemPromptAugmentation();
   }
 
   return out;

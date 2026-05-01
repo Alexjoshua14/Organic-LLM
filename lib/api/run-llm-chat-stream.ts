@@ -9,6 +9,7 @@ import { ensureChatHasTitle, updateChatSummary } from "@/lib/llm/chat-helpers";
 import { CHAT_MODEL, measureAsync } from "@/lib/llm/helpers";
 import { serializeError } from "@/lib/llm/log-error";
 import type { Logger } from "@/lib/logger";
+import type { ChatExperience } from "@/lib/chat/chat-experience";
 import { addLatestMessagesToMemoryForUser } from "@/lib/memory/operations";
 import type { Result } from "@/types";
 import { ChatAIActionEnum, type ChatUIMessage } from "@/types/ai";
@@ -27,6 +28,8 @@ export type RunLLMChatStreamParams = {
   maxSteps: number;
   isZeroDataRetention: boolean;
   memoryEnabled: boolean | undefined;
+  /** When `delphi`, automatic transcript ingest to Mem0 is skipped. */
+  experience: ChatExperience | undefined;
   userMessage: UIMessage;
   threadHasTitlePromise: Promise<Result<boolean>>;
 };
@@ -46,6 +49,7 @@ export function runLLMChatStream(params: RunLLMChatStreamParams): void {
     maxSteps,
     isZeroDataRetention,
     memoryEnabled,
+    experience,
     userMessage,
     threadHasTitlePromise,
   } = params;
@@ -311,7 +315,7 @@ export function runLLMChatStream(params: RunLLMChatStreamParams): void {
 
             metrics.updateChatSummaryMs = updateSummaryResult.durationMs;
 
-            if (memoryEnabled) {
+            if (memoryEnabled && experience !== "delphi") {
               const addMemoryResult = await measureAsync(() =>
                 addLatestMessagesToMemoryForUser(sbUserId, [userMessage, aiResponse], chatId).then(
                   (r) => {

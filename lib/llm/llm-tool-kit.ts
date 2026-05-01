@@ -187,10 +187,17 @@ export const weatherTool = tool({
  * @param writer - Optional UI stream for transient “memory search” actions.
  * @returns A `tool({ ... })` instance registered under the key `search_memories`.
  */
-export function createMemorySearchTool(userId: string, writer?: WebSearchStreamWriter) {
+export function createMemorySearchTool(
+  userId: string,
+  writer?: WebSearchStreamWriter,
+  options?: { description?: string }
+) {
+  const description =
+    options?.description ??
+    "Search through the user's stored memories to find relevant information from past conversations. Use this when you need to recall specific details, preferences, or context from previous interactions.";
+
   return tool({
-    description:
-      "Search through the user's stored memories to find relevant information from past conversations. Use this when you need to recall specific details, preferences, or context from previous interactions.",
+    description,
     inputSchema: SearchMemoryToolSchema,
     execute: async ({ query, limit }) => {
       logger.log("createMemorySearchTool", "LLM has invoked memory search");

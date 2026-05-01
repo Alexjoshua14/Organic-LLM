@@ -63,9 +63,12 @@ export function StrataAssistantOpenHint() {
 export function StrataWorkspace({
   children,
   agentPanel,
+  agentPanelTitle,
 }: {
   children: ReactNode;
   agentPanel: ReactNode;
+  /** Shown top-left when the assistant aside is open (e.g. active persona short label). */
+  agentPanelTitle?: string;
 }) {
   const pathname = usePathname() ?? "";
   const [open, setOpen] = useState(false);
@@ -105,9 +108,16 @@ export function StrataWorkspace({
             )}
           >
             <div className="flex shrink-0 items-center justify-between gap-2 border-b border-border/50 px-3 py-2">
-              <span className="text-sm font-medium tracking-tight">Assistant</span>
+              <div className="min-w-0 flex-1 text-left">
+                <span className="block text-[10px] font-medium uppercase tracking-[0.2em] text-muted-foreground">
+                  Assistant
+                </span>
+                <span className="block truncate text-sm font-semibold tracking-tight text-foreground">
+                  {agentPanelTitle ?? "Assistant"}
+                </span>
+              </div>
               <button
-                className="rounded-md px-2 py-1 text-xs text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                className="shrink-0 rounded-md px-2 py-1 text-xs text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
                 type="button"
                 onClick={() => setOpen(false)}
               >

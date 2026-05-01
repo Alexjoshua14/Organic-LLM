@@ -1,12 +1,17 @@
 "use client";
 
 import { useCallback, useRef, useState } from "react";
+import { motion } from "framer-motion";
 import { ClipboardPaste, FileUp, Link2, Loader2, Search, Send } from "lucide-react";
 import { toast } from "sonner";
 
 import { glass } from "@/components/design-system/primitives";
 import { cn } from "@/lib/utils";
-import { STRATA_TEXT_SOURCES_MAX, type StrataTextSourceNode } from "@/lib/schemas/strata";
+import {
+  STRATA_CLIPBOARD_PASTE_MAX_CHARS,
+  STRATA_TEXT_SOURCES_MAX,
+  type StrataTextSourceNode,
+} from "@/lib/schemas/strata";
 import { sanitizeRawUserInput } from "@/lib/strata/input-safety";
 import { assertSafePublicHttpsUrl } from "@/lib/strata/safe-url";
 import { clientRandomUUID } from "@/lib/client-uuid";
@@ -18,10 +23,13 @@ type SearchHit = { title: string; url: string; snippet: string };
 export function StrataSourceIngestBar({
   pageId,
   ingestEnabled,
+  reduceMotion,
   onAppendNodes,
 }: {
   pageId: string;
   ingestEnabled: boolean;
+  /** From shell `useReducedMotion()`; layout animation duration is zero when true. */
+  reduceMotion?: boolean | null;
   onAppendNodes: (nodes: StrataTextSourceNode[]) => void;
 }) {
   const [mode, setMode] = useState<IngestMode>("text");
@@ -36,9 +44,20 @@ export function StrataSourceIngestBar({
   const [searchQuery, setSearchQuery] = useState("");
   const [searchHits, setSearchHits] = useState<SearchHit[]>([]);
   const [busy, setBusy] = useState(false);
+  const [clipboardTitleBusy, setClipboardTitleBusy] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
 
   const canUseNetwork = ingestEnabled;
+  /** Size-only layout + tween avoids spring overshoot clipping against overflow-hidden. */
+  const layoutTransition = Boolean(reduceMotion)
+    ? { duration: 0, layout: { duration: 0 } as const }
+    : {
+        layout: {
+          type: "tween" as const,
+          duration: 0.22,
+          ease: [0.25, 0.1, 0.25, 1] as const,
+        },
+      };
 
   const appendChecked = useCallback(
     (nodes: StrataTextSourceNode[]) => {
@@ -79,30 +98,71 @@ export function StrataSourceIngestBar({
 
   const pasteFromClipboard = useCallback(async () => {
     try {
-      const text = await navigator.clipboard.readText();
+      const raw = await navigator.clipboard.readText();
 
-      if (!text?.trim()) {
+      if (!raw?.trim()) {
         toast.message("Clipboard empty", {
           description: "Copy text first, or paste with ⌘V in the text area.",
         });
 
         return;
       }
-      const node: StrataTextSourceNode = {
-        id: clientRandomUUID(),
-        kind: "clipboard",
-        title: title.trim() || "From clipboard",
-        body: sanitizeRawUserInput(text),
-        createdAt: new Date().toISOString(),
-      };
+      let excerptForPaste = raw;
+      if (raw.length > STRATA_CLIPBOARD_PASTE_MAX_CHARS) {
+        excerptForPaste = raw.slice(0, STRATA_CLIPBOARD_PASTE_MAX_CHARS);
+        toast.message("Clipboard truncated", {
+          description: `Using the first ${STRATA_CLIPBOARD_PASTE_MAX_CHARS.toLocaleString()} characters.`,
+        });
+      }
 
-      appendChecked([node]);
+      setMode("text");
+      setBody((prev) => {
+        const p = prev.trimEnd();
+
+        if (!p) return excerptForPaste;
+
+        return `${p}\n\n${excerptForPaste}`;
+      });
+
+      if (!ingestEnabled) {
+        setTitle((prev) => (prev.trim() ? prev : "From clipboard"));
+
+        return;
+      }
+
+      setClipboardTitleBusy(true);
+      try {
+        const res = await fetch("/api/prototypes/strata/clipboard-source-title", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ pageId, excerpt: excerptForPaste }),
+        });
+        let data: { title?: unknown; error?: unknown } = {};
+
+        try {
+          data = (await res.json()) as { title?: unknown; error?: unknown };
+        } catch {
+          data = {};
+        }
+        const nextTitle =
+          res.ok && typeof data.title === "string" && data.title.trim().length > 0
+            ? data.title.trim().slice(0, 512)
+            : null;
+
+        if (nextTitle) {
+          setTitle(nextTitle);
+        } else {
+          setTitle((prev) => (prev.trim() ? prev : "From clipboard"));
+        }
+      } finally {
+        setClipboardTitleBusy(false);
+      }
     } catch {
       toast.error("Could not read clipboard", {
         description: "Allow clipboard permission or paste with ⌘V into the text area.",
       });
     }
-  }, [appendChecked, title]);
+  }, [ingestEnabled, pageId]);
 
   const onPickFiles = useCallback(
     async (files: FileList | null) => {
@@ -274,10 +334,15 @@ export function StrataSourceIngestBar({
         <span className="mx-1 h-4 w-px bg-border" aria-hidden />
         <button
           type="button"
-          className="inline-flex items-center gap-1 rounded-full border border-transparent px-3 py-1 text-xs font-medium text-muted-foreground hover:bg-muted hover:text-foreground"
-          onClick={pasteFromClipboard}
+          disabled={clipboardTitleBusy}
+          className="inline-flex items-center gap-1 rounded-full border border-transparent px-3 py-1 text-xs font-medium text-muted-foreground hover:bg-muted hover:text-foreground disabled:pointer-events-none disabled:opacity-50"
+          onClick={() => void pasteFromClipboard()}
         >
-          <ClipboardPaste className="h-3.5 w-3.5" />
+          {clipboardTitleBusy ? (
+            <Loader2 className="h-3.5 w-3.5 shrink-0 animate-spin" aria-hidden />
+          ) : (
+            <ClipboardPaste className="h-3.5 w-3.5" aria-hidden />
+          )}
           Clipboard
         </button>
         <button
@@ -298,127 +363,120 @@ export function StrataSourceIngestBar({
         />
       </div>
 
-      {mode === "text" ? (
-        <div className="flex flex-col gap-2">
-          <input
-            className={cn(
-              glass(),
-              "w-full rounded-md border border-border/60 bg-background/40 px-3 py-2 text-sm outline-none ring-offset-background focus-visible:ring-2 focus-visible:ring-ring"
-            )}
-            placeholder="Title (optional)"
-            value={title}
-            onChange={(e) => setTitle(e.target.value)}
-          />
-          <textarea
-            className={cn(
-              glass(),
-              "min-h-[120px] w-full resize-y rounded-md border border-border/60 bg-background/40 p-3 text-sm outline-none ring-offset-background focus-visible:ring-2 focus-visible:ring-ring"
-            )}
-            placeholder="Raw notes, export from ChatGPT / Notebook LM / Perplexity…"
-            value={body}
-            onChange={(e) => setBody(e.target.value)}
-          />
-          <button
-            type="button"
-            disabled={busy}
-            className={cn(
-              glass({ opaque: true }),
-              "inline-flex items-center justify-center gap-2 self-end rounded-md border px-4 py-2 text-sm font-medium hover:bg-muted"
-            )}
-            onClick={submitText}
-          >
-            <Send className="h-4 w-4" />
-            Add as source
-          </button>
-        </div>
-      ) : null}
-
-      {mode === "search" ? (
-        <div className="flex flex-col gap-2">
-          <div className="flex gap-2">
+      <motion.div
+        layout="size"
+        initial={false}
+        className="overflow-hidden rounded-md"
+        transition={layoutTransition}
+      >
+        {mode === "text" ? (
+          <div className="flex flex-col gap-2">
             <input
               className={cn(
                 glass(),
-                "min-w-0 flex-1 rounded-md border border-border/60 bg-background/40 px-3 py-2 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                "w-full rounded-md border border-border/60 bg-background/40 px-3 py-2 text-sm outline-none ring-offset-background focus-visible:ring-2 focus-visible:ring-ring"
               )}
-              placeholder="Search the web (Exa)…"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter") void runSearch();
-              }}
+              placeholder="Title (optional)"
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+            />
+            <textarea
+              className={cn(
+                glass(),
+                "min-h-[120px] w-full resize-y rounded-md border border-border/60 bg-background/40 p-3 text-sm outline-none ring-offset-background focus-visible:ring-2 focus-visible:ring-ring"
+              )}
+              placeholder="Raw notes, export from ChatGPT / Notebook LM / Perplexity…"
+              value={body}
+              onChange={(e) => setBody(e.target.value)}
             />
             <button
               type="button"
-              disabled={busy || !canUseNetwork}
-              title={!canUseNetwork ? "Requires synced page" : undefined}
+              disabled={busy}
               className={cn(
                 glass({ opaque: true }),
-                "inline-flex shrink-0 items-center gap-2 rounded-md border px-4 py-2 text-sm font-medium hover:bg-muted disabled:opacity-50"
+                "inline-flex items-center justify-center gap-2 self-end rounded-md border px-4 py-2 text-sm font-medium hover:bg-muted"
               )}
-              onClick={() => void runSearch()}
+              onClick={submitText}
             >
-              {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
-              Search
+              <Send className="h-4 w-4" />
+              Add as source
             </button>
           </div>
-          {searchHits.length > 0 ? (
-            <ul className="max-h-52 space-y-2 overflow-y-auto rounded-md border border-border/50 bg-muted/10 p-2">
-              {searchHits.map((h) => (
-                <li
-                  key={h.url}
-                  className="flex flex-col gap-1 rounded-md border border-border/40 bg-background/50 p-2 text-xs"
-                >
-                  <span className="font-medium text-foreground">{h.title}</span>
-                  <span className="line-clamp-2 text-muted-foreground">{h.snippet}</span>
-                  <button
-                    type="button"
-                    className="self-start text-[11px] font-medium text-primary hover:underline"
-                    onClick={() => addSearchHitAsSource(h)}
-                  >
-                    Approve snippet import
-                  </button>
-                </li>
-              ))}
-            </ul>
-          ) : null}
-        </div>
-      ) : null}
+        ) : null}
 
-      {mode === "url" ? (
-        <div className="flex flex-col gap-2">
-          <input
-            className={cn(
-              glass(),
-              "w-full rounded-md border border-border/60 bg-background/40 px-3 py-2 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
-            )}
-            placeholder="https://…"
-            value={urlInput}
-            onChange={(e) => setUrlInput(e.target.value)}
-          />
-          <input
-            className={cn(
-              glass(),
-              "w-full rounded-md border border-border/60 bg-background/40 px-3 py-2 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
-            )}
-            placeholder="Title override (optional)"
-            value={title}
-            onChange={(e) => setTitle(e.target.value)}
-          />
-          <div className="flex flex-wrap gap-2">
-            <button
-              type="button"
-              disabled={busy || !canUseNetwork}
+        {mode === "search" ? (
+          <div className="flex flex-col gap-2">
+            <div className="flex gap-2">
+              <input
+                className={cn(
+                  glass(),
+                  "min-w-0 flex-1 rounded-md border border-border/60 bg-background/40 px-3 py-2 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                )}
+                placeholder="Search the web (Exa)…"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") void runSearch();
+                }}
+              />
+              <button
+                type="button"
+                disabled={busy || !canUseNetwork}
+                title={!canUseNetwork ? "Requires synced page" : undefined}
+                className={cn(
+                  glass({ opaque: true }),
+                  "inline-flex shrink-0 items-center gap-2 rounded-md border px-4 py-2 text-sm font-medium hover:bg-muted disabled:opacity-50"
+                )}
+                onClick={() => void runSearch()}
+              >
+                {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
+                Search
+              </button>
+            </div>
+            {searchHits.length > 0 ? (
+              <ul className="max-h-52 space-y-2 overflow-y-auto rounded-md border border-border/50 bg-muted/10 p-2">
+                {searchHits.map((h) => (
+                  <li
+                    key={h.url}
+                    className="flex flex-col gap-1 rounded-md border border-border/40 bg-background/50 p-2 text-xs"
+                  >
+                    <span className="font-medium text-foreground">{h.title}</span>
+                    <span className="line-clamp-2 text-muted-foreground">{h.snippet}</span>
+                    <button
+                      type="button"
+                      className="self-start text-[11px] font-medium text-primary hover:underline"
+                      onClick={() => addSearchHitAsSource(h)}
+                    >
+                      Approve snippet import
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            ) : null}
+          </div>
+        ) : null}
+
+        {mode === "url" ? (
+          <div className="flex flex-col gap-2">
+            <input
               className={cn(
-                glass({ opaque: true }),
-                "inline-flex items-center gap-2 rounded-md border px-3 py-2 text-sm hover:bg-muted disabled:opacity-50"
+                glass(),
+                "w-full rounded-md border border-border/60 bg-background/40 px-3 py-2 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
               )}
-              onClick={() => void previewUrl()}
-            >
-              {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Link2 className="h-4 w-4" />}
-              Preview
-            </button>
-            {!urlPreview ? (
+              placeholder="https://…"
+              value={urlInput}
+              onChange={(e) => setUrlInput(e.target.value)}
+            />
+            <input
+              className={cn(
+                glass(),
+                "w-full rounded-md border border-border/60 bg-background/40 px-3 py-2 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              )}
+              placeholder="Title override (optional)"
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+            />
+            <div className="flex flex-wrap gap-2">
               <button
                 type="button"
                 disabled={busy || !canUseNetwork}
@@ -426,38 +484,52 @@ export function StrataSourceIngestBar({
                   glass({ opaque: true }),
                   "inline-flex items-center gap-2 rounded-md border px-3 py-2 text-sm hover:bg-muted disabled:opacity-50"
                 )}
-                onClick={() => void commitUrl()}
+                onClick={() => void previewUrl()}
               >
-                Import full page (Exa)
+                {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Link2 className="h-4 w-4" />}
+                Preview
               </button>
-            ) : null}
-          </div>
-          {urlPreview ? (
-            <div className="space-y-2 rounded-md border border-border/50 bg-muted/10 p-3">
-              <div className="max-h-40 overflow-y-auto text-xs leading-relaxed text-muted-foreground">
-                <p className="mb-1 font-medium text-foreground">{urlPreview.suggestedTitle}</p>
-                {urlPreview.text}
-              </div>
-              <div className="flex flex-wrap items-center justify-between gap-2">
-                <p className="text-[11px] text-muted-foreground">
-                  Preview looks good? Approve to persist this imported text as a source.
-                </p>
+              {!urlPreview ? (
                 <button
                   type="button"
                   disabled={busy || !canUseNetwork}
                   className={cn(
                     glass({ opaque: true }),
-                    "inline-flex items-center gap-2 rounded-md border px-3 py-2 text-sm font-medium hover:bg-muted disabled:opacity-50"
+                    "inline-flex items-center gap-2 rounded-md border px-3 py-2 text-sm hover:bg-muted disabled:opacity-50"
                   )}
                   onClick={() => void commitUrl()}
                 >
-                  Approve import
+                  Import full page (Exa)
                 </button>
-              </div>
+              ) : null}
             </div>
-          ) : null}
-        </div>
-      ) : null}
+            {urlPreview ? (
+              <div className="space-y-2 rounded-md border border-border/50 bg-muted/10 p-3">
+                <div className="max-h-40 overflow-y-auto text-xs leading-relaxed text-muted-foreground">
+                  <p className="mb-1 font-medium text-foreground">{urlPreview.suggestedTitle}</p>
+                  {urlPreview.text}
+                </div>
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <p className="text-[11px] text-muted-foreground">
+                    Preview looks good? Approve to persist this imported text as a source.
+                  </p>
+                  <button
+                    type="button"
+                    disabled={busy || !canUseNetwork}
+                    className={cn(
+                      glass({ opaque: true }),
+                      "inline-flex items-center gap-2 rounded-md border px-3 py-2 text-sm font-medium hover:bg-muted disabled:opacity-50"
+                    )}
+                    onClick={() => void commitUrl()}
+                  >
+                    Approve import
+                  </button>
+                </div>
+              </div>
+            ) : null}
+          </div>
+        ) : null}
+      </motion.div>
     </div>
   );
 }

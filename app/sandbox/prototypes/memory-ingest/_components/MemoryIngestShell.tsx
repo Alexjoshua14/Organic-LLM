@@ -28,7 +28,7 @@ import { PromptInputProvider } from "@/components/third-party/ai-elements/prompt
 import { cn } from "@/lib/utils";
 
 /** TEMP: set true to outline particle column / field / caption slot. */
-const MEMORY_INGEST_LAYOUT_DEBUG_OUTLINES = true;
+const MEMORY_INGEST_LAYOUT_DEBUG_OUTLINES = false;
 
 type MemoryIngestShellProps = {
   chatData: { thread: Thread; messages: UIMessage[] };
@@ -193,6 +193,7 @@ export function MemoryIngestShell({ chatData }: MemoryIngestShellProps) {
                 className="border-border bg-card/80 backdrop-blur-sm"
                 clearError={clearError}
                 error={error}
+                modelLocalStorageKey="organic-llm-selected-model-delphi"
                 modelRef={modelRef}
                 sendMessage={sendMessage as never}
                 status={status}

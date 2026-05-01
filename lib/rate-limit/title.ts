@@ -23,6 +23,22 @@ const titlePerStrataPageLimiter = new Ratelimit({
   prefix: "ratelimit:title:strata",
 });
 
+/** Strata clipboard paste title LLM: 3× the Strata page title limits (separate Redis keys). */
+const STRATA_CLIPBOARD_TITLE_GLOBAL_PER_H = 60;
+const STRATA_CLIPBOARD_TITLE_PER_PAGE_PER_H = 9;
+
+const strataClipboardTitleGlobalLimiter = new Ratelimit({
+  redis,
+  limiter: Ratelimit.slidingWindow(STRATA_CLIPBOARD_TITLE_GLOBAL_PER_H, "1 h"),
+  prefix: "ratelimit:strata-clipboard-title:user",
+});
+
+const strataClipboardTitlePerPageLimiter = new Ratelimit({
+  redis,
+  limiter: Ratelimit.slidingWindow(STRATA_CLIPBOARD_TITLE_PER_PAGE_PER_H, "1 h"),
+  prefix: "ratelimit:strata-clipboard-title:page",
+});
+
 export type RateLimitResult = {
   success: boolean;
   remaining?: number;
@@ -93,5 +109,40 @@ export async function checkStrataTitleGenerationLimit(
   return {
     success: true,
     remaining: Math.min(global.remaining ?? 20, perStrata.remaining ?? 3),
+  };
+}
+
+/**
+ * Strata clipboard-source-title API: triple the Strata document title limits (60/h user, 9/h page).
+ */
+export async function checkStrataClipboardSourceTitleLimit(
+  userId: string,
+  pageId: string
+): Promise<RateLimitResult> {
+  const global = await strataClipboardTitleGlobalLimiter.limit(userId);
+
+  if (!global.success) {
+    return {
+      success: false,
+      error: `Clipboard title limit reached (${STRATA_CLIPBOARD_TITLE_GLOBAL_PER_H} per hour). Try again later.`,
+    };
+  }
+
+  const perPageKey = `${userId}:${pageId}`;
+  const perPage = await strataClipboardTitlePerPageLimiter.limit(perPageKey);
+
+  if (!perPage.success) {
+    return {
+      success: false,
+      error: `This page has reached its clipboard title limit (${STRATA_CLIPBOARD_TITLE_PER_PAGE_PER_H} per hour). Try again later.`,
+    };
+  }
+
+  return {
+    success: true,
+    remaining: Math.min(
+      global.remaining ?? STRATA_CLIPBOARD_TITLE_GLOBAL_PER_H,
+      perPage.remaining ?? STRATA_CLIPBOARD_TITLE_PER_PAGE_PER_H
+    ),
   };
 }
