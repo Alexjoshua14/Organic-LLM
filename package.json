@@ -9,10 +9,10 @@
     "start": "next start",
     "lint": "eslint . --fix",
     "lint:check": "eslint .",
-    "test": "bun test --preload ./tests/preload.ts tests/unit tests/getNMessages.test.ts tests/organicStateProtocol.test.ts && bun test --preload ./tests/preload.ts tests/integration",
-    "test:watch": "bun test --preload ./tests/preload.ts --watch",
-    "test:unit": "bun test tests/unit tests/getNMessages.test.ts tests/organicStateProtocol.test.ts",
-    "test:integration": "bun test tests/integration",
+    "test": "bun test --preload ./tests/jsdom-preload.ts --preload ./tests/preload.ts tests/unit tests/getNMessages.test.ts tests/organicStateProtocol.test.ts && bun test --preload ./tests/jsdom-preload.ts --preload ./tests/preload.ts tests/integration",
+    "test:watch": "bun test --preload ./tests/jsdom-preload.ts --preload ./tests/preload.ts --watch",
+    "test:unit": "bun test --preload ./tests/jsdom-preload.ts --preload ./tests/preload.ts tests/unit tests/getNMessages.test.ts tests/organicStateProtocol.test.ts",
+    "test:integration": "bun test --preload ./tests/jsdom-preload.ts --preload ./tests/preload.ts tests/integration",
     "test:e2e": "bunx playwright test",
     "webhook:local": "ngrok http --url=specially-delicate-dinosaur.ngrok-free.app 3000",
     "supabase:types": "supabase gen types typescript --linked --schema public > lib/supabase/types.ts",
@@ -145,6 +145,7 @@
     "@types/react-dom": "19.2.3",
     "react": "19.2.0",
     "react-dom": "19.2.0",
-    "@qdrant/js-client-rest": "1.17.0"
+    "@qdrant/js-client-rest": "1.17.0",
+    "@react-aria/interactions": "3.27.1"
   }
 }

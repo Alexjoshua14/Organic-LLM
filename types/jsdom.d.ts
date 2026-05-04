@@ -6,7 +6,7 @@ declare module "jsdom" {
       html?: string | Buffer | ArrayBuffer | ArrayBufferView,
       options?: {
         url?: string;
-      }
+      },
     );
   }
 }
