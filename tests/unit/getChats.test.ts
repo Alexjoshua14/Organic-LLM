@@ -3,10 +3,6 @@ import {
   MockSupabaseClient,
   createTestThreads,
 } from "../helpers/mock-supabase";
-import {
-  registerSharedSupabaseServerMock,
-  supabaseServerMock,
-} from "../helpers/supabase-server-mock";
 
 mock.module("server-only", () => ({}));
 
@@ -17,9 +13,9 @@ describe("getChats", () => {
   beforeEach(async () => {
     mockClient = new MockSupabaseClient();
 
-    // Restore shared registry after other suites (e.g. runGenerationAndPersist) replace `@/lib/supabase/server`.
-    registerSharedSupabaseServerMock();
-    supabaseServerMock.mockImplementation(async () => mockClient);
+    mock.module("@/lib/supabase/server", () => ({
+      supabaseServer: () => Promise.resolve(mockClient),
+    }));
 
     ({ getChats } = await import("@/data/supabase/chat"));
   });
@@ -70,9 +66,9 @@ describe("getChats", () => {
   });
 
   test("returns a caught error when Supabase is unavailable", async () => {
-    registerSharedSupabaseServerMock();
-    supabaseServerMock.mockImplementation(() => Promise.reject(new Error("DB down")));
-
+    mock.module("@/lib/supabase/server", () => ({
+      supabaseServer: () => Promise.reject(new Error("DB down")),
+    }));
     ({ getChats } = await import("@/data/supabase/chat"));
 
     let caught: Error | null = null;

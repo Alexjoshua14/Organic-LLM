@@ -9,7 +9,7 @@
     "start": "next start",
     "lint": "eslint . --fix",
     "lint:check": "eslint .",
-    "test": "bun test --preload ./tests/preload.ts tests/unit tests/integration tests/getNMessages.test.ts tests/organicStateProtocol.test.ts",
+    "test": "bun test --preload ./tests/preload.ts tests/unit tests/getNMessages.test.ts tests/organicStateProtocol.test.ts && bun test --preload ./tests/preload.ts tests/integration",
     "test:watch": "bun test --preload ./tests/preload.ts --watch",
     "test:unit": "bun test tests/unit tests/getNMessages.test.ts tests/organicStateProtocol.test.ts",
     "test:integration": "bun test tests/integration",
@@ -21,7 +21,7 @@
   "dependencies": {
     "@ai-sdk/elevenlabs": "^1.0.28",
     "@ai-sdk/openai": "^2.0.106",
-    "@ai-sdk/react": "^2.0.185",
+    "@ai-sdk/react": "^2.0.186",
     "@clerk/nextjs": "^6.39.3",
     "@elevenlabs/elevenlabs-js": "^2.45.0",
     "@heroui/button": "2.2.24",
@@ -57,12 +57,12 @@
     "@react-aria/ssr": "3.9.10",
     "@react-aria/visually-hidden": "3.8.26",
     "@supabase/ssr": "^0.7.0",
-    "@supabase/supabase-js": "^2.105.1",
+    "@supabase/supabase-js": "^2.105.3",
     "@tailwindcss/typography": "^0.5.19",
     "@upstash/ratelimit": "^2.0.8",
     "@upstash/redis": "^1.37.0",
     "@vercel/analytics": "^1.6.1",
-    "ai": "^5.0.183",
+    "ai": "^5.0.184",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "cmdk": "^1.1.1",
@@ -100,8 +100,8 @@
     "swr": "^2.4.1",
     "tailwind-merge": "^3.5.0",
     "use-stick-to-bottom": "^1.1.4",
-    "uuid": "^13.0.1",
-    "zod": "^4.4.2"
+    "uuid": "^13.0.2",
+    "zod": "^4.4.3"
   },
   "devDependencies": {
     "@eslint/compat": "^1.4.1",

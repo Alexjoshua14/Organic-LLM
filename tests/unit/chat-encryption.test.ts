@@ -1,10 +1,5 @@
 import { beforeEach, describe, expect, mock, test } from "bun:test";
 
-import {
-  registerSharedSupabaseServerMock,
-  supabaseServerMock,
-} from "../helpers/supabase-server-mock";
-
 mock.module("server-only", () => ({}));
 mock.module("@clerk/nextjs/server", () => ({
   auth: async () => ({ userId: "clerk-user-1" }),
@@ -158,6 +153,12 @@ class MockSupabaseClient {
   }
 }
 
+const mockSupabaseServer = mock(async () => new MockSupabaseClient());
+
+mock.module("@/lib/supabase/server", () => ({
+  supabaseServer: mockSupabaseServer,
+}));
+
 describe("chat data encryption", () => {
   let chatModule: typeof import("@/data/supabase/chat");
   let client: MockSupabaseClient;
@@ -175,8 +176,7 @@ describe("chat data encryption", () => {
       updated_at: "2026-03-10T00:00:00.000Z",
       conversation_summary: null,
     });
-    registerSharedSupabaseServerMock();
-    supabaseServerMock.mockImplementation(async () => client);
+    mockSupabaseServer.mockImplementation(async () => client);
     chatModule = await import("@/data/supabase/chat");
   });
 
