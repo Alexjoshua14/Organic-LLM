@@ -5,6 +5,14 @@
  * Usage:
  *   MEMORY_API_HOST=… MEMORY_API_SECRET=… OPENAI_API_KEY=… bun run scripts/migrate-memories-v2.ts [--dry-run] [--limit N] [--verification]
  *
+ * Inject a single plaintext memory (no legacy scroll, no LLM quality gate):
+ *   MEMORY_API_HOST=… MEMORY_API_SECRET=… MIGRATE_MEMORY_USER_ID=<supabase-user-uuid> \\
+ *     bun run scripts/migrate-memories-v2.ts --memory "Your memory text here" [--dry-run] [--verification]
+ *
+ * `--memory` uses the same chunk → Ollama embed → encrypt payload path as the migrator. `sourceMemoryId` is
+ * deterministic from `MIGRATE_MEMORY_USER_ID` + content hash so re-running upserts the same chunk ids.
+ * `migratedFromCollection` is `manual-inject` (override with MIGRATE_MANUAL_FROM_COLLECTION).
+ *
  * `--verification` implies `--dry-run` (no Qdrant writes), defaults `--limit` to 3 unless you pass `--limit`.
  * Runs extra checks (v2 payload encryption shape + round-trip when keys are set, UUID chunk ids) and prints a
  * verification table; exits with code 1 if any check fails.
@@ -21,6 +29,7 @@
 import { createHash } from "node:crypto";
 
 import { QdrantClient } from "@qdrant/js-client-rest";
+import { v5 as uuidv5 } from "uuid";
 import { openai, type OpenAIResponsesProviderOptions } from "@ai-sdk/openai";
 import { generateObject, NoObjectGeneratedError } from "ai";
 import { z } from "zod";
@@ -43,6 +52,12 @@ const EMBED_BATCH_MAX = Math.min(64, parseInt(process.env.MIGRATE_EMBED_BATCH ??
 const MEMORY_HOST = process.env.MEMORY_API_HOST ?? "localhost";
 const MEMORY_PORT = MEMORY_HOST === "localhost" ? 6333 : 443;
 const MEMORY_KEY = process.env.MEMORY_API_SECRET;
+
+/** UUID namespace for deterministic `sourceMemoryId` in `--memory` inject mode (RFC 4122 name-based v5). */
+const MANUAL_INJECT_SOURCE_ID_NAMESPACE = "6ba7b810-9dad-11d1-80b4-00c04fd430c8";
+
+const MANUAL_INJECT_FROM_COLLECTION =
+  process.env.MIGRATE_MANUAL_FROM_COLLECTION?.trim() || "manual-inject";
 
 const qualityModel = openai(process.env.MIGRATE_QUALITY_MODEL ?? "gpt-5.4-mini");
 
@@ -84,11 +99,22 @@ function parseMemoryQualityFromModelText(raw: string): MemoryQuality | null {
   return r.success ? r.data : null;
 }
 
-function parseArgs(argv: string[]) {
+type ParsedCli = {
+  dryRun: boolean;
+  limit: number | undefined;
+  verification: boolean;
+  /** Raw plaintext for inject mode (not trimmed). */
+  memoryPlaintext: string | undefined;
+  /** True when user passed `--limit N` (not the verification default). */
+  explicitLimit: boolean;
+};
+
+function parseArgs(argv: string[]): ParsedCli {
   let dryRun = false;
   let verification = false;
   let limit: number | undefined;
-  let limitFromUser = false;
+  let explicitLimit = false;
+  let memoryPlaintext: string | undefined;
 
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i];
@@ -102,21 +128,34 @@ function parseArgs(argv: string[]) {
         throw new Error("--limit requires a positive integer");
       }
       limit = n;
-      limitFromUser = true;
+      explicitLimit = true;
       i++;
+    } else if (a === "--memory") {
+      const next = argv[i + 1];
+      if (!next || next.startsWith("-")) {
+        throw new Error('--memory requires a value: next argv or use --memory="..."');
+      }
+      memoryPlaintext = next;
+      i++;
+    } else if (a.startsWith("--memory=")) {
+      memoryPlaintext = a.slice("--memory=".length);
     } else if (a.startsWith("-")) {
       throw new Error(`Unknown argument: ${a}`);
     }
   }
 
+  if (memoryPlaintext !== undefined && explicitLimit) {
+    throw new Error("Do not combine --memory with --limit (inject mode does not scroll legacy rows)");
+  }
+
   if (verification) {
     dryRun = true;
-    if (!limitFromUser) {
+    if (!explicitLimit) {
       limit = 3;
     }
   }
 
-  return { dryRun, limit, verification };
+  return { dryRun, limit, verification, memoryPlaintext, explicitLimit };
 }
 
 /** Loose RFC-4122 UUID string check (8-4-4-4-12 hex). */
@@ -486,9 +525,316 @@ async function markLegacyMigrated(
   });
 }
 
+type VerifyAccumulator = {
+  chunksChecked: number;
+  storeFieldFailed: number;
+  uuidFailed: number;
+};
+
+type BytesAccumulator = {
+  vectors: number;
+  payload: number;
+};
+
+/**
+ * Chunk plaintext, embed with Ollama, optionally encrypt payload fields, upsert into {@link V2_COLLECTION}.
+ * Shared by legacy scroll migration and `--memory` inject mode.
+ */
+async function writeMemoryChunksToV2(opts: {
+  client: QdrantClient;
+  plaintext: string;
+  sourceMemoryId: string;
+  userId: string | undefined;
+  createdAt: string;
+  migratedFromCollection: string;
+  embeddingDims: number;
+  dryRun: boolean;
+  verification: boolean;
+  onEmbedBatch?: (t: EmbedBatchTiming) => void;
+  counters: Counters;
+  verify: VerifyAccumulator;
+  bytes: BytesAccumulator;
+}): Promise<void> {
+  const {
+    client,
+    plaintext,
+    sourceMemoryId,
+    userId,
+    createdAt,
+    migratedFromCollection,
+    embeddingDims,
+    dryRun,
+    verification,
+    onEmbedBatch,
+    counters,
+    verify,
+    bytes,
+  } = opts;
+
+  const chunks = chunkMemoryText(
+    plaintext,
+    migrateMemoryChunkDefaults.maxChunkChars,
+    migrateMemoryChunkDefaults.overlapChars
+  );
+  const embeddings = await embedTextsBatched(
+    OLLAMA_EMBED_MODEL,
+    chunks,
+    EMBED_BATCH_MAX,
+    onEmbedBatch
+  );
+
+  if (embeddings.length !== chunks.length) {
+    throw new Error(`Embedding count ${embeddings.length} !== chunks ${chunks.length}`);
+  }
+
+  for (let i = 0; i < chunks.length; i++) {
+    const chunkPlain = chunks[i]!;
+    const vector = embeddings[i]!;
+    if (vector.length !== embeddingDims) {
+      throw new Error(`Embedding dim mismatch: got ${vector.length}, expected ${embeddingDims}`);
+    }
+
+    const chunkId = v2ChunkPointId(sourceMemoryId, i);
+
+    const v2Payload: Record<string, unknown> = {
+      ...(userId ? { userId } : {}),
+      data: storeDataField(chunkPlain),
+      hash: md5Hex(chunkPlain),
+      createdAt,
+      updatedAt: new Date().toISOString(),
+      sourceMemoryId,
+      chunkIndex: i,
+      chunkCount: chunks.length,
+      embeddingModel: OLLAMA_EMBED_MODEL,
+      migratedFromCollection,
+    };
+
+    if (verification) {
+      verify.chunksChecked++;
+      const stored = String(v2Payload.data);
+      if (isMemoryEncryptionEnvConfigured()) {
+        if (!isEncrypted(stored) || decryptMemory(stored) !== chunkPlain) {
+          verify.storeFieldFailed++;
+          logProc(
+            "verify",
+            `v2 data: expected encrypted round-trip  source=${sourceMemoryId}  chunk=${i}`,
+            "warn"
+          );
+        }
+      } else if (stored !== chunkPlain || isEncrypted(stored)) {
+        verify.storeFieldFailed++;
+        logProc(
+          "verify",
+          `v2 data: expected plaintext (no enc env)  source=${sourceMemoryId}  chunk=${i}`,
+          "warn"
+        );
+      }
+      if (!isUuidShape(chunkId)) {
+        verify.uuidFailed++;
+        logProc("verify", `chunk id not UUID-shaped  ${chunkId}`, "warn");
+      }
+    }
+
+    if (!dryRun) {
+      await client.upsert(V2_COLLECTION, {
+        wait: true,
+        points: [
+          {
+            id: chunkId,
+            vector,
+            payload: v2Payload,
+          },
+        ],
+      });
+    }
+    counters.chunksWritten++;
+    bytes.vectors += embeddingDims * 4;
+    bytes.payload += estimatePayloadBytes(v2Payload);
+  }
+}
+
+async function runMemoryInject(parsed: ParsedCli): Promise<void> {
+  const scriptStart = performance.now();
+  const plaintext = parsed.memoryPlaintext!.trim();
+  if (!plaintext) {
+    throw new Error("--memory text is empty (after trim)");
+  }
+
+  const userId = process.env.MIGRATE_MEMORY_USER_ID?.trim();
+  if (!userId) {
+    throw new Error(
+      "MIGRATE_MEMORY_USER_ID is required for --memory (written to each chunk payload as userId for retrieval filters)"
+    );
+  }
+
+  if (!MEMORY_KEY?.trim()) {
+    throw new Error("MEMORY_API_SECRET is required for Qdrant");
+  }
+
+  const sourceMemoryId = uuidv5(`${userId}|${md5Hex(plaintext)}`, MANUAL_INJECT_SOURCE_ID_NAMESPACE);
+  const createdAt = new Date().toISOString();
+  const client = createQdrantClient();
+
+  const embeddingDims = await probeEmbeddingDims(OLLAMA_EMBED_MODEL);
+
+  logMetricTable("memory inject", [
+    { k: "target collection", v: V2_COLLECTION },
+    { k: "dryRun", v: String(parsed.dryRun) },
+    { k: "verification", v: String(parsed.verification) },
+    { k: "userId prefix", v: `${userId.slice(0, 8)}…` },
+    { k: "sourceMemoryId", v: sourceMemoryId },
+    { k: "migratedFromCollection", v: MANUAL_INJECT_FROM_COLLECTION },
+  ], 72);
+
+  logMetricTable(
+    "embed",
+    [
+      { k: "OLLAMA_URL", v: OLLAMA_URL },
+      { k: "model", v: OLLAMA_EMBED_MODEL },
+      { k: "vector dims", v: String(embeddingDims) },
+    ],
+    72
+  );
+
+  if (!parsed.dryRun) {
+    await ensureV2Collection(client, embeddingDims);
+  }
+
+  const embedPerTextMsSamples: number[] = [];
+  let totalEmbedWallMs = 0;
+  const recordEmbedBatch = ({ textCount, ms }: EmbedBatchTiming) => {
+    totalEmbedWallMs += ms;
+    if (textCount <= 0) {
+      return;
+    }
+    const per = ms / textCount;
+    for (let i = 0; i < textCount; i++) {
+      embedPerTextMsSamples.push(per);
+    }
+  };
+
+  const counters: Counters = {
+    skippedAlreadyMigrated: 0,
+    eligibleSeen: 0,
+    handled: 0,
+    filtered: 0,
+    empty: 0,
+    failed: 0,
+    chunksWritten: 0,
+    classifiedGood: 0,
+    migratedSuccessful: 0,
+  };
+
+  const verify: VerifyAccumulator = { chunksChecked: 0, storeFieldFailed: 0, uuidFailed: 0 };
+  const bytesWrite: BytesAccumulator = { vectors: 0, payload: 0 };
+
+  try {
+    await writeMemoryChunksToV2({
+      client,
+      plaintext,
+      sourceMemoryId,
+      userId,
+      createdAt,
+      migratedFromCollection: MANUAL_INJECT_FROM_COLLECTION,
+      embeddingDims,
+      dryRun: parsed.dryRun,
+      verification: parsed.verification,
+      onEmbedBatch: recordEmbedBatch,
+      counters,
+      verify,
+      bytes: bytesWrite,
+    });
+    counters.handled = 1;
+    counters.migratedSuccessful = 1;
+    counters.classifiedGood = 1;
+  } catch (err) {
+    counters.failed = 1;
+    console.error(err);
+    throw err;
+  }
+
+  const scriptWallMs = performance.now() - scriptStart;
+  const nEmbedTexts = embedPerTextMsSamples.length;
+  const avgEmbedPerTextMs = nEmbedTexts > 0 ? totalEmbedWallMs / nEmbedTexts : 0;
+  const p50EmbedPerTextMs = quantileMs(embedPerTextMsSamples, 0.5);
+  const p95EmbedPerTextMs = quantileMs(embedPerTextMsSamples, 0.95);
+  const bytesTotalWritten = bytesWrite.vectors + bytesWrite.payload;
+  const vecNote = `${counters.chunksWritten}×${embeddingDims}×4`;
+
+  console.log("\n  done (memory inject)");
+
+  logMetricTable("counts", [
+    { k: "chunks written (or simulated)", v: String(counters.chunksWritten) },
+    { k: "inject outcome", v: counters.failed > 0 ? "failed" : "ok" },
+  ], 72);
+
+  logMetricTable(
+    "timing",
+    [
+      { k: "script wall", v: `${(scriptWallMs / 1000).toFixed(2)} s` },
+      { k: "embed texts", v: String(nEmbedTexts) },
+      { k: "embed HTTP wall (sum)", v: `${(totalEmbedWallMs / 1000).toFixed(2)} s` },
+      { k: "embed avg / text", v: `${avgEmbedPerTextMs.toFixed(2)} ms` },
+      { k: "embed p50 / text", v: `${p50EmbedPerTextMs.toFixed(2)} ms` },
+      { k: "embed p95 / text", v: `${p95EmbedPerTextMs.toFixed(2)} ms` },
+    ],
+    72
+  );
+
+  logMetricTable("data written (estimate)", [
+    { k: "vectors (float32)", v: `${formatBytes(bytesWrite.vectors)}  (${vecNote})` },
+    { k: "payloads (JSON utf-8)", v: formatBytes(bytesWrite.payload) },
+    { k: "total", v: formatBytes(bytesTotalWritten) },
+  ], 72);
+
+  if (parsed.verification) {
+    const encOn = isMemoryEncryptionEnvConfigured();
+    const storeLabel = encOn ? "v2 data (encrypted + decrypt round-trip)" : "v2 data (plaintext, no enc env)";
+    const storeVal =
+      verify.chunksChecked === 0
+        ? "n/a (no chunks)"
+        : verify.storeFieldFailed === 0
+          ? `PASS  (${verify.chunksChecked} chunks)`
+          : `FAIL  (${verify.storeFieldFailed}/${verify.chunksChecked})`;
+    const uuidVal =
+      verify.chunksChecked === 0
+        ? "n/a"
+        : verify.uuidFailed === 0
+          ? `PASS  (${verify.chunksChecked})`
+          : `FAIL  (${verify.uuidFailed}/${verify.chunksChecked})`;
+    const errVal = counters.failed === 0 ? "PASS" : `FAIL  (${counters.failed})`;
+
+    const storePass = verify.chunksChecked === 0 || verify.storeFieldFailed === 0;
+    const uuidPass = verify.chunksChecked === 0 || verify.uuidFailed === 0;
+    const overall = counters.failed === 0 && storePass && uuidPass ? "PASS" : "FAIL";
+
+    logMetricTable("verification summary", [
+      { k: "dry-run (no Qdrant writes)", v: "yes" },
+      { k: "MEMORY_ENCRYPTION_* active", v: encOn ? "yes" : "no" },
+      { k: storeLabel, v: storeVal },
+      { k: "chunk point ids UUID-shaped", v: uuidVal },
+      { k: "inject errors", v: errVal },
+      { k: "chunks checked", v: String(verify.chunksChecked) },
+      { k: "script wall", v: `${(scriptWallMs / 1000).toFixed(2)} s` },
+      { k: "overall", v: overall },
+    ], 72);
+
+    if (overall === "FAIL") {
+      process.exit(1);
+    }
+  }
+}
+
 async function main() {
   const scriptStart = performance.now();
-  const { dryRun, limit, verification } = parseArgs(process.argv.slice(2));
+  const parsed = parseArgs(process.argv.slice(2));
+
+  if (parsed.memoryPlaintext !== undefined) {
+    await runMemoryInject(parsed);
+    return;
+  }
+
+  const { dryRun, limit, verification } = parsed;
 
   if (!process.env.OPENAI_API_KEY?.trim()) {
     throw new Error("OPENAI_API_KEY is required for memory quality classification");
@@ -535,8 +881,7 @@ async function main() {
   const droppedMemories: string[] = [];
   const classifyTimesMs: number[] = [];
   const embedPerTextMsSamples: number[] = [];
-  let bytesVectorsThisRun = 0;
-  let bytesPayloadThisRun = 0;
+  const bytesWrite: BytesAccumulator = { vectors: 0, payload: 0 };
 
   let totalEmbedWallMs = 0;
 
@@ -563,9 +908,7 @@ async function main() {
     migratedSuccessful: 0,
   };
 
-  let verifyChunksChecked = 0;
-  let verifyStoreFieldFailed = 0;
-  let verifyUuidFailed = 0;
+  const verify: VerifyAccumulator = { chunksChecked: 0, storeFieldFailed: 0, uuidFailed: 0 };
 
   let lastLog = Date.now();
   let progressHeaderPrinted = false;
@@ -648,93 +991,25 @@ async function main() {
 
         counters.classifiedGood++;
 
-        const chunks = chunkMemoryText(
+        const createdAt =
+          typeof payload.createdAt === "string" ? payload.createdAt : new Date().toISOString();
+        const userId = payloadUserId(payload);
+
+        await writeMemoryChunksToV2({
+          client,
           plaintext,
-          migrateMemoryChunkDefaults.maxChunkChars,
-          migrateMemoryChunkDefaults.overlapChars
-        );
-        const embeddings = await embedTextsBatched(
-          OLLAMA_EMBED_MODEL,
-          chunks,
-          EMBED_BATCH_MAX,
-          recordEmbedBatch
-        );
-
-        if (embeddings.length !== chunks.length) {
-          throw new Error(`Embedding count ${embeddings.length} !== chunks ${chunks.length}`);
-        }
-
-        for (let i = 0; i < chunks.length; i++) {
-          const chunkPlain = chunks[i]!;
-          const vector = embeddings[i]!;
-          if (vector.length !== embeddingDims) {
-            throw new Error(
-              `Embedding dim mismatch: got ${vector.length}, expected ${embeddingDims}`
-            );
-          }
-
-          const chunkId = v2ChunkPointId(String(id), i);
-          const createdAt =
-            typeof payload.createdAt === "string"
-              ? payload.createdAt
-              : new Date().toISOString();
-          const userId = payloadUserId(payload);
-
-          const v2Payload: Record<string, unknown> = {
-            ...(userId ? { userId } : {}),
-            data: storeDataField(chunkPlain),
-            hash: md5Hex(chunkPlain),
-            createdAt,
-            updatedAt: new Date().toISOString(),
-            sourceMemoryId: String(id),
-            chunkIndex: i,
-            chunkCount: chunks.length,
-            embeddingModel: OLLAMA_EMBED_MODEL,
-            migratedFromCollection: LEGACY_COLLECTION,
-          };
-
-          if (verification) {
-            verifyChunksChecked++;
-            const stored = String(v2Payload.data);
-            if (isMemoryEncryptionEnvConfigured()) {
-              if (!isEncrypted(stored) || decryptMemory(stored) !== chunkPlain) {
-                verifyStoreFieldFailed++;
-                logProc(
-                  "verify",
-                  `v2 data: expected encrypted round-trip  id=${String(id)}  chunk=${i}`,
-                  "warn"
-                );
-              }
-            } else if (stored !== chunkPlain || isEncrypted(stored)) {
-              verifyStoreFieldFailed++;
-              logProc(
-                "verify",
-                `v2 data: expected plaintext (no enc env)  id=${String(id)}  chunk=${i}`,
-                "warn"
-              );
-            }
-            if (!isUuidShape(chunkId)) {
-              verifyUuidFailed++;
-              logProc("verify", `chunk id not UUID-shaped  ${chunkId}`, "warn");
-            }
-          }
-
-          if (!dryRun) {
-            await client.upsert(V2_COLLECTION, {
-              wait: true,
-              points: [
-                {
-                  id: chunkId,
-                  vector,
-                  payload: v2Payload,
-                },
-              ],
-            });
-          }
-          counters.chunksWritten++;
-          bytesVectorsThisRun += embeddingDims * 4;
-          bytesPayloadThisRun += estimatePayloadBytes(v2Payload);
-        }
+          sourceMemoryId: String(id),
+          userId,
+          createdAt,
+          migratedFromCollection: LEGACY_COLLECTION,
+          embeddingDims,
+          dryRun,
+          verification,
+          onEmbedBatch: recordEmbedBatch,
+          counters,
+          verify,
+          bytes: bytesWrite,
+        });
 
         counters.handled++;
         counters.migratedSuccessful++;
@@ -799,7 +1074,7 @@ async function main() {
   const p50EmbedPerTextMs = quantileMs(embedPerTextMsSamples, 0.5);
   const p95EmbedPerTextMs = quantileMs(embedPerTextMsSamples, 0.95);
   const p50ClassifyMs = quantileMs(classifyTimesMs, 0.5);
-  const bytesTotalWritten = bytesVectorsThisRun + bytesPayloadThisRun;
+  const bytesTotalWritten = bytesWrite.vectors + bytesWrite.payload;
 
   console.log("\n  done");
 
@@ -849,8 +1124,8 @@ async function main() {
 
   const vecNote = `${counters.chunksWritten}×${embeddingDims}×4`;
   logMetricTable("data written (estimate)", [
-    { k: "vectors (float32)", v: `${formatBytes(bytesVectorsThisRun)}  (${vecNote})` },
-    { k: "payloads (JSON utf-8)", v: formatBytes(bytesPayloadThisRun) },
+    { k: "vectors (float32)", v: `${formatBytes(bytesWrite.vectors)}  (${vecNote})` },
+    { k: "payloads (JSON utf-8)", v: formatBytes(bytesWrite.payload) },
     { k: "total", v: formatBytes(bytesTotalWritten) },
   ], 72);
 
@@ -858,21 +1133,21 @@ async function main() {
     const encOn = isMemoryEncryptionEnvConfigured();
     const storeLabel = encOn ? "v2 data (encrypted + decrypt round-trip)" : "v2 data (plaintext, no enc env)";
     const storeVal =
-      verifyChunksChecked === 0
+      verify.chunksChecked === 0
         ? "n/a (no kept chunks)"
-        : verifyStoreFieldFailed === 0
-          ? `PASS  (${verifyChunksChecked} chunks)`
-          : `FAIL  (${verifyStoreFieldFailed}/${verifyChunksChecked})`;
+        : verify.storeFieldFailed === 0
+          ? `PASS  (${verify.chunksChecked} chunks)`
+          : `FAIL  (${verify.storeFieldFailed}/${verify.chunksChecked})`;
     const uuidVal =
-      verifyChunksChecked === 0
+      verify.chunksChecked === 0
         ? "n/a"
-        : verifyUuidFailed === 0
-          ? `PASS  (${verifyChunksChecked})`
-          : `FAIL  (${verifyUuidFailed}/${verifyChunksChecked})`;
+        : verify.uuidFailed === 0
+          ? `PASS  (${verify.chunksChecked})`
+          : `FAIL  (${verify.uuidFailed}/${verify.chunksChecked})`;
     const errVal = counters.failed === 0 ? "PASS" : `FAIL  (${counters.failed})`;
 
-    const storePass = verifyChunksChecked === 0 || verifyStoreFieldFailed === 0;
-    const uuidPass = verifyChunksChecked === 0 || verifyUuidFailed === 0;
+    const storePass = verify.chunksChecked === 0 || verify.storeFieldFailed === 0;
+    const uuidPass = verify.chunksChecked === 0 || verify.uuidFailed === 0;
     const overall =
       counters.failed === 0 && storePass && uuidPass ? "PASS" : "FAIL";
 
