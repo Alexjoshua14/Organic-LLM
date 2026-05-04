@@ -18,21 +18,32 @@ import { clientRandomUUID } from "@/lib/client-uuid";
 
 export type StrataIngestMode = "web" | "url" | "files" | "clipboard";
 
-type SearchHit = { title: string; url: string; snippet: string };
-
-const MODE_LABEL: Record<StrataIngestMode, string> = {
+/** Labels reused by `StrataSourceInput` segmented control. */
+export const STRATA_INGEST_MODE_LABEL: Record<StrataIngestMode, string> = {
   web: "Web search",
   url: "URL",
   files: "Files",
   clipboard: "Clipboard",
 };
 
+/** Icons for each ingest mode (sidebar / segmented UI). */
+export function strataIngestModeIcon(mode: StrataIngestMode) {
+  return mode === "web"
+    ? Search
+    : mode === "url"
+      ? Link2
+      : mode === "files"
+        ? FileUp
+        : ClipboardPaste;
+}
+
+type SearchHit = { title: string; url: string; snippet: string };
+
 /**
- * Source ingest controls. The bar is fully controlled — the parent owns `mode` (so it can also
- * drive the spotlight overlay) and clipboard pastes route into the notepad via
- * `onClipboardPasteToNotepad` instead of writing into a local textarea.
+ * Ingest panels only (web / URL / files / clipboard) — no outer chrome or mode switcher.
+ * Parent owns which mode is active (`StrataSourceInput` unified shell).
  */
-export function StrataSourceIngestBar({
+export function StrataSourceIngestPanels({
   pageId,
   ingestEnabled,
   reduceMotion,
@@ -43,15 +54,10 @@ export function StrataSourceIngestBar({
 }: {
   pageId: string;
   ingestEnabled: boolean;
-  /** From shell `useReducedMotion()`; layout animation duration is zero when true. */
   reduceMotion?: boolean | null;
-  mode: StrataIngestMode | null;
+  mode: StrataIngestMode;
   onModeChange: (next: StrataIngestMode | null) => void;
   onAppendNodes: (nodes: StrataTextSourceNode[]) => void;
-  /**
-   * Append clipboard text into the active notepad. Implementations should also surface a non-blocking
-   * suggested title (LLM-derived when the page is synced; falls back to "From clipboard" otherwise).
-   */
   onClipboardPasteToNotepad: (text: string, suggestedTitle: string) => void;
 }) {
   const [urlInput, setUrlInput] = useState("");
@@ -321,55 +327,29 @@ export function StrataSourceIngestBar({
     }
   }, [appendChecked, canUseNetwork, pageId, urlInput, urlTitleOverride]);
 
-  return (
-    <div
-      className={cn(
-        glass({ opaque: true }),
-        "flex flex-col gap-3 rounded-xl border border-border/60 p-4"
-      )}
-    >
-      <div className="flex flex-wrap items-center gap-2">
-        {(["web", "url", "files", "clipboard"] as const).map((m) => {
-          const isActive = mode === m;
-          const Icon =
-            m === "web" ? Search : m === "url" ? Link2 : m === "files" ? FileUp : ClipboardPaste;
-          const showLoader = m === "clipboard" && clipboardTitleBusy;
+  const showClipboardLoader = mode === "clipboard" && clipboardTitleBusy;
 
-          return (
-            <button
-              key={m}
-              type="button"
-              className={cn(
-                "inline-flex items-center gap-1 rounded-full border px-3 py-1 text-xs font-medium transition-colors",
-                isActive
-                  ? "border-primary/50 bg-primary/10 text-foreground"
-                  : "border-transparent text-muted-foreground hover:bg-muted hover:text-foreground"
-              )}
-              onClick={() => onModeChange(isActive ? null : m)}
-            >
-              {showLoader ? (
-                <Loader2 className="h-3.5 w-3.5 shrink-0 animate-spin" aria-hidden />
-              ) : (
-                <Icon className="h-3.5 w-3.5" aria-hidden />
-              )}
-              {MODE_LABEL[m]}
-            </button>
-          );
-        })}
-        <input
-          ref={fileRef}
-          type="file"
-          multiple
-          className="hidden"
-          accept=".txt,.md,.csv,.json,.ts,.tsx,.js,.jsx,.html,.css,.xml,.yaml,.yml"
-          onChange={(e) => void onPickFiles(e.target.files)}
-        />
-      </div>
+  return (
+    <div className="flex min-h-0 flex-1 flex-col gap-3">
+      <input
+        ref={fileRef}
+        type="file"
+        multiple
+        className="hidden"
+        accept=".txt,.md,.csv,.json,.ts,.tsx,.js,.jsx,.html,.css,.xml,.yaml,.yml"
+        onChange={(e) => void onPickFiles(e.target.files)}
+      />
 
       <motion.div
         layout="size"
         initial={false}
-        className="overflow-hidden rounded-md"
+        className={cn(
+          "rounded-md",
+          /** URL flows can exceed a flex-shrink slot; clipping hid preview/actions. */
+          mode === "url"
+            ? "min-h-min w-full shrink-0 overflow-visible"
+            : "min-h-0 flex-1 overflow-hidden"
+        )}
         transition={layoutTransition}
       >
         {mode === "web" ? (
@@ -510,6 +490,18 @@ export function StrataSourceIngestBar({
               </div>
             ) : null}
           </div>
+        ) : null}
+
+        {mode === "files" ? (
+          <p className="text-sm text-muted-foreground">
+            Choose one or more text files to add as sources.
+          </p>
+        ) : null}
+
+        {mode === "clipboard" ? (
+          <p className="text-sm text-muted-foreground">
+            {showClipboardLoader ? "Reading clipboard and suggesting a title…" : "Reading clipboard…"}
+          </p>
         ) : null}
       </motion.div>
 

@@ -811,6 +811,7 @@ export const PromptInputTextarea = ({
   onChange,
   className,
   placeholder = "What would you like to know?",
+  onKeyDown: onKeyDownProp,
   ...props
 }: PromptInputTextareaProps) => {
   const controller = useOptionalPromptInputController();
@@ -818,7 +819,10 @@ export const PromptInputTextarea = ({
   const [isComposing, setIsComposing] = useState(false);
   const isMobile = useIsMobile();
 
-  const handleKeyDown: KeyboardEventHandler<HTMLTextAreaElement> = (e) => {
+  /** Consumer `onKeyDown` must not replace this logic — spread `{...props}` used to clobber `onKeyDown`. */
+  const mergedKeyDown: KeyboardEventHandler<HTMLTextAreaElement> = (e) => {
+    onKeyDownProp?.(e);
+
     if (e.key === "Enter") {
       if (isComposing || e.nativeEvent.isComposing) {
         return;
@@ -828,6 +832,10 @@ export const PromptInputTextarea = ({
       }
       // On mobile, Enter should insert a newline; submit via the UI button only.
       if (isMobile) {
+        return;
+      }
+      // Cmd/Ctrl+Enter is reserved for callers (e.g. secondary submit / steer); do not form-submit.
+      if (e.metaKey || e.ctrlKey) {
         return;
       }
       e.preventDefault();
@@ -909,7 +917,7 @@ export const PromptInputTextarea = ({
       placeholder={placeholder}
       onCompositionEnd={() => setIsComposing(false)}
       onCompositionStart={() => setIsComposing(true)}
-      onKeyDown={handleKeyDown}
+      onKeyDown={mergedKeyDown}
       onPaste={handlePaste}
       {...controlledProps}
       aria-multiline="true"

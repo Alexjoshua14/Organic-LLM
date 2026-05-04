@@ -13,7 +13,7 @@ import { BookOpenText, Columns2, Plus, SquarePen } from "lucide-react";
 import { motion } from "framer-motion";
 
 import { StrataSourceComposerOptions } from "./StrataSourceComposerOptions";
-import { StrataSourceIngestBar, type StrataIngestMode } from "./StrataSourceIngestBar";
+import { StrataSourceInput, type StrataSourceInputMode } from "./StrataSourceInput";
 import { StrataTextSourcesList } from "./StrataTextSourcesList";
 
 import {
@@ -44,6 +44,15 @@ const StrataNotepad = dynamic(() => import("./StrataNotepad").then((m) => m.Stra
 });
 
 const NOTEPAD_DEFAULT_TITLE = "Untitled note";
+
+function isBlankUserTextNote(n: StrataTextSourceNode): boolean {
+  if (n.kind !== "user_text") return false;
+  const title = n.title?.trim() ?? "";
+
+  return (
+    n.body.trim().length === 0 && (title.length === 0 || title === NOTEPAD_DEFAULT_TITLE)
+  );
+}
 
 export function StrataSourceTab({
   sourceDocLayout,
@@ -103,7 +112,7 @@ export function StrataSourceTab({
     return match?.[1] ?? null;
   });
 
-  const [ingestMode, setIngestMode] = useState<StrataIngestMode | null>(null);
+  const [sourceInputMode, setSourceInputMode] = useState<StrataSourceInputMode>("note");
 
   const applySources = useCallback(
     (next: StrataTextSourceNode[]) => {
@@ -235,9 +244,17 @@ export function StrataSourceTab({
 
   ensureActiveNoteRef.current = ensureActiveNote;
 
+  /** When true, the next auto-select effect run is skipped (user explicitly closed the notepad). */
+  const skipNextAutoNoteRef = useRef(false);
+
   useEffect(() => {
     if (!notepadEnabled) return;
     if (activeNoteId && userTextNotes.some((n) => n.id === activeNoteId)) return;
+    if (skipNextAutoNoteRef.current) {
+      skipNextAutoNoteRef.current = false;
+
+      return;
+    }
     if (userTextNotes.length === 0) {
       ensureActiveNoteRef.current();
     } else {
@@ -282,6 +299,15 @@ export function StrataSourceTab({
   }, [activeNote, applySources, textSources]);
 
   const handleNewNote = useCallback(() => {
+    const existingBlank = userTextNotes.find(isBlankUserTextNote);
+
+    if (existingBlank) {
+      setActiveNoteId(existingBlank.id);
+      setSourceInputMode("note");
+
+      return;
+    }
+
     const id = clientRandomUUID();
     const node: StrataTextSourceNode = {
       id,
@@ -294,8 +320,16 @@ export function StrataSourceTab({
 
     onAppendNodes([node]);
     setActiveNoteId(id);
-    setIngestMode(null);
-  }, [onAppendNodes]);
+    setSourceInputMode("note");
+  }, [onAppendNodes, userTextNotes]);
+
+  const handleCloseNotepad = useCallback(() => {
+    skipNextAutoNoteRef.current = true;
+    queueMicrotask(() => {
+      flushSaveRaw();
+      setActiveNoteId(null);
+    });
+  }, [flushSaveRaw]);
 
   const handleClipboardPasteToNotepad = useCallback(
     (text: string, suggestedTitle: string) => {
@@ -329,25 +363,34 @@ export function StrataSourceTab({
 
   const handleActivateUserText = useCallback((id: string) => {
     setActiveNoteId(id);
-    setIngestMode(null);
+    setSourceInputMode("note");
   }, []);
 
-  const ingesting = ingestMode === "web" || ingestMode === "url";
+  useEffect(() => {
+    if (!notepadEnabled && sourceInputMode === "note") {
+      setSourceInputMode("web");
+    }
+  }, [notepadEnabled, sourceInputMode]);
+
+  const ingesting = sourceInputMode === "web" || sourceInputMode === "url";
 
   /** Esc closes the spotlight when an ingest sub-panel is open. */
   useEffect(() => {
     if (!ingesting) return undefined;
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") setIngestMode(null);
+      if (e.key === "Escape") setSourceInputMode(notepadEnabled ? "note" : "web");
     };
 
     window.addEventListener("keydown", onKey);
 
     return () => window.removeEventListener("keydown", onKey);
-  }, [ingesting]);
+  }, [ingesting, notepadEnabled]);
 
   return (
-    <div className="flex min-h-0 flex-col gap-3" data-spotlight={ingesting ? ingestMode : "none"}>
+    <div
+      className="flex min-h-0 flex-1 flex-col gap-3"
+      data-spotlight={ingesting ? sourceInputMode : "none"}
+    >
       <div className="flex min-w-0 w-full items-center justify-between gap-3">
         <div className="flex min-w-0 flex-1 items-center justify-start">{statusRow}</div>
         <div className="flex shrink-0 items-center gap-2">
@@ -450,49 +493,44 @@ export function StrataSourceTab({
       </div>
       <div
         className={cn(
-          "grid gap-3 auto-rows-[minmax(12rem,auto)]",
+          "grid min-h-0 flex-1 gap-3 auto-rows-[minmax(12rem,1fr)]",
           sourceDocLayout === "split" ? "lg:grid-cols-2 lg:items-stretch" : "grid-cols-1"
         )}
       >
         {sourceDocLayout !== "refined" ? (
-          <div className="flex h-full min-h-0 min-w-0 flex-col gap-3">
-            {notepadEnabled && activeNoteId ? (
-              <div
-                className={cn(
-                  "transition-all duration-200 ease-out",
-                  ingesting && "opacity-40 blur-[1px] pointer-events-none"
-                )}
-                inert={ingesting ? true : undefined}
-              >
-                <StrataNotepad
-                  key={activeNoteId}
-                  pageId={pageId}
-                  noteId={activeNoteId}
-                  title={activeNote?.title ?? NOTEPAD_DEFAULT_TITLE}
-                  initialMarkdown={activeNote?.body ?? ""}
-                  onTitleChange={handleNotepadTitleChange}
-                  onMarkdownChange={handleNotepadMarkdownChange}
-                  onUpgradedToRich={handleUpgradedToRich}
-                />
-              </div>
-            ) : null}
-
-            <div
-              className={cn(
-                "shrink-0",
-                ingesting && "relative z-30 ring-2 ring-primary/30 rounded-xl"
-              )}
-            >
-              <StrataSourceIngestBar
-                ingestEnabled={ingestEnabled}
-                pageId={pageId}
-                reduceMotion={reduceMotion}
-                mode={ingestMode}
-                onModeChange={setIngestMode}
-                onAppendNodes={onAppendNodes}
-                onClipboardPasteToNotepad={handleClipboardPasteToNotepad}
-              />
-            </div>
+          <div className="flex h-full min-h-0 min-w-0 flex-1 flex-col gap-3">
+            <StrataSourceInput
+              className="min-h-0 flex-1"
+              mode={sourceInputMode}
+              onModeChange={setSourceInputMode}
+              notepadEnabled={notepadEnabled}
+              activeNoteId={activeNoteId}
+              ingestEnabled={ingestEnabled}
+              pageId={pageId}
+              reduceMotion={reduceMotion}
+              ingesting={ingesting}
+              onAppendNodes={onAppendNodes}
+              onClipboardPasteToNotepad={handleClipboardPasteToNotepad}
+              notepad={
+                notepadEnabled && activeNoteId ? (
+                  <StrataNotepad
+                    key={activeNoteId}
+                    pageId={pageId}
+                    noteId={activeNoteId}
+                    title={activeNote?.title ?? NOTEPAD_DEFAULT_TITLE}
+                    initialMarkdown={activeNote?.body ?? ""}
+                    onTitleChange={handleNotepadTitleChange}
+                    onMarkdownChange={handleNotepadMarkdownChange}
+                    onUpgradedToRich={handleUpgradedToRich}
+                    onCloseNote={handleCloseNotepad}
+                  />
+                ) : (
+                  <p className="text-sm text-muted-foreground">
+                    Create or select a note from the saved sources list below.
+                  </p>
+                )
+              }
+            />
             <div
               className={cn(
                 "flex min-h-0 min-w-0 flex-1 flex-col gap-2 overflow-y-auto overscroll-y-contain transition-all duration-200 ease-out",

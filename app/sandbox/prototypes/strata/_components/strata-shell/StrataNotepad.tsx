@@ -9,11 +9,10 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTheme } from "next-themes";
 import { useCreateBlockNote } from "@blocknote/react";
 import { BlockNoteView } from "@blocknote/shadcn";
-import { Save } from "lucide-react";
+import { Save, X } from "lucide-react";
 
 import { STRATA_NOTEPAD_FRAGMENT, useStrataNotepad } from "./use-strata-notepad";
 
-import { glass } from "@/components/design-system/primitives";
 import { cn } from "@/lib/utils";
 import { sanitizeRawUserInput } from "@/lib/strata/input-safety";
 
@@ -48,6 +47,11 @@ export type StrataNotepadProps = {
   onMarkdownChange?: (markdown: string) => void;
   /** Fires once after first hydration so the parent can flip a note from text-only to richKind. */
   onUpgradedToRich?: () => void;
+  /**
+   * After markdown + Yjs are flushed to the parent and server, run to persist the page and clear
+   * the active note so the user can pick another or start fresh.
+   */
+  onCloseNote?: () => void | Promise<void>;
   className?: string;
 };
 
@@ -63,6 +67,7 @@ export function StrataNotepad({
   initialMarkdown,
   onMarkdownChange,
   onUpgradedToRich,
+  onCloseNote,
   className,
 }: StrataNotepadProps) {
   const { resolvedTheme } = useTheme();
@@ -165,6 +170,30 @@ export function StrataNotepad({
     }
   }, [flushToServer]);
 
+  const flushMarkdownToParentNow = useCallback(() => {
+    if (markdownTimerRef.current) {
+      clearTimeout(markdownTimerRef.current);
+      markdownTimerRef.current = null;
+    }
+    if (!onMarkdownChange || !ready) return;
+    const md = editor.blocksToMarkdownLossy(editor.document);
+
+    onMarkdownChange(sanitizeRawUserInput(md));
+  }, [editor, onMarkdownChange, ready]);
+
+  const handleCloseNote = useCallback(async () => {
+    if (!onCloseNote) return;
+    setSaving(true);
+    try {
+      flushMarkdownToParentNow();
+      await flushToServer();
+      await Promise.resolve(onCloseNote());
+      setLastSavedAt(Date.now());
+    } finally {
+      setSaving(false);
+    }
+  }, [flushMarkdownToParentNow, flushToServer, onCloseNote]);
+
   const lastSavedLabel = useMemo(() => {
     if (saving) return "Saving…";
     if (lastSavedAt === null) return "Synced via local cache";
@@ -176,14 +205,13 @@ export function StrataNotepad({
   return (
     <div
       className={cn(
-        glass({ opaque: true }),
-        "flex h-full min-h-0 flex-col gap-3 rounded-xl border border-border/60 p-4",
+        "flex h-full min-h-0 flex-col gap-2.5 overflow-hidden text-foreground",
         className
       )}
       data-strata-notepad
       data-client-id={clientId}
     >
-      <div className="flex items-start gap-3">
+      <div className="flex shrink-0 items-start gap-3">
         <input
           aria-label="Note title"
           className="min-w-0 flex-1 bg-transparent text-base font-semibold text-foreground outline-none placeholder:text-muted-foreground"
@@ -192,23 +220,48 @@ export function StrataNotepad({
           value={title}
           onChange={(e) => onTitleChange(e.target.value)}
         />
-        <button
-          type="button"
-          disabled={saving || !ready}
-          onClick={() => void handleSaveNow()}
-          className={cn(
-            "inline-flex shrink-0 items-center gap-1 rounded-md border border-border/60 bg-background/40 px-2 py-1 text-xs font-medium text-muted-foreground transition-colors",
-            "hover:bg-muted hover:text-foreground disabled:opacity-50"
-          )}
-          title="Save now"
-          aria-label="Save now"
-        >
-          <Save className="size-3.5" aria-hidden />
-          Save
-        </button>
+        <div className="flex shrink-0 items-center gap-1">
+          <button
+            type="button"
+            disabled={saving || !ready}
+            onClick={() => void handleSaveNow()}
+            className={cn(
+              "inline-flex shrink-0 items-center gap-1 rounded-md border border-transparent px-2 py-1 text-xs font-medium text-muted-foreground transition-colors",
+              "hover:border-border/40 hover:bg-muted/30 hover:text-foreground disabled:opacity-50"
+            )}
+            title="Save now"
+            aria-label="Save now"
+          >
+            <Save className="size-3.5" aria-hidden />
+            Save
+          </button>
+          {onCloseNote ? (
+            <button
+              type="button"
+              disabled={saving || !ready}
+              onClick={() => void handleCloseNote()}
+              className={cn(
+                "inline-flex size-8 shrink-0 items-center justify-center rounded-md border border-transparent text-muted-foreground transition-colors",
+                "hover:border-border/40 hover:bg-muted/30 hover:text-foreground disabled:opacity-50"
+              )}
+              title="Close note — save to sources and clear"
+              aria-label="Close note"
+            >
+              <X className="size-4" aria-hidden />
+            </button>
+          ) : null}
+        </div>
       </div>
 
-      <div className="strata-notepad-editor flex-1 min-h-0 overflow-y-auto rounded-md border border-border/40 bg-background/30">
+      <div
+        className={cn(
+          "strata-notepad-editor flex min-h-0 flex-1 flex-col overflow-y-auto overflow-x-hidden py-2",
+          "[&_.bn-root]:[--bn-colors-editor-background:transparent]",
+          "[&_.bn-root]:[--bn-colors-editor-text:var(--foreground)]",
+          "[&_.bn-editor]:rounded-none [&_.bn-editor]:bg-transparent [&_.bn-editor]:shadow-none",
+          "[&_.bn-editor]:!pl-6 [&_.bn-editor]:!pr-4 sm:[&_.bn-editor]:!pl-8 sm:[&_.bn-editor]:!pr-5"
+        )}
+      >
         <BlockNoteView
           editor={editor}
           editable
@@ -216,7 +269,7 @@ export function StrataNotepad({
         />
       </div>
 
-      <div className="flex items-center justify-between text-xs text-muted-foreground">
+      <div className="flex shrink-0 items-center justify-between border-t border-border/10 pt-2 text-xs text-muted-foreground">
         <span>{wordCount.toLocaleString()} words</span>
         <span>{lastSavedLabel}</span>
       </div>

@@ -59,7 +59,7 @@ export function StrataShell({
           ref={shell.refs.scrollContainerRef}
           className="flex min-h-0 flex-1 flex-col overflow-y-auto overscroll-y-contain"
         >
-          <div className="mx-auto flex w-full max-w-5xl min-h-full shrink-0 flex-col px-6 pb-14 pt-1">
+          <div className="mx-auto flex w-full max-w-5xl min-h-0 flex-1 flex-col px-6 pb-14 pt-1">
             {shell.activeTab === "source" ? (
               <StrataSourceTab
                 assistantSession={assistantSession}
