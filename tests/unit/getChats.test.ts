@@ -3,15 +3,12 @@ import {
   MockSupabaseClient,
   createTestThreads,
 } from "../helpers/mock-supabase";
+import {
+  registerSharedSupabaseServerMock,
+  supabaseServerMock,
+} from "../helpers/supabase-server-mock";
 
 mock.module("server-only", () => ({}));
-
-/** Stable handle so `getChats` always calls the same client instance we seed (see chat-encryption.test.ts). */
-const mockSupabaseServer = mock(async () => new MockSupabaseClient());
-
-mock.module("@/lib/supabase/server", () => ({
-  supabaseServer: mockSupabaseServer,
-}));
 
 describe("getChats", () => {
   let mockClient: MockSupabaseClient;
@@ -20,11 +17,9 @@ describe("getChats", () => {
   beforeEach(async () => {
     mockClient = new MockSupabaseClient();
 
-    // Re-apply after other test files may have replaced `@/lib/supabase/server` at load time.
-    mock.module("@/lib/supabase/server", () => ({
-      supabaseServer: mockSupabaseServer,
-    }));
-    mockSupabaseServer.mockImplementation(async () => mockClient);
+    // Restore shared registry after other suites (e.g. runGenerationAndPersist) replace `@/lib/supabase/server`.
+    registerSharedSupabaseServerMock();
+    supabaseServerMock.mockImplementation(async () => mockClient);
 
     ({ getChats } = await import("@/data/supabase/chat"));
   });
@@ -75,10 +70,8 @@ describe("getChats", () => {
   });
 
   test("returns a caught error when Supabase is unavailable", async () => {
-    mock.module("@/lib/supabase/server", () => ({
-      supabaseServer: mockSupabaseServer,
-    }));
-    mockSupabaseServer.mockImplementation(() => Promise.reject(new Error("DB down")));
+    registerSharedSupabaseServerMock();
+    supabaseServerMock.mockImplementation(() => Promise.reject(new Error("DB down")));
 
     ({ getChats } = await import("@/data/supabase/chat"));
 

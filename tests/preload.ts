@@ -6,6 +6,9 @@
  */
 import { mock } from "bun:test";
 
+import { registerUpstashRateLimitMocks } from "./helpers/rate-limit-upstash";
+import { registerSharedSupabaseServerMock } from "./helpers/supabase-server-mock";
+
 declare global {
   // eslint-disable-next-line no-var
   var __realRabbitholes: typeof import("@/data/supabase/rabbitholes");
@@ -15,26 +18,11 @@ declare global {
 }
 
 mock.module("server-only", () => ({}));
-mock.module("@/lib/supabase/server", () => ({
-  supabaseServer: async () =>
-    ({
-      from: () => ({
-        update: () => ({
-          eq: () => Promise.resolve({ data: null, error: null }),
-        }),
-      }),
-    }) as never,
-}));
+registerSharedSupabaseServerMock();
 
-// Prevent any test from loading real Redis (avoids "fetch() URL is invalid" in CI).
-// Do not mock @upstash/ratelimit here so llm-rate-limit.test's mock (with mockLimit) is
-// used when lib/rate-limit/llm loads; that test runs first (00-llm-rate-limit.test.ts).
-mock.module("@upstash/redis", () => ({
-  Redis: class {
-    request = () => Promise.resolve({ data: undefined, error: null });
-  },
-}));
-mock.module("@/lib/redis/redis", () => ({ redis: {} }));
+// Single Ratelimit mock shared by tests/unit/00-llm-rate-limit and chats-rate-limit
+// (each file must not register its own mock.module — last file wins and breaks the other).
+registerUpstashRateLimitMocks();
 
 // Mock chat-store so the real "use server" module is never loaded in tests (Bun fails with "Export named 'createChat' not found"). Integration tests replace this with their own full mocks.
 const chatStoreStub = async () => ({ data: null, error: new Error("chat-store mocked") });

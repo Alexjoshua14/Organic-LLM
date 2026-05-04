@@ -1,22 +1,6 @@
-import { beforeEach, describe, expect, mock, test } from "bun:test";
+import { beforeEach, describe, expect, test } from "bun:test";
 
-const mockLimit = mock(async (_id: string) => ({
-  success: true,
-  remaining: 240,
-}));
-
-mock.module("@upstash/redis", () => ({
-  Redis: class {
-    request = () => Promise.resolve({ data: undefined, error: null });
-  },
-}));
-mock.module("@upstash/ratelimit", () => ({
-  Ratelimit: class {
-    static slidingWindow = (_n: number, _w: string) => ({});
-    limit = mockLimit;
-  },
-}));
-mock.module("@/lib/redis/redis", () => ({ redis: {} }));
+import { sharedRatelimitLimit as mockLimit } from "../helpers/rate-limit-upstash";
 
 describe("Chats list rate limit (lib/rate-limit/chats)", () => {
   let chatsRateLimit: typeof import("@/lib/rate-limit/chats");
