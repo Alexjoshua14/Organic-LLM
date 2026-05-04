@@ -20,6 +20,9 @@ const logger = createLogger("lib/memory/store.ts");
 
 const NO_CHAT_ID_PLACEHOLDER = "no-chat-id" as const;
 
+/** Mem0 OSS getAll defaults to limit 100; raise so UI and ownership checks see more rows. */
+export const MEM0_GET_ALL_LIMIT = 2000;
+
 /**
  * Searches for memories based on a query. Low-level: expects Mem0 user id
  * (Supabase user id in this app), not Clerk id.
@@ -66,7 +69,10 @@ export async function getAllMemories(userId: string): Promise<SearchResult> {
 
   try {
     const memory = getMemory();
-    const result: SearchResult = await memory.getAll({ userId });
+    const result: SearchResult = await memory.getAll({
+      userId,
+      limit: MEM0_GET_ALL_LIMIT,
+    });
 
     return result;
   } catch {

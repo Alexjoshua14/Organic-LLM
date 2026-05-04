@@ -11,10 +11,17 @@ const POSTS: Array<{
   category: Category;
 }> = [
   {
+    slug: "how-we-secure-memory",
+    title: "How we protect your memories",
+    description:
+      "Why memory matters, what we encrypt in the memory database, how access and logging work, and what we do not claim.",
+    category: "architecture",
+  },
+  {
     slug: "memory-encryption",
     title: "Memory Encryption",
     description:
-      "How Organic LLM encrypts messages and summaries at rest: research, design choices, and the implemented solution.",
+      "How Organic LLM encrypts messages and summaries at rest: research, design choices, implemented solution, and how long-term memory fits in.",
     category: "architecture",
   },
   {

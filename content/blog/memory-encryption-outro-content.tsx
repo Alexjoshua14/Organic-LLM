@@ -1,3 +1,5 @@
+import Link from "next/link";
+
 import { BlogSection } from "@/components/blog/blog-section";
 import { MermaidDiagram } from "@/components/blog/mermaid-diagram";
 import { PipelineDiagram, type PipelineSection } from "@/components/blog/pipeline-diagram";
@@ -117,6 +119,35 @@ export function MemoryEncryptionOutroContent() {
         excerpts, etc.
       </p>
 
+      <h3>Long-term memory (Mem0 / Qdrant)</h3>
+      <p>
+        In addition to the message and summary fields above, Organic LLM can encrypt sensitive{" "}
+        <strong>string fields</strong> on memory records before they are written to the vector
+        memory database (Qdrant via Mem0). When configured, a server-side wrapper encrypts those
+        fields on insert/update and decrypts them on search and reads; embedding vectors stay
+        available for semantic search and are not encrypted at that layer.
+      </p>
+      <ul>
+        <li>
+          <strong>Algorithm:</strong> AES-256-GCM with versioned deployment key material (separate
+          wire format from the <code>enc:v1:</code> message payload style described above).
+        </li>
+        <li>
+          <strong>Scope:</strong> Readable memory text at rest; not a replacement for the
+          authenticated memory APIs, rate limits, or TLS described on the companion page.
+        </li>
+        <li>
+          <strong>More detail:</strong>{" "}
+          <Link
+            className="underline decoration-foreground/40 hover:decoration-foreground"
+            href="/blog/how-we-secure-memory"
+          >
+            How we protect your memories
+          </Link>
+          .
+        </li>
+      </ul>
+
       <h3>Server-only</h3>
       <p>The crypto module is server-only and is never imported by client code.</p>
 
@@ -186,7 +217,9 @@ export function MemoryEncryptionOutroContent() {
         ).
       </p>
       <p>
-        <strong>Encrypted fields:</strong> Message content, thread summary, conversation summary.
+        <strong>Encrypted fields (Supabase path):</strong> Message content, thread summary,
+        conversation summary. Long-term memory text may additionally be encrypted in the vector
+        memory store as described above.
       </p>
 
       <h3>Security properties achieved</h3>
