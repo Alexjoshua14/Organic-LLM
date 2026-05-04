@@ -1,3 +1,16 @@
+/**
+ * Memory field encryption (AES-256-GCM), Node `crypto` only.
+ *
+ * Environment (rotation):
+ * - `MEMORY_ENCRYPTION_CURRENT_KEY` — active version for new ciphertexts, e.g. `k1`.
+ * - `MEMORY_ENCRYPTION_KEY_K1`, `MEMORY_ENCRYPTION_KEY_K2`, … — **standard padded base64**
+ *   encoding **at least 32 bytes of random key material after decode** (IKM for HKDF).
+ *   Use `openssl rand -base64 32` or `node -e "console.log(require('crypto').randomBytes(32).toString('base64'))"`.
+ *   **Passphrases / plain UTF-8 secrets are not supported** — they will fail base64 validation
+ *   or length checks with errors that point here.
+ *
+ * Payload wire format: `v1:<keyVersion>:<ivB64>:<tagB64>:<ctB64>`.
+ */
 import { createCipheriv, createDecipheriv, hkdfSync, randomBytes } from "node:crypto";
 
 const PAYLOAD_VERSION = "v1";
@@ -51,6 +64,8 @@ function decodeBase64(value: string, label: string): Buffer {
     throw new Error(`Invalid ${label} encoding`);
   }
 
+  // Node's Buffer.from accepts unpadded / loosely-valid base64; we require standard padded
+  // length (multiple of 4) so ciphertexts and env keys are unambiguous and corruption is obvious.
   if (value.length > 0 && value.length % 4 !== 0) {
     throw new Error(`Invalid ${label} encoding`);
   }
@@ -59,7 +74,17 @@ function decodeBase64(value: string, label: string): Buffer {
 }
 
 function decodeIkmFromEnv(raw: string, envVar: string): Buffer {
-  const ikm = decodeBase64(raw, envVar);
+  let ikm: Buffer;
+
+  try {
+    ikm = decodeBase64(raw, envVar);
+  } catch (err) {
+    throw new Error(
+      `${envVar} must be standard padded base64 of at least ${AES_KEY_BYTES} random bytes after decode ` +
+        `(use \`openssl rand -base64 32\`). Passphrases and non-base64 strings are not supported.`,
+      { cause: err }
+    );
+  }
 
   if (ikm.length < AES_KEY_BYTES) {
     throw new Error(
@@ -227,7 +252,7 @@ export function decryptMemory(encrypted: string): string {
     return plaintext.toString("utf8");
   } catch (err) {
     throw new Error(
-      "Memory decryption failed: ciphertext may have been tampered with or the key is wrong",
+      `Memory decryption failed (key=${payload.keyVersion}): ciphertext may have been tampered with or the key is wrong`,
       { cause: err }
     );
   }
@@ -235,6 +260,11 @@ export function decryptMemory(encrypted: string): string {
 
 /**
  * Re-encrypts a payload under the current key version.
+ *
+ * @throws {MemoryKeyNotFoundError} if the original key version's env var is unset
+ * @throws {Error} if the original ciphertext is malformed or tampered (from {@link decryptMemory}),
+ *   or if {@link encryptMemory} fails (e.g. missing or invalid `MEMORY_ENCRYPTION_CURRENT_KEY`)
+ *
  * Used by rotation migrations to upgrade old ciphertexts.
  */
 export function reencryptMemory(encrypted: string): string {
@@ -245,11 +275,16 @@ export function reencryptMemory(encrypted: string): string {
 /**
  * Returns true if the ciphertext was encrypted under the current key version.
  * Used by rotation migrations to skip already-rotated entries.
+ *
+ * `getCurrentKeyVersion()` runs outside the parse try/catch so missing or invalid
+ * `MEMORY_ENCRYPTION_CURRENT_KEY` throws instead of being treated as "not current".
  */
 export function isEncryptedWithCurrentKey(encrypted: string): boolean {
+  const currentVersion = getCurrentKeyVersion();
+
   try {
     const payload = parseMemoryPayload(encrypted);
-    return payload.keyVersion === getCurrentKeyVersion();
+    return payload.keyVersion === currentVersion;
   } catch {
     return false;
   }

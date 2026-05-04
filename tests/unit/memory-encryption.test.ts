@@ -63,7 +63,7 @@ describe("memory encryption", () => {
     const tampered = `${parts[0]}:${parts[1]}:${parts[2]}:${parts[3]}:${ct.toString("base64")}`;
 
     expect(() => mod.decryptMemory(tampered)).toThrow(
-      /Memory decryption failed: ciphertext may have been tampered with or the key is wrong/,
+      /Memory decryption failed \(key=k1\): ciphertext may have been tampered with or the key is wrong/,
     );
 
     try {
@@ -161,6 +161,12 @@ describe("MEMORY_ENCRYPTION_CURRENT_KEY validation", () => {
       "MEMORY_ENCRYPTION_CURRENT_KEY must be of form 'k<number>' (e.g., 'k1'); got: not-a-version",
     );
   });
+
+  test("isEncryptedWithCurrentKey throws when current key id is invalid", () => {
+    expect(() => mod.isEncryptedWithCurrentKey("v1:k1:abcd")).toThrow(
+      "MEMORY_ENCRYPTION_CURRENT_KEY must be of form 'k<number>' (e.g., 'k1'); got: not-a-version",
+    );
+  });
 });
 
 describe("missing MEMORY_ENCRYPTION_CURRENT_KEY", () => {
@@ -175,6 +181,10 @@ describe("missing MEMORY_ENCRYPTION_CURRENT_KEY", () => {
 
   test("encryptMemory throws when current key is missing", () => {
     expect(() => mod.encryptMemory("x")).toThrow("Missing MEMORY_ENCRYPTION_CURRENT_KEY");
+  });
+
+  test("isEncryptedWithCurrentKey throws when current key is missing", () => {
+    expect(() => mod.isEncryptedWithCurrentKey("v1:k1:any")).toThrow("Missing MEMORY_ENCRYPTION_CURRENT_KEY");
   });
 });
 
