@@ -11,6 +11,13 @@ const POSTS: Array<{
   category: Category;
 }> = [
   {
+    slug: "how-we-secure-memory",
+    title: "How we secure user memory",
+    description:
+      "A concise overview: why memory is sensitive, what we encrypt, how the server boundary works, and what we do not claim.",
+    category: "architecture",
+  },
+  {
     slug: "memory-encryption",
     title: "Memory Encryption",
     description:
