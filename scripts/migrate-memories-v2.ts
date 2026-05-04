@@ -351,7 +351,7 @@ Examples — KEEP:
     if (NoObjectGeneratedError.isInstance(err) && typeof err.text === "string") {
       const repaired = parseMemoryQualityFromModelText(err.text);
       if (repaired) {
-        console.warn("  [classify] repaired model reply (JSON-schema envelope or parse retry)");
+        logProc("classify", "repaired JSON-schema-shaped reply (parse fallback)", "warn");
         return repaired;
       }
     }
@@ -366,7 +366,7 @@ async function ensureV2Collection(client: QdrantClient, size: number): Promise<v
     await client.createCollection(V2_COLLECTION, {
       vectors: { size, distance: "Cosine" },
     });
-    console.log(`Created collection ${V2_COLLECTION} (dim=${size})`);
+    logProc("qdrant", `created collection  ${V2_COLLECTION}  dim=${size}`);
   } catch (e: unknown) {
     const status = (e as { status?: number })?.status;
     if (status !== 409) {
@@ -404,6 +404,72 @@ type Counters = {
   migratedSuccessful: number;
 };
 
+/** Column widths for monospace progress rows (numbers right-aligned). */
+const PROGRESS_W = {
+  phase: 7,
+  handled: 7,
+  eligible: 8,
+  skipped: 7,
+  keep: 5,
+  drop: 5,
+  empty: 5,
+  migOK: 6,
+  fail: 5,
+  chunks: 6,
+  dt_s: 7,
+} as const;
+
+function logProgressHeader(): void {
+  const w = PROGRESS_W;
+  const labels =
+    `  ${"phase".padEnd(w.phase)} ` +
+    `${"handled".padStart(w.handled)} ` +
+    `${"eligible".padStart(w.eligible)} ` +
+    `${"skipped".padStart(w.skipped)} ` +
+    `${"keep".padStart(w.keep)} ` +
+    `${"drop".padStart(w.drop)} ` +
+    `${"empty".padStart(w.empty)} ` +
+    `${"migOK".padStart(w.migOK)} ` +
+    `${"fail".padStart(w.fail)} ` +
+    `${"chunks".padStart(w.chunks)} ` +
+    `${"dt_s".padEnd(w.dt_s)}`;
+  const inner = labels.trimStart().length;
+  console.log("\n  progress");
+  console.log(`  ${"-".repeat(inner)}`);
+  console.log(labels);
+  console.log(`  ${"-".repeat(inner)}`);
+}
+
+function logProgressRow(phase: string, c: Counters, dtSec: number): void {
+  const w = PROGRESS_W;
+  const dtStr = `${dtSec.toFixed(1)}s`.padStart(w.dt_s);
+  console.log(
+    `  ${phase.slice(0, w.phase).padEnd(w.phase)} ` +
+      `${String(c.handled).padStart(w.handled)} ` +
+      `${String(c.eligibleSeen).padStart(w.eligible)} ` +
+      `${String(c.skippedAlreadyMigrated).padStart(w.skipped)} ` +
+      `${String(c.classifiedGood).padStart(w.keep)} ` +
+      `${String(c.filtered).padStart(w.drop)} ` +
+      `${String(c.empty).padStart(w.empty)} ` +
+      `${String(c.migratedSuccessful).padStart(w.migOK)} ` +
+      `${String(c.failed).padStart(w.fail)} ` +
+      `${String(c.chunksWritten).padStart(w.chunks)} ` +
+      `${dtStr}`
+  );
+}
+
+/** Indented two-column line for processing notices (monospace). */
+function logProc(kind: string, message: string, stream: "log" | "warn" | "error" = "log"): void {
+  const line = `  ${kind.padEnd(10)}  ${message}`;
+  if (stream === "warn") {
+    console.warn(line);
+  } else if (stream === "error") {
+    console.error(line);
+  } else {
+    console.log(line);
+  }
+}
+
 async function markLegacyMigrated(
   client: QdrantClient,
   pointId: string | number,
@@ -428,23 +494,39 @@ async function main() {
     throw new Error("OPENAI_API_KEY is required for memory quality classification");
   }
 
-  console.log(
-    `Migrate ${LEGACY_COLLECTION} → ${V2_COLLECTION} (dryRun=${dryRun}, limit=${limit ?? "none"}, verification=${verification})`
-  );
-  if (verification) {
-    console.log("  (--verification: dry-run only; default limit=3 unless --limit is set)");
-  }
-
   const client = createQdrantClient();
   let legacyTotalPoints = 0;
+  let legacyCountLabel = "—";
   try {
     legacyTotalPoints = (await client.count(LEGACY_COLLECTION, { exact: true })).count;
-    console.log(`Legacy collection point count (Qdrant): ${legacyTotalPoints}`);
+    legacyCountLabel = String(legacyTotalPoints);
   } catch {
-    console.warn("Could not count legacy collection at start (continuing).");
+    legacyCountLabel = "(count failed)";
+    logProc("warn", "legacy collection count failed (continuing)", "warn");
+  }
+
+  const runRows: { k: string; v: string }[] = [
+    { k: "collections", v: `${LEGACY_COLLECTION} → ${V2_COLLECTION}` },
+    { k: "dryRun", v: String(dryRun) },
+    { k: "limit", v: String(limit ?? "none") },
+    { k: "verification", v: String(verification) },
+    { k: "legacy total (Qdrant)", v: legacyCountLabel },
+  ];
+  logMetricTable("run", runRows, 72);
+  if (verification) {
+    logProc("note", "verification implies dry-run; limit defaults to 3 without --limit");
   }
 
   const embeddingDims = await probeEmbeddingDims(OLLAMA_EMBED_MODEL);
+  logMetricTable(
+    "embed",
+    [
+      { k: "OLLAMA_URL", v: OLLAMA_URL },
+      { k: "model", v: OLLAMA_EMBED_MODEL },
+      { k: "vector dims", v: String(embeddingDims) },
+    ],
+    72
+  );
 
   if (!dryRun) {
     await ensureV2Collection(client, embeddingDims);
@@ -486,14 +568,17 @@ async function main() {
   let verifyUuidFailed = 0;
 
   let lastLog = Date.now();
+  let progressHeaderPrinted = false;
   const maybeLog = (label: string) => {
     const now = Date.now();
-    const elapsed = now - lastLog;
+    const elapsedSec = (now - lastLog) / 1000;
     const everyTen = counters.handled > 0 && counters.handled % 10 === 0;
-    if (everyTen || elapsed >= 30_000) {
-      console.log(
-        `[progress] ${label} | handled=${counters.handled} eligible=${counters.eligibleSeen} skipped=${counters.skippedAlreadyMigrated} good=${counters.classifiedGood} filtered=${counters.filtered} empty=${counters.empty} ok=${counters.migratedSuccessful} failed=${counters.failed} chunks=${counters.chunksWritten}`
-      );
+    if (everyTen || elapsedSec >= 30) {
+      if (!progressHeaderPrinted) {
+        logProgressHeader();
+        progressHeaderPrinted = true;
+      }
+      logProgressRow(label, counters, elapsedSec);
       lastLog = now;
     }
   };
@@ -614,19 +699,23 @@ async function main() {
             if (isMemoryEncryptionEnvConfigured()) {
               if (!isEncrypted(stored) || decryptMemory(stored) !== chunkPlain) {
                 verifyStoreFieldFailed++;
-                console.warn(
-                  `  [verify] v2 data field: expected encrypted v1 round-trip id=${String(id)} chunk=${i}`
+                logProc(
+                  "verify",
+                  `v2 data: expected encrypted round-trip  id=${String(id)}  chunk=${i}`,
+                  "warn"
                 );
               }
             } else if (stored !== chunkPlain || isEncrypted(stored)) {
               verifyStoreFieldFailed++;
-              console.warn(
-                `  [verify] v2 data field: expected plaintext (no encryption env) id=${String(id)} chunk=${i}`
+              logProc(
+                "verify",
+                `v2 data: expected plaintext (no enc env)  id=${String(id)}  chunk=${i}`,
+                "warn"
               );
             }
             if (!isUuidShape(chunkId)) {
               verifyUuidFailed++;
-              console.warn(`  [verify] chunk id not UUID-shaped: ${chunkId}`);
+              logProc("verify", `chunk id not UUID-shaped  ${chunkId}`, "warn");
             }
           }
 
@@ -657,7 +746,8 @@ async function main() {
           err && typeof err === "object" && "data" in err
             ? ` body=${JSON.stringify((err as { data: unknown }).data)}`
             : "";
-        console.error(`[error] point id=${id}${extra}`, err);
+        logProc("error", `${String(id).padEnd(36)}${extra.slice(0, 200)}`, "error");
+        console.error(err);
       }
     }
 

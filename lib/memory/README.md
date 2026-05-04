@@ -15,6 +15,7 @@ This directory implements the app’s memory (Mem0) integration with a clear bou
 
 - **UI / server actions:** Use “current user” operations only: `searchMemoriesServer`, `getCurrentUserMemories`, `getCurrentUserMemoriesBySearch`, `deleteMemoryForCurrentUser`, `wipeMemoryForCurrentUser`.
 - **Routes and server code** that already have a resolved user id (e.g. chat route, Aion handler, chat-store, llm-tool-kit) use the “for user” operations: `searchMemoriesForUser`, `addLatestMessagesToMemoryForUser`. These still apply rate limits and validation; callers must not pass client-supplied `userId`.
+- **Trusted server routes** that already resolved the Supabase user id and need a full list snapshot without the memory *list* rate limit (e.g. lens overview ownership checks): `getMemoriesOwnershipSnapshotForUser` — callers must apply their own limits and auth.
 
 ### Store (`store.ts`)
 

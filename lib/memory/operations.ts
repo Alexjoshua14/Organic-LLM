@@ -208,6 +208,30 @@ export async function getCurrentUserMemories(): Promise<Result<SearchResultType,
  * Fetches up to N memories for the current user matching a semantic search query.
  * Uses Clerk auth + Supabase profile; useful for curated lens views (e.g. sandbox demo).
  */
+/**
+ * Full memory list for a server-resolved Supabase user id (Mem0 key).
+ * For API routes that already authenticated the user; skips memory list rate limit
+ * (caller should apply its own limits, e.g. LLM message limit).
+ */
+export async function getMemoriesOwnershipSnapshotForUser(
+  supabaseUserId: string
+): Promise<Result<SearchResultType, string>> {
+  try {
+    if (!supabaseUserId) {
+      return { data: null, error: "User ID is required" };
+    }
+
+    const result = await storeGetAllMemories(supabaseUserId);
+
+    return validateSearchResult(result);
+  } catch (error) {
+    return {
+      data: null,
+      error: error instanceof Error ? error.message : "Unknown error",
+    };
+  }
+}
+
 export async function getCurrentUserMemoriesBySearch(
   query: string,
   limit: number = 5

@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+export {};
 /**
  * Embedding latency benchmark against Ollama.
  *
@@ -56,7 +57,7 @@ const TEST_TEXTS = {
     "memory' golden cases, scored before and after.",
 };
 
-async function embed(model, text) {
+async function embed(model: string, text: string) {
   const start = performance.now();
   const res = await fetch(`${OLLAMA_URL}/api/embeddings`, {
     method: "POST",
@@ -73,7 +74,7 @@ async function embed(model, text) {
   return { elapsed, dimensions: data.embedding?.length ?? 0 };
 }
 
-function stats(samples) {
+function stats(samples: number[]) {
   const sorted = [...samples].sort((a, b) => a - b);
   const sum = sorted.reduce((a, b) => a + b, 0);
   return {
@@ -85,9 +86,15 @@ function stats(samples) {
   };
 }
 
-async function benchModel(model) {
+type LatencyStats = ReturnType<typeof stats>;
+
+async function benchModel(model: string) {
   console.log(`\n=== ${model} ===`);
-  const out = { model, dimensions: 0, results: {} };
+  const out: { model: string; dimensions: number; results: Record<string, LatencyStats> } = {
+    model,
+    dimensions: 0,
+    results: {},
+  };
 
   for (const [size, text] of Object.entries(TEST_TEXTS)) {
     // Warmup runs (excluded from stats — eliminates cold-start bias)
@@ -136,7 +143,8 @@ async function main() {
     try {
       all.push(await benchModel(model.trim()));
     } catch (err) {
-      console.error(`\nFailed to benchmark ${model}: ${err.message}`);
+      const msg = err instanceof Error ? err.message : String(err);
+      console.error(`\nFailed to benchmark ${model}: ${msg}`);
     }
   }
 

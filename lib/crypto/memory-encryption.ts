@@ -116,8 +116,10 @@ function getMemoryAesKey(version: KeyVersion): Buffer {
   }
 
   const ikm = decodeIkmFromEnv(raw.trim(), envVar);
+  const salt = new Uint8Array(Buffer.from(HKDF_SALT, "utf8"));
+  const info = new Uint8Array(Buffer.from(HKDF_INFO, "utf8"));
   const derived = Buffer.from(
-    hkdfSync("sha256", ikm, Buffer.from(HKDF_SALT, "utf8"), Buffer.from(HKDF_INFO, "utf8"), AES_KEY_BYTES)
+    hkdfSync("sha256", new Uint8Array(ikm), salt, info, AES_KEY_BYTES)
   );
 
   if (derived.length !== AES_KEY_BYTES) {
@@ -227,12 +229,14 @@ export function encryptMemory(plaintext: string): string {
   const keyVersion = getCurrentKeyVersion();
   const key = getMemoryAesKey(keyVersion);
   const iv = randomBytes(AES_GCM_IV_BYTES);
-  const cipher = createCipheriv(AES_ALGORITHM, key, iv);
+  const cipher = createCipheriv(AES_ALGORITHM, new Uint8Array(key), new Uint8Array(iv));
 
-  cipher.setAAD(MEMORY_AAD);
+  cipher.setAAD(new Uint8Array(MEMORY_AAD));
 
-  const ciphertext = Buffer.concat([cipher.update(plaintext, "utf8"), cipher.final()]);
-  const tag = cipher.getAuthTag();
+  const ct1 = cipher.update(plaintext, "utf8");
+  const ct2 = cipher.final();
+  const ciphertext = Buffer.concat([new Uint8Array(ct1), new Uint8Array(ct2)]);
+  const tag = Buffer.from(new Uint8Array(cipher.getAuthTag()));
 
   return serializePayload(keyVersion, iv, tag, ciphertext);
 }
@@ -242,12 +246,18 @@ export function decryptMemory(encrypted: string): string {
   const key = getMemoryAesKey(payload.keyVersion);
 
   try {
-    const decipher = createDecipheriv(AES_ALGORITHM, key, payload.iv);
+    const decipher = createDecipheriv(
+      AES_ALGORITHM,
+      new Uint8Array(key),
+      new Uint8Array(payload.iv)
+    );
 
-    decipher.setAAD(MEMORY_AAD);
-    decipher.setAuthTag(payload.tag);
+    decipher.setAAD(new Uint8Array(MEMORY_AAD));
+    decipher.setAuthTag(new Uint8Array(payload.tag));
 
-    const plaintext = Buffer.concat([decipher.update(payload.ciphertext), decipher.final()]);
+    const d1 = decipher.update(new Uint8Array(payload.ciphertext));
+    const d2 = decipher.final();
+    const plaintext = Buffer.concat([new Uint8Array(d1), new Uint8Array(d2)]);
 
     return plaintext.toString("utf8");
   } catch (err) {

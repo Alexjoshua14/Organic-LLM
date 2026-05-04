@@ -1,3 +1,4 @@
+export {};
 /**
  * Smoke test for memory encryption (manual / local).
  * Requires MEMORY_ENCRYPTION_CURRENT_KEY (e.g. k1) and MEMORY_ENCRYPTION_KEY_K1 (base64 of >=32 random bytes).
