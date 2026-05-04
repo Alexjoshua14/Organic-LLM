@@ -7,7 +7,10 @@ import { DefaultChatTransport, UIMessage } from "ai";
 
 import { ThreadLink } from "@/types";
 
-/** SWR key for the sidebar chat list; shared so mutate(key) revalidates everywhere. */
+/**
+ * SWR key for the sidebar chat list; shared so mutate(key) revalidates everywhere.
+ * See docs/thread-session-architecture.md for client cache contract and when to refresh.
+ */
 const SIDEBAR_CHATS_KEY = "/api/chats";
 
 /** API response shape from GET /api/chats */

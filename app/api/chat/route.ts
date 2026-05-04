@@ -32,11 +32,16 @@ import {
 } from "@/lib/llm/llm-tool-kit";
 import { createLogger } from "@/lib/logger";
 import { SYSTEM_PROMPT } from "@/lib/system-prompt/prompt-v0";
-import { addLatestMessagesToMemory } from "@/lib/memory/store";
+import { addLatestMessagesToMemoryForUser } from "@/lib/memory/operations";
 import { ChatRequestSchema, DEFAULT_CHAT_MODEL } from "@/lib/schemas/chat";
 import { getSupabaseUserId } from "@/data/supabase/profiles";
 import { checkLlmMessageLimit } from "@/lib/rate-limit/llm";
-import { CHAT_MODEL, getChatModel, measureAsync } from "@/lib/llm/helpers";
+import {
+  CHAT_MODEL,
+  getChatModel,
+  getChatResponseLengthInstruction,
+  measureAsync,
+} from "@/lib/llm/helpers";
 import { ChatUIMessage, ChatAIActionEnum } from "@/types/ai";
 
 // Allow streaming responses up to 30 seconds
@@ -64,10 +69,7 @@ export async function POST(req: Request) {
   );
 
   if (!parseResult.success) {
-    logger.error(
-      "POST",
-      `Invalid request body: ${parseResult.error.flatten().formErrors.join(", ")}`
-    );
+    logger.error("POST", "Invalid request body: validation_failed");
 
     return new Response(JSON.stringify({ error: "Invalid request body", status: 400 }), {
       status: 400,
@@ -137,7 +139,8 @@ export async function POST(req: Request) {
       logger.log("POST", "User message saved optimistically");
     })
     .catch((err) => {
-      logger.error("POST", `Failed to save user message: ${err}`);
+      const e = err instanceof Error ? err : new Error(String(err));
+      logger.error("POST", `Failed to save user message: ${e.name}`);
     });
 
   const stream = createUIMessageStream<ChatUIMessage>({
@@ -163,8 +166,13 @@ export async function POST(req: Request) {
         });
 
         if (chatContextResult.error) {
-          logger.error("POST", `Error getting chat context: ${chatContextResult.error}`);
+          logger.error("POST", "Error getting chat context", {
+            error: chatContextResult.error,
+          });
           validatedMessages = [message];
+          systemPromptForRequest =
+            SYSTEM_PROMPT +
+            "\n\n[System note: Chat context (conversation summary and recent messages) could not be loaded for this request. Only the user's latest message is in context. Use get_more_chat_history, get_full_chat_history, or search_memories if you need prior conversation or memories to answer well.]";
           logger.debug("context", "Context failed; using only incoming message");
         } else {
           validatedMessages = [...(chatContextResult.data?.messages ?? []), message];
@@ -177,8 +185,11 @@ export async function POST(req: Request) {
         }
       } catch (err) {
         if (err instanceof TypeValidationError) {
-          logger.error("POST", `Database messages validation failed: ${err.message}`);
+          logger.error("POST", "Database messages validation failed");
           validatedMessages = [message];
+          systemPromptForRequest =
+            SYSTEM_PROMPT +
+            "\n\n[System note: Chat context (conversation summary and recent messages) could not be loaded for this request. Only the user's latest message is in context. Use get_more_chat_history, get_full_chat_history, or search_memories if you need prior conversation or memories to answer well.]";
         } else {
           throw err;
         }
@@ -244,8 +255,6 @@ export async function POST(req: Request) {
         toolNames,
         toolCount: toolNames.length,
         toolInstructionsLength: toolInstructions.length,
-        toolInstructionsPreview:
-          toolInstructions.slice(0, 300) + (toolInstructions.length > 300 ? "…" : ""),
       });
 
       const hasTools = toolNames.length > 0;
@@ -266,11 +275,17 @@ export async function POST(req: Request) {
         transient: true,
       });
 
+      const systemPromptWithLength =
+        systemPromptForRequest +
+        "\n\n<response_length>\n" +
+        getChatResponseLengthInstruction() +
+        "\n</response_length>";
+
       logger.debug("streamText", "Calling streamText", {
         model: selectedModel.id,
         modelName: selectedModel.name,
         messageCount: messages.length,
-        systemPromptLength: systemPromptForRequest.length,
+        systemPromptLength: systemPromptWithLength.length,
         maxSteps,
         toolChoice: hasTools ? "auto" : "none",
       });
@@ -278,14 +293,15 @@ export async function POST(req: Request) {
       const result = streamText({
         model: selectedModel.id,
         messages,
-        system: systemPromptForRequest,
+        system: systemPromptWithLength,
         experimental_transform: smoothStream({
           delayInMs: 20, // optional: defaults to 10ms
           chunking: /(```[\s\S]*?```|^#{1,6}\s.*$|.*?(?:\n|$))/gm, // optional: defaults to 'word'
         }),
         maxOutputTokens: CHAT_MODEL.maxOutputTokens, // Cap output for dev guardrails
         onError({ error }) {
-          logger.error("POST", `Stream error: ${error}`);
+          const e = error instanceof Error ? error : new Error(String(error));
+          logger.error("POST", `Stream error: ${e.name}`);
         },
         onFinish() {
           writer.write({
@@ -295,7 +311,9 @@ export async function POST(req: Request) {
           });
         },
         onChunk: (chunk) => {
-          logger.log("POST", `Chunk: ${chunk.chunk.type}`);
+          if (chunk.chunk.type !== "text-delta") {
+            logger.debug("POST", `Chunk: ${chunk.chunk.type}`);
+          }
           if (chunk.chunk.type === "reasoning-delta") {
             writer.write({
               type: "data-aiAction",
@@ -330,7 +348,8 @@ export async function POST(req: Request) {
         result.toUIMessageStream({
           generateMessageId: () => assistantMessageId,
           onError: (error) => {
-            logger.error("POST", `UI stream error: ${error}`);
+            const e = error instanceof Error ? error : new Error(String(error));
+            logger.error("POST", `UI stream error: ${e.name}`);
 
             if (error instanceof Error) {
               return error.message;
@@ -382,15 +401,23 @@ export async function POST(req: Request) {
             );
 
             try {
-              // TODO: Consider moving activeStreamId clearing to after successful save
+              // Use admin client so save succeeds even if the user JWT expired during a long stream (e.g. finish_reason length).
               const { result: saveResult, durationMs: saveChatMs } = await measureAsync(() =>
-                saveChat({ chatId: id, messages, activeStreamId: null })
+                saveChat({
+                  chatId: id,
+                  messages,
+                  activeStreamId: null,
+                  useAdminForSave: true,
+                  ownerId: sbUserId,
+                })
               );
 
               metrics.saveChatMs = saveChatMs;
 
               if (saveResult.error) {
-                logger.error("POST", `Error saving chat: ${saveResult.error.message}`);
+                const err = saveResult.error;
+                const msg = err instanceof Error ? err.message : String(err);
+                logger.error("POST", `Error saving chat: ${msg}`);
 
                 return; // Don't continue if save fails
               }
@@ -408,10 +435,7 @@ export async function POST(req: Request) {
                 const persistedMessageCount = messageCountResult.data ?? messages.length;
 
                 if (messageCountResult.error) {
-                  logger.error(
-                    "POST",
-                    `Error getting message count for title generation: ${messageCountResult.error}`
-                  );
+                  logger.error("POST", "Error getting message count for title generation");
                 }
 
                 // Ensure chat has an LLM-generated title only when we have enough persisted messages and don't already have one
@@ -423,10 +447,7 @@ export async function POST(req: Request) {
                   ensureChatHasTitleMs = durationMs;
 
                   if (titleResult.error) {
-                    logger.error(
-                      "POST",
-                      `Error ensuring chat has title: ${titleResult.error.message}`
-                    );
+                    logger.error("POST", "Error ensuring chat has title");
                   } else {
                     writer.write({
                       type: "data-notification",
@@ -464,9 +485,12 @@ export async function POST(req: Request) {
 
                 if (memoryEnabled) {
                   const addMemoryResult = await measureAsync(() =>
-                    addLatestMessagesToMemory([userMessage, aiResponse], sbUserId, id).catch(
-                      (err) => {
-                        logger.error("POST", `Error adding latest messages to memory: ${err}`);
+                    addLatestMessagesToMemoryForUser(sbUserId, [userMessage, aiResponse], id).then(
+                      (r) => {
+                        if (r.error) {
+                          logger.error("POST", "Error adding latest messages to memory");
+                        }
+                        return r.data;
                       }
                     )
                   );
@@ -475,10 +499,7 @@ export async function POST(req: Request) {
                 }
 
                 if (updateSummaryResult.result?.error) {
-                  logger.error(
-                    "POST",
-                    `Error updating chat summary: ${updateSummaryResult.result.error}`
-                  );
+                  logger.error("POST", "Error updating chat summary");
                 }
 
                 metrics.onFinishTotalMs = performance.now() - onFinishStart;
@@ -488,10 +509,12 @@ export async function POST(req: Request) {
 
                 logger.log("POST", `onFinish metrics: ${JSON.stringify(metrics)}`);
               })().catch((err) => {
-                logger.error("POST", `Error in post-processing task: ${err}`);
+                const e = err instanceof Error ? err : new Error(String(err));
+                logger.error("POST", `Error in post-processing task: ${e.name} - ${e.message}`);
               });
             } catch (err) {
-              logger.error("POST", `Error in onFinish callback: ${err}`);
+              const e = err instanceof Error ? err : new Error(String(err));
+              logger.error("POST", `Error in onFinish callback: ${e.name} - ${e.message}`);
             }
           },
         })

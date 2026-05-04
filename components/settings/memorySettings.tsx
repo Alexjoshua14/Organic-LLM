@@ -7,7 +7,7 @@ import { MemoryLens } from "@/components/memory/memory-lens";
 const MemorySettings = () => {
   return (
     <section aria-label="Memory settings" className="flex flex-col gap-8 w-full">
-      <MemoryLens hideHeading className="w-full" variant="inline" />
+      <MemoryLens hideHeading className="w-full" paginate showPageOverview variant="inline" />
     </section>
   );
 };

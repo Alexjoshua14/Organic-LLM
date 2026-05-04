@@ -7,6 +7,8 @@ import { getNMessages } from "@/data/supabase/chat";
 import { Thread } from "@/lib/schemas/chat";
 import { createLogger } from "@/lib/logger";
 
+import { ChatLoadError } from "./chat-load-error";
+
 const logger = createLogger(`app/chat/[slug]/page.tsx`);
 
 export default async function ChatPage({ params }: { params: Promise<{ slug: string }> }) {
@@ -29,12 +31,12 @@ export default async function ChatPage({ params }: { params: Promise<{ slug: str
   } catch (err) {
     logger.error("ChatPage", `Error while loading chat: ${err}`);
 
-    return <div>Chat creation failed</div>;
+    return <ChatLoadError />;
   }
 
   return (
     <Page>
-      <div className="sm:max-w-[calc(100dvw-2rem)] md:max-w-[calc(100dvw-18rem)] lg:max-w-4xl w-full h-full">
+      <div className="w-full h-full">
         <Chat chatData={chatData} />
       </div>
     </Page>

@@ -87,7 +87,7 @@ export async function POST(req: Request) {
       metadata: { operation: "speech-route", route: "/api/ai/speech" },
     });
 
-    logger.log("POST", `Generated speech-friendly response: ${result.text.substring(0, 100)}...`);
+    logger.log("POST", `Generated speech-friendly response, length: ${result.text.length}`);
 
     return Response.json({
       text: result.text,
@@ -95,7 +95,8 @@ export async function POST(req: Request) {
       finishReason: result.finishReason,
     });
   } catch (error) {
-    logger.error("POST", `Error generating speech response: ${error}`);
+    const err = error instanceof Error ? error : new Error(String(error));
+    logger.error("POST", `Error generating speech response: ${err.name}`);
 
     return Response.json({ error: "Failed to generate speech-friendly response" }, { status: 500 });
   }

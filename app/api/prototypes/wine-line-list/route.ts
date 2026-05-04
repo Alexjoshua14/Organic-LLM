@@ -71,7 +71,8 @@ export async function POST(req: Request) {
   const validatedMessages: UIMessage[] = [...existingMessages, message];
 
   saveChat({ chatId: id, messages: validatedMessages }).catch((err) => {
-    logger.error("POST", `Failed to save user message: ${err}`);
+    const e = err instanceof Error ? err : new Error(String(err));
+    logger.error("POST", `Failed to save user message: ${e.name}`);
   });
 
   const assistantMessageId = randomUUID();
@@ -85,20 +86,15 @@ export async function POST(req: Request) {
         transient: true,
       });
 
-      logger.debug("POST", "wine-line-list userText", {
-        length: userText.length,
-        preview: userText.slice(0, 200) + (userText.length > 200 ? "…" : ""),
-      });
+      logger.debug("POST", "wine-line-list userText length", { length: userText.length });
 
       let count = 1;
 
       try {
         count = await parseWineCount(userText);
         logger.debug("POST", "wine-line-list parseWineCount result", { count });
-      } catch (err) {
-        logger.debug("POST", "wine-line-list parseWineCount failed, using 1", {
-          err,
-        });
+      } catch {
+        logger.debug("POST", "wine-line-list parseWineCount failed, using 1");
         count = 1;
       }
 
@@ -107,8 +103,6 @@ export async function POST(req: Request) {
       logger.debug("POST", "wine-line-list extractWines result", {
         expectedCount: count,
         returnedCount: wines.length,
-        wineIds: wines.map((w) => w.id),
-        wineNames: wines.map((w) => w.wine),
       });
 
       writer.write({
@@ -122,7 +116,8 @@ export async function POST(req: Request) {
         system: "Reply with only: Here are the suggestions.",
         maxOutputTokens: 20,
         onError({ error }) {
-          logger.error("POST", `Stream error: ${error}`);
+          const err = error instanceof Error ? error : new Error(String(error));
+          logger.error("POST", `Stream error: ${err.name}`);
         },
       });
 
@@ -133,7 +128,8 @@ export async function POST(req: Request) {
             try {
               await saveChat({ chatId: id, messages });
             } catch (err) {
-              logger.error("POST", `Error saving chat: ${err}`);
+              const e = err instanceof Error ? err : new Error(String(err));
+              logger.error("POST", `Error saving chat: ${e.name}`);
             }
           },
         })

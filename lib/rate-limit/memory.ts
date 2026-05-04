@@ -30,6 +30,13 @@ const memoryListLimiter = new Ratelimit({
   prefix: "ratelimit:memory:list",
 });
 
+/** Add (e.g. chat turn to memory): 120 per hour per user (sliding). */
+const memoryAddLimiter = new Ratelimit({
+  redis,
+  limiter: Ratelimit.slidingWindow(120, "1 h"),
+  prefix: "ratelimit:memory:add",
+});
+
 export type RateLimitResult = {
   success: boolean;
   remaining?: number;
@@ -71,6 +78,16 @@ export async function checkMemoryListLimit(userId: string): Promise<RateLimitRes
 
   if (!success) {
     return { success: false, error: "Too many list requests" };
+  }
+
+  return { success: true, remaining };
+}
+
+export async function checkMemoryAddLimit(userId: string): Promise<RateLimitResult> {
+  const { success, remaining } = await memoryAddLimiter.limit(userId);
+
+  if (!success) {
+    return { success: false, error: "Too many memory add requests" };
   }
 
   return { success: true, remaining };

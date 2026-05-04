@@ -71,4 +71,14 @@ export const MEMORY_ENCRYPTION_DESIGN_SPACE = [
       "Bind user_id, thread_id, field_name to ciphertext to prevent swapping; implemented in code.",
     tableMarkdown: `Bind \`user_id\`, \`thread_id\`, \`field_name\` to ciphertext (AES-GCM AAD). Prevents ciphertext swapping. Implemented in code.`,
   },
+  {
+    title: "Second storage surface: vector memory",
+    overview:
+      "Long-term memory lives in Mem0 on a vector database (Qdrant), not in the primary Supabase message tables. Field-level encryption for selected memory text can be applied at that boundary when enabled, alongside the message/summary encryption model above.",
+    tableMarkdown: `| Concern | Approach |
+|--------|----------|
+| Different store than chat rows | Encrypt memory string fields in the vector payload before persistence; decrypt in the app on read/search paths. |
+| Search still needs vectors | Keep embeddings usable; protect human-readable memory text at rest. |
+| Reader-friendly summary | See [How we protect your memories](/blog/how-we-secure-memory). |`,
+  },
 ] as const;

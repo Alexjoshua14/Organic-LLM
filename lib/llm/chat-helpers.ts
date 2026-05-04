@@ -90,6 +90,93 @@ Previous persisted summary (if any):
 
 const logger = createLogger(`lib/llm/chat-helpers.ts`);
 
+/**
+ * Gemini 3 requires thought_signature on functionCall parts when replaying history.
+ * When we don't have one (e.g. stored messages from another model or gateway), we can use
+ * this sentinel so the API skips validation. See:
+ * https://ai.google.dev/gemini-api/docs/thought-signatures
+ */
+const GEMINI_SKIP_THOUGHT_SIGNATURE = "skip_thought_signature_validator";
+
+/**
+ * Ensures every tool-invocation part has a thoughtSignature so Gemini 3 accepts the request.
+ * Use when sending UIMessages that may contain tool calls to Gemini (e.g. summarizer).
+ * If the gateway does not forward this field, use convertToolCallsToTextForSummarizer instead.
+ */
+function ensureThoughtSignaturesForGemini(messages: UIMessage[]): UIMessage[] {
+  return messages.map((msg) => ({
+    ...msg,
+    parts: (msg.parts ?? []).map((part) => {
+      if (part.type === "tool-invocation") {
+        return {
+          ...part,
+          thoughtSignature:
+            (part as { thoughtSignature?: string }).thoughtSignature ??
+            GEMINI_SKIP_THOUGHT_SIGNATURE,
+        };
+      }
+      return part;
+    }),
+  }));
+}
+
+/** Max length for tool result snippet in converted text (avoid huge payloads). */
+const TOOL_RESULT_TEXT_MAX_LEN = 600;
+
+/**
+ * Converts tool-invocation parts to text parts so the summarizer sees tool semantics
+ * without sending structured functionCall parts (avoids Gemini thought_signature requirement).
+ * Preserves: tool name, args, and result/error in plain text.
+ */
+function convertToolCallsToTextForSummarizer(messages: UIMessage[]): UIMessage[] {
+  return messages.map((msg) => {
+    const parts = msg.parts ?? [];
+    const newParts: Array<{ type: "text"; text: string }> = [];
+
+    for (const part of parts) {
+      if (part.type === "text" && "text" in part) {
+        newParts.push({ type: "text", text: (part as { text: string }).text });
+        continue;
+      }
+      if (part.type === "tool-invocation" || (part.type && String(part.type).startsWith("tool-"))) {
+        const p = part as unknown as {
+          toolName?: string;
+          toolCallId?: string;
+          args?: unknown;
+          input?: unknown;
+          state: string;
+          result?: unknown;
+          output?: unknown;
+          errorText?: string;
+        };
+        const name = p.toolName ?? p.toolCallId ?? "tool";
+        const argsLike = p.args ?? p.input;
+        const argsStr = argsLike !== undefined ? JSON.stringify(argsLike) : "";
+        let snippet = `[Tool: ${name}${argsStr ? ` with args: ${argsStr}` : ""}.`;
+        const resultLike = p.result ?? p.output;
+        if (p.state === "result" && resultLike !== undefined) {
+          const resultStr =
+            typeof resultLike === "string"
+              ? resultLike
+              : JSON.stringify(resultLike);
+          snippet += ` Result: ${resultStr.slice(0, TOOL_RESULT_TEXT_MAX_LEN)}${resultStr.length > TOOL_RESULT_TEXT_MAX_LEN ? "…" : ""}`;
+        } else if (p.state === "output-error" && p.errorText) {
+          snippet += ` Error: ${p.errorText.slice(0, 200)}`;
+        } else {
+          snippet += ` State: ${p.state}`;
+        }
+        snippet += "]";
+        newParts.push({ type: "text", text: snippet });
+      }
+    }
+
+    if (newParts.length === 0) {
+      return { ...msg, parts: [{ type: "text" as const, text: "" }] };
+    }
+    return { ...msg, parts: newParts };
+  });
+}
+
 function decryptMessageForThread(message: Message, ownerId: string): Message {
   return {
     ...message,
@@ -359,7 +446,10 @@ export async function summarizeChat(chatId: string): Promise<Result<string, stri
     messages = messages.slice(-75);
   }
 
-  const modelMessages = convertToModelMessages(messages);
+  // Convert tool-invocation parts to text so Gemini 3 does not require thought_signature.
+  // Preserves tool semantics (name, args, result) for the summarizer.
+  const messagesForSummary = convertToolCallsToTextForSummarizer(messages);
+  const modelMessages = convertToModelMessages(messagesForSummary);
 
   // logger.log(
   //   "summarizeChat",
@@ -614,7 +704,9 @@ export async function updateChatSummary(chatId: string): Promise<Result<string, 
     logger.error("updateChatSummary", "A message was not converted to UIMessage");
   }
 
-  const modelMessages = convertToModelMessages(uiMessages);
+  // Convert tool-invocation parts to text so Gemini 3 does not require thought_signature.
+  const messagesForSummary = convertToolCallsToTextForSummarizer(uiMessages as UIMessage[]);
+  const modelMessages = convertToModelMessages(messagesForSummary);
 
   const { text: updatedSummary } = await generateText({
     model: MODEL_SELECTION.updater,

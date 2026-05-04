@@ -68,7 +68,7 @@ North Star: A chat experience that feels alive, remembers meaningfully, and bala
 
 ## Tech Stack
 
-• Frontend: Next.js 15, Tailwind CSS, shadcn/ui
+• Frontend: Next.js 16, Tailwind CSS, shadcn/ui
 • State: React Query, Zustand
 • Backend: Supabase (Postgres + pgvector)
 • Auth: Clerk (passkeys, biometrics)

@@ -59,10 +59,10 @@ export type AionDeps = {
     error: string | null;
   }>;
   addLatestMessagesToMemory: (
-    messages: UIMessage[],
     userId: string,
+    messages: UIMessage[],
     chatId?: string
-  ) => Promise<{ results: any[]; relations?: any[] }>;
+  ) => Promise<{ data: { results: any[]; relations?: any[] } | null; error: string | null }>;
   createMemorySearchTool: (userId: string) => any;
 };
 
@@ -94,7 +94,7 @@ export function createAionHandler(deps: AionDeps) {
     const memoryEnabled = parseResult.data?.memory;
 
     if (!parseResult.success) {
-      logger.error("POST", `Invalid request body: ${parseResult.error.message}`);
+      logger.error("POST", "Invalid request body: validation_failed");
 
       return new Response("Invalid request body", { status: 400 });
     }
@@ -142,7 +142,8 @@ export function createAionHandler(deps: AionDeps) {
       }
       logger.log("POST", "User message saved optimistically");
     } catch (err) {
-      logger.error("POST", `Failed to save user message optimistically: ${err}`);
+      const e = err instanceof Error ? err : new Error(String(err));
+      logger.error("POST", `Failed to save user message optimistically: ${e.name}`);
       // Continue anyway - onFinish will try to save again
     }
 
@@ -187,7 +188,7 @@ export function createAionHandler(deps: AionDeps) {
           });
 
           if (chatContextResult.error) {
-            logger.error("POST", `Error getting chat context: ${chatContextResult.error}`);
+            logger.error("POST", "Error getting chat context");
             validatedMessages = [message];
           } else {
             validatedMessages = [...(chatContextResult.data?.messages ?? []), message];
@@ -201,7 +202,7 @@ export function createAionHandler(deps: AionDeps) {
           });
         } catch (err) {
           if (err instanceof TypeValidationError) {
-            logger.error("POST", `Database messages validation failed: ${err.message}`);
+            logger.error("POST", "Database messages validation failed");
             validatedMessages = [message];
           } else {
             throw err;
@@ -228,8 +229,9 @@ export function createAionHandler(deps: AionDeps) {
             chunking: /(```[\s\S]*?```|^#{1,6}\s.*$|.*?(?:\n|$))/gm,
           }),
           maxOutputTokens: CHAT_MODEL.maxOutputTokens,
-          onError({ error }: any) {
-            logger.error("POST", `Stream error: ${error}`);
+          onError({ error }: { error: unknown }) {
+            const e = error instanceof Error ? error : new Error(String(error));
+            logger.error("POST", `Stream error: ${e.name}`);
           },
           tools: {
             search_memories: deps.createMemorySearchTool(sbUserId),
@@ -261,7 +263,8 @@ export function createAionHandler(deps: AionDeps) {
           result.toUIMessageStream({
             generateMessageId: () => computeAionGeneratedMessageId(validatedMessages, randomUUID),
             onError: (error: unknown) => {
-              logger.error("POST", `UI stream error: ${error}`);
+              const e = error instanceof Error ? error : new Error(String(error));
+              logger.error("POST", `UI stream error: ${e.name}`);
               if (error instanceof Error) return error.message;
               if (typeof error === "string") return error;
 
@@ -317,7 +320,7 @@ export function createAionHandler(deps: AionDeps) {
                 metrics.saveChatMs = saveChatMs;
 
                 if (saveResult.error) {
-                  logger.error("POST", `Error saving chat: ${saveResult.error.message}`);
+                  logger.error("POST", "Error saving chat");
                   writer.write({
                     type: "data-notification",
                     transient: true,
@@ -352,7 +355,7 @@ export function createAionHandler(deps: AionDeps) {
 
                   if (memoryEnabled) {
                     const addMemoryResult = await measureAsync(() =>
-                      deps.addLatestMessagesToMemory([userMessage, aiResponse], sbUserId)
+                      deps.addLatestMessagesToMemory(sbUserId, [userMessage, aiResponse], id)
                     );
 
                     metrics.addLatestMessagesToMemoryMs = addMemoryResult.durationMs;

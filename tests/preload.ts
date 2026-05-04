@@ -6,6 +6,8 @@
  */
 import { mock } from "bun:test";
 
+import { registerUpstashRateLimitMocks } from "./helpers/rate-limit-upstash";
+
 declare global {
   // eslint-disable-next-line no-var
   var __realRabbitholes: typeof import("@/data/supabase/rabbitholes");
@@ -26,15 +28,25 @@ mock.module("@/lib/supabase/server", () => ({
     }) as never,
 }));
 
-// Prevent any test from loading real Redis (avoids "fetch() URL is invalid" in CI).
-// Do not mock @upstash/ratelimit here so llm-rate-limit.test's mock (with mockLimit) is
-// used when lib/rate-limit/llm loads; that test runs first (00-llm-rate-limit.test.ts).
-mock.module("@upstash/redis", () => ({
-  Redis: class {
-    request = () => Promise.resolve({ data: undefined, error: null });
-  },
+// Single Upstash ratelimit + redis mock for unit tests (00-llm-rate-limit + chats-rate-limit
+// must not register competing mock.module — last file wins).
+registerUpstashRateLimitMocks();
+
+// Mock chat-store so the real "use server" module is never loaded in tests (Bun fails with "Export named 'createChat' not found"). Integration tests replace this with their own full mocks.
+const chatStoreStub = async () => ({ data: null, error: new Error("chat-store mocked") });
+mock.module("@/lib/chat/chat-store", () => ({
+  createChat: chatStoreStub,
+  loadChat: chatStoreStub,
+  readChat: chatStoreStub,
+  saveChat: async () => ({ ok: false, error: new Error("chat-store mocked") }),
+  saveMessage: async () => ({ ok: false, error: new Error("chat-store mocked") }),
+  deleteChatMessage: async () => ({ ok: false, error: new Error("chat-store mocked") }),
+  getChats: async () => ({ data: null, error: new Error("chat-store mocked") }),
+  getChat: chatStoreStub,
+  getContext: async () => ({ data: null, error: "chat-store mocked" }),
+  getContextAndMessagesChatPrompt: async () => ({ data: null, error: "chat-store mocked" }),
+  getMessagesForChatPrompt: async () => ({ data: null, error: "chat-store mocked" }),
 }));
-mock.module("@/lib/redis/redis", () => ({ redis: {} }));
 
 // Mock the runOneGenerationStep barrel so runGenerationAndPersist never loads actions.ts ("use server"); CI fails with "Export named 'runOneGenerationStep' not found" when the real file is loaded. Tests override via globalThis.__runOneGenerationStepHandler.
 mock.module("@/lib/rabbit-holes/runOneGenerationStep", () => ({

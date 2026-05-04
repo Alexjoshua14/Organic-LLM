@@ -12,7 +12,7 @@ import { mapSearchResponseToExaSources } from "../exa/utils";
 
 import { getMessages, getMessagesSince, getNMessages } from "@/data/supabase/chat";
 import { estimateTokenCount } from "@/lib/llm/chat-helpers";
-import { searchMemories } from "@/lib/memory/store";
+import { searchMemoriesForUser } from "@/lib/memory/operations";
 import { SearchMemoryToolSchema } from "@/lib/schemas/llm-tools";
 import { ChatAIActionEnum } from "@/types/ai";
 
@@ -103,13 +103,24 @@ export function createMemorySearchTool(userId: string, writer?: WebSearchStreamW
         });
       }
       try {
-        const result = await searchMemories(query, userId, { limit });
+        const result = await searchMemoriesForUser(userId, query, { limit });
 
+        if (result.error) {
+          return {
+            success: false,
+            query,
+            error: result.error,
+            memories: [],
+            count: 0,
+          };
+        }
+
+        const data = result.data!;
         return {
           success: true,
           query,
-          memories: result.results || [],
-          count: result.results?.length || 0,
+          memories: data.results || [],
+          count: data.results?.length || 0,
         };
       } catch (error) {
         return {

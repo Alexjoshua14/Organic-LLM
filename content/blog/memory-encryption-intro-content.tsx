@@ -1,3 +1,5 @@
+import Link from "next/link";
+
 import { BlogSection } from "@/components/blog/blog-section";
 
 export function MemoryEncryptionIntroContent() {
@@ -7,6 +9,21 @@ export function MemoryEncryptionIntroContent() {
       <p>
         Organic LLM encrypts sensitive chat and summary data at rest. This page explains the problem
         we solved, the research and options we weighed, and the architecture we implemented.
+      </p>
+      <p>
+        Sensitive text also lives in two different places at rest:{" "}
+        <strong>thread messages and related summaries</strong> in our primary database
+        (Supabase)—the focus of most of this article—and <strong>long-term memory</strong> in a
+        separate vector memory backend (Mem0 on Qdrant) when field encryption is enabled. For a
+        concise overview of how we protect stored memory text and the product boundary around it,
+        see{" "}
+        <Link
+          className="underline decoration-foreground/40 hover:decoration-foreground"
+          href="/blog/how-we-secure-memory"
+        >
+          How we protect your memories
+        </Link>
+        .
       </p>
 
       <h2>Problem statement</h2>
@@ -135,7 +152,8 @@ export function MemoryEncryptionIntroContent() {
       <h3>Data sensitivity analysis</h3>
       <h3 className="text-base font-semibold mt-4">Sensitive</h3>
       <div className="pl-4 text-sm text-foreground/90 space-y-0.5">
-        Message content and thread summaries (raw conversations, summaries, insights).
+        Message content, thread summaries (raw conversations, summaries, insights), and long-term
+        memory text stored for retrieval across sessions.
       </div>
       <h3 className="text-base font-semibold mt-4">Non-sensitive</h3>
       <div className="pl-4 text-sm text-foreground/90 space-y-0.5">

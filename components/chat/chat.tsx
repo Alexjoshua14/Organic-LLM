@@ -51,10 +51,10 @@ export const Chat: React.FC<ChatProps> = ({ chatData, endpoint, persona, initial
   const initialMessageSent = useRef<boolean>(false);
   const [aiAction, setAiAction] = useState<
     | {
-        action: ChatAIActionEnum;
-        message?: string;
-        sources?: ExaSearchResultSource[];
-      }
+      action: ChatAIActionEnum;
+      message?: string;
+      sources?: ExaSearchResultSource[];
+    }
     | undefined
   >(undefined);
   const [mem0Retrieved, setMem0Retrieved] = useState<{ memory: string }[]>([]);
@@ -259,12 +259,12 @@ export const Chat: React.FC<ChatProps> = ({ chatData, endpoint, persona, initial
     <div
       className={[
         "w-full",
-        "max-w-232",
+        "min-w-0",
         "h-full",
-        "max-h-[calc(100dvh-2rem)]",
+        "sm:max-h-[calc(100dvh-2rem)]",
         "flex",
         "flex-col",
-        "overflow-hidden",
+        "overflow-x-hidden",
       ].join(" ")}
     >
       <Conversation
@@ -277,7 +277,7 @@ export const Chat: React.FC<ChatProps> = ({ chatData, endpoint, persona, initial
           "flex-col",
           "items-center",
           "overflow-x-hidden",
-          "overscroll-x-none",
+          "overscroll-x-none"
         ].join(" ")}
       >
         <ChatThread
@@ -296,43 +296,45 @@ export const Chat: React.FC<ChatProps> = ({ chatData, endpoint, persona, initial
         <ConversationScrollButton className="bottom-14" />
       </Conversation>
       <div className="shrink-0 px-4 sm:px-7 pb-1 md:pb-4 w-full -mt-10 flex flex-col gap-2">
-        {persona === "remy" && (
-          <Sheet>
-            <SheetTrigger asChild>
-              <button
-                className="flex items-center gap-2 text-xs text-muted-foreground hover:text-cyan-600 dark:hover:text-cyan-400 transition-colors"
-                type="button"
+        <div className="sm:max-w-[calc(100dvw-2rem)] md:max-w-[calc(100dvw-24rem)] lg:max-w-4xl mx-auto w-full flex flex-col gap-2">
+          {persona === "remy" && (
+            <Sheet>
+              <SheetTrigger asChild>
+                <button
+                  className="flex items-center gap-2 text-xs text-muted-foreground hover:text-cyan-600 dark:hover:text-cyan-400 transition-colors"
+                  type="button"
+                >
+                  <BrainCircuit className="size-3.5" />
+                  View persisted memory
+                </button>
+              </SheetTrigger>
+              <SheetContent
+                overlayPriority
+                className="w-full sm:max-w-md overflow-y-auto flex flex-col top-0 bottom-20 right-0 h-auto border-t-0"
+                side="right"
               >
-                <BrainCircuit className="size-3.5" />
-                View persisted memory
-              </button>
-            </SheetTrigger>
-            <SheetContent
-              overlayPriority
-              className="w-full sm:max-w-md overflow-y-auto flex flex-col top-0 bottom-20 right-0 h-auto border-t-0"
-              side="right"
-            >
-              <SheetHeader>
-                <SheetTitle className="sr-only">Persisted memory</SheetTitle>
-              </SheetHeader>
-              <MemoryLens className="flex-1 min-h-0" variant="sheet" />
-            </SheetContent>
-          </Sheet>
-        )}
-        <CoreInput
-          chatId={chatData?.thread.id}
-          clearError={clearError}
-          error={error ?? chatError}
-          isBlankChat={messages.length === 0}
-          modelRef={selectedModelRef}
-          sendMessage={sendMessage}
-          status={status}
-          stop={handleStop}
-          useMemoriesRef={useMemoriesRef}
-          useSpeechFriendlyRef={useSpeechFriendlyRef}
-          useWebSearchRef={useWebSearchRef}
-          onErrorCleared={() => setChatError(undefined)}
-        />
+                <SheetHeader>
+                  <SheetTitle className="sr-only">Persisted memory</SheetTitle>
+                </SheetHeader>
+                <MemoryLens className="flex-1 min-h-0" variant="sheet" />
+              </SheetContent>
+            </Sheet>
+          )}
+          <CoreInput
+            chatId={chatData?.thread.id}
+            clearError={clearError}
+            error={error ?? chatError}
+            isBlankChat={messages.length === 0}
+            modelRef={selectedModelRef}
+            sendMessage={sendMessage}
+            status={status}
+            stop={handleStop}
+            useMemoriesRef={useMemoriesRef}
+            useSpeechFriendlyRef={useSpeechFriendlyRef}
+            useWebSearchRef={useWebSearchRef}
+            onErrorCleared={() => setChatError(undefined)}
+          />
+        </div>
       </div>
     </div>
   );

@@ -8,7 +8,7 @@ import { createLogger } from "../logger";
 import { SYSTEM_PROMPT, PROMETHEUS_SYSTEM_PROMPT } from "../system-prompt/prompt-v0";
 import SPARK_SYSTEM_PROMPT from "../system-prompt";
 import { getStateString } from "../supabase/organicStateStore";
-import { searchMemories } from "../memory/store";
+import { searchMemoriesForUser } from "../memory/operations";
 import {
   CodeBlockSchema,
   ContextPiece,
@@ -32,9 +32,14 @@ import {
   addMessage,
   updateChatStream,
 } from "@/data/supabase/chat";
+import {
+  upsertMessagesWithAdmin,
+  updateChatStreamWithAdmin,
+} from "@/data/supabase/chat-admin";
 import { Result, SimpleResult } from "@/types";
 import { Thread } from "@/lib/schemas/chat";
 import { getSupabaseUserId } from "@/data/supabase/profiles";
+import { getSupabaseUserIdWithAdmin } from "@/data/supabase/profiles-admin";
 import { retryWithBackoff, DEFAULT_RETRY_CONFIG, type RetryConfig } from "@/lib/utils";
 import {
   PersistedSchema,
@@ -118,10 +123,16 @@ export async function saveChat({
   chatId,
   messages,
   activeStreamId,
+  useAdminForSave,
+  ownerId,
 }: {
   chatId: string;
   messages?: UIMessage[];
   activeStreamId?: string | null;
+  /** Use admin client for save (avoids expired user JWT in long-running onFinish). Requires ownerId. */
+  useAdminForSave?: boolean;
+  /** Required when useAdminForSave is true (e.g. sbUserId from start of request). */
+  ownerId?: string;
 }): Promise<SimpleResult> {
   const retryConfig: RetryConfig = {
     maxRetries: DEFAULT_RETRY_CONFIG.maxRetries,
@@ -136,12 +147,33 @@ export async function saveChat({
     },
   };
 
+  const useAdmin = Boolean(useAdminForSave && ownerId);
+
+  if (useAdmin) {
+    const clerkUser = await auth();
+    if (!clerkUser?.userId) {
+      logger.error("saveChat", "useAdminForSave requires an authenticated user");
+      return { ok: false, error: new Error("Unauthorized") };
+    }
+    const currentSbUserIdResult = await getSupabaseUserIdWithAdmin(clerkUser.userId);
+    if (
+      currentSbUserIdResult.error ||
+      currentSbUserIdResult.data === null ||
+      currentSbUserIdResult.data !== ownerId
+    ) {
+      logger.error("saveChat", "useAdminForSave ownerId does not match authenticated user");
+      return { ok: false, error: new Error("Unauthorized") };
+    }
+  }
+
   try {
     let res: SimpleResult = { ok: true, error: new Error("Unknown error") };
 
     if (messages && messages.length > 0) {
       res = await retryWithBackoff(async () => {
-        const result = await upsertMessages({ chatId, messages });
+        const result = useAdmin
+          ? await upsertMessagesWithAdmin({ chatId, messages, ownerId: ownerId! })
+          : await upsertMessages({ chatId, messages });
 
         // Throw error if the operation failed to trigger retry
         if (result.error || !result.ok) {
@@ -169,7 +201,9 @@ export async function saveChat({
   } finally {
     if (activeStreamId !== undefined) {
       const result = await retryWithBackoff(async () => {
-        return await updateChatStream({ chatId, activeStreamId });
+        return useAdmin
+          ? await updateChatStreamWithAdmin({ chatId, activeStreamId })
+          : await updateChatStream({ chatId, activeStreamId });
       }, retryConfig);
 
       if (!result.ok) {
@@ -419,7 +453,8 @@ export async function getContextAndMessagesChatPrompt({
   /**
    * Get the conversation summary for the chat
    */
-  const conversationSummary = await getConversationSummaryForChatPrompt(chatId);
+  const conversationSummaryResult = await getConversationSummaryForChatPrompt(chatId);
+  const conversationSummary = conversationSummaryResult.data ?? "";
 
   prompt += `\n\nConversation Summary:\n${conversationSummary}`;
 
@@ -564,9 +599,9 @@ export async function getContext({
     logger.log("getContext", `User message length: ${userMessage.length}`);
 
     if (memoryEnabled) {
-      const memoriesPromise = searchMemories(userMessage, sbUserId, {
+      const memoriesPromise = searchMemoriesForUser(sbUserId, userMessage, {
         limit: 5,
-      });
+      }).then((r) => (r.error ? { results: [] } : r.data!));
 
       promises.push(memoriesPromise);
     }

@@ -5,15 +5,28 @@ import type { ComponentProps, ReactNode } from "react";
 
 import { render } from "../helpers/render";
 
-const mockCreateChat = mock(async () => ({
+const mockCreateChat = mock<
+  () => Promise<{ data: string | null; error: Error | null }>
+>(async () => ({
   data: "new-chat-id",
   error: null,
 }));
 const mockRefreshSidebarChats = mock(() => {});
 const mockRouterPush = mock(() => {});
 
+const chatStoreStub = async () => ({ data: null, error: new Error("chat-store mocked") });
 mock.module("@/lib/chat/chat-store", () => ({
   createChat: mockCreateChat,
+  loadChat: chatStoreStub,
+  readChat: chatStoreStub,
+  saveChat: async () => ({ ok: false, error: new Error("chat-store mocked") }),
+  saveMessage: async () => ({ ok: false, error: new Error("chat-store mocked") }),
+  deleteChatMessage: async () => ({ ok: false, error: new Error("chat-store mocked") }),
+  getChats: async () => ({ data: null, error: new Error("chat-store mocked") }),
+  getChat: chatStoreStub,
+  getContext: async () => ({ data: null, error: "chat-store mocked" }),
+  getContextAndMessagesChatPrompt: async () => ({ data: null, error: "chat-store mocked" }),
+  getMessagesForChatPrompt: async () => ({ data: null, error: "chat-store mocked" }),
 }));
 
 mock.module("server-only", () => ({}));
@@ -43,9 +56,9 @@ describe("SidebarNewChat", () => {
   });
 
   beforeEach(() => {
-    mockCreateChat.mockReset();
-    mockRefreshSidebarChats.mockReset();
-    mockRouterPush.mockReset();
+    mockCreateChat.mockClear();
+    mockRefreshSidebarChats.mockClear();
+    mockRouterPush.mockClear();
 
     mockCreateChat.mockResolvedValue({
       data: "new-chat-id",
@@ -84,9 +97,10 @@ describe("SidebarNewChat", () => {
 
     await user.click(view.getByText("New Chat"));
 
-    expect(mockCreateChat).toHaveBeenCalled();
-    expect(mockRefreshSidebarChats).toHaveBeenCalled();
-    expect(mockRouterPush).toHaveBeenCalledWith("/chat/new-chat-id");
+    expect(mockCreateChat.mock.calls.length).toBe(1);
+    expect(mockRefreshSidebarChats.mock.calls.length).toBe(1);
+    expect(mockRouterPush.mock.calls.length).toBe(1);
+    expect((mockRouterPush.mock.calls[0] as string[])[0]).toBe("/chat/new-chat-id");
   });
 
   test("does not refresh or route when chat creation fails", async () => {
@@ -100,7 +114,7 @@ describe("SidebarNewChat", () => {
 
     await user.click(view.getByText("New Chat"));
 
-    expect(mockRefreshSidebarChats).not.toHaveBeenCalled();
-    expect(mockRouterPush).not.toHaveBeenCalled();
+    expect(mockRefreshSidebarChats.mock.calls.length).toBe(0);
+    expect(mockRouterPush.mock.calls.length).toBe(0);
   });
 });

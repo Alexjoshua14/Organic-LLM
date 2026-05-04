@@ -1,8 +1,10 @@
 import { auth } from "@clerk/nextjs/server";
 import { NextResponse } from "next/server";
 
-import { scheduleNodeGeneration } from "@/lib/rabbit-holes/scheduleNodeGeneration";
+import { getSupabaseUserId } from "@/data/supabase/profiles";
 import { createLogger } from "@/lib/logger";
+import { checkRabbitHoleNodeLimit } from "@/lib/rate-limit/llm";
+import { scheduleNodeGeneration } from "@/lib/rabbit-holes/scheduleNodeGeneration";
 
 export const maxDuration = 30;
 
@@ -20,6 +22,23 @@ export async function POST(req: Request, { params }: { params: Promise<{ session
 
   if (!clerkUser?.userId) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  const sbUserIdResult = await getSupabaseUserId(clerkUser.userId);
+
+  if (sbUserIdResult.error || sbUserIdResult.data === null) {
+    return NextResponse.json({ error: "User not found in supabase" }, { status: 404 });
+  }
+
+  const sbUserId = sbUserIdResult.data;
+
+  const nodeLimitResult = await checkRabbitHoleNodeLimit(sbUserId);
+
+  if (!nodeLimitResult.success) {
+    return NextResponse.json(
+      { error: nodeLimitResult.error ?? "Rabbit Hole node limit exceeded" },
+      { status: 429 }
+    );
   }
 
   const { sessionId } = await params;
@@ -51,7 +70,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ session
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
 
-    logger.error("POST", `scheduleNodeGeneration failed: ${message}`);
+    logger.error("POST", "scheduleNodeGeneration failed");
 
     return NextResponse.json({ error: "Failed to schedule generation" }, { status: 500 });
   }

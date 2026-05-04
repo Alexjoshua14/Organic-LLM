@@ -25,7 +25,7 @@ export async function POST(_req: Request, { params }: { params: Promise<{ id: st
   const sbUserIdResult = await getSupabaseUserId(clerkUser.userId);
 
   if (sbUserIdResult.error || sbUserIdResult.data === null) {
-    logger.error("POST", "Supabase user not found for Clerk user", sbUserIdResult.error?.message);
+    logger.error("POST", "Supabase user not found for Clerk user");
 
     return NextResponse.json({ error: "User not found" }, { status: 404 });
   }
@@ -45,7 +45,7 @@ export async function POST(_req: Request, { params }: { params: Promise<{ id: st
     const message = result.error.message ?? "Failed to generate title";
     const isNoMessages = message.toLowerCase().includes("no messages");
 
-    logger.error("POST", `Generate title failed: ${message}`);
+    logger.error("POST", "Generate title failed");
 
     return NextResponse.json({ error: message }, { status: isNoMessages ? 400 : 500 });
   }

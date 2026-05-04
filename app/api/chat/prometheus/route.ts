@@ -57,7 +57,7 @@ export async function POST(req: Request) {
     }),
   });
 
-  logger.log("POST", `Result: ${JSON.stringify(result)}`);
+  logger.log("POST", `Stream started, messageCount: ${messages.length}`);
 
   return result.toUIMessageStreamResponse({
     originalMessages: messages,

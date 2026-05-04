@@ -48,7 +48,8 @@ export async function POST(req: NextRequest) {
       // speechFriendlyText = await transformTextToSpeechFriendlyV2(text);
       logger.log("TTS Route", `Speech-friendly text length: ${speechFriendlyText?.length ?? 0}`);
     } catch (error) {
-      logger.error("TTS Route", `Error transforming text: ${error}`);
+      const e = error instanceof Error ? error : new Error(String(error));
+      logger.error("TTS Route", `Error transforming text: ${e.name}`);
     } finally {
       const speechFriendlyTextEndGeneration = performance.now();
 
@@ -67,7 +68,8 @@ export async function POST(req: NextRequest) {
     try {
       speechModel = availableSpeechModels.find((m) => m.modelId === model) as SpeechModel;
     } catch (error) {
-      logger.error("TTS Route", `Error finding model: ${error}`);
+      const e = error instanceof Error ? error : new Error(String(error));
+      logger.error("TTS Route", `Error finding model: ${e.name}`);
       speechModel = availableSpeechModels[0];
     }
   }

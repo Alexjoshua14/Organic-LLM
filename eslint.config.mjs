@@ -147,4 +147,16 @@ export default defineConfig([globalIgnores([
             next: ["const", "let", "var"],
         }],
     },
+},
+// Memory boundary: app and components must use operations, not store
+{
+    files: ["app/**/*.ts", "app/**/*.tsx", "components/**/*.ts", "components/**/*.tsx"],
+    rules: {
+        "no-restricted-imports": ["error", {
+            paths: [{
+                name: "@/lib/memory/store",
+                message: "Use @/lib/memory/operations instead of store. See lib/memory/README.md.",
+            }],
+        }],
+    },
 }]);

@@ -27,7 +27,7 @@ export async function POST(_req: Request, { params }: { params: Promise<{ sessio
   const res = await getSessionById(sessionId);
 
   if (res.error || !res.data) {
-    logger.error("POST", "Session not found or error loading", res.error);
+    logger.error("POST", "Session not found or error loading");
 
     return NextResponse.json({ error: "Session not found" }, { status: 404 });
   }
@@ -46,7 +46,7 @@ export async function POST(_req: Request, { params }: { params: Promise<{ sessio
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
 
-    logger.error("POST", `Resume failed: ${message}`);
+    logger.error("POST", "Resume failed");
 
     return NextResponse.json({ error: "Resume failed" }, { status: 500 });
   }
