@@ -1,25 +1,9 @@
-import { beforeEach, describe, expect, mock, test } from "bun:test";
+import { beforeEach, describe, expect, test } from "bun:test";
 
-const mockLimit = mock(async (_id: string, _opts?: { rate?: number }) => ({
-  success: true,
-  remaining: 10,
-}));
-const mockGetRemaining = mock(async (_id: string) => ({ remaining: 100_000 }));
-
-// Mock Redis so no network calls in CI (applied before llm module loads)
-mock.module("@upstash/redis", () => ({
-  Redis: class {
-    request = () => Promise.resolve({ data: undefined, error: null });
-  },
-}));
-mock.module("@upstash/ratelimit", () => ({
-  Ratelimit: class {
-    static slidingWindow = (_n: number, _w: string) => ({});
-    limit = mockLimit;
-    getRemaining = mockGetRemaining;
-  },
-}));
-mock.module("@/lib/redis/redis", () => ({ redis: {} }));
+import {
+  sharedRatelimitGetRemaining as mockGetRemaining,
+  sharedRatelimitLimit as mockLimit,
+} from "../helpers/rate-limit-upstash";
 
 describe("LLM rate limit (lib/rate-limit/llm)", () => {
   let llmRateLimit: typeof import("@/lib/rate-limit/llm");
