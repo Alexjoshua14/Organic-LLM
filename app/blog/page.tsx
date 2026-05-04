@@ -21,7 +21,7 @@ const POSTS: Array<{
     slug: "memory-encryption",
     title: "Memory Encryption",
     description:
-      "Research, design tradeoffs, and how memory text is encrypted at the Mem0 / Qdrant boundary today.",
+      "How Organic LLM encrypts messages and summaries at rest: research, design choices, implemented solution, and how long-term memory fits in.",
     category: "architecture",
   },
   {

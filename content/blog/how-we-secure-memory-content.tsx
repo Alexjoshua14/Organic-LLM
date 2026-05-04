@@ -25,8 +25,8 @@ function DatabaseVsAppComparison() {
       <div className="divide-y divide-border">
         {rows.map(([left, right]) => (
           <div key={left} className="grid grid-cols-2 divide-x divide-border">
-            <div className="px-4 py-3 text-sm text-foreground/90">{left}</div>
-            <div className="px-4 py-3 text-sm text-foreground/90">{right}</div>
+            <div className="px-4 py-3 text-center text-sm text-foreground/90">{left}</div>
+            <div className="px-4 py-3 text-center text-sm text-foreground/90">{right}</div>
           </div>
         ))}
       </div>
@@ -60,33 +60,35 @@ export function HowWeSecureMemoryContent() {
 
       <div className="not-prose rounded-xl border border-border bg-secondary/40 px-5 py-6 sm:px-6 sm:py-7">
         <h2 className="text-base font-semibold text-foreground tracking-tight">At a glance</h2>
-        <ul className="mt-4 space-y-3 text-sm text-foreground/90 leading-relaxed">
-          <li className="flex gap-3">
-            <span className="font-medium text-foreground shrink-0">Access</span>
-            <span>
+        <ul className="mt-4 list-none space-y-0 p-0 text-sm leading-relaxed">
+          <li className="grid grid-cols-1 gap-1 border-b border-border/50 py-3.5 first:pt-0 sm:grid-cols-[7rem_1fr] sm:items-start sm:gap-x-6 sm:gap-y-0">
+            <span className="font-medium text-foreground">Access</span>
+            <span className="text-foreground/90">
               Memory APIs resolve the signed-in user on the server only; clients do not supply
               identity for reads or writes. Deletes are checked against what already belongs to you.
             </span>
           </li>
-          <li className="flex gap-3">
-            <span className="font-medium text-foreground shrink-0">Abuse</span>
-            <span>
+          <li className="grid grid-cols-1 gap-1 border-b border-border/50 py-3.5 sm:grid-cols-[7rem_1fr] sm:items-start sm:gap-x-6 sm:gap-y-0">
+            <span className="font-medium text-foreground">Abuse</span>
+            <span className="text-foreground/90">
               Rate limits and response validation sit at the public boundary so automated or buggy
               clients cannot hammer memory or receive malformed payloads unchecked.
             </span>
           </li>
-          <li className="flex gap-3">
-            <span className="font-medium text-foreground shrink-0">Storage</span>
-            <span>
+          <li className="grid grid-cols-1 gap-1 border-b border-border/50 py-3.5 sm:grid-cols-[7rem_1fr] sm:items-start sm:gap-x-6 sm:gap-y-0">
+            <span className="font-medium text-foreground">Storage</span>
+            <span className="text-foreground/90">
               When enabled, sensitive text fields in the memory database are encrypted with
               AES-256-GCM before persistence and decrypted inside the app when search or UI needs
               the text. Keys are versioned deployment secrets so we can rotate without rewriting the
               whole system in one shot.
             </span>
           </li>
-          <li className="flex gap-3">
-            <span className="font-medium text-foreground shrink-0">Logging</span>
-            <span>We do not log raw memory content in production.</span>
+          <li className="grid grid-cols-1 gap-1 py-3.5 pb-0 sm:grid-cols-[7rem_1fr] sm:items-start sm:gap-x-6 sm:gap-y-0">
+            <span className="font-medium text-foreground">Logging</span>
+            <span className="text-foreground/90">
+              We do not log raw memory content in production.
+            </span>
           </li>
         </ul>
       </div>
