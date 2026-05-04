@@ -3,10 +3,12 @@ import "server-only";
 import { QdrantClient } from "@qdrant/js-client-rest";
 
 import {
-  MEMORY_PRODUCTION_EMBEDDING_DIMS,
-  MEMORY_PRODUCTION_EMBEDDER_MODEL,
-  MEMORY_PRODUCTION_QDRANT_COLLECTION,
-} from "@/config/memory-production-meta";
+  MEMORY_LEGACY_EMBEDDING_DIMS,
+  MEMORY_LEGACY_EMBEDDER_MODEL,
+  MEMORY_LEGACY_QDRANT_COLLECTION,
+} from "@/config/memory-legacy-meta";
+import { decryptMemory, isEncrypted } from "@/lib/crypto/memory-encryption";
+import type { MemoryItemType } from "@/lib/schemas/memory";
 
 const MEMORY_HOST = process.env.MEMORY_API_HOST ?? "localhost";
 const MEMORY_PORT = MEMORY_HOST === "localhost" ? 6333 : 443;
@@ -28,11 +30,21 @@ function payloadUserId(payload: Record<string, unknown>): string | undefined {
   return typeof u === "string" && u.length > 0 ? u : undefined;
 }
 
+function decryptDataField(raw: string): string {
+  if (!raw || !raw.trim()) {
+    return "";
+  }
+  if (isEncrypted(raw)) {
+    return decryptMemory(raw);
+  }
+  return raw;
+}
+
 async function embedLegacyQuery(text: string): Promise<number[]> {
   const res = await fetch(`${OLLAMA_URL}/api/embed`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ model: MEMORY_PRODUCTION_EMBEDDER_MODEL, input: text }),
+    body: JSON.stringify({ model: MEMORY_LEGACY_EMBEDDER_MODEL, input: text }),
   });
   const data = (await res.json()) as {
     embeddings?: number[][];
@@ -46,9 +58,9 @@ async function embedLegacyQuery(text: string): Promise<number[]> {
   if (!vec?.length) {
     throw new Error("Unexpected Ollama embed response shape");
   }
-  if (vec.length !== MEMORY_PRODUCTION_EMBEDDING_DIMS) {
+  if (vec.length !== MEMORY_LEGACY_EMBEDDING_DIMS) {
     throw new Error(
-      `Legacy embed dim mismatch: got ${vec.length}, expected ${MEMORY_PRODUCTION_EMBEDDING_DIMS}`
+      `Legacy embed dim mismatch: got ${vec.length}, expected ${MEMORY_LEGACY_EMBEDDING_DIMS}`
     );
   }
   return vec;
@@ -96,6 +108,66 @@ function extractVector(raw: unknown): number[] | null {
 }
 
 /**
+ * Semantic search against legacy Qdrant `memories` (Mem0-style one point per memory).
+ * Uses {@link MEMORY_LEGACY_EMBEDDER_MODEL} / dims — not production Mem0 config after v2 cutover.
+ */
+export async function searchMemoriesLegacyFromQdrant(
+  query: string,
+  userId: string,
+  limit: number
+): Promise<{ results: MemoryItemType[]; queryVector: number[] }> {
+  if (!userId) {
+    throw new Error("User ID is required");
+  }
+  if (!query.trim()) {
+    return { results: [], queryVector: [] };
+  }
+
+  const client = createQdrantClient();
+  const vector = await embedLegacyQuery(query);
+
+  const hits = await client.search(MEMORY_LEGACY_QDRANT_COLLECTION, {
+    vector,
+    limit: Math.max(1, limit),
+    with_payload: true,
+    filter: {
+      should: [
+        { key: "userId", match: { value: userId } },
+        { key: "user_id", match: { value: userId } },
+      ],
+    },
+  });
+
+  const results: MemoryItemType[] = [];
+
+  for (const hit of hits) {
+    const payload = (hit.payload ?? {}) as Record<string, unknown>;
+    if (payloadUserId(payload) !== userId) {
+      continue;
+    }
+    const rawData = payload.data;
+    const dataStr = typeof rawData === "string" ? rawData : "";
+    const memoryText = decryptDataField(dataStr).trim();
+    if (!memoryText) {
+      continue;
+    }
+    const id = String(hit.id);
+    const score = typeof hit.score === "number" ? hit.score : undefined;
+    const hash = typeof payload.hash === "string" ? payload.hash : undefined;
+    const createdAt = typeof payload.createdAt === "string" ? payload.createdAt : undefined;
+    results.push({
+      id,
+      memory: memoryText,
+      hash,
+      createdAt,
+      score,
+    });
+  }
+
+  return { results, queryVector: vector };
+}
+
+/**
  * Best cosine score for a specific legacy memory point vs query embedding, if the point exists
  * in Qdrant `memories` and belongs to `userId` (payload `user_id` / `userId`).
  */
@@ -109,7 +181,7 @@ export async function getBestLegacyPointScoreForMemoryId(
   }
 
   const client = createQdrantClient();
-  const retrieved = await client.retrieve(MEMORY_PRODUCTION_QDRANT_COLLECTION, {
+  const retrieved = await client.retrieve(MEMORY_LEGACY_QDRANT_COLLECTION, {
     ids: [memoryPointId],
     with_payload: true,
     with_vector: true,

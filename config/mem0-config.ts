@@ -47,7 +47,7 @@ export const config: MemoryConfig = {
     provider: "openai",
     config: {
       apiKey: process.env.OPENAI_API_KEY || "",
-      model: "gpt-5-mini",
+      model: "gpt-5.4-nano",
     },
   },
   customPrompt: custom_fact_extraction_prompt,

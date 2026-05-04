@@ -13,6 +13,11 @@ import {
 } from "@/components/third-party/ui/collapsible";
 import { cn } from "@/lib/utils";
 import {
+  MEMORY_LEGACY_EMBEDDING_DIMS,
+  MEMORY_LEGACY_EMBEDDER_MODEL,
+  MEMORY_LEGACY_QDRANT_COLLECTION,
+} from "@/config/memory-legacy-meta";
+import {
   MEMORY_PRODUCTION_EMBEDDING_DIMS,
   MEMORY_PRODUCTION_EMBEDDER_MODEL,
   MEMORY_PRODUCTION_QDRANT_COLLECTION,
@@ -39,7 +44,7 @@ const tooltipContentClass = cn(
 );
 
 const READING_TIPS_TOOLTIP = [
-  "Cosine scores rank hits within each column only. Do not compare raw numbers across Production vs v2—different embedders and dimensions mean the scales are not comparable.",
+  "Cosine scores rank hits within each column only. Do not compare raw numbers across Legacy vs v2—different embedders and dimensions mean the scales are not comparable.",
   "When a side shows “present but below returned top-K,” Δ is how far the best off-list score sits below the weakest hit that was returned for that column—lower means less relevant to this query, not missing data.",
 ].join(" ");
 
@@ -60,14 +65,14 @@ const SPEC_ROWS: SpecRowDef[] = [
     label: "Qdrant collection",
     labelTooltip: "Named Qdrant collection each side queries for this sandbox run.",
     production: {
-      text: MEMORY_PRODUCTION_QDRANT_COLLECTION,
+      text: MEMORY_LEGACY_QDRANT_COLLECTION,
       tooltip:
-        "Mem0 OSS reads and writes this collection in production today: one vector per stored memory.",
+        "Pre-cutover Mem0 collection (one vector per memory). This sandbox still queries it directly for A/B; live Mem0 uses memories_v2 after cutover.",
     },
     candidate: {
       text: MEMORY_V2_COLLECTION,
       tooltip:
-        "Parallel collection filled by the migrator. Each logical memory becomes many chunked points—not wired into live chat until you cut over.",
+        "Chunked collection (many points per logical memory). This column uses the sandbox chunk-aggregate search, not necessarily the same code path as Mem0 search on the same collection.",
     },
   },
   {
@@ -75,9 +80,9 @@ const SPEC_ROWS: SpecRowDef[] = [
     labelTooltip:
       "Whether raw memory wording is readable from Qdrant payloads if someone obtains a database snapshot.",
     production: {
-      text: "Readable payloads",
+      text: "Typically readable",
       tooltip:
-        "Memory strings live in Qdrant as plaintext fields. Database or backup access can expose them unless the host encrypts storage separately.",
+        "Legacy Mem0 points usually store memory text in payload fields readable from a DB snapshot unless you encrypt separately at the host layer.",
     },
     candidate: {
       text: "AES-GCM on chunks (when configured)",
@@ -90,14 +95,14 @@ const SPEC_ROWS: SpecRowDef[] = [
     labelTooltip:
       "Model and vector width define the embedding space. Similarity scores are only meaningful within one side—never compare raw numbers across columns.",
     production: {
-      text: `${MEMORY_PRODUCTION_EMBEDDER_MODEL} (${MEMORY_PRODUCTION_EMBEDDING_DIMS}-D)`,
+      text: `${MEMORY_LEGACY_EMBEDDER_MODEL} (${MEMORY_LEGACY_EMBEDDING_DIMS}-D)`,
       tooltip:
-        "all-minilm is small and fast with 384-D vectors—good for throughput, but less representational headroom. Cosine scores here only rank against other legacy points.",
+        "Legacy side embeds queries with all-minilm (384-D) to match vectors stored in the old collection.",
     },
     candidate: {
       text: `${MEMORY_V2_EMBEDDER_MODEL} (${MEMORY_V2_EMBEDDING_DIMS}-D)`,
       tooltip:
-        "nomic-embed-text uses 768-D vectors—richer geometry for nuanced retrieval. Scores use a different scale than legacy; judge which hits rank higher within this column, not versus production scores.",
+        "v2 side uses nomic-embed-text (768-D). Scores use a different scale than the legacy column; rank hits within each column only.",
     },
   },
   {
@@ -206,7 +211,7 @@ function MemoryCell({
   const header =
     side === "legacy" ? (
       <>
-        <span className="text-foreground/80">Production</span>
+        <span className="text-foreground/80">Legacy</span>
         {label ? <span className="font-normal text-muted-foreground"> · {label}</span> : null}
       </>
     ) : side === "v2" ? (
@@ -367,7 +372,7 @@ function SplitColumnMarginalOnlyShell({
   return (
     <div className={splitColumnShellClass(side)}>
       <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-        {side === "legacy" ? "Production" : "v2"}
+        {side === "legacy" ? "Legacy" : "v2"}
       </p>
       {children}
     </div>
@@ -378,12 +383,12 @@ function EmptyCell({ side }: { side: "legacy" | "v2" }) {
   return (
     <div className={splitColumnShellClass(side)}>
       <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-        {side === "legacy" ? "Production" : "v2"}
+        {side === "legacy" ? "Legacy" : "v2"}
       </p>
       <p>
         No hit in{" "}
         <span className="font-mono text-[10px] text-foreground/80">
-          {side === "legacy" ? MEMORY_PRODUCTION_QDRANT_COLLECTION : MEMORY_V2_COLLECTION}
+          {side === "legacy" ? MEMORY_LEGACY_QDRANT_COLLECTION : MEMORY_V2_COLLECTION}
         </span>
       </p>
     </div>
@@ -415,7 +420,7 @@ function CompareGrid({ rows }: { rows: MigrationCompareEnrichedRow[] }) {
                 {row.legacy ? (
                   <MemoryCell
                     memory={row.legacy}
-                    label={MEMORY_PRODUCTION_QDRANT_COLLECTION}
+                    label={MEMORY_LEGACY_QDRANT_COLLECTION}
                     side="legacy"
                   />
                 ) : row.legacyMarginal ? (
@@ -511,16 +516,17 @@ export default function MemoryMigrationTestsPage() {
             Memory retrieval comparison
           </h1>
           <p className="text-xs text-muted-foreground leading-snug mb-2 max-w-2xl">
-            Paired searches: same query against production{" "}
-            <span className="font-mono text-[11px] text-foreground/85">{MEMORY_PRODUCTION_QDRANT_COLLECTION}</span> and
-            candidate <span className="font-mono text-[11px] text-foreground/85">{MEMORY_V2_COLLECTION}</span>. Cosine
-            scores rank within a column only—do not compare raw scores across columns. Hover or focus a cell and use
-            the info icon for details.
+            Paired searches: same query against legacy{" "}
+            <span className="font-mono text-[11px] text-foreground/85">{MEMORY_LEGACY_QDRANT_COLLECTION}</span> and
+            chunked <span className="font-mono text-[11px] text-foreground/85">{MEMORY_V2_COLLECTION}</span>. Live Mem0
+            uses <span className="font-mono text-[11px] text-foreground/85">{MEMORY_PRODUCTION_QDRANT_COLLECTION}</span>{" "}
+            ({MEMORY_PRODUCTION_EMBEDDER_MODEL}, {MEMORY_PRODUCTION_EMBEDDING_DIMS}-D). Cosine scores rank within a
+            column only. Hover or focus a cell and use the info icon for details.
           </p>
 
           <div className="mb-1.5 flex flex-wrap items-center justify-between gap-x-2 gap-y-1">
             <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
-              Production vs candidate
+              Legacy vs v2
             </span>
             <HintCell
               tip={READING_TIPS_TOOLTIP}
@@ -540,7 +546,7 @@ export default function MemoryMigrationTestsPage() {
                   Setting
                 </div>
                 <div className="border-b border-l border-border/50 bg-muted/25 px-2.5 py-1.5 text-[9px] font-semibold uppercase tracking-wide text-muted-foreground">
-                  Production
+                  Legacy {MEMORY_LEGACY_QDRANT_COLLECTION}
                 </div>
                 <div className="border-b border-l border-primary/25 bg-primary/[0.06] px-2.5 py-1.5 text-[9px] font-semibold uppercase tracking-wide text-muted-foreground">
                   Candidate {MEMORY_V2_COLLECTION}
@@ -558,9 +564,9 @@ export default function MemoryMigrationTestsPage() {
                   </div>
                   <div className="border-b border-border/40 bg-muted/10 px-2.5 py-1.5 text-foreground/90 md:border-l md:border-border/50">
                     <span className="mb-0.5 block text-[9px] uppercase tracking-wide text-muted-foreground md:hidden">
-                      Production
+                      Legacy
                     </span>
-                    <HintCell tip={row.production.tooltip} className="-mx-1 px-1 py-0.5" ariaLabel="Explain production value">
+                    <HintCell tip={row.production.tooltip} className="-mx-1 px-1 py-0.5" ariaLabel="Explain legacy value">
                       <div>{row.production.text}</div>
                     </HintCell>
                   </div>
@@ -578,10 +584,12 @@ export default function MemoryMigrationTestsPage() {
           </div>
 
           <p className="text-[10px] leading-snug text-muted-foreground mb-2">
-            Production defaults:{" "}
+            Live Mem0:{" "}
             <code className="rounded bg-muted/80 px-1 py-0.5 font-mono text-[10px]">config/memory-production-meta.ts</code>
             {" · "}
             <code className="rounded bg-muted/80 px-1 py-0.5 font-mono text-[10px]">config/mem0-config.ts</code>
+            {" · "}Legacy sandbox constants:{" "}
+            <code className="rounded bg-muted/80 px-1 py-0.5 font-mono text-[10px]">config/memory-legacy-meta.ts</code>
           </p>
 
           <Collapsible
@@ -611,17 +619,19 @@ export default function MemoryMigrationTestsPage() {
             >
               <div className="mt-2 space-y-2 border-t border-border/50 pt-2 text-xs leading-relaxed text-muted-foreground">
                 <p>
-                  <span className="font-mono text-[11px] text-foreground/85">{MEMORY_V2_COLLECTION}</span> uses{" "}
-                  <span className="font-mono text-[11px]">{MEMORY_V2_EMBEDDER_MODEL}</span> (768-D) and optional
-                  AES-GCM on chunks via <code className="rounded bg-muted/80 px-1 py-0.5 font-mono text-[10px]">MEMORY_ENCRYPTION_*</code>;
-                  production uses <span className="font-mono text-[11px]">{MEMORY_PRODUCTION_EMBEDDER_MODEL}</span>{" "}
-                  (384-D) with readable payloads. The migrator quality-filters weak writes.
+                  Live Mem0 reads/writes <span className="font-mono text-[11px] text-foreground/85">{MEMORY_PRODUCTION_QDRANT_COLLECTION}</span>{" "}
+                  with <span className="font-mono text-[11px]">{MEMORY_PRODUCTION_EMBEDDER_MODEL}</span> (
+                  {MEMORY_PRODUCTION_EMBEDDING_DIMS}-D). The left sandbox column still queries legacy{" "}
+                  <span className="font-mono text-[11px]">{MEMORY_LEGACY_QDRANT_COLLECTION}</span> using{" "}
+                  <span className="font-mono text-[11px]">{MEMORY_LEGACY_EMBEDDER_MODEL}</span> for embeddings.
                 </p>
                 <p>
-                  v2 chunks long notes; production is one vector per memory. Live chat still uses{" "}
-                  <span className="font-mono text-[11px]">{MEMORY_PRODUCTION_QDRANT_COLLECTION}</span> until Mem0 points
-                  at v2. Fill <span className="font-mono text-[11px]">{MEMORY_V2_COLLECTION}</span> with{" "}
-                  <code className="rounded bg-muted/80 px-1 py-0.5 font-mono text-[10px]">scripts/migrate-memories-v2.ts</code>.
+                  <span className="font-mono text-[11px]">{MEMORY_V2_COLLECTION}</span> supports optional AES-GCM on
+                  chunks via{" "}
+                  <code className="rounded bg-muted/80 px-1 py-0.5 font-mono text-[10px]">MEMORY_ENCRYPTION_*</code>. Fill
+                  it with{" "}
+                  <code className="rounded bg-muted/80 px-1 py-0.5 font-mono text-[10px]">scripts/migrate-memories-v2.ts</code>;
+                  the migrator quality-filters weak writes.
                 </p>
               </div>
             </CollapsibleContent>
@@ -716,7 +726,7 @@ export default function MemoryMigrationTestsPage() {
                 <p className="text-[10px] leading-snug text-muted-foreground">
                   <span className="font-medium uppercase tracking-wide">Rows</span>
                   {" · "}
-                  Production (left), <span className="font-mono text-[10px]">{MEMORY_V2_COLLECTION}</span> (right).
+                  Legacy (left), <span className="font-mono text-[10px]">{MEMORY_V2_COLLECTION}</span> (right).
                   Merged matches use the &quot;Both sides&quot; band; split pairs sit in bordered rows.
                 </p>
                 <div className="space-y-8 border-t border-border/50 pt-5">

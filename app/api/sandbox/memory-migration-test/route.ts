@@ -9,9 +9,12 @@ import {
 } from "@/lib/memory/migration-test-synopsis-llm";
 import type { MemoryMigrationTestRun } from "@/lib/memory/memory-migration-test-types";
 import { buildMigrationCompareRows } from "@/lib/memory/migration-compare-rows";
-import { embedLegacyQueryForMarginalSearch } from "@/lib/memory/search-memories-legacy-qdrant";
+import {
+  embedLegacyQueryForMarginalSearch,
+  searchMemoriesLegacyFromQdrant,
+} from "@/lib/memory/search-memories-legacy-qdrant";
 import { searchMemoriesV2FromQdrant } from "@/lib/memory/search-memories-v2-qdrant";
-import { getAllMemories, searchMemories } from "@/lib/memory/store";
+import { getAllMemories } from "@/lib/memory/store";
 import { checkLlmMessageLimit } from "@/lib/rate-limit/llm";
 import { checkMemoryListLimit, checkMemorySearchLimit } from "@/lib/rate-limit/memory";
 import { SearchResult as SearchResultSchema, type SearchResultType } from "@/lib/schemas/memory";
@@ -144,8 +147,8 @@ export async function POST(req: Request) {
 
     let legacy: SearchResultType = { results: [], relations: [] };
     try {
-      const rawLegacy = await searchMemories(query, sbUserId, { limit: RETRIEVAL_LIMIT });
-      const v = validateSearch(rawLegacy);
+      const rawLegacy = await searchMemoriesLegacyFromQdrant(query, sbUserId, RETRIEVAL_LIMIT);
+      const v = validateSearch({ results: rawLegacy.results, relations: [] });
       legacy = v.ok ? v.data : { results: [], relations: [] };
       if (!v.ok) {
         logger.warn("POST", "legacy search schema invalid", query);
