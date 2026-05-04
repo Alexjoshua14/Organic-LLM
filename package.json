@@ -22,6 +22,9 @@
     "@ai-sdk/elevenlabs": "^1.0.28",
     "@ai-sdk/openai": "^2.0.106",
     "@ai-sdk/react": "^2.0.186",
+    "@blocknote/core": "^0.50.0",
+    "@blocknote/react": "^0.50.0",
+    "@blocknote/shadcn": "^0.50.0",
     "@clerk/nextjs": "^6.39.3",
     "@elevenlabs/elevenlabs-js": "^2.45.0",
     "@heroui/button": "2.2.24",
@@ -102,6 +105,7 @@
     "tailwind-merge": "^3.5.0",
     "use-stick-to-bottom": "^1.1.4",
     "uuid": "^13.0.2",
+    "y-indexeddb": "^9.0.12",
     "yjs": "^13.6.30",
     "zod": "^4.4.3"
   },
