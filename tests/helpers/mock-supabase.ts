@@ -61,6 +61,7 @@ class QueryBuilder<T extends TableRow> {
     return this;
   }
 
+  /** `getChats` chains `.select().order().eq(...)`; filters apply before sort in execute(). */
   order(column: string, options?: { ascending?: boolean }) {
     this.orderBy = { column, ascending: options?.ascending ?? true };
     return this;

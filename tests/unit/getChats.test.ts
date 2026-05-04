@@ -6,6 +6,13 @@ import {
 
 mock.module("server-only", () => ({}));
 
+/** Stable handle so `getChats` always calls the same client instance we seed (see chat-encryption.test.ts). */
+const mockSupabaseServer = mock(async () => new MockSupabaseClient());
+
+mock.module("@/lib/supabase/server", () => ({
+  supabaseServer: mockSupabaseServer,
+}));
+
 describe("getChats", () => {
   let mockClient: MockSupabaseClient;
   let getChats: typeof import("@/data/supabase/chat").getChats;
@@ -13,9 +20,11 @@ describe("getChats", () => {
   beforeEach(async () => {
     mockClient = new MockSupabaseClient();
 
+    // Re-apply after other test files may have replaced `@/lib/supabase/server` at load time.
     mock.module("@/lib/supabase/server", () => ({
-      supabaseServer: () => Promise.resolve(mockClient),
+      supabaseServer: mockSupabaseServer,
     }));
+    mockSupabaseServer.mockImplementation(async () => mockClient);
 
     ({ getChats } = await import("@/data/supabase/chat"));
   });
@@ -67,8 +76,10 @@ describe("getChats", () => {
 
   test("returns a caught error when Supabase is unavailable", async () => {
     mock.module("@/lib/supabase/server", () => ({
-      supabaseServer: () => Promise.reject(new Error("DB down")),
+      supabaseServer: mockSupabaseServer,
     }));
+    mockSupabaseServer.mockImplementation(() => Promise.reject(new Error("DB down")));
+
     ({ getChats } = await import("@/data/supabase/chat"));
 
     let caught: Error | null = null;
