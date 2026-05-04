@@ -1,5 +1,8 @@
 import { JSDOM } from "jsdom";
 
+/** JSDOM `window` (`DOMWindow` is not exported from the `jsdom` module). */
+type JSDOMWindow = InstanceType<typeof JSDOM>["window"];
+
 declare global {
   // eslint-disable-next-line no-var
   var __organicTestJsdomInstalled: boolean | undefined;
@@ -17,7 +20,7 @@ function setGlobalProperty(name: string, value: unknown) {
  * `@react-aria/interactions` assigns `HTMLElement.prototype.focus` in strict mode.
  * Some runtimes expose non-writable `focus`; normalize so the assignment succeeds.
  */
-function patchFocusForReactAria(win: Window): void {
+function patchFocusForReactAria(win: JSDOMWindow): void {
   const ctors = [win.HTMLElement, win.Element, win.SVGElement].filter(
     (C): C is typeof win.HTMLElement => Boolean(C?.prototype),
   );
