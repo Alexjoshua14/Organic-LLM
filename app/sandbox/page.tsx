@@ -69,6 +69,16 @@ export default function SandboxPage() {
       hoverGradient: "hover:from-cyan-400/30 hover:to-emerald-500/30",
     },
     {
+      title: "Memory migration tests",
+      description:
+        "Compare `memories` vs `memories_v2` retrieval side by side with batched sandbox queries",
+      href: "/sandbox/migration-tests",
+      icon: "🧪",
+      size: "small",
+      gradient: "from-teal-400/20 to-cyan-600/20",
+      hoverGradient: "hover:from-teal-400/30 hover:to-cyan-600/30",
+    },
+    {
       title: "Sandbox Platform",
       description:
         "Inspect and test real UI components, pipelines, and LLM-backed functions (Rabbit Holes scenarios)",
