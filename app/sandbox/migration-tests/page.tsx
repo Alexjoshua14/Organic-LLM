@@ -447,10 +447,12 @@ function CompareGrid({ rows }: { rows: MigrationCompareEnrichedRow[] }) {
 
 export default function MemoryMigrationTestsPage() {
   const [loading, setLoading] = useState(false);
+  const [pendingQueryCount, setPendingQueryCount] = useState<5 | 10 | 20 | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [data, setData] = useState<MemoryMigrationTestResponse | null>(null);
 
   const run = useCallback(async (queryCount: 5 | 10 | 20) => {
+    setPendingQueryCount(queryCount);
     setLoading(true);
     setError(null);
     setData(null);
@@ -483,6 +485,7 @@ export default function MemoryMigrationTestsPage() {
       setError("Network error");
     } finally {
       setLoading(false);
+      setPendingQueryCount(null);
     }
   }, []);
 
@@ -501,53 +504,68 @@ export default function MemoryMigrationTestsPage() {
         <section
           className={cn(
             "rounded-xl border border-border/70 bg-gradient-to-b from-muted/20 to-background",
-            "p-5 md:p-6 shadow-sm mb-5"
+            "p-3 shadow-sm md:p-4 mb-4"
           )}
         >
-          <h1 className="text-2xl font-semibold tracking-tight text-foreground mb-1.5">
+          <h1 className="text-xl font-semibold tracking-tight text-foreground mb-1">
             Memory retrieval comparison
           </h1>
-          <p className="text-sm text-muted-foreground leading-relaxed mb-1 max-w-2xl">
-            Run paired semantic searches and compare top hits from production Qdrant versus the
-            migrated <span className="font-mono text-xs">{MEMORY_V2_COLLECTION}</span> chunks.
-          </p>
-          <p className="text-[11px] text-muted-foreground mb-4 max-w-2xl">
-            Hover or focus a row to reveal an info icon beside each value; click the icon to open the explanation.
+          <p className="text-xs text-muted-foreground leading-snug mb-2 max-w-2xl">
+            Paired searches: same query against production{" "}
+            <span className="font-mono text-[11px] text-foreground/85">{MEMORY_PRODUCTION_QDRANT_COLLECTION}</span> and
+            candidate <span className="font-mono text-[11px] text-foreground/85">{MEMORY_V2_COLLECTION}</span>. Cosine
+            scores rank within a column only—do not compare raw scores across columns. Hover or focus a cell and use
+            the info icon for details.
           </p>
 
-          <div className="overflow-x-auto rounded-lg border border-border/50 bg-background/50 mb-4">
-            <div className="min-w-[min(100%,520px)] grid grid-cols-1 md:grid-cols-[minmax(7rem,9rem)_1fr_1fr] text-sm">
+          <div className="mb-1.5 flex flex-wrap items-center justify-between gap-x-2 gap-y-1">
+            <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+              Production vs candidate
+            </span>
+            <HintCell
+              tip={READING_TIPS_TOOLTIP}
+              ariaLabel="Reading tips"
+              className="-mx-0.5 rounded-sm px-1 py-0.5 hover:bg-muted/40"
+            >
+              <span className="text-[10px] font-medium uppercase tracking-wide text-primary/90 underline decoration-primary/30 underline-offset-2">
+                Reading tips
+              </span>
+            </HintCell>
+          </div>
+
+          <div className="overflow-x-auto rounded-lg border border-border/50 bg-background/50 mb-2">
+            <div className="min-w-[min(100%,520px)] grid grid-cols-1 md:grid-cols-[minmax(6.5rem,8.5rem)_1fr_1fr] text-xs">
               <div className="hidden md:contents">
-                <div className="border-b border-border/50 bg-muted/25 px-3 py-2 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+                <div className="border-b border-border/50 bg-muted/25 px-2.5 py-1.5 text-[9px] font-semibold uppercase tracking-wide text-muted-foreground">
                   Setting
                 </div>
-                <div className="border-b border-l border-border/50 bg-muted/25 px-3 py-2 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+                <div className="border-b border-l border-border/50 bg-muted/25 px-2.5 py-1.5 text-[9px] font-semibold uppercase tracking-wide text-muted-foreground">
                   Production
                 </div>
-                <div className="border-b border-l border-primary/25 bg-primary/[0.06] px-3 py-2 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+                <div className="border-b border-l border-primary/25 bg-primary/[0.06] px-2.5 py-1.5 text-[9px] font-semibold uppercase tracking-wide text-muted-foreground">
                   Candidate {MEMORY_V2_COLLECTION}
                 </div>
               </div>
               {SPEC_ROWS.map((row) => (
                 <Fragment key={row.label}>
-                  <div className="border-b border-border/40 px-3 py-2.5 text-foreground md:border-r-0">
-                    <span className="mb-0.5 block text-[10px] uppercase tracking-wide text-muted-foreground md:hidden">
+                  <div className="border-b border-border/40 px-2.5 py-1.5 text-foreground md:border-r-0">
+                    <span className="mb-0.5 block text-[9px] uppercase tracking-wide text-muted-foreground md:hidden">
                       Setting
                     </span>
                     <HintCell tip={row.labelTooltip ?? ""} className="-mx-1 px-1 py-0.5" ariaLabel="Explain this setting">
                       <div className="font-medium text-foreground">{row.label}</div>
                     </HintCell>
                   </div>
-                  <div className="border-b border-border/40 bg-muted/10 px-3 py-2.5 text-foreground/90 md:border-l md:border-border/50">
-                    <span className="mb-0.5 block text-[10px] uppercase tracking-wide text-muted-foreground md:hidden">
+                  <div className="border-b border-border/40 bg-muted/10 px-2.5 py-1.5 text-foreground/90 md:border-l md:border-border/50">
+                    <span className="mb-0.5 block text-[9px] uppercase tracking-wide text-muted-foreground md:hidden">
                       Production
                     </span>
                     <HintCell tip={row.production.tooltip} className="-mx-1 px-1 py-0.5" ariaLabel="Explain production value">
                       <div>{row.production.text}</div>
                     </HintCell>
                   </div>
-                  <div className="border-b border-border/40 bg-primary/[0.04] px-3 py-2.5 text-foreground/90 md:border-l-2 md:border-primary/25">
-                    <span className="mb-0.5 block text-[10px] uppercase tracking-wide text-muted-foreground md:hidden">
+                  <div className="border-b border-border/40 bg-primary/[0.04] px-2.5 py-1.5 text-foreground/90 md:border-l-2 md:border-primary/25">
+                    <span className="mb-0.5 block text-[9px] uppercase tracking-wide text-muted-foreground md:hidden">
                       Candidate
                     </span>
                     <HintCell tip={row.candidate.tooltip} className="-mx-1 px-1 py-0.5" ariaLabel="Explain candidate value">
@@ -559,37 +577,27 @@ export default function MemoryMigrationTestsPage() {
             </div>
           </div>
 
-          <div className="mb-4 rounded-lg border border-border/50 bg-muted/10 px-3 py-2">
-            <HintCell tip={READING_TIPS_TOOLTIP} ariaLabel="Reading tips" className="rounded-sm px-1 py-0.5 hover:bg-muted/40">
-              <span className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
-                Reading tips
-              </span>
-            </HintCell>
-          </div>
-
-          <p className="text-[11px] text-muted-foreground mb-3">
-            Production defaults come from{" "}
-            <code className="rounded bg-muted/80 px-1 py-0.5 font-mono text-[11px]">
-              config/memory-production-meta.ts
-            </code>{" "}
-            (wired in <code className="rounded bg-muted/80 px-1 py-0.5 font-mono text-[11px]">config/mem0-config.ts</code>
-            ).
+          <p className="text-[10px] leading-snug text-muted-foreground mb-2">
+            Production defaults:{" "}
+            <code className="rounded bg-muted/80 px-1 py-0.5 font-mono text-[10px]">config/memory-production-meta.ts</code>
+            {" · "}
+            <code className="rounded bg-muted/80 px-1 py-0.5 font-mono text-[10px]">config/mem0-config.ts</code>
           </p>
 
           <Collapsible
             defaultOpen={false}
-            className="group rounded-lg border border-border/50 bg-background/40 px-3 py-2.5 mb-4"
+            className="group mb-3 rounded-lg border border-border/50 bg-background/40 px-2.5 py-2"
           >
             <CollapsibleTrigger
               className={cn(
-                "flex w-full cursor-pointer list-none items-center justify-between gap-2 text-left text-sm font-medium text-foreground outline-none",
+                "flex w-full cursor-pointer list-none items-center justify-between gap-2 text-left text-xs font-medium text-foreground outline-none",
                 "rounded-sm transition-opacity duration-150 hover:opacity-90",
                 "focus-visible:ring-2 focus-visible:ring-ring"
               )}
             >
-              <span>Why v2 and how it differs at runtime</span>
-              <span className="inline text-xs text-muted-foreground group-data-[state=open]:hidden">Show</span>
-              <span className="hidden text-xs text-muted-foreground group-data-[state=open]:inline">Hide</span>
+              <span>Runtime / migration notes</span>
+              <span className="inline text-[10px] text-muted-foreground group-data-[state=open]:hidden">Show</span>
+              <span className="hidden text-[10px] text-muted-foreground group-data-[state=open]:inline">Hide</span>
             </CollapsibleTrigger>
             <CollapsibleContent
               className={cn(
@@ -601,33 +609,19 @@ export default function MemoryMigrationTestsPage() {
                 "motion-reduce:data-[state=closed]:animate-none motion-reduce:data-[state=open]:animate-none"
               )}
             >
-              <div className="mt-3 space-y-3 border-t border-border/50 pt-3 text-sm leading-relaxed text-muted-foreground">
+              <div className="mt-2 space-y-2 border-t border-border/50 pt-2 text-xs leading-relaxed text-muted-foreground">
                 <p>
-                  The <span className="font-mono text-xs text-foreground/90">{MEMORY_V2_COLLECTION}</span>{" "}
-                  collection holds chunked text with{" "}
-                  <span className="font-mono text-xs">{MEMORY_V2_EMBEDDER_MODEL}</span> vectors (768-D)
-                  instead of production <span className="font-mono text-xs">{MEMORY_PRODUCTION_EMBEDDER_MODEL}</span>{" "}
-                  (384-D). Chunk payloads can be AES-GCM encrypted when{" "}
-                  <code className="rounded bg-muted/80 px-1 py-0.5 font-mono text-[11px]">
-                    MEMORY_ENCRYPTION_*
-                  </code>{" "}
-                  is set, improving security at rest versus readable legacy payloads. The migration script also
-                  quality-filters weak memories before write.
+                  <span className="font-mono text-[11px] text-foreground/85">{MEMORY_V2_COLLECTION}</span> uses{" "}
+                  <span className="font-mono text-[11px]">{MEMORY_V2_EMBEDDER_MODEL}</span> (768-D) and optional
+                  AES-GCM on chunks via <code className="rounded bg-muted/80 px-1 py-0.5 font-mono text-[10px]">MEMORY_ENCRYPTION_*</code>;
+                  production uses <span className="font-mono text-[11px]">{MEMORY_PRODUCTION_EMBEDDER_MODEL}</span>{" "}
+                  (384-D) with readable payloads. The migrator quality-filters weak writes.
                 </p>
                 <p>
-                  Longer memory text: v2 splits long notes
-                  into many embedded chunks, so more total wording stays retrievable by similarity; production keeps one
-                  embedding per memory, which compresses very long notes into a single vector.
-                </p>
-                <p>
-                  Chat and tools still read/write production{" "}
-                  <span className="font-mono text-xs">{MEMORY_PRODUCTION_QDRANT_COLLECTION}</span> until
-                  you change Mem0 config to point at v2. Populate{" "}
-                  <span className="font-mono text-xs">{MEMORY_V2_COLLECTION}</span> with{" "}
-                  <code className="rounded bg-muted/80 px-1 py-0.5 font-mono text-[11px]">
-                    scripts/migrate-memories-v2.ts
-                  </code>
-                  .
+                  v2 chunks long notes; production is one vector per memory. Live chat still uses{" "}
+                  <span className="font-mono text-[11px]">{MEMORY_PRODUCTION_QDRANT_COLLECTION}</span> until Mem0 points
+                  at v2. Fill <span className="font-mono text-[11px]">{MEMORY_V2_COLLECTION}</span> with{" "}
+                  <code className="rounded bg-muted/80 px-1 py-0.5 font-mono text-[10px]">scripts/migrate-memories-v2.ts</code>.
                 </p>
               </div>
             </CollapsibleContent>
@@ -637,25 +631,39 @@ export default function MemoryMigrationTestsPage() {
             <span className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
               Run paired searches
             </span>
-            {([5, 10, 20] as const).map((n) => (
-              <button
-                key={n}
-                type="button"
-                disabled={loading}
-                onClick={() => run(n)}
-                className={cn(
-                  "inline-flex items-center justify-center gap-2 rounded-lg px-4 py-2 text-sm font-medium",
-                  "bg-foreground text-background transition-colors duration-150 hover:opacity-90 active:scale-[0.98] motion-reduce:active:scale-100 disabled:opacity-50"
-                )}
+            {loading ? (
+              <div
+                role="status"
+                aria-busy="true"
+                aria-live="polite"
+                className="inline-flex min-h-10 items-center gap-2 rounded-lg border border-border/60 bg-muted/25 px-4 py-2 text-sm text-muted-foreground"
               >
-                {loading ? <Loader2 className="size-4 shrink-0 animate-spin" aria-hidden /> : null}
-                {n} queries
-              </button>
-            ))}
+                <Loader2 className="size-4 shrink-0 animate-spin" aria-hidden />
+                <span>
+                  {pendingQueryCount != null
+                    ? `Running ${pendingQueryCount} queries…`
+                    : "Running queries…"}
+                </span>
+              </div>
+            ) : (
+              ([5, 10, 20] as const).map((n) => (
+                <button
+                  key={n}
+                  type="button"
+                  onClick={() => run(n)}
+                  className={cn(
+                    "inline-flex min-h-10 items-center justify-center gap-2 rounded-lg px-4 py-2 text-sm font-medium",
+                    "bg-foreground text-background transition-colors duration-150 hover:opacity-90 active:scale-[0.98] motion-reduce:active:scale-100"
+                  )}
+                >
+                  {n} queries
+                </button>
+              ))
+            )}
           </div>
 
           {!loading && !data && !error ? (
-            <ul className="mt-3 text-[13px] text-muted-foreground space-y-1 list-disc pl-4 max-w-xl">
+            <ul className="mt-2 text-[12px] text-muted-foreground space-y-0.5 list-disc pl-4 max-w-xl">
               <li>
                 Queries are sampled from your stored memories when possible, then padded with fixed
                 probe phrases so every run hits the full count.
