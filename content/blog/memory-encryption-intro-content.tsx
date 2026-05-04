@@ -4,9 +4,13 @@ export function MemoryEncryptionIntroContent() {
   return (
     <BlogSection>
       <h1>Memory Encryption</h1>
+      <div className="not-prose -mt-2 mb-4 text-xs text-muted-foreground">
+        Last updated: May 2026
+      </div>
       <p>
-        Organic LLM encrypts sensitive chat and summary data at rest. This page explains the problem
-        we solved, the research and options we weighed, and the architecture we implemented.
+        Organic LLM encrypts sensitive memory text at rest in the vector memory database. This page
+        explains the problem we solved, the research and options we weighed, and the architecture we
+        implemented.
       </p>
 
       <h2>Problem statement</h2>
@@ -14,8 +18,9 @@ export function MemoryEncryptionIntroContent() {
         Conversations and AI-generated summaries are high-sensitivity data. Storing them in
         plaintext in a database exposes users to risk if the database is compromised, leaked, or
         accessed by admins. We wanted application-layer encryption so that even with database
-        access, attackers see only ciphertext. The solution had to fit our Next.js and Supabase
-        stack, avoid risky migrations, and stay compatible with future key rotation or KMS.
+        access, attackers see only ciphertext. The solution had to fit our Next.js stack with Mem0
+        and a vector memory database (Qdrant in production), avoid risky migrations, and stay
+        compatible with future key rotation or KMS.
       </p>
 
       <h2>Research</h2>
@@ -117,11 +122,11 @@ export function MemoryEncryptionIntroContent() {
       <div className="pl-4 text-sm text-foreground/90 space-y-0.5">
         Root secret → HKDF → user key.
         <br />
-        Isolates user data, no extra key storage.
+        Isolates user data at the crypto layer, no extra key storage.
         <br />
-        Root compromise still affects all.
+        Root compromise still affects all; tighter coupling to ORM-style row encryption.
         <br />
-        <em className="font-semibold">Chosen</em> for near-term.
+        <em className="font-semibold">Explored</em>—not what we shipped for Mem0 vector payloads.
       </div>
       <h3 className="text-base font-semibold mt-4">Option C — Per-user stored DEKs (KMS)</h3>
       <div className="pl-4 text-sm text-foreground/90 space-y-0.5">
@@ -156,9 +161,9 @@ export function MemoryEncryptionIntroContent() {
       </div>
       <h3 className="text-base font-semibold mt-4">Option B — Mixed-mode</h3>
       <div className="pl-4 text-sm text-foreground/90 space-y-0.5">
-        Rows may be plaintext or <code>enc:v1:</code> ciphertext.
+        Fields may be plaintext or versioned <code>v1:</code> ciphertext strings.
         <br />
-        Decrypt when prefix present; otherwise treat as plaintext.
+        Decrypt when the ciphertext shape matches; otherwise treat as plaintext.
         <br />
         Zero downtime, gradual rollout.
         <br />
@@ -173,23 +178,25 @@ export function MemoryEncryptionIntroContent() {
 
       <h3>Logging and operational security</h3>
       <p>
-        Real-world incidents show logs often leak prompts and conversations. We log only metadata
-        (message ID, token counts, model, timings) and never plaintext.
+        Real-world incidents show logs often leak prompts and conversations. We avoid logging raw
+        memory content in production; elsewhere we log metadata (IDs, counts, model, timings) rather
+        than conversation body where that is sufficient.
       </p>
 
       <h3>Integrity protection</h3>
       <p>
-        AES-GCM provides ciphertext authentication. We also use AAD (additional authenticated data)
-        to bind <code>user_id</code>, <code>thread_id</code>, and <code>field_name</code> so
-        ciphertext cannot be copied between records.
+        AES-GCM provides authenticated encryption: tampering is detected when decrypting. The
+        memory-encryption module also uses fixed additional authenticated data so ciphertext is
+        bound to the intended memory-field format, not arbitrary blobs.
       </p>
 
       <h3>Outcome</h3>
       <p>
-        The design provides protection against database compromise, authenticated integrity,
-        user-scoped key compartmentalization, safe rollout without migration risk, and compatibility
-        with future key rotation and KMS—while staying simple enough to implement in the current
-        stack.
+        The shipped design protects readable memory text at rest in the vector memory database,
+        gives authenticated integrity for those ciphertexts, supports mixed plaintext and encrypted
+        rows during rollout, and stays compatible with versioned keys and future KMS—while user
+        isolation for who can read whose memories is enforced at the authenticated API boundary (not
+        separate per-user data-encryption keys today).
       </p>
       <p>
         <em>Research accelerated with ChatGPT Atlas.</em>

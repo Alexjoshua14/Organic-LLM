@@ -22,7 +22,7 @@ import { createHash } from "node:crypto";
 
 import { QdrantClient } from "@qdrant/js-client-rest";
 import { openai, type OpenAIResponsesProviderOptions } from "@ai-sdk/openai";
-import { generateObject } from "ai";
+import { generateObject, NoObjectGeneratedError } from "ai";
 import { z } from "zod";
 
 import { decryptMemory, encryptMemory, isEncrypted } from "@/lib/crypto/memory-encryption";
@@ -52,6 +52,37 @@ const MemoryQualitySchema = z.object({
 });
 
 type MemoryQuality = z.infer<typeof MemoryQualitySchema>;
+
+/**
+ * Some models return a JSON Schema envelope (`{ type, properties }`) instead of the instance.
+ * Parse raw model text and validate with {@link MemoryQualitySchema}.
+ */
+function parseMemoryQualityFromModelText(raw: string): MemoryQuality | null {
+  const trimmed = raw
+    .trim()
+    .replace(/^```(?:json)?\s*/i, "")
+    .replace(/\s*```$/i, "");
+
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(trimmed);
+  } catch {
+    return null;
+  }
+
+  if (!parsed || typeof parsed !== "object") {
+    return null;
+  }
+
+  const o = parsed as Record<string, unknown>;
+  let candidate: unknown = o;
+  if (o.type === "object" && o.properties && typeof o.properties === "object") {
+    candidate = o.properties;
+  }
+
+  const r = MemoryQualitySchema.safeParse(candidate);
+  return r.success ? r.data : null;
+}
 
 function parseArgs(argv: string[]) {
   let dryRun = false;
@@ -289,7 +320,14 @@ async function classifyMemory(
           store: false,
         } satisfies OpenAIResponsesProviderOptions,
       },
-      system: `You filter stored "memory" facts for a personal AI assistant. Output JSON only via schema.
+      system: `You filter stored "memory" facts for a personal AI assistant.
+
+Output a single JSON object only, with exactly these keys:
+  "decision": either the string "keep" or the string "drop"
+  "reason": optional short string
+
+Do not output JSON Schema metadata: no "type", "properties", "$schema", or nested schema objects. Example of correct output:
+{"decision":"drop","reason":"Generic fragment with no user-specific fact."}
 
 KEEP (keep) memories that are durable, user-specific preferences or facts about the user/project — things worth retrieving later.
 
@@ -309,6 +347,15 @@ Examples — KEEP:
       prompt: `Classify this memory line:\n\n${text.slice(0, 8000)}`,
     });
     return object;
+  } catch (err) {
+    if (NoObjectGeneratedError.isInstance(err) && typeof err.text === "string") {
+      const repaired = parseMemoryQualityFromModelText(err.text);
+      if (repaired) {
+        console.warn("  [classify] repaired model reply (JSON-schema envelope or parse retry)");
+        return repaired;
+      }
+    }
+    throw err;
   } finally {
     onLatencyMs?.(performance.now() - t0);
   }

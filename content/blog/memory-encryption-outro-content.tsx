@@ -3,56 +3,18 @@ import { MermaidDiagram } from "@/components/blog/mermaid-diagram";
 import { PipelineDiagram, type PipelineSection } from "@/components/blog/pipeline-diagram";
 import { PipelineAnimation } from "@/components/blog/pipeline-animation";
 
-const LAYERS_MERMAID = `flowchart LR
-  subgraph env [Config]
-    root[root secret]
-    keyId[active key id]
-    registry[key registry]
-  end
+/** Mem0 stack: app → operations → store → vector DB, with encryption at the vector-store boundary. */
+const ARCH_MERMAID = `flowchart LR
+  routes[Server routes]
+  ops[Memory operations]
+  store[Mem0 client]
+  wrap[EncryptedVectorStore]
+  qdrant[(Qdrant)]
 
-  subgraph crypto [Crypto module]
-    build[Build service]
-    getService[Get encrypt/decrypt]
-    encrypt[Encrypt]
-    decrypt[Decrypt]
-  end
-
-  subgraph data [Data layer]
-    owner[Resolve thread owner]
-    encMsg[Encrypt message]
-    decMsg[Decrypt message]
-    encSum[Encrypt summary]
-    decSum[Decrypt summary]
-    encConv[Encrypt conversation summary]
-    decConv[Decrypt conversation summary]
-  end
-
-  subgraph helpers [LLM layer]
-    decSummary[Decrypt summary for context]
-    encSummary[Encrypt summary after update]
-  end
-
-  root --> build
-  keyId --> build
-  registry --> build
-  build --> getService
-  getService --> encrypt
-  getService --> decrypt
-
-  owner --> encMsg
-  owner --> decMsg
-  owner --> encSum
-  owner --> decSum
-  owner --> encConv
-  owner --> decConv
-  encrypt --> encMsg
-  decrypt --> decMsg
-  encrypt --> encSum
-  decrypt --> decSum
-  encrypt --> encConv
-  decrypt --> decConv
-  encrypt --> encSummary
-  decrypt --> decSummary
+  routes --> ops
+  ops --> store
+  store --> wrap
+  wrap --> qdrant
 `;
 
 const PIPELINE_SECTIONS: PipelineSection[] = [
@@ -61,155 +23,145 @@ const PIPELINE_SECTIONS: PipelineSection[] = [
     tunnel: {
       from: "User",
       to: "Next.js server",
-      label: "Message encapsulated in transit (TLS 1.3)",
+      label: "TLS",
     },
   },
   {
     boundary: "Next.js server",
     steps: [
-      "Message sent to external LLM; response returned to user via TLS",
-      "In parallel: HKDF-derived user keys → AES-256-GCM encryption → send to Supabase",
+      "Clerk auth + profile id; rate limits and schema validation on memory APIs",
+      "Mem0 adds and searches memories; sensitive text fields encrypted before Qdrant writes",
     ],
   },
   {
     tunnel: {
       from: "Next.js server",
-      to: "Database",
-      label: "Encrypted payload (TLS to Supabase)",
+      to: "Memory database (Qdrant)",
+      label: "TLS; ciphertext for protected text fields",
     },
   },
   {
-    boundary: "Database",
-    steps: ["Supabase (AES-256 at rest)"],
+    boundary: "Memory database (Qdrant)",
+    steps: [
+      "AES-256-GCM ciphertext for configured string fields (e.g. memory body text)",
+      "Embedding vectors stored for semantic search (not encrypted—required for similarity search)",
+    ],
   },
 ];
 
 export function MemoryEncryptionOutroContent() {
   return (
     <BlogSection>
+      <div className="not-prose mb-6 text-xs text-muted-foreground">Last updated: May 2026</div>
+
       <h2>Implemented solution</h2>
+
+      <h3>Where encryption runs</h3>
+      <p>
+        When memory encryption is configured, we patch Mem0&apos;s vector store factory so every
+        created store is wrapped in an <code>EncryptedVectorStore</code>. The wrapper encrypts
+        selected string fields on <code>insert</code> and <code>update</code> and decrypts them on{" "}
+        <code>search</code>, <code>get</code>, <code>list</code>, and keyword search paths. Mem0 and
+        application code otherwise behave the same; encryption is transparent at the persistence
+        boundary.
+      </p>
 
       <h3>What is encrypted</h3>
       <table>
         <thead>
           <tr>
-            <th>What</th>
+            <th>Field (payload)</th>
             <th>When</th>
           </tr>
         </thead>
         <tbody>
           <tr>
-            <td>Message content</td>
-            <td>Encrypted on insert; decrypted on read</td>
+            <td>
+              <code>data</code> (main memory text)
+            </td>
+            <td>
+              Encrypted before write to the memory database; decrypted when read back into the app
+            </td>
           </tr>
           <tr>
-            <td>Thread summary</td>
-            <td>Encrypted when writing; decrypted when building context</td>
-          </tr>
-          <tr>
-            <td>Conversation summary</td>
-            <td>Encrypted in update; decrypted when reading</td>
+            <td>Secondary memory text field (used with hybrid search)</td>
+            <td>
+              Same as <code>data</code>
+            </td>
           </tr>
         </tbody>
       </table>
       <p>
-        <strong>Not encrypted:</strong> Primary keys, timestamps, role, thread titles, short
-        excerpts, etc.
+        <strong>Not encrypted at this layer:</strong> Embedding vectors (required for semantic
+        search), point IDs, filters, and other non-text metadata Mem0/Qdrant need unchanged.
+      </p>
+
+      <h3>Crypto module</h3>
+      <p>
+        The <code>lib/crypto/memory-encryption</code> module implements AES-256-GCM. Key material
+        comes from versioned deployment secrets: an active key id plus matching env-provided random
+        key material, run through HKDF to produce the AES key. Ciphertext is a single
+        self-describing string: version, key id, IV, authentication tag, and ciphertext (so older
+        rows can stay plaintext until rewritten, and key rotation can coexist with old ciphertexts).
       </p>
 
       <h3>Server-only</h3>
-      <p>The crypto module is server-only and is never imported by client code.</p>
+      <p>
+        Memory encryption and the Mem0 client run only on the server. They are not imported from
+        client bundles.
+      </p>
 
-      <h3>Key derivation and AAD</h3>
-      <ul>
-        <li>
-          <strong>Root secret:</strong> Key derivation and AAD use a <strong>root secret</strong>{" "}
-          (supplied at deploy time). Optional: an <strong>active key id</strong> and a{" "}
-          <strong>key registry</strong> for rotation or multiple keys.
-        </li>
-        <li>
-          <strong>Per-user key:</strong> HKDF-SHA256 derives a 32-byte key per user from the root
-          secret (with salt and a fixed info string). No per-user keys are stored.
-        </li>
-        <li>
-          <strong>AAD:</strong> Ciphertext is bound to user id, thread id, and field name so it
-          cannot be reused in another context.
-        </li>
-      </ul>
+      <h3>Public API boundary</h3>
+      <p>
+        UI and routes call a dedicated memory operations layer: identity comes from Clerk plus a
+        server-resolved profile id (not from the client), operations apply rate limits, responses
+        are validated against a schema, and deletes verify ownership before calling Mem0 delete. The
+        low-level store has no auth and is only used behind that boundary.
+      </p>
 
-      <h3>Payload format and legacy</h3>
-      <ul>
-        <li>
-          <strong>Encrypted value:</strong>{" "}
-          <code>
-            enc:v1:&lt;keyId&gt;:&lt;ivBase64&gt;:&lt;tagBase64&gt;:&lt;ciphertextBase64&gt;
-          </code>
-        </li>
-        <li>
-          <strong>Legacy:</strong> Values not starting with <code>enc:</code> are returned as
-          plaintext.
-        </li>
-      </ul>
+      <p className="text-sm text-muted-foreground">
+        <strong>Logging:</strong> We do not log raw memory content in production.
+      </p>
 
-      <h3>Where it runs</h3>
-      <ul>
-        <li>
-          <strong>Crypto module:</strong> Encrypt/decrypt API and key derivation; server-only.
-        </li>
-        <li>
-          <strong>Data layer:</strong> Encrypt/decrypt messages and both summary fields; resolves
-          thread owner first.
-        </li>
-        <li>
-          <strong>LLM layer:</strong> Decrypt/encrypt summary text when building or updating
-          context.
-        </li>
-      </ul>
-
-      <p>How the layers fit together:</p>
-      <MermaidDiagram code={LAYERS_MERMAID} />
+      <h3>How components connect</h3>
+      <MermaidDiagram code={ARCH_MERMAID} />
 
       <hr />
 
-      <h2>Final architecture and security properties</h2>
+      <h2>Pipeline and security properties</h2>
       <p className="mb-1">End-to-end pipeline:</p>
       <PipelineDiagram sections={PIPELINE_SECTIONS} />
       <p className="mt-4 mb-1 text-sm text-muted-foreground">
-        Animated flow (message and encrypted payloads move through TLS; boundaries static):
+        Animated flow (payloads move through TLS; boundaries static):
       </p>
       <PipelineAnimation />
 
-      <p>
-        <strong>Ciphertext format:</strong> A versioned prefix, key id, then initialization vector
-        (IV), tag, and ciphertext (e.g.{" "}
-        <code>enc:v1:&lt;keyId&gt;:&lt;iv&gt;:&lt;tag&gt;:&lt;ciphertext&gt;</code>
-        ).
-      </p>
-      <p>
-        <strong>Encrypted fields:</strong> Message content, thread summary, conversation summary.
-      </p>
-
-      <h3>Security properties achieved</h3>
+      <h3>Security properties</h3>
       <ul>
         <li>
-          <strong>Database compromise:</strong> Attackers see ciphertext only.
+          <strong>Memory database exposure:</strong> Protected string fields appear as ciphertext
+          without application keys; embedding vectors remain for search and are not treated as
+          secret text at this layer.
         </li>
         <li>
-          <strong>Row swapping / tampering:</strong> Detected by AEAD authentication tag.
+          <strong>Tampering:</strong> AES-GCM authentication fails if ciphertext or associated data
+          is altered.
         </li>
         <li>
-          <strong>Partial compromise:</strong> User-scoped keys reduce blast radius.
+          <strong>User isolation:</strong> Enforced by authenticated APIs and Mem0&apos;s user
+          scoping—not by a separate data-encryption key per user in the current design.
         </li>
         <li>
-          <strong>Operational rollout:</strong> Mixed plaintext/encrypted rows supported.
+          <strong>Rollout:</strong> Mixed plaintext and encrypted field values are supported during
+          migration.
         </li>
       </ul>
 
       <h3>Why this fits Organic LLM</h3>
       <p>
-        Organic LLM stores personal conversations, long-term AI memory, research notes, and
-        summaries. This architecture protects those while still allowing AI reasoning, efficient
-        queries, and gradual system evolution.
+        Organic LLM stores personal conversation-derived memory. This approach reduces readable
+        exposure at the vector database while preserving semantic search, keeps keys and crypto off
+        the client, and leaves room to evolve toward KMS or stricter models later.
       </p>
     </BlogSection>
   );

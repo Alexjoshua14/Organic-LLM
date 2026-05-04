@@ -20,12 +20,14 @@ export const MEMORY_ENCRYPTION_DESIGN_SPACE = [
   },
   {
     title: "Key architecture",
-    overview: "Single key rejected; HKDF-derived user keys chosen; per-user DEKs deferred.",
+    overview:
+      "Single global key rejected. Shipped: versioned deployment key material (HKDF to AES-256-GCM). Per-user data keys and KMS remain future improvements.",
     tableMarkdown: `| Option | Pros | Cons | Verdict |
 |--------|------|------|---------|
 | A — Single global key | Simplest | One compromise = entire DB | Too risky |
-| **B — HKDF-derived user keys** | Compartmentalizes users; no extra key storage | Root compromise affects all | **Chosen** |
-| C — Per-user stored DEKs | Stronger isolation | Key storage; KMS; ops | Future improvement |`,
+| B — HKDF-derived per-user keys | Crypto-layer user isolation | Tighter coupling to ORM/row model; Mem0 payload path differs | Explored; not shipped for vector memory |
+| **C — Versioned deployment keys** | Rotation by key id; fits vector payload encryption | Same server secrets protect ciphertext for all users at rest | **Chosen (shipped)** |
+| D — Per-user stored DEKs (KMS) | Strongest isolation | Key storage; KMS; ops | Future improvement |`,
   },
   {
     title: "Key management",
@@ -68,7 +70,7 @@ export const MEMORY_ENCRYPTION_DESIGN_SPACE = [
   {
     title: "AAD (additional authenticated data)",
     overview:
-      "Bind user_id, thread_id, field_name to ciphertext to prevent swapping; implemented in code.",
-    tableMarkdown: `Bind \`user_id\`, \`thread_id\`, \`field_name\` to ciphertext (AES-GCM AAD). Prevents ciphertext swapping. Implemented in code.`,
+      "AES-GCM AAD binds ciphertext to the memory-encryption format (fixed application string in the shipped module) so tampering and accidental misuse are rejected at decrypt.",
+    tableMarkdown: `Use AES-GCM with fixed AAD for the memory encryption wire format (not per-row user/thread binding in the shipped vector-store wrapper). Authenticates ciphertext integrity and ties crypto to the intended field semantics.`,
   },
 ] as const;

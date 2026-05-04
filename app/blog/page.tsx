@@ -12,16 +12,16 @@ const POSTS: Array<{
 }> = [
   {
     slug: "how-we-secure-memory",
-    title: "How we secure user memory",
+    title: "How we protect your memories",
     description:
-      "A concise overview: why memory is sensitive, what we encrypt, how the server boundary works, and what we do not claim.",
+      "Why memory matters, what we encrypt in the memory database, how access and logging work, and what we do not claim.",
     category: "architecture",
   },
   {
     slug: "memory-encryption",
     title: "Memory Encryption",
     description:
-      "How Organic LLM encrypts messages and summaries at rest: research, design choices, and the implemented solution.",
+      "Research, design tradeoffs, and how memory text is encrypted at the Mem0 / Qdrant boundary today.",
     category: "architecture",
   },
   {
