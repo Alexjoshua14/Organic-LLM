@@ -1,9 +1,9 @@
+import "server-only";
 import "./install-mem0-vector-encryption";
 
 import { Memory } from "mem0ai/oss";
 
 import { config } from "@/config/mem0-config";
-import "server-only";
 
 let memoryInstance: Memory | null = null;
 

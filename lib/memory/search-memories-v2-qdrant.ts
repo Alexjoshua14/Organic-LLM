@@ -1,27 +1,13 @@
 import "server-only";
 
-import { QdrantClient } from "@qdrant/js-client-rest";
-
-import { decryptMemory, isEncrypted } from "@/lib/crypto/memory-encryption";
-
 import type { MemoryItemType } from "@/lib/schemas/memory";
 
-const MEMORY_HOST = process.env.MEMORY_API_HOST ?? "localhost";
-const MEMORY_PORT = MEMORY_HOST === "localhost" ? 6333 : 443;
-const MEMORY_KEY = process.env.MEMORY_API_SECRET;
+import { getMemoryQdrantClient } from "@/config/memory-qdrant-client";
+import { decryptMemory, isEncrypted } from "@/lib/crypto/memory-encryption";
 
 const OLLAMA_URL = (process.env.OLLAMA_URL ?? "http://localhost:11434").replace(/\/$/, "");
 const OLLAMA_EMBED_MODEL = process.env.OLLAMA_EMBED_MODEL ?? "nomic-embed-text";
 const V2_COLLECTION = process.env.MEMORY_V2_COLLECTION ?? "memories_v2";
-
-function createQdrantClient(): QdrantClient {
-  return new QdrantClient({
-    host: MEMORY_HOST,
-    port: MEMORY_PORT,
-    https: true,
-    apiKey: MEMORY_KEY,
-  });
-}
 
 function decryptDataField(raw: string): string {
   if (!raw || !raw.trim()) {
@@ -30,11 +16,13 @@ function decryptDataField(raw: string): string {
   if (isEncrypted(raw)) {
     return decryptMemory(raw);
   }
+
   return raw;
 }
 
 function payloadUserId(payload: Record<string, unknown>): string | undefined {
   const u = payload.userId ?? payload.user_id;
+
   return typeof u === "string" && u.length > 0 ? u : undefined;
 }
 
@@ -42,8 +30,10 @@ let cachedEmbeddingDims: number | null = null;
 
 async function probeEmbeddingDims(model: string): Promise<number> {
   const dimsEnv = process.env.MEMORY_V2_EMBEDDING_DIMS?.trim();
+
   if (dimsEnv) {
     const n = parseInt(dimsEnv, 10);
+
     if (Number.isFinite(n) && n > 0) {
       return n;
     }
@@ -59,13 +49,16 @@ async function probeEmbeddingDims(model: string): Promise<number> {
     embedding?: number[];
     error?: string;
   };
+
   if (!res.ok || data.error) {
     throw new Error(`Ollama embed probe failed: ${data.error ?? res.statusText}`);
   }
   const dim = data.embeddings?.[0]?.length ?? data.embedding?.length;
+
   if (!dim) {
     throw new Error("Could not determine embedding dimensions from Ollama response");
   }
+
   return dim;
 }
 
@@ -84,10 +77,12 @@ async function embedQuery(model: string, text: string): Promise<number[]> {
     embedding?: number[];
     error?: string;
   };
+
   if (!res.ok || data.error) {
     throw new Error(data.error ?? res.statusText);
   }
   const vec = data.embeddings?.[0] ?? data.embedding;
+
   if (!vec?.length) {
     throw new Error("Unexpected Ollama embed response shape");
   }
@@ -96,6 +91,7 @@ async function embedQuery(model: string, text: string): Promise<number[]> {
       `Embedding dim mismatch: got ${vec.length}, expected ${cachedEmbeddingDims} (set MEMORY_V2_EMBEDDING_DIMS if needed)`
     );
   }
+
   return vec;
 }
 
@@ -119,7 +115,7 @@ export async function getBestV2ChunkScoreForSourceMemory(
   if (queryVector.length === 0 || !userId || !sourceMemoryId) {
     return null;
   }
-  const client = createQdrantClient();
+  const client = getMemoryQdrantClient();
   const hits = await client.search(V2_COLLECTION, {
     vector: queryVector,
     limit: 1,
@@ -131,8 +127,10 @@ export async function getBestV2ChunkScoreForSourceMemory(
       ],
     },
   });
+
   if (!hits.length) return null;
   const s = hits[0]!.score;
+
   return typeof s === "number" ? s : null;
 }
 
@@ -148,7 +146,7 @@ export async function searchMemoriesV2FromQdrant(
     return { results: [], queryVector: [] };
   }
 
-  const client = createQdrantClient();
+  const client = getMemoryQdrantClient();
   const vector = await embedQuery(OLLAMA_EMBED_MODEL, query);
 
   const chunkFetchLimit = Math.min(200, Math.max(limit * 25, limit));
@@ -166,17 +164,20 @@ export async function searchMemoriesV2FromQdrant(
 
   for (const hit of hits) {
     const payload = (hit.payload ?? {}) as Record<string, unknown>;
+
     if (payloadUserId(payload) !== userId) {
       continue;
     }
     const rawSource = payload.sourceMemoryId;
     const sourceMemoryId = typeof rawSource === "string" ? rawSource : "";
+
     if (!sourceMemoryId) {
       continue;
     }
     const rawData = payload.data;
     const dataStr = typeof rawData === "string" ? rawData : "";
     const chunkPlain = decryptDataField(dataStr).trim();
+
     if (!chunkPlain) {
       continue;
     }
@@ -186,6 +187,7 @@ export async function searchMemoriesV2FromQdrant(
     const score = typeof hit.score === "number" ? hit.score : 0;
 
     let agg = bySource.get(sourceMemoryId);
+
     if (!agg) {
       agg = {
         sourceMemoryId,
@@ -205,6 +207,7 @@ export async function searchMemoriesV2FromQdrant(
   for (const agg of bySource.values()) {
     agg.chunks.sort((a, b) => a.chunkIndex - b.chunkIndex);
     const memory = agg.chunks.map((c) => c.text).join("\n\n");
+
     memories.push({
       id: agg.sourceMemoryId,
       memory,
