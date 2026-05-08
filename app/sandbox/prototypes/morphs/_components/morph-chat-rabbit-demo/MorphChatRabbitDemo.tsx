@@ -30,6 +30,7 @@ import { Conversation } from "@/components/third-party/ai-elements/conversation"
 import { ChatThread } from "@/components/chat/chat-thread";
 import Page from "@/components/layout/page";
 import { Button } from "@/components/third-party/ui/button";
+import { isEditableEventTarget } from "@/lib/dom/is-editable-event-target";
 import { layout as layoutTokens } from "@/lib/rabbit-holes/designTokens";
 import { cn } from "@/lib/utils";
 
@@ -58,6 +59,8 @@ export function MorphChatRabbitDemo() {
   const [liveMetrics, setLiveMetrics] = useState<MorphLiveMetrics | null>(null);
   const [activeNodeId, setActiveNodeId] = useState<string>(MORPH_CHAT_RABBIT_ACTIVE_NODE_ID);
   const [activeTakeawayIndex, setActiveTakeawayIndex] = useState<number | null>(null);
+  /** Hide sandbox HUD, nav, and headers; fill viewport like production chat / rabbit-hole. */
+  const [demoFullscreen, setDemoFullscreen] = useState(false);
 
   const sessionForRails = useMemo(
     () => ({ ...MORPH_CHAT_RABBIT_SESSION, activeNodeId }),
@@ -120,7 +123,7 @@ export function MorphChatRabbitDemo() {
     });
 
     return () => cancelAnimationFrame(id);
-  }, [measureAndSync]);
+  }, [measureAndSync, demoFullscreen]);
 
   useEffect(() => {
     variantRef.current = layout;
@@ -128,6 +131,21 @@ export function MorphChatRabbitDemo() {
 
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape" && demoFullscreen) {
+        e.preventDefault();
+        setDemoFullscreen(false);
+
+        return;
+      }
+
+      if ((e.key === "f" || e.key === "F") && !e.repeat && !e.metaKey && !e.ctrlKey && !e.altKey) {
+        if (isEditableEventTarget(e.target)) return;
+        e.preventDefault();
+        setDemoFullscreen((v) => !v);
+
+        return;
+      }
+
       if (e.key !== "Tab" || !e.shiftKey) return;
       e.preventDefault();
       const next = layoutRef.current === "chat" ? "rabbit" : "chat";
@@ -138,7 +156,7 @@ export function MorphChatRabbitDemo() {
     window.addEventListener("keydown", onKeyDown);
 
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [applyLayout]);
+  }, [applyLayout, demoFullscreen]);
 
   useEffect(() => {
     const stage = stageRef.current;
@@ -263,78 +281,113 @@ export function MorphChatRabbitDemo() {
     ) : null;
 
   return (
-    <Page transparentBackground className="items-stretch justify-start gap-0 overflow-hidden">
-      <AdaptiveLiquidChrome dimIntensity={0.45} />
+    <Page
+      transparentBackground={!demoFullscreen}
+      className={cn(
+        "items-stretch justify-start gap-0 overflow-hidden",
+        demoFullscreen && "min-h-0 flex-1"
+      )}
+    >
+      {!demoFullscreen ? (
+        <>
+          <AdaptiveLiquidChrome dimIntensity={0.45} />
+          <div
+            aria-hidden
+            className={cn(
+              glass({ border: "none", opaque: true }),
+              "pointer-events-none absolute inset-0 z-[1] min-h-dvh w-full rounded-none"
+            )}
+          />
+        </>
+      ) : null}
+      {!demoFullscreen ? <MorphDemoReactScan debugPanelExpanded={devHudExpanded} /> : null}
+      {!demoFullscreen ? (
+        <MorphDemoDevHud
+          layout={layout}
+          live={liveMetrics}
+          speedPercent={speedPercent}
+          spring={springConfig}
+          targetLabelAlpha="chat"
+          targetLabelBeta="rabbit"
+          targets={{ alpha: measuredTargets.chat, beta: measuredTargets.rabbit }}
+          onPanelOpenChange={setDevHudExpanded}
+          onSpeedChange={setSpeedPercent}
+        />
+      ) : null}
       <div
-        aria-hidden
         className={cn(
-          glass({ border: "none", opaque: true }),
-          "pointer-events-none absolute inset-0 z-[1] min-h-dvh w-full rounded-none"
+          "relative z-10 flex h-full min-h-0 w-full flex-col",
+          demoFullscreen ? "min-h-0 flex-1 pt-0" : "pt-4"
         )}
-      />
-      <MorphDemoReactScan debugPanelExpanded={devHudExpanded} />
-      <MorphDemoDevHud
-        layout={layout}
-        live={liveMetrics}
-        speedPercent={speedPercent}
-        spring={springConfig}
-        targetLabelAlpha="chat"
-        targetLabelBeta="rabbit"
-        targets={{ alpha: measuredTargets.chat, beta: measuredTargets.rabbit }}
-        onPanelOpenChange={setDevHudExpanded}
-        onSpeedChange={setSpeedPercent}
-      />
-      <div className="relative z-10 flex h-full min-h-0 w-full flex-col pt-4">
-        <nav className="flex shrink-0 flex-wrap items-center gap-x-4 gap-y-1 px-4">
-          <Link
-            className="text-sm text-muted-foreground transition-colors select-none hover:text-foreground"
-            href="/sandbox/prototypes"
-          >
-            ← Prototypes
-          </Link>
-          <Link
-            className="text-sm text-muted-foreground transition-colors select-none hover:text-foreground"
-            href="/sandbox/prototypes/morphs"
-          >
-            Morph input demo
-          </Link>
-        </nav>
-        <header
-          className={cn(
-            "shrink-0 px-4 pt-4 text-center",
-            devHudExpanded ? "pr-[min(18rem,100vw-1rem)] sm:pr-4" : "pr-4"
-          )}
-        >
-          <h1 className="font-commissioner text-2xl font-light tracking-tight text-foreground">
-            Morph: chat thread ↔ rabbit-hole article
-          </h1>
-          <p className="mt-1 text-sm text-muted-foreground">
-            Center bounds use{" "}
-            <code className="rounded bg-muted/50 px-1 py-0.5 text-xs">
-              @organic-llm/morph-physics
-            </code>
-            ; rails use Framer slide.{" "}
-            <span className="hidden sm:inline">
-              <kbd className="rounded border border-border/60 bg-muted/40 px-1.5 py-0.5 font-mono text-xs">
-                Shift
-              </kbd>
-              {" + "}
-              <kbd className="rounded border border-border/60 bg-muted/40 px-1.5 py-0.5 font-mono text-xs">
-                Tab
-              </kbd>{" "}
-              or the button.
-            </span>
-            <span className="sm:hidden">Use the button.</span> At the{" "}
-            <code className="rounded bg-muted/50 px-1 py-0.5 text-xs">lg</code> breakpoint and
-            above, the ghost grid uses{" "}
-            <code className="rounded bg-muted/50 px-1 py-0.5 text-xs">{layoutTokens.gridCols}</code>
-            .
-          </p>
-        </header>
+      >
+        {!demoFullscreen ? (
+          <>
+            <nav className="flex shrink-0 flex-wrap items-center gap-x-4 gap-y-1 px-4">
+              <Link
+                className="text-sm text-muted-foreground transition-colors select-none hover:text-foreground"
+                href="/sandbox/prototypes"
+              >
+                ← Prototypes
+              </Link>
+              <Link
+                className="text-sm text-muted-foreground transition-colors select-none hover:text-foreground"
+                href="/sandbox/prototypes/morphs"
+              >
+                Morph input demo
+              </Link>
+            </nav>
+            <header
+              className={cn(
+                "shrink-0 px-4 pt-4 text-center",
+                devHudExpanded ? "pr-[min(18rem,100vw-1rem)] sm:pr-4" : "pr-4"
+              )}
+            >
+              <h1 className="font-commissioner text-2xl font-light tracking-tight text-foreground">
+                Morph: chat thread ↔ rabbit-hole article
+              </h1>
+              <p className="mt-1 text-sm text-muted-foreground">
+                Center bounds use{" "}
+                <code className="rounded bg-muted/50 px-1 py-0.5 text-xs">
+                  @organic-llm/morph-physics
+                </code>
+                ; rails use Framer slide. Press{" "}
+                <kbd className="rounded border border-border/60 bg-muted/40 px-1.5 py-0.5 font-mono text-xs">
+                  F
+                </kbd>{" "}
+                for a production-style full view (no sandbox chrome);{" "}
+                <kbd className="rounded border border-border/60 bg-muted/40 px-1.5 py-0.5 font-mono text-xs">
+                  Esc
+                </kbd>{" "}
+                to return.{" "}
+                <span className="hidden sm:inline">
+                  <kbd className="rounded border border-border/60 bg-muted/40 px-1.5 py-0.5 font-mono text-xs">
+                    Shift
+                  </kbd>
+                  {" + "}
+                  <kbd className="rounded border border-border/60 bg-muted/40 px-1.5 py-0.5 font-mono text-xs">
+                    Tab
+                  </kbd>{" "}
+                  or the button morphs layout.
+                </span>
+                <span className="sm:hidden">Button morphs layout.</span> At{" "}
+                <code className="rounded bg-muted/50 px-1 py-0.5 text-xs">lg</code>, ghost grid uses{" "}
+                <code className="rounded bg-muted/50 px-1 py-0.5 text-xs">
+                  {layoutTokens.gridCols}
+                </code>
+                .
+              </p>
+            </header>
+          </>
+        ) : null}
 
         <div
           ref={stageRef}
-          className="relative mt-4 min-h-[min(72vh,680px)] w-full flex-1 px-2 sm:px-4"
+          className={cn(
+            "relative w-full flex-1",
+            demoFullscreen
+              ? "mt-0 min-h-0 px-2 sm:px-4 lg:px-8"
+              : "mt-4 min-h-[min(72vh,680px)] px-2 sm:px-4"
+          )}
         >
           {/* Ghost: chat — centered reading column */}
           <div aria-hidden className="pointer-events-none absolute inset-0 z-0 opacity-0">
@@ -342,7 +395,8 @@ export function MorphChatRabbitDemo() {
               <div ref={chatMeasureRef} className="w-full max-w-4xl min-w-0">
                 <Conversation
                   className={cn(
-                    "flex h-[min(58vh,560px)] max-h-[560px] min-h-0 w-full flex-col overflow-hidden"
+                    "flex min-h-0 w-full flex-col overflow-hidden",
+                    demoFullscreen ? "h-full max-h-none" : "h-[min(58vh,560px)] max-h-[560px]"
                   )}
                 >
                   <ChatThread className="min-h-0 flex-1" messages={MORPH_CHAT_RABBIT_MESSAGES} />
@@ -418,8 +472,10 @@ export function MorphChatRabbitDemo() {
           <div
             ref={elementRef}
             className={cn(
-              "pointer-events-auto absolute top-0 left-0 z-20 overflow-hidden rounded-xl",
-              "border border-border/20 bg-background/80 shadow-sm backdrop-blur-sm",
+              "pointer-events-auto absolute top-0 left-0 z-20 overflow-hidden",
+              demoFullscreen
+                ? "rounded-none border-0 bg-transparent shadow-none backdrop-blur-none"
+                : "rounded-xl border border-border/20 bg-background/80 shadow-sm backdrop-blur-sm",
               "will-change-[transform,width,height]"
             )}
           >
@@ -435,16 +491,18 @@ export function MorphChatRabbitDemo() {
           </div>
         </div>
 
-        <div className="pointer-events-none fixed inset-x-0 bottom-6 z-50 flex justify-center px-4">
-          <Button
-            className="pointer-events-auto shadow-lg"
-            type="button"
-            variant="secondary"
-            onClick={onToggleMorph}
-          >
-            {layout === "chat" ? "Morph to rabbit-hole view" : "Morph to chat view"}
-          </Button>
-        </div>
+        {!demoFullscreen ? (
+          <div className="pointer-events-none fixed inset-x-0 bottom-6 z-50 flex justify-center px-4">
+            <Button
+              className="pointer-events-auto shadow-lg"
+              type="button"
+              variant="secondary"
+              onClick={onToggleMorph}
+            >
+              {layout === "chat" ? "Morph to rabbit-hole view" : "Morph to chat view"}
+            </Button>
+          </div>
+        ) : null}
       </div>
     </Page>
   );
