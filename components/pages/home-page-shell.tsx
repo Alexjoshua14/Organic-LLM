@@ -41,7 +41,7 @@ const FULL_VIEW_CHROME_SPRING = {
 const CTRL_SPACE_TOGGLE_MS = 1000;
 
 /** Full-view side gutters: 25vw on md+; comfortable floor on small screens. */
-const fullViewGutterX = "px-4 md:px-[25vw]";
+const fullViewGutterX = "px-4 md:px-[calc(min(12rem,25vw))]";
 
 export function HomePageShell() {
   const router = useRouter();
