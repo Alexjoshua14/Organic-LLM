@@ -805,13 +805,19 @@ export const PromptInputBody = ({ className, ...props }: PromptInputBodyProps) =
   <div className={cn("contents", className)} {...props} />
 );
 
-export interface PromptInputTextareaProps extends React.ComponentProps<typeof TextareaAutosize> {}
+export interface PromptInputTextareaProps extends React.ComponentProps<typeof TextareaAutosize> {
+  /**
+   * When false, Enter inserts a newline (multi-line notes). Default true keeps chat-style Enter-to-submit on desktop.
+   */
+  submitOnEnter?: boolean;
+}
 
 export const PromptInputTextarea = ({
   onChange,
   className,
   placeholder = "What would you like to know?",
   onKeyDown: onKeyDownProp,
+  submitOnEnter = true,
   ...props
 }: PromptInputTextareaProps) => {
   const controller = useOptionalPromptInputController();
@@ -824,6 +830,9 @@ export const PromptInputTextarea = ({
     onKeyDownProp?.(e);
 
     if (e.key === "Enter") {
+      if (!submitOnEnter) {
+        return;
+      }
       if (isComposing || e.nativeEvent.isComposing) {
         return;
       }

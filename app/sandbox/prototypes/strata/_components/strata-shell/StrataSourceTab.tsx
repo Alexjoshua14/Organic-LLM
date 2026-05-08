@@ -5,7 +5,6 @@ import type { StrataPageWithSections } from "@/lib/schemas/strata";
 import type { StrataPageAssistantSession } from "@/lib/strata/assistant-session";
 import type { SourceDocLayout } from "./strata-shell-model";
 
-import dynamic from "next/dynamic";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
@@ -15,6 +14,7 @@ import { motion } from "framer-motion";
 import { StrataSourceComposerOptions } from "./StrataSourceComposerOptions";
 import { StrataSourceInput, type StrataSourceInputMode } from "./StrataSourceInput";
 import { StrataTextSourcesList } from "./StrataTextSourcesList";
+import { StrataNotepad } from "./StrataNotepad";
 
 import {
   ContextMenu,
@@ -34,16 +34,8 @@ import {
 import { cn } from "@/lib/utils";
 import { STRATA_TEXT_SOURCES_MAX, type StrataTextSourceNode } from "@/lib/schemas/strata";
 
-/**
- * BlockNote pulls in ProseMirror, TipTap, lib0, and a yjs runtime — all client-only and ~300KB
- * gzipped. Splitting via `next/dynamic` keeps the rest of the Strata bundle untouched until the
- * user actually opens the Source tab with a notepad to render.
- */
-const StrataNotepad = dynamic(() => import("./StrataNotepad").then((m) => m.StrataNotepad), {
-  ssr: false,
-});
-
 const NOTEPAD_DEFAULT_TITLE = "Untitled note";
+
 
 function isBlankUserTextNote(n: StrataTextSourceNode): boolean {
   if (n.kind !== "user_text") return false;
@@ -63,6 +55,7 @@ export function StrataSourceTab({
   refinedSectionTitle,
   queueRawAutosave,
   flushSaveRaw,
+  rawSyncFooter,
   statusRow,
   pageId,
   dbAvailable,
@@ -76,7 +69,8 @@ export function StrataSourceTab({
   setSections: Dispatch<SetStateAction<StrataPageWithSections["sections"]>>;
   refinedSectionTitle: string;
   queueRawAutosave: () => void;
-  flushSaveRaw: () => void;
+  flushSaveRaw: () => Promise<void>;
+  rawSyncFooter: { busy: boolean; label: string };
   statusRow: ReactNode;
   pageId: string;
   dbAvailable: boolean;
@@ -93,9 +87,8 @@ export function StrataSourceTab({
 
   const ingestEnabled = dbAvailable && !localOnlyMode && !pageId.startsWith("local-");
   /**
-   * The notepad's CRDT pipeline (Yjs + IndexedDB + Supabase) requires a stable, real page UUID
-   * because the API route authorises by `strata_pages.owner_id`. Local-only or freshly-created
-   * "local-..." pages bypass the notepad and fall back to the legacy Text composer.
+   * The notepad persists through `sections.raw_text` (sources JSON + flattened corpus).
+   * Ingest tooling (web, URL, files, Flipboard paste) requires a synced Strata UUID.
    */
   const notepadEnabled = ingestEnabled;
 
@@ -224,7 +217,6 @@ export function StrataSourceTab({
         title: NOTEPAD_DEFAULT_TITLE,
         body: "",
         createdAt: new Date().toISOString(),
-        richKind: "blocknote_v1",
       };
 
       onAppendNodes([node]);
@@ -275,7 +267,7 @@ export function StrataSourceTab({
     [activeNote, onUpdateSource]
   );
 
-  const handleNotepadMarkdownChange = useCallback(
+  const handleNotepadBodyChange = useCallback(
     (markdown: string) => {
       if (!activeNote) return;
       const sanitized = sanitizeRawUserInput(markdown);
@@ -288,15 +280,6 @@ export function StrataSourceTab({
     },
     [activeNote, onUpdateSource]
   );
-
-  const handleUpgradedToRich = useCallback(() => {
-    if (!activeNote || activeNote.richKind === "blocknote_v1") return;
-    const next = textSources.map((s) =>
-      s.id === activeNote.id ? { ...s, richKind: "blocknote_v1" as const } : s
-    );
-
-    applySources(next);
-  }, [activeNote, applySources, textSources]);
 
   const handleNewNote = useCallback(() => {
     const existingBlank = userTextNotes.find(isBlankUserTextNote);
@@ -315,7 +298,6 @@ export function StrataSourceTab({
       title: NOTEPAD_DEFAULT_TITLE,
       body: "",
       createdAt: new Date().toISOString(),
-      richKind: "blocknote_v1",
     };
 
     onAppendNodes([node]);
@@ -326,8 +308,9 @@ export function StrataSourceTab({
   const handleCloseNotepad = useCallback(() => {
     skipNextAutoNoteRef.current = true;
     queueMicrotask(() => {
-      flushSaveRaw();
-      setActiveNoteId(null);
+      void flushSaveRaw().finally(() => {
+        setActiveNoteId(null);
+      });
     });
   }, [flushSaveRaw]);
 
@@ -341,7 +324,6 @@ export function StrataSourceTab({
           title: suggestedTitle.slice(0, 512) || NOTEPAD_DEFAULT_TITLE,
           body: sanitizeRawUserInput(text),
           createdAt: new Date().toISOString(),
-          richKind: "blocknote_v1",
         };
 
         onAppendNodes([node]);
@@ -515,14 +497,14 @@ export function StrataSourceTab({
                 notepadEnabled && activeNoteId ? (
                   <StrataNotepad
                     key={activeNoteId}
-                    pageId={pageId}
                     noteId={activeNoteId}
-                    title={activeNote?.title ?? NOTEPAD_DEFAULT_TITLE}
-                    initialMarkdown={activeNote?.body ?? ""}
-                    onTitleChange={handleNotepadTitleChange}
-                    onMarkdownChange={handleNotepadMarkdownChange}
-                    onUpgradedToRich={handleUpgradedToRich}
+                    body={activeNote?.body ?? ""}
+                    onBodyChange={handleNotepadBodyChange}
+                    onFlushPersist={flushSaveRaw}
                     onCloseNote={handleCloseNotepad}
+                    syncFooter={rawSyncFooter}
+                    title={activeNote?.title ?? NOTEPAD_DEFAULT_TITLE}
+                    onTitleChange={handleNotepadTitleChange}
                   />
                 ) : (
                   <p className="text-sm text-muted-foreground">

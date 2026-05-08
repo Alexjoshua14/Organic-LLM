@@ -16,7 +16,7 @@ import {
 
 export type StrataSourceInputMode = "note" | StrataIngestMode;
 
-const INGEST_MODES: StrataIngestMode[] = ["web", "url", "files", "clipboard"];
+const INGEST_MODES: StrataIngestMode[] = ["web", "url", "files", "flipboard", "audio"];
 
 /**
  * Single chrome for the Source column: notepad and ingest flows are mode variants of one surface.

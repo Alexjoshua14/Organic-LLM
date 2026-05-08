@@ -33,6 +33,16 @@ import {
 
 const logger = createLogger("components/third-party/ui/sidebar.tsx");
 
+type SidebarPointerContextValue = { pointerInside: boolean };
+
+const SidebarPointerContext = React.createContext<SidebarPointerContextValue>({
+  pointerInside: false,
+});
+
+function useSidebarPointerInside() {
+  return React.useContext(SidebarPointerContext).pointerInside;
+}
+
 const SIDEBAR_WIDTH = "16rem";
 const SIDEBAR_WIDTH_MOBILE = "18rem";
 const SIDEBAR_WIDTH_ICON = "3rem";
@@ -179,6 +189,8 @@ function Sidebar({
   collapsible?: "offcanvas" | "icon" | "none";
 }) {
   const { isMobile, state, openMobile, setOpenMobile } = useSidebar();
+  const [pointerInside, setPointerInside] = React.useState(false);
+  const pointerContextValue = React.useMemo(() => ({ pointerInside }), [pointerInside]);
 
   if (collapsible === "none") {
     return (
@@ -209,12 +221,16 @@ function Sidebar({
               "--sidebar-width": SIDEBAR_WIDTH_MOBILE,
             } as React.CSSProperties
           }
+          onPointerEnter={() => setPointerInside(true)}
+          onPointerLeave={() => setPointerInside(false)}
         >
           <SheetHeader className="sr-only">
             <SheetTitle>Sidebar</SheetTitle>
             <SheetDescription>Displays the mobile sidebar.</SheetDescription>
           </SheetHeader>
-          <div className="flex h-full w-full flex-col">{children}</div>
+          <SidebarPointerContext.Provider value={pointerContextValue}>
+            <div className="flex h-full w-full flex-col">{children}</div>
+          </SidebarPointerContext.Provider>
         </SheetContent>
       </Sheet>
     );
@@ -260,8 +276,12 @@ function Sidebar({
           className="bg-sidebar group-data-[variant=floating]:border-sidebar-border flex h-full w-full flex-col group-data-[variant=floating]:rounded-lg group-data-[variant=floating]:border group-data-[variant=floating]:shadow-sm"
           data-sidebar="sidebar"
           data-slot="sidebar-inner"
+          onPointerEnter={() => setPointerInside(true)}
+          onPointerLeave={() => setPointerInside(false)}
         >
-          {children}
+          <SidebarPointerContext.Provider value={pointerContextValue}>
+            {children}
+          </SidebarPointerContext.Provider>
         </div>
       </div>
     </div>
@@ -715,4 +735,5 @@ export {
   SidebarSeparator,
   SidebarTrigger,
   useSidebar,
+  useSidebarPointerInside,
 };

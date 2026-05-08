@@ -114,6 +114,18 @@ export const prototypes: PrototypeEntry[] = [
       updatedAt: "2026-04-24",
     },
   },
+  {
+    slug: "morphs",
+    title: "Morph input (physics)",
+    description:
+      "Spring-driven layout morph between homepage composer and chat core input using @organic-llm/morph-physics.",
+    ranking: {
+      importance: 7,
+      frequency: 4,
+      createdAt: "2026-05-07",
+      updatedAt: "2026-05-07",
+    },
+  },
 ];
 
 export function getPrototypeHref(slug: string): string {

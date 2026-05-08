@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { motion } from "framer-motion";
-import { ClipboardPaste, FileUp, Link2, Loader2, Search } from "lucide-react";
+import { ClipboardPaste, FileUp, Link2, Loader2, Mic, Search } from "lucide-react";
 import { toast } from "sonner";
 
 import { glass } from "@/components/design-system/primitives";
@@ -16,14 +16,15 @@ import { sanitizeRawUserInput } from "@/lib/strata/input-safety";
 import { assertSafePublicHttpsUrl } from "@/lib/strata/safe-url";
 import { clientRandomUUID } from "@/lib/client-uuid";
 
-export type StrataIngestMode = "web" | "url" | "files" | "clipboard";
+export type StrataIngestMode = "web" | "url" | "files" | "flipboard" | "audio";
 
 /** Labels reused by `StrataSourceInput` segmented control. */
 export const STRATA_INGEST_MODE_LABEL: Record<StrataIngestMode, string> = {
   web: "Web search",
   url: "URL",
   files: "Files",
-  clipboard: "Clipboard",
+  flipboard: "Flipboard",
+  audio: "Audio",
 };
 
 /** Icons for each ingest mode (sidebar / segmented UI). */
@@ -34,13 +35,15 @@ export function strataIngestModeIcon(mode: StrataIngestMode) {
       ? Link2
       : mode === "files"
         ? FileUp
-        : ClipboardPaste;
+        : mode === "flipboard"
+          ? ClipboardPaste
+          : Mic;
 }
 
 type SearchHit = { title: string; url: string; snippet: string };
 
 /**
- * Ingest panels only (web / URL / files / clipboard) — no outer chrome or mode switcher.
+ * Ingest panels only (web / URL / files / Flipboard paste / Audio stub).
  * Parent owns which mode is active (`StrataSourceInput` unified shell).
  */
 export function StrataSourceIngestPanels({
@@ -70,10 +73,10 @@ export function StrataSourceIngestPanels({
   const [searchQuery, setSearchQuery] = useState("");
   const [searchHits, setSearchHits] = useState<SearchHit[]>([]);
   const [busy, setBusy] = useState(false);
-  const [clipboardTitleBusy, setClipboardTitleBusy] = useState(false);
+  const [flipboardTitleBusy, setFlipboardTitleBusy] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
   const filesAutoOpenedRef = useRef(false);
-  const clipboardAutoFiredRef = useRef(false);
+  const flipboardAutoFiredRef = useRef(false);
 
   const canUseNetwork = ingestEnabled;
   /** Size-only layout + tween avoids spring overshoot clipping against overflow-hidden. */
@@ -126,7 +129,7 @@ export function StrataSourceIngestPanels({
       let title = "From clipboard";
 
       if (ingestEnabled) {
-        setClipboardTitleBusy(true);
+        setFlipboardTitleBusy(true);
         try {
           const res = await fetch("/api/prototypes/strata/clipboard-source-title", {
             method: "POST",
@@ -144,7 +147,7 @@ export function StrataSourceIngestPanels({
             title = data.title.trim().slice(0, 512);
           }
         } finally {
-          setClipboardTitleBusy(false);
+          setFlipboardTitleBusy(false);
         }
       }
 
@@ -198,12 +201,12 @@ export function StrataSourceIngestPanels({
   }, [mode]);
 
   useEffect(() => {
-    if (mode === "clipboard" && !clipboardAutoFiredRef.current) {
-      clipboardAutoFiredRef.current = true;
+    if (mode === "flipboard" && !flipboardAutoFiredRef.current) {
+      flipboardAutoFiredRef.current = true;
       void pasteFromClipboard();
     }
-    if (mode !== "clipboard") {
-      clipboardAutoFiredRef.current = false;
+    if (mode !== "flipboard") {
+      flipboardAutoFiredRef.current = false;
     }
   }, [mode, pasteFromClipboard]);
 
@@ -327,7 +330,7 @@ export function StrataSourceIngestPanels({
     }
   }, [appendChecked, canUseNetwork, pageId, urlInput, urlTitleOverride]);
 
-  const showClipboardLoader = mode === "clipboard" && clipboardTitleBusy;
+  const showFlipboardLoader = mode === "flipboard" && flipboardTitleBusy;
 
   return (
     <div className="flex min-h-0 flex-1 flex-col gap-3">
@@ -498,9 +501,21 @@ export function StrataSourceIngestPanels({
           </p>
         ) : null}
 
-        {mode === "clipboard" ? (
+        {mode === "audio" ? (
+          <div className="space-y-2 rounded-md border border-dashed border-border/60 bg-muted/10 p-4 text-sm text-muted-foreground">
+            <p className="font-medium text-foreground">Audio sources</p>
+            <p>
+              This feature is currently a work in progress. Recording, upload-to-transcribe, and
+              audio-file ingestion will land here soon.
+            </p>
+          </div>
+        ) : null}
+
+        {mode === "flipboard" ? (
           <p className="text-sm text-muted-foreground">
-            {showClipboardLoader ? "Reading clipboard and suggesting a title…" : "Reading clipboard…"}
+            {showFlipboardLoader
+              ? "Reading clipboard and suggesting a title…"
+              : "Reading clipboard via Flipboard…"}
           </p>
         ) : null}
       </motion.div>
