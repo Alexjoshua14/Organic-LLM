@@ -11,8 +11,6 @@ import { glass } from "@/components/design-system/primitives";
 import { Button } from "@/components/third-party/ui/button";
 import { cn } from "@/lib/utils";
 
-type Layout = "home" | "chat";
-
 const HUD_STORAGE_KEY = "morph-demo-hud-open";
 
 function fmt(n: number, digits = 1) {
@@ -37,12 +35,20 @@ export type MorphLiveMetrics = {
   settled: boolean | null;
 };
 
+export type MorphDevHudTargetPair = {
+  alpha: Vector4 | null;
+  beta: Vector4 | null;
+};
+
 type MorphDemoDevHudProps = {
-  layout: Layout;
+  /** Current mode label shown in HUD (e.g. home, chat, rabbit). */
+  layout: string;
   speedPercent: MorphDemoSpeedPercent;
   onSpeedChange: (p: MorphDemoSpeedPercent) => void;
   spring: SpringConfig;
-  targets: { home: Vector4 | null; chat: Vector4 | null };
+  targets: MorphDevHudTargetPair;
+  targetLabelAlpha: string;
+  targetLabelBeta: string;
   live: MorphLiveMetrics | null;
   /** Notified when the panel opens or collapses (for layout padding, React Scan safe area, etc.). */
   onPanelOpenChange?: (open: boolean) => void;
@@ -54,6 +60,8 @@ export function MorphDemoDevHud({
   onSpeedChange,
   spring,
   targets,
+  targetLabelAlpha,
+  targetLabelBeta,
   live,
   onPanelOpenChange,
 }: MorphDemoDevHudProps) {
@@ -173,8 +181,8 @@ export function MorphDemoDevHud({
           <span className="text-muted-foreground">Spring</span> · k {fmt(spring.stiffness, 2)} · c{" "}
           {fmt(spring.damping, 2)} · m {fmt(spring.mass, 2)} · ε {spring.precision}
         </p>
-        <p className="break-all">{vecLine("Target home", targets.home)}</p>
-        <p className="break-all">{vecLine("Target chat", targets.chat)}</p>
+        <p className="break-all">{vecLine(`Target ${targetLabelAlpha}`, targets.alpha)}</p>
+        <p className="break-all">{vecLine(`Target ${targetLabelBeta}`, targets.beta)}</p>
         <p className="break-all">
           {live ? vecLine("Live", { x: live.x, y: live.y, w: live.w, h: live.h }) : "Live: —"}
         </p>

@@ -223,17 +223,25 @@ export function MorphInputLayoutDemo() {
         live={liveMetrics}
         speedPercent={speedPercent}
         spring={springConfig}
-        targets={measuredTargets}
+        targetLabelAlpha="home"
+        targetLabelBeta="chat"
+        targets={{ alpha: measuredTargets.home, beta: measuredTargets.chat }}
         onPanelOpenChange={setDevHudExpanded}
         onSpeedChange={setSpeedPercent}
       />
       <div className="relative z-10 flex h-full min-h-0 w-full flex-col pt-4">
-        <nav className="shrink-0 px-4">
+        <nav className="flex shrink-0 flex-wrap items-center gap-x-4 gap-y-1 px-4">
           <Link
             className="text-sm text-muted-foreground transition-colors select-none hover:text-foreground"
             href="/sandbox/prototypes"
           >
             ← Prototypes
+          </Link>
+          <Link
+            className="text-sm text-muted-foreground transition-colors select-none hover:text-foreground"
+            href="/sandbox/prototypes/morphs/chat-archetype"
+          >
+            Chat ↔ rabbit morph
           </Link>
         </nav>
         <header
