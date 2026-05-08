@@ -13,8 +13,9 @@ import {
 } from "../_lib/morph-demo-spring-presets";
 
 import { MorphDemoChatInput } from "./morph-demo-chat-input";
-import { MorphDemoDevHud, type MorphLiveMetrics } from "./morph-demo-dev-hud";
+import { MorphDemoDevHud } from "./morph-demo-dev-hud";
 import { MorphDemoHomeInput } from "./morph-demo-home-input";
+import { MorphLiveMetricsSampler } from "./morph-live-metrics-sampler";
 import { MorphDemoReactScan } from "./morph-demo-react-scan";
 
 import AdaptiveLiquidChrome from "@/components/background/AdaptiveLiquidChrome";
@@ -32,7 +33,10 @@ export function MorphInputLayoutDemo() {
   const variantRef = useRef<Layout>("home");
   const homeVecRef = useRef<Vector4 | null>(null);
   const chatVecRef = useRef<Vector4 | null>(null);
-  const prevSampleRef = useRef<{ t: number; rect: Vector4 } | null>(null);
+  const measuredTargetsRef = useRef<{ home: Vector4 | null; chat: Vector4 | null }>({
+    home: null,
+    chat: null,
+  });
   const speedEffectPrimedRef = useRef(false);
 
   const [devHudExpanded, setDevHudExpanded] = useState(true);
@@ -44,7 +48,6 @@ export function MorphInputLayoutDemo() {
     home: Vector4 | null;
     chat: Vector4 | null;
   }>({ home: null, chat: null });
-  const [liveMetrics, setLiveMetrics] = useState<MorphLiveMetrics | null>(null);
 
   const springConfig = useMemo(
     () => morphSpringConfigForPlaybackPercent(speedPercent),
@@ -87,6 +90,7 @@ export function MorphInputLayoutDemo() {
     homeVecRef.current = hv;
     chatVecRef.current = cv;
 
+    measuredTargetsRef.current = { home: { ...hv }, chat: { ...cv } };
     setMeasuredTargets({ home: { ...hv }, chat: { ...cv } });
 
     const current = variantRef.current === "home" ? hv : cv;
@@ -139,66 +143,6 @@ export function MorphInputLayoutDemo() {
   }, [measureAndSync]);
 
   useEffect(() => {
-    const id = setInterval(() => {
-      const el = elementRef.current;
-      const stage = stageRef.current;
-
-      if (!el || !stage) {
-        setLiveMetrics(null);
-
-        return;
-      }
-
-      const er = el.getBoundingClientRect();
-      const sr = stage.getBoundingClientRect();
-      const x = er.x - sr.x;
-      const y = er.y - sr.y;
-      const w = er.width;
-      const h = er.height;
-
-      const lay = layoutRef.current;
-      const tgt = lay === "home" ? measuredTargets.home : measuredTargets.chat;
-
-      let l1Err: number | null = null;
-
-      if (tgt) {
-        l1Err =
-          Math.abs(x - tgt.x) + Math.abs(y - tgt.y) + Math.abs(w - tgt.w) + Math.abs(h - tgt.h);
-      }
-
-      const now = performance.now();
-      const prev = prevSampleRef.current;
-
-      let l1Vel: number | null = null;
-
-      if (prev) {
-        const dt = (now - prev.t) / 1000;
-
-        if (dt > 1e-3) {
-          l1Vel =
-            (Math.abs(x - prev.rect.x) +
-              Math.abs(y - prev.rect.y) +
-              Math.abs(w - prev.rect.w) +
-              Math.abs(h - prev.rect.h)) /
-            dt;
-        }
-      }
-
-      prevSampleRef.current = { t: now, rect: { x, y, w, h } };
-
-      const settled =
-        tgt != null && l1Err != null && l1Vel != null ? l1Err < 1.5 && l1Vel < 35 : null;
-
-      setLiveMetrics({ x, y, w, h, l1Err, l1Vel, settled });
-    }, 48);
-
-    return () => {
-      clearInterval(id);
-      prevSampleRef.current = null;
-    };
-  }, [measuredTargets]);
-
-  useEffect(() => {
     if (!speedEffectPrimedRef.current) {
       speedEffectPrimedRef.current = true;
 
@@ -226,17 +170,27 @@ export function MorphInputLayoutDemo() {
         )}
       />
       <MorphDemoReactScan debugPanelExpanded={devHudExpanded} />
-      <MorphDemoDevHud
-        layout={layout}
-        live={liveMetrics}
-        speedPercent={speedPercent}
-        spring={springConfig}
-        targetLabelAlpha="home"
-        targetLabelBeta="chat"
-        targets={{ alpha: measuredTargets.home, beta: measuredTargets.chat }}
-        onPanelOpenChange={setDevHudExpanded}
-        onSpeedChange={setSpeedPercent}
-      />
+      <MorphLiveMetricsSampler
+        elementRef={elementRef}
+        layoutRef={layoutRef}
+        measuredTargetsRef={measuredTargetsRef}
+        resolveTarget={(lay, t) => (lay === "home" ? t.home : t.chat)}
+        stageRef={stageRef}
+      >
+        {(live) => (
+          <MorphDemoDevHud
+            layout={layout}
+            live={live}
+            speedPercent={speedPercent}
+            spring={springConfig}
+            targetLabelAlpha="home"
+            targetLabelBeta="chat"
+            targets={{ alpha: measuredTargets.home, beta: measuredTargets.chat }}
+            onPanelOpenChange={setDevHudExpanded}
+            onSpeedChange={setSpeedPercent}
+          />
+        )}
+      </MorphLiveMetricsSampler>
       <div className="relative z-10 flex h-full min-h-0 w-full flex-col pt-4">
         <nav className="flex shrink-0 flex-wrap items-center gap-x-4 gap-y-1 px-4">
           <Link

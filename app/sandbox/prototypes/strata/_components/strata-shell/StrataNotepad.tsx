@@ -1,7 +1,6 @@
 "use client";
 
 import { ChangeEvent, FormEvent, useCallback, useEffect, useMemo, useState } from "react";
-
 import { Save, X } from "lucide-react";
 
 import {
@@ -13,7 +12,6 @@ import {
   type PromptInputMessage,
   usePromptInputController,
 } from "@/components/third-party/ai-elements/prompt-input";
-
 import { cn } from "@/lib/utils";
 import { sanitizeRawUserInput } from "@/lib/strata/input-safety";
 
@@ -56,9 +54,12 @@ function StrataPromptNoteChrome({
     [onBodyChange]
   );
 
-  const noopSubmit = useCallback((_message: PromptInputMessage, event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-  }, []);
+  const noopSubmit = useCallback(
+    (_message: PromptInputMessage, event: FormEvent<HTMLFormElement>) => {
+      event.preventDefault();
+    },
+    []
+  );
 
   const wordCount = useMemo(() => {
     const t = body.trim();

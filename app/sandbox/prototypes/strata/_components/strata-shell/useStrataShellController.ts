@@ -362,16 +362,24 @@ export function useStrataShellController(
         rawRemoteTimerRef.current = null;
         void (async () => {
           try {
-            await persistRawRemoteOnly();
             const net = dbAvailableRef.current && !localOnlyModeRef.current;
 
-            if (net) {
+            if (!net) {
               setSourceSave({
                 state: "saved",
                 at: Date.now(),
-                message: "Saved",
+                message: "Saved locally",
               });
+
+              return;
             }
+
+            await persistRawRemoteOnly();
+            setSourceSave({
+              state: "saved",
+              at: Date.now(),
+              message: "Saved",
+            });
           } catch (err) {
             setSourceSave({
               state: "error",
@@ -382,11 +390,7 @@ export function useStrataShellController(
         })();
       }, RAW_REMOTE_DEBOUNCE_MS);
     }
-  }, [
-    clearDebouncedRawPersistTimers,
-    persistRawLocalOnly,
-    persistRawRemoteOnly,
-  ]);
+  }, [clearDebouncedRawPersistTimers, persistRawLocalOnly, persistRawRemoteOnly]);
 
   const applySourceComposerSettingsPatch = useCallback(
     (patch: Partial<StrataSourceComposerSettings>) => {
@@ -649,13 +653,11 @@ export function useStrataShellController(
         busy:
           sourceSave.state === "saving" ||
           (actionStatus.state === "loading" &&
-            (actionStatus.text === "Saving section" ||
-              actionStatus.text === "Saving locally")),
+            (actionStatus.text === "Saving section" || actionStatus.text === "Saving locally")),
         label:
           sourceSave.state === "saving" ||
           (actionStatus.state === "loading" &&
-            (actionStatus.text === "Saving section" ||
-              actionStatus.text === "Saving locally"))
+            (actionStatus.text === "Saving section" || actionStatus.text === "Saving locally"))
             ? "Saving…"
             : localOnlyMode || !dbAvailable
               ? "Synced via local cache"

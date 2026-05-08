@@ -48,6 +48,7 @@ memory.db
 .context/
 
 .cursor/
+.project-references/
 
 # Local profile (personal data, never committed)
 .local-profile.md

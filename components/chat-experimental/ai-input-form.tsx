@@ -126,9 +126,13 @@ const AiInputFormContent: React.FC<AiInputFormProps> = ({
     }
   };
 
-  const minRows = fullView ? 12 : undefined;
-  const maxRows = fullView ? 40 : undefined;
+  const compactComposer = !fullView;
+  const minRows = fullView ? 12 : 1;
+  const maxRows = fullView ? 40 : 4;
   const showFullViewCharCount = fullView && (status === "ready" || (forceReadyInput && isLoading));
+
+  const submitDisabled = !textInput.value.trim() || isLoading;
+  const submitStatusResolved = submitStatus ?? status ?? "ready";
 
   return (
     <div className={cn("w-full", fullView && "flex min-h-0 flex-1 flex-col")}>
@@ -139,17 +143,20 @@ const AiInputFormContent: React.FC<AiInputFormProps> = ({
         {...props}
       >
         <PromptInputBody onPointerDown={handleComposerPointerDown}>
-          {status === "ready" || (forceReadyInput && isLoading) ? (
-            <div
-              className={cn(
-                "w-full transition-[min-height,max-height,font-size] duration-500 ease-[cubic-bezier(0.25,0.1,0.25,1)]"
-              )}
-            >
+          <div
+            className={cn(
+              "relative w-full",
+              !compactComposer &&
+                "transition-[min-height,max-height,font-size] duration-500 ease-[cubic-bezier(0.25,0.1,0.25,1)]"
+            )}
+          >
+            {status === "ready" || (forceReadyInput && isLoading) ? (
               <PromptInputTextarea
                 // eslint-disable-next-line jsx-a11y/no-autofocus -- homepage composer entry
                 autoFocus
                 className={cn(
                   "text-lg! md:text-lg! placeholder:text-lg! caret-accent w-full placeholder:text-foreground/80",
+                  "!pb-[2.875rem] !pr-[2.75rem]",
                   fullView &&
                     "min-h-[70vh]! max-h-[min(70vh,11in)]! text-xl! md:text-xl! placeholder:text-xl! flex-1"
                 )}
@@ -160,14 +167,20 @@ const AiInputFormContent: React.FC<AiInputFormProps> = ({
                 onChange={(ev) => onTextChange?.(ev.currentTarget.value)}
                 onKeyDown={textAreaKeyDown}
               />
+            ) : status === "submitted" || status === "streaming" ? (
+              <div className="w-full">
+                <ShinyText
+                  className={cn("w-full h-24 p-4 min-h-24 overflow-auto", "!pb-11 !pr-11")}
+                  text={displayText}
+                />
+              </div>
+            ) : (
+              <h2 className="text-warning">An error has occured..</h2>
+            )}
+            <div className="absolute bottom-2 right-2 z-10 flex items-end justify-end">
+              <PromptInputSubmit disabled={submitDisabled} status={submitStatusResolved} />
             </div>
-          ) : status === "submitted" || status === "streaming" ? (
-            <div className="w-full">
-              <ShinyText className="w-full h-24 p-4 min-h-24 overflow-auto" text={displayText} />
-            </div>
-          ) : (
-            <h2 className="text-warning">An error has occured..</h2>
-          )}
+          </div>
           <AnimatePresence initial={false} mode="sync">
             {fullView && previewIntent ? (
               <motion.div
@@ -189,37 +202,22 @@ const AiInputFormContent: React.FC<AiInputFormProps> = ({
             ) : null}
           </AnimatePresence>
         </PromptInputBody>
-        <div className="min-w-0">
-          <PromptInputFooter
-            className={cn(
-              "min-w-0",
-              showFullViewCharCount
-                ? "flex w-full flex-row items-end justify-between gap-3"
-                : cn("flex justify-end", fullView && "w-full")
-            )}
-          >
+        {showFullViewCharCount ? (
+          <PromptInputFooter className="min-w-0 flex w-full flex-row items-end justify-start gap-3">
             <AnimatePresence initial={false} mode="sync">
-              {showFullViewCharCount ? (
-                <motion.div
-                  key="word-count"
-                  animate={{ opacity: 1 }}
-                  className="shrink-0 pl-3 text-[11px] text-muted-foreground/80 tabular-nums"
-                  exit={{ opacity: 0 }}
-                  initial={{ opacity: 0 }}
-                  transition={FORM_CROSS_FADE}
-                >
-                  {textInput.value.length} characters
-                </motion.div>
-              ) : null}
+              <motion.div
+                key="word-count"
+                animate={{ opacity: 1 }}
+                className="shrink-0 pl-3 text-[11px] text-muted-foreground/80 tabular-nums"
+                exit={{ opacity: 0 }}
+                initial={{ opacity: 0 }}
+                transition={FORM_CROSS_FADE}
+              >
+                {textInput.value.length} characters
+              </motion.div>
             </AnimatePresence>
-            <div className={cn(fullView && "shrink-0")}>
-              <PromptInputSubmit
-                disabled={!textInput.value.trim() || isLoading}
-                status={submitStatus ?? status ?? "ready"}
-              />
-            </div>
           </PromptInputFooter>
-        </div>
+        ) : null}
       </PromptInput>
     </div>
   );

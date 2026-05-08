@@ -17,7 +17,8 @@ import {
   MORPH_CHAT_RABBIT_MESSAGES,
   MORPH_CHAT_RABBIT_SESSION,
 } from "../../_lib/morph-chat-rabbit-fixtures";
-import { MorphDemoDevHud, type MorphLiveMetrics } from "../morph-demo-dev-hud";
+import { MorphDemoDevHud } from "../morph-demo-dev-hud";
+import { MorphLiveMetricsSampler } from "../morph-live-metrics-sampler";
 import { MorphDemoReactScan } from "../morph-demo-react-scan";
 
 import { RabbitHoleArticle } from "@/app/rabbitholes/_components/RabbitHoleArticle";
@@ -45,7 +46,10 @@ export function MorphChatRabbitDemo() {
   const variantRef = useRef<ArchetypeLayout>("chat");
   const chatVecRef = useRef<Vector4 | null>(null);
   const rabbitVecRef = useRef<Vector4 | null>(null);
-  const prevSampleRef = useRef<{ t: number; rect: Vector4 } | null>(null);
+  const measuredTargetsRef = useRef<{ chat: Vector4 | null; rabbit: Vector4 | null }>({
+    chat: null,
+    rabbit: null,
+  });
   const speedEffectPrimedRef = useRef(false);
 
   const [devHudExpanded, setDevHudExpanded] = useState(true);
@@ -56,7 +60,6 @@ export function MorphChatRabbitDemo() {
     chat: Vector4 | null;
     rabbit: Vector4 | null;
   }>({ chat: null, rabbit: null });
-  const [liveMetrics, setLiveMetrics] = useState<MorphLiveMetrics | null>(null);
   const [activeNodeId, setActiveNodeId] = useState<string>(MORPH_CHAT_RABBIT_ACTIVE_NODE_ID);
   const [activeTakeawayIndex, setActiveTakeawayIndex] = useState<number | null>(null);
   /** Hide sandbox HUD, nav, and headers; fill viewport like production chat / rabbit-hole. */
@@ -110,6 +113,7 @@ export function MorphChatRabbitDemo() {
     chatVecRef.current = cv;
     rabbitVecRef.current = rv;
 
+    measuredTargetsRef.current = { chat: { ...cv }, rabbit: { ...rv } };
     setMeasuredTargets({ chat: { ...cv }, rabbit: { ...rv } });
 
     const current = variantRef.current === "chat" ? cv : rv;
@@ -173,66 +177,6 @@ export function MorphChatRabbitDemo() {
 
     return () => ro.disconnect();
   }, [measureAndSync]);
-
-  useEffect(() => {
-    const id = setInterval(() => {
-      const el = elementRef.current;
-      const stage = stageRef.current;
-
-      if (!el || !stage) {
-        setLiveMetrics(null);
-
-        return;
-      }
-
-      const er = el.getBoundingClientRect();
-      const sr = stage.getBoundingClientRect();
-      const x = er.x - sr.x;
-      const y = er.y - sr.y;
-      const w = er.width;
-      const h = er.height;
-
-      const lay = layoutRef.current;
-      const tgt = lay === "chat" ? measuredTargets.chat : measuredTargets.rabbit;
-
-      let l1Err: number | null = null;
-
-      if (tgt) {
-        l1Err =
-          Math.abs(x - tgt.x) + Math.abs(y - tgt.y) + Math.abs(w - tgt.w) + Math.abs(h - tgt.h);
-      }
-
-      const now = performance.now();
-      const prev = prevSampleRef.current;
-
-      let l1Vel: number | null = null;
-
-      if (prev) {
-        const dt = (now - prev.t) / 1000;
-
-        if (dt > 1e-3) {
-          l1Vel =
-            (Math.abs(x - prev.rect.x) +
-              Math.abs(y - prev.rect.y) +
-              Math.abs(w - prev.rect.w) +
-              Math.abs(h - prev.rect.h)) /
-            dt;
-        }
-      }
-
-      prevSampleRef.current = { t: now, rect: { x, y, w, h } };
-
-      const settled =
-        tgt != null && l1Err != null && l1Vel != null ? l1Err < 1.5 && l1Vel < 35 : null;
-
-      setLiveMetrics({ x, y, w, h, l1Err, l1Vel, settled });
-    }, 48);
-
-    return () => {
-      clearInterval(id);
-      prevSampleRef.current = null;
-    };
-  }, [measuredTargets]);
 
   useEffect(() => {
     if (!speedEffectPrimedRef.current) {
@@ -302,17 +246,27 @@ export function MorphChatRabbitDemo() {
       ) : null}
       {!demoFullscreen ? <MorphDemoReactScan debugPanelExpanded={devHudExpanded} /> : null}
       {!demoFullscreen ? (
-        <MorphDemoDevHud
-          layout={layout}
-          live={liveMetrics}
-          speedPercent={speedPercent}
-          spring={springConfig}
-          targetLabelAlpha="chat"
-          targetLabelBeta="rabbit"
-          targets={{ alpha: measuredTargets.chat, beta: measuredTargets.rabbit }}
-          onPanelOpenChange={setDevHudExpanded}
-          onSpeedChange={setSpeedPercent}
-        />
+        <MorphLiveMetricsSampler
+          elementRef={elementRef}
+          layoutRef={layoutRef}
+          measuredTargetsRef={measuredTargetsRef}
+          resolveTarget={(lay, t) => (lay === "chat" ? t.chat : t.rabbit)}
+          stageRef={stageRef}
+        >
+          {(live) => (
+            <MorphDemoDevHud
+              layout={layout}
+              live={live}
+              speedPercent={speedPercent}
+              spring={springConfig}
+              targetLabelAlpha="chat"
+              targetLabelBeta="rabbit"
+              targets={{ alpha: measuredTargets.chat, beta: measuredTargets.rabbit }}
+              onPanelOpenChange={setDevHudExpanded}
+              onSpeedChange={setSpeedPercent}
+            />
+          )}
+        </MorphLiveMetricsSampler>
       ) : null}
       <div
         className={cn(

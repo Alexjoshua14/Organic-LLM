@@ -3,7 +3,7 @@
   "version": "0.4.1",
   "private": true,
   "scripts": {
-    "dev": "next dev --webpack",
+    "dev": "next dev --turbopack",
     "dev:full": "concurrently -k -n APP,WEBHOOK \"bun run dev\" \"bun run webhook:local\"",
     "build": "next build",
     "start": "next start",

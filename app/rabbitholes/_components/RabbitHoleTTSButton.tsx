@@ -1,6 +1,13 @@
 "use client";
 
-import { useState, useRef, useCallback, useEffect, useContext } from "react";
+import {
+  useState,
+  useRef,
+  useCallback,
+  useEffect,
+  useContext,
+  useMemo,
+} from "react";
 import { Button } from "@heroui/button";
 import { Volume2, VolumeX, Loader2 } from "lucide-react";
 
@@ -46,22 +53,27 @@ export function RabbitHoleTTSButton({
   content,
   className,
 }: RabbitHoleTTSButtonProps) {
-  const segments = textProp
-    ? [{ section: "full" as const, text: textProp }]
-    : (
-        [
-          { section: "title" as const, text: title },
-          { section: "summary" as const, text: summary },
-          { section: "content" as const, text: content },
-        ].filter((s) => !!s.text) as {
-          section: "title" | "summary" | "content";
-          text: string;
-        }[]
-      )
-        .map((s) => ({ ...s, text: s.text.trim() }))
-        .filter((s) => s.text.length > 0);
+  const segments = useMemo(() => {
+    return textProp
+      ? [{ section: "full" as const, text: textProp }]
+      : (
+          [
+            { section: "title" as const, text: title },
+            { section: "summary" as const, text: summary },
+            { section: "content" as const, text: content },
+          ].filter((s) => !!s.text) as {
+            section: "title" | "summary" | "content";
+            text: string;
+          }[]
+        )
+          .map((s) => ({ ...s, text: s.text.trim() }))
+          .filter((s) => s.text.length > 0);
+  }, [textProp, title, summary, content]);
 
-  const combinedText = segments.map((s) => s.text).join(".\n");
+  const combinedText = useMemo(
+    () => segments.map((s) => s.text).join(".\n"),
+    [segments]
+  );
 
   const { sessionId } = useContext(RabbitHoleContext);
   const [loading, setLoading] = useState(false);
@@ -156,7 +168,7 @@ export function RabbitHoleTTSButton({
         if (!playContent && s.section === "content") continue;
 
         const key = `${nodeId}:${s.section}`;
-        const existingInState = audioUrls[key];
+        const existingInState = audioUrlsRef.current[key];
 
         if (existingInState) {
           existing[key] = existingInState;
@@ -222,7 +234,7 @@ export function RabbitHoleTTSButton({
     } finally {
       setLoading(false);
     }
-  }, [nodeId, segments, playSummary, playContent, audioUrls, sessionId, loading]);
+  }, [nodeId, segments, playSummary, playContent, sessionId, loading]);
 
   const handlePause = useCallback(() => {
     if (audioRef.current) {
@@ -243,7 +255,7 @@ export function RabbitHoleTTSButton({
     segmentIndexRef.current = nextIndex;
     const nextSeg = segments[nextIndex];
     const nextKey = `${nodeId}:${nextSeg.section}`;
-    const nextUrl = audioUrlsRef.current[nextKey] ?? audioUrls[nextKey];
+    const nextUrl = audioUrlsRef.current[nextKey];
 
     if (!audioRef.current || !nextUrl) {
       setIsPlaying(false);
@@ -263,7 +275,7 @@ export function RabbitHoleTTSButton({
       }
       setIsPlaying(false);
     });
-  }, [nodeId, segments, audioUrls]);
+  }, [nodeId, segments]);
 
   const handleLoadedMetadata = useCallback(() => {
     setActualDuration(null);

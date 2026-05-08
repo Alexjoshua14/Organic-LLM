@@ -1,11 +1,9 @@
 "use client";
 
 import type { ReactNode } from "react";
-import { NotebookPen } from "lucide-react";
-
-import { glass } from "@/components/design-system/primitives";
-import { cn } from "@/lib/utils";
 import type { StrataTextSourceNode } from "@/lib/schemas/strata";
+
+import { NotebookPen } from "lucide-react";
 
 import {
   STRATA_INGEST_MODE_LABEL,
@@ -13,6 +11,9 @@ import {
   strataIngestModeIcon,
   type StrataIngestMode,
 } from "./StrataSourceIngestBar";
+
+import { glass } from "@/components/design-system/primitives";
+import { cn } from "@/lib/utils";
 
 export type StrataSourceInputMode = "note" | StrataIngestMode;
 

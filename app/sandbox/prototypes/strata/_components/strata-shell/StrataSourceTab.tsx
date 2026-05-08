@@ -36,14 +36,11 @@ import { STRATA_TEXT_SOURCES_MAX, type StrataTextSourceNode } from "@/lib/schema
 
 const NOTEPAD_DEFAULT_TITLE = "Untitled note";
 
-
 function isBlankUserTextNote(n: StrataTextSourceNode): boolean {
   if (n.kind !== "user_text") return false;
   const title = n.title?.trim() ?? "";
 
-  return (
-    n.body.trim().length === 0 && (title.length === 0 || title === NOTEPAD_DEFAULT_TITLE)
-  );
+  return n.body.trim().length === 0 && (title.length === 0 || title === NOTEPAD_DEFAULT_TITLE);
 }
 
 export function StrataSourceTab({
@@ -272,7 +269,6 @@ export function StrataSourceTab({
       if (!activeNote) return;
       const sanitized = sanitizeRawUserInput(markdown);
 
-      if (sanitized === activeNote.body) return;
       onUpdateSource(activeNote.id, {
         title: activeNote.title,
         body: sanitized,
@@ -382,7 +378,7 @@ export function StrataSourceTab({
               "h-10 shrink-0 rounded-md border px-3 text-sm font-medium transition-colors hover:bg-muted"
             )}
             type="button"
-            onClick={flushSaveRaw}
+            onClick={() => void flushSaveRaw()}
           >
             Save now
           </button>
