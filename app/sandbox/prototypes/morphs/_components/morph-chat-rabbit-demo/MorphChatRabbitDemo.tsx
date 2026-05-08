@@ -25,6 +25,7 @@ import { RabbitHoleBranchSuggestionsBlock } from "@/app/rabbitholes/_components/
 import { RabbitHolePathRail } from "@/app/rabbitholes/_components/RabbitHolePathRail";
 import { RabbitHoleSourceList } from "@/app/rabbitholes/_components/RabbitHoleSourceList";
 import AdaptiveLiquidChrome from "@/components/background/AdaptiveLiquidChrome";
+import { glass } from "@/components/design-system/primitives";
 import { Conversation } from "@/components/third-party/ai-elements/conversation";
 import { ChatThread } from "@/components/chat/chat-thread";
 import Page from "@/components/layout/page";
@@ -264,6 +265,13 @@ export function MorphChatRabbitDemo() {
   return (
     <Page transparentBackground className="items-stretch justify-start gap-0 overflow-hidden">
       <AdaptiveLiquidChrome dimIntensity={0.45} />
+      <div
+        aria-hidden
+        className={cn(
+          glass({ border: "none", opaque: true }),
+          "pointer-events-none absolute inset-0 z-[1] min-h-dvh w-full rounded-none"
+        )}
+      />
       <MorphDemoReactScan debugPanelExpanded={devHudExpanded} />
       <MorphDemoDevHud
         layout={layout}

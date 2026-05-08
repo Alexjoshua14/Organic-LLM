@@ -18,6 +18,7 @@ import { MorphDemoHomeInput } from "./morph-demo-home-input";
 import { MorphDemoReactScan } from "./morph-demo-react-scan";
 
 import AdaptiveLiquidChrome from "@/components/background/AdaptiveLiquidChrome";
+import { glass } from "@/components/design-system/primitives";
 import Page from "@/components/layout/page";
 import { Button } from "@/components/third-party/ui/button";
 import { cn } from "@/lib/utils";
@@ -217,6 +218,13 @@ export function MorphInputLayoutDemo() {
   return (
     <Page transparentBackground className="items-stretch justify-start gap-0 overflow-hidden">
       <AdaptiveLiquidChrome dimIntensity={0.45} />
+      <div
+        aria-hidden
+        className={cn(
+          glass({ border: "none", opaque: true }),
+          "pointer-events-none absolute inset-0 z-[1] min-h-dvh w-full rounded-none"
+        )}
+      />
       <MorphDemoReactScan debugPanelExpanded={devHudExpanded} />
       <MorphDemoDevHud
         layout={layout}
