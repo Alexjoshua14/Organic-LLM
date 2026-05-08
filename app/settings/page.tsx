@@ -13,6 +13,7 @@ import { getProfile } from "@/data/supabase/profiles";
 import { Profile } from "@/lib/schemas/profiles";
 import { SETTINGS_PAGE_TITLE } from "@/config/settings-page";
 import { caption } from "@/components/design-system/primitives";
+import ChatsSettings from "@/components/settings/chatsSettings";
 import MemorySettings from "@/components/settings/memorySettings";
 import FontSetting from "@/components/settings/FontSetting";
 import { ProfileView } from "@/components/settings/profile";
@@ -95,11 +96,12 @@ export default function SettingsPage() {
       <div className="flex-1 w-full overflow-auto px-4 py-6 md:px-8">
         <Tabs className="w-full max-w-2xl mx-auto" defaultValue="profile">
           <TabsList
-            className={`grid w-full mb-6 select-none ${showDevSettings ? "grid-cols-5" : "grid-cols-4"}`}
+            className={`grid w-full mb-6 select-none ${showDevSettings ? "grid-cols-6" : "grid-cols-5"}`}
           >
             <TabsTrigger value="profile">Profile</TabsTrigger>
-            <TabsTrigger value="appearance">Appearance</TabsTrigger>
+            <TabsTrigger value="chats">Chats</TabsTrigger>
             <TabsTrigger value="memory">Memory</TabsTrigger>
+            <TabsTrigger value="appearance">Appearance</TabsTrigger>
             <TabsTrigger value="privacy">Privacy</TabsTrigger>
             {showDevSettings && <TabsTrigger value="advanced">Advanced</TabsTrigger>}
           </TabsList>
@@ -140,6 +142,32 @@ export default function SettingsPage() {
                   </>
                 )}
               </Suspense>
+            </div>
+          </TabsContent>
+
+          <TabsContent className="mt-0" value="chats">
+            <div className="flex flex-col gap-8">
+              <div className="space-y-1">
+                <h2 className="text-xl font-semibold text-foreground">Chats</h2>
+                <p className={caption({ className: "max-w-md" })}>
+                  Your chat threads: filter by archive state, open a row for summary and actions.
+                </p>
+              </div>
+              <ChatsSettings />
+            </div>
+          </TabsContent>
+
+          <TabsContent className="mt-0" value="memory">
+            <div className="flex flex-col gap-8">
+              <div className="space-y-1">
+                <h2 className="text-xl font-semibold text-foreground">Persisted memory</h2>
+                <p className={caption({ className: "max-w-md" })} id="memory-lens-description">
+                  What Organic LLM has stored and can retrieve across any thread.
+                  <br />
+                  Semantically searchable so the right context surfaces when you need it.
+                </p>
+              </div>
+              <MemorySettings />
             </div>
           </TabsContent>
 
@@ -195,20 +223,6 @@ export default function SettingsPage() {
                   </SettingsRow>
                 </div>
               </section>
-            </div>
-          </TabsContent>
-
-          <TabsContent className="mt-0" value="memory">
-            <div className="flex flex-col gap-8">
-              <div className="space-y-1">
-                <h2 className="text-xl font-semibold text-foreground">Persisted memory</h2>
-                <p className={caption({ className: "max-w-md" })} id="memory-lens-description">
-                  What Organic LLM has stored and can retrieve across any thread.
-                  <br />
-                  Semantically searchable so the right context surfaces when you need it.
-                </p>
-              </div>
-              <MemorySettings />
             </div>
           </TabsContent>
 

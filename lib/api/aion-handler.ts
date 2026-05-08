@@ -12,6 +12,8 @@ import {
 
 import { MyUIMessage } from "@/types/ai";
 import { ChatRequestSchema, DEFAULT_CHAT_MODEL } from "@/lib/schemas/chat";
+import { getMessageCount, getThreadHasTitle } from "@/data/supabase/chat";
+import { shouldAttemptInitialTitle } from "@/lib/chat/summary-title-cadence";
 import { checkLlmMessageLimit } from "@/lib/rate-limit/llm";
 import { CHAT_MODEL, getChatModel, measureAsync } from "@/lib/llm/helpers";
 import { SYSTEM_PROMPT } from "@/lib/system-prompt/prompt-v0";
@@ -362,7 +364,17 @@ export function createAionHandler(deps: AionDeps) {
                 if (process.env.AION_TEST_MODE !== "1") {
                   let ensureChatHasTitleMs: number | undefined;
 
-                  if (messages.length >= 4 && messages.length <= 8) {
+                  const messageCountResult = await getMessageCount(id);
+                  const threadHasTitleResult = await getThreadHasTitle(id);
+                  const persistedMessageCount = messageCountResult.data ?? messages.length;
+                  const threadAlreadyHasTitle = threadHasTitleResult.data === true;
+
+                  if (
+                    shouldAttemptInitialTitle({
+                      persistedMessageCount,
+                      threadAlreadyHasTitle,
+                    })
+                  ) {
                     const { durationMs } = await measureAsync(() => deps.ensureChatHasTitle(id));
 
                     ensureChatHasTitleMs = durationMs;

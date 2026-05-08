@@ -1,14 +1,6 @@
 "use client";
 
-import { Button } from "@heroui/button";
-import {
-  Modal,
-  ModalContent,
-  ModalHeader,
-  ModalBody,
-  ModalFooter,
-  useDisclosure,
-} from "@heroui/modal";
+import { useDisclosure } from "@heroui/modal";
 import { Pencil, Pin, PinOff, Sparkles, Trash2 } from "lucide-react";
 import { useCallback } from "react";
 import { useRouter, usePathname } from "next/navigation";
@@ -20,6 +12,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/third-party/ui/dropdown-menu";
+import { DeleteThreadConfirmModal } from "@/components/sidebar/delete-thread-confirm-modal";
 import { ThreadLink } from "@/types";
 import { deleteChat } from "@/data/supabase/chat";
 import { createLogger } from "@/lib/logger";
@@ -134,22 +127,12 @@ export function SidebarThreadActionsMenu({
           </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
-      <Modal isOpen={isOpen} onOpenChange={onModalOpenChange}>
-        <ModalContent>
-          <ModalHeader>Delete thread</ModalHeader>
-          <ModalBody>
-            Are you sure you want to delete &quot;{thread.title}&quot;? This cannot be undone.
-          </ModalBody>
-          <ModalFooter>
-            <Button variant="flat" onPress={onClose}>
-              Cancel
-            </Button>
-            <Button color="danger" onPress={deleteThread}>
-              Delete
-            </Button>
-          </ModalFooter>
-        </ModalContent>
-      </Modal>
+      <DeleteThreadConfirmModal
+        isOpen={isOpen}
+        thread={{ id: thread.id, title: thread.title }}
+        onConfirmDelete={deleteThread}
+        onOpenChange={onModalOpenChange}
+      />
     </>
   );
 }

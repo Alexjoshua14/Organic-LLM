@@ -15,6 +15,8 @@ import { checkLlmMessageLimit } from "@/lib/rate-limit/llm";
 
 // import systemPrompt from "@/lib/system-prompt";
 import { getContextAndMessagesChatPrompt, saveChat } from "@/lib/chat/chat-store";
+import { shouldAttemptInitialTitle } from "@/lib/chat/summary-title-cadence";
+import { getMessageCount, getThreadHasTitle } from "@/data/supabase/chat";
 import { GUARDRAIL_MAX_OUTPUT_TOKENS } from "@/lib/llm/helpers";
 import { ensureChatHasTitle, estimateTokenCount, updateChatSummary } from "@/lib/llm/chat-helpers";
 import { createLogger } from "@/lib/logger";
@@ -184,8 +186,19 @@ export async function POST(req: Request) {
     },
     onFinish: async ({ messages }) => {
       await saveChat({ chatId: id, messages });
-      if (messages.length > 3 && messages.length < 5) {
-        ensureChatHasTitle(id);
+
+      const messageCountResult = await getMessageCount(id);
+      const threadHasTitleResult = await getThreadHasTitle(id);
+      const persistedMessageCount = messageCountResult.data ?? messages.length;
+      const threadAlreadyHasTitle = threadHasTitleResult.data === true;
+
+      if (
+        shouldAttemptInitialTitle({
+          persistedMessageCount,
+          threadAlreadyHasTitle,
+        })
+      ) {
+        void ensureChatHasTitle(id);
       }
       await updateChatSummary(id);
 

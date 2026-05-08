@@ -57,7 +57,7 @@ export default async function ChatPage({
 
     chatData = chatDataRes.data;
 
-    if (chatData.thread.title === null && chatData.messages.length > 3) {
+    if (chatData.thread.title === null && chatData.messages.length >= 2) {
       const titleRes = await generateChatTitle(id);
 
       if (titleRes.error) {

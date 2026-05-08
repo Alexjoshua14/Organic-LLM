@@ -724,6 +724,7 @@ export type Database = {
         Row: {
           active_stream_id: string | null
           active_stream_started_at: string | null
+          archived: boolean | null
           conversation_summary: string | null
           created_at: string
           feature: string
@@ -740,6 +741,7 @@ export type Database = {
         Insert: {
           active_stream_id?: string | null
           active_stream_started_at?: string | null
+          archived?: boolean | null
           conversation_summary?: string | null
           created_at?: string
           feature?: string
@@ -756,6 +758,7 @@ export type Database = {
         Update: {
           active_stream_id?: string | null
           active_stream_started_at?: string | null
+          archived?: boolean | null
           conversation_summary?: string | null
           created_at?: string
           feature?: string

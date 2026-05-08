@@ -20,6 +20,7 @@ import { createLogger } from "@/lib/logger";
 import { convertMessageToUIMessage } from "@/lib/chat/message-transform";
 import {
   getMessages,
+  getMessageCount,
   getThreadOwnerContext,
   updateChatTitle,
   updateConversationSummary,
@@ -28,6 +29,10 @@ import { Result } from "@/types";
 import { recordLlmCall } from "@/lib/llm/metrics";
 import { generateShortTitleFromSummary } from "@/lib/llm/short-title-from-summary";
 import { TITLE_PIPELINE_SUMMARIZER_MODEL } from "@/lib/llm/title-models";
+import {
+  exchangeCountFromPersistedMessageCount,
+  shouldRefreshSummary,
+} from "@/lib/chat/summary-title-cadence";
 
 /** Model Selections: Each ZDR compatible */
 const MODEL_SELECTION: Record<string, LanguageModel> = {
@@ -39,6 +44,16 @@ const MODEL_SELECTION: Record<string, LanguageModel> = {
 
 /** Max input tokens for title generation (allows long-thread context). */
 const CHAT_TITLE_MAX_INPUT_TOKENS = 100_000;
+
+/** First step of title pipeline: summary tuned for short-title + low-signal threads. */
+const ChatTitleSummarizerSystemPrompt = `
+You are Organic LLM's title-pipeline summarizer.
+Summarize the conversation into ONE clear paragraph (2–4 sentences, under 600 tokens) so a separate model can name the chat in the sidebar.
+Include, when relevant: main objectives/tasks, important decisions or open questions, and current focus/next step.
+For low-signal threads, stay proportional: if the user only greets or chats briefly with no real task, say so plainly (e.g. greeting / small talk, no substantive topic).
+For ephemeral one-off lookups (weather, time, quick facts), name the topic and any concrete anchors (place, date) from the messages without dramatizing.
+Be concise, neutral, plain text only—no lists, markdown, or citations.
+`;
 
 const SummarizerSystemPrompt = `
 You are Organic LLM's summarizer. 
@@ -345,11 +360,7 @@ export async function generateChatTitle(chatId: string): Promise<Result<string>>
     const summaryStart = performance.now();
     const summaryResult = await generateText({
       model: MODEL_SELECTION.summarizer,
-      system: `
-    You are a helpful assistant that generates a summary of a chat.
-    The chat messages will be provided to you.
-    Generate a summary of the chat of up to 400 words.
-    `,
+      system: ChatTitleSummarizerSystemPrompt,
       messages: convertToModelMessages(messagesForTitleClean),
       maxOutputTokens: GUARDRAIL_MAX_OUTPUT_TOKENS,
     });
@@ -604,7 +615,30 @@ export async function updateChatSummary(chatId: string): Promise<Result<string, 
       error: error.message,
     };
   } else if (!threadSummaryData) {
-    // If no thread summary data, generate a new one
+    const messageCountResult = await getMessageCount(chatId);
+    const persistedMessageCount = messageCountResult.data ?? 0;
+
+    if (messageCountResult.error) {
+      logger.error(
+        "updateChatSummary",
+        `Error getting message count for initial summary: ${messageCountResult.error}`
+      );
+    }
+
+    const exchangeCount = exchangeCountFromPersistedMessageCount(persistedMessageCount);
+
+    if (!shouldRefreshSummary(exchangeCount)) {
+      logger.log(
+        "updateChatSummary",
+        `Skipping initial thread summary: exchangeCount=${exchangeCount} (not a refresh milestone)`
+      );
+
+      return {
+        data: null,
+        error: null,
+      };
+    }
+
     return await summarizeNewChat(chatId);
   }
 
@@ -617,6 +651,30 @@ export async function updateChatSummary(chatId: string): Promise<Result<string, 
   //   "updateChatSummary",
   //   `Current thread summary: ${JSON.stringify(threadSummary)}`,
   // );
+
+  const messageCountResult = await getMessageCount(chatId);
+  const persistedMessageCount = messageCountResult.data ?? 0;
+
+  if (messageCountResult.error) {
+    logger.error(
+      "updateChatSummary",
+      `Error getting message count for summary refresh: ${messageCountResult.error}`
+    );
+  }
+
+  const exchangeCount = exchangeCountFromPersistedMessageCount(persistedMessageCount);
+
+  if (!shouldRefreshSummary(exchangeCount)) {
+    logger.log(
+      "updateChatSummary",
+      `Skipping summary refresh: exchangeCount=${exchangeCount} (not a milestone)`
+    );
+
+    return {
+      data: null,
+      error: null,
+    };
+  }
 
   const latestMessageRes = await sb
     .from("messages")
@@ -658,22 +716,6 @@ export async function updateChatSummary(chatId: string): Promise<Result<string, 
     return {
       data: null,
       error: messagesRes.error.message ?? "No messages found",
-    };
-  }
-
-  /**
-   * Only generate new chat summary every 6 messages
-   */
-
-  if (messagesRes.data?.length <= 6) {
-    logger.log(
-      "updateChatSummary",
-      `Not enough messages to generate new chat summary. Only generate every 6 new messages. ${messagesRes.data?.length} messages since last summary`
-    );
-
-    return {
-      data: null,
-      error: "Not enough new messages to generate new chat summary.",
     };
   }
 

@@ -8,6 +8,7 @@ import { GatewayProviderOptions } from "@ai-sdk/gateway";
 import { OpenAIResponsesProviderOptions } from "@ai-sdk/openai";
 
 import { getMessageCount } from "@/data/supabase/chat";
+import { shouldAttemptInitialTitle } from "@/lib/chat/summary-title-cadence";
 import { saveChat } from "@/lib/chat/chat-store";
 import { ensureChatHasTitle, updateChatSummary } from "@/lib/llm/chat-helpers";
 import { CHAT_MODEL, measureAsync } from "@/lib/llm/helpers";
@@ -277,8 +278,13 @@ export function runLLMChatStream(params: RunLLMChatStreamParams): void {
               logger.error("POST", "Error getting message count for title generation");
             }
 
-            // Ensure chat has an LLM-generated title only when we have enough persisted messages and don't already have one
-            if (!threadAlreadyHasTitle && persistedMessageCount >= 4) {
+            // First completed user/assistant turn (persisted count ≥ 2), when thread still has no title
+            if (
+              shouldAttemptInitialTitle({
+                persistedMessageCount,
+                threadAlreadyHasTitle,
+              })
+            ) {
               const { result: titleResult, durationMs } = await measureAsync(() =>
                 ensureChatHasTitle(chatId)
               );
@@ -302,7 +308,7 @@ export function runLLMChatStream(params: RunLLMChatStreamParams): void {
             } else {
               logger.log(
                 "POST",
-                `Skipping title generation: only ${persistedMessageCount} persisted messages (need >= 4)`
+                `Skipping title generation: only ${persistedMessageCount} persisted messages (need >= 2 for first exchange) or thread already titled`
               );
             }
 
