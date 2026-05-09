@@ -48,6 +48,7 @@ export function MorphInputLayoutDemo() {
     home: Vector4 | null;
     chat: Vector4 | null;
   }>({ home: null, chat: null });
+  const [relaxHomeComposerMaxWidth, setRelaxHomeComposerMaxWidth] = useState(false);
 
   const springConfig = useMemo(
     () => morphSpringConfigForPlaybackPercent(speedPercent),
@@ -71,6 +72,10 @@ export function MorphInputLayoutDemo() {
       variantRef.current = next;
       setLayout(next);
       const target = next === "home" ? hv : cv;
+
+      if (next === "home") {
+        setRelaxHomeComposerMaxWidth(true);
+      }
 
       morphTo(target);
     },
@@ -96,6 +101,10 @@ export function MorphInputLayoutDemo() {
     const current = variantRef.current === "home" ? hv : cv;
 
     reset(current);
+
+    if (variantRef.current === "home") {
+      setRelaxHomeComposerMaxWidth(false);
+    }
   }, [reset]);
 
   useLayoutEffect(() => {
@@ -108,6 +117,48 @@ export function MorphInputLayoutDemo() {
 
   useEffect(() => {
     variantRef.current = layout;
+  }, [layout]);
+
+  /** Until the live shell matches the home reference rect, relax AiInputForm max-w so it fills the physics box (chat→home). */
+  useEffect(() => {
+    if (layout !== "home") {
+      setRelaxHomeComposerMaxWidth(false);
+      return;
+    }
+
+    let raf = 0;
+    let lastRelax = false;
+    const settleTol = 1;
+
+    const tick = () => {
+      const stage = stageRef.current;
+      const el = elementRef.current;
+      const hv = homeVecRef.current;
+
+      if (!stage || !el || !hv) {
+        raf = requestAnimationFrame(tick);
+        return;
+      }
+
+      const cur = snapshot(el, stage);
+      const l1 =
+        Math.abs(cur.x - hv.x) +
+        Math.abs(cur.y - hv.y) +
+        Math.abs(cur.w - hv.w) +
+        Math.abs(cur.h - hv.h);
+      const nextRelax = l1 > settleTol;
+
+      if (nextRelax !== lastRelax) {
+        lastRelax = nextRelax;
+        setRelaxHomeComposerMaxWidth(nextRelax);
+      }
+
+      raf = requestAnimationFrame(tick);
+    };
+
+    raf = requestAnimationFrame(tick);
+
+    return () => cancelAnimationFrame(raf);
   }, [layout]);
 
   useEffect(() => {
@@ -266,7 +317,19 @@ export function MorphInputLayoutDemo() {
             )}
           >
             {layout === "home" ? (
-              <MorphDemoHomeInput className="min-h-full" />
+              <div
+                className={cn(
+                  "min-h-full",
+                  relaxHomeComposerMaxWidth
+                    ? "w-full min-w-0"
+                    : "w-full max-w-xl"
+                )}
+              >
+                <MorphDemoHomeInput
+                  className="min-h-full"
+                  relaxMaxWidthWhileMorphing={relaxHomeComposerMaxWidth}
+                />
+              </div>
             ) : (
               <MorphDemoChatInput className="min-h-full w-full" />
             )}

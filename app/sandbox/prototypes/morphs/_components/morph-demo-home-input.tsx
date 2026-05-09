@@ -17,7 +17,14 @@ const noopStrata = async (_text: string) => {
   /* Morph sandbox: no Strata capture */
 };
 
-export function MorphDemoHomeInput({ className }: { className?: string }) {
+export function MorphDemoHomeInput({
+  className,
+  relaxMaxWidthWhileMorphing = false,
+}: {
+  className?: string;
+  /** While true, drop the composer max-width cap so the shell tracks physics width (chat→home). */
+  relaxMaxWidthWhileMorphing?: boolean;
+}) {
   return (
     <motion.div
       layout
@@ -26,7 +33,10 @@ export function MorphDemoHomeInput({ className }: { className?: string }) {
       transition={{ ...HOME_INPUT_SPRING, layout: { ...HOME_INPUT_SPRING } }}
     >
       <AiInputForm
-        className="w-full max-w-xl rounded-xl"
+        className={cn(
+          "w-full rounded-xl",
+          relaxMaxWidthWhileMorphing ? "max-w-none" : "max-w-xl"
+        )}
         clearAfterSubmit={false}
         fullView={false}
         isLoading={false}

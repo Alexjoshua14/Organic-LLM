@@ -28,33 +28,42 @@ describe("FrameLoop", () => {
     vi.unstubAllGlobals();
   });
 
-  it("first tick uses dt 0 because loop is seeded with the same timestamp", () => {
+  it("does not tick synchronously; first tick runs on the next rAF with positive dt", () => {
     const tick = vi.fn();
     const loop = new FrameLoop(tick);
     loop.start();
 
+    expect(tick).not.toHaveBeenCalled();
+
+    nowMs = 1016;
+    const cb = rafCbs[rafCbs.length - 1];
+    cb(nowMs);
+
     expect(tick).toHaveBeenCalledTimes(1);
-    expect(tick).toHaveBeenLastCalledWith({ deltaTime: 0 });
+    expect(tick).toHaveBeenLastCalledWith({ deltaTime: 16 });
   });
 
   it("passes elapsed ms between rAF fires as deltaTime", () => {
     const tick = vi.fn();
     const loop = new FrameLoop(tick);
     loop.start();
-    tick.mockClear();
 
     nowMs = 1016;
-    const cb = rafCbs[rafCbs.length - 1];
+    let cb = rafCbs[rafCbs.length - 1];
+    cb(nowMs);
+    tick.mockClear();
+
+    nowMs = 1033;
+    cb = rafCbs[rafCbs.length - 1];
     cb(nowMs);
 
-    expect(tick).toHaveBeenCalledWith({ deltaTime: 16 });
+    expect(tick).toHaveBeenCalledWith({ deltaTime: 17 });
   });
 
   it("clamps deltaTime to 100ms", () => {
     const tick = vi.fn();
     const loop = new FrameLoop(tick);
     loop.start();
-    tick.mockClear();
 
     nowMs = 10_000;
     const cb = rafCbs[rafCbs.length - 1];

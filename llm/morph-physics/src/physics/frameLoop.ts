@@ -1,6 +1,7 @@
 /**
  * requestAnimationFrame loop for morph integration. Passes **deltaTime in milliseconds** to the tick;
  * caps dt at 100ms so background tabs do not explode the spring state on resume.
+ * The first tick runs on the **next** frame so dt is always positive (no synchronous dt=0 step).
  */
 export type TickCallback = (payload: { deltaTime: number }) => void;
 
@@ -21,7 +22,9 @@ export class FrameLoop {
 
     this.running = true;
     this.lastTime = performance.now();
-    this.loop(this.lastTime);
+    // Only schedule rAF here. A synchronous `loop(lastTime)` would always yield dt=0,
+    // triggering no-op integrates and solver warnings; the first real step runs on the next frame.
+    this.frameId = requestAnimationFrame(this.loop);
   }
 
   public stop() {
