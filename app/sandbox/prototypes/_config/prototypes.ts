@@ -31,6 +31,18 @@ export const prototypes: PrototypeEntry[] = [
     },
   },
   {
+    slug: "gen-ui",
+    title: "Gen UI blocks",
+    description:
+      "Structured Arcadia chat blocks — answer card, decision matrix, plan timeline, audio snippet — with streaming skeletons and fallbacks.",
+    ranking: {
+      importance: 8,
+      frequency: 5,
+      createdAt: "2026-05-16",
+      updatedAt: "2026-05-16",
+    },
+  },
+  {
     slug: "llm-states",
     title: "LLM states",
     description:
@@ -112,6 +124,18 @@ export const prototypes: PrototypeEntry[] = [
       frequency: 6,
       createdAt: "2026-04-22",
       updatedAt: "2026-04-24",
+    },
+  },
+  {
+    slug: "ergon",
+    title: "Ergon board (kanban puppet)",
+    description:
+      "LLM-driven kanban chat style: stream INITIATE -> hydrate -> show-view commands into a client store and render saved views with motion.",
+    ranking: {
+      importance: 8,
+      frequency: 4,
+      createdAt: "2026-05-31",
+      updatedAt: "2026-05-31",
     },
   },
   {

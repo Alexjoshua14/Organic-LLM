@@ -3,6 +3,7 @@ import type { GatewayModelId } from "@ai-sdk/gateway";
 import z from "zod";
 
 import { CHAT_EXPERIENCES, parseChatExperience } from "@/lib/chat/chat-experience";
+import { parseChatStyle } from "@/lib/chat/chat-style";
 
 // Message role enum
 export const MessageRole = z.enum(["user", "assistant", "system"]);
@@ -168,14 +169,12 @@ export const StrataAssistantPersonaRequestSchema = z.enum(["remy", "spark", "aio
 /** Re-export for callers that branch on product mode. */
 export type { ChatExperience } from "@/lib/chat/chat-experience";
 
-const ChatExperienceSchema = z.preprocess(
-  (val) => {
-    if (val === undefined || val === null) return undefined;
-    if (typeof val !== "string") return undefined;
-    return parseChatExperience(val);
-  },
-  z.enum(CHAT_EXPERIENCES).optional()
-);
+const ChatExperienceSchema = z.preprocess((val) => {
+  if (val === undefined || val === null) return undefined;
+  if (typeof val !== "string") return undefined;
+
+  return parseChatExperience(val);
+}, z.enum(CHAT_EXPERIENCES).optional());
 
 export const ChatRequestSchema = z.object({
   message: UIMessageSchema,
@@ -192,6 +191,11 @@ export const ChatRequestSchema = z.object({
   strataAssistantPersona: StrataAssistantPersonaRequestSchema.optional(),
   /** Client hint: which chat experience initiated the request (case-insensitive; unknown values omitted). */
   experience: ChatExperienceSchema,
+  /** Client hint: selected structured chat flow (e.g. `ergon` kanban). Unknown values omitted. */
+  chatStyle: z.preprocess(
+    (val) => (typeof val === "string" ? parseChatStyle(val) : undefined),
+    z.enum(["default", "ergon"]).optional()
+  ),
   /** Strata page assistant: server loads this page for grounding when `experience` is `strata_page`. */
   strataPageId: z.string().uuid().optional(),
   /** When true, request is in zero-data-retention mode (no persistence). */
