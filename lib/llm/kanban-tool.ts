@@ -1,4 +1,5 @@
 import { tool } from "ai";
+import { z } from "zod";
 
 import { createLogger } from "@/lib/logger";
 import {
@@ -31,9 +32,9 @@ export type KanbanStreamWriter = {
 export function createKanbanBoardTool({ writer }: { writer?: KanbanStreamWriter }) {
   return tool({
     description:
-      "Drive the user's live kanban board (Ergon chat style). Emit commands: INITIATE_KANBAN (create/replace board, shows a loading shell), UPSERT_ITEMS (add/update items, marks ready), UPDATE_ITEM / MOVE_ITEM / REMOVE_ITEM (mutate one item), SHOW_VIEW (present a saved, filtered view in the thread). On the first board-related turn call INITIATE_KANBAN then UPSERT_ITEMS. Map user directives to SHOW_VIEW with the right filter/intent. Respect schema caps.",
-    inputSchema: KanbanCommandSchema,
-    execute: async (command): Promise<KanbanBoardToolOutput> => {
+      "Drive the user's live kanban board (Ergon chat style). Pass a single `command`: INITIATE_KANBAN (create/replace board, shows a loading shell), UPSERT_ITEMS (add/update items, marks ready), UPDATE_ITEM / MOVE_ITEM / REMOVE_ITEM (mutate one item), SHOW_VIEW (present a saved, filtered view in the thread). On the first board-related turn call INITIATE_KANBAN then UPSERT_ITEMS. Map user directives to SHOW_VIEW with the right filter/intent. Respect schema caps.",
+    inputSchema: z.object({ command: KanbanCommandSchema }),
+    execute: async ({ command }): Promise<KanbanBoardToolOutput> => {
       writer?.write({ type: "data-kanban", data: command, transient: true });
 
       logger.log("kanban_board", "command emitted", {

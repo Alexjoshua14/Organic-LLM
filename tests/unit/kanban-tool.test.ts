@@ -22,10 +22,13 @@ describe("createKanbanBoardTool", () => {
     const { writer, written } = makeWriter();
     const t = createKanbanBoardTool({ writer });
 
-    const result = await t.execute!(FIXTURE_SHOW_ACTIVE_VIEW, {
-      toolCallId: "tc1",
-      messages: [],
-    });
+    const result = await t.execute!(
+      { command: FIXTURE_SHOW_ACTIVE_VIEW },
+      {
+        toolCallId: "tc1",
+        messages: [],
+      }
+    );
 
     expect(result).toEqual({ kind: "kanban-view", view: FIXTURE_SHOW_ACTIVE_VIEW.view });
     expect(written).toHaveLength(1);
@@ -38,7 +41,10 @@ describe("createKanbanBoardTool", () => {
     const { writer, written } = makeWriter();
     const t = createKanbanBoardTool({ writer });
 
-    const result = await t.execute!(FIXTURE_UPSERT, { toolCallId: "tc2", messages: [] });
+    const result = await t.execute!(
+      { command: FIXTURE_UPSERT },
+      { toolCallId: "tc2", messages: [] }
+    );
 
     expect(result).toEqual({
       kind: "kanban-ack",
@@ -50,7 +56,10 @@ describe("createKanbanBoardTool", () => {
 
   test("works without a writer", async () => {
     const t = createKanbanBoardTool({});
-    const result = await t.execute!(FIXTURE_UPSERT, { toolCallId: "tc3", messages: [] });
+    const result = await t.execute!(
+      { command: FIXTURE_UPSERT },
+      { toolCallId: "tc3", messages: [] }
+    );
     expect(result.kind).toBe("kanban-ack");
   });
 });
