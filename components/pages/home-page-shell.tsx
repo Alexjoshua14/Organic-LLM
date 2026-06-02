@@ -10,6 +10,7 @@ import Page from "../layout/page";
 import { AdminBlogLink } from "./admin-blog-link";
 import { HomepagePrimaryActions } from "./homepage-primary-actions";
 import { SandboxGatewayButton } from "./sandbox-gateway-button";
+import { StatusGatewayButton } from "./status-gateway-button";
 import { ShowcaseGatewayButton } from "./showcase-gateway-button";
 import { T3CodeStubModal } from "./t3code-stub-modal";
 
@@ -289,6 +290,7 @@ export function HomePageShell() {
                 >
                   <SandboxGatewayButton />
                   <ShowcaseGatewayButton />
+                  <StatusGatewayButton />
                   <AdminBlogLink />
                 </motion.div>
               ) : null}
@@ -314,6 +316,7 @@ export function HomePageShell() {
                   <div className="flex flex-wrap justify-center gap-2 opacity-90">
                     <SandboxGatewayButton />
                     <ShowcaseGatewayButton />
+                    <StatusGatewayButton />
                     <AdminBlogLink />
                   </div>
                 </div>
