@@ -40,22 +40,22 @@ export function StatusCheckTable({ checks }: { checks: HealthCheckResult[] }) {
       <table
         className={cn(
           glass(),
-          "w-full min-w-[480px] select-none text-xs rounded-xl border border-border/70 overflow-hidden"
+          "w-full min-w-[480px] select-none text-xs rounded-xl border border-border/70 overflow-hidden md:min-w-[560px] md:rounded-2xl md:text-sm"
         )}
       >
         <caption className="sr-only">Service health checks</caption>
         <thead className="select-none">
           <tr className="border-b border-border/60 text-left">
-            <th className="px-3 py-2 text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
+            <th className="px-3 py-2 text-[10px] font-medium uppercase tracking-wide text-muted-foreground md:px-5 md:py-3.5 md:text-xs">
               Service
             </th>
-            <th className="px-3 py-2 text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
+            <th className="px-3 py-2 text-[10px] font-medium uppercase tracking-wide text-muted-foreground md:px-5 md:py-3.5 md:text-xs">
               Status
             </th>
-            <th className="px-3 py-2 text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
+            <th className="px-3 py-2 text-[10px] font-medium uppercase tracking-wide text-muted-foreground md:px-5 md:py-3.5 md:text-xs">
               Issue
             </th>
-            <th className="w-8 px-2 py-2">
+            <th className="w-8 px-2 py-2 md:w-11 md:px-4 md:py-3.5">
               <span className="sr-only">Expand</span>
             </th>
           </tr>
@@ -80,12 +80,14 @@ export function StatusCheckTable({ checks }: { checks: HealthCheckResult[] }) {
                     setExpandedId((id) => (id === check.id ? null : check.id));
                   }}
                 >
-                  <td className="px-3 py-2 font-medium text-foreground">{check.displayName}</td>
-                  <td className="px-3 py-2">
-                    <div className="flex flex-wrap items-center gap-1.5">
+                  <td className="px-3 py-2 font-medium text-foreground md:px-5 md:py-4 md:text-[15px]">
+                    {check.displayName}
+                  </td>
+                  <td className="px-3 py-2 md:px-5 md:py-4">
+                    <div className="flex flex-wrap items-center gap-1.5 md:gap-2.5">
                       <StatusPill serviceName={check.displayName} status={check.status} />
                       {latencyLabel(check) ? (
-                        <span className="text-[11px] tabular-nums text-muted-foreground">
+                        <span className="text-[11px] tabular-nums text-muted-foreground md:text-xs">
                           {latencyLabel(check)}
                         </span>
                       ) : null}
@@ -93,7 +95,7 @@ export function StatusCheckTable({ checks }: { checks: HealthCheckResult[] }) {
                   </td>
                   <td
                     className={cn(
-                      "px-3 py-2 max-w-md",
+                      "px-3 py-2 max-w-md md:max-w-lg md:px-5 md:py-4 md:leading-relaxed",
                       check.status === "ok" && "text-muted-foreground",
                       check.status === "down" && "text-destructive",
                       check.status === "degraded" && "text-amber-800 dark:text-amber-200"
@@ -105,12 +107,12 @@ export function StatusCheckTable({ checks }: { checks: HealthCheckResult[] }) {
                       <span className="select-text">{issueCell(check)}</span>
                     )}
                   </td>
-                  <td className="w-8 px-2 py-2 text-right align-middle">
+                  <td className="w-8 px-2 py-2 text-right align-middle md:w-11 md:px-4 md:py-4">
                     {hasDetails ? (
                       <ChevronDown
                         aria-hidden
                         className={cn(
-                          "ml-auto size-3 shrink-0 text-muted-foreground transition-transform",
+                          "ml-auto size-3 shrink-0 text-muted-foreground transition-transform md:size-4",
                           expanded && "rotate-180"
                         )}
                       />
@@ -119,7 +121,7 @@ export function StatusCheckTable({ checks }: { checks: HealthCheckResult[] }) {
                 </tr>
                 {expanded && hasDetails ? (
                   <tr className="border-b border-border/40 bg-muted/20">
-                    <td className="px-3 py-2" colSpan={4}>
+                    <td className="px-3 py-2 md:px-5 md:py-4" colSpan={4}>
                       <StatusCheckDetails check={check} />
                     </td>
                   </tr>

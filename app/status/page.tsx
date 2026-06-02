@@ -102,13 +102,13 @@ export default function StatusPage() {
       >
         <div
           className={cn(
-            "mx-auto flex w-full max-w-3xl flex-1 flex-col",
+            "mx-auto flex w-full max-w-3xl flex-1 flex-col lg:max-w-4xl",
             "pl-20 pr-4 pt-[max(3.25rem,calc(0.75rem+env(safe-area-inset-top)))]",
-            "md:pl-8 md:pr-8 md:pt-10"
+            "md:pl-10 md:pr-10 md:pt-12 lg:px-12 lg:pt-14"
           )}
         >
-          <header className="mb-3 flex w-full flex-wrap items-center justify-between gap-2 border-b border-border/60 pb-3 select-none md:mb-4">
-            <div className="flex min-w-0 items-center gap-1.5">
+          <header className="mb-3 flex w-full flex-wrap items-center justify-between gap-2 border-b border-border/60 pb-3 select-none md:mb-6 md:gap-3 md:pb-4">
+            <div className="flex min-w-0 items-center gap-1.5 md:gap-2">
               <Link
                 aria-label="Back to home"
                 className="inline-flex min-h-10 min-w-10 items-center justify-center rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted/50"
@@ -116,14 +116,14 @@ export default function StatusPage() {
               >
                 <ArrowLeft className="size-4" />
               </Link>
-              <h1 className="font-commissioner text-xl font-light tracking-tight text-foreground sm:text-2xl">
+              <h1 className="font-commissioner text-xl font-light tracking-tight text-foreground sm:text-2xl md:text-[1.75rem] md:leading-tight lg:text-3xl">
                 System status
               </h1>
             </div>
 
-            <div className="flex items-center gap-1.5 sm:gap-2">
+            <div className="flex items-center gap-1.5 sm:gap-2 md:gap-3">
               {report ? (
-                <span className="hidden text-[11px] tabular-nums text-muted-foreground sm:inline">
+                <span className="hidden text-[11px] tabular-nums text-muted-foreground sm:inline md:text-xs">
                   Updated {formatRelativeTime(report.checkedAt)}
                 </span>
               ) : null}
@@ -182,7 +182,7 @@ export default function StatusPage() {
             </div>
           </header>
 
-          <div className="flex-1 pb-6 md:pb-8">
+          <div className="flex-1 pb-6 md:pb-10 lg:pb-12">
           {error ? (
             <div
               className={cn(
@@ -207,7 +207,7 @@ export default function StatusPage() {
           ) : (
             <div
               className={cn(
-                "space-y-2.5 motion-reduce:transition-none",
+                "space-y-2.5 motion-reduce:transition-none md:space-y-6",
                 refreshing && "pointer-events-none opacity-60"
               )}
             >
@@ -221,7 +221,7 @@ export default function StatusPage() {
                 </div>
               ) : null}
               {loading && !report ? (
-                <div className="hidden h-36 animate-pulse rounded-xl bg-muted/40 select-none md:block" />
+                <div className="hidden h-44 animate-pulse rounded-2xl bg-muted/40 select-none md:block" />
               ) : null}
 
               {report ? (

@@ -64,7 +64,7 @@ export function StatusHero({
       aria-live="polite"
       className={cn(
         glass({ opaque: true }),
-        "flex select-none items-center gap-2 rounded-xl border border-border/70 px-3 py-2.5",
+        "flex select-none items-center gap-2 rounded-xl border border-border/70 px-3 py-2.5 md:gap-3 md:rounded-2xl md:px-5 md:py-4",
         className
       )}
       role="status"
@@ -72,7 +72,7 @@ export function StatusHero({
       <Icon
         aria-hidden
         className={cn(
-          "size-5 shrink-0",
+          "size-5 shrink-0 md:size-6",
           loading && "animate-spin text-muted-foreground",
           !loading && ICON_CLASS[overall]
         )}

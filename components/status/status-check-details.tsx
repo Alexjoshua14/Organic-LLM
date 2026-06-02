@@ -17,12 +17,12 @@ export function StatusCheckDetails({
   return (
     <div
       className={cn(
-        "select-none rounded-md border border-border/50 bg-muted/30 px-2 py-1.5 text-[11px]",
+        "select-none rounded-md border border-border/50 bg-muted/30 px-2 py-1.5 text-[11px] md:rounded-lg md:px-4 md:py-3 md:text-xs",
         className
       )}
     >
       {entries.length > 0 ? (
-        <dl className="grid grid-cols-[auto_1fr] gap-x-2 gap-y-0.5 font-mono">
+        <dl className="grid grid-cols-[auto_1fr] gap-x-2 gap-y-0.5 font-mono md:gap-x-4 md:gap-y-1.5">
           {entries.map(([key, value]) => (
             <div key={key} className="contents">
               <dt className="text-muted-foreground">{key}</dt>
