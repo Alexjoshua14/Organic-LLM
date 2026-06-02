@@ -7,10 +7,9 @@ import {
 } from "@/config/memory-legacy-meta";
 import { decryptMemory, isEncrypted } from "@/lib/crypto/memory-encryption";
 import type { MemoryItemType } from "@/lib/schemas/memory";
+import { OLLAMA_URL, ollamaHeaders } from "@/lib/memory/ollama-config";
 import { createQdrantClient } from "@/lib/memory/qdrant-config";
 import { runMemoryStore } from "@/lib/memory/run-memory-store";
-
-const OLLAMA_URL = (process.env.OLLAMA_URL ?? "http://localhost:11434").replace(/\/$/, "");
 
 function payloadUserId(payload: Record<string, unknown>): string | undefined {
   const u = payload.userId ?? payload.user_id;
@@ -30,7 +29,7 @@ function decryptDataField(raw: string): string {
 async function embedLegacyQuery(text: string): Promise<number[]> {
   const res = await fetch(`${OLLAMA_URL}/api/embed`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: ollamaHeaders(),
     body: JSON.stringify({ model: MEMORY_LEGACY_EMBEDDER_MODEL, input: text }),
   });
   const data = (await res.json()) as {
