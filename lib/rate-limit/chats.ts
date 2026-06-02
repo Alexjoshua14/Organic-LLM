@@ -1,6 +1,7 @@
 import { Ratelimit } from "@upstash/ratelimit";
 
 import { redis } from "@/lib/redis/redis";
+import { runLimiter } from "@/lib/rate-limit/run-limiter";
 
 /** Thread list (GET /api/chats): 240 requests per hour per user (sliding). */
 const chatsListLimiter = new Ratelimit({
@@ -20,7 +21,9 @@ export type RateLimitResult = {
  * 240 requests per hour per user (sliding window).
  */
 export async function checkChatsListLimit(userId: string): Promise<RateLimitResult> {
-  const { success, remaining } = await chatsListLimiter.limit(userId);
+  const { success, remaining } = await runLimiter("checkChatsListLimit", () =>
+    chatsListLimiter.limit(userId)
+  );
 
   if (!success) {
     return {

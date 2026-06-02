@@ -1,27 +1,14 @@
 import "server-only";
 
-import { QdrantClient } from "@qdrant/js-client-rest";
-
-import { decryptMemory, isEncrypted } from "@/lib/crypto/memory-encryption";
-
 import type { MemoryItemType } from "@/lib/schemas/memory";
 
-const MEMORY_HOST = process.env.MEMORY_API_HOST ?? "localhost";
-const MEMORY_PORT = MEMORY_HOST === "localhost" ? 6333 : 443;
-const MEMORY_KEY = process.env.MEMORY_API_SECRET;
+import { decryptMemory, isEncrypted } from "@/lib/crypto/memory-encryption";
+import { OLLAMA_URL, ollamaHeaders } from "@/lib/memory/ollama-config";
+import { createQdrantClient } from "@/lib/memory/qdrant-config";
+import { runMemoryStore } from "@/lib/memory/run-memory-store";
 
-const OLLAMA_URL = (process.env.OLLAMA_URL ?? "http://localhost:11434").replace(/\/$/, "");
 const OLLAMA_EMBED_MODEL = process.env.OLLAMA_EMBED_MODEL ?? "nomic-embed-text";
 const V2_COLLECTION = process.env.MEMORY_V2_COLLECTION ?? "memories_v2";
-
-function createQdrantClient(): QdrantClient {
-  return new QdrantClient({
-    host: MEMORY_HOST,
-    port: MEMORY_PORT,
-    https: true,
-    apiKey: MEMORY_KEY,
-  });
-}
 
 function decryptDataField(raw: string): string {
   if (!raw || !raw.trim()) {
@@ -51,7 +38,7 @@ async function probeEmbeddingDims(model: string): Promise<number> {
 
   const res = await fetch(`${OLLAMA_URL}/api/embed`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: ollamaHeaders(),
     body: JSON.stringify({ model, input: "probe" }),
   });
   const data = (await res.json()) as {
@@ -76,7 +63,7 @@ async function embedQuery(model: string, text: string): Promise<number[]> {
 
   const res = await fetch(`${OLLAMA_URL}/api/embed`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: ollamaHeaders(),
     body: JSON.stringify({ model, input: text }),
   });
   const data = (await res.json()) as {
@@ -84,10 +71,12 @@ async function embedQuery(model: string, text: string): Promise<number[]> {
     embedding?: number[];
     error?: string;
   };
+
   if (!res.ok || data.error) {
     throw new Error(data.error ?? res.statusText);
   }
   const vec = data.embeddings?.[0] ?? data.embedding;
+
   if (!vec?.length) {
     throw new Error("Unexpected Ollama embed response shape");
   }
@@ -96,6 +85,7 @@ async function embedQuery(model: string, text: string): Promise<number[]> {
       `Embedding dim mismatch: got ${vec.length}, expected ${cachedEmbeddingDims} (set MEMORY_V2_EMBEDDING_DIMS if needed)`
     );
   }
+
   return vec;
 }
 
@@ -120,17 +110,19 @@ export async function getBestV2ChunkScoreForSourceMemory(
     return null;
   }
   const client = createQdrantClient();
-  const hits = await client.search(V2_COLLECTION, {
-    vector: queryVector,
-    limit: 1,
-    with_payload: false,
-    filter: {
-      must: [
-        { key: "userId", match: { value: userId } },
-        { key: "sourceMemoryId", match: { value: sourceMemoryId } },
-      ],
-    },
-  });
+  const hits = await runMemoryStore("getBestV2ChunkScoreForSourceMemory", () =>
+    client.search(V2_COLLECTION, {
+      vector: queryVector,
+      limit: 1,
+      with_payload: false,
+      filter: {
+        must: [
+          { key: "userId", match: { value: userId } },
+          { key: "sourceMemoryId", match: { value: sourceMemoryId } },
+        ],
+      },
+    })
+  );
   if (!hits.length) return null;
   const s = hits[0]!.score;
   return typeof s === "number" ? s : null;
@@ -153,14 +145,16 @@ export async function searchMemoriesV2FromQdrant(
 
   const chunkFetchLimit = Math.min(200, Math.max(limit * 25, limit));
 
-  const hits = await client.search(V2_COLLECTION, {
-    vector,
-    limit: chunkFetchLimit,
-    with_payload: true,
-    filter: {
-      must: [{ key: "userId", match: { value: userId } }],
-    },
-  });
+  const hits = await runMemoryStore("searchMemoriesV2FromQdrant", () =>
+    client.search(V2_COLLECTION, {
+      vector,
+      limit: chunkFetchLimit,
+      with_payload: true,
+      filter: {
+        must: [{ key: "userId", match: { value: userId } }],
+      },
+    })
+  );
 
   const bySource = new Map<string, ChunkAgg>();
 

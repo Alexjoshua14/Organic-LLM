@@ -41,6 +41,7 @@ import {
   migrateMemoryChunkDefaults,
   v2ChunkPointId,
 } from "@/lib/memory/migrate-memories-v2-helpers";
+import { createQdrantClient } from "@/lib/memory/qdrant-config";
 
 const LEGACY_COLLECTION = process.env.MEMORY_LEGACY_COLLECTION ?? "memories";
 const V2_COLLECTION = process.env.MEMORY_V2_COLLECTION ?? "memories_v2";
@@ -49,8 +50,6 @@ const OLLAMA_EMBED_MODEL = process.env.OLLAMA_EMBED_MODEL ?? "nomic-embed-text";
 const SCROLL_PAGE_SIZE = Math.min(256, parseInt(process.env.MIGRATE_SCROLL_LIMIT ?? "256", 10) || 256);
 const EMBED_BATCH_MAX = Math.min(64, parseInt(process.env.MIGRATE_EMBED_BATCH ?? "32", 10) || 32);
 
-const MEMORY_HOST = process.env.MEMORY_API_HOST ?? "localhost";
-const MEMORY_PORT = MEMORY_HOST === "localhost" ? 6333 : 443;
 const MEMORY_KEY = process.env.MEMORY_API_SECRET;
 
 /** UUID namespace for deterministic `sourceMemoryId` in `--memory` inject mode (RFC 4122 name-based v5). */
@@ -161,15 +160,6 @@ function parseArgs(argv: string[]): ParsedCli {
 /** Loose RFC-4122 UUID string check (8-4-4-4-12 hex). */
 function isUuidShape(id: string): boolean {
   return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id);
-}
-
-function createQdrantClient(): QdrantClient {
-  return new QdrantClient({
-    host: MEMORY_HOST,
-    port: MEMORY_PORT,
-    https: true,
-    apiKey: MEMORY_KEY,
-  });
 }
 
 function payloadUserId(payload: Record<string, unknown>): string | undefined {

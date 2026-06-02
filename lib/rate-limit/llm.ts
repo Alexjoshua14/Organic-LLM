@@ -2,6 +2,7 @@ import { Duration, Ratelimit } from "@upstash/ratelimit";
 
 import { redis } from "@/lib/redis/redis";
 import { computeCost, type Usage } from "@/lib/rate-limit/llm-cost";
+import { runLimiter } from "@/lib/rate-limit/run-limiter";
 
 const MESSAGE_LIMIT = parseInt(process.env.LLM_RATE_LIMIT_MESSAGES ?? "60", 10);
 const MESSAGE_WINDOW: Duration = (process.env.LLM_RATE_LIMIT_WINDOW as Duration) ?? "1 m";
@@ -63,7 +64,9 @@ function isCostLimitEnabled(): boolean {
  * Uses Supabase user id as identifier (same as memory limits).
  */
 export async function checkLlmMessageLimit(userId: string): Promise<RateLimitResult> {
-  const { success, remaining } = await messageLimiter.limit(userId);
+  const { success, remaining } = await runLimiter("checkLlmMessageLimit", () =>
+    messageLimiter.limit(userId)
+  );
 
   if (!success) {
     return { success: false, error: "Too many LLM requests" };
@@ -77,7 +80,9 @@ export async function checkLlmMessageLimit(userId: string): Promise<RateLimitRes
  * Call before scheduling node generation in POST /api/rabbitholes/[sessionId]/generate.
  */
 export async function checkRabbitHoleNodeLimit(userId: string): Promise<RateLimitResult> {
-  const { success, remaining } = await rabbitHoleNodeLimiter.limit(userId);
+  const { success, remaining } = await runLimiter("checkRabbitHoleNodeLimit", () =>
+    rabbitHoleNodeLimiter.limit(userId)
+  );
 
   if (!success) {
     return { success: false, error: "Rabbit Hole node limit exceeded" };
@@ -97,7 +102,9 @@ export async function checkLlmTokenLimit(
   if (!isTokenLimitEnabled()) {
     return { success: true };
   }
-  const { remaining } = await tokenLimiter.getRemaining(userId);
+  const { remaining } = await runLimiter("checkLlmTokenLimit", () =>
+    tokenLimiter.getRemaining(userId)
+  );
 
   if (remaining < estimatedTokens) {
     return {
@@ -116,7 +123,7 @@ export async function checkLlmTokenLimit(
  */
 export async function recordLlmTokenUsage(userId: string, tokensUsed: number): Promise<void> {
   if (!isTokenLimitEnabled() || tokensUsed <= 0) return;
-  await tokenLimiter.limit(userId, { rate: tokensUsed });
+  await runLimiter("recordLlmTokenUsage", () => tokenLimiter.limit(userId, { rate: tokensUsed }));
 }
 
 /**
@@ -129,7 +136,9 @@ export async function checkLlmCostLimit(
   if (!isCostLimitEnabled()) {
     return { success: true };
   }
-  const { remaining } = await costLimiter.getRemaining(userId);
+  const { remaining } = await runLimiter("checkLlmCostLimit", () =>
+    costLimiter.getRemaining(userId)
+  );
 
   if (remaining < estimatedCostUnits) {
     return {
@@ -151,5 +160,5 @@ export async function recordLlmCost(userId: string, modelId: string, usage: Usag
   const costUnits = computeCost(modelId, usage);
 
   if (costUnits <= 0) return;
-  await costLimiter.limit(userId, { rate: costUnits });
+  await runLimiter("recordLlmCost", () => costLimiter.limit(userId, { rate: costUnits }));
 }
