@@ -1,14 +1,31 @@
 import "server-only";
 
-import { decryptMemory, isEncrypted } from "@/lib/crypto/memory-encryption";
-
 import type { MemoryItemType } from "@/lib/schemas/memory";
+
+import { createLogger } from "../logger";
+
+import { decryptMemory, isEncrypted } from "@/lib/crypto/memory-encryption";
 import { createQdrantClient } from "@/lib/memory/qdrant-config";
 import { runMemoryStore } from "@/lib/memory/run-memory-store";
 
 const OLLAMA_URL = (process.env.OLLAMA_URL ?? "http://localhost:11434").replace(/\/$/, "");
 const OLLAMA_EMBED_MODEL = process.env.OLLAMA_EMBED_MODEL ?? "nomic-embed-text";
+const OLLAMA_API_KEY = process.env.OLLAMA_API_KEY;
 const V2_COLLECTION = process.env.MEMORY_V2_COLLECTION ?? "memories_v2";
+
+const logger = createLogger("search-memories-v2-qdrant.ts");
+
+function ollamaHeaders(): Record<string, string> {
+  const headers: Record<string, string> = { "Content-Type": "application/json" };
+
+  if (OLLAMA_API_KEY) {
+    headers.Authorization = `Bearer ${OLLAMA_API_KEY}`;
+  } else {
+    logger.warn("ollamaHeaders", "OLLAMA_API_KEY not set.");
+  }
+
+  return headers;
+}
 
 function decryptDataField(raw: string): string {
   if (!raw || !raw.trim()) {
@@ -63,7 +80,7 @@ async function embedQuery(model: string, text: string): Promise<number[]> {
 
   const res = await fetch(`${OLLAMA_URL}/api/embed`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: ollamaHeaders(),
     body: JSON.stringify({ model, input: text }),
   });
   const data = (await res.json()) as {
@@ -71,10 +88,12 @@ async function embedQuery(model: string, text: string): Promise<number[]> {
     embedding?: number[];
     error?: string;
   };
+
   if (!res.ok || data.error) {
     throw new Error(data.error ?? res.statusText);
   }
   const vec = data.embeddings?.[0] ?? data.embedding;
+
   if (!vec?.length) {
     throw new Error("Unexpected Ollama embed response shape");
   }
@@ -83,6 +102,7 @@ async function embedQuery(model: string, text: string): Promise<number[]> {
       `Embedding dim mismatch: got ${vec.length}, expected ${cachedEmbeddingDims} (set MEMORY_V2_EMBEDDING_DIMS if needed)`
     );
   }
+
   return vec;
 }
 
