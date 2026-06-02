@@ -14,6 +14,7 @@ const isProtectedRoute = createRouteMatcher([
   "/sandbox(.*)",
   "/settings(.*)",
   "/speak(.*)",
+  "/status(.*)",
 ]);
 
 /**
