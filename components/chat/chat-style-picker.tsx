@@ -1,6 +1,6 @@
 "use client";
 
-import { Check, LayoutGrid, MessagesSquare } from "lucide-react";
+import { Check, LayoutGrid, MessagesSquare, NotebookPen } from "lucide-react";
 
 import { glass } from "@/components/design-system/primitives";
 import { CHAT_STYLES, type ChatStyle } from "@/lib/chat/chat-style";
@@ -10,6 +10,7 @@ import { cn } from "@/lib/utils";
 const STYLE_ICONS: Record<ChatStyle, React.ReactNode> = {
   default: <MessagesSquare className="size-5" />,
   ergon: <LayoutGrid className="size-5" />,
+  scribe: <NotebookPen className="size-5" />,
 };
 
 type ChatStylePickerProps = {
@@ -29,7 +30,7 @@ export function ChatStylePicker({ chatId }: ChatStylePickerProps) {
         </p>
       </div>
 
-      <div className="grid w-full gap-3 sm:grid-cols-2" role="radiogroup" aria-label="Chat style">
+      <div className="grid w-full gap-3 sm:grid-cols-3" role="radiogroup" aria-label="Chat style">
         {CHAT_STYLES.map((style) => {
           const isSelected = selected === style.id;
 

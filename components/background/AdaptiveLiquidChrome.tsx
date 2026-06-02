@@ -54,6 +54,7 @@ export default function AdaptiveLiquidChrome({
   const onDimChangeRef = useRef(onDimChange);
   const hoverActiveRef = useRef(false);
   const focusActiveRef = useRef(false);
+  const activityActiveRef = useRef(false);
 
   onDimChangeRef.current = onDimChange;
 
@@ -74,7 +75,7 @@ export default function AdaptiveLiquidChrome({
     if (!dimOnHover) return;
 
     const tryRest = () => {
-      if (hoverActiveRef.current || focusActiveRef.current) return;
+      if (hoverActiveRef.current || focusActiveRef.current || activityActiveRef.current) return;
       if (phase2TimeoutRef.current) {
         clearTimeout(phase2TimeoutRef.current);
         phase2TimeoutRef.current = null;
@@ -136,8 +137,26 @@ export default function AdaptiveLiquidChrome({
     const handleFocusOut = () => {
       setTimeout(() => {
         focusActiveRef.current = isFocusInsideDimArea();
-        if (!focusActiveRef.current && !hoverActiveRef.current) tryRest();
+        if (!focusActiveRef.current && !hoverActiveRef.current && !activityActiveRef.current) tryRest();
       }, 0);
+    };
+
+    const syncActivitySignal = () => {
+      const active = document.querySelector('[data-adaptive-active="true"]') != null;
+
+      activityActiveRef.current = active;
+      if (active) {
+        if (phase2TimeoutRef.current) {
+          clearTimeout(phase2TimeoutRef.current);
+          phase2TimeoutRef.current = null;
+        }
+        setTransitionDuration(`${dimTransitionMs}ms`);
+        setEffectiveDimIntensity(dimIntensityFull);
+        setBrightnessState("dimmed");
+        onDimChangeRef.current?.(true);
+      } else if (!hoverActiveRef.current && !focusActiveRef.current) {
+        tryRest();
+      }
     };
 
     document.addEventListener("focusin", handleFocusIn);
@@ -150,6 +169,7 @@ export default function AdaptiveLiquidChrome({
         el.addEventListener("mouseenter", handleMouseEnter);
         el.addEventListener("mouseleave", handleMouseLeave);
       });
+      syncActivitySignal();
     });
 
     const elements = document.querySelectorAll("[data-dim-background]");
@@ -158,6 +178,7 @@ export default function AdaptiveLiquidChrome({
       el.addEventListener("mouseenter", handleMouseEnter);
       el.addEventListener("mouseleave", handleMouseLeave);
     });
+    syncActivitySignal();
 
     observer.observe(document.body, { childList: true, subtree: true });
 

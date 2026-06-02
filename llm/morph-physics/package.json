@@ -21,6 +21,10 @@
     "./webgl": {
       "types": "./dist/webgl.d.ts",
       "import": "./dist/webgl.js"
+    },
+    "./layout-relaxation": {
+      "types": "./dist/layout-relaxation.d.ts",
+      "import": "./dist/layout-relaxation.js"
     }
   },
   "files": [

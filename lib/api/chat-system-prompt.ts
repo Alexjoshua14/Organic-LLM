@@ -1,9 +1,11 @@
 import type { z } from "zod";
+import type { ChatStyle } from "@/lib/chat/chat-style";
 
 import {
   type ChatExperience,
   isArcadiaStyleMemoryReadExperience,
 } from "@/lib/chat/chat-experience";
+import { SCRIBE_SYSTEM_APPEND } from "@/lib/system-prompt/scribe";
 import { getStrataPageById } from "@/data/supabase/strata";
 import { getStrataAssistantPersona } from "@/lib/personas/strata-assistant";
 import { buildStrataSystemSuffix } from "@/lib/llm/strata-chat-augmentation";
@@ -61,13 +63,21 @@ export type AppendMainChatPostToolSystemFragmentsParams = {
   toolInstructions: string;
   speechFriendly: boolean | undefined;
   experience: ChatExperience | undefined;
+  chatStyle?: ChatStyle;
 };
 
-/** Tool Instructions block + speech-friendly + Arcadia length guidance. */
+/** Tool Instructions block + speech-friendly + Arcadia length/style guidance. */
 export function appendMainChatPostToolSystemFragments(
   params: AppendMainChatPostToolSystemFragmentsParams
 ): string {
-  const { systemPromptForRequest, hasTools, toolInstructions, speechFriendly, experience } = params;
+  const {
+    systemPromptForRequest,
+    hasTools,
+    toolInstructions,
+    speechFriendly,
+    experience,
+    chatStyle,
+  } = params;
 
   let out = systemPromptForRequest;
 
@@ -81,6 +91,10 @@ export function appendMainChatPostToolSystemFragments(
 
   if (isArcadiaStyleMemoryReadExperience(experience)) {
     out += ARCADIA_SHORT_REPLY_APPEND;
+
+    if (chatStyle === "scribe") {
+      out += SCRIBE_SYSTEM_APPEND;
+    }
   }
 
   if (experience === "delphi") {

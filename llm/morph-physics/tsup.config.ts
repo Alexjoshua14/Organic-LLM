@@ -5,6 +5,7 @@ export default defineConfig({
     index: "src/index.ts",
     react: "src/react.ts",
     webgl: "src/webgl.ts",
+    "layout-relaxation": "src/layout-relaxation.ts",
   },
   format: ["esm"],
   dts: true,

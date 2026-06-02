@@ -257,6 +257,7 @@ export async function POST(req: Request) {
         toolInstructions,
         speechFriendly: parseResult.data.speechFriendly,
         experience,
+        chatStyle,
       });
 
       writer.write({

@@ -17,6 +17,12 @@ export const CHAT_STYLES = [
     description:
       "A living kanban board the assistant keeps for you. Ask for views like \u201cwhat\u2019s active\u201d or \u201cwhat\u2019s next\u201d.",
   },
+  {
+    id: "scribe",
+    label: "Scribe",
+    description:
+      "The assistant only organizes and presents what you say \u2014 it never adds information or outside knowledge.",
+  },
 ] as const;
 
 export type ChatStyle = (typeof CHAT_STYLES)[number]["id"];

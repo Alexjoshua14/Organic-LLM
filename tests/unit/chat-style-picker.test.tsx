@@ -11,16 +11,23 @@ beforeEach(() => setChatStyle(THREAD_ID, "default"));
 afterEach(() => cleanup());
 
 describe("ChatStylePicker", () => {
-  test("renders both chat styles", () => {
+  test("renders all chat styles", () => {
     const { getByText } = render(<ChatStylePicker chatId={THREAD_ID} />);
     expect(getByText("Standard")).toBeTruthy();
     expect(getByText("Ergon board")).toBeTruthy();
+    expect(getByText("Scribe")).toBeTruthy();
   });
 
   test("selecting Ergon updates the chat-style store", () => {
     const { getByText } = render(<ChatStylePicker chatId={THREAD_ID} />);
     fireEvent.click(getByText("Ergon board"));
     expect(getChatStyle(THREAD_ID)).toBe("ergon");
+  });
+
+  test("selecting Scribe updates the chat-style store", () => {
+    const { getByText } = render(<ChatStylePicker chatId={THREAD_ID} />);
+    fireEvent.click(getByText("Scribe"));
+    expect(getChatStyle(THREAD_ID)).toBe("scribe");
   });
 
   test("default style is selected initially", () => {

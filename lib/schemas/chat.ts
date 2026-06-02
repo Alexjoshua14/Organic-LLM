@@ -194,7 +194,7 @@ export const ChatRequestSchema = z.object({
   /** Client hint: selected structured chat flow (e.g. `ergon` kanban). Unknown values omitted. */
   chatStyle: z.preprocess(
     (val) => (typeof val === "string" ? parseChatStyle(val) : undefined),
-    z.enum(["default", "ergon"]).optional()
+    z.enum(["default", "ergon", "scribe"]).optional()
   ),
   /** Strata page assistant: server loads this page for grounding when `experience` is `strata_page`. */
   strataPageId: z.string().uuid().optional(),

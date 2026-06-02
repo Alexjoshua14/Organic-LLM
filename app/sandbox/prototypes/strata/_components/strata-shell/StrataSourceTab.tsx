@@ -33,6 +33,12 @@ import {
 } from "@/lib/strata/text-sources";
 import { cn } from "@/lib/utils";
 import { STRATA_TEXT_SOURCES_MAX, type StrataTextSourceNode } from "@/lib/schemas/strata";
+import {
+  inferBlocksFromBody,
+  parseNotepadBlocksByNoteId,
+  setNotepadBlocksInContentJson,
+  type StrataNotepadBlock,
+} from "@/lib/strata/notepad-blocks";
 
 const NOTEPAD_DEFAULT_TITLE = "Untitled note";
 
@@ -93,6 +99,13 @@ export function StrataSourceTab({
     () => textSources.filter((s) => s.kind === "user_text"),
     [textSources]
   );
+  const notepadBlocksByNoteId = useMemo(
+    () =>
+      parseNotepadBlocksByNoteId(
+        sections.raw_text.contentJson as Record<string, unknown> | null | undefined
+      ),
+    [sections.raw_text.contentJson]
+  );
 
   const [activeNoteId, setActiveNoteId] = useState<string | null>(() => {
     if (typeof window === "undefined") return null;
@@ -107,10 +120,20 @@ export function StrataSourceTab({
   const applySources = useCallback(
     (next: StrataTextSourceNode[]) => {
       setSections((prev) => {
-        const contentJson = setTextSourcesInContentJson(
+        const baseContentJson = setTextSourcesInContentJson(
           prev.raw_text.contentJson as Record<string, unknown> | null,
           next
         );
+        const blockMap = parseNotepadBlocksByNoteId(
+          prev.raw_text.contentJson as Record<string, unknown> | null
+        );
+        const allowedIds = new Set(
+          next.filter((node) => node.kind === "user_text").map((node) => node.id)
+        );
+        const prunedMap = Object.fromEntries(
+          Object.entries(blockMap).filter(([id]) => allowedIds.has(id))
+        );
+        const contentJson = setNotepadBlocksInContentJson(baseContentJson, prunedMap);
         const corpus = buildCorpusFromTextSources(next);
 
         return {
@@ -255,6 +278,14 @@ export function StrataSourceTab({
     () => textSources.find((n) => n.id === activeNoteId) ?? null,
     [activeNoteId, textSources]
   );
+  const activeNoteBlocks = useMemo(() => {
+    if (!activeNoteId) return [];
+    const existing = notepadBlocksByNoteId[activeNoteId];
+
+    if (existing) return existing;
+
+    return inferBlocksFromBody(activeNote?.body ?? "");
+  }, [activeNote?.body, activeNoteId, notepadBlocksByNoteId]);
 
   const handleNotepadTitleChange = useCallback(
     (title: string) => {
@@ -275,6 +306,28 @@ export function StrataSourceTab({
       });
     },
     [activeNote, onUpdateSource]
+  );
+  const handleNotepadBlocksChange = useCallback(
+    (noteId: string, blocks: StrataNotepadBlock[]) => {
+      setSections((prev) => {
+        const currentJson = prev.raw_text.contentJson as Record<string, unknown> | null;
+        const nextMap = {
+          ...parseNotepadBlocksByNoteId(currentJson),
+          [noteId]: blocks,
+        };
+        const nextJson = setNotepadBlocksInContentJson(currentJson, nextMap);
+
+        return {
+          ...prev,
+          raw_text: {
+            ...prev.raw_text,
+            contentJson: nextJson,
+          },
+        };
+      });
+      queueRawAutosave();
+    },
+    [queueRawAutosave, setSections]
   );
 
   const handleNewNote = useCallback(() => {
@@ -494,13 +547,18 @@ export function StrataSourceTab({
                   <StrataNotepad
                     key={activeNoteId}
                     noteId={activeNoteId}
+                    pageId={pageId}
                     body={activeNote?.body ?? ""}
                     onBodyChange={handleNotepadBodyChange}
+                    blocks={activeNoteBlocks}
+                    onBlocksChange={(blocks) => handleNotepadBlocksChange(activeNoteId, blocks)}
+                    onAppendNodes={onAppendNodes}
                     onFlushPersist={flushSaveRaw}
                     onCloseNote={handleCloseNotepad}
                     syncFooter={rawSyncFooter}
                     title={activeNote?.title ?? NOTEPAD_DEFAULT_TITLE}
                     onTitleChange={handleNotepadTitleChange}
+                    reduceMotion={reduceMotion}
                   />
                 ) : (
                   <p className="text-sm text-muted-foreground">

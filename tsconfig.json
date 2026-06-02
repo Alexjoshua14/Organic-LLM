@@ -16,7 +16,13 @@
     "incremental": true,
     "baseUrl": ".",
     "paths": {
-      "@/*": ["./*"]
+      "@/*": ["./*"],
+      "@organic-llm/morph-physics": ["./llm/morph-physics/src/index.ts"],
+      "@organic-llm/morph-physics/react": ["./llm/morph-physics/src/react.ts"],
+      "@organic-llm/morph-physics/webgl": ["./llm/morph-physics/src/webgl.ts"],
+      "@organic-llm/morph-physics/layout-relaxation": [
+        "./llm/morph-physics/src/layout-relaxation.ts"
+      ]
     },
     "plugins": [
       {
