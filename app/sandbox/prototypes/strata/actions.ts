@@ -11,6 +11,7 @@ import {
 } from "@/data/supabase/strata";
 import {
   STRATA_DEFAULT_UNTITLED_TITLE,
+  STRATA_TEXT_SOURCE_BODY_MAX,
   type StrataGenerationContext,
   type StrataSection,
   type StrataSectionKey,
@@ -24,6 +25,24 @@ export async function createAndOpenStrataPageAction(formData: FormData) {
   revalidateTag(`strata-page:${page.id}`, "max");
 
   redirect(`/sandbox/prototypes/strata/${page.id}`);
+}
+
+/** Client-invoked: create page, save raw_text from homepage capture, return id (no redirect). */
+export async function createStrataPageWithRawTextAction(rawText: string) {
+  const text = String(rawText ?? "").slice(0, STRATA_TEXT_SOURCE_BODY_MAX);
+  const page = await createStrataPage();
+
+  await upsertStrataSection({
+    pageId: page.id,
+    ownerId: page.owner_id,
+    sectionKey: "raw_text",
+    content: text,
+  });
+
+  revalidateTag(`strata-pages:${page.owner_id}`, "max");
+  revalidateTag(`strata-page:${page.id}`, "max");
+
+  return { pageId: page.id };
 }
 
 export async function renameStrataPageAction(pageId: string, ownerId: string, title: string) {

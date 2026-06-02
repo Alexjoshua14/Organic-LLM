@@ -160,7 +160,12 @@ mock.module("@/lib/llm/metrics", () => ({
 }));
 
 mock.module("@/lib/logger", () => ({
-  createLogger: () => ({ error: mock(() => undefined), warn: mock(() => undefined) }),
+  createLogger: () => ({
+    log: mock(() => undefined),
+    debug: mock(() => undefined),
+    warn: mock(() => undefined),
+    error: mock(() => undefined),
+  }),
 }));
 
 import { POST } from "@/app/api/profile/summary/route";

@@ -1,11 +1,12 @@
 "use client";
 
 import type { ReactNode } from "react";
-import { NotebookPen } from "lucide-react";
-
-import { glass } from "@/components/design-system/primitives";
-import { cn } from "@/lib/utils";
 import type { StrataTextSourceNode } from "@/lib/schemas/strata";
+
+import { snapshot } from "@organic-llm/morph-physics";
+import { useMorphPhysics } from "@organic-llm/morph-physics/react";
+import { useCallback, useEffect, useLayoutEffect, useRef } from "react";
+import { NotebookPen } from "lucide-react";
 
 import {
   STRATA_INGEST_MODE_LABEL,
@@ -14,9 +15,12 @@ import {
   type StrataIngestMode,
 } from "./StrataSourceIngestBar";
 
+import { glass } from "@/components/design-system/primitives";
+import { cn } from "@/lib/utils";
+
 export type StrataSourceInputMode = "note" | StrataIngestMode;
 
-const INGEST_MODES: StrataIngestMode[] = ["web", "url", "files", "clipboard"];
+const INGEST_MODES: StrataIngestMode[] = ["web", "url", "files", "flipboard", "audio"];
 
 /**
  * Single chrome for the Source column: notepad and ingest flows are mode variants of one surface.
@@ -48,7 +52,71 @@ export function StrataSourceInput({
   onClipboardPasteToNotepad: (text: string, suggestedTitle: string) => void;
   className?: string;
 }) {
+  const stageRef = useRef<HTMLDivElement | null>(null);
+  const noteGhostRef = useRef<HTMLDivElement | null>(null);
+  const ingestGhostRef = useRef<HTMLDivElement | null>(null);
   const noteDisabled = !notepadEnabled || !activeNoteId;
+  const reduce = Boolean(reduceMotion);
+  const layoutKind = mode === "note" ? "note" : "ingest";
+  const layoutRef = useRef<"note" | "ingest">(layoutKind);
+  const noteVectorRef = useRef<{ x: number; y: number; w: number; h: number } | null>(null);
+  const ingestVectorRef = useRef<{ x: number; y: number; w: number; h: number } | null>(null);
+  const { elementRef, morphTo, reset } = useMorphPhysics({
+    config: {
+      stiffness: 320,
+      damping: 28,
+      mass: 1,
+      precision: 0.6,
+    },
+  });
+
+  const measureTargets = useCallback(() => {
+    const stage = stageRef.current;
+    const noteGhost = noteGhostRef.current;
+    const ingestGhost = ingestGhostRef.current;
+
+    if (!stage || !noteGhost || !ingestGhost) return;
+    noteVectorRef.current = snapshot(noteGhost, stage);
+    ingestVectorRef.current = snapshot(ingestGhost, stage);
+    const current = layoutRef.current === "note" ? noteVectorRef.current : ingestVectorRef.current;
+
+    if (current) reset(current);
+  }, [reset]);
+
+  useLayoutEffect(() => {
+    layoutRef.current = layoutKind;
+    const id = requestAnimationFrame(() => {
+      measureTargets();
+    });
+
+    return () => cancelAnimationFrame(id);
+  }, [layoutKind, measureTargets]);
+
+  useEffect(() => {
+    const stage = stageRef.current;
+
+    if (!stage) return;
+    const observer = new ResizeObserver(() => {
+      requestAnimationFrame(() => {
+        measureTargets();
+      });
+    });
+
+    observer.observe(stage);
+
+    return () => observer.disconnect();
+  }, [measureTargets]);
+
+  useEffect(() => {
+    const target = layoutKind === "note" ? noteVectorRef.current : ingestVectorRef.current;
+
+    if (!target) return;
+    if (reduce) {
+      reset(target);
+      return;
+    }
+    morphTo(target);
+  }, [layoutKind, morphTo, reduce, reset]);
 
   const handleIngestSegment = (m: StrataIngestMode) => {
     if (mode === m && notepadEnabled) {
@@ -129,22 +197,36 @@ export function StrataSourceInput({
             : "min-h-0 overflow-y-auto overscroll-y-contain"
         )}
       >
-        {mode === "note" ? (
-          <div className="flex min-h-0 flex-1 flex-col overflow-hidden">{notepad}</div>
-        ) : (
-          <StrataSourceIngestPanels
-            pageId={pageId}
-            ingestEnabled={ingestEnabled}
-            reduceMotion={reduceMotion}
-            mode={mode}
-            onModeChange={(next) => {
-              if (next === null) onModeChange(notepadEnabled ? "note" : "web");
-              else onModeChange(next);
-            }}
-            onAppendNodes={onAppendNodes}
-            onClipboardPasteToNotepad={onClipboardPasteToNotepad}
+        <div ref={stageRef} className="relative flex min-h-0 flex-1">
+          <div
+            ref={noteGhostRef}
+            aria-hidden
+            className="pointer-events-none absolute inset-0 h-full w-full opacity-0"
           />
-        )}
+          <div
+            ref={ingestGhostRef}
+            aria-hidden
+            className="pointer-events-none absolute inset-x-0 top-0 h-[75%] w-full opacity-0"
+          />
+          <div ref={elementRef} className="absolute top-0 left-0 z-10 w-full will-change-[transform,width,height]">
+            {mode === "note" ? (
+              <div className="flex min-h-0 flex-1 flex-col overflow-hidden">{notepad}</div>
+            ) : (
+              <StrataSourceIngestPanels
+                pageId={pageId}
+                ingestEnabled={ingestEnabled}
+                reduceMotion={reduceMotion}
+                mode={mode}
+                onModeChange={(next) => {
+                  if (next === null) onModeChange(notepadEnabled ? "note" : "web");
+                  else onModeChange(next);
+                }}
+                onAppendNodes={onAppendNodes}
+                onClipboardPasteToNotepad={onClipboardPasteToNotepad}
+              />
+            )}
+          </div>
+        </div>
       </div>
     </div>
   );

@@ -121,8 +121,9 @@ export function StrataElaboratedSummaryTTSBar(props: {
   onPersist: (nextContentJson: Record<string, unknown> | null) => Promise<void>;
   disabled?: boolean;
   pageId?: string;
+  compact?: boolean;
 }) {
-  const { markdown, contentJson, onPersist, disabled, pageId } = props;
+  const { markdown, contentJson, onPersist, disabled, pageId, compact = false } = props;
   const stored = useMemo(() => parseStrataElaboratedTtsSummary(contentJson), [contentJson]);
   const { audioRef, ensurePlayableSrc } = useElaboratedTtsPlayback();
   const [busy, setBusy] = useState(false);
@@ -289,27 +290,34 @@ export function StrataElaboratedSummaryTTSBar(props: {
     <div
       className={cn(
         glass({ opaque: false }),
-        "mb-3 flex flex-col gap-2 rounded-lg border border-border/50 p-3 sm:flex-row sm:items-center sm:justify-between"
+        compact
+          ? "mb-2 flex flex-row flex-nowrap items-center gap-2 rounded-lg border border-border/50 p-2"
+          : "mb-3 flex flex-col gap-2 rounded-lg border border-border/50 p-3 sm:flex-row sm:items-center sm:justify-between"
       )}
     >
-      <div className="min-w-0 space-y-1">
-        <p className="text-xs text-muted-foreground">
-          {stored && !isStale
-            ? "Summary audio is saved with this page (spoken overview, not a verbatim reading)."
-            : stored && isStale
-              ? "Elaborated text changed since this summary audio was made. Regenerate to match."
-              : "Generates a short spoken summary (~25s) of the elaborated section—not a verbatim reading."}
-        </p>
-        {timingLabel ? (
+      <div className="min-w-0 flex flex-1 flex-col gap-0 sm:block">
+        {compact ? (
+          <span className="shrink-0 text-xs font-medium text-foreground/90">Summary audio</span>
+        ) : (
+          <p className="text-xs text-muted-foreground">
+            {stored && !isStale
+              ? "Summary audio is saved with this page (spoken overview, not a verbatim reading)."
+              : stored && isStale
+                ? "Elaborated text changed since this summary audio was made. Regenerate to match."
+                : "Generates a short spoken summary (~25s) of the elaborated section—not a verbatim reading."}
+          </p>
+        )}
+        {!compact && timingLabel ? (
           <p className="text-[11px] text-muted-foreground truncate" title={timingLabel}>
             {timingLabel}
           </p>
         ) : null}
+        {compact && timingLabel ? <span className="sr-only">{timingLabel}</span> : null}
         {error ? <p className="text-xs text-destructive">{error}</p> : null}
       </div>
-      <div className="flex shrink-0 flex-wrap items-center gap-2">
+      <div className="flex shrink-0 flex-nowrap items-center gap-2">
         <Button
-          className="h-9 min-w-[9rem]"
+          className={cn("h-9 min-w-[9rem]", compact && "h-8 min-w-[7rem] shrink-0")}
           color="primary"
           isDisabled={!canGenerate || busy}
           isLoading={busy}
@@ -320,10 +328,14 @@ export function StrataElaboratedSummaryTTSBar(props: {
         >
           {stored && !isStale ? "Regenerate" : stored && isStale ? "Regenerate" : "Generate audio"}
         </Button>
+        {/* eslint-disable-next-line jsx-a11y/media-has-caption -- Strata TTS playback; no caption track */}
         <audio
           ref={audioRef}
           controls
-          className="h-9 max-w-[min(100%,220px)]"
+          className={cn(
+            "h-9 shrink-0",
+            compact ? "max-w-[min(100%,280px)]" : "max-w-[min(100%,220px)]"
+          )}
           preload="metadata"
           onLoadedMetadata={handleAudioLoadedMetadata}
         />
@@ -337,8 +349,9 @@ export function StrataElaboratedVerbatimTTSBar(props: {
   contentJson: Record<string, unknown> | null;
   onPersist: (nextContentJson: Record<string, unknown> | null) => Promise<void>;
   disabled?: boolean;
+  compact?: boolean;
 }) {
-  const { markdown, contentJson, onPersist, disabled } = props;
+  const { markdown, contentJson, onPersist, disabled, compact = false } = props;
   const stored = useMemo(() => parseStrataElaboratedTtsFull(contentJson), [contentJson]);
   const { audioRef, ensurePlayableSrc } = useElaboratedTtsPlayback();
   const [busy, setBusy] = useState(false);
@@ -475,27 +488,34 @@ export function StrataElaboratedVerbatimTTSBar(props: {
     <div
       className={cn(
         glass({ opaque: false }),
-        "mb-4 max-w-md flex flex-col gap-2 self-start rounded-lg border border-border/50 p-2.5 sm:flex-row sm:items-center sm:justify-between"
+        compact
+          ? "mb-0 flex flex-row flex-nowrap items-center gap-2 self-stretch rounded-lg border border-border/50 p-2"
+          : "mb-4 max-w-md flex flex-col gap-2 self-start rounded-lg border border-border/50 p-2.5 sm:flex-row sm:items-center sm:justify-between"
       )}
     >
-      <div className="min-w-0 space-y-1">
-        <p className="text-xs text-muted-foreground">
-          {stored && !isStale
-            ? "Verbatim audio saved (first segment of elaborated text)."
-            : stored && isStale
-              ? "Text changed since this verbatim audio was made."
-              : "Verbatim audio from elaborated text (may truncate if very long)."}
-        </p>
-        {timingLabel ? (
+      <div className="min-w-0 flex flex-1 flex-col gap-0 sm:block">
+        {compact ? (
+          <span className="shrink-0 text-xs font-medium text-foreground/90">Verbatim audio</span>
+        ) : (
+          <p className="text-xs text-muted-foreground">
+            {stored && !isStale
+              ? "Verbatim audio saved (first segment of elaborated text)."
+              : stored && isStale
+                ? "Text changed since this verbatim audio was made."
+                : "Verbatim audio from elaborated text (may truncate if very long)."}
+          </p>
+        )}
+        {!compact && timingLabel ? (
           <p className="text-[11px] text-muted-foreground truncate" title={timingLabel}>
             {timingLabel}
           </p>
         ) : null}
+        {compact && timingLabel ? <span className="sr-only">{timingLabel}</span> : null}
         {error ? <p className="text-xs text-destructive">{error}</p> : null}
       </div>
-      <div className="flex shrink-0 flex-wrap items-center gap-2">
+      <div className="flex shrink-0 flex-nowrap items-center gap-2">
         <Button
-          className="h-9 min-w-[7.5rem]"
+          className={cn("h-9 min-w-[7.5rem]", compact && "h-8 min-w-[6.5rem] shrink-0")}
           color="default"
           isDisabled={!canGenerate || busy}
           isLoading={busy}
@@ -507,13 +527,19 @@ export function StrataElaboratedVerbatimTTSBar(props: {
           {stored && !isStale ? "Regenerate" : stored && isStale ? "Regenerate" : "Generate audio"}
         </Button>
         {showAudio ? (
-          <audio
-            ref={audioRef}
-            controls
-            className="h-9 max-w-[min(100%,200px)]"
-            preload="metadata"
-            onLoadedMetadata={handleAudioLoadedMetadata}
-          />
+          <>
+            {/* eslint-disable-next-line jsx-a11y/media-has-caption -- Strata TTS playback; no caption track */}
+            <audio
+              ref={audioRef}
+              controls
+              className={cn(
+                "h-9 shrink-0",
+                compact ? "max-w-[min(100%,260px)]" : "max-w-[min(100%,200px)]"
+              )}
+              preload="metadata"
+              onLoadedMetadata={handleAudioLoadedMetadata}
+            />
+          </>
         ) : null}
       </div>
     </div>

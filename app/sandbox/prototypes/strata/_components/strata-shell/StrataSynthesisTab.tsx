@@ -3,6 +3,7 @@
 import type { RefObject } from "react";
 import type { StrataPageWithSections } from "@/lib/schemas/strata";
 
+import { useEffect, useRef, useState } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { motion } from "framer-motion";
@@ -28,6 +29,41 @@ export function StrataSynthesisTab({
   isGenerating: boolean;
   onPersistElaboratedJson: (next: Record<string, unknown> | null) => Promise<void>;
 }) {
+  const scrollRef = useRef<HTMLDivElement | null>(null);
+  const sentinelRef = useRef<HTMLDivElement | null>(null);
+  const [isTtsPinned, setIsTtsPinned] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    let observer: IntersectionObserver | null = null;
+
+    const attach = () => {
+      const root = scrollRef.current;
+      const sentinel = sentinelRef.current;
+
+      if (!root || !sentinel || cancelled) return;
+
+      observer?.disconnect();
+      observer = new IntersectionObserver(
+        ([entry]) => {
+          if (!entry) return;
+          setIsTtsPinned(!entry.isIntersecting);
+        },
+        { root, threshold: 0 }
+      );
+      observer.observe(sentinel);
+    };
+
+    attach();
+    const raf = requestAnimationFrame(attach);
+
+    return () => {
+      cancelled = true;
+      cancelAnimationFrame(raf);
+      observer?.disconnect();
+    };
+  }, [pageId, sections.elaborated.content, isGenerating]);
+
   return (
     <motion.section
       ref={elaboratedRef}
@@ -40,26 +76,40 @@ export function StrataSynthesisTab({
         "border border-border/60 backdrop-blur-xl"
       )}
     >
-      <div className="shrink-0 flex flex-col gap-0">
-        <StrataElaboratedSummaryTTSBar
-          contentJson={sections.elaborated.contentJson}
-          disabled={isGenerating}
-          markdown={sections.elaborated.content}
-          pageId={pageId}
-          onPersist={onPersistElaboratedJson}
-        />
-        <StrataElaboratedVerbatimTTSBar
-          contentJson={sections.elaborated.contentJson}
-          disabled={isGenerating}
-          markdown={sections.elaborated.content}
-          onPersist={onPersistElaboratedJson}
-        />
+      <div
+        ref={scrollRef}
+        className="flex min-h-0 flex-1 flex-col overflow-y-auto overflow-x-hidden overscroll-y-contain"
+      >
+        <div ref={sentinelRef} aria-hidden className="h-px w-full shrink-0 pointer-events-none" />
+        <div
+          className={cn(
+            "sticky top-0 z-10 -mx-1 shrink-0 border-b border-border/50 px-1 py-1 sm:-mx-2 sm:px-2",
+            glass({ tone: "brown", opaque: true }),
+            isTtsPinned && "shadow-sm"
+          )}
+        >
+          <StrataElaboratedSummaryTTSBar
+            compact={isTtsPinned}
+            contentJson={sections.elaborated.contentJson}
+            disabled={isGenerating}
+            markdown={sections.elaborated.content}
+            pageId={pageId}
+            onPersist={onPersistElaboratedJson}
+          />
+          <StrataElaboratedVerbatimTTSBar
+            compact={isTtsPinned}
+            contentJson={sections.elaborated.contentJson}
+            disabled={isGenerating}
+            markdown={sections.elaborated.content}
+            onPersist={onPersistElaboratedJson}
+          />
+        </div>
+        <article className="prose prose-neutral px-0 pt-4 pb-6 text-foreground dark:prose-invert">
+          <ReactMarkdown remarkPlugins={[remarkGfm]}>
+            {sections.elaborated.content || "No elaborated content yet."}
+          </ReactMarkdown>
+        </article>
       </div>
-      <article className="prose prose-neutral min-h-0 flex-1 overflow-y-auto text-foreground dark:prose-invert">
-        <ReactMarkdown remarkPlugins={[remarkGfm]}>
-          {sections.elaborated.content || "No elaborated content yet."}
-        </ReactMarkdown>
-      </article>
     </motion.section>
   );
 }

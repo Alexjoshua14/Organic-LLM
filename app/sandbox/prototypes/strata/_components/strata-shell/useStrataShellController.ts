@@ -37,6 +37,11 @@ import {
   setTextSourcesInContentJson,
 } from "@/lib/strata/text-sources";
 
+const RAW_LOCAL_DEBOUNCE_MS = 1000;
+const RAW_REMOTE_DEBOUNCE_MS = 10_000;
+
+type RawPersistLayer = "local" | "database";
+
 export function useStrataShellController(
   initialData: StrataPageWithSections,
   dbAvailable: boolean
@@ -55,7 +60,14 @@ export function useStrataShellController(
 
   const elaboratedRef = useRef<HTMLElement | null>(null);
   const scrollContainerRef = useRef<HTMLDivElement | null>(null);
-  const rawSaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const rawLocalTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const rawRemoteTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const localOnlyModeRef = useRef(localOnlyMode);
+  const dbAvailableRef = useRef(dbAvailable);
+
+  const [rawPersistLayer, setRawPersistLayer] = useState<RawPersistLayer>(() =>
+    dbAvailable ? "database" : "local"
+  );
   const [activeTab, setActiveTab] = useState<StrataMainTab>(() =>
     initialData.sections.elaborated.content.trim().length > 0 ? "synthesis" : "source"
   );
@@ -75,6 +87,21 @@ export function useStrataShellController(
 
   sectionsRef.current = sections;
   pageDataRef.current = pageData;
+
+  localOnlyModeRef.current = localOnlyMode;
+  dbAvailableRef.current = dbAvailable;
+
+  const clearDebouncedRawPersistTimers = useCallback(() => {
+    if (rawLocalTimerRef.current) {
+      clearTimeout(rawLocalTimerRef.current);
+      rawLocalTimerRef.current = null;
+    }
+
+    if (rawRemoteTimerRef.current) {
+      clearTimeout(rawRemoteTimerRef.current);
+      rawRemoteTimerRef.current = null;
+    }
+  }, []);
 
   const labels = useMemo(() => getSectionLabels(), []);
   const refinedSectionTitle = useMemo(
@@ -132,9 +159,104 @@ export function useStrataShellController(
 
   useEffect(() => {
     return () => {
-      if (rawSaveTimerRef.current) clearTimeout(rawSaveTimerRef.current);
+      clearDebouncedRawPersistTimers();
     };
+  }, [clearDebouncedRawPersistTimers]);
+
+  const buildSanitizedRawNextSections = useCallback(() => {
+    const prevSections = sectionsRef.current;
+    const safeContent = sanitizeRawUserInput(prevSections.raw_text.content);
+    const nextSections = {
+      ...prevSections,
+      raw_text: {
+        ...prevSections.raw_text,
+        content: safeContent,
+      },
+    };
+
+    return { nextSections, safeContent };
   }, []);
+
+  const persistRawLocalOnly = useCallback(async () => {
+    const { nextSections } = buildSanitizedRawNextSections();
+
+    sectionsRef.current = nextSections;
+    setSections(nextSections);
+
+    await saveLocalStrataPage({
+      page: pageDataRef.current,
+      sections: nextSections,
+    });
+
+    setRawPersistLayer("local");
+  }, [buildSanitizedRawNextSections]);
+
+  const persistRawRemoteOnly = useCallback(async () => {
+    if (localOnlyModeRef.current || !dbAvailableRef.current) {
+      return;
+    }
+
+    const { nextSections } = buildSanitizedRawNextSections();
+
+    sectionsRef.current = nextSections;
+    setSections(nextSections);
+
+    await saveStrataSectionAction({
+      pageId: initialData.page.id,
+      ownerId: initialData.page.owner_id,
+      sectionKey: "raw_text",
+      content: nextSections.raw_text.content,
+      contentJson: nextSections.raw_text.contentJson ?? null,
+    });
+
+    await saveLocalStrataPage({
+      page: pageDataRef.current,
+      sections: nextSections,
+    });
+
+    setRawPersistLayer("database");
+  }, [buildSanitizedRawNextSections, initialData.page.id, initialData.page.owner_id]);
+
+  const persistRawImmediatelyFull = useCallback(async () => {
+    if (localOnlyModeRef.current || !dbAvailableRef.current) {
+      await persistRawLocalOnly();
+    } else {
+      await persistRawRemoteOnly();
+    }
+  }, [persistRawLocalOnly, persistRawRemoteOnly]);
+
+  const runRawPersistWithActionBanner = useCallback(async () => {
+    setActionStatus({
+      state: "loading",
+      text: localOnlyMode || !dbAvailable ? "Saving locally" : "Saving section",
+    });
+
+    try {
+      const typedSnapshot = sectionsRef.current.raw_text.content;
+
+      await persistRawImmediatelyFull();
+
+      const sanitized = sanitizeRawUserInput(typedSnapshot);
+
+      let completedText =
+        !localOnlyMode && dbAvailable
+          ? "Saved to Supabase + encrypted local device storage."
+          : "Saved to encrypted local device storage (ZDR).";
+
+      if (sanitized !== typedSnapshot) {
+        completedText =
+          "Raw text saved with safety sanitization to protect against XSS and prompt injection.";
+      }
+
+      setActionStatus({ state: "completed", text: completedText });
+    } catch (err) {
+      setActionStatus({
+        state: "error",
+        text: err instanceof Error ? err.message : "Failed to save",
+      });
+      throw err;
+    }
+  }, [dbAvailable, localOnlyMode, persistRawImmediatelyFull]);
 
   const mode = useMemo<"create" | "update">(() => {
     const hasRefined = sections.refined_text.content.trim().length > 0;
@@ -143,24 +265,25 @@ export function useStrataShellController(
     return hasRefined && hasElaborated ? "update" : "create";
   }, [sections.elaborated.content, sections.refined_text.content]);
 
-  const saveSection = (
-    sectionKey: StrataSectionKey,
-    content: string,
-    opts?: { autosaveRaw?: boolean }
-  ) => {
-    const isAutosaveRaw = Boolean(opts?.autosaveRaw && sectionKey === "raw_text");
-
-    if (isAutosaveRaw) {
-      setSourceSave({ state: "saving", at: Date.now() });
-    } else {
-      setActionStatus({
-        state: "loading",
-        text: localOnlyMode || !dbAvailable ? "Saving locally" : "Saving section",
+  const saveSection = (sectionKey: StrataSectionKey, content: string) => {
+    if (sectionKey === "raw_text") {
+      void content;
+      clearDebouncedRawPersistTimers();
+      startTransition(() => {
+        void runRawPersistWithActionBanner();
       });
+
+      return;
     }
+
+    setActionStatus({
+      state: "loading",
+      text: localOnlyMode || !dbAvailable ? "Saving locally" : "Saving section",
+    });
+
     startTransition(async () => {
       try {
-        const safeContent = sectionKey === "raw_text" ? sanitizeRawUserInput(content) : content;
+        const safeContent = content;
         const prevSections = sectionsRef.current;
         const currentPage = pageDataRef.current;
 
@@ -187,59 +310,87 @@ export function useStrataShellController(
           sections: nextSections,
         });
 
-        if (isAutosaveRaw) {
-          setSections(nextSections);
-          sectionsRef.current = nextSections;
-          setSourceSave({
-            state: "saved",
-            at: Date.now(),
-            message:
-              safeContent !== content
-                ? "Saved (sanitized for safety)"
-                : !localOnlyMode && dbAvailable
-                  ? "Saved"
-                  : "Saved locally",
-          });
-
-          return;
-        }
-
         setSections(nextSections);
         sectionsRef.current = nextSections;
 
-        let completedText =
+        const completedText =
           !localOnlyMode && dbAvailable
             ? "Saved to Supabase + encrypted local device storage."
             : "Saved to encrypted local device storage (ZDR).";
 
-        if (sectionKey === "raw_text" && safeContent !== content) {
-          completedText =
-            "Raw text saved with safety sanitization to protect against XSS and prompt injection.";
-        }
         setActionStatus({ state: "completed", text: completedText });
       } catch (err) {
-        const msg = err instanceof Error ? err.message : "Failed to save";
-
-        if (isAutosaveRaw) {
-          setSourceSave({ state: "error", at: Date.now(), message: msg });
-        } else {
-          setActionStatus({
-            state: "error",
-            text: msg,
-          });
-        }
+        setActionStatus({
+          state: "error",
+          text: err instanceof Error ? err.message : "Failed to save",
+        });
       }
     });
   };
 
   const queueRawAutosave = useCallback(() => {
-    if (rawSaveTimerRef.current) clearTimeout(rawSaveTimerRef.current);
+    clearDebouncedRawPersistTimers();
     setSourceSave((prev) => (prev.state === "error" ? prev : { state: "saving", at: Date.now() }));
-    rawSaveTimerRef.current = setTimeout(() => {
-      rawSaveTimerRef.current = null;
-      saveSection("raw_text", sectionsRef.current.raw_text.content, { autosaveRaw: true });
-    }, 1200);
-  }, [saveSection]);
+
+    rawLocalTimerRef.current = setTimeout(() => {
+      rawLocalTimerRef.current = null;
+      void (async () => {
+        try {
+          await persistRawLocalOnly();
+
+          const onlyLocal = localOnlyModeRef.current || !dbAvailableRef.current;
+
+          if (onlyLocal) {
+            setSourceSave({
+              state: "saved",
+              at: Date.now(),
+              message: "Saved locally",
+            });
+          }
+        } catch (err) {
+          setSourceSave({
+            state: "error",
+            at: Date.now(),
+            message: err instanceof Error ? err.message : "Failed to save locally",
+          });
+        }
+      })();
+    }, RAW_LOCAL_DEBOUNCE_MS);
+
+    if (dbAvailableRef.current && !localOnlyModeRef.current) {
+      rawRemoteTimerRef.current = setTimeout(() => {
+        rawRemoteTimerRef.current = null;
+        void (async () => {
+          try {
+            const net = dbAvailableRef.current && !localOnlyModeRef.current;
+
+            if (!net) {
+              setSourceSave({
+                state: "saved",
+                at: Date.now(),
+                message: "Saved locally",
+              });
+
+              return;
+            }
+
+            await persistRawRemoteOnly();
+            setSourceSave({
+              state: "saved",
+              at: Date.now(),
+              message: "Saved",
+            });
+          } catch (err) {
+            setSourceSave({
+              state: "error",
+              at: Date.now(),
+              message: err instanceof Error ? err.message : "Failed to sync to Supabase",
+            });
+          }
+        })();
+      }, RAW_REMOTE_DEBOUNCE_MS);
+    }
+  }, [clearDebouncedRawPersistTimers, persistRawLocalOnly, persistRawRemoteOnly]);
 
   const applySourceComposerSettingsPatch = useCallback(
     (patch: Partial<StrataSourceComposerSettings>) => {
@@ -491,13 +642,38 @@ export function useStrataShellController(
     return sourceSave.message ?? "Saved";
   }, [sourceSave]);
 
-  const flushSaveRaw = () => {
-    if (rawSaveTimerRef.current) {
-      clearTimeout(rawSaveTimerRef.current);
-      rawSaveTimerRef.current = null;
-    }
-    saveSection("raw_text", sectionsRef.current.raw_text.content);
-  };
+  const flushSaveRaw = useCallback(async (): Promise<void> => {
+    clearDebouncedRawPersistTimers();
+    await runRawPersistWithActionBanner();
+  }, [clearDebouncedRawPersistTimers, runRawPersistWithActionBanner]);
+
+  const rawSyncFooter = useMemo(
+    () =>
+      ({
+        busy:
+          sourceSave.state === "saving" ||
+          (actionStatus.state === "loading" &&
+            (actionStatus.text === "Saving section" || actionStatus.text === "Saving locally")),
+        label:
+          sourceSave.state === "saving" ||
+          (actionStatus.state === "loading" &&
+            (actionStatus.text === "Saving section" || actionStatus.text === "Saving locally"))
+            ? "Saving…"
+            : localOnlyMode || !dbAvailable
+              ? "Synced via local cache"
+              : rawPersistLayer === "database"
+                ? "Synced via database"
+                : "Synced via local cache",
+      }) as const,
+    [
+      actionStatus.state,
+      actionStatus.text,
+      dbAvailable,
+      localOnlyMode,
+      rawPersistLayer,
+      sourceSave.state,
+    ]
+  );
 
   const rawDriftedFromGeneration = useMemo(
     () => sanitizeRawUserInput(sections.raw_text.content) !== rawGenerationBaseline,
@@ -541,6 +717,7 @@ export function useStrataShellController(
     sourceSaveLabel,
     queueRawAutosave,
     flushSaveRaw,
+    rawSyncFooter,
     reduceMotion,
     isGenerating,
     persistElaboratedContentJson,

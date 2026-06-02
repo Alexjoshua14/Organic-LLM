@@ -21,7 +21,14 @@ import {
 } from "./memory-search-tool-result";
 import { tryParseWebSearchToolOutput, WebSearchToolResultCard } from "./web-search-tool-result";
 
+import { GenUIStreamingPart } from "@/components/chat/gen-ui/GenUIStreamingPart";
+import { GenUIToolResult } from "@/components/chat/gen-ui/GenUIToolResult";
+import { KanbanLoadingShell } from "@/components/chat/kanban/KanbanLoadingShell";
+import { KanbanToolResult } from "@/components/chat/kanban/KanbanToolResult";
 import { ARCADIA_HELP_PREFIX } from "@/lib/arcadia/help-response";
+import { messagePartsToCopyMarkdown } from "@/lib/chat/message-copy-markdown";
+import { RENDER_GEN_UI_TOOL_NAME } from "@/lib/llm/gen-ui-tool";
+import { KANBAN_BOARD_TOOL_NAME } from "@/lib/llm/kanban-tool";
 import { cn } from "@/lib/utils";
 import { ChatAIActionEnum } from "@/types/ai";
 import { MermaidDiagram } from "@/components/blog/mermaid-diagram";
@@ -29,6 +36,8 @@ import { getMessageModelId, getModelDisplayName } from "@/lib/chat/message-model
 
 type ChatMessageProps = {
   message: UIMessage;
+  /** Owning thread id; required for stateful gen-UI like the Ergon kanban board. */
+  chatId?: string;
   isLastMessage?: boolean;
   showModelBadge?: boolean;
   /** When true, show custom Arcadia help UI; when false, show markdown. Omitted for non-help messages. */
@@ -41,13 +50,14 @@ type ChatMessageProps = {
 };
 
 export const ChatMessage = memo<ChatMessageProps>(function ChatMessage(props) {
-  const { message, aiActionPayload, isLatestArcadiaHelp, showModelBadge } = props;
+  const { message, chatId, aiActionPayload, isLatestArcadiaHelp, showModelBadge } = props;
 
   switch (message.role) {
     case "assistant":
       return (
         <AIMessage
           aiActionPayload={aiActionPayload}
+          chatId={chatId}
           isLatestArcadiaHelp={isLatestArcadiaHelp}
           message={message}
           showModelBadge={showModelBadge}
@@ -64,6 +74,7 @@ ChatMessage.displayName = "ChatMessage";
 
 const AIMessage: FC<ChatMessageProps> = ({
   message,
+  chatId,
   aiActionPayload,
   isLatestArcadiaHelp,
   showModelBadge,
@@ -74,14 +85,8 @@ const AIMessage: FC<ChatMessageProps> = ({
     setPinnedToolIds((prev) => ({ ...prev, [toolInvocationId]: !prev[toolInvocationId] }));
   }, []);
 
-  const text = message.parts
-    .map((part) => {
-      switch (part.type) {
-        case "text":
-          return part.text;
-      }
-    })
-    .join("");
+  const copyMarkdown = messagePartsToCopyMarkdown(message.parts);
+  const text = copyMarkdown;
   const isArcadiaHelp = text.startsWith(ARCADIA_HELP_PREFIX);
   const showCustomArcadiaHelp =
     isArcadiaHelp && (isLatestArcadiaHelp === undefined || isLatestArcadiaHelp);
@@ -132,6 +137,56 @@ const AIMessage: FC<ChatMessageProps> = ({
               if (isToolOrDynamicToolUIPart(part)) {
                 const toolName = getToolOrDynamicToolName(part);
                 const toolCallId = part.toolCallId;
+
+                if (toolName === KANBAN_BOARD_TOOL_NAME) {
+                  if (part.state === "input-streaming" || part.state === "input-available") {
+                    return <KanbanLoadingShell key={`${message.id}-${i}-kanban-stream`} />;
+                  }
+                  if (part.state === "output-available") {
+                    return (
+                      <KanbanToolResult
+                        key={`${message.id}-${i}-kanban-result`}
+                        output={part.output}
+                        threadId={chatId ?? message.id}
+                      />
+                    );
+                  }
+
+                  return null;
+                }
+
+                if (toolName === RENDER_GEN_UI_TOOL_NAME) {
+                  if (part.state === "input-streaming" || part.state === "input-available") {
+                    return (
+                      <GenUIStreamingPart
+                        key={`${message.id}-${i}-gen-ui-stream`}
+                        input={"input" in part ? part.input : undefined}
+                      />
+                    );
+                  }
+                  if (part.state === "output-available") {
+                    return (
+                      <GenUIToolResult
+                        key={`${message.id}-${i}-gen-ui-result`}
+                        messageId={message.id}
+                        output={part.output}
+                        partIndex={i}
+                      />
+                    );
+                  }
+                  if (part.state === "output-error") {
+                    return (
+                      <GenUIToolResult
+                        key={`${message.id}-${i}-gen-ui-error`}
+                        messageId={message.id}
+                        output={part.errorText}
+                        partIndex={i}
+                      />
+                    );
+                  }
+
+                  return null;
+                }
 
                 if (part.state === "input-streaming" || part.state === "input-available") {
                   return (
@@ -339,6 +394,8 @@ function shouldShowTailAiAction(
 }
 
 const KNOWN_TOOL_IN_FLIGHT_LABELS: Record<string, string> = {
+  render_gen_ui: "Structuring response…",
+  kanban_board: "Updating board…",
   make_mermaid_diagram: "Creating diagram...",
   search_memories: "Searching memories...",
   memory_search: "Searching memories...",

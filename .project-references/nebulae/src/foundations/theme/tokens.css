@@ -1,0 +1,250 @@
+/**
+ * Nebulae Design Tokens
+ * 
+ * Core design tokens for the organic-futuristic, liquid glass aesthetic.
+ * These tokens are used throughout the component library and experiments.
+ */
+
+/* ============================================
+   COLOR PRIMITIVES
+   ============================================ */
+
+@theme {
+  /* Neutral scale - soft, dimensional grays */
+  --color-neutral-50: oklch(0.985 0.002 286);
+  --color-neutral-100: oklch(0.967 0.003 286);
+  --color-neutral-200: oklch(0.92 0.004 286);
+  --color-neutral-300: oklch(0.85 0.006 286);
+  --color-neutral-400: oklch(0.705 0.015 286);
+  --color-neutral-500: oklch(0.552 0.016 286);
+  --color-neutral-600: oklch(0.4 0.012 286);
+  --color-neutral-700: oklch(0.274 0.006 286);
+  --color-neutral-800: oklch(0.21 0.006 286);
+  --color-neutral-900: oklch(0.141 0.005 286);
+  --color-neutral-950: oklch(0.1 0.004 286);
+
+  /* Glass surfaces - subtle tints for depth */
+  --color-glass-light: oklch(1 0 0 / 40%);
+  --color-glass-medium: oklch(1 0 0 / 60%);
+  --color-glass-heavy: oklch(1 0 0 / 80%);
+  --color-glass-dark: oklch(0 0 0 / 20%);
+  --color-glass-dark-medium: oklch(0 0 0 / 40%);
+  --color-glass-dark-heavy: oklch(0 0 0 / 60%);
+
+  /* Accent colors - organic, alive */
+  --color-accent-nebula: oklch(0.7 0.15 270);
+  --color-accent-aurora: oklch(0.75 0.12 180);
+  --color-accent-ember: oklch(0.7 0.18 40);
+  --color-accent-plasma: oklch(0.68 0.2 310);
+
+  /* Accent colors with opacity for gradients */
+  --color-accent-nebula-20: oklch(0.7 0.15 270 / 0.2);
+  --color-accent-aurora-20: oklch(0.75 0.12 180 / 0.2);
+  --color-accent-nebula-10: oklch(0.7 0.15 270 / 0.1);
+  --color-accent-aurora-10: oklch(0.75 0.12 180 / 0.1);
+
+  /* Vivid teal for gradients - very saturated */
+  --color-teal-vivid: oklch(0.55 0.3 190);
+
+  /* Semantic colors */
+  --color-info: oklch(0.696 0.17 240);
+  --color-success: oklch(0.7 0.14 145);
+  --color-warning: oklch(0.78 0.15 80);
+  --color-danger: oklch(0.65 0.22 25);
+
+  /* Semantic backgrounds - light mode */
+  --color-bg-primary: oklch(0.141 0.005 286); /* neutral-900 */
+  --color-bg-secondary: oklch(1 0 0 / 40%); /* glass-light */
+  --color-bg-tertiary: oklch(0.985 0.002 286); /* neutral-50 */
+
+  /* Semantic text - light mode */
+  --color-text-primary: oklch(0.141 0.005 286); /* neutral-900 */
+  --color-text-secondary: oklch(0.4 0.012 286); /* neutral-600 */
+  --color-text-tertiary: oklch(0.552 0.016 286); /* neutral-500 */
+
+  /* ============================================
+     SPACING SCALE
+     ============================================ */
+
+  --space-0: 0;
+  --space-1: 0.25rem; /* 4px */
+  --space-2: 0.5rem; /* 8px */
+  --space-3: 0.75rem; /* 12px */
+  --space-4: 1rem; /* 16px */
+  --space-5: 1.25rem; /* 20px */
+  --space-6: 1.5rem; /* 24px */
+  --space-8: 2rem; /* 32px */
+  --space-10: 2.5rem; /* 40px */
+  --space-12: 3rem; /* 48px */
+  --space-16: 4rem; /* 64px */
+  --space-20: 5rem; /* 80px */
+  --space-24: 6rem; /* 96px */
+  --space-32: 8rem; /* 128px */
+
+  /* ============================================
+     RADII - organic, soft corners
+     ============================================ */
+
+  --radius-none: 0;
+  --radius-xs: 0.25rem; /* 4px */
+  --radius-sm: 0.375rem; /* 6px */
+  --radius-md: 0.5rem; /* 8px */
+  --radius-lg: 0.75rem; /* 12px */
+  --radius-xl: 1rem; /* 16px */
+  --radius-2xl: 1.5rem; /* 24px */
+  --radius-full: 9999px;
+
+  /* ============================================
+     MOTION TIMING
+     ============================================ */
+
+  /* Durations */
+  --duration-instant: 0ms;
+  --duration-fast: 150ms;
+  --duration-normal: 250ms;
+  --duration-slow: 350ms;
+  --duration-slower: 500ms;
+  --duration-glacial: 800ms;
+
+  /* Easing curves - organic, natural motion */
+  --ease-in: cubic-bezier(0.32, 0, 0.67, 0);
+  --ease-out: cubic-bezier(0.33, 1, 0.68, 1);
+  --ease-in-out: cubic-bezier(0.65, 0, 0.35, 1);
+  --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+  --ease-smooth: cubic-bezier(0.45, 0.05, 0.55, 0.95);
+
+  /* ============================================
+     TYPOGRAPHY PRIMITIVES
+     ============================================ */
+
+  /* Font sizes */
+  --text-xs: 0.75rem; /* 12px */
+  --text-sm: 0.875rem; /* 14px */
+  --text-base: 1rem; /* 16px */
+  --text-lg: 1.125rem; /* 18px */
+  --text-xl: 1.25rem; /* 20px */
+  --text-2xl: 1.5rem; /* 24px */
+  --text-3xl: 1.875rem; /* 30px */
+  --text-4xl: 2.25rem; /* 36px */
+  --text-5xl: 3rem; /* 48px */
+  --text-6xl: 3.75rem; /* 60px */
+
+  /* Line heights */
+  --leading-none: 1;
+  --leading-tight: 1.25;
+  --leading-snug: 1.375;
+  --leading-normal: 1.5;
+  --leading-relaxed: 1.625;
+  --leading-loose: 2;
+
+  /* Font weights */
+  --font-thin: 100;
+  --font-extralight: 200;
+  --font-light: 300;
+  --font-normal: 400;
+  --font-medium: 500;
+  --font-semibold: 600;
+  --font-bold: 700;
+  --font-extrabold: 800;
+
+  /* Letter spacing */
+  --tracking-tighter: -0.05em;
+  --tracking-tight: -0.025em;
+  --tracking-normal: 0em;
+  --tracking-wide: 0.025em;
+  --tracking-wider: 0.05em;
+  --tracking-widest: 0.1em;
+
+  /* ============================================
+     DEPTH & ELEVATION
+     ============================================ */
+
+  /* Shadows - subtle, dimensional */
+  --shadow-xs: 0 1px 2px 0 oklch(0 0 0 / 0.05);
+  --shadow-sm: 0 1px 3px 0 oklch(0 0 0 / 0.1), 0 1px 2px -1px oklch(0 0 0 / 0.1);
+  --shadow-md: 0 4px 6px -1px oklch(0 0 0 / 0.1),
+    0 2px 4px -2px oklch(0 0 0 / 0.1);
+  --shadow-lg: 0 10px 15px -3px oklch(0 0 0 / 0.1),
+    0 4px 6px -4px oklch(0 0 0 / 0.1);
+  --shadow-xl: 0 20px 25px -5px oklch(0 0 0 / 0.1),
+    0 8px 10px -6px oklch(0 0 0 / 0.1);
+  --shadow-2xl: 0 25px 50px -12px oklch(0 0 0 / 0.25);
+
+  /* Glass glow - soft luminosity */
+  --glow-subtle: 0 0 20px oklch(1 0 0 / 0.1);
+  --glow-medium: 0 0 40px oklch(1 0 0 / 0.15);
+  --glow-strong: 0 0 60px oklch(1 0 0 / 0.2);
+
+  /* ============================================
+     Z-INDEX SCALE
+     ============================================ */
+
+  --z-base: 0;
+  --z-raised: 10;
+  --z-dropdown: 100;
+  --z-sticky: 200;
+  --z-overlay: 300;
+  --z-modal: 400;
+  --z-popover: 500;
+  --z-toast: 600;
+  --z-tooltip: 700;
+}
+
+/* ============================================
+   GLASS SURFACE UTILITIES
+   ============================================ */
+
+/* Base glass surface - reusable across Nebulae */
+.glass-surface {
+  border-radius: var(--radius-2xl);
+  background-color: oklch(1 0 0 / 40%);
+  backdrop-filter: blur(24px);
+  border: 1px solid oklch(1 0 0 / 20%);
+  box-shadow: 0 10px 15px -3px oklch(0 0 0 / 0.05),
+    0 4px 6px -4px oklch(0 0 0 / 0.05);
+}
+
+.dark .glass-surface {
+  background-color: oklch(1 0 0 / 5%);
+  border-color: oklch(1 0 0 / 10%);
+  box-shadow: 0 10px 15px -3px oklch(0 0 0 / 0.2),
+    0 4px 6px -4px oklch(0 0 0 / 0.2);
+}
+
+/* Glass surface for inputs and controls */
+.glass-input {
+  border-radius: var(--radius-lg);
+  background-color: oklch(1 0 0 / 40%);
+  backdrop-filter: blur(12px);
+  border: 1px solid oklch(1 0 0 / 20%);
+  box-shadow: 0 1px 3px 0 oklch(0 0 0 / 0.05),
+    0 1px 2px -1px oklch(0 0 0 / 0.05);
+}
+
+.dark .glass-input {
+  background-color: oklch(1 0 0 / 5%);
+  border-color: oklch(1 0 0 / 10%);
+  box-shadow: 0 1px 3px 0 oklch(0 0 0 / 0.1), 0 1px 2px -1px oklch(0 0 0 / 0.1);
+}
+
+/* ============================================
+   LINK UTILITIES
+   ============================================ */
+
+/* Subtle link - secondary text color with hover transition */
+.link-subtle {
+  color: var(--color-neutral-600);
+  transition: color var(--duration-fast) var(--ease-out);
+}
+
+.link-subtle:hover {
+  color: var(--color-neutral-900);
+}
+
+.dark .link-subtle {
+  color: var(--color-neutral-400);
+}
+
+.dark .link-subtle:hover {
+  color: var(--color-neutral-50);
+}

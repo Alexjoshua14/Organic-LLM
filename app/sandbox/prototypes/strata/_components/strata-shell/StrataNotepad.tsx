@@ -1,206 +1,210 @@
 "use client";
 
-import "@blocknote/core/fonts/inter.css";
-import "@blocknote/shadcn/style.css";
+import type { StrataTextSourceNode } from "@/lib/schemas/strata";
 
-import type { BlockNoteEditor } from "@blocknote/core";
-
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useTheme } from "next-themes";
-import { useCreateBlockNote } from "@blocknote/react";
-import { BlockNoteView } from "@blocknote/shadcn";
+import { useCallback, useMemo, useState } from "react";
 import { Save, X } from "lucide-react";
+import { toast } from "sonner";
 
-import { STRATA_NOTEPAD_FRAGMENT, useStrataNotepad } from "./use-strata-notepad";
-
+import { BlockNotepadSurface } from "@/components/strata/notepad/BlockNotepadSurface";
 import { cn } from "@/lib/utils";
 import { sanitizeRawUserInput } from "@/lib/strata/input-safety";
+import { type StrataLinkBlockStreamChunk, StrataLinkBlockStreamChunkSchema } from "@/lib/strata/link-block-status";
+import { blocksToCanonicalMarkdown, type StrataNotepadBlock } from "@/lib/strata/notepad-blocks";
 
-/**
- * Strata notepad surface — a Notion-style BlockNote editor bound to a Yjs doc.
- *
- * Persistence layering (single source of truth: see `use-strata-notepad`):
- *   - Keystroke -> Yjs (sync)
- *   - Per Yjs update -> y-indexeddb (undebounced)
- *   - 500ms idle / Save now / unmount -> Supabase POST (binary diff)
- *
- * The component never persists markdown directly. It emits `onMarkdownChange` so the parent can
- * keep the legacy `StrataTextSourceNode.body` (used for chat corpus grounding) in sync, but the
- * Yjs doc remains the source of truth for editor content.
- */
 export type StrataNotepadProps = {
-  pageId: string;
+  /** Pass `activeNoteId` so PromptInput resets when swapping notes without fighting live typing. */
   noteId: string;
-  /**
-   * Plain-text title for the active note. Controlled by the parent so saved-source list cards stay
-   * in sync without round-tripping through the Yjs doc.
-   */
+  pageId: string;
   title: string;
   onTitleChange: (title: string) => void;
-  /**
-   * Legacy markdown body to seed the Yjs doc from on first edit. Only used when the server has no
-   * snapshot for this note yet AND the doc looks empty after IDB hydration. Subsequent edits live
-   * in the Yjs doc and are saved as binary diffs.
-   */
-  initialMarkdown?: string;
-  /** Debounced markdown derivation; parent uses it to keep the chat-corpus body fresh. */
-  onMarkdownChange?: (markdown: string) => void;
-  /** Fires once after first hydration so the parent can flip a note from text-only to richKind. */
-  onUpgradedToRich?: () => void;
-  /**
-   * After markdown + Yjs are flushed to the parent and server, run to persist the page and clear
-   * the active note so the user can pick another or start fresh.
-   */
+  body: string;
+  onBodyChange: (markdown: string) => void;
+  blocks: StrataNotepadBlock[];
+  onBlocksChange: (blocks: StrataNotepadBlock[]) => void;
+  onAppendNodes?: (nodes: StrataTextSourceNode[]) => void;
+  syncFooter: { busy: boolean; label: string };
+  onFlushPersist: () => Promise<void>;
   onCloseNote?: () => void | Promise<void>;
+  reduceMotion?: boolean | null;
   className?: string;
 };
 
 const TITLE_MAX_LENGTH = 512;
 
-const MARKDOWN_DEBOUNCE_MS = 800;
-
+/**
+ * Plain-text Strata scratch surface using the homepage glass prompt chrome.
+ * Layered persistence (local vs Supabase) is owned by the shell via `sections.raw_text`.
+ */
 export function StrataNotepad({
-  pageId,
   noteId,
+  pageId,
   title,
   onTitleChange,
-  initialMarkdown,
-  onMarkdownChange,
-  onUpgradedToRich,
+  body,
+  onBodyChange,
+  blocks,
+  onBlocksChange,
+  onAppendNodes,
+  syncFooter,
+  onFlushPersist,
   onCloseNote,
+  reduceMotion,
   className,
 }: StrataNotepadProps) {
-  const { resolvedTheme } = useTheme();
-  const { doc, ready, flushToServer, markServerSeen, clientId } = useStrataNotepad({
-    pageId,
-    noteId,
-  });
-
-  const fragment = useMemo(() => doc.getXmlFragment(STRATA_NOTEPAD_FRAGMENT), [doc]);
-
-  /**
-   * Recreate the editor whenever the Yjs doc instance changes (i.e. when the active note swaps).
-   * BlockNote binds to the fragment via `collaboration` and keeps the editor state in lockstep
-   * with Yjs from then on.
-   */
-  const editor = useCreateBlockNote(
-    {
-      collaboration: {
-        fragment,
-        user: { name: "You", color: "#3b82f6" },
-      },
-    },
-    [doc]
-  ) as BlockNoteEditor;
-
-  const [wordCount, setWordCount] = useState(0);
-  const [lastSavedAt, setLastSavedAt] = useState<number | null>(null);
   const [saving, setSaving] = useState(false);
-  const seededRef = useRef(false);
-  const markdownTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  useEffect(() => {
-    seededRef.current = false;
-  }, [pageId, noteId]);
+  const persistBlocks = useCallback(
+    (nextBlocks: StrataNotepadBlock[]) => {
+      onBlocksChange(nextBlocks);
+      const markdown = sanitizeRawUserInput(blocksToCanonicalMarkdown(nextBlocks));
 
-  useEffect(() => {
-    if (!ready || seededRef.current) return;
-    seededRef.current = true;
-
-    const docEmpty = fragment.length === 0;
-    const seed = initialMarkdown?.trim() ?? "";
-
-    if (docEmpty && seed.length > 0) {
-      try {
-        const blocks = editor.tryParseMarkdownToBlocks(sanitizeRawUserInput(seed));
-
-        if (blocks.length > 0) {
-          editor.replaceBlocks(editor.document, blocks);
-          markServerSeen();
-          onUpgradedToRich?.();
-          void flushToServer();
-        }
-      } catch (err) {
-        if (process.env.NODE_ENV !== "production") {
-          console.warn("[strata-notepad] markdown seed failed", err);
-        }
-      }
-    }
-  }, [editor, flushToServer, fragment, initialMarkdown, markServerSeen, onUpgradedToRich, ready]);
-
-  useEffect(() => {
-    if (!ready) return undefined;
-
-    const compute = () => {
-      const blocks = editor.document;
-      const md = editor.blocksToMarkdownLossy(blocks);
-      const words = md.trim().length === 0 ? 0 : md.trim().split(/\s+/u).length;
-
-      setWordCount(words);
-
-      if (markdownTimerRef.current) clearTimeout(markdownTimerRef.current);
-      if (onMarkdownChange) {
-        markdownTimerRef.current = setTimeout(() => {
-          markdownTimerRef.current = null;
-          onMarkdownChange(md);
-        }, MARKDOWN_DEBOUNCE_MS);
-      }
-    };
-
-    const dispose = editor.onChange(compute);
-
-    compute();
-
-    return () => {
-      if (markdownTimerRef.current) {
-        clearTimeout(markdownTimerRef.current);
-        markdownTimerRef.current = null;
-      }
-      dispose?.();
-    };
-  }, [editor, onMarkdownChange, ready]);
+      onBodyChange(markdown);
+    },
+    [onBlocksChange, onBodyChange]
+  );
 
   const handleSaveNow = useCallback(async () => {
     setSaving(true);
     try {
-      await flushToServer();
-      setLastSavedAt(Date.now());
+      await onFlushPersist();
     } finally {
       setSaving(false);
     }
-  }, [flushToServer]);
-
-  const flushMarkdownToParentNow = useCallback(() => {
-    if (markdownTimerRef.current) {
-      clearTimeout(markdownTimerRef.current);
-      markdownTimerRef.current = null;
-    }
-    if (!onMarkdownChange || !ready) return;
-    const md = editor.blocksToMarkdownLossy(editor.document);
-
-    onMarkdownChange(sanitizeRawUserInput(md));
-  }, [editor, onMarkdownChange, ready]);
+  }, [onFlushPersist]);
 
   const handleCloseNote = useCallback(async () => {
     if (!onCloseNote) return;
     setSaving(true);
     try {
-      flushMarkdownToParentNow();
-      await flushToServer();
+      await onFlushPersist();
       await Promise.resolve(onCloseNote());
-      setLastSavedAt(Date.now());
     } finally {
       setSaving(false);
     }
-  }, [flushMarkdownToParentNow, flushToServer, onCloseNote]);
+  }, [onCloseNote, onFlushPersist]);
 
-  const lastSavedLabel = useMemo(() => {
-    if (saving) return "Saving…";
-    if (lastSavedAt === null) return "Synced via local cache";
-    const seconds = Math.max(1, Math.round((Date.now() - lastSavedAt) / 1000));
+  const wordCount = useMemo(() => {
+    const t = body.trim();
 
-    return `Saved ${seconds}s ago`;
-  }, [lastSavedAt, saving]);
+    return t.length === 0 ? 0 : t.split(/\s+/u).length;
+  }, [body]);
+
+  const onProcessLink = useCallback(
+    async ({
+      blockId,
+      url,
+      onStatus,
+    }: {
+      blockId: string;
+      url: string;
+      onStatus: (message: string) => void;
+    }) => {
+      const response = await fetch("/api/prototypes/strata/link-block", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ pageId, noteId, blockId, url }),
+      });
+
+      if (!response.ok) {
+        const data = (await response.json().catch(() => null)) as { error?: string } | null;
+
+        throw new Error(data?.error || "Unable to process URL");
+      }
+
+      const reader = response.body?.getReader();
+
+      if (!reader) {
+        throw new Error("Missing streaming response body");
+      }
+
+      const decoder = new TextDecoder();
+      let buffer = "";
+      let title = "";
+      let summary = "";
+      let statusMessage = "Processing URL…";
+      let estimatedCostUsd = 0;
+      let streamError = "";
+      const applyStatus = (chunk: StrataLinkBlockStreamChunk) => {
+        if (chunk.type === "status") {
+          statusMessage = chunk.event.message;
+          onStatus(statusMessage);
+        } else if (chunk.type === "result") {
+          title = chunk.result.title;
+          summary = chunk.result.summary;
+          estimatedCostUsd = chunk.result.estimatedCostUsd;
+        } else {
+          streamError = chunk.error;
+        }
+      };
+
+      while (true) {
+        const { done, value } = await reader.read();
+
+        if (done) break;
+        buffer += decoder.decode(value, { stream: true });
+        let lineBreak = buffer.indexOf("\n");
+        while (lineBreak >= 0) {
+          const line = buffer.slice(0, lineBreak).trim();
+
+          buffer = buffer.slice(lineBreak + 1);
+          if (line.length > 0) {
+            try {
+              const parsed = StrataLinkBlockStreamChunkSchema.safeParse(JSON.parse(line));
+
+              if (parsed.success) {
+                applyStatus(parsed.data);
+              }
+            } catch {
+              // Ignore malformed stream chunks and continue.
+            }
+          }
+          lineBreak = buffer.indexOf("\n");
+        }
+      }
+
+      if (streamError) {
+        throw new Error(streamError);
+      }
+      if (!summary) {
+        throw new Error("No summary returned");
+      }
+
+      return {
+        title,
+        summary,
+        statusMessage:
+          estimatedCostUsd > 0
+            ? `Summary ready (~$${estimatedCostUsd.toFixed(4)})`
+            : "Summary ready",
+        estimatedCostUsd,
+      };
+    },
+    [noteId, pageId]
+  );
+
+  const onEscalateLink = useCallback(
+    async ({ url }: { blockId: string; url: string }) => {
+      const res = await fetch("/api/prototypes/strata/ingest", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          pageId,
+          op: "url_commit",
+          url,
+        }),
+      });
+      const data = (await res.json()) as { node?: StrataTextSourceNode; error?: string };
+
+      if (!res.ok || !data.node) {
+        throw new Error(data.error || "Unable to import full page");
+      }
+
+      onAppendNodes?.([data.node]);
+      toast.success("Imported full page into saved sources");
+    },
+    [onAppendNodes, pageId]
+  );
 
   return (
     <div
@@ -209,7 +213,7 @@ export function StrataNotepad({
         className
       )}
       data-strata-notepad
-      data-client-id={clientId}
+      data-note-id={noteId}
     >
       <div className="flex shrink-0 items-start gap-3">
         <input
@@ -223,7 +227,7 @@ export function StrataNotepad({
         <div className="flex shrink-0 items-center gap-1">
           <button
             type="button"
-            disabled={saving || !ready}
+            disabled={saving || syncFooter.busy}
             onClick={() => void handleSaveNow()}
             className={cn(
               "inline-flex shrink-0 items-center gap-1 rounded-md border border-transparent px-2 py-1 text-xs font-medium text-muted-foreground transition-colors",
@@ -238,7 +242,7 @@ export function StrataNotepad({
           {onCloseNote ? (
             <button
               type="button"
-              disabled={saving || !ready}
+              disabled={saving || syncFooter.busy}
               onClick={() => void handleCloseNote()}
               className={cn(
                 "inline-flex size-8 shrink-0 items-center justify-center rounded-md border border-transparent text-muted-foreground transition-colors",
@@ -253,25 +257,24 @@ export function StrataNotepad({
         </div>
       </div>
 
-      <div
-        className={cn(
-          "strata-notepad-editor flex min-h-0 flex-1 flex-col overflow-y-auto overflow-x-hidden py-2",
-          "[&_.bn-root]:[--bn-colors-editor-background:transparent]",
-          "[&_.bn-root]:[--bn-colors-editor-text:var(--foreground)]",
-          "[&_.bn-editor]:rounded-none [&_.bn-editor]:bg-transparent [&_.bn-editor]:shadow-none",
-          "[&_.bn-editor]:!pl-6 [&_.bn-editor]:!pr-4 sm:[&_.bn-editor]:!pl-8 sm:[&_.bn-editor]:!pr-5"
-        )}
-      >
-        <BlockNoteView
-          editor={editor}
-          editable
-          theme={resolvedTheme === "dark" ? "dark" : "light"}
+      <div className="flex min-h-0 flex-1 flex-col">
+        <BlockNotepadSurface
+          blocks={blocks}
+          reduceMotion={reduceMotion}
+          onBlocksChange={persistBlocks}
+          onProcessLink={onProcessLink}
+          onEscalateLink={onEscalateLink}
         />
       </div>
-
-      <div className="flex shrink-0 items-center justify-between border-t border-border/10 pt-2 text-xs text-muted-foreground">
-        <span>{wordCount.toLocaleString()} words</span>
-        <span>{lastSavedLabel}</span>
+      <div className="flex shrink-0 items-center justify-between border-t border-border/15 px-3 py-2">
+        <span className="text-sm font-semibold tabular-nums text-muted-foreground">
+          {wordCount.toLocaleString()} words
+        </span>
+        <span
+          className={cn("text-xs tabular-nums text-muted-foreground", syncFooter.busy ? "animate-pulse" : null)}
+        >
+          {syncFooter.label}
+        </span>
       </div>
     </div>
   );

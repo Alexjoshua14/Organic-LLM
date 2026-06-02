@@ -12,6 +12,7 @@ import {
   MouseEvent,
   useLayoutEffect,
 } from "react";
+import { flushSync } from "react-dom";
 import { useChat } from "@ai-sdk/react";
 import {
   ArrowUp,
@@ -87,7 +88,7 @@ type CoreInputProps = {
   submitVariant?: "default" | "organic-glass";
   /** Optional: notified on every composer text change (for ritual / ambient UIs). */
   onComposerTextChange?: (text: string) => void;
-  /** When true (default), textarea swaps to shimmer text while status is submitted/streaming. */
+  /** When true, textarea swaps to shimmer text while status is submitted/streaming. Default false. */
   sentMessageShimmer?: boolean;
   /** Override persisted model id key (e.g. Delphi vs main chat). Other prefs use global keys. */
   modelLocalStorageKey?: string;
@@ -129,7 +130,7 @@ export const CoreInput: React.FC<CoreInputProps> = ({
   hideWebMemorySpeechToggles = false,
   submitVariant = "default",
   onComposerTextChange,
-  sentMessageShimmer = true,
+  sentMessageShimmer = false,
   modelLocalStorageKey,
   composerInject,
   onSecondarySubmit,
@@ -372,15 +373,18 @@ export const CoreInput: React.FC<CoreInputProps> = ({
     recentlySentTextRef.current = finalText;
     setRecentlySentText(finalText);
 
+    flushSync(() => {
+      setText("");
+      onComposerTextChange?.("");
+      if (enableMarkdownInputPreview) {
+        setInputMarkdownMode("edit");
+      }
+    });
+
     sendMessage({
       text: finalText,
       files: message.files,
     });
-    setText("");
-    onComposerTextChange?.("");
-    if (enableMarkdownInputPreview) {
-      setInputMarkdownMode("edit");
-    }
   };
 
   const handleModelSelection = (id: string) => {

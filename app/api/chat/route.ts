@@ -14,7 +14,11 @@ import { saveChat } from "@/lib/chat/chat-store";
 import { getThreadHasTitle } from "@/data/supabase/chat";
 import { createLogger } from "@/lib/logger";
 import { getLastUserMessageText } from "@/lib/arcadia/help-response";
-import { classifyTaskTier, chatModelForGatewayId, tierToGatewayModelId } from "@/lib/llm/auto-model-router";
+import {
+  classifyTaskTier,
+  chatModelForGatewayId,
+  tierToGatewayModelId,
+} from "@/lib/llm/auto-model-router";
 import { getChatModel } from "@/lib/llm/helpers";
 import {
   AUTO_CHAT_MODEL_ID,
@@ -44,7 +48,18 @@ export const maxDuration = 30;
 const logger = createLogger(`app/api/chat/route.ts`);
 
 export async function POST(req: Request) {
-  const body = await req.json();
+  let body: unknown;
+
+  try {
+    body = await req.json();
+  } catch {
+    logger.error("POST", "Invalid request body: malformed_json");
+
+    return new Response(JSON.stringify({ error: "Invalid JSON", status: 400 }), {
+      status: 400,
+      headers: { "Content-Type": "application/json" },
+    });
+  }
 
   const parseResult = ChatRequestSchema.safeParse(body);
 
@@ -62,6 +77,7 @@ export async function POST(req: Request) {
     id,
     zeroDataRetention,
     experience,
+    chatStyle,
     strataPageId,
     messageSearch,
     knowledgeSearch,
@@ -82,6 +98,7 @@ export async function POST(req: Request) {
       const userText = getLastUserMessageText(message);
       const tier = classifyTaskTier(userText);
       const gatewayId = tierToGatewayModelId(tier, isZeroDataRetention);
+
       selectedModel = getChatModel(chatModelForGatewayId(gatewayId));
       logger.log(
         "POST",
@@ -90,6 +107,7 @@ export async function POST(req: Request) {
     } else {
       const sonnet =
         ChatModels.find((m) => m.id === AUTO_RESOLVED_SONNET_MODEL_ID) ?? DEFAULT_CHAT_MODEL;
+
       selectedModel = getChatModel(sonnet);
       logger.log("POST", `Model selection branch: auto_sonnet_default -> ${selectedModel.id}`);
     }
@@ -226,6 +244,7 @@ export async function POST(req: Request) {
         useGetMoreMessages: messageSearch ?? true,
         useKnowledgeSearch: Boolean(knowledgeSearch) && experience === "strata_page",
         experience,
+        chatStyle,
         chatId: id,
         initialMessageCount,
         sbUserId,
@@ -249,6 +268,7 @@ export async function POST(req: Request) {
         toolInstructions,
         speechFriendly: parseResult.data.speechFriendly,
         experience,
+        chatStyle,
       });
 
       writer.write({
@@ -257,8 +277,7 @@ export async function POST(req: Request) {
         transient: true,
       });
 
-      const systemPromptWithLength =
-        wrapSystemPromptWithResponseLength(systemPromptForRequest);
+      const systemPromptWithLength = wrapSystemPromptWithResponseLength(systemPromptForRequest);
 
       runLLMChatStream({
         writer,

@@ -72,7 +72,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/third-party/ui/select";
-import { useIsMobile } from "@/hooks/use-mobile";
+import { useSubmitOnEnter } from "@/hooks/use-mobile";
 import { cn } from "@/lib/utils";
 
 // ============================================================================
@@ -805,33 +805,42 @@ export const PromptInputBody = ({ className, ...props }: PromptInputBodyProps) =
   <div className={cn("contents", className)} {...props} />
 );
 
-export interface PromptInputTextareaProps extends React.ComponentProps<typeof TextareaAutosize> {}
+export interface PromptInputTextareaProps extends React.ComponentProps<typeof TextareaAutosize> {
+  /**
+   * When false, Enter inserts a newline (multi-line notes). Default true keeps chat-style Enter-to-submit on desktop.
+   */
+  submitOnEnter?: boolean;
+}
 
 export const PromptInputTextarea = ({
   onChange,
   className,
   placeholder = "What would you like to know?",
   onKeyDown: onKeyDownProp,
+  submitOnEnter = true,
   ...props
 }: PromptInputTextareaProps) => {
   const controller = useOptionalPromptInputController();
   const attachments = usePromptInputAttachments();
   const [isComposing, setIsComposing] = useState(false);
-  const isMobile = useIsMobile();
+  const canSubmitOnEnter = useSubmitOnEnter();
 
   /** Consumer `onKeyDown` must not replace this logic — spread `{...props}` used to clobber `onKeyDown`. */
   const mergedKeyDown: KeyboardEventHandler<HTMLTextAreaElement> = (e) => {
     onKeyDownProp?.(e);
 
     if (e.key === "Enter") {
+      if (!submitOnEnter) {
+        return;
+      }
       if (isComposing || e.nativeEvent.isComposing) {
         return;
       }
       if (e.shiftKey) {
         return;
       }
-      // On mobile, Enter should insert a newline; submit via the UI button only.
-      if (isMobile) {
+      // Touch-primary devices: Enter inserts a newline; submit via the UI button only.
+      if (!canSubmitOnEnter) {
         return;
       }
       // Cmd/Ctrl+Enter is reserved for callers (e.g. secondary submit / steer); do not form-submit.
@@ -901,6 +910,7 @@ export const PromptInputTextarea = ({
 
   return (
     <TextareaAutosize
+      {...props}
       className={cn(
         // Minimal styles - let TextareaAutosize control height
         "w-full bg-transparent px-3 py-3 text-base outline-none resize-none",
@@ -910,7 +920,7 @@ export const PromptInputTextarea = ({
         className
       )}
       data-slot="input-group-control"
-      enterKeyHint={isMobile ? "enter" : "send"}
+      enterKeyHint={canSubmitOnEnter ? "send" : "enter"}
       maxRows={5}
       minRows={1}
       name="message"
@@ -921,7 +931,6 @@ export const PromptInputTextarea = ({
       onPaste={handlePaste}
       {...controlledProps}
       aria-multiline="true"
-      {...props}
     />
   );
 };

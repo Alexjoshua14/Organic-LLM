@@ -1,13 +1,17 @@
 import type { ToolSet } from "ai";
+import type { ChatStyle } from "@/lib/chat/chat-style";
 
 import {
   type ChatExperience,
   isArcadiaStyleMemoryReadExperience,
 } from "@/lib/chat/chat-experience";
+import { createKanbanBoardTool, type KanbanStreamWriter } from "@/lib/llm/kanban-tool";
+import { KANBAN_TOOL_INSTRUCTIONS } from "@/lib/system-prompt/kanban";
 import {
   DELPHI_SEARCH_MEMORIES_DESCRIPTION,
   createDelphiMemoryTools,
 } from "@/lib/llm/delphi-memory-tools";
+import { createRenderGenUiTool } from "@/lib/llm/gen-ui-tool";
 import {
   createGetFullChatHistoryTool,
   createGetMessagesFromDateTool,
@@ -17,6 +21,7 @@ import {
   createWebSearchTool,
   type WebSearchStreamWriter,
 } from "@/lib/llm/llm-tool-kit";
+import { GEN_UI_TOOL_INSTRUCTIONS } from "@/lib/system-prompt/gen-ui";
 import { createStrataHubAssistantTools } from "@/lib/llm/strata-assistant-tools";
 import { createStrataKnowledgeGraphTools } from "@/lib/llm/strata-knowledge-graph-tools";
 
@@ -29,6 +34,8 @@ export type CompileChatToolsParams = {
   useKnowledgeSearch?: boolean;
   /** Adds Arcadia-only tools (e.g. Mermaid) when `arcadia`. */
   experience?: ChatExperience;
+  /** Selected chat style; `ergon` adds the kanban puppet tool for Arcadia-style experiences. */
+  chatStyle?: ChatStyle;
   /** Required for history tools. */
   chatId?: string;
   /** `validatedMessages.length` — how many turns the model already has in context. */
@@ -48,6 +55,7 @@ export async function compileChatTools({
   useGetMoreMessages,
   useKnowledgeSearch,
   experience,
+  chatStyle,
   chatId,
   initialMessageCount,
   sbUserId,
@@ -114,6 +122,15 @@ export async function compileChatTools({
     tools["make_mermaid_diagram"] = createMermaidDiagramTool({ writer });
     toolInstructions +=
       "You can generate Mermaid diagrams using make_mermaid_diagram. Use it when a diagram would clarify a process, architecture, or relationships. Return the diagram in a mermaid code block so the UI can render it.\n";
+    tools["render_gen_ui"] = createRenderGenUiTool();
+    toolInstructions += `${GEN_UI_TOOL_INSTRUCTIONS}\n`;
+
+    if (chatStyle === "ergon") {
+      tools["kanban_board"] = createKanbanBoardTool({
+        writer: writer as unknown as KanbanStreamWriter,
+      });
+      toolInstructions += `${KANBAN_TOOL_INSTRUCTIONS}\n`;
+    }
   }
 
   if (experience === "strata_hub") {

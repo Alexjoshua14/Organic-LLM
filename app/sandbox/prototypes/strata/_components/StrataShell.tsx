@@ -68,6 +68,7 @@ export function StrataShell({
                 localOnlyMode={shell.localOnlyMode}
                 pageId={shell.pageData.id}
                 queueRawAutosave={shell.queueRawAutosave}
+                rawSyncFooter={shell.rawSyncFooter}
                 reduceMotion={shell.reduceMotion}
                 refinedSectionTitle={shell.refinedSectionTitle}
                 sections={shell.sections}
