@@ -23,6 +23,8 @@ export const MEMORY_PANEL_RESERVE_PADDING = "pb-40";
 
 type ChatThreadProps = {
   messages: UIMessage[];
+  /** Owning thread id; forwarded to messages for stateful gen-UI (Ergon kanban). */
+  chatId?: string;
   variant?: "default" | "compact";
   className?: string;
   /** Extra class for the scrollable content (e.g. bottom padding when memory panel can overlay). */
@@ -38,6 +40,7 @@ type ChatThreadProps = {
 
 export const ChatThread: FC<ChatThreadProps> = ({
   messages,
+  chatId,
   className,
   contentClassName,
   aiActionPayload,
@@ -89,6 +92,7 @@ export const ChatThread: FC<ChatThreadProps> = ({
               <ChatMessage
                 key={message.id}
                 aiActionPayload={index === lastMessageIndex ? aiActionPayload : undefined}
+                chatId={chatId}
                 isLatestArcadiaHelp={
                   isArcadiaHelpMessage(message) ? isLatestArcadiaHelp : undefined
                 }

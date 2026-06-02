@@ -34,6 +34,10 @@ const mockAddLatestMessagesToMemory = mock(async (): Promise<SearchResult> => ({
   results: [],
   relations: [],
 }));
+const mockAddMemory = mock(async (): Promise<SearchResult> => ({
+  results: [],
+  relations: [],
+}));
 
 mock.module("@clerk/nextjs/server", () => ({ auth: mockAuth }));
 mock.module("@/data/supabase/profiles", () => ({
@@ -52,6 +56,7 @@ mock.module("@/lib/memory/store", () => ({
   deleteMemory: mockDeleteMemory,
   wipeMemory: mockWipeMemory,
   addLatestMessagesToMemory: mockAddLatestMessagesToMemory,
+  addMemory: mockAddMemory,
 }));
 
 describe("Memory operations (secure client–store)", () => {
@@ -71,6 +76,7 @@ describe("Memory operations (secure client–store)", () => {
     mockDeleteMemory.mockClear();
     mockWipeMemory.mockClear();
     mockAddLatestMessagesToMemory.mockClear();
+    mockAddMemory.mockClear();
 
     mockAuth.mockResolvedValue(createMockClerkUser());
     mockGetSupabaseUserId.mockResolvedValue({
@@ -87,6 +93,10 @@ describe("Memory operations (secure client–store)", () => {
       relations: [],
     });
     mockAddLatestMessagesToMemory.mockResolvedValue({
+      results: [],
+      relations: [],
+    });
+    mockAddMemory.mockResolvedValue({
       results: [],
       relations: [],
     });

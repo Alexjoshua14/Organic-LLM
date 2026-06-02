@@ -3,6 +3,7 @@ import type { MutableRefObject } from "react";
 import { renderHook, act } from "@testing-library/react";
 import { useMorphPhysics } from "./useMorphPhysics";
 import { regular_spring_config } from "../constants";
+import type { ShellLayoutInfo } from "./useMorphPhysics";
 
 describe("useMorphPhysics", () => {
   afterEach(() => {
@@ -78,5 +79,51 @@ describe("useMorphPhysics", () => {
     expect(initialX).toBe("translate(0px, 0px)");
     expect(after).not.toBe(initialX);
     expect(after).toMatch(/translate\([0-9.-]+px, 0px\)/);
+  });
+
+  it("morphTo invokes onShellLayout synchronously before rAF when shell is wider than target", () => {
+    const rafQueue: FrameRequestCallback[] = [];
+    vi.stubGlobal(
+      "requestAnimationFrame",
+      vi.fn((cb: FrameRequestCallback) => {
+        rafQueue.push(cb);
+        return rafQueue.length;
+      })
+    );
+    vi.stubGlobal("cancelAnimationFrame", vi.fn());
+
+    const calls: ShellLayoutInfo[] = [];
+    const onShellLayout = (info: ShellLayoutInfo) => {
+      calls.push(info);
+    };
+
+    const { result } = renderHook(() =>
+      useMorphPhysics({
+        config: regular_spring_config,
+        onShellLayout,
+      })
+    );
+    const div = document.createElement("div");
+    document.body.appendChild(div);
+
+    act(() => {
+      (
+        result.current.elementRef as MutableRefObject<HTMLDivElement | null>
+      ).current = div;
+      result.current.reset({ x: 0, y: 0, w: 200, h: 80 });
+    });
+
+    const afterResetCount = calls.length;
+
+    act(() => {
+      result.current.morphTo({ x: 0, y: 0, w: 100, h: 80 });
+    });
+
+    expect(calls.length).toBeGreaterThan(afterResetCount);
+    const syncCall = calls[calls.length - 1];
+    expect(syncCall.current.w).toBe(200);
+    expect(syncCall.target.w).toBe(100);
+    expect(syncCall.relaxation.width).toBe(true);
+    expect(rafQueue.length).toBeGreaterThan(0);
   });
 });

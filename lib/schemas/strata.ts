@@ -153,6 +153,15 @@ export const StrataIngestRequestSchema = z.discriminatedUnion("op", [
 
 export type StrataIngestRequest = z.infer<typeof StrataIngestRequestSchema>;
 
+export const StrataLinkBlockProcessRequestSchema = z.object({
+  pageId: pageIdForAuth,
+  noteId: z.string().uuid(),
+  blockId: z.string().uuid(),
+  url: z.string().min(1).max(2048),
+});
+
+export type StrataLinkBlockProcessRequest = z.infer<typeof StrataLinkBlockProcessRequestSchema>;
+
 export type StrataPage = {
   id: string;
   title: string;

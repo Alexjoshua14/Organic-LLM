@@ -1,111 +1,36 @@
 "use client";
 
-import { ChangeEvent, FormEvent, useCallback, useEffect, useMemo, useState } from "react";
-import { Save, X } from "lucide-react";
+import type { StrataTextSourceNode } from "@/lib/schemas/strata";
 
-import {
-  PromptInput,
-  PromptInputBody,
-  PromptInputFooter,
-  PromptInputProvider,
-  PromptInputTextarea,
-  type PromptInputMessage,
-  usePromptInputController,
-} from "@/components/third-party/ai-elements/prompt-input";
+import { useCallback, useMemo, useState } from "react";
+import { Save, X } from "lucide-react";
+import { toast } from "sonner";
+
+import { BlockNotepadSurface } from "@/components/strata/notepad/BlockNotepadSurface";
 import { cn } from "@/lib/utils";
 import { sanitizeRawUserInput } from "@/lib/strata/input-safety";
+import { type StrataLinkBlockStreamChunk, StrataLinkBlockStreamChunkSchema } from "@/lib/strata/link-block-status";
+import { blocksToCanonicalMarkdown, type StrataNotepadBlock } from "@/lib/strata/notepad-blocks";
 
 export type StrataNotepadProps = {
   /** Pass `activeNoteId` so PromptInput resets when swapping notes without fighting live typing. */
   noteId: string;
+  pageId: string;
   title: string;
   onTitleChange: (title: string) => void;
   body: string;
   onBodyChange: (markdown: string) => void;
+  blocks: StrataNotepadBlock[];
+  onBlocksChange: (blocks: StrataNotepadBlock[]) => void;
+  onAppendNodes?: (nodes: StrataTextSourceNode[]) => void;
   syncFooter: { busy: boolean; label: string };
   onFlushPersist: () => Promise<void>;
   onCloseNote?: () => void | Promise<void>;
+  reduceMotion?: boolean | null;
   className?: string;
 };
 
 const TITLE_MAX_LENGTH = 512;
-
-function StrataPromptNoteChrome({
-  body,
-  onBodyChange,
-  syncFooter,
-}: {
-  body: string;
-  onBodyChange: (markdown: string) => void;
-  syncFooter: { busy: boolean; label: string };
-}) {
-  const { textInput } = usePromptInputController();
-
-  useEffect(() => {
-    if (textInput.value !== body) {
-      textInput.setInput(body);
-    }
-  }, [body, textInput]);
-
-  const handleChange = useCallback(
-    (e: ChangeEvent<HTMLTextAreaElement>) => {
-      onBodyChange(sanitizeRawUserInput(e.currentTarget.value));
-    },
-    [onBodyChange]
-  );
-
-  const noopSubmit = useCallback(
-    (_message: PromptInputMessage, event: FormEvent<HTMLFormElement>) => {
-      event.preventDefault();
-    },
-    []
-  );
-
-  const wordCount = useMemo(() => {
-    const t = body.trim();
-
-    return t.length === 0 ? 0 : t.split(/\s+/u).length;
-  }, [body]);
-
-  return (
-    <PromptInput
-      multiple
-      className={cn(
-        "min-h-0 flex-1 flex-col rounded-xl [&_form]:min-h-[min(12rem,calc(100vh-14rem))]"
-      )}
-      onSubmit={noopSubmit}
-    >
-      <PromptInputBody className="flex flex-1 flex-col">
-        <PromptInputTextarea
-          submitOnEnter={false}
-          className={cn(
-            "text-lg! md:text-lg! placeholder:text-lg! caret-accent placeholder:text-foreground/80",
-            "!max-h-none min-h-[min(12rem,calc(100vh-14rem))]",
-            "!resize-y"
-          )}
-          enterKeyHint="enter"
-          name="strata-note"
-          placeholder="Write your note…"
-          onChange={handleChange}
-        />
-      </PromptInputBody>
-
-      <PromptInputFooter className="flex shrink-0 items-center justify-between border-t border-border/15 px-3 py-2">
-        <span className="text-sm font-semibold tabular-nums text-muted-foreground">
-          {wordCount.toLocaleString()} words
-        </span>
-        <span
-          className={cn(
-            "text-xs tabular-nums text-muted-foreground",
-            syncFooter.busy ? "animate-pulse" : null
-          )}
-        >
-          {syncFooter.label}
-        </span>
-      </PromptInputFooter>
-    </PromptInput>
-  );
-}
 
 /**
  * Plain-text Strata scratch surface using the homepage glass prompt chrome.
@@ -113,16 +38,31 @@ function StrataPromptNoteChrome({
  */
 export function StrataNotepad({
   noteId,
+  pageId,
   title,
   onTitleChange,
   body,
   onBodyChange,
+  blocks,
+  onBlocksChange,
+  onAppendNodes,
   syncFooter,
   onFlushPersist,
   onCloseNote,
+  reduceMotion,
   className,
 }: StrataNotepadProps) {
   const [saving, setSaving] = useState(false);
+
+  const persistBlocks = useCallback(
+    (nextBlocks: StrataNotepadBlock[]) => {
+      onBlocksChange(nextBlocks);
+      const markdown = sanitizeRawUserInput(blocksToCanonicalMarkdown(nextBlocks));
+
+      onBodyChange(markdown);
+    },
+    [onBlocksChange, onBodyChange]
+  );
 
   const handleSaveNow = useCallback(async () => {
     setSaving(true);
@@ -143,6 +83,128 @@ export function StrataNotepad({
       setSaving(false);
     }
   }, [onCloseNote, onFlushPersist]);
+
+  const wordCount = useMemo(() => {
+    const t = body.trim();
+
+    return t.length === 0 ? 0 : t.split(/\s+/u).length;
+  }, [body]);
+
+  const onProcessLink = useCallback(
+    async ({
+      blockId,
+      url,
+      onStatus,
+    }: {
+      blockId: string;
+      url: string;
+      onStatus: (message: string) => void;
+    }) => {
+      const response = await fetch("/api/prototypes/strata/link-block", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ pageId, noteId, blockId, url }),
+      });
+
+      if (!response.ok) {
+        const data = (await response.json().catch(() => null)) as { error?: string } | null;
+
+        throw new Error(data?.error || "Unable to process URL");
+      }
+
+      const reader = response.body?.getReader();
+
+      if (!reader) {
+        throw new Error("Missing streaming response body");
+      }
+
+      const decoder = new TextDecoder();
+      let buffer = "";
+      let title = "";
+      let summary = "";
+      let statusMessage = "Processing URL…";
+      let estimatedCostUsd = 0;
+      let streamError = "";
+      const applyStatus = (chunk: StrataLinkBlockStreamChunk) => {
+        if (chunk.type === "status") {
+          statusMessage = chunk.event.message;
+          onStatus(statusMessage);
+        } else if (chunk.type === "result") {
+          title = chunk.result.title;
+          summary = chunk.result.summary;
+          estimatedCostUsd = chunk.result.estimatedCostUsd;
+        } else {
+          streamError = chunk.error;
+        }
+      };
+
+      while (true) {
+        const { done, value } = await reader.read();
+
+        if (done) break;
+        buffer += decoder.decode(value, { stream: true });
+        let lineBreak = buffer.indexOf("\n");
+        while (lineBreak >= 0) {
+          const line = buffer.slice(0, lineBreak).trim();
+
+          buffer = buffer.slice(lineBreak + 1);
+          if (line.length > 0) {
+            try {
+              const parsed = StrataLinkBlockStreamChunkSchema.safeParse(JSON.parse(line));
+
+              if (parsed.success) {
+                applyStatus(parsed.data);
+              }
+            } catch {
+              // Ignore malformed stream chunks and continue.
+            }
+          }
+          lineBreak = buffer.indexOf("\n");
+        }
+      }
+
+      if (streamError) {
+        throw new Error(streamError);
+      }
+      if (!summary) {
+        throw new Error("No summary returned");
+      }
+
+      return {
+        title,
+        summary,
+        statusMessage:
+          estimatedCostUsd > 0
+            ? `Summary ready (~$${estimatedCostUsd.toFixed(4)})`
+            : "Summary ready",
+        estimatedCostUsd,
+      };
+    },
+    [noteId, pageId]
+  );
+
+  const onEscalateLink = useCallback(
+    async ({ url }: { blockId: string; url: string }) => {
+      const res = await fetch("/api/prototypes/strata/ingest", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          pageId,
+          op: "url_commit",
+          url,
+        }),
+      });
+      const data = (await res.json()) as { node?: StrataTextSourceNode; error?: string };
+
+      if (!res.ok || !data.node) {
+        throw new Error(data.error || "Unable to import full page");
+      }
+
+      onAppendNodes?.([data.node]);
+      toast.success("Imported full page into saved sources");
+    },
+    [onAppendNodes, pageId]
+  );
 
   return (
     <div
@@ -195,10 +257,24 @@ export function StrataNotepad({
         </div>
       </div>
 
-      <div className="flex min-h-0 flex-1 flex-col [&_form]:min-h-0 [&_form]:flex-1 [&_form]:flex-col [&_fieldset]:contents">
-        <PromptInputProvider key={noteId} initialInput={body}>
-          <StrataPromptNoteChrome body={body} syncFooter={syncFooter} onBodyChange={onBodyChange} />
-        </PromptInputProvider>
+      <div className="flex min-h-0 flex-1 flex-col">
+        <BlockNotepadSurface
+          blocks={blocks}
+          reduceMotion={reduceMotion}
+          onBlocksChange={persistBlocks}
+          onProcessLink={onProcessLink}
+          onEscalateLink={onEscalateLink}
+        />
+      </div>
+      <div className="flex shrink-0 items-center justify-between border-t border-border/15 px-3 py-2">
+        <span className="text-sm font-semibold tabular-nums text-muted-foreground">
+          {wordCount.toLocaleString()} words
+        </span>
+        <span
+          className={cn("text-xs tabular-nums text-muted-foreground", syncFooter.busy ? "animate-pulse" : null)}
+        >
+          {syncFooter.label}
+        </span>
       </div>
     </div>
   );

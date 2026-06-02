@@ -1,8 +1,6 @@
 "use client";
 
-import type { Vector4 } from "@organic-llm/morph-physics";
-
-import { useMorphPhysics } from "@organic-llm/morph-physics/react";
+import { useMorphPhysics, type ShellLayoutInfo, type Vector4 } from "@organic-llm/morph-physics/react";
 import { snapshot } from "@organic-llm/morph-physics";
 import Link from "next/link";
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
@@ -55,8 +53,17 @@ export function MorphInputLayoutDemo() {
     [speedPercent]
   );
 
+  const onShellLayout = useCallback((info: ShellLayoutInfo) => {
+    if (variantRef.current !== "home") {
+      setRelaxHomeComposerMaxWidth(false);
+      return;
+    }
+    setRelaxHomeComposerMaxWidth(info.relaxation.width);
+  }, []);
+
   const { elementRef, reset, morphTo } = useMorphPhysics({
     config: springConfig,
+    onShellLayout,
   });
 
   useEffect(() => {
@@ -72,10 +79,6 @@ export function MorphInputLayoutDemo() {
       variantRef.current = next;
       setLayout(next);
       const target = next === "home" ? hv : cv;
-
-      if (next === "home") {
-        setRelaxHomeComposerMaxWidth(true);
-      }
 
       morphTo(target);
     },
@@ -101,10 +104,6 @@ export function MorphInputLayoutDemo() {
     const current = variantRef.current === "home" ? hv : cv;
 
     reset(current);
-
-    if (variantRef.current === "home") {
-      setRelaxHomeComposerMaxWidth(false);
-    }
   }, [reset]);
 
   useLayoutEffect(() => {
@@ -117,48 +116,6 @@ export function MorphInputLayoutDemo() {
 
   useEffect(() => {
     variantRef.current = layout;
-  }, [layout]);
-
-  /** Until the live shell matches the home reference rect, relax AiInputForm max-w so it fills the physics box (chat→home). */
-  useEffect(() => {
-    if (layout !== "home") {
-      setRelaxHomeComposerMaxWidth(false);
-      return;
-    }
-
-    let raf = 0;
-    let lastRelax = false;
-    const settleTol = 1;
-
-    const tick = () => {
-      const stage = stageRef.current;
-      const el = elementRef.current;
-      const hv = homeVecRef.current;
-
-      if (!stage || !el || !hv) {
-        raf = requestAnimationFrame(tick);
-        return;
-      }
-
-      const cur = snapshot(el, stage);
-      const l1 =
-        Math.abs(cur.x - hv.x) +
-        Math.abs(cur.y - hv.y) +
-        Math.abs(cur.w - hv.w) +
-        Math.abs(cur.h - hv.h);
-      const nextRelax = l1 > settleTol;
-
-      if (nextRelax !== lastRelax) {
-        lastRelax = nextRelax;
-        setRelaxHomeComposerMaxWidth(nextRelax);
-      }
-
-      raf = requestAnimationFrame(tick);
-    };
-
-    raf = requestAnimationFrame(tick);
-
-    return () => cancelAnimationFrame(raf);
   }, [layout]);
 
   useEffect(() => {

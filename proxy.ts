@@ -54,8 +54,12 @@ export default clerkMiddleware(async (auth, req) => {
   // Create a base response we can mutate
   const res = NextResponse.next();
 
-  // Exclude webhooks from protection
-  if (isProtectedRoute(req) && !req.nextUrl.pathname.startsWith("/api/webhooks")) {
+  // Exclude webhooks and the cron-secret-guarded good-news job from Clerk protection
+  if (
+    isProtectedRoute(req) &&
+    !req.nextUrl.pathname.startsWith("/api/webhooks") &&
+    !req.nextUrl.pathname.startsWith("/api/good-news/cron")
+  ) {
     await auth.protect();
   }
 

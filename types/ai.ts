@@ -1,3 +1,5 @@
+import type { KanbanCommand } from "@/lib/schemas/kanban";
+
 import { UIMessage } from "ai";
 
 import { ExaSearchResultSource } from "@/lib/exa/types";
@@ -25,6 +27,8 @@ export type ChatUIMessage = UIMessage<
       message?: string;
       sources?: ExaSearchResultSource[];
     };
+    /** Ergon puppet channel: schema-validated kanban command streamed to the client store. */
+    kanban?: KanbanCommand;
   }
 >;
 

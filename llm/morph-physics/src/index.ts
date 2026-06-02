@@ -4,6 +4,11 @@
  */
 export * from "./constants";
 export * from "./morphUtils";
+export {
+  suggestLayoutConstraintRelaxation,
+  type LayoutConstraintRelaxation,
+  type ShellLayoutInfo,
+} from "./layoutRelaxation";
 export * from "./physics/frameLoop";
 export { solveSpring, solveSpringVector4 } from "./physics/springSolver";
 export * from "./schemas/physicsSchemas";

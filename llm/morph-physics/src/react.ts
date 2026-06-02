@@ -7,4 +7,9 @@ export {
   type UseMorphPhysicsOutput,
   type UseMorphPhysicsParams,
   type Vector4,
+  type ShellLayoutInfo,
 } from "./react/useMorphPhysics";
+export {
+  suggestLayoutConstraintRelaxation,
+  type LayoutConstraintRelaxation,
+} from "./layoutRelaxation";

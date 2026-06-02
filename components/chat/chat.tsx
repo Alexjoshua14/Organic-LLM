@@ -13,6 +13,7 @@ import { Conversation, ConversationScrollButton } from "../third-party/ai-elemen
 
 import { ChatThread, MEMORY_PANEL_RESERVE_PADDING } from "./chat-thread";
 import { CoreInput } from "./core-input";
+import { ChatStylePicker } from "./chat-style-picker";
 
 import { MemoryEphemeralCards } from "@/components/memory/memory-ephemeral-cards";
 import { MemoryLens } from "@/components/memory/memory-lens";
@@ -32,6 +33,9 @@ import { ChatModel, DEFAULT_CHAT_MODEL } from "@/lib/schemas/chat";
 import { getStrataAssistantPersona } from "@/lib/personas/strata-assistant";
 import { ChatAIActionEnum } from "@/types/ai";
 import { getChatErrorMessage } from "@/lib/chat/error-messages";
+import { getChatStyle } from "@/lib/chat/chat-style-store";
+import { applyKanbanCommand } from "@/lib/kanban/store";
+import { safeParseKanbanCommand } from "@/lib/schemas/kanban";
 const logger = createLogger("components/chat/chat");
 
 export type ChatProps = {
@@ -152,6 +156,7 @@ export const Chat: React.FC<ChatProps> = ({
               ...strataPageTools,
               speechFriendly: useSpeechFriendlyRef.current,
               experience,
+              ...(experience === "arcadia" ? { chatStyle: getChatStyle(id) } : {}),
               ...(strataPageId ? { strataPageId } : {}),
               zeroDataRetention: getSettings().zeroDataRetention,
               // Only include persistedSchemas in payload if true
@@ -168,7 +173,13 @@ export const Chat: React.FC<ChatProps> = ({
         /** Side channel for UI events */
         logger.log("chat", JSON.stringify(data, null, 2));
 
-        if (data.type === "data-mem0-get") {
+        if (data.type === "data-kanban") {
+          const parsed = safeParseKanbanCommand(data.data);
+
+          if (parsed.ok && id) {
+            applyKanbanCommand(id, parsed.command);
+          }
+        } else if (data.type === "data-mem0-get") {
           const payload = data.data as { memories?: { memory: string }[] };
 
           setMem0Retrieved(payload.memories ?? []);
@@ -355,8 +366,12 @@ export const Chat: React.FC<ChatProps> = ({
       >
         <ChatThread
           aiActionPayload={aiAction}
+          chatId={id}
           contentClassName={persona === "remy" ? MEMORY_PANEL_RESERVE_PADDING : undefined}
           messages={messages}
+          renderEmptyState={
+            experience === "arcadia" ? () => <ChatStylePicker chatId={id} /> : undefined
+          }
         />
         {persona === "remy" && (
           <MemoryEphemeralCards
