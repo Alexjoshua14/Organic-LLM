@@ -60,7 +60,7 @@ const REASONING_IDS_ZDR: GatewayModelId[] = [
 /** When ZDR is off, non-ZDR reasoning models are allowed. */
 const REASONING_IDS_ANY: GatewayModelId[] = [
   "anthropic/claude-sonnet-4.6",
-  "perplexity/sonar-reasoning",
+  "perplexity/sonar-pro",
   "openai/gpt-5.4",
 ];
 
