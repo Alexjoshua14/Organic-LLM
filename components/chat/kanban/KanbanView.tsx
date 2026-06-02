@@ -69,7 +69,7 @@ export function KanbanView({ threadId, view }: KanbanViewProps) {
         </button>
       </div>
 
-      <div className="px-3 py-3">
+      <div className="max-h-[60vh] overflow-y-auto px-3 py-3">
         {view.summary ? <p className="mb-3 text-xs text-muted-foreground">{view.summary}</p> : null}
 
         {items.length === 0 ? (

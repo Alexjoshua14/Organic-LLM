@@ -9,7 +9,7 @@ import { KanbanCard } from "./KanbanCard";
 export function KanbanColumn({ group }: { group: KanbanColumnGroup }) {
   return (
     <div className="flex min-w-0 flex-col gap-2">
-      <div className="flex items-center justify-between px-0.5">
+      <div className="sticky top-0 z-10 flex items-center justify-between rounded bg-background-tertiary/90 px-0.5 py-1 backdrop-blur-md">
         <span className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
           {group.label}
         </span>
