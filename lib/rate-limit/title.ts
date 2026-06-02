@@ -1,6 +1,7 @@
 import { Ratelimit } from "@upstash/ratelimit";
 
 import { redis } from "@/lib/redis/redis";
+import { runLimiter } from "@/lib/rate-limit/run-limiter";
 
 /** Global: 20 title generations per hour per user (sliding). */
 const titleGlobalLimiter = new Ratelimit({
@@ -54,7 +55,9 @@ export async function checkTitleGenerationLimit(
   userId: string,
   chatId: string
 ): Promise<RateLimitResult> {
-  const global = await titleGlobalLimiter.limit(userId);
+  const global = await runLimiter("checkTitleGenerationLimit:global", () =>
+    titleGlobalLimiter.limit(userId)
+  );
 
   if (!global.success) {
     return {
@@ -64,7 +67,9 @@ export async function checkTitleGenerationLimit(
   }
 
   const perChatKey = `${userId}:${chatId}`;
-  const perChat = await titlePerChatLimiter.limit(perChatKey);
+  const perChat = await runLimiter("checkTitleGenerationLimit:perChat", () =>
+    titlePerChatLimiter.limit(perChatKey)
+  );
 
   if (!perChat.success) {
     return {
@@ -86,7 +91,9 @@ export async function checkStrataTitleGenerationLimit(
   userId: string,
   pageId: string
 ): Promise<RateLimitResult> {
-  const global = await titleGlobalLimiter.limit(userId);
+  const global = await runLimiter("checkStrataTitleGenerationLimit:global", () =>
+    titleGlobalLimiter.limit(userId)
+  );
 
   if (!global.success) {
     return {
@@ -96,7 +103,9 @@ export async function checkStrataTitleGenerationLimit(
   }
 
   const perStrataKey = `${userId}:${pageId}`;
-  const perStrata = await titlePerStrataPageLimiter.limit(perStrataKey);
+  const perStrata = await runLimiter("checkStrataTitleGenerationLimit:perStrata", () =>
+    titlePerStrataPageLimiter.limit(perStrataKey)
+  );
 
   if (!perStrata.success) {
     return {
@@ -119,7 +128,9 @@ export async function checkStrataClipboardSourceTitleLimit(
   userId: string,
   pageId: string
 ): Promise<RateLimitResult> {
-  const global = await strataClipboardTitleGlobalLimiter.limit(userId);
+  const global = await runLimiter("checkStrataClipboardSourceTitleLimit:global", () =>
+    strataClipboardTitleGlobalLimiter.limit(userId)
+  );
 
   if (!global.success) {
     return {
@@ -129,7 +140,9 @@ export async function checkStrataClipboardSourceTitleLimit(
   }
 
   const perPageKey = `${userId}:${pageId}`;
-  const perPage = await strataClipboardTitlePerPageLimiter.limit(perPageKey);
+  const perPage = await runLimiter("checkStrataClipboardSourceTitleLimit:perPage", () =>
+    strataClipboardTitlePerPageLimiter.limit(perPageKey)
+  );
 
   if (!perPage.success) {
     return {

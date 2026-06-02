@@ -1,6 +1,7 @@
 import { Ratelimit } from "@upstash/ratelimit";
 
 import { redis } from "@/lib/redis/redis";
+import { runLimiter } from "@/lib/rate-limit/run-limiter";
 
 const profileGenerationLimiter = new Ratelimit({
   redis,
@@ -27,7 +28,9 @@ export type RateLimitResult = {
 };
 
 export async function checkProfileTreeGenerationLimit(userId: string): Promise<RateLimitResult> {
-  const { success, remaining } = await profileGenerationLimiter.limit(userId);
+  const { success, remaining } = await runLimiter("checkProfileTreeGenerationLimit", () =>
+    profileGenerationLimiter.limit(userId)
+  );
 
   if (!success) {
     return {
@@ -40,7 +43,9 @@ export async function checkProfileTreeGenerationLimit(userId: string): Promise<R
 }
 
 export async function checkProfileTreeEditLimit(userId: string): Promise<RateLimitResult> {
-  const { success, remaining } = await profileEditLimiter.limit(userId);
+  const { success, remaining } = await runLimiter("checkProfileTreeEditLimit", () =>
+    profileEditLimiter.limit(userId)
+  );
 
   if (!success) {
     return {

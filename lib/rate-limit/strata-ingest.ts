@@ -3,6 +3,7 @@ import type { RateLimitResult } from "./title";
 import { Ratelimit } from "@upstash/ratelimit";
 
 import { redis } from "@/lib/redis/redis";
+import { runLimiter } from "@/lib/rate-limit/run-limiter";
 
 const ingestGlobalLimiter = new Ratelimit({
   redis,
@@ -39,7 +40,9 @@ export async function checkStrataNotepadUpdateLimit(
   userId: string,
   pageId: string
 ): Promise<RateLimitResult> {
-  const global = await notepadGlobalLimiter.limit(userId);
+  const global = await runLimiter("checkStrataNotepadUpdateLimit:global", () =>
+    notepadGlobalLimiter.limit(userId)
+  );
 
   if (!global.success) {
     return {
@@ -48,7 +51,9 @@ export async function checkStrataNotepadUpdateLimit(
     };
   }
 
-  const perPage = await notepadPerPageLimiter.limit(`${userId}:${pageId}`);
+  const perPage = await runLimiter("checkStrataNotepadUpdateLimit:perPage", () =>
+    notepadPerPageLimiter.limit(`${userId}:${pageId}`)
+  );
 
   if (!perPage.success) {
     return {
@@ -73,7 +78,9 @@ export async function checkStrataIngestLimit(
   userId: string,
   pageId: string
 ): Promise<RateLimitResult> {
-  const global = await ingestGlobalLimiter.limit(userId);
+  const global = await runLimiter("checkStrataIngestLimit:global", () =>
+    ingestGlobalLimiter.limit(userId)
+  );
 
   if (!global.success) {
     return {
@@ -83,7 +90,9 @@ export async function checkStrataIngestLimit(
   }
 
   const perPageKey = `${userId}:${pageId}`;
-  const perPage = await ingestPerPageLimiter.limit(perPageKey);
+  const perPage = await runLimiter("checkStrataIngestLimit:perPage", () =>
+    ingestPerPageLimiter.limit(perPageKey)
+  );
 
   if (!perPage.success) {
     return {
