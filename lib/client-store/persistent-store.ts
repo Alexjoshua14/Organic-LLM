@@ -17,10 +17,24 @@ export type PersistentStore<T> = {
   useStore: <S>(selector: (state: T) => S) => S;
 };
 
-export function createPersistentStore<T>(storageKey: string, initialState: T): PersistentStore<T> {
+export type CreatePersistentStoreOptions<T> = {
+  /**
+   * Optional validator run on the value read from localStorage. Return the
+   * (narrowed) state to accept it, or `null` to discard stale/corrupt data and
+   * fall back to `initialState`. Without it, any object is accepted verbatim.
+   */
+  validate?: (raw: unknown) => T | null;
+};
+
+export function createPersistentStore<T>(
+  storageKey: string,
+  initialState: T,
+  options?: CreatePersistentStoreOptions<T>
+): PersistentStore<T> {
   let state = initialState;
   let hydrated = false;
   const listeners = new Set<() => void>();
+  const validate = options?.validate;
 
   function hydrate(): void {
     if (hydrated) return;
@@ -32,7 +46,11 @@ export function createPersistentStore<T>(storageKey: string, initialState: T): P
       if (raw) {
         const parsed = JSON.parse(raw) as unknown;
 
-        if (parsed && typeof parsed === "object") {
+        if (validate) {
+          const validated = validate(parsed);
+
+          if (validated !== null) state = validated;
+        } else if (parsed && typeof parsed === "object") {
           state = parsed as T;
         }
       }

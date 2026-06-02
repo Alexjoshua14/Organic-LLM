@@ -17,6 +17,21 @@ export function optionalStringCatch() {
   return z.string().optional().catch(undefined);
 }
 
+/**
+ * An http(s)-only URL. `z.string().url()` (and `z.url()`) accept dangerous
+ * schemes like `javascript:`, `data:`, and `vbscript:`; since gen-UI URLs are
+ * model-supplied and rendered into `href`, restrict to http/https to prevent
+ * click-triggered script execution via prompt injection.
+ */
+export function httpUrl() {
+  return z
+    .string()
+    .url()
+    .refine((value) => /^https?:\/\//i.test(value), {
+      message: "URL must use http(s)",
+    });
+}
+
 /** Catches invalid array items while keeping valid ones. */
 export function stringArrayWithCatch(max: number) {
   return z

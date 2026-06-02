@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-import { GEN_UI_VERSION, optionalStringCatch } from "./shared";
+import { GEN_UI_VERSION, httpUrl } from "./shared";
 
 const AnswerCardSectionSchema = z.object({
   heading: z.string(),
@@ -10,7 +10,7 @@ const AnswerCardSectionSchema = z.object({
 
 const AnswerCardSourceSchema = z.object({
   label: z.string().catch("Source"),
-  url: z.string().url().optional().catch(undefined),
+  url: httpUrl().optional().catch(undefined),
 });
 
 const AnswerCardFooterSchema = z.object({

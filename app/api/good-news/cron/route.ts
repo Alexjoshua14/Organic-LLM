@@ -1,3 +1,5 @@
+import { timingSafeEqual } from "crypto";
+
 import { NextResponse } from "next/server";
 
 import { upsertDigest } from "@/data/supabase/good-news";
@@ -16,6 +18,17 @@ export const dynamic = "force-dynamic";
  * when CRON_SECRET is set as an env var. We also accept the same bearer for manual
  * triggers. If no secret is configured, the endpoint is closed.
  */
+/** Constant-time string compare; false (no early-out) when lengths differ. */
+function safeEqual(a: string, b: string): boolean {
+  const encoder = new TextEncoder();
+  const aBytes = encoder.encode(a);
+  const bBytes = encoder.encode(b);
+
+  if (aBytes.length !== bBytes.length) return false;
+
+  return timingSafeEqual(aBytes, bBytes);
+}
+
 function isAuthorized(req: Request): boolean {
   const secret = process.env.CRON_SECRET;
 
@@ -23,7 +36,9 @@ function isAuthorized(req: Request): boolean {
 
   const header = req.headers.get("authorization");
 
-  return header === `Bearer ${secret}`;
+  if (!header) return false;
+
+  return safeEqual(header, `Bearer ${secret}`);
 }
 
 async function handle(req: Request) {

@@ -48,7 +48,18 @@ export const maxDuration = 30;
 const logger = createLogger(`app/api/chat/route.ts`);
 
 export async function POST(req: Request) {
-  const body = await req.json();
+  let body: unknown;
+
+  try {
+    body = await req.json();
+  } catch {
+    logger.error("POST", "Invalid request body: malformed_json");
+
+    return new Response(JSON.stringify({ error: "Invalid JSON", status: 400 }), {
+      status: 400,
+      headers: { "Content-Type": "application/json" },
+    });
+  }
 
   const parseResult = ChatRequestSchema.safeParse(body);
 

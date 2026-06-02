@@ -31,9 +31,39 @@ export type KanbanStoreState = {
   boards: Record<string, KanbanBoardState>;
 };
 
-const store = createPersistentStore<KanbanStoreState>("organic-llm.kanban.v1", {
-  boards: {},
-});
+/** Keep only structurally-sound boards from a persisted blob; drop the rest. */
+function validatePersistedState(raw: unknown): KanbanStoreState | null {
+  if (!raw || typeof raw !== "object") return null;
+  const boardsRaw = (raw as { boards?: unknown }).boards;
+
+  if (!boardsRaw || typeof boardsRaw !== "object") return null;
+
+  const boards: Record<string, KanbanBoardState> = {};
+
+  for (const [threadId, board] of Object.entries(boardsRaw as Record<string, unknown>)) {
+    if (!board || typeof board !== "object") continue;
+    const b = board as Partial<KanbanBoardState>;
+
+    if (
+      b.meta &&
+      typeof b.meta === "object" &&
+      b.items &&
+      typeof b.items === "object" &&
+      Array.isArray(b.order) &&
+      typeof b.tick === "number"
+    ) {
+      boards[threadId] = board as KanbanBoardState;
+    }
+  }
+
+  return { boards };
+}
+
+const store = createPersistentStore<KanbanStoreState>(
+  "organic-llm.kanban.v1",
+  { boards: {} },
+  { validate: validatePersistedState }
+);
 
 function createBoard(meta: KanbanBoardMeta): KanbanBoardState {
   return {
