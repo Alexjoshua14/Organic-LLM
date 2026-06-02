@@ -1,4 +1,9 @@
+import type { GatewayModelId } from "@ai-sdk/gateway";
+
 import z from "zod";
+
+import { CHAT_EXPERIENCES, parseChatExperience } from "@/lib/chat/chat-experience";
+import { parseChatStyle } from "@/lib/chat/chat-style";
 
 // Message role enum
 export const MessageRole = z.enum(["user", "assistant", "system"]);
@@ -6,38 +11,75 @@ export const MessageRole = z.enum(["user", "assistant", "system"]);
 // Message schema kind enum
 export const MessageSchemaKind = z.enum(["ui_message"]);
 
-// Approved chat models enum
-export const ChatModelSchema = z.object({
-  id: z.string(),
+/** Sentinel: resolved on the server before any gateway / streamText call. */
+export const AUTO_CHAT_MODEL_ID = "organic-llm/auto" as const;
+
+/** Non-Delphi `AUTO_CHAT_MODEL_ID` resolves to this gateway id (single policy knob). */
+export const AUTO_RESOLVED_SONNET_MODEL_ID = "anthropic/claude-sonnet-4.6" as const;
+
+export type ChatModelId = GatewayModelId | typeof AUTO_CHAT_MODEL_ID;
+
+export type ChatModel = {
+  id: ChatModelId;
+  name: string;
+  supportsZeroDataRetention?: boolean;
+};
+
+export const ChatModelSchema: z.ZodType<ChatModel> = z.object({
+  id: z.union([z.literal(AUTO_CHAT_MODEL_ID), z.string()]),
   name: z.string(),
-});
+  supportsZeroDataRetention: z.boolean().optional(),
+}) as z.ZodType<ChatModel>;
 
-export type ChatModel = z.infer<typeof ChatModelSchema>;
+/** Re-export for call sites that only need the gateway model id union. */
+export type { GatewayModelId };
 
-export const ChatModels: ChatModel[] = [
-  { id: "openai/gpt-5.2", name: "GPT-5.2" },
-  { id: "openai/gpt-5", name: "GPT-5" },
-  { id: "openai/gpt-5-mini", name: "GPT-5 Mini" },
-  { id: "openai/gpt-5-nano", name: "GPT-5 Nano" },
-  { id: "google/gemini-3-pro-preview", name: "Gemini 3 Pro" },
-  { id: "google/gemini-3-flash", name: "Gemini 3 Flash" },
-  { id: "google/gemini-2.5-flash-lite", name: "Gemini 2.5 Flash Lite" },
-  { id: "anthropic/claude-opus-4-6", name: "Claude Opus 4.6" },
-  { id: "anthropic/claude-sonnet-4.6", name: "Claude Sonnet 4.6" },
-  { id: "anthropic/claude-haiku-4.5", name: "Claude Haiku 4.5" },
-  { id: "perplexity/sonar-pro", name: "Sonar Pro" },
-  { id: "perplexity/sonar-reasoning-pro", name: "Sonar Reasoning Pro" },
-  { id: "perplexity/sonar-reasoning", name: "Sonar Reasoning" },
-  { id: "moonshotai/kimi-k2.5", name: "Kimi v2.5" },
-  { id: "deepseek/deepseek-v3.2", name: "DeepSeek v3.2" },
-  { id: "openai/gpt-oss-120b", name: "GPT OSS [120b]" },
-  { id: "openai/gpt-oss-20b", name: "GPT OSS [20b]" },
-  { id: "openai/gpt-4o", name: "GPT-4o" },
-  { id: "openai/gpt-4o-mini", name: "GPT-4o Mini" },
-  { id: "openai/gpt-4-turbo", name: "GPT-4 Turbo" },
-] as const;
+export const AUTO_CHAT_MODEL: ChatModel = {
+  id: AUTO_CHAT_MODEL_ID,
+  name: "Auto",
+  supportsZeroDataRetention: true,
+};
 
-export const DEFAULT_CHAT_MODEL: ChatModel = ChatModels[0];
+const gatewayChatModels: ChatModel[] = [
+  { id: "openai/gpt-5.4", name: "GPT-5.4", supportsZeroDataRetention: true },
+  { id: "openai/gpt-5.4-mini", name: "GPT-5 Mini", supportsZeroDataRetention: true },
+  { id: "openai/gpt-5.4-nano", name: "GPT-5 Nano", supportsZeroDataRetention: true },
+  { id: "google/gemini-3.1-pro-preview", name: "Gemini 3.1 Pro", supportsZeroDataRetention: true },
+  { id: "google/gemini-3-flash", name: "Gemini 3 Flash", supportsZeroDataRetention: true },
+  {
+    id: "google/gemini-2.5-flash-lite",
+    name: "Gemini 2.5 Flash Lite",
+    supportsZeroDataRetention: true,
+  },
+  { id: "anthropic/claude-opus-4.7", name: "Claude Opus 4.7", supportsZeroDataRetention: true },
+  {
+    id: "anthropic/claude-sonnet-4.6",
+    name: "Claude Sonnet 4.6",
+    supportsZeroDataRetention: true,
+  },
+  { id: "anthropic/claude-haiku-4.5", name: "Claude Haiku 4.5", supportsZeroDataRetention: true },
+  { id: "perplexity/sonar-pro", name: "Sonar Pro", supportsZeroDataRetention: false },
+  {
+    id: "perplexity/sonar-reasoning-pro",
+    name: "Sonar Reasoning Pro",
+    supportsZeroDataRetention: false,
+  },
+  { id: "perplexity/sonar-reasoning", name: "Sonar Reasoning", supportsZeroDataRetention: false },
+  { id: "moonshotai/kimi-k2.5", name: "Kimi v2.5", supportsZeroDataRetention: true },
+  { id: "deepseek/deepseek-v3.2", name: "DeepSeek v3.2", supportsZeroDataRetention: true },
+  {
+    id: "deepseek/deepseek-v3.2-thinking",
+    name: "DeepSeek v3.2 Thinking",
+    supportsZeroDataRetention: true,
+  },
+  { id: "openai/gpt-oss-120b", name: "GPT OSS [120b]", supportsZeroDataRetention: true },
+  { id: "openai/gpt-oss-20b", name: "GPT OSS [20b]", supportsZeroDataRetention: true },
+];
+
+/** First entry is Auto; default fixed model remains the first real gateway id. */
+export const ChatModels: ChatModel[] = [AUTO_CHAT_MODEL, ...gatewayChatModels];
+
+export const DEFAULT_CHAT_MODEL: ChatModel = gatewayChatModels[0];
 
 // Thread schema
 export const ThreadCreate = z.object({
@@ -122,6 +164,18 @@ export const UIMessageSchema = z
     message: "Message must include parts or content",
   });
 
+export const StrataAssistantPersonaRequestSchema = z.enum(["remy", "spark", "aion", "prometheus"]);
+
+/** Re-export for callers that branch on product mode. */
+export type { ChatExperience } from "@/lib/chat/chat-experience";
+
+const ChatExperienceSchema = z.preprocess((val) => {
+  if (val === undefined || val === null) return undefined;
+  if (typeof val !== "string") return undefined;
+
+  return parseChatExperience(val);
+}, z.enum(CHAT_EXPERIENCES).optional());
+
 export const ChatRequestSchema = z.object({
   message: UIMessageSchema,
   id: z.uuid(),
@@ -129,6 +183,21 @@ export const ChatRequestSchema = z.object({
   webSearch: z.boolean().optional(),
   memory: z.boolean().optional().default(true),
   speechFriendly: z.boolean().optional(),
+  /** When false, chat history retrieval tools are omitted. Default true for backward compatibility. */
+  messageSearch: z.boolean().optional().default(true),
+  /** Strata page assistant: optional knowledge graph tools (stubbed persistence). */
+  knowledgeSearch: z.boolean().optional().default(false),
+  /** Strata page assistant: persona affecting system prompt and default model client-side. */
+  strataAssistantPersona: StrataAssistantPersonaRequestSchema.optional(),
+  /** Client hint: which chat experience initiated the request (case-insensitive; unknown values omitted). */
+  experience: ChatExperienceSchema,
+  /** Client hint: selected structured chat flow (e.g. `ergon` kanban). Unknown values omitted. */
+  chatStyle: z.preprocess(
+    (val) => (typeof val === "string" ? parseChatStyle(val) : undefined),
+    z.enum(["default", "ergon", "scribe"]).optional()
+  ),
+  /** Strata page assistant: server loads this page for grounding when `experience` is `strata_page`. */
+  strataPageId: z.string().uuid().optional(),
   /** When true, request is in zero-data-retention mode (no persistence). */
   zeroDataRetention: z.boolean().optional(),
   /** Client hint: thread already has a title; server can skip ensureChatHasTitle and optionally getThreadHasTitle. */

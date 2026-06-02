@@ -6,6 +6,7 @@ import { useSidebar } from "../third-party/ui/sidebar";
 
 import { UnifiedChatInput } from "./unified-chat-input";
 
+import { useSubmitOnEnter } from "@/hooks/use-mobile";
 import { ChatModel } from "@/lib/schemas/chat";
 
 type ChatInputProps = {
@@ -25,6 +26,7 @@ export const ChatInput: React.FC<ChatInputProps> = ({
   selectedModelRef,
 }) => {
   const { isMobile, state } = useSidebar();
+  const submitOnEnter = useSubmitOnEnter();
   const [input, setInput] = useState("");
   const [error, setError] = useState<boolean>(false);
   const [selectedModel, setSelectedModel] = useState<ChatModel>(selectedModelRef.current);
@@ -78,12 +80,12 @@ export const ChatInput: React.FC<ChatInputProps> = ({
 
   const handleKeyDown = useCallback(
     (e: KeyboardEvent<HTMLInputElement>) => {
-      if (e.key === "Enter" && !e.shiftKey) {
+      if (e.key === "Enter" && !e.shiftKey && submitOnEnter) {
         e.preventDefault();
         handleSendMessage(e as any);
       }
     },
-    [handleSendMessage]
+    [handleSendMessage, submitOnEnter]
   );
 
   return (

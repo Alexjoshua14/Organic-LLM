@@ -46,6 +46,7 @@ export async function POST(req: NextRequest) {
     });
   } catch (error) {
     const e = error instanceof Error ? error : new Error(String(error));
+
     logger.error("Transform Route", `Error transforming text: ${e.name}`);
 
     return NextResponse.json({ error: "Failed to transform text" }, { status: 500 });

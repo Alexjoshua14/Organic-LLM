@@ -1,7 +1,7 @@
 "use client";
 
 /**
- * Throttled theme hook. Uses the root-level ThrottledThemeProvider;
- * all theme toggles go through it and are capped at once per second.
+ * Theme hook backed by ThrottledThemeProvider: `theme` reflects the latest
+ * user choice immediately; the real next-themes apply is debounced (~500ms idle).
  */
 export { useThrottledTheme } from "@/lib/theme/ThrottledThemeProvider";

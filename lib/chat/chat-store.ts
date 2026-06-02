@@ -1,14 +1,41 @@
 "use server";
 
+/**
+ * Server-side chat persistence and **context assembly** for LLM routes.
+ *
+ * **High-signal entry points**
+ * - {@link getContext} — system prompt + summary + memories + optional Strata persisted state;
+ *   returns recent `UIMessage[]` **without** the current turn (callers append the request message).
+ * - {@link saveChat} / {@link loadChat} — thread storage.
+ *
+ * **Memory:** Non-Arcadia uses a single Mem0 search; Arcadia uses rewrite → parallel search →
+ * tiered injection (see `lib/memory/*` and internal `docs/architecture/context-building.md`).
+ */
+import type { MemoryItemType } from "@/lib/schemas/memory";
+
 import { UIMessage } from "ai";
 import { auth } from "@clerk/nextjs/server";
-import { SearchResult } from "mem0ai/oss";
 
 import { createLogger } from "../logger";
 import { SYSTEM_PROMPT, PROMETHEUS_SYSTEM_PROMPT } from "../system-prompt/prompt-v0";
 import SPARK_SYSTEM_PROMPT from "../system-prompt";
 import { getStateString } from "../supabase/organicStateStore";
 import { searchMemoriesForUser } from "../memory/operations";
+import { searchMemoriesWithL1Cache } from "../memory/memory-search-cache";
+import {
+  ARCADIA_MEMORY_MAX_INJECTED,
+  ARCADIA_MEMORY_MIN_SCORE,
+  ARCADIA_MEMORY_OVERFETCH,
+  bucketMemoriesByTier,
+  buildArcadiaMemoryInventoryText,
+  formatMemoriesForPrompt,
+  selectMemoriesForPrompt,
+} from "../memory/memory-relevance";
+import {
+  buildRecentTurnsForMemoryRewrite,
+  mergeMemorySearchResultsByMaxScore,
+  rewriteMemoryQuery,
+} from "../memory/query-rewriter";
 import {
   CodeBlockSchema,
   ContextPiece,
@@ -32,11 +59,12 @@ import {
   addMessage,
   updateChatStream,
 } from "@/data/supabase/chat";
-import {
-  upsertMessagesWithAdmin,
-  updateChatStreamWithAdmin,
-} from "@/data/supabase/chat-admin";
+import { upsertMessagesWithAdmin, updateChatStreamWithAdmin } from "@/data/supabase/chat-admin";
 import { Result, SimpleResult } from "@/types";
+import {
+  type ChatExperience,
+  isArcadiaStyleMemoryReadExperience,
+} from "@/lib/chat/chat-experience";
 import { Thread } from "@/lib/schemas/chat";
 import { getSupabaseUserId } from "@/data/supabase/profiles";
 import { getSupabaseUserIdWithAdmin } from "@/data/supabase/profiles-admin";
@@ -48,13 +76,28 @@ import {
 
 const logger = createLogger(`util/chat-store.ts`);
 
+/** Inputs for {@link getContext}. */
 interface getContextProps {
+  /** Thread id in Supabase. */
   chatId: string;
+  /** `getNMessages` window size; Strata callers often use 30, default chat 10. */
   limit?: number;
+  /** Selects base system string (Prometheus / Spark / default). */
   persona?: "prometheus" | "spark";
+  /**
+   * Current user turn. Text is used for Mem0 query / rewrite; the object itself is **not**
+   * mutated — routes merge this message onto returned history for `streamText`.
+   */
   message: UIMessage;
+  /** When false, skips all memory fetches and memory tool hints in context. */
   memoryEnabled?: boolean;
+  /** Strata experiences: load persisted UI schema blobs into context. */
   persistedSchemasEnabled?: boolean;
+  /**
+   * Product mode string from the client. **`arcadia` + memory:** rewrite + parallel Mem0 +
+   * tiered prompt + inventory block. Other modes use a single Mem0 search when memory is on.
+   */
+  experience?: ChatExperience;
 }
 
 export async function createChat(): Promise<Result<string>> {
@@ -151,17 +194,21 @@ export async function saveChat({
 
   if (useAdmin) {
     const clerkUser = await auth();
+
     if (!clerkUser?.userId) {
       logger.error("saveChat", "useAdminForSave requires an authenticated user");
+
       return { ok: false, error: new Error("Unauthorized") };
     }
     const currentSbUserIdResult = await getSupabaseUserIdWithAdmin(clerkUser.userId);
+
     if (
       currentSbUserIdResult.error ||
       currentSbUserIdResult.data === null ||
       currentSbUserIdResult.data !== ownerId
     ) {
       logger.error("saveChat", "useAdminForSave ownerId does not match authenticated user");
+
       return { ok: false, error: new Error("Unauthorized") };
     }
   }
@@ -395,16 +442,18 @@ export async function getMessagesForChatPrompt({
   };
 }
 
+/**
+ * **Legacy / alternate** context path for Prometheus + Spark HTTP routes (`lib/llm/context`, Spark route).
+ * Loads messages + summary (+ Spark organic state). **No Mem0** — use {@link getContext} for memory-aware chat.
+ *
+ * @remarks Differs from `getContext`: no `message` param, no Arcadia tiering, less parallel I/O.
+ */
 export async function getContextAndMessagesChatPrompt({
   chatId,
   limit,
   persona,
 }: getContextProps): Promise<Result<{ prompt: string; messages: UIMessage[] }, string>> {
-  /**
-   * TODO: Determine whether to error out on failing to fetch messages or
-   * continue with no messages
-   * TODO: Parallize messages fetching with other async functions
-   */
+  // TODO: Decide fail-fast vs empty messages; parallelize summary fetch with getNMessages.
   const { data: messages, error } = await getNMessages(chatId, limit);
 
   if (error || messages === null) {
@@ -472,6 +521,7 @@ export async function getContextAndMessagesChatPrompt({
   };
 }
 
+/** Shared summary loader for {@link getContextAndMessagesChatPrompt} (keeps error logging consistent). */
 async function getConversationSummaryForChatPrompt(chatId: string): Promise<Result<string>> {
   let conversationSummary = "";
 
@@ -496,32 +546,26 @@ async function getConversationSummaryForChatPrompt(chatId: string): Promise<Resu
   return conversationSummaryResult;
 }
 
-/****************************
- * LATEST VERSION (11/10/25)
- *
- * This version will be centralize all context gathering logic
- * This will grab messages from supabase, persona from wherever, and memories from mem0
- *
- * This will be async where possible to parallelize pieces and avoid wait delays
- *
- ******************************/
 /**
- * Gathers the relevant context pieces for LLM query.
- * Includes:
- *  - System prompt
- *  - Latest Messages, not including current message
- *  - Relevant memories
+ * Assembles the **system-side context string** and **recent history** for one chat turn.
  *
- * Notes:
- *  - Ensure static pieces are placed on the top to enable better caching
- *  - Start longer awaits earlier
+ * ### Pipeline (happy path)
+ * 1. **Identity** — Clerk + Supabase profile → Mem0 user id.
+ * 2. **Kick off I/O** — `getNMessages`, `getConversationSummary`, optional non-Arcadia Mem0 search,
+ *    optional persisted schemas (all `Promise.all` in phase 1).
+ * 3. **Persona** — Push static system prompt first (better provider cache behavior).
+ * 4. **Arcadia memory branch** (if `memoryEnabled && experience === "arcadia"`): after messages resolve,
+ *    {@link rewriteMemoryQuery} → parallel {@link searchMemoriesWithL1Cache} per query →
+ *    {@link mergeMemorySearchResultsByMaxScore} → {@link selectMemoriesForPrompt} + inventory text.
+ * 5. **Assemble** — Summary, memories, tool hint, persisted blocks, "current chat" blurb
+ *    (includes {@link getMessageCount}).
+ * 6. **Logging** — `finally` block logs wall time + per-section token estimates.
  *
+ * ### Return value
+ * - `data.context` — single string passed as system instructions (plus route-specific suffixes).
+ * - `data.messages` — DB-backed recent turns **excluding** `message`; callers append the live user message.
  *
- * @param chatId - The ID of the chat to get context for
- * @param message - The user's current message being sent to LLM
- * @param persona - The persona of the chat (prometheus or spark)
- * @returns - Context
- * @returns - Latest messages
+ * @see `docs/architecture/context-building.md` for dependency and latency notes.
  */
 export async function getContext({
   chatId,
@@ -530,6 +574,7 @@ export async function getContext({
   message,
   memoryEnabled,
   persistedSchemasEnabled = false,
+  experience,
 }: getContextProps): Promise<
   Result<{ context: string; messages: UIMessage[]; memories?: string[] }, string>
 > {
@@ -568,7 +613,6 @@ export async function getContext({
   const contextTokenSizes: Array<{ name: string; tokens: number }> = [];
 
   try {
-    const promises: Promise<any>[] = [];
     /***
      * Step 1
      *
@@ -576,7 +620,6 @@ export async function getContext({
      ***/
     const messagesPromise = getNMessages(chatId, limit);
 
-    promises.push(messagesPromise);
     /***
      * Step 2
      *
@@ -585,38 +628,29 @@ export async function getContext({
 
     const conversationSummaryPromise = getConversationSummary(chatId);
 
-    promises.push(conversationSummaryPromise);
-
     /***
      * Step 3
      *
      * Get Memories from Mem0
      ***/
+    // Plaintext-only extraction for Mem0 (multimodal parts ignored for search).
     const userMessage = message.parts
       .filter((part) => part.type === "text")
       .reduce((acc, part) => acc + part.text, "");
 
     logger.log("getContext", `User message length: ${userMessage.length}`);
 
-    if (memoryEnabled) {
-      const memoriesPromise = searchMemoriesForUser(sbUserId, userMessage, {
-        limit: 5,
-      }).then((r) => (r.error ? { results: [] } : r.data!));
+    // Arcadia defers memory to phase 2 (needs DB messages for rewrite transcript).
+    const memNonArcadiaPromise =
+      memoryEnabled && !isArcadiaStyleMemoryReadExperience(experience)
+        ? searchMemoriesForUser(sbUserId, userMessage, { limit: 5 }).then((r) =>
+            r.error ? { results: [] } : r.data!
+          )
+        : Promise.resolve({ results: [] });
 
-      promises.push(memoriesPromise);
-    }
-
-    /***
-     * Step 3b
-     *
-     * Get Persisted Schemas from database
-     */
-
-    if (persistedSchemasEnabled) {
-      const persistedSchemaPromise = getPersistedSchemas(chatId);
-
-      promises.push(persistedSchemaPromise);
-    }
+    const persistedExec = persistedSchemasEnabled
+      ? getPersistedSchemas(chatId)
+      : Promise.resolve({ data: [], error: null });
 
     /***
      * Step 4
@@ -667,8 +701,60 @@ export async function getContext({
      *  - Memories
      */
 
-    const [messagesResult, conversationSummaryResult, memoriesResult, persistedSchemaResult] =
-      await Promise.all(promises);
+    // Slowest of the four dominates latency (usually Supabase and/or Mem0).
+    const [messagesResult, conversationSummaryResult, memNonArcadiaResult, persistedSchemaResult] =
+      await Promise.all([
+        messagesPromise,
+        conversationSummaryPromise,
+        memNonArcadiaPromise,
+        persistedExec,
+      ]);
+
+    let memoriesResult: { results: MemoryItemType[] } = { results: [] };
+    let arcadiaQueryRewriteUsed: boolean | undefined;
+    let arcadiaEffectiveQueryCount: number | undefined;
+
+    if (memoryEnabled && isArcadiaStyleMemoryReadExperience(experience)) {
+      // Query rewrite is only for Mem0 search below. Returned `messages` are DB history only;
+      // routes append the original request `message` unchanged for the main LLM.
+      const historyMessages = messagesResult.data ?? [];
+      const recentTurns = buildRecentTurnsForMemoryRewrite(historyMessages, message);
+      const rewriteT0 = performance.now();
+      const rewrite = await rewriteMemoryQuery(userMessage, recentTurns);
+      const rewriteMs = performance.now() - rewriteT0;
+
+      arcadiaQueryRewriteUsed = rewrite.usedRewrite;
+      arcadiaEffectiveQueryCount = rewrite.queries.length;
+
+      // One parallel Mem0 call per rewritten query; L1 cache is per (user, query, limit).
+      const searchRuns = await Promise.all(
+        rewrite.queries.map((q) => searchMemoriesWithL1Cache(sbUserId, q, ARCADIA_MEMORY_OVERFETCH))
+      );
+
+      const perQuery = searchRuns.map((run, i) => ({
+        q: rewrite.queries[i]!,
+        cacheHit: run.metrics.cacheHit,
+        searchMs: run.metrics.memorySearchMs,
+      }));
+
+      const batches = searchRuns.map((run) =>
+        run.result.error ? [] : (run.result.data?.results ?? [])
+      );
+      const merged = mergeMemorySearchResultsByMaxScore(batches);
+
+      memoriesResult = { results: merged };
+
+      logger.log("getContext", "Arcadia memory pipeline", {
+        rawQuery: userMessage,
+        rewrittenQueries: rewrite.queries,
+        usedRewrite: rewrite.usedRewrite,
+        rewriteMs,
+        perQuery,
+        mergedCount: merged.length,
+      });
+    } else if (memoryEnabled) {
+      memoriesResult = memNonArcadiaResult;
+    }
 
     /***
      * Step 5a
@@ -721,25 +807,55 @@ export async function getContext({
     if (memoryEnabled) {
       let memories = "";
 
-      // TODO: Grab memory objects for streaming back to user
-      let memoriesArray: SearchResult[] = [];
-
       if (memoriesResult.results === null || memoriesResult.results === undefined) {
         logger.error(
           "getContext",
           `Error getting memories: Memories are null\n${JSON.stringify(memoriesResult)}`
         );
+        contextPieces.push({
+          title: "Memories from past conversations:",
+          content: memories,
+        });
+      } else if (isArcadiaStyleMemoryReadExperience(experience)) {
+        // Over-fetch sample → tier stats for inventory + score-trimmed bullets for the model.
+        const items = memoriesResult.results as MemoryItemType[];
+        const tiers = bucketMemoriesByTier(items, ARCADIA_MEMORY_MIN_SCORE);
+        const selected = selectMemoriesForPrompt(items, {
+          maxIncluded: ARCADIA_MEMORY_MAX_INJECTED,
+          minScore: ARCADIA_MEMORY_MIN_SCORE,
+        });
+
+        memories = formatMemoriesForPrompt(selected);
+        const conversationMessagesInContext = messages.length + 1;
+
+        contextPieces.push({
+          title: "Memories from past conversations:",
+          content: memories,
+        });
+
+        contextPieces.push({
+          title: "Memory inventory (Arcadia)",
+          content: buildArcadiaMemoryInventoryText({
+            conversationMessagesInContext,
+            memoriesInjected: selected.length,
+            tiers,
+            overfetchCap: ARCADIA_MEMORY_OVERFETCH,
+            minScore: ARCADIA_MEMORY_MIN_SCORE,
+            queryRewriteUsed: arcadiaQueryRewriteUsed ?? false,
+            effectiveQueryCount: arcadiaEffectiveQueryCount ?? 1,
+          }),
+        });
       } else {
         memories = memoriesResult.results
           .map((result: { memory?: string }) => result.memory)
           .filter((memory: string | undefined): memory is string => memory != null)
           .join("\n");
-      }
 
-      contextPieces.push({
-        title: "Memories from past conversations:",
-        content: memories,
-      });
+        contextPieces.push({
+          title: "Memories from past conversations:",
+          content: memories,
+        });
+      }
 
       contextPieces.push({
         title: "Memory tool usage:",
@@ -769,9 +885,14 @@ export async function getContext({
 
       logger.log("getContext", `persistedSchemaResult: ${JSON.stringify(persistedSchemaResult)}`);
 
-      let persistedSchemaObject = PersistedSchema.decode(persistedSchemaResult.data);
+      const rawPersistedRows = persistedSchemaResult.data ?? [];
+      const persistedSchemaForLog = rawPersistedRows.map((item) => {
+        const parsed = PersistedSchema.safeParse(item);
 
-      logger.log("getContext", `persistedSchemaObject: ${JSON.stringify(persistedSchemaObject)}`);
+        return parsed.success ? parsed.data : item;
+      });
+
+      logger.log("getContext", `persistedSchemaObject: ${JSON.stringify(persistedSchemaForLog)}`);
 
       if (persistedSchemaResult.error) {
         logger.error(
@@ -869,6 +990,7 @@ export async function getContext({
   }
 }
 
+/** Joins ordered sections into one system string (`title` becomes a markdown-ish heading). */
 function combineContextPieces(contextPieces: ContextPiece[]): string {
   return contextPieces
     .map((piece) => `${piece.title ? `${piece.title}:\n` : ""}${piece.content}`)

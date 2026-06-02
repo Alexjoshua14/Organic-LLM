@@ -25,6 +25,7 @@ function safeParse(stored: string | null): UserSettings {
 
 /** One-time migration from legacy organic-llm-font key into unified settings. */
 function migrateFromLegacy(): UserSettings {
+  if (typeof localStorage === "undefined") return defaultUserSettings();
   const legacy = localStorage.getItem(LEGACY_FONT_KEY);
 
   if (!legacy) return defaultUserSettings();
@@ -38,7 +39,8 @@ function migrateFromLegacy(): UserSettings {
 
 /** Read settings from localStorage (always used as cache). */
 export function getSettings(): UserSettings {
-  if (typeof window === "undefined") return defaultUserSettings();
+  if (typeof window === "undefined" || typeof localStorage === "undefined")
+    return defaultUserSettings();
   const stored = localStorage.getItem(USER_SETTINGS_STORAGE_KEY);
 
   if (!stored) return migrateFromLegacy();
@@ -57,11 +59,14 @@ export function getFontId(): string {
  * On app load / after login: call fetchUserSettingsFromSupabase(clerkUserId) and if non-null, setSettings(remote) to hydrate cache.
  */
 export function setSettings(partial: Partial<UserSettings>): UserSettings {
-  if (typeof window === "undefined") return defaultUserSettings();
+  if (typeof window === "undefined" || typeof localStorage === "undefined")
+    return defaultUserSettings();
   const current = getSettings();
   const next = { ...current, ...partial };
 
   localStorage.setItem(USER_SETTINGS_STORAGE_KEY, JSON.stringify(next));
+  // Notify listeners in the same tab (storage event doesn't fire in the same document).
+  window.dispatchEvent(new Event("organic-llm-settings"));
 
   return next;
 }

@@ -2,16 +2,18 @@
 
 import type { SharedSelection } from "@heroui/system";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import Link from "next/link";
 import { Select, SelectItem } from "@heroui/select";
-import { Settings2Icon, ExternalLink } from "lucide-react";
-import { useAuth } from "@clerk/nextjs";
+import { Switch } from "@heroui/switch";
+import { Brain, ExternalLink, Settings2Icon } from "lucide-react";
+import { useAuth, useUser } from "@clerk/nextjs";
 
+import { KnowledgeModal } from "@/components/knowledge/KnowledgeModal";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/third-party/ui/sheet";
 import { ThemeSwitch } from "@/components/shared/theme-switch";
 import { featuredFonts, getFontById } from "@/config/font-options";
-import { getSettings } from "@/lib/user-settings";
+import { getSettings, setSettings } from "@/lib/user-settings";
 import { applyFontPreference } from "@/components/FontProvider";
 import { persistUserSettingsToSupabase } from "@/data/supabase/user-settings";
 
@@ -36,10 +38,31 @@ type SettingsOverlayProps = {
 
 export function SettingsOverlay({ open, onOpenChange, trigger }: SettingsOverlayProps) {
   const { userId } = useAuth();
+  const { user } = useUser();
+  const [knowledgeOpen, setKnowledgeOpen] = useState(false);
   const [fontId, setFontId] = useState<string>(() => getSettings().fontId);
+  const [coalescenceMode, setCoalescenceMode] = useState<boolean>(
+    () => getSettings().coalescenceMode
+  );
+  const [experimentalArcadiaMarkdownPreview, setExperimentalArcadiaMarkdownPreview] = useState(
+    () => getSettings().experimentalArcadiaMarkdownPreview
+  );
+
+  const knowledgeDisplayName = useMemo(() => {
+    const full = user?.fullName?.trim();
+    const fromParts = [user?.firstName, user?.lastName].filter(Boolean).join(" ").trim();
+
+    return full || fromParts || null;
+  }, [user]);
 
   useEffect(() => {
-    if (open) setFontId(getSettings().fontId);
+    if (open) {
+      const s = getSettings();
+
+      setFontId(s.fontId);
+      setCoalescenceMode(s.coalescenceMode);
+      setExperimentalArcadiaMarkdownPreview(s.experimentalArcadiaMarkdownPreview);
+    }
   }, [open]);
 
   const handleFontChange = (keys: SharedSelection) => {
@@ -54,59 +77,117 @@ export function SettingsOverlay({ open, onOpenChange, trigger }: SettingsOverlay
   };
 
   return (
-    <Sheet open={open} onOpenChange={onOpenChange}>
-      {trigger}
-      <SheetContent className="flex flex-col gap-6 px-6 py-6 md:gap-10 md:py-12" side="right">
-        <SheetHeader className="pt-0 pb-0 px-0 md:pt-4">
-          <SheetTitle className="flex items-center gap-2 text-foreground">
-            <Settings2Icon className="size-5 shrink-0" />
-            Quick settings
-          </SheetTitle>
-        </SheetHeader>
+    <>
+      <KnowledgeModal
+        displayName={knowledgeDisplayName}
+        open={knowledgeOpen}
+        onOpenChange={setKnowledgeOpen}
+      />
+      <Sheet open={open} onOpenChange={onOpenChange}>
+        {trigger}
+        <SheetContent className="flex flex-col gap-5 px-6 py-4 md:gap-8 md:py-7" side="right">
+          <SheetHeader className="pt-0 pb-0 px-0">
+            <SheetTitle className="flex items-center gap-2 text-foreground">
+              <Settings2Icon className="size-5 shrink-0" />
+              Quick settings
+            </SheetTitle>
+          </SheetHeader>
 
-        <div className="flex flex-col gap-6 px-0 pt-4 md:gap-12 md:pt-14">
-          <section className="space-y-3">
-            <h3 className="text-sm font-medium text-foreground">Theme</h3>
-            <div className="flex items-center gap-3">
-              <ThemeSwitch className="text-foreground" />
-              <span className="text-xs text-muted-foreground">System / Light / Dark</span>
-            </div>
-          </section>
+          <div className="flex flex-col gap-6 px-0 pt-2 md:gap-9 md:pt-4">
+            <section className="space-y-3">
+              <h3 className="text-sm font-medium text-foreground">Theme</h3>
+              <div className="flex items-center gap-3">
+                <ThemeSwitch className="text-foreground" />
+                <span className="text-xs text-muted-foreground">System / Light / Dark</span>
+              </div>
+            </section>
 
-          <section className="space-y-3">
-            <h3 className="text-sm font-medium text-foreground">Font</h3>
-            <Select
-              aria-label="Choose font"
-              classNames={{ trigger: "min-h-9" }}
-              selectedKeys={[fontId]}
-              size="sm"
-              variant="bordered"
-              onSelectionChange={handleFontChange}
+            <section className="space-y-3">
+              <h3 className="text-sm font-medium text-foreground">Coalescence Mode</h3>
+              <div className="flex items-center justify-between gap-3">
+                <span className="text-xs text-muted-foreground">
+                  When on, your sidebar includes Arcadia and other feature threads.
+                </span>
+                <Switch
+                  aria-label="Coalescence Mode"
+                  isSelected={coalescenceMode}
+                  onValueChange={(enabled) => {
+                    setCoalescenceMode(enabled);
+                    setSettings({ coalescenceMode: enabled });
+                    if (userId) void persistUserSettingsToSupabase(userId, getSettings());
+                  }}
+                />
+              </div>
+            </section>
+
+            <section className="space-y-3">
+              <h3 className="text-sm font-medium text-foreground">
+                Arcadia preview (experimental)
+              </h3>
+              <div className="flex items-center justify-between gap-3">
+                <span className="text-xs text-muted-foreground">
+                  Markdown preview toggle on the Arcadia composer.
+                </span>
+                <Switch
+                  aria-label="Arcadia markdown preview (experimental)"
+                  isSelected={experimentalArcadiaMarkdownPreview}
+                  onValueChange={(enabled) => {
+                    setExperimentalArcadiaMarkdownPreview(enabled);
+                    setSettings({ experimentalArcadiaMarkdownPreview: enabled });
+                    if (userId) void persistUserSettingsToSupabase(userId, getSettings());
+                  }}
+                />
+              </div>
+            </section>
+
+            <section className="space-y-3">
+              <h3 className="text-sm font-medium text-foreground">Font</h3>
+              <Select
+                aria-label="Choose font"
+                classNames={{ trigger: "min-h-9" }}
+                selectedKeys={[fontId]}
+                size="sm"
+                variant="bordered"
+                onSelectionChange={handleFontChange}
+              >
+                {featuredFonts.map((font) => (
+                  <SelectItem
+                    key={font.id}
+                    style={{ fontFamily: fontFamilyForPreview(font.id) }}
+                    textValue={font.label}
+                  >
+                    {font.label}
+                  </SelectItem>
+                ))}
+              </Select>
+            </section>
+          </div>
+
+          <div className="mt-auto border-t border-border pt-4 pb-6 px-0 md:pt-8 md:pb-12">
+            <section className="space-y-2 pb-2">
+              <h3 className="text-sm font-medium text-foreground">Knowledge</h3>
+              <button
+                aria-label="What Organic LLM knows about you"
+                className="flex min-h-12 w-full items-center gap-2 rounded-lg py-3 text-left text-sm text-muted-foreground hover:bg-muted/50 hover:text-foreground"
+                title="What Organic LLM knows about you"
+                type="button"
+                onClick={() => setKnowledgeOpen(true)}
+              >
+                <Brain className="size-4 shrink-0" />
+                Memory
+              </button>
+            </section>
+            <Link
+              className="flex min-h-12 items-center gap-2 rounded-lg py-3 text-sm text-muted-foreground hover:bg-muted/50 hover:text-foreground"
+              href="/settings"
+              onClick={() => onOpenChange(false)}
             >
-              {featuredFonts.map((font) => (
-                <SelectItem
-                  key={font.id}
-                  style={{ fontFamily: fontFamilyForPreview(font.id) }}
-                  textValue={font.label}
-                >
-                  {font.label}
-                </SelectItem>
-              ))}
-            </Select>
-          </section>
-        </div>
-
-        <div className="mt-auto border-t border-border pt-4 pb-6 px-0 md:pt-8 md:pb-12">
-          <Link
-            className="flex min-h-12 items-center gap-2 rounded-lg py-3 text-sm text-muted-foreground hover:bg-muted/50 hover:text-foreground"
-            href="/settings"
-            onClick={() => onOpenChange(false)}
-          >
-            <ExternalLink className="size-4 shrink-0" />
-            Open full settings
-          </Link>
-        </div>
-      </SheetContent>
-    </Sheet>
+              <ExternalLink className="size-4 shrink-0" />
+              Open full settings
+            </Link>
+          </div>
+        </SheetContent>
+      </Sheet>
+    </>
   );
 }

@@ -26,10 +26,18 @@ import {
 import { createLogger } from "../logger";
 import { fetchExternalSources, getWebpageContent } from "../exa/sources";
 
+import { RABBIT_HOLE_UNTITLED } from "./constants";
+
 import { Result } from "@/types";
 import { GUARDRAIL_MAX_OUTPUT_TOKENS } from "@/lib/llm/helpers";
 
 const logger = createLogger("lib/rabbit-holes/actions.ts");
+
+function resolvedArticleTitle(title: string): string {
+  const t = title.trim();
+
+  return t.length > 0 ? t : RABBIT_HOLE_UNTITLED;
+}
 
 const initialNodePrompt =
   `Generate a comprehensive Rabbit Hole exploration for the following question:\n\n{{question}}\n\n` +
@@ -74,7 +82,7 @@ async function generateRefinedQuestion(
   pathHistory: string
 ): Promise<string> {
   const { text } = await generateText({
-    model: openai("gpt-5-nano"),
+    model: openai("gpt-5.4-nano"),
     system: REFINE_QUESTION_SYSTEM_PROMPT,
     prompt: `Question to refine: ${question}\n\nPath history: ${pathHistory}`,
     maxOutputTokens: GUARDRAIL_MAX_OUTPUT_TOKENS,
@@ -324,14 +332,23 @@ function applyArticleStep(
     );
     const object = await generateArticleOnly(prompt);
 
+    const articleTitle = resolvedArticleTitle(object.title);
+
     updatedNode.articleHtml = object.articleHtml;
     updatedNode.keyTakeaways = object.keyTakeaways;
+    updatedNode.title = articleTitle;
     updatedNode.rawPrompt = updatedNode.userQuestion;
     updatedNode.userQuestion = updatedNode.refinedQuestion ?? updatedNode.userQuestion;
     updatedNode.createdAt = new Date().toISOString();
 
+    const path = session.path.map((seg) =>
+      seg.nodeId === nodeId ? { ...seg, label: articleTitle } : seg
+    );
+
     const updatedSession: RabbitHoleSession = {
       ...session,
+      ...(isInitialNode ? { rootQuestion: articleTitle } : {}),
+      path,
       nodesById: { ...session.nodesById, [nodeId]: updatedNode },
       updatedAt: new Date().toISOString(),
     };
@@ -348,7 +365,7 @@ function applyBranchSuggestionsStep(
   return (async () => {
     const updatedNode = { ...node };
     const branchSuggestionRootQuestion =
-      session.rootQuestion || (updatedNode.refinedQuestion ?? updatedNode.userQuestion);
+      updatedNode.refinedQuestion ?? updatedNode.userQuestion ?? session.rootQuestion;
     const branchResult = await generateBranchSuggestions({
       context: updatedNode.articleHtml ?? "",
       rootQuestion: branchSuggestionRootQuestion,
@@ -468,14 +485,23 @@ export async function generateRabbitHoleNode(
     );
     const object = await generateArticleOnly(prompt);
 
+    const articleTitle = resolvedArticleTitle(object.title);
+
     updatedNode.articleHtml = object.articleHtml;
     updatedNode.keyTakeaways = object.keyTakeaways;
+    updatedNode.title = articleTitle;
     updatedNode.rawPrompt = updatedNode.userQuestion;
     updatedNode.userQuestion = updatedNode.refinedQuestion ?? updatedNode.userQuestion;
     updatedNode.createdAt = new Date().toISOString();
 
+    const pathAfterArticle = session.path.map((seg) =>
+      seg.nodeId === nodeId ? { ...seg, label: articleTitle } : seg
+    );
+
     updatedSession = {
       ...session,
+      ...(isInitialNode ? { rootQuestion: articleTitle } : {}),
+      path: pathAfterArticle,
       nodesById: { ...session.nodesById, [nodeId]: updatedNode },
       updatedAt: new Date().toISOString(),
     };
@@ -483,7 +509,7 @@ export async function generateRabbitHoleNode(
 
     // Phase 3: Branch suggestions
     const branchSuggestionRootQuestion =
-      session.rootQuestion || (updatedNode.refinedQuestion ?? updatedNode.userQuestion);
+      updatedNode.refinedQuestion ?? updatedNode.userQuestion ?? session.rootQuestion;
     const branchResult = await generateBranchSuggestions({
       context: updatedNode.articleHtml ?? "",
       rootQuestion: branchSuggestionRootQuestion,

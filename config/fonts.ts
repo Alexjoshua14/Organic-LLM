@@ -13,6 +13,8 @@ export const fontInter = Inter({
 
 export const fontCommissioner = Commissioner({
   subsets: ["latin"],
+  weight: "variable",
+  axes: ["FLAR", "VOLM", "slnt"],
   variable: "--font-commissioner",
 });
 

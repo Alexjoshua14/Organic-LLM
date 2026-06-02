@@ -7,6 +7,7 @@ import type { RabbitHoleSessionMetadata } from "@/app/rabbitholes/_lib/sessionSt
 export const TITLE_SCENARIO_SEED_SESSION: RabbitHoleSessionMetadata = {
   sessionId: "sandbox-title",
   rootQuestion: "Sample exploration",
+  rootTitle: "Sample exploration",
   summary: "Sample summary",
   createdAt: new Date().toISOString(),
   updatedAt: new Date().toISOString(),

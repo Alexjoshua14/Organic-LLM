@@ -18,14 +18,11 @@ function normalizeStoredString(value: unknown): string {
 function encryptMessageRowContent(message: Message, ownerId: string): Message {
   return {
     ...message,
-    content: encryptForStorage(
-      normalizeStoredString(message.content),
-      {
-        userId: ownerId,
-        threadId: message.thread_id,
-        fieldName: "messages.content",
-      }
-    ),
+    content: encryptForStorage(normalizeStoredString(message.content), {
+      userId: ownerId,
+      threadId: message.thread_id,
+      fieldName: "messages.content",
+    }),
   };
 }
 
@@ -77,7 +74,10 @@ export async function upsertMessagesWithAdmin(params: {
   });
 
   if (error) {
-    logger.error("upsertMessagesWithAdmin", `Error upserting messages: ${error?.code ?? "unknown"}`);
+    logger.error(
+      "upsertMessagesWithAdmin",
+      `Error upserting messages: ${error?.code ?? "unknown"}`
+    );
 
     return {
       ok: false,

@@ -34,7 +34,7 @@ export async function parseWineCount(userText: string): Promise<number> {
 
   try {
     const { object } = await generateObject({
-      model: "openai/gpt-5-nano",
+      model: "openai/gpt-5.4-nano",
       system: PARSER_SYSTEM,
       prompt: truncated,
       schema: WineCountSchema,

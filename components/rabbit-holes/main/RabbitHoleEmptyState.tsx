@@ -3,11 +3,15 @@
 import { motion } from "framer-motion";
 import { Rabbit } from "lucide-react";
 
+import { cn } from "@/lib/utils";
+
 interface RabbitHoleEmptyStateProps {
   /** Optional short headline override */
   title?: string;
   /** Optional supporting line override */
   subtitle?: string;
+  /** Hide desktop-only focus-mode hint */
+  compact?: boolean;
 }
 
 const defaultTitle = "Start exploring a topic";
@@ -16,12 +20,16 @@ const defaultSubtitle = "Enter a question below to begin your rabbit hole journe
 export function RabbitHoleEmptyState({
   title = defaultTitle,
   subtitle = defaultSubtitle,
+  compact = false,
 }: RabbitHoleEmptyStateProps) {
   return (
     <motion.div
       key="empty"
       animate={{ opacity: 1, y: 0 }}
-      className="flex flex-col items-center justify-center min-h-[280px] text-center px-8"
+      className={cn(
+        "flex min-h-[280px] flex-col items-center justify-center px-8 text-center",
+        compact && "min-h-[200px] px-5"
+      )}
       exit={{ opacity: 0 }}
       initial={{ opacity: 0, y: 8 }}
       transition={{ duration: 0.35 }}
@@ -38,6 +46,11 @@ export function RabbitHoleEmptyState({
         {title}
       </p>
       <p className="text-muted-foreground/70 text-sm max-w-sm leading-relaxed">{subtitle}</p>
+      {!compact && (
+        <p className="text-muted-foreground/55 mt-4 max-w-sm text-xs leading-relaxed">
+          ⌘⇧F (Ctrl+Shift+F) toggles focus mode — hides the path, sources, and prompt for reading.
+        </p>
+      )}
     </motion.div>
   );
 }

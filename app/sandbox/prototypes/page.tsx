@@ -1,68 +1,92 @@
+import type { Metadata } from "next";
+
 import Link from "next/link";
 
 import { getPrototypeHref, prototypes } from "./_config/prototypes";
 
 import Page from "@/components/layout/page";
+import ShinyText from "@/components/ShinyText";
+import AdaptiveLiquidChrome from "@/components/background/AdaptiveLiquidChrome";
+import { glass } from "@/components/design-system/primitives";
+import { cn } from "@/lib/utils";
+import { tabTitleMetadata } from "@/lib/metadata/tab-title";
+
+export const metadata: Metadata = {
+  ...tabTitleMetadata(null, "Prototypes"),
+};
 
 export default function PrototypesGalleryPage() {
   return (
-    <Page>
-      <div className="mx-auto w-full max-w-2xl px-6 py-12 sm:px-8 sm:py-16">
-        {/* Breadcrumb */}
-        <nav className="mb-12 sm:mb-16">
+    <Page transparentBackground className="overflow-hidden">
+      <AdaptiveLiquidChrome dimIntensity={0.45} />
+      <div className="relative z-10 w-full max-w-5xl mx-auto p-6 overflow-y-auto h-full">
+        <nav className="mb-8">
           <Link
-            className="text-sm text-muted-foreground hover:text-foreground transition-colors"
+            className="text-sm text-muted-foreground hover:text-foreground transition-colors select-none"
             href="/sandbox"
           >
             ← Sandbox
           </Link>
         </nav>
 
-        {/* Header — clear hierarchy, one idea per line */}
-        <header className="mb-14 sm:mb-20">
-          <h1 className="text-2xl font-semibold tracking-tight text-foreground sm:text-3xl">
+        <div className="text-center mb-12">
+          <h1 className="mb-2 font-commissioner text-3xl font-light tracking-tight text-foreground sm:text-4xl">
             Prototypes
           </h1>
-          <p className="mt-2 text-sm text-muted-foreground sm:text-base">
-            UI and background experiments. Toggle light/dark in the top-right to compare where it
-            applies.
+          <p className="text-sm text-muted-foreground max-w-2xl mx-auto select-none">
+            Standalone slices of interface and experience design.
           </p>
-        </header>
+        </div>
 
-        {/* Gallery — catalog list: number, title, description, link */}
-        <ul className="space-y-0">
-          {prototypes.map((p, i) => (
-            <li key={p.slug}>
-              <Link
-                className="group block border-b border-border py-6 transition-colors first:pt-0 last:border-b-0 hover:bg-muted/30 sm:py-8"
-                href={getPrototypeHref(p.slug)}
-              >
-                <div className="flex flex-col gap-1 sm:flex-row sm:items-baseline sm:gap-4">
-                  <span className="font-mono text-xs text-muted-foreground tabular-nums sm:w-8">
-                    {String(i + 1).padStart(2, "0")}
-                  </span>
-                  <div className="min-w-0 flex-1">
-                    <h2 className="font-medium text-foreground group-hover:text-foreground/90">
-                      {p.title}
-                    </h2>
-                    <p className="mt-0.5 text-sm text-muted-foreground">{p.description}</p>
-                  </div>
-                  <span
-                    aria-hidden
-                    className="mt-2 text-xs text-muted-foreground sm:mt-0 sm:shrink-0"
-                  >
-                    →
-                  </span>
+        <div className="grid w-full grid-cols-1 gap-4">
+          {prototypes.map((p) => (
+            <Link
+              key={p.slug}
+              data-dim-background
+              className={cn(
+                glass(),
+                "group relative overflow-hidden rounded-2xl border border-border/70 backdrop-blur-xl",
+                "transition-all duration-300 ease-in-out hover:bg-muted/40 active:scale-[0.995]",
+                "p-6 sm:p-8 flex flex-col gap-6 sm:flex-row sm:items-center sm:justify-between sm:gap-10"
+              )}
+              href={getPrototypeHref(p.slug)}
+            >
+              <div className="min-w-0 flex-1">
+                <h2 className="font-commissioner text-lg font-light text-foreground mb-2 sm:text-xl">
+                  {p.title}
+                </h2>
+                <p className="text-sm text-muted-foreground sm:text-[15px] sm:leading-relaxed">
+                  {p.description}
+                </p>
+              </div>
+
+              <div className="flex shrink-0 items-center justify-between gap-4 border-t border-border/50 pt-4 sm:border-t-0 sm:pt-0 sm:justify-end">
+                <div className="text-xs text-muted-foreground select-none sm:text-sm">
+                  <ShinyText
+                    className="cursor-inherit"
+                    shimmerOnParentGroupHover
+                    speed={2.5}
+                    text="Explore"
+                  />
                 </div>
-              </Link>
-            </li>
+                <svg
+                  aria-hidden
+                  className="w-4 h-4 text-muted-foreground opacity-100 transition-all duration-200 group-hover:translate-x-0.5 md:opacity-0 md:group-hover:opacity-100 sm:w-5 sm:h-5"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    d="M17 8l4 4m0 0l-4 4m4-4H3"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                  />
+                </svg>
+              </div>
+            </Link>
           ))}
-        </ul>
-
-        {/* Footer note */}
-        <p className="mt-14 text-center text-xs text-muted-foreground sm:mt-20">
-          More entries as we tag stable releases.
-        </p>
+        </div>
       </div>
     </Page>
   );

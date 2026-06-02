@@ -21,6 +21,9 @@ export type ProfileBlockProps = {
   email?: string | null;
   /** Clerk full name (fallback when profile.display_name isn't set). */
   displayName?: string | null;
+  canEditTree?: boolean;
+  isSavingTree?: boolean;
+  onTreeFieldPatch?: (fields: { headline?: string; signature?: string }) => Promise<void>;
 };
 
 /** Tree-based layout: hero + optional signature + tiered sections. */

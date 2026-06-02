@@ -4,7 +4,7 @@ import type { ProfileSummary } from "@/lib/schemas/profileSummary";
 import { getOwnerEmail, getOwnerAbout, getOwnerTrajectory } from "./profile-overrides";
 
 /** Tailored info as a tiered tree (roles + signature + sections). */
-function buildTailoredTree(): ProfileTree {
+export function buildTailoredTree(): ProfileTree {
   return {
     headline: "Architecting adaptive AI systems with world-class design and long-term vision",
     roles: ["Software engineer", "Creative technologist"],
@@ -174,17 +174,24 @@ export type ProfileTreeVariant = "tailored" | "demo" | "generated" | "empty";
 
 export function getProfileTree(
   email: string | null | undefined,
-  generatedSummary?: ProfileSummary | null
+  generatedSummary?: ProfileSummary | null,
+  options: { allowDemo?: boolean; allowTailored?: boolean } = {}
 ): { tree: ProfileTree; variant: ProfileTreeVariant } {
+  const { allowDemo = false, allowTailored = true } = options;
   const norm = email && typeof email === "string" ? normalizedEmail(email) : "";
   const ownerEmail = normalizedEmail(getOwnerEmail());
 
-  if (norm && norm === ownerEmail) return { tree: buildTailoredTree(), variant: "tailored" };
-  if (norm === DEMO_EMAIL) return { tree: DEMO_TREE, variant: "demo" };
+  if (allowTailored && norm && norm === ownerEmail)
+    return { tree: buildTailoredTree(), variant: "tailored" };
+  if (allowDemo && norm === DEMO_EMAIL) return { tree: DEMO_TREE, variant: "demo" };
   if (generatedSummary?.headline)
     return { tree: treeFromSummary(generatedSummary), variant: "generated" };
 
   return { tree: EMPTY_TREE, variant: "empty" };
+}
+
+export function getEmptyProfileTree(): ProfileTree {
+  return EMPTY_TREE;
 }
 
 export function isTailoredTree(email: string | null | undefined): boolean {

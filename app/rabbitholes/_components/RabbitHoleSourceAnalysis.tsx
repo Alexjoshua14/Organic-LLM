@@ -9,63 +9,63 @@ import Link from "next/link";
 import { RabbitHoleTTSButton } from "./RabbitHoleTTSButton";
 
 import { cn } from "@/lib/utils";
-
-const rabbitHoleSectionHeaderClass = "font-commissioner text-xl font-light text-foreground mb-4";
+import { title as titleToken, card, sourceAnalysis as sa } from "@/lib/rabbit-holes/designTokens";
 
 interface RabbitHoleSourceAnalysisProps {
   analysis: RabbitHoleSourceAnalysis;
   sourceId: string;
   onBack?: () => void;
+  /** Compact header + typography for mobile overlay */
+  mobile?: boolean;
 }
 
 export function RabbitHoleSourceAnalysis({
   analysis,
   sourceId,
   onBack,
+  mobile = false,
 }: RabbitHoleSourceAnalysisProps) {
-  // Combine all text content for TTS
-  const ttsText = [
-    analysis.title,
-    analysis.summary,
-    // ...analysis.keyPoints,
-    // analysis.relevance,
-  ].join(". ");
+  const ttsText = [analysis.title, analysis.summary].join(". ");
 
   return (
     <motion.div
       animate={{ opacity: 1, y: 0 }}
-      className="max-w-2xl mx-auto"
+      className={cn("mx-auto", mobile ? "max-w-none" : "max-w-2xl")}
       exit={{ opacity: 0, y: -20 }}
       initial={{ opacity: 0, y: 20 }}
       transition={{ duration: 0.4, ease: [0.2, 0.8, 0.2, 1] }}
     >
       {/* Header with back button and source link */}
-      <div className="mb-8 flex items-start justify-between gap-4">
-        <div className="flex-1">
-          <div className="mb-3">
-            <h1 className="font-commissioner text-3xl font-light tracking-tight text-foreground">
+      <div
+        className={cn(
+          "flex gap-4",
+          mobile ? "mb-6 flex-col items-stretch" : "mb-8 items-start justify-between"
+        )}
+      >
+        <div className="min-w-0 flex-1">
+          <div className="snap-start scroll-mt-2 mb-3">
+            <h1 className={cn(titleToken.base, mobile ? titleToken.compact : titleToken.desktop)}>
               {analysis.title}
             </h1>
           </div>
-          {onBack && (
+          {onBack && !mobile && (
             <button
-              className="text-sm text-muted-foreground hover:text-foreground transition-colors mb-4"
+              className="mb-4 text-sm text-muted-foreground transition-colors hover:text-foreground"
+              type="button"
               onClick={onBack}
             >
               ← Back to article
             </button>
           )}
-          <div className="max-w-lg">
+          <div className="snap-start scroll-mt-2 max-w-lg">
             <RabbitHoleTTSButton nodeId={`source-${sourceId}`} text={ttsText} />
           </div>
         </div>
         <Link
           className={cn(
-            "flex items-center gap-2 px-4 py-2 rounded-md transition-all",
-            "border border-border",
-            "hover:bg-card/50",
-            "text-xs text-foreground",
-            "shrink-0"
+            "flex items-center justify-center gap-2 rounded-md border border-border px-4 py-2 text-xs text-foreground transition-all hover:bg-card/50",
+            "min-h-11 shrink-0",
+            mobile && "w-full"
           )}
           href={analysis.originalUrl}
           rel="noopener noreferrer"
@@ -77,25 +77,41 @@ export function RabbitHoleSourceAnalysis({
       </div>
 
       {/* Summary */}
-      <div className="mb-8">
-        <h2 className={rabbitHoleSectionHeaderClass}>Summary</h2>
-        <p className="text-base leading-relaxed text-muted-foreground">{analysis.summary}</p>
+      <div className="snap-start scroll-mt-2 mb-8">
+        <h2
+          className={cn(
+            sa.sectionHeader.base,
+            mobile ? sa.sectionHeader.compact : sa.sectionHeader.desktop
+          )}
+        >
+          Summary
+        </h2>
+        <p className={cn(sa.bodyText.base, mobile ? sa.bodyText.compact : sa.bodyText.desktop)}>
+          {analysis.summary}
+        </p>
       </div>
 
       {/* Key Points */}
-      <div className="mb-8 flex flex-col">
-        <h2 className={rabbitHoleSectionHeaderClass}>Key Points</h2>
-        <ul className="space-y-6">
+      <div className="snap-start scroll-mt-2 mb-8 flex flex-col">
+        <h2
+          className={cn(
+            sa.sectionHeader.base,
+            mobile ? sa.sectionHeader.compact : sa.sectionHeader.desktop
+          )}
+        >
+          Key Points
+        </h2>
+        <ul className={mobile ? sa.keyPointListGap.compact : sa.keyPointListGap.desktop}>
           {analysis.keyPoints.map((point, index) => (
             <motion.li
               key={index}
               animate={{ opacity: 1, x: 0 }}
-              className="flex items-start gap-4 pl-2 text-base text-muted-foreground"
+              className={cn(
+                sa.keyPointItem.base,
+                mobile ? sa.keyPointItem.compact : sa.keyPointItem.desktop
+              )}
               initial={{ opacity: 0, x: -10 }}
-              transition={{
-                duration: 0.3,
-                delay: index * 0.1,
-              }}
+              transition={{ duration: 0.3, delay: index * 0.1 }}
             >
               <div className="flex flex-col gap-0.5">
                 <span className="flex-1 font-medium">
@@ -111,9 +127,25 @@ export function RabbitHoleSourceAnalysis({
       </div>
 
       {/* Relevance */}
-      <div className="bg-card/80 backdrop-blur-sm rounded-lg p-6 border border-border">
-        <h2 className={cn(rabbitHoleSectionHeaderClass, "mb-4")}>Relevance</h2>
-        <p className="text-base leading-relaxed text-muted-foreground">{analysis.relevance}</p>
+      <div
+        className={cn(
+          "snap-start scroll-mt-2",
+          card,
+          mobile ? sa.relevanceCard.compact : sa.relevanceCard.desktop
+        )}
+      >
+        <h2
+          className={cn(
+            sa.sectionHeader.base,
+            "mb-4",
+            mobile ? sa.sectionHeader.compact : sa.sectionHeader.desktop
+          )}
+        >
+          Relevance
+        </h2>
+        <p className={cn(sa.bodyText.base, mobile ? sa.bodyText.compact : sa.bodyText.desktop)}>
+          {analysis.relevance}
+        </p>
       </div>
     </motion.div>
   );

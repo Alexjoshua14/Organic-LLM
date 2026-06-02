@@ -22,7 +22,7 @@ export {
 const qdrantClient = new QdrantClient({
   host: MEMORY_HOST,
   port: MEMORY_PORT,
-  https: true,
+  https: "localhost" !== MEMORY_HOST,
   apiKey: MEMORY_KEY,
 });
 

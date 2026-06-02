@@ -167,6 +167,46 @@ export async function addInteractionToMemory(
 }
 
 /**
+ * Adds explicit Mem0 `Message[]` for a user (intentional writes, e.g. Delphi `commit_memory`).
+ * Low-level: no auth, no rate limits. Callers must pass a server-resolved Mem0 user id.
+ */
+export async function addMemory(
+  messages: Message[],
+  userId: string,
+  options: {
+    metadata?: Record<string, unknown>;
+    infer?: boolean;
+  }
+): Promise<SearchResult> {
+  if (!userId) {
+    throw new Error("User ID is required");
+  }
+
+  const memory = getMemory();
+
+  const messagesToStore: Message[] = messages.map((m) => {
+    if (typeof m.content !== "string") {
+      return m;
+    }
+    const content = isRedactPIIInMemoryEnabled() ? redactPII(m.content) : m.content;
+
+    return { role: m.role, content };
+  });
+
+  logger.log("addMemory", `Adding ${messagesToStore.length} message(s) to memory (infer=${options.infer ?? true})`);
+
+  const result = await memory.add(messagesToStore, {
+    userId,
+    metadata: options.metadata,
+    infer: options.infer ?? true,
+  });
+
+  logger.debug("addMemory", "Mem0 add results", result.results?.length ?? 0);
+
+  return result;
+}
+
+/**
  * Wipes all memories for a user. Low-level: expects Mem0 user id
  * (Supabase user id in this app). If exposing from UI, use a
  * wipeMemoryForCurrentUser() wrapper that resolves the current user server-side.

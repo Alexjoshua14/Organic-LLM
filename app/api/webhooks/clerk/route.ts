@@ -13,6 +13,7 @@ export async function POST(req: NextRequest) {
     evt = await verifyWebhook(req);
   } catch (err) {
     const e = err instanceof Error ? err : new Error(String(err));
+
     logger.error("POST", `Error verifying webhook: ${e.name}`);
 
     return NextResponse.json({ error: "Error verifying webhook" }, { status: 400 });
@@ -32,6 +33,7 @@ export async function POST(req: NextRequest) {
     }
   } catch (err: unknown) {
     const e = err instanceof Error ? err : new Error(String(err));
+
     logger.error("POST", `Webhook error: ${e.name}`);
 
     return NextResponse.json({ error: "Webhook error" }, { status: 500 });

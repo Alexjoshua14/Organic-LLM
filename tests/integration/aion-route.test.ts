@@ -4,6 +4,29 @@ mock.module("@/lib/rate-limit/llm", () => ({
   checkLlmMessageLimit: async () => ({ success: true, remaining: 10 }),
 }));
 
+const mockGetMessageCount = mock(async () => ({ data: 2, error: null }));
+const mockGetThreadHasTitle = mock(async () => ({ data: true, error: null }));
+
+mock.module("@/data/supabase/chat", () => ({
+  getMessageCount: mockGetMessageCount,
+  getThreadHasTitle: mockGetThreadHasTitle,
+  getChats: mock(async () => ({ data: [], error: null })),
+  getNMessages: mock(async () => ({ data: [], error: null })),
+  getMessages: mock(async () => ({ data: [], error: null })),
+  getMessagesSince: mock(async () => ({ data: [], error: null })),
+  updateChatTitle: mock(async () => ({ ok: true, error: null })),
+  updateChatPinned: mock(async () => ({ ok: true, error: null })),
+  updateConversationSummary: mock(async () => ({ ok: true, error: null })),
+  updateChatStream: mock(async () => ({ ok: true, error: null })),
+  updateThreadRouting: mock(async () => ({ ok: true, error: null })),
+  addMessage: mock(async () => ({ ok: true, error: null })),
+  updateMessage: mock(async () => ({ ok: true, error: null })),
+  deleteChat: mock(async () => ({ ok: true, error: null })),
+  deleteEmptyChat: mock(async () => ({ ok: true, error: null })),
+  getConversationSummary: mock(async () => ({ data: null, error: null })),
+  getChatsForSettingsForCurrentUser: mock(async () => ({ data: [], error: null })),
+}));
+
 const { createAionHandler } = await import("@/lib/api/aion-handler");
 
 import { createMockStreamText } from "../helpers/mock-stream-text";
@@ -77,6 +100,10 @@ describe("POST /api/ai/aion (integration)", () => {
     mockUpdateChatSummary.mockClear();
     mockAddLatestMessagesToMemory.mockClear();
     mockCreateMemorySearchTool.mockClear();
+    mockGetMessageCount.mockClear();
+    mockGetThreadHasTitle.mockClear();
+    mockGetMessageCount.mockResolvedValue({ data: 2, error: null });
+    mockGetThreadHasTitle.mockResolvedValue({ data: true, error: null });
   });
 
   test("returns 400 for invalid body", async () => {
@@ -170,24 +197,35 @@ describe("POST /api/ai/aion (integration)", () => {
   });
 
   test("when memory is enabled, onFinish triggers addLatestMessagesToMemory", async () => {
+    const previousAionTestMode = process.env.AION_TEST_MODE;
     const userMsg = createTestUIMessage({ role: "user" });
     const assistantMsg = createTestUIMessage({ role: "assistant" });
 
-    streamTextMock = createMockStreamText({
-      onFinishMessages: [userMsg, assistantMsg],
-    });
-    const handler = makeHandler();
+    try {
+      delete process.env.AION_TEST_MODE;
 
-    const reqBody = createTestChatRequest({
-      memory: true,
-      message: userMsg,
-    });
+      streamTextMock = createMockStreamText({
+        onFinishMessages: [userMsg, assistantMsg],
+      });
+      const handler = makeHandler();
 
-    const res = await handler(createJsonRequest(reqBody));
-    await res.text();
+      const reqBody = createTestChatRequest({
+        memory: true,
+        message: userMsg,
+      });
 
-    expect(res.status).toBe(200);
-    expect(mockAddLatestMessagesToMemory.mock.calls.length >= 1).toBe(true);
+      const res = await handler(createJsonRequest(reqBody));
+      await res.text();
+
+      expect(res.status).toBe(200);
+      expect(mockAddLatestMessagesToMemory.mock.calls.length >= 1).toBe(true);
+    } finally {
+      if (previousAionTestMode === undefined) {
+        delete process.env.AION_TEST_MODE;
+      } else {
+        process.env.AION_TEST_MODE = previousAionTestMode;
+      }
+    }
   });
 
   test("when memory is disabled, onFinish does not call addLatestMessagesToMemory", async () => {

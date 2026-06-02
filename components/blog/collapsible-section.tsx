@@ -37,9 +37,13 @@ export function CollapsibleSection({
           <ChevronRight className="mt-0.5 size-4 shrink-0 text-muted-foreground" />
         )}
         <span className="flex flex-col gap-0.5">
-          <span className="text-base font-semibold text-foreground">{title}</span>
+          <span className="font-commissioner text-lg font-light tracking-tight text-foreground">
+            {title}
+          </span>
           {!open && summary && (
-            <span className="text-sm font-normal text-muted-foreground">{summary}</span>
+            <span className="text-sm font-normal leading-relaxed text-muted-foreground">
+              {summary}
+            </span>
           )}
         </span>
       </CollapsibleTrigger>

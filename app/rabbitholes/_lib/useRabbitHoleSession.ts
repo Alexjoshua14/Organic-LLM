@@ -30,6 +30,7 @@ import {
 import { saveSession, getSessionById } from "@/data/supabase/rabbitholes";
 import { createLogger } from "@/lib/logger";
 import { RabbitHoleContext } from "@/lib/context/rabbithole-context";
+import { RABBIT_HOLE_UNTITLED } from "@/lib/rabbit-holes/constants";
 
 const logger = createLogger("useRabbitHoleSession");
 
@@ -372,7 +373,7 @@ export function useRabbitHoleSession() {
           // Node exists but isn't in path - add it to path after current node and activate
           const pathSegment = {
             nodeId: existingNodeId,
-            label: branch.label.substring(0, 60) + (branch.label.length > 60 ? "..." : ""),
+            label: existingNode.title?.trim() || RABBIT_HOLE_UNTITLED,
             parentNodeId: session.activeNodeId ?? null,
           };
 
@@ -413,9 +414,7 @@ export function useRabbitHoleSession() {
     const tempNodeId = `pending-${branchId}-${Date.now()}`;
     const optimisticPathSegment = {
       nodeId: tempNodeId,
-      label:
-        branch?.label.substring(0, 60) + ((branch?.label.length ?? 0) > 60 ? "..." : "") ||
-        branchId,
+      label: RABBIT_HOLE_UNTITLED,
       parentNodeId: session.activeNodeId ?? null,
     };
     const optimisticEdge =

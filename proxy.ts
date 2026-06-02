@@ -1,16 +1,19 @@
 import { clerkMiddleware, createRouteMatcher } from "@clerk/nextjs/server";
 import { NextRequest, NextResponse } from "next/server";
 
+// Require sign-in for product + APIs. Intentionally public (not listed here): `/`,
+// `/blog(.*)`, `/privacy-and-security`, `/showcase(.*)` — add a pattern above when
+// a new top-level app route should require auth.
 const isProtectedRoute = createRouteMatcher([
-  "/chat(.*)",
-  "/sandbox(.*)",
-  "/rabbitholes(.*)",
-  "/archetype(.*)",
-  "/speak(.*)",
-  "/settings(.*)",
-  "/remy(.*)",
   "/(api|trpc)(.*)",
   "/_next/server-actions(.*)",
+  "/archetype(.*)",
+  "/chat(.*)",
+  "/rabbitholes(.*)",
+  "/remy(.*)",
+  "/sandbox(.*)",
+  "/settings(.*)",
+  "/speak(.*)",
 ]);
 
 /**
@@ -51,8 +54,12 @@ export default clerkMiddleware(async (auth, req) => {
   // Create a base response we can mutate
   const res = NextResponse.next();
 
-  // Exclude webhooks from protection
-  if (isProtectedRoute(req) && !req.nextUrl.pathname.startsWith("/api/webhooks")) {
+  // Exclude webhooks and the cron-secret-guarded good-news job from Clerk protection
+  if (
+    isProtectedRoute(req) &&
+    !req.nextUrl.pathname.startsWith("/api/webhooks") &&
+    !req.nextUrl.pathname.startsWith("/api/good-news/cron")
+  ) {
     await auth.protect();
   }
 

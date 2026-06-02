@@ -14,6 +14,7 @@ import {
   encryptForStorage,
 } from "@/lib/crypto/message-encryption";
 import { convertMessageToUIMessage, convertUIMessageToMessage } from "@/lib/chat/message-transform";
+import { threadHrefFromRow, type ThreadListRow } from "@/lib/chat/thread-routing-candidates";
 import { supabaseServer } from "@/lib/supabase/server";
 import { createLogger } from "@/lib/logger";
 
@@ -133,7 +134,7 @@ export async function getChats(options?: { ownerId?: string }): Promise<Result<T
   const sb = await supabaseServer();
   const baseQuery = sb
     .from("threads")
-    .select("id, title, owner_id, created_at, updated_at, pinned")
+    .select("id, title, owner_id, created_at, updated_at, pinned, feature, path")
     .order("updated_at", { ascending: false });
 
   const { data, error } = options?.ownerId
@@ -144,6 +145,115 @@ export async function getChats(options?: { ownerId?: string }): Promise<Result<T
     data: data,
     error: error,
   };
+}
+
+/** Thread row for Settings → Chats (decrypted summary for display). */
+export type ChatThreadSettingsRow = {
+  id: string;
+  title: string | null;
+  owner_id: string;
+  created_at: string;
+  updated_at: string;
+  pinned: boolean;
+  archived: boolean | null;
+  feature: string;
+  path: string | null;
+  href: string;
+  conversationSummary: string | null;
+};
+
+/**
+ * All threads for a single owner (Supabase `profiles.id`) with fields needed by Settings → Chats.
+ * Decrypts `threads.conversation_summary` per row when present.
+ *
+ * Always pass an explicit `ownerId`; never query without filtering by owner.
+ */
+export async function getChatsForSettings(ownerId: string): Promise<Result<ChatThreadSettingsRow[]>> {
+  const owner = ownerId.trim();
+  if (owner === "") {
+    return { data: null, error: new Error("ownerId is required") };
+  }
+
+  const sb = await supabaseServer();
+  const { data, error } = await sb
+    .from("threads")
+    .select(
+      "id, title, owner_id, created_at, updated_at, pinned, archived, feature, path, conversation_summary"
+    )
+    .eq("owner_id", owner)
+    .order("updated_at", { ascending: false });
+
+  if (error) {
+    return { data: null, error: new Error(error.message ?? "Unknown error") };
+  }
+  if (!data) {
+    return { data: null, error: new Error("Unknown error") };
+  }
+
+  const rows: ChatThreadSettingsRow[] = data.map((row) => {
+    const raw = row.conversation_summary;
+    let conversationSummary: string | null = null;
+
+    if (raw != null && String(raw).trim() !== "") {
+      try {
+        conversationSummary = decryptFromStorage(
+          normalizeStoredString(raw),
+          buildConversationSummaryContext(row.owner_id, row.id)
+        );
+      } catch (e) {
+        logger.error("getChatsForSettings", "Failed to decrypt conversation_summary", e);
+      }
+    }
+
+    const href = threadHrefFromRow({
+      id: row.id,
+      title: row.title,
+      owner_id: row.owner_id,
+      created_at: row.created_at,
+      updated_at: row.updated_at,
+      pinned: row.pinned ?? false,
+      feature: row.feature,
+      path: row.path,
+    } as ThreadListRow);
+
+    return {
+      id: row.id,
+      title: row.title,
+      owner_id: row.owner_id,
+      created_at: row.created_at,
+      updated_at: row.updated_at,
+      pinned: row.pinned ?? false,
+      archived: row.archived ?? null,
+      feature: row.feature ?? "main",
+      path: row.path ?? null,
+      href,
+      conversationSummary,
+    };
+  });
+
+  return { data: rows, error: null };
+}
+
+/** Settings → Chats: threads for the signed-in Clerk user only (resolves Supabase profile id). */
+export async function getChatsForSettingsForCurrentUser(): Promise<
+  Result<ChatThreadSettingsRow[]>
+> {
+  const { userId } = await auth();
+
+  if (!userId) {
+    return { data: null, error: new Error("Unauthorized") };
+  }
+
+  const ownerResult = await getSupabaseUserId(userId);
+
+  if (ownerResult.error || ownerResult.data === null) {
+    return {
+      data: null,
+      error: ownerResult.error ?? new Error("Profile not found"),
+    };
+  }
+
+  return getChatsForSettings(ownerResult.data);
 }
 
 // Message management functions
@@ -788,6 +898,52 @@ export async function updateChatPinned(chatId: string, pinned: boolean): Promise
   };
 }
 
+export async function updateChatArchived(chatId: string, archived: boolean): Promise<SimpleResult> {
+  const sb = await supabaseServer();
+  const { error } = await sb.from("threads").update({ archived }).eq("id", chatId);
+
+  if (error) {
+    return {
+      ok: false,
+      error: new Error(error?.message ?? "Unknown error"),
+    };
+  }
+
+  return {
+    ok: true,
+    error: null,
+  };
+}
+
+/**
+ * Updates the thread's routing metadata used by the unified sidebar.
+ * Keep values non-sensitive (thread list metadata is not encrypted).
+ */
+export async function updateThreadRouting(
+  chatId: string,
+  routing: { feature?: string; path?: string }
+): Promise<SimpleResult> {
+  const sb = await supabaseServer();
+  const payload: { feature?: string; path?: string } = {};
+
+  if (routing.feature != null) payload.feature = routing.feature;
+  if (routing.path != null) payload.path = routing.path;
+
+  const { error } = await sb.from("threads").update(payload).eq("id", chatId);
+
+  if (error) {
+    return {
+      ok: false,
+      error: new Error(error?.message ?? "Unknown error"),
+    };
+  }
+
+  return {
+    ok: true,
+    error: null,
+  };
+}
+
 export async function deleteMessage(messageId: string): Promise<SimpleResult> {
   const sb = await supabaseServer();
   const { error } = await sb.from("messages").delete().eq("id", messageId);
@@ -827,6 +983,27 @@ export async function deleteChat(chatId: string): Promise<SimpleResult> {
  * Returns error if the chat has any messages (so we check emptiness in two places: UI + server).
  */
 export async function deleteEmptyChat(chatId: string): Promise<SimpleResult> {
+  const sb = await supabaseServer();
+  const { data: threadMeta, error: threadMetaErr } = await sb
+    .from("threads")
+    .select("feature")
+    .eq("id", chatId)
+    .maybeSingle();
+
+  if (threadMetaErr) {
+    return {
+      ok: false,
+      error: new Error(threadMetaErr.message ?? "Unknown error"),
+    };
+  }
+
+  if (threadMeta?.feature === "strata_agent") {
+    return {
+      ok: false,
+      error: new Error("Strata assistant threads are not auto-deleted"),
+    };
+  }
+
   const countResult = await getMessageCount(chatId);
 
   if (countResult.error !== null) {

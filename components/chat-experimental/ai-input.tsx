@@ -1,31 +1,61 @@
 "use client";
 
-import React, { useCallback, useRef, useState } from "react";
-import { useRouter } from "next/navigation";
-import { Button } from "@heroui/button";
-import { motion } from "framer-motion";
+import type { HomepagePlanIntent, HomepageRoutePreview } from "@/lib/homepage/ollama-schemas";
 
-import { glass } from "../design-system/primitives";
+import React, { useCallback, useState } from "react";
+import { useRouter } from "next/navigation";
+import { AnimatePresence, motion } from "framer-motion";
 
 import { AiInputForm } from "./ai-input-form";
 
+import { HomepagePrimaryActions } from "@/components/pages/homepage-primary-actions";
+import { createStrataPageWithRawTextAction } from "@/app/sandbox/prototypes/strata/actions";
 import { useAion } from "@/hooks/use-aion";
 import { createLogger } from "@/lib/logger";
 import { createChat } from "@/lib/chat/chat-store";
+import { routeHomepagePrompt } from "@/lib/chat/thread-routing";
+import {
+  appendDraftQueryParam,
+  homepageHrefWithOptionalDraft,
+} from "@/lib/chat/thread-routing-candidates";
 import { useSharedChatContext } from "@/lib/context/chat-context";
+import { getSettings } from "@/lib/user-settings";
 import { cn } from "@/lib/utils";
 
 const logger = createLogger("ai-input");
 
-/**
- * AI Input component for one-off prompts that interact with Aion core intelligence.
- * Aion can route users, orchestrate workflows, and handle complex requests through its tools.
- */
-export const AIInput: React.FC = () => {
+const HOME_INPUT_SPRING = { type: "spring" as const, stiffness: 220, damping: 30, mass: 0.95 };
+
+export type AIInputProps = {
+  fullView?: boolean;
+  planMode?: boolean;
+  onPlanModeToggle?: () => void;
+  onTextChange?: (text: string) => void;
+  previewIntent?: HomepageRoutePreview | null;
+  /** Double-tap / mobile courtesy entry to full composer */
+  onComposerDoubleTap?: () => void;
+  /** When true, primary actions render outside (homepage shell full view). */
+  hideEmbedActions?: boolean;
+  onPlanComplete?: (plan: HomepagePlanIntent, userPrompt: string) => void;
+  /** Cmd/Ctrl+Enter capture — if omitted, uses Strata save + navigate */
+  onStrataShortcut?: (text: string) => void | Promise<void>;
+};
+
+export const AIInput: React.FC<AIInputProps> = ({
+  fullView = false,
+  planMode = false,
+  onPlanModeToggle,
+  onTextChange,
+  previewIntent = null,
+  onComposerDoubleTap,
+  hideEmbedActions = false,
+  onPlanComplete,
+  onStrataShortcut: onStrataShortcutProp,
+}) => {
   const router = useRouter();
-  const elementActive = useRef<boolean>(false);
   const { refreshSidebarChats } = useSharedChatContext();
   const [creating, setCreating] = useState(false);
+  const [routing, setRouting] = useState(false);
 
   const handleLetsChat = useCallback(async () => {
     if (creating) return;
@@ -55,14 +85,10 @@ export const AIInput: React.FC = () => {
         "onFinish",
         `Message finished streaming, role=${message?.role} parts=${message?.parts?.length ?? 0}`
       );
-
-      // Aion will handle routing through its tools if needed
-      // The response will contain the result of any tool calls
     },
     onToolCall: (params) => {
       logger.log("onToolCall", `Tool called ${JSON.stringify(params, null, 2)}`);
 
-      // Handle navigation tool calls
       if (params.toolCall.toolName === "navigate" && params.toolCall.input) {
         const { page } = params.toolCall.input as {
           page: string;
@@ -71,10 +97,9 @@ export const AIInput: React.FC = () => {
 
         switch (page) {
           case "chat":
-            // Aion will create/route to chat - navigation can happen after response
-            handleLetsChat();
+            void handleLetsChat();
+            break;
           case "rabbit-hole":
-            // Aion will create rabbit hole session
             break;
           case "settings":
             router.push("/settings");
@@ -87,67 +112,171 @@ export const AIInput: React.FC = () => {
     },
   });
 
-  const handleSubmit = useCallback(
-    async (prompt: string) => {
-      if (!prompt.trim() || aion.status !== "ready") return;
+  const handleStrataShortcut = useCallback(
+    async (text: string) => {
+      if (onStrataShortcutProp) {
+        await onStrataShortcutProp(text);
 
+        return;
+      }
       try {
-        logger.log("handleSubmit", `Sending message to Aion, length: ${prompt?.length ?? 0}`);
-        aion.sendMessage({ text: prompt });
+        const { pageId } = await createStrataPageWithRawTextAction(text);
+
+        if (typeof window !== "undefined") {
+          window.sessionStorage.setItem(`strata:homepage-capture:${pageId}`, text);
+        }
+        router.push(`/sandbox/prototypes/strata/${pageId}?highlight=raw`);
       } catch (error) {
-        logger.error("handleSubmit", `Error sending message ${error}`);
+        logger.error("handleStrataShortcut", `Strata capture failed: ${error}`);
       }
     },
-    [aion]
+    [onStrataShortcutProp, router]
   );
 
-  // Determine loading state from useAion status
-  const isProcessing = aion.status === "streaming" || aion.status === "submitted";
+  const handlePlanSubmit = useCallback(
+    async (prompt: string) => {
+      const trimmed = prompt.trim();
+
+      if (!trimmed || routing || aion.status === "streaming" || aion.status === "submitted") {
+        return;
+      }
+
+      try {
+        setRouting(true);
+        const res = await fetch("/api/homepage/plan-intent", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ text: trimmed }),
+        });
+
+        if (!res.ok) {
+          logger.error("handlePlanSubmit", `Plan API ${res.status}`);
+
+          return;
+        }
+
+        const data = (await res.json()) as { plan?: HomepagePlanIntent };
+
+        if (data.plan) {
+          onPlanComplete?.(data.plan, trimmed);
+        }
+      } catch (error) {
+        logger.error("handlePlanSubmit", String(error));
+      } finally {
+        setRouting(false);
+      }
+    },
+    [aion.status, onPlanComplete, routing]
+  );
+
+  const handleSubmit = useCallback(
+    async (prompt: string) => {
+      if (planMode) {
+        await handlePlanSubmit(prompt);
+
+        return;
+      }
+
+      const trimmed = prompt.trim();
+
+      if (!trimmed || routing || aion.status === "streaming" || aion.status === "submitted") {
+        return;
+      }
+
+      const clientStart = performance.now();
+
+      try {
+        setRouting(true);
+        const coalescenceMode = getSettings().coalescenceMode;
+        const routeRes = await routeHomepagePrompt({ prompt: trimmed, coalescenceMode });
+        const clientRoundTripMs = performance.now() - clientStart;
+
+        if (routeRes.error || !routeRes.data) {
+          logger.error(
+            "handleSubmit",
+            `Semantic routing failed: ${routeRes.error?.message ?? "unknown"}`
+          );
+
+          return;
+        }
+
+        const { metrics } = routeRes.data;
+
+        logger.log(
+          "handleSubmit",
+          JSON.stringify({
+            event: "homepage_route_client",
+            clientRoundTripMs,
+            serverTotalMs: metrics.totalServerMs,
+            serverClassificationMs: metrics.classificationMs,
+            serverFetchCandidatesMs: metrics.fetchCandidatesMs,
+            outcome: routeRes.data.outcome,
+            candidateCount: metrics.candidateCount,
+            coalescenceMode,
+          })
+        );
+
+        if (routeRes.data.outcome === "match") {
+          refreshSidebarChats();
+          const kind = routeRes.data.metrics.matchedKind;
+          const href =
+            kind != null
+              ? homepageHrefWithOptionalDraft(routeRes.data.href, kind, trimmed)
+              : appendDraftQueryParam(routeRes.data.href, trimmed);
+
+          router.push(href);
+
+          return;
+        }
+
+        refreshSidebarChats();
+        router.push(appendDraftQueryParam(`/chat/${routeRes.data.chatId}`, trimmed));
+      } catch (error) {
+        logger.error("handleSubmit", `Error routing homepage prompt ${error}`);
+      } finally {
+        setRouting(false);
+      }
+    },
+    [aion.status, handlePlanSubmit, planMode, refreshSidebarChats, router, routing]
+  );
+
+  const isProcessing = routing || aion.status === "streaming" || aion.status === "submitted";
 
   return (
     <motion.div
-      animate={{ opacity: 1, y: 0, scale: 0.97 }}
-      className="flex flex-col w-full gap-4"
-      whileFocus={{ scale: 1 }}
-      // If element active and submit button not disabled, opacity animation should happen on click
-      // Else, scale animation can happen
-      // Ensentially differentiate interactions, like user click on submit button versus user focusing in on main component for text input
-      initial={{ opacity: 0, y: 32, scale: 0.94 }}
+      layout
+      className={cn("flex w-full flex-col gap-4", fullView && "mx-auto max-w-2xl min-h-0 flex-1")}
       tabIndex={-1}
-      transition={{ type: "spring", stiffness: 120, damping: 18, duration: 0.7 }}
-      whileTap={elementActive.current ? { opacity: 0.92 } : { scale: 1.03 }}
+      transition={{ ...HOME_INPUT_SPRING, layout: { ...HOME_INPUT_SPRING } }}
     >
       <AiInputForm
-        className="w-full max-w-xl rounded-xl"
+        className={cn("w-full rounded-xl", fullView ? "flex-1 min-h-0" : "max-w-xl")}
+        clearAfterSubmit={!planMode}
+        forceReadyInput={planMode}
+        fullView={fullView}
         isLoading={isProcessing}
-        status={aion.status}
+        previewIntent={previewIntent}
+        status={planMode ? aion.status : routing ? "submitted" : aion.status}
+        submitStatus={routing ? "submitted" : aion.status}
+        onComposerDoubleTap={onComposerDoubleTap}
+        onPlanModeToggle={onPlanModeToggle}
+        onStrataShortcut={handleStrataShortcut}
         onSubmit={handleSubmit}
+        onTextChange={onTextChange}
       />
-      <div className="flex gap-10 justify-center">
-        <ActionButton isDisabled={creating} title="Let's Chat" onPress={handleLetsChat} />
-        <ActionButton title="Rabbit Holes" onPress={() => aion.navigate("/rabbitholes/browse")} />
-        <ActionButton title="Settings" onPress={() => aion.navigate("/settings")} />
-      </div>
+      <AnimatePresence initial={false} mode="sync">
+        {!hideEmbedActions ? (
+          <motion.div
+            key="homepage-embed-primary-actions"
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: 6 }}
+            initial={{ opacity: 0, y: 4 }}
+            transition={HOME_INPUT_SPRING}
+          >
+            <HomepagePrimaryActions />
+          </motion.div>
+        ) : null}
+      </AnimatePresence>
     </motion.div>
-  );
-};
-
-const ActionButton = ({
-  title,
-  onPress,
-  className,
-  ...props
-}: React.ComponentProps<typeof Button> & { title: string }) => {
-  return (
-    <Button
-      className={cn(
-        `${glass()} backdrop-invert-25 hover:backdrop-invert-100 transition-all hover:scale-110 duration-1000`,
-        className
-      )}
-      onPress={onPress}
-      {...props}
-    >
-      {title}
-    </Button>
   );
 };

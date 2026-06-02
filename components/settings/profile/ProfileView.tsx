@@ -1,7 +1,7 @@
 "use client";
 
 import type { Profile } from "@/lib/schemas/profiles";
-import type { ProfileSummary } from "@/lib/schemas/profileSummary";
+import type { ProfileTree, ProfileTreeSource } from "@/lib/schemas/profileTree";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Button } from "@heroui/button";
@@ -9,9 +9,14 @@ import { Button } from "@heroui/button";
 import { DEFAULT_PROFILE_LAYOUT, type ProfileBlockId } from "./profile-block-types";
 import { PROFILE_BLOCK_REGISTRY } from "./profile-block-registry";
 
-import { getProfileSummary, setProfileSummary } from "@/lib/profile-summary";
-import { getTailoredProfileSummary, getTailoredDisplayName } from "@/config/tailored-profiles";
-import { getProfileTree } from "@/config/profile-trees";
+import { getTailoredDisplayName } from "@/config/tailored-profiles";
+import {
+  buildTailoredTree,
+  getEmptyProfileTree,
+  isTailoredTree,
+  type ProfileTreeVariant,
+} from "@/config/profile-trees";
+import { ProfileTreeSchema } from "@/lib/schemas/profileTree";
 
 type ProfileViewProps = {
   profile: Profile | null;
@@ -22,65 +27,173 @@ type ProfileViewProps = {
 };
 
 export function ProfileView({ profile, email, displayName }: ProfileViewProps) {
-  const [summary, setSummary] = useState<ProfileSummary | null>(() => getProfileSummary());
-  const [loading, setLoading] = useState(false);
+  const [tree, setTree] = useState<ProfileTree | null>(null);
+  const [treeSource, setTreeSource] = useState<ProfileTreeSource | null>(null);
+  const [treeLoading, setTreeLoading] = useState(true);
+  const [generating, setGenerating] = useState(false);
+  const [savingTree, setSavingTree] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const resolvedEmail = profile?.email ?? email ?? null;
-
-  const tailoredSummary = useMemo(() => getTailoredProfileSummary(resolvedEmail), [resolvedEmail]);
-
   const tailoredName = useMemo(() => getTailoredDisplayName(resolvedEmail), [resolvedEmail]);
-
-  const displaySummary = tailoredSummary ?? summary;
-
-  const { tree, variant: treeVariant } = useMemo(
-    () => getProfileTree(profile?.email ?? email ?? null, displaySummary),
-    [profile?.email, email, displaySummary]
+  const tailoredSeedTree = useMemo(
+    () => (isTailoredTree(resolvedEmail) ? buildTailoredTree() : null),
+    [resolvedEmail]
   );
+  const emptyTree = useMemo(() => getEmptyProfileTree(), []);
+  const renderedTree = tree ?? tailoredSeedTree ?? emptyTree;
+  const treeVariant: ProfileTreeVariant = tree
+    ? treeSource === "tailored-seed"
+      ? "tailored"
+      : "generated"
+    : tailoredSeedTree
+      ? "tailored"
+      : "empty";
 
-  const generateSummary = useCallback(async () => {
-    setLoading(true);
+  useEffect(() => {
+    let mounted = true;
+
+    async function loadProfileTree() {
+      setTreeLoading(true);
+      setError(null);
+
+      try {
+        const res = await fetch("/api/profile/tree");
+        const payload = await res.json().catch(() => ({}));
+
+        if (!res.ok) {
+          throw new Error(payload.error ?? "Failed to load profile tree");
+        }
+
+        const persisted = payload.data as {
+          tree?: unknown;
+          source?: ProfileTreeSource | null;
+        } | null;
+
+        if (!mounted) return;
+
+        setTree(persisted?.tree ? ProfileTreeSchema.parse(persisted.tree) : null);
+        setTreeSource(persisted?.source ?? null);
+      } catch (e) {
+        if (!mounted) return;
+        setError(e instanceof Error ? e.message : "Failed to load profile tree");
+      } finally {
+        if (mounted) setTreeLoading(false);
+      }
+    }
+
+    loadProfileTree();
+
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
+  const saveTailoredSeed = useCallback(async () => {
+    if (!tailoredSeedTree) return;
+
+    setSavingTree(true);
     setError(null);
+
+    try {
+      const res = await fetch("/api/profile/tree", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ tree: tailoredSeedTree }),
+      });
+      const payload = await res.json().catch(() => ({}));
+
+      if (!res.ok) {
+        throw new Error(payload.error ?? "Failed to save profile");
+      }
+
+      setTree(ProfileTreeSchema.parse(payload.data));
+      setTreeSource("tailored-seed");
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Something went wrong");
+    } finally {
+      setSavingTree(false);
+    }
+  }, [tailoredSeedTree]);
+
+  const generateProfileTree = useCallback(async () => {
+    setGenerating(true);
+    setError(null);
+
     try {
       const res = await fetch("/api/profile/summary", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          displayName: profile?.display_name ?? "User",
-          email: profile?.email ?? "",
+          displayName: profile?.display_name ?? displayName ?? "User",
+          email: resolvedEmail ?? "",
         }),
       });
+      const payload = await res.json().catch(() => ({}));
 
       if (!res.ok) {
-        const data = await res.json().catch(() => ({}));
-
-        throw new Error(data.error ?? "Failed to generate");
+        throw new Error(payload.error ?? "Failed to generate profile");
       }
-      const data = await res.json();
 
-      setProfileSummary(data);
-      setSummary(data);
+      setTree(ProfileTreeSchema.parse(payload.data));
+      setTreeSource("llm-generated");
     } catch (e) {
       setError(e instanceof Error ? e.message : "Something went wrong");
     } finally {
-      setLoading(false);
+      setGenerating(false);
     }
-  }, [profile?.display_name, profile?.email]);
+  }, [displayName, profile?.display_name, resolvedEmail]);
 
-  useEffect(() => {
-    const cached = getProfileSummary();
+  const patchTreeFields = useCallback(
+    async (fields: { headline?: string; signature?: string }) => {
+      if (!tree) return;
 
-    if (cached) setSummary(cached);
-  }, []);
+      const previousTree = tree;
+      const optimisticTree = ProfileTreeSchema.parse({ ...tree, ...fields });
+
+      setTree(optimisticTree);
+      setSavingTree(true);
+      setError(null);
+
+      try {
+        const res = await fetch("/api/profile/tree", {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(fields),
+        });
+        const payload = await res.json().catch(() => ({}));
+
+        if (!res.ok) {
+          throw new Error(payload.error ?? "Failed to update profile");
+        }
+
+        setTree(ProfileTreeSchema.parse(payload.data));
+        setTreeSource("user-edited");
+      } catch (e) {
+        setTree(previousTree);
+        setError(e instanceof Error ? e.message : "Failed to update profile");
+        throw e;
+      } finally {
+        setSavingTree(false);
+      }
+    },
+    [tree]
+  );
+
+  if (treeLoading) {
+    return <div className="h-64 rounded-2xl bg-muted/40 animate-pulse" />;
+  }
 
   const blockProps = {
     profile,
-    summary: displaySummary,
-    tree,
+    summary: null,
+    tree: renderedTree,
     treeVariant,
     email: profile?.email ?? email ?? null,
     displayName: tailoredName || displayName || null,
+    canEditTree: Boolean(tree),
+    isSavingTree: savingTree,
+    onTreeFieldPatch: patchTreeFields,
   };
   const layout = DEFAULT_PROFILE_LAYOUT;
 
@@ -104,21 +217,34 @@ export function ProfileView({ profile, email, displayName }: ProfileViewProps) {
 
       <div className="flex flex-col gap-2">
         <p className="text-xs text-muted-foreground">
-          {treeVariant === "tailored"
-            ? "Tailored profile. You can still regenerate an AI summary below."
-            : treeVariant === "demo"
-              ? "Demo profile. Sign in with your account to see your own or generate one."
-              : treeVariant === "generated"
-                ? "Profile copy is generated and cached locally. Regenerate to refresh."
-                : "Generate a summary below or add your own; the LLM can tier it into sections."}
+          {tree
+            ? "Profile content is saved to your account and available across devices."
+            : tailoredSeedTree
+              ? "Tailored starter profile. Save it to your account, then edit headline and signature."
+              : "Generate a profile tree to save it to your account across devices."}
         </p>
-        <Button isDisabled={loading} size="sm" variant="bordered" onPress={generateSummary}>
-          {loading
-            ? "Generating…"
-            : summary
-              ? "Regenerate profile summary"
-              : "Generate profile summary"}
-        </Button>
+        <div className="flex flex-wrap gap-2">
+          {tailoredSeedTree && !tree && (
+            <Button
+              isDisabled={savingTree}
+              isLoading={savingTree}
+              size="sm"
+              variant="bordered"
+              onPress={saveTailoredSeed}
+            >
+              Save tailored profile
+            </Button>
+          )}
+          <Button
+            isDisabled={generating || savingTree}
+            isLoading={generating}
+            size="sm"
+            variant="bordered"
+            onPress={generateProfileTree}
+          >
+            {tree ? "Regenerate profile tree" : "Generate profile tree"}
+          </Button>
+        </div>
       </div>
     </div>
   );

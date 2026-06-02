@@ -2,6 +2,14 @@
 
 Organic LLM is both a UI Lab (reimagining human–AI chat interactions) and a Cognition Lab (prototyping memory + context systems).
 
+## Arcadia (sandbox chat)
+
+Arcadia is a sandboxed chat experience for experimenting with prompts, context/tooling, and UI variants—while still sharing the same thread system and sidebar list.
+
+**Stack**: Next.js (App Router) + React + AI SDK streaming + Clerk + Supabase  
+**LLM**: shared `/api/chat` pipeline (context + tools + streaming UI events)  
+**Design**: forest-chrome text hint + brown-glass cards (Arcadia sidebar variant)
+
 • UI Pillars: organic-futuristic-modernism, glass/gradient/particle aesthetics, fluid chat.
 
 • Cognition Pillars: efficient memory (last-N turns + rolling summaries), safe deep pulls into history, trust features (export, forget, transparency).

@@ -96,6 +96,7 @@ export async function POST(req: Request) {
     });
   } catch (error) {
     const err = error instanceof Error ? error : new Error(String(error));
+
     logger.error("POST", `Error generating speech response: ${err.name}`);
 
     return Response.json({ error: "Failed to generate speech-friendly response" }, { status: 500 });
