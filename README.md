@@ -1,127 +1,186 @@
 # Organic LLM
 
-Organic LLM is both a UI Lab (reimagining human–AI chat interactions) and a Cognition Lab (prototyping memory + context systems).
+**Reimagining AI chat** — fluid, glass-forward UI with memory and context that stay fast, inspectable, and trustworthy.
 
-• UI Pillars: organic-futuristic-modernism, glass/gradient/particle aesthetics, fluid chat.
+## Live app
 
-• Cognition Pillars: efficient memory (last-N turns + rolling summaries), safe deep pulls into history, trust features (export, forget, transparency).
+**[Open Organic LLM →](https://organic.coalescencelabs.app)**
 
-North Star: A chat experience that feels alive, remembers meaningfully, and balances speed with depth — portable into other projects like Spark, Stratum, and Ascend.
+The hosted deployment is the primary experience. Sign in to use chat, rabbit holes, settings, and sandbox labs. These paths are public without an account:
 
-**Structured knowledge:** For a holistic view of goals, design, and architecture (and to review how everything links), see **[docs/PROJECT_KNOWLEDGE.md](docs/PROJECT_KNOWLEDGE.md)**. For an index of all documentation, see **[docs/INDEX.md](docs/INDEX.md)**.
+| Path | Description |
+|------|-------------|
+| `/showcase` | Portfolio — [Anatomy of a Response](https://organic.coalescencelabs.app/showcase/anatomy), [Memory](https://organic.coalescencelabs.app/showcase/memory) |
+| `/blog` | Architecture and design writing |
+| `/privacy-and-security` | Encryption and privacy overview |
 
-## Core Concepts
+## Overview
 
-• Threads → container for conversations (chat sessions)
-• Messages → canonical turn log (user, assistant, system, tool)
-• Last-N Window → only ~10 recent messages are sent to the model
-• Rolling Summaries → compact narrative that grows alongside a thread
-• Deep History Tools → safe, on-demand retrieval when summary + last-N aren’t enough
-• UI Contract → show all history to user (infinite scroll), but keep model context lean
+Organic LLM is a full-stack AI chat product and an ongoing design/research codebase:
+
+- **Product** — threaded conversations, long-term memory, branching research (rabbit holes), structured assistant UI (Gen UI), voice/TTS, and export to external tools.
+- **UI lab** — organic-glass surfaces, adaptive backgrounds, spring-driven layout morphs ([`@organic-llm/morph-physics`](./llm/morph-physics/)).
+- **Cognition lab** — token-bounded context, rolling summaries, encrypted persistence, and a strict server boundary around memory operations.
+
+Experiments under `/sandbox` (e.g. Arcadia, Strata, memory ingest) share auth and often the same thread model as production chat; stable ideas graduate into the main app or `/showcase`.
+
+## Tech stack
+
+| Layer | Stack |
+|-------|-------|
+| **App** | [Next.js 16](https://nextjs.org/) (App Router — React UI, API routes, RSC/server logic), TypeScript, [Bun](https://bun.sh) |
+| **UI** | Tailwind 4, Radix/shadcn, Framer Motion, [`morph-physics`](./llm/morph-physics/) |
+| **AI & voice** | [Vercel AI SDK](https://sdk.vercel.ai/) + Gateway, Gen UI/tools, [ElevenLabs](https://elevenlabs.io/) TTS |
+| **Services** | [Supabase](https://supabase.com/), [Clerk](https://clerk.com/), [Mem0](https://mem0.ai/) (+ optional [Qdrant](https://qdrant.tech/)), optional [Upstash](https://upstash.com/) · hosted on [Vercel](https://vercel.com/) |
+
+## Architecture
+
+### Layers
+
+```mermaid
+flowchart TB
+  subgraph client [Browser]
+    UI[Next.js App Router UI]
+    Sidebar[Thread list SWR cache]
+  end
+  subgraph api [Server]
+    Routes["/api/chat and tools"]
+    Store[lib/chat/chat-store]
+    Memory[lib/memory/operations]
+    Crypto[lib/crypto/message-encryption]
+  end
+  subgraph data [Data and services]
+    SB[(Supabase threads messages summaries)]
+    Mem0[Mem0 / optional Qdrant]
+    LLM[Vercel AI SDK and Gateway]
+    Clerk[Clerk auth]
+  end
+  UI --> Routes
+  Routes --> Store
+  Store --> Crypto
+  Store --> SB
+  Routes --> Memory
+  Memory --> Mem0
+  Routes --> LLM
+  UI --> Clerk
+```
+
+| Layer | Role | Primary code |
+|-------|------|----------------|
+| **UI** | Full message history in the scroll surface; lean payload to the model | `components/chat/`, `app/chat/` |
+| **API** | Streaming, tools, Gen UI events, rate limits | `app/api/chat/` |
+| **Chat store** | Create/load/save threads; assemble context before `streamText` | [`lib/chat/chat-store.ts`](./lib/chat/chat-store.ts) |
+| **Persistence** | Postgres via Supabase; RLS owner-scoped to Clerk user | `data/supabase/` |
+| **Encryption** | AES at rest for message bodies and summary fields | [`lib/crypto/message-encryption.ts`](./lib/crypto/message-encryption.ts), [E2EE notes](./docs/e2ee.md) |
+| **Memory** | Search/add/delete via server-only API; no client-supplied `userId` | [`lib/memory/README.md`](./lib/memory/README.md) |
+
+Deep dives: [thread & session architecture](./docs/thread-session-architecture.md), [context building](./docs/architecture/context-building.md), [chat message flow (blog)](https://organic.coalescencelabs.app/blog/chat-message-flow).
+
+### Context model
+
+1. **Threads** — one conversation (`threads`, `messages`, `thread_summaries` in Supabase).
+2. **Last-N window** — only recent turns are sent to the model.
+3. **Rolling summaries** — encrypted narrative per thread, updated on a cadence so older turns need not be resent.
+4. **Memory** — Mem0-backed facts retrieved and written through [`lib/memory/operations.ts`](./lib/memory/operations.ts).
+5. **UI contract** — users always browse full history; the model sees a bounded, token-aware context.
+
+### Major surfaces
+
+| Surface | Purpose |
+|---------|---------|
+| **Chat** (`/chat`) | Main assistant — streaming, tools, Gen UI, export presets |
+| **Rabbit holes** (`/rabbitholes`) | Multi-step research sessions with generated nodes |
+| **Arcadia** (`/sandbox/arcadia`) | Sandbox chat on shared threads — prompts and UI experiments |
+| **Speak** (`/speak`) | TTS-oriented flows |
+| **Sandbox** (`/sandbox`) | Prototypes gallery (tasks, morph lab, Strata, memory ingest, …) |
+| **Showcase** (`/showcase`) | Public, fixed snapshots for portfolio review |
+| **Good News** (`/good-news`) [In Development] | Fact-checked optimistic digest (scheduled job on deploy) |
+
+Auth: Clerk protects `/chat`, `/rabbitholes`, `/sandbox`, `/settings`, `/speak`, `/status`, and `/api/*` except webhooks and the Good News cron. See [`proxy.ts`](./proxy.ts).
+
+## Documentation
+
+- **[Documentation index](./docs/INDEX.md)** — all architecture and module guides
+- **Blog** — [/blog](https://organic.coalescencelabs.app/blog) (memory encryption, chat pipeline, export presets, adaptive background)
+- **[Security policy](./SECURITY.md)** — reporting and secrets hygiene
+- **[Open-source audit](./docs/OPEN_SOURCE_AUDIT.md)** — pre-public checklist for contributors
 
 ## Roadmap
 
-### v0 — Supabase Spine ✅ (current)
+**Shipped** — persistence, encryption, rolling summaries, memory, rabbit holes, export, showcase, blog, Arcadia sandbox.
 
-• Persist chats in Supabase (threads, messages, RLS enabled)
-• Basic message persistence, owner-only access, indexes, rate-limit guard
-• Last ~10 messages sent to model
-• Infinite scroll for history
+**Experimental** — deep history search/chunks; sandbox prototypes (Strata, memory ingest).
 
-### v1 — Rolling Summaries
+**Planned** — thread chapters, artifact ingestion, richer observability and governance.
 
-• Add thread_summaries (≤600 tokens)
-• Context = persona + summary + last-N messages
-• Redis cache for speed
+## Principles
 
-### v2 — Deep History Tools
+Composable features on a stable thread spine; token-aware context; transparent security design; full history in the UI with lean model context as optimization.
 
-• Add message_chunks + pgvector/trigram search
-• history.search() / history.before() functions
-• Strict token budgets and safe retrieval
+---
 
-### v3 — Chapters & Observability
+## Running locally
 
-• thread_chapters, optional decision_log
-• Track token usage, latency, deep pulls
-• Dashboards for observability
+For contributors and self-hosters. The hosted app above is the default way to explore the product.
 
-### v4 — Artifacts & Docs
+### Quick preview (no API keys)
 
-• File/code ingestion
-• Chunked embeddings + docs.search()
-• Inline artifact previews in chat
-
-### v5 — Governance & Trust
-
-• Forget/export features
-• Retention/decay policies
-• Cost dashboards
-
-## Development Principles
-
-• Iterative Spine → working baseline at each step
-• Composable → additive features; threads/messages never break
-• Token-aware → context always respects budgets
-• Transparency → inspectable model context (citations, debug mode)
-• User-first → full history always accessible; lean context is optimization
-
-## Tech Stack
-
-• Frontend: Next.js 16, Tailwind CSS, shadcn/ui
-• State: React Query, Zustand
-• Backend: Supabase (Postgres + pgvector)
-• Auth: Clerk (passkeys, biometrics)
-• Cache: Redis (future v1)
-• Infra: Vercel + optional Upstash for rate limiting
-
-## Getting Started
-
-### Prerequisites
-
-• Node.js ≥ 20
-• bun (preferred)
-• Supabase project (with threads + messages tables, RLS enabled)
-• Clerk project for authentication
-
-### Setup
+**Prerequisites:** Node.js ≥ 20, [Bun](https://bun.sh).
 
 ```bash
-git clone https://github.com/alexjoshua14/organic-llm
+git clone https://github.com/alexjoshua14/organic-llm.git
 cd organic-llm
 bun install
-```
-
-#### Environment
-
-```bash
-cp .env.example .env.local
-```
-
-#### Fill in Supabase keys, Clerk keys, Redis if enabled
-
-#### Run
-
-```bash
 bun dev
 ```
 
-Visit [http://localhost:3000](http://localhost:3000) and start chatting.
+Open [localhost:3000/showcase](http://localhost:3000/showcase), [/blog](http://localhost:3000/blog), or [/good-news?preview=1](http://localhost:3000/good-news?preview=1). No `.env.local` required for those routes.
 
-## Current Status (v0)
+### Full stack on your machine
 
-• Message persistence to Supabase (working)
-• RLS policies owner-scoped via Clerk sub
-• Rate limit guard (DB trigger) to prevent runaway thread creation
-• Next focus:
-• Finish createChat, loadChat, getChats wiring
-• Swap UI store → Supabase store (with local fallback)
-• Add Redis cache for recent messages
-• Optimistic UI with local echo
+Bring your own **Clerk** app and **Supabase** project (schema snippets in [`docs/migrations/`](./docs/migrations/)).
 
-## Guiding Mindset
+```bash
+cp .env.example .env.local
+# Clerk, Supabase URL + anon + service role, plus optional:
+# OPENAI_API_KEY, EXA_API_KEY, ELEVENLABS_API_KEY, MEMORY_API_*, UPSTASH_*,
+# ORGANIC_LLM_* encryption — see .env.example and docs/OPEN_SOURCE_AUDIT.md
+bun dev
+```
 
-• v10 vision fuels motivation; v0 spine ensures momentum
-• Each version is a valid checkpoint
-• Don’t over-polish early
-• If paused, roadmap = save point
+- Product routes after sign-in: `/chat`, `/rabbitholes`, `/sandbox`
+- Health: `/status` when env is configured
+- Types: `bun run supabase:types` (requires `supabase link` locally)
+- Clerk webhooks: `bun run dev:full`
+
+### Deploy yourself
+
+Typical path: **Vercel** + env vars from `.env.example`, Supabase, Clerk, and optional Upstash / Qdrant / memory encryption keys. Cron for Good News is defined in [`vercel.json`](./vercel.json). Do not commit `.env.local` or `supabase/.temp/` — see [SECURITY.md](./SECURITY.md).
+
+> `package.json` sets `"private": true` for npm; the app is open source on GitHub, not published as an npm application package.
+
+## Development
+
+```bash
+bun run lint:check
+bun run test          # unit + integration
+bun run test:e2e      # Playwright (E2E_CLERK_* for signed-in flows)
+```
+
+CI runs tests on `main` PRs; `llm/morph-physics` has a separate workflow when that package changes.
+
+### Repository layout
+
+```
+app/           Routes — chat, blog, showcase, sandbox, api
+components/    UI, chat, rabbit-holes, design-system
+lib/           Chat store, LLM, memory, crypto, rate limits
+llm/           morph-physics and future packages
+docs/          Architecture — docs/INDEX.md
+tests/         Bun + Playwright
+```
+
+## License
+
+- Application: [MIT](./LICENSE)
+- [`llm/morph-physics`](./llm/morph-physics/): [Apache-2.0](./llm/morph-physics/LICENSE)
