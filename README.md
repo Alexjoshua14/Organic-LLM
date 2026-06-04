@@ -28,10 +28,10 @@ Experiments under `/sandbox` (e.g. Arcadia, Strata, memory ingest) share auth an
 
 | Layer | Stack |
 |-------|-------|
-| **App** | [Next.js 16](https://nextjs.org/) (App Router — React UI, API routes, RSC/server logic), TypeScript, [Bun](https://bun.sh) |
+| **App** | [Next.js 16](https://nextjs.org/), TypeScript, [Bun](https://bun.sh) |
 | **UI** | Tailwind 4, Radix/shadcn, Framer Motion, [`morph-physics`](./llm/morph-physics/) |
 | **AI & voice** | [Vercel AI SDK](https://sdk.vercel.ai/) + Gateway, Gen UI/tools, [ElevenLabs](https://elevenlabs.io/) TTS |
-| **Services** | [Supabase](https://supabase.com/), [Clerk](https://clerk.com/), [Mem0](https://mem0.ai/) (+ optional [Qdrant](https://qdrant.tech/)), optional [Upstash](https://upstash.com/) · hosted on [Vercel](https://vercel.com/) |
+| **Services** | [Supabase](https://supabase.com/), [Clerk](https://clerk.com/), [Mem0](https://mem0.ai/), [Qdrant](https://qdrant.tech/), [Upstash](https://upstash.com/) · hosted on [Vercel](https://vercel.com/) |
 
 ## Architecture
 
@@ -51,7 +51,7 @@ flowchart TB
   end
   subgraph data [Data and services]
     SB[(Supabase threads messages summaries)]
-    Mem0[Mem0 / optional Qdrant]
+    Mem0[Mem0 + Qdrant]
     LLM[Vercel AI SDK and Gateway]
     Clerk[Clerk auth]
   end
