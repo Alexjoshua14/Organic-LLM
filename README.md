@@ -6,7 +6,7 @@
 
 **[Open Organic LLM →](https://organic.coalescencelabs.app)**
 
-The hosted deployment is the primary experience. Sign in to use chat, rabbit holes, settings, and sandbox labs. These paths are public without an account:
+The hosted deployment is the primary experience. Sign in for chat, rabbit-hole research, speak/TTS, settings, profile, and the sandbox lab. These paths are public without an account:
 
 | Path | Description |
 |------|-------------|
@@ -16,7 +16,7 @@ The hosted deployment is the primary experience. Sign in to use chat, rabbit hol
 
 ## Overview
 
-Organic LLM is a full-stack AI chat product and an ongoing design/research codebase:
+Organic LLM is a full-stack AI application and an ongoing design/research codebase:
 
 - **Product** — threaded conversations, long-term memory, branching research (rabbit holes), structured assistant UI (Gen UI), voice/TTS, and export to external tools.
 - **UI lab** — organic-glass surfaces, adaptive backgrounds, spring-driven layout morphs ([`@organic-llm/morph-physics`](./llm/morph-physics/)).
@@ -35,68 +35,106 @@ Experiments under `/sandbox` (e.g. Arcadia, Strata, memory ingest) share auth an
 
 ## Architecture
 
-### Layers
+One **Next.js application** on Vercel hosts every product surface below. They share Clerk auth, Supabase persistence, encrypted chat data, long-term memory, the AI Gateway, Upstash rate limits, and a common `app/api` + `lib` layout — but each area has its own UI, routes, and server modules.
+
+### Application areas
+
+| Area | Route(s) | What it does |
+|------|----------|----------------|
+| **Chat** | `/chat` | Main assistant — threads, streaming, tools, Gen UI cards, export to external apps |
+| **Rabbit holes** | `/rabbitholes` | Branching research sessions — generated nodes, sources, browse and resume |
+| **Speak** | `/speak` | Voice-first and TTS-oriented conversation flows |
+| **Settings & profile** | `/settings` | Account, fonts, knowledge tree, chat preferences, Coalescence Mode |
+| **Sandbox** | `/sandbox/*` | Internal lab — Arcadia, Noesis (topic explore), Strata, tasks, TTS experiments, Prometheus, memory ingest, UI prototypes |
+| **Homepage** | `/` | Composer, routing into chat or plan flows |
+| **Good News** | `/good-news` | Daily digest (cron + Exa + Gateway); preview mode without backend |
+| **Showcase & blog** | `/showcase`, `/blog` | Public portfolio snapshots and architecture writing |
+
+Auth: Clerk protects product routes and `/api/*` except webhooks and the Good News cron ([`proxy.ts`](./proxy.ts)). `/showcase`, `/blog`, and `/privacy-and-security` stay public.
+
+### System diagram
 
 ```mermaid
 flowchart TB
-  subgraph client [Browser]
-    UI[Next.js App Router UI]
-    Sidebar[Thread list SWR cache]
+  Clerk[Clerk auth]
+
+  subgraph next [Next.js on Vercel]
+    direction TB
+    Core[Core product UI]
+    Sbx[Sandbox lab UI]
+    API[app/api]
+    Conv[Conversation]
+    Res[Research]
+    Plat[Platform]
+    Core --> API
+    Sbx --> API
+    API --> Conv
+    API --> Res
+    API --> Plat
   end
-  subgraph api [Server]
-    Routes["/api/chat and tools"]
-    Store[lib/chat/chat-store]
-    Memory[lib/memory/operations]
-    Crypto[lib/crypto/message-encryption]
+
+  subgraph svc [External services]
+    direction TB
+    SB[(Supabase)]
+    MQ[(Mem0 + Qdrant)]
+    GW[AI Gateway]
+    UP[(Upstash)]
   end
-  subgraph data [Data and services]
-    SB[(Supabase threads messages summaries)]
-    Mem0[Mem0 + Qdrant]
-    LLM[Vercel AI SDK and Gateway]
-    Clerk[Clerk auth]
-  end
-  UI --> Routes
-  Routes --> Store
-  Store --> Crypto
-  Store --> SB
-  Routes --> Memory
-  Memory --> Mem0
-  Routes --> LLM
-  UI --> Clerk
+
+  Clerk --> Core
+  Clerk --> API
+  Conv --> SB
+  Res --> SB
+  Conv --> GW
+  Res --> GW
+  Plat --> SB
+  Plat --> MQ
+  Plat --> UP
 ```
 
-| Layer | Role | Primary code |
-|-------|------|----------------|
-| **UI** | Full message history in the scroll surface; lean payload to the model | `components/chat/`, `app/chat/` |
-| **API** | Streaming, tools, Gen UI events, rate limits | `app/api/chat/` |
-| **Chat store** | Create/load/save threads; assemble context before `streamText` | [`lib/chat/chat-store.ts`](./lib/chat/chat-store.ts) |
-| **Persistence** | Postgres via Supabase; RLS owner-scoped to Clerk user | `data/supabase/` |
-| **Encryption** | AES at rest for message bodies and summary fields | [`lib/crypto/message-encryption.ts`](./lib/crypto/message-encryption.ts), [E2EE notes](./docs/e2ee.md) |
-| **Memory** | Search/add/delete via server-only API; no client-supplied `userId` | [`lib/memory/README.md`](./lib/memory/README.md) |
+| Diagram node | Maps to |
+|--------------|---------|
+| **Core product UI** | Chat, Rabbit Holes, Speak, Settings, and the homepage composer |
+| **Sandbox lab UI** | Internal lab — Arcadia, Noesis (topic explore), Strata, tasks, TTS experiments, and UI prototypes |
+| **app/api** | HTTP entry for chat, research sessions, speech, profile, sandbox prototypes, and scheduled jobs |
+| **Conversation** | Thread streaming, context assembly, and encrypted storage for messages and summaries |
+| **Research** | Rabbit Hole generation, resume, and browse pipelines |
+| **Platform** | Long-term memory, profile and knowledge, and Redis-backed rate limits |
+| **External services** | **Supabase** (app data), **Mem0 + Qdrant** (vectors), **AI Gateway** (models), **Upstash** (limits and cache) |
 
-Deep dives: [thread & session architecture](./docs/thread-session-architecture.md), [context building](./docs/architecture/context-building.md), [chat message flow (blog)](https://organic.coalescencelabs.app/blog/chat-message-flow).
+Showcase, blog, and privacy pages are public and mostly static — see **Application areas**.
 
-### Context model
+### Shared platform
 
-1. **Threads** — one conversation (`threads`, `messages`, `thread_summaries` in Supabase).
-2. **Last-N window** — only recent turns are sent to the model.
-3. **Rolling summaries** — encrypted narrative per thread, updated on a cadence so older turns need not be resent.
-4. **Memory** — Mem0-backed facts retrieved and written through [`lib/memory/operations.ts`](./lib/memory/operations.ts).
-5. **UI contract** — users always browse full history; the model sees a bounded, token-aware context.
+| Piece | Role across the app |
+|-------|---------------------|
+| [`app/api`](./app/api/) | HTTP for chat, rabbit-hole generation, TTS/speech, profile/knowledge, homepage routing, sandbox prototypes, Good News cron, webhooks |
+| [`lib/chat`](./lib/chat/) | Threads, context assembly, streaming orchestration ([`chat-store`](./lib/chat/chat-store.ts)) |
+| [`lib/rabbit-holes`](./lib/rabbit-holes/) | Session generation, nodes, browse metadata, client session state |
+| [`lib/memory/operations`](./lib/memory/operations.ts) | Server-only long-term memory (chat, Arcadia, lenses, migration tests) |
+| [`lib/crypto/message-encryption`](./lib/crypto/message-encryption.ts) | At-rest encryption for messages and summaries |
+| [`components/`](./components/) | Chat, rabbit-holes, settings, design-system glass primitives, showcase, TTS |
 
-### Major surfaces
+### Example request paths
 
-| Surface | Purpose |
-|---------|---------|
-| **Chat** (`/chat`) | Main assistant — streaming, tools, Gen UI, export presets |
-| **Rabbit holes** (`/rabbitholes`) | Multi-step research sessions with generated nodes |
-| **Arcadia** (`/sandbox/arcadia`) | Sandbox chat on shared threads — prompts and UI experiments |
-| **Speak** (`/speak`) | TTS-oriented flows |
-| **Sandbox** (`/sandbox`) | Prototypes gallery (tasks, morph lab, Strata, memory ingest, …) |
-| **Showcase** (`/showcase`) | Public, fixed snapshots for portfolio review |
-| **Good News** (`/good-news`) [In Development] | Fact-checked optimistic digest (scheduled job on deploy) |
+- **Chat turn** — thread UI → `POST /api/chat` → chat-store (last-N + summary + memory) → Gateway stream → encrypt → Supabase.
+- **Rabbit hole** — session UI → `/api/rabbitholes/...` generate/resume → pipeline in `lib/rabbit-holes` → Supabase session tables + Gateway.
+- **TTS / speak** — UI → `/api/ai/tts*` or speech routes → ElevenLabs + Gateway copy transforms.
+- **Profile** — settings → `/api/profile/*` → Supabase profile/knowledge + Gateway classifiers.
+- **Good News** — Vercel cron → `/api/good-news/cron` → Exa + Gateway → digest rows in Supabase.
+- **Sandbox** — prototype pages call dedicated `/api/sandbox/*`, `/api/prototypes/*`, or reuse chat/Aion routes.
 
-Auth: Clerk protects `/chat`, `/rabbitholes`, `/sandbox`, `/settings`, `/speak`, `/status`, and `/api/*` except webhooks and the Good News cron. See [`proxy.ts`](./proxy.ts).
+### Chat context model
+
+Applies to **chat** (and Arcadia-style threads that share the same store):
+
+1. **Threads** — `threads`, `messages`, `thread_summaries` in Supabase.
+2. **Last-N window** — only recent turns go to the model.
+3. **Rolling summaries** — encrypted narrative, refreshed on a cadence.
+4. **Memory** — Mem0/Qdrant via [`lib/memory/operations.ts`](./lib/memory/operations.ts).
+5. **UI contract** — full history on screen; bounded context to the model.
+
+More detail: [threads & sessions](./docs/thread-session-architecture.md) · [context assembly](./docs/architecture/context-building.md) · [Arcadia](./docs/arcadia.md) · [chat pipeline (blog)](https://organic.coalescencelabs.app/blog/chat-message-flow) · [encryption](./docs/e2ee.md).
 
 ## Documentation
 
@@ -107,7 +145,7 @@ Auth: Clerk protects `/chat`, `/rabbitholes`, `/sandbox`, `/settings`, `/speak`,
 
 ## Roadmap
 
-**Shipped** — persistence, encryption, rolling summaries, memory, rabbit holes, export, showcase, blog, Arcadia sandbox.
+**Shipped** — chat, rabbit holes, speak/TTS, profile/settings, memory, encryption, sandbox lab, showcase, blog, Good News (in development).
 
 **Experimental** — deep history search/chunks; sandbox prototypes (Strata, memory ingest).
 
