@@ -4,15 +4,81 @@
 
 ## Live app
 
-**[Open Organic LLM →](https://organic.coalescencelabs.app)**
+> **[organic.coalescencelabs.app](https://organic.coalescencelabs.app)** — the hosted app is the primary way to explore Organic LLM.
 
-The hosted deployment is the primary experience. Sign in for chat, rabbit-hole research, speak/TTS, settings, profile, and the sandbox lab. These paths are public without an account:
+**Public** — no account required:
 
-| Path | Description |
-|------|-------------|
-| `/showcase` | Portfolio — [Anatomy of a Response](https://organic.coalescencelabs.app/showcase/anatomy), [Memory](https://organic.coalescencelabs.app/showcase/memory) |
-| `/blog` | Architecture and design writing |
-| `/privacy-and-security` | Encryption and privacy overview |
+<table border="0" cellspacing="0" cellpadding="8">
+  <tr>
+    <td valign="top" width="160">
+      <strong><a href="https://organic.coalescencelabs.app/showcase">Showcase</a></strong>
+    </td>
+    <td valign="top">
+      Portfolio demos — <a href="https://organic.coalescencelabs.app/showcase/anatomy">Anatomy of a Response</a>, <a href="https://organic.coalescencelabs.app/showcase/memory">Memory</a>
+    </td>
+  </tr>
+  <tr>
+    <td valign="top">
+      <strong><a href="https://organic.coalescencelabs.app/blog">Blog</a></strong>
+    </td>
+    <td valign="top">
+      Architecture and design writing from the build
+    </td>
+  </tr>
+  <tr>
+    <td valign="top">
+      <strong><a href="https://organic.coalescencelabs.app/privacy-and-security">Privacy &amp; security</a></strong>
+    </td>
+    <td valign="top">
+      Encryption, data handling, and privacy overview
+    </td>
+  </tr>
+</table>
+
+**Signed in** — Clerk account required:
+
+<table border="0" cellspacing="0" cellpadding="8">
+  <tr>
+    <td valign="top" width="160">
+      <strong><a href="https://organic.coalescencelabs.app/chat">Chat</a></strong>
+    </td>
+    <td valign="top">
+      Main assistant — threads, streaming, tools, Gen UI
+    </td>
+  </tr>
+  <tr>
+    <td valign="top">
+      <strong><a href="https://organic.coalescencelabs.app/rabbitholes">Rabbit holes</a></strong>
+    </td>
+    <td valign="top">
+      Branching research sessions — generated nodes, sources, browse and resume
+    </td>
+  </tr>
+  <tr>
+    <td valign="top">
+      <strong><a href="https://organic.coalescencelabs.app/speak">Speak</a></strong>
+    </td>
+    <td valign="top">
+      Voice-first and TTS-oriented conversation flows
+    </td>
+  </tr>
+  <tr>
+    <td valign="top">
+      <strong><a href="https://organic.coalescencelabs.app/settings">Settings</a></strong>
+    </td>
+    <td valign="top">
+      Account, profile, knowledge tree, chat preferences
+    </td>
+  </tr>
+  <tr>
+    <td valign="top">
+      <strong><a href="https://organic.coalescencelabs.app/sandbox">Sandbox</a></strong>
+    </td>
+    <td valign="top">
+      Internal lab — Arcadia, Strata, memory ingest, UI prototypes, and experiments
+    </td>
+  </tr>
+</table>
 
 ## Overview
 
@@ -134,20 +200,21 @@ Applies to **chat** (and Arcadia-style threads that share the same store):
 4. **Memory** — Mem0/Qdrant via [`lib/memory/operations.ts`](./lib/memory/operations.ts).
 5. **UI contract** — full history on screen; bounded context to the model.
 
-More detail: [threads & sessions](./docs/thread-session-architecture.md) · [context assembly](./docs/architecture/context-building.md) · [Arcadia](./docs/arcadia.md) · [chat pipeline (blog)](https://organic.coalescencelabs.app/blog/chat-message-flow) · [encryption](./docs/e2ee.md).
+More detail: [threads & sessions](./docs/thread-session-architecture.md) · [context assembly](./docs/architecture/context-building.md) · [chat tools](./docs/chat-tools.md) · [Arcadia](./docs/arcadia.md) · [chat pipeline (blog)](https://organic.coalescencelabs.app/blog/chat-message-flow) · [encryption](./docs/e2ee.md).
 
 ## Documentation
 
 - **[Documentation index](./docs/INDEX.md)** — all architecture and module guides
+- **[Chat tools](./docs/chat-tools.md)** — memory, web search, Gen UI, Mermaid, kanban, Delphi, Strata, export
 - **Blog** — [/blog](https://organic.coalescencelabs.app/blog) (memory encryption, chat pipeline, export presets, adaptive background)
 - **[Security policy](./SECURITY.md)** — reporting and secrets hygiene
 - **[Open-source audit](./docs/OPEN_SOURCE_AUDIT.md)** — pre-public checklist for contributors
 
 ## Roadmap
 
-**Shipped** — chat, rabbit holes, speak/TTS, profile/settings, memory, encryption, sandbox lab, showcase, blog, Good News (in development).
+**Shipped** — chat, rabbit holes, speak/TTS, profile/settings, memory, encryption, sandbox lab, showcase, blog.
 
-**Experimental** — deep history search/chunks; sandbox prototypes (Strata, memory ingest).
+**Experimental** — deep history search/chunks; sandbox prototypes (Strata, memory ingest), Good News (in development).
 
 **Planned** — thread chapters, artifact ingestion, richer observability and governance.
 
