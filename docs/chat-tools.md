@@ -8,16 +8,15 @@ This guide is the product-facing catalog. Implementation lives in [`lib/llm/comp
 
 ## How tools are assembled
 
-On each chat turn, `compileChatTools()` builds a `ToolSet` plus a **Tool Instructions** appendix for the system prompt. What gets registered depends on:
+On each chat turn, `compileChatTools()` builds a `ToolSet` plus a **Tool Instructions** appendix for the system prompt. The chat route passes in user toggles and an optional experience token; the compiler turns those into capabilities:
 
-| Input | Effect |
-|-------|--------|
-| `useMemory` | `search_memories` |
-| `useSearch` | `web_search` (Exa) |
-| `useGetMoreMessages` + `chatId` | Deep history tools |
-| `experience` | Arcadia-style affordances, Delphi memory workflow, Strata navigation, etc. |
-| `chatStyle` | `ergon` adds `kanban_board` on Arcadia-style experiences |
-| `useKnowledgeSearch` | Strata page KG stubs (experimental) |
+| Setting | What it enables |
+|---------|-----------------|
+| `useMemory` | Long-term recall on demand — vector search over Mem0/Qdrant with relevance tiers and L1 cache, instead of injecting the full corpus every turn. |
+| `useSearch` | Fresh web context — [Exa](https://exa.ai) natural-language search with highlight excerpts (not full pages); cited sources stream to the thread. |
+| `useGetMoreMessages` + `chatId` | Deep thread access when the last-N window and rolling summary are not enough. |
+| `experience` | Changes the *mix* of tools: **Delphi** (propose/commit memory workflow), **Arcadia** / **topic explore** (Mermaid + Gen UI; **Ergon** chat style adds live kanban), **Strata hub** (navigate/search pages), **Strata page** (optional KG when knowledge search is on). Plain chat uses only the toggles above. |
+| `useKnowledgeSearch` | On **Strata page** only — experimental knowledge-graph tools; persistence is incomplete, so summarizing page content is usually better. |
 
 Many tools accept a **stream writer** so the UI can show live state—search sources, tool labels, kanban commands—while the model continues. See [Chat LLM transparency](./chat-llm-transparency.md).
 
@@ -33,19 +32,21 @@ These are available when the corresponding chat settings are enabled and the exp
 
 Vector search over the user’s long-term memory (Mem0 / Qdrant). Relevance tiers and caching keep context useful without sending the full corpus every turn.
 
+Memory text is **encrypted at rest** in Qdrant (AES-256-GCM via [`EncryptedVectorStore`](../lib/memory/encrypted-vector-store.ts)); embeddings stay unencrypted so vector search still works. The server decrypts hits before returning them to the model. See [E2EE overview](./e2ee.md).
+
 - Implementation: [`createMemorySearchTool`](../lib/llm/llm-tool-kit.ts) → [`lib/memory/operations.ts`](../lib/memory/operations.ts)
 
 ### `web_search`
 
-Exa-backed search with a small result cap; sources can stream to the thread for citations and transparency.
+[Exa](https://exa.ai) natural-language search (built for how AI assistants search and read the web) with `type: auto`, ~3 results, and `contents: { highlights: true }` — query-relevant page excerpts, not full text — streamed as cited sources.
 
-- Implementation: [`createWebSearchTool`](../lib/llm/llm-tool-kit.ts)
+- Implementation: [`createWebSearchTool`](../lib/llm/llm-tool-kit.ts) → [`searchWebWithQuery`](../lib/exa/client.ts)
 
 ### Deep history
 
 On-demand retrieval when the last-N window and rolling summary are not enough (token-capped):
 
-| Tool | Use when |
+| Tool | Used when |
 |------|----------|
 | `get_more_chat_history` | User refers to earlier turns; pass a limit (e.g. 5–10). |
 | `get_full_chat_history` | User explicitly wants the whole thread or a full recap (up to ~24k tokens). |
@@ -57,7 +58,9 @@ Requires `useGetMoreMessages` and a `chatId`. See also [Context building](./arch
 
 ## Arcadia-style affordances
 
-Registered when `experience` is an Arcadia-style memory-read experience (including main chat configured the same way).
+*Arcadia is the sandbox where chat goes beyond prose — the model can publish diagrams, structured UI blocks, and live boards so replies are easier to scan, compare, and act on in-thread.* See [Arcadia](./arcadia.md).
+
+Registered when `experience` is **arcadia** or **topic explore**.
 
 ### `make_mermaid_diagram`
 
