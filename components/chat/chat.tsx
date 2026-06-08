@@ -1,6 +1,7 @@
 "use client";
 
 import type { ExaSearchResultSource } from "@/lib/exa/types";
+import type { StrataPageAssistantSession } from "@/lib/strata/assistant-session";
 
 import { UIMessage, useChat } from "@ai-sdk/react";
 import { DefaultChatTransport } from "ai";
@@ -12,6 +13,7 @@ import { Conversation, ConversationScrollButton } from "../third-party/ai-elemen
 
 import { ChatThread, MEMORY_PANEL_RESERVE_PADDING } from "./chat-thread";
 import { CoreInput } from "./core-input";
+import { ChatStylePicker } from "./chat-style-picker";
 
 import { MemoryEphemeralCards } from "@/components/memory/memory-ephemeral-cards";
 import { MemoryLens } from "@/components/memory/memory-lens";
@@ -28,33 +30,57 @@ import { Thread } from "@/lib/schemas/chat";
 import { createLogger } from "@/lib/logger";
 import { useSharedChatContext } from "@/lib/context/chat-context";
 import { ChatModel, DEFAULT_CHAT_MODEL } from "@/lib/schemas/chat";
+import { getStrataAssistantPersona } from "@/lib/personas/strata-assistant";
 import { ChatAIActionEnum } from "@/types/ai";
 import { getChatErrorMessage } from "@/lib/chat/error-messages";
-
+import { getChatStyle } from "@/lib/chat/chat-style-store";
+import { applyKanbanCommand } from "@/lib/kanban/store";
+import { safeParseKanbanCommand } from "@/lib/schemas/kanban";
 const logger = createLogger("components/chat/chat");
 
 export type ChatProps = {
   chatData: { thread: Thread; messages: UIMessage[] } | null;
   initialMessage?: string;
-  persona?: "prometheus" | "spark" | "aion" | "remy";
+  /** Prefills the composer without sending (e.g. homepage semantic route). */
+  initialDraft?: string;
+  persona?: "prometheus" | "spark" | "aion" | "remy" | "strata";
   endpoint?: string;
+  experience?: string;
+  /** When using the Strata page assistant, the server loads this page for grounding. */
+  strataPageId?: string;
+  /** Strata page: tool + persona controls from Source tab session. */
+  assistantSession?: StrataPageAssistantSession | null;
 };
 
-export const Chat: React.FC<ChatProps> = ({ chatData, endpoint, persona, initialMessage }) => {
+export const Chat: React.FC<ChatProps> = ({
+  chatData,
+  endpoint,
+  persona,
+  initialMessage,
+  initialDraft,
+  experience,
+  strataPageId,
+  assistantSession,
+}) => {
   const { refreshSidebarChats } = useSharedChatContext();
 
   const selectedModelRef = useRef<ChatModel>(DEFAULT_CHAT_MODEL);
   const useWebSearchRef = useRef<boolean>(false);
   const useMemoriesRef = useRef<boolean>(false);
   const useSpeechFriendlyRef = useRef<boolean>(false);
-  const usePersistedSchemas = useRef<boolean>(persona === "aion");
+  const assistantSessionRef = useRef<StrataPageAssistantSession | null | undefined>(
+    assistantSession
+  );
+
+  assistantSessionRef.current = assistantSession;
+  const usePersistedSchemas = useRef<boolean>(persona === "aion" || persona === "strata");
   const initialMessageSent = useRef<boolean>(false);
   const [aiAction, setAiAction] = useState<
     | {
-      action: ChatAIActionEnum;
-      message?: string;
-      sources?: ExaSearchResultSource[];
-    }
+        action: ChatAIActionEnum;
+        message?: string;
+        sources?: ExaSearchResultSource[];
+      }
     | undefined
   >(undefined);
   const [mem0Retrieved, setMem0Retrieved] = useState<{ memory: string }[]>([]);
@@ -62,6 +88,26 @@ export const Chat: React.FC<ChatProps> = ({ chatData, endpoint, persona, initial
   const errorRef = useRef<Error | undefined>(undefined);
   /** Stored when onError runs; useChat may not expose error/status for pre-stream failures (e.g. 429). */
   const [chatError, setChatError] = useState<unknown>(undefined);
+  const [experimentalArcadiaMarkdownPreview, setExperimentalArcadiaMarkdownPreview] = useState(
+    () => getSettings().experimentalArcadiaMarkdownPreview
+  );
+
+  useEffect(() => {
+    const sync = () =>
+      setExperimentalArcadiaMarkdownPreview(getSettings().experimentalArcadiaMarkdownPreview);
+
+    sync();
+    window.addEventListener("organic-llm-settings", sync);
+
+    return () => window.removeEventListener("organic-llm-settings", sync);
+  }, []);
+
+  useEffect(() => {
+    if (experience !== "strata_page" || !assistantSession) return;
+    selectedModelRef.current = getStrataAssistantPersona(
+      assistantSession.personaId
+    ).getDefaultModel();
+  }, [assistantSession, experience]);
 
   // Temporary
   const stop = () => logger.log("chat", "stop called but functionality is currently disabled");
@@ -77,20 +123,41 @@ export const Chat: React.FC<ChatProps> = ({ chatData, endpoint, persona, initial
             ? "/api/ai/aion"
             : persona === "remy"
               ? "/api/ai/remy"
-              : (endpoint ?? `/api/chat/${persona ?? ""}`),
+              : persona === "strata"
+                ? "/api/chat"
+                : (endpoint ?? `/api/chat/${persona ?? ""}`),
         prepareSendMessagesRequest({ messages, id }) {
           const lastMessage = messages[messages.length - 1];
           const message = isClientPIIRedactionEnabled()
             ? redactUIMessages([lastMessage])[0]
             : lastMessage;
+          const sess = assistantSessionRef.current;
+          const strataPageTools =
+            experience === "strata_page" && sess
+              ? {
+                  webSearch: sess.tools.toolWebSearch,
+                  memory: sess.tools.toolMemory,
+                  messageSearch: sess.tools.toolMessageSearch,
+                  knowledgeSearch: sess.tools.toolKnowledgeSearch,
+                  strataAssistantPersona: sess.personaId,
+                }
+              : {
+                  webSearch: useWebSearchRef.current,
+                  memory: useMemoriesRef.current,
+                  messageSearch: true as const,
+                  knowledgeSearch: false as const,
+                };
+
           const req = {
             body: {
               message,
               id,
               model: selectedModelRef.current,
-              webSearch: useWebSearchRef.current,
-              memory: useMemoriesRef.current,
+              ...strataPageTools,
               speechFriendly: useSpeechFriendlyRef.current,
+              experience,
+              ...(experience === "arcadia" ? { chatStyle: getChatStyle(id) } : {}),
+              ...(strataPageId ? { strataPageId } : {}),
               zeroDataRetention: getSettings().zeroDataRetention,
               // Only include persistedSchemas in payload if true
               ...(usePersistedSchemas.current ? { persistedSchemas: true } : {}),
@@ -106,7 +173,13 @@ export const Chat: React.FC<ChatProps> = ({ chatData, endpoint, persona, initial
         /** Side channel for UI events */
         logger.log("chat", JSON.stringify(data, null, 2));
 
-        if (data.type === "data-mem0-get") {
+        if (data.type === "data-kanban") {
+          const parsed = safeParseKanbanCommand(data.data);
+
+          if (parsed.ok && id) {
+            applyKanbanCommand(id, parsed.command);
+          }
+        } else if (data.type === "data-mem0-get") {
           const payload = data.data as { memories?: { memory: string }[] };
 
           setMem0Retrieved(payload.memories ?? []);
@@ -129,6 +202,8 @@ export const Chat: React.FC<ChatProps> = ({ chatData, endpoint, persona, initial
             action: ChatAIActionEnum;
             message?: string;
             sources?: ExaSearchResultSource[];
+            /** Emitted by memory search tool progress (server stream). */
+            query?: string;
           };
 
           switch (dataObject.action) {
@@ -180,9 +255,18 @@ export const Chat: React.FC<ChatProps> = ({ chatData, endpoint, persona, initial
                   break;
               }
               break;
-            case ChatAIActionEnum.Memory:
-              setAiAction({ action: ChatAIActionEnum.Memory });
+            case ChatAIActionEnum.Memory: {
+              const q = dataObject.query?.trim();
+
+              setAiAction({
+                action: ChatAIActionEnum.Memory,
+                message:
+                  q && q.length > 0
+                    ? `Searching memories for "${q.length > 56 ? `${q.slice(0, 56)}…` : q}"`
+                    : (dataObject.message ?? "Searching memories..."),
+              });
               break;
+            }
             default:
               setAiAction({
                 action: dataObject.action,
@@ -277,13 +361,17 @@ export const Chat: React.FC<ChatProps> = ({ chatData, endpoint, persona, initial
           "flex-col",
           "items-center",
           "overflow-x-hidden",
-          "overscroll-x-none"
+          "overscroll-x-none",
         ].join(" ")}
       >
         <ChatThread
           aiActionPayload={aiAction}
+          chatId={id}
           contentClassName={persona === "remy" ? MEMORY_PANEL_RESERVE_PADDING : undefined}
           messages={messages}
+          renderEmptyState={
+            experience === "arcadia" ? () => <ChatStylePicker chatId={id} /> : undefined
+          }
         />
         {persona === "remy" && (
           <MemoryEphemeralCards
@@ -323,8 +411,13 @@ export const Chat: React.FC<ChatProps> = ({ chatData, endpoint, persona, initial
           <CoreInput
             chatId={chatData?.thread.id}
             clearError={clearError}
+            enableMarkdownInputPreview={
+              experience === "arcadia" && experimentalArcadiaMarkdownPreview
+            }
             error={error ?? chatError}
-            isBlankChat={messages.length === 0}
+            hideWebMemorySpeechToggles={experience === "strata_page" && Boolean(assistantSession)}
+            initialDraft={initialDraft}
+            isBlankChat={messages.length === 0 && persona !== "strata"}
             modelRef={selectedModelRef}
             sendMessage={sendMessage}
             status={status}

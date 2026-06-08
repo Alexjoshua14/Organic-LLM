@@ -1,77 +1,66 @@
 import { auth } from "@clerk/nextjs/server";
-import { generateObject } from "ai";
-import { z } from "zod";
+import { NextResponse } from "next/server";
 
-import { ProfileSummarySchema } from "@/lib/schemas/profileSummary";
-import { recordLlmCall } from "@/lib/llm/metrics";
-
-const ResponseSchema = z.object({
-  headline: z.string().max(120).describe("One short professional headline"),
-  bio: z.string().max(500).describe("2-3 sentence professional bio"),
-  tags: z.array(z.string().max(32)).max(8).describe("3-6 interest/skill tags"),
-});
-
-const SYSTEM = `You generate minimal, professional profile copy. Output only valid JSON with headline, bio, and tags. Be concise and neutral. No emoji.`;
+import { getSupabaseUserId } from "@/data/supabase/profiles";
+import {
+  generateProfileFromMemory,
+  ProfileGenerationRequestSchema,
+} from "@/lib/profile-generation";
+import { checkProfileTreeGenerationLimit } from "@/lib/rate-limit/profile";
 
 /**
- * Cheap, lightweight LLM call to generate profile summary from display name and optional email.
- * Returns structured summary for caching and display.
+ * Generates and persists a memory-only ProfileTree for the signed-in settings profile.
+ * Kept at /api/profile/summary for compatibility with the existing client path.
  */
 export async function POST(req: Request) {
   const user = await auth();
 
   if (!user?.userId) {
-    return new Response(JSON.stringify({ error: "Unauthorized" }), {
-      status: 401,
-      headers: { "Content-Type": "application/json" },
-    });
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  let body: { displayName?: string; email?: string };
+  const limit = await checkProfileTreeGenerationLimit(user.userId);
+
+  if (!limit.success) {
+    return NextResponse.json({ error: limit.error ?? "Too many requests" }, { status: 429 });
+  }
+
+  const sbUserId = await getSupabaseUserId(user.userId);
+
+  if (sbUserId.error || !sbUserId.data) {
+    return NextResponse.json({ error: "User not found" }, { status: 404 });
+  }
+
+  let body;
 
   try {
-    body = await req.json();
+    body = ProfileGenerationRequestSchema.parse(await req.json().catch(() => ({})));
   } catch {
-    body = {};
+    return NextResponse.json({ error: "Invalid profile generation request" }, { status: 400 });
   }
 
-  const displayName = typeof body.displayName === "string" ? body.displayName.trim() : "User";
-  const email = typeof body.email === "string" ? body.email.trim() : "";
+  const result = await generateProfileFromMemory({
+    userId: sbUserId.data,
+    displayName: body.displayName ?? "User",
+    email: body.email ?? "",
+  });
 
-  const prompt = email
-    ? `Display name: ${displayName}. Email domain: ${email.split("@")[1] ?? "unknown"}. Generate headline, bio, and tags.`
-    : `Display name: ${displayName}. No email. Generate headline, bio, and tags.`;
-
-  try {
-    const start = performance.now();
-    const { object, usage } = await generateObject({
-      model: "google/gemini-3-flash",
-      system: SYSTEM,
-      prompt,
-      schema: ResponseSchema,
-      maxOutputTokens: 400,
-    });
-    const durationMs = performance.now() - start;
-
-    recordLlmCall({
-      model: "google/gemini-3-flash",
-      usage,
-      durationMs,
-      metadata: { operation: "profile-summary", route: "/api/profile/summary" },
-    });
-
-    const summary = ProfileSummarySchema.parse({
-      ...object,
-      generatedAt: new Date().toISOString(),
-    });
-
-    return Response.json(summary);
-  } catch (err) {
-    console.error("Profile summary generation failed:", err);
-
-    return new Response(JSON.stringify({ error: "Failed to generate profile summary" }), {
-      status: 500,
-      headers: { "Content-Type": "application/json" },
-    });
+  if (!result.ok) {
+    return NextResponse.json(
+      {
+        error: result.error,
+        ...(result.data ?? {}),
+      },
+      { status: result.status }
+    );
   }
+
+  return NextResponse.json({
+    data: result.data.tree,
+    revisionId: result.data.revisionId,
+    revisionStatus: result.data.revisionStatus,
+    reviewScore: result.data.reviewScore,
+    warnings: result.data.warnings,
+    budget: result.data.budget,
+  });
 }

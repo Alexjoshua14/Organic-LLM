@@ -7,8 +7,8 @@
  */
 
 import Link from "next/link";
-import { ArrowLeft } from "lucide-react";
 
+import AdaptiveLiquidChrome from "@/components/background/AdaptiveLiquidChrome";
 import Page from "@/components/layout/page";
 import { MemoryLens } from "@/components/memory/memory-lens";
 import { MemoryLensCard } from "@/components/memory/memory-lens-card";
@@ -25,20 +25,26 @@ const sampleAdded = [{ memory: "User asked to preview memory UI components in th
 
 export default function MemoryShowcasePage() {
   return (
-    <Page>
-      <div className="w-full max-w-2xl mx-auto p-6 pb-16">
-        <Link
-          className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground mb-8"
-          href="/showcase"
-        >
-          <ArrowLeft className="size-4" />
-          Showcase
-        </Link>
+    <Page transparentBackground className="overflow-hidden">
+      <AdaptiveLiquidChrome dimIntensity={0.45} />
+      <div className="relative z-10 w-full max-w-5xl mx-auto p-6 pb-16 overflow-y-auto h-full">
+        <nav className="mb-8">
+          <Link
+            className="text-sm text-muted-foreground hover:text-foreground transition-colors select-none"
+            href="/showcase"
+          >
+            ← Showcase
+          </Link>
+        </nav>
 
-        <h1 className="text-2xl font-semibold tracking-tight mb-1">Memory UI preview</h1>
-        <p className="text-muted-foreground text-sm mb-10">
-          Persisted memory lens, cards, and ephemeral in-chat components.
-        </p>
+        <div className="mb-10 text-center sm:text-left">
+          <h1 className="mb-2 font-commissioner text-3xl font-light tracking-tight text-foreground sm:text-4xl">
+            Memory UI preview
+          </h1>
+          <p className="text-sm text-muted-foreground max-w-2xl sm:mx-0 mx-auto select-none">
+            Persisted memory lens, cards, and ephemeral in-chat components.
+          </p>
+        </div>
 
         {/* Live Memory Lens: semantic search, 5 results (signed-in user) */}
         <section className="mb-14">

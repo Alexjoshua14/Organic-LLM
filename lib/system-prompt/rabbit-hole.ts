@@ -6,7 +6,13 @@ const HTML_INSTRUCTIONS = `
 - Keep paragraphs concise and scannable
 - Maintain an editorial tone: calm, thoughtful, with generous whitespace implied
 - Do NOT generate <script>, <style>, <iframe>, <img>, or inline CSS.
-- Allowed HTML elements: <h2>, <h3>, <p>, <span>, <strong>, <em>, <a>
+- You may only use these tags in the article body: <h2>, <h3>, <p>, <span>, <strong>, <em>, <a>, <pre>, <code>.
+
+Code blocks (multi-line samples):
+  - Put <code> inside <pre>. On the inner <code>, use class="language-..." when you know the language (e.g. language-python, language-javascript).
+  - Example: <pre><code class="language-python">print("hello")</code></pre>
+  - Do not add inline styles or custom CSS for code; the app applies code-block styling.
+
 - Keep HTML lightweight and avoid unnecessary nesting.
 `;
 
@@ -27,11 +33,10 @@ For the title:
 For the article HTML:
 ${HTML_INSTRUCTIONS}
 
-For sources:
-- Use only those provided
-- Include titles, URLs, and brief snippets
-- Focus on authoritative sources when possible
-- Don't append a sources section to the article HTML
+IMPORTANT — the UI renders sources, branch suggestions, and "explore further" sections separately from the article. Therefore:
+- Do NOT append a "Sources", "References", or "Further Reading" section to the article HTML.
+- Do NOT append a "Related Topics", "Explore Further", "Branch Suggestions", or similar section to the article HTML.
+- The article HTML should contain ONLY the narrative content — headings, paragraphs, and inline branch spans. Nothing else at the end.
 `;
 
 export const FOLLOW_BRANCH_SYSTEM_PROMPT = `
@@ -53,10 +58,10 @@ Your task is to generate comprehensive, well-structured content that:
 For the article HTML:
 ${HTML_INSTRUCTIONS}
 
-For sources:
-- Use only those provided
-- Include titles, URLs, and brief snippets
-- Focus on authoritative sources when possible
+IMPORTANT — the UI renders sources, branch suggestions, and "explore further" sections separately from the article. Therefore:
+- Do NOT append a "Sources", "References", or "Further Reading" section to the article HTML.
+- Do NOT append a "Related Topics", "Explore Further", "Branch Suggestions", or similar section to the article HTML.
+- The article HTML should contain ONLY the narrative content — headings, paragraphs, and inline branch spans. Nothing else at the end.
 `;
 
 export const SOURCE_ANALYSIS_SYSTEM_PROMPT = `

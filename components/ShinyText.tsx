@@ -5,6 +5,11 @@ interface ShinyTextProps {
   disabled?: boolean;
   speed?: number;
   className?: string;
+  /** Shimmer only while an ancestor with `.group` is hovered; at rest uses inherited text color. */
+  shimmerOnParentGroupHover?: boolean;
+  /** Uses the app accent color for the shimmer highlight instead of the default silver. */
+  accentShimmer?: boolean;
+  as?: "div" | "span";
 }
 
 const ShinyText: React.FC<ShinyTextProps> = ({
@@ -12,16 +17,19 @@ const ShinyText: React.FC<ShinyTextProps> = ({
   disabled = false,
   speed = 5,
   className = "",
+  shimmerOnParentGroupHover = false,
+  accentShimmer = false,
+  as: Component = "div",
 }) => {
   const animationDuration = `${speed}s`;
 
   return (
-    <div
-      className={`shiny-text ${disabled ? "disabled" : ""} cursor-default select-none ${className}`}
+    <Component
+      className={`shiny-text ${disabled ? "disabled" : ""} ${shimmerOnParentGroupHover ? "shiny-text--parent-group-hover" : ""} ${accentShimmer ? "shiny-text--accent" : ""} cursor-default select-none ${className}`}
       style={{ animationDuration }}
     >
       {text}
-    </div>
+    </Component>
   );
 };
 

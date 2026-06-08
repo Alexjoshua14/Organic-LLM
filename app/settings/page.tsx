@@ -13,6 +13,7 @@ import { getProfile } from "@/data/supabase/profiles";
 import { Profile } from "@/lib/schemas/profiles";
 import { SETTINGS_PAGE_TITLE } from "@/config/settings-page";
 import { caption } from "@/components/design-system/primitives";
+import ChatsSettings from "@/components/settings/chatsSettings";
 import MemorySettings from "@/components/settings/memorySettings";
 import FontSetting from "@/components/settings/FontSetting";
 import { ProfileView } from "@/components/settings/profile";
@@ -26,8 +27,13 @@ const showDevSettings = process.env.NEXT_PUBLIC_SHOW_DEV_SETTINGS === "true";
 
 export default function SettingsPage() {
   const [profile, setProfile] = useState<Profile | null>(null);
+  const [profileLoading, setProfileLoading] = useState(true);
+  const [profileError, setProfileError] = useState<string | null>(null);
   const [ttsWholeMessage, setTtsWholeMessage] = useState(true);
   const [zeroDataRetention, setZeroDataRetention] = useState(false);
+  const [coalescenceMode, setCoalescenceMode] = useState(false);
+  const [experimentalArcadiaMarkdownPreview, setExperimentalArcadiaMarkdownPreview] =
+    useState(false);
   const { userId } = useAuth();
   const { user } = useUser();
   const clerkEmail = user?.primaryEmailAddress?.emailAddress ?? null;
@@ -46,16 +52,35 @@ export default function SettingsPage() {
     if (typeof window !== "undefined") {
       setTtsWholeMessage(getSettings().ttsWholeMessage);
       setZeroDataRetention(getSettings().zeroDataRetention);
+      setCoalescenceMode(getSettings().coalescenceMode);
+      setExperimentalArcadiaMarkdownPreview(getSettings().experimentalArcadiaMarkdownPreview);
     }
   }, []);
 
   useEffect(() => {
     const fetchUserProfile = async () => {
-      if (!userId) return;
-      const supabaseProfile = await getProfile(userId);
+      if (!userId) {
+        setProfileLoading(false);
 
-      if (!supabaseProfile || supabaseProfile.error || supabaseProfile.data === null) return;
-      setProfile(supabaseProfile.data);
+        return;
+      }
+
+      setProfileLoading(true);
+      setProfileError(null);
+
+      try {
+        const supabaseProfile = await getProfile(userId);
+
+        if (!supabaseProfile || supabaseProfile.error || supabaseProfile.data === null) {
+          throw supabaseProfile?.error ?? new Error("Profile not found");
+        }
+
+        setProfile(supabaseProfile.data);
+      } catch (error) {
+        setProfileError(error instanceof Error ? error.message : "Failed to load profile");
+      } finally {
+        setProfileLoading(false);
+      }
     };
 
     fetchUserProfile();
@@ -71,11 +96,12 @@ export default function SettingsPage() {
       <div className="flex-1 w-full overflow-auto px-4 py-6 md:px-8">
         <Tabs className="w-full max-w-2xl mx-auto" defaultValue="profile">
           <TabsList
-            className={`grid w-full mb-6 select-none ${showDevSettings ? "grid-cols-5" : "grid-cols-4"}`}
+            className={`grid w-full mb-6 select-none ${showDevSettings ? "grid-cols-6" : "grid-cols-5"}`}
           >
             <TabsTrigger value="profile">Profile</TabsTrigger>
-            <TabsTrigger value="appearance">Appearance</TabsTrigger>
+            <TabsTrigger value="chats">Chats</TabsTrigger>
             <TabsTrigger value="memory">Memory</TabsTrigger>
+            <TabsTrigger value="appearance">Appearance</TabsTrigger>
             <TabsTrigger value="privacy">Privacy</TabsTrigger>
             {showDevSettings && <TabsTrigger value="advanced">Advanced</TabsTrigger>}
           </TabsList>
@@ -99,28 +125,35 @@ export default function SettingsPage() {
                 </div>
               )}
               <Suspense fallback={<div className="animate-pulse h-48 rounded-xl bg-muted" />}>
-                <ProfileView
-                  displayName={profile?.display_name ?? null}
-                  email={clerkEmail}
-                  profile={profile}
-                />
+                {profileLoading ? (
+                  <div className="animate-pulse h-48 rounded-xl bg-muted" />
+                ) : (
+                  <>
+                    {profileError && (
+                      <div className="rounded-lg border border-destructive/30 bg-destructive/5 px-4 py-3 text-sm text-destructive">
+                        {profileError}
+                      </div>
+                    )}
+                    <ProfileView
+                      displayName={profile?.display_name ?? user?.fullName ?? null}
+                      email={clerkEmail}
+                      profile={profile}
+                    />
+                  </>
+                )}
               </Suspense>
             </div>
           </TabsContent>
 
-          <TabsContent className="mt-0" value="appearance">
+          <TabsContent className="mt-0" value="chats">
             <div className="flex flex-col gap-8">
-              <h2 className="text-xl font-semibold text-foreground">Appearance</h2>
-              <section className="space-y-6">
-                <div>
-                  <h3 className="text-sm font-medium text-foreground mb-2">Theme</h3>
-                  <div className="flex items-center gap-3">
-                    <ThemeSwitch />
-                    <span className="text-sm text-muted-foreground">System / Light / Dark</span>
-                  </div>
-                </div>
-                <FontSetting />
-              </section>
+              <div className="space-y-1">
+                <h2 className="text-xl font-semibold text-foreground">Chats</h2>
+                <p className={caption({ className: "max-w-md" })}>
+                  Your chat threads: filter by archive state, open a row for summary and actions.
+                </p>
+              </div>
+              <ChatsSettings />
             </div>
           </TabsContent>
 
@@ -135,6 +168,61 @@ export default function SettingsPage() {
                 </p>
               </div>
               <MemorySettings />
+            </div>
+          </TabsContent>
+
+          <TabsContent className="mt-0" value="appearance">
+            <div className="flex flex-col gap-8">
+              <h2 className="text-xl font-semibold text-foreground">Appearance</h2>
+              <section className="space-y-6">
+                <div>
+                  <h3 className="text-sm font-medium text-foreground mb-2">Theme</h3>
+                  <div className="flex items-center gap-3">
+                    <ThemeSwitch />
+                    <span className="text-sm text-muted-foreground">System / Light / Dark</span>
+                  </div>
+                </div>
+                <SettingsRow
+                  title="Coalescence Mode"
+                  mainText={
+                    coalescenceMode
+                      ? "Sidebar shows threads from Arcadia and other feature chats."
+                      : "Sidebar shows only main chat threads."
+                  }
+                  subtext="When on, your sidebar coalesces threads across chat experiences. Turn off to keep the sidebar focused on main chat only."
+                >
+                  <Switch
+                    aria-label="Coalescence Mode"
+                    isSelected={coalescenceMode}
+                    onValueChange={(enabled) => {
+                      setCoalescenceMode(enabled);
+                      setSettings({ coalescenceMode: enabled });
+                    }}
+                  />
+                </SettingsRow>
+                <FontSetting />
+                <div className="space-y-2">
+                  <h3 className="text-sm font-medium text-foreground">Experimental</h3>
+                  <SettingsRow
+                    title="Arcadia markdown preview"
+                    mainText={
+                      experimentalArcadiaMarkdownPreview
+                        ? "Arcadia chat shows a Preview toggle on the composer."
+                        : "Arcadia composer is plain text only."
+                    }
+                    subtext="Toggle rendered markdown preview while drafting in Arcadia (sandbox). May change or move."
+                  >
+                    <Switch
+                      aria-label="Arcadia markdown preview (experimental)"
+                      isSelected={experimentalArcadiaMarkdownPreview}
+                      onValueChange={(enabled) => {
+                        setExperimentalArcadiaMarkdownPreview(enabled);
+                        setSettings({ experimentalArcadiaMarkdownPreview: enabled });
+                      }}
+                    />
+                  </SettingsRow>
+                </div>
+              </section>
             </div>
           </TabsContent>
 

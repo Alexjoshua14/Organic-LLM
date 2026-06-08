@@ -15,7 +15,13 @@ const DEFAULT_HKDF_INFO_PREFIX = "organic-llm-user-encryption";
 export type EncryptionFieldName =
   | "messages.content"
   | "thread_summaries.summary_text"
-  | "threads.conversation_summary";
+  | "threads.conversation_summary"
+  | "strata_sections.raw_text"
+  | "strata_sections.refined_text"
+  | "strata_sections.elaborated"
+  | "strata_sections.design_instructions"
+  | "strata_sections.ai_instructions"
+  | "memory.cache.semantic_search";
 
 export type EncryptionContext = {
   userId: string;
@@ -307,11 +313,15 @@ export function encryptForStorage(plaintext: string, context: EncryptionContext)
 }
 
 export function decryptFromStorage(value: string, context: EncryptionContext): string {
+  if (!value.startsWith(`${ENCRYPTED_PREFIX}:`)) {
+    return value;
+  }
+
   return getMessageEncryptionService().decryptFromStorage(value, context);
 }
 
 export function isEncryptedPayload(value: string): boolean {
-  return getMessageEncryptionService().isEncryptedPayload(value);
+  return value.startsWith(`${ENCRYPTED_PREFIX}:`);
 }
 
 export function deriveUserKey(userId: string, keyId?: string): Uint8Array {

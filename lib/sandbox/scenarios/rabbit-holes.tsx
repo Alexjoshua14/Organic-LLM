@@ -19,6 +19,7 @@ import {
   SAMPLE_ARTICLES,
   REFINEMENT_SCENARIO_SEED,
 } from "./fixtures/rabbit-holes";
+import { normalizeRabbitHoleTitleScenarioSession } from "./rabbit-hole-title-normalize";
 
 import { SessionCard } from "@/components/rabbit-holes/SessionCard";
 import { RabbitHoleBranchSuggestionsBlock } from "@/app/rabbitholes/_components/RabbitHoleBranchSuggestionsBlock";
@@ -43,12 +44,12 @@ const titleScenario: SandboxScenario<TitleSeed, TitleInput, TitleRunResult> = {
     return runRabbitHoleTitleScenario(text);
   },
   normalize: (raw) => ({
-    session: raw.title != null ? { ...TITLE_SCENARIO_SEED_SESSION, rootQuestion: raw.title } : null,
+    session: normalizeRabbitHoleTitleScenarioSession(raw, TITLE_SCENARIO_SEED_SESSION),
   }),
   render: ({ seedData, normalizedResult, runState }) => {
     const session: RabbitHoleSessionMetadata =
       (normalizedResult as { session: RabbitHoleSessionMetadata } | null)?.session ??
-      (runState?.title != null ? { ...seedData, rootQuestion: runState.title } : seedData);
+      (runState?.title != null ? { ...seedData, rootTitle: runState.title } : seedData);
 
     return (
       <div className="max-w-xl mx-auto">

@@ -1,6 +1,7 @@
 import { Ratelimit } from "@upstash/ratelimit";
 
 import { redis } from "@/lib/redis/redis";
+import { runLimiter } from "@/lib/rate-limit/run-limiter";
 
 /** Wipe: strict — 3 requests per hour per user (sliding). */
 const memoryWipeLimiter = new Ratelimit({
@@ -44,7 +45,9 @@ export type RateLimitResult = {
 };
 
 export async function checkMemoryWipeLimit(userId: string): Promise<RateLimitResult> {
-  const { success, remaining } = await memoryWipeLimiter.limit(userId);
+  const { success, remaining } = await runLimiter("checkMemoryWipeLimit", () =>
+    memoryWipeLimiter.limit(userId)
+  );
 
   if (!success) {
     return { success: false, error: "Too many wipe requests" };
@@ -54,7 +57,9 @@ export async function checkMemoryWipeLimit(userId: string): Promise<RateLimitRes
 }
 
 export async function checkMemoryDeleteLimit(userId: string): Promise<RateLimitResult> {
-  const { success, remaining } = await memoryDeleteLimiter.limit(userId);
+  const { success, remaining } = await runLimiter("checkMemoryDeleteLimit", () =>
+    memoryDeleteLimiter.limit(userId)
+  );
 
   if (!success) {
     return { success: false, error: "Too many delete requests" };
@@ -64,7 +69,9 @@ export async function checkMemoryDeleteLimit(userId: string): Promise<RateLimitR
 }
 
 export async function checkMemorySearchLimit(userId: string): Promise<RateLimitResult> {
-  const { success, remaining } = await memorySearchLimiter.limit(userId);
+  const { success, remaining } = await runLimiter("checkMemorySearchLimit", () =>
+    memorySearchLimiter.limit(userId)
+  );
 
   if (!success) {
     return { success: false, error: "Too many search requests" };
@@ -74,7 +81,9 @@ export async function checkMemorySearchLimit(userId: string): Promise<RateLimitR
 }
 
 export async function checkMemoryListLimit(userId: string): Promise<RateLimitResult> {
-  const { success, remaining } = await memoryListLimiter.limit(userId);
+  const { success, remaining } = await runLimiter("checkMemoryListLimit", () =>
+    memoryListLimiter.limit(userId)
+  );
 
   if (!success) {
     return { success: false, error: "Too many list requests" };
@@ -84,7 +93,9 @@ export async function checkMemoryListLimit(userId: string): Promise<RateLimitRes
 }
 
 export async function checkMemoryAddLimit(userId: string): Promise<RateLimitResult> {
-  const { success, remaining } = await memoryAddLimiter.limit(userId);
+  const { success, remaining } = await runLimiter("checkMemoryAddLimit", () =>
+    memoryAddLimiter.limit(userId)
+  );
 
   if (!success) {
     return { success: false, error: "Too many memory add requests" };

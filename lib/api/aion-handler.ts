@@ -12,12 +12,17 @@ import {
 
 import { MyUIMessage } from "@/types/ai";
 import { ChatRequestSchema, DEFAULT_CHAT_MODEL } from "@/lib/schemas/chat";
+import { getMessageCount, getThreadHasTitle } from "@/data/supabase/chat";
+import { shouldAttemptInitialTitle } from "@/lib/chat/summary-title-cadence";
 import { checkLlmMessageLimit } from "@/lib/rate-limit/llm";
 import { CHAT_MODEL, getChatModel, measureAsync } from "@/lib/llm/helpers";
 import { SYSTEM_PROMPT } from "@/lib/system-prompt/prompt-v0";
 import { createLogger } from "@/lib/logger";
 import { showMemoriesTool } from "@/lib/llm/archetype/memory";
 import { setArchetypeStateTool, viewArchetypeTool } from "@/lib/llm/archetype";
+import { getStrataPageById } from "@/data/supabase/strata";
+import { buildStrataSystemSuffix } from "@/lib/llm/strata-chat-augmentation";
+import { createStrataHubAssistantTools } from "@/lib/llm/strata-assistant-tools";
 
 const logger = createLogger("lib/api/aion-handler.ts");
 
@@ -99,7 +104,7 @@ export function createAionHandler(deps: AionDeps) {
       return new Response("Invalid request body", { status: 400 });
     }
 
-    const { message: incomingMessage, id } = parseResult.data;
+    const { message: incomingMessage, id, experience, strataPageId } = parseResult.data;
     const message = incomingMessage as UIMessage;
 
     const clerkUser = await deps.auth();
@@ -143,6 +148,7 @@ export function createAionHandler(deps: AionDeps) {
       logger.log("POST", "User message saved optimistically");
     } catch (err) {
       const e = err instanceof Error ? err : new Error(String(err));
+
       logger.error("POST", `Failed to save user message optimistically: ${e.name}`);
       // Continue anyway - onFinish will try to save again
     }
@@ -219,10 +225,27 @@ export function createAionHandler(deps: AionDeps) {
           transient: true,
         });
 
+        let hubTools: Record<string, unknown> = {};
+        let stepLimit = 5;
+
+        if (experience === "strata_hub") {
+          hubTools = createStrataHubAssistantTools(sbUserId) as Record<string, unknown>;
+          stepLimit = 8;
+        }
+
+        const strataSystem = await buildStrataSystemSuffix({
+          experience,
+          strataPageId,
+          sbUserId,
+          fetchPage: getStrataPageById,
+        });
+
+        const systemWithStrata = `${systemPromptForRequest}${strataSystem}`;
+
         const result = deps.streamText({
           model: selectedModel.id,
           messages: messages,
-          system: systemPromptForRequest,
+          system: systemWithStrata,
           abortSignal: req.signal,
           experimental_transform: smoothStream({
             delayInMs: 20,
@@ -231,6 +254,7 @@ export function createAionHandler(deps: AionDeps) {
           maxOutputTokens: CHAT_MODEL.maxOutputTokens,
           onError({ error }: { error: unknown }) {
             const e = error instanceof Error ? error : new Error(String(error));
+
             logger.error("POST", `Stream error: ${e.name}`);
           },
           tools: {
@@ -238,8 +262,9 @@ export function createAionHandler(deps: AionDeps) {
             show_memories: showMemoriesTool,
             set_state_archetype: setArchetypeStateTool,
             view_archetype: viewArchetypeTool,
+            ...hubTools,
           },
-          stopWhen: stepCountIs(5),
+          stopWhen: stepCountIs(stepLimit),
           onFinish() {
             writer.write({
               type: "data-notification",
@@ -264,6 +289,7 @@ export function createAionHandler(deps: AionDeps) {
             generateMessageId: () => computeAionGeneratedMessageId(validatedMessages, randomUUID),
             onError: (error: unknown) => {
               const e = error instanceof Error ? error : new Error(String(error));
+
               logger.error("POST", `UI stream error: ${e.name}`);
               if (error instanceof Error) return error.message;
               if (typeof error === "string") return error;
@@ -338,7 +364,17 @@ export function createAionHandler(deps: AionDeps) {
                 if (process.env.AION_TEST_MODE !== "1") {
                   let ensureChatHasTitleMs: number | undefined;
 
-                  if (messages.length >= 4 && messages.length <= 8) {
+                  const messageCountResult = await getMessageCount(id);
+                  const threadHasTitleResult = await getThreadHasTitle(id);
+                  const persistedMessageCount = messageCountResult.data ?? messages.length;
+                  const threadAlreadyHasTitle = threadHasTitleResult.data === true;
+
+                  if (
+                    shouldAttemptInitialTitle({
+                      persistedMessageCount,
+                      threadAlreadyHasTitle,
+                    })
+                  ) {
                     const { durationMs } = await measureAsync(() => deps.ensureChatHasTitle(id));
 
                     ensureChatHasTitleMs = durationMs;

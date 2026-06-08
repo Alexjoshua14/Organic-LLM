@@ -9,7 +9,9 @@
  * navigation, source analysis, and prompt bar with the useRabbitHoles hook.
  */
 
-import { useEffect, useMemo, useState } from "react";
+import type { CenterViewState } from "@/lib/rabbit-holes/centerViewState";
+
+import { useEffect, useMemo, useRef, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import {
   Bug,
@@ -27,11 +29,7 @@ import { toast } from "sonner";
 import { glass } from "../design-system/primitives";
 import { useSidebar } from "../third-party/ui/sidebar";
 
-import { cn } from "@/lib/utils";
-import { createLogger } from "@/lib/logger";
-import { useRabbitHoles } from "@/lib/rabbit-holes/useRabbitHoles";
-
-// UI subcomponents still live under app/ during migration
+import Page from "@/components/layout/page";
 import { RabbitHolePathRail } from "@/app/rabbitholes/_components/RabbitHolePathRail";
 import { RabbitHoleArticle } from "@/app/rabbitholes/_components/RabbitHoleArticle";
 import { RabbitHoleBranchSuggestionsBlock } from "@/app/rabbitholes/_components/RabbitHoleBranchSuggestionsBlock";
@@ -42,23 +40,24 @@ import { RabbitHoleLoadingState } from "@/app/rabbitholes/_components/RabbitHole
 import { DelayedContent } from "@/app/rabbitholes/_components/DelayedContent";
 import { RabbitHolePromptBar } from "@/components/rabbit-holes/RabbitHolePromptBar";
 import { RabbitHoleEmptyState } from "@/components/rabbit-holes/main/RabbitHoleEmptyState";
+import { RabbitHoleMobileView } from "@/components/rabbit-holes/mobile/RabbitHoleMobileView";
 import {
   Collapsible,
   CollapsibleContent,
   CollapsibleTrigger,
 } from "@/components/third-party/ui/collapsible";
+import { useIsMobile } from "@/hooks/use-mobile";
+import { createLogger } from "@/lib/logger";
+import { RABBIT_HOLE_UNTITLED } from "@/lib/rabbit-holes/constants";
+import { layout as layoutTokens, pageHeader } from "@/lib/rabbit-holes/designTokens";
+import { useRabbitHoles } from "@/lib/rabbit-holes/useRabbitHoles";
+import { cn } from "@/lib/utils";
 import { RabbitHoleNode, RabbitHoleSession } from "@/lib/schemas/rabbitHoleSchemas";
+import { isEditableEventTarget } from "@/lib/dom/is-editable-event-target";
 
 const logger = createLogger("components/rabbit-holes/RabbitHoleShell");
 
-/** Centralized center-column view state. One of these is active at a time. */
-type CenterViewState =
-  | { kind: "loading_previous_session" }
-  | { kind: "empty" }
-  | { kind: "article_loaded"; nodeId: string }
-  | { kind: "generating_new_node"; variant: "initial" | "branch" }
-  | { kind: "loading_source_analysis" }
-  | { kind: "viewing_source_analysis"; sourceId: string };
+const chromeMotionTransition = { duration: 0.28, ease: [0.2, 0.8, 0.2, 1] as const };
 
 export function RabbitHoleShell() {
   // --- Routing & context (for loading a session from browse) ---
@@ -82,12 +81,45 @@ export function RabbitHoleShell() {
     selectSource,
     clearSourceSelection,
     reset,
-    saveSessionToStorage,
     loadExistingSession,
   } = useRabbitHoles();
 
   const [activeTakeawayIndex, setActiveTakeawayIndex] = useState<number | null>(null);
-  const { open } = useSidebar();
+  const [focusMode, setFocusMode] = useState(false);
+  const { open, setOpen } = useSidebar();
+  const sidebarOpenBeforeFocusRef = useRef(open);
+
+  useEffect(() => {
+    if (!focusMode) {
+      sidebarOpenBeforeFocusRef.current = open;
+    }
+  }, [open, focusMode]);
+
+  useEffect(() => {
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (!e.shiftKey || !(e.metaKey || e.ctrlKey)) return;
+      if (e.key !== "f" && e.key !== "F") return;
+      if (e.repeat) return;
+      if (isEditableEventTarget(e.target)) return;
+
+      e.preventDefault();
+      setFocusMode((wasFocused) => {
+        if (!wasFocused) {
+          sidebarOpenBeforeFocusRef.current = open;
+          setOpen(false);
+
+          return true;
+        }
+        setOpen(sidebarOpenBeforeFocusRef.current);
+
+        return false;
+      });
+    };
+
+    window.addEventListener("keydown", onKeyDown);
+
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [open, setOpen]);
 
   /** True when we're loading, generating a node, or a specific node is generating (blocks some UI). */
   const isBusy = isGeneratingNode || generatingNodeId != null;
@@ -226,178 +258,267 @@ export function RabbitHoleShell() {
     setActiveNode(nextNodeId);
   };
 
-  // --- Layout: ambient layer + header + main (path rail | article | sources & branches) ---
-  return (
-    <div className="relative h-screen bg-background overflow-hidden">
-      <RabbitHoleAmbientLayer />
-      <div className="relative z-10 flex flex-col h-full overflow-hidden">
-        <header className="px-8 md:px-10 lg:px-12 pt-16 md:pt-8 pb-6 relative z-20 w-full">
-          <div className="flex items-center justify-between max-w-7xl mx-auto h-6">
-            {!open && (
-              <Link
-                className="text-muted-foreground hover:text-foreground transition-colors text-sm tracking-wide pointer-events-auto"
-                href="/rabbitholes/browse"
-              >
-                ← Back to Browser
-              </Link>
-            )}
-            <h1 className="absolute left-1/2 -translate-x-1/2 font-commissioner text-2xl font-light tracking-wide text-foreground">
-              <Link href="/rabbitholes/browse">
-                Rabbit Hole Explorer
-              </Link>
-            </h1>
-            <div className="w-24" /> {/* Spacer for centering */}
-          </div>
-        </header>
-        {/* Dev-only collapsible debug panel — remove this block when done developing */}
+  const isMobile = useIsMobile();
+
+  if (isMobile) {
+    return (
+      <>
+        <RabbitHoleMobileView
+          activeNode={activeNode}
+          activeTakeawayIndex={activeTakeawayIndex}
+          canGoBack={canGoBack}
+          canGoForward={canGoForward}
+          centerViewState={centerViewState}
+          followBranch={followBranch}
+          generatingNodeId={generatingNodeId}
+          getCurrentPathIndex={getCurrentPathIndex}
+          isBusy={isBusy}
+          navigateBack={handleNavigateBack}
+          navigateForward={handleNavigateForward}
+          onStartQuestion={handleStart}
+          preview={preview}
+          reset={handleReset}
+          selectSource={selectSource}
+          session={session}
+          setActiveNode={setActiveNode}
+          setActiveTakeawayIndex={setActiveTakeawayIndex}
+          sourceAnalysis={sourceAnalysis}
+          clearSourceSelection={handleBackToArticle}
+        />
         <RabbitHoleDebugPanel
           activeNode={activeNode}
           centerViewState={centerViewState}
           generatingNodeId={generatingNodeId}
           session={session}
         />
+      </>
+    );
+  }
 
-        <main className="flex-1 flex flex-col lg:flex-row gap-12 px-12 pt-8 min-h-0 max-w-7xl mx-auto w-full overflow-y-auto">
-          {/* Left: breadcrumb path through nodes; click to switch node, option to start new session. */}
-          <aside className="lg:sticky lg:top-0 w-full lg:w-[20%] shrink-0 overflow-y-auto pr-2">
-            <RabbitHolePathRail
-              activeNodeId={session?.activeNodeId ?? null}
-              generatingNodeId={generatingNodeId}
-              session={session}
-              onNewRabbitHole={handleReset}
-              onNodeClick={setActiveNode}
-            />
-          </aside>
+  // --- Layout: ambient layer + header + main (path rail | article | sources & branches) ---
+  return (
+    <Page className="block h-dvh min-h-0 w-full max-w-none gap-0 overflow-hidden p-0">
+      <div
+        className="relative flex h-full min-h-0 flex-col overflow-hidden bg-background"
+        data-rabbit-hole-explorer
+      >
+        <RabbitHoleAmbientLayer />
+        <div className="relative z-10 flex h-full min-h-0 flex-col overflow-hidden">
+          <header className="px-8 md:px-10 lg:px-12 pt-16 md:pt-8 pb-6 relative z-20 w-full">
+            <div className="flex items-center justify-between max-w-7xl mx-auto h-6">
+              {!open && (
+                <Link
+                  className={cn(pageHeader.backLink, "pointer-events-auto")}
+                  href="/rabbitholes/browse"
+                >
+                  ← Back to Browser
+                </Link>
+              )}
+              <h1 className={cn("absolute left-1/2 -translate-x-1/2", pageHeader.text)}>
+                <Link href="/rabbitholes/browse">Rabbit Hole Explorer</Link>
+              </h1>
+              <div className="w-24" /> {/* Spacer for centering */}
+            </div>
+          </header>
+          {/* Dev-only collapsible debug panel — remove this block when done developing */}
+          <RabbitHoleDebugPanel
+            activeNode={activeNode}
+            centerViewState={centerViewState}
+            generatingNodeId={generatingNodeId}
+            session={session}
+          />
 
-          {/* Center: Article or Source Analysis */}
-          <section className="flex-1 max-w-3xl mx-auto min-w-0 flex flex-col">
-            {/* Navigation Arrows (only when viewing article, not source analysis) */}
-            {session && session.path.length > 1 && centerViewState.kind === "article_loaded" && (
-              <div className="flex items-center justify-between mb-6 shrink-0 px-4">
-                <Button
-                  isIconOnly
-                  className={cn(
-                    "text-muted-foreground",
-                    "hover:text-foreground",
-                    "disabled:opacity-30 disabled:cursor-not-allowed"
-                  )}
-                  isDisabled={!canGoBack()}
-                  variant="ghost"
-                  onPress={handleNavigateBack}
-                >
-                  <ChevronLeft size={20} />
-                </Button>
-                <div className="text-xs text-muted-foreground">
-                  {getCurrentPathIndex() + 1} / {session.path.length}
-                </div>
-                <Button
-                  isIconOnly
-                  className={cn(
-                    "text-muted-foreground",
-                    "hover:text-foreground",
-                    "disabled:opacity-30 disabled:cursor-not-allowed"
-                  )}
-                  isDisabled={!canGoForward()}
-                  variant="ghost"
-                  onPress={handleNavigateForward}
-                >
-                  <ChevronRight size={20} />
-                </Button>
-              </div>
+          <main
+            className={cn(
+              "flex-1 min-h-0 overflow-y-auto overscroll-y-contain px-8 lg:px-12 pt-8",
+              focusMode ? "scroll-pb-8" : "scroll-pb-36"
             )}
-
-            <div className="flex-1 h-full pr-2 px-4 pt-4 pb-36">
-              <AnimatePresence mode="wait">
-                {centerViewState.kind === "loading_previous_session" && (
-                  <DelayedContent key="loading-session" delayMs={400}>
-                    <RabbitHoleLoadingState message="Loading session..." variant="sources" />
-                  </DelayedContent>
+          >
+            <div
+              className={cn(
+                cn("mx-auto w-full", layoutTokens.gridMaxWidth),
+                "flex flex-col gap-12",
+                "lg:grid lg:gap-8",
+                focusMode ? layoutTokens.gridColsFocus : layoutTokens.gridCols
+              )}
+            >
+              {/* ── Left column: Exploration Path ── */}
+              <AnimatePresence initial={false} mode="popLayout">
+                {!focusMode && (
+                  <motion.aside
+                    key="rabbit-hole-path-rail"
+                    animate={{ opacity: 1, x: 0 }}
+                    className="lg:col-start-1"
+                    exit={{ opacity: 0, x: -32 }}
+                    initial={{ opacity: 0, x: -32 }}
+                    transition={chromeMotionTransition}
+                  >
+                    <RabbitHolePathRail
+                      activeNodeId={session?.activeNodeId ?? null}
+                      generatingNodeId={generatingNodeId}
+                      session={session}
+                      onNewRabbitHole={handleReset}
+                      onNodeClick={setActiveNode}
+                    />
+                  </motion.aside>
                 )}
+              </AnimatePresence>
 
-                {centerViewState.kind === "loading_source_analysis" && (
-                  <DelayedContent key="analyzing-source" delayMs={400}>
-                    <RabbitHoleLoadingState variant="sources" />
-                  </DelayedContent>
-                )}
-
-                {centerViewState.kind === "viewing_source_analysis" && sourceAnalysis && (
-                  <RabbitHoleSourceAnalysis
-                    key={centerViewState.sourceId}
-                    analysis={sourceAnalysis}
-                    sourceId={centerViewState.sourceId}
-                    onBack={handleBackToArticle}
-                  />
-                )}
-
-                {centerViewState.kind === "generating_new_node" && (
-                  <DelayedContent key={`generating-${centerViewState.variant}`} delayMs={400}>
-                    <RabbitHoleLoadingState preview={preview} variant={centerViewState.variant} />
-                  </DelayedContent>
-                )}
-
-                {centerViewState.kind === "article_loaded" &&
-                  activeNode &&
-                  activeNode.articleHtml && (
-                    <div key={activeNode.id}>
-                      <RabbitHoleArticle
-                        activeTakeawayIndex={activeTakeawayIndex}
-                        articleHtml={activeNode.articleHtml}
-                        nodeId={activeNode.id}
-                        takeaways={activeNode.keyTakeaways}
-                        title={activeNode.title ?? activeNode.userQuestion}
-                        onActiveSectionChange={setActiveTakeawayIndex}
-                        onBranchClick={followBranch}
-                      />
+              {/* ── Center column: Article + Prompt ── */}
+              <section className={cn("min-w-0", focusMode ? "lg:col-span-1" : "lg:col-start-2")}>
+                {session &&
+                  session.path.length > 1 &&
+                  centerViewState.kind === "article_loaded" && (
+                    <div className="flex items-center justify-between mb-6 shrink-0 px-4">
+                      <Button
+                        isIconOnly
+                        className={cn(
+                          "text-muted-foreground",
+                          "hover:text-foreground",
+                          "disabled:opacity-30 disabled:cursor-not-allowed"
+                        )}
+                        isDisabled={!canGoBack()}
+                        variant="ghost"
+                        onPress={handleNavigateBack}
+                      >
+                        <ChevronLeft size={20} />
+                      </Button>
+                      <div className="text-xs text-muted-foreground">
+                        {getCurrentPathIndex() + 1} / {session.path.length}
+                      </div>
+                      <Button
+                        isIconOnly
+                        className={cn(
+                          "text-muted-foreground",
+                          "hover:text-foreground",
+                          "disabled:opacity-30 disabled:cursor-not-allowed"
+                        )}
+                        isDisabled={!canGoForward()}
+                        variant="ghost"
+                        onPress={handleNavigateForward}
+                      >
+                        <ChevronRight size={20} />
+                      </Button>
                     </div>
                   )}
 
-                {centerViewState.kind === "empty" && <RabbitHoleEmptyState />}
-              </AnimatePresence>
-              <div className="h-24" /> {/** Spacer */}
-            </div>
+                <div className={cn("w-full px-4 pt-4", focusMode ? "pb-8" : "pb-36")}>
+                  <AnimatePresence mode="wait">
+                    {centerViewState.kind === "loading_previous_session" && (
+                      <DelayedContent key="loading-session" delayMs={400}>
+                        <RabbitHoleLoadingState message="Loading session..." variant="sources" />
+                      </DelayedContent>
+                    )}
 
-            {/* Fixed at bottom; parent is pointer-events-none so scroll doesn't capture, child re-enables. */}
-            <div className="pointer-events-none absolute inset-x-0 left-1/2 -translate-x-1/2 bottom-0 px-4 pb-4 flex justify-center items-center">
-              <div className="pointer-events-auto min-w-fit md:max-w-xl w-full mx-auto">
-                <RabbitHolePromptBar
-                  hasSession={!!session}
-                  isBusy={isBusy}
-                  isLoading={isBusy}
-                  onReset={handleReset}
-                  onStart={handleStart}
-                />
-              </div>
-            </div>
-          </section>
+                    {centerViewState.kind === "loading_source_analysis" && (
+                      <DelayedContent key="analyzing-source" delayMs={400}>
+                        <RabbitHoleLoadingState variant="sources" />
+                      </DelayedContent>
+                    )}
 
-          {/* Right: sources and branches (only when viewing an article). Explore Further only when branch suggestions are generated. */}
-          <aside className="w-full lg:w-[20%] shrink-0 pr-2">
-            <AnimatePresence>
-              {centerViewState.kind === "article_loaded" && activeNode && (
-                <div key={activeNode.id} className="flex flex-col h-full">
-                  <RabbitHoleSourceList
-                    hasBranches={
-                      generatingNodeId !== activeNode.id &&
-                      (activeNode.branchSuggestions ?? []).length > 0
-                    }
-                    sources={activeNode.sources ?? []}
-                    onSourceClick={selectSource}
-                  />
-                  {generatingNodeId !== activeNode.id && (
-                    <RabbitHoleBranchSuggestionsBlock
-                      branches={activeNode.branchSuggestions ?? []}
-                      hasSources={(activeNode.sources ?? []).length > 0}
-                      isLoading={isBusy}
-                      onBranchClick={followBranch}
-                    />
-                  )}
+                    {centerViewState.kind === "viewing_source_analysis" && sourceAnalysis && (
+                      <RabbitHoleSourceAnalysis
+                        key={centerViewState.sourceId}
+                        analysis={sourceAnalysis}
+                        sourceId={centerViewState.sourceId}
+                        onBack={handleBackToArticle}
+                      />
+                    )}
+
+                    {centerViewState.kind === "generating_new_node" && (
+                      <DelayedContent key={`generating-${centerViewState.variant}`} delayMs={400}>
+                        <RabbitHoleLoadingState
+                          preview={preview}
+                          variant={centerViewState.variant}
+                        />
+                      </DelayedContent>
+                    )}
+
+                    {centerViewState.kind === "article_loaded" &&
+                      activeNode &&
+                      activeNode.articleHtml && (
+                        <div key={activeNode.id}>
+                          <RabbitHoleArticle
+                            activeTakeawayIndex={activeTakeawayIndex}
+                            articleHtml={activeNode.articleHtml}
+                            nodeId={activeNode.id}
+                            takeaways={activeNode.keyTakeaways}
+                            title={activeNode.title?.trim() || RABBIT_HOLE_UNTITLED}
+                            onActiveSectionChange={setActiveTakeawayIndex}
+                            onBranchClick={followBranch}
+                          />
+                        </div>
+                      )}
+
+                    {centerViewState.kind === "empty" && <RabbitHoleEmptyState />}
+                  </AnimatePresence>
                 </div>
-              )}
-            </AnimatePresence>
-          </aside>
-        </main>
+
+                <AnimatePresence initial={false}>
+                  {!focusMode && (
+                    <motion.div
+                      key="rabbit-hole-prompt"
+                      animate={{ opacity: 1, y: 0 }}
+                      className="pointer-events-none sticky bottom-6 z-40 px-4 pb-2"
+                      exit={{ opacity: 0, y: 56 }}
+                      initial={{ opacity: 0, y: 56 }}
+                      transition={chromeMotionTransition}
+                    >
+                      <div className="pointer-events-auto w-full min-w-0">
+                        <RabbitHolePromptBar
+                          hasSession={!!session}
+                          isBusy={isBusy}
+                          isLoading={isBusy}
+                          onReset={handleReset}
+                          onStart={handleStart}
+                        />
+                      </div>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </section>
+
+              {/* ── Right column: Sources + Explore Further ── */}
+              <AnimatePresence initial={false} mode="popLayout">
+                {!focusMode && (
+                  <motion.aside
+                    key="rabbit-hole-right-column"
+                    animate={{ opacity: 1, x: 0 }}
+                    className="lg:col-start-3"
+                    exit={{ opacity: 0, x: 32 }}
+                    initial={{ opacity: 0, x: 32 }}
+                    transition={chromeMotionTransition}
+                  >
+                    <AnimatePresence>
+                      {centerViewState.kind === "article_loaded" && activeNode && (
+                        <div key={activeNode.id} className="flex flex-col gap-3">
+                          <RabbitHoleSourceList
+                            hasBranches={
+                              generatingNodeId !== activeNode.id &&
+                              (activeNode.branchSuggestions ?? []).length > 0
+                            }
+                            sources={activeNode.sources ?? []}
+                            onSourceClick={selectSource}
+                          />
+                          {generatingNodeId !== activeNode.id && (
+                            <RabbitHoleBranchSuggestionsBlock
+                              branches={activeNode.branchSuggestions ?? []}
+                              hasSources={(activeNode.sources ?? []).length > 0}
+                              isLoading={isBusy}
+                              onBranchClick={followBranch}
+                            />
+                          )}
+                        </div>
+                      )}
+                    </AnimatePresence>
+                  </motion.aside>
+                )}
+              </AnimatePresence>
+            </div>
+          </main>
+        </div>
       </div>
-    </div>
+    </Page>
   );
 }
 

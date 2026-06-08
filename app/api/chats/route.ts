@@ -24,6 +24,7 @@ export async function GET() {
   }
 
   const rateLimitResult = await checkChatsListLimit(userId);
+
   if (!rateLimitResult.success) {
     return NextResponse.json(
       { error: rateLimitResult.error ?? "Too many requests" },

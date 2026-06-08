@@ -2,13 +2,14 @@
 
 import { Collapsible, CollapsibleTrigger, CollapsibleContent } from "@radix-ui/react-collapsible";
 import { Pin, ChevronUp } from "lucide-react";
-import { useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 import { SidebarGroup, SidebarGroupLabel } from "../third-party/ui/sidebar";
 
 import { SidebarChatList } from "./sidebar-chat-list";
 
 import { useSharedChatContext } from "@/lib/context/chat-context";
+import { getSettings } from "@/lib/user-settings";
 
 /**
  * Renders the sidebar chat list (pinned + all threads). Data is owned by
@@ -17,9 +18,31 @@ import { useSharedChatContext } from "@/lib/context/chat-context";
  */
 export const SidebarChats = () => {
   const { sidebarChats: chats, isSidebarChatsLoading } = useSharedChatContext();
+  const [coalescenceMode, setCoalescenceMode] = useState<boolean>(
+    () => getSettings().coalescenceMode
+  );
 
-  const pinnedChats = useMemo(() => chats.filter((t) => t.pinned), [chats]);
-  const allChats = useMemo(() => chats.filter((t) => !t.pinned), [chats]);
+  useEffect(() => {
+    const update = () => setCoalescenceMode(getSettings().coalescenceMode);
+
+    update();
+    window.addEventListener("organic-llm-settings", update);
+    window.addEventListener("storage", update);
+
+    return () => {
+      window.removeEventListener("organic-llm-settings", update);
+      window.removeEventListener("storage", update);
+    };
+  }, []);
+
+  const filteredChats = useMemo(() => {
+    if (coalescenceMode) return chats;
+
+    return chats.filter((t) => (t.feature ?? "main") === "main");
+  }, [chats, coalescenceMode]);
+
+  const pinnedChats = useMemo(() => filteredChats.filter((t) => t.pinned), [filteredChats]);
+  const allChats = useMemo(() => filteredChats.filter((t) => !t.pinned), [filteredChats]);
 
   const allChatsComponents = useMemo(() => {
     return allChats.length > 0 ? <SidebarChatList threads={allChats} /> : null;

@@ -36,7 +36,7 @@ export const SidebarNewChat = () => {
 
   return (
     <SidebarMenuButton
-      className="w-full rounded bg-background-tertiary cursor-pointer flex items-center justify-center py-5 px-4 text-sm font-medium"
+      className="w-full rounded bg-background-tertiary cursor-pointer flex items-center justify-center py-5 px-4 text-sm font-medium select-none"
       tooltip="Create a new chat"
       onClick={handleNewChat}
     >

@@ -1,5 +1,6 @@
 import "@/styles/globals.css";
 import { Metadata, Viewport } from "next";
+import { cookies } from "next/headers";
 import clsx from "clsx";
 import { ClerkProvider } from "@clerk/nextjs";
 import { Analytics } from "@vercel/analytics/next";
@@ -10,8 +11,11 @@ import { siteConfig } from "@/config/site";
 import { fontInter, fontSatoshi, fontCommissioner } from "@/config/fonts";
 import { ControlCluster } from "@/components/layout/countrol-cluster";
 import { SidebarProvider, SidebarTrigger } from "@/components/third-party/ui/sidebar";
+import { getSidebarDefaultOpenFromCookieValue, SIDEBAR_COOKIE_NAME } from "@/lib/sidebar-cookie";
 import { Sidebar } from "@/components/sidebar/sidebar";
+import { AionLauncherProvider } from "@/components/aion-launcher/aion-launcher";
 import { ChatProvider } from "@/lib/context/chat-context";
+import { TTSProvider } from "@/lib/context/tts-context";
 import { FontProvider } from "@/components/FontProvider";
 import { glass } from "@/components/design-system/primitives";
 
@@ -34,7 +38,11 @@ export const viewport: Viewport = {
   viewportFit: "cover",
 };
 
-export default function RootLayout({ children }: { children: React.ReactNode }) {
+export default async function RootLayout({ children }: { children: React.ReactNode }) {
+  const cookieStore = await cookies();
+  const sidebarCookie = cookieStore.get(SIDEBAR_COOKIE_NAME)?.value;
+  const sidebarDefaultOpen = getSidebarDefaultOpenFromCookieValue(sidebarCookie);
+
   return (
     <ClerkProvider>
       <html suppressHydrationWarning className="h-full overflow-hidden" lang="en">
@@ -55,22 +63,27 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           >
             <FontProvider>
               <ChatProvider>
-                <SidebarProvider>
-                  <Sidebar />
-                  <ControlCluster />
-                  <main className="grow w-full overflow-hidden bg-background sm:bg-background-secondary h-full min-h-dvh">
-                    <div
-                      className={`${glass()} absolute top-0 left-0 pl-4 z-30 w-20 h-14 flex items-center rounded-br-lg md:hidden`}
-                    >
-                      <SidebarTrigger />
-                    </div>
-                    <div className={`hidden md:flex absolute top-4 left-0 pl-4 z-30`}>
-                      <SidebarTrigger />
-                    </div>
-                    {children}
-                    <Analytics />
-                  </main>
-                </SidebarProvider>
+                <AionLauncherProvider>
+                  <TTSProvider>
+                    <SidebarProvider defaultOpen={sidebarDefaultOpen}>
+                      <Sidebar />
+                      <ControlCluster />
+                      <main className="grow w-full overflow-hidden bg-background sm:bg-background-secondary h-full min-h-dvh">
+                        <div
+                          className={`${glass()} absolute top-0 left-0 z-30 flex h-14 w-20 items-center rounded-br-lg pl-4 md:hidden`}
+                          data-mobile-nav-chrome="sidebar-trigger"
+                        >
+                          <SidebarTrigger />
+                        </div>
+                        <div className={`hidden md:flex absolute top-4 left-0 pl-4 z-30`}>
+                          <SidebarTrigger />
+                        </div>
+                        {children}
+                        <Analytics />
+                      </main>
+                    </SidebarProvider>
+                  </TTSProvider>
+                </AionLauncherProvider>
               </ChatProvider>
             </FontProvider>
           </Providers>

@@ -1,16 +1,28 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { createRoot, type Root } from "react-dom/client";
 import { motion } from "framer-motion";
 
 import { RabbitHoleTTSButton } from "./RabbitHoleTTSButton";
 
+import { CodeBlock } from "@/components/shared/code-block";
 import { cn } from "@/lib/utils";
 import {
   Collapsible,
   CollapsibleContent,
   CollapsibleTrigger,
 } from "@/components/third-party/ui/collapsible";
+import {
+  title as titleToken,
+  layout,
+  heroSpacing,
+  sectionLabel,
+  card,
+  takeaway,
+  articleContent,
+  articleContentClasses,
+} from "@/lib/rabbit-holes/designTokens";
 
 interface RabbitHoleArticleProps {
   title: string;
@@ -20,6 +32,8 @@ interface RabbitHoleArticleProps {
   nodeId: string;
   onBranchClick: (branchId: string) => void;
   onActiveSectionChange?: (index: number | null) => void;
+  /** Mobile Safari: tighter type scale and spacing */
+  compact?: boolean;
 }
 
 export function RabbitHoleArticle({
@@ -30,6 +44,7 @@ export function RabbitHoleArticle({
   nodeId,
   onBranchClick,
   onActiveSectionChange,
+  compact = false,
 }: RabbitHoleArticleProps) {
   const articleRef = useRef<HTMLDivElement>(null);
   const [articleText, setArticleText] = useState("");
@@ -42,15 +57,12 @@ export function RabbitHoleArticle({
     takeaways[2] === "…";
   const showTakeaways = !isStubTakeaways;
 
-  // Extract plain text from HTML for TTS
   useEffect(() => {
     if (typeof window !== "undefined" && articleRef.current) {
-      // Use the rendered content to extract text
       const text = articleRef.current.textContent || articleRef.current.innerText || "";
 
       setArticleText(text);
     } else {
-      // Fallback: strip HTML tags using regex (less accurate but works on server)
       const text = articleHtml
         .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, "")
         .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, "")
@@ -61,7 +73,6 @@ export function RabbitHoleArticle({
       setArticleText(text);
     }
   }, [articleHtml]);
-  const [activeSectionIndex, setActiveSectionIndex] = useState<number | null>(null);
 
   useEffect(() => {
     const article = articleRef.current;
@@ -89,7 +100,6 @@ export function RabbitHoleArticle({
     };
   }, [articleHtml, onBranchClick]);
 
-  // Intersection Observer to track active section
   useEffect(() => {
     const article = articleRef.current;
 
@@ -107,11 +117,10 @@ export function RabbitHoleArticle({
     const observers: IntersectionObserver[] = [];
 
     sections.forEach((section, index) => {
-      const idx = index; // capture per-observer index
+      const idx = index;
       const observer = new IntersectionObserver((entries) => {
         entries.forEach((entry) => {
           if (entry.isIntersecting) {
-            setActiveSectionIndex(idx);
             onActiveSectionChange(idx);
           }
         });
@@ -126,55 +135,139 @@ export function RabbitHoleArticle({
     };
   }, [articleHtml, onActiveSectionChange]);
 
-  // Add scroll offset styling for sections
   useEffect(() => {
     const article = articleRef.current;
 
     if (!article) return;
 
     const sections = article.querySelectorAll("h2[id^='takeaway-']");
+    const margin = compact
+      ? articleContent.scrollMarginTop.compact
+      : articleContent.scrollMarginTop.desktop;
 
     sections.forEach((section) => {
-      (section as HTMLElement).style.scrollMarginTop = "80px";
+      (section as HTMLElement).style.scrollMarginTop = margin;
     });
+  }, [articleHtml, compact]);
+
+  /** Upgrade raw `<pre>` from LLM HTML to the same CodeBlock UI as Chat (before paint). */
+  useLayoutEffect(() => {
+    const article = articleRef.current;
+
+    if (!article) return;
+
+    const entries: Array<{
+      root: Root;
+      mountHost: HTMLDivElement;
+      parent: HTMLElement;
+      preSnapshot: string;
+    }> = [];
+    const pres = Array.from(article.querySelectorAll("pre"));
+
+    pres.forEach((pre) => {
+      const parent = pre.parentElement;
+
+      if (!parent) return;
+
+      const preSnapshot = pre.outerHTML;
+      const preClass = pre.getAttribute("class") ?? "";
+      const innerCode = pre.querySelector("code");
+      const codeClass = innerCode?.getAttribute("class") ?? "";
+      const text = innerCode?.textContent ?? pre.textContent ?? "";
+      const mountHost = document.createElement("div");
+
+      mountHost.className = "rh-article-codeblock-root mb-4 max-w-full min-w-0 last:mb-0";
+
+      parent.replaceChild(mountHost, pre);
+
+      const root = createRoot(mountHost);
+
+      entries.push({ root, mountHost, parent, preSnapshot });
+      root.render(
+        <CodeBlock className={preClass || undefined} containerClassName="w-full min-w-0">
+          <code className={codeClass || undefined}>{text}</code>
+        </CodeBlock>
+      );
+    });
+
+    return () => {
+      const toTeardown = entries;
+
+      queueMicrotask(() => {
+        toTeardown.forEach(({ root, mountHost, parent, preSnapshot }) => {
+          try {
+            root.unmount();
+          } catch {
+            /* ignore */
+          }
+          if (!mountHost.isConnected) return;
+          const wrap = document.createElement("div");
+
+          wrap.innerHTML = preSnapshot;
+          const restored = wrap.firstElementChild;
+
+          if (restored) {
+            parent.replaceChild(restored, mountHost);
+          }
+        });
+      });
+    };
   }, [articleHtml]);
 
   return (
     <motion.div
       key={articleHtml}
       animate={{ opacity: 1, y: 0 }}
-      className="max-w-2xl mx-auto"
+      className={cn(
+        "mx-auto",
+        compact ? layout.articleMaxWidth.compact : layout.articleMaxWidth.desktop
+      )}
       exit={{ opacity: 0, y: -20 }}
       initial={{ opacity: 0, y: 20 }}
       transition={{ duration: 0.4, ease: [0.2, 0.8, 0.2, 1] }}
     >
-      <div className="mb-6">
-        <h1 className="font-commissioner text-3xl font-light tracking-tight text-foreground mb-3">
+      <div className={cn("snap-start scroll-mt-2 min-h-0", heroSpacing.titleBlock)}>
+        <h1 className={cn(titleToken.base, compact ? titleToken.compact : titleToken.desktop)}>
           {title}
         </h1>
-        <div className="max-w-xl">
-          <RabbitHoleTTSButton nodeId={nodeId} text={articleText} />
-        </div>
+      </div>
+      <div
+        className={cn(
+          "snap-start scroll-mt-2 min-h-0",
+          layout.ttsMaxWidth,
+          compact ? heroSpacing.ttsBlock.compact : heroSpacing.ttsBlock.desktop
+        )}
+      >
+        <RabbitHoleTTSButton nodeId={nodeId} text={articleText} />
       </div>
 
       {showTakeaways && (
         <Collapsible
-          className="bg-card/80 backdrop-blur-sm rounded-lg border border-border shadow-sm mb-10"
+          className={cn(
+            "snap-start scroll-mt-2",
+            card,
+            compact ? heroSpacing.takeawaysBlock.compact : heroSpacing.takeawaysBlock.desktop
+          )}
           open={takeawaysOpen}
           onOpenChange={setTakeawaysOpen}
         >
-          <CollapsibleTrigger className="w-full flex items-center justify-between px-5 py-4 text-left cursor-pointer group">
-            <h3 className="font-commissioner text-xs uppercase tracking-[0.2em] text-muted-foreground font-light">
-              Key Takeaways
-            </h3>
+          <CollapsibleTrigger
+            className={cn(
+              "group flex w-full cursor-pointer items-center justify-between text-left",
+              compact ? takeaway.padding.compact : takeaway.padding.desktop
+            )}
+          >
+            <h3 className={sectionLabel}>Key Takeaways</h3>
             <span className="text-muted-foreground text-xl group-hover:text-foreground group-hover:scale-110 transition-all duration-400">
               {takeawaysOpen ? "−" : "+"}
             </span>
           </CollapsibleTrigger>
           <CollapsibleContent>
-            <div className="px-5 pb-5">
-              <ul className="space-y-4">
-                {takeaways.map((takeaway, index) => {
+            <div
+              className={compact ? takeaway.innerPadding.compact : takeaway.innerPadding.desktop}
+            >
+              <ul className={compact ? takeaway.listGap.compact : takeaway.listGap.desktop}>
+                {takeaways.map((tw, index) => {
                   const isActive = activeTakeawayIndex === index;
 
                   return (
@@ -182,7 +275,8 @@ export function RabbitHoleArticle({
                       key={index}
                       animate={{ opacity: 1, x: 0 }}
                       className={cn(
-                        "flex items-start gap-4 font-satoshi text-base cursor-pointer",
+                        takeaway.item.base,
+                        compact ? takeaway.item.size.compact : takeaway.item.size.desktop,
                         isActive ? "text-foreground" : "text-muted-foreground hover:text-foreground"
                       )}
                       initial={{ opacity: 0, x: -8 }}
@@ -190,26 +284,22 @@ export function RabbitHoleArticle({
                       viewport={{ once: true }}
                       whileHover={{ x: 2 }}
                       onClick={() => {
-                        const sectionId = `takeaway-${index}`;
-                        const section = document.getElementById(sectionId);
+                        const section = document.getElementById(`takeaway-${index}`);
 
                         if (section) {
-                          section.scrollIntoView({
-                            behavior: "smooth",
-                            block: "start",
-                          });
+                          section.scrollIntoView({ behavior: "smooth", block: "start" });
                         }
                       }}
                     >
                       <span
                         className={cn(
-                          "mt-1 shrink-0 transition-colors text-lg",
+                          takeaway.bullet,
                           isActive ? "text-foreground" : "text-muted-foreground"
                         )}
                       >
                         •
                       </span>
-                      <span className="flex-1">{takeaway}</span>
+                      <span className="flex-1">{tw}</span>
                     </motion.li>
                   );
                 })}
@@ -222,28 +312,7 @@ export function RabbitHoleArticle({
       <div
         dangerouslySetInnerHTML={{ __html: articleHtml }}
         ref={articleRef}
-        className={cn(
-          "article-content",
-          "text-muted-foreground",
-          "leading-[1.8]",
-          "[&_h2]:font-commissioner [&_h2]:text-3xl [&_h2]:font-light [&_h2]:mt-16 [&_h2]:mb-8 [&_h2]:text-foreground [&_h2]:tracking-tight",
-          "[&_h2[id^='takeaway-']]:scroll-mt-20",
-          "[&_h2[id^='takeaway-']]:transition-colors",
-          "[&_h3]:font-commissioner [&_h3]:text-2xl [&_h3]:font-light [&_h3]:mt-12 [&_h3]:mb-6 [&_h3]:text-foreground",
-          "[&_p]:mb-8 [&_p]:text-lg [&_p]:leading-relaxed",
-          "[&_strong]:font-medium [&_strong]:text-foreground",
-          "[&_em]:italic",
-          "[&_span[data-branch-id]]:cursor-pointer",
-          "[&_span[data-branch-id]]:underline",
-          "[&_span[data-branch-id]]:underline-offset-2",
-          "[&_span[data-branch-id]]:decoration-muted-foreground/30",
-          "[&_span[data-branch-id]]:hover:decoration-muted-foreground",
-          "[&_span[data-branch-id]]:hover:text-foreground",
-          "[&_span[data-branch-id]]:transition-colors",
-          "[&_span[data-branch-id]]:px-0.5",
-          "[&_span[data-branch-id]]:rounded",
-          "[&_span[data-branch-id]]:hover:bg-card/20"
-        )}
+        className={cn(...articleContentClasses(compact))}
       />
     </motion.div>
   );

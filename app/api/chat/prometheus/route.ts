@@ -10,6 +10,8 @@ import {
 
 // import systemPrompt from "@/lib/system-prompt";
 import { saveChat } from "@/lib/chat/chat-store";
+import { shouldAttemptInitialTitle } from "@/lib/chat/summary-title-cadence";
+import { getMessageCount, getThreadHasTitle } from "@/data/supabase/chat";
 import { GUARDRAIL_MAX_OUTPUT_TOKENS } from "@/lib/llm/helpers";
 import { ensureChatHasTitle } from "@/lib/llm/chat-helpers";
 import { createLogger } from "@/lib/logger";
@@ -18,7 +20,7 @@ import { getContext } from "@/lib/llm/context";
 // Allow streaming responses up to 30 seconds
 export const maxDuration = 30;
 
-const model: LanguageModel = openai("gpt-5-mini");
+const model: LanguageModel = openai("gpt-5.4-mini");
 
 // const tools = {};
 
@@ -61,10 +63,29 @@ export async function POST(req: Request) {
 
   return result.toUIMessageStreamResponse({
     originalMessages: messages,
-    onFinish: ({ messages }) => {
-      saveChat({ chatId: id, messages });
-      if (messages.length > 3 && messages.length < 5) {
-        ensureChatHasTitle(id);
+    onFinish: async ({ messages }) => {
+      const saveResult = await saveChat({ chatId: id, messages });
+      if (!saveResult.ok) {
+        logger.error(
+          "POST",
+          `Error saving chat: ${saveResult.error?.message ?? "unknown error"}`
+        );
+
+        return;
+      }
+
+      const messageCountResult = await getMessageCount(id);
+      const threadHasTitleResult = await getThreadHasTitle(id);
+      const persistedMessageCount = messageCountResult.data ?? messages.length;
+      const threadAlreadyHasTitle = threadHasTitleResult.data === true;
+
+      if (
+        shouldAttemptInitialTitle({
+          persistedMessageCount,
+          threadAlreadyHasTitle,
+        })
+      ) {
+        void ensureChatHasTitle(id);
       }
     },
     generateMessageId: createIdGenerator({

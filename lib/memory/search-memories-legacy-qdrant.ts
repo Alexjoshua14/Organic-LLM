@@ -1,7 +1,5 @@
 import "server-only";
 
-import type { MemoryItemType } from "@/lib/schemas/memory";
-
 import {
   MEMORY_LEGACY_EMBEDDING_DIMS,
   MEMORY_LEGACY_EMBEDDER_MODEL,
@@ -9,8 +7,9 @@ import {
 } from "@/config/memory-legacy-meta";
 import { getMemoryQdrantClient } from "@/config/memory-qdrant-client";
 import { decryptMemory, isEncrypted } from "@/lib/crypto/memory-encryption";
-
-const OLLAMA_URL = (process.env.OLLAMA_URL ?? "http://localhost:11434").replace(/\/$/, "");
+import { OLLAMA_URL, ollamaHeaders } from "@/lib/memory/ollama-config";
+import { runMemoryStore } from "@/lib/memory/run-memory-store";
+import type { MemoryItemType } from "@/lib/schemas/memory";
 
 function payloadUserId(payload: Record<string, unknown>): string | undefined {
   const u = payload.userId ?? payload.user_id;
@@ -32,7 +31,7 @@ function decryptDataField(raw: string): string {
 async function embedLegacyQuery(text: string): Promise<number[]> {
   const res = await fetch(`${OLLAMA_URL}/api/embed`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: ollamaHeaders(),
     body: JSON.stringify({ model: MEMORY_LEGACY_EMBEDDER_MODEL, input: text }),
   });
   const data = (await res.json()) as {
@@ -126,17 +125,19 @@ export async function searchMemoriesLegacyFromQdrant(
   const client = getMemoryQdrantClient();
   const vector = await embedLegacyQuery(query);
 
-  const hits = await client.search(MEMORY_LEGACY_QDRANT_COLLECTION, {
-    vector,
-    limit: Math.max(1, limit),
-    with_payload: true,
-    filter: {
-      should: [
-        { key: "userId", match: { value: userId } },
-        { key: "user_id", match: { value: userId } },
-      ],
-    },
-  });
+  const hits = await runMemoryStore("searchMemoriesLegacyFromQdrant", () =>
+    client.search(MEMORY_LEGACY_QDRANT_COLLECTION, {
+      vector,
+      limit: Math.max(1, limit),
+      with_payload: true,
+      filter: {
+        should: [
+          { key: "userId", match: { value: userId } },
+          { key: "user_id", match: { value: userId } },
+        ],
+      },
+    })
+  );
 
   const results: MemoryItemType[] = [];
 
@@ -184,11 +185,13 @@ export async function getBestLegacyPointScoreForMemoryId(
   }
 
   const client = getMemoryQdrantClient();
-  const retrieved = await client.retrieve(MEMORY_LEGACY_QDRANT_COLLECTION, {
-    ids: [memoryPointId],
-    with_payload: true,
-    with_vector: true,
-  });
+  const retrieved = await runMemoryStore("getBestLegacyPointScoreForMemoryId", () =>
+    client.retrieve(MEMORY_LEGACY_QDRANT_COLLECTION, {
+      ids: [memoryPointId],
+      with_payload: true,
+      with_vector: true,
+    })
+  );
 
   if (!retrieved.length) {
     return null;

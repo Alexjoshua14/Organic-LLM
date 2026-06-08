@@ -8,6 +8,11 @@ import { PanelLeftIcon } from "lucide-react";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { cn } from "@/lib/utils";
 import { createLogger } from "@/lib/logger";
+import {
+  readSidebarOpenFromDocumentCookie,
+  SIDEBAR_COOKIE_MAX_AGE,
+  SIDEBAR_COOKIE_NAME,
+} from "@/lib/sidebar-cookie";
 import { Button } from "@/components/third-party/ui/button";
 import { Input } from "@/components/third-party/ui/input";
 import { Separator } from "@/components/third-party/ui/separator";
@@ -28,8 +33,16 @@ import {
 
 const logger = createLogger("components/third-party/ui/sidebar.tsx");
 
-const SIDEBAR_COOKIE_NAME = "sidebar_state";
-const SIDEBAR_COOKIE_MAX_AGE = 60 * 60 * 24 * 7;
+type SidebarPointerContextValue = { pointerInside: boolean };
+
+const SidebarPointerContext = React.createContext<SidebarPointerContextValue>({
+  pointerInside: false,
+});
+
+function useSidebarPointerInside() {
+  return React.useContext(SidebarPointerContext).pointerInside;
+}
+
 const SIDEBAR_WIDTH = "16rem";
 const SIDEBAR_WIDTH_MOBILE = "18rem";
 const SIDEBAR_WIDTH_ICON = "3rem";
@@ -75,7 +88,7 @@ function SidebarProvider({
 
   // This is the internal state of the sidebar.
   // We use openProp and setOpenProp for control from outside the component.
-  const [_open, _setOpen] = React.useState(defaultOpen);
+  const [_open, _setOpen] = React.useState(() => defaultOpen);
   const open = openProp ?? _open;
   const setOpen = React.useCallback(
     (value: boolean | ((value: boolean) => boolean)) => {
@@ -87,11 +100,20 @@ function SidebarProvider({
         _setOpen(openState);
       }
 
-      // This sets the cookie to keep the sidebar state.
-      document.cookie = `${SIDEBAR_COOKIE_NAME}=${openState}; path=/; max-age=${SIDEBAR_COOKIE_MAX_AGE}`;
+      // This sets the cookie to keep the sidebar state (SameSite so it is sent on top-level navigations).
+      document.cookie = `${SIDEBAR_COOKIE_NAME}=${openState}; path=/; max-age=${SIDEBAR_COOKIE_MAX_AGE}; SameSite=Lax`;
     },
     [setOpenProp, open]
   );
+
+  // If the server request did not include the cookie (cache, proxy, alternate dev host), align from
+  // `document.cookie` before paint so collapsed state still matches after refresh.
+  React.useLayoutEffect(() => {
+    const fromDocument = readSidebarOpenFromDocumentCookie();
+
+    if (fromDocument === null) return;
+    _setOpen((current) => (current === fromDocument ? current : fromDocument));
+  }, []);
 
   // Helper to toggle the sidebar.
   const toggleSidebar = React.useCallback(() => {
@@ -167,6 +189,8 @@ function Sidebar({
   collapsible?: "offcanvas" | "icon" | "none";
 }) {
   const { isMobile, state, openMobile, setOpenMobile } = useSidebar();
+  const [pointerInside, setPointerInside] = React.useState(false);
+  const pointerContextValue = React.useMemo(() => ({ pointerInside }), [pointerInside]);
 
   if (collapsible === "none") {
     return (
@@ -197,12 +221,16 @@ function Sidebar({
               "--sidebar-width": SIDEBAR_WIDTH_MOBILE,
             } as React.CSSProperties
           }
+          onPointerEnter={() => setPointerInside(true)}
+          onPointerLeave={() => setPointerInside(false)}
         >
           <SheetHeader className="sr-only">
             <SheetTitle>Sidebar</SheetTitle>
             <SheetDescription>Displays the mobile sidebar.</SheetDescription>
           </SheetHeader>
-          <div className="flex h-full w-full flex-col">{children}</div>
+          <SidebarPointerContext.Provider value={pointerContextValue}>
+            <div className="flex h-full w-full flex-col">{children}</div>
+          </SidebarPointerContext.Provider>
         </SheetContent>
       </Sheet>
     );
@@ -248,8 +276,12 @@ function Sidebar({
           className="bg-sidebar group-data-[variant=floating]:border-sidebar-border flex h-full w-full flex-col group-data-[variant=floating]:rounded-lg group-data-[variant=floating]:border group-data-[variant=floating]:shadow-sm"
           data-sidebar="sidebar"
           data-slot="sidebar-inner"
+          onPointerEnter={() => setPointerInside(true)}
+          onPointerLeave={() => setPointerInside(false)}
         >
-          {children}
+          <SidebarPointerContext.Provider value={pointerContextValue}>
+            {children}
+          </SidebarPointerContext.Provider>
         </div>
       </div>
     </div>
@@ -703,4 +735,5 @@ export {
   SidebarSeparator,
   SidebarTrigger,
   useSidebar,
+  useSidebarPointerInside,
 };

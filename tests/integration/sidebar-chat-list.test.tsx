@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, mock, test } from "bun:test";
-import { cleanup, fireEvent, waitFor } from "@testing-library/react";
+import { act, cleanup, fireEvent, waitFor } from "@testing-library/react";
 import type { HTMLAttributes, ReactNode } from "react";
 
 import { render } from "../helpers/render";
@@ -219,7 +219,9 @@ describe("SidebarChatList", () => {
     const openThreadButton = view.getByLabelText("Open Thread One");
 
     fireEvent.touchStart(openThreadButton);
-    await new Promise((resolve) => setTimeout(resolve, 550));
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 550));
+    });
     fireEvent.click(openThreadButton);
 
     expect(mockRouterPush).not.toHaveBeenCalled();

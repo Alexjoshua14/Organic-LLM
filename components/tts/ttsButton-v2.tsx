@@ -2,12 +2,13 @@
 
 import { Button } from "@heroui/button";
 import { AudioLines } from "lucide-react";
-import { useRef, type ReactNode } from "react";
+import { useMemo, useRef, type ReactNode } from "react";
 
 import { glass } from "../design-system/primitives";
 
 import { createLogger } from "@/lib/logger";
 import { useTTS } from "@/hooks/use-tts";
+import { shouldDeferAudioAutoplayToUserGesture } from "@/lib/tts/defer-audio-autoplay";
 
 const logger = createLogger("components/tts/ttsButton-v2.tsx");
 
@@ -19,8 +20,11 @@ export default function TTSButtonV2({ text }: { text: string }) {
 
   text = DEFAULT_TTS_TEXT;
 
+  const ttsAutoplay = useMemo(() => !shouldDeferAudioAutoplayToUserGesture(), []);
+
   const speech = useTTS({
     audioRef,
+    autoplay: ttsAutoplay,
     onAlignment: (alignmentData) => {
       // This callback is called for each chunk that contains alignment data
       // You can use this for real-time text highlighting, karaoke effects, etc.

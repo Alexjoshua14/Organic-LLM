@@ -3,6 +3,7 @@ import React from "react";
 
 import { useSidebar } from "../third-party/ui/sidebar";
 
+import { TTSDockBar } from "@/lib/context/tts-context";
 import { cn } from "@/lib/utils";
 
 type PageProps = {
@@ -28,6 +29,7 @@ export default function Page({ children, transparentBackground, className }: Pag
       )}
     >
       {children}
+      <TTSDockBar />
     </section>
   );
 }

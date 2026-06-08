@@ -57,8 +57,9 @@ export const RabbitHoleNodeSchema = z.object({
   createdAt: z.string(),
 });
 
-// Stricter schema for fully generated AI responses (article + 3-6 takeaways).
+// Stricter schema for fully generated AI responses (article + 3-6 takeaways + title).
 export const RabbitHoleAIResponseSchema = RabbitHoleNodeSchema.extend({
+  title: z.string().min(4).max(80).describe("Engaging editorial title for this exploration"),
   keyTakeaways: z.array(z.string()).min(3).max(6),
   articleHtml: z
     .string()

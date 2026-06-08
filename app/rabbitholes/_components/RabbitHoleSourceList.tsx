@@ -6,6 +6,7 @@ import { ChevronDown, ChevronUp } from "lucide-react";
 
 import { RabbitHoleSource } from "@/lib/schemas/rabbitHoleSchemas";
 import { cn } from "@/lib/utils";
+import { card, sectionLabel, sidebar } from "@/lib/rabbit-holes/designTokens";
 
 interface RabbitHoleSourceListProps {
   sources: RabbitHoleSource[];
@@ -25,20 +26,12 @@ export function RabbitHoleSourceList({
   }
 
   return (
-    <div
-      className={cn(
-        "bg-card/80 backdrop-blur-sm rounded-lg border border-border shadow-sm",
-        "flex flex-col overflow-hidden",
-        hasBranches ? "h-1/2 mb-3" : "flex-1"
-      )}
-    >
+    <div className={cn(card, "flex flex-col overflow-hidden", hasBranches && "mb-3")}>
       <button
         className="flex items-center justify-between p-4 hover:bg-card/30 transition-colors"
         onClick={() => setIsExpanded(!isExpanded)}
       >
-        <h2 className="font-commissioner text-xs uppercase tracking-[0.2em] text-muted-foreground font-light">
-          Sources
-        </h2>
+        <h2 className={sectionLabel}>Sources</h2>
         {isExpanded ? (
           <ChevronUp className="text-muted-foreground" size={16} />
         ) : (
@@ -49,12 +42,12 @@ export function RabbitHoleSourceList({
         {isExpanded && (
           <motion.div
             animate={{ height: "auto" }}
-            className="flex-1 overflow-hidden flex flex-col min-h-0"
+            className="flex flex-col"
             exit={{ height: 0 }}
             initial={{ height: 0 }}
             transition={{ duration: 0.2 }}
           >
-            <div className="px-4 pb-4 space-y-2 overflow-y-auto flex-1">
+            <div className="space-y-2 px-4 pb-4">
               {sources.map((source, index) => {
                 return (
                   <motion.button
@@ -67,10 +60,7 @@ export function RabbitHoleSourceList({
                       "group"
                     )}
                     initial={{ opacity: 0, y: 10 }}
-                    transition={{
-                      duration: 0.2,
-                      delay: index * 0.05,
-                    }}
+                    transition={{ duration: 0.2, delay: index * 0.05 }}
                     whileHover={{ scale: 1.01 }}
                     onClick={() => onSourceClick?.(source)}
                   >
@@ -78,16 +68,14 @@ export function RabbitHoleSourceList({
                       {source.faviconUrl && (
                         <img
                           alt=""
-                          className="w-4 h-4 shrink-0 opacity-70"
+                          className={sidebar.sourceFavicon}
                           src={source.faviconUrl}
                           onError={(e) => {
                             e.currentTarget.style.display = "none";
                           }}
                         />
                       )}
-                      <p className="text-xs text-foreground group-hover:text-muted-foreground transition-colors line-clamp-1 flex-1 min-w-0">
-                        {source.title}
-                      </p>
+                      <p className={sidebar.sourceTitle}>{source.title}</p>
                     </div>
                   </motion.button>
                 );

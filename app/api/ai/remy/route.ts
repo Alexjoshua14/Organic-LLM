@@ -138,6 +138,7 @@ export async function POST(req: Request) {
         logger.log("POST", "User message saved optimistically");
       } catch (err) {
         const e = err instanceof Error ? err : new Error(String(err));
+
         logger.error("POST", `Failed to save user message optimistically: ${e.name}`);
         // Continue anyway - onFinish will try to save again
       }
@@ -169,6 +170,7 @@ export async function POST(req: Request) {
       }
     } catch (err) {
       const e = err instanceof Error ? err : new Error(String(err));
+
       logger.error("POST", `Error loading context: ${e.name}`);
       validatedMessages = [message];
     }
@@ -198,6 +200,7 @@ export async function POST(req: Request) {
         mem0Available = true; // Mem0 is working
       } catch (err) {
         const e = err instanceof Error ? err : new Error(String(err));
+
         logger.error("POST", `Error searching memories (continuing without memory): ${e.name}`);
         // Continue without memory if search fails
         memories = [];
@@ -279,7 +282,11 @@ export async function POST(req: Request) {
         logger.log("POST", "addMemories task created successfully");
       } catch (err) {
         const e = err instanceof Error ? err : new Error(String(err));
-        logger.error("POST", `Error creating addMemories task (continuing without memory): ${e.name}`);
+
+        logger.error(
+          "POST",
+          `Error creating addMemories task (continuing without memory): ${e.name}`
+        );
         addMemoriesTask = null;
       }
     } else {
@@ -323,6 +330,7 @@ export async function POST(req: Request) {
           }
         } catch (err) {
           const e = err instanceof Error ? err : new Error(String(err));
+
           logger.error("POST", `Error adding messages to memory (continuing): ${e.name}`);
           // Continue even if memory addition fails
         }
@@ -346,6 +354,7 @@ export async function POST(req: Request) {
         }
       } catch (err) {
         const e = err instanceof Error ? err : new Error(String(err));
+
         logger.error("POST", `Error in onFinish callback: ${e.name}`);
       }
     },

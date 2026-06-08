@@ -1,11 +1,11 @@
 import "server-only";
 
-import type { MemoryItemType } from "@/lib/schemas/memory";
-
 import { getMemoryQdrantClient } from "@/config/memory-qdrant-client";
 import { decryptMemory, isEncrypted } from "@/lib/crypto/memory-encryption";
+import { OLLAMA_URL, ollamaHeaders } from "@/lib/memory/ollama-config";
+import { runMemoryStore } from "@/lib/memory/run-memory-store";
+import type { MemoryItemType } from "@/lib/schemas/memory";
 
-const OLLAMA_URL = (process.env.OLLAMA_URL ?? "http://localhost:11434").replace(/\/$/, "");
 const OLLAMA_EMBED_MODEL = process.env.OLLAMA_EMBED_MODEL ?? "nomic-embed-text";
 const V2_COLLECTION = process.env.MEMORY_V2_COLLECTION ?? "memories_v2";
 
@@ -41,7 +41,7 @@ async function probeEmbeddingDims(model: string): Promise<number> {
 
   const res = await fetch(`${OLLAMA_URL}/api/embed`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: ollamaHeaders(),
     body: JSON.stringify({ model, input: "probe" }),
   });
   const data = (await res.json()) as {
@@ -69,7 +69,7 @@ async function embedQuery(model: string, text: string): Promise<number[]> {
 
   const res = await fetch(`${OLLAMA_URL}/api/embed`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: ollamaHeaders(),
     body: JSON.stringify({ model, input: text }),
   });
   const data = (await res.json()) as {
@@ -116,18 +116,19 @@ export async function getBestV2ChunkScoreForSourceMemory(
     return null;
   }
   const client = getMemoryQdrantClient();
-  const hits = await client.search(V2_COLLECTION, {
-    vector: queryVector,
-    limit: 1,
-    with_payload: false,
-    filter: {
-      must: [
-        { key: "userId", match: { value: userId } },
-        { key: "sourceMemoryId", match: { value: sourceMemoryId } },
-      ],
-    },
-  });
-
+  const hits = await runMemoryStore("getBestV2ChunkScoreForSourceMemory", () =>
+    client.search(V2_COLLECTION, {
+      vector: queryVector,
+      limit: 1,
+      with_payload: false,
+      filter: {
+        must: [
+          { key: "userId", match: { value: userId } },
+          { key: "sourceMemoryId", match: { value: sourceMemoryId } },
+        ],
+      },
+    })
+  );
   if (!hits.length) return null;
   const s = hits[0]!.score;
 
@@ -151,14 +152,16 @@ export async function searchMemoriesV2FromQdrant(
 
   const chunkFetchLimit = Math.min(200, Math.max(limit * 25, limit));
 
-  const hits = await client.search(V2_COLLECTION, {
-    vector,
-    limit: chunkFetchLimit,
-    with_payload: true,
-    filter: {
-      must: [{ key: "userId", match: { value: userId } }],
-    },
-  });
+  const hits = await runMemoryStore("searchMemoriesV2FromQdrant", () =>
+    client.search(V2_COLLECTION, {
+      vector,
+      limit: chunkFetchLimit,
+      with_payload: true,
+      filter: {
+        must: [{ key: "userId", match: { value: userId } }],
+      },
+    })
+  );
 
   const bySource = new Map<string, ChunkAgg>();
 

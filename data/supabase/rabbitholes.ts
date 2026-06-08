@@ -4,7 +4,8 @@ import type { GenerationStep as GenerationStepType } from "@/lib/schemas/rabbitH
 import type { RabbitHoleSessionMetadata } from "@/app/rabbitholes/_lib/sessionStorage";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
-import { nodeToRabbitHoleNodeRow } from "./rabbitHoleNodeRow";
+import { mergeRabbitHoleBrowseMetadata } from "./rabbitHoleBrowseMetadata";
+import { nodeToRabbitHoleNodeRow, rabbitHoleNodeTitleFromDb } from "./rabbitHoleNodeRow";
 
 import { Result, SimpleResult } from "@/types";
 import { RabbitHoleSession, RabbitHoleSessionSchema } from "@/lib/schemas/rabbitHoleSchemas";
@@ -43,7 +44,7 @@ export async function getAllSessions(): Promise<Result<RabbitHoleSessionMetadata
   // Fetch path segments to compute pathLength and locate root node IDs.
   const { data: pathSegments, error: pathError } = await supabase
     .from("rabbit_hole_path_segments")
-    .select("session_id, node_id, position")
+    .select("session_id, node_id, position, label")
     .in("session_id", sessionIds);
 
   if (pathError) {
@@ -53,22 +54,19 @@ export async function getAllSessions(): Promise<Result<RabbitHoleSessionMetadata
     };
   }
 
-  const pathLengthBySession = new Map<string, number>();
   const rootNodeIdBySession = new Map<string, string>();
 
   for (const seg of pathSegments ?? []) {
-    pathLengthBySession.set(seg.session_id, (pathLengthBySession.get(seg.session_id) ?? 0) + 1);
     if (seg.position === 0 && typeof seg.node_id === "string") {
       rootNodeIdBySession.set(seg.session_id, seg.node_id);
     }
   }
 
-  // Fetch root nodes to compute a short summary (first 2 takeaways).
   const rootNodeIds = Array.from(rootNodeIdBySession.values());
-  const summaryBySession = new Map<string, string>();
+  let rootNodes: { session_id: string; node_id: string; key_takeaways: unknown }[] | null = null;
 
   if (rootNodeIds.length > 0) {
-    const { data: rootNodes, error: rootNodesError } = await supabase
+    const { data, error: rootNodesError } = await supabase
       .from("rabbit_hole_nodes")
       .select("session_id, node_id, key_takeaways")
       .in("session_id", sessionIds)
@@ -83,27 +81,10 @@ export async function getAllSessions(): Promise<Result<RabbitHoleSessionMetadata
       };
     }
 
-    for (const node of rootNodes ?? []) {
-      const takeaways = Array.isArray(node.key_takeaways) ? (node.key_takeaways as string[]) : [];
-      const summary = takeaways.length > 0 ? takeaways.slice(0, 2).join(" • ") : undefined;
-
-      if (summary) summaryBySession.set(node.session_id, summary);
-    }
+    rootNodes = data ?? [];
   }
 
-  const metadata: RabbitHoleSessionMetadata[] = sessions.map((s) => {
-    const createdAt = typeof s.created_at === "string" ? s.created_at : new Date().toISOString();
-    const updatedAt = typeof s.updated_at === "string" ? s.updated_at : createdAt;
-
-    return {
-      sessionId: s.session_id,
-      rootQuestion: s.root_question,
-      createdAt,
-      updatedAt,
-      pathLength: pathLengthBySession.get(s.session_id) ?? 0,
-      summary: summaryBySession.get(s.session_id),
-    };
-  });
+  const metadata = mergeRabbitHoleBrowseMetadata(sessions, pathSegments ?? [], rootNodes ?? []);
 
   return {
     data: metadata,
@@ -194,7 +175,7 @@ export async function getSessionById(
     supabase
       .from("rabbit_hole_nodes")
       .select(
-        "node_id, raw_prompt, user_question, key_takeaways, article_html, preview, created_at"
+        "node_id, raw_prompt, user_question, title, key_takeaways, article_html, preview, created_at"
       )
       .eq("session_id", sessionId),
     supabase
@@ -273,6 +254,7 @@ export async function getSessionById(
       id: node.node_id,
       rawPrompt: node.raw_prompt,
       userQuestion: node.user_question,
+      title: rabbitHoleNodeTitleFromDb(node.title),
       refinedQuestion: null,
       preview: node.preview ?? null,
       keyTakeaways: Array.isArray(node.key_takeaways) ? (node.key_takeaways as string[]) : [],

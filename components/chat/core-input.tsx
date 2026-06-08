@@ -4,6 +4,7 @@ import {
   ChangeEventHandler,
   ComponentProps,
   FormEvent,
+  KeyboardEventHandler,
   useCallback,
   useEffect,
   useRef,
@@ -11,8 +12,19 @@ import {
   MouseEvent,
   useLayoutEffect,
 } from "react";
+import { flushSync } from "react-dom";
 import { useChat } from "@ai-sdk/react";
-import { ArrowUp, BrainCircuit, GlobeIcon, SquareIcon, Volume2, XIcon } from "lucide-react";
+import {
+  ArrowUp,
+  BrainCircuit,
+  Eye,
+  GlobeIcon,
+  Loader2,
+  Pencil,
+  SquareIcon,
+  Volume2,
+  XIcon,
+} from "lucide-react";
 import { ChatStatus } from "ai";
 import { motion } from "framer-motion";
 
@@ -39,6 +51,10 @@ import {
   PromptInputSelectValue,
   PromptInputSpeechButton,
 } from "../third-party/ai-elements/prompt-input";
+import ShinyText from "../ShinyText";
+
+import { ChatMessageMarkdown } from "./chat-message-markdown";
+import { ModelZdrIndicator } from "./model-zdr-indicator";
 
 import { cn } from "@/lib/utils";
 import { ChatModel, ChatModels, DEFAULT_CHAT_MODEL } from "@/lib/schemas/chat";
@@ -62,7 +78,37 @@ type CoreInputProps = {
   /** When set with isBlankChat, blank chat is auto-deleted on unmount if input is empty. */
   chatId?: string;
   isBlankChat?: boolean;
+  /** Arcadia: toggle between textarea and rendered markdown preview in the same body slot. */
+  enableMarkdownInputPreview?: boolean;
+  /** One-time composer seed from URL (not sent until the user submits). */
+  initialDraft?: string;
+  /** Strata page assistant: web/memory/speech toggles live on the Source tab. */
+  hideWebMemorySpeechToggles?: boolean;
+  /** Prototype-only v2 submit treatment; default keeps the current production button unchanged. */
+  submitVariant?: "default" | "organic-glass";
+  /** Optional: notified on every composer text change (for ritual / ambient UIs). */
+  onComposerTextChange?: (text: string) => void;
+  /** When true, textarea swaps to shimmer text while status is submitted/streaming. Default false. */
+  sentMessageShimmer?: boolean;
+  /** Override persisted model id key (e.g. Delphi vs main chat). Other prefs use global keys. */
+  modelLocalStorageKey?: string;
+  /** When `id` changes, replaces composer text (e.g. assist reply injection). */
+  composerInject?: { id: number; text: string } | null;
+  /** Cmd/Ctrl+Enter runs this instead of sending chat; primary submit unchanged. */
+  onSecondarySubmit?: (text: string) => void | Promise<void>;
+  secondarySubmitLabel?: string;
+  secondarySubmitDisabled?: boolean;
+  secondarySubmitPending?: boolean;
 };
+
+/** Max length for the in-flight shimmer copy (matches AiInputForm). */
+const SENT_MESSAGE_DISPLAY_MAX = 2000;
+
+function truncateSentMessageDisplay(raw: string): string {
+  const t = raw.trim() === "" ? " " : raw.trim();
+
+  return t.length > SENT_MESSAGE_DISPLAY_MAX ? `${t.slice(0, SENT_MESSAGE_DISPLAY_MAX)}\u2026` : t;
+}
 
 export const CoreInput: React.FC<CoreInputProps> = ({
   modelRef,
@@ -79,10 +125,22 @@ export const CoreInput: React.FC<CoreInputProps> = ({
   className,
   chatId,
   isBlankChat,
+  enableMarkdownInputPreview = false,
+  initialDraft,
+  hideWebMemorySpeechToggles = false,
+  submitVariant = "default",
+  onComposerTextChange,
+  sentMessageShimmer = false,
+  modelLocalStorageKey,
+  composerInject,
+  onSecondarySubmit,
+  secondarySubmitLabel = "Steer assist",
+  secondarySubmitDisabled = false,
+  secondarySubmitPending = false,
 }) => {
   const { refreshSidebarChats } = useSharedChatContext();
 
-  const STORAGE_KEY_MODEL = "organic-llm-selected-model";
+  const modelStorageKey = modelLocalStorageKey ?? "organic-llm-selected-model";
   const STORAGE_KEY_WEB_SEARCH = "organic-llm-web-search";
   const STORAGE_KEY_MEMORIES = "organic-llm-memories";
   const STORAGE_KEY_SPEECH_FRIENDLY = "organic-llm-speech-friendly";
@@ -99,7 +157,10 @@ export const CoreInput: React.FC<CoreInputProps> = ({
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const toolsRef = useRef<HTMLDivElement | null>(null);
   const [showLabels, setShowLabels] = useState(false);
+  const [inputMarkdownMode, setInputMarkdownMode] = useState<"edit" | "preview">("edit");
   const hasLoadedPrefs = useRef(false);
+  const appliedInitialDraft = useRef(false);
+  const appliedComposerInjectId = useRef<number | null>(null);
 
   // Refs for unmount cleanup: must see latest values when component unmounts
   const inputEmptyRef = useRef(false);
@@ -118,6 +179,12 @@ export const CoreInput: React.FC<CoreInputProps> = ({
       }
     };
   }, [chatId, isBlankChat, refreshSidebarChats]);
+
+  useEffect(() => {
+    if (!enableMarkdownInputPreview) {
+      setInputMarkdownMode("edit");
+    }
+  }, [enableMarkdownInputPreview]);
 
   // Restore input text when the last send failed (e.g. rate limit). Use ref so we have the
   // sent text even when the error arrives before React has committed setRecentlySentText.
@@ -140,6 +207,44 @@ export const CoreInput: React.FC<CoreInputProps> = ({
     }
   }, [status, error, recentlySentText, text.trim(), clearError, onErrorCleared]);
 
+  // Clear preserved sent text when the round-trip completes (mirrors AiInputForm).
+  useEffect(() => {
+    if (status !== "ready") return;
+    setRecentlySentText("");
+    recentlySentTextRef.current = "";
+  }, [status]);
+
+  // Seed composer from homepage routing (or similar) once; does not auto-send.
+  useLayoutEffect(() => {
+    if (appliedInitialDraft.current) return;
+    const draft = initialDraft?.trim();
+
+    if (!draft) return;
+    appliedInitialDraft.current = true;
+    setText(draft);
+    const el = textareaRef.current;
+
+    if (el) {
+      el.value = draft;
+      el.dispatchEvent(new Event("input", { bubbles: true }));
+      el.focus();
+    }
+  }, [initialDraft]);
+
+  useEffect(() => {
+    if (!composerInject) return;
+    if (appliedComposerInjectId.current === composerInject.id) return;
+    appliedComposerInjectId.current = composerInject.id;
+    setText(composerInject.text);
+    onComposerTextChange?.(composerInject.text);
+    const el = textareaRef.current;
+
+    if (el) {
+      el.value = composerInject.text;
+      el.dispatchEvent(new Event("input", { bubbles: true }));
+    }
+  }, [composerInject, onComposerTextChange]);
+
   // Load preferences from localStorage on mount
   useLayoutEffect(() => {
     if (hasLoadedPrefs.current) return;
@@ -150,7 +255,7 @@ export const CoreInput: React.FC<CoreInputProps> = ({
 
     if (isExpired) {
       // Clear expired preferences
-      localStorage.removeItem(STORAGE_KEY_MODEL);
+      localStorage.removeItem(modelStorageKey);
       localStorage.removeItem(STORAGE_KEY_WEB_SEARCH);
       localStorage.removeItem(STORAGE_KEY_MEMORIES);
       localStorage.removeItem(STORAGE_KEY_SPEECH_FRIENDLY);
@@ -160,7 +265,7 @@ export const CoreInput: React.FC<CoreInputProps> = ({
     }
 
     // Load stored preferences
-    const storedModel = localStorage.getItem(STORAGE_KEY_MODEL);
+    const storedModel = localStorage.getItem(modelStorageKey);
 
     if (storedModel) {
       const found = ChatModels.find((m) => m.id === storedModel);
@@ -179,7 +284,7 @@ export const CoreInput: React.FC<CoreInputProps> = ({
     const storedSpeechFriendly = localStorage.getItem(STORAGE_KEY_SPEECH_FRIENDLY);
 
     if (storedSpeechFriendly === "true") setUseSpeechFriendly(true);
-  }, []);
+  }, [modelStorageKey]);
 
   // Update timestamp whenever preferences are saved
   const updatePrefsTimestamp = () => {
@@ -192,10 +297,10 @@ export const CoreInput: React.FC<CoreInputProps> = ({
       modelRef.current = model;
     }
     if (hasLoadedPrefs.current) {
-      localStorage.setItem(STORAGE_KEY_MODEL, model.id);
+      localStorage.setItem(modelStorageKey, model.id);
       updatePrefsTimestamp();
     }
-  }, [model, modelRef]);
+  }, [model, modelRef, modelStorageKey]);
 
   // Sync web search to ref and persist to localStorage
   useEffect(() => {
@@ -268,11 +373,18 @@ export const CoreInput: React.FC<CoreInputProps> = ({
     recentlySentTextRef.current = finalText;
     setRecentlySentText(finalText);
 
+    flushSync(() => {
+      setText("");
+      onComposerTextChange?.("");
+      if (enableMarkdownInputPreview) {
+        setInputMarkdownMode("edit");
+      }
+    });
+
     sendMessage({
       text: finalText,
       files: message.files,
     });
-    setText("");
   };
 
   const handleModelSelection = (id: string) => {
@@ -282,12 +394,47 @@ export const CoreInput: React.FC<CoreInputProps> = ({
     if (selectedModel) setModel(selectedModel);
   };
 
-  const handleInputChange: ChangeEventHandler<HTMLTextAreaElement> = useCallback((e) => {
-    setText(e.target.value);
-  }, []);
+  const handleInputChange: ChangeEventHandler<HTMLTextAreaElement> = useCallback(
+    (e) => {
+      const v = e.target.value;
+
+      setText(v);
+      onComposerTextChange?.(v);
+    },
+    [onComposerTextChange]
+  );
+
+  const handleTextareaKeyDown: KeyboardEventHandler<HTMLTextAreaElement> = useCallback(
+    (e) => {
+      if (!onSecondarySubmit) return;
+      if (!(e.metaKey || e.ctrlKey) || e.key !== "Enter") return;
+      e.preventDefault();
+      const raw = (textareaRef.current?.value ?? text).trim();
+
+      if (!raw || secondarySubmitDisabled || secondarySubmitPending) return;
+      void onSecondarySubmit(raw);
+    },
+    [onSecondarySubmit, secondarySubmitDisabled, secondarySubmitPending, text]
+  );
+  const organicSubmitState =
+    status === "submitted"
+      ? "sent"
+      : status === "streaming"
+        ? "awaiting"
+        : status === "error"
+          ? "error"
+          : text.trim().length > 0
+            ? "ready"
+            : "idle";
+
+  const showSentShimmer =
+    sentMessageShimmer === true && (status === "submitted" || status === "streaming");
+  const sentDisplaySource = recentlySentText || recentlySentTextRef.current;
+  const sentDisplayText = truncateSentMessageDisplay(sentDisplaySource);
 
   return (
     <PromptInput
+      aria-busy={showSentShimmer ? true : undefined}
       globalDrop
       multiple
       className={cn("min-w-fit z-40", className)}
@@ -300,40 +447,107 @@ export const CoreInput: React.FC<CoreInputProps> = ({
       </PromptInputHeader>
 
       <PromptInputBody>
-        <PromptInputTextarea ref={textareaRef} onChange={handleInputChange} />
+        {showSentShimmer ? (
+          <div aria-live="polite" className="w-full min-w-0 max-w-full px-3 py-3" role="status">
+            <span className="sr-only">Sending message</span>
+            <ShinyText
+              as="div"
+              className="w-full min-h-11 max-h-40 overflow-y-auto whitespace-pre-wrap break-words text-base text-foreground md:text-sm"
+              text={sentDisplayText}
+            />
+          </div>
+        ) : enableMarkdownInputPreview && inputMarkdownMode === "preview" ? (
+          <>
+            <input name="message" type="hidden" value={text} />
+            <div
+              aria-label="Markdown preview"
+              className={cn(
+                "w-full min-w-0 max-w-full min-h-11 max-h-40 overflow-y-auto overflow-x-auto px-3 py-3 text-base md:text-sm",
+                "prose prose-sm dark:prose-invert max-w-full text-foreground",
+                "[&_table]:block [&_table]:max-w-full [&_table]:overflow-x-auto",
+                "[&_img]:max-w-full [&_img]:h-auto"
+              )}
+              role="region"
+            >
+              {text.trim() ? (
+                <ChatMessageMarkdown
+                  content={text}
+                  id="arcadia-composer-markdown-preview"
+                  wrapCodeBlocks
+                />
+              ) : (
+                <p className="text-muted-foreground not-prose m-0">Nothing to preview</p>
+              )}
+            </div>
+          </>
+        ) : (
+          <PromptInputTextarea
+            ref={textareaRef}
+            value={text}
+            onChange={handleInputChange}
+            onKeyDown={onSecondarySubmit ? handleTextareaKeyDown : undefined}
+          />
+        )}
       </PromptInputBody>
       <PromptInputFooter>
         <div ref={toolsRef} className="w-full">
           <PromptInputTools className="flex justify-between w-full">
             <div className="flex gap-1">
-              <PromptInputButton
-                size={"dynamic-sm"}
-                variant={useWebSearch ? "default" : "ghost"}
-                onClick={() => setUseWebSearch(!useWebSearch)}
-              >
-                <GlobeIcon size={16} />
-                <span className={cn(showLabels ? "inline-flex" : "hidden")}>Search</span>
-              </PromptInputButton>
-              <PromptInputButton
-                size={"dynamic-sm"}
-                variant={useMemories ? "default" : "ghost"}
-                onClick={() => setUseMemories(!useMemories)}
-              >
-                <BrainCircuit />
-                <span className={cn(showLabels ? "inline-flex" : "hidden")}>Memory</span>
-              </PromptInputButton>
-              {useSpeechFriendlyRef && (
+              {enableMarkdownInputPreview && (
                 <PromptInputButton
-                  aria-label={useSpeechFriendly ? "Speech-friendly on" : "Speech-friendly off"}
+                  aria-label={
+                    inputMarkdownMode === "edit" ? "Show markdown preview" : "Back to editing"
+                  }
+                  aria-pressed={inputMarkdownMode === "preview"}
                   size={"dynamic-sm"}
-                  title="Format replies for reading and TTS; a separate pipeline converts to speech-friendly script."
-                  variant={useSpeechFriendly ? "default" : "ghost"}
-                  onClick={() => setUseSpeechFriendly(!useSpeechFriendly)}
+                  title={
+                    inputMarkdownMode === "edit" ? "Show rendered markdown" : "Edit as plain text"
+                  }
+                  variant={inputMarkdownMode === "preview" ? "default" : "ghost"}
+                  onClick={() => setInputMarkdownMode((m) => (m === "edit" ? "preview" : "edit"))}
                 >
-                  <Volume2 size={16} />
-                  <span className={cn(showLabels ? "inline-flex" : "hidden")}>Speech</span>
+                  {inputMarkdownMode === "edit" ? (
+                    <Eye className="size-4" />
+                  ) : (
+                    <Pencil className="size-4" />
+                  )}
+                  <span className={cn(showLabels ? "inline-flex" : "hidden")}>
+                    {inputMarkdownMode === "edit" ? "Preview" : "Edit"}
+                  </span>
                 </PromptInputButton>
               )}
+              {!hideWebMemorySpeechToggles ? (
+                <>
+                  <PromptInputButton
+                    size={"dynamic-sm"}
+                    variant={useWebSearch ? "default" : "ghost"}
+                    onClick={() => setUseWebSearch(!useWebSearch)}
+                  >
+                    <GlobeIcon size={16} />
+                    <span className={cn(showLabels ? "inline-flex" : "hidden")}>Search</span>
+                  </PromptInputButton>
+                  <PromptInputButton
+                    size={"dynamic-sm"}
+                    variant={useMemories ? "default" : "ghost"}
+                    onClick={() => setUseMemories(!useMemories)}
+                  >
+                    <BrainCircuit />
+                    <span className={cn(showLabels ? "inline-flex" : "hidden")}>Memory</span>
+                  </PromptInputButton>
+                  {useSpeechFriendlyRef && (
+                    <PromptInputButton
+                      aria-label={useSpeechFriendly ? "Speech-friendly on" : "Speech-friendly off"}
+                      size={"dynamic-sm"}
+                      title="Format replies for reading and TTS; a separate pipeline converts to speech-friendly script."
+                      variant={useSpeechFriendly ? "default" : "ghost"}
+                      onClick={() => setUseSpeechFriendly(!useSpeechFriendly)}
+                    >
+                      <Volume2 size={16} />
+                      <span className={cn(showLabels ? "inline-flex" : "hidden")}>Speech</span>
+                    </PromptInputButton>
+                  )}
+                </>
+              ) : null}
 
               <PromptInputSelect
                 required
@@ -342,15 +556,23 @@ export const CoreInput: React.FC<CoreInputProps> = ({
                 onValueChange={handleModelSelection}
               >
                 <PromptInputSelectTrigger className="flex-1 max-w-32 sm:max-w-48 min-w-0">
-                  <PromptInputSelectValue className="truncate min-w-0" />
+                  <PromptInputSelectValue className="truncate min-w-0">
+                    <span className="flex min-w-0 items-center gap-2">
+                      <span className="truncate">{model.name}</span>
+                      {model.supportsZeroDataRetention && <ModelZdrIndicator />}
+                    </span>
+                  </PromptInputSelectValue>
                 </PromptInputSelectTrigger>
                 <PromptInputSelectContent
                   className="max-h-80 overflow-y-auto"
                   defaultValue={model.id}
                 >
                   {ChatModels.map((model) => (
-                    <PromptInputSelectItem key={model.id} value={model.id}>
-                      {model.name}
+                    <PromptInputSelectItem key={model.id} textValue={model.name} value={model.id}>
+                      <span className="flex min-w-0 items-center gap-2">
+                        <span className="truncate">{model.name}</span>
+                        {model.supportsZeroDataRetention && <ModelZdrIndicator />}
+                      </span>
                     </PromptInputSelectItem>
                   ))}
                 </PromptInputSelectContent>
@@ -363,15 +585,140 @@ export const CoreInput: React.FC<CoreInputProps> = ({
                   <PromptInputActionAddAttachments />
                 </PromptInputActionMenuContent>
               </PromptInputActionMenu>
-              <PromptInputSpeechButton textareaRef={textareaRef} onTranscriptionChange={setText} />
+              {(!enableMarkdownInputPreview || inputMarkdownMode === "edit") && (
+                <PromptInputSpeechButton
+                  textareaRef={textareaRef}
+                  onTranscriptionChange={setText}
+                />
+              )}
             </div>
           </PromptInputTools>
         </div>
-        <PromptInputSubmit disabled={(!text && !status) || disabled} status={status} stop={stop} />
+        <div className="flex items-center gap-2 shrink-0">
+          {onSecondarySubmit ? (
+            <PromptInputButton
+              disabled={
+                secondarySubmitDisabled ||
+                secondarySubmitPending ||
+                !text.trim() ||
+                disabled ||
+                showSentShimmer
+              }
+              size="dynamic-sm"
+              title="Run steer on the current text (⌘ or Ctrl + Enter)"
+              type="button"
+              variant="ghost"
+              onClick={() => {
+                const raw = (textareaRef.current?.value ?? text).trim();
+
+                if (!raw || secondarySubmitDisabled || secondarySubmitPending) return;
+                void onSecondarySubmit(raw);
+              }}
+            >
+              {secondarySubmitPending ? (
+                <Loader2 aria-hidden className="size-4 animate-spin shrink-0" />
+              ) : null}
+              <span className={cn("max-w-28 truncate text-xs", !showLabels && "sr-only")}>
+                {secondarySubmitLabel}
+              </span>
+            </PromptInputButton>
+          ) : null}
+          <PromptInputSubmit
+            className={cn(
+              submitVariant === "organic-glass" &&
+                "organic-glass-preview border border-white/20 bg-linear-to-br from-background/86 via-background/60 to-background-tertiary/42 text-foreground shadow-[0_10px_36px_-18px_rgba(20,21,22,0.65),inset_0_1px_0_rgba(255,255,255,0.38)] backdrop-blur-xl hover:border-accent/25 hover:text-foreground dark:border-white/10 dark:from-background-secondary/82 dark:via-background/62 dark:to-background-tertiary/38"
+            )}
+            disabled={(!text && !status) || disabled}
+            status={status}
+            stop={stop}
+          >
+            {submitVariant === "organic-glass" ? (
+              <OrganicSubmitGlyph state={organicSubmitState} />
+            ) : undefined}
+          </PromptInputSubmit>
+        </div>
       </PromptInputFooter>
     </PromptInput>
   );
 };
+
+type OrganicSubmitState = "idle" | "ready" | "sent" | "awaiting" | "error";
+
+function OrganicSubmitGlyph({ state }: { state: OrganicSubmitState }) {
+  const label = {
+    idle: "Idle",
+    ready: "Ready to send",
+    sent: "Sent",
+    awaiting: "Awaiting completion",
+    error: "Error",
+  }[state];
+
+  return (
+    <motion.svg
+      aria-label={label}
+      className="size-4"
+      fill="none"
+      initial={false}
+      stroke="currentColor"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      strokeWidth="2"
+      viewBox="0 0 24 24"
+    >
+      {state === "idle" ? (
+        <motion.g
+          key="idle"
+          animate={{ opacity: 1, scale: 1 }}
+          initial={{ opacity: 0, scale: 0.82 }}
+          transition={{ duration: 0.18 }}
+        >
+          <circle cx="12" cy="12" r="4" />
+          <path d="M12 5v1.5M12 17.5V19M5 12h1.5M17.5 12H19" opacity="0.55" />
+        </motion.g>
+      ) : null}
+      {state === "ready" ? (
+        <motion.path
+          key="ready"
+          animate={{ opacity: 1, pathLength: 1, y: 0 }}
+          d="M12 19V5m0 0-6 6m6-6 6 6"
+          initial={{ opacity: 0, pathLength: 0, y: 2 }}
+          transition={{ duration: 0.22 }}
+        />
+      ) : null}
+      {state === "sent" ? (
+        <motion.path
+          key="sent"
+          animate={{ opacity: 1, pathLength: 1, scale: 1 }}
+          d="m5 12 4 4L19 6"
+          initial={{ opacity: 0, pathLength: 0, scale: 0.9 }}
+          transition={{ duration: 0.24 }}
+        />
+      ) : null}
+      {state === "awaiting" ? (
+        <motion.g
+          key="awaiting"
+          animate={{ rotate: 360 }}
+          initial={{ opacity: 0.9 }}
+          transition={{ duration: 1.4, repeat: Infinity, ease: "linear" }}
+        >
+          <path d="M12 4a8 8 0 0 1 8 8" />
+          <path d="M20 12a8 8 0 0 1-8 8" opacity="0.45" />
+          <circle cx="12" cy="12" r="2.5" />
+        </motion.g>
+      ) : null}
+      {state === "error" ? (
+        <motion.g
+          key="error"
+          animate={{ opacity: 1, scale: 1 }}
+          initial={{ opacity: 0, scale: 0.85 }}
+          transition={{ duration: 0.18 }}
+        >
+          <path d="M6 6l12 12M18 6 6 18" />
+        </motion.g>
+      ) : null}
+    </motion.svg>
+  );
+}
 
 export type PromptInputSubmitProps = ComponentProps<typeof InputGroupButton> & {
   status?: ChatStatus;

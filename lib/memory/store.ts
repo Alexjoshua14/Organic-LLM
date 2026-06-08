@@ -15,6 +15,7 @@ import { getMemory } from "./client";
 
 import { createLogger } from "@/lib/logger";
 import { isRedactPIIInMemoryEnabled, redactPII, redactUIMessages } from "@/lib/pii/redact";
+import { runMemoryStore } from "@/lib/memory/run-memory-store";
 
 const logger = createLogger("lib/memory/store.ts");
 
@@ -42,11 +43,13 @@ export async function searchMemories(
     const memory = getMemory();
 
     logger.log("searchMemories", `Searching for memories: ${query}`);
-    const result = await memory.search(query, {
-      userId,
-      limit: options?.limit ?? 3,
-      ...options,
-    });
+    const result = await runMemoryStore("searchMemories", () =>
+      memory.search(query, {
+        userId,
+        limit: options?.limit ?? 3,
+        ...options,
+      })
+    );
 
     logger.log("searchMemories", `Found ${result.results?.length} memories`);
 
@@ -81,14 +84,15 @@ export async function getAllMemories(userId: string): Promise<SearchResult> {
 
   try {
     const memory = getMemory();
-    const result: SearchResult = await memory.getAll({
-      userId,
-      limit: MEM0_GET_ALL_LIMIT,
-    });
+    const result: SearchResult = await runMemoryStore("getAllMemories", () =>
+      memory.getAll({
+        userId,
+        limit: MEM0_GET_ALL_LIMIT,
+      })
+    );
 
     return result;
   } catch {
-    logger.warn("getAllMemories", "Memory fetch failed (service unavailable).");
     throw new Error("Memory service may be unavailable.");
   }
 }
@@ -117,9 +121,11 @@ export async function addLatestMessagesToMemory(
     convertUIMessageToMem0Message(m, chatId ?? NO_CHAT_ID_PLACEHOLDER)
   );
 
-  const result = await memory.add(interactions, {
-    userId,
-  });
+  const result = await runMemoryStore("addLatestMessagesToMemory", () =>
+    memory.add(interactions, {
+      userId,
+    })
+  );
 
   logger.log("addLatestMessagesToMemory", `Added ${result.results?.length} messages to memory`);
   // Do not log result.results in production; it may contain message content.
@@ -161,19 +167,61 @@ export async function addInteractionToMemory(
       },
     ];
 
-    result = await memory.add(interaction, {
-      userId,
-    });
+    result = await runMemoryStore("addInteractionToMemory", () =>
+      memory.add(interaction, {
+        userId,
+      })
+    );
     logger.log("addInteractionToMemory", `Added interaction to memory`);
     logger.log("addInteractionToMemory", `Results: ${JSON.stringify(result.results)}`);
-  } catch (error) {
-    logger.error("addInteractionToMemory", "Error adding interaction to memory:", error);
-
+  } catch {
     return {
       results: [],
       relations: [],
     };
   }
+
+  return result;
+}
+
+/**
+ * Adds explicit Mem0 `Message[]` for a user (intentional writes, e.g. Delphi `commit_memory`).
+ * Low-level: no auth, no rate limits. Callers must pass a server-resolved Mem0 user id.
+ */
+export async function addMemory(
+  messages: Message[],
+  userId: string,
+  options: {
+    metadata?: Record<string, unknown>;
+    infer?: boolean;
+  }
+): Promise<SearchResult> {
+  if (!userId) {
+    throw new Error("User ID is required");
+  }
+
+  const memory = getMemory();
+
+  const messagesToStore: Message[] = messages.map((m) => {
+    if (typeof m.content !== "string") {
+      return m;
+    }
+    const content = isRedactPIIInMemoryEnabled() ? redactPII(m.content) : m.content;
+
+    return { role: m.role, content };
+  });
+
+  logger.log("addMemory", `Adding ${messagesToStore.length} message(s) to memory (infer=${options.infer ?? true})`);
+
+  const result = await runMemoryStore("addMemory", () =>
+    memory.add(messagesToStore, {
+      userId,
+      metadata: options.metadata,
+      infer: options.infer ?? true,
+    })
+  );
+
+  logger.debug("addMemory", "Mem0 add results", result.results?.length ?? 0);
 
   return result;
 }
@@ -191,11 +239,9 @@ export async function wipeMemory(userId: string): Promise<boolean> {
   try {
     const memory = getMemory();
 
-    await memory.deleteAll({ userId });
+    await runMemoryStore("wipeMemory", () => memory.deleteAll({ userId }));
     logger.log("wipeMemory", "Memory wiped successfully");
-  } catch (error) {
-    logger.error("wipeMemory", "Error wiping memory:", error);
-
+  } catch {
     return false;
   }
 
@@ -215,10 +261,8 @@ export async function deleteMemory(memoryId: string): Promise<boolean> {
   }
 
   try {
-    await memory.delete(memoryId);
-  } catch (error) {
-    logger.error("deleteMemory", "Error deleting memory:", error);
-
+    await runMemoryStore("deleteMemory", () => memory.delete(memoryId));
+  } catch {
     return false;
   }
 

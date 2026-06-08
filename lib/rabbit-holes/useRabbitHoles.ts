@@ -5,6 +5,7 @@ import { useCallback, useContext, useEffect, useState, useTransition } from "rea
 import { RabbitHoleContext } from "../context/rabbithole-context";
 
 import { analyzeSource, generateQuickPreview } from "./actions";
+import { RABBIT_HOLE_UNTITLED } from "./constants";
 
 import {
   RabbitHoleSession,
@@ -282,7 +283,7 @@ export function useRabbitHoles(): UseRabbitHolesReturn {
           ...baseSession.path,
           {
             nodeId: node.id,
-            label: question,
+            label: RABBIT_HOLE_UNTITLED,
             parentNodeId: baseSession.activeNodeId ?? null,
           },
         ],
