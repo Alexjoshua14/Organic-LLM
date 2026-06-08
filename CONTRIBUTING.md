@@ -34,6 +34,8 @@ bun dev
 
 Schema snippets live in [`docs/migrations/`](./docs/migrations/). Regenerate Supabase types with `bun run supabase:types` after `supabase link`.
 
+For Clerk profile sync on sign-up, run `bun run dev:full` (ngrok tunnel to `/api/webhooks/clerk`) — see [README — Running locally](./README.md#running-locally). Health checks: `/status` when env is configured.
+
 ## Development commands
 
 ```bash
