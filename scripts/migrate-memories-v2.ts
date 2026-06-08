@@ -26,14 +26,16 @@
  * (ZDR-aligned; requires an org/key eligible for non-stored usage per OpenAI policy).
  */
 
+import type { QdrantClient } from "@qdrant/js-client-rest";
+
 import { createHash } from "node:crypto";
 
-import { QdrantClient } from "@qdrant/js-client-rest";
 import { v5 as uuidv5 } from "uuid";
 import { openai, type OpenAIResponsesProviderOptions } from "@ai-sdk/openai";
 import { generateObject, NoObjectGeneratedError } from "ai";
 import { z } from "zod";
 
+import { getMemoryQdrantClient } from "@/config/memory-qdrant-client";
 import { decryptMemory, encryptMemory, isEncrypted } from "@/lib/crypto/memory-encryption";
 import {
   chunkMemoryText,
@@ -41,16 +43,24 @@ import {
   migrateMemoryChunkDefaults,
   v2ChunkPointId,
 } from "@/lib/memory/migrate-memories-v2-helpers";
-import { createQdrantClient } from "@/lib/memory/qdrant-config";
+
+import pLimit from "p-limit";
 
 const LEGACY_COLLECTION = process.env.MEMORY_LEGACY_COLLECTION ?? "memories";
 const V2_COLLECTION = process.env.MEMORY_V2_COLLECTION ?? "memories_v2";
+const MEMORY_KEY = process.env.MEMORY_API_SECRET;
 const OLLAMA_URL = (process.env.OLLAMA_URL ?? "http://localhost:11434").replace(/\/$/, "");
 const OLLAMA_EMBED_MODEL = process.env.OLLAMA_EMBED_MODEL ?? "nomic-embed-text";
-const SCROLL_PAGE_SIZE = Math.min(256, parseInt(process.env.MIGRATE_SCROLL_LIMIT ?? "256", 10) || 256);
+const SCROLL_PAGE_SIZE = Math.min(
+  256,
+  parseInt(process.env.MIGRATE_SCROLL_LIMIT ?? "256", 10) || 256
+);
 const EMBED_BATCH_MAX = Math.min(64, parseInt(process.env.MIGRATE_EMBED_BATCH ?? "32", 10) || 32);
 
-const MEMORY_KEY = process.env.MEMORY_API_SECRET;
+const CLASSIFY_CONCURRENCY = Math.min(
+  50,
+  Math.max(1, parseInt(process.env.MIGRATE_CLASSIFY_CONCURRENCY ?? "20", 10) || 20)
+);
 
 /** UUID namespace for deterministic `sourceMemoryId` in `--memory` inject mode (RFC 4122 name-based v5). */
 const MANUAL_INJECT_SOURCE_ID_NAMESPACE = "6ba7b810-9dad-11d1-80b4-00c04fd430c8";
@@ -78,6 +88,7 @@ function parseMemoryQualityFromModelText(raw: string): MemoryQuality | null {
     .replace(/\s*```$/i, "");
 
   let parsed: unknown;
+
   try {
     parsed = JSON.parse(trimmed);
   } catch {
@@ -90,11 +101,13 @@ function parseMemoryQualityFromModelText(raw: string): MemoryQuality | null {
 
   const o = parsed as Record<string, unknown>;
   let candidate: unknown = o;
+
   if (o.type === "object" && o.properties && typeof o.properties === "object") {
     candidate = o.properties;
   }
 
   const r = MemoryQualitySchema.safeParse(candidate);
+
   return r.success ? r.data : null;
 }
 
@@ -117,12 +130,14 @@ function parseArgs(argv: string[]): ParsedCli {
 
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i];
+
     if (a === "--verification") {
       verification = true;
     } else if (a === "--dry-run") {
       dryRun = true;
     } else if (a === "--limit") {
       const n = parseInt(argv[i + 1] ?? "", 10);
+
       if (!Number.isFinite(n) || n < 1) {
         throw new Error("--limit requires a positive integer");
       }
@@ -131,6 +146,7 @@ function parseArgs(argv: string[]): ParsedCli {
       i++;
     } else if (a === "--memory") {
       const next = argv[i + 1];
+
       if (!next || next.startsWith("-")) {
         throw new Error('--memory requires a value: next argv or use --memory="..."');
       }
@@ -144,7 +160,9 @@ function parseArgs(argv: string[]): ParsedCli {
   }
 
   if (memoryPlaintext !== undefined && explicitLimit) {
-    throw new Error("Do not combine --memory with --limit (inject mode does not scroll legacy rows)");
+    throw new Error(
+      "Do not combine --memory with --limit (inject mode does not scroll legacy rows)"
+    );
   }
 
   if (verification) {
@@ -164,6 +182,7 @@ function isUuidShape(id: string): boolean {
 
 function payloadUserId(payload: Record<string, unknown>): string | undefined {
   const u = payload.userId ?? payload.user_id;
+
   return typeof u === "string" && u.length > 0 ? u : undefined;
 }
 
@@ -179,6 +198,7 @@ function storeDataField(plaintextChunk: string): string {
   if (isMemoryEncryptionEnvConfigured()) {
     return encryptMemory(plaintextChunk);
   }
+
   return plaintextChunk;
 }
 
@@ -189,13 +209,16 @@ function decryptDataField(raw: string): string {
   if (isEncrypted(raw)) {
     return decryptMemory(raw);
   }
+
   return raw;
 }
 
 async function probeEmbeddingDims(model: string): Promise<number> {
   const dimsEnv = process.env.MEMORY_V2_EMBEDDING_DIMS?.trim();
+
   if (dimsEnv) {
     const n = parseInt(dimsEnv, 10);
+
     if (Number.isFinite(n) && n > 0) {
       return n;
     }
@@ -206,14 +229,21 @@ async function probeEmbeddingDims(model: string): Promise<number> {
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ model, input: "probe" }),
   });
-  const data = (await res.json()) as { embeddings?: number[][]; embedding?: number[]; error?: string };
+  const data = (await res.json()) as {
+    embeddings?: number[][];
+    embedding?: number[];
+    error?: string;
+  };
+
   if (!res.ok || data.error) {
     throw new Error(`Ollama embed probe failed: ${data.error ?? res.statusText}`);
   }
   const dim = data.embeddings?.[0]?.length ?? data.embedding?.length;
+
   if (!dim) {
     throw new Error("Could not determine embedding dimensions from Ollama response");
   }
+
   return dim;
 }
 
@@ -240,10 +270,12 @@ async function embedTexts(
       embedding?: number[];
       error?: string;
     };
+
     if (!res.ok || data.error) {
       throw new Error(data.error ?? res.statusText);
     }
     const ms = performance.now() - t0;
+
     onBatch?.({ textCount: batch.length, ms });
     if (data.embeddings && Array.isArray(data.embeddings)) {
       return data.embeddings;
@@ -262,9 +294,11 @@ async function embedTexts(
     return await tryBatch(texts);
   } catch {
     const out: number[][] = [];
+
     for (const t of texts) {
       out.push(...(await embedTexts(model, [t], onBatch)));
     }
+
     return out;
   }
 }
@@ -277,11 +311,14 @@ async function embedTextsBatched(
   onBatch?: (t: EmbedBatchTiming) => void
 ): Promise<number[][]> {
   const out: number[][] = [];
+
   for (let i = 0; i < texts.length; i += maxBatch) {
     const slice = texts.slice(i, i + maxBatch);
     const emb = await embedTexts(model, slice, onBatch);
+
     out.push(...emb);
   }
+
   return out;
 }
 
@@ -292,6 +329,7 @@ function quantileMs(samples: number[], p: number): number {
   }
   const s = [...samples].sort((a, b) => a - b);
   const idx = Math.min(s.length - 1, Math.max(0, Math.ceil(p * s.length) - 1));
+
   return s[idx]!;
 }
 
@@ -302,6 +340,7 @@ function formatBytes(bytes: number): string {
   if (bytes < 1024 * 1024) {
     return `${(bytes / 1024).toFixed(2)} KiB`;
   }
+
   return `${(bytes / 1024 / 1024).toFixed(2)} MiB`;
 }
 
@@ -339,6 +378,7 @@ async function classifyMemory(
   onLatencyMs?: (ms: number) => void
 ): Promise<MemoryQuality> {
   const t0 = performance.now();
+
   try {
     const { object } = await generateObject({
       model: qualityModel,
@@ -375,12 +415,15 @@ Examples — KEEP:
 - User prefers skipping introductory rationale when learning T3 patterns.`,
       prompt: `Classify this memory line:\n\n${text.slice(0, 8000)}`,
     });
+
     return object;
   } catch (err) {
     if (NoObjectGeneratedError.isInstance(err) && typeof err.text === "string") {
       const repaired = parseMemoryQualityFromModelText(err.text);
+
       if (repaired) {
         logProc("classify", "repaired JSON-schema-shaped reply (parse fallback)", "warn");
+
         return repaired;
       }
     }
@@ -398,6 +441,7 @@ async function ensureV2Collection(client: QdrantClient, size: number): Promise<v
     logProc("qdrant", `created collection  ${V2_COLLECTION}  dim=${size}`);
   } catch (e: unknown) {
     const status = (e as { status?: number })?.status;
+
     if (status !== 409) {
       throw e;
     }
@@ -406,9 +450,8 @@ async function ensureV2Collection(client: QdrantClient, size: number): Promise<v
     const existingSize =
       params && typeof params === "object" && "size" in params
         ? (params as { size: number }).size
-        : (
-            info.config?.params?.vectors as { default?: { size?: number } } | undefined
-          )?.default?.size;
+        : (info.config?.params?.vectors as { default?: { size?: number } } | undefined)?.default
+            ?.size;
 
     if (existingSize !== undefined && existingSize !== size) {
       throw new Error(
@@ -463,6 +506,7 @@ function logProgressHeader(): void {
     `${"chunks".padStart(w.chunks)} ` +
     `${"dt_s".padEnd(w.dt_s)}`;
   const inner = labels.trimStart().length;
+
   console.log("\n  progress");
   console.log(`  ${"-".repeat(inner)}`);
   console.log(labels);
@@ -472,6 +516,7 @@ function logProgressHeader(): void {
 function logProgressRow(phase: string, c: Counters, dtSec: number): void {
   const w = PROGRESS_W;
   const dtStr = `${dtSec.toFixed(1)}s`.padStart(w.dt_s);
+
   console.log(
     `  ${phase.slice(0, w.phase).padEnd(w.phase)} ` +
       `${String(c.handled).padStart(w.handled)} ` +
@@ -490,6 +535,7 @@ function logProgressRow(phase: string, c: Counters, dtSec: number): void {
 /** Indented two-column line for processing notices (monospace). */
 function logProc(kind: string, message: string, stream: "log" | "warn" | "error" = "log"): void {
   const line = `  ${kind.padEnd(10)}  ${message}`;
+
   if (stream === "warn") {
     console.warn(line);
   } else if (stream === "error") {
@@ -580,6 +626,7 @@ async function writeMemoryChunksToV2(opts: {
   for (let i = 0; i < chunks.length; i++) {
     const chunkPlain = chunks[i]!;
     const vector = embeddings[i]!;
+
     if (vector.length !== embeddingDims) {
       throw new Error(`Embedding dim mismatch: got ${vector.length}, expected ${embeddingDims}`);
     }
@@ -602,6 +649,7 @@ async function writeMemoryChunksToV2(opts: {
     if (verification) {
       verify.chunksChecked++;
       const stored = String(v2Payload.data);
+
       if (isMemoryEncryptionEnvConfigured()) {
         if (!isEncrypted(stored) || decryptMemory(stored) !== chunkPlain) {
           verify.storeFieldFailed++;
@@ -646,11 +694,13 @@ async function writeMemoryChunksToV2(opts: {
 async function runMemoryInject(parsed: ParsedCli): Promise<void> {
   const scriptStart = performance.now();
   const plaintext = parsed.memoryPlaintext!.trim();
+
   if (!plaintext) {
     throw new Error("--memory text is empty (after trim)");
   }
 
   const userId = process.env.MIGRATE_MEMORY_USER_ID?.trim();
+
   if (!userId) {
     throw new Error(
       "MIGRATE_MEMORY_USER_ID is required for --memory (written to each chunk payload as userId for retrieval filters)"
@@ -661,20 +711,27 @@ async function runMemoryInject(parsed: ParsedCli): Promise<void> {
     throw new Error("MEMORY_API_SECRET is required for Qdrant");
   }
 
-  const sourceMemoryId = uuidv5(`${userId}|${md5Hex(plaintext)}`, MANUAL_INJECT_SOURCE_ID_NAMESPACE);
+  const sourceMemoryId = uuidv5(
+    `${userId}|${md5Hex(plaintext)}`,
+    MANUAL_INJECT_SOURCE_ID_NAMESPACE
+  );
   const createdAt = new Date().toISOString();
-  const client = createQdrantClient();
+  const client = getMemoryQdrantClient();
 
   const embeddingDims = await probeEmbeddingDims(OLLAMA_EMBED_MODEL);
 
-  logMetricTable("memory inject", [
-    { k: "target collection", v: V2_COLLECTION },
-    { k: "dryRun", v: String(parsed.dryRun) },
-    { k: "verification", v: String(parsed.verification) },
-    { k: "userId prefix", v: `${userId.slice(0, 8)}…` },
-    { k: "sourceMemoryId", v: sourceMemoryId },
-    { k: "migratedFromCollection", v: MANUAL_INJECT_FROM_COLLECTION },
-  ], 72);
+  logMetricTable(
+    "memory inject",
+    [
+      { k: "target collection", v: V2_COLLECTION },
+      { k: "dryRun", v: String(parsed.dryRun) },
+      { k: "verification", v: String(parsed.verification) },
+      { k: "userId prefix", v: `${userId.slice(0, 8)}…` },
+      { k: "sourceMemoryId", v: sourceMemoryId },
+      { k: "migratedFromCollection", v: MANUAL_INJECT_FROM_COLLECTION },
+    ],
+    72
+  );
 
   logMetricTable(
     "embed",
@@ -698,6 +755,7 @@ async function runMemoryInject(parsed: ParsedCli): Promise<void> {
       return;
     }
     const per = ms / textCount;
+
     for (let i = 0; i < textCount; i++) {
       embedPerTextMsSamples.push(per);
     }
@@ -753,10 +811,14 @@ async function runMemoryInject(parsed: ParsedCli): Promise<void> {
 
   console.log("\n  done (memory inject)");
 
-  logMetricTable("counts", [
-    { k: "chunks written (or simulated)", v: String(counters.chunksWritten) },
-    { k: "inject outcome", v: counters.failed > 0 ? "failed" : "ok" },
-  ], 72);
+  logMetricTable(
+    "counts",
+    [
+      { k: "chunks written (or simulated)", v: String(counters.chunksWritten) },
+      { k: "inject outcome", v: counters.failed > 0 ? "failed" : "ok" },
+    ],
+    72
+  );
 
   logMetricTable(
     "timing",
@@ -771,15 +833,21 @@ async function runMemoryInject(parsed: ParsedCli): Promise<void> {
     72
   );
 
-  logMetricTable("data written (estimate)", [
-    { k: "vectors (float32)", v: `${formatBytes(bytesWrite.vectors)}  (${vecNote})` },
-    { k: "payloads (JSON utf-8)", v: formatBytes(bytesWrite.payload) },
-    { k: "total", v: formatBytes(bytesTotalWritten) },
-  ], 72);
+  logMetricTable(
+    "data written (estimate)",
+    [
+      { k: "vectors (float32)", v: `${formatBytes(bytesWrite.vectors)}  (${vecNote})` },
+      { k: "payloads (JSON utf-8)", v: formatBytes(bytesWrite.payload) },
+      { k: "total", v: formatBytes(bytesTotalWritten) },
+    ],
+    72
+  );
 
   if (parsed.verification) {
     const encOn = isMemoryEncryptionEnvConfigured();
-    const storeLabel = encOn ? "v2 data (encrypted + decrypt round-trip)" : "v2 data (plaintext, no enc env)";
+    const storeLabel = encOn
+      ? "v2 data (encrypted + decrypt round-trip)"
+      : "v2 data (plaintext, no enc env)";
     const storeVal =
       verify.chunksChecked === 0
         ? "n/a (no chunks)"
@@ -798,16 +866,20 @@ async function runMemoryInject(parsed: ParsedCli): Promise<void> {
     const uuidPass = verify.chunksChecked === 0 || verify.uuidFailed === 0;
     const overall = counters.failed === 0 && storePass && uuidPass ? "PASS" : "FAIL";
 
-    logMetricTable("verification summary", [
-      { k: "dry-run (no Qdrant writes)", v: "yes" },
-      { k: "MEMORY_ENCRYPTION_* active", v: encOn ? "yes" : "no" },
-      { k: storeLabel, v: storeVal },
-      { k: "chunk point ids UUID-shaped", v: uuidVal },
-      { k: "inject errors", v: errVal },
-      { k: "chunks checked", v: String(verify.chunksChecked) },
-      { k: "script wall", v: `${(scriptWallMs / 1000).toFixed(2)} s` },
-      { k: "overall", v: overall },
-    ], 72);
+    logMetricTable(
+      "verification summary",
+      [
+        { k: "dry-run (no Qdrant writes)", v: "yes" },
+        { k: "MEMORY_ENCRYPTION_* active", v: encOn ? "yes" : "no" },
+        { k: storeLabel, v: storeVal },
+        { k: "chunk point ids UUID-shaped", v: uuidVal },
+        { k: "inject errors", v: errVal },
+        { k: "chunks checked", v: String(verify.chunksChecked) },
+        { k: "script wall", v: `${(scriptWallMs / 1000).toFixed(2)} s` },
+        { k: "overall", v: overall },
+      ],
+      72
+    );
 
     if (overall === "FAIL") {
       process.exit(1);
@@ -821,6 +893,7 @@ async function main() {
 
   if (parsed.memoryPlaintext !== undefined) {
     await runMemoryInject(parsed);
+
     return;
   }
 
@@ -830,9 +903,10 @@ async function main() {
     throw new Error("OPENAI_API_KEY is required for memory quality classification");
   }
 
-  const client = createQdrantClient();
+  const client = getMemoryQdrantClient();
   let legacyTotalPoints = 0;
   let legacyCountLabel = "—";
+
   try {
     legacyTotalPoints = (await client.count(LEGACY_COLLECTION, { exact: true })).count;
     legacyCountLabel = String(legacyTotalPoints);
@@ -848,12 +922,14 @@ async function main() {
     { k: "verification", v: String(verification) },
     { k: "legacy total (Qdrant)", v: legacyCountLabel },
   ];
+
   logMetricTable("run", runRows, 72);
   if (verification) {
     logProc("note", "verification implies dry-run; limit defaults to 3 without --limit");
   }
 
   const embeddingDims = await probeEmbeddingDims(OLLAMA_EMBED_MODEL);
+
   logMetricTable(
     "embed",
     [
@@ -881,6 +957,7 @@ async function main() {
       return;
     }
     const per = ms / textCount;
+
     for (let i = 0; i < textCount; i++) {
       embedPerTextMsSamples.push(per);
     }
@@ -906,6 +983,7 @@ async function main() {
     const now = Date.now();
     const elapsedSec = (now - lastLog) / 1000;
     const everyTen = counters.handled > 0 && counters.handled % 10 === 0;
+
     if (everyTen || elapsedSec >= 30) {
       if (!progressHeaderPrinted) {
         logProgressHeader();
@@ -915,6 +993,8 @@ async function main() {
       lastLog = now;
     }
   };
+
+  const classifyLimit = pLimit(CLASSIFY_CONCURRENCY);
 
   let nextOffset: string | number | Record<string, unknown> | null | undefined = undefined;
   let stopScrolling = false;
@@ -929,18 +1009,14 @@ async function main() {
 
     const points = scroll.points ?? [];
 
-    for (const point of points) {
-      if (limit !== undefined && counters.handled >= limit) {
-        stopScrolling = true;
-        break;
-      }
-
+    // Helper to process a single point — same logic as before, just extracted
+    const processPoint = async (point: (typeof points)[number]): Promise<void> => {
       const id = point.id;
       const payload = (point.payload ?? {}) as Record<string, unknown>;
 
       if (isMigrated(payload)) {
         counters.skippedAlreadyMigrated++;
-        continue;
+        return;
       }
 
       counters.eligibleSeen++;
@@ -954,17 +1030,13 @@ async function main() {
         if (!plaintext) {
           counters.empty++;
           counters.handled++;
-          await markLegacyMigrated(
-            client,
-            id,
-            { migrationSkipped: "empty" },
-            dryRun
-          );
+          await markLegacyMigrated(client, id, { migrationSkipped: "empty" }, dryRun);
           maybeLog("empty");
-          continue;
+          return;
         }
 
         const quality = await classifyMemory(plaintext, (ms) => classifyTimesMs.push(ms));
+
         if (quality.decision === "drop") {
           counters.filtered++;
           counters.handled++;
@@ -976,7 +1048,7 @@ async function main() {
             dryRun
           );
           maybeLog("filtered");
-          continue;
+          return;
         }
 
         counters.classifiedGood++;
@@ -1011,9 +1083,23 @@ async function main() {
           err && typeof err === "object" && "data" in err
             ? ` body=${JSON.stringify((err as { data: unknown }).data)}`
             : "";
+
         logProc("error", `${String(id).padEnd(36)}${extra.slice(0, 200)}`, "error");
         console.error(err);
       }
+    };
+
+    // Honor --limit by slicing the page before fan-out
+    const pointsThisPage =
+      limit !== undefined
+        ? points.slice(0, Math.max(0, limit - counters.handled - counters.skippedAlreadyMigrated))
+        : points;
+
+    // Fan out concurrent processing, await all before next page
+    await Promise.all(pointsThisPage.map((p) => classifyLimit(() => processPoint(p))));
+
+    if (limit !== undefined && counters.handled >= limit) {
+      stopScrolling = true;
     }
 
     if (stopScrolling) {
@@ -1037,6 +1123,7 @@ async function main() {
     legacyTotalEnd = (await client.count(LEGACY_COLLECTION, { exact: true })).count;
     try {
       const v2Total = await client.count(V2_COLLECTION, { exact: true });
+
       v2CountLabel = String(v2Total.count);
     } catch {
       v2CountLabel = "(count failed)";
@@ -1048,6 +1135,7 @@ async function main() {
         must_not: [{ key: "migrated_to_v2", match: { value: true } }],
       },
     });
+
     legacyRemainingCount = legacyRemaining.count;
   } catch (e) {
     console.warn("\n  [warn] Qdrant count queries incomplete:", e);
@@ -1082,6 +1170,7 @@ async function main() {
     { k: "legacy total points", v: String(legacyTotalEnd) },
     { k: "v2 total points (after run)", v: v2CountLabel },
   ];
+
   if (legacyRemainingCount >= 0) {
     countRows.push({ k: "legacy unmigrated (no migrated_to_v2)", v: String(legacyRemainingCount) });
   }
@@ -1094,34 +1183,45 @@ async function main() {
     { k: "this run: migrated OK", v: String(counters.migratedSuccessful) },
     { k: "this run: failed (no migrate flag)", v: String(counters.failed) },
     { k: "this run: chunks written", v: String(counters.chunksWritten) },
-    { k: "this run: legacy finalized (ok+drop+empty)", v: String(counters.handled) },
+    { k: "this run: legacy finalized (ok+drop+empty)", v: String(counters.handled) }
   );
   logMetricTable("counts", countRows, 72);
 
-  logMetricTable("timing", [
-    { k: "script wall", v: `${(scriptWallMs / 1000).toFixed(2)} s` },
-    { k: "classify calls", v: String(nClassify) },
-    { k: "classify wall", v: `${(sumClassify / 1000).toFixed(2)} s` },
-    { k: "classify avg", v: `${avgClassifyMs.toFixed(1)} ms` },
-    { k: "classify p50", v: `${p50ClassifyMs.toFixed(1)} ms` },
-    { k: "classify p95", v: `${p95ClassifyMs.toFixed(1)} ms` },
-    { k: "embed texts", v: String(nEmbedTexts) },
-    { k: "embed HTTP wall (sum)", v: `${(totalEmbedWallMs / 1000).toFixed(2)} s` },
-    { k: "embed avg / text", v: `${avgEmbedPerTextMs.toFixed(2)} ms` },
-    { k: "embed p50 / text", v: `${p50EmbedPerTextMs.toFixed(2)} ms` },
-    { k: "embed p95 / text", v: `${p95EmbedPerTextMs.toFixed(2)} ms` },
-  ], 72);
+  logMetricTable(
+    "timing",
+    [
+      { k: "script wall", v: `${(scriptWallMs / 1000).toFixed(2)} s` },
+      { k: "classify calls", v: String(nClassify) },
+      { k: "classify wall", v: `${(sumClassify / 1000).toFixed(2)} s` },
+      { k: "classify avg", v: `${avgClassifyMs.toFixed(1)} ms` },
+      { k: "classify p50", v: `${p50ClassifyMs.toFixed(1)} ms` },
+      { k: "classify p95", v: `${p95ClassifyMs.toFixed(1)} ms` },
+      { k: "embed texts", v: String(nEmbedTexts) },
+      { k: "embed HTTP wall (sum)", v: `${(totalEmbedWallMs / 1000).toFixed(2)} s` },
+      { k: "embed avg / text", v: `${avgEmbedPerTextMs.toFixed(2)} ms` },
+      { k: "embed p50 / text", v: `${p50EmbedPerTextMs.toFixed(2)} ms` },
+      { k: "embed p95 / text", v: `${p95EmbedPerTextMs.toFixed(2)} ms` },
+    ],
+    72
+  );
 
   const vecNote = `${counters.chunksWritten}×${embeddingDims}×4`;
-  logMetricTable("data written (estimate)", [
-    { k: "vectors (float32)", v: `${formatBytes(bytesWrite.vectors)}  (${vecNote})` },
-    { k: "payloads (JSON utf-8)", v: formatBytes(bytesWrite.payload) },
-    { k: "total", v: formatBytes(bytesTotalWritten) },
-  ], 72);
+
+  logMetricTable(
+    "data written (estimate)",
+    [
+      { k: "vectors (float32)", v: `${formatBytes(bytesWrite.vectors)}  (${vecNote})` },
+      { k: "payloads (JSON utf-8)", v: formatBytes(bytesWrite.payload) },
+      { k: "total", v: formatBytes(bytesTotalWritten) },
+    ],
+    72
+  );
 
   if (verification) {
     const encOn = isMemoryEncryptionEnvConfigured();
-    const storeLabel = encOn ? "v2 data (encrypted + decrypt round-trip)" : "v2 data (plaintext, no enc env)";
+    const storeLabel = encOn
+      ? "v2 data (encrypted + decrypt round-trip)"
+      : "v2 data (plaintext, no enc env)";
     const storeVal =
       verify.chunksChecked === 0
         ? "n/a (no kept chunks)"
@@ -1138,21 +1238,24 @@ async function main() {
 
     const storePass = verify.chunksChecked === 0 || verify.storeFieldFailed === 0;
     const uuidPass = verify.chunksChecked === 0 || verify.uuidFailed === 0;
-    const overall =
-      counters.failed === 0 && storePass && uuidPass ? "PASS" : "FAIL";
+    const overall = counters.failed === 0 && storePass && uuidPass ? "PASS" : "FAIL";
 
-    logMetricTable("verification summary", [
-      { k: "dry-run (no Qdrant writes)", v: "yes" },
-      { k: "limit", v: String(limit ?? 3) },
-      { k: "MEMORY_ENCRYPTION_* active", v: encOn ? "yes" : "no" },
-      { k: storeLabel, v: storeVal },
-      { k: "chunk point ids UUID-shaped", v: uuidVal },
-      { k: "per-memory migration errors", v: errVal },
-      { k: "eligible rows (this run)", v: String(counters.eligibleSeen) },
-      { k: "LLM keep → simulated v2 chunks", v: String(counters.chunksWritten) },
-      { k: "script wall (incl. counts)", v: `${(scriptWallMs / 1000).toFixed(2)} s` },
-      { k: "overall", v: overall },
-    ], 72);
+    logMetricTable(
+      "verification summary",
+      [
+        { k: "dry-run (no Qdrant writes)", v: "yes" },
+        { k: "limit", v: String(limit ?? 3) },
+        { k: "MEMORY_ENCRYPTION_* active", v: encOn ? "yes" : "no" },
+        { k: storeLabel, v: storeVal },
+        { k: "chunk point ids UUID-shaped", v: uuidVal },
+        { k: "per-memory migration errors", v: errVal },
+        { k: "eligible rows (this run)", v: String(counters.eligibleSeen) },
+        { k: "LLM keep → simulated v2 chunks", v: String(counters.chunksWritten) },
+        { k: "script wall (incl. counts)", v: `${(scriptWallMs / 1000).toFixed(2)} s` },
+        { k: "overall", v: overall },
+      ],
+      72
+    );
 
     if (overall === "FAIL") {
       process.exit(1);

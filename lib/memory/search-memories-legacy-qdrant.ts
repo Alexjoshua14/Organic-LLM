@@ -5,14 +5,15 @@ import {
   MEMORY_LEGACY_EMBEDDER_MODEL,
   MEMORY_LEGACY_QDRANT_COLLECTION,
 } from "@/config/memory-legacy-meta";
+import { getMemoryQdrantClient } from "@/config/memory-qdrant-client";
 import { decryptMemory, isEncrypted } from "@/lib/crypto/memory-encryption";
-import type { MemoryItemType } from "@/lib/schemas/memory";
 import { OLLAMA_URL, ollamaHeaders } from "@/lib/memory/ollama-config";
-import { createQdrantClient } from "@/lib/memory/qdrant-config";
 import { runMemoryStore } from "@/lib/memory/run-memory-store";
+import type { MemoryItemType } from "@/lib/schemas/memory";
 
 function payloadUserId(payload: Record<string, unknown>): string | undefined {
   const u = payload.userId ?? payload.user_id;
+
   return typeof u === "string" && u.length > 0 ? u : undefined;
 }
 
@@ -23,6 +24,7 @@ function decryptDataField(raw: string): string {
   if (isEncrypted(raw)) {
     return decryptMemory(raw);
   }
+
   return raw;
 }
 
@@ -37,10 +39,12 @@ async function embedLegacyQuery(text: string): Promise<number[]> {
     embedding?: number[];
     error?: string;
   };
+
   if (!res.ok || data.error) {
     throw new Error(data.error ?? res.statusText);
   }
   const vec = data.embeddings?.[0] ?? data.embedding;
+
   if (!vec?.length) {
     throw new Error("Unexpected Ollama embed response shape");
   }
@@ -49,14 +53,17 @@ async function embedLegacyQuery(text: string): Promise<number[]> {
       `Legacy embed dim mismatch: got ${vec.length}, expected ${MEMORY_LEGACY_EMBEDDING_DIMS}`
     );
   }
+
   return vec;
 }
 
 function dot(a: number[], b: number[]): number {
   let s = 0;
+
   for (let i = 0; i < a.length; i++) {
     s += a[i]! * b[i]!;
   }
+
   return s;
 }
 
@@ -68,7 +75,9 @@ function norm(a: number[]): number {
 function cosineSimilarity(a: number[], b: number[]): number {
   const na = norm(a);
   const nb = norm(b);
+
   if (na === 0 || nb === 0) return 0;
+
   return dot(a, b) / (na * nb);
 }
 
@@ -79,17 +88,21 @@ function extractVector(raw: unknown): number[] | null {
   if (raw && typeof raw === "object" && !Array.isArray(raw)) {
     const o = raw as Record<string, unknown>;
     const keys = Object.keys(o);
+
     if (keys.length === 1 && Array.isArray(o[keys[0]!])) {
       const inner = o[keys[0]!] as unknown[];
+
       if (inner.every((x) => typeof x === "number")) {
         return inner as number[];
       }
     }
     const def = o.default;
+
     if (Array.isArray(def) && def.every((x) => typeof x === "number")) {
       return def as number[];
     }
   }
+
   return null;
 }
 
@@ -109,7 +122,7 @@ export async function searchMemoriesLegacyFromQdrant(
     return { results: [], queryVector: [] };
   }
 
-  const client = createQdrantClient();
+  const client = getMemoryQdrantClient();
   const vector = await embedLegacyQuery(query);
 
   const hits = await runMemoryStore("searchMemoriesLegacyFromQdrant", () =>
@@ -130,12 +143,14 @@ export async function searchMemoriesLegacyFromQdrant(
 
   for (const hit of hits) {
     const payload = (hit.payload ?? {}) as Record<string, unknown>;
+
     if (payloadUserId(payload) !== userId) {
       continue;
     }
     const rawData = payload.data;
     const dataStr = typeof rawData === "string" ? rawData : "";
     const memoryText = decryptDataField(dataStr).trim();
+
     if (!memoryText) {
       continue;
     }
@@ -143,6 +158,7 @@ export async function searchMemoriesLegacyFromQdrant(
     const score = typeof hit.score === "number" ? hit.score : undefined;
     const hash = typeof payload.hash === "string" ? payload.hash : undefined;
     const createdAt = typeof payload.createdAt === "string" ? payload.createdAt : undefined;
+
     results.push({
       id,
       memory: memoryText,
@@ -168,7 +184,7 @@ export async function getBestLegacyPointScoreForMemoryId(
     return null;
   }
 
-  const client = createQdrantClient();
+  const client = getMemoryQdrantClient();
   const retrieved = await runMemoryStore("getBestLegacyPointScoreForMemoryId", () =>
     client.retrieve(MEMORY_LEGACY_QDRANT_COLLECTION, {
       ids: [memoryPointId],
@@ -183,11 +199,13 @@ export async function getBestLegacyPointScoreForMemoryId(
 
   const point = retrieved[0]!;
   const payload = (point.payload ?? {}) as Record<string, unknown>;
+
   if (payloadUserId(payload) !== userId) {
     return null;
   }
 
   const stored = extractVector(point.vector);
+
   if (!stored || stored.length !== queryVector.length) {
     return null;
   }
@@ -197,8 +215,10 @@ export async function getBestLegacyPointScoreForMemoryId(
 
 export async function embedLegacyQueryForMarginalSearch(query: string): Promise<number[]> {
   const q = query.trim();
+
   if (!q) {
     return [];
   }
+
   return embedLegacyQuery(q);
 }

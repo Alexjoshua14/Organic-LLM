@@ -54,7 +54,20 @@ export async function searchMemories(
     logger.log("searchMemories", `Found ${result.results?.length} memories`);
 
     return result;
-  } catch {
+  } catch (error) {
+    const err = error instanceof Error ? error : null;
+
+    logger.error(
+      "searchMemories",
+      "Memory search failed (service unavailable).",
+      {
+        userId,
+        queryLength: query.length,
+        limit: options?.limit ?? 3,
+        ...(err ? { errorName: err.name, errorMessage: err.message } : { thrown: String(error) }),
+      },
+      error
+    );
     throw new Error("Memory service may be unavailable.");
   }
 }

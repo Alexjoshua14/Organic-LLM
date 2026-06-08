@@ -1,12 +1,12 @@
 import { MemoryConfig } from "mem0ai/oss";
 
+import { getMemoryQdrantClient } from "@/config/memory-qdrant-client";
 import {
   MEMORY_PRODUCTION_EMBEDDING_DIMS,
   MEMORY_PRODUCTION_EMBEDDER_MODEL,
   MEMORY_PRODUCTION_QDRANT_COLLECTION,
 } from "@/config/memory-production-meta";
 import { custom_fact_extraction_prompt } from "@/lib/system-prompt/memory";
-import { createQdrantClient } from "@/lib/memory/qdrant-config";
 import "server-only";
 
 export {
@@ -15,7 +15,7 @@ export {
   MEMORY_PRODUCTION_QDRANT_COLLECTION,
 } from "@/config/memory-production-meta";
 
-const qdrantClient = createQdrantClient();
+const qdrantClient = getMemoryQdrantClient();
 
 export const config: MemoryConfig = {
   embedder: {
