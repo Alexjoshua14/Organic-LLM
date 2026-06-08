@@ -2,7 +2,7 @@
 
 ## Start here
 
-- [Open-source readiness audit](./OPEN_SOURCE_AUDIT.md) — pre-public checklist
+- [Contributing](../CONTRIBUTING.md) — setup, code boundaries, pull requests
 - [Thread & session architecture](./thread-session-architecture.md) — persistence, encryption, sidebar contract
 - [Context building](./architecture/context-building.md) — how chat context is assembled before `streamText`
 - [End-to-end encryption overview](./e2ee.md)
