@@ -204,11 +204,11 @@ More detail: [threads & sessions](./docs/thread-session-architecture.md) · [con
 
 ## Documentation
 
+- **[Contributing](./CONTRIBUTING.md)** — setup, boundaries, PR workflow
 - **[Documentation index](./docs/INDEX.md)** — all architecture and module guides
 - **[Chat tools](./docs/chat-tools.md)** — memory, web search, Gen UI, Mermaid, kanban, Delphi, Strata, export
 - **Blog** — [/blog](https://organic.coalescencelabs.app/blog) (memory encryption, chat pipeline, export presets, adaptive background)
 - **[Security policy](./SECURITY.md)** — reporting and secrets hygiene
-- **[Open-source audit](./docs/OPEN_SOURCE_AUDIT.md)** — pre-public checklist for contributors
 
 ## Roadmap
 
@@ -249,14 +249,14 @@ Bring your own **Clerk** app and **Supabase** project (schema snippets in [`docs
 cp .env.example .env.local
 # Clerk, Supabase URL + anon + service role, plus optional:
 # OPENAI_API_KEY, EXA_API_KEY, ELEVENLABS_API_KEY, MEMORY_API_*, UPSTASH_*,
-# ORGANIC_LLM_* encryption — see .env.example and docs/OPEN_SOURCE_AUDIT.md
+# ORGANIC_LLM_* encryption — see .env.example and docs/e2ee.md
 bun dev
 ```
 
 - Product routes after sign-in: `/chat`, `/rabbitholes`, `/sandbox`
 - Health: `/status` when env is configured
 - Types: `bun run supabase:types` (requires `supabase link` locally)
-- Clerk webhooks: `bun run dev:full`
+- Clerk webhooks: install [ngrok](https://ngrok.com/) and sign in (`ngrok config add-authtoken …`), then `bun run dev:full` — tunnels port 3000 and prints a public URL; register `<ngrok-url>/api/webhooks/clerk` in your Clerk dashboard
 
 ### Deploy yourself
 
