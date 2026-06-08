@@ -48,6 +48,7 @@ import pLimit from "p-limit";
 
 const LEGACY_COLLECTION = process.env.MEMORY_LEGACY_COLLECTION ?? "memories";
 const V2_COLLECTION = process.env.MEMORY_V2_COLLECTION ?? "memories_v2";
+const MEMORY_KEY = process.env.MEMORY_API_SECRET;
 const OLLAMA_URL = (process.env.OLLAMA_URL ?? "http://localhost:11434").replace(/\/$/, "");
 const OLLAMA_EMBED_MODEL = process.env.OLLAMA_EMBED_MODEL ?? "nomic-embed-text";
 const SCROLL_PAGE_SIZE = Math.min(
