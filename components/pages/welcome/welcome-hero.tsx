@@ -7,6 +7,7 @@ import { WelcomeFeatures } from "./welcome-features";
 import { WelcomeHeadline } from "./welcome-headline";
 import { WelcomeHighlights } from "./welcome-highlights";
 import { WelcomePageFooter } from "./welcome-page-footer";
+import { WelcomeScrollInvite } from "./welcome-scroll-invite";
 import { useWelcomeMotion } from "./welcome-motion";
 
 import { OrganicPresence } from "@/components/ambient/OrganicPresence";
@@ -65,11 +66,11 @@ export function WelcomeHero() {
 
               <motion.div
                 animate="show"
-                className="grid grid-cols-1 items-start gap-12 md:grid-cols-[minmax(0,1fr)_min(20rem,34%)] md:gap-x-16 lg:gap-x-20 lg:gap-y-12"
+                className="grid grid-cols-1 items-start gap-12 sm:grid-cols-[minmax(0,1fr)_min(18rem,34%)] sm:gap-x-12 md:gap-x-16 lg:gap-x-20 lg:gap-y-12"
                 initial="hidden"
                 variants={staggerContainer}
               >
-                <div className="flex min-w-0 flex-col items-start text-left">
+                <div className="flex min-w-0 flex-col items-start text-left sm:col-start-1 sm:row-start-1">
                   <motion.p
                     className="font-commissioner text-sm font-light tracking-tight text-muted-foreground"
                     variants={staggerItem}
@@ -105,6 +106,10 @@ export function WelcomeHero() {
 
                 <WelcomeExploreAside />
               </motion.div>
+            </div>
+
+            <div className="flex shrink-0 justify-center pb-2 sm:pb-4">
+              <WelcomeScrollInvite />
             </div>
           </section>
 

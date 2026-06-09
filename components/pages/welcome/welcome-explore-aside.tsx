@@ -20,7 +20,10 @@ export function WelcomeExploreAside({ className }: WelcomeExploreAsideProps) {
   return (
     <motion.aside
       aria-labelledby="welcome-explore-label"
-      className={cn("w-full md:max-w-md md:justify-self-end md:self-center", className)}
+      className={cn(
+        "w-full sm:col-start-2 sm:row-start-1 sm:max-w-md sm:justify-self-end sm:self-center",
+        className
+      )}
       variants={staggerItem}
     >
       <div

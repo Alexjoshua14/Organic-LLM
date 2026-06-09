@@ -43,14 +43,10 @@ export function WelcomeHighlightRow({ item }: WelcomeHighlightRowProps) {
           </p>
         ) : null}
       </div>
-      <div
-        className={cn(
-          "w-full shrink-0 sm:flex sm:w-auto sm:flex-1",
-          reversed ? "sm:justify-start" : "sm:justify-end"
-        )}
-      >
+      <div className="w-full max-w-[18rem] shrink-0 sm:max-w-[20rem]">
         <WelcomeHighlightVisual
           aspect="highlight"
+          className="w-full max-w-none"
           id={item.id}
           imageAlt={item.visualPlaceholder.hint}
           imageSrc={item.imageSrc}

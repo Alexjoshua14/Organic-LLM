@@ -18,6 +18,9 @@ export const welcomeCopy = {
     signUp: "Create account",
     signIn: "Sign in",
   },
+  scrollInvite: {
+    label: "Scroll to explore the workspace",
+  },
   explore: {
     label: "Explore first",
     links: [

@@ -30,6 +30,7 @@ export function WelcomeFeatures({ className }: WelcomeFeaturesProps) {
     <section
       aria-labelledby="welcome-features-heading"
       className={cn("py-12 pb-16 sm:py-14 sm:pb-20", className)}
+      id="welcome-features"
       {...(sectionReveal ?? {})}
     >
       <div className="mx-auto flex w-full max-w-6xl flex-col px-5 sm:px-8 lg:px-12">
