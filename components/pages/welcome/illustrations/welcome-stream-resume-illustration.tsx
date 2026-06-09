@@ -3,6 +3,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 
+import { usePageVisible } from "@/components/hooks/use-page-visible";
+import { useWelcomeInView } from "@/components/pages/welcome/use-welcome-in-view";
 import ShinyText from "@/components/ShinyText";
 import { Loader } from "@/components/third-party/ai-elements/loader";
 import { card, sectionLabel } from "@/lib/rabbit-holes/designTokens";
@@ -26,7 +28,7 @@ const MESSAGE =
 const TOKENS = MESSAGE.match(/\S+\s*/g) ?? [MESSAGE];
 const BREAKPOINT_TOKEN = TOKENS.findIndex((token) => token.trimStart().startsWith("tracing"));
 
-const TOKEN_MS = 38;
+const TOKEN_MS = 50;
 const IDLE_MS = 700;
 const REFRESH_MS = 1100;
 const RESUMED_HOLD_MS = 550;
@@ -45,12 +47,13 @@ export function WelcomeStreamResumeIllustration({
   className,
 }: WelcomeStreamResumeIllustrationProps) {
   const reduce = useReducedMotion();
+  const pageVisible = usePageVisible();
   const rootRef = useRef<HTMLDivElement>(null);
-  const streamIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const inView = useWelcomeInView(rootRef);
+  const streamRafRef = useRef<number | null>(null);
   const timersRef = useRef<ReturnType<typeof setTimeout>[]>([]);
   const loopActiveRef = useRef(false);
 
-  const [inView, setInView] = useState(false);
   const [phase, setPhase] = useState<Phase>("idle");
   const [revealedTokens, setRevealedTokens] = useState(0);
 
@@ -59,10 +62,10 @@ export function WelcomeStreamResumeIllustration({
     []
   );
 
-  const clearStreamInterval = useCallback(() => {
-    if (streamIntervalRef.current) {
-      clearInterval(streamIntervalRef.current);
-      streamIntervalRef.current = null;
+  const clearStreamRaf = useCallback(() => {
+    if (streamRafRef.current !== null) {
+      cancelAnimationFrame(streamRafRef.current);
+      streamRafRef.current = null;
     }
   }, []);
 
@@ -78,30 +81,39 @@ export function WelcomeStreamResumeIllustration({
 
   const runStream = useCallback(
     (fromTokens: number, toTokens: number, onComplete: () => void) => {
-      clearStreamInterval();
-      let count = fromTokens;
-      setRevealedTokens(count);
+      clearStreamRaf();
+      const startTime = performance.now();
+      setRevealedTokens(fromTokens);
 
-      streamIntervalRef.current = setInterval(() => {
-        count += 1;
+      const tick = (now: number) => {
+        const elapsed = now - startTime;
+        const count = Math.min(
+          toTokens,
+          fromTokens + Math.floor(elapsed / TOKEN_MS)
+        );
         setRevealedTokens(count);
 
         if (count >= toTokens) {
-          clearStreamInterval();
+          clearStreamRaf();
           onComplete();
+          return;
         }
-      }, TOKEN_MS);
+
+        streamRafRef.current = requestAnimationFrame(tick);
+      };
+
+      streamRafRef.current = requestAnimationFrame(tick);
     },
-    [clearStreamInterval]
+    [clearStreamRaf]
   );
 
   const resetLoop = useCallback(() => {
-    clearStreamInterval();
+    clearStreamRaf();
     clearTimers();
     loopActiveRef.current = false;
     setPhase("idle");
     setRevealedTokens(0);
-  }, [clearStreamInterval, clearTimers]);
+  }, [clearStreamRaf, clearTimers]);
 
   const startLoop = useCallback(() => {
     if (loopActiveRef.current) return;
@@ -131,21 +143,10 @@ export function WelcomeStreamResumeIllustration({
     }, IDLE_MS);
   }, [breakpoint, runStream, schedule]);
 
-  useEffect(() => {
-    const node = rootRef.current;
-    if (!node) return;
-
-    const observer = new IntersectionObserver(
-      ([entry]) => setInView(entry.isIntersecting),
-      { threshold: 0.25 }
-    );
-    observer.observe(node);
-
-    return () => observer.disconnect();
-  }, []);
+  const active = inView && pageVisible && !reduce;
 
   useEffect(() => {
-    if (!inView || reduce) {
+    if (!active) {
       resetLoop();
       return;
     }
@@ -155,7 +156,7 @@ export function WelcomeStreamResumeIllustration({
     return () => {
       resetLoop();
     };
-  }, [inView, reduce, resetLoop, startLoop]);
+  }, [active, resetLoop, startLoop]);
 
   const visibleText = tokensToText(revealedTokens);
   const isStreaming = phase === "streaming1" || phase === "streaming2";

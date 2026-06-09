@@ -26,8 +26,8 @@ export function WelcomeHero() {
       transparentBackground
     >
       <div className="relative flex w-full flex-col">
-        <div aria-hidden className="pointer-events-none absolute inset-0 min-h-full">
-          <AdaptiveLiquidChrome cover="parent" dimIntensity={0.45} />
+        <div aria-hidden className="pointer-events-none fixed inset-0 z-0">
+          <AdaptiveLiquidChrome cover="viewport" dimIntensity={0.45} />
         </div>
 
         {!reduce ? (

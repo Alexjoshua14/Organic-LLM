@@ -54,6 +54,7 @@ export function WelcomeHighlightRow({ item }: WelcomeHighlightRowProps) {
           id={item.id}
           imageAlt={item.visualPlaceholder.hint}
           imageSrc={item.imageSrc}
+          lazyImages={"imageSrc" in item && item.imageSrc !== undefined}
           placeholder={item.visualPlaceholder}
           size="highlight"
         />

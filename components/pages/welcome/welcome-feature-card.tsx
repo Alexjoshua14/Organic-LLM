@@ -45,6 +45,7 @@ export function WelcomeFeatureCard({
           id={placeholderId}
           imageAlt={visualPlaceholder.hint}
           imageSrc={imageSrc}
+          lazyImages
           placeholder={visualPlaceholder}
           size="mode"
         />

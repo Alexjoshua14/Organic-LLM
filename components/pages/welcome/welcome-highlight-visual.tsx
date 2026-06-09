@@ -1,11 +1,13 @@
 "use client";
 
 import Image from "next/image";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { motion, useReducedMotion } from "framer-motion";
 
+import { usePageVisible } from "@/components/hooks/use-page-visible";
 import { AspectRatio } from "@/components/third-party/ui/aspect-ratio";
 import { welcomeIllustrations } from "@/components/pages/welcome/illustrations";
+import { useWelcomeInView } from "@/components/pages/welcome/use-welcome-in-view";
 import { glass } from "@/components/design-system/primitives";
 import {
   welcomeIllustrationRatio,
@@ -33,6 +35,8 @@ type WelcomeHighlightVisualProps = {
   cycleIntervalMs?: number;
   /** CSS object-position for screenshots (default keeps app chrome anchored top-left). */
   objectPosition?: string;
+  /** When true, only the first image is eagerly loaded; others use lazy loading. */
+  lazyImages?: boolean;
 };
 
 function normalizeImageSources(imageSrc?: WelcomeVisualImageSrc): string[] {
@@ -50,12 +54,16 @@ export function WelcomeHighlightVisual({
   className,
   cycleIntervalMs = 5000,
   objectPosition = "left top",
+  lazyImages = false,
 }: WelcomeHighlightVisualProps) {
+  const frameRef = useRef<HTMLDivElement>(null);
   const Illustration = welcomeIllustrations[id];
   const ratio = Illustration ? welcomeIllustrationRatio : welcomeVisualAspect[aspect];
   const sizeKey = size ?? aspect;
   const sources = normalizeImageSources(imageSrc);
   const reduce = useReducedMotion();
+  const pageVisible = usePageVisible();
+  const inView = useWelcomeInView(frameRef);
   const [activeIndex, setActiveIndex] = useState(0);
 
   useEffect(() => {
@@ -63,14 +71,14 @@ export function WelcomeHighlightVisual({
   }, [sources.join("|")]);
 
   useEffect(() => {
-    if (sources.length <= 1 || reduce) return;
+    if (sources.length <= 1 || reduce || !inView || !pageVisible) return;
 
     const timer = window.setInterval(() => {
       setActiveIndex((current) => (current + 1) % sources.length);
     }, cycleIntervalMs);
 
     return () => window.clearInterval(timer);
-  }, [cycleIntervalMs, reduce, sources.length]);
+  }, [cycleIntervalMs, inView, pageVisible, reduce, sources.length]);
 
   const frameClass = cn(
     "relative overflow-hidden rounded-2xl border border-border/50",
@@ -82,7 +90,7 @@ export function WelcomeHighlightVisual({
 
   if (Illustration) {
     return (
-      <AspectRatio className={frameClass} ratio={ratio}>
+      <AspectRatio ref={frameRef} className={frameClass} ratio={ratio}>
         <motion.div
           aria-label={imageAlt ?? placeholder.hint}
           className={cn(
@@ -105,7 +113,7 @@ export function WelcomeHighlightVisual({
 
   if (sources.length > 0) {
     return (
-      <AspectRatio className={frameClass} ratio={ratio}>
+      <AspectRatio ref={frameRef} className={frameClass} ratio={ratio}>
         {sources.map((src, index) => (
           <Image
             key={src}
@@ -116,7 +124,8 @@ export function WelcomeHighlightVisual({
               index === activeIndex ? "opacity-100" : "opacity-0"
             )}
             fill
-            priority={index === 0}
+            loading={lazyImages && index > 0 ? "lazy" : undefined}
+            priority={!lazyImages && index === 0}
             quality={90}
             sizes={imageSizes}
             src={src}
@@ -128,7 +137,7 @@ export function WelcomeHighlightVisual({
   }
 
   return (
-    <AspectRatio className={frameClass} ratio={ratio}>
+    <AspectRatio ref={frameRef} className={frameClass} ratio={ratio}>
       <div
         aria-label={placeholder.hint}
         className={cn(

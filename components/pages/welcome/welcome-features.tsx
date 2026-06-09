@@ -29,7 +29,10 @@ export function WelcomeFeatures({ className }: WelcomeFeaturesProps) {
   return (
     <section
       aria-labelledby="welcome-features-heading"
-      className={cn("py-12 pb-16 sm:py-14 sm:pb-20", className)}
+      className={cn(
+        "py-12 pb-16 sm:py-14 sm:pb-20 [content-visibility:auto] [contain-intrinsic-size:auto_1200px]",
+        className
+      )}
       id="welcome-features"
       {...(sectionReveal ?? {})}
     >
@@ -84,6 +87,7 @@ export function WelcomeFeatures({ className }: WelcomeFeaturesProps) {
                       id={modePlaceholderId[mode.id] ?? `feature-${mode.id}`}
                       imageAlt={mode.visualPlaceholder.hint}
                       imageSrc={"imageSrc" in mode ? mode.imageSrc : undefined}
+                      lazyImages
                       placeholder={mode.visualPlaceholder}
                       size="mode"
                     />

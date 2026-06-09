@@ -4,6 +4,8 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { LayoutGroup, motion, useReducedMotion } from "framer-motion";
 import { Lock, ShieldCheck } from "lucide-react";
 
+import { usePageVisible } from "@/components/hooks/use-page-visible";
+import { useWelcomeInView } from "@/components/pages/welcome/use-welcome-in-view";
 import {
   DecryptedText,
   type DecryptedTextControlPhase,
@@ -34,13 +36,17 @@ export function WelcomeEncryptedAtRestIllustration({
   className,
 }: WelcomeEncryptedAtRestIllustrationProps) {
   const reduce = useReducedMotion();
+  const pageVisible = usePageVisible();
   const rootRef = useRef<HTMLDivElement>(null);
-  const [inView, setInView] = useState(false);
+  const inView = useWelcomeInView(rootRef);
   const [stage, setStage] = useState<PayloadStage>("thread");
   const [controlPhase, setControlPhase] =
     useState<DecryptedTextControlPhase>("plain");
   const [frozenCipherText, setFrozenCipherText] = useState("");
   const timersRef = useRef<ReturnType<typeof setTimeout>[]>([]);
+
+  const active = inView && pageVisible && !reduce;
+  const motionActive = active && !reduce;
 
   const clearTimers = useCallback(() => {
     timersRef.current.forEach(clearTimeout);
@@ -53,20 +59,7 @@ export function WelcomeEncryptedAtRestIllustration({
   }, []);
 
   useEffect(() => {
-    const node = rootRef.current;
-    if (!node) return;
-
-    const observer = new IntersectionObserver(
-      ([entry]) => setInView(entry.isIntersecting),
-      { threshold: 0.25 }
-    );
-    observer.observe(node);
-
-    return () => observer.disconnect();
-  }, []);
-
-  useEffect(() => {
-    if (!inView || reduce) {
+    if (!active) {
       clearTimers();
       setStage("thread");
       setControlPhase("plain");
@@ -79,7 +72,7 @@ export function WelcomeEncryptedAtRestIllustration({
     schedule(() => setControlPhase("encrypting"), PLAIN_REST_MS);
 
     return clearTimers;
-  }, [clearTimers, controlPhase, inView, reduce, schedule, stage]);
+  }, [active, clearTimers, controlPhase, schedule, stage]);
 
   const handleControlComplete = useCallback(
     (phase: "encrypted" | "plain", displayText: string) => {
@@ -131,7 +124,7 @@ export function WelcomeEncryptedAtRestIllustration({
 
       <div className="relative z-10 flex items-center justify-between gap-3">
         <StatusPill active={!isStored} label="In transit" tone="muted" />
-        <TlsPulse active={isEncrypting} reduced={reduce === true} />
+        <TlsPulse active={isEncrypting} motionActive={motionActive} reduced={reduce === true} />
         <StatusPill active={isStored} label="At rest" tone="accent" />
       </div>
 
@@ -168,7 +161,7 @@ export function WelcomeEncryptedAtRestIllustration({
                       parentClassName="block w-full font-mono"
                       revealDirection="start"
                       sequential
-                      speed={12}
+                      speed={28}
                       text={MESSAGE}
                       onControlPhaseComplete={handleControlComplete}
                     />
@@ -184,10 +177,10 @@ export function WelcomeEncryptedAtRestIllustration({
         </div>
 
         <motion.div
-          animate={reduce ? undefined : { opacity: [0.35, 0.85, 0.35] }}
+          animate={motionActive ? { opacity: [0.35, 0.85, 0.35] } : undefined}
           aria-hidden
           className="relative z-10 mx-auto my-3 flex flex-col items-center gap-1 text-accent/70"
-          transition={{ duration: 2.4, ease: "easeInOut", repeat: Infinity }}
+          transition={{ duration: 2.4, ease: "easeInOut", repeat: motionActive ? Infinity : 0 }}
         >
           <span className="h-5 w-px bg-linear-to-b from-transparent via-accent/50 to-accent/80" />
           <span className="text-[10px] uppercase tracking-[0.18em]">
@@ -212,14 +205,14 @@ export function WelcomeEncryptedAtRestIllustration({
           <div className="mb-3 flex items-start justify-between gap-3">
             <div className="flex items-center gap-2">
               <motion.div
-                animate={reduce || !isStored ? undefined : { scale: [1, 1.04, 1] }}
+                animate={motionActive && isStored ? { scale: [1, 1.04, 1] } : undefined}
                 className={cn(
                   "flex size-8 items-center justify-center rounded-lg border text-accent",
                   isStored
                     ? "border-accent/35 bg-accent/12"
                     : "border-accent/20 bg-accent/5"
                 )}
-                transition={{ duration: 3.5, ease: "easeInOut", repeat: Infinity }}
+                transition={{ duration: 3.5, ease: "easeInOut", repeat: motionActive && isStored ? Infinity : 0 }}
               >
                 <Lock aria-hidden className="size-4" strokeWidth={1.75} />
               </motion.div>
@@ -298,7 +291,15 @@ function StatusPill({
   );
 }
 
-function TlsPulse({ reduced, active }: { reduced: boolean; active: boolean }) {
+function TlsPulse({
+  reduced,
+  active,
+  motionActive,
+}: {
+  reduced: boolean;
+  active: boolean;
+  motionActive: boolean;
+}) {
   return (
     <div aria-hidden className="flex min-w-0 flex-1 items-center gap-1.5">
       <span className={cn("h-px flex-1", active ? "bg-accent/35" : "bg-border/70")} />
@@ -312,11 +313,13 @@ function TlsPulse({ reduced, active }: { reduced: boolean; active: boolean }) {
       ) : (
         <motion.span
           animate={
-            active ? { opacity: [0.35, 1, 0.35], scale: [0.85, 1.15, 0.85] } : { opacity: 0.45 }
+            motionActive && active
+              ? { opacity: [0.35, 1, 0.35], scale: [0.85, 1.15, 0.85] }
+              : { opacity: 0.45 }
           }
           className={cn("size-1.5 rounded-full", active ? "bg-accent" : "bg-accent/45")}
           transition={
-            active
+            motionActive && active
               ? { duration: 1.8, ease: "easeInOut", repeat: Infinity }
               : { duration: 0.3 }
           }

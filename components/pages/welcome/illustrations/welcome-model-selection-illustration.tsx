@@ -1,8 +1,10 @@
 "use client";
 
-import { forwardRef, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { forwardRef, useCallback, useEffect, useRef, useState } from "react";
 import { animate, motion, useMotionValue, useReducedMotion } from "framer-motion";
 
+import { usePageVisible } from "@/components/hooks/use-page-visible";
+import { useWelcomeInView } from "@/components/pages/welcome/use-welcome-in-view";
 import ShinyText from "@/components/ShinyText";
 import { ModelZdrIndicator } from "@/components/chat/model-zdr-indicator";
 import { glass } from "@/components/design-system/primitives";
@@ -27,7 +29,7 @@ const SCROLL_TO_MODEL_MS = 650;
 const MARQUEE_DURATION_S = 48;
 
 const ARIA_LABEL =
-  "Model choice per message: Auto routes by task through the gateway catalog, with zero-data-retention indicators on supported models.";
+  "Model choice per message: Auto chooses from the gateway catalog below; tap Auto to preview a selection. Zero-data-retention indicators mark supported models.";
 
 const gatewayModels = ChatModels.filter((model) => model.id !== AUTO_CHAT_MODEL_ID);
 
@@ -46,15 +48,17 @@ export function WelcomeModelSelectionIllustration({
   className,
 }: WelcomeModelSelectionIllustrationProps) {
   const reduce = useReducedMotion();
+  const pageVisible = usePageVisible();
   const rootRef = useRef<HTMLDivElement>(null);
+  const inView = useWelcomeInView(rootRef);
   const viewportRef = useRef<HTMLDivElement>(null);
   const trackRef = useRef<HTMLDivElement>(null);
+  const segmentRef = useRef<HTMLDivElement>(null);
   const chipRefs = useRef<(HTMLSpanElement | null)[]>([]);
   const timersRef = useRef<ReturnType<typeof setTimeout>[]>([]);
   const lastRoutedIdRef = useRef<string | null>(null);
   const rafRef = useRef<number | null>(null);
-  const loopStartRef = useRef(0);
-  const loopOffsetRef = useRef(0);
+  const lastFrameRef = useRef(0);
 
   const marqueeX = useMotionValue(0);
 
@@ -78,38 +82,51 @@ export function WelcomeModelSelectionIllustration({
       cancelAnimationFrame(rafRef.current);
       rafRef.current = null;
     }
-    loopOffsetRef.current = marqueeX.get();
-  }, [marqueeX]);
+  }, []);
 
-  const halfTrackWidth = useCallback(() => {
-    const track = trackRef.current;
-    if (!track) return 0;
+  const segmentWidth = useCallback(() => {
+    return segmentRef.current?.offsetWidth ?? 0;
+  }, []);
 
-    return track.scrollWidth / 2;
+  const normalizeOffset = useCallback((x: number, width: number) => {
+    if (width <= 0) return x;
+
+    let normalized = x % width;
+    if (normalized > 0) normalized -= width;
+
+    return normalized;
   }, []);
 
   const startMarqueeLoop = useCallback(() => {
     stopMarqueeLoop();
-    loopStartRef.current = performance.now() - (loopOffsetRef.current / halfTrackWidth()) * MARQUEE_DURATION_S * 1000;
+    lastFrameRef.current = performance.now();
+
+    const width = segmentWidth();
+    if (width > 0) {
+      marqueeX.set(normalizeOffset(marqueeX.get(), width));
+    }
 
     const tick = (now: number) => {
-      const width = halfTrackWidth();
-      if (width <= 0) {
+      const segment = segmentWidth();
+      if (segment <= 0) {
         rafRef.current = requestAnimationFrame(tick);
         return;
       }
 
-      const elapsed = (now - loopStartRef.current) / 1000;
-      const progress = (elapsed / MARQUEE_DURATION_S) % 1;
-      const x = -progress * width;
+      const dt = Math.min((now - lastFrameRef.current) / 1000, 0.05);
+      lastFrameRef.current = now;
 
-      loopOffsetRef.current = x;
+      const velocity = segment / MARQUEE_DURATION_S;
+      let x = marqueeX.get() - velocity * dt;
+
+      while (x <= -segment) x += segment;
+
       marqueeX.set(x);
       rafRef.current = requestAnimationFrame(tick);
     };
 
     rafRef.current = requestAnimationFrame(tick);
-  }, [halfTrackWidth, marqueeX, stopMarqueeLoop]);
+  }, [marqueeX, normalizeOffset, segmentWidth, stopMarqueeLoop]);
 
   const scrollMarqueeToModel = useCallback(
     async (modelId: string) => {
@@ -125,7 +142,6 @@ export function WelcomeModelSelectionIllustration({
       const chipCenter = chip.offsetLeft + chip.offsetWidth / 2;
       const targetX = viewportCenter - chipCenter;
 
-      loopOffsetRef.current = targetX;
       await animate(marqueeX, targetX, {
         duration: SCROLL_TO_MODEL_MS / 1000,
         ease: [0.22, 1, 0.36, 1],
@@ -138,7 +154,7 @@ export function WelcomeModelSelectionIllustration({
   useEffect(() => clearTimers, [clearTimers]);
 
   useEffect(() => {
-    if (reduce || marqueePaused || heroPhase !== "idle") {
+    if (reduce || !inView || !pageVisible || marqueePaused || heroPhase !== "idle") {
       stopMarqueeLoop();
       return;
     }
@@ -146,7 +162,26 @@ export function WelcomeModelSelectionIllustration({
     startMarqueeLoop();
 
     return stopMarqueeLoop;
-  }, [heroPhase, marqueePaused, reduce, startMarqueeLoop, stopMarqueeLoop]);
+  }, [
+    heroPhase,
+    inView,
+    marqueePaused,
+    pageVisible,
+    reduce,
+    startMarqueeLoop,
+    stopMarqueeLoop,
+  ]);
+
+  useEffect(() => {
+    if (!inView || reduce) {
+      clearTimers();
+      stopMarqueeLoop();
+      setHeroPhase("idle");
+      setResolvedModel(null);
+      setCenteredModelId(null);
+      setMarqueePaused(false);
+    }
+  }, [clearTimers, inView, reduce, stopMarqueeLoop]);
 
   const handleAutoClick = useCallback(() => {
     if (reduce || heroPhase !== "idle") return;
@@ -182,10 +217,7 @@ export function WelcomeModelSelectionIllustration({
     stopMarqueeLoop,
   ]);
 
-  const marqueeItems = useMemo(
-    () => (reduce ? gatewayModels : [...gatewayModels, ...gatewayModels]),
-    [reduce]
-  );
+  const marqueeCopies = reduce ? 1 : 3;
 
   return (
     <div
@@ -199,51 +231,50 @@ export function WelcomeModelSelectionIllustration({
     >
       <p className={cn(sectionLabel, "mb-3")}>Model choice</p>
 
-      <div className={cn(card, "relative overflow-hidden px-3 py-8 sm:px-4 sm:py-10")}>
-        <div className="pointer-events-none absolute inset-x-0 top-[38%] z-10 flex justify-center">
-          <div className="pointer-events-auto flex flex-col items-center gap-2">
-            {heroPhase !== "resolved" ? (
-              <p className="text-[11px] font-light tracking-wide text-muted-foreground/60">
-                Routes by task · pick per message
-              </p>
-            ) : resolvedModel ? (
-              <motion.p
-                animate={{ opacity: 1, y: 0 }}
-                className="text-[11px] text-muted-foreground/80"
-                initial={{ opacity: 0, y: 4 }}
-                transition={{ duration: 0.25 }}
-              >
-                Routed to {resolvedModel.name}
-              </motion.p>
-            ) : null}
-
-            <button
+      <div className={cn(card, "relative flex flex-col overflow-hidden px-3 py-6 sm:px-4 sm:py-8")}>
+        <div className="flex flex-col items-center gap-2.5 px-2 pt-1 text-center">
+          <div className="relative flex min-h-11 w-full max-w-[18rem] items-center justify-center">
+            <p
               className={cn(
-                glass({ opaque: true, border: "all" }),
-                "rounded-full border border-border/60 px-4 py-2 text-sm font-medium text-foreground shadow-sm transition-shadow",
-                "hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/40",
-                heroPhase === "resolved" && "ring-1 ring-accent/25"
+                "max-w-[15rem] text-xs leading-relaxed text-muted-foreground/75 transition-opacity duration-200",
+                heroPhase === "resolved" ? "opacity-0" : "opacity-100"
               )}
-              disabled={reduce || heroPhase !== "idle"}
-              type="button"
-              onClick={handleAutoClick}
             >
-              {heroPhase === "routing" ? (
-                <ShinyText
-                  as="span"
-                  className="text-sm font-medium"
-                  speed={1.1}
-                  text="Routing…"
-                />
-              ) : (
-                AUTO_CHAT_MODEL.name
-              )}
-            </button>
+              Handles model choice per message, so you don&apos;t have to
+            </p>
+            {heroPhase === "resolved" && resolvedModel ? (
+              <p className="absolute max-w-[18rem] px-2 text-xs text-muted-foreground/80">
+                Chose {resolvedModel.name}
+              </p>
+            ) : null}
           </div>
+
+          <button
+            className={cn(
+              glass({ opaque: true, border: "all" }),
+              "min-w-[5.25rem] rounded-full border border-border/60 px-4 py-2 text-sm font-medium text-foreground shadow-sm transition-shadow",
+              "hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/40",
+              heroPhase === "resolved" && "ring-1 ring-accent/25"
+            )}
+            disabled={reduce || heroPhase !== "idle"}
+            type="button"
+            onClick={handleAutoClick}
+          >
+            {heroPhase === "routing" ? (
+              <ShinyText
+                as="span"
+                className="text-sm font-medium"
+                speed={1.1}
+                text="Choosing…"
+              />
+            ) : (
+              AUTO_CHAT_MODEL.name
+            )}
+          </button>
         </div>
 
         <div
-          className="relative mt-14 sm:mt-16"
+          className="mt-10 sm:mt-12"
           onMouseEnter={() => {
             if (heroPhase === "idle") {
               setMarqueePaused(true);
@@ -254,6 +285,9 @@ export function WelcomeModelSelectionIllustration({
             if (heroPhase === "idle") setMarqueePaused(false);
           }}
         >
+          <p className="mb-3 text-center text-[10px] font-light uppercase tracking-[0.14em] text-muted-foreground/45">
+            Available models
+          </p>
           <div
             ref={viewportRef}
             className={cn(
@@ -268,26 +302,30 @@ export function WelcomeModelSelectionIllustration({
             ) : (
               <motion.div
                 ref={trackRef}
-                className="flex w-max items-center gap-x-6 gap-y-2 px-2 will-change-transform"
+                className="flex w-max will-change-transform"
                 style={{ x: marqueeX }}
               >
-                {marqueeItems.map((model, index) => {
-                  const isFirstCopy = index < gatewayModels.length;
-                  const modelIndex = index % gatewayModels.length;
-                  const highlighted =
-                    centeredModelId === model.id && heroPhase === "resolved";
-
-                  return (
-                    <MarqueeModelChip
-                      key={`${model.id}-${index}`}
-                      ref={(node) => {
-                        if (isFirstCopy) chipRefs.current[modelIndex] = node;
-                      }}
-                      highlighted={highlighted}
-                      model={model}
-                    />
-                  );
-                })}
+                {Array.from({ length: marqueeCopies }, (_, copyIndex) => (
+                  <div
+                    key={`segment-${copyIndex}`}
+                    ref={copyIndex === 0 ? segmentRef : undefined}
+                    aria-hidden={copyIndex > 0}
+                    className="flex shrink-0 items-center gap-x-6 pr-6"
+                  >
+                    {gatewayModels.map((model, modelIndex) => (
+                      <MarqueeModelChip
+                        key={`${copyIndex}-${model.id}`}
+                        ref={(node) => {
+                          if (copyIndex === 0) chipRefs.current[modelIndex] = node;
+                        }}
+                        highlighted={
+                          centeredModelId === model.id && heroPhase === "resolved"
+                        }
+                        model={model}
+                      />
+                    ))}
+                  </div>
+                ))}
               </motion.div>
             )}
           </div>
@@ -307,7 +345,7 @@ const MarqueeModelChip = forwardRef<
       className={cn(
         "inline-flex shrink-0 items-center gap-1.5 text-xs transition-all duration-300",
         highlighted
-          ? "scale-105 font-medium text-foreground"
+          ? "font-medium text-foreground"
           : "font-light text-muted-foreground/55"
       )}
     >

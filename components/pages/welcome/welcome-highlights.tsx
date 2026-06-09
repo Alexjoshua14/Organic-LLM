@@ -13,7 +13,10 @@ export function WelcomeHighlights({ className }: WelcomeHighlightsProps) {
   return (
     <section
       aria-labelledby="welcome-highlights-heading"
-      className={cn("pt-4 pb-16 sm:pt-6 sm:pb-24", className)}
+      className={cn(
+        "pt-4 pb-16 sm:pt-6 sm:pb-24 [content-visibility:auto] [contain-intrinsic-size:auto_2400px]",
+        className
+      )}
     >
       <div className="mx-auto w-full max-w-6xl px-5 sm:px-8 lg:px-12">
         <header className="mb-12 max-w-xl text-left">

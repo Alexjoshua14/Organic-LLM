@@ -10,6 +10,8 @@ interface LiquidChromeProps extends React.HTMLAttributes<HTMLDivElement> {
   frequencyX?: number;
   frequencyY?: number;
   interactive?: boolean;
+  /** When true, the RAF loop continues but skips GPU renders. */
+  paused?: boolean;
 }
 
 export const LiquidChrome: React.FC<LiquidChromeProps> = ({
@@ -19,9 +21,12 @@ export const LiquidChrome: React.FC<LiquidChromeProps> = ({
   frequencyX = 3,
   frequencyY = 2,
   interactive = true,
+  paused = false,
   ...props
 }) => {
   const containerRef = useRef<HTMLDivElement | null>(null);
+  const pausedRef = useRef(paused);
+  pausedRef.current = paused;
 
   useEffect(() => {
     if (!containerRef.current) return;
@@ -153,6 +158,7 @@ export const LiquidChrome: React.FC<LiquidChromeProps> = ({
 
     function update(t: number) {
       animationId = requestAnimationFrame(update);
+      if (pausedRef.current) return;
       program.uniforms.uTime.value = t * 0.001 * speed;
       renderer.render({ scene: mesh });
     }
