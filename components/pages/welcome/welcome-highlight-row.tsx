@@ -3,14 +3,18 @@
 import Link from "next/link";
 import { motion } from "framer-motion";
 
-import { WelcomeHighlightVisual } from "./welcome-highlight-visual";
+import {
+  WelcomeHighlightVisual,
+  type WelcomeVisualImageSrc,
+} from "./welcome-highlight-visual";
 
 import { useLandingMotion } from "@/components/pages/use-landing-motion";
 import type { WelcomeHighlightItem } from "@/lib/welcome/copy";
+import { welcomeHighlightFrameClass } from "@/lib/welcome/visual-aspect";
 import { cn } from "@/lib/utils";
 
 type WelcomeHighlightRowProps = {
-  item: WelcomeHighlightItem & { imageSrc?: string };
+  item: WelcomeHighlightItem & { imageSrc?: WelcomeVisualImageSrc };
 };
 
 export function WelcomeHighlightRow({ item }: WelcomeHighlightRowProps) {
@@ -43,7 +47,7 @@ export function WelcomeHighlightRow({ item }: WelcomeHighlightRowProps) {
           </p>
         ) : null}
       </div>
-      <div className="w-full max-w-[18rem] shrink-0 sm:max-w-[20rem]">
+      <div className={welcomeHighlightFrameClass}>
         <WelcomeHighlightVisual
           aspect="highlight"
           className="w-full max-w-none"

@@ -63,6 +63,7 @@ export const welcomeCopy = {
           id: "main",
           title: "Main chat",
           body: "Your daily driver—web search, memory retrieval, Gen UI in-thread, and encrypted persistence across threads.",
+          imageSrc: "/images/main-chat.png",
           visualPlaceholder: {
             label: "Screenshot placeholder",
             hint: "Main chat thread with memory and tools visible",
@@ -72,6 +73,7 @@ export const welcomeCopy = {
           id: "arcadia",
           title: "Arcadia",
           body: "Sandbox lab on the same thread spine. Experiment with concise, tool-forward replies; stable ideas graduate to main chat.",
+          imageSrc: "/images/mermaid.png",
           visualPlaceholder: {
             label: "Screenshot placeholder",
             hint: "Arcadia — Mermaid, kanban, or Gen UI in thread",
@@ -91,6 +93,7 @@ export const welcomeCopy = {
     rabbitHoles: {
       title: "Rabbit holes",
       body: "Branching research sessions—generated nodes, cited sources, browse and resume where you left off.",
+      imageSrc: ["/images/rabbit-holes-1.png", "/images/rabbit-holes-2.png"],
       visualPlaceholder: {
         label: "Screenshot placeholder",
         hint: "Rabbit hole browse view or node graph",
@@ -145,6 +148,7 @@ export const welcomeCopy = {
         body: "The assistant can render answer cards, decision matrices, plan timelines, and live tool states in-thread—not only markdown walls. You see what ran and what it returned.",
         link: { href: "/showcase/anatomy", label: "Anatomy of a response" },
         reverse: true,
+        imageSrc: "/images/gen-ui-kanban.png",
         visualPlaceholder: {
           label: "Screenshot placeholder",
           hint: "In-thread Gen UI block from chat or showcase",

@@ -83,6 +83,7 @@ export function WelcomeFeatures({ className }: WelcomeFeaturesProps) {
                       aspect="feature"
                       id={modePlaceholderId[mode.id] ?? `feature-${mode.id}`}
                       imageAlt={mode.visualPlaceholder.hint}
+                      imageSrc={"imageSrc" in mode ? mode.imageSrc : undefined}
                       placeholder={mode.visualPlaceholder}
                       size="mode"
                     />
@@ -95,6 +96,7 @@ export function WelcomeFeatures({ className }: WelcomeFeaturesProps) {
           <div className="grid shrink-0 grid-cols-1 gap-4 sm:grid-cols-2">
             <WelcomeFeatureCard
               body={rabbitHoles.body}
+              imageSrc={rabbitHoles.imageSrc}
               placeholderId="feature-rabbitholes"
               title={rabbitHoles.title}
               visualPlaceholder={rabbitHoles.visualPlaceholder}

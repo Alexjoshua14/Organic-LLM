@@ -1,6 +1,9 @@
 "use client";
 
-import { WelcomeHighlightVisual } from "./welcome-highlight-visual";
+import {
+  WelcomeHighlightVisual,
+  type WelcomeVisualImageSrc,
+} from "./welcome-highlight-visual";
 
 import { glass } from "@/components/design-system/primitives";
 import { cn } from "@/lib/utils";
@@ -10,7 +13,7 @@ type WelcomeFeatureCardProps = {
   body: string;
   placeholderId: string;
   visualPlaceholder: { label: string; hint: string };
-  imageSrc?: string;
+  imageSrc?: WelcomeVisualImageSrc;
   className?: string;
 };
 
