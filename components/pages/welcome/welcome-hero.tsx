@@ -50,7 +50,7 @@ export function WelcomeHero() {
 
         <div className="relative z-10 flex w-full flex-col">
           <section className="relative flex min-h-dvh flex-col px-5 pb-16 pt-16 sm:px-8 sm:pb-20 sm:pt-20 lg:px-12 lg:pb-24 lg:pt-24">
-            <div className="relative mx-auto flex w-full max-w-5xl flex-1 flex-col justify-center py-8">
+            <div className="relative mx-auto flex w-full max-w-6xl flex-1 flex-col justify-center py-8">
               <div
                 aria-hidden="true"
                 className={cn(

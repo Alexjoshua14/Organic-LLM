@@ -19,15 +19,13 @@ export function WelcomeHighlightRow({ item }: WelcomeHighlightRowProps) {
 
   return (
     <motion.article
-      className="grid grid-cols-1 items-center gap-8 md:grid-cols-2 md:gap-12 lg:gap-16"
+      className={cn(
+        "flex flex-col items-start gap-8 sm:flex-row sm:items-center sm:gap-12 lg:gap-16",
+        reversed && "sm:flex-row-reverse"
+      )}
       {...(sectionReveal ?? {})}
     >
-      <div
-        className={cn(
-          "min-w-0 text-left",
-          reversed ? "md:col-start-2 md:row-start-1" : "md:col-start-1"
-        )}
-      >
+      <div className="min-w-0 flex-1 text-left">
         <h3 className="font-commissioner text-2xl font-light tracking-tight text-foreground sm:text-[1.65rem]">
           {item.title}
         </h3>
@@ -47,10 +45,8 @@ export function WelcomeHighlightRow({ item }: WelcomeHighlightRowProps) {
       </div>
       <div
         className={cn(
-          "min-w-0 md:flex",
-          reversed
-            ? "md:col-start-1 md:row-start-1 md:justify-start"
-            : "md:col-start-2 md:justify-end"
+          "w-full shrink-0 sm:flex sm:w-auto sm:flex-1",
+          reversed ? "sm:justify-start" : "sm:justify-end"
         )}
       >
         <WelcomeHighlightVisual

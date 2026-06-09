@@ -17,7 +17,7 @@ export function WelcomePageFooter({ className }: WelcomePageFooterProps) {
     <footer
       className={cn("py-8 sm:py-10", className)}
     >
-      <div className="mx-auto w-full max-w-5xl px-5 sm:px-8 lg:px-12">
+      <div className="mx-auto w-full max-w-6xl px-5 sm:px-8 lg:px-12">
         <p className="font-commissioner text-base font-light tracking-tight text-foreground">
           {footer.organization}
         </p>

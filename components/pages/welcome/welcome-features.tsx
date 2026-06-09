@@ -29,13 +29,10 @@ export function WelcomeFeatures({ className }: WelcomeFeaturesProps) {
   return (
     <section
       aria-labelledby="welcome-features-heading"
-      className={cn(
-        "border-t border-border/40 py-12 sm:py-14 md:flex md:min-h-dvh md:flex-col md:justify-center",
-        className
-      )}
+      className={cn("py-12 pb-16 sm:py-14 sm:pb-20", className)}
       {...(sectionReveal ?? {})}
     >
-      <div className="mx-auto flex w-full max-w-5xl flex-col px-5 sm:px-8 md:min-h-0 md:flex-1 md:justify-center lg:px-12">
+      <div className="mx-auto flex w-full max-w-6xl flex-col px-5 sm:px-8 lg:px-12">
         <header className="mb-6 max-w-2xl shrink-0 text-left sm:mb-8">
           <h2
             className="font-commissioner text-2xl font-light tracking-tight text-foreground sm:text-3xl"
@@ -48,7 +45,7 @@ export function WelcomeFeatures({ className }: WelcomeFeaturesProps) {
           </p>
         </header>
 
-        <div className="flex min-h-0 flex-col gap-4 md:max-h-[calc(100dvh-10rem)] md:flex-1">
+        <div className="flex flex-col gap-4">
           <div
             className={cn(
               "flex shrink-0 flex-col gap-3 rounded-2xl border border-border/50 p-4 sm:p-5",
