@@ -19,6 +19,8 @@ interface AdaptiveLiquidChromeProps {
   to100TransitionMs?: number;
   /** Called when dimmed state changes (e.g. for realtime display / debugging). */
   onDimChange?: (dimmed: boolean) => void;
+  /** `viewport` fills 100dvh; `parent` fills the positioned parent (full scroll height). */
+  cover?: "viewport" | "parent";
 }
 
 type BrightnessState = "dimmed" | "to65" | "rest";
@@ -45,6 +47,7 @@ export default function AdaptiveLiquidChrome({
   to65TransitionMs = 1200, // quickish to 65% when no longer active (still slower than dim)
   to100TransitionMs = 2800, // slow the rest of the way to full, with ease
   onDimChange,
+  cover = "viewport",
 }: AdaptiveLiquidChromeProps) {
   const { resolvedTheme } = useTheme();
   const [brightnessState, setBrightnessState] = useState<BrightnessState>("rest");
@@ -208,11 +211,14 @@ export default function AdaptiveLiquidChrome({
         ? BRIGHTEN_65 * baseOpacity
         : baseOpacity;
 
+  const fillParent = cover === "parent";
+
   return (
     <div
       style={{
-        width: "100dvw",
-        height: "100dvh",
+        width: "100%",
+        height: fillParent ? "100%" : "100dvh",
+        minHeight: fillParent ? "100%" : undefined,
         position: "absolute",
         top: 0,
         left: 0,

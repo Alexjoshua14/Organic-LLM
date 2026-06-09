@@ -266,6 +266,27 @@ body.font-theme-commissioner {
   font-family: var(--font-commissioner), sans-serif;
 }
 
+/* Welcome hero — accent gradient drift + bloom breathe */
+@keyframes welcome-accent-shift {
+  0%,
+  100% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+}
+
+@keyframes welcome-bloom-breathe {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.88;
+  }
+}
+
 /* Sandbox gateway button — organic motion */
 @keyframes sandbox-border-shift {
   0%,

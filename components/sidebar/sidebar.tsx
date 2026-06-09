@@ -1,6 +1,6 @@
 import { Search } from "lucide-react";
 import { Input } from "@heroui/input";
-import { SignedIn, SignedOut, SignInButton, SignOutButton, SignUpButton } from "@clerk/nextjs";
+import { SignedIn, SignedOut, SignOutButton } from "@clerk/nextjs";
 import Link from "next/link";
 import { Suspense } from "react";
 
@@ -10,6 +10,7 @@ import { SidebarExperienceRail } from "./sidebar-experience-rail";
 import { SidebarProjectLink } from "./sidebar-project-link";
 import { PrototypesSidebarContent, PrototypesSidebarFallback } from "./prototypes-sidebar-content";
 
+import { SignedOutAuthButtons } from "@/components/pages/signed-out-auth-buttons";
 import {
   Sidebar as ShadcnSidebar,
   SidebarContent,
@@ -17,8 +18,8 @@ import {
   SidebarGroup,
   SidebarGroupContent,
   SidebarHeader,
-  SidebarMenuButton,
 } from "@/components/third-party/ui/sidebar";
+import { welcomeCopy } from "@/lib/welcome/copy";
 
 function NormalSidebarContent() {
   return (
@@ -72,14 +73,11 @@ export function Sidebar() {
       <SidebarContent className="bg-background-secondary subpixel-antialiased flex flex-col overflow-hidden ">
         <SignedOut>
           <SidebarGroup>
-            <SidebarGroupContent className="w-full flex flex-col gap-4 items-center justify-center">
-              <SidebarMenuButton asChild>
-                <SignInButton />
-              </SidebarMenuButton>
-
-              <SidebarMenuButton asChild>
-                <SignUpButton />
-              </SidebarMenuButton>
+            <SidebarGroupContent className="flex w-full flex-col items-center justify-center gap-4 px-4 py-6">
+              <p className="text-center text-xs leading-relaxed text-muted-foreground">
+                {welcomeCopy.sidebar}
+              </p>
+              <SignedOutAuthButtons size="compact" />
             </SidebarGroupContent>
           </SidebarGroup>
         </SignedOut>
