@@ -6,10 +6,9 @@
  * Shared components (MemoryLens, MemoryLensCard, etc.) update automatically.
  */
 
-import Link from "next/link";
-
 import AdaptiveLiquidChrome from "@/components/background/AdaptiveLiquidChrome";
 import Page from "@/components/layout/page";
+import { PageContentFrame, PageNavBack } from "@/components/layout/page-content-frame";
 import { MemoryLens } from "@/components/memory/memory-lens";
 import { MemoryLensCard } from "@/components/memory/memory-lens-card";
 import { MemoryEphemeralCards } from "@/components/memory/memory-ephemeral-cards";
@@ -27,15 +26,10 @@ export default function MemoryShowcasePage() {
   return (
     <Page transparentBackground className="overflow-hidden">
       <AdaptiveLiquidChrome dimIntensity={0.45} />
-      <div className="relative z-10 w-full max-w-5xl mx-auto p-6 pb-16 overflow-y-auto h-full">
-        <nav className="mb-8">
-          <Link
-            className="text-sm text-muted-foreground hover:text-foreground transition-colors select-none"
-            href="/showcase"
-          >
-            ← Showcase
-          </Link>
-        </nav>
+      <PageContentFrame className="relative z-10 h-full overflow-y-auto pb-16">
+        <PageNavBack className="mb-8" href="/showcase">
+          ← Showcase
+        </PageNavBack>
 
         <div className="mb-10 text-center sm:text-left">
           <h1 className="mb-2 font-commissioner text-3xl font-light tracking-tight text-foreground sm:text-4xl">
@@ -128,7 +122,7 @@ export default function MemoryShowcasePage() {
             </div>
           </PhoneMockup>
         </section>
-      </div>
+      </PageContentFrame>
     </Page>
   );
 }

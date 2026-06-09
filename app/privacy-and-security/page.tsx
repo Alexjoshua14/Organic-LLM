@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useRef } from "react";
 
 import Page from "@/components/layout/page";
+import { PageTopBar } from "@/components/layout/page-top-bar";
 import { ReturnButton } from "@/components/ReturnButton";
 import { TermWithDefinition } from "@/components/blog/term-with-definition";
 import { DecryptedText } from "@/components/privacy/DecryptedText";
@@ -24,11 +25,7 @@ export default function PrivacyAndSecurityPage() {
 
   return (
     <Page>
-      <div className="flex w-full items-center justify-between border-b border-border pl-20 pr-4 py-3 md:pl-8 md:pr-8">
-        <ReturnButton />
-        <h1 className="text-lg font-semibold text-foreground">Privacy & Security</h1>
-        <div aria-hidden className="w-20" />
-      </div>
+      <PageTopBar leading={<ReturnButton />} title="Privacy & Security" />
       <div
         ref={scrollContainerRef}
         className="flex-1 w-full overflow-auto scroll-smooth px-4 py-6 md:px-8"
