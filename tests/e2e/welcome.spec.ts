@@ -53,6 +53,9 @@ test.describe("Welcome hero (signed out)", () => {
     await expect(page.getByRole("heading", { name: "Pick up where you left off" })).toBeVisible();
     await page.getByRole("heading", { name: "Pick up where you left off" }).scrollIntoViewIfNeeded();
     await expect(page.locator('[data-illustration-id="streaming"]')).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Your model, your turn" })).toBeVisible();
+    await page.getByRole("heading", { name: "Your model, your turn" }).scrollIntoViewIfNeeded();
+    await expect(page.locator('[data-illustration-id="models"]')).toBeVisible();
   });
 });
 

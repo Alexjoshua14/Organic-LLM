@@ -135,7 +135,7 @@ export const welcomeCopy = {
       {
         id: "models",
         title: "Your model, your turn",
-        body: "Choose a model per thread from the gateway catalog, or use Auto to resolve by task. Supported models can show a zero-data-retention indicator when available.",
+        body: "Choose a model per message from the gateway catalog, or use Auto to resolve by task. Supported models can show a zero-data-retention indicator when available.",
         reverse: false,
         visualPlaceholder: {
           label: "Screenshot placeholder",
