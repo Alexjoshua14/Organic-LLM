@@ -50,6 +50,9 @@ test.describe("Welcome hero (signed out)", () => {
 
     await expect(page.getByRole("heading", { name: "Built for work that lasts" })).toBeVisible();
     await expect(page.getByRole("heading", { name: "Encrypted at rest" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Pick up where you left off" })).toBeVisible();
+    await page.getByRole("heading", { name: "Pick up where you left off" }).scrollIntoViewIfNeeded();
+    await expect(page.locator('[data-illustration-id="streaming"]')).toBeVisible();
   });
 });
 
