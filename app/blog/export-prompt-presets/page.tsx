@@ -1,9 +1,8 @@
 import fs from "fs";
 import path from "path";
 
-import Link from "next/link";
-
 import { BlogProse } from "@/components/blog/blog-prose";
+import { PageContentFrame, PageNavBack } from "@/components/layout/page-content-frame";
 import { blogArticlePage } from "@/lib/rabbit-holes/designTokens";
 
 const DOC_PATH = path.join(process.cwd(), "content/blog/export-prompt-presets.md");
@@ -20,15 +19,13 @@ export default function ExportPromptPresetsPostPage() {
   const content = getContent();
 
   return (
-    <div className="w-full max-w-3xl mx-auto px-6 py-8">
-      <nav className={blogArticlePage.navToContent}>
-        <Link className="text-sm text-foreground hover:underline" href="/blog">
-          ← Blog
-        </Link>
-      </nav>
+    <PageContentFrame maxWidth="3xl">
+      <PageNavBack className={blogArticlePage.navToContent} href="/blog">
+        ← Blog
+      </PageNavBack>
       <article className="p-6 sm:p-8 text-foreground">
         <BlogProse content={content} />
       </article>
-    </div>
+    </PageContentFrame>
   );
 }

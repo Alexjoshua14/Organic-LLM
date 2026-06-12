@@ -30,6 +30,7 @@ import { glass } from "@/components/design-system/primitives";
 import { Conversation } from "@/components/third-party/ai-elements/conversation";
 import { ChatThread } from "@/components/chat/chat-thread";
 import Page from "@/components/layout/page";
+import { clusterInsetX, triggerInsetX, triggerInsetY } from "@/lib/layout/nav-chrome";
 import { Button } from "@/components/third-party/ui/button";
 import { isEditableEventTarget } from "@/lib/dom/is-editable-event-target";
 import { layout as layoutTokens } from "@/lib/rabbit-holes/designTokens";
@@ -271,12 +272,18 @@ export function MorphChatRabbitDemo() {
       <div
         className={cn(
           "relative z-10 flex h-full min-h-0 w-full flex-col",
-          demoFullscreen ? "min-h-0 flex-1 pt-0" : "pt-4"
+          demoFullscreen ? "min-h-0 flex-1 pt-0" : triggerInsetY
         )}
       >
         {!demoFullscreen ? (
           <>
-            <nav className="flex shrink-0 flex-wrap items-center gap-x-4 gap-y-1 px-4">
+            <nav
+              className={cn(
+                "flex shrink-0 flex-wrap items-center gap-x-4 gap-y-1",
+                triggerInsetX,
+                clusterInsetX
+              )}
+            >
               <Link
                 className="text-sm text-muted-foreground transition-colors select-none hover:text-foreground"
                 href="/sandbox/prototypes"

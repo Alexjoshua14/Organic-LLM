@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import { useCallback, useState } from "react";
 
 import AdaptiveLiquidChrome from "@/components/background/AdaptiveLiquidChrome";
@@ -10,6 +9,7 @@ import { ShowcaseOverview } from "@/components/showcase/ShowcaseOverview";
 import { StageMiniMap } from "@/components/showcase/StageMiniMap";
 import { StageRail } from "@/components/showcase/StageRail";
 import Page from "@/components/layout/page";
+import { PageContentFrame, PageNavBack } from "@/components/layout/page-content-frame";
 import { demoTrace } from "@/lib/showcase/demo-trace";
 
 const THESIS =
@@ -26,16 +26,12 @@ export default function AnatomyShowcasePage() {
   return (
     <Page transparentBackground className="overflow-hidden">
       <AdaptiveLiquidChrome dimIntensity={0.45} />
-      <div className="relative z-10 mx-auto flex h-full w-full max-w-6xl flex-col overflow-hidden">
-        <div className="min-h-0 flex-1 overflow-y-auto px-5 py-6 sm:px-8 sm:py-8">
-          <nav className="mb-6">
-            <Link
-              className="text-sm text-muted-foreground transition-colors hover:text-foreground select-none"
-              href="/showcase"
-            >
-              ← Showcase
-            </Link>
-          </nav>
+      <PageContentFrame
+        className="relative z-10 flex h-full flex-col overflow-hidden pb-0"
+        maxWidth="6xl"
+      >
+        <div className="min-h-0 flex-1 overflow-y-auto">
+          <PageNavBack href="/showcase">← Showcase</PageNavBack>
 
           <ShowcaseOverview placement="intro" />
 
@@ -64,7 +60,7 @@ export default function AnatomyShowcasePage() {
             </div>
           </div>
         </div>
-      </div>
+      </PageContentFrame>
     </Page>
   );
 }

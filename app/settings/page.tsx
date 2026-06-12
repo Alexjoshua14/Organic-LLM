@@ -7,6 +7,7 @@ import { Switch } from "@heroui/switch";
 import { X } from "lucide-react";
 
 import Page from "@/components/layout/page";
+import { PageTopBar } from "@/components/layout/page-top-bar";
 import { ReturnButton } from "@/components/ReturnButton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/third-party/ui/tabs";
 import { getProfile } from "@/data/supabase/profiles";
@@ -88,11 +89,7 @@ export default function SettingsPage() {
 
   return (
     <Page>
-      <div className="flex w-full items-center justify-between border-b border-border pl-20 pr-4 py-3 md:pl-8 md:pr-8">
-        <ReturnButton />
-        <h1 className="text-lg font-semibold text-foreground">{SETTINGS_PAGE_TITLE}</h1>
-        <div aria-hidden className="w-20" />
-      </div>
+      <PageTopBar leading={<ReturnButton />} title={SETTINGS_PAGE_TITLE} />
       <div className="flex-1 w-full overflow-auto px-4 py-6 md:px-8">
         <Tabs className="w-full max-w-2xl mx-auto" defaultValue="profile">
           <TabsList

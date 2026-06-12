@@ -3,7 +3,6 @@
 import type { Thread } from "@/lib/schemas/chat";
 import type { WineEntry } from "@/lib/schemas/wine-line-list";
 
-import Link from "next/link";
 import { useRef, useState, useMemo, useEffect, useCallback } from "react";
 import { useChat } from "@ai-sdk/react";
 import { DefaultChatTransport, type UIMessage } from "ai";
@@ -14,6 +13,7 @@ import { updateWineListMessage } from "../actions";
 import { WineLineListStatus } from "./WineLineListStatus";
 import { WineLineListTable } from "./WineLineListTable";
 
+import { PageNavBack } from "@/components/layout/page-content-frame";
 import { ChatModel, DEFAULT_CHAT_MODEL } from "@/lib/schemas/chat";
 import { getWinesFromMessage, buildWineListMessage } from "@/lib/schemas/wine-line-list";
 import { CoreInput } from "@/components/chat/core-input";
@@ -137,16 +137,11 @@ export function LineListShell({ chatData }: LineListShellProps) {
   );
 
   return (
-    <div className="relative flex h-full max-h-[calc(100dvh-2rem)] flex-col overflow-hidden pb-42 sm:pt-10">
+    <div className="relative flex h-full max-h-[calc(100dvh-2rem)] flex-col overflow-hidden">
       <div className="grid min-h-0 flex-1 grid-rows-[auto_auto_1fr_2.5rem] gap-0">
-        <nav className="mb-4">
-          <Link
-            className="text-sm text-muted-foreground hover:text-foreground transition-colors"
-            href="/sandbox/prototypes"
-          >
-            ← Prototypes
-          </Link>
-        </nav>
+        <PageNavBack className="mb-4" href="/sandbox/prototypes">
+          ← Prototypes
+        </PageNavBack>
 
         <header className="mb-3">
           <h1 className="text-xl font-semibold tracking-tight text-foreground">Wine line list</h1>

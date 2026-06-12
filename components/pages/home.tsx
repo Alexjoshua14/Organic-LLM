@@ -1,5 +1,5 @@
-import { HomePageShell } from "./home-page-shell";
+import { HomePageRouter } from "./home-page-router";
 
 export default function Home() {
-  return <HomePageShell />;
+  return <HomePageRouter />;
 }

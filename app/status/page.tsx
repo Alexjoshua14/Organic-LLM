@@ -6,6 +6,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 
 import AdaptiveLiquidChrome from "@/components/background/AdaptiveLiquidChrome";
 import Page from "@/components/layout/page";
+import { PageContentFrame } from "@/components/layout/page-content-frame";
 import { StatusCheckCardList } from "@/components/status/status-check-card";
 import { StatusCheckTable } from "@/components/status/status-check-table";
 import { StatusHero } from "@/components/status/status-hero";
@@ -100,13 +101,7 @@ export default function StatusPage() {
           "pb-[max(1rem,env(safe-area-inset-bottom))]"
         )}
       >
-        <div
-          className={cn(
-            "mx-auto flex w-full max-w-3xl flex-1 flex-col lg:max-w-4xl",
-            "pl-20 pr-4 pt-[max(3.25rem,calc(0.75rem+env(safe-area-inset-top)))]",
-            "md:pl-10 md:pr-10 md:pt-12 lg:px-12 lg:pt-14"
-          )}
-        >
+        <PageContentFrame className="flex flex-1 flex-col lg:max-w-4xl" maxWidth="4xl">
           <header className="mb-3 flex w-full flex-wrap items-center justify-between gap-2 border-b border-border/60 pb-3 select-none md:mb-6 md:gap-3 md:pb-4">
             <div className="flex min-w-0 items-center gap-1.5 md:gap-2">
               <Link
@@ -233,7 +228,7 @@ export default function StatusPage() {
             </div>
           )}
           </div>
-        </div>
+        </PageContentFrame>
       </div>
     </Page>
   );

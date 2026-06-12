@@ -2,9 +2,8 @@
 
 import type { ExaSearchResultSource } from "@/lib/exa/types";
 
-import Link from "next/link";
-
 import Page from "@/components/layout/page";
+import { PageContentFrame, PageNavBack } from "@/components/layout/page-content-frame";
 import {
   ChatLoading,
   ChatReasoning,
@@ -118,15 +117,10 @@ function SectionTitle({ children }: { children: React.ReactNode }) {
 export default function PrototypesLLMStatesPage() {
   return (
     <Page>
-      <div className="mx-auto w-full max-w-2xl px-6 py-12 sm:max-w-3xl sm:px-8 sm:py-16">
-        <nav className="mb-12 sm:mb-16">
-          <Link
-            className="text-sm text-muted-foreground hover:text-foreground transition-colors"
-            href="/sandbox/prototypes"
-          >
-            ← Prototypes
-          </Link>
-        </nav>
+      <PageContentFrame maxWidth="4xl">
+        <PageNavBack className="mb-12 sm:mb-16" href="/sandbox/prototypes">
+          ← Prototypes
+        </PageNavBack>
 
         <header className="mb-8 sm:mb-10">
           <h1 className="text-2xl font-semibold tracking-tight text-foreground sm:text-3xl">
@@ -448,7 +442,7 @@ export default function PrototypesLLMStatesPage() {
         <p className="mt-14 text-center text-xs text-muted-foreground sm:mt-20">
           Toggle light/dark to verify states in both themes.
         </p>
-      </div>
+      </PageContentFrame>
     </Page>
   );
 }

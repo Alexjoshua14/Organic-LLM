@@ -9,7 +9,9 @@ const OLLAMA_EMBED_MODEL = process.env.OLLAMA_EMBED_MODEL ?? "nomic-embed-text";
 function ollamaHeaders(): Record<string, string> {
   const headers: Record<string, string> = {};
   const apiKey = process.env.OLLAMA_API_KEY;
+
   if (apiKey) headers.Authorization = `Bearer ${apiKey}`;
+
   return headers;
 }
 
@@ -17,12 +19,14 @@ function configuredModels(): string[] {
   const { model } = getOllamaConfig();
   const plan = getOllamaPlanModel();
   const models = new Set([model, plan, OLLAMA_EMBED_MODEL]);
+
   return [...models];
 }
 
 function displayHost(baseUrl: string): string {
   try {
     const u = new URL(baseUrl);
+
     return u.host;
   } catch {
     return baseUrl;
@@ -61,6 +65,7 @@ export async function checkOllama(): Promise<HealthCheckResult> {
 
         if (!res.ok) {
           const errText = await res.text().catch(() => "");
+
           return {
             ...base,
             status: "down",
@@ -79,7 +84,12 @@ export async function checkOllama(): Promise<HealthCheckResult> {
         const required = configuredModels();
         const missing = required.filter((name) => {
           const baseName = name.split(":")[0];
-          return !available.has(name) && !available.has(baseName) && ![...available].some((a) => a.startsWith(`${baseName}:`));
+
+          return (
+            !available.has(name) &&
+            !available.has(baseName) &&
+            ![...available].some((a) => a.startsWith(`${baseName}:`))
+          );
         });
 
         if (missing.length > 0) {
@@ -101,6 +111,7 @@ export async function checkOllama(): Promise<HealthCheckResult> {
       } catch (error) {
         const latencyMs = Math.round(performance.now() - start);
         const message = error instanceof Error ? error.message : String(error);
+
         return {
           ...base,
           status: "down",
