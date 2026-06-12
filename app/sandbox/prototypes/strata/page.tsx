@@ -3,7 +3,6 @@ import type { UIMessage } from "ai";
 import type { StrataPage } from "@/lib/schemas/strata";
 import type { Thread } from "@/lib/schemas/chat";
 
-import Link from "next/link";
 import { auth } from "@clerk/nextjs/server";
 
 import { StrataAssistantPanel } from "./_components/StrataAssistantPanel";
@@ -14,6 +13,7 @@ import { ensureStrataAgentThread } from "@/data/supabase/strata-agent";
 import { getSupabaseUserId } from "@/data/supabase/profiles";
 import { listStrataPagesCached } from "@/data/supabase/strata";
 import Page from "@/components/layout/page";
+import { PageContentFrame, PageNavBack } from "@/components/layout/page-content-frame";
 import AdaptiveLiquidChrome from "@/components/background/AdaptiveLiquidChrome";
 import { tabTitleMetadata } from "@/lib/metadata/tab-title";
 import { loadChat } from "@/lib/chat/chat-store";
@@ -32,17 +32,10 @@ export default async function StrataBrowserPage() {
     return (
       <Page transparentBackground className="overflow-hidden">
         <AdaptiveLiquidChrome dimIntensity={0.45} />
-        <div className="relative z-10 w-full max-w-5xl mx-auto p-6 overflow-y-auto h-full">
-          <nav className="mb-8">
-            <Link
-              className="text-sm text-muted-foreground hover:text-foreground transition-colors select-none"
-              href="/sandbox/prototypes"
-            >
-              ← Prototypes
-            </Link>
-          </nav>
+        <PageContentFrame className="relative z-10 h-full overflow-y-auto pb-0">
+          <PageNavBack href="/sandbox/prototypes">← Prototypes</PageNavBack>
           <p className="text-destructive">You need to sign in to use Strata.</p>
-        </div>
+        </PageContentFrame>
       </Page>
     );
   }
@@ -54,17 +47,10 @@ export default async function StrataBrowserPage() {
     return (
       <Page transparentBackground className="overflow-hidden">
         <AdaptiveLiquidChrome dimIntensity={0.45} />
-        <div className="relative z-10 w-full max-w-5xl mx-auto p-6 overflow-y-auto h-full">
-          <nav className="mb-8">
-            <Link
-              className="text-sm text-muted-foreground hover:text-foreground transition-colors select-none"
-              href="/sandbox/prototypes"
-            >
-              ← Prototypes
-            </Link>
-          </nav>
+        <PageContentFrame className="relative z-10 h-full overflow-y-auto pb-0">
+          <PageNavBack href="/sandbox/prototypes">← Prototypes</PageNavBack>
           <p className="text-destructive">Could not resolve your profile for Strata.</p>
-        </div>
+        </PageContentFrame>
       </Page>
     );
   }
@@ -110,18 +96,14 @@ export default async function StrataBrowserPage() {
           />
         }
       >
-        <div className="relative z-10 mx-auto flex h-full min-h-0 w-full max-w-5xl flex-col overflow-y-auto p-6">
-          <nav className="mb-6 flex flex-wrap items-center justify-between gap-3">
-            <Link
-              className="text-sm text-muted-foreground transition-colors select-none hover:text-foreground"
-              href="/sandbox/prototypes"
-            >
-              ← Prototypes
-            </Link>
-            <StrataAssistantOpenHint />
-          </nav>
+        <PageContentFrame
+          className="relative z-10 flex h-full min-h-0 flex-col overflow-y-auto pb-0"
+        >
+          <PageNavBack href="/sandbox/prototypes" trailing={<StrataAssistantOpenHint />}>
+            ← Prototypes
+          </PageNavBack>
           <StrataBrowser dbAvailable={dbAvailable} pages={pages} />
-        </div>
+        </PageContentFrame>
       </StrataWorkspace>
     </Page>
   );

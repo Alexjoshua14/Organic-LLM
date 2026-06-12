@@ -19,6 +19,7 @@ import { MorphDemoReactScan } from "./morph-demo-react-scan";
 import AdaptiveLiquidChrome from "@/components/background/AdaptiveLiquidChrome";
 import { glass } from "@/components/design-system/primitives";
 import Page from "@/components/layout/page";
+import { clusterInsetX, triggerInsetX, triggerInsetY } from "@/lib/layout/nav-chrome";
 import { Button } from "@/components/third-party/ui/button";
 import { cn } from "@/lib/utils";
 
@@ -199,8 +200,14 @@ export function MorphInputLayoutDemo() {
           />
         )}
       </MorphLiveMetricsSampler>
-      <div className="relative z-10 flex h-full min-h-0 w-full flex-col pt-4">
-        <nav className="flex shrink-0 flex-wrap items-center gap-x-4 gap-y-1 px-4">
+      <div className={cn("relative z-10 flex h-full min-h-0 w-full flex-col", triggerInsetY)}>
+        <nav
+          className={cn(
+            "flex shrink-0 flex-wrap items-center gap-x-4 gap-y-1",
+            triggerInsetX,
+            clusterInsetX
+          )}
+        >
           <Link
             className="text-sm text-muted-foreground transition-colors select-none hover:text-foreground"
             href="/sandbox/prototypes"

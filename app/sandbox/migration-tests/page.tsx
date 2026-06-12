@@ -3,9 +3,10 @@
 import Link from "next/link";
 import * as Tooltip from "@radix-ui/react-tooltip";
 import { Fragment, useCallback, useState, type ReactNode } from "react";
-import { AlertCircle, ArrowLeft, Info, Loader2 } from "lucide-react";
+import { AlertCircle, Info, Loader2 } from "lucide-react";
 
 import Page from "@/components/layout/page";
+import { PageContentFrame, PageNavBack } from "@/components/layout/page-content-frame";
 import {
   Collapsible,
   CollapsibleContent,
@@ -497,14 +498,10 @@ export default function MemoryMigrationTestsPage() {
   return (
     <Page>
       <Tooltip.Provider delayDuration={250} skipDelayDuration={0}>
-      <div className="mx-auto w-full max-w-5xl px-5 py-5 pb-14">
-        <Link
-          className="inline-flex items-center gap-2 text-sm text-muted-foreground transition-colors duration-150 hover:text-foreground mb-4"
-          href="/sandbox"
-        >
-          <ArrowLeft className="size-4" />
-          Sandbox
-        </Link>
+      <PageContentFrame maxWidth="5xl">
+        <PageNavBack className="mb-4" href="/sandbox">
+          ← Sandbox
+        </PageNavBack>
 
         <section
           className={cn(
@@ -760,7 +757,7 @@ export default function MemoryMigrationTestsPage() {
             ) : null}
           </div>
         ) : null}
-      </div>
+      </PageContentFrame>
       </Tooltip.Provider>
     </Page>
   );

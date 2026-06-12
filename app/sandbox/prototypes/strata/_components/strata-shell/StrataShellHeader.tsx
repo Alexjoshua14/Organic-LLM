@@ -2,8 +2,7 @@
 
 import type { SourceSaveState, StrataMainTab } from "./strata-shell-model";
 
-import Link from "next/link";
-
+import { PageContentFrame, PageNavBack } from "@/components/layout/page-content-frame";
 import { StrataAssistantOpenHint } from "../StrataWorkspace";
 
 import { cn } from "@/lib/utils";
@@ -24,16 +23,14 @@ export function StrataShellHeader({
   dbAvailable: boolean;
 }) {
   return (
-    <div className="mx-auto w-full max-w-5xl shrink-0 px-6 pt-6 sm:pt-8">
-      <nav className="mb-4 flex flex-wrap items-center justify-between gap-3">
-        <Link
-          className="text-sm text-muted-foreground transition-colors hover:text-foreground select-none"
-          href="/sandbox/prototypes/strata"
-        >
-          ← Strata pages
-        </Link>
-        <StrataAssistantOpenHint />
-      </nav>
+    <PageContentFrame className="shrink-0 pb-0">
+      <PageNavBack
+        className="mb-4"
+        href="/sandbox/prototypes/strata"
+        trailing={<StrataAssistantOpenHint />}
+      >
+        ← Strata pages
+      </PageNavBack>
 
       <header className="mb-4 space-y-2">
         <div className="flex flex-wrap items-start justify-between gap-3">
@@ -74,6 +71,6 @@ export function StrataShellHeader({
           )}
         </div>
       </header>
-    </div>
+    </PageContentFrame>
   );
 }

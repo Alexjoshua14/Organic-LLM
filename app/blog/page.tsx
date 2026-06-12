@@ -1,5 +1,7 @@
 import Link from "next/link";
 
+import { PageContentFrame } from "@/components/layout/page-content-frame";
+
 const CATEGORIES = ["architecture", "design"] as const;
 
 type Category = (typeof CATEGORIES)[number];
@@ -54,7 +56,7 @@ const CATEGORY_LABELS: Record<Category, string> = {
 
 export default function BlogPage() {
   return (
-    <div className="w-full max-w-2xl mx-auto px-6 py-12">
+    <PageContentFrame maxWidth="2xl">
       <h1 className="text-2xl font-normal text-foreground mb-2">Blog</h1>
       <p className="text-secondary-foreground text-sm mb-8">
         Design and implementation notes. Not linked in the main UI yet.
@@ -87,6 +89,6 @@ export default function BlogPage() {
           );
         })}
       </div>
-    </div>
+    </PageContentFrame>
   );
 }

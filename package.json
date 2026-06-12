@@ -48,6 +48,7 @@
     "@mem0/vercel-ai-provider": "^2.0.6",
     "@organic-llm/morph-physics": "file:./llm/morph-physics",
     "@qdrant/js-client-rest": "1.17.0",
+    "@radix-ui/react-aspect-ratio": "^1.1.9",
     "@radix-ui/react-avatar": "^1.1.12",
     "@radix-ui/react-collapsible": "^1.1.13",
     "@radix-ui/react-context-menu": "^2.3.0",

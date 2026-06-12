@@ -3,6 +3,7 @@
 import { useTheme } from "next-themes";
 import { useEffect, useState, useRef } from "react";
 
+import { usePageVisible } from "@/components/hooks/use-page-visible";
 import { LiquidChrome as LiquidChromeComponent } from "@/components/third-party/reactbits/LiquidChrome/LiquidChrome";
 
 interface AdaptiveLiquidChromeProps {
@@ -19,6 +20,8 @@ interface AdaptiveLiquidChromeProps {
   to100TransitionMs?: number;
   /** Called when dimmed state changes (e.g. for realtime display / debugging). */
   onDimChange?: (dimmed: boolean) => void;
+  /** `viewport` fills 100dvh; `parent` fills the positioned parent (full scroll height). */
+  cover?: "viewport" | "parent";
 }
 
 type BrightnessState = "dimmed" | "to65" | "rest";
@@ -45,7 +48,9 @@ export default function AdaptiveLiquidChrome({
   to65TransitionMs = 1200, // quickish to 65% when no longer active (still slower than dim)
   to100TransitionMs = 2800, // slow the rest of the way to full, with ease
   onDimChange,
+  cover = "viewport",
 }: AdaptiveLiquidChromeProps) {
+  const pageVisible = usePageVisible();
   const { resolvedTheme } = useTheme();
   const [brightnessState, setBrightnessState] = useState<BrightnessState>("rest");
   const [effectiveDimIntensity, setEffectiveDimIntensity] = useState(dimIntensity);
@@ -162,22 +167,25 @@ export default function AdaptiveLiquidChrome({
     document.addEventListener("focusin", handleFocusIn);
     document.addEventListener("focusout", handleFocusOut);
 
-    const observer = new MutationObserver(() => {
-      const elements = document.querySelectorAll("[data-dim-background]");
+    const wiredElements = new Set<Element>();
 
-      elements.forEach((el) => {
-        el.addEventListener("mouseenter", handleMouseEnter);
-        el.addEventListener("mouseleave", handleMouseLeave);
-      });
+    const wireElement = (el: Element) => {
+      if (wiredElements.has(el)) return;
+      wiredElements.add(el);
+      el.addEventListener("mouseenter", handleMouseEnter);
+      el.addEventListener("mouseleave", handleMouseLeave);
+    };
+
+    const wireAllDimElements = () => {
+      document.querySelectorAll("[data-dim-background]").forEach(wireElement);
+    };
+
+    const observer = new MutationObserver(() => {
+      wireAllDimElements();
       syncActivitySignal();
     });
 
-    const elements = document.querySelectorAll("[data-dim-background]");
-
-    elements.forEach((el) => {
-      el.addEventListener("mouseenter", handleMouseEnter);
-      el.addEventListener("mouseleave", handleMouseLeave);
-    });
+    wireAllDimElements();
     syncActivitySignal();
 
     observer.observe(document.body, { childList: true, subtree: true });
@@ -186,10 +194,11 @@ export default function AdaptiveLiquidChrome({
       document.removeEventListener("focusin", handleFocusIn);
       document.removeEventListener("focusout", handleFocusOut);
       observer.disconnect();
-      document.querySelectorAll("[data-dim-background]").forEach((el) => {
+      wiredElements.forEach((el) => {
         el.removeEventListener("mouseenter", handleMouseEnter);
         el.removeEventListener("mouseleave", handleMouseLeave);
       });
+      wiredElements.clear();
       if (phase2TimeoutRef.current) clearTimeout(phase2TimeoutRef.current);
     };
   }, [
@@ -208,11 +217,14 @@ export default function AdaptiveLiquidChrome({
         ? BRIGHTEN_65 * baseOpacity
         : baseOpacity;
 
+  const fillParent = cover === "parent";
+
   return (
     <div
       style={{
-        width: "100dvw",
-        height: "100dvh",
+        width: "100%",
+        height: fillParent ? "100%" : "100dvh",
+        minHeight: fillParent ? "100%" : undefined,
         position: "absolute",
         top: 0,
         left: 0,
@@ -227,6 +239,7 @@ export default function AdaptiveLiquidChrome({
         amplitude={amplitude}
         baseColor={baseColor}
         interactive={true}
+        paused={!pageVisible}
         speed={speed}
       />
     </div>

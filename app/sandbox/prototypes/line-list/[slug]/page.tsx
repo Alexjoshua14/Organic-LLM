@@ -2,6 +2,7 @@ import { UIMessage } from "ai";
 
 import { LineListShell } from "../_components/LineListShell";
 
+import { PageContentFrame, PageNavBack } from "@/components/layout/page-content-frame";
 import Page from "@/components/layout/page";
 import { loadChat } from "@/lib/chat/chat-store";
 import { Thread } from "@/lib/schemas/chat";
@@ -31,18 +32,18 @@ export default async function LineListThreadPage({
 
     return (
       <Page>
-        <div className="mx-auto w-full max-w-2xl px-6 py-12">
+        <PageContentFrame maxWidth="2xl">
           <p className="text-destructive">Failed to load line list thread.</p>
-        </div>
+        </PageContentFrame>
       </Page>
     );
   }
 
   return (
     <Page>
-      <div className="mx-auto w-full max-w-3xl h-full px-4 sm:px-6">
+      <PageContentFrame className="flex h-full flex-col pb-42" maxWidth="3xl">
         <LineListShell chatData={chatData} />
-      </div>
+      </PageContentFrame>
     </Page>
   );
 }
