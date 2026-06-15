@@ -11,6 +11,7 @@ import { useWelcomeInView } from "@/components/pages/welcome/use-welcome-in-view
 import { glass } from "@/components/design-system/primitives";
 import {
   welcomeIllustrationRatio,
+  welcomeModeIllustrationRatio,
   welcomeVisualAspect,
   welcomeVisualImageSizes,
   welcomeVisualMaxWidth,
@@ -59,8 +60,12 @@ export function WelcomeHighlightVisual({
 }: WelcomeHighlightVisualProps) {
   const frameRef = useRef<HTMLDivElement>(null);
   const Illustration = welcomeIllustrations[id];
-  const ratio = Illustration ? welcomeIllustrationRatio : welcomeVisualAspect[aspect];
   const sizeKey = size ?? aspect;
+  const ratio = Illustration
+    ? sizeKey === "mode"
+      ? welcomeModeIllustrationRatio
+      : welcomeIllustrationRatio
+    : welcomeVisualAspect[aspect];
   const sources = normalizeImageSources(imageSrc);
   const reduce = useReducedMotion();
   const pageVisible = usePageVisible();

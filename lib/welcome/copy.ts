@@ -83,10 +83,10 @@ export const welcomeCopy = {
         {
           id: "noesis",
           title: "Noesis",
-          body: "Topic exploration with memory-aware sparks and steerable assist for your next line—exploration without writing to long-term memory from this mode.",
+          body: "Starter prompts and suggested replies generated from past interactions.\nBuilt to surface what you want to discuss.",
           visualPlaceholder: {
             label: "Screenshot placeholder",
-            hint: "Noesis topic exploration with memory-aware sparks",
+            hint: "Noesis thread with tailored starter prompts and reply suggestions",
           },
         },
       ],

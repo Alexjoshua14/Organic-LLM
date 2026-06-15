@@ -32,6 +32,9 @@ export type WelcomeVisualSizeKey = keyof typeof welcomeVisualMaxWidth;
 /** Taller frame for animated SVG / React illustrations (not wide screenshots). */
 export const welcomeIllustrationRatio = 5 / 4;
 
+/** Chat mode cards (1/3 column) — portrait enough for a 4-row starter prompt list. */
+export const welcomeModeIllustrationRatio = 2 / 3;
+
 /** Outer frame wrapper for tech highlight rows (matches `highlight` cap). */
 export const welcomeHighlightFrameClass =
   "w-full shrink-0 max-w-[24rem] sm:max-w-[28rem] lg:max-w-[32rem]";

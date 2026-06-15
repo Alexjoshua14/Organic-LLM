@@ -45,6 +45,12 @@ test.describe("Welcome hero (signed out)", () => {
     await expect(page.getByRole("heading", { name: "Chat", exact: true })).toBeVisible();
     await expect(page.getByText("Arcadia")).toBeVisible();
     await expect(page.getByText("Noesis")).toBeVisible();
+    await page.getByText("Noesis").scrollIntoViewIfNeeded();
+    await expect(
+      page.getByText("Starter prompts and suggested replies generated from past interactions")
+    ).toBeVisible();
+    await expect(page.getByText("Built to surface what you want to discuss.")).toBeVisible();
+    await expect(page.locator('[data-illustration-id="feature-noesis"]')).toBeVisible();
     await expect(page.getByRole("heading", { name: "Rabbit holes" })).toBeVisible();
     await expect(page.getByRole("heading", { name: "Strata" })).toBeVisible();
 

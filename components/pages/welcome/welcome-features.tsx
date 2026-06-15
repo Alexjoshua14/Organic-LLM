@@ -74,14 +74,14 @@ export function WelcomeFeatures({ className }: WelcomeFeaturesProps) {
               </p>
             </div>
 
-            <ul className="grid grid-cols-1 gap-4 sm:grid-cols-3 sm:gap-6">
+            <ul className="grid grid-cols-1 gap-4 sm:grid-cols-3 sm:items-stretch sm:gap-6">
               {chat.modes.map((mode) => (
                 <li key={mode.id} className="flex min-w-0 flex-col">
                   <h4 className="text-sm font-medium text-foreground">{mode.title}</h4>
-                  <p className="mt-1 line-clamp-3 text-xs leading-snug text-muted-foreground sm:text-sm">
+                  <p className="mt-1 line-clamp-3 whitespace-pre-line text-xs leading-snug text-muted-foreground sm:text-sm">
                     {mode.body}
                   </p>
-                  <div className="mt-3 w-full">
+                  <div className="mt-3 w-full sm:mt-4">
                     <WelcomeHighlightVisual
                       aspect="feature"
                       id={modePlaceholderId[mode.id] ?? `feature-${mode.id}`}
