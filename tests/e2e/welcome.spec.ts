@@ -44,6 +44,7 @@ test.describe("Welcome hero (signed out)", () => {
     await expect(page.getByRole("heading", { name: "What you can work in" })).toBeVisible();
     await expect(page.getByRole("heading", { name: "Chat", exact: true })).toBeVisible();
     await expect(page.getByText("Arcadia")).toBeVisible();
+    await expect(page.locator('[data-illustration-id="feature-arcadia"]')).toBeVisible();
     await expect(page.getByText("Noesis")).toBeVisible();
     await page.getByText("Noesis").scrollIntoViewIfNeeded();
     await expect(

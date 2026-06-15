@@ -88,7 +88,7 @@ export function WelcomeHighlightVisual({
 
   const frameClass = cn(
     "relative rounded-2xl border border-border/50",
-    Illustration && id === "gen-ui" ? "overflow-visible" : "overflow-hidden",
+    Illustration && (id === "gen-ui" || id === "feature-arcadia") ? "overflow-visible" : "overflow-hidden",
     welcomeVisualMaxWidth[sizeKey],
     className
   );
@@ -97,6 +97,7 @@ export function WelcomeHighlightVisual({
 
   if (Illustration) {
     const bareIllustration = id === "gen-ui";
+    const overflowVisibleIllustration = bareIllustration || id === "feature-arcadia";
 
     return (
       <AspectRatio ref={frameRef} className={frameClass} ratio={ratio}>
@@ -104,7 +105,7 @@ export function WelcomeHighlightVisual({
           aria-label={imageAlt ?? placeholder.hint}
           className={cn(
             "absolute inset-0",
-            bareIllustration ? "overflow-visible" : "overflow-hidden",
+            overflowVisibleIllustration ? "overflow-visible" : "overflow-hidden",
             !bareIllustration && glass({ opaque: true }),
             !bareIllustration && "bg-linear-to-br from-accent/8 via-transparent to-foreground/3"
           )}

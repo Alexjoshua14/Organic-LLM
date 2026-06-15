@@ -74,10 +74,9 @@ export const welcomeCopy = {
           id: "arcadia",
           title: "Arcadia",
           body: "Sandbox lab on the same thread spine. Experiment with concise, tool-forward replies; stable ideas graduate to main chat.",
-          imageSrc: "/images/mermaid.png",
           visualPlaceholder: {
             label: "Screenshot placeholder",
-            hint: "Arcadia — Mermaid, kanban, or Gen UI in thread",
+            hint: "Arcadia mind map of how an idea loses momentum",
           },
         },
         {

@@ -1,5 +1,6 @@
 import type { ComponentType } from "react";
 
+import { WelcomeArcadiaIllustration } from "./welcome-arcadia-illustration";
 import { WelcomeEncryptedAtRestIllustration } from "./welcome-encrypted-at-rest-illustration";
 import { WelcomeGenUiIllustration } from "./welcome-gen-ui-illustration";
 import { WelcomeModelSelectionIllustration } from "./welcome-model-selection-illustration";
@@ -12,6 +13,7 @@ export const welcomeIllustrations: Record<string, ComponentType<{ className?: st
   streaming: WelcomeStreamResumeIllustration,
   models: WelcomeModelSelectionIllustration,
   "gen-ui": WelcomeGenUiIllustration,
+  "feature-arcadia": WelcomeArcadiaIllustration,
   "feature-noesis": WelcomeNoesisIllustration,
 };
 
