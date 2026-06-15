@@ -1,4 +1,5 @@
 import type { Vector4 } from "../schemas/physicsSchemas";
+
 import { MeshRegistry } from "./registry";
 
 export function createMeshRegistry(): MeshRegistry {

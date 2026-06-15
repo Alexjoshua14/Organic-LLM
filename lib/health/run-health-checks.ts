@@ -1,12 +1,13 @@
 import "server-only";
 
+import type { HealthReport } from "@/lib/health/types";
+
 import { aggregateOverall } from "@/lib/health/aggregate-overall";
 import { checkMemoryQdrant } from "@/lib/health/checks/memory-qdrant";
 import { checkOllama } from "@/lib/health/checks/ollama";
 import { checkSupabase } from "@/lib/health/checks/supabase";
 import { checkUpstash } from "@/lib/health/checks/upstash";
 import { sortChecksBySeverity } from "@/lib/health/sort-checks";
-import type { HealthReport } from "@/lib/health/types";
 
 export type RunHealthChecksOptions = {
   deep?: boolean;

@@ -1,12 +1,13 @@
 "use client";
 
+import type { HealthCheckResult } from "@/lib/health/client-types";
+
 import { ChevronDown } from "lucide-react";
 import { Fragment, useState } from "react";
 
 import { StatusCheckDetails } from "./status-check-details";
 import { StatusPill } from "./status-pill";
 
-import type { HealthCheckResult } from "@/lib/health/client-types";
 import { glass } from "@/components/design-system/primitives";
 import { cn } from "@/lib/utils";
 
@@ -14,6 +15,7 @@ function rowAccent(status: HealthCheckResult["status"]): string {
   if (status === "down") return "border-l-destructive";
   if (status === "degraded") return "border-l-amber-500";
   if (status === "skipped") return "border-l-muted-foreground/50";
+
   return "border-l-transparent";
 }
 
@@ -21,17 +23,20 @@ function latencyLabel(check: HealthCheckResult): string | null {
   if (check.status === "ok" && check.latencyMs != null) {
     return `${check.latencyMs} ms`;
   }
+
   return null;
 }
 
 function issueCell(check: HealthCheckResult): string {
   if (check.status === "ok") return "—";
+
   return check.summary;
 }
 
 export function StatusCheckTable({ checks }: { checks: HealthCheckResult[] }) {
   const [expandedId, setExpandedId] = useState<string | null>(() => {
     const first = checks.find((c) => c.status === "down" || c.status === "degraded");
+
     return first?.id ?? null;
   });
 
@@ -64,8 +69,7 @@ export function StatusCheckTable({ checks }: { checks: HealthCheckResult[] }) {
           {checks.map((check) => {
             const expanded = expandedId === check.id;
             const hasDetails =
-              Boolean(check.message) ||
-              (check.config && Object.keys(check.config).length > 0);
+              Boolean(check.message) || (check.config && Object.keys(check.config).length > 0);
 
             return (
               <Fragment key={check.id}>

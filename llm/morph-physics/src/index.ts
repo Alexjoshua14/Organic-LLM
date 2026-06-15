@@ -16,8 +16,4 @@ export * from "./schemas/springSolverSchemas";
 export * from "./schemas/webGLSchemas";
 export { morphPropertyRegistry } from "./morphProperties/registry";
 export type { MorphProperty } from "./morphProperties/types";
-export {
-  positionProperty,
-  colorProperty,
-  brightnessProperty,
-} from "./morphProperties/index";
+export { positionProperty, colorProperty, brightnessProperty } from "./morphProperties/index";

@@ -49,7 +49,8 @@ export const welcomeCopy = {
   },
   features: {
     heading: "What you can work in",
-    intro: "Three surfaces for thinking, research, and editorial work—connected by the same memory and thread model.",
+    intro:
+      "Three surfaces for thinking, research, and editorial work—connected by the same memory and thread model.",
     chat: {
       title: "Chat",
       summary:
@@ -148,7 +149,6 @@ export const welcomeCopy = {
         body: "The assistant can render answer cards, decision matrices, plan timelines, and live tool states in-thread—not only markdown walls. You see what ran and what it returned.",
         link: { href: "/showcase/anatomy", label: "Anatomy of a response" },
         reverse: true,
-        imageSrc: "/images/gen-ui-kanban.png",
         visualPlaceholder: {
           label: "Screenshot placeholder",
           hint: "In-thread Gen UI block from chat or showcase",

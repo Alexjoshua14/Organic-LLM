@@ -1,6 +1,11 @@
 import type { ComponentType } from "react";
-
 import type { GenUIBlock, GenUIBlockType } from "@/lib/schemas/gen-ui";
+
+import { AnswerCard } from "./blocks/AnswerCard";
+import { AudioSnippet } from "./blocks/AudioSnippet";
+import { DecisionMatrix } from "./blocks/DecisionMatrix";
+import { PlanTimeline } from "./blocks/PlanTimeline";
+
 import {
   genUIBlockToMarkdown,
   AnswerCardBlockSchema,
@@ -8,11 +13,6 @@ import {
   PlanTimelineBlockSchema,
   AudioSnippetBlockSchema,
 } from "@/lib/schemas/gen-ui";
-
-import { AnswerCard } from "./blocks/AnswerCard";
-import { AudioSnippet } from "./blocks/AudioSnippet";
-import { DecisionMatrix } from "./blocks/DecisionMatrix";
-import { PlanTimeline } from "./blocks/PlanTimeline";
 
 export type GenUIBlockComponentProps = {
   block: GenUIBlock;

@@ -101,6 +101,7 @@ function memoryKeyEnvName(version: KeyVersion): string {
 
 function getMemoryAesKey(version: KeyVersion): Buffer {
   const cached = keyCache.get(version);
+
   if (cached) {
     return cached;
   }
@@ -118,15 +119,14 @@ function getMemoryAesKey(version: KeyVersion): Buffer {
   const ikm = decodeIkmFromEnv(raw.trim(), envVar);
   const salt = new Uint8Array(Buffer.from(HKDF_SALT, "utf8"));
   const info = new Uint8Array(Buffer.from(HKDF_INFO, "utf8"));
-  const derived = Buffer.from(
-    hkdfSync("sha256", new Uint8Array(ikm), salt, info, AES_KEY_BYTES)
-  );
+  const derived = Buffer.from(hkdfSync("sha256", new Uint8Array(ikm), salt, info, AES_KEY_BYTES));
 
   if (derived.length !== AES_KEY_BYTES) {
     throw new Error(`Memory encryption key derivation produced invalid length: ${derived.length}`);
   }
 
   keyCache.set(version, derived);
+
   return derived;
 }
 
@@ -279,6 +279,7 @@ export function decryptMemory(encrypted: string): string {
  */
 export function reencryptMemory(encrypted: string): string {
   const plaintext = decryptMemory(encrypted);
+
   return encryptMemory(plaintext);
 }
 
@@ -294,6 +295,7 @@ export function isEncryptedWithCurrentKey(encrypted: string): boolean {
 
   try {
     const payload = parseMemoryPayload(encrypted);
+
     return payload.keyVersion === currentVersion;
   } catch {
     return false;

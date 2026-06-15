@@ -9,10 +9,5 @@ type GenUIToolResultProps = {
 };
 
 export function GenUIToolResult({ output, messageId, partIndex }: GenUIToolResultProps) {
-  return (
-    <GenUIRenderer
-      data={output}
-      messageId={`${messageId}-gen-ui-${partIndex}`}
-    />
-  );
+  return <GenUIRenderer data={output} messageId={`${messageId}-gen-ui-${partIndex}`} />;
 }

@@ -1,8 +1,9 @@
+import type { MemorySearchInventory } from "@/lib/memory/memory-relevance";
+
 import { memo } from "react";
 import { Pin, PinOff } from "lucide-react";
 
 import { cn } from "@/lib/utils";
-import type { MemorySearchInventory } from "@/lib/memory/memory-relevance";
 
 const QUERY_DISPLAY_MAX = 56;
 

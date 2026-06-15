@@ -1,15 +1,16 @@
 "use client";
 
+import type { GenUIBlock } from "@/lib/schemas/gen-ui";
+
 import { useCallback, useState, type ReactNode } from "react";
 import { Check, ChevronDown, ChevronUp, Copy } from "lucide-react";
 import { toast } from "sonner";
 
+import { GEN_UI_REGISTRY, getGenUIBlockTitle } from "./registry";
+
 import { glass } from "@/components/design-system/primitives";
-import type { GenUIBlock } from "@/lib/schemas/gen-ui";
 import { copyTextToClipboard } from "@/lib/clipboard/copy";
 import { cn } from "@/lib/utils";
-
-import { GEN_UI_REGISTRY, getGenUIBlockTitle } from "./registry";
 
 type GenUIWrapperProps = {
   block: GenUIBlock;
@@ -26,8 +27,10 @@ export function GenUIWrapper({ block, children, partial }: GenUIWrapperProps) {
   const handleCopy = useCallback(async () => {
     const md = entry.toMarkdown(block);
     const ok = await copyTextToClipboard(md);
+
     if (!ok) {
       toast.error("Failed to copy");
+
       return;
     }
     setCopied(true);
@@ -45,7 +48,7 @@ export function GenUIWrapper({ block, children, partial }: GenUIWrapperProps) {
     >
       <div className="flex items-center justify-between gap-2 border-b border-border/40 px-3 py-2">
         <div className="min-w-0 flex-1">
-          <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+          <span className="text-2xs font-semibold uppercase tracking-wide text-muted-foreground">
             {entry.label}
             {partial ? " · partial" : null}
           </span>

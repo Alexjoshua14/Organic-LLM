@@ -1,12 +1,13 @@
 "use client";
 
+import type { HealthCheckResult } from "@/lib/health/client-types";
+
 import { ChevronDown } from "lucide-react";
 import { useState } from "react";
 
 import { StatusCheckDetails } from "./status-check-details";
 import { StatusPill } from "./status-pill";
 
-import type { HealthCheckResult } from "@/lib/health/client-types";
 import { glass } from "@/components/design-system/primitives";
 import { cn } from "@/lib/utils";
 
@@ -14,6 +15,7 @@ function rowAccent(status: HealthCheckResult["status"]): string {
   if (status === "down") return "border-l-destructive bg-destructive/5";
   if (status === "degraded") return "border-l-amber-500 bg-amber-500/5";
   if (status === "skipped") return "border-l-muted-foreground/40 bg-muted/20";
+
   return "border-l-transparent";
 }
 
@@ -40,7 +42,9 @@ export function StatusCheckCard({ check }: { check: HealthCheckResult }) {
           <h2 className="text-xs font-medium text-foreground">{check.displayName}</h2>
           <StatusPill serviceName={check.displayName} status={check.status} />
           {check.status === "ok" && check.latencyMs != null ? (
-            <span className="text-[11px] tabular-nums text-muted-foreground">{check.latencyMs} ms</span>
+            <span className="text-[11px] tabular-nums text-muted-foreground">
+              {check.latencyMs} ms
+            </span>
           ) : null}
         </div>
         {showSummary ? (
@@ -65,9 +69,7 @@ export function StatusCheckCard({ check }: { check: HealthCheckResult }) {
             type="button"
             onClick={() => setExpanded((v) => !v)}
           >
-            <ChevronDown
-              className={cn("size-3 transition-transform", expanded && "rotate-180")}
-            />
+            <ChevronDown className={cn("size-3 transition-transform", expanded && "rotate-180")} />
             Details
           </button>
           {expanded ? <StatusCheckDetails check={check} className="mt-1" /> : null}

@@ -3,6 +3,7 @@ import * as THREE from "three";
 /** Deterministic [0, 1) hash from particle index + salt (stable across renders). */
 function hash01(i: number, salt: number): number {
   const x = Math.sin(i * 12.9898 + salt) * 43758.5453;
+
   return x - Math.floor(x);
 }
 
@@ -70,6 +71,7 @@ export function buildRoundedCubeRest(count: number): {
     const p = surfacePointOnRoundedBox(dir, half, cornerRadius);
 
     const radialJitter = radialMin + hash01(i, 0) * radialSpan;
+
     p.multiplyScalar(radialJitter);
     p.x += (hash01(i, 1.7) - 0.5) * tangentialAmp;
     p.y += (hash01(i, 5.3) - 0.5) * tangentialAmp;

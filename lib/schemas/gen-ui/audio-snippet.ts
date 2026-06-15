@@ -26,25 +26,20 @@ export const AudioSnippetBlockSchema = z.object({
 export type AudioSnippetBlock = z.infer<typeof AudioSnippetBlockSchema>;
 
 export function audioSnippetToMarkdown(block: AudioSnippetBlock): string {
-  const lines: string[] = [
-    `## ${block.preview.title}`,
-    "",
-    block.preview.teaser,
-  ];
+  const lines: string[] = [`## ${block.preview.title}`, "", block.preview.teaser];
 
   if (block.preview.duration) {
     lines.push("", `_Duration: ${block.preview.duration}_`);
   }
 
   lines.push("", "### Script", "", block.script);
+
   return lines.join("\n").trim();
 }
 
 export function audioSnippetToMarkdownLoose(raw: Record<string, unknown>): string {
   const preview =
-    raw.preview && typeof raw.preview === "object"
-      ? (raw.preview as Record<string, unknown>)
-      : {};
+    raw.preview && typeof raw.preview === "object" ? (raw.preview as Record<string, unknown>) : {};
   const title = typeof preview.title === "string" ? preview.title : "Audio recap";
   const teaser = typeof preview.teaser === "string" ? preview.teaser : "";
   const script = typeof raw.script === "string" ? raw.script : "";

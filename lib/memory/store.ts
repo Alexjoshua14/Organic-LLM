@@ -211,7 +211,10 @@ export async function addMemory(
     return { role: m.role, content };
   });
 
-  logger.log("addMemory", `Adding ${messagesToStore.length} message(s) to memory (infer=${options.infer ?? true})`);
+  logger.log(
+    "addMemory",
+    `Adding ${messagesToStore.length} message(s) to memory (infer=${options.infer ?? true})`
+  );
 
   const result = await runMemoryStore("addMemory", () =>
     memory.add(messagesToStore, {

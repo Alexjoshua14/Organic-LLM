@@ -56,6 +56,14 @@ test.describe("Welcome hero (signed out)", () => {
     await expect(page.getByRole("heading", { name: "Your model, your turn" })).toBeVisible();
     await page.getByRole("heading", { name: "Your model, your turn" }).scrollIntoViewIfNeeded();
     await expect(page.locator('[data-illustration-id="models"]')).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Structured answers you can scan" })).toBeVisible();
+    await page
+      .getByRole("heading", { name: "Structured answers you can scan" })
+      .scrollIntoViewIfNeeded();
+    await expect(page.locator('[data-illustration-id="gen-ui"]')).toBeVisible();
+    await expect(
+      page.getByText("Memory shows up per thread, not as a separate sidebar")
+    ).toBeVisible();
   });
 });
 

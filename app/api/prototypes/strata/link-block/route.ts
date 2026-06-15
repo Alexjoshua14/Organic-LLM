@@ -99,7 +99,10 @@ export async function POST(req: Request) {
       (async () => {
         try {
           writeStatus("input_received");
-          writeStatus("starting_web_search", `${LINK_BLOCK_STATUS_COPY.starting_web_search} on ${safe.href}`);
+          writeStatus(
+            "starting_web_search",
+            `${LINK_BLOCK_STATUS_COPY.starting_web_search} on ${safe.href}`
+          );
           const searchResult = await searchWeb(safe.href, { numResults: 3, type: "auto" });
           const topResult = searchResult.sources[0];
 

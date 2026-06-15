@@ -40,8 +40,7 @@ export function WelcomeEncryptedAtRestIllustration({
   const rootRef = useRef<HTMLDivElement>(null);
   const inView = useWelcomeInView(rootRef);
   const [stage, setStage] = useState<PayloadStage>("thread");
-  const [controlPhase, setControlPhase] =
-    useState<DecryptedTextControlPhase>("plain");
+  const [controlPhase, setControlPhase] = useState<DecryptedTextControlPhase>("plain");
   const [frozenCipherText, setFrozenCipherText] = useState("");
   const timersRef = useRef<ReturnType<typeof setTimeout>[]>([]);
 
@@ -55,6 +54,7 @@ export function WelcomeEncryptedAtRestIllustration({
 
   const schedule = useCallback((fn: () => void, ms: number) => {
     const id = setTimeout(fn, ms);
+
     timersRef.current.push(id);
   }, []);
 
@@ -64,6 +64,7 @@ export function WelcomeEncryptedAtRestIllustration({
       setStage("thread");
       setControlPhase("plain");
       setFrozenCipherText("");
+
       return;
     }
 
@@ -88,6 +89,7 @@ export function WelcomeEncryptedAtRestIllustration({
             schedule(() => setControlPhase("decrypting"), LAYOUT_SETTLE_MS);
           }, STORED_REST_MS);
         }, ENCRYPTED_HOLD_MS);
+
         return;
       }
 
@@ -101,8 +103,7 @@ export function WelcomeEncryptedAtRestIllustration({
 
   const isEncryptedHold =
     controlPhase === "encrypting" && stage === "thread" && frozenCipherText.length > 0;
-  const isEncrypting =
-    controlPhase === "encrypting" && stage === "thread" && !isEncryptedHold;
+  const isEncrypting = controlPhase === "encrypting" && stage === "thread" && !isEncryptedHold;
   const isStored = stage === "database";
 
   return (
@@ -208,11 +209,13 @@ export function WelcomeEncryptedAtRestIllustration({
                 animate={motionActive && isStored ? { scale: [1, 1.04, 1] } : undefined}
                 className={cn(
                   "flex size-8 items-center justify-center rounded-lg border text-accent",
-                  isStored
-                    ? "border-accent/35 bg-accent/12"
-                    : "border-accent/20 bg-accent/5"
+                  isStored ? "border-accent/35 bg-accent/12" : "border-accent/20 bg-accent/5"
                 )}
-                transition={{ duration: 3.5, ease: "easeInOut", repeat: motionActive && isStored ? Infinity : 0 }}
+                transition={{
+                  duration: 3.5,
+                  ease: "easeInOut",
+                  repeat: motionActive && isStored ? Infinity : 0,
+                }}
               >
                 <Lock aria-hidden className="size-4" strokeWidth={1.75} />
               </motion.div>
@@ -233,9 +236,7 @@ export function WelcomeEncryptedAtRestIllustration({
             className={cn(
               "relative rounded-lg border border-dashed px-3 py-2.5",
               TEXT_SLOT_CLASS,
-              isStored
-                ? "border-accent/30 bg-background/50"
-                : "border-border/50 bg-background/25"
+              isStored ? "border-accent/30 bg-background/50" : "border-border/50 bg-background/25"
             )}
           >
             <p aria-hidden className="invisible">
@@ -304,12 +305,7 @@ function TlsPulse({
     <div aria-hidden className="flex min-w-0 flex-1 items-center gap-1.5">
       <span className={cn("h-px flex-1", active ? "bg-accent/35" : "bg-border/70")} />
       {reduced ? (
-        <span
-          className={cn(
-            "size-1.5 rounded-full",
-            active ? "bg-accent" : "bg-accent/50"
-          )}
-        />
+        <span className={cn("size-1.5 rounded-full", active ? "bg-accent" : "bg-accent/50")} />
       ) : (
         <motion.span
           animate={

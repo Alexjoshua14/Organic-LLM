@@ -21,8 +21,10 @@ export function StatusGatewayButton({ className }: { className?: string }) {
   useEffect(() => {
     if (!userId) return;
     const cached = showGatewayCache.get(userId);
+
     if (cached !== undefined) {
       setShow(cached);
+
       return;
     }
     setShow(null);

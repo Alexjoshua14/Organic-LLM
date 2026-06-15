@@ -12,6 +12,7 @@ export function shouldRefreshSummary(exchangeCount: number): boolean {
   if (exchangeCount < 1) return false;
   if (exchangeCount === 1 || exchangeCount === 3) return true;
   if (exchangeCount >= 5 && exchangeCount % 5 === 0) return true;
+
   return false;
 }
 

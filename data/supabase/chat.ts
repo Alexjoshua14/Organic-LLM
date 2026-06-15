@@ -168,8 +168,11 @@ export type ChatThreadSettingsRow = {
  *
  * Always pass an explicit `ownerId`; never query without filtering by owner.
  */
-export async function getChatsForSettings(ownerId: string): Promise<Result<ChatThreadSettingsRow[]>> {
+export async function getChatsForSettings(
+  ownerId: string
+): Promise<Result<ChatThreadSettingsRow[]>> {
   const owner = ownerId.trim();
+
   if (owner === "") {
     return { data: null, error: new Error("ownerId is required") };
   }

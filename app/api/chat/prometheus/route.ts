@@ -65,11 +65,9 @@ export async function POST(req: Request) {
     originalMessages: messages,
     onFinish: async ({ messages }) => {
       const saveResult = await saveChat({ chatId: id, messages });
+
       if (!saveResult.ok) {
-        logger.error(
-          "POST",
-          `Error saving chat: ${saveResult.error?.message ?? "unknown error"}`
-        );
+        logger.error("POST", `Error saving chat: ${saveResult.error?.message ?? "unknown error"}`);
 
         return;
       }

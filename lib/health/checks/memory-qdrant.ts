@@ -1,12 +1,18 @@
 import "server-only";
 
-import { MEMORY_PRODUCTION_QDRANT_COLLECTION } from "@/config/memory-production-meta";
 import type { HealthCheckResult } from "@/lib/health/types";
+
+import { MEMORY_PRODUCTION_QDRANT_COLLECTION } from "@/config/memory-production-meta";
 import { HEALTH_CHECK_TIMEOUT_MS, withTimeout } from "@/lib/health/with-timeout";
-import { createQdrantClient, isMemoryApiSecretConfigured, resolveMemoryApiEnv } from "@/lib/memory/qdrant-config";
+import {
+  createQdrantClient,
+  isMemoryApiSecretConfigured,
+  resolveMemoryApiEnv,
+} from "@/lib/memory/qdrant-config";
 
 function memoryConfigRecord(): Record<string, string> {
   const { host, port, https } = resolveMemoryApiEnv();
+
   return {
     host,
     port: String(port),
@@ -38,6 +44,7 @@ export async function checkMemoryQdrant(deep: boolean): Promise<HealthCheckResul
     async () => {
       try {
         const headers: Record<string, string> = {};
+
         if (apiKey) headers["api-key"] = apiKey;
 
         const res = await fetch(healthUrl, {
@@ -100,6 +107,7 @@ export async function checkMemoryQdrant(deep: boolean): Promise<HealthCheckResul
       } catch (error) {
         const latencyMs = Math.round(performance.now() - start);
         const message = error instanceof Error ? error.message : String(error);
+
         return {
           ...base,
           status: "down",

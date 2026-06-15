@@ -18,12 +18,14 @@ export function useWelcomeInView(
 
   useEffect(() => {
     const node = ref.current;
+
     if (!node) return;
 
-    const observer = new IntersectionObserver(
-      ([entry]) => setInView(entry.isIntersecting),
-      { threshold, rootMargin }
-    );
+    const observer = new IntersectionObserver(([entry]) => setInView(entry.isIntersecting), {
+      threshold,
+      rootMargin,
+    });
+
     observer.observe(node);
 
     return () => observer.disconnect();

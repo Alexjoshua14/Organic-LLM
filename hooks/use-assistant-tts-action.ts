@@ -35,9 +35,7 @@ export function useAssistantTtsAction(text: string) {
 
   const isProcessingThisClip = status === "processing" && isThisClip;
   const showTapNativePlayHint =
-    deferPlaybackToUserGesture &&
-    isThisClip &&
-    (status === "readyToPlay" || status === "paused");
+    deferPlaybackToUserGesture && isThisClip && (status === "readyToPlay" || status === "paused");
 
   return {
     handleSpeak,

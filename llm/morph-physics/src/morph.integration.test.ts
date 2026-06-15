@@ -1,11 +1,8 @@
-import { describe, it, expect } from "vitest";
 import type { morphCurrentState } from "./schemas/springSolverSchemas";
-import {
-  applyMorphStateToElement,
-  magnitude,
-  subtract,
-  updateMorphState,
-} from "./morphUtils";
+
+import { describe, it, expect } from "vitest";
+
+import { applyMorphStateToElement, magnitude, subtract, updateMorphState } from "./morphUtils";
 import { regular_spring_config } from "./constants";
 import { assertVector4Near } from "./test/helpers";
 import "./morphProperties/index";
@@ -26,10 +23,7 @@ describe("updateMorphState integration", () => {
   it("converges position toward target within precision after many fixed steps", () => {
     const config = { ...regular_spring_config, precision: 0.05 };
     const target = { x: 48, y: 24, w: 192, h: 144 };
-    const state = stateWithPosition(
-      { x: 0, y: 0, w: 100, h: 100 },
-      target
-    );
+    const state = stateWithPosition({ x: 0, y: 0, w: 100, h: 100 }, target);
 
     const dt = 16;
     const maxSteps = 3000;
@@ -39,9 +33,11 @@ describe("updateMorphState integration", () => {
       const cur = state.current.position!;
       const err = magnitude(subtract(cur, target));
       const speed = magnitude(state.velocity);
+
       if (err < config.precision && speed < config.precision) {
         expect(i).toBeLessThan(maxSteps);
         assertVector4Near(cur, target, 1);
+
         return;
       }
     }

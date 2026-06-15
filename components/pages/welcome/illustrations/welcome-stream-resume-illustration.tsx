@@ -14,13 +14,7 @@ type WelcomeStreamResumeIllustrationProps = {
   className?: string;
 };
 
-type Phase =
-  | "idle"
-  | "streaming1"
-  | "refreshFlash"
-  | "resumedHold"
-  | "streaming2"
-  | "completeHold";
+type Phase = "idle" | "streaming1" | "refreshFlash" | "resumedHold" | "streaming2" | "completeHold";
 
 const MESSAGE =
   "If memory is episodic, tool choice should leave fingerprints across a thread — tracing which retrieval calls ran before the model answered, and whether that pattern repeats on the next turn.";
@@ -76,6 +70,7 @@ export function WelcomeStreamResumeIllustration({
 
   const schedule = useCallback((fn: () => void, ms: number) => {
     const id = setTimeout(fn, ms);
+
     timersRef.current.push(id);
   }, []);
 
@@ -83,19 +78,19 @@ export function WelcomeStreamResumeIllustration({
     (fromTokens: number, toTokens: number, onComplete: () => void) => {
       clearStreamRaf();
       const startTime = performance.now();
+
       setRevealedTokens(fromTokens);
 
       const tick = (now: number) => {
         const elapsed = now - startTime;
-        const count = Math.min(
-          toTokens,
-          fromTokens + Math.floor(elapsed / TOKEN_MS)
-        );
+        const count = Math.min(toTokens, fromTokens + Math.floor(elapsed / TOKEN_MS));
+
         setRevealedTokens(count);
 
         if (count >= toTokens) {
           clearStreamRaf();
           onComplete();
+
           return;
         }
 
@@ -148,6 +143,7 @@ export function WelcomeStreamResumeIllustration({
   useEffect(() => {
     if (!active) {
       resetLoop();
+
       return;
     }
 
@@ -165,8 +161,7 @@ export function WelcomeStreamResumeIllustration({
   const isComplete = phase === "completeHold";
   const showCursor = isStreaming;
 
-  const messageTone =
-    isComplete || isStreaming ? "text-foreground" : "text-muted-foreground";
+  const messageTone = isComplete || isStreaming ? "text-foreground" : "text-muted-foreground";
 
   if (reduce) {
     return (

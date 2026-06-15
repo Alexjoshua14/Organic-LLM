@@ -74,6 +74,7 @@ export function WelcomeModelSelectionIllustration({
 
   const schedule = useCallback((fn: () => void, ms: number) => {
     const id = setTimeout(fn, ms);
+
     timersRef.current.push(id);
   }, []);
 
@@ -92,6 +93,7 @@ export function WelcomeModelSelectionIllustration({
     if (width <= 0) return x;
 
     let normalized = x % width;
+
     if (normalized > 0) normalized -= width;
 
     return normalized;
@@ -102,18 +104,22 @@ export function WelcomeModelSelectionIllustration({
     lastFrameRef.current = performance.now();
 
     const width = segmentWidth();
+
     if (width > 0) {
       marqueeX.set(normalizeOffset(marqueeX.get(), width));
     }
 
     const tick = (now: number) => {
       const segment = segmentWidth();
+
       if (segment <= 0) {
         rafRef.current = requestAnimationFrame(tick);
+
         return;
       }
 
       const dt = Math.min((now - lastFrameRef.current) / 1000, 0.05);
+
       lastFrameRef.current = now;
 
       const velocity = segment / MARQUEE_DURATION_S;
@@ -156,21 +162,14 @@ export function WelcomeModelSelectionIllustration({
   useEffect(() => {
     if (reduce || !inView || !pageVisible || marqueePaused || heroPhase !== "idle") {
       stopMarqueeLoop();
+
       return;
     }
 
     startMarqueeLoop();
 
     return stopMarqueeLoop;
-  }, [
-    heroPhase,
-    inView,
-    marqueePaused,
-    pageVisible,
-    reduce,
-    startMarqueeLoop,
-    stopMarqueeLoop,
-  ]);
+  }, [heroPhase, inView, marqueePaused, pageVisible, reduce, startMarqueeLoop, stopMarqueeLoop]);
 
   useEffect(() => {
     if (!inView || reduce) {
@@ -195,6 +194,7 @@ export function WelcomeModelSelectionIllustration({
 
     schedule(() => {
       const resolved = pickRandomGatewayModel(lastRoutedIdRef.current ?? undefined);
+
       lastRoutedIdRef.current = resolved.id;
       setResolvedModel(resolved);
       setHeroPhase("resolved");
@@ -208,14 +208,7 @@ export function WelcomeModelSelectionIllustration({
         }, RESOLVED_HOLD_MS);
       });
     }, ROUTING_MS);
-  }, [
-    clearTimers,
-    heroPhase,
-    reduce,
-    schedule,
-    scrollMarqueeToModel,
-    stopMarqueeLoop,
-  ]);
+  }, [clearTimers, heroPhase, reduce, schedule, scrollMarqueeToModel, stopMarqueeLoop]);
 
   const marqueeCopies = reduce ? 1 : 3;
 
@@ -261,12 +254,7 @@ export function WelcomeModelSelectionIllustration({
             onClick={handleAutoClick}
           >
             {heroPhase === "routing" ? (
-              <ShinyText
-                as="span"
-                className="text-sm font-medium"
-                speed={1.1}
-                text="Choosing…"
-              />
+              <ShinyText as="span" className="text-sm font-medium" speed={1.1} text="Choosing…" />
             ) : (
               AUTO_CHAT_MODEL.name
             )}
@@ -318,9 +306,7 @@ export function WelcomeModelSelectionIllustration({
                         ref={(node) => {
                           if (copyIndex === 0) chipRefs.current[modelIndex] = node;
                         }}
-                        highlighted={
-                          centeredModelId === model.id && heroPhase === "resolved"
-                        }
+                        highlighted={centeredModelId === model.id && heroPhase === "resolved"}
                         model={model}
                       />
                     ))}
@@ -335,24 +321,21 @@ export function WelcomeModelSelectionIllustration({
   );
 }
 
-const MarqueeModelChip = forwardRef<
-  HTMLSpanElement,
-  { model: ChatModel; highlighted: boolean }
->(function MarqueeModelChip({ model, highlighted }, ref) {
-  return (
-    <span
-      ref={ref}
-      className={cn(
-        "inline-flex shrink-0 items-center gap-1.5 text-xs transition-all duration-300",
-        highlighted
-          ? "font-medium text-foreground"
-          : "font-light text-muted-foreground/55"
-      )}
-    >
-      <span className="max-w-[9rem] truncate sm:max-w-none">{model.name}</span>
-      {model.supportsZeroDataRetention ? <ModelZdrIndicator className="opacity-80" /> : null}
-    </span>
-  );
-});
+const MarqueeModelChip = forwardRef<HTMLSpanElement, { model: ChatModel; highlighted: boolean }>(
+  function MarqueeModelChip({ model, highlighted }, ref) {
+    return (
+      <span
+        ref={ref}
+        className={cn(
+          "inline-flex shrink-0 items-center gap-1.5 text-xs transition-all duration-300",
+          highlighted ? "font-medium text-foreground" : "font-light text-muted-foreground/55"
+        )}
+      >
+        <span className="max-w-[9rem] truncate sm:max-w-none">{model.name}</span>
+        {model.supportsZeroDataRetention ? <ModelZdrIndicator className="opacity-80" /> : null}
+      </span>
+    );
+  }
+);
 
 MarqueeModelChip.displayName = "MarqueeModelChip";

@@ -26,6 +26,7 @@ export const LiquidChrome: React.FC<LiquidChromeProps> = ({
 }) => {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const pausedRef = useRef(paused);
+
   pausedRef.current = paused;
 
   useEffect(() => {

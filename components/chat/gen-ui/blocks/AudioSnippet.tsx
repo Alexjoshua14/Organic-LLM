@@ -1,14 +1,11 @@
 "use client";
 
+import type { AudioSnippetBlock } from "@/lib/schemas/gen-ui";
+
 import { Play } from "lucide-react";
 
-import type { AudioSnippetBlock } from "@/lib/schemas/gen-ui";
 import { calculateTokenUsage } from "@/lib/tts/token-calculator";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger,
-} from "@/components/third-party/ui/tooltip";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/third-party/ui/tooltip";
 import { cn } from "@/lib/utils";
 
 type AudioSnippetProps = {
@@ -62,8 +59,8 @@ export function AudioSnippet({ block, partial }: AudioSnippetProps) {
                 </span>
               </TooltipTrigger>
               <TooltipContent side="bottom" className="text-xs">
-                Based on script length ({cost.characterCount} chars) at flash rates. Billed when
-                you generate in Phase 2.
+                Based on script length ({cost.characterCount} chars) at flash rates. Billed when you
+                generate in Phase 2.
               </TooltipContent>
             </Tooltip>
           </div>

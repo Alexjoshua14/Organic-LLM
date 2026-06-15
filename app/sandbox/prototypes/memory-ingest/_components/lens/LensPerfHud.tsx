@@ -30,6 +30,7 @@ export function LensPerfHud({ count, onSample }: LensPerfHudProps) {
 
   useFrame(() => {
     const now = performance.now();
+
     samples.current.push(now - last.current);
     if (samples.current.length > 120) samples.current.shift();
     last.current = now;
@@ -38,6 +39,7 @@ export function LensPerfHud({ count, onSample }: LensPerfHudProps) {
 
     flushAt.current = now + 200;
     const ms = samples.current;
+
     if (ms.length === 0) return;
 
     const sorted = [...ms].sort((a, b) => a - b);
@@ -47,6 +49,7 @@ export function LensPerfHud({ count, onSample }: LensPerfHudProps) {
     const calls = gl.info.render.calls;
     const tris = gl.info.render.triangles;
     const dpr = gl.getPixelRatio();
+
     onSample({ fps, meanMs: mean, p95Ms: p95, calls, tris, count, dpr });
   });
 

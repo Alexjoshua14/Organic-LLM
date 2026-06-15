@@ -1,12 +1,10 @@
-import type {
-  morphCurrentState,
-  SpringResult,
-  SpringConfig,
-} from "../schemas/springSolverSchemas";
-import { HSLASchema } from "../schemas/springSolverSchemas";
+import type { morphCurrentState, SpringResult, SpringConfig } from "../schemas/springSolverSchemas";
 import type { MorphProperty } from "./types";
-import { solveSpring } from "../physics/springSolver";
+
 import z from "zod";
+
+import { HSLASchema } from "../schemas/springSolverSchemas";
+import { solveSpring } from "../physics/springSolver";
 
 type HSLA = z.infer<typeof HSLASchema>;
 
@@ -14,6 +12,7 @@ function parseHSLA(colorString: string): HSLA | undefined {
   const match = colorString.match(
     /hsla?\((\d+(?:\.\d+)?),\s*(\d+(?:\.\d+)?)%?,\s*(\d+(?:\.\d+)?)%?,\s*([\d.]+)?\)/i
   );
+
   if (!match) return undefined;
 
   return {
@@ -57,12 +56,7 @@ function solveSpringHSLA(
 }
 
 function hslaMagnitude(a: HSLA, b: HSLA): number {
-  return (
-    Math.abs(a.h - b.h) +
-    Math.abs(a.s - b.s) +
-    Math.abs(a.l - b.l) +
-    Math.abs(a.a - b.a)
-  );
+  return Math.abs(a.h - b.h) + Math.abs(a.s - b.s) + Math.abs(a.l - b.l) + Math.abs(a.a - b.a);
 }
 
 /** Background color morph in HSLA space (extraction prefers hsla() strings). */
@@ -75,6 +69,7 @@ export const colorProperty: MorphProperty<HSLA> = {
     const bgColor = computedStyle.backgroundColor;
 
     const hsla = parseHSLA(bgColor);
+
     if (hsla) return hsla;
 
     return undefined;
@@ -84,11 +79,7 @@ export const colorProperty: MorphProperty<HSLA> = {
     element.style.backgroundColor = hslaToString(value);
   },
 
-  updateState: (
-    state: morphCurrentState,
-    _springResult: SpringResult,
-    value: HSLA
-  ): void => {
+  updateState: (state: morphCurrentState, _springResult: SpringResult, value: HSLA): void => {
     if (!state.current.color) {
       state.current.color = { h: 0, s: 0, l: 0, a: 1 };
     }
@@ -119,6 +110,7 @@ export const colorProperty: MorphProperty<HSLA> = {
     }
 
     const distance = hslaMagnitude(current, target);
+
     return distance < precision;
   },
 

@@ -41,6 +41,7 @@ type WelcomeHighlightVisualProps = {
 
 function normalizeImageSources(imageSrc?: WelcomeVisualImageSrc): string[] {
   if (!imageSrc) return [];
+
   return typeof imageSrc === "string" ? [imageSrc] : [...imageSrc];
 }
 
@@ -81,7 +82,8 @@ export function WelcomeHighlightVisual({
   }, [cycleIntervalMs, inView, pageVisible, reduce, sources.length]);
 
   const frameClass = cn(
-    "relative overflow-hidden rounded-2xl border border-border/50",
+    "relative rounded-2xl border border-border/50",
+    Illustration && id === "gen-ui" ? "overflow-visible" : "overflow-hidden",
     welcomeVisualMaxWidth[sizeKey],
     className
   );
@@ -89,14 +91,17 @@ export function WelcomeHighlightVisual({
   const imageSizes = welcomeVisualImageSizes[sizeKey];
 
   if (Illustration) {
+    const bareIllustration = id === "gen-ui";
+
     return (
       <AspectRatio ref={frameRef} className={frameClass} ratio={ratio}>
         <motion.div
           aria-label={imageAlt ?? placeholder.hint}
           className={cn(
-            glass({ opaque: true }),
-            "absolute inset-0 overflow-hidden",
-            "bg-linear-to-br from-accent/8 via-transparent to-foreground/3"
+            "absolute inset-0",
+            bareIllustration ? "overflow-visible" : "overflow-hidden",
+            !bareIllustration && glass({ opaque: true }),
+            !bareIllustration && "bg-linear-to-br from-accent/8 via-transparent to-foreground/3"
           )}
           data-illustration-id={id}
           initial={reduce ? false : { opacity: 0.85, scale: 0.985 }}

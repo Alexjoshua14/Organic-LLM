@@ -1,17 +1,20 @@
 import "server-only";
 
 import type { HealthCheckResult } from "@/lib/health/types";
+
 import { HEALTH_CHECK_TIMEOUT_MS, withTimeout } from "@/lib/health/with-timeout";
 import { supabaseAdmin } from "@/lib/supabase/supabase-admin";
 
 function supabaseConfig(): Record<string, string> {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL ?? "";
   let host = url;
+
   try {
     host = new URL(url).host;
   } catch {
     /* keep raw */
   }
+
   return {
     host,
     serviceRoleConfigured: process.env.SUPABASE_SERVICE_ROLE_KEY?.trim() ? "yes" : "no",
@@ -28,7 +31,10 @@ export async function checkSupabase(): Promise<HealthCheckResult> {
     config,
   };
 
-  if (!process.env.NEXT_PUBLIC_SUPABASE_URL?.trim() || !process.env.SUPABASE_SERVICE_ROLE_KEY?.trim()) {
+  if (
+    !process.env.NEXT_PUBLIC_SUPABASE_URL?.trim() ||
+    !process.env.SUPABASE_SERVICE_ROLE_KEY?.trim()
+  ) {
     return {
       ...base,
       status: "skipped",
@@ -64,6 +70,7 @@ export async function checkSupabase(): Promise<HealthCheckResult> {
       } catch (error) {
         const latencyMs = Math.round(performance.now() - start);
         const message = error instanceof Error ? error.message : String(error);
+
         return {
           ...base,
           status: "down",

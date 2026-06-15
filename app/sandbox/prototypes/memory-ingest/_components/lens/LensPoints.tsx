@@ -119,14 +119,17 @@ export function LensPoints({
     const stepInterval = 1 / Math.max(1, targetFps);
     const currentElapsed = clock.elapsedTime;
     const prevElapsed = prevElapsedRef.current ?? currentElapsed;
+
     prevElapsedRef.current = currentElapsed;
 
     const rawFrameDt = Math.max(0, currentElapsed - prevElapsed);
     const frameDt = Math.min(rawFrameDt, 0.1);
+
     accumulatorRef.current = Math.min(accumulatorRef.current + frameDt, stepInterval * 5);
 
     while (accumulatorRef.current >= stepInterval) {
       const rates = computeMotionClockRates(recipe);
+
       phasesRef.current = integrateMotionClockPhases(phasesRef.current, rates, stepInterval);
       accumulatorRef.current -= stepInterval;
     }

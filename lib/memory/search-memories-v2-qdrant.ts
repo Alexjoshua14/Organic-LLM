@@ -1,10 +1,11 @@
 import "server-only";
 
+import type { MemoryItemType } from "@/lib/schemas/memory";
+
 import { getMemoryQdrantClient } from "@/config/memory-qdrant-client";
 import { decryptMemory, isEncrypted } from "@/lib/crypto/memory-encryption";
 import { OLLAMA_URL, ollamaHeaders } from "@/lib/memory/ollama-config";
 import { runMemoryStore } from "@/lib/memory/run-memory-store";
-import type { MemoryItemType } from "@/lib/schemas/memory";
 
 const OLLAMA_EMBED_MODEL = process.env.OLLAMA_EMBED_MODEL ?? "nomic-embed-text";
 const V2_COLLECTION = process.env.MEMORY_V2_COLLECTION ?? "memories_v2";
@@ -129,6 +130,7 @@ export async function getBestV2ChunkScoreForSourceMemory(
       },
     })
   );
+
   if (!hits.length) return null;
   const s = hits[0]!.score;
 

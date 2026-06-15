@@ -1,8 +1,14 @@
 import type { ReactNode } from "react";
+
 import Link from "next/link";
 
 import { cn } from "@/lib/utils";
-import { clusterInsetX, pageContentFrameInsets, triggerInsetX, triggerInsetY } from "@/lib/layout/nav-chrome";
+import {
+  clusterInsetX,
+  pageContentFrameInsets,
+  triggerInsetX,
+  triggerInsetY,
+} from "@/lib/layout/nav-chrome";
 
 const MAX_WIDTH_CLASS = {
   "2xl": "max-w-2xl",

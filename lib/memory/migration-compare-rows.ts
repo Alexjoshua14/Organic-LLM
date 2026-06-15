@@ -22,6 +22,7 @@ export function buildMigrationCompareRows(
 
   for (const L of legacyResults) {
     const V = v2ById.get(L.id);
+
     if (V && normalizeForCompare(V.memory) === normalizeForCompare(L.memory)) {
       rows.push({ kind: "merged", memory: L });
       consumedV2.add(V.id);

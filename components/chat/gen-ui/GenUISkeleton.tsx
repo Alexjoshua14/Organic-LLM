@@ -1,8 +1,8 @@
 "use client";
 
 import type { GenUIBlockType } from "@/lib/schemas/gen-ui";
-import { cn } from "@/lib/utils";
 
+import { cn } from "@/lib/utils";
 import { glass } from "@/components/design-system/primitives";
 
 type GenUISkeletonProps = {
@@ -81,7 +81,7 @@ export function GenUISkeleton({ type, partialInput }: GenUISkeletonProps) {
             <Shimmer className="h-4 w-2/3" />
             <Shimmer className="h-3 w-full" />
           </div>
-          </div>
+        </div>
       ) : null}
     </div>
   );

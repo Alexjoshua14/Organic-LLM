@@ -39,6 +39,7 @@ export function v2ChunkPointId(sourceMemoryId: string, chunkIndex: number): stri
 /** Prefer breaking after newline or sentence end within `slice` (relative indices). */
 function findBreakInSlice(slice: string): number {
   const n = slice.length;
+
   if (n <= 1) return n;
 
   const lastNl = slice.lastIndexOf("\n");
@@ -66,6 +67,7 @@ export function chunkMemoryText(
   overlapChars: number = DEFAULT_OVERLAP_CHARS
 ): string[] {
   const t = text.trim();
+
   if (t.length === 0) {
     return [];
   }
@@ -82,6 +84,7 @@ export function chunkMemoryText(
 
     if (end < t.length) {
       const relativeBreak = findBreakInSlice(t.slice(start, end));
+
       end = start + relativeBreak;
       if (end <= start) {
         end = hardEnd;
@@ -89,6 +92,7 @@ export function chunkMemoryText(
     }
 
     const piece = t.slice(start, end).trim();
+
     if (piece.length > 0) {
       chunks.push(piece);
     }

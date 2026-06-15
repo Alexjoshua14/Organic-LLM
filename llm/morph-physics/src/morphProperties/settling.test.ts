@@ -1,5 +1,7 @@
-import { describe, it, expect } from "vitest";
 import type { morphCurrentState } from "../schemas/springSolverSchemas";
+
+import { describe, it, expect } from "vitest";
+
 import { positionProperty } from "./position";
 import { morphPropertyRegistry } from "./registry";
 import "./index";
@@ -36,6 +38,7 @@ describe("positionProperty.isSettled", () => {
       current: { position: { x: 10, y: 20, w: 100, h: 80 } },
       target: { position: { x: 10, y: 20, w: 100, h: 80 } },
     };
+
     expect(positionProperty.isSettled?.(state, prec)).toBe(true);
   });
 
@@ -45,6 +48,7 @@ describe("positionProperty.isSettled", () => {
       current: { position: { x: 10, y: 20, w: 100, h: 80 } },
       target: { position: { x: 50, y: 20, w: 100, h: 80 } },
     };
+
     expect(positionProperty.isSettled?.(state, prec)).toBe(false);
   });
 
@@ -54,6 +58,7 @@ describe("positionProperty.isSettled", () => {
       current: { position: { x: 10, y: 20, w: 100, h: 80 } },
       target: { position: { x: 10, y: 20, w: 100, h: 80 } },
     };
+
     expect(positionProperty.isSettled?.(state, prec)).toBe(false);
   });
 });

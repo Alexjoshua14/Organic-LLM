@@ -44,8 +44,10 @@ export const FIELD_CLOCK_CHANNELS: Record<FieldName, MotionClockChannel> = {
 
 function modulatorScalar(recipe: StateRecipe, key: "tempo" | "coherence" | "energy"): number {
   const value = recipe.modulators[key];
+
   if (typeof value === "number") return value;
   if (Array.isArray(value)) return value[0] ?? 0;
+
   return 0;
 }
 
@@ -60,9 +62,12 @@ export function computeMotionClockRates(recipe: StateRecipe): MotionClockRates {
 
   const base = BASE_RATE_FLOOR + tempo * BASE_RATE_TEMPO_GAIN;
   const turbulence =
-    (TURBULENCE_RATE_FLOOR + tempo * TURBULENCE_RATE_TEMPO_GAIN) * (1 - coherence * TURBULENCE_COHERENCE_DAMP);
-  const flow = (FLOW_RATE_FLOOR + tempo * FLOW_RATE_TEMPO_GAIN) * (1 + coherence * FLOW_COHERENCE_GAIN);
-  const shape = (SHAPE_RATE_FLOOR + tempo * SHAPE_RATE_TEMPO_GAIN) * (1 + energy * SHAPE_ENERGY_GAIN);
+    (TURBULENCE_RATE_FLOOR + tempo * TURBULENCE_RATE_TEMPO_GAIN) *
+    (1 - coherence * TURBULENCE_COHERENCE_DAMP);
+  const flow =
+    (FLOW_RATE_FLOOR + tempo * FLOW_RATE_TEMPO_GAIN) * (1 + coherence * FLOW_COHERENCE_GAIN);
+  const shape =
+    (SHAPE_RATE_FLOOR + tempo * SHAPE_RATE_TEMPO_GAIN) * (1 + energy * SHAPE_ENERGY_GAIN);
 
   return { base, turbulence, flow, shape };
 }

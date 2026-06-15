@@ -1,10 +1,9 @@
 import z from "zod";
+
 import { Vector4, vector4 } from "./physicsSchemas";
 
 export const solveParamsSchema = z.object({
-  current: z
-    .number()
-    .describe("Current value (e.g. position or state variable)"),
+  current: z.number().describe("Current value (e.g. position or state variable)"),
   target: z.number().describe("Target value to approach"),
   k: z.number().describe("Spring stiffness constant (k)"),
   c: z.number().describe("Damping coefficient (c)"),
@@ -37,9 +36,7 @@ export type SpringConfig = z.infer<typeof springConfigSchema>;
 /** @deprecated Prefer morphCurrentState for multi-property morphs. */
 export const physicsStateVector4Schema = z.object({
   current: vector4.describe("Current position and size (x, y, w, h)"),
-  velocity: vector4.describe(
-    "Current velocity for each component (x, y, w, h)"
-  ),
+  velocity: vector4.describe("Current velocity for each component (x, y, w, h)"),
 });
 
 export interface SpringResult {

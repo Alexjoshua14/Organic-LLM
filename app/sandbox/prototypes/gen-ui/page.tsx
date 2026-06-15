@@ -65,7 +65,10 @@ export default function GenUiPrototypePage() {
       ) : null}
 
       {tab === "partial" ? (
-        <GenUIRenderer data={{ block: FIXTURE_DECISION_MATRIX_PARTIAL }} messageId="partial-matrix" />
+        <GenUIRenderer
+          data={{ block: FIXTURE_DECISION_MATRIX_PARTIAL }}
+          messageId="partial-matrix"
+        />
       ) : null}
 
       {tab === "invalid" ? (

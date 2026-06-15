@@ -1,9 +1,6 @@
 "use client";
 
-import {
-  WelcomeHighlightVisual,
-  type WelcomeVisualImageSrc,
-} from "./welcome-highlight-visual";
+import { WelcomeHighlightVisual, type WelcomeVisualImageSrc } from "./welcome-highlight-visual";
 
 import { glass } from "@/components/design-system/primitives";
 import { cn } from "@/lib/utils";

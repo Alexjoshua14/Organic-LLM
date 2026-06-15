@@ -9,7 +9,6 @@ import { useChat } from "@ai-sdk/react";
 import { DefaultChatTransport } from "ai";
 import { useCallback, useEffect, useReducer, useRef } from "react";
 
-import { classifyTaskTier } from "@/lib/llm/auto-model-router";
 import {
   initialMemoryIngestFsmState,
   mapChatStatusToIngestEvent,
@@ -17,6 +16,7 @@ import {
   memoryIngestReducer,
 } from "../_lib/memory-ingest-fsm";
 
+import { classifyTaskTier } from "@/lib/llm/auto-model-router";
 import { getChatModel } from "@/lib/llm/helpers";
 import { AUTO_CHAT_MODEL } from "@/lib/schemas/chat";
 import { getSettings } from "@/lib/user-settings";
@@ -101,6 +101,7 @@ export function useMemoryIngestSession({ chatId, initialMessages }: UseMemoryIng
   const sendIngest = useCallback(
     async (text: string) => {
       const tier = classifyTaskTier(text);
+
       dispatch({ type: "SUBMIT", tier });
       await sendMessage({ text });
     },

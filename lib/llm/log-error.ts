@@ -50,6 +50,7 @@ function asRecord(value: unknown): Record<string, unknown> | undefined {
 function readBodyLike(value: unknown): string | undefined {
   if (typeof value === "string") return value;
   const rec = asRecord(value);
+
   if (!rec) return undefined;
 
   const fromKnown =
@@ -57,6 +58,7 @@ function readBodyLike(value: unknown): string | undefined {
     readStringProp(rec, "responseText") ??
     readStringProp(rec, "body") ??
     readStringProp(rec, "message");
+
   if (fromKnown) return fromKnown;
   const asJson = safeJson(value);
 
@@ -83,16 +85,15 @@ export function serializeError(err: unknown): SerializedError {
     readStringProp(plain, "message") ??
     readStringProp(rec, "message");
   const composedMessage =
-    explicitMessage ||
-    (fallbackJson ? truncate(fallbackJson, RESPONSE_BODY_MAX) : String(err));
+    explicitMessage || (fallbackJson ? truncate(fallbackJson, RESPONSE_BODY_MAX) : String(err));
 
   const out: SerializedError = {
-    name: (
-      readStringProp(rec, "name") ??
-      (nestedError ? readStringProp(nestedError, "name") : undefined) ??
-      (plain ? readStringProp(plain, "name") : undefined) ??
-      e.name
-    ) || "Error",
+    name:
+      (readStringProp(rec, "name") ??
+        (nestedError ? readStringProp(nestedError, "name") : undefined) ??
+        (plain ? readStringProp(plain, "name") : undefined) ??
+        e.name) ||
+      "Error",
     message: composedMessage,
   };
 
@@ -120,12 +121,14 @@ export function serializeError(err: unknown): SerializedError {
     readStringProp(rec, "code") ??
     (nestedError ? readStringProp(nestedError, "code") : undefined) ??
     readStringProp(plain, "code");
+
   if (code !== undefined) out.code = code;
 
   const url =
     readStringProp(rec, "url") ??
     (nestedResponse ? readStringProp(nestedResponse, "url") : undefined) ??
     readStringProp(plain, "url");
+
   if (url !== undefined) out.url = url;
 
   const responseBody =
@@ -142,6 +145,7 @@ export function serializeError(err: unknown): SerializedError {
   }
 
   const headers = rec.responseHeaders ?? plain?.responseHeaders;
+
   if (headers && typeof headers === "object" && !Array.isArray(headers)) {
     const entries: Record<string, string> = {};
 
@@ -154,8 +158,10 @@ export function serializeError(err: unknown): SerializedError {
   }
 
   const data = rec.data ?? plain?.data;
+
   if (data !== undefined) {
     const s = safeJson(data);
+
     if (s !== undefined) out.data = truncate(s, RESPONSE_BODY_MAX);
   }
 

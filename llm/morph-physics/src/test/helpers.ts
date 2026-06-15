@@ -1,5 +1,6 @@
-import { expect, vi } from "vitest";
 import type { Vector4 } from "../schemas/physicsSchemas";
+
+import { expect, vi } from "vitest";
 
 /** jsdom returns empty layout unless rects are mocked. */
 export function mockBoundingRect(
@@ -17,14 +18,11 @@ export function mockBoundingRect(
     right: rect.x + rect.width,
     toJSON: () => ({}),
   } as DOMRect;
+
   vi.spyOn(element, "getBoundingClientRect").mockReturnValue(full);
 }
 
-export function assertVector4Near(
-  actual: Vector4,
-  expected: Vector4,
-  floatDigits: number
-): void {
+export function assertVector4Near(actual: Vector4, expected: Vector4, floatDigits: number): void {
   expect(actual.x).toBeCloseTo(expected.x, floatDigits);
   expect(actual.y).toBeCloseTo(expected.y, floatDigits);
   expect(actual.w).toBeCloseTo(expected.w, floatDigits);

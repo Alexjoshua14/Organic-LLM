@@ -113,11 +113,9 @@ function excerptFromEncryptedSections(
 
       if (!decrypted) return null;
 
-      return (
-        decrypted.length > STRATA_ROUTING_EXCERPT_CHARS
-          ? `${decrypted.slice(0, STRATA_ROUTING_EXCERPT_CHARS)}…`
-          : decrypted
-      );
+      return decrypted.length > STRATA_ROUTING_EXCERPT_CHARS
+        ? `${decrypted.slice(0, STRATA_ROUTING_EXCERPT_CHARS)}…`
+        : decrypted;
     } catch {
       return null;
     }

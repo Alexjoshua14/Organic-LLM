@@ -9,10 +9,7 @@ export default defineConfig({
           environment: "node",
           setupFiles: ["src/test/setup.ts"],
           include: ["src/**/*.test.ts"],
-          exclude: [
-            "**/*.dom.test.ts",
-            "**/*.integration.test.ts",
-          ],
+          exclude: ["**/*.dom.test.ts", "**/*.integration.test.ts"],
         },
       },
       {
@@ -20,11 +17,7 @@ export default defineConfig({
           name: "jsdom",
           environment: "jsdom",
           setupFiles: ["src/test/setup.ts"],
-          include: [
-            "**/*.dom.test.ts",
-            "**/*.integration.test.ts",
-            "**/*.test.tsx",
-          ],
+          include: ["**/*.dom.test.ts", "**/*.integration.test.ts", "**/*.test.tsx"],
         },
       },
     ],
