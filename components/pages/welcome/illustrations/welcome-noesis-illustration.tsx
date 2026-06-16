@@ -6,8 +6,11 @@ import { Loader2, RefreshCw, Sparkles } from "lucide-react";
 
 import { usePageVisible } from "@/components/hooks/use-page-visible";
 import { useWelcomeInView } from "@/components/pages/welcome/use-welcome-in-view";
+import {
+  WelcomeDemoUserMessage,
+  welcomeDemoCompactClass,
+} from "@/components/pages/welcome/welcome-demo-user-message";
 import ShinyText from "@/components/ShinyText";
-import { glass } from "@/components/design-system/primitives";
 import { card, sectionLabel } from "@/lib/rabbit-holes/designTokens";
 import {
   NOESIS_SPARK_SOURCE_LABEL,
@@ -77,21 +80,6 @@ function SparkCard({
         </p>
       </div>
     </div>
-  );
-}
-
-function ThreadUserBubble({ text }: { text: string }) {
-  return (
-    <motion.div
-      animate={{ opacity: 1, y: 0 }}
-      className="ml-auto w-fit max-w-[90%]"
-      initial={{ opacity: 0, y: 6 }}
-      transition={{ duration: 0.32, ease: [0.22, 1, 0.36, 1] }}
-    >
-      <div className={cn(glass(), "rounded-lg px-2.5 py-2 text-xs leading-snug text-foreground")}>
-        {text}
-      </div>
-    </motion.div>
   );
 }
 
@@ -421,11 +409,19 @@ export function WelcomeNoesisIllustration({ className }: WelcomeNoesisIllustrati
         <p className="mb-3 text-center text-[10px] text-muted-foreground/75">
           Uses memory for tailored suggestions
         </p>
-        <div className={cn(card, "flex min-h-0 flex-1 flex-col gap-2 rounded-lg p-2.5")}>
+        <div className={cn(card, "flex min-h-0 flex-1 flex-col gap-2 rounded-lg p-2.5", welcomeDemoCompactClass)}>
           <div className="flex min-h-0 flex-1 flex-col gap-2">
-            <ThreadUserBubble text={spark.text} />
+            <WelcomeDemoUserMessage
+              animate={false}
+              id="welcome-noesis-user-1-reduced"
+              text={spark.text}
+            />
             <ThreadAssistantBubble text={staticScenario.assistantReply1} />
-            <ThreadUserBubble text={staticScenario.assistDraft} />
+            <WelcomeDemoUserMessage
+              animate={false}
+              id="welcome-noesis-user-2-reduced"
+              text={staticScenario.assistDraft}
+            />
           </div>
         </div>
       </div>
@@ -441,7 +437,7 @@ export function WelcomeNoesisIllustration({ className }: WelcomeNoesisIllustrati
         </span>
       </div>
 
-      <div className={cn(card, "flex min-h-0 flex-1 flex-col overflow-hidden rounded-lg")}>
+      <div className={cn(card, "flex min-h-0 flex-1 flex-col overflow-hidden rounded-lg", welcomeDemoCompactClass)}>
         <div
           ref={threadRef}
           className="flex min-h-[5.5rem] flex-1 flex-col gap-2.5 overflow-y-auto px-2.5 py-2.5 sm:min-h-[6.5rem] sm:px-3 sm:py-3"
@@ -453,7 +449,7 @@ export function WelcomeNoesisIllustration({ className }: WelcomeNoesisIllustrati
           ) : (
             threadMessages.map((message) =>
               message.role === "user" ? (
-                <ThreadUserBubble key={message.id} text={message.text} />
+                <WelcomeDemoUserMessage key={message.id} id={message.id} text={message.text} />
               ) : (
                 <ThreadAssistantBubble
                   key={message.id}

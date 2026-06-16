@@ -6,9 +6,12 @@ import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import { MermaidDiagram } from "@/components/blog/mermaid-diagram";
 import { usePageVisible } from "@/components/hooks/use-page-visible";
 import { useWelcomeInView } from "@/components/pages/welcome/use-welcome-in-view";
+import {
+  WelcomeDemoUserMessage,
+  welcomeDemoCompactClass,
+} from "@/components/pages/welcome/welcome-demo-user-message";
 import ShinyText from "@/components/ShinyText";
 import { Loader } from "@/components/third-party/ai-elements/loader";
-import { glass } from "@/components/design-system/primitives";
 import { card, sectionLabel } from "@/lib/rabbit-holes/designTokens";
 import {
   WELCOME_ARCADIA_MERMAID,
@@ -42,21 +45,6 @@ const VIEW_TRANSITION = { duration: 0.32, ease: [0.22, 1, 0.36, 1] as const };
 
 const ARIA_LABEL =
   "A user asks why an idea loses momentum; Arcadia renders a mind map of spark, scope, blur, friction, and drift.";
-
-function ThreadUserBubble({ text }: { text: string }) {
-  return (
-    <motion.div
-      animate={{ opacity: 1, y: 0 }}
-      className="ml-auto w-fit max-w-[90%]"
-      initial={{ opacity: 0, y: 6 }}
-      transition={VIEW_TRANSITION}
-    >
-      <div className={cn(glass(), "rounded-lg px-2.5 py-2 text-xs leading-snug text-foreground")}>
-        {text}
-      </div>
-    </motion.div>
-  );
-}
 
 export function WelcomeArcadiaIllustration({ className }: WelcomeArcadiaIllustrationProps) {
   const reduce = useReducedMotion();
@@ -232,12 +220,13 @@ export function WelcomeArcadiaIllustration({ className }: WelcomeArcadiaIllustra
           </span>
         </div>
 
-        <div className={cn(card, "flex min-h-0 flex-1 flex-col overflow-hidden rounded-lg")}>
+        <div className={cn(card, "flex min-h-0 flex-1 flex-col overflow-hidden rounded-lg", welcomeDemoCompactClass)}>
           <div className="flex min-h-[5.5rem] flex-1 flex-col gap-2.5 overflow-y-auto px-2.5 py-2.5 sm:min-h-[6.5rem] sm:px-3 sm:py-3">
-            <ThreadUserBubble text={WELCOME_ARCADIA_USER_PROMPT} />
-            <p className="text-[10px] font-medium text-foreground/85">
-              {WELCOME_ARCADIA_TOOL_STATUS.rendered}
-            </p>
+            <WelcomeDemoUserMessage
+              animate={false}
+              id="welcome-arcadia-user-reduced"
+              text={WELCOME_ARCADIA_USER_PROMPT}
+            />
             {mountDiagram ? (
               <div className={diagramClass}>
                 <MermaidDiagram code={WELCOME_ARCADIA_MERMAID} />
@@ -258,7 +247,7 @@ export function WelcomeArcadiaIllustration({ className }: WelcomeArcadiaIllustra
         </span>
       </div>
 
-      <div className={cn(card, "flex min-h-0 flex-1 flex-col overflow-hidden rounded-lg")}>
+      <div className={cn(card, "flex min-h-0 flex-1 flex-col overflow-hidden rounded-lg", welcomeDemoCompactClass)}>
         <div
           ref={threadRef}
           className="flex min-h-[5.5rem] flex-1 flex-col gap-2 overflow-y-auto px-2.5 py-2.5 sm:min-h-[6.5rem] sm:px-3 sm:py-3"
@@ -269,7 +258,11 @@ export function WelcomeArcadiaIllustration({ className }: WelcomeArcadiaIllustra
             </p>
           ) : (
             threadMessages.map((message) => (
-              <ThreadUserBubble key={message.id} text={message.text} />
+              <WelcomeDemoUserMessage
+                key={message.id}
+                id={message.id}
+                text={message.text}
+              />
             ))
           )}
 
@@ -312,17 +305,6 @@ export function WelcomeArcadiaIllustration({ className }: WelcomeArcadiaIllustra
               <MermaidDiagram code={WELCOME_ARCADIA_MERMAID} />
             </div>
           ) : null}
-
-          {showDiagram ? (
-            <motion.p
-              animate={{ opacity: 1 }}
-              className="text-[10px] font-medium text-foreground/85"
-              initial={{ opacity: 0 }}
-              transition={VIEW_TRANSITION}
-            >
-              {WELCOME_ARCADIA_TOOL_STATUS.rendered}
-            </motion.p>
-          ) : null}
         </div>
 
         <div className="shrink-0 border-t border-border/40 px-2.5 py-2 sm:px-3 sm:py-2.5">
@@ -335,9 +317,6 @@ export function WelcomeArcadiaIllustration({ className }: WelcomeArcadiaIllustra
                 initial={{ opacity: 0, y: -6 }}
                 transition={VIEW_TRANSITION}
               >
-                {composerText.length > 0 ? (
-                  <p className="mb-2 text-[10px] text-muted-foreground/70">Edit before you send</p>
-                ) : null}
                 <div className="min-h-[2.75rem] rounded-lg border border-border/55 bg-background/55 px-2.5 py-2">
                   <p className="text-xs leading-relaxed text-foreground/90">
                     {composerText}

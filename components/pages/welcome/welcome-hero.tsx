@@ -22,6 +22,7 @@ export function WelcomeHero() {
 
   return (
     <Page
+      chrome="full-bleed"
       className="!items-stretch !justify-start overflow-y-auto overflow-x-hidden"
       transparentBackground
     >

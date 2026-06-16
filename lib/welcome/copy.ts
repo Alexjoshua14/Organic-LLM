@@ -64,10 +64,9 @@ export const welcomeCopy = {
           id: "main",
           title: "Main chat",
           body: "Your daily driver—web search, memory retrieval, Gen UI in-thread, and encrypted persistence across threads.",
-          imageSrc: "/images/main-chat.png",
           visualPlaceholder: {
             label: "Screenshot placeholder",
-            hint: "Main chat thread with memory and tools visible",
+            hint: "Main chat thread with memory search, web search, streaming reply, and read aloud",
           },
         },
         {

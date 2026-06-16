@@ -28,7 +28,6 @@ export const WELCOME_ARCADIA_TOOL_STATUS = {
   planning: "Planning Mermaid diagram…",
   generating: "Generating Mermaid code…",
   validating: "Validating Mermaid syntax…",
-  rendered: "Mermaid diagram created",
 } as const;
 
 export const WELCOME_ARCADIA_PLANNING_HINT = "Mapping the branches…";

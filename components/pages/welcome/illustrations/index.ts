@@ -3,6 +3,7 @@ import type { ComponentType } from "react";
 import { WelcomeArcadiaIllustration } from "./welcome-arcadia-illustration";
 import { WelcomeEncryptedAtRestIllustration } from "./welcome-encrypted-at-rest-illustration";
 import { WelcomeGenUiIllustration } from "./welcome-gen-ui-illustration";
+import { WelcomeMainChatIllustration } from "./welcome-main-chat-illustration";
 import { WelcomeModelSelectionIllustration } from "./welcome-model-selection-illustration";
 import { WelcomeNoesisIllustration } from "./welcome-noesis-illustration";
 import { WelcomeStreamResumeIllustration } from "./welcome-stream-resume-illustration";
@@ -13,6 +14,7 @@ export const welcomeIllustrations: Record<string, ComponentType<{ className?: st
   streaming: WelcomeStreamResumeIllustration,
   models: WelcomeModelSelectionIllustration,
   "gen-ui": WelcomeGenUiIllustration,
+  "feature-chat": WelcomeMainChatIllustration,
   "feature-arcadia": WelcomeArcadiaIllustration,
   "feature-noesis": WelcomeNoesisIllustration,
 };

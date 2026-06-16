@@ -86,7 +86,6 @@ export function WelcomeFeatures({ className }: WelcomeFeaturesProps) {
                       aspect="feature"
                       id={modePlaceholderId[mode.id] ?? `feature-${mode.id}`}
                       imageAlt={mode.visualPlaceholder.hint}
-                      imageSrc={"imageSrc" in mode ? mode.imageSrc : undefined}
                       lazyImages
                       placeholder={mode.visualPlaceholder}
                       size="mode"
