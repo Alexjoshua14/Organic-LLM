@@ -31,5 +31,4 @@ export const WELCOME_ARCADIA_TOOL_STATUS = {
   rendered: "Mermaid diagram created",
 } as const;
 
-export const WELCOME_ARCADIA_PLANNING_HINT =
-  "Branches are easier to scan than a paragraph of advice.";
+export const WELCOME_ARCADIA_PLANNING_HINT = "Mapping the branches…";
