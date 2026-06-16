@@ -8,7 +8,11 @@ type GenUIFallbackMarkdownProps = {
   messageId?: string;
 };
 
-export function GenUIFallbackMarkdown({ raw, messageId = "gen-ui-fallback" }: GenUIFallbackMarkdownProps) {
+export function GenUIFallbackMarkdown({
+  raw,
+  messageId = "gen-ui-fallback",
+}: GenUIFallbackMarkdownProps) {
   const markdown = genUIBlockToMarkdownLoose(raw);
+
   return <ChatMessageMarkdown content={markdown} id={messageId} />;
 }

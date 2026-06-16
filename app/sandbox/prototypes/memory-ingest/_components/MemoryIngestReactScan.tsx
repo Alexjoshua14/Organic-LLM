@@ -14,6 +14,7 @@ export function MemoryIngestReactScan() {
     if (process.env.NODE_ENV !== "development") return;
     try {
       const q = new URLSearchParams(window.location.search);
+
       setEnabled(q.get("reactScan") === "1");
     } catch {
       setEnabled(false);
@@ -23,9 +24,6 @@ export function MemoryIngestReactScan() {
   if (!enabled) return null;
 
   return (
-    <Script
-      src="https://unpkg.com/react-scan/dist/auto.global.js"
-      strategy="afterInteractive"
-    />
+    <Script src="https://unpkg.com/react-scan/dist/auto.global.js" strategy="afterInteractive" />
   );
 }

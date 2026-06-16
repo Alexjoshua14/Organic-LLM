@@ -333,6 +333,13 @@ body.font-theme-commissioner {
   padding-bottom: env(safe-area-inset-bottom, 0px);
 }
 
+/* Full-bleed pages (e.g. welcome) skip the inset card; keep the control cluster flush with the top edge. */
+@media (min-width: 768px) {
+  body:has([data-page-chrome="full-bleed"]) .control-cluster {
+    transform: translateY(0) !important;
+  }
+}
+
 /* Rabbit Holes explorer only: hide global mobile chrome (browse still shows control cluster) */
 @media (max-width: 767px) {
   body:has([data-rabbit-hole-explorer]) [data-mobile-nav-chrome="sidebar-trigger"],

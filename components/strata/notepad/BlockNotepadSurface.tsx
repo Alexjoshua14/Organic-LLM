@@ -50,6 +50,7 @@ export function BlockNotepadSurface({
     () => blocks.some((block) => block.type === "link" && block.state === "processing"),
     [blocks]
   );
+
   useEffect(() => {
     latestBlocksRef.current = blocks;
   }, [blocks]);
@@ -75,6 +76,7 @@ export function BlockNotepadSurface({
       });
       pushBlocks(next);
       queueMicrotask(() => textRefs.current[next[index + 1]!.id]?.focus());
+
       return;
     }
 
@@ -304,7 +306,9 @@ export function BlockNotepadSurface({
             ) : null}
 
             {errored ? (
-              <p className="mt-2 text-xs text-destructive">{block.errorMessage ?? "Unable to process URL."}</p>
+              <p className="mt-2 text-xs text-destructive">
+                {block.errorMessage ?? "Unable to process URL."}
+              </p>
             ) : null}
           </div>
         );

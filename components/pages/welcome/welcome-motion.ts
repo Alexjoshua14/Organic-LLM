@@ -26,7 +26,10 @@ export function useWelcomeMotion() {
       };
 
   const staggerItem: Variants = reduce
-    ? { hidden: { opacity: 1, y: 0, scaleX: 1, filter: "blur(0px)" }, show: { opacity: 1, y: 0, scaleX: 1, filter: "blur(0px)" } }
+    ? {
+        hidden: { opacity: 1, y: 0, scaleX: 1, filter: "blur(0px)" },
+        show: { opacity: 1, y: 0, scaleX: 1, filter: "blur(0px)" },
+      }
     : {
         hidden: { opacity: 0, y: 10 },
         show: {

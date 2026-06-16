@@ -1,5 +1,6 @@
-import { type ToolSet, tool } from "ai";
 import type { Message } from "mem0ai/oss";
+
+import { type ToolSet, tool } from "ai";
 
 import {
   commitMemoryInputSchema,
@@ -121,8 +122,7 @@ export function createDelphiMemoryTools(params: DelphiMemoryToolsParams): {
   });
 
   const flag_for_review = tool({
-    description:
-      "Mark an item for the reconciliation pass. (Persistence deferred.)",
+    description: "Mark an item for the reconciliation pass. (Persistence deferred.)",
     inputSchema: flagPayloadSchema,
     execute: async () => ({
       ok: false as const,

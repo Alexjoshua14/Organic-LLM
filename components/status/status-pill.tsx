@@ -1,6 +1,7 @@
 "use client";
 
 import type { HealthStatus } from "@/lib/health/client-types";
+
 import { cn } from "@/lib/utils";
 
 const STYLES: Record<HealthStatus, string> = {
@@ -27,6 +28,7 @@ export function StatusPill({
   className?: string;
 }) {
   const label = LABELS[status];
+
   return (
     <span
       aria-label={serviceName ? `${serviceName}: ${label}` : label}

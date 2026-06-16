@@ -1,6 +1,10 @@
 "use client";
 
-import { useMorphPhysics, type ShellLayoutInfo, type Vector4 } from "@organic-llm/morph-physics/react";
+import {
+  useMorphPhysics,
+  type ShellLayoutInfo,
+  type Vector4,
+} from "@organic-llm/morph-physics/react";
 import { snapshot } from "@organic-llm/morph-physics";
 import Link from "next/link";
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
@@ -57,6 +61,7 @@ export function MorphInputLayoutDemo() {
   const onShellLayout = useCallback((info: ShellLayoutInfo) => {
     if (variantRef.current !== "home") {
       setRelaxHomeComposerMaxWidth(false);
+
       return;
     }
     setRelaxHomeComposerMaxWidth(info.relaxation.width);
@@ -284,9 +289,7 @@ export function MorphInputLayoutDemo() {
               <div
                 className={cn(
                   "min-h-full",
-                  relaxHomeComposerMaxWidth
-                    ? "w-full min-w-0"
-                    : "w-full max-w-xl"
+                  relaxHomeComposerMaxWidth ? "w-full min-w-0" : "w-full max-w-xl"
                 )}
               >
                 <MorphDemoHomeInput

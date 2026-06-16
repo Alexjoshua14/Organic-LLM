@@ -1,8 +1,9 @@
+import type { Result } from "@/types";
+
 import { auth } from "@clerk/nextjs/server";
 
 import { getSupabaseUserId } from "@/data/supabase/profiles";
 import { checkLlmMessageLimit } from "@/lib/rate-limit/llm";
-import type { Result } from "@/types";
 
 export type LlmChatActorData = { sbUserId: string };
 

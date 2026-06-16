@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { motion } from "framer-motion";
 import { ArrowRight } from "lucide-react";
 
 import { WelcomeFeatureCard } from "./welcome-feature-card";
@@ -27,7 +28,7 @@ export function WelcomeFeatures({ className }: WelcomeFeaturesProps) {
   const { chat, rabbitHoles, strata } = features;
 
   return (
-    <section
+    <motion.section
       aria-labelledby="welcome-features-heading"
       className={cn(
         "py-12 pb-16 sm:py-14 sm:pb-20 [content-visibility:auto] [contain-intrinsic-size:auto_1200px]",
@@ -74,19 +75,18 @@ export function WelcomeFeatures({ className }: WelcomeFeaturesProps) {
               </p>
             </div>
 
-            <ul className="grid grid-cols-1 gap-4 sm:grid-cols-3 sm:gap-6">
+            <ul className="grid grid-cols-1 gap-4 sm:grid-cols-3 sm:items-stretch sm:gap-6">
               {chat.modes.map((mode) => (
                 <li key={mode.id} className="flex min-w-0 flex-col">
                   <h4 className="text-sm font-medium text-foreground">{mode.title}</h4>
-                  <p className="mt-1 line-clamp-3 text-xs leading-snug text-muted-foreground sm:text-sm">
+                  <p className="mt-1 line-clamp-3 whitespace-pre-line text-xs leading-snug text-muted-foreground sm:text-sm">
                     {mode.body}
                   </p>
-                  <div className="mt-3 w-full">
+                  <div className="mt-3 w-full sm:mt-4">
                     <WelcomeHighlightVisual
                       aspect="feature"
                       id={modePlaceholderId[mode.id] ?? `feature-${mode.id}`}
                       imageAlt={mode.visualPlaceholder.hint}
-                      imageSrc={"imageSrc" in mode ? mode.imageSrc : undefined}
                       lazyImages
                       placeholder={mode.visualPlaceholder}
                       size="mode"
@@ -115,6 +115,6 @@ export function WelcomeFeatures({ className }: WelcomeFeaturesProps) {
           </div>
         </div>
       </div>
-    </section>
+    </motion.section>
   );
 }

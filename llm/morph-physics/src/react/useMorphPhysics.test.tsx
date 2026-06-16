@@ -1,9 +1,12 @@
-import { describe, it, expect, vi, afterEach } from "vitest";
 import type { MutableRefObject } from "react";
-import { renderHook, act } from "@testing-library/react";
-import { useMorphPhysics } from "./useMorphPhysics";
-import { regular_spring_config } from "../constants";
 import type { ShellLayoutInfo } from "./useMorphPhysics";
+
+import { describe, it, expect, vi, afterEach } from "vitest";
+import { renderHook, act } from "@testing-library/react";
+
+import { regular_spring_config } from "../constants";
+
+import { useMorphPhysics } from "./useMorphPhysics";
 
 describe("useMorphPhysics", () => {
   afterEach(() => {
@@ -11,16 +14,13 @@ describe("useMorphPhysics", () => {
   });
 
   it("reset applies translate and box size to the attached element", () => {
-    const { result } = renderHook(() =>
-      useMorphPhysics({ config: regular_spring_config })
-    );
+    const { result } = renderHook(() => useMorphPhysics({ config: regular_spring_config }));
     const div = document.createElement("div");
+
     document.body.appendChild(div);
 
     act(() => {
-      (
-        result.current.elementRef as MutableRefObject<HTMLDivElement | null>
-      ).current = div;
+      (result.current.elementRef as MutableRefObject<HTMLDivElement | null>).current = div;
       result.current.reset({ x: 5, y: -3, w: 200, h: 44 });
     });
 
@@ -37,6 +37,7 @@ describe("useMorphPhysics", () => {
       "requestAnimationFrame",
       vi.fn((cb: FrameRequestCallback) => {
         rafQueue.push(cb);
+
         return rafQueue.length;
       })
     );
@@ -45,16 +46,13 @@ describe("useMorphPhysics", () => {
       now: () => time,
     } as Performance);
 
-    const { result } = renderHook(() =>
-      useMorphPhysics({ config: regular_spring_config })
-    );
+    const { result } = renderHook(() => useMorphPhysics({ config: regular_spring_config }));
     const div = document.createElement("div");
+
     document.body.appendChild(div);
 
     act(() => {
-      (
-        result.current.elementRef as MutableRefObject<HTMLDivElement | null>
-      ).current = div;
+      (result.current.elementRef as MutableRefObject<HTMLDivElement | null>).current = div;
       result.current.reset({ x: 0, y: 0, w: 100, h: 80 });
     });
 
@@ -62,19 +60,18 @@ describe("useMorphPhysics", () => {
       result.current.morphTo({ x: 40, y: 0, w: 100, h: 80 });
     });
 
-    const initialX = (
-      result.current.elementRef as MutableRefObject<HTMLDivElement | null>
-    ).current!.style.transform;
+    const initialX = (result.current.elementRef as MutableRefObject<HTMLDivElement | null>).current!
+      .style.transform;
 
     act(() => {
       time += 16;
       const cb = rafQueue[rafQueue.length - 1];
+
       if (cb) cb(time);
     });
 
-    const after = (
-      result.current.elementRef as MutableRefObject<HTMLDivElement | null>
-    ).current!.style.transform;
+    const after = (result.current.elementRef as MutableRefObject<HTMLDivElement | null>).current!
+      .style.transform;
 
     expect(initialX).toBe("translate(0px, 0px)");
     expect(after).not.toBe(initialX);
@@ -83,10 +80,12 @@ describe("useMorphPhysics", () => {
 
   it("morphTo invokes onShellLayout synchronously before rAF when shell is wider than target", () => {
     const rafQueue: FrameRequestCallback[] = [];
+
     vi.stubGlobal(
       "requestAnimationFrame",
       vi.fn((cb: FrameRequestCallback) => {
         rafQueue.push(cb);
+
         return rafQueue.length;
       })
     );
@@ -104,12 +103,11 @@ describe("useMorphPhysics", () => {
       })
     );
     const div = document.createElement("div");
+
     document.body.appendChild(div);
 
     act(() => {
-      (
-        result.current.elementRef as MutableRefObject<HTMLDivElement | null>
-      ).current = div;
+      (result.current.elementRef as MutableRefObject<HTMLDivElement | null>).current = div;
       result.current.reset({ x: 0, y: 0, w: 200, h: 80 });
     });
 
@@ -121,6 +119,7 @@ describe("useMorphPhysics", () => {
 
     expect(calls.length).toBeGreaterThan(afterResetCount);
     const syncCall = calls[calls.length - 1];
+
     expect(syncCall.current.w).toBe(200);
     expect(syncCall.target.w).toBe(100);
     expect(syncCall.relaxation.width).toBe(true);

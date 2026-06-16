@@ -1,13 +1,8 @@
-import { describe, it, expect } from "vitest";
-import {
-  subtract,
-  add,
-  multiply,
-  abs,
-  magnitude,
-  validateVector,
-} from "./morphUtils";
 import type { Vector4 } from "./schemas/physicsSchemas";
+
+import { describe, it, expect } from "vitest";
+
+import { subtract, add, multiply, abs, magnitude, validateVector } from "./morphUtils";
 
 describe("Vector arithmetic", () => {
   describe("subtract", () => {

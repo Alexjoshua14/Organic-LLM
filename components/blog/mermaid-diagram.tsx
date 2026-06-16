@@ -63,6 +63,36 @@ export function MermaidDiagram({
     }
   }
 
+  const applyMindmapLayering = (svgEl: SVGSVGElement) => {
+    const root = svgEl.querySelector(":scope > g");
+    const edgePaths = svgEl.querySelector(".edgePaths");
+    const edgeLabels = svgEl.querySelector(".edgeLabels");
+    const nodes = svgEl.querySelector(".nodes");
+
+    if (edgePaths) {
+      // Hoist per-node connector lines into the shared edge layer, preserving each
+      // node's translate() so coordinates stay correct after reparenting.
+      svgEl.querySelectorAll("g.node.mindmap-node").forEach((node) => {
+        const line = node.querySelector(":scope > line");
+
+        if (!line) return;
+
+        const transform = node.getAttribute("transform");
+        const wrapper = document.createElementNS("http://www.w3.org/2000/svg", "g");
+
+        wrapper.setAttribute("class", "mindmap-connector");
+        if (transform) wrapper.setAttribute("transform", transform);
+        wrapper.appendChild(line);
+        edgePaths.appendChild(wrapper);
+      });
+    }
+
+    if (root && nodes) {
+      if (edgePaths) root.insertBefore(edgePaths, nodes);
+      if (edgeLabels) root.insertBefore(edgeLabels, nodes);
+    }
+  };
+
   const applyGlassStylingToSvg = (svgEl: SVGSVGElement) => {
     const styleId = "mermaid-glass-style";
 
@@ -73,19 +103,39 @@ export function MermaidDiagram({
 
     styleEl.setAttribute("id", styleId);
     styleEl.textContent = `
-      /* Light mode (no .dark on html): tokens so text/shapes read on light surfaces */
+      /* Light mode (no .dark on html): opaque card fills so edges do not bleed through */
       .mermaid svg .node rect,
       .mermaid svg .node polygon,
       .mermaid svg .node circle,
       .mermaid svg .node ellipse,
-      .mermaid svg .node path {
-        fill: color-mix(in srgb, var(--card) 88%, var(--muted-foreground)) !important;
+      .mermaid svg .node path,
+      .mermaid svg .node .node-bkg,
+      .mermaid svg .node .basic.label-container {
+        fill: var(--card) !important;
         stroke: var(--border) !important;
         stroke-width: 1 !important;
       }
 
-      .mermaid svg .edgePath path {
+      .mermaid svg .edgePath path,
+      .mermaid svg .edgePaths path {
         stroke: var(--muted-foreground) !important;
+      }
+
+      .mermaid svg .node > line {
+        stroke: var(--muted-foreground) !important;
+      }
+
+      /* Mindmap nodes: opaque halo masks connector strokes at pill/circle edges */
+      .mermaid svg .node.mindmap-node .node-bkg,
+      .mermaid svg .node.mindmap-node .basic.label-container {
+        paint-order: stroke fill;
+        fill: var(--card) !important;
+        stroke: var(--card) !important;
+        stroke-width: 5 !important;
+      }
+
+      .mermaid svg foreignObject > div {
+        background-color: var(--card) !important;
       }
 
       .mermaid svg .label text,
@@ -95,23 +145,52 @@ export function MermaidDiagram({
         fill: var(--foreground) !important;
       }
 
+      /* Mindmaps render labels as HTML inside foreignObject; Mermaid alternates
+         section colors (light text on dark nodes) which breaks once fills are
+         normalized to card surfaces above. */
+      .mermaid svg foreignObject .nodeLabel,
+      .mermaid svg foreignObject .nodeLabel p,
+      .mermaid svg foreignObject .markdown-node-label,
+      .mermaid svg foreignObject .markdown-node-label p {
+        color: var(--foreground) !important;
+      }
+
       .mermaid svg line {
         stroke: var(--muted-foreground) !important;
       }
 
-      /* Dark mode: glass-like nodes (semi-transparent fill + subtle border) */
+      /* Dark mode: raised-opacity fills so connectors stay underneath readable nodes */
       .dark .mermaid svg .node rect,
       .dark .mermaid svg .node polygon,
       .dark .mermaid svg .node circle,
       .dark .mermaid svg .node ellipse,
-      .dark .mermaid svg .node path {
-        fill: rgba(255, 255, 255, 0.045) !important;
-        stroke: rgba(255, 255, 255, 0.12) !important;
+      .dark .mermaid svg .node path,
+      .dark .mermaid svg .node .node-bkg,
+      .dark .mermaid svg .node .basic.label-container {
+        fill: color-mix(in srgb, var(--card) 92%, var(--foreground) 8%) !important;
+        stroke: rgba(255, 255, 255, 0.18) !important;
         stroke-width: 1 !important;
       }
 
-      .dark .mermaid svg .edgePath path {
+      .dark .mermaid svg .edgePath path,
+      .dark .mermaid svg .edgePaths path {
         stroke: rgba(255, 255, 255, 0.35) !important;
+      }
+
+      .dark .mermaid svg .node > line {
+        stroke: rgba(255, 255, 255, 0.35) !important;
+      }
+
+      .dark .mermaid svg .node.mindmap-node .node-bkg,
+      .dark .mermaid svg .node.mindmap-node .basic.label-container {
+        paint-order: stroke fill;
+        fill: color-mix(in srgb, var(--card) 92%, var(--foreground) 8%) !important;
+        stroke: color-mix(in srgb, var(--card) 92%, var(--foreground) 8%) !important;
+        stroke-width: 5 !important;
+      }
+
+      .dark .mermaid svg foreignObject > div {
+        background-color: color-mix(in srgb, var(--card) 92%, var(--foreground) 8%) !important;
       }
 
       .dark .mermaid svg .label text,
@@ -121,12 +200,20 @@ export function MermaidDiagram({
         fill: rgba(255, 255, 255, 0.9) !important;
       }
 
+      .dark .mermaid svg foreignObject .nodeLabel,
+      .dark .mermaid svg foreignObject .nodeLabel p,
+      .dark .mermaid svg foreignObject .markdown-node-label,
+      .dark .mermaid svg foreignObject .markdown-node-label p {
+        color: rgba(255, 255, 255, 0.9) !important;
+      }
+
       .dark .mermaid svg line {
         stroke: rgba(255, 255, 255, 0.35) !important;
       }
     `;
 
     svgEl.prepend(styleEl);
+    applyMindmapLayering(svgEl);
   };
 
   useEffect(() => {

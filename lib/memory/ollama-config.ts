@@ -17,10 +17,12 @@ export const OLLAMA_API_KEY = process.env.OLLAMA_API_KEY;
  */
 export function ollamaHeaders(): Record<string, string> {
   const headers: Record<string, string> = { "Content-Type": "application/json" };
+
   if (OLLAMA_API_KEY) {
     headers.Authorization = `Bearer ${OLLAMA_API_KEY}`;
   } else if (!/^https?:\/\/(localhost|127\.0\.0\.1)/.test(OLLAMA_URL)) {
     logger.warn("ollamaHeaders", "OLLAMA_API_KEY not set for remote OLLAMA_URL.");
   }
+
   return headers;
 }

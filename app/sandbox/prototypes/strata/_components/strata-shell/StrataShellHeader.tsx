@@ -2,9 +2,9 @@
 
 import type { SourceSaveState, StrataMainTab } from "./strata-shell-model";
 
-import { PageContentFrame, PageNavBack } from "@/components/layout/page-content-frame";
 import { StrataAssistantOpenHint } from "../StrataWorkspace";
 
+import { PageContentFrame, PageNavBack } from "@/components/layout/page-content-frame";
 import { cn } from "@/lib/utils";
 
 export function StrataShellHeader({

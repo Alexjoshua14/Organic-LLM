@@ -41,6 +41,7 @@ export function WelcomeScrollInvite({
 
   useEffect(() => {
     const target = document.getElementById(targetId);
+
     if (!target) return;
 
     const observer = new IntersectionObserver(
@@ -59,6 +60,7 @@ export function WelcomeScrollInvite({
     setDismissed(true);
     if (onScrollClick) {
       onScrollClick();
+
       return;
     }
     document.getElementById(targetId)?.scrollIntoView({ behavior: "smooth", block: "start" });

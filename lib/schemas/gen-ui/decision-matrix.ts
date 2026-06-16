@@ -2,10 +2,7 @@ import { z } from "zod";
 
 import { GEN_UI_VERSION, optionalStringCatch } from "./shared";
 
-export const MatrixScoreValueSchema = z.union([
-  z.number().min(1).max(5),
-  z.enum(["✓", "✗", "~"]),
-]);
+export const MatrixScoreValueSchema = z.union([z.number().min(1).max(5), z.enum(["✓", "✗", "~"])]);
 
 export const MatrixScoreCellSchema = z.object({
   value: MatrixScoreValueSchema.catch("~" as const),
@@ -54,6 +51,7 @@ export function decisionMatrixToMarkdown(block: DecisionMatrixBlock): string {
   const lines: string[] = [`## ${block.question}`, ""];
 
   const header = ["", ...block.criteria.map((c) => c.label)];
+
   lines.push(`| Option | ${header.slice(1).join(" | ")} |`);
   lines.push(`| --- | ${block.criteria.map(() => "---").join(" | ")} |`);
 
@@ -61,13 +59,16 @@ export function decisionMatrixToMarkdown(block: DecisionMatrixBlock): string {
     const cells = block.criteria.map((c) => {
       const cell = block.scores[opt.id]?.[c.id];
       const v = cell ? formatMatrixScoreValue(cell.value) : "—";
+
       return v;
     });
+
     lines.push(`| ${opt.name} | ${cells.join(" | ")} |`);
   }
 
   if (block.recommendation) {
     const rec = block.options.find((o) => o.id === block.recommendation!.optionId);
+
     lines.push("");
     lines.push(
       `**Recommended:** ${rec?.name ?? block.recommendation.optionId} — ${block.recommendation.rationale}`
@@ -79,5 +80,6 @@ export function decisionMatrixToMarkdown(block: DecisionMatrixBlock): string {
 
 export function decisionMatrixToMarkdownLoose(raw: Record<string, unknown>): string {
   const question = typeof raw.question === "string" ? raw.question : "Comparison";
+
   return `## ${question}\n\n_(Decision matrix — structured view unavailable)_`;
 }

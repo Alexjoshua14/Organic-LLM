@@ -29,6 +29,7 @@ export function suggestLayoutConstraintRelaxation(
   options?: { epsilon?: number }
 ): LayoutConstraintRelaxation {
   const epsilon = options?.epsilon ?? DEFAULT_EPSILON;
+
   return {
     width: current.w > target.w + epsilon,
     height: current.h > target.h + epsilon,

@@ -1,8 +1,11 @@
-import { describe, it, expect } from "vitest";
-import { solveSpring, solveSpringVector4 } from "./springSolver";
 import type { SpringConfig } from "../schemas/springSolverSchemas";
+
+import { describe, it, expect } from "vitest";
+
 import { ZERO_VECTOR } from "../constants";
 import { magnitude } from "../morphUtils";
+
+import { solveSpring, solveSpringVector4 } from "./springSolver";
 
 describe("solveSpring", () => {
   const config: SpringConfig = {
@@ -28,6 +31,7 @@ describe("solveSpring", () => {
 
     for (let i = 0; i < 100; i++) {
       const result = solveSpring(current, target, velocity, config, deltaTime);
+
       current = result.position;
       velocity = result.velocity;
     }
@@ -123,13 +127,7 @@ describe("solveSpringVector4", () => {
     const velocity = ZERO_VECTOR;
     const deltaTime = 16;
 
-    const result = solveSpringVector4(
-      current,
-      target,
-      velocity,
-      config,
-      deltaTime
-    );
+    const result = solveSpringVector4(current, target, velocity, config, deltaTime);
 
     expect(result.position.x).toBeGreaterThan(0);
     expect(result.position.y).toBeGreaterThan(0);
@@ -148,13 +146,7 @@ describe("solveSpringVector4", () => {
     const velocity = ZERO_VECTOR;
     const deltaTime = 16;
 
-    const result = solveSpringVector4(
-      current,
-      target,
-      velocity,
-      config,
-      deltaTime
-    );
+    const result = solveSpringVector4(current, target, velocity, config, deltaTime);
 
     expect(result.position).toEqual(target);
     expect(result.velocity).toEqual(ZERO_VECTOR);
@@ -166,13 +158,7 @@ describe("solveSpringVector4", () => {
     const velocity = ZERO_VECTOR;
     const deltaTime = 16;
 
-    const result = solveSpringVector4(
-      current,
-      target,
-      velocity,
-      config,
-      deltaTime
-    );
+    const result = solveSpringVector4(current, target, velocity, config, deltaTime);
 
     expect(result.position.x).toBeLessThan(-50);
     expect(result.position.y).toBeLessThan(-30);
@@ -187,13 +173,8 @@ describe("solveSpringVector4", () => {
     const deltaTime = 16;
 
     for (let i = 0; i < 200; i++) {
-      const result = solveSpringVector4(
-        current,
-        target,
-        velocity,
-        config,
-        deltaTime
-      );
+      const result = solveSpringVector4(current, target, velocity, config, deltaTime);
+
       current = result.position;
       velocity = result.velocity;
     }
@@ -212,13 +193,7 @@ describe("solveSpringVector4", () => {
     const velocity = ZERO_VECTOR;
     const deltaTime = 16;
 
-    const result = solveSpringVector4(
-      current,
-      target,
-      velocity,
-      config,
-      deltaTime
-    );
+    const result = solveSpringVector4(current, target, velocity, config, deltaTime);
 
     expect(Number.isFinite(result.position.x)).toBe(true);
     expect(Number.isFinite(result.position.y)).toBe(true);

@@ -1,7 +1,8 @@
 import "server-only";
 
-import { getOllamaConfig, getOllamaPlanModel } from "@/lib/ollama/client";
 import type { HealthCheckResult } from "@/lib/health/types";
+
+import { getOllamaConfig, getOllamaPlanModel } from "@/lib/ollama/client";
 import { HEALTH_CHECK_TIMEOUT_MS, withTimeout } from "@/lib/health/with-timeout";
 
 const OLLAMA_EMBED_MODEL = process.env.OLLAMA_EMBED_MODEL ?? "nomic-embed-text";

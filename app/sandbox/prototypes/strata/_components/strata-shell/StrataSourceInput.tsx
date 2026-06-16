@@ -113,6 +113,7 @@ export function StrataSourceInput({
     if (!target) return;
     if (reduce) {
       reset(target);
+
       return;
     }
     morphTo(target);
@@ -208,7 +209,10 @@ export function StrataSourceInput({
             aria-hidden
             className="pointer-events-none absolute inset-x-0 top-0 h-[75%] w-full opacity-0"
           />
-          <div ref={elementRef} className="absolute top-0 left-0 z-10 w-full will-change-[transform,width,height]">
+          <div
+            ref={elementRef}
+            className="absolute top-0 left-0 z-10 w-full will-change-[transform,width,height]"
+          >
             {mode === "note" ? (
               <div className="flex min-h-0 flex-1 flex-col overflow-hidden">{notepad}</div>
             ) : (

@@ -9,19 +9,19 @@ import type {
   SpringResult,
   SpringConfig,
 } from "./schemas/springSolverSchemas";
-import { morphPropertyRegistry } from "./morphProperties/registry";
 import type { Mesh } from "three";
+
 import * as THREE from "three";
+
+import { morphPropertyRegistry } from "./morphProperties/registry";
 import { morphPhysicsLog } from "./debug";
 
-export function snapshot(
-  element: HTMLElement,
-  container?: HTMLElement
-): Vector4 {
+export function snapshot(element: HTMLElement, container?: HTMLElement): Vector4 {
   const elementRect = element.getBoundingClientRect();
 
   if (container) {
     const containerRect = container.getBoundingClientRect();
+
     return {
       x: elementRect.x - containerRect.x,
       y: elementRect.y - containerRect.y,
@@ -46,8 +46,10 @@ export const validateVector = (v: Vector4, name: string) => {
     !Number.isFinite(v.h)
   ) {
     console.error(`Invalid vector, ${name}:`, v);
+
     return false;
   }
+
   return true;
 };
 
@@ -98,23 +100,18 @@ export function clearInlineStyles(element: HTMLElement): void {
 }
 
 /** @deprecated Prefer `applyMorphStateToElement` via the property registry. */
-export function applyVectorTransformToElement(
-  element: HTMLElement,
-  vector: Vector4
-): void {
+export function applyVectorTransformToElement(element: HTMLElement, vector: Vector4): void {
   element.style.transform = `translate(${vector.x}px, ${vector.y}px)`;
   element.style.width = `${vector.w}px`;
   element.style.height = `${vector.h}px`;
 }
 
-export function applyMorphStateToElement(
-  element: HTMLElement,
-  state: morphCurrentState
-): void {
+export function applyMorphStateToElement(element: HTMLElement, state: morphCurrentState): void {
   const properties = morphPropertyRegistry.getAllProperties();
 
   for (const property of properties) {
     const current = property.getCurrentValue(state);
+
     if (current !== undefined) {
       property.applyToElement(element, current);
     }
@@ -122,10 +119,7 @@ export function applyMorphStateToElement(
 }
 
 /** @deprecated Prefer `updateMorphState`. */
-export function updatePhysicsState(
-  state: PhysicsStateVector4,
-  springResult: SpringResult
-): void {
+export function updatePhysicsState(state: PhysicsStateVector4, springResult: SpringResult): void {
   state.current = springResult.position;
   state.velocity = springResult.velocity;
 }
@@ -151,6 +145,7 @@ export function updateMorphState(
     }
 
     let velocity: unknown;
+
     if (property.key === "position") {
       velocity = state.velocity;
     } else {
@@ -164,13 +159,7 @@ export function updateMorphState(
     }
 
     if (property.solveSpring) {
-      const result = property.solveSpring(
-        current,
-        target,
-        velocity,
-        config,
-        deltaTime
-      );
+      const result = property.solveSpring(current, target, velocity, config, deltaTime);
 
       const dummySpringResult: SpringResult = {
         position: { x: 0, y: 0, w: 0, h: 0 },
@@ -202,6 +191,7 @@ export function updateWebGLMesh(
 
   if (mesh.material && "uniforms" in mesh.material) {
     const uniforms = (mesh.material as THREE.ShaderMaterial).uniforms;
+
     if (uniforms.uDimensions) {
       uniforms.uDimensions.value = [rect.w, rect.h];
     }

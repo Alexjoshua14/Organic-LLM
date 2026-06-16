@@ -1,15 +1,13 @@
 "use client";
 
+import type { WelcomeHighlightItem } from "@/lib/welcome/copy";
+
 import Link from "next/link";
 import { motion } from "framer-motion";
 
-import {
-  WelcomeHighlightVisual,
-  type WelcomeVisualImageSrc,
-} from "./welcome-highlight-visual";
+import { WelcomeHighlightVisual, type WelcomeVisualImageSrc } from "./welcome-highlight-visual";
 
 import { useLandingMotion } from "@/components/pages/use-landing-motion";
-import type { WelcomeHighlightItem } from "@/lib/welcome/copy";
 import { welcomeHighlightFrameClass } from "@/lib/welcome/visual-aspect";
 import { cn } from "@/lib/utils";
 

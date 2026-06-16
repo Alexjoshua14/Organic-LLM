@@ -25,6 +25,7 @@ export function MemoryIngestParticleModeDevOverlay({
 }: MemoryIngestParticleModeDevOverlayProps) {
   const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
   const dragOffsetRef = useRef(dragOffset);
+
   dragOffsetRef.current = dragOffset;
 
   const dragRef = useRef<{
@@ -49,6 +50,7 @@ export function MemoryIngestParticleModeDevOverlay({
 
   const onDragHandlePointerMove = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
     const d = dragRef.current;
+
     if (!d || e.pointerId !== d.pointerId) return;
     setDragOffset({
       x: d.originX + (e.clientX - d.startClientX),
@@ -58,6 +60,7 @@ export function MemoryIngestParticleModeDevOverlay({
 
   const endDrag = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
     const d = dragRef.current;
+
     if (!d || e.pointerId !== d.pointerId) return;
     if (e.currentTarget.hasPointerCapture(e.pointerId)) {
       e.currentTarget.releasePointerCapture(e.pointerId);

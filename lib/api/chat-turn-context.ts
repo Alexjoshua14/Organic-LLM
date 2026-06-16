@@ -1,12 +1,13 @@
 import type { UIMessage } from "ai";
-import { TypeValidationError } from "ai";
-
 import type { ChatExperience } from "@/lib/chat/chat-experience";
-import { getContext } from "@/lib/chat/chat-store";
-import { SYSTEM_PROMPT } from "@/lib/system-prompt/prompt-v0";
 import type { Logger } from "@/lib/logger";
 
+import { TypeValidationError } from "ai";
+
 import { mainChatSystemPromptWhenContextFailed } from "./chat-context-fallbacks";
+
+import { getContext } from "@/lib/chat/chat-store";
+import { SYSTEM_PROMPT } from "@/lib/system-prompt/prompt-v0";
 
 export type LoadMainChatTurnContextParams = {
   logger: Logger;

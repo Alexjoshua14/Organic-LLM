@@ -29,6 +29,7 @@ function readParticleCountMul(search: string): number {
     const raw = Number(new URLSearchParams(search).get("particleCountMul"));
 
     if (!Number.isFinite(raw) || raw <= 0) return 1;
+
     return Math.min(6, Math.max(0.25, raw));
   } catch {
     return 1;
@@ -54,38 +55,36 @@ export function MemoryLens({
     setParticleCountMul(readParticleCountMul(window.location.search));
   }, [devUiEnabled]);
 
-  const effectiveCount = lensDevHud
-    ? Math.max(1, Math.round(count * particleCountMul))
-    : count;
+  const effectiveCount = lensDevHud ? Math.max(1, Math.round(count * particleCountMul)) : count;
 
   return (
     <Canvas
-        gl={{
-          alpha: true,
-          antialias: true,
-          powerPreference: "high-performance",
-        }}
-        camera={{ position: [0, 0, 22], fov: 60, near: 0.1, far: 200 }}
-        onCreated={({ gl }) => {
-          gl.setClearColor(0x000000, 0);
-          gl.setPixelRatio(Math.min(window.devicePixelRatio, pixelRatioCap));
-          gl.domElement.dataset.testid = "memory-particle-webgl";
-        }}
-        style={{ position: "absolute", inset: 0, width: "100%", height: "100%", display: "block" }}
-      >
-        <LensPoints
-          anchorWorldRef={anchorWorldRef}
-          count={effectiveCount}
-          intensity={intensity}
-          pointSize={pointSize}
-          targetFps={targetFps}
-          pulseGlowRef={pulseGlowRef}
-          state={state}
-          themeProbeRef={themeProbeRef}
-        />
-        {lensDevHud && onPerfSample ? (
-          <LensPerfHud count={effectiveCount} onSample={onPerfSample} />
-        ) : null}
-      </Canvas>
+      gl={{
+        alpha: true,
+        antialias: true,
+        powerPreference: "high-performance",
+      }}
+      camera={{ position: [0, 0, 22], fov: 60, near: 0.1, far: 200 }}
+      onCreated={({ gl }) => {
+        gl.setClearColor(0x000000, 0);
+        gl.setPixelRatio(Math.min(window.devicePixelRatio, pixelRatioCap));
+        gl.domElement.dataset.testid = "memory-particle-webgl";
+      }}
+      style={{ position: "absolute", inset: 0, width: "100%", height: "100%", display: "block" }}
+    >
+      <LensPoints
+        anchorWorldRef={anchorWorldRef}
+        count={effectiveCount}
+        intensity={intensity}
+        pointSize={pointSize}
+        targetFps={targetFps}
+        pulseGlowRef={pulseGlowRef}
+        state={state}
+        themeProbeRef={themeProbeRef}
+      />
+      {lensDevHud && onPerfSample ? (
+        <LensPerfHud count={effectiveCount} onSample={onPerfSample} />
+      ) : null}
+    </Canvas>
   );
 }

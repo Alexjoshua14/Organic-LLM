@@ -27,7 +27,10 @@ const ENCRYPTED_HOLD_MS = 1400;
 const STORED_REST_MS = 3200;
 const LAYOUT_SETTLE_MS = 480;
 
-const TEXT_SLOT_CLASS =
+const THREAD_TEXT_SLOT_CLASS =
+  "min-h-[3.25rem] font-mono text-[13px] leading-[1.55] sm:min-h-[3.5rem] sm:text-sm";
+
+const CIPHER_TEXT_SLOT_CLASS =
   "min-h-[4.75rem] font-mono text-[13px] leading-[1.55] sm:min-h-[5rem] sm:text-sm";
 
 const LAYOUT_TRANSITION = { duration: 0.45, ease: [0.22, 1, 0.36, 1] as const };
@@ -40,8 +43,7 @@ export function WelcomeEncryptedAtRestIllustration({
   const rootRef = useRef<HTMLDivElement>(null);
   const inView = useWelcomeInView(rootRef);
   const [stage, setStage] = useState<PayloadStage>("thread");
-  const [controlPhase, setControlPhase] =
-    useState<DecryptedTextControlPhase>("plain");
+  const [controlPhase, setControlPhase] = useState<DecryptedTextControlPhase>("plain");
   const [frozenCipherText, setFrozenCipherText] = useState("");
   const timersRef = useRef<ReturnType<typeof setTimeout>[]>([]);
 
@@ -55,6 +57,7 @@ export function WelcomeEncryptedAtRestIllustration({
 
   const schedule = useCallback((fn: () => void, ms: number) => {
     const id = setTimeout(fn, ms);
+
     timersRef.current.push(id);
   }, []);
 
@@ -64,6 +67,7 @@ export function WelcomeEncryptedAtRestIllustration({
       setStage("thread");
       setControlPhase("plain");
       setFrozenCipherText("");
+
       return;
     }
 
@@ -88,6 +92,7 @@ export function WelcomeEncryptedAtRestIllustration({
             schedule(() => setControlPhase("decrypting"), LAYOUT_SETTLE_MS);
           }, STORED_REST_MS);
         }, ENCRYPTED_HOLD_MS);
+
         return;
       }
 
@@ -101,8 +106,7 @@ export function WelcomeEncryptedAtRestIllustration({
 
   const isEncryptedHold =
     controlPhase === "encrypting" && stage === "thread" && frozenCipherText.length > 0;
-  const isEncrypting =
-    controlPhase === "encrypting" && stage === "thread" && !isEncryptedHold;
+  const isEncrypting = controlPhase === "encrypting" && stage === "thread" && !isEncryptedHold;
   const isStored = stage === "database";
 
   return (
@@ -113,10 +117,6 @@ export function WelcomeEncryptedAtRestIllustration({
         className
       )}
     >
-      <div
-        aria-hidden
-        className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_20%_0%,color-mix(in_oklch,var(--accent)_16%,transparent),transparent_55%),radial-gradient(circle_at_100%_100%,color-mix(in_oklch,var(--foreground)_6%,transparent),transparent_50%)]"
-      />
       <div
         aria-hidden
         className="pointer-events-none absolute inset-0 opacity-[0.35] [background-image:linear-gradient(to_right,color-mix(in_oklch,var(--foreground)_6%,transparent)_1px,transparent_1px),linear-gradient(to_bottom,color-mix(in_oklch,var(--foreground)_6%,transparent)_1px,transparent_1px)] [background-size:18px_18px]"
@@ -131,19 +131,19 @@ export function WelcomeEncryptedAtRestIllustration({
       <LayoutGroup id="welcome-encryption-payload">
         <div
           className={cn(
-            "relative z-10 mt-4 rounded-xl border border-border/50 p-3 sm:p-3.5",
+            "relative z-10 mt-4 rounded-xl border border-border/50 p-2.5 sm:p-3",
             glass({ border: "none", opaque: true })
           )}
         >
-          <p className="mb-2 text-[10px] font-medium uppercase tracking-[0.16em] text-muted-foreground">
+          <p className="mb-1.5 text-[10px] font-medium uppercase tracking-[0.16em] text-muted-foreground">
             Thread message
           </p>
-          <div className={cn("relative", TEXT_SLOT_CLASS)}>
-            <p aria-hidden className="invisible">
-              {MESSAGE}
-            </p>
-            <div className="absolute inset-0">
-              {stage === "thread" ? (
+          {stage === "thread" ? (
+            <div className={cn("relative", THREAD_TEXT_SLOT_CLASS)}>
+              <p aria-hidden className="invisible">
+                {MESSAGE}
+              </p>
+              <div className="absolute inset-0">
                 <motion.div
                   className="h-full w-full"
                   layout="position"
@@ -157,7 +157,7 @@ export function WelcomeEncryptedAtRestIllustration({
                       animateOn="controlled"
                       className="text-left font-mono text-foreground"
                       controlPhase={controlPhase}
-                      encryptedClassName="text-left font-mono text-accent/85"
+                      encryptedClassName="text-left font-mono text-foreground"
                       parentClassName="block w-full font-mono"
                       revealDirection="start"
                       sequential
@@ -167,19 +167,19 @@ export function WelcomeEncryptedAtRestIllustration({
                     />
                   )}
                 </motion.div>
-              ) : (
-                <p className="text-[11px] text-muted-foreground/45 sm:text-xs">
-                  Message encrypted — stored below
-                </p>
-              )}
+              </div>
             </div>
-          </div>
+          ) : (
+            <p className="text-[11px] text-muted-foreground/45 sm:text-xs">
+              Message encrypted — stored below
+            </p>
+          )}
         </div>
 
         <motion.div
           animate={motionActive ? { opacity: [0.35, 0.85, 0.35] } : undefined}
           aria-hidden
-          className="relative z-10 mx-auto my-3 flex flex-col items-center gap-1 text-accent/70"
+          className="relative z-10 mx-auto my-2 flex flex-col items-center gap-1 text-accent/70"
           transition={{ duration: 2.4, ease: "easeInOut", repeat: motionActive ? Infinity : 0 }}
         >
           <span className="h-5 w-px bg-linear-to-b from-transparent via-accent/50 to-accent/80" />
@@ -195,24 +195,23 @@ export function WelcomeEncryptedAtRestIllustration({
 
         <div
           className={cn(
-            "relative z-10 mt-auto overflow-hidden rounded-xl border p-3 sm:p-3.5",
-            glass({ border: "none", opaque: true }),
-            isStored
-              ? "border-accent/35 bg-linear-to-br from-accent/10 via-transparent to-foreground/4"
-              : "border-accent/20 bg-linear-to-br from-accent/5 via-transparent to-foreground/3"
+            "relative z-10 mt-auto overflow-hidden rounded-xl border border-border/50 p-2.5 sm:p-3",
+            glass({ border: "none", opaque: true })
           )}
         >
-          <div className="mb-3 flex items-start justify-between gap-3">
+          <div className="mb-2 flex items-start justify-between gap-3">
             <div className="flex items-center gap-2">
               <motion.div
                 animate={motionActive && isStored ? { scale: [1, 1.04, 1] } : undefined}
                 className={cn(
                   "flex size-8 items-center justify-center rounded-lg border text-accent",
-                  isStored
-                    ? "border-accent/35 bg-accent/12"
-                    : "border-accent/20 bg-accent/5"
+                  isStored ? "border-accent/35 bg-accent/12" : "border-accent/20 bg-accent/5"
                 )}
-                transition={{ duration: 3.5, ease: "easeInOut", repeat: motionActive && isStored ? Infinity : 0 }}
+                transition={{
+                  duration: 3.5,
+                  ease: "easeInOut",
+                  repeat: motionActive && isStored ? Infinity : 0,
+                }}
               >
                 <Lock aria-hidden className="size-4" strokeWidth={1.75} />
               </motion.div>
@@ -232,10 +231,8 @@ export function WelcomeEncryptedAtRestIllustration({
           <div
             className={cn(
               "relative rounded-lg border border-dashed px-3 py-2.5",
-              TEXT_SLOT_CLASS,
-              isStored
-                ? "border-accent/30 bg-background/50"
-                : "border-border/50 bg-background/25"
+              CIPHER_TEXT_SLOT_CLASS,
+              isStored ? "border-accent/30 bg-background/50" : "border-border/50 bg-background/25"
             )}
           >
             <p aria-hidden className="invisible">
@@ -244,7 +241,7 @@ export function WelcomeEncryptedAtRestIllustration({
             <div className="absolute inset-0 px-3 py-2.5">
               {stage === "database" ? (
                 <motion.div
-                  className="h-full w-full font-mono text-accent/80"
+                  className="h-full w-full font-mono text-foreground/85"
                   layout="position"
                   layoutId="welcome-enc-payload"
                   transition={LAYOUT_TRANSITION}
@@ -304,12 +301,7 @@ function TlsPulse({
     <div aria-hidden className="flex min-w-0 flex-1 items-center gap-1.5">
       <span className={cn("h-px flex-1", active ? "bg-accent/35" : "bg-border/70")} />
       {reduced ? (
-        <span
-          className={cn(
-            "size-1.5 rounded-full",
-            active ? "bg-accent" : "bg-accent/50"
-          )}
-        />
+        <span className={cn("size-1.5 rounded-full", active ? "bg-accent" : "bg-accent/50")} />
       ) : (
         <motion.span
           animate={

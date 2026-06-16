@@ -1,13 +1,17 @@
 "use client";
 
 import type { PlanTimelineBlock, PlanTimelineStep } from "@/lib/schemas/gen-ui";
+
 import { cn } from "@/lib/utils";
 
 const STATUS_NODE: Record<
   PlanTimelineStep["status"],
   { symbol: string; ring: string; pulse?: boolean }
 > = {
-  done: { symbol: "✓", ring: "bg-emerald-500/20 border-emerald-500/50 text-emerald-700 dark:text-emerald-300" },
+  done: {
+    symbol: "✓",
+    ring: "bg-emerald-500/20 border-emerald-500/50 text-emerald-700 dark:text-emerald-300",
+  },
   now: {
     symbol: "●",
     ring: "bg-primary/20 border-primary/50 text-primary",
@@ -35,9 +39,8 @@ function StepRow({
   const expanded = step.status === "now";
 
   const depLabels =
-    step.dependsOn
-      ?.map((id) => stepLabelsById.get(id))
-      .filter((l): l is string => Boolean(l)) ?? [];
+    step.dependsOn?.map((id) => stepLabelsById.get(id)).filter((l): l is string => Boolean(l)) ??
+    [];
 
   return (
     <li
@@ -147,12 +150,7 @@ export function PlanTimeline({ block, partial }: PlanTimelineProps) {
 
       <ol role="list" className="relative border-l border-border/40 ml-3 space-y-0">
         {block.steps.map((step) => (
-          <StepRow
-            key={step.id}
-            partial={partial}
-            step={step}
-            stepLabelsById={stepLabelsById}
-          />
+          <StepRow key={step.id} partial={partial} step={step} stepLabelsById={stepLabelsById} />
         ))}
       </ol>
     </div>

@@ -4,7 +4,11 @@ import { z } from "zod";
 export const DELPHI_MEMORY_TEXT_MAX = 8000;
 
 export const proposeMemoryInputSchema = z.object({
-  text: z.string().min(1).max(DELPHI_MEMORY_TEXT_MAX).describe("Candidate memory text to show the user before a hard commit."),
+  text: z
+    .string()
+    .min(1)
+    .max(DELPHI_MEMORY_TEXT_MAX)
+    .describe("Candidate memory text to show the user before a hard commit."),
   rationale: z
     .string()
     .max(500)

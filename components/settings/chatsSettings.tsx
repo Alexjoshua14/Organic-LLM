@@ -17,7 +17,10 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/third-party/ui/select";
-import { getChatsForSettingsForCurrentUser, type ChatThreadSettingsRow } from "@/data/supabase/chat";
+import {
+  getChatsForSettingsForCurrentUser,
+  type ChatThreadSettingsRow,
+} from "@/data/supabase/chat";
 import { getThreadFeatureCaption } from "@/lib/chat/thread-feature-caption";
 import { createLogger } from "@/lib/logger";
 import { cn } from "@/lib/utils";

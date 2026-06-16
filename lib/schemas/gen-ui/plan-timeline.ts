@@ -42,6 +42,7 @@ export function planTimelineToMarkdown(block: PlanTimelineBlock): string {
           : step.status === "blocked"
             ? "[!]"
             : "[ ]";
+
     lines.push(`- ${mark} ${step.label}`);
     if (step.estimate) lines.push(`  - _${step.estimate}_`);
     if (step.note) lines.push(`  - ${step.note}`);
@@ -57,5 +58,6 @@ export function planTimelineToMarkdown(block: PlanTimelineBlock): string {
 
 export function planTimelineToMarkdownLoose(raw: Record<string, unknown>): string {
   const title = typeof raw.title === "string" ? raw.title : "Plan";
+
   return `## ${title}\n\n_(Plan timeline — structured view unavailable)_`;
 }
