@@ -8,7 +8,7 @@ import {
 } from "@organic-llm/morph-physics";
 import { useMorphPhysics } from "@organic-llm/morph-physics/react";
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
-import { useReducedMotion } from "framer-motion";
+import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 
 import { GenUIRenderer } from "@/components/chat/gen-ui/GenUIRenderer";
 import { GEN_UI_REGISTRY } from "@/components/chat/gen-ui/registry";
@@ -17,7 +17,7 @@ import { useWelcomeInView } from "@/components/pages/welcome/use-welcome-in-view
 import { welcomeDemoCompactClass } from "@/components/pages/welcome/welcome-demo-user-message";
 import { WELCOME_GEN_UI_BLOCKS } from "@/lib/welcome/gen-ui-fixtures";
 import type { GenUIBlock } from "@/lib/schemas/gen-ui";
-import { card, sectionLabel } from "@/lib/rabbit-holes/designTokens";
+import { sectionLabel } from "@/lib/rabbit-holes/designTokens";
 import { cn } from "@/lib/utils";
 
 type WelcomeGenUiIllustrationProps = {
@@ -55,12 +55,36 @@ const GEN_UI_SHELL_CLASS = cn(
 const FRAME_CLASS =
   "pointer-events-none flex w-full min-w-0 flex-col justify-start px-2.5 py-1.5 sm:px-3 sm:py-2";
 
-const CARD_CLASS = cn(card, "w-full overflow-visible rounded-lg px-2.5 py-2 sm:px-3 sm:py-2.5", GEN_UI_SHELL_CLASS);
+const STAGE_CLASS = cn(
+  "relative w-full min-w-0 overflow-hidden",
+  GEN_UI_SHELL_CLASS,
+  "[&_table]:min-w-0 [&_table]:w-full",
+  "[&_th]:min-w-0 [&_td]:px-1.5 [&_th]:px-1.5"
+);
 
-const MORPH_SETTLE_MS = 480;
+const CONTENT_MORPH_TRANSITION = { duration: 0.38, ease: [0.22, 1, 0.36, 1] as const };
+
+const MORPH_SHELL_CLASS =
+  "absolute top-0 left-0 z-10 w-full overflow-hidden rounded-lg will-change-[transform,width,height]";
 
 const ARIA_LABEL =
   "Structured in-thread Gen UI: answer cards, decision matrices, and plan timelines morph between block types.";
+
+function computeFixedStageHeight(heights: number[]): number {
+  if (heights.length === 0) return 0;
+
+  return Math.max(...heights.map((height, index) => height + blockHeightBuffer(index)));
+}
+
+function centeredMorphTarget(vector: Vector4, index: number, fixedStageHeight: number): Vector4 {
+  const h = vector.h + blockHeightBuffer(index);
+
+  return {
+    ...vector,
+    y: (fixedStageHeight - h) / 2,
+    h,
+  };
+}
 
 export function WelcomeGenUiIllustration({ className }: WelcomeGenUiIllustrationProps) {
   const reduce = useReducedMotion();
@@ -70,47 +94,17 @@ export function WelcomeGenUiIllustration({ className }: WelcomeGenUiIllustration
   const stageRef = useRef<HTMLDivElement>(null);
   const ghostRefs = useRef<(HTMLDivElement | null)[]>([]);
   const vectorRefs = useRef<(Vector4 | null)[]>([]);
-  const blockHeightsRef = useRef<number[]>([]);
+  const fixedStageHeightRef = useRef(0);
   const activeIndexRef = useRef(0);
   const prevIndexRef = useRef(0);
   const primedRef = useRef(false);
 
   const [activeIndex, setActiveIndex] = useState(0);
-  const [stageMinHeight, setStageMinHeight] = useState<number | undefined>(undefined);
-  const [contentOpacity, setContentOpacity] = useState(1);
+  const [fixedStageHeight, setFixedStageHeight] = useState<number | undefined>(undefined);
 
   const { elementRef, morphTo, reset } = useMorphPhysics({
     config: regular_spring_config,
   });
-
-  const bufferedHeight = useCallback(
-    (height: number, index: number) => height + blockHeightBuffer(index),
-    []
-  );
-
-  const setStageHeightForIndex = useCallback(
-    (index: number) => {
-      const height = blockHeightsRef.current[index];
-
-      if (height !== undefined) {
-        setStageMinHeight(bufferedHeight(height, index));
-      }
-    },
-    [bufferedHeight]
-  );
-
-  const setStageHeightForTransition = useCallback(
-    (fromIndex: number, toIndex: number) => {
-      const heights = blockHeightsRef.current;
-      const from = heights[fromIndex] ?? 0;
-      const to = heights[toIndex] ?? 0;
-
-      setStageMinHeight(
-        Math.max(bufferedHeight(from, fromIndex), bufferedHeight(to, toIndex))
-      );
-    },
-    [bufferedHeight]
-  );
 
   const measureAllTargets = useCallback(() => {
     const stage = stageRef.current;
@@ -131,27 +125,33 @@ export function WelcomeGenUiIllustration({ className }: WelcomeGenUiIllustration
     if (vectors.some((vector) => vector === null)) return false;
 
     vectorRefs.current = vectors;
-    blockHeightsRef.current = vectors.map((vector) => vector!.h);
-    setStageHeightForIndex(activeIndexRef.current);
+    const heights = vectors.map((vector) => vector!.h);
+    const nextFixedHeight = computeFixedStageHeight(heights);
+
+    fixedStageHeightRef.current = nextFixedHeight;
+    setFixedStageHeight(nextFixedHeight);
 
     return true;
-  }, [setStageHeightForIndex]);
+  }, []);
+
+  const morphTargetForIndex = useCallback((index: number): Vector4 | null => {
+    const vector = vectorRefs.current[index];
+
+    if (!vector) return null;
+
+    return centeredMorphTarget(vector, index, fixedStageHeightRef.current);
+  }, []);
 
   const syncShellToIndex = useCallback(
     (index: number, animate: boolean) => {
-      const target = vectorRefs.current[index];
+      const target = morphTargetForIndex(index);
 
       if (!target) return;
 
       activeIndexRef.current = index;
 
-      const sizedTarget = {
-        ...target,
-        h: bufferedHeight(target.h, index),
-      };
-
       if (!animate || reduce) {
-        reset(sizedTarget);
+        reset(target);
 
         return;
       }
@@ -159,20 +159,16 @@ export function WelcomeGenUiIllustration({ className }: WelcomeGenUiIllustration
       const shell = elementRef.current;
 
       if (shell) clearInlineStyles(shell);
-      morphTo(sizedTarget);
+      morphTo(target);
     },
-    [bufferedHeight, elementRef, morphTo, reduce, reset]
+    [elementRef, morphTargetForIndex, morphTo, reduce, reset]
   );
 
   useLayoutEffect(() => {
-    const id = requestAnimationFrame(() => {
-      if (!measureAllTargets()) return;
+    if (!measureAllTargets()) return;
 
-      primedRef.current = true;
-      syncShellToIndex(activeIndexRef.current, false);
-    });
-
-    return () => cancelAnimationFrame(id);
+    primedRef.current = true;
+    syncShellToIndex(activeIndexRef.current, false);
   }, [measureAllTargets, syncShellToIndex]);
 
   useEffect(() => {
@@ -194,27 +190,13 @@ export function WelcomeGenUiIllustration({ className }: WelcomeGenUiIllustration
 
   const active = inView && pageVisible && !reduce;
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (!primedRef.current || !active || reduce) return;
     if (prevIndexRef.current === activeIndex) return;
 
-    const fromIndex = prevIndexRef.current;
     prevIndexRef.current = activeIndex;
-    setStageHeightForTransition(fromIndex, activeIndex);
-    setContentOpacity(0.88);
-    const fadeIn = requestAnimationFrame(() => setContentOpacity(1));
-
     syncShellToIndex(activeIndex, true);
-
-    const settleStage = window.setTimeout(() => {
-      setStageHeightForIndex(activeIndex);
-    }, MORPH_SETTLE_MS);
-
-    return () => {
-      cancelAnimationFrame(fadeIn);
-      window.clearTimeout(settleStage);
-    };
-  }, [active, activeIndex, reduce, setStageHeightForIndex, setStageHeightForTransition, syncShellToIndex]);
+  }, [active, activeIndex, reduce, syncShellToIndex]);
 
   useEffect(() => {
     if (active) return;
@@ -223,9 +205,8 @@ export function WelcomeGenUiIllustration({ className }: WelcomeGenUiIllustration
     setActiveIndex(0);
     if (primedRef.current) {
       syncShellToIndex(0, false);
-      setStageHeightForIndex(0);
     }
-  }, [active, setStageHeightForIndex, syncShellToIndex]);
+  }, [active, syncShellToIndex]);
 
   useEffect(() => {
     if (!active || !primedRef.current) return;
@@ -242,26 +223,18 @@ export function WelcomeGenUiIllustration({ className }: WelcomeGenUiIllustration
 
   const frameClass = cn(FRAME_CLASS, className);
 
-  const stageClass = cn(
-    "relative w-full min-w-0 overflow-visible",
-    "[&_table]:min-w-0 [&_table]:w-full",
-    "[&_th]:min-w-0 [&_td]:px-1.5 [&_th]:px-1.5"
-  );
-
   if (reduce) {
     return (
       <div ref={rootRef} aria-label={ARIA_LABEL} className={frameClass} role="img">
         <div className="mb-1.5 flex w-full items-baseline justify-between gap-3">
           <p className={sectionLabel}>Generative UI</p>
         </div>
-        <div className={CARD_CLASS}>
-          <div className={cn(stageClass, "flex justify-center")}>
-            <div className={BLOCK_SHELL_CLASS}>
-              <GenUIRenderer
-                data={{ block: WELCOME_GEN_UI_BLOCKS[0] }}
-                messageId="welcome-gen-ui-static"
-              />
-            </div>
+        <div className={cn(STAGE_CLASS, "flex items-center justify-center")}>
+          <div className={BLOCK_SHELL_CLASS}>
+            <GenUIRenderer
+              data={{ block: WELCOME_GEN_UI_BLOCKS[0] }}
+              messageId="welcome-gen-ui-static"
+            />
           </div>
         </div>
       </div>
@@ -277,37 +250,38 @@ export function WelcomeGenUiIllustration({ className }: WelcomeGenUiIllustration
         </span>
       </div>
 
-      <div className={CARD_CLASS}>
-        <div
-          ref={stageRef}
-          className={stageClass}
-          style={stageMinHeight !== undefined ? { minHeight: stageMinHeight } : undefined}
-        >
-          <div aria-hidden className="pointer-events-none absolute inset-0 opacity-0">
-            {WELCOME_GEN_UI_BLOCKS.map((block, index) => (
-              <div
-                key={block.type}
-                ref={(node) => {
-                  ghostRefs.current[index] = node;
-                }}
-                className={ghostAnchorClass(block)}
-              >
-                <GenUIRenderer data={{ block }} messageId={`welcome-gen-ui-ghost-${index}`} />
-              </div>
-            ))}
-          </div>
-
-          <div
-            ref={elementRef}
-            className="absolute top-0 left-0 z-10 w-full overflow-visible will-change-[transform,width,height]"
-          >
+      <div
+        ref={stageRef}
+        className={STAGE_CLASS}
+        style={fixedStageHeight !== undefined ? { height: fixedStageHeight } : undefined}
+      >
+        <div aria-hidden className="pointer-events-none absolute inset-0 opacity-0">
+          {WELCOME_GEN_UI_BLOCKS.map((block, index) => (
             <div
-              className={cn("transition-opacity duration-200 ease-out", blockShellClass(activeBlock))}
-              style={{ opacity: contentOpacity }}
+              key={block.type}
+              ref={(node) => {
+                ghostRefs.current[index] = node;
+              }}
+              className={ghostAnchorClass(block)}
+            >
+              <GenUIRenderer data={{ block }} messageId={`welcome-gen-ui-ghost-${index}`} />
+            </div>
+          ))}
+        </div>
+
+        <div ref={elementRef} className={MORPH_SHELL_CLASS}>
+          <AnimatePresence initial={false}>
+            <motion.div
+              key={activeBlock.type}
+              animate={{ opacity: 1 }}
+              className={cn("absolute inset-0", blockShellClass(activeBlock))}
+              exit={{ opacity: 0 }}
+              initial={{ opacity: 0 }}
+              transition={CONTENT_MORPH_TRANSITION}
             >
               <GenUIRenderer data={{ block: activeBlock }} messageId="welcome-gen-ui-live" />
-            </div>
-          </div>
+            </motion.div>
+          </AnimatePresence>
         </div>
       </div>
     </div>
