@@ -153,8 +153,8 @@ export const WebSearchToolResultCard = memo(function WebSearchToolResultCard({
 
   const summaryLabel =
     parsed.rows.length === 0
-      ? "No results"
-      : `${parsed.rows.length} result${parsed.rows.length === 1 ? "" : "s"}`;
+      ? "No search results"
+      : `${parsed.rows.length} Search Result${parsed.rows.length === 1 ? "" : "s"}`;
 
   return (
     <div
@@ -165,13 +165,47 @@ export const WebSearchToolResultCard = memo(function WebSearchToolResultCard({
       )}
     >
       <div className="flex items-center justify-between gap-2">
-        <div className="text-xs font-medium text-muted-foreground truncate">Search Results</div>
+        <details className="min-w-0 flex-1">
+          <summary className="cursor-pointer select-none truncate text-xs font-medium text-muted-foreground hover:text-foreground">
+            {summaryLabel}
+          </summary>
+
+          {parsed.rows.length === 0 && (
+            <p className="mt-2 text-xs text-muted-foreground">No web results for this query.</p>
+          )}
+
+          {parsed.rows.length > 0 && (
+            <ul className="mt-1.5 space-y-1.5 max-h-80 overflow-y-auto pr-1">
+              {parsed.rows.map((row) => (
+                <li key={row.id} className="min-w-0">
+                  {row.url ? (
+                    <a
+                      className="block truncate text-xs font-medium text-foreground hover:underline"
+                      href={row.url}
+                      rel="noopener noreferrer"
+                      target="_blank"
+                    >
+                      {row.title}
+                    </a>
+                  ) : (
+                    <p className="truncate text-xs font-medium text-foreground">{row.title}</p>
+                  )}
+                  {row.highlightsLine ? (
+                    <p className="line-clamp-1 text-[10px] leading-snug text-muted-foreground/80">
+                      {row.highlightsLine}
+                    </p>
+                  ) : null}
+                </li>
+              ))}
+            </ul>
+          )}
+        </details>
         {showPin ? (
           <button
             aria-label={isPinned ? "Unpin tool output" : "Pin tool output"}
             aria-pressed={isPinned}
             className={cn(
-              "h-7 w-7 grid place-content-center rounded",
+              "h-7 w-7 shrink-0 grid place-content-center rounded",
               "hover:bg-background-tertiary/60 transition-colors"
             )}
             type="button"
@@ -181,42 +215,6 @@ export const WebSearchToolResultCard = memo(function WebSearchToolResultCard({
           </button>
         ) : null}
       </div>
-
-      <details className="mt-1">
-        <summary className="cursor-pointer select-none text-xs text-foreground/80 hover:text-foreground">
-          {summaryLabel}
-        </summary>
-
-        {parsed.rows.length === 0 && (
-          <p className="mt-2 text-xs text-muted-foreground">No web results for this query.</p>
-        )}
-
-        {parsed.rows.length > 0 && (
-          <ul className="mt-1.5 space-y-1.5 max-h-80 overflow-y-auto pr-1">
-            {parsed.rows.map((row) => (
-              <li key={row.id} className="min-w-0">
-                {row.url ? (
-                  <a
-                    className="block truncate text-xs font-medium text-foreground hover:underline"
-                    href={row.url}
-                    rel="noopener noreferrer"
-                    target="_blank"
-                  >
-                    {row.title}
-                  </a>
-                ) : (
-                  <p className="truncate text-xs font-medium text-foreground">{row.title}</p>
-                )}
-                {row.highlightsLine ? (
-                  <p className="line-clamp-1 text-[10px] leading-snug text-muted-foreground/80">
-                    {row.highlightsLine}
-                  </p>
-                ) : null}
-              </li>
-            ))}
-          </ul>
-        )}
-      </details>
     </div>
   );
 });

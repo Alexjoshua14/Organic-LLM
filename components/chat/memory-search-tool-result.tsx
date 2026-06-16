@@ -155,11 +155,6 @@ export const MemorySearchToolResultCard = memo(function MemorySearchToolResultCa
       ? `Sample ${inventory.sampleSize} (top ${inventory.retrievedLimit}): tier1 ${inventory.tier1} · tier2 ${inventory.tier2} · tier3 ${inventory.tier3} · below min ${inventory.belowThresholdInSample} · no score ${inventory.noScoreInSample}`
       : null;
 
-  const summaryLabel =
-    memories.length === 0
-      ? "No memories"
-      : `${memories.length} memor${memories.length === 1 ? "y" : "ies"}`;
-
   return (
     <div
       className={cn(
@@ -169,14 +164,34 @@ export const MemorySearchToolResultCard = memo(function MemorySearchToolResultCa
       )}
     >
       <div className="flex items-start justify-between gap-2">
-        <div className="min-w-0 flex-1">
-          <div className="text-xs font-medium text-foreground">{titleLine}</div>
+        <details className="min-w-0 flex-1">
+          <summary className="cursor-pointer select-none text-xs font-medium text-muted-foreground hover:text-foreground">
+            {titleLine}
+          </summary>
+
           {tierLine ? (
-            <p className="mt-0.5 text-[10px] leading-snug text-muted-foreground tabular-nums">
+            <p className="mt-1 text-[10px] leading-snug text-muted-foreground tabular-nums">
               {tierLine}
             </p>
           ) : null}
-        </div>
+
+          {memories.length === 0 ? (
+            <p className="mt-1.5 text-[10px] leading-snug text-muted-foreground">
+              No memories matched this query.
+            </p>
+          ) : (
+            <ul className="mt-1.5 space-y-1 max-h-72 overflow-y-auto pr-1">
+              {memories.map((m) => (
+                <li
+                  key={m.id}
+                  className="text-[10px] leading-snug text-foreground/85 line-clamp-2"
+                >
+                  {m.memory}
+                </li>
+              ))}
+            </ul>
+          )}
+        </details>
         {showPin ? (
           <button
             aria-label={isPinned ? "Unpin tool output" : "Pin tool output"}
@@ -192,29 +207,6 @@ export const MemorySearchToolResultCard = memo(function MemorySearchToolResultCa
           </button>
         ) : null}
       </div>
-
-      <details className="mt-1">
-        <summary className="cursor-pointer select-none text-[11px] text-foreground/80 hover:text-foreground">
-          View memories — {summaryLabel}
-        </summary>
-
-        {memories.length === 0 ? (
-          <p className="mt-1.5 text-[10px] leading-snug text-muted-foreground">
-            No memories matched this query.
-          </p>
-        ) : (
-          <ul className="mt-1.5 space-y-1 max-h-72 overflow-y-auto pr-1">
-            {memories.map((m) => (
-              <li
-                key={m.id}
-                className="text-[10px] leading-snug text-foreground/85 line-clamp-2"
-              >
-                {m.memory}
-              </li>
-            ))}
-          </ul>
-        )}
-      </details>
     </div>
   );
 });
