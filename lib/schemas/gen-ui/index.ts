@@ -4,25 +4,21 @@ import {
   AnswerCardBlockSchema,
   answerCardToMarkdown,
   answerCardToMarkdownLoose,
-  type AnswerCardBlock,
 } from "./answer-card";
 import {
   AudioSnippetBlockSchema,
   audioSnippetToMarkdown,
   audioSnippetToMarkdownLoose,
-  type AudioSnippetBlock,
 } from "./audio-snippet";
 import {
   DecisionMatrixBlockSchema,
   decisionMatrixToMarkdown,
   decisionMatrixToMarkdownLoose,
-  type DecisionMatrixBlock,
 } from "./decision-matrix";
 import {
   PlanTimelineBlockSchema,
   planTimelineToMarkdown,
   planTimelineToMarkdownLoose,
-  type PlanTimelineBlock,
 } from "./plan-timeline";
 import { GEN_UI_BLOCK_TYPES, type GenUIBlockType } from "./shared";
 
@@ -71,7 +67,9 @@ export type SafeParseGenUIResult =
 function getBlockType(raw: unknown): GenUIBlockType | undefined {
   if (!raw || typeof raw !== "object") return undefined;
   const t = (raw as Record<string, unknown>).type;
+
   if (typeof t !== "string") return undefined;
+
   return GEN_UI_BLOCK_TYPES.includes(t as GenUIBlockType) ? (t as GenUIBlockType) : undefined;
 }
 
@@ -79,18 +77,22 @@ function tryLenientParse(type: GenUIBlockType, raw: unknown): GenUIBlock | null 
   switch (type) {
     case "answer-card": {
       const r = AnswerCardBlockSchema.safeParse(raw);
+
       return r.success ? r.data : null;
     }
     case "decision-matrix": {
       const r = DecisionMatrixBlockSchema.safeParse(raw);
+
       return r.success ? r.data : null;
     }
     case "plan-timeline": {
       const r = PlanTimelineBlockSchema.safeParse(raw);
+
       return r.success ? r.data : null;
     }
     case "audio-snippet": {
       const r = AudioSnippetBlockSchema.safeParse(raw);
+
       return r.success ? r.data : null;
     }
     default:
@@ -104,13 +106,16 @@ function tryLenientParse(type: GenUIBlockType, raw: unknown): GenUIBlock | null 
  */
 export function safeParseGenUIBlock(raw: unknown): SafeParseGenUIResult {
   const strict = GenUIBlockSchema.safeParse(raw);
+
   if (strict.success) {
     return { ok: true, block: strict.data, hadPartialFailures: false };
   }
 
   const blockType = getBlockType(raw);
+
   if (blockType) {
     const lenient = tryLenientParse(blockType, raw);
+
     if (lenient) {
       return {
         ok: true,
@@ -131,7 +136,9 @@ export function safeParseGenUIBlock(raw: unknown): SafeParseGenUIResult {
 export function extractGenUIBlockFromToolOutput(output: unknown): unknown {
   if (!output || typeof output !== "object") return output;
   const o = output as Record<string, unknown>;
+
   if ("block" in o && o.block != null) return o.block;
+
   return output;
 }
 
@@ -155,6 +162,7 @@ export function genUIBlockToMarkdownLoose(raw: unknown): string {
   }
   const o = raw as Record<string, unknown>;
   const type = getBlockType(o);
+
   switch (type) {
     case "answer-card":
       return answerCardToMarkdownLoose(o);

@@ -142,7 +142,8 @@ export default function AdaptiveLiquidChrome({
     const handleFocusOut = () => {
       setTimeout(() => {
         focusActiveRef.current = isFocusInsideDimArea();
-        if (!focusActiveRef.current && !hoverActiveRef.current && !activityActiveRef.current) tryRest();
+        if (!focusActiveRef.current && !hoverActiveRef.current && !activityActiveRef.current)
+          tryRest();
       }, 0);
     };
 

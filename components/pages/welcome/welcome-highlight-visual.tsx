@@ -11,6 +11,9 @@ import { useWelcomeInView } from "@/components/pages/welcome/use-welcome-in-view
 import { glass } from "@/components/design-system/primitives";
 import {
   welcomeIllustrationRatio,
+  welcomeCompactHighlightIllustrationRatio,
+  welcomeModeIllustrationRatio,
+  welcomeFeatureIllustrationRatio,
   welcomeVisualAspect,
   welcomeVisualImageSizes,
   welcomeVisualMaxWidth,
@@ -41,6 +44,7 @@ type WelcomeHighlightVisualProps = {
 
 function normalizeImageSources(imageSrc?: WelcomeVisualImageSrc): string[] {
   if (!imageSrc) return [];
+
   return typeof imageSrc === "string" ? [imageSrc] : [...imageSrc];
 }
 
@@ -58,8 +62,16 @@ export function WelcomeHighlightVisual({
 }: WelcomeHighlightVisualProps) {
   const frameRef = useRef<HTMLDivElement>(null);
   const Illustration = welcomeIllustrations[id];
-  const ratio = Illustration ? welcomeIllustrationRatio : welcomeVisualAspect[aspect];
   const sizeKey = size ?? aspect;
+  const ratio = Illustration
+    ? id === "feature-strata"
+      ? welcomeFeatureIllustrationRatio
+      : id === "streaming"
+        ? welcomeCompactHighlightIllustrationRatio
+      : sizeKey === "mode"
+        ? welcomeModeIllustrationRatio
+        : welcomeIllustrationRatio
+    : welcomeVisualAspect[aspect];
   const sources = normalizeImageSources(imageSrc);
   const reduce = useReducedMotion();
   const pageVisible = usePageVisible();
@@ -81,7 +93,8 @@ export function WelcomeHighlightVisual({
   }, [cycleIntervalMs, inView, pageVisible, reduce, sources.length]);
 
   const frameClass = cn(
-    "relative overflow-hidden rounded-2xl border border-border/50",
+    "relative rounded-2xl border border-border/50",
+    Illustration && id === "gen-ui" ? "overflow-visible" : "overflow-hidden",
     welcomeVisualMaxWidth[sizeKey],
     className
   );
@@ -89,14 +102,33 @@ export function WelcomeHighlightVisual({
   const imageSizes = welcomeVisualImageSizes[sizeKey];
 
   if (Illustration) {
+    if (id === "gen-ui") {
+      return (
+        <div ref={frameRef} className={frameClass}>
+          <motion.div
+            aria-label={imageAlt ?? placeholder.hint}
+            className={cn("rounded-2xl", glass({ opaque: true }))}
+            data-illustration-id={id}
+            initial={reduce ? false : { opacity: 0.85, scale: 0.985 }}
+            role="img"
+            whileInView={reduce ? undefined : { opacity: 1, scale: 1 }}
+            transition={{ duration: 0.55, ease: [0.22, 1, 0.36, 1] }}
+            viewport={{ once: true, amount: 0.35 }}
+          >
+            <Illustration className="w-full" />
+          </motion.div>
+        </div>
+      );
+    }
+
     return (
       <AspectRatio ref={frameRef} className={frameClass} ratio={ratio}>
         <motion.div
           aria-label={imageAlt ?? placeholder.hint}
           className={cn(
+            "absolute inset-0 rounded-2xl",
             glass({ opaque: true }),
-            "absolute inset-0 overflow-hidden",
-            "bg-linear-to-br from-accent/8 via-transparent to-foreground/3"
+            "overflow-hidden"
           )}
           data-illustration-id={id}
           initial={reduce ? false : { opacity: 0.85, scale: 0.985 }}

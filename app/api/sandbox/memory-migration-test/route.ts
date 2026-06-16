@@ -1,13 +1,12 @@
+import type { MemoryMigrationTestRun } from "@/lib/memory/memory-migration-test-types";
+
 import { auth } from "@clerk/nextjs/server";
 import { z } from "zod";
 
 import { getSupabaseUserId } from "@/data/supabase/profiles";
 import { createLogger } from "@/lib/logger";
 import { enrichMigrationCompareRows } from "@/lib/memory/migration-test-enrich-rows";
-import {
-  generateMigrationTestSynopsis,
-} from "@/lib/memory/migration-test-synopsis-llm";
-import type { MemoryMigrationTestRun } from "@/lib/memory/memory-migration-test-types";
+import { generateMigrationTestSynopsis } from "@/lib/memory/migration-test-synopsis-llm";
 import { buildMigrationCompareRows } from "@/lib/memory/migration-compare-rows";
 import {
   embedLegacyQueryForMarginalSearch,
@@ -49,6 +48,7 @@ function shuffleInPlace<T>(arr: T[]): void {
   for (let i = arr.length - 1; i > 0; i--) {
     const j = Math.floor(Math.random() * (i + 1));
     const t = arr[i]!;
+
     arr[i] = arr[j]!;
     arr[j] = t;
   }
@@ -56,8 +56,10 @@ function shuffleInPlace<T>(arr: T[]): void {
 
 function pickQueries(corpus: string[], count: number): string[] {
   const unique = [...new Set(corpus.map((s) => s.trim()).filter(Boolean))];
+
   shuffleInPlace(unique);
   const out: string[] = [];
+
   for (let i = 0; i < count; i++) {
     if (i < unique.length) {
       out.push(unique[i]!);
@@ -65,23 +67,25 @@ function pickQueries(corpus: string[], count: number): string[] {
       out.push(PAD_QUERIES[(i - unique.length) % PAD_QUERIES.length]!);
     }
   }
+
   return out;
 }
 
-type SearchParseOutcome =
-  | { ok: true; data: SearchResultType }
-  | { ok: false; error: string };
+type SearchParseOutcome = { ok: true; data: SearchResultType } | { ok: false; error: string };
 
 function validateSearch(result: unknown): SearchParseOutcome {
   const parsed = SearchResultSchema.safeParse(result);
+
   if (!parsed.success) {
     return { ok: false, error: "Invalid memory response" };
   }
+
   return { ok: true, data: parsed.data };
 }
 
 export async function POST(req: Request) {
   let json: unknown;
+
   try {
     json = await req.json();
   } catch {
@@ -89,6 +93,7 @@ export async function POST(req: Request) {
   }
 
   const parsed = BodySchema.safeParse(json);
+
   if (!parsed.success) {
     return Response.json({ error: "Invalid request" }, { status: 400 });
   }
@@ -96,31 +101,37 @@ export async function POST(req: Request) {
   const { queryCount } = parsed.data;
 
   const clerkUser = await auth();
+
   if (!clerkUser?.userId) {
     return Response.json({ error: "Unauthorized" }, { status: 401 });
   }
 
   const sbUserIdResult = await getSupabaseUserId(clerkUser.userId);
+
   if (sbUserIdResult.error || sbUserIdResult.data === null) {
     return Response.json({ error: "User not found" }, { status: 404 });
   }
   const sbUserId = sbUserIdResult.data;
 
   const listLimit = await checkMemoryListLimit(sbUserId);
+
   if (!listLimit.success) {
     return Response.json({ error: listLimit.error ?? "Too many requests" }, { status: 429 });
   }
 
   let all: SearchResultType;
+
   try {
     const raw = await getAllMemories(sbUserId);
     const v = validateSearch(raw);
+
     if (!v.ok) {
       return Response.json({ error: v.error }, { status: 502 });
     }
     all = v.data;
   } catch (err) {
     logger.warn("POST", "getAllMemories failed", err);
+
     return Response.json({ error: "Memory service may be unavailable." }, { status: 503 });
   }
 
@@ -131,6 +142,7 @@ export async function POST(req: Request) {
 
   for (const query of queries) {
     const limitResLegacy = await checkMemorySearchLimit(sbUserId);
+
     if (!limitResLegacy.success) {
       return Response.json(
         { error: limitResLegacy.error ?? "Too many requests", runs },
@@ -138,6 +150,7 @@ export async function POST(req: Request) {
       );
     }
     const limitResV2 = await checkMemorySearchLimit(sbUserId);
+
     if (!limitResV2.success) {
       return Response.json(
         { error: limitResV2.error ?? "Too many requests", runs },
@@ -146,28 +159,31 @@ export async function POST(req: Request) {
     }
 
     let legacy: SearchResultType = { results: [], relations: [] };
+
     try {
       const rawLegacy = await searchMemoriesLegacyFromQdrant(query, sbUserId, RETRIEVAL_LIMIT);
       const v = validateSearch({ results: rawLegacy.results, relations: [] });
+
       legacy = v.ok ? v.data : { results: [], relations: [] };
       if (!v.ok) {
         logger.warn("POST", "legacy search schema invalid", query);
       }
     } catch (err) {
       logger.warn("POST", "legacy search failed", err);
-      return Response.json(
-        { error: "Legacy memory search failed.", runs },
-        { status: 503 }
-      );
+
+      return Response.json({ error: "Legacy memory search failed.", runs }, { status: 503 });
     }
 
     let v2: SearchResultType = { results: [], relations: [] };
     let v2Error: string | undefined;
     let v2QueryVector: number[] = [];
+
     try {
       const rawV2 = await searchMemoriesV2FromQdrant(query, sbUserId, RETRIEVAL_LIMIT);
+
       v2QueryVector = rawV2.queryVector;
       const v = validateSearch({ results: rawV2.results, relations: [] });
+
       v2 = v.ok ? v.data : { results: [], relations: [] };
       if (!v.ok) {
         v2Error = "Invalid v2 memory response shape";
@@ -178,6 +194,7 @@ export async function POST(req: Request) {
     }
 
     let legacyQueryVector: number[] = [];
+
     try {
       legacyQueryVector = await embedLegacyQueryForMarginalSearch(query);
     } catch (err) {

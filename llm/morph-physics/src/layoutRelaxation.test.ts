@@ -1,4 +1,5 @@
 import { describe, it, expect } from "vitest";
+
 import { suggestLayoutConstraintRelaxation } from "./layoutRelaxation";
 
 describe("suggestLayoutConstraintRelaxation", () => {
@@ -63,10 +64,7 @@ describe("suggestLayoutConstraintRelaxation", () => {
 
   it("uses default epsilon 0.5 when options omitted", () => {
     expect(
-      suggestLayoutConstraintRelaxation(
-        { ...base, w: 100.6, h: 50 },
-        { ...base, w: 100, h: 50 }
-      )
+      suggestLayoutConstraintRelaxation({ ...base, w: 100.6, h: 50 }, { ...base, w: 100, h: 50 })
     ).toEqual({ width: true, height: false });
   });
 });

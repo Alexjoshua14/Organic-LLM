@@ -1,15 +1,17 @@
 import "server-only";
 
+import type { MemoryMigrationTestRun } from "@/lib/memory/memory-migration-test-types";
+
 import { GatewayProviderOptions } from "@ai-sdk/gateway";
 import { generateText } from "ai";
 
 import { recordLlmCall } from "@/lib/llm/metrics";
-import type { MemoryMigrationTestRun } from "@/lib/memory/memory-migration-test-types";
 
 const MAX_BLOB_CHARS = 14_000;
 
 /** Gateway model; override with MEMORY_MIGRATION_SYNOPSIS_MODEL (e.g. openai/gpt-5-mini). */
 const synopsisModelEnv = process.env.MEMORY_MIGRATION_SYNOPSIS_MODEL?.trim();
+
 export const MEMORY_MIGRATION_SYNOPSIS_MODEL =
   synopsisModelEnv && synopsisModelEnv.length > 0 ? synopsisModelEnv : "openai/gpt-5-nano";
 
@@ -23,18 +25,22 @@ Rules:
 
 function clip(s: string, max: number): string {
   if (s.length <= max) return s;
+
   return `${s.slice(0, max)}\n…[truncated]`;
 }
 
 export function serializeMigrationRunsForSynopsis(runs: MemoryMigrationTestRun[]): string {
   const parts: string[] = [];
+
   for (let i = 0; i < runs.length; i++) {
     const r = runs[i]!;
+
     parts.push(`\n--- Run ${i + 1} ---`);
     parts.push(`query: ${clip(r.query, 500)}`);
     if (r.v2Error) parts.push(`v2_error: ${r.v2Error}`);
     let merged = 0;
     let split = 0;
+
     for (const row of r.rows) {
       if (row.kind === "merged") merged++;
       else split++;
@@ -42,6 +48,7 @@ export function serializeMigrationRunsForSynopsis(runs: MemoryMigrationTestRun[]
     parts.push(`row_counts: merged=${merged} split=${split} total_rows=${r.rows.length}`);
     for (let j = 0; j < r.rows.length; j++) {
       const row = r.rows[j]!;
+
       if (row.kind === "merged") {
         parts.push(
           `row ${j}: merged id=${row.memory.id.slice(0, 12)}… text=${clip(row.memory.memory, 160)}`
@@ -50,6 +57,7 @@ export function serializeMigrationRunsForSynopsis(runs: MemoryMigrationTestRun[]
         const l = row.legacy;
         const v = row.v2;
         const marg: string[] = [];
+
         if ("v2Marginal" in row && row.v2Marginal) {
           marg.push(
             `v2Marginal bestChunk=${row.v2Marginal.bestChunkScore.toFixed(4)} lowestRet=${row.v2Marginal.lowestReturnedV2Score?.toFixed(4) ?? "n/a"} delta=${row.v2Marginal.deltaVsLowestReturned?.toFixed(4) ?? "n/a"}`
@@ -67,6 +75,7 @@ export function serializeMigrationRunsForSynopsis(runs: MemoryMigrationTestRun[]
     }
   }
   const blob = parts.join("\n");
+
   return clip(blob, MAX_BLOB_CHARS);
 }
 

@@ -96,9 +96,7 @@ export default async function StrataBrowserPage() {
           />
         }
       >
-        <PageContentFrame
-          className="relative z-10 flex h-full min-h-0 flex-col overflow-y-auto pb-0"
-        >
+        <PageContentFrame className="relative z-10 flex h-full min-h-0 flex-col overflow-y-auto pb-0">
           <PageNavBack href="/sandbox/prototypes" trailing={<StrataAssistantOpenHint />}>
             ← Prototypes
           </PageNavBack>

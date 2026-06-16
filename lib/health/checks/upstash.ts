@@ -1,6 +1,7 @@
 import "server-only";
 
 import type { HealthCheckResult } from "@/lib/health/types";
+
 import { HEALTH_CHECK_TIMEOUT_MS, withTimeout } from "@/lib/health/with-timeout";
 import { isTabTitleRedisConfigured } from "@/lib/metadata/tab-title-cache";
 import { redis } from "@/lib/redis/redis";
@@ -8,11 +9,13 @@ import { redis } from "@/lib/redis/redis";
 function upstashConfig(): Record<string, string> {
   const url = process.env.UPSTASH_REDIS_REST_URL ?? "";
   let host = "";
+
   try {
     host = new URL(url).host;
   } catch {
     host = url ? "(set)" : "(unset)";
   }
+
   return { host, configured: isTabTitleRedisConfigured() ? "yes" : "no" };
 }
 
@@ -61,6 +64,7 @@ export async function checkUpstash(): Promise<HealthCheckResult> {
       } catch (error) {
         const latencyMs = Math.round(performance.now() - start);
         const message = error instanceof Error ? error.message : String(error);
+
         return {
           ...base,
           status: "down",

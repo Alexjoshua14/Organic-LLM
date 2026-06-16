@@ -1,13 +1,6 @@
 "use client";
 
-import {
-  useState,
-  useRef,
-  useCallback,
-  useEffect,
-  useContext,
-  useMemo,
-} from "react";
+import { useState, useRef, useCallback, useEffect, useContext, useMemo } from "react";
 import { Button } from "@heroui/button";
 import { Volume2, VolumeX, Loader2 } from "lucide-react";
 
@@ -70,10 +63,7 @@ export function RabbitHoleTTSButton({
           .filter((s) => s.text.length > 0);
   }, [textProp, title, summary, content]);
 
-  const combinedText = useMemo(
-    () => segments.map((s) => s.text).join(".\n"),
-    [segments]
-  );
+  const combinedText = useMemo(() => segments.map((s) => s.text).join(".\n"), [segments]);
 
   const { sessionId } = useContext(RabbitHoleContext);
   const [loading, setLoading] = useState(false);

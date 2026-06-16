@@ -12,8 +12,8 @@
  */
 
 import type { UIMessage } from "ai";
-
 import type { Message } from "mem0ai/oss";
+
 import { SearchMemoryOptions, SearchResult } from "mem0ai/oss";
 import { auth } from "@clerk/nextjs/server";
 

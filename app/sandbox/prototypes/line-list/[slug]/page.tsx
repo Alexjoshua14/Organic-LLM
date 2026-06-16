@@ -2,7 +2,7 @@ import { UIMessage } from "ai";
 
 import { LineListShell } from "../_components/LineListShell";
 
-import { PageContentFrame, PageNavBack } from "@/components/layout/page-content-frame";
+import { PageContentFrame } from "@/components/layout/page-content-frame";
 import Page from "@/components/layout/page";
 import { loadChat } from "@/lib/chat/chat-store";
 import { Thread } from "@/lib/schemas/chat";

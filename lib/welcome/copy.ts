@@ -23,6 +23,7 @@ export const welcomeCopy = {
   },
   explore: {
     label: "Explore first",
+    subtitle: "Public routes · no account needed",
     links: [
       {
         href: "/showcase/anatomy",
@@ -49,7 +50,8 @@ export const welcomeCopy = {
   },
   features: {
     heading: "What you can work in",
-    intro: "Three surfaces for thinking, research, and editorial work—connected by the same memory and thread model.",
+    intro:
+      "Three surfaces for thinking, research, and editorial work—connected by the same memory and thread model.",
     chat: {
       title: "Chat",
       summary:
@@ -63,29 +65,27 @@ export const welcomeCopy = {
           id: "main",
           title: "Main chat",
           body: "Your daily driver—web search, memory retrieval, Gen UI in-thread, and encrypted persistence across threads.",
-          imageSrc: "/images/main-chat.png",
           visualPlaceholder: {
             label: "Screenshot placeholder",
-            hint: "Main chat thread with memory and tools visible",
+            hint: "Main chat thread with memory search, web search, streaming reply, and read aloud",
           },
         },
         {
           id: "arcadia",
           title: "Arcadia",
           body: "Sandbox lab on the same thread spine. Experiment with concise, tool-forward replies; stable ideas graduate to main chat.",
-          imageSrc: "/images/mermaid.png",
           visualPlaceholder: {
             label: "Screenshot placeholder",
-            hint: "Arcadia — Mermaid, kanban, or Gen UI in thread",
+            hint: "Arcadia mind map of how an idea loses momentum",
           },
         },
         {
           id: "noesis",
           title: "Noesis",
-          body: "Topic exploration with memory-aware sparks and steerable assist for your next line—exploration without writing to long-term memory from this mode.",
+          body: "Starter prompts and suggested replies generated from past interactions.\nBuilt to surface what you want to discuss.",
           visualPlaceholder: {
             label: "Screenshot placeholder",
-            hint: "Noesis topic exploration with memory-aware sparks",
+            hint: "Noesis thread with tailored starter prompts and reply suggestions",
           },
         },
       ],
@@ -148,7 +148,6 @@ export const welcomeCopy = {
         body: "The assistant can render answer cards, decision matrices, plan timelines, and live tool states in-thread—not only markdown walls. You see what ran and what it returned.",
         link: { href: "/showcase/anatomy", label: "Anatomy of a response" },
         reverse: true,
-        imageSrc: "/images/gen-ui-kanban.png",
         visualPlaceholder: {
           label: "Screenshot placeholder",
           hint: "In-thread Gen UI block from chat or showcase",

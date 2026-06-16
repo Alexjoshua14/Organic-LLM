@@ -1,9 +1,6 @@
 "use client";
 
-import {
-  WelcomeHighlightVisual,
-  type WelcomeVisualImageSrc,
-} from "./welcome-highlight-visual";
+import { WelcomeHighlightVisual, type WelcomeVisualImageSrc } from "./welcome-highlight-visual";
 
 import { glass } from "@/components/design-system/primitives";
 import { cn } from "@/lib/utils";
@@ -36,16 +33,18 @@ export function WelcomeFeatureCard({
       <h3 className="font-commissioner text-base font-light tracking-tight text-foreground sm:text-lg">
         {title}
       </h3>
-      <p className="mt-1.5 line-clamp-3 flex-1 text-sm leading-snug text-muted-foreground">
+      <p className="mt-1.5 line-clamp-3 shrink-0 text-sm leading-snug text-muted-foreground">
         {body}
       </p>
-      <div className="mt-3 w-full shrink-0">
+      <div className="mt-3 flex w-full min-h-0 flex-1 items-center justify-center">
         <WelcomeHighlightVisual
           aspect="feature"
+          className="w-full"
           id={placeholderId}
           imageAlt={visualPlaceholder.hint}
           imageSrc={imageSrc}
           lazyImages
+          objectPosition={imageSrc ? "center center" : undefined}
           placeholder={visualPlaceholder}
           size="mode"
         />

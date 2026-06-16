@@ -1,8 +1,9 @@
 "use client";
 
+import type { HealthReport, HealthStatus } from "@/lib/health/client-types";
+
 import { AlertTriangle, CheckCircle2, CircleDashed, XCircle } from "lucide-react";
 
-import type { HealthReport, HealthStatus } from "@/lib/health/client-types";
 import { glass } from "@/components/design-system/primitives";
 import { cn } from "@/lib/utils";
 
@@ -14,6 +15,7 @@ function failingNames(report: HealthReport): string[] {
 
 function formatNames(names: string[]): string {
   if (names.length <= 3) return names.join(", ");
+
   return `${names.slice(0, 3).join(", ")} +${names.length - 3}`;
 }
 
@@ -57,7 +59,11 @@ export function StatusHero({
 }) {
   const overall = loading ? ("ok" as HealthStatus) : (report?.overall ?? "ok");
   const Icon = loading ? CircleDashed : ICON[overall];
-  const text = loading ? "Checking services…" : report ? heroCopy(overall, report) : "Checking services…";
+  const text = loading
+    ? "Checking services…"
+    : report
+      ? heroCopy(overall, report)
+      : "Checking services…";
 
   return (
     <div

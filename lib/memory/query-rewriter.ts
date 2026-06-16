@@ -9,12 +9,13 @@
  * heuristics in {@link shouldShortCircuitMemoryRewrite}, and a hard timeout on the LLM call.
  */
 import type { GatewayModelId } from "@ai-sdk/gateway";
+import type { MemoryItemType } from "@/lib/schemas/memory";
+
 import { generateText, type UIMessage } from "ai";
 import { z } from "zod";
 
 import { getMessageText } from "@/lib/arcadia/help-response";
 import { createLogger } from "@/lib/logger";
-import type { MemoryItemType } from "@/lib/schemas/memory";
 
 const logger = createLogger("lib/memory/query-rewriter.ts");
 
@@ -48,7 +49,9 @@ export type RewriteMemoryQueryOpts = {
   /** When false, skip LLM rewrite. When undefined, use env ARCADIA_QUERY_REWRITE_ENABLED. */
   enabled?: boolean;
   /** Test-only: replace real generateText (same call signature as `ai` generateText). */
-  generateTextImpl?: (options: Parameters<typeof generateText>[0]) => ReturnType<typeof generateText>;
+  generateTextImpl?: (
+    options: Parameters<typeof generateText>[0]
+  ) => ReturnType<typeof generateText>;
 };
 
 /** Result of rewrite: always at least one string to pass to Mem0 (may be the raw query). */
@@ -209,6 +212,7 @@ function dedupeQueries(queries: string[]): string[] {
 function withTimeout<T>(p: Promise<T>, ms: number): Promise<T> {
   return new Promise((resolve, reject) => {
     const t = setTimeout(() => reject(new Error("rewrite_timeout")), ms);
+
     p.then(
       (v) => {
         clearTimeout(t);
@@ -308,7 +312,10 @@ export async function rewriteMemoryQuery(
     const queries = parsed ? dedupeQueries(parsed.queries) : [];
 
     if (queries.length === 0) {
-      logger.log("rewriteMemoryQuery", "parse_empty_fallback", { rawQuery: trimmed, elapsedMs: elapsed });
+      logger.log("rewriteMemoryQuery", "parse_empty_fallback", {
+        rawQuery: trimmed,
+        elapsedMs: elapsed,
+      });
 
       return { queries: [trimmed], usedRewrite: false };
     }

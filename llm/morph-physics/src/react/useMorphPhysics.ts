@@ -1,5 +1,8 @@
+import type { Mesh } from "three";
+
 import { type RefObject, useCallback, useEffect, useRef } from "react";
 import z from "zod";
+
 import { FrameLoop } from "../physics/frameLoop";
 import {
   springConfigSchema,
@@ -13,14 +16,10 @@ import {
   prettyPrintPhysicsState,
   updateWebGLMesh,
 } from "../morphUtils";
-import {
-  suggestLayoutConstraintRelaxation,
-  type ShellLayoutInfo,
-} from "../layoutRelaxation";
+import { suggestLayoutConstraintRelaxation, type ShellLayoutInfo } from "../layoutRelaxation";
 import { vector4, type Vector4 } from "../schemas/physicsSchemas";
 import { ZERO_VECTOR } from "../constants";
 import { morphPropertyRegistry } from "../morphProperties/index";
-import type { Mesh } from "three";
 import { morphPhysicsLog } from "../debug";
 
 export type { Vector4, ShellLayoutInfo };
@@ -29,9 +28,7 @@ export const morphPhysicsParamsSchema = z.object({
   config: springConfigSchema.describe(
     "Spring physics configuration (stiffness, damping, mass, precision)"
   ),
-  targetGeometry: vector4
-    .optional()
-    .describe("Optional target geometry for morph (x, y, w, h)"),
+  targetGeometry: vector4.optional().describe("Optional target geometry for morph (x, y, w, h)"),
   webGLRef: z
     .custom<RefObject<Mesh | null>>()
     .optional()
@@ -82,6 +79,7 @@ function shellLayoutSignature(
   target: Vector4
 ): string {
   const r = (n: number) => n.toFixed(2);
+
   return `${settled}:${relaxation.width}:${relaxation.height}:${r(current.w)}:${r(current.h)}:${r(target.w)}:${r(target.h)}`;
 }
 
@@ -94,6 +92,7 @@ function tryEmitShellLayout(
   if (!onShellLayout) return;
 
   const positionProperty = morphPropertyRegistry.getProperty("position");
+
   if (!positionProperty) return;
 
   const current = positionProperty.getCurrentValue(state);
@@ -131,6 +130,7 @@ function tryEmitShellLayout(
   });
 
   const sig = shellLayoutSignature(settled, relaxation, cur, tgt);
+
   if (lastSigRef.current === sig) return;
   lastSigRef.current = sig;
 
@@ -146,9 +146,7 @@ function tryEmitShellLayout(
  * Drives spring morph on `elementRef`: each frame integrates registered properties,
  * applies DOM styles, optionally syncs a Three.js mesh, stops when `isSettled`.
  */
-export function useMorphPhysics(
-  params: UseMorphPhysicsParams
-): UseMorphPhysicsOutput {
+export function useMorphPhysics(params: UseMorphPhysicsParams): UseMorphPhysicsOutput {
   const elementRef = useRef<HTMLDivElement>(null);
   const prevState = useRef<morphCurrentState | null>(null);
 
@@ -160,6 +158,7 @@ export function useMorphPhysics(
 
   const frameLoop = useRef<FrameLoop | null>(null);
   const onShellLayoutRef = useRef(params.onShellLayout);
+
   onShellLayoutRef.current = params.onShellLayout;
   const shellLayoutSigRef = useRef<string | null>(null);
 
@@ -170,6 +169,7 @@ export function useMorphPhysics(
       const state = morphStateRef.current;
 
       const positionProperty = morphPropertyRegistry.getProperty("position");
+
       if (!positionProperty) {
         return;
       }
@@ -203,6 +203,7 @@ export function useMorphPhysics(
       ) {
         console.error("Physics state invalid, stopping animation");
         frameLoop.current?.stop();
+
         return;
       }
 
@@ -212,15 +213,11 @@ export function useMorphPhysics(
 
       applyMorphStateToElement(elementRef.current, state);
 
-      tryEmitShellLayout(
-        state,
-        params.config,
-        onShellLayoutRef.current,
-        shellLayoutSigRef
-      );
+      tryEmitShellLayout(state, params.config, onShellLayoutRef.current, shellLayoutSigRef);
 
       if (params.webGLRef?.current) {
         const currentPos = positionProperty.getCurrentValue(state);
+
         if (currentPos && typeof currentPos === "object" && "x" in currentPos) {
           const rect = currentPos as Vector4;
           const mesh = params.webGLRef.current;
@@ -230,11 +227,13 @@ export function useMorphPhysics(
       }
 
       const currentPos = positionProperty.getCurrentValue(state);
+
       if (currentPos && typeof currentPos === "object" && "x" in currentPos) {
         const springResult = {
           position: currentPos as Vector4,
           velocity: state.velocity,
         };
+
         prettyPrintPhysicsState(state, springResult);
       }
 
@@ -247,72 +246,78 @@ export function useMorphPhysics(
 
   useEffect(() => {
     frameLoop.current = new FrameLoop(onTick);
+
     return () => frameLoop.current?.stop();
   }, [onTick]);
 
   useEffect(() => {
     if (params.targetGeometry !== undefined) {
       const positionProperty = morphPropertyRegistry.getProperty("position");
+
       if (positionProperty) {
-        positionProperty.setTargetValue(
-          morphStateRef.current,
-          params.targetGeometry
-        );
+        positionProperty.setTargetValue(morphStateRef.current, params.targetGeometry);
       }
 
       frameLoop.current?.start();
     }
   }, [params.targetGeometry]);
 
-  const reset = useCallback((vector: Vector4) => {
-    frameLoop.current?.stop();
-    if (!validateVector(vector, "reset() input")) {
-      console.error("reset() called with invalid vector:", vector);
-      return;
-    }
+  const reset = useCallback(
+    (vector: Vector4) => {
+      frameLoop.current?.stop();
+      if (!validateVector(vector, "reset() input")) {
+        console.error("reset() called with invalid vector:", vector);
 
-    const positionProperty = morphPropertyRegistry.getProperty("position");
-    if (positionProperty) {
-      positionProperty.setTargetValue(morphStateRef.current, vector);
-      positionProperty.updateState(
+        return;
+      }
+
+      const positionProperty = morphPropertyRegistry.getProperty("position");
+
+      if (positionProperty) {
+        positionProperty.setTargetValue(morphStateRef.current, vector);
+        positionProperty.updateState(
+          morphStateRef.current,
+          { position: vector, velocity: ZERO_VECTOR },
+          vector
+        );
+      }
+
+      morphStateRef.current.velocity = ZERO_VECTOR;
+
+      if (elementRef.current) {
+        applyMorphStateToElement(elementRef.current, morphStateRef.current);
+        morphPhysicsLog(
+          "reset() - Physics current:",
+          positionProperty?.getCurrentValue(morphStateRef.current)
+        );
+        morphPhysicsLog("reset() - Applied styles:", {
+          transform: elementRef.current.style.transform,
+          width: elementRef.current.style.width,
+          height: elementRef.current.style.height,
+        });
+      }
+
+      shellLayoutSigRef.current = null;
+      tryEmitShellLayout(
         morphStateRef.current,
-        { position: vector, velocity: ZERO_VECTOR },
-        vector
+        params.config,
+        onShellLayoutRef.current,
+        shellLayoutSigRef
       );
-    }
-
-    morphStateRef.current.velocity = ZERO_VECTOR;
-
-    if (elementRef.current) {
-      applyMorphStateToElement(elementRef.current, morphStateRef.current);
-      morphPhysicsLog(
-        "reset() - Physics current:",
-        positionProperty?.getCurrentValue(morphStateRef.current)
-      );
-      morphPhysicsLog("reset() - Applied styles:", {
-        transform: elementRef.current.style.transform,
-        width: elementRef.current.style.width,
-        height: elementRef.current.style.height,
-      });
-    }
-
-    shellLayoutSigRef.current = null;
-    tryEmitShellLayout(
-      morphStateRef.current,
-      params.config,
-      onShellLayoutRef.current,
-      shellLayoutSigRef
-    );
-  }, [params.config]);
+    },
+    [params.config]
+  );
 
   const morphTo = useCallback(
     (target: Vector4) => {
       if (!validateVector(target, "morphTo() target")) {
         console.error("morphTo() called with invalid target:", target);
+
         return;
       }
 
       const positionProperty = morphPropertyRegistry.getProperty("position");
+
       if (positionProperty) {
         positionProperty.setTargetValue(morphStateRef.current, target);
       }

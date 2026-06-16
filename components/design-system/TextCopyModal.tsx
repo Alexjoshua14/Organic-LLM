@@ -90,6 +90,7 @@ export function TextCopyModal({
 
   const handleCopy = useCallback(async () => {
     const ok = await copyTextToClipboard(text);
+
     if (ok) {
       setCopied(true);
       setTimeout(() => setCopied(false), 1400);

@@ -40,6 +40,7 @@ export class FrameLoop {
     if (!this.running) return;
 
     let dt = time - this.lastTime;
+
     this.lastTime = time;
 
     if (dt > FrameLoop.MAX_DT) dt = FrameLoop.MAX_DT;

@@ -1,5 +1,7 @@
 "use client";
 
+import type { HealthReport } from "@/lib/health/client-types";
+
 import Link from "next/link";
 import { ArrowLeft, Loader2, MoreHorizontal, RefreshCw } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -13,7 +15,6 @@ import { StatusHero } from "@/components/status/status-hero";
 import { Button } from "@/components/third-party/ui/button";
 import { Switch } from "@/components/third-party/ui/switch";
 import { glass } from "@/components/design-system/primitives";
-import type { HealthReport } from "@/lib/health/client-types";
 import { cn } from "@/lib/utils";
 
 const AUTO_REFRESH_MS = 30_000;
@@ -21,11 +22,14 @@ const AUTO_REFRESH_MS = 30_000;
 function formatRelativeTime(iso: string): string {
   const then = new Date(iso).getTime();
   const diffSec = Math.round((Date.now() - then) / 1000);
+
   if (diffSec < 10) return "Just now";
   if (diffSec < 60) return `${diffSec}s ago`;
   const diffMin = Math.round(diffSec / 60);
+
   if (diffMin < 60) return `${diffMin}m ago`;
   const diffHr = Math.round(diffMin / 60);
+
   return `${diffHr}h ago`;
 }
 
@@ -45,22 +49,27 @@ export default function StatusPage() {
 
     try {
       const res = await fetch("/api/status?deep=1", { cache: "no-store" });
+
       if (res.status === 401) {
         setError("Sign in to view system status.");
         setReport(null);
+
         return;
       }
       if (res.status === 403) {
         setError("You do not have access to this page.");
         setReport(null);
+
         return;
       }
       if (!res.ok) {
         setError(`Status check failed (${res.status})`);
         setReport(null);
+
         return;
       }
       const data = (await res.json()) as HealthReport;
+
       setReport(data);
     } catch {
       setError("Could not reach the status API.");
@@ -78,6 +87,7 @@ export default function StatusPage() {
   useEffect(() => {
     if (!autoRefresh) return;
     const id = setInterval(() => void fetchStatus(true), AUTO_REFRESH_MS);
+
     return () => clearInterval(id);
   }, [autoRefresh, fetchStatus]);
 
@@ -88,7 +98,9 @@ export default function StatusPage() {
         setMenuOpen(false);
       }
     };
+
     document.addEventListener("mousedown", onDoc);
+
     return () => document.removeEventListener("mousedown", onDoc);
   }, [menuOpen]);
 
@@ -178,55 +190,60 @@ export default function StatusPage() {
           </header>
 
           <div className="flex-1 pb-6 md:pb-10 lg:pb-12">
-          {error ? (
-            <div
-              className={cn(
-                glass({ opaque: true }),
-                "select-none rounded-2xl border border-destructive/30 px-4 py-6 text-center"
-              )}
-            >
-              <p className="text-sm text-destructive">
-                <span className="select-text">{error}</span>
-              </p>
-              <Button className="mt-4" type="button" variant="secondary" onClick={() => void fetchStatus()}>
-                Retry
-              </Button>
-              {!error.includes("access") ? null : (
-                <p className="mt-3 text-xs text-muted-foreground">
-                  <Link className="underline" href="/">
-                    Return home
-                  </Link>
+            {error ? (
+              <div
+                className={cn(
+                  glass({ opaque: true }),
+                  "select-none rounded-2xl border border-destructive/30 px-4 py-6 text-center"
+                )}
+              >
+                <p className="text-sm text-destructive">
+                  <span className="select-text">{error}</span>
                 </p>
-              )}
-            </div>
-          ) : (
-            <div
-              className={cn(
-                "space-y-2.5 motion-reduce:transition-none md:space-y-6",
-                refreshing && "pointer-events-none opacity-60"
-              )}
-            >
-              <StatusHero loading={loading && !report} report={report} />
+                <Button
+                  className="mt-4"
+                  type="button"
+                  variant="secondary"
+                  onClick={() => void fetchStatus()}
+                >
+                  Retry
+                </Button>
+                {!error.includes("access") ? null : (
+                  <p className="mt-3 text-xs text-muted-foreground">
+                    <Link className="underline" href="/">
+                      Return home
+                    </Link>
+                  </p>
+                )}
+              </div>
+            ) : (
+              <div
+                className={cn(
+                  "space-y-2.5 motion-reduce:transition-none md:space-y-6",
+                  refreshing && "pointer-events-none opacity-60"
+                )}
+              >
+                <StatusHero loading={loading && !report} report={report} />
 
-              {loading && !report ? (
-                <div className="space-y-1.5 select-none md:hidden">
-                  {Array.from({ length: 4 }).map((_, i) => (
-                    <div key={i} className="h-11 animate-pulse rounded-xl bg-muted/40" />
-                  ))}
-                </div>
-              ) : null}
-              {loading && !report ? (
-                <div className="hidden h-44 animate-pulse rounded-2xl bg-muted/40 select-none md:block" />
-              ) : null}
+                {loading && !report ? (
+                  <div className="space-y-1.5 select-none md:hidden">
+                    {Array.from({ length: 4 }).map((_, i) => (
+                      <div key={i} className="h-11 animate-pulse rounded-xl bg-muted/40" />
+                    ))}
+                  </div>
+                ) : null}
+                {loading && !report ? (
+                  <div className="hidden h-44 animate-pulse rounded-2xl bg-muted/40 select-none md:block" />
+                ) : null}
 
-              {report ? (
-                <>
-                  <StatusCheckCardList checks={report.checks} />
-                  <StatusCheckTable checks={report.checks} />
-                </>
-              ) : null}
-            </div>
-          )}
+                {report ? (
+                  <>
+                    <StatusCheckCardList checks={report.checks} />
+                    <StatusCheckTable checks={report.checks} />
+                  </>
+                ) : null}
+              </div>
+            )}
           </div>
         </PageContentFrame>
       </div>

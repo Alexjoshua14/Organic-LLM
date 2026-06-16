@@ -95,6 +95,7 @@ export function blocksToCanonicalMarkdown(blocks: StrataNotepadBlock[]): string 
     if (!url) continue;
     const title = (block.title ?? "").trim();
     const summary = (block.summary ?? "").trim();
+
     if (title) {
       parts.push(`[${title}](${url})`);
     } else {

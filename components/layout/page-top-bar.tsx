@@ -21,7 +21,9 @@ export function PageTopBar({ title, leading, trailing, className }: PageTopBarPr
     >
       <div className="flex min-w-0 items-center">{leading}</div>
       <h1 className="text-lg font-semibold text-foreground">{title}</h1>
-      <div className="flex min-w-0 items-center justify-end">{trailing ?? <span aria-hidden className="w-20" />}</div>
+      <div className="flex min-w-0 items-center justify-end">
+        {trailing ?? <span aria-hidden className="w-20" />}
+      </div>
     </div>
   );
 }

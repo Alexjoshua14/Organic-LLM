@@ -1,7 +1,6 @@
 import { memo } from "react";
 import { Pin, PinOff } from "lucide-react";
 
-import { formatDate } from "@/lib/format/stringFormatting";
 import { buildFavicon } from "@/lib/exa/utils";
 import { cn } from "@/lib/utils";
 
@@ -35,15 +34,6 @@ function condenseHighlights(highlights: string[], textFallback?: string): string
   }
 
   return "";
-}
-
-function safeFormatPublishedDate(iso?: string): string | null {
-  if (!iso?.trim()) return null;
-  const d = new Date(iso);
-
-  if (Number.isNaN(d.getTime())) return null;
-
-  return formatDate(iso);
 }
 
 function normalizeHit(r: unknown, index: number): WebSearchResultRowUi {
@@ -119,12 +109,14 @@ type WebSearchToolResultCardProps = {
   parsed: ParsedWebSearchToolOutput;
   isPinned: boolean;
   onTogglePin: () => void;
+  showPin?: boolean;
 };
 
 export const WebSearchToolResultCard = memo(function WebSearchToolResultCard({
   parsed,
   isPinned,
   onTogglePin,
+  showPin = true,
 }: WebSearchToolResultCardProps) {
   if (parsed.status === "error") {
     return (
@@ -140,6 +132,75 @@ export const WebSearchToolResultCard = memo(function WebSearchToolResultCard({
             <div className="text-xs font-medium text-foreground">Search error</div>
             <p className="mt-1 text-xs leading-snug text-destructive">{parsed.message}</p>
           </div>
+          {showPin ? (
+            <button
+              aria-label={isPinned ? "Unpin tool output" : "Pin tool output"}
+              aria-pressed={isPinned}
+              className={cn(
+                "h-7 w-7 shrink-0 grid place-content-center rounded",
+                "hover:bg-background-tertiary/60 transition-colors"
+              )}
+              type="button"
+              onClick={onTogglePin}
+            >
+              {isPinned ? <PinOff className="size-3.5" /> : <Pin className="size-3.5" />}
+            </button>
+          ) : null}
+        </div>
+      </div>
+    );
+  }
+
+  const summaryLabel =
+    parsed.rows.length === 0
+      ? "No search results"
+      : `${parsed.rows.length} Search Result${parsed.rows.length === 1 ? "" : "s"}`;
+
+  return (
+    <div
+      className={cn(
+        "not-prose rounded-lg border border-border/60 bg-background-tertiary/30 dark:bg-background-tertiary/20 backdrop-blur-2xl",
+        "px-3 py-2",
+        isPinned && "sticky top-20 z-30 shadow-[0_8px_30px_-10px_rgba(0,0,0,0.35)]"
+      )}
+    >
+      <div className="flex items-center justify-between gap-2">
+        <details className="min-w-0 flex-1">
+          <summary className="cursor-pointer select-none truncate text-xs font-medium text-muted-foreground hover:text-foreground">
+            {summaryLabel}
+          </summary>
+
+          {parsed.rows.length === 0 && (
+            <p className="mt-2 text-xs text-muted-foreground">No web results for this query.</p>
+          )}
+
+          {parsed.rows.length > 0 && (
+            <ul className="mt-1.5 space-y-1.5 max-h-80 overflow-y-auto pr-1">
+              {parsed.rows.map((row) => (
+                <li key={row.id} className="min-w-0">
+                  {row.url ? (
+                    <a
+                      className="block truncate text-xs font-medium text-foreground hover:underline"
+                      href={row.url}
+                      rel="noopener noreferrer"
+                      target="_blank"
+                    >
+                      {row.title}
+                    </a>
+                  ) : (
+                    <p className="truncate text-xs font-medium text-foreground">{row.title}</p>
+                  )}
+                  {row.highlightsLine ? (
+                    <p className="line-clamp-1 text-[10px] leading-snug text-muted-foreground/80">
+                      {row.highlightsLine}
+                    </p>
+                  ) : null}
+                </li>
+              ))}
+            </ul>
+          )}
+        </details>
+        {showPin ? (
           <button
             aria-label={isPinned ? "Unpin tool output" : "Pin tool output"}
             aria-pressed={isPinned}
@@ -152,103 +213,8 @@ export const WebSearchToolResultCard = memo(function WebSearchToolResultCard({
           >
             {isPinned ? <PinOff className="size-3.5" /> : <Pin className="size-3.5" />}
           </button>
-        </div>
+        ) : null}
       </div>
-    );
-  }
-
-  const summaryLabel =
-    parsed.rows.length === 0
-      ? "No results"
-      : `${parsed.rows.length} result${parsed.rows.length === 1 ? "" : "s"}`;
-
-  return (
-    <div
-      className={cn(
-        "not-prose rounded-lg border border-border/60 bg-background-tertiary/30 dark:bg-background-tertiary/20 backdrop-blur-2xl",
-        "px-3 py-2",
-        isPinned && "sticky top-20 z-30 shadow-[0_8px_30px_-10px_rgba(0,0,0,0.35)]"
-      )}
-    >
-      <div className="flex items-center justify-between gap-2">
-        <div className="text-xs font-medium text-muted-foreground truncate">Search Results</div>
-        <button
-          aria-label={isPinned ? "Unpin tool output" : "Pin tool output"}
-          aria-pressed={isPinned}
-          className={cn(
-            "h-7 w-7 grid place-content-center rounded",
-            "hover:bg-background-tertiary/60 transition-colors"
-          )}
-          type="button"
-          onClick={onTogglePin}
-        >
-          {isPinned ? <PinOff className="size-3.5" /> : <Pin className="size-3.5" />}
-        </button>
-      </div>
-
-      <details className="mt-1">
-        <summary className="cursor-pointer select-none text-xs text-foreground/80 hover:text-foreground">
-          {summaryLabel}
-        </summary>
-
-        {parsed.rows.length === 0 && (
-          <p className="mt-2 text-xs text-muted-foreground">No web results for this query.</p>
-        )}
-
-        {parsed.rows.length > 0 && (
-          <ul className="mt-2 space-y-3 max-h-80 overflow-y-auto pr-1">
-            {parsed.rows.map((row) => (
-              <li key={row.id} className="border-b border-border/40 pb-3 last:border-0 last:pb-0">
-                <div className="flex gap-2">
-                  {row.faviconUrl ? (
-                    <img
-                      alt=""
-                      className="mt-0.5 size-4 shrink-0 rounded-sm"
-                      height={16}
-                      src={row.faviconUrl}
-                      width={16}
-                    />
-                  ) : (
-                    <span className="mt-0.5 size-4 shrink-0 rounded-sm bg-muted" />
-                  )}
-                  <div className="min-w-0 flex-1 space-y-1">
-                    <a
-                      className="block text-sm font-medium text-foreground hover:underline"
-                      href={row.url}
-                      rel="noopener noreferrer"
-                      target="_blank"
-                    >
-                      {row.title}
-                    </a>
-                    {row.url ? (
-                      <a
-                        className="block truncate text-xs text-primary hover:underline"
-                        href={row.url}
-                        rel="noopener noreferrer"
-                        target="_blank"
-                      >
-                        {row.url}
-                      </a>
-                    ) : null}
-                    {(() => {
-                      const dateLine = safeFormatPublishedDate(row.publishedDate);
-
-                      return dateLine ? (
-                        <p className="text-[11px] text-muted-foreground">{dateLine}</p>
-                      ) : null;
-                    })()}
-                    {row.highlightsLine ? (
-                      <p className="text-xs leading-snug text-muted-foreground">
-                        {row.highlightsLine}
-                      </p>
-                    ) : null}
-                  </div>
-                </div>
-              </li>
-            ))}
-          </ul>
-        )}
-      </details>
     </div>
   );
 });

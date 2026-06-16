@@ -289,7 +289,7 @@ export function AionLauncherProvider({ children }: { children: React.ReactNode }
               if (!q) return;
 
               const selected = root.querySelector(
-                "[cmdk-item][data-selected=\"true\"], [cmdk-item][data-selected]"
+                '[cmdk-item][data-selected="true"], [cmdk-item][data-selected]'
               ) as HTMLElement | null;
 
               const valueAttr = selected?.getAttribute("data-value") ?? "";

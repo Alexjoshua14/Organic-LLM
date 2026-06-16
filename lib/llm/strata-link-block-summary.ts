@@ -46,7 +46,10 @@ function estimateUsd(
   const inputTokens = usage?.inputTokens ?? usage?.promptTokens ?? 0;
   const outputTokens = usage?.outputTokens ?? usage?.completionTokens ?? 0;
 
-  return (inputTokens / 1_000_000) * cfg.inputPerMillion + (outputTokens / 1_000_000) * cfg.outputPerMillion;
+  return (
+    (inputTokens / 1_000_000) * cfg.inputPerMillion +
+    (outputTokens / 1_000_000) * cfg.outputPerMillion
+  );
 }
 
 export async function generateStrataLinkSummary(args: {

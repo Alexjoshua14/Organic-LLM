@@ -1,6 +1,8 @@
-import { describe, it, expect, beforeEach } from "vitest";
-import { MeshRegistry } from "./registry";
 import type { Vector4 } from "../schemas/physicsSchemas";
+
+import { describe, it, expect, beforeEach } from "vitest";
+
+import { MeshRegistry } from "./registry";
 
 describe("MeshRegistry", () => {
   let registry: MeshRegistry;
@@ -13,6 +15,7 @@ describe("MeshRegistry", () => {
   it("register and get round-trip", () => {
     registry.register("a", rect, { kind: "hud" });
     const m = registry.get("a");
+
     expect(m?.id).toBe("a");
     expect(m?.rect).toEqual(rect);
     expect(m?.metadata).toEqual({ kind: "hud" });
@@ -21,6 +24,7 @@ describe("MeshRegistry", () => {
   it("update mutates rect", () => {
     registry.register("a", rect);
     const next: Vector4 = { x: 5, y: 5, w: 50, h: 50 };
+
     registry.update("a", next);
     expect(registry.get("a")?.rect).toEqual(next);
   });

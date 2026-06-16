@@ -107,6 +107,7 @@ export function AssistantMessageActions({
   const handleCopy = useCallback(async () => {
     try {
       const ok = await copyTextToClipboard(text);
+
       if (!ok) throw new Error("copy failed");
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);

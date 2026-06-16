@@ -5,6 +5,7 @@ export function isEditableEventTarget(target: EventTarget | null): boolean {
   if (target == null || typeof (target as Node).nodeType !== "number") return false;
 
   const el = target as HTMLElement;
+
   if (el.isContentEditable) return true;
 
   const tag = el.tagName?.toLowerCase();

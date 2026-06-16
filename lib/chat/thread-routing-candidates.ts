@@ -1,4 +1,5 @@
 import type { StrataRoutingRow } from "@/data/supabase/strata";
+
 import { Thread } from "@/lib/schemas/chat";
 
 export const RABBIT_HOLE_ROUTE_PREFIX = "rabbit_hole:" as const;

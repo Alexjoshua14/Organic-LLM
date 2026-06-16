@@ -1,24 +1,23 @@
 "use client";
 
 import type { DecisionMatrixBlock, MatrixScoreValue } from "@/lib/schemas/gen-ui";
-import { formatMatrixScoreValue } from "@/lib/schemas/gen-ui";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger,
-} from "@/components/third-party/ui/tooltip";
-import { cn } from "@/lib/utils";
 
 import { computeWeightedTotals, scoreValueToNumeric } from "../lib/decision-matrix-math";
+
+import { formatMatrixScoreValue } from "@/lib/schemas/gen-ui";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/third-party/ui/tooltip";
+import { cn } from "@/lib/utils";
 
 function cellHeatmapClass(value: MatrixScoreValue): string {
   const n = scoreValueToNumeric(value);
   const t = (n - 1) / 4;
+
   if (value === "✓") return "bg-emerald-500/25 text-emerald-800 dark:text-emerald-200";
   if (value === "✗") return "bg-red-500/25 text-red-800 dark:text-red-200";
   if (value === "~") return "bg-amber-500/20 text-amber-900 dark:text-amber-100";
   if (t >= 0.75) return "bg-emerald-500/20";
   if (t <= 0.25) return "bg-red-500/20";
+
   return "bg-amber-500/15";
 }
 
@@ -27,13 +26,7 @@ type DecisionMatrixProps = {
   partial?: boolean;
 };
 
-function MatrixCell({
-  value,
-  note,
-}: {
-  value: MatrixScoreValue;
-  note?: string;
-}) {
+function MatrixCell({ value, note }: { value: MatrixScoreValue; note?: string }) {
   const inner = (
     <span
       className={cn(
@@ -103,6 +96,7 @@ export function DecisionMatrix({ block, partial }: DecisionMatrixProps) {
           <tbody>
             {block.options.map((opt) => {
               const isRec = opt.id === recommendedId;
+
               return (
                 <tr
                   key={opt.id}
@@ -128,6 +122,7 @@ export function DecisionMatrix({ block, partial }: DecisionMatrixProps) {
                   </th>
                   {block.criteria.map((c) => {
                     const cell = block.scores[opt.id]?.[c.id];
+
                     return (
                       <td
                         key={c.id}
@@ -159,6 +154,7 @@ export function DecisionMatrix({ block, partial }: DecisionMatrixProps) {
         <p className="text-sm font-medium text-foreground">{block.question}</p>
         {block.options.map((opt) => {
           const isRec = opt.id === recommendedId;
+
           return (
             <div
               key={opt.id}
@@ -177,14 +173,11 @@ export function DecisionMatrix({ block, partial }: DecisionMatrixProps) {
               </div>
               {block.criteria.map((c) => {
                 const cell = block.scores[opt.id]?.[c.id];
+
                 return (
                   <div key={c.id} className="flex items-center justify-between text-xs gap-2">
                     <span className="text-muted-foreground">{c.label}</span>
-                    {cell ? (
-                      <MatrixCell value={cell.value} note={cell.note} />
-                    ) : (
-                      <span>—</span>
-                    )}
+                    {cell ? <MatrixCell value={cell.value} note={cell.note} /> : <span>—</span>}
                   </div>
                 );
               })}

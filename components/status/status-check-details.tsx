@@ -1,6 +1,7 @@
 "use client";
 
 import type { HealthCheckResult } from "@/lib/health/client-types";
+
 import { cn } from "@/lib/utils";
 
 export function StatusCheckDetails({

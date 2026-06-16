@@ -264,11 +264,7 @@ export function createMemorySearchTool(
           maxIncluded: requestedLimit,
           minScore: ARCADIA_MEMORY_MIN_SCORE,
         });
-        const memoryInventory = toMemorySearchInventory(
-          tiers,
-          limitForStore,
-          requestedLimit
-        );
+        const memoryInventory = toMemorySearchInventory(tiers, limitForStore, requestedLimit);
 
         return {
           success: true,

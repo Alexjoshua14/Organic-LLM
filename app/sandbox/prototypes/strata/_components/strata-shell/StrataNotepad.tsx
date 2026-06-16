@@ -9,7 +9,10 @@ import { toast } from "sonner";
 import { BlockNotepadSurface } from "@/components/strata/notepad/BlockNotepadSurface";
 import { cn } from "@/lib/utils";
 import { sanitizeRawUserInput } from "@/lib/strata/input-safety";
-import { type StrataLinkBlockStreamChunk, StrataLinkBlockStreamChunkSchema } from "@/lib/strata/link-block-status";
+import {
+  type StrataLinkBlockStreamChunk,
+  StrataLinkBlockStreamChunkSchema,
+} from "@/lib/strata/link-block-status";
 import { blocksToCanonicalMarkdown, type StrataNotepadBlock } from "@/lib/strata/notepad-blocks";
 
 export type StrataNotepadProps = {
@@ -144,6 +147,7 @@ export function StrataNotepad({
         if (done) break;
         buffer += decoder.decode(value, { stream: true });
         let lineBreak = buffer.indexOf("\n");
+
         while (lineBreak >= 0) {
           const line = buffer.slice(0, lineBreak).trim();
 
@@ -271,7 +275,10 @@ export function StrataNotepad({
           {wordCount.toLocaleString()} words
         </span>
         <span
-          className={cn("text-xs tabular-nums text-muted-foreground", syncFooter.busy ? "animate-pulse" : null)}
+          className={cn(
+            "text-xs tabular-nums text-muted-foreground",
+            syncFooter.busy ? "animate-pulse" : null
+          )}
         >
           {syncFooter.label}
         </span>

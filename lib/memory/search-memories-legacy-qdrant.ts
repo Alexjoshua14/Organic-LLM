@@ -1,5 +1,7 @@
 import "server-only";
 
+import type { MemoryItemType } from "@/lib/schemas/memory";
+
 import {
   MEMORY_LEGACY_EMBEDDING_DIMS,
   MEMORY_LEGACY_EMBEDDER_MODEL,
@@ -9,7 +11,6 @@ import { getMemoryQdrantClient } from "@/config/memory-qdrant-client";
 import { decryptMemory, isEncrypted } from "@/lib/crypto/memory-encryption";
 import { OLLAMA_URL, ollamaHeaders } from "@/lib/memory/ollama-config";
 import { runMemoryStore } from "@/lib/memory/run-memory-store";
-import type { MemoryItemType } from "@/lib/schemas/memory";
 
 function payloadUserId(payload: Record<string, unknown>): string | undefined {
   const u = payload.userId ?? payload.user_id;

@@ -9,7 +9,9 @@ const SEVERITY: Record<HealthStatus, number> = {
 
 export function compareChecksBySeverity(a: HealthCheckResult, b: HealthCheckResult): number {
   const diff = SEVERITY[a.status] - SEVERITY[b.status];
+
   if (diff !== 0) return diff;
+
   return a.displayName.localeCompare(b.displayName);
 }
 

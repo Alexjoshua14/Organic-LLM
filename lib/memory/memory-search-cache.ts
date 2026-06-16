@@ -10,15 +10,15 @@
  */
 import "server-only";
 
+import type { EncryptionContext } from "@/lib/crypto/message-encryption";
+import type { Result } from "@/types";
+
 import { createHash } from "crypto";
 
 import { createLogger } from "@/lib/logger";
 import { encryptForStorage, decryptFromStorage } from "@/lib/crypto/message-encryption";
-import type { EncryptionContext } from "@/lib/crypto/message-encryption";
 import { SearchResult as SearchResultSchema, type SearchResultType } from "@/lib/schemas/memory";
 import { searchMemoriesForUser } from "@/lib/memory/operations";
-import type { Result } from "@/types";
-
 import { createTtsV2AudioCache } from "@/lib/tts/tts-v2-audio-cache";
 
 const logger = createLogger("lib/memory/memory-search-cache.ts");

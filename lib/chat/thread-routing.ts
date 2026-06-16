@@ -1,14 +1,15 @@
 "use server";
 
+import type {
+  HomepageRouteCandidate,
+  HomepageRouteCandidateKind,
+} from "@/lib/chat/thread-routing-candidates";
+
 import { generateObject } from "ai";
 import { openai } from "@ai-sdk/openai";
 import { z } from "zod";
 
 import { createChat } from "@/lib/chat/chat-store";
-import type {
-  HomepageRouteCandidate,
-  HomepageRouteCandidateKind,
-} from "@/lib/chat/thread-routing-candidates";
 import { resolveHomepageCandidateByIndex } from "@/lib/chat/thread-routing-candidates";
 import { loadHomepageRoutingCandidates } from "@/lib/chat/load-homepage-routing-candidates";
 import { GUARDRAIL_MAX_OUTPUT_TOKENS } from "@/lib/llm/helpers";

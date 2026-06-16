@@ -1,8 +1,9 @@
+import type { MemorySearchInventory } from "@/lib/memory/memory-relevance";
+
 import { memo } from "react";
 import { Pin, PinOff } from "lucide-react";
 
 import { cn } from "@/lib/utils";
-import type { MemorySearchInventory } from "@/lib/memory/memory-relevance";
 
 const QUERY_DISPLAY_MAX = 56;
 
@@ -104,12 +105,14 @@ type MemorySearchToolResultCardProps = {
   parsed: ParsedMemorySearchToolOutput;
   isPinned: boolean;
   onTogglePin: () => void;
+  showPin?: boolean;
 };
 
 export const MemorySearchToolResultCard = memo(function MemorySearchToolResultCard({
   parsed,
   isPinned,
   onTogglePin,
+  showPin = true,
 }: MemorySearchToolResultCardProps) {
   if (parsed.status === "error") {
     return (
@@ -125,18 +128,20 @@ export const MemorySearchToolResultCard = memo(function MemorySearchToolResultCa
             <div className="text-xs font-medium text-foreground">Memory search error</div>
             <p className="mt-1 text-xs leading-snug text-destructive">{parsed.message}</p>
           </div>
-          <button
-            aria-label={isPinned ? "Unpin tool output" : "Pin tool output"}
-            aria-pressed={isPinned}
-            className={cn(
-              "h-7 w-7 shrink-0 grid place-content-center rounded",
-              "hover:bg-background-tertiary/60 transition-colors"
-            )}
-            type="button"
-            onClick={onTogglePin}
-          >
-            {isPinned ? <PinOff className="size-3.5" /> : <Pin className="size-3.5" />}
-          </button>
+          {showPin ? (
+            <button
+              aria-label={isPinned ? "Unpin tool output" : "Pin tool output"}
+              aria-pressed={isPinned}
+              className={cn(
+                "h-7 w-7 shrink-0 grid place-content-center rounded",
+                "hover:bg-background-tertiary/60 transition-colors"
+              )}
+              type="button"
+              onClick={onTogglePin}
+            >
+              {isPinned ? <PinOff className="size-3.5" /> : <Pin className="size-3.5" />}
+            </button>
+          ) : null}
         </div>
       </div>
     );
@@ -150,11 +155,6 @@ export const MemorySearchToolResultCard = memo(function MemorySearchToolResultCa
       ? `Sample ${inventory.sampleSize} (top ${inventory.retrievedLimit}): tier1 ${inventory.tier1} · tier2 ${inventory.tier2} · tier3 ${inventory.tier3} · below min ${inventory.belowThresholdInSample} · no score ${inventory.noScoreInSample}`
       : null;
 
-  const summaryLabel =
-    memories.length === 0
-      ? "No memories"
-      : `${memories.length} memor${memories.length === 1 ? "y" : "ies"}`;
-
   return (
     <div
       className={cn(
@@ -164,55 +164,49 @@ export const MemorySearchToolResultCard = memo(function MemorySearchToolResultCa
       )}
     >
       <div className="flex items-start justify-between gap-2">
-        <div className="min-w-0 flex-1">
-          <div className="text-xs font-medium text-foreground">{titleLine}</div>
+        <details className="min-w-0 flex-1">
+          <summary className="cursor-pointer select-none text-xs font-medium text-muted-foreground hover:text-foreground">
+            {titleLine}
+          </summary>
+
           {tierLine ? (
-            <p className="mt-0.5 text-[10px] leading-snug text-muted-foreground tabular-nums">
+            <p className="mt-1 text-[10px] leading-snug text-muted-foreground tabular-nums">
               {tierLine}
             </p>
           ) : null}
-        </div>
-        <button
-          aria-label={isPinned ? "Unpin tool output" : "Pin tool output"}
-          aria-pressed={isPinned}
-          className={cn(
-            "h-7 w-7 shrink-0 grid place-content-center rounded",
-            "hover:bg-background-tertiary/60 transition-colors"
+
+          {memories.length === 0 ? (
+            <p className="mt-1.5 text-[10px] leading-snug text-muted-foreground">
+              No memories matched this query.
+            </p>
+          ) : (
+            <ul className="mt-1.5 space-y-1 max-h-72 overflow-y-auto pr-1">
+              {memories.map((m) => (
+                <li
+                  key={m.id}
+                  className="text-[10px] leading-snug text-foreground/85 line-clamp-2"
+                >
+                  {m.memory}
+                </li>
+              ))}
+            </ul>
           )}
-          type="button"
-          onClick={onTogglePin}
-        >
-          {isPinned ? <PinOff className="size-3.5" /> : <Pin className="size-3.5" />}
-        </button>
+        </details>
+        {showPin ? (
+          <button
+            aria-label={isPinned ? "Unpin tool output" : "Pin tool output"}
+            aria-pressed={isPinned}
+            className={cn(
+              "h-7 w-7 shrink-0 grid place-content-center rounded",
+              "hover:bg-background-tertiary/60 transition-colors"
+            )}
+            type="button"
+            onClick={onTogglePin}
+          >
+            {isPinned ? <PinOff className="size-3.5" /> : <Pin className="size-3.5" />}
+          </button>
+        ) : null}
       </div>
-
-      <details className="mt-1">
-        <summary className="cursor-pointer select-none text-[11px] text-foreground/80 hover:text-foreground">
-          View memories — {summaryLabel}
-        </summary>
-
-        {memories.length === 0 ? (
-          <p className="mt-2 text-[10px] leading-snug text-muted-foreground">
-            No memories matched this query.
-          </p>
-        ) : (
-          <ul className="mt-2 space-y-1.5 max-h-72 overflow-y-auto pr-1">
-            {memories.map((m) => (
-              <li
-                key={m.id}
-                className="border-b border-border/40 pb-1.5 last:border-0 last:pb-0 text-[10px] leading-tight text-foreground/85"
-              >
-                <p>{m.memory}</p>
-                {m.score !== undefined ? (
-                  <p className="mt-0.5 text-[8px] leading-tight text-muted-foreground tabular-nums">
-                    Score: {m.score.toFixed(3)}
-                  </p>
-                ) : null}
-              </li>
-            ))}
-          </ul>
-        )}
-      </details>
     </div>
   );
 });

@@ -6,9 +6,7 @@ import { createLogger } from "@/lib/logger";
 
 const logger = createLogger("lib/chat/create-arcadia-thread.ts");
 
-export type CreateArcadiaThreadResult =
-  | { ok: true; path: string }
-  | { ok: false; error: string };
+export type CreateArcadiaThreadResult = { ok: true; path: string } | { ok: false; error: string };
 
 /**
  * Creates a new thread and marks it as Arcadia, then returns the canonical path.

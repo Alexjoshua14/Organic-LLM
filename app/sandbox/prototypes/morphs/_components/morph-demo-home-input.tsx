@@ -33,10 +33,7 @@ export function MorphDemoHomeInput({
       transition={{ ...HOME_INPUT_SPRING, layout: { ...HOME_INPUT_SPRING } }}
     >
       <AiInputForm
-        className={cn(
-          "w-full rounded-xl",
-          relaxMaxWidthWhileMorphing ? "max-w-none" : "max-w-xl"
-        )}
+        className={cn("w-full rounded-xl", relaxMaxWidthWhileMorphing ? "max-w-none" : "max-w-xl")}
         clearAfterSubmit={false}
         fullView={false}
         isLoading={false}

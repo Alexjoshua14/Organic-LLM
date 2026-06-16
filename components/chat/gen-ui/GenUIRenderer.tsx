@@ -1,14 +1,14 @@
 "use client";
 
+import { GenUIFallbackMarkdown } from "./GenUIFallbackMarkdown";
+import { GenUIWrapper } from "./GenUIWrapper";
+import { GEN_UI_REGISTRY } from "./registry";
+
 import {
   extractGenUIBlockFromToolOutput,
   safeParseGenUIBlock,
   type GenUIBlock,
 } from "@/lib/schemas/gen-ui";
-
-import { GenUIFallbackMarkdown } from "./GenUIFallbackMarkdown";
-import { GenUIWrapper } from "./GenUIWrapper";
-import { GEN_UI_REGISTRY } from "./registry";
 
 type GenUIRendererProps = {
   /** Raw tool output or block object. */
@@ -19,6 +19,7 @@ type GenUIRendererProps = {
 function renderBlock(block: GenUIBlock, partial: boolean, messageId?: string) {
   const entry = GEN_UI_REGISTRY[block.type];
   const { Component } = entry;
+
   return (
     <GenUIWrapper block={block} partial={partial}>
       <Component block={block} partial={partial} />

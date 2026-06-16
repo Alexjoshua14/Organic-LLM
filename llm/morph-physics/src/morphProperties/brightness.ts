@@ -1,13 +1,11 @@
 import type { morphCurrentState, SpringConfig, SpringResult } from "../schemas/springSolverSchemas";
 import type { MorphProperty } from "./types";
-import { solveSpring } from "../physics/springSolver";
+
 import z from "zod";
 
-const brightnessSchema = z
-  .number()
-  .min(0)
-  .max(1)
-  .describe("Brightness (0-1)");
+import { solveSpring } from "../physics/springSolver";
+
+const brightnessSchema = z.number().min(0).max(1).describe("Brightness (0-1)");
 
 type Brightness = z.infer<typeof brightnessSchema>;
 
@@ -16,13 +14,16 @@ function extractBrightness(element: HTMLElement): Brightness | undefined {
   const filter = computedStyle.filter;
 
   const match = filter.match(/brightness\(([\d.]+)\)/);
+
   if (match) {
     return parseFloat(match[1]);
   }
 
   const customBrightness = computedStyle.getPropertyValue("--brightness");
+
   if (customBrightness) {
     const parsed = parseFloat(customBrightness);
+
     if (!isNaN(parsed) && parsed >= 0 && parsed <= 1) {
       return parsed;
     }
@@ -33,12 +34,11 @@ function extractBrightness(element: HTMLElement): Brightness | undefined {
 
 function applyBrightness(element: HTMLElement, value: Brightness): void {
   const existingFilter = element.style.filter || "";
-  const filterWithoutBrightness = existingFilter
-    .replace(/brightness\([^)]+\)/g, "")
-    .trim();
+  const filterWithoutBrightness = existingFilter.replace(/brightness\([^)]+\)/g, "").trim();
   const newFilter = filterWithoutBrightness
     ? `${filterWithoutBrightness} brightness(${value})`
     : `brightness(${value})`;
+
   element.style.filter = newFilter;
 
   element.style.setProperty("--brightness", value.toString());
@@ -52,6 +52,7 @@ function solveSpringBrightness(
   deltaTime: number
 ): { value: Brightness; velocity: Brightness } {
   const result = solveSpring(current, target, velocity, config, deltaTime);
+
   return {
     value: Math.max(0, Math.min(1, result.position)),
     velocity: result.velocity,
@@ -75,11 +76,7 @@ export const brightnessProperty: MorphProperty<Brightness> = {
     applyBrightness(element, value);
   },
 
-  updateState: (
-    state: morphCurrentState,
-    _springResult: SpringResult,
-    value: Brightness
-  ): void => {
+  updateState: (state: morphCurrentState, _springResult: SpringResult, value: Brightness): void => {
     if (!state.current.brightness) {
       state.current.brightness = 1;
     }
@@ -110,6 +107,7 @@ export const brightnessProperty: MorphProperty<Brightness> = {
     }
 
     const distance = brightnessDistance(current, target);
+
     return distance < precision;
   },
 

@@ -1,9 +1,10 @@
 "use client";
 
+import type { LensPerfMetrics } from "./lens/LensPerfHud";
+
 import { Button } from "@heroui/button";
 
 import { PARTICLE_FIELD_VISUAL_STATES, type ParticleFieldVisualState } from "../_lib/types";
-import type { LensPerfMetrics } from "./lens/LensPerfHud";
 
 import { cn } from "@/lib/utils";
 

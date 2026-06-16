@@ -43,10 +43,21 @@ test.describe("Welcome hero (signed out)", () => {
 
     await expect(page.getByRole("heading", { name: "What you can work in" })).toBeVisible();
     await expect(page.getByRole("heading", { name: "Chat", exact: true })).toBeVisible();
+    await expect(page.getByText("Main chat")).toBeVisible();
+    await expect(page.locator('[data-illustration-id="feature-chat"]')).toBeVisible();
     await expect(page.getByText("Arcadia")).toBeVisible();
+    await expect(page.locator('[data-illustration-id="feature-arcadia"]')).toBeVisible();
     await expect(page.getByText("Noesis")).toBeVisible();
+    await page.getByText("Noesis").scrollIntoViewIfNeeded();
+    await expect(
+      page.getByText("Starter prompts and suggested replies generated from past interactions")
+    ).toBeVisible();
+    await expect(page.getByText("Built to surface what you want to discuss.")).toBeVisible();
+    await expect(page.locator('[data-illustration-id="feature-noesis"]')).toBeVisible();
     await expect(page.getByRole("heading", { name: "Rabbit holes" })).toBeVisible();
     await expect(page.getByRole("heading", { name: "Strata" })).toBeVisible();
+    await page.getByRole("heading", { name: "Strata" }).scrollIntoViewIfNeeded();
+    await expect(page.locator('[data-illustration-id="feature-strata"]')).toBeVisible();
 
     await expect(page.getByRole("heading", { name: "Built for work that lasts" })).toBeVisible();
     await expect(page.getByRole("heading", { name: "Encrypted at rest" })).toBeVisible();
@@ -56,6 +67,14 @@ test.describe("Welcome hero (signed out)", () => {
     await expect(page.getByRole("heading", { name: "Your model, your turn" })).toBeVisible();
     await page.getByRole("heading", { name: "Your model, your turn" }).scrollIntoViewIfNeeded();
     await expect(page.locator('[data-illustration-id="models"]')).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Structured answers you can scan" })).toBeVisible();
+    await page
+      .getByRole("heading", { name: "Structured answers you can scan" })
+      .scrollIntoViewIfNeeded();
+    await expect(page.locator('[data-illustration-id="gen-ui"]')).toBeVisible();
+    await expect(
+      page.getByText("Memory shows up per thread, not as a separate sidebar")
+    ).toBeVisible();
   });
 });
 
