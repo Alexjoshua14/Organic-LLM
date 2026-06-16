@@ -1,12 +1,12 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
+import { motion, useReducedMotion } from "framer-motion";
 
 import { usePageVisible } from "@/components/hooks/use-page-visible";
 import { useWelcomeInView } from "@/components/pages/welcome/use-welcome-in-view";
+import { welcomeDemoCompactClass } from "@/components/pages/welcome/welcome-demo-user-message";
 import ShinyText from "@/components/ShinyText";
-import { Loader } from "@/components/third-party/ai-elements/loader";
 import { card, sectionLabel } from "@/lib/rabbit-holes/designTokens";
 import { cn } from "@/lib/utils";
 
@@ -24,11 +24,11 @@ const BREAKPOINT_TOKEN = TOKENS.findIndex((token) => token.trimStart().startsWit
 
 const TOKEN_MS = 50;
 const IDLE_MS = 700;
-const REFRESH_MS = 1100;
+const REFRESH_MS = 2400;
 const RESUMED_HOLD_MS = 550;
 const COMPLETE_HOLD_MS = 2600;
 
-const TEXT_SLOT_CLASS = "min-h-[5.5rem] text-sm leading-relaxed sm:min-h-[6.5rem]";
+const TEXT_SLOT_CLASS = "text-[10px] leading-snug";
 
 const ARIA_LABEL =
   "Assistant reply streaming in a thread, reconnecting after a refresh, then continuing the same server-side stream from the prior partial text.";
@@ -169,15 +169,17 @@ export function WelcomeStreamResumeIllustration({
         ref={rootRef}
         aria-label={ARIA_LABEL}
         className={cn(
-          "flex h-full min-h-[13rem] flex-col justify-center p-4 sm:min-h-[15rem] sm:p-5",
+          "flex h-full min-h-0 flex-col justify-center px-2.5 py-2 sm:px-3 sm:py-2.5",
           className
         )}
         role="img"
       >
-        <p className={cn(sectionLabel, "mb-3")}>Thread reply</p>
-        <div className={cn(card, "rounded-lg p-4")}>
+        <div className="mb-2 flex w-full items-baseline justify-between gap-3">
+          <p className={sectionLabel}>Thread reply</p>
+          <span className="text-[10px] text-muted-foreground/75">Stream resumed</span>
+        </div>
+        <div className={cn(card, "w-full rounded-lg p-2.5 sm:p-3", welcomeDemoCompactClass)}>
           <p className={cn(TEXT_SLOT_CLASS, "text-foreground")}>{MESSAGE}</p>
-          <p className="mt-3 text-xs text-muted-foreground/75">Stream resumed</p>
         </div>
       </div>
     );
@@ -188,32 +190,43 @@ export function WelcomeStreamResumeIllustration({
       ref={rootRef}
       aria-label={ARIA_LABEL}
       className={cn(
-        "flex h-full min-h-[13rem] flex-col justify-center p-4 sm:min-h-[15rem] sm:p-5",
+        "flex h-full min-h-0 flex-col justify-center px-2.5 py-2 sm:px-3 sm:py-2.5",
         className
       )}
       role="img"
     >
-      <div className="mb-3 flex items-baseline justify-between gap-3">
+      <div className="mb-2 flex w-full items-baseline justify-between gap-3">
         <p className={sectionLabel}>Thread reply</p>
         {isStreaming ? (
           <ShinyText
             as="span"
-            className="text-xs font-light tracking-wide text-muted-foreground/80"
+            className="text-[10px] font-light tracking-wide text-muted-foreground/80"
             speed={1.2}
             text="Writing…"
           />
         ) : isComplete ? (
-          <span className="text-xs font-light tracking-wide text-muted-foreground/60">
+          <span className="text-[10px] font-light tracking-wide text-muted-foreground/60">
             Complete
           </span>
+        ) : isReconnecting ? (
+          <ShinyText
+            as="span"
+            className="text-[10px] font-light tracking-wide text-muted-foreground/80"
+            speed={0.9}
+            text="Reconnecting…"
+          />
+        ) : isResumedBeat ? (
+          <span className="text-[10px] font-light tracking-wide text-muted-foreground/75">
+            Stream resumed
+          </span>
         ) : (
-          <span aria-hidden className="text-xs opacity-0">
+          <span aria-hidden className="text-[10px] opacity-0">
             —
           </span>
         )}
       </div>
 
-      <div className={cn(card, "rounded-lg p-4 sm:p-5")}>
+      <div className={cn(card, "w-full rounded-lg p-2.5 sm:p-3", welcomeDemoCompactClass)}>
         <div className={cn("relative", TEXT_SLOT_CLASS)}>
           <p aria-hidden className="invisible">
             {MESSAGE}
@@ -233,40 +246,6 @@ export function WelcomeStreamResumeIllustration({
               ) : null}
             </p>
           </div>
-        </div>
-
-        <div
-          className={cn(
-            "mt-3 min-h-[2.25rem] pt-3",
-            (isReconnecting || isResumedBeat) && "border-t border-border/40"
-          )}
-        >
-          <AnimatePresence mode="wait">
-            {isReconnecting ? (
-              <motion.div
-                key="reconnecting"
-                animate={{ opacity: 1, y: 0 }}
-                className="flex items-center gap-2 text-xs text-muted-foreground/80"
-                exit={{ opacity: 0, y: -2 }}
-                initial={{ opacity: 0, y: 4 }}
-                transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }}
-              >
-                <Loader className="text-muted-foreground/70" size={14} />
-                <span>Reconnecting..</span>
-              </motion.div>
-            ) : isResumedBeat ? (
-              <motion.p
-                key="resumed"
-                animate={{ opacity: 1, y: 0 }}
-                className="text-xs text-muted-foreground/75"
-                exit={{ opacity: 0 }}
-                initial={{ opacity: 0, y: 2 }}
-                transition={{ duration: 0.2 }}
-              >
-                Stream resumed
-              </motion.p>
-            ) : null}
-          </AnimatePresence>
         </div>
       </div>
     </div>

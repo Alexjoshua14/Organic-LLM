@@ -208,7 +208,7 @@ export function WelcomeArcadiaIllustration({ className }: WelcomeArcadiaIllustra
   );
 
   const diagramClass =
-    "flex w-full justify-center overflow-visible [&_.mermaid]:my-0 [&_.mermaid]:max-w-full [&_svg]:h-auto [&_svg]:max-w-full";
+    "flex w-full justify-center overflow-hidden [&_.mermaid]:my-0 [&_.mermaid]:max-w-full [&_svg]:h-auto [&_svg]:max-w-full";
 
   if (reduce) {
     return (

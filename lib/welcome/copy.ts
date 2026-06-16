@@ -23,6 +23,7 @@ export const welcomeCopy = {
   },
   explore: {
     label: "Explore first",
+    subtitle: "Public routes · no account needed",
     links: [
       {
         href: "/showcase/anatomy",

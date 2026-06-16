@@ -56,6 +56,8 @@ test.describe("Welcome hero (signed out)", () => {
     await expect(page.locator('[data-illustration-id="feature-noesis"]')).toBeVisible();
     await expect(page.getByRole("heading", { name: "Rabbit holes" })).toBeVisible();
     await expect(page.getByRole("heading", { name: "Strata" })).toBeVisible();
+    await page.getByRole("heading", { name: "Strata" }).scrollIntoViewIfNeeded();
+    await expect(page.locator('[data-illustration-id="feature-strata"]')).toBeVisible();
 
     await expect(page.getByRole("heading", { name: "Built for work that lasts" })).toBeVisible();
     await expect(page.getByRole("heading", { name: "Encrypted at rest" })).toBeVisible();

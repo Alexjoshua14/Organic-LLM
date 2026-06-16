@@ -11,7 +11,9 @@ import { useWelcomeInView } from "@/components/pages/welcome/use-welcome-in-view
 import { glass } from "@/components/design-system/primitives";
 import {
   welcomeIllustrationRatio,
+  welcomeCompactHighlightIllustrationRatio,
   welcomeModeIllustrationRatio,
+  welcomeFeatureIllustrationRatio,
   welcomeVisualAspect,
   welcomeVisualImageSizes,
   welcomeVisualMaxWidth,
@@ -62,9 +64,13 @@ export function WelcomeHighlightVisual({
   const Illustration = welcomeIllustrations[id];
   const sizeKey = size ?? aspect;
   const ratio = Illustration
-    ? sizeKey === "mode"
-      ? welcomeModeIllustrationRatio
-      : welcomeIllustrationRatio
+    ? id === "feature-strata"
+      ? welcomeFeatureIllustrationRatio
+      : id === "streaming"
+        ? welcomeCompactHighlightIllustrationRatio
+      : sizeKey === "mode"
+        ? welcomeModeIllustrationRatio
+        : welcomeIllustrationRatio
     : welcomeVisualAspect[aspect];
   const sources = normalizeImageSources(imageSrc);
   const reduce = useReducedMotion();
@@ -88,7 +94,7 @@ export function WelcomeHighlightVisual({
 
   const frameClass = cn(
     "relative rounded-2xl border border-border/50",
-    Illustration && (id === "gen-ui" || id === "feature-arcadia") ? "overflow-visible" : "overflow-hidden",
+    Illustration && id === "gen-ui" ? "overflow-visible" : "overflow-hidden",
     welcomeVisualMaxWidth[sizeKey],
     className
   );
@@ -96,18 +102,16 @@ export function WelcomeHighlightVisual({
   const imageSizes = welcomeVisualImageSizes[sizeKey];
 
   if (Illustration) {
-    const bareIllustration = id === "gen-ui";
-    const overflowVisibleIllustration = bareIllustration || id === "feature-arcadia";
+    const overflowVisibleIllustration = id === "gen-ui";
 
     return (
       <AspectRatio ref={frameRef} className={frameClass} ratio={ratio}>
         <motion.div
           aria-label={imageAlt ?? placeholder.hint}
           className={cn(
-            "absolute inset-0",
-            overflowVisibleIllustration ? "overflow-visible" : "overflow-hidden",
-            !bareIllustration && glass({ opaque: true }),
-            !bareIllustration && "bg-linear-to-br from-accent/8 via-transparent to-foreground/3"
+            "absolute inset-0 rounded-2xl",
+            glass({ opaque: true }),
+            overflowVisibleIllustration ? "overflow-visible" : "overflow-hidden"
           )}
           data-illustration-id={id}
           initial={reduce ? false : { opacity: 0.85, scale: 0.985 }}

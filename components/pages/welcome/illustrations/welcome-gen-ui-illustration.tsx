@@ -15,7 +15,7 @@ import { GEN_UI_REGISTRY } from "@/components/chat/gen-ui/registry";
 import { usePageVisible } from "@/components/hooks/use-page-visible";
 import { useWelcomeInView } from "@/components/pages/welcome/use-welcome-in-view";
 import { WELCOME_GEN_UI_BLOCKS } from "@/lib/welcome/gen-ui-fixtures";
-import { sectionLabel } from "@/lib/rabbit-holes/designTokens";
+import { card, sectionLabel } from "@/lib/rabbit-holes/designTokens";
 import { cn } from "@/lib/utils";
 
 type WelcomeGenUiIllustrationProps = {
@@ -175,13 +175,15 @@ export function WelcomeGenUiIllustration({ className }: WelcomeGenUiIllustration
   if (reduce) {
     return (
       <div ref={rootRef} aria-label={ARIA_LABEL} className={frameClass} role="img">
-        <p className={cn(sectionLabel, "mb-3 text-center")}>In-thread block</p>
-        <div className={cn(stageClass, "flex justify-center")}>
-          <div className={BLOCK_SHELL_CLASS}>
-            <GenUIRenderer
-              data={{ block: WELCOME_GEN_UI_BLOCKS[0] }}
-              messageId="welcome-gen-ui-static"
-            />
+        <p className={cn(sectionLabel, "mb-3 text-center")}>Generative UI</p>
+        <div className={cn(card, "rounded-lg px-2 py-3 sm:px-2.5 sm:py-3.5")}>
+          <div className={cn(stageClass, "flex justify-center")}>
+            <div className={BLOCK_SHELL_CLASS}>
+              <GenUIRenderer
+                data={{ block: WELCOME_GEN_UI_BLOCKS[0] }}
+                messageId="welcome-gen-ui-static"
+              />
+            </div>
           </div>
         </div>
       </div>
@@ -191,17 +193,18 @@ export function WelcomeGenUiIllustration({ className }: WelcomeGenUiIllustration
   return (
     <div ref={rootRef} aria-label={ARIA_LABEL} className={frameClass} role="img">
       <div className="mb-3 flex shrink-0 items-baseline justify-center gap-3">
-        <p className={sectionLabel}>In-thread block</p>
+        <p className={sectionLabel}>Generative UI</p>
         <span className="text-xs font-light tracking-wide text-muted-foreground/70">
           {blockLabel}
         </span>
       </div>
 
-      <div
-        ref={stageRef}
-        className={stageClass}
-        style={stageMinHeight !== undefined ? { minHeight: stageMinHeight } : undefined}
-      >
+      <div className={cn(card, "relative w-full min-w-0 rounded-lg px-2 py-3 sm:px-2.5 sm:py-3.5")}>
+        <div
+          ref={stageRef}
+          className={stageClass}
+          style={stageMinHeight !== undefined ? { minHeight: stageMinHeight } : undefined}
+        >
         <div aria-hidden className="pointer-events-none invisible absolute inset-0">
           {WELCOME_GEN_UI_BLOCKS.map((block, index) => (
             <div
@@ -226,6 +229,7 @@ export function WelcomeGenUiIllustration({ className }: WelcomeGenUiIllustration
           >
             <GenUIRenderer data={{ block: activeBlock }} messageId="welcome-gen-ui-live" />
           </div>
+        </div>
         </div>
       </div>
     </div>
