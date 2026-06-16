@@ -169,16 +169,16 @@ export function WelcomeStreamResumeIllustration({
         ref={rootRef}
         aria-label={ARIA_LABEL}
         className={cn(
-          "flex h-full min-h-0 flex-col justify-center px-2.5 py-2 sm:px-3 sm:py-2.5",
+          "flex h-full min-h-0 flex-col justify-center px-2.5 py-1.5 sm:px-3 sm:py-2",
           className
         )}
         role="img"
       >
-        <div className="mb-2 flex w-full items-baseline justify-between gap-3">
-          <p className={sectionLabel}>Thread reply</p>
+        <div className="mb-1.5 flex w-full items-baseline justify-between gap-3">
+          <p className={sectionLabel}>Resumable stream</p>
           <span className="text-[10px] text-muted-foreground/75">Stream resumed</span>
         </div>
-        <div className={cn(card, "w-full rounded-lg p-2.5 sm:p-3", welcomeDemoCompactClass)}>
+        <div className={cn(card, "w-full rounded-lg px-2.5 py-2 sm:px-3 sm:py-2", welcomeDemoCompactClass)}>
           <p className={cn(TEXT_SLOT_CLASS, "text-foreground")}>{MESSAGE}</p>
         </div>
       </div>
@@ -190,13 +190,13 @@ export function WelcomeStreamResumeIllustration({
       ref={rootRef}
       aria-label={ARIA_LABEL}
       className={cn(
-        "flex h-full min-h-0 flex-col justify-center px-2.5 py-2 sm:px-3 sm:py-2.5",
+        "flex h-full min-h-0 flex-col justify-center px-2.5 py-1.5 sm:px-3 sm:py-2",
         className
       )}
       role="img"
     >
-      <div className="mb-2 flex w-full items-baseline justify-between gap-3">
-        <p className={sectionLabel}>Thread reply</p>
+      <div className="mb-1.5 flex w-full items-baseline justify-between gap-3">
+        <p className={sectionLabel}>Resumable stream</p>
         {isStreaming ? (
           <ShinyText
             as="span"
@@ -226,7 +226,7 @@ export function WelcomeStreamResumeIllustration({
         )}
       </div>
 
-      <div className={cn(card, "w-full rounded-lg p-2.5 sm:p-3", welcomeDemoCompactClass)}>
+      <div className={cn(card, "w-full rounded-lg px-2.5 py-2 sm:px-3 sm:py-2", welcomeDemoCompactClass)}>
         <div className={cn("relative", TEXT_SLOT_CLASS)}>
           <p aria-hidden className="invisible">
             {MESSAGE}

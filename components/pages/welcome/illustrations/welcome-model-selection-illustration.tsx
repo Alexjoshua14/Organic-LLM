@@ -217,14 +217,14 @@ export function WelcomeModelSelectionIllustration({
       ref={rootRef}
       aria-label={ARIA_LABEL}
       className={cn(
-        "flex h-full min-h-[13rem] flex-col justify-center p-4 sm:min-h-[15rem] sm:p-5",
+        "flex h-full min-h-[13rem] flex-col justify-center px-3 py-1.5 sm:min-h-[15rem] sm:px-4 sm:py-2",
         className
       )}
       role="img"
     >
-      <p className={cn(sectionLabel, "mb-3")}>Model choice</p>
+      <p className={cn(sectionLabel, "mb-1.5")}>Model choice</p>
 
-      <div className={cn(card, "relative flex flex-col overflow-hidden px-3 py-6 sm:px-4 sm:py-8")}>
+      <div className={cn(card, "relative flex flex-col overflow-hidden px-3 py-3 sm:px-4 sm:py-4")}>
         <div className="flex flex-col items-center gap-2.5 px-2 pt-1 text-center">
           <div className="relative flex min-h-11 w-full max-w-[18rem] items-center justify-center">
             <p
@@ -262,7 +262,7 @@ export function WelcomeModelSelectionIllustration({
         </div>
 
         <div
-          className="mt-10 sm:mt-12"
+          className="mt-6 sm:mt-7"
           onMouseEnter={() => {
             if (heroPhase === "idle") {
               setMarqueePaused(true);

@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { motion } from "framer-motion";
 import { ArrowRight } from "lucide-react";
 
 import { WelcomeFeatureCard } from "./welcome-feature-card";
@@ -27,7 +28,7 @@ export function WelcomeFeatures({ className }: WelcomeFeaturesProps) {
   const { chat, rabbitHoles, strata } = features;
 
   return (
-    <section
+    <motion.section
       aria-labelledby="welcome-features-heading"
       className={cn(
         "py-12 pb-16 sm:py-14 sm:pb-20 [content-visibility:auto] [contain-intrinsic-size:auto_1200px]",
@@ -114,6 +115,6 @@ export function WelcomeFeatures({ className }: WelcomeFeaturesProps) {
           </div>
         </div>
       </div>
-    </section>
+    </motion.section>
   );
 }

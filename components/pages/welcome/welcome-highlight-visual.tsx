@@ -102,7 +102,24 @@ export function WelcomeHighlightVisual({
   const imageSizes = welcomeVisualImageSizes[sizeKey];
 
   if (Illustration) {
-    const overflowVisibleIllustration = id === "gen-ui";
+    if (id === "gen-ui") {
+      return (
+        <div ref={frameRef} className={frameClass}>
+          <motion.div
+            aria-label={imageAlt ?? placeholder.hint}
+            className={cn("rounded-2xl", glass({ opaque: true }))}
+            data-illustration-id={id}
+            initial={reduce ? false : { opacity: 0.85, scale: 0.985 }}
+            role="img"
+            whileInView={reduce ? undefined : { opacity: 1, scale: 1 }}
+            transition={{ duration: 0.55, ease: [0.22, 1, 0.36, 1] }}
+            viewport={{ once: true, amount: 0.35 }}
+          >
+            <Illustration className="w-full" />
+          </motion.div>
+        </div>
+      );
+    }
 
     return (
       <AspectRatio ref={frameRef} className={frameClass} ratio={ratio}>
@@ -111,7 +128,7 @@ export function WelcomeHighlightVisual({
           className={cn(
             "absolute inset-0 rounded-2xl",
             glass({ opaque: true }),
-            overflowVisibleIllustration ? "overflow-visible" : "overflow-hidden"
+            "overflow-hidden"
           )}
           data-illustration-id={id}
           initial={reduce ? false : { opacity: 0.85, scale: 0.985 }}
