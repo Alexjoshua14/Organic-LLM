@@ -4,6 +4,7 @@ import {
   createFakeMP3,
   createMockGenerateSpeechResult,
 } from "../helpers/mock-tts";
+import { GENERIC_SERVER_ERROR } from "@/lib/api/client-safe-error";
 
 // ---------------------------------------------------------------------------
 // Mock the generateSpeech import BEFORE importing the route
@@ -295,7 +296,8 @@ describe("POST /api/ai/tts/stream", () => {
     const events = await readSSEEvents(res);
     const errorEvent = events.find((e) => e.type === "error");
     expect(errorEvent).toBeDefined();
-    expect(errorEvent!.error).toContain("rate limit");
+    // Internal error details are logged server-side only; client gets a generic message.
+    expect(errorEvent!.error).toBe(GENERIC_SERVER_ERROR);
   });
 
   test("defaults to first available model when model param is invalid", async () => {
