@@ -1,3 +1,5 @@
+import "server-only";
+
 import type { Result } from "@/types";
 
 import { auth } from "@clerk/nextjs/server";
