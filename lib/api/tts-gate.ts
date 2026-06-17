@@ -13,6 +13,11 @@ export type TtsActorData = { sbUserId: string };
 /**
  * Clerk session + Supabase profile + LLM message + TTS rate limits.
  * On failure, `error` is a JSON `Response` (401 / 404 / 429).
+ *
+ * @param charCount - Length of the input text for this TTS request (`text.length`).
+ *   When provided, enforces the per-user TTS character budget (default 50k chars/min via
+ *   `TTS_RATE_LIMIT_CHARS`) in addition to the request-count limit. Omitted skips the
+ *   character check (request and LLM limits still apply).
  */
 export async function requireTtsActor(charCount?: number): Promise<Result<TtsActorData, Response>> {
   const clerkUser = await auth();
