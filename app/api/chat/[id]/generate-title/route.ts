@@ -2,6 +2,7 @@ import { auth } from "@clerk/nextjs/server";
 import { NextResponse } from "next/server";
 
 import { getSupabaseUserId } from "@/data/supabase/profiles";
+import { clientErrorJson, logRouteError } from "@/lib/api/client-safe-error";
 import { generateChatTitle } from "@/lib/llm/chat-helpers";
 import { createLogger } from "@/lib/logger";
 import { checkTitleGenerationLimit } from "@/lib/rate-limit/title";
@@ -45,9 +46,13 @@ export async function POST(_req: Request, { params }: { params: Promise<{ id: st
     const message = result.error.message ?? "Failed to generate title";
     const isNoMessages = message.toLowerCase().includes("no messages");
 
-    logger.error("POST", "Generate title failed");
+    if (isNoMessages) {
+      return NextResponse.json({ error: message }, { status: 400 });
+    }
 
-    return NextResponse.json({ error: message }, { status: isNoMessages ? 400 : 500 });
+    logRouteError(logger, "POST", result.error);
+
+    return clientErrorJson(500);
   }
 
   return NextResponse.json({

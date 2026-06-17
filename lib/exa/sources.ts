@@ -4,6 +4,7 @@ import { getContents, searchWeb } from "./client";
 
 import { RabbitHoleNode } from "@/lib/schemas/rabbitHoleSchemas";
 import { createLogger } from "@/lib/logger";
+import { assertSafePublicHttpsUrl } from "@/lib/strata/safe-url";
 
 const logger = createLogger("lib/exa/sources.ts");
 
@@ -74,10 +75,21 @@ export async function getWebpageContent(sourceUrl: string): Promise<string> {
     logger.log("analyzeSource", `Exa content fetch threw, falling back: ${exaFetchError}`);
   }
 
-  // Fallback: direct fetch if Exa content missing
+  // Fallback: direct fetch if Exa content missing (HTTPS public URLs only — SSRF guard)
   if (!webpageContent) {
+    const safeUrl = assertSafePublicHttpsUrl(sourceUrl);
+
+    if (!safeUrl.ok) {
+      logger.log(
+        "analyzeSource",
+        `Blocked direct fetch for unsafe URL (${safeUrl.reason}): ${sourceUrl}`
+      );
+
+      return webpageContent;
+    }
+
     try {
-      const response = await fetch(sourceUrl, {
+      const response = await fetch(safeUrl.href, {
         headers: {
           "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
         },

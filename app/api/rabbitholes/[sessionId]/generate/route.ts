@@ -2,6 +2,7 @@ import { auth } from "@clerk/nextjs/server";
 import { NextResponse } from "next/server";
 
 import { getSupabaseUserId } from "@/data/supabase/profiles";
+import { clientErrorJson, logRouteError } from "@/lib/api/client-safe-error";
 import { createLogger } from "@/lib/logger";
 import { checkRabbitHoleNodeLimit } from "@/lib/rate-limit/llm";
 import { scheduleNodeGeneration } from "@/lib/rabbit-holes/scheduleNodeGeneration";
@@ -68,10 +69,8 @@ export async function POST(req: Request, { params }: { params: Promise<{ session
 
     return NextResponse.json({ jobId, sessionId, nodeId }, { status: 202 });
   } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
+    logRouteError(logger, "POST", error);
 
-    logger.error("POST", "scheduleNodeGeneration failed");
-
-    return NextResponse.json({ error: "Failed to schedule generation" }, { status: 500 });
+    return clientErrorJson(500);
   }
 }
