@@ -3,6 +3,8 @@ import { elevenlabs } from "@ai-sdk/elevenlabs";
 import { experimental_generateSpeech as generateSpeech, SpeechModel } from "ai";
 import { NextRequest } from "next/server";
 
+import { GENERIC_SERVER_ERROR, logRouteError } from "@/lib/api/client-safe-error";
+import { requireTtsActor } from "@/lib/api/tts-gate";
 import { createLogger } from "@/lib/logger";
 import { stripSpeechTags } from "@/lib/tts/speech-tags";
 
@@ -53,6 +55,12 @@ export async function POST(req: NextRequest) {
       status: 400,
       headers: { "Content-Type": "application/json" },
     });
+  }
+
+  const ttsGate = await requireTtsActor(text.length);
+
+  if (ttsGate.error != null) {
+    return ttsGate.error;
   }
 
   const textForTTS = stripSpeechTags(text);
@@ -208,15 +216,13 @@ export async function POST(req: NextRequest) {
 
         controller.close();
       } catch (error) {
-        const e = error instanceof Error ? error : new Error(String(error));
-
-        logger.error("TTS Stream", `Generation failed: ${e.name}`);
+        logRouteError(logger, "TTS Stream", error);
 
         controller.enqueue(
           encoder.encode(
             `data: ${JSON.stringify({
               type: "error",
-              error: error instanceof Error ? error.message : "Generation failed",
+              error: GENERIC_SERVER_ERROR,
               segmentId,
             })}\n\n`
           )

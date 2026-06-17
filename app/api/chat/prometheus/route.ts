@@ -16,6 +16,8 @@ import { GUARDRAIL_MAX_OUTPUT_TOKENS } from "@/lib/llm/helpers";
 import { ensureChatHasTitle } from "@/lib/llm/chat-helpers";
 import { createLogger } from "@/lib/logger";
 import { getContext } from "@/lib/llm/context";
+import { requireLlmChatActor } from "@/lib/api/chat-llm-gate";
+import { ChatRequestSchema } from "@/lib/schemas/chat";
 
 // Allow streaming responses up to 30 seconds
 export const maxDuration = 30;
@@ -24,10 +26,41 @@ const model: LanguageModel = openai("gpt-5.4-mini");
 
 // const tools = {};
 
-const logger = createLogger(`app/api/chat/route.ts`);
+const logger = createLogger(`app/api/chat/prometheus/route.ts`);
 
 export async function POST(req: Request) {
-  const { message, id }: { message: UIMessage; id: string } = await req.json();
+  const authGate = await requireLlmChatActor();
+
+  if (authGate.error != null) {
+    return authGate.error;
+  }
+
+  let body: unknown;
+
+  try {
+    body = await req.json();
+  } catch {
+    logger.error("POST", "Invalid request body: malformed_json");
+
+    return new Response(JSON.stringify({ error: "Invalid JSON", status: 400 }), {
+      status: 400,
+      headers: { "Content-Type": "application/json" },
+    });
+  }
+
+  const parseResult = ChatRequestSchema.safeParse(body);
+
+  if (!parseResult.success) {
+    logger.error("POST", "Invalid request body: validation_failed");
+
+    return new Response(JSON.stringify({ error: "Invalid request body", status: 400 }), {
+      status: 400,
+      headers: { "Content-Type": "application/json" },
+    });
+  }
+
+  const { message: incomingMessage, id } = parseResult.data;
+  const message = incomingMessage as UIMessage;
 
   logger.log(
     "POST",
@@ -39,11 +72,17 @@ export async function POST(req: Request) {
   if (res.error) {
     logger.error("POST", `Error getting context: ${res.error}`);
 
-    return new Response("Error getting context", { status: 500 });
+    return new Response(JSON.stringify({ error: "Internal server error", status: 500 }), {
+      status: 500,
+      headers: { "Content-Type": "application/json" },
+    });
   } else if (res.data === null) {
-    logger.error("POST", `Error getting context: Context is null`);
+    logger.error("POST", "Error getting context: Context is null");
 
-    return new Response("Error getting context", { status: 500 });
+    return new Response(JSON.stringify({ error: "Internal server error", status: 500 }), {
+      status: 500,
+      headers: { "Content-Type": "application/json" },
+    });
   }
 
   const { prompt, messages } = res.data;
