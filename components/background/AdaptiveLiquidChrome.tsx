@@ -137,7 +137,7 @@ export default function AdaptiveLiquidChrome({
       style={{
         width: "100dvw",
         height: "100dvh",
-        position: "absolute",
+        position: viewportCover ? "fixed" : "absolute",
         top: 0,
         left: 0,
         right: 0,
