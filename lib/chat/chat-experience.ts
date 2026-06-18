@@ -7,6 +7,7 @@ export const CHAT_EXPERIENCES = [
   "strata_hub",
   "strata_page",
   "delphi",
+  "introspection",
 ] as const;
 
 export type ChatExperience = (typeof CHAT_EXPERIENCES)[number];

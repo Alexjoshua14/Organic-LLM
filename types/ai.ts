@@ -1,4 +1,5 @@
 import type { KanbanCommand } from "@/lib/schemas/kanban";
+import type { IntrospectionGuidedState } from "@/lib/schemas/introspection";
 
 import { UIMessage } from "ai";
 
@@ -29,6 +30,8 @@ export type ChatUIMessage = UIMessage<
     };
     /** Ergon puppet channel: schema-validated kanban command streamed to the client store. */
     kanban?: KanbanCommand;
+    /** Introspection guided shell: stable overview + navigation state. */
+    "introspection-view"?: IntrospectionGuidedState;
   }
 >;
 

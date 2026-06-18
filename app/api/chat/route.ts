@@ -37,6 +37,7 @@ import {
   appendStrataMainChatSystemFragments,
   wrapSystemPromptWithResponseLength,
 } from "@/lib/api/chat-system-prompt";
+import { appendIntrospectionMainChatSystemFragments } from "@/lib/api/introspection-system-prompt";
 import { compileChatTools } from "@/lib/llm/compile-chat-tools";
 import { runLLMChatStream } from "@/lib/api/run-llm-chat-stream";
 
@@ -180,6 +181,13 @@ export async function POST(req: Request) {
         strataPageId,
         sbUserId,
         strataAssistantPersona,
+      });
+
+      systemPromptForRequest = await appendIntrospectionMainChatSystemFragments({
+        systemPromptForRequest,
+        experience,
+        chatId: id,
+        sbUserId,
       });
 
       logger.log(
