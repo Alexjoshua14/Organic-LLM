@@ -3,10 +3,11 @@ const HTML_INSTRUCTIONS = `
 - Each <h2> section MUST have an id attribute matching the takeaway index: id="takeaway-0", id="takeaway-1", etc. (where 0, 1, 2... correspond to the order of key takeaways)
 - Wrap branchable phrases/concepts with <span data-branch-id="{branchId}">text</span> where {branchId} MUST match the id of one of the branch suggestions you provide
 - Use <strong> for emphasis, <em> for subtle emphasis
+- Use <blockquote> sparingly for short quoted passages or pull quotes
 - Keep paragraphs concise and scannable
 - Maintain an editorial tone: calm, thoughtful, with generous whitespace implied
 - Do NOT generate <script>, <style>, <iframe>, <img>, or inline CSS.
-- You may only use these tags in the article body: <h2>, <h3>, <p>, <span>, <strong>, <em>, <a>, <pre>, <code>.
+- You may only use these tags in the article body: <h2>, <h3>, <p>, <span>, <strong>, <em>, <a>, <pre>, <code>, <blockquote>.
 
 Code blocks (multi-line samples):
   - Put <code> inside <pre>. On the inner <code>, use class="language-..." when you know the language (e.g. language-python, language-javascript).

@@ -39,6 +39,14 @@ describe("sanitizeRabbitHoleArticleHtml", () => {
 
     expect(output).toContain('href="https://example.com"');
   });
+
+  test("preserves blockquote", () => {
+    const input = "<blockquote><p>A quoted passage.</p></blockquote>";
+    const output = sanitizeRabbitHoleArticleHtml(input);
+
+    expect(output).toContain("<blockquote");
+    expect(output).toContain("A quoted passage.");
+  });
 });
 
 describe("sanitizeMermaidSvgMarkup", () => {

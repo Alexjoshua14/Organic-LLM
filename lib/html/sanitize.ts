@@ -11,6 +11,7 @@ const RABBIT_HOLE_ARTICLE_ALLOWED_TAGS = [
   "a",
   "pre",
   "code",
+  "blockquote",
 ] as const;
 
 const RABBIT_HOLE_ARTICLE_ALLOWED_ATTR = ["id", "class", "data-branch-id", "href", "target", "rel"];
