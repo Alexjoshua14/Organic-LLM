@@ -2,13 +2,14 @@
 
 import type { UIMessage } from "ai";
 
-import { ChevronDown, ChevronUp } from "lucide-react";
-import { useMemo, useState } from "react";
+import { useMemo } from "react";
 
 import { ChatMessage } from "@/components/chat/chat-message";
 import { ChatReasoning, ChatThinking } from "@/components/chat/chat-loading";
-import { glass } from "@/components/design-system/primitives";
-import { Button } from "@/components/third-party/ui/button";
+import {
+  Conversation,
+  ConversationContent,
+} from "@/components/third-party/ai-elements/conversation";
 import { cn } from "@/lib/utils";
 import { ChatAIActionEnum } from "@/types/ai";
 
@@ -20,6 +21,8 @@ type IntrospectionStreamPanelProps = {
     message?: string;
   };
   className?: string;
+  /** When true, fills the sidebar column instead of a compact strip. */
+  sidebar?: boolean;
 };
 
 export function IntrospectionStreamPanel({
@@ -27,9 +30,8 @@ export function IntrospectionStreamPanel({
   chatId,
   aiActionPayload,
   className,
+  sidebar = false,
 }: IntrospectionStreamPanelProps) {
-  const [expanded, setExpanded] = useState(true);
-
   const latestTurn = useMemo(() => {
     const lastAssistantIndex = [...messages]
       .map((m, i) => ({ m, i }))
@@ -57,23 +59,20 @@ export function IntrospectionStreamPanel({
     aiActionPayload?.action === ChatAIActionEnum.Typing;
 
   return (
-    <div className={cn(glass(), "shrink-0 rounded-xl border border-border/50", className)}>
-      <div className="flex items-center justify-between gap-2 border-b border-border/40 px-3 py-2">
-        <p className="text-muted-foreground text-xs font-medium uppercase tracking-wide">
-          Latest response
-        </p>
-        <Button
-          aria-expanded={expanded}
-          size="icon"
-          type="button"
-          variant="ghost"
-          onClick={() => setExpanded((v) => !v)}
-        >
-          {expanded ? <ChevronDown className="size-4" /> : <ChevronUp className="size-4" />}
-        </Button>
-      </div>
-      {expanded ? (
-        <div className="max-h-48 overflow-y-auto px-3 py-3 space-y-3">
+    <div
+      className={cn(
+        "flex min-h-0 flex-col",
+        sidebar ? "flex-1" : "shrink-0 rounded-xl border border-border/50",
+        className
+      )}
+    >
+      <Conversation
+        className={cn(
+          "relative flex min-h-0 flex-col overflow-hidden",
+          sidebar ? "flex-1" : "max-h-48"
+        )}
+      >
+        <ConversationContent className="w-full flex-1 space-y-3 px-3 py-3">
           {latestTurn.user ? <ChatMessage chatId={chatId} message={latestTurn.user} /> : null}
           {latestTurn.assistant ? (
             <ChatMessage
@@ -91,8 +90,8 @@ export function IntrospectionStreamPanel({
           ) : (
             <p className="text-muted-foreground text-sm">Waiting for your guide…</p>
           )}
-        </div>
-      ) : null}
+        </ConversationContent>
+      </Conversation>
     </div>
   );
 }

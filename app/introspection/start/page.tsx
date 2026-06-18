@@ -1,3 +1,4 @@
+import { auth } from "@clerk/nextjs/server";
 import { Suspense } from "react";
 import { Loader2 } from "lucide-react";
 
@@ -5,7 +6,13 @@ import IntrospectionStartClient from "./start-client";
 
 import Page from "@/components/layout/page";
 
-export default function IntrospectionStartPage() {
+export default async function IntrospectionStartPage() {
+  const { userId, redirectToSignIn } = await auth();
+
+  if (!userId) {
+    return redirectToSignIn();
+  }
+
   return (
     <Page chrome="full-bleed">
       <Suspense

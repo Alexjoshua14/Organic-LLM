@@ -75,6 +75,7 @@
     "@upstash/redis": "^1.38.0",
     "@vercel/analytics": "^1.6.1",
     "ai": "^5.0.197",
+    "better-sqlite3": "^12.11.1",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "cmdk": "^1.1.1",

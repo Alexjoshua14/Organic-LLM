@@ -21,10 +21,6 @@ import { ChatAIActionEnum } from "@/types/ai";
 
 type IntrospectionShellProps = {
   guidedState: IntrospectionGuidedState;
-  canGoBack: boolean;
-  canGoNext: boolean;
-  onBack: () => void;
-  onNext: () => void;
   messages: UIMessage[];
   chatId: string;
   aiActionPayload?: {
@@ -35,12 +31,28 @@ type IntrospectionShellProps = {
   playEntryMorph?: boolean;
 };
 
+function useDesktopLayout() {
+  const [desktop, setDesktop] = useState(() => {
+    if (typeof window === "undefined") return false;
+
+    return window.matchMedia("(min-width: 768px)").matches;
+  });
+
+  useEffect(() => {
+    const mq = window.matchMedia("(min-width: 768px)");
+
+    const sync = () => setDesktop(mq.matches);
+
+    mq.addEventListener("change", sync);
+
+    return () => mq.removeEventListener("change", sync);
+  }, []);
+
+  return desktop;
+}
+
 export function IntrospectionShell({
   guidedState,
-  canGoBack,
-  canGoNext,
-  onBack,
-  onNext,
   messages,
   chatId,
   aiActionPayload,
@@ -48,52 +60,77 @@ export function IntrospectionShell({
   playEntryMorph = false,
 }: IntrospectionShellProps) {
   const prefersReducedMotion = useReducedMotion();
+  const isDesktop = useDesktopLayout();
   const stageRef = useRef<HTMLDivElement | null>(null);
-  const entryGhostRef = useRef<HTMLDivElement | null>(null);
-  const overviewMeasureRef = useRef<HTMLDivElement | null>(null);
-  const entryVecRef = useRef<Vector4 | null>(null);
-  const overviewVecRef = useRef<Vector4 | null>(null);
+  const centerComposerGhostRef = useRef<HTMLDivElement | null>(null);
+  const sidebarComposerGhostRef = useRef<HTMLDivElement | null>(null);
+  const centerVecRef = useRef<Vector4 | null>(null);
+  const sidebarVecRef = useRef<Vector4 | null>(null);
   const morphPlayedRef = useRef(false);
-  const [morphDone, setMorphDone] = useState(!playEntryMorph || prefersReducedMotion === true);
+
+  const shouldMorphComposer =
+    playEntryMorph && isDesktop && prefersReducedMotion !== true;
+
+  const [composerMorphDone, setComposerMorphDone] = useState(!shouldMorphComposer);
 
   const { elementRef, reset, morphTo } = useMorphPhysics({
     config: regular_spring_config,
   });
 
-  const measureTargets = useCallback(() => {
+  const measureComposerTargets = useCallback(() => {
     const stage = stageRef.current;
-    const entryGhost = entryGhostRef.current;
-    const overviewGhost = overviewMeasureRef.current;
+    const centerGhost = centerComposerGhostRef.current;
+    const sidebarGhost = sidebarComposerGhostRef.current;
 
-    if (!stage || !entryGhost || !overviewGhost) return;
+    if (!stage || !centerGhost || !sidebarGhost) return;
 
-    const entryVec = snapshot(entryGhost, stage);
-    const overviewVec = snapshot(overviewGhost, stage);
-
-    entryVecRef.current = entryVec;
-    overviewVecRef.current = overviewVec;
+    centerVecRef.current = snapshot(centerGhost, stage);
+    sidebarVecRef.current = snapshot(sidebarGhost, stage);
   }, []);
 
   useLayoutEffect(() => {
-    measureTargets();
-  }, [measureTargets]);
+    measureComposerTargets();
+  }, [measureComposerTargets, isDesktop]);
 
   useEffect(() => {
-    if (!playEntryMorph || prefersReducedMotion || morphPlayedRef.current) return;
+    const stage = stageRef.current;
 
-    const entry = entryVecRef.current;
-    const overview = overviewVecRef.current;
+    if (!stage) return;
 
-    if (!entry || !overview) return;
+    const ro = new ResizeObserver(() => {
+      requestAnimationFrame(measureComposerTargets);
+    });
+
+    ro.observe(stage);
+
+    return () => ro.disconnect();
+  }, [measureComposerTargets]);
+
+  useEffect(() => {
+    if (!shouldMorphComposer) {
+      setComposerMorphDone(true);
+
+      return;
+    }
+
+    if (morphPlayedRef.current) return;
+
+    const center = centerVecRef.current;
+    const sidebar = sidebarVecRef.current;
+
+    if (!center || !sidebar) return;
 
     morphPlayedRef.current = true;
-    reset(entry);
-    morphTo(overview);
+    setComposerMorphDone(false);
+    reset(center);
+    morphTo(sidebar);
 
-    const timer = window.setTimeout(() => setMorphDone(true), 900);
+    const timer = window.setTimeout(() => setComposerMorphDone(true), 900);
 
     return () => window.clearTimeout(timer);
-  }, [playEntryMorph, prefersReducedMotion, morphTo, reset]);
+  }, [shouldMorphComposer, morphTo, reset, isDesktop]);
+
+  const showMorphLayer = shouldMorphComposer && !composerMorphDone;
 
   return (
     <div ref={stageRef} className="relative flex h-full min-h-0 w-full flex-col overflow-hidden">
@@ -101,38 +138,62 @@ export function IntrospectionShell({
         <AdaptiveLiquidChrome cover="parent" />
       </div>
 
-      {/* Ghost measurers */}
+      {/* Ghost: default centered chat composer position */}
       <div
-        ref={entryGhostRef}
+        ref={centerComposerGhostRef}
         aria-hidden
-        className="pointer-events-none absolute inset-4 opacity-0"
-      />
-
-      {!morphDone && playEntryMorph && !prefersReducedMotion ? (
-        <div
-          ref={elementRef}
-          className={cn(glass(), "pointer-events-none absolute z-20 rounded-xl border border-border/50")}
-        />
-      ) : null}
-
-      <IntrospectionNav
-        breadcrumb={guidedState.breadcrumb}
-        canGoBack={canGoBack}
-        canGoNext={canGoNext}
-        onBack={onBack}
-        onNext={onNext}
-      />
-
-      <div className="flex min-h-0 flex-1 flex-col gap-4 px-4 py-4 md:px-8 md:py-6">
-        <IntrospectionOverview ref={overviewMeasureRef} markdown={guidedState.overviewMarkdown} />
-        <IntrospectionStreamPanel
-          aiActionPayload={aiActionPayload}
-          chatId={chatId}
-          messages={messages}
-        />
+        className="pointer-events-none absolute bottom-6 left-1/2 z-0 w-[min(100%,42rem)] -translate-x-1/2 px-4 opacity-0"
+      >
+        <div className="h-14 w-full rounded-xl border border-transparent" />
       </div>
 
-      <div className="shrink-0 border-t border-border/40 px-4 py-3 md:px-8 md:pb-5">{composer}</div>
+      <div className="flex min-h-0 flex-1 flex-col md:flex-row">
+        {/* Main content — full width on desktop */}
+        <div className="flex min-h-0 min-w-0 flex-1 flex-col">
+          <IntrospectionNav breadcrumb={guidedState.breadcrumb} title={guidedState.title} />
+          <div className="min-h-0 flex-1 overflow-hidden px-4 py-4 md:px-8 md:py-6">
+            <IntrospectionOverview markdown={guidedState.overviewMarkdown} />
+          </div>
+        </div>
+
+        {/* Chat sidebar — Strata-style */}
+        <aside
+          className={cn(
+            glass({ opaque: true }),
+            "relative flex min-h-0 w-full shrink-0 flex-col border-border/60 md:w-[min(26rem,100%)] md:border-l",
+            showMorphLayer && "max-md:border-t md:border-l"
+          )}
+        >
+          <IntrospectionStreamPanel
+            aiActionPayload={aiActionPayload}
+            chatId={chatId}
+            messages={messages}
+            sidebar
+          />
+
+          <div
+            ref={sidebarComposerGhostRef}
+            className={cn(
+              "shrink-0 border-t border-border/40 p-3 md:p-4",
+              showMorphLayer && "invisible"
+            )}
+          >
+            {composerMorphDone ? composer : <div className="h-14" aria-hidden />}
+          </div>
+        </aside>
+      </div>
+
+      {showMorphLayer ? (
+        <div
+          ref={elementRef}
+          className={cn(
+            "pointer-events-auto absolute top-0 left-0 z-30 overflow-hidden rounded-xl",
+            "border-0 bg-transparent shadow-none will-change-[transform,width,height]"
+          )}
+        >
+          <div className="min-h-full w-full p-1">{composer}</div>
+        </div>
+      ) : null}
     </div>
   );
 }

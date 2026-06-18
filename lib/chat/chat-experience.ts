@@ -34,3 +34,19 @@ export function isArcadiaStyleMemoryReadExperience(
 ): boolean {
   return experience === "arcadia" || experience === "topic_explore";
 }
+
+export function isIntrospectionExperience(experience: ChatExperience | undefined): boolean {
+  return experience === "introspection";
+}
+
+/** Introspection enables memory search + Mem0 context by default unless the client opts out. */
+export function resolveMemoryEnabledForExperience(
+  experience: ChatExperience | undefined,
+  requested: boolean | undefined
+): boolean {
+  if (isIntrospectionExperience(experience)) {
+    return requested ?? true;
+  }
+
+  return requested ?? false;
+}

@@ -12,6 +12,7 @@ import {
 } from "@/components/chat/chat-loading";
 import { ArcadiaToolResultCard, ChatAIAction } from "@/components/chat/chat-message";
 import { FullChatHistoryToolResultCard } from "@/components/chat/full-chat-history-tool-result";
+import { GetMoreChatHistoryToolResultCard } from "@/components/chat/get-more-chat-history-tool-result";
 import {
   tryParseWebSearchToolOutput,
   WebSearchToolResultCard,
@@ -433,6 +434,22 @@ export default function PrototypesLLMStatesPage() {
                   isPinned={false}
                   parsed={{ kind: "error", message: "Failed to load messages from the server." }}
                   onTogglePin={() => undefined}
+                />
+              </StateBlock>
+
+              <StateBlock label="Additional chat history — GetMoreChatHistoryToolResultCard">
+                <p className="mb-3 text-xs text-muted-foreground">
+                  Minimal one-line ack for{" "}
+                  <code className="rounded bg-muted px-1">get_more_chat_history</code>; tap to
+                  expand context stats.
+                </p>
+                <GetMoreChatHistoryToolResultCard
+                  parsed={{
+                    kind: "ok",
+                    count: 10,
+                    messagesInContext: 31,
+                    totalMessagesInThread: 50,
+                  }}
                 />
               </StateBlock>
             </div>

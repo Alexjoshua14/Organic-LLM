@@ -10,7 +10,7 @@ import { exaSearchOptionsSchema, searchOptionsSchema } from "../exa/types";
 import { searchWeb, searchWebWithQuery } from "../exa/client";
 import { mapSearchResponseToExaSources } from "../exa/utils";
 
-import { getMessages, getMessagesSince, getNMessages } from "@/data/supabase/chat";
+import { getMessages, getMessagesSince, getMessageCount, getNMessages } from "@/data/supabase/chat";
 import { estimateTokenCount } from "@/lib/llm/chat-helpers";
 import { searchMemoriesWithL1Cache } from "@/lib/memory/memory-search-cache";
 import {
@@ -345,9 +345,15 @@ export function createGetMoreMessagesTool(chatId: string, alreadySentCount: numb
           `Returning ${messagesUsed.length} message(s), ~${tokenCount} tokens${messagesUsed.length < olderOnly.length ? " (truncated to stay under cap)" : ""}`
         );
 
+        const totalCountResult = await getMessageCount(chatId);
+        const totalMessagesInThread = totalCountResult.data ?? null;
+        const messagesInContext = alreadySentCount + messagesUsed.length;
+
         return {
           success: true,
           count: messagesUsed.length,
+          messagesInContext,
+          totalMessagesInThread,
           messages: formatted || "(No older messages in this thread.)",
         };
       } catch (error) {

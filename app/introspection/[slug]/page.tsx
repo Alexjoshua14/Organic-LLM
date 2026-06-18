@@ -2,7 +2,6 @@ import type { Metadata } from "next";
 
 import { UIMessage } from "ai";
 import { auth } from "@clerk/nextjs/server";
-import { redirect } from "next/navigation";
 import { cache } from "react";
 
 import Page from "@/components/layout/page";
@@ -54,13 +53,13 @@ export default async function IntrospectionSessionPage({
   const { slug: chatId } = await params;
   const { entry } = await searchParams;
 
-  const clerkUser = await auth();
+  const { userId, redirectToSignIn } = await auth();
 
-  if (!clerkUser?.userId) {
-    redirect(`/sign-in?redirect_url=${encodeURIComponent(`/introspection/${chatId}`)}`);
+  if (!userId) {
+    return redirectToSignIn();
   }
 
-  const sbUserIdResult = await getSupabaseUserId(clerkUser.userId);
+  const sbUserIdResult = await getSupabaseUserId(userId);
 
   if (sbUserIdResult.error || !sbUserIdResult.data) {
     logger.error("IntrospectionSessionPage", "User not found in supabase");
@@ -100,7 +99,7 @@ export default async function IntrospectionSessionPage({
   const chatData: { thread: Thread; messages: UIMessage[] } = chatDataRes.data;
 
   return (
-    <Page chrome="full-bleed">
+    <Page chrome="full-bleed" className="items-stretch justify-start gap-0">
       <div className="h-full w-full">
         <IntrospectionChat
           chatData={chatData}
