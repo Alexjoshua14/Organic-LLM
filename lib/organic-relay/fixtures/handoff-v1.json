@@ -1,0 +1,9 @@
+{
+  "questionId": "reflection-growth-01",
+  "questionText": "What patterns appear in the types of questions I ask?",
+  "category": "patterns",
+  "llm": "claude",
+  "speechFriendly": false,
+  "promptTitle": "What patterns appear in the types of questions I ask?",
+  "fullPrompt": "<context>\nI'd like you to analyze my conversation history with AI assistants to gain insights.\n</context>\n\n<task>\nWhat patterns appear in the types of questions I ask?\n</task>\n\nPlease analyze the available conversation history and provide key patterns, examples, and actionable insights."
+}

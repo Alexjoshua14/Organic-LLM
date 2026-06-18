@@ -8,14 +8,13 @@ import {
   introspectionNonceAlreadyUsed,
   saveIntrospectionBootstrap,
 } from "@/data/supabase/introspection";
-import { decryptIntrospectionPayload } from "@/lib/crypto/introspection-payload";
+import { IntrospectionBootstrapWireRequestSchema } from "@/lib/organic-relay/schemas";
+import { decryptBootstrapPayload } from "@/lib/organic-relay/crypto";
 import { createLogger } from "@/lib/logger";
 
 const logger = createLogger("lib/introspection/bootstrap.ts");
 
-export const IntrospectionBootstrapRequestSchema = z.object({
-  payload: z.string().min(16).max(512_000),
-});
+export const IntrospectionBootstrapRequestSchema = IntrospectionBootstrapWireRequestSchema;
 
 export type IntrospectionBootstrapResult =
   | { ok: true; threadId: string; path: string }
@@ -28,7 +27,7 @@ export async function bootstrapIntrospectionSession(
   let parsed;
 
   try {
-    parsed = decryptIntrospectionPayload(wirePayload);
+    parsed = decryptBootstrapPayload(wirePayload);
   } catch (err) {
     const message = err instanceof Error ? err.message : "Invalid payload";
 
