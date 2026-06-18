@@ -23,13 +23,11 @@ export function WelcomeHero() {
   return (
     <Page
       chrome="full-bleed"
-      className="!items-stretch !justify-start overflow-y-auto overflow-x-hidden"
+      className="!items-stretch !justify-start overflow-y-auto overflow-x-hidden scroll-area-safe-bottom"
       transparentBackground
     >
       <div className="relative flex w-full flex-col">
-        <div aria-hidden className="pointer-events-none fixed inset-0 z-0">
-          <AdaptiveLiquidChrome cover="viewport" dimIntensity={0.45} />
-        </div>
+        <AdaptiveLiquidChrome cover="viewport" dimIntensity={0.45} />
 
         {!reduce ? (
           <>
@@ -51,7 +49,7 @@ export function WelcomeHero() {
         ) : null}
 
         <div className="relative z-10 flex w-full flex-col">
-          <section className="relative flex min-h-dvh flex-col px-5 pb-10 pt-16 sm:px-8 sm:pb-12 sm:pt-20 lg:px-12 lg:pb-14 lg:pt-24">
+          <section className="relative flex min-h-dvh flex-col px-5 pb-10 pt-[calc(4rem+env(safe-area-inset-top,0px))] sm:px-8 sm:pb-12 sm:pt-20 lg:px-12 lg:pb-14 lg:pt-24">
             <div className="relative mx-auto flex w-full max-w-6xl flex-1 flex-col justify-center py-8">
               <div
                 aria-hidden="true"
