@@ -92,6 +92,12 @@ type CoreInputProps = {
   sentMessageShimmer?: boolean;
   /** Override persisted model id key (e.g. Delphi vs main chat). Other prefs use global keys. */
   modelLocalStorageKey?: string;
+  /** Initial model when no stored preference exists (defaults to first gateway model). */
+  defaultModel?: ChatModel;
+  /** Override persisted memory toggle key (e.g. introspection vs main chat). */
+  memoryLocalStorageKey?: string;
+  /** Initial memory toggle when no stored preference exists. */
+  defaultMemories?: boolean;
   /** When `id` changes, replaces composer text (e.g. assist reply injection). */
   composerInject?: { id: number; text: string } | null;
   /** Cmd/Ctrl+Enter runs this instead of sending chat; primary submit unchanged. */
@@ -134,6 +140,9 @@ export const CoreInput: React.FC<CoreInputProps> = ({
   onComposerTextChange,
   sentMessageShimmer = false,
   modelLocalStorageKey,
+  defaultModel = DEFAULT_CHAT_MODEL,
+  memoryLocalStorageKey,
+  defaultMemories = false,
   composerInject,
   onSecondarySubmit,
   secondarySubmitLabel = "Steer assist",
@@ -144,8 +153,8 @@ export const CoreInput: React.FC<CoreInputProps> = ({
   const { refreshSidebarChats } = useSharedChatContext();
 
   const modelStorageKey = modelLocalStorageKey ?? "organic-llm-selected-model";
+  const memoriesStorageKey = memoryLocalStorageKey ?? "organic-llm-memories";
   const STORAGE_KEY_WEB_SEARCH = "organic-llm-web-search";
-  const STORAGE_KEY_MEMORIES = "organic-llm-memories";
   const STORAGE_KEY_SPEECH_FRIENDLY = "organic-llm-speech-friendly";
   const STORAGE_KEY_TIMESTAMP = "organic-llm-prefs-timestamp";
   const EXPIRY_MS = 24 * 60 * 60 * 1000; // 24 hours in milliseconds
@@ -153,9 +162,9 @@ export const CoreInput: React.FC<CoreInputProps> = ({
   const [text, setText] = useState<string>("");
   const [recentlySentText, setRecentlySentText] = useState<string>(""); // For failed/aborted sends
   const recentlySentTextRef = useRef<string>(""); // So restore effect sees value before state flushes
-  const [model, setModel] = useState<ChatModel>(DEFAULT_CHAT_MODEL);
+  const [model, setModel] = useState<ChatModel>(defaultModel);
   const [useWebSearch, setUseWebSearch] = useState<boolean>(false);
-  const [useMemories, setUseMemories] = useState<boolean>(false);
+  const [useMemories, setUseMemories] = useState<boolean>(defaultMemories);
   const [useSpeechFriendly, setUseSpeechFriendly] = useState<boolean>(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const toolsRef = useRef<HTMLDivElement | null>(null);
@@ -259,8 +268,8 @@ export const CoreInput: React.FC<CoreInputProps> = ({
     if (isExpired) {
       // Clear expired preferences
       localStorage.removeItem(modelStorageKey);
+      localStorage.removeItem(memoriesStorageKey);
       localStorage.removeItem(STORAGE_KEY_WEB_SEARCH);
-      localStorage.removeItem(STORAGE_KEY_MEMORIES);
       localStorage.removeItem(STORAGE_KEY_SPEECH_FRIENDLY);
       localStorage.removeItem(STORAGE_KEY_TIMESTAMP);
 
@@ -280,14 +289,15 @@ export const CoreInput: React.FC<CoreInputProps> = ({
 
     if (storedWebSearch === "true") setUseWebSearch(true);
 
-    const storedMemories = localStorage.getItem(STORAGE_KEY_MEMORIES);
+    const storedMemories = localStorage.getItem(memoriesStorageKey);
 
     if (storedMemories === "true") setUseMemories(true);
+    else if (storedMemories === "false") setUseMemories(false);
 
     const storedSpeechFriendly = localStorage.getItem(STORAGE_KEY_SPEECH_FRIENDLY);
 
     if (storedSpeechFriendly === "true") setUseSpeechFriendly(true);
-  }, [modelStorageKey]);
+  }, [modelStorageKey, memoriesStorageKey]);
 
   // Update timestamp whenever preferences are saved
   const updatePrefsTimestamp = () => {
@@ -322,10 +332,10 @@ export const CoreInput: React.FC<CoreInputProps> = ({
       useMemoriesRef.current = useMemories;
     }
     if (hasLoadedPrefs.current) {
-      localStorage.setItem(STORAGE_KEY_MEMORIES, String(useMemories));
+      localStorage.setItem(memoriesStorageKey, String(useMemories));
       updatePrefsTimestamp();
     }
-  }, [useMemories, useMemoriesRef]);
+  }, [useMemories, useMemoriesRef, memoriesStorageKey]);
 
   // Sync speech-friendly to ref and persist to localStorage
   useEffect(() => {

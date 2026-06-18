@@ -9,6 +9,7 @@ const isProtectedRoute = createRouteMatcher([
   "/_next/server-actions(.*)",
   "/archetype(.*)",
   "/chat(.*)",
+  "/introspection(.*)",
   "/rabbitholes(.*)",
   "/remy(.*)",
   "/sandbox(.*)",

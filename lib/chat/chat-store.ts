@@ -64,7 +64,9 @@ import { Result, SimpleResult } from "@/types";
 import {
   type ChatExperience,
   isArcadiaStyleMemoryReadExperience,
+  isIntrospectionExperience,
 } from "@/lib/chat/chat-experience";
+import { getIntrospectionBaseSystemPrompt } from "@/lib/personas/introspection";
 import { Thread } from "@/lib/schemas/chat";
 import { getSupabaseUserId } from "@/data/supabase/profiles";
 import { getSupabaseUserIdWithAdmin } from "@/data/supabase/profiles-admin";
@@ -660,16 +662,20 @@ export async function getContext({
      ***/
     let systemPrompt = "";
 
-    switch (persona) {
-      case "prometheus":
-        systemPrompt = PROMETHEUS_SYSTEM_PROMPT;
-        break;
-      case "spark":
-        systemPrompt = SPARK_SYSTEM_PROMPT;
-        break;
-      default:
-        systemPrompt = SYSTEM_PROMPT;
-        break;
+    if (isIntrospectionExperience(experience)) {
+      systemPrompt = getIntrospectionBaseSystemPrompt();
+    } else {
+      switch (persona) {
+        case "prometheus":
+          systemPrompt = PROMETHEUS_SYSTEM_PROMPT;
+          break;
+        case "spark":
+          systemPrompt = SPARK_SYSTEM_PROMPT;
+          break;
+        default:
+          systemPrompt = SYSTEM_PROMPT;
+          break;
+      }
     }
 
     systemPrompt = systemPrompt.replace("{{currentDateTime}}", new Date().toISOString());

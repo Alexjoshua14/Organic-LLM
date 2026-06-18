@@ -6,7 +6,11 @@ import { TypeValidationError } from "ai";
 
 import { mainChatSystemPromptWhenContextFailed } from "./chat-context-fallbacks";
 
+import {
+  isIntrospectionExperience,
+} from "@/lib/chat/chat-experience";
 import { getContext } from "@/lib/chat/chat-store";
+import { INTROSPECTION_CONTEXT_MESSAGE_LIMIT } from "@/lib/personas/introspection";
 import { SYSTEM_PROMPT } from "@/lib/system-prompt/prompt-v0";
 
 export type LoadMainChatTurnContextParams = {
@@ -26,6 +30,13 @@ function isStrataExperience(experience: ChatExperience | undefined): boolean {
   return experience === "strata_hub" || experience === "strata_page";
 }
 
+function getContextMessageLimit(experience: ChatExperience | undefined): number {
+  if (isStrataExperience(experience)) return 30;
+  if (isIntrospectionExperience(experience)) return INTROSPECTION_CONTEXT_MESSAGE_LIMIT;
+
+  return 10;
+}
+
 /**
  * Mirrors getContext + fallbacks in the main chat stream (same limits and logging).
  */
@@ -40,7 +51,7 @@ export async function loadMainChatTurnContext(
   try {
     const chatContextResult = await getContext({
       chatId,
-      limit: isStrataExperience(experience) ? 30 : 10,
+      limit: getContextMessageLimit(experience),
       message,
       memoryEnabled,
       persistedSchemasEnabled: isStrataExperience(experience),

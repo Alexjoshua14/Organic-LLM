@@ -14,9 +14,10 @@ import { CoreInput } from "@/components/chat/core-input";
 import { getChatErrorMessage } from "@/lib/chat/error-messages";
 import { getSettings } from "@/lib/user-settings";
 import { createLogger } from "@/lib/logger";
+import { getChatModel } from "@/lib/llm/helpers";
 import { useSharedChatContext } from "@/lib/context/chat-context";
 import { Thread } from "@/lib/schemas/chat";
-import { ChatModel, DEFAULT_CHAT_MODEL } from "@/lib/schemas/chat";
+import { AUTO_CHAT_MODEL, ChatModel } from "@/lib/schemas/chat";
 import { isClientPIIRedactionEnabled, redactUIMessages } from "@/lib/pii/redact";
 import { ChatAIActionEnum } from "@/types/ai";
 
@@ -34,9 +35,9 @@ export function IntrospectionChat({
   playEntryMorph = false,
 }: IntrospectionChatProps) {
   const { refreshSidebarChats } = useSharedChatContext();
-  const selectedModelRef = useRef<ChatModel>(DEFAULT_CHAT_MODEL);
+  const selectedModelRef = useRef<ChatModel>(getChatModel(AUTO_CHAT_MODEL));
   const useWebSearchRef = useRef(false);
-  const useMemoriesRef = useRef(false);
+  const useMemoriesRef = useRef(true);
   const useSpeechFriendlyRef = useRef(false);
   const initialStartSent = useRef(false);
   const [chatError, setChatError] = useState<unknown>(undefined);
@@ -47,10 +48,6 @@ export function IntrospectionChat({
   const {
     guidedState,
     applyViewUpdate,
-    canGoBack,
-    canGoNext,
-    goBack,
-    goNext,
   } = useIntrospectionGuidedState(initialGuidedState);
 
   const stop = async () => {
@@ -121,15 +118,17 @@ export function IntrospectionChat({
   return (
     <IntrospectionShell
       aiActionPayload={aiAction}
-      canGoBack={canGoBack}
-      canGoNext={canGoNext}
       chatId={id}
       composer={
         <CoreInput
           chatId={chatData.thread.id}
           clearError={clearError}
+          defaultMemories
+          defaultModel={AUTO_CHAT_MODEL}
           error={error ?? chatError}
           hideWebMemorySpeechToggles
+          memoryLocalStorageKey="organic-llm-introspection-memories"
+          modelLocalStorageKey="organic-llm-introspection-model"
           modelRef={selectedModelRef}
           onErrorCleared={handleErrorCleared}
           sendMessage={sendMessage}
@@ -144,8 +143,6 @@ export function IntrospectionChat({
       guidedState={guidedState}
       messages={messages}
       playEntryMorph={playEntryMorph}
-      onBack={goBack}
-      onNext={goNext}
     />
   );
 }

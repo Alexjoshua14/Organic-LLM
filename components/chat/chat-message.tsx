@@ -14,6 +14,10 @@ import {
   FullChatHistoryToolResultCard,
   tryParseFullChatHistoryToolOutput,
 } from "./full-chat-history-tool-result";
+import {
+  GetMoreChatHistoryToolResultCard,
+  tryParseGetMoreChatHistoryToolOutput,
+} from "./get-more-chat-history-tool-result";
 import { MermaidToolAckCard, tryParseMermaidToolOutput } from "./mermaid-tool-ack-card";
 import {
   MemorySearchToolResultCard,
@@ -486,6 +490,14 @@ export const ArcadiaToolResultCard = memo(function ArcadiaToolResultCard({
           onTogglePin={onTogglePin}
         />
       );
+    }
+  }
+
+  if (toolName.toLowerCase() === "get_more_chat_history") {
+    const parsed = tryParseGetMoreChatHistoryToolOutput(displayBody);
+
+    if (parsed !== null) {
+      return <GetMoreChatHistoryToolResultCard parsed={parsed} />;
     }
   }
 

@@ -3,9 +3,6 @@ import "server-only";
 import type { ChatExperience } from "@/lib/chat/chat-experience";
 
 import { loadIntrospectionConfig } from "@/data/supabase/introspection";
-import {
-  INTROSPECTION_SYSTEM_APPEND,
-} from "@/lib/system-prompt/introspection";
 
 export async function appendIntrospectionMainChatSystemFragments(params: {
   systemPromptForRequest: string;
@@ -22,12 +19,10 @@ export async function appendIntrospectionMainChatSystemFragments(params: {
   const config = await loadIntrospectionConfig(chatId, sbUserId);
 
   if (!config) {
-    return `${systemPromptForRequest}\n\n${INTROSPECTION_SYSTEM_APPEND}`;
+    return systemPromptForRequest;
   }
 
   let out = systemPromptForRequest;
-
-  out += `\n\n${INTROSPECTION_SYSTEM_APPEND}`;
 
   if (config.goal) {
     out += `\n\n[Session goal]\n${config.goal}`;

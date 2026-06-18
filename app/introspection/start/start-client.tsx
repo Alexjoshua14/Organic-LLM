@@ -1,11 +1,9 @@
 "use client";
 
+import { useAuth } from "@clerk/nextjs";
 import { useEffect, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { SignInButton, SignedIn, SignedOut } from "@clerk/nextjs";
 import { Loader2 } from "lucide-react";
-
-import { Button } from "@/components/third-party/ui/button";
 
 type BootstrapState =
   | { phase: "idle" }
@@ -15,6 +13,7 @@ type BootstrapState =
 export default function IntrospectionStartClient() {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const { isLoaded, isSignedIn } = useAuth();
   const payload = searchParams.get("p") ?? "";
   const startedRef = useRef(false);
   const [state, setState] = useState<BootstrapState>({ phase: "idle" });
@@ -26,7 +25,7 @@ export default function IntrospectionStartClient() {
   }, [payload]);
 
   useEffect(() => {
-    if (!payload || startedRef.current) return;
+    if (!isLoaded || !isSignedIn || !payload || startedRef.current) return;
 
     startedRef.current = true;
     setState({ phase: "loading" });
@@ -56,29 +55,28 @@ export default function IntrospectionStartClient() {
         setState({ phase: "error", message: "Network error while starting session" });
       }
     })();
-  }, [payload, router]);
+  }, [isLoaded, isSignedIn, payload, router]);
+
+  if (!isLoaded) {
+    return (
+      <div className="flex min-h-[50vh] flex-col items-center justify-center gap-4">
+        <Loader2 className="text-muted-foreground size-8 animate-spin" />
+        <p className="text-muted-foreground text-sm">Loading…</p>
+      </div>
+    );
+  }
 
   return (
     <div className="flex min-h-[50vh] flex-col items-center justify-center gap-4 px-6 text-center">
-      <SignedOut>
-        <p className="text-muted-foreground max-w-md text-sm">
-          Sign in to continue your Introspection guided session in Organic LLM.
-        </p>
-        <SignInButton mode="modal">
-          <Button>Sign in</Button>
-        </SignInButton>
-      </SignedOut>
-      <SignedIn>
-        {state.phase === "loading" || state.phase === "idle" ? (
-          <>
-            <Loader2 className="text-muted-foreground size-8 animate-spin" />
-            <p className="text-muted-foreground text-sm">Preparing your guided session…</p>
-          </>
-        ) : null}
-        {state.phase === "error" ? (
-          <p className="text-destructive max-w-md text-sm">{state.message}</p>
-        ) : null}
-      </SignedIn>
+      {state.phase === "loading" || state.phase === "idle" ? (
+        <>
+          <Loader2 className="text-muted-foreground size-8 animate-spin" />
+          <p className="text-muted-foreground text-sm">Preparing your guided session…</p>
+        </>
+      ) : null}
+      {state.phase === "error" ? (
+        <p className="text-destructive max-w-md text-sm">{state.message}</p>
+      ) : null}
     </div>
   );
 }

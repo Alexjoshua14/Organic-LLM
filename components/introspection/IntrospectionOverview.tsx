@@ -24,7 +24,7 @@ export const IntrospectionOverview = forwardRef<HTMLDivElement, IntrospectionOve
       >
         <div
           className={cn(
-            "prose prose-lg dark:prose-invert max-w-3xl mx-auto",
+            "prose prose-lg dark:prose-invert w-full max-w-none",
             "text-foreground [&_h1]:text-3xl [&_h2]:text-2xl [&_h3]:text-xl",
             "[&_p]:leading-relaxed [&_li]:leading-relaxed"
           )}

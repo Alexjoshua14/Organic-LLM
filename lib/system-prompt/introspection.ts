@@ -11,6 +11,7 @@ Introspection guided UI (update_introspection_view):
 - Do not repeat the full overview in plain text — the tool drives the main canvas.
 `.trim();
 
+/** @deprecated Use {@link getIntrospectionBaseSystemPrompt} — kept for docs and legacy references. */
 export const INTROSPECTION_SYSTEM_APPEND = `
 [Introspection guided experience]
 You are hosting a structured, navigable session — like a focused mini-site, not a long chat scroll.
