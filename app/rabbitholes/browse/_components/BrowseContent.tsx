@@ -13,6 +13,7 @@ import { RabbitHoleContext } from "@/lib/context/rabbithole-context";
 import { deleteSession } from "@/data/supabase/rabbitholes";
 import { removeSessionAudio } from "@/app/rabbitholes/_lib/audioStorage";
 import Page from "@/components/layout/page";
+import { PageContentFrame } from "@/components/layout/page-content-frame";
 import { SessionCard } from "@/components/rabbit-holes/SessionCard";
 
 interface RabbitHolesBrowseContentProps {
@@ -57,62 +58,66 @@ export function RabbitHolesBrowseContent({ initialSessions }: RabbitHolesBrowseC
   };
 
   return (
-    <Page className="block px-5 py-10 sm:px-8 sm:py-14">
-      <div className="mb-6 flex flex-col gap-4 sm:mb-8 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h1 className="mb-2 font-commissioner text-3xl font-light tracking-tight text-foreground sm:text-4xl">
-            Rabbit Holes
-          </h1>
-          <p className="text-sm text-muted-foreground">
-            Browse and manage your exploration sessions
-          </p>
-        </div>
-        <Link className="shrink-0" href="/rabbitholes">
-          <Button
-            className="w-full bg-foreground text-background hover:opacity-80 sm:w-auto"
-            startContent={<Plus size={16} />}
-          >
-            New Rabbit Hole
-          </Button>
-        </Link>
-      </div>
+    <Page className="items-stretch justify-start overflow-hidden">
+      <div className="h-full min-h-0 w-full overflow-y-auto pb-16">
+        <PageContentFrame maxWidth="5xl">
+          <div className="mb-6 flex flex-col gap-4 sm:mb-8 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <h1 className="mb-2 font-commissioner text-3xl font-light tracking-tight text-foreground sm:text-4xl">
+                Rabbit Holes
+              </h1>
+              <p className="text-sm text-muted-foreground">
+                Browse and manage your exploration sessions
+              </p>
+            </div>
+            <Link className="shrink-0" href="/rabbitholes">
+              <Button
+                className="w-full bg-foreground text-background hover:opacity-80 sm:w-auto"
+                startContent={<Plus size={16} />}
+              >
+                New Rabbit Hole
+              </Button>
+            </Link>
+          </div>
 
-      {displaySessions.length === 0 ? (
-        <motion.div
-          animate={{ opacity: 1, y: 0 }}
-          className="flex flex-col items-center justify-center py-24 text-center"
-          initial={{ opacity: 0, y: 20 }}
-        >
-          <p className="font-commissioner text-xl text-muted-foreground mb-4 font-light">
-            No rabbit holes yet
-          </p>
-          <p className="text-sm text-muted-foreground/70 mb-8">
-            Start exploring a topic to create your first rabbit hole
-          </p>
-          <Link href="/rabbitholes">
-            <Button
-              className="bg-foreground text-background hover:opacity-80"
-              startContent={<Plus size={16} />}
+          {displaySessions.length === 0 ? (
+            <motion.div
+              animate={{ opacity: 1, y: 0 }}
+              className="flex flex-col items-center justify-center py-24 text-center"
+              initial={{ opacity: 0, y: 20 }}
             >
-              Create Your First Rabbit Hole
-            </Button>
-          </Link>
-        </motion.div>
-      ) : (
-        <div className="grid gap-4">
-          {displaySessions.map((session: RabbitHoleSessionMetadata, index: number) => (
-            <SessionCard
-              key={session.sessionId}
-              showDelete
-              deletingId={deletingId}
-              session={session}
-              transitionDelay={index * 0.05}
-              onClick={handleSessionClick}
-              onDelete={handleDelete}
-            />
-          ))}
-        </div>
-      )}
+              <p className="font-commissioner text-xl text-muted-foreground mb-4 font-light">
+                No rabbit holes yet
+              </p>
+              <p className="text-sm text-muted-foreground/70 mb-8">
+                Start exploring a topic to create your first rabbit hole
+              </p>
+              <Link href="/rabbitholes">
+                <Button
+                  className="bg-foreground text-background hover:opacity-80"
+                  startContent={<Plus size={16} />}
+                >
+                  Create Your First Rabbit Hole
+                </Button>
+              </Link>
+            </motion.div>
+          ) : (
+            <div className="grid gap-4">
+              {displaySessions.map((session: RabbitHoleSessionMetadata, index: number) => (
+                <SessionCard
+                  key={session.sessionId}
+                  showDelete
+                  deletingId={deletingId}
+                  session={session}
+                  transitionDelay={index * 0.05}
+                  onClick={handleSessionClick}
+                  onDelete={handleDelete}
+                />
+              ))}
+            </div>
+          )}
+        </PageContentFrame>
+      </div>
     </Page>
   );
 }
