@@ -16,7 +16,7 @@ export default function Page({
   return (
     <section
       className={cn(
-        "relative",
+        "app-shell relative",
         "h-dvh md:h-[calc(100dvh-1rem)] w-full max-w-dvw overflow-x-hidden",
         !transparentBackground && "bg-background",
         "text-primary",

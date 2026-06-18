@@ -8,6 +8,7 @@ import { Providers } from "./providers";
 import { siteConfig } from "@/config/site";
 import { fontInter, fontSatoshi, fontCommissioner } from "@/config/fonts";
 import { ControlCluster } from "@/components/layout/countrol-cluster";
+import { ThemeColorSync } from "@/components/layout/theme-color-sync";
 import {
   SidebarProvider,
   SidebarTrigger,
@@ -45,7 +46,7 @@ export default function RootLayout({
       <html suppressHydrationWarning lang="en" className="h-full overflow-hidden">
         <body
           className={clsx(
-            "h-dvh text-foreground bg-background font-sans antialiased max-w-dvw overflow-hidden",
+            "h-dvh text-foreground font-sans antialiased max-w-dvw overflow-hidden",
             fontInter.variable,
             fontSatoshi.variable,
             fontCommissioner.variable,
@@ -54,12 +55,13 @@ export default function RootLayout({
           <Providers
             themeProps={{ attribute: "class", defaultTheme: "system" }}
           >
+            <ThemeColorSync />
             <ChatProvider>
               <SidebarProvider>
                 <Sidebar />
                 <ControlCluster />
-                <main className="md:pt-4 grow w-full overflow-hidden bg-background sm:bg-background-secondary h-full">
-                  <div className={`${glass()} absolute top-0 left-0 pl-4 z-30 w-20 h-14 flex items-center rounded-br-lg md:hidden`}>
+                <main className="app-shell md:pt-4 grow w-full overflow-hidden bg-transparent sm:bg-transparent-secondary h-full">
+                  <div className={`${glass()} absolute top-[env(safe-area-inset-top,0px)] left-0 pl-4 z-30 w-20 h-14 flex items-center rounded-br-lg md:top-0 md:hidden`}>
                     <SidebarTrigger />
                   </div>
                   <div className={`hidden md:flex absolute top-4 left-0 pl-4 z-30`}>
