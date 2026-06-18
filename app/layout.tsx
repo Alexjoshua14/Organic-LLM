@@ -8,6 +8,7 @@ import { Providers } from "./providers";
 import { siteConfig } from "@/config/site";
 import { fontSans } from "@/config/fonts";
 import { ControlCluster } from "@/components/layout/countrol-cluster";
+import { ThemeColorSync } from "@/components/layout/theme-color-sync";
 import {
   SidebarProvider,
   SidebarTrigger,
@@ -52,11 +53,12 @@ export default function RootLayout({
           <Providers
             themeProps={{ attribute: "class", defaultTheme: "system" }}
           >
+            <ThemeColorSync />
             <ChatProvider>
               <SidebarProvider>
                 <Sidebar />
                 <ControlCluster />
-                <main className="pt-4 grow w-full overflow-x-hidden bg-background sm:bg-background-secondary">
+                <main className="app-shell pt-4 grow w-full overflow-x-hidden bg-transparent sm:bg-transparent-secondary">
                   <SidebarTrigger className="absolute top-3 left-3 z-20" />
                   {children}
                 </main>
