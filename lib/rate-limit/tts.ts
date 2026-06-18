@@ -1,3 +1,5 @@
+import "server-only";
+
 import type { RateLimitResult } from "@/lib/rate-limit/llm";
 
 import { Duration, Ratelimit } from "@upstash/ratelimit";
