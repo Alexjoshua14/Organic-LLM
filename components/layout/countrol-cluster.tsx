@@ -23,7 +23,7 @@ export const ControlCluster: FC<ControlClusterProps> = ({ className }) => {
     <>
       <div
         className={cn(
-          `${glass()} absolute top-0 ${open ? "md:translate-y-4" : ""} right-0 w-24 h-14 flex items-center justify-center z-30 rounded-bl-lg transition-all duration-200`,
+          `${glass()} absolute top-[env(safe-area-inset-top,0px)] ${open ? "md:translate-y-4" : ""} md:top-0 right-0 w-24 h-14 flex items-center justify-center z-30 rounded-bl-lg transition-all duration-200`,
           className
         )}
       >
