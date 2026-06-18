@@ -117,8 +117,9 @@ function SectionTitle({ children }: { children: React.ReactNode }) {
 
 export default function PrototypesLLMStatesPage() {
   return (
-    <Page>
-      <PageContentFrame maxWidth="4xl">
+    <Page className="items-stretch justify-start overflow-hidden">
+      <div className="h-full min-h-0 w-full overflow-y-auto pb-16">
+        <PageContentFrame maxWidth="4xl">
         <PageNavBack className="mb-12 sm:mb-16" href="/sandbox/prototypes">
           ← Prototypes
         </PageNavBack>
@@ -285,9 +286,8 @@ export default function PrototypesLLMStatesPage() {
             <div className="space-y-1">
               <StateBlock label="Generic tool result — ArcadiaToolResultCard (JSON)">
                 <p className="mb-3 text-xs text-muted-foreground">
-                  Default collapsible for tools without a dedicated card (pin, “View output”, raw
-                  JSON). Example uses a placeholder tool name so it is not routed to a specialized
-                  card.
+                  Default inline row for tools without a dedicated card: muted one-line label, tap
+                  to expand raw JSON (optional pin).
                 </p>
                 <ArcadiaToolResultCard
                   displayBody={{
@@ -304,8 +304,7 @@ export default function PrototypesLLMStatesPage() {
               <StateBlock label="Memory search — MemorySearchToolResultCard (via ArcadiaToolResultCard)">
                 <p className="mb-3 text-xs text-muted-foreground">
                   <code className="rounded bg-muted px-1">search_memories</code>: title includes
-                  count and truncated query; memories listed inside{" "}
-                  <code className="rounded bg-muted px-1">details</code>.
+                  count and truncated query; tap to expand memories.
                 </p>
                 <ArcadiaToolResultCard
                   displayBody={{
@@ -404,9 +403,9 @@ export default function PrototypesLLMStatesPage() {
                 />
               </StateBlock>
 
-              <StateBlock label="Search Results — error (flat card, title Search error)">
+              <StateBlock label="Search Results — error (inline)">
                 <p className="mb-3 text-xs text-muted-foreground">
-                  Same shell as full-chat-history errors: no collapsible; title + destructive
+                  Same inline shell as other tool results: destructive summary line, tap to expand
                   message + pin.
                 </p>
                 <WebSearchToolResultCard
@@ -418,9 +417,9 @@ export default function PrototypesLLMStatesPage() {
 
               <StateBlock label="Fetched full chat history — FullChatHistoryToolResultCard">
                 <p className="mb-3 text-xs text-muted-foreground">
-                  Compact, non-collapsible summary for{" "}
-                  <code className="rounded bg-muted px-1">get_full_chat_history</code> (message
-                  count only; transcript stays in the scrollable thread).
+                  Inline ack for{" "}
+                  <code className="rounded bg-muted px-1">get_full_chat_history</code>; tap to
+                  expand message count (transcript stays in the scrollable thread).
                 </p>
                 <FullChatHistoryToolResultCard
                   isPinned={false}
@@ -459,7 +458,8 @@ export default function PrototypesLLMStatesPage() {
         <p className="mt-14 text-center text-xs text-muted-foreground sm:mt-20">
           Toggle light/dark to verify states in both themes.
         </p>
-      </PageContentFrame>
+        </PageContentFrame>
+      </div>
     </Page>
   );
 }

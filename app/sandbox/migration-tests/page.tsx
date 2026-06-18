@@ -512,9 +512,10 @@ export default function MemoryMigrationTestsPage() {
   }, []);
 
   return (
-    <Page>
+    <Page className="items-stretch justify-start overflow-hidden">
       <Tooltip.Provider delayDuration={250} skipDelayDuration={0}>
-        <PageContentFrame maxWidth="5xl">
+        <div className="h-full min-h-0 w-full overflow-y-auto pb-16">
+          <PageContentFrame maxWidth="5xl">
           <PageNavBack className="mb-4" href="/sandbox">
             ← Sandbox
           </PageNavBack>
@@ -824,6 +825,7 @@ export default function MemoryMigrationTestsPage() {
             </div>
           ) : null}
         </PageContentFrame>
+        </div>
       </Tooltip.Provider>
     </Page>
   );

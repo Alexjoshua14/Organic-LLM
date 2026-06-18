@@ -1,7 +1,14 @@
-import { memo } from "react";
-import { Pin, PinOff } from "lucide-react";
+"use client";
 
-import { cn } from "@/lib/utils";
+import { memo, useState } from "react";
+
+import {
+  ToolResultInlineRow,
+  ToolResultPinButton,
+  toolResultErrorSummaryButtonClass,
+  toolResultExpandedDetailClass,
+  toolResultSummaryButtonClass,
+} from "./tool-result-inline";
 
 const VALIDATION_NOTE_MAX = 120;
 
@@ -59,6 +66,7 @@ export const MermaidToolAckCard = memo(function MermaidToolAckCard({
   isPinned,
   onTogglePin,
 }: MermaidToolAckCardProps) {
+  const [expanded, setExpanded] = useState(false);
   const isError = parsed.kind === "error";
   const title = isError ? "Diagram error" : "Mermaid diagram created";
   const detail: string | null =
@@ -69,41 +77,27 @@ export const MermaidToolAckCard = memo(function MermaidToolAckCard({
         : null;
 
   return (
-    <div
-      className={cn(
-        "not-prose rounded-lg border border-border/60 bg-background-tertiary/30 dark:bg-background-tertiary/20 backdrop-blur-2xl",
-        "px-3 py-2",
-        isPinned && "sticky top-20 z-30 shadow-[0_8px_30px_-10px_rgba(0,0,0,0.35)]"
-      )}
+    <ToolResultInlineRow
+      isPinned={isPinned}
+      pin={<ToolResultPinButton isPinned={isPinned} onTogglePin={onTogglePin} />}
     >
-      <div className="flex items-start justify-between gap-2">
-        <div className="min-w-0 flex-1">
-          <div className="text-xs font-medium text-foreground">{title}</div>
-          {detail ? (
-            <p
-              className={cn(
-                "mt-1 text-xs leading-snug",
-                isError ? "text-destructive" : "text-muted-foreground"
-              )}
-            >
-              {detail}
-            </p>
-          ) : null}
-        </div>
-        <button
-          aria-label={isPinned ? "Unpin tool output" : "Pin tool output"}
-          aria-pressed={isPinned}
-          className={cn(
-            "h-7 w-7 shrink-0 grid place-content-center rounded",
-            "hover:bg-background-tertiary/60 transition-colors"
-          )}
-          type="button"
-          onClick={onTogglePin}
-        >
-          {isPinned ? <PinOff className="size-3.5" /> : <Pin className="size-3.5" />}
-        </button>
-      </div>
-    </div>
+      <button
+        className={isError ? toolResultErrorSummaryButtonClass : toolResultSummaryButtonClass}
+        type="button"
+        onClick={() => setExpanded((open) => !open)}
+      >
+        <span className={isError ? "text-destructive/90" : undefined}>{title}</span>
+        {expanded && detail ? (
+          <span
+            className={`${toolResultExpandedDetailClass} ${
+              isError ? "text-destructive/90" : "text-muted-foreground"
+            }`}
+          >
+            {detail}
+          </span>
+        ) : null}
+      </button>
+    </ToolResultInlineRow>
   );
 });
 

@@ -20,8 +20,9 @@ const sampleAdded = [{ memory: "User asked to preview memory UI components in th
 
 export default function MemorySandboxPage() {
   return (
-    <Page>
-      <div className="w-full max-w-2xl mx-auto p-6 pb-16">
+    <Page className="items-stretch justify-start overflow-hidden">
+      <div className="h-full min-h-0 w-full overflow-y-auto pb-16">
+        <div className="w-full max-w-2xl mx-auto p-6">
         <Link
           className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground mb-8"
           href="/sandbox"
@@ -133,6 +134,7 @@ export default function MemorySandboxPage() {
             </div>
           </PhoneMockup>
         </section>
+        </div>
       </div>
     </Page>
   );
