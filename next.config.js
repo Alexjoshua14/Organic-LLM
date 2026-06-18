@@ -1,17 +1,53 @@
 /** @type {import('next').NextConfig} */
 const isDev = process.env.NODE_ENV !== "production";
 
+/** Decode Clerk Frontend API host from publishable key (e.g. central-fawn-21.clerk.accounts.dev). */
+function getClerkFapiOrigin() {
+  const key = process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY;
+  if (!key) return null;
+
+  const encoded = key.split("_").slice(2).join("_");
+  if (!encoded) return null;
+
+  try {
+    const host = Buffer.from(encoded, "base64").toString("utf8").replace(/\$/, "");
+    return host ? `https://${host}` : null;
+  } catch {
+    return null;
+  }
+}
+
+const clerkFapiOrigin = getClerkFapiOrigin();
+
+const scriptSrc = [
+  "'self'",
+  "'unsafe-inline'",
+  isDev ? "'unsafe-eval'" : null,
+  clerkFapiOrigin,
+  "https://*.clerk.accounts.dev",
+  "https://clerk.com",
+  "https://*.clerk.com",
+  "https://challenges.cloudflare.com",
+  "https://va.vercel-scripts.com",
+].filter(Boolean);
+
+const connectSrc = [
+  "'self'",
+  "https:",
+  "wss:",
+  clerkFapiOrigin,
+  "https://clerk-telemetry.com",
+  "https://*.clerk-telemetry.com",
+].filter(Boolean);
+
 const contentSecurityPolicy = [
   "default-src 'self'",
-  // Next.js requires inline scripts in dev; production builds may use nonces in future.
-  isDev
-    ? "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://*.clerk.accounts.dev https://challenges.cloudflare.com"
-    : "script-src 'self' 'unsafe-inline' https://*.clerk.accounts.dev https://challenges.cloudflare.com",
-  "style-src 'self' 'unsafe-inline'",
-  "img-src 'self' data: blob: https:",
-  "font-src 'self' data:",
-  "connect-src 'self' https: wss:",
-  "frame-src 'self' https://*.clerk.accounts.dev https://challenges.cloudflare.com",
+  `script-src ${scriptSrc.join(" ")}`,
+  "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://geistfont.vercel.app",
+  "img-src 'self' data: blob: https: https://img.clerk.com",
+  "font-src 'self' data: https://fonts.gstatic.com",
+  `connect-src ${connectSrc.join(" ")}`,
+  "frame-src 'self' https://*.clerk.accounts.dev https://*.clerk.com https://challenges.cloudflare.com",
   "worker-src 'self' blob:",
   "object-src 'none'",
   "base-uri 'self'",
@@ -43,7 +79,9 @@ const nextConfig = {
   async headers() {
     return [
       {
-        source: "/(.*)",
+        // Apply document security headers to HTML routes only — not static CSS/JS/font assets.
+        source:
+          "/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico|woff2?|ttf|otf)$).*)",
         headers: securityHeaders,
       },
     ];
