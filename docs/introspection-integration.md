@@ -103,7 +103,13 @@ const p = encryptPayload(payload);
 const url = `${process.env.ORGANIC_BASE_URL}/introspection/start?p=${encodeURIComponent(p)}`;
 ```
 
-Organic LLM implements the same format in [`lib/crypto/introspection-payload.ts`](../lib/crypto/introspection-payload.ts).
+Organic LLM implements the same format in [`lib/organic-relay/`](../lib/organic-relay/) (canonical). Introspection keeps an identical copy synced via:
+
+```bash
+./scripts/sync-introspection-relay-contract.sh
+```
+
+After any contract change in `lib/organic-relay/`, run the sync script and commit **both** repos.
 
 ## Runtime behavior
 
