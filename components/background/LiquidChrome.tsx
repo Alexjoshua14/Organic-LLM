@@ -1,4 +1,5 @@
 "use client";
+import { useMemo } from "react";
 import { useTheme } from "next-themes";
 
 import { LiquidChrome as LiquidChromeComponent } from "@/components/third-party/reactbits/LiquidChrome/LiquidChrome";
@@ -10,8 +11,10 @@ interface LiquidChromeProps {
 export default function LiquidChrome({ speed = 0.03 }: LiquidChromeProps) {
   const { theme } = useTheme();
 
-  const baseColor: [number, number, number] =
-    theme === "dark" ? [0.03, 0.05, 0.07] : [0.45, 0.54, 0.6];
+  const baseColor = useMemo<[number, number, number]>(
+    () => (theme === "dark" ? [0.03, 0.05, 0.07] : [0.45, 0.54, 0.6]),
+    [theme],
+  );
 
   return (
     <div

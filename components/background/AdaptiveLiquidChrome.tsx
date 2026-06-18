@@ -1,7 +1,7 @@
 "use client";
 
 import { useTheme } from "next-themes";
-import { useEffect, useState, useRef } from "react";
+import { memo, useEffect, useMemo, useState, useRef } from "react";
 
 import { usePageVisible } from "@/components/hooks/use-page-visible";
 import { LiquidChrome as LiquidChromeComponent } from "@/components/third-party/reactbits/LiquidChrome/LiquidChrome";
@@ -39,6 +39,34 @@ const EASE_SMOOTH = "cubic-bezier(0.25, 0.46, 0.45, 0.94)";
 
 const BRIGHTEN_65 = 0.65; // first-phase target (65% opacity)
 
+const LiquidChromeLayer = memo(function LiquidChromeLayer({
+  isDark,
+  pageVisible,
+  speed,
+}: {
+  isDark: boolean;
+  pageVisible: boolean;
+  speed: number;
+}) {
+  const baseColor = useMemo<[number, number, number]>(
+    () => (isDark ? [0.03, 0.05, 0.07] : [0.5, 0.48, 0.46]),
+    [isDark],
+  );
+  const amplitude = isDark ? 0.2 : 0.18;
+
+  return (
+    <LiquidChromeComponent
+      amplitude={amplitude}
+      baseColor={baseColor}
+      interactive={true}
+      paused={!pageVisible}
+      speed={speed}
+    />
+  );
+});
+
+LiquidChromeLayer.displayName = "LiquidChromeLayer";
+
 export default function AdaptiveLiquidChrome({
   speed = 0.012,
   dimOnHover = true,
@@ -70,11 +98,7 @@ export default function AdaptiveLiquidChrome({
 
   const isDark = resolvedTheme === "dark";
 
-  // Dark: deep blue-gray. Light: warmer, richer gray (matches app’s warm neutrals) so it doesn’t feel faded.
-  const baseColor: [number, number, number] = isDark ? [0.03, 0.05, 0.07] : [0.5, 0.48, 0.46]; // RGB 0–1: warm gray
-
   const baseOpacity = isDark ? 1 : 0.92;
-  const amplitude = isDark ? 0.2 : 0.18;
 
   useEffect(() => {
     if (!dimOnHover) return;
@@ -238,13 +262,7 @@ export default function AdaptiveLiquidChrome({
         willChange: "opacity",
       }}
     >
-      <LiquidChromeComponent
-        amplitude={amplitude}
-        baseColor={baseColor}
-        interactive={true}
-        paused={!pageVisible}
-        speed={speed}
-      />
+      <LiquidChromeLayer isDark={isDark} pageVisible={pageVisible} speed={speed} />
     </div>
   );
 }
