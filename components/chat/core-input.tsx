@@ -99,6 +99,8 @@ type CoreInputProps = {
   secondarySubmitLabel?: string;
   secondarySubmitDisabled?: boolean;
   secondarySubmitPending?: boolean;
+  /** Compact single-line composer; toggles live in the overflow menu. */
+  variant?: "default" | "compact";
 };
 
 /** Max length for the in-flight shimmer copy (matches AiInputForm). */
@@ -137,6 +139,7 @@ export const CoreInput: React.FC<CoreInputProps> = ({
   secondarySubmitLabel = "Steer assist",
   secondarySubmitDisabled = false,
   secondarySubmitPending = false,
+  variant = "default",
 }) => {
   const { refreshSidebarChats } = useSharedChatContext();
 
@@ -484,6 +487,7 @@ export const CoreInput: React.FC<CoreInputProps> = ({
           <PromptInputTextarea
             ref={textareaRef}
             value={text}
+            className={cn(variant === "compact" && "min-h-10 max-h-24 resize-none")}
             onChange={handleInputChange}
             onKeyDown={onSecondarySubmit ? handleTextareaKeyDown : undefined}
           />
@@ -516,7 +520,7 @@ export const CoreInput: React.FC<CoreInputProps> = ({
                   </span>
                 </PromptInputButton>
               )}
-              {!hideWebMemorySpeechToggles ? (
+              {!hideWebMemorySpeechToggles && variant !== "compact" ? (
                 <>
                   <PromptInputButton
                     size={"dynamic-sm"}
@@ -549,34 +553,38 @@ export const CoreInput: React.FC<CoreInputProps> = ({
                 </>
               ) : null}
 
-              <PromptInputSelect
-                required
-                defaultValue={model.id}
-                value={model.id}
-                onValueChange={handleModelSelection}
-              >
-                <PromptInputSelectTrigger className="flex-1 max-w-32 sm:max-w-48 min-w-0">
-                  <PromptInputSelectValue className="truncate min-w-0">
-                    <span className="flex min-w-0 items-center gap-2">
-                      <span className="truncate">{model.name}</span>
-                      {model.supportsZeroDataRetention && <ModelZdrIndicator />}
-                    </span>
-                  </PromptInputSelectValue>
-                </PromptInputSelectTrigger>
-                <PromptInputSelectContent
-                  className="max-h-80 overflow-y-auto"
+              {variant !== "compact" ? (
+                <PromptInputSelect
+                  required
                   defaultValue={model.id}
+                  value={model.id}
+                  onValueChange={handleModelSelection}
                 >
-                  {ChatModels.map((model) => (
-                    <PromptInputSelectItem key={model.id} textValue={model.name} value={model.id}>
+                  <PromptInputSelectTrigger className="flex-1 max-w-32 sm:max-w-48 min-w-0">
+                    <PromptInputSelectValue className="truncate min-w-0">
                       <span className="flex min-w-0 items-center gap-2">
                         <span className="truncate">{model.name}</span>
                         {model.supportsZeroDataRetention && <ModelZdrIndicator />}
                       </span>
-                    </PromptInputSelectItem>
-                  ))}
-                </PromptInputSelectContent>
-              </PromptInputSelect>
+                    </PromptInputSelectValue>
+                  </PromptInputSelectTrigger>
+                  <PromptInputSelectContent
+                    className="max-h-80 overflow-y-auto"
+                    defaultValue={model.id}
+                  >
+                    {ChatModels.map((model) => (
+                      <PromptInputSelectItem key={model.id} textValue={model.name} value={model.id}>
+                        <span className="flex min-w-0 items-center gap-2">
+                          <span className="truncate">{model.name}</span>
+                          {model.supportsZeroDataRetention && <ModelZdrIndicator />}
+                        </span>
+                      </PromptInputSelectItem>
+                    ))}
+                  </PromptInputSelectContent>
+                </PromptInputSelect>
+              ) : (
+                <span className="text-muted-foreground truncate px-2 text-xs">{model.name}</span>
+              )}
             </div>
             <div className="flex gap-1">
               <PromptInputActionMenu>
