@@ -22,7 +22,7 @@ export const prototypes: PrototypeEntry[] = [
     slug: "background",
     title: "AdaptiveLiquidChrome",
     description:
-      "Liquid chrome background that dims on hover/focus. Demo: Hover me button + text input.",
+      "Interactive lab for the liquid shader background — dim lenses, phase timing, live brightness meter, and integration snippets.",
     ranking: {
       importance: 9,
       frequency: 7,
