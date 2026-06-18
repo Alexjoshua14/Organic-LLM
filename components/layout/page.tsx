@@ -18,7 +18,7 @@ export default function Page({ children, transparentBackground, className }: Pag
   return (
     <section
       className={cn(
-        "relative",
+        "app-shell relative",
         `h-dvh w-full max-w-dvw overflow-x-hidden page-transform`,
         !transparentBackground && "bg-background",
         "text-primary",

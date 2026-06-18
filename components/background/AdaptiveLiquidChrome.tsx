@@ -192,11 +192,12 @@ export default function AdaptiveLiquidChrome({
       style={{
         width: "100dvw",
         height: "100dvh",
-        position: "absolute",
+        position: viewportCover ? "fixed" : "absolute",
         top: 0,
         left: 0,
         right: 0,
         bottom: 0,
+        zIndex: viewportCover ? 0 : undefined,
         opacity,
         transition: `opacity ${transitionDuration} ${EASE_SMOOTH}`,
         willChange: "opacity",
