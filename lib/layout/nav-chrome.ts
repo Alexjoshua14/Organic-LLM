@@ -7,7 +7,8 @@
  */
 export const triggerInsetX = "pl-20 md:pl-14";
 export const clusterInsetX = "pr-20 md:pr-10";
-export const triggerInsetY = "pt-16 md:pt-10";
+export const triggerInsetY =
+  "pt-[calc(4rem+env(safe-area-inset-top,0px))] md:pt-10";
 
 export const pageTopBarInsets = `${triggerInsetX} ${clusterInsetX}`;
 export const pageContentFrameInsets = `${triggerInsetX} ${clusterInsetX} ${triggerInsetY}`;

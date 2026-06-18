@@ -219,18 +219,20 @@ export default function AdaptiveLiquidChrome({
         : baseOpacity;
 
   const fillParent = cover === "parent";
+  const viewportCover = !fillParent;
 
   return (
     <div
       style={{
         width: "100%",
-        height: fillParent ? "100%" : "100dvh",
+        height: fillParent ? "100%" : undefined,
         minHeight: fillParent ? "100%" : undefined,
-        position: "absolute",
+        position: viewportCover ? "fixed" : "absolute",
         top: 0,
         left: 0,
         right: 0,
         bottom: 0,
+        zIndex: viewportCover ? 0 : undefined,
         opacity,
         transition: `opacity ${transitionDuration} ${EASE_SMOOTH}`,
         willChange: "opacity",

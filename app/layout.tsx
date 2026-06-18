@@ -10,6 +10,7 @@ import { Providers } from "./providers";
 import { siteConfig } from "@/config/site";
 import { fontInter, fontSatoshi, fontCommissioner } from "@/config/fonts";
 import { ControlCluster } from "@/components/layout/countrol-cluster";
+import { ThemeColorSync } from "@/components/layout/theme-color-sync";
 import { SidebarProvider, SidebarTrigger } from "@/components/third-party/ui/sidebar";
 import { getSidebarDefaultOpenFromCookieValue, SIDEBAR_COOKIE_NAME } from "@/lib/sidebar-cookie";
 import { Sidebar } from "@/components/sidebar/sidebar";
@@ -48,7 +49,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
       <html suppressHydrationWarning className="h-full overflow-hidden" lang="en">
         <body
           className={clsx(
-            "h-dvh text-foreground bg-background font-sans antialiased max-w-dvw overflow-hidden",
+            "h-dvh text-foreground font-sans antialiased max-w-dvw overflow-hidden",
             fontInter.variable,
             fontSatoshi.variable,
             fontCommissioner.variable
@@ -61,6 +62,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
               enableSystem: true,
             }}
           >
+            <ThemeColorSync />
             <FontProvider>
               <ChatProvider>
                 <AionLauncherProvider>
@@ -68,9 +70,9 @@ export default async function RootLayout({ children }: { children: React.ReactNo
                     <SidebarProvider defaultOpen={sidebarDefaultOpen}>
                       <Sidebar />
                       <ControlCluster />
-                      <main className="grow w-full overflow-hidden bg-background sm:bg-background-secondary h-full min-h-dvh">
+                      <main className="app-shell grow w-full overflow-hidden bg-transparent sm:bg-transparent-secondary h-full min-h-dvh">
                         <div
-                          className={`${glass()} absolute top-0 left-0 z-30 flex h-14 w-20 items-center rounded-br-lg pl-4 md:hidden`}
+                          className={`${glass()} absolute top-[env(safe-area-inset-top,0px)] left-0 z-30 flex h-14 w-20 items-center rounded-br-lg pl-4 md:top-0 md:hidden`}
                           data-mobile-nav-chrome="sidebar-trigger"
                         >
                           <SidebarTrigger />
