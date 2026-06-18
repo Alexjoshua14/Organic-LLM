@@ -8,6 +8,7 @@ import { Providers } from "./providers";
 import { siteConfig } from "@/config/site";
 import { fontInter, fontSatoshi, fontCommissioner } from "@/config/fonts";
 import { ControlCluster } from "@/components/layout/countrol-cluster";
+import { ThemeColorSync } from "@/components/layout/theme-color-sync";
 import {
   SidebarProvider,
   SidebarTrigger,
@@ -45,7 +46,7 @@ export default function RootLayout({
         <head />
         <body
           className={clsx(
-            "h-dvh text-foreground bg-background font-sans antialiased max-w-dvw overflow-hidden",
+            "h-dvh text-foreground font-sans antialiased max-w-dvw overflow-hidden",
             fontInter.variable,
             fontSatoshi.variable,
             fontCommissioner.variable,
@@ -54,11 +55,12 @@ export default function RootLayout({
           <Providers
             themeProps={{ attribute: "class", defaultTheme: "system" }}
           >
+            <ThemeColorSync />
             <ChatProvider>
               <SidebarProvider>
                 <Sidebar />
                 <ControlCluster />
-                <main className="pt-4 grow w-full overflow-hidden bg-background sm:bg-background-secondary h-full">
+                <main className="app-shell pt-4 grow w-full overflow-hidden bg-transparent sm:bg-transparent-secondary h-full">
                   <SidebarTrigger className="absolute top-4 left-4 z-20" />
                   {children}
                 </main>
