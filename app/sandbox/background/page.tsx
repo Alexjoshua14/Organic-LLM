@@ -1,5 +1,5 @@
-import BackgroundTestPage from "@/components/pages/background-test";
+import { AdaptiveLiquidChromeLab } from "@/app/sandbox/prototypes/background/_components/adaptive-liquid-chrome-lab";
 
 export default function SandboxBackgroundPage() {
-  return <BackgroundTestPage />;
+  return <AdaptiveLiquidChromeLab />;
 }
