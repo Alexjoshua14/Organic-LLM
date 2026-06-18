@@ -1,8 +1,16 @@
-import { memo } from "react";
-import { Pin, PinOff } from "lucide-react";
+"use client";
+
+import { memo, useState } from "react";
+
+import {
+  ToolResultInlineRow,
+  ToolResultPinButton,
+  toolResultErrorSummaryButtonClass,
+  toolResultExpandedDetailClass,
+  toolResultSummaryButtonClass,
+} from "./tool-result-inline";
 
 import { buildFavicon } from "@/lib/exa/utils";
-import { cn } from "@/lib/utils";
 
 const HIGHLIGHTS_MAX_LEN = 280;
 
@@ -78,25 +86,22 @@ export function tryParseWebSearchToolOutput(body: unknown): ParsedWebSearchToolO
   if (!results && Array.isArray(b.results)) results = b.results;
 
   const hasErr = b.error != null && b.error !== false;
+  const errMsg =
+    typeof b.error === "string"
+      ? b.error
+      : typeof b.message === "string"
+        ? b.message
+        : undefined;
 
-  if (!Array.isArray(results)) {
-    if (hasErr) {
-      const err = b.error;
-      const message =
-        err instanceof Error ? err.message : typeof err === "string" ? err : "Search failed";
-
-      return { status: "error", message };
-    }
-
-    return null;
+  if (hasErr || (results === undefined && errMsg)) {
+    return {
+      status: "error",
+      message: errMsg?.trim() || "Web search failed.",
+    };
   }
 
-  if (hasErr && results.length === 0) {
-    const err = b.error;
-    const message =
-      err instanceof Error ? err.message : typeof err === "string" ? err : "Search failed";
-
-    return { status: "error", message };
+  if (!results) {
+    return null;
   }
 
   return {
@@ -118,36 +123,33 @@ export const WebSearchToolResultCard = memo(function WebSearchToolResultCard({
   onTogglePin,
   showPin = true,
 }: WebSearchToolResultCardProps) {
+  const [expanded, setExpanded] = useState(false);
+
   if (parsed.status === "error") {
     return (
-      <div
-        className={cn(
-          "not-prose rounded-lg border border-border/60 bg-background-tertiary/30 dark:bg-background-tertiary/20 backdrop-blur-2xl",
-          "px-3 py-2",
-          isPinned && "sticky top-20 z-30 shadow-[0_8px_30px_-10px_rgba(0,0,0,0.35)]"
-        )}
+      <ToolResultInlineRow
+        isPinned={isPinned}
+        pin={
+          <ToolResultPinButton
+            isPinned={isPinned}
+            showPin={showPin}
+            onTogglePin={onTogglePin}
+          />
+        }
       >
-        <div className="flex items-start justify-between gap-2">
-          <div className="min-w-0 flex-1">
-            <div className="text-xs font-medium text-foreground">Search error</div>
-            <p className="mt-1 text-xs leading-snug text-destructive">{parsed.message}</p>
-          </div>
-          {showPin ? (
-            <button
-              aria-label={isPinned ? "Unpin tool output" : "Pin tool output"}
-              aria-pressed={isPinned}
-              className={cn(
-                "h-7 w-7 shrink-0 grid place-content-center rounded",
-                "hover:bg-background-tertiary/60 transition-colors"
-              )}
-              type="button"
-              onClick={onTogglePin}
-            >
-              {isPinned ? <PinOff className="size-3.5" /> : <Pin className="size-3.5" />}
-            </button>
+        <button
+          className={toolResultErrorSummaryButtonClass}
+          type="button"
+          onClick={() => setExpanded((open) => !open)}
+        >
+          <span className="text-destructive/90">Search error</span>
+          {expanded ? (
+            <span className={`${toolResultExpandedDetailClass} text-muted-foreground`}>
+              {parsed.message}
+            </span>
           ) : null}
-        </div>
-      </div>
+        </button>
+      </ToolResultInlineRow>
     );
   }
 
@@ -157,30 +159,30 @@ export const WebSearchToolResultCard = memo(function WebSearchToolResultCard({
       : `${parsed.rows.length} Search Result${parsed.rows.length === 1 ? "" : "s"}`;
 
   return (
-    <div
-      className={cn(
-        "not-prose rounded-lg border border-border/60 bg-background-tertiary/30 dark:bg-background-tertiary/20 backdrop-blur-2xl",
-        "px-3 py-2",
-        isPinned && "sticky top-20 z-30 shadow-[0_8px_30px_-10px_rgba(0,0,0,0.35)]"
-      )}
+    <ToolResultInlineRow
+      isPinned={isPinned}
+      pin={
+        <ToolResultPinButton isPinned={isPinned} showPin={showPin} onTogglePin={onTogglePin} />
+      }
     >
-      <div className="flex items-center justify-between gap-2">
-        <details className="min-w-0 flex-1">
-          <summary className="cursor-pointer select-none truncate text-xs font-medium text-muted-foreground hover:text-foreground">
-            {summaryLabel}
-          </summary>
-
-          {parsed.rows.length === 0 && (
-            <p className="mt-2 text-xs text-muted-foreground">No web results for this query.</p>
-          )}
-
-          {parsed.rows.length > 0 && (
-            <ul className="mt-1.5 space-y-1.5 max-h-80 overflow-y-auto pr-1">
+      <button
+        className={toolResultSummaryButtonClass}
+        type="button"
+        onClick={() => setExpanded((open) => !open)}
+      >
+        <span>{summaryLabel}</span>
+        {expanded ? (
+          parsed.rows.length === 0 ? (
+            <span className={`${toolResultExpandedDetailClass} text-muted-foreground`}>
+              No web results for this query.
+            </span>
+          ) : (
+            <ul className="mt-0.5 max-h-80 space-y-1.5 overflow-y-auto pr-1">
               {parsed.rows.map((row) => (
                 <li key={row.id} className="min-w-0">
                   {row.url ? (
                     <a
-                      className="block truncate text-xs font-medium text-foreground hover:underline"
+                      className="block truncate text-[10px] font-medium text-foreground hover:underline"
                       href={row.url}
                       rel="noopener noreferrer"
                       target="_blank"
@@ -188,7 +190,7 @@ export const WebSearchToolResultCard = memo(function WebSearchToolResultCard({
                       {row.title}
                     </a>
                   ) : (
-                    <p className="truncate text-xs font-medium text-foreground">{row.title}</p>
+                    <p className="truncate text-[10px] font-medium text-foreground">{row.title}</p>
                   )}
                   {row.highlightsLine ? (
                     <p className="line-clamp-1 text-[10px] leading-snug text-muted-foreground/80">
@@ -198,24 +200,10 @@ export const WebSearchToolResultCard = memo(function WebSearchToolResultCard({
                 </li>
               ))}
             </ul>
-          )}
-        </details>
-        {showPin ? (
-          <button
-            aria-label={isPinned ? "Unpin tool output" : "Pin tool output"}
-            aria-pressed={isPinned}
-            className={cn(
-              "h-7 w-7 shrink-0 grid place-content-center rounded",
-              "hover:bg-background-tertiary/60 transition-colors"
-            )}
-            type="button"
-            onClick={onTogglePin}
-          >
-            {isPinned ? <PinOff className="size-3.5" /> : <Pin className="size-3.5" />}
-          </button>
+          )
         ) : null}
-      </div>
-    </div>
+      </button>
+    </ToolResultInlineRow>
   );
 });
 
