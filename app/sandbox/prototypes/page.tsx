@@ -18,9 +18,10 @@ export const metadata: Metadata = {
 
 export default function PrototypesGalleryPage() {
   return (
-    <Page transparentBackground className="overflow-hidden">
+    <Page transparentBackground className="items-stretch justify-start overflow-hidden">
       <AdaptiveLiquidChrome dimIntensity={0.45} />
-      <PageContentFrame className="relative z-10 h-full overflow-y-auto pb-16">
+      <div className="relative z-10 h-full min-h-0 w-full overflow-y-auto pb-16">
+        <PageContentFrame>
         <PageNavBack className="mb-8" href="/sandbox">
           ← Sandbox
         </PageNavBack>
@@ -83,7 +84,8 @@ export default function PrototypesGalleryPage() {
             </Link>
           ))}
         </div>
-      </PageContentFrame>
+        </PageContentFrame>
+      </div>
     </Page>
   );
 }
