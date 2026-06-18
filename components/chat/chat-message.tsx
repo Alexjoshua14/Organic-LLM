@@ -315,16 +315,32 @@ function partListHasStreamingReasoning(parts: unknown[]): boolean {
   );
 }
 
-function partListHasInFlightToolInvocation(parts: unknown[]): boolean {
+/** True when the message already has inline tool UI (loading or result). */
+function partListHasToolUIPart(parts: unknown[]): boolean {
   return parts.some((p) => {
     if (!p || typeof p !== "object") return false;
     const up = p as UIMessage["parts"][number];
 
     if (isToolOrDynamicToolUIPart(up)) {
-      return up.state === "input-streaming" || up.state === "input-available";
+      return true;
     }
 
-    return isToolInvocationPart(p) && (p.state === "partial-call" || p.state === "call");
+    return isToolInvocationPart(p);
+  });
+}
+
+function partListHasMemorySearchToolPart(parts: unknown[]): boolean {
+  const names = new Set(["search_memories", "memory_search"]);
+
+  return parts.some((p) => {
+    if (!p || typeof p !== "object") return false;
+    const up = p as UIMessage["parts"][number];
+
+    if (isToolOrDynamicToolUIPart(up)) {
+      return names.has(getToolOrDynamicToolName(up).toLowerCase());
+    }
+
+    return isToolInvocationPart(p) && names.has(p.toolName.toLowerCase());
   });
 }
 
@@ -347,27 +363,6 @@ function partListHasInFlightWebSearch(parts: unknown[]): boolean {
   });
 }
 
-function partListHasInFlightMemorySearch(parts: unknown[]): boolean {
-  const names = new Set(["search_memories", "memory_search"]);
-
-  return parts.some((p) => {
-    if (!p || typeof p !== "object") return false;
-    const up = p as UIMessage["parts"][number];
-
-    if (isToolOrDynamicToolUIPart(up)) {
-      const inFlight = up.state === "input-streaming" || up.state === "input-available";
-
-      return inFlight && names.has(getToolOrDynamicToolName(up).toLowerCase());
-    }
-
-    return (
-      isToolInvocationPart(p) &&
-      (p.state === "partial-call" || p.state === "call") &&
-      names.has(p.toolName.toLowerCase())
-    );
-  });
-}
-
 function shouldShowTailAiAction(
   payload: NonNullable<ChatMessageProps["aiActionPayload"]>,
   parts: unknown[]
@@ -385,9 +380,11 @@ function shouldShowTailAiAction(
 
       return true;
     case ChatAIActionEnum.Memory:
-      return !partListHasInFlightMemorySearch(parts);
+      // Inline memory-search tool parts own loading/result UI.
+      return !partListHasMemorySearchToolPart(parts);
     case ChatAIActionEnum.Tool:
-      return !partListHasInFlightToolInvocation(parts);
+      // Inline tool parts own loading/result UI; tail shimmer only covers the gap before parts arrive.
+      return !partListHasToolUIPart(parts);
     case ChatAIActionEnum.Reasoning:
       return !partListHasStreamingReasoning(parts);
     case ChatAIActionEnum.Errored:
