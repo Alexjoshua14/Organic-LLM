@@ -139,3 +139,7 @@ export function useTTSContext(): TTSContextValue {
 
   return ctx;
 }
+
+export function useTTSOptional(): TTSContextValue | null {
+  return useContext(TTSContext);
+}

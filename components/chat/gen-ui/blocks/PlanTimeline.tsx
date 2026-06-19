@@ -24,19 +24,27 @@ const STATUS_NODE: Record<
 type PlanTimelineProps = {
   block: PlanTimelineBlock;
   partial?: boolean;
+  /** Spatial browser: attach morph ids for sub-element transitions. */
+  morphIds?: boolean;
+  /** Condensed card for plans gallery slot measure. */
+  variant?: "full" | "condensed";
 };
 
 function StepRow({
   step,
   stepLabelsById,
   partial,
+  morphIds,
+  forceExpanded,
 }: {
   step: PlanTimelineStep;
   stepLabelsById: Map<string, string>;
   partial?: boolean;
+  morphIds?: boolean;
+  forceExpanded?: boolean;
 }) {
   const node = STATUS_NODE[step.status];
-  const expanded = step.status === "now";
+  const expanded = forceExpanded || step.status === "now";
 
   const depLabels =
     step.dependsOn?.map((id) => stepLabelsById.get(id)).filter((l): l is string => Boolean(l)) ??
@@ -47,6 +55,7 @@ function StepRow({
       role="listitem"
       aria-current={step.status === "now" ? "step" : undefined}
       className="relative pl-8 pb-4 last:pb-0"
+      {...(morphIds ? { "data-morph-id": `step-${step.id}` } : {})}
     >
       <span
         className={cn(
@@ -129,14 +138,45 @@ function StepRow({
   );
 }
 
-export function PlanTimeline({ block, partial }: PlanTimelineProps) {
+export function PlanTimeline({ block, partial, morphIds, variant = "full" }: PlanTimelineProps) {
   const doneCount = block.steps.filter((s) => s.status === "done").length;
   const progress = block.steps.length > 0 ? doneCount / block.steps.length : 0;
   const stepLabelsById = new Map(block.steps.map((s) => [s.id, s.label]));
+  const nowStep = block.steps.find((s) => s.status === "now");
+
+  if (variant === "condensed") {
+    return (
+      <div className="space-y-2">
+        <p className="text-sm font-medium text-foreground line-clamp-2" data-morph-id="plan-title">
+          {block.title}
+        </p>
+        <div
+          className="h-1.5 w-full overflow-hidden rounded-full bg-muted/40"
+          data-morph-id="plan-progress"
+        >
+          <div
+            className="h-full rounded-full bg-primary/70"
+            style={{ width: `${Math.round(progress * 100)}%` }}
+          />
+        </div>
+        {nowStep ? (
+          <p className="text-xs text-muted-foreground line-clamp-2" data-morph-id={`step-${nowStep.id}`}>
+            Now: {nowStep.label}
+          </p>
+        ) : null}
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-3">
-      <div className="h-1.5 w-full overflow-hidden rounded-full bg-muted/40">
+      <p className="text-sm font-semibold text-foreground" data-morph-id={morphIds ? "plan-title" : undefined}>
+        {block.title}
+      </p>
+      <div
+        className="h-1.5 w-full overflow-hidden rounded-full bg-muted/40"
+        {...(morphIds ? { "data-morph-id": "plan-progress" } : {})}
+      >
         <div
           className="h-full rounded-full bg-primary/70 transition-all duration-300"
           style={{ width: `${Math.round(progress * 100)}%` }}
@@ -150,7 +190,14 @@ export function PlanTimeline({ block, partial }: PlanTimelineProps) {
 
       <ol role="list" className="relative border-l border-border/40 ml-3 space-y-0">
         {block.steps.map((step) => (
-          <StepRow key={step.id} partial={partial} step={step} stepLabelsById={stepLabelsById} />
+          <StepRow
+            key={step.id}
+            forceExpanded={morphIds}
+            morphIds={morphIds}
+            partial={partial}
+            step={step}
+            stepLabelsById={stepLabelsById}
+          />
         ))}
       </ol>
     </div>

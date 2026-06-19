@@ -159,6 +159,7 @@ export const Chat: React.FC<ChatProps> = ({
               ...(experience === "arcadia" ? { chatStyle: getChatStyle(id) } : {}),
               ...(strataPageId ? { strataPageId } : {}),
               zeroDataRetention: getSettings().zeroDataRetention,
+              coalescenceMode: getSettings().coalescenceMode,
               // Only include persistedSchemas in payload if true
               ...(usePersistedSchemas.current ? { persistedSchemas: true } : {}),
             },

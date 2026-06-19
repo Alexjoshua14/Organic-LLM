@@ -29,6 +29,7 @@ export type RunLLMChatStreamParams = {
   hasTools: boolean;
   maxSteps: number;
   isZeroDataRetention: boolean;
+  coalescenceMode: boolean;
   memoryEnabled: boolean | undefined;
   /** When `delphi` or `topic_explore`, automatic transcript ingest to Mem0 is skipped. */
   experience: ChatExperience | undefined;
@@ -50,6 +51,7 @@ export function runLLMChatStream(params: RunLLMChatStreamParams): void {
     hasTools,
     maxSteps,
     isZeroDataRetention,
+    coalescenceMode,
     memoryEnabled,
     experience,
     userMessage,
@@ -342,6 +344,19 @@ export function runLLMChatStream(params: RunLLMChatStreamParams): void {
 
             if (updateSummaryResult.result?.error) {
               logger.error("POST", "Error updating chat summary");
+            }
+
+            if (coalescenceMode && !isZeroDataRetention) {
+              const { enqueueArtifactSyncFromChat } = await import(
+                "@/lib/spatial-artifacts/sync/sync-worker"
+              );
+
+              enqueueArtifactSyncFromChat({
+                ownerId: sbUserId,
+                threadId: chatId,
+                coalescenceMode: true,
+                messages: messagesWithModel,
+              });
             }
 
             metrics.onFinishTotalMs = performance.now() - onFinishStart;

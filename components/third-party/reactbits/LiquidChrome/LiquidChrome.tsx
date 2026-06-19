@@ -10,7 +10,7 @@ interface LiquidChromeProps extends React.HTMLAttributes<HTMLDivElement> {
   frequencyX?: number;
   frequencyY?: number;
   interactive?: boolean;
-  /** When true, the RAF loop continues but skips GPU renders. */
+  /** When true, the RAF loop is stopped and rendering is skipped. */
   paused?: boolean;
 }
 
@@ -23,6 +23,23 @@ type LiquidChromeRuntimeProps = {
 };
 
 const MOUSE_LERP = 0.12;
+const MAX_DPR = 1.5;
+
+function rgb01ToCss([r, g, b]: [number, number, number]): string {
+  return `rgb(${Math.round(r * 255)}, ${Math.round(g * 255)}, ${Math.round(b * 255)})`;
+}
+
+function runtimePropsEqual(a: LiquidChromeRuntimeProps, b: LiquidChromeRuntimeProps): boolean {
+  return (
+    a.speed === b.speed &&
+    a.amplitude === b.amplitude &&
+    a.frequencyX === b.frequencyX &&
+    a.frequencyY === b.frequencyY &&
+    a.baseColor[0] === b.baseColor[0] &&
+    a.baseColor[1] === b.baseColor[1] &&
+    a.baseColor[2] === b.baseColor[2]
+  );
+}
 
 export const LiquidChrome = memo(function LiquidChrome({
   baseColor = [0.1, 0.1, 0.1],
@@ -44,6 +61,7 @@ export const LiquidChrome = memo(function LiquidChrome({
     frequencyY,
   });
   const mouseTargetRef = useRef<[number, number]>([0, 0]);
+  const startLoopRef = useRef<(() => void) | null>(null);
 
   pausedRef.current = paused;
   propsRef.current = { baseColor, speed, amplitude, frequencyX, frequencyY };
@@ -52,7 +70,8 @@ export const LiquidChrome = memo(function LiquidChrome({
     if (!containerRef.current) return;
 
     const container = containerRef.current;
-    const renderer = new Renderer({ antialias: true });
+    const multiSample = window.matchMedia("(max-width: 768px)").matches ? 0 : 1;
+    const renderer = new Renderer({ antialias: false });
     const gl = renderer.gl;
 
     gl.clearColor(1, 1, 1, 1);
@@ -76,6 +95,7 @@ export const LiquidChrome = memo(function LiquidChrome({
       uniform float uFrequencyX;
       uniform float uFrequencyY;
       uniform vec2 uMouse;
+      uniform float uMultiSample;
       varying vec2 vUv;
 
       vec4 renderImage(vec2 uvCoord) {
@@ -98,6 +118,10 @@ export const LiquidChrome = memo(function LiquidChrome({
       }
 
       void main() {
+          if (uMultiSample < 0.5) {
+              gl_FragColor = renderImage(vUv);
+              return;
+          }
           vec4 col = vec4(0.0);
           int samples = 0;
           for (int i = -1; i <= 1; i++){
@@ -130,12 +154,17 @@ export const LiquidChrome = memo(function LiquidChrome({
         uFrequencyX: { value: initial.frequencyX },
         uFrequencyY: { value: initial.frequencyY },
         uMouse: { value: new Float32Array([0, 0]) },
+        uMultiSample: { value: multiSample },
       },
     });
     const mesh = new Mesh(gl, { geometry, program });
 
+    let syncedProps: LiquidChromeRuntimeProps = { ...initial };
+    let animationId: number | null = null;
+
     function resize() {
-      renderer.setSize(container.offsetWidth, container.offsetHeight);
+      const dpr = Math.min(window.devicePixelRatio || 1, MAX_DPR);
+      renderer.setSize(container.offsetWidth * dpr, container.offsetHeight * dpr);
       const resUniform = program.uniforms.uResolution.value as Float32Array;
 
       resUniform[0] = gl.canvas.width;
@@ -176,10 +205,10 @@ export const LiquidChrome = memo(function LiquidChrome({
       container.addEventListener("touchmove", handleTouchMove);
     }
 
-    let animationId: number;
-
     function syncUniformsFromProps() {
       const runtime = propsRef.current;
+      if (runtimePropsEqual(syncedProps, runtime)) return;
+
       const baseColorUniform = program.uniforms.uBaseColor.value as Float32Array;
 
       baseColorUniform[0] = runtime.baseColor[0];
@@ -188,11 +217,16 @@ export const LiquidChrome = memo(function LiquidChrome({
       program.uniforms.uAmplitude.value = runtime.amplitude;
       program.uniforms.uFrequencyX.value = runtime.frequencyX;
       program.uniforms.uFrequencyY.value = runtime.frequencyY;
+      syncedProps = { ...runtime };
     }
 
-    function update(t: number) {
-      animationId = requestAnimationFrame(update);
-      if (pausedRef.current) return;
+    function tick(t: number) {
+      if (pausedRef.current) {
+        animationId = null;
+        return;
+      }
+
+      animationId = requestAnimationFrame(tick);
 
       syncUniformsFromProps();
 
@@ -209,12 +243,20 @@ export const LiquidChrome = memo(function LiquidChrome({
 
       renderer.render({ scene: mesh });
     }
-    animationId = requestAnimationFrame(update);
+
+    function startLoop() {
+      if (animationId !== null || pausedRef.current) return;
+      animationId = requestAnimationFrame(tick);
+    }
+
+    startLoopRef.current = startLoop;
+    startLoop();
 
     container.appendChild(gl.canvas);
 
     return () => {
-      cancelAnimationFrame(animationId);
+      startLoopRef.current = null;
+      if (animationId !== null) cancelAnimationFrame(animationId);
       window.removeEventListener("resize", resize);
       if (interactive) {
         container.removeEventListener("mousemove", handleMouseMove);
@@ -227,9 +269,17 @@ export const LiquidChrome = memo(function LiquidChrome({
     };
   }, [interactive]);
 
+  useEffect(() => {
+    if (!paused) {
+      startLoopRef.current?.();
+    }
+  }, [paused]);
+
   return <div ref={containerRef} className="liquidChrome-container" {...props} />;
 });
 
 LiquidChrome.displayName = "LiquidChrome";
+
+export { rgb01ToCss };
 
 export default LiquidChrome;

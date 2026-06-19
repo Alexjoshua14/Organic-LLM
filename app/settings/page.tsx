@@ -186,7 +186,7 @@ export default function SettingsPage() {
                       ? "Sidebar shows threads from Arcadia and other feature chats."
                       : "Sidebar shows only main chat threads."
                   }
-                  subtext="When on, your sidebar coalesces threads across chat experiences. Turn off to keep the sidebar focused on main chat only."
+                  subtext="When on, your sidebar coalesces threads across chat experiences and indexes gen-ui blocks into the spatial artifact library. Turn off to keep the sidebar focused on main chat only."
                 >
                   <Switch
                     aria-label="Coalescence Mode"

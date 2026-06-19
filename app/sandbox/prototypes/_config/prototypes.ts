@@ -43,6 +43,18 @@ export const prototypes: PrototypeEntry[] = [
     },
   },
   {
+    slug: "spatial-archetypes",
+    title: "Spatial Archetypes",
+    description:
+      "Spatial library for revisiting gen-ui artifacts — plans gallery, bookshelf guides, audio rack previews. Requires Coalescence Mode.",
+    ranking: {
+      importance: 9,
+      frequency: 4,
+      createdAt: "2026-06-17",
+      updatedAt: "2026-06-17",
+    },
+  },
+  {
     slug: "llm-states",
     title: "LLM states",
     description:

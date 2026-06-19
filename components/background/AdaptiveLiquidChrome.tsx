@@ -1,10 +1,14 @@
 "use client";
 
+import { useReducedMotion } from "framer-motion";
 import { useTheme } from "next-themes";
 import { memo, useEffect, useMemo, useState, useRef } from "react";
 
 import { usePageVisible } from "@/components/hooks/use-page-visible";
-import { LiquidChrome as LiquidChromeComponent } from "@/components/third-party/reactbits/LiquidChrome/LiquidChrome";
+import {
+  LiquidChrome as LiquidChromeComponent,
+  rgb01ToCss,
+} from "@/components/third-party/reactbits/LiquidChrome/LiquidChrome";
 
 interface AdaptiveLiquidChromeProps {
   speed?: number;
@@ -22,9 +26,13 @@ interface AdaptiveLiquidChromeProps {
   onDimChange?: (dimmed: boolean) => void;
   /** `viewport` fills 100dvh; `parent` fills the positioned parent (full scroll height). */
   cover?: "viewport" | "parent";
+  /** Forwarded to LiquidChrome — mouse/touch ripple interaction. */
+  interactive?: boolean;
 }
 
 type BrightnessState = "dimmed" | "to65" | "rest";
+
+const DIM_TRIGGER_SELECTOR = "[data-dim-background]";
 
 /**
  * AdaptiveLiquidChrome - A smart background that dims when hovering or when focus
@@ -39,14 +47,29 @@ const EASE_SMOOTH = "cubic-bezier(0.25, 0.46, 0.45, 0.94)";
 
 const BRIGHTEN_65 = 0.65; // first-phase target (65% opacity)
 
+function closestDimTrigger(el: EventTarget | null): Element | null {
+  if (!(el instanceof Element)) return null;
+  return el.closest(DIM_TRIGGER_SELECTOR);
+}
+
+function isFocusInsideDimArea(): boolean {
+  const active = document.activeElement;
+  if (!active || active === document.body) return false;
+  return active.closest(DIM_TRIGGER_SELECTOR) != null;
+}
+
 const LiquidChromeLayer = memo(function LiquidChromeLayer({
   isDark,
   pageVisible,
   speed,
+  interactive,
+  prefersReducedMotion,
 }: {
   isDark: boolean;
   pageVisible: boolean;
   speed: number;
+  interactive: boolean;
+  prefersReducedMotion: boolean;
 }) {
   const baseColor = useMemo<[number, number, number]>(
     () => (isDark ? [0.03, 0.05, 0.07] : [0.5, 0.48, 0.46]),
@@ -54,12 +77,31 @@ const LiquidChromeLayer = memo(function LiquidChromeLayer({
   );
   const amplitude = isDark ? 0.2 : 0.18;
 
+  if (prefersReducedMotion) {
+    const center = rgb01ToCss(baseColor);
+    const edge = rgb01ToCss(
+      isDark
+        ? [baseColor[0] * 0.6, baseColor[1] * 0.6, baseColor[2] * 0.6]
+        : [baseColor[0] * 1.08, baseColor[1] * 1.08, baseColor[2] * 1.08],
+    );
+
+    return (
+      <div
+        style={{
+          width: "100%",
+          height: "100%",
+          background: `radial-gradient(ellipse 120% 80% at 50% 40%, ${center} 0%, ${edge} 100%)`,
+        }}
+      />
+    );
+  }
+
   return (
     <LiquidChromeComponent
       amplitude={amplitude}
       baseColor={baseColor}
-      interactive={true}
-      paused={!pageVisible}
+      interactive={interactive}
+      paused={!pageVisible || prefersReducedMotion}
       speed={speed}
     />
   );
@@ -77,8 +119,10 @@ export default function AdaptiveLiquidChrome({
   to100TransitionMs = 2800, // slow the rest of the way to full, with ease
   onDimChange,
   cover = "viewport",
+  interactive = true,
 }: AdaptiveLiquidChromeProps) {
   const pageVisible = usePageVisible();
+  const prefersReducedMotion = useReducedMotion() ?? false;
   const { resolvedTheme } = useTheme();
   const [brightnessState, setBrightnessState] = useState<BrightnessState>("rest");
   const [effectiveDimIntensity, setEffectiveDimIntensity] = useState(dimIntensity);
@@ -91,17 +135,25 @@ export default function AdaptiveLiquidChrome({
 
   onDimChangeRef.current = onDimChange;
 
-  const isFocusInsideDimArea = () =>
-    Array.from(document.querySelectorAll("[data-dim-background]")).some((el: Element) =>
-      el.contains(document.activeElement)
-    );
-
   const isDark = resolvedTheme === "dark";
 
   const baseOpacity = isDark ? 1 : 0.92;
 
   useEffect(() => {
     if (!dimOnHover) return;
+
+    const applyDimFromTrigger = (trigger: Element) => {
+      if (phase2TimeoutRef.current) {
+        clearTimeout(phase2TimeoutRef.current);
+        phase2TimeoutRef.current = null;
+      }
+      setTransitionDuration(`${dimTransitionMs}ms`);
+      const isFull = trigger.getAttribute("data-dim-background") === "full";
+
+      setEffectiveDimIntensity(isFull ? dimIntensityFull : dimIntensity);
+      setBrightnessState("dimmed");
+      onDimChangeRef.current?.(true);
+    };
 
     const tryRest = () => {
       if (hoverActiveRef.current || focusActiveRef.current || activityActiveRef.current) return;
@@ -121,46 +173,31 @@ export default function AdaptiveLiquidChrome({
       }, to65TransitionMs);
     };
 
-    const handleMouseEnter = (e: Event) => {
-      const el = e.currentTarget as Element;
+    const handlePointerOver = (e: PointerEvent) => {
+      const trigger = closestDimTrigger(e.target);
+      if (!trigger) return;
 
-      if (!el) return;
-      if (phase2TimeoutRef.current) {
-        clearTimeout(phase2TimeoutRef.current);
-        phase2TimeoutRef.current = null;
-      }
-      setTransitionDuration(`${dimTransitionMs}ms`);
-      const isFull = el.getAttribute("data-dim-background") === "full";
-
-      setEffectiveDimIntensity(isFull ? dimIntensityFull : dimIntensity);
       hoverActiveRef.current = true;
-      setBrightnessState("dimmed");
-      onDimChangeRef.current?.(true);
+      applyDimFromTrigger(trigger);
     };
 
-    const handleMouseLeave = () => {
+    const handlePointerOut = (e: PointerEvent) => {
+      const from = closestDimTrigger(e.target);
+      if (!from) return;
+
+      const related = e.relatedTarget;
+      if (related instanceof Node && from.contains(related)) return;
+
       hoverActiveRef.current = false;
-      if (!focusActiveRef.current) tryRest();
+      if (!focusActiveRef.current && !activityActiveRef.current) tryRest();
     };
 
     const handleFocusIn = (e: FocusEvent) => {
-      const target = e.target as Node;
-      const dimEl = Array.from(document.querySelectorAll("[data-dim-background]")).find(
-        (el: Element) => el.contains(target)
-      );
-
+      const dimEl = closestDimTrigger(e.target);
       if (!dimEl) return;
-      if (phase2TimeoutRef.current) {
-        clearTimeout(phase2TimeoutRef.current);
-        phase2TimeoutRef.current = null;
-      }
-      setTransitionDuration(`${dimTransitionMs}ms`);
-      const isFull = dimEl.getAttribute("data-dim-background") === "full";
 
-      setEffectiveDimIntensity(isFull ? dimIntensityFull : dimIntensity);
       focusActiveRef.current = true;
-      setBrightnessState("dimmed");
-      onDimChangeRef.current?.(true);
+      applyDimFromTrigger(dimEl);
     };
 
     const handleFocusOut = () => {
@@ -189,41 +226,29 @@ export default function AdaptiveLiquidChrome({
       }
     };
 
+    document.addEventListener("pointerover", handlePointerOver);
+    document.addEventListener("pointerout", handlePointerOut);
     document.addEventListener("focusin", handleFocusIn);
     document.addEventListener("focusout", handleFocusOut);
 
-    const wiredElements = new Set<Element>();
-
-    const wireElement = (el: Element) => {
-      if (wiredElements.has(el)) return;
-      wiredElements.add(el);
-      el.addEventListener("mouseenter", handleMouseEnter);
-      el.addEventListener("mouseleave", handleMouseLeave);
-    };
-
-    const wireAllDimElements = () => {
-      document.querySelectorAll("[data-dim-background]").forEach(wireElement);
-    };
-
     const observer = new MutationObserver(() => {
-      wireAllDimElements();
       syncActivitySignal();
     });
 
-    wireAllDimElements();
     syncActivitySignal();
 
-    observer.observe(document.body, { childList: true, subtree: true });
+    observer.observe(document.body, {
+      attributes: true,
+      attributeFilter: ["data-adaptive-active"],
+      subtree: true,
+    });
 
     return () => {
+      document.removeEventListener("pointerover", handlePointerOver);
+      document.removeEventListener("pointerout", handlePointerOut);
       document.removeEventListener("focusin", handleFocusIn);
       document.removeEventListener("focusout", handleFocusOut);
       observer.disconnect();
-      wiredElements.forEach((el) => {
-        el.removeEventListener("mouseenter", handleMouseEnter);
-        el.removeEventListener("mouseleave", handleMouseLeave);
-      });
-      wiredElements.clear();
       if (phase2TimeoutRef.current) clearTimeout(phase2TimeoutRef.current);
     };
   }, [
@@ -244,6 +269,7 @@ export default function AdaptiveLiquidChrome({
 
   const fillParent = cover === "parent";
   const viewportCover = !fillParent;
+  const isAnimatingOpacity = brightnessState !== "rest";
 
   return (
     <div
@@ -259,10 +285,16 @@ export default function AdaptiveLiquidChrome({
         zIndex: viewportCover ? 0 : undefined,
         opacity,
         transition: `opacity ${transitionDuration} ${EASE_SMOOTH}`,
-        willChange: "opacity",
+        ...(isAnimatingOpacity ? { willChange: "opacity" as const } : {}),
       }}
     >
-      <LiquidChromeLayer isDark={isDark} pageVisible={pageVisible} speed={speed} />
+      <LiquidChromeLayer
+        interactive={interactive}
+        isDark={isDark}
+        pageVisible={pageVisible}
+        prefersReducedMotion={prefersReducedMotion}
+        speed={speed}
+      />
     </div>
   );
 }
