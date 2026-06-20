@@ -7,6 +7,8 @@ import {
   patchProfileTreeFieldsForCurrentUser,
   upsertProfileTreeForCurrentUser,
 } from "@/data/supabase/profiles";
+import { clientErrorJson, logRouteError } from "@/lib/api/client-safe-error";
+import { createLogger } from "@/lib/logger";
 import { checkProfileTreeEditLimit } from "@/lib/rate-limit/profile";
 import { ProfileTreeSchema } from "@/lib/schemas/profileTree";
 
@@ -18,6 +20,8 @@ const PatchProfileTreeSchema = z
   .refine((data) => data.headline !== undefined || data.signature !== undefined, {
     message: "At least one profile field is required",
   });
+
+const logger = createLogger("app/api/profile/tree/route.ts");
 
 export async function GET() {
   const user = await auth();
@@ -89,10 +93,11 @@ export async function PATCH(req: Request) {
   const result = await patchProfileTreeFieldsForCurrentUser(body);
 
   if (result.error || !result.data) {
-    return NextResponse.json(
-      { error: result.error?.message ?? "Failed to update profile" },
-      { status: 500 }
-    );
+    if (result.error) {
+      logRouteError(logger, "PATCH", result.error);
+    }
+
+    return clientErrorJson(500);
   }
 
   return NextResponse.json({ data: result.data });

@@ -5,6 +5,7 @@ import { createHash } from "crypto";
 import { NextRequest, NextResponse } from "next/server";
 import { ElevenLabsClient } from "@elevenlabs/elevenlabs-js";
 
+import { requireTtsActor } from "@/lib/api/tts-gate";
 import { createLogger } from "@/lib/logger";
 import { transformTextToSpeechFriendlyV2 } from "@/lib/llm/text-to-speech";
 import { stripSpeechTags } from "@/lib/tts/speech-tags";
@@ -77,6 +78,12 @@ export async function POST(req: NextRequest) {
         },
       }
     );
+  }
+
+  const ttsGate = await requireTtsActor(text.length);
+
+  if (ttsGate.error != null) {
+    return ttsGate.error;
   }
 
   const parametersObtained = performance.now();

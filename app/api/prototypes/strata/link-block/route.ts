@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 
 import { getStrataPageById } from "@/data/supabase/strata";
 import { getSupabaseUserId } from "@/data/supabase/profiles";
+import { GENERIC_SERVER_ERROR, logRouteError } from "@/lib/api/client-safe-error";
 import { searchWeb } from "@/lib/exa/client";
 import { generateStrataLinkSummary } from "@/lib/llm/strata-link-block-summary";
 import { createLogger } from "@/lib/logger";
@@ -150,16 +151,14 @@ export async function POST(req: Request) {
           writeChunk({ type: "result", result });
           writeStatus("completed", statusMessage);
         } catch (error) {
-          const message = error instanceof Error ? error.message : "Link processing failed";
-
-          logger.error("link_block", message);
-          writeStatus("error", message);
-          writeChunk({ type: "error", error: message });
+          logRouteError(logger, "link_block", error);
+          writeStatus("error", GENERIC_SERVER_ERROR);
+          writeChunk({ type: "error", error: GENERIC_SERVER_ERROR });
         } finally {
           controller.close();
         }
       })().catch((error) => {
-        logger.error("link_block", error instanceof Error ? error.message : String(error));
+        logRouteError(logger, "link_block", error);
         controller.close();
       });
     },

@@ -5,6 +5,10 @@ import mermaid from "mermaid";
 import { useCallback, useEffect, useRef, useState, type KeyboardEvent } from "react";
 
 import { cn } from "@/lib/utils";
+import {
+  ensureMermaidDomPurify,
+  sanitizeMermaidSvgMarkup,
+} from "@/lib/html/sanitize";
 
 /** LLM output can include init directives that set securityLevel to strict; that triggers DOMPurify.sanitize, which is missing in some environments (minified as tb.sanitize). */
 function stripSecurityLevelInitDirectives(source: string): string {
@@ -227,11 +231,12 @@ export function MermaidDiagram({
     containerRef.current.innerHTML = "";
 
     const renderOnce = async (diagramCode: string) => {
-      // Re-apply before every render so init directives or internal resets cannot force strict + DOMPurify.
+      ensureMermaidDomPurify();
+      // Strict mode strips HTML in foreignObject; DOMPurify is provided via ensureMermaidDomPurify.
       mermaid.initialize({
         startOnLoad: false,
         theme: "neutral",
-        securityLevel: "loose",
+        securityLevel: "strict",
       });
 
       await mermaid.parse(diagramCode);
@@ -244,11 +249,13 @@ export function MermaidDiagram({
         throw new Error("Mermaid render returned empty SVG.");
       }
 
+      const safeSvgMarkup = sanitizeMermaidSvgMarkup(svgMarkup);
+
       if (cancelled || renderEpochRef.current !== epoch || !containerRef.current) {
         return;
       }
 
-      containerRef.current.innerHTML = svgMarkup;
+      containerRef.current.innerHTML = safeSvgMarkup;
       const svg = containerRef.current.querySelector("svg");
 
       if (svg) {
