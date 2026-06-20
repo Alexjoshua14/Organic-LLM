@@ -229,7 +229,16 @@
   }
 
   body {
-    @apply bg-background text-foreground;
+    @apply relative bg-transparent text-foreground;
+  }
+
+  /* Full-bleed background under iOS safe areas (no background-attachment: fixed). */
+  body::before {
+    content: "";
+    position: fixed;
+    inset: 0;
+    z-index: -1;
+    background-color: var(--background);
   }
 
   p {
@@ -308,10 +317,24 @@ body.font-theme-commissioner {
   }
 }
 
+/* Mobile safe area — padding on content, not the background layer */
+.app-shell {
+  padding-left: env(safe-area-inset-left, 0px);
+  padding-right: env(safe-area-inset-right, 0px);
+}
+
+.app-header-safe-top {
+  padding-top: env(safe-area-inset-top, 0px);
+}
+
+.scroll-area-safe-bottom {
+  padding-bottom: max(1rem, env(safe-area-inset-bottom, 0px));
+}
+
 /* Mobile safe area support */
 @supports (padding: env(safe-area-inset-bottom)) {
   .mobile-safe-bottom {
-    padding-bottom: env(safe-area-inset-bottom);
+    padding-bottom: max(0px, env(safe-area-inset-bottom));
   }
 }
 
