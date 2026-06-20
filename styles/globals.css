@@ -530,6 +530,35 @@ body.font-theme-commissioner {
   }
 }
 
+.chat-style-card-host {
+  overflow: visible;
+  /* Fixed bleed on every card so selection does not reflow the grid. */
+  padding: 10px;
+  margin: -10px;
+}
+
+.dark .chat-style-card-stage {
+  overflow: visible;
+}
+
+.chat-style-lumen-rim {
+  position: absolute;
+  inset: calc(-1 * var(--lumen-outset, 4px));
+  z-index: 0;
+  box-sizing: border-box;
+  border: var(--lumen-band, 5px) solid rgb(var(--lumen) / 0.16);
+  border-radius: var(--chip-radius, 0.75rem);
+  background: transparent;
+  pointer-events: none;
+  filter: blur(var(--lumen-blur, 3px));
+  opacity: 0.26;
+}
+
+.dark .chat-style-lumen-rim {
+  border-color: rgb(var(--lumen) / 0.19);
+  opacity: 0.36;
+}
+
 @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
   .organic-glass-preview {
     background: color-mix(in oklch, var(--background) 94%, transparent) !important;

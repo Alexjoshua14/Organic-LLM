@@ -61,10 +61,22 @@ export const ChatThread: FC<ChatThreadProps> = ({
 
   return (
     <ConversationContent
-      className={cn("w-full px-4 pt-16 pb-12 flex flex-col", contentClassName, className)}
+      className={cn(
+        "flex w-full flex-col px-4 pb-4 pt-8",
+        renderEmptyState && messages.length === 0
+          ? "min-h-0 flex-1 justify-center pt-4 pb-2"
+          : "pb-12 pt-16",
+        contentClassName,
+        className
+      )}
       scrollClassName="touch-manipulation w-full min-w-0 [scrollbar-gutter:stable]! overflow-x-hidden"
     >
-      <div className="max-w-232 mx-auto w-full flex flex-col gap-8">
+      <div
+        className={cn(
+          "mx-auto flex w-full max-w-232 flex-col",
+          renderEmptyState && messages.length === 0 ? "gap-0" : "gap-8"
+        )}
+      >
         {modelSummary.shouldUseThreadBadge && modelSummary.label ? (
           <div className="flex justify-end -mb-3">
             <span className="rounded-full border border-border/50 bg-background-tertiary/35 px-2.5 py-1 text-[11px] font-medium text-muted-foreground">

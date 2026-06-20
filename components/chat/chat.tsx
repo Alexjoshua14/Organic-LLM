@@ -75,6 +75,8 @@ export const Chat: React.FC<ChatProps> = ({
   assistantSessionRef.current = assistantSession;
   const usePersistedSchemas = useRef<boolean>(persona === "aion" || persona === "strata");
   const initialMessageSent = useRef<boolean>(false);
+  const composerInjectSeq = useRef(0);
+  const [composerInject, setComposerInject] = useState<{ id: number; text: string } | null>(null);
   const [aiAction, setAiAction] = useState<
     | {
         action: ChatAIActionEnum;
@@ -371,7 +373,17 @@ export const Chat: React.FC<ChatProps> = ({
           contentClassName={persona === "remy" ? MEMORY_PANEL_RESERVE_PADDING : undefined}
           messages={messages}
           renderEmptyState={
-            experience === "arcadia" ? () => <ChatStylePicker chatId={id} /> : undefined
+            experience === "arcadia"
+              ? () => (
+                  <ChatStylePicker
+                    chatId={id}
+                    onStarterSelect={(text) => {
+                      composerInjectSeq.current += 1;
+                      setComposerInject({ id: composerInjectSeq.current, text });
+                    }}
+                  />
+                )
+              : undefined
           }
         />
         {persona === "remy" && (
@@ -412,6 +424,7 @@ export const Chat: React.FC<ChatProps> = ({
           <CoreInput
             chatId={chatData?.thread.id}
             clearError={clearError}
+            composerInject={composerInject}
             enableMarkdownInputPreview={
               experience === "arcadia" && experimentalArcadiaMarkdownPreview
             }
