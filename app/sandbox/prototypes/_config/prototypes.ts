@@ -55,6 +55,18 @@ export const prototypes: PrototypeEntry[] = [
     },
   },
   {
+    slug: "mermaid",
+    title: "Mermaid render harness",
+    description:
+      "Fixtures for the strict-mode, sanitized Mermaid pipeline — flowchart, sequence, state, quoted special-character labels, and graceful error fallback.",
+    ranking: {
+      importance: 6,
+      frequency: 3,
+      createdAt: "2026-06-19",
+      updatedAt: "2026-06-19",
+    },
+  },
+  {
     slug: "llm-states",
     title: "LLM states",
     description:
