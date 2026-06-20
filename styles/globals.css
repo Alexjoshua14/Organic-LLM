@@ -384,7 +384,7 @@ body.font-theme-commissioner {
   }
 }
 
-/* Organic Glass preview fallback: keep the material solid and readable when blur is reduced. */
+/* Organic Glass preview + smoke fallback: solid readable fill when blur is unavailable. */
 @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
   .organic-glass-preview {
     background: color-mix(in oklch, var(--background) 94%, transparent) !important;
@@ -392,6 +392,14 @@ body.font-theme-commissioner {
 
   .dark .organic-glass-preview {
     background: color-mix(in oklch, var(--secondary) 96%, transparent) !important;
+  }
+
+  .organic-glass-smoke {
+    background: color-mix(in oklch, var(--background) 90%, transparent) !important;
+  }
+
+  .dark .organic-glass-smoke {
+    background: color-mix(in oklch, var(--secondary) 92%, transparent) !important;
   }
 }
 
@@ -403,5 +411,14 @@ body.font-theme-commissioner {
 
   .dark .organic-glass-preview {
     background: color-mix(in oklch, var(--secondary) 96%, transparent) !important;
+  }
+
+  .organic-glass-smoke {
+    background: color-mix(in oklch, var(--background) 92%, transparent) !important;
+    backdrop-filter: none !important;
+  }
+
+  .dark .organic-glass-smoke {
+    background: color-mix(in oklch, var(--secondary) 94%, transparent) !important;
   }
 }
