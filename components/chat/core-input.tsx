@@ -38,10 +38,6 @@ import {
   PromptInputMessage,
   PromptInputTextarea,
   PromptInputTools,
-  PromptInputActionAddAttachments,
-  PromptInputActionMenu,
-  PromptInputActionMenuContent,
-  PromptInputActionMenuTrigger,
   PromptInputButton,
   PromptInputFooter,
   PromptInputSelect,
@@ -49,11 +45,12 @@ import {
   PromptInputSelectItem,
   PromptInputSelectTrigger,
   PromptInputSelectValue,
-  PromptInputSpeechButton,
 } from "../third-party/ai-elements/prompt-input";
 import ShinyText from "../ShinyText";
 
 import { ChatMessageMarkdown } from "./chat-message-markdown";
+import { ComposerAddFilesButton } from "./composer-add-files-button";
+import { ComposerMicButton } from "./composer-mic-button";
 import { ComposerToolChip } from "./composer-tool-chip";
 import { ModelZdrIndicator } from "./model-zdr-indicator";
 
@@ -598,17 +595,9 @@ export const CoreInput: React.FC<CoreInputProps> = ({
               )}
             </div>
             <div className="flex gap-1">
-              <PromptInputActionMenu>
-                <PromptInputActionMenuTrigger />
-                <PromptInputActionMenuContent>
-                  <PromptInputActionAddAttachments />
-                </PromptInputActionMenuContent>
-              </PromptInputActionMenu>
+              <ComposerAddFilesButton />
               {(!enableMarkdownInputPreview || inputMarkdownMode === "edit") && (
-                <PromptInputSpeechButton
-                  textareaRef={textareaRef}
-                  onTranscriptionChange={setText}
-                />
+                <ComposerMicButton textareaRef={textareaRef} onTranscriptionChange={setText} />
               )}
             </div>
           </PromptInputTools>

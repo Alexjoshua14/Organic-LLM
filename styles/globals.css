@@ -469,6 +469,21 @@ body.font-theme-commissioner {
   opacity: 0.18;
 }
 
+.dark .lumen-rim-backlight--pulse.lumen-rim-backlight--on {
+  animation: lumen-rim-breathe 2.4s cubic-bezier(0.25, 0.46, 0.45, 0.94) infinite;
+}
+
+@keyframes lumen-rim-breathe {
+  0%,
+  100% {
+    opacity: 0.36;
+  }
+
+  50% {
+    opacity: 0.26;
+  }
+}
+
 @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
   .organic-glass-preview {
     background: color-mix(in oklch, var(--background) 94%, transparent) !important;

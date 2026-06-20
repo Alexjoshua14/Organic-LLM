@@ -33,6 +33,8 @@
  * - Replace the border ring with ellipse/circle radial gradients on labeled chips.
  * - Stack box-shadow halos on top of the border ring (creates double bands).
  *
+ * Used by ComposerToolChip and composer input actions (+, mic).
+ *
  * Tokens: `--lumen`, `--lumen-rim`, `--lumen-deep` in `styles/globals.css` (:root).
  */
 
