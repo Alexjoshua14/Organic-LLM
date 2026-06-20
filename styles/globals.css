@@ -314,27 +314,6 @@ body.font-theme-commissioner {
   }
 }
 
-/* Sandbox gateway button — organic motion */
-@keyframes sandbox-border-shift {
-  0%,
-  100% {
-    background-position: 0% 50%;
-  }
-  50% {
-    background-position: 100% 50%;
-  }
-}
-
-@keyframes sandbox-shimmer {
-  0%,
-  100% {
-    background-position: 0% 50%;
-  }
-  50% {
-    background-position: 100% 50%;
-  }
-}
-
 /* Mobile safe area — padding on content, not the background layer */
 .app-shell {
   padding-left: env(safe-area-inset-left, 0px);
