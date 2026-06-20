@@ -785,7 +785,7 @@ export const PromptInput = ({
         onChange={handleChange}
       />
       <form ref={formRef} className={cn("w-full", className)} onSubmit={handleSubmit} {...props}>
-        <InputGroup className={`${glass({ opaque: true })} overflow-hidden rounded-xl`}>
+        <InputGroup className={`${glass({ opaque: true })} overflow-visible rounded-xl`}>
           {children}
         </InputGroup>
       </form>
@@ -1223,7 +1223,7 @@ export const PromptInputSelectTrigger = ({
 }: PromptInputSelectTriggerProps) => (
   <SelectTrigger
     className={cn(
-      "border-none bg-transparent font-medium text-muted-foreground shadow-none transition-colors",
+      "cursor-pointer border-none bg-transparent font-medium text-muted-foreground shadow-none transition-colors",
       "hover:bg-accent hover:text-foreground aria-expanded:bg-accent aria-expanded:text-foreground",
       className
     )}

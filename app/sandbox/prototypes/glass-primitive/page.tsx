@@ -3,6 +3,7 @@ import type { ReactNode } from "react";
 
 import Link from "next/link";
 
+import { CapabilityChipLabDemo } from "./_components/capability-chip-lab-demo";
 import AdaptiveLiquidChrome from "@/components/background/AdaptiveLiquidChrome";
 import { OrganicGlassBaselineSurface } from "@/components/design-system/organic-glass-baseline-surface";
 import { OrganicGlassRefractFilterSvg } from "@/components/design-system/organic-glass-refract-filter";
@@ -276,6 +277,17 @@ function GlassLabSampleGallery({ variant }: { variant: "production" | "preview" 
           ))}
         </div>
       </GlassLabGalleryRow>
+
+      {isProd ? (
+        <GlassLabGalleryRow label="Capability chips on opaque shell">
+          <p className="mb-3 text-xs text-muted-foreground">
+            Active chips use <code className="text-foreground/90">glass(&#123; chip: true &#125;)</code>{" "}
+            — one unified aperture lens over the opaque composer shell. Toggle to compare recessed vs
+            open states.
+          </p>
+          <CapabilityChipLabDemo />
+        </GlassLabGalleryRow>
+      ) : null}
 
       <GlassLabGalleryRow label="Secondary actions">
         <div className="flex flex-wrap gap-2">

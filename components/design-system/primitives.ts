@@ -58,6 +58,9 @@ export const caption = tv({
 /**
  * Neutral smoke glass — blur + theme tint + hairline border. Uses HeroUI background/border
  * tokens (not raw white/black) so light/dark follow the app palette automatically.
+ *
+ * `chip: true` — unified foreground aperture lens for toggles inside opaque shells.
+ * Uses base smoke opacity (not `opaque`) so chrome shows through. Do not combine with `opaque: true`.
  */
 export const glass = tv({
   base: [
@@ -81,10 +84,23 @@ export const glass = tv({
       left: "border-0 border-l border-border/50",
       none: "border-0",
     },
+    chip: {
+      true: [
+        "bg-background/12",
+        "backdrop-brightness-[1.16] backdrop-saturate-[1.1]",
+        "dark:backdrop-brightness-[1.04] dark:backdrop-saturate-[1.02]",
+        "border-[color:color-mix(in_oklch,var(--border)_45%,transparent)]",
+        "text-foreground",
+        "shadow-[inset_0_1px_0_rgba(255,255,255,0.22)]",
+      ].join(" "),
+      false: "",
+    },
   },
+  compoundVariants: [{ chip: true, class: "rounded-md" }],
   defaultVariants: {
     tone: "default",
     border: "all",
+    chip: false,
   },
 });
 

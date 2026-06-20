@@ -54,6 +54,7 @@ import {
 import ShinyText from "../ShinyText";
 
 import { ChatMessageMarkdown } from "./chat-message-markdown";
+import { ComposerToolChip } from "./composer-tool-chip";
 import { ModelZdrIndicator } from "./model-zdr-indicator";
 
 import { cn } from "@/lib/utils";
@@ -448,6 +449,7 @@ export const CoreInput: React.FC<CoreInputProps> = ({
   return (
     <PromptInput
       aria-busy={showSentShimmer ? true : undefined}
+      data-dim-background
       globalDrop
       multiple
       className={cn("min-w-fit z-40", className)}
@@ -503,21 +505,20 @@ export const CoreInput: React.FC<CoreInputProps> = ({
           />
         )}
       </PromptInputBody>
-      <PromptInputFooter>
-        <div ref={toolsRef} className="w-full">
-          <PromptInputTools className="flex justify-between w-full">
-            <div className="flex gap-1">
+      <PromptInputFooter className="overflow-visible">
+        <div ref={toolsRef} className="w-full overflow-visible">
+          <PromptInputTools className="flex justify-between w-full overflow-visible">
+            <div className="flex gap-1 overflow-visible">
               {enableMarkdownInputPreview && (
-                <PromptInputButton
+                <ComposerToolChip
+                  active={inputMarkdownMode === "preview"}
                   aria-label={
                     inputMarkdownMode === "edit" ? "Show markdown preview" : "Back to editing"
                   }
-                  aria-pressed={inputMarkdownMode === "preview"}
-                  size={"dynamic-sm"}
                   title={
                     inputMarkdownMode === "edit" ? "Show rendered markdown" : "Edit as plain text"
                   }
-                  variant={inputMarkdownMode === "preview" ? "default" : "ghost"}
+                  tool="preview"
                   onClick={() => setInputMarkdownMode((m) => (m === "edit" ? "preview" : "edit"))}
                 >
                   {inputMarkdownMode === "edit" ? (
@@ -528,37 +529,37 @@ export const CoreInput: React.FC<CoreInputProps> = ({
                   <span className={cn(showLabels ? "inline-flex" : "hidden")}>
                     {inputMarkdownMode === "edit" ? "Preview" : "Edit"}
                   </span>
-                </PromptInputButton>
+                </ComposerToolChip>
               )}
               {!hideWebMemorySpeechToggles && variant !== "compact" ? (
                 <>
-                  <PromptInputButton
-                    size={"dynamic-sm"}
-                    variant={useWebSearch ? "default" : "ghost"}
+                  <ComposerToolChip
+                    active={useWebSearch}
+                    tool="search"
                     onClick={() => setUseWebSearch(!useWebSearch)}
                   >
                     <GlobeIcon size={16} />
                     <span className={cn(showLabels ? "inline-flex" : "hidden")}>Search</span>
-                  </PromptInputButton>
-                  <PromptInputButton
-                    size={"dynamic-sm"}
-                    variant={useMemories ? "default" : "ghost"}
+                  </ComposerToolChip>
+                  <ComposerToolChip
+                    active={useMemories}
+                    tool="memory"
                     onClick={() => setUseMemories(!useMemories)}
                   >
                     <BrainCircuit />
                     <span className={cn(showLabels ? "inline-flex" : "hidden")}>Memory</span>
-                  </PromptInputButton>
+                  </ComposerToolChip>
                   {useSpeechFriendlyRef && (
-                    <PromptInputButton
+                    <ComposerToolChip
+                      active={useSpeechFriendly}
                       aria-label={useSpeechFriendly ? "Speech-friendly on" : "Speech-friendly off"}
-                      size={"dynamic-sm"}
                       title="Format replies for reading and TTS; a separate pipeline converts to speech-friendly script."
-                      variant={useSpeechFriendly ? "default" : "ghost"}
+                      tool="speech"
                       onClick={() => setUseSpeechFriendly(!useSpeechFriendly)}
                     >
                       <Volume2 size={16} />
                       <span className={cn(showLabels ? "inline-flex" : "hidden")}>Speech</span>
-                    </PromptInputButton>
+                    </ComposerToolChip>
                   )}
                 </>
               ) : null}
