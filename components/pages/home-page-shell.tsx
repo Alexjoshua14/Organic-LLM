@@ -215,10 +215,10 @@ export function HomePageShell() {
             data-dim-background
             transition={HOME_LAYOUT_SPRING}
             className={cn(
-              "flex flex-col w-full gap-6",
+              "mx-auto flex w-full max-w-xl flex-col gap-6 px-4 sm:px-0",
               fullView
-                ? cn("mx-auto flex-1 min-h-0 justify-start py-20", fullViewGutterX)
-                : "items-center justify-center rounded-xl max-w-sm sm:max-w-xl"
+                ? cn("min-h-0 flex-1 justify-start py-20", fullViewGutterX)
+                : "items-center justify-center"
             )}
           >
             {planMode ? (
@@ -266,7 +266,12 @@ export function HomePageShell() {
                 </ul>
               </div>
             ) : null}
-            <div className={cn(fullView && "mx-auto flex min-h-0 w-full min-w-0 flex-1 flex-col")}>
+            <div
+              className={cn(
+                "mx-auto w-full max-w-xl",
+                fullView && "flex min-h-0 flex-1 flex-col"
+              )}
+            >
               <AIInput
                 fullView={fullView}
                 hideEmbedActions={fullView}

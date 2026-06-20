@@ -12,7 +12,7 @@ export type ThemeOption = "system" | "light" | "dark";
 const THEME_OPTIONS: {
   value: ThemeOption;
   label: string;
-  Icon: FC<{ size?: number }>;
+  Icon: FC<{ size?: number; className?: string }>;
 }[] = [
   { value: "system", label: "System", Icon: SunMoon },
   { value: "light", label: "Light", Icon: Sun },
@@ -56,7 +56,7 @@ export const ThemeSwitch: FC<ThemeSwitchProps> = ({
       <button
         aria-label={`Theme: ${option.label}. Click to switch.`}
         className={clsx(
-          "flex items-center justify-center rounded-md p-1.5 text-muted-foreground transition-colors",
+          "group flex cursor-pointer items-center justify-center rounded-md p-1.5 text-muted-foreground transition-colors",
           "hover:bg-muted/60 hover:text-foreground",
           "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",
           className
@@ -65,7 +65,10 @@ export const ThemeSwitch: FC<ThemeSwitchProps> = ({
         type="button"
         onClick={() => setTheme(nextTheme(current))}
       >
-        <Icon size={20} />
+        <Icon
+          className="transition-transform duration-200 ease-out motion-safe:group-hover:scale-110 motion-safe:group-hover:-rotate-6 motion-safe:group-active:scale-95"
+          size={20}
+        />
       </button>
     );
   }

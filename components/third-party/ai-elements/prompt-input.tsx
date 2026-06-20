@@ -789,7 +789,10 @@ export const PromptInput = ({
         onChange={handleChange}
       />
       <form ref={formRef} className={cn("w-full", className)} onSubmit={handleSubmit} {...props}>
-        <InputGroup className={`${glass({ opaque: true })} overflow-visible rounded-xl`}>
+        <InputGroup
+          className={`${glass({ opaque: true })} overflow-visible rounded-xl`}
+          data-prompt-input-shell
+        >
           {children}
         </InputGroup>
       </form>
