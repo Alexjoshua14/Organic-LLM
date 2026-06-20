@@ -10,11 +10,7 @@ try {
 }
 
 const nextConfig = {
-  allowedDevOrigins: [
-    "aetherion.local",
-    "192.168.4.31",
-    ...(localConfig?.allowedDevOrigins ?? []),
-  ],
+  allowedDevOrigins: ["aetherion.local", "192.168.4.31", ...(localConfig?.allowedDevOrigins ?? [])],
   transpilePackages: ["@organic-llm/morph-physics"],
   experimental: {
     optimizePackageImports: ["lucide-react", "framer-motion", "@radix-ui/react-icons"],
