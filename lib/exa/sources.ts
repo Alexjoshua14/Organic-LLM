@@ -1,10 +1,13 @@
 "use server";
 
-import { getContents, searchWeb } from "./client";
+import { searchWeb } from "./client";
 
 import { RabbitHoleNode } from "@/lib/schemas/rabbitHoleSchemas";
 import { createLogger } from "@/lib/logger";
-import { assertSafePublicHttpsUrl } from "@/lib/strata/safe-url";
+import {
+  fetchExternalContentText,
+} from "@/lib/security/external-content/fetch-external-content";
+import { sanitizeUntrustedText } from "@/lib/security/external-content/untrusted";
 
 const logger = createLogger("lib/exa/sources.ts");
 
@@ -38,7 +41,13 @@ export async function fetchExternalSources(
   const sourcesContext =
     exaSources.length > 0
       ? exaSources
-          .map((s, idx) => `[${idx + 1}] ${s.title} (${s.url})${s.snippet ? `\n${s.snippet}` : ""}`)
+          .map((s, idx) => {
+            const title = sanitizeUntrustedText(s.title ?? "", 512);
+            const url = s.url ?? "";
+            const snippet = s.snippet ? sanitizeUntrustedText(s.snippet, 2000) : "";
+
+            return `[${idx + 1}] ${title} (${url})${snippet ? `\n${snippet}` : ""}`;
+          })
           .join("\n\n")
       : "No external sources available.";
 
@@ -51,73 +60,20 @@ export async function fetchExternalSources(
 }
 
 /**
- * Try to fetch webpage content for a source URL using Exa, with fallback to direct fetch.
+ * Fetch webpage content through the external-content DMZ (Exa-first, hardened origin fallback).
  */
 export async function getWebpageContent(sourceUrl: string): Promise<string> {
-  let webpageContent = "";
+  const text = await fetchExternalContentText(sourceUrl, {
+    mode: "auto",
+    maxChars: 5000,
+    initiatedBy: "server",
+  });
 
-  try {
-    const { contents, error: exaError } = await getContents([sourceUrl]);
-
-    if (!exaError && contents.length > 0) {
-      webpageContent = contents[0].text?.substring(0, 5000) || "";
-      logger.log(
-        "analyzeSource",
-        `Exa content fetched length=${webpageContent.length} for ${sourceUrl}`
-      );
-    } else if (exaError) {
-      logger.log(
-        "analyzeSource",
-        `Exa content fetch failed, falling back to direct fetch: ${exaError}`
-      );
-    }
-  } catch (exaFetchError) {
-    logger.log("analyzeSource", `Exa content fetch threw, falling back: ${exaFetchError}`);
+  if (text) {
+    logger.log("getWebpageContent", `Fetched length=${text.length} for ${sourceUrl}`);
+  } else {
+    logger.log("getWebpageContent", `No content for ${sourceUrl}`);
   }
 
-  // Fallback: direct fetch if Exa content missing (HTTPS public URLs only — SSRF guard)
-  if (!webpageContent) {
-    const safeUrl = assertSafePublicHttpsUrl(sourceUrl);
-
-    if (!safeUrl.ok) {
-      logger.log(
-        "analyzeSource",
-        `Blocked direct fetch for unsafe URL (${safeUrl.reason}): ${sourceUrl}`
-      );
-
-      return webpageContent;
-    }
-
-    try {
-      const response = await fetch(safeUrl.href, {
-        headers: {
-          "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
-        },
-        signal: AbortSignal.timeout(10000), // 10 second timeout
-      });
-
-      if (response.ok) {
-        const html = await response.text();
-
-        webpageContent = html
-          .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, "")
-          .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, "")
-          .replace(/<[^>]+>/g, " ")
-          .replace(/\s+/g, " ")
-          .trim()
-          .substring(0, 5000); // Limit to first 5000 chars
-        logger.log(
-          "analyzeSource",
-          `Fallback fetch length=${webpageContent.length} for ${sourceUrl}`
-        );
-      }
-    } catch (fetchError) {
-      logger.log(
-        "analyzeSource",
-        `Failed to fetch webpage content, using metadata only: ${fetchError}`
-      );
-    }
-  }
-
-  return webpageContent;
+  return text;
 }
