@@ -2,6 +2,7 @@ import { auth } from "@clerk/nextjs/server";
 import { NextResponse } from "next/server";
 
 import { getSessionById } from "@/data/supabase/rabbitholes";
+import { clientErrorJson, logRouteError } from "@/lib/api/client-safe-error";
 import { createLogger } from "@/lib/logger";
 import { runGenerationAndPersist } from "@/lib/rabbit-holes/runGenerationAndPersist";
 
@@ -44,10 +45,8 @@ export async function POST(_req: Request, { params }: { params: Promise<{ sessio
 
     return NextResponse.json({ message: "Resume completed", sessionId, nodeId }, { status: 200 });
   } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
+    logRouteError(logger, "POST", error);
 
-    logger.error("POST", "Resume failed");
-
-    return NextResponse.json({ error: "Resume failed" }, { status: 500 });
+    return clientErrorJson(500);
   }
 }

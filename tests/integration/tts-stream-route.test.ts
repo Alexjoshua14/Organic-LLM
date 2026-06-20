@@ -5,11 +5,17 @@ import {
   createMockGenerateSpeechResult,
 } from "../helpers/mock-tts";
 
+mock.module("server-only", () => ({}));
+
 // ---------------------------------------------------------------------------
 // Mock the generateSpeech import BEFORE importing the route
 // ---------------------------------------------------------------------------
 
 const mockGenerateSpeech = mock(async () => createMockGenerateSpeechResult(10));
+const mockRequireTtsActor = mock(async () => ({
+  data: { sbUserId: "sb_test_user" },
+  error: null,
+}));
 
 mock.module("ai", () => ({
   experimental_generateSpeech: mockGenerateSpeech,
@@ -33,7 +39,12 @@ mock.module("@ai-sdk/elevenlabs", () => ({
   },
 }));
 
+mock.module("@/lib/api/tts-gate", () => ({
+  requireTtsActor: mockRequireTtsActor,
+}));
+
 import { POST } from "@/app/api/ai/tts/stream/route";
+import { GENERIC_SERVER_ERROR } from "@/lib/api/client-safe-error";
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -99,9 +110,14 @@ function uint8ArrayToBlob(data: Record<number, number>): Blob {
 describe("POST /api/ai/tts/stream", () => {
   beforeEach(() => {
     mockGenerateSpeech.mockClear();
+    mockRequireTtsActor.mockClear();
     mockGenerateSpeech.mockImplementation(async () =>
       createMockGenerateSpeechResult(10),
     );
+    mockRequireTtsActor.mockResolvedValue({
+      data: { sbUserId: "sb_test_user" },
+      error: null,
+    });
   });
 
   // --- Validation ---
@@ -295,7 +311,8 @@ describe("POST /api/ai/tts/stream", () => {
     const events = await readSSEEvents(res);
     const errorEvent = events.find((e) => e.type === "error");
     expect(errorEvent).toBeDefined();
-    expect(errorEvent!.error).toContain("rate limit");
+    // Internal error details are logged server-side only; client gets a generic message.
+    expect(errorEvent!.error).toBe(GENERIC_SERVER_ERROR);
   });
 
   test("defaults to first available model when model param is invalid", async () => {

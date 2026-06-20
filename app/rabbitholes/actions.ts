@@ -36,6 +36,12 @@ import {
   generateSourceAnalysis,
 } from "@/lib/llm/rabbit-hole/generation";
 import { fetchExternalSources, getWebpageContent } from "@/lib/exa/sources";
+import { getSupabaseUserId } from "@/data/supabase/profiles";
+import { checkExternalFetchLimit } from "@/lib/rate-limit/external-fetch";
+import {
+  sanitizeUntrustedText,
+  wrapUntrustedContent,
+} from "@/lib/security/external-content";
 
 const logger = createLogger("app/rabbitholes/actions.ts");
 
@@ -532,17 +538,44 @@ export async function analyzeSource(
   try {
     logger.log("analyzeSource", `Analyzing source: ${sourceUrl}`);
 
+    const sbUserIdResult = await getSupabaseUserId(clerkUser.userId);
+
+    if (sbUserIdResult.error || sbUserIdResult.data === null) {
+      return {
+        data: null,
+        error: new Error("User not found in supabase"),
+      };
+    }
+
+    const fetchLimit = await checkExternalFetchLimit(sbUserIdResult.data);
+
+    if (!fetchLimit.success) {
+      return {
+        data: null,
+        error: new Error(fetchLimit.error ?? "Too many external fetch requests"),
+      };
+    }
+
     const webpageContent = await getWebpageContent(sourceUrl);
 
+    const safeTitle = sanitizeUntrustedText(sourceTitle, 512);
+    const safeSnippet = sourceSnippet ? sanitizeUntrustedText(sourceSnippet, 2000) : "";
+    const safeUrl = sanitizeUntrustedText(sourceUrl, 2048);
+
     const contextInfo = webpageContent
-      ? `Webpage content (first 5000 chars):\n${webpageContent}\n\n`
+      ? `${wrapUntrustedContent({
+          kind: "webpage",
+          sourceUrl: safeUrl,
+          title: safeTitle,
+          text: webpageContent,
+        })}\n\n`
       : "";
 
     const prompt = `Analyze the following source:
 
-Title: ${sourceTitle}
-URL: ${sourceUrl}
-${sourceSnippet ? `Snippet: ${sourceSnippet}` : ""}
+Title: ${safeTitle}
+URL: ${safeUrl}
+${safeSnippet ? `Snippet: ${safeSnippet}` : ""}
 
 ${contextInfo}
 

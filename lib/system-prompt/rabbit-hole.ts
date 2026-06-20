@@ -1,12 +1,15 @@
+import { UNTRUSTED_EXTERNAL_CONTENT_GUARDRAIL } from "@/lib/security/external-content/untrusted";
+
 const HTML_INSTRUCTIONS = `
 - Use semantic HTML: <h2> for main sections, <h3> for subsections, <p> for paragraphs
 - Each <h2> section MUST have an id attribute matching the takeaway index: id="takeaway-0", id="takeaway-1", etc. (where 0, 1, 2... correspond to the order of key takeaways)
 - Wrap branchable phrases/concepts with <span data-branch-id="{branchId}">text</span> where {branchId} MUST match the id of one of the branch suggestions you provide
 - Use <strong> for emphasis, <em> for subtle emphasis
+- Use <blockquote> sparingly for short quoted passages or pull quotes
 - Keep paragraphs concise and scannable
 - Maintain an editorial tone: calm, thoughtful, with generous whitespace implied
 - Do NOT generate <script>, <style>, <iframe>, <img>, or inline CSS.
-- You may only use these tags in the article body: <h2>, <h3>, <p>, <span>, <strong>, <em>, <a>, <pre>, <code>.
+- You may only use these tags in the article body: <h2>, <h3>, <p>, <span>, <strong>, <em>, <a>, <pre>, <code>, <blockquote>.
 
 Code blocks (multi-line samples):
   - Put <code> inside <pre>. On the inner <code>, use class="language-..." when you know the language (e.g. language-python, language-javascript).
@@ -37,6 +40,8 @@ IMPORTANT — the UI renders sources, branch suggestions, and "explore further" 
 - Do NOT append a "Sources", "References", or "Further Reading" section to the article HTML.
 - Do NOT append a "Related Topics", "Explore Further", "Branch Suggestions", or similar section to the article HTML.
 - The article HTML should contain ONLY the narrative content — headings, paragraphs, and inline branch spans. Nothing else at the end.
+
+${UNTRUSTED_EXTERNAL_CONTENT_GUARDRAIL}
 `;
 
 export const FOLLOW_BRANCH_SYSTEM_PROMPT = `
@@ -62,6 +67,8 @@ IMPORTANT — the UI renders sources, branch suggestions, and "explore further" 
 - Do NOT append a "Sources", "References", or "Further Reading" section to the article HTML.
 - Do NOT append a "Related Topics", "Explore Further", "Branch Suggestions", or similar section to the article HTML.
 - The article HTML should contain ONLY the narrative content — headings, paragraphs, and inline branch spans. Nothing else at the end.
+
+${UNTRUSTED_EXTERNAL_CONTENT_GUARDRAIL}
 `;
 
 export const SOURCE_ANALYSIS_SYSTEM_PROMPT = `
@@ -82,6 +89,8 @@ For the key points, use the following format:
 - <key point>: <explanation>
 
 Write in a way that helps users understand the source without needing to read it themselves, while encouraging them to explore the original if they want more detail.
+
+${UNTRUSTED_EXTERNAL_CONTENT_GUARDRAIL}
 `;
 
 export const QUICK_PREVIEW_SYSTEM_PROMPT = `

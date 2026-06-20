@@ -6,6 +6,8 @@
  */
 import { mock } from "bun:test";
 
+process.env.EXA_API_KEY = process.env.EXA_API_KEY ?? "test-exa-key";
+
 import { registerUpstashRateLimitMocks } from "./helpers/rate-limit-upstash";
 
 declare global {

@@ -1,6 +1,7 @@
 import { auth } from "@clerk/nextjs/server";
 import { NextRequest, NextResponse } from "next/server";
 
+import { clientErrorJson, logRouteError } from "@/lib/api/client-safe-error";
 import { loadHomepageRoutingCandidates } from "@/lib/chat/load-homepage-routing-candidates";
 import { createLogger } from "@/lib/logger";
 
@@ -23,9 +24,9 @@ export async function GET(req: NextRequest) {
   const res = await loadHomepageRoutingCandidates(coalescenceMode);
 
   if (res.error) {
-    logger.error("GET", res.error.message);
+    logRouteError(logger, "GET", res.error);
 
-    return NextResponse.json({ error: res.error.message }, { status: 500 });
+    return clientErrorJson(500);
   }
 
   return NextResponse.json({ data: res.data ?? [] });

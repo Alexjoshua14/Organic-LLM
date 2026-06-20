@@ -4,6 +4,7 @@ import { auth } from "@clerk/nextjs/server";
 import { streamText, UIMessage, convertToModelMessages, smoothStream, consumeStream } from "ai";
 
 import { getSupabaseUserId } from "@/data/supabase/profiles";
+import { GENERIC_SERVER_ERROR, logRouteError } from "@/lib/api/client-safe-error";
 import { checkLlmMessageLimit } from "@/lib/rate-limit/llm";
 import { getChatModel } from "@/lib/llm/helpers";
 import { createLogger } from "@/lib/logger";
@@ -129,17 +130,9 @@ export async function POST(req: Request) {
     originalMessages: [message],
     consumeSseStream: consumeStream,
     onError: (error) => {
-      const e = error instanceof Error ? error : new Error(String(error));
+      logRouteError(logger, "POST", error);
 
-      logger.error("POST", `UI stream error: ${e.name}`);
-      if (error instanceof Error) {
-        return error.message;
-      }
-      if (typeof error === "string") {
-        return error;
-      }
-
-      return "An unexpected error occurred";
+      return GENERIC_SERVER_ERROR;
     },
     onFinish: async ({ messages }) => {
       logger.log("POST", `Stream finished with ${messages.length} messages`);
