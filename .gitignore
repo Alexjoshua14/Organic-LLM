@@ -15,6 +15,7 @@ supabase/.temp/
 # next.js
 /.next/
 /out/
+next.config.local.cjs
 
 # production
 /build
