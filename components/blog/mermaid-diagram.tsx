@@ -5,25 +5,8 @@ import mermaid from "mermaid";
 import { useCallback, useEffect, useRef, useState, type KeyboardEvent } from "react";
 
 import { cn } from "@/lib/utils";
-import {
-  ensureMermaidDomPurify,
-  sanitizeMermaidSvgMarkup,
-} from "@/lib/html/sanitize";
-
-/** LLM output can include init directives that set securityLevel to strict; that triggers DOMPurify.sanitize, which is missing in some environments (minified as tb.sanitize). */
-function stripSecurityLevelInitDirectives(source: string): string {
-  return source
-    .split("\n")
-    .filter((line) => {
-      const t = line.trim();
-
-      if (!t.startsWith("%%")) return true;
-      if (!/init\s*:/i.test(t)) return true;
-
-      return !/securityLevel/i.test(t);
-    })
-    .join("\n");
-}
+import { ensureMermaidDomPurify, sanitizeMermaidSvgMarkup } from "@/lib/html/sanitize";
+import { stripMermaidSecurityInitDirectives } from "@/lib/mermaid/source";
 
 export function MermaidDiagram({
   code,
@@ -91,7 +74,10 @@ export function MermaidDiagram({
       });
     }
 
-    if (root && nodes) {
+    // `insertBefore` throws NotFoundError ("The object can not be found here."
+    // in WebKit) when `nodes` is not a direct child of `root` — some diagram
+    // types (e.g. state) nest it deeper. Only reorder when they are siblings.
+    if (root && nodes && nodes.parentNode === root) {
       if (edgePaths) root.insertBefore(edgePaths, nodes);
       if (edgeLabels) root.insertBefore(edgeLabels, nodes);
     }
@@ -223,7 +209,7 @@ export function MermaidDiagram({
   useEffect(() => {
     if (!code || !containerRef.current) return;
     const epoch = ++renderEpochRef.current;
-    const safeCode = stripSecurityLevelInitDirectives(code);
+    const safeCode = stripMermaidSecurityInitDirectives(code);
 
     let cancelled = false;
 
@@ -261,7 +247,13 @@ export function MermaidDiagram({
       if (svg) {
         svg.setAttribute("role", "img");
         svg.setAttribute("aria-label", "Diagram");
-        applyGlassStylingToSvg(svg as SVGSVGElement);
+        // Styling/layering is cosmetic and best-effort: never let a DOM quirk
+        // here blank an already-rendered diagram.
+        try {
+          applyGlassStylingToSvg(svg as SVGSVGElement);
+        } catch {
+          /* keep the rendered SVG even if glass styling fails */
+        }
       }
     };
 

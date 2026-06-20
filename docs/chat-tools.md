@@ -64,9 +64,9 @@ Registered when `experience` is **arcadia** or **topic explore**.
 
 ### `make_mermaid_diagram`
 
-Two-step **planner + generator** with validation and repair. The model publishes diagrams the UI renders from `mermaid` code blocks—process flows, architecture, relationships.
+Single **generator** call (plans + emits in one pass) with syntax validation and a bounded repair loop. The model publishes diagrams the UI renders from `mermaid` code blocks—process flows, architecture, relationships. Generation targets the renderer's strict, sanitized environment (no HTML labels, no `click`, quoted special-character labels). Server-side `mermaid.parse` validation **fails open** when the runtime can't validate (no DOM/DOMPurify), so the browser renderer is the final arbiter.
 
-- Implementation: [`createMermaidDiagramTool`](../lib/llm/llm-tool-kit.ts)
+- Implementation: [`createMermaidDiagramTool`](../lib/llm/llm-tool-kit.ts) · prompts: [`lib/system-prompt/mermaid-diagram-prompt.ts`](../lib/system-prompt/mermaid-diagram-prompt.ts) · source utils: [`lib/mermaid/source.ts`](../lib/mermaid/source.ts)
 
 ### `render_gen_ui`
 
