@@ -1,9 +1,14 @@
-import { beforeEach, describe, expect, test } from "bun:test";
+import { beforeEach, describe, expect, mock, test } from "bun:test";
+
+mock.module("server-only", () => ({}));
 
 import {
+  registerUpstashRateLimitMocks,
   sharedRatelimitGetRemaining as mockGetRemaining,
   sharedRatelimitLimit as mockLimit,
 } from "../helpers/rate-limit-upstash";
+
+registerUpstashRateLimitMocks();
 
 describe("TTS rate limit (lib/rate-limit/tts)", () => {
   let ttsRateLimit: typeof import("@/lib/rate-limit/tts");
