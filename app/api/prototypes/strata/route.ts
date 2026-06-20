@@ -3,6 +3,8 @@ import { generateObject, generateText } from "ai";
 
 import { getStrataPageById } from "@/data/supabase/strata";
 import { getSupabaseUserId } from "@/data/supabase/profiles";
+import { clientErrorResponse, logRouteError } from "@/lib/api/client-safe-error";
+import { createLogger } from "@/lib/logger";
 import {
   StrataGenerateRequestSchema,
   StrataGenerateResponseSchema,
@@ -15,6 +17,8 @@ import { buildPromptSafeRawInputBlock, sanitizeRawUserInput } from "@/lib/strata
 import { buildRawDiffPromptBlock } from "@/lib/strata/raw-diff";
 
 export const maxDuration = 30;
+
+const logger = createLogger("app/api/prototypes/strata/route.ts");
 
 function clampTitleToEightWords(title: string): string {
   const words = title.replace(/\s+/g, " ").trim().split(" ").filter(Boolean);
@@ -191,14 +195,8 @@ ${toolingContext}`,
       rawGenerationContext: nextRawGenerationContext,
     });
   } catch (err) {
-    return new Response(
-      JSON.stringify({
-        error: err instanceof Error ? err.message : "Failed to generate Strata content",
-      }),
-      {
-        status: 500,
-        headers: { "Content-Type": "application/json" },
-      }
-    );
+    logRouteError(logger, "POST", err);
+
+    return clientErrorResponse(500);
   }
 }

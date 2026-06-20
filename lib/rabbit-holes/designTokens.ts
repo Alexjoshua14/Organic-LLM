@@ -103,6 +103,8 @@ export const articleContent = {
   table: "[&_table]:block [&_table]:w-full [&_table]:overflow-x-auto",
   strong: "[&_strong]:font-medium [&_strong]:text-foreground/85",
   em: "[&_em]:italic",
+  blockquote:
+    "[&_blockquote]:my-5 [&_blockquote]:border-l-2 [&_blockquote]:border-border/50 [&_blockquote]:pl-4 [&_blockquote]:text-muted-foreground [&_blockquote]:italic",
 
   branchLink: [
     "[&_span[data-branch-id]]:cursor-pointer",
@@ -311,6 +313,7 @@ export function articleContentClasses(compact: boolean): string[] {
     articleContent.table,
     articleContent.strong,
     articleContent.em,
+    articleContent.blockquote,
     ...articleContent.branchLink,
   ];
 }

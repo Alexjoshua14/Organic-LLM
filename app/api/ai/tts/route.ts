@@ -3,6 +3,7 @@ import { elevenlabs } from "@ai-sdk/elevenlabs";
 import { experimental_generateSpeech as generateSpeech, SpeechModel } from "ai";
 import { NextRequest, NextResponse } from "next/server";
 
+import { requireTtsActor } from "@/lib/api/tts-gate";
 import { createLogger } from "@/lib/logger";
 import { isElevenLabsV3SpeechModelId } from "@/lib/tts/elevenlabs-v3-speech";
 import { stripSpeechTags } from "@/lib/tts/speech-tags";
@@ -32,6 +33,12 @@ export async function POST(req: NextRequest) {
 
   if (!text || typeof text !== "string") {
     return NextResponse.json({ error: "Text is required" }, { status: 400 });
+  }
+
+  const ttsGate = await requireTtsActor(text.length);
+
+  if (ttsGate.error != null) {
+    return ttsGate.error;
   }
 
   const parametersObtained = performance.now();

@@ -23,6 +23,7 @@ import {
   articleContent,
   articleContentClasses,
 } from "@/lib/rabbit-holes/designTokens";
+import { sanitizeRabbitHoleArticleHtml } from "@/lib/html/sanitize";
 
 interface RabbitHoleArticleProps {
   title: string;
@@ -47,6 +48,7 @@ export function RabbitHoleArticle({
   compact = false,
 }: RabbitHoleArticleProps) {
   const articleRef = useRef<HTMLDivElement>(null);
+  const sanitizedArticleHtml = sanitizeRabbitHoleArticleHtml(articleHtml);
   const [articleText, setArticleText] = useState("");
   const [takeawaysOpen, setTakeawaysOpen] = useState(true);
 
@@ -310,7 +312,7 @@ export function RabbitHoleArticle({
       )}
 
       <div
-        dangerouslySetInnerHTML={{ __html: articleHtml }}
+        dangerouslySetInnerHTML={{ __html: sanitizedArticleHtml }}
         ref={articleRef}
         className={cn(...articleContentClasses(compact))}
       />
