@@ -423,42 +423,41 @@ body.font-theme-commissioner {
   box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.05) !important;
 }
 
-/* Host padding lets the lumen entity seep outside the glass panel. */
+/* Host — bleed room for outer extent + blur spread. */
 .dark .composer-tool-chip-host {
   overflow: visible;
-  padding: 4px;
-  margin: -4px;
+  padding: var(--lumen-bleed, 6px);
+  margin: calc(-1 * var(--lumen-bleed, 6px));
 }
 
-/* Lumen entity — separate layer behind the toggle (not part of the button surface). */
+/* Stage shrink-wraps the button. */
+.dark .composer-tool-chip-stage {
+  overflow: visible;
+}
+
+/*
+ * Lumen rim backlight — canonical spec in use-composer-chip-lumen.ts
+ * Rounded-rect border ring (−3% to +10% band); not an ellipse gradient.
+ */
 .dark .lumen-rim-backlight {
   position: absolute;
-  inset: 3px;
+  inset: calc(-1 * var(--lumen-outset, 4px));
   z-index: 0;
-  border-radius: 0.3125rem;
+  box-sizing: border-box;
+  border: var(--lumen-band, 5px) solid rgb(var(--lumen) / 0.19);
+  border-radius: var(--chip-radius, 0.3125rem);
+  background: transparent;
   pointer-events: none;
   transition: opacity 200ms cubic-bezier(0.25, 0.46, 0.45, 0.94);
-  background: radial-gradient(
-    circle at 50% 50%,
-    transparent 55%,
-    rgb(var(--lumen-rim) / 0.09) 65%,
-    rgb(var(--lumen) / 0.17) 73%,
-    rgb(var(--lumen-deep) / 0.21) 78%,
-    rgb(var(--lumen) / 0.08) 85%,
-    transparent 92%
-  );
-  filter: blur(1.75px);
-  box-shadow:
-    0 0 2px 0 rgb(var(--lumen-rim) / 0.1),
-    0 0 5px 1px rgb(var(--lumen) / 0.05);
+  filter: blur(var(--lumen-blur, 3px));
 }
 
 .dark .lumen-rim-backlight--on {
-  opacity: 0.5;
+  opacity: 0.36;
 }
 
 .dark .composer-tool-chip-host:hover .lumen-rim-backlight--on {
-  opacity: 0.25;
+  opacity: 0.18;
 }
 
 /* ~50% intensity peek on hover — inactive toggles only. */
@@ -467,7 +466,7 @@ body.font-theme-commissioner {
 }
 
 .dark .composer-tool-chip-host:hover .lumen-rim-backlight--hover {
-  opacity: 0.25;
+  opacity: 0.18;
 }
 
 @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
