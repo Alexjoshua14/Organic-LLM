@@ -37,6 +37,8 @@ import {
   appendStrataMainChatSystemFragments,
   wrapSystemPromptWithResponseLength,
 } from "@/lib/api/chat-system-prompt";
+import { appendIntrospectionMainChatSystemFragments } from "@/lib/api/introspection-system-prompt";
+import { resolveMemoryEnabledForExperience } from "@/lib/chat/chat-experience";
 import { compileChatTools } from "@/lib/llm/compile-chat-tools";
 import { runLLMChatStream } from "@/lib/api/run-llm-chat-stream";
 
@@ -76,6 +78,7 @@ export async function POST(req: Request) {
     message: incomingMessage,
     id,
     zeroDataRetention,
+    coalescenceMode,
     experience,
     chatStyle,
     strataPageId,
@@ -83,9 +86,10 @@ export async function POST(req: Request) {
     knowledgeSearch,
     strataAssistantPersona,
     model: requestedModel,
-    memory: memoryEnabled,
+    memory: requestedMemory,
   } = parseResult.data;
   const message = incomingMessage as UIMessage;
+  const memoryEnabled = resolveMemoryEnabledForExperience(experience, requestedMemory);
 
   // Zero Data Retention Policy is in regards to external LLMs, not Organic LLM at this time
   // If enabled, we only use LLMs that have ZDR compatibility
@@ -180,6 +184,13 @@ export async function POST(req: Request) {
         strataPageId,
         sbUserId,
         strataAssistantPersona,
+      });
+
+      systemPromptForRequest = await appendIntrospectionMainChatSystemFragments({
+        systemPromptForRequest,
+        experience,
+        chatId: id,
+        sbUserId,
       });
 
       logger.log(
@@ -292,6 +303,7 @@ export async function POST(req: Request) {
         hasTools,
         maxSteps,
         isZeroDataRetention,
+        coalescenceMode: coalescenceMode === true,
         memoryEnabled,
         experience,
         userMessage: message,

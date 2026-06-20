@@ -1,9 +1,16 @@
+"use client";
+
 import type { MemorySearchInventory } from "@/lib/memory/memory-relevance";
 
-import { memo } from "react";
-import { Pin, PinOff } from "lucide-react";
+import { memo, useState } from "react";
 
-import { cn } from "@/lib/utils";
+import {
+  ToolResultInlineRow,
+  ToolResultPinButton,
+  toolResultErrorSummaryButtonClass,
+  toolResultExpandedDetailClass,
+  toolResultSummaryButtonClass,
+} from "./tool-result-inline";
 
 const QUERY_DISPLAY_MAX = 56;
 
@@ -114,36 +121,33 @@ export const MemorySearchToolResultCard = memo(function MemorySearchToolResultCa
   onTogglePin,
   showPin = true,
 }: MemorySearchToolResultCardProps) {
+  const [expanded, setExpanded] = useState(false);
+
   if (parsed.status === "error") {
     return (
-      <div
-        className={cn(
-          "not-prose rounded-lg border border-border/60 bg-background-tertiary/30 dark:bg-background-tertiary/20 backdrop-blur-2xl",
-          "px-3 py-2",
-          isPinned && "sticky top-20 z-30 shadow-[0_8px_30px_-10px_rgba(0,0,0,0.35)]"
-        )}
+      <ToolResultInlineRow
+        isPinned={isPinned}
+        pin={
+          <ToolResultPinButton
+            isPinned={isPinned}
+            showPin={showPin}
+            onTogglePin={onTogglePin}
+          />
+        }
       >
-        <div className="flex items-start justify-between gap-2">
-          <div className="min-w-0 flex-1">
-            <div className="text-xs font-medium text-foreground">Memory search error</div>
-            <p className="mt-1 text-xs leading-snug text-destructive">{parsed.message}</p>
-          </div>
-          {showPin ? (
-            <button
-              aria-label={isPinned ? "Unpin tool output" : "Pin tool output"}
-              aria-pressed={isPinned}
-              className={cn(
-                "h-7 w-7 shrink-0 grid place-content-center rounded",
-                "hover:bg-background-tertiary/60 transition-colors"
-              )}
-              type="button"
-              onClick={onTogglePin}
-            >
-              {isPinned ? <PinOff className="size-3.5" /> : <Pin className="size-3.5" />}
-            </button>
+        <button
+          className={toolResultErrorSummaryButtonClass}
+          type="button"
+          onClick={() => setExpanded((open) => !open)}
+        >
+          <span className="text-destructive/90">Memory search error</span>
+          {expanded ? (
+            <span className={`${toolResultExpandedDetailClass} text-muted-foreground`}>
+              {parsed.message}
+            </span>
           ) : null}
-        </div>
-      </div>
+        </button>
+      </ToolResultInlineRow>
     );
   }
 
@@ -156,58 +160,43 @@ export const MemorySearchToolResultCard = memo(function MemorySearchToolResultCa
       : null;
 
   return (
-    <div
-      className={cn(
-        "not-prose rounded-lg border border-border/60 bg-background-tertiary/30 dark:bg-background-tertiary/20 backdrop-blur-2xl",
-        "px-3 py-2",
-        isPinned && "sticky top-20 z-30 shadow-[0_8px_30px_-10px_rgba(0,0,0,0.35)]"
-      )}
+    <ToolResultInlineRow
+      isPinned={isPinned}
+      pin={
+        <ToolResultPinButton isPinned={isPinned} showPin={showPin} onTogglePin={onTogglePin} />
+      }
     >
-      <div className="flex items-start justify-between gap-2">
-        <details className="min-w-0 flex-1">
-          <summary className="cursor-pointer select-none text-xs font-medium text-muted-foreground hover:text-foreground">
-            {titleLine}
-          </summary>
-
-          {tierLine ? (
-            <p className="mt-1 text-[10px] leading-snug text-muted-foreground tabular-nums">
-              {tierLine}
-            </p>
-          ) : null}
-
-          {memories.length === 0 ? (
-            <p className="mt-1.5 text-[10px] leading-snug text-muted-foreground">
-              No memories matched this query.
-            </p>
-          ) : (
-            <ul className="mt-1.5 space-y-1 max-h-72 overflow-y-auto pr-1">
-              {memories.map((m) => (
-                <li
-                  key={m.id}
-                  className="text-[10px] leading-snug text-foreground/85 line-clamp-2"
-                >
-                  {m.memory}
-                </li>
-              ))}
-            </ul>
-          )}
-        </details>
-        {showPin ? (
-          <button
-            aria-label={isPinned ? "Unpin tool output" : "Pin tool output"}
-            aria-pressed={isPinned}
-            className={cn(
-              "h-7 w-7 shrink-0 grid place-content-center rounded",
-              "hover:bg-background-tertiary/60 transition-colors"
+      <button
+        className={toolResultSummaryButtonClass}
+        type="button"
+        onClick={() => setExpanded((open) => !open)}
+      >
+        <span>{titleLine}</span>
+        {expanded ? (
+          <>
+            {tierLine ? (
+              <span className={`${toolResultExpandedDetailClass} tabular-nums`}>{tierLine}</span>
+            ) : null}
+            {memories.length === 0 ? (
+              <span className={toolResultExpandedDetailClass}>
+                No memories matched this query.
+              </span>
+            ) : (
+              <ul className="mt-0.5 max-h-72 space-y-1 overflow-y-auto pr-1">
+                {memories.map((m) => (
+                  <li
+                    key={m.id}
+                    className="text-[10px] leading-snug text-foreground/85 line-clamp-2"
+                  >
+                    {m.memory}
+                  </li>
+                ))}
+              </ul>
             )}
-            type="button"
-            onClick={onTogglePin}
-          >
-            {isPinned ? <PinOff className="size-3.5" /> : <Pin className="size-3.5" />}
-          </button>
+          </>
         ) : null}
-      </div>
-    </div>
+      </button>
+    </ToolResultInlineRow>
   );
 });
 

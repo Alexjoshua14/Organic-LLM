@@ -1,17 +1,16 @@
 "use client";
 
 import { useAuth } from "@clerk/nextjs";
-import Link from "next/link";
 import { useEffect, useState } from "react";
 
+import { GatewaySmokeLink } from "./gateway-smoke-link";
 import { showGatewayCache } from "./sandbox-gateway-button";
 
 import { getShowSandboxGatewayForCurrentUser } from "@/data/supabase/profiles";
 
 /**
  * Renders a Blog link when the signed-in user is admin (same visibility as
- * Sandbox/Showcase gateway). Uses shared showGatewayCache. Styled with
- * primary/secondary only, no accent.
+ * Sandbox/Showcase gateway). Uses shared showGatewayCache.
  */
 export function AdminBlogLink() {
   const { userId } = useAuth();
@@ -38,12 +37,6 @@ export function AdminBlogLink() {
   if (!userId || show === false) return null;
 
   return (
-    <Link
-      aria-label="Blog"
-      className="rounded-xl border border-border bg-secondary px-4 py-2.5 text-sm font-medium text-foreground no-underline transition-colors hover:bg-secondary/80 hover:text-foreground"
-      href="/blog"
-    >
-      Blog
-    </Link>
+    <GatewaySmokeLink ariaLabel="Blog" href="/blog" label="Blog" />
   );
 }

@@ -83,6 +83,12 @@
   --color-sidebar-border: var(--sidebar-border);
 
   --color-sidebar-ring: var(--sidebar-ring);
+
+  --color-lumen: var(--lumen-oklch);
+
+  --color-lumen-rim: var(--lumen-rim-oklch);
+
+  --color-lumen-deep: var(--lumen-deep-oklch);
 }
 
 :root {
@@ -149,6 +155,18 @@
   --sidebar-border: oklch(0.92 0.004 286.32);
 
   --sidebar-ring: oklch(0.705 0.015 286.067);
+
+  /*
+   * Lumen — canonical UI light source (~3000K blackbody family).
+   * RGB channels for glows/shadows (rgb(var(--lumen) / α)); oklch for solid fills (text-lumen, bg-lumen).
+   * Kelvin reference: rim 3200K · base 3000K · deep 2800K.
+   */
+  --lumen-rim: 255 188 115;
+  --lumen: 255 178 102;
+  --lumen-deep: 255 168 92;
+  --lumen-rim-oklch: oklch(0.835 0.07 68);
+  --lumen-oklch: oklch(0.805 0.075 65);
+  --lumen-deep-oklch: oklch(0.78 0.08 62);
 }
 
 .dark {
@@ -296,27 +314,6 @@ body.font-theme-commissioner {
   }
 }
 
-/* Sandbox gateway button — organic motion */
-@keyframes sandbox-border-shift {
-  0%,
-  100% {
-    background-position: 0% 50%;
-  }
-  50% {
-    background-position: 100% 50%;
-  }
-}
-
-@keyframes sandbox-shimmer {
-  0%,
-  100% {
-    background-position: 0% 50%;
-  }
-  50% {
-    background-position: 100% 50%;
-  }
-}
-
 /* Mobile safe area — padding on content, not the background layer */
 .app-shell {
   padding-left: env(safe-area-inset-left, 0px);
@@ -384,7 +381,184 @@ body.font-theme-commissioner {
   }
 }
 
-/* Organic Glass preview fallback: keep the material solid and readable when blur is reduced. */
+/* Organic Glass preview + smoke fallback: solid readable fill when blur is unavailable. */
+/* Active chip — glass panel only (dark). Lumen entity sits in .lumen-rim-backlight behind. */
+.dark .composer-tool-chip-active {
+  background: color-mix(in oklch, var(--background) 22%, transparent) !important;
+  border-color: color-mix(in oklch, white 8%, transparent) !important;
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.05) !important;
+}
+
+/* Toggle stays neutral on hover — no teal; underglow handles feedback in dark. */
+.dark .composer-tool-chip:hover:not(:disabled) {
+  background: transparent !important;
+  color: var(--foreground) !important;
+  box-shadow: none !important;
+}
+
+.dark .composer-tool-chip-active:hover:not(:disabled) {
+  background: color-mix(in oklch, var(--background) 22%, transparent) !important;
+  border-color: color-mix(in oklch, white 8%, transparent) !important;
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.05) !important;
+}
+
+/* Host — bleed room for outer extent + blur spread. */
+.dark .composer-tool-chip-host {
+  overflow: visible;
+  padding: var(--lumen-bleed, 6px);
+  margin: calc(-1 * var(--lumen-bleed, 6px));
+}
+
+/* Stage shrink-wraps the button. */
+.dark .composer-tool-chip-stage {
+  overflow: visible;
+}
+
+/*
+ * Lumen rim backlight — canonical spec in use-composer-chip-lumen.ts
+ * Rounded-rect border ring (−3% to +10% band); not an ellipse gradient.
+ */
+.dark .lumen-rim-backlight {
+  position: absolute;
+  inset: calc(-1 * var(--lumen-outset, 4px));
+  z-index: 0;
+  box-sizing: border-box;
+  border: var(--lumen-band, 5px) solid rgb(var(--lumen) / 0.19);
+  border-radius: var(--chip-radius, 0.3125rem);
+  background: transparent;
+  pointer-events: none;
+  transition: opacity 200ms cubic-bezier(0.25, 0.46, 0.45, 0.94);
+  filter: blur(var(--lumen-blur, 3px));
+}
+
+.dark .lumen-rim-backlight--on {
+  opacity: 0.36;
+}
+
+.dark .composer-tool-chip-host:hover .lumen-rim-backlight--on {
+  opacity: 0.18;
+}
+
+/* ~50% intensity peek on hover — inactive toggles only. */
+.dark .lumen-rim-backlight--hover {
+  opacity: 0;
+}
+
+.dark .composer-tool-chip-host:hover .lumen-rim-backlight--hover {
+  opacity: 0.18;
+}
+
+.dark .lumen-rim-backlight--pulse.lumen-rim-backlight--on {
+  animation: lumen-rim-breathe 2.4s cubic-bezier(0.25, 0.46, 0.45, 0.94) infinite;
+}
+
+@keyframes lumen-rim-breathe {
+  0%,
+  100% {
+    opacity: 0.36;
+  }
+
+  50% {
+    opacity: 0.26;
+  }
+}
+
+/* Homepage composer — lumen rim behind the main prompt shell. */
+.home-composer-lumen-host {
+  overflow: visible;
+  width: 100%;
+}
+
+.home-composer-lumen-stage {
+  overflow: visible;
+}
+
+.home-composer-lumen-rim {
+  position: absolute;
+  inset: calc(-1 * var(--lumen-outset, 6px));
+  z-index: 0;
+  box-sizing: border-box;
+  border: var(--lumen-band, 7px) solid rgb(var(--lumen) / 0.16);
+  border-radius: var(--composer-radius, 0.75rem);
+  pointer-events: none;
+  filter: blur(var(--lumen-blur, 5px));
+  opacity: 0.22;
+  animation: home-composer-lumen-breathe 4.2s cubic-bezier(0.25, 0.46, 0.45, 0.94) infinite;
+  transition: opacity 320ms cubic-bezier(0.25, 0.46, 0.45, 0.94);
+}
+
+.dark .home-composer-lumen-rim {
+  border-color: rgb(var(--lumen) / 0.19);
+  opacity: 0.3;
+  animation-name: home-composer-lumen-breathe-dark;
+}
+
+.home-composer-lumen-host:focus-within .home-composer-lumen-rim {
+  animation-play-state: paused;
+  opacity: 0.34;
+}
+
+.dark .home-composer-lumen-host:focus-within .home-composer-lumen-rim {
+  opacity: 0.42;
+}
+
+@keyframes home-composer-lumen-breathe {
+  0%,
+  100% {
+    opacity: 0.2;
+  }
+
+  50% {
+    opacity: 0.3;
+  }
+}
+
+@keyframes home-composer-lumen-breathe-dark {
+  0%,
+  100% {
+    opacity: 0.28;
+  }
+
+  50% {
+    opacity: 0.38;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .home-composer-lumen-rim {
+    animation: none;
+  }
+}
+
+.chat-style-card-host {
+  overflow: visible;
+  /* Fixed bleed on every card so selection does not reflow the grid. */
+  padding: 10px;
+  margin: -10px;
+}
+
+.dark .chat-style-card-stage {
+  overflow: visible;
+}
+
+.chat-style-lumen-rim {
+  position: absolute;
+  inset: calc(-1 * var(--lumen-outset, 4px));
+  z-index: 0;
+  box-sizing: border-box;
+  border: var(--lumen-band, 5px) solid rgb(var(--lumen) / 0.16);
+  border-radius: var(--chip-radius, 0.75rem);
+  background: transparent;
+  pointer-events: none;
+  filter: blur(var(--lumen-blur, 3px));
+  opacity: 0.26;
+}
+
+.dark .chat-style-lumen-rim {
+  border-color: rgb(var(--lumen) / 0.19);
+  opacity: 0.36;
+}
+
 @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
   .organic-glass-preview {
     background: color-mix(in oklch, var(--background) 94%, transparent) !important;
@@ -392,6 +566,14 @@ body.font-theme-commissioner {
 
   .dark .organic-glass-preview {
     background: color-mix(in oklch, var(--secondary) 96%, transparent) !important;
+  }
+
+  .organic-glass-smoke {
+    background: color-mix(in oklch, var(--background) 90%, transparent) !important;
+  }
+
+  .dark .organic-glass-smoke {
+    background: color-mix(in oklch, var(--secondary) 92%, transparent) !important;
   }
 }
 
@@ -403,5 +585,14 @@ body.font-theme-commissioner {
 
   .dark .organic-glass-preview {
     background: color-mix(in oklch, var(--secondary) 96%, transparent) !important;
+  }
+
+  .organic-glass-smoke {
+    background: color-mix(in oklch, var(--background) 92%, transparent) !important;
+    backdrop-filter: none !important;
+  }
+
+  .dark .organic-glass-smoke {
+    background: color-mix(in oklch, var(--secondary) 94%, transparent) !important;
   }
 }

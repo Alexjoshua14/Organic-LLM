@@ -201,6 +201,8 @@ export const ChatRequestSchema = z.object({
   strataPageId: z.string().uuid().optional(),
   /** When true, request is in zero-data-retention mode (no persistence). */
   zeroDataRetention: z.boolean().optional(),
+  /** When true, spatial artifact sync and library features are enabled. */
+  coalescenceMode: z.boolean().optional(),
   /** Client hint: thread already has a title; server can skip ensureChatHasTitle and optionally getThreadHasTitle. */
   threadHasTitle: z.boolean().optional(),
 });

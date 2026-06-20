@@ -30,13 +30,16 @@ export const ControlCluster: FC<ControlClusterProps> = ({ className }) => {
       >
         <button
           aria-label="Open quick settings"
-          className="min-w-8 w-8 h-8 grid place-content-center border-0 hover:bg-background-tertiary rounded"
+          className="group min-w-8 w-8 h-8 grid cursor-pointer place-content-center rounded border-0 hover:bg-background-tertiary"
           type="button"
           onClick={() => setSettingsOpen(true)}
         >
-          <Settings2Icon size={16} />
+          <Settings2Icon
+            className="transition-transform duration-200 ease-out motion-safe:group-hover:scale-110 motion-safe:group-active:scale-95"
+            size={16}
+          />
         </button>
-        <div className="w-8 h-8 grid place-content-center">
+        <div className="grid h-8 w-8 place-content-center">
           <ThemeSwitch variant="compact" />
         </div>
       </div>

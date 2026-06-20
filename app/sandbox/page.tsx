@@ -1,6 +1,7 @@
 import Link from "next/link";
 
 import Page from "@/components/layout/page";
+import { PageContentFrame } from "@/components/layout/page-content-frame";
 import ShinyText from "@/components/ShinyText";
 import AdaptiveLiquidChrome from "@/components/background/AdaptiveLiquidChrome";
 import { glass } from "@/components/design-system/primitives";
@@ -89,9 +90,10 @@ const sandboxPages: SandboxEntry[] = [
 
 export default function SandboxPage() {
   return (
-    <Page transparentBackground className="overflow-hidden">
+    <Page transparentBackground className="items-stretch justify-start overflow-hidden">
       <AdaptiveLiquidChrome dimIntensity={0.45} />
-      <div className="relative z-10 w-full max-w-6xl mx-auto p-6 overflow-y-auto h-full">
+      <div className="relative z-10 h-full min-h-0 w-full overflow-y-auto pb-16">
+        <PageContentFrame maxWidth="6xl">
         <div className="text-center mb-12">
           <h1 className="mb-2 font-commissioner text-3xl font-light tracking-tight text-foreground sm:text-4xl">
             Sandbox Gateway
@@ -149,6 +151,7 @@ export default function SandboxPage() {
             </Link>
           ))}
         </div>
+        </PageContentFrame>
       </div>
     </Page>
   );

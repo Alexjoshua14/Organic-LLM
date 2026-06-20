@@ -22,7 +22,7 @@ export const prototypes: PrototypeEntry[] = [
     slug: "background",
     title: "AdaptiveLiquidChrome",
     description:
-      "Liquid chrome background that dims on hover/focus. Demo: Hover me button + text input.",
+      "Interactive lab for the liquid shader background — dim lenses, phase timing, live brightness meter, and integration snippets.",
     ranking: {
       importance: 9,
       frequency: 7,
@@ -40,6 +40,18 @@ export const prototypes: PrototypeEntry[] = [
       frequency: 5,
       createdAt: "2026-05-16",
       updatedAt: "2026-05-16",
+    },
+  },
+  {
+    slug: "spatial-archetypes",
+    title: "Spatial Archetypes",
+    description:
+      "Spatial library for revisiting gen-ui artifacts — plans gallery, bookshelf guides, audio rack previews. Requires Coalescence Mode.",
+    ranking: {
+      importance: 9,
+      frequency: 4,
+      createdAt: "2026-06-17",
+      updatedAt: "2026-06-17",
     },
   },
   {

@@ -30,12 +30,14 @@ export default async function StrataBrowserPage() {
 
   if (!clerkUser?.userId) {
     return (
-      <Page transparentBackground className="overflow-hidden">
+      <Page transparentBackground className="items-stretch justify-start overflow-hidden">
         <AdaptiveLiquidChrome dimIntensity={0.45} />
-        <PageContentFrame className="relative z-10 h-full overflow-y-auto pb-0">
-          <PageNavBack href="/sandbox/prototypes">← Prototypes</PageNavBack>
-          <p className="text-destructive">You need to sign in to use Strata.</p>
-        </PageContentFrame>
+        <div className="relative z-10 h-full min-h-0 w-full overflow-y-auto">
+          <PageContentFrame>
+            <PageNavBack href="/sandbox/prototypes">← Prototypes</PageNavBack>
+            <p className="text-destructive">You need to sign in to use Strata.</p>
+          </PageContentFrame>
+        </div>
       </Page>
     );
   }
@@ -45,12 +47,14 @@ export default async function StrataBrowserPage() {
 
   if (sbUserIdResult.error || !ownerId) {
     return (
-      <Page transparentBackground className="overflow-hidden">
+      <Page transparentBackground className="items-stretch justify-start overflow-hidden">
         <AdaptiveLiquidChrome dimIntensity={0.45} />
-        <PageContentFrame className="relative z-10 h-full overflow-y-auto pb-0">
-          <PageNavBack href="/sandbox/prototypes">← Prototypes</PageNavBack>
-          <p className="text-destructive">Could not resolve your profile for Strata.</p>
-        </PageContentFrame>
+        <div className="relative z-10 h-full min-h-0 w-full overflow-y-auto">
+          <PageContentFrame>
+            <PageNavBack href="/sandbox/prototypes">← Prototypes</PageNavBack>
+            <p className="text-destructive">Could not resolve your profile for Strata.</p>
+          </PageContentFrame>
+        </div>
       </Page>
     );
   }
@@ -84,7 +88,7 @@ export default async function StrataBrowserPage() {
   }
 
   return (
-    <Page transparentBackground className="overflow-hidden">
+    <Page transparentBackground className="items-stretch justify-start overflow-hidden">
       <AdaptiveLiquidChrome dimIntensity={0.45} />
       <StrataWorkspace
         agentPanelTitle="Strata hub"
@@ -96,12 +100,14 @@ export default async function StrataBrowserPage() {
           />
         }
       >
-        <PageContentFrame className="relative z-10 flex h-full min-h-0 flex-col overflow-y-auto pb-0">
-          <PageNavBack href="/sandbox/prototypes" trailing={<StrataAssistantOpenHint />}>
-            ← Prototypes
-          </PageNavBack>
-          <StrataBrowser dbAvailable={dbAvailable} pages={pages} />
-        </PageContentFrame>
+        <div className="relative z-10 flex h-full min-h-0 w-full flex-col overflow-y-auto">
+          <PageContentFrame className="flex min-h-0 flex-col pb-0">
+            <PageNavBack href="/sandbox/prototypes" trailing={<StrataAssistantOpenHint />}>
+              ← Prototypes
+            </PageNavBack>
+            <StrataBrowser dbAvailable={dbAvailable} pages={pages} />
+          </PageContentFrame>
+        </div>
       </StrataWorkspace>
     </Page>
   );

@@ -24,6 +24,11 @@ import {
 import { GEN_UI_TOOL_INSTRUCTIONS } from "@/lib/system-prompt/gen-ui";
 import { createStrataHubAssistantTools } from "@/lib/llm/strata-assistant-tools";
 import { createStrataKnowledgeGraphTools } from "@/lib/llm/strata-knowledge-graph-tools";
+import {
+  createUpdateIntrospectionViewTool,
+  type IntrospectionStreamWriter,
+} from "@/lib/llm/introspection-tool";
+import { INTROSPECTION_TOOL_INSTRUCTIONS } from "@/lib/system-prompt/introspection";
 
 export type CompileChatToolsParams = {
   useSearch: boolean;
@@ -139,6 +144,15 @@ export async function compileChatTools({
     Object.assign(tools, createStrataHubAssistantTools(sbUserId));
     toolInstructions +=
       "You can navigate the user's Strata documents with navigate_to_strata_page (UUID or title fragment) and search or list them with search_strata_pages.\n";
+  }
+
+  if (experience === "introspection" && chatId) {
+    tools["update_introspection_view"] = createUpdateIntrospectionViewTool({
+      chatId,
+      sbUserId,
+      writer: writer as unknown as IntrospectionStreamWriter | undefined,
+    });
+    toolInstructions += `${INTROSPECTION_TOOL_INSTRUCTIONS}\n`;
   }
 
   if (useKnowledgeSearch && experience === "strata_page") {

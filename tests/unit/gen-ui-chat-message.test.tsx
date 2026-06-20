@@ -38,6 +38,10 @@ mock.module("@/hooks/use-assistant-tts-action", () => ({
   }),
 }));
 
+mock.module("@/app/actions/spatial-artifacts", () => ({
+  actionPinSpatialArtifact: async () => ({ ok: true, artifactId: "test" }),
+}));
+
 mock.module("@/lib/tts/pinned-to-speak", () => ({
   addPinnedFromChat: async () => {},
 }));

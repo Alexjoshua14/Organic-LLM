@@ -35,4 +35,29 @@ describe("ChatStylePicker", () => {
     const standard = getByRole("radio", { name: /Standard/i });
     expect(standard.getAttribute("aria-checked")).toBe("true");
   });
+
+  test("shows starter prompts for the selected style", () => {
+    const { getByText } = render(<ChatStylePicker chatId={THREAD_ID} />);
+    expect(getByText("Help me think through this step by step.")).toBeTruthy();
+  });
+
+  test("starter prompts update when style changes", () => {
+    const { getByText } = render(<ChatStylePicker chatId={THREAD_ID} />);
+    fireEvent.click(getByText("Ergon board"));
+    expect(getByText("Set up a kanban board for this project.")).toBeTruthy();
+  });
+
+  test("calls onStarterSelect when a starter prompt is clicked", () => {
+    let injected = "";
+    const { getByText } = render(
+      <ChatStylePicker
+        chatId={THREAD_ID}
+        onStarterSelect={(text) => {
+          injected = text;
+        }}
+      />
+    );
+    fireEvent.click(getByText("Help me think through this step by step."));
+    expect(injected).toBe("Help me think through this step by step.");
+  });
 });

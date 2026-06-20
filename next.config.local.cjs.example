@@ -1,0 +1,6 @@
+/** @type {{ allowedDevOrigins?: string[] }} */
+module.exports = {
+  // Copy to next.config.local.cjs and set your machine's LAN IP(s).
+  // Restart `bun run dev` after changes.
+  allowedDevOrigins: ["192.168.4.22", "192.168.4.22:3000"],
+};

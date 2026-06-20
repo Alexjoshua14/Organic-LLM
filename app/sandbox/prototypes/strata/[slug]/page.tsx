@@ -82,7 +82,7 @@ export default async function StrataPage({ params }: { params: Promise<{ slug: s
   }
 
   return (
-    <Page transparentBackground className="overflow-hidden">
+    <Page transparentBackground className="items-stretch justify-start overflow-hidden">
       <AdaptiveLiquidChrome dimIntensity={0.45} dimIntensityFull={0.62} />
       <div className="relative z-10 flex h-full min-h-0 w-full flex-col">
         <StrataPageClient
