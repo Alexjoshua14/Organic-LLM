@@ -4,6 +4,7 @@ import z from "zod";
 
 import { CHAT_EXPERIENCES, parseChatExperience } from "@/lib/chat/chat-experience";
 import { parseChatStyle } from "@/lib/chat/chat-style";
+import type { DeviceTier } from "@/lib/memory-ingest/delphi-caption-budget";
 
 // Message role enum
 export const MessageRole = z.enum(["user", "assistant", "system"]);
@@ -177,6 +178,22 @@ const ChatExperienceSchema = z.preprocess((val) => {
   return parseChatExperience(val);
 }, z.enum(CHAT_EXPERIENCES).optional());
 
+export const DelphiDisplayRequestSchema = z.object({
+  viewportWidthPx: z.number().finite().positive(),
+  viewportHeightPx: z.number().finite().positive(),
+  devicePixelRatio: z.number().finite().positive(),
+  screenWidthPx: z.number().finite().positive(),
+  screenHeightPx: z.number().finite().positive(),
+  captionWidthPx: z.number().finite().positive(),
+  captionAllocatedHeightPx: z.number().finite().positive(),
+  fontSizePx: z.number().finite().positive(),
+  lineHeightPx: z.number().finite().positive(),
+  avgCharWidthPx: z.number().finite().positive().optional(),
+  userAgent: z.string().max(512).optional(),
+  deviceTier: z.enum(["mobile", "tablet", "desktop"] satisfies [DeviceTier, DeviceTier, DeviceTier]),
+  rootFontSizePx: z.number().finite().positive().optional(),
+});
+
 export const ChatRequestSchema = z.object({
   message: UIMessageSchema,
   id: z.uuid(),
@@ -203,6 +220,8 @@ export const ChatRequestSchema = z.object({
   zeroDataRetention: z.boolean().optional(),
   /** Client hint: thread already has a title; server can skip ensureChatHasTitle and optionally getThreadHasTitle. */
   threadHasTitle: z.boolean().optional(),
+  /** Memory ingest: measured caption/display geometry for Delphi response-length guidance. */
+  delphiDisplay: DelphiDisplayRequestSchema.optional(),
 });
 
 export const ThreadSummarySchema = z.object({

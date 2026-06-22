@@ -5,6 +5,8 @@ import type { ParticleFieldHandle } from "../_components/ParticleField";
 import type { MemoryIngestFsmState, ParticleFieldVisualState } from "../_lib/types";
 import type { ChatModel } from "@/lib/schemas/chat";
 
+import type { DelphiDisplayInput } from "@/lib/memory-ingest/delphi-caption-budget";
+
 import { useChat } from "@ai-sdk/react";
 import { DefaultChatTransport } from "ai";
 import { useCallback, useEffect, useReducer, useRef } from "react";
@@ -24,9 +26,14 @@ import { getSettings } from "@/lib/user-settings";
 export type UseMemoryIngestSessionParams = {
   chatId: string;
   initialMessages: UIMessage[];
+  delphiDisplayRef?: React.RefObject<DelphiDisplayInput | null>;
 };
 
-export function useMemoryIngestSession({ chatId, initialMessages }: UseMemoryIngestSessionParams) {
+export function useMemoryIngestSession({
+  chatId,
+  initialMessages,
+  delphiDisplayRef,
+}: UseMemoryIngestSessionParams) {
   const [fsm, dispatch] = useReducer(memoryIngestReducer, initialMemoryIngestFsmState);
   const particleRef = useRef<ParticleFieldHandle>(null);
   const modelRef = useRef<ChatModel>(getChatModel(AUTO_CHAT_MODEL));
@@ -61,6 +68,7 @@ export function useMemoryIngestSession({ chatId, initialMessages }: UseMemoryIng
             knowledgeSearch: false,
             experience: "Delphi",
             zeroDataRetention: getSettings().zeroDataRetention,
+            ...(delphiDisplayRef?.current ? { delphiDisplay: delphiDisplayRef.current } : {}),
           },
         };
       },
