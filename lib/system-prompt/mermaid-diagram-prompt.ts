@@ -30,6 +30,7 @@ export const MERMAID_DIAGRAM_GENERATOR_SYSTEM_PROMPT = [
   '- Edge labels with special characters must also be quoted: `A -- "cost (USD)" --> B` or `A -->|"cost (USD)"| B`.',
   "- Keep node IDs identifier-safe while keeping the human-readable text in the (quoted) label.",
   "- Keep ordering explicit and deterministic.",
+  '- Structure: prefer one flat graph. If you group nodes with `subgraph`, give it an identifier-safe ID and quote its title like any other label (e.g. `subgraph Core["Aetherion Core AI"]`); keep nesting shallow.',
   "",
   "Correct examples:",
   "- `flowchart TD`",

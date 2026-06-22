@@ -52,6 +52,7 @@ test.describe("Mermaid render harness", () => {
     { id: "flowchart", expectText: "Receive request" },
     { id: "sequence", expectText: "Submit form" },
     { id: "state", expectText: "Running" },
+    { id: "subgraph", expectText: "Cognition" },
     { id: "special-labels", expectText: "Cost (USD)" },
   ];
 

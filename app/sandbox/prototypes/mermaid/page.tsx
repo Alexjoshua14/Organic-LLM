@@ -45,6 +45,17 @@ const FIXTURES: { id: string; title: string; code: string; expectError?: boolean
     ].join("\n"),
   },
   {
+    id: "subgraph",
+    title: "Subgraph grouping (quoted titles + special-char labels)",
+    code: [
+      "flowchart LR",
+      '  subgraph Core["Aetherion Core AI"]',
+      '    Mem["Memory"] --> Cog["Cognition"]',
+      "  end",
+      '  Core --> UI["Arcadia: UI & Knowledge"]',
+    ].join("\n"),
+  },
+  {
     id: "special-labels",
     title: "Special characters (must be quoted)",
     code: ["flowchart LR", '  A["Cost (USD)"] --> B["Tax @ 8%"]', '  B --> C["Total: $108"]'].join(
