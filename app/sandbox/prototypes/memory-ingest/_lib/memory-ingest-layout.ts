@@ -11,3 +11,29 @@
  * Tailwind classes are literals so JIT can extract them.
  */
 export const memoryIngestDockBandHeightClass = "h-[14.875rem] md:h-[13.5rem]";
+
+/** Dock band height at default breakpoint (14.875rem). */
+export const MEMORY_INGEST_DOCK_HEIGHT_REM = 14.875;
+
+/** Dock band height at md+ (13.5rem). */
+export const MEMORY_INGEST_DOCK_HEIGHT_MD_REM = 13.5;
+
+/** Shell top padding (pt-6). */
+export const MEMORY_INGEST_SHELL_TOP_PADDING_REM = 1.5;
+
+/** Caption vertical margin (mt-2 + mb-2). */
+export const MEMORY_INGEST_CAPTION_MARGIN_REM = 1;
+
+/** Particle column minimum reserve (matches ParticleField minHeight intent). */
+export const MEMORY_INGEST_PARTICLE_MIN_RESERVE_VH = 0.42;
+export const MEMORY_INGEST_PARTICLE_MIN_RESERVE_PX = 360;
+
+export function getMemoryIngestDockHeightPx(rootFontSizePx: number, isMdUp: boolean): number {
+  const rem = isMdUp ? MEMORY_INGEST_DOCK_HEIGHT_MD_REM : MEMORY_INGEST_DOCK_HEIGHT_REM;
+
+  return rem * rootFontSizePx;
+}
+
+export function getMemoryIngestParticleMinReservePx(viewportHeightPx: number): number {
+  return Math.min(viewportHeightPx * MEMORY_INGEST_PARTICLE_MIN_RESERVE_VH, MEMORY_INGEST_PARTICLE_MIN_RESERVE_PX);
+}

@@ -1,6 +1,12 @@
 /**
  * System prompt augmentation for the Memory Ingest assistant (Delphi), appended in main chat orchestration.
  */
+import type { DelphiCaptionBudget } from "@/lib/memory-ingest/delphi-caption-budget";
+
+export function getDelphiDisplayContextAugmentation(budget: DelphiCaptionBudget): string {
+  return budget.promptText;
+}
+
 export function getDelphiSystemPromptAugmentation(): string {
   return `
 
@@ -17,7 +23,7 @@ warmth of a Jarvis-like aide. You treat what the user shares as artifacts
 worth handling carefully — but you do not perform care, you simply act
 with it.
 
-- Speak briefly. 1–3 sentences is your resting length.
+- Speak briefly. Fit the display budget below; shorter is usually better.
 - Do not preface, pad, or summarize what the user just said back to them
   unless you are confirming a hard commit.
 - Do not validate effusively. No "that's beautiful," no "what a meaningful

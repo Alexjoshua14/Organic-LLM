@@ -10,6 +10,7 @@ import { Bug } from "lucide-react";
 import { Button } from "@heroui/button";
 
 import { useMemoryIngestSession } from "../_hooks/use-memory-ingest-session";
+import { useMemoryIngestCaptionBudget } from "../_hooks/use-memory-ingest-caption-budget";
 import {
   isMemoryIngestDevUiPublicFlag,
   readMemoryIngestDevUiFromSearch,
@@ -48,6 +49,8 @@ export function MemoryIngestShell({ chatData }: MemoryIngestShellProps) {
   const showPrototypeDevUi =
     process.env.NODE_ENV === "development" || isMemoryIngestDevUiPublicFlag() || devUiFromQuery;
 
+  const captionBudget = useMemoryIngestCaptionBudget();
+
   const {
     fsm,
     messages,
@@ -66,6 +69,7 @@ export function MemoryIngestShell({ chatData }: MemoryIngestShellProps) {
   } = useMemoryIngestSession({
     chatId: chatData.thread.id,
     initialMessages: chatData.messages,
+    delphiDisplayRef: captionBudget.displayInputRef,
   });
 
   const assistantText = lastAssistantPlaintext(messages);
@@ -155,13 +159,17 @@ export function MemoryIngestShell({ chatData }: MemoryIngestShellProps) {
               />
             </div>
             <div
+              ref={captionBudget.captionRef}
               className={cn(
                 "mb-2 mt-2 w-full max-w-[min(100%,360px)] shrink-0 self-center overflow-x-hidden overflow-y-auto overscroll-y-contain sm:max-w-md md:max-w-lg lg:max-w-xl",
-                "min-h-[calc(0.9375rem*1.375*4)] max-h-[calc(0.9375rem*1.375*4)] md:min-h-[calc(1rem*1.375*4)] md:max-h-[calc(1rem*1.375*4)]",
                 MEMORY_INGEST_LAYOUT_DEBUG_OUTLINES &&
                   "outline outline-2 -outline-offset-1 outline-dashed outline-fuchsia-500"
               )}
+              data-max-chars={captionBudget.budget?.maxCharsPerLine}
               data-testid="memory-ingest-assistant-text"
+              data-visible-height-px={captionBudget.budget?.visibleHeightPx}
+              data-visible-lines={captionBudget.budget?.visibleLines}
+              style={captionBudget.captionStyle}
             >
               <div
                 className={cn(
