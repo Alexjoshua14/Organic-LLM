@@ -629,8 +629,8 @@ export const webSearchTool = tool({
   },
 });
 /**
- * A pseudo tool allowing the LLM to request addition of a persisted schema.
- * Returns a "not yet implemented" message to the LLM.
+ * Deferred schema tools — not registered in `compileChatTools` until persistence ships.
+ * Wire in via compile path when ready.
  */
 export const addSchemaTool = tool({
   description:

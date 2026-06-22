@@ -107,9 +107,8 @@ Delphi uses a dedicated tool set for intentional memory curation ([`createDelphi
 | `search_memories` | Corpus search (Delphi-specific description when enabled) |
 | `propose_memory` | Validate and echo a candidate; does not write to Mem0 |
 | `commit_memory` | Hard commit after user confirmation |
-| `link_memories` | Connect two memories (persistence deferred; stub) |
-| `flag_for_followup` | Silent curriculum note (persistence deferred) |
-| `flag_for_review` | Reconciliation pass marker (persistence deferred) |
+
+Deferred (not registered until persistence ships): `link_memories`, `flag_for_followup`, `flag_for_review` — see [`createDelphiDeferredMemoryTools`](../lib/llm/delphi-memory-tools.ts).
 
 ---
 
