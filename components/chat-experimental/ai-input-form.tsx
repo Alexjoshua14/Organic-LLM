@@ -16,6 +16,7 @@ import {
   usePromptInputController,
 } from "../third-party/ai-elements/prompt-input";
 import { PromptInputSubmit } from "../chat/core-input";
+import { HomeComposerLumenShell } from "../chat/home-composer-lumen-shell";
 import ShinyText from "../ShinyText";
 
 import { cn } from "@/lib/utils";
@@ -136,12 +137,13 @@ const AiInputFormContent: React.FC<AiInputFormProps> = ({
 
   return (
     <div className={cn("w-full", fullView && "flex min-h-0 flex-1 flex-col")}>
-      <PromptInput
-        multiple
-        className={cn(className, fullView && "flex flex-col flex-1 min-h-0")}
-        onSubmit={handleSubmit}
-        {...props}
-      >
+      <HomeComposerLumenShell className={fullView ? "flex min-h-0 flex-1 flex-col" : undefined}>
+        <PromptInput
+          multiple
+          className={cn(className, fullView && "flex flex-col flex-1 min-h-0")}
+          onSubmit={handleSubmit}
+          {...props}
+        >
         <PromptInputBody onPointerDown={handleComposerPointerDown}>
           <div
             className={cn(
@@ -219,6 +221,7 @@ const AiInputFormContent: React.FC<AiInputFormProps> = ({
           </PromptInputFooter>
         ) : null}
       </PromptInput>
+      </HomeComposerLumenShell>
     </div>
   );
 };

@@ -31,17 +31,19 @@ export default async function LineListThreadPage({
     logger.error("LineListThreadPage", `Error loading chat: ${err}`);
 
     return (
-      <Page>
-        <PageContentFrame maxWidth="2xl">
-          <p className="text-destructive">Failed to load line list thread.</p>
-        </PageContentFrame>
+      <Page className="items-stretch justify-start overflow-hidden">
+        <div className="h-full min-h-0 w-full overflow-y-auto pb-16">
+          <PageContentFrame maxWidth="2xl">
+            <p className="text-destructive">Failed to load line list thread.</p>
+          </PageContentFrame>
+        </div>
       </Page>
     );
   }
 
   return (
-    <Page>
-      <PageContentFrame className="flex h-full flex-col pb-42" maxWidth="3xl">
+    <Page className="items-stretch justify-start overflow-hidden">
+      <PageContentFrame className="flex h-full min-h-0 flex-col pb-42" maxWidth="3xl">
         <LineListShell chatData={chatData} />
       </PageContentFrame>
     </Page>

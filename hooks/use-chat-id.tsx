@@ -20,5 +20,9 @@ export function useChatId(): string | null {
   if (arcadia) return arcadia[1];
   if (topicExplore) return topicExplore[1];
 
+  const introspection = pathname.match(/^\/introspection\/([^/]+)$/);
+
+  if (introspection) return introspection[1];
+
   return null;
 }

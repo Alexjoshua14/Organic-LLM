@@ -15,6 +15,7 @@ import { getMemory } from "./client";
 
 import { createLogger } from "@/lib/logger";
 import { isRedactPIIInMemoryEnabled, redactPII, redactUIMessages } from "@/lib/pii/redact";
+import { diagnoseMemoryStoreFailure } from "@/lib/memory/memory-store-failure";
 import { runMemoryStore } from "@/lib/memory/run-memory-store";
 
 const logger = createLogger("lib/memory/store.ts");
@@ -56,17 +57,19 @@ export async function searchMemories(
     return result;
   } catch (error) {
     const err = error instanceof Error ? error : null;
+    const diagnosis = diagnoseMemoryStoreFailure(error);
 
     logger.error(
       "searchMemories",
-      "Memory search failed (service unavailable).",
+      `Memory search failed [${diagnosis.kind}] — ${diagnosis.hint}`,
       {
+        failureKind: diagnosis.kind,
         userId,
         queryLength: query.length,
         limit: options?.limit ?? 3,
         ...(err ? { errorName: err.name, errorMessage: err.message } : { thrown: String(error) }),
       },
-      error
+      error,
     );
     throw new Error("Memory service may be unavailable.");
   }

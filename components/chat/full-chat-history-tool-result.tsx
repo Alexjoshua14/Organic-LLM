@@ -1,7 +1,14 @@
-import { memo } from "react";
-import { Pin, PinOff } from "lucide-react";
+"use client";
 
-import { cn } from "@/lib/utils";
+import { memo, useState } from "react";
+
+import {
+  ToolResultInlineRow,
+  ToolResultPinButton,
+  toolResultErrorSummaryButtonClass,
+  toolResultExpandedDetailClass,
+  toolResultSummaryButtonClass,
+} from "./tool-result-inline";
 
 export type ParsedFullChatHistoryToolOutput =
   | { kind: "ok"; count: number }
@@ -11,7 +18,7 @@ export type ParsedFullChatHistoryToolOutput =
  * Parses the `get_full_chat_history` tool return shape from {@link createGetFullChatHistoryTool}.
  */
 export function tryParseFullChatHistoryToolOutput(
-  body: unknown
+  body: unknown,
 ): ParsedFullChatHistoryToolOutput | null {
   if (body === null || body === undefined || typeof body !== "object") return null;
   const o = body as Record<string, unknown>;
@@ -40,45 +47,40 @@ export const FullChatHistoryToolResultCard = memo(function FullChatHistoryToolRe
   isPinned,
   onTogglePin,
 }: FullChatHistoryToolResultCardProps) {
+  const [expanded, setExpanded] = useState(false);
   const detail =
     parsed.kind === "ok"
       ? `${parsed.count} message${parsed.count === 1 ? "" : "s"} from this chat were included for the reply.`
       : parsed.message;
 
   return (
-    <div
-      className={cn(
-        "not-prose rounded-lg border border-border/60 bg-background-tertiary/30 dark:bg-background-tertiary/20 backdrop-blur-2xl",
-        "px-3 py-2",
-        isPinned && "sticky top-20 z-30 shadow-[0_8px_30px_-10px_rgba(0,0,0,0.35)]"
-      )}
+    <ToolResultInlineRow
+      isPinned={isPinned}
+      pin={<ToolResultPinButton isPinned={isPinned} onTogglePin={onTogglePin} />}
     >
-      <div className="flex items-start justify-between gap-2">
-        <div className="min-w-0 flex-1">
-          <div className="text-xs font-medium text-foreground">Fetched full chat history</div>
-          <p
-            className={cn(
-              "mt-1 text-xs leading-snug",
-              parsed.kind === "error" ? "text-destructive" : "text-muted-foreground"
-            )}
+      <button
+        className={
+          parsed.kind === "error" ? toolResultErrorSummaryButtonClass : toolResultSummaryButtonClass
+        }
+        type="button"
+        onClick={() => setExpanded((open) => !open)}
+      >
+        <span className={parsed.kind === "error" ? "text-destructive/90" : undefined}>
+          {parsed.kind === "error"
+            ? "Failed to fetch full chat history"
+            : "Fetched full chat history"}
+        </span>
+        {expanded ? (
+          <span
+            className={`${toolResultExpandedDetailClass} ${
+              parsed.kind === "error" ? "text-destructive/90" : "text-muted-foreground"
+            }`}
           >
             {detail}
-          </p>
-        </div>
-        <button
-          aria-label={isPinned ? "Unpin tool output" : "Pin tool output"}
-          aria-pressed={isPinned}
-          className={cn(
-            "h-7 w-7 shrink-0 grid place-content-center rounded",
-            "hover:bg-background-tertiary/60 transition-colors"
-          )}
-          type="button"
-          onClick={onTogglePin}
-        >
-          {isPinned ? <PinOff className="size-3.5" /> : <Pin className="size-3.5" />}
-        </button>
-      </div>
-    </div>
+          </span>
+        ) : null}
+      </button>
+    </ToolResultInlineRow>
   );
 });
 

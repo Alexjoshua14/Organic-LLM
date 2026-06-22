@@ -2,7 +2,6 @@ import type { ExaSearchResultSource } from "@/lib/exa/types";
 
 import { FC, memo, useCallback, useState } from "react";
 import { getToolOrDynamicToolName, isToolOrDynamicToolUIPart, UIMessage } from "ai";
-import { Pin, PinOff } from "lucide-react";
 
 import { glass } from "../design-system/primitives";
 
@@ -14,12 +13,22 @@ import {
   FullChatHistoryToolResultCard,
   tryParseFullChatHistoryToolOutput,
 } from "./full-chat-history-tool-result";
+import {
+  GetMoreChatHistoryToolResultCard,
+  tryParseGetMoreChatHistoryToolOutput,
+} from "./get-more-chat-history-tool-result";
 import { MermaidToolAckCard, tryParseMermaidToolOutput } from "./mermaid-tool-ack-card";
 import {
   MemorySearchToolResultCard,
   tryParseMemorySearchToolOutput,
 } from "./memory-search-tool-result";
 import { tryParseWebSearchToolOutput, WebSearchToolResultCard } from "./web-search-tool-result";
+import {
+  ToolResultInlineRow,
+  ToolResultPinButton,
+  toolResultExpandedDetailClass,
+  toolResultSummaryButtonClass,
+} from "./tool-result-inline";
 
 import { GenUIStreamingPart } from "@/components/chat/gen-ui/GenUIStreamingPart";
 import { GenUIToolResult } from "@/components/chat/gen-ui/GenUIToolResult";
@@ -168,6 +177,15 @@ const AIMessage: FC<ChatMessageProps> = ({
                     return (
                       <GenUIToolResult
                         key={`${message.id}-${i}-gen-ui-result`}
+                        artifactSource={
+                          chatId
+                            ? {
+                                threadId: chatId,
+                                messageId: message.id,
+                                toolCallId: toolCallId,
+                              }
+                            : undefined
+                        }
                         messageId={message.id}
                         output={part.output}
                         partIndex={i}
@@ -311,16 +329,32 @@ function partListHasStreamingReasoning(parts: unknown[]): boolean {
   );
 }
 
-function partListHasInFlightToolInvocation(parts: unknown[]): boolean {
+/** True when the message already has inline tool UI (loading or result). */
+function partListHasToolUIPart(parts: unknown[]): boolean {
   return parts.some((p) => {
     if (!p || typeof p !== "object") return false;
     const up = p as UIMessage["parts"][number];
 
     if (isToolOrDynamicToolUIPart(up)) {
-      return up.state === "input-streaming" || up.state === "input-available";
+      return true;
     }
 
-    return isToolInvocationPart(p) && (p.state === "partial-call" || p.state === "call");
+    return isToolInvocationPart(p);
+  });
+}
+
+function partListHasMemorySearchToolPart(parts: unknown[]): boolean {
+  const names = new Set(["search_memories", "memory_search"]);
+
+  return parts.some((p) => {
+    if (!p || typeof p !== "object") return false;
+    const up = p as UIMessage["parts"][number];
+
+    if (isToolOrDynamicToolUIPart(up)) {
+      return names.has(getToolOrDynamicToolName(up).toLowerCase());
+    }
+
+    return isToolInvocationPart(p) && names.has(p.toolName.toLowerCase());
   });
 }
 
@@ -343,27 +377,6 @@ function partListHasInFlightWebSearch(parts: unknown[]): boolean {
   });
 }
 
-function partListHasInFlightMemorySearch(parts: unknown[]): boolean {
-  const names = new Set(["search_memories", "memory_search"]);
-
-  return parts.some((p) => {
-    if (!p || typeof p !== "object") return false;
-    const up = p as UIMessage["parts"][number];
-
-    if (isToolOrDynamicToolUIPart(up)) {
-      const inFlight = up.state === "input-streaming" || up.state === "input-available";
-
-      return inFlight && names.has(getToolOrDynamicToolName(up).toLowerCase());
-    }
-
-    return (
-      isToolInvocationPart(p) &&
-      (p.state === "partial-call" || p.state === "call") &&
-      names.has(p.toolName.toLowerCase())
-    );
-  });
-}
-
 function shouldShowTailAiAction(
   payload: NonNullable<ChatMessageProps["aiActionPayload"]>,
   parts: unknown[]
@@ -381,9 +394,11 @@ function shouldShowTailAiAction(
 
       return true;
     case ChatAIActionEnum.Memory:
-      return !partListHasInFlightMemorySearch(parts);
+      // Inline memory-search tool parts own loading/result UI.
+      return !partListHasMemorySearchToolPart(parts);
     case ChatAIActionEnum.Tool:
-      return !partListHasInFlightToolInvocation(parts);
+      // Inline tool parts own loading/result UI; tail shimmer only covers the gap before parts arrive.
+      return !partListHasToolUIPart(parts);
     case ChatAIActionEnum.Reasoning:
       return !partListHasStreamingReasoning(parts);
     case ChatAIActionEnum.Errored:
@@ -465,6 +480,8 @@ export const ArcadiaToolResultCard = memo(function ArcadiaToolResultCard({
   isPinned: boolean;
   onTogglePin: () => void;
 }) {
+  const [expanded, setExpanded] = useState(false);
+
   if (toolName.toLowerCase() === "web_search") {
     const parsed = tryParseWebSearchToolOutput(displayBody);
 
@@ -486,6 +503,14 @@ export const ArcadiaToolResultCard = memo(function ArcadiaToolResultCard({
           onTogglePin={onTogglePin}
         />
       );
+    }
+  }
+
+  if (toolName.toLowerCase() === "get_more_chat_history") {
+    const parsed = tryParseGetMoreChatHistoryToolOutput(displayBody);
+
+    if (parsed !== null) {
+      return <GetMoreChatHistoryToolResultCard parsed={parsed} />;
     }
   }
 
@@ -522,43 +547,30 @@ export const ArcadiaToolResultCard = memo(function ArcadiaToolResultCard({
   const json = stableStringify(displayBody);
 
   return (
-    <div
-      className={cn(
-        "not-prose rounded-lg border border-border/60 bg-background-tertiary/30 dark:bg-background-tertiary/20 backdrop-blur-2xl",
-        "px-3 py-2",
-        isPinned && "sticky top-20 z-30 shadow-[0_8px_30px_-10px_rgba(0,0,0,0.35)]"
-      )}
+    <ToolResultInlineRow
+      isPinned={isPinned}
+      pin={<ToolResultPinButton isPinned={isPinned} onTogglePin={onTogglePin} />}
     >
-      <div className="flex items-center justify-between gap-2">
-        <div className="text-xs font-medium text-muted-foreground truncate">{label}</div>
-        <button
-          aria-label={isPinned ? "Unpin tool output" : "Pin tool output"}
-          aria-pressed={isPinned}
-          className={cn(
-            "h-7 w-7 grid place-content-center rounded",
-            "hover:bg-background-tertiary/60 transition-colors"
-          )}
-          type="button"
-          onClick={onTogglePin}
-        >
-          {isPinned ? <PinOff className="size-3.5" /> : <Pin className="size-3.5" />}
-        </button>
-      </div>
-
-      <details className="mt-1">
-        <summary className="cursor-pointer select-none text-xs text-foreground/80 hover:text-foreground">
-          View output
-        </summary>
-        {mermaid && (
-          <div className="mt-2">
-            <MermaidDiagram code={mermaid} expandOnDoubleClick />
-          </div>
-        )}
-        <pre className="mt-2 max-h-72 overflow-auto rounded bg-background/60 p-2 text-[11px] leading-snug text-foreground/90">
-          {json}
-        </pre>
-      </details>
-    </div>
+      <button
+        className={toolResultSummaryButtonClass}
+        type="button"
+        onClick={() => setExpanded((open) => !open)}
+      >
+        <span className="truncate">{label}</span>
+        {expanded ? (
+          <span className={`${toolResultExpandedDetailClass} block`}>
+            {mermaid ? (
+              <div className="mt-1">
+                <MermaidDiagram code={mermaid} expandOnDoubleClick />
+              </div>
+            ) : null}
+            <pre className="mt-1 max-h-72 overflow-auto rounded bg-background/60 p-2 text-[10px] leading-snug text-foreground/90">
+              {json}
+            </pre>
+          </span>
+        ) : null}
+      </button>
+    </ToolResultInlineRow>
   );
 });
 

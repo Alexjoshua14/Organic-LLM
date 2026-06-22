@@ -6,6 +6,11 @@ const logger = createLogger("ollama-config.ts");
 
 export const OLLAMA_URL = (process.env.OLLAMA_URL ?? "http://localhost:11434").replace(/\/$/, "");
 export const OLLAMA_API_KEY = process.env.OLLAMA_API_KEY;
+export const OLLAMA_EMBED_MODEL = process.env.OLLAMA_EMBED_MODEL ?? "nomic-embed-text";
+
+export function isLocalOllamaUrl(url: string = OLLAMA_URL): boolean {
+  return /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/i.test(url.replace(/\/$/, ""));
+}
 
 /**
  * Headers for Ollama HTTP requests.

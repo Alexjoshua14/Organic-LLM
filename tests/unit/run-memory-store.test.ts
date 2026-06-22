@@ -45,7 +45,31 @@ describe("runMemoryStore", () => {
     const logged = errorSpy.mock.calls[0]!.join(" ");
 
     expect(logged).toContain("searchMemories");
-    expect(logged).toContain("MEMORY_API_SECRET");
+    expect(logged).toContain("[qdrant]");
+    expect(logged).toContain("MEMORY_API");
+
+    errorSpy.mockRestore();
+  });
+
+  test("logs embedder hint when Ollama embedder is unreachable", async () => {
+    const errorSpy = spyOn(console, "error").mockImplementation(() => {});
+    const boom = new Error(
+      "Mem0 Ollama embedder (http://localhost:11434, model=nomic-embed-text): Ollama /api/embed request failed — embedder unreachable",
+      { cause: new TypeError("fetch failed") },
+    );
+
+    try {
+      await runMemoryStore("searchMemories", async () => {
+        throw boom;
+      });
+    } catch {
+      // expected
+    }
+
+    const logged = errorSpy.mock.calls[0]!.join(" ");
+
+    expect(logged).toContain("[embedder]");
+    expect(logged).toContain("OLLAMA_URL");
 
     errorSpy.mockRestore();
   });

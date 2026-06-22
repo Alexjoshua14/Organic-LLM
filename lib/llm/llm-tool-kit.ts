@@ -10,7 +10,9 @@ import { exaSearchOptionsSchema, searchOptionsSchema } from "../exa/types";
 import { searchWeb, searchWebWithQuery } from "../exa/client";
 import { mapSearchResponseToExaSources } from "../exa/utils";
 
-import { getMessages, getMessagesSince, getNMessages } from "@/data/supabase/chat";
+import { getMessages, getMessagesSince, getMessageCount, getNMessages } from "@/data/supabase/chat";
+import { checkExternalFetchLimit } from "@/lib/rate-limit/external-fetch";
+import { wrapWebSearchResultsForModel } from "@/lib/security/external-content";
 import { estimateTokenCount } from "@/lib/llm/chat-helpers";
 import { searchMemoriesWithL1Cache } from "@/lib/memory/memory-search-cache";
 import {
@@ -345,9 +347,15 @@ export function createGetMoreMessagesTool(chatId: string, alreadySentCount: numb
           `Returning ${messagesUsed.length} message(s), ~${tokenCount} tokens${messagesUsed.length < olderOnly.length ? " (truncated to stay under cap)" : ""}`
         );
 
+        const totalCountResult = await getMessageCount(chatId);
+        const totalMessagesInThread = totalCountResult.data ?? null;
+        const messagesInContext = alreadySentCount + messagesUsed.length;
+
         return {
           success: true,
           count: messagesUsed.length,
+          messagesInContext,
+          totalMessagesInThread,
           messages: formatted || "(No older messages in this thread.)",
         };
       } catch (error) {
@@ -511,9 +519,11 @@ export type WebSearchStreamWriter = {
 export const createWebSearchTool = ({
   maxNumResults,
   writer,
+  sbUserId,
 }: {
   maxNumResults?: number;
   writer?: WebSearchStreamWriter;
+  sbUserId?: string;
 }) => {
   return tool({
     description:
@@ -523,6 +533,14 @@ export const createWebSearchTool = ({
       options: searchOptionsSchema.partial().optional(),
     }),
     execute: async ({ query, options }) => {
+      if (sbUserId) {
+        const limit = await checkExternalFetchLimit(sbUserId);
+
+        if (!limit.success) {
+          return { error: limit.error ?? "Too many external fetch requests" };
+        }
+      }
+
       const numResultsToUse = Math.min(options?.numResults ?? 3, maxNumResults ?? 10);
 
       const contentsToUse: ContentsOptions = {
@@ -545,7 +563,33 @@ export const createWebSearchTool = ({
         });
       }
 
-      return webSearchResult;
+      if (webSearchResult.error) {
+        return webSearchResult;
+      }
+
+      const results = webSearchResult.data?.results ?? [];
+
+      return {
+        ...webSearchResult,
+        wrappedResults: wrapWebSearchResultsForModel(
+          results.map((r) => {
+            const row = r as {
+              title?: string | null;
+              url: string;
+              text?: string;
+              highlights?: string[];
+            };
+
+            return {
+              title: row.title ?? undefined,
+              url: row.url,
+              snippet: row.text ?? row.highlights?.join("\n"),
+              highlights: row.highlights,
+              text: row.text,
+            };
+          })
+        ),
+      };
     },
   });
 };
@@ -555,9 +599,33 @@ export const webSearchTool = tool({
   inputSchema: z.object({
     query: z.string().describe("The query to search for"),
     options: exaSearchOptionsSchema.optional(),
+    sbUserId: z.string().optional().describe("Internal user id for rate limiting"),
   }),
-  execute: async ({ query, options }) => {
-    return await searchWeb(query, options);
+  execute: async ({ query, options, sbUserId }) => {
+    if (sbUserId) {
+      const limit = await checkExternalFetchLimit(sbUserId);
+
+      if (!limit.success) {
+        return { error: limit.error ?? "Too many external fetch requests" };
+      }
+    }
+
+    const result = await searchWeb(query, options);
+
+    if (result.error) {
+      return result;
+    }
+
+    return {
+      ...result,
+      wrappedResults: wrapWebSearchResultsForModel(
+        result.sources.map((s) => ({
+          title: s.title,
+          url: s.url,
+          snippet: s.snippet ?? undefined,
+        }))
+      ),
+    };
   },
 });
 /**

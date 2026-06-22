@@ -56,41 +56,51 @@ export const caption = tv({
 });
 
 /**
- * Frosted "glass" surface: returns Tailwind `className` tokens from tailwind-variants. Use with
- * `cn(glass({ … }), "rounded-xl …")` for radius, padding, and any extra borders.
+ * Neutral smoke glass — blur + theme tint + hairline border. Uses HeroUI background/border
+ * tokens (not raw white/black) so light/dark follow the app palette automatically.
  *
- * Base: translucent `background-tertiary`, `backdrop-blur-2xl`, light backdrop brighten — content
- * behind stays visible but softened.
- *
- * Options (all optional; defaults match `defaultVariants` below):
- * - `tone` — `"default"`: neutral glass only. `"brown"`: warm amber wash on background/border plus
- *   `backdrop-saturate-150` for a paper/editorial feel.
- * - `opaque` — `true`: raises fill to `bg-background-tertiary/75` (light and dark) for legible type
- *   over busy backgrounds; omit for the lighter standard glass.
- * - `border` — `"all"` (default): uniform hairline via `border-1`. `"right"` / `"left"`: single-edge
- *   border. `"none"`: skip built-in border utilities when you supply your own border classes.
+ * `chip: true` — unified foreground aperture lens for toggles inside opaque shells.
+ * Uses base smoke opacity (not `opaque`) so chrome shows through. Do not combine with `opaque: true`.
  */
 export const glass = tv({
-  base: "bg-background-tertiary/30 dark:bg-background-tertiary/20 backdrop-brightness-110 dark:backdrop-brightness-200 backdrop-blur-2xl  border-foreground/5",
+  base: [
+    "organic-glass-smoke",
+    "backdrop-blur-[20px] backdrop-saturate-[1.12]",
+    "bg-background/30",
+    "border border-border/50",
+  ].join(" "),
   variants: {
     tone: {
       default: "",
       brown:
-        "bg-amber-950/10 dark:bg-amber-950/20 border-amber-900/10 dark:border-amber-200/10 backdrop-saturate-150",
+        "backdrop-saturate-[1.18] bg-background-secondary/35 border-amber-900/15 dark:border-amber-200/10",
     },
     opaque: {
-      true: "bg-background-tertiary/75 dark:bg-background-tertiary/75",
+      true: "backdrop-blur-[16px] bg-background/78",
     },
     border: {
-      all: "border-1",
-      right: "border-r-1",
-      left: "border-l-1",
-      none: "",
+      all: "",
+      right: "border-0 border-r border-border/50",
+      left: "border-0 border-l border-border/50",
+      none: "border-0",
+    },
+    chip: {
+      true: [
+        "bg-background/12",
+        "backdrop-brightness-[1.16] backdrop-saturate-[1.1]",
+        "dark:backdrop-brightness-[1.04] dark:backdrop-saturate-[1.02]",
+        "border-[color:color-mix(in_oklch,var(--border)_45%,transparent)]",
+        "text-foreground",
+        "shadow-[inset_0_1px_0_rgba(255,255,255,0.22)]",
+      ].join(" "),
+      false: "",
     },
   },
+  compoundVariants: [{ chip: true, class: "rounded-md" }],
   defaultVariants: {
     tone: "default",
     border: "all",
+    chip: false,
   },
 });
 

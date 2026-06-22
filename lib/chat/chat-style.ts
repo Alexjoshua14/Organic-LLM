@@ -9,19 +9,17 @@ export const CHAT_STYLES = [
   {
     id: "default",
     label: "Standard",
-    description: "Open-ended conversation. Structured blocks appear when they help.",
+    description: "Open chat. Structured blocks when they help.",
   },
   {
     id: "ergon",
     label: "Ergon board",
-    description:
-      "A living kanban board the assistant keeps for you. Ask for views like \u201cwhat\u2019s active\u201d or \u201cwhat\u2019s next\u201d.",
+    description: "Kanban the assistant keeps. Ask what's active or next.",
   },
   {
     id: "scribe",
     label: "Scribe",
-    description:
-      "The assistant only organizes and presents what you say \u2014 it never adds information or outside knowledge.",
+    description: "Organizes your words only—no outside facts.",
   },
 ] as const;
 

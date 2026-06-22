@@ -74,6 +74,10 @@ import {
 } from "@/components/third-party/ui/select";
 import { useSubmitOnEnter } from "@/hooks/use-mobile";
 import { cn } from "@/lib/utils";
+import {
+  getWebSpeechRecognitionCtor,
+  type WebSpeechRecognition,
+} from "@/lib/web-speech-recognition";
 
 // ============================================================================
 // Provider Context & Types
@@ -785,7 +789,10 @@ export const PromptInput = ({
         onChange={handleChange}
       />
       <form ref={formRef} className={cn("w-full", className)} onSubmit={handleSubmit} {...props}>
-        <InputGroup className={`${glass({ opaque: true })} overflow-hidden rounded-xl`}>
+        <InputGroup
+          className={`${glass({ opaque: true })} overflow-visible rounded-xl`}
+          data-prompt-input-shell
+        >
           {children}
         </InputGroup>
       </form>
@@ -1060,56 +1067,6 @@ export const PromptInputSubmit = ({
   );
 };
 
-interface SpeechRecognition extends EventTarget {
-  continuous: boolean;
-  interimResults: boolean;
-  lang: string;
-  start(): void;
-  stop(): void;
-  onstart: ((this: SpeechRecognition, ev: Event) => any) | null;
-  onend: ((this: SpeechRecognition, ev: Event) => any) | null;
-  onresult: ((this: SpeechRecognition, ev: SpeechRecognitionEvent) => any) | null;
-  onerror: ((this: SpeechRecognition, ev: SpeechRecognitionErrorEvent) => any) | null;
-}
-
-interface SpeechRecognitionEvent extends Event {
-  results: SpeechRecognitionResultList;
-  resultIndex: number;
-}
-
-type SpeechRecognitionResultList = {
-  readonly length: number;
-  item(index: number): SpeechRecognitionResult;
-  [index: number]: SpeechRecognitionResult;
-};
-
-type SpeechRecognitionResult = {
-  readonly length: number;
-  item(index: number): SpeechRecognitionAlternative;
-  [index: number]: SpeechRecognitionAlternative;
-  isFinal: boolean;
-};
-
-type SpeechRecognitionAlternative = {
-  transcript: string;
-  confidence: number;
-};
-
-interface SpeechRecognitionErrorEvent extends Event {
-  error: string;
-}
-
-declare global {
-  interface Window {
-    SpeechRecognition: {
-      new (): SpeechRecognition;
-    };
-    webkitSpeechRecognition: {
-      new (): SpeechRecognition;
-    };
-  }
-}
-
 export type PromptInputSpeechButtonProps = ComponentProps<typeof PromptInputButton> & {
   textareaRef?: RefObject<HTMLTextAreaElement | null>;
   onTranscriptionChange?: (text: string) => void;
@@ -1122,64 +1079,59 @@ export const PromptInputSpeechButton = ({
   ...props
 }: PromptInputSpeechButtonProps) => {
   const [isListening, setIsListening] = useState(false);
-  const [recognition, setRecognition] = useState<SpeechRecognition | null>(null);
-  const recognitionRef = useRef<SpeechRecognition | null>(null);
+  const [recognition, setRecognition] = useState<WebSpeechRecognition | null>(null);
+  const recognitionRef = useRef<WebSpeechRecognition | null>(null);
 
   useEffect(() => {
-    if (
-      typeof window !== "undefined" &&
-      ("SpeechRecognition" in window || "webkitSpeechRecognition" in window)
-    ) {
-      const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-      const speechRecognition = new SpeechRecognition();
+    const SpeechRecognitionCtor = getWebSpeechRecognitionCtor();
+    if (!SpeechRecognitionCtor) return;
 
-      speechRecognition.continuous = true;
-      speechRecognition.interimResults = true;
-      speechRecognition.lang = "en-US";
+    const speechRecognition = new SpeechRecognitionCtor();
 
-      speechRecognition.onstart = () => {
-        setIsListening(true);
-      };
+    speechRecognition.continuous = true;
+    speechRecognition.interimResults = true;
+    speechRecognition.lang = "en-US";
 
-      speechRecognition.onend = () => {
-        setIsListening(false);
-      };
+    speechRecognition.onstart = () => {
+      setIsListening(true);
+    };
 
-      speechRecognition.onresult = (event) => {
-        let finalTranscript = "";
+    speechRecognition.onend = () => {
+      setIsListening(false);
+    };
 
-        for (let i = event.resultIndex; i < event.results.length; i++) {
-          const result = event.results[i];
+    speechRecognition.onresult = (event) => {
+      let finalTranscript = "";
 
-          if (result.isFinal) {
-            finalTranscript += result[0]?.transcript ?? "";
-          }
+      for (let i = event.resultIndex; i < event.results.length; i++) {
+        const result = event.results[i];
+
+        if (result.isFinal) {
+          finalTranscript += result[0]?.transcript ?? "";
         }
+      }
 
-        if (finalTranscript && textareaRef?.current) {
-          const textarea = textareaRef.current;
-          const currentValue = textarea.value;
-          const newValue = currentValue + (currentValue ? " " : "") + finalTranscript;
+      if (finalTranscript && textareaRef?.current) {
+        const textarea = textareaRef.current;
+        const currentValue = textarea.value;
+        const newValue = currentValue + (currentValue ? " " : "") + finalTranscript;
 
-          textarea.value = newValue;
-          textarea.dispatchEvent(new Event("input", { bubbles: true }));
-          onTranscriptionChange?.(newValue);
-        }
-      };
+        textarea.value = newValue;
+        textarea.dispatchEvent(new Event("input", { bubbles: true }));
+        onTranscriptionChange?.(newValue);
+      }
+    };
 
-      speechRecognition.onerror = (event) => {
-        console.error("Speech recognition error:", event.error);
-        setIsListening(false);
-      };
+    speechRecognition.onerror = (event) => {
+      console.error("Speech recognition error:", event.error);
+      setIsListening(false);
+    };
 
-      recognitionRef.current = speechRecognition;
-      setRecognition(speechRecognition);
-    }
+    recognitionRef.current = speechRecognition;
+    setRecognition(speechRecognition);
 
     return () => {
-      if (recognitionRef.current) {
-        recognitionRef.current.stop();
-      }
+      recognitionRef.current?.stop();
     };
   }, [textareaRef, onTranscriptionChange]);
 
@@ -1197,11 +1149,7 @@ export const PromptInputSpeechButton = ({
 
   return (
     <PromptInputButton
-      className={cn(
-        "relative transition-all duration-200",
-        isListening && "animate-pulse bg-accent text-accent-foreground",
-        className
-      )}
+      className={cn("relative transition-all duration-200", className)}
       disabled={!recognition}
       onClick={toggleListening}
       {...props}
@@ -1223,7 +1171,7 @@ export const PromptInputSelectTrigger = ({
 }: PromptInputSelectTriggerProps) => (
   <SelectTrigger
     className={cn(
-      "border-none bg-transparent font-medium text-muted-foreground shadow-none transition-colors",
+      "cursor-pointer border-none bg-transparent font-medium text-muted-foreground shadow-none transition-colors",
       "hover:bg-accent hover:text-foreground aria-expanded:bg-accent aria-expanded:text-foreground",
       className
     )}

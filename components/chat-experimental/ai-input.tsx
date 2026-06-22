@@ -245,12 +245,15 @@ export const AIInput: React.FC<AIInputProps> = ({
   return (
     <motion.div
       layout
-      className={cn("flex w-full flex-col gap-4", fullView && "mx-auto max-w-2xl min-h-0 flex-1")}
+      className={cn(
+        "mx-auto flex w-full flex-col gap-4",
+        fullView ? "min-h-0 max-w-2xl flex-1" : "max-w-xl"
+      )}
       tabIndex={-1}
       transition={{ ...HOME_INPUT_SPRING, layout: { ...HOME_INPUT_SPRING } }}
     >
       <AiInputForm
-        className={cn("w-full rounded-xl", fullView ? "flex-1 min-h-0" : "max-w-xl")}
+        className={cn("w-full rounded-xl", fullView && "flex-1 min-h-0")}
         clearAfterSubmit={!planMode}
         forceReadyInput={planMode}
         fullView={fullView}

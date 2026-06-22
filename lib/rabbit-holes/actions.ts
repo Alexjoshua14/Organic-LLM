@@ -29,7 +29,13 @@ import { fetchExternalSources, getWebpageContent } from "../exa/sources";
 import { RABBIT_HOLE_UNTITLED } from "./constants";
 
 import { Result } from "@/types";
+import { getSupabaseUserId } from "@/data/supabase/profiles";
 import { GUARDRAIL_MAX_OUTPUT_TOKENS } from "@/lib/llm/helpers";
+import { checkExternalFetchLimit } from "@/lib/rate-limit/external-fetch";
+import {
+  sanitizeUntrustedText,
+  wrapUntrustedContent,
+} from "@/lib/security/external-content";
 
 const logger = createLogger("lib/rabbit-holes/actions.ts");
 
@@ -131,14 +137,18 @@ function buildPrompt(
   branchDescription?: string
 ): string {
   let prompt = "";
+  const wrappedSources = wrapUntrustedContent({
+    kind: "web_search_result",
+    text: sourcesContext,
+  });
 
   if (isInitialNode) {
     prompt += initialNodePrompt;
-    prompt = prompt.replace("{{sourcesContext}}", sourcesContext);
+    prompt = prompt.replace("{{sourcesContext}}", wrappedSources);
     prompt = prompt.replace("{{sourcesInstruction}}", sourcesInstruction);
   } else {
     prompt += newNodePrompt;
-    prompt = prompt.replace("{{sourcesContext}}", sourcesContext);
+    prompt = prompt.replace("{{sourcesContext}}", wrappedSources);
     prompt = prompt.replace("{{sourcesInstruction}}", sourcesInstruction);
     prompt = prompt.replace("{{pathHistory}}", pathHistory);
     prompt = prompt.replace("{{branchDescription}}", branchDescription ?? "");
@@ -212,17 +222,44 @@ export async function analyzeSource(
   try {
     logger.log("analyzeSource", `Analyzing source: ${sourceUrl}`);
 
+    const sbUserIdResult = await getSupabaseUserId(clerkUser.userId);
+
+    if (sbUserIdResult.error || sbUserIdResult.data === null) {
+      return {
+        data: null,
+        error: new Error("User not found in supabase"),
+      };
+    }
+
+    const fetchLimit = await checkExternalFetchLimit(sbUserIdResult.data);
+
+    if (!fetchLimit.success) {
+      return {
+        data: null,
+        error: new Error(fetchLimit.error ?? "Too many external fetch requests"),
+      };
+    }
+
     const webpageContent = await getWebpageContent(sourceUrl);
 
+    const safeTitle = sanitizeUntrustedText(sourceTitle, 512);
+    const safeSnippet = sourceSnippet ? sanitizeUntrustedText(sourceSnippet, 2000) : "";
+    const safeUrl = sanitizeUntrustedText(sourceUrl, 2048);
+
     const contextInfo = webpageContent
-      ? `Webpage content (first 5000 chars):\n${webpageContent}\n\n`
+      ? `${wrapUntrustedContent({
+          kind: "webpage",
+          sourceUrl: safeUrl,
+          title: safeTitle,
+          text: webpageContent,
+        })}\n\n`
       : "";
 
     const prompt = `Analyze the following source:
 
-Title: ${sourceTitle}
-URL: ${sourceUrl}
-${sourceSnippet ? `Snippet: ${sourceSnippet}` : ""}
+Title: ${safeTitle}
+URL: ${safeUrl}
+${safeSnippet ? `Snippet: ${safeSnippet}` : ""}
 
 ${contextInfo}
 

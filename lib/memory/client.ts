@@ -1,4 +1,5 @@
 import "server-only";
+import "./install-mem0-ollama-config";
 import "./install-mem0-vector-encryption";
 
 import { Memory } from "mem0ai/oss";

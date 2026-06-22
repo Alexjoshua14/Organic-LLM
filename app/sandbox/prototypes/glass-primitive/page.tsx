@@ -3,6 +3,7 @@ import type { ReactNode } from "react";
 
 import Link from "next/link";
 
+import { CapabilityChipLabDemo } from "./_components/capability-chip-lab-demo";
 import AdaptiveLiquidChrome from "@/components/background/AdaptiveLiquidChrome";
 import { OrganicGlassBaselineSurface } from "@/components/design-system/organic-glass-baseline-surface";
 import { OrganicGlassRefractFilterSvg } from "@/components/design-system/organic-glass-refract-filter";
@@ -277,6 +278,17 @@ function GlassLabSampleGallery({ variant }: { variant: "production" | "preview" 
         </div>
       </GlassLabGalleryRow>
 
+      {isProd ? (
+        <GlassLabGalleryRow label="Capability chips on opaque shell">
+          <p className="mb-3 text-xs text-muted-foreground">
+            Active chips use <code className="text-foreground/90">glass(&#123; chip: true &#125;)</code>{" "}
+            — one unified aperture lens over the opaque composer shell. Toggle to compare recessed vs
+            open states.
+          </p>
+          <CapabilityChipLabDemo />
+        </GlassLabGalleryRow>
+      ) : null}
+
       <GlassLabGalleryRow label="Secondary actions">
         <div className="flex flex-wrap gap-2">
           <button
@@ -316,7 +328,7 @@ export default function GlassPrimitivePrototypePage() {
                 Organic Glass lab
               </p>
               <h1 className="truncate text-xl font-light tracking-tight text-foreground sm:text-2xl">
-                Shipped glass, baseline, and working prototype
+                Smoke glass lens, baseline, and working prototype
               </h1>
             </div>
           </div>
@@ -326,12 +338,13 @@ export default function GlassPrimitivePrototypePage() {
           <GlassLabColumn
             badgeLabel="Production"
             badgeState="production"
-            columnTitle="Shipped primitive"
+            columnTitle="Smoke glass lens"
             intro={
               <>
-                The default <code className="text-foreground/90">glass()</code> helper used across
-                chat, chrome, and settings: translucent tertiary fill, strong static blur, and a
-                hairline border — no preview-only lens stack.
+                The shipped <code className="text-foreground/90">glass()</code> helper uses theme{" "}
+                <code className="text-foreground/90">background</code> and{" "}
+                <code className="text-foreground/90">border</code> tokens — blur tints with your
+                palette; chrome supplies atmosphere behind the lens.
               </>
             }
             sectionClassName="border-b border-white/10 px-5 py-6 lg:border-b-0 lg:border-r lg:px-8"
@@ -339,38 +352,41 @@ export default function GlassPrimitivePrototypePage() {
             <div
               className={cn(
                 glass(),
-                "relative min-h-[410px] rounded-[2rem] p-6 sm:p-8 motion-safe:transition-shadow motion-safe:duration-200 motion-safe:ease-out hover:shadow-md"
+                "relative mx-auto min-h-[410px] max-w-xl rounded-[2rem] p-10 sm:p-12"
               )}
             >
-              <GlassLabHeroBody
-                eyebrow="In production"
-                surfaceCaseBody={
-                  <p className="leading-6 text-muted-foreground">
-                    Backdrop-brightened frosted panels keep type legible over busy chrome without
-                    animating backdrop-filter. Tone and opaque variants map to the same primitive.
-                  </p>
-                }
-                surfaceCaseTitle="Ship contract"
-                statusPill={
-                  <div className="rounded-full border border-zinc-500/20 bg-zinc-500/10 px-3 py-1 text-xs font-medium text-zinc-700 dark:border-zinc-400/15 dark:bg-zinc-400/10 dark:text-zinc-200">
-                    default
-                  </div>
-                }
-                title="Frosted glass"
-              />
+              <div className="relative z-10 space-y-6">
+                <p className="text-xs uppercase tracking-[0.28em] text-muted-foreground">
+                  In production
+                </p>
+                <h3 className="text-3xl font-light leading-tight tracking-tight text-foreground sm:text-4xl">
+                  Transform your vision into reality
+                </h3>
+                <p className="max-w-md text-sm leading-7 text-muted-foreground">
+                  Uses <code className="text-foreground/90">bg-background/30</code> and{" "}
+                  <code className="text-foreground/90">border-border/50</code> — warm gray in light
+                  mode, green-tinted charcoal in dark — not raw white or black.
+                </p>
+                <button
+                  className="rounded-full border border-border/60 bg-transparent px-5 py-2.5 text-xs font-medium uppercase tracking-[0.22em] text-foreground transition hover:border-border hover:bg-background/20"
+                  type="button"
+                >
+                  Build with Organic
+                </button>
+              </div>
             </div>
 
             <GlassLabBottomTiles
               denseBody={
                 <p>
-                  Opaque variant raises fill for readable type over liquid chrome without changing
-                  the material family.
+                  Opaque variant raises fill for readable type over bright chrome without losing the
+                  smoke material family.
                 </p>
               }
               leadingSurfaceClassName={glass({ opaque: true })}
               trailingSurfaceClassName={glass({ tone: "brown" })}
               warmBody={
-                <p>Brown tone adds a warm wash and saturate for editorial surfaces in the app.</p>
+                <p>Brown tone adds a warm wash and extra saturation for editorial surfaces.</p>
               }
             />
 

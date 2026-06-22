@@ -106,7 +106,8 @@ export function SettingsOverlay({ open, onOpenChange, trigger }: SettingsOverlay
               <h3 className="text-sm font-medium text-foreground">Coalescence Mode</h3>
               <div className="flex items-center justify-between gap-3">
                 <span className="text-xs text-muted-foreground">
-                  When on, your sidebar includes Arcadia and other feature threads.
+                  When on, your sidebar includes Arcadia and other feature threads and indexes
+                  gen-ui blocks into the spatial artifact library.
                 </span>
                 <Switch
                   aria-label="Coalescence Mode"

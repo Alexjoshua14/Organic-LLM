@@ -35,6 +35,8 @@ A full-viewport animated background that **dims when the user hovers or focuses*
 | `to65TransitionMs` | `1200` | Duration (ms) for **phase 1 brightening**: dimmed → 65% opacity. Quickish, still slower than dim. |
 | `to100TransitionMs` | `2800` | Duration (ms) for **phase 2 brightening**: 65% → 100%. Slow, ease. |
 | `onDimChange` | — | Callback when dimmed state changes (e.g. for debugging or a dim indicator). |
+| `cover` | `"viewport"` | `"viewport"` fills the viewport (`fixed`); `"parent"` fills the positioned parent. |
+| `interactive` | `true` | Forwarded to LiquidChrome — enables mouse/touch ripple interaction on the shader. |
 
 ## Brightening behavior
 
@@ -44,6 +46,19 @@ A full-viewport animated background that **dims when the user hovers or focuses*
 
 If the user hovers/focuses again during phase 1 or 2, the background dims again immediately (phase 2 timeout is cleared).
 
+## Accessibility
+
+When the user has **Reduce motion** enabled (`prefers-reduced-motion: reduce`), the WebGL canvas is not mounted. Instead, a static radial gradient is rendered using the same theme base colors. Opacity dimming (`data-dim-background`, focus, and `data-adaptive-active`) still works the same way.
+
+## Performance
+
+- **Paused RAF** — When the tab is hidden or reduced motion is active, the LiquidChrome `requestAnimationFrame` loop is cancelled (not just skipped).
+- **DPR cap** — Canvas resolution is capped at 1.5× device pixel ratio to reduce GPU fill cost on retina displays.
+- **Mobile quality tier** — Viewports ≤768px wide use single-sample shading; desktop keeps 3×3 supersampling.
+- **No MSAA** — WebGL antialiasing is disabled; supersampling on desktop provides edge softening.
+- **Event delegation** — Hover/focus dim triggers use document-level `pointerover`/`pointerout` and `closest('[data-dim-background]')` instead of per-element listeners and a broad DOM mutation observer.
+- **Compositor hints** — `will-change: opacity` is applied only while opacity is animating (not at rest).
+
 ## Easing
 
 Transitions use a single cubic-bezier for now: `cubic-bezier(0.25, 0.46, 0.45, 0.94)`. Future refinement could use separate curves per phase (e.g. sharper “respond” for dim, “long exhale” for phase 2).
@@ -51,7 +66,7 @@ Transitions use a single cubic-bezier for now: `cubic-bezier(0.25, 0.46, 0.45, 0
 ## Implementation notes
 
 - **Brightness state** is one of: `dimmed` | `to65` | `rest`. The wrapper div’s opacity is derived from this and `effectiveDimIntensity`.
-- **Event handling** — Global `focusin` / `focusout` and per-element `mouseenter` / `mouseleave` on `[data-dim-background]`. A `MutationObserver` attaches listeners to new matching elements.
+- **Event handling** — Global `pointerover` / `pointerout` and `focusin` / `focusout` with `closest('[data-dim-background]')`. A narrow `MutationObserver` watches only `data-adaptive-active` attribute changes.
 - **Theme** — Base color and opacity of the LiquidChrome layer respect `next-themes` (dark: deep blue-gray, light: warm gray).
 
 ## File location

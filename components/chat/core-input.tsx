@@ -38,10 +38,6 @@ import {
   PromptInputMessage,
   PromptInputTextarea,
   PromptInputTools,
-  PromptInputActionAddAttachments,
-  PromptInputActionMenu,
-  PromptInputActionMenuContent,
-  PromptInputActionMenuTrigger,
   PromptInputButton,
   PromptInputFooter,
   PromptInputSelect,
@@ -49,11 +45,13 @@ import {
   PromptInputSelectItem,
   PromptInputSelectTrigger,
   PromptInputSelectValue,
-  PromptInputSpeechButton,
 } from "../third-party/ai-elements/prompt-input";
 import ShinyText from "../ShinyText";
 
 import { ChatMessageMarkdown } from "./chat-message-markdown";
+import { ComposerAddFilesButton } from "./composer-add-files-button";
+import { ComposerMicButton } from "./composer-mic-button";
+import { ComposerToolChip } from "./composer-tool-chip";
 import { ModelZdrIndicator } from "./model-zdr-indicator";
 
 import { cn } from "@/lib/utils";
@@ -92,6 +90,12 @@ type CoreInputProps = {
   sentMessageShimmer?: boolean;
   /** Override persisted model id key (e.g. Delphi vs main chat). Other prefs use global keys. */
   modelLocalStorageKey?: string;
+  /** Initial model when no stored preference exists (defaults to first gateway model). */
+  defaultModel?: ChatModel;
+  /** Override persisted memory toggle key (e.g. introspection vs main chat). */
+  memoryLocalStorageKey?: string;
+  /** Initial memory toggle when no stored preference exists. */
+  defaultMemories?: boolean;
   /** When `id` changes, replaces composer text (e.g. assist reply injection). */
   composerInject?: { id: number; text: string } | null;
   /** Cmd/Ctrl+Enter runs this instead of sending chat; primary submit unchanged. */
@@ -99,6 +103,8 @@ type CoreInputProps = {
   secondarySubmitLabel?: string;
   secondarySubmitDisabled?: boolean;
   secondarySubmitPending?: boolean;
+  /** Compact single-line composer; toggles live in the overflow menu. */
+  variant?: "default" | "compact";
 };
 
 /** Max length for the in-flight shimmer copy (matches AiInputForm). */
@@ -132,17 +138,21 @@ export const CoreInput: React.FC<CoreInputProps> = ({
   onComposerTextChange,
   sentMessageShimmer = false,
   modelLocalStorageKey,
+  defaultModel = DEFAULT_CHAT_MODEL,
+  memoryLocalStorageKey,
+  defaultMemories = false,
   composerInject,
   onSecondarySubmit,
   secondarySubmitLabel = "Steer assist",
   secondarySubmitDisabled = false,
   secondarySubmitPending = false,
+  variant = "default",
 }) => {
   const { refreshSidebarChats } = useSharedChatContext();
 
   const modelStorageKey = modelLocalStorageKey ?? "organic-llm-selected-model";
+  const memoriesStorageKey = memoryLocalStorageKey ?? "organic-llm-memories";
   const STORAGE_KEY_WEB_SEARCH = "organic-llm-web-search";
-  const STORAGE_KEY_MEMORIES = "organic-llm-memories";
   const STORAGE_KEY_SPEECH_FRIENDLY = "organic-llm-speech-friendly";
   const STORAGE_KEY_TIMESTAMP = "organic-llm-prefs-timestamp";
   const EXPIRY_MS = 24 * 60 * 60 * 1000; // 24 hours in milliseconds
@@ -150,9 +160,9 @@ export const CoreInput: React.FC<CoreInputProps> = ({
   const [text, setText] = useState<string>("");
   const [recentlySentText, setRecentlySentText] = useState<string>(""); // For failed/aborted sends
   const recentlySentTextRef = useRef<string>(""); // So restore effect sees value before state flushes
-  const [model, setModel] = useState<ChatModel>(DEFAULT_CHAT_MODEL);
+  const [model, setModel] = useState<ChatModel>(defaultModel);
   const [useWebSearch, setUseWebSearch] = useState<boolean>(false);
-  const [useMemories, setUseMemories] = useState<boolean>(false);
+  const [useMemories, setUseMemories] = useState<boolean>(defaultMemories);
   const [useSpeechFriendly, setUseSpeechFriendly] = useState<boolean>(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const toolsRef = useRef<HTMLDivElement | null>(null);
@@ -256,8 +266,8 @@ export const CoreInput: React.FC<CoreInputProps> = ({
     if (isExpired) {
       // Clear expired preferences
       localStorage.removeItem(modelStorageKey);
+      localStorage.removeItem(memoriesStorageKey);
       localStorage.removeItem(STORAGE_KEY_WEB_SEARCH);
-      localStorage.removeItem(STORAGE_KEY_MEMORIES);
       localStorage.removeItem(STORAGE_KEY_SPEECH_FRIENDLY);
       localStorage.removeItem(STORAGE_KEY_TIMESTAMP);
 
@@ -277,14 +287,15 @@ export const CoreInput: React.FC<CoreInputProps> = ({
 
     if (storedWebSearch === "true") setUseWebSearch(true);
 
-    const storedMemories = localStorage.getItem(STORAGE_KEY_MEMORIES);
+    const storedMemories = localStorage.getItem(memoriesStorageKey);
 
     if (storedMemories === "true") setUseMemories(true);
+    else if (storedMemories === "false") setUseMemories(false);
 
     const storedSpeechFriendly = localStorage.getItem(STORAGE_KEY_SPEECH_FRIENDLY);
 
     if (storedSpeechFriendly === "true") setUseSpeechFriendly(true);
-  }, [modelStorageKey]);
+  }, [modelStorageKey, memoriesStorageKey]);
 
   // Update timestamp whenever preferences are saved
   const updatePrefsTimestamp = () => {
@@ -319,10 +330,10 @@ export const CoreInput: React.FC<CoreInputProps> = ({
       useMemoriesRef.current = useMemories;
     }
     if (hasLoadedPrefs.current) {
-      localStorage.setItem(STORAGE_KEY_MEMORIES, String(useMemories));
+      localStorage.setItem(memoriesStorageKey, String(useMemories));
       updatePrefsTimestamp();
     }
-  }, [useMemories, useMemoriesRef]);
+  }, [useMemories, useMemoriesRef, memoriesStorageKey]);
 
   // Sync speech-friendly to ref and persist to localStorage
   useEffect(() => {
@@ -435,6 +446,7 @@ export const CoreInput: React.FC<CoreInputProps> = ({
   return (
     <PromptInput
       aria-busy={showSentShimmer ? true : undefined}
+      data-dim-background
       globalDrop
       multiple
       className={cn("min-w-fit z-40", className)}
@@ -484,26 +496,26 @@ export const CoreInput: React.FC<CoreInputProps> = ({
           <PromptInputTextarea
             ref={textareaRef}
             value={text}
+            className={cn(variant === "compact" && "min-h-10 max-h-24 resize-none")}
             onChange={handleInputChange}
             onKeyDown={onSecondarySubmit ? handleTextareaKeyDown : undefined}
           />
         )}
       </PromptInputBody>
-      <PromptInputFooter>
-        <div ref={toolsRef} className="w-full">
-          <PromptInputTools className="flex justify-between w-full">
-            <div className="flex gap-1">
+      <PromptInputFooter className="overflow-visible">
+        <div ref={toolsRef} className="w-full overflow-visible">
+          <PromptInputTools className="flex justify-between w-full overflow-visible">
+            <div className="flex gap-1 overflow-visible">
               {enableMarkdownInputPreview && (
-                <PromptInputButton
+                <ComposerToolChip
+                  active={inputMarkdownMode === "preview"}
                   aria-label={
                     inputMarkdownMode === "edit" ? "Show markdown preview" : "Back to editing"
                   }
-                  aria-pressed={inputMarkdownMode === "preview"}
-                  size={"dynamic-sm"}
                   title={
                     inputMarkdownMode === "edit" ? "Show rendered markdown" : "Edit as plain text"
                   }
-                  variant={inputMarkdownMode === "preview" ? "default" : "ghost"}
+                  tool="preview"
                   onClick={() => setInputMarkdownMode((m) => (m === "edit" ? "preview" : "edit"))}
                 >
                   {inputMarkdownMode === "edit" ? (
@@ -514,82 +526,78 @@ export const CoreInput: React.FC<CoreInputProps> = ({
                   <span className={cn(showLabels ? "inline-flex" : "hidden")}>
                     {inputMarkdownMode === "edit" ? "Preview" : "Edit"}
                   </span>
-                </PromptInputButton>
+                </ComposerToolChip>
               )}
-              {!hideWebMemorySpeechToggles ? (
+              {!hideWebMemorySpeechToggles && variant !== "compact" ? (
                 <>
-                  <PromptInputButton
-                    size={"dynamic-sm"}
-                    variant={useWebSearch ? "default" : "ghost"}
+                  <ComposerToolChip
+                    active={useWebSearch}
+                    tool="search"
                     onClick={() => setUseWebSearch(!useWebSearch)}
                   >
                     <GlobeIcon size={16} />
                     <span className={cn(showLabels ? "inline-flex" : "hidden")}>Search</span>
-                  </PromptInputButton>
-                  <PromptInputButton
-                    size={"dynamic-sm"}
-                    variant={useMemories ? "default" : "ghost"}
+                  </ComposerToolChip>
+                  <ComposerToolChip
+                    active={useMemories}
+                    tool="memory"
                     onClick={() => setUseMemories(!useMemories)}
                   >
                     <BrainCircuit />
                     <span className={cn(showLabels ? "inline-flex" : "hidden")}>Memory</span>
-                  </PromptInputButton>
+                  </ComposerToolChip>
                   {useSpeechFriendlyRef && (
-                    <PromptInputButton
+                    <ComposerToolChip
+                      active={useSpeechFriendly}
                       aria-label={useSpeechFriendly ? "Speech-friendly on" : "Speech-friendly off"}
-                      size={"dynamic-sm"}
                       title="Format replies for reading and TTS; a separate pipeline converts to speech-friendly script."
-                      variant={useSpeechFriendly ? "default" : "ghost"}
+                      tool="speech"
                       onClick={() => setUseSpeechFriendly(!useSpeechFriendly)}
                     >
                       <Volume2 size={16} />
                       <span className={cn(showLabels ? "inline-flex" : "hidden")}>Speech</span>
-                    </PromptInputButton>
+                    </ComposerToolChip>
                   )}
                 </>
               ) : null}
 
-              <PromptInputSelect
-                required
-                defaultValue={model.id}
-                value={model.id}
-                onValueChange={handleModelSelection}
-              >
-                <PromptInputSelectTrigger className="flex-1 max-w-32 sm:max-w-48 min-w-0">
-                  <PromptInputSelectValue className="truncate min-w-0">
-                    <span className="flex min-w-0 items-center gap-2">
-                      <span className="truncate">{model.name}</span>
-                      {model.supportsZeroDataRetention && <ModelZdrIndicator />}
-                    </span>
-                  </PromptInputSelectValue>
-                </PromptInputSelectTrigger>
-                <PromptInputSelectContent
-                  className="max-h-80 overflow-y-auto"
+              {variant !== "compact" ? (
+                <PromptInputSelect
+                  required
                   defaultValue={model.id}
+                  value={model.id}
+                  onValueChange={handleModelSelection}
                 >
-                  {ChatModels.map((model) => (
-                    <PromptInputSelectItem key={model.id} textValue={model.name} value={model.id}>
+                  <PromptInputSelectTrigger className="flex-1 max-w-32 sm:max-w-48 min-w-0">
+                    <PromptInputSelectValue className="truncate min-w-0">
                       <span className="flex min-w-0 items-center gap-2">
                         <span className="truncate">{model.name}</span>
                         {model.supportsZeroDataRetention && <ModelZdrIndicator />}
                       </span>
-                    </PromptInputSelectItem>
-                  ))}
-                </PromptInputSelectContent>
-              </PromptInputSelect>
+                    </PromptInputSelectValue>
+                  </PromptInputSelectTrigger>
+                  <PromptInputSelectContent
+                    className="max-h-80 overflow-y-auto"
+                    defaultValue={model.id}
+                  >
+                    {ChatModels.map((model) => (
+                      <PromptInputSelectItem key={model.id} textValue={model.name} value={model.id}>
+                        <span className="flex min-w-0 items-center gap-2">
+                          <span className="truncate">{model.name}</span>
+                          {model.supportsZeroDataRetention && <ModelZdrIndicator />}
+                        </span>
+                      </PromptInputSelectItem>
+                    ))}
+                  </PromptInputSelectContent>
+                </PromptInputSelect>
+              ) : (
+                <span className="text-muted-foreground truncate px-2 text-xs">{model.name}</span>
+              )}
             </div>
             <div className="flex gap-1">
-              <PromptInputActionMenu>
-                <PromptInputActionMenuTrigger />
-                <PromptInputActionMenuContent>
-                  <PromptInputActionAddAttachments />
-                </PromptInputActionMenuContent>
-              </PromptInputActionMenu>
+              <ComposerAddFilesButton />
               {(!enableMarkdownInputPreview || inputMarkdownMode === "edit") && (
-                <PromptInputSpeechButton
-                  textareaRef={textareaRef}
-                  onTranscriptionChange={setText}
-                />
+                <ComposerMicButton textareaRef={textareaRef} onTranscriptionChange={setText} />
               )}
             </div>
           </PromptInputTools>
