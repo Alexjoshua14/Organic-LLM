@@ -9,6 +9,7 @@ import { SidebarGroup, SidebarGroupLabel } from "../third-party/ui/sidebar";
 import { SidebarChatList } from "./sidebar-chat-list";
 
 import { useSharedChatContext } from "@/lib/context/chat-context";
+import { MEMORY_INGEST_FEATURE } from "@/lib/chat/memory-ingest";
 import { getSettings } from "@/lib/user-settings";
 
 /**
@@ -36,9 +37,13 @@ export const SidebarChats = () => {
   }, []);
 
   const filteredChats = useMemo(() => {
-    if (coalescenceMode) return chats;
+    // Memory ingest sessions live in their own chamber — never list them among
+    // chats, not even in coalescence mode (which otherwise surfaces all features).
+    const visible = chats.filter((t) => (t.feature ?? "main") !== MEMORY_INGEST_FEATURE);
 
-    return chats.filter((t) => (t.feature ?? "main") === "main");
+    if (coalescenceMode) return visible;
+
+    return visible.filter((t) => (t.feature ?? "main") === "main");
   }, [chats, coalescenceMode]);
 
   const pinnedChats = useMemo(() => filteredChats.filter((t) => t.pinned), [filteredChats]);
