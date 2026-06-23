@@ -30,6 +30,7 @@ import {
   toolResultSummaryButtonClass,
 } from "./tool-result-inline";
 
+import { ErgonTaskResult } from "@/components/ergon/ErgonTaskResult";
 import { GenUIStreamingPart } from "@/components/chat/gen-ui/GenUIStreamingPart";
 import { GenUIToolResult } from "@/components/chat/gen-ui/GenUIToolResult";
 import { KanbanLoadingShell } from "@/components/chat/kanban/KanbanLoadingShell";
@@ -41,6 +42,7 @@ import { messagePartsToCopyMarkdown } from "@/lib/chat/message-copy-markdown";
 import { RENDER_GEN_UI_TOOL_NAME } from "@/lib/llm/gen-ui-tool";
 import { KANBAN_BOARD_TOOL_NAME } from "@/lib/llm/kanban-tool";
 import { MISE_PLAN_TOOL_NAME } from "@/lib/llm/mise-tool";
+import { MANAGE_TASKS_TOOL_NAME } from "@/lib/schemas/ergon-tasks";
 import { cn } from "@/lib/utils";
 import { ChatAIActionEnum } from "@/types/ai";
 import { MermaidDiagram } from "@/components/blog/mermaid-diagram";
@@ -177,6 +179,19 @@ const AIMessage: FC<ChatMessageProps> = ({
                         key={`${message.id}-${i}-mise-result`}
                         output={part.output}
                         threadId={chatId ?? message.id}
+                      />
+                    );
+                  }
+
+                  return null;
+                }
+
+                if (toolName === MANAGE_TASKS_TOOL_NAME) {
+                  if (part.state === "output-available") {
+                    return (
+                      <ErgonTaskResult
+                        key={`${message.id}-${i}-ergon-tasks`}
+                        output={part.output}
                       />
                     );
                   }
@@ -433,6 +448,7 @@ const KNOWN_TOOL_IN_FLIGHT_LABELS: Record<string, string> = {
   kanban_board: "Updating board…",
   mise_plan: "Updating plan…",
   fetch_recipe: "Reading recipe…",
+  manage_tasks: "Updating tasks…",
   make_mermaid_diagram: "Creating diagram...",
   search_memories: "Searching memories...",
   memory_search: "Searching memories...",

@@ -96,6 +96,12 @@ Always on in the **Remy** route (`/api/ai/remy`); in Arcadia it's the **Remy** c
 - Implementation: [`createMisePlanTool` / `createFetchRecipeTool`](../lib/llm/mise-tool.ts) · [`lib/schemas/mise`](../lib/schemas/mise/) · [`data/supabase/mise.ts`](../data/supabase/mise.ts) · store [`lib/mise/store.ts`](../lib/mise/store.ts)
 - Requires the migration [`docs/migrations/mise_tables.sql`](./migrations/mise_tables.sql) applied and `lib/supabase/types.ts` regenerated.
 
+### `manage_tasks` (durable Ergon todos)
+
+Always available in the main chat. Lets Aion manage the user's **durable** todo list (the `/ergon` page) via the Supabase data layer (RLS-scoped): `CREATE_TASKS`, `UPDATE_TASK`, `COMPLETE_TASK`, `LIST_TASKS`. Categories are passed by name (resolve-or-create). Returns a compact `{ kind: "ergon-tasks", action, tasks }` payload rendered by [`ErgonTaskResult`](../components/ergon/ErgonTaskResult.tsx) with a link to `/ergon`. Distinct from `kanban_board`: that is a client-side puppet board; `manage_tasks` writes through to the database.
+
+- Implementation: [`createManageTasksTool`](../lib/llm/ergon-tasks-tool.ts) · executor [`executeManageTasks`](../lib/llm/ergon-tasks-execute.ts) · schema [`lib/schemas/ergon-tasks.ts`](../lib/schemas/ergon-tasks.ts) · prompt hints [`lib/system-prompt/ergon.ts`](../lib/system-prompt/ergon.ts)
+
 ---
 
 ## Delphi experience

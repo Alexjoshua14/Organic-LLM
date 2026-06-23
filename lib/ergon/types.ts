@@ -1,4 +1,5 @@
 import type { Tables } from "@/lib/supabase/types";
+import type { TaskInsert } from "@/lib/schemas/tasks";
 
 export type TaskRow = Tables<"tasks">;
 export type TaskCategoryRow = Tables<"task_categories">;
@@ -32,5 +33,5 @@ export const DEFAULT_ERGON_FILTERS: ErgonFilters = {
 
 export type EditorState =
   | { mode: "closed" }
-  | { mode: "create" }
+  | { mode: "create"; draft?: Partial<TaskInsert> }
   | { mode: "edit"; taskId: string };

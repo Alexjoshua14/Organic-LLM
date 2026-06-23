@@ -87,18 +87,26 @@ export async function toggleTaskComplete(id: string) {
   });
 }
 
-/** Toggle is_active for focus / lumen highlight on the Ergon task row. */
+/** Toggle is_active; activating also moves open tasks to in-progress. */
 export async function toggleTaskActive(id: string) {
   const supabase = await supabaseServer();
   const { data: task, error: fetchError } = await supabase
     .from("tasks")
-    .select("is_active")
+    .select("is_active, status")
     .eq("id", id)
     .single();
 
   if (fetchError) throw new Error(fetchError.message);
 
-  return updateTask(id, { is_active: !task.is_active });
+  const nextActive = !task.is_active;
+  const patch: TaskPatch = {
+    is_active: nextActive,
+    ...(nextActive && task.status !== "doing" && task.status !== "done" && task.status !== "archived"
+      ? { status: "doing" }
+      : {}),
+  };
+
+  return updateTask(id, patch);
 }
 
 // Delete

@@ -146,21 +146,24 @@ export function CategoryFilterChips({
   categories,
   selectedIds,
   onToggle,
+  compact = false,
 }: {
   categories: TaskCategoryRow[];
   selectedIds: string[];
   onToggle: (categoryId: string) => void;
+  compact?: boolean;
 }) {
   if (categories.length === 0) return null;
 
   return (
-    <div className="flex flex-wrap gap-1.5">
+    <div className={cn("flex flex-wrap", compact ? "gap-1" : "gap-1.5")}>
       {categories.map((category) => (
         <CategoryChip
           key={category.id}
           color={category.color}
           label={category.name}
           selected={selectedIds.includes(category.id)}
+          size={compact ? "sm" : "default"}
           onClick={() => onToggle(category.id)}
         />
       ))}

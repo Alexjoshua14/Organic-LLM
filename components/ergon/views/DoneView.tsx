@@ -13,6 +13,7 @@ type DoneViewProps = {
   onToggleActive: (id: string) => void | Promise<void>;
   onEdit: (task: TaskWithCategory) => void;
   onDelete: (id: string) => void | Promise<void>;
+  onEnhance?: (id: string) => void | Promise<void>;
   onChatAbout?: (task: TaskWithCategory) => void;
   getTaskRowProps?: (taskId: string) => ErgonTaskRowKeyboardProps;
 };
@@ -23,6 +24,7 @@ export function DoneView({
   onToggleActive,
   onEdit,
   onDelete,
+  onEnhance,
   onChatAbout,
   getTaskRowProps,
 }: DoneViewProps) {
@@ -43,6 +45,7 @@ export function DoneView({
             onChatAbout={onChatAbout}
             onDelete={onDelete}
             onEdit={onEdit}
+            onEnhance={onEnhance}
             onToggleActive={onToggleActive}
             onToggleComplete={onToggleComplete}
           />
