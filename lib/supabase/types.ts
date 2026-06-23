@@ -616,44 +616,113 @@ export type Database = {
           },
         ];
       };
+      task_categories: {
+        Row: {
+          color: string | null;
+          created_at: string;
+          icon: string | null;
+          id: string;
+          name: string;
+          owner_id: string;
+          sort_order: number;
+          updated_at: string;
+        };
+        Insert: {
+          color?: string | null;
+          created_at?: string;
+          icon?: string | null;
+          id?: string;
+          name: string;
+          owner_id?: string;
+          sort_order?: number;
+          updated_at?: string;
+        };
+        Update: {
+          color?: string | null;
+          created_at?: string;
+          icon?: string | null;
+          id?: string;
+          name?: string;
+          owner_id?: string;
+          sort_order?: number;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "task_categories_owner_id_fkey";
+            columns: ["owner_id"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       tasks: {
         Row: {
+          category_id: string | null;
+          completed_at: string | null;
           created_at: string;
           due_date: string | null;
+          est_minutes: number | null;
           id: string;
+          is_active: boolean;
+          mental_effort: string | null;
           notes: string | null;
           owner_id: string;
-          priority: number;
+          planned_at: string | null;
+          planned_has_time: boolean;
+          priority: string | null;
           status: string;
           tags: string[];
           title: string;
           updated_at: string;
         };
         Insert: {
+          category_id?: string | null;
+          completed_at?: string | null;
           created_at?: string;
           due_date?: string | null;
+          est_minutes?: number | null;
           id?: string;
+          is_active?: boolean;
+          mental_effort?: string | null;
           notes?: string | null;
           owner_id?: string;
-          priority?: number;
+          planned_at?: string | null;
+          planned_has_time?: boolean;
+          priority?: string | null;
           status?: string;
           tags?: string[];
           title: string;
           updated_at?: string;
         };
         Update: {
+          category_id?: string | null;
+          completed_at?: string | null;
           created_at?: string;
           due_date?: string | null;
+          est_minutes?: number | null;
           id?: string;
+          is_active?: boolean;
+          mental_effort?: string | null;
           notes?: string | null;
           owner_id?: string;
-          priority?: number;
+          planned_at?: string | null;
+          planned_has_time?: boolean;
+          priority?: string | null;
           status?: string;
           tags?: string[];
           title?: string;
           updated_at?: string;
         };
         Relationships: [
+          {
+            foreignKeyName: "tasks_category_id_fkey";
+            columns: ["category_id"];
+            isOneToOne: false;
+            referencedRelation: "task_categories";
+            referencedColumns: ["id"];
+          },
           {
             foreignKeyName: "tasks_owner_id_fkey";
             columns: ["owner_id"];
