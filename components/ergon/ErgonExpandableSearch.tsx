@@ -62,7 +62,7 @@ export function ErgonExpandableSearch({ value, onChange, className }: ErgonExpan
   return (
     <div ref={rootRef} className={cn("hidden shrink-0 md:block", className)}>
       <motion.div
-        className="ml-auto flex flex-row-reverse items-center overflow-hidden rounded-lg border border-border/60 bg-muted/30"
+        className="ml-auto flex select-none flex-row-reverse items-center overflow-hidden rounded-lg border border-border/60 bg-muted/30"
         initial={false}
         animate={{ width: isExpanded ? 200 : 32 }}
         transition={transition}
@@ -95,7 +95,7 @@ export function ErgonExpandableSearch({ value, onChange, className }: ErgonExpan
           <Input
             ref={inputRef}
             aria-label="Search tasks"
-            className="h-8 min-w-0 flex-1 border-0 bg-transparent px-2 text-sm shadow-none focus-visible:ring-0"
+            className="h-8 min-w-0 flex-1 border-0 bg-transparent px-2 text-sm shadow-none placeholder:select-none focus-visible:ring-0"
             placeholder="Search tasks…"
             value={value}
             onChange={(event) => onChange(event.target.value)}

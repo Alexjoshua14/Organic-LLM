@@ -39,7 +39,7 @@ export function ListView({
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center gap-2">
+      <div className="flex select-none items-center gap-2">
         <span className="text-xs uppercase tracking-[0.16em] text-muted-foreground/70">Sort</span>
         <Button
           size="sm"
@@ -61,7 +61,7 @@ export function ListView({
 
       {groups.map((group) => (
         <section key={group.categoryId ?? "uncategorized"} className="space-y-2">
-          <div className="flex items-center gap-2">
+          <div className="flex select-none items-center gap-2">
             {group.color ? (
               <span
                 aria-hidden

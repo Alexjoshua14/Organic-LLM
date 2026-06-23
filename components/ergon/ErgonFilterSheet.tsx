@@ -80,7 +80,7 @@ export function ErgonFilterSheet({
 
         {!isDesktop ? (
           <Input
-            className="mb-4 h-9"
+            className="mb-4 h-9 placeholder:select-none"
             placeholder="Search tasks…"
             value={filters.search}
             onChange={(event) => onChange({ ...filters, search: event.target.value })}

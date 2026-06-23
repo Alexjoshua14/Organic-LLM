@@ -139,7 +139,7 @@ export function TaskQuickAdd({
     >
       <div className="flex items-center gap-2">
         <Input
-          className="border-0 bg-transparent shadow-none focus-visible:ring-0"
+          className="border-0 bg-transparent shadow-none placeholder:select-none focus-visible:ring-0"
           disabled={pending}
           placeholder={expanded ? "Task title" : "Quick add or paste a checklist…"}
           value={form.title}
@@ -154,6 +154,7 @@ export function TaskQuickAdd({
         />
         {!expanded ? (
           <Button
+            className="select-none"
             disabled={pending || form.title.trim().length < 2}
             size="sm"
             type="button"

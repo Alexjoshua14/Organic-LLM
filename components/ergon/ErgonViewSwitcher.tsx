@@ -21,7 +21,7 @@ export function ErgonViewSwitcher({ value, onChange, className }: ErgonViewSwitc
     <div
       aria-label="Ergon view"
       className={clsx(
-        "inline-flex rounded-lg border border-border/60 bg-muted/30 p-0.5",
+        "inline-flex select-none rounded-lg border border-border/60 bg-muted/30 p-0.5",
         className
       )}
       role="group"

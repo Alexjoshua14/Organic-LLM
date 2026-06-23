@@ -248,14 +248,14 @@ export function TaskRow({
                   <div className="min-w-0 flex-1">
                     <p
                       className={cn(
-                        "truncate text-sm font-medium text-foreground",
+                        "truncate text-sm font-medium text-foreground select-text",
                         isDone && "text-muted-foreground line-through"
                       )}
                     >
                       {task.title}
                     </p>
-                    <div className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[11px] text-muted-foreground">
-                      {isActive ? <span className="text-lumen">Active</span> : null}
+                    <div className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[11px] text-muted-foreground select-none">
+                      {isActive ? <span className="select-text text-lumen">Active</span> : null}
                       {plannedLabel ? <span>{plannedLabel}</span> : null}
                       {dueLabel ? <span>{dueLabel}</span> : null}
                       {durationLabel ? <span>{durationLabel}</span> : null}

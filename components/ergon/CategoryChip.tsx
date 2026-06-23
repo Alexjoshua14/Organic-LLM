@@ -22,7 +22,7 @@ export function CategoryChip({
   return (
     <button
       className={cn(
-        "inline-flex items-center rounded-full border font-medium transition-colors",
+        "inline-flex items-center rounded-full border font-medium transition-colors select-none",
         size === "sm" ? "gap-1 px-2 py-0.5 text-[11px]" : "gap-1.5 px-2.5 py-1 text-xs",
         selected
           ? "border-[color:var(--chip-accent)] bg-[color:var(--chip-accent)/0.12] text-foreground"

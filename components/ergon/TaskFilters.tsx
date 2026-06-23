@@ -42,7 +42,7 @@ export function TaskFilters({
   compact = false,
 }: TaskFiltersProps) {
   return (
-    <div className={cn(compact ? "flex flex-wrap items-center gap-2" : "space-y-3", className)}>
+    <div className={cn(compact ? "flex flex-wrap items-center gap-2 select-none" : "space-y-3 select-none", className)}>
       <CategoryFilterChips
         categories={categories}
         compact={compact}

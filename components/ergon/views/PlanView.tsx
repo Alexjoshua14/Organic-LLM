@@ -46,7 +46,7 @@ export function PlanView({
 
         return (
           <section key={bucketId} className="space-y-2">
-            <div className="flex items-baseline justify-between gap-3">
+            <div className="flex items-baseline justify-between gap-3 select-none">
               <h3 className="font-commissioner text-sm font-light tracking-wide text-foreground">
                 {PLAN_BUCKET_LABELS[bucketId]}
               </h3>
