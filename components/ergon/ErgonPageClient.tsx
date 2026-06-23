@@ -33,6 +33,10 @@ import {
 import type { TaskInsert } from "@/lib/schemas/tasks";
 import { filterTasks, isDoneViewTask, isOpenTask } from "@/lib/ergon/task-view";
 import { isEditableEventTarget } from "@/lib/dom/is-editable-event-target";
+import { cn } from "@/lib/utils";
+
+/** Matches former PageContentFrame (5xl) task column width. */
+const ERGON_TASK_COLUMN = "mx-auto w-full max-w-5xl px-6";
 
 type ErgonPageClientProps = {
   initialTasks: TaskWithCategory[];
@@ -118,8 +122,8 @@ export function ErgonPageClient({ initialTasks, initialCategories }: ErgonPageCl
   const showEmpty = tasks.length === 0;
 
   return (
-    <div className="flex min-h-0 flex-1 flex-col gap-3 py-2 md:gap-6 md:py-6">
-      <header className="space-y-2 md:space-y-3">
+    <div className="flex min-h-0 flex-1 flex-col">
+      <header className={cn("shrink-0 space-y-2 py-2 md:space-y-3 md:py-6", ERGON_TASK_COLUMN)}>
         <div className="flex items-center gap-2 md:justify-between">
           <div className="hidden min-w-0 md:block">
             <p className="text-xs uppercase tracking-[0.16em] text-muted-foreground/70">Ergon</p>
@@ -172,7 +176,8 @@ export function ErgonPageClient({ initialTasks, initialCategories }: ErgonPageCl
         </div>
       </header>
 
-      <main className="min-h-0 flex-1 overflow-x-hidden overflow-y-auto overscroll-contain pb-2">
+      <main className="min-h-0 min-w-0 flex-1 w-full touch-manipulation overflow-y-auto overscroll-y-contain [scrollbar-gutter:stable]">
+        <div className={cn(ERGON_TASK_COLUMN, "pb-2 md:pb-4")}>
         {showEmpty ? (
           <ErgonEmptyState onStarterSelect={() => openEditor({ mode: "create" })} />
         ) : viewTasks.length === 0 ? (
@@ -216,6 +221,7 @@ export function ErgonPageClient({ initialTasks, initialCategories }: ErgonPageCl
             onToggleComplete={(id) => void toggleComplete(id)}
           />
         )}
+        </div>
       </main>
 
       <TaskEditorPanel
