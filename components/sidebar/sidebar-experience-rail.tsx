@@ -56,6 +56,14 @@ const RAIL: RailItem[] = [
     match: (p) => p.startsWith("/rabbitholes"),
   },
   {
+    id: "ergon",
+    label: "Ergon",
+    type: "link",
+    href: "/ergon",
+    tooltip: "Ergon — durable todos",
+    match: (p) => p.startsWith("/ergon"),
+  },
+  {
     id: "remy",
     label: "Remy",
     type: "link",
