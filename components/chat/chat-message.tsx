@@ -201,6 +201,19 @@ const AIMessage: FC<ChatMessageProps> = ({
                   return null;
                 }
 
+                if (toolName === MANAGE_TASKS_TOOL_NAME) {
+                  if (part.state === "output-available") {
+                    return (
+                      <ErgonTaskResult
+                        key={`${message.id}-${i}-ergon-tasks`}
+                        output={part.output}
+                      />
+                    );
+                  }
+
+                  return null;
+                }
+
                 if (toolName === RENDER_GEN_UI_TOOL_NAME) {
                   if (part.state === "input-streaming" || part.state === "input-available") {
                     return (
@@ -441,6 +454,7 @@ const KNOWN_TOOL_IN_FLIGHT_LABELS: Record<string, string> = {
   manage_tasks: "Updating tasks…",
   mise_plan: "Updating plan…",
   fetch_recipe: "Reading recipe…",
+  manage_tasks: "Updating tasks…",
   make_mermaid_diagram: "Creating diagram...",
   search_memories: "Searching memories...",
   memory_search: "Searching memories...",
