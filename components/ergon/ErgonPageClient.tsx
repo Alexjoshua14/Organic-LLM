@@ -125,7 +125,7 @@ export function ErgonPageClient({ initialTasks, initialCategories }: ErgonPageCl
     <div className="flex min-h-0 flex-1 flex-col">
       <header className={cn("shrink-0 space-y-2 py-2 md:space-y-3 md:py-6", ERGON_TASK_COLUMN)}>
         <div className="flex items-center gap-2 md:justify-between">
-          <div className="hidden min-w-0 md:block">
+          <div className="hidden min-w-0 select-none md:block">
             <p className="text-xs uppercase tracking-[0.16em] text-muted-foreground/70">Ergon</p>
             <h1 className="font-commissioner text-2xl font-light tracking-wide text-foreground sm:text-3xl">
               Durable todos

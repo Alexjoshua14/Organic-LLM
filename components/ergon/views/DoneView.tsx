@@ -35,7 +35,7 @@ export function DoneView({
       {sorted.map((task) => (
         <div key={task.id} className="space-y-1">
           {task.completed_at ? (
-            <p className="px-1 text-[11px] text-muted-foreground">
+            <p className="px-1 text-[11px] text-muted-foreground select-none">
               Completed {formatCompletedDate(task.completed_at)}
             </p>
           ) : null}
