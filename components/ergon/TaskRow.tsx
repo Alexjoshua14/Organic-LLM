@@ -5,14 +5,14 @@ import type { TaskWithCategory } from "@/lib/ergon/types";
 import type { KeyboardEvent } from "react";
 
 import { useCallback, useRef, useState } from "react";
-import { Check, ChevronDown, CircleDot, MessageCircle, Pencil, Trash2 } from "lucide-react";
+import { Check, ChevronDown, CircleDot, MessageCircle, Pencil, Sparkles, Trash2 } from "lucide-react";
 
+import { ErgonTaskActionButton } from "@/components/ergon/ErgonTaskActionButton";
 import {
   useChatStyleCardLumen,
   useChatStyleCardLumenHostRef,
 } from "@/components/chat/use-chat-style-card-lumen";
 import { glass } from "@/components/design-system/primitives";
-import { Button } from "@/components/third-party/ui/button";
 import {
   formatDueDate,
   formatEstMinutes,
@@ -30,6 +30,7 @@ type TaskRowProps = {
   onToggleActive: (id: string) => void | Promise<void>;
   onEdit: (task: TaskWithCategory) => void;
   onDelete: (id: string) => void | Promise<void>;
+  onEnhance?: (id: string) => void | Promise<void>;
   onChatAbout?: (task: TaskWithCategory) => void;
   keyboardProps?: ErgonTaskRowKeyboardProps;
 };
@@ -40,10 +41,12 @@ export function TaskRow({
   onToggleActive,
   onEdit,
   onDelete,
+  onEnhance,
   onChatAbout,
   keyboardProps,
 }: TaskRowProps) {
   const [expanded, setExpanded] = useState(false);
+  const [enhancing, setEnhancing] = useState(false);
   const hostRef = useChatStyleCardLumenHostRef();
   const lastTapRef = useRef(0);
   const isActive = task.is_active === true;
@@ -86,6 +89,18 @@ export function TaskRow({
     },
     [gestureSetRef, keyboardSetRef]
   );
+
+  const handleEnhance = useCallback(async () => {
+    if (!onEnhance || enhancing) return;
+
+    setEnhancing(true);
+
+    try {
+      await onEnhance(task.id);
+    } finally {
+      setEnhancing(false);
+    }
+  }, [enhancing, onEnhance, task.id]);
 
   const onRowKeyDown = useCallback(
     (event: KeyboardEvent<HTMLDivElement>) => {
@@ -267,40 +282,43 @@ export function TaskRow({
                 ) : (
                   <p className="mb-3 text-sm text-muted-foreground/70">No description yet.</p>
                 )}
-                <div className="flex flex-wrap gap-2">
-                  <Button
-                    size="sm"
+                <div className="flex flex-wrap items-center gap-2">
+                  <ErgonTaskActionButton
+                    engaged={isActive}
                     type="button"
-                    variant={isActive ? "default" : "outline"}
                     onClick={() => void onToggleActive(task.id)}
                   >
                     <CircleDot className="size-3.5" />
                     {isActive ? "Active" : "Mark active"}
-                  </Button>
-                  <Button size="sm" type="button" variant="ghost" onClick={() => onEdit(task)}>
+                  </ErgonTaskActionButton>
+                  <ErgonTaskActionButton type="button" onClick={() => onEdit(task)}>
                     <Pencil className="size-3.5" />
                     Edit
-                  </Button>
-                  {onChatAbout ? (
-                    <Button
-                      size="sm"
+                  </ErgonTaskActionButton>
+                  {onEnhance ? (
+                    <ErgonTaskActionButton
+                      disabled={enhancing}
                       type="button"
-                      variant="ghost"
-                      onClick={() => onChatAbout(task)}
+                      onClick={() => void handleEnhance()}
                     >
+                      <Sparkles className={cn("size-3.5", enhancing && "animate-pulse")} />
+                      {enhancing ? "Enhancing…" : "Enhance"}
+                    </ErgonTaskActionButton>
+                  ) : null}
+                  {onChatAbout ? (
+                    <ErgonTaskActionButton type="button" onClick={() => onChatAbout(task)}>
                       <MessageCircle className="size-3.5" />
                       Chat
-                    </Button>
+                    </ErgonTaskActionButton>
                   ) : null}
-                  <Button
-                    size="sm"
+                  <ErgonTaskActionButton
+                    danger
                     type="button"
-                    variant="ghost"
                     onClick={() => void onDelete(task.id)}
                   >
                     <Trash2 className="size-3.5" />
                     Delete
-                  </Button>
+                  </ErgonTaskActionButton>
                 </div>
               </div>
             ) : null}

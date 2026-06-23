@@ -17,6 +17,7 @@ type ListViewProps = {
   onToggleActive: (id: string) => void | Promise<void>;
   onEdit: (task: TaskWithCategory) => void;
   onDelete: (id: string) => void | Promise<void>;
+  onEnhance?: (id: string) => void | Promise<void>;
   onChatAbout?: (task: TaskWithCategory) => void;
   getTaskRowProps?: (taskId: string) => ErgonTaskRowKeyboardProps;
 };
@@ -30,6 +31,7 @@ export function ListView({
   onToggleActive,
   onEdit,
   onDelete,
+  onEnhance,
   onChatAbout,
   getTaskRowProps,
 }: ListViewProps) {
@@ -86,6 +88,7 @@ export function ListView({
                 onChatAbout={onChatAbout}
                 onDelete={onDelete}
                 onEdit={onEdit}
+                onEnhance={onEnhance}
                 onToggleActive={onToggleActive}
                 onToggleComplete={onToggleComplete}
               />

@@ -4,7 +4,6 @@ import type { TaskCategoryRow } from "@/lib/ergon/types";
 import type { CategoryPatch } from "@/lib/schemas/task-categories";
 
 import { useEffect, useState } from "react";
-import { Settings2 } from "lucide-react";
 import { Button } from "@heroui/button";
 import { Modal, ModalBody, ModalContent, ModalFooter, ModalHeader } from "@heroui/modal";
 
@@ -19,6 +18,7 @@ type CategoryManagerProps = {
   onDelete: (id: string) => Promise<void>;
 };
 
+/** Category edit modal — opened from the filter/settings sheet. */
 export function CategoryManager({ categories, onUpdate, onDelete }: CategoryManagerProps) {
   const [open, setOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -72,30 +72,18 @@ export function CategoryManager({ categories, onUpdate, onDelete }: CategoryMana
     }
   };
 
-  if (categories.length === 0) return null;
+  if (categories.length === 0) {
+    return <p className="text-sm text-muted-foreground">No categories yet.</p>;
+  }
 
   return (
     <>
-      <div className="flex flex-wrap items-center gap-2">
-        <span className="text-xs uppercase tracking-[0.16em] text-muted-foreground/70">Manage</span>
+      <div className="flex flex-wrap gap-2">
         {categories.map((category) => (
           <button key={category.id} type="button" onClick={() => startEdit(category)}>
             <CategoryChip color={category.color} label={category.name} />
           </button>
         ))}
-        <Button
-          isIconOnly
-          aria-label="Manage categories"
-          size="sm"
-          variant="light"
-          onPress={() => {
-            setEditingId(categories[0]?.id ?? null);
-            if (categories[0]) startEdit(categories[0]);
-            else setOpen(true);
-          }}
-        >
-          <Settings2 className="size-4" />
-        </Button>
       </div>
 
       <Modal isOpen={open} onOpenChange={setOpen}>

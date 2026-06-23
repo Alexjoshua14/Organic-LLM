@@ -1,10 +1,11 @@
 "use client";
 
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 
-import { CategoryManager } from "@/components/ergon/CategoryManager";
+import { ErgonControlsHelp } from "@/components/ergon/ErgonControlsHelp";
 import { ErgonEmptyState } from "@/components/ergon/ErgonEmptyState";
+import { ErgonExpandableSearch } from "@/components/ergon/ErgonExpandableSearch";
 import { ErgonFilterSheet } from "@/components/ergon/ErgonFilterSheet";
 import { ErgonViewSwitcher } from "@/components/ergon/ErgonViewSwitcher";
 import { TaskEditorPanel } from "@/components/ergon/TaskEditorPanel";
@@ -31,6 +32,7 @@ import {
 } from "@/lib/ergon/types";
 import type { TaskInsert } from "@/lib/schemas/tasks";
 import { filterTasks, isDoneViewTask, isOpenTask } from "@/lib/ergon/task-view";
+import { isEditableEventTarget } from "@/lib/dom/is-editable-event-target";
 
 type ErgonPageClientProps = {
   initialTasks: TaskWithCategory[];
@@ -38,7 +40,7 @@ type ErgonPageClientProps = {
 };
 
 export function ErgonPageClient({ initialTasks, initialCategories }: ErgonPageClientProps) {
-  const { tasks, addTask, updateTask, toggleComplete, toggleActive, deleteTaskWithUndo } =
+  const { tasks, addTask, updateTask, toggleComplete, toggleActive, deleteTaskWithUndo, enhanceTask, undo, redo } =
     useErgonTasks(initialTasks);
   const { categories, createCategory, updateCategory, deleteCategory } =
     useTaskCategories(initialCategories);
@@ -76,6 +78,29 @@ export function ErgonPageClient({ initialTasks, initialCategories }: ErgonPageCl
     [deleteTaskWithUndo]
   );
 
+  const handleEnhance = useCallback((id: string) => void enhanceTask(id), [enhanceTask]);
+
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (!(event.metaKey || event.ctrlKey)) return;
+      if (isEditableEventTarget(event.target)) return;
+
+      const key = event.key.toLowerCase();
+
+      if (key === "z") {
+        event.preventDefault();
+        void (event.shiftKey ? redo() : undo());
+      } else if (key === "y") {
+        event.preventDefault();
+        void redo();
+      }
+    };
+
+    window.addEventListener("keydown", onKeyDown);
+
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [redo, undo]);
+
   const editingTask =
     editor.mode === "edit" ? (tasks.find((task) => task.id === editor.taskId) ?? null) : null;
 
@@ -94,42 +119,55 @@ export function ErgonPageClient({ initialTasks, initialCategories }: ErgonPageCl
 
   return (
     <div className="flex min-h-0 flex-1 flex-col gap-3 py-2 md:gap-6 md:py-6">
-      <header className="space-y-2 md:space-y-4">
-        <div className="flex items-center gap-2 md:flex-wrap md:items-end md:justify-between md:gap-3">
+      <header className="space-y-2 md:space-y-3">
+        <div className="flex items-center gap-2 md:justify-between">
           <div className="hidden min-w-0 md:block">
             <p className="text-xs uppercase tracking-[0.16em] text-muted-foreground/70">Ergon</p>
             <h1 className="font-commissioner text-2xl font-light tracking-wide text-foreground sm:text-3xl">
               Durable todos
             </h1>
           </div>
-          <ErgonViewSwitcher
-            className="min-w-0 flex-1 md:flex-none md:shrink-0"
-            value={view}
-            onChange={setView}
-          />
-          <ErgonFilterSheet
-            categories={categories}
-            filters={filters}
-            className="md:hidden"
-            onChange={setFilters}
-            onDeleteCategory={deleteCategory}
-            onUpdateCategory={updateCategory}
-          />
+          <div className="flex min-w-0 flex-1 items-center justify-end gap-2 md:flex-none">
+            <ErgonExpandableSearch
+              value={filters.search}
+              onChange={(search) => setFilters((prev) => ({ ...prev, search }))}
+            />
+            <ErgonViewSwitcher className="min-w-0 flex-1 shrink-0 md:flex-none" value={view} onChange={setView} />
+            <ErgonControlsHelp />
+            <ErgonFilterSheet
+              categories={categories}
+              filters={filters}
+              className="hidden md:inline-flex"
+              variant="desktop"
+              onChange={setFilters}
+              onDeleteCategory={deleteCategory}
+              onUpdateCategory={updateCategory}
+            />
+            <ErgonFilterSheet
+              categories={categories}
+              filters={filters}
+              className="md:hidden"
+              onChange={setFilters}
+              onDeleteCategory={deleteCategory}
+              onUpdateCategory={updateCategory}
+            />
+          </div>
         </div>
 
         <TaskQuickAdd
           categories={categories}
           onAdd={handleQuickAdd}
           onAddMany={handleQuickAddMany}
-          onOpenFullEditor={() => openEditor({ mode: "create" })}
+          onCreateCategory={createCategory}
+          onOpenFullEditor={(draft) => openEditor({ mode: "create", draft })}
         />
 
-        <div className="hidden space-y-4 md:block">
-          <TaskFilters categories={categories} filters={filters} onChange={setFilters} />
-          <CategoryManager
+        <div className="hidden md:block">
+          <TaskFilters
             categories={categories}
-            onDelete={deleteCategory}
-            onUpdate={updateCategory}
+            compact
+            filters={filters}
+            onChange={setFilters}
           />
         </div>
       </header>
@@ -148,6 +186,7 @@ export function ErgonPageClient({ initialTasks, initialCategories }: ErgonPageCl
             onChatAbout={handleChatAbout}
             onDelete={handleDelete}
             onEdit={(task) => openEditor({ mode: "edit", taskId: task.id })}
+            onEnhance={handleEnhance}
             onToggleActive={(id) => void toggleActive(id)}
             onToggleComplete={(id) => void toggleComplete(id)}
           />
@@ -160,6 +199,7 @@ export function ErgonPageClient({ initialTasks, initialCategories }: ErgonPageCl
             onChatAbout={handleChatAbout}
             onDelete={handleDelete}
             onEdit={(task) => openEditor({ mode: "edit", taskId: task.id })}
+            onEnhance={handleEnhance}
             onSortChange={setListSort}
             onToggleActive={(id) => void toggleActive(id)}
             onToggleComplete={(id) => void toggleComplete(id)}
@@ -171,24 +211,23 @@ export function ErgonPageClient({ initialTasks, initialCategories }: ErgonPageCl
             onChatAbout={handleChatAbout}
             onDelete={handleDelete}
             onEdit={(task) => openEditor({ mode: "edit", taskId: task.id })}
+            onEnhance={handleEnhance}
             onToggleActive={(id) => void toggleActive(id)}
             onToggleComplete={(id) => void toggleComplete(id)}
           />
         )}
       </main>
 
-      <p className="hidden text-center text-[11px] text-muted-foreground/70 md:block">
-        Keyboard: ↑/↓ move · Enter expand · Space complete · A active · E edit · Del delete
-      </p>
-
       <TaskEditorPanel
         categories={categories}
+        initialDraft={editor.mode === "create" ? editor.draft : undefined}
         mode={editor.mode === "edit" ? "edit" : "create"}
         open={editor.mode !== "closed"}
         task={editingTask}
         onClose={closeEditor}
         onCreate={(input) => void addTask(input)}
         onCreateCategory={createCategory}
+        onEnhance={handleEnhance}
         onUpdate={(id, patch) => void updateTask(id, patch)}
       />
     </div>

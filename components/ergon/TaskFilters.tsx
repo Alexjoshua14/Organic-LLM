@@ -2,9 +2,7 @@
 
 import type { ErgonFilters, TaskCategoryRow } from "@/lib/ergon/types";
 
-import { MentalEffort, TaskPriority, TaskStatus } from "@/lib/schemas/tasks";
 import { CategoryFilterChips } from "@/components/ergon/CategoryPicker";
-import { Input } from "@/components/third-party/ui/input";
 import {
   Select,
   SelectContent,
@@ -12,6 +10,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/third-party/ui/select";
+import { formatTaskStatus } from "@/lib/ergon/task-status";
+import { MentalEffort, TaskPriority, TaskStatus } from "@/lib/schemas/tasks";
 import { cn } from "@/lib/utils";
 
 type TaskFiltersProps = {
@@ -19,28 +19,33 @@ type TaskFiltersProps = {
   categories: TaskCategoryRow[];
   onChange: (next: ErgonFilters) => void;
   className?: string;
+  /** Compact layout with smaller chips and selects (desktop toolbar). */
+  compact?: boolean;
 };
 
 const PRIORITY_OPTIONS = TaskPriority.options;
 const EFFORT_OPTIONS = MentalEffort.options;
 const STATUS_OPTIONS = TaskStatus.options;
 
+const COMPACT_SELECT =
+  "h-8 w-[7.5rem] gap-1 border-border/50 bg-muted/20 text-xs [&>span]:truncate";
+
 function toggleValue<T extends string>(values: T[], value: T): T[] {
   return values.includes(value) ? values.filter((item) => item !== value) : [...values, value];
 }
 
-export function TaskFilters({ filters, categories, onChange, className }: TaskFiltersProps) {
+export function TaskFilters({
+  filters,
+  categories,
+  onChange,
+  className,
+  compact = false,
+}: TaskFiltersProps) {
   return (
-    <div className={cn("space-y-3", className)}>
-      <Input
-        className="max-w-md"
-        placeholder="Search tasks…"
-        value={filters.search}
-        onChange={(event) => onChange({ ...filters, search: event.target.value })}
-      />
-
+    <div className={cn(compact ? "flex flex-wrap items-center gap-2" : "space-y-3", className)}>
       <CategoryFilterChips
         categories={categories}
+        compact={compact}
         selectedIds={filters.categoryIds}
         onToggle={(categoryId) =>
           onChange({
@@ -50,7 +55,7 @@ export function TaskFilters({ filters, categories, onChange, className }: TaskFi
         }
       />
 
-      <div className="flex flex-wrap gap-2">
+      <div className={cn("flex flex-wrap gap-2", compact && "items-center")}>
         <Select
           value={filters.priorities[0] ?? "all-priority"}
           onValueChange={(value) =>
@@ -61,14 +66,14 @@ export function TaskFilters({ filters, categories, onChange, className }: TaskFi
             })
           }
         >
-          <SelectTrigger className="w-[140px]">
+          <SelectTrigger className={cn(!compact && "w-[140px]", compact && COMPACT_SELECT)}>
             <SelectValue placeholder="Priority" />
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="all-priority">All priorities</SelectItem>
             {PRIORITY_OPTIONS.map((priority) => (
               <SelectItem key={priority} value={priority}>
-                {priority}
+                <span className="capitalize">{priority}</span>
               </SelectItem>
             ))}
           </SelectContent>
@@ -84,14 +89,14 @@ export function TaskFilters({ filters, categories, onChange, className }: TaskFi
             })
           }
         >
-          <SelectTrigger className="w-[140px]">
+          <SelectTrigger className={cn(!compact && "w-[140px]", compact && COMPACT_SELECT)}>
             <SelectValue placeholder="Effort" />
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="all-effort">All effort</SelectItem>
             {EFFORT_OPTIONS.map((effort) => (
               <SelectItem key={effort} value={effort}>
-                {effort}
+                <span className="capitalize">{effort}</span>
               </SelectItem>
             ))}
           </SelectContent>
@@ -106,14 +111,14 @@ export function TaskFilters({ filters, categories, onChange, className }: TaskFi
             })
           }
         >
-          <SelectTrigger className="w-[140px]">
+          <SelectTrigger className={cn(!compact && "w-[140px]", compact && COMPACT_SELECT)}>
             <SelectValue placeholder="Status" />
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="all-status">All status</SelectItem>
             {STATUS_OPTIONS.map((status) => (
               <SelectItem key={status} value={status}>
-                {status}
+                {formatTaskStatus(status)}
               </SelectItem>
             ))}
           </SelectContent>

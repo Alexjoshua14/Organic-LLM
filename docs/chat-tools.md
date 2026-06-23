@@ -87,6 +87,12 @@ When `chatStyle === "ergon"`, the model drives a **live** kanban board over a tr
 
 - Implementation: [`createKanbanBoardTool`](../lib/llm/kanban-tool.ts) · [`lib/schemas/kanban`](../lib/schemas/kanban.ts)
 
+### `manage_tasks` (durable Ergon todos)
+
+Always available in the main chat. Lets Aion manage the user's **durable** todo list (the `/ergon` page) via the Supabase data layer (RLS-scoped): `CREATE_TASKS`, `UPDATE_TASK`, `COMPLETE_TASK`, `LIST_TASKS`. Categories are passed by name (resolve-or-create). Returns a compact `{ kind: "ergon-tasks", action, tasks }` payload rendered by [`ErgonTaskResult`](../components/ergon/ErgonTaskResult.tsx) with a link to `/ergon`. Distinct from `kanban_board`: that is a client-side puppet board; `manage_tasks` writes through to the database.
+
+- Implementation: [`createManageTasksTool`](../lib/llm/ergon-tasks-tool.ts) · executor [`executeManageTasks`](../lib/llm/ergon-tasks-execute.ts) · schema [`lib/schemas/ergon-tasks.ts`](../lib/schemas/ergon-tasks.ts) · prompt hints [`lib/system-prompt/ergon.ts`](../lib/system-prompt/ergon.ts)
+
 ---
 
 ## Delphi experience

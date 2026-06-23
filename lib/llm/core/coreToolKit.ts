@@ -11,7 +11,7 @@ const logger = createLogger("lib/llm/core/coreToolKit");
 
 const PageMetadataSchema = z.object({
   relativeURL: z.url(),
-  section: z.enum(["Chat", "Rabbit Holes", "Settings", "Voice"]),
+  section: z.enum(["Chat", "Rabbit Holes", "Settings", "Voice", "Ergon"]),
   description: z.string(),
   additionalDescription: z.string().max(40).optional(),
 });
@@ -51,12 +51,20 @@ const speakDemo = {
   additionalDescription: "Try streaming text-to-speech with ElevenLabs.",
 };
 
+const ergon = {
+  relativeURL: "/ergon",
+  section: "Ergon",
+  description: "Durable todo list and planning page (Ergon).",
+  additionalDescription: "Capture, organize, plan, and complete tasks.",
+};
+
 export const pageMetadataObjects = {
   chat,
   chatLoading,
   rabbitHoles,
   settings,
   speakDemo,
+  ergon,
 };
 
 /**
@@ -71,6 +79,7 @@ export const NavigablePagesData = [
   pageMetadataObjects.chatLoading,
   pageMetadataObjects.rabbitHoles,
   pageMetadataObjects.settings,
+  pageMetadataObjects.ergon,
 ];
 
 export const NavigateToolInputSchema = z.object({
