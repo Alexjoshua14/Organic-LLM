@@ -69,14 +69,19 @@ export function ErgonExpandableSearch({ value, onChange, className }: ErgonExpan
       >
         <Button
           aria-expanded={isExpanded}
-          aria-label={isExpanded ? "Search tasks" : "Open search"}
+          aria-label={isExpanded ? "Close search" : "Open search"}
           className="size-8 shrink-0 rounded-md"
           size="icon"
           type="button"
           variant="ghost"
+          onPointerDown={(event) => {
+            // Prevent input blur before click — otherwise blur collapses first and click re-opens.
+            if (isExpanded && !value.trim()) event.preventDefault();
+          }}
           onClick={() => {
             if (isExpanded && !value.trim()) {
               setExpanded(false);
+              inputRef.current?.blur();
 
               return;
             }
