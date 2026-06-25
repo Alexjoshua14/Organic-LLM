@@ -65,6 +65,9 @@ void main() {
   shaped = mix(shaped, shellProject(shaped), wShellMask);
 
   vec3 finalPos = shaped + uEnergy * disp;
+  // Receipt inhale: brief gather toward the composer anchor (uAnchorStrength is a
+  // decaying transient fired on submit); springs back to rest as it decays.
+  finalPos.xy += (uAnchor - finalPos.xy) * uAnchorStrength;
   vec4 mvPosition = modelViewMatrix * vec4(finalPos, 1.0);
   gl_Position = projectionMatrix * mvPosition;
   gl_PointSize = uPointSize * (300.0 / max(-mvPosition.z, 0.01));

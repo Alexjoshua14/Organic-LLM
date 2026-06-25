@@ -2,6 +2,7 @@
 
 import type { UIMessage } from "ai";
 import type { ParticleFieldHandle } from "../_components/ParticleField";
+import type { FiledMemory } from "../_lib/memory-ingest-filed";
 import type { MemoryIngestFsmState, ParticleFieldVisualState } from "../_lib/types";
 import type { ChatModel } from "@/lib/schemas/chat";
 
@@ -9,14 +10,16 @@ import type { DelphiDisplayInput } from "@/lib/memory-ingest/delphi-caption-budg
 
 import { useChat } from "@ai-sdk/react";
 import { DefaultChatTransport } from "ai";
-import { useCallback, useEffect, useReducer, useRef } from "react";
+import { useCallback, useEffect, useReducer, useRef, useState } from "react";
 
+import { parseMemoryCommitted } from "../_lib/memory-ingest-filed";
 import {
   initialMemoryIngestFsmState,
   mapChatStatusToIngestEvent,
   mapDataAiActionToIngestEvent,
   memoryIngestReducer,
 } from "../_lib/memory-ingest-fsm";
+import { RECEIPT_LINGER_MS } from "../_lib/memory-ingest-tuning";
 
 import { classifyTaskTier } from "@/lib/llm/auto-model-router";
 import { getChatModel } from "@/lib/llm/helpers";
@@ -40,6 +43,9 @@ export function useMemoryIngestSession({
   const useWebSearchRef = useRef(false);
   const useMemoriesRef = useRef(true);
   const receiptTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [filed, setFiled] = useState<FiledMemory | null>(null);
+
+  const dismissFiled = useCallback(() => setFiled(null), []);
 
   const clearReceiptTimer = useCallback(() => {
     if (receiptTimerRef.current) {
@@ -74,17 +80,24 @@ export function useMemoryIngestSession({
       },
     }),
     onData: (data) => {
+      const committed = parseMemoryCommitted(data);
+
+      if (committed) {
+        setFiled(committed);
+
+        return;
+      }
       const ev = mapDataAiActionToIngestEvent(data);
 
       if (ev) dispatch(ev);
     },
     onFinish: () => {
-      dispatch({ type: "FINISH", memoryEnabled: useMemoriesRef.current });
+      dispatch({ type: "FINISH" });
       clearReceiptTimer();
       receiptTimerRef.current = setTimeout(() => {
         dispatch({ type: "RECEIPT_DONE" });
         receiptTimerRef.current = null;
-      }, 1200);
+      }, RECEIPT_LINGER_MS);
     },
     onError: () => {
       clearReceiptTimer();
@@ -111,6 +124,9 @@ export function useMemoryIngestSession({
       const tier = classifyTaskTier(text);
 
       dispatch({ type: "SUBMIT", tier });
+      // Immediate "received" beat — the cloud inhales toward the composer before
+      // any network latency, so submission is unmistakably acknowledged.
+      particleRef.current?.pulseReceived();
       await sendMessage({ text });
     },
     [sendMessage]
@@ -143,6 +159,8 @@ export function useMemoryIngestSession({
     clearError,
     debugSetVisual,
     debugPulseWriting,
+    filed,
+    dismissFiled,
   } satisfies {
     fsm: MemoryIngestFsmState;
     messages: UIMessage[];
@@ -158,5 +176,7 @@ export function useMemoryIngestSession({
     clearError: typeof clearError;
     debugSetVisual: (visual: ParticleFieldVisualState, intensity?: number) => void;
     debugPulseWriting: () => void;
+    filed: FiledMemory | null;
+    dismissFiled: () => void;
   };
 }

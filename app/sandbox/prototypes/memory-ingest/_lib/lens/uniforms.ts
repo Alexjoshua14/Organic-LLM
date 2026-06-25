@@ -3,6 +3,8 @@ import type { MotionClockPhases } from "./motion-clocks";
 
 import * as THREE from "three";
 
+import { MAX_INHALE_PULL } from "../memory-ingest-tuning";
+
 export type AnchorWorld = { x: number; y: number } | null;
 
 function modulatorVec3(
@@ -32,7 +34,7 @@ export function applyRecipeToUniforms(
   recipe: StateRecipe,
   timeSeconds: number,
   anchor: AnchorWorld,
-  opts: { intensity: number; pulseGlow: number; phases?: MotionClockPhases }
+  opts: { intensity: number; pulseGlow: number; inhale?: number; phases?: MotionClockPhases }
 ): void {
   const u = material.uniforms;
 
@@ -75,8 +77,10 @@ export function applyRecipeToUniforms(
   u.wAxisElongation!.value = get("axisElongation");
 
   if (anchor) {
+    const inhale = Math.min(1, Math.max(0, opts.inhale ?? 0));
+
     u.uAnchor!.value.set(anchor.x, anchor.y);
-    u.uAnchorStrength!.value = 0;
+    u.uAnchorStrength!.value = inhale * MAX_INHALE_PULL;
   } else {
     u.uAnchor!.value.set(0, 0);
     u.uAnchorStrength!.value = 0;

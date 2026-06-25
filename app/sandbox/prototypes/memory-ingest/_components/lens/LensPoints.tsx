@@ -20,6 +20,7 @@ import {
 } from "../../_lib/lens/uniforms";
 import { PARTICLE_FRAGMENT_SHADER } from "../../_lib/lens/shaders/particle.frag";
 import { PARTICLE_VERTEX_SHADER } from "../../_lib/lens/shaders/particle.vert";
+import { POINT_SIZE_MULTIPLIER } from "../../_lib/memory-ingest-tuning";
 import { useStateManager } from "../../_lib/use-state-manager";
 import {
   PARTICLE_ALPHA_FROM_TOKEN,
@@ -47,6 +48,7 @@ export type LensPointsProps = {
   targetFps: number;
   themeProbeRef: MutableRefObject<HTMLElement | null>;
   pulseGlowRef: MutableRefObject<number>;
+  pulseInhaleRef: MutableRefObject<number>;
   anchorWorldRef: MutableRefObject<AnchorWorld>;
 };
 
@@ -58,6 +60,7 @@ export function LensPoints({
   targetFps,
   themeProbeRef,
   pulseGlowRef,
+  pulseInhaleRef,
   anchorWorldRef,
 }: LensPointsProps) {
   const mgr = useStateManager(state);
@@ -96,8 +99,8 @@ export function LensPoints({
   );
 
   useEffect(() => {
-    // Larger sprites (+50% from previous tuning) while keeping particle separation legible.
-    material.uniforms.uPointSize!.value = pointSize * 30;
+    // Larger sprites while keeping particle separation legible; multiplier centralized in tuning.
+    material.uniforms.uPointSize!.value = pointSize * POINT_SIZE_MULTIPLIER;
   }, [material, pointSize]);
 
   const points = useMemo(() => new THREE.Points(geometry, material), [geometry, material]);
@@ -137,6 +140,7 @@ export function LensPoints({
     applyRecipeToUniforms(material, recipe, clock.elapsedTime, anchorWorldRef.current, {
       intensity,
       pulseGlow: pulseGlowRef.current,
+      inhale: pulseInhaleRef.current,
       phases: phasesRef.current,
     });
 

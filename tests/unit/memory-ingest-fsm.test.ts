@@ -50,22 +50,41 @@ describe("memoryIngestReducer", () => {
     expect(s0.visual).toBe("searching_memory");
   });
 
-  test("finish with memory shows writing_memory then receipt clears", () => {
+  test("a real commit_memory write earns the writing_memory beat, held through finish until receipt clears", () => {
+    // commit_memory tool-call mid-stream is the only thing that earns the beat.
     let s = memoryIngestReducer(
-      { ...initialMemoryIngestFsmState, visual: "reasoning" },
-      { type: "FINISH", memoryEnabled: true }
+      { ...initialMemoryIngestFsmState, visual: "ingesting", lastTier: "reflex" },
+      { type: "AI_ACTION", action: ChatAIActionEnum.Tool, message: "Using tool: commit_memory" }
     );
     expect(s.visual).toBe("writing_memory");
+    expect(s.intensity).toBe(0.9);
+
+    // It is sticky through the rest of the turn and across FINISH...
+    s = memoryIngestReducer(s, { type: "STATUS_STREAMING" });
+    expect(s.visual).toBe("writing_memory");
+    s = memoryIngestReducer(s, { type: "FINISH" });
+    expect(s.visual).toBe("writing_memory");
+
+    // ...then the receipt timer settles it.
     s = memoryIngestReducer(s, { type: "RECEIPT_DONE" });
     expect(s.visual).toBe("idle_ready");
   });
 
-  test("finish without memory skips writing_memory", () => {
+  test("finish with no prior write settles to idle without a fabricated beat", () => {
     const s = memoryIngestReducer(
       { ...initialMemoryIngestFsmState, visual: "reasoning" },
-      { type: "FINISH", memoryEnabled: false }
+      { type: "FINISH" }
     );
     expect(s.visual).toBe("idle_ready");
+  });
+
+  test("propose_memory is a draft echo (no write) and does not trigger writing_memory", () => {
+    const s = memoryIngestReducer(
+      { ...initialMemoryIngestFsmState, visual: "ingesting", lastTier: "reflex" },
+      { type: "AI_ACTION", action: ChatAIActionEnum.Tool, message: "Using tool: propose_memory" }
+    );
+    expect(s.visual).not.toBe("writing_memory");
+    expect(s.visual).toBe("ingesting");
   });
 
   test("debug set overrides visual", () => {

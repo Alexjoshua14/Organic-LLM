@@ -84,7 +84,7 @@ export function useMemoryIngestCaptionBudget(): UseMemoryIngestCaptionBudgetResu
       dockHeightPx: getMemoryIngestDockHeightPx(rootFontSizePx, isMdUp),
       shellTopPaddingPx: MEMORY_INGEST_SHELL_TOP_PADDING_REM * rootFontSizePx,
       captionMarginPx: MEMORY_INGEST_CAPTION_MARGIN_REM * rootFontSizePx,
-      particleMinReservePx: getMemoryIngestParticleMinReservePx(viewportHeightPx),
+      particleMinReservePx: getMemoryIngestParticleMinReservePx(viewportHeightPx, isMdUp),
       safeAreaBottomPx: readSafeAreaBottomPx(),
     });
 

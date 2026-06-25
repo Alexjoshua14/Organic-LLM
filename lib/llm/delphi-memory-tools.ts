@@ -19,9 +19,19 @@ export {
   proposeMemoryInputSchema,
 } from "@/lib/llm/delphi-memory-tool-schemas";
 
+/** Narrowed UI stream writer for Delphi's commit receipt (cast from the shared chat writer). */
+export type DelphiMemoryStreamWriter = {
+  write: (part: {
+    type: "data-memoryCommitted";
+    data: { id: string | null; text: string; topic?: string };
+    transient?: boolean;
+  }) => void;
+};
+
 export type DelphiMemoryToolsParams = {
   sbUserId: string;
   chatId: string;
+  writer?: DelphiMemoryStreamWriter;
 };
 
 export type DelphiMemoryToolsOptions = {
@@ -84,7 +94,7 @@ export function createDelphiMemoryTools(
   tools: ToolSet;
   toolInstructions: string;
 } {
-  const { sbUserId, chatId } = params;
+  const { sbUserId, chatId, writer } = params;
 
   const propose_memory = tool({
     description:
@@ -142,10 +152,25 @@ export function createDelphiMemoryTools(
         };
       }
 
+      const stored = result.data?.results ?? [];
+
+      // Surface what was actually filed so the chamber can show a "Filed … / Undo" receipt.
+      if (stored.length > 0) {
+        writer?.write({
+          type: "data-memoryCommitted",
+          data: {
+            id: stored[0]?.id ?? null,
+            text: body,
+            ...(topic?.trim() ? { topic: topic.trim() } : {}),
+          },
+          transient: true,
+        });
+      }
+
       return {
         success: true as const,
-        memories: result.data?.results ?? [],
-        count: result.data?.results?.length ?? 0,
+        memories: stored,
+        count: stored.length,
       };
     },
   });
