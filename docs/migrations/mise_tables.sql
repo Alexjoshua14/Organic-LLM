@@ -8,7 +8,7 @@
 -- =====================================================================================
 CREATE TABLE IF NOT EXISTS mise_events (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  owner_id TEXT NOT NULL DEFAULT current_profile_id() REFERENCES profiles(id) ON DELETE CASCADE,
+  owner_id UUID NOT NULL DEFAULT current_profile_id() REFERENCES profiles(id) ON DELETE CASCADE,
   -- One event per planning thread. NULL allowed for events not tied to a chat thread.
   thread_id TEXT UNIQUE,
   title TEXT NOT NULL,
@@ -30,7 +30,7 @@ CREATE INDEX IF NOT EXISTS idx_mise_events_owner_id ON mise_events(owner_id);
 -- =====================================================================================
 CREATE TABLE IF NOT EXISTS mise_recipes (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  owner_id TEXT NOT NULL DEFAULT current_profile_id() REFERENCES profiles(id) ON DELETE CASCADE,
+  owner_id UUID NOT NULL DEFAULT current_profile_id() REFERENCES profiles(id) ON DELETE CASCADE,
   event_id UUID NOT NULL REFERENCES mise_events(id) ON DELETE CASCADE,
   -- Stable id the LLM/store uses; unique within an event so upserts can match on it.
   client_key TEXT NOT NULL,
@@ -55,7 +55,7 @@ CREATE INDEX IF NOT EXISTS idx_mise_recipes_owner_id ON mise_recipes(owner_id);
 -- =====================================================================================
 CREATE TABLE IF NOT EXISTS mise_ingredients (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  owner_id TEXT NOT NULL DEFAULT current_profile_id() REFERENCES profiles(id) ON DELETE CASCADE,
+  owner_id UUID NOT NULL DEFAULT current_profile_id() REFERENCES profiles(id) ON DELETE CASCADE,
   event_id UUID NOT NULL REFERENCES mise_events(id) ON DELETE CASCADE,
   client_key TEXT NOT NULL,
   -- Optional link to the recipe this ingredient is for (client_key of a mise_recipes row).
