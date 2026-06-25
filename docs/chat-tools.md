@@ -102,6 +102,15 @@ Always available in the main chat. Lets Aion manage the user's **durable** todo 
 
 - Implementation: [`createManageTasksTool`](../lib/llm/ergon-tasks-tool.ts) · executor [`executeManageTasks`](../lib/llm/ergon-tasks-execute.ts) · schema [`lib/schemas/ergon-tasks.ts`](../lib/schemas/ergon-tasks.ts) · prompt hints [`lib/system-prompt/ergon.ts`](../lib/system-prompt/ergon.ts)
 
+### `mise_plan` + `fetch_recipe` (Remy meal planning)
+
+Branded **Remy**, this is event meal planning: the model builds a durable plan for a gathering — an event header, a prep **timeline** (reusing the gen-UI `plan-timeline`), recipe cards, and a have/need shopping/ingredient tracker. Like Ergon, `mise_plan` is a puppet driven over a transient `data-mise` channel (INITIATE_PLAN → SET_TIMELINE → UPSERT_RECIPES/UPSERT_INGREDIENTS → SHOW_VIEW), but every command is **also persisted to Supabase** (`mise_events` / `mise_recipes` / `mise_ingredients`), so the plan survives reloads and syncs across devices. The persisted views re-render with the same gen-UI block components (`recipe-card`, `shopping-list`, `plan-timeline`). `fetch_recipe` imports a recipe from a shared URL via schema.org JSON-LD.
+
+Always on in the **Remy** route (`/api/ai/remy`); in Arcadia it's the **Remy** chat style (`chatStyle === "remy"`).
+
+- Implementation: [`createMisePlanTool` / `createFetchRecipeTool`](../lib/llm/mise-tool.ts) · [`lib/schemas/mise`](../lib/schemas/mise/) · [`data/supabase/mise.ts`](../data/supabase/mise.ts) · store [`lib/mise/store.ts`](../lib/mise/store.ts)
+- Requires the migration [`docs/migrations/mise_tables.sql`](./migrations/mise_tables.sql) applied and `lib/supabase/types.ts` regenerated.
+
 ---
 
 ## Delphi experience
