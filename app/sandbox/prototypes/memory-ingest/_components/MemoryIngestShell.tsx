@@ -18,16 +18,17 @@ import {
 import { memoryIngestDockBandHeightClass } from "../_lib/memory-ingest-layout";
 import { lastAssistantPlaintext } from "../_lib/memory-ingest-messages";
 
+import { MemoryCommitFailedChip } from "./MemoryCommitFailedChip";
 import { MemoryFiledChip } from "./MemoryFiledChip";
 import { MemoryIngestDebugPanel } from "./MemoryIngestDebugPanel";
 import { MemoryIngestParticleModeDevOverlay } from "./MemoryIngestParticleModeDevOverlay";
+import { MemoryIngestSessionTray } from "./MemoryIngestSessionTray";
 import { ParticleField } from "./ParticleField";
 
 import Page from "@/components/layout/page";
 import { ChatMessageMarkdown } from "@/components/chat/chat-message-markdown";
 import { CoreInput } from "@/components/chat/core-input";
 import { PromptInputProvider } from "@/components/third-party/ai-elements/prompt-input";
-import { forgetMemory } from "@/lib/chat/forget-memory";
 import {
   MEMORY_INGEST_DEFAULT_MEMORIES_ON,
   MEMORY_INGEST_MEMORIES_STORAGE_KEY,
@@ -74,6 +75,14 @@ export function MemoryIngestShell({ chatData }: MemoryIngestShellProps) {
     debugPulseWriting,
     filed,
     dismissFiled,
+    sessionFiled,
+    expandedTs,
+    toggleExpanded,
+    sessionTrayOpen,
+    setSessionTrayOpen,
+    forgetFiled,
+    commitFailed,
+    dismissCommitFailed,
   } = useMemoryIngestSession({
     chatId: chatData.thread.id,
     initialMessages: chatData.messages,
@@ -119,13 +128,21 @@ export function MemoryIngestShell({ chatData }: MemoryIngestShellProps) {
     return () => clearTimeout(t);
   }, [errorNotice]);
 
-  const onForgetFiled = useCallback(async (id: string): Promise<boolean> => {
-    const res = await forgetMemory(id);
+  useEffect(() => {
+    if (!commitFailed) return;
+    setPoliteAnnouncement("Memory write failed — nothing was stored.");
+  }, [commitFailed]);
 
-    setPoliteAnnouncement(res.error ? "Couldn't remove that — try again." : "Removed from memory.");
+  const onForgetFiled = useCallback(
+    async (id: string): Promise<boolean> => {
+      const ok = await forgetFiled(id);
 
-    return !res.error;
-  }, []);
+      setPoliteAnnouncement(ok ? "Removed from memory." : "Couldn't remove that — try again.");
+
+      return ok;
+    },
+    [forgetFiled]
+  );
 
   const onComposerTextChange = useCallback(
     (t: string) => {
@@ -240,12 +257,29 @@ export function MemoryIngestShell({ chatData }: MemoryIngestShellProps) {
             memoryIngestDockBandHeightClass
           )}
         >
+          <MemoryIngestSessionTray
+            expandedTs={expandedTs}
+            open={sessionTrayOpen}
+            sessionFiled={sessionFiled}
+            onForget={onForgetFiled}
+            onOpenChange={setSessionTrayOpen}
+            onToggleExpand={toggleExpanded}
+          />
+          {commitFailed ? (
+            <MemoryCommitFailedChip
+              key={commitFailed.ts}
+              failed={commitFailed}
+              onDismiss={dismissCommitFailed}
+            />
+          ) : null}
           {filed ? (
             <MemoryFiledChip
               key={filed.ts}
+              expanded={expandedTs === filed.ts}
               filed={filed}
               onDismiss={dismissFiled}
               onForget={onForgetFiled}
+              onToggleExpand={() => toggleExpanded(filed.ts)}
             />
           ) : null}
           {errorNotice ? (

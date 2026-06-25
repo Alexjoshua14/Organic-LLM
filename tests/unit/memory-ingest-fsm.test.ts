@@ -78,6 +78,17 @@ describe("memoryIngestReducer", () => {
     expect(s.visual).toBe("idle_ready");
   });
 
+  test("commit_failed exits writing_memory without lingering receipt beat", () => {
+    let s = memoryIngestReducer(
+      { ...initialMemoryIngestFsmState, visual: "ingesting", lastTier: "reflex" },
+      { type: "AI_ACTION", action: ChatAIActionEnum.Tool, message: "Using tool: commit_memory" }
+    );
+    expect(s.visual).toBe("writing_memory");
+
+    s = memoryIngestReducer(s, { type: "COMMIT_FAILED" });
+    expect(s.visual).toBe("idle_ready");
+  });
+
   test("propose_memory is a draft echo (no write) and does not trigger writing_memory", () => {
     const s = memoryIngestReducer(
       { ...initialMemoryIngestFsmState, visual: "ingesting", lastTier: "reflex" },

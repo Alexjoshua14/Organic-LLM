@@ -6,6 +6,7 @@ import { MemoryItem } from "mem0ai/oss";
 import { cn } from "@/lib/utils";
 import { deleteMemoryForCurrentUser } from "@/lib/memory/operations";
 import { createLogger } from "@/lib/logger";
+import { MemoryFeedbackButtons } from "@/components/memory/memory-feedback-buttons";
 
 const logger = createLogger("memory-lens-card");
 
@@ -188,18 +189,21 @@ export function MemoryLensCard({
               </div>
             )}
           </div>
-          <button
-            aria-label="Remove from memory"
-            className={cn(
-              "shrink-0 self-start rounded-lg px-2.5 py-1 text-xs font-medium",
-              "text-muted-foreground hover:text-destructive hover:bg-destructive/10",
-              "opacity-0 group-hover:opacity-100 focus-visible:opacity-100 transition-opacity"
-            )}
-            type="button"
-            onClick={handleRemove}
-          >
-            Remove
-          </button>
+          <div className="flex shrink-0 flex-col items-end gap-1 self-start">
+            <MemoryFeedbackButtons compact memoryId={memory.id} />
+            <button
+              aria-label="Remove from memory"
+              className={cn(
+                "shrink-0 rounded-lg px-2.5 py-1 text-xs font-medium",
+                "text-muted-foreground hover:text-destructive hover:bg-destructive/10",
+                "opacity-0 group-hover:opacity-100 focus-visible:opacity-100 transition-opacity"
+              )}
+              type="button"
+              onClick={handleRemove}
+            >
+              Remove
+            </button>
+          </div>
         </div>
       </article>
     </div>

@@ -23,6 +23,16 @@ This directory implements the app’s memory (Mem0) integration with a clear bou
 - **Identity:** Expects Mem0 user id (Supabase user id in this app). Callers must pass a server-resolved id.
 - **Who may call:** Only `operations.ts` and tests that mock the store. No direct imports from `app/` or `components/` — use operations instead to avoid boundary leakage.
 
+### Quality events (`quality-events.ts`, `feedback.ts`, `daily-rollups.ts`)
+
+- **Role:** ZDR-safe telemetry for memory ingest quality — counts and opaque Mem0 ids only; never memory text.
+- **`recordMemoryEvent`:** Structured `console.info` JSON plus optional Supabase insert into `memory_quality_events`.
+- **`recordMemoryFeedbackForCurrentUser`:** Explicit thumbs / Delphi flags → `memory_feedback`.
+- **`computeDailyRollupsForUser`:** Aggregates events into `memory_quality_daily` (delete rate, size percentiles, feedback ratios).
+- **Admin dashboard:** [`app/admin/memory-quality`](/app/admin/memory-quality) (operator-only via `app/admin/layout.tsx`).
+
+See migration: `docs/migrations/memory_quality_tables.sql`.
+
 ### Summary
 
 | Layer     | Auth        | Rate limits | Callers                          |

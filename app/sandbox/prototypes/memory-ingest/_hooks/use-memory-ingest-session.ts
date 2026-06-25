@@ -2,7 +2,7 @@
 
 import type { UIMessage } from "ai";
 import type { ParticleFieldHandle } from "../_components/ParticleField";
-import type { FiledMemory } from "../_lib/memory-ingest-filed";
+import type { CommitFailedMemory, FiledMemory } from "../_lib/memory-ingest-filed";
 import type { MemoryIngestFsmState, ParticleFieldVisualState } from "../_lib/types";
 import type { ChatModel } from "@/lib/schemas/chat";
 
@@ -12,7 +12,14 @@ import { useChat } from "@ai-sdk/react";
 import { DefaultChatTransport } from "ai";
 import { useCallback, useEffect, useReducer, useRef, useState } from "react";
 
-import { parseMemoryCommitted } from "../_lib/memory-ingest-filed";
+import {
+  appendSessionFiled,
+  loadSessionFiled,
+  parseMemoryCommitFailed,
+  parseMemoryCommitted,
+  removeSessionFiled,
+  saveSessionFiled,
+} from "../_lib/memory-ingest-filed";
 import {
   initialMemoryIngestFsmState,
   mapChatStatusToIngestEvent,
@@ -21,6 +28,7 @@ import {
 } from "../_lib/memory-ingest-fsm";
 import { RECEIPT_LINGER_MS } from "../_lib/memory-ingest-tuning";
 
+import { forgetMemory } from "@/lib/chat/forget-memory";
 import { classifyTaskTier } from "@/lib/llm/auto-model-router";
 import { getChatModel } from "@/lib/llm/helpers";
 import { AUTO_CHAT_MODEL } from "@/lib/schemas/chat";
@@ -44,8 +52,24 @@ export function useMemoryIngestSession({
   const useMemoriesRef = useRef(true);
   const receiptTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [filed, setFiled] = useState<FiledMemory | null>(null);
+  const [sessionFiled, setSessionFiled] = useState<FiledMemory[]>([]);
+  const [expandedTs, setExpandedTs] = useState<number | null>(null);
+  const [sessionTrayOpen, setSessionTrayOpen] = useState(false);
+  const [commitFailed, setCommitFailed] = useState<CommitFailedMemory | null>(null);
 
   const dismissFiled = useCallback(() => setFiled(null), []);
+  const dismissCommitFailed = useCallback(() => setCommitFailed(null), []);
+
+  const persistSession = useCallback(
+    (items: FiledMemory[]) => {
+      saveSessionFiled(chatId, items);
+    },
+    [chatId]
+  );
+
+  useEffect(() => {
+    setSessionFiled(loadSessionFiled(chatId));
+  }, [chatId]);
 
   const clearReceiptTimer = useCallback(() => {
     if (receiptTimerRef.current) {
@@ -83,10 +107,30 @@ export function useMemoryIngestSession({
       const committed = parseMemoryCommitted(data);
 
       if (committed) {
+        setCommitFailed(null);
         setFiled(committed);
+        setSessionFiled((prev) => {
+          const next = appendSessionFiled(prev, committed);
+
+          persistSession(next);
+
+          return next;
+        });
+        setExpandedTs(null);
 
         return;
       }
+
+      const failed = parseMemoryCommitFailed(data);
+
+      if (failed) {
+        setCommitFailed(failed);
+        setFiled(null);
+        dispatch({ type: "COMMIT_FAILED" });
+
+        return;
+      }
+
       const ev = mapDataAiActionToIngestEvent(data);
 
       if (ev) dispatch(ev);
@@ -119,13 +163,40 @@ export function useMemoryIngestSession({
 
   useEffect(() => () => clearReceiptTimer(), [clearReceiptTimer]);
 
+  const toggleExpanded = useCallback((ts: number) => {
+    setExpandedTs((prev) => (prev === ts ? null : ts));
+  }, []);
+
+  const forgetFiled = useCallback(
+    async (id: string): Promise<boolean> => {
+      const res = await forgetMemory(id);
+
+      if (res.error) return false;
+
+      setSessionFiled((prev) => {
+        const removed = prev.find((m) => m.id === id);
+        const next = removeSessionFiled(prev, id);
+
+        persistSession(next);
+
+        if (removed) {
+          setExpandedTs((exp) => (exp === removed.ts ? null : exp));
+        }
+
+        return next;
+      });
+      setFiled((current) => (current?.id === id ? null : current));
+
+      return true;
+    },
+    [persistSession]
+  );
+
   const sendIngest = useCallback(
     async (text: string) => {
       const tier = classifyTaskTier(text);
 
       dispatch({ type: "SUBMIT", tier });
-      // Immediate "received" beat — the cloud inhales toward the composer before
-      // any network latency, so submission is unmistakably acknowledged.
       particleRef.current?.pulseReceived();
       await sendMessage({ text });
     },
@@ -161,6 +232,14 @@ export function useMemoryIngestSession({
     debugPulseWriting,
     filed,
     dismissFiled,
+    sessionFiled,
+    expandedTs,
+    toggleExpanded,
+    sessionTrayOpen,
+    setSessionTrayOpen,
+    forgetFiled,
+    commitFailed,
+    dismissCommitFailed,
   } satisfies {
     fsm: MemoryIngestFsmState;
     messages: UIMessage[];
@@ -178,5 +257,13 @@ export function useMemoryIngestSession({
     debugPulseWriting: () => void;
     filed: FiledMemory | null;
     dismissFiled: () => void;
+    sessionFiled: FiledMemory[];
+    expandedTs: number | null;
+    toggleExpanded: (ts: number) => void;
+    sessionTrayOpen: boolean;
+    setSessionTrayOpen: React.Dispatch<React.SetStateAction<boolean>>;
+    forgetFiled: (id: string) => Promise<boolean>;
+    commitFailed: CommitFailedMemory | null;
+    dismissCommitFailed: () => void;
   };
 }

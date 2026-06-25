@@ -23,7 +23,11 @@ import {
   selectMemoriesForPrompt,
   toMemorySearchInventory,
 } from "@/lib/memory/memory-relevance";
-import { SearchMemoryToolSchema } from "@/lib/schemas/llm-tools";
+import {
+  GetMoreMessagesToolSchema,
+  SearchMemoryToolSchema,
+  clampHistoryMessageLimit,
+} from "@/lib/llm/chat-tool-schemas";
 import { ChatAIActionEnum } from "@/types/ai";
 import {
   MERMAID_DIAGRAM_FIX_SYSTEM_PROMPT,
@@ -198,26 +202,42 @@ export function createMemorySearchTool(
   return tool({
     description,
     inputSchema: SearchMemoryToolSchema,
-    execute: async ({ query, limit }) => {
+    execute: async ({ query }) => {
       logger.log("createMemorySearchTool", "LLM has invoked memory search");
+      const trimmedQuery = query?.trim() ?? "";
+
+      if (!trimmedQuery) {
+        return {
+          success: false,
+          query: query ?? "",
+          rawQuery: query ?? "",
+          queryRewriteUsed: false,
+          rewrittenQueries: [],
+          error: "Search query is required",
+          memories: [],
+          count: 0,
+        };
+      }
+
       if (writer) {
         writer.write({
           type: "data-aiAction",
-          data: { action: ChatAIActionEnum.Memory, query },
+          data: { action: ChatAIActionEnum.Memory, query: trimmedQuery },
           transient: true,
         });
       }
+
       try {
-        const requestedLimit = limit ?? 3;
+        const requestedLimit = 3;
         const limitForStore = Math.min(
           MEMORY_TOOL_OVERFETCH_CAP,
           Math.max(requestedLimit, MEMORY_TOOL_OVERFETCH_MIN)
         );
 
-        const searchRun = await searchMemoriesWithL1Cache(userId, query, limitForStore);
+        const searchRun = await searchMemoriesWithL1Cache(userId, trimmedQuery, limitForStore);
         const perQuery = [
           {
-            q: query,
+            q: trimmedQuery,
             cacheHit: searchRun.metrics.cacheHit,
             searchMs: searchRun.metrics.memorySearchMs,
             error: searchRun.result.error ?? null,
@@ -228,8 +248,8 @@ export function createMemorySearchTool(
 
         if (searchRun.result.error) {
           logger.log("createMemorySearchTool", "memory_search_error", {
-            rawQuery: query,
-            rewrittenQueries: [query],
+            rawQuery: trimmedQuery,
+            rewrittenQueries: [trimmedQuery],
             queryRewriteUsed: false,
             rewriteMs: 0,
             perQuery,
@@ -238,10 +258,10 @@ export function createMemorySearchTool(
 
           return {
             success: false,
-            query,
-            rawQuery: query,
+            query: trimmedQuery,
+            rawQuery: trimmedQuery,
             queryRewriteUsed: false,
-            rewrittenQueries: [query],
+            rewrittenQueries: [trimmedQuery],
             error: searchRun.result.error,
             memories: [],
             count: 0,
@@ -249,8 +269,8 @@ export function createMemorySearchTool(
         }
 
         logger.log("createMemorySearchTool", "memory_search_ok", {
-          rawQuery: query,
-          rewrittenQueries: [query],
+          rawQuery: trimmedQuery,
+          rewrittenQueries: [trimmedQuery],
           queryRewriteUsed: false,
           rewriteMs: 0,
           perQuery,
@@ -267,10 +287,10 @@ export function createMemorySearchTool(
 
         return {
           success: true,
-          query,
-          rawQuery: query,
+          query: trimmedQuery,
+          rawQuery: trimmedQuery,
           queryRewriteUsed: false,
-          rewrittenQueries: [query],
+          rewrittenQueries: [trimmedQuery],
           memories: sliced,
           count: sliced.length,
           memoryInventory,
@@ -278,10 +298,10 @@ export function createMemorySearchTool(
       } catch (error) {
         return {
           success: false,
-          query,
-          rawQuery: query,
+          query: trimmedQuery,
+          rawQuery: trimmedQuery,
           queryRewriteUsed: false,
-          rewrittenQueries: [query],
+          rewrittenQueries: [trimmedQuery],
           error: error instanceof Error ? error.message : "Unknown error",
           memories: [],
           count: 0,
@@ -290,16 +310,6 @@ export function createMemorySearchTool(
     },
   });
 }
-
-const GetMoreMessagesToolSchema = z.object({
-  limit: z
-    .number()
-    .min(1)
-    .max(50)
-    .describe(
-      "Number of older messages to fetch from the conversation (1–50). Use when you need more history to answer accurately."
-    ),
-});
 
 /**
  * Creates a tool that lets the LLM fetch additional (older) messages from the current chat.
@@ -314,15 +324,13 @@ export function createGetMoreMessagesTool(chatId: string, alreadySentCount: numb
       "Fetch older messages from this conversation when you need more context to answer the user. Call this when the user refers to something earlier in the chat that you don't have in your current context (e.g. a prior decision, topic, or detail).",
     inputSchema: GetMoreMessagesToolSchema,
     execute: async ({ limit }) => {
-      const MAX_LIMIT = 50;
-
-      limit = Math.min(limit, MAX_LIMIT);
+      const clampedLimit = clampHistoryMessageLimit(limit);
       logger.log(
         "createGetMoreMessagesTool",
-        `Fetching ${limit} older messages for chat ${chatId} (already have ${alreadySentCount})`
+        `Fetching ${clampedLimit} older messages for chat ${chatId} (already have ${alreadySentCount})`
       );
       try {
-        const result = await getNMessages(chatId, alreadySentCount + limit);
+        const result = await getNMessages(chatId, alreadySentCount + clampedLimit);
 
         if (result.error) {
           return {
@@ -333,7 +341,7 @@ export function createGetMoreMessagesTool(chatId: string, alreadySentCount: numb
           };
         }
         const all = result.data ?? [];
-        const olderOnly = all.slice(0, limit);
+        const olderOnly = all.slice(0, clampedLimit);
         const { formatted, messagesUsed, tokenCount } = await formatAndCapMessagesByTokens(
           olderOnly,
           MAX_TOKENS_FOR_HISTORY
@@ -690,9 +698,10 @@ const MermaidDiagramToolSchema = z.object({
       "What the diagram should show (entities + relationships + any ordering). Include any constraints like diagram type or nodes to include/exclude."
     ),
   diagramType: z
-    .enum(["flowchart", "sequence", "state", "class", "entityRelationship"])
-    .optional()
-    .describe("Optional hint for what kind of mermaid diagram to generate."),
+    .enum(["flowchart", "sequence", "state", "class", "entityRelationship", ""])
+    .describe(
+      "Diagram kind: flowchart, sequence, state, class, entityRelationship, or empty string when unspecified."
+    ),
 });
 
 /**

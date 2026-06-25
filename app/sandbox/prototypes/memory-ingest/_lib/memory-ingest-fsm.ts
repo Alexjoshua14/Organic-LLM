@@ -19,6 +19,7 @@ export type MemoryIngestFsmEvent =
     }
   | { type: "FINISH" }
   | { type: "RECEIPT_DONE" }
+  | { type: "COMMIT_FAILED" }
   | { type: "DEBUG_SET"; visual: ParticleFieldVisualState; intensity?: number };
 
 export const initialMemoryIngestFsmState: MemoryIngestFsmState = {
@@ -143,6 +144,8 @@ export function memoryIngestReducer(
 
       return { ...state, visual: "idle_ready", intensity: INGEST_INTENSITY.idle_ready };
     case "RECEIPT_DONE":
+      return { ...state, visual: "idle_ready", intensity: INGEST_INTENSITY.idle_ready };
+    case "COMMIT_FAILED":
       return { ...state, visual: "idle_ready", intensity: INGEST_INTENSITY.idle_ready };
     case "ERROR":
       return { ...state, visual: "idle_ready", intensity: INGEST_INTENSITY.idle_ready };
