@@ -4,6 +4,7 @@ import type { ErgonTaskRowKeyboardProps } from "@/lib/ergon/use-ergon-task-list-
 import type { ListSort, TaskCategoryRow, TaskWithCategory } from "@/lib/ergon/types";
 
 import { TaskRow } from "@/components/ergon/TaskRow";
+import { ERGON_VIEW_SECTION_HEADER, ERGON_VIEW_TOOLBAR_ROW } from "@/components/ergon/ergon-view-layout";
 import { Button } from "@/components/third-party/ui/button";
 import { groupTasksByCategory, sortTasksBy } from "@/lib/ergon/task-view";
 import { cn } from "@/lib/utils";
@@ -22,6 +23,9 @@ type ListViewProps = {
   getTaskRowProps?: (taskId: string) => ErgonTaskRowKeyboardProps;
 };
 
+const SORT_BUTTON =
+  "h-7 px-2.5 text-xs font-medium";
+
 export function ListView({
   tasks,
   categories,
@@ -38,10 +42,13 @@ export function ListView({
   const groups = groupTasksByCategory(sortTasksBy(tasks, sort), categories);
 
   return (
-    <div className="space-y-6">
-      <div className="flex select-none items-center gap-2">
-        <span className="text-xs uppercase tracking-[0.16em] text-muted-foreground/70">Sort</span>
+    <div className="space-y-4 md:space-y-6">
+      <div className={ERGON_VIEW_TOOLBAR_ROW}>
+        <span className="text-[10px] uppercase tracking-[0.16em] text-muted-foreground/70">
+          Sort
+        </span>
         <Button
+          className={SORT_BUTTON}
           size="sm"
           type="button"
           variant={sort === "priority" ? "default" : "outline"}
@@ -50,6 +57,7 @@ export function ListView({
           Priority
         </Button>
         <Button
+          className={SORT_BUTTON}
           size="sm"
           type="button"
           variant={sort === "due" ? "default" : "outline"}
@@ -61,11 +69,11 @@ export function ListView({
 
       {groups.map((group) => (
         <section key={group.categoryId ?? "uncategorized"} className="space-y-2">
-          <div className="flex select-none items-center gap-2">
+          <div className={cn(ERGON_VIEW_SECTION_HEADER, "flex items-center gap-2")}>
             {group.color ? (
               <span
                 aria-hidden
-                className="size-2.5 rounded-full"
+                className="size-2 shrink-0 rounded-full"
                 style={{ backgroundColor: group.color }}
               />
             ) : null}

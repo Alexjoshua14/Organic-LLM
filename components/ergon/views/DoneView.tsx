@@ -4,6 +4,7 @@ import type { ErgonTaskRowKeyboardProps } from "@/lib/ergon/use-ergon-task-list-
 import type { TaskWithCategory } from "@/lib/ergon/types";
 
 import { TaskRow } from "@/components/ergon/TaskRow";
+import { ERGON_VIEW_TOOLBAR_ROW } from "@/components/ergon/ergon-view-layout";
 import { formatCompletedDate } from "@/lib/ergon/format";
 import { sortDoneTasks } from "@/lib/ergon/task-view";
 
@@ -31,7 +32,9 @@ export function DoneView({
   const sorted = sortDoneTasks(tasks);
 
   return (
-    <div aria-label="Completed tasks" className="space-y-2" role="list">
+    <div className="space-y-4 md:space-y-6">
+      <div aria-hidden className={ERGON_VIEW_TOOLBAR_ROW} />
+      <div aria-label="Completed tasks" className="space-y-2" role="list">
       {sorted.map((task) => (
         <div key={task.id} className="space-y-1">
           {task.completed_at ? (
@@ -51,6 +54,7 @@ export function DoneView({
           />
         </div>
       ))}
+      </div>
     </div>
   );
 }
