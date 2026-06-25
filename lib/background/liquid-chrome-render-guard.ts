@@ -1,6 +1,18 @@
 export const LIQUID_CHROME_PAGE_FILL_CLASS = "page-liquid-chrome";
 export const LIQUID_CHROME_FIXED_FILL_CLASS = "liquid-chrome-page-fill";
 
+/** True when streamed HTML includes an opt-in chrome fill marker (Page section or SSR fixed div). */
+export function ssrHtmlIncludesChromeFill(html: string): boolean {
+  return (
+    html.includes(LIQUID_CHROME_PAGE_FILL_CLASS) ||
+    html.includes(LIQUID_CHROME_FIXED_FILL_CLASS)
+  );
+}
+
+export function ssrHtmlLacksChromeFill(html: string): boolean {
+  return !ssrHtmlIncludesChromeFill(html);
+}
+
 export type LiquidChromeBackgroundSnapshot = {
   backgroundColor: string;
   backgroundImage: string;

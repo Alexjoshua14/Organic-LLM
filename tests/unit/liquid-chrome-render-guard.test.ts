@@ -1,9 +1,14 @@
 import { describe, expect, test } from "bun:test";
 
 import {
+  findLiquidChromeFillElement,
   isLiquidChromeBackgroundFilled,
   parseCssRgb,
+  ssrHtmlIncludesChromeFill,
+  ssrHtmlLacksChromeFill,
 } from "@/lib/background/liquid-chrome-render-guard";
+
+import { installTestJsdom } from "../helpers/install-test-jsdom";
 
 describe("liquid-chrome-render-guard", () => {
   test("parseCssRgb handles rgb and rgba", () => {
@@ -44,5 +49,31 @@ describe("liquid-chrome-render-guard", () => {
         backgroundImage: "none",
       })
     ).toBe(true);
+  });
+
+  test("ssrHtmlIncludesChromeFill detects Page class or fixed fill div", () => {
+    expect(ssrHtmlIncludesChromeFill('<section class="page-liquid-chrome"></section>')).toBe(true);
+    expect(ssrHtmlIncludesChromeFill('<div class="liquid-chrome-page-fill"></div>')).toBe(true);
+    expect(ssrHtmlIncludesChromeFill('<main class="app-shell bg-background"></main>')).toBe(false);
+  });
+
+  test("ssrHtmlLacksChromeFill is the inverse", () => {
+    expect(ssrHtmlLacksChromeFill('<main class="app-shell"></main>')).toBe(true);
+    expect(ssrHtmlLacksChromeFill('<div class="liquid-chrome-page-fill"></div>')).toBe(false);
+  });
+
+  test("findLiquidChromeFillElement prefers section.page-liquid-chrome over fixed fill", () => {
+    installTestJsdom();
+    document.documentElement.innerHTML = `
+      <body>
+        <div class="liquid-chrome-page-fill"></div>
+        <section class="page-liquid-chrome app-shell"></section>
+      </body>
+    `;
+
+    const match = findLiquidChromeFillElement();
+
+    expect(match?.selector).toBe("section.page-liquid-chrome");
+    document.documentElement.innerHTML = "";
   });
 });

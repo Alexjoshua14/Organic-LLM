@@ -42,4 +42,32 @@ describe("sampleLiquidChromeFrames", () => {
     expect(samples.every((sample) => !sample.filled)).toBe(true);
     expect(() => assertLiquidChromeFramesFilled(samples)).toThrow(/flash detected/i);
   });
+
+  test("samples fixed SSR fill div when section is absent", async () => {
+    document.documentElement.innerHTML = `
+      <body>
+        <div
+          class="liquid-chrome-page-fill"
+          style="background: radial-gradient(ellipse 120% 80% at 50% 40%, rgb(128, 122, 117) 0%, rgb(138, 132, 127) 100%);"
+        ></div>
+      </body>
+    `;
+
+    const samples = await sampleLiquidChromeFrames(2);
+
+    expect(samples.every((sample) => sample.filled)).toBe(true);
+    expect(samples[0]?.selector).toBe(".liquid-chrome-page-fill");
+  });
+
+  test("detects white flash on unfilled fixed div", async () => {
+    document.documentElement.innerHTML = `
+      <body>
+        <div class="liquid-chrome-page-fill" style="background: rgb(255, 255, 255);"></div>
+      </body>
+    `;
+
+    const samples = await sampleLiquidChromeFrames(1);
+
+    expect(samples[0]?.filled).toBe(false);
+  });
 });
