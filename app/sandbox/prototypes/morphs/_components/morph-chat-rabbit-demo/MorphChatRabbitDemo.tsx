@@ -227,6 +227,7 @@ export function MorphChatRabbitDemo() {
 
   return (
     <Page
+      liquidChromeBackground={!demoFullscreen}
       transparentBackground={!demoFullscreen}
       className={cn(
         "items-stretch justify-start gap-0 overflow-hidden",

@@ -4,7 +4,7 @@ import Link from "next/link";
 
 import { getPrototypeHref, prototypes } from "./_config/prototypes";
 
-import Page from "@/components/layout/page";
+import LiquidChromePage from "@/components/layout/liquid-chrome-page";
 import { PageContentFrame, PageNavBack } from "@/components/layout/page-content-frame";
 import ShinyText from "@/components/ShinyText";
 import AdaptiveLiquidChrome from "@/components/background/AdaptiveLiquidChrome";
@@ -18,7 +18,7 @@ export const metadata: Metadata = {
 
 export default function PrototypesGalleryPage() {
   return (
-    <Page transparentBackground className="items-stretch justify-start overflow-hidden">
+    <LiquidChromePage transparentBackground className="items-stretch justify-start overflow-hidden">
       <AdaptiveLiquidChrome dimIntensity={0.45} />
       <div className="relative z-10 h-full min-h-0 w-full overflow-y-auto pb-16">
         <PageContentFrame>
@@ -86,6 +86,6 @@ export default function PrototypesGalleryPage() {
         </div>
         </PageContentFrame>
       </div>
-    </Page>
+    </LiquidChromePage>
   );
 }

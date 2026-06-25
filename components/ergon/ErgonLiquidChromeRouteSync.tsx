@@ -1,24 +1,19 @@
 "use client";
 
-import { useLayoutEffect, useState } from "react";
+import { useLayoutEffect } from "react";
 
-import { useErgonChromeSeed } from "@/components/ergon/ErgonChromeProvider";
 import { syncErgonSsrFillVisibility } from "@/lib/background/liquid-chrome-routes";
 import { backfillErgonLiquidChromeCookieFromSettings } from "@/lib/ergon/liquid-chrome-bootstrap";
 import { writeErgonLiquidChromeCookie } from "@/lib/ergon/liquid-chrome-cookie";
 import { getSettings } from "@/lib/user-settings";
 
-/** Reactive Ergon liquid chrome background toggle (localStorage + organic-llm-settings event). */
-export function useErgonLiquidChrome(): boolean {
-  const initialEnabled = useErgonChromeSeed();
-  const [enabled, setEnabled] = useState(initialEnabled);
-
+/** Keeps Ergon SSR fill in sync when chrome is toggled without refresh. */
+export function ErgonLiquidChromeRouteSync() {
   useLayoutEffect(() => {
     const sync = () => {
-      const next = getSettings().ergonLiquidChrome;
-      setEnabled(next);
-      writeErgonLiquidChromeCookie(next);
-      syncErgonSsrFillVisibility(next);
+      const enabled = getSettings().ergonLiquidChrome;
+      syncErgonSsrFillVisibility(enabled);
+      writeErgonLiquidChromeCookie(enabled);
     };
 
     backfillErgonLiquidChromeCookieFromSettings();
@@ -28,5 +23,5 @@ export function useErgonLiquidChrome(): boolean {
     return () => window.removeEventListener("organic-llm-settings", sync);
   }, []);
 
-  return enabled;
+  return null;
 }

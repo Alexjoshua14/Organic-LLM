@@ -1,8 +1,9 @@
 import Script from "next/script";
 import { cookies } from "next/headers";
 
+import { LiquidChromeSsrFill } from "@/components/background/LiquidChromeSsrFill";
 import { ErgonChromeProvider } from "@/components/ergon/ErgonChromeProvider";
-import { ErgonLiquidChromePageFill } from "@/components/ergon/ErgonLiquidChromePageFill";
+import { ErgonLiquidChromeRouteSync } from "@/components/ergon/ErgonLiquidChromeRouteSync";
 import { ERGON_LIQUID_CHROME_COOKIE_BACKFILL } from "@/lib/ergon/liquid-chrome-bootstrap";
 import {
   ERGON_LIQUID_CHROME_COOKIE_NAME,
@@ -22,7 +23,10 @@ export default async function ErgonLayout({ children }: { children: React.ReactN
         id="ergon-liquid-chrome-cookie-backfill"
         strategy="beforeInteractive"
       />
-      <ErgonLiquidChromePageFill />
+      <ErgonLiquidChromeRouteSync />
+      {liquidChromeEnabled ? (
+        <LiquidChromeSsrFill id="ergon-liquid-chrome-ssr-fill" />
+      ) : null}
       {children}
     </ErgonChromeProvider>
   );

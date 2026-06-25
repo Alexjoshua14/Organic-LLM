@@ -19,7 +19,6 @@ import { ChatProvider } from "@/lib/context/chat-context";
 import { TTSProvider } from "@/lib/context/tts-context";
 import { FontProvider } from "@/components/FontProvider";
 import { glass } from "@/components/design-system/primitives";
-
 export const metadata: Metadata = {
   title: {
     default: siteConfig.name,

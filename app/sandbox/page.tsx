@@ -1,6 +1,6 @@
 import Link from "next/link";
 
-import Page from "@/components/layout/page";
+import LiquidChromePage from "@/components/layout/liquid-chrome-page";
 import { PageContentFrame } from "@/components/layout/page-content-frame";
 import ShinyText from "@/components/ShinyText";
 import AdaptiveLiquidChrome from "@/components/background/AdaptiveLiquidChrome";
@@ -90,7 +90,7 @@ const sandboxPages: SandboxEntry[] = [
 
 export default function SandboxPage() {
   return (
-    <Page transparentBackground className="items-stretch justify-start overflow-hidden">
+    <LiquidChromePage transparentBackground className="items-stretch justify-start overflow-hidden">
       <AdaptiveLiquidChrome dimIntensity={0.45} />
       <div className="relative z-10 h-full min-h-0 w-full overflow-y-auto pb-16">
         <PageContentFrame maxWidth="6xl">
@@ -153,6 +153,6 @@ export default function SandboxPage() {
         </div>
         </PageContentFrame>
       </div>
-    </Page>
+    </LiquidChromePage>
   );
 }

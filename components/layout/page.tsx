@@ -11,6 +11,8 @@ type PageChrome = "inset" | "full-bleed";
 type PageProps = {
   children: React.ReactNode;
   transparentBackground?: boolean;
+  /** SSR gradient fill for transparent pages with AdaptiveLiquidChrome — avoids flash before WebGL hydrates. */
+  liquidChromeBackground?: boolean;
   /** Inset adds the raised card chrome when the sidebar is open; full-bleed keeps edge-to-edge layout. */
   chrome?: PageChrome;
   className?: string;
@@ -19,6 +21,7 @@ type PageProps = {
 export default function Page({
   children,
   transparentBackground,
+  liquidChromeBackground,
   chrome = "inset",
   className,
 }: PageProps) {
@@ -31,7 +34,8 @@ export default function Page({
       className={cn(
         "app-shell relative",
         `h-dvh w-full max-w-dvw overflow-x-hidden page-transform`,
-        !transparentBackground && "bg-background",
+        !transparentBackground && !liquidChromeBackground && "bg-background",
+        liquidChromeBackground && "page-liquid-chrome",
         "text-primary",
         insetChrome && "md:inset-shadow-xs",
         "flex flex-col items-center justify-center gap-4",
@@ -41,6 +45,12 @@ export default function Page({
         className
       )}
     >
+      {liquidChromeBackground ? (
+        <div
+          aria-hidden
+          className="liquid-chrome-page-fill pointer-events-none fixed inset-0 z-0"
+        />
+      ) : null}
       {children}
       <TTSDockBar />
     </section>
