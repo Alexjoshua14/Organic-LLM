@@ -12,7 +12,7 @@ import { StrataAssistantOpenHint, StrataWorkspace } from "./_components/StrataWo
 import { ensureStrataAgentThread } from "@/data/supabase/strata-agent";
 import { getSupabaseUserId } from "@/data/supabase/profiles";
 import { listStrataPagesCached } from "@/data/supabase/strata";
-import Page from "@/components/layout/page";
+import LiquidChromePage from "@/components/layout/liquid-chrome-page";
 import { PageContentFrame, PageNavBack } from "@/components/layout/page-content-frame";
 import AdaptiveLiquidChrome from "@/components/background/AdaptiveLiquidChrome";
 import { tabTitleMetadata } from "@/lib/metadata/tab-title";
@@ -30,7 +30,7 @@ export default async function StrataBrowserPage() {
 
   if (!clerkUser?.userId) {
     return (
-      <Page transparentBackground className="items-stretch justify-start overflow-hidden">
+      <LiquidChromePage transparentBackground className="items-stretch justify-start overflow-hidden">
         <AdaptiveLiquidChrome dimIntensity={0.45} />
         <div className="relative z-10 h-full min-h-0 w-full overflow-y-auto">
           <PageContentFrame>
@@ -38,7 +38,7 @@ export default async function StrataBrowserPage() {
             <p className="text-destructive">You need to sign in to use Strata.</p>
           </PageContentFrame>
         </div>
-      </Page>
+      </LiquidChromePage>
     );
   }
 
@@ -47,7 +47,7 @@ export default async function StrataBrowserPage() {
 
   if (sbUserIdResult.error || !ownerId) {
     return (
-      <Page transparentBackground className="items-stretch justify-start overflow-hidden">
+      <LiquidChromePage transparentBackground className="items-stretch justify-start overflow-hidden">
         <AdaptiveLiquidChrome dimIntensity={0.45} />
         <div className="relative z-10 h-full min-h-0 w-full overflow-y-auto">
           <PageContentFrame>
@@ -55,7 +55,7 @@ export default async function StrataBrowserPage() {
             <p className="text-destructive">Could not resolve your profile for Strata.</p>
           </PageContentFrame>
         </div>
-      </Page>
+      </LiquidChromePage>
     );
   }
 
@@ -88,7 +88,7 @@ export default async function StrataBrowserPage() {
   }
 
   return (
-    <Page transparentBackground className="items-stretch justify-start overflow-hidden">
+    <LiquidChromePage transparentBackground className="items-stretch justify-start overflow-hidden">
       <AdaptiveLiquidChrome dimIntensity={0.45} />
       <StrataWorkspace
         agentPanelTitle="Strata hub"
@@ -109,6 +109,6 @@ export default async function StrataBrowserPage() {
           </PageContentFrame>
         </div>
       </StrataWorkspace>
-    </Page>
+    </LiquidChromePage>
   );
 }

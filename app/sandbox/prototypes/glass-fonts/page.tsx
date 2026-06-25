@@ -5,7 +5,7 @@ import Link from "next/link";
 import { GlassFontsLab } from "./_components/glass-fonts-lab";
 
 import AdaptiveLiquidChrome from "@/components/background/AdaptiveLiquidChrome";
-import Page from "@/components/layout/page";
+import LiquidChromePage from "@/components/layout/liquid-chrome-page";
 import { tabTitleMetadata } from "@/lib/metadata/tab-title";
 
 export const metadata: Metadata = {
@@ -14,7 +14,7 @@ export const metadata: Metadata = {
 
 export default function GlassFontsPrototypePage() {
   return (
-    <Page transparentBackground className="overflow-hidden">
+    <LiquidChromePage transparentBackground className="overflow-hidden">
       <AdaptiveLiquidChrome dimIntensity={0.5} dimIntensityFull={0.68} speed={0.01} />
 
       <div className="relative z-10 h-full w-full overflow-y-auto">
@@ -44,6 +44,6 @@ export default function GlassFontsPrototypePage() {
           <GlassFontsLab />
         </div>
       </div>
-    </Page>
+    </LiquidChromePage>
   );
 }

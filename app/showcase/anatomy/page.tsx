@@ -24,7 +24,7 @@ export default function AnatomyShowcasePage() {
   const miniStages = demoTrace.stages.map((s) => ({ id: s.id, title: s.title }));
 
   return (
-    <Page transparentBackground className="overflow-hidden">
+    <Page liquidChromeBackground transparentBackground className="overflow-hidden">
       <AdaptiveLiquidChrome dimIntensity={0.45} />
       <PageContentFrame
         className="relative z-10 flex h-full flex-col overflow-hidden pb-0"

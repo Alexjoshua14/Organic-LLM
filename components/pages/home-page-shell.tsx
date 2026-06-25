@@ -202,7 +202,7 @@ export function HomePageShell() {
   );
 
   return (
-    <Page transparentBackground className="overflow-hidden">
+    <Page liquidChromeBackground transparentBackground className="overflow-hidden">
       <AdaptiveLiquidChrome dimIntensity={0.45} />
       <LayoutGroup id="homepage">
         <div

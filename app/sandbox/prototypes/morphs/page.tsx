@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 
 import { MorphInputLayoutDemo } from "./_components/morph-input-layout-demo";
 
+import { LiquidChromeSsrFill } from "@/components/background/LiquidChromeSsrFill";
 import { tabTitleMetadata } from "@/lib/metadata/tab-title";
 
 export const metadata: Metadata = {
@@ -9,5 +10,10 @@ export const metadata: Metadata = {
 };
 
 export default function MorphsPrototypePage() {
-  return <MorphInputLayoutDemo />;
+  return (
+    <>
+      <LiquidChromeSsrFill />
+      <MorphInputLayoutDemo />
+    </>
+  );
 }

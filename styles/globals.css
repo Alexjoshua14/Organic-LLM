@@ -326,11 +326,13 @@ body.font-theme-commissioner {
   }
 }
 
-/* Ergon: SSR page fill from app/ergon/layout.tsx (sync, before async page data). */
+/* Liquid chrome: instant fill before WebGL hydrates (Page section or fixed Ergon layout layer). */
+.page-liquid-chrome,
 .liquid-chrome-page-fill {
   background: var(--liquid-chrome-fallback-light);
 }
 
+.dark .page-liquid-chrome,
 .dark .liquid-chrome-page-fill {
   background: var(--liquid-chrome-fallback-dark);
 }

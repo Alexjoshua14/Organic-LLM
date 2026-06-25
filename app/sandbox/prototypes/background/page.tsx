@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 
 import { AdaptiveLiquidChromeLab } from "./_components/adaptive-liquid-chrome-lab";
 
+import { LiquidChromeSsrFill } from "@/components/background/LiquidChromeSsrFill";
 import { tabTitleMetadata } from "@/lib/metadata/tab-title";
 
 export const metadata: Metadata = {
@@ -9,5 +10,10 @@ export const metadata: Metadata = {
 };
 
 export default function PrototypesBackgroundPage() {
-  return <AdaptiveLiquidChromeLab />;
+  return (
+    <>
+      <LiquidChromeSsrFill />
+      <AdaptiveLiquidChromeLab />
+    </>
+  );
 }
