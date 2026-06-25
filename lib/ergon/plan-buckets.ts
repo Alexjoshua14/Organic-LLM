@@ -2,12 +2,11 @@ import type { TaskWithCategory } from "@/lib/ergon/types";
 
 export type PlanBucketId = "today" | "tomorrow" | "this_week" | "later" | "unscheduled";
 
-export const PLAN_BUCKET_LABELS: Record<PlanBucketId, string> = {
+export const PLAN_BUCKET_LABELS: Record<Exclude<PlanBucketId, "unscheduled">, string> = {
   today: "Today",
   tomorrow: "Tomorrow",
   this_week: "This week",
   later: "Later",
-  unscheduled: "Unscheduled",
 };
 
 export const PLAN_BUCKET_ORDER: PlanBucketId[] = [

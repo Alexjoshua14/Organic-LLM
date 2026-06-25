@@ -4,6 +4,7 @@ import type { SharedSelection } from "@heroui/system";
 
 import { useState, useEffect, useMemo } from "react";
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { Select, SelectItem } from "@heroui/select";
 import { Switch } from "@heroui/switch";
 import { Brain, ExternalLink, Settings2Icon } from "lucide-react";
@@ -37,6 +38,8 @@ type SettingsOverlayProps = {
 };
 
 export function SettingsOverlay({ open, onOpenChange, trigger }: SettingsOverlayProps) {
+  const pathname = usePathname();
+  const onErgonPage = pathname === "/ergon" || pathname.startsWith("/ergon/");
   const { userId } = useAuth();
   const { user } = useUser();
   const [knowledgeOpen, setKnowledgeOpen] = useState(false);
@@ -46,6 +49,9 @@ export function SettingsOverlay({ open, onOpenChange, trigger }: SettingsOverlay
   );
   const [experimentalArcadiaMarkdownPreview, setExperimentalArcadiaMarkdownPreview] = useState(
     () => getSettings().experimentalArcadiaMarkdownPreview
+  );
+  const [ergonLiquidChrome, setErgonLiquidChrome] = useState(
+    () => getSettings().ergonLiquidChrome
   );
 
   const knowledgeDisplayName = useMemo(() => {
@@ -62,6 +68,7 @@ export function SettingsOverlay({ open, onOpenChange, trigger }: SettingsOverlay
       setFontId(s.fontId);
       setCoalescenceMode(s.coalescenceMode);
       setExperimentalArcadiaMarkdownPreview(s.experimentalArcadiaMarkdownPreview);
+      setErgonLiquidChrome(s.ergonLiquidChrome);
     }
   }, [open]);
 
@@ -140,6 +147,26 @@ export function SettingsOverlay({ open, onOpenChange, trigger }: SettingsOverlay
                 />
               </div>
             </section>
+
+            {onErgonPage ? (
+              <section className="space-y-3">
+                <h3 className="text-sm font-medium text-foreground">Ergon background</h3>
+                <div className="flex items-center justify-between gap-3">
+                  <span className="text-xs text-muted-foreground">
+                    Animated liquid chrome behind the task list.
+                  </span>
+                  <Switch
+                    aria-label="Ergon liquid chrome background"
+                    isSelected={ergonLiquidChrome}
+                    onValueChange={(enabled) => {
+                      setErgonLiquidChrome(enabled);
+                      setSettings({ ergonLiquidChrome: enabled });
+                      if (userId) void persistUserSettingsToSupabase(userId, getSettings());
+                    }}
+                  />
+                </div>
+              </section>
+            ) : null}
 
             <section className="space-y-3">
               <h3 className="text-sm font-medium text-foreground">Font</h3>

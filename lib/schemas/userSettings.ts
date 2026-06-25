@@ -14,6 +14,8 @@ export const UserSettingsSchema = z.object({
   coalescenceMode: z.boolean().default(false),
   /** Experimental: Arcadia composer can show a markdown preview toggle. */
   experimentalArcadiaMarkdownPreview: z.boolean().default(false),
+  /** Ergon page: animated liquid chrome background. */
+  ergonLiquidChrome: z.boolean().default(true),
 });
 
 export type UserSettings = z.infer<typeof UserSettingsSchema>;
@@ -24,4 +26,5 @@ export const defaultUserSettings = (): UserSettings => ({
   zeroDataRetention: false,
   coalescenceMode: false,
   experimentalArcadiaMarkdownPreview: false,
+  ergonLiquidChrome: true,
 });

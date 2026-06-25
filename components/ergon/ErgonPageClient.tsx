@@ -33,6 +33,7 @@ import {
 import type { TaskInsert } from "@/lib/schemas/tasks";
 import { filterTasks, isDoneViewTask, isOpenTask } from "@/lib/ergon/task-view";
 import { isEditableEventTarget } from "@/lib/dom/is-editable-event-target";
+import { glass } from "@/components/design-system/primitives";
 import { cn } from "@/lib/utils";
 
 /** Matches former PageContentFrame (5xl) task column width. */
@@ -177,50 +178,52 @@ export function ErgonPageClient({ initialTasks, initialCategories }: ErgonPageCl
       </header>
 
       <main className="min-h-0 min-w-0 flex-1 w-full touch-manipulation overflow-y-auto overscroll-y-contain [scrollbar-gutter:stable]">
-        <div className={cn(ERGON_TASK_COLUMN, "pb-2 md:pb-4")}>
-        {showEmpty ? (
-          <ErgonEmptyState onStarterSelect={() => openEditor({ mode: "create" })} />
-        ) : viewTasks.length === 0 ? (
-          <p className="py-12 text-center text-sm text-muted-foreground">
-            No tasks match these filters.
-          </p>
-        ) : view === "plan" ? (
-          <PlanView
-            getTaskRowProps={getRowProps}
-            tasks={viewTasks}
-            onChatAbout={handleChatAbout}
-            onDelete={handleDelete}
-            onEdit={(task) => openEditor({ mode: "edit", taskId: task.id })}
-            onEnhance={handleEnhance}
-            onToggleActive={(id) => void toggleActive(id)}
-            onToggleComplete={(id) => void toggleComplete(id)}
-          />
-        ) : view === "list" ? (
-          <ListView
-            categories={categories}
-            getTaskRowProps={getRowProps}
-            sort={listSort}
-            tasks={viewTasks}
-            onChatAbout={handleChatAbout}
-            onDelete={handleDelete}
-            onEdit={(task) => openEditor({ mode: "edit", taskId: task.id })}
-            onEnhance={handleEnhance}
-            onSortChange={setListSort}
-            onToggleActive={(id) => void toggleActive(id)}
-            onToggleComplete={(id) => void toggleComplete(id)}
-          />
-        ) : (
-          <DoneView
-            getTaskRowProps={getRowProps}
-            tasks={viewTasks}
-            onChatAbout={handleChatAbout}
-            onDelete={handleDelete}
-            onEdit={(task) => openEditor({ mode: "edit", taskId: task.id })}
-            onEnhance={handleEnhance}
-            onToggleActive={(id) => void toggleActive(id)}
-            onToggleComplete={(id) => void toggleComplete(id)}
-          />
-        )}
+        <div className={cn(ERGON_TASK_COLUMN, "min-h-full pb-2 md:pb-4")}>
+          <div className={cn("min-h-full rounded-xl p-2", glass({ opaque: true }))}>
+            {showEmpty ? (
+              <ErgonEmptyState onStarterSelect={() => openEditor({ mode: "create" })} />
+            ) : viewTasks.length === 0 ? (
+              <p className="py-12 text-center text-sm text-muted-foreground">
+                No tasks match these filters.
+              </p>
+            ) : view === "plan" ? (
+              <PlanView
+                getTaskRowProps={getRowProps}
+                tasks={viewTasks}
+                onChatAbout={handleChatAbout}
+                onDelete={handleDelete}
+                onEdit={(task) => openEditor({ mode: "edit", taskId: task.id })}
+                onEnhance={handleEnhance}
+                onToggleActive={(id) => void toggleActive(id)}
+                onToggleComplete={(id) => void toggleComplete(id)}
+              />
+            ) : view === "list" ? (
+              <ListView
+                categories={categories}
+                getTaskRowProps={getRowProps}
+                sort={listSort}
+                tasks={viewTasks}
+                onChatAbout={handleChatAbout}
+                onDelete={handleDelete}
+                onEdit={(task) => openEditor({ mode: "edit", taskId: task.id })}
+                onEnhance={handleEnhance}
+                onSortChange={setListSort}
+                onToggleActive={(id) => void toggleActive(id)}
+                onToggleComplete={(id) => void toggleComplete(id)}
+              />
+            ) : (
+              <DoneView
+                getTaskRowProps={getRowProps}
+                tasks={viewTasks}
+                onChatAbout={handleChatAbout}
+                onDelete={handleDelete}
+                onEdit={(task) => openEditor({ mode: "edit", taskId: task.id })}
+                onEnhance={handleEnhance}
+                onToggleActive={(id) => void toggleActive(id)}
+                onToggleComplete={(id) => void toggleComplete(id)}
+              />
+            )}
+          </div>
         </div>
       </main>
 

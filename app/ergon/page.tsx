@@ -3,6 +3,7 @@ import type { TaskWithCategory } from "@/lib/ergon/types";
 
 import { auth } from "@clerk/nextjs/server";
 
+import { ErgonPageBackground } from "@/components/ergon/ErgonPageBackground";
 import { ErgonPageClient } from "@/components/ergon/ErgonPageClient";
 import Page from "@/components/layout/page";
 import { pageContentFrameInsets } from "@/components/layout/page-content-frame";
@@ -26,9 +27,10 @@ export default async function ErgonPage() {
 
   return (
     <Page className="items-stretch justify-start overflow-hidden" transparentBackground>
+      <ErgonPageBackground />
       <div
         className={cn(
-          "flex min-h-0 w-full flex-1 flex-col pb-4 md:pb-8",
+          "relative z-10 flex min-h-0 w-full flex-1 flex-col pb-4 md:pb-8",
           pageContentFrameInsets
         )}
       >
