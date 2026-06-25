@@ -21,6 +21,11 @@ export const CHAT_STYLES = [
       "The assistant maintains a kanban board in-thread. Ask what's in progress, what's blocked, or what's next.",
   },
   {
+    id: "remy",
+    label: "Remy",
+    description: "Plan a meal for an event—recipes, ingredients, and a shopping list.",
+  },
+  {
     id: "scribe",
     label: "Scribe",
     description: "Organizes your words only — no outside facts.",
