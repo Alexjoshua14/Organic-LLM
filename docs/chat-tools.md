@@ -15,7 +15,7 @@ On each chat turn, `compileChatTools()` builds a `ToolSet` plus a **Tool Instruc
 | `useMemory` | Long-term recall on demand — vector search over Mem0/Qdrant with relevance tiers and L1 cache, instead of injecting the full corpus every turn. |
 | `useSearch` | Fresh web context — [Exa](https://exa.ai) natural-language search with highlight excerpts (not full pages); cited sources stream to the thread. |
 | `useGetMoreMessages` + `chatId` | Deep thread access when the last-N window and rolling summary are not enough. |
-| `experience` | Changes the *mix* of tools: **Delphi** (propose/commit memory workflow), **Arcadia** / **topic explore** (Mermaid + Gen UI; **Ergon** chat style adds live kanban), **Strata hub** (navigate/search pages), **Strata page** (optional KG when knowledge search is on). Plain chat uses only the toggles above. |
+| `experience` | Changes the *mix* of tools: **Delphi** (propose/commit memory workflow), **Arcadia** / **topic explore** (Mermaid + Gen UI; **Ergon** chat style adds live kanban, **Remy** chat style adds event meal planning), **Strata hub** (navigate/search pages), **Strata page** (optional KG when knowledge search is on). Plain chat uses only the toggles above. |
 | `useKnowledgeSearch` | On **Strata page** only — experimental knowledge-graph tools; persistence is incomplete, so summarizing page content is usually better. |
 
 Many tools accept a **stream writer** so the UI can show live state—search sources, tool labels, kanban commands—while the model continues. See [Chat LLM transparency](./chat-llm-transparency.md).
@@ -87,6 +87,15 @@ When `chatStyle === "ergon"`, the model drives a **live** kanban board over a tr
 
 - Implementation: [`createKanbanBoardTool`](../lib/llm/kanban-tool.ts) · [`lib/schemas/kanban`](../lib/schemas/kanban.ts)
 
+### `mise_plan` + `fetch_recipe` (Remy meal planning)
+
+Branded **Remy**, this is event meal planning: the model builds a durable plan for a gathering — an event header, a prep **timeline** (reusing the gen-UI `plan-timeline`), recipe cards, and a have/need shopping/ingredient tracker. Like Ergon, `mise_plan` is a puppet driven over a transient `data-mise` channel (INITIATE_PLAN → SET_TIMELINE → UPSERT_RECIPES/UPSERT_INGREDIENTS → SHOW_VIEW), but every command is **also persisted to Supabase** (`mise_events` / `mise_recipes` / `mise_ingredients`), so the plan survives reloads and syncs across devices. The persisted views re-render with the same gen-UI block components (`recipe-card`, `shopping-list`, `plan-timeline`). `fetch_recipe` imports a recipe from a shared URL via schema.org JSON-LD.
+
+Always on in the **Remy** route (`/api/ai/remy`); in Arcadia it's the **Remy** chat style (`chatStyle === "remy"`).
+
+- Implementation: [`createMisePlanTool` / `createFetchRecipeTool`](../lib/llm/mise-tool.ts) · [`lib/schemas/mise`](../lib/schemas/mise/) · [`data/supabase/mise.ts`](../data/supabase/mise.ts) · store [`lib/mise/store.ts`](../lib/mise/store.ts)
+- Requires the migration [`docs/migrations/mise_tables.sql`](./migrations/mise_tables.sql) applied and `lib/supabase/types.ts` regenerated.
+
 ---
 
 ## Delphi experience
@@ -130,7 +139,8 @@ Export is a **user/UI** feature, not part of `compileChatTools`, but it pairs we
 | Experience | Typical tools |
 |------------|----------------|
 | **Main chat** | Memory, web, history (per settings); Arcadia-style tools when configured |
-| **Arcadia** | + Mermaid, Gen UI; + kanban when Ergon style |
+| **Arcadia** | + Mermaid, Gen UI; + kanban when Ergon style; + meal planning when Remy style |
+| **Remy** (`/api/ai/remy`) | Culinary persona + Mem0; `mise_plan` + `fetch_recipe` always on |
 | **Delphi** | Memory search + propose/commit/link/flag workflow |
 | **Strata hub** | Navigate + search Strata pages |
 | **Strata page** | Optional KG stubs when knowledge search is on |

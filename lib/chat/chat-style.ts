@@ -17,6 +17,11 @@ export const CHAT_STYLES = [
     description: "Kanban the assistant keeps. Ask what's active or next.",
   },
   {
+    id: "remy",
+    label: "Remy",
+    description: "Plan a meal for an event—recipes, ingredients, and a shopping list.",
+  },
+  {
     id: "scribe",
     label: "Scribe",
     description: "Organizes your words only—no outside facts.",

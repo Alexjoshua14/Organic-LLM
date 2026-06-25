@@ -12,6 +12,11 @@ export const CHAT_STYLE_STARTERS: Record<ChatStyle, readonly string[]> = {
     "What's active on my board right now?",
     "What should I tackle next?",
   ],
+  remy: [
+    "I'm hosting a housewarming Saturday at 7:30—help me plan the menu.",
+    "Add this recipe to my plan: <paste a link>",
+    "What do I still need to buy?",
+  ],
   scribe: [
     "Organize these notes—don't add outside facts.",
     "Turn this brain dump into a clean outline.",

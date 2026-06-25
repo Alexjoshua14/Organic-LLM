@@ -5,6 +5,8 @@ import { AnswerCard } from "./blocks/AnswerCard";
 import { AudioSnippet } from "./blocks/AudioSnippet";
 import { DecisionMatrix } from "./blocks/DecisionMatrix";
 import { PlanTimeline } from "./blocks/PlanTimeline";
+import { RecipeCard } from "./blocks/RecipeCard";
+import { ShoppingList } from "./blocks/ShoppingList";
 
 import {
   genUIBlockToMarkdown,
@@ -12,6 +14,8 @@ import {
   DecisionMatrixBlockSchema,
   PlanTimelineBlockSchema,
   AudioSnippetBlockSchema,
+  RecipeCardBlockSchema,
+  ShoppingListBlockSchema,
 } from "@/lib/schemas/gen-ui";
 
 export type GenUIBlockComponentProps = {
@@ -25,7 +29,9 @@ export type GenUIRegistryEntry = {
     | typeof AnswerCardBlockSchema
     | typeof DecisionMatrixBlockSchema
     | typeof PlanTimelineBlockSchema
-    | typeof AudioSnippetBlockSchema;
+    | typeof AudioSnippetBlockSchema
+    | typeof RecipeCardBlockSchema
+    | typeof ShoppingListBlockSchema;
   Component: ComponentType<GenUIBlockComponentProps>;
   toMarkdown: (block: GenUIBlock) => string;
 };
@@ -55,6 +61,18 @@ export const GEN_UI_REGISTRY: Record<GenUIBlockType, GenUIRegistryEntry> = {
     Component: AudioSnippet as ComponentType<GenUIBlockComponentProps>,
     toMarkdown: genUIBlockToMarkdown,
   },
+  "recipe-card": {
+    label: "Recipe",
+    schema: RecipeCardBlockSchema,
+    Component: RecipeCard as ComponentType<GenUIBlockComponentProps>,
+    toMarkdown: genUIBlockToMarkdown,
+  },
+  "shopping-list": {
+    label: "Shopping list",
+    schema: ShoppingListBlockSchema,
+    Component: ShoppingList as ComponentType<GenUIBlockComponentProps>,
+    toMarkdown: genUIBlockToMarkdown,
+  },
 };
 
 export function getGenUIBlockTitle(block: GenUIBlock): string {
@@ -67,5 +85,9 @@ export function getGenUIBlockTitle(block: GenUIBlock): string {
       return block.title;
     case "audio-snippet":
       return block.preview.title;
+    case "recipe-card":
+      return block.title;
+    case "shopping-list":
+      return block.title;
   }
 }

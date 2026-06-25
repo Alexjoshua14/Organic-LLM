@@ -7,6 +7,8 @@ export const PlanStepStatusSchema = z.enum(["done", "now", "next", "blocked"]);
 export const PlanTimelineSubstepSchema = z.object({
   label: z.string().min(1),
   done: z.boolean().optional(),
+  /** Optional clock anchor for a substep, e.g. "~6:00 PM". */
+  time: optionalStringCatch(),
 });
 
 export const PlanTimelineStepSchema = z.object({
@@ -16,6 +18,8 @@ export const PlanTimelineStepSchema = z.object({
   dependsOn: z.array(z.string()).max(10).optional(),
   note: optionalStringCatch(),
   estimate: optionalStringCatch(),
+  /** Optional clock anchor for a step, e.g. "7:30 PM" or "Friday". */
+  time: optionalStringCatch(),
   substeps: z.array(PlanTimelineSubstepSchema).max(15).optional(),
 });
 
@@ -43,12 +47,16 @@ export function planTimelineToMarkdown(block: PlanTimelineBlock): string {
             ? "[!]"
             : "[ ]";
 
-    lines.push(`- ${mark} ${step.label}`);
+    const stepLabel = step.time ? `${step.time} — ${step.label}` : step.label;
+
+    lines.push(`- ${mark} ${stepLabel}`);
     if (step.estimate) lines.push(`  - _${step.estimate}_`);
     if (step.note) lines.push(`  - ${step.note}`);
     if (step.substeps?.length) {
       for (const sub of step.substeps) {
-        lines.push(`  - ${sub.done ? "[x]" : "[ ]"} ${sub.label}`);
+        const subLabel = sub.time ? `${sub.time} — ${sub.label}` : sub.label;
+
+        lines.push(`  - ${sub.done ? "[x]" : "[ ]"} ${subLabel}`);
       }
     }
   }

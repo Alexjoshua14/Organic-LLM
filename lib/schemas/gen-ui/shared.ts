@@ -8,6 +8,8 @@ export const GEN_UI_BLOCK_TYPES = [
   "decision-matrix",
   "plan-timeline",
   "audio-snippet",
+  "recipe-card",
+  "shopping-list",
 ] as const;
 
 export type GenUIBlockType = (typeof GEN_UI_BLOCK_TYPES)[number];

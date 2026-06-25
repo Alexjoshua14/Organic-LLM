@@ -8,6 +8,12 @@ import {
 import { createKanbanBoardTool, type KanbanStreamWriter } from "@/lib/llm/kanban-tool";
 import { KANBAN_TOOL_INSTRUCTIONS } from "@/lib/system-prompt/kanban";
 import {
+  createFetchRecipeTool,
+  createMisePlanTool,
+  type MiseStreamWriter,
+} from "@/lib/llm/mise-tool";
+import { MISE_TOOL_INSTRUCTIONS } from "@/lib/system-prompt/mise";
+import {
   DELPHI_SEARCH_MEMORIES_DESCRIPTION,
   createDelphiMemoryTools,
 } from "@/lib/llm/delphi-memory-tools";
@@ -137,6 +143,15 @@ export async function compileChatTools({
         writer: writer as unknown as KanbanStreamWriter,
       });
       toolInstructions += `${KANBAN_TOOL_INSTRUCTIONS}\n`;
+    }
+
+    if (chatStyle === "remy") {
+      tools["mise_plan"] = createMisePlanTool({
+        writer: writer as unknown as MiseStreamWriter,
+        threadId: chatId,
+      });
+      tools["fetch_recipe"] = createFetchRecipeTool();
+      toolInstructions += `${MISE_TOOL_INSTRUCTIONS}\n`;
     }
   }
 
