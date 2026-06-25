@@ -214,6 +214,23 @@ const AIMessage: FC<ChatMessageProps> = ({
                   return null;
                 }
 
+                if (toolName === MISE_PLAN_TOOL_NAME) {
+                  if (part.state === "input-streaming" || part.state === "input-available") {
+                    return <MiseLoadingShell key={`${message.id}-${i}-mise-stream`} />;
+                  }
+                  if (part.state === "output-available") {
+                    return (
+                      <MiseToolResult
+                        key={`${message.id}-${i}-mise-result`}
+                        output={part.output}
+                        threadId={chatId ?? message.id}
+                      />
+                    );
+                  }
+
+                  return null;
+                }
+
                 if (toolName === RENDER_GEN_UI_TOOL_NAME) {
                   if (part.state === "input-streaming" || part.state === "input-available") {
                     return (
@@ -455,6 +472,8 @@ const KNOWN_TOOL_IN_FLIGHT_LABELS: Record<string, string> = {
   mise_plan: "Updating plan…",
   fetch_recipe: "Reading recipe…",
   manage_tasks: "Updating tasks…",
+  mise_plan: "Updating plan…",
+  fetch_recipe: "Reading recipe…",
   make_mermaid_diagram: "Creating diagram...",
   search_memories: "Searching memories...",
   memory_search: "Searching memories...",
