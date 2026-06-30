@@ -23,13 +23,17 @@ import {
   selectMemoriesForPrompt,
   toMemorySearchInventory,
 } from "@/lib/memory/memory-relevance";
-import { SearchMemoryToolSchema } from "@/lib/schemas/llm-tools";
+import {
+  GetMoreMessagesToolSchema,
+  SearchMemoryToolSchema,
+  clampHistoryMessageLimit,
+} from "@/lib/llm/chat-tool-schemas";
 import { ChatAIActionEnum } from "@/types/ai";
 import {
   MERMAID_DIAGRAM_FIX_SYSTEM_PROMPT,
   MERMAID_DIAGRAM_GENERATOR_SYSTEM_PROMPT,
-  MERMAID_DIAGRAM_PLANNER_SYSTEM_PROMPT,
 } from "@/lib/system-prompt/mermaid-diagram-prompt";
+import { classifyMermaidValidationError, normalizeMermaidCode } from "@/lib/mermaid/source";
 
 const logger = createLogger("llm-tool-kit");
 
@@ -38,33 +42,59 @@ const MAX_TOKENS_FOR_HISTORY = 4000;
 
 /** Max tokens for full history and date-filtered history tools. */
 const MAX_TOKENS_FULL_HISTORY = 24000;
-/** Token caps for Mermaid tool sub-calls to avoid unbounded tool latency/cost. */
-const MERMAID_PLANNER_MAX_OUTPUT_TOKENS = 700;
+/** Token cap for the Mermaid generator sub-call to avoid unbounded tool latency/cost. */
 const MERMAID_GENERATOR_MAX_OUTPUT_TOKENS = 2200;
 
 let mermaidValidationInit: Promise<any> | null = null;
 
 async function getMermaidForValidation(): Promise<any> {
-  mermaidValidationInit ??= import("mermaid").then((mod: any) => {
-    const m = mod?.default ?? mod;
+  if (!mermaidValidationInit) {
+    mermaidValidationInit = import("mermaid")
+      .then((mod: any) => {
+        const m = mod?.default ?? mod;
 
-    // Server-side validation: we only need parse/render syntax checks.
-    m.initialize({ startOnLoad: false, theme: "neutral", securityLevel: "loose" });
+        // Validation only runs mermaid.parse (syntax). No theme is set on
+        // purpose: the neutral/base/dark palettes use 3-digit hex (e.g. "#eee")
+        // that khroma cannot parse under bun/node and throws on at init time.
+        try {
+          m.initialize({ startOnLoad: false, securityLevel: "loose" });
+        } catch {
+          // Non-fatal: parse still works without init, and any environment
+          // failure resurfaces at parse time where it is classified below.
+        }
 
-    return m;
-  });
+        return m;
+      })
+      .catch((err) => {
+        // Don't poison the cache with a rejected import; allow a later retry.
+        mermaidValidationInit = null;
+        throw err;
+      });
+  }
 
   return mermaidValidationInit;
 }
 
-async function validateMermaidCode(code: string): Promise<{ ok: boolean; error?: string }> {
+export type MermaidValidationResult =
+  | { status: "valid" }
+  | { status: "invalid"; error: string }
+  | { status: "unverifiable"; reason: string };
+
+/**
+ * Validate Mermaid source with `mermaid.parse` (syntax only). Server runtimes
+ * lack the DOM / DOMPurify / khroma that Mermaid's render path needs, so a
+ * thrown error may describe the *environment* rather than the diagram. We
+ * classify it so the caller can fix real syntax errors but fail open on
+ * environment failures instead of burning fix-retries on valid code.
+ */
+async function validateMermaidCode(code: string): Promise<MermaidValidationResult> {
   try {
     const mermaid = await getMermaidForValidation();
 
     // mermaid.parse throws on invalid syntax.
     await mermaid.parse(code);
 
-    return { ok: true };
+    return { status: "valid" };
   } catch (err) {
     const e: any = err;
     const msg =
@@ -76,46 +106,17 @@ async function validateMermaidCode(code: string): Promise<{ ok: boolean; error?:
             ? e
             : "Mermaid parse failed";
 
-    // Mermaid can throw a runtime sanitize error in server environments.
-    // Do not mark this as valid; return a targeted error so the generator can retry/fix.
-    if (/sanitize\s+is\s+not\s+a\s+function/i.test(msg)) {
+    if (classifyMermaidValidationError(msg) === "environment") {
       logger.warn(
         "mermaid_validation",
-        "Server Mermaid validation hit sanitize runtime issue; requesting retry/fix."
+        `Mermaid validation unavailable in this runtime; accepting code unverified (${msg}).`
       );
 
-      return {
-        ok: false,
-        error:
-          "Server-side Mermaid validator hit a sanitize runtime issue. Regenerate with strict Mermaid syntax only (no HTML labels), and keep it compatible with Mermaid run() in browser.",
-      };
+      return { status: "unverifiable", reason: msg };
     }
 
-    return { ok: false, error: msg };
+    return { status: "invalid", error: msg };
   }
-}
-
-function stripMermaidSecurityInitLines(source: string): string {
-  return source
-    .split("\n")
-    .filter((line) => {
-      const t = line.trim();
-
-      if (!t.startsWith("%%")) return true;
-      if (!/init\s*:/i.test(t)) return true;
-
-      return !/securityLevel/i.test(t);
-    })
-    .join("\n");
-}
-
-function normalizeMermaidCode(raw: string): string {
-  return stripMermaidSecurityInitLines(
-    raw
-      .replace(/^```(?:mermaid)?\s*/i, "")
-      .replace(/```$/i, "")
-      .trim()
-  );
 }
 
 /** Format UIMessage[] into a plain string for the model (role + text content). */
@@ -201,26 +202,42 @@ export function createMemorySearchTool(
   return tool({
     description,
     inputSchema: SearchMemoryToolSchema,
-    execute: async ({ query, limit }) => {
+    execute: async ({ query }) => {
       logger.log("createMemorySearchTool", "LLM has invoked memory search");
+      const trimmedQuery = query?.trim() ?? "";
+
+      if (!trimmedQuery) {
+        return {
+          success: false,
+          query: query ?? "",
+          rawQuery: query ?? "",
+          queryRewriteUsed: false,
+          rewrittenQueries: [],
+          error: "Search query is required",
+          memories: [],
+          count: 0,
+        };
+      }
+
       if (writer) {
         writer.write({
           type: "data-aiAction",
-          data: { action: ChatAIActionEnum.Memory, query },
+          data: { action: ChatAIActionEnum.Memory, query: trimmedQuery },
           transient: true,
         });
       }
+
       try {
-        const requestedLimit = limit ?? 3;
+        const requestedLimit = 3;
         const limitForStore = Math.min(
           MEMORY_TOOL_OVERFETCH_CAP,
           Math.max(requestedLimit, MEMORY_TOOL_OVERFETCH_MIN)
         );
 
-        const searchRun = await searchMemoriesWithL1Cache(userId, query, limitForStore);
+        const searchRun = await searchMemoriesWithL1Cache(userId, trimmedQuery, limitForStore);
         const perQuery = [
           {
-            q: query,
+            q: trimmedQuery,
             cacheHit: searchRun.metrics.cacheHit,
             searchMs: searchRun.metrics.memorySearchMs,
             error: searchRun.result.error ?? null,
@@ -231,8 +248,8 @@ export function createMemorySearchTool(
 
         if (searchRun.result.error) {
           logger.log("createMemorySearchTool", "memory_search_error", {
-            rawQuery: query,
-            rewrittenQueries: [query],
+            rawQuery: trimmedQuery,
+            rewrittenQueries: [trimmedQuery],
             queryRewriteUsed: false,
             rewriteMs: 0,
             perQuery,
@@ -241,10 +258,10 @@ export function createMemorySearchTool(
 
           return {
             success: false,
-            query,
-            rawQuery: query,
+            query: trimmedQuery,
+            rawQuery: trimmedQuery,
             queryRewriteUsed: false,
-            rewrittenQueries: [query],
+            rewrittenQueries: [trimmedQuery],
             error: searchRun.result.error,
             memories: [],
             count: 0,
@@ -252,8 +269,8 @@ export function createMemorySearchTool(
         }
 
         logger.log("createMemorySearchTool", "memory_search_ok", {
-          rawQuery: query,
-          rewrittenQueries: [query],
+          rawQuery: trimmedQuery,
+          rewrittenQueries: [trimmedQuery],
           queryRewriteUsed: false,
           rewriteMs: 0,
           perQuery,
@@ -270,10 +287,10 @@ export function createMemorySearchTool(
 
         return {
           success: true,
-          query,
-          rawQuery: query,
+          query: trimmedQuery,
+          rawQuery: trimmedQuery,
           queryRewriteUsed: false,
-          rewrittenQueries: [query],
+          rewrittenQueries: [trimmedQuery],
           memories: sliced,
           count: sliced.length,
           memoryInventory,
@@ -281,10 +298,10 @@ export function createMemorySearchTool(
       } catch (error) {
         return {
           success: false,
-          query,
-          rawQuery: query,
+          query: trimmedQuery,
+          rawQuery: trimmedQuery,
           queryRewriteUsed: false,
-          rewrittenQueries: [query],
+          rewrittenQueries: [trimmedQuery],
           error: error instanceof Error ? error.message : "Unknown error",
           memories: [],
           count: 0,
@@ -293,16 +310,6 @@ export function createMemorySearchTool(
     },
   });
 }
-
-const GetMoreMessagesToolSchema = z.object({
-  limit: z
-    .number()
-    .min(1)
-    .max(50)
-    .describe(
-      "Number of older messages to fetch from the conversation (1–50). Use when you need more history to answer accurately."
-    ),
-});
 
 /**
  * Creates a tool that lets the LLM fetch additional (older) messages from the current chat.
@@ -317,15 +324,13 @@ export function createGetMoreMessagesTool(chatId: string, alreadySentCount: numb
       "Fetch older messages from this conversation when you need more context to answer the user. Call this when the user refers to something earlier in the chat that you don't have in your current context (e.g. a prior decision, topic, or detail).",
     inputSchema: GetMoreMessagesToolSchema,
     execute: async ({ limit }) => {
-      const MAX_LIMIT = 50;
-
-      limit = Math.min(limit, MAX_LIMIT);
+      const clampedLimit = clampHistoryMessageLimit(limit);
       logger.log(
         "createGetMoreMessagesTool",
-        `Fetching ${limit} older messages for chat ${chatId} (already have ${alreadySentCount})`
+        `Fetching ${clampedLimit} older messages for chat ${chatId} (already have ${alreadySentCount})`
       );
       try {
-        const result = await getNMessages(chatId, alreadySentCount + limit);
+        const result = await getNMessages(chatId, alreadySentCount + clampedLimit);
 
         if (result.error) {
           return {
@@ -336,7 +341,7 @@ export function createGetMoreMessagesTool(chatId: string, alreadySentCount: numb
           };
         }
         const all = result.data ?? [];
-        const olderOnly = all.slice(0, limit);
+        const olderOnly = all.slice(0, clampedLimit);
         const { formatted, messagesUsed, tokenCount } = await formatAndCapMessagesByTokens(
           olderOnly,
           MAX_TOKENS_FOR_HISTORY
@@ -693,45 +698,33 @@ const MermaidDiagramToolSchema = z.object({
       "What the diagram should show (entities + relationships + any ordering). Include any constraints like diagram type or nodes to include/exclude."
     ),
   diagramType: z
-    .enum(["flowchart", "sequence", "state", "class", "entityRelationship"])
-    .optional()
-    .describe("Optional hint for what kind of mermaid diagram to generate."),
+    .enum(["flowchart", "sequence", "state", "class", "entityRelationship", ""])
+    .describe(
+      "Diagram kind: flowchart, sequence, state, class, entityRelationship, or empty string when unspecified."
+    ),
 });
 
 /**
- * Arcadia tool: generate a Mermaid diagram using a small planner model + a stronger generator model.
- * Returns Mermaid source code only (no markdown fences).
+ * Arcadia tool: generate a Mermaid diagram with a single generator model that
+ * plans and emits the code in one call, then syntax-validates with a bounded
+ * fix loop. Returns Mermaid source code only (no markdown fences).
  */
 export function createMermaidDiagramTool(options?: {
-  plannerModelId?: GatewayModelId;
   generatorModelId?: GatewayModelId;
   writer?: WebSearchStreamWriter;
 }) {
-  const plannerModelId: GatewayModelId = options?.plannerModelId ?? "openai/gpt-5.4-nano";
   const generatorModelId: GatewayModelId = options?.generatorModelId ?? "google/gemini-3-flash";
   const writer = options?.writer;
+
+  // Warm the mermaid module so the first validation doesn't pay cold-import
+  // latency on the request path. Best-effort; failures resurface at parse time.
+  void getMermaidForValidation().catch(() => {});
 
   return tool({
     description:
       "Generate a Mermaid diagram for the user's request. Use when a visual diagram (flow, sequence, state machine, ERD) would clarify the answer. Returns Mermaid source code only.",
     inputSchema: MermaidDiagramToolSchema,
     execute: async ({ prompt, diagramType }) => {
-      if (writer) {
-        writer.write({
-          type: "data-aiAction",
-          data: { action: ChatAIActionEnum.Tool, message: "Planning Mermaid diagram..." },
-          transient: true,
-        });
-      }
-      const planningSystem = MERMAID_DIAGRAM_PLANNER_SYSTEM_PROMPT;
-
-      const plan = await generateText({
-        model: plannerModelId,
-        system: planningSystem,
-        prompt: JSON.stringify({ prompt, diagramType }),
-        maxOutputTokens: MERMAID_PLANNER_MAX_OUTPUT_TOKENS,
-      });
-
       const generatorSystem = MERMAID_DIAGRAM_GENERATOR_SYSTEM_PROMPT;
       const fixSystem = MERMAID_DIAGRAM_FIX_SYSTEM_PROMPT;
 
@@ -757,9 +750,8 @@ export function createMermaidDiagramTool(options?: {
 
         const genOrFixPrompt =
           attempt === 0
-            ? "Create the Mermaid diagram from this request and plan.\n\n" +
-              `REQUEST:\n${prompt}\n\n` +
-              `PLAN_JSON:\n${plan.text}\n` +
+            ? "Create the Mermaid diagram for this request.\n\n" +
+              `REQUEST:\n${prompt}\n` +
               (diagramType ? `\nDIAGRAM_TYPE_HINT:\n${diagramType}\n` : "")
             : "INVALID_MERMAID_CODE:\n" +
               normalizedCode +
@@ -767,8 +759,7 @@ export function createMermaidDiagramTool(options?: {
               `MERMAID_ERROR_MESSAGE:\n${lastValidationError ?? "Unknown mermaid parse error"}\n` +
               (diagramType ? `\nDIAGRAM_TYPE_HINT:\n${diagramType}\n` : "") +
               "\n\n" +
-              `REQUEST:\n${prompt}\n\n` +
-              `PLAN_JSON:\n${plan.text}\n`;
+              `REQUEST:\n${prompt}\n`;
 
         const system = attempt === 0 ? generatorSystem : fixSystem;
 
@@ -789,23 +780,27 @@ export function createMermaidDiagramTool(options?: {
           });
         }
 
-        const v = await validateMermaidCode(normalizedCode);
+        const result = await validateMermaidCode(normalizedCode);
 
-        if (v.ok) {
+        // `valid` parsed cleanly. `unverifiable` means this runtime can't
+        // parse-check (no DOM/DOMPurify/theme colors) — fail open rather than
+        // burn fix-retries on code that is likely fine and gets validated again
+        // in the browser renderer.
+        if (result.status === "valid" || result.status === "unverifiable") {
           return {
             success: true,
             diagramType: diagramType ?? null,
             code: normalizedCode,
-            plannerModelId,
             generatorModelId,
           };
         }
 
-        lastValidationError = v.error;
-        logger.warn("mermaid_validation", `Invalid mermaid (attempt ${attempt}): ${v.error}`);
+        lastValidationError = result.error;
+        logger.warn("mermaid_validation", `Invalid mermaid (attempt ${attempt}): ${result.error}`);
       }
 
-      // If we still can't validate after retries, return the last generated code.
+      // Still invalid after the fix budget: return the last code with the syntax
+      // error so the UI can surface a preview note; the browser retries render.
       if (writer) {
         writer.write({
           type: "data-aiAction",
@@ -821,7 +816,6 @@ export function createMermaidDiagramTool(options?: {
         success: true,
         diagramType: diagramType ?? null,
         code: normalizedCode,
-        plannerModelId,
         generatorModelId,
         validationError: lastValidationError ?? null,
       };

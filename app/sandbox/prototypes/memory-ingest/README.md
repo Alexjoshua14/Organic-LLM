@@ -4,6 +4,8 @@ Ritual surface: one-shot “thought → memory” with **motion as the primary s
 
 **Layout:** mobile-first (tuned for ~393px phones) with responsive `max-width` and particle height steps from `sm` → `xl` so tablets and desktops get a wider focal column without redesigning the ritual.
 
+**Assistant caption sizing:** measured at runtime from viewport layout budget, computed typography (`prose-sm` line-height), and caption width. The same measurements are sent to `/api/chat` as `delphiDisplay` so Delphi knows visible line count and chars/line for the user's screen.
+
 ## Routes
 
 - Entry: [`/sandbox/prototypes/memory-ingest`](/sandbox/prototypes/memory-ingest) — creates a thread and redirects to `/sandbox/prototypes/memory-ingest/<chatId>`.

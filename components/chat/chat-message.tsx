@@ -43,6 +43,7 @@ import { MANAGE_TASKS_TOOL_NAME } from "@/lib/schemas/ergon-tasks";
 import { cn } from "@/lib/utils";
 import { ChatAIActionEnum } from "@/types/ai";
 import { MermaidDiagram } from "@/components/blog/mermaid-diagram";
+import { extractMermaidCode } from "@/lib/mermaid/source";
 import { getMessageModelId, getModelDisplayName } from "@/lib/chat/message-model";
 
 type ChatMessageProps = {
@@ -455,33 +456,6 @@ function stableStringify(value: unknown): string {
   } catch {
     return String(value);
   }
-}
-
-function extractMermaidCode(value: unknown): string | null {
-  if (typeof value === "string") {
-    const trimmed = value.trim();
-
-    if (
-      trimmed.startsWith("graph") ||
-      trimmed.startsWith("flowchart") ||
-      trimmed.startsWith("sequenceDiagram")
-    ) {
-      return trimmed;
-    }
-    const fenceMatch = trimmed.match(/```mermaid\s*([\s\S]*?)```/i);
-
-    if (fenceMatch?.[1]) return fenceMatch[1].trim();
-
-    return null;
-  }
-  if (value && typeof value === "object") {
-    const v = value as Record<string, unknown>;
-    const code = v.code;
-
-    if (typeof code === "string") return code.trim();
-  }
-
-  return null;
 }
 
 /** Generic collapsible tool output (JSON / Mermaid); specialized tools use dedicated cards. */

@@ -1,5 +1,6 @@
 import type { z } from "zod";
 import type { ChatStyle } from "@/lib/chat/chat-style";
+import type { DelphiDisplayInput } from "@/lib/memory-ingest/delphi-caption-budget";
 
 import {
   type ChatExperience,
@@ -10,8 +11,15 @@ import { getStrataPageById } from "@/data/supabase/strata";
 import { getStrataAssistantPersona } from "@/lib/personas/strata-assistant";
 import { buildStrataSystemSuffix } from "@/lib/llm/strata-chat-augmentation";
 import { getChatResponseLengthInstruction } from "@/lib/llm/helpers";
-import { getDelphiSystemPromptAugmentation } from "@/lib/personas/delphi";
+import {
+  getDelphiDisplayContextAugmentation,
+  getDelphiSystemPromptAugmentation,
+} from "@/lib/personas/delphi";
 import { StrataAssistantPersonaRequestSchema } from "@/lib/schemas/chat";
+import {
+  computeDelphiCaptionBudget,
+  delphiScrollCharBudget,
+} from "@/lib/memory-ingest/delphi-caption-budget";
 
 type StrataAssistantPersona = z.infer<typeof StrataAssistantPersonaRequestSchema>;
 
@@ -64,6 +72,7 @@ export type AppendMainChatPostToolSystemFragmentsParams = {
   speechFriendly: boolean | undefined;
   experience: ChatExperience | undefined;
   chatStyle?: ChatStyle;
+  delphiDisplay?: DelphiDisplayInput;
 };
 
 /** Tool Instructions block + speech-friendly + Arcadia length/style guidance. */
@@ -77,6 +86,7 @@ export function appendMainChatPostToolSystemFragments(
     speechFriendly,
     experience,
     chatStyle,
+    delphiDisplay,
   } = params;
 
   let out = systemPromptForRequest;
@@ -99,13 +109,41 @@ export function appendMainChatPostToolSystemFragments(
 
   if (experience === "delphi") {
     out += getDelphiSystemPromptAugmentation();
+
+    if (delphiDisplay) {
+      const budget = computeDelphiCaptionBudget(delphiDisplay);
+
+      out += getDelphiDisplayContextAugmentation(budget);
+    }
   }
 
   return out;
 }
 
+export type WrapSystemPromptWithResponseLengthParams = {
+  experience?: ChatExperience;
+  delphiDisplay?: DelphiDisplayInput;
+};
+
 /** Same wrapper as the main chat route before streamText. */
-export function wrapSystemPromptWithResponseLength(systemPromptForRequest: string): string {
+export function wrapSystemPromptWithResponseLength(
+  systemPromptForRequest: string,
+  params?: WrapSystemPromptWithResponseLengthParams
+): string {
+  if (params?.experience === "delphi" && params.delphiDisplay) {
+    const budget = computeDelphiCaptionBudget(params.delphiDisplay);
+    const charBudget = delphiScrollCharBudget(budget);
+    const approxWords = Math.round(charBudget / 5);
+
+    return (
+      systemPromptForRequest +
+      "\n\n<response_length>\n" +
+      `This response should fit the user's caption display. Approximate character budget: ${charBudget.toLocaleString()} characters (~${approxWords.toLocaleString()} words). ` +
+      `Prefer staying within ${budget.visibleLines} visible lines; do not exceed ${budget.scrollMaxLines} lines total.\n` +
+      "</response_length>"
+    );
+  }
+
   return (
     systemPromptForRequest +
     "\n\n<response_length>\n" +

@@ -19,6 +19,7 @@ export type MemoryLensProps = {
   intensity: number;
   themeProbeRef: MutableRefObject<HTMLElement | null>;
   pulseGlowRef: MutableRefObject<number>;
+  pulseInhaleRef: MutableRefObject<number>;
   anchorWorldRef: MutableRefObject<AnchorWorld>;
   devUiEnabled: boolean;
   onPerfSample?: (metrics: LensPerfMetrics) => void;
@@ -41,6 +42,7 @@ export function MemoryLens({
   intensity,
   themeProbeRef,
   pulseGlowRef,
+  pulseInhaleRef,
   anchorWorldRef,
   devUiEnabled,
   onPerfSample,
@@ -79,6 +81,7 @@ export function MemoryLens({
         pointSize={pointSize}
         targetFps={targetFps}
         pulseGlowRef={pulseGlowRef}
+        pulseInhaleRef={pulseInhaleRef}
         state={state}
         themeProbeRef={themeProbeRef}
       />

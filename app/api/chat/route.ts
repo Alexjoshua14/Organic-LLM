@@ -87,6 +87,7 @@ export async function POST(req: Request) {
     strataAssistantPersona,
     model: requestedModel,
     memory: requestedMemory,
+    delphiDisplay,
   } = parseResult.data;
   const message = incomingMessage as UIMessage;
   const memoryEnabled = resolveMemoryEnabledForExperience(experience, requestedMemory);
@@ -280,6 +281,7 @@ export async function POST(req: Request) {
         speechFriendly: parseResult.data.speechFriendly,
         experience,
         chatStyle,
+        delphiDisplay,
       });
 
       writer.write({
@@ -288,7 +290,10 @@ export async function POST(req: Request) {
         transient: true,
       });
 
-      const systemPromptWithLength = wrapSystemPromptWithResponseLength(systemPromptForRequest);
+      const systemPromptWithLength = wrapSystemPromptWithResponseLength(systemPromptForRequest, {
+        experience,
+        delphiDisplay,
+      });
 
       runLLMChatStream({
         writer,

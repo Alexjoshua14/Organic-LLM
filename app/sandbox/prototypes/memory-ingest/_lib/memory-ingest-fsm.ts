@@ -1,6 +1,8 @@
 import type { ChatStatus } from "ai";
 import type { IngestModelTier, MemoryIngestFsmState, ParticleFieldVisualState } from "./types";
 
+import { INGEST_INTENSITY } from "./memory-ingest-tuning";
+
 import { ChatAIActionEnum } from "@/types/ai";
 
 export type MemoryIngestFsmEvent =
@@ -15,13 +17,14 @@ export type MemoryIngestFsmEvent =
       message?: string;
       query?: string;
     }
-  | { type: "FINISH"; memoryEnabled: boolean }
+  | { type: "FINISH" }
   | { type: "RECEIPT_DONE" }
+  | { type: "COMMIT_FAILED" }
   | { type: "DEBUG_SET"; visual: ParticleFieldVisualState; intensity?: number };
 
 export const initialMemoryIngestFsmState: MemoryIngestFsmState = {
   visual: "idle_ready",
-  intensity: 0.45,
+  intensity: INGEST_INTENSITY.idle_ready,
   lastTier: "reflex",
 };
 
@@ -79,6 +82,9 @@ function aiActionToVisual(
 
       if (tool === "web_search") return "web_search";
       if (tool === "memory_search" || tool === "search_memories") return "searching_memory";
+      // An actual write to the corpus — the chamber's signature beat. Only commit_memory
+      // qualifies; propose_memory is a draft echo (no write) and stays on the default path.
+      if (tool === "commit_memory") return "writing_memory";
 
       return lastTier === "reasoning" ? "reasoning" : "ingesting";
     }
@@ -98,56 +104,51 @@ export function memoryIngestReducer(
         visual: event.visual,
         intensity: event.intensity ?? state.intensity,
       };
-    case "DRAFT":
+    case "DRAFT": {
       if (state.visual === "writing_memory") return state;
+      const visual = event.hasText ? "listening" : "idle_ready";
 
-      return {
-        ...state,
-        visual: event.hasText ? "listening" : "idle_ready",
-        intensity: event.hasText ? 0.35 : 0.45,
-      };
+      return { ...state, visual, intensity: INGEST_INTENSITY[visual] };
+    }
     case "SUBMIT":
       return {
         ...state,
         visual: "ingesting",
-        intensity: 0.55,
+        intensity: INGEST_INTENSITY.ingesting,
         lastTier: event.tier,
       };
     case "STATUS_SUBMITTED":
       if (state.visual === "writing_memory") return state;
 
-      return { ...state, visual: "ingesting", intensity: 0.55 };
+      return { ...state, visual: "ingesting", intensity: INGEST_INTENSITY.ingesting };
     case "STATUS_STREAMING":
       if (state.visual === "writing_memory") return state;
       if (state.visual === "idle_ready" || state.visual === "listening") {
-        return { ...state, visual: "ingesting", intensity: 0.55 };
+        return { ...state, visual: "ingesting", intensity: INGEST_INTENSITY.ingesting };
       }
 
       return state;
     case "AI_ACTION": {
       if (state.visual === "writing_memory") return state;
       const visual = aiActionToVisual(event, state.lastTier);
-      const intensity =
-        visual === "reasoning"
-          ? 0.75
-          : visual === "web_search"
-            ? 0.65
-            : visual === "searching_memory"
-              ? 0.6
-              : 0.55;
 
-      return { ...state, visual, intensity };
+      return { ...state, visual, intensity: INGEST_INTENSITY[visual] };
     }
     case "FINISH":
-      if (event.memoryEnabled) {
-        return { ...state, visual: "writing_memory", intensity: 0.9 };
+      // The writing_memory beat is earned by a real commit_memory tool-call mid-stream
+      // (held by the stickiness guards), not fabricated from the memory toggle. If a write
+      // happened, let the beat linger to RECEIPT_DONE; otherwise settle straight to idle.
+      if (state.visual === "writing_memory") {
+        return { ...state, intensity: INGEST_INTENSITY.writing_memory };
       }
 
-      return { ...state, visual: "idle_ready", intensity: 0.45 };
+      return { ...state, visual: "idle_ready", intensity: INGEST_INTENSITY.idle_ready };
     case "RECEIPT_DONE":
-      return { ...state, visual: "idle_ready", intensity: 0.45 };
+      return { ...state, visual: "idle_ready", intensity: INGEST_INTENSITY.idle_ready };
+    case "COMMIT_FAILED":
+      return { ...state, visual: "idle_ready", intensity: INGEST_INTENSITY.idle_ready };
     case "ERROR":
-      return { ...state, visual: "idle_ready", intensity: 0.45 };
+      return { ...state, visual: "idle_ready", intensity: INGEST_INTENSITY.idle_ready };
     default:
       return state;
   }

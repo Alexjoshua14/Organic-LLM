@@ -147,6 +147,42 @@ export async function getChats(options?: { ownerId?: string }): Promise<Result<T
   };
 }
 
+/**
+ * Most recently active, non-archived thread for an owner with the given
+ * `feature`, or `null` when none exists. Used by the Memory ingest chamber to
+ * decide whether to resume a recent session or start a fresh one.
+ *
+ * `updated_at` advances on every thread write (e.g. the per-turn
+ * `active_stream_id` update), so it tracks last activity — the same signal the
+ * sidebar orders on.
+ */
+export async function getLatestThreadByFeature(
+  ownerId: string,
+  feature: string
+): Promise<Result<{ id: string; updatedAt: string } | null>> {
+  const sb = await supabaseServer();
+  const { data, error } = await sb
+    .from("threads")
+    .select("id, updated_at")
+    .eq("owner_id", ownerId)
+    .eq("feature", feature)
+    .not("archived", "is", true)
+    .order("updated_at", { ascending: false })
+    .limit(1);
+
+  if (error) {
+    return { data: null, error: new Error(error?.message ?? "Unknown error") };
+  }
+
+  const row = data?.[0];
+
+  if (row == null) {
+    return { data: null, error: null };
+  }
+
+  return { data: { id: row.id, updatedAt: row.updated_at }, error: null };
+}
+
 /** Thread row for Settings → Chats (decrypted summary for display). */
 export type ChatThreadSettingsRow = {
   id: string;

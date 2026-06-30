@@ -31,11 +31,10 @@ import type { QdrantClient } from "@qdrant/js-client-rest";
 import { createHash } from "node:crypto";
 
 import { v5 as uuidv5 } from "uuid";
-import { openai, type OpenAIResponsesProviderOptions } from "@ai-sdk/openai";
-import { generateObject, NoObjectGeneratedError } from "ai";
 import { z } from "zod";
 
 import { getMemoryQdrantClient } from "@/config/memory-qdrant-client";
+import { classifyMemoryQuality } from "@/lib/memory/ingest-quality-llm";
 import { decryptMemory, encryptMemory, isEncrypted } from "@/lib/crypto/memory-encryption";
 import {
   chunkMemoryText,
@@ -68,47 +67,11 @@ const MANUAL_INJECT_SOURCE_ID_NAMESPACE = "6ba7b810-9dad-11d1-80b4-00c04fd430c8"
 const MANUAL_INJECT_FROM_COLLECTION =
   process.env.MIGRATE_MANUAL_FROM_COLLECTION?.trim() || "manual-inject";
 
-const qualityModel = openai(process.env.MIGRATE_QUALITY_MODEL ?? "gpt-5.4-mini");
-
-const MemoryQualitySchema = z.object({
-  decision: z.enum(["keep", "drop"]),
-  reason: z.string().optional(),
-});
-
-type MemoryQuality = z.infer<typeof MemoryQualitySchema>;
-
-/**
- * Some models return a JSON Schema envelope (`{ type, properties }`) instead of the instance.
- * Parse raw model text and validate with {@link MemoryQualitySchema}.
- */
-function parseMemoryQualityFromModelText(raw: string): MemoryQuality | null {
-  const trimmed = raw
-    .trim()
-    .replace(/^```(?:json)?\s*/i, "")
-    .replace(/\s*```$/i, "");
-
-  let parsed: unknown;
-
-  try {
-    parsed = JSON.parse(trimmed);
-  } catch {
-    return null;
-  }
-
-  if (!parsed || typeof parsed !== "object") {
-    return null;
-  }
-
-  const o = parsed as Record<string, unknown>;
-  let candidate: unknown = o;
-
-  if (o.type === "object" && o.properties && typeof o.properties === "object") {
-    candidate = o.properties;
-  }
-
-  const r = MemoryQualitySchema.safeParse(candidate);
-
-  return r.success ? r.data : null;
+async function classifyMemory(
+  text: string,
+  onLatencyMs?: (ms: number) => void
+): Promise<Awaited<ReturnType<typeof classifyMemoryQuality>>> {
+  return classifyMemoryQuality(text, {}, onLatencyMs);
 }
 
 type ParsedCli = {
@@ -371,66 +334,6 @@ function estimatePayloadBytes(payload: Record<string, unknown>): number {
 
 function singleLineForLog(text: string, maxLen = 2000): string {
   return text.replace(/\s+/g, " ").trim().slice(0, maxLen);
-}
-
-async function classifyMemory(
-  text: string,
-  onLatencyMs?: (ms: number) => void
-): Promise<MemoryQuality> {
-  const t0 = performance.now();
-
-  try {
-    const { object } = await generateObject({
-      model: qualityModel,
-      schema: MemoryQualitySchema,
-      maxOutputTokens: 300,
-      providerOptions: {
-        openai: {
-          store: false,
-        } satisfies OpenAIResponsesProviderOptions,
-      },
-      system: `You filter stored "memory" facts for a personal AI assistant.
-
-Output a single JSON object only, with exactly these keys:
-  "decision": either the string "keep" or the string "drop"
-  "reason": optional short string
-
-Do not output JSON Schema metadata: no "type", "properties", "$schema", or nested schema objects. Example of correct output:
-{"decision":"drop","reason":"Generic fragment with no user-specific fact."}
-
-KEEP (keep) memories that are durable, user-specific preferences or facts about the user/project — things worth retrieving later.
-
-DROP (drop): placeholders like [] or empty shells; meta lines about ML types without substance; trivial fragments ("Latency tells you how fast"); standalone homework/read intentions ("I will read the note tomorrow"); generic definitions with no user linkage; assistant-task staging ("User asked the assistant to choose…") unless it clearly records a durable user decision.
-
-Examples — DROP:
-- []
-- ML type: ML integrator
-- Latency tells you 'how fast'.
-- I will read the Obsidian note tomorrow.
-- User asked the assistant to choose the state management solution.
-
-Examples — KEEP:
-- User is interested in backend trace APIs that feed the UI.
-- Organic LLM treats spoken output as a first-class pipeline rather than an afterthought.
-- User prefers skipping introductory rationale when learning T3 patterns.`,
-      prompt: `Classify this memory line:\n\n${text.slice(0, 8000)}`,
-    });
-
-    return object;
-  } catch (err) {
-    if (NoObjectGeneratedError.isInstance(err) && typeof err.text === "string") {
-      const repaired = parseMemoryQualityFromModelText(err.text);
-
-      if (repaired) {
-        logProc("classify", "repaired JSON-schema-shaped reply (parse fallback)", "warn");
-
-        return repaired;
-      }
-    }
-    throw err;
-  } finally {
-    onLatencyMs?.(performance.now() - t0);
-  }
 }
 
 async function ensureV2Collection(client: QdrantClient, size: number): Promise<void> {

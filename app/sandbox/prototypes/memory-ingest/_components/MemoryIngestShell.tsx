@@ -10,6 +10,7 @@ import { Bug } from "lucide-react";
 import { Button } from "@heroui/button";
 
 import { useMemoryIngestSession } from "../_hooks/use-memory-ingest-session";
+import { useMemoryIngestCaptionBudget } from "../_hooks/use-memory-ingest-caption-budget";
 import {
   isMemoryIngestDevUiPublicFlag,
   readMemoryIngestDevUiFromSearch,
@@ -17,14 +18,21 @@ import {
 import { memoryIngestDockBandHeightClass } from "../_lib/memory-ingest-layout";
 import { lastAssistantPlaintext } from "../_lib/memory-ingest-messages";
 
+import { MemoryCommitFailedChip } from "./MemoryCommitFailedChip";
+import { MemoryFiledChip } from "./MemoryFiledChip";
 import { MemoryIngestDebugPanel } from "./MemoryIngestDebugPanel";
 import { MemoryIngestParticleModeDevOverlay } from "./MemoryIngestParticleModeDevOverlay";
+import { MemoryIngestSessionTray } from "./MemoryIngestSessionTray";
 import { ParticleField } from "./ParticleField";
 
 import Page from "@/components/layout/page";
 import { ChatMessageMarkdown } from "@/components/chat/chat-message-markdown";
 import { CoreInput } from "@/components/chat/core-input";
 import { PromptInputProvider } from "@/components/third-party/ai-elements/prompt-input";
+import {
+  MEMORY_INGEST_DEFAULT_MEMORIES_ON,
+  MEMORY_INGEST_MEMORIES_STORAGE_KEY,
+} from "@/lib/chat/memories-default";
 import { cn } from "@/lib/utils";
 
 /** TEMP: set true to outline particle column / field / caption slot. */
@@ -48,6 +56,8 @@ export function MemoryIngestShell({ chatData }: MemoryIngestShellProps) {
   const showPrototypeDevUi =
     process.env.NODE_ENV === "development" || isMemoryIngestDevUiPublicFlag() || devUiFromQuery;
 
+  const captionBudget = useMemoryIngestCaptionBudget();
+
   const {
     fsm,
     messages,
@@ -63,9 +73,20 @@ export function MemoryIngestShell({ chatData }: MemoryIngestShellProps) {
     clearError,
     debugSetVisual,
     debugPulseWriting,
+    filed,
+    dismissFiled,
+    sessionFiled,
+    expandedTs,
+    toggleExpanded,
+    sessionTrayOpen,
+    setSessionTrayOpen,
+    forgetFiled,
+    commitFailed,
+    dismissCommitFailed,
   } = useMemoryIngestSession({
     chatId: chatData.thread.id,
     initialMessages: chatData.messages,
+    delphiDisplayRef: captionBudget.displayInputRef,
   });
 
   const assistantText = lastAssistantPlaintext(messages);
@@ -80,6 +101,48 @@ export function MemoryIngestShell({ chatData }: MemoryIngestShellProps) {
 
     return "memory-ingest-assistant-caption";
   }, [messages]);
+
+  // Accessible receipts: the particle beats are invisible to reduced-motion and
+  // screen-reader users, so announce completed replies and surface failures non-visually.
+  const [politeAnnouncement, setPoliteAnnouncement] = useState("");
+  const [errorNotice, setErrorNotice] = useState(false);
+  const prevStatusRef = useRef(status);
+
+  useEffect(() => {
+    const prev = prevStatusRef.current;
+
+    prevStatusRef.current = status;
+    // Announce Delphi's reply once, on the streaming→ready transition (not on load).
+    if (status === "ready" && (prev === "streaming" || prev === "submitted")) {
+      const finished = assistantText.trim();
+
+      if (finished) setPoliteAnnouncement(finished);
+    }
+    if (status === "error") setErrorNotice(true);
+  }, [status, assistantText]);
+
+  useEffect(() => {
+    if (!errorNotice) return;
+    const t = setTimeout(() => setErrorNotice(false), 6000);
+
+    return () => clearTimeout(t);
+  }, [errorNotice]);
+
+  useEffect(() => {
+    if (!commitFailed) return;
+    setPoliteAnnouncement("Memory write failed — nothing was stored.");
+  }, [commitFailed]);
+
+  const onForgetFiled = useCallback(
+    async (id: string): Promise<boolean> => {
+      const ok = await forgetFiled(id);
+
+      setPoliteAnnouncement(ok ? "Removed from memory." : "Couldn't remove that — try again.");
+
+      return ok;
+    },
+    [forgetFiled]
+  );
 
   const onComposerTextChange = useCallback(
     (t: string) => {
@@ -128,6 +191,9 @@ export function MemoryIngestShell({ chatData }: MemoryIngestShellProps) {
       >
         <div className="flex min-h-0 flex-1 flex-col">
           <h1 className="sr-only">Memory ingest</h1>
+          <div aria-live="polite" className="sr-only" role="status">
+            {politeAnnouncement}
+          </div>
           <div
             className={cn(
               "relative mx-auto flex w-full max-w-[min(100%,393px)] min-h-0 flex-1 flex-col items-center justify-start sm:max-w-full",
@@ -155,13 +221,17 @@ export function MemoryIngestShell({ chatData }: MemoryIngestShellProps) {
               />
             </div>
             <div
+              ref={captionBudget.captionRef}
               className={cn(
                 "mb-2 mt-2 w-full max-w-[min(100%,360px)] shrink-0 self-center overflow-x-hidden overflow-y-auto overscroll-y-contain sm:max-w-md md:max-w-lg lg:max-w-xl",
-                "min-h-[calc(0.9375rem*1.375*4)] max-h-[calc(0.9375rem*1.375*4)] md:min-h-[calc(1rem*1.375*4)] md:max-h-[calc(1rem*1.375*4)]",
                 MEMORY_INGEST_LAYOUT_DEBUG_OUTLINES &&
                   "outline outline-2 -outline-offset-1 outline-dashed outline-fuchsia-500"
               )}
+              data-max-chars={captionBudget.budget?.maxCharsPerLine}
               data-testid="memory-ingest-assistant-text"
+              data-visible-height-px={captionBudget.budget?.visibleHeightPx}
+              data-visible-lines={captionBudget.budget?.visibleLines}
+              style={captionBudget.captionStyle}
             >
               <div
                 className={cn(
@@ -187,13 +257,45 @@ export function MemoryIngestShell({ chatData }: MemoryIngestShellProps) {
             memoryIngestDockBandHeightClass
           )}
         >
+          <MemoryIngestSessionTray
+            expandedTs={expandedTs}
+            open={sessionTrayOpen}
+            sessionFiled={sessionFiled}
+            onForget={onForgetFiled}
+            onOpenChange={setSessionTrayOpen}
+            onToggleExpand={toggleExpanded}
+          />
+          {commitFailed ? (
+            <MemoryCommitFailedChip
+              key={commitFailed.ts}
+              failed={commitFailed}
+              onDismiss={dismissCommitFailed}
+            />
+          ) : null}
+          {filed ? (
+            <MemoryFiledChip
+              key={filed.ts}
+              expanded={expandedTs === filed.ts}
+              filed={filed}
+              onDismiss={dismissFiled}
+              onForget={onForgetFiled}
+              onToggleExpand={() => toggleExpanded(filed.ts)}
+            />
+          ) : null}
+          {errorNotice ? (
+            <div className="mb-1 px-1 text-center text-xs text-muted-foreground" role="alert">
+              Memory did not respond — try again.
+            </div>
+          ) : null}
           <div ref={inputWrapRef} className="w-full min-w-0 shrink-0">
             <PromptInputProvider>
               <CoreInput
                 chatId={chatData.thread.id}
                 className="border-border bg-card/80 backdrop-blur-sm"
                 clearError={clearError}
+                defaultMemories={MEMORY_INGEST_DEFAULT_MEMORIES_ON}
                 error={error}
+                memoryLocalStorageKey={MEMORY_INGEST_MEMORIES_STORAGE_KEY}
                 modelLocalStorageKey="organic-llm-selected-model-delphi"
                 modelRef={modelRef}
                 sendMessage={sendMessage as never}

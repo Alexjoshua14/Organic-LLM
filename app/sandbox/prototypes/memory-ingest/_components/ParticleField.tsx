@@ -5,9 +5,15 @@ import type { ParticleFieldVisualState } from "../_lib/types";
 import type { LensPerfMetrics } from "./lens/LensPerfHud";
 
 import { useReducedMotion } from "framer-motion";
-import { forwardRef, useEffect, useImperativeHandle, useRef } from "react";
+import { forwardRef, useCallback, useEffect, useImperativeHandle, useRef } from "react";
 import * as THREE from "three";
 
+import {
+  PULSE_DECAY_INTERVAL_MS,
+  PULSE_EPSILON,
+  PULSE_GLOW_DECAY,
+  PULSE_INHALE_DECAY,
+} from "../_lib/memory-ingest-tuning";
 import { attachForegroundThemeProbe } from "../_lib/theme-particle-colors";
 
 import { MemoryLens } from "./lens/MemoryLens";
@@ -15,6 +21,8 @@ import { MemoryParticleReducedMotion } from "./MemoryParticleReducedMotion";
 
 export type ParticleFieldHandle = {
   pulseWritingMemory: () => void;
+  /** Fire the "message received" inhale beat (cloud gathers toward the composer, then settles). */
+  pulseReceived: () => void;
   resetToIdle: () => void;
 };
 
@@ -49,25 +57,54 @@ export const ParticleField = forwardRef<ParticleFieldHandle, ParticleFieldProps>
     const themeProbeRef = useRef<HTMLElement | null>(null);
     const anchorWorldRef = useRef<AnchorWorld>(null);
     const pulseRef = useRef(0);
+    const pulseInhaleRef = useRef(0);
+    const decayTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
     const cameraRef = useRef(new THREE.PerspectiveCamera(60, 1, 0.1, 200));
+
+    // The transient pulses decay on a short self-terminating timer that runs only while a
+    // pulse is live — no perpetual 32ms wakeup when the field is at rest.
+    const runDecay = useCallback(() => {
+      pulseRef.current *= PULSE_GLOW_DECAY;
+      pulseInhaleRef.current *= PULSE_INHALE_DECAY;
+      if (pulseRef.current < PULSE_EPSILON && pulseInhaleRef.current < PULSE_EPSILON) {
+        pulseRef.current = 0;
+        pulseInhaleRef.current = 0;
+        decayTimerRef.current = null;
+
+        return;
+      }
+      decayTimerRef.current = setTimeout(runDecay, PULSE_DECAY_INTERVAL_MS);
+    }, []);
+
+    const startDecay = useCallback(() => {
+      if (prefersReduced === true || decayTimerRef.current !== null) return;
+      decayTimerRef.current = setTimeout(runDecay, PULSE_DECAY_INTERVAL_MS);
+    }, [prefersReduced, runDecay]);
 
     useImperativeHandle(ref, () => ({
       pulseWritingMemory: () => {
         pulseRef.current = 1;
+        startDecay();
+      },
+      pulseReceived: () => {
+        pulseInhaleRef.current = 1;
+        startDecay();
       },
       resetToIdle: () => {
         pulseRef.current = 0;
+        pulseInhaleRef.current = 0;
       },
     }));
 
-    useEffect(() => {
-      if (prefersReduced === true) return;
-      const id = window.setInterval(() => {
-        pulseRef.current *= 0.9;
-      }, 32);
-
-      return () => window.clearInterval(id);
-    }, [prefersReduced]);
+    useEffect(
+      () => () => {
+        if (decayTimerRef.current !== null) {
+          clearTimeout(decayTimerRef.current);
+          decayTimerRef.current = null;
+        }
+      },
+      []
+    );
 
     useEffect(() => {
       if (prefersReduced === true) return;
@@ -91,23 +128,31 @@ export const ParticleField = forwardRef<ParticleFieldHandle, ParticleFieldProps>
 
       cam.position.set(0, 0, 22);
 
+      // Reused across frames — the anchor solve only runs during the brief inhale, and even
+      // then it must not allocate per frame (GC churn was feeding jank into the gesture).
+      const raycaster = new THREE.Raycaster();
+      const ndc = new THREE.Vector2();
+      const plane = new THREE.Plane(new THREE.Vector3(0, 0, 1), 0);
+      const hit = new THREE.Vector3();
+
       const loop = () => {
         const container = containerRef.current;
         const anchor = inputAnchorRef?.current;
+        // uAnchor is consumed only while the inhale pull is active (strength = inhale * MAX);
+        // once it has settled, skip the raycast entirely.
+        const anchorActive = pulseInhaleRef.current > PULSE_EPSILON;
 
-        if (container && anchor) {
+        if (anchorActive && container && anchor) {
           const rect = container.getBoundingClientRect();
           const ar = anchor.getBoundingClientRect();
 
           cam.aspect = rect.width / Math.max(1, rect.height);
           cam.updateProjectionMatrix();
-          const ndcX = ((ar.left + ar.width / 2 - rect.left) / rect.width) * 2 - 1;
-          const ndcY = -((ar.top + ar.height * 0.35 - rect.top) / rect.height) * 2 + 1;
-          const raycaster = new THREE.Raycaster();
-
-          raycaster.setFromCamera(new THREE.Vector2(ndcX, ndcY), cam);
-          const plane = new THREE.Plane(new THREE.Vector3(0, 0, 1), 0);
-          const hit = new THREE.Vector3();
+          ndc.set(
+            ((ar.left + ar.width / 2 - rect.left) / rect.width) * 2 - 1,
+            -((ar.top + ar.height * 0.35 - rect.top) / rect.height) * 2 + 1
+          );
+          raycaster.setFromCamera(ndc, cam);
 
           if (raycaster.ray.intersectPlane(plane, hit)) {
             anchorWorldRef.current = { x: hit.x, y: hit.y };
@@ -148,6 +193,7 @@ export const ParticleField = forwardRef<ParticleFieldHandle, ParticleFieldProps>
           intensity={intensity}
           onPerfSample={onPerfSample}
           pulseGlowRef={pulseRef}
+          pulseInhaleRef={pulseInhaleRef}
           state={state}
           themeProbeRef={themeProbeRef}
         />

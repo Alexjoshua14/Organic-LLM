@@ -26,6 +26,13 @@ import {
   addMemory as storeAddMemory,
 } from "./store";
 
+import {
+  inferMemoryQualitySource,
+  memoryTextMetrics,
+  recordIngestEventsForResults,
+  recordMemoryEvent,
+} from "./quality-events";
+
 import { SearchResult as SearchResultSchema, type SearchResultType } from "@/lib/schemas/memory";
 import { Result } from "@/types";
 import { getSupabaseUserId } from "@/data/supabase/profiles";
@@ -132,8 +139,18 @@ export async function addLatestMessagesToMemoryForUser(
     }
 
     const result = await storeAddLatestMessagesToMemory(messages, userId, chatId);
+    const validated = validateSearchResult(result);
 
-    return validateSearchResult(result);
+    if (validated.data?.results?.length) {
+      await recordIngestEventsForResults({
+        userId,
+        source: "auto_ingest",
+        results: validated.data.results,
+        metadata: { chatId, infer: true },
+      });
+    }
+
+    return validated;
   } catch (error) {
     return {
       data: null,
@@ -190,8 +207,21 @@ export async function addMemoryForUser(
       metadata: params.metadata,
       infer: params.infer,
     });
+    const validated = validateSearchResult(result);
 
-    return validateSearchResult(result);
+    if (validated.data?.results?.length) {
+      await recordIngestEventsForResults({
+        userId,
+        source: inferMemoryQualitySource(params.metadata),
+        results: validated.data.results,
+        metadata: {
+          infer: params.infer ?? true,
+          topic: params.metadata.topic,
+        },
+      });
+    }
+
+    return validated;
   } catch (error) {
     return {
       data: null,
@@ -356,13 +386,29 @@ export async function deleteMemoryForCurrentUser(
     }
 
     const owned = await storeGetAllMemories(userIdResult.data);
-    const belongsToUser = owned.results?.some((m) => m.id === trimmedId);
+    const memoryRow = owned.results?.find((m) => m.id === trimmedId);
+    const belongsToUser = Boolean(memoryRow);
 
     if (!belongsToUser) {
       return { data: null, error: "Memory not found" };
     }
 
     const ok = await storeDeleteMemory(trimmedId);
+
+    if (ok && memoryRow?.memory) {
+      const metrics = memoryTextMetrics(memoryRow.memory);
+
+      await recordMemoryEvent({
+        userId: userIdResult.data,
+        event: "delete",
+        source: inferMemoryQualitySource(
+          memoryRow.metadata as Record<string, unknown> | undefined
+        ),
+        memoryId: trimmedId,
+        charCount: metrics.charCount,
+        wordCount: metrics.wordCount,
+      });
+    }
 
     return { data: ok, error: null };
   } catch (error) {

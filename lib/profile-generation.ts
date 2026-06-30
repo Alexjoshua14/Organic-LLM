@@ -308,10 +308,10 @@ function createProfileMemorySearchTool(userId: string, budget: ProfileGeneration
     description:
       "Search the signed-in user's stored memories for profile-relevant facts, preferences, projects, goals, interests, and context.",
     inputSchema: SearchMemoryToolSchema,
-    execute: async ({ query, limit }) => {
+    execute: async ({ query }) => {
       budget.toolSearchCalls += 1;
       const result = await searchMemoriesForUser(userId, query, {
-        limit: Math.min(limit ?? 3, MAX_SECTION_MEMORY_RESULTS),
+        limit: MAX_SECTION_MEMORY_RESULTS,
       });
 
       if (result.error || !result.data) {
