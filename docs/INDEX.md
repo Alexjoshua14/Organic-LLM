@@ -9,6 +9,10 @@
 
 ## Product & features
 
+- **Developer docs (in-app)** — [/dev/docs](https://organic.coalescencelabs.app/dev/docs) — feature guides with implementation maps; sources in [`content/dev-docs/`](../content/dev-docs/)
+  - [Noesis (topic explore)](./noesis.md) → [/dev/docs/noesis](https://organic.coalescencelabs.app/dev/docs/noesis)
+  - [Composer preferences & Auto model](./composer-preferences.md) → [/dev/docs/composer-preferences](https://organic.coalescencelabs.app/dev/docs/composer-preferences)
+  - [Feature hints (onboarding)](./feature-hints.md) → [/dev/docs/feature-hints](https://organic.coalescencelabs.app/dev/docs/feature-hints)
 - [Chat tools](./chat-tools.md) — assistant toolbelt (memory, search, Gen UI, Mermaid, kanban, experiences)
 - [Arcadia sandbox](./arcadia.md)
 - [Chat LLM transparency](./chat-llm-transparency.md)
