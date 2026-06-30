@@ -3,6 +3,7 @@
 import { motion } from "framer-motion";
 import { Rabbit } from "lucide-react";
 
+import { FeatureHint } from "@/components/onboarding/feature-hint";
 import { cn } from "@/lib/utils";
 
 interface RabbitHoleEmptyStateProps {
@@ -47,9 +48,12 @@ export function RabbitHoleEmptyState({
       </p>
       <p className="text-muted-foreground/70 text-sm max-w-sm leading-relaxed">{subtitle}</p>
       {!compact && (
-        <p className="text-muted-foreground/55 mt-4 max-w-sm text-xs leading-relaxed">
-          ⌘⇧F (Ctrl+Shift+F) toggles focus mode — hides the path, sources, and prompt for reading.
-        </p>
+        <FeatureHint id="rabbit-holes-focus">
+          <p className="text-muted-foreground/55 mt-4 max-w-sm text-xs leading-relaxed">
+            ⌘⇧F (Ctrl+Shift+F) toggles focus mode — hides the path, sources, and prompt for
+            reading.
+          </p>
+        </FeatureHint>
       )}
     </motion.div>
   );

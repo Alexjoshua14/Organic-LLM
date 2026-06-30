@@ -15,6 +15,7 @@ import { ShowcaseGatewayButton } from "./showcase-gateway-button";
 import { T3CodeStubModal } from "./t3code-stub-modal";
 
 import AdaptiveLiquidChrome from "@/components/background/AdaptiveLiquidChrome";
+import { FirstSessionChecklist } from "@/components/onboarding/first-session-checklist";
 import { Button } from "@/components/third-party/ui/button";
 import { useSidebar, useSidebarPointerInside } from "@/components/third-party/ui/sidebar";
 import { appendDraftQueryParam } from "@/lib/chat/thread-routing-candidates";
@@ -208,7 +209,7 @@ export function HomePageShell() {
         <div
           className={cn(
             "absolute inset-0 flex h-full w-full",
-            fullView ? "flex-col" : "flex-col items-center justify-center gap-10"
+            fullView ? "flex-col" : "flex-col items-center justify-center gap-6 sm:gap-8"
           )}
         >
           <motion.div
@@ -300,6 +301,12 @@ export function HomePageShell() {
                 </motion.div>
               ) : null}
             </AnimatePresence>
+            {!fullView ? (
+              <FirstSessionChecklist className="mt-2 px-2 sm:px-0" />
+            ) : null}
+            {!fullView ? (
+              <HomepagePrimaryActions className="mt-4" />
+            ) : null}
           </motion.div>
           <AnimatePresence initial={false} mode="sync">
             {fullView ? (

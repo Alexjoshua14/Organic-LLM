@@ -3,6 +3,12 @@
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 
+import { FeatureHint } from "@/components/onboarding/feature-hint";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/third-party/ui/tooltip";
 import { Logger } from "@/lib/logger";
 import { createChat } from "@/lib/chat/chat-store";
 import { useSharedChatContext } from "@/lib/context/chat-context";
@@ -22,13 +28,13 @@ type RailItem =
     };
 
 const RAIL: RailItem[] = [
-  { id: "chat", label: "Chat", type: "action", tooltip: "New chat" },
+  { id: "chat", label: "Chat", type: "action", tooltip: "Start a new main chat thread" },
   {
     id: "arcadia",
     label: "Arcadia",
     type: "link",
     href: "/sandbox/arcadia",
-    tooltip: "Arcadia",
+    tooltip: "Concise, tool-forward chat lab",
     match: (p) => p.startsWith("/sandbox/arcadia"),
   },
   {
@@ -36,7 +42,7 @@ const RAIL: RailItem[] = [
     label: "Noesis",
     type: "link",
     href: "/sandbox/topic-explore",
-    tooltip: "Noesis — topic exploration",
+    tooltip: "Topic exploration with sparks & reply assist",
     match: (p) => p.startsWith("/sandbox/topic-explore"),
   },
   {
@@ -44,7 +50,7 @@ const RAIL: RailItem[] = [
     label: "Strata",
     type: "link",
     href: "/sandbox/prototypes/strata",
-    tooltip: "Strata prototype",
+    tooltip: "Editorial canvas — raw text to refined sections",
     match: (p) => p.startsWith("/sandbox/prototypes/strata"),
   },
   {
@@ -52,7 +58,7 @@ const RAIL: RailItem[] = [
     label: "Rabbit",
     type: "link",
     href: "/rabbitholes/browse",
-    tooltip: "Rabbit Holes",
+    tooltip: "Branching research with cited sources",
     match: (p) => p.startsWith("/rabbitholes"),
   },
   {
@@ -60,7 +66,7 @@ const RAIL: RailItem[] = [
     label: "Ergon",
     type: "link",
     href: "/ergon",
-    tooltip: "Ergon — durable todos",
+    tooltip: "Durable todos with keyboard-first controls",
     match: (p) => p.startsWith("/ergon"),
   },
   {
@@ -68,7 +74,7 @@ const RAIL: RailItem[] = [
     label: "Remy",
     type: "link",
     href: "/remy",
-    tooltip: "Remy",
+    tooltip: "Remy assistant threads",
     match: (p) => p.startsWith("/remy"),
   },
 ];
@@ -112,37 +118,49 @@ export function SidebarExperienceRail() {
   const chatActive = pathname.startsWith("/chat");
 
   return (
-    <div className="flex w-full min-w-0 overflow-hidden rounded-md" data-sidebar-experience-rail>
-      {RAIL.map((item) => {
-        if (item.type === "action") {
+    <FeatureHint id="experience-rail">
+      <div className="flex w-full min-w-0 overflow-hidden rounded-md" data-sidebar-experience-rail>
+        {RAIL.map((item) => {
+          if (item.type === "action") {
+            return (
+              <Tooltip key={item.id}>
+                <TooltipTrigger asChild>
+                  <button
+                    className={segmentClass}
+                    data-active={chatActive}
+                    type="button"
+                    onClick={onNewChat}
+                  >
+                    {item.label}
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent side="bottom" className="max-w-[14rem] text-xs">
+                  {item.tooltip}
+                </TooltipContent>
+              </Tooltip>
+            );
+          }
+
+          const active = item.match(pathname);
+
           return (
-            <button
-              key={item.id}
-              className={segmentClass}
-              data-active={chatActive}
-              title={item.tooltip}
-              type="button"
-              onClick={onNewChat}
-            >
-              {item.label}
-            </button>
+            <Tooltip key={item.id}>
+              <TooltipTrigger asChild>
+                <Link
+                  className={cn(segmentClass, "inline-flex items-center justify-center no-underline")}
+                  data-active={active}
+                  href={item.href}
+                >
+                  {item.label}
+                </Link>
+              </TooltipTrigger>
+              <TooltipContent side="bottom" className="max-w-[14rem] text-xs">
+                {item.tooltip}
+              </TooltipContent>
+            </Tooltip>
           );
-        }
-
-        const active = item.match(pathname);
-
-        return (
-          <Link
-            key={item.id}
-            className={cn(segmentClass, "inline-flex items-center justify-center no-underline")}
-            data-active={active}
-            href={item.href}
-            title={item.tooltip}
-          >
-            {item.label}
-          </Link>
-        );
-      })}
-    </div>
+        })}
+      </div>
+    </FeatureHint>
   );
 }

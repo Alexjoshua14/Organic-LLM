@@ -4,12 +4,9 @@ import type { ExaSearchResultSource } from "@/lib/exa/types";
 
 import { FC } from "react";
 import { UIMessage } from "ai";
-import { MessageSquare } from "lucide-react";
 
-import {
-  ConversationContent,
-  ConversationEmptyState,
-} from "../third-party/ai-elements/conversation";
+import { ChatEmptyStateGuide } from "@/components/onboarding/chat-empty-state-guide";
+import { ConversationContent } from "../third-party/ai-elements/conversation";
 
 import { ChatMessage } from "./chat-message";
 
@@ -88,11 +85,7 @@ export const ChatThread: FC<ChatThreadProps> = ({
           renderEmptyState ? (
             renderEmptyState()
           ) : (
-            <ConversationEmptyState
-              description="Type a message below to begin chatting"
-              icon={<MessageSquare className="size-12" />}
-              title="Start a conversation"
-            />
+            <ChatEmptyStateGuide />
           )
         ) : (
           messages.map((message, index) => {

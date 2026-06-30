@@ -3,6 +3,7 @@
 import { LayoutGrid, MessagesSquare, NotebookPen, Sparkles } from "lucide-react";
 import { AnimatePresence, motion } from "framer-motion";
 
+import { FeatureHint } from "@/components/onboarding/feature-hint";
 import { glass } from "@/components/design-system/primitives";
 import { CHAT_STYLES, type ChatStyle } from "@/lib/chat/chat-style";
 import { CHAT_STYLE_STARTERS } from "@/lib/chat/chat-style-starters";
@@ -76,9 +77,11 @@ export function ChatStylePicker({ chatId, onStarterSelect }: ChatStylePickerProp
       </div>
 
       <div className="w-full min-w-0 space-y-2 text-left">
-        <p className="text-center text-[10px] uppercase tracking-[0.16em] text-muted-foreground/70 sm:text-xs">
-          Starter prompts
-        </p>
+        <FeatureHint id="arcadia-starters">
+          <p className="text-center text-[10px] uppercase tracking-[0.16em] text-muted-foreground/70 sm:text-xs">
+            Starter prompts
+          </p>
+        </FeatureHint>
         <div className={cn("relative w-full", STARTER_PROMPTS_SLOT_H)}>
           <AnimatePresence initial={false}>
             <motion.ul

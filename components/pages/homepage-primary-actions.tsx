@@ -107,6 +107,16 @@ export function HomepagePrimaryActions({
         className="inline-flex"
         transition={actionsTransition}
       >
+        <Button className={btnClass} onPress={() => router.push("/showcase/anatomy")}>
+          Explore demo
+        </Button>
+      </motion.div>
+      <motion.div
+        layout
+        animate={{ scale: isSecondary ? 0.96 : 1, opacity: isSecondary ? 0.88 : 1 }}
+        className="inline-flex"
+        transition={actionsTransition}
+      >
         <Button className={btnClass} onPress={() => router.push("/settings")}>
           Settings
         </Button>
