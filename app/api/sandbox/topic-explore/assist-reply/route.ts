@@ -23,6 +23,8 @@ const BodySchema = z.object({
   lastTurns: z.array(TurnSchema).max(40),
   thoughtProfile: z.string().max(12_000).optional(),
   steerNotes: z.string().max(12_000).optional(),
+  /** Partial composer text to finish in the user's voice. */
+  composerDraft: z.string().max(12_000).optional(),
 });
 
 const SYSTEM = `You are an intimate co-thinker who knows the user deeply from context you are given.
@@ -35,6 +37,7 @@ Rules:
 - Plain text only; no quotes wrapper; no "User:" prefix; no preamble or explanation.
 - Match length to the thread: if the user writes short messages, stay short; if they write longer analytical messages, you may go longer.
 - Use steer notes as constraints on angle and tone when present.
+- When COMPOSER_DRAFT is non-empty, continue and complete that partial message (do not restart from scratch).
 - Do not claim private facts not supported by transcript + memories + profile.`;
 
 export async function POST(req: Request) {
@@ -64,7 +67,7 @@ export async function POST(req: Request) {
     });
   }
 
-  const { lastTurns, thoughtProfile, steerNotes } = parsed.data;
+  const { lastTurns, thoughtProfile, steerNotes, composerDraft } = parsed.data;
 
   const transcript = lastTurns.map((t) => `${t.role.toUpperCase()}: ${t.text}`).join("\n\n");
   const tailUser = [...lastTurns].reverse().find((t) => t.role === "user")?.text ?? "";
@@ -86,7 +89,7 @@ export async function POST(req: Request) {
           .filter(Boolean)
           .join("\n");
 
-  const prompt = `RETRIEVED_MEMORIES:\n${memoryBlock}\n\nTHOUGHT_PROFILE:\n${thoughtProfile?.trim() || "(none)"}\n\nSTEER_NOTES:\n${steerNotes?.trim() || "(none)"}\n\nTRANSCRIPT:\n${transcript}`;
+  const prompt = `RETRIEVED_MEMORIES:\n${memoryBlock}\n\nTHOUGHT_PROFILE:\n${thoughtProfile?.trim() || "(none)"}\n\nSTEER_NOTES:\n${steerNotes?.trim() || "(none)"}\n\nCOMPOSER_DRAFT:\n${composerDraft?.trim() || "(empty)"}\n\nTRANSCRIPT:\n${transcript}`;
 
   try {
     const t0 = performance.now();

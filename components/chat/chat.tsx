@@ -29,7 +29,12 @@ import { getSettings } from "@/lib/user-settings";
 import { Thread } from "@/lib/schemas/chat";
 import { createLogger } from "@/lib/logger";
 import { useSharedChatContext } from "@/lib/context/chat-context";
-import { ChatModel, DEFAULT_CHAT_MODEL } from "@/lib/schemas/chat";
+import { ChatModel } from "@/lib/schemas/chat";
+import {
+  DEFAULT_COMPOSER_MEMORIES,
+  DEFAULT_COMPOSER_MODEL,
+  DEFAULT_COMPOSER_WEB_SEARCH,
+} from "@/lib/chat/composer-tool-defaults";
 import { getStrataAssistantPersona } from "@/lib/personas/strata-assistant";
 import { ChatAIActionEnum } from "@/types/ai";
 import { getChatErrorMessage } from "@/lib/chat/error-messages";
@@ -64,9 +69,9 @@ export const Chat: React.FC<ChatProps> = ({
 }) => {
   const { refreshSidebarChats } = useSharedChatContext();
 
-  const selectedModelRef = useRef<ChatModel>(DEFAULT_CHAT_MODEL);
-  const useWebSearchRef = useRef<boolean>(false);
-  const useMemoriesRef = useRef<boolean>(false);
+  const selectedModelRef = useRef<ChatModel>(DEFAULT_COMPOSER_MODEL);
+  const useWebSearchRef = useRef<boolean>(DEFAULT_COMPOSER_WEB_SEARCH);
+  const useMemoriesRef = useRef<boolean>(DEFAULT_COMPOSER_MEMORIES);
   const useSpeechFriendlyRef = useRef<boolean>(false);
   const assistantSessionRef = useRef<StrataPageAssistantSession | null | undefined>(
     assistantSession
