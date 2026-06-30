@@ -44,3 +44,7 @@ export function parseChatStyle(raw: string | undefined | null): ChatStyle | unde
 
   return CHAT_STYLE_IDS.has(normalized) ? (normalized as ChatStyle) : undefined;
 }
+
+export function resolveChatStyleMeta(style: ChatStyle): (typeof CHAT_STYLES)[number] {
+  return CHAT_STYLES.find((entry) => entry.id === style) ?? CHAT_STYLES[0];
+}

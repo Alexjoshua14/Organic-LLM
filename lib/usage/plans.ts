@@ -16,14 +16,14 @@ export const USAGE_PLAN_TIERS: UsagePlanTier[] = [
     name: "Free",
     priceUsd: 0,
     tokenCap: 500_000,
-    costCapUsd: 2,
+    costCapUsd: 15,
   },
   {
     id: "plus",
     name: "Plus",
     priceUsd: 20,
     tokenCap: 10_000_000,
-    costCapUsd: 20,
+    costCapUsd: 30,
   },
   {
     id: "pro",

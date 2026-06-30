@@ -22,6 +22,7 @@ export type TrackLlmUsageInput = {
   modelId: string;
   inputTokens?: number | null;
   outputTokens?: number | null;
+  cachedInputTokens?: number | null;
   reasoningTokens?: number | null;
   totalTokens?: number | null;
   operation?: string;
@@ -31,6 +32,7 @@ export type TrackLlmUsageInput = {
 export async function insertLlmUsageEvent(input: TrackLlmUsageInput): Promise<void> {
   const inputTokens = coerceCount(input.inputTokens);
   const outputTokens = coerceCount(input.outputTokens);
+  const cachedInputTokens = coerceCount(input.cachedInputTokens);
   const reasoningTokens = coerceCount(input.reasoningTokens);
   const totalTokens =
     coerceCount(input.totalTokens) || inputTokens + outputTokens + reasoningTokens;
@@ -40,6 +42,7 @@ export async function insertLlmUsageEvent(input: TrackLlmUsageInput): Promise<vo
   const costUsd = computeUsageCostUsd(input.modelId, {
     inputTokens,
     outputTokens,
+    cachedInputTokens,
   });
 
   const { error } = await supabaseAdmin.from("llm_usage_events").insert({
@@ -47,6 +50,7 @@ export async function insertLlmUsageEvent(input: TrackLlmUsageInput): Promise<vo
     model_id: input.modelId,
     input_tokens: inputTokens,
     output_tokens: outputTokens,
+    cached_input_tokens: cachedInputTokens,
     reasoning_tokens: reasoningTokens,
     total_tokens: totalTokens,
     cost_usd: costUsd,
@@ -68,7 +72,7 @@ export async function fetchLlmUsageEvents(args: {
   const { data, error } = await supabaseAdmin
     .from("llm_usage_events")
     .select(
-      "id, owner_id, model_id, input_tokens, output_tokens, reasoning_tokens, total_tokens, cost_usd, operation, route, created_at"
+      "id, owner_id, model_id, input_tokens, output_tokens, cached_input_tokens, reasoning_tokens, total_tokens, cost_usd, operation, route, created_at"
     )
     .eq("owner_id", ownerId)
     .gte("created_at", since.toISOString())
@@ -119,6 +123,9 @@ export async function buildUsageSummaryForUser(args: {
       ...row,
       inputPerMillion: pricing.inputPerMillion,
       outputPerMillion: pricing.outputPerMillion,
+      ...(pricing.cachedInputPerMillion !== undefined
+        ? { cachedInputPerMillion: pricing.cachedInputPerMillion }
+        : {}),
     };
   });
 

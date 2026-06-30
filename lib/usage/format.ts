@@ -28,7 +28,17 @@ export function formatPercent(value: number): string {
 }
 
 export function formatModelRate(inputPerMillion: number, outputPerMillion: number): string {
-  return `$${inputPerMillion.toFixed(2)} / $${outputPerMillion.toFixed(2)} per 1M in/out`;
+  return `$${inputPerMillion.toFixed(2)} / $${outputPerMillion.toFixed(2)}`;
+}
+
+export function formatCachedInputRate(cachedPerMillion: number): string {
+  return `$${cachedPerMillion.toFixed(2)}`;
+}
+
+export function formatCachedTokenCount(value: number): string {
+  if (value <= 0) return "—";
+
+  return formatTokenCount(value);
 }
 
 export function shortModelLabel(modelId: string): string {

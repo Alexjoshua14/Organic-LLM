@@ -23,6 +23,7 @@ describe("usage aggregate", () => {
           model_id: "openai/gpt-4o-mini",
           input_tokens: 100,
           output_tokens: 50,
+          cached_input_tokens: 0,
           reasoning_tokens: 0,
           total_tokens: 150,
           cost_usd: 0.000045,
@@ -36,6 +37,7 @@ describe("usage aggregate", () => {
           model_id: "openai/gpt-4o-mini",
           input_tokens: 200,
           output_tokens: 100,
+          cached_input_tokens: 40,
           reasoning_tokens: 0,
           total_tokens: 300,
           cost_usd: 0.00009,
@@ -54,6 +56,7 @@ describe("usage aggregate", () => {
     expect(result.daily[1].totalTokens).toBe(0);
     expect(result.byModel).toHaveLength(1);
     expect(result.byModel[0].callCount).toBe(2);
+    expect(result.totals.cachedInputTokens).toBe(40);
   });
 
   test("startOfBillingCycle is first day of month UTC", () => {
@@ -73,15 +76,15 @@ describe("usage plans", () => {
         billingCycleTokens: 250_000,
         billingCycleCostUsd: 1.5,
       })
-    ).toBe(75);
+    ).toBe(50);
 
     expect(
       computePlanAllotmentPercent({
         plan,
         billingCycleTokens: 100_000,
-        billingCycleCostUsd: 2.5,
+        billingCycleCostUsd: 12,
       })
-    ).toBe(125);
+    ).toBe(80);
   });
 
   test("formatPlanTooltip includes price and caps", () => {

@@ -179,6 +179,7 @@ export function runLLMChatStream(params: RunLLMChatStreamParams): void {
         modelId: selectedModel.id,
         inputTokens: usage.inputTokens,
         outputTokens: usage.outputTokens,
+        cachedInputTokens: usage.cachedInputTokens,
         reasoningTokens: usage.reasoningTokens,
         totalTokens: usage.totalTokens,
         operation: "chat",

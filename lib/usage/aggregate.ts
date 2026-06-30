@@ -4,6 +4,7 @@ export type LlmUsageEventRow = {
   model_id: string;
   input_tokens: number;
   output_tokens: number;
+  cached_input_tokens: number;
   reasoning_tokens: number;
   total_tokens: number;
   cost_usd: number;
@@ -24,6 +25,7 @@ export type UsageDailyBucket = {
 export type UsageModelBreakdown = {
   modelId: string;
   inputTokens: number;
+  cachedInputTokens: number;
   outputTokens: number;
   reasoningTokens: number;
   totalTokens: number;
@@ -33,6 +35,7 @@ export type UsageModelBreakdown = {
 
 export type UsageTotals = {
   inputTokens: number;
+  cachedInputTokens: number;
   outputTokens: number;
   reasoningTokens: number;
   totalTokens: number;
@@ -79,6 +82,7 @@ export function aggregateUsageEvents(
   const modelMap = new Map<string, UsageModelBreakdown>();
   const totals: UsageTotals = {
     inputTokens: 0,
+    cachedInputTokens: 0,
     outputTokens: 0,
     reasoningTokens: 0,
     totalTokens: 0,
@@ -92,6 +96,7 @@ export function aggregateUsageEvents(
     if (created < rangeStart || created > rangeEnd) continue;
 
     totals.inputTokens += event.input_tokens;
+    totals.cachedInputTokens += event.cached_input_tokens ?? 0;
     totals.outputTokens += event.output_tokens;
     totals.reasoningTokens += event.reasoning_tokens;
     totals.totalTokens += event.total_tokens;
@@ -114,6 +119,7 @@ export function aggregateUsageEvents(
     const model = modelMap.get(event.model_id) ?? {
       modelId: event.model_id,
       inputTokens: 0,
+      cachedInputTokens: 0,
       outputTokens: 0,
       reasoningTokens: 0,
       totalTokens: 0,
@@ -122,6 +128,7 @@ export function aggregateUsageEvents(
     };
 
     model.inputTokens += event.input_tokens;
+    model.cachedInputTokens += event.cached_input_tokens ?? 0;
     model.outputTokens += event.output_tokens;
     model.reasoningTokens += event.reasoning_tokens;
     model.totalTokens += event.total_tokens;
@@ -171,6 +178,7 @@ function fillDailyBuckets(
 export function emptyUsageTotals(): UsageTotals {
   return {
     inputTokens: 0,
+    cachedInputTokens: 0,
     outputTokens: 0,
     reasoningTokens: 0,
     totalTokens: 0,

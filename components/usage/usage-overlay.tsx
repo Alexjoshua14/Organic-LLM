@@ -11,7 +11,7 @@ import { PlanAllotmentRow } from "./plan-allotment-row";
 import { UsageChart } from "./usage-chart";
 import { UsageModelBreakdown } from "./usage-model-breakdown";
 
-import { glassPreview } from "@/components/design-system/primitives";
+import { glass } from "@/components/design-system/primitives";
 import { Button } from "@/components/third-party/ui/button";
 import {
   Dialog,
@@ -91,12 +91,16 @@ export function UsageOverlay({ className, triggerClassName }: UsageOverlayProps)
 
       <DialogContent
         className="flex max-h-[min(92dvh,780px)] w-[calc(100%-1.5rem)] flex-col gap-0 overflow-hidden border-0 bg-transparent p-0 shadow-none sm:max-w-2xl"
+        overlayClassName="bg-black/30 dark:bg-black/80"
       >
         <div
           className={cn(
             "flex min-h-0 flex-1 flex-col overflow-hidden sm:rounded-lg",
-            glassPreview({ opaque: true, depth: "floating" }),
-            "shadow-[0_24px_80px_-24px_rgb(0_0_0/0.45)]"
+            glass({ opaque: true }),
+            "backdrop-brightness-[1.18] backdrop-saturate-[1.05]",
+            "dark:backdrop-brightness-100 dark:backdrop-saturate-[1.12]",
+            "shadow-[0_24px_80px_-24px_rgb(0_0_0/0.18)] dark:shadow-[0_24px_80px_-24px_rgb(0_0_0/0.45)]",
+            "ring-1 ring-inset ring-white/50 dark:ring-white/10"
           )}
         >
         <DialogHeader className="shrink-0 space-y-3 border-b border-border/40 px-4 py-4 text-left sm:px-6 sm:py-5">
@@ -109,9 +113,7 @@ export function UsageOverlay({ className, triggerClassName }: UsageOverlayProps)
                 Usage
               </DialogTitle>
               <DialogDescription className="text-sm leading-relaxed text-muted-foreground">
-                Tokens and estimated API cost from your LLM calls. Pricing follows the live model
-                table in{" "}
-                <code className="rounded bg-muted/50 px-1 py-0.5 text-[11px]">llm-cost.ts</code>.
+                Tokens and estimated API cost from your LLM calls.
               </DialogDescription>
             </div>
 
@@ -172,12 +174,12 @@ export function UsageOverlay({ className, triggerClassName }: UsageOverlayProps)
 
                 <UsageChart daily={data.daily} />
 
-                <UsageModelBreakdown byModel={data.byModel} pricingAsOf={data.pricingAsOf} />
-
                 <PlanAllotmentRow
                   billingCycleLabel={`${formatBillingCycleLabel(data.billingCycle.start)} – today`}
                   planAllotments={data.planAllotments}
                 />
+
+                <UsageModelBreakdown byModel={data.byModel} pricingAsOf={data.pricingAsOf} />
 
                 <p className="text-[11px] leading-relaxed text-muted-foreground/80">
                   Billing cycle totals: {formatTokenCount(data.billingCycleTotals.totalTokens)} tokens

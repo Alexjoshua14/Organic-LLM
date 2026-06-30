@@ -4,6 +4,7 @@ import type { UsageApiPayload } from "@/lib/usage/types";
 
 import { formatPlanTooltip } from "@/lib/usage/plans";
 import { formatPercent } from "@/lib/usage/format";
+import { UsageSectionHeader } from "./usage-section-header";
 import { cn } from "@/lib/utils";
 import {
   Tooltip,
@@ -18,27 +19,23 @@ type PlanAllotmentRowProps = {
 
 export function PlanAllotmentRow({ planAllotments, billingCycleLabel }: PlanAllotmentRowProps) {
   return (
-    <section className="space-y-3 border-t border-border/40 pt-4">
-      <div className="space-y-0.5">
-        <p className="text-[10px] uppercase tracking-[0.14em] text-muted-foreground/70">
-          Plan allotment
-        </p>
-        <p className="text-[11px] text-muted-foreground">
-          Billing cycle so far · {billingCycleLabel}
-        </p>
-      </div>
+    <section className="space-y-2">
+      <UsageSectionHeader
+        caption={`Billing cycle so far · ${billingCycleLabel}`}
+        title="Plan allotment"
+      />
 
-      <div className="grid grid-cols-3 gap-2 sm:gap-3">
+      <div className="grid grid-cols-3 gap-1.5 sm:gap-2">
         {planAllotments.map(({ plan, percentUsed }) => (
           <div
             key={plan.id}
-            className="rounded-xl border border-border/50 bg-muted/15 px-2.5 py-3 text-center sm:px-3"
+            className="rounded-lg border border-border/50 bg-muted/15 px-2 py-2 text-center"
           >
-            <div className="relative mb-2 flex items-center justify-center">
+            <div className="relative mb-1 flex items-center justify-center">
               <Tooltip>
                 <TooltipTrigger asChild>
                   <button
-                    className="font-commissioner text-xs font-light tracking-wide text-foreground underline decoration-dotted decoration-border/60 underline-offset-2"
+                    className="font-commissioner text-2xs font-light tracking-wide text-foreground underline decoration-dotted decoration-border/60 underline-offset-2"
                     type="button"
                   >
                     {plan.name}
@@ -52,14 +49,14 @@ export function PlanAllotmentRow({ planAllotments, billingCycleLabel }: PlanAllo
 
             <p
               className={cn(
-                "text-xl font-semibold tabular-nums sm:text-2xl",
+                "text-base font-semibold tabular-nums sm:text-lg",
                 percentUsed >= 100 ? "text-amber-500" : "text-lumen"
               )}
             >
               {formatPercent(percentUsed)}
             </p>
 
-            <div className="mx-auto mt-2 h-1.5 w-full max-w-[5rem] overflow-hidden rounded-full bg-border/40">
+            <div className="mx-auto mt-1.5 h-1 w-full max-w-[3.5rem] overflow-hidden rounded-full bg-border/40">
               <div
                 className={cn(
                   "h-full rounded-full transition-all",

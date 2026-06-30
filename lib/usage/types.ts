@@ -11,6 +11,7 @@ export type UsageApiPayload = {
     UsageModelBreakdown & {
       inputPerMillion: number;
       outputPerMillion: number;
+      cachedInputPerMillion?: number;
     }
   >;
   planAllotments: Array<{

@@ -14,6 +14,7 @@ import { Conversation, ConversationScrollButton } from "../third-party/ai-elemen
 import { ChatThread, MEMORY_PANEL_RESERVE_PADDING } from "./chat-thread";
 import { CoreInput } from "./core-input";
 import { ChatStylePicker } from "./chat-style-picker";
+import { ChatThreadStyleOverlay } from "./chat-thread-style-overlay";
 
 import { MemoryEphemeralCards } from "@/components/memory/memory-ephemeral-cards";
 import { MemoryLens } from "@/components/memory/memory-lens";
@@ -372,6 +373,9 @@ export const Chat: React.FC<ChatProps> = ({
           "overscroll-x-none",
         ].join(" ")}
       >
+        {experience === "arcadia" && id ? (
+          <ChatThreadStyleOverlay threadId={id} visible={messages.length > 0} />
+        ) : null}
         <ChatThread
           aiActionPayload={aiAction}
           chatId={id}

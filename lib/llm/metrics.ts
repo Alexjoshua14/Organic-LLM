@@ -8,6 +8,7 @@ const logger = createLogger("lib/llm/metrics.ts");
 type LlmUsageLike = {
   inputTokens?: number | null;
   outputTokens?: number | null;
+  cachedInputTokens?: number | null;
   reasoningTokens?: number | null;
   totalTokens?: number | null;
 };
@@ -65,6 +66,7 @@ export function recordLlmCall(args: {
 
   const inputTokens = coerceCount(usage?.inputTokens);
   const outputTokens = coerceCount(usage?.outputTokens);
+  const cachedInputTokens = coerceCount(usage?.cachedInputTokens);
   const reasoningTokens = coerceCount(usage?.reasoningTokens);
   const totalTokens = coerceCount(usage?.totalTokens) || inputTokens + outputTokens;
 
@@ -104,6 +106,7 @@ export function recordLlmCall(args: {
       modelId: model,
       inputTokens,
       outputTokens,
+      cachedInputTokens,
       reasoningTokens,
       totalTokens,
       operation: metadata.operation,

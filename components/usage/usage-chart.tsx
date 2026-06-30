@@ -6,6 +6,8 @@ import { useId, useMemo } from "react";
 
 import { cn } from "@/lib/utils";
 import { formatTokenCount, formatUsd } from "@/lib/usage/format";
+import { UsageSectionHeader } from "./usage-section-header";
+import { usageSectionCaption } from "./usage-typography";
 
 type UsageChartProps = {
   daily: UsageDailyBucket[];
@@ -54,21 +56,27 @@ export function UsageChart({ daily, className }: UsageChartProps) {
 
   return (
     <div className={cn("space-y-2", className)}>
-      <div className="flex items-end justify-between gap-3">
-        <div>
-          <p className="text-[10px] uppercase tracking-[0.14em] text-muted-foreground/70">
-            Tokens over time
-          </p>
-          <p className="text-xs text-muted-foreground">
-            Peak day · {formatTokenCount(maxTokens)} tokens
-          </p>
-        </div>
-        {!hasData ? (
-          <p className="text-[11px] text-muted-foreground">No usage in this range yet</p>
-        ) : null}
-      </div>
+      <UsageSectionHeader
+        aside={
+          !hasData ? (
+            <p className={usageSectionCaption}>No usage in this range yet</p>
+          ) : undefined
+        }
+        caption={`Peak day · ${formatTokenCount(maxTokens)} tokens`}
+        title="Tokens over time"
+      />
 
-      <div className="relative rounded-xl border border-border/50 bg-muted/15 p-2">
+      <div
+        className={cn(
+          "relative rounded-xl border border-border/50 bg-muted/15 p-2",
+          "[--usage-chart-line:var(--lumen-oklch)]",
+          "[--usage-chart-fill-0:color-mix(in_oklch,var(--lumen-oklch)_32%,transparent)]",
+          "[--usage-chart-fill-1:color-mix(in_oklch,var(--lumen-oklch)_6%,transparent)]",
+          "dark:[--usage-chart-line:var(--lumen-rim-oklch)]",
+          "dark:[--usage-chart-fill-0:color-mix(in_oklch,var(--lumen-rim-oklch)_35%,transparent)]",
+          "dark:[--usage-chart-fill-1:color-mix(in_oklch,var(--lumen-rim-oklch)_2%,transparent)]"
+        )}
+      >
         <svg
           aria-hidden
           className="h-[120px] w-full overflow-visible"
@@ -77,8 +85,8 @@ export function UsageChart({ daily, className }: UsageChartProps) {
         >
           <defs>
             <linearGradient id={gradientId} x1="0" x2="0" y1="0" y2="1">
-              <stop offset="0%" stopColor="hsl(var(--lumen-rim) / 0.35)" />
-              <stop offset="100%" stopColor="hsl(var(--lumen-rim) / 0.02)" />
+              <stop offset="0%" stopColor="var(--usage-chart-fill-0)" />
+              <stop offset="100%" stopColor="var(--usage-chart-fill-1)" />
             </linearGradient>
           </defs>
 
@@ -98,12 +106,12 @@ export function UsageChart({ daily, className }: UsageChartProps) {
 
           {points.length > 1 ? (
             <polyline
+              className="[stroke:var(--usage-chart-line)]"
               fill="none"
               points={points.map((p) => `${p.x},${p.y}`).join(" ")}
-              stroke="hsl(var(--lumen-rim))"
               strokeLinecap="round"
               strokeLinejoin="round"
-              strokeWidth="1.5"
+              strokeWidth="1.75"
               vectorEffect="non-scaling-stroke"
             />
           ) : null}

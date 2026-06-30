@@ -8,6 +8,7 @@ export type Usage = {
   completionTokens?: number;
   inputTokens?: number;
   outputTokens?: number;
+  cachedInputTokens?: number;
   totalTokens?: number;
 };
 
@@ -15,6 +16,8 @@ export type Usage = {
 export type ModelCost = {
   inputPerMillion: number;
   outputPerMillion: number;
+  /** Prompt cache read pricing when the provider reports cached input tokens. */
+  cachedInputPerMillion?: number;
 };
 
 /** Default cost when model is unknown (conservative: ~GPT-5 Mini). */
@@ -57,9 +60,23 @@ const MODEL_COSTS: Record<string, ModelCost> = {
 
 /**
  * Get cost config for a model. Returns default for unknown models.
+ * Cached input rates follow common provider discounts when not listed explicitly.
  */
 export function getModelCost(modelId: string): ModelCost {
-  return MODEL_COSTS[modelId] ?? DEFAULT_COST;
+  const base = MODEL_COSTS[modelId] ?? DEFAULT_COST;
+
+  if (base.cachedInputPerMillion !== undefined) return base;
+  if (modelId.startsWith("openai/")) {
+    return { ...base, cachedInputPerMillion: base.inputPerMillion * 0.5 };
+  }
+  if (modelId.startsWith("anthropic/")) {
+    return { ...base, cachedInputPerMillion: base.inputPerMillion * 0.1 };
+  }
+  if (modelId.startsWith("google/")) {
+    return { ...base, cachedInputPerMillion: base.inputPerMillion * 0.25 };
+  }
+
+  return base;
 }
 
 /**
@@ -67,10 +84,7 @@ export function getModelCost(modelId: string): ModelCost {
  * Unit: 10_000 units = $1 (so 1 unit = $0.0001). Returns integer for Upstash rate.
  */
 export function computeCost(modelId: string, usage: Usage): number {
-  const cost = getModelCost(modelId);
-  const input = (usage.promptTokens ?? usage.inputTokens ?? 0) / 1_000_000;
-  const output = (usage.completionTokens ?? usage.outputTokens ?? 0) / 1_000_000;
-  const dollars = input * cost.inputPerMillion + output * cost.outputPerMillion;
+  const dollars = computeUsageCostUsd(modelId, usage);
 
   return Math.max(0, Math.ceil(dollars * 10_000));
 }
@@ -78,10 +92,19 @@ export function computeCost(modelId: string, usage: Usage): number {
 /** Cost in USD from usage and model (same pricing table as rate limits). */
 export function computeUsageCostUsd(modelId: string, usage: Usage): number {
   const cost = getModelCost(modelId);
-  const input = (usage.promptTokens ?? usage.inputTokens ?? 0) / 1_000_000;
-  const output = (usage.completionTokens ?? usage.outputTokens ?? 0) / 1_000_000;
+  const input = usage.promptTokens ?? usage.inputTokens ?? 0;
+  const output = usage.completionTokens ?? usage.outputTokens ?? 0;
+  const cached = usage.cachedInputTokens ?? 0;
+  const uncachedInput = Math.max(0, input - cached);
 
-  return input * cost.inputPerMillion + output * cost.outputPerMillion;
+  const inputCost = (uncachedInput / 1_000_000) * cost.inputPerMillion;
+  const cachedCost =
+    cached > 0 && cost.cachedInputPerMillion !== undefined
+      ? (cached / 1_000_000) * cost.cachedInputPerMillion
+      : 0;
+  const outputCost = (output / 1_000_000) * cost.outputPerMillion;
+
+  return inputCost + cachedCost + outputCost;
 }
 
 /** When the MODEL_COSTS table was last reviewed (update with pricing changes). */

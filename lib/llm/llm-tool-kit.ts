@@ -237,7 +237,7 @@ export function createMemorySearchTool(
         const searchRun = await searchMemoriesWithL1Cache(userId, trimmedQuery, limitForStore);
         const perQuery = [
           {
-            q: trimmedQuery,
+            queryLength: trimmedQuery.length,
             cacheHit: searchRun.metrics.cacheHit,
             searchMs: searchRun.metrics.memorySearchMs,
             error: searchRun.result.error ?? null,
@@ -248,8 +248,7 @@ export function createMemorySearchTool(
 
         if (searchRun.result.error) {
           logger.log("createMemorySearchTool", "memory_search_error", {
-            rawQuery: trimmedQuery,
-            rewrittenQueries: [trimmedQuery],
+            queryLength: trimmedQuery.length,
             queryRewriteUsed: false,
             rewriteMs: 0,
             perQuery,
@@ -269,8 +268,7 @@ export function createMemorySearchTool(
         }
 
         logger.log("createMemorySearchTool", "memory_search_ok", {
-          rawQuery: trimmedQuery,
-          rewrittenQueries: [trimmedQuery],
+          queryLength: trimmedQuery.length,
           queryRewriteUsed: false,
           rewriteMs: 0,
           perQuery,

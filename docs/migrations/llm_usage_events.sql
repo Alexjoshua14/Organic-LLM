@@ -7,6 +7,7 @@ CREATE TABLE IF NOT EXISTS llm_usage_events (
   model_id TEXT NOT NULL,
   input_tokens INTEGER NOT NULL DEFAULT 0 CHECK (input_tokens >= 0),
   output_tokens INTEGER NOT NULL DEFAULT 0 CHECK (output_tokens >= 0),
+  cached_input_tokens INTEGER NOT NULL DEFAULT 0 CHECK (cached_input_tokens >= 0),
   reasoning_tokens INTEGER NOT NULL DEFAULT 0 CHECK (reasoning_tokens >= 0),
   total_tokens INTEGER NOT NULL DEFAULT 0 CHECK (total_tokens >= 0),
   cost_usd NUMERIC(12, 6) NOT NULL DEFAULT 0 CHECK (cost_usd >= 0),
@@ -30,3 +31,6 @@ CREATE POLICY "Users can view their own usage events"
 CREATE POLICY "Users can insert their own usage events"
   ON llm_usage_events FOR INSERT
   WITH CHECK (owner_id = current_profile_id());
+
+-- Existing deployments:
+-- ALTER TABLE llm_usage_events ADD COLUMN IF NOT EXISTS cached_input_tokens INTEGER NOT NULL DEFAULT 0 CHECK (cached_input_tokens >= 0);
