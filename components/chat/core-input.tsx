@@ -194,6 +194,10 @@ export const CoreInput: React.FC<CoreInputProps> = ({
 
   inputEmptyRef.current = text.trim() === "";
   statusRef.current = status ?? "ready";
+  // Mirror the toggle state into the caller-owned refs every render, so the value
+  // sent (read from the ref at submit time) always matches what the composer shows.
+  if (useWebSearchRef) useWebSearchRef.current = useWebSearch;
+  if (useMemoriesRef) useMemoriesRef.current = useMemories;
 
   // Auto-delete blank chat when user navigates away with empty input
   useEffect(() => {
@@ -290,8 +294,8 @@ export const CoreInput: React.FC<CoreInputProps> = ({
       localStorage.removeItem(STORAGE_KEY_SPEECH_FRIENDLY);
       localStorage.removeItem(STORAGE_KEY_TIMESTAMP);
 
-      if (useWebSearchRef) useWebSearchRef.current = defaultWebSearch;
-      if (useMemoriesRef) useMemoriesRef.current = defaultMemories;
+      setUseWebSearch(defaultWebSearch);
+      setUseMemories(defaultMemories);
       if (modelRef) modelRef.current = defaultModel;
 
       return;
@@ -328,8 +332,6 @@ export const CoreInput: React.FC<CoreInputProps> = ({
 
     if (storedSpeechFriendly === "true") setUseSpeechFriendly(true);
 
-    if (useWebSearchRef) useWebSearchRef.current = nextWebSearch;
-    if (useMemoriesRef) useMemoriesRef.current = nextMemories;
     if (modelRef) modelRef.current = nextModel;
   }, [
     defaultMemories,
@@ -358,27 +360,21 @@ export const CoreInput: React.FC<CoreInputProps> = ({
     }
   }, [model, modelRef, modelStorageKey]);
 
-  // Sync web search to ref and persist to localStorage
+  // Persist web search to localStorage (ref is mirrored at render time).
   useEffect(() => {
-    if (useWebSearchRef && useWebSearchRef.current !== useWebSearch) {
-      useWebSearchRef.current = useWebSearch;
-    }
     if (hasLoadedPrefs.current) {
       localStorage.setItem(STORAGE_KEY_WEB_SEARCH, String(useWebSearch));
       updatePrefsTimestamp();
     }
-  }, [useWebSearch, useWebSearchRef]);
+  }, [useWebSearch]);
 
-  // Sync memories to ref and persist to localStorage
+  // Persist memories to localStorage (ref is mirrored at render time).
   useEffect(() => {
-    if (useMemoriesRef && useMemoriesRef.current !== useMemories) {
-      useMemoriesRef.current = useMemories;
-    }
     if (hasLoadedPrefs.current) {
       localStorage.setItem(memoriesStorageKey, String(useMemories));
       updatePrefsTimestamp();
     }
-  }, [useMemories, useMemoriesRef, memoriesStorageKey]);
+  }, [useMemories, memoriesStorageKey]);
 
   // Sync speech-friendly to ref and persist to localStorage
   useEffect(() => {
