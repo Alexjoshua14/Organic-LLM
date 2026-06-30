@@ -133,7 +133,10 @@ export function IntrospectionShell({
   const showMorphLayer = shouldMorphComposer && !composerMorphDone;
 
   return (
-    <div ref={stageRef} className="relative flex h-full min-h-0 w-full flex-col overflow-hidden">
+    <div
+      ref={stageRef}
+      className="page-liquid-chrome relative flex h-full min-h-0 w-full flex-col overflow-hidden"
+    >
       <div className="pointer-events-none absolute inset-0 -z-10 opacity-80">
         <AdaptiveLiquidChrome cover="parent" />
       </div>

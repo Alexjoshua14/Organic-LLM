@@ -17,7 +17,7 @@ describe("GenUIRenderer", () => {
       <GenUIRenderer data={{ block: FIXTURE_ANSWER_CARD }} messageId="t1" />
     );
     expect(getByText(FIXTURE_ANSWER_CARD.title)).toBeTruthy();
-    expect(getByText(/TL;DR/)).toBeTruthy();
+    expect(getByText(/Summary/)).toBeTruthy();
   });
 
   test("falls back to markdown for invalid block", () => {

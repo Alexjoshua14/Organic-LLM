@@ -105,7 +105,7 @@ export default function StatusPage() {
   }, [menuOpen]);
 
   return (
-    <Page transparentBackground className="!items-stretch !justify-start overflow-hidden">
+    <Page liquidChromeBackground transparentBackground className="!items-stretch !justify-start overflow-hidden">
       <AdaptiveLiquidChrome dimIntensity={0.45} />
       <div
         className={cn(

@@ -1,4 +1,4 @@
-import React, { memo, useEffect, useRef } from "react";
+import React, { memo, useEffect, useLayoutEffect, useRef } from "react";
 import { Renderer, Program, Mesh, Triangle } from "ogl";
 
 import "./LiquidChrome.css";
@@ -66,15 +66,17 @@ export const LiquidChrome = memo(function LiquidChrome({
   pausedRef.current = paused;
   propsRef.current = { baseColor, speed, amplitude, frequencyX, frequencyY };
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (!containerRef.current) return;
 
     const container = containerRef.current;
     const multiSample = window.matchMedia("(max-width: 768px)").matches ? 0 : 1;
     const renderer = new Renderer({ antialias: false });
     const gl = renderer.gl;
+    const initial = propsRef.current;
+    const [clearR, clearG, clearB] = initial.baseColor;
 
-    gl.clearColor(1, 1, 1, 1);
+    gl.clearColor(clearR, clearG, clearB, 1);
 
     const vertexShader = `
       attribute vec2 position;
@@ -135,7 +137,6 @@ export const LiquidChrome = memo(function LiquidChrome({
       }
     `;
 
-    const initial = propsRef.current;
     const geometry = new Triangle(gl);
     const program = new Program(gl, {
       vertex: vertexShader,
@@ -220,18 +221,11 @@ export const LiquidChrome = memo(function LiquidChrome({
       syncedProps = { ...runtime };
     }
 
-    function tick(t: number) {
-      if (pausedRef.current) {
-        animationId = null;
-        return;
-      }
-
-      animationId = requestAnimationFrame(tick);
-
+    function renderFrame(timeMs: number) {
       syncUniformsFromProps();
 
       const runtime = propsRef.current;
-      program.uniforms.uTime.value = t * 0.001 * runtime.speed;
+      program.uniforms.uTime.value = timeMs * 0.001 * runtime.speed;
 
       if (interactive) {
         const mouseUniform = program.uniforms.uMouse.value as Float32Array;
@@ -244,15 +238,28 @@ export const LiquidChrome = memo(function LiquidChrome({
       renderer.render({ scene: mesh });
     }
 
+    function tick(t: number) {
+      if (pausedRef.current) {
+        animationId = null;
+        return;
+      }
+
+      animationId = requestAnimationFrame(tick);
+      renderFrame(t);
+    }
+
     function startLoop() {
       if (animationId !== null || pausedRef.current) return;
       animationId = requestAnimationFrame(tick);
     }
 
-    startLoopRef.current = startLoop;
-    startLoop();
-
     container.appendChild(gl.canvas);
+    renderFrame(0);
+
+    startLoopRef.current = startLoop;
+    if (!pausedRef.current) {
+      startLoop();
+    }
 
     return () => {
       startLoopRef.current = null;

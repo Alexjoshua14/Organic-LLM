@@ -98,7 +98,7 @@ export function AdaptiveLiquidChromeLab() {
   const [dimmed, setDimmed] = useState(false);
 
   return (
-    <Page transparentBackground className="items-stretch justify-start overflow-hidden">
+    <Page liquidChromeBackground transparentBackground className="items-stretch justify-start overflow-hidden">
       <AdaptiveLiquidChrome dimIntensity={0.45} dimIntensityFull={0.62} onDimChange={setDimmed} />
 
       <div className="relative z-10 h-full min-h-0 w-full overflow-y-auto pb-20">

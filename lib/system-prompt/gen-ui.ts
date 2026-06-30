@@ -13,6 +13,10 @@ When to use (with examples):
   Example: "Give me a phased rollout plan for the migration."
 - audio-snippet: User explicitly asks for audio, recap, or listen.
   Example: "Give me a 90-second recap I can listen to."
+- recipe-card: Presenting a single recipe with ingredients and steps (e.g. after importing or proposing a dish).
+  Example: "Show me a recipe for lemon blueberry poppyseed bars."
+- shopping-list: Presenting ingredients grouped by aisle/category with have vs. need status.
+  Example: "What do I still need to buy for Saturday?"
 
 When NOT to use:
 - Casual replies, single-fact answers, code-only responses, follow-up clarifications.

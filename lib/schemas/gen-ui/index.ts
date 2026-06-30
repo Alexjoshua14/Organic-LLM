@@ -20,6 +20,16 @@ import {
   planTimelineToMarkdown,
   planTimelineToMarkdownLoose,
 } from "./plan-timeline";
+import {
+  RecipeCardBlockSchema,
+  recipeCardToMarkdown,
+  recipeCardToMarkdownLoose,
+} from "./recipe-card";
+import {
+  ShoppingListBlockSchema,
+  shoppingListToMarkdown,
+  shoppingListToMarkdownLoose,
+} from "./shopping-list";
 import { GEN_UI_BLOCK_TYPES, type GenUIBlockType } from "./shared";
 
 export { GEN_UI_VERSION, GEN_UI_BLOCK_TYPES, type GenUIBlockType } from "./shared";
@@ -27,12 +37,16 @@ export * from "./answer-card";
 export * from "./decision-matrix";
 export * from "./plan-timeline";
 export * from "./audio-snippet";
+export * from "./recipe-card";
+export * from "./shopping-list";
 
 export const GenUIBlockSchema = z.discriminatedUnion("type", [
   AnswerCardBlockSchema,
   DecisionMatrixBlockSchema,
   PlanTimelineBlockSchema,
   AudioSnippetBlockSchema,
+  RecipeCardBlockSchema,
+  ShoppingListBlockSchema,
 ]);
 
 export type GenUIBlock = z.infer<typeof GenUIBlockSchema>;
@@ -95,6 +109,16 @@ function tryLenientParse(type: GenUIBlockType, raw: unknown): GenUIBlock | null 
 
       return r.success ? r.data : null;
     }
+    case "recipe-card": {
+      const r = RecipeCardBlockSchema.safeParse(raw);
+
+      return r.success ? r.data : null;
+    }
+    case "shopping-list": {
+      const r = ShoppingListBlockSchema.safeParse(raw);
+
+      return r.success ? r.data : null;
+    }
     default:
       return null;
   }
@@ -152,6 +176,10 @@ export function genUIBlockToMarkdown(block: GenUIBlock): string {
       return planTimelineToMarkdown(block);
     case "audio-snippet":
       return audioSnippetToMarkdown(block);
+    case "recipe-card":
+      return recipeCardToMarkdown(block);
+    case "shopping-list":
+      return shoppingListToMarkdown(block);
   }
 }
 
@@ -172,6 +200,10 @@ export function genUIBlockToMarkdownLoose(raw: unknown): string {
       return planTimelineToMarkdownLoose(o);
     case "audio-snippet":
       return audioSnippetToMarkdownLoose(o);
+    case "recipe-card":
+      return recipeCardToMarkdownLoose(o);
+    case "shopping-list":
+      return shoppingListToMarkdownLoose(o);
     default:
       return "_Structured block (could not render)_";
   }

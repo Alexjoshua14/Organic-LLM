@@ -13,7 +13,7 @@ import {
   organicGlassWorking,
   secondaryInteractive,
 } from "@/components/design-system/primitives";
-import Page from "@/components/layout/page";
+import LiquidChromePage from "@/components/layout/liquid-chrome-page";
 import { cn } from "@/lib/utils";
 import { tabTitleMetadata } from "@/lib/metadata/tab-title";
 
@@ -311,7 +311,7 @@ function GlassLabSampleGallery({ variant }: { variant: "production" | "preview" 
 
 export default function GlassPrimitivePrototypePage() {
   return (
-    <Page transparentBackground className="overflow-hidden">
+    <LiquidChromePage transparentBackground className="overflow-hidden">
       <AdaptiveLiquidChrome dimIntensity={0.5} dimIntensityFull={0.72} speed={0.01} />
 
       <div className="relative z-10 flex h-full w-full flex-col overflow-hidden">
@@ -493,6 +493,6 @@ export default function GlassPrimitivePrototypePage() {
           </GlassLabColumn>
         </main>
       </div>
-    </Page>
+    </LiquidChromePage>
   );
 }

@@ -13,6 +13,8 @@ import { registerUpstashRateLimitMocks } from "./helpers/rate-limit-upstash";
 declare global {
   // eslint-disable-next-line no-var
   var __realRabbitholes: typeof import("@/data/supabase/rabbitholes");
+  // eslint-disable-next-line no-var
+  var __realChat: typeof import("@/data/supabase/chat");
   // Set by runGenerationAndPersist.test to control runOneGenerationStep (preload mocks actions so real module never loads in CI)
   // eslint-disable-next-line no-var
   var __runOneGenerationStepHandler: (typeof import("@/lib/rabbit-holes/actions"))["runOneGenerationStep"] | undefined;
@@ -71,3 +73,7 @@ mock.module("@/lib/rabbit-holes/actions", () => ({
 // Load real rabbitholes once (after supabase mock) so tests can use it in partial mocks
 const rabbitholes = await import("@/data/supabase/rabbitholes");
 globalThis.__realRabbitholes = rabbitholes;
+
+// Same for chat — partial mocks must spread these exports or later files break on `loadChat`.
+const chatModule = await import("@/data/supabase/chat");
+globalThis.__realChat = chatModule;

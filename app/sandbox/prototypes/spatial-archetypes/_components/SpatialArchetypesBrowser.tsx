@@ -104,7 +104,7 @@ export function SpatialArchetypesBrowser({
 
   if (disabled) {
     return (
-      <Page className="items-stretch justify-start overflow-hidden">
+      <Page className="items-stretch justify-start overflow-hidden" liquidChromeBackground>
         <AdaptiveLiquidChrome cover="parent" />
         <div className="relative z-[1] h-full min-h-0 w-full overflow-y-auto pb-16">
           <PageContentFrame maxWidth="6xl">
@@ -119,7 +119,7 @@ export function SpatialArchetypesBrowser({
   }
 
   return (
-    <Page className="items-stretch justify-start overflow-hidden">
+    <Page className="items-stretch justify-start overflow-hidden" liquidChromeBackground>
       <AdaptiveLiquidChrome cover="parent" />
       <div className="relative z-[1] h-full min-h-0 w-full overflow-y-auto pb-16">
         <PageContentFrame maxWidth="6xl">

@@ -1,3 +1,9 @@
+/**
+ * Direct Qdrant search against the legacy `memories` collection.
+ *
+ * **Sandbox / migration only** — do not use on live chat or Memory Lens paths.
+ * Production retrieval goes through Mem0 → `memories_v2` (see `config/mem0-config.ts`).
+ */
 import "server-only";
 
 import type { MemoryItemType } from "@/lib/schemas/memory";

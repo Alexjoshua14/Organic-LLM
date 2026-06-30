@@ -36,6 +36,8 @@ import { getChatErrorMessage } from "@/lib/chat/error-messages";
 import { getChatStyle } from "@/lib/chat/chat-style-store";
 import { applyKanbanCommand } from "@/lib/kanban/store";
 import { safeParseKanbanCommand } from "@/lib/schemas/kanban";
+import { applyMiseCommand } from "@/lib/mise/store";
+import { safeParseMiseCommand } from "@/lib/schemas/mise";
 const logger = createLogger("components/chat/chat");
 
 export type ChatProps = {
@@ -181,6 +183,12 @@ export const Chat: React.FC<ChatProps> = ({
 
           if (parsed.ok && id) {
             applyKanbanCommand(id, parsed.command);
+          }
+        } else if (data.type === "data-mise") {
+          const parsed = safeParseMiseCommand(data.data);
+
+          if (parsed.ok && id) {
+            applyMiseCommand(id, parsed.command);
           }
         } else if (data.type === "data-mem0-get") {
           const payload = data.data as { memories?: { memory: string }[] };

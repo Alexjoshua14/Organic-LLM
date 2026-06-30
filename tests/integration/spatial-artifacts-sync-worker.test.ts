@@ -25,6 +25,7 @@ const mockGetSpatialArtifactRow = mock(async () => null as {
 const mockUpsertSpatialArtifactRow = mock(async () => undefined);
 
 mock.module("@/data/supabase/chat", () => ({
+  ...globalThis.__realChat,
   loadChat: mockLoadChat,
   getChats: mockGetChats,
 }));

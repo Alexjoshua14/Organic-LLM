@@ -43,7 +43,7 @@ export default function ShowcasePage() {
   ];
 
   return (
-    <Page transparentBackground className="overflow-hidden">
+    <Page liquidChromeBackground transparentBackground className="overflow-hidden">
       <AdaptiveLiquidChrome dimIntensity={0.45} />
       <div className="relative z-10 w-full max-w-5xl mx-auto p-6 overflow-y-auto h-full">
         <div className="text-center mb-12">

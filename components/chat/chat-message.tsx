@@ -30,14 +30,19 @@ import {
   toolResultSummaryButtonClass,
 } from "./tool-result-inline";
 
+import { ErgonTaskResult } from "@/components/ergon/ErgonTaskResult";
 import { GenUIStreamingPart } from "@/components/chat/gen-ui/GenUIStreamingPart";
 import { GenUIToolResult } from "@/components/chat/gen-ui/GenUIToolResult";
 import { KanbanLoadingShell } from "@/components/chat/kanban/KanbanLoadingShell";
 import { KanbanToolResult } from "@/components/chat/kanban/KanbanToolResult";
+import { MiseLoadingShell } from "@/components/chat/mise/MiseLoadingShell";
+import { MiseToolResult } from "@/components/chat/mise/MiseToolResult";
 import { ARCADIA_HELP_PREFIX } from "@/lib/arcadia/help-response";
 import { messagePartsToCopyMarkdown } from "@/lib/chat/message-copy-markdown";
 import { RENDER_GEN_UI_TOOL_NAME } from "@/lib/llm/gen-ui-tool";
 import { KANBAN_BOARD_TOOL_NAME } from "@/lib/llm/kanban-tool";
+import { MISE_PLAN_TOOL_NAME } from "@/lib/llm/mise-tool";
+import { MANAGE_TASKS_TOOL_NAME } from "@/lib/schemas/ergon-tasks";
 import { cn } from "@/lib/utils";
 import { ChatAIActionEnum } from "@/types/ai";
 import { MermaidDiagram } from "@/components/blog/mermaid-diagram";
@@ -155,6 +160,53 @@ const AIMessage: FC<ChatMessageProps> = ({
                     return (
                       <KanbanToolResult
                         key={`${message.id}-${i}-kanban-result`}
+                        output={part.output}
+                        threadId={chatId ?? message.id}
+                      />
+                    );
+                  }
+
+                  return null;
+                }
+
+                if (toolName === MISE_PLAN_TOOL_NAME) {
+                  if (part.state === "input-streaming" || part.state === "input-available") {
+                    return <MiseLoadingShell key={`${message.id}-${i}-mise-stream`} />;
+                  }
+                  if (part.state === "output-available") {
+                    return (
+                      <MiseToolResult
+                        key={`${message.id}-${i}-mise-result`}
+                        output={part.output}
+                        threadId={chatId ?? message.id}
+                      />
+                    );
+                  }
+
+                  return null;
+                }
+
+                if (toolName === MANAGE_TASKS_TOOL_NAME) {
+                  if (part.state === "output-available") {
+                    return (
+                      <ErgonTaskResult
+                        key={`${message.id}-${i}-ergon-tasks`}
+                        output={part.output}
+                      />
+                    );
+                  }
+
+                  return null;
+                }
+
+                if (toolName === MISE_PLAN_TOOL_NAME) {
+                  if (part.state === "input-streaming" || part.state === "input-available") {
+                    return <MiseLoadingShell key={`${message.id}-${i}-mise-stream`} />;
+                  }
+                  if (part.state === "output-available") {
+                    return (
+                      <MiseToolResult
+                        key={`${message.id}-${i}-mise-result`}
                         output={part.output}
                         threadId={chatId ?? message.id}
                       />
@@ -411,6 +463,9 @@ function shouldShowTailAiAction(
 const KNOWN_TOOL_IN_FLIGHT_LABELS: Record<string, string> = {
   render_gen_ui: "Structuring response…",
   kanban_board: "Updating board…",
+  mise_plan: "Updating plan…",
+  fetch_recipe: "Reading recipe…",
+  manage_tasks: "Updating tasks…",
   make_mermaid_diagram: "Creating diagram...",
   search_memories: "Searching memories...",
   memory_search: "Searching memories...",

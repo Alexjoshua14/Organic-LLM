@@ -8,6 +8,7 @@ import {
   defaultUserSettings,
   type UserSettings,
 } from "@/lib/schemas/userSettings";
+import { writeErgonLiquidChromeCookie } from "@/lib/ergon/liquid-chrome-cookie";
 
 const USER_SETTINGS_STORAGE_KEY = "organic-llm-user-settings";
 const LEGACY_FONT_KEY = "organic-llm-font";
@@ -65,6 +66,11 @@ export function setSettings(partial: Partial<UserSettings>): UserSettings {
   const next = { ...current, ...partial };
 
   localStorage.setItem(USER_SETTINGS_STORAGE_KEY, JSON.stringify(next));
+
+  if (partial.ergonLiquidChrome !== undefined) {
+    writeErgonLiquidChromeCookie(partial.ergonLiquidChrome);
+  }
+
   // Notify listeners in the same tab (storage event doesn't fire in the same document).
   window.dispatchEvent(new Event("organic-llm-settings"));
 

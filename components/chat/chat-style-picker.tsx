@@ -1,7 +1,9 @@
 "use client";
 
-import { LayoutGrid, MessagesSquare, NotebookPen, Sparkles } from "lucide-react";
+import { ChefHat, LayoutGrid, MessagesSquare, NotebookPen, Sparkles } from "lucide-react";
 import { AnimatePresence, motion } from "framer-motion";
+
+import { ChatStyleCard } from "./chat-style-card";
 
 import { glass } from "@/components/design-system/primitives";
 import { CHAT_STYLES, type ChatStyle } from "@/lib/chat/chat-style";
@@ -9,11 +11,10 @@ import { CHAT_STYLE_STARTERS } from "@/lib/chat/chat-style-starters";
 import { setChatStyle, useChatStyle } from "@/lib/chat/chat-style-store";
 import { cn } from "@/lib/utils";
 
-import { ChatStyleCard } from "./chat-style-card";
-
 const STYLE_ICONS: Record<ChatStyle, React.ReactNode> = {
   default: <MessagesSquare className="size-4" />,
   ergon: <LayoutGrid className="size-4" />,
+  remy: <ChefHat className="size-4" />,
   scribe: <NotebookPen className="size-4" />,
 };
 
@@ -42,11 +43,7 @@ export function ChatStylePicker({ chatId, onStarterSelect }: ChatStylePickerProp
             glass({ opaque: true })
           )}
         >
-          <Sparkles
-            aria-hidden
-            className="size-7 text-muted-foreground/80"
-            strokeWidth={1.25}
-          />
+          <Sparkles aria-hidden className="size-7 text-muted-foreground/80" strokeWidth={1.25} />
         </div>
         <div className="space-y-1">
           <h2 className="font-commissioner text-lg font-light tracking-wide text-foreground sm:text-xl">

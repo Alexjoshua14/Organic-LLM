@@ -3,7 +3,7 @@ import type { GatewayModelId } from "@ai-sdk/gateway";
 import z from "zod";
 
 import { CHAT_EXPERIENCES, parseChatExperience } from "@/lib/chat/chat-experience";
-import { parseChatStyle } from "@/lib/chat/chat-style";
+import { parseChatStyle, ChatStyleSchema } from "@/lib/chat/chat-style";
 
 // Message role enum
 export const MessageRole = z.enum(["user", "assistant", "system"]);
@@ -195,7 +195,7 @@ export const ChatRequestSchema = z.object({
   /** Client hint: selected structured chat flow (e.g. `ergon` kanban). Unknown values omitted. */
   chatStyle: z.preprocess(
     (val) => (typeof val === "string" ? parseChatStyle(val) : undefined),
-    z.enum(["default", "ergon", "scribe"]).optional()
+    ChatStyleSchema.optional()
   ),
   /** Strata page assistant: server loads this page for grounding when `experience` is `strata_page`. */
   strataPageId: z.string().uuid().optional(),

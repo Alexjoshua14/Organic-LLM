@@ -2,6 +2,7 @@ import {
   createUIMessageStream,
   createUIMessageStreamResponse,
   streamText,
+  stepCountIs,
   convertToModelMessages,
 } from "ai";
 import { openai } from "@ai-sdk/openai";
@@ -14,6 +15,14 @@ import { getContext } from "@/lib/chat/chat-store";
 import { saveChat } from "@/lib/chat/chat-store";
 import { checkLlmMessageLimit } from "@/lib/rate-limit/llm";
 import { GUARDRAIL_MAX_OUTPUT_TOKENS } from "@/lib/llm/helpers";
+import {
+  createFetchRecipeTool,
+  createMisePlanTool,
+  FETCH_RECIPE_TOOL_NAME,
+  MISE_PLAN_TOOL_NAME,
+  type MiseStreamWriter,
+} from "@/lib/llm/mise-tool";
+import { MISE_TOOL_INSTRUCTIONS } from "@/lib/system-prompt/mise";
 import { createLogger } from "@/lib/logger";
 
 export const maxDuration = 30;
@@ -210,14 +219,20 @@ export async function POST(req: Request) {
   }
   const mem0Instructions = retrieveMemories(memories);
 
-  // Combine system prompts
-  const finalSystemPrompt = [systemPromptForRequest, mem0Instructions].filter(Boolean).join("\n");
+  // Combine system prompts. Remy is the culinary planner, so the mise (event meal-planning)
+  // tools and their instructions are always available.
+  const finalSystemPrompt = [systemPromptForRequest, MISE_TOOL_INSTRUCTIONS, mem0Instructions]
+    .filter(Boolean)
+    .join("\n");
 
   const streamTextConfig: Parameters<typeof streamText>[0] = {
     model: openai("gpt-4o"),
     messages: convertToModelMessages(validatedMessages),
     system: finalSystemPrompt,
     maxOutputTokens: GUARDRAIL_MAX_OUTPUT_TOKENS,
+    // Mise tools may fire several commands per turn (initiate → upsert → show_view); allow the
+    // model to continue after tool results.
+    stopWhen: stepCountIs(10),
   };
 
   // Only include tools if they're provided and have execute functions
@@ -238,8 +253,6 @@ export async function POST(req: Request) {
       streamTextConfig.tools = validTools as typeof streamTextConfig.tools;
     }
   }
-
-  const result = streamText(streamTextConfig);
 
   // Prepare to add memories after streaming (Mem0 platform)
   // Only create the task if we have valid messages AND Mem0 is available
@@ -310,6 +323,19 @@ export async function POST(req: Request) {
           },
         });
       }
+
+      // Register the mise (event meal-planning) tools now that the live stream writer exists,
+      // so mise_plan can emit data-mise commands to the client store.
+      streamTextConfig.tools = {
+        ...(streamTextConfig.tools ?? {}),
+        [MISE_PLAN_TOOL_NAME]: createMisePlanTool({
+          writer: writer as unknown as MiseStreamWriter,
+          threadId: id,
+        }),
+        [FETCH_RECIPE_TOOL_NAME]: createFetchRecipeTool(),
+      };
+
+      const result = streamText(streamTextConfig);
 
       writer.merge(result.toUIMessageStream());
 
