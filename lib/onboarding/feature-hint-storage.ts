@@ -46,6 +46,24 @@ export function isFeatureHintDismissed(
   return typeof dismissedVersion === "number" && dismissedVersion >= version;
 }
 
+/** Respects quick-settings replay mode (temporary override of persisted dismissals). */
+export function isFeatureHintHidden(
+  record: FeatureHintDismissRecord,
+  id: FeatureHintId,
+  version: number,
+  replayFeatureHints: boolean,
+  sessionDismissedIds?: ReadonlySet<FeatureHintId>,
+  respectDismissInReplay = false
+): boolean {
+  if (sessionDismissedIds?.has(id)) return true;
+
+  const persistedDismissed = isFeatureHintDismissed(record, id, version);
+
+  if (!persistedDismissed) return false;
+
+  return !replayFeatureHints || respectDismissInReplay;
+}
+
 export function dismissFeatureHintInRecord(
   record: FeatureHintDismissRecord,
   id: FeatureHintId,

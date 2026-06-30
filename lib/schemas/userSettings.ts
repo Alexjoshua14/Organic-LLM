@@ -16,6 +16,8 @@ export const UserSettingsSchema = z.object({
   experimentalArcadiaMarkdownPreview: z.boolean().default(false),
   /** Ergon page: animated liquid chrome background. */
   ergonLiquidChrome: z.boolean().default(true),
+  /** When true, show feature hints/coachmarks again (ignores persisted dismissals until turned off). */
+  replayFeatureHints: z.boolean().default(false),
 });
 
 export type UserSettings = z.infer<typeof UserSettingsSchema>;
@@ -27,4 +29,5 @@ export const defaultUserSettings = (): UserSettings => ({
   coalescenceMode: false,
   experimentalArcadiaMarkdownPreview: false,
   ergonLiquidChrome: true,
+  replayFeatureHints: false,
 });

@@ -71,7 +71,18 @@ export function computeCost(modelId: string, usage: Usage): number {
   const input = (usage.promptTokens ?? usage.inputTokens ?? 0) / 1_000_000;
   const output = (usage.completionTokens ?? usage.outputTokens ?? 0) / 1_000_000;
   const dollars = input * cost.inputPerMillion + output * cost.outputPerMillion;
-  const units = Math.ceil(dollars * 10_000);
 
-  return Math.max(0, units);
+  return Math.max(0, Math.ceil(dollars * 10_000));
 }
+
+/** Cost in USD from usage and model (same pricing table as rate limits). */
+export function computeUsageCostUsd(modelId: string, usage: Usage): number {
+  const cost = getModelCost(modelId);
+  const input = (usage.promptTokens ?? usage.inputTokens ?? 0) / 1_000_000;
+  const output = (usage.completionTokens ?? usage.outputTokens ?? 0) / 1_000_000;
+
+  return input * cost.inputPerMillion + output * cost.outputPerMillion;
+}
+
+/** When the MODEL_COSTS table was last reviewed (update with pricing changes). */
+export const MODEL_PRICING_AS_OF = "2026-06-29";

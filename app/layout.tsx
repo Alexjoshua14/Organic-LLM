@@ -18,6 +18,7 @@ import { AionLauncherProvider } from "@/components/aion-launcher/aion-launcher";
 import { ChatProvider } from "@/lib/context/chat-context";
 import { TTSProvider } from "@/lib/context/tts-context";
 import { FontProvider } from "@/components/FontProvider";
+import { OnboardingHost } from "@/components/onboarding/onboarding-host";
 import { glass } from "@/components/design-system/primitives";
 export const metadata: Metadata = {
   title: {
@@ -67,9 +68,10 @@ export default async function RootLayout({ children }: { children: React.ReactNo
                 <AionLauncherProvider>
                   <TTSProvider>
                     <SidebarProvider defaultOpen={sidebarDefaultOpen}>
-                      <Sidebar />
-                      <ControlCluster />
-                      <main className="app-shell grow w-full overflow-hidden bg-transparent sm:bg-transparent-secondary h-full min-h-dvh">
+                      <OnboardingHost>
+                        <Sidebar />
+                        <ControlCluster />
+                        <main className="app-shell grow w-full overflow-hidden bg-transparent sm:bg-transparent-secondary h-full min-h-dvh">
                         <div
                           className={`${glass()} absolute top-[env(safe-area-inset-top,0px)] left-0 z-30 flex h-14 w-20 items-center rounded-br-lg pl-4 md:top-0 md:hidden`}
                           data-mobile-nav-chrome="sidebar-trigger"
@@ -82,6 +84,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
                         {children}
                         <Analytics />
                       </main>
+                      </OnboardingHost>
                     </SidebarProvider>
                   </TTSProvider>
                 </AionLauncherProvider>

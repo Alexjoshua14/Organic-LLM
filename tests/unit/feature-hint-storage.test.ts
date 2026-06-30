@@ -4,6 +4,7 @@ import {
   dismissFeatureHint,
   dismissFeatureHintInRecord,
   isFeatureHintDismissed,
+  isFeatureHintHidden,
   parseFeatureHintDismissRecord,
   readFeatureHintDismissRecord,
   resetFeatureHintDismissals,
@@ -57,6 +58,28 @@ describe("feature hint storage", () => {
     expect(base).toEqual({ "composer-auto-model": 1 });
     expect(next).toEqual({ "composer-auto-model": 1, "noesis-sparks": 2 });
   });
+
+  test("replay mode overrides persisted dismissals without clearing storage", () => {
+    const record = { "noesis-sparks": 2 };
+
+    expect(isFeatureHintDismissed(record, "noesis-sparks", 2)).toBe(true);
+    expect(isFeatureHintHidden(record, "noesis-sparks", 2, false)).toBe(true);
+    expect(isFeatureHintHidden(record, "noesis-sparks", 2, true)).toBe(false);
+  });
+
+  test("session dismissals apply even in replay mode", () => {
+    const record = { "experience-rail": 1 };
+    const sessionDismissed = new Set(["experience-rail"] as const);
+
+    expect(isFeatureHintHidden(record, "experience-rail", 1, true, sessionDismissed)).toBe(true);
+  });
+
+  test("respectDismissInReplay keeps chrome hints hidden during replay", () => {
+    const record = { "experience-rail": 3, "noesis-sparks": 2 };
+
+    expect(isFeatureHintHidden(record, "experience-rail", 3, true, undefined, true)).toBe(true);
+    expect(isFeatureHintHidden(record, "noesis-sparks", 2, true, undefined, false)).toBe(false);
+  });
 });
 
 describe("feature hints registry", () => {
@@ -70,6 +93,7 @@ describe("feature hints registry", () => {
     for (const hint of Object.values(FEATURE_HINTS)) {
       expect(hint.enabled).toBe(true);
       expect(hint.version).toBeGreaterThan(0);
+      expect(hint.presentation).toMatch(/^(spotlight|toast)$/);
       expect(isFeatureHintEnabledInCode(hint.id)).toBe(true);
     }
   });

@@ -1,6 +1,7 @@
 import "server-only";
 
 import { createLogger } from "@/lib/logger";
+import { trackLlmUsageEvent } from "@/lib/usage/track-llm-usage";
 
 const logger = createLogger("lib/llm/metrics.ts");
 
@@ -15,6 +16,8 @@ type LlmCallMetadata = {
   operation?: string;
   route?: string;
   contextId?: string;
+  /** When set, usage is persisted for the usage overlay. */
+  userId?: string;
 };
 
 type LlmModelTotals = {
@@ -94,6 +97,19 @@ export function recordLlmCall(args: {
       },
     })
   );
+
+  if (metadata?.userId && totalTokens > 0) {
+    trackLlmUsageEvent({
+      ownerId: metadata.userId,
+      modelId: model,
+      inputTokens,
+      outputTokens,
+      reasoningTokens,
+      totalTokens,
+      operation: metadata.operation,
+      route: metadata.route,
+    });
+  }
 }
 
 export function getLlmModelTotals(): LlmModelTotals[] {

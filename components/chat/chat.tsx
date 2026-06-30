@@ -382,6 +382,7 @@ export const Chat: React.FC<ChatProps> = ({
               ? () => (
                   <ChatStylePicker
                     chatId={id}
+                    showStartersHint={messages.length === 0}
                     onStarterSelect={(text) => {
                       composerInjectSeq.current += 1;
                       setComposerInject({ id: composerInjectSeq.current, text });
@@ -434,6 +435,7 @@ export const Chat: React.FC<ChatProps> = ({
               experience === "arcadia" && experimentalArcadiaMarkdownPreview
             }
             error={error ?? chatError}
+            featureHints={!(experience === "arcadia" && messages.length === 0)}
             hideWebMemorySpeechToggles={experience === "strata_page" && Boolean(assistantSession)}
             initialDraft={initialDraft}
             isBlankChat={messages.length === 0 && persona !== "strata"}

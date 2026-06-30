@@ -18,6 +18,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/third-party/ui/dialog";
+import { requestFeatureGuideResume } from "@/lib/onboarding/feature-hint-explicit-request";
 import {
   KEYBOARD_SHORTCUT_SCOPES,
   KEYBOARD_SHORTCUT_SCOPE_LABELS,
@@ -90,13 +91,17 @@ export function OrganicHelpDialog({ className, triggerClassName }: OrganicHelpDi
       </DialogTrigger>
 
       <DialogContent
-        overlayClassName="bg-background/70 backdrop-blur-sm"
         className={cn(
-          "flex min-h-0 max-h-[min(90dvh,720px)] w-[calc(100%-1.5rem)] flex-col gap-0 overflow-hidden border-border/60 p-0 sm:max-w-2xl",
-          glassPreview({ opaque: true, depth: "floating" }),
-          "shadow-[0_24px_80px_-24px_rgb(0_0_0/0.45)]"
+          "flex max-h-[min(90dvh,720px)] w-[calc(100%-1.5rem)] flex-col gap-0 overflow-hidden border-0 bg-transparent p-0 shadow-none sm:max-w-2xl"
         )}
       >
+        <div
+          className={cn(
+            "flex min-h-0 flex-1 flex-col overflow-hidden sm:rounded-lg",
+            glassPreview({ opaque: true, depth: "floating" }),
+            "shadow-[0_24px_80px_-24px_rgb(0_0_0/0.45)]"
+          )}
+        >
         <DialogHeader className="shrink-0 space-y-2 border-b border-border/40 px-4 py-4 text-left sm:space-y-3 sm:px-6 sm:py-5">
           <p className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground/70">
             Organic LLM
@@ -136,8 +141,22 @@ export function OrganicHelpDialog({ className, triggerClassName }: OrganicHelpDi
                   <p className="text-sm leading-relaxed text-muted-foreground">
                     Contextual coachmarks highlight Search, Memory, Noesis sparks, and more. They
                     stay until you dismiss them and won&apos;t return on this browser once dismissed.
+                    After four tips in a row, we pause so you can use the unobstructed UI — use
+                    Show next tip when you&apos;re ready for more.
                   </p>
                   <div className="flex flex-wrap gap-2 pt-1">
+                    <Button
+                      className="h-8 text-xs"
+                      size="sm"
+                      type="button"
+                      variant="secondary"
+                      onClick={() => {
+                        requestFeatureGuideResume();
+                        setOpen(false);
+                      }}
+                    >
+                      Show next tip
+                    </Button>
                     <Button asChild className="h-8 text-xs" size="sm" variant="secondary">
                       <Link href="/showcase/anatomy">Public demo</Link>
                     </Button>
@@ -160,6 +179,7 @@ export function OrganicHelpDialog({ className, triggerClassName }: OrganicHelpDi
               ))}
             </div>
           </div>
+        </div>
         </div>
       </DialogContent>
     </Dialog>

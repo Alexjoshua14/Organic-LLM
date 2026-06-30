@@ -12,7 +12,7 @@ type ChatEmptyStateGuideProps = {
 };
 
 /**
- * Rich default empty state for main chat — explains defaults and links to public demo.
+ * Default empty state for main chat — layout content only; tip is a toast via {@link FeatureHint}.
  */
 export function ChatEmptyStateGuide({ className }: ChatEmptyStateGuideProps) {
   return (

@@ -10,16 +10,22 @@ export const CHAT_STYLES = [
     id: "default",
     label: "Standard",
     description: "Open chat. Structured blocks when they help.",
+    guide:
+      "Everyday Arcadia chat — concise replies, tools when useful, structured blocks for lists and steps.",
   },
   {
     id: "ergon",
     label: "Ergon board",
     description: "Kanban the assistant keeps. Ask what's active or next.",
+    guide:
+      "The assistant maintains a kanban board in-thread. Ask what's in progress, what's blocked, or what's next.",
   },
   {
     id: "scribe",
     label: "Scribe",
-    description: "Organizes your words only—no outside facts.",
+    description: "Organizes your words only — no outside facts.",
+    guide:
+      "Rewrites and structures what you provide — no web search or invented facts. Best for drafts you already have.",
   },
 ] as const;
 

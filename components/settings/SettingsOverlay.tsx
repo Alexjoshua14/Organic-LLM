@@ -7,7 +7,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Select, SelectItem } from "@heroui/select";
 import { Switch } from "@heroui/switch";
-import { Brain, ExternalLink, Settings2Icon } from "lucide-react";
+import { Brain, ExternalLink, Settings2Icon, Sparkles } from "lucide-react";
 import { useAuth, useUser } from "@clerk/nextjs";
 
 import { KnowledgeModal } from "@/components/knowledge/KnowledgeModal";
@@ -53,6 +53,9 @@ export function SettingsOverlay({ open, onOpenChange, trigger }: SettingsOverlay
   const [ergonLiquidChrome, setErgonLiquidChrome] = useState(
     () => getSettings().ergonLiquidChrome
   );
+  const [replayFeatureHints, setReplayFeatureHints] = useState(
+    () => getSettings().replayFeatureHints
+  );
 
   const knowledgeDisplayName = useMemo(() => {
     const full = user?.fullName?.trim();
@@ -69,6 +72,7 @@ export function SettingsOverlay({ open, onOpenChange, trigger }: SettingsOverlay
       setCoalescenceMode(s.coalescenceMode);
       setExperimentalArcadiaMarkdownPreview(s.experimentalArcadiaMarkdownPreview);
       setErgonLiquidChrome(s.ergonLiquidChrome);
+      setReplayFeatureHints(s.replayFeatureHints);
     }
   }, [open]);
 
@@ -142,6 +146,28 @@ export function SettingsOverlay({ open, onOpenChange, trigger }: SettingsOverlay
                   onValueChange={(enabled) => {
                     setExperimentalArcadiaMarkdownPreview(enabled);
                     setSettings({ experimentalArcadiaMarkdownPreview: enabled });
+                    if (userId) void persistUserSettingsToSupabase(userId, getSettings());
+                  }}
+                />
+              </div>
+            </section>
+
+            <section className="space-y-3">
+              <h3 className="flex items-center gap-2 text-sm font-medium text-foreground">
+                <Sparkles className="size-4 text-lumen" />
+                Tips &amp; coachmarks
+              </h3>
+              <div className="flex items-center justify-between gap-3">
+                <span className="text-xs text-muted-foreground">
+                  Re-show surface tips you dismissed. Sidebar and composer tips stay dismissed;
+                  turn off to return to normal.
+                </span>
+                <Switch
+                  aria-label="Replay feature tips and coachmarks"
+                  isSelected={replayFeatureHints}
+                  onValueChange={(enabled) => {
+                    setReplayFeatureHints(enabled);
+                    setSettings({ replayFeatureHints: enabled });
                     if (userId) void persistUserSettingsToSupabase(userId, getSettings());
                   }}
                 />

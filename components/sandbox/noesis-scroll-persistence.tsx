@@ -4,6 +4,10 @@ import { useStickToBottomContext } from "use-stick-to-bottom";
 import { useEffect, useLayoutEffect, useRef } from "react";
 
 import {
+  applyNoesisScrollSnapshot,
+  reportNoesisScrollRestoreStatus,
+} from "@/lib/sandbox/noesis-scroll-restore";
+import {
   loadNoesisScrollSnapshot,
   saveNoesisScrollSnapshot,
 } from "@/lib/sandbox/noesis-scroll-storage";
@@ -28,7 +32,8 @@ type NoesisScrollPersistenceProps = {
 
 /**
  * Restores and persists Noesis thread scroll position in localStorage.
- * Must render inside {@link Conversation} / StickToBottom.
+ * Applies saved scroll synchronously in useLayoutEffect (before paint) when possible.
+ * Must render inside {@link Conversation} / StickToBottom, after thread content.
  */
 export function NoesisScrollPersistence({ threadId, messageCount }: NoesisScrollPersistenceProps) {
   const { scrollRef, contentRef, scrollToBottom, stopScroll } = useStickToBottomContext();
@@ -36,72 +41,97 @@ export function NoesisScrollPersistence({ threadId, messageCount }: NoesisScroll
   const restoredRef = useRef(false);
   const saveTimerRef = useRef<number | null>(null);
   const snapshotRef = useRef(loadNoesisScrollSnapshot(threadId));
+  const restoreStartedAtRef = useRef<number | null>(null);
+  const restoreDeferredRef = useRef(false);
 
   useEffect(() => {
     snapshotRef.current = loadNoesisScrollSnapshot(threadId);
     restoredRef.current = false;
+    restoreStartedAtRef.current = null;
+    restoreDeferredRef.current = false;
   }, [threadId]);
 
   useLayoutEffect(() => {
     if (restoredRef.current) return;
 
+    restoreStartedAtRef.current ??= performance.now();
+
     const snapshot = snapshotRef.current;
     let cancelled = false;
-    let frame = 0;
-    let attempts = 0;
 
-    const tryRestore = () => {
+    const finishRestore = (deferred: boolean) => {
+      if (restoredRef.current || cancelled) return;
+
+      restoredRef.current = true;
+      restoreDeferredRef.current = deferred;
+
+      const startedAt = restoreStartedAtRef.current ?? performance.now();
+
+      reportNoesisScrollRestoreStatus({
+        durationMs: performance.now() - startedAt,
+        restored: true,
+        deferred,
+      });
+    };
+
+    const tryRestore = (): boolean => {
       if (cancelled || restoredRef.current) return true;
 
       const scrollEl = scrollRef.current;
 
-      if (!scrollEl || scrollEl.clientHeight === 0) return false;
+      if (!scrollEl) return false;
 
-      if (!snapshot) {
-        restoredRef.current = true;
+      const result = applyNoesisScrollSnapshot(scrollEl, snapshot, {
+        scrollToBottom,
+        stopScroll,
+      });
+
+      if (!result.applied) return false;
+
+      if (!result.deferred) {
+        finishRestore(false);
 
         return true;
       }
 
-      if (snapshot.isAtBottom) {
-        scrollToBottom({ animation: "instant" });
-      } else {
-        stopScroll();
-        const maxScrollTop = Math.max(0, scrollEl.scrollHeight - scrollEl.clientHeight);
-
-        scrollEl.scrollTop = Math.min(snapshot.scrollTop, maxScrollTop);
-      }
-
-      restoredRef.current = true;
-
-      return true;
+      return false;
     };
 
-    const tick = () => {
-      if (tryRestore() || attempts++ > 90) return;
-      frame = requestAnimationFrame(tick);
-    };
-
-    tick();
+    if (tryRestore()) {
+      return () => {
+        cancelled = true;
+      };
+    }
 
     const contentEl = contentRef.current;
 
     if (!contentEl) {
       return () => {
         cancelled = true;
-        cancelAnimationFrame(frame);
       };
     }
 
     const observer = new ResizeObserver(() => {
-      if (tryRestore()) observer.disconnect();
+      if (tryRestore()) {
+        observer.disconnect();
+        return;
+      }
+
+      const scrollEl = scrollRef.current;
+
+      if (!scrollEl || !snapshot || snapshot.isAtBottom) return;
+
+      stopScroll();
+      scrollEl.scrollTop = Math.min(
+        snapshot.scrollTop,
+        Math.max(0, scrollEl.scrollHeight - scrollEl.clientHeight)
+      );
     });
 
     observer.observe(contentEl);
 
     return () => {
       cancelled = true;
-      cancelAnimationFrame(frame);
       observer.disconnect();
     };
   }, [contentRef, messageCount, scrollRef, scrollToBottom, stopScroll, threadId]);

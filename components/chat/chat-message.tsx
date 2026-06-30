@@ -103,7 +103,6 @@ const AIMessage: FC<ChatMessageProps> = ({
   const showCustomArcadiaHelp =
     isArcadiaHelp && (isLatestArcadiaHelp === undefined || isLatestArcadiaHelp);
 
-  const partsUnknown = message.parts as unknown[];
   const isActivelyStreaming =
     Boolean(aiActionPayload) || messagePartsIndicateStreaming(message.parts);
   const modelLabel = showModelBadge ? getModelDisplayName(getMessageModelId(message)) : null;
@@ -123,11 +122,11 @@ const AIMessage: FC<ChatMessageProps> = ({
         {message.parts.map((part, i) => {
           switch (part.type) {
             case "reasoning":
-              if (part.state === "streaming") {
-                return <ChatReasoning key={`${message.id}-${i}`} />;
+              if (part.state === "done") {
+                return null;
               }
 
-              return null;
+              return <ChatReasoning key={`${message.id}-${i}`} />;
 
             case "text":
               if (showCustomArcadiaHelp) {
@@ -257,9 +256,9 @@ const AIMessage: FC<ChatMessageProps> = ({
 
                 return null;
               }
-              const legacyTool = part as unknown;
+              const legacyTool = getLegacyToolInvocationPart(part);
 
-              if (isToolInvocationPart(legacyTool)) {
+              if (legacyTool) {
                 const tp = legacyTool;
 
                 if (tp.state === "partial-call" || tp.state === "call") {
@@ -289,7 +288,7 @@ const AIMessage: FC<ChatMessageProps> = ({
           }
         })}
 
-        {aiActionPayload && shouldShowTailAiAction(aiActionPayload, partsUnknown) && (
+        {aiActionPayload && shouldShowTailAiAction(aiActionPayload, message.parts) && (
           <ChatAIAction aiActionPayload={aiActionPayload} />
         )}
       </div>
@@ -299,6 +298,8 @@ const AIMessage: FC<ChatMessageProps> = ({
     </div>
   );
 };
+
+type MessageParts = UIMessage["parts"];
 
 type ToolInvocationPartLike = {
   type: "tool-invocation";
@@ -310,96 +311,84 @@ type ToolInvocationPartLike = {
   errorText?: string;
 };
 
-function isToolInvocationPart(part: unknown): part is ToolInvocationPartLike {
-  if (!part || typeof part !== "object") return false;
-  const p = part as Record<string, unknown>;
+/** Runtime parts may include legacy tool-invocation entries not in the UIMessage union. */
+type MessagePartLike = MessageParts[number] | ToolInvocationPartLike;
 
-  return p.type === "tool-invocation" && typeof p.toolInvocationId === "string";
+function getLegacyToolInvocationPart(part: MessagePartLike): ToolInvocationPartLike | null {
+  if (part.type !== "tool-invocation") return null;
+  if (!("toolInvocationId" in part) || typeof part.toolInvocationId !== "string") return null;
+
+  return part;
 }
 
-function messagePartsIndicateStreaming(parts: UIMessage["parts"]): boolean {
-  for (const p of parts) {
-    if (p.type === "reasoning" && p.state === "streaming") return true;
-    if (p.type === "text" && "state" in p && (p as { state?: string }).state === "streaming") {
-      return true;
+function messagePartsIndicateStreaming(parts: MessageParts): boolean {
+  for (const part of parts) {
+    if (part.type === "reasoning" && part.state !== "done") return true;
+    if (part.type === "text" && part.state === "streaming") return true;
+    if (isToolOrDynamicToolUIPart(part)) {
+      if (part.state === "input-streaming" || part.state === "input-available") return true;
+      continue;
     }
-    if (isToolOrDynamicToolUIPart(p)) {
-      if (p.state === "input-streaming" || p.state === "input-available") return true;
-    } else if (isToolInvocationPart(p)) {
-      const lt = p as unknown as ToolInvocationPartLike;
 
-      if (lt.state === "partial-call" || lt.state === "call") return true;
-    }
+    const legacy = getLegacyToolInvocationPart(part);
+
+    if (legacy?.state === "partial-call" || legacy?.state === "call") return true;
   }
 
   return false;
 }
 
-function partListHasStreamingReasoning(parts: unknown[]): boolean {
-  return parts.some(
-    (p) =>
-      p &&
-      typeof p === "object" &&
-      (p as { type?: string }).type === "reasoning" &&
-      (p as { state?: string }).state === "streaming"
-  );
+function partListHasStreamingReasoning(parts: MessageParts): boolean {
+  return parts.some((part) => part.type === "reasoning" && part.state !== "done");
 }
 
 /** True when the message already has inline tool UI (loading or result). */
-function partListHasToolUIPart(parts: unknown[]): boolean {
-  return parts.some((p) => {
-    if (!p || typeof p !== "object") return false;
-    const up = p as UIMessage["parts"][number];
-
-    if (isToolOrDynamicToolUIPart(up)) {
-      return true;
-    }
-
-    return isToolInvocationPart(p);
-  });
+function partListHasToolUIPart(parts: MessageParts): boolean {
+  return parts.some(
+    (part) => isToolOrDynamicToolUIPart(part) || getLegacyToolInvocationPart(part) !== null
+  );
 }
 
-function partListHasMemorySearchToolPart(parts: unknown[]): boolean {
+function partListHasMemorySearchToolPart(parts: MessageParts): boolean {
   const names = new Set(["search_memories", "memory_search"]);
 
-  return parts.some((p) => {
-    if (!p || typeof p !== "object") return false;
-    const up = p as UIMessage["parts"][number];
-
-    if (isToolOrDynamicToolUIPart(up)) {
-      return names.has(getToolOrDynamicToolName(up).toLowerCase());
+  return parts.some((part) => {
+    if (isToolOrDynamicToolUIPart(part)) {
+      return names.has(getToolOrDynamicToolName(part).toLowerCase());
     }
 
-    return isToolInvocationPart(p) && names.has(p.toolName.toLowerCase());
+    const legacy = getLegacyToolInvocationPart(part);
+
+    return legacy !== null && names.has(legacy.toolName.toLowerCase());
   });
 }
 
-function partListHasInFlightWebSearch(parts: unknown[]): boolean {
-  return parts.some((p) => {
-    if (!p || typeof p !== "object") return false;
-    const up = p as UIMessage["parts"][number];
+function partListHasInFlightWebSearch(parts: MessageParts): boolean {
+  return parts.some((part) => {
+    if (isToolOrDynamicToolUIPart(part)) {
+      const inFlight = part.state === "input-streaming" || part.state === "input-available";
 
-    if (isToolOrDynamicToolUIPart(up)) {
-      const inFlight = up.state === "input-streaming" || up.state === "input-available";
-
-      return inFlight && getToolOrDynamicToolName(up).toLowerCase() === "web_search";
+      return inFlight && getToolOrDynamicToolName(part).toLowerCase() === "web_search";
     }
 
+    const legacy = getLegacyToolInvocationPart(part);
+
     return (
-      isToolInvocationPart(p) &&
-      (p.state === "partial-call" || p.state === "call") &&
-      p.toolName.toLowerCase() === "web_search"
+      legacy !== null &&
+      (legacy.state === "partial-call" || legacy.state === "call") &&
+      legacy.toolName.toLowerCase() === "web_search"
     );
   });
 }
 
 function shouldShowTailAiAction(
   payload: NonNullable<ChatMessageProps["aiActionPayload"]>,
-  parts: unknown[]
+  parts: MessageParts
 ): boolean {
   switch (payload.action) {
     case ChatAIActionEnum.Processing:
-      return true;
+      // Inline reasoning/tool/text parts own loading UI once the stream starts.
+      return !messagePartsIndicateStreaming(parts);
     case ChatAIActionEnum.Search:
       if (
         partListHasInFlightWebSearch(parts) &&

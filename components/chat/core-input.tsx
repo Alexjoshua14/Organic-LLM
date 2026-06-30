@@ -52,7 +52,6 @@ import { ChatMessageMarkdown } from "./chat-message-markdown";
 import { ComposerAddFilesButton } from "./composer-add-files-button";
 import { ComposerMicButton } from "./composer-mic-button";
 import { ComposerToolChip } from "./composer-tool-chip";
-import { ComposerAssistMorphBody } from "./composer-assist-morph-body";
 import { ModelZdrIndicator } from "./model-zdr-indicator";
 
 import { FeatureHint } from "@/components/onboarding/feature-hint";
@@ -95,10 +94,6 @@ type CoreInputProps = {
   onComposerTextChange?: (text: string) => void;
   /** When true, textarea swaps to shimmer text while status is submitted/streaming. Default false. */
   sentMessageShimmer?: boolean;
-  /** When true, composer shows shimmer while a reply suggestion is being generated. */
-  assistReplyPending?: boolean;
-  /** Spring-morph composer height between edit and assist-drafting states (Noesis). */
-  morphAssistComposer?: boolean;
   /** Override persisted model id key (e.g. Delphi vs main chat). Other prefs use global keys. */
   modelLocalStorageKey?: string;
   /** Initial model when no stored preference exists (defaults to Auto for routing). */
@@ -120,6 +115,8 @@ type CoreInputProps = {
   variant?: "default" | "compact";
   /** First-run coachmarks for composer tools (dismiss persists in localStorage). */
   featureHints?: boolean;
+  /** Gate steer-assist coachmark until Noesis assist is available (after first assistant turn). */
+  steerHintShowWhen?: boolean;
 };
 
 /** Max length for the in-flight shimmer copy (matches AiInputForm). */
@@ -152,8 +149,6 @@ export const CoreInput: React.FC<CoreInputProps> = ({
   submitVariant = "default",
   onComposerTextChange,
   sentMessageShimmer = false,
-  assistReplyPending = false,
-  morphAssistComposer = false,
   modelLocalStorageKey,
   defaultModel = DEFAULT_COMPOSER_MODEL,
   memoryLocalStorageKey,
@@ -166,6 +161,7 @@ export const CoreInput: React.FC<CoreInputProps> = ({
   secondarySubmitPending = false,
   variant = "default",
   featureHints = true,
+  steerHintShowWhen = true,
 }) => {
   const { refreshSidebarChats } = useSharedChatContext();
 
@@ -185,6 +181,7 @@ export const CoreInput: React.FC<CoreInputProps> = ({
   const [useSpeechFriendly, setUseSpeechFriendly] = useState<boolean>(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const toolsRef = useRef<HTMLDivElement | null>(null);
+  const showLabelsRef = useRef(false);
   const [showLabels, setShowLabels] = useState(false);
   const [inputMarkdownMode, setInputMarkdownMode] = useState<"edit" | "preview">("edit");
   const hasLoadedPrefs = useRef(false);
@@ -399,16 +396,33 @@ export const CoreInput: React.FC<CoreInputProps> = ({
 
     if (!el) return;
 
-    const update = (width: number) => setShowLabels(width >= 628);
+    /** Wider threshold to show labels; lower to hide — avoids oscillation at the breakpoint. */
+    const SHOW_LABELS_AT_PX = 640;
+    const HIDE_LABELS_AT_PX = 600;
 
-    update(el.getBoundingClientRect().width);
+    const applyWidth = (width: number) => {
+      const next = showLabelsRef.current
+        ? width >= HIDE_LABELS_AT_PX
+        : width >= SHOW_LABELS_AT_PX;
+
+      if (next === showLabelsRef.current) return;
+
+      showLabelsRef.current = next;
+      setShowLabels(next);
+    };
+
+    const measureTarget =
+      (el.closest("[data-prompt-input-shell]") as HTMLElement | null) ?? el;
+
+    applyWidth(measureTarget.getBoundingClientRect().width);
 
     if (typeof ResizeObserver === "undefined") return;
+
     const observer = new ResizeObserver((entries) => {
-      update(entries[0]?.contentRect.width ?? 0);
+      applyWidth(entries[0]?.contentRect.width ?? 0);
     });
 
-    observer.observe(el);
+    observer.observe(measureTarget);
 
     return () => observer.disconnect();
   }, []);
@@ -490,8 +504,6 @@ export const CoreInput: React.FC<CoreInputProps> = ({
     sentMessageShimmer === true && (status === "submitted" || status === "streaming");
   const sentDisplaySource = recentlySentText || recentlySentTextRef.current;
   const sentDisplayText = truncateSentMessageDisplay(sentDisplaySource);
-  const showAssistShimmer = assistReplyPending === true && !showSentShimmer;
-  const assistShimmerText = text.trim() || "Drafting your reply…";
   const composerBodyMeasureClass =
     "w-full min-h-11 max-h-40 overflow-y-auto whitespace-pre-wrap break-words text-base text-foreground md:text-sm";
 
@@ -547,36 +559,6 @@ export const CoreInput: React.FC<CoreInputProps> = ({
       />
     );
 
-    const draftBody = (
-      <div aria-live="polite" className="w-full min-w-0 max-w-full px-3 py-3" role="status">
-        <span className="sr-only">Drafting reply suggestion</span>
-        <ShinyText
-          accentShimmer
-          as="div"
-          className={composerBodyMeasureClass}
-          speed={0.85}
-          text={assistShimmerText}
-        />
-      </div>
-    );
-
-    if (morphAssistComposer) {
-      return (
-        <ComposerAssistMorphBody
-          draftMeasure={assistShimmerText}
-          editMeasure={text.trim() || "\u00a0"}
-          measureFingerprint={`${showAssistShimmer ? "draft" : "edit"}:${text.length}:${assistShimmerText.length}`}
-          mode={showAssistShimmer ? "drafting" : "edit"}
-        >
-          {showAssistShimmer ? draftBody : editBody}
-        </ComposerAssistMorphBody>
-      );
-    }
-
-    if (showAssistShimmer) {
-      return draftBody;
-    }
-
     return editBody;
   };
 
@@ -587,11 +569,11 @@ export const CoreInput: React.FC<CoreInputProps> = ({
 
   return (
     <PromptInput
-      aria-busy={showSentShimmer || showAssistShimmer ? true : undefined}
+      aria-busy={showSentShimmer ? true : undefined}
       data-dim-background
       globalDrop
       multiple
-      className={cn("min-w-fit z-40", className)}
+      className={cn("z-40 w-full min-w-0", className)}
       onSubmit={handleSubmit}
     >
       <PromptInputHeader>
@@ -773,8 +755,7 @@ export const CoreInput: React.FC<CoreInputProps> = ({
                     secondarySubmitPending ||
                     !text.trim() ||
                     disabled ||
-                    showSentShimmer ||
-                    showAssistShimmer
+                    showSentShimmer
                   }
                   size="dynamic-sm"
                   title="Run steer on the current text (⌘ or Ctrl + Enter)"
@@ -797,7 +778,9 @@ export const CoreInput: React.FC<CoreInputProps> = ({
               );
 
               return showSteerHint ? (
-                <FeatureHint id="noesis-steer-assist">{steerButton}</FeatureHint>
+                <FeatureHint id="noesis-steer-assist" showWhen={steerHintShowWhen}>
+                  {steerButton}
+                </FeatureHint>
               ) : (
                 steerButton
               );
@@ -808,7 +791,7 @@ export const CoreInput: React.FC<CoreInputProps> = ({
               submitVariant === "organic-glass" &&
                 "organic-glass-preview border border-white/20 bg-linear-to-br from-background/86 via-background/60 to-background-tertiary/42 text-foreground shadow-[0_10px_36px_-18px_rgba(20,21,22,0.65),inset_0_1px_0_rgba(255,255,255,0.38)] backdrop-blur-xl hover:border-accent/25 hover:text-foreground dark:border-white/10 dark:from-background-secondary/82 dark:via-background/62 dark:to-background-tertiary/38"
             )}
-            disabled={(!text && !status) || disabled || showAssistShimmer}
+            disabled={(!text && !status) || disabled}
             status={status}
             stop={stop}
           >

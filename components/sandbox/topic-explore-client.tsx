@@ -5,10 +5,10 @@ import type { ExaSearchResultSource } from "@/lib/exa/types";
 import { UIMessage, useChat } from "@ai-sdk/react";
 import { DefaultChatTransport } from "ai";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Loader2, RefreshCw, Sparkles } from "lucide-react";
+import { Loader2, RefreshCw, Sparkles, X } from "lucide-react";
 import { toast } from "sonner";
 
-import ShinyText from "@/components/ShinyText";
+import { ChatThinking } from "@/components/chat/chat-loading";
 
 import { Conversation, ConversationScrollButton } from "../third-party/ai-elements/conversation";
 import { ChatThread } from "../chat/chat-thread";
@@ -36,6 +36,7 @@ import {
   DEFAULT_COMPOSER_WEB_SEARCH,
 } from "@/lib/chat/composer-tool-defaults";
 import { FeatureHint } from "@/components/onboarding/feature-hint";
+import { glass } from "@/components/design-system/primitives";
 import { Button } from "@/components/third-party/ui/button";
 import { cn } from "@/lib/utils";
 
@@ -446,45 +447,47 @@ export function TopicExploreClient({ chatData }: TopicExploreClientProps) {
         </div>
         <div className="flex flex-col gap-2">
           <FeatureHint id="noesis-sparks" showWhen={messages.length === 0}>
-            <div className="flex items-center justify-between gap-2">
-            <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
-              Sparks
-            </span>
-            <Button
-              className="h-8 gap-1.5 text-xs"
-              disabled={startersLoading || messages.length > 0}
-              size="sm"
-              type="button"
-              variant="ghost"
-              onClick={() => void loadStarters()}
-            >
-              {startersLoading ? (
-                <Loader2 className="size-3.5 animate-spin" />
-              ) : (
-                <RefreshCw className="size-3.5" />
-              )}
-              Regenerate
-            </Button>
+            <div className="flex flex-col gap-2">
+              <div className="flex items-center justify-between gap-2">
+                <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+                  Sparks
+                </span>
+                <Button
+                  className="h-8 gap-1.5 text-xs"
+                  disabled={startersLoading || messages.length > 0}
+                  size="sm"
+                  type="button"
+                  variant="ghost"
+                  onClick={() => void loadStarters()}
+                >
+                  {startersLoading ? (
+                    <Loader2 className="size-3.5 animate-spin" />
+                  ) : (
+                    <RefreshCw className="size-3.5" />
+                  )}
+                  Regenerate
+                </Button>
+              </div>
+              <div className="grid gap-2 sm:grid-cols-2">
+                {(starters.length > 0 ? starters : ["", "", "", ""]).map((s, i) => (
+                  <button
+                    key={`spark-${i}`}
+                    className={cn(
+                      "cursor-pointer rounded-lg border border-border/60 bg-background-secondary/40 px-3 py-3 text-left text-sm",
+                      "hover:border-accent/40 hover:bg-background-secondary/70 transition-colors",
+                      "disabled:opacity-40 disabled:pointer-events-none disabled:cursor-not-allowed",
+                      !s && "min-h-[4.5rem] animate-pulse"
+                    )}
+                    disabled={!s || startersLoading || status !== "ready"}
+                    type="button"
+                    onClick={() => s && sendMessage({ text: s })}
+                  >
+                    {s || (startersLoading ? "…" : "—")}
+                  </button>
+                ))}
+              </div>
             </div>
           </FeatureHint>
-          <div className="grid gap-2 sm:grid-cols-2">
-            {(starters.length > 0 ? starters : ["", "", "", ""]).map((s, i) => (
-              <button
-                key={`spark-${i}`}
-                className={cn(
-                  "rounded-lg border border-border/60 bg-background-secondary/40 px-3 py-3 text-left text-sm",
-                  "hover:border-accent/40 hover:bg-background-secondary/70 transition-colors",
-                  "disabled:opacity-40 disabled:pointer-events-none",
-                  !s && "min-h-[4.5rem] animate-pulse"
-                )}
-                disabled={!s || startersLoading || status !== "ready"}
-                type="button"
-                onClick={() => s && sendMessage({ text: s })}
-              >
-                {s || (startersLoading ? "…" : "—")}
-              </button>
-            ))}
-          </div>
         </div>
       </div>
     );
@@ -515,17 +518,35 @@ export function TopicExploreClient({ chatData }: TopicExploreClientProps) {
           "overscroll-x-none",
         ].join(" ")}
         initial={conversationInitial}
+        resize={conversationInitial === false ? "instant" : "smooth"}
       >
         <ChatThreadTitleOverlay title={threadTitle} />
-        <NoesisScrollPersistence messageCount={messages.length} threadId={threadId} />
         <ChatThread aiActionPayload={aiAction} messages={messages} renderEmptyState={emptyState} />
+        <NoesisScrollPersistence messageCount={messages.length} threadId={threadId} />
         <ConversationScrollButton className="bottom-14" />
       </Conversation>
       <div className="shrink-0 px-4 sm:px-7 pb-1 md:pb-4 w-full -mt-10 flex flex-col gap-2">
         <div className="sm:max-w-[calc(100dvw-2rem)] md:max-w-[calc(100dvw-24rem)] lg:max-w-4xl mx-auto w-full flex flex-col gap-2">
           {steerOutput.trim().length > 0 ? (
-            <div className="rounded-lg border border-border/50 bg-background-secondary/35 px-3 py-2 text-xs text-muted-foreground max-h-32 overflow-y-auto">
-              <div className="font-medium text-foreground/80 mb-1">Steer notes (for assist)</div>
+            <div
+              className={cn(
+                glass({ opaque: true }),
+                "rounded-lg px-3 py-2 text-xs text-muted-foreground max-h-32 overflow-y-auto"
+              )}
+            >
+              <div className="mb-1 flex items-start justify-between gap-2">
+                <div className="font-medium text-foreground/80">Steer notes (for assist)</div>
+                <Button
+                  aria-label="Dismiss steer notes"
+                  className="size-7 shrink-0 -mr-1 -mt-0.5 text-muted-foreground"
+                  size="icon"
+                  type="button"
+                  variant="ghost"
+                  onClick={() => setSteerOutput("")}
+                >
+                  <X className="size-3.5" />
+                </Button>
+              </div>
               <pre className="whitespace-pre-wrap font-sans text-[13px] text-foreground/90">
                 {steerOutput}
               </pre>
@@ -546,8 +567,20 @@ export function TopicExploreClient({ chatData }: TopicExploreClientProps) {
                 variant="glass"
                 onClick={(event) => void runAssist({ autoSend: event.shiftKey })}
               >
-                <Sparkles className="size-4" />
-                {composerDraft.trim().length > 0 ? "Finish my reply" : "Suggest my reply"}
+                <Sparkles className="size-4 shrink-0" />
+                {assistPending ? (
+                  <ChatThinking
+                    as="span"
+                    className="text-sm font-normal"
+                    text={
+                      composerDraft.trim().length > 0 ? "Finish my reply" : "Suggest my reply"
+                    }
+                  />
+                ) : composerDraft.trim().length > 0 ? (
+                  "Finish my reply"
+                ) : (
+                  "Suggest my reply"
+                )}
                 {assistCooldownRemaining > 0 ? (
                   <span className="text-muted-foreground tabular-nums">
                     ({assistCooldownRemaining}s)
@@ -555,15 +588,7 @@ export function TopicExploreClient({ chatData }: TopicExploreClientProps) {
                 ) : null}
               </Button>
             </FeatureHint>
-            {assistPending ? (
-              <ShinyText
-                accentShimmer
-                as="span"
-                className="text-xs font-light text-muted-foreground"
-                speed={0.85}
-                text="Drafting…"
-              />
-            ) : composerDraft.trim().length > 0 ? (
+            {!assistPending && composerDraft.trim().length > 0 ? (
               <span className="text-xs text-muted-foreground">Edit before you send</span>
             ) : null}
             {canSuggestReply && !assistPending ? (
@@ -577,12 +602,11 @@ export function TopicExploreClient({ chatData }: TopicExploreClientProps) {
             ) : null}
           </div>
           <CoreInput
-            assistReplyPending={assistPending}
-            morphAssistComposer
             chatId={chatData.thread.id}
             clearError={clearError}
             composerInject={composerInject}
             error={error ?? chatError}
+            featureHints={messages.length > 0}
             isBlankChat={messages.length === 0}
             modelRef={selectedModelRef}
             onComposerTextChange={setComposerDraft}
@@ -591,6 +615,7 @@ export function TopicExploreClient({ chatData }: TopicExploreClientProps) {
             secondarySubmitPending={steerPending}
             sendMessage={sendMessage}
             status={status}
+            steerHintShowWhen={canSuggestReply}
             stop={handleStop}
             useMemoriesRef={useMemoriesRef}
             useSpeechFriendlyRef={useSpeechFriendlyRef}

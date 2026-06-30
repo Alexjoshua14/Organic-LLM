@@ -2,7 +2,7 @@ import Link from "next/link";
 
 import { PageContentFrame } from "@/components/layout/page-content-frame";
 
-const CATEGORIES = ["architecture", "design"] as const;
+const CATEGORIES = ["surfaces", "architecture", "design"] as const;
 
 type Category = (typeof CATEGORIES)[number];
 
@@ -11,7 +11,17 @@ const POSTS: Array<{
   title: string;
   description: string;
   category: Category;
+  /** When set, links to this href instead of `/blog/{slug}`. */
+  href?: string;
 }> = [
+  {
+    slug: "surfaces",
+    title: "Surfaces",
+    description:
+      "What each workspace mode is for — Chat (with Arcadia & Noesis variants), Strata, Rabbit Holes, Ergon, and Remy.",
+    category: "surfaces",
+    href: "/blog/surfaces",
+  },
   {
     slug: "how-we-secure-memory",
     title: "How we protect your memories",
@@ -50,6 +60,7 @@ const POSTS: Array<{
 ];
 
 const CATEGORY_LABELS: Record<Category, string> = {
+  surfaces: "Surfaces",
   architecture: "Architecture",
   design: "Design",
 };
@@ -77,7 +88,7 @@ export default function BlogPage() {
                   <li key={post.slug}>
                     <Link
                       className="block rounded-lg border border-border bg-secondary p-4 transition-colors hover:bg-secondary/80 text-foreground no-underline"
-                      href={`/blog/${post.slug}`}
+                      href={post.href ?? `/blog/${post.slug}`}
                     >
                       <h3 className="font-medium text-foreground">{post.title}</h3>
                       <p className="text-sm text-muted-foreground mt-1">{post.description}</p>
