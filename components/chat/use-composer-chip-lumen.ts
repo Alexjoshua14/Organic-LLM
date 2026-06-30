@@ -78,6 +78,8 @@ export function useComposerChipLumen(hostRef: RefObject<HTMLSpanElement | null>)
     const button = host.querySelector<HTMLElement>(".composer-tool-chip");
     if (!button) return;
 
+    if (typeof ResizeObserver === "undefined") return;
+
     const observer = new ResizeObserver(sync);
     observer.observe(button);
     return () => observer.disconnect();
