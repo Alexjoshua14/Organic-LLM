@@ -94,12 +94,16 @@ export function OrganicHelpDialog({ className, triggerClassName }: OrganicHelpDi
         className={cn(
           "flex max-h-[min(90dvh,720px)] w-[calc(100%-1.5rem)] flex-col gap-0 overflow-hidden border-0 bg-transparent p-0 shadow-none sm:max-w-2xl"
         )}
+        overlayClassName="bg-black/30 dark:bg-black/80"
       >
         <div
           className={cn(
             "flex min-h-0 flex-1 flex-col overflow-hidden sm:rounded-lg",
-            glassPreview({ opaque: true, depth: "floating" }),
-            "shadow-[0_24px_80px_-24px_rgb(0_0_0/0.45)]"
+            glass({ opaque: true }),
+            "backdrop-brightness-[1.18] backdrop-saturate-[1.05]",
+            "dark:backdrop-brightness-100 dark:backdrop-saturate-[1.12]",
+            "shadow-[0_24px_80px_-24px_rgb(0_0_0/0.18)] dark:shadow-[0_24px_80px_-24px_rgb(0_0_0/0.45)]",
+            "ring-1 ring-inset ring-white/50 dark:ring-white/10"
           )}
         >
         <DialogHeader className="shrink-0 space-y-2 border-b border-border/40 px-4 py-4 text-left sm:space-y-3 sm:px-6 sm:py-5">
