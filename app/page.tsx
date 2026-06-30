@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 
+import { LiquidChromeSsrFill } from "@/components/background/LiquidChromeSsrFill";
 import Home from "@/components/pages/home";
 import { welcomeCopy } from "@/lib/welcome/copy";
 
@@ -11,5 +12,10 @@ export const metadata: Metadata = {
 };
 
 export default function HomePage() {
-  return <Home />;
+  return (
+    <>
+      <LiquidChromeSsrFill id="home-liquid-chrome-ssr-fill" />
+      <Home />
+    </>
+  );
 }

@@ -24,6 +24,7 @@ export function WelcomeHero() {
     <Page
       chrome="full-bleed"
       className="!items-stretch !justify-start overflow-y-auto overflow-x-hidden scroll-area-safe-bottom"
+      liquidChromeBackground
       transparentBackground
     >
       <div className="relative flex w-full flex-col">

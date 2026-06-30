@@ -24,7 +24,7 @@ const sampleAdded = [{ memory: "User asked to preview memory UI components in th
 
 export default function MemoryShowcasePage() {
   return (
-    <Page transparentBackground className="overflow-hidden">
+    <Page liquidChromeBackground transparentBackground className="overflow-hidden">
       <AdaptiveLiquidChrome dimIntensity={0.45} />
       <PageContentFrame className="relative z-10 h-full overflow-y-auto pb-16">
         <PageNavBack className="mb-8" href="/showcase">

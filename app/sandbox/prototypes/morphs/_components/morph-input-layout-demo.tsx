@@ -174,7 +174,7 @@ export function MorphInputLayoutDemo() {
   };
 
   return (
-    <Page transparentBackground className="items-stretch justify-start gap-0 overflow-hidden">
+    <Page liquidChromeBackground transparentBackground className="items-stretch justify-start gap-0 overflow-hidden">
       <AdaptiveLiquidChrome dimIntensity={0.45} />
       <div
         aria-hidden

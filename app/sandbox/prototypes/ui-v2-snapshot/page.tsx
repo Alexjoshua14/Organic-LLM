@@ -10,7 +10,7 @@ import { CurrentCoreInputPreview } from "./_components/current-core-input-previe
 import AdaptiveLiquidChrome from "@/components/background/AdaptiveLiquidChrome";
 import { OrganicGlassBaselineSurface } from "@/components/design-system/organic-glass-baseline-surface";
 import { glass, glassPreview } from "@/components/design-system/primitives";
-import Page from "@/components/layout/page";
+import LiquidChromePage from "@/components/layout/liquid-chrome-page";
 import { cn } from "@/lib/utils";
 import { tabTitleMetadata } from "@/lib/metadata/tab-title";
 
@@ -550,7 +550,7 @@ function SnapshotShell({ variant }: { variant: SnapshotVariant }) {
 
 export default function UiV2SnapshotPrototypePage() {
   return (
-    <Page transparentBackground className="overflow-hidden">
+    <LiquidChromePage transparentBackground className="overflow-hidden">
       <AdaptiveLiquidChrome dimIntensity={0.48} dimIntensityFull={0.68} speed={0.01} />
 
       <div className="relative z-10 h-full w-full overflow-y-auto">
@@ -583,6 +583,6 @@ export default function UiV2SnapshotPrototypePage() {
           </div>
         </div>
       </div>
-    </Page>
+    </LiquidChromePage>
   );
 }

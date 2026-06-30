@@ -114,10 +114,15 @@ export default function Home() {
             <div className="flex items-center gap-3">
               <label className="text-sm opacity-70">
                 Priority:
-                <select className="ml-2 rounded border px-2 py-1" defaultValue="2" name="priority">
-                  <option value="1">High</option>
-                  <option value="2">Medium</option>
-                  <option value="3">Low</option>
+                <select
+                  className="ml-2 rounded border px-2 py-1"
+                  defaultValue="medium"
+                  name="priority"
+                >
+                  <option value="low">Low</option>
+                  <option value="medium">Medium</option>
+                  <option value="high">High</option>
+                  <option value="urgent">Urgent</option>
                 </select>
               </label>
 

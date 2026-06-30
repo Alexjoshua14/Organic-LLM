@@ -167,6 +167,18 @@
   --lumen-rim-oklch: oklch(0.835 0.07 68);
   --lumen-oklch: oklch(0.805 0.075 65);
   --lumen-deep-oklch: oklch(0.78 0.08 62);
+
+  /* Static fallback while Liquid Chrome WebGL initializes (matches AdaptiveLiquidChrome reduced-motion). */
+  --liquid-chrome-fallback-light: radial-gradient(
+    ellipse 120% 80% at 50% 40%,
+    rgb(128, 122, 117) 0%,
+    rgb(138, 132, 127) 100%
+  );
+  --liquid-chrome-fallback-dark: radial-gradient(
+    ellipse 120% 80% at 50% 40%,
+    rgb(8, 13, 18) 0%,
+    rgb(5, 8, 11) 100%
+  );
 }
 
 .dark {
@@ -312,6 +324,17 @@ body.font-theme-commissioner {
   50% {
     opacity: 0.88;
   }
+}
+
+/* Liquid chrome: instant fill before WebGL hydrates (Page section or fixed Ergon layout layer). */
+.page-liquid-chrome,
+.liquid-chrome-page-fill {
+  background: var(--liquid-chrome-fallback-light);
+}
+
+.dark .page-liquid-chrome,
+.dark .liquid-chrome-page-fill {
+  background: var(--liquid-chrome-fallback-dark);
 }
 
 /* Mobile safe area — padding on content, not the background layer */

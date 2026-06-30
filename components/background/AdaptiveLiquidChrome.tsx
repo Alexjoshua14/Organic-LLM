@@ -1,8 +1,7 @@
 "use client";
 
 import { useReducedMotion } from "framer-motion";
-import { useTheme } from "next-themes";
-import { memo, useEffect, useMemo, useState, useRef } from "react";
+import { memo, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 
 import { usePageVisible } from "@/components/hooks/use-page-visible";
 import {
@@ -46,6 +45,25 @@ const DIM_TRIGGER_SELECTOR = "[data-dim-background]";
 const EASE_SMOOTH = "cubic-bezier(0.25, 0.46, 0.45, 0.94)";
 
 const BRIGHTEN_65 = 0.65; // first-phase target (65% opacity)
+
+function subscribeToHtmlDarkClass(onStoreChange: () => void) {
+  const observer = new MutationObserver(onStoreChange);
+
+  observer.observe(document.documentElement, {
+    attributes: true,
+    attributeFilter: ["class"],
+  });
+
+  return () => observer.disconnect();
+}
+
+function readIsDarkFromHtmlClass(): boolean {
+  return document.documentElement.classList.contains("dark");
+}
+
+function useIsDarkFromHtmlClass(): boolean {
+  return useSyncExternalStore(subscribeToHtmlDarkClass, readIsDarkFromHtmlClass, () => false);
+}
 
 function closestDimTrigger(el: EventTarget | null): Element | null {
   if (!(el instanceof Element)) return null;
@@ -123,7 +141,7 @@ export default function AdaptiveLiquidChrome({
 }: AdaptiveLiquidChromeProps) {
   const pageVisible = usePageVisible();
   const prefersReducedMotion = useReducedMotion() ?? false;
-  const { resolvedTheme } = useTheme();
+  const isDark = useIsDarkFromHtmlClass();
   const [brightnessState, setBrightnessState] = useState<BrightnessState>("rest");
   const [effectiveDimIntensity, setEffectiveDimIntensity] = useState(dimIntensity);
   const [transitionDuration, setTransitionDuration] = useState(`${to100TransitionMs}ms`);
@@ -134,8 +152,6 @@ export default function AdaptiveLiquidChrome({
   const activityActiveRef = useRef(false);
 
   onDimChangeRef.current = onDimChange;
-
-  const isDark = resolvedTheme === "dark";
 
   const baseOpacity = isDark ? 1 : 0.92;
 
@@ -273,6 +289,7 @@ export default function AdaptiveLiquidChrome({
 
   return (
     <div
+      className="relative size-full"
       style={{
         width: "100%",
         height: fillParent ? "100%" : undefined,
@@ -288,13 +305,16 @@ export default function AdaptiveLiquidChrome({
         ...(isAnimatingOpacity ? { willChange: "opacity" as const } : {}),
       }}
     >
-      <LiquidChromeLayer
-        interactive={interactive}
-        isDark={isDark}
-        pageVisible={pageVisible}
-        prefersReducedMotion={prefersReducedMotion}
-        speed={speed}
-      />
+      <div aria-hidden className="liquid-chrome-fallback pointer-events-none absolute inset-0" />
+      <div className="relative z-10 size-full">
+        <LiquidChromeLayer
+          interactive={interactive}
+          isDark={isDark}
+          pageVisible={pageVisible}
+          prefersReducedMotion={prefersReducedMotion}
+          speed={speed}
+        />
+      </div>
     </div>
   );
 }
