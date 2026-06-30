@@ -2,19 +2,25 @@
 
 import { LayoutGrid, MessagesSquare, NotebookPen, Sparkles } from "lucide-react";
 import { AnimatePresence, motion } from "framer-motion";
+import { useCallback, useRef } from "react";
+import { toast } from "sonner";
 
 import { FeatureHint } from "@/components/onboarding/feature-hint";
 import { glass } from "@/components/design-system/primitives";
+import { patchArcadiaStarterKey } from "@/lib/chat/arcadia-starter-client";
 import { CHAT_STYLES, type ChatStyle } from "@/lib/chat/chat-style";
 import {
   CHAT_STYLE_STARTERS,
+  encodeChatStarterKey,
+  parseChatStarterKey,
+  resolveChatStarterId,
   resolveChatStarterLabel,
-  resolveChatStarterPrompt,
 } from "@/lib/chat/chat-style-starters";
 import { setChatStyle, useChatStyle } from "@/lib/chat/chat-style-store";
 import { ARCADIA_CHAT_STYLE_HINT_IDS } from "@/lib/onboarding/arcadia-chat-style-hints";
 import { cn } from "@/lib/utils";
 
+import { ChatStarterCard } from "./chat-starter-card";
 import { ChatStyleCard } from "./chat-style-card";
 
 const STYLE_ICONS: Record<ChatStyle, React.ReactNode> = {
@@ -30,8 +36,8 @@ const STARTER_PROMPTS_SLOT_H = "h-[8.75rem] sm:h-[9.25rem]";
 
 type ChatStylePickerProps = {
   chatId?: string;
-  /** Fills the thread composer when a starter prompt is chosen. */
-  onStarterSelect?: (prompt: string) => void;
+  starterKey?: string | null;
+  onStarterKeyChange?: (key: string | null) => void;
   /** Gate Arcadia starters coachmark until empty thread is painted. */
   showStartersHint?: boolean;
 };
@@ -39,11 +45,62 @@ type ChatStylePickerProps = {
 /** Arcadia empty state — compact, fits above composer without scrolling. */
 export function ChatStylePicker({
   chatId,
-  onStarterSelect,
+  starterKey = null,
+  onStarterKeyChange,
   showStartersHint = true,
 }: ChatStylePickerProps) {
   const selected = useChatStyle(chatId ?? "");
   const starters = CHAT_STYLE_STARTERS[selected];
+  const pendingPatch = useRef<Promise<void> | null>(null);
+
+  const persistStarterKey = useCallback(
+    async (nextKey: string | null) => {
+      if (!chatId || !onStarterKeyChange) return;
+
+      const previousKey = starterKey;
+      onStarterKeyChange(nextKey);
+
+      const patch = patchArcadiaStarterKey(chatId, nextKey).then((result) => {
+        if (!result.ok) {
+          onStarterKeyChange(previousKey ?? null);
+          toast.error(result.error);
+        }
+      });
+
+      pendingPatch.current = patch;
+      await patch;
+      pendingPatch.current = null;
+    },
+    [chatId, onStarterKeyChange, starterKey]
+  );
+
+  const selectChatStyle = useCallback(
+    async (style: ChatStyle) => {
+      if (!chatId) return;
+
+      const parsed = starterKey ? parseChatStarterKey(starterKey) : null;
+      setChatStyle(chatId, style);
+
+      if (parsed && parsed.style !== style) {
+        await persistStarterKey(null);
+      }
+    },
+    [chatId, persistStarterKey, starterKey]
+  );
+
+  const toggleStarter = useCallback(
+    async (style: ChatStyle, starterId: string) => {
+      const encoded = encodeChatStarterKey(style, starterId);
+      if (starterKey === encoded) {
+        await persistStarterKey(null);
+      } else {
+        await persistStarterKey(encoded);
+      }
+    },
+    [persistStarterKey, starterKey]
+  );
+
+  const parsedStarter = starterKey ? parseChatStarterKey(starterKey) : null;
 
   return (
     <FeatureHint id="arcadia-starters" showWhen={showStartersHint}>
@@ -66,7 +123,7 @@ export function ChatStylePicker({
               Choose how you want to work
             </h2>
             <p className="max-w-sm text-xs leading-snug text-muted-foreground/80 sm:text-sm">
-              Pick a style or type below. Tools appear when they help.
+              Pick a style, toggle a starter to prime replies, or type below.
             </p>
           </div>
         </div>
@@ -88,7 +145,7 @@ export function ChatStylePicker({
                 icon={STYLE_ICONS[style.id]}
                 label={style.label}
                 selected={selected === style.id}
-                onSelect={() => chatId && setChatStyle(chatId, style.id)}
+                onSelect={() => void selectChatStyle(style.id)}
               />
             </FeatureHint>
           ))}
@@ -110,29 +167,27 @@ export function ChatStylePicker({
               >
                 {starters.map((starter, index) => {
                   const label = resolveChatStarterLabel(starter);
-                  const prompt = resolveChatStarterPrompt(starter);
+                  const starterId = resolveChatStarterId(starter);
+                  const encoded = encodeChatStarterKey(selected, starterId);
+                  const isSelected =
+                    parsedStarter?.style === selected &&
+                    parsedStarter.id === starterId &&
+                    starterKey === encoded;
 
                   return (
-                  <motion.li
-                    key={label}
-                    animate={{ opacity: 1, x: 0 }}
-                    className="min-h-0 min-w-0"
-                    initial={{ opacity: 0, x: -10 }}
-                    transition={{ ...PROMPT_MOTION, delay: index * 0.04 }}
-                  >
-                    <button
-                      className={cn(
-                        "line-clamp-2 w-full min-w-0 cursor-pointer rounded-lg border border-border/50 px-3 py-2 text-left text-xs leading-snug text-foreground/90 sm:rounded-xl sm:px-3.5 sm:py-2.5 sm:text-sm",
-                        glass({ opaque: true }),
-                        "hover:border-[color:rgb(var(--lumen-rim)/0.2)] hover:text-foreground",
-                        "motion-safe:hover:translate-x-0.5 motion-safe:active:scale-[0.995]"
-                      )}
-                      type="button"
-                      onClick={() => onStarterSelect?.(prompt)}
+                    <motion.li
+                      key={starterId}
+                      animate={{ opacity: 1, x: 0 }}
+                      className="min-h-0 min-w-0"
+                      initial={{ opacity: 0, x: -10 }}
+                      transition={{ ...PROMPT_MOTION, delay: index * 0.04 }}
                     >
-                      {label}
-                    </button>
-                  </motion.li>
+                      <ChatStarterCard
+                        label={label}
+                        selected={isSelected}
+                        onToggle={() => void toggleStarter(selected, starterId)}
+                      />
+                    </motion.li>
                   );
                 })}
               </motion.ul>

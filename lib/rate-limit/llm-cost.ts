@@ -46,10 +46,12 @@ const MODEL_COSTS: Record<string, ModelCost> = {
   "google/gemini-2.5-flash-lite": { inputPerMillion: 0.1, outputPerMillion: 0.4 },
   "anthropic/claude-opus-4.8": { inputPerMillion: 5.0, outputPerMillion: 25.0 },
   "anthropic/claude-opus-4.7": { inputPerMillion: 5.0, outputPerMillion: 25.0 },
+  "anthropic/claude-sonnet-5": { inputPerMillion: 2.0, outputPerMillion: 10.0 },
   "anthropic/claude-sonnet-4.6": { inputPerMillion: 3.0, outputPerMillion: 15.0 },
   "anthropic/claude-haiku-4.5": { inputPerMillion: 1.0, outputPerMillion: 5.0 },
   "perplexity/sonar-pro": { inputPerMillion: 1.0, outputPerMillion: 1.0 },
   "perplexity/sonar-reasoning-pro": { inputPerMillion: 3.0, outputPerMillion: 15.0 },
+  "moonshotai/kimi-k2.7-code": { inputPerMillion: 0.95, outputPerMillion: 4.0 },
   "moonshotai/kimi-k2.6": { inputPerMillion: 0.95, outputPerMillion: 4.0 },
   "deepseek/deepseek-v4-pro": { inputPerMillion: 0.44, outputPerMillion: 0.87 },
   "deepseek/deepseek-v4-flash": { inputPerMillion: 0.14, outputPerMillion: 0.28 },
@@ -108,4 +110,4 @@ export function computeUsageCostUsd(modelId: string, usage: Usage): number {
 }
 
 /** When the MODEL_COSTS table was last reviewed (update with pricing changes). */
-export const MODEL_PRICING_AS_OF = "2026-06-29";
+export const MODEL_PRICING_AS_OF = "2026-06-30";

@@ -99,6 +99,9 @@ export const Chat: React.FC<ChatProps> = ({
   const [experimentalArcadiaMarkdownPreview, setExperimentalArcadiaMarkdownPreview] = useState(
     () => getSettings().experimentalArcadiaMarkdownPreview
   );
+  const [arcadiaStarterKey, setArcadiaStarterKey] = useState<string | null>(
+    () => chatData?.thread.arcadia_starter_key ?? null
+  );
 
   useEffect(() => {
     const sync = () =>
@@ -387,10 +390,8 @@ export const Chat: React.FC<ChatProps> = ({
                   <ChatStylePicker
                     chatId={id}
                     showStartersHint={messages.length === 0}
-                    onStarterSelect={(text) => {
-                      composerInjectSeq.current += 1;
-                      setComposerInject({ id: composerInjectSeq.current, text });
-                    }}
+                    starterKey={arcadiaStarterKey}
+                    onStarterKeyChange={setArcadiaStarterKey}
                   />
                 )
               : undefined

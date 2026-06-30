@@ -588,9 +588,6 @@ export function TopicExploreClient({ chatData }: TopicExploreClientProps) {
                 ) : null}
               </Button>
             </FeatureHint>
-            {!assistPending && composerDraft.trim().length > 0 ? (
-              <span className="text-xs text-muted-foreground">Edit before you send</span>
-            ) : null}
             {canSuggestReply && !assistPending ? (
               <button
                 className="cursor-pointer text-xs text-muted-foreground underline-offset-2 hover:text-foreground hover:underline"

@@ -1,7 +1,6 @@
 "use client";
 
-import Link from "next/link";
-import { ArrowRight, MessageSquare, Sparkles } from "lucide-react";
+import { MessageSquare } from "lucide-react";
 
 import { FeatureHint } from "@/components/onboarding/feature-hint";
 import { glassPreview } from "@/components/design-system/primitives";
@@ -38,17 +37,6 @@ export function ChatEmptyStateGuide({ className }: ChatEmptyStateGuideProps) {
           Search and Memory are on by default — your thread can use web results and past context.
           Pick a model or leave Auto to route per message.
         </p>
-        <Link
-          className={cn(
-            "mt-5 inline-flex items-center gap-1.5 rounded-lg px-3 py-2 text-sm text-muted-foreground transition-colors",
-            "hover:bg-muted/30 hover:text-foreground"
-          )}
-          href="/showcase/anatomy"
-        >
-          <Sparkles aria-hidden className="size-3.5 text-lumen" />
-          See one turn unpacked
-          <ArrowRight aria-hidden className="size-3.5" strokeWidth={1.5} />
-        </Link>
       </div>
     </FeatureHint>
   );

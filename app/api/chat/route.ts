@@ -11,7 +11,7 @@ import { after } from "next/server";
 import { createResumableStreamContext } from "resumable-stream";
 
 import { saveChat } from "@/lib/chat/chat-store";
-import { getThreadHasTitle } from "@/data/supabase/chat";
+import { getThreadArcadiaStarterKey, getThreadHasTitle } from "@/data/supabase/chat";
 import { createLogger } from "@/lib/logger";
 import { getLastUserMessageText } from "@/lib/arcadia/help-response";
 import {
@@ -39,6 +39,7 @@ import {
 } from "@/lib/api/chat-system-prompt";
 import { appendIntrospectionMainChatSystemFragments } from "@/lib/api/introspection-system-prompt";
 import { resolveMemoryEnabledForExperience } from "@/lib/chat/chat-experience";
+import { resolveChatStarterPromptByKey } from "@/lib/chat/chat-style-starters";
 import { compileChatTools } from "@/lib/llm/compile-chat-tools";
 import { runLLMChatStream } from "@/lib/api/run-llm-chat-stream";
 
@@ -274,6 +275,23 @@ export async function POST(req: Request) {
       const hasTools = toolNames.length > 0;
       const maxSteps = computeMainChatMaxSteps({ experience, hasTools });
 
+      let arcadiaStarterPriming: string | undefined;
+      if (experience === "arcadia") {
+        const starterKeyResult = await getThreadArcadiaStarterKey(id);
+        if (starterKeyResult.error) {
+          logger.error("POST", "Failed to load Arcadia starter key", {
+            error: starterKeyResult.error.message,
+          });
+        } else if (starterKeyResult.data) {
+          arcadiaStarterPriming = resolveChatStarterPromptByKey(starterKeyResult.data);
+          if (!arcadiaStarterPriming) {
+            logger.warn("POST", "Ignoring unknown Arcadia starter key", {
+              key: starterKeyResult.data,
+            });
+          }
+        }
+      }
+
       systemPromptForRequest = appendMainChatPostToolSystemFragments({
         systemPromptForRequest,
         hasTools,
@@ -282,6 +300,7 @@ export async function POST(req: Request) {
         experience,
         chatStyle,
         delphiDisplay,
+        arcadiaStarterPriming,
       });
 
       writer.write({

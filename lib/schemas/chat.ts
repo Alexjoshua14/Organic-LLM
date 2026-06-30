@@ -16,7 +16,7 @@ export const MessageSchemaKind = z.enum(["ui_message"]);
 export const AUTO_CHAT_MODEL_ID = "organic-llm/auto" as const;
 
 /** Non-Delphi `AUTO_CHAT_MODEL_ID` resolves to this gateway id (single policy knob). */
-export const AUTO_RESOLVED_SONNET_MODEL_ID = "anthropic/claude-sonnet-4.6" as const;
+export const AUTO_RESOLVED_SONNET_MODEL_ID = "anthropic/claude-sonnet-5" as const;
 
 export type ChatModelId = GatewayModelId | typeof AUTO_CHAT_MODEL_ID;
 
@@ -56,8 +56,8 @@ const gatewayChatModels: ChatModel[] = [
   },
   { id: "anthropic/claude-opus-4.8", name: "Claude Opus 4.8", supportsZeroDataRetention: true },
   {
-    id: "anthropic/claude-sonnet-4.6",
-    name: "Claude Sonnet 4.6",
+    id: "anthropic/claude-sonnet-5",
+    name: "Claude Sonnet 5",
     supportsZeroDataRetention: true,
   },
   { id: "anthropic/claude-haiku-4.5", name: "Claude Haiku 4.5", supportsZeroDataRetention: true },
@@ -67,7 +67,7 @@ const gatewayChatModels: ChatModel[] = [
     name: "Sonar Reasoning Pro",
     supportsZeroDataRetention: false,
   },
-  { id: "moonshotai/kimi-k2.6", name: "Kimi K2.6", supportsZeroDataRetention: true },
+  { id: "moonshotai/kimi-k2.7-code", name: "Kimi K2.7 Code", supportsZeroDataRetention: true },
   { id: "deepseek/deepseek-v4-pro", name: "DeepSeek v4 Pro", supportsZeroDataRetention: true },
   {
     id: "deepseek/deepseek-v4-flash",
@@ -97,6 +97,7 @@ export const ThreadSchema = ThreadCreate.partial({ owner_id: true }).extend({
   id: z.uuid(),
   active_stream_id: z.string().nullable().optional(),
   active_stream_started_at: z.string().nullable().optional(),
+  arcadia_starter_key: z.string().nullable().optional(),
 });
 
 export const ThreadUpdate = z.object({
@@ -105,6 +106,7 @@ export const ThreadUpdate = z.object({
   owner_id: z.uuid(),
   active_stream_id: z.string().nullable().optional(),
   active_stream_started_at: z.string().nullable().optional(),
+  arcadia_starter_key: z.string().nullable().optional(),
 });
 
 // Message schema

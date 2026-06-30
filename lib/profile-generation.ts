@@ -16,11 +16,12 @@ import { searchMemoriesForUser } from "@/lib/memory/operations";
 import { getModelCost } from "@/lib/rate-limit/llm-cost";
 import { SearchMemoryToolSchema } from "@/lib/schemas/llm-tools";
 import { ProfileSectionSchema, ProfileTreeSchema } from "@/lib/schemas/profileTree";
+import { AUTO_RESOLVED_SONNET_MODEL_ID } from "@/lib/schemas/chat";
 
 const logger = createLogger("lib/profile-generation.ts");
 
 const PLANNER_MODEL = "openai/gpt-5.5";
-const SECTION_MODEL = "anthropic/claude-sonnet-4.6";
+const SECTION_MODEL = AUTO_RESOLVED_SONNET_MODEL_ID;
 const REVIEW_MODEL = "openai/gpt-5.5";
 
 const BASELINE_MEMORY_SEARCH_LIMIT = 50;

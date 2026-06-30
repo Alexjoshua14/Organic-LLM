@@ -73,6 +73,7 @@ export type AppendMainChatPostToolSystemFragmentsParams = {
   experience: ChatExperience | undefined;
   chatStyle?: ChatStyle;
   delphiDisplay?: DelphiDisplayInput;
+  arcadiaStarterPriming?: string;
 };
 
 /** Tool Instructions block + speech-friendly + Arcadia length/style guidance. */
@@ -87,6 +88,7 @@ export function appendMainChatPostToolSystemFragments(
     experience,
     chatStyle,
     delphiDisplay,
+    arcadiaStarterPriming,
   } = params;
 
   let out = systemPromptForRequest;
@@ -104,6 +106,11 @@ export function appendMainChatPostToolSystemFragments(
 
     if (chatStyle === "scribe") {
       out += SCRIBE_SYSTEM_APPEND;
+    }
+
+    const priming = arcadiaStarterPriming?.trim();
+    if (priming) {
+      out += `\n\n[Arcadia starter prompt]\n${priming}`;
     }
   }
 

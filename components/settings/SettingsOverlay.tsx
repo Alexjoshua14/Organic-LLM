@@ -1,11 +1,8 @@
 "use client";
 
-import type { SharedSelection } from "@heroui/system";
-
 import { useState, useEffect, useMemo } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Select, SelectItem } from "@heroui/select";
 import { Switch } from "@heroui/switch";
 import { Brain, ExternalLink, Settings2Icon, Sparkles } from "lucide-react";
 import { useAuth, useUser } from "@clerk/nextjs";
@@ -13,23 +10,8 @@ import { useAuth, useUser } from "@clerk/nextjs";
 import { KnowledgeModal } from "@/components/knowledge/KnowledgeModal";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/third-party/ui/sheet";
 import { ThemeSwitch } from "@/components/shared/theme-switch";
-import { featuredFonts, getFontById } from "@/config/font-options";
 import { getSettings, setSettings } from "@/lib/user-settings";
-import { applyFontPreference } from "@/components/FontProvider";
 import { persistUserSettingsToSupabase } from "@/data/supabase/user-settings";
-
-function fontFamilyForPreview(fontId: string): string | undefined {
-  const font = getFontById(fontId);
-
-  if (!font || font.id === "system") return undefined;
-  if (font.id === "satoshi") return "var(--font-satoshi), sans-serif";
-  if (font.id === "inter") return "var(--font-inter), sans-serif";
-  if (font.id === "commissioner") return "var(--font-commissioner), sans-serif";
-  if (font.googleId) return `'${font.googleId}', sans-serif`;
-  if (font.id === "geist") return "'Geist', 'Geist Sans', sans-serif";
-
-  return undefined;
-}
 
 type SettingsOverlayProps = {
   open: boolean;
@@ -43,7 +25,6 @@ export function SettingsOverlay({ open, onOpenChange, trigger }: SettingsOverlay
   const { userId } = useAuth();
   const { user } = useUser();
   const [knowledgeOpen, setKnowledgeOpen] = useState(false);
-  const [fontId, setFontId] = useState<string>(() => getSettings().fontId);
   const [coalescenceMode, setCoalescenceMode] = useState<boolean>(
     () => getSettings().coalescenceMode
   );
@@ -68,24 +49,12 @@ export function SettingsOverlay({ open, onOpenChange, trigger }: SettingsOverlay
     if (open) {
       const s = getSettings();
 
-      setFontId(s.fontId);
       setCoalescenceMode(s.coalescenceMode);
       setExperimentalArcadiaMarkdownPreview(s.experimentalArcadiaMarkdownPreview);
       setErgonLiquidChrome(s.ergonLiquidChrome);
       setReplayFeatureHints(s.replayFeatureHints);
     }
   }, [open]);
-
-  const handleFontChange = (keys: SharedSelection) => {
-    const raw = typeof keys === "string" ? keys : Array.from(keys)[0];
-    const id = raw != null ? String(raw) : "";
-
-    if (id) {
-      setFontId(id);
-      applyFontPreference(id);
-      if (userId) void persistUserSettingsToSupabase(userId, getSettings());
-    }
-  };
 
   return (
     <>
@@ -193,28 +162,6 @@ export function SettingsOverlay({ open, onOpenChange, trigger }: SettingsOverlay
                 </div>
               </section>
             ) : null}
-
-            <section className="space-y-3">
-              <h3 className="text-sm font-medium text-foreground">Font</h3>
-              <Select
-                aria-label="Choose font"
-                classNames={{ trigger: "min-h-9" }}
-                selectedKeys={[fontId]}
-                size="sm"
-                variant="bordered"
-                onSelectionChange={handleFontChange}
-              >
-                {featuredFonts.map((font) => (
-                  <SelectItem
-                    key={font.id}
-                    style={{ fontFamily: fontFamilyForPreview(font.id) }}
-                    textValue={font.label}
-                  >
-                    {font.label}
-                  </SelectItem>
-                ))}
-              </Select>
-            </section>
           </div>
 
           <div className="mt-auto border-t border-border pt-4 pb-6 px-0 md:pt-8 md:pb-12">

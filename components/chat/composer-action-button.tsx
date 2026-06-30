@@ -16,7 +16,7 @@ export function composerLumenButtonClasses(engaged: boolean, className?: string)
     "hover:text-foreground hover:bg-muted/25 dark:hover:bg-transparent",
     engaged
       ? cn(glass({ chip: true }), "composer-tool-chip-active font-medium text-foreground")
-      : "text-muted-foreground/70",
+      : "text-muted-foreground/50 dark:text-muted-foreground/70",
     className
   );
 }
