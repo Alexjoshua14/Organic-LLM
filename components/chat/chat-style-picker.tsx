@@ -1,6 +1,6 @@
 "use client";
 
-import { LayoutGrid, MessagesSquare, NotebookPen, Sparkles } from "lucide-react";
+import { ChefHat, LayoutGrid, MessagesSquare, NotebookPen, Sparkles } from "lucide-react";
 import { AnimatePresence, motion } from "framer-motion";
 import { useCallback, useRef } from "react";
 import { toast } from "sonner";
@@ -26,6 +26,7 @@ import { ChatStyleCard } from "./chat-style-card";
 const STYLE_ICONS: Record<ChatStyle, React.ReactNode> = {
   default: <MessagesSquare className="size-4" />,
   ergon: <LayoutGrid className="size-4" />,
+  remy: <ChefHat className="size-4" />,
   scribe: <NotebookPen className="size-4" />,
 };
 

@@ -1,6 +1,6 @@
 "use client";
 
-import { LayoutGrid, MessagesSquare, NotebookPen } from "lucide-react";
+import { ChefHat, LayoutGrid, MessagesSquare, NotebookPen } from "lucide-react";
 
 import { glass } from "@/components/design-system/primitives";
 import { type ChatStyle, resolveChatStyleMeta } from "@/lib/chat/chat-style";
@@ -10,6 +10,7 @@ import { cn } from "@/lib/utils";
 const STYLE_ICONS: Record<ChatStyle, React.ReactNode> = {
   default: <MessagesSquare aria-hidden className="size-3.5 shrink-0" />,
   ergon: <LayoutGrid aria-hidden className="size-3.5 shrink-0" />,
+  remy: <ChefHat aria-hidden className="size-3.5 shrink-0" />,
   scribe: <NotebookPen aria-hidden className="size-3.5 shrink-0" />,
 };
 

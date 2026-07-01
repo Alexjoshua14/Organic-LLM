@@ -95,6 +95,23 @@ export const CHAT_STYLE_STARTERS: Record<ChatStyle, readonly ChatStyleStarter[]>
       prompt: "What should I tackle next?",
     },
   ],
+  remy: [
+    {
+      id: "housewarming-menu",
+      label: "I'm hosting a housewarming Saturday at 7:30—help me plan the menu.",
+      prompt: "I'm hosting a housewarming Saturday at 7:30—help me plan the menu.",
+    },
+    {
+      id: "add-recipe-link",
+      label: "Add this recipe to my plan: <paste a link>",
+      prompt: "Add this recipe to my plan: <paste a link>",
+    },
+    {
+      id: "shopping-list",
+      label: "What do I still need to buy?",
+      prompt: "What do I still need to buy?",
+    },
+  ],
   scribe: [
     STITCH_THIS_TOGETHER,
     {

@@ -1,3 +1,5 @@
+import { z } from "zod";
+
 /**
  * Chat "styles" are user-selectable structured chat flows offered when starting a
  * new Arcadia chat. A style can switch on extra tools/system prompt behavior server-side.
@@ -21,6 +23,13 @@ export const CHAT_STYLES = [
       "The assistant maintains a kanban board in-thread. Ask what's in progress, what's blocked, or what's next.",
   },
   {
+    id: "remy",
+    label: "Remy",
+    description: "Plan a meal for an event—recipes, ingredients, and a shopping list.",
+    guide:
+      "Event meal planning — build a prep timeline, recipe cards, and a have/need shopping list for your gathering.",
+  },
+  {
     id: "scribe",
     label: "Scribe",
     description: "Organizes your words only — no outside facts.",
@@ -33,7 +42,13 @@ export type ChatStyle = (typeof CHAT_STYLES)[number]["id"];
 
 export const DEFAULT_CHAT_STYLE: ChatStyle = "default";
 
-const CHAT_STYLE_IDS = new Set<string>(CHAT_STYLES.map((s) => s.id));
+/** Tuple of style ids, kept in sync with {@link CHAT_STYLES} for building zod schemas. */
+export const CHAT_STYLE_ID_VALUES = CHAT_STYLES.map((s) => s.id) as [ChatStyle, ...ChatStyle[]];
+
+/** Canonical zod enum of chat-style ids — the single source of truth for request validation. */
+export const ChatStyleSchema = z.enum(CHAT_STYLE_ID_VALUES);
+
+const CHAT_STYLE_IDS = new Set<string>(CHAT_STYLE_ID_VALUES);
 
 /** Lowercase/trim; returns a canonical style only when it matches {@link CHAT_STYLES}. */
 export function parseChatStyle(raw: string | undefined | null): ChatStyle | undefined {

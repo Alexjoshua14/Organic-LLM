@@ -4,6 +4,7 @@ import type { FeatureHintId } from "@/lib/onboarding/feature-hints";
 export const ARCADIA_CHAT_STYLE_HINT_IDS: Record<ChatStyle, FeatureHintId> = {
   default: "arcadia-style-standard",
   ergon: "arcadia-style-ergon",
+  remy: "arcadia-style-remy",
   scribe: "arcadia-style-scribe",
 };
 
