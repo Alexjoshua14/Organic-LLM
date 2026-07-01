@@ -14,14 +14,13 @@ export function formatUsd(value: number, opts?: { compact?: boolean }): string {
   return new Intl.NumberFormat("en-US", {
     style: "currency",
     currency: "USD",
-    minimumFractionDigits: value < 1 ? 2 : 2,
+    minimumFractionDigits: 2,
     maximumFractionDigits: value < 1 ? 4 : 2,
   }).format(value);
 }
 
 export function formatPercent(value: number): string {
   if (value >= 999) return "999%+";
-  if (value >= 100) return `${Math.round(value)}%`;
   if (value >= 10) return `${Math.round(value)}%`;
 
   return `${value.toFixed(1)}%`;

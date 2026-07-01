@@ -1,6 +1,7 @@
 import type { FeatureHintId } from "./feature-hints";
-import { getFeatureHint, isFeatureHintEnabledInCode } from "./feature-hints";
 import type { FeatureHintRegistration } from "./feature-hint-context";
+
+import { getFeatureHint, isFeatureHintEnabledInCode } from "./feature-hints";
 import { isFeatureHintHidden, type FeatureHintDismissRecord } from "./feature-hint-storage";
 
 /** First hint users should see after landing on a surface (blocks generic hints until dismissed). */
@@ -27,7 +28,7 @@ export function getSurfaceEntryHintForPath(pathname: string): FeatureHintId | nu
   return null;
 }
 
-function isRegistrationEligible(
+export function isRegistrationEligible(
   hintId: FeatureHintId,
   registrations: Map<FeatureHintId, FeatureHintRegistration>
 ): boolean {

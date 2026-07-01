@@ -122,7 +122,9 @@ const AIMessage: FC<ChatMessageProps> = ({
         {message.parts.map((part, i) => {
           switch (part.type) {
             case "reasoning":
-              if (part.state === "done") {
+              // Only show the live reasoning shimmer while actively streaming; a
+              // persisted/legacy part (state "done" or undefined) must stay inert.
+              if (part.state !== "streaming") {
                 return null;
               }
 
@@ -323,7 +325,7 @@ function getLegacyToolInvocationPart(part: MessagePartLike): ToolInvocationPartL
 
 function messagePartsIndicateStreaming(parts: MessageParts): boolean {
   for (const part of parts) {
-    if (part.type === "reasoning" && part.state !== "done") return true;
+    if (part.type === "reasoning" && part.state === "streaming") return true;
     if (part.type === "text" && part.state === "streaming") return true;
     if (isToolOrDynamicToolUIPart(part)) {
       if (part.state === "input-streaming" || part.state === "input-available") return true;
@@ -339,7 +341,7 @@ function messagePartsIndicateStreaming(parts: MessageParts): boolean {
 }
 
 function partListHasStreamingReasoning(parts: MessageParts): boolean {
-  return parts.some((part) => part.type === "reasoning" && part.state !== "done");
+  return parts.some((part) => part.type === "reasoning" && part.state === "streaming");
 }
 
 /** True when the message already has inline tool UI (loading or result). */

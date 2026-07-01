@@ -397,9 +397,7 @@ export const CoreInput: React.FC<CoreInputProps> = ({
     const HIDE_LABELS_AT_PX = 600;
 
     const applyWidth = (width: number) => {
-      const next = showLabelsRef.current
-        ? width >= HIDE_LABELS_AT_PX
-        : width >= SHOW_LABELS_AT_PX;
+      const next = showLabelsRef.current ? width >= HIDE_LABELS_AT_PX : width >= SHOW_LABELS_AT_PX;
 
       if (next === showLabelsRef.current) return;
 
@@ -407,8 +405,7 @@ export const CoreInput: React.FC<CoreInputProps> = ({
       setShowLabels(next);
     };
 
-    const measureTarget =
-      (el.closest("[data-prompt-input-shell]") as HTMLElement | null) ?? el;
+    const measureTarget = (el.closest("[data-prompt-input-shell]") as HTMLElement | null) ?? el;
 
     applyWidth(measureTarget.getBoundingClientRect().width);
 
@@ -508,11 +505,7 @@ export const CoreInput: React.FC<CoreInputProps> = ({
       return (
         <div aria-live="polite" className="w-full min-w-0 max-w-full px-3 py-3" role="status">
           <span className="sr-only">Sending message</span>
-          <ShinyText
-            as="div"
-            className={composerBodyMeasureClass}
-            text={sentDisplayText}
-          />
+          <ShinyText as="div" className={composerBodyMeasureClass} text={sentDisplayText} />
         </div>
       );
     }
@@ -607,9 +600,9 @@ export const CoreInput: React.FC<CoreInputProps> = ({
               )}
               {!hideWebMemorySpeechToggles && variant !== "compact" ? (
                 <>
-                  {showComposerToolHints ? (
-                    <FeatureHint id="composer-search-memory">
-                      <span className="inline-flex gap-1">
+                  {(() => {
+                    const searchMemoryChips = (
+                      <>
                         <ComposerToolChip
                           active={useWebSearch}
                           tool="search"
@@ -626,28 +619,17 @@ export const CoreInput: React.FC<CoreInputProps> = ({
                           <BrainCircuit />
                           <span className={cn(showLabels ? "inline-flex" : "hidden")}>Memory</span>
                         </ComposerToolChip>
-                      </span>
-                    </FeatureHint>
-                  ) : (
-                    <>
-                      <ComposerToolChip
-                        active={useWebSearch}
-                        tool="search"
-                        onClick={() => setUseWebSearch(!useWebSearch)}
-                      >
-                        <GlobeIcon size={16} />
-                        <span className={cn(showLabels ? "inline-flex" : "hidden")}>Search</span>
-                      </ComposerToolChip>
-                      <ComposerToolChip
-                        active={useMemories}
-                        tool="memory"
-                        onClick={() => setUseMemories(!useMemories)}
-                      >
-                        <BrainCircuit />
-                        <span className={cn(showLabels ? "inline-flex" : "hidden")}>Memory</span>
-                      </ComposerToolChip>
-                    </>
-                  )}
+                      </>
+                    );
+
+                    return showComposerToolHints ? (
+                      <FeatureHint id="composer-search-memory">
+                        <span className="inline-flex gap-1">{searchMemoryChips}</span>
+                      </FeatureHint>
+                    ) : (
+                      searchMemoryChips
+                    );
+                  })()}
                   {useSpeechFriendlyRef && (
                     <ComposerToolChip
                       active={useSpeechFriendly}
@@ -664,8 +646,8 @@ export const CoreInput: React.FC<CoreInputProps> = ({
               ) : null}
 
               {variant !== "compact" ? (
-                showComposerModelHint ? (
-                  <FeatureHint id="composer-auto-model">
+                (() => {
+                  const modelSelect = (
                     <PromptInputSelect
                       required
                       defaultValue={model.id}
@@ -684,51 +666,24 @@ export const CoreInput: React.FC<CoreInputProps> = ({
                         className="max-h-80 overflow-y-auto"
                         defaultValue={model.id}
                       >
-                        {ChatModels.map((model) => (
-                          <PromptInputSelectItem
-                            key={model.id}
-                            textValue={model.name}
-                            value={model.id}
-                          >
+                        {ChatModels.map((m) => (
+                          <PromptInputSelectItem key={m.id} textValue={m.name} value={m.id}>
                             <span className="flex min-w-0 items-center gap-2">
-                              <span className="truncate">{model.name}</span>
-                              {model.supportsZeroDataRetention && <ModelZdrIndicator />}
+                              <span className="truncate">{m.name}</span>
+                              {m.supportsZeroDataRetention && <ModelZdrIndicator />}
                             </span>
                           </PromptInputSelectItem>
                         ))}
                       </PromptInputSelectContent>
                     </PromptInputSelect>
-                  </FeatureHint>
-                ) : (
-                  <PromptInputSelect
-                    required
-                    defaultValue={model.id}
-                    value={model.id}
-                    onValueChange={handleModelSelection}
-                  >
-                    <PromptInputSelectTrigger className="flex-1 max-w-32 sm:max-w-48 min-w-0">
-                      <PromptInputSelectValue className="truncate min-w-0">
-                        <span className="flex min-w-0 items-center gap-2">
-                          <span className="truncate">{model.name}</span>
-                          {model.supportsZeroDataRetention && <ModelZdrIndicator />}
-                        </span>
-                      </PromptInputSelectValue>
-                    </PromptInputSelectTrigger>
-                    <PromptInputSelectContent
-                      className="max-h-80 overflow-y-auto"
-                      defaultValue={model.id}
-                    >
-                      {ChatModels.map((model) => (
-                        <PromptInputSelectItem key={model.id} textValue={model.name} value={model.id}>
-                          <span className="flex min-w-0 items-center gap-2">
-                            <span className="truncate">{model.name}</span>
-                            {model.supportsZeroDataRetention && <ModelZdrIndicator />}
-                          </span>
-                        </PromptInputSelectItem>
-                      ))}
-                    </PromptInputSelectContent>
-                  </PromptInputSelect>
-                )
+                  );
+
+                  return showComposerModelHint ? (
+                    <FeatureHint id="composer-auto-model">{modelSelect}</FeatureHint>
+                  ) : (
+                    modelSelect
+                  );
+                })()
               ) : (
                 <span className="text-muted-foreground truncate px-2 text-xs">{model.name}</span>
               )}
@@ -742,46 +697,46 @@ export const CoreInput: React.FC<CoreInputProps> = ({
           </PromptInputTools>
         </div>
         <div className="flex items-center gap-2 shrink-0">
-          {onSecondarySubmit ? (
-            (() => {
-              const steerButton = (
-                <PromptInputButton
-                  disabled={
-                    secondarySubmitDisabled ||
-                    secondarySubmitPending ||
-                    !text.trim() ||
-                    disabled ||
-                    showSentShimmer
-                  }
-                  size="dynamic-sm"
-                  title="Run steer on the current text (⌘ or Ctrl + Enter)"
-                  type="button"
-                  variant="ghost"
-                  onClick={() => {
-                    const raw = (textareaRef.current?.value ?? text).trim();
+          {onSecondarySubmit
+            ? (() => {
+                const steerButton = (
+                  <PromptInputButton
+                    disabled={
+                      secondarySubmitDisabled ||
+                      secondarySubmitPending ||
+                      !text.trim() ||
+                      disabled ||
+                      showSentShimmer
+                    }
+                    size="dynamic-sm"
+                    title="Run steer on the current text (⌘ or Ctrl + Enter)"
+                    type="button"
+                    variant="ghost"
+                    onClick={() => {
+                      const raw = (textareaRef.current?.value ?? text).trim();
 
-                    if (!raw || secondarySubmitDisabled || secondarySubmitPending) return;
-                    void onSecondarySubmit(raw);
-                  }}
-                >
-                  {secondarySubmitPending ? (
-                    <Loader2 aria-hidden className="size-4 animate-spin shrink-0" />
-                  ) : null}
-                  <span className={cn("max-w-28 truncate text-xs", !showLabels && "sr-only")}>
-                    {secondarySubmitLabel}
-                  </span>
-                </PromptInputButton>
-              );
+                      if (!raw || secondarySubmitDisabled || secondarySubmitPending) return;
+                      void onSecondarySubmit(raw);
+                    }}
+                  >
+                    {secondarySubmitPending ? (
+                      <Loader2 aria-hidden className="size-4 animate-spin shrink-0" />
+                    ) : null}
+                    <span className={cn("max-w-28 truncate text-xs", !showLabels && "sr-only")}>
+                      {secondarySubmitLabel}
+                    </span>
+                  </PromptInputButton>
+                );
 
-              return showSteerHint ? (
-                <FeatureHint id="noesis-steer-assist" showWhen={steerHintShowWhen}>
-                  {steerButton}
-                </FeatureHint>
-              ) : (
-                steerButton
-              );
-            })()
-          ) : null}
+                return showSteerHint ? (
+                  <FeatureHint id="noesis-steer-assist" showWhen={steerHintShowWhen}>
+                    {steerButton}
+                  </FeatureHint>
+                ) : (
+                  steerButton
+                );
+              })()
+            : null}
           <PromptInputSubmit
             className={cn(
               submitVariant === "organic-glass" &&

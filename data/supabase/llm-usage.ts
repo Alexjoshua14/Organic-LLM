@@ -1,19 +1,13 @@
 import "server-only";
 
-import { createLogger } from "@/lib/logger";
-import { computeUsageCostUsd } from "@/lib/rate-limit/llm-cost";
-import { supabaseAdmin } from "@/lib/supabase/supabase-admin";
 import type { LlmUsageEventRow, UsageRangePreset } from "@/lib/usage/aggregate";
-import {
-  aggregateUsageEvents,
-  startOfBillingCycle,
-  usageRangeDays,
-} from "@/lib/usage/aggregate";
-import {
-  computePlanAllotmentPercent,
-  USAGE_PLAN_TIERS,
-} from "@/lib/usage/plans";
 import type { UsageApiPayload } from "@/lib/usage/types";
+
+import { createLogger } from "@/lib/logger";
+import { computeUsageCostUsd, getModelCost, MODEL_PRICING_AS_OF } from "@/lib/rate-limit/llm-cost";
+import { supabaseAdmin } from "@/lib/supabase/supabase-admin";
+import { aggregateUsageEvents, startOfBillingCycle, usageRangeDays } from "@/lib/usage/aggregate";
+import { computePlanAllotmentPercent, USAGE_PLAN_TIERS } from "@/lib/usage/plans";
 
 const logger = createLogger("data/supabase/llm-usage.ts");
 
@@ -113,8 +107,6 @@ export async function buildUsageSummaryForUser(args: {
   const events = await fetchLlmUsageEvents({ ownerId, since: fetchSince });
   const rangeAgg = aggregateUsageEvents(events, rangeStart, rangeEnd);
   const billingAgg = aggregateUsageEvents(events, billingStart, rangeEnd);
-
-  const { getModelCost, MODEL_PRICING_AS_OF } = await import("@/lib/rate-limit/llm-cost");
 
   const byModel = rangeAgg.byModel.map((row) => {
     const pricing = getModelCost(row.modelId);

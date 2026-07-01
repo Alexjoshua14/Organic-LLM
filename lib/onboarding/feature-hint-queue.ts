@@ -1,12 +1,12 @@
 import type { FeatureHintRegistration } from "./feature-hint-context";
-import { isFeatureHintEligibleForContext } from "./feature-hint-eligibility";
-import { compareFeatureHintPriority } from "./feature-hint-priority";
 import type { FeatureHintId } from "./feature-hints";
+
 import {
-  FEATURE_HINT_IDS,
-  getFeatureHint,
-  isFeatureHintEnabledInCode,
-} from "./feature-hints";
+  isFeatureHintEligibleForContext,
+  isRegistrationEligible,
+} from "./feature-hint-eligibility";
+import { compareFeatureHintPriority } from "./feature-hint-priority";
+import { FEATURE_HINT_IDS, getFeatureHint, isFeatureHintEnabledInCode } from "./feature-hints";
 import { isFeatureHintHidden, type FeatureHintDismissRecord } from "./feature-hint-storage";
 
 export type FeatureHintQueueContext = {
@@ -53,13 +53,7 @@ export function getEligibleFeatureHintQueue(context: FeatureHintQueueContext): F
       return false;
     }
 
-    const registration = context.registrations.get(id);
-
-    if (!registration?.showWhen) return false;
-
-    if (definition.presentation === "toast") return true;
-
-    return Boolean(registration.anchorRef.current);
+    return isRegistrationEligible(id, context.registrations);
   }).sort(compareFeatureHintPriority);
 }
 
