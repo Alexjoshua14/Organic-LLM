@@ -5,6 +5,16 @@ mock.module("server-only", () => ({}));
 import { addUsage, emptyDemoUsage } from "@/lib/sandbox/noesis/demo/types";
 import { computeDemoVersionHash } from "@/lib/sandbox/noesis/demo/version";
 import { getAuthoredSpark, listAuthoredSparks } from "@/lib/sandbox/noesis/sparks/registry";
+import {
+  DEMO_DEFAULT_MODEL,
+  DEMO_REPLY_CYCLES as SERVER_REPLY_CYCLES,
+  DEMO_TOKEN_BUDGET as SERVER_TOKEN_BUDGET,
+} from "@/lib/sandbox/noesis/demo/config";
+import {
+  DEMO_DEFAULT_MODEL_ID,
+  DEMO_REPLY_CYCLES as CLIENT_REPLY_CYCLES,
+  DEMO_TOKEN_BUDGET as CLIENT_TOKEN_BUDGET,
+} from "@/lib/sandbox/noesis/demo/config.client";
 
 describe("noesis authored sparks registry", () => {
   test("has at least one spark, each with all required fields", () => {
@@ -92,5 +102,16 @@ describe("computeDemoVersionHash", () => {
 
   test("returns a 64-char hex sha256", () => {
     expect(computeDemoVersionHash(base)).toMatch(/^[0-9a-f]{64}$/);
+  });
+});
+
+describe("demo config client mirror stays in sync with server config", () => {
+  // config.client.ts must never be imported by the auth route handlers (it exists
+  // precisely so the client does NOT import server config.ts). These asserts stop the
+  // mirrored values from silently drifting apart.
+  test("client mirror equals server config", () => {
+    expect(DEMO_DEFAULT_MODEL_ID).toBe(DEMO_DEFAULT_MODEL);
+    expect(CLIENT_TOKEN_BUDGET).toBe(SERVER_TOKEN_BUDGET);
+    expect(CLIENT_REPLY_CYCLES).toBe(SERVER_REPLY_CYCLES);
   });
 });
