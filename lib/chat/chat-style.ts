@@ -28,6 +28,11 @@ export const CHAT_STYLES = [
     description: "Plan a meal for an event—recipes, ingredients, and a shopping list.",
   },
   {
+    id: "remy",
+    label: "Remy",
+    description: "Plan a meal for an event—recipes, ingredients, and a shopping list.",
+  },
+  {
     id: "scribe",
     label: "Scribe",
     description: "Organizes your words only — no outside facts.",
