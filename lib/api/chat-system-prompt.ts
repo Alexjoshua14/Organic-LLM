@@ -54,6 +54,38 @@ export async function appendStrataMainChatSystemFragments(
   return out;
 }
 
+export type AppendTopicExploreCustomSystemPromptParams = {
+  systemPromptForRequest: string;
+  experience: ChatExperience | undefined;
+  customSystemPromptOverride: string | undefined;
+};
+
+/**
+ * Noesis authored-spark override. When a user taps an authored spark, its system prompt
+ * is sent as `customSystemPromptOverride`; here it is prepended as an authoritative
+ * directive that governs the `topic_explore` thread, while the platform's base context
+ * (and the later post-tool fragments) still apply. No-op for other experiences or when
+ * no override is supplied.
+ */
+export function appendTopicExploreCustomSystemPrompt(
+  params: AppendTopicExploreCustomSystemPromptParams
+): string {
+  const { systemPromptForRequest, experience, customSystemPromptOverride } = params;
+
+  const override = customSystemPromptOverride?.trim();
+
+  if (experience !== "topic_explore" || !override) {
+    return systemPromptForRequest;
+  }
+
+  return (
+    "[Noesis spark directive — authoritative; governs this conversation]\n" +
+    override +
+    "\n\n[End spark directive]\n\n" +
+    systemPromptForRequest
+  );
+}
+
 const SPEECH_FRIENDLY_APPEND =
   "\n\nOutput format (speech-friendly mode): Format your response for both clear on-screen reading and later use as a script for audio. Use clear structure, headings, and visually appealing formatting. A separate pipeline will convert your text into a speech-friendly script and handle text-to-speech, so focus on clarity, structure, and readability—not on pronouncing abbreviations or avoiding punctuation.";
 

@@ -1,6 +1,7 @@
 "use client";
 
 import type { ExaSearchResultSource } from "@/lib/exa/types";
+import type { NoesisSpark } from "@/lib/sandbox/noesis/sparks/types";
 
 import { UIMessage, useChat } from "@ai-sdk/react";
 import { DefaultChatTransport } from "ai";
@@ -22,8 +23,14 @@ import { ChatAIActionEnum } from "@/types/ai";
 import { getChatErrorMessage } from "@/lib/chat/error-messages";
 import { Button } from "@/components/third-party/ui/button";
 import { cn } from "@/lib/utils";
+import { SparkCard } from "@/components/sandbox/noesis/spark-card";
+import { SparkEditorDialog } from "@/components/sandbox/noesis/spark-editor-dialog";
+import { listAuthoredSparks } from "@/lib/sandbox/noesis/sparks/registry";
 
 const logger = createLogger("components/sandbox/topic-explore-client");
+
+/** Authored sparks are surfaced before the LLM-generated ones in the empty state. */
+const AUTHORED_SPARKS = listAuthoredSparks();
 
 const ASSIST_COOLDOWN_MS = 12_000;
 
@@ -63,6 +70,8 @@ export function TopicExploreClient({ chatData }: TopicExploreClientProps) {
   const useWebSearchRef = useRef(false);
   const useMemoriesRef = useRef(true);
   const useSpeechFriendlyRef = useRef(false);
+  /** Set when an authored spark is tapped, so its system prompt drives the thread. */
+  const sparkSystemPromptRef = useRef<string | undefined>(undefined);
 
   const [aiAction, setAiAction] = useState<
     | {
@@ -122,6 +131,7 @@ export function TopicExploreClient({ chatData }: TopicExploreClientProps) {
             speechFriendly: useSpeechFriendlyRef.current,
             experience: "topic_explore",
             zeroDataRetention: getSettings().zeroDataRetention,
+            customSystemPromptOverride: sparkSystemPromptRef.current,
           },
         };
       },
@@ -214,6 +224,23 @@ export function TopicExploreClient({ chatData }: TopicExploreClientProps) {
       setAiAction(undefined);
     },
   });
+
+  const [editingSpark, setEditingSpark] = useState<NoesisSpark | null>(null);
+  const [editorOpen, setEditorOpen] = useState(false);
+
+  /** Tapping an authored spark: install its system-prompt override, then open with its label. */
+  const handleAuthoredSparkTap = useCallback(
+    (spark: NoesisSpark) => {
+      sparkSystemPromptRef.current = spark.systemPrompt;
+      void sendMessage({ text: spark.userFacingText });
+    },
+    [sendMessage]
+  );
+
+  const handleAuthoredSparkEdit = useCallback((spark: NoesisSpark) => {
+    setEditingSpark(spark);
+    setEditorOpen(true);
+  }, []);
 
   const loadStarters = useCallback(async () => {
     setStartersLoading(true);
@@ -400,27 +427,54 @@ export function TopicExploreClient({ chatData }: TopicExploreClientProps) {
             </Button>
           </div>
           <div className="grid gap-2 sm:grid-cols-2">
-            {(starters.length > 0 ? starters : ["", "", "", ""]).map((s, i) => (
-              <button
-                key={`spark-${i}`}
-                className={cn(
-                  "rounded-lg border border-border/60 bg-background-secondary/40 px-3 py-3 text-left text-sm",
-                  "hover:border-accent/40 hover:bg-background-secondary/70 transition-colors",
-                  "disabled:opacity-40 disabled:pointer-events-none",
-                  !s && "min-h-[4.5rem] animate-pulse"
-                )}
-                disabled={!s || startersLoading || status !== "ready"}
-                type="button"
-                onClick={() => s && sendMessage({ text: s })}
-              >
-                {s || (startersLoading ? "…" : "—")}
-              </button>
+            {AUTHORED_SPARKS.map((spark) => (
+              <SparkCard
+                key={spark.id}
+                disabled={status !== "ready"}
+                spark={spark}
+                onEdit={handleAuthoredSparkEdit}
+                onTap={handleAuthoredSparkTap}
+              />
             ))}
+            {(() => {
+              // Fill the remaining slots (up to 4 total) with LLM-generated sparks.
+              const slots = Math.max(0, 4 - AUTHORED_SPARKS.length);
+              const llmStarters =
+                starters.length > 0
+                  ? starters.slice(0, slots)
+                  : (Array(slots).fill("") as string[]);
+
+              return llmStarters.map((s, i) => (
+                <button
+                  key={`spark-${i}`}
+                  className={cn(
+                    "rounded-lg border border-border/60 bg-background-secondary/40 px-3 py-3 text-left text-sm",
+                    "hover:border-accent/40 hover:bg-background-secondary/70 transition-colors",
+                    "disabled:opacity-40 disabled:pointer-events-none",
+                    !s && "min-h-[4.5rem] animate-pulse"
+                  )}
+                  disabled={!s || startersLoading || status !== "ready"}
+                  type="button"
+                  onClick={() => s && sendMessage({ text: s })}
+                >
+                  {s || (startersLoading ? "…" : "—")}
+                </button>
+              ));
+            })()}
           </div>
         </div>
       </div>
     );
-  }, [loadStarters, messages.length, sendMessage, starters, startersLoading, status]);
+  }, [
+    handleAuthoredSparkEdit,
+    handleAuthoredSparkTap,
+    loadStarters,
+    messages.length,
+    sendMessage,
+    starters,
+    startersLoading,
+    status,
+  ]);
 
   return (
     <div
@@ -503,6 +557,8 @@ export function TopicExploreClient({ chatData }: TopicExploreClientProps) {
           />
         </div>
       </div>
+
+      <SparkEditorDialog open={editorOpen} spark={editingSpark} onOpenChange={setEditorOpen} />
     </div>
   );
 }

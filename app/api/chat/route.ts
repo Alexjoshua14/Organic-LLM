@@ -35,6 +35,7 @@ import { computeMainChatMaxSteps } from "@/lib/api/chat-max-steps";
 import {
   appendMainChatPostToolSystemFragments,
   appendStrataMainChatSystemFragments,
+  appendTopicExploreCustomSystemPrompt,
   wrapSystemPromptWithResponseLength,
 } from "@/lib/api/chat-system-prompt";
 import { appendIntrospectionMainChatSystemFragments } from "@/lib/api/introspection-system-prompt";
@@ -88,6 +89,7 @@ export async function POST(req: Request) {
     model: requestedModel,
     memory: requestedMemory,
     delphiDisplay,
+    customSystemPromptOverride,
   } = parseResult.data;
   const message = incomingMessage as UIMessage;
   const memoryEnabled = resolveMemoryEnabledForExperience(experience, requestedMemory);
@@ -192,6 +194,13 @@ export async function POST(req: Request) {
         experience,
         chatId: id,
         sbUserId,
+      });
+
+      // Noesis authored-spark override: when a spark drives a topic_explore thread.
+      systemPromptForRequest = appendTopicExploreCustomSystemPrompt({
+        systemPromptForRequest,
+        experience,
+        customSystemPromptOverride,
       });
 
       logger.log(

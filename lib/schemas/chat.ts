@@ -224,6 +224,8 @@ export const ChatRequestSchema = z.object({
   threadHasTitle: z.boolean().optional(),
   /** Memory ingest: measured caption/display geometry for Delphi response-length guidance. */
   delphiDisplay: DelphiDisplayRequestSchema.optional(),
+  /** Noesis authored spark: system-prompt override that drives a `topic_explore` thread. */
+  customSystemPromptOverride: z.string().max(8000).optional(),
 });
 
 export const ThreadSummarySchema = z.object({
