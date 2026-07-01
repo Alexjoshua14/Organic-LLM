@@ -21,13 +21,26 @@ Authored sparks (this catalog) are distinct from the ephemeral, LLM-generated sp
 - **Production tap:** tapping a spark sends `customSystemPromptOverride` (the spark's system
   prompt) to `/api/chat`; `appendTopicExploreCustomSystemPrompt` prepends it as an
   authoritative directive that governs the thread.
-- **Admin demo:** hover a spark → **pencil** (bottom-right) → editor → **Demo**. A chat-pane
-  overlay auto-runs `DEMO_REPLY_CYCLES` (3) spark replies against an NPC "main character"
+- **Admin demo:** hover a spark → **pencil** (bottom-right), or **long-press** on touch →
+  editor → **Demo**. The demo runs **in the same modal pane** (swap-views): clicking **Demo**
+  replaces the editor with a **condensed** transcript (compact role-labeled rows — `you` /
+  `spark`, NPC turns marked `you · npc` — not the full chat view); **← Edit** returns, **Re-run**
+  replays. It auto-runs `DEMO_REPLY_CYCLES` (3) spark replies against an NPC "main character"
   user via `/api/sandbox/topic-explore/demo-turn` + `/npc-turn`, on the ultracheap model
-  (`google/gemini-3-flash`), under `DEMO_TOKEN_BUDGET` (25,000) tokens.
+  (`google/gemini-3-flash`, swappable via the panel's model select), under `DEMO_TOKEN_BUDGET`
+  (25,000) tokens. Components: `components/sandbox/noesis/spark-editor-dialog.tsx` (two-mode) +
+  `spark-demo-panel.tsx` (condensed runner).
 - **Caching:** demos are cached by a SHA-256 of `{ systemPrompt, kickoff, model, cycles,
   npcPersonaVersion }`. Reverting a prompt to a previous version replays the cached thread
   for free. Cache: `data/noesis/demo-cache.json` (gitignored).
+
+> ⚠️ **Bundling pitfall (do not reintroduce).** The demo route handlers call Clerk's `auth()`.
+> A `"use client"` component must **never** import the server tuning-knobs module
+> `lib/sandbox/noesis/demo/config.ts` — doing so makes Turbopack compile those handlers into the
+> React-SSR layer, whose Clerk copy isn't wired to `clerkMiddleware()`, so every demo request
+> 500s with *"auth() ... can't detect usage of clerkMiddleware()"*. The client imports the
+> mirror `lib/sandbox/noesis/demo/config.client.ts` instead; a unit test asserts the two stay in
+> sync. (This was the original "demo isn't working" bug.)
 
 ## Tuning knobs — `lib/sandbox/noesis/demo/config.ts`
 
