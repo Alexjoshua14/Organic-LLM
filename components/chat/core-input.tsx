@@ -64,6 +64,7 @@ import {
 import { ChatModel, ChatModels } from "@/lib/schemas/chat";
 import { deleteEmptyChat } from "@/data/supabase/chat";
 import { useSharedChatContext } from "@/lib/context/chat-context";
+import { useComposerDraft } from "@/hooks/use-composer-draft";
 
 type CoreInputProps = {
   modelRef: React.RefObject<ChatModel>;
@@ -278,6 +279,39 @@ export const CoreInput: React.FC<CoreInputProps> = ({
     }
   }, [composerInject, onComposerTextChange]);
 
+  const hasHigherPriorityHydration = useCallback(() => {
+    if (composerInject && appliedComposerInjectId.current !== composerInject.id) {
+      return true;
+    }
+
+    if (appliedComposerInjectId.current === composerInject?.id) {
+      return true;
+    }
+
+    const draft = initialDraft?.trim();
+
+    if (draft && !appliedInitialDraft.current) {
+      return true;
+    }
+
+    if (appliedInitialDraft.current && draft) {
+      return true;
+    }
+
+    return false;
+  }, [composerInject, initialDraft]);
+
+  const { clearDraftOnSend, draftRestored } = useComposerDraft({
+    chatId,
+    text,
+    setText,
+    textareaRef,
+    onComposerTextChange,
+    status: status ?? "ready",
+    error,
+    hasHigherPriorityHydration,
+  });
+
   // Load preferences from localStorage on mount
   useLayoutEffect(() => {
     if (hasLoadedPrefs.current) return;
@@ -451,6 +485,8 @@ export const CoreInput: React.FC<CoreInputProps> = ({
       text: finalText,
       files: message.files,
     });
+
+    clearDraftOnSend();
   };
 
   const handleModelSelection = (id: string) => {
@@ -571,7 +607,14 @@ export const CoreInput: React.FC<CoreInputProps> = ({
         </PromptInputAttachments>
       </PromptInputHeader>
 
-      <PromptInputBody>{renderComposerBody()}</PromptInputBody>
+      <PromptInputBody>
+        {draftRestored ? (
+          <span className="sr-only" aria-live="polite">
+            Draft restored
+          </span>
+        ) : null}
+        {renderComposerBody()}
+      </PromptInputBody>
       <PromptInputFooter className="overflow-visible">
         <div ref={toolsRef} className="w-full overflow-visible">
           <PromptInputTools className="flex justify-between w-full overflow-visible">
