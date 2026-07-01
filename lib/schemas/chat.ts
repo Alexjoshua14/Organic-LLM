@@ -256,6 +256,8 @@ export const ChatRequestSchema = z.object({
     )
     .max(10)
     .optional(),
+  /** Noesis authored spark: system-prompt override that drives a `topic_explore` thread. */
+  customSystemPromptOverride: z.string().max(8000).optional(),
 });
 
 export const ThreadSummarySchema = z.object({
