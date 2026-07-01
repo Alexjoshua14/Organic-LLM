@@ -471,7 +471,6 @@ const KNOWN_TOOL_IN_FLIGHT_LABELS: Record<string, string> = {
   manage_tasks: "Updating tasks…",
   mise_plan: "Updating plan…",
   fetch_recipe: "Reading recipe…",
-  manage_tasks: "Updating tasks…",
   make_mermaid_diagram: "Creating diagram...",
   search_memories: "Searching memories...",
   memory_search: "Searching memories...",

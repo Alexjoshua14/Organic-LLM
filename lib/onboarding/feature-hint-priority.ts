@@ -10,6 +10,7 @@ export const FEATURE_HINT_PRIORITY: Record<FeatureHintId, number> = {
   "arcadia-starters": 32,
   "arcadia-style-standard": 33,
   "arcadia-style-ergon": 33,
+  "arcadia-style-remy": 33,
   "arcadia-style-scribe": 33,
   "noesis-suggest-reply": 40,
   "noesis-steer-assist": 41,

@@ -26,6 +26,7 @@ export const FEATURE_HINT_IDS = [
   "arcadia-starters",
   "arcadia-style-standard",
   "arcadia-style-ergon",
+  "arcadia-style-remy",
   "arcadia-style-scribe",
 ] as const;
 
@@ -191,6 +192,19 @@ export const FEATURE_HINTS: Record<FeatureHintId, FeatureHintDefinition> = {
     enabled: true,
     title: "Ergon board",
     body: "The assistant keeps a kanban board in-thread. Ask what's in progress, blocked, or next — starter chips tune to board work.",
+    version: 1,
+    presentation: "spotlight",
+    side: "bottom",
+    align: "center",
+    pathPrefix: "/sandbox/arcadia",
+    deferUntilNavigationSettled: true,
+    contextualBackdrop: "blur",
+  },
+  "arcadia-style-remy": {
+    id: "arcadia-style-remy",
+    enabled: true,
+    title: "Remy",
+    body: "Plan a gathering menu — timeline, recipes, and a shopping list. Starter chips jump into common meal-planning flows.",
     version: 1,
     presentation: "spotlight",
     side: "bottom",

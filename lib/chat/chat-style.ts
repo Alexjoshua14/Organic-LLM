@@ -26,11 +26,8 @@ export const CHAT_STYLES = [
     id: "remy",
     label: "Remy",
     description: "Plan a meal for an event—recipes, ingredients, and a shopping list.",
-  },
-  {
-    id: "remy",
-    label: "Remy",
-    description: "Plan a meal for an event—recipes, ingredients, and a shopping list.",
+    guide:
+      "Event meal planning — build a prep timeline, recipe cards, and a have/need shopping list for your gathering.",
   },
   {
     id: "scribe",
