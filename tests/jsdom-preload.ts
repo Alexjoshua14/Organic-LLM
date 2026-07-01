@@ -5,3 +5,5 @@
 import { installTestJsdom } from "./helpers/install-test-jsdom";
 
 installTestJsdom();
+
+import "fake-indexeddb/auto";
