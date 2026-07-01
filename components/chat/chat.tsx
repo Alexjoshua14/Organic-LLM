@@ -14,6 +14,7 @@ import { Conversation, ConversationScrollButton } from "../third-party/ai-elemen
 import { ChatThread, MEMORY_PANEL_RESERVE_PADDING } from "./chat-thread";
 import { CoreInput } from "./core-input";
 import { ChatStylePicker } from "./chat-style-picker";
+import { ChatThreadStyleOverlay } from "./chat-thread-style-overlay";
 
 import { MemoryEphemeralCards } from "@/components/memory/memory-ephemeral-cards";
 import { MemoryLens } from "@/components/memory/memory-lens";
@@ -29,7 +30,12 @@ import { getSettings } from "@/lib/user-settings";
 import { Thread } from "@/lib/schemas/chat";
 import { createLogger } from "@/lib/logger";
 import { useSharedChatContext } from "@/lib/context/chat-context";
-import { ChatModel, DEFAULT_CHAT_MODEL } from "@/lib/schemas/chat";
+import { ChatModel } from "@/lib/schemas/chat";
+import {
+  DEFAULT_COMPOSER_MEMORIES,
+  DEFAULT_COMPOSER_MODEL,
+  DEFAULT_COMPOSER_WEB_SEARCH,
+} from "@/lib/chat/composer-tool-defaults";
 import { getStrataAssistantPersona } from "@/lib/personas/strata-assistant";
 import { ChatAIActionEnum } from "@/types/ai";
 import { getChatErrorMessage } from "@/lib/chat/error-messages";
@@ -64,9 +70,9 @@ export const Chat: React.FC<ChatProps> = ({
 }) => {
   const { refreshSidebarChats } = useSharedChatContext();
 
-  const selectedModelRef = useRef<ChatModel>(DEFAULT_CHAT_MODEL);
-  const useWebSearchRef = useRef<boolean>(false);
-  const useMemoriesRef = useRef<boolean>(false);
+  const selectedModelRef = useRef<ChatModel>(DEFAULT_COMPOSER_MODEL);
+  const useWebSearchRef = useRef<boolean>(DEFAULT_COMPOSER_WEB_SEARCH);
+  const useMemoriesRef = useRef<boolean>(DEFAULT_COMPOSER_MEMORIES);
   const useSpeechFriendlyRef = useRef<boolean>(false);
   const assistantSessionRef = useRef<StrataPageAssistantSession | null | undefined>(
     assistantSession
@@ -92,6 +98,9 @@ export const Chat: React.FC<ChatProps> = ({
   const [chatError, setChatError] = useState<unknown>(undefined);
   const [experimentalArcadiaMarkdownPreview, setExperimentalArcadiaMarkdownPreview] = useState(
     () => getSettings().experimentalArcadiaMarkdownPreview
+  );
+  const [arcadiaStarterKey, setArcadiaStarterKey] = useState<string | null>(
+    () => chatData?.thread.arcadia_starter_key ?? null
   );
 
   useEffect(() => {
@@ -367,6 +376,9 @@ export const Chat: React.FC<ChatProps> = ({
           "overscroll-x-none",
         ].join(" ")}
       >
+        {experience === "arcadia" && id ? (
+          <ChatThreadStyleOverlay threadId={id} visible={messages.length > 0} />
+        ) : null}
         <ChatThread
           aiActionPayload={aiAction}
           chatId={id}
@@ -377,10 +389,9 @@ export const Chat: React.FC<ChatProps> = ({
               ? () => (
                   <ChatStylePicker
                     chatId={id}
-                    onStarterSelect={(text) => {
-                      composerInjectSeq.current += 1;
-                      setComposerInject({ id: composerInjectSeq.current, text });
-                    }}
+                    showStartersHint={messages.length === 0}
+                    starterKey={arcadiaStarterKey}
+                    onStarterKeyChange={setArcadiaStarterKey}
                   />
                 )
               : undefined
@@ -429,6 +440,7 @@ export const Chat: React.FC<ChatProps> = ({
               experience === "arcadia" && experimentalArcadiaMarkdownPreview
             }
             error={error ?? chatError}
+            featureHints={!(experience === "arcadia" && messages.length === 0)}
             hideWebMemorySpeechToggles={experience === "strata_page" && Boolean(assistantSession)}
             initialDraft={initialDraft}
             isBlankChat={messages.length === 0 && persona !== "strata"}

@@ -14,6 +14,7 @@ import { ensureChatHasTitle, updateChatSummary } from "@/lib/llm/chat-helpers";
 import { CHAT_MODEL, measureAsync } from "@/lib/llm/helpers";
 import { serializeError } from "@/lib/llm/log-error";
 import { addLatestMessagesToMemoryForUser } from "@/lib/memory/operations";
+import { trackLlmUsageEvent } from "@/lib/usage/track-llm-usage";
 import { ChatAIActionEnum, type ChatUIMessage } from "@/types/ai";
 
 export type RunLLMChatStreamParams = {
@@ -168,6 +169,26 @@ export function runLLMChatStream(params: RunLLMChatStreamParams): void {
     toolChoice: hasTools ? "auto" : "none",
     stopWhen: stepCountIs(maxSteps),
   });
+
+  void result.usage
+    .then((usage) => {
+      if (!usage) return;
+
+      trackLlmUsageEvent({
+        ownerId: sbUserId,
+        modelId: selectedModel.id,
+        inputTokens: usage.inputTokens,
+        outputTokens: usage.outputTokens,
+        cachedInputTokens: usage.cachedInputTokens,
+        reasoningTokens: usage.reasoningTokens,
+        totalTokens: usage.totalTokens,
+        operation: "chat",
+        route: "/api/chat",
+      });
+    })
+    .catch(() => {
+      /* optional — usage may be unavailable on abort */
+    });
 
   writer.merge(
     result.toUIMessageStream({

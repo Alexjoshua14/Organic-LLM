@@ -13,7 +13,7 @@ describe("showcase demo trace", () => {
     const input = demoTrace.stages[0];
     expect(input.id).toBe("input");
     if (input.id !== "input") return;
-    expect(input.artifact.selectedModelId).toBe("anthropic/claude-sonnet-4.6");
+    expect(input.artifact.selectedModelId).toBe("anthropic/claude-sonnet-5");
     expect(input.artifact.availableTools.length).toBeGreaterThan(0);
   });
 

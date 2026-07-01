@@ -1,6 +1,6 @@
 import type { ChatModel } from "@/lib/schemas/chat";
 
-import { DEFAULT_CHAT_MODEL, ChatModels } from "@/lib/schemas/chat";
+import { DEFAULT_CHAT_MODEL, ChatModels, AUTO_RESOLVED_SONNET_MODEL_ID } from "@/lib/schemas/chat";
 
 export const STRATA_ASSISTANT_PERSONA_IDS = ["remy", "spark", "aion", "prometheus"] as const;
 
@@ -73,7 +73,7 @@ const DEFINITIONS: Record<StrataAssistantPersonaId, StrataAssistantPersonaDefini
     shortLabel: "Prometheus",
     getSystemPromptAugmentation: () =>
       "\n\n[Persona: Prometheus]\nLean toward software, systems, scientific reasoning, and engineering tradeoffs when relevant. Prefer precise terminology and reproducible steps.",
-    getDefaultModel: () => pickModel("anthropic/claude-sonnet-4.6"),
+    getDefaultModel: () => pickModel(AUTO_RESOLVED_SONNET_MODEL_ID),
     getDefaultToolDefaults: () => ({
       ...DEFAULT_TOOLS,
       toolWebSearch: true,

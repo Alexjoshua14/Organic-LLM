@@ -9,7 +9,7 @@
       "timingMs": 12,
       "artifact": {
         "rawMessage": "Summarize the latest thinking on retrieval-augmented generation and show me a diagram of how it works.",
-        "selectedModelId": "anthropic/claude-sonnet-4.6",
+        "selectedModelId": "anthropic/claude-sonnet-5",
         "availableTools": [
           "web_search",
           "search_memories",

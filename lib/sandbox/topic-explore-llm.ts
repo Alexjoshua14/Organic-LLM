@@ -1,6 +1,7 @@
 import "server-only";
 
 import { KNOWLEDGE_GATEWAY_PROVIDER_OPTIONS } from "@/lib/knowledge/gateway-options";
+import { AUTO_RESOLVED_SONNET_MODEL_ID } from "@/lib/schemas/chat";
 
 /** Starters + digest (single structured call). */
 export const TOPIC_EXPLORE_STARTERS_MODEL = "openai/gpt-5.4-mini" as const;
@@ -12,7 +13,7 @@ export const TOPIC_EXPLORE_THOUGHT_MODEL = "openai/gpt-5.4-mini" as const;
 export const TOPIC_EXPLORE_STEER_MODEL = "openai/gpt-5.4-mini" as const;
 
 /** Suggested next user message (composer fill). */
-export const TOPIC_EXPLORE_ASSIST_MODEL = "anthropic/claude-sonnet-4.6" as const;
+export const TOPIC_EXPLORE_ASSIST_MODEL = AUTO_RESOLVED_SONNET_MODEL_ID;
 
 export const TOPIC_EXPLORE_PROVIDER_OPTIONS = KNOWLEDGE_GATEWAY_PROVIDER_OPTIONS;
 

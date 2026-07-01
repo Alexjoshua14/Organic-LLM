@@ -738,7 +738,8 @@ export async function getContext({
       );
 
       const perQuery = searchRuns.map((run, i) => ({
-        q: rewrite.queries[i]!,
+        queryIndex: i,
+        queryLength: rewrite.queries[i]?.length ?? 0,
         cacheHit: run.metrics.cacheHit,
         searchMs: run.metrics.memorySearchMs,
       }));
@@ -751,8 +752,8 @@ export async function getContext({
       memoriesResult = { results: merged };
 
       logger.log("getContext", "Arcadia memory pipeline", {
-        rawQuery: userMessage,
-        rewrittenQueries: rewrite.queries,
+        rawQueryLength: userMessage.length,
+        rewrittenQueryCount: rewrite.queries.length,
         usedRewrite: rewrite.usedRewrite,
         rewriteMs,
         perQuery,

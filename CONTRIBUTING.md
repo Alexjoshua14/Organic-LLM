@@ -7,7 +7,7 @@ Thanks for your interest. Organic LLM is a full-stack AI app and design lab — 
 The fastest way to understand the product:
 
 - **Hosted app** — [organic.coalescencelabs.app](https://organic.coalescencelabs.app)
-- **Local preview** — after `bun dev`, open `/showcase`, `/blog`, or `/good-news?preview=1` (no `.env.local` required)
+- **Local preview** — after `bun dev`, open `/showcase`, `/blog`, `/dev/docs`, or `/good-news?preview=1` (no `.env.local` required)
 
 Signed-in flows (`/chat`, `/rabbitholes`, `/sandbox`) need Clerk, Supabase, and optional AI/memory services — see [README — Running locally](./README.md#running-locally).
 
@@ -54,10 +54,14 @@ CI runs tests on PRs to `main`; changes under `llm/morph-physics/` trigger a sep
 
 Start at **[docs/INDEX.md](./docs/INDEX.md)** — thread persistence, context assembly, chat tools, Arcadia, encryption, and module READMEs.
 
+**In-app developer docs** — [/dev/docs](https://organic.coalescencelabs.app/dev/docs) (local: `http://localhost:3000/dev/docs`). Markdown sources in [`content/dev-docs/`](./content/dev-docs/); registry in [`lib/dev-docs/registry.ts`](./lib/dev-docs/registry.ts).
+
 High-signal entry points:
 
 | Topic | Doc |
 |-------|-----|
+| Noesis (topic explore) | [/dev/docs/noesis](https://organic.coalescencelabs.app/dev/docs/noesis) |
+| Composer prefs & Auto model | [/dev/docs/composer-preferences](https://organic.coalescencelabs.app/dev/docs/composer-preferences) |
 | Chat context & summaries | [thread-session-architecture](./docs/thread-session-architecture.md), [context-building](./docs/architecture/context-building.md) |
 | Assistant tools | [chat-tools](./docs/chat-tools.md) |
 | Memory layer contract | [lib/memory/README.md](./lib/memory/README.md) |
