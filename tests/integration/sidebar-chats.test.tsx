@@ -24,12 +24,30 @@ mock.module("@/data/supabase/chat", () => ({
   deleteChat: mock(async () => ({ ok: true, error: null })),
 }));
 
+import { defaultUserSettings } from "@/lib/schemas/userSettings";
+
+const USER_SETTINGS_STORAGE_KEY = "organic-llm-user-settings";
+
+mock.module("@/lib/user-settings", () => ({
+  USER_SETTINGS_STORAGE_KEY,
+  getSettings: () => {
+    if (typeof localStorage === "undefined") return defaultUserSettings();
+
+    const stored = localStorage.getItem(USER_SETTINGS_STORAGE_KEY);
+    if (!stored) return defaultUserSettings();
+
+    try {
+      return { ...defaultUserSettings(), ...JSON.parse(stored) };
+    } catch {
+      return defaultUserSettings();
+    }
+  },
+}));
+
 import { SidebarProvider } from "@/components/third-party/ui/sidebar";
 import { ChatContext, type ChatContextValue } from "@/lib/context/chat-context";
 import { SidebarChats } from "@/components/sidebar/sidebar-chats";
 import { MEMORY_INGEST_FEATURE } from "@/lib/chat/memory-ingest";
-import { USER_SETTINGS_STORAGE_KEY } from "@/lib/user-settings";
-import { defaultUserSettings } from "@/lib/schemas/userSettings";
 
 describe("SidebarChats", () => {
   afterEach(() => {

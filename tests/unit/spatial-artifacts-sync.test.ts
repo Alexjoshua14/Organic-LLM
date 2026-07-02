@@ -22,6 +22,7 @@ import { Semaphore } from "@/lib/spatial-artifacts/sync/sync-semaphore";
 const mockGetSettings = mock(() => ({ coalescenceMode: false }));
 
 mock.module("@/lib/user-settings", () => ({
+  USER_SETTINGS_STORAGE_KEY: "organic-llm-user-settings",
   getSettings: mockGetSettings,
 }));
 
