@@ -1,22 +1,27 @@
-import { beforeEach, describe, expect, mock, test } from "bun:test";
+import { describe, expect, mock, test } from "bun:test";
 
 mock.module("server-only", () => ({}));
 
+mock.module("@/config/memory-qdrant-client", () => ({
+  getMemoryQdrantClient: () => ({}),
+}));
+
+/** Stable mock URL — mem0-config should wire this into embedder.config.url. */
+const MOCK_OLLAMA_URL = "https://ollama.example.com";
+
+mock.module("@/lib/memory/ollama-config", () => ({
+  OLLAMA_URL: MOCK_OLLAMA_URL,
+  OLLAMA_API_KEY: undefined,
+  OLLAMA_EMBED_MODEL: "nomic-embed-text",
+  isLocalOllamaUrl: () => false,
+  ollamaHeaders: () => ({ "Content-Type": "application/json" }),
+}));
+
 describe("mem0-config embedder", () => {
-  beforeEach(() => {
-    delete process.env.OLLAMA_URL;
-  });
-
   test("uses OLLAMA_URL for the Mem0 Ollama embedder", async () => {
-    process.env.OLLAMA_URL = "https://ollama.example.com/";
-
-    mock.module("@/config/memory-qdrant-client", () => ({
-      getMemoryQdrantClient: () => ({}),
-    }));
-
     const { config } = await import("@/config/mem0-config");
 
-    expect(config.embedder.config.url).toBe("https://ollama.example.com");
+    expect(config.embedder.config.url).toBe(MOCK_OLLAMA_URL);
     expect(config.embedder.config.embeddingDims).toBe(768);
   });
 });
