@@ -27,7 +27,6 @@ function NormalSidebarContent() {
       <SidebarGroup className="shrink-0">
         <SidebarGroupContent className="flex flex-col gap-3">
           <SidebarExperienceRail />
-          <SidebarProjectLink href="/speak" title="Speak" tooltip="Prometheus text-to-speech" />
           <Input
             classNames={{
               input: ["bg-transparent", "hover:bg-transparent"],
