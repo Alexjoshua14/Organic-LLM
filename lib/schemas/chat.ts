@@ -4,6 +4,7 @@ import z from "zod";
 
 import { CHAT_EXPERIENCES, parseChatExperience } from "@/lib/chat/chat-experience";
 import { parseChatStyle, ChatStyleSchema } from "@/lib/chat/chat-style";
+import type { DeviceTier } from "@/lib/memory-ingest/delphi-caption-budget";
 
 // Message role enum
 export const MessageRole = z.enum(["user", "assistant", "system"]);
@@ -15,7 +16,7 @@ export const MessageSchemaKind = z.enum(["ui_message"]);
 export const AUTO_CHAT_MODEL_ID = "organic-llm/auto" as const;
 
 /** Non-Delphi `AUTO_CHAT_MODEL_ID` resolves to this gateway id (single policy knob). */
-export const AUTO_RESOLVED_SONNET_MODEL_ID = "anthropic/claude-sonnet-4.6" as const;
+export const AUTO_RESOLVED_SONNET_MODEL_ID = "anthropic/claude-sonnet-5" as const;
 
 export type ChatModelId = GatewayModelId | typeof AUTO_CHAT_MODEL_ID;
 
@@ -55,8 +56,8 @@ const gatewayChatModels: ChatModel[] = [
   },
   { id: "anthropic/claude-opus-4.8", name: "Claude Opus 4.8", supportsZeroDataRetention: true },
   {
-    id: "anthropic/claude-sonnet-4.6",
-    name: "Claude Sonnet 4.6",
+    id: "anthropic/claude-sonnet-5",
+    name: "Claude Sonnet 5",
     supportsZeroDataRetention: true,
   },
   { id: "anthropic/claude-haiku-4.5", name: "Claude Haiku 4.5", supportsZeroDataRetention: true },
@@ -66,7 +67,7 @@ const gatewayChatModels: ChatModel[] = [
     name: "Sonar Reasoning Pro",
     supportsZeroDataRetention: false,
   },
-  { id: "moonshotai/kimi-k2.6", name: "Kimi K2.6", supportsZeroDataRetention: true },
+  { id: "moonshotai/kimi-k2.7-code", name: "Kimi K2.7 Code", supportsZeroDataRetention: true },
   { id: "deepseek/deepseek-v4-pro", name: "DeepSeek v4 Pro", supportsZeroDataRetention: true },
   {
     id: "deepseek/deepseek-v4-flash",
@@ -96,6 +97,7 @@ export const ThreadSchema = ThreadCreate.partial({ owner_id: true }).extend({
   id: z.uuid(),
   active_stream_id: z.string().nullable().optional(),
   active_stream_started_at: z.string().nullable().optional(),
+  arcadia_starter_key: z.string().nullable().optional(),
 });
 
 export const ThreadUpdate = z.object({
@@ -104,6 +106,7 @@ export const ThreadUpdate = z.object({
   owner_id: z.uuid(),
   active_stream_id: z.string().nullable().optional(),
   active_stream_started_at: z.string().nullable().optional(),
+  arcadia_starter_key: z.string().nullable().optional(),
 });
 
 // Message schema
@@ -177,6 +180,22 @@ const ChatExperienceSchema = z.preprocess((val) => {
   return parseChatExperience(val);
 }, z.enum(CHAT_EXPERIENCES).optional());
 
+export const DelphiDisplayRequestSchema = z.object({
+  viewportWidthPx: z.number().finite().positive(),
+  viewportHeightPx: z.number().finite().positive(),
+  devicePixelRatio: z.number().finite().positive(),
+  screenWidthPx: z.number().finite().positive(),
+  screenHeightPx: z.number().finite().positive(),
+  captionWidthPx: z.number().finite().positive(),
+  captionAllocatedHeightPx: z.number().finite().positive(),
+  fontSizePx: z.number().finite().positive(),
+  lineHeightPx: z.number().finite().positive(),
+  avgCharWidthPx: z.number().finite().positive().optional(),
+  userAgent: z.string().max(512).optional(),
+  deviceTier: z.enum(["mobile", "tablet", "desktop"] satisfies [DeviceTier, DeviceTier, DeviceTier]),
+  rootFontSizePx: z.number().finite().positive().optional(),
+});
+
 export const ChatRequestSchema = z.object({
   message: UIMessageSchema,
   id: z.uuid(),
@@ -205,6 +224,8 @@ export const ChatRequestSchema = z.object({
   coalescenceMode: z.boolean().optional(),
   /** Client hint: thread already has a title; server can skip ensureChatHasTitle and optionally getThreadHasTitle. */
   threadHasTitle: z.boolean().optional(),
+  /** Memory ingest: measured caption/display geometry for Delphi response-length guidance. */
+  delphiDisplay: DelphiDisplayRequestSchema.optional(),
 });
 
 export const ThreadSummarySchema = z.object({

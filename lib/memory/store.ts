@@ -43,7 +43,7 @@ export async function searchMemories(
   try {
     const memory = getMemory();
 
-    logger.log("searchMemories", `Searching for memories: ${query}`);
+    logger.log("searchMemories", `Searching for memories (queryLength=${query.length})`);
     const result = await runMemoryStore("searchMemories", () =>
       memory.search(query, {
         userId,

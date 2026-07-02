@@ -64,9 +64,9 @@ Registered when `experience` is **arcadia** or **topic explore**.
 
 ### `make_mermaid_diagram`
 
-Two-step **planner + generator** with validation and repair. The model publishes diagrams the UI renders from `mermaid` code blocks—process flows, architecture, relationships.
+Single **generator** call (plans + emits in one pass) with syntax validation and a bounded repair loop. The model publishes diagrams the UI renders from `mermaid` code blocks—process flows, architecture, relationships. Generation targets the renderer's strict, sanitized environment (no HTML labels, no `click`, quoted special-character labels). Server-side `mermaid.parse` validation **fails open** when the runtime can't validate (no DOM/DOMPurify), so the browser renderer is the final arbiter.
 
-- Implementation: [`createMermaidDiagramTool`](../lib/llm/llm-tool-kit.ts)
+- Implementation: [`createMermaidDiagramTool`](../lib/llm/llm-tool-kit.ts) · prompts: [`lib/system-prompt/mermaid-diagram-prompt.ts`](../lib/system-prompt/mermaid-diagram-prompt.ts) · source utils: [`lib/mermaid/source.ts`](../lib/mermaid/source.ts)
 
 ### `render_gen_ui`
 
@@ -86,6 +86,12 @@ Structured blocks as first-class UI, not markdown-only. Block types (Zod schemas
 When `chatStyle === "ergon"`, the model drives a **live** kanban board over a transient `data-kanban` stream channel: initiate, upsert items, move, remove, show filtered views. Multiple tool calls per turn are normal (init → hydrate → show)—a puppet UI backed by client state, not a one-shot card.
 
 - Implementation: [`createKanbanBoardTool`](../lib/llm/kanban-tool.ts) · [`lib/schemas/kanban`](../lib/schemas/kanban.ts)
+
+### `manage_tasks` (durable Ergon todos)
+
+Always available in the main chat. Lets Aion manage the user's **durable** todo list (the `/ergon` page) via the Supabase data layer (RLS-scoped): `CREATE_TASKS`, `UPDATE_TASK`, `COMPLETE_TASK`, `LIST_TASKS`. Categories are passed by name (resolve-or-create). Returns a compact `{ kind: "ergon-tasks", action, tasks }` payload rendered by [`ErgonTaskResult`](../components/ergon/ErgonTaskResult.tsx) with a link to `/ergon`. Distinct from `kanban_board`: that is a client-side puppet board; `manage_tasks` writes through to the database.
+
+- Implementation: [`createManageTasksTool`](../lib/llm/ergon-tasks-tool.ts) · executor [`executeManageTasks`](../lib/llm/ergon-tasks-execute.ts) · schema [`lib/schemas/ergon-tasks.ts`](../lib/schemas/ergon-tasks.ts) · prompt hints [`lib/system-prompt/ergon.ts`](../lib/system-prompt/ergon.ts)
 
 ### `mise_plan` + `fetch_recipe` (Remy meal planning)
 

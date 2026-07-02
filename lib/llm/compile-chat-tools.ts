@@ -17,6 +17,7 @@ import {
 import { MISE_TOOL_INSTRUCTIONS } from "@/lib/system-prompt/mise";
 import {
   DELPHI_SEARCH_MEMORIES_DESCRIPTION,
+  type DelphiMemoryStreamWriter,
   createDelphiMemoryTools,
 } from "@/lib/llm/delphi-memory-tools";
 import { createRenderGenUiTool } from "@/lib/llm/gen-ui-tool";
@@ -89,6 +90,7 @@ export async function compileChatTools({
     const delphi = createDelphiMemoryTools({
       sbUserId,
       chatId: chatId ?? "",
+      writer: writer as unknown as DelphiMemoryStreamWriter,
     });
 
     Object.assign(tools, delphi.tools);

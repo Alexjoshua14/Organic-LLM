@@ -313,7 +313,7 @@ export async function rewriteMemoryQuery(
 
     if (queries.length === 0) {
       logger.log("rewriteMemoryQuery", "parse_empty_fallback", {
-        rawQuery: trimmed,
+        rawQueryLength: trimmed.length,
         elapsedMs: elapsed,
       });
 
@@ -321,10 +321,10 @@ export async function rewriteMemoryQuery(
     }
 
     logger.log("rewriteMemoryQuery", "ok", {
-      rawQuery: trimmed,
-      queries,
+      rawQueryLength: trimmed.length,
+      queryCount: queries.length,
+      queryLengths: queries.map((q) => q.length),
       elapsedMs: elapsed,
-      rationale: parsed?.rationale,
     });
 
     return {
@@ -337,7 +337,7 @@ export async function rewriteMemoryQuery(
     const reason = e instanceof Error ? e.message : String(e);
 
     logger.warn("rewriteMemoryQuery", `fallback: ${reason}`, {
-      rawQuery: trimmed,
+      rawQueryLength: trimmed.length,
       elapsedMs: elapsed,
     });
 

@@ -54,10 +54,17 @@ import { ComposerMicButton } from "./composer-mic-button";
 import { ComposerToolChip } from "./composer-tool-chip";
 import { ModelZdrIndicator } from "./model-zdr-indicator";
 
+import { FeatureHint } from "@/components/onboarding/feature-hint";
 import { cn } from "@/lib/utils";
-import { ChatModel, ChatModels, DEFAULT_CHAT_MODEL } from "@/lib/schemas/chat";
+import {
+  DEFAULT_COMPOSER_MEMORIES,
+  DEFAULT_COMPOSER_MODEL,
+  DEFAULT_COMPOSER_WEB_SEARCH,
+} from "@/lib/chat/composer-tool-defaults";
+import { ChatModel, ChatModels } from "@/lib/schemas/chat";
 import { deleteEmptyChat } from "@/data/supabase/chat";
 import { useSharedChatContext } from "@/lib/context/chat-context";
+import { useComposerDraft } from "@/hooks/use-composer-draft";
 
 type CoreInputProps = {
   modelRef: React.RefObject<ChatModel>;
@@ -90,12 +97,14 @@ type CoreInputProps = {
   sentMessageShimmer?: boolean;
   /** Override persisted model id key (e.g. Delphi vs main chat). Other prefs use global keys. */
   modelLocalStorageKey?: string;
-  /** Initial model when no stored preference exists (defaults to first gateway model). */
+  /** Initial model when no stored preference exists (defaults to Auto for routing). */
   defaultModel?: ChatModel;
   /** Override persisted memory toggle key (e.g. introspection vs main chat). */
   memoryLocalStorageKey?: string;
   /** Initial memory toggle when no stored preference exists. */
   defaultMemories?: boolean;
+  /** Initial web search toggle when no stored preference exists. */
+  defaultWebSearch?: boolean;
   /** When `id` changes, replaces composer text (e.g. assist reply injection). */
   composerInject?: { id: number; text: string } | null;
   /** Cmd/Ctrl+Enter runs this instead of sending chat; primary submit unchanged. */
@@ -105,6 +114,10 @@ type CoreInputProps = {
   secondarySubmitPending?: boolean;
   /** Compact single-line composer; toggles live in the overflow menu. */
   variant?: "default" | "compact";
+  /** First-run coachmarks for composer tools (dismiss persists in localStorage). */
+  featureHints?: boolean;
+  /** Gate steer-assist coachmark until Noesis assist is available (after first assistant turn). */
+  steerHintShowWhen?: boolean;
 };
 
 /** Max length for the in-flight shimmer copy (matches AiInputForm). */
@@ -138,15 +151,18 @@ export const CoreInput: React.FC<CoreInputProps> = ({
   onComposerTextChange,
   sentMessageShimmer = false,
   modelLocalStorageKey,
-  defaultModel = DEFAULT_CHAT_MODEL,
+  defaultModel = DEFAULT_COMPOSER_MODEL,
   memoryLocalStorageKey,
-  defaultMemories = false,
+  defaultMemories = DEFAULT_COMPOSER_MEMORIES,
+  defaultWebSearch = DEFAULT_COMPOSER_WEB_SEARCH,
   composerInject,
   onSecondarySubmit,
   secondarySubmitLabel = "Steer assist",
   secondarySubmitDisabled = false,
   secondarySubmitPending = false,
   variant = "default",
+  featureHints = true,
+  steerHintShowWhen = true,
 }) => {
   const { refreshSidebarChats } = useSharedChatContext();
 
@@ -161,11 +177,12 @@ export const CoreInput: React.FC<CoreInputProps> = ({
   const [recentlySentText, setRecentlySentText] = useState<string>(""); // For failed/aborted sends
   const recentlySentTextRef = useRef<string>(""); // So restore effect sees value before state flushes
   const [model, setModel] = useState<ChatModel>(defaultModel);
-  const [useWebSearch, setUseWebSearch] = useState<boolean>(false);
+  const [useWebSearch, setUseWebSearch] = useState<boolean>(defaultWebSearch);
   const [useMemories, setUseMemories] = useState<boolean>(defaultMemories);
   const [useSpeechFriendly, setUseSpeechFriendly] = useState<boolean>(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const toolsRef = useRef<HTMLDivElement | null>(null);
+  const showLabelsRef = useRef(false);
   const [showLabels, setShowLabels] = useState(false);
   const [inputMarkdownMode, setInputMarkdownMode] = useState<"edit" | "preview">("edit");
   const hasLoadedPrefs = useRef(false);
@@ -178,6 +195,10 @@ export const CoreInput: React.FC<CoreInputProps> = ({
 
   inputEmptyRef.current = text.trim() === "";
   statusRef.current = status ?? "ready";
+  // Mirror the toggle state into the caller-owned refs every render, so the value
+  // sent (read from the ref at submit time) always matches what the composer shows.
+  if (useWebSearchRef) useWebSearchRef.current = useWebSearch;
+  if (useMemoriesRef) useMemoriesRef.current = useMemories;
 
   // Auto-delete blank chat when user navigates away with empty input
   useEffect(() => {
@@ -252,8 +273,44 @@ export const CoreInput: React.FC<CoreInputProps> = ({
     if (el) {
       el.value = composerInject.text;
       el.dispatchEvent(new Event("input", { bubbles: true }));
+      if (composerInject.text.length > 0) {
+        el.focus();
+      }
     }
   }, [composerInject, onComposerTextChange]);
+
+  const hasHigherPriorityHydration = useCallback(() => {
+    if (composerInject && appliedComposerInjectId.current !== composerInject.id) {
+      return true;
+    }
+
+    if (appliedComposerInjectId.current === composerInject?.id) {
+      return true;
+    }
+
+    const draft = initialDraft?.trim();
+
+    if (draft && !appliedInitialDraft.current) {
+      return true;
+    }
+
+    if (appliedInitialDraft.current && draft) {
+      return true;
+    }
+
+    return false;
+  }, [composerInject, initialDraft]);
+
+  const { clearDraftOnSend, draftRestored } = useComposerDraft({
+    chatId,
+    text,
+    setText,
+    textareaRef,
+    onComposerTextChange,
+    status: status ?? "ready",
+    error,
+    hasHigherPriorityHydration,
+  });
 
   // Load preferences from localStorage on mount
   useLayoutEffect(() => {
@@ -271,31 +328,55 @@ export const CoreInput: React.FC<CoreInputProps> = ({
       localStorage.removeItem(STORAGE_KEY_SPEECH_FRIENDLY);
       localStorage.removeItem(STORAGE_KEY_TIMESTAMP);
 
+      setUseWebSearch(defaultWebSearch);
+      setUseMemories(defaultMemories);
+      if (modelRef) modelRef.current = defaultModel;
+
       return;
     }
 
     // Load stored preferences
     const storedModel = localStorage.getItem(modelStorageKey);
+    let nextModel = defaultModel;
 
     if (storedModel) {
       const found = ChatModels.find((m) => m.id === storedModel);
 
-      if (found) setModel(found);
+      if (found) {
+        nextModel = found;
+        setModel(found);
+      }
     }
 
     const storedWebSearch = localStorage.getItem(STORAGE_KEY_WEB_SEARCH);
+    let nextWebSearch = defaultWebSearch;
 
-    if (storedWebSearch === "true") setUseWebSearch(true);
+    if (storedWebSearch === "true") nextWebSearch = true;
+    else if (storedWebSearch === "false") nextWebSearch = false;
+    setUseWebSearch(nextWebSearch);
 
     const storedMemories = localStorage.getItem(memoriesStorageKey);
+    let nextMemories = defaultMemories;
 
-    if (storedMemories === "true") setUseMemories(true);
-    else if (storedMemories === "false") setUseMemories(false);
+    if (storedMemories === "true") nextMemories = true;
+    else if (storedMemories === "false") nextMemories = false;
+    setUseMemories(nextMemories);
 
     const storedSpeechFriendly = localStorage.getItem(STORAGE_KEY_SPEECH_FRIENDLY);
 
     if (storedSpeechFriendly === "true") setUseSpeechFriendly(true);
-  }, [modelStorageKey, memoriesStorageKey]);
+
+    if (modelRef) modelRef.current = nextModel;
+  }, [
+    defaultMemories,
+    defaultModel,
+    defaultWebSearch,
+    memoriesStorageKey,
+    modelRef,
+    modelStorageKey,
+    useMemoriesRef,
+    useWebSearchRef,
+  ]);
 
   // Update timestamp whenever preferences are saved
   const updatePrefsTimestamp = () => {
@@ -313,27 +394,21 @@ export const CoreInput: React.FC<CoreInputProps> = ({
     }
   }, [model, modelRef, modelStorageKey]);
 
-  // Sync web search to ref and persist to localStorage
+  // Persist web search to localStorage (ref is mirrored at render time).
   useEffect(() => {
-    if (useWebSearchRef && useWebSearchRef.current !== useWebSearch) {
-      useWebSearchRef.current = useWebSearch;
-    }
     if (hasLoadedPrefs.current) {
       localStorage.setItem(STORAGE_KEY_WEB_SEARCH, String(useWebSearch));
       updatePrefsTimestamp();
     }
-  }, [useWebSearch, useWebSearchRef]);
+  }, [useWebSearch]);
 
-  // Sync memories to ref and persist to localStorage
+  // Persist memories to localStorage (ref is mirrored at render time).
   useEffect(() => {
-    if (useMemoriesRef && useMemoriesRef.current !== useMemories) {
-      useMemoriesRef.current = useMemories;
-    }
     if (hasLoadedPrefs.current) {
       localStorage.setItem(memoriesStorageKey, String(useMemories));
       updatePrefsTimestamp();
     }
-  }, [useMemories, useMemoriesRef, memoriesStorageKey]);
+  }, [useMemories, memoriesStorageKey]);
 
   // Sync speech-friendly to ref and persist to localStorage
   useEffect(() => {
@@ -351,16 +426,30 @@ export const CoreInput: React.FC<CoreInputProps> = ({
 
     if (!el) return;
 
-    const update = (width: number) => setShowLabels(width >= 628);
+    /** Wider threshold to show labels; lower to hide — avoids oscillation at the breakpoint. */
+    const SHOW_LABELS_AT_PX = 640;
+    const HIDE_LABELS_AT_PX = 600;
 
-    update(el.getBoundingClientRect().width);
+    const applyWidth = (width: number) => {
+      const next = showLabelsRef.current ? width >= HIDE_LABELS_AT_PX : width >= SHOW_LABELS_AT_PX;
+
+      if (next === showLabelsRef.current) return;
+
+      showLabelsRef.current = next;
+      setShowLabels(next);
+    };
+
+    const measureTarget = (el.closest("[data-prompt-input-shell]") as HTMLElement | null) ?? el;
+
+    applyWidth(measureTarget.getBoundingClientRect().width);
 
     if (typeof ResizeObserver === "undefined") return;
+
     const observer = new ResizeObserver((entries) => {
-      update(entries[0]?.contentRect.width ?? 0);
+      applyWidth(entries[0]?.contentRect.width ?? 0);
     });
 
-    observer.observe(el);
+    observer.observe(measureTarget);
 
     return () => observer.disconnect();
   }, []);
@@ -396,6 +485,8 @@ export const CoreInput: React.FC<CoreInputProps> = ({
       text: finalText,
       files: message.files,
     });
+
+    clearDraftOnSend();
   };
 
   const handleModelSelection = (id: string) => {
@@ -442,6 +533,64 @@ export const CoreInput: React.FC<CoreInputProps> = ({
     sentMessageShimmer === true && (status === "submitted" || status === "streaming");
   const sentDisplaySource = recentlySentText || recentlySentTextRef.current;
   const sentDisplayText = truncateSentMessageDisplay(sentDisplaySource);
+  const composerBodyMeasureClass =
+    "w-full min-h-11 max-h-40 overflow-y-auto whitespace-pre-wrap break-words text-base text-foreground md:text-sm";
+
+  const renderComposerBody = () => {
+    if (showSentShimmer) {
+      return (
+        <div aria-live="polite" className="w-full min-w-0 max-w-full px-3 py-3" role="status">
+          <span className="sr-only">Sending message</span>
+          <ShinyText as="div" className={composerBodyMeasureClass} text={sentDisplayText} />
+        </div>
+      );
+    }
+
+    if (enableMarkdownInputPreview && inputMarkdownMode === "preview") {
+      return (
+        <>
+          <input name="message" type="hidden" value={text} />
+          <div
+            aria-label="Markdown preview"
+            className={cn(
+              "w-full min-w-0 max-w-full min-h-11 max-h-40 overflow-y-auto overflow-x-auto px-3 py-3 text-base md:text-sm",
+              "prose prose-sm dark:prose-invert max-w-full text-foreground",
+              "[&_table]:block [&_table]:max-w-full [&_table]:overflow-x-auto",
+              "[&_img]:max-w-full [&_img]:h-auto"
+            )}
+            role="region"
+          >
+            {text.trim() ? (
+              <ChatMessageMarkdown
+                content={text}
+                id="arcadia-composer-markdown-preview"
+                wrapCodeBlocks
+              />
+            ) : (
+              <p className="text-muted-foreground not-prose m-0">Nothing to preview</p>
+            )}
+          </div>
+        </>
+      );
+    }
+
+    const editBody = (
+      <PromptInputTextarea
+        ref={textareaRef}
+        value={text}
+        className={cn(variant === "compact" && "min-h-10 max-h-24 resize-none")}
+        onChange={handleInputChange}
+        onKeyDown={onSecondarySubmit ? handleTextareaKeyDown : undefined}
+      />
+    );
+
+    return editBody;
+  };
+
+  const showComposerToolHints =
+    featureHints && !hideWebMemorySpeechToggles && variant !== "compact";
+  const showComposerModelHint = featureHints && variant !== "compact";
+  const showSteerHint = featureHints && Boolean(onSecondarySubmit);
 
   return (
     <PromptInput
@@ -449,7 +598,7 @@ export const CoreInput: React.FC<CoreInputProps> = ({
       data-dim-background
       globalDrop
       multiple
-      className={cn("min-w-fit z-40", className)}
+      className={cn("z-40 w-full min-w-0", className)}
       onSubmit={handleSubmit}
     >
       <PromptInputHeader>
@@ -459,48 +608,12 @@ export const CoreInput: React.FC<CoreInputProps> = ({
       </PromptInputHeader>
 
       <PromptInputBody>
-        {showSentShimmer ? (
-          <div aria-live="polite" className="w-full min-w-0 max-w-full px-3 py-3" role="status">
-            <span className="sr-only">Sending message</span>
-            <ShinyText
-              as="div"
-              className="w-full min-h-11 max-h-40 overflow-y-auto whitespace-pre-wrap break-words text-base text-foreground md:text-sm"
-              text={sentDisplayText}
-            />
-          </div>
-        ) : enableMarkdownInputPreview && inputMarkdownMode === "preview" ? (
-          <>
-            <input name="message" type="hidden" value={text} />
-            <div
-              aria-label="Markdown preview"
-              className={cn(
-                "w-full min-w-0 max-w-full min-h-11 max-h-40 overflow-y-auto overflow-x-auto px-3 py-3 text-base md:text-sm",
-                "prose prose-sm dark:prose-invert max-w-full text-foreground",
-                "[&_table]:block [&_table]:max-w-full [&_table]:overflow-x-auto",
-                "[&_img]:max-w-full [&_img]:h-auto"
-              )}
-              role="region"
-            >
-              {text.trim() ? (
-                <ChatMessageMarkdown
-                  content={text}
-                  id="arcadia-composer-markdown-preview"
-                  wrapCodeBlocks
-                />
-              ) : (
-                <p className="text-muted-foreground not-prose m-0">Nothing to preview</p>
-              )}
-            </div>
-          </>
-        ) : (
-          <PromptInputTextarea
-            ref={textareaRef}
-            value={text}
-            className={cn(variant === "compact" && "min-h-10 max-h-24 resize-none")}
-            onChange={handleInputChange}
-            onKeyDown={onSecondarySubmit ? handleTextareaKeyDown : undefined}
-          />
-        )}
+        {draftRestored ? (
+          <span className="sr-only" aria-live="polite">
+            Draft restored
+          </span>
+        ) : null}
+        {renderComposerBody()}
       </PromptInputBody>
       <PromptInputFooter className="overflow-visible">
         <div ref={toolsRef} className="w-full overflow-visible">
@@ -530,22 +643,36 @@ export const CoreInput: React.FC<CoreInputProps> = ({
               )}
               {!hideWebMemorySpeechToggles && variant !== "compact" ? (
                 <>
-                  <ComposerToolChip
-                    active={useWebSearch}
-                    tool="search"
-                    onClick={() => setUseWebSearch(!useWebSearch)}
-                  >
-                    <GlobeIcon size={16} />
-                    <span className={cn(showLabels ? "inline-flex" : "hidden")}>Search</span>
-                  </ComposerToolChip>
-                  <ComposerToolChip
-                    active={useMemories}
-                    tool="memory"
-                    onClick={() => setUseMemories(!useMemories)}
-                  >
-                    <BrainCircuit />
-                    <span className={cn(showLabels ? "inline-flex" : "hidden")}>Memory</span>
-                  </ComposerToolChip>
+                  {(() => {
+                    const searchMemoryChips = (
+                      <>
+                        <ComposerToolChip
+                          active={useWebSearch}
+                          tool="search"
+                          onClick={() => setUseWebSearch(!useWebSearch)}
+                        >
+                          <GlobeIcon size={16} />
+                          <span className={cn(showLabels ? "inline-flex" : "hidden")}>Search</span>
+                        </ComposerToolChip>
+                        <ComposerToolChip
+                          active={useMemories}
+                          tool="memory"
+                          onClick={() => setUseMemories(!useMemories)}
+                        >
+                          <BrainCircuit />
+                          <span className={cn(showLabels ? "inline-flex" : "hidden")}>Memory</span>
+                        </ComposerToolChip>
+                      </>
+                    );
+
+                    return showComposerToolHints ? (
+                      <FeatureHint id="composer-search-memory">
+                        <span className="inline-flex gap-1">{searchMemoryChips}</span>
+                      </FeatureHint>
+                    ) : (
+                      searchMemoryChips
+                    );
+                  })()}
                   {useSpeechFriendlyRef && (
                     <ComposerToolChip
                       active={useSpeechFriendly}
@@ -562,34 +689,44 @@ export const CoreInput: React.FC<CoreInputProps> = ({
               ) : null}
 
               {variant !== "compact" ? (
-                <PromptInputSelect
-                  required
-                  defaultValue={model.id}
-                  value={model.id}
-                  onValueChange={handleModelSelection}
-                >
-                  <PromptInputSelectTrigger className="flex-1 max-w-32 sm:max-w-48 min-w-0">
-                    <PromptInputSelectValue className="truncate min-w-0">
-                      <span className="flex min-w-0 items-center gap-2">
-                        <span className="truncate">{model.name}</span>
-                        {model.supportsZeroDataRetention && <ModelZdrIndicator />}
-                      </span>
-                    </PromptInputSelectValue>
-                  </PromptInputSelectTrigger>
-                  <PromptInputSelectContent
-                    className="max-h-80 overflow-y-auto"
-                    defaultValue={model.id}
-                  >
-                    {ChatModels.map((model) => (
-                      <PromptInputSelectItem key={model.id} textValue={model.name} value={model.id}>
-                        <span className="flex min-w-0 items-center gap-2">
-                          <span className="truncate">{model.name}</span>
-                          {model.supportsZeroDataRetention && <ModelZdrIndicator />}
-                        </span>
-                      </PromptInputSelectItem>
-                    ))}
-                  </PromptInputSelectContent>
-                </PromptInputSelect>
+                (() => {
+                  const modelSelect = (
+                    <PromptInputSelect
+                      required
+                      defaultValue={model.id}
+                      value={model.id}
+                      onValueChange={handleModelSelection}
+                    >
+                      <PromptInputSelectTrigger className="flex-1 max-w-32 sm:max-w-48 min-w-0">
+                        <PromptInputSelectValue className="truncate min-w-0">
+                          <span className="flex min-w-0 items-center gap-2">
+                            <span className="truncate">{model.name}</span>
+                            {model.supportsZeroDataRetention && <ModelZdrIndicator />}
+                          </span>
+                        </PromptInputSelectValue>
+                      </PromptInputSelectTrigger>
+                      <PromptInputSelectContent
+                        className="max-h-80 overflow-y-auto"
+                        defaultValue={model.id}
+                      >
+                        {ChatModels.map((m) => (
+                          <PromptInputSelectItem key={m.id} textValue={m.name} value={m.id}>
+                            <span className="flex min-w-0 items-center gap-2">
+                              <span className="truncate">{m.name}</span>
+                              {m.supportsZeroDataRetention && <ModelZdrIndicator />}
+                            </span>
+                          </PromptInputSelectItem>
+                        ))}
+                      </PromptInputSelectContent>
+                    </PromptInputSelect>
+                  );
+
+                  return showComposerModelHint ? (
+                    <FeatureHint id="composer-auto-model">{modelSelect}</FeatureHint>
+                  ) : (
+                    modelSelect
+                  );
+                })()
               ) : (
                 <span className="text-muted-foreground truncate px-2 text-xs">{model.name}</span>
               )}
@@ -603,34 +740,46 @@ export const CoreInput: React.FC<CoreInputProps> = ({
           </PromptInputTools>
         </div>
         <div className="flex items-center gap-2 shrink-0">
-          {onSecondarySubmit ? (
-            <PromptInputButton
-              disabled={
-                secondarySubmitDisabled ||
-                secondarySubmitPending ||
-                !text.trim() ||
-                disabled ||
-                showSentShimmer
-              }
-              size="dynamic-sm"
-              title="Run steer on the current text (⌘ or Ctrl + Enter)"
-              type="button"
-              variant="ghost"
-              onClick={() => {
-                const raw = (textareaRef.current?.value ?? text).trim();
+          {onSecondarySubmit
+            ? (() => {
+                const steerButton = (
+                  <PromptInputButton
+                    disabled={
+                      secondarySubmitDisabled ||
+                      secondarySubmitPending ||
+                      !text.trim() ||
+                      disabled ||
+                      showSentShimmer
+                    }
+                    size="dynamic-sm"
+                    title="Run steer on the current text (⌘ or Ctrl + Enter)"
+                    type="button"
+                    variant="ghost"
+                    onClick={() => {
+                      const raw = (textareaRef.current?.value ?? text).trim();
 
-                if (!raw || secondarySubmitDisabled || secondarySubmitPending) return;
-                void onSecondarySubmit(raw);
-              }}
-            >
-              {secondarySubmitPending ? (
-                <Loader2 aria-hidden className="size-4 animate-spin shrink-0" />
-              ) : null}
-              <span className={cn("max-w-28 truncate text-xs", !showLabels && "sr-only")}>
-                {secondarySubmitLabel}
-              </span>
-            </PromptInputButton>
-          ) : null}
+                      if (!raw || secondarySubmitDisabled || secondarySubmitPending) return;
+                      void onSecondarySubmit(raw);
+                    }}
+                  >
+                    {secondarySubmitPending ? (
+                      <Loader2 aria-hidden className="size-4 animate-spin shrink-0" />
+                    ) : null}
+                    <span className={cn("max-w-28 truncate text-xs", !showLabels && "sr-only")}>
+                      {secondarySubmitLabel}
+                    </span>
+                  </PromptInputButton>
+                );
+
+                return showSteerHint ? (
+                  <FeatureHint id="noesis-steer-assist" showWhen={steerHintShowWhen}>
+                    {steerButton}
+                  </FeatureHint>
+                ) : (
+                  steerButton
+                );
+              })()
+            : null}
           <PromptInputSubmit
             className={cn(
               submitVariant === "organic-glass" &&

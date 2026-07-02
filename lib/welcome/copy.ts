@@ -31,9 +31,19 @@ export const welcomeCopy = {
         description: "One turn, unpacked",
       },
       {
+        href: "/showcase",
+        label: "Showcase",
+        description: "Public demos & memory lens",
+      },
+      {
         href: "/blog",
         label: "Blog",
         description: "Design & systems",
+      },
+      {
+        href: "/good-news",
+        label: "Good News",
+        description: "Daily digest preview",
       },
     ],
   },

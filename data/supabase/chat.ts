@@ -147,6 +147,42 @@ export async function getChats(options?: { ownerId?: string }): Promise<Result<T
   };
 }
 
+/**
+ * Most recently active, non-archived thread for an owner with the given
+ * `feature`, or `null` when none exists. Used by the Memory ingest chamber to
+ * decide whether to resume a recent session or start a fresh one.
+ *
+ * `updated_at` advances on every thread write (e.g. the per-turn
+ * `active_stream_id` update), so it tracks last activity — the same signal the
+ * sidebar orders on.
+ */
+export async function getLatestThreadByFeature(
+  ownerId: string,
+  feature: string
+): Promise<Result<{ id: string; updatedAt: string } | null>> {
+  const sb = await supabaseServer();
+  const { data, error } = await sb
+    .from("threads")
+    .select("id, updated_at")
+    .eq("owner_id", ownerId)
+    .eq("feature", feature)
+    .not("archived", "is", true)
+    .order("updated_at", { ascending: false })
+    .limit(1);
+
+  if (error) {
+    return { data: null, error: new Error(error?.message ?? "Unknown error") };
+  }
+
+  const row = data?.[0];
+
+  if (row == null) {
+    return { data: null, error: null };
+  }
+
+  return { data: { id: row.id, updatedAt: row.updated_at }, error: null };
+}
+
 /** Thread row for Settings → Chats (decrypted summary for display). */
 export type ChatThreadSettingsRow = {
   id: string;
@@ -826,6 +862,70 @@ export async function getMessageCount(chatId: string): Promise<Result<number, st
       error: err instanceof Error ? err.message : "Unknown error",
     };
   }
+}
+
+/** Returns the persisted Arcadia starter key for a thread, if any. */
+export async function getThreadArcadiaStarterKey(
+  chatId: string
+): Promise<Result<string | null>> {
+  const sb = await supabaseServer();
+  const { data, error } = await sb
+    .from("threads")
+    .select("arcadia_starter_key")
+    .eq("id", chatId)
+    .single();
+
+  if (error) {
+    return {
+      data: null,
+      error: new Error(error.message ?? "Unknown error"),
+    };
+  }
+
+  const key = data?.arcadia_starter_key;
+  return {
+    data: typeof key === "string" && key.trim() !== "" ? key : null,
+    error: null,
+  };
+}
+
+/**
+ * Sets or clears the Arcadia starter key. Rejects when the thread already has messages.
+ */
+export async function setThreadArcadiaStarterKey(
+  chatId: string,
+  key: string | null
+): Promise<SimpleResult> {
+  const countResult = await getMessageCount(chatId);
+
+  if (countResult.error || countResult.data === null) {
+    return {
+      ok: false,
+      error: new Error(countResult.error ?? "Failed to read message count"),
+    };
+  }
+
+  if (countResult.data > 0) {
+    return {
+      ok: false,
+      error: new Error("Arcadia starter can only be changed on an empty thread"),
+    };
+  }
+
+  const sb = await supabaseServer();
+  const { error } = await sb
+    .from("threads")
+    .update({ arcadia_starter_key: key })
+    .eq("id", chatId);
+
+  if (error) {
+    return {
+      ok: false,
+      error: new Error(error.message ?? "Unknown error"),
+    };
+  }
+
+  return { ok: true, error: null };
 }
 
 /**

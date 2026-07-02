@@ -12,21 +12,29 @@ export const CHAT_STYLES = [
     id: "default",
     label: "Standard",
     description: "Open chat. Structured blocks when they help.",
+    guide:
+      "Everyday Arcadia chat — concise replies, tools when useful, structured blocks for lists and steps.",
   },
   {
     id: "ergon",
     label: "Ergon board",
     description: "Kanban the assistant keeps. Ask what's active or next.",
+    guide:
+      "The assistant maintains a kanban board in-thread. Ask what's in progress, what's blocked, or what's next.",
   },
   {
     id: "remy",
     label: "Remy",
     description: "Plan a meal for an event—recipes, ingredients, and a shopping list.",
+    guide:
+      "Event meal planning — build a prep timeline, recipe cards, and a have/need shopping list for your gathering.",
   },
   {
     id: "scribe",
     label: "Scribe",
-    description: "Organizes your words only—no outside facts.",
+    description: "Organizes your words only — no outside facts.",
+    guide:
+      "Rewrites and structures what you provide — no web search or invented facts. Best for drafts you already have.",
   },
 ] as const;
 
@@ -50,4 +58,8 @@ export function parseChatStyle(raw: string | undefined | null): ChatStyle | unde
   if (normalized === "") return undefined;
 
   return CHAT_STYLE_IDS.has(normalized) ? (normalized as ChatStyle) : undefined;
+}
+
+export function resolveChatStyleMeta(style: ChatStyle): (typeof CHAT_STYLES)[number] {
+  return CHAT_STYLES.find((entry) => entry.id === style) ?? CHAT_STYLES[0];
 }

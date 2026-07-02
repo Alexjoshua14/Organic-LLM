@@ -16,11 +16,12 @@ import { searchMemoriesForUser } from "@/lib/memory/operations";
 import { getModelCost } from "@/lib/rate-limit/llm-cost";
 import { SearchMemoryToolSchema } from "@/lib/schemas/llm-tools";
 import { ProfileSectionSchema, ProfileTreeSchema } from "@/lib/schemas/profileTree";
+import { AUTO_RESOLVED_SONNET_MODEL_ID } from "@/lib/schemas/chat";
 
 const logger = createLogger("lib/profile-generation.ts");
 
 const PLANNER_MODEL = "openai/gpt-5.5";
-const SECTION_MODEL = "anthropic/claude-sonnet-4.6";
+const SECTION_MODEL = AUTO_RESOLVED_SONNET_MODEL_ID;
 const REVIEW_MODEL = "openai/gpt-5.5";
 
 const BASELINE_MEMORY_SEARCH_LIMIT = 50;
@@ -308,10 +309,10 @@ function createProfileMemorySearchTool(userId: string, budget: ProfileGeneration
     description:
       "Search the signed-in user's stored memories for profile-relevant facts, preferences, projects, goals, interests, and context.",
     inputSchema: SearchMemoryToolSchema,
-    execute: async ({ query, limit }) => {
+    execute: async ({ query }) => {
       budget.toolSearchCalls += 1;
       const result = await searchMemoriesForUser(userId, query, {
-        limit: Math.min(limit ?? 3, MAX_SECTION_MEMORY_RESULTS),
+        limit: MAX_SECTION_MEMORY_RESULTS,
       });
 
       if (result.error || !result.data) {

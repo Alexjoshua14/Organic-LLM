@@ -13,7 +13,6 @@ type ShowcasePageEntry = {
   title: string;
   description: string;
   href: string;
-  size: "small" | "large";
   edgeGlow?: boolean;
 };
 
@@ -29,7 +28,6 @@ export default function ShowcasePage() {
       description:
         "Scrollytelling trace of one assistant turn: context, memory, tools, streaming, structured cards, and TTS — recorded data, real chat UI.",
       href: "/showcase/anatomy",
-      size: "large",
       edgeGlow: true,
     },
     {
@@ -37,7 +35,6 @@ export default function ShowcasePage() {
       description:
         "Persisted memory lens, cards, and ephemeral in-chat components — what Organic LLM stores and how it surfaces across threads.",
       href: "/showcase/memory",
-      size: "small",
       edgeGlow: true,
     },
   ];
@@ -56,7 +53,7 @@ export default function ShowcasePage() {
           </p>
         </div>
 
-        <div className="grid w-full grid-cols-1 gap-4 auto-rows-[minmax(120px,auto)]">
+        <div className="grid w-full grid-cols-1 gap-4">
           {showcasePages.map((page) => (
             <Link
               key={page.href}
@@ -65,8 +62,7 @@ export default function ShowcasePage() {
                 glass(),
                 "group relative overflow-hidden rounded-2xl border border-border/70 backdrop-blur-xl",
                 "transition-all duration-300 ease-in-out hover:bg-muted/40 active:scale-[0.995]",
-                page.size === "large" ? "md:col-span-1 lg:row-span-2" : "md:col-span-1",
-                "p-6 sm:p-8 flex flex-col gap-6 sm:flex-row sm:items-center sm:justify-between sm:gap-10"
+                "p-6 sm:p-8 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between sm:gap-8"
               )}
               href={page.href}
             >

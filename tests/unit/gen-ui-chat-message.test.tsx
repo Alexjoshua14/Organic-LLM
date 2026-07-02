@@ -21,6 +21,7 @@ mock.module("@/lib/context/tts-context", () => ({
 }));
 
 mock.module("@/lib/user-settings", () => ({
+  USER_SETTINGS_STORAGE_KEY: "organic-llm-user-settings",
   getSettings: () => ({
     fontId: "satoshi",
     ttsWholeMessage: true,
