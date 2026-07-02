@@ -3,6 +3,7 @@ import { cleanup } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import type { ComponentProps, ReactNode } from "react";
 
+import { FeatureHintRegistryProvider } from "@/lib/onboarding/feature-hint-context";
 import { render } from "../helpers/render";
 
 const mockCreateChat = mock<
@@ -88,22 +89,24 @@ describe("SidebarExperienceRail (Chat segment)", () => {
     );
 
     return render(
-      <ChatContext.Provider
-        value={
-          {
-            chat: {} as ChatContextValue["chat"],
-            clearChat: () => {},
-            setChatId: () => {},
-            chatId: "",
-            sidebarChats: [],
-            isSidebarChatsLoading: false,
-            sidebarChatsError: null,
-            refreshSidebarChats: mockRefreshSidebarChats,
-          } as ChatContextValue
-        }
-      >
-        <SidebarExperienceRail />
-      </ChatContext.Provider>,
+      <FeatureHintRegistryProvider>
+        <ChatContext.Provider
+          value={
+            {
+              chat: {} as ChatContextValue["chat"],
+              clearChat: () => {},
+              setChatId: () => {},
+              chatId: "",
+              sidebarChats: [],
+              isSidebarChatsLoading: false,
+              sidebarChatsError: null,
+              refreshSidebarChats: mockRefreshSidebarChats,
+            } as ChatContextValue
+          }
+        >
+          <SidebarExperienceRail />
+        </ChatContext.Provider>
+      </FeatureHintRegistryProvider>,
     );
   }
 
