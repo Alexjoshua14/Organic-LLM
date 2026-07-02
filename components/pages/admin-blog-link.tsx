@@ -36,7 +36,5 @@ export function AdminBlogLink() {
 
   if (!userId || show === false) return null;
 
-  return (
-    <GatewaySmokeLink ariaLabel="Blog" href="/blog" label="Blog" />
-  );
+  return <GatewaySmokeLink ariaLabel="Blog" href="/blog" label="Blog" showArrow />;
 }

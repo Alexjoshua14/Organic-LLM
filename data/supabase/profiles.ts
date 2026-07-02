@@ -2,6 +2,7 @@
 import type { Json } from "@/lib/supabase/types";
 
 import { auth } from "@clerk/nextjs/server";
+import { z } from "zod";
 
 import { supabaseServer } from "@/lib/supabase/server";
 import { Result } from "@/types";
@@ -98,6 +99,67 @@ function parseProfileTreeRevision(row: {
   };
 }
 
+function emptyStringToNull(value: unknown): string | null | undefined {
+  if (value === undefined) return undefined;
+  if (value === null) return null;
+  if (typeof value !== "string") return null;
+
+  const trimmed = value.trim();
+
+  return trimmed.length > 0 ? trimmed : null;
+}
+
+function parseOptionalEmail(value: unknown): string | null | undefined {
+  const normalized = emptyStringToNull(value);
+
+  if (normalized === undefined || normalized === null) return normalized;
+
+  try {
+    return z.email().parse(normalized);
+  } catch {
+    return null;
+  }
+}
+
+function parseProfileRow(row: Record<string, unknown>): Profile {
+  let profileTree: ProfileTree | null | undefined;
+
+  if (row.profile_tree == null) {
+    profileTree = row.profile_tree === null ? null : undefined;
+  } else {
+    try {
+      profileTree = ProfileTreeSchema.parse(row.profile_tree);
+    } catch {
+      profileTree = null;
+    }
+  }
+
+  let profileTreeSource: ProfileTreeSource | null | undefined;
+
+  if (row.profile_tree_source == null) {
+    profileTreeSource = row.profile_tree_source === null ? null : undefined;
+  } else {
+    try {
+      profileTreeSource = ProfileTreeSourceSchema.parse(row.profile_tree_source);
+    } catch {
+      profileTreeSource = null;
+    }
+  }
+
+  const updatedAt =
+    typeof row.profile_tree_updated_at === "string" ? row.profile_tree_updated_at : null;
+
+  return ProfileSchema.parse({
+    clerk_user_id: row.clerk_user_id,
+    display_name: emptyStringToNull(row.display_name),
+    email: parseOptionalEmail(row.email),
+    profile_tree: profileTree,
+    profile_tree_source: profileTreeSource,
+    profile_tree_updated_at: updatedAt,
+    admin: typeof row.admin === "boolean" ? row.admin : undefined,
+  });
+}
+
 /**
  * Retrieves a profile from Supabase by Clerk user ID
  * @param clerkUserId
@@ -108,23 +170,15 @@ export async function getProfile(clerkUserId: string): Promise<Result<Profile>> 
   const res = await sb.from("profiles").select("*").eq("clerk_user_id", clerkUserId).single();
 
   if (res.error) {
-    return {
-      data: null,
-      error: new Error(res.error?.message ?? "Unknown error"),
-    };
+    return errorResult(res.error?.message ?? "Unknown error");
   }
   try {
-    const profile = ProfileSchema.parse(res.data);
-
     return {
-      data: profile,
+      data: parseProfileRow(res.data as Record<string, unknown>),
       error: null,
     };
   } catch (error: any) {
-    return {
-      data: null,
-      error: new Error(error?.message ?? "Unknown error"),
-    };
+    return errorResult(error?.message ?? "Unknown error");
   }
 }
 

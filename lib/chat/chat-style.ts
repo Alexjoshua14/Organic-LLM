@@ -11,7 +11,7 @@ export const CHAT_STYLES = [
   {
     id: "default",
     label: "Standard",
-    description: "Open chat. Structured blocks when they help.",
+    description: "Typical chat flow, generative UI components when they help.",
     guide:
       "Everyday Arcadia chat — concise replies, tools when useful, structured blocks for lists and steps.",
   },

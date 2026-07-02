@@ -13,12 +13,6 @@ export function ShowcaseGatewayButton() {
   if (!userId) return null;
 
   return (
-    <GatewaySmokeLink
-      ariaLabel="Open Showcase"
-      href="/showcase"
-      label="Showcase"
-      motionDelay={0.45}
-      showArrow
-    />
+    <GatewaySmokeLink ariaLabel="Open Showcase" href="/showcase" label="Showcase" showArrow />
   );
 }

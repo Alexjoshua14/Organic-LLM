@@ -3,17 +3,10 @@
 import type { ReactNode } from "react";
 
 import { glass } from "@/components/design-system/primitives";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger,
-} from "@/components/third-party/ui/tooltip";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/third-party/ui/tooltip";
 import { cn } from "@/lib/utils";
 
-import {
-  useChatStyleCardLumen,
-  useChatStyleCardLumenHostRef,
-} from "./use-chat-style-card-lumen";
+import { useChatStyleCardLumen, useChatStyleCardLumenHostRef } from "./use-chat-style-card-lumen";
 
 type ChatStyleCardProps = {
   icon: ReactNode;
@@ -40,7 +33,7 @@ export function ChatStyleCard({
     <button
       aria-checked={selected}
       className={cn(
-        "chat-style-card group relative z-10 flex min-w-0 w-full cursor-pointer flex-col items-start gap-1.5 rounded-xl border p-3 text-left transition-[border-color,box-shadow,transform] duration-200 sm:gap-2 sm:p-3.5",
+        "chat-style-card group relative z-10 grid grid-rows-[1fr_1fr_2fr] min-w-0 w-full h-full cursor-pointer flex-col items-start gap-1 rounded-xl border p-2 text-left transition-[border-color,box-shadow,transform] duration-200 sm:gap-1.5 sm:p-3",
         glass({ opaque: true }),
         "motion-safe:hover:scale-[1.01] motion-safe:active:scale-[0.99]",
         selected
@@ -51,13 +44,13 @@ export function ChatStyleCard({
       type="button"
       onClick={onSelect}
     >
-      <span className="grid size-8 shrink-0 place-items-center rounded-md bg-background-tertiary/50 text-foreground">
+      <span className="grid size-7 shrink-0 place-items-center rounded-md bg-background-tertiary/50 text-foreground sm:size-8">
         {icon}
       </span>
-      <span className="w-full min-w-0 text-left text-sm font-medium leading-tight text-foreground">
+      <span className="w-full min-w-0 text-left text-xs font-medium leading-tight text-foreground sm:text-sm">
         {label}
       </span>
-      <span className="w-full min-w-0 text-left text-[11px] leading-snug text-muted-foreground sm:text-xs">
+      <span className="line-clamp-3 w-full min-w-0 text-left text-[10px] leading-snug text-muted-foreground sm:text-xs">
         {description}
       </span>
     </button>

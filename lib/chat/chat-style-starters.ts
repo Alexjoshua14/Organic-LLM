@@ -26,9 +26,7 @@ export function encodeChatStarterKey(style: ChatStyle, id: string): string {
   return `${style}${CHAT_STARTER_KEY_SEP}${id}`;
 }
 
-export function parseChatStarterKey(
-  key: string
-): { style: ChatStyle; id: string } | null {
+export function parseChatStarterKey(key: string): { style: ChatStyle; id: string } | null {
   const sep = key.indexOf(CHAT_STARTER_KEY_SEP);
   if (sep < 1) return null;
 
@@ -97,19 +95,20 @@ export const CHAT_STYLE_STARTERS: Record<ChatStyle, readonly ChatStyleStarter[]>
   ],
   remy: [
     {
-      id: "housewarming-menu",
-      label: "I'm hosting a housewarming Saturday at 7:30—help me plan the menu.",
-      prompt: "I'm hosting a housewarming Saturday at 7:30—help me plan the menu.",
+      id: "plan-event-meal",
+      label: "I'm cooking for people soon—help me plan the meal.",
+      prompt:
+        "I'm cooking for people soon—help me plan the meal. Ask me what you need to know, then set up the plan.",
     },
     {
-      id: "add-recipe-link",
-      label: "Add this recipe to my plan: <paste a link>",
-      prompt: "Add this recipe to my plan: <paste a link>",
+      id: "cook-with-what-i-have",
+      label: "What can I make with what's in my kitchen?",
+      prompt: "What can I make with what's in my kitchen? I'll tell you what I have.",
     },
     {
-      id: "shopping-list",
-      label: "What do I still need to buy?",
-      prompt: "What do I still need to buy?",
+      id: "import-recipe",
+      label: "Turn this recipe into a plan: <paste a link>",
+      prompt: "Turn this recipe into a plan with a prep timeline and shopping list: <paste a link>",
     },
   ],
   scribe: [

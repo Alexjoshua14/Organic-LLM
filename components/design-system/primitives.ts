@@ -1,5 +1,7 @@
 import { tv } from "tailwind-variants";
 
+import { cn } from "@/lib/utils";
+
 export const title = tv({
   base: "tracking-tight inline font-semibold",
   variants: {
@@ -103,6 +105,12 @@ export const glass = tv({
     chip: false,
   },
 });
+
+/** Opaque smoke shell shared by the homepage composer and its primary action buttons. */
+export const homeComposerGlassSurface = cn(
+  glass({ opaque: true }),
+  "overflow-visible rounded-xl"
+);
 
 /**
  * Preview candidate for Organic LLM's next glass material.
