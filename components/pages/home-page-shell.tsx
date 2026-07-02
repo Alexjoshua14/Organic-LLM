@@ -7,11 +7,7 @@ import { AnimatePresence, LayoutGroup, motion } from "framer-motion";
 import { AIInput } from "../chat-experimental/ai-input";
 import Page from "../layout/page";
 
-import { AdminBlogLink } from "./admin-blog-link";
 import { HomepagePrimaryActions } from "./homepage-primary-actions";
-import { SandboxGatewayButton } from "./sandbox-gateway-button";
-import { StatusGatewayButton } from "./status-gateway-button";
-import { ShowcaseGatewayButton } from "./showcase-gateway-button";
 import { T3CodeStubModal } from "./t3code-stub-modal";
 
 import AdaptiveLiquidChrome from "@/components/background/AdaptiveLiquidChrome";
@@ -283,23 +279,6 @@ export function HomePageShell() {
                 onTextChange={onTextChange}
               />
             </div>
-            <AnimatePresence initial={false} mode="sync">
-              {!fullView ? (
-                <motion.div
-                  key="homepage-gateways"
-                  animate={{ opacity: 1, y: 0, filter: "blur(0px)" }}
-                  exit={{ opacity: 0, y: 8, filter: "blur(4px)" }}
-                  initial={{ opacity: 0, y: 6, filter: "blur(2px)" }}
-                  transition={HOME_LAYOUT_SPRING}
-                  className="flex flex-wrap items-center justify-center gap-3"
-                >
-                  <SandboxGatewayButton />
-                  <ShowcaseGatewayButton />
-                  <StatusGatewayButton />
-                  <AdminBlogLink />
-                </motion.div>
-              ) : null}
-            </AnimatePresence>
           </motion.div>
           <AnimatePresence initial={false} mode="sync">
             {fullView ? (
@@ -310,21 +289,11 @@ export function HomePageShell() {
                 initial={{ opacity: 0, y: 12 }}
                 transition={FULL_VIEW_CHROME_SPRING}
                 className={cn(
-                  "pointer-events-auto mt-auto flex w-full min-h-[5rem] flex-shrink-0 flex-col items-stretch gap-4 border-t border-border/30 py-3",
-                  "lg:min-h-0 lg:flex-row lg:items-end lg:gap-0"
+                  "pointer-events-auto mt-auto flex w-full min-h-[5rem] flex-shrink-0 flex-col items-center justify-center gap-4 border-t border-border/30 py-3",
+                  fullViewGutterX
                 )}
               >
-                <div className="flex w-full min-w-0 justify-center px-2 lg:w-1/2 lg:justify-center">
-                  <HomepagePrimaryActions variant="fullViewSecondary" />
-                </div>
-                <div className="flex w-full min-w-0 justify-center px-2 lg:w-1/2 lg:justify-center">
-                  <div className="flex flex-wrap justify-center gap-2 opacity-90">
-                    <SandboxGatewayButton />
-                    <ShowcaseGatewayButton />
-                    <StatusGatewayButton />
-                    <AdminBlogLink />
-                  </div>
-                </div>
+                <HomepagePrimaryActions variant="fullViewSecondary" />
               </motion.div>
             ) : null}
           </AnimatePresence>

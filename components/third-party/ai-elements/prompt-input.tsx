@@ -37,7 +37,7 @@ import {
   useState,
 } from "react";
 
-import { glass } from "../../design-system/primitives";
+import { homeComposerGlassSurface } from "../../design-system/primitives";
 
 import { Button } from "@/components/third-party/ui/button";
 import {
@@ -790,7 +790,7 @@ export const PromptInput = ({
       />
       <form ref={formRef} className={cn("w-full", className)} onSubmit={handleSubmit} {...props}>
         <InputGroup
-          className={`${glass({ opaque: true })} overflow-visible rounded-xl`}
+          className={homeComposerGlassSurface}
           data-prompt-input-shell
         >
           {children}
