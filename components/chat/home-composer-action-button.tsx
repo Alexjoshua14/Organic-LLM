@@ -20,7 +20,7 @@ export function HomeComposerActionButton({
   ...props
 }: HomeComposerActionButtonProps) {
   return (
-    <HomeComposerLumenShell className="inline-flex w-auto">
+    <HomeComposerLumenShell className="home-composer-lumen-host--interactive inline-flex w-auto">
       <InputGroup
         className={cn(homeComposerGlassSurface, "inline-flex h-auto w-auto")}
         data-prompt-input-shell
