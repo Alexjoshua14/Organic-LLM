@@ -105,33 +105,10 @@ export function ChatStylePicker({
 
   return (
     <FeatureHint id="arcadia-starters" showWhen={showStartersHint}>
-      <div className="mx-auto flex w-full max-w-2xl flex-col items-center gap-4 px-1 sm:gap-5">
-        <div className="flex flex-col items-center gap-2.5 text-center">
-          <div
-            className={cn(
-              "grid place-items-center rounded-xl border border-border/50 p-3",
-              glass({ opaque: true })
-            )}
-          >
-            <Sparkles
-              aria-hidden
-              className="size-7 text-muted-foreground/80"
-              strokeWidth={1.25}
-            />
-          </div>
-          <div className="space-y-1">
-            <h2 className="font-commissioner text-lg font-light tracking-wide text-foreground sm:text-xl">
-              Choose how you want to work
-            </h2>
-            <p className="max-w-sm text-xs leading-snug text-muted-foreground/80 sm:text-sm">
-              Pick a style, toggle a starter to prime replies, or type below.
-            </p>
-          </div>
-        </div>
-
+      <div className="mx-auto flex w-full max-w-4xl flex-col items-center gap-4 px-1 sm:gap-5 pt-12">
         <div
           aria-label="Chat style"
-          className="grid w-full min-w-0 gap-2 sm:grid-cols-3 sm:items-start sm:gap-2.5 [&>*]:min-w-0"
+          className="grid w-full min-w-0 grid-cols-2 lg:grid-cols-4 gap-1.5 place-items-center sm:gap-2.5 [&>*]:min-w-0"
           role="radiogroup"
         >
           {CHAT_STYLES.map((style) => (
@@ -154,7 +131,7 @@ export function ChatStylePicker({
 
         <div className="w-full min-w-0 space-y-2 text-left">
           <p className="text-center text-[10px] uppercase tracking-[0.16em] text-muted-foreground/70 sm:text-xs">
-            Starter prompts
+            Launchpad
           </p>
           <div className={cn("relative w-full", STARTER_PROMPTS_SLOT_H)}>
             <AnimatePresence initial={false}>
