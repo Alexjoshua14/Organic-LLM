@@ -34,7 +34,7 @@ export type GatewaySmokeLinkProps = {
   className?: string;
 };
 
-const gatewaySmokeSurface = cn(
+export const gatewaySmokeSurface = cn(
   "group inline-flex items-center gap-2 rounded-xl px-4 py-2.5",
   "text-sm font-medium tracking-tight text-foreground no-underline",
   glass({ opaque: true }),

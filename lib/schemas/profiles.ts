@@ -5,9 +5,10 @@ import { ProfileTreeSchema, ProfileTreeSourceSchema } from "@/lib/schemas/profil
 export const ProfileSchema = z.object({
   clerk_user_id: z.string().min(1),
   display_name: z.string().min(1).max(255).nullable().optional(),
-  email: z.email().nullable().optional(),
+  email: z.union([z.email(), z.null()]).optional(),
   profile_tree: ProfileTreeSchema.nullable().optional(),
-  profile_tree_updated_at: z.string().datetime().nullable().optional(),
+  /** Stored as timestamptz in Supabase; keep as string for client-safe serialization. */
+  profile_tree_updated_at: z.string().nullable().optional(),
   profile_tree_source: ProfileTreeSourceSchema.nullable().optional(),
   /** Admin flag: when true, user sees sandbox gateway etc. Column is admin-only in Supabase. */
   admin: z.boolean().optional(),

@@ -1,11 +1,16 @@
 "use client";
 
-import { useCallback, useState } from "react";
+import { useCallback, useState, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
-import { Button } from "@heroui/button";
 import { motion } from "framer-motion";
+import { AdminBlogLink } from "./admin-blog-link";
+import { GatewaySmokeLink } from "./gateway-smoke-link";
+import { SandboxGatewayButton } from "./sandbox-gateway-button";
+import { ShowcaseGatewayButton } from "./showcase-gateway-button";
+import { StatusGatewayButton } from "./status-gateway-button";
 
-import { glass } from "@/components/design-system/primitives";
+import { HomeComposerActionButton } from "@/components/chat/home-composer-action-button";
+
 import { createChat } from "@/lib/chat/chat-store";
 import { createLogger } from "@/lib/logger";
 import { useSharedChatContext } from "@/lib/context/chat-context";
@@ -20,6 +25,14 @@ type HomepagePrimaryActionsProps = {
   variant?: "default" | "fullViewSecondary";
   className?: string;
 };
+
+function ActionRow({ children, className }: { children: ReactNode; className?: string }) {
+  return (
+    <div className={cn("flex flex-wrap items-center justify-center gap-x-3 gap-y-2", className)}>
+      {children}
+    </div>
+  );
+}
 
 export function HomepagePrimaryActions({
   variant = "default",
@@ -52,75 +65,72 @@ export function HomepagePrimaryActions({
   }, [creating, refreshSidebarChats, router]);
 
   const isSecondary = variant === "fullViewSecondary";
-  const btnClass = cn(
-    isSecondary
-      ? cn(glass({ opaque: true }), "text-sm opacity-80 hover:opacity-100 backdrop-invert-15")
-      : cn(
-          glass(),
-          "backdrop-invert-25 hover:backdrop-invert-100 transition-all hover:scale-110 duration-1000"
-        )
+  const primaryBtnClass = isSecondary ? "opacity-80 hover:opacity-100" : undefined;
+  const rowScale = isSecondary ? 0.96 : 1;
+  const rowOpacity = isSecondary ? 0.88 : 1;
+
+  const wrap = (key: string, node: ReactNode) => (
+    <motion.div
+      key={key}
+      layout
+      animate={{ scale: rowScale, opacity: rowOpacity }}
+      className="inline-flex"
+      transition={actionsTransition}
+    >
+      {node}
+    </motion.div>
   );
 
   return (
     <motion.div
       layout
-      className={cn(
-        "flex min-w-0 flex-wrap justify-center",
-        isSecondary ? "gap-x-3 gap-y-2" : "gap-10",
-        className
-      )}
+      className={cn("flex min-w-0 flex-col items-center gap-3 sm:gap-3.5", className)}
       transition={actionsTransition}
     >
-      <motion.div
-        layout
-        animate={{ scale: isSecondary ? 0.96 : 1, opacity: isSecondary ? 0.88 : 1 }}
-        className="inline-flex"
-        transition={actionsTransition}
-      >
-        <Button className={btnClass} isDisabled={creating} onPress={handleLetsChat}>
-          Let&apos;s Chat
-        </Button>
-      </motion.div>
-      <motion.div
-        layout
-        animate={{ scale: isSecondary ? 0.96 : 1, opacity: isSecondary ? 0.88 : 1 }}
-        className="inline-flex"
-        transition={actionsTransition}
-      >
-        <Button className={btnClass} onPress={() => router.push("/rabbitholes/browse")}>
-          Rabbit Holes
-        </Button>
-      </motion.div>
-      <motion.div
-        layout
-        animate={{ scale: isSecondary ? 0.96 : 1, opacity: isSecondary ? 0.88 : 1 }}
-        className="inline-flex"
-        transition={actionsTransition}
-      >
-        <Button className={btnClass} onPress={() => router.push("/sandbox/prototypes/strata")}>
-          Strata
-        </Button>
-      </motion.div>
-      <motion.div
-        layout
-        animate={{ scale: isSecondary ? 0.96 : 1, opacity: isSecondary ? 0.88 : 1 }}
-        className="inline-flex"
-        transition={actionsTransition}
-      >
-        <Button className={btnClass} onPress={() => router.push("/showcase/anatomy")}>
-          Explore demo
-        </Button>
-      </motion.div>
-      <motion.div
-        layout
-        animate={{ scale: isSecondary ? 0.96 : 1, opacity: isSecondary ? 0.88 : 1 }}
-        className="inline-flex"
-        transition={actionsTransition}
-      >
-        <Button className={btnClass} onPress={() => router.push("/settings")}>
-          Settings
-        </Button>
-      </motion.div>
+      <ActionRow>
+        {wrap(
+          "lets-chat",
+          <HomeComposerActionButton
+            className={primaryBtnClass}
+            disabled={creating}
+            onClick={() => void handleLetsChat()}
+          >
+            Let&apos;s Chat
+          </HomeComposerActionButton>
+        )}
+        {wrap(
+          "rabbit-holes",
+          <HomeComposerActionButton
+            className={primaryBtnClass}
+            onClick={() => router.push("/rabbitholes/browse")}
+          >
+            Rabbit Holes
+          </HomeComposerActionButton>
+        )}
+        {wrap(
+          "strata",
+          <HomeComposerActionButton
+            className={primaryBtnClass}
+            onClick={() => router.push("/sandbox/prototypes/strata")}
+          >
+            Strata
+          </HomeComposerActionButton>
+        )}
+      </ActionRow>
+
+      <ActionRow>
+        {wrap("sandbox", <SandboxGatewayButton />)}
+        {wrap("showcase", <ShowcaseGatewayButton />)}
+        {wrap("blog", <AdminBlogLink />)}
+      </ActionRow>
+
+      <ActionRow>
+        {wrap("status", <StatusGatewayButton />)}
+        {wrap(
+          "settings",
+          <GatewaySmokeLink ariaLabel="Settings" href="/settings" label="Settings" />
+        )}
+      </ActionRow>
     </motion.div>
   );
 }

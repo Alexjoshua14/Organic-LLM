@@ -10,7 +10,6 @@ import Page from "@/components/layout/page";
 import { PageTopBar } from "@/components/layout/page-top-bar";
 import { ReturnButton } from "@/components/ReturnButton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/third-party/ui/tabs";
-import { getProfile } from "@/data/supabase/profiles";
 import { Profile } from "@/lib/schemas/profiles";
 import { SETTINGS_PAGE_TITLE } from "@/config/settings-page";
 import { caption } from "@/components/design-system/primitives";
@@ -70,13 +69,17 @@ export default function SettingsPage() {
       setProfileError(null);
 
       try {
-        const supabaseProfile = await getProfile(userId);
+        const res = await fetch("/api/profile");
+        const payload = (await res.json().catch(() => ({}))) as {
+          data?: Profile;
+          error?: string;
+        };
 
-        if (!supabaseProfile || supabaseProfile.error || supabaseProfile.data === null) {
-          throw supabaseProfile?.error ?? new Error("Profile not found");
+        if (!res.ok) {
+          throw new Error(payload.error ?? "Failed to load profile");
         }
 
-        setProfile(supabaseProfile.data);
+        setProfile(payload.data ?? null);
       } catch (error) {
         setProfileError(error instanceof Error ? error.message : "Failed to load profile");
       } finally {
