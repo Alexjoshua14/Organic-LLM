@@ -116,9 +116,11 @@ export function buildDelphiDisplayPromptText(
   return (
     `\n\n[Delphi display context]\n` +
     `Device: ${deviceLabel}. Effective screen area ~${physicalWidthIn}×${physicalHeightIn} in.\n` +
-    `Assistant caption band: ${Math.round(captionWidthPx)}px wide × ${Math.round(visibleHeightPx)}px tall ` +
-    `(${visibleLines} visible lines at ${Math.round(lineHeightPx * 10) / 10}px line-height, ~${maxCharsPerLine} chars/line).\n` +
-    `Keep responses within ${visibleLines} visible lines by default. ` +
+    `Assistant caption band: ${Math.round(captionWidthPx)}px wide, up to ${Math.round(visibleHeightPx)}px tall ` +
+    `(ceiling of ${visibleLines} visible lines at ${Math.round(lineHeightPx * 10) / 10}px line-height, ~${maxCharsPerLine} chars/line).\n` +
+    `This budget is a ceiling, not a target: the band shrinks to fit your reply, so a one-line answer renders as one line. ` +
+    `Never pad, elaborate, or add filler to occupy the space.\n` +
+    `Stay within ${visibleLines} visible lines by default. ` +
     `If essential, you may use up to ${scrollMaxLines} lines total; content beyond line ${visibleLines} requires the user to scroll.\n` +
     `Prefer short paragraphs; one question per turn when interviewing.`
   );

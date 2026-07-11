@@ -32,7 +32,10 @@ import {
   createWebSearchTool,
   type WebSearchStreamWriter,
 } from "@/lib/llm/llm-tool-kit";
-import { GEN_UI_TOOL_INSTRUCTIONS } from "@/lib/system-prompt/gen-ui";
+import {
+  DELPHI_GEN_UI_TOOL_INSTRUCTIONS,
+  GEN_UI_TOOL_INSTRUCTIONS,
+} from "@/lib/system-prompt/gen-ui";
 import { RESTAURANT_TOOL_INSTRUCTIONS } from "@/lib/system-prompt/restaurant";
 import { createStrataHubAssistantTools } from "@/lib/llm/strata-assistant-tools";
 import { createStrataKnowledgeGraphTools } from "@/lib/llm/strata-knowledge-graph-tools";
@@ -131,6 +134,9 @@ export async function compileChatTools({
 
     Object.assign(tools, delphi.tools);
     toolInstructions += delphi.toolInstructions ? `${delphi.toolInstructions}\n` : "";
+
+    tools["render_gen_ui"] = createRenderGenUiTool();
+    toolInstructions += `${DELPHI_GEN_UI_TOOL_INSTRUCTIONS}\n`;
 
     if (toolInstructions.length > 0) {
       toolInstructions +=
