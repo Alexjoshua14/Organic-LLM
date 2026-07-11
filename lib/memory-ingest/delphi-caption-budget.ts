@@ -98,7 +98,9 @@ export function effectiveCharWidthPx(fontSizePx: number, avgCharWidthPx?: number
   return fontSizePx * AVG_CHAR_WIDTH_EM;
 }
 
-export function buildDelphiDisplayPromptText(budget: Omit<DelphiCaptionBudget, "promptText">): string {
+export function buildDelphiDisplayPromptText(
+  budget: Omit<DelphiCaptionBudget, "promptText">
+): string {
   const {
     deviceLabel,
     physicalWidthIn,
@@ -114,9 +116,11 @@ export function buildDelphiDisplayPromptText(budget: Omit<DelphiCaptionBudget, "
   return (
     `\n\n[Delphi display context]\n` +
     `Device: ${deviceLabel}. Effective screen area ~${physicalWidthIn}×${physicalHeightIn} in.\n` +
-    `Assistant caption band: ${Math.round(captionWidthPx)}px wide × ${Math.round(visibleHeightPx)}px tall ` +
-    `(${visibleLines} visible lines at ${Math.round(lineHeightPx * 10) / 10}px line-height, ~${maxCharsPerLine} chars/line).\n` +
-    `Keep responses within ${visibleLines} visible lines by default. ` +
+    `Assistant caption band: ${Math.round(captionWidthPx)}px wide, up to ${Math.round(visibleHeightPx)}px tall ` +
+    `(ceiling of ${visibleLines} visible lines at ${Math.round(lineHeightPx * 10) / 10}px line-height, ~${maxCharsPerLine} chars/line).\n` +
+    `This budget is a ceiling, not a target: the band shrinks to fit your reply, so a one-line answer renders as one line. ` +
+    `Never pad, elaborate, or add filler to occupy the space.\n` +
+    `Stay within ${visibleLines} visible lines by default. ` +
     `If essential, you may use up to ${scrollMaxLines} lines total; content beyond line ${visibleLines} requires the user to scroll.\n` +
     `Prefer short paragraphs; one question per turn when interviewing.`
   );
@@ -217,7 +221,10 @@ export function computeCaptionAllocatedHeightPx(params: {
 }
 
 /** Canvas-based average char width for a given computed font string (client only). */
-export function measureAvgCharWidthPx(font: string, sample = "abcdefghijklmnopqrstuvwxyz "): number {
+export function measureAvgCharWidthPx(
+  font: string,
+  sample = "abcdefghijklmnopqrstuvwxyz "
+): number {
   if (typeof document === "undefined") {
     return 0;
   }
