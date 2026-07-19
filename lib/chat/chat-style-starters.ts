@@ -28,10 +28,12 @@ export function encodeChatStarterKey(style: ChatStyle, id: string): string {
 
 export function parseChatStarterKey(key: string): { style: ChatStyle; id: string } | null {
   const sep = key.indexOf(CHAT_STARTER_KEY_SEP);
+
   if (sep < 1) return null;
 
   const style = parseChatStyle(key.slice(0, sep));
   const id = key.slice(sep + 1).trim();
+
   if (!style || !id) return null;
 
   return { style, id };
@@ -39,15 +41,18 @@ export function parseChatStarterKey(key: string): { style: ChatStyle; id: string
 
 export function resolveChatStarterByKey(key: string): ChatStyleStarter | undefined {
   const parsed = parseChatStarterKey(key);
+
   if (!parsed) return undefined;
 
   const starters = CHAT_STYLE_STARTERS[parsed.style];
+
   return starters.find((s) => s.id === parsed.id);
 }
 
 /** Resolve priming text from a persisted starter key. */
 export function resolveChatStarterPromptByKey(key: string): string | undefined {
   const starter = resolveChatStarterByKey(key);
+
   return starter ? resolveChatStarterPrompt(starter) : undefined;
 }
 
@@ -122,6 +127,26 @@ export const CHAT_STYLE_STARTERS: Record<ChatStyle, readonly ChatStyleStarter[]>
       id: "brain-dump-outline",
       label: "Turn this brain dump into a clean outline.",
       prompt: "Turn this brain dump into a clean outline.",
+    },
+  ],
+  stratum: [
+    {
+      id: "interview-my-idea",
+      label: "I have a software idea—interview me.",
+      prompt:
+        "I have a software idea. Interview me with structured discovery questions until you can map the full product and its architecture, then build the spec.",
+    },
+    {
+      id: "spec-an-app",
+      label: "Work with me to figure out this app in its entirety.",
+      prompt:
+        "I want to build an app. Work with me to figure out what it is in its entirety—don't assume or genericize it. Ask structured questions, then build the spec.",
+    },
+    {
+      id: "handoff-chunks",
+      label: "Turn what I have into handoff chunks for Cursor.",
+      prompt:
+        "I'll describe a product I'm already working on. Fill the gaps with discovery questions, then produce a spec whose handoff chunks I can paste directly into Cursor or another dev tool.",
     },
   ],
 };

@@ -6,6 +6,7 @@ export const ARCADIA_CHAT_STYLE_HINT_IDS: Record<ChatStyle, FeatureHintId> = {
   ergon: "arcadia-style-ergon",
   remy: "arcadia-style-remy",
   scribe: "arcadia-style-scribe",
+  stratum: "arcadia-style-stratum",
 };
 
 export const ARCADIA_CHAT_STYLE_HINT_ID_LIST = Object.values(ARCADIA_CHAT_STYLE_HINT_IDS);

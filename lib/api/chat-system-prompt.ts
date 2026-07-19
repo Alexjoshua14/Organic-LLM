@@ -7,6 +7,7 @@ import {
   isArcadiaStyleMemoryReadExperience,
 } from "@/lib/chat/chat-experience";
 import { SCRIBE_SYSTEM_APPEND } from "@/lib/system-prompt/scribe";
+import { STRATUM_SYSTEM_APPEND } from "@/lib/system-prompt/stratum";
 import { getStrataPageById } from "@/data/supabase/strata";
 import { getStrataAssistantPersona } from "@/lib/personas/strata-assistant";
 import { buildStrataSystemSuffix } from "@/lib/llm/strata-chat-augmentation";
@@ -108,7 +109,12 @@ export function appendMainChatPostToolSystemFragments(
       out += SCRIBE_SYSTEM_APPEND;
     }
 
+    if (chatStyle === "stratum") {
+      out += STRATUM_SYSTEM_APPEND;
+    }
+
     const priming = arcadiaStarterPriming?.trim();
+
     if (priming) {
       out += `\n\n[Arcadia starter prompt]\n${priming}`;
     }

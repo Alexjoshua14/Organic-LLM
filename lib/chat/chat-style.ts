@@ -36,6 +36,13 @@ export const CHAT_STYLES = [
     guide:
       "Rewrites and structures what you provide — no web search or invented facts. Best for drafts you already have.",
   },
+  {
+    id: "stratum",
+    label: "Stratum",
+    description: "Discovery interview for a software idea — forms to a full spec.",
+    guide:
+      "Structured product discovery — answer short interactive forms, uncover the architecture layer by layer, and build a living spec with handoff chunks for other tools.",
+  },
 ] as const;
 
 export type ChatStyle = (typeof CHAT_STYLES)[number]["id"];

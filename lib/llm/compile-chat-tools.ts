@@ -31,6 +31,13 @@ import {
   type WebSearchStreamWriter,
 } from "@/lib/llm/llm-tool-kit";
 import { GEN_UI_TOOL_INSTRUCTIONS } from "@/lib/system-prompt/gen-ui";
+import {
+  createDiscoveryFormTool,
+  createProductSpecTool,
+  STRATUM_FORM_TOOL_NAME,
+  STRATUM_SPEC_TOOL_NAME,
+} from "@/lib/llm/stratum-tool";
+import { STRATUM_TOOL_INSTRUCTIONS } from "@/lib/system-prompt/stratum";
 import { createStrataHubAssistantTools } from "@/lib/llm/strata-assistant-tools";
 import { createStrataKnowledgeGraphTools } from "@/lib/llm/strata-knowledge-graph-tools";
 import {
@@ -151,6 +158,12 @@ export async function compileChatTools({
         writer: writer as unknown as KanbanStreamWriter,
       });
       toolInstructions += `${KANBAN_TOOL_INSTRUCTIONS}\n`;
+    }
+
+    if (chatStyle === "stratum") {
+      tools[STRATUM_FORM_TOOL_NAME] = createDiscoveryFormTool();
+      tools[STRATUM_SPEC_TOOL_NAME] = createProductSpecTool();
+      toolInstructions += `${STRATUM_TOOL_INSTRUCTIONS}\n`;
     }
 
     if (chatStyle === "remy") {

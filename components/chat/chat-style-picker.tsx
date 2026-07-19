@@ -1,12 +1,14 @@
 "use client";
 
-import { ChefHat, LayoutGrid, MessagesSquare, NotebookPen, Sparkles } from "lucide-react";
+import { ChefHat, Layers, LayoutGrid, MessagesSquare, NotebookPen } from "lucide-react";
 import { AnimatePresence, motion } from "framer-motion";
 import { useCallback, useRef } from "react";
 import { toast } from "sonner";
 
+import { ChatStarterCard } from "./chat-starter-card";
+import { ChatStyleCard } from "./chat-style-card";
+
 import { FeatureHint } from "@/components/onboarding/feature-hint";
-import { glass } from "@/components/design-system/primitives";
 import { patchArcadiaStarterKey } from "@/lib/chat/arcadia-starter-client";
 import { CHAT_STYLES, type ChatStyle } from "@/lib/chat/chat-style";
 import {
@@ -20,14 +22,12 @@ import { setChatStyle, useChatStyle } from "@/lib/chat/chat-style-store";
 import { ARCADIA_CHAT_STYLE_HINT_IDS } from "@/lib/onboarding/arcadia-chat-style-hints";
 import { cn } from "@/lib/utils";
 
-import { ChatStarterCard } from "./chat-starter-card";
-import { ChatStyleCard } from "./chat-style-card";
-
 const STYLE_ICONS: Record<ChatStyle, React.ReactNode> = {
   default: <MessagesSquare className="size-4" />,
   ergon: <LayoutGrid className="size-4" />,
   remy: <ChefHat className="size-4" />,
   scribe: <NotebookPen className="size-4" />,
+  stratum: <Layers className="size-4" />,
 };
 
 const PROMPT_MOTION = { duration: 0.24, ease: [0.25, 0.46, 0.45, 0.94] as const };
@@ -59,6 +59,7 @@ export function ChatStylePicker({
       if (!chatId || !onStarterKeyChange) return;
 
       const previousKey = starterKey;
+
       onStarterKeyChange(nextKey);
 
       const patch = patchArcadiaStarterKey(chatId, nextKey).then((result) => {
@@ -80,6 +81,7 @@ export function ChatStylePicker({
       if (!chatId) return;
 
       const parsed = starterKey ? parseChatStarterKey(starterKey) : null;
+
       setChatStyle(chatId, style);
 
       if (parsed && parsed.style !== style) {
@@ -92,6 +94,7 @@ export function ChatStylePicker({
   const toggleStarter = useCallback(
     async (style: ChatStyle, starterId: string) => {
       const encoded = encodeChatStarterKey(style, starterId);
+
       if (starterKey === encoded) {
         await persistStarterKey(null);
       } else {
@@ -108,7 +111,7 @@ export function ChatStylePicker({
       <div className="mx-auto flex w-full max-w-4xl flex-col items-center gap-4 px-1 sm:gap-5 pt-12">
         <div
           aria-label="Chat style"
-          className="grid w-full min-w-0 grid-cols-2 lg:grid-cols-4 gap-1.5 place-items-center sm:gap-2.5 [&>*]:min-w-0"
+          className="grid w-full min-w-0 grid-cols-2 lg:grid-cols-5 gap-1.5 place-items-center sm:gap-2.5 [&>*]:min-w-0"
           role="radiogroup"
         >
           {CHAT_STYLES.map((style) => (

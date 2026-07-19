@@ -5,11 +5,11 @@ import type { ExaSearchResultSource } from "@/lib/exa/types";
 import { FC } from "react";
 import { UIMessage } from "ai";
 
-import { ChatEmptyStateGuide } from "@/components/onboarding/chat-empty-state-guide";
 import { ConversationContent } from "../third-party/ai-elements/conversation";
 
 import { ChatMessage } from "./chat-message";
 
+import { ChatEmptyStateGuide } from "@/components/onboarding/chat-empty-state-guide";
 import { ARCADIA_HELP_LATEST_ONLY, isArcadiaHelpMessage } from "@/lib/arcadia/help-response";
 import { ChatAIActionEnum } from "@/types/ai";
 import { cn } from "@/lib/utils";
@@ -98,6 +98,7 @@ export const ChatThread: FC<ChatThreadProps> = ({
                 key={message.id}
                 aiActionPayload={index === lastMessageIndex ? aiActionPayload : undefined}
                 chatId={chatId}
+                isLastMessage={index === lastMessageIndex}
                 isLatestArcadiaHelp={
                   isArcadiaHelpMessage(message) ? isLatestArcadiaHelp : undefined
                 }

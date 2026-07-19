@@ -11,6 +11,7 @@ import { toast } from "sonner";
 
 import { Conversation, ConversationScrollButton } from "../third-party/ai-elements/conversation";
 
+import { ChatSendProvider } from "./chat-send-context";
 import { ChatThread, MEMORY_PANEL_RESERVE_PADDING } from "./chat-thread";
 import { CoreInput } from "./core-input";
 import { ChatStylePicker } from "./chat-style-picker";
@@ -325,6 +326,14 @@ export const Chat: React.FC<ChatProps> = ({
     }
   }, [initialMessage, messages.length, status, sendMessage]);
 
+  /** Lets interactive tool results (e.g. Stratum discovery forms) submit a user message. */
+  const sendTextFromToolResult = useCallback(
+    (text: string) => {
+      sendMessage({ text });
+    },
+    [sendMessage]
+  );
+
   const handleStop = useCallback(async () => {
     // Remove the latest user message and partially completed AI message from messages
     // Remove the latest user message and any partially completed AI response
@@ -387,24 +396,26 @@ export const Chat: React.FC<ChatProps> = ({
         {experience === "arcadia" && id ? (
           <ChatThreadStyleOverlay threadId={id} visible={messages.length > 0} />
         ) : null}
-        <ChatThread
-          aiActionPayload={aiAction}
-          chatId={id}
-          contentClassName={persona === "remy" ? MEMORY_PANEL_RESERVE_PADDING : undefined}
-          messages={messages}
-          renderEmptyState={
-            experience === "arcadia"
-              ? () => (
-                  <ChatStylePicker
-                    chatId={id}
-                    showStartersHint={messages.length === 0}
-                    starterKey={arcadiaStarterKey}
-                    onStarterKeyChange={setArcadiaStarterKey}
-                  />
-                )
-              : undefined
-          }
-        />
+        <ChatSendProvider sendText={sendTextFromToolResult}>
+          <ChatThread
+            aiActionPayload={aiAction}
+            chatId={id}
+            contentClassName={persona === "remy" ? MEMORY_PANEL_RESERVE_PADDING : undefined}
+            messages={messages}
+            renderEmptyState={
+              experience === "arcadia"
+                ? () => (
+                    <ChatStylePicker
+                      chatId={id}
+                      showStartersHint={messages.length === 0}
+                      starterKey={arcadiaStarterKey}
+                      onStarterKeyChange={setArcadiaStarterKey}
+                    />
+                  )
+                : undefined
+            }
+          />
+        </ChatSendProvider>
         {persona === "remy" && (
           <MemoryEphemeralCards
             overlay

@@ -9,7 +9,10 @@
  * - Bump `version` to re-show a hint after copy changes (ignores older dismiss records).
  */
 
-export { FEATURE_HINT_GUIDE_POLICY, MAX_CONSECUTIVE_AUTO_FEATURE_HINTS } from "./feature-hint-guide-policy";
+export {
+  FEATURE_HINT_GUIDE_POLICY,
+  MAX_CONSECUTIVE_AUTO_FEATURE_HINTS,
+} from "./feature-hint-guide-policy";
 
 export const FEATURE_HINTS_MASTER_SWITCH = true;
 
@@ -28,6 +31,7 @@ export const FEATURE_HINT_IDS = [
   "arcadia-style-ergon",
   "arcadia-style-remy",
   "arcadia-style-scribe",
+  "arcadia-style-stratum",
 ] as const;
 
 export type FeatureHintId = (typeof FEATURE_HINT_IDS)[number];
@@ -165,8 +169,8 @@ export const FEATURE_HINTS: Record<FeatureHintId, FeatureHintDefinition> = {
     id: "arcadia-starters",
     enabled: true,
     title: "Arcadia styles",
-    body: "Four ways to work — Standard, Ergon board, Remy, and Scribe. Pick one, then a starter chip below.",
-    version: 5,
+    body: "Five ways to work — Standard, Ergon board, Remy, Scribe, and Stratum. Pick one, then a starter chip below.",
+    version: 6,
     presentation: "spotlight",
     side: "bottom",
     align: "start",
@@ -218,6 +222,19 @@ export const FEATURE_HINTS: Record<FeatureHintId, FeatureHintDefinition> = {
     enabled: true,
     title: "Scribe",
     body: "Organizes your words only — no web search or invented facts. Paste a draft or outline and ask for structure.",
+    version: 1,
+    presentation: "spotlight",
+    side: "bottom",
+    align: "center",
+    pathPrefix: "/sandbox/arcadia",
+    deferUntilNavigationSettled: true,
+    contextualBackdrop: "blur",
+  },
+  "arcadia-style-stratum": {
+    id: "arcadia-style-stratum",
+    enabled: true,
+    title: "Stratum",
+    body: "Discovery interview for a software idea — answer short forms, uncover the architecture, and build a spec you can hand to other tools.",
     version: 1,
     presentation: "spotlight",
     side: "bottom",

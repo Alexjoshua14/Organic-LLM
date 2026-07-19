@@ -37,11 +37,15 @@ import { KanbanLoadingShell } from "@/components/chat/kanban/KanbanLoadingShell"
 import { KanbanToolResult } from "@/components/chat/kanban/KanbanToolResult";
 import { MiseLoadingShell } from "@/components/chat/mise/MiseLoadingShell";
 import { MiseToolResult } from "@/components/chat/mise/MiseToolResult";
+import { StratumFormToolResult } from "@/components/chat/stratum/StratumFormToolResult";
+import { StratumLoadingShell } from "@/components/chat/stratum/StratumLoadingShell";
+import { StratumSpecToolResult } from "@/components/chat/stratum/StratumSpecToolResult";
 import { ARCADIA_HELP_PREFIX } from "@/lib/arcadia/help-response";
 import { messagePartsToCopyMarkdown } from "@/lib/chat/message-copy-markdown";
 import { RENDER_GEN_UI_TOOL_NAME } from "@/lib/llm/gen-ui-tool";
 import { KANBAN_BOARD_TOOL_NAME } from "@/lib/llm/kanban-tool";
 import { MISE_PLAN_TOOL_NAME } from "@/lib/llm/mise-tool";
+import { STRATUM_FORM_TOOL_NAME, STRATUM_SPEC_TOOL_NAME } from "@/lib/llm/stratum-tool";
 import { MANAGE_TASKS_TOOL_NAME } from "@/lib/schemas/ergon-tasks";
 import { cn } from "@/lib/utils";
 import { ChatAIActionEnum } from "@/types/ai";
@@ -73,6 +77,7 @@ export const ChatMessage = memo<ChatMessageProps>(function ChatMessage(props) {
         <AIMessage
           aiActionPayload={aiActionPayload}
           chatId={chatId}
+          isLastMessage={props.isLastMessage}
           isLatestArcadiaHelp={isLatestArcadiaHelp}
           message={message}
           showModelBadge={showModelBadge}
@@ -91,6 +96,7 @@ const AIMessage: FC<ChatMessageProps> = ({
   message,
   chatId,
   aiActionPayload,
+  isLastMessage,
   isLatestArcadiaHelp,
   showModelBadge,
 }) => {
@@ -224,6 +230,49 @@ const AIMessage: FC<ChatMessageProps> = ({
                         key={`${message.id}-${i}-mise-result`}
                         output={part.output}
                         threadId={chatId ?? message.id}
+                      />
+                    );
+                  }
+
+                  return null;
+                }
+
+                if (toolName === STRATUM_FORM_TOOL_NAME) {
+                  if (part.state === "input-streaming" || part.state === "input-available") {
+                    return (
+                      <StratumLoadingShell
+                        key={`${message.id}-${i}-stratum-form-stream`}
+                        label="Preparing discovery questions…"
+                      />
+                    );
+                  }
+                  if (part.state === "output-available") {
+                    return (
+                      <StratumFormToolResult
+                        key={`${message.id}-${i}-stratum-form`}
+                        interactive={isLastMessage === true}
+                        output={part.output}
+                      />
+                    );
+                  }
+
+                  return null;
+                }
+
+                if (toolName === STRATUM_SPEC_TOOL_NAME) {
+                  if (part.state === "input-streaming" || part.state === "input-available") {
+                    return (
+                      <StratumLoadingShell
+                        key={`${message.id}-${i}-stratum-spec-stream`}
+                        label="Assembling product spec…"
+                      />
+                    );
+                  }
+                  if (part.state === "output-available") {
+                    return (
+                      <StratumSpecToolResult
+                        key={`${message.id}-${i}-stratum-spec`}
+                        output={part.output}
                       />
                     );
                   }
@@ -471,6 +520,8 @@ const KNOWN_TOOL_IN_FLIGHT_LABELS: Record<string, string> = {
   manage_tasks: "Updating tasks…",
   mise_plan: "Updating plan…",
   fetch_recipe: "Reading recipe…",
+  discovery_form: "Preparing discovery questions…",
+  product_spec: "Assembling product spec…",
   make_mermaid_diagram: "Creating diagram...",
   search_memories: "Searching memories...",
   memory_search: "Searching memories...",
