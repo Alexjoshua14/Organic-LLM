@@ -183,6 +183,42 @@ export async function getLatestThreadByFeature(
   return { data: { id: row.id, updatedAt: row.updated_at }, error: null };
 }
 
+/**
+ * Latest non-archived Speak (voice) thread for an owner + specific voice.
+ *
+ * Speak threads are tagged `feature = "speak"` with the voice id in `persona`,
+ * so each voice resumes its own dedicated "aware AI" thread. Like
+ * {@link getLatestThreadByFeature}, `updated_at` doubles as the last-active
+ * signal used for the agent's time-awareness.
+ */
+export async function getLatestSpeakThread(
+  ownerId: string,
+  voiceId: string
+): Promise<Result<{ id: string; updatedAt: string } | null>> {
+  const sb = await supabaseServer();
+  const { data, error } = await sb
+    .from("threads")
+    .select("id, updated_at")
+    .eq("owner_id", ownerId)
+    .eq("feature", "speak")
+    .eq("persona", voiceId)
+    .not("archived", "is", true)
+    .order("updated_at", { ascending: false })
+    .limit(1);
+
+  if (error) {
+    return { data: null, error: new Error(error?.message ?? "Unknown error") };
+  }
+
+  const row = data?.[0];
+
+  if (row == null) {
+    return { data: null, error: null };
+  }
+
+  return { data: { id: row.id, updatedAt: row.updated_at }, error: null };
+}
+
 /** Thread row for Settings → Chats (decrypted summary for display). */
 export type ChatThreadSettingsRow = {
   id: string;
@@ -1024,13 +1060,14 @@ export async function updateChatArchived(chatId: string, archived: boolean): Pro
  */
 export async function updateThreadRouting(
   chatId: string,
-  routing: { feature?: string; path?: string }
+  routing: { feature?: string; path?: string; persona?: string }
 ): Promise<SimpleResult> {
   const sb = await supabaseServer();
-  const payload: { feature?: string; path?: string } = {};
+  const payload: { feature?: string; path?: string; persona?: string } = {};
 
   if (routing.feature != null) payload.feature = routing.feature;
   if (routing.path != null) payload.path = routing.path;
+  if (routing.persona != null) payload.persona = routing.persona;
 
   const { error } = await sb.from("threads").update(payload).eq("id", chatId);
 

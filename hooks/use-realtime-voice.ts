@@ -1,10 +1,11 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
-
 import type { SpeakModalities } from "@/lib/schemas/speak-modalities";
 import type { SpeakBudgetSnapshot } from "@/lib/speak/types";
-import type { SpeakToolClientEffect } from "@/lib/speak/types";
+import type { SpeakToolClientEffect, SpeakTurn } from "@/lib/speak/types";
+
+import { useCallback, useEffect, useRef, useState } from "react";
+
 import { DEFAULT_SPEAK_MODALITIES } from "@/lib/schemas/speak-modalities";
 
 export type LiveVoicePhase = "idle" | "listening" | "thinking" | "speaking";
@@ -42,6 +43,36 @@ type ToolResponse = {
   modelResult?: Record<string, unknown>;
   clientEffects?: SpeakToolClientEffect[];
 };
+
+/**
+ * Requests the mic and maps `getUserMedia` rejections to human-readable
+ * messages. Assumes `navigator.mediaDevices.getUserMedia` exists — the caller
+ * guards the secure-context / unsupported case first.
+ */
+async function getMicStream(): Promise<MediaStream> {
+  try {
+    return await navigator.mediaDevices.getUserMedia({ audio: true });
+  } catch (err) {
+    const name = err instanceof DOMException ? err.name : "";
+
+    switch (name) {
+      case "NotAllowedError":
+      case "SecurityError":
+        throw new Error(
+          "Microphone permission was denied. Allow mic access in your browser settings and try again."
+        );
+      case "NotFoundError":
+      case "OverconstrainedError":
+        throw new Error("No microphone was found on this device.");
+      case "NotReadableError":
+        throw new Error(
+          "Your microphone is busy or unavailable. Close other apps using it and retry."
+        );
+      default:
+        throw err instanceof Error ? err : new Error("Couldn't access the microphone.");
+    }
+  }
+}
 
 function phaseFromEvents(args: {
   connected: boolean;
@@ -91,6 +122,8 @@ export function useRealtimeVoice({
   const assistantSpeakingRef = useRef(false);
   const connectedRef = useRef(false);
   const modalitiesRef = useRef(modalities);
+  /** Finalized turns awaiting persistence (drained on heartbeat + disconnect). */
+  const pendingTurnsRef = useRef<SpeakTurn[]>([]);
 
   modalitiesRef.current = modalities;
 
@@ -128,9 +161,39 @@ export function useRealtimeVoice({
     }
   }, []);
 
+  const flushTranscript = useCallback(async () => {
+    const sid = sessionIdRef.current;
+
+    if (!sid) return;
+
+    const pending = pendingTurnsRef.current;
+
+    if (pending.length === 0) return;
+
+    // Drain now; requeue (preserving order) if the persist call fails.
+    const batch = pending.splice(0, pending.length);
+
+    try {
+      const res = await fetch("/api/ai/speak/realtime/persist", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ sessionId: sid, turns: batch }),
+      });
+
+      if (!res.ok) {
+        pendingTurnsRef.current.unshift(...batch);
+      }
+    } catch {
+      pendingTurnsRef.current.unshift(...batch);
+    }
+  }, []);
+
   const teardown = useCallback(
     async (opts?: { notifyServer?: boolean }) => {
       stopHeartbeat();
+
+      // Persist any un-flushed turns before the session id is cleared.
+      await flushTranscript();
 
       const sid = sessionIdRef.current;
 
@@ -172,7 +235,7 @@ export function useRealtimeVoice({
       assistantSpeakingRef.current = false;
       setPhaseSafe("idle");
     },
-    [setPhaseSafe, stopHeartbeat]
+    [flushTranscript, setPhaseSafe, stopHeartbeat]
   );
 
   const sendHeartbeat = useCallback(async () => {
@@ -197,11 +260,16 @@ export function useRealtimeVoice({
           text: data.error ?? "Session ended — budget limit reached.",
         });
         await teardown({ notifyServer: false });
+
+        return;
       }
+
+      // Flush finalized turns on the heartbeat cadence so a crash loses little.
+      void flushTranscript();
     } catch {
       /* transient — next tick retries */
     }
-  }, [applyBudget, onCaptionChange, teardown]);
+  }, [applyBudget, flushTranscript, onCaptionChange, teardown]);
 
   const startHeartbeat = useCallback(() => {
     stopHeartbeat();
@@ -312,10 +380,8 @@ export function useRealtimeVoice({
         const text = String(event.transcript ?? "").trim();
 
         if (text) {
-          setTranscript((prev) => [
-            ...prev,
-            { id: crypto.randomUUID(), role: "user", text },
-          ]);
+          setTranscript((prev) => [...prev, { id: crypto.randomUUID(), role: "user", text }]);
+          pendingTurnsRef.current.push({ role: "user", text });
           onCaptionChange?.({ role: "user", text });
         }
 
@@ -336,10 +402,8 @@ export function useRealtimeVoice({
         const text = String(event.transcript ?? "").trim();
 
         if (text) {
-          setTranscript((prev) => [
-            ...prev,
-            { id: crypto.randomUUID(), role: "assistant", text },
-          ]);
+          setTranscript((prev) => [...prev, { id: crypto.randomUUID(), role: "assistant", text }]);
+          pendingTurnsRef.current.push({ role: "assistant", text });
           onCaptionChange?.({ role: "assistant", text });
         }
 
@@ -393,7 +457,15 @@ export function useRealtimeVoice({
         audioEl.srcObject = e.streams[0] ?? null;
       };
 
-      const ms = await navigator.mediaDevices.getUserMedia({ audio: true });
+      if (!navigator.mediaDevices?.getUserMedia) {
+        throw new Error(
+          window.isSecureContext
+            ? "Microphone access isn't available in this browser."
+            : "Voice needs a secure (https://) connection — open this page over HTTPS to use the mic."
+        );
+      }
+
+      const ms = await getMicStream();
 
       localStreamRef.current = ms;
       pc.addTrack(ms.getTracks()[0]!);
@@ -403,6 +475,14 @@ export function useRealtimeVoice({
       dcRef.current = dc;
       dc.addEventListener("message", (ev) => {
         if (typeof ev.data === "string") handleDataEvent(ev.data);
+      });
+      // Speak first: prompt the agent to open with its primed, time-aware greeting.
+      dc.addEventListener("open", () => {
+        try {
+          dc.send(JSON.stringify({ type: "response.create" }));
+        } catch {
+          /* connection may have closed before open — ignore */
+        }
       });
 
       const offer = await pc.createOffer();

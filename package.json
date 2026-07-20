@@ -8,6 +8,7 @@
     "prebuild": "cd llm/morph-physics && bun install && bun run build",
     "build": "next build",
     "start": "next start",
+    "prod": "next start -p 3001",
     "lint": "eslint . --fix",
     "lint:check": "eslint .",
     "test": "bun test --preload ./tests/jsdom-preload.ts --preload ./tests/preload.ts tests/unit tests/getNMessages.test.ts tests/organicStateProtocol.test.ts && bun test --preload ./tests/jsdom-preload.ts --preload ./tests/preload.ts tests/integration",

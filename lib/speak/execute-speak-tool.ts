@@ -1,5 +1,8 @@
 import "server-only";
 
+import type { SpeakModalities } from "@/lib/schemas/speak-modalities";
+import type { SpeakToolClientEffect } from "@/lib/speak/types";
+
 import { after } from "next/server";
 import { z } from "zod";
 
@@ -8,6 +11,7 @@ import {
   isToolAllowedForModalities,
   RefreshComponentSchema,
   RenderGenUiSchema,
+  SearchMemoriesSchema,
   ShowWebPreviewSchema,
   SpeakToolNameSchema,
   SummarizeThreadSchema,
@@ -17,12 +21,9 @@ import {
   type SpeakToolName,
 } from "@/lib/llm/compile-speak-tools";
 import { createLogger } from "@/lib/logger";
-import {
-  assertSpeakBudgetOrClose,
-  getSpeakRealtimeSession,
-} from "@/lib/rate-limit/speak-realtime";
-import type { SpeakModalities } from "@/lib/schemas/speak-modalities";
-import type { SpeakToolClientEffect } from "@/lib/speak/types";
+import { formatMemoriesForPrompt } from "@/lib/memory/memory-relevance";
+import { searchMemoriesForUser } from "@/lib/memory/operations";
+import { assertSpeakBudgetOrClose, getSpeakRealtimeSession } from "@/lib/rate-limit/speak-realtime";
 
 const logger = createLogger("lib/speak/execute-speak-tool.ts");
 
@@ -201,6 +202,38 @@ async function runSpeakTool(args: {
             title: parsed.data.title,
           },
         ],
+      };
+    }
+    case "search_memories": {
+      const parsed = SearchMemoriesSchema.safeParse(args.rawArgs);
+
+      if (!parsed.success) {
+        return invalidArgs();
+      }
+
+      const limit = parsed.data.depth === "deep" ? 12 : 5;
+      const res = await searchMemoriesForUser(args.userId, parsed.data.query, { limit });
+
+      if (res.error || !res.data) {
+        return {
+          ok: false,
+          error: res.error ?? "Memory search failed",
+          modelResult: { error: res.error ?? "Memory search failed" },
+          clientEffects: [],
+        };
+      }
+
+      const memories = res.data.results;
+      const formatted = memories.length > 0 ? formatMemoriesForPrompt(memories) : "";
+
+      return {
+        ok: true,
+        modelResult: {
+          ok: true,
+          count: memories.length,
+          memories: formatted || "No matching memories found.",
+        },
+        clientEffects: [],
       };
     }
     case "update_thread_title": {

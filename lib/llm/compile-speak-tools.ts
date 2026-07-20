@@ -1,8 +1,9 @@
 import type { SpeakModalities } from "@/lib/schemas/speak-modalities";
 
+import { z } from "zod";
+
 import { GenUIBlockSchema } from "@/lib/schemas/gen-ui";
 import { httpUrl } from "@/lib/schemas/gen-ui/shared";
-import { z } from "zod";
 
 /** OpenAI Realtime function-tool shape. */
 export type SpeakRealtimeFunctionTool = {
@@ -53,6 +54,11 @@ const UpsertUiStateSchema = z.object({
       })
     )
     .max(50),
+});
+
+const SearchMemoriesSchema = z.object({
+  query: z.string().min(1).max(500),
+  depth: z.enum(["quick", "deep"]).optional(),
 });
 
 const UpdateThreadTitleSchema = z.object({
@@ -115,6 +121,14 @@ export function compileSpeakRealtimeTools(
 
   tools.push({
     type: "function",
+    name: "search_memories",
+    description:
+      'Search the user\'s long-term memory for facts, preferences, and past context. Pass a focused `query`; use `depth: "deep"` for a thorough search (slower — cover it with a spoken filler).',
+    parameters: toParameters(SearchMemoriesSchema),
+  });
+
+  tools.push({
+    type: "function",
     name: "update_thread_title",
     description: "Async nanobot: refresh the conversation title when the topic is clear.",
     parameters: toParameters(UpdateThreadTitleSchema),
@@ -136,6 +150,7 @@ export const SpeakToolNameSchema = z.enum([
   "refresh_component",
   "upsert_ui_state",
   "show_web_preview",
+  "search_memories",
   "update_thread_title",
   "summarize_thread",
 ]);
@@ -155,6 +170,7 @@ export function isToolAllowedForModalities(
       return modalities.genUi;
     case "show_web_preview":
       return modalities.web;
+    case "search_memories":
     case "update_thread_title":
     case "summarize_thread":
       return true;
@@ -169,6 +185,7 @@ export {
   RenderGenUiSchema,
   RefreshComponentSchema,
   UpsertUiStateSchema,
+  SearchMemoriesSchema,
   UpdateThreadTitleSchema,
   SummarizeThreadSchema,
 };

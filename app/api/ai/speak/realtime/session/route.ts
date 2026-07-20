@@ -2,8 +2,9 @@ import { auth } from "@clerk/nextjs/server";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 
-import { createChat } from "@/data/supabase/chat";
 import { getSupabaseUserId } from "@/data/supabase/profiles";
+import { getOrCreateSpeakThread } from "@/lib/chat/create-speak-thread";
+import { buildSpeakContext } from "@/lib/speak/build-speak-context";
 import { compileSpeakRealtimeTools } from "@/lib/llm/compile-speak-tools";
 import { createLogger } from "@/lib/logger";
 import { checkLlmMessageLimit } from "@/lib/rate-limit/llm";
@@ -13,15 +14,16 @@ import {
   isSpeakRealtimeEnabled,
   registerSpeakRealtimeSession,
 } from "@/lib/rate-limit/speak-realtime";
-import {
-  DEFAULT_SPEAK_MODALITIES,
-  SpeakModalitiesSchema,
-} from "@/lib/schemas/speak-modalities";
+import { DEFAULT_SPEAK_MODALITIES, SpeakModalitiesSchema } from "@/lib/schemas/speak-modalities";
 import { buildSpeakRealtimeInstructions } from "@/lib/system-prompt/speak-realtime";
+import { getSpeakPersonality } from "@/lib/system-prompt/speak-personality";
 
 export const maxDuration = 30;
 
 const logger = createLogger("app/api/ai/speak/realtime/session/route.ts");
+
+/** Voice id — keyed to the dedicated per-voice thread and the audio output voice. */
+const SPEAK_VOICE = "shimmer";
 
 const SessionBodySchema = z.object({
   threadId: z.string().uuid().optional().nullable(),
@@ -71,10 +73,7 @@ export async function POST(req: Request) {
   const messageLimit = await checkLlmMessageLimit(sbUserId);
 
   if (!messageLimit.success) {
-    return NextResponse.json(
-      { error: messageLimit.error ?? "Too many requests" },
-      { status: 429 }
-    );
+    return NextResponse.json({ error: messageLimit.error ?? "Too many requests" }, { status: 429 });
   }
 
   const startCheck = await checkSpeakRealtimeSessionStart(sbUserId);
@@ -91,20 +90,29 @@ export async function POST(req: Request) {
 
   const modalities = parsed.data.modalities ?? DEFAULT_SPEAK_MODALITIES;
   let threadId = parsed.data.threadId ?? null;
+  let threadUpdatedAt: string | null = null;
 
+  // Resolve the dedicated per-voice thread so the agent resumes as an "aware AI".
   if (!threadId && parsed.data.createThread !== false) {
-    const created = await createChat();
+    const thread = await getOrCreateSpeakThread(sbUserId, SPEAK_VOICE);
 
-    if (created.error || !created.data) {
-      logger.warn("POST", `Failed to create speak thread: ${created.error?.message}`);
+    if (!thread.ok) {
+      logger.warn("POST", `Failed to resolve speak thread: ${thread.error}`);
     } else {
-      threadId = created.data;
+      threadId = thread.id;
+      threadUpdatedAt = thread.updatedAt;
     }
   }
 
+  const context = await buildSpeakContext({
+    userId: sbUserId,
+    threadId,
+    updatedAt: threadUpdatedAt,
+  });
+
   const model = getSpeakRealtimeModel();
   const tools = compileSpeakRealtimeTools(modalities);
-  const instructions = buildSpeakRealtimeInstructions(modalities);
+  const instructions = buildSpeakRealtimeInstructions(modalities, context, getSpeakPersonality());
 
   const openaiRes = await fetch("https://api.openai.com/v1/realtime/client_secrets", {
     method: "POST",
@@ -123,11 +131,13 @@ export async function POST(req: Request) {
         max_output_tokens: 800,
         audio: {
           input: {
-            turn_detection: { type: "server_vad" },
-            transcription: { model: "gpt-4o-mini-transcribe" },
+            // Semantic VAD waits for a genuine end-of-thought (not just silence),
+            // with low eagerness so natural mid-sentence pauses aren't cut short.
+            turn_detection: { type: "semantic_vad", eagerness: "low" },
+            transcription: { model: "gpt-4o-transcribe", language: "en" },
           },
           output: {
-            voice: "alloy",
+            voice: SPEAK_VOICE,
           },
         },
       },
@@ -139,10 +149,7 @@ export async function POST(req: Request) {
 
     logger.error("POST", `OpenAI client_secrets failed: ${openaiRes.status} ${errText}`);
 
-    return NextResponse.json(
-      { error: "Failed to mint Realtime session" },
-      { status: 502 }
-    );
+    return NextResponse.json({ error: "Failed to mint Realtime session" }, { status: 502 });
   }
 
   const secretPayload = (await openaiRes.json()) as {
