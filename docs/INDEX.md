@@ -16,6 +16,7 @@
 - [Chat tools](./chat-tools.md) — assistant toolbelt (memory, search, Gen UI, Mermaid, kanban, experiences)
 - [Arcadia sandbox](./arcadia.md)
 - [Stratum chat style (beta)](./stratum-chat.md) — product-discovery interview with gen-UI forms and a living spec
+- [Ecosystem product notes](./ecosystem-vision.md) — Organic LLM as chat surface, dedicated immersion apps, and the encrypted inter-app "subway"
 - [Chat LLM transparency](./chat-llm-transparency.md)
 - [Export prompt presets](./export-prompt-presets.md)
 - [Speak page architecture](./speak-page-architecture.md)
