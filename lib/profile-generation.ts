@@ -20,9 +20,9 @@ import { AUTO_RESOLVED_SONNET_MODEL_ID } from "@/lib/schemas/chat";
 
 const logger = createLogger("lib/profile-generation.ts");
 
-const PLANNER_MODEL = "openai/gpt-5.5";
+const PLANNER_MODEL = "openai/gpt-5.6-sol";
 const SECTION_MODEL = AUTO_RESOLVED_SONNET_MODEL_ID;
-const REVIEW_MODEL = "openai/gpt-5.5";
+const REVIEW_MODEL = "openai/gpt-5.6-sol";
 
 const BASELINE_MEMORY_SEARCH_LIMIT = 50;
 const BASELINE_MEMORY_PROMPT_LIMIT = 30;

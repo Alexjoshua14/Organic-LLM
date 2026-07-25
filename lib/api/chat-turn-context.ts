@@ -24,13 +24,18 @@ export type LoadMainChatTurnContextParams = {
 export type LoadMainChatTurnContextResult = {
   validatedMessages: UIMessage[];
   systemPromptForRequest: string;
+  tokenBreakdown?: Array<{ name: string; tokens: number }>;
+  packedMessageCount?: number;
+  totalThreadMessages?: number;
+  /** Arcadia: condensation queued for after-response (not blocking this turn). */
+  scheduleBackgroundCondensation?: boolean;
 };
 
 function isStrataExperience(experience: ChatExperience | undefined): boolean {
   return experience === "strata_hub" || experience === "strata_page";
 }
 
-function getContextMessageLimit(experience: ChatExperience | undefined): number {
+export function getContextMessageLimit(experience: ChatExperience | undefined): number {
   if (isStrataExperience(experience)) return 30;
   if (isIntrospectionExperience(experience)) return INTROSPECTION_CONTEXT_MESSAGE_LIMIT;
 
@@ -47,6 +52,9 @@ export async function loadMainChatTurnContext(
 
   let validatedMessages: UIMessage[];
   let systemPromptForRequest = SYSTEM_PROMPT;
+  let tokenBreakdown: Array<{ name: string; tokens: number }> | undefined;
+  let packedMessageCount: number | undefined;
+  let totalThreadMessages: number | undefined;
 
   try {
     const chatContextResult = await getContext({
@@ -68,6 +76,9 @@ export async function loadMainChatTurnContext(
     } else {
       validatedMessages = [...(chatContextResult.data?.messages ?? []), message];
       systemPromptForRequest = chatContextResult.data?.context ?? systemPromptForRequest;
+      tokenBreakdown = chatContextResult.data?.tokenBreakdown;
+      packedMessageCount = chatContextResult.data?.packedMessageCount;
+      totalThreadMessages = chatContextResult.data?.totalThreadMessages;
       logger.debug("context", "Context gathered", {
         historyMessageCount: chatContextResult.data?.messages?.length ?? 0,
         contextLength: chatContextResult.data?.context?.length ?? 0,
@@ -84,5 +95,11 @@ export async function loadMainChatTurnContext(
     }
   }
 
-  return { validatedMessages, systemPromptForRequest };
+  return {
+    validatedMessages,
+    systemPromptForRequest,
+    tokenBreakdown,
+    packedMessageCount,
+    totalThreadMessages,
+  };
 }

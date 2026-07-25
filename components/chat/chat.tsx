@@ -31,7 +31,11 @@ import { Thread } from "@/lib/schemas/chat";
 import { createLogger } from "@/lib/logger";
 import { useSharedChatContext } from "@/lib/context/chat-context";
 import { ChatModel } from "@/lib/schemas/chat";
+import { ChatEffortLevel } from "@/lib/schemas/chat-effort";
+import type { ChatExperience } from "@/lib/chat/chat-experience";
+import type { ContextBudgetEstimate } from "@/lib/chat/context-budget";
 import {
+  DEFAULT_COMPOSER_EFFORT,
   DEFAULT_COMPOSER_MEMORIES,
   DEFAULT_COMPOSER_MODEL,
   DEFAULT_COMPOSER_WEB_SEARCH,
@@ -73,6 +77,7 @@ export const Chat: React.FC<ChatProps> = ({
   const { refreshSidebarChats } = useSharedChatContext();
 
   const selectedModelRef = useRef<ChatModel>(DEFAULT_COMPOSER_MODEL);
+  const selectedEffortRef = useRef<ChatEffortLevel>(DEFAULT_COMPOSER_EFFORT);
   const useWebSearchRef = useRef<boolean>(DEFAULT_COMPOSER_WEB_SEARCH);
   const useMemoriesRef = useRef<boolean>(DEFAULT_COMPOSER_MEMORIES);
   const useSpeechFriendlyRef = useRef<boolean>(false);
@@ -104,6 +109,11 @@ export const Chat: React.FC<ChatProps> = ({
   const [arcadiaStarterKey, setArcadiaStarterKey] = useState<string | null>(
     () => chatData?.thread.arcadia_starter_key ?? null
   );
+  const [streamContextBudget, setStreamContextBudget] = useState<ContextBudgetEstimate | null>(
+    null
+  );
+  const [contextBudgetRefreshKey, setContextBudgetRefreshKey] = useState(0);
+  const wasStreamingRef = useRef(false);
 
   useEffect(() => {
     const sync = () =>
@@ -166,6 +176,7 @@ export const Chat: React.FC<ChatProps> = ({
               message,
               id,
               model: selectedModelRef.current,
+              effort: selectedEffortRef.current,
               ...strataPageTools,
               speechFriendly: useSpeechFriendlyRef.current,
               experience,
@@ -295,6 +306,8 @@ export const Chat: React.FC<ChatProps> = ({
               });
               break;
           }
+        } else if (data.type === "data-context-budget") {
+          setStreamContextBudget(data.data as ContextBudgetEstimate);
         }
       },
       onError: (error) => {
@@ -309,6 +322,7 @@ export const Chat: React.FC<ChatProps> = ({
       },
       onFinish: () => {
         setAiAction(undefined);
+        setContextBudgetRefreshKey((key) => key + 1);
       },
     });
 
@@ -324,6 +338,21 @@ export const Chat: React.FC<ChatProps> = ({
       sendMessage({ text: initialMessage });
     }
   }, [initialMessage, messages.length, status, sendMessage]);
+
+  useEffect(() => {
+    setStreamContextBudget(null);
+    setContextBudgetRefreshKey(0);
+  }, [id]);
+
+  useEffect(() => {
+    const streaming = status === "streaming" || status === "submitted";
+
+    if (wasStreamingRef.current && status === "ready") {
+      setContextBudgetRefreshKey((key) => key + 1);
+    }
+
+    wasStreamingRef.current = streaming;
+  }, [status]);
 
   const handleStop = useCallback(async () => {
     // Remove the latest user message and partially completed AI message from messages
@@ -453,12 +482,17 @@ export const Chat: React.FC<ChatProps> = ({
             initialDraft={initialDraft}
             isBlankChat={messages.length === 0 && persona !== "strata"}
             modelRef={selectedModelRef}
+            effortRef={selectedEffortRef}
             sendMessage={sendMessage}
             status={status}
             stop={handleStop}
             useMemoriesRef={useMemoriesRef}
             useSpeechFriendlyRef={useSpeechFriendlyRef}
             useWebSearchRef={useWebSearchRef}
+            streamContextBudget={streamContextBudget}
+            contextBudgetRefreshKey={contextBudgetRefreshKey}
+            experience={experience as ChatExperience | undefined}
+            chatStyle={experience === "arcadia" && id ? getChatStyle(id) : undefined}
             onErrorCleared={() => setChatError(undefined)}
           />
         </div>

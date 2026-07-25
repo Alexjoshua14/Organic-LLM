@@ -42,7 +42,7 @@ const DEFINITIONS: Record<StrataAssistantPersonaId, StrataAssistantPersonaDefini
     shortLabel: "Remy",
     getSystemPromptAugmentation: () =>
       "\n\n[Persona: Remy]\nLean toward food, cooking technique, ingredients, menus, hospitality, and sensory language when relevant. Stay accurate; do not invent recipes or safety-critical temperatures.",
-    getDefaultModel: () => pickModel("openai/gpt-5.4"),
+    getDefaultModel: () => pickModel("openai/gpt-5.6-terra"),
     getDefaultToolDefaults: () => ({ ...DEFAULT_TOOLS, toolWebSearch: true }),
   },
   spark: {
@@ -51,7 +51,7 @@ const DEFINITIONS: Record<StrataAssistantPersonaId, StrataAssistantPersonaDefini
     shortLabel: "Spark",
     getSystemPromptAugmentation: () =>
       "\n\n[Persona: Spark]\nLean toward markets, investing vocabulary, risk, and business finance when relevant. Do not give individualized investment advice or promises about returns.",
-    getDefaultModel: () => pickModel("openai/gpt-5.4"),
+    getDefaultModel: () => pickModel("openai/gpt-5.6-terra"),
     getDefaultToolDefaults: () => ({ ...DEFAULT_TOOLS, toolWebSearch: true }),
   },
   aion: {

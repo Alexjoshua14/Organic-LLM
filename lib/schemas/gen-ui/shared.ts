@@ -10,6 +10,7 @@ export const GEN_UI_BLOCK_TYPES = [
   "audio-snippet",
   "recipe-card",
   "shopping-list",
+  "restaurant-card",
 ] as const;
 
 export type GenUIBlockType = (typeof GEN_UI_BLOCK_TYPES)[number];

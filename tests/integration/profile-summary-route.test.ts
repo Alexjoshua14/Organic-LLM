@@ -326,20 +326,20 @@ describe("POST /api/profile/summary", () => {
     );
     expect(mockGenerateObject).toHaveBeenCalledWith(
       expect.objectContaining({
-        model: "openai/gpt-5.5",
+        model: "openai/gpt-5.6-sol",
         schemaName: "ProfileSectionPlan",
         prompt: expect.stringContaining("Plan the ideal ProfileTree sections"),
       })
     );
     expect(mockGenerateObject).toHaveBeenCalledWith(
       expect.objectContaining({
-        model: "openai/gpt-5.5",
+        model: "openai/gpt-5.6-sol",
         schemaName: "ProfileSectionBatchReview",
       })
     );
     expect(mockGenerateObject).toHaveBeenCalledWith(
       expect.objectContaining({
-        model: "openai/gpt-5.5",
+        model: "openai/gpt-5.6-sol",
         schemaName: "ProfileTreeReview",
       })
     );

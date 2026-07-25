@@ -439,6 +439,19 @@ export async function getShowSandboxGateway(clerkUserId: string): Promise<boolea
 }
 
 /**
+ * Strict admin check for authorization decisions.
+ * Unlike `getShowSandboxGateway` (which fails open so UI entry points stay visible),
+ * this returns false whenever the profile can't be read or `admin` isn't explicitly true.
+ */
+export async function isAdminUser(clerkUserId: string): Promise<boolean> {
+  const result = await getProfile(clerkUserId);
+
+  if (result.error || !result.data) return false;
+
+  return result.data.admin === true;
+}
+
+/**
  * Server action: whether the signed-in user should see the sandbox gateway.
  * Use from the client and cache the result per userId.
  */
