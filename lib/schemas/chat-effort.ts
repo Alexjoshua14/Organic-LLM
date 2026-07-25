@@ -86,7 +86,7 @@ const OPENAI_GPT54_FAMILY: EffortCapability = {
   levels: ["none", "low", "medium", "high", "xhigh"],
 };
 
-/** Claude Fable / Opus 4.8 / Sonnet 5 — adaptive thinking + effort. */
+/** Claude Fable / Opus 5 / Opus 4.8 / Sonnet 5 — adaptive thinking + effort. */
 const ANTHROPIC_ADAPTIVE_FULL: EffortCapability = {
   configurable: true,
   levels: ["none", "low", "medium", "high", "xhigh", "max"],
@@ -190,6 +190,7 @@ export function getEffortCapabilityForModel(modelId: string): EffortCapability {
 
   if (provider === "anthropic") {
     if (slug.includes("fable") || slug.includes("mythos")) return ANTHROPIC_ADAPTIVE_FULL;
+    if (slug.includes("opus-5")) return ANTHROPIC_ADAPTIVE_FULL;
     if (slug.includes("opus-4.8") || slug.includes("opus-4-8")) return ANTHROPIC_ADAPTIVE_FULL;
     if (slug.includes("opus-4.7") || slug.includes("opus-4-7")) return ANTHROPIC_ADAPTIVE_FULL;
     if (slug.includes("sonnet-5") || slug.includes("sonnet-4.6") || slug.includes("sonnet-4-6")) {
@@ -293,9 +294,10 @@ function anthropicSlugUsesBudgetTokens(slug: string): boolean {
 }
 
 function anthropicAdaptiveRequiresExplicitThinking(slug: string): boolean {
-  // Opus 4.8 / 4.7: thinking off unless adaptive is set. Fable always-on (omit ok).
+  // Opus 5 / 4.8 / 4.7: thinking off unless adaptive is set. Fable always-on (omit ok).
   // Sonnet 5: adaptive on by default.
   return (
+    slug.includes("opus-5") ||
     slug.includes("opus-4.8") ||
     slug.includes("opus-4-8") ||
     slug.includes("opus-4.7") ||

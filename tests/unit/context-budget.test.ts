@@ -21,7 +21,7 @@ function userMessage(text: string): UIMessage {
 describe("computeContextBudget", () => {
   test("counts draft text toward next submit total", () => {
     const budget = computeContextBudget({
-      modelId: "openai/gpt-5.4",
+      modelId: "openai/gpt-5.6-terra",
       threadMessages: [userMessage("Hello there")],
       draftText: "What is next?",
       memoryEnabled: false,
@@ -51,9 +51,9 @@ describe("computeContextBudget", () => {
   });
 
   test("reserves output tokens from the model window", () => {
-    const window = getModelContextWindowTokens("openai/gpt-5.4");
+    const window = getModelContextWindowTokens("openai/gpt-5.6-terra");
     const budget = computeContextBudget({
-      modelId: "openai/gpt-5.4",
+      modelId: "openai/gpt-5.6-terra",
       threadMessages: [],
       draftText: "",
       memoryEnabled: false,
@@ -69,7 +69,7 @@ describe("computeContextBudget", () => {
 describe("computeNewThreadDefaultBudget", () => {
   test("defaults to system prompt and tool overhead only", () => {
     const budget = computeNewThreadDefaultBudget({
-      modelId: "openai/gpt-5.4",
+      modelId: "openai/gpt-5.6-terra",
       memoryEnabled: false,
       webSearchEnabled: false,
       messageSearchEnabled: false,
