@@ -14,6 +14,7 @@ import { ensureChatHasTitle, updateChatSummary } from "@/lib/llm/chat-helpers";
 import { CHAT_MODEL, measureAsync } from "@/lib/llm/helpers";
 import { serializeError } from "@/lib/llm/log-error";
 import { addLatestMessagesToMemoryForUser } from "@/lib/memory/operations";
+import { buildEffortProviderOptions, type ChatEffortLevel } from "@/lib/schemas/chat-effort";
 import { trackLlmUsageEvent } from "@/lib/usage/track-llm-usage";
 import { ChatAIActionEnum, type ChatUIMessage } from "@/types/ai";
 
@@ -24,6 +25,7 @@ export type RunLLMChatStreamParams = {
   sbUserId: string;
   assistantMessageId: string;
   selectedModel: { id: string; name: string };
+  effort?: ChatEffortLevel;
   messages: ModelMessage[];
   systemPromptWithLength: string;
   tools: ToolSet;
@@ -46,6 +48,7 @@ export function runLLMChatStream(params: RunLLMChatStreamParams): void {
     sbUserId,
     assistantMessageId,
     selectedModel,
+    effort,
     messages,
     systemPromptWithLength,
     tools,
@@ -90,8 +93,11 @@ export function runLLMChatStream(params: RunLLMChatStreamParams): void {
     if (chunkRing.length > 24) chunkRing.shift();
   };
 
+  const effortProviderOptions = buildEffortProviderOptions(selectedModel.id, effort);
+
   const providerOptionsSummary = {
     zeroDataRetention: isZeroDataRetention,
+    effort: effort ?? "auto",
     openaiInclude: ["reasoning.encrypted_content"] as const,
   };
 
@@ -160,10 +166,15 @@ export function runLLMChatStream(params: RunLLMChatStreamParams): void {
     providerOptions: {
       openai: {
         include: ["reasoning.encrypted_content"],
+        ...effortProviderOptions?.openai,
       } satisfies OpenAIResponsesProviderOptions,
       gateway: {
         zeroDataRetention: isZeroDataRetention,
       } satisfies GatewayProviderOptions,
+      ...(effortProviderOptions?.anthropic
+        ? { anthropic: effortProviderOptions.anthropic }
+        : {}),
+      ...(effortProviderOptions?.google ? { google: effortProviderOptions.google } : {}),
     },
     tools,
     toolChoice: hasTools ? "auto" : "none",
@@ -171,7 +182,7 @@ export function runLLMChatStream(params: RunLLMChatStreamParams): void {
   });
 
   void result.usage
-    .then((usage) => {
+    .then(async (usage) => {
       if (!usage) return;
 
       trackLlmUsageEvent({
@@ -185,6 +196,19 @@ export function runLLMChatStream(params: RunLLMChatStreamParams): void {
         operation: "chat",
         route: "/api/chat",
       });
+
+      try {
+        const { recordLlmCost, recordLlmTokenUsage } = await import("@/lib/rate-limit/llm");
+
+        await recordLlmTokenUsage(sbUserId, usage.totalTokens ?? 0);
+        await recordLlmCost(sbUserId, selectedModel.id, {
+          inputTokens: usage.inputTokens ?? 0,
+          outputTokens: usage.outputTokens ?? 0,
+          cachedInputTokens: usage.cachedInputTokens ?? 0,
+        });
+      } catch {
+        /* optional Redis cost/token recording */
+      }
     })
     .catch(() => {
       /* optional — usage may be unavailable on abort */
@@ -343,9 +367,17 @@ export function runLLMChatStream(params: RunLLMChatStreamParams): void {
               return;
             }
 
-            const updateSummaryResult = await measureAsync(() => updateChatSummary(chatId));
+            if (experience !== "arcadia") {
+              const updateSummaryResult = await measureAsync(() => updateChatSummary(chatId));
 
-            metrics.updateChatSummaryMs = updateSummaryResult.durationMs;
+              metrics.updateChatSummaryMs = updateSummaryResult.durationMs;
+
+              if (updateSummaryResult.result?.error) {
+                logger.error("POST", "Error updating chat summary");
+              }
+            } else {
+              logger.log("POST", "Skipping exchange-cadence summary refresh for Arcadia token context");
+            }
 
             if (memoryEnabled && experience !== "delphi" && experience !== "topic_explore") {
               const addMemoryResult = await measureAsync(() =>
@@ -361,10 +393,6 @@ export function runLLMChatStream(params: RunLLMChatStreamParams): void {
               );
 
               metrics.addLatestMessagesToMemoryMs = addMemoryResult.durationMs;
-            }
-
-            if (updateSummaryResult.result?.error) {
-              logger.error("POST", "Error updating chat summary");
             }
 
             if (coalescenceMode && !isZeroDataRetention) {

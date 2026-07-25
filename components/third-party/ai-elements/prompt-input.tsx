@@ -721,10 +721,18 @@ export const PromptInput = ({
           return (formData.get("message") as string) || "";
         })();
 
-    // Reset form immediately after capturing text to avoid race condition
-    // where user input during async blob conversion would be lost
+    // Clear only the submitted message. Resetting the whole form also resets
+    // controlled Radix controls (for example model and effort) to their
+    // initial values while attachments are converted.
     if (!usingProvider) {
-      form.reset();
+      const messageInput = form.elements.namedItem("message");
+
+      if (
+        messageInput instanceof window.HTMLInputElement ||
+        messageInput instanceof window.HTMLTextAreaElement
+      ) {
+        messageInput.value = "";
+      }
     }
 
     // Convert blob URLs to data URLs asynchronously

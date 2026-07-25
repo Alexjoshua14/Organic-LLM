@@ -19,6 +19,7 @@ import {
   SidebarGroupContent,
   SidebarHeader,
 } from "@/components/third-party/ui/sidebar";
+import { APP_VERSION_LABEL } from "@/lib/app-version";
 import { welcomeCopy } from "@/lib/welcome/copy";
 
 function NormalSidebarContent() {
@@ -95,6 +96,12 @@ export function Sidebar() {
         <SignedIn>
           <SignOutButton />
         </SignedIn>
+        <p
+          className="px-2 pb-1 text-center text-2xs font-light tabular-nums tracking-wide text-muted-foreground/70"
+          aria-label={`App version ${APP_VERSION_LABEL}`}
+        >
+          {APP_VERSION_LABEL}
+        </p>
       </SidebarFooter>
     </ShadcnSidebar>
   );

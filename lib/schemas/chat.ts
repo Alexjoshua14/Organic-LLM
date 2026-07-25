@@ -4,7 +4,25 @@ import z from "zod";
 
 import { CHAT_EXPERIENCES, parseChatExperience } from "@/lib/chat/chat-experience";
 import { parseChatStyle, ChatStyleSchema } from "@/lib/chat/chat-style";
+import { ChatEffortLevelSchema } from "@/lib/schemas/chat-effort";
 import type { DeviceTier } from "@/lib/memory-ingest/delphi-caption-budget";
+import {
+  AUTO_CHAT_MODEL_ID,
+  AUTO_RESOLVED_SONNET_MODEL_ID,
+} from "@/lib/schemas/chat-model-ids";
+
+export type { ChatEffortLevel } from "@/lib/schemas/chat-effort";
+export {
+  CHAT_EFFORT_LEVELS,
+  DEFAULT_CHAT_EFFORT,
+  buildEffortProviderOptions,
+  clampEffortForModel,
+  getChatEffortLabel,
+  getEffortCapabilityForModel,
+  getEffortLevelsForModel,
+  modelSupportsEffortControl,
+} from "@/lib/schemas/chat-effort";
+export { AUTO_CHAT_MODEL_ID, AUTO_RESOLVED_SONNET_MODEL_ID } from "@/lib/schemas/chat-model-ids";
 
 // Message role enum
 export const MessageRole = z.enum(["user", "assistant", "system"]);
@@ -12,24 +30,21 @@ export const MessageRole = z.enum(["user", "assistant", "system"]);
 // Message schema kind enum
 export const MessageSchemaKind = z.enum(["ui_message"]);
 
-/** Sentinel: resolved on the server before any gateway / streamText call. */
-export const AUTO_CHAT_MODEL_ID = "organic-llm/auto" as const;
-
-/** Non-Delphi `AUTO_CHAT_MODEL_ID` resolves to this gateway id (single policy knob). */
-export const AUTO_RESOLVED_SONNET_MODEL_ID = "anthropic/claude-sonnet-5" as const;
-
 export type ChatModelId = GatewayModelId | typeof AUTO_CHAT_MODEL_ID;
 
 export type ChatModel = {
   id: ChatModelId;
   name: string;
   supportsZeroDataRetention?: boolean;
+  /** Only selectable by admins (profiles.admin); enforced server-side in the chat route. */
+  adminOnly?: boolean;
 };
 
 export const ChatModelSchema: z.ZodType<ChatModel> = z.object({
   id: z.union([z.literal(AUTO_CHAT_MODEL_ID), z.string()]),
   name: z.string(),
   supportsZeroDataRetention: z.boolean().optional(),
+  adminOnly: z.boolean().optional(),
 }) as z.ZodType<ChatModel>;
 
 /** Re-export for call sites that only need the gateway model id union. */
@@ -42,7 +57,11 @@ export const AUTO_CHAT_MODEL: ChatModel = {
 };
 
 const gatewayChatModels: ChatModel[] = [
+  { id: "openai/gpt-5.6-sol", name: "GPT-5.6 Sol", supportsZeroDataRetention: true },
+  { id: "openai/gpt-5.6-terra", name: "GPT-5.6 Terra", supportsZeroDataRetention: true },
+  { id: "openai/gpt-5.6-luna", name: "GPT-5.6 Luna", supportsZeroDataRetention: true },
   { id: "openai/gpt-5.5", name: "GPT-5.5", supportsZeroDataRetention: true },
+  { id: "openai/gpt-5.5-pro", name: "GPT-5.5 Pro", supportsZeroDataRetention: true },
   { id: "openai/gpt-5.4", name: "GPT-5.4", supportsZeroDataRetention: true },
   { id: "openai/gpt-5.4-mini", name: "GPT-5 Mini", supportsZeroDataRetention: true },
   { id: "openai/gpt-5.4-nano", name: "GPT-5 Nano", supportsZeroDataRetention: true },
@@ -53,6 +72,13 @@ const gatewayChatModels: ChatModel[] = [
     id: "google/gemini-2.5-flash-lite",
     name: "Gemini 2.5 Flash Lite",
     supportsZeroDataRetention: true,
+  },
+  {
+    // Fable 5 requires 30-day data retention upstream, so it is not ZDR-compatible.
+    id: "anthropic/claude-fable-5",
+    name: "Claude Fable 5",
+    supportsZeroDataRetention: false,
+    adminOnly: true,
   },
   { id: "anthropic/claude-opus-4.8", name: "Claude Opus 4.8", supportsZeroDataRetention: true },
   {
@@ -68,6 +94,7 @@ const gatewayChatModels: ChatModel[] = [
     supportsZeroDataRetention: false,
   },
   { id: "moonshotai/kimi-k2.7-code", name: "Kimi K2.7 Code", supportsZeroDataRetention: true },
+  { id: "moonshotai/kimi-k2.6", name: "Kimi K2.6", supportsZeroDataRetention: true },
   { id: "deepseek/deepseek-v4-pro", name: "DeepSeek v4 Pro", supportsZeroDataRetention: true },
   {
     id: "deepseek/deepseek-v4-flash",
@@ -82,6 +109,11 @@ const gatewayChatModels: ChatModel[] = [
 export const ChatModels: ChatModel[] = [AUTO_CHAT_MODEL, ...gatewayChatModels];
 
 export const DEFAULT_CHAT_MODEL: ChatModel = gatewayChatModels[0];
+
+/** Models the given user may select; hides `adminOnly` entries from non-admins. */
+export function getSelectableChatModels(isAdmin: boolean): ChatModel[] {
+  return isAdmin ? ChatModels : ChatModels.filter((m) => !m.adminOnly);
+}
 
 // Thread schema
 export const ThreadCreate = z.object({
@@ -200,6 +232,8 @@ export const ChatRequestSchema = z.object({
   message: UIMessageSchema,
   id: z.uuid(),
   model: ChatModelSchema.optional(),
+  /** Reasoning effort hint; `auto` or omitted leaves provider defaults unchanged. */
+  effort: ChatEffortLevelSchema.optional(),
   webSearch: z.boolean().optional(),
   memory: z.boolean().optional().default(true),
   speechFriendly: z.boolean().optional(),

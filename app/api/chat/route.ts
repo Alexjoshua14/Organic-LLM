@@ -12,6 +12,7 @@ import { createResumableStreamContext } from "resumable-stream";
 
 import { saveChat } from "@/lib/chat/chat-store";
 import { getThreadArcadiaStarterKey, getThreadHasTitle } from "@/data/supabase/chat";
+import { getShowSandboxGateway } from "@/data/supabase/profiles";
 import { createLogger } from "@/lib/logger";
 import { getLastUserMessageText } from "@/lib/arcadia/help-response";
 import {
@@ -30,7 +31,14 @@ import {
 import { ChatUIMessage, ChatAIActionEnum } from "@/types/ai";
 import { tryArcadiaChatHelpShortcut } from "@/lib/api/arcadia-chat-help-shortcut";
 import { requireLlmChatActor } from "@/lib/api/chat-llm-gate";
-import { loadMainChatTurnContext } from "@/lib/api/chat-turn-context";
+import { loadMainChatTurnContext, getContextMessageLimit } from "@/lib/api/chat-turn-context";
+import { loadArcadiaChatTurnContext } from "@/lib/api/arcadia-chat-turn-context";
+import { scheduleArcadiaContextCondensation } from "@/lib/api/schedule-arcadia-context-condensation";
+import {
+  assertLlmInputWithinHardCap,
+  estimateLlmInputTokens,
+} from "@/lib/api/llm-input-token-guard";
+import { buildBudgetFromAssembledTurn } from "@/lib/api/main-chat-context-budget";
 import { computeMainChatMaxSteps } from "@/lib/api/chat-max-steps";
 import {
   appendMainChatPostToolSystemFragments,
@@ -87,6 +95,7 @@ export async function POST(req: Request) {
     knowledgeSearch,
     strataAssistantPersona,
     model: requestedModel,
+    effort: requestedEffort,
     memory: requestedMemory,
     delphiDisplay,
   } = parseResult.data;
@@ -132,7 +141,23 @@ export async function POST(req: Request) {
     return authGate.error;
   }
 
-  const { sbUserId } = authGate.data!;
+  const { sbUserId, clerkUserId } = authGate.data!;
+
+  // Admin-only models: check the canonical registry entry (the client payload isn't trusted
+  // to carry the adminOnly flag) and fall back to the default model for non-admins.
+  const canonicalModel = ChatModels.find((m) => m.id === selectedModel.id);
+
+  if (canonicalModel?.adminOnly) {
+    const isAdmin = await getShowSandboxGateway(clerkUserId);
+
+    if (!isAdmin) {
+      logger.error(
+        "POST",
+        `Non-admin requested admin-only model ${selectedModel.id}; falling back to ${DEFAULT_CHAT_MODEL.id}`
+      );
+      selectedModel = DEFAULT_CHAT_MODEL;
+    }
+  }
 
   // Start fetching thread title status early; result is only needed in onFinish (non-blocking).
   // We rely on DB state here to avoid false positives from stale client hints.
@@ -171,14 +196,39 @@ export async function POST(req: Request) {
         transient: true,
       });
 
-      const { validatedMessages, systemPromptForRequest: afterContext } =
-        await loadMainChatTurnContext({
-          logger,
+      const loadTurnContext =
+        experience === "arcadia"
+          ? () =>
+              loadArcadiaChatTurnContext({
+                logger,
+                chatId: id,
+                message,
+                memoryEnabled,
+              })
+          : () =>
+              loadMainChatTurnContext({
+                logger,
+                chatId: id,
+                message,
+                memoryEnabled,
+                experience,
+              });
+
+      const {
+        validatedMessages,
+        systemPromptForRequest: afterContext,
+        tokenBreakdown,
+        packedMessageCount,
+        totalThreadMessages,
+        scheduleBackgroundCondensation,
+      } = await loadTurnContext();
+
+      if (experience === "arcadia" && scheduleBackgroundCondensation) {
+        scheduleArcadiaContextCondensation({
           chatId: id,
-          message,
-          memoryEnabled,
-          experience,
+          modelId: selectedModel.id,
         });
+      }
 
       let systemPromptForRequest = await appendStrataMainChatSystemFragments({
         systemPromptForRequest: afterContext,
@@ -314,6 +364,61 @@ export async function POST(req: Request) {
         delphiDisplay,
       });
 
+      const inputTokenEstimate = estimateLlmInputTokens({
+        systemPrompt: systemPromptWithLength,
+        toolInstructions,
+        messages: validatedMessages,
+      });
+
+      try {
+        assertLlmInputWithinHardCap(inputTokenEstimate);
+      } catch (capError) {
+        logger.error("POST", "LLM input hard cap exceeded", {
+          totalTokens: inputTokenEstimate.totalTokens,
+          hardCap: inputTokenEstimate.hardCapTokens,
+          err: capError instanceof Error ? capError.message : String(capError),
+        });
+
+        writer.write({
+          type: "data-notification",
+          data: {
+            message:
+              "This turn would exceed the safe 300k input token limit. Shorten your message or start a new thread.",
+            level: "error",
+          },
+          transient: true,
+        });
+        writer.write({
+          type: "data-aiAction",
+          data: {
+            action: ChatAIActionEnum.Errored,
+            message: "Input too large for safe LLM call",
+          },
+          transient: true,
+        });
+
+        return;
+      }
+
+      const contextBudget = await buildBudgetFromAssembledTurn({
+        modelId: selectedModel.id,
+        draftMessage: message,
+        validatedMessages,
+        contextSystemPrompt: afterContext,
+        finalSystemPrompt: systemPromptWithLength,
+        toolInstructions,
+        tokenBreakdown,
+        packedMessageCount,
+        totalThreadMessages,
+        contextMessageLimit:
+          experience === "arcadia" ? undefined : getContextMessageLimit(experience),
+      });
+
+      writer.write({
+        type: "data-context-budget",
+        data: contextBudget,
+      });
+
       runLLMChatStream({
         writer,
         logger,
@@ -321,6 +426,7 @@ export async function POST(req: Request) {
         sbUserId,
         assistantMessageId,
         selectedModel,
+        effort: requestedEffort,
         messages,
         systemPromptWithLength,
         tools,

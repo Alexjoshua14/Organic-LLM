@@ -5,7 +5,7 @@ import { auth } from "@clerk/nextjs/server";
 import { getSupabaseUserId } from "@/data/supabase/profiles";
 import { checkLlmMessageLimit } from "@/lib/rate-limit/llm";
 
-export type LlmChatActorData = { sbUserId: string };
+export type LlmChatActorData = { sbUserId: string; clerkUserId: string };
 
 /**
  * Clerk session + Supabase profile + LLM message rate limit.
@@ -55,5 +55,5 @@ export async function requireLlmChatActor(): Promise<Result<LlmChatActorData, Re
     };
   }
 
-  return { data: { sbUserId }, error: null };
+  return { data: { sbUserId, clerkUserId: clerkUser.userId }, error: null };
 }

@@ -23,7 +23,7 @@ export default function GenUiPrototypePage() {
   const streamingInput = FIXTURE_STREAMING_STAGES[streamIndex] ?? FIXTURE_STREAMING_STAGES[0];
 
   const tabs: { id: GalleryTab; label: string }[] = [
-    { id: "valid", label: "Valid (4 types)" },
+    { id: "valid", label: "Valid (7 types)" },
     { id: "partial", label: "Partial recovery" },
     { id: "invalid", label: "Invalid → markdown" },
     { id: "streaming", label: "Streaming skeleton" },

@@ -11,6 +11,9 @@ export function primaryZoneForBlockType(type: GenUIBlockType): SpatialZone {
       return "audio";
     case "answer-card":
     case "decision-matrix":
+    case "recipe-card":
+    case "restaurant-card":
+    case "shopping-list":
     default:
       return "bookshelf";
   }
@@ -45,7 +48,7 @@ export function artifactMatchesFilter(
     case "audio":
       return blockType === "audio-snippet";
     case "guides":
-      return blockType === "answer-card" || blockType === "decision-matrix";
+      return blockType === "answer-card" || blockType === "decision-matrix" || blockType === "restaurant-card";
   }
 }
 
