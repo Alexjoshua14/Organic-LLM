@@ -6,6 +6,7 @@ import { AudioSnippet } from "./blocks/AudioSnippet";
 import { DecisionMatrix } from "./blocks/DecisionMatrix";
 import { PlanTimeline } from "./blocks/PlanTimeline";
 import { RecipeCard } from "./blocks/RecipeCard";
+import { RestaurantCard } from "./blocks/restaurant-card/RestaurantCard";
 import { ShoppingList } from "./blocks/ShoppingList";
 
 import {
@@ -16,6 +17,7 @@ import {
   AudioSnippetBlockSchema,
   RecipeCardBlockSchema,
   ShoppingListBlockSchema,
+  RestaurantCardBlockSchema,
 } from "@/lib/schemas/gen-ui";
 
 export type GenUIBlockComponentProps = {
@@ -31,7 +33,8 @@ export type GenUIRegistryEntry = {
     | typeof PlanTimelineBlockSchema
     | typeof AudioSnippetBlockSchema
     | typeof RecipeCardBlockSchema
-    | typeof ShoppingListBlockSchema;
+    | typeof ShoppingListBlockSchema
+    | typeof RestaurantCardBlockSchema;
   Component: ComponentType<GenUIBlockComponentProps>;
   toMarkdown: (block: GenUIBlock) => string;
 };
@@ -73,6 +76,12 @@ export const GEN_UI_REGISTRY: Record<GenUIBlockType, GenUIRegistryEntry> = {
     Component: ShoppingList as ComponentType<GenUIBlockComponentProps>,
     toMarkdown: genUIBlockToMarkdown,
   },
+  "restaurant-card": {
+    label: "Restaurant",
+    schema: RestaurantCardBlockSchema,
+    Component: RestaurantCard as ComponentType<GenUIBlockComponentProps>,
+    toMarkdown: genUIBlockToMarkdown,
+  },
 };
 
 export function getGenUIBlockTitle(block: GenUIBlock): string {
@@ -89,5 +98,7 @@ export function getGenUIBlockTitle(block: GenUIBlock): string {
       return block.title;
     case "shopping-list":
       return block.title;
+    case "restaurant-card":
+      return block.name;
   }
 }

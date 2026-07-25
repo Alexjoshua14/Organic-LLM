@@ -7,8 +7,8 @@ import { useCallback, useEffect, useRef, useState } from "react";
 
 import { ChatThreadExperimental } from "./chat-thread-experimental";
 
-import { ChatInput } from "@/components/chat/chat-input";
 import { ChatScrollButton } from "@/components/chat/chat-scroll-button";
+import { CoreInput } from "@/components/chat/core-input";
 import { isClientPIIRedactionEnabled, redactUIMessages } from "@/lib/pii/redact";
 import { ChatModel, DEFAULT_CHAT_MODEL, Thread } from "@/lib/schemas/chat";
 import { updateChatSummary } from "@/lib/llm/chat-helpers";
@@ -34,6 +34,8 @@ export const ChatExperimental: React.FC<ChatProps> = ({
 
   const { setChatId } = useSharedChatContext();
   const selectedModelRef = useRef<ChatModel>(DEFAULT_CHAT_MODEL);
+  const useWebSearchRef = useRef<boolean>(false);
+  const useMemoriesRef = useRef<boolean>(false);
 
   useEffect(() => {
     setChatId(chatData?.thread.id ?? "");
@@ -43,7 +45,7 @@ export const ChatExperimental: React.FC<ChatProps> = ({
     };
   }, [chatData]);
 
-  const { messages, sendMessage, id, stop, setMessages, status } = useChat({
+  const { messages, sendMessage, stop, setMessages, status } = useChat({
     id: chatData?.thread.id ?? "",
     messages: chatData?.messages ?? [],
     transport: new DefaultChatTransport({
@@ -155,13 +157,19 @@ export const ChatExperimental: React.FC<ChatProps> = ({
     >
       <ChatThreadExperimental messages={messages} />
       <ChatScrollButton />
-      <ChatInput
-        id={id}
-        selectedModelRef={selectedModelRef}
-        sendMessage={sendMessage}
-        status={status}
-        stop={handleStop}
-      />
+      {/* CoreInput does not position itself; this wrapper reproduces the pinned placement
+          UnifiedChatInput used to own. Horizontal centering comes from the static position
+          inside StickToBottom's `items-center`, so the sidebar offset is preserved. */}
+      <div className="fixed bottom-0 shrink-0 min-h-10 w-full max-w-3xl px-4 pb-4 sm:max-w-4xl mobile-safe-bottom">
+        <CoreInput
+          modelRef={selectedModelRef}
+          sendMessage={sendMessage}
+          status={status}
+          stop={handleStop}
+          useMemoriesRef={useMemoriesRef}
+          useWebSearchRef={useWebSearchRef}
+        />
+      </div>
       {/* <div className="absolute top-20 right-0 z-40">
         <button
           className="px-4 py-2 bg-blue-500 hover:bg-blue-600 disabled:bg-gray-400 text-white rounded-md transition-colors"
