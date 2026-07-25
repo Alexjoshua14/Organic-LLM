@@ -12,8 +12,6 @@ const logger = createLogger("app/api/ai/speak/realtime/heartbeat/route.ts");
 
 const HeartbeatSchema = z.object({
   sessionId: z.string().min(1),
-  /** Wall-clock seconds since last heartbeat (or session start). */
-  elapsedSeconds: z.number().min(0).max(120),
   usage: z
     .object({
       inputTokens: z.number().nonnegative().optional(),
@@ -52,11 +50,9 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Invalid request body" }, { status: 400 });
   }
 
-  const minutesDelta = parsed.data.elapsedSeconds / 60;
   const result = await assertSpeakBudgetOrClose({
     sessionId: parsed.data.sessionId,
     userId: sbUserIdResult.data,
-    minutesDelta,
     usage: parsed.data.usage,
   });
 

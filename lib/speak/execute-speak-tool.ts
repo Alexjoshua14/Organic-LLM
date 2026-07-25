@@ -61,7 +61,6 @@ export async function executeSpeakRealtimeTool(args: {
   const budget = await assertSpeakBudgetOrClose({
     sessionId: args.sessionId,
     userId: args.userId,
-    minutesDelta: 0,
   });
 
   if (!budget.ok || budget.shouldClose) {

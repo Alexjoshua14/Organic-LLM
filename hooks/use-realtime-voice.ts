@@ -87,7 +87,6 @@ export function useRealtimeVoice({
   const localStreamRef = useRef<MediaStream | null>(null);
   const sessionIdRef = useRef<string | null>(null);
   const heartbeatTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  const lastHeartbeatAtRef = useRef<number>(0);
   const userSpeakingRef = useRef(false);
   const assistantSpeakingRef = useRef(false);
   const connectedRef = useRef(false);
@@ -181,16 +180,11 @@ export function useRealtimeVoice({
 
     if (!sid) return;
 
-    const now = Date.now();
-    const elapsedSeconds = Math.max(0, (now - lastHeartbeatAtRef.current) / 1000);
-
-    lastHeartbeatAtRef.current = now;
-
     try {
       const res = await fetch("/api/ai/speak/realtime/heartbeat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ sessionId: sid, elapsedSeconds }),
+        body: JSON.stringify({ sessionId: sid }),
       });
       const data = (await res.json()) as HeartbeatResponse;
 
@@ -211,7 +205,6 @@ export function useRealtimeVoice({
 
   const startHeartbeat = useCallback(() => {
     stopHeartbeat();
-    lastHeartbeatAtRef.current = Date.now();
     heartbeatTimerRef.current = setInterval(() => {
       void sendHeartbeat();
     }, 30_000);

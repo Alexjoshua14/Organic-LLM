@@ -12,7 +12,7 @@ import { createResumableStreamContext } from "resumable-stream";
 
 import { saveChat } from "@/lib/chat/chat-store";
 import { getThreadArcadiaStarterKey, getThreadHasTitle } from "@/data/supabase/chat";
-import { getShowSandboxGateway } from "@/data/supabase/profiles";
+import { isAdminUser } from "@/data/supabase/profiles";
 import { createLogger } from "@/lib/logger";
 import { getLastUserMessageText } from "@/lib/arcadia/help-response";
 import {
@@ -148,7 +148,7 @@ export async function POST(req: Request) {
   const canonicalModel = ChatModels.find((m) => m.id === selectedModel.id);
 
   if (canonicalModel?.adminOnly) {
-    const isAdmin = await getShowSandboxGateway(clerkUserId);
+    const isAdmin = await isAdminUser(clerkUserId);
 
     if (!isAdmin) {
       logger.error(
