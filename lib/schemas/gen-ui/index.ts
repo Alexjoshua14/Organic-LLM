@@ -26,6 +26,11 @@ import {
   recipeCardToMarkdownLoose,
 } from "./recipe-card";
 import {
+  RestaurantCardBlockSchema,
+  restaurantCardToMarkdown,
+  restaurantCardToMarkdownLoose,
+} from "./restaurant-card";
+import {
   ShoppingListBlockSchema,
   shoppingListToMarkdown,
   shoppingListToMarkdownLoose,
@@ -39,6 +44,7 @@ export * from "./plan-timeline";
 export * from "./audio-snippet";
 export * from "./recipe-card";
 export * from "./shopping-list";
+export * from "./restaurant-card";
 
 export const GenUIBlockSchema = z.discriminatedUnion("type", [
   AnswerCardBlockSchema,
@@ -47,6 +53,7 @@ export const GenUIBlockSchema = z.discriminatedUnion("type", [
   AudioSnippetBlockSchema,
   RecipeCardBlockSchema,
   ShoppingListBlockSchema,
+  RestaurantCardBlockSchema,
 ]);
 
 export type GenUIBlock = z.infer<typeof GenUIBlockSchema>;
@@ -119,6 +126,11 @@ function tryLenientParse(type: GenUIBlockType, raw: unknown): GenUIBlock | null 
 
       return r.success ? r.data : null;
     }
+    case "restaurant-card": {
+      const r = RestaurantCardBlockSchema.safeParse(raw);
+
+      return r.success ? r.data : null;
+    }
     default:
       return null;
   }
@@ -180,6 +192,8 @@ export function genUIBlockToMarkdown(block: GenUIBlock): string {
       return recipeCardToMarkdown(block);
     case "shopping-list":
       return shoppingListToMarkdown(block);
+    case "restaurant-card":
+      return restaurantCardToMarkdown(block);
   }
 }
 
@@ -204,6 +218,8 @@ export function genUIBlockToMarkdownLoose(raw: unknown): string {
       return recipeCardToMarkdownLoose(o);
     case "shopping-list":
       return shoppingListToMarkdownLoose(o);
+    case "restaurant-card":
+      return restaurantCardToMarkdownLoose(o);
     default:
       return "_Structured block (could not render)_";
   }

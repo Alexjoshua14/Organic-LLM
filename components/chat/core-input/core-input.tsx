@@ -2,33 +2,19 @@
 
 import {
   ChangeEventHandler,
-  ComponentProps,
   FormEvent,
   KeyboardEventHandler,
   useCallback,
   useEffect,
+  useMemo,
   useRef,
   useState,
-  MouseEvent,
   useLayoutEffect,
 } from "react";
 import { flushSync } from "react-dom";
 import { useChat } from "@ai-sdk/react";
-import {
-  ArrowUp,
-  BrainCircuit,
-  Eye,
-  GlobeIcon,
-  Loader2,
-  Pencil,
-  SquareIcon,
-  Volume2,
-  XIcon,
-} from "lucide-react";
-import { ChatStatus } from "ai";
-import { motion } from "framer-motion";
+import { Loader2 } from "lucide-react";
 
-import { InputGroupButton } from "../third-party/ui/input-group";
 import {
   PromptInput,
   PromptInputHeader,
@@ -40,34 +26,54 @@ import {
   PromptInputTools,
   PromptInputButton,
   PromptInputFooter,
-  PromptInputSelect,
-  PromptInputSelectContent,
-  PromptInputSelectItem,
-  PromptInputSelectTrigger,
-  PromptInputSelectValue,
-} from "../third-party/ai-elements/prompt-input";
-import ShinyText from "../ShinyText";
+} from "../../third-party/ai-elements/prompt-input";
+import ShinyText from "../../ShinyText";
+import { ChatMessageMarkdown } from "../chat-message-markdown";
+import { ComposerAddFilesButton } from "../composer-add-files-button";
+import { ComposerMicButton } from "../composer-mic-button";
+import { ComposerSettingsMenu } from "../composer-settings-menu";
+import { ContextBudgetIndicator } from "../context-budget-indicator";
+import { HomeComposerLumenShell } from "../home-composer-lumen-shell";
 
-import { ChatMessageMarkdown } from "./chat-message-markdown";
-import { ComposerAddFilesButton } from "./composer-add-files-button";
-import { ComposerMicButton } from "./composer-mic-button";
-import { ComposerToolChip } from "./composer-tool-chip";
-import { ModelZdrIndicator } from "./model-zdr-indicator";
+import {
+  CoreInputControlsProvider,
+  CoreInputControlsValue,
+  InputMarkdownMode,
+} from "./core-input-context";
+import { ComposerEffortSelect } from "./controls/effort-select";
+import { ComposerMemoryChip } from "./controls/memory-chip";
+import { ComposerModelSelect } from "./controls/model-select";
+import { ComposerPreviewChip } from "./controls/preview-chip";
+import { ComposerSearchChip } from "./controls/search-chip";
+import { ComposerSpeechChip } from "./controls/speech-chip";
+import { PromptInputSubmit } from "./submit/submit-button";
+import { OrganicSubmitGlyph } from "./submit/submit-glyph";
 
 import { FeatureHint } from "@/components/onboarding/feature-hint";
 import { cn } from "@/lib/utils";
 import {
+  DEFAULT_COMPOSER_EFFORT,
   DEFAULT_COMPOSER_MEMORIES,
   DEFAULT_COMPOSER_MODEL,
   DEFAULT_COMPOSER_WEB_SEARCH,
 } from "@/lib/chat/composer-tool-defaults";
-import { ChatModel, ChatModels } from "@/lib/schemas/chat";
+import { ChatModel, ChatModels, getSelectableChatModels } from "@/lib/schemas/chat";
+import {
+  CHAT_EFFORT_LEVELS,
+  ChatEffortLevel,
+  clampEffortForModel,
+} from "@/lib/schemas/chat-effort";
+import type { ChatExperience } from "@/lib/chat/chat-experience";
+import type { ChatStyle } from "@/lib/chat/chat-style";
+import type { ContextBudgetEstimate } from "@/lib/chat/context-budget";
+import { useIsAdmin } from "@/hooks/use-is-admin";
 import { deleteEmptyChat } from "@/data/supabase/chat";
 import { useSharedChatContext } from "@/lib/context/chat-context";
 import { useComposerDraft } from "@/hooks/use-composer-draft";
 
 type CoreInputProps = {
   modelRef: React.RefObject<ChatModel>;
+  effortRef?: React.RefObject<ChatEffortLevel>;
   useWebSearchRef: React.RefObject<boolean>;
   useMemoriesRef: React.RefObject<boolean>;
   useSpeechFriendlyRef?: React.RefObject<boolean>;
@@ -99,6 +105,10 @@ type CoreInputProps = {
   modelLocalStorageKey?: string;
   /** Initial model when no stored preference exists (defaults to Auto for routing). */
   defaultModel?: ChatModel;
+  /** Override persisted effort key (e.g. Delphi vs main chat). */
+  effortLocalStorageKey?: string;
+  /** Initial effort when no stored preference exists. */
+  defaultEffort?: ChatEffortLevel;
   /** Override persisted memory toggle key (e.g. introspection vs main chat). */
   memoryLocalStorageKey?: string;
   /** Initial memory toggle when no stored preference exists. */
@@ -118,6 +128,14 @@ type CoreInputProps = {
   featureHints?: boolean;
   /** Gate steer-assist coachmark until Noesis assist is available (after first assistant turn). */
   steerHintShowWhen?: boolean;
+  /** When false, hides the context budget donut. */
+  showContextBudget?: boolean;
+  /** Server stream snapshot from the latest assembled turn. */
+  streamContextBudget?: ContextBudgetEstimate | null;
+  /** Bumps server polling after each completed stream. */
+  contextBudgetRefreshKey?: number;
+  experience?: ChatExperience;
+  chatStyle?: ChatStyle;
 };
 
 /** Max length for the in-flight shimmer copy (matches AiInputForm). */
@@ -131,6 +149,7 @@ function truncateSentMessageDisplay(raw: string): string {
 
 export const CoreInput: React.FC<CoreInputProps> = ({
   modelRef,
+  effortRef,
   useWebSearchRef,
   useMemoriesRef,
   useSpeechFriendlyRef,
@@ -152,6 +171,8 @@ export const CoreInput: React.FC<CoreInputProps> = ({
   sentMessageShimmer = false,
   modelLocalStorageKey,
   defaultModel = DEFAULT_COMPOSER_MODEL,
+  effortLocalStorageKey,
+  defaultEffort = DEFAULT_COMPOSER_EFFORT,
   memoryLocalStorageKey,
   defaultMemories = DEFAULT_COMPOSER_MEMORIES,
   defaultWebSearch = DEFAULT_COMPOSER_WEB_SEARCH,
@@ -163,10 +184,16 @@ export const CoreInput: React.FC<CoreInputProps> = ({
   variant = "default",
   featureHints = true,
   steerHintShowWhen = true,
+  showContextBudget = true,
+  streamContextBudget,
+  contextBudgetRefreshKey = 0,
+  experience,
+  chatStyle,
 }) => {
   const { refreshSidebarChats } = useSharedChatContext();
 
   const modelStorageKey = modelLocalStorageKey ?? "organic-llm-selected-model";
+  const effortStorageKey = effortLocalStorageKey ?? "organic-llm-selected-effort";
   const memoriesStorageKey = memoryLocalStorageKey ?? "organic-llm-memories";
   const STORAGE_KEY_WEB_SEARCH = "organic-llm-web-search";
   const STORAGE_KEY_SPEECH_FRIENDLY = "organic-llm-speech-friendly";
@@ -177,14 +204,19 @@ export const CoreInput: React.FC<CoreInputProps> = ({
   const [recentlySentText, setRecentlySentText] = useState<string>(""); // For failed/aborted sends
   const recentlySentTextRef = useRef<string>(""); // So restore effect sees value before state flushes
   const [model, setModel] = useState<ChatModel>(defaultModel);
+  const [effort, setEffort] = useState<ChatEffortLevel>(defaultEffort);
+  const isAdmin = useIsAdmin();
+  const selectableModels = useMemo(() => getSelectableChatModels(isAdmin === true), [isAdmin]);
   const [useWebSearch, setUseWebSearch] = useState<boolean>(defaultWebSearch);
   const [useMemories, setUseMemories] = useState<boolean>(defaultMemories);
   const [useSpeechFriendly, setUseSpeechFriendly] = useState<boolean>(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const toolsRef = useRef<HTMLDivElement | null>(null);
   const showLabelsRef = useRef(false);
+  const isCondensedRef = useRef(false);
   const [showLabels, setShowLabels] = useState(false);
-  const [inputMarkdownMode, setInputMarkdownMode] = useState<"edit" | "preview">("edit");
+  const [isCondensed, setIsCondensed] = useState(false);
+  const [inputMarkdownMode, setInputMarkdownMode] = useState<InputMarkdownMode>("edit");
   const hasLoadedPrefs = useRef(false);
   const appliedInitialDraft = useRef(false);
   const appliedComposerInjectId = useRef<number | null>(null);
@@ -323,6 +355,7 @@ export const CoreInput: React.FC<CoreInputProps> = ({
     if (isExpired) {
       // Clear expired preferences
       localStorage.removeItem(modelStorageKey);
+      localStorage.removeItem(effortStorageKey);
       localStorage.removeItem(memoriesStorageKey);
       localStorage.removeItem(STORAGE_KEY_WEB_SEARCH);
       localStorage.removeItem(STORAGE_KEY_SPEECH_FRIENDLY);
@@ -330,7 +363,9 @@ export const CoreInput: React.FC<CoreInputProps> = ({
 
       setUseWebSearch(defaultWebSearch);
       setUseMemories(defaultMemories);
+      setEffort(defaultEffort);
       if (modelRef) modelRef.current = defaultModel;
+      if (effortRef) effortRef.current = defaultEffort;
 
       return;
     }
@@ -346,6 +381,17 @@ export const CoreInput: React.FC<CoreInputProps> = ({
         nextModel = found;
         setModel(found);
       }
+    }
+
+    const storedEffort = localStorage.getItem(effortStorageKey);
+    let nextEffort = defaultEffort;
+
+    if (
+      storedEffort &&
+      CHAT_EFFORT_LEVELS.some((row) => row.id === storedEffort)
+    ) {
+      nextEffort = storedEffort as ChatEffortLevel;
+      setEffort(nextEffort);
     }
 
     const storedWebSearch = localStorage.getItem(STORAGE_KEY_WEB_SEARCH);
@@ -367,10 +413,14 @@ export const CoreInput: React.FC<CoreInputProps> = ({
     if (storedSpeechFriendly === "true") setUseSpeechFriendly(true);
 
     if (modelRef) modelRef.current = nextModel;
+    if (effortRef) effortRef.current = nextEffort;
   }, [
+    defaultEffort,
     defaultMemories,
     defaultModel,
     defaultWebSearch,
+    effortRef,
+    effortStorageKey,
     memoriesStorageKey,
     modelRef,
     modelStorageKey,
@@ -393,6 +443,25 @@ export const CoreInput: React.FC<CoreInputProps> = ({
       updatePrefsTimestamp();
     }
   }, [model, modelRef, modelStorageKey]);
+
+  useEffect(() => {
+    if (effortRef && effortRef.current !== effort) {
+      effortRef.current = effort;
+    }
+    if (hasLoadedPrefs.current) {
+      localStorage.setItem(effortStorageKey, effort);
+      updatePrefsTimestamp();
+    }
+  }, [effort, effortRef, effortStorageKey]);
+
+  // Snap effort when the selected model doesn't support the current level.
+  useEffect(() => {
+    const next = clampEffortForModel(model.id, effort);
+
+    if (next !== effort) {
+      setEffort(next);
+    }
+  }, [model.id, effort]);
 
   // Persist web search to localStorage (ref is mirrored at render time).
   useEffect(() => {
@@ -429,14 +498,31 @@ export const CoreInput: React.FC<CoreInputProps> = ({
     /** Wider threshold to show labels; lower to hide — avoids oscillation at the breakpoint. */
     const SHOW_LABELS_AT_PX = 640;
     const HIDE_LABELS_AT_PX = 600;
+    /** Narrow composer: icon chips + overflow for secondary tools; model/effort stay visible. */
+    const CONDENSED_AT_PX = 600;
+    const EXPANDED_AT_PX = 640;
 
     const applyWidth = (width: number) => {
-      const next = showLabelsRef.current ? width >= HIDE_LABELS_AT_PX : width >= SHOW_LABELS_AT_PX;
+      // Ignore pre-layout 0 widths so we don't lock into condensed on desktop.
+      if (width < 1) return;
 
-      if (next === showLabelsRef.current) return;
+      const nextLabels = showLabelsRef.current
+        ? width >= HIDE_LABELS_AT_PX
+        : width >= SHOW_LABELS_AT_PX;
 
-      showLabelsRef.current = next;
-      setShowLabels(next);
+      if (nextLabels !== showLabelsRef.current) {
+        showLabelsRef.current = nextLabels;
+        setShowLabels(nextLabels);
+      }
+
+      const nextCondensed = isCondensedRef.current
+        ? width < EXPANDED_AT_PX
+        : width < CONDENSED_AT_PX;
+
+      if (nextCondensed !== isCondensedRef.current) {
+        isCondensedRef.current = nextCondensed;
+        setIsCondensed(nextCondensed);
+      }
     };
 
     const measureTarget = (el.closest("[data-prompt-input-shell]") as HTMLElement | null) ?? el;
@@ -489,12 +575,32 @@ export const CoreInput: React.FC<CoreInputProps> = ({
     clearDraftOnSend();
   };
 
-  const handleModelSelection = (id: string) => {
-    // Find the model object from ChatModels array with matching id
-    const selectedModel = ChatModels.find((modelObj) => modelObj.id === id);
+  // Restored prefs may hold an admin-only model; downgrade once admin status resolves.
+  useEffect(() => {
+    if (isAdmin === false && model.adminOnly) {
+      setModel(defaultModel);
+    }
+  }, [isAdmin, model, defaultModel]);
 
-    if (selectedModel) setModel(selectedModel);
-  };
+  const handleModelSelection = useCallback(
+    (id: string) => {
+      // Find the model object among the models this user may select
+      const selectedModel = selectableModels.find((modelObj) => modelObj.id === id);
+
+      if (selectedModel) setModel(selectedModel);
+    },
+    [selectableModels]
+  );
+
+  const handleEffortSelection = useCallback(
+    (id: string) => {
+      const selectedEffort = CHAT_EFFORT_LEVELS.find((row) => row.id === id);
+
+      if (!selectedEffort) return;
+      setEffort(clampEffortForModel(model.id, selectedEffort.id));
+    },
+    [model.id]
+  );
 
   const handleInputChange: ChangeEventHandler<HTMLTextAreaElement> = useCallback(
     (e) => {
@@ -588,11 +694,164 @@ export const CoreInput: React.FC<CoreInputProps> = ({
   };
 
   const showComposerToolHints =
-    featureHints && !hideWebMemorySpeechToggles && variant !== "compact";
-  const showComposerModelHint = featureHints && variant !== "compact";
-  const showSteerHint = featureHints && Boolean(onSecondarySubmit);
+    featureHints && !hideWebMemorySpeechToggles && variant !== "compact" && !isCondensed;
+  const showComposerModelHint = featureHints && variant !== "compact" && !isCondensed;
+  const showSteerHint = featureHints && Boolean(onSecondarySubmit) && !isCondensed;
+  const useCondensedLayout = variant === "compact" || isCondensed;
 
-  return (
+  const controlsValue = useMemo<CoreInputControlsValue>(
+    () => ({
+      showLabels,
+      useCondensedLayout,
+      useWebSearch,
+      setUseWebSearch,
+      useMemories,
+      setUseMemories,
+      useSpeechFriendly,
+      setUseSpeechFriendly,
+      inputMarkdownMode,
+      setInputMarkdownMode,
+      model,
+      selectableModels,
+      onModelChange: handleModelSelection,
+      effort,
+      onEffortChange: handleEffortSelection,
+    }),
+    [
+      showLabels,
+      useCondensedLayout,
+      useWebSearch,
+      useMemories,
+      useSpeechFriendly,
+      inputMarkdownMode,
+      model,
+      selectableModels,
+      handleModelSelection,
+      effort,
+      handleEffortSelection,
+    ]
+  );
+
+  const searchMemoryChips = !hideWebMemorySpeechToggles ? (
+    <>
+      <ComposerSearchChip />
+      <ComposerMemoryChip />
+    </>
+  ) : null;
+
+  const composerSettingsMenu = useCondensedLayout ? (
+    <ComposerSettingsMenu
+      enableMarkdownInputPreview={enableMarkdownInputPreview}
+      hasDraft={Boolean(text.trim())}
+      inputMarkdownMode={inputMarkdownMode}
+      secondarySubmitDisabled={secondarySubmitDisabled}
+      secondarySubmitLabel={secondarySubmitLabel}
+      secondarySubmitPending={secondarySubmitPending}
+      useSpeechFriendly={useSpeechFriendly}
+      onMarkdownModeToggle={() =>
+        setInputMarkdownMode((mode) => (mode === "edit" ? "preview" : "edit"))
+      }
+      onSecondarySubmit={
+        onSecondarySubmit
+          ? () => {
+              const raw = (textareaRef.current?.value ?? text).trim();
+
+              if (!raw || secondarySubmitDisabled || secondarySubmitPending) return;
+              void onSecondarySubmit(raw);
+            }
+          : undefined
+      }
+      onSpeechFriendlyChange={
+        useSpeechFriendlyRef ? (value) => setUseSpeechFriendly(value) : undefined
+      }
+    />
+  ) : null;
+
+  const attachmentActions = (
+    <>
+      <ComposerAddFilesButton />
+      {(!enableMarkdownInputPreview || inputMarkdownMode === "edit") && (
+        <ComposerMicButton textareaRef={textareaRef} onTranscriptionChange={setText} />
+      )}
+    </>
+  );
+
+  const contextBudgetControl = showContextBudget ? (
+    <ContextBudgetIndicator
+      chatId={chatId}
+      chatStyle={chatStyle}
+      className={cn(useCondensedLayout && "px-0.5 py-0.5")}
+      draftText={text}
+      experience={experience}
+      memoryEnabled={useMemories}
+      messageSearchEnabled
+      modelId={model.id}
+      refreshKey={contextBudgetRefreshKey}
+      speechFriendly={useSpeechFriendly}
+      streamBudget={streamContextBudget}
+      webSearchEnabled={useWebSearch}
+    />
+  ) : null;
+
+  const steerButton =
+    onSecondarySubmit && !useCondensedLayout
+      ? (() => {
+          const button = (
+            <PromptInputButton
+              disabled={
+                secondarySubmitDisabled ||
+                secondarySubmitPending ||
+                !text.trim() ||
+                disabled ||
+                showSentShimmer
+              }
+              size="dynamic-sm"
+              title="Run steer on the current text (⌘ or Ctrl + Enter)"
+              type="button"
+              variant="ghost"
+              onClick={() => {
+                const raw = (textareaRef.current?.value ?? text).trim();
+
+                if (!raw || secondarySubmitDisabled || secondarySubmitPending) return;
+                void onSecondarySubmit(raw);
+              }}
+            >
+              {secondarySubmitPending ? (
+                <Loader2 aria-hidden className="size-4 animate-spin shrink-0" />
+              ) : null}
+              <span className={cn("max-w-28 truncate text-xs", !showLabels && "sr-only")}>
+                {secondarySubmitLabel}
+              </span>
+            </PromptInputButton>
+          );
+
+          return showSteerHint ? (
+            <FeatureHint id="noesis-steer-assist" showWhen={steerHintShowWhen}>
+              {button}
+            </FeatureHint>
+          ) : (
+            button
+          );
+        })()
+      : null;
+
+  const submitControl = (
+    <PromptInputSubmit
+      className={cn(
+        submitVariant === "organic-glass" &&
+          "organic-glass-preview border border-white/20 bg-linear-to-br from-background/86 via-background/60 to-background-tertiary/42 text-foreground shadow-[0_10px_36px_-18px_rgba(20,21,22,0.65),inset_0_1px_0_rgba(255,255,255,0.38)] backdrop-blur-xl hover:border-accent/25 hover:text-foreground dark:border-white/10 dark:from-background-secondary/82 dark:via-background/62 dark:to-background-tertiary/38"
+      )}
+      disabled={(!text && !status) || disabled}
+      status={status}
+      stop={stop}
+    >
+      {submitVariant === "organic-glass" ? (
+        <OrganicSubmitGlyph state={organicSubmitState} />
+      ) : undefined}
+    </PromptInputSubmit>
+  );
+
+  const composer = (
     <PromptInput
       aria-busy={showSentShimmer ? true : undefined}
       data-dim-background
@@ -616,317 +875,56 @@ export const CoreInput: React.FC<CoreInputProps> = ({
         {renderComposerBody()}
       </PromptInputBody>
       <PromptInputFooter className="overflow-visible">
-        <div ref={toolsRef} className="w-full overflow-visible">
-          <PromptInputTools className="flex justify-between w-full overflow-visible">
-            <div className="flex gap-1 overflow-visible">
-              {enableMarkdownInputPreview && (
-                <ComposerToolChip
-                  active={inputMarkdownMode === "preview"}
-                  aria-label={
-                    inputMarkdownMode === "edit" ? "Show markdown preview" : "Back to editing"
-                  }
-                  title={
-                    inputMarkdownMode === "edit" ? "Show rendered markdown" : "Edit as plain text"
-                  }
-                  tool="preview"
-                  onClick={() => setInputMarkdownMode((m) => (m === "edit" ? "preview" : "edit"))}
-                >
-                  {inputMarkdownMode === "edit" ? (
-                    <Eye className="size-4" />
-                  ) : (
-                    <Pencil className="size-4" />
-                  )}
-                  <span className={cn(showLabels ? "inline-flex" : "hidden")}>
-                    {inputMarkdownMode === "edit" ? "Preview" : "Edit"}
-                  </span>
-                </ComposerToolChip>
-              )}
-              {!hideWebMemorySpeechToggles && variant !== "compact" ? (
-                <>
-                  {(() => {
-                    const searchMemoryChips = (
-                      <>
-                        <ComposerToolChip
-                          active={useWebSearch}
-                          tool="search"
-                          onClick={() => setUseWebSearch(!useWebSearch)}
-                        >
-                          <GlobeIcon size={16} />
-                          <span className={cn(showLabels ? "inline-flex" : "hidden")}>Search</span>
-                        </ComposerToolChip>
-                        <ComposerToolChip
-                          active={useMemories}
-                          tool="memory"
-                          onClick={() => setUseMemories(!useMemories)}
-                        >
-                          <BrainCircuit />
-                          <span className={cn(showLabels ? "inline-flex" : "hidden")}>Memory</span>
-                        </ComposerToolChip>
-                      </>
-                    );
+        <div ref={toolsRef} className="min-w-0 flex-1 overflow-visible">
+          <PromptInputTools className="flex min-w-0 w-full items-center justify-between gap-1 overflow-visible">
+            <div className="flex min-w-0 items-center gap-1 overflow-visible">
+              {!useCondensedLayout && enableMarkdownInputPreview ? <ComposerPreviewChip /> : null}
 
-                    return showComposerToolHints ? (
+              {!hideWebMemorySpeechToggles && variant !== "compact"
+                ? showComposerToolHints
+                  ? (
                       <FeatureHint id="composer-search-memory">
                         <span className="inline-flex gap-1">{searchMemoryChips}</span>
                       </FeatureHint>
-                    ) : (
+                    )
+                  : (
                       searchMemoryChips
-                    );
-                  })()}
-                  {useSpeechFriendlyRef && (
-                    <ComposerToolChip
-                      active={useSpeechFriendly}
-                      aria-label={useSpeechFriendly ? "Speech-friendly on" : "Speech-friendly off"}
-                      title="Format replies for reading and TTS; a separate pipeline converts to speech-friendly script."
-                      tool="speech"
-                      onClick={() => setUseSpeechFriendly(!useSpeechFriendly)}
-                    >
-                      <Volume2 size={16} />
-                      <span className={cn(showLabels ? "inline-flex" : "hidden")}>Speech</span>
-                    </ComposerToolChip>
-                  )}
-                </>
+                    )
+                : null}
+
+              {!useCondensedLayout && useSpeechFriendlyRef && !hideWebMemorySpeechToggles ? (
+                <ComposerSpeechChip />
               ) : null}
 
-              {variant !== "compact" ? (
-                (() => {
-                  const modelSelect = (
-                    <PromptInputSelect
-                      required
-                      defaultValue={model.id}
-                      value={model.id}
-                      onValueChange={handleModelSelection}
-                    >
-                      <PromptInputSelectTrigger className="flex-1 max-w-32 sm:max-w-48 min-w-0">
-                        <PromptInputSelectValue className="truncate min-w-0">
-                          <span className="flex min-w-0 items-center gap-2">
-                            <span className="truncate">{model.name}</span>
-                            {model.supportsZeroDataRetention && <ModelZdrIndicator />}
-                          </span>
-                        </PromptInputSelectValue>
-                      </PromptInputSelectTrigger>
-                      <PromptInputSelectContent
-                        className="max-h-80 overflow-y-auto"
-                        defaultValue={model.id}
-                      >
-                        {ChatModels.map((m) => (
-                          <PromptInputSelectItem key={m.id} textValue={m.name} value={m.id}>
-                            <span className="flex min-w-0 items-center gap-2">
-                              <span className="truncate">{m.name}</span>
-                              {m.supportsZeroDataRetention && <ModelZdrIndicator />}
-                            </span>
-                          </PromptInputSelectItem>
-                        ))}
-                      </PromptInputSelectContent>
-                    </PromptInputSelect>
-                  );
-
-                  return showComposerModelHint ? (
-                    <FeatureHint id="composer-auto-model">{modelSelect}</FeatureHint>
-                  ) : (
-                    modelSelect
-                  );
-                })()
+              {showComposerModelHint ? (
+                <FeatureHint id="composer-auto-model">
+                  <ComposerModelSelect />
+                </FeatureHint>
               ) : (
-                <span className="text-muted-foreground truncate px-2 text-xs">{model.name}</span>
+                <ComposerModelSelect />
               )}
+              <ComposerEffortSelect />
             </div>
-            <div className="flex gap-1">
-              <ComposerAddFilesButton />
-              {(!enableMarkdownInputPreview || inputMarkdownMode === "edit") && (
-                <ComposerMicButton textareaRef={textareaRef} onTranscriptionChange={setText} />
-              )}
+            <div className="flex shrink-0 items-center gap-1">
+              {attachmentActions}
+              {composerSettingsMenu}
             </div>
           </PromptInputTools>
         </div>
-        <div className="flex items-center gap-2 shrink-0">
-          {onSecondarySubmit
-            ? (() => {
-                const steerButton = (
-                  <PromptInputButton
-                    disabled={
-                      secondarySubmitDisabled ||
-                      secondarySubmitPending ||
-                      !text.trim() ||
-                      disabled ||
-                      showSentShimmer
-                    }
-                    size="dynamic-sm"
-                    title="Run steer on the current text (⌘ or Ctrl + Enter)"
-                    type="button"
-                    variant="ghost"
-                    onClick={() => {
-                      const raw = (textareaRef.current?.value ?? text).trim();
-
-                      if (!raw || secondarySubmitDisabled || secondarySubmitPending) return;
-                      void onSecondarySubmit(raw);
-                    }}
-                  >
-                    {secondarySubmitPending ? (
-                      <Loader2 aria-hidden className="size-4 animate-spin shrink-0" />
-                    ) : null}
-                    <span className={cn("max-w-28 truncate text-xs", !showLabels && "sr-only")}>
-                      {secondarySubmitLabel}
-                    </span>
-                  </PromptInputButton>
-                );
-
-                return showSteerHint ? (
-                  <FeatureHint id="noesis-steer-assist" showWhen={steerHintShowWhen}>
-                    {steerButton}
-                  </FeatureHint>
-                ) : (
-                  steerButton
-                );
-              })()
-            : null}
-          <PromptInputSubmit
-            className={cn(
-              submitVariant === "organic-glass" &&
-                "organic-glass-preview border border-white/20 bg-linear-to-br from-background/86 via-background/60 to-background-tertiary/42 text-foreground shadow-[0_10px_36px_-18px_rgba(20,21,22,0.65),inset_0_1px_0_rgba(255,255,255,0.38)] backdrop-blur-xl hover:border-accent/25 hover:text-foreground dark:border-white/10 dark:from-background-secondary/82 dark:via-background/62 dark:to-background-tertiary/38"
-            )}
-            disabled={(!text && !status) || disabled}
-            status={status}
-            stop={stop}
-          >
-            {submitVariant === "organic-glass" ? (
-              <OrganicSubmitGlyph state={organicSubmitState} />
-            ) : undefined}
-          </PromptInputSubmit>
+        <div className="flex shrink-0 items-center gap-1.5">
+          {contextBudgetControl}
+          {steerButton}
+          {submitControl}
         </div>
       </PromptInputFooter>
     </PromptInput>
   );
-};
 
-type OrganicSubmitState = "idle" | "ready" | "sent" | "awaiting" | "error";
-
-function OrganicSubmitGlyph({ state }: { state: OrganicSubmitState }) {
-  const label = {
-    idle: "Idle",
-    ready: "Ready to send",
-    sent: "Sent",
-    awaiting: "Awaiting completion",
-    error: "Error",
-  }[state];
-
-  return (
-    <motion.svg
-      aria-label={label}
-      className="size-4"
-      fill="none"
-      initial={false}
-      stroke="currentColor"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      strokeWidth="2"
-      viewBox="0 0 24 24"
-    >
-      {state === "idle" ? (
-        <motion.g
-          key="idle"
-          animate={{ opacity: 1, scale: 1 }}
-          initial={{ opacity: 0, scale: 0.82 }}
-          transition={{ duration: 0.18 }}
-        >
-          <circle cx="12" cy="12" r="4" />
-          <path d="M12 5v1.5M12 17.5V19M5 12h1.5M17.5 12H19" opacity="0.55" />
-        </motion.g>
-      ) : null}
-      {state === "ready" ? (
-        <motion.path
-          key="ready"
-          animate={{ opacity: 1, pathLength: 1, y: 0 }}
-          d="M12 19V5m0 0-6 6m6-6 6 6"
-          initial={{ opacity: 0, pathLength: 0, y: 2 }}
-          transition={{ duration: 0.22 }}
-        />
-      ) : null}
-      {state === "sent" ? (
-        <motion.path
-          key="sent"
-          animate={{ opacity: 1, pathLength: 1, scale: 1 }}
-          d="m5 12 4 4L19 6"
-          initial={{ opacity: 0, pathLength: 0, scale: 0.9 }}
-          transition={{ duration: 0.24 }}
-        />
-      ) : null}
-      {state === "awaiting" ? (
-        <motion.g
-          key="awaiting"
-          animate={{ rotate: 360 }}
-          initial={{ opacity: 0.9 }}
-          transition={{ duration: 1.4, repeat: Infinity, ease: "linear" }}
-        >
-          <path d="M12 4a8 8 0 0 1 8 8" />
-          <path d="M20 12a8 8 0 0 1-8 8" opacity="0.45" />
-          <circle cx="12" cy="12" r="2.5" />
-        </motion.g>
-      ) : null}
-      {state === "error" ? (
-        <motion.g
-          key="error"
-          animate={{ opacity: 1, scale: 1 }}
-          initial={{ opacity: 0, scale: 0.85 }}
-          transition={{ duration: 0.18 }}
-        >
-          <path d="M6 6l12 12M18 6 6 18" />
-        </motion.g>
-      ) : null}
-    </motion.svg>
-  );
-}
-
-export type PromptInputSubmitProps = ComponentProps<typeof InputGroupButton> & {
-  status?: ChatStatus;
-  stop?: () => void;
-};
-
-export const PromptInputSubmit = ({
-  className,
-  variant = "default",
-  size = "icon-sm",
-  status,
-  children,
-  stop,
-  ...props
-}: PromptInputSubmitProps) => {
-  let Icon = <ArrowUp className="size-4" />;
-
-  if (status === "submitted" || status === "streaming") {
-    Icon = <SquareIcon className="size-4" />;
-  } else if (status === "error") {
-    Icon = <XIcon className="size-4" />;
-  }
-
-  const handleClick = useCallback(
-    (e: MouseEvent<HTMLButtonElement>) => {
-      if (stop && (status === "streaming" || status === "submitted")) {
-        e.preventDefault();
-        stop();
-      }
-    },
-    [stop, status]
+  const shell = !useMemories ? (
+    composer
+  ) : (
+    <HomeComposerLumenShell className="core-input-memory-lumen">{composer}</HomeComposerLumenShell>
   );
 
-  return (
-    // TODO: Could make cursor more fun for this specific element
-    <motion.div
-      className="inline-block cursor-pointer"
-      whileHover={{ scale: 1.09 }}
-      whileTap={{ scale: 0.93 }}
-    >
-      <InputGroupButton
-        aria-label={status === "ready" ? "Submit" : "Abort"}
-        className={cn(className)}
-        size={size}
-        type={status === "ready" ? "submit" : "button"}
-        variant={variant}
-        {...props}
-        onClick={handleClick}
-      >
-        {children ?? Icon}
-      </InputGroupButton>
-    </motion.div>
-  );
+  return <CoreInputControlsProvider value={controlsValue}>{shell}</CoreInputControlsProvider>;
 };

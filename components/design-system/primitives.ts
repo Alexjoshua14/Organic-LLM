@@ -107,10 +107,7 @@ export const glass = tv({
 });
 
 /** Opaque smoke shell shared by the homepage composer and its primary action buttons. */
-export const homeComposerGlassSurface = cn(
-  glass({ opaque: true }),
-  "overflow-visible rounded-xl"
-);
+export const homeComposerGlassSurface = cn(glass({ opaque: true }), "overflow-visible rounded-xl");
 
 /**
  * Preview candidate for Organic LLM's next glass material.
@@ -168,6 +165,48 @@ export const glassPreview = tv({
   defaultVariants: {
     tone: "default",
     border: "all",
+    depth: "raised",
+  },
+});
+
+/**
+ * Organic Glass "Frost" — evolution of `glassPreview` toward physically-read frosted glass:
+ * less milk, heavier static blur + saturation lift, and a once-rasterized grain layer
+ * (`.organic-glass-frost::before` in globals.css). Depth steps down with card prominence so
+ * GPU cost stays proportional. Hover life must come from transform/opacity overlay layers in
+ * the consumer — `backdrop-filter` is never animated.
+ * First surface: /sandbox/prototypes browser. Candidate for other gallery/browser pages.
+ */
+export const glassFrost = tv({
+  base: [
+    "organic-glass-frost relative isolate overflow-hidden",
+    "bg-linear-to-b from-white/60 via-white/35 to-white/25",
+    "dark:from-white/[0.10] dark:via-white/[0.05] dark:to-white/[0.025]",
+    "backdrop-saturate-[1.5] backdrop-brightness-[1.05]",
+    "dark:backdrop-saturate-[1.4] dark:backdrop-brightness-[1.24]",
+    "border border-border/40 dark:border-white/[0.09]",
+    "ring-1 ring-inset ring-white/40 dark:ring-white/[0.06]",
+  ],
+  variants: {
+    depth: {
+      floating: [
+        "backdrop-blur-[28px]",
+        "shadow-[0_28px_80px_-32px_rgba(20,21,22,0.55),0_2px_6px_rgba(20,21,22,0.06),inset_0_1px_0_rgba(255,255,255,0.55),inset_0_-1px_0_rgba(0,0,0,0.05)]",
+        "dark:shadow-[0_30px_90px_-34px_rgba(0,0,0,0.9),0_2px_6px_rgba(0,0,0,0.35),inset_0_1px_0_rgba(255,255,255,0.14),inset_0_-1px_0_rgba(0,0,0,0.5)]",
+      ].join(" "),
+      raised: [
+        "backdrop-blur-[22px]",
+        "shadow-[0_18px_56px_-28px_rgba(20,21,22,0.5),inset_0_1px_0_rgba(255,255,255,0.5),inset_0_-1px_0_rgba(0,0,0,0.04)]",
+        "dark:shadow-[0_20px_64px_-30px_rgba(0,0,0,0.85),inset_0_1px_0_rgba(255,255,255,0.12),inset_0_-1px_0_rgba(0,0,0,0.4)]",
+      ].join(" "),
+      flat: [
+        "backdrop-blur-[16px]",
+        "shadow-[0_10px_36px_-24px_rgba(20,21,22,0.45),inset_0_1px_0_rgba(255,255,255,0.45)]",
+        "dark:shadow-[0_12px_40px_-26px_rgba(0,0,0,0.8),inset_0_1px_0_rgba(255,255,255,0.1)]",
+      ].join(" "),
+    },
+  },
+  defaultVariants: {
     depth: "raised",
   },
 });

@@ -9,6 +9,9 @@ export const DEFAULT_COMPOSER_MEMORIES = true;
 /** Default model picker value for new sessions / expired composer prefs. */
 export const DEFAULT_COMPOSER_MODEL: ChatModel = AUTO_CHAT_MODEL;
 
+/** Default reasoning effort for new sessions / expired composer prefs. */
+export { DEFAULT_CHAT_EFFORT as DEFAULT_COMPOSER_EFFORT } from "@/lib/schemas/chat-effort";
+
 /**
  * Composer model + tool toggles persist in `localStorage` (per browser origin).
  * Multiple windows on the same origin (e.g. two tabs on localhost:3000) share one

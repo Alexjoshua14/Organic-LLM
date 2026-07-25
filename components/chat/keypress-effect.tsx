@@ -27,7 +27,7 @@ export const KeypressEffect: React.FC<KeypressEffectProps> = ({ effect }) => {
         <motion.div
           key={effect.id}
           animate={{ opacity: effect.opacity }}
-          className="pointer-events-none fixed inset-0 z-[60] overflow-hidden"
+          className="pointer-events-none fixed inset-0 z-60 overflow-hidden"
           exit={{ opacity: 0 }}
           initial={{ opacity: 0 }}
           transition={{ duration: effect.duration / 1000, ease: "easeOut" }}

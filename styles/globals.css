@@ -475,6 +475,31 @@ body.font-theme-commissioner {
   animation: lumen-rim-breathe 2.4s cubic-bezier(0.25, 0.46, 0.45, 0.94) infinite;
 }
 
+/* Gen UI Lab — Reforge-style full-page gallery snap (native, not wheel-hijack). */
+.gen-ui-gallery-scroll {
+  scroll-snap-type: y mandatory;
+  scroll-behavior: smooth;
+  overscroll-behavior-y: contain;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .gen-ui-gallery-scroll {
+    scroll-behavior: auto;
+  }
+}
+
+.gen-ui-gallery-section {
+  scroll-snap-stop: always;
+}
+
+.dmz-lume-host .lumen-rim-backlight {
+  border-radius: 0.75rem;
+}
+
+.dmz-lume-stage {
+  width: 100%;
+}
+
 @keyframes lumen-rim-breathe {
   0%,
   100% {
@@ -570,9 +595,61 @@ body.font-theme-commissioner {
   }
 }
 
+/* Core input — warm lumen halo when memory retrieval is enabled. */
+.core-input-memory-lumen .home-composer-lumen-rim {
+  animation: core-input-memory-lumen-breathe 6.4s cubic-bezier(0.33, 0.86, 0.45, 0.94) infinite;
+  opacity: 0.16;
+  border-color: rgb(var(--lumen) / 0.14);
+}
+
+.dark .core-input-memory-lumen .home-composer-lumen-rim {
+  opacity: 0.22;
+  border-color: rgb(var(--lumen) / 0.17);
+  animation-name: core-input-memory-lumen-breathe-dark;
+}
+
+.core-input-memory-lumen:focus-within .home-composer-lumen-rim {
+  animation-play-state: paused;
+  opacity: 0.26;
+}
+
+.dark .core-input-memory-lumen:focus-within .home-composer-lumen-rim {
+  opacity: 0.34;
+}
+
+@keyframes core-input-memory-lumen-breathe {
+  0%,
+  100% {
+    opacity: 0.14;
+  }
+
+  50% {
+    opacity: 0.22;
+  }
+}
+
+@keyframes core-input-memory-lumen-breathe-dark {
+  0%,
+  100% {
+    opacity: 0.2;
+  }
+
+  50% {
+    opacity: 0.3;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .home-composer-lumen-rim {
     animation: none;
+  }
+
+  .core-input-memory-lumen .home-composer-lumen-rim {
+    opacity: 0.18;
+  }
+
+  .dark .core-input-memory-lumen .home-composer-lumen-rim {
+    opacity: 0.24;
   }
 
   .home-composer-lumen-host--interactive .home-composer-lumen-stage {
@@ -610,6 +687,54 @@ body.font-theme-commissioner {
   opacity: 0.36;
 }
 
+/*
+ * Organic Glass Frost grain — a once-rasterized SVG noise tile blended over the milk fill.
+ * Static texture: the browser rasterizes the data URI a single time, so it adds zero
+ * per-frame cost (unlike a live feTurbulence backdrop-filter). This is what separates
+ * "blurred panel" from "frosted pane".
+ */
+.organic-glass-frost::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  border-radius: inherit;
+  pointer-events: none;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='160' height='160'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/><feColorMatrix type='saturate' values='0'/></filter><rect width='160' height='160' filter='url(%23n)'/></svg>");
+  background-size: 160px 160px;
+  background-repeat: repeat;
+  opacity: 0.05;
+  mix-blend-mode: overlay;
+}
+
+.dark .organic-glass-frost::before {
+  opacity: 0.07;
+}
+
+/* Prototype browser cards: one-shot staggered entrance, transform/opacity only. */
+@keyframes prototype-card-in {
+  from {
+    opacity: 0;
+    transform: translateY(14px) scale(0.985);
+  }
+
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.prototype-card-enter {
+  animation: prototype-card-in 0.55s cubic-bezier(0.22, 1, 0.36, 1) both;
+  animation-delay: var(--prototype-enter-delay, 0s);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .prototype-card-enter {
+    animation: none;
+  }
+}
+
 @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
   .organic-glass-preview {
     background: color-mix(in oklch, var(--background) 94%, transparent) !important;
@@ -625,6 +750,14 @@ body.font-theme-commissioner {
 
   .dark .organic-glass-smoke {
     background: color-mix(in oklch, var(--secondary) 92%, transparent) !important;
+  }
+
+  .organic-glass-frost {
+    background: color-mix(in oklch, var(--background) 93%, transparent) !important;
+  }
+
+  .dark .organic-glass-frost {
+    background: color-mix(in oklch, var(--secondary) 95%, transparent) !important;
   }
 }
 
@@ -645,5 +778,18 @@ body.font-theme-commissioner {
 
   .dark .organic-glass-smoke {
     background: color-mix(in oklch, var(--secondary) 94%, transparent) !important;
+  }
+
+  .organic-glass-frost {
+    background: color-mix(in oklch, var(--background) 94%, transparent) !important;
+    backdrop-filter: none !important;
+  }
+
+  .dark .organic-glass-frost {
+    background: color-mix(in oklch, var(--secondary) 95%, transparent) !important;
+  }
+
+  .organic-glass-frost::before {
+    display: none;
   }
 }

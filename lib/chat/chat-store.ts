@@ -100,6 +100,11 @@ interface getContextProps {
    * tiered prompt + inventory block. Other modes use a single Mem0 search when memory is on.
    */
   experience?: ChatExperience;
+  /** When set, skips `getNMessages` and uses this history window (Arcadia token prototype). */
+  messagesOverride?: UIMessage[];
+  totalThreadMessagesOverride?: number;
+  /** Human-readable window label for the "Current chat" blurb. */
+  contextWindowLabel?: string;
 }
 
 export async function createChat(): Promise<Result<string>> {
@@ -577,8 +582,21 @@ export async function getContext({
   memoryEnabled,
   persistedSchemasEnabled = false,
   experience,
+  messagesOverride,
+  totalThreadMessagesOverride,
+  contextWindowLabel,
 }: getContextProps): Promise<
-  Result<{ context: string; messages: UIMessage[]; memories?: string[] }, string>
+  Result<
+    {
+      context: string;
+      messages: UIMessage[];
+      memories?: string[];
+      tokenBreakdown?: Array<{ name: string; tokens: number }>;
+      packedMessageCount?: number;
+      totalThreadMessages?: number;
+    },
+    string
+  >
 > {
   const startContextCompilationTime = performance.now();
 
@@ -620,7 +638,9 @@ export async function getContext({
      *
      * Get Latest n Messages from Supabase
      ***/
-    const messagesPromise = getNMessages(chatId, limit);
+    const messagesPromise = messagesOverride
+      ? Promise.resolve({ data: messagesOverride, error: null as string | null })
+      : getNMessages(chatId, limit);
 
     /***
      * Step 2
@@ -947,13 +967,16 @@ export async function getContext({
      *
      * Current chat context (total message count + context window size for get_more_chat_history)
      ***/
-    const totalCountResult = await getMessageCount(chatId);
-    const totalCount = totalCountResult.data ?? null;
+    const totalCount =
+      totalThreadMessagesOverride ??
+      (await getMessageCount(chatId)).data ??
+      null;
     const messagesInContext = messages.length;
+    const windowLabel = contextWindowLabel ?? `most recent ${messagesInContext}`;
     const currentChatContent =
       totalCount !== null
-        ? `This thread has ${totalCount} message${totalCount === 1 ? "" : "s"} in total. You have the most recent ${messagesInContext} in your context. When the user refers to something earlier in the conversation that you don't see, use get_more_chat_history to fetch older messages.`
-        : `You have the most recent ${messagesInContext} message${messagesInContext === 1 ? "" : "s"} in your context. Use get_more_chat_history when the user refers to something earlier in the conversation.`;
+        ? `This thread has ${totalCount} message${totalCount === 1 ? "" : "s"} in total. You have the ${windowLabel} in your context (${messagesInContext} message${messagesInContext === 1 ? "" : "s"}). When the user refers to something earlier in the conversation that you don't see, use get_more_chat_history to fetch older messages.`
+        : `You have the ${windowLabel} in your context (${messagesInContext} message${messagesInContext === 1 ? "" : "s"}). Use get_more_chat_history when the user refers to something earlier in the conversation.`;
 
     contextPieces.push({
       title: "Current chat",
@@ -971,6 +994,9 @@ export async function getContext({
       data: {
         context,
         messages,
+        tokenBreakdown: contextTokenSizes,
+        totalThreadMessages: totalCount ?? messages.length,
+        packedMessageCount: messages.length,
       },
       error: null,
     };

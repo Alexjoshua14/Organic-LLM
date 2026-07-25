@@ -1,5 +1,6 @@
 import type { KanbanCommand } from "@/lib/schemas/kanban";
 import type { IntrospectionGuidedState } from "@/lib/schemas/introspection";
+import type { ContextBudgetEstimate } from "@/lib/chat/context-budget";
 
 import { UIMessage } from "ai";
 
@@ -32,6 +33,8 @@ export type ChatUIMessage = UIMessage<
     kanban?: KanbanCommand;
     /** Introspection guided shell: stable overview + navigation state. */
     "introspection-view"?: IntrospectionGuidedState;
+    /** Server-measured context budget for the assembled turn. */
+    "context-budget"?: ContextBudgetEstimate;
   }
 >;
 

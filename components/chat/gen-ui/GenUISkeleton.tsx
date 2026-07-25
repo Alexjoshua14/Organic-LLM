@@ -18,7 +18,9 @@ export function GenUISkeleton({ type, partialInput }: GenUISkeletonProps) {
   const title =
     typeof partialInput?.title === "string"
       ? partialInput.title
-      : typeof partialInput?.question === "string"
+      : typeof partialInput?.name === "string"
+        ? partialInput.name
+        : typeof partialInput?.question === "string"
         ? partialInput.question
         : typeof partialInput?.preview === "object" &&
             partialInput.preview &&
@@ -80,6 +82,17 @@ export function GenUISkeleton({ type, partialInput }: GenUISkeletonProps) {
           <div className="flex-1 space-y-2">
             <Shimmer className="h-4 w-2/3" />
             <Shimmer className="h-3 w-full" />
+          </div>
+        </div>
+      ) : null}
+
+      {type === "restaurant-card" ? (
+        <div className="flex gap-3">
+          <Shimmer className="size-16 rounded-lg shrink-0" />
+          <div className="flex-1 space-y-2 py-1">
+            <Shimmer className="h-4 w-3/4" />
+            <Shimmer className="h-3 w-1/3" />
+            <Shimmer className="h-3 w-1/2" />
           </div>
         </div>
       ) : null}
