@@ -91,6 +91,77 @@ describe("MermaidDiagram", () => {
     expect(container.querySelector('[role="alert"]')).toBeNull();
   });
 
+  test("recovers once a streamed diagram finishes arriving", async () => {
+    // Mid-stream the fence is half-written, so Mermaid rejects it; the error
+    // must not outlive the chunk that completes the source.
+    let sourceIsPartial = true;
+    const rejectPartial = () => {
+      if (sourceIsPartial) throw new Error("Parse error on line 4");
+    };
+
+    mermaidMock.parse = async () => {
+      rejectPartial();
+
+      return true;
+    };
+    mermaidMock.render = async () => {
+      rejectPartial();
+
+      return { svg: '<svg xmlns="http://www.w3.org/2000/svg"><text>Complete</text></svg>' };
+    };
+
+    const { container, findByRole, rerender } = render(
+      <MermaidDiagram code={'flowchart LR\n  Q1["'} />
+    );
+
+    await findByRole("alert");
+
+    sourceIsPartial = false;
+    rerender(<MermaidDiagram code={'flowchart LR\n  Q1["User query"]'} />);
+
+    await waitFor(() => {
+      expect(container.querySelector("svg")).not.toBeNull();
+    });
+    expect(container.querySelector('[role="alert"]')).toBeNull();
+    expect(container.textContent).toContain("Complete");
+  });
+
+  test("gives concurrent diagrams distinct render ids and never overlaps them", async () => {
+    // Mermaid keys its scratch DOM off the render id alone and parses into
+    // module-level state, so two diagrams sharing an id (or running at the same
+    // time) delete each other's working elements mid-render.
+    const ids: string[] = [];
+    let inFlight = 0;
+    let sawOverlap = false;
+
+    mermaidMock.render = async (id: string) => {
+      ids.push(id);
+      inFlight += 1;
+      if (inFlight > 1) sawOverlap = true;
+
+      await new Promise((resolve) => setTimeout(resolve, 5));
+      inFlight -= 1;
+
+      return { svg: `<svg xmlns="http://www.w3.org/2000/svg"><text>${id}</text></svg>` };
+    };
+
+    const { container } = render(
+      <>
+        <MermaidDiagram code="flowchart TD\n  A --> B" />
+        <MermaidDiagram code="flowchart TD\n  C --> D" />
+        <MermaidDiagram code="flowchart TD\n  E --> F" />
+      </>
+    );
+
+    await waitFor(() => {
+      expect(container.querySelectorAll("svg").length).toBe(3);
+    });
+
+    expect(ids.length).toBe(3);
+    expect(new Set(ids).size).toBe(3);
+    expect(sawOverlap).toBe(false);
+  });
+
   test("falls back to an error message when Mermaid cannot render", async () => {
     mermaidMock.parse = async () => {
       throw new Error("Parse error on line 1");

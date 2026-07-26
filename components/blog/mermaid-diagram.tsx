@@ -2,11 +2,66 @@
 
 import { Modal, ModalBody, ModalContent, ModalHeader, useDisclosure } from "@heroui/modal";
 import mermaid from "mermaid";
-import { useCallback, useEffect, useRef, useState, type KeyboardEvent } from "react";
+import { useCallback, useEffect, useId, useRef, useState, type KeyboardEvent } from "react";
 
 import { cn } from "@/lib/utils";
 import { ensureMermaidDomPurify, sanitizeMermaidSvgMarkup } from "@/lib/html/sanitize";
-import { stripMermaidSecurityInitDirectives } from "@/lib/mermaid/source";
+import { normalizeMermaidCode } from "@/lib/mermaid/source";
+
+let mermaidInitialized = false;
+
+/**
+ * Mermaid's config is global. Initialize exactly once, and only from an effect:
+ * theme setup runs khroma over the neutral palette, which throws outside a
+ * browser, so this must never execute during SSR of this client component.
+ *
+ * `suppressErrorRendering` stops Mermaid from drawing its "syntax error"
+ * graphic into the scratch element it appends to <body> and then leaving it
+ * attached — this component renders its own error state.
+ */
+function initializeMermaidOnce() {
+  if (mermaidInitialized) return;
+  mermaidInitialized = true;
+
+  ensureMermaidDomPurify();
+  // Strict mode strips HTML in foreignObject; DOMPurify is provided via ensureMermaidDomPurify.
+  mermaid.initialize({
+    startOnLoad: false,
+    theme: "neutral",
+    securityLevel: "strict",
+    suppressErrorRendering: true,
+  });
+}
+
+/**
+ * Mermaid is a singleton: `render()` keys its scratch DOM off the id alone, and
+ * several diagram types parse into module-level databases. Concurrent renders
+ * delete each other's working elements mid-flight, which surfaces as "Cannot
+ * read properties of null" or an empty SVG on pages with more than one diagram.
+ * Serialize every render through one chain.
+ */
+let mermaidRenderQueue: Promise<unknown> = Promise.resolve();
+
+function enqueueMermaidRender<T>(task: () => Promise<T>): Promise<T> {
+  const result = mermaidRenderQueue.then(task, task);
+
+  mermaidRenderQueue = result.catch(() => {});
+
+  return result;
+}
+
+/** Returned instead of an SVG when a queued render was superseded while waiting. */
+const STALE_RENDER = Symbol("stale-mermaid-render");
+
+type MermaidRenderOutcome = Awaited<ReturnType<typeof mermaid.render>> | typeof STALE_RENDER;
+
+/**
+ * Streamed markdown delivers a diagram a few characters at a time, so most
+ * parse failures are just a half-written node that the next chunk completes.
+ * Wait this long after the last failure before surfacing an error — a new
+ * `code` value cancels the pending report.
+ */
+const ERROR_GRACE_MS = 400;
 
 export function MermaidDiagram({
   code,
@@ -20,6 +75,9 @@ export function MermaidDiagram({
   const renderEpochRef = useRef(0);
   const [error, setError] = useState<string | null>(null);
   const { isOpen, onOpen, onOpenChange } = useDisclosure();
+  // Mermaid interpolates the render id straight into a CSS selector, so strip
+  // anything React's useId format may include (":" in 18, "«»" in 19).
+  const instanceId = useId().replace(/[^a-zA-Z0-9_-]/g, "");
 
   const handleExpandedKeyDown = useCallback(
     (e: KeyboardEvent<HTMLDivElement>) => {
@@ -207,27 +265,32 @@ export function MermaidDiagram({
   };
 
   useEffect(() => {
-    if (!code || !containerRef.current) return;
+    if (!code) return;
     const epoch = ++renderEpochRef.current;
-    const safeCode = stripMermaidSecurityInitDirectives(code);
+    // Diagrams from `make_mermaid_diagram` are already normalized server-side,
+    // but ```mermaid fences in a normal assistant reply are not.
+    const safeCode = normalizeMermaidCode(code);
 
     let cancelled = false;
 
-    setError(null);
-    containerRef.current.innerHTML = "";
+    const isCurrent = () => !cancelled && renderEpochRef.current === epoch;
+    const wait = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
     const renderOnce = async (diagramCode: string) => {
-      ensureMermaidDomPurify();
-      // Strict mode strips HTML in foreignObject; DOMPurify is provided via ensureMermaidDomPurify.
-      mermaid.initialize({
-        startOnLoad: false,
-        theme: "neutral",
-        securityLevel: "strict",
-      });
+      initializeMermaidOnce();
 
-      await mermaid.parse(diagramCode);
-      const renderId = `mermaid-${Date.now()}-${epoch}`;
-      const renderResult = await mermaid.render(renderId, diagramCode);
+      if (!isCurrent()) return;
+
+      // `render()` parses too, so a separate `mermaid.parse()` would only
+      // double the work and the window for cross-diagram interference.
+      const renderId = `mermaid-${instanceId}-${epoch}`;
+      // Queue only the Mermaid call — that is the part touching shared globals.
+      const renderResult = await enqueueMermaidRender<MermaidRenderOutcome>(() =>
+        isCurrent() ? mermaid.render(renderId, diagramCode) : Promise.resolve(STALE_RENDER)
+      );
+
+      if (renderResult === STALE_RENDER) return;
+
       const svgMarkup =
         typeof renderResult === "string" ? renderResult : (renderResult as { svg?: string })?.svg;
 
@@ -237,7 +300,7 @@ export function MermaidDiagram({
 
       const safeSvgMarkup = sanitizeMermaidSvgMarkup(svgMarkup);
 
-      if (cancelled || renderEpochRef.current !== epoch || !containerRef.current) {
+      if (!isCurrent() || !containerRef.current) {
         return;
       }
 
@@ -260,17 +323,24 @@ export function MermaidDiagram({
     const run = async () => {
       try {
         await renderOnce(safeCode);
+        if (isCurrent()) setError(null);
       } catch (firstErr) {
-        // First-load Mermaid occasionally fails in hydration races; retry once on next tick.
-        await new Promise((resolve) => setTimeout(resolve, 30));
+        // Mermaid loads each diagram type from its own lazy chunk, so a first
+        // render can still lose to a slow import; retry once on the next tick.
+        await wait(30);
+        if (!isCurrent()) return;
         try {
           await renderOnce(safeCode);
+          if (isCurrent()) setError(null);
         } catch (retryErr) {
           const bestError = toRenderErrorMessage(retryErr) || toRenderErrorMessage(firstErr);
 
-          if (!cancelled && renderEpochRef.current === epoch) {
-            setError(bestError);
-          }
+          await wait(ERROR_GRACE_MS);
+          if (!isCurrent()) return;
+
+          // Only drop the previously rendered diagram once the failure is real.
+          if (containerRef.current) containerRef.current.innerHTML = "";
+          setError(bestError);
         }
       }
     };
@@ -282,33 +352,36 @@ export function MermaidDiagram({
     };
   }, [code]);
 
-  if (error) {
-    return (
-      <div
-        className="rounded-lg border border-destructive/50 bg-destructive/10 px-4 py-3 text-sm text-destructive"
-        role="alert"
-      >
-        Diagram could not be rendered: {error}
-      </div>
-    );
-  }
-
+  // The container stays mounted even while erroring: the render effect bails out
+  // when the ref is empty, so unmounting it would strand the error state and
+  // ignore every later `code` update (e.g. the rest of a streamed diagram).
   const diagram = (
-    <div
-      ref={containerRef}
-      aria-label={
-        expandOnDoubleClick ? "Diagram — double-click or press Enter to enlarge" : undefined
-      }
-      className={cn(
-        "mermaid my-4 flex justify-center overflow-x-auto [&_svg]:max-w-full",
-        expandOnDoubleClick &&
-          "cursor-zoom-in select-none rounded-md outline-none ring-offset-2 transition-shadow hover:ring-2 hover:ring-border/60 focus-visible:ring-2 focus-visible:ring-ring"
-      )}
-      role={expandOnDoubleClick ? "button" : undefined}
-      tabIndex={expandOnDoubleClick ? 0 : undefined}
-      onDoubleClick={expandOnDoubleClick ? onOpen : undefined}
-      onKeyDown={expandOnDoubleClick ? handleExpandedKeyDown : undefined}
-    />
+    <>
+      {error ? (
+        <div
+          className="rounded-lg border border-destructive/50 bg-destructive/10 px-4 py-3 text-sm text-destructive"
+          role="alert"
+        >
+          Diagram could not be rendered: {error}
+        </div>
+      ) : null}
+      <div
+        ref={containerRef}
+        aria-label={
+          expandOnDoubleClick ? "Diagram — double-click or press Enter to enlarge" : undefined
+        }
+        className={cn(
+          "mermaid my-4 flex justify-center overflow-x-auto [&_svg]:max-w-full",
+          expandOnDoubleClick &&
+            "cursor-zoom-in select-none rounded-md outline-none ring-offset-2 transition-shadow hover:ring-2 hover:ring-border/60 focus-visible:ring-2 focus-visible:ring-ring",
+          error && "hidden"
+        )}
+        role={expandOnDoubleClick ? "button" : undefined}
+        tabIndex={expandOnDoubleClick ? 0 : undefined}
+        onDoubleClick={expandOnDoubleClick ? onOpen : undefined}
+        onKeyDown={expandOnDoubleClick ? handleExpandedKeyDown : undefined}
+      />
+    </>
   );
 
   if (!expandOnDoubleClick) {

@@ -33,7 +33,12 @@ import {
   MERMAID_DIAGRAM_FIX_SYSTEM_PROMPT,
   MERMAID_DIAGRAM_GENERATOR_SYSTEM_PROMPT,
 } from "@/lib/system-prompt/mermaid-diagram-prompt";
-import { classifyMermaidValidationError, normalizeMermaidCode } from "@/lib/mermaid/source";
+import { normalizeMermaidCode } from "@/lib/mermaid/source";
+import {
+  getMermaidForValidation,
+  validateMermaidCode,
+  verifyMermaidValidationWorks,
+} from "@/lib/mermaid/validate";
 
 const logger = createLogger("llm-tool-kit");
 
@@ -44,80 +49,6 @@ const MAX_TOKENS_FOR_HISTORY = 4000;
 const MAX_TOKENS_FULL_HISTORY = 24000;
 /** Token cap for the Mermaid generator sub-call to avoid unbounded tool latency/cost. */
 const MERMAID_GENERATOR_MAX_OUTPUT_TOKENS = 2200;
-
-let mermaidValidationInit: Promise<any> | null = null;
-
-async function getMermaidForValidation(): Promise<any> {
-  if (!mermaidValidationInit) {
-    mermaidValidationInit = import("mermaid")
-      .then((mod: any) => {
-        const m = mod?.default ?? mod;
-
-        // Validation only runs mermaid.parse (syntax). No theme is set on
-        // purpose: the neutral/base/dark palettes use 3-digit hex (e.g. "#eee")
-        // that khroma cannot parse under bun/node and throws on at init time.
-        try {
-          m.initialize({ startOnLoad: false, securityLevel: "loose" });
-        } catch {
-          // Non-fatal: parse still works without init, and any environment
-          // failure resurfaces at parse time where it is classified below.
-        }
-
-        return m;
-      })
-      .catch((err) => {
-        // Don't poison the cache with a rejected import; allow a later retry.
-        mermaidValidationInit = null;
-        throw err;
-      });
-  }
-
-  return mermaidValidationInit;
-}
-
-export type MermaidValidationResult =
-  | { status: "valid" }
-  | { status: "invalid"; error: string }
-  | { status: "unverifiable"; reason: string };
-
-/**
- * Validate Mermaid source with `mermaid.parse` (syntax only). Server runtimes
- * lack the DOM / DOMPurify / khroma that Mermaid's render path needs, so a
- * thrown error may describe the *environment* rather than the diagram. We
- * classify it so the caller can fix real syntax errors but fail open on
- * environment failures instead of burning fix-retries on valid code.
- */
-async function validateMermaidCode(code: string): Promise<MermaidValidationResult> {
-  try {
-    const mermaid = await getMermaidForValidation();
-
-    // mermaid.parse throws on invalid syntax.
-    await mermaid.parse(code);
-
-    return { status: "valid" };
-  } catch (err) {
-    const e: any = err;
-    const msg =
-      typeof e?.str === "string"
-        ? e.str
-        : e instanceof Error
-          ? e.message
-          : typeof e === "string"
-            ? e
-            : "Mermaid parse failed";
-
-    if (classifyMermaidValidationError(msg) === "environment") {
-      logger.warn(
-        "mermaid_validation",
-        `Mermaid validation unavailable in this runtime; accepting code unverified (${msg}).`
-      );
-
-      return { status: "unverifiable", reason: msg };
-    }
-
-    return { status: "invalid", error: msg };
-  }
-}
 
 /** Format UIMessage[] into a plain string for the model (role + text content). */
 function formatMessagesForContext(messages: UIMessage[]): string {
@@ -323,6 +254,7 @@ export function createGetMoreMessagesTool(chatId: string, alreadySentCount: numb
     inputSchema: GetMoreMessagesToolSchema,
     execute: async ({ limit }) => {
       const clampedLimit = clampHistoryMessageLimit(limit);
+
       logger.log(
         "createGetMoreMessagesTool",
         `Fetching ${clampedLimit} older messages for chat ${chatId} (already have ${alreadySentCount})`
@@ -715,8 +647,10 @@ export function createMermaidDiagramTool(options?: {
   const writer = options?.writer;
 
   // Warm the mermaid module so the first validation doesn't pay cold-import
-  // latency on the request path. Best-effort; failures resurface at parse time.
+  // latency on the request path, and confirm this runtime can actually
+  // syntax-check. Best-effort; failures resurface at parse time.
   void getMermaidForValidation().catch(() => {});
+  void verifyMermaidValidationWorks();
 
   return tool({
     description:

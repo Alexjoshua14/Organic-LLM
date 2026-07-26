@@ -1,9 +1,11 @@
 import { describe, expect, test } from "bun:test";
 
 import {
+  annotateMermaidParseError,
   classifyMermaidValidationError,
   extractMermaidCode,
   normalizeMermaidCode,
+  repairCommonMermaidMistakes,
   stripMermaidSecurityInitDirectives,
 } from "@/lib/mermaid/source";
 
@@ -54,6 +56,59 @@ describe("normalizeMermaidCode", () => {
   test("is a no-op for already-clean code", () => {
     const raw = "flowchart LR\n  A --> B";
     expect(normalizeMermaidCode(raw)).toBe(raw);
+  });
+});
+
+describe("repairCommonMermaidMistakes", () => {
+  test("turns <br> into a space and drops other formatting tags", () => {
+    const src = 'flowchart TD\n  A["First<br/>Second"] --> B["<b>Bold</b> text"]';
+
+    expect(repairCommonMermaidMistakes(src)).toBe(
+      'flowchart TD\n  A["First Second"] --> B["Bold text"]'
+    );
+  });
+
+  test("drops click and href interactivity directives", () => {
+    const src = 'flowchart TD\n  A --> B\n  click A "https://example.com"\n  href B "/docs"';
+
+    expect(repairCommonMermaidMistakes(src)).toBe("flowchart TD\n  A --> B");
+  });
+
+  test("drops whole-line %%{...}%% directives but keeps normal comments", () => {
+    const src = '%%{init: {"theme":"forest"}}%%\nflowchart TD\n  %% keep me\n  A --> B';
+    const out = repairCommonMermaidMistakes(src);
+
+    expect(out).toBe("flowchart TD\n  %% keep me\n  A --> B");
+  });
+
+  test("leaves valid code untouched", () => {
+    const src = 'flowchart LR\n  A["Cost (USD)"] -->|"ok"| B["Tax @ 8%"]';
+
+    expect(repairCommonMermaidMistakes(src)).toBe(src);
+  });
+
+  test("does not mangle labels that merely contain angle brackets or arrows", () => {
+    const src = 'flowchart LR\n  A["a < b"] --> B["c > d"]\n  B -.-> C';
+
+    expect(repairCommonMermaidMistakes(src)).toBe(src);
+  });
+});
+
+describe("annotateMermaidParseError", () => {
+  const code = 'flowchart TD\n  A[cost (USD)] --> B["ok"]';
+
+  test("quotes the offending line using mermaid's 0-indexed line number", () => {
+    const out = annotateMermaidParseError("Parse error on line 2:", code, 1);
+
+    expect(out).toContain("Parse error on line 2:");
+    expect(out).toContain("Offending line 2: A[cost (USD)] --> B[\"ok\"]");
+  });
+
+  test("returns the message unchanged when there is no usable line", () => {
+    expect(annotateMermaidParseError("boom", code, undefined)).toBe("boom");
+    expect(annotateMermaidParseError("boom", code, -1)).toBe("boom");
+    expect(annotateMermaidParseError("boom", code, 99)).toBe("boom");
+    expect(annotateMermaidParseError("boom", "a\n\nb", 1)).toBe("boom");
   });
 });
 
