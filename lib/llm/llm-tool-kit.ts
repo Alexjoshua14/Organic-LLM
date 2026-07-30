@@ -33,7 +33,12 @@ import {
   MERMAID_DIAGRAM_FIX_SYSTEM_PROMPT,
   MERMAID_DIAGRAM_GENERATOR_SYSTEM_PROMPT,
 } from "@/lib/system-prompt/mermaid-diagram-prompt";
-import { normalizeMermaidCode } from "@/lib/mermaid/source";
+import {
+  normalizeMermaidCode,
+  parseDualMermaidGeneratorJson,
+} from "@/lib/mermaid/source";
+import { validateSharedNodeIds } from "@/lib/mermaid/node-graph";
+import type { MermaidDiagramDensity } from "@/lib/mermaid/types";
 import {
   getMermaidForValidation,
   validateMermaidCode,
@@ -635,9 +640,8 @@ const MermaidDiagramToolSchema = z.object({
 });
 
 /**
- * Arcadia tool: generate a Mermaid diagram with a single generator model that
- * plans and emits the code in one call, then syntax-validates with a bounded
- * fix loop. Returns Mermaid source code only (no markdown fences).
+ * Arcadia tool: generate overview + detailed Mermaid sources in one call,
+ * validate both independently, and enforce shared node IDs across them.
  */
 export function createMermaidDiagramTool(options?: {
   generatorModelId?: GatewayModelId;
@@ -646,24 +650,21 @@ export function createMermaidDiagramTool(options?: {
   const generatorModelId: GatewayModelId = options?.generatorModelId ?? "google/gemini-3-flash";
   const writer = options?.writer;
 
-  // Warm the mermaid module so the first validation doesn't pay cold-import
-  // latency on the request path, and confirm this runtime can actually
-  // syntax-check. Best-effort; failures resurface at parse time.
   void getMermaidForValidation().catch(() => {});
   void verifyMermaidValidationWorks();
 
   return tool({
     description:
-      "Generate a Mermaid diagram for the user's request. Use when a visual diagram (flow, sequence, state machine, ERD) would clarify the answer. Returns Mermaid source code only.",
+      "Generate a Mermaid diagram (overview + detailed) for the user's request. Use when a visual diagram would clarify the answer.",
     inputSchema: MermaidDiagramToolSchema,
     execute: async ({ prompt, diagramType }) => {
       const generatorSystem = MERMAID_DIAGRAM_GENERATOR_SYSTEM_PROMPT;
       const fixSystem = MERMAID_DIAGRAM_FIX_SYSTEM_PROMPT;
 
-      const MAX_VALIDATION_RETRIES = 2; // attempt 0 + 2 fixes
+      const MAX_VALIDATION_RETRIES = 2;
 
       let lastValidationError: string | undefined;
-      let normalizedCode = "";
+      let lastJsonText = "";
 
       for (let attempt = 0; attempt <= MAX_VALIDATION_RETRIES; attempt++) {
         if (writer) {
@@ -682,13 +683,13 @@ export function createMermaidDiagramTool(options?: {
 
         const genOrFixPrompt =
           attempt === 0
-            ? "Create the Mermaid diagram for this request.\n\n" +
+            ? "Create the Mermaid diagram JSON for this request.\n\n" +
               `REQUEST:\n${prompt}\n` +
               (diagramType ? `\nDIAGRAM_TYPE_HINT:\n${diagramType}\n` : "")
-            : "INVALID_MERMAID_CODE:\n" +
-              normalizedCode +
+            : "INVALID_MERMAID_JSON:\n" +
+              lastJsonText +
               "\n\n" +
-              `MERMAID_ERROR_MESSAGE:\n${lastValidationError ?? "Unknown mermaid parse error"}\n` +
+              `MERMAID_ERROR_MESSAGE:\n${lastValidationError ?? "Unknown error"}\n` +
               (diagramType ? `\nDIAGRAM_TYPE_HINT:\n${diagramType}\n` : "") +
               "\n\n" +
               `REQUEST:\n${prompt}\n`;
@@ -702,7 +703,22 @@ export function createMermaidDiagramTool(options?: {
           maxOutputTokens: MERMAID_GENERATOR_MAX_OUTPUT_TOKENS,
         });
 
-        normalizedCode = normalizeMermaidCode(gen.text);
+        lastJsonText = gen.text.trim();
+        const parsed = parseDualMermaidGeneratorJson(gen.text);
+
+        if (!parsed) {
+          lastValidationError = "Model did not return valid dual-source JSON.";
+          continue;
+        }
+
+        const overviewCode = normalizeMermaidCode(parsed.overviewCode);
+        const detailedCode = normalizeMermaidCode(parsed.detailedCode);
+        const idMismatch = validateSharedNodeIds(overviewCode, detailedCode);
+
+        if (idMismatch) {
+          lastValidationError = idMismatch;
+          continue;
+        }
 
         if (writer) {
           writer.write({
@@ -712,27 +728,40 @@ export function createMermaidDiagramTool(options?: {
           });
         }
 
-        const result = await validateMermaidCode(normalizedCode);
+        const [overviewResult, detailedResult] = await Promise.all([
+          validateMermaidCode(overviewCode),
+          validateMermaidCode(detailedCode),
+        ]);
 
-        // `valid` parsed cleanly. `unverifiable` means this runtime can't
-        // parse-check (no DOM/DOMPurify/theme colors) — fail open rather than
-        // burn fix-retries on code that is likely fine and gets validated again
-        // in the browser renderer.
-        if (result.status === "valid" || result.status === "unverifiable") {
+        const overviewOk =
+          overviewResult.status === "valid" || overviewResult.status === "unverifiable";
+        const detailedOk =
+          detailedResult.status === "valid" || detailedResult.status === "unverifiable";
+
+        if (overviewOk && detailedOk) {
+          const density: MermaidDiagramDensity = parsed.density ?? "overview";
+
           return {
             success: true,
+            density,
+            title: parsed.title ?? null,
             diagramType: diagramType ?? null,
-            code: normalizedCode,
+            overviewCode,
+            detailedCode,
+            code: overviewCode,
             generatorModelId,
           };
         }
 
-        lastValidationError = result.error;
-        logger.warn("mermaid_validation", `Invalid mermaid (attempt ${attempt}): ${result.error}`);
+        lastValidationError =
+          overviewResult.status === "invalid"
+            ? `overview: ${overviewResult.error}`
+            : detailedResult.status === "invalid"
+              ? `detailed: ${detailedResult.error}`
+              : "Validation failed";
+        logger.warn("mermaid_validation", `Invalid mermaid (attempt ${attempt}): ${lastValidationError}`);
       }
 
-      // Still invalid after the fix budget: return the last code with the syntax
-      // error so the UI can surface a preview note; the browser retries render.
       if (writer) {
         writer.write({
           type: "data-aiAction",
@@ -744,10 +773,18 @@ export function createMermaidDiagramTool(options?: {
         });
       }
 
+      const fallback = parseDualMermaidGeneratorJson(lastJsonText);
+      const overviewCode = normalizeMermaidCode(fallback?.overviewCode ?? lastJsonText);
+      const detailedCode = normalizeMermaidCode(fallback?.detailedCode ?? overviewCode);
+
       return {
         success: true,
+        density: fallback?.density ?? "overview",
+        title: fallback?.title ?? null,
         diagramType: diagramType ?? null,
-        code: normalizedCode,
+        overviewCode,
+        detailedCode,
+        code: overviewCode,
         generatorModelId,
         validationError: lastValidationError ?? null,
       };

@@ -5,6 +5,7 @@ import {
   classifyMermaidValidationError,
   extractMermaidCode,
   normalizeMermaidCode,
+  parseMermaidDiagramPayload,
   repairCommonMermaidMistakes,
   stripMermaidSecurityInitDirectives,
 } from "@/lib/mermaid/source";
@@ -148,6 +149,32 @@ describe("extractMermaidCode", () => {
     expect(extractMermaidCode("just some prose")).toBeNull();
     expect(extractMermaidCode(null)).toBeNull();
     expect(extractMermaidCode(42)).toBeNull();
+  });
+});
+
+describe("parseMermaidDiagramPayload", () => {
+  test("parses dual-source tool output", () => {
+    const payload = parseMermaidDiagramPayload({
+      success: true,
+      density: "overview",
+      title: "Flow",
+      overviewCode: "flowchart TD\n  A --> B",
+      detailedCode: "flowchart TD\n  A --> B\n  B --> C",
+    });
+
+    expect(payload?.overviewCode).toContain("A --> B");
+    expect(payload?.detailedCode).toContain("B --> C");
+    expect(payload?.density).toBe("overview");
+  });
+
+  test("falls back to code as overview when detailed is absent", () => {
+    const payload = parseMermaidDiagramPayload({
+      success: true,
+      code: "flowchart TD\n  A --> B",
+    });
+
+    expect(payload?.overviewCode).toBe("flowchart TD\n  A --> B");
+    expect(payload?.detailedCode).toBe("flowchart TD\n  A --> B");
   });
 });
 

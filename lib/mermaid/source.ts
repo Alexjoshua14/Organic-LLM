@@ -4,6 +4,8 @@
  * components (the renderer) and server tool code (the generator/validator).
  */
 
+import type { MermaidDiagramDensity, MermaidDiagramPayload } from "@/lib/mermaid/types";
+
 /**
  * Mermaid reserved words that break parsing when used as a bare node /
  * participant / state ID. Kept in sync with the generator system prompt so the
@@ -136,12 +138,95 @@ export function extractMermaidCode(value: unknown): string | null {
   }
 
   if (value && typeof value === "object") {
-    const code = (value as Record<string, unknown>).code;
+    const o = value as Record<string, unknown>;
+    const overview = o.overviewCode;
+    const legacy = o.code;
 
-    if (typeof code === "string" && code.trim().length > 0) return code.trim();
+    if (typeof overview === "string" && overview.trim().length > 0) return overview.trim();
+    if (typeof legacy === "string" && legacy.trim().length > 0) return legacy.trim();
   }
 
   return null;
+}
+
+const DENSITY_VALUES = new Set<MermaidDiagramDensity>(["glance", "overview", "detailed"]);
+
+/** Parse dual-source tool output from `make_mermaid_diagram`. */
+export function parseMermaidDiagramPayload(value: unknown): MermaidDiagramPayload | null {
+  if (!value || typeof value !== "object") return null;
+
+  const o = value as Record<string, unknown>;
+
+  if (o.success !== true) return null;
+
+  const overviewRaw =
+    typeof o.overviewCode === "string" ? o.overviewCode : typeof o.code === "string" ? o.code : "";
+  const detailedRaw = typeof o.detailedCode === "string" ? o.detailedCode : overviewRaw;
+
+  const overviewCode = overviewRaw.trim();
+  const detailedCode = detailedRaw.trim();
+
+  if (!overviewCode || !detailedCode) return null;
+
+  const densityRaw = o.density;
+
+  const density: MermaidDiagramDensity =
+    typeof densityRaw === "string" && DENSITY_VALUES.has(densityRaw as MermaidDiagramDensity)
+      ? (densityRaw as MermaidDiagramDensity)
+      : "overview";
+
+  return {
+    success: true,
+    density,
+    title: typeof o.title === "string" ? o.title : null,
+    diagramType: typeof o.diagramType === "string" ? o.diagramType : null,
+    overviewCode,
+    detailedCode,
+    generatorModelId: typeof o.generatorModelId === "string" ? o.generatorModelId : undefined,
+    validationError: typeof o.validationError === "string" ? o.validationError : null,
+    code: overviewCode,
+  };
+}
+
+/** Try to parse dual-source JSON from raw generator model text. */
+export function parseDualMermaidGeneratorJson(text: string): {
+  density?: MermaidDiagramDensity;
+  title?: string;
+  overviewCode: string;
+  detailedCode: string;
+} | null {
+  const trimmed = text.trim();
+  const jsonMatch = trimmed.match(/\{[\s\S]*\}/);
+
+  if (!jsonMatch) return null;
+
+  try {
+    const parsed = JSON.parse(jsonMatch[0]) as Record<string, unknown>;
+    const overviewCode =
+      typeof parsed.overviewCode === "string"
+        ? parsed.overviewCode
+        : typeof parsed.code === "string"
+          ? parsed.code
+          : "";
+    const detailedCode =
+      typeof parsed.detailedCode === "string" ? parsed.detailedCode : overviewCode;
+
+    if (!overviewCode.trim() || !detailedCode.trim()) return null;
+
+    const densityRaw = parsed.density;
+
+    return {
+      density:
+        typeof densityRaw === "string" && DENSITY_VALUES.has(densityRaw as MermaidDiagramDensity)
+          ? (densityRaw as MermaidDiagramDensity)
+          : undefined,
+      title: typeof parsed.title === "string" ? parsed.title : undefined,
+      overviewCode: overviewCode.trim(),
+      detailedCode: detailedCode.trim(),
+    };
+  } catch {
+    return null;
+  }
 }
 
 export type MermaidValidationErrorKind = "syntax" | "environment";

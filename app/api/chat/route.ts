@@ -15,6 +15,7 @@ import { getThreadArcadiaStarterKey, getThreadHasTitle } from "@/data/supabase/c
 import { isAdminUser } from "@/data/supabase/profiles";
 import { createLogger } from "@/lib/logger";
 import { getLastUserMessageText } from "@/lib/arcadia/help-response";
+import { augmentUserMessageWithDiagramLinks } from "@/lib/mermaid/augment-message";
 import {
   classifyTaskTier,
   chatModelForGatewayId,
@@ -98,8 +99,10 @@ export async function POST(req: Request) {
     effort: requestedEffort,
     memory: requestedMemory,
     delphiDisplay,
+    diagramNodeLinks,
   } = parseResult.data;
   const message = incomingMessage as UIMessage;
+  const messageForLlm = augmentUserMessageWithDiagramLinks(message, diagramNodeLinks);
   const memoryEnabled = resolveMemoryEnabledForExperience(experience, requestedMemory);
 
   // Zero Data Retention Policy is in regards to external LLMs, not Organic LLM at this time
@@ -202,14 +205,14 @@ export async function POST(req: Request) {
               loadArcadiaChatTurnContext({
                 logger,
                 chatId: id,
-                message,
+                message: messageForLlm,
                 memoryEnabled,
               })
           : () =>
               loadMainChatTurnContext({
                 logger,
                 chatId: id,
-                message,
+                message: messageForLlm,
                 memoryEnabled,
                 experience,
               });

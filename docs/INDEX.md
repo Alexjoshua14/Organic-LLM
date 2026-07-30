@@ -23,6 +23,7 @@
 
 - [Adaptive background](./adaptive-background.md)
 - [Organic presence](./organic-presence.md)
+- [Mermaid diagrams](./mermaid-diagram-design.md) — density tiers, inline well, expanded takeover, node linking
 
 ## Blog (in-app)
 

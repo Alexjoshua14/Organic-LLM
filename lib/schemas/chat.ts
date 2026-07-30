@@ -65,6 +65,7 @@ const gatewayChatModels: ChatModel[] = [
   { id: "google/gemini-3.1-pro-preview", name: "Gemini 3.1 Pro", supportsZeroDataRetention: true },
   { id: "google/gemini-3.6-flash", name: "Gemini 3.6 Flash", supportsZeroDataRetention: true },
   { id: "google/gemini-3-flash", name: "Gemini 3 Flash", supportsZeroDataRetention: true },
+  { claude opus 5 fast, zdr: true}
   {
     id: "google/gemini-3.5-flash-lite",
     name: "Gemini 3.5 Flash Lite",
@@ -263,6 +264,30 @@ export const ChatRequestSchema = z.object({
   threadHasTitle: z.boolean().optional(),
   /** Memory ingest: measured caption/display geometry for Delphi response-length guidance. */
   delphiDisplay: DelphiDisplayRequestSchema.optional(),
+  /** Diagram node reference chips from the composer (cap 10). */
+  diagramNodeLinks: z
+    .array(
+      z.object({
+        id: z.string(),
+        diagramId: z.string(),
+        nodeId: z.string(),
+        label: z.string(),
+        title: z.string().optional(),
+        density: z.enum(["glance", "overview", "detailed"]).optional(),
+        neighborhood: z.object({
+          edges: z.array(
+            z.object({
+              from: z.string(),
+              to: z.string(),
+              label: z.string().optional(),
+            })
+          ),
+          neighbors: z.array(z.object({ id: z.string(), label: z.string() })),
+        }),
+      })
+    )
+    .max(10)
+    .optional(),
 });
 
 export const ThreadSummarySchema = z.object({
