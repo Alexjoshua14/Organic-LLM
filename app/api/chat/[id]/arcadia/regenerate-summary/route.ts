@@ -67,10 +67,7 @@ export async function POST(_req: Request, { params }: { params: Promise<{ id: st
   const result = await regenerateChatSummary(chatId);
 
   if (result.error) {
-    const message =
-      typeof result.error === "string"
-        ? result.error
-        : (result.error?.message ?? "Failed to generate summary");
+    const message = result.error;
     const isNoMessages = message.toLowerCase().includes("no messages");
 
     if (isNoMessages) {

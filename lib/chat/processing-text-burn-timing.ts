@@ -1,0 +1,33 @@
+/** Outgoing character stagger interval (seconds). */
+export const PROCESSING_TEXT_BURN_OUT_STAGGER_S = 0.025;
+
+/** Incoming character stagger interval (seconds). */
+export const PROCESSING_TEXT_BURN_IN_STAGGER_S = 0.03;
+
+/** Delay before the first incoming character animates (seconds). */
+export const PROCESSING_TEXT_BURN_IN_INITIAL_DELAY_S = 0.15;
+
+/** Per-character animation duration (seconds). */
+export const PROCESSING_TEXT_BURN_CHAR_DURATION_S = 0.08;
+
+/** Incoming opacity settle duration (seconds). */
+export const PROCESSING_TEXT_BURN_IN_OPACITY_DURATION_S = 0.25;
+
+export function processingTextBurnIncomingDelay(sequenceIndex: number): number {
+  return (
+    PROCESSING_TEXT_BURN_IN_INITIAL_DELAY_S + sequenceIndex * PROCESSING_TEXT_BURN_IN_STAGGER_S
+  );
+}
+
+export function processingTextBurnOutgoingDelay(sequenceIndex: number): number {
+  return sequenceIndex * PROCESSING_TEXT_BURN_OUT_STAGGER_S;
+}
+
+/** Gap between outgoing and incoming character `n` animation starts (seconds). */
+export function processingTextBurnCharGap(sequenceIndex: number): number {
+  const gap =
+    processingTextBurnIncomingDelay(sequenceIndex) -
+    processingTextBurnOutgoingDelay(sequenceIndex);
+
+  return sequenceIndex === 0 ? gap - PROCESSING_TEXT_BURN_CHAR_DURATION_S : gap;
+}

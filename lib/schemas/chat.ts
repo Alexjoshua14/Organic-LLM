@@ -7,6 +7,10 @@ import { parseChatStyle, ChatStyleSchema } from "@/lib/chat/chat-style";
 import { ChatEffortLevelSchema } from "@/lib/schemas/chat-effort";
 import type { DeviceTier } from "@/lib/memory-ingest/delphi-caption-budget";
 import {
+  type DrawerChatDisplayInput,
+  type DrawerSheetSnap,
+} from "@/lib/rabbit-holes/drawer-chat-ui-budget";
+import {
   AUTO_CHAT_MODEL_ID,
   AUTO_RESOLVED_SONNET_MODEL_ID,
 } from "@/lib/schemas/chat-model-ids";
@@ -65,7 +69,6 @@ const gatewayChatModels: ChatModel[] = [
   { id: "google/gemini-3.1-pro-preview", name: "Gemini 3.1 Pro", supportsZeroDataRetention: true },
   { id: "google/gemini-3.6-flash", name: "Gemini 3.6 Flash", supportsZeroDataRetention: true },
   { id: "google/gemini-3-flash", name: "Gemini 3 Flash", supportsZeroDataRetention: true },
-  { claude opus 5 fast, zdr: true}
   {
     id: "google/gemini-3.5-flash-lite",
     name: "Gemini 3.5 Flash Lite",
@@ -232,6 +235,19 @@ export const DelphiDisplayRequestSchema = z.object({
   rootFontSizePx: z.number().finite().positive().optional(),
 });
 
+export const DrawerChatDisplayRequestSchema = z.object({
+  viewportWidthPx: z.number().finite().positive(),
+  viewportHeightPx: z.number().finite().positive(),
+  sheetSnap: z.enum(["collapsed", "half", "full"] satisfies [DrawerSheetSnap, DrawerSheetSnap, DrawerSheetSnap]),
+  aiBlockMaxHeightPx: z.number().finite().positive(),
+  aiBlockWidthPx: z.number().finite().positive(),
+  fontSizePx: z.number().finite().positive(),
+  lineHeightPx: z.number().finite().positive(),
+  prefersReducedMotion: z.boolean().optional().default(false),
+});
+
+export type { DrawerChatDisplayInput };
+
 export const ChatRequestSchema = z.object({
   message: UIMessageSchema,
   id: z.uuid(),
@@ -264,6 +280,10 @@ export const ChatRequestSchema = z.object({
   threadHasTitle: z.boolean().optional(),
   /** Memory ingest: measured caption/display geometry for Delphi response-length guidance. */
   delphiDisplay: DelphiDisplayRequestSchema.optional(),
+  /** Rabbit hole drawer: measured AI block geometry for response-length guidance. */
+  drawerDisplay: DrawerChatDisplayRequestSchema.optional(),
+  /** Rabbit hole session id when experience is rabbit_hole. */
+  rabbitHoleSessionId: z.string().uuid().optional(),
   /** Diagram node reference chips from the composer (cap 10). */
   diagramNodeLinks: z
     .array(

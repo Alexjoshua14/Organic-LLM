@@ -1,0 +1,119 @@
+/* ProcessingTextBurn — character-level outgoing/incoming processing label transitions */
+
+.processing-text-burn {
+  position: relative;
+  display: block;
+  width: 100%;
+  margin: 0;
+  line-height: 1.4;
+  --ptb-out-stagger: 0.025s;
+  --ptb-in-stagger: 0.03s;
+  --ptb-in-delay: 0.15s;
+  --ptb-char-duration: 0.08s;
+  --ptb-in-opacity-duration: 0.25s;
+}
+
+@keyframes ptb-char-in-color {
+  /* opposing text → accent → primary */
+  0% {
+    color: var(--primary-foreground);
+  }
+  45% {
+    color: var(--accent);
+  }
+  100% {
+    color: var(--primary);
+  }
+}
+
+.processing-text-burn__layer {
+  display: block;
+  white-space: normal;
+  line-height: inherit;
+}
+
+.processing-text-burn__layer--outgoing {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+/* Word shells keep glyphs together — inline-block chars would otherwise wrap mid-word */
+.processing-text-burn__word {
+  display: inline-block;
+  white-space: nowrap;
+  vertical-align: baseline;
+}
+
+.processing-text-burn__space {
+  display: inline;
+  white-space: pre-wrap;
+}
+
+.processing-text-burn__char {
+  display: inline-block;
+  vertical-align: baseline;
+  white-space: pre;
+  transform-origin: 50% 70%;
+  will-change: opacity, transform, color;
+}
+
+@keyframes ptb-char-out {
+  from {
+    opacity: 1;
+    transform: scale(1) translate(0, 0);
+  }
+  to {
+    opacity: 0;
+    transform: scale(0.9) translate(-2px, 2px);
+  }
+}
+
+.processing-text-burn__char--outgoing {
+  animation: ptb-char-out var(--ptb-char-duration) ease-out forwards;
+  animation-delay: calc(var(--ptb-i, 0) * var(--ptb-out-stagger));
+}
+
+@keyframes ptb-char-in-opacity {
+  /* Hold invisible until delay ends (fill-mode: both), then settle 0.8 → 1 */
+  0% {
+    opacity: 0;
+  }
+  0.01% {
+    opacity: 0.8;
+  }
+  100% {
+    opacity: 1;
+  }
+}
+
+.processing-text-burn__char--incoming {
+  opacity: 0;
+  animation:
+    ptb-char-in-color var(--ptb-char-duration) ease-out both,
+    ptb-char-in-opacity var(--ptb-in-opacity-duration) ease-out both;
+  animation-delay:
+    calc(var(--ptb-in-delay) + var(--ptb-i, 0) * var(--ptb-in-stagger)),
+    calc(var(--ptb-in-delay) + var(--ptb-i, 0) * var(--ptb-in-stagger));
+}
+
+.processing-text-burn__char--incoming-initial {
+  opacity: 0;
+  animation:
+    ptb-char-in-color var(--ptb-char-duration) ease-out both,
+    ptb-char-in-opacity var(--ptb-in-opacity-duration) ease-out both;
+  animation-delay:
+    calc(var(--ptb-i, 0) * var(--ptb-in-stagger)),
+    calc(var(--ptb-i, 0) * var(--ptb-in-stagger));
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .processing-text-burn__char--outgoing,
+  .processing-text-burn__char--incoming,
+  .processing-text-burn__char--incoming-initial {
+    animation: none;
+    opacity: 1;
+    transform: none;
+    color: inherit;
+  }
+}

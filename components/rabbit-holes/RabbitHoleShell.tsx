@@ -11,7 +11,7 @@
 
 import type { CenterViewState } from "@/lib/rabbit-holes/centerViewState";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import {
   Bug,
@@ -40,6 +40,12 @@ import { RabbitHoleLoadingState } from "@/app/rabbitholes/_components/RabbitHole
 import { DelayedContent } from "@/app/rabbitholes/_components/DelayedContent";
 import { RabbitHolePromptBar } from "@/components/rabbit-holes/RabbitHolePromptBar";
 import { RabbitHoleEmptyState } from "@/components/rabbit-holes/main/RabbitHoleEmptyState";
+import { RabbitHoleAssistantPanel } from "@/components/rabbit-holes/RabbitHoleAssistantPanel";
+import {
+  RabbitHoleDesktopChatOpenProvider,
+  useRabbitHoleDesktopChatOpen,
+} from "@/hooks/use-rabbit-hole-desktop-chat-open";
+import { useRabbitHoleChatComposer } from "@/hooks/use-rabbit-hole-chat-composer";
 import { RabbitHoleMobileView } from "@/components/rabbit-holes/mobile/RabbitHoleMobileView";
 import {
   Collapsible,
@@ -60,6 +66,14 @@ const logger = createLogger("components/rabbit-holes/RabbitHoleShell");
 const chromeMotionTransition = { duration: 0.28, ease: [0.2, 0.8, 0.2, 1] as const };
 
 export function RabbitHoleShell() {
+  return (
+    <RabbitHoleDesktopChatOpenProvider>
+      <RabbitHoleShellInner />
+    </RabbitHoleDesktopChatOpenProvider>
+  );
+}
+
+function RabbitHoleShellInner() {
   // --- Routing & context (for loading a session from browse) ---
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -72,7 +86,6 @@ export function RabbitHoleShell() {
     generatingNodeId,
     preview,
     error,
-    exploreQuestion,
     followBranch,
     setActiveNode,
     selectedSourceId,
@@ -82,10 +95,12 @@ export function RabbitHoleShell() {
     clearSourceSelection,
     reset,
     loadExistingSession,
+    ensureEmptySessionForChat,
   } = useRabbitHoles();
 
   const [activeTakeawayIndex, setActiveTakeawayIndex] = useState<number | null>(null);
   const [focusMode, setFocusMode] = useState(false);
+  const { open: chatOpen, setOpen: setChatOpen, toggle: toggleChat } = useRabbitHoleDesktopChatOpen();
   const { open, setOpen } = useSidebar();
   const sidebarOpenBeforeFocusRef = useRef(open);
 
@@ -107,6 +122,7 @@ export function RabbitHoleShell() {
         if (!wasFocused) {
           sidebarOpenBeforeFocusRef.current = open;
           setOpen(false);
+          setChatOpen(false);
 
           return true;
         }
@@ -119,7 +135,7 @@ export function RabbitHoleShell() {
     window.addEventListener("keydown", onKeyDown);
 
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [open, setOpen]);
+  }, [open, setOpen, setChatOpen]);
 
   /** True when we're loading, generating a node, or a specific node is generating (blocks some UI). */
   const isBusy = isGeneratingNode || generatingNodeId != null;
@@ -205,22 +221,32 @@ export function RabbitHoleShell() {
     reset();
   };
 
-  const handleStart = async (question: string) => {
-    await exploreQuestion(question);
+  const syncSessionToUrl = useCallback(
+    (sessionId: string) => {
+      if (sessionIdToLoad === sessionId) return;
 
-    // After a new session is created and generation starts, ensure the URL
-    // includes ?sessionId= so refreshes stay attached to the same session/node.
-    if (session?.sessionId) {
-      const current = sessionIdToLoad;
+      const params = new URLSearchParams(searchParams.toString());
 
-      if (current !== session.sessionId) {
-        const params = new URLSearchParams(searchParams.toString());
+      params.set("sessionId", sessionId);
+      router.replace(`?${params.toString()}`);
+    },
+    [router, searchParams, sessionIdToLoad]
+  );
 
-        params.set("sessionId", session.sessionId);
-        router.replace(`?${params.toString()}`);
-      }
-    }
-  };
+  const handleSessionCreated = useCallback(
+    (sessionId: string) => {
+      syncSessionToUrl(sessionId);
+      setChatOpen(true);
+    },
+    [setChatOpen, syncSessionToUrl]
+  );
+
+  const desktopChat = useRabbitHoleChatComposer({
+    sessionId: session?.sessionId ?? null,
+    onNavigate: setActiveNode,
+    ensureEmptySession: ensureEmptySessionForChat,
+    onSessionCreated: handleSessionCreated,
+  });
 
   // --- Path navigation (back/forward along session.path) ---
   const getCurrentPathIndex = () => {
@@ -275,7 +301,8 @@ export function RabbitHoleShell() {
           isBusy={isBusy}
           navigateBack={handleNavigateBack}
           navigateForward={handleNavigateForward}
-          onStartQuestion={handleStart}
+          ensureEmptySession={ensureEmptySessionForChat}
+          onSessionCreated={syncSessionToUrl}
           preview={preview}
           reset={handleReset}
           selectSource={selectSource}
@@ -317,7 +344,17 @@ export function RabbitHoleShell() {
               <h1 className={cn("absolute left-1/2 -translate-x-1/2", pageHeader.text)}>
                 <Link href="/rabbitholes/browse">Rabbit Hole Explorer</Link>
               </h1>
-              <div className="w-24" /> {/* Spacer for centering */}
+              <div className="flex w-24 justify-end">
+                {!focusMode && (
+                  <button
+                    className="text-xs text-muted-foreground hover:text-foreground"
+                    type="button"
+                    onClick={toggleChat}
+                  >
+                    {chatOpen ? "Close chat" : "Assistant ⌘⌥B"}
+                  </button>
+                )}
+              </div>
             </div>
           </header>
           {/* Dev-only collapsible debug panel — remove this block when done developing */}
@@ -450,12 +487,18 @@ export function RabbitHoleShell() {
                         </div>
                       )}
 
-                    {centerViewState.kind === "empty" && <RabbitHoleEmptyState />}
+                    {centerViewState.kind === "empty" && (
+                      <RabbitHoleEmptyState
+                        onStarterPrompt={(q) => {
+                          void desktopChat.sendChatText(q);
+                        }}
+                      />
+                    )}
                   </AnimatePresence>
                 </div>
 
                 <AnimatePresence initial={false}>
-                  {!focusMode && (
+                  {!focusMode && !chatOpen && (
                     <motion.div
                       key="rabbit-hole-prompt"
                       animate={{ opacity: 1, y: 0 }}
@@ -466,11 +509,13 @@ export function RabbitHoleShell() {
                     >
                       <div className="pointer-events-auto w-full min-w-0">
                         <RabbitHolePromptBar
-                          hasSession={!!session}
-                          isBusy={isBusy}
-                          isLoading={isBusy}
+                          disabled={desktopChat.bootstrapping}
+                          isBusy={isBusy || desktopChat.isStreaming}
+                          isLoading={isBusy || desktopChat.isStreaming}
+                          sendMessage={desktopChat.sendChatMessage}
+                          status={desktopChat.status}
+                          stop={desktopChat.stop}
                           onReset={handleReset}
-                          onStart={handleStart}
                         />
                       </div>
                     </motion.div>
@@ -482,35 +527,52 @@ export function RabbitHoleShell() {
               <AnimatePresence initial={false} mode="popLayout">
                 {!focusMode && (
                   <motion.aside
-                    key="rabbit-hole-right-column"
+                    key={chatOpen ? "rabbit-hole-assistant" : "rabbit-hole-right-column"}
                     animate={{ opacity: 1, x: 0 }}
                     className="lg:col-start-3"
                     exit={{ opacity: 0, x: 32 }}
                     initial={{ opacity: 0, x: 32 }}
                     transition={chromeMotionTransition}
                   >
-                    <AnimatePresence>
-                      {centerViewState.kind === "article_loaded" && activeNode && (
-                        <div key={activeNode.id} className="flex flex-col gap-3">
-                          <RabbitHoleSourceList
-                            hasBranches={
-                              generatingNodeId !== activeNode.id &&
-                              (activeNode.branchSuggestions ?? []).length > 0
-                            }
-                            sources={activeNode.sources ?? []}
-                            onSourceClick={selectSource}
-                          />
-                          {generatingNodeId !== activeNode.id && (
-                            <RabbitHoleBranchSuggestionsBlock
-                              branches={activeNode.branchSuggestions ?? []}
-                              hasSources={(activeNode.sources ?? []).length > 0}
-                              isLoading={isBusy}
-                              onBranchClick={followBranch}
+                    {chatOpen ? (
+                      <RabbitHoleAssistantPanel
+                        activeNode={activeNode}
+                        canGoBack={canGoBack()}
+                        isBusy={isBusy}
+                        session={session}
+                        onBranchClick={followBranch}
+                        onClose={() => setChatOpen(false)}
+                        ensureEmptySession={ensureEmptySessionForChat}
+                        onSessionCreated={handleSessionCreated}
+                        onNavFromTool={setActiveNode}
+                        onNavigateBack={handleNavigateBack}
+                        onReset={handleReset}
+                        onSourceClick={selectSource}
+                      />
+                    ) : (
+                      <AnimatePresence>
+                        {centerViewState.kind === "article_loaded" && activeNode && (
+                          <div key={activeNode.id} className="flex flex-col gap-3">
+                            <RabbitHoleSourceList
+                              hasBranches={
+                                generatingNodeId !== activeNode.id &&
+                                (activeNode.branchSuggestions ?? []).length > 0
+                              }
+                              sources={activeNode.sources ?? []}
+                              onSourceClick={selectSource}
                             />
-                          )}
-                        </div>
-                      )}
-                    </AnimatePresence>
+                            {generatingNodeId !== activeNode.id && (
+                              <RabbitHoleBranchSuggestionsBlock
+                                branches={activeNode.branchSuggestions ?? []}
+                                hasSources={(activeNode.sources ?? []).length > 0}
+                                isLoading={isBusy}
+                                onBranchClick={followBranch}
+                              />
+                            )}
+                          </div>
+                        )}
+                      </AnimatePresence>
+                    )}
                   </motion.aside>
                 )}
               </AnimatePresence>

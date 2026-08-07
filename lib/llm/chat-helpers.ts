@@ -850,19 +850,6 @@ const validateSummary = async (
 };
 
 /**
- * Count tokens in text using OpenAI's tiktoken tokenizer.
- * Uses the cl100k_base encoding which is compatible with GPT-4 and GPT-3.5-turbo models.
- * This is a close approximation for newer models like GPT-4o and GPT-5.
- * @param text - The text to count tokens for
- * @returns The number of tokens, or null if encoding fails
- */
-  return {
-    data: summary,
-    error: null,
-  };
-}
-
-/**
  * Regenerates the full conversation summary from all messages and syncs both
  * `threads.conversation_summary` (via summarizeChat) and `thread_summaries`.
  */

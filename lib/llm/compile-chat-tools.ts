@@ -38,6 +38,11 @@ import {
   type IntrospectionStreamWriter,
 } from "@/lib/llm/introspection-tool";
 import { INTROSPECTION_TOOL_INSTRUCTIONS } from "@/lib/system-prompt/introspection";
+import {
+  createRabbitHoleAssistantTools,
+  type RabbitHoleStreamWriter,
+} from "@/lib/llm/rabbit-hole-assistant-tools";
+import { RABBIT_HOLE_TOOL_INSTRUCTIONS } from "@/lib/system-prompt/rabbit-hole-drawer";
 
 export type CompileChatToolsParams = {
   useSearch: boolean;
@@ -56,6 +61,9 @@ export type CompileChatToolsParams = {
   initialMessageCount?: number;
   sbUserId: string;
   writer?: WebSearchStreamWriter;
+  /** Rabbit hole drawer assistant tools. */
+  rabbitHoleSessionId?: string;
+  rabbitHoleActiveNodeId?: string | null;
 };
 
 /**
@@ -74,7 +82,32 @@ export async function compileChatTools({
   initialMessageCount,
   sbUserId,
   writer,
+  rabbitHoleSessionId,
+  rabbitHoleActiveNodeId,
 }: CompileChatToolsParams): Promise<{ tools: ToolSet; toolInstructions: string }> {
+  if (experience === "rabbit_hole" && rabbitHoleSessionId) {
+    const rhTools = createRabbitHoleAssistantTools({
+      sessionId: rabbitHoleSessionId,
+      sbUserId,
+      writer: writer as unknown as RabbitHoleStreamWriter,
+      getActiveNodeId: () => rabbitHoleActiveNodeId ?? null,
+    });
+
+    const tools: ToolSet = { ...rhTools };
+    let toolInstructions = RABBIT_HOLE_TOOL_INSTRUCTIONS;
+
+    if (useMemory) {
+      tools.search_memories = createMemorySearchTool(sbUserId, writer);
+      toolInstructions +=
+        "\nYou have read-only access to search_memories for personalization. Rabbit hole chat never writes to the user's memory store — recall only.\n";
+    }
+
+    return {
+      tools,
+      toolInstructions,
+    };
+  }
+
   if (experience === "delphi") {
     const tools: ToolSet = {};
     let toolInstructions = "";

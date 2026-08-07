@@ -53,6 +53,11 @@ export function ChatStylePicker({
   const selected = useChatStyle(chatId ?? "");
   const starters = CHAT_STYLE_STARTERS[selected];
   const pendingPatch = useRef<Promise<void> | null>(null);
+  const styleButtonRefs = useRef<Array<HTMLButtonElement | null>>([]);
+
+  const focusStyleAtIndex = useCallback((index: number) => {
+    styleButtonRefs.current[index]?.focus();
+  }, []);
 
   const persistStarterKey = useCallback(
     async (nextKey: string | null) => {
@@ -101,6 +106,33 @@ export function ChatStylePicker({
     [persistStarterKey, starterKey]
   );
 
+  const handleStyleRadiogroupKeyDown = useCallback(
+    (event: React.KeyboardEvent<HTMLDivElement>) => {
+      const currentIndex = CHAT_STYLES.findIndex((style) => style.id === selected);
+      if (currentIndex < 0) return;
+
+      let nextIndex = currentIndex;
+      switch (event.key) {
+        case "ArrowRight":
+        case "ArrowDown":
+          nextIndex = (currentIndex + 1) % CHAT_STYLES.length;
+          break;
+        case "ArrowLeft":
+        case "ArrowUp":
+          nextIndex = (currentIndex - 1 + CHAT_STYLES.length) % CHAT_STYLES.length;
+          break;
+        default:
+          return;
+      }
+
+      event.preventDefault();
+      const nextStyle = CHAT_STYLES[nextIndex]!.id;
+      void selectChatStyle(nextStyle);
+      focusStyleAtIndex(nextIndex);
+    },
+    [focusStyleAtIndex, selectChatStyle, selected]
+  );
+
   const parsedStarter = starterKey ? parseChatStarterKey(starterKey) : null;
 
   return (
@@ -110,19 +142,25 @@ export function ChatStylePicker({
           aria-label="Chat style"
           className="grid w-full min-w-0 grid-cols-2 lg:grid-cols-4 gap-1.5 place-items-center sm:gap-2.5 [&>*]:min-w-0"
           role="radiogroup"
+          onKeyDown={handleStyleRadiogroupKeyDown}
         >
-          {CHAT_STYLES.map((style) => (
+          {CHAT_STYLES.map((style, styleIndex) => (
             <FeatureHint
               key={style.id}
               id={ARCADIA_CHAT_STYLE_HINT_IDS[style.id]}
               showWhen={showStartersHint && selected === style.id}
             >
               <ChatStyleCard
+                buttonRef={(node) => {
+                  styleButtonRefs.current[styleIndex] = node;
+                }}
                 description={style.description}
                 guide={style.guide}
                 icon={STYLE_ICONS[style.id]}
                 label={style.label}
                 selected={selected === style.id}
+                tabIndex={0}
+                onFocus={() => void selectChatStyle(style.id)}
                 onSelect={() => void selectChatStyle(style.id)}
               />
             </FeatureHint>
@@ -163,6 +201,7 @@ export function ChatStylePicker({
                       <ChatStarterCard
                         label={label}
                         selected={isSelected}
+                        tabIndex={-1}
                         onToggle={() => void toggleStarter(selected, starterId)}
                       />
                     </motion.li>

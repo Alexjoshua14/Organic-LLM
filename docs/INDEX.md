@@ -21,6 +21,8 @@
 
 ## Design & UI
 
+- **[Design backbone](./design/README.md)** — agent-facing design standards (start here for UI/motion quality)
+  - [Motion & character text timing](./design/motion-and-text-timing.md) — status labels, loading burns, stagger budgets
 - [Adaptive background](./adaptive-background.md)
 - [Organic presence](./organic-presence.md)
 - [Mermaid diagrams](./mermaid-diagram-design.md) — density tiers, inline well, expanded takeover, node linking
