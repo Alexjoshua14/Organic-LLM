@@ -33,15 +33,17 @@ describe("ProcessingTextBurn", () => {
     jest.useFakeTimers();
     const { container } = render(<ProcessingTextBurn text="Searching the web..." />);
 
-    expect(container.querySelector(".shiny-text")).toBeNull();
+    expect(container.querySelector(".processing-text-burn__sustain-host")).toBeNull();
     expect(container.querySelectorAll(".processing-text-burn__char").length).toBeGreaterThan(0);
 
     act(() => {
       jest.advanceTimersByTime(5_000);
     });
 
-    expect(container.querySelector(".shiny-text")).toBeTruthy();
-    expect(container.querySelector(".shiny-text")?.textContent).toBe("Searching the web...");
+    const sustain = container.querySelector(".processing-text-burn__sustain-host");
+    expect(sustain).toBeTruthy();
+    expect(sustain?.querySelector(".shiny-text")).toBeTruthy();
+    expect(sustain?.textContent).toBe("Searching the web...");
   });
 
   test("can disable sustain shimmer", () => {
@@ -54,7 +56,7 @@ describe("ProcessingTextBurn", () => {
       jest.advanceTimersByTime(5_000);
     });
 
-    expect(container.querySelector(".shiny-text")).toBeNull();
+    expect(container.querySelector(".processing-text-burn__sustain-host")).toBeNull();
     expect(container.querySelectorAll(".processing-text-burn__char").length).toBeGreaterThan(0);
   });
 });

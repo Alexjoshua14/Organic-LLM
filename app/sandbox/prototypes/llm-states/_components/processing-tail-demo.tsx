@@ -23,6 +23,8 @@ const PROCESSING_SEQUENCE = [
 const STATE_CYCLE_MS = 2800;
 /** Pause after a full sequence before the next loop (assistant row unmounts briefly). */
 const REST_BETWEEN_LOOPS_MS = 1400;
+/** Brief unmount before manual replay so mount + burn-in restarts cleanly. */
+const ENTRY_REPLAY_UNMOUNT_MS = 120;
 
 function UserBubble({ text }: { text: string }) {
   return (
@@ -42,14 +44,17 @@ function UserBubble({ text }: { text: string }) {
 function AssistantProcessingBubble({
   label,
   variant,
+  mountKey,
 }: {
   label: string;
   variant: "current" | "burn";
+  mountKey: number;
 }) {
   const reduceMotion = useReducedMotion();
 
   return (
     <motion.div
+      key={mountKey}
       animate={{ opacity: 1, y: 0, scale: 1 }}
       className="group/ai-message rounded-lg p-4 flex flex-col gap-2"
       initial={reduceMotion ? false : { opacity: 0, y: 8, scale: 0.98 }}
@@ -71,11 +76,13 @@ function ProcessingThreadColumn({
   variant,
   active,
   label,
+  mountKey,
 }: {
   title: string;
   variant: "current" | "burn";
   active: boolean;
   label: string;
+  mountKey: number;
 }) {
   return (
     <div className="flex min-w-0 flex-1 flex-col gap-3">
@@ -87,7 +94,9 @@ function ProcessingThreadColumn({
         )}
       >
         <UserBubble text={USER_PROMPT} />
-        {active ? <AssistantProcessingBubble label={label} variant={variant} /> : null}
+        {active ? (
+          <AssistantProcessingBubble label={label} mountKey={mountKey} variant={variant} />
+        ) : null}
       </div>
     </div>
   );
@@ -101,6 +110,7 @@ export function ProcessingTailDemo() {
   const [paused, setPaused] = useState(false);
   const [running, setRunning] = useState(false);
   const [stepIndex, setStepIndex] = useState(0);
+  const [mountKey, setMountKey] = useState(0);
 
   const clearTimers = useCallback(() => {
     timersRef.current.forEach(clearTimeout);
@@ -131,14 +141,7 @@ export function ProcessingTailDemo() {
     setStepIndex(0);
   }, [clearTimers]);
 
-  const runIteration = useCallback(() => {
-    if (!loopingRef.current) return;
-
-    clearTimers();
-    setRunning(true);
-    setStepIndex(0);
-    schedule(scrollToTail, 80);
-
+  const scheduleLabelCycle = useCallback(() => {
     PROCESSING_SEQUENCE.forEach((_, index) => {
       if (index === 0) return;
 
@@ -157,9 +160,40 @@ export function ProcessingTailDemo() {
 
     schedule(() => {
       if (!loopingRef.current) return;
-      runIteration();
+      runIterationRef.current();
     }, sequenceEndMs + REST_BETWEEN_LOOPS_MS);
-  }, [clearTimers, schedule, scrollToTail]);
+  }, [schedule, scrollToTail]);
+
+  const runIterationRef = useRef<() => void>(() => undefined);
+
+  const runIteration = useCallback(() => {
+    if (!loopingRef.current) return;
+
+    clearTimers();
+    setRunning(true);
+    setStepIndex(0);
+    setMountKey((key) => key + 1);
+    schedule(scrollToTail, 80);
+    scheduleLabelCycle();
+  }, [clearTimers, schedule, scheduleLabelCycle, scrollToTail]);
+
+  runIterationRef.current = runIteration;
+
+  const replayEntry = useCallback(() => {
+    clearTimers();
+    setRunning(false);
+    setStepIndex(0);
+
+    schedule(() => {
+      setMountKey((key) => key + 1);
+      setRunning(true);
+      scrollToTail();
+
+      if (loopingRef.current) {
+        scheduleLabelCycle();
+      }
+    }, ENTRY_REPLAY_UNMOUNT_MS);
+  }, [clearTimers, schedule, scheduleLabelCycle, scrollToTail]);
 
   const resume = useCallback(() => {
     loopingRef.current = true;
@@ -189,6 +223,9 @@ export function ProcessingTailDemo() {
         <Button disabled={!paused} type="button" onClick={resume}>
           Resume loop
         </Button>
+        <Button type="button" variant="secondary" onClick={replayEntry}>
+          Replay entry
+        </Button>
         <p className="text-xs text-muted-foreground">
           Loops automatically: cycles processing labels every {(STATE_CYCLE_MS / 1000).toFixed(1)}s, rests{" "}
           {(REST_BETWEEN_LOOPS_MS / 1000).toFixed(1)}s, then replays.
@@ -200,12 +237,14 @@ export function ProcessingTailDemo() {
           <ProcessingThreadColumn
             active={running}
             label={label}
+            mountKey={mountKey}
             title="Legacy — ShinyText"
             variant="current"
           />
           <ProcessingThreadColumn
             active={running}
             label={label}
+            mountKey={mountKey}
             title="Production — ChatThinking (ProcessingTextBurn)"
             variant="burn"
           />
@@ -245,6 +284,7 @@ function StateBlock({ label, children }: { label: string; children: React.ReactN
 
 function IsolatedBurnPlayground() {
   const [index, setIndex] = useState(0);
+  const [mountKey, setMountKey] = useState(0);
   const timersRef = useRef<ReturnType<typeof setTimeout>[]>([]);
   const loopingRef = useRef(true);
   const labels = PROCESSING_SEQUENCE;
@@ -280,10 +320,22 @@ function IsolatedBurnPlayground() {
     };
   }, [clearTimers, scheduleStep]);
 
+  const replayEntry = useCallback(() => {
+    loopingRef.current = false;
+    clearTimers();
+    setIndex(0);
+    setMountKey((key) => key + 1);
+    loopingRef.current = true;
+    scheduleStep(1, STATE_CYCLE_MS);
+  }, [clearTimers, scheduleStep]);
+
   return (
     <div className="space-y-4">
-      <ProcessingTextBurn text={labels[index] ?? labels[0]} />
+      <ProcessingTextBurn key={mountKey} text={labels[index] ?? labels[0]} />
       <div className="flex flex-wrap gap-2">
+        <Button size="sm" type="button" variant="secondary" onClick={replayEntry}>
+          Replay entry
+        </Button>
         {labels.map((item, itemIndex) => (
           <Button
             key={item}

@@ -9,6 +9,7 @@ import {
   PROCESSING_TEXT_BURN_IN_OPACITY_DURATION_S,
   PROCESSING_TEXT_BURN_IN_STAGGER_S,
   PROCESSING_TEXT_BURN_OUT_STAGGER_S,
+  PROCESSING_TEXT_BURN_SUSTAIN_SHIMMER_S,
 } from "@/lib/chat/processing-text-burn-timing";
 import { cn } from "@/lib/utils";
 import ShinyText from "@/components/ShinyText";
@@ -21,8 +22,7 @@ const IN_INITIAL_DELAY_MS = PROCESSING_TEXT_BURN_IN_INITIAL_DELAY_S * 1000;
 const CHAR_DURATION_MS = PROCESSING_TEXT_BURN_CHAR_DURATION_S * 1000;
 const IN_OPACITY_DURATION_MS = PROCESSING_TEXT_BURN_IN_OPACITY_DURATION_S * 1000;
 
-/** Legacy ChatThinking shimmer cadence (seconds per loop). */
-const DEFAULT_SUSTAIN_SHIMMER_SPEED_S = 1.2;
+const DEFAULT_SUSTAIN_SHIMMER_SPEED_S = PROCESSING_TEXT_BURN_SUSTAIN_SHIMMER_S;
 
 export type ProcessingTextBurnProps = {
   text: string;
@@ -166,7 +166,7 @@ export function ProcessingTextBurn({
     <Component className={cn("processing-text-burn", className)} aria-live="polite">
       <span className="sr-only">{text}</span>
       {showSustainShimmer ? (
-        <span aria-hidden className="processing-text-burn__layer">
+        <span aria-hidden className="processing-text-burn__layer processing-text-burn__sustain-host">
           <ShinyText as="span" speed={shimmerSpeed} text={text} />
         </span>
       ) : (

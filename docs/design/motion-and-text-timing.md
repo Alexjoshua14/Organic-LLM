@@ -100,7 +100,9 @@ cinema. Prefer the **lower part** of research ranges.
 | Incoming stagger | **30ms**/char | Motion split-text default (`0.03`) |
 | Incoming initial delay | **150ms** | Overlap choreography without a long pause (was 400ms) |
 | Per-char duration | **80ms** | Near NN/G micro-feedback; slightly under 100ms |
-| Incoming opacity settle | **250ms** | Material enter short-band; was 800ms (too decorative) |
+| Incoming opacity settle | **250ms** | Material enter short-band |
+| Color burn wave | **200ms** | `PROCESSING_TEXT_BURN_IN_COLOR_DURATION_S`; bright → dim per char |
+| Sustain shimmer loop | **5s** | `PROCESSING_TEXT_BURN_SUSTAIN_SHIMMER_S`; `ShinyText` default |
 
 Constants and CSS custom properties **must stay in sync**:
 
@@ -116,10 +118,17 @@ people wait” guidance — or justify the exception in this doc.
 
 ### Sustain shimmer (activity)
 
-After burn-in settles, status labels keep a **subtle ShinyText shimmer** (`speed` 1.2s —
-legacy ChatThinking cadence) so in-flight tool/processing states still feel alive. Burn
-handles state *changes*; shimmer handles *ongoing* work. Disabled under reduced motion.
-Opt out with `sustainShimmer={false}` on `ProcessingTextBurn`.
+After burn-in settles, sustain uses **`ShinyText`** at `5s` (`PROCESSING_TEXT_BURN_SUSTAIN_SHIMMER_S`)
+— the same primitive and speed as legacy `ChatThinking`. Burn chars settle on
+`--ptb-shine-dim` (`#b5b5b5`), matching ShinyText at `background-position: 100%`.
+
+### Color burn (entry / swap)
+
+Per-character color animation (`--ptb-in-color-duration: 0.2s`): bright leading edge
+(`--ptb-shine-bright`, ShinyText highlight) → dim base (`--ptb-shine-dim`). Stagger creates
+a visible color-burn wave across the label. No accent pulse on entry.
+
+Opt out of sustain with `sustainShimmer={false}`.
 
 ### Accessibility
 
@@ -130,7 +139,7 @@ Opt out with `sustainShimmer={false}` on `ProcessingTextBurn`.
 
 ### What *not* to do
 
-- Do not reintroduce long ShinyText-only status without a documented exception.
+- Do not replace sustain `ShinyText` with a custom gradient unless matching its stops exactly.
 - Do not put one-off stagger/duration numbers in JSX — extend the timing module + CSS vars.
 - Do not slow incoming stagger “for drama” on chat loading states without updating this doc
   and the llm-states lab.
