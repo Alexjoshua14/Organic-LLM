@@ -5,7 +5,7 @@ import type { RestaurantCardBlock } from "@/lib/schemas/gen-ui/restaurant-card";
 import { createPortal } from "react-dom";
 import { useCallback, useMemo, useState } from "react";
 import { useReducedMotion } from "framer-motion";
-import { ExternalLink, X } from "lucide-react";
+import { X } from "lucide-react";
 
 import { formatRestaurantStoreType } from "@/lib/schemas/gen-ui/restaurant-card";
 import { useIsMobile } from "@/hooks/use-mobile";
@@ -136,18 +136,6 @@ function ExpandedBody({
       ) : null}
 
       {block.address ? <p className="text-xs text-muted-foreground">{block.address}</p> : null}
-
-      {block.links?.website ? (
-        <a
-          className="flex w-full items-center justify-center gap-2 rounded-xl bg-primary px-4 py-3 text-sm font-semibold text-primary-foreground transition-opacity hover:opacity-90"
-          href={block.links.website}
-          rel="noopener noreferrer nofollow"
-          target="_blank"
-        >
-          Visit website
-          <ExternalLink className="size-4" />
-        </a>
-      ) : null}
 
       <RestaurantCardActions
         address={block.address}
