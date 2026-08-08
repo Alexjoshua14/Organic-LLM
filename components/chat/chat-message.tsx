@@ -245,15 +245,6 @@ const AIMessage: FC<ChatMessageProps> = ({
                     return (
                       <GenUIToolResult
                         key={`${message.id}-${i}-gen-ui-result`}
-                        artifactSource={
-                          chatId
-                            ? {
-                                threadId: chatId,
-                                messageId: message.id,
-                                toolCallId: toolCallId,
-                              }
-                            : undefined
-                        }
                         messageId={message.id}
                         output={part.output}
                         partIndex={i}

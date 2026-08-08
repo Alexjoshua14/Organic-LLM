@@ -16,7 +16,7 @@ describe("GenUIRenderer", () => {
     const { getByText } = render(
       <GenUIRenderer data={{ block: FIXTURE_ANSWER_CARD }} messageId="t1" />
     );
-    expect(getByText(FIXTURE_ANSWER_CARD.title)).toBeTruthy();
+    expect(getByText(FIXTURE_ANSWER_CARD.tldr)).toBeTruthy();
     expect(getByText(/Summary/)).toBeTruthy();
   });
 

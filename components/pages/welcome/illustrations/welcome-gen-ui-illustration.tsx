@@ -31,11 +31,11 @@ const PLAN_BLOCK_INDEX = WELCOME_GEN_UI_BLOCKS.findIndex((block) => block.type =
 /** Full column width — matrix table needs ~320px+; narrow caps clip columns. */
 const BLOCK_SHELL_CLASS = "w-full min-w-0";
 
-/** Extra bottom padding inside the Plan GenUIWrapper body only. */
-const PLAN_INNER_CARD_CLASS = "[&_.border-b+div]:!pb-4";
+/** Extra bottom padding for plan timeline in the welcome morph demo. */
+const PLAN_BLOCK_SHELL_CLASS = "pb-4";
 
 function blockShellClass(block: GenUIBlock) {
-  return cn(BLOCK_SHELL_CLASS, block.type === "plan-timeline" && PLAN_INNER_CARD_CLASS);
+  return cn(BLOCK_SHELL_CLASS, block.type === "plan-timeline" && PLAN_BLOCK_SHELL_CLASS);
 }
 
 function ghostAnchorClass(block: GenUIBlock) {
@@ -46,11 +46,7 @@ function blockHeightBuffer(index: number): number {
   return index === PLAN_BLOCK_INDEX ? 36 : 12;
 }
 
-const GEN_UI_SHELL_CLASS = cn(
-  welcomeDemoCompactClass,
-  "[&_.border-b]:px-2.5 [&_.border-b]:py-1.5",
-  "[&_.border-b+div]:px-2.5 [&_.border-b+div]:py-2.5"
-);
+const GEN_UI_SHELL_CLASS = cn(welcomeDemoCompactClass, "[&_.not-prose]:px-2.5 [&_.not-prose]:py-1.5");
 
 const FRAME_CLASS =
   "pointer-events-none flex w-full min-w-0 flex-col justify-start px-2.5 py-1.5 sm:px-3 sm:py-2";
