@@ -14,6 +14,7 @@ import {
   resolveTodayHours,
   sortDaysMondayFirst,
 } from "./restaurant-card-utils";
+import { spacing } from "@/lib/design-tokens/spacing";
 import { cn } from "@/lib/utils";
 
 type RestaurantCardHoursProps = {
@@ -28,8 +29,8 @@ export function RestaurantCardHours({ hours }: RestaurantCardHoursProps) {
   const week = useMemo(() => sortDaysMondayFirst(hours.regular), [hours.regular]);
 
   return (
-    <section className="space-y-2">
-      <div className="flex items-start justify-between gap-2">
+    <section className={spacing.card.block}>
+      <div className={cn("flex items-start justify-between", spacing.gap.sm)}>
         <div>
           <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
             Hours
@@ -56,12 +57,12 @@ export function RestaurantCardHours({ hours }: RestaurantCardHoursProps) {
       </div>
 
       {expanded ? (
-        <ul className="space-y-1 rounded-lg border border-border/50 bg-muted/20 px-3 py-2 text-xs">
+        <ul className={cn(spacing.card.listItems, "rounded-lg border border-border/50 bg-muted/20 px-3 py-2 text-xs")}>
           {week.map((entry) => {
             const kitchen = findHoursForDay(hours.kitchen, entry.day);
 
             return (
-              <li key={entry.day} className="flex items-baseline justify-between gap-3">
+              <li key={entry.day} className={cn("flex items-baseline justify-between", spacing.gap.md)}>
                 <span
                   className={cn(
                     "font-medium",

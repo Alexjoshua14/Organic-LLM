@@ -14,6 +14,23 @@
 @theme inline {
   --text-2xs: 0.625rem; /* 10px, smaller than xs (12px) */
 
+  /* Spacing primitives (4px base grid) — see docs/design/spacing.md */
+  --spacing-stack-xs: 0.25rem; /* 4px */
+  --spacing-stack-sm: 0.5rem; /* 8px */
+  --spacing-stack-md: 0.75rem; /* 12px */
+  --spacing-stack-lg: 1rem; /* 16px */
+  --spacing-stack-xl: 1.25rem; /* 20px */
+  --spacing-stack-2xl: 1.5rem; /* 24px */
+  --spacing-stack-3xl: 2rem; /* 32px */
+
+  --spacing-inline-sm: 0.5rem; /* 8px — min touch gap (Apple HIG) */
+  --spacing-inline-md: 0.75rem; /* 12px */
+  --spacing-inline-lg: 1rem; /* 16px */
+
+  --spacing-inset-sm: 0.5rem;
+  --spacing-inset-md: 0.75rem;
+  --spacing-inset-lg: 1rem;
+
   --radius-sm: calc(var(--radius) - 4px);
 
   --radius-md: calc(var(--radius) - 2px);

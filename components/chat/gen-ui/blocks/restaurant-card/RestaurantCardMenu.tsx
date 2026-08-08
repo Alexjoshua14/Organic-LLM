@@ -3,6 +3,7 @@
 import type { RestaurantMenu } from "@/lib/schemas/gen-ui/restaurant-card";
 
 import { cn } from "@/lib/utils";
+import { spacing } from "@/lib/design-tokens/spacing";
 
 type RestaurantCardMenuProps = {
   menu: RestaurantMenu;
@@ -23,8 +24,8 @@ function formatMenuDate(iso: string): string {
 
 export function RestaurantCardMenu({ menu, partial }: RestaurantCardMenuProps) {
   return (
-    <section className="space-y-3">
-      <div className="flex flex-wrap items-baseline justify-between gap-2">
+    <section className={spacing.card.block}>
+      <div className={cn("flex flex-wrap items-baseline justify-between", spacing.gap.sm)}>
         <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
           Menu
         </p>
@@ -34,17 +35,20 @@ export function RestaurantCardMenu({ menu, partial }: RestaurantCardMenuProps) {
         </p>
       </div>
 
-      <div className="space-y-4">
+      <div className={spacing.card.blockItems}>
         {menu.sections.map((section) => (
           <div key={section.name}>
-            <h4 className="mb-2 text-xs font-semibold uppercase tracking-wide text-foreground/80">
+            <h4 className="mb-stack-sm text-xs font-semibold uppercase tracking-wide text-foreground/80">
               {section.name}
             </h4>
-            <ul className="space-y-2.5">
+            <ul className={spacing.card.blockItems}>
               {section.items.map((item, index) => (
                 <li
                   key={`${section.name}-${item.name}-${index}`}
-                  className="flex items-start justify-between gap-3 border-b border-border/30 pb-2 last:border-0 last:pb-0"
+                  className={cn(
+                    "flex items-start justify-between border-b border-border/30 pb-stack-sm last:border-0 last:pb-0",
+                    spacing.gap.md
+                  )}
                 >
                   <div className="min-w-0 flex-1">
                     <p className="text-sm font-medium text-foreground">{item.name}</p>

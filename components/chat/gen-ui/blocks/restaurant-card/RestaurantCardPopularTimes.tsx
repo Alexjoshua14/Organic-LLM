@@ -5,6 +5,7 @@ import type { PopularTimesDay } from "@/lib/schemas/gen-ui/restaurant-card";
 import { useMemo, useState } from "react";
 
 import { dayLabel, getTodayDayOfWeek } from "./restaurant-card-utils";
+import { spacing } from "@/lib/design-tokens/spacing";
 import { cn } from "@/lib/utils";
 
 type RestaurantCardPopularTimesProps = {
@@ -38,8 +39,8 @@ export function RestaurantCardPopularTimes({ popularTimes }: RestaurantCardPopul
   );
 
   return (
-    <section className="space-y-3">
-      <div className="flex flex-wrap items-end justify-between gap-2">
+    <section className={spacing.card.block}>
+      <div className={cn("flex flex-wrap items-end justify-between", spacing.gap.sm)}>
         <div>
           <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
             Popular times

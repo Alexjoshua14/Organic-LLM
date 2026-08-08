@@ -26,6 +26,7 @@ import { RestaurantCardHours } from "./RestaurantCardHours";
 import { RestaurantCardMenu } from "./RestaurantCardMenu";
 import { RestaurantCardPopularTimes } from "./RestaurantCardPopularTimes";
 import { formatReviewCount } from "./restaurant-card-utils";
+import { spacing } from "@/lib/design-tokens/spacing";
 
 import "@/lib/view-transitions/view-transitions.css";
 import "./RestaurantCard.css";
@@ -44,7 +45,7 @@ function GalleryGrid({ block }: { block: RestaurantCardBlock }) {
   if (images.length === 0) return null;
 
   return (
-    <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+    <div className="grid grid-cols-2 gap-inline-sm sm:grid-cols-3">
       {images.map((image, index) => (
         <div
           key={`${image.url}-${index}`}
@@ -80,7 +81,7 @@ function ExpandedBody({
   viewTransitionNames: RestaurantCardViewTransitionNames;
 }) {
   return (
-    <div className={cn("space-y-5", fullscreen && "pb-8")}>
+    <div className={cn(spacing.card.section, fullscreen && "pb-8")}>
       <div className="relative w-full">
         <div
           className="aspect-[16/9] w-full overflow-hidden rounded-xl bg-muted/30 sm:aspect-[21/9]"
@@ -107,7 +108,7 @@ function ExpandedBody({
             </p>
             {block.rating ? (
               <div
-                className="mt-1 flex flex-wrap items-center gap-2"
+                className={cn("mt-1 flex flex-wrap items-center", spacing.gap.md)}
                 style={viewTransitionStyle(viewTransitionNames.rating, {
                   viewTransitionClass: RESTAURANT_CARD_RATING_VT_CLASS,
                 })}
@@ -155,7 +156,7 @@ function ExpandedBody({
       {block.menu ? <RestaurantCardMenu menu={block.menu} partial={partial} /> : null}
 
       {block.rating?.sources && block.rating.sources.length > 0 ? (
-        <div className="flex flex-wrap gap-2 text-[11px] text-muted-foreground">
+        <div className={cn("flex flex-wrap text-[11px] text-muted-foreground", spacing.gap.sm)}>
           {block.rating.sources.map((source) => (
             <span key={source.name} className="rounded-full bg-muted/50 px-2 py-0.5 capitalize">
               {source.name}
@@ -203,9 +204,7 @@ function RestaurantCardExpanded({
   }
 
   return (
-    <div className="space-y-4">
-      <ExpandedBody block={block} partial={partial} viewTransitionNames={viewTransitionNames} />
-    </div>
+    <ExpandedBody block={block} partial={partial} viewTransitionNames={viewTransitionNames} />
   );
 }
 
@@ -251,7 +250,7 @@ export function RestaurantCard({ block, partial }: RestaurantCardProps) {
           onExpand={handleExpand}
         />
       ) : (
-        <div className="space-y-3">
+        <div className={spacing.card.chrome}>
           <button
             type="button"
             className="text-xs text-muted-foreground hover:text-foreground"
