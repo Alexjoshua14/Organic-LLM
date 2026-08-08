@@ -37,7 +37,7 @@ export function WelcomeExploreAside({ className }: WelcomeExploreAsideProps) {
           <p className={sectionLabel} id="welcome-explore-label">
             {welcomeCopy.explore.label}
           </p>
-          <span className="text-[10px] text-muted-foreground/75">
+          <span className="text-2xs text-muted-foreground/75">
             {welcomeCopy.explore.subtitle}
           </span>
         </div>
@@ -55,7 +55,7 @@ export function WelcomeExploreAside({ className }: WelcomeExploreAsideProps) {
                     <span className="block text-xs font-medium text-foreground/90">
                       {link.label}
                     </span>
-                    <span className="mt-0.5 block text-[10px] leading-snug text-muted-foreground/75">
+                    <span className="mt-0.5 block text-2xs leading-snug text-muted-foreground/75">
                       {link.description}
                     </span>
                   </span>

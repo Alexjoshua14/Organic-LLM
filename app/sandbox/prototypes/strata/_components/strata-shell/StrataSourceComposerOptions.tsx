@@ -123,15 +123,15 @@ function AssistantToolSegmentedPill({
     label: string;
     title?: string;
   }[] = [
-    { key: "toolMemory", label: "Memory" },
-    { key: "toolWebSearch", label: "Web" },
-    { key: "toolMessageSearch", label: "Msgs", title: "Search this chat’s history" },
-    {
-      key: "toolKnowledgeSearch",
-      label: "Know",
-      title: "Knowledge graph tools (stubbed persistence)",
-    },
-  ];
+      { key: "toolMemory", label: "Memory" },
+      { key: "toolWebSearch", label: "Web" },
+      { key: "toolMessageSearch", label: "Msgs", title: "Search this chat’s history" },
+      {
+        key: "toolKnowledgeSearch",
+        label: "Know",
+        title: "Knowledge graph tools (stubbed persistence)",
+      },
+    ];
 
   return (
     <div
@@ -152,15 +152,15 @@ function AssistantToolSegmentedPill({
             title={seg.title}
             aria-pressed={on}
             className={cn(
-              "min-w-0 flex-1 whitespace-nowrap rounded-md px-1.5 py-2 text-center text-[10px] font-semibold uppercase tracking-wide transition-[color,box-shadow,background-color]",
+              "min-w-0 flex-1 whitespace-nowrap rounded-md px-1.5 py-2 text-center text-2xs font-semibold uppercase tracking-wide transition-[color,box-shadow,background-color]",
               "first:rounded-l-[0.65rem] last:rounded-r-[0.65rem]",
               "focus-visible:z-10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",
               "sm:px-2.5 sm:text-[11px]",
               on
                 ? cn(
-                    glass({ opaque: true, border: "none" }),
-                    "text-foreground shadow-sm ring-1 ring-border/40 dark:ring-border/50"
-                  )
+                  glass({ opaque: true, border: "none" }),
+                  "text-foreground shadow-sm ring-1 ring-border/40 dark:ring-border/50"
+                )
                 : "bg-transparent text-muted-foreground hover:bg-muted/45 hover:text-foreground"
             )}
             onClick={() => onToggle(seg.key)}
@@ -247,7 +247,7 @@ export function StrataSourceComposerOptions({
             type="button"
             className="min-w-0 flex-1 rounded-lg text-left outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
           >
-            <span className="block text-[10px] font-medium uppercase tracking-[0.2em] text-muted-foreground">
+            <span className="block text-2xs font-medium uppercase tracking-[0.2em] text-muted-foreground">
               Assistant
             </span>
             <span className="block truncate text-sm font-semibold text-foreground">
@@ -368,7 +368,7 @@ export function StrataSourceComposerOptions({
           {inspectorSnapshot ? (
             <>
               <DialogHeader className="border-b border-border/50 px-6 pb-4 pt-5 pr-14 text-left">
-                <p className="text-[10px] font-semibold uppercase tracking-[0.22em] text-muted-foreground">
+                <p className="text-2xs font-semibold uppercase tracking-[0.22em] text-muted-foreground">
                   Strata · Persona inspector
                 </p>
                 <DialogTitle className="mt-1 text-2xl font-semibold leading-tight tracking-tight text-foreground">

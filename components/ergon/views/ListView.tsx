@@ -44,7 +44,7 @@ export function ListView({
   return (
     <div className="space-y-4 md:space-y-6">
       <div className={ERGON_VIEW_TOOLBAR_ROW}>
-        <span className="text-[10px] uppercase tracking-[0.16em] text-muted-foreground/70">
+        <span className="text-2xs uppercase tracking-[0.16em] text-muted-foreground/70">
           Sort
         </span>
         <Button

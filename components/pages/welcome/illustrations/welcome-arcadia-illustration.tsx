@@ -215,7 +215,7 @@ export function WelcomeArcadiaIllustration({ className }: WelcomeArcadiaIllustra
       <div ref={rootRef} aria-label={ARIA_LABEL} className={frameClass} role="img">
         <div className="mb-2 flex shrink-0 flex-col items-center gap-0.5 text-center">
           <p className={sectionLabel}>Arcadia tool</p>
-          <span className="font-mono text-[10px] text-muted-foreground/75">
+          <span className="font-mono text-2xs text-muted-foreground/75">
             {WELCOME_ARCADIA_TOOL_NAME}
           </span>
         </div>
@@ -242,7 +242,7 @@ export function WelcomeArcadiaIllustration({ className }: WelcomeArcadiaIllustra
     <div ref={rootRef} aria-label={ARIA_LABEL} className={frameClass} role="img">
       <div className="mb-2 flex shrink-0 flex-col items-center gap-0.5 text-center">
         <p className={sectionLabel}>Arcadia tool</p>
-        <span className="font-mono text-[10px] text-muted-foreground/75">
+        <span className="font-mono text-2xs text-muted-foreground/75">
           {WELCOME_ARCADIA_TOOL_NAME}
         </span>
       </div>
@@ -279,7 +279,7 @@ export function WelcomeArcadiaIllustration({ className }: WelcomeArcadiaIllustra
                 <Loader className="size-3 text-muted-foreground/70" />
                 <ShinyText
                   as="span"
-                  className="text-[10px] font-light tracking-wide text-muted-foreground/80"
+                  className="text-2xs font-light tracking-wide text-muted-foreground/80"
                   speed={0.9}
                   text={WELCOME_ARCADIA_TOOL_STATUS.planning}
                 />
@@ -288,7 +288,7 @@ export function WelcomeArcadiaIllustration({ className }: WelcomeArcadiaIllustra
           </AnimatePresence>
 
           {showThinking ? (
-            <p className="text-center text-[10px] leading-snug text-muted-foreground/60">
+            <p className="text-center text-2xs leading-snug text-muted-foreground/60">
               {WELCOME_ARCADIA_PLANNING_HINT}
             </p>
           ) : null}
@@ -337,7 +337,7 @@ export function WelcomeArcadiaIllustration({ className }: WelcomeArcadiaIllustra
               <motion.p
                 key="hint"
                 animate={{ opacity: 1 }}
-                className="py-1 text-center text-[10px] text-muted-foreground/60"
+                className="py-1 text-center text-2xs text-muted-foreground/60"
                 exit={{ opacity: 0 }}
                 initial={{ opacity: 0.45 }}
                 transition={VIEW_TRANSITION}

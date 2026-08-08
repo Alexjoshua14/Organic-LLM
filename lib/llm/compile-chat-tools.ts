@@ -21,6 +21,7 @@ import {
   createDelphiMemoryTools,
 } from "@/lib/llm/delphi-memory-tools";
 import { createRenderGenUiTool } from "@/lib/llm/gen-ui-tool";
+import { createGatherRestaurantTool } from "@/lib/llm/restaurant-tool";
 import {
   createGetFullChatHistoryTool,
   createGetMessagesFromDateTool,
@@ -31,6 +32,7 @@ import {
   type WebSearchStreamWriter,
 } from "@/lib/llm/llm-tool-kit";
 import { GEN_UI_TOOL_INSTRUCTIONS } from "@/lib/system-prompt/gen-ui";
+import { RESTAURANT_TOOL_INSTRUCTIONS } from "@/lib/system-prompt/restaurant";
 import { createStrataHubAssistantTools } from "@/lib/llm/strata-assistant-tools";
 import { createStrataKnowledgeGraphTools } from "@/lib/llm/strata-knowledge-graph-tools";
 import {
@@ -177,7 +179,9 @@ export async function compileChatTools({
     toolInstructions +=
       "You can generate Mermaid diagrams using make_mermaid_diagram. The tool returns overview + detailed sources with shared node IDs. You may also include the overview in a ```mermaid code block for prose continuity.\n";
     tools["render_gen_ui"] = createRenderGenUiTool();
+    tools["gather_restaurant"] = createGatherRestaurantTool({ sbUserId });
     toolInstructions += `${GEN_UI_TOOL_INSTRUCTIONS}\n`;
+    toolInstructions += `${RESTAURANT_TOOL_INSTRUCTIONS}\n`;
 
     if (chatStyle === "ergon") {
       tools["kanban_board"] = createKanbanBoardTool({

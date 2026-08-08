@@ -639,7 +639,7 @@ const RabbitHoleDebugPanel = ({
                 <span className="font-commissioner text-sm font-medium tracking-tight text-foreground">
                   Debug
                 </span>
-                <span className="rounded bg-amber-500/10 px-1.5 py-0.5 font-mono text-[10px] uppercase tracking-wider text-amber-600 dark:text-amber-400/90">
+                <span className="rounded bg-amber-500/10 px-1.5 py-0.5 font-mono text-2xs uppercase tracking-wider text-amber-600 dark:text-amber-400/90">
                   dev
                 </span>
               </div>
@@ -651,7 +651,7 @@ const RabbitHoleDebugPanel = ({
                     className="rounded-lg border border-border/30 bg-muted/20"
                   >
                     <CollapsibleTrigger className="group flex w-full items-center justify-between px-2.5 py-2 text-left transition-colors hover:bg-muted/30 data-[state=open]:rounded-t-lg">
-                      <h3 className="font-commissioner text-[10px] font-medium uppercase tracking-widest text-muted-foreground">
+                      <h3 className="font-commissioner text-2xs font-medium uppercase tracking-widest text-muted-foreground">
                         {label}
                       </h3>
                       <ChevronDown
@@ -660,7 +660,7 @@ const RabbitHoleDebugPanel = ({
                       />
                     </CollapsibleTrigger>
                     <CollapsibleContent>
-                      <pre className="min-h-8 overflow-x-auto rounded-b-lg rounded-t-none border-t border-border/20 bg-background/60 px-2.5 py-2 font-mono text-[10px] leading-relaxed text-foreground/90">
+                      <pre className="min-h-8 overflow-x-auto rounded-b-lg rounded-t-none border-t border-border/20 bg-background/60 px-2.5 py-2 font-mono text-2xs leading-relaxed text-foreground/90">
                         {JSON.stringify(value, null, 2)}
                       </pre>
                     </CollapsibleContent>

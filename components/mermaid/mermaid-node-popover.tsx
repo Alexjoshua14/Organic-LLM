@@ -47,7 +47,7 @@ export function MermaidNodePopover({
       role="menu"
       style={{ left: x, top: y }}
     >
-      <p className="truncate px-2 py-1 text-[10px] font-medium text-muted-foreground">{label}</p>
+      <p className="truncate px-2 py-1 text-2xs font-medium text-muted-foreground">{label}</p>
       <button
         className="w-full rounded-md px-2 py-1.5 text-left text-xs hover:bg-background-tertiary/60"
         type="button"

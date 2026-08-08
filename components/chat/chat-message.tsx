@@ -496,6 +496,7 @@ function shouldShowTailAiAction(
 
 const KNOWN_TOOL_IN_FLIGHT_LABELS: Record<string, string> = {
   render_gen_ui: "Structuring response…",
+  gather_restaurant: "Looking up restaurant…",
   kanban_board: "Updating board…",
   manage_tasks: "Updating tasks…",
   mise_plan: "Updating plan…",
@@ -626,7 +627,7 @@ export const ArcadiaToolResultCard = memo(function ArcadiaToolResultCard({
                 <MermaidDiagram code={mermaid} expandOnDoubleClick />
               </div>
             ) : null}
-            <pre className="mt-1 max-h-72 overflow-auto rounded bg-background/60 p-2 text-[10px] leading-snug text-foreground/90">
+            <pre className="mt-1 max-h-72 overflow-auto rounded bg-background/60 p-2 text-2xs leading-snug text-foreground/90">
               {json}
             </pre>
           </span>

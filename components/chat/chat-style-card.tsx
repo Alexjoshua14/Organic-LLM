@@ -59,7 +59,7 @@ export function ChatStyleCard({
       <span className="w-full min-w-0 text-left text-xs font-medium leading-tight text-foreground sm:text-sm">
         {label}
       </span>
-      <span className="line-clamp-3 w-full min-w-0 text-left text-[10px] leading-snug text-muted-foreground sm:text-xs">
+      <span className="line-clamp-3 w-full min-w-0 text-left text-2xs leading-snug text-muted-foreground sm:text-xs">
         {description}
       </span>
     </button>

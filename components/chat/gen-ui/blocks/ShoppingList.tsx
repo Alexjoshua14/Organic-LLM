@@ -44,7 +44,7 @@ export function ShoppingList({
       <div className="space-y-3">
         {block.groups.map((group, groupIndex) => (
           <div key={group.category}>
-            <p className="mb-1.5 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+            <p className="mb-1.5 text-2xs font-semibold uppercase tracking-wide text-muted-foreground">
               {group.category}
             </p>
             <ul className="space-y-1">
@@ -84,7 +84,7 @@ export function ShoppingList({
                     {onToggleStatus ? (
                       <button
                         className={cn(
-                          "rounded-full px-2 py-0.5 text-[10px] font-medium",
+                          "rounded-full px-2 py-0.5 text-2xs font-medium",
                           item.status === "have"
                             ? "bg-emerald-500/15 text-emerald-700 dark:text-emerald-300"
                             : "bg-amber-500/15 text-amber-700 dark:text-amber-300"
@@ -97,7 +97,7 @@ export function ShoppingList({
                     ) : (
                       <span
                         className={cn(
-                          "rounded-full px-2 py-0.5 text-[10px] font-medium",
+                          "rounded-full px-2 py-0.5 text-2xs font-medium",
                           item.status === "have"
                             ? "bg-emerald-500/15 text-emerald-700 dark:text-emerald-300"
                             : "bg-amber-500/15 text-amber-700 dark:text-amber-300"

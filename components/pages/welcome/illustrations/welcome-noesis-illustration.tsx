@@ -72,7 +72,7 @@ function SparkCard({
       )}
     >
       <div className="flex items-start gap-2">
-        <span className="w-[4.75rem] shrink-0 pt-px text-[10px] font-medium uppercase leading-tight tracking-wide text-muted-foreground/75">
+        <span className="w-[4.75rem] shrink-0 pt-px text-2xs font-medium uppercase leading-tight tracking-wide text-muted-foreground/75">
           {NOESIS_SPARK_SOURCE_LABEL[spark.source]}
         </span>
         <p className="min-w-0 flex-1 text-[11px] leading-snug text-foreground/90 sm:text-xs">
@@ -406,7 +406,7 @@ export function WelcomeNoesisIllustration({ className }: WelcomeNoesisIllustrati
     return (
       <div ref={rootRef} aria-label={ARIA_LABEL} className={frameClass} role="img">
         <p className={cn(sectionLabel, "mb-2 text-center")}>Starter prompts</p>
-        <p className="mb-3 text-center text-[10px] text-muted-foreground/75">
+        <p className="mb-3 text-center text-2xs text-muted-foreground/75">
           Uses memory for tailored suggestions
         </p>
         <div className={cn(card, "flex min-h-0 flex-1 flex-col gap-2 rounded-lg p-2.5", welcomeDemoCompactClass)}>
@@ -432,7 +432,7 @@ export function WelcomeNoesisIllustration({ className }: WelcomeNoesisIllustrati
     <div ref={rootRef} aria-label={ARIA_LABEL} className={frameClass} role="img">
       <div className="mb-2 flex shrink-0 flex-col items-center gap-0.5 text-center">
         <p className={sectionLabel}>Starter prompts</p>
-        <span className="text-[10px] text-muted-foreground/75">
+        <span className="text-2xs text-muted-foreground/75">
           Uses memory for tailored suggestions
         </span>
       </div>
@@ -477,12 +477,12 @@ export function WelcomeNoesisIllustration({ className }: WelcomeNoesisIllustrati
                 {threadMessages.length === 0 ? (
                   <>
                     <div className="mb-2 flex items-center justify-between gap-2">
-                      <span className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground/80">
+                      <span className="text-2xs font-medium uppercase tracking-wide text-muted-foreground/80">
                         Pick one
                       </span>
                       <span
                         className={cn(
-                          "inline-flex items-center gap-1 text-[10px] text-muted-foreground/70",
+                          "inline-flex items-center gap-1 text-2xs text-muted-foreground/70",
                           regenerating && "text-foreground/80"
                         )}
                       >
@@ -509,7 +509,7 @@ export function WelcomeNoesisIllustration({ className }: WelcomeNoesisIllustrati
                     </motion.div>
                   </>
                 ) : (
-                  <p className="text-center text-[10px] text-muted-foreground/60">
+                  <p className="text-center text-2xs text-muted-foreground/60">
                     Thread builds as you explore
                   </p>
                 )}
@@ -538,12 +538,12 @@ export function WelcomeNoesisIllustration({ className }: WelcomeNoesisIllustrati
                   {assistPending ? (
                     <ShinyText
                       as="span"
-                      className="text-[10px] font-light text-muted-foreground/75"
+                      className="text-2xs font-light text-muted-foreground/75"
                       speed={0.85}
                       text="Drafting…"
                     />
                   ) : composerText.length > 0 ? (
-                    <span className="text-[10px] text-muted-foreground/70">Edit before you send</span>
+                    <span className="text-2xs text-muted-foreground/70">Edit before you send</span>
                   ) : null}
                 </div>
                 <div className="min-h-[2.75rem] rounded-lg border border-border/55 bg-background/55 px-2.5 py-2">

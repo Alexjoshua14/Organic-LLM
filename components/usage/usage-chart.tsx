@@ -39,8 +39,8 @@ export function UsageChart({ daily, className }: UsageChartProps) {
     const area =
       coords.length > 0
         ? `M ${coords[0].x} ${baseline} ` +
-          coords.map((c) => `L ${c.x} ${c.y}`).join(" ") +
-          ` L ${coords[coords.length - 1].x} ${baseline} Z`
+        coords.map((c) => `L ${c.x} ${c.y}`).join(" ") +
+        ` L ${coords[coords.length - 1].x} ${baseline} Z`
         : "";
 
     return {
@@ -117,7 +117,7 @@ export function UsageChart({ daily, className }: UsageChartProps) {
           ) : null}
         </svg>
 
-        <div className="mt-1 flex justify-between px-1 text-[10px] tabular-nums text-muted-foreground/80">
+        <div className="mt-1 flex justify-between px-1 text-2xs tabular-nums text-muted-foreground/80">
           <span>{firstLabel}</span>
           <span>{lastLabel}</span>
         </div>

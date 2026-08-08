@@ -59,7 +59,7 @@ export function RabbitHoleDrawerTurnPair({
       onTouchStart={onTouchStart}
     >
       {turnCount > 1 ? (
-        <p className="text-center text-[10px] uppercase tracking-[0.2em] text-muted-foreground">
+        <p className="text-center text-2xs uppercase tracking-[0.2em] text-muted-foreground">
           Turn {turnIndex + 1} / {turnCount}
         </p>
       ) : null}

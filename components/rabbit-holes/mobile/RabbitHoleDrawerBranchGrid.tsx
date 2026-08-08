@@ -54,7 +54,7 @@ export function RabbitHoleDrawerBranchGrid({
 
   return (
     <div className={cn("mt-3", className)}>
-      <p className="font-commissioner mb-2 text-[10px] font-light uppercase tracking-[0.2em] text-muted-foreground">
+      <p className="font-commissioner mb-2 text-2xs font-light uppercase tracking-[0.2em] text-muted-foreground">
         Explore further
       </p>
       <div

@@ -112,17 +112,17 @@ export function TextCopyModal({
     try {
       const refinedPrompt = generateExternalPrompt
         ? await generateExternalPrompt({
-            intent: externalIntent,
-            sourceText: text,
-            userContext: externalUserContext,
-            exportFormat: "open_in_chat",
-            provider: readLastOpenInProvider(externalIntent.id) ?? null,
-          })
+          intent: externalIntent,
+          sourceText: text,
+          userContext: externalUserContext,
+          exportFormat: "open_in_chat",
+          provider: readLastOpenInProvider(externalIntent.id) ?? null,
+        })
         : buildChatGptPrompt({
-            preset: externalIntent,
-            sourceText: text,
-            userContext: externalUserContext,
-          });
+          preset: externalIntent,
+          sourceText: text,
+          userContext: externalUserContext,
+        });
 
       await copyTextToClipboard(refinedPrompt);
       setPreparedOpenInPrompt(refinedPrompt);
@@ -141,17 +141,17 @@ export function TextCopyModal({
     try {
       const instruction = generateExternalPrompt
         ? await generateExternalPrompt({
-            intent: externalIntent,
-            sourceText: text,
-            userContext: externalUserContext,
-            exportFormat: "cursor",
-            provider: null,
-          })
+          intent: externalIntent,
+          sourceText: text,
+          userContext: externalUserContext,
+          exportFormat: "cursor",
+          provider: null,
+        })
         : buildCursorInstruction({
-            preset: externalIntent,
-            sourceText: text,
-            userContext: externalUserContext,
-          });
+          preset: externalIntent,
+          sourceText: text,
+          userContext: externalUserContext,
+        });
 
       await copyTextToClipboard(instruction);
       setCursorFeedback(true);
@@ -187,7 +187,7 @@ export function TextCopyModal({
           )}
         >
           {formatHint ? (
-            <p className="mb-2 text-[10px] uppercase tracking-[0.14em] text-muted-foreground">
+            <p className="mb-2 text-2xs uppercase tracking-[0.14em] text-muted-foreground">
               {formatHint}
             </p>
           ) : null}

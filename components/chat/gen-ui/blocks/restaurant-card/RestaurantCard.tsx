@@ -21,7 +21,8 @@ import { viewTransitionStyle } from "@/lib/view-transitions/style";
 import { cn } from "@/lib/utils";
 
 import { RestaurantCardActions } from "./RestaurantCardActions";
-import { RestaurantCardCondensed, StarRating } from "./RestaurantCardCondensed";
+import { RestaurantCardCondensed } from "./RestaurantCardCondensed";
+import { StarRating } from "./StarRating";
 import { RestaurantCardHours } from "./RestaurantCardHours";
 import { RestaurantCardMenu } from "./RestaurantCardMenu";
 import { RestaurantCardPopularTimes } from "./RestaurantCardPopularTimes";
@@ -39,27 +40,24 @@ type RestaurantCardExpandedProps = {
   onClose?: () => void;
 };
 
+const GALLERY_MAX = 3;
+
 function GalleryGrid({ block }: { block: RestaurantCardBlock }) {
-  const images = block.gallery ?? [];
+  const images = (block.gallery ?? []).slice(0, GALLERY_MAX);
 
   if (images.length === 0) return null;
 
   return (
-    <div className="grid grid-cols-2 gap-inline-sm sm:grid-cols-3">
+    <div className="grid grid-cols-3 gap-inline-sm sm:max-w-70">
       {images.map((image, index) => (
         <div
           key={`${image.url}-${index}`}
-          className={cn(
-            "relative overflow-hidden rounded-lg bg-muted/30",
-            index === 0
-              ? "col-span-2 aspect-[16/10] sm:col-span-1 sm:aspect-square"
-              : "aspect-square"
-          )}
+          className="relative aspect-[4/3] overflow-hidden rounded-lg bg-muted/30"
         >
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
             alt={image.alt ?? `${block.name} ${image.kind ?? "photo"}`}
-            className="size-full object-cover"
+            className="size-full object-cover object-center"
             loading="lazy"
             src={image.url}
           />
@@ -84,7 +82,7 @@ function ExpandedBody({
     <div className={cn(spacing.card.section, fullscreen && "pb-8")}>
       <div className="relative w-full">
         <div
-          className="aspect-[16/9] w-full overflow-hidden rounded-xl bg-muted/30 sm:aspect-[21/9]"
+          className="relative aspect-[16/9] w-full overflow-hidden rounded-xl bg-muted/30 sm:aspect-[21/9]"
           style={viewTransitionStyle(viewTransitionNames.hero, {
             viewTransitionClass: RESTAURANT_CARD_HERO_VT_CLASS,
           })}
@@ -92,7 +90,7 @@ function ExpandedBody({
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
             alt={block.heroImage.alt ?? `${block.name} exterior`}
-            className="size-full object-cover"
+            className="size-full object-cover object-center"
             src={block.heroImage.url}
           />
         </div>
@@ -156,7 +154,13 @@ function ExpandedBody({
       {block.menu ? <RestaurantCardMenu menu={block.menu} partial={partial} /> : null}
 
       {block.rating?.sources && block.rating.sources.length > 0 ? (
-        <div className={cn("flex flex-wrap text-[11px] text-muted-foreground", spacing.gap.sm)}>
+        <div
+          className={cn(
+            "flex flex-wrap text-[11px] text-muted-foreground",
+            spacing.gap.sm,
+            spacing.card.sourcesLead
+          )}
+        >
           {block.rating.sources.map((source) => (
             <span key={source.name} className="rounded-full bg-muted/50 px-2 py-0.5 capitalize">
               {source.name}
@@ -268,19 +272,19 @@ export function RestaurantCard({ block, partial }: RestaurantCardProps) {
 
       {typeof document !== "undefined"
         ? createPortal(
-            expanded && isMobile ? (
-              <div className="fixed inset-0 z-[80] bg-background">
-                <RestaurantCardExpanded
-                  block={block}
-                  fullscreen
-                  partial={partial}
-                  viewTransitionNames={viewTransitionNames}
-                  onClose={handleClose}
-                />
-              </div>
-            ) : null,
-            document.body
-          )
+          expanded && isMobile ? (
+            <div className="fixed inset-0 z-[80] bg-background">
+              <RestaurantCardExpanded
+                block={block}
+                fullscreen
+                partial={partial}
+                viewTransitionNames={viewTransitionNames}
+                onClose={handleClose}
+              />
+            </div>
+          ) : null,
+          document.body
+        )
         : null}
 
       {partial ? <div className={cn("mt-2 h-3 w-1/2 rounded bg-muted/40 animate-pulse")} /> : null}

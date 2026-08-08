@@ -51,13 +51,13 @@ export function StatusCheckTable({ checks }: { checks: HealthCheckResult[] }) {
         <caption className="sr-only">Service health checks</caption>
         <thead className="select-none">
           <tr className="border-b border-border/60 text-left">
-            <th className="px-3 py-2 text-[10px] font-medium uppercase tracking-wide text-muted-foreground md:px-5 md:py-3.5 md:text-xs">
+            <th className="px-3 py-2 text-2xs font-medium uppercase tracking-wide text-muted-foreground md:px-5 md:py-3.5 md:text-xs">
               Service
             </th>
-            <th className="px-3 py-2 text-[10px] font-medium uppercase tracking-wide text-muted-foreground md:px-5 md:py-3.5 md:text-xs">
+            <th className="px-3 py-2 text-2xs font-medium uppercase tracking-wide text-muted-foreground md:px-5 md:py-3.5 md:text-xs">
               Status
             </th>
-            <th className="px-3 py-2 text-[10px] font-medium uppercase tracking-wide text-muted-foreground md:px-5 md:py-3.5 md:text-xs">
+            <th className="px-3 py-2 text-2xs font-medium uppercase tracking-wide text-muted-foreground md:px-5 md:py-3.5 md:text-xs">
               Issue
             </th>
             <th className="w-8 px-2 py-2 md:w-11 md:px-4 md:py-3.5">

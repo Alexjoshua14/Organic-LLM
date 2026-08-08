@@ -33,7 +33,7 @@ export function StatusPill({
     <span
       aria-label={serviceName ? `${serviceName}: ${label}` : label}
       className={cn(
-        "inline-flex select-none items-center rounded border px-1.5 py-px text-[10px] font-semibold uppercase tracking-wide md:rounded-md md:px-2 md:py-0.5 md:text-[11px]",
+        "inline-flex select-none items-center rounded border px-1.5 py-px text-2xs font-semibold uppercase tracking-wide md:rounded-md md:px-2 md:py-0.5 md:text-[11px]",
         STYLES[status],
         className
       )}

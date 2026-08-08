@@ -31,8 +31,8 @@ export function RestaurantCardHours({ hours }: RestaurantCardHoursProps) {
   return (
     <section className={spacing.card.block}>
       <div className={cn("flex items-start justify-between", spacing.gap.sm)}>
-        <div>
-          <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+        <div className={spacing.card.labelStack}>
+          <p className="text-2xs font-semibold uppercase tracking-wide text-muted-foreground">
             Hours
           </p>
           <p className={cn("text-sm font-medium", todayInfo.isClosed && "text-destructive")}>
@@ -74,7 +74,7 @@ export function RestaurantCardHours({ hours }: RestaurantCardHoursProps) {
                 <span className="text-right text-foreground/90">
                   {formatHoursDay(entry)}
                   {kitchen ? (
-                    <span className="block text-[10px] text-muted-foreground">
+                    <span className="block text-2xs text-muted-foreground">
                       Kitchen: {formatHoursDay(kitchen)}
                     </span>
                   ) : null}

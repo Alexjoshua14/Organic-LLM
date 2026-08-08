@@ -241,7 +241,7 @@ export function WelcomeGenUiIllustration({ className }: WelcomeGenUiIllustration
     <div ref={rootRef} aria-label={ARIA_LABEL} className={frameClass} role="img">
       <div className="mb-1.5 flex w-full items-baseline justify-between gap-3">
         <p className={sectionLabel}>Generative UI</p>
-        <span className="text-[10px] font-light tracking-wide text-muted-foreground/70">
+        <span className="text-2xs font-light tracking-wide text-muted-foreground/70">
           {blockLabel}
         </span>
       </div>

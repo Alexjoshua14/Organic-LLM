@@ -135,7 +135,7 @@ export function WelcomeEncryptedAtRestIllustration({
             glass({ border: "none", opaque: true })
           )}
         >
-          <p className="mb-1.5 text-[10px] font-medium uppercase tracking-[0.16em] text-muted-foreground">
+          <p className="mb-1.5 text-2xs font-medium uppercase tracking-[0.16em] text-muted-foreground">
             Thread message
           </p>
           {stage === "thread" ? (
@@ -183,7 +183,7 @@ export function WelcomeEncryptedAtRestIllustration({
           transition={{ duration: 2.4, ease: "easeInOut", repeat: motionActive ? Infinity : 0 }}
         >
           <span className="h-5 w-px bg-linear-to-b from-transparent via-accent/50 to-accent/80" />
-          <span className="text-[10px] uppercase tracking-[0.18em]">
+          <span className="text-2xs uppercase tracking-[0.18em]">
             {isEncrypting && !isEncryptedHold
               ? "encrypting"
               : isEncryptedHold
@@ -216,13 +216,13 @@ export function WelcomeEncryptedAtRestIllustration({
                 <Lock aria-hidden className="size-4" strokeWidth={1.75} />
               </motion.div>
               <div>
-                <p className="text-[10px] font-medium uppercase tracking-[0.16em] text-muted-foreground">
+                <p className="text-2xs font-medium uppercase tracking-[0.16em] text-muted-foreground">
                   Database
                 </p>
                 <p className="text-xs text-foreground/90">Ciphertext at rest</p>
               </div>
             </div>
-            <span className="inline-flex items-center gap-1 rounded-full border border-accent/25 bg-accent/10 px-2 py-1 text-[10px] font-medium tracking-wide text-accent">
+            <span className="inline-flex items-center gap-1 rounded-full border border-accent/25 bg-accent/10 px-2 py-1 text-2xs font-medium tracking-wide text-accent">
               <ShieldCheck aria-hidden className="size-3" strokeWidth={2} />
               AES-256-GCM
             </span>
@@ -273,7 +273,7 @@ function StatusPill({
   return (
     <span
       className={cn(
-        "rounded-full border px-2.5 py-1 text-[10px] font-medium uppercase tracking-[0.14em] transition-colors",
+        "rounded-full border px-2.5 py-1 text-2xs font-medium uppercase tracking-[0.14em] transition-colors",
         tone === "accent"
           ? active
             ? "border-accent/35 bg-accent/12 text-accent"

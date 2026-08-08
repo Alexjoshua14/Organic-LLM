@@ -58,7 +58,7 @@ function RangeControl({
         <div className="flex items-center gap-2">
           <span className="tabular-nums text-foreground">{value}</span>
           <button
-            className="rounded border border-white/20 px-2 py-0.5 text-[10px] uppercase tracking-[0.08em] text-muted-foreground disabled:opacity-45"
+            className="rounded border border-white/20 px-2 py-0.5 text-2xs uppercase tracking-[0.08em] text-muted-foreground disabled:opacity-45"
             disabled={!canRevert}
             type="button"
             onClick={onRevert}
@@ -66,7 +66,7 @@ function RangeControl({
             Revert
           </button>
           <button
-            className="rounded border border-white/20 px-2 py-0.5 text-[10px] uppercase tracking-[0.08em] text-muted-foreground disabled:opacity-45"
+            className="rounded border border-white/20 px-2 py-0.5 text-2xs uppercase tracking-[0.08em] text-muted-foreground disabled:opacity-45"
             disabled={!canReset}
             type="button"
             onClick={onReset}

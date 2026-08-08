@@ -28,11 +28,15 @@ export const spacing = {
     section: "space-y-stack-lg sm:space-y-stack-md",
     /** Back link + expanded body chrome */
     chrome: "space-y-stack-md",
-    /** Labeled subsection (hours header, menu header) */
+    /** Labeled subsection (header row → expandable body, e.g. hours week list) */
     block: "space-y-stack-md",
+    /** Section label → primary content (Hours → today, Menu → categories) */
+    labelStack: "space-y-stack-xs",
     /** Rows inside a subsection (menu categories, week list) */
     blockItems: "space-y-stack-sm",
     /** Tight list rows (hours day lines, menu items) */
     listItems: "space-y-stack-xs",
+    /** Extra lead before review-source pills (stacks on section gap) */
+    sourcesLead: "mt-stack-xs",
   },
 } as const;

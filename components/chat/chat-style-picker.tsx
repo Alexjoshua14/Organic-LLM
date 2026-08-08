@@ -168,7 +168,7 @@ export function ChatStylePicker({
         </div>
 
         <div className="w-full min-w-0 space-y-2 text-left">
-          <p className="text-center text-[10px] uppercase tracking-[0.16em] text-muted-foreground/70 sm:text-xs">
+          <p className="text-center text-2xs uppercase tracking-[0.16em] text-muted-foreground/70 sm:text-xs">
             Launchpad
           </p>
           <div className={cn("relative w-full", STARTER_PROMPTS_SLOT_H)}>

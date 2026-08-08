@@ -60,21 +60,21 @@ export function TokenUsageDisplay({
     },
     ...(showTime
       ? [
-          {
-            icon: Clock,
-            label: "Gen. Time",
-            value: formatDuration(usageData.estimatedDurationMs),
-            tooltip: `Estimated time to generate audio`,
-            color: "text-amber-500/80",
-          },
-          {
-            icon: Volume2,
-            label: "Audio",
-            value: formatAudioDuration(usageData.estimatedAudioDurationSec),
-            tooltip: `Estimated audio duration`,
-            color: "text-purple-500/80",
-          },
-        ]
+        {
+          icon: Clock,
+          label: "Gen. Time",
+          value: formatDuration(usageData.estimatedDurationMs),
+          tooltip: `Estimated time to generate audio`,
+          color: "text-amber-500/80",
+        },
+        {
+          icon: Volume2,
+          label: "Audio",
+          value: formatAudioDuration(usageData.estimatedAudioDurationSec),
+          tooltip: `Estimated audio duration`,
+          color: "text-purple-500/80",
+        },
+      ]
       : []),
   ];
 
@@ -114,7 +114,7 @@ export function TokenUsageDisplay({
               >
                 <Icon className={`w-3.5 h-3.5 ${metric.color} opacity-70`} strokeWidth={2.5} />
                 <div className="flex flex-col">
-                  <span className="text-[10px] text-muted-foreground/70 uppercase tracking-wider font-medium leading-none">
+                  <span className="text-2xs text-muted-foreground/70 uppercase tracking-wider font-medium leading-none">
                     {metric.label}
                   </span>
                   <span className="text-sm font-semibold text-foreground/90 leading-tight mt-0.5 tabular-nums">

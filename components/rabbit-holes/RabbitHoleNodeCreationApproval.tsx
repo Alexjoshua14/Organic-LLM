@@ -82,7 +82,7 @@ export function RabbitHoleNodeCreationApproval({
         className
       )}
     >
-      <p className="font-commissioner text-[10px] uppercase tracking-[0.2em] text-muted-foreground">
+      <p className="font-commissioner text-2xs uppercase tracking-[0.2em] text-muted-foreground">
         Proposed article node
       </p>
       <p className="mt-1 font-medium text-foreground">{pending.query}</p>

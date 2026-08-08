@@ -14,12 +14,12 @@ const logger = new Logger(`components/sidebar/sidebar-experience-rail.tsx`);
 type RailItem =
   | { id: "chat"; label: "Chat"; type: "action" }
   | {
-      id: string;
-      label: string;
-      type: "link";
-      href: string;
-      match: (p: string) => boolean;
-    };
+    id: string;
+    label: string;
+    type: "link";
+    href: string;
+    match: (p: string) => boolean;
+  };
 
 const RAIL_ROWS: RailItem[][] = [
   [
@@ -74,7 +74,7 @@ const RAIL_ROWS: RailItem[][] = [
 ];
 
 const segmentClass = cn(
-  "flex-1 min-w-0 cursor-pointer select-none text-center text-[10px] font-medium leading-tight",
+  "flex-1 min-w-0 cursor-pointer select-none text-center text-2xs font-medium leading-tight",
   "px-1.5 py-2.5 sm:px-2 sm:py-3 sm:text-xs",
   "bg-background-tertiary text-foreground transition-colors",
   "hover:bg-sidebar-accent hover:text-sidebar-accent-foreground",

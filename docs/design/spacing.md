@@ -44,8 +44,10 @@ Stripe, and WCAG target-spacing guidance (2026 research pass).
 Use in gen-ui and chat cards instead of ad-hoc `space-y-5`:
 
 - **`spacing.card.section`** — `space-y-stack-lg sm:space-y-stack-md` (16px mobile → 12px desktop)
-- **`spacing.card.block`** — subsection header + body (`stack-md`)
+- **`spacing.card.labelStack`** — section label → primary content (`stack-xs`, 4px)
+- **`spacing.card.block`** — header row → secondary body (e.g. expanded hours week list, `stack-md`)
 - **`spacing.card.listItems`** — tight rows inside a block (`stack-xs`)
+- **`spacing.card.sourcesLead`** — extra margin before review-source pills (`mt-stack-xs`, stacks on section gap)
 
 ---
 
@@ -76,6 +78,8 @@ remain until a follow-up aliases them to these globals.
 | Section stack (expanded card) | `spacing.card.section` | 12 (`stack-md`) |
 | Section stack (mobile) | same, default breakpoint | 16 (`stack-lg`) |
 | Action row gap | `spacing.gap.sm` | 8 |
-| Subsection (hours, menu header) | `spacing.card.block` | 12 |
+| Label → content (Hours, Menu) | `spacing.card.labelStack` | 4 |
+| Subsection header → expandable body | `spacing.card.block` | 12 |
+| Menu → review pills (extra) | `spacing.card.sourcesLead` | +4 on section gap |
 
 Do not go below **8px** between distinct interactive rows.

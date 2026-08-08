@@ -182,7 +182,7 @@ export const WebSearchToolResultCard = memo(function WebSearchToolResultCard({
                 <li key={row.id} className="min-w-0">
                   {row.url ? (
                     <a
-                      className="block truncate text-[10px] font-medium text-foreground hover:underline"
+                      className="block truncate text-2xs font-medium text-foreground hover:underline"
                       href={row.url}
                       rel="noopener noreferrer"
                       target="_blank"
@@ -190,10 +190,10 @@ export const WebSearchToolResultCard = memo(function WebSearchToolResultCard({
                       {row.title}
                     </a>
                   ) : (
-                    <p className="truncate text-[10px] font-medium text-foreground">{row.title}</p>
+                    <p className="truncate text-2xs font-medium text-foreground">{row.title}</p>
                   )}
                   {row.highlightsLine ? (
-                    <p className="line-clamp-1 text-[10px] leading-snug text-muted-foreground/80">
+                    <p className="line-clamp-1 text-2xs leading-snug text-muted-foreground/80">
                       {row.highlightsLine}
                     </p>
                   ) : null}

@@ -57,7 +57,7 @@ export function RecipeCard({ block, partial }: RecipeCardProps) {
 
       <div className="grid gap-4 sm:grid-cols-[minmax(0,0.9fr)_minmax(0,1.4fr)]">
         <div>
-          <p className="mb-1.5 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+          <p className="mb-1.5 text-2xs font-semibold uppercase tracking-wide text-muted-foreground">
             Ingredients
           </p>
           <ul className="space-y-1 text-xs text-foreground">
@@ -73,7 +73,7 @@ export function RecipeCard({ block, partial }: RecipeCardProps) {
         </div>
 
         <div>
-          <p className="mb-1.5 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+          <p className="mb-1.5 text-2xs font-semibold uppercase tracking-wide text-muted-foreground">
             Steps
           </p>
           <ol className="space-y-1.5 text-xs text-foreground">

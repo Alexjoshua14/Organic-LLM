@@ -52,7 +52,7 @@ export function AnatomyMemoryStage({ stage }: { stage: MemorySearchStage }) {
             >
               <div className="mb-1 flex items-center justify-end gap-2">
                 {m.score != null ? (
-                  <span className="rounded-full bg-background/80 px-2 py-0.5 font-mono text-[10px] text-emerald-600 dark:text-emerald-400">
+                  <span className="rounded-full bg-background/80 px-2 py-0.5 font-mono text-2xs text-emerald-600 dark:text-emerald-400">
                     {(m.score * 100).toFixed(0)}% match
                   </span>
                 ) : null}
@@ -78,13 +78,13 @@ export function AnatomyMemoryStage({ stage }: { stage: MemorySearchStage }) {
             >
               {f.score != null ? (
                 <div className="mb-1 flex items-center justify-end gap-2">
-                  <span className="rounded-full bg-background/80 px-2 py-0.5 font-mono text-[10px] text-amber-700 dark:text-amber-400">
+                  <span className="rounded-full bg-background/80 px-2 py-0.5 font-mono text-2xs text-amber-700 dark:text-amber-400">
                     {(f.score * 100).toFixed(0)}% match
                   </span>
                 </div>
               ) : null}
               <p className="text-xs text-foreground/90">{f.memory}</p>
-              <p className="text-[10px] italic text-muted-foreground">{f.reason}</p>
+              <p className="text-2xs italic text-muted-foreground">{f.reason}</p>
             </li>
           ))}
         </ul>

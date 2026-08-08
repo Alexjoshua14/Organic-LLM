@@ -135,7 +135,7 @@ function ContextDonut({
           <span className="font-mono text-lg font-medium" style={{ color: fillColor }}>
             {pctLabel}%
           </span>
-          <span className="text-[10px] uppercase tracking-wide text-muted-foreground">in use</span>
+          <span className="text-2xs uppercase tracking-wide text-muted-foreground">in use</span>
         </div>
       ) : null}
     </div>

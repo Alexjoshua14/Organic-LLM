@@ -108,7 +108,7 @@ export function AnatomyContextStage({ stage }: { stage: ContextLoadStage }) {
                   <>
                     <div className="text-sm font-medium text-foreground">{step.label}</div>
                     <div className="mt-0.5 text-xs text-muted-foreground">{step.reason}</div>
-                    <div className="mt-1 font-mono text-[10px] text-muted-foreground">
+                    <div className="mt-1 font-mono text-2xs text-muted-foreground">
                       ~{step.estimatedTokens} tokens dropped
                     </div>
                   </>

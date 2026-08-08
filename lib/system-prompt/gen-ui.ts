@@ -17,7 +17,7 @@ When to use (with examples):
   Example: "Show me a recipe for lemon blueberry poppyseed bars."
 - shopping-list: Presenting ingredients grouped by aisle/category with have vs. need status.
   Example: "What do I still need to buy for Saturday?"
-- restaurant-card: Presenting a specific restaurant, café, or bar with photos, hours, menu, and action links.
+- restaurant-card: Presenting a specific restaurant, café, or bar with photos, hours, menu, and action links. Call gather_restaurant first, then render_gen_ui with the returned block.
   Example: "Show me State Bird Provisions — menu, hours, and how to get there."
 
 When NOT to use:

@@ -53,7 +53,7 @@ function RawNotes({ lines }: { lines: readonly string[] }) {
   return (
     <div className="space-y-1">
       {lines.map((line) => (
-        <p key={line} className="font-mono text-[10px] leading-snug text-foreground/78">
+        <p key={line} className="font-mono text-2xs leading-snug text-foreground/78">
           {line}
         </p>
       ))}
@@ -73,10 +73,10 @@ function RefinedPreview({ visible }: { visible: boolean }) {
           initial={{ opacity: 0, y: 6 }}
           transition={VIEW_TRANSITION}
         >
-          <p className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground/75">
+          <p className="text-2xs font-medium uppercase tracking-wide text-muted-foreground/75">
             {WELCOME_STRATA_REFINED_TITLE}
           </p>
-          <p className="mt-1 text-[10px] leading-snug text-foreground/88 sm:text-xs">
+          <p className="mt-1 text-2xs leading-snug text-foreground/88 sm:text-xs">
             {WELCOME_STRATA_REFINED_TEXT}
           </p>
         </motion.div>
@@ -109,7 +109,7 @@ function ElaboratedCard({
           "border border-border/60"
         )}
       >
-        <p className="whitespace-pre-line text-[10px] leading-snug text-foreground/90 sm:text-xs">
+        <p className="whitespace-pre-line text-2xs leading-snug text-foreground/90 sm:text-xs">
           {streamingText}
           {streaming ? (
             <motion.span
@@ -134,16 +134,16 @@ function ElaboratedCard({
         "border border-border/60"
       )}
     >
-      <p className="text-[10px] font-medium leading-snug text-foreground sm:text-xs">{heading}</p>
-      <p className="text-[10px] leading-snug text-foreground/88 sm:text-xs">{lead}</p>
+      <p className="text-2xs font-medium leading-snug text-foreground sm:text-xs">{heading}</p>
+      <p className="text-2xs leading-snug text-foreground/88 sm:text-xs">{lead}</p>
       <ul className="mt-0.5 space-y-0.5">
         {bullets.map((item) => (
-          <li key={item} className="text-[10px] leading-snug text-foreground/82 sm:text-xs">
+          <li key={item} className="text-2xs leading-snug text-foreground/82 sm:text-xs">
             • {item}
           </li>
         ))}
       </ul>
-      <p className="mt-1 text-[10px] leading-snug text-muted-foreground/75">{closing}</p>
+      <p className="mt-1 text-2xs leading-snug text-muted-foreground/75">{closing}</p>
     </div>
   );
 }
@@ -169,13 +169,13 @@ function StrataChrome({
             initial={{ opacity: 0, y: -4 }}
             transition={VIEW_TRANSITION}
           >
-            <span className="inline-flex items-center gap-1 text-[10px] text-muted-foreground/70">
+            <span className="inline-flex items-center gap-1 text-2xs text-muted-foreground/70">
               <Sparkles className="size-3" strokeWidth={1.75} />
               AI-assisted
             </span>
             <span
               className={cn(
-                "inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[10px] font-semibold",
+                "inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-2xs font-semibold",
                 isGenerating
                   ? "border border-border/60 bg-muted/40 text-muted-foreground"
                   : "bg-foreground text-background"
@@ -207,7 +207,7 @@ function StrataChrome({
             key={tab.id}
             aria-selected={tab.id === activeTab}
             className={cn(
-              "rounded-full px-2.5 py-1 text-[10px] font-medium transition-colors",
+              "rounded-full px-2.5 py-1 text-2xs font-medium transition-colors",
               tab.id === activeTab ? "bg-foreground text-background" : "text-muted-foreground/70"
             )}
             role="tab"
@@ -374,7 +374,7 @@ export function WelcomeStrataIllustration({ className }: WelcomeStrataIllustrati
           )}
         >
           <div className="flex min-h-0 flex-1 flex-col gap-1 px-2 py-2 sm:px-2.5 sm:py-2">
-            <p className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground/75">
+            <p className="text-2xs font-medium uppercase tracking-wide text-muted-foreground/75">
               Source
             </p>
             <div className="min-h-0 flex-1 overflow-hidden rounded-md border border-border/55 bg-background/45 px-2 py-1">
@@ -416,7 +416,7 @@ export function WelcomeStrataIllustration({ className }: WelcomeStrataIllustrati
                 initial={{ opacity: 0, y: 6 }}
                 transition={VIEW_TRANSITION}
               >
-                <p className="mb-1 text-[10px] font-medium uppercase tracking-wide text-muted-foreground/75">
+                <p className="mb-1 text-2xs font-medium uppercase tracking-wide text-muted-foreground/75">
                   Raw notes
                 </p>
                 <div className="min-h-0 flex-1 overflow-y-auto rounded-md border border-border/55 bg-background/45 px-2 py-1">
@@ -434,13 +434,13 @@ export function WelcomeStrataIllustration({ className }: WelcomeStrataIllustrati
                 transition={VIEW_TRANSITION}
               >
                 <div className="mb-1 flex items-center justify-between gap-2">
-                  <p className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground/75">
+                  <p className="text-2xs font-medium uppercase tracking-wide text-muted-foreground/75">
                     Elaborated
                   </p>
                   {streamingElaborated || elaboratedText.length === 0 ? (
                     <ShinyText
                       as="span"
-                      className="text-[10px] font-light text-muted-foreground/75"
+                      className="text-2xs font-light text-muted-foreground/75"
                       speed={0.85}
                       text="Writing…"
                     />

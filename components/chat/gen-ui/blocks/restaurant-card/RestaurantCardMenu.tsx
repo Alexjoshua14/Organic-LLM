@@ -24,9 +24,9 @@ function formatMenuDate(iso: string): string {
 
 export function RestaurantCardMenu({ menu, partial }: RestaurantCardMenuProps) {
   return (
-    <section className={spacing.card.block}>
+    <section className={spacing.card.labelStack}>
       <div className={cn("flex flex-wrap items-baseline justify-between", spacing.gap.sm)}>
-        <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+        <p className="text-2xs font-semibold uppercase tracking-wide text-muted-foreground">
           Menu
         </p>
         <p className="text-[11px] text-muted-foreground">
@@ -62,7 +62,7 @@ export function RestaurantCardMenu({ menu, partial }: RestaurantCardMenuProps) {
                         {item.dietaryTags.map((tag) => (
                           <span
                             key={tag}
-                            className="rounded-full bg-muted/60 px-1.5 py-0.5 text-[10px] text-muted-foreground"
+                            className="rounded-full bg-muted/60 px-1.5 py-0.5 text-2xs text-muted-foreground"
                           >
                             {tag}
                           </span>
