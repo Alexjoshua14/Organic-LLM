@@ -19,7 +19,7 @@ must live in `AGENTS.md`.
 | Scope | Access |
 |-------|--------|
 | `docs/hub/`, `docs/<feature>/`, code, tests | Write |
-| `.context/hub/` (private intent) | Write — never move content into `docs/` |
+| `organic-llm-hub/` (private intent) | Write — never move content into `docs/` |
 | Linear resources | Ask first (Phase 3+) |
 | `git commit` | Only when the user explicitly asks |
 
@@ -34,7 +34,7 @@ Scope is user-triggered hub workflows. Broad routing stays in `AGENTS.md` — se
 ## MCP
 
 Linear is available. **Notion MCP is not available in Claude Code** — if canon lives only in
-Notion, Claude Code cannot read it. This is why product intent lives in `.context/hub/` as
+Notion, Claude Code cannot read it. This is why product intent lives in `organic-llm-hub/` as
 files rather than in Notion.
 
 ## Before you write

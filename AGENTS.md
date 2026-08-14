@@ -69,7 +69,8 @@ PRs to `main`; changes under `llm/morph-physics/` trigger a separate workflow.
 **Ask first**
 
 - Major architectural changes, or new dependencies.
-- Creating Linear or Notion resources (Phase 3+ — not yet stood up).
+- Creating Linear or Notion resources. Notion is agent-owned; Linear holds open questions only,
+  and implementation issues are gated — see `docs/hub/phases.md`.
 - Bumping the major version — see `.cursor/skills/app-semver/SKILL.md`.
 - `git commit`. Write files freely; commit only when the user asks.
 
@@ -77,7 +78,7 @@ PRs to `main`; changes under `llm/morph-physics/` trigger a separate workflow.
 
 - Commit secrets, or anything from `.handover/`, `.context/`, `.private/`, `.local-profile.md`.
   All are gitignored and hold material that must not reach a public repo.
-- Put strategy, roadmap, or competitive analysis in `docs/`. That belongs in `.context/hub/`.
+- Put strategy, roadmap, or competitive analysis in `docs/`. That belongs in `organic-llm-hub/`.
 - Duplicate hub canon across docs, skills, or adapters. Link instead.
 - Treat `docs/speak-page-architecture.md` or `docs/speak-page-workflow.md` as current — both
   describe the superseded pre-Realtime TTS pipeline.

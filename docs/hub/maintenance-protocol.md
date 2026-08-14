@@ -14,9 +14,9 @@ canonical home.
 This repository is **public**. Before writing anything, ask: **would I mind a competitor
 reading this?**
 
-- **Yes** → `.context/hub/` (gitignored), or Notion once Phase 4 exists.
+- **Yes** → the `organic-llm-hub` private repo, or Notion for vision and feel.
 - **No** → `docs/`.
-- **Unsure** → `.context/hub/`, and link a neutral pointer from `docs/` if agents need to know
+- **Unsure** → `organic-llm-hub/`, and link a neutral pointer from `docs/` if agents need to know
   it exists.
 
 See [ownership.md](./ownership.md#the-sensitivity-test) for the full test.
@@ -25,21 +25,21 @@ See [ownership.md](./ownership.md#the-sensitivity-test) for the full test.
 
 ### Vision or feel changed
 
-→ Notion vision page (Phase 4+); `.context/hub/` until then.
+→ Notion vision page (live). `organic-llm-hub/` still holds positioning until it migrates.
 → If it changes build scope, also add to the relevant `open-questions.md`.
 
 ### Product intent changed — scope, acceptance criteria, UX
 
-→ Update `.context/hub/<feature>/product-spec.md`.
+→ Update `organic-llm-hub/<feature>/product-spec.md`.
 → Bump `spec_revision` in its frontmatter when the change is material.
 → Open or update a Linear issue (Phase 3+).
-→ Log the "why" in the Notion decision log if it is non-obvious (Phase 4+).
+→ Log the "why" in the Notion decision log if it is non-obvious.
 
 ### Technical decision made
 
 → Write an ADR at `docs/<feature>/decisions/YYYYMMDD-short-title.md`.
 → Public by default — ADRs are about code structure. If the *reasoning* is strategic, put the
-   decision in the ADR and the strategic why in `.context/hub/`, then link.
+   decision in the ADR and the strategic why in `organic-llm-hub/`, then link.
 → Link from the Linear issue when one exists.
 
 ### Behavioral rule locked
@@ -51,7 +51,7 @@ See [ownership.md](./ownership.md#the-sensitivity-test) for the full test.
 
 → Create a Linear issue with `notion:` and `spec:` links (Phase 3+).
 → **Do not duplicate spec content into the issue body.** Link to it.
-→ Until Linear exists, add it to the feature's roadmap section in `.context/hub/`.
+→ Until Linear exists, add it to the feature's roadmap section in `organic-llm-hub/`.
 
 ### Bug found
 

@@ -23,7 +23,7 @@ records it in a file, which means: **a good conversation that never gets written
 ## Distilling a conversation
 
 1. Sensitivity check first — most product conversation is strategic and belongs in
-   `.context/hub/`, not `docs/`.
+   `organic-llm-hub/`, not `docs/`.
 2. Split it: intent → `product-spec.md`; unresolved → `open-questions.md`; technical →
    an ADR; feel → the vision layer.
 3. Record what was **decided** and what stayed **open**. Do not resolve an open question just

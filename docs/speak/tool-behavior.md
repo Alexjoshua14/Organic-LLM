@@ -41,7 +41,7 @@ Refine per tool with the user. These are defaults, not contracts.
 
 - **Resume UX is deferred** — deliberately unresolved, not an oversight. The history-recall row
   above describes a tool acknowledgment, not a resume design. See
-  `.context/hub/speak/open-questions.md`.
+  `organic-llm-hub/speak/open-questions.md`.
 - Several rows describe tools **not yet reachable from voice** (memory, web search, restaurant,
   tasks, mermaid). They are specified now so behavior is decided before implementation, not
   retrofitted after. Current tool inventory: [README](./README.md#current-state-vs-text-chat).

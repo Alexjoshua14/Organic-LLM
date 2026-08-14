@@ -13,10 +13,7 @@ import {
   isSpeakRealtimeEnabled,
   registerSpeakRealtimeSession,
 } from "@/lib/rate-limit/speak-realtime";
-import {
-  DEFAULT_SPEAK_MODALITIES,
-  SpeakModalitiesSchema,
-} from "@/lib/schemas/speak-modalities";
+import { DEFAULT_SPEAK_MODALITIES, SpeakModalitiesSchema } from "@/lib/schemas/speak-modalities";
 import { buildSpeakRealtimeInstructions } from "@/lib/system-prompt/speak-realtime";
 
 export const maxDuration = 30;
@@ -71,10 +68,7 @@ export async function POST(req: Request) {
   const messageLimit = await checkLlmMessageLimit(sbUserId);
 
   if (!messageLimit.success) {
-    return NextResponse.json(
-      { error: messageLimit.error ?? "Too many requests" },
-      { status: 429 }
-    );
+    return NextResponse.json({ error: messageLimit.error ?? "Too many requests" }, { status: 429 });
   }
 
   const startCheck = await checkSpeakRealtimeSessionStart(sbUserId);
@@ -124,7 +118,7 @@ export async function POST(req: Request) {
         audio: {
           input: {
             turn_detection: { type: "server_vad" },
-            transcription: { model: "gpt-4o-mini-transcribe" },
+            transcription: { model: "gpt-transcribe" },
           },
           output: {
             voice: "alloy",
@@ -139,10 +133,7 @@ export async function POST(req: Request) {
 
     logger.error("POST", `OpenAI client_secrets failed: ${openaiRes.status} ${errText}`);
 
-    return NextResponse.json(
-      { error: "Failed to mint Realtime session" },
-      { status: 502 }
-    );
+    return NextResponse.json({ error: "Failed to mint Realtime session" }, { status: 502 });
   }
 
   const secretPayload = (await openaiRes.json()) as {

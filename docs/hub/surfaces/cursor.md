@@ -9,7 +9,7 @@
 | Scope | Access |
 |-------|--------|
 | `docs/hub/`, `docs/<feature>/`, code, tests | Write |
-| `.context/hub/` (private intent) | Write — never move content into `docs/` |
+| `organic-llm-hub/` (private intent) | Write — never move content into `docs/` |
 | Linear, Notion resources | Ask first (Phase 3+) |
 | `git commit` | Only when the user explicitly asks |
 

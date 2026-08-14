@@ -34,13 +34,13 @@ import { z } from "zod";
 const logger = createLogger("lib/llm/rabbit-hole/generation.ts");
 
 // Used for Core content generation
-const model = openai("gpt-5.2");
+const model = openai("gpt-5.6-sol");
 
 // Used for Branch suggestions
-const quickModel = openai("gpt-5.4-mini");
+const quickModel = openai("gpt-5.6-luna");
 
 // Used for Preview
-const rapidModel = openai("gpt-5.4-nano");
+const rapidModel = openai("gpt-5.6-luna");
 
 // Parameters for invoking the LLM for Rabbit Hole objects with consistent logging.
 type GenerateRabbitHoleObjectParams<T> = {

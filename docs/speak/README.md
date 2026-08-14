@@ -5,14 +5,16 @@ Speak is Organic LLM's voice surface and the **first large-scale workstream** un
 
 This doc is the **public, operational** half: what exists today, which files own what, and where
 the current state diverges from text chat. Product intent — scope, acceptance criteria,
-roadmap — is private and lives in `.context/hub/speak/`.
+roadmap — is private and lives in `organic-llm-hub/speak/`.
 
 | Doc | Holds |
 |-----|-------|
 | [Tool behavior](./tool-behavior.md) | Locked acknowledgment and visual rules |
 | [`decisions/`](./decisions/) | ADRs for Speak technical decisions |
-| `.context/hub/speak/product-spec.md` | Product intent (private, gitignored) |
-| `.context/hub/speak/open-questions.md` | Unresolved product direction (private) |
+| `organic-llm-hub/speak/product-spec.md` | Product intent (private repo) |
+| `organic-llm-hub/speak/planning-context.md` | User-provided framing from planning thread (private) |
+| `organic-llm-hub/speak/open-questions.md` | Unresolved product direction (private) |
+| [Linear: Speak — Voice Agent](https://linear.app/coalescence-labs/project/speak-voice-agent-1338508f6fc9) | Execution tracking + open-question issues |
 
 For UI and motion work, read the [design backbone](../design/README.md) first.
 
@@ -77,7 +79,7 @@ thread-metadata nanobots; none of chat's capability tools are reachable from voi
 ## Working on Speak
 
 1. Read the [hub README](../hub/README.md) and this file.
-2. Check `.context/hub/speak/open-questions.md` before assuming product direction — thread
+2. Check `organic-llm-hub/speak/open-questions.md` before assuming product direction — thread
    model, entity identity, and resume UX are deliberately unresolved.
 3. Follow [tool-behavior.md](./tool-behavior.md) for anything that speaks or shows a card.
 4. Record decisions per the [maintenance protocol](../hub/maintenance-protocol.md).

@@ -1,7 +1,7 @@
 # Linking conventions
 
 How canon in one system points at canon in another without duplicating it. Established now so
-that Linear (Phase 3+) and Notion (Phase 4+) slot in without a migration.
+that Linear slots in without a migration. Notion is already live.
 
 See [ownership.md](./ownership.md) for which system owns what.
 
@@ -10,7 +10,7 @@ See [ownership.md](./ownership.md) for which system owns what.
 Use a repo-relative path plus a durable anchor:
 
 ```
-spec: .context/hub/speak/product-spec.md#AC-3
+spec: organic-llm-hub/speak/product-spec.md#AC-3
 spec: docs/speak/tool-behavior.md#memory-search
 ```
 
@@ -24,14 +24,14 @@ The repo is public and `.context/` is not. Links across that boundary follow one
 
 | Direction | Allowed | Example |
 |-----------|---------|---------|
-| Public → private | Name the path so agents know to look | "Product intent lives in `.context/hub/speak/product-spec.md`" |
+| Public → private | Name the path so agents know to look | "Product intent lives in `organic-llm-hub/speak/product-spec.md`" |
 | Public → private | ❌ Restate what it says | "Intent is to beat X on latency" — leaks the content |
 | Private → public | Normal relative links | `../../docs/speak/tool-behavior.md` |
 
 Private docs carry this header so a misplaced copy is obvious on sight:
 
 ```markdown
-> **PRIVATE** — `.context/` is gitignored. Do not move into `docs/` or any public surface.
+> **PRIVATE** — intent repo. Do not move into `Organic-LLM/docs/` or any public surface.
 ```
 
 ## Linear issues (Phase 3+)
@@ -50,7 +50,7 @@ Rules:
 - Issues referencing private specs use the path form — the path is not itself sensitive.
 - Every Linear project description links back to its Notion page and its spec path.
 
-## Notion (Phase 4+)
+## Notion (live)
 
 - Every PRD's **first line** links to the Linear project.
 - Every hub page links to the repo path holding the corresponding operational canon.
@@ -68,7 +68,7 @@ docs/speak/decisions/20260812-webrtc-transport.md
 - Title is kebab-case and describes the decision, not the topic —
   `20260812-webrtc-transport.md`, not `20260812-transport-options.md`.
 - ADRs are public by default. If the reasoning is strategic, record the decision in the ADR and
-  the strategic why in `.context/hub/`, then link.
+  the strategic why in `organic-llm-hub/`, then link.
 - ADRs are append-only. Superseding an ADR means writing a new one that links back and marks
   the old one `Superseded by <path>` — never rewriting history.
 
@@ -82,7 +82,7 @@ docs/<feature>/                    # public — operational
 ├── <behavior>.md                  # locked behavioral rules
 └── decisions/                     # ADRs
 
-.context/hub/<feature>/            # private — intent
+organic-llm-hub/<feature>/            # private — intent
 ├── product-spec.md                # problem, scope, ACs, success metrics, roadmap
 └── open-questions.md              # unresolved product direction
 ```

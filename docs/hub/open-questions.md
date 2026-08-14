@@ -2,7 +2,7 @@
 
 Unsettled decisions about **how we work**: tooling, formats, structure, cleanup.
 
-Questions about **product direction** are private — see `.context/hub/` and each feature's
+Questions about **product direction** are private — see `organic-llm-hub/` and each feature's
 own `open-questions.md`.
 
 Recording a question is the deliverable. Do not close one by inventing an answer; open
@@ -15,7 +15,7 @@ questions close deliberately, with the user, and the resolution gets written dow
 
 **Status:** Open — leaning yes, deferred until a first implementation slice exists.
 
-`.context/hub/speak/product-spec.md` currently uses ProductSpec's **section skeleton and ID
+`organic-llm-hub/speak/product-spec.md` currently uses ProductSpec's **section skeleton and ID
 conventions** (`AC-n`, `SM-n`) without claiming compliance. Full v0.1 compliance would require
 `artifact_type`, `author`, `created_at`, `updated_at` frontmatter, fenced
 `productspec-*` blocks, and a populated `success_metrics` section.
@@ -46,13 +46,17 @@ neither and should be deleted.
 
 ## Hub durability across machines
 
-**Status:** Open.
+**Status:** ✅ **Resolved 2026-08-09** — private sibling repo.
 
-`.context/` is gitignored and machine-local. Claude Code runs on this machine and on Aetherion;
-Cursor runs on this machine only. Private intent therefore does not travel today.
+Intent moved from the gitignored `.context/hub/` into `Alexjoshua14/organic-llm-hub`, a private
+repository cloned alongside this one. Version controlled, greppable, syncs to every machine, and
+readable with no MCP or network dependency.
 
-Options: promote `.context/hub/` to a private sibling repo; rely on Notion from Phase 4; accept
-single-machine authorship. Not urgent while authorship is single-machine.
+Rationale and the alternatives rejected — Notion, and staying in `.context/` — are recorded in
+`organic-llm-hub/decisions/20260809-intent-layer-in-private-repo.md`.
+
+**Still open:** whether to add one-way `repo → Notion` publishing for visibility. Not needed
+while authorship is single-person.
 
 ---
 
@@ -67,12 +71,21 @@ skills. Revisit once the hub is stood up.
 
 ---
 
-## Notion workspace location
+## Notion authority during the vision migration
 
-**Status:** Open — Phase 4.
+**Status:** Open — narrowed 2026-08-08.
 
-Where the "Organic LLM Hub" parent page lives, and how Speak nests under it. Also unresolved:
-whether Notion or `.context/hub/` is authoritative for vision during the overlap.
+**Resolved:** the workspace exists. The *Vision Keeper* agent has edit access to the Organic LLM
+Notion space, GitHub MCP, and mention-only triggers.
+
+**Still open:**
+
+- Which side is authoritative for vision while both hold it — Notion or `organic-llm-hub/`. Two
+  live copies is the drift this hub exists to prevent, and it exists right now.
+- Page structure: where the hub parent sits and how Speak nests under it.
+
+Next action: **move** the positioning section out of `organic-llm-hub/README.md` rather than
+copying it, and leave a pointer behind. See [phases.md](./phases.md#phase-4--notion-vision-layer-live).
 
 ---
 

@@ -16,6 +16,7 @@ Canon for the product: what we're building, who owns which kind of truth, how ag
   - [Ownership](./hub/ownership.md) — one canonical home per kind of truth
   - [Maintenance protocol](./hub/maintenance-protocol.md) — how agents record what they learn
   - [Linking conventions](./hub/linking-conventions.md) — spec refs, ADR naming, Linear/Notion fields
+  - [Phases](./hub/phases.md) — what's built, what's gated, what each phase must not do
   - [Open questions](./hub/open-questions.md) — unsettled operational decisions
   - [Surface adapters](./hub/surfaces/) — Cursor, Claude Code, Notion, in-app
 - **[Speak](./speak/README.md)** — voice agent; first large-scale workstream under the hub
