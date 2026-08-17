@@ -1,0 +1,52 @@
+@media (prefers-reduced-motion: no-preference) {
+  ::view-transition-group(restaurant-card-hero),
+  ::view-transition-group(restaurant-card-title),
+  ::view-transition-group(restaurant-card-rating),
+  ::view-transition-old(restaurant-card-hero),
+  ::view-transition-new(restaurant-card-hero),
+  ::view-transition-old(restaurant-card-title),
+  ::view-transition-new(restaurant-card-title),
+  ::view-transition-old(restaurant-card-rating),
+  ::view-transition-new(restaurant-card-rating) {
+    animation-duration: 0.38s;
+    animation-timing-function: cubic-bezier(0.23, 1, 0.32, 1);
+  }
+
+  /*
+   * Hero morph: border-radius lives on the named clip wrapper (not the img).
+   * Clip + mix-blend on old/new snapshots so corners stay rounded during the morph.
+   */
+  ::view-transition-group(restaurant-card-hero) {
+    overflow: clip;
+  }
+
+  ::view-transition-image-pair(restaurant-card-hero) {
+    isolation: isolate;
+  }
+
+  ::view-transition-old(restaurant-card-hero),
+  ::view-transition-new(restaurant-card-hero) {
+    width: 100%;
+    height: 100%;
+    overflow: clip;
+    object-fit: cover;
+    mix-blend-mode: normal;
+    backface-visibility: hidden;
+    /* Let the group resize morph; avoid a square crossfade between snapshots. */
+    animation: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  ::view-transition-group(restaurant-card-hero),
+  ::view-transition-group(restaurant-card-title),
+  ::view-transition-group(restaurant-card-rating),
+  ::view-transition-old(restaurant-card-hero),
+  ::view-transition-new(restaurant-card-hero),
+  ::view-transition-old(restaurant-card-title),
+  ::view-transition-new(restaurant-card-title),
+  ::view-transition-old(restaurant-card-rating),
+  ::view-transition-new(restaurant-card-rating) {
+    animation: none !important;
+  }
+}

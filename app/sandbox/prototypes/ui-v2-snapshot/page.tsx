@@ -182,7 +182,7 @@ function SidebarPreview({ variant }: { variant: SnapshotVariant }) {
                 key={thread.title}
               >
                 <span className="truncate">{thread.title}</span>
-                <span className="text-[10px] opacity-60">{thread.meta}</span>
+                <span className="text-2xs opacity-60">{thread.meta}</span>
               </div>
             ))}
           </div>

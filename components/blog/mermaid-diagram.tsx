@@ -1,54 +1,101 @@
 "use client";
 
-import { Modal, ModalBody, ModalContent, ModalHeader, useDisclosure } from "@heroui/modal";
 import mermaid from "mermaid";
-import { useCallback, useEffect, useRef, useState, type KeyboardEvent } from "react";
+import { useCallback, useEffect, useId, useRef, useState, type KeyboardEvent } from "react";
+import { toast } from "sonner";
 
-import { cn } from "@/lib/utils";
+import { MermaidDiagramControls } from "@/components/mermaid/mermaid-diagram-controls";
+import { MermaidNodePopover } from "@/components/mermaid/mermaid-node-popover";
 import { ensureMermaidDomPurify, sanitizeMermaidSvgMarkup } from "@/lib/html/sanitize";
-import { stripMermaidSecurityInitDirectives } from "@/lib/mermaid/source";
+import { useDiagramNodeLinksOptional } from "@/lib/mermaid/diagram-node-links-context";
+import { useDiagramTakeoverOptional } from "@/lib/mermaid/diagram-takeover-context";
+import { buildNodeNeighborhood, extractNodeLabel } from "@/lib/mermaid/node-graph";
+import {
+  applyMermaidGlassStyles,
+  mermaidRevealClass,
+  mermaidWellClass,
+  mermaidWellInnerClass,
+  resolveMermaidFontFamily,
+} from "@/lib/mermaid/presentation";
+import { normalizeMermaidCode } from "@/lib/mermaid/source";
+import type { MermaidDiagramDensity } from "@/lib/mermaid/types";
+import { cn } from "@/lib/utils";
+
+let mermaidInitialized = false;
+
+function initializeMermaidOnce() {
+  if (mermaidInitialized) return;
+  mermaidInitialized = true;
+
+  ensureMermaidDomPurify();
+  mermaid.initialize({
+    startOnLoad: false,
+    theme: "neutral",
+    securityLevel: "strict",
+    suppressErrorRendering: true,
+    fontFamily: resolveMermaidFontFamily(),
+  });
+}
+
+let mermaidRenderQueue: Promise<unknown> = Promise.resolve();
+
+function enqueueMermaidRender<T>(task: () => Promise<T>): Promise<T> {
+  const result = mermaidRenderQueue.then(task, task);
+
+  mermaidRenderQueue = result.catch(() => {});
+
+  return result;
+}
+
+const STALE_RENDER = Symbol("stale-mermaid-render");
+type MermaidRenderOutcome = Awaited<ReturnType<typeof mermaid.render>> | typeof STALE_RENDER;
+
+const ERROR_GRACE_MS = 400;
+
+export type MermaidDiagramProps = {
+  code: string;
+  overviewCode?: string;
+  detailedCode?: string;
+  diagramId?: string;
+  title?: string;
+  density?: MermaidDiagramDensity;
+  /** When true (e.g. Arcadia chat), double-click also opens expand. */
+  expandOnDoubleClick?: boolean;
+  interactive?: boolean;
+  variant?: "inline" | "takeover";
+};
 
 export function MermaidDiagram({
   code,
+  overviewCode,
+  detailedCode,
+  diagramId: diagramIdProp,
+  title,
+  density = "overview",
   expandOnDoubleClick = false,
-}: {
-  code: string;
-  /** When true (e.g. Arcadia chat), double-click opens a larger modal view. */
-  expandOnDoubleClick?: boolean;
-}) {
+  interactive = false,
+  variant = "inline",
+}: MermaidDiagramProps) {
+  const wellRef = useRef<HTMLDivElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const renderEpochRef = useRef(0);
   const [error, setError] = useState<string | null>(null);
-  const { isOpen, onOpen, onOpenChange } = useDisclosure();
+  const [revealed, setRevealed] = useState(false);
+  const [popover, setPopover] = useState<{
+    x: number;
+    y: number;
+    nodeId: string;
+    label: string;
+  } | null>(null);
 
-  const handleExpandedKeyDown = useCallback(
-    (e: KeyboardEvent<HTMLDivElement>) => {
-      if (e.key === "Enter" || e.key === " ") {
-        e.preventDefault();
-        onOpen();
-      }
-    },
-    [onOpen]
-  );
+  const instanceId = useId().replace(/[^a-zA-Z0-9_-]/g, "");
+  const diagramId = diagramIdProp ?? `diagram-${instanceId}`;
+  const takeover = useDiagramTakeoverOptional();
+  const nodeLinks = useDiagramNodeLinksOptional();
 
-  function toRenderErrorMessage(err: unknown): string {
-    if (err instanceof Error && typeof err.message === "string" && err.message.trim()) {
-      return err.message;
-    }
-    if (typeof err === "string" && err.trim()) {
-      return err;
-    }
-    if (err == null) {
-      return "Unknown Mermaid render error";
-    }
-    try {
-      const asJson = JSON.stringify(err);
-
-      return asJson && asJson !== "{}" ? asJson : String(err);
-    } catch {
-      return String(err);
-    }
-  }
+  const inlineSource = overviewCode ?? code;
+  const fullSource = detailedCode ?? overviewCode ?? code;
+  const renderSource = variant === "takeover" && detailedCode ? detailedCode : inlineSource;
 
   const applyMindmapLayering = (svgEl: SVGSVGElement) => {
     const root = svgEl.querySelector(":scope > g");
@@ -57,8 +104,6 @@ export function MermaidDiagram({
     const nodes = svgEl.querySelector(".nodes");
 
     if (edgePaths) {
-      // Hoist per-node connector lines into the shared edge layer, preserving each
-      // node's translate() so coordinates stay correct after reparenting.
       svgEl.querySelectorAll("g.node.mindmap-node").forEach((node) => {
         const line = node.querySelector(":scope > line");
 
@@ -74,203 +119,104 @@ export function MermaidDiagram({
       });
     }
 
-    // `insertBefore` throws NotFoundError ("The object can not be found here."
-    // in WebKit) when `nodes` is not a direct child of `root` — some diagram
-    // types (e.g. state) nest it deeper. Only reorder when they are siblings.
     if (root && nodes && nodes.parentNode === root) {
       if (edgePaths) root.insertBefore(edgePaths, nodes);
       if (edgeLabels) root.insertBefore(edgeLabels, nodes);
     }
   };
 
-  const applyGlassStylingToSvg = (svgEl: SVGSVGElement) => {
-    const styleId = "mermaid-glass-style";
+  const wireNodeInteractions = useCallback(
+    (svgEl: SVGSVGElement, source: string) => {
+      if (!interactive) return;
 
-    // Remove any prior injected style so re-renders don't accumulate.
-    svgEl.querySelector(`#${styleId}`)?.remove();
+      svgEl.querySelectorAll("g.node").forEach((nodeEl) => {
+        const g = nodeEl as SVGGElement;
+        const nodeId = g.id?.replace(/^flowchart-|-\d+$/g, "").split("-").pop();
 
-    const styleEl = document.createElement("style");
+        if (!nodeId) return;
 
-    styleEl.setAttribute("id", styleId);
-    styleEl.textContent = `
-      /* Light mode (no .dark on html): opaque card fills so edges do not bleed through */
-      .mermaid svg .node rect,
-      .mermaid svg .node polygon,
-      .mermaid svg .node circle,
-      .mermaid svg .node ellipse,
-      .mermaid svg .node path,
-      .mermaid svg .node .node-bkg,
-      .mermaid svg .node .basic.label-container {
-        fill: var(--card) !important;
-        stroke: var(--border) !important;
-        stroke-width: 1 !important;
-      }
+        g.style.cursor = "pointer";
+        g.setAttribute("data-mermaid-node-id", nodeId);
 
-      .mermaid svg .edgePath path,
-      .mermaid svg .edgePaths path {
-        stroke: var(--muted-foreground) !important;
-      }
+        g.addEventListener("click", (e) => {
+          e.stopPropagation();
+          const label = extractNodeLabel(source, nodeId);
 
-      .mermaid svg .node > line {
-        stroke: var(--muted-foreground) !important;
-      }
-
-      /* Mindmap nodes: opaque halo masks connector strokes at pill/circle edges */
-      .mermaid svg .node.mindmap-node .node-bkg,
-      .mermaid svg .node.mindmap-node .basic.label-container {
-        paint-order: stroke fill;
-        fill: var(--card) !important;
-        stroke: var(--card) !important;
-        stroke-width: 5 !important;
-      }
-
-      .mermaid svg foreignObject > div {
-        background-color: var(--card) !important;
-      }
-
-      .mermaid svg .label text,
-      .mermaid svg .node text,
-      .mermaid svg text,
-      .mermaid svg tspan {
-        fill: var(--foreground) !important;
-      }
-
-      /* Mindmaps render labels as HTML inside foreignObject; Mermaid alternates
-         section colors (light text on dark nodes) which breaks once fills are
-         normalized to card surfaces above. */
-      .mermaid svg foreignObject .nodeLabel,
-      .mermaid svg foreignObject .nodeLabel p,
-      .mermaid svg foreignObject .markdown-node-label,
-      .mermaid svg foreignObject .markdown-node-label p {
-        color: var(--foreground) !important;
-      }
-
-      .mermaid svg line {
-        stroke: var(--muted-foreground) !important;
-      }
-
-      /* Dark mode: raised-opacity fills so connectors stay underneath readable nodes */
-      .dark .mermaid svg .node rect,
-      .dark .mermaid svg .node polygon,
-      .dark .mermaid svg .node circle,
-      .dark .mermaid svg .node ellipse,
-      .dark .mermaid svg .node path,
-      .dark .mermaid svg .node .node-bkg,
-      .dark .mermaid svg .node .basic.label-container {
-        fill: color-mix(in srgb, var(--card) 92%, var(--foreground) 8%) !important;
-        stroke: rgba(255, 255, 255, 0.18) !important;
-        stroke-width: 1 !important;
-      }
-
-      .dark .mermaid svg .edgePath path,
-      .dark .mermaid svg .edgePaths path {
-        stroke: rgba(255, 255, 255, 0.35) !important;
-      }
-
-      .dark .mermaid svg .node > line {
-        stroke: rgba(255, 255, 255, 0.35) !important;
-      }
-
-      .dark .mermaid svg .node.mindmap-node .node-bkg,
-      .dark .mermaid svg .node.mindmap-node .basic.label-container {
-        paint-order: stroke fill;
-        fill: color-mix(in srgb, var(--card) 92%, var(--foreground) 8%) !important;
-        stroke: color-mix(in srgb, var(--card) 92%, var(--foreground) 8%) !important;
-        stroke-width: 5 !important;
-      }
-
-      .dark .mermaid svg foreignObject > div {
-        background-color: color-mix(in srgb, var(--card) 92%, var(--foreground) 8%) !important;
-      }
-
-      .dark .mermaid svg .label text,
-      .dark .mermaid svg .node text,
-      .dark .mermaid svg text,
-      .dark .mermaid svg tspan {
-        fill: rgba(255, 255, 255, 0.9) !important;
-      }
-
-      .dark .mermaid svg foreignObject .nodeLabel,
-      .dark .mermaid svg foreignObject .nodeLabel p,
-      .dark .mermaid svg foreignObject .markdown-node-label,
-      .dark .mermaid svg foreignObject .markdown-node-label p {
-        color: rgba(255, 255, 255, 0.9) !important;
-      }
-
-      .dark .mermaid svg line {
-        stroke: rgba(255, 255, 255, 0.35) !important;
-      }
-    `;
-
-    svgEl.prepend(styleEl);
-    applyMindmapLayering(svgEl);
-  };
+          setPopover({ x: e.clientX, y: e.clientY, nodeId, label });
+        });
+      });
+    },
+    [interactive]
+  );
 
   useEffect(() => {
-    if (!code || !containerRef.current) return;
+    if (!renderSource) return;
     const epoch = ++renderEpochRef.current;
-    const safeCode = stripMermaidSecurityInitDirectives(code);
+    const safeCode = normalizeMermaidCode(renderSource);
 
     let cancelled = false;
-
-    setError(null);
-    containerRef.current.innerHTML = "";
+    const isCurrent = () => !cancelled && renderEpochRef.current === epoch;
+    const wait = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
     const renderOnce = async (diagramCode: string) => {
-      ensureMermaidDomPurify();
-      // Strict mode strips HTML in foreignObject; DOMPurify is provided via ensureMermaidDomPurify.
-      mermaid.initialize({
-        startOnLoad: false,
-        theme: "neutral",
-        securityLevel: "strict",
-      });
+      initializeMermaidOnce();
 
-      await mermaid.parse(diagramCode);
-      const renderId = `mermaid-${Date.now()}-${epoch}`;
-      const renderResult = await mermaid.render(renderId, diagramCode);
+      if (!isCurrent()) return;
+
+      const renderId = `mermaid-${instanceId}-${epoch}`;
+      const renderResult = await enqueueMermaidRender<MermaidRenderOutcome>(() =>
+        isCurrent() ? mermaid.render(renderId, diagramCode) : Promise.resolve(STALE_RENDER)
+      );
+
+      if (renderResult === STALE_RENDER) return;
+
       const svgMarkup =
         typeof renderResult === "string" ? renderResult : (renderResult as { svg?: string })?.svg;
 
-      if (!svgMarkup) {
-        throw new Error("Mermaid render returned empty SVG.");
-      }
+      if (!svgMarkup) throw new Error("Mermaid render returned empty SVG.");
 
       const safeSvgMarkup = sanitizeMermaidSvgMarkup(svgMarkup);
 
-      if (cancelled || renderEpochRef.current !== epoch || !containerRef.current) {
-        return;
-      }
+      if (!isCurrent() || !containerRef.current) return;
 
       containerRef.current.innerHTML = safeSvgMarkup;
       const svg = containerRef.current.querySelector("svg");
 
       if (svg) {
         svg.setAttribute("role", "img");
-        svg.setAttribute("aria-label", "Diagram");
-        // Styling/layering is cosmetic and best-effort: never let a DOM quirk
-        // here blank an already-rendered diagram.
+        svg.setAttribute("aria-label", title ?? "Diagram");
         try {
-          applyGlassStylingToSvg(svg as SVGSVGElement);
+          applyMermaidGlassStyles(svg as SVGSVGElement);
+          applyMindmapLayering(svg as SVGSVGElement);
+          wireNodeInteractions(svg as SVGSVGElement, diagramCode);
         } catch {
-          /* keep the rendered SVG even if glass styling fails */
+          /* keep rendered SVG */
         }
+      }
+
+      if (isCurrent()) {
+        setRevealed(true);
       }
     };
 
     const run = async () => {
+      setRevealed(false);
       try {
         await renderOnce(safeCode);
+        if (isCurrent()) setError(null);
       } catch (firstErr) {
-        // First-load Mermaid occasionally fails in hydration races; retry once on next tick.
-        await new Promise((resolve) => setTimeout(resolve, 30));
+        await wait(30);
+        if (!isCurrent()) return;
         try {
           await renderOnce(safeCode);
+          if (isCurrent()) setError(null);
         } catch (retryErr) {
           const bestError = toRenderErrorMessage(retryErr) || toRenderErrorMessage(firstErr);
 
-          if (!cancelled && renderEpochRef.current === epoch) {
-            setError(bestError);
-          }
+          await wait(ERROR_GRACE_MS);
+          if (!isCurrent()) return;
+          if (containerRef.current) containerRef.current.innerHTML = "";
+          setError(bestError);
         }
       }
     };
@@ -280,54 +226,177 @@ export function MermaidDiagram({
     return () => {
       cancelled = true;
     };
-  }, [code]);
+  }, [renderSource, instanceId, title, wireNodeInteractions]);
 
-  if (error) {
-    return (
-      <div
-        className="rounded-lg border border-destructive/50 bg-destructive/10 px-4 py-3 text-sm text-destructive"
-        role="alert"
-      >
-        Diagram could not be rendered: {error}
-      </div>
-    );
-  }
+  const handleExpand = useCallback(() => {
+    const rect = wellRef.current?.getBoundingClientRect();
 
-  const diagram = (
-    <div
-      ref={containerRef}
-      aria-label={
-        expandOnDoubleClick ? "Diagram — double-click or press Enter to enlarge" : undefined
+    if (!rect || !takeover) {
+      toast.message("Expand is available in chat.");
+
+      return;
+    }
+
+    takeover.openTakeover({
+      diagramId,
+      title,
+      density,
+      overviewCode: inlineSource,
+      detailedCode: fullSource,
+      startRect: rect,
+      mode: "expand",
+    });
+  }, [takeover, diagramId, title, density, inlineSource, fullSource]);
+
+  const handleCopySource = useCallback(async () => {
+    try {
+      await navigator.clipboard.writeText(fullSource);
+      toast.success("Mermaid source copied");
+    } catch {
+      toast.error("Could not copy source");
+    }
+  }, [fullSource]);
+
+  const handleDownloadSvg = useCallback(() => {
+    const svg = containerRef.current?.querySelector("svg");
+
+    if (!svg) return;
+
+    const blob = new Blob([svg.outerHTML], { type: "image/svg+xml" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+
+    a.href = url;
+    a.download = `${diagramId}.svg`;
+    a.click();
+    URL.revokeObjectURL(url);
+  }, [diagramId]);
+
+  const handleExpandedKeyDown = useCallback(
+    (e: KeyboardEvent<HTMLDivElement>) => {
+      if (expandOnDoubleClick && (e.key === "Enter" || e.key === " ")) {
+        e.preventDefault();
+        handleExpand();
       }
-      className={cn(
-        "mermaid my-4 flex justify-center overflow-x-auto [&_svg]:max-w-full",
-        expandOnDoubleClick &&
-          "cursor-zoom-in select-none rounded-md outline-none ring-offset-2 transition-shadow hover:ring-2 hover:ring-border/60 focus-visible:ring-2 focus-visible:ring-ring"
-      )}
-      role={expandOnDoubleClick ? "button" : undefined}
-      tabIndex={expandOnDoubleClick ? 0 : undefined}
-      onDoubleClick={expandOnDoubleClick ? onOpen : undefined}
-      onKeyDown={expandOnDoubleClick ? handleExpandedKeyDown : undefined}
-    />
+    },
+    [expandOnDoubleClick, handleExpand]
   );
 
-  if (!expandOnDoubleClick) {
-    return diagram;
-  }
+  const showControls = variant === "inline" && interactive;
 
   return (
     <>
-      {diagram}
-      <Modal isOpen={isOpen} scrollBehavior="inside" size="5xl" onOpenChange={onOpenChange}>
-        <ModalContent className="max-h-[92dvh]">
-          <ModalHeader className="flex flex-col gap-1 pb-1">Diagram</ModalHeader>
-          <ModalBody className="max-h-[min(80dvh,720px)] overflow-auto pt-0">
-            <div className="flex min-h-48 justify-center [&_.mermaid]:my-0">
-              <MermaidDiagram code={code} />
-            </div>
-          </ModalBody>
-        </ModalContent>
-      </Modal>
+      {error ? (
+        <div
+          className="rounded-lg border border-destructive/50 bg-destructive/10 px-4 py-3 text-sm text-destructive"
+          role="alert"
+        >
+          Diagram could not be rendered: {error}
+        </div>
+      ) : null}
+
+      <div
+        ref={wellRef}
+        className={cn(
+          mermaidWellClass,
+          variant === "takeover" && "my-0 shadow-none",
+          error && "hidden"
+        )}
+      >
+        {showControls ? (
+          <MermaidDiagramControls
+            onCopySource={handleCopySource}
+            onDownloadSvg={handleDownloadSvg}
+            onExpand={handleExpand}
+          />
+        ) : null}
+
+        <div
+          className={cn(
+            mermaidWellInnerClass,
+            revealed && mermaidRevealClass,
+            !revealed && "opacity-0"
+          )}
+        >
+          <div
+            ref={containerRef}
+            aria-label={
+              expandOnDoubleClick || interactive
+                ? "Diagram — double-click or press Enter to enlarge"
+                : undefined
+            }
+            className={cn(
+              "mermaid flex min-w-0 justify-center",
+              (expandOnDoubleClick || interactive) &&
+                "cursor-zoom-in select-none outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            )}
+            role={expandOnDoubleClick || interactive ? "button" : undefined}
+            tabIndex={expandOnDoubleClick || interactive ? 0 : undefined}
+            onDoubleClick={expandOnDoubleClick || interactive ? handleExpand : undefined}
+            onKeyDown={expandOnDoubleClick || interactive ? handleExpandedKeyDown : undefined}
+          />
+        </div>
+      </div>
+
+      {popover && nodeLinks ? (
+        <MermaidNodePopover
+          label={popover.label}
+          x={popover.x}
+          y={popover.y}
+          onChatAbout={() => {
+            nodeLinks.addLink({
+              diagramId,
+              nodeId: popover.nodeId,
+              label: popover.label,
+              title,
+              density,
+              neighborhood: buildNodeNeighborhood(fullSource, popover.nodeId),
+            });
+            toast.success(`Linked "${popover.label}" to your next message`);
+            setPopover(null);
+          }}
+          onClose={() => setPopover(null)}
+          onExpandBranch={() => {
+            const rect = wellRef.current?.getBoundingClientRect();
+
+            if (rect && takeover) {
+              takeover.openTakeover({
+                diagramId,
+                title,
+                density,
+                overviewCode: inlineSource,
+                detailedCode: fullSource,
+                startRect: rect,
+                focusNodeId: popover.nodeId,
+                mode: takeover.isDetailedView ? "deepen" : "reveal",
+              });
+            }
+            setPopover(null);
+          }}
+          onExplain={() => {
+            toast.message(`Explain: ${popover.label} (coming soon)`);
+            setPopover(null);
+          }}
+          onRabbitHole={() => {
+            toast.message(`Rabbit hole: ${popover.label} (coming soon)`);
+            setPopover(null);
+          }}
+        />
+      ) : null}
     </>
   );
+}
+
+function toRenderErrorMessage(err: unknown): string {
+  if (err instanceof Error && err.message.trim()) return err.message;
+  if (typeof err === "string" && err.trim()) return err;
+  if (err == null) return "Unknown Mermaid render error";
+
+  try {
+    const asJson = JSON.stringify(err);
+
+    return asJson && asJson !== "{}" ? asJson : String(err);
+  } catch {
+    return String(err);
+  }
 }

@@ -79,7 +79,7 @@ export function DecisionMatrix({ block, partial }: DecisionMatrixProps) {
                 >
                   {c.label}
                   {c.weight != null ? (
-                    <span className="block text-[10px] font-normal opacity-70">w{c.weight}</span>
+                    <span className="block text-2xs font-normal opacity-70">w{c.weight}</span>
                   ) : null}
                 </th>
               ))}
@@ -109,7 +109,7 @@ export function DecisionMatrix({ block, partial }: DecisionMatrixProps) {
                     <span className="flex flex-col gap-0.5">
                       {opt.name}
                       {isRec ? (
-                        <span className="text-[10px] font-semibold uppercase tracking-wide text-primary">
+                        <span className="text-2xs font-semibold uppercase tracking-wide text-primary">
                           Recommended
                         </span>
                       ) : null}
@@ -166,7 +166,7 @@ export function DecisionMatrix({ block, partial }: DecisionMatrixProps) {
               <div className="flex items-center justify-between gap-2">
                 <span className="font-medium text-sm">{opt.name}</span>
                 {isRec ? (
-                  <span className="text-[10px] font-semibold uppercase text-primary">
+                  <span className="text-2xs font-semibold uppercase text-primary">
                     Recommended
                   </span>
                 ) : null}

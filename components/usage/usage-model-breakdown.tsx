@@ -64,7 +64,7 @@ export function UsageModelBreakdown({ byModel, pricingAsOf }: UsageModelBreakdow
       <div className="overflow-hidden rounded-xl border border-border/50">
         <div
           className={cn(
-            "hidden gap-2 border-b border-border/40 bg-muted/20 px-3 py-2 text-[10px] uppercase tracking-[0.12em] text-muted-foreground sm:grid",
+            "hidden gap-2 border-b border-border/40 bg-muted/20 px-3 py-2 text-2xs uppercase tracking-[0.12em] text-muted-foreground sm:grid",
             gridClass
           )}
         >

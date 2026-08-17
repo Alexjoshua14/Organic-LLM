@@ -31,6 +31,8 @@ export interface AiInputFormProps
   clearAfterSubmit?: boolean;
   /** Larger composer / typography */
   fullView?: boolean;
+  /** Full-view docked near viewport bottom (browser chrome focused). */
+  composerDocked?: boolean;
   /** Fires on every textarea change */
   onTextChange?: (text: string) => void;
   /** Cmd/Ctrl+Enter from textarea */
@@ -58,6 +60,7 @@ const AiInputFormContent: React.FC<AiInputFormProps> = ({
   className,
   status,
   fullView = false,
+  composerDocked = false,
   onTextChange,
   onStrataShortcut,
   onPlanModeToggle,
@@ -127,20 +130,23 @@ const AiInputFormContent: React.FC<AiInputFormProps> = ({
     }
   };
 
-  const compactComposer = !fullView;
-  const minRows = fullView ? 12 : 1;
-  const maxRows = fullView ? 40 : 4;
-  const showFullViewCharCount = fullView && (status === "ready" || (forceReadyInput && isLoading));
+  const compactComposer = !fullView || composerDocked;
+  const minRows = fullView && !composerDocked ? 12 : 1;
+  const maxRows = fullView && !composerDocked ? 40 : 4;
+  const showFullViewCharCount =
+    fullView && !composerDocked && (status === "ready" || (forceReadyInput && isLoading));
 
   const submitDisabled = !textInput.value.trim() || isLoading;
   const submitStatusResolved = submitStatus ?? status ?? "ready";
 
   return (
-    <div className={cn("w-full", fullView && "flex min-h-0 flex-1 flex-col")}>
-      <HomeComposerLumenShell className={fullView ? "flex min-h-0 flex-1 flex-col" : undefined}>
+    <div className={cn("w-full", fullView && !composerDocked && "flex min-h-0 flex-1 flex-col")}>
+      <HomeComposerLumenShell
+        className={fullView && !composerDocked ? "flex min-h-0 flex-1 flex-col" : undefined}
+      >
         <PromptInput
           multiple
-          className={cn(className, fullView && "flex flex-col flex-1 min-h-0")}
+          className={cn(className, fullView && !composerDocked && "flex flex-col flex-1 min-h-0")}
           onSubmit={handleSubmit}
           {...props}
         >
@@ -160,6 +166,7 @@ const AiInputFormContent: React.FC<AiInputFormProps> = ({
                   "text-lg! md:text-lg! placeholder:text-lg! caret-accent w-full placeholder:text-foreground/80",
                   "!pb-[2.875rem] !pr-[2.75rem]",
                   fullView &&
+                    !composerDocked &&
                     "min-h-[70vh]! max-h-[min(70vh,11in)]! text-xl! md:text-xl! placeholder:text-xl! flex-1"
                 )}
                 disabled={isLoading}

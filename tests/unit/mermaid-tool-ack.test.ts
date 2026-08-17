@@ -33,6 +33,16 @@ describe("tryParseMermaidToolOutput", () => {
     ).toEqual({ kind: "error", message: "bad token" });
   });
 
+  test("reports success with overviewCode and no legacy code field", () => {
+    expect(
+      tryParseMermaidToolOutput({
+        success: true,
+        overviewCode: "flowchart TD\n  A --> B",
+        detailedCode: "flowchart TD\n  A --> B\n  B --> C",
+      })
+    ).toEqual({ kind: "ok" });
+  });
+
   test("reports success with no warning for clean output", () => {
     expect(
       tryParseMermaidToolOutput({ success: true, code: "flowchart TD\n  A --> B" })

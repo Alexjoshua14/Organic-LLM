@@ -12,9 +12,11 @@ import { toast } from "sonner";
 import { Conversation, ConversationScrollButton } from "../third-party/ai-elements/conversation";
 
 import { ChatThread, MEMORY_PANEL_RESERVE_PADDING } from "./chat-thread";
+import { ArcadiaChatSettingsDialog } from "./arcadia-chat-settings-dialog";
 import { CoreInput } from "./core-input";
 import { ChatStylePicker } from "./chat-style-picker";
 import { ChatThreadStyleOverlay } from "./chat-thread-style-overlay";
+import { DiagramTakeoverShell } from "@/components/mermaid/diagram-takeover-shell";
 
 import { MemoryEphemeralCards } from "@/components/memory/memory-ephemeral-cards";
 import { MemoryLens } from "@/components/memory/memory-lens";
@@ -48,6 +50,10 @@ import { applyKanbanCommand } from "@/lib/kanban/store";
 import { safeParseKanbanCommand } from "@/lib/schemas/kanban";
 import { applyMiseCommand } from "@/lib/mise/store";
 import { safeParseMiseCommand } from "@/lib/schemas/mise";
+import { DiagramNodeLinksProvider } from "@/lib/mermaid/diagram-node-links-context";
+import { DiagramTakeoverProvider } from "@/lib/mermaid/diagram-takeover-context";
+import type { DiagramNodeLink } from "@/lib/mermaid/types";
+import { isEditableEventTarget } from "@/lib/dom/is-editable-event-target";
 const logger = createLogger("components/chat/chat");
 
 export type ChatProps = {
@@ -113,7 +119,9 @@ export const Chat: React.FC<ChatProps> = ({
     null
   );
   const [contextBudgetRefreshKey, setContextBudgetRefreshKey] = useState(0);
+  const [arcadiaSettingsOpen, setArcadiaSettingsOpen] = useState(false);
   const wasStreamingRef = useRef(false);
+  const diagramNodeLinksRef = useRef<DiagramNodeLink[]>([]);
 
   useEffect(() => {
     const sync = () =>
@@ -186,6 +194,9 @@ export const Chat: React.FC<ChatProps> = ({
               coalescenceMode: getSettings().coalescenceMode,
               // Only include persistedSchemas in payload if true
               ...(usePersistedSchemas.current ? { persistedSchemas: true } : {}),
+              ...(diagramNodeLinksRef.current.length > 0
+                ? { diagramNodeLinks: diagramNodeLinksRef.current }
+                : {}),
             },
           };
 
@@ -354,6 +365,25 @@ export const Chat: React.FC<ChatProps> = ({
     wasStreamingRef.current = streaming;
   }, [status]);
 
+  useEffect(() => {
+    if (experience !== "arcadia" || !id) return;
+
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key !== "." || !(e.metaKey || e.ctrlKey) || e.altKey || e.shiftKey || e.repeat) {
+        return;
+      }
+
+      if (isEditableEventTarget(e.target)) return;
+
+      e.preventDefault();
+      setArcadiaSettingsOpen(true);
+    };
+
+    window.addEventListener("keydown", onKeyDown);
+
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [experience, id]);
+
   const handleStop = useCallback(async () => {
     // Remove the latest user message and partially completed AI message from messages
     // Remove the latest user message and any partially completed AI response
@@ -389,17 +419,19 @@ export const Chat: React.FC<ChatProps> = ({
   }, [messages]);
 
   return (
-    <div
-      className={[
-        "w-full",
-        "min-w-0",
-        "h-full",
-        "sm:max-h-[calc(100dvh-2rem)]",
-        "flex",
-        "flex-col",
-        "overflow-x-hidden",
-      ].join(" ")}
-    >
+    <DiagramNodeLinksProvider linksRef={diagramNodeLinksRef}>
+      <DiagramTakeoverProvider>
+        <div
+          className={[
+            "w-full",
+            "min-w-0",
+            "h-full",
+            "sm:max-h-[calc(100dvh-2rem)]",
+            "flex",
+            "flex-col",
+            "overflow-x-hidden",
+          ].join(" ")}
+        >
       <Conversation
         className={[
           "flex-1",
@@ -497,6 +529,17 @@ export const Chat: React.FC<ChatProps> = ({
           />
         </div>
       </div>
-    </div>
+          <DiagramTakeoverShell />
+          {experience === "arcadia" && id ? (
+            <ArcadiaChatSettingsDialog
+              chatId={id}
+              initialTitle={chatData?.thread.title}
+              open={arcadiaSettingsOpen}
+              onOpenChange={setArcadiaSettingsOpen}
+            />
+          ) : null}
+        </div>
+      </DiagramTakeoverProvider>
+    </DiagramNodeLinksProvider>
   );
 };

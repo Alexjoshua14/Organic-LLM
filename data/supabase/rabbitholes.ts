@@ -149,7 +149,7 @@ export async function getSessionById(
   const { data: sessionRow, error: sessionError } = await supabase
     .from("rabbit_hole_sessions")
     .select(
-      "session_id, root_question, active_node_id, generating_node_id, generation_step, created_at, updated_at"
+      "session_id, root_question, active_node_id, generating_node_id, generation_step, created_at, updated_at, chat_thread_id"
     )
     .eq("session_id", sessionId)
     .single();
@@ -175,7 +175,7 @@ export async function getSessionById(
     supabase
       .from("rabbit_hole_nodes")
       .select(
-        "node_id, raw_prompt, user_question, title, key_takeaways, article_html, preview, created_at"
+        "node_id, raw_prompt, user_question, title, key_takeaways, article_html, preview, summary, created_at"
       )
       .eq("session_id", sessionId),
     supabase
@@ -257,6 +257,7 @@ export async function getSessionById(
       title: rabbitHoleNodeTitleFromDb(node.title),
       refinedQuestion: null,
       preview: node.preview ?? null,
+      summary: node.summary ?? null,
       keyTakeaways: Array.isArray(node.key_takeaways) ? (node.key_takeaways as string[]) : [],
       articleHtml: node.article_html,
       sources: sourcesByNodeId.get(node.node_id) ?? [],
@@ -278,6 +279,10 @@ export async function getSessionById(
     path,
     nodesById,
     activeNodeId: sessionRow.active_node_id ?? rootNodeId,
+    chatThreadId:
+      "chat_thread_id" in sessionRow && typeof sessionRow.chat_thread_id === "string"
+        ? sessionRow.chat_thread_id
+        : undefined,
     generatingNodeId: sessionRow.generating_node_id ?? null,
     generationStep: (sessionRow.generation_step as RabbitHoleSession["generationStep"]) ?? null,
     edges,
@@ -306,6 +311,30 @@ export async function getSessionById(
     data: validated.data,
     error: null,
   };
+}
+
+/**
+ * Resolve session owner for server-side memory reads during generation (admin-safe).
+ */
+export async function getRabbitHoleSessionOwnerId(
+  sessionId: string,
+  client?: RabbitHolesSupabaseClient
+): Promise<string | null> {
+  const supabase = client ?? (await supabaseServer());
+
+  const { data, error } = await supabase
+    .from("rabbit_hole_sessions")
+    .select("owner_id")
+    .eq("session_id", sessionId)
+    .maybeSingle();
+
+  if (error) {
+    logger.warn("getRabbitHoleSessionOwnerId", error.message);
+
+    return null;
+  }
+
+  return data?.owner_id ?? null;
 }
 
 async function deserializeSession(serialized: string): Promise<RabbitHoleSession> {
@@ -396,6 +425,9 @@ export async function saveSession(
     // without saveSession accidentally overwriting it back to an older value.
     if (session.generationStep !== undefined) {
       sessionRow.generation_step = session.generationStep ?? null;
+    }
+    if (session.chatThreadId) {
+      sessionRow.chat_thread_id = session.chatThreadId;
     }
     if (ownerId != null) {
       sessionRow.owner_id = ownerId;

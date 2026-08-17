@@ -2,10 +2,25 @@
 
 ## Start here
 
+- **[Product hub](./hub/README.md)** — product canon: ownership, maintenance protocol, surface adapters. Read before product or feature-spec work.
 - [Contributing](../CONTRIBUTING.md) — setup, code boundaries, pull requests
 - [Thread & session architecture](./thread-session-architecture.md) — persistence, encryption, sidebar contract
 - [Context building](./architecture/context-building.md) — how chat context is assembled before `streamText`
 - [End-to-end encryption overview](./e2ee.md)
+
+## Product hub
+
+Canon for the product: what we're building, who owns which kind of truth, how agents record decisions.
+
+- **[Hub README](./hub/README.md)** — start here; layer model, ownership, public/private split
+  - [Ownership](./hub/ownership.md) — one canonical home per kind of truth
+  - [Maintenance protocol](./hub/maintenance-protocol.md) — how agents record what they learn
+  - [Linking conventions](./hub/linking-conventions.md) — spec refs, ADR naming, Linear/Notion fields
+  - [Phases](./hub/phases.md) — what's built, what's gated, what each phase must not do
+  - [Open questions](./hub/open-questions.md) — unsettled operational decisions
+  - [Surface adapters](./hub/surfaces/) — Cursor, Claude Code, Notion, in-app
+- **[Speak](./speak/README.md)** — voice agent; first large-scale workstream under the hub
+  - [Tool behavior](./speak/tool-behavior.md) — locked acknowledgment and visual rules
 
 ## Product & features
 
@@ -17,12 +32,16 @@
 - [Arcadia sandbox](./arcadia.md)
 - [Chat LLM transparency](./chat-llm-transparency.md)
 - [Export prompt presets](./export-prompt-presets.md)
-- [Speak page architecture](./speak-page-architecture.md)
+- [Speak page architecture](./speak-page-architecture.md) — ⚠️ **legacy** (pre-Realtime TTS pipeline); current Speak lives in [`docs/speak/`](./speak/README.md)
 
 ## Design & UI
 
+- **[Design backbone](./design/README.md)** — agent-facing design standards (start here for UI/motion quality)
+  - [Spacing](./design/spacing.md) — stack/gap/inset tokens, card density
+  - [Motion & character text timing](./design/motion-and-text-timing.md) — status labels, loading burns, stagger budgets
 - [Adaptive background](./adaptive-background.md)
 - [Organic presence](./organic-presence.md)
+- [Mermaid diagrams](./mermaid-diagram-design.md) — density tiers, inline well, expanded takeover, node linking
 
 ## Blog (in-app)
 

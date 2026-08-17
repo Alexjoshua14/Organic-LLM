@@ -1,6 +1,7 @@
 import type { ModelMessage, ToolSet, UIMessage, UIMessageStreamWriter } from "ai";
 import type { Logger } from "@/lib/logger";
 import type { ChatExperience } from "@/lib/chat/chat-experience";
+import { shouldSkipMemoryWriteForExperience } from "@/lib/chat/chat-experience";
 import type { Result } from "@/types";
 
 import { smoothStream, stepCountIs, streamText } from "ai";
@@ -40,7 +41,7 @@ export type RunLLMChatStreamParams = {
   threadHasTitlePromise: Promise<Result<boolean>>;
 };
 
-export function runLLMChatStream(params: RunLLMChatStreamParams): void {
+export async function runLLMChatStream(params: RunLLMChatStreamParams): Promise<void> {
   const {
     writer,
     logger,
@@ -243,9 +244,27 @@ export function runLLMChatStream(params: RunLLMChatStreamParams): void {
           recentChunks: chunkRing.slice(-12),
         });
         if (!finishReason && !isAborted) {
-          logger.error("POST", "No finish reason provided, assuming failure");
+          logger.error("POST", "No finish reason provided, assuming failure", {
+            model: selectedModel.id,
+            recentChunks: chunkRing.slice(-12),
+          });
 
-          return;
+          writer.write({
+            type: "data-notification",
+            data: {
+              message: "The model stream ended unexpectedly. Try sending again.",
+              level: "error",
+            },
+            transient: true,
+          });
+          writer.write({
+            type: "data-aiAction",
+            data: {
+              action: ChatAIActionEnum.Errored,
+              message: "Stream ended unexpectedly",
+            },
+            transient: true,
+          });
         }
         switch (finishReason) {
           case "error":
@@ -379,7 +398,7 @@ export function runLLMChatStream(params: RunLLMChatStreamParams): void {
               logger.log("POST", "Skipping exchange-cadence summary refresh for Arcadia token context");
             }
 
-            if (memoryEnabled && experience !== "delphi" && experience !== "topic_explore") {
+            if (memoryEnabled && !shouldSkipMemoryWriteForExperience(experience)) {
               const addMemoryResult = await measureAsync(() =>
                 addLatestMessagesToMemoryForUser(sbUserId, [userMessage, aiResponse], chatId).then(
                   (r) => {
@@ -430,4 +449,14 @@ export function runLLMChatStream(params: RunLLMChatStreamParams): void {
       },
     })
   );
+
+  await result.consumeStream({
+    onError: (error) => {
+      logger.error("POST", "consumeStream error", {
+        err: serializeError(error),
+        model: selectedModel.id,
+        recentChunks: chunkRing.slice(-12),
+      });
+    },
+  });
 }

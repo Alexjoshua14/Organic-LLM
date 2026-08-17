@@ -8,6 +8,7 @@ import { AIInput } from "../chat-experimental/ai-input";
 import Page from "../layout/page";
 
 import { HomepagePrimaryActions } from "./homepage-primary-actions";
+import { HomeFullViewComposerMorph } from "./home-full-view-composer-morph";
 import { T3CodeStubModal } from "./t3code-stub-modal";
 
 import AdaptiveLiquidChrome from "@/components/background/AdaptiveLiquidChrome";
@@ -23,6 +24,7 @@ import {
 } from "@/lib/homepage/ollama-schemas";
 import { createChat } from "@/lib/chat/chat-store";
 import { createLogger } from "@/lib/logger";
+import { usePageEngaged } from "@/hooks/use-page-engaged";
 import { cn } from "@/lib/utils";
 
 const PLAN_MODE_LABEL = "Intent mode";
@@ -46,6 +48,7 @@ export function HomePageShell() {
   const pointerInside = useSidebarPointerInside();
   const { refreshSidebarChats } = useSharedChatContext();
   const [fullView, setFullView] = useState(false);
+  const pageEngaged = usePageEngaged(fullView);
   const [planMode, setPlanMode] = useState(false);
   const [previewIntent, setPreviewIntent] = useState<HomepageRoutePreview | null>(null);
   const [planResult, setPlanResult] = useState<HomepagePlanIntent | null>(null);
@@ -211,10 +214,10 @@ export function HomePageShell() {
             data-dim-background
             transition={HOME_LAYOUT_SPRING}
             className={cn(
-              "mx-auto flex w-full max-w-xl flex-col gap-6 px-4 sm:px-0",
+              "mx-auto flex w-full flex-col gap-6",
               fullView
-                ? cn("min-h-0 flex-1 justify-start py-20", fullViewGutterX)
-                : "items-center justify-center"
+                ? cn("min-h-0 flex-1", fullViewGutterX)
+                : "max-w-xl items-center justify-center px-4 sm:px-0"
             )}
           >
             {planMode ? (
@@ -262,23 +265,35 @@ export function HomePageShell() {
                 </ul>
               </div>
             ) : null}
-            <div
-              className={cn(
-                "mx-auto w-full max-w-xl",
-                fullView && "flex min-h-0 flex-1 flex-col"
-              )}
-            >
-              <AIInput
-                fullView={fullView}
-                hideEmbedActions={fullView}
-                planMode={planMode}
-                previewIntent={fullView ? previewIntent : null}
-                onComposerDoubleTap={() => setFullView(true)}
-                onPlanComplete={onPlanComplete}
-                onPlanModeToggle={onPlanModeToggle}
-                onTextChange={onTextChange}
-              />
-            </div>
+            {fullView ? (
+              <HomeFullViewComposerMorph engaged={pageEngaged} gutterClassName={fullViewGutterX}>
+                {({ composerDocked }) => (
+                  <AIInput
+                    composerDocked={composerDocked}
+                    disableLayoutAnimation
+                    fullView
+                    hideEmbedActions
+                    planMode={planMode}
+                    previewIntent={previewIntent}
+                    onComposerDoubleTap={() => setFullView(true)}
+                    onPlanComplete={onPlanComplete}
+                    onPlanModeToggle={onPlanModeToggle}
+                    onTextChange={onTextChange}
+                  />
+                )}
+              </HomeFullViewComposerMorph>
+            ) : (
+              <div className="mx-auto w-full max-w-xl">
+                <AIInput
+                  planMode={planMode}
+                  previewIntent={null}
+                  onComposerDoubleTap={() => setFullView(true)}
+                  onPlanComplete={onPlanComplete}
+                  onPlanModeToggle={onPlanModeToggle}
+                  onTextChange={onTextChange}
+                />
+              </div>
+            )}
           </motion.div>
           <AnimatePresence initial={false} mode="sync">
             {fullView ? (

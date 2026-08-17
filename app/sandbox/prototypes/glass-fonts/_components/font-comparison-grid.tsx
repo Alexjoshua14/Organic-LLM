@@ -50,12 +50,12 @@ function FontColumn({
             </div>
             <div className="flex flex-col items-end gap-1">
               {isDraft ? (
-                <span className="rounded-full border border-accent/30 bg-accent/12 px-3 py-1 text-[10px] uppercase tracking-[0.14em] text-accent">
+                <span className="rounded-full border border-accent/30 bg-accent/12 px-3 py-1 text-2xs uppercase tracking-[0.14em] text-accent">
                   Draft
                 </span>
               ) : null}
               {isLocked ? (
-                <span className="rounded-full border border-emerald-300/30 bg-emerald-400/10 px-3 py-1 text-[10px] uppercase tracking-[0.14em] text-emerald-300">
+                <span className="rounded-full border border-emerald-300/30 bg-emerald-400/10 px-3 py-1 text-2xs uppercase tracking-[0.14em] text-emerald-300">
                   Locked
                 </span>
               ) : null}

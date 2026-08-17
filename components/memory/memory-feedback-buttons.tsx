@@ -79,7 +79,7 @@ export function MemoryFeedbackButtons({
       >
         <ThumbsDown className={compact ? "size-3.5" : "size-4"} />
       </button>
-      {error ? <span className="text-[10px] text-destructive">{error}</span> : null}
+      {error ? <span className="text-2xs text-destructive">{error}</span> : null}
     </div>
   );
 }
