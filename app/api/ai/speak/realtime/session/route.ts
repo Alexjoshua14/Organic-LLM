@@ -1,5 +1,6 @@
 import { auth } from "@clerk/nextjs/server";
 import { NextResponse } from "next/server";
+import OpenAI from "openai";
 import { z } from "zod";
 
 import { createChat } from "@/data/supabase/chat";
@@ -100,13 +101,12 @@ export async function POST(req: Request) {
   const tools = compileSpeakRealtimeTools(modalities);
   const instructions = buildSpeakRealtimeInstructions(modalities);
 
-  const openaiRes = await fetch("https://api.openai.com/v1/realtime/client_secrets", {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${apiKey}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
+  const openai = new OpenAI({ apiKey });
+
+  let secretPayload: OpenAI.Realtime.ClientSecretCreateResponse;
+
+  try {
+    secretPayload = await openai.realtime.clientSecrets.create({
       expires_after: { anchor: "created_at", seconds: 600 },
       session: {
         type: "realtime",
@@ -125,26 +125,19 @@ export async function POST(req: Request) {
           },
         },
       },
-    }),
-  });
+    });
+  } catch (error) {
+    const status = error instanceof OpenAI.APIError ? error.status : "unknown";
+    const detail = error instanceof Error ? error.message : String(error);
 
-  if (!openaiRes.ok) {
-    const errText = await openaiRes.text().catch(() => "");
-
-    logger.error("POST", `OpenAI client_secrets failed: ${openaiRes.status} ${errText}`);
+    logger.error("POST", `OpenAI client_secrets failed: ${status} ${detail}`);
 
     return NextResponse.json({ error: "Failed to mint Realtime session" }, { status: 502 });
   }
 
-  const secretPayload = (await openaiRes.json()) as {
-    value?: string;
-    expires_at?: number;
-    session?: { id?: string };
-  };
-
   const clientSecret = secretPayload.value;
-  const openaiSessionId = secretPayload.session?.id;
-  const ourSessionId = openaiSessionId ?? crypto.randomUUID();
+  const openaiSessionId = secretPayload.session.id;
+  const ourSessionId = openaiSessionId || crypto.randomUUID();
 
   if (!clientSecret) {
     return NextResponse.json({ error: "Missing ephemeral client secret" }, { status: 502 });

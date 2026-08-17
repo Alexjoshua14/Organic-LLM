@@ -40,8 +40,8 @@ const DEFAULT_COST: ModelCost = {
  */
 const MODEL_COSTS: Record<string, ModelCost> = {
   "openai/gpt-5.6-sol": { inputPerMillion: 5.0, outputPerMillion: 30.0 },
-  "openai/gpt-5.6-terra": { inputPerMillion: 2.5, outputPerMillion: 15.0 },
-  "openai/gpt-5.6-luna": { inputPerMillion: 1.0, outputPerMillion: 6.0 },
+  "openai/gpt-5.6-terra": { inputPerMillion: 2.0, outputPerMillion: 12.0 },
+  "openai/gpt-5.6-luna": { inputPerMillion: 0.2, outputPerMillion: 1.2 },
   "openai/gpt-5.5": { inputPerMillion: 5.0, outputPerMillion: 30.0 },
   "openai/gpt-5.5-pro": { inputPerMillion: 30.0, outputPerMillion: 180.0 },
   "openai/gpt-5.4": { inputPerMillion: 2.5, outputPerMillion: 15.0 },
@@ -53,10 +53,12 @@ const MODEL_COSTS: Record<string, ModelCost> = {
   "openai/gpt-4o-mini": { inputPerMillion: 0.15, outputPerMillion: 0.6 },
   "openai/gpt-4-turbo": { inputPerMillion: 10.0, outputPerMillion: 30.0 },
   "google/gemini-3.1-pro-preview": { inputPerMillion: 2.0, outputPerMillion: 12.0 },
+  "google/gemini-3.7-flash": { inputPerMillion: 0.75, outputPerMillion: 3.75 },
   "google/gemini-3.6-flash": { inputPerMillion: 1.5, outputPerMillion: 7.5 },
   "google/gemini-3.5-flash": { inputPerMillion: 1.5, outputPerMillion: 9.0 },
   "google/gemini-3-flash": { inputPerMillion: 0.5, outputPerMillion: 3.0 },
   "google/gemini-3.5-flash-lite": { inputPerMillion: 0.3, outputPerMillion: 2.5 },
+  "google/gemini-3.1-flash-lite": { inputPerMillion: 0.25, outputPerMillion: 1.5 },
   "google/gemini-2.5-flash-lite": { inputPerMillion: 0.1, outputPerMillion: 0.4 },
   "anthropic/claude-opus-5": { inputPerMillion: 5.0, outputPerMillion: 25.0 },
   "anthropic/claude-opus-4.8": { inputPerMillion: 5.0, outputPerMillion: 25.0 },
@@ -70,10 +72,10 @@ const MODEL_COSTS: Record<string, ModelCost> = {
   "moonshotai/kimi-k3": { inputPerMillion: 3.0, outputPerMillion: 15.0 },
   "moonshotai/kimi-k2.7-code": { inputPerMillion: 0.95, outputPerMillion: 4.0 },
   "moonshotai/kimi-k2.6": { inputPerMillion: 0.95, outputPerMillion: 4.0 },
-  "deepseek/deepseek-v4-pro": { inputPerMillion: 0.44, outputPerMillion: 0.87 },
-  "deepseek/deepseek-v4-flash": { inputPerMillion: 0.14, outputPerMillion: 0.28 },
+  "deepseek/deepseek-v4-pro": { inputPerMillion: 1.74, outputPerMillion: 3.48 },
+  "deepseek/deepseek-v4-flash": { inputPerMillion: 0.2, outputPerMillion: 0.4 },
   "deepseek/deepseek-v3.2": { inputPerMillion: 0.28, outputPerMillion: 0.42 },
-  "openai/gpt-oss-120b": { inputPerMillion: 0.35, outputPerMillion: 0.75 },
+  "openai/gpt-oss-120b": { inputPerMillion: 0.1, outputPerMillion: 0.5 },
   "openai/gpt-oss-20b": { inputPerMillion: 0.05, outputPerMillion: 0.2 },
   // OpenAI Realtime (audio + text). Prefer mini while developing.
   "openai/gpt-realtime-mini": {
@@ -204,4 +206,4 @@ export function costUnitsFromUsd(usd: number): number {
 }
 
 /** When the MODEL_COSTS table was last reviewed (update with pricing changes). */
-export const MODEL_PRICING_AS_OF = "2026-07-19";
+export const MODEL_PRICING_AS_OF = "2026-08-16";

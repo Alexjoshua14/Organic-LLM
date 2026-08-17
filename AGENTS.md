@@ -13,6 +13,7 @@ Route to the doc that owns the topic. Do not re-derive what is already written d
 |------------|------------|
 | Product or feature specs, decisions, roadmap | [`docs/hub/README.md`](docs/hub/README.md) |
 | Speak / voice | [`docs/speak/README.md`](docs/speak/README.md) |
+| Remy / meal prep | [`docs/remy/README.md`](docs/remy/README.md) |
 | UI, motion, spacing, loading states | [`docs/design/README.md`](docs/design/README.md) |
 | Architecture orientation | [`docs/INDEX.md`](docs/INDEX.md) |
 | Chat tools and the assistant toolbelt | [`docs/chat-tools.md`](docs/chat-tools.md) |

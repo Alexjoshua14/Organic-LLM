@@ -6,7 +6,7 @@ export const TITLE_PIPELINE_SUMMARIZER_MODEL: LanguageModel = "google/gemini-3.1
 export const TITLE_PIPELINE_SHORT_TITLE_MODEL: LanguageModel = "anthropic/claude-opus-5";
 
 /**
- * Ultra-cheap model for browser tab labels only (~$0.075/M in, ~$0.30/M out on Gemini 2.5 Flash Lite).
+ * Cheap model for browser tab labels only (~$0.25/M in, ~$1.50/M out on Gemini 3.1 Flash Lite).
  * See `lib/rate-limit/llm-cost.ts` for pricing used in post-call cost guards.
  */
 export const BROWSER_TAB_TITLE_MODEL: LanguageModel = "google/gemini-3.1-flash-lite";
