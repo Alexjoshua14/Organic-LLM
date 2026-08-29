@@ -1,12 +1,10 @@
-import { afterEach, beforeEach, describe, expect, mock, test } from "bun:test";
+import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 
-mock.module("server-only", () => ({}));
-
-// So that @/data/supabase/rabbitholes can load (it imports supabaseServer)
-mock.module("@/lib/supabase/server", () => ({
-  supabaseServer: async () =>
-    ({ from: () => ({ update: () => ({ eq: () => Promise.resolve({ data: null, error: null }) }) }) }) as never,
-}));
+// A cache-busted import bypasses partial mocks installed by other test files when this suite is
+// run without --isolate. Both tests pass an explicit client, so no database call is made.
+const { advanceGenerationStep } = await import(
+  "@/data/supabase/rabbitholes?advance-generation-step-test-real"
+);
 
 const SESSION_ID = "550e8400-e29b-41d4-a716-446655440000";
 const NODE_ID = "660e8400-e29b-41d4-a716-446655440001";
@@ -63,16 +61,9 @@ describe("advanceGenerationStep", () => {
   });
 
   test("update with toStep sets generation_step and updated_at", async () => {
-    const { advanceGenerationStep } = await import("@/data/supabase/rabbitholes");
     const client = createAdvanceMockClient() as any;
 
-    const result = await advanceGenerationStep(
-      SESSION_ID,
-      NODE_ID,
-      "sources",
-      "article",
-      client,
-    );
+    const result = await advanceGenerationStep(SESSION_ID, NODE_ID, "sources", "article", client);
 
     expect(result.updated).toBe(true);
     expect(advanceUpdatePayload).not.toBeNull();
@@ -87,7 +78,6 @@ describe("advanceGenerationStep", () => {
   });
 
   test("update with toStep null clears generating_node_id and generation_step", async () => {
-    const { advanceGenerationStep } = await import("@/data/supabase/rabbitholes");
     const client = createAdvanceMockClient() as any;
 
     const result = await advanceGenerationStep(
@@ -95,7 +85,7 @@ describe("advanceGenerationStep", () => {
       NODE_ID,
       "branch_suggestions",
       null,
-      client,
+      client
     );
 
     expect(result.updated).toBe(true);

@@ -1,6 +1,9 @@
 import { describe, expect, test } from "bun:test";
 
 import {
+  REASONING_IDS_ANY,
+  REASONING_IDS_ZDR,
+  REFLEX_IDS_ZDR,
   chatModelForGatewayId,
   classifyTaskTier,
   tierToGatewayModelId,
@@ -30,6 +33,18 @@ describe("chatModelForGatewayId", () => {
 });
 
 describe("tierToGatewayModelId", () => {
+  test("preference lists only contain catalog ids", () => {
+    const catalog = new Set(ChatModels.map((c) => c.id));
+
+    for (const id of [...REFLEX_IDS_ZDR, ...REASONING_IDS_ZDR, ...REASONING_IDS_ANY]) {
+      expect(catalog.has(id)).toBe(true);
+    }
+  });
+
+  test("ZDR reflex prefers Gemini 3.5 Flash Lite", () => {
+    expect(tierToGatewayModelId("reflex", true)).toBe("google/gemini-3.5-flash-lite");
+  });
+
   test("ZDR reflex picks a ZDR-capable model", () => {
     const id = tierToGatewayModelId("reflex", true);
     const row = ChatModels.find((c) => c.id === id)!;

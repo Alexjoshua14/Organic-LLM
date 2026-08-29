@@ -39,16 +39,8 @@ mock.module("@/hooks/use-assistant-tts-action", () => ({
   }),
 }));
 
-mock.module("@/app/actions/spatial-artifacts", () => ({
-  actionPinSpatialArtifact: async () => ({ ok: true, artifactId: "test" }),
-}));
-
 mock.module("@/lib/tts/pinned-to-speak", () => ({
   addPinnedFromChat: async () => {},
-}));
-
-mock.module("sonner", () => ({
-  toast: { success: () => {}, error: () => {} },
 }));
 
 afterEach(() => cleanup());
@@ -66,7 +58,10 @@ function assistantWithGenUiTool(
         toolName: "render_gen_ui",
         toolCallId: "tc-gen-ui",
         state,
-        input: state === "input-streaming" ? { type: "answer-card", version: 1, title: "Streaming" } : {},
+        input:
+          state === "input-streaming"
+            ? { type: "answer-card", version: 1, title: "Streaming" }
+            : {},
         output: output ?? {},
       },
     ],

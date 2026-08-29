@@ -14,6 +14,19 @@ describe("diagnoseMemoryStoreFailure", () => {
     expect(diagnosis.kind).toBe("embedder");
     expect(diagnosis.hint).toContain("OLLAMA_URL");
     expect(diagnosis.hint).toContain("OLLAMA_EMBED_MODEL");
+    expect(diagnosis.hint).toContain("unreachable");
+  });
+
+  test("classifies a successful embed response that had no vector without calling it unreachable", () => {
+    const diagnosis = diagnoseMemoryStoreFailure(
+      new Error(
+        "Mem0 Ollama embedder (https://ai.example.com, model=nomic-embed-text): Ollama embed returned no embedding vector (status=200, body={\"embeddings\":[]})",
+      ),
+    );
+
+    expect(diagnosis.kind).toBe("embedder");
+    expect(diagnosis.hint).toContain("no vector");
+    expect(diagnosis.hint).not.toContain("unreachable");
   });
 
   test("classifies mem0 ensureModelExists fetch failures", () => {

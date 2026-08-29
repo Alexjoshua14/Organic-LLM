@@ -64,10 +64,10 @@ const gatewayChatModels: ChatModel[] = [
   { id: "openai/gpt-5.6-sol", name: "GPT-5.6 Sol", supportsZeroDataRetention: true },
   { id: "openai/gpt-5.6-terra", name: "GPT-5.6 Terra", supportsZeroDataRetention: true },
   { id: "openai/gpt-5.6-luna", name: "GPT-5.6 Luna", supportsZeroDataRetention: true },
-  { id: "openai/gpt-5.4-mini", name: "GPT-5 Mini", supportsZeroDataRetention: true },
-  { id: "openai/gpt-5.4-nano", name: "GPT-5 Nano", supportsZeroDataRetention: true },
+  { id: "openai/gpt-5.4-mini", name: "GPT-5.4 Mini", supportsZeroDataRetention: true },
+  { id: "openai/gpt-5.4-nano", name: "GPT-5.4 Nano", supportsZeroDataRetention: true },
   { id: "google/gemini-3.1-pro-preview", name: "Gemini 3.1 Pro", supportsZeroDataRetention: true },
-  { id: "google/gemini-3.6-flash", name: "Gemini 3.6 Flash", supportsZeroDataRetention: true },
+  { id: "google/gemini-3.7-flash", name: "Gemini 3.7 Flash", supportsZeroDataRetention: true },
   { id: "google/gemini-3-flash", name: "Gemini 3 Flash", supportsZeroDataRetention: true },
   {
     id: "google/gemini-3.5-flash-lite",

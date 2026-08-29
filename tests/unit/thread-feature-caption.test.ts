@@ -9,6 +9,7 @@ describe("getThreadFeatureCaption", () => {
     expect(getThreadFeatureCaption(undefined)).toBe("chat");
     expect(getThreadFeatureCaption("topic_explore")).toBe("noesis");
     expect(getThreadFeatureCaption("arcadia")).toBe("arcadia");
+    expect(getThreadFeatureCaption("remy_planner")).toBe("remy");
   });
 
   test("humanizes unknown feature strings", () => {

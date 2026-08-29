@@ -55,6 +55,38 @@ describe("recipe-card block", () => {
 
     expect(safeParseGenUIBlock(bad).ok).toBe(false);
   });
+
+  test("accepts optional glance fields without requiring them", () => {
+    const extended: RecipeCardBlock = {
+      ...RECIPE,
+      complexity: "easy",
+      duration: "25 min",
+      mainProtein: "chickpeas",
+      mainCarbs: "pita",
+      cuisine: "Levantine",
+      equipment: ["food processor"],
+    };
+
+    expect(GenUIBlockSchema.safeParse(extended).success).toBe(true);
+
+    const md = recipeCardToMarkdown(extended);
+
+    expect(md).toContain("Easy");
+    expect(md).toContain("Total 25 min");
+    expect(md).toContain("Protein chickpeas");
+    expect(md).toContain("Carbs pita");
+    expect(md).toContain("Levantine");
+    expect(md).toContain("food processor");
+  });
+
+  test("drops an invalid complexity instead of rejecting the card", () => {
+    const parsed = GenUIBlockSchema.safeParse({ ...RECIPE, complexity: "expert" });
+
+    expect(parsed.success).toBe(true);
+    if (parsed.success && parsed.data.type === "recipe-card") {
+      expect(parsed.data.complexity).toBeUndefined();
+    }
+  });
 });
 
 describe("shopping-list block", () => {

@@ -14,6 +14,7 @@ import { loadArcadiaChatTurnContext } from "@/lib/api/arcadia-chat-turn-context"
 import {
   type ContextBudgetEstimate,
   type ContextBudgetSegment,
+  ESTIMATED_MEMORY_CONTEXT_TOKENS,
   filterBudgetSegments,
   getMessageTextForTokenEstimate,
   getModelContextWindowTokens,
@@ -256,19 +257,21 @@ export async function assembleMainChatContextBudget(
 
   const draftMessage = buildDraftUserMessage(draftText);
 
+  // Budget polls must not hit Mem0/Ollama. Turn loaders skip memory; tool schemas still
+  // reflect the caller's toggle; memory-layer tokens use the constant estimate.
   const turnContext =
     experience === "arcadia"
       ? await loadArcadiaChatTurnContext({
           logger: log,
           chatId,
           message: draftMessage,
-          memoryEnabled,
+          memoryEnabled: false,
         })
       : await loadMainChatTurnContext({
           logger: log,
           chatId,
           message: draftMessage,
-          memoryEnabled,
+          memoryEnabled: false,
           experience,
         });
 
@@ -297,6 +300,24 @@ export async function assembleMainChatContextBudget(
     experience,
   });
 
+  const tokenBreakdown = [...(turnContext.tokenBreakdown ?? [])];
+
+  if (memoryEnabled) {
+    const memoryIndex = tokenBreakdown.findIndex((row) => row.name === "Memories");
+
+    if (memoryIndex >= 0) {
+      tokenBreakdown[memoryIndex] = {
+        name: "Memories",
+        tokens: ESTIMATED_MEMORY_CONTEXT_TOKENS,
+      };
+    } else {
+      tokenBreakdown.push({
+        name: "Memories",
+        tokens: ESTIMATED_MEMORY_CONTEXT_TOKENS,
+      });
+    }
+  }
+
   return buildBudgetFromAssembledTurn({
     modelId,
     draftMessage,
@@ -304,7 +325,7 @@ export async function assembleMainChatContextBudget(
     contextSystemPrompt: turnContext.systemPromptForRequest,
     finalSystemPrompt: systemPromptForRequest,
     toolInstructions,
-    tokenBreakdown: turnContext.tokenBreakdown,
+    tokenBreakdown,
     packedMessageCount: turnContext.packedMessageCount,
     totalThreadMessages: turnContext.totalThreadMessages,
     contextMessageLimit: experience === "arcadia" ? undefined : contextMessageLimit,

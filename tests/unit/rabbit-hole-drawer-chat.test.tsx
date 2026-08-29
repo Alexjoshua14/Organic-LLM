@@ -1,17 +1,16 @@
-import { describe, expect, test, mock } from "bun:test";
+import { describe, expect, test } from "bun:test";
 import { renderToStaticMarkup } from "react-dom/server";
 
-mock.module("@/components/chat/chat-message", () => ({
-  ChatMessage: ({ message }: { message: { parts?: Array<{ text?: string }> } }) => (
-    <span>{message.parts?.[0]?.text ?? ""}</span>
-  ),
-}));
-
 import { RabbitHoleDrawerChat } from "@/components/rabbit-holes/mobile/RabbitHoleDrawerChat";
+import { TTSProvider } from "@/lib/context/tts-context";
+
+function renderDrawerChat(ui: React.ReactNode) {
+  return renderToStaticMarkup(<TTSProvider>{ui}</TTSProvider>);
+}
 
 describe("RabbitHoleDrawerChat", () => {
   test("renders empty prompt when no turns", () => {
-    const html = renderToStaticMarkup(
+    const html = renderDrawerChat(
       <RabbitHoleDrawerChat
         activeNode={null}
         branches={[]}
@@ -31,7 +30,7 @@ describe("RabbitHoleDrawerChat", () => {
   });
 
   test("renders tethered turn pair from messages", () => {
-    const html = renderToStaticMarkup(
+    const html = renderDrawerChat(
       <RabbitHoleDrawerChat
         activeNode={null}
         branches={[]}

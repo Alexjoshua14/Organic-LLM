@@ -1,7 +1,7 @@
 # Organic LLM product hub
 
 The hub is the **canon** for Organic LLM: who owns which kind of truth, and how agents record
-new truth. It covers the **whole product** — Chat, Memory, Rabbit Holes, Ergon, Speak — not any
+new truth. It covers the **whole product** — Chat, Memory, Rabbit Holes, Ergon, Speak, Remy — not any
 single feature.
 
 Agents: read this file **before** product or feature-spec work. For commands and code
@@ -86,10 +86,11 @@ positioning material is moved. Which side is authoritative during the overlap is
 | Workstream | Public docs | Private intent | Status |
 |------------|-------------|----------------|--------|
 | **Speak** — voice agent | [`docs/speak/`](../speak/README.md) | `organic-llm-hub/speak/` | **Active** — first large-scale workstream |
+| **Remy** — meal prep | [`docs/remy/`](../remy/README.md) | `organic-llm-hub/remy/` | **Active** — weekly meal-prep dashboard |
 | Chat, Memory, Rabbit Holes, Ergon, Noesis | — | — | Not yet migrated into the hub |
 
-Speak is the first feature large enough to populate and stress-test the hub. Its docs are the
-reference shape for every workstream that follows.
+Speak was the first feature large enough to populate and stress-test the hub. Its docs remain
+the reference shape for workstreams that follow.
 
 Existing feature docs ([chat tools](../chat-tools.md), [Noesis](../noesis.md),
 [Ergon](../ergon-spec.md)) remain valid where they sit. Migrate them into hub shape when a

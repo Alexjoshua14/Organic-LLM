@@ -96,14 +96,18 @@ export async function searchMemoriesForUser(
       return { data: null, error: "User ID is required" };
     }
 
+    if (typeof query !== "string" || query.length > 2000) {
+      return { data: null, error: "Invalid or too long query" };
+    }
+
+    if (!query.trim()) {
+      return { data: { results: [], relations: [] }, error: null };
+    }
+
     const limitResult = await checkMemorySearchLimit(userId);
 
     if (!limitResult.success) {
       return { data: null, error: limitResult.error ?? "Too many requests" };
-    }
-
-    if (typeof query !== "string" || query.length > 2000) {
-      return { data: null, error: "Invalid or too long query" };
     }
 
     const result = await storeSearchMemories(query, userId, options);

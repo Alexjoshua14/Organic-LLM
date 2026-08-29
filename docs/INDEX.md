@@ -21,6 +21,7 @@ Canon for the product: what we're building, who owns which kind of truth, how ag
   - [Surface adapters](./hub/surfaces/) — Cursor, Claude Code, Notion, in-app
 - **[Speak](./speak/README.md)** — voice agent; first large-scale workstream under the hub
   - [Tool behavior](./speak/tool-behavior.md) — locked acknowledgment and visual rules
+- **[Remy](./remy/README.md)** — meal prep; mise is events / prep is weeks; one extended recipe-card
 
 ## Product & features
 

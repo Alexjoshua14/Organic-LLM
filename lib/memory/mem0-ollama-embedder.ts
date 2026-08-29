@@ -6,6 +6,22 @@ import { OLLAMA_EMBED_MODEL, OLLAMA_URL, isLocalOllamaUrl, ollamaHeaders } from 
 
 const logger = createLogger("mem0-ollama-embedder");
 
+const EMBED_BODY_SNIPPET_MAX = 200;
+
+function embedResponseSnippet(data: unknown): string {
+  try {
+    const raw = JSON.stringify(data);
+
+    if (raw.length <= EMBED_BODY_SNIPPET_MAX) {
+      return raw;
+    }
+
+    return `${raw.slice(0, EMBED_BODY_SNIPPET_MAX)}…`;
+  } catch {
+    return "[unserializable]";
+  }
+}
+
 type Mem0OllamaEmbedderConfig = {
   model?: string;
   url?: string;
@@ -125,13 +141,31 @@ export class Mem0OllamaEmbedder {
         return data.embeddings;
       }
 
-      throw this.embedderError("Ollama batch embed returned no embeddings");
+      const snippet = embedResponseSnippet(data);
+
+      logger.error("embedApi", "Ollama batch embed response had no embeddings", {
+        status: res.status,
+        bodyPreview: snippet,
+      });
+
+      throw this.embedderError(
+        `Ollama batch embed returned no embeddings (status=${res.status}, body=${snippet})`
+      );
     }
 
     const vector = data.embeddings?.[0] ?? data.embedding;
 
     if (!vector) {
-      throw this.embedderError("Ollama embed returned no embedding vector");
+      const snippet = embedResponseSnippet(data);
+
+      logger.error("embedApi", "Ollama embed response had no vector", {
+        status: res.status,
+        bodyPreview: snippet,
+      });
+
+      throw this.embedderError(
+        `Ollama embed returned no embedding vector (status=${res.status}, body=${snippet})`
+      );
     }
 
     return [vector];
