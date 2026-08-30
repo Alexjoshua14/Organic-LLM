@@ -5,6 +5,7 @@
 - [Contributing](../CONTRIBUTING.md) — setup, code boundaries, pull requests
 - [Thread & session architecture](./thread-session-architecture.md) — persistence, encryption, sidebar contract
 - [Context building](./architecture/context-building.md) — how chat context is assembled before `streamText`
+- [Debugging server errors](./debugging-server-errors.md) — error ids, request stages, `/admin/errors`, log grep recipes
 - [End-to-end encryption overview](./e2ee.md)
 
 ## Product & features

@@ -15,6 +15,7 @@ import { ChatThread, MEMORY_PANEL_RESERVE_PADDING } from "./chat-thread";
 import { CoreInput } from "./core-input";
 import { ChatStylePicker } from "./chat-style-picker";
 import { ChatThreadStyleOverlay } from "./chat-thread-style-overlay";
+import { ChatErrorPanel } from "./chat-error-panel";
 
 import { MemoryEphemeralCards } from "@/components/memory/memory-ephemeral-cards";
 import { MemoryLens } from "@/components/memory/memory-lens";
@@ -42,7 +43,12 @@ import {
 } from "@/lib/chat/composer-tool-defaults";
 import { getStrataAssistantPersona } from "@/lib/personas/strata-assistant";
 import { ChatAIActionEnum } from "@/types/ai";
-import { getChatErrorMessage } from "@/lib/chat/error-messages";
+import {
+  chatErrorInfoFromServerBody,
+  parseChatError,
+  type ChatErrorInfo,
+} from "@/lib/chat/error-messages";
+import { parseServerErrorBody } from "@/lib/observability/server-error";
 import { getChatStyle } from "@/lib/chat/chat-style-store";
 import { applyKanbanCommand } from "@/lib/kanban/store";
 import { safeParseKanbanCommand } from "@/lib/schemas/kanban";
@@ -103,6 +109,8 @@ export const Chat: React.FC<ChatProps> = ({
   const errorRef = useRef<Error | undefined>(undefined);
   /** Stored when onError runs; useChat may not expose error/status for pre-stream failures (e.g. 429). */
   const [chatError, setChatError] = useState<unknown>(undefined);
+  /** Parsed failure for the developer/admin diagnostics panel (stage, error id, stack). */
+  const [chatErrorInfo, setChatErrorInfo] = useState<ChatErrorInfo | null>(null);
   const [experimentalArcadiaMarkdownPreview, setExperimentalArcadiaMarkdownPreview] = useState(
     () => getSettings().experimentalArcadiaMarkdownPreview
   );
@@ -308,17 +316,61 @@ export const Chat: React.FC<ChatProps> = ({
           }
         } else if (data.type === "data-context-budget") {
           setStreamContextBudget(data.data as ContextBudgetEstimate);
+        } else if (data.type === "data-error") {
+          // Mid-stream failure: headers were already sent, so the server reports the
+          // failure in-band rather than as an HTTP status.
+          const body = parseServerErrorBody(data.data);
+
+          if (body) {
+            const info = chatErrorInfoFromServerBody(body);
+
+            logger.error("chat", `Server error ${info.errorId} at stage ${info.stage}`);
+            setChatErrorInfo(info);
+            setChatError(new Error(JSON.stringify(body)));
+            // Keyed by error id so the matching stream error chunk replaces this toast
+            // instead of stacking a second one.
+            toast.error(info.message, {
+              id: info.errorId,
+              description: `${info.stage} · ${info.errorId}`,
+            });
+          }
         }
       },
       onError: (error) => {
-        logger.error("chat", `ERROR ${JSON.stringify(error, null, 2)}`);
         setAiAction({ action: ChatAIActionEnum.Errored, message: undefined });
         errorRef.current = error;
         setChatError(error);
-        const errorMessage = getChatErrorMessage(error);
 
-        toast.error(errorMessage);
-        logger.error("chat", `Chat onError: ${errorMessage}`);
+        const info = parseChatError(error);
+
+        setChatErrorInfo(info);
+        toast.error(info.message, {
+          id: info.errorId,
+          description:
+            [info.stage, info.errorId ?? info.nextDigest].filter(Boolean).join(" · ") || undefined,
+        });
+        // Log the parsed shape, not the raw body: an HTML error page is thousands of
+        // characters of markup that buries the one line that matters.
+        logger.error(
+          "chat",
+          `Chat onError: ${JSON.stringify(
+            {
+              message: info.message,
+              status: info.status,
+              stage: info.stage,
+              errorId: info.errorId,
+              nextDigest: info.nextDigest,
+              isHtmlErrorPage: info.isHtmlErrorPage,
+            },
+            null,
+            2
+          )}`
+        );
+        // The full body only helps while developing; in production it's in the panel
+        // (and on the server), so it never floods a user's console.
+        if (info.raw && process.env.NODE_ENV !== "production") {
+          logger.log("chat", `Raw error body: ${info.raw}`);
+        }
       },
       onFinish: () => {
         setAiAction(undefined);
@@ -349,6 +401,10 @@ export const Chat: React.FC<ChatProps> = ({
 
     if (wasStreamingRef.current && status === "ready") {
       setContextBudgetRefreshKey((key) => key + 1);
+    }
+
+    if (status === "submitted") {
+      setChatErrorInfo(null);
     }
 
     wasStreamingRef.current = streaming;
@@ -469,6 +525,7 @@ export const Chat: React.FC<ChatProps> = ({
               </SheetContent>
             </Sheet>
           )}
+          <ChatErrorPanel info={chatErrorInfo} onDismiss={() => setChatErrorInfo(null)} />
           <CoreInput
             chatId={chatData?.thread.id}
             clearError={clearError}

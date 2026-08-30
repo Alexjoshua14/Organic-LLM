@@ -7,6 +7,7 @@ import { NextRequest, NextResponse } from "next/server";
 const isProtectedRoute = createRouteMatcher([
   "/(api|trpc)(.*)",
   "/_next/server-actions(.*)",
+  "/admin(.*)",
   "/archetype(.*)",
   "/chat(.*)",
   "/introspection(.*)",
