@@ -1,5 +1,9 @@
 "use client";
 
+import type { ChatExperience } from "@/lib/chat/chat-experience";
+import type { ChatStyle } from "@/lib/chat/chat-style";
+import type { ContextBudgetEstimate } from "@/lib/chat/context-budget";
+
 import {
   ChangeEventHandler,
   FormEvent,
@@ -40,15 +44,14 @@ import {
   CoreInputControlsValue,
   InputMarkdownMode,
 } from "./core-input-context";
-import { ComposerEffortSelect } from "./controls/effort-select";
-import { ComposerMemoryChip } from "./controls/memory-chip";
-import { ComposerModelSelect } from "./controls/model-select";
+import { ComposerModelEffortSelect } from "./controls/model-effort-select";
 import { ComposerPreviewChip } from "./controls/preview-chip";
-import { ComposerSearchChip } from "./controls/search-chip";
 import { ComposerSpeechChip } from "./controls/speech-chip";
+import { ComposerToolToggleGroup } from "./controls/tool-toggle-group";
 import { PromptInputSubmit } from "./submit/submit-button";
 import { OrganicSubmitGlyph } from "./submit/submit-glyph";
 
+import { DiagramNodeChip } from "@/components/mermaid/diagram-node-chip";
 import { FeatureHint } from "@/components/onboarding/feature-hint";
 import { cn } from "@/lib/utils";
 import {
@@ -63,13 +66,11 @@ import {
   ChatEffortLevel,
   clampEffortForModel,
 } from "@/lib/schemas/chat-effort";
-import type { ChatExperience } from "@/lib/chat/chat-experience";
-import type { ChatStyle } from "@/lib/chat/chat-style";
-import type { ContextBudgetEstimate } from "@/lib/chat/context-budget";
 import { useIsAdmin } from "@/hooks/use-is-admin";
 import { deleteEmptyChat } from "@/data/supabase/chat";
 import { useSharedChatContext } from "@/lib/context/chat-context";
 import { useComposerDraft } from "@/hooks/use-composer-draft";
+import { useDiagramNodeLinksOptional } from "@/lib/mermaid/diagram-node-links-context";
 
 type CoreInputProps = {
   modelRef: React.RefObject<ChatModel>;
@@ -191,6 +192,7 @@ export const CoreInput: React.FC<CoreInputProps> = ({
   chatStyle,
 }) => {
   const { refreshSidebarChats } = useSharedChatContext();
+  const diagramNodeLinks = useDiagramNodeLinksOptional();
 
   const modelStorageKey = modelLocalStorageKey ?? "organic-llm-selected-model";
   const effortStorageKey = effortLocalStorageKey ?? "organic-llm-selected-effort";
@@ -386,10 +388,7 @@ export const CoreInput: React.FC<CoreInputProps> = ({
     const storedEffort = localStorage.getItem(effortStorageKey);
     let nextEffort = defaultEffort;
 
-    if (
-      storedEffort &&
-      CHAT_EFFORT_LEVELS.some((row) => row.id === storedEffort)
-    ) {
+    if (storedEffort && CHAT_EFFORT_LEVELS.some((row) => row.id === storedEffort)) {
       nextEffort = storedEffort as ChatEffortLevel;
       setEffort(nextEffort);
     }
@@ -572,6 +571,7 @@ export const CoreInput: React.FC<CoreInputProps> = ({
       files: message.files,
     });
 
+    diagramNodeLinks?.clearLinks();
     clearDraftOnSend();
   };
 
@@ -732,12 +732,16 @@ export const CoreInput: React.FC<CoreInputProps> = ({
     ]
   );
 
-  const searchMemoryChips = !hideWebMemorySpeechToggles ? (
-    <>
-      <ComposerSearchChip />
-      <ComposerMemoryChip />
-    </>
-  ) : null;
+  const toolToggles =
+    !hideWebMemorySpeechToggles && variant !== "compact" ? (
+      showComposerToolHints ? (
+        <FeatureHint id="composer-search-memory">
+          <ComposerToolToggleGroup />
+        </FeatureHint>
+      ) : (
+        <ComposerToolToggleGroup />
+      )
+    ) : null;
 
   const composerSettingsMenu = useCondensedLayout ? (
     <ComposerSettingsMenu
@@ -780,7 +784,6 @@ export const CoreInput: React.FC<CoreInputProps> = ({
     <ContextBudgetIndicator
       chatId={chatId}
       chatStyle={chatStyle}
-      className={cn(useCondensedLayout && "px-0.5 py-0.5")}
       draftText={text}
       experience={experience}
       memoryEnabled={useMemories}
@@ -860,10 +863,27 @@ export const CoreInput: React.FC<CoreInputProps> = ({
       className={cn("z-40 w-full min-w-0", className)}
       onSubmit={handleSubmit}
     >
-      <PromptInputHeader>
+      {contextBudgetControl ? (
+        <div className="absolute right-1.5 top-1 z-20">{contextBudgetControl}</div>
+      ) : null}
+
+      {/* Carries no padding of its own: the attachment rail brings `p-3`, and an
+          empty header would otherwise reserve a blank band above the textarea. */}
+      <PromptInputHeader className="p-0">
         <PromptInputAttachments>
           {(attachment) => <PromptInputAttachment data={attachment} />}
         </PromptInputAttachments>
+        {diagramNodeLinks && diagramNodeLinks.links.length > 0 ? (
+          <div className="flex flex-wrap gap-1.5 px-3 pt-3">
+            {diagramNodeLinks.links.map((link) => (
+              <DiagramNodeChip
+                key={link.id}
+                link={link}
+                onRemove={() => diagramNodeLinks.removeLink(link.id)}
+              />
+            ))}
+          </div>
+        ) : null}
       </PromptInputHeader>
 
       <PromptInputBody>
@@ -877,33 +897,24 @@ export const CoreInput: React.FC<CoreInputProps> = ({
       <PromptInputFooter className="overflow-visible">
         <div ref={toolsRef} className="min-w-0 flex-1 overflow-visible">
           <PromptInputTools className="flex min-w-0 w-full items-center justify-between gap-1 overflow-visible">
-            <div className="flex min-w-0 items-center gap-1 overflow-visible">
-              {!useCondensedLayout && enableMarkdownInputPreview ? <ComposerPreviewChip /> : null}
-
-              {!hideWebMemorySpeechToggles && variant !== "compact"
-                ? showComposerToolHints
-                  ? (
-                      <FeatureHint id="composer-search-memory">
-                        <span className="inline-flex gap-1">{searchMemoryChips}</span>
-                      </FeatureHint>
-                    )
-                  : (
-                      searchMemoryChips
-                    )
-                : null}
+            {/* `gap-3` separates control groups; the tighter `gap-1` inside each
+                group is owned by the group itself. */}
+            <div className="flex min-w-0 items-center gap-3 overflow-visible">
+              {toolToggles}
 
               {!useCondensedLayout && useSpeechFriendlyRef && !hideWebMemorySpeechToggles ? (
                 <ComposerSpeechChip />
               ) : null}
 
+              {!useCondensedLayout && enableMarkdownInputPreview ? <ComposerPreviewChip /> : null}
+
               {showComposerModelHint ? (
                 <FeatureHint id="composer-auto-model">
-                  <ComposerModelSelect />
+                  <ComposerModelEffortSelect />
                 </FeatureHint>
               ) : (
-                <ComposerModelSelect />
+                <ComposerModelEffortSelect />
               )}
-              <ComposerEffortSelect />
             </div>
             <div className="flex shrink-0 items-center gap-1">
               {attachmentActions}
@@ -912,7 +923,6 @@ export const CoreInput: React.FC<CoreInputProps> = ({
           </PromptInputTools>
         </div>
         <div className="flex shrink-0 items-center gap-1.5">
-          {contextBudgetControl}
           {steerButton}
           {submitControl}
         </div>

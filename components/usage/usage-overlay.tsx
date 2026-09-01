@@ -103,93 +103,93 @@ export function UsageOverlay({ className, triggerClassName }: UsageOverlayProps)
             "ring-1 ring-inset ring-white/50 dark:ring-white/10"
           )}
         >
-        <DialogHeader className="shrink-0 space-y-3 border-b border-border/40 px-4 py-4 text-left sm:px-6 sm:py-5">
-          <p className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground/70">
-            Organic LLM
-          </p>
-          <div className="flex flex-wrap items-end justify-between gap-3 pr-6">
-            <div className="space-y-1">
-              <DialogTitle className="font-commissioner text-xl font-light tracking-wide sm:text-2xl">
-                Usage
-              </DialogTitle>
-              <DialogDescription className="text-sm leading-relaxed text-muted-foreground">
-                Tokens and estimated API cost from your LLM calls.
-              </DialogDescription>
-            </div>
-
-            <div className="flex items-center gap-1 rounded-lg border border-border/50 bg-muted/20 p-0.5">
-              {RANGE_OPTIONS.map((option) => (
-                <button
-                  key={option.id}
-                  className={cn(
-                    "rounded-md px-2.5 py-1 text-[11px] font-medium transition-colors",
-                    range === option.id
-                      ? "bg-background text-foreground shadow-sm"
-                      : "text-muted-foreground hover:text-foreground"
-                  )}
-                  type="button"
-                  onClick={() => setRange(option.id)}
-                >
-                  {option.label}
-                </button>
-              ))}
-            </div>
-          </div>
-        </DialogHeader>
-
-        <div className="min-h-0 flex-1 overflow-y-auto overscroll-y-contain touch-manipulation [scrollbar-gutter:stable]">
-          <div className="space-y-5 px-4 py-4 sm:px-6 sm:py-5">
-            {!isSignedIn ? (
-              <p className="rounded-xl border border-dashed border-border/50 px-4 py-8 text-center text-sm text-muted-foreground">
-                Sign in to track usage across chat and tools.
-              </p>
-            ) : loading && !data ? (
-              <div className="flex items-center justify-center gap-2 py-16 text-sm text-muted-foreground">
-                <Loader2 className="size-4 animate-spin" />
-                Loading usage…
+          <DialogHeader className="shrink-0 space-y-3 border-b border-border/40 px-4 py-4 text-left sm:px-6 sm:py-5">
+            <p className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground/70">
+              Organic LLM
+            </p>
+            <div className="flex flex-wrap items-end justify-between gap-3 pr-6">
+              <div className="space-y-1">
+                <DialogTitle className="font-commissioner text-xl font-light tracking-wide sm:text-2xl">
+                  Usage
+                </DialogTitle>
+                <DialogDescription className="text-sm leading-relaxed text-muted-foreground">
+                  Tokens and estimated API cost from your LLM calls.
+                </DialogDescription>
               </div>
-            ) : error ? (
-              <div className="space-y-3 rounded-xl border border-destructive/30 bg-destructive/5 px-4 py-6 text-center">
-                <p className="text-sm text-destructive">{error}</p>
-                <Button size="sm" variant="secondary" onClick={() => void loadUsage(range)}>
-                  Retry
-                </Button>
+
+              <div className="flex items-center gap-1 rounded-lg border border-border/50 bg-muted/20 p-0.5">
+                {RANGE_OPTIONS.map((option) => (
+                  <button
+                    key={option.id}
+                    className={cn(
+                      "rounded-md px-2.5 py-1 text-[11px] font-medium transition-colors",
+                      range === option.id
+                        ? "bg-background text-foreground shadow-sm"
+                        : "text-muted-foreground hover:text-foreground"
+                    )}
+                    type="button"
+                    onClick={() => setRange(option.id)}
+                  >
+                    {option.label}
+                  </button>
+                ))}
               </div>
-            ) : data ? (
-              <>
-                <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-                  <StatCard label="Total tokens" value={formatTokenCount(data.totals.totalTokens)} />
-                  <StatCard label="Est. cost" value={formatUsd(data.totals.costUsd)} accent />
-                  <StatCard
-                    label="Input"
-                    value={formatTokenCount(data.totals.inputTokens)}
-                    subtle
-                  />
-                  <StatCard
-                    label="Output"
-                    value={formatTokenCount(data.totals.outputTokens)}
-                    subtle
-                  />
-                </div>
+            </div>
+          </DialogHeader>
 
-                <UsageChart daily={data.daily} />
-
-                <PlanAllotmentRow
-                  billingCycleLabel={`${formatBillingCycleLabel(data.billingCycle.start)} – today`}
-                  planAllotments={data.planAllotments}
-                />
-
-                <UsageModelBreakdown byModel={data.byModel} pricingAsOf={data.pricingAsOf} />
-
-                <p className="text-[11px] leading-relaxed text-muted-foreground/80">
-                  Billing cycle totals: {formatTokenCount(data.billingCycleTotals.totalTokens)} tokens
-                  · {formatUsd(data.billingCycleTotals.costUsd)} est. cost ·{" "}
-                  {data.billingCycleTotals.callCount.toLocaleString()} calls
+          <div className="min-h-0 flex-1 overflow-y-auto overscroll-y-contain touch-manipulation [scrollbar-gutter:stable]">
+            <div className="space-y-5 px-4 py-4 sm:px-6 sm:py-5">
+              {!isSignedIn ? (
+                <p className="rounded-xl border border-dashed border-border/50 px-4 py-8 text-center text-sm text-muted-foreground">
+                  Sign in to track usage across chat and tools.
                 </p>
-              </>
-            ) : null}
+              ) : loading && !data ? (
+                <div className="flex items-center justify-center gap-2 py-16 text-sm text-muted-foreground">
+                  <Loader2 className="size-4 animate-spin" />
+                  Loading usage…
+                </div>
+              ) : error ? (
+                <div className="space-y-3 rounded-xl border border-destructive/30 bg-destructive/5 px-4 py-6 text-center">
+                  <p className="text-sm text-destructive">{error}</p>
+                  <Button size="sm" variant="secondary" onClick={() => void loadUsage(range)}>
+                    Retry
+                  </Button>
+                </div>
+              ) : data ? (
+                <>
+                  <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+                    <StatCard label="Total tokens" value={formatTokenCount(data.totals.totalTokens)} />
+                    <StatCard label="Est. cost" value={formatUsd(data.totals.costUsd)} accent />
+                    <StatCard
+                      label="Input"
+                      value={formatTokenCount(data.totals.inputTokens)}
+                      subtle
+                    />
+                    <StatCard
+                      label="Output"
+                      value={formatTokenCount(data.totals.outputTokens)}
+                      subtle
+                    />
+                  </div>
+
+                  <UsageChart daily={data.daily} />
+
+                  <PlanAllotmentRow
+                    billingCycleLabel={`${formatBillingCycleLabel(data.billingCycle.start)} – today`}
+                    planAllotments={data.planAllotments}
+                  />
+
+                  <UsageModelBreakdown byModel={data.byModel} pricingAsOf={data.pricingAsOf} />
+
+                  <p className="text-[11px] leading-relaxed text-muted-foreground/80">
+                    Billing cycle totals: {formatTokenCount(data.billingCycleTotals.totalTokens)} tokens
+                    · {formatUsd(data.billingCycleTotals.costUsd)} est. cost ·{" "}
+                    {data.billingCycleTotals.callCount.toLocaleString()} calls
+                  </p>
+                </>
+              ) : null}
+            </div>
           </div>
-        </div>
         </div>
       </DialogContent>
     </Dialog>
@@ -209,7 +209,7 @@ function StatCard({
 }) {
   return (
     <div className="rounded-xl border border-border/50 bg-muted/15 px-3 py-2.5">
-      <p className="text-[10px] uppercase tracking-[0.12em] text-muted-foreground/70">{label}</p>
+      <p className="text-2xs uppercase tracking-[0.12em] text-muted-foreground/70">{label}</p>
       <p
         className={cn(
           "mt-1 text-lg font-semibold tabular-nums sm:text-xl",

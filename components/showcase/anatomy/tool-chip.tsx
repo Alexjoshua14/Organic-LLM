@@ -46,7 +46,7 @@ export function ToolChip({
       className={cn(
         "inline-flex items-center gap-1.5 rounded-full border border-border/60 font-medium text-foreground/90",
         glass(),
-        small ? "px-2 py-0.5 text-[10px]" : "px-2.5 py-1 text-xs",
+        small ? "px-2 py-0.5 text-2xs" : "px-2.5 py-1 text-xs",
         className
       )}
     >

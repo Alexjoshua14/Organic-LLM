@@ -91,6 +91,14 @@ export const KEYBOARD_SHORTCUTS: KeyboardShortcutDefinition[] = [
     scope: "chat",
     enabled: true,
   },
+  {
+    id: "arcadia-chat-settings",
+    keys: ["⌘", "."],
+    label: "Open Arcadia chat settings",
+    hint: "Title, summary, and AI regeneration",
+    scope: "chat",
+    enabled: true,
+  },
 ];
 
 export function getEnabledKeyboardShortcuts(): KeyboardShortcutDefinition[] {

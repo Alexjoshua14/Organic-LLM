@@ -8,6 +8,7 @@ export const CHAT_EXPERIENCES = [
   "strata_page",
   "delphi",
   "introspection",
+  "rabbit_hole",
 ] as const;
 
 export type ChatExperience = (typeof CHAT_EXPERIENCES)[number];
@@ -39,14 +40,29 @@ export function isIntrospectionExperience(experience: ChatExperience | undefined
   return experience === "introspection";
 }
 
-/** Introspection enables memory search + Mem0 context by default unless the client opts out. */
+export function isRabbitHoleExperience(experience: ChatExperience | undefined): boolean {
+  return experience === "rabbit_hole";
+}
+
+/** Rabbit hole: read Mem0 by default; writes are disabled in run-llm-chat-stream. */
 export function resolveMemoryEnabledForExperience(
   experience: ChatExperience | undefined,
   requested: boolean | undefined
 ): boolean {
-  if (isIntrospectionExperience(experience)) {
+  if (isIntrospectionExperience(experience) || isRabbitHoleExperience(experience)) {
     return requested ?? true;
   }
 
   return requested ?? false;
+}
+
+/** Experiences that must not auto-ingest chat turns into Mem0. */
+export function shouldSkipMemoryWriteForExperience(
+  experience: ChatExperience | undefined
+): boolean {
+  return (
+    experience === "delphi" ||
+    experience === "topic_explore" ||
+    experience === "rabbit_hole"
+  );
 }

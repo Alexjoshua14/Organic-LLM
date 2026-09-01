@@ -28,7 +28,7 @@ const REFRESH_MS = 2400;
 const RESUMED_HOLD_MS = 550;
 const COMPLETE_HOLD_MS = 2600;
 
-const TEXT_SLOT_CLASS = "text-[10px] leading-snug";
+const TEXT_SLOT_CLASS = "text-2xs leading-snug";
 
 const ARIA_LABEL =
   "Assistant reply streaming in a thread, reconnecting after a refresh, then continuing the same server-side stream from the prior partial text.";
@@ -176,7 +176,7 @@ export function WelcomeStreamResumeIllustration({
       >
         <div className="mb-1.5 flex w-full items-baseline justify-between gap-3">
           <p className={sectionLabel}>Resumable stream</p>
-          <span className="text-[10px] text-muted-foreground/75">Stream resumed</span>
+          <span className="text-2xs text-muted-foreground/75">Stream resumed</span>
         </div>
         <div className={cn(card, "w-full rounded-lg px-2.5 py-2 sm:px-3 sm:py-2", welcomeDemoCompactClass)}>
           <p className={cn(TEXT_SLOT_CLASS, "text-foreground")}>{MESSAGE}</p>
@@ -200,27 +200,27 @@ export function WelcomeStreamResumeIllustration({
         {isStreaming ? (
           <ShinyText
             as="span"
-            className="text-[10px] font-light tracking-wide text-muted-foreground/80"
+            className="text-2xs font-light tracking-wide text-muted-foreground/80"
             speed={1.2}
             text="Writing…"
           />
         ) : isComplete ? (
-          <span className="text-[10px] font-light tracking-wide text-muted-foreground/60">
+          <span className="text-2xs font-light tracking-wide text-muted-foreground/60">
             Complete
           </span>
         ) : isReconnecting ? (
           <ShinyText
             as="span"
-            className="text-[10px] font-light tracking-wide text-muted-foreground/80"
+            className="text-2xs font-light tracking-wide text-muted-foreground/80"
             speed={0.9}
             text="Reconnecting…"
           />
         ) : isResumedBeat ? (
-          <span className="text-[10px] font-light tracking-wide text-muted-foreground/75">
+          <span className="text-2xs font-light tracking-wide text-muted-foreground/75">
             Stream resumed
           </span>
         ) : (
-          <span aria-hidden className="text-[10px] opacity-0">
+          <span aria-hidden className="text-2xs opacity-0">
             —
           </span>
         )}

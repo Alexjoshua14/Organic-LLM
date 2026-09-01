@@ -1,7 +1,6 @@
 "use client";
 
 import { GenUIFallbackMarkdown } from "./GenUIFallbackMarkdown";
-import { GenUIWrapper, type GenUIArtifactSource } from "./GenUIWrapper";
 import { GEN_UI_REGISTRY } from "./registry";
 
 import {
@@ -9,36 +8,30 @@ import {
   safeParseGenUIBlock,
   type GenUIBlock,
 } from "@/lib/schemas/gen-ui";
+import { cn } from "@/lib/utils";
 
 type GenUIRendererProps = {
   /** Raw tool output or block object. */
   data: unknown;
   messageId?: string;
-  artifactSource?: GenUIArtifactSource;
 };
 
-function renderBlock(
-  block: GenUIBlock,
-  partial: boolean,
-  messageId?: string,
-  artifactSource?: GenUIArtifactSource
-) {
-  const entry = GEN_UI_REGISTRY[block.type];
-  const { Component } = entry;
+function renderBlock(block: GenUIBlock, partial: boolean) {
+  const { Component } = GEN_UI_REGISTRY[block.type];
 
   return (
-    <GenUIWrapper artifactSource={artifactSource} block={block} partial={partial}>
+    <div className={cn("not-prose", partial && "opacity-95")}>
       <Component block={block} partial={partial} />
-    </GenUIWrapper>
+    </div>
   );
 }
 
-export function GenUIRenderer({ data, messageId, artifactSource }: GenUIRendererProps) {
+export function GenUIRenderer({ data, messageId }: GenUIRendererProps) {
   const raw = extractGenUIBlockFromToolOutput(data);
   const parsed = safeParseGenUIBlock(raw);
 
   if (parsed.ok) {
-    return renderBlock(parsed.block, parsed.hadPartialFailures, messageId, artifactSource);
+    return renderBlock(parsed.block, parsed.hadPartialFailures);
   }
 
   return <GenUIFallbackMarkdown messageId={messageId} raw={parsed.partial ?? raw} />;

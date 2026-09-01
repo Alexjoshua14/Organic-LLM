@@ -29,9 +29,59 @@ export function getTodayDayOfWeek(date = new Date()): DayOfWeek {
   return JS_DAY_TO_ENUM[date.getDay()]!;
 }
 
+export function formatTimeOfDay(value: string): string {
+  const trimmed = value.trim();
+
+  const twelveHour = trimmed.match(/^(\d{1,2})(?::(\d{2}))?\s*(am|pm)$/i);
+
+  if (twelveHour) {
+    const hour = Number(twelveHour[1]);
+    const minutes = twelveHour[2];
+    const period = twelveHour[3].toLowerCase() as "am" | "pm";
+
+    return format12HourDisplay(hour, minutes, period);
+  }
+
+  const twentyFour = trimmed.match(/^(\d{1,2}):(\d{2})$/);
+
+  if (twentyFour) {
+    const hour24 = Number(twentyFour[1]);
+    const minutes = twentyFour[2];
+    const period = hour24 >= 12 ? "pm" : "am";
+    const hour12 = hour24 % 12 === 0 ? 12 : hour24 % 12;
+
+    return format12HourDisplay(hour12, minutes, period);
+  }
+
+  return trimmed;
+}
+
+function format12HourDisplay(hour: number, minutes: string | undefined, period: "am" | "pm"): string {
+  if (!minutes || minutes === "00") {
+    return `${hour}${period}`;
+  }
+
+  return `${hour}:${minutes} ${period}`;
+}
+
+export function formatHoursRange(open: string, close: string): string {
+  return `${formatTimeOfDay(open)} – ${formatTimeOfDay(close)}`;
+}
+
+/** Formats a single range string such as `10:00 - 22:30`. */
+export function formatHoursRangeString(value: string): string {
+  const parts = value.split(/\s*[–—-]\s*/);
+
+  if (parts.length === 2 && parts[0] && parts[1]) {
+    return formatHoursRange(parts[0], parts[1]);
+  }
+
+  return value;
+}
+
 export function formatHoursDay(day: RestaurantHoursDay): string {
   if (day.closed) return "Closed";
-  if (day.open && day.close) return `${day.open} – ${day.close}`;
+  if (day.open && day.close) return formatHoursRange(day.open, day.close);
 
   return day.note ?? "Hours unavailable";
 }
@@ -70,7 +120,7 @@ export function resolveTodayHours(
     }
 
     return {
-      label: holiday.hours ?? "Special hours",
+      label: holiday.hours ? formatHoursRangeString(holiday.hours) : "Special hours",
       detail: holiday.label,
       isClosed: false,
       isHoliday: true,

@@ -42,7 +42,7 @@ export function AnatomyInputStage({ stage }: { stage: InputIntentStage }) {
                 )}
               >
                 <div className="text-xs font-medium leading-tight text-foreground">{m.name}</div>
-                <div className="mt-0.5 truncate font-mono text-[10px] text-muted-foreground">
+                <div className="mt-0.5 truncate font-mono text-2xs text-muted-foreground">
                   {m.id}
                 </div>
               </div>

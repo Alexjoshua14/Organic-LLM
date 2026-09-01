@@ -44,7 +44,7 @@ function LabSection({
   return (
     <section className={cn("space-y-4", className)}>
       <div className="space-y-1">
-        <p className="text-[10px] font-medium uppercase tracking-[0.2em] text-muted-foreground">
+        <p className="text-2xs font-medium uppercase tracking-[0.2em] text-muted-foreground">
           {eyebrow}
         </p>
         <h2 className="font-commissioner text-xl font-light tracking-tight text-foreground sm:text-2xl">
@@ -85,7 +85,7 @@ function TriggerCard({
           <h3 className="text-sm font-medium text-foreground">{title}</h3>
           <p className="mt-1 text-xs leading-relaxed text-muted-foreground">{description}</p>
         </div>
-        <span className="shrink-0 rounded-full border border-border/60 bg-background/40 px-2 py-0.5 font-mono text-[10px] text-muted-foreground">
+        <span className="shrink-0 rounded-full border border-border/60 bg-background/40 px-2 py-0.5 font-mono text-2xs text-muted-foreground">
           {badge}
         </span>
       </div>
@@ -240,7 +240,7 @@ export function AdaptiveLiquidChromeLab() {
                     "relative rounded-xl px-4 py-4",
                   )}
                 >
-                  <span className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
+                  <span className="text-2xs font-medium uppercase tracking-wider text-muted-foreground">
                     Step {index + 1}
                   </span>
                   <p className="mt-1 text-sm font-medium text-foreground">{step.label}</p>
@@ -301,7 +301,7 @@ export function AdaptiveLiquidChromeLab() {
 
           <p className="text-center text-xs text-muted-foreground">
             Shader: LiquidChrome · Docs in{" "}
-            <code className="rounded bg-muted px-1 py-0.5 font-mono text-[10px]">
+            <code className="rounded bg-muted px-1 py-0.5 font-mono text-2xs">
               components/background/ADAPTIVE_LIQUID_CHROME.md
             </code>
           </p>

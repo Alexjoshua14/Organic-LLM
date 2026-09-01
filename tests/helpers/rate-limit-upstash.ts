@@ -31,6 +31,7 @@ export function registerUpstashRateLimitMocks(): void {
   mock.module("@upstash/ratelimit", () => ({
     Ratelimit: class {
       static slidingWindow = (_n: number, _w: string) => ({});
+      static tokenBucket = (_refill: number, _w: string, _max: number) => ({});
       limit = sharedRatelimitLimit;
       getRemaining = sharedRatelimitGetRemaining;
     },

@@ -21,7 +21,7 @@ export function SpeakModalityToggles({
 }) {
   return (
     <div className={cn(glass({ border: "all" }), "flex flex-wrap items-center gap-1 rounded-2xl p-1")}>
-      <span className="px-2 text-[10px] uppercase tracking-wide text-muted-foreground">
+      <span className="px-2 text-2xs uppercase tracking-wide text-muted-foreground">
         Voice
       </span>
       {TOGGLES.map((t) => {

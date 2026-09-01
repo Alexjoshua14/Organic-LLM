@@ -90,11 +90,11 @@ export function MiseToolResult({ threadId, output }: MiseToolResultProps) {
         kind === "checked"
           ? ({ type: "SET_INGREDIENT_STATUS", version: 1, id, checked: !current.checked } as const)
           : ({
-              type: "SET_INGREDIENT_STATUS",
-              version: 1,
-              id,
-              status: current.status === "have" ? ("need" as const) : ("have" as const),
-            } as const);
+            type: "SET_INGREDIENT_STATUS",
+            version: 1,
+            id,
+            status: current.status === "have" ? ("need" as const) : ("have" as const),
+          } as const);
 
       // Optimistic local update, then persist to Supabase.
       applyMiseCommand(threadId, command);
@@ -137,7 +137,7 @@ export function MiseToolResult({ threadId, output }: MiseToolResultProps) {
     >
       <div className="flex items-center gap-1.5 border-b border-border/40 px-3 py-2">
         <ChefHat className="size-3 text-muted-foreground" />
-        <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+        <span className="text-2xs font-semibold uppercase tracking-wide text-muted-foreground">
           {view.title}
         </span>
       </div>

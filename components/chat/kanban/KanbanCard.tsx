@@ -35,7 +35,7 @@ export function KanbanCard({ item }: { item: StoredKanbanItem }) {
         <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
           <span
             className={cn(
-              "rounded-full border px-1.5 py-0.5 text-[10px] font-medium capitalize",
+              "rounded-full border px-1.5 py-0.5 text-2xs font-medium capitalize",
               PRIORITY_STYLES[item.priority]
             )}
           >
@@ -44,7 +44,7 @@ export function KanbanCard({ item }: { item: StoredKanbanItem }) {
           {item.tags?.map((tag) => (
             <span
               key={tag}
-              className="rounded-full bg-background-tertiary/60 px-1.5 py-0.5 text-[10px] text-muted-foreground"
+              className="rounded-full bg-background-tertiary/60 px-1.5 py-0.5 text-2xs text-muted-foreground"
             >
               {tag}
             </span>

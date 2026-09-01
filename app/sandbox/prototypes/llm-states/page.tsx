@@ -22,6 +22,8 @@ import { ChatAIActionEnum } from "@/types/ai";
 import { glass } from "@/components/design-system/primitives";
 import { cn } from "@/lib/utils";
 
+import { ProcessingTailDemo } from "./_components/processing-tail-demo";
+
 const WRAPPER_CLASS = `rounded-lg p-4 mb-4 shadow-md ${glass()}`;
 
 /** Matches the bordered wrapper around in-flight tool rows in `ChatMessage` / `AIMessage`. */
@@ -148,6 +150,9 @@ export default function PrototypesLLMStatesPage() {
             <TabsTrigger className="shrink-0" value="ephemeral">
               Ephemeral tail
             </TabsTrigger>
+            <TabsTrigger className="shrink-0" value="processing-proto">
+              Processing burn (proto)
+            </TabsTrigger>
             <TabsTrigger className="shrink-0" value="tools">
               Tool results
             </TabsTrigger>
@@ -247,6 +252,16 @@ export default function PrototypesLLMStatesPage() {
                 </p>
               </StateBlock>
             </div>
+          </TabsContent>
+
+          <TabsContent className="mt-0 space-y-0 focus-visible:ring-offset-0" value="processing-proto">
+            <p className="mb-6 text-sm text-muted-foreground leading-relaxed">
+              Instant assistant-row mount + character-level processing label transitions.
+              Production Arcadia uses <code className="rounded bg-muted px-1 py-0.5 text-xs">ChatThinking</code>{" "}
+              → <code className="rounded bg-muted px-1 py-0.5 text-xs">ProcessingTextBurn</code>; left column keeps
+              legacy ShinyText for comparison.
+            </p>
+            <ProcessingTailDemo />
           </TabsContent>
 
           <TabsContent className="mt-0 space-y-0 focus-visible:ring-offset-0" value="tools">

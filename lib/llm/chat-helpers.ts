@@ -850,12 +850,109 @@ const validateSummary = async (
 };
 
 /**
- * Count tokens in text using OpenAI's tiktoken tokenizer.
- * Uses the cl100k_base encoding which is compatible with GPT-4 and GPT-3.5-turbo models.
- * This is a close approximation for newer models like GPT-4o and GPT-5.
- * @param text - The text to count tokens for
- * @returns The number of tokens, or null if encoding fails
+ * Regenerates the full conversation summary from all messages and syncs both
+ * `threads.conversation_summary` (via summarizeChat) and `thread_summaries`.
  */
+export async function regenerateChatSummary(chatId: string): Promise<Result<string, string>> {
+  const summarizeResult = await summarizeChat(chatId);
+
+  if (summarizeResult.error || !summarizeResult.data) {
+    return {
+      data: null,
+      error: summarizeResult.error,
+    };
+  }
+
+  const summary = summarizeResult.data;
+  const sb = await supabaseServer();
+  const threadOwnerContext = await getThreadOwnerContext(chatId);
+
+  if (threadOwnerContext.error || !threadOwnerContext.data) {
+    return {
+      data: null,
+      error: threadOwnerContext.error?.message ?? "Thread owner not found",
+    };
+  }
+
+  const ownerId = threadOwnerContext.data.ownerId;
+
+  const { data: latestMessage, error: messagesError } = await sb
+    .from("messages")
+    .select("id")
+    .eq("thread_id", chatId)
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .single();
+
+  if (messagesError || !latestMessage) {
+    return {
+      data: null,
+      error: messagesError?.message ?? "No latest message id found",
+    };
+  }
+
+  let tokens = await estimateTokenCount(summary);
+
+  if (tokens === null) {
+    tokens = 600;
+  }
+
+  const encryptedSummary = encryptThreadSummary(summary, ownerId, chatId);
+  const lastSummarizedAt = new Date().toISOString();
+
+  const { data: existingRow, error: existingError } = await sb
+    .from("thread_summaries")
+    .select("thread_id")
+    .eq("thread_id", chatId)
+    .maybeSingle();
+
+  if (existingError) {
+    return {
+      data: null,
+      error: existingError.message,
+    };
+  }
+
+  if (existingRow) {
+    const { error: updateError } = await sb
+      .from("thread_summaries")
+      .update({
+        summary_text: encryptedSummary,
+        summary_tokens: tokens,
+        last_summarized_message_id: latestMessage.id,
+        last_summarized_at: lastSummarizedAt,
+      })
+      .eq("thread_id", chatId);
+
+    if (updateError) {
+      return {
+        data: null,
+        error: updateError.message,
+      };
+    }
+  } else {
+    const { error: insertError } = await sb.from("thread_summaries").insert({
+      thread_id: chatId,
+      summary_text: encryptedSummary,
+      summary_tokens: tokens,
+      last_summarized_message_id: latestMessage.id,
+      last_summarized_at: lastSummarizedAt,
+    });
+
+    if (insertError) {
+      return {
+        data: null,
+        error: insertError.message,
+      };
+    }
+  }
+
+  return {
+    data: summary,
+    error: null,
+  };
+}
+
 export const estimateTokenCount = async (text: string): Promise<number | null> => {
   // TODO: CLEAN UP THIS FUNCTION TO ENSURE IT'S ACCURACY
   try {

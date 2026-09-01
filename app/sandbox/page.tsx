@@ -46,7 +46,7 @@ export default function SandboxPage() {
                     {page.badge ? (
                       <span
                         className={cn(
-                          "rounded-full border px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide",
+                          "rounded-full border px-2 py-0.5 text-2xs font-medium uppercase tracking-wide",
                           page.badge === "experimental"
                             ? "border-amber-400/30 bg-amber-400/10 text-amber-300"
                             : "border-sky-400/30 bg-sky-400/10 text-sky-300"

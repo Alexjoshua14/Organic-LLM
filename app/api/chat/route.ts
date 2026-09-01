@@ -5,16 +5,15 @@ import {
   convertToModelMessages,
   createUIMessageStream,
   createUIMessageStreamResponse,
-  generateId,
 } from "ai";
-import { after } from "next/server";
-import { createResumableStreamContext } from "resumable-stream";
 
 import { saveChat } from "@/lib/chat/chat-store";
+import { consumeChatSseStream } from "@/lib/chat/resumable-sse-stream";
 import { getThreadArcadiaStarterKey, getThreadHasTitle } from "@/data/supabase/chat";
 import { isAdminUser } from "@/data/supabase/profiles";
 import { createLogger } from "@/lib/logger";
 import { getLastUserMessageText } from "@/lib/arcadia/help-response";
+import { augmentUserMessageWithDiagramLinks } from "@/lib/mermaid/augment-message";
 import {
   classifyTaskTier,
   chatModelForGatewayId,
@@ -98,8 +97,12 @@ export async function POST(req: Request) {
     effort: requestedEffort,
     memory: requestedMemory,
     delphiDisplay,
+    drawerDisplay,
+    rabbitHoleSessionId,
+    diagramNodeLinks,
   } = parseResult.data;
   const message = incomingMessage as UIMessage;
+  const messageForLlm = augmentUserMessageWithDiagramLinks(message, diagramNodeLinks);
   const memoryEnabled = resolveMemoryEnabledForExperience(experience, requestedMemory);
 
   // Zero Data Retention Policy is in regards to external LLMs, not Organic LLM at this time
@@ -202,14 +205,14 @@ export async function POST(req: Request) {
               loadArcadiaChatTurnContext({
                 logger,
                 chatId: id,
-                message,
+                message: messageForLlm,
                 memoryEnabled,
               })
           : () =>
               loadMainChatTurnContext({
                 logger,
                 chatId: id,
-                message,
+                message: messageForLlm,
                 memoryEnabled,
                 experience,
               });
@@ -301,6 +304,17 @@ export async function POST(req: Request) {
 
       const messages = convertToModelMessages(validatedMessages);
       const initialMessageCount = validatedMessages.length;
+      let rabbitHoleActiveNodeId: string | null = null;
+
+      if (experience === "rabbit_hole" && rabbitHoleSessionId) {
+        const { getSessionById } = await import("@/data/supabase/rabbitholes");
+        const sessionRes = await getSessionById(rabbitHoleSessionId);
+
+        if (sessionRes.data) {
+          rabbitHoleActiveNodeId = sessionRes.data.activeNodeId ?? null;
+        }
+      }
+
       const { tools, toolInstructions } = await compileChatTools({
         useSearch: parseResult.data.webSearch ?? false,
         useMemory: parseResult.data.memory ?? false,
@@ -312,6 +326,8 @@ export async function POST(req: Request) {
         initialMessageCount,
         sbUserId,
         writer,
+        rabbitHoleSessionId,
+        rabbitHoleActiveNodeId,
       });
 
       const toolNames = Object.keys(tools);
@@ -350,6 +366,7 @@ export async function POST(req: Request) {
         experience,
         chatStyle,
         delphiDisplay,
+        drawerDisplay,
         arcadiaStarterPriming,
       });
 
@@ -419,7 +436,7 @@ export async function POST(req: Request) {
         data: contextBudget,
       });
 
-      runLLMChatStream({
+      await runLLMChatStream({
         writer,
         logger,
         chatId: id,
@@ -444,13 +461,8 @@ export async function POST(req: Request) {
 
   return createUIMessageStreamResponse({
     stream,
-    async consumeSseStream({ stream }) {
-      const streamId = generateId();
-      const streamContext = createResumableStreamContext({ waitUntil: after });
-
-      await streamContext.createNewResumableStream(streamId, () => stream);
-
-      await saveChat({ chatId: id, activeStreamId: streamId });
+    async consumeSseStream({ stream: sseStream }) {
+      await consumeChatSseStream({ stream: sseStream, chatId: id, logger });
     },
   });
 }

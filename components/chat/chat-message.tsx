@@ -46,6 +46,7 @@ import { MANAGE_TASKS_TOOL_NAME } from "@/lib/schemas/ergon-tasks";
 import { cn } from "@/lib/utils";
 import { ChatAIActionEnum } from "@/types/ai";
 import { MermaidDiagram } from "@/components/blog/mermaid-diagram";
+import { MermaidToolDiagram } from "@/components/mermaid/mermaid-tool-diagram";
 import { extractMermaidCode } from "@/lib/mermaid/source";
 import { getMessageModelId, getModelDisplayName } from "@/lib/chat/message-model";
 
@@ -244,15 +245,6 @@ const AIMessage: FC<ChatMessageProps> = ({
                     return (
                       <GenUIToolResult
                         key={`${message.id}-${i}-gen-ui-result`}
-                        artifactSource={
-                          chatId
-                            ? {
-                                threadId: chatId,
-                                messageId: message.id,
-                                toolCallId: toolCallId,
-                              }
-                            : undefined
-                        }
                         messageId={message.id}
                         output={part.output}
                         partIndex={i}
@@ -267,6 +259,43 @@ const AIMessage: FC<ChatMessageProps> = ({
                         output={part.errorText}
                         partIndex={i}
                       />
+                    );
+                  }
+
+                  return null;
+                }
+
+                if (toolName.toLowerCase() === "make_mermaid_diagram") {
+                  if (part.state === "input-streaming" || part.state === "input-available") {
+                    return (
+                      <div
+                        key={`${message.id}-${i}-mermaid-active`}
+                        className="not-prose rounded-lg border border-border/40 bg-background-tertiary/20 px-3 py-2"
+                      >
+                        <ChatThinking text={toolInvocationInFlightLabel(toolName)} />
+                      </div>
+                    );
+                  }
+
+                  if (part.state === "output-available" || part.state === "output-error") {
+                    const displayBody =
+                      part.state === "output-error" ? part.errorText : part.output;
+                    const parsed = tryParseMermaidToolOutput(displayBody) ?? {
+                      kind: "error" as const,
+                      message: "Unexpected tool output.",
+                    };
+
+                    return (
+                      <div key={`${message.id}-${i}-mermaid-result`} className="not-prose">
+                        <MermaidToolAckCard
+                          isPinned={pinnedToolIds[toolCallId] === true}
+                          parsed={parsed}
+                          onTogglePin={() => toggleToolPinned(toolCallId)}
+                        />
+                        {part.state === "output-available" && parsed.kind === "ok" ? (
+                          <MermaidToolDiagram output={part.output} toolCallId={toolCallId} />
+                        ) : null}
+                      </div>
                     );
                   }
 
@@ -467,6 +496,7 @@ function shouldShowTailAiAction(
 
 const KNOWN_TOOL_IN_FLIGHT_LABELS: Record<string, string> = {
   render_gen_ui: "Structuring response…",
+  gather_restaurant: "Looking up restaurant…",
   kanban_board: "Updating board…",
   manage_tasks: "Updating tasks…",
   mise_plan: "Updating plan…",
@@ -597,7 +627,7 @@ export const ArcadiaToolResultCard = memo(function ArcadiaToolResultCard({
                 <MermaidDiagram code={mermaid} expandOnDoubleClick />
               </div>
             ) : null}
-            <pre className="mt-1 max-h-72 overflow-auto rounded bg-background/60 p-2 text-[10px] leading-snug text-foreground/90">
+            <pre className="mt-1 max-h-72 overflow-auto rounded bg-background/60 p-2 text-2xs leading-snug text-foreground/90">
               {json}
             </pre>
           </span>

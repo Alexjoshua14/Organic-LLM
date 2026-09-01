@@ -7,6 +7,7 @@ import type { ReactNode } from "react";
 import { ExternalLink, MapPin, Phone } from "lucide-react";
 
 import { buildDirectionsHref, buildTelHref } from "./restaurant-card-utils";
+import { spacing } from "@/lib/design-tokens/spacing";
 import { cn } from "@/lib/utils";
 
 type RestaurantCardActionsProps = {
@@ -32,7 +33,7 @@ function ActionButton({
   return (
     <a
       className={cn(
-        "inline-flex items-center justify-center gap-2 rounded-xl border border-border/70 bg-background/80 font-medium text-foreground transition-colors hover:bg-muted/50",
+        "inline-flex items-center justify-center gap-inline-sm rounded-xl border border-border/70 bg-background/80 font-medium text-foreground transition-colors hover:bg-muted/50",
         large ? "flex-1 px-4 py-3 text-sm" : "px-3 py-2 text-xs"
       )}
       href={href}
@@ -58,7 +59,7 @@ export function RestaurantCardActions({
       : links?.googleMaps;
 
   return (
-    <div className={cn("flex flex-wrap gap-2", large && "grid grid-cols-2 sm:flex")}>
+    <div className={cn("flex flex-wrap", spacing.gap.sm, large && "grid grid-cols-2 sm:flex")}>
       {directionsHref ? (
         <ActionButton
           external

@@ -183,7 +183,7 @@ export function WelcomeHighlightVisual({
         <p
           className={cn(
             "font-medium uppercase tracking-[0.14em] text-muted-foreground",
-            sizeKey === "feature" ? "text-[10px]" : "text-xs"
+            sizeKey === "feature" ? "text-2xs" : "text-xs"
           )}
         >
           {placeholder.label}
@@ -192,7 +192,7 @@ export function WelcomeHighlightVisual({
           className={cn(
             "mt-1.5 leading-snug text-muted-foreground/80",
             sizeKey === "feature"
-              ? "line-clamp-2 text-[10px] sm:text-[11px]"
+              ? "line-clamp-2 text-2xs sm:text-[11px]"
               : "line-clamp-2 text-xs sm:text-sm"
           )}
         >

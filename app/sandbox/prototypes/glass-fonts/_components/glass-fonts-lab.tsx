@@ -329,7 +329,7 @@ ${headingRows}`;
                     Draft preview
                   </p>
                   <button
-                    className="rounded-full border border-white/25 bg-background/50 px-3 py-1 text-[10px] uppercase tracking-[0.13em] text-foreground"
+                    className="rounded-full border border-white/25 bg-background/50 px-3 py-1 text-2xs uppercase tracking-[0.13em] text-foreground"
                     type="button"
                     onClick={() => setShowReviewModal(true)}
                   >
@@ -400,13 +400,13 @@ ${headingRows}`;
         generateExternalPrompt={
           externalIntent
             ? (payload) =>
-                generateExternalPrompt({
-                  intent: externalIntent,
-                  sourceText: payload.sourceText,
-                  userContext: payload.userContext,
-                  exportFormat: payload.exportFormat,
-                  provider: payload.provider,
-                })
+              generateExternalPrompt({
+                intent: externalIntent,
+                sourceText: payload.sourceText,
+                userContext: payload.userContext,
+                exportFormat: payload.exportFormat,
+                provider: payload.provider,
+              })
             : undefined
         }
         onExport={exportReviewOutput}
