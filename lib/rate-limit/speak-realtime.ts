@@ -33,7 +33,7 @@ export function isSpeakRealtimeEnabled(): boolean {
 }
 
 export function getSpeakRealtimeModel(): string {
-  return process.env.SPEAK_REALTIME_MODEL?.trim() || "gpt-realtime-mini";
+  return process.env.SPEAK_REALTIME_MODEL?.trim() || "gpt-realtime-2.1-mini";
 }
 
 export function getSpeakMonthlyCostCapUsd(): number {

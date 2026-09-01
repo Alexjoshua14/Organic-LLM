@@ -29,7 +29,7 @@ const MODEL_CONTEXT_WINDOW_TOKENS: Record<string, number> = {
   "openai/gpt-5.4-mini": 128_000,
   "openai/gpt-5.4-nano": 128_000,
   "google/gemini-3.1-pro-preview": 1_000_000,
-  "google/gemini-3.6-flash": 1_000_000,
+  "google/gemini-3.7-flash": 1_000_000,
   "google/gemini-3-flash": 1_000_000,
   "google/gemini-3.5-flash-lite": 1_000_000,
   "google/gemini-2.5-flash-lite": 1_000_000,

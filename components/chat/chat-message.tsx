@@ -202,33 +202,19 @@ const AIMessage: FC<ChatMessageProps> = ({
                   return null;
                 }
 
-                if (toolName === MANAGE_TASKS_TOOL_NAME) {
-                  if (part.state === "output-available") {
-                    return (
-                      <ErgonTaskResult
-                        key={`${message.id}-${i}-ergon-tasks`}
-                        output={part.output}
-                      />
-                    );
-                  }
-
-                  return null;
-                }
-
-                if (toolName === MISE_PLAN_TOOL_NAME) {
+                if (toolName === "gather_restaurant") {
                   if (part.state === "input-streaming" || part.state === "input-available") {
-                    return <MiseLoadingShell key={`${message.id}-${i}-mise-stream`} />;
-                  }
-                  if (part.state === "output-available") {
                     return (
-                      <MiseToolResult
-                        key={`${message.id}-${i}-mise-result`}
-                        output={part.output}
-                        threadId={chatId ?? message.id}
-                      />
+                      <div
+                        key={`${message.id}-${i}-gather-restaurant-active`}
+                        className="not-prose rounded-lg border border-border/40 bg-background-tertiary/20 px-3 py-2"
+                      >
+                        <ChatThinking text={toolInvocationInFlightLabel(toolName)} />
+                      </div>
                     );
                   }
 
+                  // Prefetch only — restaurant-card UI comes from render_gen_ui.
                   return null;
                 }
 
@@ -353,6 +339,10 @@ const AIMessage: FC<ChatMessageProps> = ({
                   );
                 }
                 if (tp.state === "result" || tp.state === "output-error") {
+                  if (tp.toolName === "gather_restaurant") {
+                    return null;
+                  }
+
                   return (
                     <ArcadiaToolResultCard
                       key={`${message.id}-${i}-tool-result`}
