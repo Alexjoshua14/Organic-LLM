@@ -39,7 +39,7 @@ const DEFAULT_COST: ModelCost = {
  * Keys match model ids from lib/schemas/chat.ts (e.g. openai/gpt-5.4-mini).
  */
 const MODEL_COSTS: Record<string, ModelCost> = {
-  "openai/gpt-5.6-sol": { inputPerMillion: 5.0, outputPerMillion: 30.0 },
+  "openai/gpt-5.6-sol": { inputPerMillion: 2.0, outputPerMillion: 10.0 },
   "openai/gpt-5.6-terra": { inputPerMillion: 2.0, outputPerMillion: 12.0 },
   "openai/gpt-5.6-luna": { inputPerMillion: 0.2, outputPerMillion: 1.2 },
   "openai/gpt-5.5": { inputPerMillion: 5.0, outputPerMillion: 30.0 },
@@ -62,6 +62,7 @@ const MODEL_COSTS: Record<string, ModelCost> = {
   "google/gemini-2.5-flash-lite": { inputPerMillion: 0.1, outputPerMillion: 0.4 },
   "anthropic/claude-opus-5": { inputPerMillion: 5.0, outputPerMillion: 25.0 },
   "anthropic/claude-opus-4.8": { inputPerMillion: 5.0, outputPerMillion: 25.0 },
+  "anthropic/claude-fable-5.1": { inputPerMillion: 10.0, outputPerMillion: 50.0 },
   "anthropic/claude-fable-5": { inputPerMillion: 10.0, outputPerMillion: 50.0 },
   "anthropic/claude-opus-4.7": { inputPerMillion: 5.0, outputPerMillion: 25.0 },
   "anthropic/claude-sonnet-5": { inputPerMillion: 2.0, outputPerMillion: 10.0 },
@@ -72,8 +73,8 @@ const MODEL_COSTS: Record<string, ModelCost> = {
   "moonshotai/kimi-k3": { inputPerMillion: 3.0, outputPerMillion: 15.0 },
   "moonshotai/kimi-k2.7-code": { inputPerMillion: 0.95, outputPerMillion: 4.0 },
   "moonshotai/kimi-k2.6": { inputPerMillion: 0.95, outputPerMillion: 4.0 },
-  "deepseek/deepseek-v4-pro": { inputPerMillion: 1.74, outputPerMillion: 3.48 },
-  "deepseek/deepseek-v4-flash": { inputPerMillion: 0.2, outputPerMillion: 0.4 },
+  "deepseek/deepseek-v4-pro": { inputPerMillion: 0.66, outputPerMillion: 1.98 },
+  "deepseek/deepseek-v4-flash": { inputPerMillion: 0.13, outputPerMillion: 0.26 },
   "deepseek/deepseek-v3.2": { inputPerMillion: 0.28, outputPerMillion: 0.42 },
   "openai/gpt-oss-120b": { inputPerMillion: 0.1, outputPerMillion: 0.5 },
   "openai/gpt-oss-20b": { inputPerMillion: 0.05, outputPerMillion: 0.2 },
@@ -206,4 +207,4 @@ export function costUnitsFromUsd(usd: number): number {
 }
 
 /** When the MODEL_COSTS table was last reviewed (update with pricing changes). */
-export const MODEL_PRICING_AS_OF = "2026-08-16";
+export const MODEL_PRICING_AS_OF = "2026-09-01";

@@ -23,29 +23,30 @@ const DEFAULT_CONTEXT_WINDOW_TOKENS = 128_000;
 
 /** Known gateway model input windows (tokens). */
 const MODEL_CONTEXT_WINDOW_TOKENS: Record<string, number> = {
-  "openai/gpt-5.6-sol": 200_000,
-  "openai/gpt-5.6-terra": 200_000,
-  "openai/gpt-5.6-luna": 128_000,
-  "openai/gpt-5.4-mini": 128_000,
-  "openai/gpt-5.4-nano": 128_000,
+  "openai/gpt-5.6-sol": 1_050_000,
+  "openai/gpt-5.6-terra": 1_050_000,
+  "openai/gpt-5.6-luna": 1_050_000,
+  "openai/gpt-5.4-mini": 400_000,
+  "openai/gpt-5.4-nano": 400_000,
   "google/gemini-3.1-pro-preview": 1_000_000,
   "google/gemini-3.7-flash": 1_000_000,
   "google/gemini-3-flash": 1_000_000,
   "google/gemini-3.5-flash-lite": 1_000_000,
   "google/gemini-2.5-flash-lite": 1_000_000,
-  "anthropic/claude-fable-5": 200_000,
-  "anthropic/claude-opus-5": 200_000,
-  "anthropic/claude-sonnet-5": 200_000,
+  "anthropic/claude-fable-5.1": 1_000_000,
+  "anthropic/claude-fable-5": 1_000_000,
+  "anthropic/claude-opus-5": 1_000_000,
+  "anthropic/claude-sonnet-5": 1_000_000,
   "anthropic/claude-haiku-4.5": 200_000,
-  "perplexity/sonar-pro": 128_000,
-  "perplexity/sonar-reasoning-pro": 128_000,
+  "perplexity/sonar-pro": 200_000,
+  "perplexity/sonar-reasoning-pro": 127_000,
   "moonshotai/kimi-k3": 1_000_000,
   "moonshotai/kimi-k2.7-code": 256_000,
-  "moonshotai/kimi-k2.6": 256_000,
-  "deepseek/deepseek-v4-pro": 128_000,
-  "deepseek/deepseek-v4-flash": 128_000,
-  "openai/gpt-oss-120b": 128_000,
-  "openai/gpt-oss-20b": 128_000,
+  "moonshotai/kimi-k2.6": 262_000,
+  "deepseek/deepseek-v4-pro": 1_000_000,
+  "deepseek/deepseek-v4-flash": 1_000_000,
+  "openai/gpt-oss-120b": 131_072,
+  "openai/gpt-oss-20b": 131_072,
 };
 
 export type ContextBudgetSegmentId =
@@ -134,7 +135,7 @@ export function getMessageTextForTokenEstimate(message: UIMessage): string {
 
 export function getModelContextWindowTokens(modelId: string): number {
   if (modelId === AUTO_CHAT_MODEL_ID) {
-    return 200_000;
+    return 1_000_000;
   }
 
   if (modelId in MODEL_CONTEXT_WINDOW_TOKENS) {
@@ -144,7 +145,7 @@ export function getModelContextWindowTokens(modelId: string): number {
   const provider = modelId.split("/")[0];
 
   if (provider === "google") return 1_000_000;
-  if (provider === "anthropic") return 200_000;
+  if (provider === "anthropic") return 1_000_000;
   if (provider === "openai") return 128_000;
 
   return DEFAULT_CONTEXT_WINDOW_TOKENS;

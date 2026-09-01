@@ -80,9 +80,9 @@ const gatewayChatModels: ChatModel[] = [
     supportsZeroDataRetention: true,
   },
   {
-    // Fable 5 requires 30-day data retention upstream, so it is not ZDR-compatible.
-    id: "anthropic/claude-fable-5",
-    name: "Claude Fable 5",
+    // Fable 5.1 is not ZDR-compatible (gateway `zdr: none`).
+    id: "anthropic/claude-fable-5.1",
+    name: "Claude Fable 5.1",
     supportsZeroDataRetention: false,
     adminOnly: true,
   },
