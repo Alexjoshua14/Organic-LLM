@@ -98,6 +98,7 @@ export const ChatThread: FC<ChatThreadProps> = ({
                 key={message.id}
                 aiActionPayload={index === lastMessageIndex ? aiActionPayload : undefined}
                 chatId={chatId}
+                isLastMessage={index === lastMessageIndex}
                 isLatestArcadiaHelp={
                   isArcadiaHelpMessage(message) ? isLatestArcadiaHelp : undefined
                 }

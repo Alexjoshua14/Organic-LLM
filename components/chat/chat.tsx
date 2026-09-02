@@ -12,6 +12,7 @@ import { toast } from "sonner";
 import { Conversation, ConversationScrollButton } from "../third-party/ai-elements/conversation";
 
 import { ChatThread, MEMORY_PANEL_RESERVE_PADDING } from "./chat-thread";
+import { ErgonDocumentOpenProvider } from "./ergon-documents/ErgonDocumentOpenProvider";
 import { CoreInput } from "./core-input";
 import { ChatStylePicker } from "./chat-style-picker";
 import { ChatThreadStyleOverlay } from "./chat-thread-style-overlay";
@@ -389,17 +390,18 @@ export const Chat: React.FC<ChatProps> = ({
   }, [messages]);
 
   return (
-    <div
-      className={[
-        "w-full",
-        "min-w-0",
-        "h-full",
-        "sm:max-h-[calc(100dvh-2rem)]",
-        "flex",
-        "flex-col",
-        "overflow-x-hidden",
-      ].join(" ")}
-    >
+    <ErgonDocumentOpenProvider chatId={id} setMessages={setMessages} status={status}>
+      <div
+        className={[
+          "w-full",
+          "min-w-0",
+          "h-full",
+          "sm:max-h-[calc(100dvh-2rem)]",
+          "flex",
+          "flex-col",
+          "overflow-x-hidden",
+        ].join(" ")}
+      >
       <Conversation
         className={[
           "flex-1",
@@ -497,6 +499,6 @@ export const Chat: React.FC<ChatProps> = ({
           />
         </div>
       </div>
-    </div>
+    </ErgonDocumentOpenProvider>
   );
 };
