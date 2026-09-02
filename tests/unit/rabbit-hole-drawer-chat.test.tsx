@@ -52,4 +52,26 @@ describe("RabbitHoleDrawerChat", () => {
     expect(html).toContain("Hello drawer");
     expect(html).toContain("Hi there");
   });
+
+  test("shows reading receipt while streaming before an assistant message exists", () => {
+    const html = renderDrawerChat(
+      <RabbitHoleDrawerChat
+        activeNode={null}
+        branches={[]}
+        canGoBack={false}
+        chatId="chat-1"
+        isBusy={false}
+        isStreaming
+        messages={[{ id: "u1", role: "user", parts: [{ type: "text", text: "Hello drawer" }] }]}
+        session={null}
+        sources={[]}
+        onBranchClick={() => undefined}
+        onNavigateBack={() => undefined}
+        onSourceClick={() => undefined}
+      />
+    );
+
+    expect(html).toContain("Hello drawer");
+    expect(html).toContain("Reading...");
+  });
 });

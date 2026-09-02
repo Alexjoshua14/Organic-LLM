@@ -464,6 +464,7 @@ export const Chat: React.FC<ChatProps> = ({
             <ChatThread
               aiActionPayload={aiAction}
               chatId={id}
+              status={status}
               contentClassName={persona === "remy" ? MEMORY_PANEL_RESERVE_PADDING : undefined}
               messages={messages}
               renderEmptyState={
