@@ -1,6 +1,7 @@
 import { z } from "zod";
 
 import { KanbanCommandSchema, type KanbanCommand } from "./command";
+import { KanbanLinkDocumentCommandSchema, type KanbanLinkDocumentCommand } from "./link-document";
 import { isKanbanCommandType, KANBAN_STATUS_LABELS, type KanbanCommandType } from "./shared";
 import { KanbanViewSchema, type KanbanView } from "./view";
 
@@ -8,6 +9,14 @@ export * from "./shared";
 export * from "./item";
 export * from "./view";
 export * from "./command";
+export * from "./link-document";
+
+export const KanbanChannelCommandSchema = z.union([
+  KanbanCommandSchema,
+  KanbanLinkDocumentCommandSchema,
+]);
+
+export type KanbanChannelCommand = z.infer<typeof KanbanChannelCommandSchema>;
 
 /** Tool output for a mutation command (no UI block; board updates via the data channel). */
 export const KanbanAckOutputSchema = z.object({
@@ -29,12 +38,12 @@ export type KanbanViewOutput = z.infer<typeof KanbanViewOutputSchema>;
 export type KanbanBoardToolOutput = z.infer<typeof KanbanBoardToolOutputSchema>;
 
 export type SafeParseKanbanCommandResult =
-  | { ok: true; command: KanbanCommand }
+  | { ok: true; command: KanbanChannelCommand }
   | { ok: false; errors: z.ZodError };
 
 /** Defensive re-parse of a streamed command on the client. */
 export function safeParseKanbanCommand(raw: unknown): SafeParseKanbanCommandResult {
-  const parsed = KanbanCommandSchema.safeParse(raw);
+  const parsed = KanbanChannelCommandSchema.safeParse(raw);
 
   if (parsed.success) {
     return { ok: true, command: parsed.data };
