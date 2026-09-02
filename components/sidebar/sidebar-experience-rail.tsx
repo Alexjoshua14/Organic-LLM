@@ -5,6 +5,8 @@ import { usePathname, useRouter } from "next/navigation";
 
 import { FeatureHint } from "@/components/onboarding/feature-hint";
 import { Logger } from "@/lib/logger";
+import { PERF_PHASES } from "@/lib/perf/journeys";
+import { mark, startJourney } from "@/lib/perf/trace-store";
 import { createChat } from "@/lib/chat/chat-store";
 import { useSharedChatContext } from "@/lib/context/chat-context";
 import { cn } from "@/lib/utils";
@@ -14,12 +16,12 @@ const logger = new Logger(`components/sidebar/sidebar-experience-rail.tsx`);
 type RailItem =
   | { id: "chat"; label: "Chat"; type: "action" }
   | {
-    id: string;
-    label: string;
-    type: "link";
-    href: string;
-    match: (p: string) => boolean;
-  };
+      id: string;
+      label: string;
+      type: "link";
+      href: string;
+      match: (p: string) => boolean;
+    };
 
 const RAIL_ROWS: RailItem[][] = [
   [
@@ -97,6 +99,7 @@ export function SidebarExperienceRail() {
   const onNewChat = () => {
     async function run() {
       logger.log("SidebarExperienceRail", "Chat segment clicked");
+      startJourney("to-chat", "rail-chat");
       const res = await createChat();
 
       if (res.error || res.data === null) {
@@ -104,7 +107,9 @@ export function SidebarExperienceRail() {
 
         return;
       }
+      mark(PERF_PHASES.chatCreated);
       refreshSidebarChats();
+      mark(PERF_PHASES.navPush);
       router.push(`/chat/${res.data}`);
     }
     void run();

@@ -5,7 +5,14 @@ import { cache } from "react";
 
 import Page from "@/components/layout/page";
 import { Chat } from "@/components/chat/chat";
+import { PerfServerPhases } from "@/components/perf/perf-server-phases";
 import { loadChat } from "@/lib/chat/chat-store";
+import { PERF_PHASES } from "@/lib/perf/journeys";
+import {
+  createRequestPhaseCollector,
+  takeServerPhases,
+  timeServerPhase,
+} from "@/lib/perf/server-phase";
 import { resolveChatBrowserTabTitlePrimary } from "@/lib/metadata/resolve-browser-tab-title";
 import { tabTitleMetadata } from "@/lib/metadata/tab-title";
 import { Thread } from "@/lib/schemas/chat";
@@ -13,7 +20,11 @@ import { createLogger } from "@/lib/logger";
 
 const logger = createLogger("app/sandbox/arcadia/[slug]/page.tsx");
 
-const loadChatForRequest = cache(loadChat);
+const getPhaseCollector = createRequestPhaseCollector;
+
+const loadChatForRequest = cache(async (id: string) =>
+  timeServerPhase(getPhaseCollector(), PERF_PHASES.serverLoadChat, () => loadChat(id))
+);
 
 export async function generateMetadata({
   params,
@@ -56,10 +67,16 @@ export default async function ArcadiaChatPage({ params }: { params: Promise<{ sl
   }
 
   return (
-    <Page>
-      <div className="w-full h-full">
-        <Chat chatData={chatData} endpoint="/api/chat" experience="arcadia" />
-      </div>
-    </Page>
+    <>
+      <PerfServerPhases
+        journey="to-arcadia"
+        phases={[...takeServerPhases(id), ...getPhaseCollector()]}
+      />
+      <Page>
+        <div className="w-full h-full">
+          <Chat chatData={chatData} endpoint="/api/chat" experience="arcadia" />
+        </div>
+      </Page>
+    </>
   );
 }

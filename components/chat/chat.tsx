@@ -2,6 +2,9 @@
 
 import type { ExaSearchResultSource } from "@/lib/exa/types";
 import type { StrataPageAssistantSession } from "@/lib/strata/assistant-session";
+import type { ChatExperience } from "@/lib/chat/chat-experience";
+import type { ContextBudgetEstimate } from "@/lib/chat/context-budget";
+import type { DiagramNodeLink } from "@/lib/mermaid/types";
 
 import { UIMessage, useChat } from "@ai-sdk/react";
 import { DefaultChatTransport } from "ai";
@@ -16,8 +19,8 @@ import { ArcadiaChatSettingsDialog } from "./arcadia-chat-settings-dialog";
 import { CoreInput } from "./core-input";
 import { ChatStylePicker } from "./chat-style-picker";
 import { ChatThreadStyleOverlay } from "./chat-thread-style-overlay";
-import { DiagramTakeoverShell } from "@/components/mermaid/diagram-takeover-shell";
 
+import { DiagramTakeoverShell } from "@/components/mermaid/diagram-takeover-shell";
 import { MemoryEphemeralCards } from "@/components/memory/memory-ephemeral-cards";
 import { MemoryLens } from "@/components/memory/memory-lens";
 import {
@@ -31,11 +34,11 @@ import { isClientPIIRedactionEnabled, redactUIMessages } from "@/lib/pii/redact"
 import { getSettings } from "@/lib/user-settings";
 import { Thread } from "@/lib/schemas/chat";
 import { createLogger } from "@/lib/logger";
+import { PERF_PHASES } from "@/lib/perf/journeys";
+import { completeForJourney } from "@/lib/perf/trace-store";
 import { useSharedChatContext } from "@/lib/context/chat-context";
 import { ChatModel } from "@/lib/schemas/chat";
 import { ChatEffortLevel } from "@/lib/schemas/chat-effort";
-import type { ChatExperience } from "@/lib/chat/chat-experience";
-import type { ContextBudgetEstimate } from "@/lib/chat/context-budget";
 import {
   DEFAULT_COMPOSER_EFFORT,
   DEFAULT_COMPOSER_MEMORIES,
@@ -52,7 +55,6 @@ import { applyMiseCommand } from "@/lib/mise/store";
 import { safeParseMiseCommand } from "@/lib/schemas/mise";
 import { DiagramNodeLinksProvider } from "@/lib/mermaid/diagram-node-links-context";
 import { DiagramTakeoverProvider } from "@/lib/mermaid/diagram-takeover-context";
-import type { DiagramNodeLink } from "@/lib/mermaid/types";
 import { isEditableEventTarget } from "@/lib/dom/is-editable-event-target";
 const logger = createLogger("components/chat/chat");
 
@@ -95,6 +97,17 @@ export const Chat: React.FC<ChatProps> = ({
   const usePersistedSchemas = useRef<boolean>(persona === "aion" || persona === "strata");
   const initialMessageSent = useRef<boolean>(false);
   const composerInjectSeq = useRef(0);
+
+  useEffect(() => {
+    const id = requestAnimationFrame(() => {
+      completeForJourney(["to-chat", "to-arcadia"], PERF_PHASES.chatReady, {
+        experience: experience ?? "chat",
+      });
+    });
+
+    return () => cancelAnimationFrame(id);
+  }, [experience]);
+
   const [composerInject, setComposerInject] = useState<{ id: number; text: string } | null>(null);
   const [aiAction, setAiAction] = useState<
     | {
@@ -432,103 +445,105 @@ export const Chat: React.FC<ChatProps> = ({
             "overflow-x-hidden",
           ].join(" ")}
         >
-      <Conversation
-        className={[
-          "flex-1",
-          "min-h-0",
-          "w-full",
-          "relative",
-          "flex",
-          "flex-col",
-          "items-center",
-          "overflow-x-hidden",
-          "overscroll-x-none",
-        ].join(" ")}
-      >
-        {experience === "arcadia" && id ? (
-          <ChatThreadStyleOverlay threadId={id} visible={messages.length > 0} />
-        ) : null}
-        <ChatThread
-          aiActionPayload={aiAction}
-          chatId={id}
-          contentClassName={persona === "remy" ? MEMORY_PANEL_RESERVE_PADDING : undefined}
-          messages={messages}
-          renderEmptyState={
-            experience === "arcadia"
-              ? () => (
-                  <ChatStylePicker
-                    chatId={id}
-                    showStartersHint={messages.length === 0}
-                    starterKey={arcadiaStarterKey}
-                    onStarterKeyChange={setArcadiaStarterKey}
-                  />
-                )
-              : undefined
-          }
-        />
-        {persona === "remy" && (
-          <MemoryEphemeralCards
-            overlay
-            added={mem0Added}
-            autoClearMs={12000}
-            retrieved={mem0Retrieved}
-          />
-        )}
-        <ConversationScrollButton className="bottom-14" />
-      </Conversation>
-      <div className="shrink-0 px-4 sm:px-7 pb-1 md:pb-4 w-full -mt-10 flex flex-col gap-2">
-        <div className="sm:max-w-[calc(100dvw-2rem)] md:max-w-[calc(100dvw-24rem)] lg:max-w-4xl mx-auto w-full flex flex-col gap-2">
-          {persona === "remy" && (
-            <Sheet>
-              <SheetTrigger asChild>
-                <button
-                  className="flex items-center gap-2 text-xs text-muted-foreground hover:text-cyan-600 dark:hover:text-cyan-400 transition-colors"
-                  type="button"
-                >
-                  <BrainCircuit className="size-3.5" />
-                  View persisted memory
-                </button>
-              </SheetTrigger>
-              <SheetContent
-                overlayPriority
-                className="w-full sm:max-w-md overflow-y-auto flex flex-col top-0 bottom-20 right-0 h-auto border-t-0"
-                side="right"
-              >
-                <SheetHeader>
-                  <SheetTitle className="sr-only">Persisted memory</SheetTitle>
-                </SheetHeader>
-                <MemoryLens className="flex-1 min-h-0" variant="sheet" />
-              </SheetContent>
-            </Sheet>
-          )}
-          <CoreInput
-            chatId={chatData?.thread.id}
-            clearError={clearError}
-            composerInject={composerInject}
-            enableMarkdownInputPreview={
-              experience === "arcadia" && experimentalArcadiaMarkdownPreview
-            }
-            error={error ?? chatError}
-            featureHints={!(experience === "arcadia" && messages.length === 0)}
-            hideWebMemorySpeechToggles={experience === "strata_page" && Boolean(assistantSession)}
-            initialDraft={initialDraft}
-            isBlankChat={messages.length === 0 && persona !== "strata"}
-            modelRef={selectedModelRef}
-            effortRef={selectedEffortRef}
-            sendMessage={sendMessage}
-            status={status}
-            stop={handleStop}
-            useMemoriesRef={useMemoriesRef}
-            useSpeechFriendlyRef={useSpeechFriendlyRef}
-            useWebSearchRef={useWebSearchRef}
-            streamContextBudget={streamContextBudget}
-            contextBudgetRefreshKey={contextBudgetRefreshKey}
-            experience={experience as ChatExperience | undefined}
-            chatStyle={experience === "arcadia" && id ? getChatStyle(id) : undefined}
-            onErrorCleared={() => setChatError(undefined)}
-          />
-        </div>
-      </div>
+          <Conversation
+            className={[
+              "flex-1",
+              "min-h-0",
+              "w-full",
+              "relative",
+              "flex",
+              "flex-col",
+              "items-center",
+              "overflow-x-hidden",
+              "overscroll-x-none",
+            ].join(" ")}
+          >
+            {experience === "arcadia" && id ? (
+              <ChatThreadStyleOverlay threadId={id} visible={messages.length > 0} />
+            ) : null}
+            <ChatThread
+              aiActionPayload={aiAction}
+              chatId={id}
+              contentClassName={persona === "remy" ? MEMORY_PANEL_RESERVE_PADDING : undefined}
+              messages={messages}
+              renderEmptyState={
+                experience === "arcadia"
+                  ? () => (
+                      <ChatStylePicker
+                        chatId={id}
+                        showStartersHint={messages.length === 0}
+                        starterKey={arcadiaStarterKey}
+                        onStarterKeyChange={setArcadiaStarterKey}
+                      />
+                    )
+                  : undefined
+              }
+            />
+            {persona === "remy" && (
+              <MemoryEphemeralCards
+                overlay
+                added={mem0Added}
+                autoClearMs={12000}
+                retrieved={mem0Retrieved}
+              />
+            )}
+            <ConversationScrollButton className="bottom-14" />
+          </Conversation>
+          <div className="shrink-0 px-4 sm:px-7 pb-1 md:pb-4 w-full -mt-10 flex flex-col gap-2">
+            <div className="sm:max-w-[calc(100dvw-2rem)] md:max-w-[calc(100dvw-24rem)] lg:max-w-4xl mx-auto w-full flex flex-col gap-2">
+              {persona === "remy" && (
+                <Sheet>
+                  <SheetTrigger asChild>
+                    <button
+                      className="flex items-center gap-2 text-xs text-muted-foreground hover:text-cyan-600 dark:hover:text-cyan-400 transition-colors"
+                      type="button"
+                    >
+                      <BrainCircuit className="size-3.5" />
+                      View persisted memory
+                    </button>
+                  </SheetTrigger>
+                  <SheetContent
+                    overlayPriority
+                    className="w-full sm:max-w-md overflow-y-auto flex flex-col top-0 bottom-20 right-0 h-auto border-t-0"
+                    side="right"
+                  >
+                    <SheetHeader>
+                      <SheetTitle className="sr-only">Persisted memory</SheetTitle>
+                    </SheetHeader>
+                    <MemoryLens className="flex-1 min-h-0" variant="sheet" />
+                  </SheetContent>
+                </Sheet>
+              )}
+              <CoreInput
+                chatId={chatData?.thread.id}
+                clearError={clearError}
+                composerInject={composerInject}
+                enableMarkdownInputPreview={
+                  experience === "arcadia" && experimentalArcadiaMarkdownPreview
+                }
+                error={error ?? chatError}
+                featureHints={!(experience === "arcadia" && messages.length === 0)}
+                hideWebMemorySpeechToggles={
+                  experience === "strata_page" && Boolean(assistantSession)
+                }
+                initialDraft={initialDraft}
+                isBlankChat={messages.length === 0 && persona !== "strata"}
+                modelRef={selectedModelRef}
+                effortRef={selectedEffortRef}
+                sendMessage={sendMessage}
+                status={status}
+                stop={handleStop}
+                useMemoriesRef={useMemoriesRef}
+                useSpeechFriendlyRef={useSpeechFriendlyRef}
+                useWebSearchRef={useWebSearchRef}
+                streamContextBudget={streamContextBudget}
+                contextBudgetRefreshKey={contextBudgetRefreshKey}
+                experience={experience as ChatExperience | undefined}
+                chatStyle={experience === "arcadia" && id ? getChatStyle(id) : undefined}
+                onErrorCleared={() => setChatError(undefined)}
+              />
+            </div>
+          </div>
           <DiagramTakeoverShell />
           {experience === "arcadia" && id ? (
             <ArcadiaChatSettingsDialog
