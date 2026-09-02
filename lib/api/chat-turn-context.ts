@@ -6,9 +6,7 @@ import { TypeValidationError } from "ai";
 
 import { mainChatSystemPromptWhenContextFailed } from "./chat-context-fallbacks";
 
-import {
-  isIntrospectionExperience,
-} from "@/lib/chat/chat-experience";
+import { isIntrospectionExperience } from "@/lib/chat/chat-experience";
 import { getContext } from "@/lib/chat/chat-store";
 import { INTROSPECTION_CONTEXT_MESSAGE_LIMIT } from "@/lib/personas/introspection";
 import { SYSTEM_PROMPT } from "@/lib/system-prompt/prompt-v0";
@@ -19,6 +17,9 @@ export type LoadMainChatTurnContextParams = {
   message: UIMessage;
   memoryEnabled: boolean | undefined;
   experience: ChatExperience | undefined;
+  /** When set, skips `getNMessages` (scaffold path uses `[]`). */
+  messagesOverride?: UIMessage[];
+  totalThreadMessagesOverride?: number;
 };
 
 export type LoadMainChatTurnContextResult = {
@@ -27,6 +28,7 @@ export type LoadMainChatTurnContextResult = {
   tokenBreakdown?: Array<{ name: string; tokens: number }>;
   packedMessageCount?: number;
   totalThreadMessages?: number;
+  memoriesInjected?: number;
   /** Arcadia: condensation queued for after-response (not blocking this turn). */
   scheduleBackgroundCondensation?: boolean;
 };
@@ -48,13 +50,22 @@ export function getContextMessageLimit(experience: ChatExperience | undefined): 
 export async function loadMainChatTurnContext(
   params: LoadMainChatTurnContextParams
 ): Promise<LoadMainChatTurnContextResult> {
-  const { logger, chatId, message, memoryEnabled, experience } = params;
+  const {
+    logger,
+    chatId,
+    message,
+    memoryEnabled,
+    experience,
+    messagesOverride,
+    totalThreadMessagesOverride,
+  } = params;
 
   let validatedMessages: UIMessage[];
   let systemPromptForRequest = SYSTEM_PROMPT;
   let tokenBreakdown: Array<{ name: string; tokens: number }> | undefined;
   let packedMessageCount: number | undefined;
   let totalThreadMessages: number | undefined;
+  let memoriesInjected: number | undefined;
 
   try {
     const chatContextResult = await getContext({
@@ -64,6 +75,8 @@ export async function loadMainChatTurnContext(
       memoryEnabled,
       persistedSchemasEnabled: isStrataExperience(experience),
       experience,
+      messagesOverride,
+      totalThreadMessagesOverride,
     });
 
     if (chatContextResult.error) {
@@ -79,6 +92,7 @@ export async function loadMainChatTurnContext(
       tokenBreakdown = chatContextResult.data?.tokenBreakdown;
       packedMessageCount = chatContextResult.data?.packedMessageCount;
       totalThreadMessages = chatContextResult.data?.totalThreadMessages;
+      memoriesInjected = chatContextResult.data?.memories?.length;
       logger.debug("context", "Context gathered", {
         historyMessageCount: chatContextResult.data?.messages?.length ?? 0,
         contextLength: chatContextResult.data?.context?.length ?? 0,
@@ -101,5 +115,6 @@ export async function loadMainChatTurnContext(
     tokenBreakdown,
     packedMessageCount,
     totalThreadMessages,
+    memoriesInjected,
   };
 }

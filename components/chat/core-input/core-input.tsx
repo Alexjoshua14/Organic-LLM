@@ -1,5 +1,6 @@
 "use client";
 
+import type { UIMessage } from "ai";
 import type { ChatExperience } from "@/lib/chat/chat-experience";
 import type { ChatStyle } from "@/lib/chat/chat-style";
 import type { ContextBudgetEstimate } from "@/lib/chat/context-budget";
@@ -135,6 +136,8 @@ type CoreInputProps = {
   streamContextBudget?: ContextBudgetEstimate | null;
   /** Bumps server polling after each completed stream. */
   contextBudgetRefreshKey?: number;
+  /** When set, context budget composes locally from scaffold + these messages. */
+  threadMessages?: UIMessage[];
   experience?: ChatExperience;
   chatStyle?: ChatStyle;
 };
@@ -188,6 +191,7 @@ export const CoreInput: React.FC<CoreInputProps> = ({
   showContextBudget = true,
   streamContextBudget,
   contextBudgetRefreshKey = 0,
+  threadMessages,
   experience,
   chatStyle,
 }) => {
@@ -792,6 +796,7 @@ export const CoreInput: React.FC<CoreInputProps> = ({
       refreshKey={contextBudgetRefreshKey}
       speechFriendly={useSpeechFriendly}
       streamBudget={streamContextBudget}
+      threadMessages={threadMessages}
       webSearchEnabled={useWebSearch}
     />
   ) : null;

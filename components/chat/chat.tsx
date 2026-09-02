@@ -538,6 +538,7 @@ export const Chat: React.FC<ChatProps> = ({
                 useWebSearchRef={useWebSearchRef}
                 streamContextBudget={streamContextBudget}
                 contextBudgetRefreshKey={contextBudgetRefreshKey}
+                threadMessages={messages}
                 experience={experience as ChatExperience | undefined}
                 chatStyle={experience === "arcadia" && id ? getChatStyle(id) : undefined}
                 onErrorCleared={() => setChatError(undefined)}

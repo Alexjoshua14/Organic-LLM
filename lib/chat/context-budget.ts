@@ -1,7 +1,9 @@
 import type { UIMessage } from "ai";
+import type { ChatExperience } from "@/lib/chat/chat-experience";
 
 import { encodingForModel } from "js-tiktoken";
 
+import { resolveChatModelId } from "@/lib/api/resolve-chat-model";
 import { CHAT_RESPONSE_MAX_OUTPUT_TOKENS } from "@/lib/llm/helpers";
 import { AUTO_CHAT_MODEL_ID } from "@/lib/schemas/chat";
 
@@ -51,6 +53,7 @@ const MODEL_CONTEXT_WINDOW_TOKENS: Record<string, number> = {
 
 export type ContextBudgetSegmentId =
   | "messages"
+  | "tool_output"
   | "draft"
   | "system"
   | "tools"
@@ -66,14 +69,14 @@ export type ContextBudgetSegment = {
   color: string;
 };
 
-export function filterBudgetSegments(
-  segments: ContextBudgetSegment[]
-): ContextBudgetSegment[] {
+export function filterBudgetSegments(segments: ContextBudgetSegment[]): ContextBudgetSegment[] {
   return segments.filter((segment) => segment.tokens > 0);
 }
 
 export type ContextBudgetEstimate = {
   modelId: string;
+  /** Concrete gateway model after Auto resolution (differs from modelId when Auto is selected). */
+  resolvedModelId?: string;
   contextWindowTokens: number;
   reservedOutputTokens: number;
   inputBudgetTokens: number;
@@ -86,9 +89,243 @@ export type ContextBudgetEstimate = {
   totalThreadMessages: number;
   includesRollingSummary: boolean;
   segments: ContextBudgetSegment[];
-  /** `server` when built from context assembly; `default` for new-thread baseline. */
+  /** Tool names armed for this turn, from compileChatTools. */
+  activeToolNames?: string[];
+  /** Memories merged into the system context (absent when memory search was skipped). */
+  memoriesInjected?: number;
+  /** `server` when built from context assembly; `default` for new-thread baseline; `client` for local compose. */
   source?: "server" | "default" | "client";
 };
+
+/**
+ * Numbers-only server scaffold for client-side compose.
+ * Integers + app-constant tool names only — never message/summary/memory text.
+ */
+export type ContextBudgetScaffold = {
+  systemTokens: number;
+  toolsTokens: number;
+  summaryTokens: number;
+  memoryTokens: number;
+  memoriesInjected?: number;
+  activeToolNames: string[];
+  /** Absent / undefined means pack the full thread (e.g. Arcadia). */
+  contextMessageLimit?: number;
+  source: "server";
+};
+
+export type FinalizeContextBudgetParams = {
+  modelId: string;
+  resolvedModelId?: string;
+  segments: ContextBudgetSegment[];
+  contextMessageLimit: number;
+  packedMessageCount: number;
+  totalThreadMessages: number;
+  includesRollingSummary: boolean;
+  reservedOutputTokens?: number;
+  activeToolNames?: string[];
+  memoriesInjected?: number;
+  source?: ContextBudgetEstimate["source"];
+};
+
+/**
+ * Shared finalize: window math, fill ratio, free segment.
+ * Used by client defaults, server assembly, and client compose.
+ */
+export function finalizeContextBudget(params: FinalizeContextBudgetParams): ContextBudgetEstimate {
+  const {
+    modelId,
+    resolvedModelId,
+    segments,
+    contextMessageLimit,
+    packedMessageCount,
+    totalThreadMessages,
+    includesRollingSummary,
+    reservedOutputTokens = CHAT_RESPONSE_MAX_OUTPUT_TOKENS,
+    activeToolNames,
+    memoriesInjected,
+    source,
+  } = params;
+
+  const windowModelId = resolvedModelId ?? modelId;
+  const contextWindowTokens = getModelContextWindowTokens(windowModelId);
+  const inputBudgetTokens = Math.max(0, contextWindowTokens - reservedOutputTokens);
+  const usedSegments = segments.filter((segment) => segment.id !== "free");
+  const nextSubmitTokens = usedSegments.reduce((sum, segment) => sum + segment.tokens, 0);
+  const remainingInputTokens = Math.max(0, inputBudgetTokens - nextSubmitTokens);
+  const fillRatio = inputBudgetTokens > 0 ? Math.min(1, nextSubmitTokens / inputBudgetTokens) : 0;
+
+  return {
+    modelId,
+    resolvedModelId: resolvedModelId ?? modelId,
+    contextWindowTokens,
+    reservedOutputTokens,
+    inputBudgetTokens,
+    nextSubmitTokens,
+    remainingInputTokens,
+    fillRatio,
+    contextMessageLimit,
+    packedMessageCount,
+    totalThreadMessages,
+    includesRollingSummary,
+    segments: filterBudgetSegments([
+      ...usedSegments,
+      {
+        id: "free",
+        label: "Remaining",
+        tokens: remainingInputTokens,
+        color: "hsl(var(--muted-foreground) / 0.18)",
+      },
+    ]),
+    activeToolNames,
+    memoriesInjected,
+    source,
+  };
+}
+
+/** Pull numbers-only scaffold fields from a streamed or polled budget estimate. */
+export function scaffoldFromStreamBudget(budget: ContextBudgetEstimate): ContextBudgetScaffold {
+  return {
+    systemTokens: segmentTokens(budget, "system"),
+    toolsTokens: segmentTokens(budget, "tools"),
+    summaryTokens: segmentTokens(budget, "summary"),
+    memoryTokens: segmentTokens(budget, "memory"),
+    memoriesInjected: budget.memoriesInjected,
+    activeToolNames: budget.activeToolNames ?? [],
+    contextMessageLimit: budget.contextMessageLimit,
+    source: "server",
+  };
+}
+
+type MessageTokenMemo = { text: number; tool: number };
+
+const messageTokenMemo = new WeakMap<UIMessage, MessageTokenMemo>();
+
+function getMemoizedMessageTokens(message: UIMessage): MessageTokenMemo {
+  const cached = messageTokenMemo.get(message);
+
+  if (cached) return cached;
+
+  const text = getMessageTextForTokenEstimate(message);
+  const toolSerialized = getMessageToolPartsForTokenEstimate(message);
+  const next: MessageTokenMemo = {
+    text: text ? estimateTokenCountSync(text) : 0,
+    tool: toolSerialized ? estimateTokenCountSync(toolSerialized) : 0,
+  };
+
+  messageTokenMemo.set(message, next);
+
+  return next;
+}
+
+export type ComposeContextBudgetParams = {
+  scaffold: ContextBudgetScaffold;
+  threadMessages: UIMessage[];
+  draftText: string;
+  modelId: string;
+  experience?: ChatExperience;
+  zeroDataRetention?: boolean;
+  reservedOutputTokens?: number;
+};
+
+/**
+ * Client-side compose: scaffold numbers + local thread/draft tokenization.
+ */
+export function composeContextBudget(params: ComposeContextBudgetParams): ContextBudgetEstimate {
+  const {
+    scaffold,
+    threadMessages,
+    draftText,
+    modelId,
+    experience,
+    zeroDataRetention = false,
+    reservedOutputTokens = CHAT_RESPONSE_MAX_OUTPUT_TOKENS,
+  } = params;
+
+  const resolvedModelId = resolveChatModelId({
+    modelId,
+    draftText,
+    experience,
+    zeroDataRetention,
+  });
+
+  const limit = scaffold.contextMessageLimit;
+  const packedMessages =
+    limit == null || limit <= 0 ? threadMessages : threadMessages.slice(-limit);
+
+  let messagesTokens = 0;
+  let toolOutputTokens = 0;
+
+  for (const message of packedMessages) {
+    const counts = getMemoizedMessageTokens(message);
+
+    messagesTokens += counts.text;
+    toolOutputTokens += counts.tool;
+  }
+
+  const draftTokens = estimateTokenCountSync(draftText.trim() ? `user: ${draftText.trim()}` : "");
+
+  const segments = filterBudgetSegments([
+    {
+      id: "messages",
+      label: "Thread messages",
+      tokens: messagesTokens,
+      color: "hsl(38 92% 50% / 0.88)",
+    },
+    {
+      id: "tool_output",
+      label: "Tool outputs",
+      tokens: toolOutputTokens,
+      color: "hsl(32 88% 48% / 0.86)",
+    },
+    {
+      id: "draft",
+      label: "Your draft",
+      tokens: draftTokens,
+      color: "hsl(152 68% 42% / 0.9)",
+    },
+    {
+      id: "system",
+      label: "System prompt",
+      tokens: scaffold.systemTokens,
+      color: "hsl(199 89% 48% / 0.82)",
+    },
+    {
+      id: "tools",
+      label: "Tools & instructions",
+      tokens: scaffold.toolsTokens,
+      color: "hsl(24 95% 53% / 0.82)",
+    },
+    {
+      id: "summary",
+      label: "Rolling summary",
+      tokens: scaffold.summaryTokens,
+      color: "hsl(262 83% 58% / 0.78)",
+    },
+    {
+      id: "memory",
+      label: "Memory layer",
+      tokens: scaffold.memoryTokens,
+      color: "hsl(280 75% 55% / 0.78)",
+    },
+  ]);
+
+  const resolvedLimit = limit ?? packedMessages.length;
+
+  return finalizeContextBudget({
+    modelId,
+    resolvedModelId,
+    segments,
+    contextMessageLimit: resolvedLimit,
+    packedMessageCount: packedMessages.length,
+    totalThreadMessages: threadMessages.length,
+    includesRollingSummary:
+      scaffold.summaryTokens > 0 || (limit != null && threadMessages.length > limit),
+    reservedOutputTokens,
+    activeToolNames: scaffold.activeToolNames,
+    memoriesInjected: scaffold.memoriesInjected,
+    source: "client",
+  });
+}
 
 let sharedEncoding: ReturnType<typeof encodingForModel> | null = null;
 
@@ -133,6 +370,22 @@ export function getMessageTextForTokenEstimate(message: UIMessage): string {
   return "";
 }
 
+/** Serialized non-text parts (tool calls and results) that ship with the message. */
+export function getMessageToolPartsForTokenEstimate(message: UIMessage): string {
+  const parts = (message.parts ?? []).filter(
+    (part) => part.type !== "text" && part.type !== "step-start"
+  );
+
+  return parts.length > 0 ? JSON.stringify(parts) : "";
+}
+
+export function segmentTokens(
+  budget: ContextBudgetEstimate,
+  segmentId: ContextBudgetSegmentId
+): number {
+  return budget.segments.find((segment) => segment.id === segmentId)?.tokens ?? 0;
+}
+
 export function getModelContextWindowTokens(modelId: string): number {
   if (modelId === AUTO_CHAT_MODEL_ID) {
     return 1_000_000;
@@ -174,14 +427,17 @@ export function computeContextBudget(params: ComputeContextBudgetParams): Contex
     reservedOutputTokens = CHAT_RESPONSE_MAX_OUTPUT_TOKENS,
   } = params;
 
-  const contextWindowTokens = getModelContextWindowTokens(modelId);
-  const inputBudgetTokens = Math.max(0, contextWindowTokens - reservedOutputTokens);
-
   const packedMessages = threadMessages.slice(-contextMessageLimit);
   const messagesTokens = packedMessages.reduce((sum, message) => {
     const text = getMessageTextForTokenEstimate(message);
 
     return sum + estimateTokenCountSync(text);
+  }, 0);
+
+  const toolOutputTokens = packedMessages.reduce((sum, message) => {
+    const serialized = getMessageToolPartsForTokenEstimate(message);
+
+    return sum + (serialized ? estimateTokenCountSync(serialized) : 0);
   }, 0);
 
   const draftTokens = estimateTokenCountSync(draftText.trim() ? `user: ${draftText.trim()}` : "");
@@ -201,19 +457,18 @@ export function computeContextBudget(params: ComputeContextBudgetParams): Contex
 
   const memoryTokens = memoryEnabled ? ESTIMATED_MEMORY_CONTEXT_TOKENS : 0;
 
-  const nextSubmitTokens =
-    messagesTokens + draftTokens + systemTokens + toolsTokens + summaryTokens + memoryTokens;
-
-  const remainingInputTokens = Math.max(0, inputBudgetTokens - nextSubmitTokens);
-  const fillRatio =
-    inputBudgetTokens > 0 ? Math.min(1, nextSubmitTokens / inputBudgetTokens) : 0;
-
   const segments = filterBudgetSegments([
     {
       id: "messages",
       label: "Thread messages",
       tokens: messagesTokens,
       color: "hsl(38 92% 50% / 0.88)",
+    },
+    {
+      id: "tool_output",
+      label: "Tool outputs",
+      tokens: toolOutputTokens,
+      color: "hsl(32 88% 48% / 0.86)",
     },
     {
       id: "draft",
@@ -245,28 +500,17 @@ export function computeContextBudget(params: ComputeContextBudgetParams): Contex
       tokens: memoryTokens,
       color: "hsl(280 75% 55% / 0.78)",
     },
-    {
-      id: "free",
-      label: "Remaining",
-      tokens: remainingInputTokens,
-      color: "hsl(var(--muted-foreground) / 0.18)",
-    },
   ]);
 
-  return {
+  return finalizeContextBudget({
     modelId,
-    contextWindowTokens,
-    reservedOutputTokens,
-    inputBudgetTokens,
-    nextSubmitTokens,
-    remainingInputTokens,
-    fillRatio,
+    segments,
     contextMessageLimit,
     packedMessageCount: packedMessages.length,
     totalThreadMessages: threadMessages.length,
     includesRollingSummary,
-    segments,
-  };
+    reservedOutputTokens,
+  });
 }
 
 export function computeNewThreadDefaultBudget(params: {
@@ -303,41 +547,19 @@ export function computeNewThreadDefaultBudget(params: {
     },
   ];
 
-  const contextWindowTokens = getModelContextWindowTokens(modelId);
-  const reservedOutputTokens = CHAT_RESPONSE_MAX_OUTPUT_TOKENS;
-  const inputBudgetTokens = Math.max(0, contextWindowTokens - reservedOutputTokens);
-  const nextSubmitTokens = ESTIMATED_SYSTEM_PROMPT_TOKENS + toolsTokens;
-  const remainingInputTokens = Math.max(0, inputBudgetTokens - nextSubmitTokens);
-  const fillRatio =
-    inputBudgetTokens > 0 ? Math.min(1, nextSubmitTokens / inputBudgetTokens) : 0;
+  const resolvedModelId =
+    modelId === AUTO_CHAT_MODEL_ID ? resolveChatModelId({ modelId }) : modelId;
 
-  return {
+  return finalizeContextBudget({
     modelId,
-    contextWindowTokens,
-    reservedOutputTokens,
-    inputBudgetTokens,
-    nextSubmitTokens,
-    remainingInputTokens,
-    fillRatio,
+    resolvedModelId,
+    segments,
     contextMessageLimit: 10,
     packedMessageCount: 0,
     totalThreadMessages: 0,
     includesRollingSummary: false,
-    segments: [
-      ...segments,
-      ...(remainingInputTokens > 0
-        ? [
-            {
-              id: "free" as const,
-              label: "Remaining",
-              tokens: remainingInputTokens,
-              color: "hsl(var(--muted-foreground) / 0.18)",
-            },
-          ]
-        : []),
-    ],
     source: "default",
-  };
+  });
 }
 
 export function formatTokenCount(tokens: number): string {
@@ -349,4 +571,44 @@ export function formatTokenCount(tokens: number): string {
   }
 
   return tokens.toLocaleString();
+}
+
+/** Share of the thread's persisted messages packed into the active context window. */
+export function getThreadContextCoverage(
+  budget: ContextBudgetEstimate
+): { ratio: number; percent: number } | null {
+  if (budget.totalThreadMessages <= 0) return null;
+
+  const ratio = Math.min(1, budget.packedMessageCount / budget.totalThreadMessages);
+
+  return { ratio, percent: Math.round(ratio * 100) };
+}
+
+/** Rough turns remaining at the thread's current average message size. */
+export function getContextHeadroomTurns(budget: ContextBudgetEstimate): number | null {
+  const messageTokens = segmentTokens(budget, "messages") + segmentTokens(budget, "tool_output");
+
+  if (budget.packedMessageCount <= 0 || messageTokens <= 0) return null;
+
+  const perMessage = messageTokens / budget.packedMessageCount;
+
+  return Math.floor(budget.remainingInputTokens / perMessage);
+}
+
+/** How much of the packed input is the conversation versus app scaffolding. */
+export function getContextComposition(
+  budget: ContextBudgetEstimate
+): { conversationPercent: number; scaffoldingPercent: number } | null {
+  if (budget.nextSubmitTokens <= 0) return null;
+
+  const conversation =
+    segmentTokens(budget, "messages") +
+    segmentTokens(budget, "tool_output") +
+    segmentTokens(budget, "draft");
+  const conversationPercent = Math.round((conversation / budget.nextSubmitTokens) * 100);
+
+  return {
+    conversationPercent,
+    scaffoldingPercent: Math.max(0, 100 - conversationPercent),
+  };
 }

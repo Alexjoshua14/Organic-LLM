@@ -134,6 +134,23 @@ So the user sees: gathering → thinking → “Using a tool” / “Searching t
 
 ---
 
+## Context budget indicator
+
+The Core Input donut (`ContextBudgetIndicator`) shows how much of the model window the next send would use.
+
+**Main chat (`components/chat/chat.tsx`)** passes `useChat` messages into the hook and uses **client compose**:
+
+1. On thread open / toggle change / post-stream `refreshKey`, the client POSTs `/api/chat/context-budget` with `mode: "scaffold"`.
+2. The server returns a **numbers-only** scaffold (system / tools / summary / memory token counts, `activeToolNames`, optional `memoriesInjected`). No message text, summary text, or memory text is stored or returned for caching — and the server keeps **no per-user cache**.
+3. While typing, the browser composes the full estimate from that scaffold + local `threadMessages` + draft (`composeContextBudget`). Zero server calls per keystroke.
+4. A streamed `data-context-budget` snapshot refreshes the scaffold with measured numbers after a send; `refreshKey` may refetch in case the rolling summary regenerated.
+
+**Trade-offs:** Another browser’s sends show up on next open or refresh — same as the chat UI. Scaffold fetch does one summary DB query per open/refresh; typing is local.
+
+**Other CoreInput surfaces** that omit `threadMessages` keep the legacy `mode: "budget"` poll (full server assembly, including draft).
+
+---
+
 ## Possible improvements
 
 - **Notifications in the UI**: Surface `data-notification` (e.g. in a toast or a small status line) so “Using model X” or “Request completed” is visible.
@@ -152,5 +169,6 @@ So the user sees: gathering → thinking → “Using a tool” / “Searching t
 | Client state     | `components/chat/chat.tsx` (`onData`, `aiAction`, `setAiAction`)                |
 | Thread / message | `components/chat/chat-thread.tsx`, `components/chat/chat-message.tsx`           |
 | Action UI        | `components/chat/chat-loading.tsx` (ChatThinking, ChatReasoning, ChatSearching) |
+| Context budget   | `hooks/use-thread-context-budget.ts`, `lib/chat/context-budget.ts`, `lib/api/main-chat-context-budget.ts`, `app/api/chat/context-budget/route.ts` |
 | Types            | `types/ai.ts` (ChatAIActionEnum, ChatUIMessage)                                 |
 | Prototype / dev  | `app/sandbox/prototypes/llm-states/page.tsx` (all action states in one place)   |
