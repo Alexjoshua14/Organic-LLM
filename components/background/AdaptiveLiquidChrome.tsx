@@ -4,6 +4,8 @@ import { useReducedMotion } from "framer-motion";
 import { memo, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 
 import { usePageVisible } from "@/components/hooks/use-page-visible";
+import { PERF_PHASES } from "@/lib/perf/journeys";
+import { mark } from "@/lib/perf/trace-store";
 import {
   LiquidChrome as LiquidChromeComponent,
   rgb01ToCss,
@@ -67,12 +69,15 @@ function useIsDarkFromHtmlClass(): boolean {
 
 function closestDimTrigger(el: EventTarget | null): Element | null {
   if (!(el instanceof Element)) return null;
+
   return el.closest(DIM_TRIGGER_SELECTOR);
 }
 
 function isFocusInsideDimArea(): boolean {
   const active = document.activeElement;
+
   if (!active || active === document.body) return false;
+
   return active.closest(DIM_TRIGGER_SELECTOR) != null;
 }
 
@@ -91,7 +96,7 @@ const LiquidChromeLayer = memo(function LiquidChromeLayer({
 }) {
   const baseColor = useMemo<[number, number, number]>(
     () => (isDark ? [0.03, 0.05, 0.07] : [0.5, 0.48, 0.46]),
-    [isDark],
+    [isDark]
   );
   const amplitude = isDark ? 0.2 : 0.18;
 
@@ -100,7 +105,7 @@ const LiquidChromeLayer = memo(function LiquidChromeLayer({
     const edge = rgb01ToCss(
       isDark
         ? [baseColor[0] * 0.6, baseColor[1] * 0.6, baseColor[2] * 0.6]
-        : [baseColor[0] * 1.08, baseColor[1] * 1.08, baseColor[2] * 1.08],
+        : [baseColor[0] * 1.08, baseColor[1] * 1.08, baseColor[2] * 1.08]
     );
 
     return (
@@ -150,10 +155,17 @@ export default function AdaptiveLiquidChrome({
   const hoverActiveRef = useRef(false);
   const focusActiveRef = useRef(false);
   const activityActiveRef = useRef(false);
+  const chromeFrameMarkedRef = useRef(false);
 
   onDimChangeRef.current = onDimChange;
 
   const baseOpacity = isDark ? 1 : 0.92;
+
+  useEffect(() => {
+    if (chromeFrameMarkedRef.current) return;
+    chromeFrameMarkedRef.current = true;
+    mark(PERF_PHASES.chromeFirstFrame);
+  }, []);
 
   useEffect(() => {
     if (!dimOnHover) return;
@@ -191,6 +203,7 @@ export default function AdaptiveLiquidChrome({
 
     const handlePointerOver = (e: PointerEvent) => {
       const trigger = closestDimTrigger(e.target);
+
       if (!trigger) return;
 
       hoverActiveRef.current = true;
@@ -199,9 +212,11 @@ export default function AdaptiveLiquidChrome({
 
     const handlePointerOut = (e: PointerEvent) => {
       const from = closestDimTrigger(e.target);
+
       if (!from) return;
 
       const related = e.relatedTarget;
+
       if (related instanceof Node && from.contains(related)) return;
 
       hoverActiveRef.current = false;
@@ -210,6 +225,7 @@ export default function AdaptiveLiquidChrome({
 
     const handleFocusIn = (e: FocusEvent) => {
       const dimEl = closestDimTrigger(e.target);
+
       if (!dimEl) return;
 
       focusActiveRef.current = true;

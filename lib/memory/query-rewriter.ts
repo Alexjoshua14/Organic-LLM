@@ -54,9 +54,9 @@ export type RewriteMemoryQueryOpts = {
   ) => ReturnType<typeof generateText>;
 };
 
-/** Result of rewrite: always at least one string to pass to Mem0 (may be the raw query). */
+/** Result of rewrite: 0–3 search strings for Mem0 (empty when the raw query is blank). */
 export type RewriteMemoryQueryResult = {
-  /** Each entry is one Mem0 search; deduped, at most three strings. */
+  /** Each entry is one Mem0 search; deduped, at most three strings. Empty when there is nothing to embed. */
   queries: string[];
   /** True when the LLM produced parsed JSON queries (not heuristic-only / fallback). */
   usedRewrite: boolean;
@@ -256,12 +256,12 @@ export function buildRecentTurnsForMemoryRewrite(
 }
 
 /**
- * Produce 1–3 standalone search strings **for Mem0 only**.
+ * Produce 0–3 standalone search strings **for Mem0 only**.
  *
  * **Contract:** Use {@link RewriteMemoryQueryResult.queries} only as search strings. Never
  * substitute them into the user's {@link UIMessage} or the main chat model's message list.
  *
- * **Flow:** Env off → `[rawQuery]`; empty → `[""]`; {@link shouldShortCircuitMemoryRewrite} →
+ * **Flow:** Env off → `[rawQuery]` or `[]` if blank; empty → `[]`; {@link shouldShortCircuitMemoryRewrite} →
  * `[rawQuery]`; else LLM JSON with {@link DEFAULT_TIMEOUT_MS} cap → parse or fallback to `[rawQuery]`.
  *
  * @param rawQuery - Latest user text (same as extracted from the current message for memory).
@@ -277,11 +277,11 @@ export async function rewriteMemoryQuery(
   const enabled = opts?.enabled ?? isArcadiaQueryRewriteEnabled();
 
   if (!enabled) {
-    return { queries: trimmed ? [trimmed] : [""], usedRewrite: false };
+    return { queries: trimmed ? [trimmed] : [], usedRewrite: false };
   }
 
   if (!trimmed) {
-    return { queries: [""], usedRewrite: false };
+    return { queries: [], usedRewrite: false };
   }
 
   if (shouldShortCircuitMemoryRewrite(trimmed, recentMessages)) {

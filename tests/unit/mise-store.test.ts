@@ -1,7 +1,12 @@
 import { describe, expect, test } from "bun:test";
 
 import { reduceMisePlan } from "@/lib/mise/store";
-import { buildShoppingList, selectIngredients, selectRecipes } from "@/lib/mise/select-view";
+import {
+  buildShoppingList,
+  recipeToBlock,
+  selectIngredients,
+  selectRecipes,
+} from "@/lib/mise/select-view";
 import type { MisePlanState } from "@/lib/mise/types";
 import { HOUSEWARMING_INITIATE } from "@/lib/schemas/mise/fixtures";
 
@@ -126,5 +131,37 @@ describe("select-view", () => {
     };
 
     expect(selectRecipes(plan, view).map((r) => r.id)).toEqual(["pita"]);
+  });
+
+  test("recipeToBlock spreads the shared body without copying id", () => {
+    const recipe = {
+      ...hydrated().recipes.bars,
+      complexity: "easy" as const,
+      duration: "4h",
+      mainCarbs: "flour",
+      cuisine: "American",
+      equipment: ["9x13 pan"],
+    };
+    const block = recipeToBlock(recipe);
+
+    expect(block).toEqual({
+      type: "recipe-card",
+      version: 1,
+      title: recipe.title,
+      sourceUrl: recipe.sourceUrl,
+      servings: recipe.servings,
+      prepTime: recipe.prepTime,
+      cookTime: recipe.cookTime,
+      duration: "4h",
+      complexity: "easy",
+      mainProtein: recipe.mainProtein,
+      mainCarbs: "flour",
+      cuisine: "American",
+      equipment: ["9x13 pan"],
+      ingredients: recipe.ingredients,
+      steps: recipe.steps,
+      notes: recipe.notes,
+    });
+    expect(block).not.toHaveProperty("id");
   });
 });

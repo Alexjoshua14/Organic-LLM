@@ -102,6 +102,13 @@ Always on in the **Remy** route (`/api/ai/remy`); in Arcadia it's the **Remy** c
 - Implementation: [`createMisePlanTool` / `createFetchRecipeTool`](../lib/llm/mise-tool.ts) · [`lib/schemas/mise`](../lib/schemas/mise/) · [`data/supabase/mise.ts`](../data/supabase/mise.ts) · store [`lib/mise/store.ts`](../lib/mise/store.ts)
 - Requires the migration [`docs/migrations/mise_tables.sql`](./migrations/mise_tables.sql) applied and `lib/supabase/types.ts` regenerated.
 
+### `prep_plan` (durable weekly meal prep)
+
+Always on in the **Remy** route (`/api/ai/remy`) next to `mise_plan`. Writes through to `prep_*` tables (library, week placements, leftover pointers, shopping have/need) the same way Ergon `manage_tasks` writes todos — the `/remy` dashboard reads those tables. Not a `data-mise` puppet. Commands: `UPSERT_RECIPE`, `PLACE_MEAL`, `SET_LEFTOVER`, `CLEAR_SLOT`, `SET_INGREDIENT_STATUS`, `LIST_WEEK`, `LIST_LIBRARY`. After `fetch_recipe`, Remy should `UPSERT_RECIPE` so the card lands in the library.
+
+- Implementation: [`createPrepPlanTool`](../lib/llm/prep-plan-tool.ts) · executor [`executePrepPlan`](../lib/llm/prep-plan-execute.ts) · schema [`lib/schemas/prep/plan-tool.ts`](../lib/schemas/prep/plan-tool.ts) · prompt [`lib/system-prompt/prep.ts`](../lib/system-prompt/prep.ts) · data [`data/supabase/prep.ts`](../data/supabase/prep.ts)
+- Dock: [`RemyChatDock`](../components/remy/RemyChatDock.tsx) resumes a `remy_planner` thread; ADR [`docs/remy/decisions/20260814-prep-plan-write-through.md`](./remy/decisions/20260814-prep-plan-write-through.md)
+
 ### `manage_tasks` (durable Ergon todos)
 
 Always available in the main chat. Lets Aion manage the user's **durable** todo list (the `/ergon` page) via the Supabase data layer (RLS-scoped): `CREATE_TASKS`, `UPDATE_TASK`, `COMPLETE_TASK`, `LIST_TASKS`. Categories are passed by name (resolve-or-create). Returns a compact `{ kind: "ergon-tasks", action, tasks }` payload rendered by [`ErgonTaskResult`](../components/ergon/ErgonTaskResult.tsx) with a link to `/ergon`. Distinct from `kanban_board`: that is a client-side puppet board; `manage_tasks` writes through to the database.
@@ -160,7 +167,7 @@ Export is a **user/UI** feature, not part of `compileChatTools`, but it pairs we
 |------------|----------------|
 | **Main chat** | Memory, web, history (per settings); Arcadia-style tools when configured |
 | **Arcadia** | + Mermaid, Gen UI; + kanban when Ergon style; + meal planning when Remy style |
-| **Remy** (`/api/ai/remy`) | Culinary persona + Mem0; `mise_plan` + `fetch_recipe` always on |
+| **Remy** (`/api/ai/remy`) | Culinary persona + Mem0; `mise_plan` + `prep_plan` + `fetch_recipe` always on |
 | **Delphi** | Memory search + propose/commit/link/flag workflow |
 | **Strata hub** | Navigate + search Strata pages |
 | **Strata page** | Optional KG stubs when knowledge search is on |

@@ -1,7 +1,6 @@
 import { describe, expect, mock, test } from "bun:test";
 
 mock.module("server-only", () => ({}));
-
 mock.module("@/config/memory-qdrant-client", () => ({
   getMemoryQdrantClient: () => ({}),
 }));
@@ -9,17 +8,10 @@ mock.module("@/config/memory-qdrant-client", () => ({
 /** Stable mock URL — mem0-config should wire this into embedder.config.url. */
 const MOCK_OLLAMA_URL = "https://ollama.example.com";
 
-mock.module("@/lib/memory/ollama-config", () => ({
-  OLLAMA_URL: MOCK_OLLAMA_URL,
-  OLLAMA_API_KEY: undefined,
-  OLLAMA_EMBED_MODEL: "nomic-embed-text",
-  isLocalOllamaUrl: () => false,
-  ollamaHeaders: () => ({ "Content-Type": "application/json" }),
-}));
-
 describe("mem0-config embedder", () => {
   test("uses OLLAMA_URL for the Mem0 Ollama embedder", async () => {
-    const { config } = await import("@/config/mem0-config");
+    const { createMem0Config } = await import("@/config/mem0-config");
+    const config = createMem0Config({ ollamaUrl: MOCK_OLLAMA_URL });
 
     expect(config.embedder.config.url).toBe(MOCK_OLLAMA_URL);
     expect(config.embedder.config.embeddingDims).toBe(768);
@@ -35,8 +27,7 @@ describe("installMem0OllamaFetch", () => {
     const calls: Array<{ url: string; headers: Headers }> = [];
 
     globalThis.fetch = async (input: RequestInfo | URL, init?: RequestInit) => {
-      const url =
-        typeof input === "string" ? input : input instanceof URL ? input.href : input.url;
+      const url = typeof input === "string" ? input : input instanceof URL ? input.href : input.url;
       const headers = new Headers(
         init?.headers ?? (input instanceof Request ? input.headers : undefined)
       );

@@ -1,11 +1,21 @@
 "use client";
 
-import React, { createContext, useCallback, useContext, useMemo, ReactNode, useState } from "react";
+import React, {
+  createContext,
+  useCallback,
+  useContext,
+  useMemo,
+  ReactNode,
+  useRef,
+  useState,
+} from "react";
 import { Chat } from "@ai-sdk/react";
 import useSWR from "swr";
 import { DefaultChatTransport, UIMessage } from "ai";
 
 import { ThreadLink } from "@/types";
+import { PERF_PHASES } from "@/lib/perf/journeys";
+import { mark } from "@/lib/perf/trace-store";
 
 /**
  * SWR key for the sidebar chat list; shared so mutate(key) revalidates everywhere.
@@ -100,13 +110,21 @@ const sidebarChatsSwrOptions = {
 export function ChatProvider({ children }: { children: ReactNode }) {
   const [chat, setChat] = useState(() => createChat());
   const [chatId, setChatId] = useState<string>("");
+  const sidebarLoadedMarkedRef = useRef(false);
 
   const {
     data: chatsResponse,
     error: sidebarChatsError,
     isLoading: isSidebarChatsLoading,
     mutate: mutateSidebarChats,
-  } = useSWR<ChatsApiResponse>(SIDEBAR_CHATS_KEY, sidebarChatsFetcher, sidebarChatsSwrOptions);
+  } = useSWR<ChatsApiResponse>(SIDEBAR_CHATS_KEY, sidebarChatsFetcher, {
+    ...sidebarChatsSwrOptions,
+    onSuccess: () => {
+      if (sidebarLoadedMarkedRef.current) return;
+      sidebarLoadedMarkedRef.current = true;
+      mark(PERF_PHASES.sidebarChatsLoaded);
+    },
+  });
 
   const sidebarChats = useMemo(
     () => normalizeToThreadLinks(chatsResponse?.data),

@@ -245,6 +245,15 @@ describe("Memory operations (secure client–store)", () => {
     expect(call[2]?.limit).toBe(5);
   });
 
+  test("searchMemoriesForUser skips rate limit and store for an empty query", async () => {
+    const result = await operations.searchMemoriesForUser("sb_test_user", "   ");
+
+    expect(result.error).toBeNull();
+    expect(result.data?.results).toEqual([]);
+    expect(mockCheckMemorySearchLimit.mock.calls.length).toBe(0);
+    expect(mockSearchMemories.mock.calls.length).toBe(0);
+  });
+
   test("searchMemoriesForUser returns error when rate limit exceeded", async () => {
     mockCheckMemorySearchLimit.mockResolvedValueOnce({
       success: false,

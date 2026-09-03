@@ -7,6 +7,8 @@ Internal reference for how chat context is assembled before `streamText`, what i
 
 Related: [`lib/memory/README.md`](../../lib/memory/README.md) (Mem0 boundary), [`lib/memory/query-rewriter.ts`](../../lib/memory/query-rewriter.ts) (Arcadia + tool query rewrite).
 
+`POST /api/chat/context-budget` ([`lib/api/main-chat-context-budget.ts`](../../lib/api/main-chat-context-budget.ts)) reuses turn loaders for messages, summary, and system prompt **with memory search off**. It does not call Mem0/Ollama. When memory is enabled in the UI, the budget’s memory segment is [`ESTIMATED_MEMORY_CONTEXT_TOKENS`](../../lib/chat/context-budget.ts) (900). Measured memory tokens come from a real `/api/chat` turn via `buildBudgetFromAssembledTurn`.
+
 ---
 
 ## High-level flow
@@ -68,7 +70,7 @@ Started together after Step 4 token estimate:
 |--------|--------|----------|--------|
 | Messages | `getNMessages(chatId, limit)` | Yes — Supabase | Default limit 10 (30 for Strata experiences). Returns recent thread messages **excluding** the current request message in the usual path; route merges `[...messages, incomingMessage]`. |
 | Summary | `getConversationSummary(chatId)` | Yes — Supabase | Encrypted summary row; decrypt on read path in chat layer. |
-| Memory (non-Arcadia only) | `searchMemoriesForUser` | Yes — Upstash rate limit + Mem0 | Limit 5. Rate limit: [`lib/rate-limit/memory.ts`](../../lib/rate-limit/memory.ts) (Redis). |
+| Memory (non-Arcadia only) | `searchMemoriesForUser` | Yes — Upstash rate limit + Mem0 | Limit 5. Skipped when the user text is empty. Rate limit: [`lib/rate-limit/memory.ts`](../../lib/rate-limit/memory.ts) (Redis). |
 | Memory (Arcadia) | Resolved in phase 2 | — | Placeholder promise returns `{ results: [] }` in parallel slot; real work deferred. |
 | Persisted schemas | `getPersistedSchemas(chatId)` when Strata-like | Yes — Supabase | Only when `persistedSchemasEnabled`. |
 
@@ -188,4 +190,5 @@ Paste production/staging log lines into team notes and update this doc’s range
 
 | Date | Change |
 |------|--------|
+| 2026-08 | Context-budget polls skip Mem0; empty memory queries return no search; missing thread summaries are not errors. |
 | 2026-04 | Initial internal doc for `getContext`, route wiring, network map, Arcadia memory pipeline. |

@@ -14,15 +14,10 @@ import { isAdminUser } from "@/data/supabase/profiles";
 import { createLogger } from "@/lib/logger";
 import { getLastUserMessageText } from "@/lib/arcadia/help-response";
 import { augmentUserMessageWithDiagramLinks } from "@/lib/mermaid/augment-message";
-import {
-  classifyTaskTier,
-  chatModelForGatewayId,
-  tierToGatewayModelId,
-} from "@/lib/llm/auto-model-router";
+import { resolveChatModel } from "@/lib/api/resolve-chat-model";
 import { getChatModel } from "@/lib/llm/helpers";
 import {
   AUTO_CHAT_MODEL_ID,
-  AUTO_RESOLVED_SONNET_MODEL_ID,
   ChatModels,
   ChatRequestSchema,
   DEFAULT_CHAT_MODEL,
@@ -110,25 +105,16 @@ export async function POST(req: Request) {
   const isZeroDataRetention = zeroDataRetention === true;
 
   let selectedModel = requestedModel ? getChatModel(requestedModel) : DEFAULT_CHAT_MODEL;
+  const requestedModelId = selectedModel.id;
 
   if (selectedModel.id === AUTO_CHAT_MODEL_ID) {
-    if (experience === "delphi") {
-      const userText = getLastUserMessageText(message);
-      const tier = classifyTaskTier(userText);
-      const gatewayId = tierToGatewayModelId(tier, isZeroDataRetention);
-
-      selectedModel = getChatModel(chatModelForGatewayId(gatewayId));
-      logger.log(
-        "POST",
-        `Model selection branch: delphi_auto_tier -> ${selectedModel.id} (tier=${tier})`
-      );
-    } else {
-      const sonnet =
-        ChatModels.find((m) => m.id === AUTO_RESOLVED_SONNET_MODEL_ID) ?? DEFAULT_CHAT_MODEL;
-
-      selectedModel = getChatModel(sonnet);
-      logger.log("POST", `Model selection branch: auto_sonnet_default -> ${selectedModel.id}`);
-    }
+    selectedModel = resolveChatModel({
+      modelId: selectedModel.id,
+      draftText: getLastUserMessageText(message),
+      experience,
+      zeroDataRetention: isZeroDataRetention,
+    });
+    logger.log("POST", `Model selection branch: auto_resolved -> ${selectedModel.id}`);
   } else {
     logger.log("POST", `Model selection explicit -> ${selectedModel.id}`);
   }
@@ -224,6 +210,7 @@ export async function POST(req: Request) {
         packedMessageCount,
         totalThreadMessages,
         scheduleBackgroundCondensation,
+        memoriesInjected,
       } = await loadTurnContext();
 
       if (experience === "arcadia" && scheduleBackgroundCondensation) {
@@ -342,8 +329,10 @@ export async function POST(req: Request) {
       const maxSteps = computeMainChatMaxSteps({ experience, hasTools });
 
       let arcadiaStarterPriming: string | undefined;
+
       if (experience === "arcadia") {
         const starterKeyResult = await getThreadArcadiaStarterKey(id);
+
         if (starterKeyResult.error) {
           logger.error("POST", "Failed to load Arcadia starter key", {
             error: starterKeyResult.error.message,
@@ -418,17 +407,20 @@ export async function POST(req: Request) {
       }
 
       const contextBudget = await buildBudgetFromAssembledTurn({
-        modelId: selectedModel.id,
+        modelId: requestedModelId,
+        resolvedModelId: selectedModel.id,
         draftMessage: message,
         validatedMessages,
         contextSystemPrompt: afterContext,
         finalSystemPrompt: systemPromptWithLength,
         toolInstructions,
+        activeToolNames: toolNames,
         tokenBreakdown,
         packedMessageCount,
         totalThreadMessages,
         contextMessageLimit:
           experience === "arcadia" ? undefined : getContextMessageLimit(experience),
+        memoriesInjected,
       });
 
       writer.write({

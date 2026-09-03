@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, mock, test } from "bun:test";
+import { afterAll, afterEach, beforeEach, describe, expect, mock, test } from "bun:test";
 import { renderHook, act } from "@testing-library/react";
 import { createElement, type ReactNode } from "react";
 
@@ -13,7 +13,7 @@ const mockFetch = mock((url: string, init?: RequestInit) => {
     new Response(JSON.stringify({ error: "unmocked" }), {
       status: 500,
       headers: { "Content-Type": "application/json" },
-    }),
+    })
   );
 });
 
@@ -27,6 +27,13 @@ const mockGetSessionById = mock(async () => ({
   error: null,
 }));
 
+const defaultActions = {
+  ...(await import("@/lib/rabbit-holes/actions")),
+};
+const realRabbitholes = {
+  ...(await import("@/data/supabase/rabbitholes?explore-question-test-real")),
+};
+
 mock.module("@/lib/rabbit-holes/actions", () => ({
   analyzeSource: mock(async () => ({ data: null, error: null })),
   generateQuickPreview: mockGenerateQuickPreview,
@@ -37,8 +44,7 @@ mock.module("@/lib/rabbit-holes/actions", () => ({
 }));
 
 mock.module("@/data/supabase/rabbitholes", () => ({
-  ...(globalThis as unknown as { __realRabbitholes: typeof import("@/data/supabase/rabbitholes") })
-    .__realRabbitholes,
+  ...realRabbitholes,
   getSessionById: mockGetSessionById,
   saveSession: mock(async () => ({ ok: true, error: null })),
 }));
@@ -60,11 +66,7 @@ const contextValue = {
 };
 
 function wrapper({ children }: { children: ReactNode }) {
-  return createElement(
-    RabbitHoleContext.Provider,
-    { value: contextValue as never },
-    children,
-  );
+  return createElement(RabbitHoleContext.Provider, { value: contextValue as never }, children);
 }
 
 const originalFetch = globalThis.fetch;
@@ -85,7 +87,12 @@ afterEach(() => {
   globalThis.fetch = originalFetch;
 });
 
-const { useRabbitHoles } = await import("@/lib/rabbit-holes/useRabbitHoles");
+const { useRabbitHoles } = await import("@/lib/rabbit-holes/useRabbitHoles?explore-question-test");
+
+afterAll(() => {
+  mock.module("@/lib/rabbit-holes/actions", () => defaultActions);
+  mock.module("@/data/supabase/rabbitholes", () => realRabbitholes);
+});
 
 describe("useRabbitHoles exploreQuestion generate API", () => {
   test("calls fetch with POST, correct URL, and body containing nodeId and session", async () => {
@@ -96,8 +103,8 @@ describe("useRabbitHoles exploreQuestion generate API", () => {
           sessionId: SESSION_ID,
           nodeId: NODE_ID,
         }),
-        { status: 202, headers: { "Content-Type": "application/json" } },
-      ),
+        { status: 202, headers: { "Content-Type": "application/json" } }
+      )
     );
 
     const { result } = renderHook(() => useRabbitHoles(), { wrapper });
@@ -131,8 +138,8 @@ describe("useRabbitHoles exploreQuestion generate API", () => {
           sessionId: SESSION_ID,
           nodeId: returnedNodeId,
         }),
-        { status: 202, headers: { "Content-Type": "application/json" } },
-      ),
+        { status: 202, headers: { "Content-Type": "application/json" } }
+      )
     );
 
     const { result } = renderHook(() => useRabbitHoles(), { wrapper });
@@ -150,7 +157,7 @@ describe("useRabbitHoles exploreQuestion generate API", () => {
       new Response(JSON.stringify({ error: "Unauthorized" }), {
         status: 401,
         headers: { "Content-Type": "application/json" },
-      }),
+      })
     );
 
     const { result } = renderHook(() => useRabbitHoles(), { wrapper });
@@ -169,7 +176,7 @@ describe("useRabbitHoles exploreQuestion generate API", () => {
       new Response(JSON.stringify({ error: "Server error" }), {
         status: 500,
         headers: { "Content-Type": "application/json" },
-      }),
+      })
     );
 
     const { result } = renderHook(() => useRabbitHoles(), { wrapper });

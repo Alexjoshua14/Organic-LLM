@@ -3,6 +3,7 @@
 import { useCallback, useState, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
+
 import { AdminBlogLink } from "./admin-blog-link";
 import { GatewaySmokeLink } from "./gateway-smoke-link";
 import { SandboxGatewayButton } from "./sandbox-gateway-button";
@@ -10,9 +11,10 @@ import { ShowcaseGatewayButton } from "./showcase-gateway-button";
 import { StatusGatewayButton } from "./status-gateway-button";
 
 import { HomeComposerActionButton } from "@/components/chat/home-composer-action-button";
-
 import { createChat } from "@/lib/chat/chat-store";
 import { createLogger } from "@/lib/logger";
+import { PERF_PHASES } from "@/lib/perf/journeys";
+import { mark, startJourney } from "@/lib/perf/trace-store";
 import { useSharedChatContext } from "@/lib/context/chat-context";
 import { cn } from "@/lib/utils";
 
@@ -45,6 +47,7 @@ export function HomepagePrimaryActions({
   const handleLetsChat = useCallback(async () => {
     if (creating) return;
     setCreating(true);
+    startJourney("to-chat", "lets-chat");
     try {
       const res = await createChat();
 
@@ -55,7 +58,9 @@ export function HomepagePrimaryActions({
       }
       const id = res.data;
 
+      mark(PERF_PHASES.chatCreated);
       refreshSidebarChats();
+      mark(PERF_PHASES.navPush);
       router.push(`/chat/${id}`);
     } catch (error) {
       logger.error("handleLetsChat", `Error creating chat: ${error}`);

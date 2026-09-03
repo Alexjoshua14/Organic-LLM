@@ -24,6 +24,13 @@ type QueueState = {
   ids: Set<string>;
 };
 
+export type ArtifactSyncQueue = {
+  clearForOwner: (ownerId: string) => void;
+  dequeue: () => ArtifactSyncJob | undefined;
+  enqueue: (job: ArtifactSyncJob) => void;
+  length: () => number;
+};
+
 function getQueueState(): QueueState {
   const g = globalThis as typeof globalThis & { __spatialArtifactSyncQueue?: QueueState };
 
@@ -34,10 +41,8 @@ function getQueueState(): QueueState {
   return g.__spatialArtifactSyncQueue;
 }
 
-export function enqueueArtifactSync(job: ArtifactSyncJob): void {
+function enqueueInState(state: QueueState, job: ArtifactSyncJob): void {
   if (!job.coalescenceMode) return;
-
-  const state = getQueueState();
 
   if (state.ids.has(job.artifactId)) {
     const existing = state.pending.find((j) => j.artifactId === job.artifactId);
@@ -56,8 +61,7 @@ export function enqueueArtifactSync(job: ArtifactSyncJob): void {
   state.pending.sort((a, b) => PRIORITY_RANK[a.priority] - PRIORITY_RANK[b.priority]);
 }
 
-export function dequeueArtifactSync(): ArtifactSyncJob | undefined {
-  const state = getQueueState();
+function dequeueFromState(state: QueueState): ArtifactSyncJob | undefined {
   const job = state.pending.shift();
 
   if (job) state.ids.delete(job.artifactId);
@@ -65,13 +69,7 @@ export function dequeueArtifactSync(): ArtifactSyncJob | undefined {
   return job;
 }
 
-export function queueLength(): number {
-  return getQueueState().pending.length;
-}
-
-export function clearQueueForOwner(ownerId: string): void {
-  const state = getQueueState();
-
+function clearOwnerFromState(state: QueueState, ownerId: string): void {
   state.pending = state.pending.filter((job) => {
     if (job.ownerId === ownerId) {
       state.ids.delete(job.artifactId);
@@ -81,4 +79,32 @@ export function clearQueueForOwner(ownerId: string): void {
 
     return true;
   });
+}
+
+/** Independent queue for tests and other callers that must not share the process singleton. */
+export function createArtifactSyncQueue(): ArtifactSyncQueue {
+  const state: QueueState = { pending: [], ids: new Set() };
+
+  return {
+    clearForOwner: (ownerId) => clearOwnerFromState(state, ownerId),
+    dequeue: () => dequeueFromState(state),
+    enqueue: (job) => enqueueInState(state, job),
+    length: () => state.pending.length,
+  };
+}
+
+export function enqueueArtifactSync(job: ArtifactSyncJob): void {
+  enqueueInState(getQueueState(), job);
+}
+
+export function dequeueArtifactSync(): ArtifactSyncJob | undefined {
+  return dequeueFromState(getQueueState());
+}
+
+export function queueLength(): number {
+  return getQueueState().pending.length;
+}
+
+export function clearQueueForOwner(ownerId: string): void {
+  clearOwnerFromState(getQueueState(), ownerId);
 }

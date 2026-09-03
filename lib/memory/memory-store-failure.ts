@@ -93,6 +93,14 @@ export function diagnoseMemoryStoreFailure(error: unknown): MemoryStoreFailureDi
       ? "Set OLLAMA_API_KEY for remote Ollama proxies."
       : "Ensure Ollama is running locally and the embed model is pulled.";
 
+    if (matchesAny(lower, [/no embedding vector/, /batch embed returned no embeddings/])) {
+      return {
+        kind: "embedder",
+        hint: `Mem0 Ollama embedder returned no vector — the host answered but the response had no embedding. Likely empty input, unexpected response shape, or a non-embed model. Verify OLLAMA_URL (${OLLAMA_URL}) and OLLAMA_EMBED_MODEL (${OLLAMA_EMBED_MODEL}).`,
+        detail: text,
+      };
+    }
+
     return {
       kind: "embedder",
       hint: `Mem0 Ollama embedder unreachable — verify OLLAMA_URL (${OLLAMA_URL}), OLLAMA_EMBED_MODEL (${OLLAMA_EMBED_MODEL}), and ${authHint}`,

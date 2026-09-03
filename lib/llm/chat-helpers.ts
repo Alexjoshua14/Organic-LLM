@@ -181,12 +181,22 @@ function getMessageTextForTokenEstimate(message: UIMessage): string {
  * Chronological order = oldest first; we keep the tail that fits.
  * Uses tiktoken (cl100k_base) for token counting.
  */
+let sharedCl100kEncoding: ReturnType<typeof encodingForModel> | null = null;
+
+function getCl100kEncoding() {
+  if (!sharedCl100kEncoding) {
+    sharedCl100kEncoding = encodingForModel("gpt-5");
+  }
+
+  return sharedCl100kEncoding;
+}
+
 function trimMessagesToTokenBudget(
   chronologicalMessages: UIMessage[],
   maxTokens: number
 ): UIMessage[] {
   if (chronologicalMessages.length === 0) return [];
-  const encoding = encodingForModel("gpt-5");
+  const encoding = getCl100kEncoding();
   let total = 0;
   let startIndex = chronologicalMessages.length;
 
@@ -956,11 +966,8 @@ export async function regenerateChatSummary(chatId: string): Promise<Result<stri
 export const estimateTokenCount = async (text: string): Promise<number | null> => {
   // TODO: CLEAN UP THIS FUNCTION TO ENSURE IT'S ACCURACY
   try {
-    // Use gpt-5 encoding (cl100k_base) which is compatible with most modern OpenAI models
-    const encoding = encodingForModel("gpt-5");
-    const tokens = encoding.encode(text);
-
-    return tokens.length;
+    // Reuse one cl100k_base encoder (via gpt-5) — constructing per call is expensive.
+    return getCl100kEncoding().encode(text).length;
   } catch (error) {
     logger.error("estimateTokenCount", `Error counting tokens: ${error}`);
 

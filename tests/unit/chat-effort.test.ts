@@ -34,8 +34,8 @@ describe("getEffortLevelsForModel", () => {
     expect(ids).toEqual(["auto", "low", "medium", "high"]);
   });
 
-  test("Gemini 3.5 Flash includes minimal", () => {
-    const ids = getEffortLevelsForModel("google/gemini-3.5-flash").map((r) => r.id);
+  test("Gemini 3.7 Flash includes minimal", () => {
+    const ids = getEffortLevelsForModel("google/gemini-3.7-flash").map((r) => r.id);
 
     expect(ids).toEqual(["auto", "minimal", "low", "medium", "high"]);
   });

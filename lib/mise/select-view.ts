@@ -1,4 +1,5 @@
 import type { PlanTimelineBlock, RecipeCardBlock, ShoppingListBlock } from "@/lib/schemas/gen-ui";
+import { RecipeCardBodySchema } from "@/lib/schemas/gen-ui/recipe-card";
 import type { MiseIngredient, MiseRecipe, MiseView } from "@/lib/schemas/mise";
 import type { MisePlanState } from "@/lib/mise/types";
 
@@ -33,18 +34,7 @@ export function selectIngredients(plan: MisePlanState, view?: MiseView): MiseIng
 }
 
 export function recipeToBlock(recipe: MiseRecipe): RecipeCardBlock {
-  return {
-    type: "recipe-card",
-    version: 1,
-    title: recipe.title,
-    sourceUrl: recipe.sourceUrl,
-    servings: recipe.servings,
-    prepTime: recipe.prepTime,
-    cookTime: recipe.cookTime,
-    ingredients: recipe.ingredients,
-    steps: recipe.steps,
-    notes: recipe.notes,
-  };
+  return { type: "recipe-card", version: 1, ...RecipeCardBodySchema.parse(recipe) };
 }
 
 export function timelineToBlock(plan: MisePlanState): PlanTimelineBlock {

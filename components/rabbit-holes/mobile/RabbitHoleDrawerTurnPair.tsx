@@ -10,8 +10,8 @@ import { ChatMessage } from "@/components/chat/chat-message";
 import { ChatReasoning, ChatThinking } from "@/components/chat/chat-loading";
 import { glass } from "@/components/design-system/primitives";
 import { useDrawerTurnSwipe } from "@/hooks/use-drawer-turn-swipe";
+import { OPTIMISTIC_MESSAGE_RECEIVED_LABEL } from "@/lib/chat/optimistic-ai-action";
 import { cn } from "@/lib/utils";
-import { ChatAIActionEnum } from "@/types/ai";
 
 type RabbitHoleDrawerTurnPairProps = {
   turn: DrawerChatTurn | null;
@@ -94,16 +94,12 @@ export function RabbitHoleDrawerTurnPair({
                 )}
               >
                 {turn.assistant ? (
-                  <ChatMessage
-                    chatId={chatId}
-                    isLastMessage
-                    message={turn.assistant}
-                  />
+                  <ChatMessage chatId={chatId} isLastMessage message={turn.assistant} />
                 ) : isStreaming ? (
                   aiActionMessage?.toLowerCase().includes("reason") ? (
                     <ChatReasoning text={aiActionMessage} />
                   ) : (
-                    <ChatThinking text={aiActionMessage} />
+                    <ChatThinking text={aiActionMessage ?? OPTIMISTIC_MESSAGE_RECEIVED_LABEL} />
                   )
                 ) : (
                   <p className="text-sm text-muted-foreground">Waiting for a reply…</p>

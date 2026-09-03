@@ -93,6 +93,20 @@ describe("mergeMemorySearchResultsByMaxScore", () => {
 });
 
 describe("rewriteMemoryQuery", () => {
+  test("empty query returns no searches", async () => {
+    const result = await rewriteMemoryQuery("", twoTurns(), { enabled: true });
+
+    expect(result.usedRewrite).toBe(false);
+    expect(result.queries).toEqual([]);
+  });
+
+  test("whitespace-only query returns no searches", async () => {
+    const result = await rewriteMemoryQuery("   \n\t  ", twoTurns(), { enabled: false });
+
+    expect(result.usedRewrite).toBe(false);
+    expect(result.queries).toEqual([]);
+  });
+
   test("timeout falls back to raw", async () => {
     const result = await rewriteMemoryQuery("tell me about the second option", twoTurns(), {
       enabled: true,

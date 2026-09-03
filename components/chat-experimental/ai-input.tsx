@@ -12,6 +12,8 @@ import { HomepagePrimaryActions } from "@/components/pages/homepage-primary-acti
 import { createStrataPageWithRawTextAction } from "@/app/sandbox/prototypes/strata/actions";
 import { useAion } from "@/hooks/use-aion";
 import { createLogger } from "@/lib/logger";
+import { PERF_PHASES } from "@/lib/perf/journeys";
+import { mark, startJourney } from "@/lib/perf/trace-store";
 import { createChat } from "@/lib/chat/chat-store";
 import { routeHomepagePrompt } from "@/lib/chat/thread-routing";
 import {
@@ -66,6 +68,7 @@ export const AIInput: React.FC<AIInputProps> = ({
   const handleLetsChat = useCallback(async () => {
     if (creating) return;
     setCreating(true);
+    startJourney("to-chat", "aion-navigate");
     try {
       const res = await createChat();
 
@@ -76,7 +79,9 @@ export const AIInput: React.FC<AIInputProps> = ({
       }
       const id = res.data;
 
+      mark(PERF_PHASES.chatCreated);
       refreshSidebarChats();
+      mark(PERF_PHASES.navPush);
       router.push(`/chat/${id}`);
     } catch (error) {
       logger.error("handleLetsChat", `Error creating chat: ${error}`);
@@ -256,7 +261,11 @@ export const AIInput: React.FC<AIInputProps> = ({
         fullView ? "min-h-0 max-w-2xl flex-1" : "max-w-xl"
       )}
       tabIndex={-1}
-      transition={disableLayoutAnimation ? undefined : { ...HOME_INPUT_SPRING, layout: { ...HOME_INPUT_SPRING } }}
+      transition={
+        disableLayoutAnimation
+          ? undefined
+          : { ...HOME_INPUT_SPRING, layout: { ...HOME_INPUT_SPRING } }
+      }
     >
       <AiInputForm
         className={cn("w-full rounded-xl", fullView && !composerDocked && "flex-1 min-h-0")}

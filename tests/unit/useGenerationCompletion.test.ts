@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, jest, mock, test } from "bun:test";
+import { afterAll, afterEach, beforeEach, describe, expect, jest, mock, test } from "bun:test";
 import { renderHook } from "@testing-library/react";
 import type { RabbitHoleSession } from "@/lib/schemas/rabbitHoleSchemas";
 
@@ -35,15 +35,22 @@ const mockGetSessionById = mock(async () => ({
   error: null,
 }));
 
+const realRabbitholes = {
+  ...(await import("@/data/supabase/rabbitholes?generation-completion-test-real")),
+};
+
 mock.module("@/data/supabase/rabbitholes", () => ({
-  ...(globalThis as unknown as { __realRabbitholes: typeof import("@/data/supabase/rabbitholes") })
-    .__realRabbitholes,
+  ...realRabbitholes,
   getSessionById: mockGetSessionById,
 }));
 
 const { useGenerationCompletion } = await import(
-  "@/lib/rabbit-holes/useGenerationCompletion"
+  "@/lib/rabbit-holes/useGenerationCompletion?generation-completion-test"
 );
+
+afterAll(() => {
+  mock.module("@/data/supabase/rabbitholes", () => realRabbitholes);
+});
 
 ensureDom();
 
@@ -66,9 +73,8 @@ describe("useGenerationCompletion", () => {
       expect(session.generatingNodeId).toBeNull();
     });
 
-    const { unmount: unmountHook } = renderHook(
-      () =>
-        useGenerationCompletion(SESSION_ID, NODE_ID, onSessionUpdated),
+    const { unmount: unmountHook } = renderHook(() =>
+      useGenerationCompletion(SESSION_ID, NODE_ID, onSessionUpdated)
     );
 
     expect(mockGetSessionById.mock.calls.length).toBe(0);
@@ -79,9 +85,7 @@ describe("useGenerationCompletion", () => {
     await Promise.resolve();
 
     expect(mockGetSessionById.mock.calls.length).toBe(1);
-    expect(
-      (mockGetSessionById.mock.calls as unknown as Array<[string]>)[0]?.[0],
-    ).toBe(SESSION_ID);
+    expect((mockGetSessionById.mock.calls as unknown as Array<[string]>)[0]?.[0]).toBe(SESSION_ID);
     expect(onSessionUpdated.mock.calls.length).toBe(1);
     expect(onSessionUpdated.mock.calls[0]?.[0]).toBe(completedSession);
 
@@ -91,9 +95,7 @@ describe("useGenerationCompletion", () => {
   test("does not poll when sessionId is null", () => {
     const onSessionUpdated = mock(() => {});
 
-    renderHook(() =>
-      useGenerationCompletion(null, NODE_ID, onSessionUpdated),
-    );
+    renderHook(() => useGenerationCompletion(null, NODE_ID, onSessionUpdated));
 
     jest.advanceTimersByTime(10000);
 
@@ -104,9 +106,7 @@ describe("useGenerationCompletion", () => {
   test("does not poll when generatingNodeId is null", () => {
     const onSessionUpdated = mock(() => {});
 
-    renderHook(() =>
-      useGenerationCompletion(SESSION_ID, null, onSessionUpdated),
-    );
+    renderHook(() => useGenerationCompletion(SESSION_ID, null, onSessionUpdated));
 
     jest.advanceTimersByTime(10000);
 
@@ -117,9 +117,8 @@ describe("useGenerationCompletion", () => {
   test("stops polling and does not call onSessionUpdated after unmount", async () => {
     const onSessionUpdated = mock(() => {});
 
-    const { unmount: unmountHook } = renderHook(
-      () =>
-        useGenerationCompletion(SESSION_ID, NODE_ID, onSessionUpdated),
+    const { unmount: unmountHook } = renderHook(() =>
+      useGenerationCompletion(SESSION_ID, NODE_ID, onSessionUpdated)
     );
 
     unmountHook();
