@@ -1,12 +1,10 @@
 import { beforeEach, describe, expect, mock, test } from "bun:test";
 import type { UIMessage } from "ai";
 
-import {
-  createMockAuth,
-  createMockClerkUser,
-} from "../helpers/mock-auth";
+import { createMockAuth, createMockClerkUser } from "../helpers/mock-auth";
 
 import { FIXTURE_PLAN_TIMELINE } from "@/lib/schemas/gen-ui/fixtures";
+import { spatialArtifactId } from "@/lib/spatial-artifacts/artifact-id";
 
 const mockAuth = mock(createMockAuth());
 const mockGetSupabaseUserId = mock(async () => ({
@@ -35,6 +33,17 @@ mock.module("@/data/supabase/spatial-artifacts", () => ({
 }));
 
 mock.module("@/lib/spatial-artifacts/sync/sync-worker", () => ({
+  buildArtifactIdFromJob: ({
+    threadId,
+    messageId,
+    toolCallId,
+    partIndex,
+  }: {
+    threadId: string;
+    messageId: string;
+    toolCallId: string;
+    partIndex?: number;
+  }) => spatialArtifactId({ threadId, messageId, toolCallId, partIndex: partIndex ?? 0 }),
   enqueueArtifactSync: mockEnqueueArtifactSync,
   enqueueBulkArtifactSync: mockEnqueueBulkArtifactSync,
   scheduleArtifactSyncPump: mockScheduleArtifactSyncPump,

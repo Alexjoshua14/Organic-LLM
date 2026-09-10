@@ -14,8 +14,11 @@ import { createLogger } from "../logger";
 import { GUARDRAIL_MAX_OUTPUT_TOKENS } from "./helpers";
 
 import { recordLlmCall } from "@/lib/llm/metrics";
+import { models, providerModelSlug } from "@/lib/schemas/chat-models";
 
 const logger = createLogger("lib/llm/text-to-speech.ts");
+const luna = openai(providerModelSlug(models.openai.luna.id));
+const terra = openai(providerModelSlug(models.openai.terra.id));
 
 const textCache = new Map<string, { text: string; timestamp: number }>();
 const CACHE_TTL = 1000 * 60 * 60; // 1 hour
@@ -90,7 +93,7 @@ export async function transformTextToSpeechFriendly(text: string): Promise<strin
 
   const firstAttemptSpeechFriendlyTextStartGeneration = performance.now();
   const speechFriendlyText = await generateText({
-    model: openai("gpt-5.4-nano"),
+    model: luna,
     system: SpeechFriendlySystemPrompt,
     prompt: text,
     temperature: 0,
@@ -106,7 +109,7 @@ export async function transformTextToSpeechFriendly(text: string): Promise<strin
 
   const validatedTranscriptStartGeneration = performance.now();
   const validatedTranscript = await generateObject({
-    model: openai("gpt-5.4-nano"),
+    model: luna,
     system: ValidationSystemPrompt,
     prompt: `Original text: ${text}\n\nTransformed text: ${speechFriendlyText.text}`,
     temperature: 0,
@@ -121,7 +124,7 @@ export async function transformTextToSpeechFriendly(text: string): Promise<strin
   );
 
   recordLlmCall({
-    model: "gpt-5.4-nano",
+    model: models.openai.luna.id,
     usage: speechFriendlyText.usage,
     durationMs:
       firstAttemptSpeechFriendlyTextEndGeneration - firstAttemptSpeechFriendlyTextStartGeneration,
@@ -129,7 +132,7 @@ export async function transformTextToSpeechFriendly(text: string): Promise<strin
   });
 
   recordLlmCall({
-    model: "gpt-5.4-nano",
+    model: models.openai.luna.id,
     usage: validatedTranscript.usage,
     durationMs: validatedTranscriptEndGeneration - validatedTranscriptStartGeneration,
     metadata: { operation: "tts-validate-v1" },
@@ -139,7 +142,7 @@ export async function transformTextToSpeechFriendly(text: string): Promise<strin
     // Try to regenerate text, use slightly stronger model
     const regeneratedTranscriptStartGeneration = performance.now();
     const regeneratedTranscript = await generateText({
-      model: openai("gpt-5.4-mini"),
+      model: terra,
       system: CorrectionSystemPrompt.replace(
         "{{validationErrorReasoning}}",
         validatedTranscript.object.reason
@@ -156,7 +159,7 @@ export async function transformTextToSpeechFriendly(text: string): Promise<strin
     );
 
     recordLlmCall({
-      model: "gpt-5.4-mini",
+      model: models.openai.terra.id,
       usage: regeneratedTranscript.usage,
       durationMs: regeneratedTranscriptEndGeneration - regeneratedTranscriptStartGeneration,
       metadata: { operation: "tts-regenerate-v1" },
@@ -164,7 +167,7 @@ export async function transformTextToSpeechFriendly(text: string): Promise<strin
 
     const betterVersionOfTranscriptStartGeneration = performance.now();
     const betterVersionOfTranscript = await generateObject({
-      model: openai("gpt-5.4-nano"),
+      model: luna,
       system: `Based on the validation criteria, determine whether transcript A, B, or C is best. \nValidation criteria: ${ValidationCriteria}`,
       prompt: `Option A: ${text}\n\nOption B: ${speechFriendlyText.text}\n\nOption C: ${regeneratedTranscript.text}`,
       temperature: 0,
@@ -183,7 +186,7 @@ export async function transformTextToSpeechFriendly(text: string): Promise<strin
     );
 
     recordLlmCall({
-      model: "gpt-5.4-nano",
+      model: models.openai.luna.id,
       usage: betterVersionOfTranscript.usage,
       durationMs: betterVersionOfTranscriptEndGeneration - betterVersionOfTranscriptStartGeneration,
       metadata: { operation: "tts-compare-abc-v1" },
@@ -206,7 +209,7 @@ export async function transformTextToSpeechFriendly(text: string): Promise<strin
   } else {
     const betterVersionOfTranscriptStartGeneration = performance.now();
     const betterVersionOfTranscript = await generateObject({
-      model: openai("gpt-5.4-nano"),
+      model: luna,
       system: `Based on the validation criteria, determine whether transcript A, B, or C is best. \nValidation criteria: ${ValidationCriteria}`,
       prompt: `Option A: ${text}\n\nOption B: ${speechFriendlyText.text}}`,
       temperature: 0,
@@ -225,7 +228,7 @@ export async function transformTextToSpeechFriendly(text: string): Promise<strin
     );
 
     recordLlmCall({
-      model: "gpt-5.4-nano",
+      model: models.openai.luna.id,
       usage: betterVersionOfTranscript.usage,
       durationMs: betterVersionOfTranscriptEndGeneration - betterVersionOfTranscriptStartGeneration,
       metadata: { operation: "tts-compare-ab-v1" },
@@ -302,7 +305,7 @@ export async function transformTextToSpeechFriendlyV2(text: string): Promise<str
   }
 
   const result = await generateObject({
-    model: openai("gpt-5.4-nano"),
+    model: luna,
     system: SpeechFriendlySystemPromptV2,
     prompt: text,
     temperature: 0,
@@ -321,7 +324,7 @@ export async function transformTextToSpeechFriendlyV2(text: string): Promise<str
   const regeneratedTranscriptStartGeneration = performance.now();
 
   const regeneratedTranscript = await generateObject({
-    model: openai("gpt-5.4-nano"),
+    model: luna,
     system: CorrectionSystemPrompt.replace("{{validationErrorReasoning}}", result.object.reason),
     prompt: `Original text: ${text}\n\nTransformed text: ${result.object.speechFriendlyText}`,
     temperature: 0,
@@ -337,14 +340,14 @@ export async function transformTextToSpeechFriendlyV2(text: string): Promise<str
   );
 
   recordLlmCall({
-    model: "gpt-5.4-nano",
+    model: models.openai.luna.id,
     usage: result.usage,
     durationMs: 0,
     metadata: { operation: "tts-v2-initial" },
   });
 
   recordLlmCall({
-    model: "gpt-5.4-nano",
+    model: models.openai.luna.id,
     usage: regeneratedTranscript.usage,
     durationMs: regeneratedTranscriptEndGeneration - regeneratedTranscriptStartGeneration,
     metadata: { operation: "tts-v2-regenerate" },

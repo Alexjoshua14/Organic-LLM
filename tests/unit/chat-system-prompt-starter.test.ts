@@ -1,9 +1,6 @@
 import { describe, expect, test, mock } from "bun:test";
 
 mock.module("server-only", () => ({}));
-mock.module("@/data/supabase/strata", () => ({
-  getStrataPageById: async () => ({ data: null, error: null }),
-}));
 
 const { appendMainChatPostToolSystemFragments } = await import("@/lib/api/chat-system-prompt");
 

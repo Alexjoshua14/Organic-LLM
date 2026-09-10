@@ -42,6 +42,7 @@ class QueryBuilder<T extends Record<string, unknown>> {
   private filters: Array<{ column: string; value: unknown }> = [];
   private orderBy?: { column: string; ascending: boolean };
   private expectSingle = false;
+  private expectMaybeSingle = false;
   private pendingUpdate?: Partial<T>;
 
   constructor(private rows: T[]) {}
@@ -73,6 +74,11 @@ class QueryBuilder<T extends Record<string, unknown>> {
 
   single() {
     this.expectSingle = true;
+    return this;
+  }
+
+  maybeSingle() {
+    this.expectMaybeSingle = true;
     return this;
   }
 
@@ -119,6 +125,20 @@ class QueryBuilder<T extends Record<string, unknown>> {
         }
 
         return 0;
+      });
+    }
+
+    if (this.expectMaybeSingle) {
+      if (result.length > 1) {
+        return Promise.resolve({
+          data: null,
+          error: { message: "Expected at most one row" },
+        });
+      }
+
+      return Promise.resolve({
+        data: result[0] ?? null,
+        error: null,
       });
     }
 
@@ -261,6 +281,15 @@ describe("chat data encryption", () => {
 
     expect(result.error).toBeNull();
     expect(result.data).toBe("Encrypted summary");
+  });
+
+  test("getConversationSummary returns no error when the thread has no summary row", async () => {
+    const result = await chatModule.getConversationSummary(
+      "11111111-1111-4111-8111-111111111111",
+    );
+
+    expect(result.error).toBeNull();
+    expect(result.data).toBeNull();
   });
 
   test("updateConversationSummary stores encrypted thread summaries", async () => {

@@ -4,7 +4,9 @@ import type { GenUIBlock } from "@/lib/schemas/gen-ui";
 import { ALL_VALID_FIXTURES } from "@/lib/schemas/gen-ui/fixtures";
 import { GEN_UI_BLOCK_TYPES, type GenUIBlockType } from "@/lib/schemas/gen-ui/shared";
 
-export const GEN_UI_LAB_MODEL = "openai/gpt-5.4-mini" as const;
+import { models } from "@/lib/schemas/chat-models";
+
+export const GEN_UI_LAB_MODEL = models.openai.terra.id;
 
 export const GenUiLabViewModeSchema = z.enum(["gallery", "focus"]);
 export type GenUiLabViewMode = z.infer<typeof GenUiLabViewModeSchema>;

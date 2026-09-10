@@ -12,20 +12,45 @@ export const RecipeIngredientSchema = z.object({
 
 export type RecipeIngredient = z.infer<typeof RecipeIngredientSchema>;
 
-export const RecipeCardBlockSchema = z.object({
-  type: z.literal("recipe-card"),
-  version: GEN_UI_VERSION,
+export const RECIPE_COMPLEXITIES = ["easy", "medium", "hard"] as const;
+export const RecipeComplexitySchema = z.enum(RECIPE_COMPLEXITIES);
+export type RecipeComplexity = z.infer<typeof RecipeComplexitySchema>;
+
+/**
+ * Shared recipe-card body: everything except gen-UI `{ type, version }` and mise `{ id }`.
+ * New glance/library fields are optional so existing cards still parse.
+ */
+export const RecipeCardBodySchema = z.object({
   title: z.string().min(1),
   sourceUrl: httpUrl().optional().catch(undefined),
   servings: optionalStringCatch(),
   prepTime: optionalStringCatch(),
   cookTime: optionalStringCatch(),
+  duration: optionalStringCatch(),
+  complexity: RecipeComplexitySchema.optional().catch(undefined),
+  mainProtein: optionalStringCatch(),
+  mainCarbs: optionalStringCatch(),
+  cuisine: optionalStringCatch(),
+  equipment: z.array(z.string().min(1)).max(20).optional().catch(undefined),
   ingredients: z.array(RecipeIngredientSchema).min(1).max(60),
   steps: z.array(z.string().min(1)).min(1).max(40),
   notes: optionalStringCatch(),
 });
 
+export type RecipeCardBody = z.infer<typeof RecipeCardBodySchema>;
+
+export const RecipeCardBlockSchema = RecipeCardBodySchema.extend({
+  type: z.literal("recipe-card"),
+  version: GEN_UI_VERSION,
+});
+
 export type RecipeCardBlock = z.infer<typeof RecipeCardBlockSchema>;
+
+export const RECIPE_COMPLEXITY_LABEL: Record<RecipeComplexity, string> = {
+  easy: "Easy",
+  medium: "Medium",
+  hard: "Hard",
+};
 
 /** Render an ingredient as "1 cup flour (sifted)". */
 export function recipeIngredientToText(ing: RecipeIngredient): string {
@@ -40,8 +65,14 @@ export function recipeCardToMarkdown(block: RecipeCardBlock): string {
 
   const meta = [
     block.servings ? `Serves ${block.servings}` : null,
+    block.complexity ? RECIPE_COMPLEXITY_LABEL[block.complexity] : null,
+    block.duration ? `Total ${block.duration}` : null,
     block.prepTime ? `Prep ${block.prepTime}` : null,
     block.cookTime ? `Cook ${block.cookTime}` : null,
+    block.mainProtein ? `Protein ${block.mainProtein}` : null,
+    block.mainCarbs ? `Carbs ${block.mainCarbs}` : null,
+    block.cuisine ? block.cuisine : null,
+    block.equipment?.length ? block.equipment.join(", ") : null,
   ].filter(Boolean);
 
   if (meta.length > 0) lines.push(`_${meta.join(" · ")}_`, "");

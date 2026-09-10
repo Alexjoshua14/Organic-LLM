@@ -1,3 +1,5 @@
+import { models, providerModelSlug } from "@/lib/schemas/chat-models";
+
 import { OLLAMA_EMBED_MODEL, OLLAMA_URL, isLocalOllamaUrl } from "./ollama-config";
 
 export type MemoryStoreFailureKind = "embedder" | "qdrant" | "sqlite" | "mem0_llm" | "unknown";
@@ -93,6 +95,14 @@ export function diagnoseMemoryStoreFailure(error: unknown): MemoryStoreFailureDi
       ? "Set OLLAMA_API_KEY for remote Ollama proxies."
       : "Ensure Ollama is running locally and the embed model is pulled.";
 
+    if (matchesAny(lower, [/no embedding vector/, /batch embed returned no embeddings/])) {
+      return {
+        kind: "embedder",
+        hint: `Mem0 Ollama embedder returned no vector — the host answered but the response had no embedding. Likely empty input, unexpected response shape, or a non-embed model. Verify OLLAMA_URL (${OLLAMA_URL}) and OLLAMA_EMBED_MODEL (${OLLAMA_EMBED_MODEL}).`,
+        detail: text,
+      };
+    }
+
     return {
       kind: "embedder",
       hint: `Mem0 Ollama embedder unreachable — verify OLLAMA_URL (${OLLAMA_URL}), OLLAMA_EMBED_MODEL (${OLLAMA_EMBED_MODEL}), and ${authHint}`,
@@ -111,7 +121,7 @@ export function diagnoseMemoryStoreFailure(error: unknown): MemoryStoreFailureDi
   ) {
     return {
       kind: "mem0_llm",
-      hint: "Mem0 fact-extraction LLM failed — verify OPENAI_API_KEY and that gpt-5.4-nano (mem0-config) is available.",
+      hint: `Mem0 fact-extraction LLM failed — verify OPENAI_API_KEY and that ${providerModelSlug(models.openai.luna.id)} (mem0-config) is available.`,
       detail: text,
     };
   }

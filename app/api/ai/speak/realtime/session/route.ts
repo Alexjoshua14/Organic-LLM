@@ -1,5 +1,6 @@
 import { auth } from "@clerk/nextjs/server";
 import { NextResponse } from "next/server";
+import OpenAI from "openai";
 import { z } from "zod";
 
 import { createChat } from "@/data/supabase/chat";
@@ -13,10 +14,7 @@ import {
   isSpeakRealtimeEnabled,
   registerSpeakRealtimeSession,
 } from "@/lib/rate-limit/speak-realtime";
-import {
-  DEFAULT_SPEAK_MODALITIES,
-  SpeakModalitiesSchema,
-} from "@/lib/schemas/speak-modalities";
+import { DEFAULT_SPEAK_MODALITIES, SpeakModalitiesSchema } from "@/lib/schemas/speak-modalities";
 import { buildSpeakRealtimeInstructions } from "@/lib/system-prompt/speak-realtime";
 
 export const maxDuration = 30;
@@ -71,10 +69,7 @@ export async function POST(req: Request) {
   const messageLimit = await checkLlmMessageLimit(sbUserId);
 
   if (!messageLimit.success) {
-    return NextResponse.json(
-      { error: messageLimit.error ?? "Too many requests" },
-      { status: 429 }
-    );
+    return NextResponse.json({ error: messageLimit.error ?? "Too many requests" }, { status: 429 });
   }
 
   const startCheck = await checkSpeakRealtimeSessionStart(sbUserId);
@@ -106,13 +101,12 @@ export async function POST(req: Request) {
   const tools = compileSpeakRealtimeTools(modalities);
   const instructions = buildSpeakRealtimeInstructions(modalities);
 
-  const openaiRes = await fetch("https://api.openai.com/v1/realtime/client_secrets", {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${apiKey}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
+  const openai = new OpenAI({ apiKey });
+
+  let secretPayload: OpenAI.Realtime.ClientSecretCreateResponse;
+
+  try {
+    secretPayload = await openai.realtime.clientSecrets.create({
       expires_after: { anchor: "created_at", seconds: 600 },
       session: {
         type: "realtime",
@@ -124,36 +118,26 @@ export async function POST(req: Request) {
         audio: {
           input: {
             turn_detection: { type: "server_vad" },
-            transcription: { model: "gpt-4o-mini-transcribe" },
+            transcription: { model: "gpt-transcribe" },
           },
           output: {
             voice: "alloy",
           },
         },
       },
-    }),
-  });
+    });
+  } catch (error) {
+    const status = error instanceof OpenAI.APIError ? error.status : "unknown";
+    const detail = error instanceof Error ? error.message : String(error);
 
-  if (!openaiRes.ok) {
-    const errText = await openaiRes.text().catch(() => "");
+    logger.error("POST", `OpenAI client_secrets failed: ${status} ${detail}`);
 
-    logger.error("POST", `OpenAI client_secrets failed: ${openaiRes.status} ${errText}`);
-
-    return NextResponse.json(
-      { error: "Failed to mint Realtime session" },
-      { status: 502 }
-    );
+    return NextResponse.json({ error: "Failed to mint Realtime session" }, { status: 502 });
   }
 
-  const secretPayload = (await openaiRes.json()) as {
-    value?: string;
-    expires_at?: number;
-    session?: { id?: string };
-  };
-
   const clientSecret = secretPayload.value;
-  const openaiSessionId = secretPayload.session?.id;
-  const ourSessionId = openaiSessionId ?? crypto.randomUUID();
+  const openaiSessionId = secretPayload.session.id;
+  const ourSessionId = openaiSessionId || crypto.randomUUID();
 
   if (!clientSecret) {
     return NextResponse.json({ error: "Missing ephemeral client secret" }, { status: 502 });

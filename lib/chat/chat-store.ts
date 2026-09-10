@@ -418,14 +418,7 @@ export async function getMessagesForChatPrompt({
       "getMessagesForChatPrompt",
       `Error getting conversation summary: ${conversationSummaryResult.error.message}`
     );
-    conversationSummary = "";
-  } else if (conversationSummaryResult.data === null) {
-    logger.error(
-      "getMessagesForChatPrompt",
-      `Error getting conversation summary: Conversation summary is null`
-    );
-    conversationSummary = "";
-  } else {
+  } else if (conversationSummaryResult.data) {
     conversationSummary = conversationSummaryResult.data;
   }
 
@@ -530,8 +523,6 @@ export async function getContextAndMessagesChatPrompt({
 
 /** Shared summary loader for {@link getContextAndMessagesChatPrompt} (keeps error logging consistent). */
 async function getConversationSummaryForChatPrompt(chatId: string): Promise<Result<string>> {
-  let conversationSummary = "";
-
   const conversationSummaryResult = await getConversationSummary(chatId);
 
   if (conversationSummaryResult.error) {
@@ -539,15 +530,6 @@ async function getConversationSummaryForChatPrompt(chatId: string): Promise<Resu
       "getContextAndMessagesChatPrompt",
       `Error getting conversation summary: ${conversationSummaryResult.error.message}`
     );
-    conversationSummary = "";
-  } else if (conversationSummaryResult.data === null) {
-    logger.error(
-      "getContextAndMessagesChatPrompt",
-      `Error getting conversation summary: Conversation summary is null`
-    );
-    conversationSummary = "";
-  } else {
-    conversationSummary = conversationSummaryResult.data;
   }
 
   return conversationSummaryResult;
@@ -664,7 +646,7 @@ export async function getContext({
 
     // Arcadia defers memory to phase 2 (needs DB messages for rewrite transcript).
     const memNonArcadiaPromise =
-      memoryEnabled && !isArcadiaStyleMemoryReadExperience(experience)
+      memoryEnabled && !isArcadiaStyleMemoryReadExperience(experience) && userMessage.trim()
         ? searchMemoriesForUser(sbUserId, userMessage, { limit: 5 }).then((r) =>
             r.error ? { results: [] } : r.data!
           )

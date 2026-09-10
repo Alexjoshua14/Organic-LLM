@@ -15,6 +15,7 @@ import { getStrataUpdateSystemPrompt } from "@/lib/system-prompt/strata-update";
 import { createStrataKnowledgeGraphTools } from "@/lib/llm/strata-knowledge-graph-tools";
 import { buildPromptSafeRawInputBlock, sanitizeRawUserInput } from "@/lib/strata/input-safety";
 import { buildRawDiffPromptBlock } from "@/lib/strata/raw-diff";
+import { models } from "@/lib/schemas/chat-models";
 
 export const maxDuration = 30;
 
@@ -157,7 +158,7 @@ Return JSON only using the required output schema.`;
         : (await import("@/lib/llm/strata-memory-tool")).createStrataMemorySearchTool(sbUserId);
 
     const { text: toolingContext } = await generateText({
-      model: "openai/gpt-5.4-mini",
+      model: models.openai.terra.id,
       system: `${system}
 
 This pass exists to gather context using tools before final section generation.
@@ -172,7 +173,7 @@ Do not return final Refined/Elaborated content in this pass.`,
     });
 
     const { object } = await generateObject({
-      model: "google/gemini-3-flash",
+      model: models.google.flash.id,
       system,
       prompt: `${prompt}
 

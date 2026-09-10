@@ -20,6 +20,8 @@ import { HomeComposerLumenShell } from "../chat/home-composer-lumen-shell";
 import ShinyText from "../ShinyText";
 
 import { cn } from "@/lib/utils";
+import { PERF_PHASES } from "@/lib/perf/journeys";
+import { completeForJourney } from "@/lib/perf/trace-store";
 
 export interface AiInputFormProps
   extends Omit<React.HTMLAttributes<HTMLFormElement>, "onSubmit" | "onError"> {
@@ -74,6 +76,14 @@ const AiInputFormContent: React.FC<AiInputFormProps> = ({
   const { textInput } = usePromptInputController();
   const [userQuery, setUserQuery] = useState<string>("");
   const lastTapRef = React.useRef<number>(0);
+
+  useEffect(() => {
+    const id = requestAnimationFrame(() => {
+      completeForJourney("load", PERF_PHASES.homeComposerReady);
+    });
+
+    return () => cancelAnimationFrame(id);
+  }, []);
 
   useEffect(() => {
     if (status === "ready") {
@@ -150,84 +160,84 @@ const AiInputFormContent: React.FC<AiInputFormProps> = ({
           onSubmit={handleSubmit}
           {...props}
         >
-        <PromptInputBody onPointerDown={handleComposerPointerDown}>
-          <div
-            className={cn(
-              "relative w-full",
-              !compactComposer &&
-                "transition-[min-height,max-height,font-size] duration-500 ease-[cubic-bezier(0.25,0.1,0.25,1)]"
-            )}
-          >
-            {status === "ready" || (forceReadyInput && isLoading) ? (
-              <PromptInputTextarea
-                // eslint-disable-next-line jsx-a11y/no-autofocus -- homepage composer entry
-                autoFocus
-                className={cn(
-                  "text-lg! md:text-lg! placeholder:text-lg! caret-accent w-full placeholder:text-foreground/80",
-                  "!pb-[2.875rem] !pr-[2.75rem]",
-                  fullView &&
-                    !composerDocked &&
-                    "min-h-[70vh]! max-h-[min(70vh,11in)]! text-xl! md:text-xl! placeholder:text-xl! flex-1"
-                )}
-                disabled={isLoading}
-                maxRows={maxRows}
-                minRows={minRows}
-                placeholder="What do you want to explore?"
-                onChange={(ev) => onTextChange?.(ev.currentTarget.value)}
-                onKeyDown={textAreaKeyDown}
-              />
-            ) : status === "submitted" || status === "streaming" ? (
-              <div className="w-full">
-                <ShinyText
-                  className={cn("w-full h-24 p-4 min-h-24 overflow-auto", "!pb-11 !pr-11")}
-                  text={displayText}
+          <PromptInputBody onPointerDown={handleComposerPointerDown}>
+            <div
+              className={cn(
+                "relative w-full",
+                !compactComposer &&
+                  "transition-[min-height,max-height,font-size] duration-500 ease-[cubic-bezier(0.25,0.1,0.25,1)]"
+              )}
+            >
+              {status === "ready" || (forceReadyInput && isLoading) ? (
+                <PromptInputTextarea
+                  // eslint-disable-next-line jsx-a11y/no-autofocus -- homepage composer entry
+                  autoFocus
+                  className={cn(
+                    "text-lg! md:text-lg! placeholder:text-lg! caret-accent w-full placeholder:text-foreground/80",
+                    "!pb-[2.875rem] !pr-[2.75rem]",
+                    fullView &&
+                      !composerDocked &&
+                      "min-h-[70vh]! max-h-[min(70vh,11in)]! text-xl! md:text-xl! placeholder:text-xl! flex-1"
+                  )}
+                  disabled={isLoading}
+                  maxRows={maxRows}
+                  minRows={minRows}
+                  placeholder="What do you want to explore?"
+                  onChange={(ev) => onTextChange?.(ev.currentTarget.value)}
+                  onKeyDown={textAreaKeyDown}
                 />
+              ) : status === "submitted" || status === "streaming" ? (
+                <div className="w-full">
+                  <ShinyText
+                    className={cn("w-full h-24 p-4 min-h-24 overflow-auto", "!pb-11 !pr-11")}
+                    text={displayText}
+                  />
+                </div>
+              ) : (
+                <h2 className="text-warning">An error has occured..</h2>
+              )}
+              <div className="absolute bottom-2 right-2 z-10 flex items-end justify-end">
+                <PromptInputSubmit disabled={submitDisabled} status={submitStatusResolved} />
               </div>
-            ) : (
-              <h2 className="text-warning">An error has occured..</h2>
-            )}
-            <div className="absolute bottom-2 right-2 z-10 flex items-end justify-end">
-              <PromptInputSubmit disabled={submitDisabled} status={submitStatusResolved} />
             </div>
-          </div>
-          <AnimatePresence initial={false} mode="sync">
-            {fullView && previewIntent ? (
-              <motion.div
-                key="preview-intent"
-                animate={{ opacity: 1 }}
-                className="flex flex-wrap gap-2 px-3 pb-2 text-xs text-muted-foreground"
-                exit={{ opacity: 0 }}
-                initial={{ opacity: 0 }}
-                transition={FORM_CROSS_FADE}
-              >
-                <span className="rounded-md border border-border/60 bg-background/40 px-2 py-0.5">
-                  {previewIntent.label}
-                </span>
-                <span className="rounded-md border border-border/40 px-2 py-0.5 opacity-80">
-                  {previewIntent.intent.replace(/_/g, " ")} ·{" "}
-                  {Math.round(previewIntent.confidence * 100)}%
-                </span>
-              </motion.div>
-            ) : null}
-          </AnimatePresence>
-        </PromptInputBody>
-        {showFullViewCharCount ? (
-          <PromptInputFooter className="min-w-0 flex w-full flex-row items-end justify-start gap-3">
             <AnimatePresence initial={false} mode="sync">
-              <motion.div
-                key="word-count"
-                animate={{ opacity: 1 }}
-                className="shrink-0 pl-3 text-[11px] text-muted-foreground/80 tabular-nums"
-                exit={{ opacity: 0 }}
-                initial={{ opacity: 0 }}
-                transition={FORM_CROSS_FADE}
-              >
-                {textInput.value.length} characters
-              </motion.div>
+              {fullView && previewIntent ? (
+                <motion.div
+                  key="preview-intent"
+                  animate={{ opacity: 1 }}
+                  className="flex flex-wrap gap-2 px-3 pb-2 text-xs text-muted-foreground"
+                  exit={{ opacity: 0 }}
+                  initial={{ opacity: 0 }}
+                  transition={FORM_CROSS_FADE}
+                >
+                  <span className="rounded-md border border-border/60 bg-background/40 px-2 py-0.5">
+                    {previewIntent.label}
+                  </span>
+                  <span className="rounded-md border border-border/40 px-2 py-0.5 opacity-80">
+                    {previewIntent.intent.replace(/_/g, " ")} ·{" "}
+                    {Math.round(previewIntent.confidence * 100)}%
+                  </span>
+                </motion.div>
+              ) : null}
             </AnimatePresence>
-          </PromptInputFooter>
-        ) : null}
-      </PromptInput>
+          </PromptInputBody>
+          {showFullViewCharCount ? (
+            <PromptInputFooter className="min-w-0 flex w-full flex-row items-end justify-start gap-3">
+              <AnimatePresence initial={false} mode="sync">
+                <motion.div
+                  key="word-count"
+                  animate={{ opacity: 1 }}
+                  className="shrink-0 pl-3 text-[11px] text-muted-foreground/80 tabular-nums"
+                  exit={{ opacity: 0 }}
+                  initial={{ opacity: 0 }}
+                  transition={FORM_CROSS_FADE}
+                >
+                  {textInput.value.length} characters
+                </motion.div>
+              </AnimatePresence>
+            </PromptInputFooter>
+          ) : null}
+        </PromptInput>
       </HomeComposerLumenShell>
     </div>
   );

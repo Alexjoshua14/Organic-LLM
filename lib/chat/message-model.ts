@@ -1,6 +1,6 @@
 import type { UIMessage } from "ai";
 
-import { ChatModels } from "@/lib/schemas/chat";
+import { chatModelById } from "@/lib/schemas/chat";
 
 type MessageWithModel = UIMessage & {
   model?: string;
@@ -15,7 +15,7 @@ export function getMessageModelId(message: UIMessage): string | null {
 export function getModelDisplayName(modelId: string | null | undefined): string | null {
   if (!modelId) return null;
 
-  return ChatModels.find((model) => model.id === modelId)?.name ?? modelId;
+  return chatModelById(modelId)?.name ?? modelId;
 }
 
 export function getAssistantModelSummary(messages: UIMessage[]): {

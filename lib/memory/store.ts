@@ -40,6 +40,10 @@ export async function searchMemories(
     throw new Error("User ID is required");
   }
 
+  if (!query.trim()) {
+    return { results: [], relations: [] };
+  }
+
   try {
     const memory = getMemory();
 

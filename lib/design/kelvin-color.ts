@@ -72,15 +72,13 @@ const SEGMENT_BASE_KELVIN: Record<Exclude<ContextBudgetSegmentId, "free">, numbe
   tools: LUMEN_KELVIN_RIM,
   memory: LUMEN_KELVIN_DEEP,
   summary: 3_600,
+  tool_output: 3_900,
   messages: 4_200,
   draft: 5_200,
 };
 
 /** Segment tint pulled toward the live fill temperature as the window saturates. */
-export function contextSegmentKelvin(
-  segmentId: ContextBudgetSegmentId,
-  fillRatio: number
-): number {
+export function contextSegmentKelvin(segmentId: ContextBudgetSegmentId, fillRatio: number): number {
   if (segmentId === "free") {
     const headroom = 1 - Math.min(1, Math.max(0, fillRatio));
 

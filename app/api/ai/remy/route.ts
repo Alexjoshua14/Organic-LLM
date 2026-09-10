@@ -22,7 +22,9 @@ import {
   MISE_PLAN_TOOL_NAME,
   type MiseStreamWriter,
 } from "@/lib/llm/mise-tool";
+import { createPrepPlanTool, PREP_PLAN_TOOL_NAME } from "@/lib/llm/prep-plan-tool";
 import { MISE_TOOL_INSTRUCTIONS } from "@/lib/system-prompt/mise";
+import { PREP_PLAN_TOOL_INSTRUCTIONS } from "@/lib/system-prompt/prep";
 import { createLogger } from "@/lib/logger";
 
 export const maxDuration = 30;
@@ -38,7 +40,7 @@ You are **Remy**, an expert culinary co-chef assistant embedded within Organic L
 
 1. **Co-chef Ideation**: Generate recipe suggestions based on available ingredients, time constraints, mood, or dietary needs. Provide rationale for suggestions and offer alternatives with quick-action options like ingredient swaps, serving adjustments, or dietary modifications.
 
-2. **Meal Planning**:a Help users plan meals across days or weeks. Consider variety, nutrition balance, ingredient reuse to minimize waste, and shopping efficiency. Generate organized shopping lists grouped by category or aisle.
+2. **Meal Planning**: Help users plan meals across days or weeks. Prefer leftovers (cook once, eat again) and ingredient reuse to shrink shopping. Consider variety, nutrition balance, and shopping efficiency. Generate organized shopping lists grouped by category or aisle.
 
 3. **Smart Recipe Management**: Assist with importing, organizing, and retrieving recipes. Help normalize recipe formats into clean, structured cards with ingredients, steps, timers, substitutions, and nutrition info. Support both internal recipe cards and external links.
 
@@ -219,9 +221,13 @@ export async function POST(req: Request) {
   }
   const mem0Instructions = retrieveMemories(memories);
 
-  // Combine system prompts. Remy is the culinary planner, so the mise (event meal-planning)
-  // tools and their instructions are always available.
-  const finalSystemPrompt = [systemPromptForRequest, MISE_TOOL_INSTRUCTIONS, mem0Instructions]
+  // Combine system prompts. Remy always has event mise and weekly prep tools.
+  const finalSystemPrompt = [
+    systemPromptForRequest,
+    MISE_TOOL_INSTRUCTIONS,
+    PREP_PLAN_TOOL_INSTRUCTIONS,
+    mem0Instructions,
+  ]
     .filter(Boolean)
     .join("\n");
 
@@ -333,6 +339,7 @@ export async function POST(req: Request) {
           threadId: id,
         }),
         [FETCH_RECIPE_TOOL_NAME]: createFetchRecipeTool(),
+        [PREP_PLAN_TOOL_NAME]: createPrepPlanTool(),
       };
 
       const result = streamText(streamTextConfig);

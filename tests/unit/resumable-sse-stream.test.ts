@@ -7,7 +7,10 @@ const createResumableStreamContextMock = mock(() => ({
   createNewResumableStream: createNewResumableStreamMock,
 }));
 
+const realAi = await import("ai");
+
 mock.module("ai", () => ({
+  ...realAi,
   generateId: () => "stream-test-id",
   consumeStream: consumeStreamMock,
 }));

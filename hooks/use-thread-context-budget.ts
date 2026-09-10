@@ -1,12 +1,18 @@
 "use client";
 
+import type { UIMessage } from "ai";
 import type { ChatExperience } from "@/lib/chat/chat-experience";
 import type { ChatStyle } from "@/lib/chat/chat-style";
-import type { ContextBudgetEstimate } from "@/lib/chat/context-budget";
+import type { ContextBudgetEstimate, ContextBudgetScaffold } from "@/lib/chat/context-budget";
 
 import { useEffect, useMemo, useState } from "react";
 
-import { computeNewThreadDefaultBudget } from "@/lib/chat/context-budget";
+import {
+  composeContextBudget,
+  computeNewThreadDefaultBudget,
+  scaffoldFromStreamBudget,
+} from "@/lib/chat/context-budget";
+import { getSettings } from "@/lib/user-settings";
 
 type UseThreadContextBudgetParams = {
   chatId?: string;
@@ -26,6 +32,11 @@ type UseThreadContextBudgetParams = {
   draftDebounceMs?: number;
   /** When false, skips polling (e.g. missing chat id). */
   enabled?: boolean;
+  /**
+   * When present, fetch a numbers-only scaffold on open/toggles/refresh and compose
+   * locally with these messages — no per-keystroke server calls.
+   */
+  threadMessages?: UIMessage[];
 };
 
 export function useThreadContextBudget(
@@ -45,10 +56,14 @@ export function useThreadContextBudget(
     streamBudget,
     draftDebounceMs = 400,
     enabled = true,
+    threadMessages,
   } = params;
+
+  const useClientCompose = threadMessages != null;
 
   const [debouncedDraft, setDebouncedDraft] = useState(draftText);
   const [polledBudget, setPolledBudget] = useState<ContextBudgetEstimate | null>(null);
+  const [scaffold, setScaffold] = useState<ContextBudgetScaffold | null>(null);
 
   const defaultBudget = useMemo(
     () =>
@@ -67,9 +82,74 @@ export function useThreadContextBudget(
     return () => window.clearTimeout(timer);
   }, [draftText, draftDebounceMs]);
 
+  // Adopt measured scaffold from the stream budget when it arrives.
   useEffect(() => {
-    if (!chatId || !enabled) {
-      setPolledBudget(null);
+    if (!useClientCompose || !streamBudget) return;
+
+    setScaffold(scaffoldFromStreamBudget(streamBudget));
+  }, [streamBudget, useClientCompose]);
+
+  // Client-compose path: fetch scaffold on open / toggle / refresh — not on draft change.
+  useEffect(() => {
+    if (!useClientCompose || !chatId || !enabled) {
+      if (useClientCompose) setScaffold(null);
+
+      return;
+    }
+
+    const controller = new AbortController();
+
+    void (async () => {
+      try {
+        const response = await fetch("/api/chat/context-budget", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          signal: controller.signal,
+          body: JSON.stringify({
+            chatId,
+            modelId,
+            mode: "scaffold",
+            memory: memoryEnabled,
+            webSearch: webSearchEnabled,
+            messageSearch: messageSearchEnabled,
+            experience,
+            chatStyle,
+            speechFriendly,
+            zeroDataRetention: getSettings().zeroDataRetention,
+          }),
+        });
+
+        if (!response.ok) return;
+
+        const payload = (await response.json()) as { scaffold?: ContextBudgetScaffold };
+
+        if (payload.scaffold) {
+          setScaffold(payload.scaffold);
+        }
+      } catch {
+        /* ignore abort / transient failures */
+      }
+    })();
+
+    return () => controller.abort();
+  }, [
+    chatId,
+    chatStyle,
+    enabled,
+    experience,
+    memoryEnabled,
+    messageSearchEnabled,
+    modelId,
+    refreshKey,
+    speechFriendly,
+    useClientCompose,
+    webSearchEnabled,
+  ]);
+
+  // Legacy poll path when threadMessages are not supplied.
+  useEffect(() => {
+    if (useClientCompose || !chatId || !enabled) {
+      if (!useClientCompose) setPolledBudget(null);
 
       return;
     }
@@ -86,12 +166,14 @@ export function useThreadContextBudget(
             chatId,
             draftText: debouncedDraft,
             modelId,
+            mode: "budget",
             memory: memoryEnabled,
             webSearch: webSearchEnabled,
             messageSearch: messageSearchEnabled,
             experience,
             chatStyle,
             speechFriendly,
+            zeroDataRetention: getSettings().zeroDataRetention,
           }),
         });
 
@@ -119,11 +201,29 @@ export function useThreadContextBudget(
     modelId,
     refreshKey,
     speechFriendly,
+    useClientCompose,
     webSearchEnabled,
   ]);
 
+  const composedBudget = useMemo(() => {
+    if (!useClientCompose || !scaffold || !threadMessages) return null;
+
+    return composeContextBudget({
+      scaffold,
+      threadMessages,
+      draftText: debouncedDraft,
+      modelId,
+      experience,
+      zeroDataRetention: getSettings().zeroDataRetention,
+    });
+  }, [debouncedDraft, experience, modelId, scaffold, threadMessages, useClientCompose]);
+
   if (!enabled || !chatId) {
     return defaultBudget;
+  }
+
+  if (useClientCompose) {
+    return composedBudget ?? streamBudget ?? defaultBudget;
   }
 
   return polledBudget ?? streamBudget ?? defaultBudget;

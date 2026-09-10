@@ -116,6 +116,21 @@ For a ~25-character status label, total transition time should feel like **statu
 re-check against Carbon’s ~500ms *functional* choreography budget and NN/G’s “don’t make
 people wait” guidance — or justify the exception in this doc.
 
+### Message receipt (send acknowledgment)
+
+The first indication that the system has the user’s message must paint **on the client** as
+soon as the user bubble is in the thread — not after the first stream byte. Round-trip
+latency cannot meet this budget on a slow connection.
+
+| Token | Value | Rationale |
+|-------|-------|-----------|
+| Receipt reaction | **&lt;250ms** | NN/G simple-feedback band; same paint as the optimistic user message |
+| First label | **Reading…** | Honest for the first ~200ms; same shape as “Thinking…”, burns cleanly into “Gathering context” |
+| Initial burn delay | **0ms** | `ProcessingTextBurn` incoming-initial (no `--ptb-in-delay`) so the first glyph is immediate |
+
+Implementation: [`lib/chat/optimistic-ai-action.ts`](../../lib/chat/optimistic-ai-action.ts) +
+`ChatThread` (`status` + standalone tail while the last row is still the user message).
+
 ### Sustain shimmer (activity)
 
 After burn-in settles, sustain uses **`ShinyText`** at `5s` (`PROCESSING_TEXT_BURN_SUSTAIN_SHIMMER_S`)

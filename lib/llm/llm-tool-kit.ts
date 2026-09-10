@@ -6,6 +6,7 @@ import { UIMessage } from "ai";
 import { ContentsOptions } from "exa-js";
 
 import { createLogger } from "../logger";
+import { models } from "@/lib/schemas/chat-models";
 import { exaSearchOptionsSchema, searchOptionsSchema } from "../exa/types";
 import { searchWeb, searchWebWithQuery } from "../exa/client";
 import { mapSearchResponseToExaSources } from "../exa/utils";
@@ -647,7 +648,8 @@ export function createMermaidDiagramTool(options?: {
   generatorModelId?: GatewayModelId;
   writer?: WebSearchStreamWriter;
 }) {
-  const generatorModelId: GatewayModelId = options?.generatorModelId ?? "google/gemini-3-flash";
+  const generatorModelId: GatewayModelId =
+    options?.generatorModelId ?? (models.google.flash.id as GatewayModelId);
   const writer = options?.writer;
 
   void getMermaidForValidation().catch(() => {});

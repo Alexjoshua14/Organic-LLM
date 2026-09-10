@@ -24,6 +24,8 @@ import {
 } from "@/lib/homepage/ollama-schemas";
 import { createChat } from "@/lib/chat/chat-store";
 import { createLogger } from "@/lib/logger";
+import { PERF_PHASES } from "@/lib/perf/journeys";
+import { mark } from "@/lib/perf/trace-store";
 import { usePageEngaged } from "@/hooks/use-page-engaged";
 import { cn } from "@/lib/utils";
 
@@ -57,6 +59,10 @@ export function HomePageShell() {
 
   const prevFullView = useRef(false);
   const lastCtrlSpaceToggleRef = useRef(0);
+
+  useEffect(() => {
+    mark(PERF_PHASES.homeShellMounted);
+  }, []);
 
   useEffect(() => {
     if (fullView && !prevFullView.current && !pointerInside) {
@@ -201,7 +207,12 @@ export function HomePageShell() {
   );
 
   return (
-    <Page chrome="full-bleed" liquidChromeBackground transparentBackground className="overflow-hidden">
+    <Page
+      chrome="full-bleed"
+      liquidChromeBackground
+      transparentBackground
+      className="overflow-hidden"
+    >
       <AdaptiveLiquidChrome dimIntensity={0.45} />
       <LayoutGroup id="homepage">
         <div

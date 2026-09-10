@@ -521,7 +521,12 @@ export function TopicExploreClient({ chatData }: TopicExploreClientProps) {
         resize={conversationInitial === false ? "instant" : "smooth"}
       >
         <ChatThreadTitleOverlay title={threadTitle} />
-        <ChatThread aiActionPayload={aiAction} messages={messages} renderEmptyState={emptyState} />
+        <ChatThread
+          aiActionPayload={aiAction}
+          messages={messages}
+          renderEmptyState={emptyState}
+          status={status}
+        />
         <NoesisScrollPersistence messageCount={messages.length} threadId={threadId} />
         <ConversationScrollButton className="bottom-14" />
       </Conversation>

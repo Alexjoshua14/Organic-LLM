@@ -23,8 +23,10 @@ import { dateStringCompare } from "@/lib/utils";
 
 const logger = createLogger("lib/good-news/pipeline.ts");
 
-const EXTRACTION_MODEL = "openai/gpt-5.4-mini" as const;
-const FACTCHECK_MODEL = "openai/gpt-5.2" as const;
+import { models } from "@/lib/schemas/chat-models";
+
+const EXTRACTION_MODEL = models.openai.terra.id;
+const FACTCHECK_MODEL = models.openai.luna.id;
 
 const RECENCY_WINDOW_DAYS = 9;
 const MAX_SOURCES_FOR_EXTRACTION = 60;

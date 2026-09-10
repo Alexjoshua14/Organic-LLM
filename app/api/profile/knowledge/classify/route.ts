@@ -11,9 +11,11 @@ import { CLASSIFIER_SYSTEM_PROMPT } from "@/lib/knowledge/prompts";
 import { recordLlmCall } from "@/lib/llm/metrics";
 import { checkLlmMessageLimit } from "@/lib/rate-limit/llm";
 
+import { models } from "@/lib/schemas/chat-models";
+
 export const maxDuration = 15;
 
-const CLASSIFY_MODEL = "openai/gpt-5.4-nano";
+const CLASSIFY_MODEL = models.openai.luna.id;
 
 const ClassifyBodySchema = z.object({
   text: z.string().trim().min(1).max(20_000),

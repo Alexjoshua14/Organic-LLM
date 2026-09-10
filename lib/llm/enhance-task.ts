@@ -8,9 +8,11 @@ import { createLogger } from "@/lib/logger";
 import { recordLlmCall } from "@/lib/llm/metrics";
 import { ErgonEnhanceFieldsSchema } from "@/lib/schemas/ergon-enhance";
 
+import { models } from "@/lib/schemas/chat-models";
+
 const logger = createLogger("lib/llm/enhance-task.ts");
 
-export const ERGON_ENHANCE_MODEL = "openai/gpt-5.4-nano" as const;
+export const ERGON_ENHANCE_MODEL = models.openai.luna.id;
 export const ERGON_ENHANCE_TIMEOUT_MS = 6_000;
 
 const ENHANCE_SYSTEM = `You enrich a single todo by inferring values for ONLY the fields the user left empty, using the task's meaning plus the user's categories, their other tasks, and any memory provided.

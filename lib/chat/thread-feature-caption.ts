@@ -14,6 +14,7 @@ export function getThreadFeatureCaption(feature: string | null | undefined): str
   if (normalized === "topic_explore") return "noesis";
   if (normalized === "arcadia") return "arcadia";
   if (normalized === "introspection") return "introspection";
+  if (normalized === "remy_planner") return "remy";
 
   const humanized = normalized.replace(/_/g, " ");
 

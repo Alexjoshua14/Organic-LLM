@@ -11,13 +11,16 @@ import {
   parseMemoryQualityFromModelText,
   type MemoryQuality,
 } from "@/lib/memory/ingest-quality";
+import { models, providerModelSlug } from "@/lib/schemas/chat-models";
 
 export type ClassifyMemoryQualityDeps = {
   generateObjectImpl?: typeof generateObject;
   model?: LanguageModel;
 };
 
-const defaultModel = openai(process.env.MIGRATE_QUALITY_MODEL ?? "gpt-5.4-mini");
+const defaultModel = openai(
+  process.env.MIGRATE_QUALITY_MODEL ?? providerModelSlug(models.openai.terra.id)
+);
 
 export async function classifyMemoryQuality(
   text: string,

@@ -1142,12 +1142,19 @@ export async function getConversationSummary(chatId: string): Promise<Result<str
     .from("thread_summaries")
     .select("summary_text")
     .eq("thread_id", chatId)
-    .single();
+    .maybeSingle();
 
-  if (error || !data) {
+  if (error) {
     return {
       data: null,
-      error: new Error(error?.message ?? "Unknown error"),
+      error: new Error(error.message),
+    };
+  }
+
+  if (!data) {
+    return {
+      data: null,
+      error: null,
     };
   }
 

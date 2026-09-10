@@ -30,6 +30,7 @@ import { Result } from "@/types";
 import { recordLlmCall } from "@/lib/llm/metrics";
 import { generateShortTitleFromSummary } from "@/lib/llm/short-title-from-summary";
 import { TITLE_PIPELINE_SUMMARIZER_MODEL } from "@/lib/llm/title-models";
+import { models } from "@/lib/schemas/chat-models";
 import {
   exchangeCountFromPersistedMessageCount,
   shouldRefreshSummary,
@@ -38,9 +39,9 @@ import {
 /** Model Selections: Each ZDR compatible */
 const MODEL_SELECTION: Record<string, LanguageModel> = {
   summarizer: TITLE_PIPELINE_SUMMARIZER_MODEL,
-  updater: "google/gemini-3-flash",
-  validator: "google/gemini-3-flash",
-  reviser: "google/gemini-3-flash",
+  updater: models.google.flash.id,
+  validator: models.google.flash.id,
+  reviser: models.google.flash.id,
 };
 
 /** Max input tokens for title generation (allows long-thread context). */
@@ -181,12 +182,22 @@ function getMessageTextForTokenEstimate(message: UIMessage): string {
  * Chronological order = oldest first; we keep the tail that fits.
  * Uses tiktoken (cl100k_base) for token counting.
  */
+let sharedCl100kEncoding: ReturnType<typeof encodingForModel> | null = null;
+
+function getCl100kEncoding() {
+  if (!sharedCl100kEncoding) {
+    sharedCl100kEncoding = encodingForModel("gpt-5");
+  }
+
+  return sharedCl100kEncoding;
+}
+
 function trimMessagesToTokenBudget(
   chronologicalMessages: UIMessage[],
   maxTokens: number
 ): UIMessage[] {
   if (chronologicalMessages.length === 0) return [];
-  const encoding = encodingForModel("gpt-5");
+  const encoding = getCl100kEncoding();
   let total = 0;
   let startIndex = chronologicalMessages.length;
 
@@ -956,11 +967,8 @@ export async function regenerateChatSummary(chatId: string): Promise<Result<stri
 export const estimateTokenCount = async (text: string): Promise<number | null> => {
   // TODO: CLEAN UP THIS FUNCTION TO ENSURE IT'S ACCURACY
   try {
-    // Use gpt-5 encoding (cl100k_base) which is compatible with most modern OpenAI models
-    const encoding = encodingForModel("gpt-5");
-    const tokens = encoding.encode(text);
-
-    return tokens.length;
+    // Reuse one cl100k_base encoder (via gpt-5) — constructing per call is expensive.
+    return getCl100kEncoding().encode(text).length;
   } catch (error) {
     logger.error("estimateTokenCount", `Error counting tokens: ${error}`);
 

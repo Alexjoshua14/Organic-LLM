@@ -1,6 +1,7 @@
 "use client";
 
 import { motion } from "framer-motion";
+import { useEffect } from "react";
 
 import { WelcomeExploreAside } from "./welcome-explore-aside";
 import { WelcomeFeatures } from "./welcome-features";
@@ -15,10 +16,16 @@ import AdaptiveLiquidChrome from "@/components/background/AdaptiveLiquidChrome";
 import Page from "@/components/layout/page";
 import { SignedOutAuthButtons } from "@/components/pages/signed-out-auth-buttons";
 import { welcomeCopy } from "@/lib/welcome/copy";
+import { PERF_PHASES } from "@/lib/perf/journeys";
+import { completeForJourney } from "@/lib/perf/trace-store";
 import { cn } from "@/lib/utils";
 
 export function WelcomeHero() {
   const { staggerContainer, staggerItem, blurReveal, reduce } = useWelcomeMotion();
+
+  useEffect(() => {
+    completeForJourney("load", PERF_PHASES.homeWelcomeReady);
+  }, []);
 
   return (
     <Page

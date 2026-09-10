@@ -57,24 +57,40 @@ describe("evaluateSubmitOnEnter", () => {
 });
 
 describe("useSubmitOnEnter", () => {
-  const originalMatchMedia = window.matchMedia;
+  const originalMatchMediaDescriptor = Object.getOwnPropertyDescriptor(window, "matchMedia");
+
+  function setMatchMedia(value: typeof window.matchMedia) {
+    Object.defineProperty(window, "matchMedia", {
+      configurable: true,
+      writable: true,
+      value,
+    });
+  }
 
   beforeEach(() => {
-    window.matchMedia = createMatchMedia({
-      "(any-pointer: fine)": false,
-      "(any-hover: hover)": false,
-    });
+    setMatchMedia(
+      createMatchMedia({
+        "(any-pointer: fine)": false,
+        "(any-hover: hover)": false,
+      })
+    );
   });
 
   afterEach(() => {
-    window.matchMedia = originalMatchMedia;
+    if (originalMatchMediaDescriptor) {
+      Object.defineProperty(window, "matchMedia", originalMatchMediaDescriptor);
+    } else {
+      delete (window as Partial<Window>).matchMedia;
+    }
   });
 
   test("resolves false for touch-primary phone", async () => {
-    window.matchMedia = createMatchMedia({
-      "(any-pointer: fine)": false,
-      "(any-hover: hover)": false,
-    });
+    setMatchMedia(
+      createMatchMedia({
+        "(any-pointer: fine)": false,
+        "(any-hover: hover)": false,
+      })
+    );
 
     const { result } = renderHook(() => useSubmitOnEnter());
 
@@ -84,10 +100,12 @@ describe("useSubmitOnEnter", () => {
   });
 
   test("resolves true for desktop with fine pointer", async () => {
-    window.matchMedia = createMatchMedia({
-      "(any-pointer: fine)": true,
-      "(any-hover: hover)": true,
-    });
+    setMatchMedia(
+      createMatchMedia({
+        "(any-pointer: fine)": true,
+        "(any-hover: hover)": true,
+      })
+    );
 
     const { result } = renderHook(() => useSubmitOnEnter());
 
@@ -103,7 +121,7 @@ describe("useSubmitOnEnter", () => {
     };
     const listeners = new Map<string, Set<MediaQueryListener>>();
 
-    window.matchMedia = (query: string): MediaQueryList => {
+    setMatchMedia((query: string): MediaQueryList => {
       const set = listeners.get(query) ?? new Set();
 
       listeners.set(query, set);
@@ -128,7 +146,7 @@ describe("useSubmitOnEnter", () => {
         },
         dispatchEvent: () => true,
       } as MediaQueryList;
-    };
+    });
 
     const { result } = renderHook(() => useSubmitOnEnter());
 

@@ -1,9 +1,6 @@
 import { beforeEach, describe, expect, mock, test } from "bun:test";
 
-import { resetSpatialArtifactSyncQueue } from "../helpers/spatial-artifacts-sync-queue";
-import {
-  sharedRatelimitLimit as mockLimit,
-} from "../helpers/rate-limit-upstash";
+import { sharedRatelimitLimit as mockLimit } from "../helpers/rate-limit-upstash";
 
 import {
   isSpatialArtifactsEnabled,
@@ -11,10 +8,8 @@ import {
 } from "@/lib/spatial-artifacts/coalescence-gate";
 import { shouldSkipSyncDebounced } from "@/lib/spatial-artifacts/sync/sync-debounce";
 import {
-  clearQueueForOwner,
-  dequeueArtifactSync,
-  enqueueArtifactSync,
-  queueLength,
+  createArtifactSyncQueue,
+  type ArtifactSyncQueue,
   type ArtifactSyncJob,
 } from "@/lib/spatial-artifacts/sync/sync-queue";
 import { Semaphore } from "@/lib/spatial-artifacts/sync/sync-semaphore";
@@ -63,25 +58,19 @@ describe("shouldSkipSyncDebounced", () => {
   test("skips when snapshot was updated within 5 minutes for normal priority", () => {
     const recent = new Date(Date.now() - 60_000).toISOString();
 
-    expect(
-      shouldSkipSyncDebounced(recent, { priority: "normal" })
-    ).toBe(true);
+    expect(shouldSkipSyncDebounced(recent, { priority: "normal" })).toBe(true);
   });
 
   test("does not skip when force is set", () => {
     const recent = new Date(Date.now() - 60_000).toISOString();
 
-    expect(
-      shouldSkipSyncDebounced(recent, { priority: "normal", force: true })
-    ).toBe(false);
+    expect(shouldSkipSyncDebounced(recent, { priority: "normal", force: true })).toBe(false);
   });
 
   test("does not skip for high priority", () => {
     const recent = new Date(Date.now() - 60_000).toISOString();
 
-    expect(
-      shouldSkipSyncDebounced(recent, { priority: "high" })
-    ).toBe(false);
+    expect(shouldSkipSyncDebounced(recent, { priority: "high" })).toBe(false);
   });
 
   test("does not skip when snapshot timestamp is missing or invalid", () => {
@@ -97,23 +86,25 @@ describe("shouldSkipSyncDebounced", () => {
 });
 
 describe("sync-queue", () => {
+  let queue: ArtifactSyncQueue;
+
   beforeEach(() => {
-    resetSpatialArtifactSyncQueue();
+    queue = createArtifactSyncQueue();
   });
 
   test("no-ops when coalescenceMode is off", () => {
-    enqueueArtifactSync(baseJob({ coalescenceMode: false }));
+    queue.enqueue(baseJob({ coalescenceMode: false }));
 
-    expect(queueLength()).toBe(0);
+    expect(queue.length()).toBe(0);
   });
 
   test("dedupes by artifactId and upgrades priority", () => {
-    enqueueArtifactSync(baseJob({ priority: "low" }));
-    enqueueArtifactSync(baseJob({ priority: "high", force: true, pin: true }));
+    queue.enqueue(baseJob({ priority: "low" }));
+    queue.enqueue(baseJob({ priority: "high", force: true, pin: true }));
 
-    expect(queueLength()).toBe(1);
+    expect(queue.length()).toBe(1);
 
-    const job = dequeueArtifactSync();
+    const job = queue.dequeue();
 
     expect(job?.priority).toBe("high");
     expect(job?.force).toBe(true);
@@ -121,23 +112,23 @@ describe("sync-queue", () => {
   });
 
   test("orders jobs by priority", () => {
-    enqueueArtifactSync(baseJob({ artifactId: "a", priority: "low" }));
-    enqueueArtifactSync(baseJob({ artifactId: "b", priority: "high" }));
-    enqueueArtifactSync(baseJob({ artifactId: "c", priority: "normal" }));
+    queue.enqueue(baseJob({ artifactId: "a", priority: "low" }));
+    queue.enqueue(baseJob({ artifactId: "b", priority: "high" }));
+    queue.enqueue(baseJob({ artifactId: "c", priority: "normal" }));
 
-    expect(dequeueArtifactSync()?.artifactId).toBe("b");
-    expect(dequeueArtifactSync()?.artifactId).toBe("c");
-    expect(dequeueArtifactSync()?.artifactId).toBe("a");
+    expect(queue.dequeue()?.artifactId).toBe("b");
+    expect(queue.dequeue()?.artifactId).toBe("c");
+    expect(queue.dequeue()?.artifactId).toBe("a");
   });
 
   test("clearQueueForOwner removes only matching owner jobs", () => {
-    enqueueArtifactSync(baseJob({ artifactId: "a", ownerId: "owner-1" }));
-    enqueueArtifactSync(baseJob({ artifactId: "b", ownerId: "owner-2" }));
+    queue.enqueue(baseJob({ artifactId: "a", ownerId: "owner-1" }));
+    queue.enqueue(baseJob({ artifactId: "b", ownerId: "owner-2" }));
 
-    clearQueueForOwner("owner-1");
+    queue.clearForOwner("owner-1");
 
-    expect(queueLength()).toBe(1);
-    expect(dequeueArtifactSync()?.artifactId).toBe("b");
+    expect(queue.length()).toBe(1);
+    expect(queue.dequeue()?.artifactId).toBe("b");
   });
 });
 
@@ -172,7 +163,9 @@ describe("checkSpatialArtifactSyncLimit", () => {
   beforeEach(async () => {
     mockLimit.mockClear();
     mockLimit.mockResolvedValue({ success: true, remaining: 10 });
-    ({ checkSpatialArtifactSyncLimit } = await import("@/lib/spatial-artifacts/sync/sync-rate-limit"));
+    ({ checkSpatialArtifactSyncLimit } = await import(
+      "@/lib/spatial-artifacts/sync/sync-rate-limit"
+    ));
   });
 
   test("high priority only checks minute bucket", async () => {

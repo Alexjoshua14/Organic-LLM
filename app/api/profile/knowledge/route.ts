@@ -13,9 +13,11 @@ import { searchMemoriesForUser } from "@/lib/memory/operations";
 import { checkLlmMessageLimit } from "@/lib/rate-limit/llm";
 import { createLogger } from "@/lib/logger";
 
+import { models } from "@/lib/schemas/chat-models";
+
 export const maxDuration = 30;
 
-const KNOWLEDGE_MODEL = "anthropic/claude-haiku-4.5";
+const KNOWLEDGE_MODEL = models.anthropic.haiku.id;
 
 const KnowledgeBodySchema = z.object({
   displayName: z.string().trim().min(1).max(120).optional(),

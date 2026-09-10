@@ -10,10 +10,12 @@ import { createLogger } from "@/lib/logger";
 import { recordLlmCall } from "@/lib/llm/metrics";
 import { buildSpeakRealtimeInstructions } from "@/lib/system-prompt/speak-realtime";
 import { DEFAULT_SPEAK_MODALITIES } from "@/lib/schemas/speak-modalities";
+import { models, providerModelSlug } from "@/lib/schemas/chat-models";
 
 export const maxDuration = 30;
 
 const logger = createLogger("app/api/ai/speak/turn/route.ts");
+const speakTurnModel = models.openai.gpt4oMini;
 
 /**
  * @deprecated Prefer OpenAI Realtime via `/api/ai/speak/realtime/session`.
@@ -75,7 +77,7 @@ export async function POST(req: Request) {
 
   try {
     const result = await generateText({
-      model: openai("gpt-4o-mini"),
+      model: openai(providerModelSlug(speakTurnModel.id)),
       system: buildSpeakRealtimeInstructions(DEFAULT_SPEAK_MODALITIES),
       messages,
       maxOutputTokens: 600,
@@ -83,7 +85,7 @@ export async function POST(req: Request) {
     });
 
     recordLlmCall({
-      model: "openai/gpt-4o-mini",
+      model: speakTurnModel.id,
       usage: result.usage,
       durationMs: performance.now() - start,
       metadata: {
@@ -93,7 +95,7 @@ export async function POST(req: Request) {
       },
     });
 
-    await recordLlmCost(sbUserIdResult.data, "openai/gpt-4o-mini", {
+    await recordLlmCost(sbUserIdResult.data, speakTurnModel.id, {
       inputTokens: result.usage?.inputTokens ?? 0,
       outputTokens: result.usage?.outputTokens ?? 0,
     });

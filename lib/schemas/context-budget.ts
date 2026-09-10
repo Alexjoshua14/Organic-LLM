@@ -28,4 +28,6 @@ export const ContextBudgetRequestSchema = z.object({
     }, ChatStyleSchema.optional())
     .optional(),
   speechFriendly: z.boolean().optional(),
+  zeroDataRetention: z.boolean().optional().default(false),
+  mode: z.enum(["budget", "scaffold"]).optional().default("budget"),
 });

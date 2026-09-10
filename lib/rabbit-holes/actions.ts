@@ -38,6 +38,7 @@ import { Result } from "@/types";
 import { getSupabaseUserId } from "@/data/supabase/profiles";
 import { getRabbitHoleSessionOwnerId } from "@/data/supabase/rabbitholes";
 import { GUARDRAIL_MAX_OUTPUT_TOKENS } from "@/lib/llm/helpers";
+import { models, providerModelSlug } from "@/lib/schemas/chat-models";
 import { checkExternalFetchLimit } from "@/lib/rate-limit/external-fetch";
 import {
   sanitizeUntrustedText,
@@ -110,7 +111,7 @@ async function generateRefinedQuestion(
   pathHistory: string
 ): Promise<string> {
   const { text } = await generateText({
-    model: openai("gpt-5.4-nano"),
+    model: openai(providerModelSlug(models.openai.luna.id)),
     system: REFINE_QUESTION_SYSTEM_PROMPT,
     prompt: `Question to refine: ${question}\n\nPath history: ${pathHistory}`,
     maxOutputTokens: GUARDRAIL_MAX_OUTPUT_TOKENS,

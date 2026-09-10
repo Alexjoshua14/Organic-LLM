@@ -1,5 +1,6 @@
 "use client";
 
+import type { UIMessage } from "ai";
 import type { ChatExperience } from "@/lib/chat/chat-experience";
 import type { ChatStyle } from "@/lib/chat/chat-style";
 import type { ContextBudgetEstimate } from "@/lib/chat/context-budget";
@@ -12,7 +13,14 @@ import {
   HoverCardContent,
   HoverCardTrigger,
 } from "@/components/third-party/ui/hover-card";
-import { formatTokenCount, type ContextBudgetSegment } from "@/lib/chat/context-budget";
+import {
+  formatTokenCount,
+  getContextComposition,
+  getContextHeadroomTurns,
+  getThreadContextCoverage,
+  type ContextBudgetSegment,
+} from "@/lib/chat/context-budget";
+import { AUTO_CHAT_MODEL_ID, ChatModels } from "@/lib/schemas/chat";
 import {
   contextArcKelvin,
   contextFillKelvin,
@@ -35,8 +43,68 @@ type ContextBudgetIndicatorProps = {
   speechFriendly?: boolean;
   refreshKey?: number;
   streamBudget?: ContextBudgetEstimate | null;
+  /** When set, compose locally from scaffold + these messages. */
+  threadMessages?: UIMessage[];
   className?: string;
 };
+
+function formatModelLabel(modelId: string): string {
+  return ChatModels.find((model) => model.id === modelId)?.name ?? modelId;
+}
+
+function formatResolvedModelLabel(budget: ContextBudgetEstimate): string {
+  const resolvedId = budget.resolvedModelId ?? budget.modelId;
+
+  if (budget.modelId === AUTO_CHAT_MODEL_ID && resolvedId !== budget.modelId) {
+    return `Auto → ${formatModelLabel(resolvedId)}`;
+  }
+
+  return formatModelLabel(resolvedId);
+}
+
+function formatActiveToolsLabel(toolNames: string[] | undefined): string {
+  if (!toolNames || toolNames.length === 0) return "None";
+
+  const preview = toolNames.slice(0, 3).join(", ");
+
+  return toolNames.length > 3 ? `${preview} +${toolNames.length - 3}` : preview;
+}
+
+function formatMemoriesLabel(budget: ContextBudgetEstimate): string {
+  if (budget.memoriesInjected != null) {
+    return String(budget.memoriesInjected);
+  }
+
+  const memoryTokens = budget.segments.find((segment) => segment.id === "memory")?.tokens ?? 0;
+
+  return memoryTokens > 0 ? "Estimated" : "0";
+}
+
+function DetailRow({
+  label,
+  value,
+  valueClassName,
+}: {
+  label: string;
+  value: React.ReactNode;
+  valueClassName?: string;
+}) {
+  return (
+    <div className="flex items-center justify-between gap-3">
+      <span className="text-muted-foreground">{label}</span>
+      <span className={cn("font-mono text-foreground", valueClassName)}>{value}</span>
+    </div>
+  );
+}
+
+function DetailGroup({ title, children }: { title: string; children: React.ReactNode }) {
+  return (
+    <div className="space-y-2">
+      <p className="text-2xs font-medium uppercase tracking-wide text-muted-foreground">{title}</p>
+      <div className="space-y-2">{children}</div>
+    </div>
+  );
+}
 
 function segmentSlices(segments: ContextBudgetSegment[], total: number, fillRatio: number) {
   if (total <= 0) return [];
@@ -185,6 +253,10 @@ function SegmentLegend({ budget }: { budget: ContextBudgetEstimate }) {
 }
 
 function ContextBudgetPopover({ budget }: { budget: ContextBudgetEstimate }) {
+  const coverage = getThreadContextCoverage(budget);
+  const composition = getContextComposition(budget);
+  const headroomTurns = getContextHeadroomTurns(budget);
+
   return (
     <div className="space-y-4 p-4">
       <div className="flex items-start gap-4">
@@ -195,36 +267,68 @@ function ContextBudgetPopover({ budget }: { budget: ContextBudgetEstimate }) {
             {formatTokenCount(budget.nextSubmitTokens)} /{" "}
             {formatTokenCount(budget.inputBudgetTokens)} input tokens
           </p>
+          {composition ? (
+            <p className="text-xs text-muted-foreground">
+              {composition.conversationPercent}% conversation · {composition.scaffoldingPercent}%
+              scaffolding
+            </p>
+          ) : null}
         </div>
       </div>
 
       <SegmentLegend budget={budget} />
 
-      <div className={cn("space-y-2 rounded-xl border border-border/50 p-3 text-[11px]", glass())}>
-        <div className="flex items-center justify-between gap-3">
-          <span className="text-muted-foreground">Thread in view</span>
-          <span className="font-mono text-foreground">
-            {budget.packedMessageCount} / {budget.totalThreadMessages} messages
-          </span>
-        </div>
-        {budget.includesRollingSummary ? (
-          <div className="flex items-center justify-between gap-3">
-            <span className="text-muted-foreground">Older turns</span>
-            <span className="text-foreground">Compressed via rolling summary</span>
-          </div>
-        ) : null}
-        <div className="flex items-center justify-between gap-3">
-          <span className="text-muted-foreground">Model window</span>
-          <span className="font-mono text-foreground">
-            {formatTokenCount(budget.contextWindowTokens)} tok
-          </span>
-        </div>
-        <div className="flex items-center justify-between gap-3 border-t border-border/40 pt-2">
-          <span className="font-medium text-foreground">Free input space</span>
-          <span className="font-mono font-medium text-foreground-secondary">
-            {formatTokenCount(budget.remainingInputTokens)} tok
-          </span>
-        </div>
+      <div className={cn("space-y-4 rounded-xl border border-border/50 p-3 text-[11px]", glass())}>
+        <DetailGroup title="In context">
+          <DetailRow
+            label="Thread in context"
+            value={
+              <>
+                {coverage ? `${coverage.percent}%` : "—"}
+                <span className="ml-1.5 text-muted-foreground">
+                  {budget.packedMessageCount} / {budget.totalThreadMessages} msgs
+                </span>
+              </>
+            }
+          />
+          <DetailRow label="Memories injected" value={formatMemoriesLabel(budget)} />
+          <DetailRow
+            label="Tools armed"
+            value={formatActiveToolsLabel(budget.activeToolNames)}
+            valueClassName="max-w-[11rem] truncate text-right"
+          />
+          {budget.includesRollingSummary ? (
+            <DetailRow
+              label="Older turns"
+              value="Compressed via rolling summary"
+              valueClassName="font-sans text-foreground"
+            />
+          ) : null}
+        </DetailGroup>
+
+        <DetailGroup title="Capacity">
+          <DetailRow
+            label="Model"
+            value={formatResolvedModelLabel(budget)}
+            valueClassName="max-w-[11rem] truncate text-right"
+          />
+          <DetailRow
+            label="Model window"
+            value={`${formatTokenCount(budget.contextWindowTokens)} tok`}
+          />
+          <DetailRow
+            label="Free input space"
+            value={`${formatTokenCount(budget.remainingInputTokens)} tok`}
+            valueClassName="font-medium text-foreground-secondary"
+          />
+          {headroomTurns != null ? (
+            <DetailRow
+              label="Headroom"
+              value={`~${headroomTurns.toLocaleString()} turns`}
+              valueClassName="font-medium text-foreground-secondary"
+            />
+          ) : null}
+        </DetailGroup>
       </div>
     </div>
   );
@@ -242,6 +346,7 @@ export const ContextBudgetIndicator: React.FC<ContextBudgetIndicatorProps> = ({
   speechFriendly,
   refreshKey,
   streamBudget,
+  threadMessages,
   className,
 }) => {
   const budget = useThreadContextBudget({
@@ -256,17 +361,23 @@ export const ContextBudgetIndicator: React.FC<ContextBudgetIndicatorProps> = ({
     speechFriendly,
     refreshKey,
     streamBudget,
+    threadMessages,
     enabled: Boolean(chatId),
   });
 
   const pctLabel = Math.round(budget.fillRatio * 100);
   const fillKelvin = contextFillKelvin(budget.fillRatio);
+  const coverage = getThreadContextCoverage(budget);
+  const resolvedModel = formatResolvedModelLabel(budget);
+  const coverageLabel = coverage
+    ? `${coverage.percent}% thread in context`
+    : "thread coverage unavailable";
 
   return (
     <HoverCard closeDelay={80} openDelay={120}>
       <HoverCardTrigger asChild>
         <button
-          aria-label={`Context usage ${pctLabel} percent at ${Math.round(fillKelvin)} kelvin. Hover for breakdown.`}
+          aria-label={`Context usage ${pctLabel} percent, ${coverageLabel}, model ${resolvedModel}, at ${Math.round(fillKelvin)} kelvin. Hover for breakdown.`}
           className={cn(
             "inline-flex items-center rounded-md p-1 transition-colors",
             "hover:bg-muted/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60",

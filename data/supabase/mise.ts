@@ -18,6 +18,11 @@ import {
   MiseRecipeSchema,
 } from "@/lib/schemas/mise";
 import { emptyMisePlan } from "@/lib/mise/types";
+import {
+  recipeCardBodyFromRow,
+  recipeCardBodyPatchToRow,
+  recipeCardBodyToRow,
+} from "@/lib/prep/recipe-row";
 import { supabaseServer } from "@/lib/supabase/server";
 
 type SupabaseClient = Awaited<ReturnType<typeof supabaseServer>>;
@@ -25,17 +30,10 @@ type SupabaseClient = Awaited<ReturnType<typeof supabaseServer>>;
 // --- row → domain mappers -------------------------------------------------------------
 
 function rowToRecipe(row: Record<string, unknown>): MiseRecipe {
-  return {
+  return MiseRecipeSchema.parse({
     id: String(row.client_key),
-    title: String(row.title),
-    sourceUrl: (row.source_url as string | null) ?? undefined,
-    servings: (row.servings as string | null) ?? undefined,
-    prepTime: (row.prep_time as string | null) ?? undefined,
-    cookTime: (row.cook_time as string | null) ?? undefined,
-    ingredients: (row.ingredients as MiseRecipe["ingredients"]) ?? [],
-    steps: (row.steps as string[] | null) ?? [],
-    notes: (row.notes as string | null) ?? undefined,
-  };
+    ...recipeCardBodyFromRow(row),
+  });
 }
 
 function rowToIngredient(row: Record<string, unknown>): MiseIngredient {
@@ -116,14 +114,7 @@ export async function upsertRecipes(eventId: string, recipes: MiseRecipe[]): Pro
     return {
       event_id: eventId,
       client_key: recipe.id,
-      title: recipe.title,
-      source_url: recipe.sourceUrl ?? null,
-      servings: recipe.servings ?? null,
-      prep_time: recipe.prepTime ?? null,
-      cook_time: recipe.cookTime ?? null,
-      ingredients: recipe.ingredients,
-      steps: recipe.steps,
-      notes: recipe.notes ?? null,
+      ...recipeCardBodyToRow(recipe),
     };
   });
 
@@ -142,16 +133,8 @@ export async function updateRecipe(
 ): Promise<void> {
   const supabase = await supabaseServer();
   const p = MiseRecipePatchSchema.parse(patch);
-  const update: Record<string, unknown> = {};
+  const update: Record<string, unknown> = recipeCardBodyPatchToRow(p);
 
-  if (p.title !== undefined) update.title = p.title;
-  if (p.sourceUrl !== undefined) update.source_url = p.sourceUrl;
-  if (p.servings !== undefined) update.servings = p.servings;
-  if (p.prepTime !== undefined) update.prep_time = p.prepTime;
-  if (p.cookTime !== undefined) update.cook_time = p.cookTime;
-  if (p.ingredients !== undefined) update.ingredients = p.ingredients;
-  if (p.steps !== undefined) update.steps = p.steps;
-  if (p.notes !== undefined) update.notes = p.notes;
   if (Object.keys(update).length === 0) return;
 
   const { error } = await supabase
