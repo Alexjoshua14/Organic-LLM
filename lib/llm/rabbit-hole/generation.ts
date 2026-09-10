@@ -29,18 +29,19 @@ import {
   SOURCE_ANALYSIS_SYSTEM_PROMPT,
 } from "@/lib/system-prompt/rabbit-hole";
 
+import { models, providerModelSlug } from "@/lib/schemas/chat-models";
 import { z } from "zod";
 
 const logger = createLogger("lib/llm/rabbit-hole/generation.ts");
 
 // Used for Core content generation
-const model = openai("gpt-5.6-sol");
+const model = openai(providerModelSlug(models.openai.sol.id));
 
 // Used for Branch suggestions
-const quickModel = openai("gpt-5.6-luna");
+const quickModel = openai(providerModelSlug(models.openai.luna.id));
 
 // Used for Preview
-const rapidModel = openai("gpt-5.6-luna");
+const rapidModel = openai(providerModelSlug(models.openai.luna.id));
 
 // Parameters for invoking the LLM for Rabbit Hole objects with consistent logging.
 type GenerateRabbitHoleObjectParams<T> = {

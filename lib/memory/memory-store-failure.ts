@@ -1,3 +1,5 @@
+import { models, providerModelSlug } from "@/lib/schemas/chat-models";
+
 import { OLLAMA_EMBED_MODEL, OLLAMA_URL, isLocalOllamaUrl } from "./ollama-config";
 
 export type MemoryStoreFailureKind = "embedder" | "qdrant" | "sqlite" | "mem0_llm" | "unknown";
@@ -119,7 +121,7 @@ export function diagnoseMemoryStoreFailure(error: unknown): MemoryStoreFailureDi
   ) {
     return {
       kind: "mem0_llm",
-      hint: "Mem0 fact-extraction LLM failed — verify OPENAI_API_KEY and that gpt-5.4-nano (mem0-config) is available.",
+      hint: `Mem0 fact-extraction LLM failed — verify OPENAI_API_KEY and that ${providerModelSlug(models.openai.luna.id)} (mem0-config) is available.`,
       detail: text,
     };
   }

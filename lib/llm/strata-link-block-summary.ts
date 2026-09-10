@@ -7,9 +7,11 @@ import { createLogger } from "@/lib/logger";
 import { recordLlmCall } from "@/lib/llm/metrics";
 import { getModelCost } from "@/lib/rate-limit/llm-cost";
 
+import { models } from "@/lib/schemas/chat-models";
+
 const logger = createLogger("lib/llm/strata-link-block-summary.ts");
 
-const STRATA_LINK_SUMMARY_MODEL = "openai/gpt-5.4-nano" as const;
+const STRATA_LINK_SUMMARY_MODEL = models.openai.luna.id;
 const INPUT_CHAR_LIMIT = 8_000;
 
 const SYSTEM_PROMPT = `You summarize fetched webpage text for a research notepad block.

@@ -30,6 +30,7 @@ import { Result } from "@/types";
 import { recordLlmCall } from "@/lib/llm/metrics";
 import { generateShortTitleFromSummary } from "@/lib/llm/short-title-from-summary";
 import { TITLE_PIPELINE_SUMMARIZER_MODEL } from "@/lib/llm/title-models";
+import { models } from "@/lib/schemas/chat-models";
 import {
   exchangeCountFromPersistedMessageCount,
   shouldRefreshSummary,
@@ -38,9 +39,9 @@ import {
 /** Model Selections: Each ZDR compatible */
 const MODEL_SELECTION: Record<string, LanguageModel> = {
   summarizer: TITLE_PIPELINE_SUMMARIZER_MODEL,
-  updater: "google/gemini-3-flash",
-  validator: "google/gemini-3-flash",
-  reviser: "google/gemini-3-flash",
+  updater: models.google.flash.id,
+  validator: models.google.flash.id,
+  reviser: models.google.flash.id,
 };
 
 /** Max input tokens for title generation (allows long-thread context). */

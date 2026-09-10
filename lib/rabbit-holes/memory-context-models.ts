@@ -1,8 +1,9 @@
 import type { LanguageModel } from "ai";
 
+import { models } from "@/lib/schemas/chat-models";
+
 /** Fast, cheap model for rabbit-hole memory context synthesis. */
-export const RABBIT_HOLE_MEMORY_CONTEXT_MODEL: LanguageModel =
-  "google/gemini-2.5-flash-lite";
+export const RABBIT_HOLE_MEMORY_CONTEXT_MODEL: LanguageModel = models.google.flashLite_2_5.id;
 
 /** Warn when end-to-end memory context build exceeds this threshold (ms). */
 export const RABBIT_HOLE_MEMORY_CONTEXT_WARN_MS = 250;

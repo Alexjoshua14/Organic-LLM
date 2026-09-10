@@ -18,11 +18,12 @@ import { createLogger } from "@/lib/logger";
 import { getContext } from "@/lib/llm/context";
 import { requireLlmChatActor } from "@/lib/api/chat-llm-gate";
 import { ChatRequestSchema } from "@/lib/schemas/chat";
+import { models, providerModelSlug } from "@/lib/schemas/chat-models";
 
 // Allow streaming responses up to 30 seconds
 export const maxDuration = 30;
 
-const model: LanguageModel = openai("gpt-5.4-mini");
+const model: LanguageModel = openai(providerModelSlug(models.openai.terra.id));
 
 // const tools = {};
 

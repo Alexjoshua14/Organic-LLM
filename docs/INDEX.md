@@ -6,6 +6,7 @@
 - [Contributing](../CONTRIBUTING.md) — setup, code boundaries, pull requests
 - [Thread & session architecture](./thread-session-architecture.md) — persistence, encryption, sidebar contract
 - [Context building](./architecture/context-building.md) — how chat context is assembled before `streamText`
+- [Chat model aliases](./architecture/decisions/20260909-chat-model-aliases.md) — `models.provider.family` vs picker `name` / persisted gateway ids
 - [End-to-end encryption overview](./e2ee.md)
 
 ## Product hub

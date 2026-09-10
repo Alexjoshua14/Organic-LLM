@@ -1,7 +1,9 @@
 import {
   AUTO_CHAT_MODEL_ID,
-  ChatModels,
+  ChatModelCatalog,
   DEFAULT_CHAT_MODEL,
+  models,
+  chatModelById,
   type ChatModel,
   type GatewayModelId,
 } from "@/lib/schemas/chat";
@@ -28,11 +30,10 @@ export function classifyTaskTier(input: string): TaskComplexityTier {
 }
 
 function firstGatewayModel(predicate: (c: ChatModel) => boolean): GatewayModelId {
-  const m = ChatModels.find((c) => c.id !== AUTO_CHAT_MODEL_ID && predicate(c));
-  const fallback = ChatModels.find((c) => c.id !== AUTO_CHAT_MODEL_ID);
-  const row = m ?? fallback ?? DEFAULT_CHAT_MODEL;
+  const m = ChatModelCatalog.find(predicate);
+  const fallback = ChatModelCatalog[0] ?? DEFAULT_CHAT_MODEL;
 
-  return row.id as GatewayModelId;
+  return (m ?? fallback).id as GatewayModelId;
 }
 
 function firstZdrModelId(): GatewayModelId {
@@ -45,28 +46,28 @@ function firstAnyModelId(): GatewayModelId {
 
 /** Fast, cheap gateway ids for short turns. */
 export const REFLEX_IDS_ZDR: GatewayModelId[] = [
-  "google/gemini-3.5-flash-lite",
-  "anthropic/claude-haiku-4.5",
-  "openai/gpt-5.6-luna",
+  models.google.flashLite.id as GatewayModelId,
+  models.anthropic.haiku.id as GatewayModelId,
+  models.openai.luna.id as GatewayModelId,
 ];
 
 /** Heavier ids when ZDR is required. */
 export const REASONING_IDS_ZDR: GatewayModelId[] = [
-  "anthropic/claude-opus-5",
-  "google/gemini-3.8-flash",
-  "openai/gpt-5.6-sol",
+  models.anthropic.opus.id as GatewayModelId,
+  models.google.flash.id as GatewayModelId,
+  models.openai.sol.id as GatewayModelId,
 ];
 
 /** When ZDR is off, non-ZDR reasoning models are allowed. */
 export const REASONING_IDS_ANY: GatewayModelId[] = [
-  "anthropic/claude-opus-5",
-  "perplexity/sonar-pro",
-  "openai/gpt-5.6-sol",
+  models.anthropic.opus.id as GatewayModelId,
+  models.perplexity.pro.id as GatewayModelId,
+  models.openai.sol.id as GatewayModelId,
 ];
 
 function pickFirstAllowed(ids: GatewayModelId[], zdr: boolean): GatewayModelId {
   for (const id of ids) {
-    const row = ChatModels.find((c) => c.id === id);
+    const row = chatModelById(id);
 
     if (!row || row.id === AUTO_CHAT_MODEL_ID) continue;
     if (zdr && row.supportsZeroDataRetention === false) continue;
@@ -78,7 +79,7 @@ function pickFirstAllowed(ids: GatewayModelId[], zdr: boolean): GatewayModelId {
 }
 
 /**
- * Maps task tier + ZDR flag to a concrete gateway model id present in {@link ChatModels}.
+ * Maps task tier + ZDR flag to a concrete gateway model id present in {@link ChatModelCatalog}.
  */
 export function tierToGatewayModelId(tier: TaskComplexityTier, zdr: boolean): GatewayModelId {
   if (tier === "reflex") {
@@ -89,5 +90,5 @@ export function tierToGatewayModelId(tier: TaskComplexityTier, zdr: boolean): Ga
 }
 
 export function chatModelForGatewayId(id: GatewayModelId): ChatModel {
-  return ChatModels.find((c) => c.id === id) ?? DEFAULT_CHAT_MODEL;
+  return chatModelById(id) ?? DEFAULT_CHAT_MODEL;
 }

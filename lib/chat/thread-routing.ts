@@ -15,11 +15,12 @@ import { loadHomepageRoutingCandidates } from "@/lib/chat/load-homepage-routing-
 import { GUARDRAIL_MAX_OUTPUT_TOKENS } from "@/lib/llm/helpers";
 import { recordLlmCall } from "@/lib/llm/metrics";
 import { createLogger } from "@/lib/logger";
+import { models, providerModelSlug } from "@/lib/schemas/chat-models";
 import { Result } from "@/types";
 
 const logger = createLogger("lib/chat/thread-routing.ts");
 
-const ROUTING_MODEL = openai("gpt-5.4-nano");
+const ROUTING_MODEL = openai(providerModelSlug(models.openai.luna.id));
 
 const HomepageRoutingDecisionSchema = z.object({
   selectedCandidateIndex: z
@@ -183,7 +184,7 @@ export async function routeHomepagePrompt(params: {
     classificationMs = performance.now() - llmStart;
 
     recordLlmCall({
-      model: "gpt-5.4-nano",
+      model: models.openai.luna.id,
       usage,
       durationMs: classificationMs,
       metadata: { operation: "homepage-thread-routing" },

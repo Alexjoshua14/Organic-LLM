@@ -36,7 +36,7 @@ const DEFAULT_COST: ModelCost = {
 
 /**
  * Cost per million tokens (USD). Sourced from provider pricing; update periodically.
- * Keys match model ids from lib/schemas/chat.ts (e.g. openai/gpt-5.4-mini).
+ * Keys match concrete gateway ids (catalog `ChatModel.id` and retired SKUs).
  */
 const MODEL_COSTS: Record<string, ModelCost> = {
   "openai/gpt-6-astra": {

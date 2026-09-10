@@ -1,5 +1,7 @@
 import type { LanguageModel } from "ai";
 
+import { models } from "@/lib/schemas/chat-models";
+
 /** Max parent+child article nodes considered before reranking. */
 export const RABBIT_HOLE_GRAPH_NODE_LIMIT = 100;
 
@@ -10,7 +12,7 @@ export const RABBIT_HOLE_GRAPH_RERANKED_LIMIT_DEFAULT = 90;
 export const RABBIT_HOLE_NODE_SUMMARY_MAX_OUTPUT_TOKENS = 2000;
 
 /** Fast model for node summary backfill and optional graph-context synthesis. */
-export const RABBIT_HOLE_NODE_SUMMARY_MODEL: LanguageModel = "google/gemini-2.5-flash-lite";
+export const RABBIT_HOLE_NODE_SUMMARY_MODEL: LanguageModel = models.google.flashLite_2_5.id;
 
 /** Cohere rerank model when COHERE_API_KEY is set; lexical fallback otherwise. */
 export const RABBIT_HOLE_GRAPH_RERANK_MODEL = "rerank-english-v3.0";

@@ -82,7 +82,7 @@ Runs **after** phase 1 so recent messages exist for query rewriting.
 
 | Step | What | Network? | Est. / notes |
 |------|------|----------|----------------|
-| 2a | `rewriteMemoryQuery` | **Yes** — AI Gateway `generateText` (default `openai/gpt-5.4-nano`) | Hard cap **800 ms**; heuristic skip avoids call. Typical **50–400 ms** when invoked. |
+| 2a | `rewriteMemoryQuery` | **Yes** — AI Gateway `generateText` (default `models.openai.luna`) | Hard cap **800 ms**; heuristic skip avoids call. Typical **50–400 ms** when invoked. |
 | 2b | `searchMemoriesWithL1Cache` × N queries | **Yes** per miss — Upstash + Mem0; **no** Mem0 on L1 hit | N = 1–3 rewritten queries, **parallel** `Promise.all`. Each miss: embedding + vector search + JSON (often **40–250+ ms** each, region-dependent). |
 | 2c | `mergeMemorySearchResultsByMaxScore` | No | Pure CPU, negligible. |
 

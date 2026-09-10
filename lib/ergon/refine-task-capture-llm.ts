@@ -12,9 +12,11 @@ import {
   ErgonRefineLlmTaskSchema,
 } from "@/lib/schemas/ergon-refine";
 
+import { models } from "@/lib/schemas/chat-models";
+
 const logger = createLogger("lib/ergon/refine-task-capture-llm.ts");
 
-export const ERGON_REFINE_MODEL = "openai/gpt-5.4-nano" as const;
+export const ERGON_REFINE_MODEL = models.openai.luna.id;
 export const ERGON_REFINE_TIMEOUT_MS = 1_500;
 
 type CategoryHint = z.infer<typeof ErgonRefineCategoryHintSchema>;

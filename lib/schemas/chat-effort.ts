@@ -5,7 +5,8 @@ import type { JSONValue } from "@ai-sdk/provider";
 
 import z from "zod";
 
-import { AUTO_CHAT_MODEL_ID, AUTO_RESOLVED_SONNET_MODEL_ID } from "@/lib/schemas/chat-model-ids";
+import { AUTO_CHAT_MODEL_ID } from "@/lib/schemas/chat-model-ids";
+import { AUTO_RESOLVED_SONNET_MODEL_ID } from "@/lib/schemas/chat-models";
 
 /**
  * Unified composer effort dial. Not every provider/model accepts every value —

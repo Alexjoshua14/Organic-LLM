@@ -6,14 +6,15 @@ import { GatewayProviderOptions } from "@ai-sdk/gateway";
 import { generateText } from "ai";
 
 import { recordLlmCall } from "@/lib/llm/metrics";
+import { models } from "@/lib/schemas/chat-models";
 
 const MAX_BLOB_CHARS = 14_000;
 
-/** Gateway model; override with MEMORY_MIGRATION_SYNOPSIS_MODEL (e.g. openai/gpt-5-mini). */
+/** Gateway model; override with MEMORY_MIGRATION_SYNOPSIS_MODEL. */
 const synopsisModelEnv = process.env.MEMORY_MIGRATION_SYNOPSIS_MODEL?.trim();
 
 export const MEMORY_MIGRATION_SYNOPSIS_MODEL =
-  synopsisModelEnv && synopsisModelEnv.length > 0 ? synopsisModelEnv : "openai/gpt-5-nano";
+  synopsisModelEnv && synopsisModelEnv.length > 0 ? synopsisModelEnv : models.openai.luna.id;
 
 const SYSTEM = `You summarize results of a technical A/B comparison between two memory retrieval backends (legacy "memories" vs candidate "memories_v2") for the same user queries.
 

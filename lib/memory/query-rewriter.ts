@@ -10,6 +10,7 @@
  */
 import type { GatewayModelId } from "@ai-sdk/gateway";
 import type { MemoryItemType } from "@/lib/schemas/memory";
+import { models } from "@/lib/schemas/chat-models";
 
 import { generateText, type UIMessage } from "ai";
 import { z } from "zod";
@@ -20,7 +21,7 @@ import { createLogger } from "@/lib/logger";
 const logger = createLogger("lib/memory/query-rewriter.ts");
 
 /** Small, fast gateway model for JSON-only rewrite output. */
-const DEFAULT_REWRITE_MODEL: GatewayModelId = "openai/gpt-5.4-nano";
+const DEFAULT_REWRITE_MODEL: GatewayModelId = models.openai.luna.id as GatewayModelId;
 /** Fail closed to raw query so context build does not block on rewrite latency. */
 const DEFAULT_TIMEOUT_MS = 800;
 /** Per-turn transcript cap inside the rewriter prompt (tokens-ish safety). */
@@ -264,7 +265,7 @@ export function buildRecentTurnsForMemoryRewrite(
  * **Flow:** Env off → `[rawQuery]` or `[]` if blank; empty → `[]`; {@link shouldShortCircuitMemoryRewrite} →
  * `[rawQuery]`; else LLM JSON with {@link DEFAULT_TIMEOUT_MS} cap → parse or fallback to `[rawQuery]`.
  *
- * @param rawQuery - Latest user text (same as extracted from the current message for memory).
+ * @param rawQuery - models user text (same as extracted from the current message for memory).
  * @param recentMessages - Short window from {@link buildRecentTurnsForMemoryRewrite}.
  * @param opts - Model, timeout, feature flag, or test doubles.
  */
