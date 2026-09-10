@@ -39,6 +39,11 @@ const DEFAULT_COST: ModelCost = {
  * Keys match model ids from lib/schemas/chat.ts (e.g. openai/gpt-5.4-mini).
  */
 const MODEL_COSTS: Record<string, ModelCost> = {
+  "openai/gpt-6-astra": {
+    inputPerMillion: 10.0,
+    outputPerMillion: 50.0,
+    cachedInputPerMillion: 1.0,
+  },
   "openai/gpt-5.6-sol": { inputPerMillion: 2.0, outputPerMillion: 10.0 },
   "openai/gpt-5.6-terra": { inputPerMillion: 2.0, outputPerMillion: 12.0 },
   "openai/gpt-5.6-luna": { inputPerMillion: 0.2, outputPerMillion: 1.2 },
@@ -53,6 +58,7 @@ const MODEL_COSTS: Record<string, ModelCost> = {
   "openai/gpt-4o-mini": { inputPerMillion: 0.15, outputPerMillion: 0.6 },
   "openai/gpt-4-turbo": { inputPerMillion: 10.0, outputPerMillion: 30.0 },
   "google/gemini-3.1-pro-preview": { inputPerMillion: 2.0, outputPerMillion: 12.0 },
+  "google/gemini-3.8-flash": { inputPerMillion: 0.75, outputPerMillion: 3.75 },
   "google/gemini-3.7-flash": { inputPerMillion: 0.75, outputPerMillion: 3.75 },
   "google/gemini-3.6-flash": { inputPerMillion: 1.5, outputPerMillion: 7.5 },
   "google/gemini-3.5-flash": { inputPerMillion: 1.5, outputPerMillion: 9.0 },
@@ -207,4 +213,4 @@ export function costUnitsFromUsd(usd: number): number {
 }
 
 /** When the MODEL_COSTS table was last reviewed (update with pricing changes). */
-export const MODEL_PRICING_AS_OF = "2026-09-01";
+export const MODEL_PRICING_AS_OF = "2026-09-09";

@@ -53,7 +53,7 @@ export const REFLEX_IDS_ZDR: GatewayModelId[] = [
 /** Heavier ids when ZDR is required. */
 export const REASONING_IDS_ZDR: GatewayModelId[] = [
   "anthropic/claude-opus-5",
-  "google/gemini-3.7-flash",
+  "google/gemini-3.8-flash",
   "openai/gpt-5.6-sol",
 ];
 

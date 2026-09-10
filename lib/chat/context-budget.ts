@@ -25,12 +25,14 @@ const DEFAULT_CONTEXT_WINDOW_TOKENS = 128_000;
 
 /** Known gateway model input windows (tokens). */
 const MODEL_CONTEXT_WINDOW_TOKENS: Record<string, number> = {
+  "openai/gpt-6-astra": 1_050_000,
   "openai/gpt-5.6-sol": 1_050_000,
   "openai/gpt-5.6-terra": 1_050_000,
   "openai/gpt-5.6-luna": 1_050_000,
   "openai/gpt-5.4-mini": 400_000,
   "openai/gpt-5.4-nano": 400_000,
   "google/gemini-3.1-pro-preview": 1_000_000,
+  "google/gemini-3.8-flash": 1_000_000,
   "google/gemini-3.7-flash": 1_000_000,
   "google/gemini-3-flash": 1_000_000,
   "google/gemini-3.5-flash-lite": 1_000_000,
