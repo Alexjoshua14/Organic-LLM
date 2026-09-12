@@ -38,6 +38,8 @@ export interface UseRabbitHolesReturn {
   createSession: () => void;
   loadExistingSession: (sessionId: string) => Promise<SimpleResult>;
   exploreQuestion: (question: string, id?: string) => Promise<SimpleResult>;
+  /** Create and persist an empty session for chat-first flow (no article generation). */
+  ensureEmptySessionForChat: () => Promise<SimpleResult & { sessionId?: string }>;
   followBranch: (branchId: string) => Promise<SimpleResult>;
   selectSource: (source: RabbitHoleSource) => Promise<void>;
   clearSourceSelection: () => void;
@@ -574,6 +576,35 @@ export function useRabbitHoles(): UseRabbitHolesReturn {
     return;
   }
 
+  async function ensureEmptySessionForChat(): Promise<SimpleResult & { sessionId?: string }> {
+    if (session?.sessionId) {
+      return { ok: true, error: null, sessionId: session.sessionId };
+    }
+
+    const newSessionResult = newSession();
+
+    if (newSessionResult.error || !newSessionResult.data) {
+      const err = newSessionResult.error ?? new Error("Unknown error creating new session");
+
+      setError(err.message);
+
+      return { ok: false, error: err };
+    }
+
+    const emptySession = newSessionResult.data;
+    const saveRes = await saveSession(JSON.stringify(emptySession));
+
+    if (!saveRes.ok && saveRes.error) {
+      setError(saveRes.error.message);
+
+      return { ok: false, error: saveRes.error };
+    }
+
+    setSession(emptySession);
+
+    return { ok: true, error: null, sessionId: emptySession.sessionId };
+  }
+
   return {
     session: session,
     isLoading: isLoading,
@@ -587,6 +618,7 @@ export function useRabbitHoles(): UseRabbitHolesReturn {
     createSession,
     loadExistingSession,
     exploreQuestion,
+    ensureEmptySessionForChat,
     followBranch,
     selectSource,
     clearSourceSelection,

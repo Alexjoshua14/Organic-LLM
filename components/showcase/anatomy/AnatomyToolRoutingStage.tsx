@@ -68,14 +68,14 @@ export function AnatomyToolRoutingStage({ stage }: { stage: ToolRoutingStage }) 
               <div className="flex flex-wrap items-start justify-between gap-2">
                 <div className="min-w-0 flex flex-wrap items-center gap-2">
                   <ToolChip toolName={call.toolName} size="sm" />
-                  <span className="font-mono text-[10px] text-muted-foreground">
+                  <span className="font-mono text-2xs text-muted-foreground">
                     {call.toolCallId}
                   </span>
                 </div>
                 <div className="flex shrink-0 flex-wrap items-center justify-end gap-2">
                   <span
                     className={cn(
-                      "inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide",
+                      "inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-2xs font-medium uppercase tracking-wide",
                       server
                         ? "border-sky-500/30 bg-sky-500/10 text-sky-700 dark:text-sky-300"
                         : "border-violet-500/30 bg-violet-500/10 text-violet-700 dark:text-violet-300"
@@ -85,7 +85,7 @@ export function AnatomyToolRoutingStage({ stage }: { stage: ToolRoutingStage }) 
                     {server ? "Server" : "Client"}
                   </span>
                   {call.latencyMs != null ? (
-                    <span className="font-mono text-[10px] text-muted-foreground">
+                    <span className="font-mono text-2xs text-muted-foreground">
                       {call.latencyMs} ms
                     </span>
                   ) : null}

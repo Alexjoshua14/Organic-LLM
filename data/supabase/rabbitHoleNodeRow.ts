@@ -16,6 +16,7 @@ type NodeForRow = {
   title?: string | null;
   keyTakeaways: string[];
   preview?: string | null;
+  summary?: string | null;
   articleHtml?: string | null;
   createdAt: string;
 };
@@ -28,6 +29,7 @@ export type RabbitHoleNodeRow = {
   title?: string | null;
   key_takeaways: string[];
   preview?: string | null;
+  summary?: string | null;
   article_html?: string | null;
   created_at: string;
 };
@@ -47,6 +49,7 @@ export function nodeToRabbitHoleNodeRow(node: NodeForRow, sessionId: string): Ra
     title: node.title?.trim() ? node.title.trim() : null,
     key_takeaways: keyTakeaways,
     preview: node.preview ?? null,
+    summary: node.summary?.trim() ? node.summary.trim() : null,
     article_html: node.articleHtml,
     created_at: isUnixTimestamp(node.createdAt)
       ? new Date(Number(node.createdAt)).toISOString()

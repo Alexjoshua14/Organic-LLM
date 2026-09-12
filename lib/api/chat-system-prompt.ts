@@ -16,6 +16,8 @@ import {
   getDelphiSystemPromptAugmentation,
 } from "@/lib/personas/delphi";
 import { StrataAssistantPersonaRequestSchema } from "@/lib/schemas/chat";
+import { appendRabbitHoleDrawerSystemFragments } from "@/lib/llm/rabbit-hole-chat-augmentation";
+import type { DrawerChatDisplayInput } from "@/lib/rabbit-holes/drawer-chat-ui-budget";
 import {
   computeDelphiCaptionBudget,
   delphiScrollCharBudget,
@@ -73,6 +75,7 @@ export type AppendMainChatPostToolSystemFragmentsParams = {
   experience: ChatExperience | undefined;
   chatStyle?: ChatStyle;
   delphiDisplay?: DelphiDisplayInput;
+  drawerDisplay?: DrawerChatDisplayInput;
   arcadiaStarterPriming?: string;
 };
 
@@ -88,6 +91,7 @@ export function appendMainChatPostToolSystemFragments(
     experience,
     chatStyle,
     delphiDisplay,
+    drawerDisplay,
     arcadiaStarterPriming,
   } = params;
 
@@ -122,6 +126,13 @@ export function appendMainChatPostToolSystemFragments(
 
       out += getDelphiDisplayContextAugmentation(budget);
     }
+  }
+
+  if (experience === "rabbit_hole") {
+    out = appendRabbitHoleDrawerSystemFragments(out, {
+      drawerDisplay,
+      includeToolInstructions: false,
+    });
   }
 
   return out;

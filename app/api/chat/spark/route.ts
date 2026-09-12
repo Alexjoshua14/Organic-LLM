@@ -22,7 +22,9 @@ import { ensureChatHasTitle, estimateTokenCount, updateChatSummary } from "@/lib
 import { createLogger } from "@/lib/logger";
 // import SYSTEM_PROMPT from "@/lib/system-prompt";
 import SYSTEM_PROMPT from "@/lib/system-prompt";
+import { appendCurrentDate } from "@/lib/system-prompt/current-date";
 import { getSupabaseUserId } from "@/data/supabase/profiles";
+import { models, providerModelSlug } from "@/lib/schemas/chat-models";
 
 // Allow streaming responses up to 30 seconds
 export const maxDuration = 30;
@@ -145,9 +147,9 @@ export async function POST(req: Request) {
   const start = performance.now();
 
   const result = streamText({
-    model: openai("gpt-5.4-mini"),
+    model: openai(providerModelSlug(models.openai.terra.id)),
     messages: convertToModelMessages(validatedMessages),
-    system: systemPrompt,
+    system: appendCurrentDate(systemPrompt),
     maxOutputTokens: GUARDRAIL_MAX_OUTPUT_TOKENS,
     tools: {
       web_search_preview: openai.tools.webSearchPreview({}),

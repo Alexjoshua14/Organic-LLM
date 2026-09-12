@@ -14,12 +14,13 @@ The same ideas apply to any backend-emitted data: notifications, step updates, o
 
 ## Overview of the data flow
 
-1. **Backend** (e.g. `/api/chat/[persona]`) runs `streamText` and uses a **stream writer** to push UI-oriented events alongside the normal message stream.
-2. Events are sent as **custom data parts** on the UI message stream: `data-aiAction` and `data-notification`.
-3. The **client** (`useChat` in `components/chat/chat.tsx`) receives these in **`onData`**, updates local state (e.g. `aiAction`), and passes that state into the thread.
-4. **Message UI** (`chat-message.tsx`, `chat-loading.tsx`) renders the current action (thinking, reasoning, search with sources, etc.) and message parts (reasoning vs text).
+1. **Client (optimistic, on-device).** As soon as `useChat` records the user message (`status: submitted`), `ChatThread` paints a processing tail — “Reading…” — without waiting for the network. Target: first paint in the same turn as the user bubble, well under **250ms**, independent of connection speed.
+2. **Backend** (e.g. `/api/chat`) runs `streamText` and uses a **stream writer** to push UI-oriented events alongside the normal message stream.
+3. Events are sent as **custom data parts** on the UI message stream: `data-aiAction` and `data-notification`.
+4. The **client** (`useChat` in `components/chat/chat.tsx`) receives these in **`onData`**, updates local state (e.g. `aiAction`), and passes that state into the thread. Stream labels replace the optimistic receipt (burn transition).
+5. **Message UI** (`chat-message.tsx`, `chat-loading.tsx`) renders the current action (thinking, reasoning, search with sources, etc.) and message parts (reasoning vs text).
 
-So: backend emits → client `onData` → `aiAction` (and optionally notifications) → components render.
+So: submit → optimistic receipt → backend emits → client `onData` → `aiAction` → components render.
 
 ---
 
@@ -77,12 +78,13 @@ So the backend doesn’t only drive “current action” via `data-aiAction`; th
 
 ### Thread and message components
 
-- **`ChatThread`** receives `aiActionPayload` (the current `aiAction`) and passes it only to the **last** message’s `ChatMessage`.
+- **`ChatThread`** receives `status` and `aiActionPayload`. While the last row is still the **user** message (typical until the first assistant part arrives), it renders a standalone `ChatAIAction` immediately: optimistic “Reading…” from `status === submitted | streaming`, then whatever the stream sent. Resolver: [`lib/chat/optimistic-ai-action.ts`](../lib/chat/optimistic-ai-action.ts).
+- Once an **assistant** row exists, the payload is passed only to that last `ChatMessage` (same as before).
 - **`ChatMessage`** (assistant):
   - If the message already has **text parts**, it renders those and, for any **reasoning** part with `state === "streaming"`, shows the reasoning placeholder.
   - If there are **no text parts yet**, it renders **`ChatAIAction`** using `aiActionPayload` (so the user sees “Thinking…”, “Searching the web…”, “Reasoning…”, etc., until the reply arrives).
 
-So: one “live” action state per turn, shown on the last message; once the model streams text, that message shows reasoning + text as dictated by parts.
+Do not wait for the first stream byte to acknowledge the send. Round-trip latency cannot meet the 250ms receipt budget on a slow connection.
 
 ---
 
@@ -92,7 +94,7 @@ Defined in **`components/chat/chat-loading.tsx`** and used in **`components/chat
 
 | Action / Part              | Component       | User-facing behavior                                                                  |
 | -------------------------- | --------------- | ------------------------------------------------------------------------------------- |
-| `processing`               | `ChatThinking`  | Animated “Processing…” / “Gathering context” / “Thinking…”                            |
+| `processing`               | `ChatThinking`  | Animated “Reading…” (optimistic) / “Gathering context” / “Thinking…”                |
 | `reasoning`                | `ChatReasoning` | Animated “Reasoning…” (from `data-aiAction` or from a streaming `reasoning` part)     |
 | `search`                   | `ChatSearching` | “Searching the web…” + collapsible “N sources” with titles/URLs when `sources` is set |
 | `memory`                   | `ChatThinking`  | “Searching memories…”                                                                 |
@@ -114,8 +116,8 @@ Defined in **`components/chat/chat-loading.tsx`** and used in **`components/chat
 
 ## End-to-end example: web search
 
-1. User sends a message with web search enabled.
-2. Route starts stream, sends `data-aiAction`: `Processing` (“Gathering context”), then `Processing` (“Thinking…”).
+1. User sends a message with web search enabled. The thread shows the user bubble and an on-device “Reading…” tail in the same paint (`status: submitted`).
+2. Route starts stream, sends `data-aiAction`: `Processing` (“Gathering context”), then `Processing` (“Thinking…”). The tail burns from the optimistic receipt into these labels.
 3. Model decides to call `web_search`. Stream emits a `tool-call` chunk → route’s `onChunk` sends `data-aiAction`: `Tool`, `message: "Using tool: web_search"`.
 4. Client maps `web_search` to `Search` and sets `aiAction` to `Search` (message can stay or be updated).
 5. `createWebSearchTool` runs; when Exa returns, it uses `writer.write({ type: "data-aiAction", data: { action: Search, sources } })`.
@@ -131,6 +133,23 @@ So the user sees: gathering → thinking → “Using a tool” / “Searching t
 
 - **Aion** (`lib/api/aion-handler.ts`) uses `data-notification` for steps like “Determining AI model selection”, “Gathering context”, “Request completed”, and step finish (with step payload). It does **not** currently send `data-aiAction` in the same way; the main chat UI that relies on `ChatAIActionEnum` is wired to the default chat route.
 - **Remy** and other personas that use the same `useChat` + `onData` contract can expose the same UX by emitting `data-aiAction` (and optionally `data-notification`) from their stream.
+
+---
+
+## Context budget indicator
+
+The Core Input donut (`ContextBudgetIndicator`) shows how much of the model window the next send would use.
+
+**Main chat (`components/chat/chat.tsx`)** passes `useChat` messages into the hook and uses **client compose**:
+
+1. On thread open / toggle change / post-stream `refreshKey`, the client POSTs `/api/chat/context-budget` with `mode: "scaffold"`.
+2. The server returns a **numbers-only** scaffold (system / tools / summary / memory token counts, `activeToolNames`, optional `memoriesInjected`). No message text, summary text, or memory text is stored or returned for caching — and the server keeps **no per-user cache**.
+3. While typing, the browser composes the full estimate from that scaffold + local `threadMessages` + draft (`composeContextBudget`). Zero server calls per keystroke.
+4. A streamed `data-context-budget` snapshot refreshes the scaffold with measured numbers after a send; `refreshKey` may refetch in case the rolling summary regenerated.
+
+**Trade-offs:** Another browser’s sends show up on next open or refresh — same as the chat UI. Scaffold fetch does one summary DB query per open/refresh; typing is local.
+
+**Other CoreInput surfaces** that omit `threadMessages` keep the legacy `mode: "budget"` poll (full server assembly, including draft).
 
 ---
 
@@ -150,7 +169,8 @@ So the user sees: gathering → thinking → “Using a tool” / “Searching t
 | ---------------- | ------------------------------------------------------------------------------- |
 | Stream emission  | `app/api/chat/route.ts`, `lib/llm/llm-tool-kit.ts` (web search writer)          |
 | Client state     | `components/chat/chat.tsx` (`onData`, `aiAction`, `setAiAction`)                |
-| Thread / message | `components/chat/chat-thread.tsx`, `components/chat/chat-message.tsx`           |
+| Thread / message | `components/chat/chat-thread.tsx`, `components/chat/chat-message.tsx`, `lib/chat/optimistic-ai-action.ts` |
 | Action UI        | `components/chat/chat-loading.tsx` (ChatThinking, ChatReasoning, ChatSearching) |
+| Context budget   | `hooks/use-thread-context-budget.ts`, `lib/chat/context-budget.ts`, `lib/api/main-chat-context-budget.ts`, `app/api/chat/context-budget/route.ts` |
 | Types            | `types/ai.ts` (ChatAIActionEnum, ChatUIMessage)                                 |
 | Prototype / dev  | `app/sandbox/prototypes/llm-states/page.tsx` (all action states in one place)   |

@@ -30,13 +30,13 @@ export type MemorySearchRowUi = {
 
 export type ParsedMemorySearchToolOutput =
   | {
-      status: "ok";
-      query: string;
-      count: number;
-      memories: MemorySearchRowUi[];
-      /** Present when the server returned tier/sample metadata from the over-fetch search. */
-      inventory?: MemorySearchInventory;
-    }
+    status: "ok";
+    query: string;
+    count: number;
+    memories: MemorySearchRowUi[];
+    /** Present when the server returned tier/sample metadata from the over-fetch search. */
+    inventory?: MemorySearchInventory;
+  }
   | { status: "error"; message: string };
 
 function parseMemoryInventory(raw: unknown): MemorySearchInventory | undefined {
@@ -186,7 +186,7 @@ export const MemorySearchToolResultCard = memo(function MemorySearchToolResultCa
                 {memories.map((m) => (
                   <li
                     key={m.id}
-                    className="text-[10px] leading-snug text-foreground/85 line-clamp-2"
+                    className="text-2xs leading-snug text-foreground/85 line-clamp-2"
                   >
                     {m.memory}
                   </li>

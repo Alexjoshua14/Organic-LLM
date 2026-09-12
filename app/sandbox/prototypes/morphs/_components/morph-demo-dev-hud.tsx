@@ -111,7 +111,7 @@ export function MorphDemoDevHud({
         }}
       >
         <ChevronLeft aria-hidden className="size-4 shrink-0" />
-        <span className="font-medium text-[10px] text-foreground/80 uppercase tracking-widest [writing-mode:vertical-rl]">
+        <span className="font-medium text-2xs text-foreground/80 uppercase tracking-widest [writing-mode:vertical-rl]">
           Debug
         </span>
       </button>

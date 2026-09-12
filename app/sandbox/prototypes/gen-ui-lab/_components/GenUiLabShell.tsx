@@ -240,7 +240,7 @@ export function GenUiLabShell({ initialBlocks }: GenUiLabShellProps) {
                   onClick={() => handleSelectType(type)}
                 >
                   <span>{label}</span>
-                  <span className="font-mono text-[10px] uppercase tracking-wide opacity-70">
+                  <span className="font-mono text-2xs uppercase tracking-wide opacity-70">
                     {type.replace("-", " ")}
                   </span>
                 </button>

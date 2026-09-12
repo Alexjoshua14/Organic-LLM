@@ -53,7 +53,7 @@ export function KanbanView({ threadId, view }: KanbanViewProps) {
     >
       <div className="flex items-center justify-between gap-2 border-b border-border/40 px-3 py-2">
         <div className="min-w-0 flex-1">
-          <span className="flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+          <span className="flex items-center gap-1.5 text-2xs font-semibold uppercase tracking-wide text-muted-foreground">
             <LayoutGrid className="size-3" />
             {board.meta.title}
           </span>

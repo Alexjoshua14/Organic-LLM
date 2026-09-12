@@ -24,4 +24,10 @@ describe("keyboard shortcuts registry", () => {
 
     expect(navigation.some((shortcut) => shortcut.id === "sidebar-toggle")).toBe(true);
   });
+
+  test("chat scope includes Arcadia settings shortcut", () => {
+    const chat = getKeyboardShortcutsByScope("chat");
+
+    expect(chat.some((shortcut) => shortcut.id === "arcadia-chat-settings")).toBe(true);
+  });
 });

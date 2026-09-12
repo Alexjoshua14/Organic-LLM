@@ -5,25 +5,19 @@ import {
   convertToModelMessages,
   createUIMessageStream,
   createUIMessageStreamResponse,
-  generateId,
 } from "ai";
-import { after } from "next/server";
-import { createResumableStreamContext } from "resumable-stream";
 
 import { saveChat } from "@/lib/chat/chat-store";
+import { consumeChatSseStream } from "@/lib/chat/resumable-sse-stream";
 import { getThreadArcadiaStarterKey, getThreadHasTitle } from "@/data/supabase/chat";
 import { isAdminUser } from "@/data/supabase/profiles";
 import { createLogger } from "@/lib/logger";
 import { getLastUserMessageText } from "@/lib/arcadia/help-response";
-import {
-  classifyTaskTier,
-  chatModelForGatewayId,
-  tierToGatewayModelId,
-} from "@/lib/llm/auto-model-router";
+import { augmentUserMessageWithDiagramLinks } from "@/lib/mermaid/augment-message";
+import { resolveChatModel } from "@/lib/api/resolve-chat-model";
 import { getChatModel } from "@/lib/llm/helpers";
 import {
   AUTO_CHAT_MODEL_ID,
-  AUTO_RESOLVED_SONNET_MODEL_ID,
   ChatModels,
   ChatRequestSchema,
   DEFAULT_CHAT_MODEL,
@@ -46,6 +40,7 @@ import {
   wrapSystemPromptWithResponseLength,
 } from "@/lib/api/chat-system-prompt";
 import { appendIntrospectionMainChatSystemFragments } from "@/lib/api/introspection-system-prompt";
+import { appendCurrentDate } from "@/lib/system-prompt/current-date";
 import { resolveMemoryEnabledForExperience } from "@/lib/chat/chat-experience";
 import { resolveChatStarterPromptByKey } from "@/lib/chat/chat-style-starters";
 import { compileChatTools } from "@/lib/llm/compile-chat-tools";
@@ -98,8 +93,12 @@ export async function POST(req: Request) {
     effort: requestedEffort,
     memory: requestedMemory,
     delphiDisplay,
+    drawerDisplay,
+    rabbitHoleSessionId,
+    diagramNodeLinks,
   } = parseResult.data;
   const message = incomingMessage as UIMessage;
+  const messageForLlm = augmentUserMessageWithDiagramLinks(message, diagramNodeLinks);
   const memoryEnabled = resolveMemoryEnabledForExperience(experience, requestedMemory);
 
   // Zero Data Retention Policy is in regards to external LLMs, not Organic LLM at this time
@@ -107,25 +106,16 @@ export async function POST(req: Request) {
   const isZeroDataRetention = zeroDataRetention === true;
 
   let selectedModel = requestedModel ? getChatModel(requestedModel) : DEFAULT_CHAT_MODEL;
+  const requestedModelId = selectedModel.id;
 
   if (selectedModel.id === AUTO_CHAT_MODEL_ID) {
-    if (experience === "delphi") {
-      const userText = getLastUserMessageText(message);
-      const tier = classifyTaskTier(userText);
-      const gatewayId = tierToGatewayModelId(tier, isZeroDataRetention);
-
-      selectedModel = getChatModel(chatModelForGatewayId(gatewayId));
-      logger.log(
-        "POST",
-        `Model selection branch: delphi_auto_tier -> ${selectedModel.id} (tier=${tier})`
-      );
-    } else {
-      const sonnet =
-        ChatModels.find((m) => m.id === AUTO_RESOLVED_SONNET_MODEL_ID) ?? DEFAULT_CHAT_MODEL;
-
-      selectedModel = getChatModel(sonnet);
-      logger.log("POST", `Model selection branch: auto_sonnet_default -> ${selectedModel.id}`);
-    }
+    selectedModel = resolveChatModel({
+      modelId: selectedModel.id,
+      draftText: getLastUserMessageText(message),
+      experience,
+      zeroDataRetention: isZeroDataRetention,
+    });
+    logger.log("POST", `Model selection branch: auto_resolved -> ${selectedModel.id}`);
   } else {
     logger.log("POST", `Model selection explicit -> ${selectedModel.id}`);
   }
@@ -202,14 +192,14 @@ export async function POST(req: Request) {
               loadArcadiaChatTurnContext({
                 logger,
                 chatId: id,
-                message,
+                message: messageForLlm,
                 memoryEnabled,
               })
           : () =>
               loadMainChatTurnContext({
                 logger,
                 chatId: id,
-                message,
+                message: messageForLlm,
                 memoryEnabled,
                 experience,
               });
@@ -221,6 +211,7 @@ export async function POST(req: Request) {
         packedMessageCount,
         totalThreadMessages,
         scheduleBackgroundCondensation,
+        memoriesInjected,
       } = await loadTurnContext();
 
       if (experience === "arcadia" && scheduleBackgroundCondensation) {
@@ -301,6 +292,17 @@ export async function POST(req: Request) {
 
       const messages = convertToModelMessages(validatedMessages);
       const initialMessageCount = validatedMessages.length;
+      let rabbitHoleActiveNodeId: string | null = null;
+
+      if (experience === "rabbit_hole" && rabbitHoleSessionId) {
+        const { getSessionById } = await import("@/data/supabase/rabbitholes");
+        const sessionRes = await getSessionById(rabbitHoleSessionId);
+
+        if (sessionRes.data) {
+          rabbitHoleActiveNodeId = sessionRes.data.activeNodeId ?? null;
+        }
+      }
+
       const { tools, toolInstructions } = await compileChatTools({
         useSearch: parseResult.data.webSearch ?? false,
         useMemory: parseResult.data.memory ?? false,
@@ -312,6 +314,8 @@ export async function POST(req: Request) {
         initialMessageCount,
         sbUserId,
         writer,
+        rabbitHoleSessionId,
+        rabbitHoleActiveNodeId,
       });
 
       const toolNames = Object.keys(tools);
@@ -326,8 +330,10 @@ export async function POST(req: Request) {
       const maxSteps = computeMainChatMaxSteps({ experience, hasTools });
 
       let arcadiaStarterPriming: string | undefined;
+
       if (experience === "arcadia") {
         const starterKeyResult = await getThreadArcadiaStarterKey(id);
+
         if (starterKeyResult.error) {
           logger.error("POST", "Failed to load Arcadia starter key", {
             error: starterKeyResult.error.message,
@@ -350,6 +356,7 @@ export async function POST(req: Request) {
         experience,
         chatStyle,
         delphiDisplay,
+        drawerDisplay,
         arcadiaStarterPriming,
       });
 
@@ -359,10 +366,12 @@ export async function POST(req: Request) {
         transient: true,
       });
 
-      const systemPromptWithLength = wrapSystemPromptWithResponseLength(systemPromptForRequest, {
-        experience,
-        delphiDisplay,
-      });
+      const systemPromptWithLength = appendCurrentDate(
+        wrapSystemPromptWithResponseLength(systemPromptForRequest, {
+          experience,
+          delphiDisplay,
+        })
+      );
 
       const inputTokenEstimate = estimateLlmInputTokens({
         systemPrompt: systemPromptWithLength,
@@ -401,17 +410,20 @@ export async function POST(req: Request) {
       }
 
       const contextBudget = await buildBudgetFromAssembledTurn({
-        modelId: selectedModel.id,
+        modelId: requestedModelId,
+        resolvedModelId: selectedModel.id,
         draftMessage: message,
         validatedMessages,
         contextSystemPrompt: afterContext,
         finalSystemPrompt: systemPromptWithLength,
         toolInstructions,
+        activeToolNames: toolNames,
         tokenBreakdown,
         packedMessageCount,
         totalThreadMessages,
         contextMessageLimit:
           experience === "arcadia" ? undefined : getContextMessageLimit(experience),
+        memoriesInjected,
       });
 
       writer.write({
@@ -419,7 +431,7 @@ export async function POST(req: Request) {
         data: contextBudget,
       });
 
-      runLLMChatStream({
+      await runLLMChatStream({
         writer,
         logger,
         chatId: id,
@@ -444,13 +456,8 @@ export async function POST(req: Request) {
 
   return createUIMessageStreamResponse({
     stream,
-    async consumeSseStream({ stream }) {
-      const streamId = generateId();
-      const streamContext = createResumableStreamContext({ waitUntil: after });
-
-      await streamContext.createNewResumableStream(streamId, () => stream);
-
-      await saveChat({ chatId: id, activeStreamId: streamId });
+    async consumeSseStream({ stream: sseStream }) {
+      await consumeChatSseStream({ stream: sseStream, chatId: id, logger });
     },
   });
 }

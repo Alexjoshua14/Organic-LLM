@@ -14,7 +14,7 @@ export function createRenderGenUiTool() {
 
   return tool({
     description:
-      "Render a structured UI block in the chat thread. Use at most once per assistant turn when a structured block clearly helps. Pass the block as `block`. Types: answer-card (multi-point answers), decision-matrix (comparisons), plan-timeline (sequential plans), audio-snippet (listen/recap requests only), recipe-card, shopping-list, restaurant-card (venue with menu/hours/links). Respect schema size caps.",
+      "Render a structured UI block in the chat thread. Use at most once per assistant turn when a structured block clearly helps. Pass the block as `block`. Types: answer-card (multi-point answers), decision-matrix (comparisons), plan-timeline (sequential plans), audio-snippet (listen/recap requests only), recipe-card, shopping-list, restaurant-card (use gather_restaurant first for verified venue data). Respect schema size caps.",
     inputSchema: z.object({ block: GenUIBlockSchema }),
     execute: async ({ block }) => {
       callsThisTurn += 1;
@@ -36,7 +36,7 @@ export function createRenderGenUiTool() {
 
       logger.log(
         "render_gen_ui",
-        "[render_gen_ui] -- Knowledge Graph Connection not yet established. To do",
+        "[render_gen_ui] rendered structured block",
         {
           event: "gen_ui_rendered",
           type: block.type,

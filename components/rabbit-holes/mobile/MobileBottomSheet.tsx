@@ -35,10 +35,12 @@ export interface MobileBottomSheetProps {
   className?: string;
   /** Summary row shown below handle (e.g. source/branch counts) */
   summaryRow?: React.ReactNode;
-  /** Scrollable body (sources, branches) */
+  /** Scrollable body (chat, sources, branches) */
   children: React.ReactNode;
-  /** Sticky footer inside sheet (prompt bar) */
-  footer: React.ReactNode;
+  /** Sticky composer — first in DOM (flex-col-reverse), visually at bottom */
+  composer: React.ReactNode;
+  /** @deprecated Use `composer` */
+  footer?: React.ReactNode;
   /** Called when snap level changes (for scroll lock / padding) */
   onSnapChange?: (snap: MobileSheetSnap) => void;
 }
@@ -47,9 +49,11 @@ export function MobileBottomSheet({
   className,
   summaryRow,
   children,
+  composer,
   footer,
   onSnapChange,
 }: MobileBottomSheetProps) {
+  const composerNode = composer ?? footer;
   const vh = useViewportHeight();
   const maxSheet = useMemo(() => Math.round(vh * 0.9), [vh]);
   const halfVisible = useMemo(() => Math.round(vh * 0.5), [vh]);
@@ -213,12 +217,22 @@ export function MobileBottomSheet({
     >
       <motion.div
         className={cn(
-          "pointer-events-auto flex w-full max-w-lg flex-col overflow-hidden rounded-t-2xl border border-border/50 shadow-xl",
+          "pointer-events-auto flex w-full max-w-lg flex-col-reverse overflow-hidden rounded-t-2xl border border-border/50 shadow-xl",
           glass({ opaque: true }),
           className
         )}
         style={{ height: maxSheet, y, touchAction: "pan-y" }}
       >
+        {composerNode ? (
+          <div className="rabbit-hole-mobile-sheet-composer sticky bottom-0 z-10 shrink-0 border-b border-border/30 mobile-safe-bottom bg-background/80 px-3 pb-2 pt-2 backdrop-blur-sm">
+            {composerNode}
+          </div>
+        ) : null}
+
+        <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 pb-2">
+          {children}
+        </div>
+
         <div
           className="flex shrink-0 cursor-grab touch-none flex-col items-center pt-2 pb-2 active:cursor-grabbing"
           onPointerCancel={(e) => endDrag(e, 0)}
@@ -228,14 +242,6 @@ export function MobileBottomSheet({
         >
           <div aria-hidden className="mb-2 h-1 w-9 shrink-0 rounded-full bg-muted-foreground/35" />
           {summaryRow ? <div className="w-full shrink-0 px-4 pb-1">{summaryRow}</div> : null}
-        </div>
-
-        <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 pb-2">
-          {children}
-        </div>
-
-        <div className="rabbit-hole-mobile-sheet-footer shrink-0 border-t border-border/30 mobile-safe-bottom px-3 pb-2 pt-2">
-          {footer}
         </div>
       </motion.div>
     </motion.div>

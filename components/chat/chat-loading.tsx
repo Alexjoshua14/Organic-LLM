@@ -1,12 +1,13 @@
+"use client";
+
 import type { ExaSearchResultSource } from "@/lib/exa/types";
 
-import { ComponentProps, FC } from "react";
+import { FC } from "react";
 import { ChevronDownIcon } from "lucide-react";
 
-import ShinyText from "../ShinyText";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "../third-party/ui/collapsible";
 
-const TEXT_ANIMATION_SPEED = 1.2;
+import { ProcessingTextBurn } from "./processing-text-burn";
 
 export const ChatLoading = () => {
   return (
@@ -20,60 +21,37 @@ export const ChatLoading = () => {
 
 type ChatThinkingProps = {
   text?: string;
+  className?: string;
+  as?: "p" | "span";
 };
 
-export const ChatThinking: FC<ChatThinkingProps & Partial<ComponentProps<typeof ShinyText>>> = ({
-  text,
-  ...props
-}) => {
-  return (
-    <ShinyText
-      disabled={false}
-      speed={TEXT_ANIMATION_SPEED}
-      text={text ?? "Thinking..."}
-      {...props}
-    />
-  );
+/** Processing / tool / memory status label — burn in, then sustain shimmer while in flight. */
+export const ChatThinking: FC<ChatThinkingProps> = ({ text, className, as }) => {
+  return <ProcessingTextBurn as={as} className={className} text={text ?? "Thinking..."} />;
 };
 
 type ChatReasoningProps = {
   text?: string;
+  className?: string;
+  as?: "p" | "span";
 };
 
-export const ChatReasoning: FC<ChatReasoningProps & Partial<ComponentProps<typeof ShinyText>>> = ({
-  text,
-  ...props
-}) => {
-  return (
-    <ShinyText
-      disabled={false}
-      speed={TEXT_ANIMATION_SPEED}
-      text={text ?? "Reasoning..."}
-      {...props}
-    />
-  );
+export const ChatReasoning: FC<ChatReasoningProps> = ({ text, className, as }) => {
+  return <ProcessingTextBurn as={as} className={className} text={text ?? "Reasoning..."} />;
 };
 
 type ChatSearchingProps = {
   text?: string;
   query?: string;
   sources?: ExaSearchResultSource[];
+  className?: string;
+  as?: "p" | "span";
 };
 
-export const ChatSearching: FC<ChatSearchingProps & Partial<ComponentProps<typeof ShinyText>>> = ({
-  text,
-  query,
-  sources,
-  ...props
-}) => {
+export const ChatSearching: FC<ChatSearchingProps> = ({ text, sources, className, as }) => {
   return (
     <div className="flex flex-col gap-2 py-2">
-      <ShinyText
-        disabled={false}
-        speed={TEXT_ANIMATION_SPEED}
-        text={text ?? "Reasoning..."}
-        {...props}
-      />
+      <ProcessingTextBurn as={as} className={className} text={text ?? "Searching..."} />
       {sources && sources.length > 0 && (
         <Collapsible className="pl-2 space-y-1">
           <CollapsibleTrigger className="text-xs text-muted-foreground line-clamp-1 text-ellipsis flex gap-1.5 items-center justify-start pr-10 cursor-pointer group">

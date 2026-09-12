@@ -376,7 +376,7 @@ export function DmzIntelligenceTransfer({
 
         {intakeSummary ? (
           <div className="rounded-lg border border-border/40 bg-background/50 px-3 py-2.5">
-            <p className="mb-1 text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
+            <p className="mb-1 text-2xs font-medium uppercase tracking-wide text-muted-foreground">
               Review summary
             </p>
             <p className="whitespace-pre-line text-sm leading-snug text-foreground/90">{intakeSummary}</p>

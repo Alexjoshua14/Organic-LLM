@@ -28,7 +28,7 @@ export const GetMoreChatHistoryToolResultCard = memo(function GetMoreChatHistory
       >
         <span className="text-destructive/90">Additional chat history could not be fetched</span>
         {expanded ? (
-          <span className="text-muted-foreground mt-0.5 block text-[10px] leading-snug">
+          <span className="text-muted-foreground mt-0.5 block text-2xs leading-snug">
             {parsed.message}
           </span>
         ) : null}
@@ -44,7 +44,7 @@ export const GetMoreChatHistoryToolResultCard = memo(function GetMoreChatHistory
     >
       <span>Additional chat history fetched</span>
       {expanded ? (
-        <span className="mt-0.5 block text-[10px] leading-snug">
+        <span className="mt-0.5 block text-2xs leading-snug">
           {formatGetMoreChatHistoryExpandedDetail(parsed)}
         </span>
       ) : null}

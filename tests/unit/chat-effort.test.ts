@@ -14,6 +14,12 @@ describe("getEffortLevelsForModel", () => {
     expect(ids).toEqual(["auto", "none", "low", "medium", "high", "xhigh", "max"]);
   });
 
+  test("GPT-6 Astra has no none or minimal", () => {
+    const ids = getEffortLevelsForModel("openai/gpt-6-astra").map((r) => r.id);
+
+    expect(ids).toEqual(["auto", "low", "medium", "high", "xhigh", "max"]);
+  });
+
   test("GPT-5.5 Pro is restricted to medium–xhigh", () => {
     const ids = getEffortLevelsForModel("openai/gpt-5.5-pro").map((r) => r.id);
 
@@ -34,10 +40,10 @@ describe("getEffortLevelsForModel", () => {
     expect(ids).toEqual(["auto", "low", "medium", "high"]);
   });
 
-  test("Gemini 3.5 Flash includes minimal", () => {
-    const ids = getEffortLevelsForModel("google/gemini-3.5-flash").map((r) => r.id);
+  test("Gemini 3.8 Flash has no minimal", () => {
+    const ids = getEffortLevelsForModel("google/gemini-3.8-flash").map((r) => r.id);
 
-    expect(ids).toEqual(["auto", "minimal", "low", "medium", "high"]);
+    expect(ids).toEqual(["auto", "low", "medium", "high"]);
   });
 
   test("Perplexity has no configurable effort", () => {
@@ -60,6 +66,10 @@ describe("clampEffortForModel", () => {
 
   test("clamps minimal toward none when only none exists", () => {
     expect(clampEffortForModel("openai/gpt-5.6-terra", "minimal")).toBe("none");
+  });
+
+  test("clamps none to low when GPT-6 Astra has no none", () => {
+    expect(clampEffortForModel("openai/gpt-6-astra", "none")).toBe("low");
   });
 
   test("unsupported models collapse to auto", () => {
@@ -103,6 +113,14 @@ describe("buildEffortProviderOptions", () => {
 
   test("maps Gemini 3 thinkingLevel", () => {
     const opts = buildEffortProviderOptions("google/gemini-3.5-flash", "low");
+
+    expect(opts?.google).toEqual({
+      thinkingConfig: { thinkingLevel: "low" },
+    });
+  });
+
+  test("maps Gemini 3.8 Flash none to low thinking", () => {
+    const opts = buildEffortProviderOptions("google/gemini-3.8-flash", "none");
 
     expect(opts?.google).toEqual({
       thinkingConfig: { thinkingLevel: "low" },

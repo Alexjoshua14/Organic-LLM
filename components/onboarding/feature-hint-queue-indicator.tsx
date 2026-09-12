@@ -20,7 +20,7 @@ export function FeatureHintQueueIndicator({ index, total, className }: FeatureHi
     <p
       aria-label={`Tip ${index} of ${total}`}
       className={cn(
-        "text-[10px] font-medium tabular-nums tracking-wide text-muted-foreground/80",
+        "text-2xs font-medium tabular-nums tracking-wide text-muted-foreground/80",
         className
       )}
     >

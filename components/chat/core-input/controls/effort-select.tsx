@@ -2,6 +2,8 @@
 
 import { useCoreInputControls } from "../core-input-context";
 
+import { composerSelectSegmentClasses } from "./select-segment";
+
 import {
   PromptInputSelect,
   PromptInputSelectContent,
@@ -34,10 +36,14 @@ export function ComposerEffortSelect() {
           effortSelectable ? "Reasoning effort" : "Reasoning effort unavailable for this model"
         }
         className={cn(
-          "shrink-0 min-w-0",
-          useCondensedLayout ? "max-w-19" : "max-w-24 sm:max-w-28",
-          !effortSelectable && "opacity-50"
+          composerSelectSegmentClasses,
+          "rounded-l-none rounded-r-md",
+          // The wrapper owns the fade-out; without this the base
+          // `disabled:opacity-50` would snap to half-opacity before it starts.
+          "disabled:opacity-100",
+          useCondensedLayout ? "max-w-19" : "max-w-24 sm:max-w-28"
         )}
+        size="sm"
         title={
           effortSelectable
             ? "Reasoning effort"

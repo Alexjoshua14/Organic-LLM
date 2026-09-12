@@ -15,6 +15,7 @@ import { getSupabaseUserId } from "@/data/supabase/profiles";
 import { checkLlmMessageLimit } from "@/lib/rate-limit/llm";
 import { createLogger } from "@/lib/logger";
 import { parseWineCount, extractWines } from "@/lib/llm/sommelier";
+import { models, providerModelSlug } from "@/lib/schemas/chat-models";
 
 export const maxDuration = 30;
 
@@ -112,7 +113,7 @@ export async function POST(req: Request) {
       });
 
       const result = streamText({
-        model: openai("gpt-4o-mini"),
+        model: openai(providerModelSlug(models.openai.luna.id)),
         messages: convertToModelMessages(validatedMessages),
         system: "Reply with only: Here are the suggestions.",
         maxOutputTokens: 20,

@@ -5,7 +5,8 @@ import type { JSONValue } from "@ai-sdk/provider";
 
 import z from "zod";
 
-import { AUTO_CHAT_MODEL_ID, AUTO_RESOLVED_SONNET_MODEL_ID } from "@/lib/schemas/chat-model-ids";
+import { AUTO_CHAT_MODEL_ID } from "@/lib/schemas/chat-model-ids";
+import { AUTO_RESOLVED_SONNET_MODEL_ID } from "@/lib/schemas/chat-models";
 
 /**
  * Unified composer effort dial. Not every provider/model accepts every value —
@@ -64,6 +65,12 @@ export type EffortCapability = {
   /** When false, only Auto is shown; provider options are omitted. */
   configurable: boolean;
   levels: Exclude<ChatEffortLevel, "auto">[];
+};
+
+/** GPT-6 Astra — no `none` / `minimal`; gateway lists low through max. */
+const OPENAI_GPT6: EffortCapability = {
+  configurable: true,
+  levels: ["low", "medium", "high", "xhigh", "max"],
 };
 
 const OPENAI_GPT56: EffortCapability = {
@@ -171,6 +178,7 @@ export function getEffortCapabilityForModel(modelId: string): EffortCapability {
   const slug = stripProviderPrefix(modelId).toLowerCase();
 
   if (provider === "openai") {
+    if (slug.includes("gpt-6")) return OPENAI_GPT6;
     if (slug.includes("gpt-5.6")) return OPENAI_GPT56;
     if (slug.includes("gpt-5.5-pro") || /gpt-5\.5.*-pro/.test(slug)) return OPENAI_GPT55_PRO;
     if (slug.includes("gpt-5.5")) return OPENAI_GPT55;
@@ -210,6 +218,8 @@ export function getEffortCapabilityForModel(modelId: string): EffortCapability {
     if (slug.includes("3.1-pro") || (slug.includes("3-pro") && !slug.includes("flash"))) {
       return GOOGLE_PRO_LEVELS;
     }
+    // 3.8 Flash: gateway + Gemini API reject `minimal`.
+    if (slug.includes("3.8-flash")) return GOOGLE_PRO_LEVELS;
     if (slug.includes("gemini-3") || slug.includes("3.5-flash") || slug.includes("3-flash")) {
       return GOOGLE_FLASH_LEVELS;
     }
@@ -401,7 +411,8 @@ export function buildEffortProviderOptions(
     if (googleUsesThinkingLevel(slug)) {
       if (clamped === "none") {
         // Gemini 3.x cannot disable thinking; map to lowest available level.
-        const level = slug.includes("pro") ? "low" : "minimal";
+        const capability = getEffortCapabilityForModel(resolvedId);
+        const level = capability.levels.includes("minimal") ? "minimal" : "low";
 
         return {
           google: {

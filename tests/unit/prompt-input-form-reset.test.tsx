@@ -8,11 +8,22 @@ import {
 } from "@/components/third-party/ai-elements/prompt-input";
 import { render } from "../helpers/render";
 
-afterEach(cleanup);
+const originalMatchMediaDescriptor = Object.getOwnPropertyDescriptor(window, "matchMedia");
+
+afterEach(() => {
+  cleanup();
+
+  if (originalMatchMediaDescriptor) {
+    Object.defineProperty(window, "matchMedia", originalMatchMediaDescriptor);
+  } else {
+    delete (window as Partial<Window>).matchMedia;
+  }
+});
 
 beforeEach(() => {
   Object.defineProperty(window, "matchMedia", {
     configurable: true,
+    writable: true,
     value: (query: string) => ({
       media: query,
       matches: true,

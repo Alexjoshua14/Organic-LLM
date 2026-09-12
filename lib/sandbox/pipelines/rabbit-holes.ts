@@ -11,6 +11,7 @@ import { createTrace, normalizeUsage } from "./trace";
 import { generateTitle, generateBranchSuggestions } from "@/lib/llm/rabbit-hole/generation";
 import { REFINE_QUESTION_SYSTEM_PROMPT } from "@/lib/system-prompt/rabbit-hole";
 import { GUARDRAIL_MAX_OUTPUT_TOKENS } from "@/lib/llm/helpers";
+import { models, providerModelSlug } from "@/lib/schemas/chat-models";
 
 export type RabbitHoleTitleRunResult = {
   title: string | null;
@@ -135,7 +136,7 @@ export async function runQuestionRefinementScenario(params: {
 
   try {
     const { text, usage } = await generateText({
-      model: openai("gpt-5.4-nano"),
+      model: openai(providerModelSlug(models.openai.luna.id)),
       system: REFINE_QUESTION_SYSTEM_PROMPT,
       prompt,
       maxOutputTokens: GUARDRAIL_MAX_OUTPUT_TOKENS,

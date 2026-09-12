@@ -62,4 +62,4 @@ export const toolResultSummaryButtonClass =
 export const toolResultErrorSummaryButtonClass =
   "min-w-0 flex-1 cursor-pointer text-left text-xs";
 
-export const toolResultExpandedDetailClass = "mt-0.5 block text-[10px] leading-snug";
+export const toolResultExpandedDetailClass = "mt-0.5 block text-2xs leading-snug";

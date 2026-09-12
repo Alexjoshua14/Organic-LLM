@@ -16,7 +16,7 @@ export function MobileSourcePills({ sources, onSourceClick }: MobileSourcePillsP
 
   return (
     <div className="rabbit-hole-mobile-source-pills -mx-1 px-1">
-      <p className="font-commissioner mb-2 text-[10px] font-light uppercase tracking-[0.2em] text-muted-foreground">
+      <p className="font-commissioner mb-2 text-2xs font-light uppercase tracking-[0.2em] text-muted-foreground">
         Sources
       </p>
       <div className="flex gap-2 overflow-x-auto pb-1 [-webkit-overflow-scrolling:touch] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">

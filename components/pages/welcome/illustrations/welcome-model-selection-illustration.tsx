@@ -273,7 +273,7 @@ export function WelcomeModelSelectionIllustration({
             if (heroPhase === "idle") setMarqueePaused(false);
           }}
         >
-          <p className="mb-3 text-center text-[10px] font-light uppercase tracking-[0.14em] text-muted-foreground/45">
+          <p className="mb-3 text-center text-2xs font-light uppercase tracking-[0.14em] text-muted-foreground/45">
             Available models
           </p>
           <div

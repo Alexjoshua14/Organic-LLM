@@ -39,7 +39,7 @@ function AudioRackTile({ artifact }: AudioRackTileProps) {
         </div>
         <div className="min-w-0">
           <p className="truncate text-sm font-medium">{title}</p>
-          <p className="text-[10px] text-muted-foreground">Hover to preview</p>
+          <p className="text-2xs text-muted-foreground">Hover to preview</p>
         </div>
       </div>
     </ArtifactSlot>

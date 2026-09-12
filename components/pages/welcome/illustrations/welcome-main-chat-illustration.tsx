@@ -66,7 +66,7 @@ function WelcomeMemorySearchCard() {
       isPinned={false}
       parsed={WELCOME_MAIN_CHAT_MEMORY_RESULT}
       showPin={false}
-      onTogglePin={() => {}}
+      onTogglePin={() => { }}
     />
   );
 }
@@ -77,7 +77,7 @@ function WelcomeWebSearchCard() {
       isPinned={false}
       parsed={WELCOME_MAIN_CHAT_SEARCH_RESULT}
       showPin={false}
-      onTogglePin={() => {}}
+      onTogglePin={() => { }}
     />
   );
 }
@@ -354,7 +354,7 @@ export function WelcomeMainChatIllustration({ className }: WelcomeMainChatIllust
     <div ref={rootRef} aria-label={ARIA_LABEL} className={frameClass} role="img">
       <div className="mb-2 flex shrink-0 flex-col items-center gap-0.5 text-center">
         <p className={sectionLabel}>Main chat</p>
-        <span className="text-[10px] text-muted-foreground/75">
+        <span className="text-2xs text-muted-foreground/75">
           Memory, search, stream, read aloud
         </span>
       </div>
@@ -365,7 +365,7 @@ export function WelcomeMainChatIllustration({ className }: WelcomeMainChatIllust
           className="flex min-h-[5.5rem] flex-1 flex-col gap-2 overflow-y-auto px-2.5 py-2.5 sm:min-h-[6.5rem] sm:px-3 sm:py-3"
         >
           {!showUserBubble ? (
-            <p className="py-3 text-center text-[10px] text-muted-foreground/55">
+            <p className="py-3 text-center text-2xs text-muted-foreground/55">
               Thread with tools you can inspect
             </p>
           ) : (
@@ -484,7 +484,7 @@ export function WelcomeMainChatIllustration({ className }: WelcomeMainChatIllust
                 transition={VIEW_TRANSITION}
               >
                 <div className="min-h-[2.75rem] rounded-lg border border-border/55 bg-background/55 px-2.5 py-2">
-                  <p className="text-[10px] leading-relaxed text-foreground/90">
+                  <p className="text-2xs leading-relaxed text-foreground/90">
                     {composerText}
                     {phase === "typing" ? (
                       <motion.span
@@ -503,7 +503,7 @@ export function WelcomeMainChatIllustration({ className }: WelcomeMainChatIllust
               <motion.p
                 key="hint"
                 animate={{ opacity: 1 }}
-                className="py-1 text-center text-[10px] text-muted-foreground/60"
+                className="py-1 text-center text-2xs text-muted-foreground/60"
                 exit={{ opacity: 0 }}
                 initial={{ opacity: 0.45 }}
                 transition={VIEW_TRANSITION}

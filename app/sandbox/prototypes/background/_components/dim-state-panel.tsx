@@ -111,12 +111,12 @@ export function DimStatePanel({ dimmed, className }: DimStatePanelProps) {
 
         <div className="min-w-0 flex-1 space-y-2 pt-1">
           <div className="flex flex-wrap items-center gap-2">
-            <span className="text-[10px] font-medium uppercase tracking-[0.18em] text-muted-foreground">
+            <span className="text-2xs font-medium uppercase tracking-[0.18em] text-muted-foreground">
               Live brightness
             </span>
             <span
               className={cn(
-                "rounded-full px-2 py-0.5 text-[10px] font-medium",
+                "rounded-full px-2 py-0.5 text-2xs font-medium",
                 phase === "dimmed"
                   ? "bg-primary/15 text-primary"
                   : phase === "rest"

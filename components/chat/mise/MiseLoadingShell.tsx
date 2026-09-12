@@ -20,7 +20,7 @@ export function MiseLoadingShell({ title }: { title?: string }) {
     >
       <div className="flex items-center justify-between gap-2">
         <div className="min-w-0 flex-1 space-y-1">
-          <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+          <span className="text-2xs font-semibold uppercase tracking-wide text-muted-foreground">
             Remy
           </span>
           {title ? (
@@ -29,7 +29,7 @@ export function MiseLoadingShell({ title }: { title?: string }) {
             <Shimmer className="h-4 w-2/3 max-w-xs" />
           )}
         </div>
-        <span className="text-[10px] uppercase tracking-wide text-muted-foreground">
+        <span className="text-2xs uppercase tracking-wide text-muted-foreground">
           Plating up…
         </span>
       </div>

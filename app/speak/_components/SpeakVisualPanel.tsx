@@ -38,7 +38,7 @@ export function SpeakVisualPanel({
         "flex max-h-[45vh] min-h-0 w-full flex-col gap-3 overflow-y-auto border-t p-4 lg:max-h-none lg:w-[min(42%,28rem)] lg:border-l lg:border-t-0"
       )}
     >
-      <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Visual channel</p>
+      <p className="text-2xs uppercase tracking-wide text-muted-foreground">Visual channel</p>
 
       {showWeb && webPreview ? (
         <div className="flex min-h-[16rem] flex-col overflow-hidden rounded-xl border border-white/10">
@@ -58,19 +58,19 @@ export function SpeakVisualPanel({
 
       {showGenUi
         ? genUiBlocks.map((item) => (
-            <div
-              key={`${item.instanceId}-${item.remountKey}`}
-              className="rounded-xl border border-white/10 bg-black/20 p-2"
-            >
-              <p className="mb-2 font-mono text-[10px] text-muted-foreground">{item.instanceId}</p>
-              <GenUIRenderer data={{ block: item.block }} messageId={item.instanceId} />
-            </div>
-          ))
+          <div
+            key={`${item.instanceId}-${item.remountKey}`}
+            className="rounded-xl border border-white/10 bg-black/20 p-2"
+          >
+            <p className="mb-2 font-mono text-2xs text-muted-foreground">{item.instanceId}</p>
+            <GenUIRenderer data={{ block: item.block }} messageId={item.instanceId} />
+          </div>
+        ))
         : null}
 
       {surfaces.map(([surfaceId, items]) => (
         <div key={surfaceId} className="rounded-xl border border-white/10 bg-black/20 p-3">
-          <p className="mb-2 text-[10px] uppercase tracking-wide text-muted-foreground">
+          <p className="mb-2 text-2xs uppercase tracking-wide text-muted-foreground">
             State · {surfaceId}
           </p>
           <ul className="space-y-1 text-xs text-foreground/80">

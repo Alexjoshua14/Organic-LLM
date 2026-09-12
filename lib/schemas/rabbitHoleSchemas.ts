@@ -40,6 +40,11 @@ export const RabbitHoleNodeSchema = z.object({
     .optional()
     .or(z.null()),
   preview: z.string().describe("Preview of the node content").optional().or(z.null()),
+  summary: z
+    .string()
+    .describe("Token-efficient overview of article content for graph context retrieval")
+    .optional()
+    .or(z.null()),
   keyTakeaways: z
     .array(z.string())
     .max(6)
@@ -99,6 +104,7 @@ export const RabbitHoleSessionSchema = z.object({
   generatingNodeId: z.string().optional().nullable(),
   generationStep: GenerationStep.optional().nullable(),
   edges: z.array(RabbitHoleEdgeSchema).optional(),
+  chatThreadId: z.string().uuid().optional().nullable(),
   createdAt: z.string(),
   updatedAt: z.string().optional(),
 });

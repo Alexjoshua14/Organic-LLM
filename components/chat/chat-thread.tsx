@@ -1,16 +1,17 @@
 "use client";
 
 import type { ExaSearchResultSource } from "@/lib/exa/types";
+import type { ChatStatus, UIMessage } from "ai";
 
 import { FC } from "react";
-import { UIMessage } from "ai";
 
-import { ChatEmptyStateGuide } from "@/components/onboarding/chat-empty-state-guide";
 import { ConversationContent } from "../third-party/ai-elements/conversation";
 
-import { ChatMessage } from "./chat-message";
+import { ChatAIAction, ChatMessage } from "./chat-message";
 
+import { ChatEmptyStateGuide } from "@/components/onboarding/chat-empty-state-guide";
 import { ARCADIA_HELP_LATEST_ONLY, isArcadiaHelpMessage } from "@/lib/arcadia/help-response";
+import { resolveThreadLiveAiAction } from "@/lib/chat/optimistic-ai-action";
 import { ChatAIActionEnum } from "@/types/ai";
 import { cn } from "@/lib/utils";
 import { getAssistantModelSummary } from "@/lib/chat/message-model";
@@ -26,6 +27,8 @@ type ChatThreadProps = {
   className?: string;
   /** Extra class for the scrollable content (e.g. bottom padding when memory panel can overlay). */
   contentClassName?: string;
+  /** useChat status — drives the on-device receipt before stream bytes arrive. */
+  status?: ChatStatus;
   aiActionPayload?: {
     action: ChatAIActionEnum;
     message?: string;
@@ -40,10 +43,16 @@ export const ChatThread: FC<ChatThreadProps> = ({
   chatId,
   className,
   contentClassName,
+  status,
   aiActionPayload,
   renderEmptyState,
 }) => {
   const lastMessageIndex = messages.length - 1;
+  const liveAiAction = resolveThreadLiveAiAction({
+    lastMessageRole: messages[lastMessageIndex]?.role,
+    status,
+    aiActionPayload,
+  });
   const modelSummary = getAssistantModelSummary(messages);
 
   const lastArcadiaHelpMessageId =
@@ -96,7 +105,11 @@ export const ChatThread: FC<ChatThreadProps> = ({
             return (
               <ChatMessage
                 key={message.id}
-                aiActionPayload={index === lastMessageIndex ? aiActionPayload : undefined}
+                aiActionPayload={
+                  index === lastMessageIndex && liveAiAction.placement === "last-message"
+                    ? liveAiAction.payload
+                    : undefined
+                }
                 chatId={chatId}
                 isLatestArcadiaHelp={
                   isArcadiaHelpMessage(message) ? isLatestArcadiaHelp : undefined
@@ -107,6 +120,13 @@ export const ChatThread: FC<ChatThreadProps> = ({
             );
           })
         )}
+        {liveAiAction.placement === "after-user" && liveAiAction.payload ? (
+          <div className="group/ai-message flex flex-col gap-2 rounded-lg p-4">
+            <div className="ai-message max-w-full space-y-2 text-foreground">
+              <ChatAIAction aiActionPayload={liveAiAction.payload} />
+            </div>
+          </div>
+        ) : null}
       </div>
     </ConversationContent>
   );

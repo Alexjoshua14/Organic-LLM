@@ -10,6 +10,7 @@
  */
 import type { GatewayModelId } from "@ai-sdk/gateway";
 import type { MemoryItemType } from "@/lib/schemas/memory";
+import { models } from "@/lib/schemas/chat-models";
 
 import { generateText, type UIMessage } from "ai";
 import { z } from "zod";
@@ -20,7 +21,7 @@ import { createLogger } from "@/lib/logger";
 const logger = createLogger("lib/memory/query-rewriter.ts");
 
 /** Small, fast gateway model for JSON-only rewrite output. */
-const DEFAULT_REWRITE_MODEL: GatewayModelId = "openai/gpt-5.4-nano";
+const DEFAULT_REWRITE_MODEL: GatewayModelId = models.openai.luna.id as GatewayModelId;
 /** Fail closed to raw query so context build does not block on rewrite latency. */
 const DEFAULT_TIMEOUT_MS = 800;
 /** Per-turn transcript cap inside the rewriter prompt (tokens-ish safety). */
@@ -54,9 +55,9 @@ export type RewriteMemoryQueryOpts = {
   ) => ReturnType<typeof generateText>;
 };
 
-/** Result of rewrite: always at least one string to pass to Mem0 (may be the raw query). */
+/** Result of rewrite: 0–3 search strings for Mem0 (empty when the raw query is blank). */
 export type RewriteMemoryQueryResult = {
-  /** Each entry is one Mem0 search; deduped, at most three strings. */
+  /** Each entry is one Mem0 search; deduped, at most three strings. Empty when there is nothing to embed. */
   queries: string[];
   /** True when the LLM produced parsed JSON queries (not heuristic-only / fallback). */
   usedRewrite: boolean;
@@ -256,15 +257,15 @@ export function buildRecentTurnsForMemoryRewrite(
 }
 
 /**
- * Produce 1–3 standalone search strings **for Mem0 only**.
+ * Produce 0–3 standalone search strings **for Mem0 only**.
  *
  * **Contract:** Use {@link RewriteMemoryQueryResult.queries} only as search strings. Never
  * substitute them into the user's {@link UIMessage} or the main chat model's message list.
  *
- * **Flow:** Env off → `[rawQuery]`; empty → `[""]`; {@link shouldShortCircuitMemoryRewrite} →
+ * **Flow:** Env off → `[rawQuery]` or `[]` if blank; empty → `[]`; {@link shouldShortCircuitMemoryRewrite} →
  * `[rawQuery]`; else LLM JSON with {@link DEFAULT_TIMEOUT_MS} cap → parse or fallback to `[rawQuery]`.
  *
- * @param rawQuery - Latest user text (same as extracted from the current message for memory).
+ * @param rawQuery - models user text (same as extracted from the current message for memory).
  * @param recentMessages - Short window from {@link buildRecentTurnsForMemoryRewrite}.
  * @param opts - Model, timeout, feature flag, or test doubles.
  */
@@ -277,11 +278,11 @@ export async function rewriteMemoryQuery(
   const enabled = opts?.enabled ?? isArcadiaQueryRewriteEnabled();
 
   if (!enabled) {
-    return { queries: trimmed ? [trimmed] : [""], usedRewrite: false };
+    return { queries: trimmed ? [trimmed] : [], usedRewrite: false };
   }
 
   if (!trimmed) {
-    return { queries: [""], usedRewrite: false };
+    return { queries: [], usedRewrite: false };
   }
 
   if (shouldShortCircuitMemoryRewrite(trimmed, recentMessages)) {

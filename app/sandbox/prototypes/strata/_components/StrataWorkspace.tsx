@@ -51,7 +51,7 @@ export function StrataAssistantOpenHint() {
       onClick={() => ctx.setOpen(true)}
     >
       Assistant <span className="hidden sm:inline">· </span>
-      <kbd className="font-sans text-[10px] opacity-80">⌘⌥B</kbd>
+      <kbd className="font-sans text-2xs opacity-80">⌘⌥B</kbd>
     </button>
   );
 }
@@ -109,7 +109,7 @@ export function StrataWorkspace({
           >
             <div className="flex shrink-0 items-center justify-between gap-2 border-b border-border/50 px-3 py-2">
               <div className="min-w-0 flex-1 text-left">
-                <span className="block text-[10px] font-medium uppercase tracking-[0.2em] text-muted-foreground">
+                <span className="block text-2xs font-medium uppercase tracking-[0.2em] text-muted-foreground">
                   Assistant
                 </span>
                 <span className="block truncate text-sm font-semibold tracking-tight text-foreground">

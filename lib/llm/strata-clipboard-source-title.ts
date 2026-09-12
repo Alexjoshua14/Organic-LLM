@@ -6,9 +6,11 @@ import { KNOWLEDGE_GATEWAY_PROVIDER_OPTIONS } from "@/lib/knowledge/gateway-opti
 import { createLogger } from "@/lib/logger";
 import { recordLlmCall } from "@/lib/llm/metrics";
 
+import { models } from "@/lib/schemas/chat-models";
+
 const logger = createLogger("lib/llm/strata-clipboard-source-title.ts");
 
-const STRATA_CLIPBOARD_TITLE_MODEL = "openai/gpt-5.4-nano" as const;
+const STRATA_CLIPBOARD_TITLE_MODEL = models.openai.luna.id;
 
 /** Only this prefix of the pasted excerpt is sent to the model (cost + context cap). */
 const STRATA_CLIPBOARD_TITLE_LLM_INPUT_MAX = 8_000;

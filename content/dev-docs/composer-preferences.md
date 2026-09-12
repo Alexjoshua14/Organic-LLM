@@ -14,6 +14,14 @@ Centralized in `lib/chat/composer-tool-defaults.ts`:
 
 Override per surface with `defaultWebSearch`, `defaultMemories`, or `defaultModel` on `CoreInput`.
 
+## Model catalog (`models` vs picker)
+
+App code should import `models` from `lib/schemas/chat-models.ts` (re-exported from `lib/schemas/chat.ts`) and pass `models.provider.family.id` to the gateway (for example `models.openai.luna.id`). Aliases are a **developer index**, not a picker option and not what we persist.
+
+The composer lists `ChatModels` (Auto + rows with `picker !== false`) and displays each row’s `name`. `localStorage` and `ChatRequest.model.id` stay gateway ids (or `organic-llm/auto`). Message badges resolve the stored id via `getModelDisplayName`.
+
+To upgrade a family, change that catalog row’s `id` / `name` and leave `alias` in place. See [`docs/architecture/decisions/20260909-chat-model-aliases.md`](https://github.com/alexjoshua14/organic-llm/blob/main/docs/architecture/decisions/20260909-chat-model-aliases.md).
+
 ## Persistence (`localStorage`)
 
 Prefs sync to the browser origin (host + port). Keys:
@@ -47,10 +55,10 @@ When the selected model is **Auto** (`AUTO_CHAT_MODEL_ID`), the chat API resolve
 - Implementation: `lib/llm/auto-model-router.ts`
 - Entry: `app/api/chat/route.ts` (and other routes that honour Auto)
 
-Current v1 policy:
+Current v1 policy (families via `models` in `lib/llm/auto-model-router.ts`):
 
-- **Reflex tier** — short, non-analytical prompts → cheaper/fast models (Haiku, Flash Lite, Nano when ZDR allows)
-- **Reasoning tier** — long text or reasoning keywords → Sonnet-class (or Sonar when ZDR off)
+- **Reflex tier** — short, non-analytical prompts → cheaper/fast models (Flash Lite, Haiku, Luna)
+- **Reasoning tier** — long text or reasoning keywords → Opus / Flash / Sol (Sonar when ZDR is off)
 
 ZDR (zero data retention) setting filters non-ZDR models when enabled.
 
@@ -71,9 +79,9 @@ Document design decisions here as orchestration lands.
 | Defaults | `lib/chat/composer-tool-defaults.ts` |
 | Composer UI | `components/chat/core-input.tsx` |
 | Auto router | `lib/llm/auto-model-router.ts` |
-| Model schema | `lib/schemas/chat.ts` |
+| Model catalog | `lib/schemas/chat-models.ts` (re-exported from `lib/schemas/chat.ts`) |
 | Main chat POST | `app/api/chat/route.ts` |
-| Tests | `tests/unit/composer-tool-defaults.test.ts`, `tests/unit/auto-model-router.test.ts` |
+| Tests | `tests/unit/composer-tool-defaults.test.ts`, `tests/unit/auto-model-router.test.ts`, `tests/unit/chat-models.test.ts` |
 
 ## Related docs
 

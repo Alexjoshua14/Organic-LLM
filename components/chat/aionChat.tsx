@@ -211,7 +211,7 @@ export const AionChat: React.FC<ChatProps> = ({ chatData, endpoint, persona }) =
         ].join(" ")}
         style={{ paddingBottom: "8rem" }}
       >
-        <ChatThread messages={messages} />
+        <ChatThread messages={messages} status={status} />
         <ConversationScrollButton className="bottom-46" />
       </Conversation>
       <CoreInput

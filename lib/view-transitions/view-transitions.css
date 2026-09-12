@@ -1,0 +1,6 @@
+/* Shared guardrails for document.startViewTransition — only named/class morphs animate. */
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation: none;
+  mix-blend-mode: normal;
+}

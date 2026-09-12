@@ -189,6 +189,7 @@ describe("POST /api/ai/aion (integration)", () => {
     expect(typeof call.model).toBe("string");
     expect(call.model.length > 0).toBe(true);
     expect(typeof call.system).toBe("string");
+    expect(call.system).toMatch(/\n\nAdditional Info:\nThe current date is \S+Z$/);
     expect(call.tools != null).toBe(true);
     expect(call.tools!.search_memories != null).toBe(true);
     expect(call.tools!.show_memories != null).toBe(true);

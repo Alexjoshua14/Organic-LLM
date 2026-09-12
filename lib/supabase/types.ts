@@ -449,6 +449,7 @@ export type Database = {
           key_takeaways: string[];
           node_id: string;
           preview: string | null;
+          summary: string | null;
           raw_prompt: string;
           session_id: string;
           title: string | null;
@@ -461,6 +462,7 @@ export type Database = {
           key_takeaways: string[];
           node_id: string;
           preview?: string | null;
+          summary?: string | null;
           raw_prompt: string;
           session_id: string;
           title?: string | null;
@@ -473,6 +475,7 @@ export type Database = {
           key_takeaways?: string[];
           node_id?: string;
           preview?: string | null;
+          summary?: string | null;
           raw_prompt?: string;
           session_id?: string;
           title?: string | null;

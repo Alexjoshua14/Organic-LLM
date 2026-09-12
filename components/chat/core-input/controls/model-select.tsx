@@ -2,6 +2,8 @@
 
 import { useCoreInputControls } from "../core-input-context";
 
+import { composerSelectSegmentClasses } from "./select-segment";
+
 import { ModelZdrIndicator } from "@/components/chat/model-zdr-indicator";
 import {
   PromptInputSelect,
@@ -23,10 +25,16 @@ export function ComposerModelSelect() {
       onValueChange={onModelChange}
     >
       <PromptInputSelectTrigger
+        aria-label="Model"
         className={cn(
-          "shrink-0 min-w-0",
+          composerSelectSegmentClasses,
+          // Reclaims the right corners once effort slides away, so the hover
+          // fill stops squaring off against the frame's rounded edge.
+          "rounded-l-md rounded-r-none group-data-[effort=hidden]/segments:rounded-r-md",
           useCondensedLayout ? "max-w-30" : "max-w-32 sm:max-w-48"
         )}
+        size="sm"
+        title="Model"
       >
         <PromptInputSelectValue className="truncate min-w-0">
           <span className="flex min-w-0 items-center gap-2">

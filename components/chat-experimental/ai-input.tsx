@@ -12,6 +12,8 @@ import { HomepagePrimaryActions } from "@/components/pages/homepage-primary-acti
 import { createStrataPageWithRawTextAction } from "@/app/sandbox/prototypes/strata/actions";
 import { useAion } from "@/hooks/use-aion";
 import { createLogger } from "@/lib/logger";
+import { PERF_PHASES } from "@/lib/perf/journeys";
+import { mark, startJourney } from "@/lib/perf/trace-store";
 import { createChat } from "@/lib/chat/chat-store";
 import { routeHomepagePrompt } from "@/lib/chat/thread-routing";
 import {
@@ -36,6 +38,10 @@ export type AIInputProps = {
   onComposerDoubleTap?: () => void;
   /** When true, primary actions render outside (homepage shell full view). */
   hideEmbedActions?: boolean;
+  /** Full-view docked near viewport bottom (browser chrome focused). */
+  composerDocked?: boolean;
+  /** Disable Framer layout on the shell (morph physics owns geometry). */
+  disableLayoutAnimation?: boolean;
   onPlanComplete?: (plan: HomepagePlanIntent, userPrompt: string) => void;
   /** Cmd/Ctrl+Enter capture — if omitted, uses Strata save + navigate */
   onStrataShortcut?: (text: string) => void | Promise<void>;
@@ -49,6 +55,8 @@ export const AIInput: React.FC<AIInputProps> = ({
   previewIntent = null,
   onComposerDoubleTap,
   hideEmbedActions = false,
+  composerDocked = false,
+  disableLayoutAnimation = false,
   onPlanComplete,
   onStrataShortcut: onStrataShortcutProp,
 }) => {
@@ -60,6 +68,7 @@ export const AIInput: React.FC<AIInputProps> = ({
   const handleLetsChat = useCallback(async () => {
     if (creating) return;
     setCreating(true);
+    startJourney("to-chat", "aion-navigate");
     try {
       const res = await createChat();
 
@@ -70,7 +79,9 @@ export const AIInput: React.FC<AIInputProps> = ({
       }
       const id = res.data;
 
+      mark(PERF_PHASES.chatCreated);
       refreshSidebarChats();
+      mark(PERF_PHASES.navPush);
       router.push(`/chat/${id}`);
     } catch (error) {
       logger.error("handleLetsChat", `Error creating chat: ${error}`);
@@ -244,17 +255,22 @@ export const AIInput: React.FC<AIInputProps> = ({
 
   return (
     <motion.div
-      layout
+      layout={disableLayoutAnimation ? false : undefined}
       className={cn(
         "mx-auto flex w-full flex-col gap-4",
         fullView ? "min-h-0 max-w-2xl flex-1" : "max-w-xl"
       )}
       tabIndex={-1}
-      transition={{ ...HOME_INPUT_SPRING, layout: { ...HOME_INPUT_SPRING } }}
+      transition={
+        disableLayoutAnimation
+          ? undefined
+          : { ...HOME_INPUT_SPRING, layout: { ...HOME_INPUT_SPRING } }
+      }
     >
       <AiInputForm
-        className={cn("w-full rounded-xl", fullView && "flex-1 min-h-0")}
+        className={cn("w-full rounded-xl", fullView && !composerDocked && "flex-1 min-h-0")}
         clearAfterSubmit={!planMode}
+        composerDocked={composerDocked}
         forceReadyInput={planMode}
         fullView={fullView}
         isLoading={isProcessing}

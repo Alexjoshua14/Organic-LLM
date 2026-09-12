@@ -28,11 +28,11 @@ export function PrototypesSidebarNav({ prototypes }: { prototypes: RankedPrototy
           >
             <div className="flex w-full justify-center">
               <div className="inline-flex min-w-0 max-w-full items-center justify-center gap-2 text-center">
-                <span className="shrink-0 text-[10px] font-medium text-muted-foreground">
+                <span className="shrink-0 text-2xs font-medium text-muted-foreground">
                   {String(index + 1).padStart(2, "0")}
                 </span>
                 <p className="min-w-0 truncate text-sm font-medium">{prototype.title}</p>
-                <span className="shrink-0 rounded-full border border-border/50 px-2 py-0.5 text-[10px] text-muted-foreground">
+                <span className="shrink-0 rounded-full border border-border/50 px-2 py-0.5 text-2xs text-muted-foreground">
                   {Math.round(prototype.score)}
                 </span>
               </div>

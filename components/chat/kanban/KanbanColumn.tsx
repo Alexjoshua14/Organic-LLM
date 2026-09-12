@@ -13,7 +13,7 @@ export function KanbanColumn({ group }: { group: KanbanColumnGroup }) {
         <span className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
           {group.label}
         </span>
-        <span className="rounded-full bg-background-tertiary/60 px-1.5 text-[10px] font-medium text-muted-foreground">
+        <span className="rounded-full bg-background-tertiary/60 px-1.5 text-2xs font-medium text-muted-foreground">
           {group.items.length}
         </span>
       </div>

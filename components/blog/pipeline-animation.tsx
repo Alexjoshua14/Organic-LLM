@@ -8,7 +8,7 @@ import { cn } from "@/lib/utils";
 const FIGURE_HEIGHT = 180;
 
 const ENCRYPTED_BUBBLE_CLASS =
-  "absolute rounded border border-amber-600/50 bg-amber-500/15 backdrop-blur-sm px-3 py-0.5 text-[10px] text-foreground flex flex-col items-center gap-0.5 w-fit min-w-[120px] box-border -translate-x-1/2 -translate-y-1/2";
+  "absolute rounded border border-amber-600/50 bg-amber-500/15 backdrop-blur-sm px-3 py-0.5 text-2xs text-foreground flex flex-col items-center gap-0.5 w-fit min-w-[120px] box-border -translate-x-1/2 -translate-y-1/2";
 
 function EncryptedMessageBubble({
   animate,
@@ -415,7 +415,7 @@ export function PipelineAnimation({ className }: { className?: string }) {
           </motion.div>
           <motion.div
             animate={chunk1Slot}
-            className="absolute z-10 rounded bg-primary/20 px-1.5 py-0.5 text-[10px] -translate-x-1/2 -translate-y-1/2"
+            className="absolute z-10 rounded bg-primary/20 px-1.5 py-0.5 text-2xs -translate-x-1/2 -translate-y-1/2"
             initial={{
               left: `${slots.llm.x}%`,
               top: `${slots.llm.y}%`,
@@ -426,7 +426,7 @@ export function PipelineAnimation({ className }: { className?: string }) {
           </motion.div>
           <motion.div
             animate={chunk2Slot}
-            className="absolute z-10 rounded bg-primary/20 px-1.5 py-0.5 text-[10px] -translate-x-1/2 -translate-y-1/2"
+            className="absolute z-10 rounded bg-primary/20 px-1.5 py-0.5 text-2xs -translate-x-1/2 -translate-y-1/2"
             initial={{
               left: `${slots.llm.x}%`,
               top: `${slots.llm.y}%`,
@@ -437,7 +437,7 @@ export function PipelineAnimation({ className }: { className?: string }) {
           </motion.div>
           <motion.div
             animate={chunk3Slot}
-            className="absolute z-10 rounded bg-primary/20 px-1.5 py-0.5 text-[10px] -translate-x-1/2 -translate-y-1/2"
+            className="absolute z-10 rounded bg-primary/20 px-1.5 py-0.5 text-2xs -translate-x-1/2 -translate-y-1/2"
             initial={{
               left: `${slots.llm.x}%`,
               top: `${slots.llm.y}%`,
@@ -503,7 +503,7 @@ export function PipelineAnimation({ className }: { className?: string }) {
             </div>
 
             <div className={cn(TUNNEL_STYLE, "w-[162px] min-h-[32px] py-2 justify-center")}>
-              <span className="text-[10px] text-muted-foreground relative z-10">TLS</span>
+              <span className="text-2xs text-muted-foreground relative z-10">TLS</span>
             </div>
 
             <div className={cn(BOUNDARY_STYLE, "relative w-[162px] overflow-visible z-10")}>
@@ -541,14 +541,14 @@ export function PipelineAnimation({ className }: { className?: string }) {
             </div>
 
             <div className={cn(TUNNEL_STYLE, "w-[162px] min-h-[32px] py-2 justify-center")}>
-              <span className="text-[10px] text-muted-foreground relative z-10">TLS</span>
+              <span className="text-2xs text-muted-foreground relative z-10">TLS</span>
             </div>
 
             <div className={cn(BOUNDARY_STYLE, "w-[162px] relative min-h-[168px]")}>
               <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
                 Database
               </span>
-              <span className="mt-1 text-[10px] text-muted-foreground">Supabase</span>
+              <span className="mt-1 text-2xs text-muted-foreground">Supabase</span>
               <div className="mt-3 flex flex-1 flex-col justify-center gap-3">
                 <div
                   ref={dbUserSlotRef}
@@ -572,7 +572,7 @@ export function PipelineAnimation({ className }: { className?: string }) {
           {/* Right: TLS (between server and LLM, same height as server) + Cloud LLM, horizontally centered */}
           <div className="flex flex-row justify-center items-center">
             <div className={cn(TUNNEL_STYLE, "w-[66px] min-h-[96px] pt-0 justify-center shrink-0")}>
-              <span className="text-[10px] text-muted-foreground relative z-10">TLS</span>
+              <span className="text-2xs text-muted-foreground relative z-10">TLS</span>
             </div>
             <div
               className={cn(

@@ -1,8 +1,7 @@
 import { auth } from "@clerk/nextjs/server";
 import { UI_MESSAGE_STREAM_HEADERS } from "ai";
-import { after } from "next/server";
-import { createResumableStreamContext } from "resumable-stream";
 
+import { createChatResumableStreamContext } from "@/lib/chat/resumable-sse-stream";
 import { createLogger } from "@/lib/logger";
 import { readChat } from "@/lib/chat/chat-store";
 
@@ -36,9 +35,7 @@ export async function GET(_: Request, { params }: { params: Promise<{ id: string
     return new Response(null, { status: 204 });
   }
 
-  const streamContext = createResumableStreamContext({
-    waitUntil: after,
-  });
+  const streamContext = createChatResumableStreamContext();
 
   return new Response(await streamContext.resumeExistingStream(chat.thread.active_stream_id), {
     headers: UI_MESSAGE_STREAM_HEADERS,

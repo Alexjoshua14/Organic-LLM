@@ -2,33 +2,30 @@
 
 import type { CenterViewState } from "@/lib/rabbit-holes/centerViewState";
 import type {
-  RabbitHoleBranchSuggestion,
   RabbitHoleNode,
   RabbitHoleSession,
   RabbitHoleSource,
   RabbitHoleSourceAnalysis as RabbitHoleSourceAnalysisType,
 } from "@/lib/schemas/rabbitHoleSchemas";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
-import { ChevronRight, GitBranch, Paperclip } from "lucide-react";
 
 import { MobileBottomSheet, type MobileSheetSnap } from "./MobileBottomSheet";
 import { MobileHeader } from "./MobileHeader";
-import { MobileSourcePills } from "./MobileSourcePills";
+import { useRabbitHoleMobileDrawer } from "./RabbitHoleMobileDrawer";
 
 import { RabbitHoleAmbientLayer } from "@/app/rabbitholes/_components/RabbitHoleAmbientLayer";
 import { RabbitHoleArticle } from "@/app/rabbitholes/_components/RabbitHoleArticle";
 import { RabbitHoleLoadingState } from "@/app/rabbitholes/_components/RabbitHoleLoadingState";
 import { RabbitHoleSourceAnalysis } from "@/app/rabbitholes/_components/RabbitHoleSourceAnalysis";
 import { DelayedContent } from "@/app/rabbitholes/_components/DelayedContent";
-import { RabbitHolePromptBar } from "@/components/rabbit-holes/RabbitHolePromptBar";
 import { RabbitHoleEmptyState } from "@/components/rabbit-holes/main/RabbitHoleEmptyState";
 import { cn } from "@/lib/utils";
 import { RABBIT_HOLE_UNTITLED } from "@/lib/rabbit-holes/constants";
 
-const PEEK_PAD_COLLAPSED = 170;
-const PEEK_PAD_EXPANDED = 320;
+const PEEK_PAD_COLLAPSED = 188;
+const PEEK_PAD_EXPANDED = 336;
 
 export interface RabbitHoleMobileViewProps {
   session: RabbitHoleSession | null;
@@ -44,53 +41,14 @@ export interface RabbitHoleMobileViewProps {
   selectSource: (source: RabbitHoleSource) => void;
   clearSourceSelection: () => void;
   reset: () => void;
-  /** Start exploration (shell wires URL + exploreQuestion) */
-  onStartQuestion: (q: string) => Promise<void>;
+  ensureEmptySession: () => Promise<{ ok: boolean; error: Error | null; sessionId?: string }>;
+  onSessionCreated?: (sessionId: string) => void;
   setActiveNode: (id: string) => void;
   getCurrentPathIndex: () => number;
   canGoBack: () => boolean;
   canGoForward: () => boolean;
   navigateBack: () => void;
   navigateForward: () => void;
-}
-
-function MobileBranchRows({
-  branches,
-  isLoading,
-  onBranchClick,
-}: {
-  branches: RabbitHoleBranchSuggestion[];
-  isLoading: boolean;
-  onBranchClick: (id: string) => void;
-}) {
-  if (branches.length === 0) return null;
-
-  return (
-    <div className="mt-4">
-      <p className="font-commissioner mb-2 text-[10px] font-light uppercase tracking-[0.2em] text-muted-foreground">
-        Explore further
-      </p>
-      <ul className="flex flex-col gap-2">
-        {branches.map((b) => (
-          <li key={b.id}>
-            <button
-              className={cn(
-                "flex min-h-11 w-full items-center justify-between gap-2 rounded-lg border border-border/50",
-                "bg-card/50 px-3 py-2.5 text-left text-sm font-medium text-foreground",
-                "transition-colors active:bg-card/80 disabled:opacity-40"
-              )}
-              disabled={isLoading}
-              type="button"
-              onClick={() => onBranchClick(b.id)}
-            >
-              <span className="line-clamp-2">{b.label}</span>
-              <ChevronRight aria-hidden className="size-4 shrink-0 text-muted-foreground" />
-            </button>
-          </li>
-        ))}
-      </ul>
-    </div>
-  );
 }
 
 function useSwipeArticleNavigate(
@@ -136,13 +94,13 @@ export function RabbitHoleMobileView({
   setActiveTakeawayIndex,
   preview,
   isBusy,
-  generatingNodeId,
   sourceAnalysis,
   followBranch,
   selectSource,
   clearSourceSelection,
   reset,
-  onStartQuestion,
+  ensureEmptySession,
+  onSessionCreated,
   setActiveNode,
   getCurrentPathIndex,
   canGoBack,
@@ -155,13 +113,24 @@ export function RabbitHoleMobileView({
   const [readPct, setReadPct] = useState(0);
   const rafRef = useRef<number | null>(null);
 
-  /** Keep prompt reachable unless source analysis overlay is open */
   const showSheet = centerViewState.kind !== "viewing_source_analysis";
-
-  const sources = activeNode?.sources ?? [];
-  const branches = generatingNodeId === activeNode?.id ? [] : (activeNode?.branchSuggestions ?? []);
-
   const peekPad = sheetSnap === "collapsed" ? PEEK_PAD_COLLAPSED : PEEK_PAD_EXPANDED;
+
+  const { composer, body, sendChatText } = useRabbitHoleMobileDrawer({
+    session,
+    activeNode,
+    centerViewState,
+    sheetSnap,
+    isBusy,
+    canGoBack: canGoBack(),
+    onNavigateBack: navigateBack,
+    onBranchClick: followBranch,
+    onSourceClick: selectSource,
+    onReset: reset,
+    onNavFromTool: setActiveNode,
+    ensureEmptySession,
+    onSessionCreated,
+  });
 
   const onScrollArticle = useCallback(() => {
     const el = scrollRef.current;
@@ -190,23 +159,6 @@ export function RabbitHoleMobileView({
     navigateBack,
     navigateForward
   );
-
-  const summaryRow = useMemo(() => {
-    if (centerViewState.kind !== "article_loaded" || !activeNode) return null;
-
-    return (
-      <div className="flex items-center justify-center gap-4 text-xs text-muted-foreground">
-        <span className="inline-flex items-center gap-1">
-          <Paperclip aria-hidden className="size-3.5" />
-          {sources.length} sources
-        </span>
-        <span className="inline-flex items-center gap-1">
-          <GitBranch aria-hidden className="size-3.5" />
-          {branches.length} branches
-        </span>
-      </div>
-    );
-  }, [activeNode, branches.length, centerViewState.kind, sources.length]);
 
   return (
     <div
@@ -297,43 +249,17 @@ export function RabbitHoleMobileView({
               <RabbitHoleEmptyState
                 key="empty"
                 compact
-                subtitle="Enter a question in the bar below to begin."
-                title="Start exploring a topic"
+                onStarterPrompt={(q) => {
+                  void sendChatText(q);
+                }}
               />
             )}
           </AnimatePresence>
         </div>
 
         {showSheet && (
-          <MobileBottomSheet
-            footer={
-              <RabbitHolePromptBar
-                hasSession={!!session}
-                isBusy={isBusy}
-                isLoading={isBusy}
-                onReset={reset}
-                onStart={onStartQuestion}
-              />
-            }
-            summaryRow={summaryRow ?? undefined}
-            onSnapChange={setSheetSnap}
-          >
-            {centerViewState.kind === "article_loaded" && activeNode ? (
-              <>
-                <MobileSourcePills sources={sources} onSourceClick={selectSource} />
-                <MobileBranchRows
-                  branches={branches}
-                  isLoading={isBusy}
-                  onBranchClick={followBranch}
-                />
-              </>
-            ) : centerViewState.kind === "loading_source_analysis" ? (
-              <p className="text-center text-xs text-muted-foreground">Analyzing source…</p>
-            ) : (
-              <p className="text-center text-xs text-muted-foreground">
-                Ask a question to collect sources and branches here.
-              </p>
-            )}
+          <MobileBottomSheet composer={composer} onSnapChange={setSheetSnap}>
+            {body}
           </MobileBottomSheet>
         )}
       </div>

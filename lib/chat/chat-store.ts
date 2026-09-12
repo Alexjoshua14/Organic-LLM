@@ -418,14 +418,7 @@ export async function getMessagesForChatPrompt({
       "getMessagesForChatPrompt",
       `Error getting conversation summary: ${conversationSummaryResult.error.message}`
     );
-    conversationSummary = "";
-  } else if (conversationSummaryResult.data === null) {
-    logger.error(
-      "getMessagesForChatPrompt",
-      `Error getting conversation summary: Conversation summary is null`
-    );
-    conversationSummary = "";
-  } else {
+  } else if (conversationSummaryResult.data) {
     conversationSummary = conversationSummaryResult.data;
   }
 
@@ -436,9 +429,7 @@ export async function getMessagesForChatPrompt({
         ? SPARK_SYSTEM_PROMPT
         : SYSTEM_PROMPT;
 
-  const systemPrompt = prompt
-    .replace("{{currentDateTime}}", new Date().toISOString())
-    .concat(`\n\nConversation Summary:\n${conversationSummary}`);
+  const systemPrompt = prompt.concat(`\n\nConversation Summary:\n${conversationSummary}`);
 
   return {
     data: {
@@ -514,14 +505,9 @@ export async function getContextAndMessagesChatPrompt({
 
   prompt += `\n\nConversation Summary:\n${conversationSummary}`;
 
-  /**
-   * Replace the current date time in the prompt
-   */
-  const systemPrompt = prompt.replace("{{currentDateTime}}", new Date().toISOString());
-
   return {
     data: {
-      prompt: systemPrompt,
+      prompt,
       messages,
     },
     error: null,
@@ -530,8 +516,6 @@ export async function getContextAndMessagesChatPrompt({
 
 /** Shared summary loader for {@link getContextAndMessagesChatPrompt} (keeps error logging consistent). */
 async function getConversationSummaryForChatPrompt(chatId: string): Promise<Result<string>> {
-  let conversationSummary = "";
-
   const conversationSummaryResult = await getConversationSummary(chatId);
 
   if (conversationSummaryResult.error) {
@@ -539,15 +523,6 @@ async function getConversationSummaryForChatPrompt(chatId: string): Promise<Resu
       "getContextAndMessagesChatPrompt",
       `Error getting conversation summary: ${conversationSummaryResult.error.message}`
     );
-    conversationSummary = "";
-  } else if (conversationSummaryResult.data === null) {
-    logger.error(
-      "getContextAndMessagesChatPrompt",
-      `Error getting conversation summary: Conversation summary is null`
-    );
-    conversationSummary = "";
-  } else {
-    conversationSummary = conversationSummaryResult.data;
   }
 
   return conversationSummaryResult;
@@ -664,7 +639,7 @@ export async function getContext({
 
     // Arcadia defers memory to phase 2 (needs DB messages for rewrite transcript).
     const memNonArcadiaPromise =
-      memoryEnabled && !isArcadiaStyleMemoryReadExperience(experience)
+      memoryEnabled && !isArcadiaStyleMemoryReadExperience(experience) && userMessage.trim()
         ? searchMemoriesForUser(sbUserId, userMessage, { limit: 5 }).then((r) =>
             r.error ? { results: [] } : r.data!
           )
@@ -697,8 +672,6 @@ export async function getContext({
           break;
       }
     }
-
-    systemPrompt = systemPrompt.replace("{{currentDateTime}}", new Date().toISOString());
 
     contextPieces.push({
       content: systemPrompt,
@@ -967,10 +940,7 @@ export async function getContext({
      *
      * Current chat context (total message count + context window size for get_more_chat_history)
      ***/
-    const totalCount =
-      totalThreadMessagesOverride ??
-      (await getMessageCount(chatId)).data ??
-      null;
+    const totalCount = totalThreadMessagesOverride ?? (await getMessageCount(chatId)).data ?? null;
     const messagesInContext = messages.length;
     const windowLabel = contextWindowLabel ?? `most recent ${messagesInContext}`;
     const currentChatContent =

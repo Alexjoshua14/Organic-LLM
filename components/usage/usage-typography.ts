@@ -1,10 +1,8 @@
 /** Section label — e.g. By model, Plan allotment, Tokens over time */
-export const usageSectionTitle =
-  "text-[10px] uppercase tracking-[0.14em] text-muted-foreground/70";
+export const usageSectionTitle = "text-2xs uppercase tracking-[0.14em] text-muted-foreground/70";
 
 /** Muted caption under a section label */
-export const usageSectionCaption =
-  "text-2xs font-light leading-snug text-muted-foreground/75";
+export const usageSectionCaption = "text-2xs font-light leading-snug text-muted-foreground/75";
 
 /** Primary value in breakdown rows (cost) */
 export const usageRowPrimary = "text-xs font-medium tabular-nums text-foreground";

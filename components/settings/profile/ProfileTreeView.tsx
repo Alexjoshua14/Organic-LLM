@@ -109,9 +109,8 @@ function OpenSection({
   return (
     <section aria-labelledby={section.id} className="px-1">
       <h2
-        className={`mb-4 text-[11px] font-semibold uppercase tracking-widest ${
-          isPlaceholder ? "text-muted-foreground/40" : "text-muted-foreground/50"
-        }`}
+        className={`mb-4 text-[11px] font-semibold uppercase tracking-widest ${isPlaceholder ? "text-muted-foreground/40" : "text-muted-foreground/50"
+          }`}
         id={section.id}
       >
         {section.title}
@@ -119,9 +118,8 @@ function OpenSection({
 
       {hasBody && (
         <p
-          className={`max-w-[58ch] text-[15px] leading-[1.75] md:text-base md:leading-[1.8] ${
-            isPlaceholder ? "text-muted-foreground italic" : "text-foreground/75"
-          }`}
+          className={`max-w-[58ch] text-[15px] leading-[1.75] md:text-base md:leading-[1.8] ${isPlaceholder ? "text-muted-foreground italic" : "text-foreground/75"
+            }`}
         >
           {section.body}
         </p>
@@ -134,10 +132,9 @@ function OpenSection({
               key={`${section.id}-${i}`}
               className={`
                 rounded-full px-3 py-1 text-xs font-medium
-                ${
-                  isPlaceholder
-                    ? "bg-muted/30 text-muted-foreground/50"
-                    : "bg-muted/50 text-foreground/60 dark:bg-muted/30"
+                ${isPlaceholder
+                  ? "bg-muted/30 text-muted-foreground/50"
+                  : "bg-muted/50 text-foreground/60 dark:bg-muted/30"
                 }
               `}
             >
@@ -253,9 +250,8 @@ function CardSection({
 
       {hasChildren && (
         <div
-          className={`relative grid gap-5 ${hasBody ? "mt-6" : ""} ${
-            isFull && section.children!.length >= 2 ? "grid-cols-1 sm:grid-cols-2" : "grid-cols-1"
-          }`}
+          className={`relative grid gap-5 ${hasBody ? "mt-6" : ""} ${isFull && section.children!.length >= 2 ? "grid-cols-1 sm:grid-cols-2" : "grid-cols-1"
+            }`}
         >
           {section.children!.map((child) => (
             <div
@@ -267,7 +263,7 @@ function CardSection({
                 px-5 py-5
               "
             >
-              <h3 className="mb-3 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground/60">
+              <h3 className="mb-3 text-2xs font-semibold uppercase tracking-widest text-muted-foreground/60">
                 {child.title}
               </h3>
               {child.body && (

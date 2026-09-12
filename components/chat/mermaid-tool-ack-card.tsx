@@ -38,7 +38,11 @@ export function tryParseMermaidToolOutput(body: unknown): ParsedMermaidToolOutpu
     return { kind: "error", message };
   }
 
-  if (o.success === true && typeof o.code === "string" && o.code.trim().length > 0) {
+  const overviewCode = typeof o.overviewCode === "string" ? o.overviewCode.trim() : "";
+  const legacyCode = typeof o.code === "string" ? o.code.trim() : "";
+  const hasCode = overviewCode.length > 0 || legacyCode.length > 0;
+
+  if (o.success === true && hasCode) {
     const ve = o.validationError;
     let validationWarning: string | undefined;
 

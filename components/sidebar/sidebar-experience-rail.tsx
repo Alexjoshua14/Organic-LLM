@@ -5,6 +5,8 @@ import { usePathname, useRouter } from "next/navigation";
 
 import { FeatureHint } from "@/components/onboarding/feature-hint";
 import { Logger } from "@/lib/logger";
+import { PERF_PHASES } from "@/lib/perf/journeys";
+import { mark, startJourney } from "@/lib/perf/trace-store";
 import { createChat } from "@/lib/chat/chat-store";
 import { useSharedChatContext } from "@/lib/context/chat-context";
 import { cn } from "@/lib/utils";
@@ -74,7 +76,7 @@ const RAIL_ROWS: RailItem[][] = [
 ];
 
 const segmentClass = cn(
-  "flex-1 min-w-0 cursor-pointer select-none text-center text-[10px] font-medium leading-tight",
+  "flex-1 min-w-0 cursor-pointer select-none text-center text-2xs font-medium leading-tight",
   "px-1.5 py-2.5 sm:px-2 sm:py-3 sm:text-xs",
   "bg-background-tertiary text-foreground transition-colors",
   "hover:bg-sidebar-accent hover:text-sidebar-accent-foreground",
@@ -97,6 +99,7 @@ export function SidebarExperienceRail() {
   const onNewChat = () => {
     async function run() {
       logger.log("SidebarExperienceRail", "Chat segment clicked");
+      startJourney("to-chat", "rail-chat");
       const res = await createChat();
 
       if (res.error || res.data === null) {
@@ -104,7 +107,9 @@ export function SidebarExperienceRail() {
 
         return;
       }
+      mark(PERF_PHASES.chatCreated);
       refreshSidebarChats();
+      mark(PERF_PHASES.navPush);
       router.push(`/chat/${res.data}`);
     }
     void run();

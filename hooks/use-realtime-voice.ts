@@ -312,10 +312,7 @@ export function useRealtimeVoice({
         const text = String(event.transcript ?? "").trim();
 
         if (text) {
-          setTranscript((prev) => [
-            ...prev,
-            { id: crypto.randomUUID(), role: "user", text },
-          ]);
+          setTranscript((prev) => [...prev, { id: crypto.randomUUID(), role: "user", text }]);
           onCaptionChange?.({ role: "user", text });
         }
 
@@ -336,10 +333,7 @@ export function useRealtimeVoice({
         const text = String(event.transcript ?? "").trim();
 
         if (text) {
-          setTranscript((prev) => [
-            ...prev,
-            { id: crypto.randomUUID(), role: "assistant", text },
-          ]);
+          setTranscript((prev) => [...prev, { id: crypto.randomUUID(), role: "assistant", text }]);
           onCaptionChange?.({ role: "assistant", text });
         }
 

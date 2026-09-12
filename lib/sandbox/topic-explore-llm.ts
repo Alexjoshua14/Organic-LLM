@@ -1,19 +1,19 @@
 import "server-only";
 
 import { KNOWLEDGE_GATEWAY_PROVIDER_OPTIONS } from "@/lib/knowledge/gateway-options";
-import { AUTO_RESOLVED_SONNET_MODEL_ID } from "@/lib/schemas/chat";
+import { models } from "@/lib/schemas/chat-models";
 
 /** Starters + digest (single structured call). */
-export const TOPIC_EXPLORE_STARTERS_MODEL = "openai/gpt-5.4-mini" as const;
+export const TOPIC_EXPLORE_STARTERS_MODEL = models.openai.terra.id;
 
 /** Session thought-profile merge. */
-export const TOPIC_EXPLORE_THOUGHT_MODEL = "openai/gpt-5.4-mini" as const;
+export const TOPIC_EXPLORE_THOUGHT_MODEL = models.openai.terra.id;
 
 /** Steer panel (guidance for assist, not chat). */
-export const TOPIC_EXPLORE_STEER_MODEL = "openai/gpt-5.4-mini" as const;
+export const TOPIC_EXPLORE_STEER_MODEL = models.openai.terra.id;
 
 /** Suggested next user message (composer fill). */
-export const TOPIC_EXPLORE_ASSIST_MODEL = AUTO_RESOLVED_SONNET_MODEL_ID;
+export const TOPIC_EXPLORE_ASSIST_MODEL = models.anthropic.sonnet.id;
 
 export const TOPIC_EXPLORE_PROVIDER_OPTIONS = KNOWLEDGE_GATEWAY_PROVIDER_OPTIONS;
 

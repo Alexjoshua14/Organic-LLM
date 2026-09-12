@@ -3,49 +3,61 @@
 import type { RestaurantCardBlock } from "@/lib/schemas/gen-ui/restaurant-card";
 
 import { createPortal } from "react-dom";
-import { useState } from "react";
-import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
-import { ExternalLink, X } from "lucide-react";
+import { useCallback, useMemo, useState } from "react";
+import { useReducedMotion } from "framer-motion";
+import { X } from "lucide-react";
 
 import { formatRestaurantStoreType } from "@/lib/schemas/gen-ui/restaurant-card";
 import { useIsMobile } from "@/hooks/use-mobile";
+import { runViewTransition } from "@/lib/view-transitions/run-view-transition";
+import {
+  type RestaurantCardViewTransitionNames,
+  RESTAURANT_CARD_HERO_VT_CLASS,
+  RESTAURANT_CARD_RATING_VT_CLASS,
+  RESTAURANT_CARD_TITLE_VT_CLASS,
+  restaurantCardViewTransitionNames,
+} from "@/lib/view-transitions/restaurant-card";
+import { viewTransitionStyle } from "@/lib/view-transitions/style";
 import { cn } from "@/lib/utils";
 
 import { RestaurantCardActions } from "./RestaurantCardActions";
-import { RestaurantCardCondensed, StarRating } from "./RestaurantCardCondensed";
+import { RestaurantCardCondensed } from "./RestaurantCardCondensed";
+import { StarRating } from "./StarRating";
 import { RestaurantCardHours } from "./RestaurantCardHours";
 import { RestaurantCardMenu } from "./RestaurantCardMenu";
 import { RestaurantCardPopularTimes } from "./RestaurantCardPopularTimes";
 import { formatReviewCount } from "./restaurant-card-utils";
+import { spacing } from "@/lib/design-tokens/spacing";
+
+import "@/lib/view-transitions/view-transitions.css";
+import "./RestaurantCard.css";
 
 type RestaurantCardExpandedProps = {
   block: RestaurantCardBlock;
   partial?: boolean;
   fullscreen?: boolean;
+  viewTransitionNames: RestaurantCardViewTransitionNames;
   onClose?: () => void;
 };
 
+const GALLERY_MAX = 3;
+
 function GalleryGrid({ block }: { block: RestaurantCardBlock }) {
-  const images = block.gallery ?? [];
+  const images = (block.gallery ?? []).slice(0, GALLERY_MAX);
 
   if (images.length === 0) return null;
 
   return (
-    <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+    <div className="grid grid-cols-3 gap-inline-sm sm:max-w-70">
       {images.map((image, index) => (
         <div
           key={`${image.url}-${index}`}
-          className={cn(
-            "relative overflow-hidden rounded-lg bg-muted/30",
-            index === 0
-              ? "col-span-2 aspect-[16/10] sm:col-span-1 sm:aspect-square"
-              : "aspect-square"
-          )}
+          className="relative aspect-[4/3] overflow-hidden rounded-lg bg-muted/30"
         >
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
             alt={image.alt ?? `${block.name} ${image.kind ?? "photo"}`}
-            className="size-full object-cover"
+            className="size-full object-cover object-center"
             loading="lazy"
             src={image.url}
           />
@@ -59,25 +71,46 @@ function ExpandedBody({
   block,
   partial,
   fullscreen,
+  viewTransitionNames,
 }: {
   block: RestaurantCardBlock;
   partial?: boolean;
   fullscreen?: boolean;
+  viewTransitionNames: RestaurantCardViewTransitionNames;
 }) {
   return (
-    <div className={cn("space-y-5", fullscreen && "pb-8")}>
-      <div className="relative overflow-hidden rounded-xl bg-muted/30">
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img
-          alt={block.heroImage.alt ?? `${block.name} exterior`}
-          className="aspect-[16/9] w-full object-cover sm:aspect-[21/9]"
-          src={block.heroImage.url}
-        />
-        <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/70 via-black/30 to-transparent px-4 pb-4 pt-12">
+    <div className={cn(spacing.card.section, fullscreen && "pb-8")}>
+      <div className="relative w-full">
+        <div
+          className="relative aspect-[16/9] w-full overflow-hidden rounded-xl bg-muted/30 sm:aspect-[21/9]"
+          style={viewTransitionStyle(viewTransitionNames.hero, {
+            viewTransitionClass: RESTAURANT_CARD_HERO_VT_CLASS,
+          })}
+        >
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            alt={block.heroImage.alt ?? `${block.name} exterior`}
+            className="size-full object-cover object-center"
+            src={block.heroImage.url}
+          />
+        </div>
+        <div className="pointer-events-none absolute inset-x-0 bottom-0 rounded-b-xl bg-gradient-to-t from-black/70 via-black/30 to-transparent px-4 pb-4 pt-12">
           <div>
-            <p className="text-lg font-semibold text-white sm:text-xl">{block.name}</p>
+            <p
+              className="text-lg font-semibold text-white sm:text-xl"
+              style={viewTransitionStyle(viewTransitionNames.title, {
+                viewTransitionClass: RESTAURANT_CARD_TITLE_VT_CLASS,
+              })}
+            >
+              {block.name}
+            </p>
             {block.rating ? (
-              <div className="mt-1 flex flex-wrap items-center gap-2">
+              <div
+                className={cn("mt-1 flex flex-wrap items-center", spacing.gap.md)}
+                style={viewTransitionStyle(viewTransitionNames.rating, {
+                  viewTransitionClass: RESTAURANT_CARD_RATING_VT_CLASS,
+                })}
+              >
                 <StarRating
                   className="[&_svg]:fill-white [&_svg]:text-white"
                   value={block.rating.average}
@@ -103,18 +136,6 @@ function ExpandedBody({
 
       {block.address ? <p className="text-xs text-muted-foreground">{block.address}</p> : null}
 
-      {block.links?.website ? (
-        <a
-          className="flex w-full items-center justify-center gap-2 rounded-xl bg-primary px-4 py-3 text-sm font-semibold text-primary-foreground transition-opacity hover:opacity-90"
-          href={block.links.website}
-          rel="noopener noreferrer nofollow"
-          target="_blank"
-        >
-          Visit website
-          <ExternalLink className="size-4" />
-        </a>
-      ) : null}
-
       <RestaurantCardActions
         address={block.address}
         links={block.links}
@@ -133,7 +154,13 @@ function ExpandedBody({
       {block.menu ? <RestaurantCardMenu menu={block.menu} partial={partial} /> : null}
 
       {block.rating?.sources && block.rating.sources.length > 0 ? (
-        <div className="flex flex-wrap gap-2 text-[11px] text-muted-foreground">
+        <div
+          className={cn(
+            "flex flex-wrap text-[11px] text-muted-foreground",
+            spacing.gap.sm,
+            spacing.card.sourcesLead
+          )}
+        >
           {block.rating.sources.map((source) => (
             <span key={source.name} className="rounded-full bg-muted/50 px-2 py-0.5 capitalize">
               {source.name}
@@ -151,6 +178,7 @@ function RestaurantCardExpanded({
   block,
   partial,
   fullscreen = false,
+  viewTransitionNames,
   onClose,
 }: RestaurantCardExpandedProps) {
   if (fullscreen) {
@@ -168,23 +196,19 @@ function RestaurantCardExpanded({
           </button>
         </div>
         <div className="px-4 pt-4">
-          <ExpandedBody block={block} fullscreen partial={partial} />
+          <ExpandedBody
+            block={block}
+            fullscreen
+            partial={partial}
+            viewTransitionNames={viewTransitionNames}
+          />
         </div>
       </div>
     );
   }
 
-  const reducedMotion = useReducedMotion();
-
   return (
-    <motion.div
-      animate={{ opacity: 1, y: 0 }}
-      className="space-y-4"
-      initial={reducedMotion ? false : { opacity: 0, y: 8 }}
-      transition={{ duration: 0.25, ease: [0.23, 1, 0.32, 1] }}
-    >
-      <ExpandedBody block={block} partial={partial} />
-    </motion.div>
+    <ExpandedBody block={block} partial={partial} viewTransitionNames={viewTransitionNames} />
   );
 }
 
@@ -197,10 +221,23 @@ export function RestaurantCard({ block, partial }: RestaurantCardProps) {
   const isMobile = useIsMobile();
   const reducedMotion = useReducedMotion();
   const [expanded, setExpanded] = useState(false);
-  const morphId = `restaurant-hero-${block.name.replace(/\s+/g, "-").toLowerCase()}`;
 
-  const handleExpand = () => setExpanded(true);
-  const handleClose = () => setExpanded(false);
+  const viewTransitionNames = useMemo(
+    () =>
+      restaurantCardViewTransitionNames({
+        name: block.name,
+        heroUrl: block.heroImage.url,
+      }),
+    [block.heroImage.url, block.name]
+  );
+
+  const handleExpand = useCallback(() => {
+    runViewTransition(() => setExpanded(true), { skip: reducedMotion === true });
+  }, [reducedMotion]);
+
+  const handleClose = useCallback(() => {
+    runViewTransition(() => setExpanded(false), { skip: reducedMotion === true });
+  }, [reducedMotion]);
 
   const showInlineExpanded = expanded && !isMobile;
 
@@ -210,14 +247,14 @@ export function RestaurantCard({ block, partial }: RestaurantCardProps) {
         <RestaurantCardCondensed
           heroAlt={block.heroImage.alt}
           heroUrl={block.heroImage.url}
-          layoutId={morphId}
           name={block.name}
           rating={block.rating}
           storeType={block.storeType}
+          viewTransitionNames={viewTransitionNames}
           onExpand={handleExpand}
         />
       ) : (
-        <div className="space-y-3">
+        <div className={spacing.card.chrome}>
           <button
             type="button"
             className="text-xs text-muted-foreground hover:text-foreground"
@@ -225,41 +262,29 @@ export function RestaurantCard({ block, partial }: RestaurantCardProps) {
           >
             ← Back to card
           </button>
-          <RestaurantCardExpanded block={block} partial={partial} />
+          <RestaurantCardExpanded
+            block={block}
+            partial={partial}
+            viewTransitionNames={viewTransitionNames}
+          />
         </div>
       )}
 
       {typeof document !== "undefined"
         ? createPortal(
-            <AnimatePresence>
-              {expanded && isMobile ? (
-                <motion.div
-                  key="restaurant-fullscreen"
-                  animate={{ opacity: 1 }}
-                  className="fixed inset-0 z-[80] bg-background"
-                  exit={{ opacity: 0 }}
-                  initial={reducedMotion ? false : { opacity: 0 }}
-                  transition={{ duration: 0.28, ease: [0.23, 1, 0.32, 1] }}
-                >
-                  <motion.div
-                    animate={{ y: 0 }}
-                    className="h-full"
-                    exit={{ y: "8%" }}
-                    initial={reducedMotion ? false : { y: "100%" }}
-                    transition={{ duration: 0.35, ease: [0.23, 1, 0.32, 1] }}
-                  >
-                    <RestaurantCardExpanded
-                      block={block}
-                      fullscreen
-                      partial={partial}
-                      onClose={handleClose}
-                    />
-                  </motion.div>
-                </motion.div>
-              ) : null}
-            </AnimatePresence>,
-            document.body
-          )
+          expanded && isMobile ? (
+            <div className="fixed inset-0 z-[80] bg-background">
+              <RestaurantCardExpanded
+                block={block}
+                fullscreen
+                partial={partial}
+                viewTransitionNames={viewTransitionNames}
+                onClose={handleClose}
+              />
+            </div>
+          ) : null,
+          document.body
+        )
         : null}
 
       {partial ? <div className={cn("mt-2 h-3 w-1/2 rounded bg-muted/40 animate-pulse")} /> : null}

@@ -239,7 +239,7 @@ function RemyTmpPageContent() {
             ].join(" ")}
             style={{ paddingBottom: "8rem" }}
           >
-            <ChatThread messages={messages} />
+            <ChatThread messages={messages} status={status} />
             <ConversationScrollButton className="bottom-40" />
           </Conversation>
           <CoreInput

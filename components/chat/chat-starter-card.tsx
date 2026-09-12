@@ -12,9 +12,10 @@ type ChatStarterCardProps = {
   label: string;
   selected: boolean;
   onToggle: () => void;
+  tabIndex?: number;
 };
 
-export function ChatStarterCard({ label, selected, onToggle }: ChatStarterCardProps) {
+export function ChatStarterCard({ label, selected, onToggle, tabIndex = 0 }: ChatStarterCardProps) {
   const hostRef = useChatStyleCardLumenHostRef();
   useChatStyleCardLumen(hostRef, selected);
 
@@ -32,6 +33,7 @@ export function ChatStarterCard({ label, selected, onToggle }: ChatStarterCardPr
               ? "border-[color:rgb(var(--lumen-rim)/0.28)] text-foreground shadow-[inset_0_1px_0_rgb(255_255_255/0.14)]"
               : "border-border/50 text-foreground/90 hover:border-[color:rgb(var(--lumen-rim)/0.2)] hover:text-foreground"
           )}
+          tabIndex={tabIndex}
           type="button"
           onClick={onToggle}
         >

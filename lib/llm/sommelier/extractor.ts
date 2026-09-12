@@ -6,7 +6,7 @@ import { z } from "zod";
 import { generateObject } from "ai";
 
 import { createLogger } from "@/lib/logger";
-import { AUTO_RESOLVED_SONNET_MODEL_ID } from "@/lib/schemas/chat";
+import { models } from "@/lib/schemas/chat-models";
 import { WineEntrySchema } from "@/lib/schemas/wine-line-list";
 
 const logger = createLogger("lib/llm/sommelier/extractor.ts");
@@ -61,7 +61,7 @@ export async function extractWines(userText: string, expectedCount: number): Pro
   });
 
   const { object } = await generateObject({
-    model: AUTO_RESOLVED_SONNET_MODEL_ID,
+    model: models.anthropic.sonnet.id,
     system,
     prompt,
     schema,

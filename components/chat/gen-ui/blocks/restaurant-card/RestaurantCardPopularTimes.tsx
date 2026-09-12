@@ -5,6 +5,7 @@ import type { PopularTimesDay } from "@/lib/schemas/gen-ui/restaurant-card";
 import { useMemo, useState } from "react";
 
 import { dayLabel, getTodayDayOfWeek } from "./restaurant-card-utils";
+import { spacing } from "@/lib/design-tokens/spacing";
 import { cn } from "@/lib/utils";
 
 type RestaurantCardPopularTimesProps = {
@@ -38,10 +39,10 @@ export function RestaurantCardPopularTimes({ popularTimes }: RestaurantCardPopul
   );
 
   return (
-    <section className="space-y-3">
-      <div className="flex flex-wrap items-end justify-between gap-2">
-        <div>
-          <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+    <section className={spacing.card.block}>
+      <div className={cn("flex flex-wrap items-end justify-between", spacing.gap.sm)}>
+        <div className={spacing.card.labelStack}>
+          <p className="text-2xs font-semibold uppercase tracking-wide text-muted-foreground">
             Popular times
           </p>
           <p className="text-xs text-muted-foreground">
@@ -54,7 +55,7 @@ export function RestaurantCardPopularTimes({ popularTimes }: RestaurantCardPopul
               key={entry.day}
               type="button"
               className={cn(
-                "rounded-full px-2 py-0.5 text-[10px] capitalize transition-colors",
+                "rounded-full px-2 py-0.5 text-2xs capitalize transition-colors",
                 entry.day === selectedDay
                   ? "bg-primary text-primary-foreground"
                   : "bg-muted/50 text-muted-foreground hover:text-foreground"

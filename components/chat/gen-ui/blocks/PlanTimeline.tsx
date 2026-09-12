@@ -82,7 +82,7 @@ function StepRow({
               {depLabels.map((label) => (
                 <span
                   key={label}
-                  className="rounded-full border border-border/50 bg-background-tertiary/40 px-2 py-0.5 text-[10px] text-muted-foreground"
+                  className="rounded-full border border-border/50 bg-background-tertiary/40 px-2 py-0.5 text-2xs text-muted-foreground"
                 >
                   ↑ depends on: {label}
                 </span>
@@ -115,7 +115,7 @@ function StepRow({
                 {depLabels.map((label) => (
                   <span
                     key={label}
-                    className="rounded-full border border-border/50 px-2 py-0.5 text-[10px] text-muted-foreground"
+                    className="rounded-full border border-border/50 px-2 py-0.5 text-2xs text-muted-foreground"
                   >
                     ↑ {label}
                   </span>

@@ -75,7 +75,7 @@ export function KaraokeCaption({
       )}
     >
       {roleLabel ? (
-        <p className="mb-2 text-[10px] font-medium uppercase tracking-[0.2em] text-muted-foreground">
+        <p className="mb-2 text-2xs font-medium uppercase tracking-[0.2em] text-muted-foreground">
           {roleLabel}
         </p>
       ) : null}

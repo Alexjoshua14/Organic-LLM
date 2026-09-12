@@ -123,6 +123,8 @@ The Code Agent is the **generalist code intelligence**. It is the best available
 
 ```typescript
 // lib/llm/subagents/code/models.ts
+import { models } from "@/lib/schemas/chat-models";
+
 export const CODE_AGENT_MODELS = {
   // L1 always uses the best available model for maximum intelligence
   layer1: {
@@ -132,12 +134,12 @@ export const CODE_AGENT_MODELS = {
 
   // L2 models are right-sized per specialist
   layer2: {
-    github: { primary: "openai/gpt-5.4-mini", fallback: "google/gemini-3-flash" },
-    localFiles: { primary: "openai/gpt-5.4-mini", fallback: "google/gemini-3-flash" },
+    github: { primary: models.openai.terra.id, fallback: models.google.flash.id },
+    localFiles: { primary: models.openai.terra.id, fallback: models.google.flash.id },
     architect: { primary: "openai/gpt-5.2", fallback: "anthropic/claude-sonnet-4.5" },
-    diagrams: { primary: "openai/gpt-5.4-mini", fallback: "google/gemini-3-flash" },
+    diagrams: { primary: models.openai.terra.id, fallback: models.google.flash.id },
     security: { primary: "anthropic/claude-sonnet-4.5", fallback: "openai/gpt-5" },
-    a11y: { primary: "openai/gpt-5.4-mini", fallback: "google/gemini-3-flash" },
+    a11y: { primary: models.openai.terra.id, fallback: models.google.flash.id },
   },
 } as const;
 ```
@@ -214,7 +216,7 @@ Each L2 specialist is implemented as a tool available to L1. Internally, each to
 - Search code across repos (GitHub code search API)
 - Local git log, git diff, git status
 
-**Model:** `gpt-5.4-mini` (mostly structured API calls, minimal reasoning)
+**Model:** `models.openai.terra` (mostly structured API calls, minimal reasoning)
 
 **Tools/APIs:**
 
@@ -242,7 +244,7 @@ Each L2 specialist is implemented as a tool available to L1. Internally, each to
 - Diff files or versions
 - List directory structures
 
-**Model:** `gpt-5.4-mini` (mostly deterministic file I/O, LLM used for summarization)
+**Model:** `models.openai.terra` (mostly deterministic file I/O, LLM used for summarization)
 
 **Tools/APIs:**
 
@@ -293,7 +295,7 @@ Each L2 specialist is implemented as a tool available to L1. Internally, each to
 - Convert code structure to visual diagrams
 - Edit/refine existing diagrams
 
-**Model:** `gpt-5.4-mini` (diagram syntax is well-defined; mini handles it well)
+**Model:** `models.openai.terra` (diagram syntax is well-defined; Terra handles it well)
 
 **Output format:** Returns Mermaid/PlantUML source that the frontend can render.
 
@@ -341,7 +343,7 @@ Each L2 specialist is implemented as a tool available to L1. Internally, each to
 - Keyboard navigation audit
 - Accessibility-focused code suggestions
 
-**Model:** `gpt-5.4-mini` (a11y rules are well-defined; can be largely rule-based with LLM polish)
+**Model:** `models.openai.terra` (a11y rules are well-defined; can be largely rule-based with LLM polish)
 
 **Tools/APIs:**
 

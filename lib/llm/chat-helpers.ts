@@ -30,6 +30,7 @@ import { Result } from "@/types";
 import { recordLlmCall } from "@/lib/llm/metrics";
 import { generateShortTitleFromSummary } from "@/lib/llm/short-title-from-summary";
 import { TITLE_PIPELINE_SUMMARIZER_MODEL } from "@/lib/llm/title-models";
+import { models } from "@/lib/schemas/chat-models";
 import {
   exchangeCountFromPersistedMessageCount,
   shouldRefreshSummary,
@@ -38,9 +39,9 @@ import {
 /** Model Selections: Each ZDR compatible */
 const MODEL_SELECTION: Record<string, LanguageModel> = {
   summarizer: TITLE_PIPELINE_SUMMARIZER_MODEL,
-  updater: "google/gemini-3-flash",
-  validator: "google/gemini-3-flash",
-  reviser: "google/gemini-3-flash",
+  updater: models.google.flash.id,
+  validator: models.google.flash.id,
+  reviser: models.google.flash.id,
 };
 
 /** Max input tokens for title generation (allows long-thread context). */
@@ -181,12 +182,22 @@ function getMessageTextForTokenEstimate(message: UIMessage): string {
  * Chronological order = oldest first; we keep the tail that fits.
  * Uses tiktoken (cl100k_base) for token counting.
  */
+let sharedCl100kEncoding: ReturnType<typeof encodingForModel> | null = null;
+
+function getCl100kEncoding() {
+  if (!sharedCl100kEncoding) {
+    sharedCl100kEncoding = encodingForModel("gpt-5");
+  }
+
+  return sharedCl100kEncoding;
+}
+
 function trimMessagesToTokenBudget(
   chronologicalMessages: UIMessage[],
   maxTokens: number
 ): UIMessage[] {
   if (chronologicalMessages.length === 0) return [];
-  const encoding = encodingForModel("gpt-5");
+  const encoding = getCl100kEncoding();
   let total = 0;
   let startIndex = chronologicalMessages.length;
 
@@ -850,20 +861,114 @@ const validateSummary = async (
 };
 
 /**
- * Count tokens in text using OpenAI's tiktoken tokenizer.
- * Uses the cl100k_base encoding which is compatible with GPT-4 and GPT-3.5-turbo models.
- * This is a close approximation for newer models like GPT-4o and GPT-5.
- * @param text - The text to count tokens for
- * @returns The number of tokens, or null if encoding fails
+ * Regenerates the full conversation summary from all messages and syncs both
+ * `threads.conversation_summary` (via summarizeChat) and `thread_summaries`.
  */
+export async function regenerateChatSummary(chatId: string): Promise<Result<string, string>> {
+  const summarizeResult = await summarizeChat(chatId);
+
+  if (summarizeResult.error || !summarizeResult.data) {
+    return {
+      data: null,
+      error: summarizeResult.error,
+    };
+  }
+
+  const summary = summarizeResult.data;
+  const sb = await supabaseServer();
+  const threadOwnerContext = await getThreadOwnerContext(chatId);
+
+  if (threadOwnerContext.error || !threadOwnerContext.data) {
+    return {
+      data: null,
+      error: threadOwnerContext.error?.message ?? "Thread owner not found",
+    };
+  }
+
+  const ownerId = threadOwnerContext.data.ownerId;
+
+  const { data: latestMessage, error: messagesError } = await sb
+    .from("messages")
+    .select("id")
+    .eq("thread_id", chatId)
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .single();
+
+  if (messagesError || !latestMessage) {
+    return {
+      data: null,
+      error: messagesError?.message ?? "No latest message id found",
+    };
+  }
+
+  let tokens = await estimateTokenCount(summary);
+
+  if (tokens === null) {
+    tokens = 600;
+  }
+
+  const encryptedSummary = encryptThreadSummary(summary, ownerId, chatId);
+  const lastSummarizedAt = new Date().toISOString();
+
+  const { data: existingRow, error: existingError } = await sb
+    .from("thread_summaries")
+    .select("thread_id")
+    .eq("thread_id", chatId)
+    .maybeSingle();
+
+  if (existingError) {
+    return {
+      data: null,
+      error: existingError.message,
+    };
+  }
+
+  if (existingRow) {
+    const { error: updateError } = await sb
+      .from("thread_summaries")
+      .update({
+        summary_text: encryptedSummary,
+        summary_tokens: tokens,
+        last_summarized_message_id: latestMessage.id,
+        last_summarized_at: lastSummarizedAt,
+      })
+      .eq("thread_id", chatId);
+
+    if (updateError) {
+      return {
+        data: null,
+        error: updateError.message,
+      };
+    }
+  } else {
+    const { error: insertError } = await sb.from("thread_summaries").insert({
+      thread_id: chatId,
+      summary_text: encryptedSummary,
+      summary_tokens: tokens,
+      last_summarized_message_id: latestMessage.id,
+      last_summarized_at: lastSummarizedAt,
+    });
+
+    if (insertError) {
+      return {
+        data: null,
+        error: insertError.message,
+      };
+    }
+  }
+
+  return {
+    data: summary,
+    error: null,
+  };
+}
+
 export const estimateTokenCount = async (text: string): Promise<number | null> => {
   // TODO: CLEAN UP THIS FUNCTION TO ENSURE IT'S ACCURACY
   try {
-    // Use gpt-5 encoding (cl100k_base) which is compatible with most modern OpenAI models
-    const encoding = encodingForModel("gpt-5");
-    const tokens = encoding.encode(text);
-
-    return tokens.length;
+    // Reuse one cl100k_base encoder (via gpt-5) — constructing per call is expensive.
+    return getCl100kEncoding().encode(text).length;
   } catch (error) {
     logger.error("estimateTokenCount", `Error counting tokens: ${error}`);
 

@@ -7,9 +7,11 @@ import { createLogger } from "@/lib/logger";
 import { recordLlmCall } from "@/lib/llm/metrics";
 import { DMZ_MAX_INTAKE_CHARS } from "@/lib/security/dmz/types";
 
+import { models } from "@/lib/schemas/chat-models";
+
 const logger = createLogger("lib/llm/dmz-intake-summary.ts");
 
-export const DMZ_INTAKE_SUMMARY_MODEL = "openai/gpt-5.4-nano" as const;
+export const DMZ_INTAKE_SUMMARY_MODEL = models.openai.luna.id;
 
 const DMZ_SUMMARY_INPUT_MAX = 6_000;
 

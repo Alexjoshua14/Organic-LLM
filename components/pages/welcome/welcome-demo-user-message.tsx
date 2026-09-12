@@ -10,20 +10,20 @@ const ENTER_TRANSITION: Transition = { duration: 0.32, ease: [0.22, 1, 0.36, 1] 
 
 /** Tightens production user bubbles inside welcome feature-card demos. */
 const welcomeDemoUserMessageShellClass = cn(
-  "text-[10px] leading-snug",
+  "text-2xs leading-snug",
   "[&>div]:mb-1.5 [&>div]:max-w-[92%]",
   "[&_.rounded-lg]:px-2 [&_.rounded-lg]:py-1.5",
-  "[&_p]:text-[10px] [&_p]:leading-snug [&_p]:my-0",
-  "[&_li]:text-[10px] [&_li]:leading-snug"
+  "[&_p]:text-2xs [&_p]:leading-snug [&_p]:my-0",
+  "[&_li]:text-2xs [&_li]:leading-snug"
 );
 
 /** Scales production chat UI down inside welcome feature-card demos. */
 export const welcomeDemoCompactClass = cn(
-  "text-[10px] leading-snug",
-  "[&_.text-xs]:text-[10px]",
-  "[&_.text-sm]:text-[10px]",
-  "[&_summary]:text-[10px]",
-  "[&_.prose]:text-[10px] [&_.prose_p]:my-0.5 [&_.prose_p]:text-[10px] [&_.prose_p]:leading-snug",
+  "text-2xs leading-snug",
+  "[&_.text-xs]:text-2xs",
+  "[&_.text-sm]:text-2xs",
+  "[&_summary]:text-2xs",
+  "[&_.prose]:text-2xs [&_.prose_p]:my-0.5 [&_.prose_p]:text-2xs [&_.prose_p]:leading-snug",
   "[&_.rounded-lg.p-4]:mb-2 [&_.rounded-lg.p-4]:px-2.5 [&_.rounded-lg.p-4]:py-2",
   "[&_.mb-4]:mb-2",
   "[&_button.h-8]:h-6 [&_button.h-8]:min-w-6 [&_button.h-8]:w-6",

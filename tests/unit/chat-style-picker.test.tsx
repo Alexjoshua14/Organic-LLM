@@ -61,6 +61,19 @@ describe("ChatStylePicker", () => {
     expect(standard.getAttribute("aria-checked")).toBe("true");
   });
 
+  test("style cards are tab stops; launchpad starters are not", () => {
+    const { getAllByRole } = renderPicker(<ChatStylePicker chatId={THREAD_UUID} />);
+
+    const styleTabs = getAllByRole("radio").map((node) => node.getAttribute("tabindex"));
+    expect(styleTabs).toEqual(["0", "0", "0", "0"]);
+
+    const starterButtons = getAllByRole("button").filter((node) =>
+      node.hasAttribute("aria-pressed")
+    );
+    expect(starterButtons.length).toBeGreaterThan(0);
+    expect(starterButtons.every((node) => node.getAttribute("tabindex") === "-1")).toBe(true);
+  });
+
   test("shows starter prompts for the selected style", () => {
     const { getByText } = renderPicker(<ChatStylePicker chatId={THREAD_UUID} />);
     expect(getByText("Help me think through this step by step.")).toBeTruthy();

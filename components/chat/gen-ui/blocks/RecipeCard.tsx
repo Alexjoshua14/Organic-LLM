@@ -3,9 +3,20 @@
 import type { ReactNode } from "react";
 import type { RecipeCardBlock } from "@/lib/schemas/gen-ui";
 
-import { Clock, ExternalLink, Users, UtensilsCrossed } from "lucide-react";
+import {
+  Beef,
+  ChefHat,
+  Clock,
+  CookingPot,
+  ExternalLink,
+  Globe,
+  Timer,
+  Users,
+  UtensilsCrossed,
+  Wheat,
+} from "lucide-react";
 
-import { recipeIngredientToText } from "@/lib/schemas/gen-ui";
+import { recipeIngredientToText, RECIPE_COMPLEXITY_LABEL } from "@/lib/schemas/gen-ui";
 import { cn } from "@/lib/utils";
 
 type RecipeCardProps = {
@@ -33,6 +44,18 @@ export function RecipeCard({ block, partial }: RecipeCardProps) {
       icon: <Users className="size-3" />,
       label: `Serves ${block.servings}`,
     });
+  if (block.complexity)
+    meta.push({
+      key: "complexity",
+      icon: <ChefHat className="size-3" />,
+      label: RECIPE_COMPLEXITY_LABEL[block.complexity],
+    });
+  if (block.duration)
+    meta.push({
+      key: "duration",
+      icon: <Timer className="size-3" />,
+      label: `Total ${block.duration}`,
+    });
   if (block.prepTime)
     meta.push({ key: "prep", icon: <Clock className="size-3" />, label: `Prep ${block.prepTime}` });
   if (block.cookTime)
@@ -40,6 +63,22 @@ export function RecipeCard({ block, partial }: RecipeCardProps) {
       key: "cook",
       icon: <UtensilsCrossed className="size-3" />,
       label: `Cook ${block.cookTime}`,
+    });
+  if (block.mainProtein)
+    meta.push({
+      key: "protein",
+      icon: <Beef className="size-3" />,
+      label: block.mainProtein,
+    });
+  if (block.mainCarbs)
+    meta.push({ key: "carbs", icon: <Wheat className="size-3" />, label: block.mainCarbs });
+  if (block.cuisine)
+    meta.push({ key: "cuisine", icon: <Globe className="size-3" />, label: block.cuisine });
+  if (block.equipment?.length)
+    meta.push({
+      key: "equipment",
+      icon: <CookingPot className="size-3" />,
+      label: block.equipment.join(", "),
     });
 
   return (
@@ -57,7 +96,7 @@ export function RecipeCard({ block, partial }: RecipeCardProps) {
 
       <div className="grid gap-4 sm:grid-cols-[minmax(0,0.9fr)_minmax(0,1.4fr)]">
         <div>
-          <p className="mb-1.5 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+          <p className="mb-1.5 text-2xs font-semibold uppercase tracking-wide text-muted-foreground">
             Ingredients
           </p>
           <ul className="space-y-1 text-xs text-foreground">
@@ -73,7 +112,7 @@ export function RecipeCard({ block, partial }: RecipeCardProps) {
         </div>
 
         <div>
-          <p className="mb-1.5 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+          <p className="mb-1.5 text-2xs font-semibold uppercase tracking-wide text-muted-foreground">
             Steps
           </p>
           <ol className="space-y-1.5 text-xs text-foreground">
