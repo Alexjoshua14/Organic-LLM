@@ -1,5 +1,47 @@
 # Context building architecture
 
+## Current prompt structure at a glance
+
+For a normal `/api/chat` LLM turn, the app rebuilds the following input on every request. This shows **application-level order**, not a provider's internal serialization. Conditional sections appear only when enabled.
+
+```text
+streamText({ system, messages, tools })
+│
+├─ system: ONE combined string, in this order
+│  ├─ Base system instructions / persona
+│  │  └─ Fresh ISO timestamp (default prompt: at the end of the base instructions)
+│  ├─ Conversation Summary                     [stored; changes when updated]
+│  ├─ Memories from past conversations         [retrieved for this turn]
+│  ├─ Memory inventory                         [Arcadia-style; counts and tiers]
+│  ├─ Memory tool usage instructions           [when memory is enabled]
+│  ├─ Persisted Schemas                        [when enabled]
+│  ├─ Current chat                             [total count and history-window count]
+│  ├─ Strata / introspection additions         [experience-dependent]
+│  ├─ Tool Instructions                        [when tools are available]
+│  ├─ Speech-friendly / experience / style / starter guidance
+│  └─ Response-length instructions
+│
+├─ messages: structured model messages, in this order
+│  ├─ Selected stored history (user / assistant / tool content)
+│  └─ Current user message
+│
+└─ tools: separate tool definitions and schemas
+   └─ Not the same thing as the system string's Tool Instructions section
+```
+
+**History selection:** default chat keeps the latest **10 messages**; Strata keeps **30**; Arcadia uses a **50,000-token history budget**, with kept pinned messages first, then recent non-kept-pinned messages. Other experiences can have their own limits. These are history limits, not whole-request token limits.
+
+**Caching implication:** history is currently **after** the timestamp, summary, retrieved memories, and changing counts. Even unchanged history therefore follows a changing prefix. OpenAI's [prompt-caching guide](https://developers.openai.com/api/docs/guides/prompt-caching) states: “Cache reuse requires the entire rendered prefix to match.” The earlier static prefix may still be reusable; this diagram does not establish an actual cache-hit rate.
+
+### Where each piece is assembled
+
+| Responsibility | Code |
+| --- | --- |
+| Base instructions through Current chat → one system string | [`getContext()` / `combineContextPieces()`](../../lib/chat/chat-store.ts) |
+| Default history selection + append current message | [`loadMainChatTurnContext()`](../../lib/api/chat-turn-context.ts) |
+| Arcadia history selection + append current message | [`loadArcadiaChatTurnContext()`](../../lib/api/arcadia-chat-turn-context.ts), [`selectArcadiaContextMessages()`](../../lib/chat/arcadia-token-context.ts) |
+| Append guidance and response-length instructions | [`chat-system-prompt.ts`](../../lib/api/chat-system-prompt.ts) |
+
 Internal reference for how chat context is assembled before `streamText`, what it depends on, where latency comes from, and where to optimize.
 
 **Primary implementation:** [`lib/chat/chat-store.ts`](../../lib/chat/chat-store.ts) — `getContext`  
