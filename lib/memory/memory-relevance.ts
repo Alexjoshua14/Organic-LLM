@@ -11,7 +11,7 @@ export const ARCADIA_MEMORY_OVERFETCH = 28;
 export const ARCADIA_MEMORY_MIN_SCORE = 0.25;
 
 /** Hard cap on bullet lines shown under "Memories from past conversations". */
-export const ARCADIA_MEMORY_MAX_INJECTED = 10;
+export const ARCADIA_MEMORY_MAX_INJECTED = 20;
 
 /** Tool path: Mem0 asks for at least this many hits before tiering + slicing to the tool `limit`. */
 export const MEMORY_TOOL_OVERFETCH_MIN = 28;
