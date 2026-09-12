@@ -25,6 +25,7 @@ import {
 import { estimateTokenCount } from "@/lib/llm/chat-helpers";
 import { compileChatTools } from "@/lib/llm/compile-chat-tools";
 import { createLogger } from "@/lib/logger";
+import { appendCurrentDate } from "@/lib/system-prompt/current-date";
 
 const logger = createLogger("lib/api/main-chat-context-budget.ts");
 
@@ -362,9 +363,11 @@ async function assembleTurnPromptsAndTools(params: {
     chatStyle,
   });
 
-  systemPromptForRequest = wrapSystemPromptWithResponseLength(systemPromptForRequest, {
-    experience,
-  });
+  systemPromptForRequest = appendCurrentDate(
+    wrapSystemPromptWithResponseLength(systemPromptForRequest, {
+      experience,
+    })
+  );
 
   const tokenBreakdown = [...(turnContext.tokenBreakdown ?? [])];
 

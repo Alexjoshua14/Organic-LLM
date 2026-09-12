@@ -19,6 +19,7 @@ import { getContext } from "@/lib/llm/context";
 import { requireLlmChatActor } from "@/lib/api/chat-llm-gate";
 import { ChatRequestSchema } from "@/lib/schemas/chat";
 import { models, providerModelSlug } from "@/lib/schemas/chat-models";
+import { appendCurrentDate } from "@/lib/system-prompt/current-date";
 
 // Allow streaming responses up to 30 seconds
 export const maxDuration = 30;
@@ -90,7 +91,7 @@ export async function POST(req: Request) {
 
   const result = streamText({
     model: model,
-    system: prompt,
+    system: appendCurrentDate(prompt),
     messages: convertToModelMessages(messages),
     maxOutputTokens: GUARDRAIL_MAX_OUTPUT_TOKENS,
     experimental_transform: smoothStream({

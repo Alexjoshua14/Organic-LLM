@@ -25,6 +25,7 @@ import {
 import { createPrepPlanTool, PREP_PLAN_TOOL_NAME } from "@/lib/llm/prep-plan-tool";
 import { MISE_TOOL_INSTRUCTIONS } from "@/lib/system-prompt/mise";
 import { PREP_PLAN_TOOL_INSTRUCTIONS } from "@/lib/system-prompt/prep";
+import { appendCurrentDate } from "@/lib/system-prompt/current-date";
 import { createLogger } from "@/lib/logger";
 
 export const maxDuration = 30;
@@ -222,14 +223,11 @@ export async function POST(req: Request) {
   const mem0Instructions = retrieveMemories(memories);
 
   // Combine system prompts. Remy always has event mise and weekly prep tools.
-  const finalSystemPrompt = [
-    systemPromptForRequest,
-    MISE_TOOL_INSTRUCTIONS,
-    PREP_PLAN_TOOL_INSTRUCTIONS,
-    mem0Instructions,
-  ]
-    .filter(Boolean)
-    .join("\n");
+  const finalSystemPrompt = appendCurrentDate(
+    [systemPromptForRequest, MISE_TOOL_INSTRUCTIONS, PREP_PLAN_TOOL_INSTRUCTIONS, mem0Instructions]
+      .filter(Boolean)
+      .join("\n")
+  );
 
   const streamTextConfig: Parameters<typeof streamText>[0] = {
     model: openai("gpt-4o"),
