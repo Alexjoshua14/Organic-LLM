@@ -429,9 +429,7 @@ export async function getMessagesForChatPrompt({
         ? SPARK_SYSTEM_PROMPT
         : SYSTEM_PROMPT;
 
-  const systemPrompt = prompt
-    .replace("{{currentDateTime}}", new Date().toISOString())
-    .concat(`\n\nConversation Summary:\n${conversationSummary}`);
+  const systemPrompt = prompt.concat(`\n\nConversation Summary:\n${conversationSummary}`);
 
   return {
     data: {
@@ -507,14 +505,9 @@ export async function getContextAndMessagesChatPrompt({
 
   prompt += `\n\nConversation Summary:\n${conversationSummary}`;
 
-  /**
-   * Replace the current date time in the prompt
-   */
-  const systemPrompt = prompt.replace("{{currentDateTime}}", new Date().toISOString());
-
   return {
     data: {
-      prompt: systemPrompt,
+      prompt,
       messages,
     },
     error: null,
@@ -958,11 +951,6 @@ export async function getContext({
     contextPieces.push({
       title: "Current chat",
       content: currentChatContent,
-    });
-
-    contextPieces.push({
-      title: "Additional Info",
-      content: `The current date is ${new Date().toISOString()}`,
     });
 
     /***

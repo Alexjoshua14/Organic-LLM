@@ -17,6 +17,7 @@ import { shouldAttemptInitialTitle } from "@/lib/chat/summary-title-cadence";
 import { checkLlmMessageLimit } from "@/lib/rate-limit/llm";
 import { CHAT_MODEL, getChatModel, measureAsync } from "@/lib/llm/helpers";
 import { SYSTEM_PROMPT } from "@/lib/system-prompt/prompt-v0";
+import { appendCurrentDate } from "@/lib/system-prompt/current-date";
 import { createLogger } from "@/lib/logger";
 import { showMemoriesTool } from "@/lib/llm/archetype/memory";
 import { setArchetypeStateTool, viewArchetypeTool } from "@/lib/llm/archetype";
@@ -240,7 +241,7 @@ export function createAionHandler(deps: AionDeps) {
           fetchPage: getStrataPageById,
         });
 
-        const systemWithStrata = `${systemPromptForRequest}${strataSystem}`;
+        const systemWithStrata = appendCurrentDate(`${systemPromptForRequest}${strataSystem}`);
 
         const result = deps.streamText({
           model: selectedModel.id,
