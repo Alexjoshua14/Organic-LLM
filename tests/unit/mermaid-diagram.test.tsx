@@ -26,6 +26,7 @@ mock.module("@heroui/modal", () => ({
   ModalContent: ({ children }: { children: React.ReactNode }) => children,
   ModalHeader: ({ children }: { children: React.ReactNode }) => children,
   ModalBody: ({ children }: { children: React.ReactNode }) => children,
+  ModalFooter: ({ children }: { children: React.ReactNode }) => children,
   useDisclosure: () => ({ isOpen: false, onOpen: () => {}, onOpenChange: () => {} }),
 }));
 
