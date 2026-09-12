@@ -429,9 +429,7 @@ export async function getMessagesForChatPrompt({
         ? SPARK_SYSTEM_PROMPT
         : SYSTEM_PROMPT;
 
-  const systemPrompt = prompt
-    .replace("{{currentDateTime}}", new Date().toISOString())
-    .concat(`\n\nConversation Summary:\n${conversationSummary}`);
+  const systemPrompt = prompt.concat(`\n\nConversation Summary:\n${conversationSummary}`);
 
   return {
     data: {
@@ -507,14 +505,9 @@ export async function getContextAndMessagesChatPrompt({
 
   prompt += `\n\nConversation Summary:\n${conversationSummary}`;
 
-  /**
-   * Replace the current date time in the prompt
-   */
-  const systemPrompt = prompt.replace("{{currentDateTime}}", new Date().toISOString());
-
   return {
     data: {
-      prompt: systemPrompt,
+      prompt,
       messages,
     },
     error: null,
@@ -679,8 +672,6 @@ export async function getContext({
           break;
       }
     }
-
-    systemPrompt = systemPrompt.replace("{{currentDateTime}}", new Date().toISOString());
 
     contextPieces.push({
       content: systemPrompt,
@@ -949,10 +940,7 @@ export async function getContext({
      *
      * Current chat context (total message count + context window size for get_more_chat_history)
      ***/
-    const totalCount =
-      totalThreadMessagesOverride ??
-      (await getMessageCount(chatId)).data ??
-      null;
+    const totalCount = totalThreadMessagesOverride ?? (await getMessageCount(chatId)).data ?? null;
     const messagesInContext = messages.length;
     const windowLabel = contextWindowLabel ?? `most recent ${messagesInContext}`;
     const currentChatContent =

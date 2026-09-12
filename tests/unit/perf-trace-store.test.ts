@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, mock, test } from "bun:test";
 
 mock.module("server-only", () => ({}));
 
-import { setPerfEnabled } from "@/lib/perf/enabled";
+import { setPerfEnabled, setPerfSessionAllowed } from "@/lib/perf/enabled";
 import {
   clearPerfTraces,
   complete,
@@ -16,12 +16,14 @@ import {
 describe("perf trace store", () => {
   beforeEach(() => {
     sessionStorage.clear();
+    setPerfSessionAllowed(true);
     setPerfEnabled(true);
     clearPerfTraces();
     initPerfTraceStore();
   });
 
   afterEach(() => {
+    setPerfSessionAllowed(false);
     setPerfEnabled(false);
     clearPerfTraces();
   });

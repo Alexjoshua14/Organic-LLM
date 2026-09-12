@@ -1,5 +1,48 @@
 # Context building architecture
 
+## Current prompt structure at a glance
+
+For a normal `/api/chat` LLM turn, the app rebuilds the following input on every request. This shows **application-level order**, not a provider's internal serialization. Conditional sections appear only when enabled.
+
+```text
+streamText({ system, messages, tools })
+│
+├─ system: ONE combined string, in this order
+│  ├─ Base system instructions / persona
+│  ├─ Conversation Summary                     [stored; changes when updated]
+│  ├─ Memories from past conversations         [retrieved for this turn]
+│  ├─ Memory inventory                         [Arcadia-style; counts and tiers]
+│  ├─ Memory tool usage instructions           [when memory is enabled]
+│  ├─ Persisted Schemas                        [when enabled]
+│  ├─ Current chat                             [total count and history-window count]
+│  ├─ Strata / introspection additions         [experience-dependent]
+│  ├─ Tool Instructions                        [when tools are available]
+│  ├─ Speech-friendly / experience / style / starter guidance
+│  ├─ Response-length instructions
+│  └─ Current date (fresh ISO timestamp)       [changes every request; always last]
+│
+├─ messages: structured model messages, in this order
+│  ├─ Selected stored history (user / assistant / tool content)
+│  └─ Current user message
+│
+└─ tools: separate tool definitions and schemas
+   └─ Not the same thing as the system string's Tool Instructions section
+```
+
+**History selection:** default chat keeps the latest **10 messages**; Strata keeps **30**; Arcadia uses a **50,000-token history budget**, with kept pinned messages first, then recent non-kept-pinned messages. Other experiences can have their own limits. These are history limits, not whole-request token limits.
+
+**Caching implication:** the timestamp changes on every request, so it is always the **last** section of the system string and never breaks the prefix in front of it ([ADR](decisions/20260912-current-date-last-in-system-prompt.md)). The summary, retrieved memories, and counts still change per turn and sit ahead of tool instructions, guidance, and history, so unchanged history still follows a changing prefix. OpenAI's [prompt-caching guide](https://developers.openai.com/api/docs/guides/prompt-caching) states: “Cache reuse requires the entire rendered prefix to match.” The earlier static prefix may still be reusable; this diagram does not establish an actual cache-hit rate.
+
+### Where each piece is assembled
+
+| Responsibility | Code |
+| --- | --- |
+| Base instructions through Current chat → one system string | [`getContext()` / `combineContextPieces()`](../../lib/chat/chat-store.ts) |
+| Default history selection + append current message | [`loadMainChatTurnContext()`](../../lib/api/chat-turn-context.ts) |
+| Arcadia history selection + append current message | [`loadArcadiaChatTurnContext()`](../../lib/api/arcadia-chat-turn-context.ts), [`selectArcadiaContextMessages()`](../../lib/chat/arcadia-token-context.ts) |
+| Append guidance and response-length instructions | [`chat-system-prompt.ts`](../../lib/api/chat-system-prompt.ts) |
+| Append the current date, last | [`appendCurrentDate()`](../../lib/system-prompt/current-date.ts), called on the final string in each route before `streamText` |
+
 Internal reference for how chat context is assembled before `streamText`, what it depends on, where latency comes from, and where to optimize.
 
 **Primary implementation:** [`lib/chat/chat-store.ts`](../../lib/chat/chat-store.ts) — `getContext`  
@@ -59,7 +102,7 @@ Failure here aborts context; route may still have `sbUserId` from earlier but `g
 
 ### Step 4 — System prompt (local)
 
-- Chooses `SYSTEM_PROMPT` / Prometheus / Spark string, injects `{{currentDateTime}}`.
+- Chooses `SYSTEM_PROMPT` / Prometheus / Spark string. It carries no date; the route appends one last with `appendCurrentDate()`.
 - **CPU:** `estimateTokenCount` via tiktoken-style encode ([`lib/llm/chat-helpers.ts`](../../lib/llm/chat-helpers.ts)) — sub-millisecond for normal prompt sizes.
 
 ### Phase 1 — `Promise.all` (parallel)
@@ -109,6 +152,7 @@ Used only for the “Current chat” context blurb (total vs in-window). Adds an
 |------|------|----------|
 | Strata suffix | `buildStrataSystemSuffix` → optional `fetchPage(strataPageId)` | Yes for `strata_page` with page id (Supabase + crypto) |
 | Tools | `compileTools` — memory / web / history / Strata / Mermaid | Tool **execution** is later; compilation is local. `search_memories` runs Mem0 with the model’s tool `query` verbatim (no rewrite). **Query rewrite** applies only inside Arcadia `getContext` for the initial memory pull; the user’s last `UIMessage` is never replaced by rewritten text. |
+| Current date | `appendCurrentDate` on the final system string, after response-length instructions | No |
 
 ---
 
@@ -190,5 +234,6 @@ Paste production/staging log lines into team notes and update this doc’s range
 
 | Date | Change |
 |------|--------|
+| 2026-09 | Current date moved out of the base prompts; every route appends it as the last system section. See the [ADR](decisions/20260912-current-date-last-in-system-prompt.md). |
 | 2026-08 | Context-budget polls skip Mem0; empty memory queries return no search; missing thread summaries are not errors. |
 | 2026-04 | Initial internal doc for `getContext`, route wiring, network map, Arcadia memory pipeline. |

@@ -40,6 +40,7 @@ import {
   wrapSystemPromptWithResponseLength,
 } from "@/lib/api/chat-system-prompt";
 import { appendIntrospectionMainChatSystemFragments } from "@/lib/api/introspection-system-prompt";
+import { appendCurrentDate } from "@/lib/system-prompt/current-date";
 import { resolveMemoryEnabledForExperience } from "@/lib/chat/chat-experience";
 import { resolveChatStarterPromptByKey } from "@/lib/chat/chat-style-starters";
 import { compileChatTools } from "@/lib/llm/compile-chat-tools";
@@ -365,10 +366,12 @@ export async function POST(req: Request) {
         transient: true,
       });
 
-      const systemPromptWithLength = wrapSystemPromptWithResponseLength(systemPromptForRequest, {
-        experience,
-        delphiDisplay,
-      });
+      const systemPromptWithLength = appendCurrentDate(
+        wrapSystemPromptWithResponseLength(systemPromptForRequest, {
+          experience,
+          delphiDisplay,
+        })
+      );
 
       const inputTokenEstimate = estimateLlmInputTokens({
         systemPrompt: systemPromptWithLength,
