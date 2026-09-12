@@ -57,6 +57,7 @@ export async function loadArcadiaChatTurnContext(
 
     const allMessages = allMessagesResult.data;
     const selection = selectArcadiaContextMessages(allMessages);
+
     scheduleBackgroundCondensation =
       selection.needsCondensation && selection.messagesToCondense.length > 0;
 

@@ -680,8 +680,6 @@ export async function getContext({
       }
     }
 
-    systemPrompt = systemPrompt.replace("{{currentDateTime}}", new Date().toISOString());
-
     contextPieces.push({
       content: systemPrompt,
     });
@@ -949,10 +947,7 @@ export async function getContext({
      *
      * Current chat context (total message count + context window size for get_more_chat_history)
      ***/
-    const totalCount =
-      totalThreadMessagesOverride ??
-      (await getMessageCount(chatId)).data ??
-      null;
+    const totalCount = totalThreadMessagesOverride ?? (await getMessageCount(chatId)).data ?? null;
     const messagesInContext = messages.length;
     const windowLabel = contextWindowLabel ?? `most recent ${messagesInContext}`;
     const currentChatContent =
@@ -963,6 +958,11 @@ export async function getContext({
     contextPieces.push({
       title: "Current chat",
       content: currentChatContent,
+    });
+
+    contextPieces.push({
+      title: "Additional Info",
+      content: `The current date is ${new Date().toISOString()}`,
     });
 
     /***
