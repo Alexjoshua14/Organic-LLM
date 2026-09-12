@@ -2,7 +2,7 @@
 
 Dev-only instrumentation for measuring three user journeys:
 
-1. **Page load** — document load of `/` (signed-in composer or signed-out welcome)
+1. **Page load** — document load of `/` (signed-in composer)
 2. **Home → Chat** — Let's Chat / sidebar Chat rail
 3. **Home → Arcadia** — any link to `/sandbox/arcadia…`
 
@@ -14,6 +14,17 @@ Add `?perf=1` to any URL. The flag is sticky per tab (`sessionStorage`). Disable
 
 Works in `bun dev`, `bun start`, and deployed builds. The HUD is **not** auto-on in development.
 
+**Locked — 2026-09-10:** Collection and the HUD require resolved, signed-in auth as well as
+the perf flag. Signed-out visits emit no custom perf marks or traces, even with a stored flag.
+Sign-out discards the active trace and disconnects the page-load observer. The debug preference
+and completed history remain stored per tab.
+
+Signing in within a document enables subsequent navigation journeys, but does not start a
+page-load trace for time spent signed out. Load traces only start for initially signed-in
+home visits; direct loads of other routes do not create an unfinished home-load trace.
+Auth initialization runs before the composer's ready effect, including when auth resolves late.
+This scope applies to the custom perf collector; Vercel Analytics is unchanged.
+
 ## Headline metric
 
 **Destination composer painted** — when the user can type in the target composer:
@@ -21,7 +32,6 @@ Works in `bun dev`, `bun start`, and deployed builds. The HUD is **not** auto-on
 | Journey | Headline phase |
 |---------|----------------|
 | Page load (signed in) | `home:composer-ready` |
-| Page load (signed out) | `home:welcome-ready` |
 | Home → Chat | `chat:ready` |
 | Home → Arcadia | `chat:ready` (`experience: arcadia`) |
 
