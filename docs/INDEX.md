@@ -70,4 +70,4 @@ Public routes under `/blog` — see the [blog index](../app/blog/page.tsx) or ru
 
 - [Performance journeys](./perf-journeys.md) — dev HUD for home load, Chat, and Arcadia transition timings (`?perf=1`)
 - [Strata manual verification](./strata-manual-verification.md)
-- [TTS token tracker](./tts-token-tracker.md)
+- [TTS token tracker](./tts-token-tracker.md) — historical; display components removed

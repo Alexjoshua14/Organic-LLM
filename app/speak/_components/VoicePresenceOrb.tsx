@@ -1,6 +1,6 @@
 "use client";
 
-import type { LiveVoicePhase } from "@/hooks/use-live-voice";
+import type { LiveVoicePhase } from "@/hooks/use-realtime-voice";
 
 import { cn } from "@/lib/utils";
 

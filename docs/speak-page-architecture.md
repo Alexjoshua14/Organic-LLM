@@ -1,5 +1,9 @@
 # Speak Page — Architecture & Data Flow
 
+> **Historical — superseded.** This describes the pre-Realtime Speak page. Its segmented
+> playback UI and `/api/ai/tts/transform` and `/api/ai/tts/stream` endpoints were removed on
+> 2026-09-12. Paths below are historical references. See [current Speak](./speak/README.md).
+
 ## Overview
 
 The `/speak` page converts text to speech using a multi-step pipeline:

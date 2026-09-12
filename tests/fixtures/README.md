@@ -10,17 +10,13 @@ Real API response data captured from ElevenLabs / Vercel AI SDK for use in the t
    LOG_TTS_FIXTURE=1 bun run dev
    ```
 
-2. Trigger TTS generation:
-
-   - **Streaming (ElevenLabs NDJSON)**: Use the `/speak/v2` page or any component that calls `/api/ai/tts-v2`
-   - **SSE (Vercel AI SDK)**: Use the `/speak` page which calls `/api/ai/tts/stream`
+2. Trigger streaming TTS generation using Read Aloud mode on `/speak`, the `/speak/v2`
+   demo, or another component that calls `/api/ai/tts-v2` (ElevenLabs NDJSON).
+   The default Live mode on `/speak` uses OpenAI Realtime and does not produce TTS fixtures.
 
 3. Check the server logs for the fixture output between the `--- START ---` and `--- END ---` markers.
 
-4. Copy the JSON and save it here:
-
-   - `elevenlabs-stream-response.json` — from `/api/ai/tts-v2` (NDJSON chunks with alignment)
-   - `generate-speech-response.json` — from `/api/ai/tts/stream` (single audio blob as base64)
+4. Copy the JSON into `elevenlabs-stream-response.json` (NDJSON chunks with alignment).
 
 5. Unset `LOG_TTS_FIXTURE` when done (the log is gated so it only fires when set to "1").
 
@@ -39,6 +35,10 @@ Real API response data captured from ElevenLabs / Vercel AI SDK for use in the t
 ```
 
 ### `generate-speech-response.json`
+
+Historical fixture captured from the retired `/api/ai/tts/stream` endpoint. Kept for
+audio-byte and decoding tests; the capture instructions above produce the ElevenLabs
+streaming fixture, not this format.
 
 ```json
 {

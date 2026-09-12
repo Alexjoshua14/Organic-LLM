@@ -3,17 +3,16 @@ import { describe, test, expect } from "bun:test";
 import { createFakeMP3, uint8ArrayToRecord } from "../helpers/mock-tts";
 
 // ---------------------------------------------------------------------------
-// Reproduce the exact server → client audio data roundtrip
+// Reproduce the legacy server → client audio data roundtrip
 //
-// Server (route.ts):  Uint8Array → uint8ArrayToRecord → JSON.stringify → SSE
-// Client (page.tsx):  JSON.parse → Object.values() → new Uint8Array → Blob
+// Legacy server: Uint8Array → uint8ArrayToRecord → JSON.stringify → SSE
+// Legacy client: JSON.parse → Object.values() → new Uint8Array → Blob
 //
-// These tests verify that bytes are not lost, reordered, or corrupted.
+// These tests verify the serialization format, not the current Speak transport.
 // ---------------------------------------------------------------------------
 
 /**
- * Client-side conversion — copied verbatim from app/speak/page.tsx
- * so the test breaks if the real code would break.
+ * Historical client-side conversion retained to verify legacy audio serialization.
  */
 function uint8ArrayToBlob(uint8ArrayData: Record<number, number>): Blob {
   const uint8Array = new Uint8Array(Object.values(uint8ArrayData));
