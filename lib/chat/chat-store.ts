@@ -9,9 +9,11 @@
  * - {@link saveChat} / {@link loadChat} — thread storage.
  *
  * **Memory:** Non-Arcadia uses a single Mem0 search; Arcadia uses rewrite → parallel search →
- * tiered injection (see `lib/memory/*` and internal `docs/architecture/context-building.md`).
+ * tiered injection, or `contextEffort` → typed planner + deadline (see `lib/memory/*` and
+ * internal `docs/architecture/context-building.md`).
  */
 import type { MemoryItemType } from "@/lib/schemas/memory";
+import type { ContextEffortLevel } from "../memory/context-effort";
 
 import { UIMessage } from "ai";
 import { auth } from "@clerk/nextjs/server";
@@ -22,6 +24,7 @@ import SPARK_SYSTEM_PROMPT from "../system-prompt";
 import { getStateString } from "../supabase/organicStateStore";
 import { searchMemoriesForUser } from "../memory/operations";
 import { searchMemoriesWithL1Cache } from "../memory/memory-search-cache";
+import { runArcadiaMemoryPhase } from "../memory/arcadia-memory-phase";
 import {
   ARCADIA_MEMORY_MAX_INJECTED,
   ARCADIA_MEMORY_MIN_SCORE,
@@ -105,6 +108,11 @@ interface getContextProps {
   totalThreadMessagesOverride?: number;
   /** Human-readable window label for the "Current chat" blurb. */
   contextWindowLabel?: string;
+  /**
+   * Arcadia-only context-effort tier. When set with `experience === "arcadia"`,
+   * uses the typed planner + deadline path. Omitted → legacy rewriter.
+   */
+  contextEffort?: ContextEffortLevel;
 }
 
 export async function createChat(): Promise<Result<string>> {
@@ -560,6 +568,7 @@ export async function getContext({
   messagesOverride,
   totalThreadMessagesOverride,
   contextWindowLabel,
+  contextEffort,
 }: getContextProps): Promise<
   Result<
     {
@@ -712,8 +721,23 @@ export async function getContext({
     let memoriesResult: { results: MemoryItemType[] } = { results: [] };
     let arcadiaQueryRewriteUsed: boolean | undefined;
     let arcadiaEffectiveQueryCount: number | undefined;
+    let effortPhase: Awaited<ReturnType<typeof runArcadiaMemoryPhase>> | undefined;
+    let returnedMemories: string[] | undefined;
 
-    if (memoryEnabled && isArcadiaStyleMemoryReadExperience(experience)) {
+    const useEffortPath = memoryEnabled && experience === "arcadia" && contextEffort;
+
+    if (useEffortPath) {
+      const historyMessages = messagesResult.data ?? [];
+      const recentTurns = buildRecentTurnsForMemoryRewrite(historyMessages, message);
+
+      effortPhase = await runArcadiaMemoryPhase({
+        sbUserId,
+        userMessage,
+        recentTurns,
+        conversationMessagesInContext: historyMessages.length + 1,
+        contextEffort,
+      });
+    } else if (memoryEnabled && isArcadiaStyleMemoryReadExperience(experience)) {
       // Query rewrite is only for Mem0 search below. Returned `messages` are DB history only;
       // routes append the original request `message` unchanged for the main LLM.
       const historyMessages = messagesResult.data ?? [];
@@ -807,7 +831,43 @@ export async function getContext({
     if (memoryEnabled) {
       let memories = "";
 
-      if (memoriesResult.results === null || memoriesResult.results === undefined) {
+      if (effortPhase) {
+        if (effortPhase.portraitText) {
+          contextPieces.push({
+            title: "User portrait (from profile)",
+            content: effortPhase.portraitText,
+          });
+          const portraitTokens = await estimateTokenCount(effortPhase.portraitText);
+
+          if (portraitTokens !== null) {
+            contextTokenSizes.push({
+              name: "User portrait",
+              tokens: portraitTokens,
+            });
+          }
+        }
+
+        memories = effortPhase.memoriesText;
+        returnedMemories = effortPhase.selected.map((item) => item.memory).filter(Boolean);
+
+        contextPieces.push({
+          title: "Memories from past conversations:",
+          content: memories,
+        });
+        contextPieces.push({
+          title: "Memory inventory (Arcadia)",
+          content: effortPhase.inventoryText,
+        });
+
+        const inventoryTokens = await estimateTokenCount(effortPhase.inventoryText);
+
+        if (inventoryTokens !== null) {
+          contextTokenSizes.push({
+            name: "Memory inventory",
+            tokens: inventoryTokens,
+          });
+        }
+      } else if (memoriesResult.results === null || memoriesResult.results === undefined) {
         logger.error(
           "getContext",
           `Error getting memories: Memories are null\n${JSON.stringify(memoriesResult)}`
@@ -826,7 +886,17 @@ export async function getContext({
         });
 
         memories = formatMemoriesForPrompt(selected);
+        returnedMemories = selected.map((item) => item.memory).filter(Boolean);
         const conversationMessagesInContext = messages.length + 1;
+        const inventoryText = buildArcadiaMemoryInventoryText({
+          conversationMessagesInContext,
+          memoriesInjected: selected.length,
+          tiers,
+          overfetchCap: ARCADIA_MEMORY_OVERFETCH,
+          minScore: ARCADIA_MEMORY_MIN_SCORE,
+          queryRewriteUsed: arcadiaQueryRewriteUsed ?? false,
+          effectiveQueryCount: arcadiaEffectiveQueryCount ?? 1,
+        });
 
         contextPieces.push({
           title: "Memories from past conversations:",
@@ -835,21 +905,26 @@ export async function getContext({
 
         contextPieces.push({
           title: "Memory inventory (Arcadia)",
-          content: buildArcadiaMemoryInventoryText({
-            conversationMessagesInContext,
-            memoriesInjected: selected.length,
-            tiers,
-            overfetchCap: ARCADIA_MEMORY_OVERFETCH,
-            minScore: ARCADIA_MEMORY_MIN_SCORE,
-            queryRewriteUsed: arcadiaQueryRewriteUsed ?? false,
-            effectiveQueryCount: arcadiaEffectiveQueryCount ?? 1,
-          }),
+          content: inventoryText,
         });
+
+        const inventoryTokens = await estimateTokenCount(inventoryText);
+
+        if (inventoryTokens !== null) {
+          contextTokenSizes.push({
+            name: "Memory inventory",
+            tokens: inventoryTokens,
+          });
+        }
       } else {
         memories = memoriesResult.results
           .map((result: { memory?: string }) => result.memory)
           .filter((memory: string | undefined): memory is string => memory != null)
           .join("\n");
+        returnedMemories = memories
+          .split("\n")
+          .map((line) => line.trim())
+          .filter(Boolean);
 
         contextPieces.push({
           title: "Memories from past conversations:",
@@ -964,6 +1039,7 @@ export async function getContext({
       data: {
         context,
         messages,
+        memories: returnedMemories,
         tokenBreakdown: contextTokenSizes,
         totalThreadMessages: totalCount ?? messages.length,
         packedMessageCount: messages.length,

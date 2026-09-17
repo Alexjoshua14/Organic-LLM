@@ -138,14 +138,14 @@ So the user sees: gathering → thinking → “Using a tool” / “Searching t
 
 ## Context budget indicator
 
-The Core Input donut (`ContextBudgetIndicator`) shows how much of the model window the next send would use.
+The Core Input donut (`ContextBudgetIndicator`) shows how much of the model window the next send would use, plus **Last send** (input tokens and memories from the last assembled LLM window) when a measured snapshot exists.
 
 **Main chat (`components/chat/chat.tsx`)** passes `useChat` messages into the hook and uses **client compose**:
 
 1. On thread open / toggle change / post-stream `refreshKey`, the client POSTs `/api/chat/context-budget` with `mode: "scaffold"`.
-2. The server returns a **numbers-only** scaffold (system / tools / summary / memory token counts, `activeToolNames`, optional `memoriesInjected`). No message text, summary text, or memory text is stored or returned for caching — and the server keeps **no per-user cache**.
+2. The server returns a **numbers-only** scaffold (system / tools / summary / memory token counts, `activeToolNames`, optional `memoriesInjected`). No message text, summary text, or memory text is stored or returned for caching — and the server keeps **no per-user cache**. Scaffold polls do **not** include last-send metrics (memory search is off).
 3. While typing, the browser composes the full estimate from that scaffold + local `threadMessages` + draft (`composeContextBudget`). Zero server calls per keystroke.
-4. A streamed `data-context-budget` snapshot refreshes the scaffold with measured numbers after a send; `refreshKey` may refetch in case the rolling summary regenerated.
+4. A streamed `data-context-budget` snapshot (non-transient) carries measured next-send numbers **and** `lastTurn` `{ inputTokens, memoryTokens, memoriesInjected }`. The client keeps `lastTurn` across scaffold refetches and hydrates it from the latest message part on reload.
 
 **Trade-offs:** Another browser’s sends show up on next open or refresh — same as the chat UI. Scaffold fetch does one summary DB query per open/refresh; typing is local.
 

@@ -1,10 +1,15 @@
 import type { UIMessage } from "ai";
 import type { ChatExperience } from "@/lib/chat/chat-experience";
+import type { ContextEffortLevel } from "@/lib/memory/context-effort";
 
 import { encodingForModel } from "js-tiktoken";
 
 import { resolveChatModelId } from "@/lib/api/resolve-chat-model";
 import { CHAT_RESPONSE_MAX_OUTPUT_TOKENS } from "@/lib/llm/helpers";
+import {
+  estimatedMemoryContextTokensForEffort,
+  LEGACY_ESTIMATED_MEMORY_CONTEXT_TOKENS,
+} from "@/lib/memory/context-effort";
 import { AUTO_CHAT_MODEL_ID } from "@/lib/schemas/chat";
 
 /** Approximate system prompt size (matches `SYSTEM_PROMPT` + guardrails). */
@@ -17,7 +22,7 @@ export const ESTIMATED_WEB_SEARCH_TOOL_TOKENS = 750;
 export const ESTIMATED_MEMORY_TOOL_TOKENS = 650;
 export const ESTIMATED_MESSAGE_SEARCH_TOOL_TOKENS = 850;
 /** Typical Mem0 hits merged into context when memory is on. */
-export const ESTIMATED_MEMORY_CONTEXT_TOKENS = 900;
+export const ESTIMATED_MEMORY_CONTEXT_TOKENS = LEGACY_ESTIMATED_MEMORY_CONTEXT_TOKENS;
 /** Rolling summary attached when the thread exceeds the last-N window. */
 export const ESTIMATED_ROLLING_SUMMARY_BASE_TOKENS = 600;
 
@@ -95,8 +100,22 @@ export type ContextBudgetEstimate = {
   activeToolNames?: string[];
   /** Memories merged into the system context (absent when memory search was skipped). */
   memoriesInjected?: number;
+  /**
+   * Measured pack from the last assembled LLM send. Survives client compose / scaffold polls
+   * so the HUD can show what actually went into that window.
+   */
+  lastTurn?: ContextBudgetLastTurn;
   /** `server` when built from context assembly; `default` for new-thread baseline; `client` for local compose. */
   source?: "server" | "default" | "client";
+};
+
+export type ContextBudgetLastTurn = {
+  /** Total input tokens on that send (system + tools + history + user turn + memory). */
+  inputTokens: number;
+  /** Portrait + retrieved bullets + inventory, when present. */
+  memoryTokens: number;
+  /** Memory bullets injected (not the overfetch sample). */
+  memoriesInjected: number;
 };
 
 /**
@@ -109,6 +128,7 @@ export type ContextBudgetScaffold = {
   summaryTokens: number;
   memoryTokens: number;
   memoriesInjected?: number;
+  lastTurn?: ContextBudgetLastTurn;
   activeToolNames: string[];
   /** Absent / undefined means pack the full thread (e.g. Arcadia). */
   contextMessageLimit?: number;
@@ -126,6 +146,7 @@ export type FinalizeContextBudgetParams = {
   reservedOutputTokens?: number;
   activeToolNames?: string[];
   memoriesInjected?: number;
+  lastTurn?: ContextBudgetLastTurn;
   source?: ContextBudgetEstimate["source"];
 };
 
@@ -145,6 +166,7 @@ export function finalizeContextBudget(params: FinalizeContextBudgetParams): Cont
     reservedOutputTokens = CHAT_RESPONSE_MAX_OUTPUT_TOKENS,
     activeToolNames,
     memoriesInjected,
+    lastTurn,
     source,
   } = params;
 
@@ -180,6 +202,7 @@ export function finalizeContextBudget(params: FinalizeContextBudgetParams): Cont
     ]),
     activeToolNames,
     memoriesInjected,
+    lastTurn,
     source,
   };
 }
@@ -192,10 +215,69 @@ export function scaffoldFromStreamBudget(budget: ContextBudgetEstimate): Context
     summaryTokens: segmentTokens(budget, "summary"),
     memoryTokens: segmentTokens(budget, "memory"),
     memoriesInjected: budget.memoriesInjected,
+    lastTurn: budget.lastTurn,
     activeToolNames: budget.activeToolNames ?? [],
     contextMessageLimit: budget.contextMessageLimit,
     source: "server",
   };
+}
+
+/** Measured last-send pack. A send snapshot without `lastTurn` is itself the last window. */
+export function lastTurnFromSendBudget(budget: ContextBudgetEstimate): ContextBudgetLastTurn {
+  if (budget.lastTurn) return budget.lastTurn;
+
+  return {
+    inputTokens: budget.nextSubmitTokens,
+    memoryTokens: segmentTokens(budget, "memory"),
+    memoriesInjected: budget.memoriesInjected ?? 0,
+  };
+}
+
+export function withLastTurnSnapshot(budget: ContextBudgetEstimate): ContextBudgetEstimate {
+  return budget.lastTurn ? budget : { ...budget, lastTurn: lastTurnFromSendBudget(budget) };
+}
+
+/** Keep a measured last send when a later scaffold/poll omits it. */
+export function mergePreservedLastTurn<T extends { lastTurn?: ContextBudgetLastTurn }>(
+  incoming: T,
+  previous: { lastTurn?: ContextBudgetLastTurn } | null | undefined
+): T {
+  if (incoming.lastTurn || !previous?.lastTurn) return incoming;
+
+  return { ...incoming, lastTurn: previous.lastTurn };
+}
+
+function isContextBudgetDataPart(
+  part: UIMessage["parts"][number]
+): part is { type: "data-context-budget"; data: ContextBudgetEstimate } {
+  return (
+    typeof part === "object" &&
+    part != null &&
+    "type" in part &&
+    part.type === "data-context-budget" &&
+    "data" in part &&
+    part.data != null &&
+    typeof part.data === "object"
+  );
+}
+
+/** Latest persisted `data-context-budget` part, for HUD hydrate after reload. */
+export function getLatestContextBudgetFromMessages(
+  messages: UIMessage[]
+): ContextBudgetEstimate | null {
+  for (let i = messages.length - 1; i >= 0; i -= 1) {
+    const parts = messages[i]?.parts ?? [];
+
+    for (let j = parts.length - 1; j >= 0; j -= 1) {
+      const part = parts[j];
+
+      if (!part || !isContextBudgetDataPart(part)) continue;
+
+      return withLastTurnSnapshot(part.data);
+    }
+  }
+
+  return null;
 }
 
 type MessageTokenMemo = { text: number; tool: number };
@@ -325,6 +407,7 @@ export function composeContextBudget(params: ComposeContextBudgetParams): Contex
     reservedOutputTokens,
     activeToolNames: scaffold.activeToolNames,
     memoriesInjected: scaffold.memoriesInjected,
+    lastTurn: scaffold.lastTurn,
     source: "client",
   });
 }
@@ -414,6 +497,8 @@ export type ComputeContextBudgetParams = {
   memoryEnabled?: boolean;
   webSearchEnabled?: boolean;
   messageSearchEnabled?: boolean;
+  /** Arcadia context-effort tier; omitted uses {@link ESTIMATED_MEMORY_CONTEXT_TOKENS}. */
+  contextEffort?: ContextEffortLevel;
   reservedOutputTokens?: number;
 };
 
@@ -426,6 +511,7 @@ export function computeContextBudget(params: ComputeContextBudgetParams): Contex
     memoryEnabled = true,
     webSearchEnabled = true,
     messageSearchEnabled = true,
+    contextEffort,
     reservedOutputTokens = CHAT_RESPONSE_MAX_OUTPUT_TOKENS,
   } = params;
 
@@ -457,7 +543,7 @@ export function computeContextBudget(params: ComputeContextBudgetParams): Contex
       Math.min(1_600, Math.max(0, threadMessages.length - contextMessageLimit) * 40)
     : 0;
 
-  const memoryTokens = memoryEnabled ? ESTIMATED_MEMORY_CONTEXT_TOKENS : 0;
+  const memoryTokens = memoryEnabled ? estimatedMemoryContextTokensForEffort(contextEffort) : 0;
 
   const segments = filterBudgetSegments([
     {
@@ -573,6 +659,13 @@ export function formatTokenCount(tokens: number): string {
   }
 
   return tokens.toLocaleString();
+}
+
+/** HUD label: memory bullet count plus pack tokens (portrait + bullets + inventory). */
+export function formatMemoryPackLabel(params: { count: number; tokens: number }): string {
+  const noun = params.count === 1 ? "memory" : "memories";
+
+  return `${params.count} ${noun} · ${formatTokenCount(params.tokens)} tok`;
 }
 
 /** Share of the thread's persisted messages packed into the active context window. */

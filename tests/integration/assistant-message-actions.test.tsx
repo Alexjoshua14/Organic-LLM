@@ -35,6 +35,8 @@ mock.module("@/lib/user-settings", () => ({
     zeroDataRetention: false,
     coalescenceMode: false,
     experimentalArcadiaMarkdownPreview: false,
+    experimentalContextEffort: false,
+    contextEffortLevel: "quick",
   }),
 }));
 

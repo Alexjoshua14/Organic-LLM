@@ -4,6 +4,7 @@ import type { UIMessage } from "ai";
 import type { ChatExperience } from "@/lib/chat/chat-experience";
 import type { ChatStyle } from "@/lib/chat/chat-style";
 import type { ContextBudgetEstimate } from "@/lib/chat/context-budget";
+import type { ContextEffortLevel } from "@/lib/memory/context-effort";
 
 import {
   ChangeEventHandler,
@@ -45,6 +46,7 @@ import {
   CoreInputControlsValue,
   InputMarkdownMode,
 } from "./core-input-context";
+import { ComposerContextEffortSlider } from "./controls/context-effort-slider";
 import { ComposerModelEffortSelect } from "./controls/model-effort-select";
 import { ComposerPreviewChip } from "./controls/preview-chip";
 import { ComposerSpeechChip } from "./controls/speech-chip";
@@ -62,11 +64,13 @@ import {
   DEFAULT_COMPOSER_WEB_SEARCH,
 } from "@/lib/chat/composer-tool-defaults";
 import { ChatModel, ChatModels, getSelectableChatModels } from "@/lib/schemas/chat";
+import { setSettings } from "@/lib/user-settings";
 import {
   CHAT_EFFORT_LEVELS,
   ChatEffortLevel,
   clampEffortForModel,
 } from "@/lib/schemas/chat-effort";
+import { useContextEffortSettings } from "@/hooks/use-context-effort-settings";
 import { useIsAdmin } from "@/hooks/use-is-admin";
 import { deleteEmptyChat } from "@/data/supabase/chat";
 import { useSharedChatContext } from "@/lib/context/chat-context";
@@ -222,6 +226,12 @@ export const CoreInput: React.FC<CoreInputProps> = ({
   const isCondensedRef = useRef(false);
   const [showLabels, setShowLabels] = useState(false);
   const [isCondensed, setIsCondensed] = useState(false);
+  const { enabled: experimentalContextEffort, level: contextEffortLevel } =
+    useContextEffortSettings();
+  const showContextEffort = experience === "arcadia" && useMemories && experimentalContextEffort;
+  const handleContextEffortChange = useCallback((level: ContextEffortLevel) => {
+    setSettings({ contextEffortLevel: level });
+  }, []);
   const [inputMarkdownMode, setInputMarkdownMode] = useState<InputMarkdownMode>("edit");
   const hasLoadedPrefs = useRef(false);
   const appliedInitialDraft = useRef(false);
@@ -720,6 +730,9 @@ export const CoreInput: React.FC<CoreInputProps> = ({
       onModelChange: handleModelSelection,
       effort,
       onEffortChange: handleEffortSelection,
+      showContextEffort,
+      contextEffort: contextEffortLevel,
+      onContextEffortChange: handleContextEffortChange,
     }),
     [
       showLabels,
@@ -733,6 +746,9 @@ export const CoreInput: React.FC<CoreInputProps> = ({
       handleModelSelection,
       effort,
       handleEffortSelection,
+      showContextEffort,
+      contextEffortLevel,
+      handleContextEffortChange,
     ]
   );
 
@@ -920,6 +936,7 @@ export const CoreInput: React.FC<CoreInputProps> = ({
               ) : (
                 <ComposerModelEffortSelect />
               )}
+              {showContextEffort ? <ComposerContextEffortSlider /> : null}
             </div>
             <div className="flex shrink-0 items-center gap-1">
               {attachmentActions}

@@ -14,6 +14,7 @@ import {
   HoverCardTrigger,
 } from "@/components/third-party/ui/hover-card";
 import {
+  formatMemoryPackLabel,
   formatTokenCount,
   getContextComposition,
   getContextHeadroomTurns,
@@ -279,6 +280,22 @@ function ContextBudgetPopover({ budget }: { budget: ContextBudgetEstimate }) {
       <SegmentLegend budget={budget} />
 
       <div className={cn("space-y-4 rounded-xl border border-border/50 p-3 text-[11px]", glass())}>
+        {budget.lastTurn ? (
+          <DetailGroup title="Last send">
+            <DetailRow
+              label="Context window"
+              value={`${formatTokenCount(budget.lastTurn.inputTokens)} tok`}
+            />
+            <DetailRow
+              label="Memories"
+              value={formatMemoryPackLabel({
+                count: budget.lastTurn.memoriesInjected,
+                tokens: budget.lastTurn.memoryTokens,
+              })}
+            />
+          </DetailGroup>
+        ) : null}
+
         <DetailGroup title="In context">
           <DetailRow
             label="Thread in context"

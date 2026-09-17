@@ -34,6 +34,7 @@ export default function SettingsPage() {
   const [coalescenceMode, setCoalescenceMode] = useState(false);
   const [experimentalArcadiaMarkdownPreview, setExperimentalArcadiaMarkdownPreview] =
     useState(false);
+  const [experimentalContextEffort, setExperimentalContextEffort] = useState(false);
   const { userId } = useAuth();
   const { user } = useUser();
   const clerkEmail = user?.primaryEmailAddress?.emailAddress ?? null;
@@ -54,6 +55,7 @@ export default function SettingsPage() {
       setZeroDataRetention(getSettings().zeroDataRetention);
       setCoalescenceMode(getSettings().coalescenceMode);
       setExperimentalArcadiaMarkdownPreview(getSettings().experimentalArcadiaMarkdownPreview);
+      setExperimentalContextEffort(getSettings().experimentalContextEffort);
     }
   }, []);
 
@@ -218,6 +220,24 @@ export default function SettingsPage() {
                       onValueChange={(enabled) => {
                         setExperimentalArcadiaMarkdownPreview(enabled);
                         setSettings({ experimentalArcadiaMarkdownPreview: enabled });
+                      }}
+                    />
+                  </SettingsRow>
+                  <SettingsRow
+                    title="Context effort"
+                    mainText={
+                      experimentalContextEffort
+                        ? "Arcadia composer shows Instant / Quick / Heavy for memory compilation."
+                        : "Arcadia uses today’s memory retrieval."
+                    }
+                    subtext="Beta. Controls how long Organic LLM spends compiling your memories and profile portrait in Arcadia. Off omits the slider and keeps the current rewriter. May change or move."
+                  >
+                    <Switch
+                      aria-label="Context effort (beta)"
+                      isSelected={experimentalContextEffort}
+                      onValueChange={(enabled) => {
+                        setExperimentalContextEffort(enabled);
+                        setSettings({ experimentalContextEffort: enabled });
                       }}
                     />
                   </SettingsRow>
