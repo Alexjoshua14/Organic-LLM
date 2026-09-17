@@ -1,8 +1,22 @@
 "use client";
 
+import type { ChatStatus } from "ai";
+
 import { motion } from "framer-motion";
 
 export type OrganicSubmitState = "idle" | "ready" | "sent" | "awaiting" | "error";
+
+/** Chat status + draft presence → glyph state. Shared by CoreInput and the CoreInput lab. */
+export function resolveOrganicSubmitState(
+  status: ChatStatus | undefined,
+  hasText: boolean
+): OrganicSubmitState {
+  if (status === "submitted") return "sent";
+  if (status === "streaming") return "awaiting";
+  if (status === "error") return "error";
+
+  return hasText ? "ready" : "idle";
+}
 
 export function OrganicSubmitGlyph({ state }: { state: OrganicSubmitState }) {
   const label = {

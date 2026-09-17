@@ -159,7 +159,8 @@ function buildConicGradient(
   return `conic-gradient(${stops.join(", ")})`;
 }
 
-function ContextDonut({
+/** Presentational ring. Exported for the CoreInput lab; production goes through the indicator. */
+export function ContextDonut({
   budget,
   size = "sm",
   className,
@@ -253,7 +254,8 @@ function SegmentLegend({ budget }: { budget: ContextBudgetEstimate }) {
   );
 }
 
-function ContextBudgetPopover({ budget }: { budget: ContextBudgetEstimate }) {
+/** Hover-card body. Exported so the lab can pin it open while styling. */
+export function ContextBudgetPopover({ budget }: { budget: ContextBudgetEstimate }) {
   const coverage = getThreadContextCoverage(budget);
   const composition = getContextComposition(budget);
   const headroomTurns = getContextHeadroomTurns(budget);
@@ -351,37 +353,17 @@ function ContextBudgetPopover({ budget }: { budget: ContextBudgetEstimate }) {
   );
 }
 
-export const ContextBudgetIndicator: React.FC<ContextBudgetIndicatorProps> = ({
-  chatId,
-  modelId,
-  draftText,
-  memoryEnabled,
-  webSearchEnabled,
-  messageSearchEnabled,
-  experience,
-  chatStyle,
-  speechFriendly,
-  refreshKey,
-  streamBudget,
-  threadMessages,
+/**
+ * Badge + hover card for a resolved budget. No data fetching — the indicator below pairs
+ * this with {@link useThreadContextBudget}; the CoreInput lab feeds it fixture budgets.
+ */
+export function ContextBudgetIndicatorView({
+  budget,
   className,
-}) => {
-  const budget = useThreadContextBudget({
-    chatId,
-    modelId,
-    draftText,
-    memoryEnabled,
-    webSearchEnabled,
-    messageSearchEnabled,
-    experience,
-    chatStyle,
-    speechFriendly,
-    refreshKey,
-    streamBudget,
-    threadMessages,
-    enabled: Boolean(chatId),
-  });
-
+}: {
+  budget: ContextBudgetEstimate;
+  className?: string;
+}) {
   const pctLabel = Math.round(budget.fillRatio * 100);
   const fillKelvin = contextFillKelvin(budget.fillRatio);
   const coverage = getThreadContextCoverage(budget);
@@ -418,4 +400,38 @@ export const ContextBudgetIndicator: React.FC<ContextBudgetIndicatorProps> = ({
       </HoverCardContent>
     </HoverCard>
   );
+}
+
+export const ContextBudgetIndicator: React.FC<ContextBudgetIndicatorProps> = ({
+  chatId,
+  modelId,
+  draftText,
+  memoryEnabled,
+  webSearchEnabled,
+  messageSearchEnabled,
+  experience,
+  chatStyle,
+  speechFriendly,
+  refreshKey,
+  streamBudget,
+  threadMessages,
+  className,
+}) => {
+  const budget = useThreadContextBudget({
+    chatId,
+    modelId,
+    draftText,
+    memoryEnabled,
+    webSearchEnabled,
+    messageSearchEnabled,
+    experience,
+    chatStyle,
+    speechFriendly,
+    refreshKey,
+    streamBudget,
+    threadMessages,
+    enabled: Boolean(chatId),
+  });
+
+  return <ContextBudgetIndicatorView budget={budget} className={className} />;
 };

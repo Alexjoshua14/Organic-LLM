@@ -184,6 +184,25 @@ export const prototypes: PrototypeEntry[] = [
     },
   },
   {
+    slug: "core-input",
+    title: "CoreInput lab",
+    description:
+      "Developer bench for the chat composer — the shipped CoreInput under width and prop controls, plus every footer control isolated with pinned states.",
+    about: {
+      what: "A working bench for CoreInput: the production composer on a resizable stage with simulated sends, and a focus view that renders each footer control (tool toggles, model + effort, context effort, context badge, send button, overflow, attachments, lumen shell) on the real shell with lab-driven state.",
+      howToUse:
+        "Product view: type and press Enter to run the simulated send cycle; use the panel to hit each width breakpoint and prop. Focus view: pick a control, compare its pinned states, and deep-link it with ?view=focus&control=<id> while you edit its file.",
+      adminQuestion:
+        "What should the composer communicate at a glance — which controls deserve visual weight, and how should the memory lumen and the context badge relate to each other?",
+    },
+    ranking: {
+      importance: 9,
+      frequency: 9,
+      createdAt: "2026-09-16",
+      updatedAt: "2026-09-16",
+    },
+  },
+  {
     slug: "ui-v2-snapshot",
     title: "UI v2 snapshot",
     description:

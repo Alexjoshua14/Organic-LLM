@@ -51,8 +51,9 @@ import { ComposerModelEffortSelect } from "./controls/model-effort-select";
 import { ComposerPreviewChip } from "./controls/preview-chip";
 import { ComposerSpeechChip } from "./controls/speech-chip";
 import { ComposerToolToggleGroup } from "./controls/tool-toggle-group";
-import { PromptInputSubmit } from "./submit/submit-button";
-import { OrganicSubmitGlyph } from "./submit/submit-glyph";
+import { CORE_INPUT_LAYOUT } from "./layout-breakpoints";
+import { organicGlassSubmitClassName, PromptInputSubmit } from "./submit/submit-button";
+import { OrganicSubmitGlyph, resolveOrganicSubmitState } from "./submit/submit-glyph";
 
 import { DiagramNodeChip } from "@/components/mermaid/diagram-node-chip";
 import { FeatureHint } from "@/components/onboarding/feature-hint";
@@ -508,29 +509,21 @@ export const CoreInput: React.FC<CoreInputProps> = ({
 
     if (!el) return;
 
-    /** Wider threshold to show labels; lower to hide — avoids oscillation at the breakpoint. */
-    const SHOW_LABELS_AT_PX = 640;
-    const HIDE_LABELS_AT_PX = 600;
-    /** Narrow composer: icon chips + overflow for secondary tools; model/effort stay visible. */
-    const CONDENSED_AT_PX = 600;
-    const EXPANDED_AT_PX = 640;
+    // Thresholds and the why behind their offsets live in ./layout-breakpoints.
+    const { showLabelsAtPx, hideLabelsAtPx, condensedAtPx, expandedAtPx } = CORE_INPUT_LAYOUT;
 
     const applyWidth = (width: number) => {
       // Ignore pre-layout 0 widths so we don't lock into condensed on desktop.
       if (width < 1) return;
 
-      const nextLabels = showLabelsRef.current
-        ? width >= HIDE_LABELS_AT_PX
-        : width >= SHOW_LABELS_AT_PX;
+      const nextLabels = showLabelsRef.current ? width >= hideLabelsAtPx : width >= showLabelsAtPx;
 
       if (nextLabels !== showLabelsRef.current) {
         showLabelsRef.current = nextLabels;
         setShowLabels(nextLabels);
       }
 
-      const nextCondensed = isCondensedRef.current
-        ? width < EXPANDED_AT_PX
-        : width < CONDENSED_AT_PX;
+      const nextCondensed = isCondensedRef.current ? width < expandedAtPx : width < condensedAtPx;
 
       if (nextCondensed !== isCondensedRef.current) {
         isCondensedRef.current = nextCondensed;
@@ -638,16 +631,7 @@ export const CoreInput: React.FC<CoreInputProps> = ({
     },
     [onSecondarySubmit, secondarySubmitDisabled, secondarySubmitPending, text]
   );
-  const organicSubmitState =
-    status === "submitted"
-      ? "sent"
-      : status === "streaming"
-        ? "awaiting"
-        : status === "error"
-          ? "error"
-          : text.trim().length > 0
-            ? "ready"
-            : "idle";
+  const organicSubmitState = resolveOrganicSubmitState(status, text.trim().length > 0);
 
   const showSentShimmer =
     sentMessageShimmer === true && (status === "submitted" || status === "streaming");
@@ -861,10 +845,7 @@ export const CoreInput: React.FC<CoreInputProps> = ({
 
   const submitControl = (
     <PromptInputSubmit
-      className={cn(
-        submitVariant === "organic-glass" &&
-          "organic-glass-preview border border-white/20 bg-linear-to-br from-background/86 via-background/60 to-background-tertiary/42 text-foreground shadow-[0_10px_36px_-18px_rgba(20,21,22,0.65),inset_0_1px_0_rgba(255,255,255,0.38)] backdrop-blur-xl hover:border-accent/25 hover:text-foreground dark:border-white/10 dark:from-background-secondary/82 dark:via-background/62 dark:to-background-tertiary/38"
-      )}
+      className={cn(submitVariant === "organic-glass" && organicGlassSubmitClassName)}
       disabled={(!text && !status) || disabled}
       status={status}
       stop={stop}
