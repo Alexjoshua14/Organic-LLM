@@ -2,6 +2,9 @@
   "name": "organic-llm",
   "version": "0.11.0",
   "private": true,
+  "engines": {
+    "node": "22.x"
+  },
   "scripts": {
     "dev": "next dev --turbopack",
     "dev:full": "concurrently -k -n APP,WEBHOOK \"bun run dev\" \"bun run webhook:local\"",
@@ -82,6 +85,7 @@
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "cmdk": "^1.1.1",
+    "dompurify": "3.4.12",
     "embla-carousel-react": "^8.6.0",
     "exa-js": "^2.19.0",
     "framer-motion": "11.18.2",
