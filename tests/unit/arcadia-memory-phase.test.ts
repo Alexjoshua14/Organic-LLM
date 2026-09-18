@@ -25,16 +25,25 @@ mock.module("@/data/supabase/profiles", () => ({
   getProfileTreeByProfileId: async () => ({ data: { tree: null }, error: null }),
 }));
 
-mock.module("@/lib/memory/query-planner", () => ({
+import {
+  raceWithDeadline,
+  runArcadiaMemoryPhase,
+  type RunArcadiaMemoryPhaseParams,
+} from "@/lib/memory/arcadia-memory-phase";
+
+/**
+ * Injected rather than registered with `mock.module`: Bun applies module mocks
+ * process-wide, so stubbing the planner module here leaked into
+ * `tests/unit/query-planner.test.ts` and failed it on CI.
+ */
+const plannerStub: RunArcadiaMemoryPhaseParams["planner"] = {
   planMemoryQueries: async () => ({
     slots: { entity: "Organic LLM", topic: "roadmap" },
     queries: ["Organic LLM", "roadmap"],
     usedPlan: true,
   }),
   secondPassQuery: () => null,
-}));
-
-import { raceWithDeadline, runArcadiaMemoryPhase } from "@/lib/memory/arcadia-memory-phase";
+};
 
 describe("raceWithDeadline", () => {
   test("returns the value when work finishes in time", async () => {
@@ -83,6 +92,7 @@ describe("runArcadiaMemoryPhase rate-limit logs", () => {
       recentTurns: [],
       conversationMessagesInContext: 4,
       contextEffort: "quick",
+      planner: plannerStub,
     });
 
     expect(searchMemoriesWithL1Cache.mock.calls.length).toBe(2);
@@ -114,6 +124,7 @@ describe("runArcadiaMemoryPhase rate-limit logs", () => {
       recentTurns: [],
       conversationMessagesInContext: 4,
       contextEffort: "quick",
+      planner: plannerStub,
     });
 
     expect(

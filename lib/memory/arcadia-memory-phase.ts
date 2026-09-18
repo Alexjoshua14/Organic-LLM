@@ -46,6 +46,15 @@ export type RunArcadiaMemoryPhaseParams = {
   recentTurns: UIMessage[];
   conversationMessagesInContext: number;
   contextEffort: ContextEffortLevel;
+  /**
+   * Test seam for the retrieval planner, mirroring `planMemoryQueries`'s own
+   * `generateTextImpl`. Tests inject here instead of mocking the planner module, which
+   * Bun applies process-wide and which would then leak into the planner's own tests.
+   */
+  planner?: {
+    planMemoryQueries?: typeof planMemoryQueries;
+    secondPassQuery?: typeof secondPassQuery;
+  };
 };
 
 export type ArcadiaMemoryPhaseResult = {
@@ -174,9 +183,11 @@ async function runPhaseWork(
     return;
   }
 
-  const plan = await planMemoryQueries(trimmed, recentTurns, {
-    timeoutMs: budget.plannerTimeoutMs,
-  });
+  const plan = await (params.planner?.planMemoryQueries ?? planMemoryQueries)(
+    trimmed,
+    recentTurns,
+    { timeoutMs: budget.plannerTimeoutMs }
+  );
 
   acc.usedPlan = plan.usedPlan;
   acc.slots = plan.slots;
@@ -193,7 +204,7 @@ async function runPhaseWork(
   const remaining = budget.budgetMs - (performance.now() - startedAt);
 
   if (budget.secondPassMinRemainingMs > 0 && remaining > budget.secondPassMinRemainingMs) {
-    const extra = secondPassQuery(acc.slots, trimmed);
+    const extra = (params.planner?.secondPassQuery ?? secondPassQuery)(acc.slots, trimmed);
 
     if (extra && !acc.queries.some((q) => q.toLowerCase() === extra.toLowerCase())) {
       const extraItems = await searchQuery(sbUserId, extra, budget.overfetch, acc);
