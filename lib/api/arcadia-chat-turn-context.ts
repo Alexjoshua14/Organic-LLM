@@ -1,10 +1,11 @@
 import type { UIMessage } from "ai";
 import type { Logger } from "@/lib/logger";
+import type { ContextEffortLevel } from "@/lib/memory/context-effort";
+import type { LoadMainChatTurnContextResult } from "./chat-turn-context";
 
 import { TypeValidationError } from "ai";
 
 import { mainChatSystemPromptWhenContextFailed } from "./chat-context-fallbacks";
-import type { LoadMainChatTurnContextResult } from "./chat-turn-context";
 
 import { getMessages } from "@/data/supabase/chat";
 import {
@@ -19,6 +20,7 @@ export type LoadArcadiaChatTurnContextParams = {
   chatId: string;
   message: UIMessage;
   memoryEnabled: boolean | undefined;
+  contextEffort?: ContextEffortLevel;
 };
 
 /**
@@ -28,7 +30,7 @@ export type LoadArcadiaChatTurnContextParams = {
 export async function loadArcadiaChatTurnContext(
   params: LoadArcadiaChatTurnContextParams
 ): Promise<LoadMainChatTurnContextResult> {
-  const { logger, chatId, message, memoryEnabled } = params;
+  const { logger, chatId, message, memoryEnabled, contextEffort } = params;
 
   let validatedMessages: UIMessage[];
   let systemPromptForRequest = SYSTEM_PROMPT;
@@ -76,6 +78,7 @@ export async function loadArcadiaChatTurnContext(
       messagesOverride: selection.contextMessages,
       totalThreadMessagesOverride: selection.totalThreadMessages,
       contextWindowLabel: `${ARCADIA_MESSAGE_TOKEN_BUDGET.toLocaleString()}-token window`,
+      contextEffort,
     });
 
     if (chatContextResult.error) {

@@ -31,9 +31,10 @@ export function SettingsOverlay({ open, onOpenChange, trigger }: SettingsOverlay
   const [experimentalArcadiaMarkdownPreview, setExperimentalArcadiaMarkdownPreview] = useState(
     () => getSettings().experimentalArcadiaMarkdownPreview
   );
-  const [ergonLiquidChrome, setErgonLiquidChrome] = useState(
-    () => getSettings().ergonLiquidChrome
+  const [experimentalContextEffort, setExperimentalContextEffort] = useState(
+    () => getSettings().experimentalContextEffort
   );
+  const [ergonLiquidChrome, setErgonLiquidChrome] = useState(() => getSettings().ergonLiquidChrome);
   const [replayFeatureHints, setReplayFeatureHints] = useState(
     () => getSettings().replayFeatureHints
   );
@@ -51,6 +52,7 @@ export function SettingsOverlay({ open, onOpenChange, trigger }: SettingsOverlay
 
       setCoalescenceMode(s.coalescenceMode);
       setExperimentalArcadiaMarkdownPreview(s.experimentalArcadiaMarkdownPreview);
+      setExperimentalContextEffort(s.experimentalContextEffort);
       setErgonLiquidChrome(s.ergonLiquidChrome);
       setReplayFeatureHints(s.replayFeatureHints);
     }
@@ -122,14 +124,33 @@ export function SettingsOverlay({ open, onOpenChange, trigger }: SettingsOverlay
             </section>
 
             <section className="space-y-3">
+              <h3 className="text-sm font-medium text-foreground">Context effort (beta)</h3>
+              <div className="flex items-center justify-between gap-3">
+                <span className="text-xs text-muted-foreground">
+                  When on, Arcadia shows a slider for how hard Organic LLM works to compile your
+                  memories and portrait before answering. Off keeps today&apos;s retrieval.
+                </span>
+                <Switch
+                  aria-label="Context effort (beta)"
+                  isSelected={experimentalContextEffort}
+                  onValueChange={(enabled) => {
+                    setExperimentalContextEffort(enabled);
+                    setSettings({ experimentalContextEffort: enabled });
+                    if (userId) void persistUserSettingsToSupabase(userId, getSettings());
+                  }}
+                />
+              </div>
+            </section>
+
+            <section className="space-y-3">
               <h3 className="flex items-center gap-2 text-sm font-medium text-foreground">
                 <Sparkles className="size-4 text-lumen" />
                 Tips &amp; coachmarks
               </h3>
               <div className="flex items-center justify-between gap-3">
                 <span className="text-xs text-muted-foreground">
-                  Re-show surface tips you dismissed. Sidebar and composer tips stay dismissed;
-                  turn off to return to normal.
+                  Re-show surface tips you dismissed. Sidebar and composer tips stay dismissed; turn
+                  off to return to normal.
                 </span>
                 <Switch
                   aria-label="Replay feature tips and coachmarks"

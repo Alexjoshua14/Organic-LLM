@@ -5,6 +5,7 @@ import z from "zod";
 import { CHAT_EXPERIENCES, parseChatExperience } from "@/lib/chat/chat-experience";
 import { parseChatStyle, ChatStyleSchema } from "@/lib/chat/chat-style";
 import { ChatEffortLevelSchema } from "@/lib/schemas/chat-effort";
+import { ContextEffortLevelSchema } from "@/lib/memory/context-effort";
 import type { DeviceTier } from "@/lib/memory-ingest/delphi-caption-budget";
 import {
   type DrawerChatDisplayInput,
@@ -196,6 +197,11 @@ export const ChatRequestSchema = z.object({
   model: ChatModelSchema.optional(),
   /** Reasoning effort hint; `auto` or omitted leaves provider defaults unchanged. */
   effort: ChatEffortLevelSchema.optional(),
+  /**
+   * Arcadia-only: how hard to compile user memory/portrait this turn.
+   * Omitted → legacy rewriter path (beta off, or non-Arcadia).
+   */
+  contextEffort: ContextEffortLevelSchema.optional(),
   webSearch: z.boolean().optional(),
   memory: z.boolean().optional().default(true),
   speechFriendly: z.boolean().optional(),

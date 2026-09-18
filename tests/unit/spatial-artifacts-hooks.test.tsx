@@ -1,30 +1,35 @@
 import { beforeEach, describe, expect, mock, test } from "bun:test";
 import { act, renderHook, waitFor } from "@testing-library/react";
 
+import { mockModulePreservingReal } from "../helpers/module-mock";
 import { render, ensureDom } from "../helpers/render";
 
 import { truncatePreviewText, useHoverTtsPreview } from "@/hooks/use-hover-tts-preview";
 import { useCoalescenceMode } from "@/hooks/use-coalescence-mode";
 import { CoalescenceGate } from "@/app/sandbox/prototypes/spatial-archetypes/_components/CoalescenceGate";
+import * as ttsContext from "@/lib/context/tts-context";
+import * as userSettings from "@/lib/user-settings";
 
 ensureDom();
 
 const mockGetSettings = mock(() => ({ coalescenceMode: false }));
 
-mock.module("@/lib/user-settings", () => ({
-  USER_SETTINGS_STORAGE_KEY: "organic-llm-user-settings",
+// Merged over the real modules so the stubs keep `setSettings` and `useTTSContext` for files
+// loaded after this one. Deliberately not restored: these modules are stubbed by several files
+// that rely on last-writer-wins.
+mockModulePreservingReal("@/lib/user-settings", userSettings, {
   getSettings: mockGetSettings,
-}));
+} as never);
 
 const mockSpeak = mock(() => undefined);
 const mockStop = mock(() => undefined);
 
-mock.module("@/lib/context/tts-context", () => ({
+mockModulePreservingReal("@/lib/context/tts-context", ttsContext, {
   useTTSOptional: () => ({
     speak: mockSpeak,
     stop: mockStop,
   }),
-}));
+} as never);
 
 describe("truncatePreviewText", () => {
   test("returns trimmed text when under word limit", () => {

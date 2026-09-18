@@ -1,9 +1,10 @@
 import { afterEach, describe, expect, mock, test } from "bun:test";
 import { cleanup, waitFor } from "@testing-library/react";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import type { UIMessage } from "ai";
 
 import { useThreadContextBudget } from "@/hooks/use-thread-context-budget";
+import { finalizeContextBudget } from "@/lib/chat/context-budget";
 import { render } from "../helpers/render";
 
 mock.module("@/lib/user-settings", () => ({
@@ -13,6 +14,8 @@ mock.module("@/lib/user-settings", () => ({
     zeroDataRetention: false,
     coalescenceMode: false,
     experimentalArcadiaMarkdownPreview: false,
+    experimentalContextEffort: false,
+    contextEffortLevel: "quick",
   }),
 }));
 
@@ -138,6 +141,49 @@ function LegacyPollProbe() {
   );
 }
 
+function LastTurnProbe() {
+  const streamBudget = useMemo(
+    () =>
+      finalizeContextBudget({
+        modelId: "openai/gpt-5.6-terra",
+        segments: [
+          { id: "system", label: "System prompt", tokens: 3400, color: "x" },
+          { id: "memory", label: "Memory", tokens: 800, color: "x" },
+        ],
+        contextMessageLimit: 10,
+        packedMessageCount: 1,
+        totalThreadMessages: 1,
+        includesRollingSummary: false,
+        memoriesInjected: 7,
+        lastTurn: { inputTokens: 12_345, memoryTokens: 800, memoriesInjected: 7 },
+        source: "server",
+      }),
+    []
+  );
+  const messages: UIMessage[] = [
+    { id: "u1", role: "user", parts: [{ type: "text", text: "Hello" }] },
+  ];
+
+  const budget = useThreadContextBudget({
+    chatId: "11111111-1111-4111-8111-111111111111",
+    modelId: "openai/gpt-5.6-terra",
+    draftText: "",
+    memoryEnabled: false,
+    webSearchEnabled: false,
+    messageSearchEnabled: false,
+    threadMessages: messages,
+    streamBudget,
+    draftDebounceMs: 20,
+  });
+
+  return (
+    <div
+      data-last-input={budget.lastTurn?.inputTokens ?? ""}
+      data-last-mem={budget.lastTurn?.memoriesInjected ?? ""}
+    />
+  );
+}
+
 describe("useThreadContextBudget", () => {
   test("client compose: draft change does not refetch scaffold; toggle does", async () => {
     mockBudgetFetch();
@@ -146,6 +192,7 @@ describe("useThreadContextBudget", () => {
     await waitFor(() => {
       expect(fetchCalls.length).toBe(1);
       expect(fetchCalls[0]?.body.mode).toBe("scaffold");
+      expect(fetchCalls[0]?.body.contextEffort).toBeUndefined();
     });
 
     getByText("change-draft").click();
@@ -184,6 +231,19 @@ describe("useThreadContextBudget", () => {
       expect(fetchCalls.length).toBe(2);
       expect(fetchCalls[1]?.body.mode).toBe("budget");
       expect(fetchCalls[1]?.body.draftText).toBe("second");
+    });
+  });
+
+  test("client compose: scaffold poll keeps last-send metrics from the stream budget", async () => {
+    mockBudgetFetch();
+    const { container } = render(<LastTurnProbe />);
+
+    await waitFor(() => {
+      expect(fetchCalls.length).toBe(1);
+      expect(container.querySelector("[data-last-input]")?.getAttribute("data-last-input")).toBe(
+        "12345"
+      );
+      expect(container.querySelector("[data-last-mem]")?.getAttribute("data-last-mem")).toBe("7");
     });
   });
 });

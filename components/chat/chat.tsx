@@ -32,6 +32,7 @@ import {
 } from "@/components/third-party/ui/sheet";
 import { isClientPIIRedactionEnabled, redactUIMessages } from "@/lib/pii/redact";
 import { getSettings } from "@/lib/user-settings";
+import { contextEffortForRequest } from "@/lib/memory/context-effort";
 import { Thread } from "@/lib/schemas/chat";
 import { createLogger } from "@/lib/logger";
 import { PERF_PHASES } from "@/lib/perf/journeys";
@@ -45,6 +46,10 @@ import {
   DEFAULT_COMPOSER_MODEL,
   DEFAULT_COMPOSER_WEB_SEARCH,
 } from "@/lib/chat/composer-tool-defaults";
+import {
+  getLatestContextBudgetFromMessages,
+  withLastTurnSnapshot,
+} from "@/lib/chat/context-budget";
 import { getStrataAssistantPersona } from "@/lib/personas/strata-assistant";
 import { ChatAIActionEnum } from "@/types/ai";
 import { getChatErrorMessage } from "@/lib/chat/error-messages";
@@ -128,8 +133,9 @@ export const Chat: React.FC<ChatProps> = ({
   const [arcadiaStarterKey, setArcadiaStarterKey] = useState<string | null>(
     () => chatData?.thread.arcadia_starter_key ?? null
   );
-  const [streamContextBudget, setStreamContextBudget] = useState<ContextBudgetEstimate | null>(
-    null
+  const [streamBudgetThreadId, setStreamBudgetThreadId] = useState(chatData?.thread.id ?? "");
+  const [streamContextBudget, setStreamContextBudget] = useState<ContextBudgetEstimate | null>(() =>
+    getLatestContextBudgetFromMessages(chatData?.messages ?? [])
   );
   const [contextBudgetRefreshKey, setContextBudgetRefreshKey] = useState(0);
   const [arcadiaSettingsOpen, setArcadiaSettingsOpen] = useState(false);
@@ -192,6 +198,14 @@ export const Chat: React.FC<ChatProps> = ({
                   knowledgeSearch: false as const,
                 };
 
+          const settings = getSettings();
+          const contextEffort = contextEffortForRequest({
+            experience,
+            memoryEnabled: strataPageTools.memory,
+            experimentalContextEffort: settings.experimentalContextEffort,
+            contextEffortLevel: settings.contextEffortLevel,
+          });
+
           const req = {
             body: {
               message,
@@ -203,8 +217,9 @@ export const Chat: React.FC<ChatProps> = ({
               experience,
               ...(experience === "arcadia" ? { chatStyle: getChatStyle(id) } : {}),
               ...(strataPageId ? { strataPageId } : {}),
-              zeroDataRetention: getSettings().zeroDataRetention,
-              coalescenceMode: getSettings().coalescenceMode,
+              zeroDataRetention: settings.zeroDataRetention,
+              coalescenceMode: settings.coalescenceMode,
+              ...(contextEffort ? { contextEffort } : {}),
               // Only include persistedSchemas in payload if true
               ...(usePersistedSchemas.current ? { persistedSchemas: true } : {}),
               ...(diagramNodeLinksRef.current.length > 0
@@ -331,7 +346,7 @@ export const Chat: React.FC<ChatProps> = ({
               break;
           }
         } else if (data.type === "data-context-budget") {
-          setStreamContextBudget(data.data as ContextBudgetEstimate);
+          setStreamContextBudget(withLastTurnSnapshot(data.data as ContextBudgetEstimate));
         }
       },
       onError: (error) => {
@@ -350,6 +365,12 @@ export const Chat: React.FC<ChatProps> = ({
       },
     });
 
+  if (streamBudgetThreadId !== id) {
+    setStreamBudgetThreadId(id);
+    setStreamContextBudget(getLatestContextBudgetFromMessages(messages));
+    setContextBudgetRefreshKey(0);
+  }
+
   // Send initial message if provided
   useEffect(() => {
     if (
@@ -364,9 +385,15 @@ export const Chat: React.FC<ChatProps> = ({
   }, [initialMessage, messages.length, status, sendMessage]);
 
   useEffect(() => {
-    setStreamContextBudget(null);
-    setContextBudgetRefreshKey(0);
-  }, [id]);
+    const fromMessages = getLatestContextBudgetFromMessages(messages);
+
+    setStreamContextBudget((current) => {
+      if (current?.lastTurn) return current;
+      if (!fromMessages) return current;
+
+      return fromMessages;
+    });
+  }, [messages]);
 
   useEffect(() => {
     const streaming = status === "streaming" || status === "submitted";

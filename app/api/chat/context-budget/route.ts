@@ -48,6 +48,7 @@ export async function POST(req: Request) {
         chatStyle: parsed.data.chatStyle,
         speechFriendly: parsed.data.speechFriendly,
         zeroDataRetention: parsed.data.zeroDataRetention,
+        contextEffort: parsed.data.contextEffort,
       });
 
       return Response.json({ scaffold });
@@ -67,6 +68,7 @@ export async function POST(req: Request) {
       chatStyle: parsed.data.chatStyle,
       speechFriendly: parsed.data.speechFriendly,
       zeroDataRetention: parsed.data.zeroDataRetention,
+      contextEffort: parsed.data.contextEffort,
     });
 
     return Response.json({ budget });
