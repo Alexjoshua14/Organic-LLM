@@ -61,11 +61,13 @@ export function ensureMermaidDomPurify(): void {
 /**
  * Re-run the article policy in the browser.
  *
- * Returns the input unchanged on the server: article HTML is sanitized at the
- * trust boundary (see lib/html/sanitize.ts), so what SSR renders has already
- * been through the same policy. This is the defence-in-depth pass at the
- * innerHTML sink, not the only one — which is why it can pass through rather
- * than pull jsdom into the SSR bundle to redo work already done.
+ * Returns the input unchanged when there is no DOM, i.e. during SSR. That is the
+ * defence-in-depth pass at the innerHTML sink, not the only one: article HTML
+ * reaches RabbitHoleArticle either from the generation actions or the Supabase
+ * read path, both of which run the same policy server-side (lib/html/sanitize.ts),
+ * or from the sandbox demo's static in-repo fixture. Passing through keeps the
+ * server DOMPurify build — and with it jsdom — out of the SSR bundle. Anything
+ * new that feeds this component during SSR must sanitize first.
  */
 export function reSanitizeArticleHtmlInBrowser(html: string): string {
   if (typeof window === "undefined" || !DOMPurify.isSupported) return html;

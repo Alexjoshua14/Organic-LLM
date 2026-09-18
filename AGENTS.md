@@ -3,7 +3,7 @@
 Organic LLM — a full-stack Next.js AI app and design lab: chat, persistent memory,
 rabbit-hole research, generative UI, a Speak voice agent, and shippable packages under `llm/`.
 
-Runtime: Node ≥ 20, **Bun** as package manager and test runner (`bun.lock`).
+Runtime: Node ≥ 20.19 (22.x in production), **Bun** as package manager and test runner (`bun.lock`).
 
 ## Read before you work
 
