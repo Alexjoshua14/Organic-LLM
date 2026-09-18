@@ -121,7 +121,7 @@ export async function buildRabbitHoleGraphContextBlock(
     }
 
     const docNode = node.summary?.trim() ? node : { ...node, summary };
-    const text = formatNodeSummaryDocument(docNode);
+    const text = await formatNodeSummaryDocument(docNode);
 
     documents.push({ text, meta: ref });
   }

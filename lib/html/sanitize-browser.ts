@@ -1,5 +1,7 @@
 import DOMPurify from "dompurify";
 
+import { RABBIT_HOLE_ARTICLE_POLICY } from "./article-policy";
+
 /**
  * Browser-only HTML sanitizers.
  *
@@ -54,4 +56,19 @@ export function ensureMermaidDomPurify(): void {
   if (!w.DOMPurify) {
     w.DOMPurify = DOMPurify;
   }
+}
+
+/**
+ * Re-run the article policy in the browser.
+ *
+ * Returns the input unchanged on the server: article HTML is sanitized at the
+ * trust boundary (see lib/html/sanitize.ts), so what SSR renders has already
+ * been through the same policy. This is the defence-in-depth pass at the
+ * innerHTML sink, not the only one — which is why it can pass through rather
+ * than pull jsdom into the SSR bundle to redo work already done.
+ */
+export function reSanitizeArticleHtmlInBrowser(html: string): string {
+  if (typeof window === "undefined" || !DOMPurify.isSupported) return html;
+
+  return DOMPurify.sanitize(html, RABBIT_HOLE_ARTICLE_POLICY);
 }
