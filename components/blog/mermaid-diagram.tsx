@@ -6,7 +6,7 @@ import { toast } from "sonner";
 
 import { MermaidDiagramControls } from "@/components/mermaid/mermaid-diagram-controls";
 import { MermaidNodePopover } from "@/components/mermaid/mermaid-node-popover";
-import { ensureMermaidDomPurify, sanitizeMermaidSvgMarkup } from "@/lib/html/sanitize";
+import { ensureMermaidDomPurify, sanitizeMermaidSvgMarkup } from "@/lib/html/sanitize-browser";
 import { useDiagramNodeLinksOptional } from "@/lib/mermaid/diagram-node-links-context";
 import { useDiagramTakeoverOptional } from "@/lib/mermaid/diagram-takeover-context";
 import { buildNodeNeighborhood, extractNodeLabel } from "@/lib/mermaid/node-graph";

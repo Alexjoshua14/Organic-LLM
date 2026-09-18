@@ -1,9 +1,7 @@
 import { describe, expect, test } from "bun:test";
 
-import {
-  sanitizeMermaidSvgMarkup,
-  sanitizeRabbitHoleArticleHtml,
-} from "@/lib/html/sanitize";
+import { sanitizeMermaidSvgMarkup } from "@/lib/html/sanitize-browser";
+import { sanitizeRabbitHoleArticleHtml } from "@/lib/html/sanitize";
 
 describe("sanitizeRabbitHoleArticleHtml", () => {
   test("preserves allowed article markup", () => {
