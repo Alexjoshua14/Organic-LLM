@@ -1,9 +1,11 @@
-import { afterEach, beforeEach, describe, expect, mock, test } from "bun:test";
+import { afterAll, afterEach, beforeEach, describe, expect, mock, test } from "bun:test";
 import { cleanup } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import type { ComponentProps, ReactNode } from "react";
 
 import { FeatureHintRegistryProvider } from "@/lib/onboarding/feature-hint-context";
+import * as sidebarUi from "@/components/third-party/ui/sidebar";
+import { mockModulePreservingReal } from "../helpers/module-mock";
 import { render } from "../helpers/render";
 
 const mockCreateChat = mock<
@@ -52,17 +54,25 @@ mock.module("next/link", () => ({
   ),
 }));
 
-mock.module("@/components/third-party/ui/sidebar", () => ({
-  SidebarMenuButton: ({
-    children,
-    onClick,
-    ...props
-  }: ComponentProps<"button"> & { children?: ReactNode }) => (
-    <button onClick={onClick} {...props}>
-      {children}
-    </button>
-  ),
-}));
+// Merged over the real module and restored: a bare stub dropped `SidebarProvider` and the
+// other primitives for every file loaded after this one.
+const restoreSidebarUi = mockModulePreservingReal(
+  "@/components/third-party/ui/sidebar",
+  sidebarUi,
+  {
+    SidebarMenuButton: ({
+      children,
+      onClick,
+      ...props
+    }: ComponentProps<"button"> & { children?: ReactNode }) => (
+      <button onClick={onClick} {...props}>
+        {children}
+      </button>
+    ),
+  } as never
+);
+
+afterAll(restoreSidebarUi);
 
 import { ChatContext, type ChatContextValue } from "@/lib/context/chat-context";
 

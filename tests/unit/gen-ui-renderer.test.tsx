@@ -1,9 +1,17 @@
-import { describe, expect, mock, test, afterEach } from "bun:test";
+import { describe, expect, mock, test, afterEach, afterAll } from "bun:test";
 import { cleanup } from "@testing-library/react";
 
-mock.module("@/hooks/use-mobile", () => ({
+import * as useMobile from "@/hooks/use-mobile";
+
+import { mockModulePreservingReal } from "../helpers/module-mock";
+
+// Merged over the real hook and restored after this file: a bare stub dropped
+// `useSubmitOnEnter` and `evaluateSubmitOnEnter` for every file loaded after it.
+const restoreUseMobile = mockModulePreservingReal("@/hooks/use-mobile", useMobile, {
   useIsMobile: () => false,
-}));
+});
+
+afterAll(restoreUseMobile);
 
 import { GenUIRenderer } from "@/components/chat/gen-ui/GenUIRenderer";
 import { GenUISkeleton } from "@/components/chat/gen-ui/GenUISkeleton";

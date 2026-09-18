@@ -3,10 +3,16 @@ import type { UIMessage } from "ai";
 import { cleanup } from "@testing-library/react";
 
 import { ChatMessage } from "@/components/chat/chat-message";
+import { mockModulePreservingReal } from "../helpers/module-mock";
 import { render } from "../helpers/render";
+
+import * as ttsContext from "@/lib/context/tts-context";
 import { FIXTURE_ANSWER_CARD, FIXTURE_RESTAURANT_CARD } from "@/lib/schemas/gen-ui/fixtures";
 
-mock.module("@/lib/context/tts-context", () => ({
+// Merged over the real module so the stub keeps `TTSProvider` and `useTTSOptional` for files
+// loaded after this one. Deliberately not restored: other files register their own TTS stub at
+// load time and rely on last-writer-wins, which restoring here breaks.
+mockModulePreservingReal("@/lib/context/tts-context", ttsContext, {
   useTTSContext: () => ({
     speak: () => {},
     play: () => {},
@@ -18,7 +24,7 @@ mock.module("@/lib/context/tts-context", () => ({
     deferPlaybackToUserGesture: false,
   }),
   TTSDockBar: () => null,
-}));
+} as never);
 
 mock.module("@/lib/user-settings", () => ({
   USER_SETTINGS_STORAGE_KEY: "organic-llm-user-settings",
@@ -28,6 +34,8 @@ mock.module("@/lib/user-settings", () => ({
     zeroDataRetention: false,
     coalescenceMode: false,
     experimentalArcadiaMarkdownPreview: false,
+    experimentalContextEffort: false,
+    contextEffortLevel: "quick",
   }),
 }));
 

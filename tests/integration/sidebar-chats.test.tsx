@@ -42,6 +42,8 @@ mock.module("@/lib/user-settings", () => ({
       return defaultUserSettings();
     }
   },
+  // Bun module mocks are process-wide; other files import composer code that needs this export.
+  setSettings: () => defaultUserSettings(),
 }));
 
 import { SidebarProvider } from "@/components/third-party/ui/sidebar";

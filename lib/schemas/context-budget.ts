@@ -2,6 +2,7 @@ import { z } from "zod";
 
 import { CHAT_EXPERIENCES, parseChatExperience } from "@/lib/chat/chat-experience";
 import { ChatStyleSchema, parseChatStyle } from "@/lib/chat/chat-style";
+import { ContextEffortLevelSchema } from "@/lib/memory/context-effort";
 
 export const ContextBudgetRequestSchema = z.object({
   chatId: z.string().uuid(),
@@ -28,6 +29,8 @@ export const ContextBudgetRequestSchema = z.object({
     }, ChatStyleSchema.optional())
     .optional(),
   speechFriendly: z.boolean().optional(),
+  /** Arcadia-only; omitted uses the legacy memory-token estimate. */
+  contextEffort: ContextEffortLevelSchema.optional(),
   zeroDataRetention: z.boolean().optional().default(false),
   mode: z.enum(["budget", "scaffold"]).optional().default("budget"),
 });

@@ -48,9 +48,9 @@ Internal reference for how chat context is assembled before `streamText`, what i
 **Primary implementation:** [`lib/chat/chat-store.ts`](../../lib/chat/chat-store.ts) — `getContext`  
 **Primary consumer:** [`app/api/chat/route.ts`](../../app/api/chat/route.ts) — `POST` handler (after auth / rate limits, before `compileTools` / `streamText`)
 
-Related: [`lib/memory/README.md`](../../lib/memory/README.md) (Mem0 boundary), [`lib/memory/query-rewriter.ts`](../../lib/memory/query-rewriter.ts) (Arcadia + tool query rewrite).
+Related: [`lib/memory/README.md`](../../lib/memory/README.md) (Mem0 boundary), [`lib/memory/query-rewriter.ts`](../../lib/memory/query-rewriter.ts) (legacy Arcadia + tool query rewrite), [`lib/memory/query-planner.ts`](../../lib/memory/query-planner.ts) (typed Arcadia context-effort planner).
 
-`POST /api/chat/context-budget` ([`lib/api/main-chat-context-budget.ts`](../../lib/api/main-chat-context-budget.ts)) reuses turn loaders for messages, summary, and system prompt **with memory search off**. It does not call Mem0/Ollama. When memory is enabled in the UI, the budget’s memory segment is [`ESTIMATED_MEMORY_CONTEXT_TOKENS`](../../lib/chat/context-budget.ts) (900). Measured memory tokens come from a real `/api/chat` turn via `buildBudgetFromAssembledTurn`.
+`POST /api/chat/context-budget` ([`lib/api/main-chat-context-budget.ts`](../../lib/api/main-chat-context-budget.ts)) reuses turn loaders for messages, summary, and system prompt **with memory search off**. It does not call Mem0/Ollama. When memory is enabled in the UI, the budget’s memory segment is [`ESTIMATED_MEMORY_CONTEXT_TOKENS`](../../lib/chat/context-budget.ts) (900) unless the request includes Arcadia `contextEffort`, in which case the estimate is that tier’s combined portrait+memory cap (400 / 2,500 / 6,000). Measured memory tokens come from a real `/api/chat` turn via `buildBudgetFromAssembledTurn` (`recordLastTurn: true`), which also stamps `lastTurn` (input tokens + memory pack tokens + memories injected) on the persisted `data-context-budget` part so the HUD can show the last LLM window after compose/polls overwrite next-send estimates.
 
 ---
 
@@ -121,7 +121,19 @@ Started together after Step 4 token estimate:
 
 ### Phase 2 — Arcadia memory only (`memoryEnabled && experience === "arcadia"`)
 
-Runs **after** phase 1 so recent messages exist for query rewriting.
+Runs **after** phase 1 so recent messages exist for query planning / rewriting. The **50k history window does not shrink**; effort only scales user-memory compilation.
+
+When the request includes `contextEffort` (`instant` | `quick` | `heavy`), Arcadia uses [`runArcadiaMemoryPhase`](../../lib/memory/arcadia-memory-phase.ts): typed planner (skipped on Instant), parallel Mem0, optional compact profile, under a hard deadline. Late work is dropped; the turn still proceeds. See [ADR](decisions/20260914-arcadia-context-effort.md).
+
+| Effort | Wall clock | Planner | Mem0 | Profile | Inject | Combined token cap |
+|--------|------------|---------|------|---------|--------|--------------------|
+| **instant** | 250 ms | none (raw user text, 1 query) | 1 search, overfetch 8 | skip | 5 | ~400 |
+| **quick** (default when beta on) | 1 s | typed, timeout ~350 ms | up to 3 typed searches, overfetch 28 | compact | 20 | ~2,500 |
+| **heavy** | 5 s | typed, timeout ~1.2 s | 3 typed searches + optional second pass | richer compact | 36 | ~6,000 |
+
+Portrait fetch (quick/heavy) starts in parallel with the planner. Inventory text includes the effort tier and that counts are a **sample, not the whole store**.
+
+When `contextEffort` is omitted (beta off), phase 2 keeps today’s rewriter. `topic_explore` stays on this path even though it is Arcadia-style for memory reads.
 
 | Step | What | Network? | Est. / notes |
 |------|------|----------|----------------|
@@ -129,7 +141,7 @@ Runs **after** phase 1 so recent messages exist for query rewriting.
 | 2b | `searchMemoriesWithL1Cache` × N queries | **Yes** per miss — Upstash + Mem0; **no** Mem0 on L1 hit | N = 1–3 rewritten queries, **parallel** `Promise.all`. Each miss: embedding + vector search + JSON (often **40–250+ ms** each, region-dependent). |
 | 2c | `mergeMemorySearchResultsByMaxScore` | No | Pure CPU, negligible. |
 
-Observability: structured log `getContext` / `"Arcadia memory pipeline"` with `rewriteMs`, `perQuery[]` (`cacheHit`, `searchMs`), `mergedCount`.
+Observability: structured log `getContext` / `"Arcadia memory pipeline"` with `rewriteMs`, `perQuery[]` (`cacheHit`, `searchMs`), `mergedCount`. Effort path logs `runArcadiaMemoryPhase` / `"complete"`.
 
 ### Step 5e — Message count (sequential, after memories)
 
@@ -225,7 +237,7 @@ Paste production/staging log lines into team notes and update this doc’s range
 | Experience | `getContext` differences |
 |------------|-------------------------|
 | Default / main chat | Memory: single `searchMemoriesForUser`, limit 5, parallel with messages. |
-| `arcadia` + memory | Memory: rewrite → parallel `searchMemoriesWithL1Cache` → merge → tiered prompt + inventory string. |
+| `arcadia` + memory | Memory: omitted `contextEffort` → rewrite → parallel Mem0 → merge → tiered prompt + inventory. With `contextEffort` → typed planner (except Instant) + deadline-wrapped Mem0 + optional portrait. History window unchanged. |
 | Strata hub / page | `limit` 30, `persistedSchemasEnabled` for page path; Strata suffix + optional full page fetch **after** `getContext` in route. |
 
 ---
@@ -234,6 +246,7 @@ Paste production/staging log lines into team notes and update this doc’s range
 
 | Date | Change |
 |------|--------|
+| 2026-09-14 | Arcadia context effort (beta): typed planner, time/token tiers, optional profile portrait. History window unchanged; omitted field keeps the rewriter. See the [ADR](decisions/20260914-arcadia-context-effort.md). |
 | 2026-09 | Current date moved out of the base prompts; every route appends it as the last system section. See the [ADR](decisions/20260912-current-date-last-in-system-prompt.md). |
 | 2026-08 | Context-budget polls skip Mem0; empty memory queries return no search; missing thread summaries are not errors. |
 | 2026-04 | Initial internal doc for `getContext`, route wiring, network map, Arcadia memory pipeline. |

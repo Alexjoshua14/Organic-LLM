@@ -92,6 +92,7 @@ export async function POST(req: Request) {
     model: requestedModel,
     effort: requestedEffort,
     memory: requestedMemory,
+    contextEffort,
     delphiDisplay,
     drawerDisplay,
     rabbitHoleSessionId,
@@ -194,6 +195,7 @@ export async function POST(req: Request) {
                 chatId: id,
                 message: messageForLlm,
                 memoryEnabled,
+                contextEffort,
               })
           : () =>
               loadMainChatTurnContext({
@@ -424,6 +426,7 @@ export async function POST(req: Request) {
         contextMessageLimit:
           experience === "arcadia" ? undefined : getContextMessageLimit(experience),
         memoriesInjected,
+        recordLastTurn: true,
       });
 
       writer.write({

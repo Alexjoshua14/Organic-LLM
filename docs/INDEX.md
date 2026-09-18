@@ -7,6 +7,7 @@
 - [Thread & session architecture](./thread-session-architecture.md) — persistence, encryption, sidebar contract
 - [Context building](./architecture/context-building.md) — how chat context is assembled before `streamText`
 - [Chat model aliases](./architecture/decisions/20260909-chat-model-aliases.md) — `models.provider.family` vs picker `name` / persisted gateway ids
+- [Arcadia context effort](./architecture/decisions/20260914-arcadia-context-effort.md) — Instant / Quick / Heavy memory compilation; 50k history window unchanged
 - [End-to-end encryption overview](./e2ee.md)
 
 ## Product hub
@@ -65,6 +66,7 @@ Public routes under `/blog` — see the [blog index](../app/blog/page.tsx) or ru
 | LLM subagents | [`lib/llm/subagents/README.md`](../lib/llm/subagents/README.md) |
 | Strata prototype | [`app/sandbox/prototypes/strata/README.md`](../app/sandbox/prototypes/strata/README.md) |
 | Memory ingest prototype | [`app/sandbox/prototypes/memory-ingest/README.md`](../app/sandbox/prototypes/memory-ingest/README.md) |
+| CoreInput lab | [`app/sandbox/prototypes/core-input/README.md`](../app/sandbox/prototypes/core-input/README.md) |
 
 ## Maintainer notes
 

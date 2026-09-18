@@ -1,5 +1,7 @@
 import { z } from "zod";
 
+import { ContextEffortLevelSchema, DEFAULT_CONTEXT_EFFORT } from "@/lib/memory/context-effort";
+
 /**
  * Client-side user settings schema.
  * Persisted to localStorage always (quick cache); Supabase grabbers can sync when configured.
@@ -14,6 +16,10 @@ export const UserSettingsSchema = z.object({
   coalescenceMode: z.boolean().default(false),
   /** Experimental: Arcadia composer can show a markdown preview toggle. */
   experimentalArcadiaMarkdownPreview: z.boolean().default(false),
+  /** Beta: Arcadia composer shows a context-effort slider (Instant / Quick / Heavy). */
+  experimentalContextEffort: z.boolean().default(false),
+  /** Last chosen Arcadia context-effort tier (used when the beta control is on). */
+  contextEffortLevel: ContextEffortLevelSchema.default(DEFAULT_CONTEXT_EFFORT),
   /** Ergon page: animated liquid chrome background. */
   ergonLiquidChrome: z.boolean().default(true),
   /** When true, show feature hints/coachmarks again (ignores persisted dismissals until turned off). */
@@ -28,6 +34,8 @@ export const defaultUserSettings = (): UserSettings => ({
   zeroDataRetention: false,
   coalescenceMode: false,
   experimentalArcadiaMarkdownPreview: false,
+  experimentalContextEffort: false,
+  contextEffortLevel: DEFAULT_CONTEXT_EFFORT,
   ergonLiquidChrome: true,
   replayFeatureHints: false,
 });

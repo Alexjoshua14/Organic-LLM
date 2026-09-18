@@ -208,6 +208,45 @@ export async function getSupabaseUserId(clerkUserId: string): Promise<Result<str
   };
 }
 
+/**
+ * Load the standing profile tree by Supabase profile id (not Clerk).
+ * Missing row / parse failure → error result; callers should omit the portrait.
+ */
+export async function getProfileTreeByProfileId(
+  profileId: string
+): Promise<Result<PersistedProfileTree>> {
+  if (!profileId) {
+    return errorResult("Profile id is required");
+  }
+
+  const sb = await supabaseServer();
+  const { data, error } = await sb
+    .from("profiles")
+    .select(PROFILE_TREE_SELECT)
+    .eq("id", profileId)
+    .maybeSingle();
+
+  if (error) {
+    return errorResult(error.message ?? "Failed to load profile tree");
+  }
+
+  if (!data) {
+    return {
+      data: { tree: null, source: null, updatedAt: null },
+      error: null,
+    };
+  }
+
+  try {
+    return {
+      data: parsePersistedProfileTree(data),
+      error: null,
+    };
+  } catch (error: any) {
+    return errorResult(error?.message ?? "Failed to parse profile tree");
+  }
+}
+
 export async function getProfileTreeForCurrentUser(): Promise<Result<PersistedProfileTree>> {
   const currentUser = await getCurrentClerkUserId();
 
