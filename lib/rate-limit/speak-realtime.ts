@@ -72,6 +72,8 @@ export type SpeakRealtimeSessionRecord = {
   model: string;
   threadId: string | null;
   modalities: SpeakModalities;
+  /** Enables `search_memories` and transcript ingest. Absent on records minted before this field. */
+  memoryEnabled?: boolean;
   startedAt: number;
   /** Server clock (ms) through which usage has already been billed. */
   lastMeteredAt: number;
@@ -320,6 +322,7 @@ export async function registerSpeakRealtimeSession(args: {
   model: string;
   threadId: string | null;
   modalities: SpeakModalities;
+  memoryEnabled?: boolean;
 }): Promise<SpeakRealtimeSessionRecord> {
   const startedAt = Date.now();
   const record: SpeakRealtimeSessionRecord = {
@@ -328,6 +331,7 @@ export async function registerSpeakRealtimeSession(args: {
     model: args.model,
     threadId: args.threadId,
     modalities: args.modalities,
+    memoryEnabled: args.memoryEnabled === true,
     startedAt,
     lastMeteredAt: startedAt,
     expiresAt: startedAt + getSpeakSessionMaxMinutes() * 60_000,

@@ -1,8 +1,9 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import type { SpeakToolClientEffect } from "@/lib/speak/types";
 
-import { Loader2, Mic, PhoneOff, RotateCcw } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+import { Loader2, Mic, PhoneOff, Plus, RotateCcw } from "lucide-react";
 import { AnimatePresence, motion } from "framer-motion";
 
 import { KaraokeCaption } from "./KaraokeCaption";
@@ -13,11 +14,9 @@ import { VoicePresenceOrb } from "./VoicePresenceOrb";
 
 import { glass } from "@/components/design-system/primitives";
 import { useRealtimeVoice } from "@/hooks/use-realtime-voice";
-import {
-  DEFAULT_SPEAK_MODALITIES,
-  type SpeakModalities,
-} from "@/lib/schemas/speak-modalities";
-import type { SpeakToolClientEffect } from "@/lib/speak/types";
+import { DEFAULT_COMPOSER_MEMORIES } from "@/lib/chat/composer-tool-defaults";
+import { useSharedChatContext } from "@/lib/context/chat-context";
+import { DEFAULT_SPEAK_MODALITIES, type SpeakModalities } from "@/lib/schemas/speak-modalities";
 import { cn } from "@/lib/utils";
 
 type CaptionState = {
@@ -34,7 +33,9 @@ type GenUiInstance = {
 
 export function LiveVoiceStage({ onExit }: { onExit?: () => void }) {
   const [modalities, setModalities] = useState<SpeakModalities>(DEFAULT_SPEAK_MODALITIES);
+  const [memoryEnabled, setMemoryEnabled] = useState(DEFAULT_COMPOSER_MEMORIES);
   const [caption, setCaption] = useState<CaptionState>({ role: "system", text: "" });
+  const { refreshSidebarChats } = useSharedChatContext();
   const [displayText, setDisplayText] = useState<string | null>(null);
   const [webPreview, setWebPreview] = useState<{ url: string; title?: string } | null>(null);
   const [genUiBlocks, setGenUiBlocks] = useState<GenUiInstance[]>([]);
@@ -56,23 +57,22 @@ export function LiveVoiceStage({ onExit }: { onExit?: () => void }) {
             if (existing) {
               return prev.map((b) =>
                 b.instanceId === effect.instanceId
-                  ? { instanceId: effect.instanceId, block: effect.block, remountKey: b.remountKey + 1 }
+                  ? {
+                      instanceId: effect.instanceId,
+                      block: effect.block,
+                      remountKey: b.remountKey + 1,
+                    }
                   : b
               );
             }
 
-            return [
-              ...prev,
-              { instanceId: effect.instanceId, block: effect.block, remountKey: 0 },
-            ];
+            return [...prev, { instanceId: effect.instanceId, block: effect.block, remountKey: 0 }];
           });
           break;
         case "refresh_component":
           setGenUiBlocks((prev) =>
             prev.map((b) =>
-              b.instanceId === effect.instanceId
-                ? { ...b, remountKey: b.remountKey + 1 }
-                : b
+              b.instanceId === effect.instanceId ? { ...b, remountKey: b.remountKey + 1 } : b
             )
           );
           break;
@@ -99,9 +99,18 @@ export function LiveVoiceStage({ onExit }: { onExit?: () => void }) {
 
   const voice = useRealtimeVoice({
     modalities,
+    memoryEnabled,
     onCaptionChange: setCaption,
     onClientEffects: applyEffects,
   });
+
+  const sessionLocked = voice.connected || voice.connecting;
+
+  // Speak threads carry `feature: "speak"`, so they only list under coalescence mode, but the
+  // sidebar should still learn about a new thread the moment a session creates one.
+  useEffect(() => {
+    if (voice.threadId) refreshSidebarChats();
+  }, [refreshSidebarChats, voice.threadId]);
 
   const showVisualPanel =
     modalities.genUi || modalities.web || Object.keys(uiStateBySurface).length > 0;
@@ -126,10 +135,16 @@ export function LiveVoiceStage({ onExit }: { onExit?: () => void }) {
     if (!voice.connected && !caption.text) {
       setCaption({
         role: "system",
-        text: "Realtime voice — optional text, GenUI, and web previews via the toggles above.",
+        text: "Realtime voice — picks up your last conversation. Tap + for a fresh one.",
       });
     }
   }, [caption.text, voice.connected]);
+
+  const resumeHint = voice.resumedThread
+    ? voice.resumedThread.title
+      ? `Continuing “${voice.resumedThread.title}”`
+      : "Continuing your last conversation"
+    : null;
 
   const captionText = displayText && modalities.text ? displayText : caption.text;
   const showText = modalities.text;
@@ -137,26 +152,43 @@ export function LiveVoiceStage({ onExit }: { onExit?: () => void }) {
   return (
     <div className="relative flex h-full min-h-0 w-full flex-col">
       <div className="absolute left-4 right-4 top-4 z-20 flex flex-wrap items-start justify-between gap-3">
-        <SpeakModalityToggles
-          disabled={voice.connected || voice.connecting}
-          value={modalities}
-          onChange={setModalities}
-        />
+        <div className="flex flex-wrap items-center gap-2">
+          <SpeakModalityToggles
+            disabled={sessionLocked}
+            value={modalities}
+            onChange={setModalities}
+          />
+          <button
+            aria-pressed={memoryEnabled}
+            className={cn(
+              glass({ border: "all" }),
+              "rounded-2xl px-3 py-1.5 text-xs transition-colors",
+              memoryEnabled ? "text-foreground" : "text-muted-foreground hover:text-foreground",
+              sessionLocked && "opacity-60"
+            )}
+            disabled={sessionLocked}
+            title={
+              sessionLocked
+                ? "End session to change memory"
+                : "Recall what you know about me and save this conversation"
+            }
+            type="button"
+            onClick={() => setMemoryEnabled((on) => !on)}
+          >
+            Memory {memoryEnabled ? "on" : "off"}
+          </button>
+        </div>
         <SpeakBudgetChip budget={voice.budget} />
       </div>
 
       <div
-        className={cn(
-          "flex min-h-0 flex-1",
-          showVisualPanel ? "flex-col lg:flex-row" : "flex-col"
-        )}
+        className={cn("flex min-h-0 flex-1", showVisualPanel ? "flex-col lg:flex-row" : "flex-col")}
       >
         <div className="relative flex min-h-0 flex-1 flex-col items-center justify-center px-6 py-16">
-          <audio
-            ref={(el) => voice.setAudioElement(el)}
-            className="hidden"
-            autoPlay
-          />
+          {/* Remote Realtime audio; captions render separately via KaraokeCaption. */}
+          <audio ref={(el) => voice.setAudioElement(el)} className="hidden" autoPlay>
+            <track kind="captions" />
+          </audio>
 
           <AnimatePresence mode="wait">
             <motion.div
@@ -182,6 +214,10 @@ export function LiveVoiceStage({ onExit }: { onExit?: () => void }) {
           </AnimatePresence>
 
           <p className="mt-6 text-xs text-muted-foreground">{statusHint}</p>
+
+          {voice.connected && resumeHint ? (
+            <p className="mt-1 text-2xs text-muted-foreground/80">{resumeHint}</p>
+          ) : null}
 
           {voice.error ? (
             <p className="mt-2 max-w-md text-center text-xs text-destructive">{voice.error}</p>
@@ -218,6 +254,24 @@ export function LiveVoiceStage({ onExit }: { onExit?: () => void }) {
                 <PhoneOff className="size-8 text-rose-200" />
               </button>
             )}
+
+            <button
+              aria-label="Start a new conversation"
+              className={cn(
+                glass(),
+                "flex size-12 items-center justify-center rounded-full text-muted-foreground hover:text-foreground disabled:opacity-50 disabled:hover:text-muted-foreground"
+              )}
+              disabled={sessionLocked}
+              title={
+                sessionLocked
+                  ? "End the session to start a new conversation"
+                  : "Start a fresh conversation instead of resuming"
+              }
+              type="button"
+              onClick={() => void voice.startNew()}
+            >
+              <Plus className="size-4" />
+            </button>
 
             <button
               aria-label="Reset voice session"
