@@ -1,7 +1,9 @@
-import { afterEach, beforeEach, describe, expect, mock, test } from "bun:test";
+import { afterAll, afterEach, beforeEach, describe, expect, mock, test } from "bun:test";
 import { act, cleanup, fireEvent, waitFor } from "@testing-library/react";
 import type { HTMLAttributes, ReactNode } from "react";
+import * as framerMotion from "framer-motion";
 
+import { mockModulePreservingReal } from "../helpers/module-mock";
 import { render } from "../helpers/render";
 
 const mockRouterPush = mock(() => {});
@@ -29,12 +31,22 @@ mock.module("@/hooks/use-mobile", () => ({
   useIsMobile: () => currentIsMobile,
 }));
 
-mock.module("framer-motion", () => ({
+/**
+ * Only `motion.div` is swapped for a plain element. `motion` is a Proxy, so the rest is
+ * forwarded to the real one: a stub that dropped `motion.svg` used to leak into later files
+ * and break any component animating an icon.
+ */
+const restoreFramerMotion = mockModulePreservingReal("framer-motion", framerMotion, (real) => ({
   AnimatePresence: ({ children }: { children: ReactNode }) => <>{children}</>,
-  motion: {
-    div: (props: HTMLAttributes<HTMLDivElement>) => <div {...props} />,
-  },
+  motion: new Proxy(real.motion, {
+    get: (target, prop) =>
+      prop === "div"
+        ? (props: HTMLAttributes<HTMLDivElement>) => <div {...props} />
+        : Reflect.get(target, prop),
+  }),
 }));
+
+afterAll(restoreFramerMotion);
 
 mock.module("@/data/supabase/chat", () => ({
   updateChatTitle: mockUpdateChatTitle,

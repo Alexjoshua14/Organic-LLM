@@ -7,9 +7,15 @@ import { ChatThread } from "@/components/chat/chat-thread";
 import { Conversation } from "@/components/third-party/ai-elements/conversation";
 import { OPTIMISTIC_MESSAGE_RECEIVED_LABEL } from "@/lib/chat/optimistic-ai-action";
 import { ChatAIActionEnum } from "@/types/ai";
+import { mockModulePreservingReal } from "../helpers/module-mock";
 import { render } from "../helpers/render";
 
-mock.module("@/lib/context/tts-context", () => ({
+import * as ttsContext from "@/lib/context/tts-context";
+
+// Merged over the real module so the stub keeps `TTSProvider` and `useTTSOptional` for files
+// loaded after this one. Deliberately not restored: other files register their own TTS stub at
+// load time and rely on last-writer-wins, which restoring here breaks.
+mockModulePreservingReal("@/lib/context/tts-context", ttsContext, {
   useTTSContext: () => ({
     speak: () => {},
     play: () => {},
@@ -21,7 +27,7 @@ mock.module("@/lib/context/tts-context", () => ({
     deferPlaybackToUserGesture: false,
   }),
   TTSDockBar: () => null,
-}));
+} as never);
 
 mock.module("@/lib/user-settings", () => ({
   USER_SETTINGS_STORAGE_KEY: "organic-llm-user-settings",

@@ -1,5 +1,8 @@
 import { afterAll, beforeEach, describe, expect, mock, test } from "bun:test";
 
+import * as syncWorker from "@/lib/spatial-artifacts/sync/sync-worker";
+
+import { mockModulePreservingReal } from "../helpers/module-mock";
 import { resetSpatialArtifactSyncQueue } from "../helpers/spatial-artifacts-sync-queue";
 
 const mockListStaleSpatialArtifactRows = mock(async () => [] as {
@@ -16,10 +19,17 @@ mock.module("@/data/supabase/spatial-artifacts", () => ({
   listStaleSpatialArtifactRows: mockListStaleSpatialArtifactRows,
 }));
 
-mock.module("@/lib/spatial-artifacts/sync/sync-worker", () => ({
-  enqueueArtifactSync: mockEnqueueArtifactSync,
-  scheduleArtifactSyncPump: mockScheduleArtifactSyncPump,
-}));
+// Restored below: this stub used to stay installed for the sync worker's own test file.
+const restoreSyncWorker = mockModulePreservingReal(
+  "@/lib/spatial-artifacts/sync/sync-worker",
+  syncWorker,
+  {
+    enqueueArtifactSync: mockEnqueueArtifactSync,
+    scheduleArtifactSyncPump: mockScheduleArtifactSyncPump,
+  }
+);
+
+afterAll(restoreSyncWorker);
 
 import { GET } from "@/app/api/cron/sync-spatial-artifacts/route";
 
