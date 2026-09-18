@@ -22,7 +22,7 @@ async function loadHtmlTools() {
 export function stripControlAndZeroWidth(text: string): string {
   return text
     .replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F]/g, "")
-    .replace(/[​-‍﻿⁠᠎]/g, "")
+    .replace(/[\u200B-\u200D\uFEFF\u2060\u180E]/g, "")
     .normalize("NFKC");
 }
 

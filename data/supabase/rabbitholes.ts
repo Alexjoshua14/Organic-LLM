@@ -11,6 +11,7 @@ import { Result, SimpleResult } from "@/types";
 import { RabbitHoleSession, RabbitHoleSessionSchema } from "@/lib/schemas/rabbitHoleSchemas";
 import { supabaseServer } from "@/lib/supabase/server";
 import { createLogger } from "@/lib/logger";
+import { sanitizeRabbitHoleArticleHtml } from "@/lib/html/sanitize";
 import { isUnixTimestamp } from "@/lib/utils";
 
 const logger = createLogger("data/supabase/rabbitholes.ts");
@@ -259,7 +260,9 @@ export async function getSessionById(
       preview: node.preview ?? null,
       summary: node.summary ?? null,
       keyTakeaways: Array.isArray(node.key_takeaways) ? (node.key_takeaways as string[]) : [],
-      articleHtml: node.article_html,
+      articleHtml: node.article_html
+        ? await sanitizeRabbitHoleArticleHtml(node.article_html)
+        : node.article_html,
       sources: sourcesByNodeId.get(node.node_id) ?? [],
       branchSuggestions: branchesByNodeId.get(node.node_id) ?? [],
       createdAt: typeof node.created_at === "string" ? node.created_at : new Date().toISOString(),

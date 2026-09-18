@@ -13,7 +13,7 @@ Signed-in flows (`/chat`, `/rabbitholes`, `/sandbox`) need Clerk, Supabase, and 
 
 ## Prerequisites
 
-- **Node.js** ≥ 20
+- **Node.js** 20.19+, 22.12+, or 24+ — jsdom relies on `require(esm)`; `engines` pins 22.x for Vercel
 - **[Bun](https://bun.sh)** (package manager and test runner)
 
 ## Setup

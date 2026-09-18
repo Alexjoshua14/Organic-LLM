@@ -37,6 +37,7 @@ import { generateRabbitHoleNodeSummary } from "./node-summary";
 import { Result } from "@/types";
 import { getSupabaseUserId } from "@/data/supabase/profiles";
 import { getRabbitHoleSessionOwnerId } from "@/data/supabase/rabbitholes";
+import { sanitizeRabbitHoleArticleHtml } from "@/lib/html/sanitize";
 import { GUARDRAIL_MAX_OUTPUT_TOKENS } from "@/lib/llm/helpers";
 import { models, providerModelSlug } from "@/lib/schemas/chat-models";
 import { checkExternalFetchLimit } from "@/lib/rate-limit/external-fetch";
@@ -487,7 +488,7 @@ function applyArticleStep(
 
     const articleTitle = resolvedArticleTitle(object.title);
 
-    updatedNode.articleHtml = object.articleHtml;
+    updatedNode.articleHtml = await sanitizeRabbitHoleArticleHtml(object.articleHtml);
     updatedNode.keyTakeaways = object.keyTakeaways;
     updatedNode.title = articleTitle;
     updatedNode.rawPrompt = updatedNode.userQuestion;
@@ -677,7 +678,7 @@ export async function generateRabbitHoleNode(
 
     const articleTitle = resolvedArticleTitle(object.title);
 
-    updatedNode.articleHtml = object.articleHtml;
+    updatedNode.articleHtml = await sanitizeRabbitHoleArticleHtml(object.articleHtml);
     updatedNode.keyTakeaways = object.keyTakeaways;
     updatedNode.title = articleTitle;
     updatedNode.rawPrompt = updatedNode.userQuestion;

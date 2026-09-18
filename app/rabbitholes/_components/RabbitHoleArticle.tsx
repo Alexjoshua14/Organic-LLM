@@ -48,12 +48,10 @@ export function RabbitHoleArticle({
   compact = false,
 }: RabbitHoleArticleProps) {
   const articleRef = useRef<HTMLDivElement>(null);
-  // Sanitized in the browser, at the innerHTML sink. This is a pass-through during
-  // SSR: pulling DOMPurify's server build in here would put jsdom in front of every
-  // page (see lib/html/sanitize-browser.ts). That is safe only while no SSR path
-  // feeds this component untrusted HTML — today /rabbitholes has no session
-  // server-side, and the only SSR render with content is the sandbox demo's static
-  // in-repo fixture. Sanitize server-side before passing articleHtml if that changes.
+  // Re-sanitized in the browser at the innerHTML sink. A pass-through during SSR,
+  // where articleHtml has already been through the same policy server-side
+  // (lib/html/sanitize.ts) or is the sandbox demo's static fixture — see
+  // reSanitizeArticleHtmlInBrowser for why the server build is not used here.
   const sanitizedArticleHtml = useMemo(
     () => reSanitizeArticleHtmlInBrowser(articleHtml),
     [articleHtml]
