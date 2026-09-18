@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { motion } from "framer-motion";
 
@@ -23,7 +23,7 @@ import {
   articleContent,
   articleContentClasses,
 } from "@/lib/rabbit-holes/designTokens";
-import { sanitizeRabbitHoleArticleHtml } from "@/lib/html/sanitize";
+import { reSanitizeArticleHtmlInBrowser } from "@/lib/html/sanitize-browser";
 
 interface RabbitHoleArticleProps {
   title: string;
@@ -48,7 +48,16 @@ export function RabbitHoleArticle({
   compact = false,
 }: RabbitHoleArticleProps) {
   const articleRef = useRef<HTMLDivElement>(null);
-  const sanitizedArticleHtml = sanitizeRabbitHoleArticleHtml(articleHtml);
+  // Sanitized in the browser, at the innerHTML sink. This is a pass-through during
+  // SSR: pulling DOMPurify's server build in here would put jsdom in front of every
+  // page (see lib/html/sanitize-browser.ts). That is safe only while no SSR path
+  // feeds this component untrusted HTML — today /rabbitholes has no session
+  // server-side, and the only SSR render with content is the sandbox demo's static
+  // in-repo fixture. Sanitize server-side before passing articleHtml if that changes.
+  const sanitizedArticleHtml = useMemo(
+    () => reSanitizeArticleHtmlInBrowser(articleHtml),
+    [articleHtml]
+  );
   const [articleText, setArticleText] = useState("");
   const [takeawaysOpen, setTakeawaysOpen] = useState(true);
 

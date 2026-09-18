@@ -1,6 +1,9 @@
 import { describe, expect, test } from "bun:test";
 
-import { sanitizeMermaidSvgMarkup } from "@/lib/html/sanitize-browser";
+import {
+  reSanitizeArticleHtmlInBrowser,
+  sanitizeMermaidSvgMarkup,
+} from "@/lib/html/sanitize-browser";
 import { sanitizeRabbitHoleArticleHtml } from "@/lib/html/sanitize";
 
 describe("sanitizeRabbitHoleArticleHtml", () => {
@@ -63,5 +66,33 @@ describe("sanitizeMermaidSvgMarkup", () => {
 
     expect(output).not.toContain("<script");
     expect(output).toContain("ok");
+  });
+});
+
+describe("reSanitizeArticleHtmlInBrowser", () => {
+  test("applies the same policy as the server pass", () => {
+    const input =
+      '<p onclick="alert(1)">Hi</p><script>alert("xss")</script><a href="javascript:alert(1)">x</a>';
+
+    expect(reSanitizeArticleHtmlInBrowser(input)).toBe(sanitizeRabbitHoleArticleHtml(input));
+  });
+
+  test("strips script tags and event handlers at the sink", () => {
+    const output = reSanitizeArticleHtmlInBrowser(
+      '<p onclick="alert(1)">Hi</p><script>alert("xss")</script>'
+    );
+
+    expect(output).not.toContain("<script");
+    expect(output).not.toContain("onclick");
+    expect(output).toContain("Hi");
+  });
+
+  test("preserves allowed article markup", () => {
+    const output = reSanitizeArticleHtmlInBrowser(
+      '<h2 id="takeaway-0">Intro</h2><p><span data-branch-id="b1">branch</span></p>'
+    );
+
+    expect(output).toContain('id="takeaway-0"');
+    expect(output).toContain("data-branch-id");
   });
 });
