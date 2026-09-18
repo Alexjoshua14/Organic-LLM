@@ -54,24 +54,52 @@ mock.module("@/data/supabase/chat", () => ({
   deleteChat: mockDeleteChat,
 }));
 
+/**
+ * Every export is stubbed, deliberately: this mock stays installed for later files, and a
+ * partial one left real Radix items rendering inside these plain-`div` roots, which throws
+ * "`MenuItem` must be used within `Menu`". Merging the real module back in would reintroduce
+ * exactly that mix, so the stub has to cover the whole surface instead.
+ */
+const passthrough = ({ children }: { children?: ReactNode }) => <div>{children}</div>;
+const menuItemStub = ({
+  children,
+  onSelect,
+  onCheckedChange,
+  className,
+}: {
+  children?: ReactNode;
+  onSelect?: () => void;
+  onCheckedChange?: (checked: boolean) => void;
+  className?: string;
+}) => (
+  <button
+    className={className}
+    onClick={() => {
+      onSelect?.();
+      onCheckedChange?.(true);
+    }}
+  >
+    {children}
+  </button>
+);
+
 mock.module("@/components/third-party/ui/dropdown-menu", () => ({
-  DropdownMenu: ({ children }: { children: ReactNode }) => <div>{children}</div>,
-  DropdownMenuTrigger: ({ children }: { children: ReactNode }) => <div>{children}</div>,
-  DropdownMenuContent: ({ children }: { children: ReactNode }) => <div>{children}</div>,
-  DropdownMenuItem: ({
-    children,
-    onSelect,
-    className,
-  }: {
-    children: ReactNode;
-    onSelect?: () => void;
-    className?: string;
-  }) => (
-    <button className={className} onClick={() => onSelect?.()}>
-      {children}
-    </button>
-  ),
+  DropdownMenu: passthrough,
+  DropdownMenuTrigger: passthrough,
+  DropdownMenuContent: passthrough,
+  DropdownMenuGroup: passthrough,
+  DropdownMenuPortal: passthrough,
+  DropdownMenuSub: passthrough,
+  DropdownMenuSubContent: passthrough,
+  DropdownMenuSubTrigger: passthrough,
+  DropdownMenuRadioGroup: passthrough,
+  DropdownMenuLabel: passthrough,
+  DropdownMenuShortcut: passthrough,
+  DropdownMenuItem: menuItemStub,
+  DropdownMenuCheckboxItem: menuItemStub,
+  DropdownMenuRadioItem: menuItemStub,
   DropdownMenuSeparator: () => <hr />,
+  DropdownMenuPrimitive: {},
 }));
 
 mock.module("@heroui/modal", () => {

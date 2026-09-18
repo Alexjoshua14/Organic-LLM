@@ -1,12 +1,10 @@
-import { afterAll, beforeEach, describe, expect, mock, test } from "bun:test";
+import { beforeEach, describe, expect, mock, test } from "bun:test";
 import type { UIMessage } from "ai";
 
-import { mockModulePreservingReal } from "../helpers/module-mock";
 import { createMockAuth, createMockClerkUser } from "../helpers/mock-auth";
 
 import { FIXTURE_PLAN_TIMELINE } from "@/lib/schemas/gen-ui/fixtures";
 import { spatialArtifactId } from "@/lib/spatial-artifacts/artifact-id";
-import * as syncWorker from "@/lib/spatial-artifacts/sync/sync-worker";
 
 const mockAuth = mock(createMockAuth());
 const mockGetSupabaseUserId = mock(async () => ({
@@ -34,29 +32,22 @@ mock.module("@/data/supabase/spatial-artifacts", () => ({
   setSpatialArtifactPinned: mockSetSpatialArtifactPinned,
 }));
 
-// Restored below: this stub used to stay installed for the sync worker's own test file.
-const restoreSyncWorker = mockModulePreservingReal(
-  "@/lib/spatial-artifacts/sync/sync-worker",
-  syncWorker,
-  {
-    buildArtifactIdFromJob: ({
-      threadId,
-      messageId,
-      toolCallId,
-      partIndex,
-    }: {
-      threadId: string;
-      messageId: string;
-      toolCallId: string;
-      partIndex?: number;
-    }) => spatialArtifactId({ threadId, messageId, toolCallId, partIndex: partIndex ?? 0 }),
-    enqueueArtifactSync: mockEnqueueArtifactSync,
-    enqueueBulkArtifactSync: mockEnqueueBulkArtifactSync,
-    scheduleArtifactSyncPump: mockScheduleArtifactSyncPump,
-  }
-);
-
-afterAll(restoreSyncWorker);
+mock.module("@/lib/spatial-artifacts/sync/sync-worker", () => ({
+  buildArtifactIdFromJob: ({
+    threadId,
+    messageId,
+    toolCallId,
+    partIndex,
+  }: {
+    threadId: string;
+    messageId: string;
+    toolCallId: string;
+    partIndex?: number;
+  }) => spatialArtifactId({ threadId, messageId, toolCallId, partIndex: partIndex ?? 0 }),
+  enqueueArtifactSync: mockEnqueueArtifactSync,
+  enqueueBulkArtifactSync: mockEnqueueBulkArtifactSync,
+  scheduleArtifactSyncPump: mockScheduleArtifactSyncPump,
+}));
 
 import {
   actionBulkSyncSpatialArtifacts,
