@@ -10,7 +10,7 @@ import { useComposerChipLumen, useComposerChipLumenHostRef } from "./use-compose
 
 export function composerLumenButtonClasses(engaged: boolean, className?: string) {
   return cn(
-    "composer-tool-chip relative z-10 box-border h-8 min-w-8 shrink-0 rounded-md border border-transparent ring-1 ring-transparent",
+    "composer-tool-chip relative z-10 box-border h-8 min-w-4 sm:data-[size=dynamic-sm]:px-1 shrink-0 rounded-md border border-transparent ring-1 ring-transparent",
     "motion-safe:transition-[color,opacity] motion-safe:duration-200",
     "motion-safe:ease-[cubic-bezier(0.25,0.46,0.45,0.94)]",
     "hover:text-foreground hover:bg-muted/25 dark:hover:bg-transparent",

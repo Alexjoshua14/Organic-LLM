@@ -36,7 +36,8 @@ const MOSAIC_TILE_MOTION = "motion-safe:transition-[opacity,transform] motion-sa
 
 /**
  * The native range owns input and accessibility; the mosaic is its visual thumb.
- * A 32px mosaic sits inside the native 44px target; the rail uses its 22px inset.
+ * The 32px frame includes the label; its native 44px target stays out of layout.
+ * The rail retains a 22px inset to match the native thumb's horizontal travel.
  */
 export function ComposerContextEffortSlider() {
   const { contextEffort, onContextEffortChange, useCondensedLayout } = useCoreInputControls();
@@ -47,14 +48,14 @@ export function ComposerContextEffortSlider() {
   return (
     <div
       className={cn(
-        "flex shrink-0 select-none flex-col justify-center rounded-md bg-background ring-1 ring-inset ring-border/50",
+        "flex h-8 shrink-0 select-none flex-col justify-center rounded-md bg-background ring-1 ring-inset ring-border/50",
         "motion-safe:transition-shadow motion-safe:duration-200 hover:ring-border",
         "has-focus-visible:outline-2 has-focus-visible:outline-offset-2 has-focus-visible:outline-ring",
         "forced-colors:ring-0 forced-colors:outline-1 select-none",
-        useCondensedLayout ? "w-24" : "w-32 sm:w-36"
+        useCondensedLayout ? "w-18" : "w-24 sm:w-28"
       )}
     >
-      <div className="relative h-8">
+      <div className="relative h-5 shrink-0">
         <label className="sr-only" htmlFor={id}>
           Organic LLM context effort
         </label>
@@ -64,7 +65,7 @@ export function ComposerContextEffortSlider() {
           aria-valuenow={index}
           aria-valuetext={current.name}
           className={cn(
-            "peer absolute inset-x-0 top-1/2 z-10 m-0 h-11 w-full min-w-0 -translate-y-1/2 cursor-pointer touch-pan-y appearance-none border-0 bg-transparent p-0 opacity-0",
+            "peer absolute inset-x-0 top-4 z-10 m-0 h-11 w-full min-w-0 -translate-y-1/2 cursor-pointer touch-pan-y appearance-none border-0 bg-transparent p-0 opacity-0",
             "[&::-webkit-slider-runnable-track]:h-11 [&::-webkit-slider-runnable-track]:border-0 [&::-webkit-slider-runnable-track]:bg-transparent",
             "[&::-webkit-slider-thumb]:m-0 [&::-webkit-slider-thumb]:size-11 [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:border-0",
             "[&::-moz-range-track]:h-11 [&::-moz-range-track]:border-0 [&::-moz-range-track]:bg-transparent",
@@ -99,7 +100,7 @@ export function ComposerContextEffortSlider() {
               style={{ transform: `translateX(${index * 50}%)` }}
             >
               <svg
-                className="absolute -left-4 top-0 size-8 text-foreground"
+                className="absolute -left-2.5 top-0 size-5 text-foreground"
                 fill="currentColor"
                 focusable="false"
                 viewBox="0 0 48 48"
@@ -136,7 +137,7 @@ export function ComposerContextEffortSlider() {
       </div>
       <span
         aria-hidden
-        className="pointer-events-none block pb-1 text-center text-[9px] font-medium leading-normal text-muted-foreground select-none"
+        className="pointer-events-none block shrink-0 pb-0.5 text-center text-[9px] font-medium leading-[10px] text-muted-foreground select-none"
       >
         {current.name}
       </span>
