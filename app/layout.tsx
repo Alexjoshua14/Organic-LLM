@@ -20,6 +20,7 @@ import { TTSProvider } from "@/lib/context/tts-context";
 import { FontProvider } from "@/components/FontProvider";
 import { OnboardingHost } from "@/components/onboarding/onboarding-host";
 import { PerfHudGate } from "@/components/perf/perf-hud-gate";
+import { VoiceSessionProvider } from "@/components/voice/voice-session-provider";
 import { glass } from "@/components/design-system/primitives";
 export const metadata: Metadata = {
   title: {
@@ -68,6 +69,12 @@ export default async function RootLayout({ children }: { children: React.ReactNo
               <ChatProvider>
                 <AionLauncherProvider>
                   <TTSProvider>
+                    {/*
+                      Owns the Realtime peer connection for the whole app. It has to live at the
+                      root: the App Router preserves this layout across client navigation, so the
+                      call survives every route change. Inside a page it would die on each one.
+                    */}
+                    <VoiceSessionProvider>
                     <SidebarProvider defaultOpen={sidebarDefaultOpen}>
                       <OnboardingHost>
                         <Sidebar />
@@ -88,6 +95,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
                         </main>
                       </OnboardingHost>
                     </SidebarProvider>
+                    </VoiceSessionProvider>
                   </TTSProvider>
                 </AionLauncherProvider>
               </ChatProvider>

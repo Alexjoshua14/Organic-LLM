@@ -1,8 +1,6 @@
 "use client";
 
-import type { SpeakToolClientEffect } from "@/lib/speak/types";
-
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo } from "react";
 import { Loader2, Mic, PhoneOff, Plus, RotateCcw } from "lucide-react";
 import { AnimatePresence, motion } from "framer-motion";
 
@@ -13,96 +11,27 @@ import { SpeakVisualPanel } from "./SpeakVisualPanel";
 import { VoicePresenceOrb } from "./VoicePresenceOrb";
 
 import { glass } from "@/components/design-system/primitives";
-import { useRealtimeVoice } from "@/hooks/use-realtime-voice";
-import { DEFAULT_COMPOSER_MEMORIES } from "@/lib/chat/composer-tool-defaults";
+import { useVoiceSession } from "@/components/voice/voice-session-provider";
 import { useSharedChatContext } from "@/lib/context/chat-context";
-import { DEFAULT_SPEAK_MODALITIES, type SpeakModalities } from "@/lib/schemas/speak-modalities";
 import { cn } from "@/lib/utils";
 
-type CaptionState = {
-  role: "user" | "assistant" | "system";
-  text: string;
-  interim?: boolean;
-};
-
-type GenUiInstance = {
-  instanceId: string;
-  block: unknown;
-  remountKey: number;
-};
-
 export function LiveVoiceStage({ onExit }: { onExit?: () => void }) {
-  const [modalities, setModalities] = useState<SpeakModalities>(DEFAULT_SPEAK_MODALITIES);
-  const [memoryEnabled, setMemoryEnabled] = useState(DEFAULT_COMPOSER_MEMORIES);
-  const [caption, setCaption] = useState<CaptionState>({ role: "system", text: "" });
   const { refreshSidebarChats } = useSharedChatContext();
-  const [displayText, setDisplayText] = useState<string | null>(null);
-  const [webPreview, setWebPreview] = useState<{ url: string; title?: string } | null>(null);
-  const [genUiBlocks, setGenUiBlocks] = useState<GenUiInstance[]>([]);
-  const [uiStateBySurface, setUiStateBySurface] = useState<
-    Record<string, Array<{ id: string; data: Record<string, unknown> }>>
-  >({});
-
-  const applyEffects = (effects: SpeakToolClientEffect[]) => {
-    for (const effect of effects) {
-      switch (effect.type) {
-        case "display_text":
-          setDisplayText(effect.text);
-          setCaption({ role: "assistant", text: effect.text });
-          break;
-        case "gen_ui":
-          setGenUiBlocks((prev) => {
-            const existing = prev.find((b) => b.instanceId === effect.instanceId);
-
-            if (existing) {
-              return prev.map((b) =>
-                b.instanceId === effect.instanceId
-                  ? {
-                      instanceId: effect.instanceId,
-                      block: effect.block,
-                      remountKey: b.remountKey + 1,
-                    }
-                  : b
-              );
-            }
-
-            return [...prev, { instanceId: effect.instanceId, block: effect.block, remountKey: 0 }];
-          });
-          break;
-        case "refresh_component":
-          setGenUiBlocks((prev) =>
-            prev.map((b) =>
-              b.instanceId === effect.instanceId ? { ...b, remountKey: b.remountKey + 1 } : b
-            )
-          );
-          break;
-        case "upsert_ui_state":
-          setUiStateBySurface((prev) => {
-            const current = prev[effect.surfaceId] ?? [];
-            const byId = new Map(current.map((i) => [i.id, i]));
-
-            for (const item of effect.items) {
-              byId.set(item.id, item);
-            }
-
-            return { ...prev, [effect.surfaceId]: Array.from(byId.values()) };
-          });
-          break;
-        case "web_preview":
-          setWebPreview({ url: effect.url, title: effect.title });
-          break;
-        default:
-          break;
-      }
-    }
-  };
-
-  const voice = useRealtimeVoice({
+  /**
+   * The session itself lives in `VoiceSessionProvider` at the root layout so it survives
+   * navigation. This page is now a view onto it: it renders the stage and owns none of the
+   * connection, captions, or tool output.
+   */
+  const voice = useVoiceSession();
+  const {
+    caption,
     modalities,
+    setModalities,
     memoryEnabled,
-    onCaptionChange: setCaption,
-    onClientEffects: applyEffects,
-  });
+    setMemoryEnabled,
+    visual,
+  } = voice;
+  const { displayText, genUiBlocks, webPreview, uiStateBySurface } = visual;
 
   const sessionLocked = voice.connected || voice.connecting;
 
@@ -131,22 +60,17 @@ export function LiveVoiceStage({ onExit }: { onExit?: () => void }) {
     return "Tap the mic to start a Realtime voice session";
   }, [voice.connected, voice.connecting, voice.phase]);
 
-  useEffect(() => {
-    if (!voice.connected && !caption.text) {
-      setCaption({
-        role: "system",
-        text: "Realtime voice — picks up your last conversation. Tap + for a fresh one.",
-      });
-    }
-  }, [caption.text, voice.connected]);
-
   const resumeHint = voice.resumedThread
     ? voice.resumedThread.title
       ? `Continuing “${voice.resumedThread.title}”`
       : "Continuing your last conversation"
     : null;
 
-  const captionText = displayText && modalities.text ? displayText : caption.text;
+  const idleHint = "Realtime voice — picks up your last conversation. Tap + for a fresh one.";
+  const captionText =
+    displayText && modalities.text
+      ? displayText
+      : caption.text || (voice.connected ? "" : idleHint);
   const showText = modalities.text;
 
   return (
@@ -173,7 +97,7 @@ export function LiveVoiceStage({ onExit }: { onExit?: () => void }) {
                 : "Recall what you know about me and save this conversation"
             }
             type="button"
-            onClick={() => setMemoryEnabled((on) => !on)}
+            onClick={() => setMemoryEnabled(!memoryEnabled)}
           >
             Memory {memoryEnabled ? "on" : "off"}
           </button>
@@ -185,10 +109,7 @@ export function LiveVoiceStage({ onExit }: { onExit?: () => void }) {
         className={cn("flex min-h-0 flex-1", showVisualPanel ? "flex-col lg:flex-row" : "flex-col")}
       >
         <div className="relative flex min-h-0 flex-1 flex-col items-center justify-center px-6 py-16">
-          {/* Remote Realtime audio; captions render separately via KaraokeCaption. */}
-          <audio ref={(el) => voice.setAudioElement(el)} className="hidden" autoPlay>
-            <track kind="captions" />
-          </audio>
+          {/* The audio sink lives in VoiceSessionProvider — it must not unmount on navigation. */}
 
           <AnimatePresence mode="wait">
             <motion.div
@@ -233,7 +154,7 @@ export function LiveVoiceStage({ onExit }: { onExit?: () => void }) {
                 )}
                 disabled={voice.connecting}
                 type="button"
-                onClick={() => void voice.connect()}
+                onClick={voice.connect}
               >
                 {voice.connecting ? (
                   <Loader2 className="size-8 animate-spin text-muted-foreground" />
@@ -249,7 +170,7 @@ export function LiveVoiceStage({ onExit }: { onExit?: () => void }) {
                   "flex size-20 items-center justify-center rounded-full border-rose-400/50 bg-rose-500/15 shadow-[0_0_40px_rgba(244,63,94,0.2)]"
                 )}
                 type="button"
-                onClick={() => void voice.disconnect()}
+                onClick={voice.disconnect}
               >
                 <PhoneOff className="size-8 text-rose-200" />
               </button>
@@ -268,7 +189,7 @@ export function LiveVoiceStage({ onExit }: { onExit?: () => void }) {
                   : "Start a fresh conversation instead of resuming"
               }
               type="button"
-              onClick={() => void voice.startNew()}
+              onClick={voice.startNew}
             >
               <Plus className="size-4" />
             </button>
@@ -280,13 +201,7 @@ export function LiveVoiceStage({ onExit }: { onExit?: () => void }) {
                 "flex size-12 items-center justify-center rounded-full text-muted-foreground hover:text-foreground"
               )}
               type="button"
-              onClick={() => {
-                void voice.resetSession();
-                setDisplayText(null);
-                setWebPreview(null);
-                setGenUiBlocks([]);
-                setUiStateBySurface({});
-              }}
+              onClick={voice.resetSession}
             >
               <RotateCcw className="size-4" />
             </button>

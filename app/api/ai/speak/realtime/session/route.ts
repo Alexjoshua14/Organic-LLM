@@ -9,9 +9,12 @@ import { createLogger } from "@/lib/logger";
 import { checkLlmMessageLimit } from "@/lib/rate-limit/llm";
 import {
   checkSpeakRealtimeSessionStart,
+  endSpeakRealtimeSession,
   getSpeakRealtimeModel,
+  getSpeakRealtimeSession,
   isSpeakRealtimeEnabled,
   registerSpeakRealtimeSession,
+  type SpeakSessionContinuity,
 } from "@/lib/rate-limit/speak-realtime";
 import { DEFAULT_SPEAK_MODALITIES, SpeakModalitiesSchema } from "@/lib/schemas/speak-modalities";
 import { DEFAULT_SPEAK_THREAD_POLICY, SpeakThreadPolicySchema } from "@/lib/schemas/speak-thread";
@@ -26,6 +29,12 @@ export const maxDuration = 30;
 
 const logger = createLogger("app/api/ai/speak/realtime/session/route.ts");
 
+/**
+ * A resume inherits the predecessor's deadline, so resuming into the last few seconds of a
+ * session would hand back a call that dies mid-greeting. Below this, start fresh instead.
+ */
+const RESUME_MIN_REMAINING_MS = 15_000;
+
 const SessionBodySchema = z.object({
   threadId: z.string().uuid().optional().nullable(),
   modalities: SpeakModalitiesSchema.optional(),
@@ -34,6 +43,11 @@ const SessionBodySchema = z.object({
   threadPolicy: SpeakThreadPolicySchema.optional(),
   /** Mirrors chat's composer memory toggle: enables `search_memories` and transcript ingest. */
   memory: z.boolean().optional(),
+  /**
+   * Session the client was in before a page reload, from `/api/ai/speak/realtime/active`.
+   * Settles the orphaned record and inherits its thread and clock rather than starting over.
+   */
+  resumeSessionId: z.string().min(1).max(200).optional(),
 });
 
 export async function POST(req: Request) {
@@ -81,6 +95,41 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: messageLimit.error ?? "Too many requests" }, { status: 429 });
   }
 
+  // Resume must settle the predecessor *before* the start check: the orphaned record still holds
+  // the user's only concurrency slot, so checking first would reject every reload.
+  let continuity: SpeakSessionContinuity | null = null;
+  let inheritedThreadId: string | null = null;
+
+  if (parsed.data.resumeSessionId) {
+    const previous = await getSpeakRealtimeSession(parsed.data.resumeSessionId);
+
+    const resumable =
+      previous &&
+      previous.userId === sbUserId &&
+      previous.status === "active" &&
+      // An already-expired predecessor has nothing left to inherit; let it settle and start over.
+      previous.expiresAt > Date.now() + RESUME_MIN_REMAINING_MS;
+
+    if (previous && resumable) {
+      continuity = {
+        continuityStartedAt: previous.continuityStartedAt ?? previous.startedAt,
+        expiresAt: previous.expiresAt,
+      };
+      inheritedThreadId = previous.threadId;
+
+      // Bills the predecessor's tail and frees its slot. The successor inherits `expiresAt`, so
+      // reloading cannot buy more minutes than one session is allowed.
+      await endSpeakRealtimeSession({ sessionId: previous.sessionId, userId: sbUserId });
+    } else {
+      logger.warn("POST", "resumeSessionId did not match a resumable session; starting fresh");
+
+      // Still settle it, or its slot blocks the fresh session we are about to start.
+      if (previous && previous.userId === sbUserId && previous.status === "active") {
+        await endSpeakRealtimeSession({ sessionId: previous.sessionId, userId: sbUserId });
+      }
+    }
+  }
+
   const startCheck = await checkSpeakRealtimeSessionStart(sbUserId);
 
   if (!startCheck.success) {
@@ -97,13 +146,17 @@ export async function POST(req: Request) {
   const memoryEnabled = parsed.data.memory === true;
   const threadPolicy = parsed.data.threadPolicy ?? DEFAULT_SPEAK_THREAD_POLICY;
 
+  // A resumed session must land on the same thread it was already writing to, whatever the
+  // client's default policy says — otherwise a reload silently forks the conversation.
+  const requestedThreadId = inheritedThreadId ?? parsed.data.threadId;
+
   const thread =
-    parsed.data.createThread === false && !parsed.data.threadId
+    parsed.data.createThread === false && !requestedThreadId
       ? { threadId: null, resumed: false, title: null }
       : await resolveSpeakThread({
           ownerId: sbUserId,
           policy: threadPolicy,
-          requestedThreadId: parsed.data.threadId,
+          requestedThreadId,
         });
 
   if (thread.error) {
@@ -174,13 +227,14 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Missing ephemeral client secret" }, { status: 502 });
   }
 
-  await registerSpeakRealtimeSession({
+  const record = await registerSpeakRealtimeSession({
     sessionId: ourSessionId,
     userId: sbUserId,
     model,
     threadId,
     modalities,
     memoryEnabled,
+    continuity,
   });
 
   logger.log("POST", `Minted speak realtime session ${ourSessionId}`, {
@@ -189,6 +243,7 @@ export async function POST(req: Request) {
     modalities,
     memoryEnabled,
     resumed: thread.resumed,
+    continued: continuity !== null,
     contextChars: sessionContext?.length ?? 0,
   });
 
@@ -203,5 +258,9 @@ export async function POST(req: Request) {
     modalities,
     memoryEnabled,
     budget: startCheck.budget,
+    /** True when this call continues a session interrupted by a page reload. */
+    continued: continuity !== null,
+    /** Anchor for the live bar's elapsed clock; survives reloads. */
+    startedAt: record.continuityStartedAt ?? record.startedAt,
   });
 }

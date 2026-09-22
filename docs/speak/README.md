@@ -28,13 +28,31 @@ system. The code paths below are the source of truth.
 ## Structure
 
 ```
-app/speak/page.tsx → SpeakShell
-├── LiveVoiceStage (default)  — OpenAI Realtime voice over WebRTC
-└── ReadAloudStage            — TTS read-aloud, a separate mode
+app/layout.tsx → VoiceSessionProvider   — owns the session for the whole app
+├── <audio> sink                        — never unmounts; re-parenting restarts playback
+├── VoiceLiveBarHost                    — portals the live bar into CoreInput, or a fixed anchor
+└── children
+    └── app/speak/page.tsx → SpeakShell
+        ├── LiveVoiceStage (default)    — a *view* onto the provider, owns no connection
+        └── ReadAloudStage              — TTS read-aloud, a separate mode
 ```
+
+The provider lives in the root layout because the App Router preserves that layout across
+client-side navigation. Held in a page, the peer connection dies on every route change.
 
 | Area | Path |
 |------|------|
+| Session provider (app-wide) | `components/voice/voice-session-provider.tsx` |
+| Live bar | `components/voice/voice-live-bar{,-host,-timing}.tsx` |
+| Waveform | `components/voice/voice-waveform.tsx`, `lib/speak/waveform-geometry.ts` |
+| Elapsed clock | `components/voice/voice-elapsed.tsx` |
+| FluidGlass material | `components/voice/voice-fluid-glass.tsx` |
+| Audio analysis | `hooks/use-voice-audio-levels.ts` |
+| Transport seam | `lib/speak/transport/voice-transport.ts` |
+| Screen context | `hooks/use-voice-screen-context.ts`, `lib/speak/ambient-context.ts`, `lib/speak/ambient-item.ts` |
+| Reload resume | `app/api/ai/speak/realtime/active/route.ts` |
+| Voice visual state | `lib/speak/voice-visual-state.ts` |
+| Perf lab | `app/sandbox/prototypes/voice-bar/` |
 | Shell | `app/speak/_components/SpeakShell.tsx` |
 | Live voice UI | `app/speak/_components/LiveVoiceStage.tsx` |
 | Read aloud | `app/speak/_components/ReadAloudStage.tsx` |
@@ -71,7 +89,17 @@ Verified against the session route and hook on 2026-09-17. Design rationale is i
    exchanges into memory when the session opted in.
 5. **Usage.** `response.done.usage` is accumulated and sent with the next heartbeat, so metering
    bills provider tokens rather than only wall-clock minutes.
-6. **Transport** is unchanged: OpenAI Realtime over WebRTC, driven by `useRealtimeVoice`.
+6. **Transport** is OpenAI Realtime over WebRTC, behind the `VoiceTransport` interface so a
+   server-side relay can replace it without the hook or UI changing.
+7. **Continuity across navigation** is structural: the session lives in the root layout, so it
+   survives every client-side route change. A hard reload is covered by resume — `/active`
+   reports the live session and the mint route accepts `resumeSessionId`, inheriting the thread
+   and the deadline (so reloading cannot extend `SPEAK_SESSION_MAX_MINUTES`).
+8. **Screen awareness.** Surfaces register what is on screen via `useVoiceScreenContext`; the
+   server builds the text and the client sends it as a silent `role: "system"` item with no
+   `response.create`. See
+   [the ambient presence ADR](./decisions/20260922-ambient-voice-presence.md) — there is no
+   `.thinking` event in the Realtime API.
 
 Memory is a per-session opt-in sent by the client, mirroring chat's composer toggle. It is
 captured on the session record, so the tool gate and the ingest path read one value.
@@ -86,6 +114,9 @@ Factual gap analysis, not a plan. Roadmap is private.
 | Memory | `search_memories`, context assembled before `streamText` | `search_memories`; summary + memories in instructions on resume; ingest after exchanges |
 | Persistence | Messages saved to the thread | Voice turns saved to a `speak` thread |
 | Resume | Open thread, full history | Latest Speak thread by default; summary and last turns in instructions; **+** for a fresh one |
+| Survives navigation | n/a | Yes — provider in the root layout |
+| Survives page reload | Resumable SSE | Resume: same thread and clock, ~1s audio gap |
+| Screen awareness | n/a | Chat summary, Strata compiled doc, rabbit-hole graph |
 | Visuals | Gen UI inline in the message | Optional side panel, gated by modality toggles |
 
 **Speak tools:** `update_display_text`, `render_gen_ui`, `refresh_component`, `upsert_ui_state`,
