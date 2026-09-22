@@ -15,7 +15,7 @@ export const metadata: Metadata = {
 export default function VoiceBarPrototypePage() {
   return (
     <LiquidChromePage className="overflow-hidden" transparentBackground>
-      {/* Chrome behind the bar, so FluidGlass has something worth refracting. */}
+      {/* The CSS glass blurs Chrome; FluidGlass refracts its own offscreen light field. */}
       <AdaptiveLiquidChrome dimIntensity={0.5} dimIntensityFull={0.72} speed={0.01} />
 
       <div className="relative z-10 flex h-full w-full flex-col overflow-y-auto">

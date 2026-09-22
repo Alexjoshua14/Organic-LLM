@@ -4,13 +4,11 @@ import { useEffect, useRef, useState } from "react";
 
 import { useSyntheticVoiceStream } from "./synthetic-voice-stream";
 
-import { glassPreview } from "@/components/design-system/primitives";
 import { VoiceElapsed } from "@/components/voice/voice-elapsed";
-import { VoiceFluidGlass } from "@/components/voice/voice-fluid-glass";
+import { VoiceBarSurface } from "@/components/voice/voice-bar-surface";
 import { VOICE_BAR_HEIGHT_PX } from "@/components/voice/voice-live-bar-timing";
 import { VoiceWaveform } from "@/components/voice/voice-waveform";
 import { ribbonCurveCount } from "@/lib/speak/waveform-geometry";
-import { cn } from "@/lib/utils";
 
 /** Rolling window for the frame statistics, ~2s at 60fps. */
 const SAMPLE_WINDOW = 120;
@@ -160,14 +158,12 @@ export function VoiceBarLab() {
         </p>
       </header>
 
+      {/* Same surface as production: FluidGlass only, CSS glass solely as the fallback. */}
       <div
-        className={cn(
-          glassPreview({ depth: "floating" }),
-          "relative flex items-center gap-3 overflow-hidden rounded-xl px-3"
-        )}
+        className="relative flex items-center gap-3 overflow-hidden rounded-xl px-3"
         style={{ height: VOICE_BAR_HEIGHT_PX }}
       >
-        {fluidGlass ? <VoiceFluidGlass /> : null}
+        <VoiceBarSurface glass={fluidGlass} />
         <div className="relative min-w-0 flex-1 self-stretch text-foreground/70">
           {waveform ? (
             <VoiceWaveform localStream={stream} remoteStream={null} />
@@ -193,7 +189,7 @@ export function VoiceBarLab() {
         />
         <Toggle
           checked={fluidGlass}
-          hint="WebGL transmission slab. The only GPU consumer on this page."
+          hint="3D glass refracting the real LiquidChrome behind it, capped at 30fps. Off shows the no-WebGL2 fallback."
           label="FluidGlass"
           onChange={setFluidGlass}
         />

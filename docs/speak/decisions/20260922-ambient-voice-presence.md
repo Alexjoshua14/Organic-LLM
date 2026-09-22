@@ -154,9 +154,9 @@ does the real page blur via `backdrop-filter`, and the canvas on top contributes
 — thickness, chromatic aberration, anisotropic streak, moving specular, and refraction of an
 internal lit backdrop. It reads as a lit 3D slab; it is not bending actual page pixels.
 
-Guards: `samples: 4` and `resolution: 96` (a 32px strip resolves no more), DPR capped at 1.5,
-`powerPreference: "low-power"`, and `frameloop: "demand"` when hidden or reduced-motion — zero
-frames rendered, not throttled frames. It mounts only while a call is live.
+The original plane-based renderer was corrected to use the ReactBits bar model and an explicit
+offscreen scene. Current limits, failure handling and measured cost are recorded in
+[FluidGlass rendering](./20260922-fluid-glass-rendering.md). It mounts only while a call is live.
 
 ## Consequences
 
@@ -169,7 +169,9 @@ frames rendered, not throttled frames. It mounts only while a call is live.
 
 ## Open
 
-- **Full FluidGlass GPU attribution** — blocked on a signed-in browser; the lab is built.
+- **Full-app FluidGlass attribution** — isolated renderer measurements are in
+  [the rendering ADR](./20260922-fluid-glass-rendering.md); measurement during a signed-in
+  voice session is still outstanding.
 - **Mobile battery** under a long call with a live WebGL context is unmeasured. If it bites, the
   cheapest lever is dropping the canvas on coarse pointers and keeping `glassPreview`.
 - The **relay-vs-resume** choice is settled for now but recorded as reversible on purpose.

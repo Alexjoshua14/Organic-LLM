@@ -46,7 +46,7 @@ client-side navigation. Held in a page, the peer connection dies on every route 
 | Live bar | `components/voice/voice-live-bar{,-host,-timing}.tsx` |
 | Waveform | `components/voice/voice-waveform.tsx`, `lib/speak/waveform-geometry.ts` |
 | Elapsed clock | `components/voice/voice-elapsed.tsx` |
-| FluidGlass material | `components/voice/voice-fluid-glass.tsx` |
+| FluidGlass material | `components/voice/voice-fluid-glass{,-canvas}.tsx`, geometry in `voice-glass-geometry.ts` |
 | Audio analysis | `hooks/use-voice-audio-levels.ts` |
 | Transport seam | `lib/speak/transport/voice-transport.ts` |
 | Screen context | `hooks/use-voice-screen-context.ts`, `lib/speak/ambient-context.ts`, `lib/speak/ambient-item.ts` |

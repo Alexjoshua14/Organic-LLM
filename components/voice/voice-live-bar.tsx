@@ -2,12 +2,11 @@
 
 import { PhoneOff } from "lucide-react";
 
+import { VoiceBarSurface } from "./voice-bar-surface";
 import { VoiceElapsed } from "./voice-elapsed";
-import { VoiceFluidGlass } from "./voice-fluid-glass";
 import { VOICE_BAR_HEIGHT_PX } from "./voice-live-bar-timing";
 import { VoiceWaveform } from "./voice-waveform";
 
-import { glassPreview } from "@/components/design-system/primitives";
 import { cn } from "@/lib/utils";
 
 export type VoiceLiveBarProps = {
@@ -33,9 +32,9 @@ const PHASE_LABEL: Record<VoiceLiveBarProps["phase"], string> = {
  * away from `/speak`, so it is never subtle and never dismissible — ending the call is the only
  * way to remove it.
  *
- * Material is two layers: `glassPreview` provides the real page blur via `backdrop-filter`, and
- * `VoiceFluidGlass` sits on top adding the 3D transmission that CSS cannot express. See
- * `voice-fluid-glass.tsx` for why it has to be both.
+ * The background is FluidGlass alone, refracting the page's real LiquidChrome behind it; the
+ * waveform, clock and controls sit on top. `VoiceBarSurface` holds a CSS glass fallback only while
+ * the renderer loads or if it cannot run — see `voice-bar-surface.tsx`.
  */
 export function VoiceLiveBar({
   phase,
@@ -48,15 +47,12 @@ export function VoiceLiveBar({
   return (
     <div
       aria-live="polite"
-      className={cn(
-        glassPreview({ depth: "floating", border: "all" }),
-        "pointer-events-auto relative flex w-full items-center gap-3 overflow-hidden rounded-t-xl px-3"
-      )}
+      className="pointer-events-auto relative flex w-full items-center gap-3 overflow-hidden rounded-t-xl px-3"
       data-voice-live-bar=""
       role="status"
       style={{ height: VOICE_BAR_HEIGHT_PX }}
     >
-      <VoiceFluidGlass />
+      <VoiceBarSurface />
 
       {/* Screen-reader summary; the waveform and glow carry this visually. */}
       <span className="sr-only">

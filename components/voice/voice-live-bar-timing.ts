@@ -17,6 +17,13 @@ export const VOICE_BAR_EXIT_MS = 220;
 /** Organic LLM's standard settle curve, shared with the Speak stage transitions. */
 export const VOICE_BAR_EASE = [0.25, 0.46, 0.45, 0.94] as const;
 
+/**
+ * FluidGlass fades in over the CSS fallback once its first frame is on screen, then the fallback
+ * unmounts. Long enough to read as the material settling rather than a swap; short enough to
+ * finish inside the bar's own entrance. Opacity only — `backdrop-filter` is never animated.
+ */
+export const VOICE_GLASS_FADE_MS = 320;
+
 // ---------------------------------------------------------------------------
 // Waveform
 // ---------------------------------------------------------------------------
