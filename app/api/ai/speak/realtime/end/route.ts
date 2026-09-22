@@ -3,12 +3,22 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 
 import { getSupabaseUserId } from "@/data/supabase/profiles";
+import { createLogger } from "@/lib/logger";
 import { endSpeakRealtimeSession } from "@/lib/rate-limit/speak-realtime";
 
 export const maxDuration = 15;
 
+const logger = createLogger("app/api/ai/speak/realtime/end/route.ts");
+
 const EndSchema = z.object({
   sessionId: z.string().min(1),
+  /** Set when the SDP exchange failed. It runs in the browser, so this is the server's only report. */
+  connectFailure: z
+    .object({
+      status: z.number().int(),
+      detail: z.string().max(500),
+    })
+    .optional(),
 });
 
 export async function POST(req: Request) {
@@ -36,6 +46,14 @@ export async function POST(req: Request) {
 
   if (!parsed.success) {
     return NextResponse.json({ error: "Invalid request body" }, { status: 400 });
+  }
+
+  if (parsed.data.connectFailure) {
+    logger.error(
+      "POST",
+      `Realtime connect failed for ${parsed.data.sessionId}`,
+      parsed.data.connectFailure
+    );
   }
 
   const session = await endSpeakRealtimeSession({

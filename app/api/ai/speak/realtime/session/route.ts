@@ -48,6 +48,18 @@ const SessionBodySchema = z.object({
    * Settles the orphaned record and inherits its thread and clock rather than starting over.
    */
   resumeSessionId: z.string().min(1).max(200).optional(),
+  /**
+   * Retry after `resumeSessionId` minted but never connected. Carries why, since the SDP exchange
+   * happens in the browser and the server would otherwise only see the session close.
+   */
+  retryAfterConnectFailure: z
+    .object({
+      status: z.number().int(),
+      detail: z.string().max(500),
+    })
+    .optional(),
+  /** Keeps the thread but omits its summary, memories and recent turns from the instructions. */
+  withoutThreadContext: z.boolean().optional(),
 });
 
 export async function POST(req: Request) {
@@ -99,6 +111,16 @@ export async function POST(req: Request) {
   // the user's only concurrency slot, so checking first would reject every reload.
   let continuity: SpeakSessionContinuity | null = null;
   let inheritedThreadId: string | null = null;
+
+  if (parsed.data.retryAfterConnectFailure) {
+    const { status, detail } = parsed.data.retryAfterConnectFailure;
+
+    logger.warn("POST", `Realtime connect failed for ${parsed.data.resumeSessionId}; retrying`, {
+      status,
+      detail,
+      withoutThreadContext: parsed.data.withoutThreadContext === true,
+    });
+  }
 
   if (parsed.data.resumeSessionId) {
     const previous = await getSpeakRealtimeSession(parsed.data.resumeSessionId);
@@ -168,7 +190,9 @@ export async function POST(req: Request) {
   // A resumed thread has history to carry in; a fresh one has nothing to seed a search with.
   let sessionContext: string | null = null;
 
-  if (threadId && thread.resumed) {
+  const withThreadContext = thread.resumed && parsed.data.withoutThreadContext !== true;
+
+  if (threadId && withThreadContext) {
     const loaded = await loadSpeakSessionContext({ ownerId: sbUserId, threadId, memoryEnabled });
 
     sessionContext = formatSpeakSessionContext(loaded) || null;
@@ -179,7 +203,7 @@ export async function POST(req: Request) {
   const instructions = buildSpeakRealtimeInstructions(modalities, {
     memoryEnabled,
     sessionContext,
-    resumed: thread.resumed,
+    resumed: withThreadContext,
   });
 
   const openai = new OpenAI({ apiKey });

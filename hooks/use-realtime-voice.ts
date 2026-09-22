@@ -19,7 +19,11 @@ import {
   sumRealtimeUsage,
   type RealtimeUsage,
 } from "@/lib/speak/realtime-events";
-import { createWebRtcVoiceTransport } from "@/lib/speak/transport/voice-transport";
+import {
+  createWebRtcVoiceTransport,
+  isRetryableConnectError,
+  RealtimeConnectError,
+} from "@/lib/speak/transport/voice-transport";
 import { SPEAK_TURN_BATCH_MAX, type SpeakVoiceTurn } from "@/lib/speak/voice-turns";
 
 export type LiveVoicePhase = "idle" | "listening" | "thinking" | "speaking";
@@ -42,6 +46,21 @@ export type ResumedThreadInfo = {
  * asynchronously and often after the reply has begun. Heartbeat and teardown flush the rest.
  */
 const TURN_FLUSH_DEBOUNCE_MS = 2_500;
+
+/**
+ * One silent retry when OpenAI 5xxs the SDP exchange. The retry mints a fresh secret that
+ * settles the failed session and drops the thread context from the instructions, trading
+ * recall for a call that connects. More than one retry would leave the user in dead air.
+ */
+const CONNECT_RETRY_LIMIT = 1;
+const CONNECT_RETRY_DELAY_MS = 600;
+
+type ConnectFailure = { status: number; detail: string };
+
+/** The schemas on `/session` and `/end` cap `detail` at 500 characters. */
+function connectFailureOf(error: RealtimeConnectError): ConnectFailure {
+  return { status: error.status, detail: error.detail.slice(0, 500) };
+}
 
 type SessionMintResponse = {
   clientSecret: string;
@@ -249,7 +268,7 @@ export function useRealtimeVoice({
   }, [flushTurns]);
 
   const teardown = useCallback(
-    async (opts?: { notifyServer?: boolean }) => {
+    async (opts?: { notifyServer?: boolean; connectFailure?: ConnectFailure }) => {
       stopHeartbeat();
 
       const sid = sessionIdRef.current;
@@ -263,7 +282,7 @@ export function useRealtimeVoice({
         void fetch("/api/ai/speak/realtime/end", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ sessionId: sid }),
+          body: JSON.stringify({ sessionId: sid, connectFailure: opts?.connectFailure }),
         }).catch(() => undefined);
       }
 
@@ -488,60 +507,83 @@ export function useRealtimeVoice({
       setConnecting(true);
       setError(null);
 
+      // A retry resumes the attempt that failed: that settles its record, frees the concurrency
+      // slot it holds, and keeps its thread and clock.
+      let resumeSessionId = options?.resumeSessionId;
+      let retryFailure: ConnectFailure | null = null;
+
       try {
-        const mintRes = await fetch("/api/ai/speak/realtime/session", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            modalities: modalitiesRef.current,
-            memory: memoryEnabledRef.current,
-            threadPolicy: options?.threadPolicy ?? threadPolicyRef.current,
-            resumeSessionId: options?.resumeSessionId,
-          }),
-        });
-        const mint = (await mintRes.json()) as SessionMintResponse;
+        let mint: SessionMintResponse;
+        let transport: VoiceTransport;
 
-        if (!mintRes.ok || !mint.clientSecret || !mint.sessionId) {
-          throw new Error(mint.error ?? "Failed to start Realtime session");
-        }
+        for (let attempt = 0; ; attempt++) {
+          const mintRes = await fetch("/api/ai/speak/realtime/session", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              modalities: modalitiesRef.current,
+              memory: memoryEnabledRef.current,
+              threadPolicy: options?.threadPolicy ?? threadPolicyRef.current,
+              resumeSessionId,
+              retryAfterConnectFailure: retryFailure ?? undefined,
+              withoutThreadContext: retryFailure ? true : undefined,
+            }),
+          });
 
-        applyBudget(mint.budget);
-        sessionIdRef.current = mint.sessionId;
-        setSessionId(mint.sessionId);
-        setThreadId(mint.threadId);
-        setStartedAt(mint.startedAt ?? Date.now());
-        setResumedThread(
-          mint.resumed && mint.threadId
-            ? { threadId: mint.threadId, title: mint.threadTitle ?? null }
-            : null
-        );
-        turnBufferRef.current = [];
-        pendingUsageRef.current = null;
-        ambientSurfaceKeyRef.current = null;
+          mint = (await mintRes.json()) as SessionMintResponse;
 
-        const audioEl = audioElRef.current ?? document.createElement("audio");
-
-        audioEl.autoplay = true;
-        audioElRef.current = audioEl;
-
-        const transport = transportFactoryRef.current();
-
-        transportRef.current = transport;
-
-        await transport.connect(
-          { clientSecret: mint.clientSecret },
-          {
-            onServerEvent: handleDataEvent,
-            onRemoteStream: (stream) => {
-              audioEl.srcObject = stream;
-              setStreams((prev) => ({ ...prev, remote: stream }));
-            },
-            onClosed: (reason) => {
-              setError(reason);
-              void teardown({ notifyServer: true });
-            },
+          if (!mintRes.ok || !mint.clientSecret || !mint.sessionId) {
+            throw new Error(mint.error ?? "Failed to start Realtime session");
           }
-        );
+
+          applyBudget(mint.budget);
+          sessionIdRef.current = mint.sessionId;
+          setSessionId(mint.sessionId);
+          setThreadId(mint.threadId);
+          setStartedAt(mint.startedAt ?? Date.now());
+          setResumedThread(
+            mint.resumed && mint.threadId
+              ? { threadId: mint.threadId, title: mint.threadTitle ?? null }
+              : null
+          );
+          turnBufferRef.current = [];
+          pendingUsageRef.current = null;
+          ambientSurfaceKeyRef.current = null;
+
+          const audioEl = audioElRef.current ?? document.createElement("audio");
+
+          audioEl.autoplay = true;
+          audioElRef.current = audioEl;
+
+          transport = transportFactoryRef.current();
+          transportRef.current = transport;
+
+          try {
+            await transport.connect(
+              { clientSecret: mint.clientSecret },
+              {
+                onServerEvent: handleDataEvent,
+                onRemoteStream: (stream) => {
+                  audioEl.srcObject = stream;
+                  setStreams((prev) => ({ ...prev, remote: stream }));
+                },
+                onClosed: (reason) => {
+                  setError(reason);
+                  void teardown({ notifyServer: true });
+                },
+              }
+            );
+            break;
+          } catch (err) {
+            if (attempt >= CONNECT_RETRY_LIMIT || !isRetryableConnectError(err)) throw err;
+
+            transport.close();
+            transportRef.current = null;
+            retryFailure = connectFailureOf(err);
+            resumeSessionId = mint.sessionId;
+            await new Promise((resolve) => setTimeout(resolve, CONNECT_RETRY_DELAY_MS));
+          }
+        }
 
         setStreams({ local: transport.localStream, remote: transport.remoteStream });
 
@@ -551,9 +593,9 @@ export function useRealtimeVoice({
         setPhaseSafe("idle");
         onCaptionChange?.({
           role: "system",
-          text: mint.continued
+          text: options?.resumeSessionId
             ? "Reconnected — still here."
-            : mint.resumed
+            : mint.resumed && !retryFailure
               ? "Connected — picking up where you left off."
               : "Connected — speak naturally. Tap End to hang up.",
         });
@@ -563,7 +605,10 @@ export function useRealtimeVoice({
 
         setError(msg);
         setConnecting(false);
-        await teardown({ notifyServer: true });
+        await teardown({
+          notifyServer: true,
+          connectFailure: err instanceof RealtimeConnectError ? connectFailureOf(err) : undefined,
+        });
         onCaptionChange?.({ role: "system", text: msg });
       }
     },

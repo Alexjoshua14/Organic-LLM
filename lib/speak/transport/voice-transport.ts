@@ -40,6 +40,28 @@ export interface VoiceTransport {
 
 export type VoiceTransportFactory = () => VoiceTransport;
 
+/** The model's side refused the call. `status` is the HTTP status of the SDP exchange. */
+export class RealtimeConnectError extends Error {
+  readonly status: number;
+  readonly detail: string;
+
+  constructor(status: number, detail: string) {
+    super(`Realtime connect failed (${status}): ${detail}`);
+    this.name = "RealtimeConnectError";
+    this.status = status;
+    this.detail = detail;
+  }
+}
+
+/**
+ * Whether a fresh mint is worth trying. A 5xx from `/realtime/calls` can follow a mint that
+ * succeeded; a 4xx means the secret or offer itself is wrong, and a new secret for the same
+ * config would fail the same way.
+ */
+export function isRetryableConnectError(error: unknown): error is RealtimeConnectError {
+  return error instanceof RealtimeConnectError && error.status >= 500;
+}
+
 /** OpenAI's SDP exchange endpoint. The ephemeral secret authorizes the browser directly. */
 const REALTIME_CALLS_URL = "https://api.openai.com/v1/realtime/calls";
 
@@ -106,7 +128,7 @@ export function createWebRtcVoiceTransport(): VoiceTransport {
       if (!sdpRes.ok) {
         const errText = await sdpRes.text().catch(() => "");
 
-        throw new Error(`Realtime connect failed (${sdpRes.status}): ${errText}`);
+        throw new RealtimeConnectError(sdpRes.status, errText);
       }
 
       await pc.setRemoteDescription({ type: "answer", sdp: await sdpRes.text() });
