@@ -315,6 +315,25 @@ export const prototypes: PrototypeEntry[] = [
       updatedAt: "2026-05-07",
     },
   },
+  {
+    slug: "voice-bar",
+    title: "Live voice bar",
+    description:
+      "Layer-by-layer cost of the always-on voice bar — ribbon waveform, Lumen glow spring, and the FluidGlass slab, each toggleable against a live frame readout.",
+    about: {
+      what: "The h-8 bar that proves a voice session is live on every route. Three layers that can be measured independently: an SVG ribbon driven by real audio bands, an elapsed clock whose seconds are a Lumen glow rather than digits, and a WebGL transmission slab over the CSS glass.",
+      authorThoughts:
+        "The waveform follows the author's generative art: a ribbon is not a shape with an outline, it is a band of many thin strokes interpolated between driver curves, and the light comes from stroke density. The clock's glow fills across the minute and drops at :00, so time reads as something alive rather than a counter. The bar is on screen for an entire call, so every layer has to justify its cost — hence the toggles.",
+      howToUse:
+        "Toggle one layer at a time and read the delta in mean frame time. Numbers recorded here back the live-bar ADR in docs/speak/decisions/.",
+    },
+    ranking: {
+      importance: 8,
+      frequency: 4,
+      createdAt: "2026-09-22",
+      updatedAt: "2026-09-22",
+    },
+  },
 ];
 
 export type PrototypeTierId = "flagship" | "featured" | "library";

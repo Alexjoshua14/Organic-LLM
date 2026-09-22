@@ -30,6 +30,7 @@ import { glass } from "../design-system/primitives";
 import { useSidebar } from "../third-party/ui/sidebar";
 
 import Page from "@/components/layout/page";
+import { useVoiceScreenContext } from "@/hooks/use-voice-screen-context";
 import { RabbitHolePathRail } from "@/app/rabbitholes/_components/RabbitHolePathRail";
 import { RabbitHoleArticle } from "@/app/rabbitholes/_components/RabbitHoleArticle";
 import { RabbitHoleBranchSuggestionsBlock } from "@/app/rabbitholes/_components/RabbitHoleBranchSuggestionsBlock";
@@ -239,6 +240,18 @@ function RabbitHoleShellInner() {
       setChatOpen(true);
     },
     [setChatOpen, syncSessionToUrl]
+  );
+
+  // Ambient awareness: the node summaries and the graph's branching shape, so a live voice
+  // session can follow "this rabbit hole" and "the node I'm on" without being asked anything.
+  useVoiceScreenContext(
+    session?.sessionId
+      ? {
+          kind: "rabbit-hole",
+          id: session.sessionId,
+          activeNodeId: session.activeNodeId,
+        }
+      : null
   );
 
   const desktopChat = useRabbitHoleChatComposer({

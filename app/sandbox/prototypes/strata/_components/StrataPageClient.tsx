@@ -17,6 +17,7 @@ import {
   type StrataAssistantToolDefaults,
 } from "@/lib/personas/strata-assistant";
 import { parseSourceComposerSettings } from "@/lib/strata/text-sources";
+import { useVoiceScreenContext } from "@/hooks/use-voice-screen-context";
 
 export function StrataPageClient({
   initialData,
@@ -27,6 +28,9 @@ export function StrataPageClient({
   dbAvailable: boolean;
   pageAgentChatData: { thread: Thread; messages: UIMessage[] } | null;
 }) {
+  // Ambient awareness: the compiled document, so a live voice session can follow "this page".
+  useVoiceScreenContext({ kind: "stratum", id: initialData.page.id });
+
   const initialSettings = useMemo(
     () =>
       parseSourceComposerSettings(

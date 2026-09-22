@@ -9,6 +9,7 @@ import {
 import {
   compileSpeakRealtimeTools,
   isToolAllowedForModalities,
+  isToolAllowedForSession,
 } from "@/lib/llm/compile-speak-tools";
 import { buildSpeakRealtimeInstructions } from "@/lib/system-prompt/speak-realtime";
 import { DEFAULT_SPEAK_MODALITIES } from "@/lib/schemas/speak-modalities";
@@ -84,5 +85,68 @@ describe("compileSpeakRealtimeTools modality gate", () => {
     expect(text).toContain("GenUI");
     expect(text).toContain("on-screen text");
     expect(text).not.toContain("web page preview iframes");
+  });
+});
+
+describe("compileSpeakRealtimeTools memory opt-in", () => {
+  test("search_memories appears only when memory is enabled", () => {
+    const off = compileSpeakRealtimeTools(DEFAULT_SPEAK_MODALITIES).map((t) => t.name);
+    const on = compileSpeakRealtimeTools(DEFAULT_SPEAK_MODALITIES, { memoryEnabled: true }).map(
+      (t) => t.name
+    );
+
+    expect(off).not.toContain("search_memories");
+    expect(on).toContain("search_memories");
+    // Capability tools sit before the nanobots so the model reads them first.
+    expect(on.indexOf("search_memories")).toBeLessThan(on.indexOf("update_thread_title"));
+  });
+
+  test("search_memories is gated by the session flag, not by modalities", () => {
+    const voiceOnly = { text: false, genUi: false, web: false };
+
+    expect(isToolAllowedForModalities("search_memories", voiceOnly)).toBe(true);
+    expect(
+      isToolAllowedForSession("search_memories", { modalities: voiceOnly, memoryEnabled: false })
+    ).toBe(false);
+    expect(
+      isToolAllowedForSession("search_memories", { modalities: voiceOnly, memoryEnabled: true })
+    ).toBe(true);
+    expect(
+      isToolAllowedForSession("render_gen_ui", { modalities: voiceOnly, memoryEnabled: true })
+    ).toBe(false);
+  });
+});
+
+describe("buildSpeakRealtimeInstructions continuity", () => {
+  test("memory guidance and the tool line appear only when enabled", () => {
+    const off = buildSpeakRealtimeInstructions(DEFAULT_SPEAK_MODALITIES);
+    const on = buildSpeakRealtimeInstructions(DEFAULT_SPEAK_MODALITIES, { memoryEnabled: true });
+
+    expect(off).not.toContain("search_memories");
+    expect(on).toContain("- search_memories:");
+    expect(on).toContain("Use search_memories silently");
+  });
+
+  test("a resumed session carries the preamble and asks not to recap", () => {
+    const text = buildSpeakRealtimeInstructions(DEFAULT_SPEAK_MODALITIES, {
+      resumed: true,
+      sessionContext: "Conversation so far:\nWe planned a trip.",
+    });
+
+    expect(text).toContain("continuing an earlier conversation");
+    expect(text).toContain("do not recap");
+    expect(text).toContain("We planned a trip.");
+  });
+
+  test("a resumed session with no context says so without inventing memory", () => {
+    const text = buildSpeakRealtimeInstructions(DEFAULT_SPEAK_MODALITIES, { resumed: true });
+
+    expect(text).toContain("nothing from it is on hand");
+  });
+
+  test("a fresh session has no continuity block", () => {
+    const text = buildSpeakRealtimeInstructions(DEFAULT_SPEAK_MODALITIES, { resumed: false });
+
+    expect(text).not.toContain("continuing an earlier conversation");
   });
 });

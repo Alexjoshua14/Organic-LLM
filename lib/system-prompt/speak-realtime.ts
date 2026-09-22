@@ -1,10 +1,22 @@
 import type { SpeakModalities } from "@/lib/schemas/speak-modalities";
 
+export type SpeakRealtimeInstructionOptions = {
+  /** Adds `search_memories` guidance; the tool itself is compiled separately. */
+  memoryEnabled?: boolean;
+  /** Rendered preamble from `formatSpeakSessionContext`; empty or null omits the block. */
+  sessionContext?: string | null;
+  /** True when the session continues an existing thread. */
+  resumed?: boolean;
+};
+
 /**
  * Product intent for Organic LLM Speak Realtime.
  * Voice-primary (ChatGPT-like duplex), with optional visual channels gated by user toggles.
  */
-export function buildSpeakRealtimeInstructions(modalities: SpeakModalities): string {
+export function buildSpeakRealtimeInstructions(
+  modalities: SpeakModalities,
+  options: SpeakRealtimeInstructionOptions = {}
+): string {
   const channels: string[] = ["voice (always on)"];
 
   if (modalities.text) channels.push("on-screen text / captions");
@@ -34,6 +46,11 @@ export function buildSpeakRealtimeInstructions(modalities: SpeakModalities): str
       "- show_web_preview: open an https URL in the side panel when the user asks to look at a page."
     );
   }
+  if (options.memoryEnabled) {
+    toolLines.push(
+      "- search_memories: recall what you know about this user from earlier conversations. Call it when a detail, preference, name, or past decision would change your answer."
+    );
+  }
 
   toolLines.push(
     "- update_thread_title: async nanobot — refresh the conversation title when topic becomes clear."
@@ -42,7 +59,8 @@ export function buildSpeakRealtimeInstructions(modalities: SpeakModalities): str
     "- summarize_thread: async nanobot — update the thread summary when useful; do not narrate the summary aloud."
   );
 
-  return `You are Organic LLM's live Realtime voice companion.
+  const sections: string[] = [
+    `You are Organic LLM's live Realtime voice companion.
 
 Product intent:
 - Voice is primary — warm, concise, conversational, like a full duplex voice agent.
@@ -52,7 +70,33 @@ Product intent:
 - Prefer tools for structured UI; keep speech for the human conversation.
 
 Available tools:
-${toolLines.join("\n")}
+${toolLines.join("\n")}`,
+  ];
 
-If the user asks for something that requires a disabled modality, say you can enable it in Speak settings (briefly) and continue by voice.`;
+  if (options.memoryEnabled) {
+    // Locked principle 2 in docs/speak/tool-behavior.md: silent when fast, no narrated lookups.
+    sections.push(`Memory:
+- Use search_memories silently. Never say "let me check my memory" or announce a lookup; just continue once you have the result.
+- If nothing relevant comes back, carry on naturally and do not mention memory at all.
+- Weave recalled details in lightly, the way a friend would — no recitals of what you know.
+- This conversation is saved automatically; you never need to ask whether to remember something.`);
+  }
+
+  const context = options.sessionContext?.trim();
+
+  if (options.resumed && context) {
+    sections.push(`You are continuing an earlier conversation with this user. Pick up naturally — do not recap or greet as if new unless they ask what you last talked about.
+
+${context}`);
+  } else if (options.resumed) {
+    sections.push(
+      "You are continuing an earlier conversation with this user, though nothing from it is on hand. Pick up naturally without pretending to remember specifics."
+    );
+  }
+
+  sections.push(
+    "If the user asks for something that requires a disabled modality, say you can enable it in Speak settings (briefly) and continue by voice."
+  );
+
+  return sections.join("\n\n");
 }

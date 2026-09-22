@@ -57,6 +57,7 @@ import { OrganicSubmitGlyph, resolveOrganicSubmitState } from "./submit/submit-g
 
 import { DiagramNodeChip } from "@/components/mermaid/diagram-node-chip";
 import { FeatureHint } from "@/components/onboarding/feature-hint";
+import { CoreInputVoiceDrawerSlot } from "@/components/voice/core-input-voice-drawer-slot";
 import { cn } from "@/lib/utils";
 import {
   DEFAULT_COMPOSER_EFFORT,
@@ -939,5 +940,13 @@ export const CoreInput: React.FC<CoreInputProps> = ({
     <HomeComposerLumenShell className="core-input-memory-lumen">{composer}</HomeComposerLumenShell>
   );
 
-  return <CoreInputControlsProvider value={controlsValue}>{shell}</CoreInputControlsProvider>;
+  return (
+    <CoreInputControlsProvider value={controlsValue}>
+      {/* Positioning context for the live voice drawer; layout-neutral otherwise. */}
+      <div className="relative w-full min-w-0">
+        <CoreInputVoiceDrawerSlot />
+        {shell}
+      </div>
+    </CoreInputControlsProvider>
+  );
 };

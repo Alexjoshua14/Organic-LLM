@@ -1,6 +1,6 @@
 {
   "name": "organic-llm",
-  "version": "0.11.0",
+  "version": "0.12.0",
   "private": true,
   "scripts": {
     "dev": "next dev --turbopack",
@@ -69,6 +69,7 @@
     "@radix-ui/react-use-controllable-state": "^1.2.6",
     "@react-aria/ssr": "3.9.10",
     "@react-aria/visually-hidden": "3.8.26",
+    "@react-three/drei": "^10.7.8",
     "@react-three/fiber": "^9.7.0",
     "@supabase/ssr": "^0.7.0",
     "@supabase/supabase-js": "^2.116.0",
@@ -90,6 +91,7 @@
     "isomorphic-dompurify": "^3.23.0",
     "js-tiktoken": "^1.0.21",
     "lucide-react": "^1.43.0",
+    "maath": "^0.10.8",
     "marked": "^16.4.2",
     "mem0ai": "^2.4.6",
     "mermaid": "^11.17.2",
