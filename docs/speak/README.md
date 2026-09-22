@@ -30,7 +30,7 @@ system. The code paths below are the source of truth.
 ```
 app/layout.tsx → VoiceSessionProvider   — owns the session for the whole app
 ├── <audio> sink                        — never unmounts; re-parenting restarts playback
-├── VoiceLiveBarHost                    — portals the live bar into CoreInput, or a fixed anchor
+├── VoiceLiveBarHost                    — portals the live bar into CoreInput, or the page-area anchor in <main>
 └── children
     └── app/speak/page.tsx → SpeakShell
         ├── LiveVoiceStage (default)    — a *view* onto the provider, owns no connection
@@ -43,7 +43,7 @@ client-side navigation. Held in a page, the peer connection dies on every route 
 | Area | Path |
 |------|------|
 | Session provider (app-wide) | `components/voice/voice-session-provider.tsx` |
-| Live bar | `components/voice/voice-live-bar{,-host,-timing}.tsx` |
+| Live bar | `components/voice/voice-live-bar{,-host,-page-anchor,-timing}.tsx` |
 | Waveform | `components/voice/voice-waveform.tsx`, `lib/speak/waveform-geometry.ts` |
 | Elapsed clock | `components/voice/voice-elapsed.tsx` |
 | FluidGlass material | `components/voice/voice-fluid-glass{,-canvas}.tsx`, geometry in `voice-glass-geometry.ts` |

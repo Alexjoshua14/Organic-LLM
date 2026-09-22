@@ -65,6 +65,8 @@ export type VoiceSessionValue = {
   setScreenSurface: (surface: SpeakScreenSurface | null) => void;
   /** Where the live bar renders. CoreInput claims this so the bar reads as its drawer. */
   setBarContainer: (el: HTMLElement | null) => void;
+  /** The page-area anchor used when no composer has claimed the bar. */
+  setBarPageAnchor: (el: HTMLElement | null) => void;
 };
 
 const VoiceSessionContext = createContext<VoiceSessionValue | null>(null);
@@ -88,6 +90,7 @@ export function VoiceSessionProvider({ children }: { children: ReactNode }) {
   const [caption, setCaption] = useState<VoiceCaption>({ role: "system", text: "" });
   const [visual, setVisual] = useState<VoiceVisualState>(EMPTY_VOICE_VISUAL_STATE);
   const [barContainer, setBarContainer] = useState<HTMLElement | null>(null);
+  const [barPageAnchor, setBarPageAnchor] = useState<HTMLElement | null>(null);
   const [surface, setSurfaceState] = useState<SpeakScreenSurface | null>(null);
 
   const handleEffects = useCallback((effects: SpeakToolClientEffect[]) => {
@@ -123,7 +126,6 @@ export function VoiceSessionProvider({ children }: { children: ReactNode }) {
 
     void sendScreenContext(surface ?? { kind: "none" });
     // `surfaceKey` is the stable identity; `surface` itself is a fresh object every render.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [connected, surfaceKey, sendScreenContext]);
 
   const setScreenSurface = useCallback((next: SpeakScreenSurface | null) => {
@@ -170,6 +172,7 @@ export function VoiceSessionProvider({ children }: { children: ReactNode }) {
       resetSession,
       setScreenSurface,
       setBarContainer,
+      setBarPageAnchor,
     }),
     [
       voice.phase,
@@ -207,7 +210,7 @@ export function VoiceSessionProvider({ children }: { children: ReactNode }) {
       <audio ref={voice.setAudioElement} autoPlay className="hidden">
         <track kind="captions" />
       </audio>
-      <VoiceLiveBarHost container={barContainer} />
+      <VoiceLiveBarHost container={barContainer} pageAnchor={barPageAnchor} />
     </VoiceSessionContext.Provider>
   );
 }

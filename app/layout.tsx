@@ -20,6 +20,7 @@ import { TTSProvider } from "@/lib/context/tts-context";
 import { FontProvider } from "@/components/FontProvider";
 import { OnboardingHost } from "@/components/onboarding/onboarding-host";
 import { PerfHudGate } from "@/components/perf/perf-hud-gate";
+import { VoiceLiveBarPageAnchor } from "@/components/voice/voice-live-bar-page-anchor";
 import { VoiceSessionProvider } from "@/components/voice/voice-session-provider";
 import { glass } from "@/components/design-system/primitives";
 export const metadata: Metadata = {
@@ -75,26 +76,27 @@ export default async function RootLayout({ children }: { children: React.ReactNo
                       call survives every route change. Inside a page it would die on each one.
                     */}
                     <VoiceSessionProvider>
-                    <SidebarProvider defaultOpen={sidebarDefaultOpen}>
-                      <OnboardingHost>
-                        <Sidebar />
-                        <ControlCluster />
-                        <main className="app-shell grow w-full overflow-hidden bg-transparent sm:bg-transparent-secondary h-full min-h-dvh">
-                          <div
-                            className={`${glass()} absolute top-[env(safe-area-inset-top,0px)] left-0 z-30 flex h-14 w-20 items-center rounded-br-lg pl-4 md:top-0 md:hidden`}
-                            data-mobile-nav-chrome="sidebar-trigger"
-                          >
-                            <SidebarTrigger />
-                          </div>
-                          <div className={`hidden md:flex absolute top-4 left-0 pl-4 z-30`}>
-                            <SidebarTrigger />
-                          </div>
-                          {children}
-                          <PerfHudGate />
-                          <Analytics />
-                        </main>
-                      </OnboardingHost>
-                    </SidebarProvider>
+                      <SidebarProvider defaultOpen={sidebarDefaultOpen}>
+                        <OnboardingHost>
+                          <Sidebar />
+                          <ControlCluster />
+                          <main className="app-shell grow w-full overflow-hidden bg-transparent sm:bg-transparent-secondary h-full min-h-dvh">
+                            <div
+                              className={`${glass()} absolute top-[env(safe-area-inset-top,0px)] left-0 z-30 flex h-14 w-20 items-center rounded-br-lg pl-4 md:top-0 md:hidden`}
+                              data-mobile-nav-chrome="sidebar-trigger"
+                            >
+                              <SidebarTrigger />
+                            </div>
+                            <div className={`hidden md:flex absolute top-4 left-0 pl-4 z-30`}>
+                              <SidebarTrigger />
+                            </div>
+                            <VoiceLiveBarPageAnchor />
+                            {children}
+                            <PerfHudGate />
+                            <Analytics />
+                          </main>
+                        </OnboardingHost>
+                      </SidebarProvider>
                     </VoiceSessionProvider>
                   </TTSProvider>
                 </AionLauncherProvider>
