@@ -36,6 +36,11 @@ export function rectFromVector4(v: { x: number; y: number; w: number; h: number 
   };
 }
 
-export function vector4FromRect(rect: ArtifactRect): { x: number; y: number; w: number; h: number } {
+export function vector4FromRect(rect: ArtifactRect): {
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+} {
   return { x: rect.x, y: rect.y, w: rect.w, h: rect.h };
 }

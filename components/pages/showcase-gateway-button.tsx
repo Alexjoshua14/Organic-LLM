@@ -12,7 +12,5 @@ export function ShowcaseGatewayButton() {
 
   if (!userId) return null;
 
-  return (
-    <GatewaySmokeLink ariaLabel="Open Showcase" href="/showcase" label="Showcase" showArrow />
-  );
+  return <GatewaySmokeLink ariaLabel="Open Showcase" href="/showcase" label="Showcase" showArrow />;
 }

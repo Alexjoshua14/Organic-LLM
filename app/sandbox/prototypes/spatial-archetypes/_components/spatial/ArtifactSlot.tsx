@@ -1,10 +1,11 @@
 "use client";
 
+import type { ArtifactSlotRole } from "@/lib/spatial-artifacts/zone-routing";
+
 import { useEffect, useRef } from "react";
 
 import { useArtifactSpatial } from "@/lib/context/artifact-spatial-context";
 import { ArtifactSpatialStore } from "@/lib/spatial-artifacts/artifact-spatial-store";
-import type { ArtifactSlotRole } from "@/lib/spatial-artifacts/zone-routing";
 import { slotKey } from "@/lib/spatial-artifacts/zone-routing";
 import { cn } from "@/lib/utils";
 

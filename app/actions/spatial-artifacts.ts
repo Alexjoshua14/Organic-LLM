@@ -1,5 +1,11 @@
 "use server";
 
+import type {
+  ListSpatialArtifactsResult,
+  PinSpatialArtifactInput,
+  SpatialArtifact,
+} from "@/lib/schemas/spatial-artifact";
+
 import { auth } from "@clerk/nextjs/server";
 
 import {
@@ -10,11 +16,6 @@ import {
 import { getSupabaseUserId } from "@/data/supabase/profiles";
 import { spatialArtifactId } from "@/lib/spatial-artifacts/artifact-id";
 import { isSpatialArtifactsEnabledFromRequest } from "@/lib/spatial-artifacts/coalescence-gate";
-import type {
-  ListSpatialArtifactsResult,
-  PinSpatialArtifactInput,
-  SpatialArtifact,
-} from "@/lib/schemas/spatial-artifact";
 import { GenUIBlockSchema } from "@/lib/schemas/gen-ui";
 import {
   enqueueArtifactSync,
@@ -34,7 +35,9 @@ async function requireActor(): Promise<{ sbUserId: string } | null> {
   return { sbUserId: sbUserIdResult.data };
 }
 
-function rowToArtifact(row: Awaited<ReturnType<typeof listSpatialArtifactRows>>[number]): SpatialArtifact | null {
+function rowToArtifact(
+  row: Awaited<ReturnType<typeof listSpatialArtifactRows>>[number]
+): SpatialArtifact | null {
   const blockParsed = GenUIBlockSchema.safeParse(row.block_snapshot);
 
   if (!blockParsed.success) return null;

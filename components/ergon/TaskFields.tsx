@@ -34,7 +34,12 @@ function FieldLabel({ children }: { children: string }) {
   return <span className="text-xs text-muted-foreground">{children}</span>;
 }
 
-export function TaskFields({ form, categories, onCreateCategory, layout = "stacked" }: TaskFieldsProps) {
+export function TaskFields({
+  form,
+  categories,
+  onCreateCategory,
+  layout = "stacked",
+}: TaskFieldsProps) {
   const threeCol = layout === "inline" ? "grid gap-3 md:grid-cols-3" : "flex flex-col gap-3";
   const twoCol = layout === "inline" ? "grid gap-3 md:grid-cols-2" : "flex flex-col gap-3";
 

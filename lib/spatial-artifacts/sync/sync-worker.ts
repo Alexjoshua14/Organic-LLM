@@ -1,8 +1,5 @@
 import { loadChat } from "@/data/supabase/chat";
-import {
-  getSpatialArtifactRow,
-  upsertSpatialArtifactRow,
-} from "@/data/supabase/spatial-artifacts";
+import { getSpatialArtifactRow, upsertSpatialArtifactRow } from "@/data/supabase/spatial-artifacts";
 import { spatialArtifactId } from "@/lib/spatial-artifacts/artifact-id";
 import { isSpatialArtifactsEnabledFromRequest } from "@/lib/spatial-artifacts/coalescence-gate";
 import { extractGenUIArtifactsFromMessages } from "@/lib/spatial-artifacts/extract-from-messages";
@@ -61,8 +58,7 @@ async function processSyncJob(job: ArtifactSyncJob): Promise<void> {
       extracted.find((a) => a.id === job.artifactId) ??
       extracted.find(
         (a) =>
-          a.messageId === job.messageId &&
-          (job.toolCallId ? a.toolCallId === job.toolCallId : true)
+          a.messageId === job.messageId && (job.toolCallId ? a.toolCallId === job.toolCallId : true)
       );
 
     if (!match) {
@@ -74,8 +70,7 @@ async function processSyncJob(job: ArtifactSyncJob): Promise<void> {
     }
 
     const threadTitle =
-      existing?.thread_title ??
-      (thread.title?.trim() ? String(thread.title) : "Untitled chat");
+      existing?.thread_title ?? (thread.title?.trim() ? String(thread.title) : "Untitled chat");
 
     await upsertSpatialArtifactRow({
       id: match.id,
@@ -89,8 +84,7 @@ async function processSyncJob(job: ArtifactSyncJob): Promise<void> {
       snapshot_updated_at: new Date().toISOString(),
       source_message_updated_at: new Date().toISOString(),
       pinned: job.pin === true || existing?.pinned === true,
-      pinned_at:
-        job.pin === true ? new Date().toISOString() : (existing?.pinned_at ?? null),
+      pinned_at: job.pin === true ? new Date().toISOString() : (existing?.pinned_at ?? null),
     });
   } finally {
     release();
@@ -167,10 +161,7 @@ export async function enqueueBulkArtifactSync(params: {
 
     if (chatResult.error || !chatResult.data) continue;
 
-    for (const artifact of extractGenUIArtifactsFromMessages(
-      chatResult.data.messages,
-      thread.id
-    )) {
+    for (const artifact of extractGenUIArtifactsFromMessages(chatResult.data.messages, thread.id)) {
       enqueueArtifactSync({
         artifactId: artifact.id,
         ownerId: params.ownerId,

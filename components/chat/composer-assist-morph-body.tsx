@@ -131,14 +131,20 @@ export function ComposerAssistMorphBody({
       <div
         ref={editGhostRef}
         aria-hidden
-        className={cn("pointer-events-none absolute inset-x-0 top-0 z-0 opacity-0", BODY_MEASURE_CLASS)}
+        className={cn(
+          "pointer-events-none absolute inset-x-0 top-0 z-0 opacity-0",
+          BODY_MEASURE_CLASS
+        )}
       >
         {editMeasure}
       </div>
       <div
         ref={draftGhostRef}
         aria-hidden
-        className={cn("pointer-events-none absolute inset-x-0 top-0 z-0 opacity-0", BODY_MEASURE_CLASS)}
+        className={cn(
+          "pointer-events-none absolute inset-x-0 top-0 z-0 opacity-0",
+          BODY_MEASURE_CLASS
+        )}
       >
         {draftMeasure}
       </div>

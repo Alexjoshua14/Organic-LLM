@@ -12,11 +12,13 @@ type RunViewTransitionOptions = {
 export function runViewTransition(update: () => void, options?: RunViewTransitionOptions): void {
   if (options?.skip) {
     update();
+
     return;
   }
 
   if (typeof document === "undefined" || !document.startViewTransition) {
     update();
+
     return;
   }
 

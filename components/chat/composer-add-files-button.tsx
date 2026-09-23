@@ -1,8 +1,9 @@
 "use client";
 
 import { useState } from "react";
-
 import { PlusIcon } from "lucide-react";
+
+import { ComposerActionButton } from "./composer-action-button";
 
 import {
   PromptInputActionAddAttachments,
@@ -11,8 +12,6 @@ import {
   usePromptInputAttachments,
 } from "@/components/third-party/ai-elements/prompt-input";
 import { DropdownMenuTrigger } from "@/components/third-party/ui/dropdown-menu";
-
-import { ComposerActionButton } from "./composer-action-button";
 
 export function ComposerAddFilesButton() {
   const [open, setOpen] = useState(false);

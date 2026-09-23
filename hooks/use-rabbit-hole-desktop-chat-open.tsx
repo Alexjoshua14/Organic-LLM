@@ -1,6 +1,14 @@
 "use client";
 
-import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useState,
+  type ReactNode,
+} from "react";
 
 type RabbitHoleDesktopChatOpenContextValue = {
   open: boolean;
@@ -41,7 +49,9 @@ export function useRabbitHoleDesktopChatOpen(): RabbitHoleDesktopChatOpenContext
   const ctx = useContext(RabbitHoleDesktopChatOpenContext);
 
   if (!ctx) {
-    throw new Error("useRabbitHoleDesktopChatOpen must be used within RabbitHoleDesktopChatOpenProvider");
+    throw new Error(
+      "useRabbitHoleDesktopChatOpen must be used within RabbitHoleDesktopChatOpenProvider"
+    );
   }
 
   return ctx;

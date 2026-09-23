@@ -1,5 +1,4 @@
 import type { RestaurantRating } from "@/lib/schemas/gen-ui/restaurant-card";
-
 import type { VenueBundle } from "./types";
 
 export function buildRestaurantRating(bundle: VenueBundle): RestaurantRating | undefined {

@@ -8,17 +8,14 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Loader2, RefreshCw, Sparkles, X } from "lucide-react";
 import { toast } from "sonner";
 
-import { ChatThinking } from "@/components/chat/chat-loading";
-
 import { Conversation, ConversationScrollButton } from "../third-party/ai-elements/conversation";
 import { ChatThread } from "../chat/chat-thread";
-import {
-  ChatThreadTitleOverlay,
-  useResolvedThreadTitle,
-} from "../chat/chat-thread-title-overlay";
+import { ChatThreadTitleOverlay, useResolvedThreadTitle } from "../chat/chat-thread-title-overlay";
 import { CoreInput } from "../chat/core-input";
+
 import { NoesisScrollPersistence } from "./noesis-scroll-persistence";
 
+import { ChatThinking } from "@/components/chat/chat-loading";
 import { isClientPIIRedactionEnabled, redactUIMessages } from "@/lib/pii/redact";
 import { getSettings } from "@/lib/user-settings";
 import { Thread } from "@/lib/schemas/chat";
@@ -577,9 +574,7 @@ export function TopicExploreClient({ chatData }: TopicExploreClientProps) {
                   <ChatThinking
                     as="span"
                     className="text-sm font-normal"
-                    text={
-                      composerDraft.trim().length > 0 ? "Finish my reply" : "Suggest my reply"
-                    }
+                    text={composerDraft.trim().length > 0 ? "Finish my reply" : "Suggest my reply"}
                   />
                 ) : composerDraft.trim().length > 0 ? (
                   "Finish my reply"

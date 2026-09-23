@@ -1,5 +1,7 @@
 "use client";
 
+import type { MermaidDiagramDensity } from "@/lib/mermaid/types";
+
 import {
   createContext,
   useCallback,
@@ -10,8 +12,6 @@ import {
   useState,
   type ReactNode,
 } from "react";
-
-import type { MermaidDiagramDensity } from "@/lib/mermaid/types";
 
 export type DiagramTakeoverState = {
   diagramId: string;

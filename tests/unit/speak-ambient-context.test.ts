@@ -15,6 +15,7 @@ import {
 } from "@/lib/speak/ambient-context";
 import { AMBIENT_CLEARED_BODY, AMBIENT_PREFACE, buildAmbientContextItem } from "@/lib/speak/ambient-item";
 import { estimateSpeakTokens } from "@/lib/speak/token-limit";
+import { RABBIT_HOLE_SESSION_ID, rabbitHoleFixture } from "../helpers/speak-fixtures";
 
 const OWNER = "owner-1";
 const OTHER = "someone-else";
@@ -40,56 +41,7 @@ function strataPage(overrides?: Partial<Record<string, string>>): StrataPageWith
   } as unknown as StrataPageWithSections;
 }
 
-function rabbitHole(): RabbitHoleSession {
-  return {
-    sessionId: "00000000-0000-4000-8000-000000000000",
-    rootQuestion: "Why do cities hum?",
-    rootNodeId: "n1",
-    path: [
-      { nodeId: "n1", label: "City hum", parentNodeId: null },
-      { nodeId: "n2", label: "Mains hum", parentNodeId: "n1" },
-      { nodeId: "n3", label: "Traffic rumble", parentNodeId: "n1" },
-    ],
-    activeNodeId: "n2",
-    edges: [
-      { from: "n1", to: "n2" },
-      { from: "n1", to: "n3" },
-    ],
-    nodesById: {
-      n1: {
-        id: "n1",
-        rawPrompt: "",
-        userQuestion: "Why do cities hum?",
-        title: "City hum",
-        summary: "Transformers and traffic dominate the low end.",
-        keyTakeaways: [],
-        articleHtml: "<section><p>City hum</p></section>",
-        createdAt: "2026-01-01",
-      },
-      n2: {
-        id: "n2",
-        rawPrompt: "",
-        userQuestion: "What is mains hum?",
-        title: "Mains hum",
-        summary: "50/60Hz leakage from grid infrastructure.",
-        keyTakeaways: [],
-        articleHtml: "<section><p>Mains hum</p></section>",
-        createdAt: "2026-01-01",
-      },
-      n3: {
-        id: "n3",
-        rawPrompt: "",
-        userQuestion: "How loud is traffic at night?",
-        title: "Traffic rumble",
-        summary: "Tyre noise carries further once the air cools.",
-        keyTakeaways: [],
-        articleHtml: "<section><p>Traffic rumble</p></section>",
-        createdAt: "2026-01-01",
-      },
-    },
-    createdAt: "2026-01-01",
-  } as unknown as RabbitHoleSession;
-}
+const rabbitHole = rabbitHoleFixture;
 
 /**
  * A chain `c0 → c1 → … → c{depth-1}` with `sideBranches` leaves hanging off every chain node.
@@ -441,6 +393,71 @@ describe("buildAmbientContext", () => {
     );
 
     expect(body).toContain("Mains hum");
+  });
+});
+
+describe("buildAmbientContext for a rabbit hole", () => {
+  const surface = (activeNodeId: string) =>
+    ({ kind: "rabbit-hole", id: RABBIT_HOLE_SESSION_ID, activeNodeId }) as const;
+
+  test("opening one gives the open node's summary and the whole map", async () => {
+    const body = await buildAmbientContext({ ownerId: OWNER, surface: surface("n2") }, deps());
+
+    expect(body).toContain('The user is reading the rabbit hole "Why do cities hum?"');
+    expect(body).toContain('What "Mains hum" (the user asked: "What is mains hum?") covers:');
+    expect(body).toContain("50/60Hz leakage from grid infrastructure.");
+    expect(body).toContain(
+      "Map of the rabbit hole (indented = branched from the node above):\n" +
+        "- City hum\n" +
+        "  - Mains hum ← on screen\n" +
+        "  - Traffic rumble"
+    );
+  });
+
+  test("moving to another node follows the reader: new summary, marker moved", async () => {
+    const before = await buildAmbientContext({ ownerId: OWNER, surface: surface("n2") }, deps());
+    const after = await buildAmbientContext({ ownerId: OWNER, surface: surface("n3") }, deps());
+
+    expect(after).toContain('on the node "Traffic rumble"');
+    expect(after).toContain("Tyre noise carries further once the air cools.");
+    expect(after).toContain("  - Traffic rumble ← on screen");
+    expect(after).not.toContain("50/60Hz leakage");
+    expect(after).not.toContain("Mains hum ← on screen");
+    expect(after).not.toBe(before);
+  });
+
+  test("the client's node wins over the one saved on the session", async () => {
+    // The saved session says n2; the reader has already moved to n3 and the save has not landed.
+    const body = await buildAmbientContext({ ownerId: OWNER, surface: surface("n3") }, deps());
+
+    expect(body).toContain("Traffic rumble ← on screen");
+  });
+
+  test("a branch still generating says so, then carries its summary once the article lands", async () => {
+    let session = rabbitHole();
+
+    session.generatingNodeId = "n3";
+    session.nodesById.n3 = {
+      ...session.nodesById.n3!,
+      summary: null,
+      articleHtml: "",
+      preview: "Early guess about traffic",
+    };
+
+    const live = deps({
+      getSessionById: async () => ({ data: session, error: null }),
+    } as Partial<AmbientContextDeps>);
+    const pending = await buildAmbientContext({ ownerId: OWNER, surface: surface("n3") }, live);
+
+    expect(pending).toContain("still being written");
+    expect(pending).toContain("Early guess about traffic");
+
+    session = rabbitHole();
+
+    const landed = await buildAmbientContext({ ownerId: OWNER, surface: surface("n3") }, live);
+
+    expect(landed).not.toContain("still being written");
+    expect(landed).toContain("Tyre noise carries further once the air cools.");
   });
 });
 

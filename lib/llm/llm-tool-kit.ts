@@ -1,4 +1,5 @@
 import type { ExaSearchResultSource } from "../exa/types";
+import type { MermaidDiagramDensity } from "@/lib/mermaid/types";
 
 import { GatewayModelId, generateText, tool } from "ai";
 import { z } from "zod";
@@ -6,11 +7,11 @@ import { UIMessage } from "ai";
 import { ContentsOptions } from "exa-js";
 
 import { createLogger } from "../logger";
-import { models } from "@/lib/schemas/chat-models";
 import { exaSearchOptionsSchema, searchOptionsSchema } from "../exa/types";
 import { searchWeb, searchWebWithQuery } from "../exa/client";
 import { mapSearchResponseToExaSources } from "../exa/utils";
 
+import { models } from "@/lib/schemas/chat-models";
 import { getMessages, getMessagesSince, getMessageCount, getNMessages } from "@/data/supabase/chat";
 import { checkExternalFetchLimit } from "@/lib/rate-limit/external-fetch";
 import { wrapWebSearchResultsForModel } from "@/lib/security/external-content";
@@ -34,12 +35,8 @@ import {
   MERMAID_DIAGRAM_FIX_SYSTEM_PROMPT,
   MERMAID_DIAGRAM_GENERATOR_SYSTEM_PROMPT,
 } from "@/lib/system-prompt/mermaid-diagram-prompt";
-import {
-  normalizeMermaidCode,
-  parseDualMermaidGeneratorJson,
-} from "@/lib/mermaid/source";
+import { normalizeMermaidCode, parseDualMermaidGeneratorJson } from "@/lib/mermaid/source";
 import { validateSharedNodeIds } from "@/lib/mermaid/node-graph";
-import type { MermaidDiagramDensity } from "@/lib/mermaid/types";
 import {
   getMermaidForValidation,
   validateMermaidCode,
@@ -761,7 +758,10 @@ export function createMermaidDiagramTool(options?: {
             : detailedResult.status === "invalid"
               ? `detailed: ${detailedResult.error}`
               : "Validation failed";
-        logger.warn("mermaid_validation", `Invalid mermaid (attempt ${attempt}): ${lastValidationError}`);
+        logger.warn(
+          "mermaid_validation",
+          `Invalid mermaid (attempt ${attempt}): ${lastValidationError}`
+        );
       }
 
       if (writer) {

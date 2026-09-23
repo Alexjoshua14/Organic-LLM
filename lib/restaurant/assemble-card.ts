@@ -1,5 +1,4 @@
 import type { RestaurantCardBlock } from "@/lib/schemas/gen-ui/restaurant-card";
-
 import type { RestaurantCardPatch } from "./types";
 
 export function assembleRestaurantCard(

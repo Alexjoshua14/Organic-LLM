@@ -1,11 +1,12 @@
 import "server-only";
 
+import type { MemoryQualitySource } from "@/lib/schemas/memory-quality";
+
 import {
   fetchFeedbackCountsForDay,
   fetchMemoryQualityEventsForDay,
   upsertMemoryQualityDailyRow,
 } from "@/data/supabase/memory-quality";
-import type { MemoryQualitySource } from "@/lib/schemas/memory-quality";
 import { createLogger } from "@/lib/logger";
 
 const logger = createLogger("lib/memory/daily-rollups");
@@ -35,8 +36,7 @@ function computeRollupForSource(
   feedbackUp: number,
   feedbackDown: number
 ) {
-  const filtered =
-    source === "all" ? events : events.filter((e) => e.source === source);
+  const filtered = source === "all" ? events : events.filter((e) => e.source === source);
 
   const ingestCount = filtered.filter((e) => e.event === "ingest").length;
   const deleteCount = filtered.filter((e) => e.event === "delete").length;
@@ -103,12 +103,7 @@ export async function computeDailyRollupsForUser(args: {
     }
   }
 
-  const allRollup = computeRollupForSource(
-    events,
-    "all",
-    feedbackResult.up,
-    feedbackResult.down
-  );
+  const allRollup = computeRollupForSource(events, "all", feedbackResult.up, feedbackResult.down);
   const allResult = await upsertMemoryQualityDailyRow({
     user_id: args.userId,
     day,

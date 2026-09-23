@@ -33,7 +33,7 @@ export const MERMAID_DIAGRAM_GENERATOR_SYSTEM_PROMPT = [
   "",
   "Syntax rules (these cause hard parse failures):",
   "- IDs must contain NO spaces. Use PascalCase/camelCase/underscores.",
-  '- Never use reserved words as bare IDs: `end`, `graph`, `subgraph`, `class`, `state`, `click`, `style`, `linkStyle`, `direction`, `note`.',
+  "- Never use reserved words as bare IDs: `end`, `graph`, `subgraph`, `class`, `state`, `click`, `style`, `linkStyle`, `direction`, `note`.",
   '- QUOTE labels with special characters: `A["cost (USD)"]`.',
   "- Keep subgraph nesting shallow; quote subgraph titles.",
   "",

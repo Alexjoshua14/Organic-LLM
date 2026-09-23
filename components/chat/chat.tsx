@@ -92,9 +92,7 @@ export const Chat: React.FC<ChatProps> = ({
 
   // Ambient awareness: while this thread is on screen, a live voice session is told what it has
   // covered (via its rolling summary) so the user can refer to "this conversation" out loud.
-  useVoiceScreenContext(
-    chatData?.thread.id ? { kind: "chat", id: chatData.thread.id } : null
-  );
+  useVoiceScreenContext(chatData?.thread.id ? { kind: "chat", id: chatData.thread.id } : null);
 
   const selectedModelRef = useRef<ChatModel>(DEFAULT_COMPOSER_MODEL);
   const selectedEffortRef = useRef<ChatEffortLevel>(DEFAULT_COMPOSER_EFFORT);

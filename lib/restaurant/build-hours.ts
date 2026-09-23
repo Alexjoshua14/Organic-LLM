@@ -4,7 +4,6 @@ import type {
   RestaurantHoursDay,
 } from "@/lib/schemas/gen-ui/restaurant-card";
 import type { GoogleOpeningHours, GoogleOpeningHoursPeriod } from "@/lib/google-places/types";
-
 import type { VenueBundle } from "./types";
 
 const DAY_ORDER: DayOfWeek[] = [

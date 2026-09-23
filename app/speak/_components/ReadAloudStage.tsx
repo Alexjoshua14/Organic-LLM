@@ -1,7 +1,6 @@
 "use client";
 
 import { useCallback, useMemo, useRef, useState } from "react";
-
 import { Loader2, Play, Square, Volume2 } from "lucide-react";
 import { AnimatePresence, motion } from "framer-motion";
 
@@ -90,9 +89,7 @@ export function ReadAloudStage({ onExit }: { onExit?: () => void }) {
   const isActive = speech.status === "playing" || speech.status === "processing";
 
   const displayText =
-    isActive && chunksRef.current.length > 0
-      ? chunksRef.current[chunkIndex] ?? text
-      : text;
+    isActive && chunksRef.current.length > 0 ? (chunksRef.current[chunkIndex] ?? text) : text;
 
   return (
     <div className="relative flex h-full min-h-0 w-full flex-col">
@@ -166,7 +163,10 @@ export function ReadAloudStage({ onExit }: { onExit?: () => void }) {
       <div className="shrink-0 flex items-center justify-center gap-3 border-t border-border/40 px-6 py-5">
         {isActive ? (
           <button
-            className={cn(glass(), "inline-flex items-center gap-2 rounded-full px-5 py-2.5 text-sm")}
+            className={cn(
+              glass(),
+              "inline-flex items-center gap-2 rounded-full px-5 py-2.5 text-sm"
+            )}
             type="button"
             onClick={handleStop}
           >

@@ -9,7 +9,10 @@
  * - Bump `version` to re-show a hint after copy changes (ignores older dismiss records).
  */
 
-export { FEATURE_HINT_GUIDE_POLICY, MAX_CONSECUTIVE_AUTO_FEATURE_HINTS } from "./feature-hint-guide-policy";
+export {
+  FEATURE_HINT_GUIDE_POLICY,
+  MAX_CONSECUTIVE_AUTO_FEATURE_HINTS,
+} from "./feature-hint-guide-policy";
 
 export const FEATURE_HINTS_MASTER_SWITCH = true;
 

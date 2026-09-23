@@ -98,7 +98,9 @@ export function effectiveCharWidthPx(fontSizePx: number, avgCharWidthPx?: number
   return fontSizePx * AVG_CHAR_WIDTH_EM;
 }
 
-export function buildDelphiDisplayPromptText(budget: Omit<DelphiCaptionBudget, "promptText">): string {
+export function buildDelphiDisplayPromptText(
+  budget: Omit<DelphiCaptionBudget, "promptText">
+): string {
   const {
     deviceLabel,
     physicalWidthIn,
@@ -217,7 +219,10 @@ export function computeCaptionAllocatedHeightPx(params: {
 }
 
 /** Canvas-based average char width for a given computed font string (client only). */
-export function measureAvgCharWidthPx(font: string, sample = "abcdefghijklmnopqrstuvwxyz "): number {
+export function measureAvgCharWidthPx(
+  font: string,
+  sample = "abcdefghijklmnopqrstuvwxyz "
+): number {
   if (typeof document === "undefined") {
     return 0;
   }

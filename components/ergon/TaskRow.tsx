@@ -5,7 +5,15 @@ import type { TaskWithCategory } from "@/lib/ergon/types";
 import type { KeyboardEvent } from "react";
 
 import { useCallback, useRef, useState } from "react";
-import { Check, ChevronDown, CircleDot, MessageCircle, Pencil, Sparkles, Trash2 } from "lucide-react";
+import {
+  Check,
+  ChevronDown,
+  CircleDot,
+  MessageCircle,
+  Pencil,
+  Sparkles,
+  Trash2,
+} from "lucide-react";
 
 import { ErgonTaskActionButton } from "@/components/ergon/ErgonTaskActionButton";
 import {

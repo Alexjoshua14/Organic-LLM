@@ -69,10 +69,7 @@ function ControlPanel({
 }) {
   return (
     <section
-      className={cn(
-        "flex flex-col rounded-xl border border-border/50",
-        glass({ opaque: true })
-      )}
+      className={cn("flex flex-col rounded-xl border border-border/50", glass({ opaque: true }))}
     >
       <div className="shrink-0 border-b border-border/40 px-3.5 py-2.5 sm:px-4 sm:py-3">
         <div className="flex items-start gap-3">
@@ -101,7 +98,9 @@ function ControlPanel({
           >
             <div className="min-w-0 space-y-0.5">
               <p className="text-sm text-foreground">{row.label}</p>
-              {row.hint ? <p className="text-[11px] leading-snug text-muted-foreground">{row.hint}</p> : null}
+              {row.hint ? (
+                <p className="text-[11px] leading-snug text-muted-foreground">{row.hint}</p>
+              ) : null}
             </div>
             <span className="flex shrink-0 flex-wrap items-center justify-end gap-1">
               {row.keys.map((key) => (

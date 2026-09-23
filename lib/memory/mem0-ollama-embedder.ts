@@ -1,8 +1,8 @@
 import "server-only";
 
-import { createLogger } from "@/lib/logger";
-
 import { OLLAMA_EMBED_MODEL, OLLAMA_URL, isLocalOllamaUrl, ollamaHeaders } from "./ollama-config";
+
+import { createLogger } from "@/lib/logger";
 
 const logger = createLogger("mem0-ollama-embedder");
 
@@ -60,9 +60,7 @@ export class Mem0OllamaEmbedder {
   }
 
   private embedderError(message: string, cause?: unknown): Error {
-    const error = new Error(
-      `Mem0 Ollama embedder (${this.host}, model=${this.model}): ${message}`,
-    );
+    const error = new Error(`Mem0 Ollama embedder (${this.host}, model=${this.model}): ${message}`);
 
     if (cause instanceof Error) {
       error.cause = cause;
@@ -78,6 +76,7 @@ export class Mem0OllamaEmbedder {
 
     if (!isLocalOllamaUrl(this.host)) {
       this.initialized = true;
+
       return;
     }
 
@@ -90,13 +89,15 @@ export class Mem0OllamaEmbedder {
     }
 
     if (!listRes.ok) {
-      throw this.embedderError(`Ollama list models failed: ${listRes.status} ${listRes.statusText}`);
+      throw this.embedderError(
+        `Ollama list models failed: ${listRes.status} ${listRes.statusText}`
+      );
     }
 
     const data = (await listRes.json()) as OllamaTagsResponse;
     const target = Mem0OllamaEmbedder.normalizeModelName(this.model);
     const found = data.models?.some(
-      (entry) => Mem0OllamaEmbedder.normalizeModelName(entry.name) === target,
+      (entry) => Mem0OllamaEmbedder.normalizeModelName(entry.name) === target
     );
 
     if (!found) {

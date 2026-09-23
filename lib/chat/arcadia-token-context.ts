@@ -1,9 +1,6 @@
 import type { UIMessage } from "ai";
 
-import {
-  estimateTokenCountSync,
-  getMessageTextForTokenEstimate,
-} from "@/lib/chat/context-budget";
+import { estimateTokenCountSync, getMessageTextForTokenEstimate } from "@/lib/chat/context-budget";
 
 /** Max tokens of thread message history sent to the model (Arcadia token-window prototype). */
 export const ARCADIA_MESSAGE_TOKEN_BUDGET = 50_000;
@@ -67,7 +64,9 @@ export function selectArcadiaContextMessages(
   }
 ): ArcadiaMessageSelection {
   const tokenBudget = options?.tokenBudget ?? ARCADIA_MESSAGE_TOKEN_BUDGET;
-  const pinnedBudget = Math.floor(tokenBudget * (options?.pinnedBudgetRatio ?? ARCADIA_PINNED_BUDGET_RATIO));
+  const pinnedBudget = Math.floor(
+    tokenBudget * (options?.pinnedBudgetRatio ?? ARCADIA_PINNED_BUDGET_RATIO)
+  );
   const minRecentCount = options?.minRecentCount ?? ARCADIA_MIN_RECENT_MESSAGES;
 
   const totalThreadMessages = allMessages.length;
@@ -134,8 +133,7 @@ export function selectArcadiaContextMessages(
   const keptIds = new Set(contextMessages.map((message) => message.id));
   const messagesToCondense = allMessages.filter((message) => !keptIds.has(message.id));
 
-  const needsCondensation =
-    totalThreadTokens > tokenBudget && messagesToCondense.length > 0;
+  const needsCondensation = totalThreadTokens > tokenBudget && messagesToCondense.length > 0;
 
   return {
     contextMessages,

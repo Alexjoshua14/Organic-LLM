@@ -178,7 +178,13 @@ export function WelcomeStreamResumeIllustration({
           <p className={sectionLabel}>Resumable stream</p>
           <span className="text-2xs text-muted-foreground/75">Stream resumed</span>
         </div>
-        <div className={cn(card, "w-full rounded-lg px-2.5 py-2 sm:px-3 sm:py-2", welcomeDemoCompactClass)}>
+        <div
+          className={cn(
+            card,
+            "w-full rounded-lg px-2.5 py-2 sm:px-3 sm:py-2",
+            welcomeDemoCompactClass
+          )}
+        >
           <p className={cn(TEXT_SLOT_CLASS, "text-foreground")}>{MESSAGE}</p>
         </div>
       </div>
@@ -226,7 +232,13 @@ export function WelcomeStreamResumeIllustration({
         )}
       </div>
 
-      <div className={cn(card, "w-full rounded-lg px-2.5 py-2 sm:px-3 sm:py-2", welcomeDemoCompactClass)}>
+      <div
+        className={cn(
+          card,
+          "w-full rounded-lg px-2.5 py-2 sm:px-3 sm:py-2",
+          welcomeDemoCompactClass
+        )}
+      >
         <div className={cn("relative", TEXT_SLOT_CLASS)}>
           <p aria-hidden className="invisible">
             {MESSAGE}

@@ -160,7 +160,10 @@ export function PlanTimeline({ block, partial, morphIds, variant = "full" }: Pla
           />
         </div>
         {nowStep ? (
-          <p className="text-xs text-muted-foreground line-clamp-2" data-morph-id={`step-${nowStep.id}`}>
+          <p
+            className="text-xs text-muted-foreground line-clamp-2"
+            data-morph-id={`step-${nowStep.id}`}
+          >
             Now: {nowStep.label}
           </p>
         ) : null}
@@ -170,7 +173,10 @@ export function PlanTimeline({ block, partial, morphIds, variant = "full" }: Pla
 
   return (
     <div className="space-y-3">
-      <p className="text-sm font-semibold text-foreground" data-morph-id={morphIds ? "plan-title" : undefined}>
+      <p
+        className="text-sm font-semibold text-foreground"
+        data-morph-id={morphIds ? "plan-title" : undefined}
+      >
         {block.title}
       </p>
       <div

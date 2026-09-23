@@ -1,13 +1,13 @@
 import "server-only";
 
-import { createLogger } from "@/lib/logger";
-import { checkGooglePlacesLimit } from "@/lib/rate-limit/google-places";
-
 import type {
   GooglePhotoMediaResponse,
   GooglePlaceDetails,
   GoogleTextSearchResponse,
 } from "./types";
+
+import { createLogger } from "@/lib/logger";
+import { checkGooglePlacesLimit } from "@/lib/rate-limit/google-places";
 
 const logger = createLogger("lib/google-places/client.ts");
 

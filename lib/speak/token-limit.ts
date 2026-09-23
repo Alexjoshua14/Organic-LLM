@@ -15,16 +15,18 @@ export function estimateSpeakTokens(text: string): number {
   return Math.ceil(trimmed.length / SPEAK_CHARS_PER_TOKEN);
 }
 
-export function validateSpeakInput(text: string): {
-  ok: true;
-  tokens: number;
-  chars: number;
-} | {
-  ok: false;
-  tokens: number;
-  chars: number;
-  message: string;
-} {
+export function validateSpeakInput(text: string):
+  | {
+      ok: true;
+      tokens: number;
+      chars: number;
+    }
+  | {
+      ok: false;
+      tokens: number;
+      chars: number;
+      message: string;
+    } {
   const chars = text.length;
   const tokens = estimateSpeakTokens(text);
 

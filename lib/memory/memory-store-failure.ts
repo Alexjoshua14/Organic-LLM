@@ -1,6 +1,6 @@
-import { models, providerModelSlug } from "@/lib/schemas/chat-models";
-
 import { OLLAMA_EMBED_MODEL, OLLAMA_URL, isLocalOllamaUrl } from "./ollama-config";
+
+import { models, providerModelSlug } from "@/lib/schemas/chat-models";
 
 export type MemoryStoreFailureKind = "embedder" | "qdrant" | "sqlite" | "mem0_llm" | "unknown";
 
@@ -39,17 +39,10 @@ export function diagnoseMemoryStoreFailure(error: unknown): MemoryStoreFailureDi
   const text = errorText(error);
   const lower = text.toLowerCase();
 
-  if (
-    matchesAny(lower, [
-      /better-sqlite3/,
-      /could not locate the bindings file/,
-      /node_sqlite3/,
-    ])
-  ) {
+  if (matchesAny(lower, [/better-sqlite3/, /could not locate the bindings file/, /node_sqlite3/])) {
     return {
       kind: "sqlite",
-      hint:
-        "Mem0 local history DB (better-sqlite3) failed — run `npm rebuild better-sqlite3` and ensure Next.js externalizes native modules (better-sqlite3, mem0ai).",
+      hint: "Mem0 local history DB (better-sqlite3) failed — run `npm rebuild better-sqlite3` and ensure Next.js externalizes native modules (better-sqlite3, mem0ai).",
       detail: text,
     };
   }
@@ -68,8 +61,7 @@ export function diagnoseMemoryStoreFailure(error: unknown): MemoryStoreFailureDi
   ) {
     return {
       kind: "qdrant",
-      hint:
-        "Memory vector store (Qdrant) failed — verify MEMORY_API_HOST, MEMORY_API_PORT, MEMORY_API_SECRET, and that the memories_v2 collection exists.",
+      hint: "Memory vector store (Qdrant) failed — verify MEMORY_API_HOST, MEMORY_API_PORT, MEMORY_API_SECRET, and that the memories_v2 collection exists.",
       detail: text,
     };
   }
@@ -128,8 +120,7 @@ export function diagnoseMemoryStoreFailure(error: unknown): MemoryStoreFailureDi
 
   return {
     kind: "unknown",
-    hint:
-      "Memory store call failed — check server logs for embedder (OLLAMA_*), Qdrant (MEMORY_API_*), sqlite (better-sqlite3), and OpenAI (OPENAI_API_KEY).",
+    hint: "Memory store call failed — check server logs for embedder (OLLAMA_*), Qdrant (MEMORY_API_*), sqlite (better-sqlite3), and OpenAI (OPENAI_API_KEY).",
     detail: text,
   };
 }

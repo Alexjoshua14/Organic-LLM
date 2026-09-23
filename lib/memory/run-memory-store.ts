@@ -27,7 +27,7 @@ export async function runMemoryStore<T>(context: string, op: () => Promise<T>): 
     warnedMissingSecret = true;
     logger.warn(
       context,
-      "MEMORY_API_SECRET is not set — memory/Qdrant calls will likely fail; verify env configuration",
+      "MEMORY_API_SECRET is not set — memory/Qdrant calls will likely fail; verify env configuration"
     );
   }
 
@@ -35,7 +35,7 @@ export async function runMemoryStore<T>(context: string, op: () => Promise<T>): 
     warnedRemoteOllamaAuth = true;
     logger.warn(
       context,
-      `OLLAMA_URL is remote (${OLLAMA_URL}) but OLLAMA_API_KEY is unset — Mem0 embedder calls will likely fail with 401`,
+      `OLLAMA_URL is remote (${OLLAMA_URL}) but OLLAMA_API_KEY is unset — Mem0 embedder calls will likely fail with 401`
     );
   }
 
@@ -53,7 +53,7 @@ export async function runMemoryStore<T>(context: string, op: () => Promise<T>): 
         ...(diagnosis.detail ? { failureDetail: diagnosis.detail } : {}),
         ...(err ? { errorName: err.name, errorMessage: err.message } : { thrown: String(error) }),
       },
-      error,
+      error
     );
     throw error;
   }

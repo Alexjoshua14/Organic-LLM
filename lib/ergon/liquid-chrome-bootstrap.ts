@@ -1,10 +1,10 @@
-import { USER_SETTINGS_STORAGE_KEY } from "@/lib/user-settings";
-
 import {
   ERGON_LIQUID_CHROME_COOKIE_NAME,
   ERGON_LIQUID_CHROME_COOKIE_MAX_AGE,
   readErgonLiquidChromeFromDocumentCookie,
 } from "./liquid-chrome-cookie";
+
+import { USER_SETTINGS_STORAGE_KEY } from "@/lib/user-settings";
 
 /**
  * Inline script: backfill ergon_liquid_chrome cookie from localStorage when missing.
@@ -21,6 +21,7 @@ export function backfillErgonLiquidChromeCookieFromSettings(): void {
     const stored = localStorage.getItem(USER_SETTINGS_STORAGE_KEY);
     const parsed = stored ? (JSON.parse(stored) as { ergonLiquidChrome?: boolean }) : {};
     const enabled = parsed.ergonLiquidChrome !== false;
+
     document.cookie = `${ERGON_LIQUID_CHROME_COOKIE_NAME}=${enabled ? "true" : "false"}; path=/; max-age=${ERGON_LIQUID_CHROME_COOKIE_MAX_AGE}; SameSite=Lax`;
   } catch {
     document.cookie = `${ERGON_LIQUID_CHROME_COOKIE_NAME}=true; path=/; max-age=${ERGON_LIQUID_CHROME_COOKIE_MAX_AGE}; SameSite=Lax`;

@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-import { GenUIBlockSchema, type GenUIBlockType } from "@/lib/schemas/gen-ui";
+import { GenUIBlockSchema } from "@/lib/schemas/gen-ui";
 
 export const SpatialArtifactSchema = z.object({
   id: z.string().min(1),

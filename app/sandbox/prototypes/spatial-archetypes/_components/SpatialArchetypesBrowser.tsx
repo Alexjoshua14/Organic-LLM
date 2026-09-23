@@ -1,5 +1,8 @@
 "use client";
 
+import type { SpatialArtifact, SpatialArtifactFilter } from "@/lib/schemas/spatial-artifact";
+import type { GenUIBlockType } from "@/lib/schemas/gen-ui";
+
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
 
@@ -18,8 +21,6 @@ import {
 } from "@/app/actions/spatial-artifacts";
 import { ArtifactSpatialProvider } from "@/lib/context/artifact-spatial-context";
 import { useCoalescenceMode } from "@/hooks/use-coalescence-mode";
-import type { SpatialArtifact, SpatialArtifactFilter } from "@/lib/schemas/spatial-artifact";
-import type { GenUIBlockType } from "@/lib/schemas/gen-ui";
 import {
   artifactMatchesFilter,
   primaryZoneForBlockType,
@@ -93,9 +94,7 @@ export function SpatialArchetypesBrowser({
   const byZone = useMemo(() => {
     const plans = filtered.filter((a) => primaryZoneForBlockType(a.block.type) === "plans");
     const audio = filtered.filter((a) => primaryZoneForBlockType(a.block.type) === "audio");
-    const bookshelf = filtered.filter(
-      (a) => primaryZoneForBlockType(a.block.type) === "bookshelf"
-    );
+    const bookshelf = filtered.filter((a) => primaryZoneForBlockType(a.block.type) === "bookshelf");
 
     return { plans, audio, bookshelf };
   }, [filtered]);
@@ -170,8 +169,7 @@ export function SpatialArchetypesBrowser({
                 {(zones === "all" || zones.includes("audio")) && byZone.audio.length > 0 ? (
                   <AudioRackZone artifacts={byZone.audio} />
                 ) : null}
-                {(zones === "all" || zones.includes("bookshelf")) &&
-                byZone.bookshelf.length > 0 ? (
+                {(zones === "all" || zones.includes("bookshelf")) && byZone.bookshelf.length > 0 ? (
                   <BookshelfZone artifacts={byZone.bookshelf} />
                 ) : null}
                 <ArtifactSpatialStage artifacts={filtered} />

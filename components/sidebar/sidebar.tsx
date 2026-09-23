@@ -7,7 +7,6 @@ import { Suspense } from "react";
 import { SidebarChats } from "./sidebar-chats";
 import { SidebarContentSwitcher } from "./sidebar-content-switcher";
 import { SidebarExperienceRail } from "./sidebar-experience-rail";
-import { SidebarProjectLink } from "./sidebar-project-link";
 import { PrototypesSidebarContent, PrototypesSidebarFallback } from "./prototypes-sidebar-content";
 
 import { SignedOutAuthButtons } from "@/components/pages/signed-out-auth-buttons";

@@ -2,15 +2,19 @@
 
 import type { UIMessage } from "ai";
 import type { useChat } from "@ai-sdk/react";
-import type { RabbitHoleNode, RabbitHoleSession, RabbitHoleSource } from "@/lib/schemas/rabbitHoleSchemas";
+import type {
+  RabbitHoleNode,
+  RabbitHoleSession,
+  RabbitHoleSource,
+} from "@/lib/schemas/rabbitHoleSchemas";
 
 import { useEffect, useMemo, useRef, useState } from "react";
 
 import { MobileSourcePills } from "./MobileSourcePills";
 import { RabbitHoleDrawerBranchGrid } from "./RabbitHoleDrawerBranchGrid";
 import { RabbitHoleDrawerTurnPair } from "./RabbitHoleDrawerTurnPair";
-import { RabbitHoleNodeCreationApproval } from "@/components/rabbit-holes/RabbitHoleNodeCreationApproval";
 
+import { RabbitHoleNodeCreationApproval } from "@/components/rabbit-holes/RabbitHoleNodeCreationApproval";
 import { clampTurnIndex, deriveDrawerChatTurns } from "@/lib/rabbit-holes/drawer-turns";
 import { cn } from "@/lib/utils";
 import { ChatAIActionEnum } from "@/types/ai";

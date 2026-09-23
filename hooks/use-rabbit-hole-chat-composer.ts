@@ -1,13 +1,12 @@
 "use client";
 
 import type { DrawerChatDisplayInput } from "@/lib/rabbit-holes/drawer-chat-ui-budget";
+import type { SimpleResult } from "@/types";
 
-import type { UIMessage } from "ai";
 import { useChat } from "@ai-sdk/react";
 import { useCallback, useEffect, useRef } from "react";
 
 import { useRabbitHoleSessionChat } from "@/hooks/use-rabbit-hole-session-chat";
-import type { SimpleResult } from "@/types";
 
 type EnsureSessionResult = SimpleResult & { sessionId?: string };
 
@@ -79,12 +78,7 @@ export function useRabbitHoleChatComposer({
     pendingMessageRef.current = null;
 
     void sessionChat.sendMessage(pending);
-  }, [
-    sessionChat.bootstrapping,
-    sessionChat.sendMessage,
-    sessionChat.threadId,
-    sessionId,
-  ]);
+  }, [sessionChat.bootstrapping, sessionChat.sendMessage, sessionChat.threadId, sessionId]);
 
   const sendChatText = useCallback(
     async (text: string) => {

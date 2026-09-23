@@ -1,7 +1,7 @@
-import { getPlacePhotoUri } from "@/lib/google-places/client";
 import type { RestaurantImage } from "@/lib/schemas/gen-ui/restaurant-card";
-
 import type { VenueBundle } from "./types";
+
+import { getPlacePhotoUri } from "@/lib/google-places/client";
 
 /** Hero + up to this many gallery thumbnails (4 Google photo API calls max). */
 const GALLERY_MAX = 3;

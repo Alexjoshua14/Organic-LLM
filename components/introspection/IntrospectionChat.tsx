@@ -45,10 +45,7 @@ export function IntrospectionChat({
     { action: ChatAIActionEnum; message?: string } | undefined
   >(undefined);
 
-  const {
-    guidedState,
-    applyViewUpdate,
-  } = useIntrospectionGuidedState(initialGuidedState);
+  const { guidedState, applyViewUpdate } = useIntrospectionGuidedState(initialGuidedState);
 
   const stop = async () => {
     logger.log("IntrospectionChat", "stop noop");

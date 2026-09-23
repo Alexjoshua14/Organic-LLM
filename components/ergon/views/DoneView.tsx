@@ -35,25 +35,25 @@ export function DoneView({
     <div className="space-y-4 md:space-y-6">
       <div aria-hidden className={ERGON_VIEW_TOOLBAR_ROW} />
       <div aria-label="Completed tasks" className="space-y-2" role="list">
-      {sorted.map((task) => (
-        <div key={task.id} className="space-y-1">
-          {task.completed_at ? (
-            <p className="px-1 text-[11px] text-muted-foreground select-none">
-              Completed {formatCompletedDate(task.completed_at)}
-            </p>
-          ) : null}
-          <TaskRow
-            keyboardProps={getTaskRowProps?.(task.id)}
-            task={task}
-            onChatAbout={onChatAbout}
-            onDelete={onDelete}
-            onEdit={onEdit}
-            onEnhance={onEnhance}
-            onToggleActive={onToggleActive}
-            onToggleComplete={onToggleComplete}
-          />
-        </div>
-      ))}
+        {sorted.map((task) => (
+          <div key={task.id} className="space-y-1">
+            {task.completed_at ? (
+              <p className="px-1 text-[11px] text-muted-foreground select-none">
+                Completed {formatCompletedDate(task.completed_at)}
+              </p>
+            ) : null}
+            <TaskRow
+              keyboardProps={getTaskRowProps?.(task.id)}
+              task={task}
+              onChatAbout={onChatAbout}
+              onDelete={onDelete}
+              onEdit={onEdit}
+              onEnhance={onEnhance}
+              onToggleActive={onToggleActive}
+              onToggleComplete={onToggleComplete}
+            />
+          </div>
+        ))}
       </div>
     </div>
   );

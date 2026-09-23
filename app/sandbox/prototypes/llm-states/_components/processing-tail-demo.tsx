@@ -227,12 +227,15 @@ export function ProcessingTailDemo() {
           Replay entry
         </Button>
         <p className="text-xs text-muted-foreground">
-          Loops automatically: cycles processing labels every {(STATE_CYCLE_MS / 1000).toFixed(1)}s, rests{" "}
-          {(REST_BETWEEN_LOOPS_MS / 1000).toFixed(1)}s, then replays.
+          Loops automatically: cycles processing labels every {(STATE_CYCLE_MS / 1000).toFixed(1)}s,
+          rests {(REST_BETWEEN_LOOPS_MS / 1000).toFixed(1)}s, then replays.
         </p>
       </div>
 
-      <div ref={scrollRef} className="max-h-[28rem] overflow-y-auto rounded-xl border border-border/40">
+      <div
+        ref={scrollRef}
+        className="max-h-[28rem] overflow-y-auto rounded-xl border border-border/40"
+      >
         <div className="grid gap-4 p-4 lg:grid-cols-2">
           <ProcessingThreadColumn
             active={running}
@@ -256,11 +259,13 @@ export function ProcessingTailDemo() {
         <ul className="mt-2 list-disc space-y-1 pl-4">
           <li>Outgoing: opacity 1→0, scale 1→0.9, translate (−2px, +2px), 25ms/char stagger</li>
           <li>
-            Incoming: 150ms initial delay, 30ms/char stagger, opposing text
-            (--primary-foreground) → accent → primary
+            Incoming: 150ms initial delay, 30ms/char stagger, opposing text (--primary-foreground) →
+            accent → primary
           </li>
           <li>Incoming opacity: 0.8→1.0 over 250ms; per-char color pulse 80ms</li>
-          <li>Char 0 gap ≈ 0.07s; char 1 ≈ 0.16s; char 2 ≈ 0.16s (incoming start minus outgoing start)</li>
+          <li>
+            Char 0 gap ≈ 0.07s; char 1 ≈ 0.16s; char 2 ≈ 0.16s (incoming start minus outgoing start)
+          </li>
         </ul>
       </div>
 
@@ -302,6 +307,7 @@ function IsolatedBurnPlayground() {
         const followingIndex = (nextIndex + 1) % labels.length;
         const rest =
           nextIndex === labels.length - 1 ? REST_BETWEEN_LOOPS_MS + STATE_CYCLE_MS : STATE_CYCLE_MS;
+
         scheduleStep(followingIndex, rest);
       }, delayMs);
 

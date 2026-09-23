@@ -1,5 +1,6 @@
-import { createLogger } from "@/lib/logger";
 import type { MenuSection, RestaurantMenu } from "@/lib/schemas/gen-ui/restaurant-card";
+
+import { createLogger } from "@/lib/logger";
 
 const logger = createLogger("lib/restaurant/fetch-menu.ts");
 
@@ -38,7 +39,9 @@ function findMenuNodes(parsed: unknown): Record<string, unknown>[] {
   return menus;
 }
 
-function parseMenuItem(raw: unknown): { name: string; description?: string; price?: string } | null {
+function parseMenuItem(
+  raw: unknown
+): { name: string; description?: string; price?: string } | null {
   if (!raw || typeof raw !== "object") return null;
 
   const obj = raw as Record<string, unknown>;
@@ -46,8 +49,7 @@ function parseMenuItem(raw: unknown): { name: string; description?: string; pric
 
   if (!name) return null;
 
-  const description =
-    typeof obj.description === "string" ? obj.description.trim() : undefined;
+  const description = typeof obj.description === "string" ? obj.description.trim() : undefined;
 
   let price: string | undefined;
 
@@ -60,6 +62,7 @@ function parseMenuItem(raw: unknown): { name: string; description?: string; pric
         price = `$${priceVal}`;
       } else {
         const text = String(priceVal).trim();
+
         price = text.startsWith("$") ? text : `$${text}`;
       }
     }
@@ -128,15 +131,15 @@ export function parseMenuFromHtml(html: string): RestaurantMenu | null {
   return null;
 }
 
-export type FetchMenuResult =
-  | { ok: true; menu: RestaurantMenu }
-  | { ok: false; error: string };
+export type FetchMenuResult = { ok: true; menu: RestaurantMenu } | { ok: false; error: string };
 
 /**
  * Fetch menu from the restaurant website. Returns undefined-equivalent on failure —
  * callers should omit menu from the card.
  */
-export async function fetchRestaurantMenu(websiteUrl: string | undefined): Promise<FetchMenuResult> {
+export async function fetchRestaurantMenu(
+  websiteUrl: string | undefined
+): Promise<FetchMenuResult> {
   if (!websiteUrl?.trim() || !/^https?:\/\//i.test(websiteUrl)) {
     return { ok: false, error: "No website URL" };
   }

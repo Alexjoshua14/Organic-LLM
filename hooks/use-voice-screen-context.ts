@@ -40,6 +40,5 @@ export function useVoiceScreenContext(surface: SpeakScreenSurface | null) {
     setScreenSurface(surface);
 
     return () => setScreenSurface(null);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [key, setScreenSurface]);
 }

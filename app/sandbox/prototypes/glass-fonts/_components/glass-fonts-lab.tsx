@@ -400,13 +400,13 @@ ${headingRows}`;
         generateExternalPrompt={
           externalIntent
             ? (payload) =>
-              generateExternalPrompt({
-                intent: externalIntent,
-                sourceText: payload.sourceText,
-                userContext: payload.userContext,
-                exportFormat: payload.exportFormat,
-                provider: payload.provider,
-              })
+                generateExternalPrompt({
+                  intent: externalIntent,
+                  sourceText: payload.sourceText,
+                  userContext: payload.userContext,
+                  exportFormat: payload.exportFormat,
+                  provider: payload.provider,
+                })
             : undefined
         }
         onExport={exportReviewOutput}

@@ -1,8 +1,9 @@
 "use client";
 
+import type { FeatureHintBackdrop } from "@/lib/onboarding/feature-hints";
+
 import { useLayoutEffect, useState } from "react";
 
-import type { FeatureHintBackdrop } from "@/lib/onboarding/feature-hints";
 import { cn } from "@/lib/utils";
 
 const SPOTLIGHT_PAD_PX = 8;
@@ -13,8 +14,7 @@ type FeatureHintSpotlightProps = {
   backdrop?: FeatureHintBackdrop;
 };
 
-const BLUR_PANEL_CLASS =
-  "absolute bg-black/30 backdrop-blur-[6px] dark:bg-black/45";
+const BLUR_PANEL_CLASS = "absolute bg-black/30 backdrop-blur-[6px] dark:bg-black/45";
 
 export function FeatureHintSpotlight({
   anchor,
@@ -63,19 +63,13 @@ export function FeatureHintSpotlight({
           <div className={BLUR_PANEL_CLASS} style={{ top: 0, left: 0, right: 0, height: top }} />
         ) : null}
         {bottom < window.innerHeight ? (
-          <div
-            className={BLUR_PANEL_CLASS}
-            style={{ top: bottom, left: 0, right: 0, bottom: 0 }}
-          />
+          <div className={BLUR_PANEL_CLASS} style={{ top: bottom, left: 0, right: 0, bottom: 0 }} />
         ) : null}
         {left > 0 && height > 0 ? (
           <div className={BLUR_PANEL_CLASS} style={{ top, left: 0, width: left, height }} />
         ) : null}
         {right < window.innerWidth && height > 0 ? (
-          <div
-            className={BLUR_PANEL_CLASS}
-            style={{ top, left: right, right: 0, height }}
-          />
+          <div className={BLUR_PANEL_CLASS} style={{ top, left: right, right: 0, height }} />
         ) : null}
         <div className={ringClass} style={{ top, left, width, height }} />
       </div>

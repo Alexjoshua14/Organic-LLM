@@ -1,13 +1,9 @@
 import "server-only";
 
-import {
-  insertMemoryQualityEventRow,
-} from "@/data/supabase/memory-quality";
+import type { MemoryQualityEventType, MemoryQualitySource } from "@/lib/schemas/memory-quality";
+
+import { insertMemoryQualityEventRow } from "@/data/supabase/memory-quality";
 import { createLogger } from "@/lib/logger";
-import type {
-  MemoryQualityEventType,
-  MemoryQualitySource,
-} from "@/lib/schemas/memory-quality";
 
 const logger = createLogger("lib/memory/quality-events");
 
@@ -87,9 +83,7 @@ export function memoryTextMetrics(text: string): { charCount: number; wordCount:
  * Never accepts memory text — only counts and opaque ids.
  */
 export async function recordMemoryEvent(args: RecordMemoryEventArgs): Promise<void> {
-  const wordCount =
-    args.wordCount ??
-    (typeof args.charCount === "number" ? undefined : undefined);
+  const wordCount = args.wordCount ?? (typeof args.charCount === "number" ? undefined : undefined);
 
   const payload: RecordMemoryEventArgs = {
     ...args,
@@ -108,10 +102,7 @@ export async function recordMemoryEvent(args: RecordMemoryEventArgs): Promise<vo
     wordCount: payload.wordCount,
     metadata: payload.metadata,
   }).catch((err) => {
-    logger.error(
-      "recordMemoryEvent",
-      err instanceof Error ? err.message : "insert failed"
-    );
+    logger.error("recordMemoryEvent", err instanceof Error ? err.message : "insert failed");
   });
 }
 

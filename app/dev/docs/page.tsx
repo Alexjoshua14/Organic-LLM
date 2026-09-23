@@ -3,11 +3,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 
 import { PageContentFrame } from "@/components/layout/page-content-frame";
-import {
-  DEV_DOC_CATEGORIES,
-  DEV_DOC_CATEGORY_LABELS,
-  DEV_DOCS,
-} from "@/lib/dev-docs/registry";
+import { DEV_DOC_CATEGORIES, DEV_DOC_CATEGORY_LABELS, DEV_DOCS } from "@/lib/dev-docs/registry";
 
 export const metadata: Metadata = {
   title: "Developer docs",
@@ -22,7 +18,9 @@ export default function DevDocsIndexPage() {
       <p className="mb-8 text-sm text-secondary-foreground">
         Feature-focused guides for engineers extending chat, sandbox experiences, and shared
         composer UI. Sources live in{" "}
-        <code className="rounded bg-card/50 px-1.5 py-0.5 font-mono text-sm">content/dev-docs/</code>
+        <code className="rounded bg-card/50 px-1.5 py-0.5 font-mono text-sm">
+          content/dev-docs/
+        </code>
         .
       </p>
       <div className="space-y-10">

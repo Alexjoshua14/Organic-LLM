@@ -1,10 +1,11 @@
 "use client";
 
+import type { MemoryFeedbackRow, MemoryQualityDailyRow } from "@/lib/schemas/memory-quality";
+
 import { useCallback, useEffect, useState } from "react";
 import { Loader2, Play } from "lucide-react";
 
 import { cn } from "@/lib/utils";
-import type { MemoryFeedbackRow, MemoryQualityDailyRow } from "@/lib/schemas/memory-quality";
 
 type MemoryQualityDashboardData = {
   daily: MemoryQualityDailyRow[];
@@ -64,19 +65,19 @@ export function MemoryQualityDashboard() {
       const evalJson = await res.json();
 
       setData((prev) =>
-        prev ?
-          {
-            ...prev,
-            lastEval: {
-              mode: evalJson.mode,
-              total: evalJson.total,
-              passed: evalJson.passed,
-              failed: evalJson.failed,
-              avgCharCount: evalJson.avgCharCount,
-              at: evalJson.at,
-            },
-          }
-        : prev
+        prev
+          ? {
+              ...prev,
+              lastEval: {
+                mode: evalJson.mode,
+                total: evalJson.total,
+                passed: evalJson.passed,
+                failed: evalJson.failed,
+                avgCharCount: evalJson.avgCharCount,
+                at: evalJson.at,
+              },
+            }
+          : prev
       );
       await load();
     } catch (e) {
@@ -103,7 +104,8 @@ export function MemoryQualityDashboard() {
         <div>
           <h2 className="text-lg font-medium">Memory quality</h2>
           <p className="text-sm text-muted-foreground mt-1">
-            Ingest trends, explicit feedback, and eval runs (aggregates only — no memory text stored).
+            Ingest trends, explicit feedback, and eval runs (aggregates only — no memory text
+            stored).
           </p>
         </div>
         <button
@@ -127,7 +129,9 @@ export function MemoryQualityDashboard() {
           Daily trends (all sources)
         </h3>
         {allDaily.length === 0 ? (
-          <p className="text-sm text-muted-foreground">No rollup data yet. Ingest or delete a memory to seed events.</p>
+          <p className="text-sm text-muted-foreground">
+            No rollup data yet. Ingest or delete a memory to seed events.
+          </p>
         ) : (
           <div className="overflow-x-auto rounded-xl border border-border">
             <table className="w-full text-left text-sm">

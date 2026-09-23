@@ -1,4 +1,4 @@
-import { createLogger } from "@/lib/logger";
+import type { GatherRestaurantInput, GatherRestaurantResult } from "./types";
 
 import { assembleRestaurantCard } from "./assemble-card";
 import { buildRestaurantAddress } from "./build-address";
@@ -8,7 +8,8 @@ import { buildRestaurantRating } from "./build-rating";
 import { buildRestaurantSummary } from "./build-summary";
 import { fetchRestaurantMenu } from "./fetch-menu";
 import { searchAndGatherVenue } from "./gather-venue";
-import type { GatherRestaurantInput, GatherRestaurantResult } from "./types";
+
+import { createLogger } from "@/lib/logger";
 
 const logger = createLogger("lib/restaurant/gather-restaurant.ts");
 

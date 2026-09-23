@@ -7,19 +7,6 @@ import { useCallback, useMemo, useState } from "react";
 import { useReducedMotion } from "framer-motion";
 import { X } from "lucide-react";
 
-import { formatRestaurantStoreType } from "@/lib/schemas/gen-ui/restaurant-card";
-import { useIsMobile } from "@/hooks/use-mobile";
-import { runViewTransition } from "@/lib/view-transitions/run-view-transition";
-import {
-  type RestaurantCardViewTransitionNames,
-  RESTAURANT_CARD_HERO_VT_CLASS,
-  RESTAURANT_CARD_RATING_VT_CLASS,
-  RESTAURANT_CARD_TITLE_VT_CLASS,
-  restaurantCardViewTransitionNames,
-} from "@/lib/view-transitions/restaurant-card";
-import { viewTransitionStyle } from "@/lib/view-transitions/style";
-import { cn } from "@/lib/utils";
-
 import { RestaurantCardActions } from "./RestaurantCardActions";
 import { RestaurantCardCondensed } from "./RestaurantCardCondensed";
 import { StarRating } from "./StarRating";
@@ -27,6 +14,19 @@ import { RestaurantCardHours } from "./RestaurantCardHours";
 import { RestaurantCardMenu } from "./RestaurantCardMenu";
 import { RestaurantCardPopularTimes } from "./RestaurantCardPopularTimes";
 import { formatReviewCount } from "./restaurant-card-utils";
+
+import { cn } from "@/lib/utils";
+import { viewTransitionStyle } from "@/lib/view-transitions/style";
+import {
+  type RestaurantCardViewTransitionNames,
+  RESTAURANT_CARD_HERO_VT_CLASS,
+  RESTAURANT_CARD_RATING_VT_CLASS,
+  RESTAURANT_CARD_TITLE_VT_CLASS,
+  restaurantCardViewTransitionNames,
+} from "@/lib/view-transitions/restaurant-card";
+import { runViewTransition } from "@/lib/view-transitions/run-view-transition";
+import { useIsMobile } from "@/hooks/use-mobile";
+import { formatRestaurantStoreType } from "@/lib/schemas/gen-ui/restaurant-card";
 import { spacing } from "@/lib/design-tokens/spacing";
 
 import "@/lib/view-transitions/view-transitions.css";
@@ -207,9 +207,7 @@ function RestaurantCardExpanded({
     );
   }
 
-  return (
-    <ExpandedBody block={block} partial={partial} viewTransitionNames={viewTransitionNames} />
-  );
+  return <ExpandedBody block={block} partial={partial} viewTransitionNames={viewTransitionNames} />;
 }
 
 type RestaurantCardProps = {
@@ -272,19 +270,19 @@ export function RestaurantCard({ block, partial }: RestaurantCardProps) {
 
       {typeof document !== "undefined"
         ? createPortal(
-          expanded && isMobile ? (
-            <div className="fixed inset-0 z-[80] bg-background">
-              <RestaurantCardExpanded
-                block={block}
-                fullscreen
-                partial={partial}
-                viewTransitionNames={viewTransitionNames}
-                onClose={handleClose}
-              />
-            </div>
-          ) : null,
-          document.body
-        )
+            expanded && isMobile ? (
+              <div className="fixed inset-0 z-[80] bg-background">
+                <RestaurantCardExpanded
+                  block={block}
+                  fullscreen
+                  partial={partial}
+                  viewTransitionNames={viewTransitionNames}
+                  onClose={handleClose}
+                />
+              </div>
+            ) : null,
+            document.body
+          )
         : null}
 
       {partial ? <div className={cn("mt-2 h-3 w-1/2 rounded bg-muted/40 animate-pulse")} /> : null}

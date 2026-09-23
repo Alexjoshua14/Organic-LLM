@@ -1,13 +1,15 @@
 "use client";
 
+import type { PlanTimelineBlock } from "@/lib/schemas/gen-ui";
+import type { SpatialArtifact } from "@/lib/schemas/spatial-artifact";
+
 import { useEffect, useLayoutEffect } from "react";
 
 import { ArtifactSlot, measureAllSlots } from "../spatial/ArtifactSlot";
+
 import { PlanTimeline } from "@/components/chat/gen-ui/blocks/PlanTimeline";
-import type { PlanTimelineBlock } from "@/lib/schemas/gen-ui";
 import { glass } from "@/components/design-system/primitives";
 import { useArtifactSpatial } from "@/lib/context/artifact-spatial-context";
-import type { SpatialArtifact } from "@/lib/schemas/spatial-artifact";
 import { slotKey } from "@/lib/spatial-artifacts/zone-routing";
 import { cn } from "@/lib/utils";
 
@@ -63,9 +65,7 @@ export function PlansZone({ artifacts, expandedId, onExpand }: PlansZoneProps) {
                 "w-64 shrink-0 cursor-pointer rounded-xl border border-border/50 p-3 transition hover:border-primary/40"
               )}
               role="plan-condensed"
-              onClick={() =>
-                onExpand(expandedId === artifact.id ? null : artifact.id)
-              }
+              onClick={() => onExpand(expandedId === artifact.id ? null : artifact.id)}
             >
               <div className="invisible" aria-hidden>
                 <PlanTimeline block={artifact.block} variant="condensed" />

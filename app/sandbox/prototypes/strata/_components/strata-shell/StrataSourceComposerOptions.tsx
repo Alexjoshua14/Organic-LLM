@@ -123,15 +123,15 @@ function AssistantToolSegmentedPill({
     label: string;
     title?: string;
   }[] = [
-      { key: "toolMemory", label: "Memory" },
-      { key: "toolWebSearch", label: "Web" },
-      { key: "toolMessageSearch", label: "Msgs", title: "Search this chat’s history" },
-      {
-        key: "toolKnowledgeSearch",
-        label: "Know",
-        title: "Knowledge graph tools (stubbed persistence)",
-      },
-    ];
+    { key: "toolMemory", label: "Memory" },
+    { key: "toolWebSearch", label: "Web" },
+    { key: "toolMessageSearch", label: "Msgs", title: "Search this chat’s history" },
+    {
+      key: "toolKnowledgeSearch",
+      label: "Know",
+      title: "Knowledge graph tools (stubbed persistence)",
+    },
+  ];
 
   return (
     <div
@@ -158,9 +158,9 @@ function AssistantToolSegmentedPill({
               "sm:px-2.5 sm:text-[11px]",
               on
                 ? cn(
-                  glass({ opaque: true, border: "none" }),
-                  "text-foreground shadow-sm ring-1 ring-border/40 dark:ring-border/50"
-                )
+                    glass({ opaque: true, border: "none" }),
+                    "text-foreground shadow-sm ring-1 ring-border/40 dark:ring-border/50"
+                  )
                 : "bg-transparent text-muted-foreground hover:bg-muted/45 hover:text-foreground"
             )}
             onClick={() => onToggle(seg.key)}

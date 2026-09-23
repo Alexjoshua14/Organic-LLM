@@ -44,6 +44,7 @@ export function DimStatePanel({ dimmed, className }: DimStatePanelProps) {
       const tick = (now: number) => {
         const p = Math.min((now - start) / durationMs, 1);
         const next = from + (to - from) * easeOut(p);
+
         levelRef.current = next;
         setLevel(next);
         if (p < 1) {
@@ -52,12 +53,14 @@ export function DimStatePanel({ dimmed, className }: DimStatePanelProps) {
           onDone?.();
         }
       };
+
       rafRef.current = requestAnimationFrame(tick);
     };
 
     if (dimmed) {
       setPhase("dimmed");
       animate(levelRef.current, DIMMED_LEVEL, 700);
+
       return () => {
         if (rafRef.current) cancelAnimationFrame(rafRef.current);
       };
@@ -81,7 +84,7 @@ export function DimStatePanel({ dimmed, className }: DimStatePanelProps) {
     <div
       className={cn(
         "relative overflow-hidden rounded-2xl border border-border/60 bg-card/50 p-5 backdrop-blur-md",
-        className,
+        className
       )}
     >
       <div
@@ -121,7 +124,7 @@ export function DimStatePanel({ dimmed, className }: DimStatePanelProps) {
                   ? "bg-primary/15 text-primary"
                   : phase === "rest"
                     ? "bg-muted text-muted-foreground"
-                    : "bg-amber-500/15 text-amber-700 dark:text-amber-300",
+                    : "bg-amber-500/15 text-amber-700 dark:text-amber-300"
               )}
             >
               {label}

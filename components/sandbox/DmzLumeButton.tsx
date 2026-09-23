@@ -2,7 +2,10 @@
 
 import type { ComponentProps, ReactNode } from "react";
 
-import { useComposerChipLumen, useComposerChipLumenHostRef } from "@/components/chat/use-composer-chip-lumen";
+import {
+  useComposerChipLumen,
+  useComposerChipLumenHostRef,
+} from "@/components/chat/use-composer-chip-lumen";
 import { Button } from "@/components/third-party/ui/button";
 import { cn } from "@/lib/utils";
 

@@ -20,7 +20,9 @@ export function PrototypeAboutPanel({ slug }: { slug: string }) {
   const isAdmin = useIsAdmin();
   const [open, setOpen] = useState(false);
 
-  const needsAdminInput = Boolean(prototype?.about.adminQuestion && !prototype?.about.authorThoughts);
+  const needsAdminInput = Boolean(
+    prototype?.about.adminQuestion && !prototype?.about.authorThoughts
+  );
 
   const dmzQuestion = useMemo(() => {
     if (!prototype) return "";
@@ -97,7 +99,9 @@ export function PrototypeAboutPanel({ slug }: { slug: string }) {
               />
 
               {prototype.about.what ? (
-                <p className="text-xs leading-relaxed text-muted-foreground">{prototype.about.what}</p>
+                <p className="text-xs leading-relaxed text-muted-foreground">
+                  {prototype.about.what}
+                </p>
               ) : null}
             </>
           ) : (
@@ -113,7 +117,9 @@ export function PrototypeAboutPanel({ slug }: { slug: string }) {
                     <h3 className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
                       Design intent
                     </h3>
-                    <p className="leading-relaxed text-foreground">{prototype.about.authorThoughts}</p>
+                    <p className="leading-relaxed text-foreground">
+                      {prototype.about.authorThoughts}
+                    </p>
                   </section>
                 ) : null}
 
@@ -122,7 +128,9 @@ export function PrototypeAboutPanel({ slug }: { slug: string }) {
                     <h3 className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
                       How to use
                     </h3>
-                    <p className="leading-relaxed text-muted-foreground">{prototype.about.howToUse}</p>
+                    <p className="leading-relaxed text-muted-foreground">
+                      {prototype.about.howToUse}
+                    </p>
                   </section>
                 ) : null}
               </div>

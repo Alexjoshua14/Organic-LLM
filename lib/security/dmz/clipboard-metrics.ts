@@ -50,7 +50,10 @@ export function estimateWrappedLineCount(
   return total;
 }
 
-export function measureDmzClipboard(text: string, opts?: { containerWidthPx?: number }): DmzClipboardMetrics {
+export function measureDmzClipboard(
+  text: string,
+  opts?: { containerWidthPx?: number }
+): DmzClipboardMetrics {
   const charCount = text.length;
 
   return {

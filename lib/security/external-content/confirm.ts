@@ -1,8 +1,14 @@
 import "server-only";
 
+import type {
+  ConfirmedFetchToken,
+  ExternalContentFetchMode,
+  ExternalContentInitiator,
+  FetchConfirmationRequest,
+} from "./types";
+
 import { createHmac, randomBytes, timingSafeEqual } from "node:crypto";
 
-import type { ConfirmedFetchToken, ExternalContentFetchMode, ExternalContentInitiator, FetchConfirmationRequest } from "./types";
 import { assertSafePublicHttpsUrl } from "./safe-url";
 
 const DEFAULT_TTL_MS = 5 * 60 * 1000;

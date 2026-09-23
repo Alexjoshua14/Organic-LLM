@@ -63,7 +63,10 @@ export function SurfacePostLayout({ surface, markdown }: SurfacePostLayoutProps)
         {surface.chatVariant && chatParent ? (
           <p className="text-xs text-muted-foreground mb-4">
             Part of{" "}
-            <Link className="text-foreground underline-offset-2 hover:underline" href={surfaceBlogPath("chat")}>
+            <Link
+              className="text-foreground underline-offset-2 hover:underline"
+              href={surfaceBlogPath("chat")}
+            >
               {chatParent.label}
             </Link>
             {" · "}
@@ -89,7 +92,10 @@ export function SurfacePostLayout({ surface, markdown }: SurfacePostLayoutProps)
 
         {surface.chatVariant ? (
           <RelatedSurfaceLinks
-            surfaces={[...variants.filter((v) => v.slug !== surface.slug), ...(chatParent ? [chatParent] : [])]}
+            surfaces={[
+              ...variants.filter((v) => v.slug !== surface.slug),
+              ...(chatParent ? [chatParent] : []),
+            ]}
             title="Related"
           />
         ) : null}

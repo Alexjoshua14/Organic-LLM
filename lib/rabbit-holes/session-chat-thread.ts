@@ -56,7 +56,10 @@ export async function ensureRabbitHoleChatThread(
     .eq("session_id", sessionId);
 
   if (updateError) {
-    logger.warn("ensureRabbitHoleChatThread", `chat_thread_id column update failed: ${updateError.message}`);
+    logger.warn(
+      "ensureRabbitHoleChatThread",
+      `chat_thread_id column update failed: ${updateError.message}`
+    );
     // Thread still usable client-side even if column missing in older DBs.
   }
 

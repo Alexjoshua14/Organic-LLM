@@ -1,4 +1,5 @@
 import type { FeatureHintId } from "./feature-hints";
+
 import {
   FEATURE_HINT_GUIDE_POLICY,
   clearFeatureHintGuideBreath,
@@ -56,9 +57,7 @@ function readSessionFromStorage(
   const hasPersistedDismissals = Object.keys(persisted).length > 0;
   const stored = parseSessionState(storage?.getItem(FEATURE_HINT_GUIDE_POLICY.storageKey) ?? null);
 
-  const base =
-    stored ??
-    createInitialFeatureHintSessionState(surfaceKey, hasPersistedDismissals);
+  const base = stored ?? createInitialFeatureHintSessionState(surfaceKey, hasPersistedDismissals);
 
   return syncFeatureHintSessionSurface(base, surfaceKey);
 }
@@ -91,7 +90,10 @@ export function subscribeFeatureHintSession(listener: Listener): () => void {
 }
 
 export function syncFeatureHintSessionPath(pathname: string): FeatureHintSessionState {
-  const next = syncFeatureHintSessionSurface(getFeatureHintSessionState(pathname), featureHintSurfaceKey(pathname));
+  const next = syncFeatureHintSessionSurface(
+    getFeatureHintSessionState(pathname),
+    featureHintSurfaceKey(pathname)
+  );
 
   sessionState = next;
   writeSessionToStorage(typeof window !== "undefined" ? window.sessionStorage : null, next);

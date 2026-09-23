@@ -25,7 +25,6 @@ import {
   addLatestMessagesToMemory as storeAddLatestMessagesToMemory,
   addMemory as storeAddMemory,
 } from "./store";
-
 import {
   inferMemoryQualitySource,
   memoryTextMetrics,
@@ -405,9 +404,7 @@ export async function deleteMemoryForCurrentUser(
       await recordMemoryEvent({
         userId: userIdResult.data,
         event: "delete",
-        source: inferMemoryQualitySource(
-          memoryRow.metadata as Record<string, unknown> | undefined
-        ),
+        source: inferMemoryQualitySource(memoryRow.metadata as Record<string, unknown> | undefined),
         memoryId: trimmedId,
         charCount: metrics.charCount,
         wordCount: metrics.wordCount,

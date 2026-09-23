@@ -74,9 +74,7 @@ export function parseFirstSessionState(raw: string | null): FirstSessionState {
           : {},
       dismissedAt: typeof record.dismissedAt === "number" ? record.dismissedAt : undefined,
       version:
-        typeof record.version === "number"
-          ? record.version
-          : FIRST_SESSION_CHECKLIST_VERSION,
+        typeof record.version === "number" ? record.version : FIRST_SESSION_CHECKLIST_VERSION,
     };
   } catch {
     return { completedSteps: {}, version: FIRST_SESSION_CHECKLIST_VERSION };

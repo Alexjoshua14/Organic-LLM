@@ -48,9 +48,7 @@ export function GenUiGalleryNav({
                   )}
                   initial={false}
                   transition={
-                    reducedMotion
-                      ? { duration: 0 }
-                      : { duration: 0.35, ease: [0.23, 1, 0.32, 1] }
+                    reducedMotion ? { duration: 0 } : { duration: 0.35, ease: [0.23, 1, 0.32, 1] }
                   }
                 />
               </button>

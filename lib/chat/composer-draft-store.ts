@@ -10,6 +10,7 @@ const DB_NAME = "organic-llm-composer-drafts";
 const DB_VERSION = 1;
 const STORE_NAME = "drafts";
 const DRAFT_TTL_MS = 7 * 24 * 60 * 60 * 1000;
+
 export const COMPOSER_DRAFT_MAX_BYTES = 32 * 1024;
 
 export type ComposerDraftRecord = {
@@ -127,10 +128,7 @@ export async function pruneExpiredDrafts(): Promise<void> {
   }
 }
 
-export async function loadDraft(
-  chatId: string,
-  userId?: string | null
-): Promise<string | null> {
+export async function loadDraft(chatId: string, userId?: string | null): Promise<string | null> {
   if (!chatId || !isComposerDraftPersistenceEnabled()) return null;
 
   try {

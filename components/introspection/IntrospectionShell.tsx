@@ -2,6 +2,8 @@
 
 import type { ReactNode } from "react";
 import type { Vector4 } from "@organic-llm/morph-physics";
+import type { IntrospectionGuidedState } from "@/lib/schemas/introspection";
+import type { UIMessage } from "ai";
 
 import { useMorphPhysics } from "@organic-llm/morph-physics/react";
 import { snapshot, regular_spring_config } from "@organic-llm/morph-physics";
@@ -14,9 +16,7 @@ import { IntrospectionStreamPanel } from "./IntrospectionStreamPanel";
 
 import AdaptiveLiquidChrome from "@/components/background/AdaptiveLiquidChrome";
 import { glass } from "@/components/design-system/primitives";
-import type { IntrospectionGuidedState } from "@/lib/schemas/introspection";
 import { cn } from "@/lib/utils";
-import type { UIMessage } from "ai";
 import { ChatAIActionEnum } from "@/types/ai";
 
 type IntrospectionShellProps = {
@@ -68,8 +68,7 @@ export function IntrospectionShell({
   const sidebarVecRef = useRef<Vector4 | null>(null);
   const morphPlayedRef = useRef(false);
 
-  const shouldMorphComposer =
-    playEntryMorph && isDesktop && prefersReducedMotion !== true;
+  const shouldMorphComposer = playEntryMorph && isDesktop && prefersReducedMotion !== true;
 
   const [composerMorphDone, setComposerMorphDone] = useState(!shouldMorphComposer);
 

@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import type { IntrospectionGuidedState } from "@/lib/schemas/introspection";
 
 import { UIMessage } from "ai";
 import { auth } from "@clerk/nextjs/server";
@@ -11,7 +12,6 @@ import { getSupabaseUserId } from "@/data/supabase/profiles";
 import { loadChat } from "@/lib/chat/chat-store";
 import { tabTitleMetadata } from "@/lib/metadata/tab-title";
 import { Thread } from "@/lib/schemas/chat";
-import type { IntrospectionGuidedState } from "@/lib/schemas/introspection";
 import { createLogger } from "@/lib/logger";
 
 const logger = createLogger("app/introspection/[slug]/page.tsx");

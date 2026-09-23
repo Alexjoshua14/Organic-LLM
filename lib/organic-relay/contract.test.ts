@@ -1,5 +1,6 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
+
 import { beforeEach, describe, expect, test } from "bun:test";
 
 import {
@@ -47,9 +48,7 @@ describe("organic-relay contract", () => {
   });
 
   test("golden wire round-trip with fixed IV", () => {
-    const bootstrap = IntrospectionBootstrapPayloadSchema.parse(
-      loadJson("bootstrap-v1.json"),
-    );
+    const bootstrap = IntrospectionBootstrapPayloadSchema.parse(loadJson("bootstrap-v1.json"));
     const expectedWire = readFileSync(join(FIXTURES, "wire-v1.txt"), "utf8").trim();
     const wire = encryptBootstrapPayload(bootstrap, {
       secret: TEST_SECRET,
@@ -72,6 +71,7 @@ describe("organic-relay contract", () => {
 
   test("isIntrospectionPayloadWire", () => {
     const wire = readFileSync(join(FIXTURES, "wire-v1.txt"), "utf8").trim();
+
     expect(isIntrospectionPayloadWire(wire)).toBe(true);
     expect(isIntrospectionPayloadWire("not-a-payload")).toBe(false);
   });
@@ -93,7 +93,7 @@ describe("organic-relay contract", () => {
 
   test("rejects malformed wire format", () => {
     expect(() => decryptBootstrapPayload("not-a-payload", { secret: TEST_SECRET })).toThrow(
-      "Malformed",
+      "Malformed"
     );
   });
 
@@ -110,7 +110,7 @@ describe("organic-relay contract", () => {
         goal: "x",
         systemInstructions: "x",
         initialOverview: "x",
-      }),
+      })
     ).toThrow();
 
     expect(() =>
@@ -119,7 +119,7 @@ describe("organic-relay contract", () => {
         exp: 1,
         nonce: "short",
         systemInstructions: "x",
-      }),
+      })
     ).toThrow();
   });
 });

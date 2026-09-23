@@ -1,9 +1,9 @@
 import "server-only";
 import "./install-mem0-ollama-config";
 import "./install-mem0-vector-encryption";
-import { installMem0OllamaFetch } from "./install-mem0-ollama-fetch";
-
 import { Memory } from "mem0ai/oss";
+
+import { installMem0OllamaFetch } from "./install-mem0-ollama-fetch";
 
 import { config } from "@/config/mem0-config";
 

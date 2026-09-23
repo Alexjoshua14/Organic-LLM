@@ -29,9 +29,7 @@ export function MiseLoadingShell({ title }: { title?: string }) {
             <Shimmer className="h-4 w-2/3 max-w-xs" />
           )}
         </div>
-        <span className="text-2xs uppercase tracking-wide text-muted-foreground">
-          Plating up…
-        </span>
+        <span className="text-2xs uppercase tracking-wide text-muted-foreground">Plating up…</span>
       </div>
       <div className="space-y-2">
         <Shimmer className="h-2.5 w-20" />

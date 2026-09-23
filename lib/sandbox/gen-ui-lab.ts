@@ -1,9 +1,9 @@
+import type { GenUIBlock } from "@/lib/schemas/gen-ui";
+
 import { z } from "zod";
 
-import type { GenUIBlock } from "@/lib/schemas/gen-ui";
 import { ALL_VALID_FIXTURES } from "@/lib/schemas/gen-ui/fixtures";
 import { GEN_UI_BLOCK_TYPES, type GenUIBlockType } from "@/lib/schemas/gen-ui/shared";
-
 import { models } from "@/lib/schemas/chat-models";
 
 export const GEN_UI_LAB_MODEL = models.openai.terra.id;
@@ -55,7 +55,8 @@ export function buildDefaultBlockMap(): Record<GenUIBlockType, GenUIBlock> {
   return map;
 }
 
-export const GEN_UI_LAB_AION_SYSTEM = `You are Aion in the Gen UI Lab — a sandbox for structured UI archetypes.
+export const GEN_UI_LAB_AION_SYSTEM =
+  `You are Aion in the Gen UI Lab — a sandbox for structured UI archetypes.
 
 Available block types (archetypes):
 - answer-card — multi-point answers with TL;DR and key points
@@ -96,7 +97,9 @@ export function buildGenUiLabPrompt(input: GenUiLabRequest): string {
   }
 
   if (input.intent === "select") {
-    context.push("Explicit action: select/focus the requested archetype. Call select_gen_ui_archetype.");
+    context.push(
+      "Explicit action: select/focus the requested archetype. Call select_gen_ui_archetype."
+    );
   }
 
   return context.join("\n");

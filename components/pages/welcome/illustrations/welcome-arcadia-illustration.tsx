@@ -220,7 +220,13 @@ export function WelcomeArcadiaIllustration({ className }: WelcomeArcadiaIllustra
           </span>
         </div>
 
-        <div className={cn(card, "flex min-h-0 flex-1 flex-col overflow-hidden rounded-lg", welcomeDemoCompactClass)}>
+        <div
+          className={cn(
+            card,
+            "flex min-h-0 flex-1 flex-col overflow-hidden rounded-lg",
+            welcomeDemoCompactClass
+          )}
+        >
           <div className="flex min-h-[5.5rem] flex-1 flex-col gap-2.5 overflow-y-auto px-2.5 py-2.5 sm:min-h-[6.5rem] sm:px-3 sm:py-3">
             <WelcomeDemoUserMessage
               animate={false}
@@ -247,7 +253,13 @@ export function WelcomeArcadiaIllustration({ className }: WelcomeArcadiaIllustra
         </span>
       </div>
 
-      <div className={cn(card, "flex min-h-0 flex-1 flex-col overflow-hidden rounded-lg", welcomeDemoCompactClass)}>
+      <div
+        className={cn(
+          card,
+          "flex min-h-0 flex-1 flex-col overflow-hidden rounded-lg",
+          welcomeDemoCompactClass
+        )}
+      >
         <div
           ref={threadRef}
           className="flex min-h-[5.5rem] flex-1 flex-col gap-2 overflow-y-auto px-2.5 py-2.5 sm:min-h-[6.5rem] sm:px-3 sm:py-3"
@@ -258,11 +270,7 @@ export function WelcomeArcadiaIllustration({ className }: WelcomeArcadiaIllustra
             </p>
           ) : (
             threadMessages.map((message) => (
-              <WelcomeDemoUserMessage
-                key={message.id}
-                id={message.id}
-                text={message.text}
-              />
+              <WelcomeDemoUserMessage key={message.id} id={message.id} text={message.text} />
             ))
           )}
 

@@ -1,6 +1,6 @@
-import { sanitizeUntrustedText } from "@/lib/security/external-content/untrusted";
-
 import type { DmzScanFinding, DmzScanResult } from "./types";
+
+import { sanitizeUntrustedText } from "@/lib/security/external-content/untrusted";
 
 const PROMPT_INJECTION_PATTERNS: Array<{ re: RegExp; message: string }> = [
   {

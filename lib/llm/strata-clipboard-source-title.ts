@@ -5,7 +5,6 @@ import { generateText } from "ai";
 import { KNOWLEDGE_GATEWAY_PROVIDER_OPTIONS } from "@/lib/knowledge/gateway-options";
 import { createLogger } from "@/lib/logger";
 import { recordLlmCall } from "@/lib/llm/metrics";
-
 import { models } from "@/lib/schemas/chat-models";
 
 const logger = createLogger("lib/llm/strata-clipboard-source-title.ts");

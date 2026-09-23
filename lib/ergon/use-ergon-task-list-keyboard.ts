@@ -21,9 +21,7 @@ export type UseErgonTaskListKeyboardResult = {
  * Roving-tabindex keyboard navigation for the Ergon task list.
  * The first visible row is the tab stop until the user moves focus.
  */
-export function useErgonTaskListKeyboard(
-  orderedTaskIds: string[]
-): UseErgonTaskListKeyboardResult {
+export function useErgonTaskListKeyboard(orderedTaskIds: string[]): UseErgonTaskListKeyboardResult {
   const [focusedTaskId, setFocusedTaskId] = useState<string | null>(null);
   const rowRefs = useRef(new Map<string, HTMLElement>());
   const refCallbacks = useRef(new Map<string, (element: HTMLElement | null) => void>());

@@ -16,6 +16,7 @@ export function useErgonLiquidChrome(): boolean {
   useLayoutEffect(() => {
     const sync = () => {
       const next = getSettings().ergonLiquidChrome;
+
       setEnabled(next);
       writeErgonLiquidChromeCookie(next);
       syncErgonSsrFillVisibility(next);

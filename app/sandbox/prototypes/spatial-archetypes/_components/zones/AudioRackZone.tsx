@@ -1,13 +1,15 @@
 "use client";
 
+import type { SpatialArtifact } from "@/lib/schemas/spatial-artifact";
+
 import { useLayoutEffect } from "react";
 
 import { ArtifactSlot, measureAllSlots } from "../spatial/ArtifactSlot";
 import { getArtifactPreviewText } from "../spatial/FloatingArtifact";
+
 import { glass } from "@/components/design-system/primitives";
 import { useHoverTtsPreview } from "@/hooks/use-hover-tts-preview";
 import { useArtifactSpatial } from "@/lib/context/artifact-spatial-context";
-import type { SpatialArtifact } from "@/lib/schemas/spatial-artifact";
 import { slotKey } from "@/lib/spatial-artifacts/zone-routing";
 import { cn } from "@/lib/utils";
 

@@ -32,8 +32,7 @@ export function processingTextBurnOutgoingDelay(sequenceIndex: number): number {
 /** Gap between outgoing and incoming character `n` animation starts (seconds). */
 export function processingTextBurnCharGap(sequenceIndex: number): number {
   const gap =
-    processingTextBurnIncomingDelay(sequenceIndex) -
-    processingTextBurnOutgoingDelay(sequenceIndex);
+    processingTextBurnIncomingDelay(sequenceIndex) - processingTextBurnOutgoingDelay(sequenceIndex);
 
   return sequenceIndex === 0 ? gap - PROCESSING_TEXT_BURN_CHAR_DURATION_S : gap;
 }

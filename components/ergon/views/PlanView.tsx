@@ -4,7 +4,10 @@ import type { ErgonTaskRowKeyboardProps } from "@/lib/ergon/use-ergon-task-list-
 import type { TaskWithCategory } from "@/lib/ergon/types";
 
 import { TaskRow } from "@/components/ergon/TaskRow";
-import { ERGON_VIEW_SECTION_HEADER, ERGON_VIEW_TOOLBAR_ROW } from "@/components/ergon/ergon-view-layout";
+import {
+  ERGON_VIEW_SECTION_HEADER,
+  ERGON_VIEW_TOOLBAR_ROW,
+} from "@/components/ergon/ergon-view-layout";
 import { formatCapacityMinutes } from "@/lib/ergon/format";
 import {
   PLAN_BUCKET_LABELS,

@@ -30,7 +30,10 @@ export default async function StrataBrowserPage() {
 
   if (!clerkUser?.userId) {
     return (
-      <LiquidChromePage transparentBackground className="items-stretch justify-start overflow-hidden">
+      <LiquidChromePage
+        transparentBackground
+        className="items-stretch justify-start overflow-hidden"
+      >
         <AdaptiveLiquidChrome dimIntensity={0.45} />
         <div className="relative z-10 h-full min-h-0 w-full overflow-y-auto">
           <PageContentFrame>
@@ -47,7 +50,10 @@ export default async function StrataBrowserPage() {
 
   if (sbUserIdResult.error || !ownerId) {
     return (
-      <LiquidChromePage transparentBackground className="items-stretch justify-start overflow-hidden">
+      <LiquidChromePage
+        transparentBackground
+        className="items-stretch justify-start overflow-hidden"
+      >
         <AdaptiveLiquidChrome dimIntensity={0.45} />
         <div className="relative z-10 h-full min-h-0 w-full overflow-y-auto">
           <PageContentFrame>

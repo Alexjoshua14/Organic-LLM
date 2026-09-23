@@ -1,5 +1,6 @@
-import { supabaseServer } from "@/lib/supabase/server";
 import type { SpatialArtifactRow } from "@/lib/schemas/spatial-artifact";
+
+import { supabaseServer } from "@/lib/supabase/server";
 import { GenUIBlockSchema } from "@/lib/schemas/gen-ui";
 
 export type UpsertSpatialArtifactInput = {
