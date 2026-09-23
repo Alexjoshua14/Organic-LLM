@@ -23,10 +23,16 @@ export const SpeakScreenSurfaceSchema = z.discriminatedUnion("kind", [
   }),
   z.object({
     kind: z.literal("rabbit-hole"),
-    /** `rabbit_hole_sessions.session_id` — resolved to node summaries plus graph shape. */
+    /** `rabbit_hole_sessions.session_id` — resolved to the open node's summary plus graph shape. */
     id: z.string().uuid(),
     /** Node the user is reading, when the session has one focused. */
     activeNodeId: z.string().min(1).max(128).optional().nullable(),
+    /**
+     * True while the active node's article is still being generated. The server never reads it —
+     * it exists so the surface key flips when generation lands, re-pushing the node with its
+     * summary. Without it, a freshly branched node would reach the model only as a bare title.
+     */
+    activeNodePending: z.boolean().optional(),
   }),
   /** The user navigated somewhere with no registered context; tells the model to let it go stale. */
   z.object({ kind: z.literal("none") }),
@@ -52,7 +58,9 @@ export function screenSurfaceKey(surface: SpeakScreenSurface): string {
     case "stratum":
       return `stratum:${surface.id}`;
     case "rabbit-hole":
-      return `rabbit-hole:${surface.id}:${surface.activeNodeId ?? "root"}`;
+      return `rabbit-hole:${surface.id}:${surface.activeNodeId ?? "root"}${
+        surface.activeNodePending ? ":pending" : ""
+      }`;
     case "none":
       return "none";
   }

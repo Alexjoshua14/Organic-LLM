@@ -685,7 +685,7 @@ export function useRealtimeVoice({
       });
 
       if (!res.ok) {
-        ambientSurfaceKeyRef.current = null;
+        if (ambientSurfaceKeyRef.current === key) ambientSurfaceKeyRef.current = null;
 
         return;
       }
@@ -693,13 +693,20 @@ export function useRealtimeVoice({
       const data = (await res.json()) as { body?: string };
       const item = buildAmbientContextItem(data.body ?? "");
 
-      // The session can end between the request and the response.
-      if (item && transportRef.current === transport && connectedRef.current) {
+      // A newer surface claimed the key while this was in flight — clicking through rabbit-hole
+      // nodes does it constantly — so a late reply would overwrite fresher context. The session
+      // can also end between the request and the response.
+      if (
+        item &&
+        ambientSurfaceKeyRef.current === key &&
+        transportRef.current === transport &&
+        connectedRef.current
+      ) {
         transport.send(item);
       }
     } catch {
       // Ambient awareness is an enhancement; a failed push must never disturb the call.
-      ambientSurfaceKeyRef.current = null;
+      if (ambientSurfaceKeyRef.current === key) ambientSurfaceKeyRef.current = null;
     }
   }, []);
 
