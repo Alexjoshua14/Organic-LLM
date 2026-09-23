@@ -44,10 +44,17 @@ function rabbitHole(): RabbitHoleSession {
   return {
     sessionId: "00000000-0000-4000-8000-000000000000",
     rootQuestion: "Why do cities hum?",
-    rootNodeId: null,
-    path: [],
+    rootNodeId: "n1",
+    path: [
+      { nodeId: "n1", label: "City hum", parentNodeId: null },
+      { nodeId: "n2", label: "Mains hum", parentNodeId: "n1" },
+      { nodeId: "n3", label: "Traffic rumble", parentNodeId: "n1" },
+    ],
     activeNodeId: "n2",
-    edges: [{ from: "n1", to: "n2" }],
+    edges: [
+      { from: "n1", to: "n2" },
+      { from: "n1", to: "n3" },
+    ],
     nodesById: {
       n1: {
         id: "n1",
@@ -56,6 +63,7 @@ function rabbitHole(): RabbitHoleSession {
         title: "City hum",
         summary: "Transformers and traffic dominate the low end.",
         keyTakeaways: [],
+        articleHtml: "<section><p>City hum</p></section>",
         createdAt: "2026-01-01",
       },
       n2: {
@@ -65,11 +73,70 @@ function rabbitHole(): RabbitHoleSession {
         title: "Mains hum",
         summary: "50/60Hz leakage from grid infrastructure.",
         keyTakeaways: [],
+        articleHtml: "<section><p>Mains hum</p></section>",
+        createdAt: "2026-01-01",
+      },
+      n3: {
+        id: "n3",
+        rawPrompt: "",
+        userQuestion: "How loud is traffic at night?",
+        title: "Traffic rumble",
+        summary: "Tyre noise carries further once the air cools.",
+        keyTakeaways: [],
+        articleHtml: "<section><p>Traffic rumble</p></section>",
         createdAt: "2026-01-01",
       },
     },
     createdAt: "2026-01-01",
   } as unknown as RabbitHoleSession;
+}
+
+/**
+ * A chain `c0 → c1 → … → c{depth-1}` with `sideBranches` leaves hanging off every chain node.
+ * The open node is the deepest one, which insertion order puts last — the case a naive
+ * first-N slice drops.
+ */
+function deepRabbitHole(
+  depth: number,
+  opts: { sideBranches?: number; labelChars?: number; summary?: string; question?: string } = {}
+): RabbitHoleSession {
+  const label = (id: string) =>
+    opts.labelChars ? `${id} ${"x".repeat(opts.labelChars)}`.slice(0, opts.labelChars) : id;
+  const path: RabbitHoleSession["path"] = [];
+  const nodesById: RabbitHoleSession["nodesById"] = {};
+
+  const add = (id: string, parentNodeId: string | null, summary: string) => {
+    path.push({ nodeId: id, label: label(id), parentNodeId });
+    nodesById[id] = {
+      id,
+      rawPrompt: "",
+      userQuestion: opts.question ?? `Question for ${id}?`,
+      title: label(id),
+      summary,
+      keyTakeaways: [],
+      articleHtml: "<p>body</p>",
+      createdAt: "2026-01-01",
+    } as RabbitHoleSession["nodesById"][string];
+  };
+
+  for (let i = 0; i < depth; i++) {
+    const id = `c${i}`;
+    const last = i === depth - 1;
+
+    add(id, i === 0 ? null : `c${i - 1}`, last ? (opts.summary ?? "OPEN NODE SUMMARY") : "other");
+
+    for (let s = 0; s < (opts.sideBranches ?? 0); s++) add(`c${i}s${s}`, id, "side");
+  }
+
+  return {
+    ...rabbitHole(),
+    rootQuestion: opts.question ?? "Where does it go?",
+    rootNodeId: "c0",
+    path,
+    nodesById,
+    edges: [],
+    activeNodeId: `c${depth - 1}`,
+  } as RabbitHoleSession;
 }
 
 function deps(overrides: Partial<AmbientContextDeps> = {}): AmbientContextDeps {
@@ -181,20 +248,104 @@ describe("buildRabbitHoleSections", () => {
     expect(text).toContain("Mains hum");
   });
 
-  test("renders the graph as readable parent-to-child lines", () => {
-    expect(buildRabbitHoleSections(rabbitHole(), "n2").join("\n")).toContain(
-      "City hum → Mains hum"
-    );
+  test("leads with the open node's summary, ahead of the graph", () => {
+    const [header, active, graph] = buildRabbitHoleSections(rabbitHole(), "n2");
+
+    expect(header).toContain('on the node "Mains hum"');
+    expect(active).toContain("50/60Hz leakage");
+    expect(active).toContain('the user asked: "What is mains hum?"');
+    expect(graph).toContain("Map of the rabbit hole");
   });
 
-  test("includes a gist per node", () => {
+  test("carries only the open node's summary, not every node's", () => {
     const text = buildRabbitHoleSections(rabbitHole(), "n2").join("\n");
 
-    expect(text).toContain("50/60Hz leakage");
+    expect(text).not.toContain("Tyre noise");
+    expect(text).not.toContain("Transformers and traffic");
   });
 
-  test("falls back to the plain header when no node is focused", () => {
-    expect(buildRabbitHoleSections(rabbitHole(), null)[0]).toContain("has the rabbit hole");
+  test("renders the graph as an indented tree built from the path, marking the open node", () => {
+    const graph = buildRabbitHoleSections(rabbitHole(), "n2")[2]!;
+
+    expect(graph).toContain("- City hum\n  - Mains hum ← on screen\n  - Traffic rumble");
+  });
+
+  test("falls back to key takeaways, then the preview, when there is no stored summary", () => {
+    const session = rabbitHole();
+
+    session.nodesById.n2 = {
+      ...session.nodesById.n2!,
+      summary: null,
+      keyTakeaways: ["Grid leaks at 60Hz", "Transformers buzz"],
+    };
+    expect(buildRabbitHoleSections(session, "n2")[1]).toContain(
+      "Grid leaks at 60Hz; Transformers buzz"
+    );
+
+    session.nodesById.n2 = { ...session.nodesById.n2!, keyTakeaways: [], preview: "A quick take" };
+    expect(buildRabbitHoleSections(session, "n2")[1]).toContain("A quick take");
+  });
+
+  test("says a node is still being written rather than passing its preview off as the article", () => {
+    const session = rabbitHole();
+
+    session.generatingNodeId = "n2";
+    session.nodesById.n2 = {
+      ...session.nodesById.n2!,
+      summary: null,
+      articleHtml: "",
+      preview: "Early guess about hum",
+    };
+
+    const active = buildRabbitHoleSections(session, "n2")[1]!;
+
+    expect(active).toContain("still being written");
+    expect(active).toContain("Early guess about hum");
+  });
+
+  test("keeps the open node's summary when it sits deep in a large hole", () => {
+    const text = fitAmbientBody(buildRabbitHoleSections(deepRabbitHole(40), "c39"));
+
+    expect(text).toContain("OPEN NODE SUMMARY");
+    expect(text).toContain("c39 ← on screen");
+  });
+
+  test("cuts the graph from the far end, keeping the open node's nearest ancestry", () => {
+    const graph = buildRabbitHoleSections(deepRabbitHole(40), "c39")[2]!;
+
+    expect(graph).toContain("c38");
+    expect(graph).toContain("… › ");
+    expect(graph).not.toMatch(/- c0\b/);
+    expect(graph).toMatch(/\(…and \d+ more nodes not shown\)/);
+  });
+
+  test("fits the summary and the graph together in the worst case", () => {
+    const session = deepRabbitHole(20, {
+      sideBranches: 2,
+      labelChars: 80,
+      summary: `OPEN ${"dense summary ".repeat(800)}`,
+      question: "q".repeat(500),
+    });
+    const text = fitAmbientBody(buildRabbitHoleSections(session, "c19"));
+
+    expect(estimateSpeakTokens(text)).toBeLessThanOrEqual(SPEAK_AMBIENT_MAX_TOKENS);
+    expect(text).toContain("OPEN dense summary");
+    expect(text).toContain("Map of the rabbit hole");
+    expect(text).toContain("← on screen");
+  });
+
+  test("skips the map for a single-node hole", () => {
+    const session = deepRabbitHole(1);
+
+    expect(buildRabbitHoleSections(session, "c0")[2]).toBe("");
+  });
+
+  test("falls back to the plain header when no node is focused, still mapping the hole", () => {
+    const sections = buildRabbitHoleSections(rabbitHole(), null);
+
+    expect(sections[0]).toContain("has the rabbit hole");
+    expect(sections.join("\n")).toContain("- City hum");
+    expect(sections.join("\n")).not.toContain("← on screen");
   });
 });
 
@@ -306,6 +457,15 @@ describe("screenSurfaceKey", () => {
     expect(screenSurfaceKey({ ...base, activeNodeId: "n1" })).not.toBe(
       screenSurfaceKey({ ...base, activeNodeId: "n2" })
     );
+  });
+
+  test("changes when the open node's article lands, so its summary is re-pushed", () => {
+    const base = { kind: "rabbit-hole", id: "s1", activeNodeId: "n1" } as const;
+
+    expect(screenSurfaceKey({ ...base, activeNodePending: true })).not.toBe(
+      screenSurfaceKey({ ...base, activeNodePending: false })
+    );
+    expect(screenSurfaceKey({ ...base, activeNodePending: false })).toBe(screenSurfaceKey(base));
   });
 
   test("is stable for the same surface, so navigating away and back costs nothing", () => {

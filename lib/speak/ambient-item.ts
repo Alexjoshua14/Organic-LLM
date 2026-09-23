@@ -27,6 +27,12 @@
  * Alternatives considered: `session.update` with new `instructions` rewrites the whole preamble on
  * every navigation and re-bills it each turn; an out-of-band `response.create` with
  * `conversation: "none"` produces output we would only discard.
+ *
+ * `session.thinking.append` is the purpose-built event for this, but only in **GPT-Live**
+ * (`gpt-live-1`, `/v1/live`) — a separate API whose tools run through delegation. Speak runs
+ * `gpt-realtime` over `/v1/realtime/calls`, where the event does not exist; the openai SDK types
+ * it under `resources/live` only. Adopting it means migrating the session, not swapping this
+ * builder — see the ambient presence ADR.
  */
 
 /**
