@@ -70,7 +70,7 @@ export function PresenceOrb({
       </p>
       <span ref={ref} aria-hidden className="relative grid size-5 shrink-0 place-items-center">
         <span
-          className="absolute inset-1 rounded-full bg-[rgb(var(--lumen)/0.5)] blur-[4px] motion-safe:animate-pulse"
+          className="absolute inset-1 rounded-full bg-[rgb(var(--lumen)/0.28)] blur-[3px] motion-safe:animate-pulse"
           style={{ animationDuration: `${LIVING_PRESENCE_IDLE_S}s` }}
         />
         <span
@@ -81,14 +81,14 @@ export function PresenceOrb({
           style={glowTransition}
         >
           <span
-            className="absolute inset-0 rounded-full bg-[rgb(var(--lumen)/0.6)] blur-[6px] motion-safe:animate-pulse"
+            className="absolute inset-0 rounded-full bg-[rgb(var(--lumen)/0.35)] blur-[5px] motion-safe:animate-pulse"
             style={{ animationDuration: `${LIVING_PRESENCE_WORKING_S}s` }}
           />
         </span>
         <span
           className={cn(
             "relative size-2 rounded-full bg-lumen transition-opacity",
-            working ? "opacity-100" : "opacity-60"
+            working ? "opacity-100" : "opacity-55"
           )}
           style={glowTransition}
         />
@@ -125,7 +125,7 @@ export function launchSparks(layer: HTMLElement, from: Point, targets: readonly 
 
       alongX.className = "absolute left-0 top-0";
       alongY.className = "block";
-      spark.className = "block rounded-full bg-lumen shadow-[0_0_10px_2px_rgb(var(--lumen)/0.75)]";
+      spark.className = "block rounded-full bg-lumen shadow-[0_0_7px_1px_rgb(var(--lumen)/0.4)]";
       spark.style.width = `${dot.size}px`;
       spark.style.height = `${dot.size}px`;
       alongY.append(spark);

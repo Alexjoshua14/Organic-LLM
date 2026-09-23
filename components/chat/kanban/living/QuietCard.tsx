@@ -177,7 +177,7 @@ export const QuietCard = memo(function QuietCard({
         ref={glowRef}
         aria-hidden
         className={cn(
-          "pointer-events-none absolute -inset-x-1 -bottom-2 top-2 rounded-2xl bg-[rgb(var(--lumen)/0.5)] blur-[14px] transition-opacity",
+          "pointer-events-none absolute -inset-x-1 -bottom-2 top-2 rounded-2xl bg-[rgb(var(--lumen)/0.28)] blur-[12px] transition-opacity",
           attended ? "opacity-100" : "opacity-0"
         )}
         style={{ transitionDuration: `${LIVING_ATTEND_FADE_S}s` }}
@@ -230,7 +230,7 @@ export const QuietCard = memo(function QuietCard({
         >
           <span
             ref={sheenRef}
-            className="absolute inset-y-0 -left-1/2 w-1/2 bg-[linear-gradient(100deg,transparent,rgb(var(--lumen)/0.3),transparent)] opacity-0"
+            className="absolute inset-y-0 -left-1/2 w-1/2 bg-[linear-gradient(100deg,transparent,rgb(var(--lumen)/0.16),transparent)] opacity-0"
           />
         </span>
       ) : null}

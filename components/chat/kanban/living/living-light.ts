@@ -56,7 +56,7 @@ export const LIGHT_BEHAVIOR: Record<LivingLight, LightBehavior> = {
     presence: false,
   },
   presence: {
-    wash: "strong",
+    wash: "soft",
     washDelayS: LIVING_SPARK_S * 0.85,
     activeRim: "none",
     laneFlash: false,
