@@ -98,8 +98,10 @@ Verified against the session route and hook on 2026-09-17. Design rationale is i
 8. **Screen awareness.** Surfaces register what is on screen via `useVoiceScreenContext`; the
    server builds the text and the client sends it as a silent `role: "system"` item with no
    `response.create`. See
-   [the ambient presence ADR](./decisions/20260922-ambient-voice-presence.md) — there is no
-   `.thinking` event in the Realtime API.
+   [the ambient presence ADR](./decisions/20260922-ambient-voice-presence.md).
+   `session.thinking.append` is GPT-Live only and does not exist on the Realtime API — see
+   [rabbit-hole awareness](./decisions/20260922-rabbit-hole-voice-awareness.md), which also
+   covers what a rabbit-hole page sends.
 
 Memory is a per-session opt-in sent by the client, mirroring chat's composer toggle. It is
 captured on the session record, so the tool gate and the ingest path read one value.
@@ -116,7 +118,7 @@ Factual gap analysis, not a plan. Roadmap is private.
 | Resume | Open thread, full history | Latest Speak thread by default; summary and last turns in instructions; **+** for a fresh one |
 | Survives navigation | n/a | Yes — provider in the root layout |
 | Survives page reload | Resumable SSE | Resume: same thread and clock, ~1s audio gap |
-| Screen awareness | n/a | Chat summary, Strata compiled doc, rabbit-hole graph |
+| Screen awareness | n/a | Chat summary, Strata compiled doc, open rabbit-hole node + map |
 | Visuals | Gen UI inline in the message | Optional side panel, gated by modality toggles |
 
 **Speak tools:** `update_display_text`, `render_gen_ui`, `refresh_component`, `upsert_ui_state`,
