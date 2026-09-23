@@ -6,6 +6,29 @@ import {
   usageFromResponseDone,
 } from "@/lib/speak/realtime-events";
 
+describe("classifyRealtimeEvent playback", () => {
+  test("WebRTC playback start and drain map to their own kinds", () => {
+    expect(classifyRealtimeEvent({ type: "output_audio_buffer.started" }).kind).toBe(
+      "assistant_playback_started"
+    );
+    expect(classifyRealtimeEvent({ type: "output_audio_buffer.stopped" }).kind).toBe(
+      "assistant_playback_stopped"
+    );
+  });
+
+  test("an interruption clearing the buffer also ends playback", () => {
+    expect(classifyRealtimeEvent({ type: "output_audio_buffer.cleared" }).kind).toBe(
+      "assistant_playback_stopped"
+    );
+  });
+
+  test("audio generation finishing is not playback finishing", () => {
+    expect(classifyRealtimeEvent({ type: "response.output_audio.done" }).kind).toBe(
+      "assistant_audio_stopped"
+    );
+  });
+});
+
 describe("classifyRealtimeEvent transcript names", () => {
   test("accepts the GA assistant transcript event", () => {
     const ev = classifyRealtimeEvent({

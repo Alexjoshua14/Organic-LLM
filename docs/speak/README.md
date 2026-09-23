@@ -50,6 +50,7 @@ client-side navigation. Held in a page, the peer connection dies on every route 
 | Audio analysis | `hooks/use-voice-audio-levels.ts` |
 | Transport seam | `lib/speak/transport/voice-transport.ts` |
 | Screen context | `hooks/use-voice-screen-context.ts`, `lib/speak/ambient-context.ts`, `lib/speak/ambient-item.ts` |
+| Idle auto-pause | `lib/speak/voice-idle.ts` |
 | Reload resume | `app/api/ai/speak/realtime/active/route.ts` |
 | Voice visual state | `lib/speak/voice-visual-state.ts` |
 | Perf lab | `app/sandbox/prototypes/voice-bar/` |
@@ -102,6 +103,10 @@ Verified against the session route and hook on 2026-09-17. Design rationale is i
    `session.thinking.append` is GPT-Live only and does not exist on the Realtime API — see
    [rabbit-hole awareness](./decisions/20260922-rabbit-hole-voice-awareness.md), which also
    covers what a rabbit-hole page sends.
+9. **Idle auto-pause.** After 20s with nobody speaking, no response in flight, no audio playing
+   and no tool running, the call ends itself: the session is settled and the mic released. The
+   bar stays up, paused, and **Resume** continues the same thread. See
+   [idle auto-pause](./decisions/20260922-idle-auto-pause.md).
 
 Memory is a per-session opt-in sent by the client, mirroring chat's composer toggle. It is
 captured on the session record, so the tool gate and the ingest path read one value.
