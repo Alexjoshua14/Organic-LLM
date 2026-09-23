@@ -35,6 +35,11 @@ export type VoiceSessionValue = {
   phase: LiveVoicePhase;
   connected: boolean;
   connecting: boolean;
+  /**
+   * The call ended itself after a quiet stretch. Nothing is connected and the mic is released,
+   * but the bar stays up so `resume` is one tap away. See `lib/speak/voice-idle.ts`.
+   */
+  paused: boolean;
   error: string | null;
   sessionId: string | null;
   threadId: string | null;
@@ -55,6 +60,8 @@ export type VoiceSessionValue = {
 
   connect: () => void;
   startNew: () => void;
+  /** Continue a paused call on the thread it was writing to. */
+  resume: () => void;
   disconnect: () => void;
   resetSession: () => void;
 
@@ -139,6 +146,7 @@ export function VoiceSessionProvider({ children }: { children: ReactNode }) {
 
   const connect = useCallback(() => void voice.connect(), [voice]);
   const startNew = useCallback(() => void voice.startNew(), [voice]);
+  const resume = useCallback(() => void voice.resume(), [voice]);
   const disconnect = useCallback(() => void voice.disconnect(), [voice]);
 
   const resetSession = useCallback(() => {
@@ -151,6 +159,7 @@ export function VoiceSessionProvider({ children }: { children: ReactNode }) {
       phase: voice.phase,
       connected: voice.connected,
       connecting: voice.connecting,
+      paused: voice.paused,
       error: voice.error,
       sessionId: voice.sessionId,
       threadId: voice.threadId,
@@ -168,6 +177,7 @@ export function VoiceSessionProvider({ children }: { children: ReactNode }) {
       setMemoryEnabled,
       connect,
       startNew,
+      resume,
       disconnect,
       resetSession,
       setScreenSurface,
@@ -178,6 +188,7 @@ export function VoiceSessionProvider({ children }: { children: ReactNode }) {
       voice.phase,
       voice.connected,
       voice.connecting,
+      voice.paused,
       voice.error,
       voice.sessionId,
       voice.threadId,
@@ -193,6 +204,7 @@ export function VoiceSessionProvider({ children }: { children: ReactNode }) {
       memoryEnabled,
       connect,
       startNew,
+      resume,
       disconnect,
       resetSession,
       setScreenSurface,

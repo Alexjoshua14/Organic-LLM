@@ -24,6 +24,7 @@ import {
   isRetryableConnectError,
   RealtimeConnectError,
 } from "@/lib/speak/transport/voice-transport";
+import { createVoiceIdleTimer, SPEAK_IDLE_PAUSE_MS } from "@/lib/speak/voice-idle";
 import { SPEAK_TURN_BATCH_MAX, type SpeakVoiceTurn } from "@/lib/speak/voice-turns";
 
 export type LiveVoicePhase = "idle" | "listening" | "thinking" | "speaking";
@@ -129,6 +130,7 @@ export function useRealtimeVoice({
   onClientEffects,
   onBudgetChange,
   transportFactory = createWebRtcVoiceTransport,
+  idlePauseMs = SPEAK_IDLE_PAUSE_MS,
 }: {
   modalities?: SpeakModalities;
   /** Sent at mint; enables `search_memories` and transcript ingest for the session. */
@@ -137,6 +139,8 @@ export function useRealtimeVoice({
   threadPolicy?: SpeakThreadPolicy;
   /** Swap point for a server-side relay; see `lib/speak/transport/voice-transport.ts`. */
   transportFactory?: VoiceTransportFactory;
+  /** Quiet stretch before the call pauses itself. Read once, at mount; tests shorten it. */
+  idlePauseMs?: number;
   onPhaseChange?: (phase: LiveVoicePhase) => void;
   onCaptionChange?: (caption: {
     role: "user" | "assistant" | "system";
@@ -155,6 +159,11 @@ export function useRealtimeVoice({
   const [budget, setBudget] = useState<SpeakBudgetSnapshot | null>(null);
   const [transcript, setTranscript] = useState<RealtimeTranscriptEntry[]>([]);
   const [resumedThread, setResumedThread] = useState<ResumedThreadInfo | null>(null);
+  /**
+   * The idle timer ended the call. The bar stays up offering `resume`; nothing is connected, the
+   * mic is released and the server session is settled.
+   */
+  const [paused, setPaused] = useState(false);
   /**
    * Epoch ms the user started talking, carried across reloads by the server. The live bar's
    * elapsed clock reads this, so a refresh mid-call does not restart the timer at zero.
@@ -186,6 +195,14 @@ export function useRealtimeVoice({
   const assistantStartedAtRef = useRef<number | null>(null);
   /** Last surface pushed, so navigating away and back costs nothing. */
   const ambientSurfaceKeyRef = useRef<string | null>(null);
+  const threadIdRef = useRef<string | null>(null);
+  /** Thread a paused call was writing to, so `resume` lands on it rather than the latest. */
+  const pausedThreadIdRef = useRef<string | null>(null);
+  const pauseForIdleRef = useRef<() => void>(() => undefined);
+  /** See `lib/speak/voice-idle.ts` for what counts as quiet. */
+  const [idleTimer] = useState(() =>
+    createVoiceIdleTimer({ timeoutMs: idlePauseMs, onIdle: () => pauseForIdleRef.current() })
+  );
 
   modalitiesRef.current = modalities;
   memoryEnabledRef.current = memoryEnabled;
@@ -270,6 +287,7 @@ export function useRealtimeVoice({
   const teardown = useCallback(
     async (opts?: { notifyServer?: boolean; connectFailure?: ConnectFailure }) => {
       stopHeartbeat();
+      idleTimer.stop();
 
       const sid = sessionIdRef.current;
 
@@ -307,7 +325,7 @@ export function useRealtimeVoice({
       ambientSurfaceKeyRef.current = null;
       setPhaseSafe("idle");
     },
-    [flushTurns, setPhaseSafe, stopHeartbeat]
+    [flushTurns, idleTimer, setPhaseSafe, stopHeartbeat]
   );
 
   const sendHeartbeat = useCallback(async () => {
@@ -358,6 +376,11 @@ export function useRealtimeVoice({
 
       if (!sid || !call.name || !call.call_id) return;
 
+      // A slow tool is the model working, not silence; see `lib/speak/voice-idle.ts`.
+      const activity = `tool:${call.call_id}` as const;
+
+      idleTimer.begin(activity);
+
       try {
         const res = await fetch("/api/ai/speak/realtime/tool", {
           method: "POST",
@@ -397,9 +420,11 @@ export function useRealtimeVoice({
         }
       } catch (err) {
         setError(err instanceof Error ? err.message : "Tool call failed");
+      } finally {
+        idleTimer.end(activity);
       }
     },
-    [onClientEffects, teardown]
+    [idleTimer, onClientEffects, teardown]
   );
 
   const handleDataEvent = useCallback(
@@ -416,6 +441,7 @@ export function useRealtimeVoice({
 
       switch (ev.kind) {
         case "user_speech_started":
+          idleTimer.begin("user-speech");
           userSpeakingRef.current = true;
           assistantSpeakingRef.current = false;
           userSpeechStartedAtRef.current = Date.now();
@@ -424,23 +450,36 @@ export function useRealtimeVoice({
 
           return;
         case "user_speech_stopped":
+          idleTimer.end("user-speech");
           userSpeakingRef.current = false;
           syncPhase();
 
           return;
         case "assistant_started":
+          idleTimer.begin("response");
           assistantSpeakingRef.current = true;
           assistantStartedAtRef.current ??= Date.now();
           syncPhase();
 
           return;
         case "assistant_finished":
+          idleTimer.end("response");
           assistantSpeakingRef.current = false;
           pendingUsageRef.current = sumRealtimeUsage(pendingUsageRef.current, ev.usage);
           syncPhase();
 
           return;
         case "assistant_audio_stopped":
+          assistantSpeakingRef.current = false;
+          syncPhase();
+
+          return;
+        case "assistant_playback_started":
+          idleTimer.begin("playback");
+
+          return;
+        case "assistant_playback_stopped":
+          idleTimer.end("playback");
           assistantSpeakingRef.current = false;
           syncPhase();
 
@@ -497,11 +536,16 @@ export function useRealtimeVoice({
           return;
       }
     },
-    [handleToolCall, onCaptionChange, scheduleFlush, syncPhase]
+    [handleToolCall, idleTimer, onCaptionChange, scheduleFlush, syncPhase]
   );
 
   const connect = useCallback(
-    async (options?: { threadPolicy?: SpeakThreadPolicy; resumeSessionId?: string }) => {
+    async (options?: {
+      threadPolicy?: SpeakThreadPolicy;
+      resumeSessionId?: string;
+      /** Continue this thread whatever the policy says; the session route checks ownership. */
+      threadId?: string;
+    }) => {
       if (connecting || connectedRef.current) return;
 
       setConnecting(true);
@@ -524,6 +568,7 @@ export function useRealtimeVoice({
               modalities: modalitiesRef.current,
               memory: memoryEnabledRef.current,
               threadPolicy: options?.threadPolicy ?? threadPolicyRef.current,
+              threadId: options?.threadId,
               resumeSessionId,
               retryAfterConnectFailure: retryFailure ?? undefined,
               withoutThreadContext: retryFailure ? true : undefined,
@@ -539,6 +584,7 @@ export function useRealtimeVoice({
           applyBudget(mint.budget);
           sessionIdRef.current = mint.sessionId;
           setSessionId(mint.sessionId);
+          threadIdRef.current = mint.threadId;
           setThreadId(mint.threadId);
           setStartedAt(mint.startedAt ?? Date.now());
           setResumedThread(
@@ -590,6 +636,7 @@ export function useRealtimeVoice({
         connectedRef.current = true;
         setConnected(true);
         setConnecting(false);
+        setPaused(false);
         setPhaseSafe("idle");
         onCaptionChange?.({
           role: "system",
@@ -600,6 +647,7 @@ export function useRealtimeVoice({
               : "Connected — speak naturally. Tap End to hang up.",
         });
         startHeartbeat();
+        idleTimer.reset();
       } catch (err) {
         const msg = err instanceof Error ? err.message : "Failed to connect";
 
@@ -616,11 +664,41 @@ export function useRealtimeVoice({
       applyBudget,
       connecting,
       handleDataEvent,
+      idleTimer,
       onCaptionChange,
       setPhaseSafe,
       startHeartbeat,
       teardown,
     ]
+  );
+
+  /**
+   * The idle timer's action. Ends the call — settling the server session, releasing the mic and
+   * the concurrency slot — but keeps the bar up and the thread in hand, so `resume` continues
+   * the same conversation. Nothing bills while paused.
+   */
+  const pauseForIdle = useCallback(async () => {
+    if (!connectedRef.current) return;
+
+    pausedThreadIdRef.current = threadIdRef.current;
+    // Set alongside teardown's state so no render sees "disconnected and not paused" — that
+    // frame would start the bar's exit animation. A stale error would read as a failed resume.
+    setPaused(true);
+    setError(null);
+    await teardown({ notifyServer: true });
+    onCaptionChange?.({ role: "system", text: "Paused after a quiet stretch — resume anytime." });
+  }, [onCaptionChange, teardown]);
+
+  pauseForIdleRef.current = () => void pauseForIdle();
+
+  /**
+   * Picks a paused call back up on the thread it was writing to. The mint rehydrates it through
+   * the resume preamble (summary plus recent turns), the same path as any resumed thread. A
+   * failure leaves the call paused, so the bar still offers another try.
+   */
+  const resume = useCallback(
+    () => connect({ threadId: pausedThreadIdRef.current ?? undefined }),
+    [connect]
   );
 
   /** Fresh thread regardless of the hook's default policy. */
@@ -711,11 +789,13 @@ export function useRealtimeVoice({
   }, []);
 
   const disconnect = useCallback(async () => {
+    setPaused(false);
     await teardown({ notifyServer: true });
     onCaptionChange?.({ role: "system", text: "Session ended." });
   }, [onCaptionChange, teardown]);
 
   const resetSession = useCallback(async () => {
+    setPaused(false);
     await teardown({ notifyServer: true });
     turnBufferRef.current = [];
     setTranscript([]);
@@ -736,6 +816,8 @@ export function useRealtimeVoice({
     phase,
     connected,
     connecting,
+    /** Ended by the idle timer; `resume` continues it. See `lib/speak/voice-idle.ts`. */
+    paused,
     error,
     sessionId,
     threadId,
@@ -749,6 +831,7 @@ export function useRealtimeVoice({
     remoteStream: streams.remote,
     connect,
     startNew,
+    resume,
     resumeIfActive,
     sendScreenContext,
     disconnect,

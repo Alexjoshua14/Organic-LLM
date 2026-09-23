@@ -6,6 +6,7 @@ import { useSyntheticVoiceStream } from "./synthetic-voice-stream";
 
 import { VoiceElapsed } from "@/components/voice/voice-elapsed";
 import { VoiceBarSurface } from "@/components/voice/voice-bar-surface";
+import { VoiceLiveBar } from "@/components/voice/voice-live-bar";
 import { VOICE_BAR_HEIGHT_PX } from "@/components/voice/voice-live-bar-timing";
 import { VoiceWaveform } from "@/components/voice/voice-waveform";
 import { ribbonCurveCount } from "@/lib/speak/waveform-geometry";
@@ -15,7 +16,13 @@ const SAMPLE_WINDOW = 120;
 /** Readout refresh. Faster than this and the numbers are unreadable. */
 const FLUSH_MS = 250;
 
-type Stats = { fps: number; meanMs: number; p95Ms: number; longTasks: number; heapMb: number | null };
+type Stats = {
+  fps: number;
+  meanMs: number;
+  p95Ms: number;
+  longTasks: number;
+  heapMb: number | null;
+};
 
 /**
  * Main-thread frame sampler.
@@ -171,8 +178,40 @@ export function VoiceBarLab() {
             <span className="text-2xs text-muted-foreground">waveform off</span>
           )}
         </div>
-        {glow ? <VoiceElapsed className="relative shrink-0 text-2xs" startedAt={startedAt} /> : null}
+        {glow ? (
+          <VoiceElapsed className="relative shrink-0 text-2xs" startedAt={startedAt} />
+        ) : null}
       </div>
+
+      {/*
+        The real component in each resting state, side by side. Paused must read as *not* live at a
+        glance — it is the one state where the mic is off. See `lib/speak/voice-idle.ts`.
+      */}
+      <section className="space-y-3">
+        <p className="text-xs uppercase tracking-[0.2em] text-muted-foreground">Bar states</p>
+        {(
+          [
+            { label: "Live", paused: false, resumeError: null },
+            { label: "Paused after a quiet stretch", paused: true, resumeError: null },
+            { label: "Resume failed", paused: true, resumeError: "Speak Realtime budget exceeded" },
+          ] as const
+        ).map((state) => (
+          <div key={state.label} className="space-y-1">
+            <p className="text-2xs text-muted-foreground">{state.label}</p>
+            <VoiceLiveBar
+              connecting={false}
+              localStream={state.paused ? null : stream}
+              paused={state.paused}
+              phase="listening"
+              remoteStream={null}
+              resumeError={state.resumeError}
+              startedAt={state.paused ? null : startedAt}
+              onEnd={() => undefined}
+              onResume={() => undefined}
+            />
+          </div>
+        ))}
+      </section>
 
       <div className="grid gap-3 sm:grid-cols-2">
         <Toggle
@@ -205,11 +244,7 @@ export function VoiceBarLab() {
         <Readout label="FPS" note="main thread" value={stats.fps.toFixed(1)} />
         <Readout label="Mean frame" note="milliseconds" value={stats.meanMs.toFixed(2)} />
         <Readout label="p95 frame" note="milliseconds" value={stats.p95Ms.toFixed(2)} />
-        <Readout
-          label="Long tasks"
-          note="&gt;50ms, since toggle"
-          value={String(stats.longTasks)}
-        />
+        <Readout label="Long tasks" note="&gt;50ms, since toggle" value={String(stats.longTasks)} />
       </div>
 
       {stats.heapMb !== null ? (

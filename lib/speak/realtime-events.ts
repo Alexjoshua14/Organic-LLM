@@ -22,6 +22,12 @@ export type SpeakRealtimeEvent =
   | { kind: "assistant_started" }
   | { kind: "assistant_finished"; usage: RealtimeUsage | null }
   | { kind: "assistant_audio_stopped" }
+  /**
+   * WebRTC only: model audio actually reaching the speaker. Playback outlives `response.done`,
+   * so these, not the response lifecycle, say whether the model is still talking.
+   */
+  | { kind: "assistant_playback_started" }
+  | { kind: "assistant_playback_stopped" }
   | { kind: "user_transcript"; text: string; itemId: string | null }
   | { kind: "assistant_transcript_delta"; delta: string }
   | { kind: "assistant_transcript"; text: string; itemId: string | null }
@@ -118,8 +124,13 @@ export function classifyRealtimeEvent(event: Record<string, unknown>): SpeakReal
       return { kind: "assistant_finished", usage: usageFromResponseDone(event) };
     case "response.output_audio.done":
     case "response.audio.done":
-    case "output_audio_buffer.stopped":
       return { kind: "assistant_audio_stopped" };
+    case "output_audio_buffer.started":
+      return { kind: "assistant_playback_started" };
+    // `cleared` is the interruption path: the user talked over the model and the buffer was dropped.
+    case "output_audio_buffer.stopped":
+    case "output_audio_buffer.cleared":
+      return { kind: "assistant_playback_stopped" };
     case "conversation.item.input_audio_transcription.completed": {
       const text = String(event.transcript ?? "").trim();
 

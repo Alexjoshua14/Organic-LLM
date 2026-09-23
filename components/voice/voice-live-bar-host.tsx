@@ -33,15 +33,26 @@ export function VoiceLiveBarHost({
   container: HTMLElement | null;
   pageAnchor: HTMLElement | null;
 }) {
-  const { connected, connecting, phase, startedAt, localStream, remoteStream, disconnect } =
-    useVoiceSession();
+  const {
+    connected,
+    connecting,
+    paused,
+    error,
+    phase,
+    startedAt,
+    localStream,
+    remoteStream,
+    disconnect,
+    resume,
+  } = useVoiceSession();
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => setMounted(true), []);
 
   if (!mounted) return null;
 
-  const visible = connected || connecting;
+  // Paused keeps the bar: it is where "resume" lives. See `lib/speak/voice-idle.ts`.
+  const visible = connected || connecting || paused;
 
   const bar = (
     <AnimatePresence>
@@ -59,10 +70,13 @@ export function VoiceLiveBarHost({
           <VoiceLiveBar
             connecting={connecting}
             localStream={localStream}
+            paused={paused}
             phase={phase}
             remoteStream={remoteStream}
+            resumeError={paused ? error : null}
             startedAt={startedAt}
             onEnd={disconnect}
+            onResume={resume}
           />
         </motion.div>
       ) : null}
