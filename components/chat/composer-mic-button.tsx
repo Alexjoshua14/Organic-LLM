@@ -1,12 +1,14 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState, type RefObject } from "react";
-
 import { MicIcon } from "lucide-react";
 
-import { getWebSpeechRecognitionCtor, type WebSpeechRecognition } from "@/lib/web-speech-recognition";
-
 import { ComposerActionButton } from "./composer-action-button";
+
+import {
+  getWebSpeechRecognitionCtor,
+  type WebSpeechRecognition,
+} from "@/lib/web-speech-recognition";
 
 export type ComposerMicButtonProps = {
   textareaRef?: RefObject<HTMLTextAreaElement | null>;
@@ -20,6 +22,7 @@ export function ComposerMicButton({ textareaRef, onTranscriptionChange }: Compos
 
   useEffect(() => {
     const SpeechRecognitionCtor = getWebSpeechRecognitionCtor();
+
     if (!SpeechRecognitionCtor) return;
 
     const speechRecognition = new SpeechRecognitionCtor();

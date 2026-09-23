@@ -1,5 +1,10 @@
 import type { UsagePlanTier } from "@/lib/usage/plans";
-import type { UsageRangePreset, UsageTotals, UsageDailyBucket, UsageModelBreakdown } from "@/lib/usage/aggregate";
+import type {
+  UsageRangePreset,
+  UsageTotals,
+  UsageDailyBucket,
+  UsageModelBreakdown,
+} from "@/lib/usage/aggregate";
 
 export type UsageApiPayload = {
   range: { start: string; end: string; preset: UsageRangePreset };

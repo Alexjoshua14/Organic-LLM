@@ -83,7 +83,8 @@ export const MEMORY_INGEST_GOLDEN_CASES: MemoryIngestGoldenCase[] = [
     turns: [
       {
         role: "user",
-        content: "When I say 'file that', store verbatim what we agreed — no inference, one fact per commit.",
+        content:
+          "When I say 'file that', store verbatim what we agreed — no inference, one fact per commit.",
       },
     ],
     expectedFacts: ["verbatim", "commit"],
@@ -94,7 +95,8 @@ export const MEMORY_INGEST_GOLDEN_CASES: MemoryIngestGoldenCase[] = [
     turns: [
       {
         role: "user",
-        content: "I keep zero data retention on for external LLM providers whenever the model supports it.",
+        content:
+          "I keep zero data retention on for external LLM providers whenever the model supports it.",
       },
     ],
     expectedFacts: ["zero data retention"],

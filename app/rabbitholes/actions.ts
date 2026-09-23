@@ -38,10 +38,7 @@ import {
 import { fetchExternalSources, getWebpageContent } from "@/lib/exa/sources";
 import { getSupabaseUserId } from "@/data/supabase/profiles";
 import { checkExternalFetchLimit } from "@/lib/rate-limit/external-fetch";
-import {
-  sanitizeUntrustedText,
-  wrapUntrustedContent,
-} from "@/lib/security/external-content";
+import { sanitizeUntrustedText, wrapUntrustedContent } from "@/lib/security/external-content";
 
 const logger = createLogger("app/rabbitholes/actions.ts");
 

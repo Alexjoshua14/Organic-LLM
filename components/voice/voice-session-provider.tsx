@@ -3,6 +3,7 @@
 import type { SpeakModalities } from "@/lib/schemas/speak-modalities";
 import type { SpeakScreenSurface } from "@/lib/schemas/speak-screen-context";
 import type { SpeakToolClientEffect } from "@/lib/speak/types";
+import type { VoiceTransportFactory } from "@/lib/speak/transport/voice-transport";
 import type { VoiceVisualState } from "@/lib/speak/voice-visual-state";
 import type { LiveVoicePhase, RealtimeTranscriptEntry } from "@/hooks/use-realtime-voice";
 
@@ -91,7 +92,17 @@ const VoiceSessionContext = createContext<VoiceSessionValue | null>(null);
  * A hard reload is the one thing it cannot survive; `resumeIfActive` covers that case by
  * rejoining the server-side session record.
  */
-export function VoiceSessionProvider({ children }: { children: ReactNode }) {
+export function VoiceSessionProvider({
+  children,
+  transportFactory,
+  idlePauseMs,
+}: {
+  children: ReactNode;
+  /** Passed to `useRealtimeVoice` — the relay swap point, and how tests stand in for WebRTC. */
+  transportFactory?: VoiceTransportFactory;
+  /** Passed to `useRealtimeVoice`; production leaves it at `SPEAK_IDLE_PAUSE_MS`. */
+  idlePauseMs?: number;
+}) {
   const [modalities, setModalities] = useState<SpeakModalities>(DEFAULT_SPEAK_MODALITIES);
   const [memoryEnabled, setMemoryEnabled] = useState(DEFAULT_COMPOSER_MEMORIES);
   const [caption, setCaption] = useState<VoiceCaption>({ role: "system", text: "" });
@@ -107,6 +118,8 @@ export function VoiceSessionProvider({ children }: { children: ReactNode }) {
   const voice = useRealtimeVoice({
     modalities,
     memoryEnabled,
+    transportFactory,
+    idlePauseMs,
     onCaptionChange: setCaption,
     onClientEffects: handleEffects,
   });

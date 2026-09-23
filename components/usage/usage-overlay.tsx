@@ -158,7 +158,10 @@ export function UsageOverlay({ className, triggerClassName }: UsageOverlayProps)
               ) : data ? (
                 <>
                   <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-                    <StatCard label="Total tokens" value={formatTokenCount(data.totals.totalTokens)} />
+                    <StatCard
+                      label="Total tokens"
+                      value={formatTokenCount(data.totals.totalTokens)}
+                    />
                     <StatCard label="Est. cost" value={formatUsd(data.totals.costUsd)} accent />
                     <StatCard
                       label="Input"
@@ -182,8 +185,8 @@ export function UsageOverlay({ className, triggerClassName }: UsageOverlayProps)
                   <UsageModelBreakdown byModel={data.byModel} pricingAsOf={data.pricingAsOf} />
 
                   <p className="text-[11px] leading-relaxed text-muted-foreground/80">
-                    Billing cycle totals: {formatTokenCount(data.billingCycleTotals.totalTokens)} tokens
-                    · {formatUsd(data.billingCycleTotals.costUsd)} est. cost ·{" "}
+                    Billing cycle totals: {formatTokenCount(data.billingCycleTotals.totalTokens)}{" "}
+                    tokens · {formatUsd(data.billingCycleTotals.costUsd)} est. cost ·{" "}
                     {data.billingCycleTotals.callCount.toLocaleString()} calls
                   </p>
                 </>

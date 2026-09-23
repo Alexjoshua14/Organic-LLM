@@ -27,6 +27,7 @@ export function writeErgonLiquidChromeCookie(enabled: boolean): void {
   if (typeof document === "undefined") return;
 
   const value = enabled ? "true" : "false";
+
   document.cookie = `${ERGON_LIQUID_CHROME_COOKIE_NAME}=${value}; path=/; max-age=${ERGON_LIQUID_CHROME_COOKIE_MAX_AGE}; SameSite=Lax`;
 }
 

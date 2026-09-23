@@ -31,7 +31,11 @@ export function mergeEnhancement(
     if (match) patch.category_id = match.id;
   }
 
-  if (!task.priority && suggestion.priority && TaskPriority.safeParse(suggestion.priority).success) {
+  if (
+    !task.priority &&
+    suggestion.priority &&
+    TaskPriority.safeParse(suggestion.priority).success
+  ) {
     patch.priority = suggestion.priority;
   }
 

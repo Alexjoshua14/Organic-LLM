@@ -1,8 +1,8 @@
 "use client";
 
-import { useCallback, useState } from "react";
-
 import type { IntrospectionGuidedState } from "@/lib/schemas/introspection";
+
+import { useCallback, useState } from "react";
 
 export function useIntrospectionGuidedState(initial: IntrospectionGuidedState) {
   const [guidedState, setGuidedState] = useState<IntrospectionGuidedState>(initial);

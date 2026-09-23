@@ -1,5 +1,4 @@
 import type { RestaurantLinks } from "@/lib/schemas/gen-ui/restaurant-card";
-
 import type { VenueBundle } from "./types";
 
 export type AddressPatch = {

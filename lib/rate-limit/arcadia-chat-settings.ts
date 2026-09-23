@@ -33,10 +33,7 @@ function createArcadiaSettingsLimiter(prefix: string) {
 
   const burstLimiter = new Ratelimit({
     redis,
-    limiter: Ratelimit.slidingWindow(
-      ARCADIA_SETTINGS_GENERATION_BURST_PER_MIN,
-      "1 m"
-    ),
+    limiter: Ratelimit.slidingWindow(ARCADIA_SETTINGS_GENERATION_BURST_PER_MIN, "1 m"),
     prefix: `${prefix}:burst`,
   });
 
@@ -52,8 +49,7 @@ async function checkArcadiaSettingsGenerationLimit(
   chatId: string
 ): Promise<RateLimitResult> {
   const key = `${userId}:${chatId}`;
-  const { bucketLimiter, burstLimiter } =
-    kind === "title" ? titleLimiter : summaryLimiter;
+  const { bucketLimiter, burstLimiter } = kind === "title" ? titleLimiter : summaryLimiter;
   const label = kind === "title" ? "title" : "summary";
 
   const burst = await runLimiter(`checkArcadiaSettingsGenerationLimit:${kind}:burst`, () =>

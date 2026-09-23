@@ -11,11 +11,7 @@ import { welcomeDemoCompactClass } from "@/components/pages/welcome/welcome-demo
 import ShinyText from "@/components/ShinyText";
 import { card, sectionLabel } from "@/lib/rabbit-holes/designTokens";
 import {
-  WELCOME_STRATA_ELABORATED_BULLETS,
-  WELCOME_STRATA_ELABORATED_CLOSING,
   WELCOME_STRATA_ELABORATED_FULL,
-  WELCOME_STRATA_ELABORATED_HEADING,
-  WELCOME_STRATA_ELABORATED_LEAD,
   WELCOME_STRATA_GENERATE_LABEL,
   WELCOME_STRATA_GENERATING_LABEL,
   WELCOME_STRATA_PAGE_TITLE,

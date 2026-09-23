@@ -1,10 +1,7 @@
+import type { DmzIntakeRequest, DmzQuarantineEntry, DmzQuarantineStatus } from "./types";
+
 import { randomUUID } from "node:crypto";
 
-import type {
-  DmzIntakeRequest,
-  DmzQuarantineEntry,
-  DmzQuarantineStatus,
-} from "./types";
 import { isProviderBlacklisted, recordIntakeOutcome } from "./source-reputation";
 import { scanDmzIntelligence } from "./scan";
 import { DMZ_MAX_INTAKE_CHARS } from "./types";
@@ -131,10 +128,7 @@ export function reviewQuarantineEntry(args: {
   return entry;
 }
 
-export function getApprovedIntelligence(
-  userId: string,
-  subjectKey: string
-): DmzQuarantineEntry[] {
+export function getApprovedIntelligence(userId: string, subjectKey: string): DmzQuarantineEntry[] {
   return listQuarantineEntries(userId, { subjectKey, status: "approved" });
 }
 

@@ -87,11 +87,7 @@ export function tryParseWebSearchToolOutput(body: unknown): ParsedWebSearchToolO
 
   const hasErr = b.error != null && b.error !== false;
   const errMsg =
-    typeof b.error === "string"
-      ? b.error
-      : typeof b.message === "string"
-        ? b.message
-        : undefined;
+    typeof b.error === "string" ? b.error : typeof b.message === "string" ? b.message : undefined;
 
   if (hasErr || (results === undefined && errMsg)) {
     return {
@@ -130,11 +126,7 @@ export const WebSearchToolResultCard = memo(function WebSearchToolResultCard({
       <ToolResultInlineRow
         isPinned={isPinned}
         pin={
-          <ToolResultPinButton
-            isPinned={isPinned}
-            showPin={showPin}
-            onTogglePin={onTogglePin}
-          />
+          <ToolResultPinButton isPinned={isPinned} showPin={showPin} onTogglePin={onTogglePin} />
         }
       >
         <button
@@ -161,9 +153,7 @@ export const WebSearchToolResultCard = memo(function WebSearchToolResultCard({
   return (
     <ToolResultInlineRow
       isPinned={isPinned}
-      pin={
-        <ToolResultPinButton isPinned={isPinned} showPin={showPin} onTogglePin={onTogglePin} />
-      }
+      pin={<ToolResultPinButton isPinned={isPinned} showPin={showPin} onTogglePin={onTogglePin} />}
     >
       <button
         className={toolResultSummaryButtonClass}

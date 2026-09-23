@@ -2,9 +2,9 @@
 
 import type { ReactNode } from "react";
 
-import { cn } from "@/lib/utils";
-
 import { useHomeComposerLumen, useHomeComposerLumenHostRef } from "./use-home-composer-lumen";
+
+import { cn } from "@/lib/utils";
 
 type HomeComposerLumenShellProps = {
   children: ReactNode;
@@ -14,6 +14,7 @@ type HomeComposerLumenShellProps = {
 /** Warm lumen rim behind the homepage prompt shell — separate layer, not on the glass surface. */
 export function HomeComposerLumenShell({ children, className }: HomeComposerLumenShellProps) {
   const hostRef = useHomeComposerLumenHostRef();
+
   useHomeComposerLumen(hostRef);
 
   return (

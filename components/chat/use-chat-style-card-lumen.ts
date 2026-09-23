@@ -19,13 +19,16 @@ export function useChatStyleCardLumen(
     if (!enabled) return;
 
     const host = hostRef.current;
+
     if (!host) return;
 
     const sync = () => {
       const card = host.querySelector<HTMLElement>(".chat-style-card");
+
       if (!card) return;
 
       const { width, height } = card.getBoundingClientRect();
+
       if (width < 1 || height < 1) return;
 
       const min = Math.min(width, height);
@@ -44,12 +47,15 @@ export function useChatStyleCardLumen(
     sync();
 
     const card = host.querySelector<HTMLElement>(".chat-style-card");
+
     if (!card) return;
 
     if (typeof ResizeObserver === "undefined") return;
 
     const observer = new ResizeObserver(sync);
+
     observer.observe(card);
+
     return () => observer.disconnect();
   }, [enabled, hostRef]);
 }

@@ -1,7 +1,7 @@
 import type { UIMessage } from "ai";
+import type { DiagramNodeLink } from "@/lib/mermaid/types";
 
 import { formatDiagramNodeContext } from "@/lib/mermaid/node-graph";
-import type { DiagramNodeLink } from "@/lib/mermaid/types";
 
 /** Prepend compact diagram-node context to the outgoing user message for the model. */
 export function augmentUserMessageWithDiagramLinks(

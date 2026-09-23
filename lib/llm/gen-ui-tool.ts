@@ -34,17 +34,13 @@ export function createRenderGenUiTool() {
 
       const blockSizeBytes = JSON.stringify(block).length;
 
-      logger.log(
-        "render_gen_ui",
-        "[render_gen_ui] rendered structured block",
-        {
-          event: "gen_ui_rendered",
-          type: block.type,
-          blockSizeBytes,
-          hadPartialFailures: false,
-          callIndex: callsThisTurn,
-        }
-      );
+      logger.log("render_gen_ui", "[render_gen_ui] rendered structured block", {
+        event: "gen_ui_rendered",
+        type: block.type,
+        blockSizeBytes,
+        hadPartialFailures: false,
+        callIndex: callsThisTurn,
+      });
 
       return { block };
     },

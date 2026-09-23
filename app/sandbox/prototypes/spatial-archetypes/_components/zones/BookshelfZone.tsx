@@ -1,13 +1,15 @@
 "use client";
 
+import type { SpatialArtifact } from "@/lib/schemas/spatial-artifact";
+
 import { useLayoutEffect, useState } from "react";
 
 import { ArtifactSlot, measureAllSlots } from "../spatial/ArtifactSlot";
+
 import { GenUIRenderer } from "@/components/chat/gen-ui/GenUIRenderer";
 import { glass } from "@/components/design-system/primitives";
 import { getGenUIBlockTitle } from "@/components/chat/gen-ui/registry";
 import { useArtifactSpatial } from "@/lib/context/artifact-spatial-context";
-import type { SpatialArtifact } from "@/lib/schemas/spatial-artifact";
 import { slotKey } from "@/lib/spatial-artifacts/zone-routing";
 import { cn } from "@/lib/utils";
 
@@ -20,15 +22,8 @@ type BookshelfZoneProps = {
   artifacts: SpatialArtifact[];
 };
 
-function BookSpine({
-  artifact,
-  hovered,
-}: {
-  artifact: SpatialArtifact;
-  hovered: boolean;
-}) {
-  const gradient =
-    SPINE_COLORS[artifact.blockType] ?? "from-teal-700/80 to-teal-900/90";
+function BookSpine({ artifact, hovered }: { artifact: SpatialArtifact; hovered: boolean }) {
+  const gradient = SPINE_COLORS[artifact.blockType] ?? "from-teal-700/80 to-teal-900/90";
   const title = getGenUIBlockTitle(artifact.block);
 
   return (
@@ -38,12 +33,7 @@ function BookSpine({
         hovered && "[transform:rotateY(-14deg)]"
       )}
     >
-      <div
-        className={cn(
-          "absolute inset-0 rounded-sm bg-gradient-to-b shadow-md",
-          gradient
-        )}
-      >
+      <div className={cn("absolute inset-0 rounded-sm bg-gradient-to-b shadow-md", gradient)}>
         <span className="absolute inset-x-0 top-3 mx-auto block w-[1px] h-[calc(100%-1.5rem)] bg-white/10" />
         <span
           className="absolute left-1/2 top-1/2 w-28 -translate-x-1/2 -translate-y-1/2 -rotate-90 text-[9px] font-medium tracking-wide text-white/90 truncate"
@@ -105,9 +95,7 @@ export function BookshelfZone({ artifacts }: BookshelfZoneProps) {
 
       {openId ? (
         <div className={cn(glass({ opaque: true }), "rounded-xl border border-border/50 p-4")}>
-          <GenUIRenderer
-            data={{ block: artifacts.find((a) => a.id === openId)!.block }}
-          />
+          <GenUIRenderer data={{ block: artifacts.find((a) => a.id === openId)!.block }} />
         </div>
       ) : null}
     </section>

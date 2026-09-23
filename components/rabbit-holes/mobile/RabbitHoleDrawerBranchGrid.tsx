@@ -11,7 +11,13 @@ import { glass } from "@/components/design-system/primitives";
 import { cn } from "@/lib/utils";
 
 const MAX_VISIBLE_BRANCHES = 5;
-const ROW_START = ["row-start-1", "row-start-2", "row-start-3", "row-start-4", "row-start-5"] as const;
+const ROW_START = [
+  "row-start-1",
+  "row-start-2",
+  "row-start-3",
+  "row-start-4",
+  "row-start-5",
+] as const;
 
 export interface RabbitHoleDrawerBranchGridProps {
   session: RabbitHoleSession | null;
@@ -87,7 +93,9 @@ export function RabbitHoleDrawerBranchGrid({
             className={cn(
               "col-span-5 flex min-h-11 items-center justify-between gap-2 rounded-xl border border-border/50 px-3 py-2 text-left text-sm font-medium",
               glass({ opaque: true }),
-              showParent ? `col-start-2 ${ROW_START[index] ?? "row-start-1"}` : `col-start-1 ${ROW_START[index] ?? "row-start-1"}`,
+              showParent
+                ? `col-start-2 ${ROW_START[index] ?? "row-start-1"}`
+                : `col-start-1 ${ROW_START[index] ?? "row-start-1"}`,
               !showParent && "col-span-6",
               "transition-colors active:bg-card/80 disabled:opacity-40"
             )}
