@@ -33,7 +33,7 @@ import {
 import { ErgonTaskResult } from "@/components/ergon/ErgonTaskResult";
 import { GenUIStreamingPart } from "@/components/chat/gen-ui/GenUIStreamingPart";
 import { GenUIToolResult } from "@/components/chat/gen-ui/GenUIToolResult";
-import { KanbanLoadingShell } from "@/components/chat/kanban/KanbanLoadingShell";
+import { KanbanInFlight } from "@/components/chat/kanban/KanbanInFlight";
 import { KanbanToolResult } from "@/components/chat/kanban/KanbanToolResult";
 import { MiseLoadingShell } from "@/components/chat/mise/MiseLoadingShell";
 import { MiseToolResult } from "@/components/chat/mise/MiseToolResult";
@@ -43,6 +43,7 @@ import { RENDER_GEN_UI_TOOL_NAME } from "@/lib/llm/gen-ui-tool";
 import { KANBAN_BOARD_TOOL_NAME } from "@/lib/llm/kanban-tool";
 import { MISE_PLAN_TOOL_NAME } from "@/lib/llm/mise-tool";
 import { MANAGE_TASKS_TOOL_NAME } from "@/lib/schemas/ergon-tasks";
+import { peekKanbanCommandType } from "@/lib/schemas/kanban";
 import { cn } from "@/lib/utils";
 import { ChatAIActionEnum } from "@/types/ai";
 import { MermaidDiagram } from "@/components/blog/mermaid-diagram";
@@ -56,6 +57,12 @@ type ChatMessageProps = {
   chatId?: string;
   isLastMessage?: boolean;
   showModelBadge?: boolean;
+  /**
+   * When false, hide assistant action row (TTS / pin / copy).
+   * Showcase pages pass false so signed-in viewers cannot trigger paid TTS.
+   * @default true
+   */
+  showActions?: boolean;
   /** When true, show custom Arcadia help UI; when false, show markdown. Omitted for non-help messages. */
   isLatestArcadiaHelp?: boolean;
   aiActionPayload?: {
@@ -66,7 +73,14 @@ type ChatMessageProps = {
 };
 
 export const ChatMessage = memo<ChatMessageProps>(function ChatMessage(props) {
-  const { message, chatId, aiActionPayload, isLatestArcadiaHelp, showModelBadge } = props;
+  const {
+    message,
+    chatId,
+    aiActionPayload,
+    isLatestArcadiaHelp,
+    showModelBadge,
+    showActions = true,
+  } = props;
 
   switch (message.role) {
     case "assistant":
@@ -76,6 +90,7 @@ export const ChatMessage = memo<ChatMessageProps>(function ChatMessage(props) {
           chatId={chatId}
           isLatestArcadiaHelp={isLatestArcadiaHelp}
           message={message}
+          showActions={showActions}
           showModelBadge={showModelBadge}
         />
       );
@@ -94,6 +109,7 @@ const AIMessage: FC<ChatMessageProps> = ({
   aiActionPayload,
   isLatestArcadiaHelp,
   showModelBadge,
+  showActions = true,
 }) => {
   const [pinnedToolIds, setPinnedToolIds] = useState<Record<string, boolean>>({});
 
@@ -157,7 +173,23 @@ const AIMessage: FC<ChatMessageProps> = ({
 
                 if (toolName === KANBAN_BOARD_TOOL_NAME) {
                   if (part.state === "input-streaming" || part.state === "input-available") {
-                    return <KanbanLoadingShell key={`${message.id}-${i}-kanban-stream`} />;
+                    const commandType = peekKanbanCommandType(
+                      "input" in part && part.input && typeof part.input === "object"
+                        ? (part.input as { command?: unknown }).command
+                        : undefined
+                    );
+                    const showFullShell =
+                      commandType === "INITIATE_KANBAN" || commandType === "SHOW_VIEW";
+
+                    return (
+                      <KanbanInFlight
+                        key={`${message.id}-${i}-kanban-stream`}
+                        input={"input" in part ? part.input : undefined}
+                        showFullShell={showFullShell}
+                        thinkingLabel={toolInvocationInFlightLabel(toolName)}
+                        threadId={chatId ?? message.id}
+                      />
+                    );
                   }
                   if (part.state === "output-available") {
                     return (
@@ -363,7 +395,7 @@ const AIMessage: FC<ChatMessageProps> = ({
           <ChatAIAction aiActionPayload={aiActionPayload} />
         )}
       </div>
-      {!isActivelyStreaming && (
+      {showActions && !isActivelyStreaming && (
         <AssistantMessageActions showPinAndCopy={!showCustomArcadiaHelp} text={text} />
       )}
     </div>

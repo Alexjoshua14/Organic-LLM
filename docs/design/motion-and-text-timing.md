@@ -131,6 +131,28 @@ latency cannot meet this budget on a slow connection.
 Implementation: [`lib/chat/optimistic-ai-action.ts`](../../lib/chat/optimistic-ai-action.ts) +
 `ChatThread` (`status` + standalone tail while the last row is still the user message).
 
+### Showcase replay (scripted demos)
+
+Public `/showcase/*` autoplay loops (e.g. Ergon live board) use a dedicated timing module —
+not chat loading burns. Values sit in the same research bands; tune by eye on the page.
+
+| Token | Value | Rationale |
+|-------|-------|-----------|
+| Composer typing | **35ms**/char | Bottom of typewriter / streaming reveal band |
+| Assistant stream | **~36ms**/token | Matches welcome Noesis loop; word-ish tokens |
+| Thinking pause | **700ms** | Brief “planning” beat before tools/text |
+| Tool in-flight (default) | **900ms** | Long enough to read a compact status row |
+| Tool in-flight (INITIATE) | **1600ms** | Full board shell needs a readable beat |
+| Chapter / loop holds | **1.4s / 2.8s** | Exit-faster-than-enter; loop hold lets the final view settle |
+
+Constants: [`lib/showcase/replay-timing.ts`](../../lib/showcase/replay-timing.ts). Honor
+`prefers-reduced-motion` by snapping to the final frame (see `useReplayClock`).
+
+Living-board motion (Presence / Trace / Field) lives next to the effect in
+[`components/chat/kanban/living/living-board-timing.ts`](../../components/chat/kanban/living/living-board-timing.ts)
+— card springs, lane folds, wash / spark / orb breaths. Do not put one-off stagger or duration
+numbers in JSX.
+
 ### Sustain shimmer (activity)
 
 After burn-in settles, sustain uses **`ShinyText`** at `5s` (`PROCESSING_TEXT_BURN_SUSTAIN_SHIMMER_S`)
