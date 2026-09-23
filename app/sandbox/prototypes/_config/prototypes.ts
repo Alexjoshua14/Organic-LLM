@@ -280,20 +280,21 @@ export const prototypes: PrototypeEntry[] = [
   },
   {
     slug: "ergon",
-    title: "Ergon board (kanban puppet)",
+    title: "Ergon living board",
     description:
-      "LLM-driven kanban chat style: stream INITIATE -> hydrate -> show-view commands into a client store and render saved views with motion.",
+      "Presence is now production. Lab still compares Trace / Field / Presence, plus a compact in-chat block and the legacy board as Before.",
     about: {
-      what: "A kanban puppet — step through INITIATE → hydrate → show-view commands into a client store and render saved board views with motion, without hitting an API.",
-      howToUse: "Use the step buttons to replay fixture commands and switch between saved views.",
-      adminQuestion:
-        "What is Ergon meant to become in production chat — a full task surface, a lightweight status board, or something else?",
+      what: "A lab for the Ergon board. Presence shipped as the production SHOW_VIEW surface; Trace and Field stay here for comparison on the same replay script.",
+      howToUse:
+        "Pick a light or Compare all, switch widths to see how the board squeezes, and use the transport to pause or send the next command. Open board on an in-thread block expands it to the full board.",
+      authorThoughts:
+        "Presence won: light is the model — orb, underglow, sparks. Quiet cards, fixed six lanes that fold to rails, no hard rims.",
     },
     ranking: {
       importance: 8,
       frequency: 4,
       createdAt: "2026-05-31",
-      updatedAt: "2026-05-31",
+      updatedAt: "2026-09-22",
     },
   },
   {

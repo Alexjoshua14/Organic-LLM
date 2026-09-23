@@ -59,7 +59,7 @@ export function ConversationRail({ trace, className }: ConversationRailProps) {
         <ConversationContent className="w-full flex-1 overflow-y-auto px-3 pt-4 pb-6 sm:px-4">
           <div className="mx-auto flex w-full max-w-232 flex-col gap-6">
             {messages.map((m) => (
-              <ChatMessage key={m.id} message={m} />
+              <ChatMessage key={m.id} chatId="showcase-anatomy" message={m} showActions={false} />
             ))}
           </div>
         </ConversationContent>

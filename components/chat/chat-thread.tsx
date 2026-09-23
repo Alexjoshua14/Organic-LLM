@@ -29,6 +29,11 @@ type ChatThreadProps = {
   contentClassName?: string;
   /** useChat status — drives the on-device receipt before stream bytes arrive. */
   status?: ChatStatus;
+  /**
+   * Forwarded to ChatMessage. Showcase pages pass false to hide paid TTS actions.
+   * @default true
+   */
+  showActions?: boolean;
   aiActionPayload?: {
     action: ChatAIActionEnum;
     message?: string;
@@ -44,6 +49,7 @@ export const ChatThread: FC<ChatThreadProps> = ({
   className,
   contentClassName,
   status,
+  showActions = true,
   aiActionPayload,
   renderEmptyState,
 }) => {
@@ -115,6 +121,7 @@ export const ChatThread: FC<ChatThreadProps> = ({
                   isArcadiaHelpMessage(message) ? isLatestArcadiaHelp : undefined
                 }
                 message={message}
+                showActions={showActions}
                 showModelBadge={!modelSummary.shouldUseThreadBadge}
               />
             );
