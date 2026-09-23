@@ -138,8 +138,8 @@ export const LivingBoard = memo(function LivingBoard({
           className
         )}
       >
-        <div className="flex items-start justify-between gap-3 px-4 pt-3.5">
-          <div className="min-w-0 flex-1">
+        <div className="flex items-start gap-3 px-4 pt-3.5">
+          <div className="min-w-0 max-w-[min(100%,16rem)] shrink sm:max-w-[48%]">
             <p className="truncate text-2xs font-medium uppercase tracking-[0.14em] text-muted-foreground">
               {board?.meta.title ?? "Ergon board"}
             </p>
@@ -148,7 +148,7 @@ export const LivingBoard = memo(function LivingBoard({
               <p className="mt-0.5 truncate text-xs text-muted-foreground">{view.summary}</p>
             ) : null}
           </div>
-          <div className="flex shrink-0 items-start gap-2">
+          <div className="flex min-w-0 flex-1 items-start justify-end gap-2">
             {behavior.presence ? (
               <PresenceOrb ref={orbRef} caption={caption} working={working} />
             ) : null}

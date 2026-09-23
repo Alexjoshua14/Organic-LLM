@@ -3,7 +3,7 @@
 import type { Point } from "./board-dom";
 import type { Ref } from "react";
 
-import { AnimatePresence, motion } from "framer-motion";
+import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 
 import {
   cssEase,
@@ -17,6 +17,8 @@ import {
   LIVING_SPARK_S,
 } from "./living-board-timing";
 
+import ShinyText from "@/components/ShinyText";
+import { PROCESSING_TEXT_BURN_SUSTAIN_SHIMMER_S } from "@/lib/chat/processing-text-burn-timing";
 import { cn } from "@/lib/utils";
 
 /**
@@ -32,6 +34,7 @@ export function PresenceOrb({
   caption?: string;
   ref?: Ref<HTMLSpanElement>;
 }) {
+  const reduceMotion = useReducedMotion() ?? false;
   // Stay lit a beat after the work lands, so the spark visibly leaves the orb.
   const glowTransition = {
     transitionDuration: `${LIVING_PRESENCE_GLOW_FADE_S}s`,
@@ -39,22 +42,28 @@ export function PresenceOrb({
   };
 
   return (
-    <div className="flex min-w-0 max-w-[55%] shrink-0 items-center gap-3">
-      <p
-        aria-live="polite"
-        className="min-w-0 truncate text-right text-[11px] text-muted-foreground"
-      >
+    <div className="flex min-w-0 flex-1 items-center justify-end gap-3">
+      <p aria-live="polite" className="min-w-0 truncate text-right text-[11px]">
         <AnimatePresence initial={false} mode="wait">
           {working && caption ? (
             <motion.span
               key={caption}
               animate={{ opacity: 1 }}
-              className="block truncate"
+              className="block min-w-0 max-w-full truncate"
               exit={{ opacity: 0 }}
               initial={{ opacity: 0 }}
               transition={{ duration: LIVING_CAPTION_FADE_S }}
             >
-              {caption}
+              {reduceMotion ? (
+                <span className="text-muted-foreground">{caption}</span>
+              ) : (
+                <ShinyText
+                  as="span"
+                  className="!block max-w-full truncate text-right"
+                  speed={PROCESSING_TEXT_BURN_SUSTAIN_SHIMMER_S}
+                  text={caption}
+                />
+              )}
             </motion.span>
           ) : null}
         </AnimatePresence>
