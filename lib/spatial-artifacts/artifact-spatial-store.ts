@@ -1,4 +1,5 @@
 import type { ArtifactRect, ArtifactSpatialEntry } from "./spatial-types";
+
 import { rectFromVector4 } from "./spatial-types";
 
 type SlotRegistration = {
@@ -26,7 +27,12 @@ export class ArtifactSpatialStore {
     return this.stageEl;
   }
 
-  registerSlot(slotKey: string, artifactId: string, role: string, measureEl: HTMLElement | null): void {
+  registerSlot(
+    slotKey: string,
+    artifactId: string,
+    role: string,
+    measureEl: HTMLElement | null
+  ): void {
     this.slots.set(slotKey, { artifactId, role, measureEl });
   }
 

@@ -139,6 +139,7 @@ export const LiquidChrome = memo(function LiquidChrome({
 
     function resize() {
       const dpr = Math.min(window.devicePixelRatio || 1, MAX_DPR);
+
       renderer.setSize(container.offsetWidth * dpr, container.offsetHeight * dpr);
       const resUniform = program.uniforms.uResolution.value as Float32Array;
 
@@ -155,11 +156,12 @@ export const LiquidChrome = memo(function LiquidChrome({
 
     function handleMouseMove(event: MouseEvent) {
       const rect = container.getBoundingClientRect();
+
       if (rect.width <= 0 || rect.height <= 0) return;
 
       setMouseTarget(
         (event.clientX - rect.left) / rect.width,
-        1 - (event.clientY - rect.top) / rect.height,
+        1 - (event.clientY - rect.top) / rect.height
       );
     }
 
@@ -167,11 +169,12 @@ export const LiquidChrome = memo(function LiquidChrome({
       if (event.touches.length === 0) return;
       const touch = event.touches[0];
       const rect = container.getBoundingClientRect();
+
       if (rect.width <= 0 || rect.height <= 0) return;
 
       setMouseTarget(
         (touch.clientX - rect.left) / rect.width,
-        1 - (touch.clientY - rect.top) / rect.height,
+        1 - (touch.clientY - rect.top) / rect.height
       );
     }
 
@@ -182,6 +185,7 @@ export const LiquidChrome = memo(function LiquidChrome({
 
     function syncUniformsFromProps() {
       const runtime = propsRef.current;
+
       if (runtimePropsEqual(syncedProps, runtime)) return;
 
       const baseColorUniform = program.uniforms.uBaseColor.value as Float32Array;
@@ -199,6 +203,7 @@ export const LiquidChrome = memo(function LiquidChrome({
       syncUniformsFromProps();
 
       const runtime = propsRef.current;
+
       program.uniforms.uTime.value = timeMs * 0.001 * runtime.speed;
 
       if (interactive) {
@@ -215,6 +220,7 @@ export const LiquidChrome = memo(function LiquidChrome({
     function tick(t: number) {
       if (pausedRef.current) {
         animationId = null;
+
         return;
       }
 

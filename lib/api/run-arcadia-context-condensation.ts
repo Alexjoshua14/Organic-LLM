@@ -1,5 +1,3 @@
-import type { UIMessage } from "ai";
-
 import { getMessages } from "@/data/supabase/chat";
 import { selectArcadiaContextMessages } from "@/lib/chat/arcadia-token-context";
 import {

@@ -28,8 +28,8 @@ import {
   QUICK_PREVIEW_SYSTEM_PROMPT,
   SOURCE_ANALYSIS_SYSTEM_PROMPT,
 } from "@/lib/system-prompt/rabbit-hole";
-
 import { models, providerModelSlug } from "@/lib/schemas/chat-models";
+
 import { z } from "zod";
 
 const logger = createLogger("lib/llm/rabbit-hole/generation.ts");

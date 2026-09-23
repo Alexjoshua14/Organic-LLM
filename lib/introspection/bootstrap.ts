@@ -1,7 +1,5 @@
 import "server-only";
 
-import { z } from "zod";
-
 import { createChat } from "@/lib/chat/chat-store";
 import { updateThreadRouting } from "@/data/supabase/chat";
 import {

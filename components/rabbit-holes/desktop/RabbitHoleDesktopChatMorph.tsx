@@ -3,14 +3,7 @@
 import { snapshot, type Vector4 } from "@organic-llm/morph-physics";
 import { useMorphPhysics } from "@organic-llm/morph-physics/react";
 import { useReducedMotion } from "framer-motion";
-import {
-  useCallback,
-  useEffect,
-  useLayoutEffect,
-  useRef,
-  useState,
-  type ReactNode,
-} from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import { flushSync } from "react-dom";
 
 import { RABBIT_HOLE_COMPOSER_MORPH_SPRING } from "@/lib/rabbit-holes/desktop-chat-morph-springs";
@@ -42,9 +35,7 @@ function ComposerMeasureShell({
   }
 
   return (
-    <div className={cn("pointer-events-none w-full px-3 pb-2", gutterClassName)}>
-      {children}
-    </div>
+    <div className={cn("pointer-events-none w-full px-3 pb-2", gutterClassName)}>{children}</div>
   );
 }
 
@@ -121,10 +112,7 @@ export function RabbitHoleDesktopChatMorph({
 
   return (
     <div ref={stageRef} className="relative min-h-0 flex-1">
-      <div
-        aria-hidden
-        className="pointer-events-none absolute inset-0 overflow-hidden opacity-0"
-      >
+      <div aria-hidden className="pointer-events-none absolute inset-0 overflow-hidden opacity-0">
         <ComposerMeasureShell dock="center" gutterClassName={gutterClassName}>
           <div ref={centerGhostRef} className="w-full" />
         </ComposerMeasureShell>

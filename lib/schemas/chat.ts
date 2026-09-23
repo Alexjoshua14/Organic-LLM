@@ -1,4 +1,6 @@
 import type { GatewayModelId } from "@ai-sdk/gateway";
+import type { DeviceTier } from "@/lib/memory-ingest/delphi-caption-budget";
+import type { ChatModel } from "@/lib/schemas/chat-models";
 
 import z from "zod";
 
@@ -6,13 +8,11 @@ import { CHAT_EXPERIENCES, parseChatExperience } from "@/lib/chat/chat-experienc
 import { parseChatStyle, ChatStyleSchema } from "@/lib/chat/chat-style";
 import { ChatEffortLevelSchema } from "@/lib/schemas/chat-effort";
 import { ContextEffortLevelSchema } from "@/lib/memory/context-effort";
-import type { DeviceTier } from "@/lib/memory-ingest/delphi-caption-budget";
 import {
   type DrawerChatDisplayInput,
   type DrawerSheetSnap,
 } from "@/lib/rabbit-holes/drawer-chat-ui-budget";
 import { AUTO_CHAT_MODEL_ID } from "@/lib/schemas/chat-model-ids";
-import type { ChatModel } from "@/lib/schemas/chat-models";
 
 export type { ChatEffortLevel } from "@/lib/schemas/chat-effort";
 export {
@@ -174,14 +174,22 @@ export const DelphiDisplayRequestSchema = z.object({
   lineHeightPx: z.number().finite().positive(),
   avgCharWidthPx: z.number().finite().positive().optional(),
   userAgent: z.string().max(512).optional(),
-  deviceTier: z.enum(["mobile", "tablet", "desktop"] satisfies [DeviceTier, DeviceTier, DeviceTier]),
+  deviceTier: z.enum(["mobile", "tablet", "desktop"] satisfies [
+    DeviceTier,
+    DeviceTier,
+    DeviceTier,
+  ]),
   rootFontSizePx: z.number().finite().positive().optional(),
 });
 
 export const DrawerChatDisplayRequestSchema = z.object({
   viewportWidthPx: z.number().finite().positive(),
   viewportHeightPx: z.number().finite().positive(),
-  sheetSnap: z.enum(["collapsed", "half", "full"] satisfies [DrawerSheetSnap, DrawerSheetSnap, DrawerSheetSnap]),
+  sheetSnap: z.enum(["collapsed", "half", "full"] satisfies [
+    DrawerSheetSnap,
+    DrawerSheetSnap,
+    DrawerSheetSnap,
+  ]),
   aiBlockMaxHeightPx: z.number().finite().positive(),
   aiBlockWidthPx: z.number().finite().positive(),
   fontSizePx: z.number().finite().positive(),

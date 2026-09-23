@@ -38,8 +38,7 @@ export function computeDrawerChatBudget(input: DrawerChatDisplayInput): DrawerCh
     MAX_CHARS_PER_LINE
   );
 
-  const snapFactor =
-    input.sheetSnap === "collapsed" ? 0.85 : input.sheetSnap === "half" ? 0.95 : 1;
+  const snapFactor = input.sheetSnap === "collapsed" ? 0.85 : input.sheetSnap === "half" ? 0.95 : 1;
   const targetWordRange: [number, number] = [
     Math.round(DEFAULT_TARGET_WORDS[0] * snapFactor),
     Math.round(DEFAULT_TARGET_WORDS[1] * snapFactor),

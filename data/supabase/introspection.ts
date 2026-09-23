@@ -1,6 +1,9 @@
 import "server-only";
 
-import type { IntrospectionGuidedState, IntrospectionStoredConfig } from "@/lib/schemas/introspection";
+import type {
+  IntrospectionGuidedState,
+  IntrospectionStoredConfig,
+} from "@/lib/schemas/introspection";
 
 import { supabaseServer } from "@/lib/supabase/server";
 import { encryptForStorage, decryptFromStorage } from "@/lib/crypto/message-encryption";
@@ -60,7 +63,10 @@ export async function saveIntrospectionBootstrap(
   const { error } = await sb
     .from("threads")
     .update({
-      introspection_config_ciphertext: encryptForStorage(configJson, configContext(userId, threadId)),
+      introspection_config_ciphertext: encryptForStorage(
+        configJson,
+        configContext(userId, threadId)
+      ),
       introspection_guided_state_ciphertext: encryptForStorage(
         guidedJson,
         guidedStateContext(userId, threadId)

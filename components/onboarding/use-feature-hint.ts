@@ -9,10 +9,7 @@ import {
   isFeatureHintDismissed,
   readFeatureHintDismissRecord,
 } from "@/lib/onboarding/feature-hint-storage";
-import {
-  getFeatureHint,
-  isFeatureHintEnabledInCode,
-} from "@/lib/onboarding/feature-hints";
+import { getFeatureHint, isFeatureHintEnabledInCode } from "@/lib/onboarding/feature-hints";
 
 export function useFeatureHint(id: FeatureHintId, showWhen = true) {
   const definition = getFeatureHint(id);

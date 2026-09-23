@@ -2,6 +2,9 @@
 
 import type { UsageApiPayload } from "@/lib/usage/types";
 
+import { UsageSectionHeader } from "./usage-section-header";
+import { usageRowMetric, usageRowModel, usageRowPrimary } from "./usage-typography";
+
 import {
   formatCachedInputRate,
   formatCachedTokenCount,
@@ -11,17 +14,7 @@ import {
   shortModelLabel,
 } from "@/lib/usage/format";
 import { formatDate } from "@/lib/format/stringFormatting";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger,
-} from "@/components/third-party/ui/tooltip";
-import { UsageSectionHeader } from "./usage-section-header";
-import {
-  usageRowMetric,
-  usageRowModel,
-  usageRowPrimary,
-} from "./usage-typography";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/third-party/ui/tooltip";
 import { cn } from "@/lib/utils";
 
 type UsageModelBreakdownProps = {
@@ -29,10 +22,8 @@ type UsageModelBreakdownProps = {
   pricingAsOf: string;
 };
 
-const GRID_WITH_CACHED =
-  "sm:grid-cols-[1.2fr_repeat(5,minmax(0,1fr))]";
-const GRID_WITHOUT_CACHED =
-  "sm:grid-cols-[1.4fr_repeat(4,minmax(0,1fr))]";
+const GRID_WITH_CACHED = "sm:grid-cols-[1.2fr_repeat(5,minmax(0,1fr))]";
+const GRID_WITHOUT_CACHED = "sm:grid-cols-[1.4fr_repeat(4,minmax(0,1fr))]";
 
 function formatPricingAsOfDate(dateString: string): string {
   const iso = /^\d{4}-\d{2}-\d{2}$/.test(dateString) ? `${dateString}T12:00:00` : dateString;

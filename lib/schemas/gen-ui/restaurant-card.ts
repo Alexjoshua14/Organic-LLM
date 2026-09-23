@@ -48,10 +48,7 @@ export type RestaurantRating = z.infer<typeof RestaurantRatingSchema>;
 export const RestaurantImageSchema = z.object({
   url: httpUrl(),
   alt: optionalStringCatch(),
-  kind: z
-    .enum(["exterior", "interior", "food", "vibe", "other"])
-    .optional()
-    .catch(undefined),
+  kind: z.enum(["exterior", "interior", "food", "vibe", "other"]).optional().catch(undefined),
 });
 
 export type RestaurantImage = z.infer<typeof RestaurantImageSchema>;

@@ -114,6 +114,7 @@ export function NoesisScrollPersistence({ threadId, messageCount }: NoesisScroll
     const observer = new ResizeObserver(() => {
       if (tryRestore()) {
         observer.disconnect();
+
         return;
       }
 

@@ -4,9 +4,7 @@ import { searchWeb } from "./client";
 
 import { RabbitHoleNode } from "@/lib/schemas/rabbitHoleSchemas";
 import { createLogger } from "@/lib/logger";
-import {
-  fetchExternalContentText,
-} from "@/lib/security/external-content/fetch-external-content";
+import { fetchExternalContentText } from "@/lib/security/external-content/fetch-external-content";
 import { sanitizeUntrustedText } from "@/lib/security/external-content/untrusted";
 
 const logger = createLogger("lib/exa/sources.ts");

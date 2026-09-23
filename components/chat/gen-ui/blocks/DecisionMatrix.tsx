@@ -166,9 +166,7 @@ export function DecisionMatrix({ block, partial }: DecisionMatrixProps) {
               <div className="flex items-center justify-between gap-2">
                 <span className="font-medium text-sm">{opt.name}</span>
                 {isRec ? (
-                  <span className="text-2xs font-semibold uppercase text-primary">
-                    Recommended
-                  </span>
+                  <span className="text-2xs font-semibold uppercase text-primary">Recommended</span>
                 ) : null}
               </div>
               {block.criteria.map((c) => {

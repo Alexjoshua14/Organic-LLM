@@ -101,7 +101,11 @@ function RabbitHoleShellInner() {
 
   const [activeTakeawayIndex, setActiveTakeawayIndex] = useState<number | null>(null);
   const [focusMode, setFocusMode] = useState(false);
-  const { open: chatOpen, setOpen: setChatOpen, toggle: toggleChat } = useRabbitHoleDesktopChatOpen();
+  const {
+    open: chatOpen,
+    setOpen: setChatOpen,
+    toggle: toggleChat,
+  } = useRabbitHoleDesktopChatOpen();
   const { open, setOpen } = useSidebar();
   const sidebarOpenBeforeFocusRef = useRef(open);
 

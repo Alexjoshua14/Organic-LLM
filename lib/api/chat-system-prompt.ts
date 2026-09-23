@@ -1,6 +1,7 @@
 import type { z } from "zod";
 import type { ChatStyle } from "@/lib/chat/chat-style";
 import type { DelphiDisplayInput } from "@/lib/memory-ingest/delphi-caption-budget";
+import type { DrawerChatDisplayInput } from "@/lib/rabbit-holes/drawer-chat-ui-budget";
 
 import {
   type ChatExperience,
@@ -17,7 +18,6 @@ import {
 } from "@/lib/personas/delphi";
 import { StrataAssistantPersonaRequestSchema } from "@/lib/schemas/chat";
 import { appendRabbitHoleDrawerSystemFragments } from "@/lib/llm/rabbit-hole-chat-augmentation";
-import type { DrawerChatDisplayInput } from "@/lib/rabbit-holes/drawer-chat-ui-budget";
 import {
   computeDelphiCaptionBudget,
   delphiScrollCharBudget,
@@ -113,6 +113,7 @@ export function appendMainChatPostToolSystemFragments(
     }
 
     const priming = arcadiaStarterPriming?.trim();
+
     if (priming) {
       out += `\n\n[Arcadia starter prompt]\n${priming}`;
     }

@@ -33,7 +33,8 @@ export function createRabbitHoleAssistantTools({
   getActiveNodeId: () => string | null;
 }) {
   const navigate_rabbit_hole_node = tool({
-    description: "Navigate the article viewport to an existing node in the current rabbit hole session.",
+    description:
+      "Navigate the article viewport to an existing node in the current rabbit hole session.",
     inputSchema: z.object({
       nodeId: z.string().min(1),
     }),
@@ -56,7 +57,11 @@ export function createRabbitHoleAssistantTools({
 
       await saveSession(JSON.stringify(updated));
 
-      writer?.write({ type: "data-rabbit-hole-nav", data: { activeNodeId: nodeId }, transient: true });
+      writer?.write({
+        type: "data-rabbit-hole-nav",
+        data: { activeNodeId: nodeId },
+        transient: true,
+      });
 
       return { ok: true as const, activeNodeId: nodeId };
     },
@@ -143,7 +148,8 @@ export function createRabbitHoleAssistantTools({
       const q = query.toLowerCase();
       const results = Object.values(sessionRes.data.nodesById)
         .filter((node) => {
-          const hay = `${node.title ?? ""} ${node.userQuestion} ${node.summary ?? ""} ${(node.keyTakeaways ?? []).join(" ")}`.toLowerCase();
+          const hay =
+            `${node.title ?? ""} ${node.userQuestion} ${node.summary ?? ""} ${(node.keyTakeaways ?? []).join(" ")}`.toLowerCase();
 
           return hay.includes(q);
         })

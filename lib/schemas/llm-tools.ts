@@ -1,10 +1,7 @@
 import z from "zod";
 import { UIMessage } from "ai";
 
-export {
-  SearchMemoryToolSchema,
-  type SearchMemoryToolInput,
-} from "@/lib/llm/chat-tool-schemas";
+export { SearchMemoryToolSchema, type SearchMemoryToolInput } from "@/lib/llm/chat-tool-schemas";
 
 export const ValidSummarySchema = z.object({
   valid: z.boolean().describe("Indicates whether the summary is valid."),

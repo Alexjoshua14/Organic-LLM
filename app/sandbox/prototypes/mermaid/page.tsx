@@ -127,71 +127,71 @@ export default function MermaidPrototypePage() {
     <Page>
       <DiagramNodeLinksProvider>
         <DiagramTakeoverProvider>
-      <PageContentFrame maxWidth="3xl" className="h-full overflow-y-auto pb-16">
-        <PageNavBack className="mb-8" href="/sandbox/prototypes">
-          ← Prototypes
-        </PageNavBack>
+          <PageContentFrame maxWidth="3xl" className="h-full overflow-y-auto pb-16">
+            <PageNavBack className="mb-8" href="/sandbox/prototypes">
+              ← Prototypes
+            </PageNavBack>
 
-        <h1 className="mb-2 text-2xl font-light tracking-tight text-foreground">
-          Mermaid variant lab
-        </h1>
-        <p className="mb-6 text-sm text-muted-foreground">
-          Recessed-well styling, cluster tokens, staged reveal, and dual-source fixtures. Toggle
-          theme and motion to direct the look before takeover chrome ships.
-        </p>
+            <h1 className="mb-2 text-2xl font-light tracking-tight text-foreground">
+              Mermaid variant lab
+            </h1>
+            <p className="mb-6 text-sm text-muted-foreground">
+              Recessed-well styling, cluster tokens, staged reveal, and dual-source fixtures. Toggle
+              theme and motion to direct the look before takeover chrome ships.
+            </p>
 
-        <div className="mb-8 flex flex-wrap gap-2">
-          <button
-            className={cn(
-              "rounded-md border px-3 py-1.5 text-xs",
-              theme === "light" ? "border-border bg-background-tertiary/40" : "border-border/50"
-            )}
-            type="button"
-            onClick={() => setTheme("light")}
-          >
-            Light
-          </button>
-          <button
-            className={cn(
-              "rounded-md border px-3 py-1.5 text-xs",
-              theme === "dark" ? "border-border bg-background-tertiary/40" : "border-border/50"
-            )}
-            type="button"
-            onClick={() => setTheme("dark")}
-          >
-            Dark
-          </button>
-          <button
-            className={cn(
-              "rounded-md border px-3 py-1.5 text-xs",
-              reduceMotion ? "border-border bg-background-tertiary/40" : "border-border/50"
-            )}
-            type="button"
-            onClick={() => setReduceMotion((v) => !v)}
-          >
-            Reduced motion: {reduceMotion ? "on" : "off"}
-          </button>
-        </div>
+            <div className="mb-8 flex flex-wrap gap-2">
+              <button
+                className={cn(
+                  "rounded-md border px-3 py-1.5 text-xs",
+                  theme === "light" ? "border-border bg-background-tertiary/40" : "border-border/50"
+                )}
+                type="button"
+                onClick={() => setTheme("light")}
+              >
+                Light
+              </button>
+              <button
+                className={cn(
+                  "rounded-md border px-3 py-1.5 text-xs",
+                  theme === "dark" ? "border-border bg-background-tertiary/40" : "border-border/50"
+                )}
+                type="button"
+                onClick={() => setTheme("dark")}
+              >
+                Dark
+              </button>
+              <button
+                className={cn(
+                  "rounded-md border px-3 py-1.5 text-xs",
+                  reduceMotion ? "border-border bg-background-tertiary/40" : "border-border/50"
+                )}
+                type="button"
+                onClick={() => setReduceMotion((v) => !v)}
+              >
+                Reduced motion: {reduceMotion ? "on" : "off"}
+              </button>
+            </div>
 
-        <div className="flex flex-col gap-10">
-          {FIXTURES.map((f) => (
-            <section key={f.id} data-testid={`mermaid-case-${f.id}`}>
-              <h2 className="mb-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                {f.title}
-              </h2>
-              {f.toolOutput ? (
-                <MermaidToolDiagram
-                  interactive
-                  output={f.toolOutput}
-                  toolCallId={`lab-${f.id}`}
-                />
-              ) : (
-                <MermaidDiagram code={f.code ?? ""} expandOnDoubleClick={!f.expectError} />
-              )}
-            </section>
-          ))}
-        </div>
-      </PageContentFrame>
+            <div className="flex flex-col gap-10">
+              {FIXTURES.map((f) => (
+                <section key={f.id} data-testid={`mermaid-case-${f.id}`}>
+                  <h2 className="mb-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                    {f.title}
+                  </h2>
+                  {f.toolOutput ? (
+                    <MermaidToolDiagram
+                      interactive
+                      output={f.toolOutput}
+                      toolCallId={`lab-${f.id}`}
+                    />
+                  ) : (
+                    <MermaidDiagram code={f.code ?? ""} expandOnDoubleClick={!f.expectError} />
+                  )}
+                </section>
+              ))}
+            </div>
+          </PageContentFrame>
           <DiagramTakeoverShell />
         </DiagramTakeoverProvider>
       </DiagramNodeLinksProvider>

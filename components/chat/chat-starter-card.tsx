@@ -1,12 +1,9 @@
 "use client";
 
+import { useChatStyleCardLumen, useChatStyleCardLumenHostRef } from "./use-chat-style-card-lumen";
+
 import { glass } from "@/components/design-system/primitives";
 import { cn } from "@/lib/utils";
-
-import {
-  useChatStyleCardLumen,
-  useChatStyleCardLumenHostRef,
-} from "./use-chat-style-card-lumen";
 
 type ChatStarterCardProps = {
   label: string;
@@ -17,6 +14,7 @@ type ChatStarterCardProps = {
 
 export function ChatStarterCard({ label, selected, onToggle, tabIndex = 0 }: ChatStarterCardProps) {
   const hostRef = useChatStyleCardLumenHostRef();
+
   useChatStyleCardLumen(hostRef, selected);
 
   return (

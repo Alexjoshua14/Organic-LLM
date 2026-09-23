@@ -1,15 +1,13 @@
 import "server-only";
 
-import { insertMemoryFeedbackRow } from "@/data/supabase/memory-quality";
+import type { MemoryFeedbackSignal, RecordMemoryFeedbackInput } from "@/lib/schemas/memory-quality";
+
 import { auth } from "@clerk/nextjs/server";
 
+import { insertMemoryFeedbackRow } from "@/data/supabase/memory-quality";
 import { getSupabaseUserId } from "@/data/supabase/profiles";
 import { getAllMemories as storeGetAllMemories } from "@/lib/memory/store";
 import { recordMemoryEvent } from "@/lib/memory/quality-events";
-import type {
-  MemoryFeedbackSignal,
-  RecordMemoryFeedbackInput,
-} from "@/lib/schemas/memory-quality";
 import { RecordMemoryFeedbackInputSchema } from "@/lib/schemas/memory-quality";
 import { Result } from "@/types";
 
@@ -29,10 +27,7 @@ async function resolveCurrentUserId(): Promise<Result<string, string>> {
   return { data: sbResult.data, error: null };
 }
 
-async function verifyMemoryOwnership(
-  userId: string,
-  memoryId: string
-): Promise<boolean> {
+async function verifyMemoryOwnership(userId: string, memoryId: string): Promise<boolean> {
   try {
     const owned = await storeGetAllMemories(userId);
 

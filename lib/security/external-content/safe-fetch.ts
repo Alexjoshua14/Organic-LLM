@@ -1,21 +1,13 @@
 import "server-only";
 
-import {
-  assertSafePublicHttpsUrlResolved,
-  type DnsLookupFn,
-} from "./safe-url-resolved";
+import { assertSafePublicHttpsUrlResolved, type DnsLookupFn } from "./safe-url-resolved";
 
 const DEFAULT_MAX_BYTES = 2 * 1024 * 1024;
 const DEFAULT_TIMEOUT_MS = 10_000;
 const DEFAULT_MAX_REDIRECTS = 5;
-const DEFAULT_USER_AGENT =
-  "Mozilla/5.0 (compatible; OrganicLLM/1.0; +https://organic-llm.com/bot)";
+const DEFAULT_USER_AGENT = "Mozilla/5.0 (compatible; OrganicLLM/1.0; +https://organic-llm.com/bot)";
 
-const ALLOWED_CONTENT_TYPES = new Set([
-  "text/html",
-  "application/xhtml+xml",
-  "text/plain",
-]);
+const ALLOWED_CONTENT_TYPES = new Set(["text/html", "application/xhtml+xml", "text/plain"]);
 
 export type SafeFetchFn = typeof fetch;
 
@@ -138,9 +130,10 @@ export async function safeFetch(
       return {
         ok: false,
         reason: safe.reason,
-        code: safe.reason.includes("Resolved") || safe.reason.includes("resolved")
-          ? "dns_blocked"
-          : "unsafe_url",
+        code:
+          safe.reason.includes("Resolved") || safe.reason.includes("resolved")
+            ? "dns_blocked"
+            : "unsafe_url",
       };
     }
 

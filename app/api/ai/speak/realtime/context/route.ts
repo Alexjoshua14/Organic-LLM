@@ -4,10 +4,7 @@ import { NextResponse } from "next/server";
 import { getSupabaseUserId } from "@/data/supabase/profiles";
 import { createLogger } from "@/lib/logger";
 import { getSpeakRealtimeSession } from "@/lib/rate-limit/speak-realtime";
-import {
-  SpeakScreenContextBodySchema,
-  screenSurfaceKey,
-} from "@/lib/schemas/speak-screen-context";
+import { SpeakScreenContextBodySchema, screenSurfaceKey } from "@/lib/schemas/speak-screen-context";
 import { buildAmbientContext } from "@/lib/speak/ambient-context";
 
 export const maxDuration = 15;

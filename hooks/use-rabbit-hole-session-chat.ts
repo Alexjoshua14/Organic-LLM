@@ -120,8 +120,7 @@ export function useRabbitHoleSessionChat({
     },
   });
 
-  const isStreaming =
-    chat.status === "streaming" || chat.status === "submitted" || bootstrapping;
+  const isStreaming = chat.status === "streaming" || chat.status === "submitted" || bootstrapping;
 
   const stop = useCallback(async () => {
     await chat.stop();

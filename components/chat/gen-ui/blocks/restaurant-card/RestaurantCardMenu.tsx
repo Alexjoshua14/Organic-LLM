@@ -26,9 +26,7 @@ export function RestaurantCardMenu({ menu, partial }: RestaurantCardMenuProps) {
   return (
     <section className={spacing.card.labelStack}>
       <div className={cn("flex flex-wrap items-baseline justify-between", spacing.gap.sm)}>
-        <p className="text-2xs font-semibold uppercase tracking-wide text-muted-foreground">
-          Menu
-        </p>
+        <p className="text-2xs font-semibold uppercase tracking-wide text-muted-foreground">Menu</p>
         <p className="text-[11px] text-muted-foreground">
           Updated {formatMenuDate(menu.lastUpdated)}
           {menu.sourceNote ? ` · ${menu.sourceNote}` : null}
@@ -71,7 +69,9 @@ export function RestaurantCardMenu({ menu, partial }: RestaurantCardMenuProps) {
                     ) : null}
                   </div>
                   {item.price ? (
-                    <span className="shrink-0 text-sm tabular-nums text-foreground">{item.price}</span>
+                    <span className="shrink-0 text-sm tabular-nums text-foreground">
+                      {item.price}
+                    </span>
                   ) : null}
                 </li>
               ))}

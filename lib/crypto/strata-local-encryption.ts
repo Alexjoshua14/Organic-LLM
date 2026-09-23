@@ -1,6 +1,7 @@
 "use client";
 
 import type { StrataSectionKey } from "@/lib/schemas/strata";
+
 import { fromBase64, toBase64 } from "@/lib/crypto/web-crypto-bytes";
 
 const ENCRYPTED_PREFIX = "enc";

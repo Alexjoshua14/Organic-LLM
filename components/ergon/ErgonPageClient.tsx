@@ -1,5 +1,7 @@
 "use client";
 
+import type { TaskInsert } from "@/lib/schemas/tasks";
+
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 
@@ -30,7 +32,6 @@ import {
   type TaskCategoryRow,
   type TaskWithCategory,
 } from "@/lib/ergon/types";
-import type { TaskInsert } from "@/lib/schemas/tasks";
 import { filterTasks, isDoneViewTask, isOpenTask } from "@/lib/ergon/task-view";
 import { isEditableEventTarget } from "@/lib/dom/is-editable-event-target";
 import { glass } from "@/components/design-system/primitives";
@@ -45,8 +46,17 @@ type ErgonPageClientProps = {
 };
 
 export function ErgonPageClient({ initialTasks, initialCategories }: ErgonPageClientProps) {
-  const { tasks, addTask, updateTask, toggleComplete, toggleActive, deleteTaskWithUndo, enhanceTask, undo, redo } =
-    useErgonTasks(initialTasks);
+  const {
+    tasks,
+    addTask,
+    updateTask,
+    toggleComplete,
+    toggleActive,
+    deleteTaskWithUndo,
+    enhanceTask,
+    undo,
+    redo,
+  } = useErgonTasks(initialTasks);
   const { categories, createCategory, updateCategory, deleteCategory } =
     useTaskCategories(initialCategories);
 
@@ -137,7 +147,11 @@ export function ErgonPageClient({ initialTasks, initialCategories }: ErgonPageCl
               value={filters.search}
               onChange={(search) => setFilters((prev) => ({ ...prev, search }))}
             />
-            <ErgonViewSwitcher className="min-w-0 flex-1 shrink-0 md:flex-none" value={view} onChange={setView} />
+            <ErgonViewSwitcher
+              className="min-w-0 flex-1 shrink-0 md:flex-none"
+              value={view}
+              onChange={setView}
+            />
             <ErgonControlsHelp />
             <ErgonFilterSheet
               categories={categories}
@@ -168,12 +182,7 @@ export function ErgonPageClient({ initialTasks, initialCategories }: ErgonPageCl
         />
 
         <div className="hidden md:block">
-          <TaskFilters
-            categories={categories}
-            compact
-            filters={filters}
-            onChange={setFilters}
-          />
+          <TaskFilters categories={categories} compact filters={filters} onChange={setFilters} />
         </div>
       </header>
 

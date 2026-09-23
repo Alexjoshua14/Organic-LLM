@@ -2,15 +2,12 @@
 
 import type { UsageApiPayload } from "@/lib/usage/types";
 
+import { UsageSectionHeader } from "./usage-section-header";
+
 import { formatPlanTooltip } from "@/lib/usage/plans";
 import { formatPercent } from "@/lib/usage/format";
-import { UsageSectionHeader } from "./usage-section-header";
 import { cn } from "@/lib/utils";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger,
-} from "@/components/third-party/ui/tooltip";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/third-party/ui/tooltip";
 
 type PlanAllotmentRowProps = {
   planAllotments: UsageApiPayload["planAllotments"];

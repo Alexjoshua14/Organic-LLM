@@ -1,11 +1,11 @@
+import type { GenUiLabAction } from "./gen-ui-lab";
+
 import { tool } from "ai";
 import { z } from "zod";
 
 import { createRenderGenUiTool } from "@/lib/llm/gen-ui-tool";
 import { GenUIBlockSchema, type GenUIBlock } from "@/lib/schemas/gen-ui";
 import { GEN_UI_BLOCK_TYPES } from "@/lib/schemas/gen-ui/shared";
-
-import type { GenUiLabAction } from "./gen-ui-lab";
 
 export function createGenUiLabToolKit(actions: GenUiLabAction[]) {
   const renderGenUiTool = createRenderGenUiTool();

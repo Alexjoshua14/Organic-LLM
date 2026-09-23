@@ -40,10 +40,7 @@ import { getRabbitHoleSessionOwnerId } from "@/data/supabase/rabbitholes";
 import { GUARDRAIL_MAX_OUTPUT_TOKENS } from "@/lib/llm/helpers";
 import { models, providerModelSlug } from "@/lib/schemas/chat-models";
 import { checkExternalFetchLimit } from "@/lib/rate-limit/external-fetch";
-import {
-  sanitizeUntrustedText,
-  wrapUntrustedContent,
-} from "@/lib/security/external-content";
+import { sanitizeUntrustedText, wrapUntrustedContent } from "@/lib/security/external-content";
 
 const logger = createLogger("lib/rabbit-holes/actions.ts");
 

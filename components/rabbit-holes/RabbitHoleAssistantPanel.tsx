@@ -5,6 +5,7 @@ import type {
   RabbitHoleSession,
   RabbitHoleSource,
 } from "@/lib/schemas/rabbitHoleSchemas";
+import type { SimpleResult } from "@/types";
 
 import { useRef } from "react";
 import { MessageSquare, X } from "lucide-react";
@@ -13,7 +14,6 @@ import { RabbitHoleDrawerChat } from "@/components/rabbit-holes/mobile/RabbitHol
 import { RabbitHolePromptBar } from "@/components/rabbit-holes/RabbitHolePromptBar";
 import { useRabbitHoleChatComposer } from "@/hooks/use-rabbit-hole-chat-composer";
 import { useRabbitHoleDrawerDisplay } from "@/hooks/use-rabbit-hole-drawer-display";
-import type { SimpleResult } from "@/types";
 import { cn } from "@/lib/utils";
 
 export type RabbitHoleAssistantPanelProps = {

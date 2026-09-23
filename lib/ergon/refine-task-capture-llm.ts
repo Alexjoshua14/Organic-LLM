@@ -11,7 +11,6 @@ import {
   ErgonRefineCategoryHintSchema,
   ErgonRefineLlmTaskSchema,
 } from "@/lib/schemas/ergon-refine";
-
 import { models } from "@/lib/schemas/chat-models";
 
 const logger = createLogger("lib/ergon/refine-task-capture-llm.ts");
@@ -40,11 +39,7 @@ function buildOutputSchema(count: number) {
   });
 }
 
-function buildPrompt(options: {
-  titles: string[];
-  categories: CategoryHint[];
-  now: Date;
-}): string {
+function buildPrompt(options: { titles: string[]; categories: CategoryHint[]; now: Date }): string {
   const categoryLines =
     options.categories.length > 0
       ? options.categories.map((c) => `- ${c.name}`).join("\n")

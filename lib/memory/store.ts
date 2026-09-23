@@ -73,7 +73,7 @@ export async function searchMemories(
         limit: options?.limit ?? 3,
         ...(err ? { errorName: err.name, errorMessage: err.message } : { thrown: String(error) }),
       },
-      error,
+      error
     );
     throw new Error("Memory service may be unavailable.");
   }

@@ -106,22 +106,19 @@ export function ArcadiaChatSettingsDialog({
     }
   }, []);
 
-  const scheduleStatusReset = useCallback(
-    (kind: "title" | "summary") => {
-      const timerRef = kind === "title" ? titleResetTimerRef : summaryResetTimerRef;
-      const setStatus = kind === "title" ? setTitleStatus : setSummaryStatus;
+  const scheduleStatusReset = useCallback((kind: "title" | "summary") => {
+    const timerRef = kind === "title" ? titleResetTimerRef : summaryResetTimerRef;
+    const setStatus = kind === "title" ? setTitleStatus : setSummaryStatus;
 
-      if (timerRef.current) {
-        clearTimeout(timerRef.current);
-      }
+    if (timerRef.current) {
+      clearTimeout(timerRef.current);
+    }
 
-      timerRef.current = setTimeout(() => {
-        setStatus("idle");
-        timerRef.current = null;
-      }, 3000);
-    },
-    []
-  );
+    timerRef.current = setTimeout(() => {
+      setStatus("idle");
+      timerRef.current = null;
+    }, 3000);
+  }, []);
 
   const loadMeta = useCallback(async () => {
     if (!chatId) return;
@@ -136,6 +133,7 @@ export function ArcadiaChatSettingsDialog({
       }
 
       const body = (await res.json()) as { data?: ThreadMeta };
+
       setMeta(body.data ?? { title: null, summary: null });
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Failed to load chat settings");

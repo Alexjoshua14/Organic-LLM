@@ -674,7 +674,9 @@ export default function MemoryMigrationTestsPage() {
                       </span>{" "}
                       ({MEMORY_PRODUCTION_EMBEDDING_DIMS}-D). The left sandbox column still queries
                       legacy{" "}
-                      <span className="font-mono text-[11px]">{MEMORY_LEGACY_QDRANT_COLLECTION}</span>{" "}
+                      <span className="font-mono text-[11px]">
+                        {MEMORY_LEGACY_QDRANT_COLLECTION}
+                      </span>{" "}
                       using{" "}
                       <span className="font-mono text-[11px]">{MEMORY_LEGACY_EMBEDDER_MODEL}</span>{" "}
                       for embeddings.
@@ -789,8 +791,8 @@ export default function MemoryMigrationTestsPage() {
                       {" · "}
                       Legacy (left),{" "}
                       <span className="font-mono text-2xs">{MEMORY_V2_COLLECTION}</span> (right).
-                      Merged matches use the &quot;Both sides&quot; band; split pairs sit in bordered
-                      rows.
+                      Merged matches use the &quot;Both sides&quot; band; split pairs sit in
+                      bordered rows.
                     </p>
                     <div className="space-y-8 border-t border-border/50 pt-5">
                       {data.runs.map((run, runIdx) => (

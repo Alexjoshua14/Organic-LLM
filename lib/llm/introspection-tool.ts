@@ -1,6 +1,9 @@
 import { tool } from "ai";
 
-import { saveIntrospectionGuidedState, loadIntrospectionGuidedState } from "@/data/supabase/introspection";
+import {
+  saveIntrospectionGuidedState,
+  loadIntrospectionGuidedState,
+} from "@/data/supabase/introspection";
 import { createLogger } from "@/lib/logger";
 import {
   UpdateIntrospectionViewInputSchema,

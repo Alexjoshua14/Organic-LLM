@@ -2,10 +2,11 @@
 
 import type { ComponentProps, ReactNode } from "react";
 
+import { composerLumenButtonClasses } from "@/components/chat/composer-action-button";
 import {
-  composerLumenButtonClasses,
-} from "@/components/chat/composer-action-button";
-import { useComposerChipLumen, useComposerChipLumenHostRef } from "@/components/chat/use-composer-chip-lumen";
+  useComposerChipLumen,
+  useComposerChipLumenHostRef,
+} from "@/components/chat/use-composer-chip-lumen";
 import { Button } from "@/components/third-party/ui/button";
 import { cn } from "@/lib/utils";
 
@@ -27,6 +28,7 @@ export function ErgonTaskActionButton({
   ...props
 }: ErgonTaskActionButtonProps) {
   const hostRef = useComposerChipLumenHostRef();
+
   useComposerChipLumen(hostRef);
 
   return (
@@ -44,8 +46,7 @@ export function ErgonTaskActionButton({
           className={cn(
             composerLumenButtonClasses(engaged),
             "h-8 gap-1.5 px-2.5 text-xs",
-            danger &&
-              "hover:text-destructive hover:bg-destructive/10 dark:hover:bg-destructive/15",
+            danger && "hover:text-destructive hover:bg-destructive/10 dark:hover:bg-destructive/15",
             className
           )}
           size={size}

@@ -4,10 +4,11 @@ import type { UsageDailyBucket } from "@/lib/usage/aggregate";
 
 import { useId, useMemo } from "react";
 
-import { cn } from "@/lib/utils";
-import { formatTokenCount, formatUsd } from "@/lib/usage/format";
 import { UsageSectionHeader } from "./usage-section-header";
 import { usageSectionCaption } from "./usage-typography";
+
+import { cn } from "@/lib/utils";
+import { formatTokenCount, formatUsd } from "@/lib/usage/format";
 
 type UsageChartProps = {
   daily: UsageDailyBucket[];
@@ -39,8 +40,8 @@ export function UsageChart({ daily, className }: UsageChartProps) {
     const area =
       coords.length > 0
         ? `M ${coords[0].x} ${baseline} ` +
-        coords.map((c) => `L ${c.x} ${c.y}`).join(" ") +
-        ` L ${coords[coords.length - 1].x} ${baseline} Z`
+          coords.map((c) => `L ${c.x} ${c.y}`).join(" ") +
+          ` L ${coords[coords.length - 1].x} ${baseline} Z`
         : "";
 
     return {
@@ -58,9 +59,7 @@ export function UsageChart({ daily, className }: UsageChartProps) {
     <div className={cn("space-y-2", className)}>
       <UsageSectionHeader
         aside={
-          !hasData ? (
-            <p className={usageSectionCaption}>No usage in this range yet</p>
-          ) : undefined
+          !hasData ? <p className={usageSectionCaption}>No usage in this range yet</p> : undefined
         }
         caption={`Peak day · ${formatTokenCount(maxTokens)} tokens`}
         title="Tokens over time"
@@ -130,7 +129,12 @@ export function UsageCostChart({ daily, className }: UsageChartProps) {
   const maxCost = Math.max(...daily.map((d) => d.costUsd), 0.0001);
 
   return (
-    <div className={cn("grid grid-cols-[repeat(auto-fit,minmax(3px,1fr))] items-end gap-px h-8", className)}>
+    <div
+      className={cn(
+        "grid grid-cols-[repeat(auto-fit,minmax(3px,1fr))] items-end gap-px h-8",
+        className
+      )}
+    >
       {daily.map((bucket) => {
         const heightPct = Math.max(4, (bucket.costUsd / maxCost) * 100);
 

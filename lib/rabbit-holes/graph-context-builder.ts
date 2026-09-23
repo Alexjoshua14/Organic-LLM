@@ -50,9 +50,7 @@ function formatGraphContextSection(contextBlock: string): string {
 
   if (!trimmed) return "";
 
-  return (
-    "Related rabbit hole articles (ranked by relevance to this topic):\n" + `${trimmed}\n\n`
-  );
+  return "Related rabbit hole articles (ranked by relevance to this topic):\n" + `${trimmed}\n\n`;
 }
 
 function roleLabel(role: RelatedNodeRef["role"]): string {

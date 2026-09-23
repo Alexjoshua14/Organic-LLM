@@ -78,7 +78,9 @@ export function useVoiceAudioLevels(streams: {
 
     if (active.length === 0) return;
 
-    const Ctor = window.AudioContext ?? (window as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
+    const Ctor =
+      window.AudioContext ??
+      (window as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
 
     if (!Ctor) return;
 

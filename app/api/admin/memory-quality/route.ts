@@ -1,6 +1,10 @@
 import { NextResponse } from "next/server";
 
-import { listMemoryFeedback, listMemoryQualityDaily, fetchLastEvalRun } from "@/data/supabase/memory-quality";
+import {
+  listMemoryFeedback,
+  listMemoryQualityDaily,
+  fetchLastEvalRun,
+} from "@/data/supabase/memory-quality";
 import { requireAdmin } from "@/lib/admin/require-admin";
 import { computeRecentDailyRollups } from "@/lib/memory/daily-rollups";
 
@@ -24,8 +28,7 @@ export async function GET() {
   if (dailyResult.error || feedbackResult.error || lastEvalResult.error) {
     return NextResponse.json(
       {
-        error:
-          dailyResult.error ?? feedbackResult.error ?? lastEvalResult.error ?? "Query failed",
+        error: dailyResult.error ?? feedbackResult.error ?? lastEvalResult.error ?? "Query failed",
       },
       { status: 500 }
     );

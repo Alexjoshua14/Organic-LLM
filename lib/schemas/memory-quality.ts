@@ -3,11 +3,7 @@ import { z } from "zod";
 export const MemoryFeedbackSignalSchema = z.enum(["up", "down", "flag_review", "flag_followup"]);
 export type MemoryFeedbackSignal = z.infer<typeof MemoryFeedbackSignalSchema>;
 
-export const MemoryFeedbackSourceSchema = z.enum([
-  "memory_lens",
-  "memory_ingest",
-  "delphi_tool",
-]);
+export const MemoryFeedbackSourceSchema = z.enum(["memory_lens", "memory_ingest", "delphi_tool"]);
 export type MemoryFeedbackSource = z.infer<typeof MemoryFeedbackSourceSchema>;
 
 export const MemoryQualityEventTypeSchema = z.enum(["ingest", "delete", "feedback", "eval_run"]);

@@ -1,15 +1,13 @@
-import { randomBytes } from "node:crypto";
-
-import { DEFAULT_TTL_SECONDS, ORCHESTRATION_APPENDIX, PAYLOAD_VERSION } from "./constants";
 import type {
   IntrospectionBootstrapPayload,
   IntrospectionHandoffRequest,
   OrganicHandoffContent,
 } from "./schemas";
-import {
-  IntrospectionBootstrapPayloadSchema,
-  OrganicHandoffContentSchema,
-} from "./schemas";
+
+import { randomBytes } from "node:crypto";
+
+import { DEFAULT_TTL_SECONDS, ORCHESTRATION_APPENDIX, PAYLOAD_VERSION } from "./constants";
+import { IntrospectionBootstrapPayloadSchema, OrganicHandoffContentSchema } from "./schemas";
 
 const DEFAULT_STEPS: OrganicHandoffContent["steps"] = [
   { id: "orient", title: "Orient", hint: "Name the core tension in your own words." },
@@ -18,7 +16,7 @@ const DEFAULT_STEPS: OrganicHandoffContent["steps"] = [
 ];
 
 export function buildOrganicHandoffContentFromHandoff(
-  input: IntrospectionHandoffRequest,
+  input: IntrospectionHandoffRequest
 ): OrganicHandoffContent {
   const title = input.promptTitle;
   const goal = `Reflect on: ${input.questionText}`;
@@ -42,15 +40,16 @@ export function buildOrganicHandoffContentFromHandoff(
 
 export function buildBootstrapPayloadFromHandoff(
   input: IntrospectionHandoffRequest,
-  options?: { exp?: number; nonce?: string },
+  options?: { exp?: number; nonce?: string }
 ): IntrospectionBootstrapPayload {
   const content = buildOrganicHandoffContentFromHandoff(input);
+
   return buildBootstrapPayloadFromContent(content, options);
 }
 
 export function buildBootstrapPayloadFromContent(
   content: OrganicHandoffContent,
-  options?: { exp?: number; nonce?: string },
+  options?: { exp?: number; nonce?: string }
 ): IntrospectionBootstrapPayload {
   const now = Math.floor(Date.now() / 1000);
 
@@ -69,7 +68,7 @@ export function buildBootstrapPayloadFromContent(
 /** @deprecated Use buildBootstrapPayloadFromHandoff */
 export function buildBootstrapPayload(
   input: IntrospectionHandoffRequest,
-  options?: { exp?: number; nonce?: string },
+  options?: { exp?: number; nonce?: string }
 ): IntrospectionBootstrapPayload {
   return buildBootstrapPayloadFromHandoff(input, options);
 }

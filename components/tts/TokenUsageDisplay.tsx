@@ -60,21 +60,21 @@ export function TokenUsageDisplay({
     },
     ...(showTime
       ? [
-        {
-          icon: Clock,
-          label: "Gen. Time",
-          value: formatDuration(usageData.estimatedDurationMs),
-          tooltip: `Estimated time to generate audio`,
-          color: "text-amber-500/80",
-        },
-        {
-          icon: Volume2,
-          label: "Audio",
-          value: formatAudioDuration(usageData.estimatedAudioDurationSec),
-          tooltip: `Estimated audio duration`,
-          color: "text-purple-500/80",
-        },
-      ]
+          {
+            icon: Clock,
+            label: "Gen. Time",
+            value: formatDuration(usageData.estimatedDurationMs),
+            tooltip: `Estimated time to generate audio`,
+            color: "text-amber-500/80",
+          },
+          {
+            icon: Volume2,
+            label: "Audio",
+            value: formatAudioDuration(usageData.estimatedAudioDurationSec),
+            tooltip: `Estimated audio duration`,
+            color: "text-purple-500/80",
+          },
+        ]
       : []),
   ];
 

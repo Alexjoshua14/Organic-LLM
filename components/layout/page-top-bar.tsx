@@ -34,14 +34,7 @@ export function PageTopBar({
 
   if (layout === "stacked") {
     return (
-      <div
-        className={cn(
-          "w-full",
-          borderClass,
-          pageTopBarInsets,
-          className
-        )}
-      >
+      <div className={cn("w-full", borderClass, pageTopBarInsets, className)}>
         <div
           className={cn(
             "flex w-full items-center justify-between",
@@ -54,7 +47,9 @@ export function PageTopBar({
           </div>
         </div>
         <div className="pt-1 pb-3">
-          <h1 className="text-lg font-semibold tracking-tight text-foreground md:text-xl">{title}</h1>
+          <h1 className="text-lg font-semibold tracking-tight text-foreground md:text-xl">
+            {title}
+          </h1>
         </div>
       </div>
     );

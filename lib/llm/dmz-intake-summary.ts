@@ -6,7 +6,6 @@ import { KNOWLEDGE_GATEWAY_PROVIDER_OPTIONS } from "@/lib/knowledge/gateway-opti
 import { createLogger } from "@/lib/logger";
 import { recordLlmCall } from "@/lib/llm/metrics";
 import { DMZ_MAX_INTAKE_CHARS } from "@/lib/security/dmz/types";
-
 import { models } from "@/lib/schemas/chat-models";
 
 const logger = createLogger("lib/llm/dmz-intake-summary.ts");

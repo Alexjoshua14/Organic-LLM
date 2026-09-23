@@ -1,5 +1,7 @@
 "use client";
 
+import type { SpatialArtifact } from "@/lib/schemas/spatial-artifact";
+
 import { regular_spring_config } from "@organic-llm/morph-physics";
 import { useMorphPhysics } from "@organic-llm/morph-physics/react";
 import { useEffect, useLayoutEffect, useState } from "react";
@@ -9,7 +11,6 @@ import { GenUIRenderer } from "@/components/chat/gen-ui/GenUIRenderer";
 import { PlanTimeline } from "@/components/chat/gen-ui/blocks/PlanTimeline";
 import { glass } from "@/components/design-system/primitives";
 import { useArtifactSpatial } from "@/lib/context/artifact-spatial-context";
-import type { SpatialArtifact } from "@/lib/schemas/spatial-artifact";
 import { vector4FromRect } from "@/lib/spatial-artifacts/spatial-types";
 import { getGenUIBlockTitle } from "@/components/chat/gen-ui/registry";
 import { genUIBlockToMarkdown } from "@/lib/schemas/gen-ui";
@@ -19,23 +20,11 @@ type FloatingArtifactProps = {
   artifact: SpatialArtifact;
 };
 
-function ArtifactBody({
-  artifact,
-  expanded,
-}: {
-  artifact: SpatialArtifact;
-  expanded: boolean;
-}) {
+function ArtifactBody({ artifact, expanded }: { artifact: SpatialArtifact; expanded: boolean }) {
   const { block } = artifact;
 
   if (block.type === "plan-timeline") {
-    return (
-      <PlanTimeline
-        block={block}
-        morphIds
-        variant={expanded ? "full" : "condensed"}
-      />
-    );
+    return <PlanTimeline block={block} morphIds variant={expanded ? "full" : "condensed"} />;
   }
 
   if (block.type === "audio-snippet") {

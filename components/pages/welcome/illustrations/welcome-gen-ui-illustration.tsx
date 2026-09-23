@@ -1,5 +1,7 @@
 "use client";
 
+import type { GenUIBlock } from "@/lib/schemas/gen-ui";
+
 import {
   clearInlineStyles,
   regular_spring_config,
@@ -16,7 +18,6 @@ import { usePageVisible } from "@/components/hooks/use-page-visible";
 import { useWelcomeInView } from "@/components/pages/welcome/use-welcome-in-view";
 import { welcomeDemoCompactClass } from "@/components/pages/welcome/welcome-demo-user-message";
 import { WELCOME_GEN_UI_BLOCKS } from "@/lib/welcome/gen-ui-fixtures";
-import type { GenUIBlock } from "@/lib/schemas/gen-ui";
 import { sectionLabel } from "@/lib/rabbit-holes/designTokens";
 import { cn } from "@/lib/utils";
 
@@ -46,7 +47,10 @@ function blockHeightBuffer(index: number): number {
   return index === PLAN_BLOCK_INDEX ? 36 : 12;
 }
 
-const GEN_UI_SHELL_CLASS = cn(welcomeDemoCompactClass, "[&_.not-prose]:px-2.5 [&_.not-prose]:py-1.5");
+const GEN_UI_SHELL_CLASS = cn(
+  welcomeDemoCompactClass,
+  "[&_.not-prose]:px-2.5 [&_.not-prose]:py-1.5"
+);
 
 const FRAME_CLASS =
   "pointer-events-none flex w-full min-w-0 flex-col justify-start px-2.5 py-1.5 sm:px-3 sm:py-2";

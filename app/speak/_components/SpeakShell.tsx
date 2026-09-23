@@ -14,7 +14,12 @@ export function SpeakShell() {
   const [mode, setMode] = useState<SpeakMode>("live");
 
   return (
-    <Page chrome="full-bleed" liquidChromeBackground transparentBackground className="!items-stretch !justify-stretch overflow-hidden">
+    <Page
+      chrome="full-bleed"
+      liquidChromeBackground
+      transparentBackground
+      className="!items-stretch !justify-stretch overflow-hidden"
+    >
       <AdaptiveLiquidChrome dimIntensity={0.5} dimIntensityFull={0.65} />
       <div className="relative z-10 flex h-full min-h-0 w-full flex-col">
         {mode === "live" ? (

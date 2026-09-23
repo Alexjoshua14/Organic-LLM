@@ -2,7 +2,13 @@
 
 import type { RestaurantRating } from "@/lib/schemas/gen-ui/restaurant-card";
 
-import { formatRestaurantStoreType, type RestaurantStoreType } from "@/lib/schemas/gen-ui/restaurant-card";
+import { formatReviewCount } from "./restaurant-card-utils";
+import { StarRating } from "./StarRating";
+
+import {
+  formatRestaurantStoreType,
+  type RestaurantStoreType,
+} from "@/lib/schemas/gen-ui/restaurant-card";
 import {
   RESTAURANT_CARD_HERO_VT_CLASS,
   RESTAURANT_CARD_RATING_VT_CLASS,
@@ -10,8 +16,6 @@ import {
   type RestaurantCardViewTransitionNames,
 } from "@/lib/view-transitions/restaurant-card";
 import { viewTransitionStyle } from "@/lib/view-transitions/style";
-import { formatReviewCount } from "./restaurant-card-utils";
-import { StarRating } from "./StarRating";
 
 type RestaurantCardCondensedProps = {
   name: string;

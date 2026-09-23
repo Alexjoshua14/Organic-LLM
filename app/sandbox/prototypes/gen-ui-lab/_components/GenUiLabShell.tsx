@@ -2,9 +2,15 @@
 
 import type { ChatStatus } from "ai";
 import type { ComponentProps } from "react";
+import type { GenUIBlock } from "@/lib/schemas/gen-ui";
 
 import { useCallback, useMemo, useRef, useState } from "react";
 import { Loader2, RotateCcw, Sparkles } from "lucide-react";
+
+import { useGenUiGalleryScroll } from "../_hooks/use-gen-ui-gallery-scroll";
+
+import { GenUiGalleryNav } from "./GenUiGalleryNav";
+import { GenUiGallerySection } from "./GenUiGallerySection";
 
 import { GenUIRenderer } from "@/components/chat/gen-ui/GenUIRenderer";
 import { GEN_UI_REGISTRY } from "@/components/chat/gen-ui/registry";
@@ -12,7 +18,6 @@ import { CoreInput } from "@/components/chat/core-input";
 import { PageNavBack } from "@/components/layout/page-content-frame";
 import { glass } from "@/components/design-system/primitives";
 import { ChatModel, DEFAULT_CHAT_MODEL } from "@/lib/schemas/chat";
-import type { GenUIBlock } from "@/lib/schemas/gen-ui";
 import { GEN_UI_BLOCK_TYPES, type GenUIBlockType } from "@/lib/schemas/gen-ui/shared";
 import {
   buildDefaultBlockMap,
@@ -20,10 +25,6 @@ import {
   type GenUiLabViewMode,
 } from "@/lib/sandbox/gen-ui-lab";
 import { cn } from "@/lib/utils";
-
-import { GenUiGalleryNav } from "./GenUiGalleryNav";
-import { GenUiGallerySection } from "./GenUiGallerySection";
-import { useGenUiGalleryScroll } from "../_hooks/use-gen-ui-gallery-scroll";
 
 type CoreInputProps = ComponentProps<typeof CoreInput>;
 

@@ -5,6 +5,7 @@ import type { PopularTimesDay } from "@/lib/schemas/gen-ui/restaurant-card";
 import { useMemo, useState } from "react";
 
 import { dayLabel, getTodayDayOfWeek } from "./restaurant-card-utils";
+
 import { spacing } from "@/lib/design-tokens/spacing";
 import { cn } from "@/lib/utils";
 
@@ -87,7 +88,9 @@ export function RestaurantCardPopularTimes({ popularTimes }: RestaurantCardPopul
                 title={`${formatHourLabel(bar.hour)}: ${bar.occupancy}% busy`}
               />
               {bar.hour % 3 === 0 ? (
-                <span className="text-[8px] text-muted-foreground">{formatHourLabel(bar.hour)}</span>
+                <span className="text-[8px] text-muted-foreground">
+                  {formatHourLabel(bar.hour)}
+                </span>
               ) : (
                 <span className="text-[8px] opacity-0">·</span>
               )}

@@ -39,7 +39,5 @@ export function SandboxGatewayButton() {
 
   if (!userId || showSandbox === false) return null;
 
-  return (
-    <GatewaySmokeLink ariaLabel="Open Sandbox" href="/sandbox" label="Sandbox" showArrow />
-  );
+  return <GatewaySmokeLink ariaLabel="Open Sandbox" href="/sandbox" label="Sandbox" showArrow />;
 }
