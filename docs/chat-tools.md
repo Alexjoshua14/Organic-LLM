@@ -86,6 +86,7 @@ Structured blocks as first-class UI, not markdown-only. Block types (Zod schemas
 When `chatStyle === "ergon"`, the model drives a **live** kanban board over a transient `data-kanban` stream channel: initiate, upsert items, move, remove, show filtered views. Multiple tool calls per turn are normal (init → hydrate → show)—a puppet UI backed by client state, not a one-shot card.
 
 - Implementation: [`createKanbanBoardTool`](../lib/llm/kanban-tool.ts) · [`lib/schemas/kanban`](../lib/schemas/kanban.ts)
+- Public scripted demo (zero live API): [`/showcase/ergon`](https://organic.coalescencelabs.app/showcase/ergon)
 
 ### `manage_tasks` (durable Ergon todos)
 

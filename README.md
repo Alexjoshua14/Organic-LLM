@@ -14,7 +14,7 @@
       <strong><a href="https://organic.coalescencelabs.app/showcase">Showcase</a></strong>
     </td>
     <td valign="top">
-      Portfolio demos — <a href="https://organic.coalescencelabs.app/showcase/anatomy">Anatomy of a Response</a>, <a href="https://organic.coalescencelabs.app/showcase/memory">Memory</a>
+      Portfolio demos — <a href="https://organic.coalescencelabs.app/showcase/ergon">Ergon live board</a>, <a href="https://organic.coalescencelabs.app/showcase/anatomy">Anatomy of a Response</a>, <a href="https://organic.coalescencelabs.app/showcase/memory">Memory</a>
     </td>
   </tr>
   <tr>

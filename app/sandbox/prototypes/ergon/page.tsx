@@ -1,112 +1,40 @@
-"use client";
+import type { Metadata } from "next";
 
-import type { KanbanView as KanbanViewType } from "@/lib/schemas/kanban";
+import { ErgonBoardLab } from "./_components/ErgonBoardLab";
 
-import { useState } from "react";
+import AdaptiveLiquidChrome from "@/components/background/AdaptiveLiquidChrome";
+import Page from "@/components/layout/page";
+import { PageContentFrame, PageNavBack } from "@/components/layout/page-content-frame";
+import { tabTitleMetadata } from "@/lib/metadata/tab-title";
 
-import { ChatStylePicker } from "@/components/chat/chat-style-picker";
-import { KanbanView } from "@/components/chat/kanban/KanbanView";
-import { applyKanbanCommand, resetKanbanBoard, useKanbanBoard } from "@/lib/kanban/store";
-import {
-  FIXTURE_INITIATE,
-  FIXTURE_SHOW_ACTIVE_VIEW,
-  FIXTURE_SHOW_NEXT_UP_VIEW,
-  FIXTURE_UPSERT,
-} from "@/lib/schemas/kanban/fixtures";
-
-const SANDBOX_THREAD_ID = "sandbox-ergon";
-
-const BOARD_VIEW: KanbanViewType = {
-  id: "view-board",
-  title: "Full board",
-  intent: "board",
-  groupBy: "status",
+export const metadata: Metadata = {
+  ...tabTitleMetadata(null, "Ergon living board"),
 };
 
 export default function ErgonPrototypePage() {
-  const board = useKanbanBoard(SANDBOX_THREAD_ID);
-  const [activeView, setActiveView] = useState<KanbanViewType>(BOARD_VIEW);
-
   return (
-    <main className="mx-auto max-w-3xl space-y-8 px-4 py-10">
-      <header className="space-y-2">
-        <h1 className="text-2xl font-semibold text-foreground">Ergon board (kanban puppet)</h1>
-        <p className="text-sm text-muted-foreground">
-          Drives the client-side kanban store directly (no API). Step through the puppet command
-          sequence and summon saved views.
-        </p>
-      </header>
+    <Page liquidChromeBackground transparentBackground className="overflow-hidden">
+      <AdaptiveLiquidChrome dimIntensity={0.45} />
+      <PageContentFrame
+        className="relative z-10 flex h-full flex-col overflow-hidden pb-0"
+        maxWidth="7xl"
+      >
+        <div className="min-h-0 flex-1 overflow-y-auto pb-16">
+          <PageNavBack href="/sandbox/prototypes">← Prototypes</PageNavBack>
 
-      <section className="space-y-3">
-        <h2 className="text-sm font-semibold text-foreground">Chat style picker</h2>
-        <ChatStylePicker chatId={SANDBOX_THREAD_ID} />
-      </section>
+          <header className="mb-6 max-w-2xl space-y-1.5">
+            <h1 className="font-commissioner text-3xl font-light tracking-tight text-foreground">
+              Ergon living board
+            </h1>
+            <p className="text-sm leading-relaxed text-muted-foreground">
+              Quiet surfaces, living light. Three ways for the board to show the model at work,
+              replaying the showcase script against a local board — no API calls.
+            </p>
+          </header>
 
-      <section className="space-y-3">
-        <h2 className="text-sm font-semibold text-foreground">Puppet commands</h2>
-        <div className="flex flex-wrap gap-2">
-          <button
-            type="button"
-            className="rounded-md border border-border px-3 py-1.5 text-xs hover:border-accent/40"
-            onClick={() => applyKanbanCommand(SANDBOX_THREAD_ID, FIXTURE_INITIATE)}
-          >
-            1. INITIATE (loading shell)
-          </button>
-          <button
-            type="button"
-            className="rounded-md border border-border px-3 py-1.5 text-xs hover:border-accent/40"
-            onClick={() => applyKanbanCommand(SANDBOX_THREAD_ID, FIXTURE_UPSERT)}
-          >
-            2. UPSERT items (hydrate)
-          </button>
-          <button
-            type="button"
-            className="rounded-md border border-border px-3 py-1.5 text-xs hover:border-accent/40"
-            onClick={() => {
-              applyKanbanCommand(SANDBOX_THREAD_ID, FIXTURE_SHOW_ACTIVE_VIEW);
-              setActiveView(FIXTURE_SHOW_ACTIVE_VIEW.view);
-            }}
-          >
-            3. SHOW active view
-          </button>
-          <button
-            type="button"
-            className="rounded-md border border-border px-3 py-1.5 text-xs hover:border-accent/40"
-            onClick={() => {
-              applyKanbanCommand(SANDBOX_THREAD_ID, FIXTURE_SHOW_NEXT_UP_VIEW);
-              setActiveView(FIXTURE_SHOW_NEXT_UP_VIEW.view);
-            }}
-          >
-            SHOW next-up view
-          </button>
-          <button
-            type="button"
-            className="rounded-md border border-border px-3 py-1.5 text-xs hover:border-accent/40"
-            onClick={() => setActiveView(BOARD_VIEW)}
-          >
-            SHOW full board
-          </button>
-          <button
-            type="button"
-            className="rounded-md border border-border px-3 py-1.5 text-xs text-muted-foreground hover:border-rose-400/40"
-            onClick={() => {
-              resetKanbanBoard(SANDBOX_THREAD_ID);
-              setActiveView(BOARD_VIEW);
-            }}
-          >
-            Reset
-          </button>
+          <ErgonBoardLab />
         </div>
-        <p className="text-xs text-muted-foreground">
-          Board status: <span className="font-mono">{board?.status ?? "none"}</span> ·{" "}
-          {board ? Object.keys(board.items).length : 0} items
-        </p>
-      </section>
-
-      <section className="space-y-2">
-        <h2 className="text-sm font-semibold text-foreground">Rendered view</h2>
-        <KanbanView threadId={SANDBOX_THREAD_ID} view={activeView} />
-      </section>
-    </main>
+      </PageContentFrame>
+    </Page>
   );
 }

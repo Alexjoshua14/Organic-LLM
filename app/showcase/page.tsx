@@ -20,9 +20,21 @@ type ShowcasePageEntry = {
  * Public showcase gateway. Pages here are snapshots promoted from sandbox —
  * layout/content is fixed until you rebase from sandbox; shared components
  * (e.g. MemoryLensCard) update automatically.
+ *
+ * Constraint: showcase pages must not call paid APIs (LLM, TTS, Exa, Places,
+ * Mem0/Qdrant, etc.) at view time. Prefer hand-authored JSON / scripted replays
+ * through production UI components. Optional: one-time bundled assets under
+ * /public/showcase.
  */
 export default function ShowcasePage() {
   const showcasePages: ShowcasePageEntry[] = [
+    {
+      title: "Ergon live board",
+      description:
+        "Scripted Arcadia · Ergon replay: the model builds a kanban in chat, rearranges it live, then summons a filtered next-up view — bundled data only.",
+      href: "/showcase/ergon",
+      edgeGlow: true,
+    },
     {
       title: "Anatomy of a Response",
       description:

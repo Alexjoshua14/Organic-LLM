@@ -3,12 +3,13 @@
 import { glass } from "@/components/design-system/primitives";
 import { cn } from "@/lib/utils";
 
-type AnatomyHeroProps = {
+type ShowcaseHeroProps = {
+  title: string;
   thesis: string;
   className?: string;
 };
 
-export function AnatomyHero({ thesis, className }: AnatomyHeroProps) {
+export function ShowcaseHero({ title, thesis, className }: ShowcaseHeroProps) {
   return (
     <header className={cn("mb-10", className)}>
       <div
@@ -18,7 +19,7 @@ export function AnatomyHero({ thesis, className }: AnatomyHeroProps) {
         )}
       >
         <h1 className="mb-3 font-commissioner text-3xl font-light tracking-tight text-foreground sm:text-4xl">
-          Anatomy of a Response
+          {title}
         </h1>
         <p className="mx-auto max-w-2xl text-sm leading-relaxed text-muted-foreground sm:mx-0">
           {thesis}
