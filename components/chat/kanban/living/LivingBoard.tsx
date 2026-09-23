@@ -3,7 +3,7 @@
 import type { KanbanActivity, LivingLight } from "./living-light";
 import type { KanbanBoardState } from "@/lib/kanban/store";
 import type { KanbanView } from "@/lib/schemas/kanban";
-import type { CSSProperties } from "react";
+import type { CSSProperties, ReactNode } from "react";
 
 import { LayoutGroup, motion, MotionConfig, useReducedMotion } from "framer-motion";
 import { memo, useEffect, useId, useMemo, useRef } from "react";
@@ -42,6 +42,8 @@ type LivingBoardProps = {
   activity?: KanbanActivity;
   /** Scroll a squeezed board so the card the model just changed stays in view. */
   followChanges?: boolean;
+  /** Optional header actions (e.g. copy markdown), rendered opposite the Presence orb. */
+  headerActions?: ReactNode;
   className?: string;
 };
 
@@ -51,6 +53,7 @@ export const LivingBoard = memo(function LivingBoard({
   light,
   activity = IDLE_ACTIVITY,
   followChanges = false,
+  headerActions,
   className,
 }: LivingBoardProps) {
   const behavior = LIGHT_BEHAVIOR[light];
@@ -135,7 +138,7 @@ export const LivingBoard = memo(function LivingBoard({
           className
         )}
       >
-        <div className="flex items-start justify-between gap-4 px-4 pt-3.5">
+        <div className="flex items-start justify-between gap-3 px-4 pt-3.5">
           <div className="min-w-0 flex-1">
             <p className="truncate text-2xs font-medium uppercase tracking-[0.14em] text-muted-foreground">
               {board?.meta.title ?? "Ergon board"}
@@ -145,16 +148,19 @@ export const LivingBoard = memo(function LivingBoard({
               <p className="mt-0.5 truncate text-xs text-muted-foreground">{view.summary}</p>
             ) : null}
           </div>
-          {behavior.presence ? (
-            <PresenceOrb ref={orbRef} caption={caption} working={working} />
-          ) : null}
+          <div className="flex shrink-0 items-start gap-2">
+            {behavior.presence ? (
+              <PresenceOrb ref={orbRef} caption={caption} working={working} />
+            ) : null}
+            {headerActions}
+          </div>
         </div>
 
         <LayoutGroup id={layoutGroupId}>
           <motion.div
             ref={scrollerRef}
             layoutScroll
-            className="@container relative overflow-x-auto overscroll-x-contain pb-3 pt-3 [scrollbar-width:thin]"
+            className="@container relative max-h-[60vh] overflow-auto overscroll-x-contain pb-3 pt-3 [scrollbar-width:thin]"
           >
             {!settingUp && items.length === 0 ? (
               <p className="px-3 py-6 text-center text-sm text-muted-foreground">

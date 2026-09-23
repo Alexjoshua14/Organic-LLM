@@ -282,13 +282,13 @@ export const prototypes: PrototypeEntry[] = [
     slug: "ergon",
     title: "Ergon living board",
     description:
-      "Kanban redesign lab: quiet cards on a fixed six-lane board, three living-light modes (Trace, Field, Presence), a compact in-chat block, and the production board as the before.",
+      "Presence is now production. Lab still compares Trace / Field / Presence, plus a compact in-chat block and the legacy board as Before.",
     about: {
-      what: "A lab for the Ergon board redesign. The showcase's command script replays against a local board so each light mode — light on the cards, light in the glass, or light as the model — can be judged on the same moves.",
+      what: "A lab for the Ergon board. Presence shipped as the production SHOW_VIEW surface; Trace and Field stay here for comparison on the same replay script.",
       howToUse:
         "Pick a light or Compare all, switch widths to see how the board squeezes, and use the transport to pause or send the next command. Open board on an in-thread block expands it to the full board.",
-      adminQuestion:
-        "What is Ergon meant to become in production chat — a full task surface, a lightweight status board, or something else?",
+      authorThoughts:
+        "Presence won: light is the model — orb, underglow, sparks. Quiet cards, fixed six lanes that fold to rails, no hard rims.",
     },
     ranking: {
       importance: 8,

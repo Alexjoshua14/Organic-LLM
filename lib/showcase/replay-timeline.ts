@@ -63,6 +63,11 @@ export type ReplayFrame = {
   aiActionPayload: ReplayAiActionPayload | undefined;
   /** How many effects from the compiled timeline have been applied by this t. */
   effectsApplied: number;
+  /**
+   * Effect for the tool currently mid-flight (not yet applied). Showcase boards use this
+   * for Presence "working" state before the command lands.
+   */
+  pendingEffect: unknown | undefined;
   chapterIndex: number;
   /** Absolute time of this frame (clamped). */
   tMs: number;
@@ -350,6 +355,7 @@ export function deriveReplayFrame(timeline: CompiledReplay, tMsRaw: number): Rep
   let composerText = "";
   let status: ChatStatus = "ready";
   let aiActionPayload: ReplayAiActionPayload | undefined;
+  let pendingEffect: unknown | undefined;
 
   if (tMs < active.composerStartMs) {
     // Between chapters / hold — prior chapters only.
@@ -392,6 +398,9 @@ export function deriveReplayFrame(timeline: CompiledReplay, tMsRaw: number): Rep
           action: ChatAIActionEnum.Tool,
           message: `Using tool: ${streamingTool.toolName}`,
         };
+        if (streamingTool.effectIndex !== null) {
+          pendingEffect = timeline.effects[streamingTool.effectIndex]?.effect;
+        }
       }
     }
   }
@@ -402,6 +411,7 @@ export function deriveReplayFrame(timeline: CompiledReplay, tMsRaw: number): Rep
     status,
     aiActionPayload,
     effectsApplied,
+    pendingEffect,
     chapterIndex: active.index,
     tMs,
     durationMs: timeline.durationMs,

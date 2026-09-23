@@ -87,6 +87,7 @@ describe("showcase replay timeline", () => {
 
     expect(streamingPart?.state).toBe("input-streaming");
     expect(before.effectsApplied).toBe(0);
+    expect(before.pendingEffect).toEqual({ type: "UPSERT_ITEMS", id: "fx-1" });
 
     const after = deriveReplayFrame(timeline, toolStep.completeMs);
     const assistantAfter = after.messages.find((m) => m.role === "assistant");
@@ -94,6 +95,7 @@ describe("showcase replay timeline", () => {
 
     expect(donePart?.state).toBe("output-available");
     expect(after.effectsApplied).toBe(1);
+    expect(after.pendingEffect).toBeUndefined();
   });
 
   test("everything is finished at the end", () => {

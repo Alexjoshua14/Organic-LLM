@@ -293,11 +293,12 @@ export const QuietCard = memo(function QuietCard({
       <HoverCardTrigger asChild>{card}</HoverCardTrigger>
       <HoverCardContent
         align="start"
-        className={cn(glass({ opaque: true }), "z-[240] w-64 rounded-xl p-3 text-xs")}
+        className={cn(glass({ opaque: true }), "not-prose z-[240] w-56 rounded-lg p-2.5 shadow-sm")}
         side="bottom"
+        sideOffset={6}
       >
-        <p className="font-medium text-foreground">{item.title}</p>
-        <p className="mt-1 leading-relaxed text-muted-foreground">{item.notes}</p>
+        <p className="text-[12px] font-medium leading-snug text-foreground">{item.title}</p>
+        <p className="mt-1 text-[11px] leading-snug text-muted-foreground">{item.notes}</p>
       </HoverCardContent>
     </HoverCard>
   );

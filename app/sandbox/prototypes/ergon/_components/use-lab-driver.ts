@@ -1,6 +1,6 @@
 "use client";
 
-import type { KanbanActivity } from "./living-light";
+import type { KanbanActivity } from "@/components/chat/kanban/living/living-light";
 import type { KanbanBoardState } from "@/lib/kanban/store";
 import type { KanbanCommand } from "@/lib/schemas/kanban";
 
@@ -13,9 +13,8 @@ import {
   LAB_INITIATE_IN_FLIGHT_MS,
   LAB_LOOP_HOLD_MS,
   LAB_STEP_MS,
-} from "./living-board-timing";
-import { IDLE_ACTIVITY } from "./living-light";
-
+} from "@/components/chat/kanban/living/living-board-timing";
+import { IDLE_ACTIVITY } from "@/components/chat/kanban/living/living-light";
 import { kanbanCommandTargets } from "@/lib/kanban/board-lanes";
 import { reduceBoard } from "@/lib/kanban/store";
 

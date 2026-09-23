@@ -24,26 +24,27 @@ export default function AnatomyShowcasePage() {
   const miniStages = demoTrace.stages.map((s) => ({ id: s.id, title: s.title }));
 
   return (
-    <Page liquidChromeBackground transparentBackground className="overflow-hidden">
+    <Page
+      liquidChromeBackground
+      transparentBackground
+      className="items-stretch justify-start overflow-hidden"
+    >
       <AdaptiveLiquidChrome dimIntensity={0.45} />
-      <PageContentFrame
-        className="relative z-10 flex h-full flex-col overflow-hidden pb-0"
-        maxWidth="6xl"
-      >
-        <div className="min-h-0 flex-1 overflow-y-auto">
+      <div className="relative z-10 h-full min-h-0 w-full overflow-y-auto pb-16">
+        <PageContentFrame maxWidth="6xl">
           <PageNavBack href="/showcase">← Showcase</PageNavBack>
 
           <ShowcaseOverview placement="intro" />
 
           <ShowcaseHero thesis={THESIS} title="Anatomy of a Response" />
 
-          <div className="lg:grid lg:grid-cols-[minmax(0,380px)_minmax(0,1fr)] lg:gap-10 lg:items-start">
+          <div className="lg:grid lg:grid-cols-[minmax(0,380px)_minmax(0,1fr)] lg:items-start lg:gap-10">
             <ConversationRail className="w-full" trace={demoTrace} />
 
             <div className="mt-10 flex min-w-0 flex-col gap-6 lg:mt-0 lg:flex-row lg:gap-8">
               <StageMiniMap
                 activeIndex={activeStage}
-                className="hidden shrink-0 lg:block lg:sticky lg:top-20 lg:w-44 lg:self-start"
+                className="hidden shrink-0 lg:sticky lg:top-20 lg:block lg:w-44 lg:self-start"
                 orientation="vertical"
                 stages={miniStages}
               />
@@ -59,8 +60,8 @@ export default function AnatomyShowcasePage() {
               </div>
             </div>
           </div>
-        </div>
-      </PageContentFrame>
+        </PageContentFrame>
+      </div>
     </Page>
   );
 }

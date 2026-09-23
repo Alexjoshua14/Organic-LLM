@@ -33,7 +33,7 @@ import {
 import { ErgonTaskResult } from "@/components/ergon/ErgonTaskResult";
 import { GenUIStreamingPart } from "@/components/chat/gen-ui/GenUIStreamingPart";
 import { GenUIToolResult } from "@/components/chat/gen-ui/GenUIToolResult";
-import { KanbanLoadingShell } from "@/components/chat/kanban/KanbanLoadingShell";
+import { KanbanInFlight } from "@/components/chat/kanban/KanbanInFlight";
 import { KanbanToolResult } from "@/components/chat/kanban/KanbanToolResult";
 import { MiseLoadingShell } from "@/components/chat/mise/MiseLoadingShell";
 import { MiseToolResult } from "@/components/chat/mise/MiseToolResult";
@@ -181,17 +181,14 @@ const AIMessage: FC<ChatMessageProps> = ({
                     const showFullShell =
                       commandType === "INITIATE_KANBAN" || commandType === "SHOW_VIEW";
 
-                    if (showFullShell) {
-                      return <KanbanLoadingShell key={`${message.id}-${i}-kanban-stream`} />;
-                    }
-
                     return (
-                      <div
-                        key={`${message.id}-${i}-kanban-active`}
-                        className="not-prose rounded-lg border border-border/40 bg-background-tertiary/20 px-3 py-2"
-                      >
-                        <ChatThinking text={toolInvocationInFlightLabel(toolName)} />
-                      </div>
+                      <KanbanInFlight
+                        key={`${message.id}-${i}-kanban-stream`}
+                        input={"input" in part ? part.input : undefined}
+                        showFullShell={showFullShell}
+                        thinkingLabel={toolInvocationInFlightLabel(toolName)}
+                        threadId={chatId ?? message.id}
+                      />
                     );
                   }
                   if (part.state === "output-available") {

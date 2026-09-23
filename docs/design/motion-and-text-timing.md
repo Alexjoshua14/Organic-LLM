@@ -148,6 +148,11 @@ not chat loading burns. Values sit in the same research bands; tune by eye on th
 Constants: [`lib/showcase/replay-timing.ts`](../../lib/showcase/replay-timing.ts). Honor
 `prefers-reduced-motion` by snapping to the final frame (see `useReplayClock`).
 
+Living-board motion (Presence / Trace / Field) lives next to the effect in
+[`components/chat/kanban/living/living-board-timing.ts`](../../components/chat/kanban/living/living-board-timing.ts)
+— card springs, lane folds, wash / spark / orb breaths. Do not put one-off stagger or duration
+numbers in JSX.
+
 ### Sustain shimmer (activity)
 
 After burn-in settles, sustain uses **`ShinyText`** at `5s` (`PROCESSING_TEXT_BURN_SUSTAIN_SHIMMER_S`)

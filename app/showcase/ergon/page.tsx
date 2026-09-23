@@ -18,20 +18,21 @@ const THESIS =
 
 export default function ErgonShowcasePage() {
   return (
-    <Page liquidChromeBackground transparentBackground className="overflow-hidden">
+    <Page
+      liquidChromeBackground
+      transparentBackground
+      className="items-stretch justify-start overflow-hidden"
+    >
       <AdaptiveLiquidChrome dimIntensity={0.45} />
-      <PageContentFrame
-        className="relative z-10 flex h-full flex-col overflow-hidden pb-0"
-        maxWidth="7xl"
-      >
-        <div className="min-h-0 flex-1 overflow-y-auto pb-16">
+      <div className="relative z-10 h-full min-h-0 w-full overflow-y-auto pb-16">
+        <PageContentFrame maxWidth="7xl">
           <PageNavBack href="/showcase">← Showcase</PageNavBack>
 
           <ShowcaseHero thesis={THESIS} title="Ergon live board" />
 
           <ErgonShowcaseStage />
-        </div>
-      </PageContentFrame>
+        </PageContentFrame>
+      </div>
     </Page>
   );
 }

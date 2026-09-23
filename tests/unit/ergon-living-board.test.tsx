@@ -6,14 +6,14 @@ import { cleanup } from "@testing-library/react";
 
 import { render } from "../helpers/render";
 
-import { KanbanCompact } from "@/app/sandbox/prototypes/ergon/_components/KanbanCompact";
-import { LivingBoard } from "@/app/sandbox/prototypes/ergon/_components/LivingBoard";
-import { describeKanbanCommand } from "@/app/sandbox/prototypes/ergon/_components/living-light";
+import { KanbanCompact } from "@/components/chat/kanban/living/KanbanCompact";
+import { LivingBoard } from "@/components/chat/kanban/living/LivingBoard";
+import { describeKanbanCommand } from "@/components/chat/kanban/living/living-light";
 import {
   advanceBoardChanges,
   freshStamp,
   NO_BOARD_CHANGES,
-} from "@/app/sandbox/prototypes/ergon/_components/use-board-changes";
+} from "@/components/chat/kanban/living/use-board-changes";
 import { reduceBoard } from "@/lib/kanban/store";
 import { KANBAN_STATUSES } from "@/lib/schemas/kanban";
 import {

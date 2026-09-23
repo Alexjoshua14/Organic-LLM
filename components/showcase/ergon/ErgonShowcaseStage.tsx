@@ -16,6 +16,12 @@ import {
   ConversationScrollButton,
 } from "@/components/third-party/ai-elements/conversation";
 import { applyKanbanCommand, resetKanbanBoard, useKanbanBoard } from "@/lib/kanban/store";
+import { kanbanCommandTargets } from "@/lib/kanban/board-lanes";
+import {
+  clearKanbanActivity,
+  setKanbanActivity,
+} from "@/components/chat/kanban/living/activity-store";
+import { safeParseKanbanCommand } from "@/lib/schemas/kanban";
 import {
   ERGON_FULL_BOARD_VIEW,
   ERGON_SHOWCASE_THREAD_ID,
@@ -73,6 +79,29 @@ export function ErgonShowcaseStage({ className }: { className?: string }) {
     }
     appliedRef.current = frame.effectsApplied;
   }, [frame.effectsApplied]);
+
+  // Presence orb: narrate the tool currently in flight on the side board.
+  useEffect(() => {
+    const parsed = safeParseKanbanCommand(frame.pendingEffect);
+
+    if (!parsed.ok) {
+      clearKanbanActivity(THREAD_ID);
+
+      return;
+    }
+
+    setKanbanActivity(THREAD_ID, {
+      phase: "working",
+      command: parsed.command,
+      targetId: kanbanCommandTargets(parsed.command)[0],
+    });
+
+    return () => clearKanbanActivity(THREAD_ID);
+  }, [frame.pendingEffect]);
+
+  useEffect(() => {
+    return () => clearKanbanActivity(THREAD_ID);
+  }, []);
 
   const progress = compiled.durationMs > 0 ? frame.tMs / compiled.durationMs : 0;
 

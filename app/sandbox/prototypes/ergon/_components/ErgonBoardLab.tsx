@@ -1,18 +1,18 @@
 "use client";
 
-import type { LivingLight } from "./living-light";
+import type { LivingLight } from "@/components/chat/kanban/living/living-light";
 import type { ReactNode, Ref } from "react";
 
 import { useInView } from "framer-motion";
 import { Pause, Play, RotateCcw, SkipForward } from "lucide-react";
 import { memo, useEffect, useRef, useState } from "react";
 
-import { KanbanCompact } from "./KanbanCompact";
-import { LivingBoard } from "./LivingBoard";
-import { describeKanbanCommand, LIVING_LIGHTS } from "./living-light";
+import { LegacyKanbanView } from "./LegacyKanbanView";
 import { useLabDriver } from "./use-lab-driver";
 
-import { KanbanView } from "@/components/chat/kanban/KanbanView";
+import { KanbanCompact } from "@/components/chat/kanban/living/KanbanCompact";
+import { LivingBoard } from "@/components/chat/kanban/living/LivingBoard";
+import { describeKanbanCommand, LIVING_LIGHTS } from "@/components/chat/kanban/living/living-light";
 import { glass } from "@/components/design-system/primitives";
 import { applyKanbanCommand, resetKanbanBoard } from "@/lib/kanban/store";
 import {
@@ -23,7 +23,7 @@ import {
 } from "@/lib/showcase/ergon-session";
 import { cn } from "@/lib/utils";
 
-/** Thread for the production board shown as the "before". */
+/** Thread for the legacy board shown as the "before". */
 const BEFORE_THREAD_ID = "sandbox-ergon";
 
 type LabWidth = "chat" | "panel" | "wide";
@@ -217,7 +217,7 @@ export function ErgonBoardLab() {
 
       <LabSection
         ref={beforeSectionRef}
-        hint="The production board today, on the same script."
+        hint="The previous production board, on the same script — quiet cards and Presence replace this."
         title="Before"
       >
         <BeforeBoard maxWidth={maxWidth} />
@@ -226,11 +226,11 @@ export function ErgonBoardLab() {
   );
 }
 
-/** The production board follows the thread store on its own; lab ticks leave it alone. */
+/** The legacy board follows the thread store on its own; lab ticks leave it alone. */
 const BeforeBoard = memo(function BeforeBoard({ maxWidth }: { maxWidth?: number }) {
   return (
     <div style={{ maxWidth }}>
-      <KanbanView threadId={BEFORE_THREAD_ID} view={ERGON_FULL_BOARD_VIEW} />
+      <LegacyKanbanView threadId={BEFORE_THREAD_ID} view={ERGON_FULL_BOARD_VIEW} />
     </div>
   );
 });
