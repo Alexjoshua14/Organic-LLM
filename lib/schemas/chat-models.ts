@@ -58,8 +58,8 @@ const catalog: ChatModel[] = [
     supportsZeroDataRetention: true,
   },
   {
-    id: "openai/gpt-5.6-sol",
-    name: "GPT-5.6 Sol",
+    id: "openai/gpt-6-sol",
+    name: "GPT-6 Sol",
     alias: "openai.sol",
     supportsZeroDataRetention: true,
   },
@@ -70,8 +70,8 @@ const catalog: ChatModel[] = [
     supportsZeroDataRetention: true,
   },
   {
-    id: "openai/gpt-5.6-luna",
-    name: "GPT-5.6 Luna",
+    id: "openai/gpt-6-luna",
+    name: "GPT-6 Luna",
     alias: "openai.luna",
     supportsZeroDataRetention: true,
   },
@@ -132,8 +132,8 @@ const catalog: ChatModel[] = [
     supportsZeroDataRetention: true,
   },
   {
-    id: "anthropic/claude-opus-5",
-    name: "Claude Opus 5",
+    id: "anthropic/claude-opus-5.5",
+    name: "Claude Opus 5.5",
     alias: "anthropic.opus",
     supportsZeroDataRetention: true,
   },
@@ -193,8 +193,8 @@ const catalog: ChatModel[] = [
     supportsZeroDataRetention: true,
   },
   {
-    id: "deepseek/deepseek-v4-flash",
-    name: "DeepSeek v4 Flash",
+    id: "deepseek/deepseek-v4.1-flash",
+    name: "DeepSeek v4.1 Flash",
     alias: "deepseek.flash",
     supportsZeroDataRetention: true,
   },
@@ -305,7 +305,7 @@ export function requireChatModel(id: string): ChatModel {
   return row;
 }
 
-/** Unprefixed slug for `@ai-sdk/openai` (`openai("gpt-5.6-luna")`). */
+/** Unprefixed slug for `@ai-sdk/openai` (`openai("gpt-6-luna")`). */
 export function providerModelSlug(modelId: string): string {
   const slash = modelId.indexOf("/");
 
