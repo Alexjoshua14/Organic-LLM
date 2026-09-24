@@ -74,6 +74,10 @@ describe("clampEffortForModel", () => {
     expect(clampEffortForModel("openai/gpt-5.6-terra", "minimal")).toBe("none");
   });
 
+  test("clamps none to low when GPT-6 Sol has no none", () => {
+    expect(clampEffortForModel("openai/gpt-6-sol", "none")).toBe("low");
+  });
+
   test("clamps none to low when GPT-6 Astra has no none", () => {
     expect(clampEffortForModel("openai/gpt-6-astra", "none")).toBe("low");
   });

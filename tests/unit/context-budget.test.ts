@@ -67,7 +67,7 @@ function fixtureScaffold(overrides: Partial<ContextBudgetScaffold> = {}): Contex
 describe("computeContextBudget", () => {
   test("counts draft text toward next submit total", () => {
     const budget = computeContextBudget({
-      modelId: "openai/gpt-5.6-terra",
+      modelId: "openai/gpt-6-sol",
       threadMessages: [userMessage("Hello there")],
       draftText: "What is next?",
       memoryEnabled: false,
@@ -98,7 +98,7 @@ describe("computeContextBudget", () => {
 
   test("counts tool output parts in a dedicated segment", () => {
     const budget = computeContextBudget({
-      modelId: "openai/gpt-5.6-terra",
+      modelId: "openai/gpt-6-sol",
       threadMessages: [assistantWithToolOutput()],
       draftText: "",
       memoryEnabled: false,
@@ -113,9 +113,9 @@ describe("computeContextBudget", () => {
   });
 
   test("reserves output tokens from the model window", () => {
-    const window = getModelContextWindowTokens("openai/gpt-5.6-terra");
+    const window = getModelContextWindowTokens("openai/gpt-6-sol");
     const budget = computeContextBudget({
-      modelId: "openai/gpt-5.6-terra",
+      modelId: "openai/gpt-6-sol",
       threadMessages: [],
       draftText: "",
       memoryEnabled: false,
@@ -131,7 +131,7 @@ describe("computeContextBudget", () => {
 describe("computeNewThreadDefaultBudget", () => {
   test("defaults to system prompt and tool overhead only", () => {
     const budget = computeNewThreadDefaultBudget({
-      modelId: "openai/gpt-5.6-terra",
+      modelId: "openai/gpt-6-sol",
       memoryEnabled: false,
       webSearchEnabled: false,
       messageSearchEnabled: false,
@@ -178,7 +178,7 @@ describe("composeContextBudget", () => {
       scaffold,
       threadMessages: thread,
       draftText,
-      modelId: "openai/gpt-5.6-terra",
+      modelId: "openai/gpt-6-sol",
     });
 
     expect(composed.source).toBe("client");
@@ -199,7 +199,7 @@ describe("composeContextBudget", () => {
       scaffold: fixtureScaffold({ contextMessageLimit: 10, summaryTokens: 600 }),
       threadMessages: thread,
       draftText: "",
-      modelId: "openai/gpt-5.6-terra",
+      modelId: "openai/gpt-6-sol",
     });
 
     expect(composed.packedMessageCount).toBe(10);
@@ -248,7 +248,7 @@ describe("composeContextBudget", () => {
       scaffold: fixtureScaffold({ lastTurn, memoryTokens: 900, memoriesInjected: 0 }),
       threadMessages: [userMessage("hi")],
       draftText: "next",
-      modelId: "openai/gpt-5.6-terra",
+      modelId: "openai/gpt-6-sol",
     });
 
     expect(composed.lastTurn).toEqual(lastTurn);
@@ -258,8 +258,8 @@ describe("composeContextBudget", () => {
 describe("scaffoldFromStreamBudget", () => {
   test("round-trips segment tokens from a finalized budget", () => {
     const budget = finalizeContextBudget({
-      modelId: "openai/gpt-5.6-terra",
-      resolvedModelId: "openai/gpt-5.6-terra",
+      modelId: "openai/gpt-6-sol",
+      resolvedModelId: "openai/gpt-6-sol",
       segments: [
         { id: "system", label: "System prompt", tokens: 3_400, color: "x" },
         { id: "tools", label: "Tools", tokens: 1_200, color: "x" },
@@ -303,7 +303,7 @@ describe("scaffoldFromStreamBudget", () => {
       scaffold,
       threadMessages: [userMessage("hi")],
       draftText: "draft",
-      modelId: "openai/gpt-5.6-terra",
+      modelId: "openai/gpt-6-sol",
     });
 
     expect(recomposed.segments.find((s) => s.id === "system")?.tokens).toBe(3_400);
@@ -329,7 +329,7 @@ describe("estimateTokenCount shared encoder", () => {
 describe("context budget derivations", () => {
   test("returns null coverage for empty threads", () => {
     const budget = computeNewThreadDefaultBudget({
-      modelId: "openai/gpt-5.6-terra",
+      modelId: "openai/gpt-6-sol",
       memoryEnabled: false,
       webSearchEnabled: false,
       messageSearchEnabled: false,
@@ -341,7 +341,7 @@ describe("context budget derivations", () => {
   test("computes partial thread coverage when the window is smaller than the thread", () => {
     const thread = Array.from({ length: 12 }, (_, i) => userMessage(`Turn ${i + 1}`, `u${i}`));
     const budget = computeContextBudget({
-      modelId: "openai/gpt-5.6-terra",
+      modelId: "openai/gpt-6-sol",
       threadMessages: thread,
       draftText: "",
       contextMessageLimit: 10,
@@ -358,7 +358,7 @@ describe("context budget derivations", () => {
 
   test("computes headroom and composition from packed segments", () => {
     const budget = computeContextBudget({
-      modelId: "openai/gpt-5.6-terra",
+      modelId: "openai/gpt-6-sol",
       threadMessages: [userMessage("Hello"), assistantWithToolOutput()],
       draftText: "Next question",
       memoryEnabled: false,
@@ -379,7 +379,7 @@ describe("context budget derivations", () => {
 
 describe("resolveChatModelId", () => {
   test("passes explicit model ids through unchanged", () => {
-    expect(resolveChatModelId({ modelId: "openai/gpt-5.6-terra" })).toBe("openai/gpt-5.6-terra");
+    expect(resolveChatModelId({ modelId: "openai/gpt-6-sol" })).toBe("openai/gpt-6-sol");
   });
 
   test("resolves Auto to Sonnet by default", () => {
@@ -402,7 +402,7 @@ describe("resolveChatModelId", () => {
 describe("last-turn helpers", () => {
   test("withLastTurnSnapshot copies next-submit totals when lastTurn is missing", () => {
     const budget = finalizeContextBudget({
-      modelId: "openai/gpt-5.6-terra",
+      modelId: "openai/gpt-6-sol",
       segments: [
         { id: "system", label: "System prompt", tokens: 100, color: "x" },
         { id: "memory", label: "Memory", tokens: 40, color: "x" },
@@ -433,7 +433,7 @@ describe("last-turn helpers", () => {
 
   test("getLatestContextBudgetFromMessages hydrates the newest data-context-budget part", () => {
     const older = finalizeContextBudget({
-      modelId: "openai/gpt-5.6-terra",
+      modelId: "openai/gpt-6-sol",
       segments: [{ id: "system", label: "System prompt", tokens: 10, color: "x" }],
       contextMessageLimit: 10,
       packedMessageCount: 1,
@@ -444,7 +444,7 @@ describe("last-turn helpers", () => {
       source: "server",
     });
     const newer = finalizeContextBudget({
-      modelId: "openai/gpt-5.6-terra",
+      modelId: "openai/gpt-6-sol",
       segments: [
         { id: "system", label: "System prompt", tokens: 20, color: "x" },
         { id: "memory", label: "Memory", tokens: 50, color: "x" },

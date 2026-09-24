@@ -64,9 +64,11 @@ const catalog: ChatModel[] = [
     supportsZeroDataRetention: true,
   },
   {
-    id: "openai/gpt-5.6-terra",
-    name: "GPT-5.6 Terra",
+    // GPT-6 dropped Terra; pin the alias to Sol so orchestration keeps a mid-tier family handle.
+    id: "openai/gpt-6-sol",
+    name: "GPT-6 Sol",
     alias: "openai.terra",
+    picker: false,
     supportsZeroDataRetention: true,
   },
   {
