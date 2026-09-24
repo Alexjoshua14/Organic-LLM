@@ -37,6 +37,7 @@ import { Thread } from "@/lib/schemas/chat";
 import { createLogger } from "@/lib/logger";
 import { PERF_PHASES } from "@/lib/perf/journeys";
 import { completeForJourney } from "@/lib/perf/trace-store";
+import { useChatVoiceSurface } from "@/hooks/use-chat-voice-surface";
 import { useVoiceScreenContext } from "@/hooks/use-voice-screen-context";
 import { useSharedChatContext } from "@/lib/context/chat-context";
 import { ChatModel } from "@/lib/schemas/chat";
@@ -89,10 +90,6 @@ export const Chat: React.FC<ChatProps> = ({
   assistantSession,
 }) => {
   const { refreshSidebarChats } = useSharedChatContext();
-
-  // Ambient awareness: while this thread is on screen, a live voice session is told what it has
-  // covered (via its rolling summary) so the user can refer to "this conversation" out loud.
-  useVoiceScreenContext(chatData?.thread.id ? { kind: "chat", id: chatData.thread.id } : null);
 
   const selectedModelRef = useRef<ChatModel>(DEFAULT_COMPOSER_MODEL);
   const selectedEffortRef = useRef<ChatEffortLevel>(DEFAULT_COMPOSER_EFFORT);
@@ -369,6 +366,10 @@ export const Chat: React.FC<ChatProps> = ({
         setContextBudgetRefreshKey((key) => key + 1);
       },
     });
+
+  // Ambient awareness: while this thread is on screen, a live voice session is told its title,
+  // latest messages and rolling summary — re-pushed after each finished exchange.
+  useVoiceScreenContext(useChatVoiceSurface(chatData?.thread.id, messages, status));
 
   if (streamBudgetThreadId !== id) {
     setStreamBudgetThreadId(id);

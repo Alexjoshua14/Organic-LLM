@@ -13,7 +13,13 @@ import { DEFAULT_COMPOSER_MEMORIES } from "@/lib/chat/composer-tool-defaults";
 import { DEFAULT_SPEAK_MODALITIES } from "@/lib/schemas/speak-modalities";
 import { DEFAULT_SPEAK_THREAD_POLICY } from "@/lib/schemas/speak-thread";
 import { screenSurfaceKey } from "@/lib/schemas/speak-screen-context";
-import { buildAmbientContextItem } from "@/lib/speak/ambient-item";
+import {
+  AMBIENT_CLEARED_BODY,
+  AMBIENT_EVENT_PREFIX,
+  buildAmbientContextItem,
+  buildAmbientDeleteEvent,
+  isAmbientClientEvent,
+} from "@/lib/speak/ambient-item";
 import {
   classifyRealtimeEvent,
   sumRealtimeUsage,
@@ -34,6 +40,18 @@ export type RealtimeTranscriptEntry = {
   role: "user" | "assistant" | "system";
   text: string;
   interim?: boolean;
+};
+
+/**
+ * What the model was last told about the screen, for the dev "Sees:" chip. `reason` explains an
+ * empty body — the screen was replaced with {@link AMBIENT_CLEARED_BODY} instead.
+ */
+export type VoiceScreenContextSnapshot = {
+  surfaceKey: string;
+  label: string;
+  body: string;
+  reason?: string;
+  at: number;
 };
 
 export type ResumedThreadInfo = {
@@ -169,6 +187,7 @@ export function useRealtimeVoice({
    * elapsed clock reads this, so a refresh mid-call does not restart the timer at zero.
    */
   const [startedAt, setStartedAt] = useState<number | null>(null);
+  const [screenContext, setScreenContext] = useState<VoiceScreenContextSnapshot | null>(null);
   /** Mic and model audio, for the waveform's analyser taps. */
   const [streams, setStreams] = useState<{ local: MediaStream | null; remote: MediaStream | null }>(
     { local: null, remote: null }
@@ -195,6 +214,9 @@ export function useRealtimeVoice({
   const assistantStartedAtRef = useRef<number | null>(null);
   /** Last surface pushed, so navigating away and back costs nothing. */
   const ambientSurfaceKeyRef = useRef<string | null>(null);
+  /** Our id for the screen item in the conversation, so the next push can delete it. */
+  const ambientItemIdRef = useRef<string | null>(null);
+  const ambientSeqRef = useRef(0);
   const threadIdRef = useRef<string | null>(null);
   /** Thread a paused call was writing to, so `resume` lands on it rather than the latest. */
   const pausedThreadIdRef = useRef<string | null>(null);
@@ -323,6 +345,8 @@ export function useRealtimeVoice({
       userSpeechStartedAtRef.current = null;
       assistantStartedAtRef.current = null;
       ambientSurfaceKeyRef.current = null;
+      ambientItemIdRef.current = null;
+      setScreenContext(null);
       setPhaseSafe("idle");
     },
     [flushTurns, idleTimer, setPhaseSafe, stopHeartbeat]
@@ -529,6 +553,10 @@ export function useRealtimeVoice({
 
           return;
         case "error":
+          // Deleting a screen item that `retention_ratio` truncation already evicted, say. The
+          // call is fine; the user should never see it.
+          if (isAmbientClientEvent(ev.clientEventId)) return;
+
           setError(ev.message);
 
           return;
@@ -595,6 +623,7 @@ export function useRealtimeVoice({
           turnBufferRef.current = [];
           pendingUsageRef.current = null;
           ambientSurfaceKeyRef.current = null;
+          ambientItemIdRef.current = null;
 
           const audioEl = audioElRef.current ?? document.createElement("audio");
 
@@ -736,11 +765,13 @@ export function useRealtimeVoice({
   }, [connect, connecting]);
 
   /**
-   * Tells the model what the user is now looking at, as a silent system item.
+   * Tells the model what the user is now looking at, as a silent system item that replaces the
+   * previous one.
    *
    * The body is assembled server-side (summaries and compiled docs need privileged reads), then
    * forwarded down the data channel from here because the channel lives in the browser. No
-   * `response.create` follows — see `lib/speak/ambient-item.ts` for why that makes it silent.
+   * `response.create` follows — see `lib/speak/ambient-item.ts` for why that makes it silent, and
+   * why the previous item is deleted rather than left to pile up.
    */
   const sendScreenContext = useCallback(async (surface: SpeakScreenSurface) => {
     const sid = sessionIdRef.current;
@@ -768,20 +799,43 @@ export function useRealtimeVoice({
         return;
       }
 
-      const data = (await res.json()) as { body?: string };
-      const item = buildAmbientContextItem(data.body ?? "");
+      const data = (await res.json()) as { body?: string; label?: string; reason?: string };
 
       // A newer surface claimed the key while this was in flight — clicking through rabbit-hole
       // nodes does it constantly — so a late reply would overwrite fresher context. The session
       // can also end between the request and the response.
       if (
-        item &&
-        ambientSurfaceKeyRef.current === key &&
-        transportRef.current === transport &&
-        connectedRef.current
+        ambientSurfaceKeyRef.current !== key ||
+        transportRef.current !== transport ||
+        !connectedRef.current
       ) {
-        transport.send(item);
+        return;
       }
+
+      // Nothing to describe still replaces what was there; otherwise the model goes on describing
+      // the page the user just left.
+      const body = data.body?.trim() || AMBIENT_CLEARED_BODY;
+      const seq = ++ambientSeqRef.current;
+      const itemId = `${AMBIENT_EVENT_PREFIX}item_${seq}`;
+      const previous = ambientItemIdRef.current;
+
+      // Add before delete, so there is never a moment with no screen item at all.
+      transport.send(
+        buildAmbientContextItem(body, { itemId, eventId: `${AMBIENT_EVENT_PREFIX}add_${seq}` })!
+      );
+      ambientItemIdRef.current = itemId;
+
+      if (previous) {
+        transport.send(buildAmbientDeleteEvent(previous, `${AMBIENT_EVENT_PREFIX}del_${seq}`));
+      }
+
+      setScreenContext({
+        surfaceKey: key,
+        label: data.label ?? surface.kind,
+        body,
+        reason: data.reason,
+        at: Date.now(),
+      });
     } catch {
       // Ambient awareness is an enhancement; a failed push must never disturb the call.
       if (ambientSurfaceKeyRef.current === key) ambientSurfaceKeyRef.current = null;
@@ -826,6 +880,8 @@ export function useRealtimeVoice({
     transcript,
     /** Epoch ms the conversation began, across reloads. `null` when idle. */
     startedAt,
+    /** What the model was last told about the screen; the dev "Sees:" chip reads it. */
+    screenContext,
     /** Mic and model audio for the live bar's waveform analyser. */
     localStream: streams.local,
     remoteStream: streams.remote,

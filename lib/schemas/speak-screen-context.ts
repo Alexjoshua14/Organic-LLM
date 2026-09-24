@@ -13,8 +13,15 @@ import { z } from "zod";
 export const SpeakScreenSurfaceSchema = z.discriminatedUnion("kind", [
   z.object({
     kind: z.literal("chat"),
-    /** `threads.id` — resolved to its rolling summary. */
+    /** `threads.id` — resolved to its title, latest messages and rolling summary. */
     id: z.string().uuid(),
+    /**
+     * Id of the last *settled* message, which changes once per finished exchange. Never read by the
+     * server — it exists so the surface key changes and the provider re-pushes the thread while it
+     * stays open. Held through streaming: the server reads the database, which only has the reply
+     * once the stream has finished.
+     */
+    revision: z.string().min(1).max(128).optional(),
   }),
   z.object({
     kind: z.literal("stratum"),
@@ -54,7 +61,7 @@ export type SpeakScreenContextBody = z.infer<typeof SpeakScreenContextBodySchema
 export function screenSurfaceKey(surface: SpeakScreenSurface): string {
   switch (surface.kind) {
     case "chat":
-      return `chat:${surface.id}`;
+      return `chat:${surface.id}${surface.revision ? `:${surface.revision}` : ""}`;
     case "stratum":
       return `stratum:${surface.id}`;
     case "rabbit-hole":

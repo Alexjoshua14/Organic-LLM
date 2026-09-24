@@ -1,3 +1,4 @@
+import type { UIMessage } from "ai";
 import type { RabbitHoleSession } from "@/lib/schemas/rabbitHoleSchemas";
 import type { AmbientContextDeps } from "@/lib/speak/ambient-context";
 
@@ -59,23 +60,58 @@ export function rabbitHoleFixture(): RabbitHoleSession {
   } as unknown as RabbitHoleSession;
 }
 
+export const CHAT_THREAD_ID = "11111111-1111-4111-8111-111111111111";
+
+/** A chat thread as the server holds it: title, messages (chronological), rolling summary. */
+export type ChatThreadFixture = {
+  title: string | null;
+  messages: UIMessage[];
+  summary: string | null;
+};
+
+export function chatMessage(id: string, role: "user" | "assistant", text: string): UIMessage {
+  return { id, role, parts: [{ type: "text", text }] } as UIMessage;
+}
+
+/** "Espresso grinders": two exchanges and a summary, each line distinctive enough to assert on. */
+export function chatThreadFixture(): ChatThreadFixture {
+  return {
+    title: "Espresso grinders",
+    messages: [
+      chatMessage("m1", "user", "Should I get a flat or conical burr grinder?"),
+      chatMessage("m2", "assistant", "Flat burrs give a more uniform grind; conicals are quieter."),
+      chatMessage("m3", "user", "Which one for light roasts?"),
+      chatMessage("m4", "assistant", "Flat burrs — they bring out clarity in light roasts."),
+    ],
+    summary: "Comparing flat and conical burr grinders for home espresso.",
+  };
+}
+
 /**
- * Ambient-context deps where every surface belongs to {@link SPEAK_TEST_OWNER}. The rabbit hole is
- * read through `getSession` on each call, so a test can change it mid-flight — an article landing,
- * say — and the next push sees the new state.
+ * Ambient-context deps where every surface belongs to {@link SPEAK_TEST_OWNER}. The rabbit hole and
+ * the chat are read through getters on each call, so a test can change them mid-flight — an
+ * article landing, a new exchange — and the next push sees the new state.
  */
-export function rabbitHoleAmbientDeps(
-  getSession: () => RabbitHoleSession = rabbitHoleFixture,
+export function speakAmbientDeps(
+  sources: { rabbitHole?: () => RabbitHoleSession; chat?: () => ChatThreadFixture } = {},
   overrides: Partial<AmbientContextDeps> = {}
 ): AmbientContextDeps {
+  const rabbitHole = sources.rabbitHole ?? rabbitHoleFixture;
+  const chat = sources.chat ?? chatThreadFixture;
+
   return {
-    getThreadOwnerContext: async () => ({
-      data: { threadId: "t1", ownerId: SPEAK_TEST_OWNER },
+    getThreadOwnerContext: async (id: string) => ({
+      data: { threadId: id, ownerId: SPEAK_TEST_OWNER },
       error: null,
     }),
-    getConversationSummary: async () => ({ data: null, error: null }),
+    getThreadTitle: async () => ({ data: chat().title, error: null }),
+    getNMessages: async (_id: string, limit?: number) => ({
+      data: chat().messages.slice(-(limit ?? 20)),
+      error: null,
+    }),
+    getConversationSummary: async () => ({ data: chat().summary, error: null }),
     getStrataPageById: async () => null,
-    getSessionById: async () => ({ data: getSession(), error: null }),
+    getSessionById: async () => ({ data: rabbitHole(), error: null }),
     getRabbitHoleSessionOwnerId: async () => SPEAK_TEST_OWNER,
     ...overrides,
   } as AmbientContextDeps;
