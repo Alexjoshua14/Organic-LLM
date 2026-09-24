@@ -13,7 +13,7 @@ export function ComposerToolToggleGroup({ className }: { className?: string }) {
   return (
     <div
       className={cn(
-        "grid auto-cols-max grid-flow-col items-center gap-1 overflow-visible",
+        "grid auto-cols-max grid-flow-col items-center gap-0.5 overflow-visible",
         className
       )}
     >
