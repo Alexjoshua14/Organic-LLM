@@ -60,21 +60,30 @@ describe("ChatModel catalog aliases", () => {
 
     for (const { alias, row } of leaves) {
       expect(row.alias).toBe(alias);
-      expect(chatModelById(row.id)).toEqual(row);
       expect(chatModelByAlias(alias)).toEqual(row);
+      // Multiple aliases may share a gateway id (e.g. terra → sol after GPT-6).
+      expect(chatModelById(row.id)?.id).toBe(row.id);
     }
+  });
+
+  test("openai.terra is an internal GPT-6 Sol pin", () => {
+    expect(models.openai.terra.id).toBe(models.openai.sol.id);
+    expect(models.openai.terra.picker).toBe(false);
+    expect(ChatModels.some((model) => model.alias === "openai.terra")).toBe(false);
   });
 
   test("picker excludes picker: false rows and starts with Auto", () => {
     expect(ChatModels[0]?.id).toBe(AUTO_CHAT_MODEL_ID);
 
-    const pickerIds = new Set(ChatModels.map((model) => model.id));
+    const pickerAliases = new Set(
+      ChatModels.map((model) => model.alias).filter((alias): alias is ModelAlias => Boolean(alias))
+    );
     const internal = ChatModelCatalog.filter((model) => model.picker === false);
 
     expect(internal.length).toBeGreaterThan(0);
 
     for (const row of internal) {
-      expect(pickerIds.has(row.id)).toBe(false);
+      expect(pickerAliases.has(row.alias!)).toBe(false);
       expect(requireChatModel(row.id).id).toBe(row.id);
     }
   });

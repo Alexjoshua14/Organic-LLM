@@ -31,8 +31,10 @@ const DEFAULT_CONTEXT_WINDOW_TOKENS = 128_000;
 /** Known gateway model input windows (tokens). */
 const MODEL_CONTEXT_WINDOW_TOKENS: Record<string, number> = {
   "openai/gpt-6-astra": 1_050_000,
-  "openai/gpt-5.6-sol": 1_050_000,
+  "openai/gpt-6-sol": 1_050_000,
   "openai/gpt-5.6-terra": 1_050_000,
+  "openai/gpt-6-luna": 1_050_000,
+  "openai/gpt-5.6-sol": 1_050_000,
   "openai/gpt-5.6-luna": 1_050_000,
   "openai/gpt-5.4-mini": 400_000,
   "openai/gpt-5.4-nano": 400_000,
@@ -44,6 +46,7 @@ const MODEL_CONTEXT_WINDOW_TOKENS: Record<string, number> = {
   "google/gemini-2.5-flash-lite": 1_000_000,
   "anthropic/claude-fable-5.1": 1_000_000,
   "anthropic/claude-fable-5": 1_000_000,
+  "anthropic/claude-opus-5.5": 1_000_000,
   "anthropic/claude-opus-5": 1_000_000,
   "anthropic/claude-sonnet-5": 1_000_000,
   "anthropic/claude-haiku-4.5": 200_000,
@@ -53,6 +56,7 @@ const MODEL_CONTEXT_WINDOW_TOKENS: Record<string, number> = {
   "moonshotai/kimi-k2.7-code": 256_000,
   "moonshotai/kimi-k2.6": 262_000,
   "deepseek/deepseek-v4-pro": 1_000_000,
+  "deepseek/deepseek-v4.1-flash": 1_048_576,
   "deepseek/deepseek-v4-flash": 1_000_000,
   "openai/gpt-oss-120b": 131_072,
   "openai/gpt-oss-20b": 131_072,

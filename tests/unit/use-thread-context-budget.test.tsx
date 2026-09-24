@@ -56,7 +56,7 @@ function mockBudgetFetch() {
     return new Response(
       JSON.stringify({
         budget: {
-          modelId: "openai/gpt-5.6-terra",
+          modelId: "openai/gpt-6-sol",
           contextWindowTokens: 1_050_000,
           reservedOutputTokens: 8_192,
           inputBudgetTokens: 1_041_808,
@@ -90,7 +90,7 @@ function HookProbe(props: {
 }) {
   const budget = useThreadContextBudget({
     chatId: "11111111-1111-4111-8111-111111111111",
-    modelId: "openai/gpt-5.6-terra",
+    modelId: "openai/gpt-6-sol",
     draftText: props.draftText,
     memoryEnabled: props.memoryEnabled ?? false,
     webSearchEnabled: false,
@@ -145,7 +145,7 @@ function LastTurnProbe() {
   const streamBudget = useMemo(
     () =>
       finalizeContextBudget({
-        modelId: "openai/gpt-5.6-terra",
+        modelId: "openai/gpt-6-sol",
         segments: [
           { id: "system", label: "System prompt", tokens: 3400, color: "x" },
           { id: "memory", label: "Memory", tokens: 800, color: "x" },
@@ -166,7 +166,7 @@ function LastTurnProbe() {
 
   const budget = useThreadContextBudget({
     chatId: "11111111-1111-4111-8111-111111111111",
-    modelId: "openai/gpt-5.6-terra",
+    modelId: "openai/gpt-6-sol",
     draftText: "",
     memoryEnabled: false,
     webSearchEnabled: false,

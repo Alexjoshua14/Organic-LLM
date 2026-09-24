@@ -93,7 +93,7 @@ const OPENAI_GPT54_FAMILY: EffortCapability = {
   levels: ["none", "low", "medium", "high", "xhigh"],
 };
 
-/** Claude Fable / Opus 5 / Opus 4.8 / Sonnet 5 — adaptive thinking + effort. */
+/** Claude Fable / Opus 5.x / Opus 4.8 / Sonnet 5 — adaptive thinking + effort. */
 const ANTHROPIC_ADAPTIVE_FULL: EffortCapability = {
   configurable: true,
   levels: ["none", "low", "medium", "high", "xhigh", "max"],
@@ -318,7 +318,13 @@ function anthropicAdaptiveRequiresExplicitThinking(slug: string): boolean {
 }
 
 function anthropicCanDisableThinking(slug: string): boolean {
-  return !(slug.includes("fable") || slug.includes("mythos"));
+  // Fable / Mythos / Opus 5.5: adaptive thinking is always on.
+  return !(
+    slug.includes("fable") ||
+    slug.includes("mythos") ||
+    slug.includes("opus-5.5") ||
+    slug.includes("opus-5-5")
+  );
 }
 
 function googleUsesThinkingLevel(slug: string): boolean {
