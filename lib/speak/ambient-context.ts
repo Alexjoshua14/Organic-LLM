@@ -1,11 +1,17 @@
 import "server-only";
 
+import type { UIMessage } from "ai";
 import type { RabbitHoleNode, RabbitHoleSession } from "@/lib/schemas/rabbitHoleSchemas";
 import type { SpeakScreenSurface } from "@/lib/schemas/speak-screen-context";
 import type { StrataPageWithSections } from "@/lib/schemas/strata";
 
 import { getSessionById, getRabbitHoleSessionOwnerId } from "@/data/supabase/rabbitholes";
-import { getConversationSummary, getThreadOwnerContext } from "@/data/supabase/chat";
+import {
+  getConversationSummary,
+  getNMessages,
+  getThreadOwnerContext,
+  getThreadTitle,
+} from "@/data/supabase/chat";
 import { getStrataPageById } from "@/data/supabase/strata";
 import { createLogger } from "@/lib/logger";
 import { collectAncestorNodeIds } from "@/lib/rabbit-holes/collect-related-nodes";
@@ -24,7 +30,22 @@ export const SPEAK_AMBIENT_MAX_TOKENS = 600;
 
 /** Compiled Strata documents and rabbit-hole articles are long; clip before budgeting. */
 const STRATA_SECTION_MAX_CHARS = 1_400;
-const CHAT_SUMMARY_MAX_CHARS = 1_400;
+
+/**
+ * The latest messages are what is on screen, so they get their own cap rather than whatever the
+ * budget leaves. It is deliberately a fraction of the budget: every push is re-read on every model
+ * turn, so sending a thread's recent history must not become a second copy of the chat.
+ */
+export const CHAT_RECENT_MAX_TOKENS = 300;
+/** Fetched newest-first; the token cap usually binds before this does. */
+const CHAT_RECENT_MESSAGE_LIMIT = 6;
+/** One long answer must not crowd out the turn before it. */
+const CHAT_MESSAGE_MAX_CHARS = 600;
+const CHAT_TITLE_MAX_CHARS = 120;
+/** Below this, a clipped summary says too little to be worth the tokens. */
+const CHAT_SUMMARY_MIN_CHARS = 80;
+const CHAT_RECENT_HEADING = "Latest messages, oldest first:";
+const CHAT_SUMMARY_HEADING = "What the conversation has covered so far:";
 
 /**
  * The open node is what the user is reading, so its summary gets the largest share. Stored
@@ -49,7 +70,9 @@ const RABBIT_HOLE_GRAPH_MORE_RESERVE = 40;
 
 export type AmbientContextDeps = {
   getConversationSummary: typeof getConversationSummary;
+  getNMessages: typeof getNMessages;
   getThreadOwnerContext: typeof getThreadOwnerContext;
+  getThreadTitle: typeof getThreadTitle;
   getStrataPageById: typeof getStrataPageById;
   getSessionById: typeof getSessionById;
   getRabbitHoleSessionOwnerId: typeof getRabbitHoleSessionOwnerId;
@@ -57,7 +80,9 @@ export type AmbientContextDeps = {
 
 const defaultDeps: AmbientContextDeps = {
   getConversationSummary,
+  getNMessages,
   getThreadOwnerContext,
+  getThreadTitle,
   getStrataPageById,
   getSessionById,
   getRabbitHoleSessionOwnerId,
@@ -95,19 +120,89 @@ export function fitAmbientBody(
   return text;
 }
 
+export type ChatScreen = {
+  title: string | null;
+  /** Chronological, newest last — as `getNMessages` returns them. */
+  messages: UIMessage[];
+  summary: string | null;
+};
+
+function messageText(message: UIMessage): string {
+  return message.parts
+    .filter((part): part is { type: "text"; text: string } => part.type === "text")
+    .map((part) => part.text)
+    .join(" ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
 /**
- * The rolling summary carries the topic, so the thread title is deliberately not fetched — it
- * would cost a second query to restate what the next line already says.
+ * Walks back from the newest message until the next one would not fit, then reads oldest first.
+ * The newest always makes it in — clipped to the cap if it alone overflows — because it is the
+ * one the user just read. Tool calls, reasoning and generated UI are left out; only what was said.
  */
-export function buildChatSections(summary: string | null): string[] {
-  if (!summary?.trim()) {
-    return ["The user has a text chat open on screen. It has no summary yet."];
+export function buildRecentMessagesSection(messages: UIMessage[], maxChars: number): string {
+  const budget = maxChars - CHAT_RECENT_HEADING.length - 1;
+  const lines: string[] = [];
+  let used = 0;
+
+  for (let i = messages.length - 1; i >= 0; i--) {
+    const message = messages[i]!;
+
+    if (message.role !== "user" && message.role !== "assistant") continue;
+
+    const text = messageText(message);
+
+    if (!text) continue;
+
+    const line = `${message.role === "user" ? "User" : "Assistant"}: ${clip(text, CHAT_MESSAGE_MAX_CHARS)}`;
+    const cost = line.length + (lines.length > 0 ? 1 : 0);
+
+    if (used + cost > budget) {
+      if (lines.length === 0 && budget > 0) lines.push(clip(line, budget));
+      break;
+    }
+
+    lines.push(line);
+    used += cost;
   }
 
-  return [
-    "The user has a text chat open on screen.",
-    `What that conversation has covered so far:\n${clip(summary, CHAT_SUMMARY_MAX_CHARS)}`,
-  ];
+  return lines.length > 0 ? `${CHAT_RECENT_HEADING}\n${lines.reverse().join("\n")}` : "";
+}
+
+/**
+ * Title, then the latest messages, then the rolling summary. The messages are what is on screen,
+ * so they lead and have their own cap ({@link CHAT_RECENT_MAX_TOKENS}); the summary is background
+ * and is sized to what the budget has left, so `fitAmbientBody` never drops it whole.
+ */
+export function buildChatSections(
+  chat: ChatScreen,
+  maxTokens: number = SPEAK_AMBIENT_MAX_TOKENS
+): string[] {
+  const title = chat.title?.trim();
+  const header = title
+    ? `The user has the chat "${clip(title, CHAT_TITLE_MAX_CHARS)}" open.`
+    : "The user has an untitled chat open.";
+  const recent = buildRecentMessagesSection(
+    chat.messages,
+    CHAT_RECENT_MAX_TOKENS * SPEAK_CHARS_PER_TOKEN
+  );
+  const summary = chat.summary?.trim();
+
+  if (!recent && !summary) return [header, "It has no messages yet."];
+
+  const lead = [header, recent].filter(Boolean);
+  // Two characters per blank line `fitAmbientBody` joins with.
+  const room =
+    maxTokens * SPEAK_CHARS_PER_TOKEN -
+    lead.join("\n\n").length -
+    2 -
+    CHAT_SUMMARY_HEADING.length -
+    1;
+
+  return summary && room >= CHAT_SUMMARY_MIN_CHARS
+    ? [...lead, `${CHAT_SUMMARY_HEADING}\n${clip(summary, room)}`]
+    : lead;
 }
 
 /**
@@ -348,61 +443,97 @@ export function buildRabbitHoleSections(
   return [...lead, buildRabbitHoleGraphSection(session, active?.id ?? null, remaining)];
 }
 
-export type AmbientContextResult = {
-  /** Body for the system item, already budgeted. Empty when the surface yields nothing. */
+/** Why a surface produced no body. Surfaced to the dev "Sees:" chip, never to the model. */
+export type AmbientSkipReason = "not-owner" | "not-found" | "error";
+
+export type AmbientContext = {
+  /** Body for the screen item, already budgeted. Empty when the surface yields nothing. */
   body: string;
-  /** Echoed so the client can cache-key without re-deriving it. */
-  surfaceKey: string;
+  /** Short name for what is on screen — "Chat · Espresso grinders" — for logs and the dev chip. */
+  label: string;
+  /** Set when `body` is empty, saying why. */
+  reason?: AmbientSkipReason;
+};
+
+const KIND_LABEL: Record<SpeakScreenSurface["kind"], string> = {
+  chat: "Chat",
+  stratum: "Strata",
+  "rabbit-hole": "Rabbit hole",
+  none: "Nothing on screen",
 };
 
 /**
  * Resolves a surface descriptor into ambient text, enforcing ownership at every branch.
  *
- * A surface the caller does not own resolves to an empty body rather than an error: the user may
- * legitimately have navigated to something shared or stale, and a failed ambient push must never
- * take down a live call.
+ * A surface the caller does not own, or one that fails to load, resolves to an empty body with a
+ * `reason` rather than an error: the user may legitimately have navigated to something shared or
+ * stale, and a failed ambient push must never take down a live call. The client replaces the
+ * previous screen item with {@link AMBIENT_CLEARED_BODY} in that case.
  */
 export async function buildAmbientContext(
   args: { ownerId: string; surface: SpeakScreenSurface },
   deps: AmbientContextDeps = defaultDeps
-): Promise<string> {
+): Promise<AmbientContext> {
   const { ownerId, surface } = args;
+  const kind = KIND_LABEL[surface.kind];
+  const skip = (reason: AmbientSkipReason): AmbientContext => ({ body: "", label: kind, reason });
 
   try {
     switch (surface.kind) {
       case "none":
-        return AMBIENT_CLEARED_BODY;
+        return { body: AMBIENT_CLEARED_BODY, label: kind };
 
       case "chat": {
         const owner = await deps.getThreadOwnerContext(surface.id);
 
-        if (owner.error || owner.data?.ownerId !== ownerId) return "";
+        if (owner.error || !owner.data) return skip("not-found");
+        if (owner.data.ownerId !== ownerId) return skip("not-owner");
 
-        const summary = await deps.getConversationSummary(surface.id);
+        const [title, messages, summary] = await Promise.all([
+          deps.getThreadTitle(surface.id),
+          deps.getNMessages(surface.id, CHAT_RECENT_MESSAGE_LIMIT),
+          deps.getConversationSummary(surface.id),
+        ]);
+        const chat: ChatScreen = {
+          title: title.data ?? null,
+          messages: messages.data ?? [],
+          summary: summary.data ?? null,
+        };
 
-        return fitAmbientBody(buildChatSections(summary.data ?? null));
+        return {
+          body: fitAmbientBody(buildChatSections(chat)),
+          label: `${kind} · ${chat.title ? clip(chat.title, CHAT_TITLE_MAX_CHARS) : "Untitled"}`,
+        };
       }
 
       case "stratum": {
         const page = await deps.getStrataPageById(surface.id);
 
-        if (!page || page.page.owner_id !== ownerId) return "";
+        if (!page) return skip("not-found");
+        if (page.page.owner_id !== ownerId) return skip("not-owner");
 
-        return fitAmbientBody(buildStrataSections(page));
+        return {
+          body: fitAmbientBody(buildStrataSections(page)),
+          label: `${kind} · ${page.page.title?.trim() || "Untitled"}`,
+        };
       }
 
       case "rabbit-hole": {
         const owner = await deps.getRabbitHoleSessionOwnerId(surface.id);
 
-        if (owner !== ownerId) return "";
+        if (owner !== ownerId) return skip(owner ? "not-owner" : "not-found");
 
         const session = await deps.getSessionById(surface.id);
 
-        if (session.error || !session.data) return "";
+        if (session.error || !session.data) return skip("not-found");
 
-        return fitAmbientBody(
-          buildRabbitHoleSections(session.data, surface.activeNodeId ?? session.data.activeNodeId)
-        );
+        const activeNodeId = surface.activeNodeId ?? session.data.activeNodeId;
+        const active = activeNodeId ? session.data.nodesById[activeNodeId] : undefined;
+
+        return {
+          body: fitAmbientBody(buildRabbitHoleSections(session.data, activeNodeId)),
+          label: `${kind} · ${active ? nodeLabel(active) : clip(session.data.rootQuestion, NODE_LABEL_MAX_CHARS) || "New"}`,
+        };
       }
     }
   } catch (error) {
@@ -412,6 +543,6 @@ export async function buildAmbientContext(
       `Failed to build ${surface.kind} context: ${error instanceof Error ? error.message : String(error)}`
     );
 
-    return "";
+    return skip("error");
   }
 }

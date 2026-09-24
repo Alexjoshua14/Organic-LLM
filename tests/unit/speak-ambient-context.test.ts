@@ -1,3 +1,4 @@
+import type { UIMessage } from "ai";
 import type { RabbitHoleSession } from "@/lib/schemas/rabbitHoleSchemas";
 import type { StrataPageWithSections } from "@/lib/schemas/strata";
 import type { AmbientContextDeps } from "@/lib/speak/ambient-context";
@@ -8,14 +9,29 @@ import { screenSurfaceKey } from "@/lib/schemas/speak-screen-context";
 import {
   buildAmbientContext,
   buildChatSections,
+  buildRecentMessagesSection,
+  CHAT_RECENT_MAX_TOKENS,
   buildRabbitHoleSections,
   buildStrataSections,
   fitAmbientBody,
   SPEAK_AMBIENT_MAX_TOKENS,
 } from "@/lib/speak/ambient-context";
-import { AMBIENT_CLEARED_BODY, AMBIENT_PREFACE, buildAmbientContextItem } from "@/lib/speak/ambient-item";
+import {
+  AMBIENT_CLEARED_BODY,
+  AMBIENT_LABEL,
+  buildAmbientContextItem,
+  buildAmbientDeleteEvent,
+  isAmbientClientEvent,
+} from "@/lib/speak/ambient-item";
 import { estimateSpeakTokens } from "@/lib/speak/token-limit";
-import { RABBIT_HOLE_SESSION_ID, rabbitHoleFixture } from "../helpers/speak-fixtures";
+import {
+  CHAT_THREAD_ID,
+  chatMessage,
+  chatThreadFixture,
+  RABBIT_HOLE_SESSION_ID,
+  rabbitHoleFixture,
+  speakAmbientDeps,
+} from "../helpers/speak-fixtures";
 
 const OWNER = "owner-1";
 const OTHER = "someone-else";
@@ -92,17 +108,15 @@ function deepRabbitHole(
 }
 
 function deps(overrides: Partial<AmbientContextDeps> = {}): AmbientContextDeps {
-  return {
-    getThreadOwnerContext: async () => ({
-      data: { threadId: "t1", ownerId: OWNER },
-      error: null,
-    }),
-    getConversationSummary: async () => ({ data: "We compared two espresso grinders.", error: null }),
-    getStrataPageById: async () => strataPage({ elaborated: "The compiled document." }),
-    getSessionById: async () => ({ data: rabbitHole(), error: null }),
-    getRabbitHoleSessionOwnerId: async () => OWNER,
-    ...overrides,
-  } as AmbientContextDeps;
+  return speakAmbientDeps(
+    {},
+    { getStrataPageById: async () => strataPage({ elaborated: "The compiled document." }), ...overrides }
+  );
+}
+
+/** Just the text the model would receive. */
+async function bodyOf(...args: Parameters<typeof buildAmbientContext>): Promise<string> {
+  return (await buildAmbientContext(...args)).body;
 }
 
 describe("buildAmbientContextItem", () => {
@@ -124,18 +138,53 @@ describe("buildAmbientContextItem", () => {
     expect(serialized).not.toContain("response.create");
   });
 
-  test("tells the model in words not to act on it", () => {
+  test("opens with the [Screen] label the instructions refer to, then the body", () => {
     const item = buildAmbientContextItem("The user opened a page.") as {
       item: { content: Array<{ text: string }> };
     };
 
-    expect(item.item.content[0]!.text).toContain(AMBIENT_PREFACE);
-    expect(item.item.content[0]!.text).toContain("do not respond to it");
+    expect(item.item.content[0]!.text).toBe(`${AMBIENT_LABEL}\nThe user opened a page.`);
+  });
+
+  test("carries no behavioural prohibitions — those live once in the instructions", () => {
+    const text = JSON.stringify(buildAmbientContextItem("The user opened a page."));
+
+    expect(text).not.toContain("do not respond");
+    expect(text).not.toContain("do not acknowledge");
+  });
+
+  test("uses our item and event ids when given, so the next push can delete it", () => {
+    const item = buildAmbientContextItem("body", { itemId: "ambient_item_1", eventId: "ambient_add_1" }) as {
+      event_id: string;
+      item: { id: string };
+    };
+
+    expect(item.item.id).toBe("ambient_item_1");
+    expect(item.event_id).toBe("ambient_add_1");
   });
 
   test("returns null for an empty body rather than pushing a no-op into history", () => {
     expect(buildAmbientContextItem("")).toBeNull();
     expect(buildAmbientContextItem("   \n ")).toBeNull();
+  });
+});
+
+describe("buildAmbientDeleteEvent", () => {
+  test("deletes an item by id and tags the event as ours", () => {
+    const event = buildAmbientDeleteEvent("ambient_item_1", "ambient_del_2");
+
+    expect(event).toEqual({
+      type: "conversation.item.delete",
+      item_id: "ambient_item_1",
+      event_id: "ambient_del_2",
+    });
+    expect(isAmbientClientEvent(event.event_id as string)).toBe(true);
+  });
+
+  test("errors from anything else are not mistaken for ours", () => {
+    expect(isAmbientClientEvent("evt_123")).toBe(false);
+    expect(isAmbientClientEvent(null)).toBe(false);
+    expect(isAmbientClientEvent(undefined)).toBe(false);
   });
 });
 
@@ -301,37 +350,194 @@ describe("buildRabbitHoleSections", () => {
   });
 });
 
-describe("buildChatSections", () => {
-  test("carries the rolling summary", () => {
-    expect(buildChatSections("We compared grinders.").join("\n")).toContain(
-      "We compared grinders."
+describe("buildRecentMessagesSection", () => {
+  const cap = CHAT_RECENT_MAX_TOKENS * 4;
+
+  test("reads oldest first with speaker labels", () => {
+    const text = buildRecentMessagesSection(chatThreadFixture().messages, cap);
+
+    expect(text).toBe(
+      "Latest messages, oldest first:\n" +
+        "User: Should I get a flat or conical burr grinder?\n" +
+        "Assistant: Flat burrs give a more uniform grind; conicals are quieter.\n" +
+        "User: Which one for light roasts?\n" +
+        "Assistant: Flat burrs — they bring out clarity in light roasts."
     );
   });
 
-  test("is explicit when there is no summary yet", () => {
-    expect(buildChatSections(null).join("\n")).toContain("no summary yet");
+  test("keeps the newest messages when the cap bites, dropping the oldest whole", () => {
+    const messages = Array.from({ length: 6 }, (_, i) =>
+      chatMessage(`m${i}`, i % 2 ? "assistant" : "user", `message ${i} ${"x".repeat(250)}`)
+    );
+    const text = buildRecentMessagesSection(messages, 700);
+
+    expect(text).toContain("message 5");
+    expect(text).toContain("message 4");
+    expect(text).not.toContain("message 0");
+    expect(text.length).toBeLessThanOrEqual(700);
+    // Whole messages or none: nothing half-quoted from the older end.
+    expect(text.split("\n").slice(1).every((line) => /^(User|Assistant): message \d/.test(line))).toBe(true);
+  });
+
+  test("the newest message always survives, clipped if it alone overflows", () => {
+    const text = buildRecentMessagesSection(
+      [chatMessage("m1", "user", "older"), chatMessage("m2", "assistant", "y".repeat(5_000))],
+      300
+    );
+
+    expect(text).toContain("Assistant: yyy");
+    expect(text).not.toContain("older");
+    expect(text.length).toBeLessThanOrEqual(300);
+  });
+
+  test("one long answer is clipped so it cannot crowd out the turn before it", () => {
+    const text = buildRecentMessagesSection(
+      [chatMessage("m1", "user", "What is a burr?"), chatMessage("m2", "assistant", "z".repeat(3_000))],
+      cap
+    );
+
+    expect(text).toContain("User: What is a burr?");
+    expect(text).toContain("…");
+  });
+
+  test("only what was said: tool calls, reasoning and empty messages are left out", () => {
+    const withTools = {
+      id: "m2",
+      role: "assistant",
+      parts: [
+        { type: "reasoning", text: "private chain of thought" },
+        { type: "tool-render_gen_ui", toolCallId: "c1", state: "output-available", input: {}, output: {} },
+        { type: "text", text: "Here is a comparison." },
+      ],
+    } as unknown as UIMessage;
+    const text = buildRecentMessagesSection(
+      [chatMessage("m1", "user", "Compare them"), withTools, chatMessage("m3", "user", "   ")],
+      cap
+    );
+
+    expect(text).toContain("Assistant: Here is a comparison.");
+    expect(text).not.toContain("chain of thought");
+    expect(text).not.toContain("render_gen_ui");
+    expect(text.split("\n")).toHaveLength(3);
+  });
+});
+
+describe("buildChatSections", () => {
+  test("title, then the latest messages, then the summary", () => {
+    const [header, recent, summary] = buildChatSections(chatThreadFixture());
+
+    expect(header).toBe('The user has the chat "Espresso grinders" open.');
+    expect(recent).toContain("Assistant: Flat burrs — they bring out clarity in light roasts.");
+    expect(summary).toBe(
+      "What the conversation has covered so far:\nComparing flat and conical burr grinders for home espresso."
+    );
+  });
+
+  test("an untitled chat says so", () => {
+    expect(buildChatSections({ ...chatThreadFixture(), title: null })[0]).toBe(
+      "The user has an untitled chat open."
+    );
+  });
+
+  test("a chat with nothing in it yet says so", () => {
+    expect(buildChatSections({ title: "New chat", messages: [], summary: null })).toEqual([
+      'The user has the chat "New chat" open.',
+      "It has no messages yet.",
+    ]);
+  });
+
+  test("messages without a summary yet still describe the chat", () => {
+    const sections = buildChatSections({ ...chatThreadFixture(), summary: null });
+
+    expect(sections).toHaveLength(2);
+    expect(sections[1]).toContain("Which one for light roasts?");
+  });
+
+  test("recent messages hold to their own cap, well inside the budget", () => {
+    const messages = Array.from({ length: 6 }, (_, i) =>
+      chatMessage(`m${i}`, i % 2 ? "assistant" : "user", "w".repeat(2_000))
+    );
+    const recent = buildChatSections({ title: "Long", messages, summary: null })[1]!;
+
+    expect(estimateSpeakTokens(recent)).toBeLessThanOrEqual(CHAT_RECENT_MAX_TOKENS);
+  });
+
+  test("worst case — long title, long messages, huge summary — keeps all three within budget", () => {
+    const messages = Array.from({ length: 6 }, (_, i) =>
+      chatMessage(`m${i}`, i % 2 ? "assistant" : "user", "w".repeat(2_000))
+    );
+    const text = fitAmbientBody(
+      buildChatSections({ title: "t".repeat(400), messages, summary: `SUMMARY ${"s".repeat(20_000)}` })
+    );
+
+    expect(estimateSpeakTokens(text)).toBeLessThanOrEqual(SPEAK_AMBIENT_MAX_TOKENS);
+    expect(text).toContain("The user has the chat");
+    expect(text).toContain("Latest messages, oldest first:");
+    expect(text).toContain("What the conversation has covered so far:\nSUMMARY");
   });
 });
 
 describe("buildAmbientContext", () => {
   test("clears stale context when the user navigates somewhere unregistered", async () => {
-    const body = await buildAmbientContext({ ownerId: OWNER, surface: { kind: "none" } }, deps());
+    const context = await buildAmbientContext({ ownerId: OWNER, surface: { kind: "none" } }, deps());
 
-    expect(body).toBe(AMBIENT_CLEARED_BODY);
+    expect(context.body).toBe(AMBIENT_CLEARED_BODY);
+    expect(context.reason).toBeUndefined();
   });
 
-  test("returns nothing for a chat the caller does not own", async () => {
-    const body = await buildAmbientContext(
-      { ownerId: OWNER, surface: { kind: "chat", id: "t1" } },
+  test("opening a chat gives its title, latest messages and summary, labelled for the chip", async () => {
+    const context = await buildAmbientContext(
+      { ownerId: OWNER, surface: { kind: "chat", id: CHAT_THREAD_ID } },
+      deps()
+    );
+
+    expect(context.label).toBe("Chat · Espresso grinders");
+    expect(context.body).toContain('The user has the chat "Espresso grinders" open.');
+    expect(context.body).toContain("User: Which one for light roasts?");
+    expect(context.body).toContain("Comparing flat and conical burr grinders for home espresso.");
+  });
+
+  test("asks the data layer for only a handful of recent messages", async () => {
+    let requested: number | undefined;
+
+    await buildAmbientContext(
+      { ownerId: OWNER, surface: { kind: "chat", id: CHAT_THREAD_ID } },
+      deps({
+        getNMessages: async (_id: string, limit?: number) => {
+          requested = limit;
+
+          return { data: [], error: null };
+        },
+      } as Partial<AmbientContextDeps>)
+    );
+
+    expect(requested).toBeGreaterThan(0);
+    expect(requested).toBeLessThanOrEqual(10);
+  });
+
+  test("returns nothing for a chat the caller does not own, and says why", async () => {
+    const context = await buildAmbientContext(
+      { ownerId: OWNER, surface: { kind: "chat", id: CHAT_THREAD_ID } },
       deps({
         getThreadOwnerContext: async () => ({
-          data: { threadId: "t1", ownerId: OTHER },
+          data: { threadId: CHAT_THREAD_ID, ownerId: OTHER },
           error: null,
         }),
       } as Partial<AmbientContextDeps>)
     );
 
-    expect(body).toBe("");
+    expect(context).toEqual({ body: "", label: "Chat", reason: "not-owner" });
+  });
+
+  test("a chat that does not exist is not-found, not an error", async () => {
+    const context = await buildAmbientContext(
+      { ownerId: OWNER, surface: { kind: "chat", id: CHAT_THREAD_ID } },
+      deps({
+        getThreadOwnerContext: async () => ({ data: null, error: new Error("Thread not found") }),
+      } as Partial<AmbientContextDeps>)
+    );
+
+    expect(context.reason).toBe("not-found");
   });
 
   test("returns nothing for a Strata page the caller does not own", async () => {
@@ -339,28 +545,25 @@ describe("buildAmbientContext", () => {
 
     foreign.page.owner_id = OTHER;
 
-    const body = await buildAmbientContext(
+    const context = await buildAmbientContext(
       { ownerId: OWNER, surface: { kind: "stratum", id: "page-1" } },
       deps({ getStrataPageById: async () => foreign } as Partial<AmbientContextDeps>)
     );
 
-    expect(body).toBe("");
+    expect(context).toEqual({ body: "", label: "Strata", reason: "not-owner" });
   });
 
   test("returns nothing for a rabbit hole the caller does not own", async () => {
-    const body = await buildAmbientContext(
-      {
-        ownerId: OWNER,
-        surface: { kind: "rabbit-hole", id: "00000000-0000-4000-8000-000000000000" },
-      },
+    const context = await buildAmbientContext(
+      { ownerId: OWNER, surface: { kind: "rabbit-hole", id: RABBIT_HOLE_SESSION_ID } },
       deps({ getRabbitHoleSessionOwnerId: async () => OTHER } as Partial<AmbientContextDeps>)
     );
 
-    expect(body).toBe("");
+    expect(context).toEqual({ body: "", label: "Rabbit hole", reason: "not-owner" });
   });
 
   test("a data-layer failure yields no context rather than taking down the call", async () => {
-    const body = await buildAmbientContext(
+    const context = await buildAmbientContext(
       { ownerId: OWNER, surface: { kind: "stratum", id: "page-1" } },
       deps({
         getStrataPageById: async () => {
@@ -369,11 +572,11 @@ describe("buildAmbientContext", () => {
       } as Partial<AmbientContextDeps>)
     );
 
-    expect(body).toBe("");
+    expect(context).toEqual({ body: "", label: "Strata", reason: "error" });
   });
 
   test("stays within budget for a real surface", async () => {
-    const body = await buildAmbientContext(
+    const body = await bodyOf(
       { ownerId: OWNER, surface: { kind: "stratum", id: "page-1" } },
       deps({
         getStrataPageById: async () => strataPage({ elaborated: "word ".repeat(5_000) }),
@@ -383,16 +586,14 @@ describe("buildAmbientContext", () => {
     expect(estimateSpeakTokens(body)).toBeLessThanOrEqual(SPEAK_AMBIENT_MAX_TOKENS * 1.1);
   });
 
-  test("falls back to the session's own active node when the client did not send one", async () => {
-    const body = await buildAmbientContext(
-      {
-        ownerId: OWNER,
-        surface: { kind: "rabbit-hole", id: "00000000-0000-4000-8000-000000000000" },
-      },
+  test("labels the rabbit hole by its open node, and falls back to the session's own", async () => {
+    const context = await buildAmbientContext(
+      { ownerId: OWNER, surface: { kind: "rabbit-hole", id: RABBIT_HOLE_SESSION_ID } },
       deps()
     );
 
-    expect(body).toContain("Mains hum");
+    expect(context.body).toContain("Mains hum");
+    expect(context.label).toBe("Rabbit hole · Mains hum");
   });
 });
 
@@ -401,7 +602,7 @@ describe("buildAmbientContext for a rabbit hole", () => {
     ({ kind: "rabbit-hole", id: RABBIT_HOLE_SESSION_ID, activeNodeId }) as const;
 
   test("opening one gives the open node's summary and the whole map", async () => {
-    const body = await buildAmbientContext({ ownerId: OWNER, surface: surface("n2") }, deps());
+    const body = await bodyOf({ ownerId: OWNER, surface: surface("n2") }, deps());
 
     expect(body).toContain('The user is reading the rabbit hole "Why do cities hum?"');
     expect(body).toContain('What "Mains hum" (the user asked: "What is mains hum?") covers:');
@@ -415,8 +616,8 @@ describe("buildAmbientContext for a rabbit hole", () => {
   });
 
   test("moving to another node follows the reader: new summary, marker moved", async () => {
-    const before = await buildAmbientContext({ ownerId: OWNER, surface: surface("n2") }, deps());
-    const after = await buildAmbientContext({ ownerId: OWNER, surface: surface("n3") }, deps());
+    const before = await bodyOf({ ownerId: OWNER, surface: surface("n2") }, deps());
+    const after = await bodyOf({ ownerId: OWNER, surface: surface("n3") }, deps());
 
     expect(after).toContain('on the node "Traffic rumble"');
     expect(after).toContain("Tyre noise carries further once the air cools.");
@@ -428,7 +629,7 @@ describe("buildAmbientContext for a rabbit hole", () => {
 
   test("the client's node wins over the one saved on the session", async () => {
     // The saved session says n2; the reader has already moved to n3 and the save has not landed.
-    const body = await buildAmbientContext({ ownerId: OWNER, surface: surface("n3") }, deps());
+    const body = await bodyOf({ ownerId: OWNER, surface: surface("n3") }, deps());
 
     expect(body).toContain("Traffic rumble ← on screen");
   });
@@ -447,14 +648,14 @@ describe("buildAmbientContext for a rabbit hole", () => {
     const live = deps({
       getSessionById: async () => ({ data: session, error: null }),
     } as Partial<AmbientContextDeps>);
-    const pending = await buildAmbientContext({ ownerId: OWNER, surface: surface("n3") }, live);
+    const pending = await bodyOf({ ownerId: OWNER, surface: surface("n3") }, live);
 
     expect(pending).toContain("still being written");
     expect(pending).toContain("Early guess about traffic");
 
     session = rabbitHole();
 
-    const landed = await buildAmbientContext({ ownerId: OWNER, surface: surface("n3") }, live);
+    const landed = await bodyOf({ ownerId: OWNER, surface: surface("n3") }, live);
 
     expect(landed).not.toContain("still being written");
     expect(landed).toContain("Tyre noise carries further once the air cools.");

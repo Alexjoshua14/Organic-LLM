@@ -12,7 +12,7 @@ import {
 import { useVoiceScreenContext } from "@/hooks/use-voice-screen-context";
 import { SpeakScreenContextBodySchema } from "@/lib/schemas/speak-screen-context";
 import { buildAmbientContext } from "@/lib/speak/ambient-context";
-import { AMBIENT_CLEARED_BODY, AMBIENT_PREFACE } from "@/lib/speak/ambient-item";
+import { AMBIENT_CLEARED_BODY, AMBIENT_LABEL } from "@/lib/speak/ambient-item";
 import {
   createRealtimeVoiceHarness,
   SPEAK_TEST_THREAD_ID,
@@ -21,10 +21,14 @@ import {
 } from "../helpers/mock-realtime-voice";
 import { ensureDom } from "../helpers/render";
 import {
+  CHAT_THREAD_ID,
+  chatMessage,
+  chatThreadFixture,
   RABBIT_HOLE_SESSION_ID,
-  rabbitHoleAmbientDeps,
   rabbitHoleFixture,
+  speakAmbientDeps,
   SPEAK_TEST_OWNER,
+  type ChatThreadFixture,
 } from "../helpers/speak-fixtures";
 
 ensureDom();
@@ -38,22 +42,22 @@ ensureDom();
 
 let harness: RealtimeVoiceHarness;
 let restoreFetch: () => void;
-/** The rabbit hole as the server currently has it; tests change it mid-flight. */
+/** The rabbit hole and chat as the server currently has them; tests change them mid-flight. */
 let serverSession: RabbitHoleSession;
+let serverChat: ChatThreadFixture;
 let voice: VoiceSessionValue;
 
 beforeEach(() => {
   serverSession = rabbitHoleFixture();
+  serverChat = chatThreadFixture();
   harness = createRealtimeVoiceHarness({
     context: async (body) => {
       const parsed = SpeakScreenContextBodySchema.parse(body);
 
-      return {
-        body: await buildAmbientContext(
-          { ownerId: SPEAK_TEST_OWNER, surface: parsed.surface },
-          rabbitHoleAmbientDeps(() => serverSession)
-        ),
-      };
+      return buildAmbientContext(
+        { ownerId: SPEAK_TEST_OWNER, surface: parsed.surface },
+        speakAmbientDeps({ rabbitHole: () => serverSession, chat: () => serverChat })
+      );
     },
   });
   restoreFetch = harness.install();
@@ -117,7 +121,7 @@ describe("VoiceSessionProvider screen context on a rabbit hole", () => {
     const text = await nthPush(1);
 
     expect(harness.callsTo("context")[0]!.body.surface).toEqual(rabbitHole("n2"));
-    expect(text.startsWith(AMBIENT_PREFACE)).toBe(true);
+    expect(text.startsWith(`${AMBIENT_LABEL}\n`)).toBe(true);
     expect(text).toContain('on the node "Mains hum"');
     expect(text).toContain("50/60Hz leakage from grid infrastructure.");
     expect(text).toContain("- City hum\n  - Mains hum ← on screen\n  - Traffic rumble");
@@ -184,6 +188,75 @@ describe("VoiceSessionProvider screen context on a rabbit hole", () => {
 
     expect(await nthPush(2)).toContain(AMBIENT_CLEARED_BODY);
     expect(harness.callsTo("context")[1]!.body.surface).toEqual({ kind: "none" });
+    app.unmount();
+  });
+});
+
+function chat(revision?: string): SpeakScreenSurface {
+  return { kind: "chat", id: CHAT_THREAD_ID, revision };
+}
+
+describe("VoiceSessionProvider screen context on a chat", () => {
+  test("opening voice on a chat gives the model its title, latest messages and summary", async () => {
+    const app = renderApp(chat("m4"));
+
+    await connect();
+
+    const text = await nthPush(1);
+
+    expect(harness.callsTo("context")[0]!.body.surface).toEqual(chat("m4"));
+    expect(text).toContain('The user has the chat "Espresso grinders" open.');
+    expect(text).toContain("User: Which one for light roasts?");
+    expect(text).toContain("Assistant: Flat burrs — they bring out clarity in light roasts.");
+    expect(text).toContain("Comparing flat and conical burr grinders for home espresso.");
+    expect(voice.screenContext?.label).toBe("Chat · Espresso grinders");
+    app.unmount();
+  });
+
+  test("a finished exchange re-pushes the chat with the new messages", async () => {
+    const app = renderApp(chat("m4"));
+
+    await connect();
+    await nthPush(1);
+
+    // The user sends another message while the call is live; once it settles, the page moves the
+    // revision and the server has the new exchange.
+    serverChat = {
+      ...serverChat,
+      messages: [
+        ...serverChat.messages,
+        chatMessage("m5", "user", "What about grind retention?"),
+        chatMessage("m6", "assistant", "Single-dose grinders retain almost nothing."),
+      ],
+    };
+    app.show(chat("m6"));
+
+    const text = await nthPush(2);
+
+    expect(text).toContain("User: What about grind retention?");
+    expect(text).toContain("Assistant: Single-dose grinders retain almost nothing.");
+    app.unmount();
+  });
+
+  test("the model only ever holds one screen: moving on deletes the previous item", async () => {
+    const app = renderApp(chat("m4"));
+
+    await connect();
+    await nthPush(1);
+
+    app.show(rabbitHole("n2"));
+    await nthPush(2);
+
+    const [chatItem] = harness.transport.sent.filter((e) => e.type === "conversation.item.create");
+    const chatItemId = (chatItem!.item as { id: string }).id;
+
+    await waitFor(() =>
+      expect(
+        harness.transport.sent.some(
+          (e) => e.type === "conversation.item.delete" && e.item_id === chatItemId
+        )
+      ).toBe(true)
+    );
     app.unmount();
   });
 });

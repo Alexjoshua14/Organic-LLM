@@ -949,6 +949,26 @@ export async function getThreadHasTitle(
   };
 }
 
+/** The thread's title, or `null` when it has none yet. Titles are stored unencrypted. */
+export async function getThreadTitle(chatId: string): Promise<Result<string | null>> {
+  const sb = await supabaseServer();
+  const { data, error } = await sb.from("threads").select("title").eq("id", chatId).single();
+
+  if (error) {
+    return {
+      data: null,
+      error: new Error(error?.message ?? "Unknown error"),
+    };
+  }
+
+  const title = data?.title != null ? String(data.title).trim() : "";
+
+  return {
+    data: title || null,
+    error: null,
+  };
+}
+
 export async function updateChatTitle(chatId: string, title: string): Promise<SimpleResult> {
   const sb = await supabaseServer();
   const hasTitle = title.trim() !== "";

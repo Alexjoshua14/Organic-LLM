@@ -5,7 +5,11 @@ import type { SpeakScreenSurface } from "@/lib/schemas/speak-screen-context";
 import type { SpeakToolClientEffect } from "@/lib/speak/types";
 import type { VoiceTransportFactory } from "@/lib/speak/transport/voice-transport";
 import type { VoiceVisualState } from "@/lib/speak/voice-visual-state";
-import type { LiveVoicePhase, RealtimeTranscriptEntry } from "@/hooks/use-realtime-voice";
+import type {
+  LiveVoicePhase,
+  RealtimeTranscriptEntry,
+  VoiceScreenContextSnapshot,
+} from "@/hooks/use-realtime-voice";
 
 import {
   createContext,
@@ -53,6 +57,8 @@ export type VoiceSessionValue = {
   localStream: MediaStream | null;
   remoteStream: MediaStream | null;
   visual: VoiceVisualState;
+  /** What the model was last told about the screen. Read by the dev "Sees:" chip. */
+  screenContext: VoiceScreenContextSnapshot | null;
 
   modalities: SpeakModalities;
   setModalities: (next: SpeakModalities) => void;
@@ -184,6 +190,7 @@ export function VoiceSessionProvider({
       localStream: voice.localStream,
       remoteStream: voice.remoteStream,
       visual,
+      screenContext: voice.screenContext,
       modalities,
       setModalities,
       memoryEnabled,
@@ -211,6 +218,7 @@ export function VoiceSessionProvider({
       voice.startedAt,
       voice.localStream,
       voice.remoteStream,
+      voice.screenContext,
       caption,
       visual,
       modalities,

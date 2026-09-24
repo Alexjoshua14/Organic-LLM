@@ -13,6 +13,7 @@ import {
 } from "@/lib/llm/compile-speak-tools";
 import { buildSpeakRealtimeInstructions } from "@/lib/system-prompt/speak-realtime";
 import { DEFAULT_SPEAK_MODALITIES } from "@/lib/schemas/speak-modalities";
+import { AMBIENT_LABEL } from "@/lib/speak/ambient-item";
 
 describe("speak realtime cost helpers", () => {
   test("normalizeRealtimeModelId prefixes openai/", () => {
@@ -148,5 +149,34 @@ describe("buildSpeakRealtimeInstructions continuity", () => {
     const text = buildSpeakRealtimeInstructions(DEFAULT_SPEAK_MODALITIES, { resumed: false });
 
     expect(text).not.toContain("continuing an earlier conversation");
+  });
+});
+
+describe("Speak Realtime screen awareness", () => {
+  // Every session can receive screen items, whatever its modalities, memory or resume state.
+  const variants = [
+    buildSpeakRealtimeInstructions(DEFAULT_SPEAK_MODALITIES),
+    buildSpeakRealtimeInstructions(DEFAULT_SPEAK_MODALITIES, { memoryEnabled: true }),
+    buildSpeakRealtimeInstructions(DEFAULT_SPEAK_MODALITIES, { resumed: true, sessionContext: "x" }),
+  ];
+
+  test("every session is told screen updates exist, by the label items carry", () => {
+    for (const text of variants) {
+      expect(text).toContain("Screen awareness:");
+      expect(text).toContain(`${AMBIENT_LABEL} messages describing what the user has open`);
+    }
+  });
+
+  test("it is told it can see what they describe, so it stops saying it cannot", () => {
+    expect(variants[0]).toContain("never claim you cannot see the screen when you have one");
+  });
+
+  test("the newest item wins, and items are never announced", () => {
+    expect(variants[0]).toContain("The newest [Screen] message is what is in front of them");
+    expect(variants[0]).toContain("Never announce, acknowledge, or react to a [Screen] message");
+  });
+
+  test("with nothing to go on, it says so rather than guessing", () => {
+    expect(variants[0]).toContain("tell the user you cannot see what they have open");
   });
 });

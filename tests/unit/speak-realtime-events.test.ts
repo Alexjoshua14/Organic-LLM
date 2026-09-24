@@ -87,6 +87,20 @@ describe("classifyRealtimeEvent tool calls and errors", () => {
     expect(classifyRealtimeEvent({ type: "error", error: { message: "bad" } })).toEqual({
       kind: "error",
       message: "bad",
+      clientEventId: null,
+    });
+  });
+
+  test("an error names the client event that caused it, when the server says", () => {
+    const ev = classifyRealtimeEvent({
+      type: "error",
+      error: { message: "Item not found", event_id: "ambient_del_3" },
+    });
+
+    expect(ev).toEqual({
+      kind: "error",
+      message: "Item not found",
+      clientEventId: "ambient_del_3",
     });
   });
 
