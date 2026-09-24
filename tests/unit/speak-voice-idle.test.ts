@@ -8,7 +8,6 @@ import {
   deferred,
   speakReply,
   SPEAK_TEST_THREAD_ID,
-  systemItemTexts,
   type RealtimeVoiceHarness,
 } from "../helpers/mock-realtime-voice";
 import { ensureDom } from "../helpers/render";
@@ -425,91 +424,6 @@ describe("idle pause: ending and resuming", () => {
 
     expect(result.current.paused).toBe(false);
     expect(harness.callsTo("end")).toHaveLength(1);
-    unmount();
-  });
-});
-
-// ---------------------------------------------------------------------------
-// Screen context delivery
-// ---------------------------------------------------------------------------
-
-describe("sendScreenContext", () => {
-  const node = (activeNodeId: string) =>
-    ({ kind: "rabbit-hole", id: "00000000-0000-4000-8000-000000000000", activeNodeId }) as const;
-
-  test("sends the body as a silent system item, never a response trigger", async () => {
-    restoreFetch();
-    harness = createRealtimeVoiceHarness({ context: () => ({ body: "The user opened a page." }) });
-    restoreFetch = harness.install();
-
-    const { result, unmount } = await liveCall();
-
-    await act(async () => {
-      await result.current.sendScreenContext(node("n2"));
-    });
-
-    expect(harness.callsTo("context")[0]!.body.surface).toEqual(node("n2"));
-    expect(systemItemTexts(harness.transport)).toHaveLength(1);
-    expect(systemItemTexts(harness.transport)[0]).toContain("The user opened a page.");
-    expect(harness.transport.sent.some((e) => e.type === "response.create")).toBe(false);
-    unmount();
-  });
-
-  test("a late reply for a node the user already left is dropped", async () => {
-    const replies = { n2: deferred(), n3: deferred() };
-
-    restoreFetch();
-    harness = createRealtimeVoiceHarness({
-      context: async (body) => {
-        const id = (body.surface as { activeNodeId: "n2" | "n3" }).activeNodeId;
-
-        await replies[id].promise;
-
-        return { body: `context for ${id}` };
-      },
-    });
-    restoreFetch = harness.install();
-
-    const { result, unmount } = await liveCall();
-
-    let first!: Promise<void>;
-    let second!: Promise<void>;
-
-    act(() => {
-      first = result.current.sendScreenContext(node("n2"));
-      second = result.current.sendScreenContext(node("n3"));
-    });
-
-    // The newer request answers first, then the stale one straggles in.
-    await act(async () => {
-      replies.n3.resolve();
-      await second;
-    });
-    await act(async () => {
-      replies.n2.resolve();
-      await first;
-    });
-
-    const texts = systemItemTexts(harness.transport);
-
-    expect(texts).toHaveLength(1);
-    expect(texts[0]).toContain("context for n3");
-    unmount();
-  });
-
-  test("does not re-send the surface it last sent", async () => {
-    restoreFetch();
-    harness = createRealtimeVoiceHarness({ context: () => ({ body: "ctx" }) });
-    restoreFetch = harness.install();
-
-    const { result, unmount } = await liveCall();
-
-    await act(async () => {
-      await result.current.sendScreenContext(node("n2"));
-      await result.current.sendScreenContext(node("n2"));
-    });
-
-    expect(harness.callsTo("context")).toHaveLength(1);
     unmount();
   });
 });

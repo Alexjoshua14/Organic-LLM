@@ -1,10 +1,13 @@
 "use client";
 
+import type { VoiceScreenContextSnapshot } from "@/hooks/use-realtime-voice";
+
 import { Mic, PhoneOff, X } from "lucide-react";
 
 import { VoiceBarSurface } from "./voice-bar-surface";
 import { VoiceElapsed } from "./voice-elapsed";
 import { VOICE_BAR_HEIGHT_PX } from "./voice-live-bar-timing";
+import { VoiceSeesChip } from "./voice-sees-chip";
 import { VoiceWaveform } from "./voice-waveform";
 
 import { cn } from "@/lib/utils";
@@ -21,6 +24,11 @@ export type VoiceLiveBarProps = {
   /** Last resume attempt failed, so the bar should not claim to be merely paused. */
   resumeError?: string | null;
   onResume?: () => void;
+  /**
+   * Dev only: what the model was last told about the screen. `undefined` hides the chip — the host
+   * passes it only in development; `null` shows "nothing yet".
+   */
+  sees?: VoiceScreenContextSnapshot | null;
 };
 
 const PHASE_LABEL: Record<VoiceLiveBarProps["phase"], string> = {
@@ -55,6 +63,7 @@ export function VoiceLiveBar({
   paused = false,
   resumeError = null,
   onResume,
+  sees,
 }: VoiceLiveBarProps) {
   // A resume in flight looks like any other connect; paused is only the resting state.
   const resting = paused && !connecting;
@@ -111,6 +120,8 @@ export function VoiceLiveBar({
           />
         </div>
       )}
+
+      {sees !== undefined && !resting && !connecting ? <VoiceSeesChip context={sees} /> : null}
 
       {startedAt !== null && !resting ? (
         <VoiceElapsed className="relative shrink-0 text-2xs" startedAt={startedAt} />

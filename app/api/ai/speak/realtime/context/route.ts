@@ -17,7 +17,8 @@ const logger = createLogger("app/api/ai/speak/realtime/context/route.ts");
  * The client cannot build this itself — summaries, compiled Strata documents, and rabbit-hole
  * graphs need server-side reads, decryption, and ownership checks. It also cannot be *sent* from
  * here: the Realtime data channel is held by the browser. So this route returns the text and the
- * provider forwards it as a system item (see `lib/speak/ambient-item.ts`).
+ * provider forwards it as a system item (see `lib/speak/ambient-item.ts`). `label` and `reason`
+ * feed the dev "Sees:" chip; they never reach the model.
  */
 export async function POST(req: Request) {
   const clerkUser = await auth();
@@ -54,13 +55,14 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "No active session" }, { status: 404 });
   }
 
-  const body = await buildAmbientContext({ ownerId: sbUserId, surface: parsed.data.surface });
+  const context = await buildAmbientContext({ ownerId: sbUserId, surface: parsed.data.surface });
   const surfaceKey = screenSurfaceKey(parsed.data.surface);
 
   logger.log("POST", `Built ambient context for ${surfaceKey}`, {
     sessionId: session.sessionId,
-    chars: body.length,
+    chars: context.body.length,
+    reason: context.reason,
   });
 
-  return NextResponse.json({ body, surfaceKey });
+  return NextResponse.json({ ...context, surfaceKey });
 }

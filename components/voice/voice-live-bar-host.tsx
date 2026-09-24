@@ -13,6 +13,9 @@ import {
 } from "./voice-live-bar-timing";
 import { useVoiceSession } from "./voice-session-provider";
 
+/** The "Sees:" chip is a debugging aid until the private-thread decisions settle what users see. */
+const SHOW_SEES_CHIP = process.env.NODE_ENV === "development";
+
 /**
  * Places the live bar.
  *
@@ -44,6 +47,7 @@ export function VoiceLiveBarHost({
     remoteStream,
     disconnect,
     resume,
+    screenContext,
   } = useVoiceSession();
   const [mounted, setMounted] = useState(false);
 
@@ -74,6 +78,7 @@ export function VoiceLiveBarHost({
             phase={phase}
             remoteStream={remoteStream}
             resumeError={paused ? error : null}
+            sees={SHOW_SEES_CHIP ? screenContext : undefined}
             startedAt={startedAt}
             onEnd={disconnect}
             onResume={resume}
