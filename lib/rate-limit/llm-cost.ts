@@ -44,6 +44,16 @@ const MODEL_COSTS: Record<string, ModelCost> = {
     outputPerMillion: 50.0,
     cachedInputPerMillion: 1.0,
   },
+  "openai/gpt-6-sol": {
+    inputPerMillion: 2.0,
+    outputPerMillion: 10.0,
+    cachedInputPerMillion: 0.2,
+  },
+  "openai/gpt-6-luna": {
+    inputPerMillion: 0.1,
+    outputPerMillion: 0.5,
+    cachedInputPerMillion: 0.01,
+  },
   "openai/gpt-5.6-sol": { inputPerMillion: 2.0, outputPerMillion: 10.0 },
   "openai/gpt-5.6-terra": { inputPerMillion: 2.0, outputPerMillion: 12.0 },
   "openai/gpt-5.6-luna": { inputPerMillion: 0.2, outputPerMillion: 1.2 },
@@ -66,6 +76,11 @@ const MODEL_COSTS: Record<string, ModelCost> = {
   "google/gemini-3.5-flash-lite": { inputPerMillion: 0.3, outputPerMillion: 2.5 },
   "google/gemini-3.1-flash-lite": { inputPerMillion: 0.25, outputPerMillion: 1.5 },
   "google/gemini-2.5-flash-lite": { inputPerMillion: 0.1, outputPerMillion: 0.4 },
+  "anthropic/claude-opus-5.5": {
+    inputPerMillion: 4.0,
+    outputPerMillion: 20.0,
+    cachedInputPerMillion: 0.2,
+  },
   "anthropic/claude-opus-5": { inputPerMillion: 5.0, outputPerMillion: 25.0 },
   "anthropic/claude-opus-4.8": { inputPerMillion: 5.0, outputPerMillion: 25.0 },
   "anthropic/claude-fable-5.1": { inputPerMillion: 10.0, outputPerMillion: 50.0 },
@@ -80,6 +95,7 @@ const MODEL_COSTS: Record<string, ModelCost> = {
   "moonshotai/kimi-k2.7-code": { inputPerMillion: 0.95, outputPerMillion: 4.0 },
   "moonshotai/kimi-k2.6": { inputPerMillion: 0.95, outputPerMillion: 4.0 },
   "deepseek/deepseek-v4-pro": { inputPerMillion: 0.66, outputPerMillion: 1.98 },
+  "deepseek/deepseek-v4.1-flash": { inputPerMillion: 0.3, outputPerMillion: 1.2 },
   "deepseek/deepseek-v4-flash": { inputPerMillion: 0.13, outputPerMillion: 0.26 },
   "deepseek/deepseek-v3.2": { inputPerMillion: 0.28, outputPerMillion: 0.42 },
   "openai/gpt-oss-120b": { inputPerMillion: 0.1, outputPerMillion: 0.5 },
@@ -213,4 +229,4 @@ export function costUnitsFromUsd(usd: number): number {
 }
 
 /** When the MODEL_COSTS table was last reviewed (update with pricing changes). */
-export const MODEL_PRICING_AS_OF = "2026-09-09";
+export const MODEL_PRICING_AS_OF = "2026-09-24";

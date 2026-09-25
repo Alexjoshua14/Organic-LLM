@@ -14,6 +14,12 @@ describe("getEffortLevelsForModel", () => {
     expect(ids).toEqual(["auto", "none", "low", "medium", "high", "xhigh", "max"]);
   });
 
+  test("GPT-6 Sol has no none or minimal", () => {
+    const ids = getEffortLevelsForModel("openai/gpt-6-sol").map((r) => r.id);
+
+    expect(ids).toEqual(["auto", "low", "medium", "high", "xhigh", "max"]);
+  });
+
   test("GPT-6 Astra has no none or minimal", () => {
     const ids = getEffortLevelsForModel("openai/gpt-6-astra").map((r) => r.id);
 
@@ -68,6 +74,10 @@ describe("clampEffortForModel", () => {
     expect(clampEffortForModel("openai/gpt-5.6-terra", "minimal")).toBe("none");
   });
 
+  test("clamps none to low when GPT-6 Sol has no none", () => {
+    expect(clampEffortForModel("openai/gpt-6-sol", "none")).toBe("low");
+  });
+
   test("clamps none to low when GPT-6 Astra has no none", () => {
     expect(clampEffortForModel("openai/gpt-6-astra", "none")).toBe("low");
   });
@@ -101,6 +111,15 @@ describe("buildEffortProviderOptions", () => {
     const opts = buildEffortProviderOptions("anthropic/claude-sonnet-5", "none");
 
     expect(opts?.anthropic).toEqual({ thinking: { type: "disabled" } });
+  });
+
+  test("maps Opus 5.5 none to adaptive low (thinking always on)", () => {
+    const opts = buildEffortProviderOptions("anthropic/claude-opus-5.5", "none");
+
+    expect(opts?.anthropic).toEqual({
+      thinking: { type: "adaptive" },
+      effort: "low",
+    });
   });
 
   test("maps Haiku to budget tokens", () => {

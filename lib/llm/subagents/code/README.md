@@ -33,9 +33,9 @@ The Code Subagent is a **two-layer agent hierarchy** that gives Aion (Layer 0) d
 
 ## Design Principles
 
-1. **Best-model-at-the-time for L1** — The Layer 1 agent always runs on the highest-quality available model (currently `gpt-5.2` / `claude-opus-4-6`) to maximize raw intelligence for code comprehension, explanation, and orchestration decisions. As frontier models improve, L1 automatically benefits.
+1. **Best-model-at-the-time for L1** — The Layer 1 agent always runs on the highest-quality available model (currently `models.openai.flagship` / `models.anthropic.opus` → GPT-6 Astra / Claude Opus 5.5) to maximize raw intelligence for code comprehension, explanation, and orchestration decisions. As frontier models improve, L1 automatically benefits.
 
-2. **Right-sized models for L2** — Each specialist uses the lightest model that meets its quality bar. GitHub API calls don't need Opus; diagram generation doesn't need GPT-5. This keeps latency low and cost manageable.
+2. **Right-sized models for L2** — Each specialist uses the lightest model that meets its quality bar. GitHub API calls don't need Opus; diagram generation doesn't need Astra. This keeps latency low and cost manageable.
 
 3. **Minimal agent count** — Group related capabilities into a single L2 agent when quality isn't sacrificed. Prefer one "Source Control Agent" (GitHub + local git) over separate GitHub and Git agents.
 
@@ -128,18 +128,18 @@ import { models } from "@/lib/schemas/chat-models";
 export const CODE_AGENT_MODELS = {
   // L1 always uses the best available model for maximum intelligence
   layer1: {
-    primary: "openai/gpt-5.2",
-    fallback: "anthropic/claude-opus-4-6",
+    primary: models.openai.flagship.id,
+    fallback: models.anthropic.opus.id,
   },
 
   // L2 models are right-sized per specialist
   layer2: {
-    github: { primary: models.openai.terra.id, fallback: models.google.flash.id },
-    localFiles: { primary: models.openai.terra.id, fallback: models.google.flash.id },
-    architect: { primary: "openai/gpt-5.2", fallback: "anthropic/claude-sonnet-4.5" },
-    diagrams: { primary: models.openai.terra.id, fallback: models.google.flash.id },
-    security: { primary: "anthropic/claude-sonnet-4.5", fallback: "openai/gpt-5" },
-    a11y: { primary: models.openai.terra.id, fallback: models.google.flash.id },
+    github: { primary: models.openai.sol.id, fallback: models.google.flash.id },
+    localFiles: { primary: models.openai.sol.id, fallback: models.google.flash.id },
+    architect: { primary: models.openai.flagship.id, fallback: models.anthropic.sonnet.id },
+    diagrams: { primary: models.openai.sol.id, fallback: models.google.flash.id },
+    security: { primary: models.anthropic.sonnet.id, fallback: models.openai.luna.id },
+    a11y: { primary: models.openai.sol.id, fallback: models.google.flash.id },
   },
 } as const;
 ```
@@ -216,7 +216,7 @@ Each L2 specialist is implemented as a tool available to L1. Internally, each to
 - Search code across repos (GitHub code search API)
 - Local git log, git diff, git status
 
-**Model:** `models.openai.terra` (mostly structured API calls, minimal reasoning)
+**Model:** `models.openai.sol` (mostly structured API calls, minimal reasoning)
 
 **Tools/APIs:**
 
@@ -244,7 +244,7 @@ Each L2 specialist is implemented as a tool available to L1. Internally, each to
 - Diff files or versions
 - List directory structures
 
-**Model:** `models.openai.terra` (mostly deterministic file I/O, LLM used for summarization)
+**Model:** `models.openai.sol` (mostly deterministic file I/O, LLM used for summarization)
 
 **Tools/APIs:**
 
@@ -272,7 +272,7 @@ Each L2 specialist is implemented as a tool available to L1. Internally, each to
 - Generate architecture decision records (ADRs)
 - Review system designs for scalability, maintainability
 
-**Model:** `gpt-5.2` (requires strong reasoning — architecture is L1-tier intelligence)
+**Model:** `models.openai.flagship` (requires strong reasoning — architecture is L1-tier intelligence)
 
 **Note:** This specialist is intentionally heavyweight. Architecture questions require deep reasoning comparable to L1 itself. It exists as a separate agent to keep its system prompt focused and to accumulate architecture-specific few-shot examples over time.
 
@@ -295,7 +295,7 @@ Each L2 specialist is implemented as a tool available to L1. Internally, each to
 - Convert code structure to visual diagrams
 - Edit/refine existing diagrams
 
-**Model:** `models.openai.terra` (diagram syntax is well-defined; Terra handles it well)
+**Model:** `models.openai.sol` (diagram syntax is well-defined; Sol handles it well)
 
 **Output format:** Returns Mermaid/PlantUML source that the frontend can render.
 
@@ -320,7 +320,7 @@ Each L2 specialist is implemented as a tool available to L1. Internally, each to
 - Remediation suggestions with code fixes
 - Secrets detection (API keys, tokens in code)
 
-**Model:** `claude-sonnet-4.5` (security requires careful, conservative reasoning — Anthropic models excel here)
+**Model:** `models.anthropic.sonnet` (security requires careful, conservative reasoning — Anthropic models excel here)
 
 **Example invocations:**
 
@@ -343,7 +343,7 @@ Each L2 specialist is implemented as a tool available to L1. Internally, each to
 - Keyboard navigation audit
 - Accessibility-focused code suggestions
 
-**Model:** `models.openai.terra` (a11y rules are well-defined; can be largely rule-based with LLM polish)
+**Model:** `models.openai.sol` (a11y rules are well-defined; can be largely rule-based with LLM polish)
 
 **Tools/APIs:**
 
