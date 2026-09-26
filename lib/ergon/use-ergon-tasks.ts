@@ -17,7 +17,18 @@ import { actionEnhanceTask } from "@/app/actions/ergon-enhance";
 import { usePageVisible } from "@/components/hooks/use-page-visible";
 import { summarizeEnhancement } from "@/lib/ergon/enhance-merge";
 import { createTaskHistory } from "@/lib/ergon/task-history";
+import { isBrowserOnline } from "@/lib/ergon/offline";
+import { getCachedTasks, setCachedTasks } from "@/lib/ergon/task-snapshot-store";
 import { taskToInsert } from "@/lib/ergon/task-to-insert";
+
+function requireOnlineForWrite(): void {
+  if (isBrowserOnline()) return;
+
+  const message = "Need a connection to save changes";
+
+  toast.error(message);
+  throw new Error(message);
+}
 
 const PATCH_FIELD_KEYS: readonly string[] = [
   "title",
@@ -71,7 +82,11 @@ function buildOptimisticTask(input: TaskInsert, tempId: string): TaskWithCategor
 }
 
 export function useErgonTasks(initialTasks: TaskWithCategory[]) {
-  const [tasks, setTasks] = useState(initialTasks);
+  const [tasks, setTasks] = useState<TaskWithCategory[]>(() => {
+    if (initialTasks.length > 0) return initialTasks;
+
+    return getCachedTasks();
+  });
   const [syncing, setSyncing] = useState(false);
   const [, setHistoryVersion] = useState(0);
   const visible = usePageVisible();
@@ -84,19 +99,33 @@ export function useErgonTasks(initialTasks: TaskWithCategory[]) {
   const historyRef = useRef(createTaskHistory());
   const bump = useCallback(() => setHistoryVersion((v) => v + 1), []);
 
+  const commitTasks = useCallback((next: TaskWithCategory[]) => {
+    setTasks(next);
+    setCachedTasks(next);
+  }, []);
+
   const refresh = useCallback(async () => {
+    if (!isBrowserOnline()) return;
+
     setSyncing(true);
 
     try {
       const next = (await actionListTasks()) as TaskWithCategory[];
 
-      setTasks(next);
+      commitTasks(next);
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Failed to refresh tasks");
+      // Keep the last snapshot when the network blips — do not wipe the board.
+      if (tasksRef.current.length === 0) {
+        toast.error(error instanceof Error ? error.message : "Failed to refresh tasks");
+      }
     } finally {
       setSyncing(false);
     }
-  }, []);
+  }, [commitTasks]);
+
+  useEffect(() => {
+    if (initialTasks.length > 0) setCachedTasks(initialTasks);
+  }, [initialTasks]);
 
   useEffect(() => {
     if (visible) void refresh();
@@ -105,6 +134,8 @@ export function useErgonTasks(initialTasks: TaskWithCategory[]) {
   // --- primitives (no history) -------------------------------------------------
 
   const _add = useCallback(async (input: TaskInsert): Promise<TaskWithCategory> => {
+    requireOnlineForWrite();
+
     const tempId = `temp-${crypto.randomUUID()}`;
     const optimistic = buildOptimisticTask(input, tempId);
 
@@ -113,7 +144,13 @@ export function useErgonTasks(initialTasks: TaskWithCategory[]) {
     try {
       const row = (await actionAddTask(input)) as TaskWithCategory;
 
-      setTasks((prev) => prev.map((task) => (task.id === tempId ? row : task)));
+      setTasks((prev) => {
+        const next = prev.map((task) => (task.id === tempId ? row : task));
+
+        setCachedTasks(next);
+
+        return next;
+      });
 
       return row;
     } catch (error) {
@@ -125,6 +162,8 @@ export function useErgonTasks(initialTasks: TaskWithCategory[]) {
 
   const _update = useCallback(
     async (id: string, patch: TaskPatch): Promise<TaskWithCategory | undefined> => {
+      requireOnlineForWrite();
+
       const previous = tasksRef.current;
 
       setTasks((prev) =>
@@ -136,7 +175,13 @@ export function useErgonTasks(initialTasks: TaskWithCategory[]) {
       try {
         const row = (await actionUpdateTask(id, patch)) as TaskWithCategory;
 
-        setTasks((prev) => prev.map((task) => (task.id === id ? row : task)));
+        setTasks((prev) => {
+          const next = prev.map((task) => (task.id === id ? row : task));
+
+          setCachedTasks(next);
+
+          return next;
+        });
 
         return row;
       } catch (error) {
@@ -149,12 +194,16 @@ export function useErgonTasks(initialTasks: TaskWithCategory[]) {
   );
 
   const _remove = useCallback(async (id: string) => {
-    const previous = tasksRef.current;
+    requireOnlineForWrite();
 
-    setTasks((prev) => prev.filter((task) => task.id !== id));
+    const previous = tasksRef.current;
+    const optimistic = previous.filter((task) => task.id !== id);
+
+    setTasks(optimistic);
 
     try {
       await actionDeleteTask(id);
+      setCachedTasks(optimistic);
     } catch (error) {
       setTasks(previous);
       toast.error(error instanceof Error ? error.message : "Failed to delete task");
@@ -163,6 +212,8 @@ export function useErgonTasks(initialTasks: TaskWithCategory[]) {
   }, []);
 
   const _toggleComplete = useCallback(async (id: string) => {
+    requireOnlineForWrite();
+
     const previous = tasksRef.current;
     const target = previous.find((task) => task.id === id);
 
@@ -186,7 +237,13 @@ export function useErgonTasks(initialTasks: TaskWithCategory[]) {
     try {
       const row = (await actionToggleTaskComplete(id)) as TaskWithCategory;
 
-      setTasks((prev) => prev.map((task) => (task.id === id ? row : task)));
+      setTasks((prev) => {
+        const next = prev.map((task) => (task.id === id ? row : task));
+
+        setCachedTasks(next);
+
+        return next;
+      });
     } catch (error) {
       setTasks(previous);
       toast.error(error instanceof Error ? error.message : "Failed to update task");
@@ -195,6 +252,8 @@ export function useErgonTasks(initialTasks: TaskWithCategory[]) {
   }, []);
 
   const _toggleActive = useCallback(async (id: string) => {
+    requireOnlineForWrite();
+
     const previous = tasksRef.current;
     const target = previous.find((task) => task.id === id);
 
@@ -220,7 +279,13 @@ export function useErgonTasks(initialTasks: TaskWithCategory[]) {
     try {
       const row = (await actionUpdateTask(id, patch)) as TaskWithCategory;
 
-      setTasks((prev) => prev.map((task) => (task.id === id ? row : task)));
+      setTasks((prev) => {
+        const next = prev.map((task) => (task.id === id ? row : task));
+
+        setCachedTasks(next);
+
+        return next;
+      });
     } catch (error) {
       setTasks(previous);
       toast.error(error instanceof Error ? error.message : "Failed to update task");
@@ -346,6 +411,12 @@ export function useErgonTasks(initialTasks: TaskWithCategory[]) {
 
   const enhanceTask = useCallback(
     async (id: string) => {
+      try {
+        requireOnlineForWrite();
+      } catch {
+        return;
+      }
+
       let patch;
 
       try {

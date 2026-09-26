@@ -7,6 +7,7 @@ import { useInView } from "framer-motion";
 import { Pause, Play, RotateCcw, SkipForward } from "lucide-react";
 import { memo, useEffect, useRef, useState } from "react";
 
+import { ergonBoardLabLayout } from "./ergon-board-lab-layout";
 import { LegacyKanbanView } from "./LegacyKanbanView";
 import { useLabDriver } from "./use-lab-driver";
 
@@ -107,58 +108,56 @@ export function ErgonBoardLab() {
   const shown = compare ? LIVING_LIGHTS : LIVING_LIGHTS.filter((option) => option.id === light);
 
   return (
-    <div className="space-y-10">
-      <div
-        className={cn(
-          glass({ opaque: true }),
-          "sticky top-3 z-30 flex flex-wrap items-center gap-x-5 gap-y-3 rounded-2xl border border-border/50 px-3 py-2.5"
-        )}
-      >
-        <Segmented
-          label="Light"
-          options={LIVING_LIGHTS.map((option) => ({ value: option.id, label: option.label }))}
-          value={compare ? undefined : light}
-          onChange={(value) => {
-            setLight(value);
-            setCompare(false);
-          }}
-        />
-        <button
-          aria-pressed={compare}
-          className={cn(
-            "rounded-md px-2 py-1 text-2xs font-medium transition-colors",
-            compare
-              ? "bg-foreground text-background"
-              : "bg-muted/50 text-muted-foreground hover:text-foreground"
-          )}
-          type="button"
-          onClick={() => setCompare((value) => !value)}
-        >
-          Compare all
-        </button>
-        <Segmented label="Width" options={WIDTHS} value={width} onChange={setWidth} />
-        <div className="ml-auto flex min-w-0 items-center gap-1">
-          <p
-            aria-live="polite"
-            className="mr-2 min-w-0 max-w-[22rem] truncate text-2xs text-muted-foreground"
+    <div className="min-w-0 space-y-10 max-[720px]:space-y-8">
+      <div className={cn(glass({ opaque: true }), ergonBoardLabLayout.chrome)}>
+        <div className={ergonBoardLabLayout.chromePrimary}>
+          <Segmented
+            label="Light"
+            options={LIVING_LIGHTS.map((option) => ({ value: option.id, label: option.label }))}
+            value={compare ? undefined : light}
+            onChange={(value) => {
+              setLight(value);
+              setCompare(false);
+            }}
+          />
+          <button
+            aria-pressed={compare}
+            className={cn(
+              "rounded-md px-2.5 py-2 text-2xs font-medium transition-colors max-[720px]:min-h-11",
+              compare
+                ? "bg-foreground text-background"
+                : "bg-muted/50 text-muted-foreground hover:text-foreground"
+            )}
+            type="button"
+            onClick={() => setCompare((value) => !value)}
           >
+            Compare all
+          </button>
+        </div>
+        <div className={ergonBoardLabLayout.widthControl}>
+          <Segmented label="Width" options={WIDTHS} value={width} onChange={setWidth} />
+        </div>
+        <div className={ergonBoardLabLayout.chromeTransport}>
+          <p aria-live="polite" className={ergonBoardLabLayout.status}>
             <span className="font-mono text-foreground/70">
               {driver.applied}/{driver.total}
             </span>{" "}
             {status}
           </p>
-          <TransportButton
-            label={driver.playing ? "Pause" : "Play"}
-            onClick={driver.playing ? driver.pause : driver.play}
-          >
-            {driver.playing ? <Pause className="size-3.5" /> : <Play className="size-3.5" />}
-          </TransportButton>
-          <TransportButton label="Send next command" onClick={driver.step}>
-            <SkipForward className="size-3.5" />
-          </TransportButton>
-          <TransportButton label="Restart" onClick={driver.restart}>
-            <RotateCcw className="size-3.5" />
-          </TransportButton>
+          <div className="flex shrink-0 items-center gap-0.5">
+            <TransportButton
+              label={driver.playing ? "Pause" : "Play"}
+              onClick={driver.playing ? driver.pause : driver.play}
+            >
+              {driver.playing ? <Pause className="size-3.5" /> : <Play className="size-3.5" />}
+            </TransportButton>
+            <TransportButton label="Send next command" onClick={driver.step}>
+              <SkipForward className="size-3.5" />
+            </TransportButton>
+            <TransportButton label="Restart" onClick={driver.restart}>
+              <RotateCcw className="size-3.5" />
+            </TransportButton>
+          </div>
         </div>
       </div>
 
@@ -167,19 +166,20 @@ export function ErgonBoardLab() {
         hint="The full board, replaying the showcase script. Hover a card with notes to peek at them."
         title="Board"
       >
-        <div className="space-y-8">
+        <div className="space-y-8 max-[720px]:space-y-6">
           {shown.map((option) => (
-            <figure key={option.id} className="space-y-2.5">
+            <figure key={option.id} className="min-w-0 space-y-2.5">
               <figcaption className="max-w-2xl space-y-0.5">
                 <p className="text-sm font-medium text-foreground">{option.label}</p>
                 <p className="text-xs leading-relaxed text-muted-foreground">{option.blurb}</p>
               </figcaption>
-              <div style={{ maxWidth }}>
+              <div className={ergonBoardLabLayout.boardFrame} style={{ maxWidth }}>
                 <LivingBoard
                   followChanges
                   activity={boardActivity}
                   board={boardFrame}
                   light={option.id}
+                  scrollerClassName={ergonBoardLabLayout.boardScrollerShort}
                   view={ERGON_FULL_BOARD_VIEW}
                 />
               </div>
@@ -193,7 +193,7 @@ export function ErgonBoardLab() {
         hint="How a summoned view sits inside an assistant message: the board at a glance, the cards the answer is about, and a way into the full board."
         title="In the thread"
       >
-        <div className="max-w-[40rem] space-y-6">
+        <div className="min-w-0 max-w-[40rem] space-y-6">
           <ThreadTurn text={PLAN_REPLY}>
             <KanbanCompact
               activity={threadActivity}
@@ -229,7 +229,7 @@ export function ErgonBoardLab() {
 /** The legacy board follows the thread store on its own; lab ticks leave it alone. */
 const BeforeBoard = memo(function BeforeBoard({ maxWidth }: { maxWidth?: number }) {
   return (
-    <div style={{ maxWidth }}>
+    <div className={ergonBoardLabLayout.boardFrame} style={{ maxWidth }}>
       <LegacyKanbanView threadId={BEFORE_THREAD_ID} view={ERGON_FULL_BOARD_VIEW} />
     </div>
   );
@@ -280,11 +280,11 @@ function Segmented<T extends string>({
   onChange: (value: T) => void;
 }) {
   return (
-    <div className="flex items-center gap-2">
-      <span className="text-2xs text-muted-foreground">{label}</span>
+    <div className="flex min-w-0 flex-wrap items-center gap-2">
+      <span className="shrink-0 text-2xs text-muted-foreground">{label}</span>
       <div
         aria-label={label}
-        className="flex gap-0.5 rounded-md bg-muted/50 p-0.5"
+        className="flex min-w-0 flex-wrap gap-0.5 rounded-md bg-muted/50 p-0.5"
         role="radiogroup"
       >
         {options.map((option) => {
@@ -295,7 +295,7 @@ function Segmented<T extends string>({
               key={option.value}
               aria-checked={active}
               className={cn(
-                "rounded px-2 py-1 text-2xs font-medium transition-colors",
+                "rounded px-2.5 py-2 text-2xs font-medium transition-colors max-[720px]:min-h-11",
                 active
                   ? "bg-background text-foreground shadow-sm"
                   : "text-muted-foreground hover:text-foreground"
@@ -325,7 +325,7 @@ function TransportButton({
   return (
     <button
       aria-label={label}
-      className="rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-muted/50 hover:text-foreground"
+      className="rounded-md p-2.5 text-muted-foreground transition-colors hover:bg-muted/50 hover:text-foreground max-[720px]:min-h-11 max-[720px]:min-w-11"
       title={label}
       type="button"
       onClick={onClick}
