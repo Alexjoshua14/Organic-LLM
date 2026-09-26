@@ -516,7 +516,7 @@ export const Chat: React.FC<ChatProps> = ({
               contentClassName={persona === "remy" ? MEMORY_PANEL_RESERVE_PADDING : undefined}
               messages={messages}
               renderEmptyState={
-                experience === "arcadia"
+                experience === "arcadia" && !confineInMultitaskDashboard
                   ? () => (
                       <ChatStylePicker
                         chatId={id}

@@ -82,6 +82,12 @@ export type VoiceSessionValue = {
   setBarContainer: (el: HTMLElement | null) => void;
   /** The page-area anchor used when no composer has claimed the bar. */
   setBarPageAnchor: (el: HTMLElement | null) => void;
+  /**
+   * When true, {@link VoiceLiveBarHost} stays dark — Arcadia multitask owns the in-card
+   * FluidGlass Speak bar instead of the global drawer.
+   */
+  suppressHostBar: boolean;
+  setSuppressHostBar: (next: boolean) => void;
 };
 
 const VoiceSessionContext = createContext<VoiceSessionValue | null>(null);
@@ -106,6 +112,7 @@ export function VoiceSessionProvider({ children }: { children: ReactNode }) {
   const [visual, setVisual] = useState<VoiceVisualState>(EMPTY_VOICE_VISUAL_STATE);
   const [barContainer, setBarContainer] = useState<HTMLElement | null>(null);
   const [barPageAnchor, setBarPageAnchor] = useState<HTMLElement | null>(null);
+  const [suppressHostBar, setSuppressHostBar] = useState(false);
   const [surface, setSurfaceState] = useState<SpeakScreenSurface | null>(null);
 
   const handleEffects = useCallback((effects: SpeakToolClientEffect[]) => {
@@ -219,6 +226,8 @@ export function VoiceSessionProvider({ children }: { children: ReactNode }) {
       setScreenSurface,
       setBarContainer,
       setBarPageAnchor,
+      suppressHostBar,
+      setSuppressHostBar,
     }),
     [
       voice.phase,
@@ -246,6 +255,7 @@ export function VoiceSessionProvider({ children }: { children: ReactNode }) {
       disconnect,
       resetSession,
       setScreenSurface,
+      suppressHostBar,
     ]
   );
 
@@ -260,7 +270,9 @@ export function VoiceSessionProvider({ children }: { children: ReactNode }) {
       <audio ref={voice.setAudioElement} autoPlay className="hidden">
         <track kind="captions" />
       </audio>
-      <VoiceLiveBarHost container={barContainer} pageAnchor={barPageAnchor} />
+      {suppressHostBar ? null : (
+        <VoiceLiveBarHost container={barContainer} pageAnchor={barPageAnchor} />
+      )}
     </VoiceSessionContext.Provider>
   );
 }

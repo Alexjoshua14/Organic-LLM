@@ -889,6 +889,96 @@ export async function getThreadArcadiaStarterKey(chatId: string): Promise<Result
 }
 
 /**
+ * Arcadia multitask dashboard flag + live stream id for the toggle gate.
+ * Column `arcadia_multitask_view` is additive (see docs/migrations/threads_arcadia_multitask_view.sql).
+ */
+export async function getThreadArcadiaMultitaskView(chatId: string): Promise<
+  Result<{ enabled: boolean; activeStreamId: string | null }>
+> {
+  const sb = await supabaseServer();
+  // Column is additive; cast until supabase gen types catch up.
+  const { data, error } = await sb
+    .from("threads")
+    .select("active_stream_id, arcadia_multitask_view")
+    .eq("id", chatId)
+    .single();
+
+  if (error) {
+    // Column missing until migration — treat as off rather than breaking Arcadia.
+    if (error.message?.includes("arcadia_multitask_view")) {
+      const streamOnly = await sb
+        .from("threads")
+        .select("active_stream_id")
+        .eq("id", chatId)
+        .single();
+
+      return {
+        data: {
+          enabled: false,
+          activeStreamId: (streamOnly.data?.active_stream_id as string | null) ?? null,
+        },
+        error: null,
+      };
+    }
+
+    return {
+      data: null,
+      error: new Error(error.message ?? "Unknown error"),
+    };
+  }
+
+  const row = data as { active_stream_id?: string | null; arcadia_multitask_view?: boolean | null };
+
+  return {
+    data: {
+      enabled: row.arcadia_multitask_view === true,
+      activeStreamId: row.active_stream_id ?? null,
+    },
+    error: null,
+  };
+}
+
+/**
+ * Sets the multitask view flag. Refuses while `active_stream_id` is set.
+ */
+export async function setThreadArcadiaMultitaskView(
+  chatId: string,
+  enabled: boolean
+): Promise<SimpleResult & { activeStreamId?: string | null }> {
+  const sb = await supabaseServer();
+  const current = await getThreadArcadiaMultitaskView(chatId);
+
+  if (current.error || !current.data) {
+    return {
+      ok: false,
+      error: current.error ?? new Error("Failed to read multitask view"),
+    };
+  }
+
+  if (current.data.activeStreamId) {
+    return {
+      ok: false,
+      error: new Error("Thread still has an active stream"),
+      activeStreamId: current.data.activeStreamId,
+    };
+  }
+
+  const { error } = await sb
+    .from("threads")
+    .update({ arcadia_multitask_view: enabled } as { arcadia_multitask_view: boolean })
+    .eq("id", chatId);
+
+  if (error) {
+    return {
+      ok: false,
+      error: new Error(error.message ?? "Failed to update multitask view"),
+    };
+  }
+
+  return { ok: true, error: null };
+}
+
+/**
  * Sets or clears the Arcadia starter key. Rejects when the thread already has messages.
  */
 export async function setThreadArcadiaStarterKey(

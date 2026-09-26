@@ -1,8 +1,12 @@
 "use client";
 
 import type { ArcadiaSubagent } from "@/lib/arcadia/multitask/types";
+import type { ArcadiaSpeakSessionPhase } from "@/lib/arcadia/multitask/speak-session";
+import type { LiveVoicePhase } from "@/hooks/use-realtime-voice";
 
-import { Mic, Radio } from "lucide-react";
+import { Radio } from "lucide-react";
+
+import { SubagentSpeakGlassBar } from "./subagent-speak-glass-bar";
 
 import { glass } from "@/components/design-system/primitives";
 import { cn } from "@/lib/utils";
@@ -17,9 +21,14 @@ const STATUS_LABEL: Record<ArcadiaSubagent["status"], string> = {
 type SubagentCardProps = {
   agent: ArcadiaSubagent;
   selected: boolean;
-  speaking: boolean;
+  speakPhase: ArcadiaSpeakSessionPhase;
+  voicePhase: LiveVoicePhase;
+  startedAt: number | null;
+  localStream: MediaStream | null;
+  remoteStream: MediaStream | null;
   onSelect: () => void;
   onSpeakTo: () => void;
+  onEndSpeak: () => void;
   speakDisabled?: boolean;
 };
 
@@ -29,11 +38,18 @@ type SubagentCardProps = {
 export function SubagentCard({
   agent,
   selected,
-  speaking,
+  speakPhase,
+  voicePhase,
+  startedAt,
+  localStream,
+  remoteStream,
   onSelect,
   onSpeakTo,
+  onEndSpeak,
   speakDisabled,
 }: SubagentCardProps) {
+  const speaking = speakPhase === "live" || speakPhase === "connecting";
+
   return (
     <article
       className={cn(
@@ -108,11 +124,11 @@ export function SubagentCard({
           <p className="mt-1.5 line-clamp-2 text-xs text-muted-foreground">{agent.progress}</p>
         </div>
       </button>
-      <div className="mt-3 flex gap-2">
+      <div className="mt-3 flex flex-col gap-2 sm:flex-row sm:items-stretch">
         <button
           className={cn(
-            "flex-1 rounded-lg border border-border/60 bg-background/50 px-2.5 py-1.5 text-xs font-medium",
-            "hover:bg-background-secondary transition-colors",
+            "rounded-lg border border-border/60 bg-background/50 px-2.5 py-1.5 text-xs font-medium",
+            "hover:bg-background-secondary transition-colors sm:w-auto sm:shrink-0",
             selected && "border-amber-800/30"
           )}
           type="button"
@@ -120,22 +136,19 @@ export function SubagentCard({
         >
           Open thread
         </button>
-        <button
-          className={cn(
-            "inline-flex flex-1 items-center justify-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-medium",
-            "bg-foreground text-background hover:opacity-90 transition-opacity",
-            "disabled:opacity-40 disabled:pointer-events-none"
-          )}
-          disabled={speakDisabled}
-          type="button"
-          onClick={(e) => {
-            e.stopPropagation();
-            onSpeakTo();
-          }}
-        >
-          <Mic aria-hidden className="size-3.5" />
-          Speak to
-        </button>
+        <div className="min-w-0 flex-1">
+          <SubagentSpeakGlassBar
+            agentName={agent.name}
+            disabled={speakDisabled}
+            localStream={localStream}
+            phase={speakPhase}
+            remoteStream={remoteStream}
+            startedAt={startedAt}
+            voicePhase={voicePhase}
+            onEnd={onEndSpeak}
+            onSpeakTo={onSpeakTo}
+          />
+        </div>
       </div>
     </article>
   );

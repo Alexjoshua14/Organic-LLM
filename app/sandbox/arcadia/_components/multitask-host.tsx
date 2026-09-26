@@ -21,10 +21,20 @@ function ArcadiaMultitaskLayout({ children }: { children: ReactNode }) {
   );
 }
 
-/** Client boundary that mounts overlay shell or running dashboard around Arcadia chat. */
-export function ArcadiaMultitaskHost({ children }: { children: ReactNode }) {
+type ArcadiaMultitaskHostProps = {
+  threadId: string;
+  initialMultitaskView?: boolean;
+  children: ReactNode;
+};
+
+/** Client boundary that mounts overlay or dashboard around Arcadia chat. */
+export function ArcadiaMultitaskHost({
+  threadId,
+  initialMultitaskView = false,
+  children,
+}: ArcadiaMultitaskHostProps) {
   return (
-    <ArcadiaMultitaskProvider>
+    <ArcadiaMultitaskProvider initialMultitaskView={initialMultitaskView} threadId={threadId}>
       <ArcadiaMultitaskLayout>{children}</ArcadiaMultitaskLayout>
     </ArcadiaMultitaskProvider>
   );

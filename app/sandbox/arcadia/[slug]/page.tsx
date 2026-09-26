@@ -74,7 +74,7 @@ export default async function ArcadiaChatPage({ params }: { params: Promise<{ sl
         phases={[...takeServerPhases(id), ...getPhaseCollector()]}
       />
       <Page>
-        <ArcadiaMultitaskHost>
+        <ArcadiaMultitaskHost threadId={id}>
           <div className="w-full h-full">
             <Chat chatData={chatData} endpoint="/api/chat" experience="arcadia" />
           </div>
