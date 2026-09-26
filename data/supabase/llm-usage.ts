@@ -19,6 +19,9 @@ export type TrackLlmUsageInput = {
   cachedInputTokens?: number | null;
   reasoningTokens?: number | null;
   totalTokens?: number | null;
+  /** Realtime audio — priced via {@link computeUsageCostUsd} audio rates. */
+  audioInputTokens?: number | null;
+  audioOutputTokens?: number | null;
   operation?: string;
   route?: string;
 };
@@ -28,8 +31,11 @@ export async function insertLlmUsageEvent(input: TrackLlmUsageInput): Promise<vo
   const outputTokens = coerceCount(input.outputTokens);
   const cachedInputTokens = coerceCount(input.cachedInputTokens);
   const reasoningTokens = coerceCount(input.reasoningTokens);
+  const audioInputTokens = coerceCount(input.audioInputTokens);
+  const audioOutputTokens = coerceCount(input.audioOutputTokens);
   const totalTokens =
-    coerceCount(input.totalTokens) || inputTokens + outputTokens + reasoningTokens;
+    coerceCount(input.totalTokens) ||
+    inputTokens + outputTokens + reasoningTokens + audioInputTokens + audioOutputTokens;
 
   if (totalTokens <= 0) return;
 
@@ -37,6 +43,8 @@ export async function insertLlmUsageEvent(input: TrackLlmUsageInput): Promise<vo
     inputTokens,
     outputTokens,
     cachedInputTokens,
+    audioInputTokens,
+    audioOutputTokens,
   });
 
   const { error } = await supabaseAdmin.from("llm_usage_events").insert({
@@ -121,7 +129,7 @@ export async function buildUsageSummaryForUser(args: {
     };
   });
 
-  const planAllotments = USAGE_PLAN_TIERS.map((plan) => ({
+  const planAllotments = USAGE_PLAN_TIERS.filter((plan) => plan.id !== "max").map((plan) => ({
     plan,
     percentUsed: computePlanAllotmentPercent({
       plan,
