@@ -67,7 +67,11 @@ export function SettingsOverlay({ open, onOpenChange, trigger }: SettingsOverlay
       />
       <Sheet open={open} onOpenChange={onOpenChange}>
         {trigger}
-        <SheetContent className="flex flex-col gap-5 px-6 py-4 md:gap-8 md:py-7" side="right">
+        <SheetContent
+          className="flex flex-col gap-5 px-6 py-4 md:gap-8 md:py-7"
+          overlayPriority="chrome"
+          side="right"
+        >
           <SheetHeader className="pt-0 pb-0 px-0">
             <SheetTitle className="flex items-center gap-2 text-foreground">
               <Settings2Icon className="size-5 shrink-0" />
