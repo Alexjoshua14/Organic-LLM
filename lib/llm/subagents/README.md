@@ -8,6 +8,7 @@ Runtime roles and orchestration live under this tree (not docs-only):
 | Delegate + 7s return budget | `orchestrator/` |
 | Multi-thought routing (ZDR, **Jev** `openai/gpt-6-jev`) | `orchestrator/thought-router.ts`, `dispatch-inbound.ts`, `router-zdr.ts` |
 | Worker progress / milestones / completion | `worker/run.ts` + awareness bus |
+| Live worker model runs | `worker/run-with-model.ts` + `orchestrator/execute-assigned-workers.ts` |
 | Abstract identity images | `identity/` |
 
 Arcadia display roles (`researcher`, `coder`, …) and Speak voice assignment stay in

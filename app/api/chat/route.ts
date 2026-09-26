@@ -47,6 +47,7 @@ import { resolveChatStarterPromptByKey } from "@/lib/chat/chat-style-starters";
 import { compileChatTools } from "@/lib/llm/compile-chat-tools";
 import { runLLMChatStream } from "@/lib/api/run-llm-chat-stream";
 import { dispatchMultitaskInbound } from "@/lib/llm/subagents/orchestrator/dispatch-inbound";
+import { executeAssignedWorkers } from "@/lib/llm/subagents/orchestrator/execute-assigned-workers";
 import { formatMultitaskRoutingSystemFragment } from "@/lib/llm/subagents/orchestrator/format-routing-fragment";
 import { createDemoSubagents } from "@/lib/arcadia/multitask/demo-roster";
 
@@ -194,11 +195,12 @@ export async function POST(req: Request) {
       });
 
       let multitaskRoutingFragment: string | null = null;
+      let workerRunsPromise: Promise<unknown> | null = null;
 
       if (experience === "arcadia") {
         const userText = getLastUserMessageText(messageForLlm);
         if (userText.trim().length > 0) {
-          // Sandbox roster until the shell publishes a live worker list with the request.
+          // Fixture roster identities until the shell publishes a live worker list.
           const roster = createDemoSubagents().map((a) => ({
             id: a.id,
             name: a.name,
@@ -219,10 +221,32 @@ export async function POST(req: Request) {
               routing: inbound.routing,
               deliveredAgentId: inbound.deliveredAgentId,
               deliveredText: inbound.deliveredText,
+              assignedGoals: inbound.assignedGoals.map((g) => ({
+                goalId: g.goalId,
+                agentId: g.agentId,
+                goal: g.goal,
+              })),
+              directThoughts: inbound.directThoughts,
             },
             transient: true,
           });
           multitaskRoutingFragment = formatMultitaskRoutingSystemFragment(inbound);
+
+          if (inbound.assignedGoals.length > 0) {
+            // Fire workers in parallel with the orchestrator reply; await before stream ends.
+            workerRunsPromise = executeAssignedWorkers({
+              goals: inbound.assignedGoals,
+              modelId: selectedModel.id,
+              workers: roster,
+              onEvent: (event) => {
+                writer.write({
+                  type: "data-multitask-worker",
+                  data: event,
+                  transient: true,
+                });
+              },
+            });
+          }
         }
       }
 
@@ -504,6 +528,10 @@ export async function POST(req: Request) {
         userMessage: message,
         threadHasTitlePromise,
       });
+
+      if (workerRunsPromise) {
+        await workerRunsPromise;
+      }
     },
   });
 
