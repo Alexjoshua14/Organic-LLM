@@ -130,6 +130,17 @@ See [`docs/message-send-queue.md`](../message-send-queue.md) and
 
 ---
 
+## Max plan simultaneous stream cap
+
+**Status:** Open — identified 2026-09-25 with the signed-in `/plans` page.
+
+Free publishes **5 simultaneous LLM streams** (enforced by counting non-null
+`threads.active_stream_id` in the shared chat LLM gate). Max currently shares that same
+ceiling so the page does not invent “unlimited streams.” Unresolved: should max keep the
+free stream cap, raise it, or leave streams uncapped while the dollar budget stays unset?
+
+---
+
 ## Orchestrator router model “jev”
 
 **Status:** ✅ **Resolved 2026-09-25** — catalogued and wired.
