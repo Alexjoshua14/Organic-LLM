@@ -186,7 +186,14 @@ cubic-bezier(0.25, 0.46, 0.45, 0.94)
 
 This creates cohesive, organic feeling across the entire UI.
 
-## Integration Examples
+## Integration
+
+### First real mount — Aion sandbox (2026-09-21)
+
+[`/sandbox/aion`](../app/sandbox/aion/) mounts `AdaptiveOrganicPresence` driven by the
+presence provider's phase (`idle` → `active` → `thinking` → `responding`). See
+[`docs/aion/README.md`](./aion/README.md) and the
+[presence layer ADR](./aion/decisions/20260921-presence-layer.md).
 
 ### Home Page (Chat Input)
 
