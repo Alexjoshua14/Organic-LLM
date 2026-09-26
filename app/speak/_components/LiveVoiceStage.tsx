@@ -185,7 +185,7 @@ export function LiveVoiceStage({ onExit }: { onExit?: () => void }) {
                   : "Start a fresh conversation instead of resuming"
               }
               type="button"
-              onClick={voice.startNew}
+              onClick={() => voice.startNew()}
             >
               <Plus className="size-4" />
             </button>

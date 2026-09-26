@@ -1,7 +1,9 @@
 "use client";
 
 import type { SpeakModalities } from "@/lib/schemas/speak-modalities";
+import type { SpeakRealtimeVoice } from "@/lib/schemas/speak-realtime-voice";
 import type { SpeakScreenSurface } from "@/lib/schemas/speak-screen-context";
+import type { SpeakSubagentSeed } from "@/lib/schemas/speak-subagent-context";
 import type { SpeakToolClientEffect } from "@/lib/speak/types";
 import type { VoiceTransportFactory } from "@/lib/speak/transport/voice-transport";
 import type { VoiceVisualState } from "@/lib/speak/voice-visual-state";
@@ -36,6 +38,11 @@ export type VoiceCaption = {
   interim?: boolean;
 };
 
+export type VoiceConnectOptions = {
+  voice?: SpeakRealtimeVoice;
+  subagentSeed?: SpeakSubagentSeed;
+};
+
 export type VoiceSessionValue = {
   phase: LiveVoicePhase;
   connected: boolean;
@@ -65,12 +72,20 @@ export type VoiceSessionValue = {
   memoryEnabled: boolean;
   setMemoryEnabled: (next: boolean) => void;
 
-  connect: () => void;
-  startNew: () => void;
+  connect: (options?: VoiceConnectOptions) => void;
+  startNew: (options?: VoiceConnectOptions) => void;
   /** Continue a paused call on the thread it was writing to. */
   resume: () => void;
+  /**
+   * Ends any live call, then mints a **new** Realtime session for a subagent
+   * (fresh thread, seeded goal/progress, distinct voice id).
+   */
+  speakToSubagent: (seed: SpeakSubagentSeed) => Promise<void>;
   disconnect: () => void;
   resetSession: () => void;
+  sendSubagentProgress: ReturnType<typeof useRealtimeVoice>["sendSubagentProgress"];
+  sendSubagentMilestone: ReturnType<typeof useRealtimeVoice>["sendSubagentMilestone"];
+  sendTextEvent: (text: string) => boolean;
 
   /**
    * Declare what the user is looking at. `null` clears it. Called by `useVoiceScreenContext`,
@@ -163,10 +178,37 @@ export function VoiceSessionProvider({
     });
   }, []);
 
-  const connect = useCallback(() => void voice.connect(), [voice]);
-  const startNew = useCallback(() => void voice.startNew(), [voice]);
+  const connect = useCallback(
+    (options?: VoiceConnectOptions) => void voice.connect(options),
+    [voice]
+  );
+  const startNew = useCallback(
+    (options?: VoiceConnectOptions) => void voice.connect({ threadPolicy: "new", ...options }),
+    [voice]
+  );
   const resume = useCallback(() => void voice.resume(), [voice]);
   const disconnect = useCallback(() => void voice.disconnect(), [voice]);
+
+  const speakToSubagent = useCallback(
+    async (seed: SpeakSubagentSeed) => {
+      if (voice.connected || voice.connecting) {
+        await voice.disconnect();
+      }
+
+      setVisual(EMPTY_VOICE_VISUAL_STATE);
+      setCaption({
+        role: "system",
+        text: `Connecting to ${seed.name}…`,
+      });
+
+      await voice.connect({
+        threadPolicy: "new",
+        voice: seed.voice,
+        subagentSeed: seed,
+      });
+    },
+    [voice]
+  );
 
   const resetSession = useCallback(() => {
     void voice.resetSession();
@@ -198,8 +240,12 @@ export function VoiceSessionProvider({
       connect,
       startNew,
       resume,
+      speakToSubagent,
       disconnect,
       resetSession,
+      sendSubagentProgress: voice.sendSubagentProgress,
+      sendSubagentMilestone: voice.sendSubagentMilestone,
+      sendTextEvent: voice.sendTextEvent,
       setScreenSurface,
       setBarContainer,
       setBarPageAnchor,
@@ -219,6 +265,9 @@ export function VoiceSessionProvider({
       voice.localStream,
       voice.remoteStream,
       voice.screenContext,
+      voice.sendSubagentProgress,
+      voice.sendSubagentMilestone,
+      voice.sendTextEvent,
       caption,
       visual,
       modalities,
@@ -226,6 +275,7 @@ export function VoiceSessionProvider({
       connect,
       startNew,
       resume,
+      speakToSubagent,
       disconnect,
       resetSession,
       setScreenSurface,
