@@ -40,6 +40,10 @@ export type ChatUIMessage = UIMessage<
      * Dashboard shell can render which thought went where.
      */
     "multitask-routing"?: import("@/lib/schemas/thought-routing").MultitaskInboundDispatch;
+    /**
+     * Arcadia multitask: live worker awareness (progress / milestone / completion / failure).
+     */
+    "multitask-worker"?: import("@/lib/schemas/subagent-runtime").WorkerAwarenessEvent;
   }
 >;
 

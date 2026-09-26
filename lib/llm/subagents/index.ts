@@ -47,6 +47,16 @@ export {
   type WorkerStep,
 } from "@/lib/llm/subagents/worker/run";
 export {
+  runWorkerGoalWithModel,
+  type RunWorkerGoalWithModelInput,
+  type WorkerGenerateText,
+} from "@/lib/llm/subagents/worker/run-with-model";
+export {
+  executeAssignedWorkers,
+  type ExecuteAssignedWorkersInput,
+  type ExecuteAssignedWorkersResult,
+} from "@/lib/llm/subagents/orchestrator/execute-assigned-workers";
+export {
   AION_RUNTIME_ROLE,
   AGENT_RUNTIME_ROLES,
   isAgentRuntimeRole,

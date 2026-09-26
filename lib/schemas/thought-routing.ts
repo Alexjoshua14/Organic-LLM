@@ -56,6 +56,12 @@ export const ThoughtRoutingResultSchema = z.object({
 
 export type ThoughtRoutingResult = z.infer<typeof ThoughtRoutingResultSchema>;
 
+export const MultitaskAssignedGoalSchema = z.object({
+  goalId: z.string().min(1),
+  agentId: z.string().min(1),
+  goal: z.string().min(1),
+});
+
 export const MultitaskInboundDispatchSchema = z.object({
   sendTarget: z.discriminatedUnion("kind", [
     z.object({ kind: z.literal("orchestrator") }),
@@ -70,6 +76,10 @@ export const MultitaskInboundDispatchSchema = z.object({
   /** Present when mode is direct_to_subagent. */
   deliveredAgentId: z.string().min(1).optional(),
   deliveredText: z.string().min(1).optional(),
+  /** Worker goals kicked off this turn (for shell cards). */
+  assignedGoals: z.array(MultitaskAssignedGoalSchema).optional(),
+  /** Thoughts the orchestrator should answer inline. */
+  directThoughts: z.array(z.string()).optional(),
 });
 
 export type MultitaskInboundDispatch = z.infer<typeof MultitaskInboundDispatchSchema>;
