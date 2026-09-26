@@ -24,6 +24,8 @@ export type RunLLMChatStreamParams = {
   logger: Logger;
   chatId: string;
   sbUserId: string;
+  /** When set, kick multi-mode queue dispatch after the stream clears. */
+  clerkUserId?: string;
   assistantMessageId: string;
   selectedModel: { id: string; name: string };
   effort?: ChatEffortLevel;
@@ -47,6 +49,7 @@ export async function runLLMChatStream(params: RunLLMChatStreamParams): Promise<
     logger,
     chatId,
     sbUserId,
+    clerkUserId,
     assistantMessageId,
     selectedModel,
     effort,
@@ -324,6 +327,17 @@ export async function runLLMChatStream(params: RunLLMChatStreamParams): Promise<
             logger.error("POST", `Error saving chat: ${msg}`);
 
             return; // Don't continue if save fails
+          }
+
+          // Multi-mode queue: after this stream clears, try to send the next queued message.
+          if (clerkUserId) {
+            const { kickDispatchAfterStream } = await import("@/lib/message-queue/dispatch");
+
+            void kickDispatchAfterStream({
+              ownerId: sbUserId,
+              clerkUserId,
+              threadId: chatId,
+            });
           }
 
           // Fire-and-forget post-processing (don't block `onFinish`)
