@@ -22,17 +22,17 @@ export function RemyWeekNav({
   className,
 }: RemyWeekNavProps) {
   return (
-    <div className={cn("flex items-center gap-inline-sm", className)}>
+    <div className={cn("flex min-w-0 items-center gap-inline-sm", className)}>
       <Button aria-label="Previous week" size="icon" variant="ghost" onClick={onPrev}>
         <ChevronLeft />
       </Button>
-      <p className="min-w-[10.5rem] text-center text-sm text-foreground">
+      <p className="min-w-0 flex-1 truncate text-center text-sm text-foreground sm:min-w-[10.5rem] sm:flex-none">
         {formatWeekRange(weekStart)}
       </p>
       <Button aria-label="Next week" size="icon" variant="ghost" onClick={onNext}>
         <ChevronRight />
       </Button>
-      <Button size="sm" variant="outline" onClick={onThisWeek}>
+      <Button className="shrink-0" size="sm" variant="outline" onClick={onThisWeek}>
         This week
       </Button>
     </div>
