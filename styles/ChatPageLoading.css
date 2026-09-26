@@ -1,0 +1,99 @@
+/**
+ * Chat page loading — one quiet presence on the same Page frame as the thread.
+ * Timing tokens: lib/chat/chat-page-loading-timing.ts (--cpl-* must stay in sync).
+ */
+
+.chat-page-loading {
+  --cpl-enter-s: 0.28s;
+  --cpl-breathe-s: 3.6s;
+  --cpl-exit-s: 0.18s;
+  --cpl-ease: cubic-bezier(0.25, 0.46, 0.45, 0.94);
+
+  box-sizing: border-box;
+  display: flex;
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+}
+
+.chat-page-loading__presence {
+  width: 6.5rem;
+  height: 6.5rem;
+  border-radius: 9999px;
+  background:
+    radial-gradient(
+      circle at 50% 45%,
+      color-mix(in oklab, var(--accent) 42%, transparent) 0%,
+      color-mix(in oklab, var(--accent) 14%, transparent) 38%,
+      transparent 68%
+    ),
+    radial-gradient(
+      circle at 48% 52%,
+      color-mix(in oklab, var(--color-lumen, #ffb266) 16%, transparent) 0%,
+      transparent 55%
+    );
+  opacity: 0;
+  transform: scale(0.92);
+  filter: blur(0.5px);
+  animation:
+    chat-page-loading-enter var(--cpl-enter-s) var(--cpl-ease) forwards,
+    chat-page-loading-breathe var(--cpl-breathe-s) var(--cpl-ease) var(--cpl-enter-s) infinite;
+}
+
+.chat-page-loading--exit .chat-page-loading__presence {
+  animation: chat-page-loading-exit var(--cpl-exit-s) var(--cpl-ease) forwards;
+}
+
+@keyframes chat-page-loading-enter {
+  from {
+    opacity: 0;
+    transform: scale(0.92);
+  }
+
+  to {
+    opacity: 0.72;
+    transform: scale(1);
+  }
+}
+
+@keyframes chat-page-loading-breathe {
+  0%,
+  100% {
+    opacity: 0.58;
+    transform: scale(0.96);
+  }
+
+  50% {
+    opacity: 0.82;
+    transform: scale(1.04);
+  }
+}
+
+@keyframes chat-page-loading-exit {
+  from {
+    opacity: 0.72;
+    transform: scale(1);
+  }
+
+  to {
+    opacity: 0;
+    transform: scale(0.94);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .chat-page-loading__presence {
+    animation: none;
+    opacity: 0.55;
+    transform: none;
+    filter: none;
+  }
+
+  .chat-page-loading--exit .chat-page-loading__presence {
+    animation: none;
+    opacity: 0;
+  }
+}
