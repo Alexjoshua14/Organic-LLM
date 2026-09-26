@@ -21,7 +21,7 @@ export function StrataPageCard({ page, isGeneratingTitle, onGenerateTitle }: Str
     <div
       className={cn(
         glass(),
-        "group relative overflow-hidden rounded-2xl border border-border/70 backdrop-blur-xl"
+        "group relative min-w-0 overflow-hidden rounded-2xl border border-border/70 backdrop-blur-xl"
       )}
     >
       {showTitleAction && (
