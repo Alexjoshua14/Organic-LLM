@@ -25,7 +25,6 @@ import {
   addLatestMessagesToMemory as storeAddLatestMessagesToMemory,
   addMemory as storeAddMemory,
 } from "./store";
-
 import {
   inferMemoryQualitySource,
   memoryTextMetrics,
@@ -300,9 +299,35 @@ export async function getCurrentUserMemories(): Promise<Result<SearchResultType,
 }
 
 /**
- * Fetches up to N memories for the current user matching a semantic search query.
- * Uses Clerk auth + Supabase profile; useful for curated lens views (e.g. sandbox demo).
+ * Full memory list for a server-resolved Supabase user id (Mem0 key).
+ * Applies the memory *list* rate limit. Use from tools / routes that already
+ * authenticated the user; do not pass a client-supplied userId.
  */
+export async function getMemoriesForUser(
+  userId: string
+): Promise<Result<SearchResultType, string>> {
+  try {
+    if (!userId) {
+      return { data: null, error: "User ID is required" };
+    }
+
+    const limitResult = await checkMemoryListLimit(userId);
+
+    if (!limitResult.success) {
+      return { data: null, error: limitResult.error ?? "Too many requests" };
+    }
+
+    const result = await storeGetAllMemories(userId);
+
+    return validateSearchResult(result);
+  } catch (error) {
+    return {
+      data: null,
+      error: error instanceof Error ? error.message : "Unknown error",
+    };
+  }
+}
+
 /**
  * Full memory list for a server-resolved Supabase user id (Mem0 key).
  * For API routes that already authenticated the user; skips memory list rate limit
@@ -327,6 +352,10 @@ export async function getMemoriesOwnershipSnapshotForUser(
   }
 }
 
+/**
+ * Fetches up to N memories for the current user matching a semantic search query.
+ * Uses Clerk auth + Supabase profile; useful for curated lens views (e.g. sandbox demo).
+ */
 export async function getCurrentUserMemoriesBySearch(
   query: string,
   limit: number = 5
@@ -405,9 +434,7 @@ export async function deleteMemoryForCurrentUser(
       await recordMemoryEvent({
         userId: userIdResult.data,
         event: "delete",
-        source: inferMemoryQualitySource(
-          memoryRow.metadata as Record<string, unknown> | undefined
-        ),
+        source: inferMemoryQualitySource(memoryRow.metadata as Record<string, unknown> | undefined),
         memoryId: trimmedId,
         charCount: metrics.charCount,
         wordCount: metrics.wordCount,
