@@ -5,6 +5,7 @@
 - **[Product hub](./hub/README.md)** — product canon: ownership, maintenance protocol, surface adapters. Read before product or feature-spec work.
 - [Contributing](../CONTRIBUTING.md) — setup, code boundaries, pull requests
 - [Thread & session architecture](./thread-session-architecture.md) — persistence, encryption, sidebar contract
+- [Multi-mode message send queue](./message-send-queue.md) — composer enqueue + server dispatch + plan budget
 - [Context building](./architecture/context-building.md) — how chat context is assembled before `streamText`
 - [Chat model aliases](./architecture/decisions/20260909-chat-model-aliases.md) — `models.provider.family` vs picker `name` / persisted gateway ids
 - [Arcadia context effort](./architecture/decisions/20260914-arcadia-context-effort.md) — Instant / Quick / Heavy memory compilation; 50k history window unchanged
@@ -23,6 +24,9 @@ Canon for the product: what we're building, who owns which kind of truth, how ag
   - [Surface adapters](./hub/surfaces/) — Cursor, Claude Code, Notion, in-app
 - **[Speak](./speak/README.md)** — voice agent; first large-scale workstream under the hub
   - [Tool behavior](./speak/tool-behavior.md) — locked acknowledgment and visual rules
+- **[Aion](./aion/README.md)** — presence layer; sandbox first slice on `/sandbox/aion`
+  - [Presence layer ADR](./aion/decisions/20260921-presence-layer.md)
+  - [Orchestrator / worker + identity](./aion/decisions/20260925-orchestrator-worker-identity.md)
 - **[Remy](./remy/README.md)** — meal prep; mise is events / prep is weeks; one extended recipe-card
 
 ## Product & features
