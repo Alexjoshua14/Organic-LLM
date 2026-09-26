@@ -238,6 +238,62 @@ describe("Jev catalog + thought routing", () => {
     expect(inbound.assignedGoals.some((g) => g.agentId === "agent-researcher")).toBe(true);
   });
 
+  test("short greeting is answered by the orchestrator, not worker-only", async () => {
+    const inbound = await dispatchMultitaskInbound({
+      text: "hey",
+      sendTarget: { kind: "orchestrator" },
+      workers,
+      router: createHeuristicThoughtRouter(),
+    });
+
+    expect(inbound.mode).toBe("routed");
+    expect(inbound.directThoughts).toEqual(["hey"]);
+    expect(inbound.assignedGoals).toHaveLength(0);
+    expect(inbound.routing?.thoughts[0]?.disposition.kind).toBe("direct");
+  });
+
+  test("Jev misrouting a greeting is reclaimed as orchestrator-direct", async () => {
+    const inbound = await dispatchMultitaskInbound({
+      text: "hey",
+      sendTarget: { kind: "orchestrator" },
+      workers,
+      router: createJevThoughtRouter({
+        generate: async () => ({
+          object: {
+            thoughts: [
+              {
+                text: "hey",
+                disposition: {
+                  kind: "new_subagent",
+                  suggestedRole: "generalist",
+                  reason: "wrongly spawned",
+                },
+              },
+            ],
+          },
+        }),
+      }),
+    });
+
+    expect(inbound.directThoughts).toEqual(["hey"]);
+    expect(inbound.assignedGoals).toHaveLength(0);
+    expect(inbound.routing?.thoughts[0]?.disposition.kind).toBe("direct");
+  });
+
+  test("subagent-target still delivers a greeting to that worker only", async () => {
+    const inbound = await dispatchMultitaskInbound({
+      text: "hey",
+      sendTarget: { kind: "subagent", agentId: "agent-coder" },
+      workers,
+      router: createHeuristicThoughtRouter(),
+    });
+
+    expect(inbound.mode).toBe("direct_to_subagent");
+    expect(inbound.deliveredAgentId).toBe("agent-coder");
+    expect(inbound.assignedGoals).toHaveLength(1);
+    expect(inbound.directThoughts).toEqual([]);
+  });
+
   test("task with no match spawns a new worker disposition", async () => {
     const router = createHeuristicThoughtRouter();
     const result = await router.route({
