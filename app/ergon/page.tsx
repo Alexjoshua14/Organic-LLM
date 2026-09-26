@@ -26,11 +26,14 @@ export default async function ErgonPage() {
   const [initialTasks, initialCategories] = await Promise.all([listTasks(), listCategories()]);
 
   return (
-    <Page className="items-stretch justify-start overflow-hidden" transparentBackground>
+    <Page
+      className="items-stretch justify-start overflow-x-hidden overflow-hidden"
+      transparentBackground
+    >
       <ErgonPageBackground />
       <div
         className={cn(
-          "relative z-10 flex min-h-0 w-full flex-1 flex-col pb-4 md:pb-8",
+          "relative z-10 flex min-h-0 min-w-0 w-full flex-1 flex-col overflow-x-hidden pb-[max(1rem,env(safe-area-inset-bottom,0px))] md:pb-8",
           pageContentFrameInsets
         )}
       >
