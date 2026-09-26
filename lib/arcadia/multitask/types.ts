@@ -11,8 +11,8 @@ export type ArcadiaSubagentMilestone = {
 /**
  * Client model for the Arcadia multitask shell.
  *
- * Honest sandbox source: there is no production multi-agent runtime yet. The shell
- * drives Speak from this model (goal, progress, milestones, status, stable voice).
+ * Roster identities are fixture slots; status/progress come from live worker runs
+ * (awareness events). Speak still seeds from this model when a session is open.
  */
 export type ArcadiaSubagent = {
   id: string;

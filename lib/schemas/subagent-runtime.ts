@@ -41,6 +41,8 @@ export const WorkerProgressEventSchema = z.object({
   narrative: z.string().min(1),
   progressPct: z.number().min(0).max(100),
   at: z.number().int().nonnegative(),
+  /** When set, the shell should adopt this as the agent's current goal. */
+  assignedGoal: z.string().min(1).optional(),
 });
 
 export const WorkerMilestoneEventSchema = z.object({
@@ -59,10 +61,20 @@ export const WorkerCompletionEventSchema = z.object({
   at: z.number().int().nonnegative(),
 });
 
+export const WorkerFailureEventSchema = z.object({
+  kind: z.literal("failure"),
+  goalId: z.string().min(1),
+  agentId: z.string().min(1),
+  /** Short card-facing error — never a fake near-done percent. */
+  error: z.string().min(1).max(280),
+  at: z.number().int().nonnegative(),
+});
+
 export const WorkerAwarenessEventSchema = z.discriminatedUnion("kind", [
   WorkerProgressEventSchema,
   WorkerMilestoneEventSchema,
   WorkerCompletionEventSchema,
+  WorkerFailureEventSchema,
 ]);
 
 export type WorkerAwarenessEvent = z.infer<typeof WorkerAwarenessEventSchema>;

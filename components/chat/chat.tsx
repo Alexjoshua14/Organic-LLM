@@ -93,12 +93,16 @@ export const Chat: React.FC<ChatProps> = ({
   const { refreshSidebarChats } = useSharedChatContext();
   const arcadiaMultitask = useArcadiaMultitaskOptional();
   const multitaskSendTargetRef = useRef(arcadiaMultitask?.sendTarget ?? null);
+  const applyInboundDispatchRef = useRef(arcadiaMultitask?.applyInboundDispatch);
+  const applyAwarenessEventRef = useRef(arcadiaMultitask?.applyAwarenessEvent);
   const confineInMultitaskDashboard = arcadiaMultitask?.layoutMode === "dashboard";
   // Dashboard only: CoreInput enqueues via POST /api/chat/queue. Idle overlay keeps sendMessage.
   const queueSendMode = experience === "arcadia" && confineInMultitaskDashboard;
   const queueTargetAgentId = queueAgentIdFromSendTarget(arcadiaMultitask?.sendTarget);
 
   multitaskSendTargetRef.current = arcadiaMultitask?.sendTarget ?? null;
+  applyInboundDispatchRef.current = arcadiaMultitask?.applyInboundDispatch;
+  applyAwarenessEventRef.current = arcadiaMultitask?.applyAwarenessEvent;
 
   // Ambient awareness: while this thread is on screen, a live voice session is told what it has
   // covered (via its rolling summary) so the user can refer to "this conversation" out loud.
@@ -367,6 +371,14 @@ export const Chat: React.FC<ChatProps> = ({
           }
         } else if (data.type === "data-context-budget") {
           setStreamContextBudget(withLastTurnSnapshot(data.data as ContextBudgetEstimate));
+        } else if (data.type === "data-multitask-routing") {
+          applyInboundDispatchRef.current?.(
+            data.data as import("@/lib/schemas/thought-routing").MultitaskInboundDispatch
+          );
+        } else if (data.type === "data-multitask-worker") {
+          applyAwarenessEventRef.current?.(
+            data.data as import("@/lib/schemas/subagent-runtime").WorkerAwarenessEvent
+          );
         }
       },
       onError: (error) => {

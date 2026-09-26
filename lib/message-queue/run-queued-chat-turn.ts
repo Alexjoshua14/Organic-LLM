@@ -45,6 +45,7 @@ import { sendTargetFromQueueAgentId } from "@/lib/schemas/arcadia-multitask-send
 import { appendCurrentDate } from "@/lib/system-prompt/current-date";
 import { ChatAIActionEnum, type ChatUIMessage } from "@/types/ai";
 import { dispatchMultitaskInbound } from "@/lib/llm/subagents/orchestrator/dispatch-inbound";
+import { executeAssignedWorkers } from "@/lib/llm/subagents/orchestrator/execute-assigned-workers";
 import { formatMultitaskRoutingSystemFragment } from "@/lib/llm/subagents/orchestrator/format-routing-fragment";
 import { createDemoSubagents } from "@/lib/arcadia/multitask/demo-roster";
 
@@ -118,6 +119,7 @@ export async function runQueuedChatTurn(args: {
       });
 
       let multitaskRoutingFragment: string | null = null;
+      let workerRunsPromise: Promise<unknown> | null = null;
 
       if (experience === "arcadia") {
         const userText = getLastUserMessageText(userMessage);
@@ -142,10 +144,31 @@ export async function runQueuedChatTurn(args: {
               routing: inbound.routing,
               deliveredAgentId: inbound.deliveredAgentId,
               deliveredText: inbound.deliveredText,
+              assignedGoals: inbound.assignedGoals.map((g) => ({
+                goalId: g.goalId,
+                agentId: g.agentId,
+                goal: g.goal,
+              })),
+              directThoughts: inbound.directThoughts,
             },
             transient: true,
           });
           multitaskRoutingFragment = formatMultitaskRoutingSystemFragment(inbound);
+
+          if (inbound.assignedGoals.length > 0) {
+            workerRunsPromise = executeAssignedWorkers({
+              goals: inbound.assignedGoals,
+              modelId: selectedModel.id,
+              workers: roster,
+              onEvent: (event) => {
+                writer.write({
+                  type: "data-multitask-worker",
+                  data: event,
+                  transient: true,
+                });
+              },
+            });
+          }
         }
       }
 
@@ -303,6 +326,10 @@ export async function runQueuedChatTurn(args: {
         userMessage,
         threadHasTitlePromise,
       });
+
+      if (workerRunsPromise) {
+        await workerRunsPromise;
+      }
     },
   });
 

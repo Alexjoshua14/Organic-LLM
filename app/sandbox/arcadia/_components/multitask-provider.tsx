@@ -6,6 +6,8 @@ import type {
   ArcadiaMultitaskLayoutMode,
   ArcadiaMultitaskSendTarget,
 } from "@/lib/arcadia/multitask/layout-mode";
+import type { MultitaskInboundDispatch } from "@/lib/schemas/thought-routing";
+import type { WorkerAwarenessEvent } from "@/lib/schemas/subagent-runtime";
 
 import {
   createContext,
@@ -22,6 +24,10 @@ import { SPEAK_BAR_HANDOFF_CLOSING_MS } from "./subagent-speak-bar-timing";
 
 import { useVoiceSessionOptional } from "@/components/voice/voice-session-provider";
 import { createDemoSubagents, DEMO_PROGRESS_SCRIPT } from "@/lib/arcadia/multitask/demo-roster";
+import {
+  applyAssignedGoalsToRoster,
+  applyWorkerAwarenessToSubagent,
+} from "@/lib/arcadia/multitask/apply-awareness";
 import { subagentToSpeakSeed } from "@/lib/arcadia/multitask/format-seed";
 import {
   canToggleArcadiaMultitaskView,
@@ -61,6 +67,10 @@ type ArcadiaMultitaskValue = {
   speakTo: (agentId: string) => Promise<void>;
   endSpeak: () => void;
   tickDemo: () => void;
+  /** Apply live worker awareness from the chat stream onto roster cards. */
+  applyAwarenessEvent: (event: WorkerAwarenessEvent) => void;
+  /** Adopt assigned goals from orchestrator dispatch onto matching roster slots. */
+  applyInboundDispatch: (dispatch: MultitaskInboundDispatch) => void;
   layoutMode: ArcadiaMultitaskLayoutMode;
   multitaskViewEnabled: boolean;
   /** Attempt to flip the per-thread multitask view. No-op / false when streaming. */
@@ -309,8 +319,41 @@ export function ArcadiaMultitaskProvider({
     });
   }, [pushSpeakUpdate]);
 
+  const applyAwarenessEvent = useCallback(
+    (event: WorkerAwarenessEvent) => {
+      setAgents((prev) => {
+        const next = prev.map((agent) => applyWorkerAwarenessToSubagent(agent, event));
+        const updated = next.find((a) => a.id === event.agentId);
+
+        if (updated) {
+          if (event.kind === "milestone") {
+            void pushSpeakUpdate(updated, {
+              progress: updated.progress,
+              milestone: event.milestone.label,
+            });
+          } else if (event.kind === "progress" || event.kind === "completion") {
+            void pushSpeakUpdate(updated, { progress: updated.progress });
+          } else if (event.kind === "failure") {
+            void pushSpeakUpdate(updated, { progress: event.error });
+          }
+        }
+
+        return next;
+      });
+    },
+    [pushSpeakUpdate]
+  );
+
+  const applyInboundDispatch = useCallback((dispatch: MultitaskInboundDispatch) => {
+    const goals = dispatch.assignedGoals ?? [];
+    if (goals.length === 0) return;
+    setAgents((prev) => applyAssignedGoalsToRoster(prev, goals));
+  }, []);
+
   useEffect(() => {
     if (!multitaskViewEnabled) return;
+    // Demo script emptied — live runs feed cards via applyAwarenessEvent.
+    if (Object.keys(DEMO_PROGRESS_SCRIPT).length === 0) return;
 
     const id = window.setInterval(() => tickDemo(), TICK_MS);
 
@@ -450,6 +493,8 @@ export function ArcadiaMultitaskProvider({
       speakTo,
       endSpeak,
       tickDemo,
+      applyAwarenessEvent,
+      applyInboundDispatch,
       layoutMode,
       multitaskViewEnabled,
       toggleMultitaskView,
@@ -471,6 +516,8 @@ export function ArcadiaMultitaskProvider({
       speakTo,
       endSpeak,
       tickDemo,
+      applyAwarenessEvent,
+      applyInboundDispatch,
       layoutMode,
       multitaskViewEnabled,
       toggleMultitaskView,
