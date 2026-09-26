@@ -149,4 +149,12 @@ describe("buildSpeakRealtimeInstructions continuity", () => {
 
     expect(text).not.toContain("continuing an earlier conversation");
   });
+
+  test("subagent Speak-to folds seed context into instructions", () => {
+    const text = buildSpeakRealtimeInstructions(DEFAULT_SPEAK_MODALITIES, {
+      subagentContext: 'You are voicing the Arcadia subagent "Reed" (role: coder).',
+    });
+
+    expect(text).toContain('voicing the Arcadia subagent "Reed"');
+  });
 });

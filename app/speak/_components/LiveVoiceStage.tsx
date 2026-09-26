@@ -154,7 +154,7 @@ export function LiveVoiceStage({ onExit }: { onExit?: () => void }) {
                 )}
                 disabled={voice.connecting}
                 type="button"
-                onClick={voice.connect}
+                onClick={() => voice.connect()}
               >
                 {voice.connecting ? (
                   <Loader2 className="size-8 animate-spin text-muted-foreground" />
@@ -189,7 +189,7 @@ export function LiveVoiceStage({ onExit }: { onExit?: () => void }) {
                   : "Start a fresh conversation instead of resuming"
               }
               type="button"
-              onClick={voice.startNew}
+              onClick={() => voice.startNew()}
             >
               <Plus className="size-4" />
             </button>

@@ -59,6 +59,9 @@ client-side navigation. Held in a page, the peer connection dies on every route 
 | Realtime hook | `hooks/use-realtime-voice.ts` |
 | Server-event classifier | `lib/speak/realtime-events.ts` |
 | Session mint | `app/api/ai/speak/realtime/session/route.ts` |
+| Silent subagent progress | `app/api/ai/speak/realtime/progress/route.ts`, `lib/speak/subagent-progress-item.ts` |
+| Spoken subagent milestone | `app/api/ai/speak/realtime/milestone/route.ts`, `lib/speak/subagent-milestone-item.ts` |
+| Realtime voice ids | `lib/schemas/speak-realtime-voice.ts` |
 | Thread resolution | `lib/speak/resolve-speak-thread.ts`, policy in `lib/schemas/speak-thread.ts` |
 | Resume context | `lib/speak/speak-session-context.ts` |
 | Turn persistence | `app/api/ai/speak/realtime/transcript/route.ts`, `lib/speak/persist-voice-turns.ts`, `lib/speak/voice-turns.ts` |
@@ -100,6 +103,9 @@ Verified against the session route and hook on 2026-09-17. Design rationale is i
    `response.create`. See
    [the ambient presence ADR](./decisions/20260922-ambient-voice-presence.md) — there is no
    `.thinking` event in the Realtime API.
+9. **Arcadia multitask Speak-to.** A subagent session passes `voice` + `subagentSeed` at mint.
+   Work updates use distinct routes: `/progress` (silent) vs `/milestone` (announce). See
+   [multitask Speak ADR](./decisions/20260925-multitask-subagent-speak.md).
 
 Memory is a per-session opt-in sent by the client, mirroring chat's composer toggle. It is
 captured on the session record, so the tool gate and the ingest path read one value.

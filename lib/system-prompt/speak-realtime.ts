@@ -7,6 +7,11 @@ export type SpeakRealtimeInstructionOptions = {
   sessionContext?: string | null;
   /** True when the session continues an existing thread. */
   resumed?: boolean;
+  /**
+   * Arcadia multitask Speak-to seed (goal + progress + identity). When set, the model
+   * voices that subagent; silent progress vs spoken milestones are covered in the block.
+   */
+  subagentContext?: string | null;
 };
 
 /**
@@ -80,6 +85,12 @@ ${toolLines.join("\n")}`,
 - If nothing relevant comes back, carry on naturally and do not mention memory at all.
 - Weave recalled details in lightly, the way a friend would — no recitals of what you know.
 - This conversation is saved automatically; you never need to ask whether to remember something.`);
+  }
+
+  const subagent = options.subagentContext?.trim();
+
+  if (subagent) {
+    sections.push(subagent);
   }
 
   const context = options.sessionContext?.trim();
