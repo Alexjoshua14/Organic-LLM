@@ -19,6 +19,7 @@ import {
   saveLocalStrataPage,
 } from "@/lib/strata/local-store";
 import { sanitizeRawUserInput } from "@/lib/strata/input-safety";
+import { strataBrowserChrome } from "@/lib/strata/workspace-layout";
 
 function sectionsSnapshotFromFull(full: StrataPageWithSections) {
   return {
@@ -176,12 +177,17 @@ export function StrataBrowser({
   }, [generateTitleForPage, untitledPages]);
 
   return (
-    <div className="space-y-10">
-      <div className="text-center mb-2">
+    <div className={strataBrowserChrome.root}>
+      <div className="mb-2 text-center [@media(max-height:500px)]:mb-0">
         <h1 className="mb-2 font-commissioner text-3xl font-light tracking-tight text-foreground sm:text-4xl">
           Strata
         </h1>
-        <p className="text-sm text-muted-foreground max-w-2xl mx-auto select-none">
+        <p
+          className={cn(
+            "mx-auto max-w-2xl select-none text-sm text-muted-foreground",
+            strataBrowserChrome.hideOnShortViewport
+          )}
+        >
           Transforms raw thoughts into structured, readable artifacts through layered AI
           orchestration.
         </p>
@@ -196,7 +202,7 @@ export function StrataBrowser({
       {titleMessage && (
         <p
           className={cn(
-            "text-center text-sm",
+            "text-center text-sm break-words",
             titleMessage.kind === "error"
               ? "text-destructive"
               : "text-emerald-700 dark:text-emerald-400"
@@ -207,12 +213,12 @@ export function StrataBrowser({
         </p>
       )}
 
-      <div className="flex w-full flex-col items-stretch justify-end gap-3 sm:flex-row sm:items-center sm:justify-between">
+      <div className="flex w-full min-w-0 flex-col items-stretch gap-3 sm:flex-row sm:items-center sm:justify-between">
         {untitledPages.length > 0 && (
           <button
             className={cn(
               glass({ opaque: true }),
-              "h-10 shrink-0 rounded-lg border px-4 text-sm font-medium text-foreground transition-colors hover:bg-muted disabled:cursor-not-allowed disabled:opacity-60"
+              "h-10 w-full shrink-0 rounded-lg border px-4 text-sm font-medium text-foreground transition-colors hover:bg-muted disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto"
             )}
             disabled={generatingTitleId != null || bulkGenerating}
             type="button"
@@ -223,20 +229,20 @@ export function StrataBrowser({
               : `Generate missing titles (${untitledPages.length})`}
           </button>
         )}
-        <div className="flex w-full justify-end sm:w-auto">
+        <div className="flex w-full min-w-0 sm:w-auto sm:justify-end sm:ml-auto">
           <StrataCreatePageForm dbAvailable={dbAvailable} onLocalPagesUpdated={setLocalPages} />
         </div>
       </div>
 
-      <section className="space-y-4" aria-label="Strata pages">
+      <section className="w-full min-w-0 space-y-4" aria-label="Strata pages">
         {renderedPages.length === 0 ? (
           <p className="text-center text-sm text-muted-foreground">
             No Strata pages yet. Create your first page to get started.
           </p>
         ) : (
-          <ul className="grid w-full grid-cols-1 gap-4">
+          <ul className="grid w-full min-w-0 grid-cols-1 gap-4">
             {renderedPages.map((page) => (
-              <li key={page.id}>
+              <li key={page.id} className="min-w-0">
                 <StrataPageCard
                   isGeneratingTitle={generatingTitleId === page.id}
                   page={page}
