@@ -28,6 +28,8 @@ export {
   assertRouterForcesZdr,
   createHeuristicThoughtRouter,
   createJevThoughtRouter,
+  isOrchestratorDirectThought,
+  reclaimMisroutedDirectThoughts,
   type ThoughtRouter,
   type ThoughtRouterInput,
   type ThoughtRouterWorker,
