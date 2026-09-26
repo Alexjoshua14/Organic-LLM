@@ -1,3 +1,5 @@
+"use client";
+
 import { Search } from "lucide-react";
 import { Input } from "@heroui/input";
 import { SignedIn, SignedOut, SignOutButton } from "@clerk/nextjs";
@@ -7,7 +9,6 @@ import { Suspense } from "react";
 import { SidebarChats } from "./sidebar-chats";
 import { SidebarContentSwitcher } from "./sidebar-content-switcher";
 import { SidebarExperienceRail } from "./sidebar-experience-rail";
-import { SidebarProjectLink } from "./sidebar-project-link";
 import { PrototypesSidebarContent, PrototypesSidebarFallback } from "./prototypes-sidebar-content";
 
 import { SignedOutAuthButtons } from "@/components/pages/signed-out-auth-buttons";
@@ -19,6 +20,7 @@ import {
   SidebarGroupContent,
   SidebarHeader,
 } from "@/components/third-party/ui/sidebar";
+import { useIsTallViewport } from "@/hooks/use-is-tall-viewport";
 import { APP_VERSION_LABEL } from "@/lib/app-version";
 import { welcomeCopy } from "@/lib/welcome/copy";
 
@@ -58,8 +60,14 @@ function NormalSidebarContent() {
 }
 
 export function Sidebar() {
+  const { isTall, maxHeightCss } = useIsTallViewport();
+
   return (
-    <ShadcnSidebar>
+    <ShadcnSidebar
+      compactHeight={isTall}
+      compactMaxHeight={maxHeightCss}
+      variant={isTall ? "floating" : "sidebar"}
+    >
       <SidebarHeader className="h-16 pl-7 grid place-content-center bg-background-secondary subpixel-antialiased">
         <Link
           className="group/brand cursor-pointer active:scale-95 transition-transform duration-150 font-commissioner"
