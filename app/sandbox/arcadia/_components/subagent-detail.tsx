@@ -1,16 +1,23 @@
 "use client";
 
 import type { ArcadiaSubagent } from "@/lib/arcadia/multitask/types";
+import type { ArcadiaSpeakSessionPhase } from "@/lib/arcadia/multitask/speak-session";
+import type { LiveVoicePhase } from "@/hooks/use-realtime-voice";
 
-import { Mic } from "lucide-react";
+import { SubagentSpeakGlassBar } from "./subagent-speak-glass-bar";
 
 import { glass } from "@/components/design-system/primitives";
 import { cn } from "@/lib/utils";
 
 type SubagentDetailProps = {
   agent: ArcadiaSubagent;
-  speaking: boolean;
+  speakPhase: ArcadiaSpeakSessionPhase;
+  voicePhase: LiveVoicePhase;
+  startedAt: number | null;
+  localStream: MediaStream | null;
+  remoteStream: MediaStream | null;
   onSpeakTo: () => void;
+  onEndSpeak: () => void;
   onClose: () => void;
   speakDisabled?: boolean;
 };
@@ -18,11 +25,18 @@ type SubagentDetailProps = {
 /** Expanded interaction panel for one condensed main character. */
 export function SubagentDetail({
   agent,
-  speaking,
+  speakPhase,
+  voicePhase,
+  startedAt,
+  localStream,
+  remoteStream,
   onSpeakTo,
+  onEndSpeak,
   onClose,
   speakDisabled,
 }: SubagentDetailProps) {
+  const speaking = speakPhase === "live" || speakPhase === "connecting";
+
   return (
     <aside
       className={cn(
@@ -83,25 +97,24 @@ export function SubagentDetail({
           </h3>
           <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
             Speak to starts a new Realtime session in this voice, seeded with goal + progress.
-            Background progress is silent; milestones are announced.
+            Background progress is silent; milestones are announced. Only one Speak session at a
+            time — choosing another agent ends the current call first.
           </p>
         </section>
       </div>
 
       <footer className="border-t border-border/50 p-3">
-        <button
-          className={cn(
-            "inline-flex w-full items-center justify-center gap-2 rounded-lg px-3 py-2.5 text-sm font-medium",
-            "bg-foreground text-background hover:opacity-90 transition-opacity",
-            "disabled:opacity-40 disabled:pointer-events-none"
-          )}
+        <SubagentSpeakGlassBar
+          agentName={agent.name}
           disabled={speakDisabled}
-          type="button"
-          onClick={onSpeakTo}
-        >
-          <Mic aria-hidden className="size-4" />
-          {speaking ? "Reconnect Speak to" : "Speak to"} {agent.name}
-        </button>
+          localStream={localStream}
+          phase={speakPhase}
+          remoteStream={remoteStream}
+          startedAt={startedAt}
+          voicePhase={voicePhase}
+          onEnd={onEndSpeak}
+          onSpeakTo={onSpeakTo}
+        />
       </footer>
     </aside>
   );

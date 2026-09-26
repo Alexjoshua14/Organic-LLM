@@ -27,7 +27,7 @@ Arcadia is a **sandbox chat experience** inside Organic LLM: a safe lab for expe
 ## Multitask shell
 
 Open any Arcadia thread (`/sandbox/arcadia` → redirect to `/sandbox/arcadia/<id>`). Use the
-**Multitask** control (top-right) to show the shell.
+**Multiagent** control (top-right) to enter the multitask dashboard for that thread.
 
 | Piece | Path |
 |-------|------|
@@ -38,10 +38,16 @@ Open any Arcadia thread (`/sandbox/arcadia` → redirect to `/sandbox/arcadia/<i
 | Role → voice presets | `lib/arcadia/multitask/voice-assignment.ts` (also shown in the shell legend) |
 | Speak ADR | [`docs/speak/decisions/20260925-multitask-subagent-speak.md`](./speak/decisions/20260925-multitask-subagent-speak.md) |
 
-**Layout.** When any subagent is `working` or `blocked`, Arcadia switches to a **dashboard**:
-chat is confined to a pane (composer stays enabled), a **Send to** picker chooses
-orchestrator vs a subagent, and the board keeps the condensed cards visible. When the
-roster is idle, the floating Multitask overlay from the first slice remains.
+**Layout.** Multiagent view is a **per-thread toggle** (default off). Working sandbox agents
+do not force the dashboard. When on: chat is confined with a Send-to picker; the board shows
+condensed cards. Mobile uses one board scroll region and a docked composer stack so layers
+do not paint over each other. Wide screens (`lg` / `MULTITASK_DASHBOARD_WIDE_MIN_PX`) keep
+board + chat side by side.
+
+**Toggle gate.** Flips are refused while `threads.active_stream_id` is set for that thread.
+Local storage + BroadcastChannel sync same-browser tabs; a 2.5s poll syncs other devices
+while the thread page is open. Column: `threads.arcadia_multitask_view`
+(`docs/migrations/threads_arcadia_multitask_view.sql`).
 
 **Composer / queue.** In dashboard mode, `Chat` passes `queueSendMode` and
 `queueTargetAgentId` (from the Send-to picker via `queueAgentIdFromSendTarget`) into
