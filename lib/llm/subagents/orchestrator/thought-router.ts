@@ -46,9 +46,29 @@ export type ThoughtRouter = {
 };
 
 const DIRECT_HINT =
-  /\b(what|why|how|when|where|who|can you|could you|did you|are you|is that|clarify|confirm|thanks|thank you|ok|okay|got it)\b/i;
+  /\b(what|why|how|when|where|who|can you|could you|did you|are you|is that|clarify|confirm|thanks|thank you|ok|okay|got it|hey|hi|hello|yo|sup|howdy|greetings)\b/i;
+const GREETING_ONLY =
+  /^(hey|hi|hello|yo|sup|howdy|greetings|good (morning|afternoon|evening)|thanks|thank you|ok|okay|got it)([!.?\s]*)$/i;
 const TASK_HINT =
   /\b(research|implement|build|write|draft|code|find|search|analyze|summarize|plan|review|fix|investigate|create|generate)\b/i;
+
+/** True when the orchestrator should answer this thought itself (not spawn/delegate). */
+export function isOrchestratorDirectThought(thought: string): boolean {
+  const trimmed = thought.trim();
+  if (!trimmed) return true;
+
+  if (GREETING_ONLY.test(trimmed)) return true;
+
+  // Short conversational beats with no task verb — greetings, small talk, pings.
+  const wordCount = trimmed.split(/\s+/).filter(Boolean).length;
+  if (wordCount <= 6 && trimmed.length <= 48 && !TASK_HINT.test(trimmed)) {
+    return true;
+  }
+
+  if (trimmed.endsWith("?") && trimmed.length < 180) return true;
+
+  return DIRECT_HINT.test(trimmed) && !TASK_HINT.test(trimmed) && trimmed.length < 220;
+}
 
 const JevRouteThoughtSchema = z.object({
   text: z.string().min(1),
@@ -116,11 +136,7 @@ function decideDisposition(
   thought: string,
   workers: ReadonlyArray<ThoughtRouterWorker>
 ): ThoughtDisposition {
-  const looksDirect =
-    (thought.trim().endsWith("?") && thought.length < 180) ||
-    (DIRECT_HINT.test(thought) && !TASK_HINT.test(thought) && thought.length < 220);
-
-  if (looksDirect) {
+  if (isOrchestratorDirectThought(thought)) {
     return { kind: "direct", reason: "short clarification or question for the orchestrator" };
   }
 
@@ -151,16 +167,39 @@ function decideDisposition(
   };
 }
 
+/**
+ * Reclaim greetings / short conversational pings that a model misrouted to a worker.
+ * Only rewrites dispositions that are clearly orchestrator-owned; real tasks stay assigned.
+ */
+export function reclaimMisroutedDirectThoughts(
+  thoughts: RoutedThought[]
+): RoutedThought[] {
+  return thoughts.map((thought) => {
+    if (thought.disposition.kind === "direct") return thought;
+    if (!isOrchestratorDirectThought(thought.text)) return thought;
+
+    return {
+      ...thought,
+      disposition: {
+        kind: "direct",
+        reason: "reclaimed conversational ping for the orchestrator",
+      },
+    };
+  });
+}
+
 function buildHeuristicResult(
   input: ThoughtRouterInput,
   fallback?: { reason: string }
 ): ThoughtRoutingResult {
   const parts = splitIntoThoughtTexts(input.text);
-  const thoughts: RoutedThought[] = parts.map((text) => ({
-    thoughtId: randomUUID(),
-    text,
-    disposition: decideDisposition(text, input.workers),
-  }));
+  const thoughts: RoutedThought[] = reclaimMisroutedDirectThoughts(
+    parts.map((text) => ({
+      thoughtId: randomUUID(),
+      text,
+      disposition: decideDisposition(text, input.workers),
+    }))
+  );
 
   return {
     sourceText: input.text,
@@ -212,12 +251,13 @@ function formatWorkersForPrompt(workers: ReadonlyArray<ThoughtRouterWorker>): st
 const JEV_ROUTER_SYSTEM = `You are Jev, Organic LLM's cheap thought router for the orchestrator.
 Split the user message into one or more distinct thoughts/sections.
 For each thought, choose exactly one disposition:
-- direct — short question, clarification, or acknowledgment the orchestrator should answer itself
+- direct — short question, clarification, greeting, acknowledgment, or ordinary conversation the orchestrator should answer itself
 - existing_subagent — assign to an existing worker (agentId must be one of the ids listed)
 - new_subagent — spawn a worker; suggestedRole is a short role label (e.g. researcher, coder)
 
 Rules:
 - Prefer a single thought when the message is one idea.
+- Greetings and small talk (e.g. "hey", "hi", "thanks") are always direct — never spawn a worker for them.
 - Do not dump unrelated thoughts onto one worker.
 - Keep reasons brief.
 - Output structured data only.`;
@@ -280,11 +320,13 @@ export function createJevThoughtRouter(options?: CreateJevThoughtRouterOptions):
           throw new Error("Jev routing refused: ZDR must be on");
         }
 
-        const thoughts: RoutedThought[] = object.thoughts.map((t) => ({
-          thoughtId: randomUUID(),
-          text: t.text.trim(),
-          disposition: t.disposition,
-        }));
+        const thoughts: RoutedThought[] = reclaimMisroutedDirectThoughts(
+          object.thoughts.map((t) => ({
+            thoughtId: randomUUID(),
+            text: t.text.trim(),
+            disposition: t.disposition,
+          }))
+        );
 
         return {
           sourceText: input.text,

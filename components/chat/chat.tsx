@@ -63,7 +63,6 @@ import { DiagramNodeLinksProvider } from "@/lib/mermaid/diagram-node-links-conte
 import { DiagramTakeoverProvider } from "@/lib/mermaid/diagram-takeover-context";
 import { isEditableEventTarget } from "@/lib/dom/is-editable-event-target";
 import { useArcadiaMultitaskOptional } from "@/app/sandbox/arcadia/_components/multitask-provider";
-import { queueAgentIdFromSendTarget } from "@/lib/schemas/arcadia-multitask-send-target";
 const logger = createLogger("components/chat/chat");
 
 export type ChatProps = {
@@ -96,9 +95,10 @@ export const Chat: React.FC<ChatProps> = ({
   const applyInboundDispatchRef = useRef(arcadiaMultitask?.applyInboundDispatch);
   const applyAwarenessEventRef = useRef(arcadiaMultitask?.applyAwarenessEvent);
   const confineInMultitaskDashboard = arcadiaMultitask?.layoutMode === "dashboard";
-  // Dashboard only: CoreInput enqueues via POST /api/chat/queue. Idle overlay keeps sendMessage.
-  const queueSendMode = experience === "arcadia" && confineInMultitaskDashboard;
-  const queueTargetAgentId = queueAgentIdFromSendTarget(arcadiaMultitask?.sendTarget);
+  // Multitask dashboard uses live sendMessage → /api/chat (same as Arcadia idle chat).
+  // Do not enable CoreInput queueSendMode here: enqueue never appends/streams into the
+  // thread UI, so orchestrator turns look like a no-op. Subagent targeting still rides on
+  // multitaskSendTarget in the request body.
 
   multitaskSendTargetRef.current = arcadiaMultitask?.sendTarget ?? null;
   applyInboundDispatchRef.current = arcadiaMultitask?.applyInboundDispatch;
@@ -591,8 +591,6 @@ export const Chat: React.FC<ChatProps> = ({
                 isBlankChat={messages.length === 0 && persona !== "strata"}
                 modelRef={selectedModelRef}
                 effortRef={selectedEffortRef}
-                queueSendMode={queueSendMode}
-                queueTargetAgentId={queueTargetAgentId}
                 sendMessage={sendMessage}
                 status={status}
                 stop={handleStop}

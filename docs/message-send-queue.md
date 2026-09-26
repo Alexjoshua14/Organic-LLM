@@ -15,7 +15,12 @@
 
 ### Arcadia multitask shell integration
 
-When the multitask shell owns the composer (or wraps chat), pass:
+The Arcadia multitask **orchestrator** window uses live `sendMessage` → `/api/chat` so the
+user bubble and assistant stream appear in-thread (same as idle Arcadia chat). Pass
+`multitaskSendTarget` on the chat request body for routing; do **not** enable
+`queueSendMode` on that composer if visible streaming is required.
+
+When a shell intentionally wants enqueue-only (composer stays free; no live SSE), pass:
 
 ```tsx
 <CoreInput
@@ -27,7 +32,8 @@ When the multitask shell owns the composer (or wraps chat), pass:
 ```
 
 Do not call `sendMessage` directly while `queueSendMode` is on — CoreInput POSTs to
-`/api/chat/queue` instead.
+`/api/chat/queue` instead. That path persists and dispatches server-side but does not
+paint the turn into the open chat UI.
 
 ## Server
 

@@ -49,11 +49,12 @@ Local storage + BroadcastChannel sync same-browser tabs; a 2.5s poll syncs other
 while the thread page is open. Column: `threads.arcadia_multitask_view`
 (`docs/migrations/threads_arcadia_multitask_view.sql`).
 
-**Composer / queue.** In dashboard mode, `Chat` passes `queueSendMode` and
-`queueTargetAgentId` (from the Send-to picker via `queueAgentIdFromSendTarget`) into
-`CoreInput`, so submit hits `POST /api/chat/queue` instead of `sendMessage`. The same
-picker value stays on the request body as `multitaskSendTarget`. Idle overlay keeps the
-normal send path. See [`docs/message-send-queue.md`](./message-send-queue.md).
+**Composer.** In dashboard mode the confined chat uses the same live `sendMessage` →
+`/api/chat` path as Arcadia idle chat (user bubble + streaming reply). The Send-to picker
+value is sent as `multitaskSendTarget` on the request body so the server can route or
+delegate. `queueSendMode` is intentionally off here — enqueue alone never paints the turn
+into the thread UI. The multi-mode queue still exists for backlog use; see
+[`docs/message-send-queue.md`](./message-send-queue.md).
 
 **Speak to** ends any live call and mints a **new** Realtime session with that subagent's
 Realtime voice id, instructions seeded with goal + current progress. While that session is
@@ -62,9 +63,9 @@ bound:
 - `POST /api/ai/speak/realtime/progress` — silent context (no announce)
 - `POST /api/ai/speak/realtime/milestone` — spoken announce (`response.create`)
 
-**Queued composer (multi mode):** when the shell wires the shared CoreInput, pass
-`queueSendMode` so submits enqueue via `/api/chat/queue` instead of blocking on stream/quota.
-See [`docs/message-send-queue.md`](./message-send-queue.md).
+**Queued composer (optional multi mode):** CoreInput can still take `queueSendMode` when a
+shell wants enqueue-only submits; do not enable it for the Arcadia multitask orchestrator
+window if visible streaming is required. See [`docs/message-send-queue.md`](./message-send-queue.md).
 
 ## Tech + design (3 lines)
 - **Stack**: Next.js (App Router) + React + AI SDK streaming + Clerk + Supabase
