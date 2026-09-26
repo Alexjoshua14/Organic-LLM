@@ -103,12 +103,13 @@ export function Sidebar() {
         <SignedIn>
           <SignOutButton />
         </SignedIn>
-        <p
-          className="px-2 pb-1 text-center text-2xs font-light tabular-nums tracking-wide text-muted-foreground/70"
-          aria-label={`App version ${APP_VERSION_LABEL}`}
+        <Link
+          href="/release-notes"
+          className="px-2 pb-1 text-center text-2xs font-light tabular-nums tracking-wide text-muted-foreground/70 transition-colors hover:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50 rounded-sm"
+          aria-label={`App version ${APP_VERSION_LABEL}. Open release notes.`}
         >
           {APP_VERSION_LABEL}
-        </p>
+        </Link>
       </SidebarFooter>
     </ShadcnSidebar>
   );
