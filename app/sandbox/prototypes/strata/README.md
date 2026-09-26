@@ -21,6 +21,7 @@ Core UX goals implemented:
 - AI create/update paths for Refined + Elaborated.
 - Multi-page browser flow (`/sandbox/prototypes/strata` -> `/sandbox/prototypes/strata/[slug]`).
 - Per-page local-only mode (ZDR) + fallback to encrypted local storage if DB is unavailable.
+- Mobile / narrow viewports: assistant overlays as a full-viewport sheet below `lg` (1024px) so the browser list stays full-width; docks beside the main column on wide desktops. Layout tokens live in `lib/strata/workspace-layout.ts`.
 
 ## High-Level Architecture
 
