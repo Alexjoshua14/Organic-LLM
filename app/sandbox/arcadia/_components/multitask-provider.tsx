@@ -51,6 +51,10 @@ type ArcadiaMultitaskValue = {
   closingSpeakAgentId: string | null;
   /** Agent id owning connecting/live Speak (at most one). */
   liveSpeakAgentId: string | null;
+  /** Orchestrator chat panel (Ctrl+Q). */
+  chatOpen: boolean;
+  setChatOpen: (open: boolean) => void;
+  /** Subagent board / thread panel (Ctrl+W). */
   shellOpen: boolean;
   setShellOpen: (open: boolean) => void;
   selectAgent: (id: string | null) => void;
@@ -90,6 +94,7 @@ export function ArcadiaMultitaskProvider({
   const voice = useVoiceSessionOptional();
   const [agents, setAgents] = useState<ArcadiaSubagent[]>(() => createDemoSubagents());
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [chatOpen, setChatOpen] = useState(true);
   const [shellOpen, setShellOpen] = useState(true);
   const [speakBinding, setSpeakBinding] = useState<ArcadiaMultitaskSpeakBinding | null>(null);
   const [closingSpeakAgentId, setClosingSpeakAgentId] = useState<string | null>(null);
@@ -437,6 +442,8 @@ export function ArcadiaMultitaskProvider({
       speakBinding,
       closingSpeakAgentId,
       liveSpeakAgentId,
+      chatOpen,
+      setChatOpen,
       shellOpen,
       setShellOpen,
       selectAgent,
@@ -458,6 +465,7 @@ export function ArcadiaMultitaskProvider({
       speakBinding,
       closingSpeakAgentId,
       liveSpeakAgentId,
+      chatOpen,
       shellOpen,
       selectAgent,
       speakTo,
