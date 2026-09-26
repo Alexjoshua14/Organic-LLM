@@ -213,3 +213,23 @@ export async function getThreadActiveStreamId(threadId: string): Promise<string 
 
   return (data?.active_stream_id as string | null | undefined) ?? null;
 }
+
+/**
+ * Count threads with a live stream for this owner (non-null active_stream_id).
+ * Reused by the plan simultaneous-stream gate — not a separate concurrency subsystem.
+ */
+export async function countOwnerActiveStreams(ownerId: string): Promise<number> {
+  const { count, error } = await supabaseAdmin
+    .from("threads")
+    .select("id", { count: "exact", head: true })
+    .eq("owner_id", ownerId)
+    .not("active_stream_id", "is", null);
+
+  if (error) {
+    logger.warn("countOwnerActiveStreams", error.message);
+
+    return 0;
+  }
+
+  return count ?? 0;
+}
