@@ -5,7 +5,7 @@ import { AUTO_CHAT_MODEL_ID } from "@/lib/schemas/chat-model-ids";
 export type ChatModelId = GatewayModelId | typeof AUTO_CHAT_MODEL_ID;
 
 export const MODEL_ALIASES = {
-  openai: ["flagship", "sol", "terra", "luna", "oss120b", "oss20b", "gpt4oMini"],
+  openai: ["flagship", "sol", "terra", "luna", "jev", "oss120b", "oss20b", "gpt4oMini"],
   google: ["pro", "flash", "flash3", "flashLite", "flashLite_2_5", "flashLite_3_1"],
   anthropic: ["opus", "sonnet", "haiku", "fable"],
   perplexity: ["pro", "reasoningPro"],
@@ -36,6 +36,11 @@ export type ChatModel = {
   /** When false, the row is catalog-only and omitted from the composer picker. Default true. */
   picker?: boolean;
   supportsZeroDataRetention?: boolean;
+  /**
+   * When true, every call site for this model must force ZDR — user settings cannot
+   * turn it off. Used by the orchestrator thought-router (Jev).
+   */
+  requiresZeroDataRetention?: boolean;
   /** Only selectable by admins (profiles.admin); enforced server-side in the chat route. */
   adminOnly?: boolean;
 };
@@ -76,6 +81,19 @@ const catalog: ChatModel[] = [
     name: "GPT-6 Luna",
     alias: "openai.luna",
     supportsZeroDataRetention: true,
+  },
+  {
+    /**
+     * Cheap house routing model for multi-thought orchestrator splits.
+     * Not a worker / Realtime voice model. Catalog-only (not in composer picker).
+     * ZDR is mandatory — see `requiresZeroDataRetention`.
+     */
+    id: "openai/gpt-6-jev",
+    name: "GPT-6 Jev",
+    alias: "openai.jev",
+    picker: false,
+    supportsZeroDataRetention: true,
+    requiresZeroDataRetention: true,
   },
   {
     id: "openai/gpt-oss-120b",

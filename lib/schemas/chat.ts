@@ -2,6 +2,8 @@ import type { GatewayModelId } from "@ai-sdk/gateway";
 import type { DeviceTier } from "@/lib/memory-ingest/delphi-caption-budget";
 import type { ChatModel } from "@/lib/schemas/chat-models";
 
+import { ArcadiaMultitaskSendTargetSchema } from "@/lib/schemas/arcadia-multitask-send-target";
+
 import z from "zod";
 
 import { CHAT_EXPERIENCES, parseChatExperience } from "@/lib/chat/chat-experience";
@@ -59,6 +61,7 @@ export const ChatModelSchema: z.ZodType<ChatModel> = z.object({
   alias: z.string().optional(),
   picker: z.boolean().optional(),
   supportsZeroDataRetention: z.boolean().optional(),
+  requiresZeroDataRetention: z.boolean().optional(),
   adminOnly: z.boolean().optional(),
 }) as z.ZodType<ChatModel>;
 
@@ -264,6 +267,11 @@ export const ChatRequestSchema = z.object({
     )
     .max(10)
     .optional(),
+  /**
+   * Arcadia multitask dashboard: explicit orchestrator vs subagent destination.
+   * Omitted → treat as orchestrator (run thought splitter). See layout-mode.ts.
+   */
+  multitaskSendTarget: ArcadiaMultitaskSendTargetSchema.optional(),
 });
 
 export const ThreadSummarySchema = z.object({

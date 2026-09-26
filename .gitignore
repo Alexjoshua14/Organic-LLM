@@ -61,3 +61,6 @@ memory.db
 .local-profile.md
 .local-profile-overrides.ts
 
+# Generated subagent identity blobs (local store; not for git)
+.data/
+

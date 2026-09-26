@@ -45,6 +45,9 @@ import { resolveMemoryEnabledForExperience } from "@/lib/chat/chat-experience";
 import { resolveChatStarterPromptByKey } from "@/lib/chat/chat-style-starters";
 import { compileChatTools } from "@/lib/llm/compile-chat-tools";
 import { runLLMChatStream } from "@/lib/api/run-llm-chat-stream";
+import { dispatchMultitaskInbound } from "@/lib/llm/subagents/orchestrator/dispatch-inbound";
+import { formatMultitaskRoutingSystemFragment } from "@/lib/llm/subagents/orchestrator/format-routing-fragment";
+import { createDemoSubagents } from "@/lib/arcadia/multitask/demo-roster";
 
 // Allow streaming responses up to 30 seconds
 export const maxDuration = 30;
@@ -97,6 +100,7 @@ export async function POST(req: Request) {
     drawerDisplay,
     rabbitHoleSessionId,
     diagramNodeLinks,
+    multitaskSendTarget,
   } = parseResult.data;
   const message = incomingMessage as UIMessage;
   const messageForLlm = augmentUserMessageWithDiagramLinks(message, diagramNodeLinks);
@@ -187,6 +191,39 @@ export async function POST(req: Request) {
         transient: true,
       });
 
+      let multitaskRoutingFragment: string | null = null;
+
+      if (experience === "arcadia") {
+        const userText = getLastUserMessageText(messageForLlm);
+        if (userText.trim().length > 0) {
+          // Sandbox roster until the shell publishes a live worker list with the request.
+          const roster = createDemoSubagents().map((a) => ({
+            id: a.id,
+            name: a.name,
+            role: a.role,
+            goal: a.goal,
+          }));
+          const inbound = await dispatchMultitaskInbound({
+            text: userText,
+            sendTarget: multitaskSendTarget,
+            workers: roster,
+            orchestratorId: id,
+          });
+          writer.write({
+            type: "data-multitask-routing",
+            data: {
+              sendTarget: inbound.sendTarget,
+              mode: inbound.mode,
+              routing: inbound.routing,
+              deliveredAgentId: inbound.deliveredAgentId,
+              deliveredText: inbound.deliveredText,
+            },
+            transient: true,
+          });
+          multitaskRoutingFragment = formatMultitaskRoutingSystemFragment(inbound);
+        }
+      }
+
       const loadTurnContext =
         experience === "arcadia"
           ? () =>
@@ -237,6 +274,10 @@ export async function POST(req: Request) {
         chatId: id,
         sbUserId,
       });
+
+      if (multitaskRoutingFragment) {
+        systemPromptForRequest = `${systemPromptForRequest}\n\n${multitaskRoutingFragment}`;
+      }
 
       logger.log(
         "POST",
@@ -439,6 +480,7 @@ export async function POST(req: Request) {
         logger,
         chatId: id,
         sbUserId,
+        clerkUserId,
         assistantMessageId,
         selectedModel,
         effort: requestedEffort,
