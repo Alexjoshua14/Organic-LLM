@@ -84,6 +84,8 @@ export function MultitaskDashboard({ children }: MultitaskDashboardProps) {
   const speakDisabled = !voice;
   const runningCount = agents.filter(isArcadiaSubagentRunning).length;
   const voicePhase = voice?.phase ?? "idle";
+  const voiceConnecting = Boolean(voice?.connecting);
+  const voiceConnected = Boolean(voice?.connected);
   const startedAt = voice?.startedAt ?? null;
   const localStream = voice?.localStream ?? null;
   const remoteStream = voice?.remoteStream ?? null;
@@ -390,8 +392,8 @@ export function MultitaskDashboard({ children }: MultitaskDashboardProps) {
                       agentId: agent.id,
                       liveAgentId: liveSpeakAgentId,
                       closingAgentId: closingSpeakAgentId,
-                      voiceConnecting: !!voice?.connecting,
-                      voiceConnected: !!voice?.connected,
+                      voiceConnecting,
+                      voiceConnected,
                     });
 
                     return (
@@ -422,16 +424,16 @@ export function MultitaskDashboard({ children }: MultitaskDashboardProps) {
                           agentId: selected.id,
                           liveAgentId: liveSpeakAgentId,
                           closingAgentId: closingSpeakAgentId,
-                          voiceConnecting: !!voice?.connecting,
-                          voiceConnected: !!voice?.connected,
+                          voiceConnecting,
+                          voiceConnected,
                         }) === "idle"
                       }
                       speakPhase={resolveSpeakBarPhase({
                         agentId: selected.id,
                         liveAgentId: liveSpeakAgentId,
                         closingAgentId: closingSpeakAgentId,
-                        voiceConnecting: !!voice?.connecting,
-                        voiceConnected: !!voice?.connected,
+                        voiceConnecting,
+                        voiceConnected,
                       })}
                       startedAt={liveSpeakAgentId === selected.id ? startedAt : null}
                       voicePhase={voicePhase}
