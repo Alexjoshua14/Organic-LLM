@@ -62,6 +62,8 @@ import { safeParseMiseCommand } from "@/lib/schemas/mise";
 import { DiagramNodeLinksProvider } from "@/lib/mermaid/diagram-node-links-context";
 import { DiagramTakeoverProvider } from "@/lib/mermaid/diagram-takeover-context";
 import { isEditableEventTarget } from "@/lib/dom/is-editable-event-target";
+import { useArcadiaMultitaskOptional } from "@/app/sandbox/arcadia/_components/multitask-provider";
+import { queueAgentIdFromSendTarget } from "@/lib/schemas/arcadia-multitask-send-target";
 const logger = createLogger("components/chat/chat");
 
 export type ChatProps = {
@@ -89,12 +91,18 @@ export const Chat: React.FC<ChatProps> = ({
   assistantSession,
 }) => {
   const { refreshSidebarChats } = useSharedChatContext();
+  const arcadiaMultitask = useArcadiaMultitaskOptional();
+  const multitaskSendTargetRef = useRef(arcadiaMultitask?.sendTarget ?? null);
+  const confineInMultitaskDashboard = arcadiaMultitask?.layoutMode === "dashboard";
+  // Dashboard only: CoreInput enqueues via POST /api/chat/queue. Idle overlay keeps sendMessage.
+  const queueSendMode = experience === "arcadia" && confineInMultitaskDashboard;
+  const queueTargetAgentId = queueAgentIdFromSendTarget(arcadiaMultitask?.sendTarget);
+
+  multitaskSendTargetRef.current = arcadiaMultitask?.sendTarget ?? null;
 
   // Ambient awareness: while this thread is on screen, a live voice session is told what it has
   // covered (via its rolling summary) so the user can refer to "this conversation" out loud.
-  useVoiceScreenContext(
-    chatData?.thread.id ? { kind: "chat", id: chatData.thread.id } : null
-  );
+  useVoiceScreenContext(chatData?.thread.id ? { kind: "chat", id: chatData.thread.id } : null);
 
   const selectedModelRef = useRef<ChatModel>(DEFAULT_COMPOSER_MODEL);
   const selectedEffortRef = useRef<ChatEffortLevel>(DEFAULT_COMPOSER_EFFORT);
@@ -227,6 +235,11 @@ export const Chat: React.FC<ChatProps> = ({
               zeroDataRetention: settings.zeroDataRetention,
               coalescenceMode: settings.coalescenceMode,
               ...(contextEffort ? { contextEffort } : {}),
+              // Arcadia multitask dashboard: explicit orchestrator vs subagent destination.
+              // Existing /api/chat path; server may ignore until orchestration wires it.
+              ...(experience === "arcadia" && multitaskSendTargetRef.current
+                ? { multitaskSendTarget: multitaskSendTargetRef.current }
+                : {}),
               // Only include persistedSchemas in payload if true
               ...(usePersistedSchemas.current ? { persistedSchemas: true } : {}),
               ...(diagramNodeLinksRef.current.length > 0
@@ -469,11 +482,12 @@ export const Chat: React.FC<ChatProps> = ({
     <DiagramNodeLinksProvider linksRef={diagramNodeLinksRef}>
       <DiagramTakeoverProvider>
         <div
+          data-arcadia-chat-root
           className={[
             "w-full",
             "min-w-0",
             "h-full",
-            "sm:max-h-[calc(100dvh-2rem)]",
+            confineInMultitaskDashboard ? "max-h-none" : "sm:max-h-[calc(100dvh-2rem)]",
             "flex",
             "flex-col",
             "overflow-x-hidden",
@@ -565,6 +579,8 @@ export const Chat: React.FC<ChatProps> = ({
                 isBlankChat={messages.length === 0 && persona !== "strata"}
                 modelRef={selectedModelRef}
                 effortRef={selectedEffortRef}
+                queueSendMode={queueSendMode}
+                queueTargetAgentId={queueTargetAgentId}
                 sendMessage={sendMessage}
                 status={status}
                 stop={handleStop}
