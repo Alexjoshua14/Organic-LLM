@@ -149,7 +149,8 @@ export async function addLatestMessagesToMemoryForUser(
         userId,
         source: "auto_ingest",
         results: validated.data.results,
-        metadata: { chatId, infer: true },
+        // Quality-event metadata allowlist is numeric/boolean only (no chatId).
+        metadata: { infer: true },
       });
     }
 
@@ -219,7 +220,6 @@ export async function addMemoryForUser(
         results: validated.data.results,
         metadata: {
           infer: params.infer ?? true,
-          topic: params.metadata.topic,
         },
       });
     }

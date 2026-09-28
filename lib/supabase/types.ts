@@ -43,6 +43,162 @@ export type Database = {
           },
         ];
       };
+      memory_feedback: {
+        Row: {
+          id: string;
+          user_id: string;
+          memory_id: string;
+          signal: string;
+          source: string;
+          note_ciphertext: string | null;
+          note_approved_at: string | null;
+          memory_ciphertext: string | null;
+          memory_shared_at: string | null;
+          revision: number;
+          updated_at: string;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          user_id: string;
+          memory_id: string;
+          signal: string;
+          source: string;
+          note_ciphertext?: string | null;
+          note_approved_at?: string | null;
+          memory_ciphertext?: string | null;
+          memory_shared_at?: string | null;
+          revision?: number;
+          updated_at?: string;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          user_id?: string;
+          memory_id?: string;
+          signal?: string;
+          source?: string;
+          note_ciphertext?: string | null;
+          note_approved_at?: string | null;
+          memory_ciphertext?: string | null;
+          memory_shared_at?: string | null;
+          revision?: number;
+          updated_at?: string;
+          created_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "memory_feedback_user_id_fkey";
+            columns: ["user_id"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      memory_quality_daily: {
+        Row: {
+          id: string;
+          user_id: string;
+          day: string;
+          source: string;
+          ingest_count: number;
+          delete_count: number;
+          feedback_up: number;
+          feedback_down: number;
+          char_count_mean: number | null;
+          char_count_p50: number | null;
+          char_count_p90: number | null;
+          delete_rate: number | null;
+          positive_rate: number | null;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          user_id: string;
+          day: string;
+          source: string;
+          ingest_count?: number;
+          delete_count?: number;
+          feedback_up?: number;
+          feedback_down?: number;
+          char_count_mean?: number | null;
+          char_count_p50?: number | null;
+          char_count_p90?: number | null;
+          delete_rate?: number | null;
+          positive_rate?: number | null;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          user_id?: string;
+          day?: string;
+          source?: string;
+          ingest_count?: number;
+          delete_count?: number;
+          feedback_up?: number;
+          feedback_down?: number;
+          char_count_mean?: number | null;
+          char_count_p50?: number | null;
+          char_count_p90?: number | null;
+          delete_rate?: number | null;
+          positive_rate?: number | null;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "memory_quality_daily_user_id_fkey";
+            columns: ["user_id"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      memory_quality_events: {
+        Row: {
+          id: string;
+          user_id: string;
+          event: string;
+          memory_id: string | null;
+          source: string;
+          char_count: number | null;
+          word_count: number | null;
+          metadata: Json;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          user_id?: string;
+          event: string;
+          memory_id?: string | null;
+          source: string;
+          char_count?: number | null;
+          word_count?: number | null;
+          metadata?: Json;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          user_id?: string;
+          event?: string;
+          memory_id?: string | null;
+          source?: string;
+          char_count?: number | null;
+          word_count?: number | null;
+          metadata?: Json;
+          created_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "memory_quality_events_user_id_fkey";
+            columns: ["user_id"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       ideas: {
         Row: {
           ai_version: number;

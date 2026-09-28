@@ -1,9 +1,6 @@
 import "server-only";
 
 import type {
-  MemoryFeedbackRow,
-  MemoryFeedbackSignal,
-  MemoryFeedbackSource,
   MemoryQualityDailyRow,
   MemoryQualityEventType,
   MemoryQualitySource,
@@ -16,37 +13,6 @@ const logger = createLogger("data/supabase/memory-quality");
 
 function isSupabaseConfigured(): boolean {
   return Boolean(process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY);
-}
-
-export async function insertMemoryFeedbackRow(args: {
-  userId: string;
-  memoryId: string;
-  signal: MemoryFeedbackSignal;
-  source: MemoryFeedbackSource;
-  chatId?: string;
-  note?: string;
-}): Promise<{ ok: boolean; error?: string }> {
-  if (!isSupabaseConfigured()) {
-    return { ok: true };
-  }
-
-  const sb = await supabaseServer();
-  const { error } = await sb.from("memory_feedback").insert({
-    user_id: args.userId,
-    memory_id: args.memoryId,
-    signal: args.signal,
-    source: args.source,
-    chat_id: args.chatId ?? null,
-    note: args.note ?? null,
-  });
-
-  if (error) {
-    logger.error("insertMemoryFeedbackRow", error.message);
-
-    return { ok: false, error: error.message };
-  }
-
-  return { ok: true };
 }
 
 export async function insertMemoryQualityEventRow(args: {
@@ -74,40 +40,12 @@ export async function insertMemoryQualityEventRow(args: {
   });
 
   if (error) {
-    logger.error("insertMemoryQualityEventRow", error.message);
+    logger.error("insertMemoryQualityEventRow", "Insert failed");
 
     return { ok: false, error: error.message };
   }
 
   return { ok: true };
-}
-
-export async function listMemoryFeedback(args: {
-  userId?: string;
-  limit?: number;
-}): Promise<{ data: MemoryFeedbackRow[]; error: string | null }> {
-  if (!isSupabaseConfigured()) {
-    return { data: [], error: null };
-  }
-
-  const sb = await supabaseServer();
-  let query = sb
-    .from("memory_feedback")
-    .select("*")
-    .order("created_at", { ascending: false })
-    .limit(args.limit ?? 50);
-
-  if (args.userId) {
-    query = query.eq("user_id", args.userId);
-  }
-
-  const { data, error } = await query;
-
-  if (error) {
-    return { data: [], error: error.message };
-  }
-
-  return { data: (data ?? []) as MemoryFeedbackRow[], error: null };
 }
 
 export async function listMemoryQualityDaily(args: {
