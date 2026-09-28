@@ -25,8 +25,8 @@ export function isMemoryEncryptionConfigured(): boolean {
 }
 
 /**
- * Wraps every Mem0 `VectorStoreFactory.create` result in {@link EncryptedVectorStore}
- * when memory encryption env is configured (main collection and `{name}_entities`).
+ * Wraps every Mem0 `VectorStoreFactory.create` result to initialize reference_count.
+ * Payload encryption is enabled when its keys are configured.
  *
  * Coupled to mem0ai internals; an upstream `vectorStoreWrapper` hook would be preferable.
  */
@@ -36,16 +36,12 @@ function installMem0VectorStoreEncryption(): void {
   }
   installed = true;
 
-  if (!isMemoryEncryptionConfigured()) {
-    return;
-  }
-
   const originalCreate = VectorStoreFactory.create.bind(VectorStoreFactory);
 
   VectorStoreFactory.create = (provider: string, config: VectorStoreConfig): VectorStore => {
     const store = originalCreate(provider, config);
 
-    return new EncryptedVectorStore(store);
+    return new EncryptedVectorStore(store, isMemoryEncryptionConfigured());
   };
 }
 
