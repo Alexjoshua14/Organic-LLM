@@ -2,11 +2,11 @@
 
 import type { ComponentProps, ComponentType, ReactElement } from "react";
 
+import { useComposerChipLumen, useComposerChipLumenHostRef } from "./use-composer-chip-lumen";
+
 import { glass } from "@/components/design-system/primitives";
 import { PromptInputButton } from "@/components/third-party/ai-elements/prompt-input";
 import { cn } from "@/lib/utils";
-
-import { useComposerChipLumen, useComposerChipLumenHostRef } from "./use-composer-chip-lumen";
 
 export function composerLumenButtonClasses(engaged: boolean, className?: string) {
   return cn(
@@ -43,6 +43,7 @@ export function ComposerActionButton({
   ...props
 }: ComposerActionButtonProps) {
   const hostRef = useComposerChipLumenHostRef();
+
   useComposerChipLumen(hostRef);
 
   const button = (

@@ -3,13 +3,7 @@
 import { snapshot, type Vector4 } from "@organic-llm/morph-physics";
 import { useMorphPhysics } from "@organic-llm/morph-physics/react";
 import { useReducedMotion } from "framer-motion";
-import {
-  useCallback,
-  useEffect,
-  useLayoutEffect,
-  useRef,
-  type ReactNode,
-} from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef, type ReactNode } from "react";
 
 import { RABBIT_HOLE_COMPOSER_MORPH_SPRING } from "@/lib/rabbit-holes/desktop-chat-morph-springs";
 import { cn } from "@/lib/utils";
@@ -71,11 +65,7 @@ export function RabbitHoleMorphStableItem({
   }, [measure]);
 
   return (
-    <div
-      ref={elementRef}
-      className={cn(className)}
-      data-morph-id={morphId}
-    >
+    <div ref={elementRef} className={cn(className)} data-morph-id={morphId}>
       {children}
     </div>
   );

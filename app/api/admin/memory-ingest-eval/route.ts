@@ -8,7 +8,10 @@ import {
 } from "@/lib/memory/ingest-quality";
 import { recordMemoryEvent } from "@/lib/memory/quality-events";
 import { searchMemoriesForUser } from "@/lib/memory/operations";
-import { MEMORY_INGEST_GOLDEN_CASES, getMemoryIngestGoldenCase } from "@/test-data/memory-ingest-golden";
+import {
+  MEMORY_INGEST_GOLDEN_CASES,
+  getMemoryIngestGoldenCase,
+} from "@/test-data/memory-ingest-golden";
 
 export const maxDuration = 120;
 
@@ -44,9 +47,8 @@ export async function POST(req: Request) {
     body = {};
   }
 
-  const cases =
-    body.caseIds?.length ?
-      body.caseIds
+  const cases = body.caseIds?.length
+    ? body.caseIds
         .map((id) => getMemoryIngestGoldenCase(id))
         .filter((c): c is NonNullable<typeof c> => Boolean(c))
     : MEMORY_INGEST_GOLDEN_CASES;
@@ -64,9 +66,7 @@ export async function POST(req: Request) {
       for (const query of golden.probeQueries) {
         const search = await searchMemoriesForUser(admin.sbUserId, query, { limit: 5 });
         const hit = search.data?.results?.some((m) =>
-          golden.expectedFacts.some((fact) =>
-            m.memory.toLowerCase().includes(fact.toLowerCase())
-          )
+          golden.expectedFacts.some((fact) => m.memory.toLowerCase().includes(fact.toLowerCase()))
         );
 
         if (hit) probeHits += 1;

@@ -7,14 +7,15 @@ import type {
   RabbitHoleSource,
 } from "@/lib/schemas/rabbitHoleSchemas";
 import type { MobileSheetSnap } from "./MobileBottomSheet";
+import type { SimpleResult } from "@/types";
 
 import { useRef } from "react";
 
 import { RabbitHoleDrawerChat } from "./RabbitHoleDrawerChat";
+
 import { RabbitHolePromptBar } from "@/components/rabbit-holes/RabbitHolePromptBar";
 import { useRabbitHoleChatComposer } from "@/hooks/use-rabbit-hole-chat-composer";
 import { useRabbitHoleDrawerDisplay } from "@/hooks/use-rabbit-hole-drawer-display";
-import type { SimpleResult } from "@/types";
 
 export type UseRabbitHoleMobileDrawerParams = {
   session: RabbitHoleSession | null;

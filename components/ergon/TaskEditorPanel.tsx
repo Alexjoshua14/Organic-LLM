@@ -135,7 +135,11 @@ export function TaskEditorPanel({
           <Button disabled={pending || enhancing} type="button" variant="ghost" onClick={onClose}>
             Cancel
           </Button>
-          <Button disabled={pending || enhancing || !isValid} type="button" onClick={() => void save()}>
+          <Button
+            disabled={pending || enhancing || !isValid}
+            type="button"
+            onClick={() => void save()}
+          >
             Save
           </Button>
         </SheetFooter>

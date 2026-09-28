@@ -22,7 +22,7 @@ const TIMING = [
 
 const PROPS_ROWS = [
   ["dimIntensity", "0.7", "Opacity reduction for data-dim-background"],
-  ["dimIntensityFull", "0.6", "Stronger dim for data-dim-background=\"full\""],
+  ["dimIntensityFull", "0.6", 'Stronger dim for data-dim-background="full"'],
   ["dimTransitionMs", "700", "Time to dim on hover/focus"],
   ["to65TransitionMs", "1200", "Phase-one brighten duration"],
   ["to100TransitionMs", "2800", "Phase-two brighten duration"],
@@ -76,7 +76,7 @@ function TriggerCard({
     <article
       className={cn(
         glass({ opaque: true, border: "all" }),
-        "group relative overflow-hidden rounded-2xl p-5 sm:p-6 transition-shadow hover:shadow-lg",
+        "group relative overflow-hidden rounded-2xl p-5 sm:p-6 transition-shadow hover:shadow-lg"
       )}
       data-dim-background={dimAttr ?? true}
     >
@@ -98,7 +98,11 @@ export function AdaptiveLiquidChromeLab() {
   const [dimmed, setDimmed] = useState(false);
 
   return (
-    <Page liquidChromeBackground transparentBackground className="items-stretch justify-start overflow-hidden">
+    <Page
+      liquidChromeBackground
+      transparentBackground
+      className="items-stretch justify-start overflow-hidden"
+    >
       <AdaptiveLiquidChrome dimIntensity={0.45} dimIntensityFull={0.62} onDimChange={setDimmed} />
 
       <div className="relative z-10 h-full min-h-0 w-full overflow-y-auto pb-20">
@@ -131,7 +135,7 @@ export function AdaptiveLiquidChromeLab() {
               >
                 <div className="grid gap-4 sm:grid-cols-2">
                   <TriggerCard
-                    badge='data-dim-background'
+                    badge="data-dim-background"
                     description="Default intensity — chrome recedes but stays ambient."
                     title="Standard lens"
                   >
@@ -153,7 +157,7 @@ export function AdaptiveLiquidChromeLab() {
                     <Link
                       className={cn(
                         glass({ border: "all" }),
-                        "flex items-center justify-between rounded-xl px-4 py-3 text-sm text-foreground transition-transform hover:-translate-y-0.5",
+                        "flex items-center justify-between rounded-xl px-4 py-3 text-sm text-foreground transition-transform hover:-translate-y-0.5"
                       )}
                       href="/sandbox"
                     >
@@ -175,7 +179,7 @@ export function AdaptiveLiquidChromeLab() {
                 <div
                   className={cn(
                     glass({ opaque: true, border: "all" }),
-                    "mx-auto max-w-xl rounded-[1.75rem] p-5 sm:p-6",
+                    "mx-auto max-w-xl rounded-[1.75rem] p-5 sm:p-6"
                   )}
                   data-dim-background
                 >
@@ -209,7 +213,7 @@ export function AdaptiveLiquidChromeLab() {
               <div
                 className={cn(
                   glass({ border: "all" }),
-                  "space-y-3 rounded-2xl p-4 text-xs text-muted-foreground",
+                  "space-y-3 rounded-2xl p-4 text-xs text-muted-foreground"
                 )}
               >
                 <div className="flex items-center gap-2 text-foreground">
@@ -235,10 +239,7 @@ export function AdaptiveLiquidChromeLab() {
               {TIMING.map((step, index) => (
                 <div
                   key={step.label}
-                  className={cn(
-                    glass({ border: "all" }),
-                    "relative rounded-xl px-4 py-4",
-                  )}
+                  className={cn(glass({ border: "all" }), "relative rounded-xl px-4 py-4")}
                 >
                   <span className="text-2xs font-medium uppercase tracking-wider text-muted-foreground">
                     Step {index + 1}
@@ -251,16 +252,12 @@ export function AdaptiveLiquidChromeLab() {
             </div>
           </LabSection>
 
-          <LabSection
-            className="mb-10"
-            eyebrow="Integration"
-            title="Mark foreground elements"
-          >
+          <LabSection className="mb-10" eyebrow="Integration" title="Mark foreground elements">
             <div className="grid gap-4 lg:grid-cols-2">
               <pre
                 className={cn(
                   glass({ border: "all" }),
-                  "overflow-x-auto rounded-2xl p-4 text-[11px] leading-relaxed text-foreground/90",
+                  "overflow-x-auto rounded-2xl p-4 text-[11px] leading-relaxed text-foreground/90"
                 )}
               >
                 {`<AdaptiveLiquidChrome dimIntensity={0.45} />

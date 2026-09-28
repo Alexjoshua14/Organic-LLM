@@ -1,5 +1,4 @@
 import type { GooglePlaceSearchResult } from "@/lib/google-places/types";
-
 import type { VenueCandidate } from "./types";
 
 function normalizeName(value: string): string {
@@ -51,9 +50,7 @@ export function resolveSearchResults(
   queryName: string,
   city?: string
 ): SearchResolution {
-  const candidates = places
-    .map(toVenueCandidate)
-    .filter((c): c is VenueCandidate => c != null);
+  const candidates = places.map(toVenueCandidate).filter((c): c is VenueCandidate => c != null);
 
   if (candidates.length === 0) {
     return { kind: "not_found" };

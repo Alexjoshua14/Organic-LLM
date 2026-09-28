@@ -56,7 +56,11 @@ export function formatTimeOfDay(value: string): string {
   return trimmed;
 }
 
-function format12HourDisplay(hour: number, minutes: string | undefined, period: "am" | "pm"): string {
+function format12HourDisplay(
+  hour: number,
+  minutes: string | undefined,
+  period: "am" | "pm"
+): string {
   if (!minutes || minutes === "00") {
     return `${hour}${period}`;
   }
@@ -154,7 +158,15 @@ export function resolveKitchenHoursForDay(
 }
 
 export function sortDaysMondayFirst(days: RestaurantHoursDay[]): RestaurantHoursDay[] {
-  const order = ["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"] as const;
+  const order = [
+    "monday",
+    "tuesday",
+    "wednesday",
+    "thursday",
+    "friday",
+    "saturday",
+    "sunday",
+  ] as const;
 
   return [...days].sort((a, b) => order.indexOf(a.day) - order.indexOf(b.day));
 }

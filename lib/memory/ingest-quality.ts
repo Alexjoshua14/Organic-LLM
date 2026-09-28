@@ -97,9 +97,8 @@ export function scoreIngestOutputDeterministic(
 
   const isRejectionCase =
     golden.expectedFacts.length === 0 && (golden.antiPatterns?.length ?? 0) > 0;
-  const passed =
-    isRejectionCase ?
-      antiPatternHits.length > 0
+  const passed = isRejectionCase
+    ? antiPatternHits.length > 0
     : missingFacts.length === 0 && antiPatternHits.length === 0;
 
   return {
@@ -112,9 +111,7 @@ export function scoreIngestOutputDeterministic(
 }
 
 /** Best-effort distill of a candidate memory string from conversation turns. */
-export function distillCandidateFromTurns(
-  turns: MemoryIngestGoldenCase["turns"]
-): string {
+export function distillCandidateFromTurns(turns: MemoryIngestGoldenCase["turns"]): string {
   const lastUser = [...turns].reverse().find((t) => t.role === "user");
 
   if (lastUser) return lastUser.content.trim();

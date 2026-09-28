@@ -101,7 +101,11 @@ function RabbitHoleShellInner() {
 
   const [activeTakeawayIndex, setActiveTakeawayIndex] = useState<number | null>(null);
   const [focusMode, setFocusMode] = useState(false);
-  const { open: chatOpen, setOpen: setChatOpen, toggle: toggleChat } = useRabbitHoleDesktopChatOpen();
+  const {
+    open: chatOpen,
+    setOpen: setChatOpen,
+    toggle: toggleChat,
+  } = useRabbitHoleDesktopChatOpen();
   const { open, setOpen } = useSidebar();
   const sidebarOpenBeforeFocusRef = useRef(open);
 
@@ -242,14 +246,16 @@ function RabbitHoleShellInner() {
     [setChatOpen, syncSessionToUrl]
   );
 
-  // Ambient awareness: the node summaries and the graph's branching shape, so a live voice
+  // Ambient awareness: the open node's summary and the graph's branching shape, so a live voice
   // session can follow "this rabbit hole" and "the node I'm on" without being asked anything.
+  // `activeNodePending` flips when a fresh branch's article lands, which re-pushes it with content.
   useVoiceScreenContext(
     session?.sessionId
       ? {
           kind: "rabbit-hole",
           id: session.sessionId,
           activeNodeId: session.activeNodeId,
+          activeNodePending: activeNode ? !activeNode.articleHtml?.trim() : false,
         }
       : null
   );

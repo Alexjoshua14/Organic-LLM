@@ -797,10 +797,7 @@ export const PromptInput = ({
         onChange={handleChange}
       />
       <form ref={formRef} className={cn("w-full", className)} onSubmit={handleSubmit} {...props}>
-        <InputGroup
-          className={homeComposerGlassSurface}
-          data-prompt-input-shell
-        >
+        <InputGroup className={homeComposerGlassSurface} data-prompt-input-shell>
           {children}
         </InputGroup>
       </form>
@@ -1092,6 +1089,7 @@ export const PromptInputSpeechButton = ({
 
   useEffect(() => {
     const SpeechRecognitionCtor = getWebSpeechRecognitionCtor();
+
     if (!SpeechRecognitionCtor) return;
 
     const speechRecognition = new SpeechRecognitionCtor();

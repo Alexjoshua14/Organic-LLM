@@ -58,14 +58,14 @@ export function SpeakVisualPanel({
 
       {showGenUi
         ? genUiBlocks.map((item) => (
-          <div
-            key={`${item.instanceId}-${item.remountKey}`}
-            className="rounded-xl border border-white/10 bg-black/20 p-2"
-          >
-            <p className="mb-2 font-mono text-2xs text-muted-foreground">{item.instanceId}</p>
-            <GenUIRenderer data={{ block: item.block }} messageId={item.instanceId} />
-          </div>
-        ))
+            <div
+              key={`${item.instanceId}-${item.remountKey}`}
+              className="rounded-xl border border-white/10 bg-black/20 p-2"
+            >
+              <p className="mb-2 font-mono text-2xs text-muted-foreground">{item.instanceId}</p>
+              <GenUIRenderer data={{ block: item.block }} messageId={item.instanceId} />
+            </div>
+          ))
         : null}
 
       {surfaces.map(([surfaceId, items]) => (

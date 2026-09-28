@@ -1,5 +1,7 @@
 "use client";
 
+import type { MermaidDiagramDensity } from "@/lib/mermaid/types";
+
 import mermaid from "mermaid";
 import { useCallback, useEffect, useId, useRef, useState, type KeyboardEvent } from "react";
 import { toast } from "sonner";
@@ -18,7 +20,6 @@ import {
   resolveMermaidFontFamily,
 } from "@/lib/mermaid/presentation";
 import { normalizeMermaidCode } from "@/lib/mermaid/source";
-import type { MermaidDiagramDensity } from "@/lib/mermaid/types";
 import { cn } from "@/lib/utils";
 
 let mermaidInitialized = false;
@@ -48,6 +49,7 @@ function enqueueMermaidRender<T>(task: () => Promise<T>): Promise<T> {
 }
 
 const STALE_RENDER = Symbol("stale-mermaid-render");
+
 type MermaidRenderOutcome = Awaited<ReturnType<typeof mermaid.render>> | typeof STALE_RENDER;
 
 const ERROR_GRACE_MS = 400;
@@ -131,7 +133,10 @@ export function MermaidDiagram({
 
       svgEl.querySelectorAll("g.node").forEach((nodeEl) => {
         const g = nodeEl as SVGGElement;
-        const nodeId = g.id?.replace(/^flowchart-|-\d+$/g, "").split("-").pop();
+        const nodeId = g.id
+          ?.replace(/^flowchart-|-\d+$/g, "")
+          .split("-")
+          .pop();
 
         if (!nodeId) return;
 

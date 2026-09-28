@@ -1,12 +1,13 @@
 "use client";
 
+import type { SpatialArtifact } from "@/lib/schemas/spatial-artifact";
+
 import { useEffect, useLayoutEffect } from "react";
 
 import { FloatingArtifact } from "./FloatingArtifact";
 import { measureAllSlots } from "./ArtifactSlot";
 
 import { useArtifactSpatial } from "@/lib/context/artifact-spatial-context";
-import type { SpatialArtifact } from "@/lib/schemas/spatial-artifact";
 
 type ArtifactSpatialStageProps = {
   artifacts: SpatialArtifact[];
