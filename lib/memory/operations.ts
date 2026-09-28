@@ -347,7 +347,7 @@ export async function getCurrentUserMemoriesBySearch(
     if (typeof query !== "string" || query.length > 2000) {
       return { data: null, error: "Invalid or too long query" };
     }
-    const clampedLimit = Math.min(100, Math.max(1, Number(limit) || 5));
+    const clampedLimit = Math.min(100, Math.max(1, Math.floor(Number(limit) || 5)));
 
     const result = await storeSearchMemories(query, userIdResult.data, {
       limit: clampedLimit,
