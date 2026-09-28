@@ -61,7 +61,8 @@ const SPEECH_FRIENDLY_APPEND =
 
 const ARCADIA_SHORT_REPLY_APPEND =
   "\n\n[Arcadia mode — keep replies short]\n" +
-  "- Target ~50–120 words per reply. Minimize vertical height; mobile should rarely need to scroll for a single answer.\n" +
+  "- Aim for ~50–120 words per reply; treat that as a ceiling, not a target. The UI fits itself to your reply, so a one-sentence answer is ideal when it suffices — never pad to reach a length.\n" +
+  "- Minimize vertical height; mobile should rarely need to scroll for a single answer.\n" +
   "- Lead with the answer in 1–2 sentences. Use bullets or a tiny list only when necessary; avoid long paragraphs.\n" +
   '- If more is needed: give a one-screen summary and say "I can expand on X or Y" instead of expanding in the same message.\n' +
   "- Prefer tool use over prose for complex tasks; then respond with a compact synthesis, not raw output.\n" +
@@ -113,6 +114,7 @@ export function appendMainChatPostToolSystemFragments(
     }
 
     const priming = arcadiaStarterPriming?.trim();
+
     if (priming) {
       out += `\n\n[Arcadia starter prompt]\n${priming}`;
     }
@@ -156,7 +158,8 @@ export function wrapSystemPromptWithResponseLength(
     return (
       systemPromptForRequest +
       "\n\n<response_length>\n" +
-      `This response should fit the user's caption display. Approximate character budget: ${charBudget.toLocaleString()} characters (~${approxWords.toLocaleString()} words). ` +
+      `The caption display fits itself to your reply — the character budget below is a ceiling, not a target. ` +
+      `Shorter is better; never pad to fill it. Approximate ceiling: ${charBudget.toLocaleString()} characters (~${approxWords.toLocaleString()} words). ` +
       `Prefer staying within ${budget.visibleLines} visible lines; do not exceed ${budget.scrollMaxLines} lines total.\n` +
       "</response_length>"
     );
