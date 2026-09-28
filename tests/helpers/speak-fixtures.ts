@@ -64,6 +64,8 @@ export const CHAT_THREAD_ID = "11111111-1111-4111-8111-111111111111";
 
 /** A chat thread as the server holds it: title, messages (chronological), rolling summary. */
 export type ChatThreadFixture = {
+  /** Defaults to {@link SPEAK_TEST_OWNER}. */
+  ownerId?: string;
   title: string | null;
   messages: UIMessage[];
   summary: string | null;
@@ -100,16 +102,26 @@ export function speakAmbientDeps(
   const chat = sources.chat ?? chatThreadFixture;
 
   return {
-    getThreadOwnerContext: async (id: string) => ({
-      data: { threadId: id, ownerId: SPEAK_TEST_OWNER },
-      error: null,
-    }),
-    getThreadTitle: async () => ({ data: chat().title, error: null }),
-    getNMessages: async (_id: string, limit?: number) => ({
-      data: chat().messages.slice(-(limit ?? 20)),
-      error: null,
-    }),
-    getConversationSummary: async () => ({ data: chat().summary, error: null }),
+    // Mirrors `getThreadScreen`'s contract: ownership is decided before any content is returned.
+    getThreadScreen: async (
+      _id: string,
+      options: { expectedOwnerId: string; messageLimit: number }
+    ) => {
+      const thread = chat();
+
+      if ((thread.ownerId ?? SPEAK_TEST_OWNER) !== options.expectedOwnerId) {
+        return { data: null, error: "not-owner" as const };
+      }
+
+      return {
+        data: {
+          title: thread.title,
+          messages: thread.messages.slice(-options.messageLimit),
+          summary: thread.summary,
+        },
+        error: null,
+      };
+    },
     getStrataPageById: async () => null,
     getSessionById: async () => ({ data: rabbitHole(), error: null }),
     getRabbitHoleSessionOwnerId: async () => SPEAK_TEST_OWNER,
