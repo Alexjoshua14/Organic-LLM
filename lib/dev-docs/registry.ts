@@ -59,8 +59,7 @@ export const DEV_DOCS: DevDocEntry[] = [
   {
     slug: "nux-overview",
     title: "New user experience (NUX)",
-    description:
-      "Coachmarks, help dialog, first-session checklist, welcome paths, and QA reset.",
+    description: "Coachmarks, help dialog, first-session checklist, welcome paths, and QA reset.",
     category: "onboarding",
     file: "nux-overview.md",
     updated: "2026-06-29",

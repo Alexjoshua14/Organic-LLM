@@ -1,8 +1,6 @@
 import type { DmzConnectionProvider, DmzSourceReputation } from "./types";
-import {
-  DMZ_BLACKLIST_FLAG_RATIO,
-  DMZ_BLACKLIST_MIN_INTAKES,
-} from "./types";
+
+import { DMZ_BLACKLIST_FLAG_RATIO, DMZ_BLACKLIST_MIN_INTAKES } from "./types";
 
 /** Per-user source reputation — v1 in-memory; migrate to durable store when connections ship. */
 const reputationByUser = new Map<string, Map<DmzConnectionProvider, DmzSourceReputation>>();
@@ -80,10 +78,7 @@ export function recordIntakeOutcome(args: {
   return next;
 }
 
-export function isProviderBlacklisted(
-  userId: string,
-  provider: DmzConnectionProvider
-): boolean {
+export function isProviderBlacklisted(userId: string, provider: DmzConnectionProvider): boolean {
   return getSourceReputation(userId, provider).blacklisted;
 }
 

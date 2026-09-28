@@ -1,10 +1,11 @@
 "use client";
 
+import type { MemoryFeedbackSource } from "@/lib/schemas/memory-quality";
+
 import { useCallback, useState, useTransition } from "react";
 import { ThumbsDown, ThumbsUp } from "lucide-react";
 
 import { actionRecordMemoryFeedback } from "@/app/actions/memory-feedback";
-import type { MemoryFeedbackSource } from "@/lib/schemas/memory-quality";
 import { cn } from "@/lib/utils";
 
 type MemoryFeedbackButtonsProps = {
@@ -69,9 +70,7 @@ export function MemoryFeedbackButtons({
         className={cn(
           "rounded-lg transition-colors",
           compact ? "p-1" : "px-2 py-1",
-          signal === "down"
-            ? "text-destructive"
-            : "text-muted-foreground hover:text-destructive"
+          signal === "down" ? "text-destructive" : "text-muted-foreground hover:text-destructive"
         )}
         disabled={pending}
         type="button"

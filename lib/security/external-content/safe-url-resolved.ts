@@ -11,9 +11,7 @@ import {
   type SafeUrlResult,
 } from "./safe-url";
 
-export type DnsLookupFn = (
-  hostname: string
-) => Promise<Array<{ address: string; family: number }>>;
+export type DnsLookupFn = (hostname: string) => Promise<Array<{ address: string; family: number }>>;
 
 const defaultDnsLookup: DnsLookupFn = async (hostname) => {
   const records = await dnsLookup(hostname, { all: true, verbatim: true });

@@ -30,13 +30,13 @@ export type MemorySearchRowUi = {
 
 export type ParsedMemorySearchToolOutput =
   | {
-    status: "ok";
-    query: string;
-    count: number;
-    memories: MemorySearchRowUi[];
-    /** Present when the server returned tier/sample metadata from the over-fetch search. */
-    inventory?: MemorySearchInventory;
-  }
+      status: "ok";
+      query: string;
+      count: number;
+      memories: MemorySearchRowUi[];
+      /** Present when the server returned tier/sample metadata from the over-fetch search. */
+      inventory?: MemorySearchInventory;
+    }
   | { status: "error"; message: string };
 
 function parseMemoryInventory(raw: unknown): MemorySearchInventory | undefined {
@@ -128,11 +128,7 @@ export const MemorySearchToolResultCard = memo(function MemorySearchToolResultCa
       <ToolResultInlineRow
         isPinned={isPinned}
         pin={
-          <ToolResultPinButton
-            isPinned={isPinned}
-            showPin={showPin}
-            onTogglePin={onTogglePin}
-          />
+          <ToolResultPinButton isPinned={isPinned} showPin={showPin} onTogglePin={onTogglePin} />
         }
       >
         <button
@@ -162,9 +158,7 @@ export const MemorySearchToolResultCard = memo(function MemorySearchToolResultCa
   return (
     <ToolResultInlineRow
       isPinned={isPinned}
-      pin={
-        <ToolResultPinButton isPinned={isPinned} showPin={showPin} onTogglePin={onTogglePin} />
-      }
+      pin={<ToolResultPinButton isPinned={isPinned} showPin={showPin} onTogglePin={onTogglePin} />}
     >
       <button
         className={toolResultSummaryButtonClass}
@@ -178,16 +172,11 @@ export const MemorySearchToolResultCard = memo(function MemorySearchToolResultCa
               <span className={`${toolResultExpandedDetailClass} tabular-nums`}>{tierLine}</span>
             ) : null}
             {memories.length === 0 ? (
-              <span className={toolResultExpandedDetailClass}>
-                No memories matched this query.
-              </span>
+              <span className={toolResultExpandedDetailClass}>No memories matched this query.</span>
             ) : (
               <ul className="mt-0.5 max-h-72 space-y-1 overflow-y-auto pr-1">
                 {memories.map((m) => (
-                  <li
-                    key={m.id}
-                    className="text-2xs leading-snug text-foreground/85 line-clamp-2"
-                  >
+                  <li key={m.id} className="text-2xs leading-snug text-foreground/85 line-clamp-2">
                     {m.memory}
                   </li>
                 ))}

@@ -78,6 +78,7 @@ export function useErgonTasks(initialTasks: TaskWithCategory[]) {
 
   // Always-current snapshot so primitive mutations and undo/redo see the latest state.
   const tasksRef = useRef(tasks);
+
   tasksRef.current = tasks;
 
   const historyRef = useRef(createTaskHistory());
@@ -202,7 +203,10 @@ export function useErgonTasks(initialTasks: TaskWithCategory[]) {
     const nextActive = !target.is_active;
     const patch: TaskPatch = {
       is_active: nextActive,
-      ...(nextActive && target.status !== "doing" && target.status !== "done" && target.status !== "archived"
+      ...(nextActive &&
+      target.status !== "doing" &&
+      target.status !== "done" &&
+      target.status !== "archived"
         ? { status: "doing" }
         : {}),
     };

@@ -1,12 +1,12 @@
 import type { Result } from "@/types";
+import type { DmzQuarantineEntry } from "./types";
+
+import { getUserQuarantineRef } from "./quarantine-store";
+import { listQuarantineEntries } from "./quarantine";
 
 import { addMemoryForUser } from "@/lib/memory/operations";
 import { deleteMemory, getAllMemories } from "@/lib/memory/store";
 import { createLogger } from "@/lib/logger";
-
-import type { DmzQuarantineEntry } from "./types";
-import { getUserQuarantineRef } from "./quarantine-store";
-import { listQuarantineEntries } from "./quarantine";
 
 const logger = createLogger("lib/security/dmz/apply.ts");
 

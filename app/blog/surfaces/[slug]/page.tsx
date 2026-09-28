@@ -1,12 +1,13 @@
 import type { Metadata } from "next";
 
+import { notFound } from "next/navigation";
+
 import { SurfacePostLayout } from "@/components/blog/surface-post-layout";
 import {
   getAllSurfaceBlogSlugs,
   getSurfaceBlogMarkdown,
   getSurfaceBlogMeta,
 } from "@/lib/blog/surface-posts";
-import { notFound } from "next/navigation";
 
 type PageProps = {
   params: Promise<{ slug: string }>;

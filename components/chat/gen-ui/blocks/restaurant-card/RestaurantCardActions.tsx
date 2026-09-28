@@ -1,12 +1,12 @@
 "use client";
 
 import type { RestaurantLinks } from "@/lib/schemas/gen-ui/restaurant-card";
-
 import type { ReactNode } from "react";
 
 import { ExternalLink, MapPin, Phone } from "lucide-react";
 
 import { buildDirectionsHref, buildTelHref } from "./restaurant-card-utils";
+
 import { spacing } from "@/lib/design-tokens/spacing";
 import { cn } from "@/lib/utils";
 
@@ -54,9 +54,7 @@ export function RestaurantCardActions({
 }: RestaurantCardActionsProps) {
   const large = size === "large";
   const directionsHref =
-    address || links?.directions
-      ? buildDirectionsHref(address ?? "", links)
-      : links?.googleMaps;
+    address || links?.directions ? buildDirectionsHref(address ?? "", links) : links?.googleMaps;
 
   return (
     <div className={cn("flex flex-wrap", spacing.gap.sm, large && "grid grid-cols-2 sm:flex")}>

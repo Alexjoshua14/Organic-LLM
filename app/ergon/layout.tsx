@@ -24,9 +24,7 @@ export default async function ErgonLayout({ children }: { children: React.ReactN
         strategy="beforeInteractive"
       />
       <ErgonLiquidChromeRouteSync />
-      {liquidChromeEnabled ? (
-        <LiquidChromeSsrFill id="ergon-liquid-chrome-ssr-fill" />
-      ) : null}
+      {liquidChromeEnabled ? <LiquidChromeSsrFill id="ergon-liquid-chrome-ssr-fill" /> : null}
       {children}
     </ErgonChromeProvider>
   );

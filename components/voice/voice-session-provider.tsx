@@ -3,8 +3,13 @@
 import type { SpeakModalities } from "@/lib/schemas/speak-modalities";
 import type { SpeakScreenSurface } from "@/lib/schemas/speak-screen-context";
 import type { SpeakToolClientEffect } from "@/lib/speak/types";
+import type { VoiceTransportFactory } from "@/lib/speak/transport/voice-transport";
 import type { VoiceVisualState } from "@/lib/speak/voice-visual-state";
-import type { LiveVoicePhase, RealtimeTranscriptEntry } from "@/hooks/use-realtime-voice";
+import type {
+  LiveVoicePhase,
+  RealtimeTranscriptEntry,
+  VoiceScreenContextSnapshot,
+} from "@/hooks/use-realtime-voice";
 
 import {
   createContext,
@@ -35,6 +40,11 @@ export type VoiceSessionValue = {
   phase: LiveVoicePhase;
   connected: boolean;
   connecting: boolean;
+  /**
+   * The call ended itself after a quiet stretch. Nothing is connected and the mic is released,
+   * but the bar stays up so `resume` is one tap away. See `lib/speak/voice-idle.ts`.
+   */
+  paused: boolean;
   error: string | null;
   sessionId: string | null;
   threadId: string | null;
@@ -47,6 +57,8 @@ export type VoiceSessionValue = {
   localStream: MediaStream | null;
   remoteStream: MediaStream | null;
   visual: VoiceVisualState;
+  /** What the model was last told about the screen. Read by the dev "Sees:" chip. */
+  screenContext: VoiceScreenContextSnapshot | null;
 
   modalities: SpeakModalities;
   setModalities: (next: SpeakModalities) => void;
@@ -55,6 +67,8 @@ export type VoiceSessionValue = {
 
   connect: () => void;
   startNew: () => void;
+  /** Continue a paused call on the thread it was writing to. */
+  resume: () => void;
   disconnect: () => void;
   resetSession: () => void;
 
@@ -84,7 +98,17 @@ const VoiceSessionContext = createContext<VoiceSessionValue | null>(null);
  * A hard reload is the one thing it cannot survive; `resumeIfActive` covers that case by
  * rejoining the server-side session record.
  */
-export function VoiceSessionProvider({ children }: { children: ReactNode }) {
+export function VoiceSessionProvider({
+  children,
+  transportFactory,
+  idlePauseMs,
+}: {
+  children: ReactNode;
+  /** Passed to `useRealtimeVoice` — the relay swap point, and how tests stand in for WebRTC. */
+  transportFactory?: VoiceTransportFactory;
+  /** Passed to `useRealtimeVoice`; production leaves it at `SPEAK_IDLE_PAUSE_MS`. */
+  idlePauseMs?: number;
+}) {
   const [modalities, setModalities] = useState<SpeakModalities>(DEFAULT_SPEAK_MODALITIES);
   const [memoryEnabled, setMemoryEnabled] = useState(DEFAULT_COMPOSER_MEMORIES);
   const [caption, setCaption] = useState<VoiceCaption>({ role: "system", text: "" });
@@ -100,6 +124,8 @@ export function VoiceSessionProvider({ children }: { children: ReactNode }) {
   const voice = useRealtimeVoice({
     modalities,
     memoryEnabled,
+    transportFactory,
+    idlePauseMs,
     onCaptionChange: setCaption,
     onClientEffects: handleEffects,
   });
@@ -139,6 +165,7 @@ export function VoiceSessionProvider({ children }: { children: ReactNode }) {
 
   const connect = useCallback(() => void voice.connect(), [voice]);
   const startNew = useCallback(() => void voice.startNew(), [voice]);
+  const resume = useCallback(() => void voice.resume(), [voice]);
   const disconnect = useCallback(() => void voice.disconnect(), [voice]);
 
   const resetSession = useCallback(() => {
@@ -151,6 +178,7 @@ export function VoiceSessionProvider({ children }: { children: ReactNode }) {
       phase: voice.phase,
       connected: voice.connected,
       connecting: voice.connecting,
+      paused: voice.paused,
       error: voice.error,
       sessionId: voice.sessionId,
       threadId: voice.threadId,
@@ -162,12 +190,14 @@ export function VoiceSessionProvider({ children }: { children: ReactNode }) {
       localStream: voice.localStream,
       remoteStream: voice.remoteStream,
       visual,
+      screenContext: voice.screenContext,
       modalities,
       setModalities,
       memoryEnabled,
       setMemoryEnabled,
       connect,
       startNew,
+      resume,
       disconnect,
       resetSession,
       setScreenSurface,
@@ -178,6 +208,7 @@ export function VoiceSessionProvider({ children }: { children: ReactNode }) {
       voice.phase,
       voice.connected,
       voice.connecting,
+      voice.paused,
       voice.error,
       voice.sessionId,
       voice.threadId,
@@ -187,12 +218,14 @@ export function VoiceSessionProvider({ children }: { children: ReactNode }) {
       voice.startedAt,
       voice.localStream,
       voice.remoteStream,
+      voice.screenContext,
       caption,
       visual,
       modalities,
       memoryEnabled,
       connect,
       startNew,
+      resume,
       disconnect,
       resetSession,
       setScreenSurface,

@@ -68,10 +68,7 @@ export function ErgonFilterSheet({
         </Button>
       </SheetTrigger>
       <SheetContent
-        className={cn(
-          "gap-0 overflow-y-auto px-4 pb-6",
-          isDesktop ? "max-w-md" : "max-h-[85dvh]"
-        )}
+        className={cn("gap-0 overflow-y-auto px-4 pb-6", isDesktop ? "max-w-md" : "max-h-[85dvh]")}
         side={isDesktop ? "right" : "bottom"}
       >
         <SheetHeader className="pb-4 text-left">

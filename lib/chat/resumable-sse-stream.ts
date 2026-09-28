@@ -1,10 +1,11 @@
+import type { Logger } from "@/lib/logger";
+
 import { generateId, consumeStream } from "ai";
 import { after } from "next/server";
 import { createClient } from "redis";
 import { createResumableStreamContext } from "resumable-stream";
 
 import { saveChat } from "@/lib/chat/chat-store";
-import type { Logger } from "@/lib/logger";
 
 function redisUrl(): string | undefined {
   return process.env.REDIS_URL ?? process.env.KV_URL;

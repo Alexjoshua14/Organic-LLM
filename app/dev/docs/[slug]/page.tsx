@@ -5,11 +5,7 @@ import { notFound } from "next/navigation";
 import { BlogProse } from "@/components/blog/blog-prose";
 import { PageContentFrame, PageNavBack } from "@/components/layout/page-content-frame";
 import { loadDevDocMarkdown } from "@/lib/dev-docs/load-doc";
-import {
-  DEV_DOCS,
-  DEV_DOC_CATEGORY_LABELS,
-  getDevDocBySlug,
-} from "@/lib/dev-docs/registry";
+import { DEV_DOCS, DEV_DOC_CATEGORY_LABELS, getDevDocBySlug } from "@/lib/dev-docs/registry";
 import { blogArticlePage } from "@/lib/rabbit-holes/designTokens";
 import { cn } from "@/lib/utils";
 

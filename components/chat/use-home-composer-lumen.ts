@@ -18,13 +18,16 @@ export function useHomeComposerLumenHostRef() {
 export function useHomeComposerLumen(hostRef: RefObject<HTMLSpanElement | null>) {
   useLayoutEffect(() => {
     const host = hostRef.current;
+
     if (!host) return;
 
     const sync = () => {
       const shell = host.querySelector<HTMLElement>("[data-prompt-input-shell]");
+
       if (!shell) return;
 
       const { width, height } = shell.getBoundingClientRect();
+
       if (width < 1 || height < 1) return;
 
       const min = Math.min(width, height);
@@ -43,10 +46,13 @@ export function useHomeComposerLumen(hostRef: RefObject<HTMLSpanElement | null>)
     sync();
 
     const shell = host.querySelector<HTMLElement>("[data-prompt-input-shell]");
+
     if (!shell) return;
 
     const observer = new ResizeObserver(sync);
+
     observer.observe(shell);
+
     return () => observer.disconnect();
   }, [hostRef]);
 }

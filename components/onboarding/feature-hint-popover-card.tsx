@@ -31,11 +31,7 @@ export function FeatureHintPopoverCard({
   return (
     <div
       aria-labelledby={`feature-hint-${hintId}-title`}
-      className={cn(
-        glass({ opaque: true }),
-        "rounded-xl p-3.5 sm:p-4 shadow-xl",
-        className
-      )}
+      className={cn(glass({ opaque: true }), "rounded-xl p-3.5 sm:p-4 shadow-xl", className)}
       role="dialog"
     >
       <div className="mb-2 flex items-start justify-between gap-2">
@@ -66,7 +62,9 @@ export function FeatureHintPopoverCard({
       </div>
       {hintId === "experience-rail" ? (
         <>
-          <p className="mb-2 text-[13px] leading-relaxed text-muted-foreground sm:text-sm">{body}</p>
+          <p className="mb-2 text-[13px] leading-relaxed text-muted-foreground sm:text-sm">
+            {body}
+          </p>
           <ExperienceSurfacesGuide onDismiss={onDismiss} />
         </>
       ) : (
