@@ -1,7 +1,10 @@
 "use client";
 
 import type { CSSProperties, RefObject } from "react";
-import type { DelphiCaptionBudget, DelphiDisplayInput } from "@/lib/memory-ingest/delphi-caption-budget";
+import type {
+  DelphiCaptionBudget,
+  DelphiDisplayInput,
+} from "@/lib/memory-ingest/delphi-caption-budget";
 
 import { useCallback, useEffect, useRef, useState } from "react";
 

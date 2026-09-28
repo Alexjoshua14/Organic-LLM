@@ -1,6 +1,7 @@
 "use client";
 
 import type { UIMessage } from "ai";
+
 import { motion, type Transition } from "framer-motion";
 
 import { ChatMessage } from "@/components/chat/chat-message";

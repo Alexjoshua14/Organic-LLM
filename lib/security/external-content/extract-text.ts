@@ -32,7 +32,11 @@ export function extractReadableText(
 
   let raw = body;
 
-  if (contentType.includes("text/html") || contentType.includes("application/xhtml") || looksLikeHtml(body)) {
+  if (
+    contentType.includes("text/html") ||
+    contentType.includes("application/xhtml") ||
+    looksLikeHtml(body)
+  ) {
     raw = htmlToPlainText(body);
   }
 
@@ -48,14 +52,25 @@ export function extractReadableText(
 function looksLikeHtml(input: string): boolean {
   const trimmed = input.trimStart();
 
-  return trimmed.startsWith("<!") || trimmed.startsWith("<html") || /<\/\w+>/.test(trimmed.slice(0, 500));
+  return (
+    trimmed.startsWith("<!") || trimmed.startsWith("<html") || /<\/\w+>/.test(trimmed.slice(0, 500))
+  );
 }
 
 function htmlToPlainText(html: string): string {
   const dom = new JSDOM(html);
   const doc = dom.window.document;
 
-  for (const selector of ["script", "style", "noscript", "template", "svg", "iframe", "object", "embed"]) {
+  for (const selector of [
+    "script",
+    "style",
+    "noscript",
+    "template",
+    "svg",
+    "iframe",
+    "object",
+    "embed",
+  ]) {
     doc.querySelectorAll(selector).forEach((el) => el.remove());
   }
 

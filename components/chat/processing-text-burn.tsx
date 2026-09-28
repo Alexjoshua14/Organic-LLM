@@ -66,6 +66,7 @@ function renderLayer(
   return tokenize(text).map((token, tokenIndex) => {
     if (/^\s+$/.test(token)) {
       const start = charIndex;
+
       charIndex += token.length;
 
       return (
@@ -85,6 +86,7 @@ function renderLayer(
 
     const start = charIndex;
     const chars = Array.from(token);
+
     charIndex += chars.length;
 
     return (
@@ -142,10 +144,13 @@ export function ProcessingTextBurn({
     setSettled(false);
     setTransition({ outgoing: previous, incoming: text, key: Date.now() });
 
-    const timeout = window.setTimeout(() => {
-      setTransition(null);
-      setSettled(true);
-    }, transitionDurationMs(previous, text));
+    const timeout = window.setTimeout(
+      () => {
+        setTransition(null);
+        setSettled(true);
+      },
+      transitionDurationMs(previous, text)
+    );
 
     return () => window.clearTimeout(timeout);
   }, [reduceMotion, text]);
@@ -166,7 +171,10 @@ export function ProcessingTextBurn({
     <Component className={cn("processing-text-burn", className)} aria-live="polite">
       <span className="sr-only">{text}</span>
       {showSustainShimmer ? (
-        <span aria-hidden className="processing-text-burn__layer processing-text-burn__sustain-host">
+        <span
+          aria-hidden
+          className="processing-text-burn__layer processing-text-burn__sustain-host"
+        >
           <ShinyText as="span" speed={shimmerSpeed} text={text} />
         </span>
       ) : (

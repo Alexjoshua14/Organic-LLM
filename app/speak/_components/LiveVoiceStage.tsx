@@ -23,14 +23,7 @@ export function LiveVoiceStage({ onExit }: { onExit?: () => void }) {
    * connection, captions, or tool output.
    */
   const voice = useVoiceSession();
-  const {
-    caption,
-    modalities,
-    setModalities,
-    memoryEnabled,
-    setMemoryEnabled,
-    visual,
-  } = voice;
+  const { caption, modalities, setModalities, memoryEnabled, setMemoryEnabled, visual } = voice;
   const { displayText, genUiBlocks, webPreview, uiStateBySurface } = visual;
 
   const sessionLocked = voice.connected || voice.connecting;
@@ -57,8 +50,11 @@ export function LiveVoiceStage({ onExit }: { onExit?: () => void }) {
       }
     }
 
+    if (voice.paused)
+      return "Paused after a quiet stretch — tap the mic to pick up where you left off";
+
     return "Tap the mic to start a Realtime voice session";
-  }, [voice.connected, voice.connecting, voice.phase]);
+  }, [voice.connected, voice.connecting, voice.paused, voice.phase]);
 
   const resumeHint = voice.resumedThread
     ? voice.resumedThread.title
@@ -147,14 +143,14 @@ export function LiveVoiceStage({ onExit }: { onExit?: () => void }) {
           <div className="mt-10 flex items-center gap-4">
             {!voice.connected ? (
               <button
-                aria-label="Start Realtime voice"
+                aria-label={voice.paused ? "Resume Realtime voice" : "Start Realtime voice"}
                 className={cn(
                   glass({ opaque: true, border: "all" }),
                   "flex size-20 items-center justify-center rounded-full transition-all duration-300 hover:scale-105 hover:shadow-lg"
                 )}
                 disabled={voice.connecting}
                 type="button"
-                onClick={voice.connect}
+                onClick={voice.paused ? voice.resume : voice.connect}
               >
                 {voice.connecting ? (
                   <Loader2 className="size-8 animate-spin text-muted-foreground" />

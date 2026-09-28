@@ -6,6 +6,29 @@ import {
   usageFromResponseDone,
 } from "@/lib/speak/realtime-events";
 
+describe("classifyRealtimeEvent playback", () => {
+  test("WebRTC playback start and drain map to their own kinds", () => {
+    expect(classifyRealtimeEvent({ type: "output_audio_buffer.started" }).kind).toBe(
+      "assistant_playback_started"
+    );
+    expect(classifyRealtimeEvent({ type: "output_audio_buffer.stopped" }).kind).toBe(
+      "assistant_playback_stopped"
+    );
+  });
+
+  test("an interruption clearing the buffer also ends playback", () => {
+    expect(classifyRealtimeEvent({ type: "output_audio_buffer.cleared" }).kind).toBe(
+      "assistant_playback_stopped"
+    );
+  });
+
+  test("audio generation finishing is not playback finishing", () => {
+    expect(classifyRealtimeEvent({ type: "response.output_audio.done" }).kind).toBe(
+      "assistant_audio_stopped"
+    );
+  });
+});
+
 describe("classifyRealtimeEvent transcript names", () => {
   test("accepts the GA assistant transcript event", () => {
     const ev = classifyRealtimeEvent({
@@ -64,6 +87,20 @@ describe("classifyRealtimeEvent tool calls and errors", () => {
     expect(classifyRealtimeEvent({ type: "error", error: { message: "bad" } })).toEqual({
       kind: "error",
       message: "bad",
+      clientEventId: null,
+    });
+  });
+
+  test("an error names the client event that caused it, when the server says", () => {
+    const ev = classifyRealtimeEvent({
+      type: "error",
+      error: { message: "Item not found", event_id: "ambient_del_3" },
+    });
+
+    expect(ev).toEqual({
+      kind: "error",
+      message: "Item not found",
+      clientEventId: "ambient_del_3",
     });
   });
 

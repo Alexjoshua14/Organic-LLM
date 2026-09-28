@@ -71,7 +71,8 @@ export function MemoryFiledRow({
               </p>
             ) : null}
             <p className="text-muted-foreground">
-              <span className="font-medium text-foreground/80">Filed</span> · {formatFiledAt(filed.ts)}
+              <span className="font-medium text-foreground/80">Filed</span> ·{" "}
+              {formatFiledAt(filed.ts)}
             </p>
             <p className="text-muted-foreground/90">Persisted — available in every thread</p>
           </div>

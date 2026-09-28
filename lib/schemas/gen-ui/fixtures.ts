@@ -167,7 +167,13 @@ export const FIXTURE_SHOPPING_LIST: GenUIBlock = {
     {
       category: "Produce",
       items: [
-        { name: "fresh blueberries", quantity: "1", unit: "cup", status: "need", recipe: "Lemon bars" },
+        {
+          name: "fresh blueberries",
+          quantity: "1",
+          unit: "cup",
+          status: "need",
+          recipe: "Lemon bars",
+        },
         { name: "lemons", quantity: "3", status: "have", checked: true },
         { name: "mixed greens", quantity: "1", unit: "bag", status: "need" },
       ],
@@ -175,7 +181,13 @@ export const FIXTURE_SHOPPING_LIST: GenUIBlock = {
     {
       category: "Dairy",
       items: [
-        { name: "unsalted butter", quantity: "1", unit: "cup", status: "need", recipe: "Lemon bars" },
+        {
+          name: "unsalted butter",
+          quantity: "1",
+          unit: "cup",
+          status: "need",
+          recipe: "Lemon bars",
+        },
         { name: "large eggs", quantity: "6", status: "have" },
         { name: "parmesan", quantity: "1", unit: "wedge", status: "need" },
       ],

@@ -22,11 +22,21 @@ export type SpeakRealtimeEvent =
   | { kind: "assistant_started" }
   | { kind: "assistant_finished"; usage: RealtimeUsage | null }
   | { kind: "assistant_audio_stopped" }
+  /**
+   * WebRTC only: model audio actually reaching the speaker. Playback outlives `response.done`,
+   * so these, not the response lifecycle, say whether the model is still talking.
+   */
+  | { kind: "assistant_playback_started" }
+  | { kind: "assistant_playback_stopped" }
   | { kind: "user_transcript"; text: string; itemId: string | null }
   | { kind: "assistant_transcript_delta"; delta: string }
   | { kind: "assistant_transcript"; text: string; itemId: string | null }
   | { kind: "tool_call"; callId: string; name: string; args: string }
-  | { kind: "error"; message: string }
+  /**
+   * `clientEventId` is the `event_id` of the client event that caused it, when the server says —
+   * how errors from our own housekeeping (ambient screen items) are kept away from the user.
+   */
+  | { kind: "error"; message: string; clientEventId: string | null }
   | { kind: "ignore"; type: string };
 
 const EMPTY_USAGE: RealtimeUsage = {
@@ -118,8 +128,13 @@ export function classifyRealtimeEvent(event: Record<string, unknown>): SpeakReal
       return { kind: "assistant_finished", usage: usageFromResponseDone(event) };
     case "response.output_audio.done":
     case "response.audio.done":
-    case "output_audio_buffer.stopped":
       return { kind: "assistant_audio_stopped" };
+    case "output_audio_buffer.started":
+      return { kind: "assistant_playback_started" };
+    // `cleared` is the interruption path: the user talked over the model and the buffer was dropped.
+    case "output_audio_buffer.stopped":
+    case "output_audio_buffer.cleared":
+      return { kind: "assistant_playback_stopped" };
     case "conversation.item.input_audio_transcription.completed": {
       const text = String(event.transcript ?? "").trim();
 
@@ -150,7 +165,11 @@ export function classifyRealtimeEvent(event: Record<string, unknown>): SpeakReal
     case "error": {
       const err = (event.error ?? {}) as Record<string, unknown>;
 
-      return { kind: "error", message: str(err.message) ?? "Realtime error" };
+      return {
+        kind: "error",
+        message: str(err.message) ?? "Realtime error",
+        clientEventId: str(err.event_id),
+      };
     }
     default:
       return { kind: "ignore", type };

@@ -1,5 +1,7 @@
 import type { SpeakModalities } from "@/lib/schemas/speak-modalities";
 
+import { AMBIENT_LABEL } from "@/lib/speak/ambient-item";
+
 export type SpeakRealtimeInstructionOptions = {
   /** Adds `search_memories` guidance; the tool itself is compiled separately. */
   memoryEnabled?: boolean;
@@ -81,6 +83,15 @@ ${toolLines.join("\n")}`,
 - Weave recalled details in lightly, the way a friend would — no recitals of what you know.
 - This conversation is saved automatically; you never need to ask whether to remember something.`);
   }
+
+  // Behaviour for `[Screen]` items lives here, once, rather than in every item — see
+  // `lib/speak/ambient-item.ts`. Without it the model defaults to "I can't see your screen".
+  sections.push(`Screen awareness:
+- The app sends you ${AMBIENT_LABEL} messages describing what the user has open in Organic LLM right now — a chat thread, a rabbit hole, a Strata page. You can see what they describe; never claim you cannot see the screen when you have one.
+- The newest ${AMBIENT_LABEL} message is what is in front of them. Earlier ones are out of date.
+- Use it when the user points at their screen ("this", "here", "what it just said", "the chat I have open") or when it plainly helps the answer.
+- Never announce, acknowledge, or react to a ${AMBIENT_LABEL} message on its own. It is not the user speaking; wait for them.
+- If you have none, or it says there is nothing to describe, tell the user you cannot see what they have open.`);
 
   const context = options.sessionContext?.trim();
 

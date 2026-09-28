@@ -4,7 +4,10 @@ import type { ErgonTaskRowKeyboardProps } from "@/lib/ergon/use-ergon-task-list-
 import type { ListSort, TaskCategoryRow, TaskWithCategory } from "@/lib/ergon/types";
 
 import { TaskRow } from "@/components/ergon/TaskRow";
-import { ERGON_VIEW_SECTION_HEADER, ERGON_VIEW_TOOLBAR_ROW } from "@/components/ergon/ergon-view-layout";
+import {
+  ERGON_VIEW_SECTION_HEADER,
+  ERGON_VIEW_TOOLBAR_ROW,
+} from "@/components/ergon/ergon-view-layout";
 import { Button } from "@/components/third-party/ui/button";
 import { groupTasksByCategory, sortTasksBy } from "@/lib/ergon/task-view";
 import { cn } from "@/lib/utils";
@@ -23,8 +26,7 @@ type ListViewProps = {
   getTaskRowProps?: (taskId: string) => ErgonTaskRowKeyboardProps;
 };
 
-const SORT_BUTTON =
-  "h-7 px-2.5 text-xs font-medium";
+const SORT_BUTTON = "h-7 px-2.5 text-xs font-medium";
 
 export function ListView({
   tasks,
@@ -44,9 +46,7 @@ export function ListView({
   return (
     <div className="space-y-4 md:space-y-6">
       <div className={ERGON_VIEW_TOOLBAR_ROW}>
-        <span className="text-2xs uppercase tracking-[0.16em] text-muted-foreground/70">
-          Sort
-        </span>
+        <span className="text-2xs uppercase tracking-[0.16em] text-muted-foreground/70">Sort</span>
         <Button
           className={SORT_BUTTON}
           size="sm"

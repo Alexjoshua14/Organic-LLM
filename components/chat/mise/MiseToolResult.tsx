@@ -90,11 +90,11 @@ export function MiseToolResult({ threadId, output }: MiseToolResultProps) {
         kind === "checked"
           ? ({ type: "SET_INGREDIENT_STATUS", version: 1, id, checked: !current.checked } as const)
           : ({
-            type: "SET_INGREDIENT_STATUS",
-            version: 1,
-            id,
-            status: current.status === "have" ? ("need" as const) : ("have" as const),
-          } as const);
+              type: "SET_INGREDIENT_STATUS",
+              version: 1,
+              id,
+              status: current.status === "have" ? ("need" as const) : ("have" as const),
+            } as const);
 
       // Optimistic local update, then persist to Supabase.
       applyMiseCommand(threadId, command);

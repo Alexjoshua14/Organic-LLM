@@ -2,7 +2,10 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 
-import { getWebSpeechRecognitionCtor, type WebSpeechRecognition } from "@/lib/web-speech-recognition";
+import {
+  getWebSpeechRecognitionCtor,
+  type WebSpeechRecognition,
+} from "@/lib/web-speech-recognition";
 
 export type LiveVoicePhase = "idle" | "listening" | "thinking" | "speaking";
 
@@ -16,7 +19,11 @@ export function useLiveVoice({
   onCaptionChange,
 }: {
   onPhaseChange?: (phase: LiveVoicePhase) => void;
-  onCaptionChange?: (caption: { role: "user" | "assistant" | "system"; text: string; interim?: boolean }) => void;
+  onCaptionChange?: (caption: {
+    role: "user" | "assistant" | "system";
+    text: string;
+    interim?: boolean;
+  }) => void;
 } = {}) {
   const [phase, setPhase] = useState<LiveVoicePhase>("idle");
   const [history, setHistory] = useState<LiveVoiceTurn[]>([]);
@@ -160,16 +167,13 @@ export function useLiveVoice({
     [history, onCaptionChange, setPhaseSafe]
   );
 
-  const endTurn = useCallback(
-    async () => {
-      stopListening();
+  const endTurn = useCallback(async () => {
+    stopListening();
 
-      const transcript = interimRef.current.trim();
+    const transcript = interimRef.current.trim();
 
-      return submitTranscript(transcript);
-    },
-    [stopListening, submitTranscript]
-  );
+    return submitTranscript(transcript);
+  }, [stopListening, submitTranscript]);
 
   const resetSession = useCallback(() => {
     stopListening();

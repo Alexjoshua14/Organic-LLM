@@ -16,8 +16,7 @@ interface RabbitHoleEmptyStateProps {
 }
 
 const defaultTitle = "Start exploring a topic";
-const defaultSubtitle =
-  "Chat in the drawer, explore an article, or branch deeper as you go.";
+const defaultSubtitle = "Chat in the drawer, explore an article, or branch deeper as you go.";
 
 const STARTER_PROMPTS = [
   "What should I explore first?",
@@ -33,6 +32,7 @@ export function RabbitHoleEmptyState({
   onStarterPrompt,
 }: RabbitHoleEmptyStateProps) {
   const sendStarter = onStarterPrompt ?? onExplore;
+
   return (
     <FeatureHint id="rabbit-holes-focus" showWhen={!compact}>
       <motion.div
@@ -93,8 +93,7 @@ export function RabbitHoleEmptyState({
 
         {!compact && (
           <p className="mt-4 max-w-sm text-xs leading-relaxed text-muted-foreground/55">
-            ⌘⇧F (Ctrl+Shift+F) toggles focus mode — hides the path, sources, and prompt for
-            reading.
+            ⌘⇧F (Ctrl+Shift+F) toggles focus mode — hides the path, sources, and prompt for reading.
           </p>
         )}
       </motion.div>

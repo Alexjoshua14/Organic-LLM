@@ -2,9 +2,18 @@
 
 import type { FeatureHintId, FeatureHintSide } from "@/lib/onboarding/feature-hints";
 
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties } from "react";
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+  type CSSProperties,
+} from "react";
 import { createPortal } from "react-dom";
 import { toast } from "sonner";
+import { usePathname } from "next/navigation";
 
 import { FeatureHintPopoverCard } from "./feature-hint-popover-card";
 import { FeatureHintSpotlight } from "./feature-hint-spotlight";
@@ -26,9 +35,7 @@ import {
   dismissFeatureHint,
   readFeatureHintDismissRecord,
 } from "@/lib/onboarding/feature-hint-storage";
-import {
-  consumeExplicitFeatureGuideRequest,
-} from "@/lib/onboarding/feature-hint-explicit-request";
+import { consumeExplicitFeatureGuideRequest } from "@/lib/onboarding/feature-hint-explicit-request";
 import { shouldBlockAutoFeatureHints } from "@/lib/onboarding/feature-hint-guide-policy";
 import {
   featureHintQueuePosition,
@@ -46,7 +53,6 @@ import { getFeatureHint } from "@/lib/onboarding/feature-hints";
 import { useReplayFeatureHints } from "@/hooks/use-replay-feature-hints";
 import { useModalOverlayOpen } from "@/hooks/use-modal-overlay-open";
 import { cn } from "@/lib/utils";
-import { usePathname } from "next/navigation";
 
 const CALLOUT_GAP_PX = 12;
 const VIEWPORT_MARGIN_PX = 12;
@@ -256,8 +262,7 @@ export function FeatureHintLayer() {
     activeDefinition?.presentation === "spotlight" && Boolean(anchorEl) && !narrow;
   const showPopover =
     activeDefinition?.presentation === "spotlight" && Boolean(anchorEl) && !narrow;
-  const showDrawer =
-    activeDefinition?.presentation === "spotlight" && Boolean(anchorEl) && narrow;
+  const showDrawer = activeDefinition?.presentation === "spotlight" && Boolean(anchorEl) && narrow;
 
   useLayoutEffect(() => {
     if (!showPopover || !anchorEl || !popoverRef.current) {
@@ -357,9 +362,7 @@ export function FeatureHintLayer() {
                   popoverStyle ? "opacity-100" : "opacity-0"
                 )}
                 data-feature-hint-overlay
-                style={
-                  popoverStyle ?? { position: "fixed", top: -9999, left: -9999, width: 288 }
-                }
+                style={popoverStyle ?? { position: "fixed", top: -9999, left: -9999, width: 288 }}
               >
                 <FeatureHintPopoverCard
                   body={activeDefinition.body}
