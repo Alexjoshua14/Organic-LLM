@@ -1,24 +1,20 @@
 import "server-only";
 
-import {
-  insertMemoryQualityEventRow,
-} from "@/data/supabase/memory-quality";
+import type { MemoryQualityEventType, MemoryQualitySource } from "@/lib/schemas/memory-quality";
+
+import { insertMemoryQualityEventRow } from "@/data/supabase/memory-quality";
 import { createLogger } from "@/lib/logger";
-import type {
-  MemoryQualityEventType,
-  MemoryQualitySource,
-} from "@/lib/schemas/memory-quality";
 
 const logger = createLogger("lib/memory/quality-events");
 
-const FORBIDDEN_METADATA_KEYS = new Set([
-  "memory",
-  "text",
-  "content",
-  "note",
-  "body",
-  "message",
-  "messages",
+const ALLOWED_METADATA_KEYS = new Set([
+  "infer",
+  "dryRun",
+  "total",
+  "passed",
+  "failed",
+  "avgCharCount",
+  "wiped",
 ]);
 
 export type RecordMemoryEventArgs = {
@@ -45,19 +41,12 @@ function sanitizeMetadata(metadata?: Record<string, unknown>): Record<string, un
   const out: Record<string, unknown> = {};
 
   for (const [key, value] of Object.entries(metadata)) {
-    const lower = key.toLowerCase();
-
-    if (FORBIDDEN_METADATA_KEYS.has(lower)) {
-      logger.error("sanitizeMetadata", `Rejected forbidden metadata key: ${key}`);
-
-      continue;
+    if (
+      ALLOWED_METADATA_KEYS.has(key) &&
+      (typeof value === "boolean" || (typeof value === "number" && Number.isFinite(value)))
+    ) {
+      out[key] = value;
     }
-    if (typeof value === "string" && value.length > 256) {
-      out[key] = `[truncated:${value.length}]`;
-
-      continue;
-    }
-    out[key] = value;
   }
 
   return out;
@@ -87,13 +76,8 @@ export function memoryTextMetrics(text: string): { charCount: number; wordCount:
  * Never accepts memory text — only counts and opaque ids.
  */
 export async function recordMemoryEvent(args: RecordMemoryEventArgs): Promise<void> {
-  const wordCount =
-    args.wordCount ??
-    (typeof args.charCount === "number" ? undefined : undefined);
-
   const payload: RecordMemoryEventArgs = {
     ...args,
-    wordCount: args.wordCount ?? wordCount,
     metadata: sanitizeMetadata(args.metadata),
   };
 
@@ -107,11 +91,8 @@ export async function recordMemoryEvent(args: RecordMemoryEventArgs): Promise<vo
     charCount: payload.charCount,
     wordCount: payload.wordCount,
     metadata: payload.metadata,
-  }).catch((err) => {
-    logger.error(
-      "recordMemoryEvent",
-      err instanceof Error ? err.message : "insert failed"
-    );
+  }).catch(() => {
+    logger.error("recordMemoryEvent", "Insert failed");
   });
 }
 

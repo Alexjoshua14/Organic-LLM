@@ -12,7 +12,6 @@ import {
 } from "@/lib/llm/delphi-memory-tool-schemas";
 import { createLogger } from "@/lib/logger";
 import { addMemoryForUser } from "@/lib/memory/operations";
-import { recordDelphiFlagFeedback } from "@/lib/memory/feedback";
 
 const logger = createLogger("lib/llm/delphi-memory-tools.ts");
 
@@ -174,51 +173,25 @@ export function createDelphiMemoryTools(
     }),
   });
 
+  // Automatic flags cannot create user-approved feedback.
   const flag_for_followup = tool({
-    description:
-      "Silent curriculum note when a topic closes but is worth revisiting later.",
+    description: "Follow-up flag persistence is unavailable; feedback requires user approval.",
     inputSchema: flagPayloadSchema,
-    execute: async ({ note, context, memory_id }) => {
-      const flagNote = requireDelphiToolText(note, "note");
-      const contextTrimmed = emptyOptionalText(context);
-      const combined = contextTrimmed ? `${flagNote}\n\n${contextTrimmed}` : flagNote;
-      const result = await recordDelphiFlagFeedback({
-        userId: sbUserId,
-        chatId,
-        signal: "flag_followup",
-        note: combined,
-        memoryId: emptyOptionalText(memory_id),
-      });
-
-      if (result.error) {
-        return { ok: false as const, error: result.error };
-      }
-
-      return { ok: true as const, stored: true as const };
-    },
+    execute: async () => ({
+      ok: false as const,
+      stored: false as const,
+      message: "Nothing was saved. The user can submit feedback from the memory's thumbs controls.",
+    }),
   });
 
   const flag_for_review = tool({
-    description: "Mark an item for the reconciliation pass.",
+    description: "Review flag persistence is unavailable; feedback requires user approval.",
     inputSchema: flagPayloadSchema,
-    execute: async ({ note, context, memory_id }) => {
-      const flagNote = requireDelphiToolText(note, "note");
-      const contextTrimmed = emptyOptionalText(context);
-      const combined = contextTrimmed ? `${flagNote}\n\n${contextTrimmed}` : flagNote;
-      const result = await recordDelphiFlagFeedback({
-        userId: sbUserId,
-        chatId,
-        signal: "flag_review",
-        note: combined,
-        memoryId: emptyOptionalText(memory_id),
-      });
-
-      if (result.error) {
-        return { ok: false as const, error: result.error };
-      }
-
-      return { ok: true as const, stored: true as const };
-    },
+    execute: async () => ({
+      ok: false as const,
+      stored: false as const,
+      message: "Nothing was saved. The user can submit feedback from the memory's thumbs controls.",
+    }),
   });
 
   const toolInstructions = [
@@ -226,7 +199,7 @@ export function createDelphiMemoryTools(
     "- propose_memory: echo a draft only; no Mem0 write.",
     "- commit_memory: store one distilled memory (metadata includes source=delphi and this chat id). Prefer infer-off verbatim text. If success is false, nothing was saved — no queue exists; say so plainly and offer at most one retry.",
     "- link_memories: currently returns deferred=true until persistence lands.",
-    "- flag_for_followup / flag_for_review: persist operator flags to memory_feedback.",
+    "- flag_for_followup / flag_for_review: do not persist anything. Only the user can submit feedback from the memory controls.",
   ].join("\n");
 
   const tools: ToolSet = {

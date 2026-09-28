@@ -73,7 +73,7 @@ export async function searchMemories(
         limit: options?.limit ?? 3,
         ...(err ? { errorName: err.name, errorMessage: err.message } : { thrown: String(error) }),
       },
-      error,
+      error
     );
     throw new Error("Memory service may be unavailable.");
   }
@@ -131,6 +131,7 @@ export async function addLatestMessagesToMemory(
   const result = await runMemoryStore("addLatestMessagesToMemory", () =>
     memory.add(interactions, {
       userId,
+      ...(chatId ? { metadata: { chat_id: chatId } } : {}),
     })
   );
 

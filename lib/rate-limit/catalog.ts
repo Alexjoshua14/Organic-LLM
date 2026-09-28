@@ -62,6 +62,15 @@ export const MEMORY_ADD_RATE_LIMIT = {
   why: "Mem0 ingest (chat-turn add). One token per add, including post-turn memory write.",
 } as const satisfies RateLimitCatalogEntry;
 
+export const MEMORY_FEEDBACK_RATE_LIMIT = {
+  id: "memory.feedback",
+  prefix: "ratelimit:memory:feedback",
+  cap: 60,
+  window: "1 m",
+  error: "Too many feedback requests",
+  why: "One token per feedback mutation, before memory ownership reads.",
+} as const satisfies RateLimitCatalogEntry;
+
 export const LLM_MESSAGE_RATE_LIMIT = {
   id: "llm.message",
   prefix: "ratelimit:llm:message",
@@ -77,6 +86,7 @@ export const RATE_LIMIT_CATALOG: readonly RateLimitCatalogEntry[] = [
   MEMORY_LIST_RATE_LIMIT,
   MEMORY_DELETE_RATE_LIMIT,
   MEMORY_WIPE_RATE_LIMIT,
+  MEMORY_FEEDBACK_RATE_LIMIT,
   LLM_MESSAGE_RATE_LIMIT,
 ];
 

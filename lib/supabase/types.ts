@@ -50,18 +50,26 @@ export type Database = {
           memory_id: string;
           signal: string;
           source: string;
-          chat_id: string | null;
-          note: string | null;
+          note_ciphertext: string | null;
+          note_approved_at: string | null;
+          memory_ciphertext: string | null;
+          memory_shared_at: string | null;
+          revision: number;
+          updated_at: string;
           created_at: string;
         };
         Insert: {
           id?: string;
-          user_id?: string;
+          user_id: string;
           memory_id: string;
           signal: string;
           source: string;
-          chat_id?: string | null;
-          note?: string | null;
+          note_ciphertext?: string | null;
+          note_approved_at?: string | null;
+          memory_ciphertext?: string | null;
+          memory_shared_at?: string | null;
+          revision?: number;
+          updated_at?: string;
           created_at?: string;
         };
         Update: {
@@ -70,8 +78,12 @@ export type Database = {
           memory_id?: string;
           signal?: string;
           source?: string;
-          chat_id?: string | null;
-          note?: string | null;
+          note_ciphertext?: string | null;
+          note_approved_at?: string | null;
+          memory_ciphertext?: string | null;
+          memory_shared_at?: string | null;
+          revision?: number;
+          updated_at?: string;
           created_at?: string;
         };
         Relationships: [

@@ -25,7 +25,6 @@ import {
   addLatestMessagesToMemory as storeAddLatestMessagesToMemory,
   addMemory as storeAddMemory,
 } from "./store";
-
 import {
   inferMemoryQualitySource,
   memoryTextMetrics,
@@ -150,7 +149,8 @@ export async function addLatestMessagesToMemoryForUser(
         userId,
         source: "auto_ingest",
         results: validated.data.results,
-        metadata: { chatId, infer: true },
+        // Quality-event metadata allowlist is numeric/boolean only (no chatId).
+        metadata: { infer: true },
       });
     }
 
@@ -220,7 +220,6 @@ export async function addMemoryForUser(
         results: validated.data.results,
         metadata: {
           infer: params.infer ?? true,
-          topic: params.metadata.topic,
         },
       });
     }
@@ -405,9 +404,7 @@ export async function deleteMemoryForCurrentUser(
       await recordMemoryEvent({
         userId: userIdResult.data,
         event: "delete",
-        source: inferMemoryQualitySource(
-          memoryRow.metadata as Record<string, unknown> | undefined
-        ),
+        source: inferMemoryQualitySource(memoryRow.metadata as Record<string, unknown> | undefined),
         memoryId: trimmedId,
         charCount: metrics.charCount,
         wordCount: metrics.wordCount,
