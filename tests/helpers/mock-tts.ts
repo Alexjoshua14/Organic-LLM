@@ -104,12 +104,11 @@ export function createMockAudioChunk(opts: {
 }
 
 // ---------------------------------------------------------------------------
-// SSE helpers (for /api/ai/tts/stream mock)
+// Legacy SSE format helpers (retained for audio serialization tests)
 // ---------------------------------------------------------------------------
 
 /**
- * Convert a Uint8Array to a Record<number,number> the same way the real
- * server route does (uint8ArrayToRecord).
+ * Convert a Uint8Array to the numeric-record format used by legacy TTS fixtures.
  */
 export function uint8ArrayToRecord(bytes: Uint8Array): Record<number, number> {
   const out: Record<number, number> = {};
@@ -120,7 +119,7 @@ export function uint8ArrayToRecord(bytes: Uint8Array): Record<number, number> {
 }
 
 /**
- * Build a mock SSE stream body matching /api/ai/tts/stream output.
+ * Build a mock SSE stream body matching the retired /api/ai/tts/stream format.
  * Returns a string containing all SSE events.
  */
 export function buildMockSSEStream(opts?: {

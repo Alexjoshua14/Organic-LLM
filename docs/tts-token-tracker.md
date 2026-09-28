@@ -1,5 +1,9 @@
 # TTS Token Usage Tracker
 
+> **Historical.** The unused `TokenUsageDisplay` components were removed on 2026-09-12.
+> The shared `lib/tts/token-calculator.ts` helpers remain in use. Examples below describe
+> the retired UI; see [current Speak](./speak/README.md).
+
 A beautiful, low-key UI component that displays token usage and cost estimates for Text-to-Speech generation.
 
 ## Features
