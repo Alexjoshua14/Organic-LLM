@@ -1,7 +1,30 @@
-import type { UIMessage } from "ai";
+import type { ModelMessage, UIMessage } from "ai";
 
 /** Max length for tool result snippet in converted text (avoid huge payloads). */
 const TOOL_RESULT_TEXT_MAX_LEN = 600;
+
+/**
+ * Newer Gemini models (e.g. google/gemini-3.8-flash via Vertex) reject requests whose
+ * contents end on a model/assistant turn. After a completed chat exchange the history
+ * normally ends on the assistant — append a short user cue so generateText/generateObject
+ * stay valid. Idempotent when the last turn is already user.
+ */
+export function ensureModelMessagesEndWithUserTurn(
+  messages: ModelMessage[],
+  cue = "Please continue with the task described in the system instructions."
+): ModelMessage[] {
+  if (messages.length === 0) {
+    return [{ role: "user", content: cue }];
+  }
+
+  const last = messages[messages.length - 1];
+
+  if (last?.role === "user") {
+    return messages;
+  }
+
+  return [...messages, { role: "user", content: cue }];
+}
 
 /**
  * Converts tool-invocation parts to text parts so the summarizer sees tool semantics
