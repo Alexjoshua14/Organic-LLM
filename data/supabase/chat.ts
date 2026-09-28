@@ -89,6 +89,14 @@ function decodeThreadMessages(messages: Message[], ownerId: string): UIMessage[]
   return uiMessages;
 }
 
+/** Newest-first rows (as queried) → chronological `UIMessage`s, decrypted for `ownerId`. */
+function decodeRecentMessageRows(rows: Message[], ownerId: string): UIMessage[] {
+  return rows
+    .map((message) => convertMessageToUIMessage(decryptMessageRowContent(message, ownerId)))
+    .filter((message) => message !== null)
+    .reverse();
+}
+
 function encryptThreadSummaryText(summaryText: string, ownerId: string, chatId: string): string {
   return encryptForStorage(summaryText, buildThreadSummaryContext(ownerId, chatId));
 }
@@ -816,13 +824,7 @@ export async function getNMessages(
 
     const ownerId = threadOwnerContext.data.ownerId;
 
-    // Convert to UIMessage format and put into chronological order
-    const uiMessages = messages
-      .map((message) =>
-        convertMessageToUIMessage(decryptMessageRowContent(message as Message, ownerId))
-      )
-      .filter((message) => message !== null)
-      .reverse();
+    const uiMessages = decodeRecentMessageRows(messages as Message[], ownerId);
 
     if (uiMessages.length !== messages.length) {
       logger.error("getNMessages", "A message was not converted to UIMessage");
@@ -1052,26 +1054,6 @@ export async function getThreadHasTitle(
   };
 }
 
-/** The thread's title, or `null` when it has none yet. Titles are stored unencrypted. */
-export async function getThreadTitle(chatId: string): Promise<Result<string | null>> {
-  const sb = await supabaseServer();
-  const { data, error } = await sb.from("threads").select("title").eq("id", chatId).single();
-
-  if (error) {
-    return {
-      data: null,
-      error: new Error(error?.message ?? "Unknown error"),
-    };
-  }
-
-  const title = data?.title != null ? String(data.title).trim() : "";
-
-  return {
-    data: title || null,
-    error: null,
-  };
-}
-
 export async function updateChatTitle(chatId: string, title: string): Promise<SimpleResult> {
   const sb = await supabaseServer();
   const hasTitle = title.trim() !== "";
@@ -1244,6 +1226,84 @@ export async function deleteEmptyChat(chatId: string): Promise<SimpleResult> {
   }
 
   return deleteChat(chatId);
+}
+
+export type ThreadScreen = {
+  title: string | null;
+  /** Chronological, newest last. */
+  messages: UIMessage[];
+  summary: string | null;
+};
+
+/**
+ * What a live voice session needs to describe an open chat — title, latest messages, rolling
+ * summary — in one thread-row read plus two parallel reads. Calling `getNMessages` and
+ * `getConversationSummary` separately looks the owner up once each, on top of the ownership check.
+ *
+ * `expectedOwnerId` is compared against the thread row **before** any message or summary is read
+ * or decrypted, so it can only narrow access: the row read is RLS-scoped like every reader here,
+ * and a mismatch returns `"not-owner"` having touched nothing else. That matters because this is a
+ * Server Action — any client can call it with any arguments.
+ *
+ * Content reads are best-effort: a failed message or summary query yields an empty value rather
+ * than failing the whole screen, since the title alone still orients the listener.
+ */
+export async function getThreadScreen(
+  chatId: string,
+  options: { expectedOwnerId: string; messageLimit: number }
+): Promise<Result<ThreadScreen, "not-found" | "not-owner" | "error">> {
+  try {
+    const sb = await supabaseServer();
+    const { data: thread, error: threadError } = await sb
+      .from("threads")
+      .select("owner_id, title")
+      .eq("id", chatId)
+      .maybeSingle();
+
+    if (threadError) {
+      logger.error("getThreadScreen", `Thread read failed: ${threadError.message}`);
+
+      return { data: null, error: "error" };
+    }
+
+    if (!thread) return { data: null, error: "not-found" };
+    if (thread.owner_id !== options.expectedOwnerId) return { data: null, error: "not-owner" };
+
+    const ownerId = thread.owner_id as string;
+    const [messagesRes, summaryRes] = await Promise.all([
+      sb
+        .from("messages")
+        .select("*")
+        .eq("thread_id", chatId)
+        .order("created_at", { ascending: false })
+        .limit(options.messageLimit),
+      sb.from("thread_summaries").select("summary_text").eq("thread_id", chatId).maybeSingle(),
+    ]);
+
+    if (messagesRes.error) {
+      logger.warn("getThreadScreen", `Message read failed: ${messagesRes.error.message}`);
+    }
+    if (summaryRes.error) {
+      logger.warn("getThreadScreen", `Summary read failed: ${summaryRes.error.message}`);
+    }
+
+    const title = thread.title != null ? String(thread.title).trim() : "";
+
+    return {
+      data: {
+        title: title || null,
+        messages: decodeRecentMessageRows((messagesRes.data ?? []) as Message[], ownerId),
+        summary: summaryRes.data
+          ? decryptThreadSummaryText(summaryRes.data.summary_text, ownerId, chatId)
+          : null,
+      },
+      error: null,
+    };
+  } catch (err) {
+    logger.error("getThreadScreen", err instanceof Error ? err.message : String(err));
+
+    return { data: null, error: "error" };
+  }
 }
 
 export async function getConversationSummary(chatId: string): Promise<Result<string>> {
