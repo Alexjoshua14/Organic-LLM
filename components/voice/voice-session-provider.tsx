@@ -5,11 +5,8 @@ import type { SpeakScreenSurface } from "@/lib/schemas/speak-screen-context";
 import type { SpeakToolClientEffect } from "@/lib/speak/types";
 import type { VoiceTransportFactory } from "@/lib/speak/transport/voice-transport";
 import type { VoiceVisualState } from "@/lib/speak/voice-visual-state";
-import type {
-  LiveVoicePhase,
-  RealtimeTranscriptEntry,
-  VoiceScreenContextSnapshot,
-} from "@/hooks/use-realtime-voice";
+import type { LiveVoicePhase, RealtimeTranscriptEntry } from "@/hooks/use-realtime-voice";
+import type { VoiceScreenContextSnapshot } from "@/lib/speak/screen-context-delivery";
 
 import {
   createContext,

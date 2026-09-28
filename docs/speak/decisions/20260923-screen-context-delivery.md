@@ -52,6 +52,11 @@ Messages are walked newest-first until the next one would not fit, then read old
 newest always survives, clipped if it alone overflows. Only text parts go: tool calls, reasoning
 and generated UI are left out.
 
+All three come from one reader, `getThreadScreen`: one thread-row read for owner and title, then
+messages and summary in parallel — three queries rather than six, since a push now happens per
+exchange. It is a Server Action, so the caller's id is checked against the thread row **before**
+any content is read or decrypted; a mismatch returns `not-owner` having touched nothing else.
+
 ### 3. Freshness: a revision per finished exchange
 
 The chat descriptor gains `revision`, the id of the last *settled* message, and it is part of the
