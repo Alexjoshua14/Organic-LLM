@@ -1,6 +1,7 @@
 "use client";
 
 import type { ExaSearchResultSource } from "@/lib/exa/types";
+import type { NoesisSpark } from "@/lib/sandbox/noesis/sparks/types";
 
 import { UIMessage, useChat } from "@ai-sdk/react";
 import { DefaultChatTransport } from "ai";
@@ -36,8 +37,14 @@ import { FeatureHint } from "@/components/onboarding/feature-hint";
 import { glass } from "@/components/design-system/primitives";
 import { Button } from "@/components/third-party/ui/button";
 import { cn } from "@/lib/utils";
+import { SparkCard } from "@/components/sandbox/noesis/spark-card";
+import { SparkEditorDialog } from "@/components/sandbox/noesis/spark-editor-dialog";
+import { listAuthoredSparks } from "@/lib/sandbox/noesis/sparks/registry";
 
 const logger = createLogger("components/sandbox/topic-explore-client");
+
+/** Authored sparks are surfaced before the LLM-generated ones in the empty state. */
+const AUTHORED_SPARKS = listAuthoredSparks();
 
 const ASSIST_COOLDOWN_MS = 1_500;
 
@@ -82,6 +89,8 @@ export function TopicExploreClient({ chatData }: TopicExploreClientProps) {
   const useWebSearchRef = useRef(DEFAULT_COMPOSER_WEB_SEARCH);
   const useMemoriesRef = useRef(DEFAULT_COMPOSER_MEMORIES);
   const useSpeechFriendlyRef = useRef(false);
+  /** Set when an authored spark is tapped, so its system prompt drives the thread. */
+  const sparkSystemPromptRef = useRef<string | undefined>(undefined);
 
   const [aiAction, setAiAction] = useState<
     | {
@@ -148,6 +157,7 @@ export function TopicExploreClient({ chatData }: TopicExploreClientProps) {
             speechFriendly: useSpeechFriendlyRef.current,
             experience: "topic_explore",
             zeroDataRetention: getSettings().zeroDataRetention,
+            customSystemPromptOverride: sparkSystemPromptRef.current,
           },
         };
       },
@@ -241,6 +251,23 @@ export function TopicExploreClient({ chatData }: TopicExploreClientProps) {
       setNextAssistAt(null);
     },
   });
+
+  const [editingSpark, setEditingSpark] = useState<NoesisSpark | null>(null);
+  const [editorOpen, setEditorOpen] = useState(false);
+
+  /** Tapping an authored spark: install its system-prompt override, then open with its label. */
+  const handleAuthoredSparkTap = useCallback(
+    (spark: NoesisSpark) => {
+      sparkSystemPromptRef.current = spark.systemPrompt;
+      void sendMessage({ text: spark.userFacingText });
+    },
+    [sendMessage]
+  );
+
+  const handleAuthoredSparkEdit = useCallback((spark: NoesisSpark) => {
+    setEditingSpark(spark);
+    setEditorOpen(true);
+  }, []);
 
   const loadStarters = useCallback(async () => {
     setStartersLoading(true);
@@ -445,28 +472,45 @@ export function TopicExploreClient({ chatData }: TopicExploreClientProps) {
         <div className="flex flex-col gap-2">
           <FeatureHint id="noesis-sparks" showWhen={messages.length === 0}>
             <div className="flex flex-col gap-2">
-              <div className="flex items-center justify-between gap-2">
-                <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
-                  Sparks
-                </span>
-                <Button
-                  className="h-8 gap-1.5 text-xs"
-                  disabled={startersLoading || messages.length > 0}
-                  size="sm"
-                  type="button"
-                  variant="ghost"
-                  onClick={() => void loadStarters()}
-                >
-                  {startersLoading ? (
-                    <Loader2 className="size-3.5 animate-spin" />
-                  ) : (
-                    <RefreshCw className="size-3.5" />
-                  )}
-                  Regenerate
-                </Button>
-              </div>
-              <div className="grid gap-2 sm:grid-cols-2">
-                {(starters.length > 0 ? starters : ["", "", "", ""]).map((s, i) => (
+            <div className="flex items-center justify-between gap-2">
+              <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+                Sparks
+              </span>
+              <Button
+                className="h-8 gap-1.5 text-xs"
+                disabled={startersLoading || messages.length > 0}
+                size="sm"
+                type="button"
+                variant="ghost"
+                onClick={() => void loadStarters()}
+              >
+                {startersLoading ? (
+                  <Loader2 className="size-3.5 animate-spin" />
+                ) : (
+                  <RefreshCw className="size-3.5" />
+                )}
+                Regenerate
+              </Button>
+            </div>
+            <div className="grid gap-2 sm:grid-cols-2">
+              {AUTHORED_SPARKS.map((spark) => (
+                <SparkCard
+                  key={spark.id}
+                  disabled={status !== "ready"}
+                  spark={spark}
+                  onEdit={handleAuthoredSparkEdit}
+                  onTap={handleAuthoredSparkTap}
+                />
+              ))}
+              {(() => {
+                // Fill the remaining slots (up to 4 total) with LLM-generated sparks.
+                const slots = Math.max(0, 4 - AUTHORED_SPARKS.length);
+                const llmStarters =
+                  starters.length > 0
+                    ? starters.slice(0, slots)
+                    : (Array(slots).fill("") as string[]);
+
+                return llmStarters.map((s, i) => (
                   <button
                     key={`spark-${i}`}
                     className={cn(
@@ -481,14 +525,24 @@ export function TopicExploreClient({ chatData }: TopicExploreClientProps) {
                   >
                     {s || (startersLoading ? "…" : "—")}
                   </button>
-                ))}
-              </div>
+                ));
+              })()}
+            </div>
             </div>
           </FeatureHint>
         </div>
       </div>
     );
-  }, [loadStarters, messages.length, sendMessage, starters, startersLoading, status]);
+  }, [
+    handleAuthoredSparkEdit,
+    handleAuthoredSparkTap,
+    loadStarters,
+    messages.length,
+    sendMessage,
+    starters,
+    startersLoading,
+    status,
+  ]);
 
   return (
     <div
@@ -622,6 +676,8 @@ export function TopicExploreClient({ chatData }: TopicExploreClientProps) {
           />
         </div>
       </div>
+
+      <SparkEditorDialog open={editorOpen} spark={editingSpark} onOpenChange={setEditorOpen} />
     </div>
   );
 }
