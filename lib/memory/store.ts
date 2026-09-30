@@ -131,6 +131,7 @@ export async function addLatestMessagesToMemory(
   const result = await runMemoryStore("addLatestMessagesToMemory", () =>
     memory.add(interactions, {
       userId,
+      ...(chatId ? { metadata: { chat_id: chatId } } : {}),
     })
   );
 

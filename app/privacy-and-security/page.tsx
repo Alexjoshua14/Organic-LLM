@@ -90,7 +90,7 @@ export default function PrivacyAndSecurityPage() {
                 <PrivacyFeatureCard
                   title="We don't sell your data"
                   subtitle="We will never share or sell your data for ads"
-                  body="We do not sell or share your data for advertising. We use analytics only to improve Organic LLM, and your conversation content is not included in analytics."
+                  body="We do not sell or share your data for advertising. Conversation content is not included in analytics. If you choose to share a feedback note or a memory copy, Organic LLM’s admin can read the exact content you approve for product improvement."
                 />
                 <ScrollOutDisappear scrollContainerRef={scrollContainerRef}>
                   <PrivacyFeatureCard
@@ -130,6 +130,26 @@ export default function PrivacyAndSecurityPage() {
             </p>
           </section>
 
+          <section id="memory-feedback">
+            <h2 className="text-foreground">Memory feedback you choose to share</h2>
+            <p className="text-foreground">
+              Thumbs up or down shares a vote about a memory. You can optionally discuss it with an
+              AI assistant that uses the memory, related memories, and chat context to help draft a
+              note. We do not save that discussion as feedback. The exact note you approve is saved
+              and made available to Organic LLM’s admin for product improvement. Separately, you can
+              preview and explicitly share a copy of the memory itself. Voting or approving a note
+              does not automatically share a memory copy. Notes and shared copies are encrypted
+              before database storage; the application can decrypt them for you and authorized admin
+              access. The feedback assistant requests zero data retention from its model provider.
+            </p>
+            <p className="mt-2 text-foreground">
+              You can edit or remove a note, remove a shared memory copy, or remove all its feedback
+              in Settings → Memory. Changing a vote clears its note. A shared memory copy stays
+              until you remove it separately; editing or deleting the original memory does not
+              change that copy or remove its feedback.
+            </p>
+          </section>
+
           <section id="third-parties">
             <h2 className="text-foreground">Data we send to third parties</h2>
             <p className="text-foreground">
@@ -158,7 +178,7 @@ export default function PrivacyAndSecurityPage() {
               <li>
                 <strong>Analytics</strong>: We will never sell or share your data for ads, and we do
                 not include your conversation content in analytics. We use analytics only for
-                product improvement—things like page views and performance metrics—and we're
+                product improvement—things like page views and performance metrics—and we’re
                 transparent about that.
               </li>
             </ul>

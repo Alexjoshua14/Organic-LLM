@@ -149,7 +149,8 @@ export async function addLatestMessagesToMemoryForUser(
         userId,
         source: "auto_ingest",
         results: validated.data.results,
-        metadata: { chatId, infer: true },
+        // Quality-event metadata allowlist is numeric/boolean only (no chatId).
+        metadata: { infer: true },
       });
     }
 
@@ -219,7 +220,6 @@ export async function addMemoryForUser(
         results: validated.data.results,
         metadata: {
           infer: params.infer ?? true,
-          topic: params.metadata.topic,
         },
       });
     }
@@ -346,7 +346,7 @@ export async function getCurrentUserMemoriesBySearch(
     if (typeof query !== "string" || query.length > 2000) {
       return { data: null, error: "Invalid or too long query" };
     }
-    const clampedLimit = Math.min(100, Math.max(1, Number(limit) || 5));
+    const clampedLimit = Math.min(100, Math.max(1, Math.floor(Number(limit) || 5)));
 
     const result = await storeSearchMemories(query, userIdResult.data, {
       limit: clampedLimit,

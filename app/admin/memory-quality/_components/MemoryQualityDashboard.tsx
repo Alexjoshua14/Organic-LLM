@@ -9,7 +9,20 @@ import { cn } from "@/lib/utils";
 
 type MemoryQualityDashboardData = {
   daily: MemoryQualityDailyRow[];
-  feedback: MemoryFeedbackRow[];
+  feedback: Pick<
+    MemoryFeedbackRow,
+    | "id"
+    | "signal"
+    | "source"
+    | "note"
+    | "note_approved_at"
+    | "shared_memory"
+    | "memory_shared_at"
+    | "created_at"
+    | "updated_at"
+  >[];
+  feedbackCounts: { up: number; down: number };
+  feedbackHasMore: boolean;
   lastEval?: {
     mode: string;
     total: number;
@@ -25,12 +38,13 @@ export function MemoryQualityDashboard() {
   const [loading, setLoading] = useState(true);
   const [evalRunning, setEvalRunning] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [offset, setOffset] = useState(0);
 
   const load = useCallback(async () => {
     setError(null);
     setLoading(true);
     try {
-      const res = await fetch("/api/admin/memory-quality");
+      const res = await fetch(`/api/admin/memory-quality?offset=${offset}`, { cache: "no-store" });
 
       if (!res.ok) {
         throw new Error(await res.text());
@@ -43,7 +57,7 @@ export function MemoryQualityDashboard() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [offset]);
 
   useEffect(() => {
     void load();
@@ -104,8 +118,8 @@ export function MemoryQualityDashboard() {
         <div>
           <h2 className="text-lg font-medium">Memory quality</h2>
           <p className="text-sm text-muted-foreground mt-1">
-            Ingest trends, explicit feedback, and eval runs (aggregates only — no memory text
-            stored).
+            Your ingest trends and eval runs, plus current votes, approved notes, and explicitly
+            shared memory copies across all users.
           </p>
         </div>
         <button
@@ -124,6 +138,18 @@ export function MemoryQualityDashboard() {
 
       {error ? <p className="text-sm text-destructive">{error}</p> : null}
 
+      <section className="space-y-2">
+        <h3 className="text-sm font-medium">Current voluntary votes · all users</h3>
+        <p className="text-sm tabular-nums">
+          {data?.feedbackCounts.up ?? 0} thumbs up · {data?.feedbackCounts.down ?? 0} thumbs down
+        </p>
+        <p className="max-w-2xl text-sm text-muted-foreground">
+          One current vote per memory. People may be more likely to report bad memories than good
+          ones. These counts describe submitted feedback; they do not measure overall memory
+          accuracy or satisfaction.
+        </p>
+      </section>
+
       <section className="space-y-3">
         <h3 className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
           Daily trends (all sources)
@@ -141,8 +167,6 @@ export function MemoryQualityDashboard() {
                   <th className="px-3 py-2">Ingests</th>
                   <th className="px-3 py-2">Deletes</th>
                   <th className="px-3 py-2">Delete rate</th>
-                  <th className="px-3 py-2">Thumbs +/−</th>
-                  <th className="px-3 py-2">Positive rate</th>
                   <th className="px-3 py-2">Chars p50</th>
                   <th className="px-3 py-2">Chars p90</th>
                 </tr>
@@ -156,12 +180,6 @@ export function MemoryQualityDashboard() {
                     <td className="px-3 py-2 tabular-nums">
                       {row.delete_rate != null ? `${(row.delete_rate * 100).toFixed(1)}%` : "—"}
                     </td>
-                    <td className="px-3 py-2 tabular-nums">
-                      {row.feedback_up}/{row.feedback_down}
-                    </td>
-                    <td className="px-3 py-2 tabular-nums">
-                      {row.positive_rate != null ? `${(row.positive_rate * 100).toFixed(1)}%` : "—"}
-                    </td>
                     <td className="px-3 py-2 tabular-nums">{row.char_count_p50 ?? "—"}</td>
                     <td className="px-3 py-2 tabular-nums">{row.char_count_p90 ?? "—"}</td>
                   </tr>
@@ -174,7 +192,7 @@ export function MemoryQualityDashboard() {
 
       <section className="space-y-3">
         <h3 className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
-          Recent feedback
+          Feedback · all users
         </h3>
         {(data?.feedback ?? []).length === 0 ? (
           <p className="text-sm text-muted-foreground">No feedback recorded yet.</p>
@@ -187,16 +205,43 @@ export function MemoryQualityDashboard() {
               >
                 <span className="font-medium">{f.signal}</span>
                 <span className="text-muted-foreground">{f.source}</span>
-                <span className="text-xs text-muted-foreground truncate max-w-full">
-                  memory:{f.memory_id.slice(0, 12)}…
-                </span>
                 <span className="text-xs text-muted-foreground ml-auto">
-                  {new Date(f.created_at).toLocaleString()}
+                  {new Date(f.updated_at).toLocaleString()}
                 </span>
+                <p className="w-full whitespace-pre-wrap text-sm">
+                  {f.note ??
+                    (f.shared_memory ? "No note approved" : "Vote only · no note approved")}
+                </p>
+                {f.shared_memory && (
+                  <details className="w-full rounded-lg bg-muted/40 p-3">
+                    <summary className="cursor-pointer text-xs font-medium">
+                      Memory copy shared by the user
+                    </summary>
+                    <p className="mt-2 whitespace-pre-wrap break-words text-sm">
+                      {f.shared_memory}
+                    </p>
+                  </details>
+                )}
               </li>
             ))}
           </ul>
         )}
+        <div className="flex gap-3 text-sm">
+          <button
+            disabled={loading || offset === 0}
+            type="button"
+            onClick={() => setOffset(Math.max(0, offset - 20))}
+          >
+            Previous
+          </button>
+          <button
+            disabled={loading || !data?.feedbackHasMore}
+            type="button"
+            onClick={() => setOffset(offset + 20)}
+          >
+            Next
+          </button>
+        </div>
       </section>
 
       {data?.lastEval ? (

@@ -2,7 +2,7 @@ import "server-only";
 
 import { auth } from "@clerk/nextjs/server";
 
-import { getShowSandboxGateway, getSupabaseUserId } from "@/data/supabase/profiles";
+import { isAdminUser, getSupabaseUserId } from "@/data/supabase/profiles";
 
 export type AdminContext = {
   clerkUserId: string;
@@ -10,7 +10,7 @@ export type AdminContext = {
 };
 
 /**
- * Returns admin context when the signed-in user passes the sandbox/admin gate.
+ * Returns admin context when the signed-in user has an explicit admin=true profile.
  * Used by `app/admin/*` pages and `/api/admin/*` routes.
  */
 export async function requireAdmin(): Promise<AdminContext | null> {
@@ -20,7 +20,7 @@ export async function requireAdmin(): Promise<AdminContext | null> {
     return null;
   }
 
-  const isAdmin = await getShowSandboxGateway(clerkUserId);
+  const isAdmin = await isAdminUser(clerkUserId);
 
   if (!isAdmin) {
     return null;

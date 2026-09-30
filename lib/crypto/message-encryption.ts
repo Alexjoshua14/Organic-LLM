@@ -22,6 +22,8 @@ export type EncryptionFieldName =
   | "strata_sections.design_instructions"
   | "strata_sections.ai_instructions"
   | "memory.cache.semantic_search"
+  | "memory_feedback.note"
+  | "memory_feedback.memory"
   | "threads.introspection_config"
   | "threads.introspection_guided_state";
 

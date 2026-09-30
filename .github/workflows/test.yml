@@ -28,3 +28,13 @@ jobs:
 
       - name: Run tests
         run: bun run test
+
+  memory-feedback-database:
+    name: Memory feedback grants and migrations
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Exercise migrations, votes, sharing, and ownership in disposable Postgres
+        run: bash scripts/test-memory-feedback-db.sh
