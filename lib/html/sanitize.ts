@@ -1,53 +1,29 @@
-import DOMPurify from "isomorphic-dompurify";
-
-/** Tags allowed in rabbit-hole LLM article HTML (see lib/system-prompt/rabbit-hole.ts). */
-const RABBIT_HOLE_ARTICLE_ALLOWED_TAGS = [
-  "h2",
-  "h3",
-  "p",
-  "span",
-  "strong",
-  "em",
-  "a",
-  "pre",
-  "code",
-  "blockquote",
-] as const;
-
-const RABBIT_HOLE_ARTICLE_ALLOWED_ATTR = ["id", "class", "data-branch-id", "href", "target", "rel"];
+import { RABBIT_HOLE_ARTICLE_POLICY } from "./article-policy";
 
 /**
- * Sanitize LLM-generated rabbit-hole article HTML before rendering.
+ * Server-side sanitizers.
+ *
+ * `isomorphic-dompurify` builds a JSDOM window at module evaluation, so it is
+ * loaded on first use rather than imported at the top. This module is reachable
+ * from the rabbit-hole server actions, and Next bundles server actions into
+ * shared chunks that routes load; a static import here would put jsdom in front
+ * of every page, where its CJS/ESM interop needs Node >= 20.19/22.12 and
+ * otherwise throws ERR_REQUIRE_ESM before anything renders. Browser-side
+ * sanitizing lives in lib/html/sanitize-browser.ts.
+ */
+
+/**
+ * Sanitize LLM-generated rabbit-hole article HTML.
  * Strips scripts, event handlers, and disallowed tags/attributes.
+ *
+ * This is the trust boundary for article HTML. It runs where the content is
+ * produced (lib/rabbit-holes/actions.ts) and where it is read back out of
+ * Supabase (data/supabase/rabbitholes.ts), so rows written before this existed
+ * are sanitized on the way out too. RabbitHoleArticle re-runs the same policy in
+ * the browser; during SSR it renders what these two paths produced.
  */
-export function sanitizeRabbitHoleArticleHtml(html: string): string {
-  return DOMPurify.sanitize(html, {
-    ALLOWED_TAGS: [...RABBIT_HOLE_ARTICLE_ALLOWED_TAGS],
-    ALLOWED_ATTR: RABBIT_HOLE_ARTICLE_ALLOWED_ATTR,
-    ALLOW_DATA_ATTR: true,
-    ALLOWED_URI_REGEXP: /^https?:/i,
-  });
-}
+export async function sanitizeRabbitHoleArticleHtml(html: string): Promise<string> {
+  const { default: DOMPurify } = await import("isomorphic-dompurify");
 
-/**
- * Sanitize Mermaid SVG output before assigning to innerHTML.
- */
-export function sanitizeMermaidSvgMarkup(svgMarkup: string): string {
-  return DOMPurify.sanitize(svgMarkup, {
-    USE_PROFILES: { svg: true, svgFilters: true },
-    ADD_TAGS: ["foreignObject"],
-    ADD_ATTR: ["target", "xlink:href"],
-  });
-}
-
-/**
- * Ensure DOMPurify is available for Mermaid strict securityLevel in the browser.
- */
-export function ensureMermaidDomPurify(): void {
-  if (typeof window === "undefined") return;
-  const w = window as Window & { DOMPurify?: typeof DOMPurify };
-
-  if (!w.DOMPurify) {
-    w.DOMPurify = DOMPurify;
-  }
+  return DOMPurify.sanitize(html, RABBIT_HOLE_ARTICLE_POLICY);
 }

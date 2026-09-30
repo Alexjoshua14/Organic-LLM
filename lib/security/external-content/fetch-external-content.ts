@@ -49,7 +49,7 @@ async function fetchViaExa(
     return null;
   }
 
-  const extracted = extractReadableText(text, { maxChars, contentType: "text/plain" });
+  const extracted = await extractReadableText(text, { maxChars, contentType: "text/plain" });
 
   return {
     ok: true,
@@ -71,7 +71,7 @@ async function fetchViaOrigin(url: string, maxChars: number): Promise<FetchExter
     };
   }
 
-  const extracted = extractReadableText(fetched.body, {
+  const extracted = await extractReadableText(fetched.body, {
     maxChars,
     contentType: fetched.contentType,
   });
