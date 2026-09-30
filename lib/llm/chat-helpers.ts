@@ -16,7 +16,10 @@ import { ValidSummary, ValidSummarySchema } from "../schemas/llm-tools";
 import { decryptFromStorage, encryptForStorage } from "../crypto/message-encryption";
 
 import { GUARDRAIL_MAX_OUTPUT_TOKENS } from "@/lib/llm/helpers";
-import { convertToolCallsToTextForSummarizer } from "@/lib/llm/summarizer-message-format";
+import {
+  convertToolCallsToTextForSummarizer,
+  ensureModelMessagesEndWithUserTurn,
+} from "@/lib/llm/summarizer-message-format";
 import { createLogger } from "@/lib/logger";
 import { convertMessageToUIMessage } from "@/lib/chat/message-transform";
 import {
@@ -304,6 +307,9 @@ export async function generateChatTitle(chatId: string): Promise<Result<string>>
   // structured functionCall parts (thought_signature) while Arcadia/tool-heavy threads
   // still contribute Mermaid, memory search, etc. to the title summary.
   const messagesForTitleClean = convertToolCallsToTextForSummarizer(messagesForTitle);
+  const titleModelMessages = ensureModelMessagesEndWithUserTurn(
+    convertToModelMessages(messagesForTitleClean)
+  );
 
   let conversationSummary: string;
 
@@ -312,7 +318,7 @@ export async function generateChatTitle(chatId: string): Promise<Result<string>>
     const summaryResult = await generateText({
       model: MODEL_SELECTION.summarizer,
       system: ChatTitleSummarizerSystemPrompt,
-      messages: convertToModelMessages(messagesForTitleClean),
+      messages: titleModelMessages,
       maxOutputTokens: GUARDRAIL_MAX_OUTPUT_TOKENS,
     });
     const summaryDuration = performance.now() - summaryStart;
@@ -392,7 +398,9 @@ export async function summarizeChat(chatId: string): Promise<Result<string, stri
   // Convert tool-invocation parts to text so Gemini 3 does not require thought_signature.
   // Preserves tool semantics (name, args, result) for the summarizer.
   const messagesForSummary = convertToolCallsToTextForSummarizer(messages);
-  const modelMessages = convertToModelMessages(messagesForSummary);
+  const modelMessages = ensureModelMessagesEndWithUserTurn(
+    convertToModelMessages(messagesForSummary)
+  );
 
   // logger.log(
   //   "summarizeChat",
@@ -680,7 +688,9 @@ export async function updateChatSummary(chatId: string): Promise<Result<string, 
 
   // Convert tool-invocation parts to text so Gemini 3 does not require thought_signature.
   const messagesForSummary = convertToolCallsToTextForSummarizer(uiMessages as UIMessage[]);
-  const modelMessages = convertToModelMessages(messagesForSummary);
+  const modelMessages = ensureModelMessagesEndWithUserTurn(
+    convertToModelMessages(messagesForSummary)
+  );
 
   const { text: updatedSummary } = await generateText({
     model: MODEL_SELECTION.updater,
@@ -773,6 +783,7 @@ const validateSummary = async (
   forceGeneration?: boolean
 ): Promise<Result<string, string>> => {
   let validSummary: ValidSummary | null = null;
+  const messagesForGemini = ensureModelMessagesEndWithUserTurn(messages);
 
   // Generate conversation summary and validate result
   for (let i = 1; i <= 3; i++) {
@@ -784,7 +795,7 @@ const validateSummary = async (
         currentPersistedConversationSummary ?? "null"
       ).replace("{{conversationSummary}}", conversationSummary),
       temperature: 0.1,
-      messages: messages,
+      messages: messagesForGemini,
       schema: ValidSummarySchema,
       maxOutputTokens: GUARDRAIL_MAX_OUTPUT_TOKENS,
     });
@@ -821,7 +832,7 @@ const validateSummary = async (
         )
         .replace("{{reason}}", validSummary.reason),
       temperature: 0.2,
-      messages: messages,
+      messages: messagesForGemini,
       maxOutputTokens: GUARDRAIL_MAX_OUTPUT_TOKENS,
     });
     const reviserDuration = performance.now() - reviserStart;

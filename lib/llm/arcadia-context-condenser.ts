@@ -6,7 +6,10 @@ import { convertToModelMessages, generateText, type UIMessage } from "ai";
 
 import { getThreadOwnerContext } from "@/data/supabase/chat";
 import { decryptFromStorage, encryptForStorage } from "@/lib/crypto/message-encryption";
-import { convertToolCallsToTextForSummarizer } from "@/lib/llm/summarizer-message-format";
+import {
+  convertToolCallsToTextForSummarizer,
+  ensureModelMessagesEndWithUserTurn,
+} from "@/lib/llm/summarizer-message-format";
 import { GUARDRAIL_MAX_OUTPUT_TOKENS } from "@/lib/llm/helpers";
 import { estimateTokenCount } from "@/lib/llm/chat-helpers";
 import { recordLlmCall } from "@/lib/llm/metrics";
@@ -80,7 +83,9 @@ export async function condenseArcadiaContext(
 
   const ownerId = threadOwnerContext.data.ownerId;
   const messagesForSummary = convertToolCallsToTextForSummarizer(messagesToCondense);
-  const modelMessages = convertToModelMessages(messagesForSummary);
+  const modelMessages = ensureModelMessagesEndWithUserTurn(
+    convertToModelMessages(messagesForSummary)
+  );
 
   const systemPrompt = existingSummary?.trim().length
     ? UpdateCondenserSystemPrompt.replace("{{conversationSummary}}", existingSummary.trim())
