@@ -61,6 +61,8 @@ memory.db
 .local-profile.md
 .local-profile-overrides.ts
 
-
 # Local bench harness and its built output
 .bench/
+
+# Noesis demo-thread cache (generated locally, not committed)
+data/noesis/
