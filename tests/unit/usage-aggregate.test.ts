@@ -82,7 +82,7 @@ describe("usage plans", () => {
       computePlanAllotmentPercent({
         plan,
         billingCycleTokens: 100_000,
-        billingCycleCostUsd: 12,
+        billingCycleCostUsd: 32,
       })
     ).toBe(80);
   });

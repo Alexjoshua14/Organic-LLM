@@ -80,6 +80,24 @@ export const LLM_MESSAGE_RATE_LIMIT = {
   why: "One token per chat POST (checked before context assembly). The Arcadia typed planner does not consume a second llm.message token.",
 } satisfies RateLimitCatalogEntry;
 
+export const AION_PRESENCE_MINUTE_RATE_LIMIT = {
+  id: "aion.presence.minute",
+  prefix: "ratelimit:aion:presence-minute",
+  cap: Number.parseInt(process.env.AION_PRESENCE_PER_MINUTE_CAP ?? "12", 10) || 12,
+  window: "1 m",
+  error: "Too many Aion presence micro-turns",
+  why: "Aion presence Tier-1 micro-turns per minute. One token per /api/ai/aion/event call that reaches generateText.",
+} as const satisfies RateLimitCatalogEntry;
+
+export const AION_PRESENCE_DAILY_TURN_RATE_LIMIT = {
+  id: "aion.presence.daily-turns",
+  prefix: "ratelimit:aion:presence-daily-turns",
+  cap: Number.parseInt(process.env.AION_PRESENCE_DAILY_TURN_CAP ?? "200", 10) || 200,
+  window: "1 d",
+  error: "Daily Aion presence turn limit exceeded",
+  why: "Aion presence Tier-1 micro-turns per day. One token per billed micro-turn.",
+} as const satisfies RateLimitCatalogEntry;
+
 export const RATE_LIMIT_CATALOG: readonly RateLimitCatalogEntry[] = [
   MEMORY_SEARCH_RATE_LIMIT,
   MEMORY_ADD_RATE_LIMIT,
@@ -88,6 +106,8 @@ export const RATE_LIMIT_CATALOG: readonly RateLimitCatalogEntry[] = [
   MEMORY_WIPE_RATE_LIMIT,
   MEMORY_FEEDBACK_RATE_LIMIT,
   LLM_MESSAGE_RATE_LIMIT,
+  AION_PRESENCE_MINUTE_RATE_LIMIT,
+  AION_PRESENCE_DAILY_TURN_RATE_LIMIT,
 ];
 
 export function catalogEntryById(id: string): RateLimitCatalogEntry | undefined {

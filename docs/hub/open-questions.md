@@ -94,3 +94,71 @@ copying it, and leave a pointer behind. See [phases.md](./phases.md#phase-4--not
 **Status:** Open — Phase 3.
 
 Which team owns Speak, and whether workstreams map to Linear projects one-to-one.
+
+---
+
+## Arcadia multitask Speak thread tagging
+
+**Status:** Open — identified 2026-09-25 with the multitask shell sandbox slice.
+
+Speak-to from an Arcadia subagent mints a **new** Speak Realtime session (`threadPolicy: "new"`)
+using the existing `feature: "speak"` thread resolver. Unresolved:
+
+- Should subagent Speak sessions use a dedicated `threads.feature` (e.g. `arcadia-multitask`)
+  so they do not collide with ordinary Speak Live resume-latest continuity?
+- When a production multi-agent runtime replaces the sandbox roster, does each subagent own a
+  durable thread, or only ephemeral Speak sessions?
+
+Recorded rather than assumed. See
+[`docs/speak/decisions/20260925-multitask-subagent-speak.md`](../speak/decisions/20260925-multitask-subagent-speak.md)
+and [`docs/arcadia.md`](../arcadia.md#multitask-shell).
+
+---
+
+## Max plan monthly spend ceiling
+
+**Status:** Open — identified 2026-09-25 with multi-mode message queue.
+
+`max` plan users (Clerk ids in `MAX_PLAN_CLERK_USER_IDS`) are not subject to the free $40
+calendar-month cap. No numeric max ceiling is defined in billing tables or product canon yet.
+Code records `monthlyBudgetUsd: null` and does not invent a dollar limit.
+
+Also open: should queued file attachments be supported, or text-only for the first slice?
+
+See [`docs/message-send-queue.md`](../message-send-queue.md) and
+[`docs/architecture/decisions/20260925-message-send-queue.md`](../architecture/decisions/20260925-message-send-queue.md).
+
+---
+
+## Max plan simultaneous stream cap
+
+**Status:** Open — identified 2026-09-25 with the signed-in `/plans` page.
+
+Free publishes **5 simultaneous LLM streams** (enforced by counting non-null
+`threads.active_stream_id` in the shared chat LLM gate). Max currently shares that same
+ceiling so the page does not invent “unlimited streams.” Unresolved: should max keep the
+free stream cap, raise it, or leave streams uncapped while the dollar budget stays unset?
+
+---
+
+## Orchestrator router model “jev”
+
+**Status:** ✅ **Resolved 2026-09-25** — catalogued and wired.
+
+House catalog entry: `openai/gpt-6-jev` (`alias: openai.jev`, `picker: false`,
+`supportsZeroDataRetention: true`, `requiresZeroDataRetention: true`). Primary router is
+`createJevThoughtRouter` with `jevRouterCallConfig()` forcing AI Gateway
+`zeroDataRetention: true` on the request. Heuristic remains only as a labeled fallback when
+the Jev call throws (`usedHeuristicFallback` on the routing result).
+
+See [`docs/aion/decisions/20260925-orchestrator-worker-identity.md`](../aion/decisions/20260925-orchestrator-worker-identity.md).
+
+---
+
+## Live multitask roster on chat requests
+
+**Status:** Open — identified 2026-09-25.
+
+Orchestrator thought-routing matches workers by id/role/goal. The Arcadia chat path currently
+seeds matches from `createDemoSubagents()` on the server. Unresolved: should the dashboard
+send the live roster (or worker ids) with each turn so routing tracks real shell state?

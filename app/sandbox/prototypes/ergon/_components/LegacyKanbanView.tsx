@@ -10,6 +10,8 @@ import { LayoutGroup, motion } from "framer-motion";
 import { useId } from "react";
 import { LayoutGrid } from "lucide-react";
 
+import { ergonBoardLabLayout } from "./ergon-board-lab-layout";
+
 import { KanbanColumn } from "@/components/chat/kanban/KanbanColumn";
 import { KanbanLoadingShell } from "@/components/chat/kanban/KanbanLoadingShell";
 import { glass } from "@/components/design-system/primitives";
@@ -33,7 +35,7 @@ export function LegacyKanbanView({ threadId, view }: { threadId: string; view: K
       <div
         className={cn(
           glass({ opaque: true }),
-          "not-prose overflow-hidden rounded-lg border border-border/50"
+          "not-prose min-w-0 overflow-hidden rounded-lg border border-border/50"
         )}
       >
         <div className="flex items-center justify-between gap-2 border-b border-border/40 px-3 py-2">
@@ -50,13 +52,13 @@ export function LegacyKanbanView({ threadId, view }: { threadId: string; view: K
           <p className="px-3 pt-3 text-xs text-muted-foreground">{view.summary}</p>
         ) : null}
 
-        <motion.div layoutScroll className="max-h-[60vh] overflow-auto px-3 pb-3">
+        <motion.div layoutScroll className={ergonBoardLabLayout.legacyScroller}>
           {items.length === 0 ? (
             <p className="py-6 text-center text-sm text-muted-foreground">
               Nothing matches this view yet.
             </p>
           ) : (
-            <div className="grid auto-cols-[minmax(11rem,1fr)] grid-flow-col gap-3 pt-3">
+            <div className="grid w-max min-w-full auto-cols-[minmax(11rem,1fr)] grid-flow-col gap-3 pt-3">
               {groups.map((group) => (
                 <KanbanColumn key={group.key} group={group} />
               ))}

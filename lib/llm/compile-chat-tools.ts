@@ -26,6 +26,7 @@ import {
   createGetFullChatHistoryTool,
   createGetMessagesFromDateTool,
   createGetMoreMessagesTool,
+  createListRecentMemoriesTool,
   createMermaidDiagramTool,
   createMemorySearchTool,
   createWebSearchTool,
@@ -156,6 +157,12 @@ export async function compileChatTools({
     tools["search_memories"] = memorySearchTool;
     toolInstructions +=
       "You have access to a vector based memory search tool. Use this when you need to recall specific details, preferences, or context from previous interactions.\n";
+
+    if (isArcadiaStyleMemoryReadExperience(experience)) {
+      tools["list_recent_memories"] = createListRecentMemoriesTool(sbUserId, writer);
+      toolInstructions +=
+        "You can list newly created or updated memories with list_recent_memories (window: hour or day). Use it for digests of recent memory activity; use search_memories for topical recall.\n";
+    }
   }
   if (useSearch) {
     tools["web_search"] = createWebSearchTool({ maxNumResults: 3, writer, sbUserId });

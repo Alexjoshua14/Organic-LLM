@@ -11,6 +11,7 @@ mapped to our production knobs.
 - CSS vars / keyframes: [`styles/ProcessingTextBurn.css`](../../styles/ProcessingTextBurn.css)
 - Component: [`components/chat/processing-text-burn.tsx`](../../components/chat/processing-text-burn.tsx)
 - Wrappers: `ChatThinking` / `ChatReasoning` / `ChatSearching` in [`components/chat/chat-loading.tsx`](../../components/chat/chat-loading.tsx)
+- Chat *route* loading (thread hydrate): [`lib/chat/chat-page-loading-timing.ts`](../../lib/chat/chat-page-loading-timing.ts) + [`styles/ChatPageLoading.css`](../../styles/ChatPageLoading.css) + [`components/chat/chat-page-loading.tsx`](../../components/chat/chat-page-loading.tsx)
 - Lab: `/sandbox/prototypes/llm-states` → **Processing burn (proto)**
 
 ---
@@ -115,6 +116,20 @@ For a ~25-character status label, total transition time should feel like **statu
 **scene**. If a change pushes typical labels well past ~**1s** of visible choreography,
 re-check against Carbon’s ~500ms *functional* choreography budget and NN/G’s “don’t make
 people wait” guidance — or justify the exception in this doc.
+
+### Chat route loading (thread hydrate)
+
+Full-page wait while `/chat/[slug]` loads — presentation only, not processing labels.
+
+| Token | Value | Rationale |
+|-------|-------|-----------|
+| Enter | **280ms** | Material short-enter; presence settles, frame is already there |
+| Breath | **3.6s** | Organic-presence idle band (2–5s); quiet sustain while hydrating |
+| Exit | **180ms** | Faster than enter (design backbone) |
+
+One soft accent presence on the same `Page` chrome as the thread. No spinner, no status copy.
+Honor `prefers-reduced-motion` with a static settle (no breath). Constants + CSS vars must stay
+in sync (`CHAT_PAGE_LOADING_*` ↔ `--cpl-*`).
 
 ### Message receipt (send acknowledgment)
 

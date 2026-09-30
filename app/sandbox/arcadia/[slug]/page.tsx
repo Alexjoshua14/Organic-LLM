@@ -3,6 +3,7 @@ import type { Metadata } from "next";
 import { UIMessage } from "ai";
 import { cache } from "react";
 
+import { ArcadiaMultitaskHost } from "@/app/sandbox/arcadia/_components/multitask-host";
 import Page from "@/components/layout/page";
 import { Chat } from "@/components/chat/chat";
 import { PerfServerPhases } from "@/components/perf/perf-server-phases";
@@ -73,9 +74,11 @@ export default async function ArcadiaChatPage({ params }: { params: Promise<{ sl
         phases={[...takeServerPhases(id), ...getPhaseCollector()]}
       />
       <Page>
-        <div className="w-full h-full">
-          <Chat chatData={chatData} endpoint="/api/chat" experience="arcadia" />
-        </div>
+        <ArcadiaMultitaskHost threadId={id}>
+          <div className="w-full h-full">
+            <Chat chatData={chatData} endpoint="/api/chat" experience="arcadia" />
+          </div>
+        </ArcadiaMultitaskHost>
       </Page>
     </>
   );

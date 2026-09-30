@@ -36,6 +36,14 @@ Memory text is **encrypted at rest** in Qdrant (AES-256-GCM via [`EncryptedVecto
 
 - Implementation: [`createMemorySearchTool`](../lib/llm/llm-tool-kit.ts) → [`lib/memory/operations.ts`](../lib/memory/operations.ts)
 
+### `list_recent_memories` (Arcadia / topic explore)
+
+Wall-clock list of memories **created or updated** in the last **hour** or **day**. Use for “what’s new” digests; use `search_memories` for topical recall. Mem0 has no `since` filter here — the tool rate-limits a getAll, filters on timestamps, and caps the return set (~50).
+
+- Args: `{ window: "hour" | "day" }`
+- Implementation: [`createListRecentMemoriesTool`](../lib/llm/llm-tool-kit.ts) → [`getMemoriesForUser`](../lib/memory/operations.ts) + [`filterMemoriesSince`](../lib/memory/recent-memories.ts)
+- Registered when `useMemory` and experience is Arcadia-style (`arcadia` | `topic_explore`)
+
 ### `web_search`
 
 [Exa](https://exa.ai) natural-language search (built for how AI assistants search and read the web) with `type: auto`, ~3 results, and `contents: { highlights: true }` — query-relevant page excerpts, not full text — streamed as cited sources.

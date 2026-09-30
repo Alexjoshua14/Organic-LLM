@@ -66,3 +66,6 @@ memory.db
 
 # Noesis demo-thread cache (generated locally, not committed)
 data/noesis/
+
+# Generated subagent identity blobs (local store; not for git)
+.data/

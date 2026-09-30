@@ -16,7 +16,13 @@ import {
   registerSpeakRealtimeSession,
   type SpeakSessionContinuity,
 } from "@/lib/rate-limit/speak-realtime";
+import { formatSubagentSessionContext } from "@/lib/arcadia/multitask/format-seed";
 import { DEFAULT_SPEAK_MODALITIES, SpeakModalitiesSchema } from "@/lib/schemas/speak-modalities";
+import {
+  DEFAULT_SPEAK_REALTIME_VOICE,
+  SpeakRealtimeVoiceSchema,
+} from "@/lib/schemas/speak-realtime-voice";
+import { SpeakSubagentSeedSchema } from "@/lib/schemas/speak-subagent-context";
 import { DEFAULT_SPEAK_THREAD_POLICY, SpeakThreadPolicySchema } from "@/lib/schemas/speak-thread";
 import { resolveSpeakThread } from "@/lib/speak/resolve-speak-thread";
 import {
@@ -60,6 +66,13 @@ const SessionBodySchema = z.object({
     .optional(),
   /** Keeps the thread but omits its summary, memories and recent turns from the instructions. */
   withoutThreadContext: z.boolean().optional(),
+  /**
+   * OpenAI Realtime output voice. Defaults to alloy for ordinary Speak Live.
+   * Arcadia multitask Speak-to passes a per-subagent voice so agents sound distinct.
+   */
+  voice: SpeakRealtimeVoiceSchema.optional(),
+  /** Seeds instructions with a subagent's identity, goal, and current progress. */
+  subagentSeed: SpeakSubagentSeedSchema.optional(),
 });
 
 export async function POST(req: Request) {
@@ -198,12 +211,18 @@ export async function POST(req: Request) {
     sessionContext = formatSpeakSessionContext(loaded) || null;
   }
 
+  const subagentSeed = parsed.data.subagentSeed;
+  // Prefer the seed's voice when both are sent so identity and timbre stay aligned.
+  const voice = subagentSeed?.voice ?? parsed.data.voice ?? DEFAULT_SPEAK_REALTIME_VOICE;
+  const subagentContext = subagentSeed ? formatSubagentSessionContext(subagentSeed) : null;
+
   const model = getSpeakRealtimeModel();
   const tools = compileSpeakRealtimeTools(modalities, { memoryEnabled });
   const instructions = buildSpeakRealtimeInstructions(modalities, {
     memoryEnabled,
     sessionContext,
     resumed: withThreadContext,
+    subagentContext,
   });
 
   const openai = new OpenAI({ apiKey });
@@ -229,7 +248,7 @@ export async function POST(req: Request) {
             transcription: { model: "gpt-transcribe" },
           },
           output: {
-            voice: "alloy",
+            voice,
           },
         },
       },
@@ -266,9 +285,12 @@ export async function POST(req: Request) {
     threadId,
     modalities,
     memoryEnabled,
+    voice,
+    subagentId: subagentSeed?.agentId ?? null,
     resumed: thread.resumed,
     continued: continuity !== null,
     contextChars: sessionContext?.length ?? 0,
+    subagentContextChars: subagentContext?.length ?? 0,
   });
 
   return NextResponse.json({
@@ -281,6 +303,8 @@ export async function POST(req: Request) {
     threadTitle: thread.title,
     modalities,
     memoryEnabled,
+    voice,
+    subagentId: subagentSeed?.agentId ?? null,
     budget: startCheck.budget,
     /** True when this call continues a session interrupted by a page reload. */
     continued: continuity !== null,
