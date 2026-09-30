@@ -350,7 +350,7 @@ export function composeContextBudget(params: ComposeContextBudgetParams): Contex
     toolOutputTokens += counts.tool;
   }
 
-  const draftTokens = estimateTokenCountSync(draftText.trim() ? `user: ${draftText.trim()}` : "");
+  const draftTokens = estimateDraftTokens(draftText);
 
   const segments = filterBudgetSegments([
     {
@@ -437,6 +437,16 @@ export function estimateTokenCountSync(text: string): number {
   } catch {
     return Math.max(1, Math.ceil(trimmed.length / 4));
   }
+}
+
+/**
+ * Tokens the typed draft adds on send, framed as a user turn like packed thread messages.
+ * Fast enough to run per keystroke (~0.1 ms for 2k chars, ~4 ms for 100k).
+ */
+export function estimateDraftTokens(draftText: string): number {
+  const trimmed = draftText.trim();
+
+  return trimmed ? estimateTokenCountSync(`user: ${trimmed}`) : 0;
 }
 
 export function getMessageTextForTokenEstimate(message: UIMessage): string {
@@ -532,7 +542,7 @@ export function computeContextBudget(params: ComputeContextBudgetParams): Contex
     return sum + (serialized ? estimateTokenCountSync(serialized) : 0);
   }, 0);
 
-  const draftTokens = estimateTokenCountSync(draftText.trim() ? `user: ${draftText.trim()}` : "");
+  const draftTokens = estimateDraftTokens(draftText);
 
   let systemTokens = ESTIMATED_SYSTEM_PROMPT_TOKENS;
   let toolsTokens = ESTIMATED_BASE_TOOL_TOKENS;
