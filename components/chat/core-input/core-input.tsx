@@ -38,7 +38,10 @@ import { ChatMessageMarkdown } from "../chat-message-markdown";
 import { ComposerAddFilesButton } from "../composer-add-files-button";
 import { ComposerMicButton } from "../composer-mic-button";
 import { ComposerSettingsMenu } from "../composer-settings-menu";
-import { ContextBudgetIndicator } from "../context-budget-indicator";
+import {
+  CONTEXT_BUDGET_DRAFT_RESERVE_CLASS,
+  ContextBudgetIndicator,
+} from "../context-budget-indicator";
 import { HomeComposerLumenShell } from "../home-composer-lumen-shell";
 
 import {
@@ -683,7 +686,11 @@ export const CoreInput: React.FC<CoreInputProps> = ({
       <PromptInputTextarea
         ref={textareaRef}
         value={text}
-        className={cn(variant === "compact" && "min-h-10 max-h-24 resize-none")}
+        className={cn(
+          variant === "compact" && "min-h-10 max-h-24 resize-none",
+          // The corner badge widens to show the draft's token count; wrap text before it.
+          showContextBudget && text.trim() && CONTEXT_BUDGET_DRAFT_RESERVE_CLASS
+        )}
         onChange={handleInputChange}
         onKeyDown={onSecondarySubmit ? handleTextareaKeyDown : undefined}
       />

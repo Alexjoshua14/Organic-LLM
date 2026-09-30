@@ -14,6 +14,7 @@ import {
   HoverCardTrigger,
 } from "@/components/third-party/ui/hover-card";
 import {
+  estimateDraftTokens,
   formatMemoryPackLabel,
   formatTokenCount,
   getContextComposition,
@@ -354,14 +355,26 @@ export function ContextBudgetPopover({ budget }: { budget: ContextBudgetEstimate
 }
 
 /**
+ * Right padding a textarea needs so typed text wraps before the badge while the draft count
+ * shows. Sized for the widest label `formatTokenCount` gives below 1M ("9,999 tok", 54px at
+ * 10px mono) plus the ring, gap, button padding, and corner offset (~86px), with a little air.
+ */
+export const CONTEXT_BUDGET_DRAFT_RESERVE_CLASS = "pr-[5.75rem]";
+
+/**
  * Badge + hover card for a resolved budget. No data fetching — the indicator below pairs
  * this with {@link useThreadContextBudget}; the CoreInput lab feeds it fixture budgets.
+ *
+ * `draftTokens` is what the typed message alone would add on send. It sits beside the ring
+ * only while there is a draft, so the badge stays a bare ring at rest.
  */
 export function ContextBudgetIndicatorView({
   budget,
+  draftTokens = 0,
   className,
 }: {
   budget: ContextBudgetEstimate;
+  draftTokens?: number;
   className?: string;
 }) {
   const pctLabel = Math.round(budget.fillRatio * 100);
@@ -371,19 +384,26 @@ export function ContextBudgetIndicatorView({
   const coverageLabel = coverage
     ? `${coverage.percent}% thread in context`
     : "thread coverage unavailable";
+  const draftLabel =
+    draftTokens > 0 ? `, your message about ${draftTokens.toLocaleString()} tokens` : "";
 
   return (
     <HoverCard closeDelay={80} openDelay={120}>
       <HoverCardTrigger asChild>
         <button
-          aria-label={`Context usage ${pctLabel} percent, ${coverageLabel}, model ${resolvedModel}, at ${Math.round(fillKelvin)} kelvin. Hover for breakdown.`}
+          aria-label={`Context usage ${pctLabel} percent${draftLabel}, ${coverageLabel}, model ${resolvedModel}, at ${Math.round(fillKelvin)} kelvin. Hover for breakdown.`}
           className={cn(
-            "inline-flex items-center rounded-md p-1 transition-colors",
+            "inline-flex items-center gap-1 rounded-md p-1 transition-colors",
             "hover:bg-muted/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60",
             className
           )}
           type="button"
         >
+          {draftTokens > 0 ? (
+            <span className="font-mono text-2xs leading-none tabular-nums text-muted-foreground">
+              {formatTokenCount(draftTokens)} tok
+            </span>
+          ) : null}
           <ContextDonut budget={budget} size="xs" />
         </button>
       </HoverCardTrigger>
@@ -432,6 +452,11 @@ export const ContextBudgetIndicator: React.FC<ContextBudgetIndicatorProps> = ({
     threadMessages,
     enabled: Boolean(chatId),
   });
+  // Counted here, not read from the budget: the budget's draft segment is debounced and
+  // absent before a thread exists, and this should track every keystroke.
+  const draftTokens = useMemo(() => estimateDraftTokens(draftText), [draftText]);
 
-  return <ContextBudgetIndicatorView budget={budget} className={className} />;
+  return (
+    <ContextBudgetIndicatorView budget={budget} className={className} draftTokens={draftTokens} />
+  );
 };
