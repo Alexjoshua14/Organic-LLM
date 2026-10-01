@@ -48,6 +48,7 @@ export function VoiceLiveBarHost({
     disconnect,
     resume,
     screenContext,
+    personaTurn,
   } = useVoiceSession();
   const [mounted, setMounted] = useState(false);
 
@@ -75,6 +76,7 @@ export function VoiceLiveBarHost({
             connecting={connecting}
             localStream={localStream}
             paused={paused}
+            personaTurn={personaTurn}
             phase={phase}
             remoteStream={remoteStream}
             resumeError={paused ? error : null}

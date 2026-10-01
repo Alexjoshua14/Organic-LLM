@@ -27,7 +27,10 @@ export type EncryptionFieldName =
   | "threads.subagent_heartbeat_baseline"
   | "threads.subagent_worktable"
   | "threads.research_ledger"
-  | "research_ledgers.payload";
+  | "research_ledgers.payload"
+  | "persona_sessions.state"
+  | "persona_sessions.log"
+  | "persona_sessions.photo";
 
 export type EncryptionContext = {
   userId: string;
