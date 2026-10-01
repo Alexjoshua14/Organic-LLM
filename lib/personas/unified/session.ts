@@ -20,6 +20,26 @@ export type PersonaStarterId = z.infer<typeof PersonaStarterIdSchema>;
 export const PersonaSurfaceSchema = z.enum(["chat", "voice"]);
 export type PersonaSurface = z.infer<typeof PersonaSurfaceSchema>;
 
+/**
+ * Where the persona is switched on. Chat threads use `chat:<threadId>`; Speak uses
+ * {@link SPEAK_PERSONA_SCOPE}. Active on/off is per scope so enabling in one chat does not
+ * follow the user into another. The painting project (`latest`) stays shared to resume.
+ */
+export const PersonaScopeIdSchema = z
+  .string()
+  .trim()
+  .min(1)
+  .max(128)
+  .regex(/^[a-zA-Z0-9:_-]+$/);
+export type PersonaScopeId = z.infer<typeof PersonaScopeIdSchema>;
+
+/** Speak page / voice surface — one scope for the whole Speak experience in v0. */
+export const SPEAK_PERSONA_SCOPE = "speak" as const;
+
+export function chatPersonaScope(threadId: string): PersonaScopeId {
+  return `chat:${threadId}`;
+}
+
 export const PERSONA_LOG_MAX = 24;
 export const PERSONA_LOG_TEXT_MAX = 1200;
 export const PERSONA_SUBJECT_MAX = 2000;

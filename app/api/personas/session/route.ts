@@ -6,6 +6,7 @@ import { findPersonaStarter } from "@/lib/personas/unified/registry";
 import {
   PERSONA_SUBJECT_MAX,
   PersonaIdSchema,
+  PersonaScopeIdSchema,
   PersonaStarterIdSchema,
 } from "@/lib/personas/unified/session";
 import { getPersonaStore } from "@/lib/personas/unified/store";
@@ -14,15 +15,28 @@ const logger = createLogger("app/api/personas/session/route.ts");
 
 const NO_STORE = { "Cache-Control": "no-store" };
 
-/** The session the user has switched on, if any. */
-export async function GET() {
+/** The session switched on for this chat/Speak scope, if any. */
+export async function GET(req: Request) {
   const owner = await resolvePersonaOwner();
 
   if (owner.response) return owner.response;
+
+  const scopeId = PersonaScopeIdSchema.safeParse(
+    new URL(req.url).searchParams.get("scopeId") ?? ""
+  );
+
+  // No scope → nowhere is "on". Callers must bind a chat/Speak scope before loading.
+  if (!scopeId.success) {
+    return Response.json({ session: null }, { headers: NO_STORE });
+  }
+
   try {
     const store = await getPersonaStore();
 
-    return Response.json({ session: await store.active(owner.ownerId) }, { headers: NO_STORE });
+    return Response.json(
+      { session: await store.active(owner.ownerId, scopeId.data) },
+      { headers: NO_STORE }
+    );
   } catch (error) {
     logger.error("GET", "Could not load persona session", error);
 
@@ -32,13 +46,14 @@ export async function GET() {
 
 const PostSchema = z.object({
   personaId: PersonaIdSchema,
+  scopeId: PersonaScopeIdSchema,
   /** `resume` picks the last session back up; `new` always starts a fresh one. */
   mode: z.enum(["resume", "new"]).default("resume"),
   starterId: PersonaStarterIdSchema.optional(),
   subject: z.string().trim().max(PERSONA_SUBJECT_MAX).optional(),
 });
 
-/** Switches a persona on: resumes the latest session or starts a new one. */
+/** Switches a persona on for a scope: resumes the latest session or starts a new one. */
 export async function POST(req: Request) {
   const owner = await resolvePersonaOwner();
 
@@ -49,20 +64,20 @@ export async function POST(req: Request) {
 
   try {
     const store = await getPersonaStore();
-    const { personaId, mode, starterId } = parsed.data;
+    const { personaId, scopeId, mode, starterId } = parsed.data;
 
     if (mode === "resume") {
       const latest = await store.latest(owner.ownerId);
 
       if (latest && latest.personaId === personaId) {
-        await store.activate(owner.ownerId, latest.id);
+        await store.activate(owner.ownerId, scopeId, latest.id);
 
         return Response.json({ session: latest });
       }
     }
 
     const starter = findPersonaStarter(starterId);
-    const session = await store.create(owner.ownerId, {
+    const session = await store.create(owner.ownerId, scopeId, {
       personaId,
       starterId: starter?.id ?? null,
       subject: parsed.data.subject ?? starter?.subject ?? "",
@@ -78,9 +93,10 @@ export async function POST(req: Request) {
 
 const PatchSchema = z.object({
   id: z.uuid(),
+  scopeId: PersonaScopeIdSchema,
   subject: z.string().trim().max(PERSONA_SUBJECT_MAX).optional(),
   starterId: PersonaStarterIdSchema.nullable().optional(),
-  /** `false` switches the persona off; the session stays to resume later. */
+  /** `false` switches the persona off in this scope; the session stays to resume later. */
   active: z.boolean().optional(),
 });
 
@@ -94,14 +110,14 @@ export async function PATCH(req: Request) {
 
   try {
     const store = await getPersonaStore();
-    const { id, active, subject, starterId } = parsed.data;
+    const { id, scopeId, active, subject, starterId } = parsed.data;
 
     if (active === false) {
-      await store.activate(owner.ownerId, null);
+      await store.activate(owner.ownerId, scopeId, null);
 
       return Response.json({ session: null });
     }
-    if (active === true && !(await store.activate(owner.ownerId, id))) {
+    if (active === true && !(await store.activate(owner.ownerId, scopeId, id))) {
       return Response.json({ error: "Persona session not found" }, { status: 404 });
     }
 
