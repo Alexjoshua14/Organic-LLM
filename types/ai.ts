@@ -1,4 +1,4 @@
-import type { KanbanCommand } from "@/lib/schemas/kanban";
+import type { KanbanChannelCommand } from "@/lib/schemas/kanban";
 import type { IntrospectionGuidedState } from "@/lib/schemas/introspection";
 import type { ContextBudgetEstimate } from "@/lib/chat/context-budget";
 
@@ -30,7 +30,7 @@ export type ChatUIMessage = UIMessage<
       sources?: ExaSearchResultSource[];
     };
     /** Ergon puppet channel: schema-validated kanban command streamed to the client store. */
-    kanban?: KanbanCommand;
+    kanban?: KanbanChannelCommand;
     /** Introspection guided shell: stable overview + navigation state. */
     "introspection-view"?: IntrospectionGuidedState;
     /** Server-measured context budget for the assembled turn. */

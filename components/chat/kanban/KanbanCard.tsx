@@ -4,9 +4,11 @@ import type { KanbanPriority } from "@/lib/schemas/kanban";
 import type { StoredKanbanItem } from "@/lib/kanban/store";
 
 import { motion } from "framer-motion";
+import { FileText } from "lucide-react";
 
 import { KanbanProgressRing } from "./KanbanProgressRing";
 
+import { useErgonDocumentOpen } from "@/components/chat/ergon-documents/ErgonDocumentOpenProvider";
 import { cn } from "@/lib/utils";
 
 const PRIORITY_STYLES: Record<KanbanPriority, string> = {
@@ -17,6 +19,9 @@ const PRIORITY_STYLES: Record<KanbanPriority, string> = {
 };
 
 export function KanbanCard({ item }: { item: StoredKanbanItem }) {
+  const openCtx = useErgonDocumentOpen();
+  const documents = item.documents ?? [];
+
   return (
     <motion.div
       layout
@@ -32,7 +37,12 @@ export function KanbanCard({ item }: { item: StoredKanbanItem }) {
     >
       <KanbanProgressRing value={item.progress} className="mt-0.5" />
       <div className="min-w-0 flex-1">
-        <p className="text-sm font-medium text-foreground leading-snug">{item.title}</p>
+        <div className="flex items-start gap-1.5">
+          <p className="text-sm font-medium text-foreground leading-snug flex-1">{item.title}</p>
+          {documents.length > 0 ? (
+            <FileText aria-hidden className="size-3.5 shrink-0 text-muted-foreground mt-0.5" />
+          ) : null}
+        </div>
         <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
           <span
             className={cn(
@@ -51,6 +61,21 @@ export function KanbanCard({ item }: { item: StoredKanbanItem }) {
             </span>
           ))}
         </div>
+        {documents.length > 0 ? (
+          <div className="mt-2 flex flex-wrap gap-1">
+            {documents.map((doc) => (
+              <button
+                key={doc.id}
+                className="inline-flex max-w-full items-center gap-1 rounded-full border border-border/50 bg-background-tertiary/50 px-2 py-0.5 text-2xs text-muted-foreground hover:bg-background-tertiary hover:text-foreground"
+                type="button"
+                onClick={() => openCtx?.openDocument(doc)}
+              >
+                <FileText className="size-2.5 shrink-0" />
+                <span className="truncate">{doc.title}</span>
+              </button>
+            ))}
+          </div>
+        ) : null}
         {item.notes ? (
           <p className="mt-1 text-xs text-muted-foreground line-clamp-2">{item.notes}</p>
         ) : null}
