@@ -644,7 +644,13 @@ export async function getContext({
       .filter((part) => part.type === "text")
       .reduce((acc, part) => acc + part.text, "");
 
-    logger.log("getContext", `User message length: ${userMessage.length}`);
+    // Length 0 is normal for context-budget scaffold polls (empty draftMessage).
+    logger.log(
+      "getContext",
+      userMessage.length === 0
+        ? "User message length: 0 (empty draft or non-text parts)"
+        : `User message length: ${userMessage.length}`
+    );
 
     // Arcadia defers memory to phase 2 (needs DB messages for rewrite transcript).
     const memNonArcadiaPromise =

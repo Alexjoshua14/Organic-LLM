@@ -78,6 +78,11 @@ import {
 import { useContextEffortSettings } from "@/hooks/use-context-effort-settings";
 import { useIsAdmin } from "@/hooks/use-is-admin";
 import { deleteEmptyChat } from "@/data/supabase/chat";
+import {
+  isBlankChatMounted,
+  releaseBlankChatMount,
+  retainBlankChatMount,
+} from "@/lib/chat/blank-chat-mount-registry";
 import { useSharedChatContext } from "@/lib/context/chat-context";
 import { useComposerDraft } from "@/hooks/use-composer-draft";
 import { useDiagramNodeLinksOptional } from "@/lib/mermaid/diagram-node-links-context";
@@ -263,24 +268,50 @@ export const CoreInput: React.FC<CoreInputProps> = ({
   // Refs for unmount cleanup: must see latest values when component unmounts
   const inputEmptyRef = useRef(false);
   const statusRef = useRef<typeof status>("ready");
+  const isBlankChatRef = useRef(Boolean(isBlankChat));
 
   inputEmptyRef.current = text.trim() === "";
   statusRef.current = status ?? "ready";
+  isBlankChatRef.current = Boolean(isBlankChat);
   // Mirror the toggle state into the caller-owned refs every render, so the value
   // sent (read from the ref at submit time) always matches what the composer shows.
   if (useWebSearchRef) useWebSearchRef.current = useWebSearch;
   if (useMemoriesRef) useMemoriesRef.current = useMemories;
 
-  // Auto-delete blank chat when user navigates away with empty input
+  /**
+   * Auto-delete blank chats only on true leave (unmount with no remount).
+   *
+   * Important: do **not** list `isBlankChat` in the effect deps. On the first send,
+   * AI SDK `pushMessage` updates messages (isBlankChat → false) before `status`
+   * becomes `"submitted"`. An effect cleanup that closed over `isBlankChat: true`
+   * would call `deleteEmptyChat` while the optimistic message was not yet persisted,
+   * deleting the thread mid-turn (Arcadia multitask looks like a crash + new chat).
+   */
   useEffect(() => {
+    if (!chatId) return;
+
+    retainBlankChatMount(chatId);
+
     return () => {
-      if (chatId && isBlankChat && inputEmptyRef.current && statusRef.current === "ready") {
-        deleteEmptyChat(chatId).then((res) => {
+      releaseBlankChatMount(chatId);
+
+      const shouldDelete =
+        isBlankChatRef.current && inputEmptyRef.current && statusRef.current === "ready";
+
+      if (!shouldDelete) return;
+
+      const id = chatId;
+
+      queueMicrotask(() => {
+        // Same-tick remount (multitask layout / Strict Mode) — keep the thread.
+        if (isBlankChatMounted(id)) return;
+
+        void deleteEmptyChat(id).then((res) => {
           if (res.ok) refreshSidebarChats();
         });
-      }
+      });
     };
-  }, [chatId, isBlankChat, refreshSidebarChats]);
+  }, [chatId, refreshSidebarChats]);
 
   useEffect(() => {
     if (!enableMarkdownInputPreview) {
@@ -582,6 +613,11 @@ export const CoreInput: React.FC<CoreInputProps> = ({
     }
 
     const finalText = textToSend || "Sent with attachments";
+
+    // Disarm blank-chat auto-delete before clearing the composer. AI SDK appends the
+    // user message before status flips to "submitted"; an unmount in that window must
+    // not treat this thread as an abandoned blank chat.
+    isBlankChatRef.current = false;
 
     // Store the text of the recently sent message for failed/aborted sends (ref = no race with effect)
     recentlySentTextRef.current = finalText;
