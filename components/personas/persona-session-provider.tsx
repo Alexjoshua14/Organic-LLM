@@ -3,6 +3,7 @@
 import type { PaintingAnalysisOutcome } from "@/lib/personas/domains/acrylic/painting-state";
 import type {
   PersonaReceipt,
+  PersonaScopeId,
   PersonaSession,
   PersonaStarterId,
 } from "@/lib/personas/unified/session";
@@ -21,12 +22,13 @@ import {
 
 import { preparePaintingPhoto } from "@/lib/personas/domains/acrylic/painting-image";
 import { findPersonaStarter } from "@/lib/personas/unified/registry";
-import { PersonaSessionSchema } from "@/lib/personas/unified/session";
+import { PersonaScopeIdSchema, PersonaSessionSchema } from "@/lib/personas/unified/session";
 
 /**
- * Client home of the unified persona: which session is on, the receipts for chat messages, and
- * photo analysis. Lives in the root layout beside the voice provider, so chat and Speak read the
- * same session. Everything durable is on the server (encrypted); nothing goes to browser storage.
+ * Client home of the unified persona: which session is on *for the current chat/Speak scope*,
+ * chat receipts, and photo analysis. Lives in the root layout beside the voice provider so both
+ * surfaces share project state (`latest`), but **active on/off is scoped** — enabling in chat A
+ * does not force-enable in chat B. Nothing goes to browser storage; durable bits are server-side.
  */
 
 export type PersonaPhotoStatus = {
@@ -38,7 +40,11 @@ export type TimedReceipt = PersonaReceipt & { at: number };
 
 type PersonaSessionContextValue = {
   session: PersonaSession | null;
-  /** The first load finished (signed out counts as finished). */
+  /** Chat/Speak scope currently bound; `null` means nowhere is on. */
+  scopeId: PersonaScopeId | null;
+  /** Bind on/off to this chat thread or Speak surface. Pass `null` on leave. */
+  setScope: (scopeId: PersonaScopeId | null) => void;
+  /** The first load finished for the current scope (signed out counts as finished). */
   ready: boolean;
   busy: boolean;
   error: string | null;
@@ -88,6 +94,7 @@ const PHOTO_MESSAGES: Record<PaintingAnalysisOutcome, string> = {
 
 export function PersonaSessionProvider({ children }: { children: ReactNode }) {
   const { isLoaded, userId } = useAuth();
+  const [scopeId, setScopeIdState] = useState<PersonaScopeId | null>(null);
   const [session, setSession] = useState<PersonaSession | null>(null);
   const [ready, setReady] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -96,38 +103,53 @@ export function PersonaSessionProvider({ children }: { children: ReactNode }) {
   const [receipts, setReceipts] = useState<Record<string, TimedReceipt>>({});
   const [lastReceipt, setLastReceipt] = useState<TimedReceipt | null>(null);
   const sessionRef = useRef<PersonaSession | null>(null);
+  const scopeRef = useRef<PersonaScopeId | null>(null);
   /** The photo the current painting state came from, for the next difference image. */
   const previousPhotoRef = useRef<{ key: string; image: string | null } | null>(null);
 
   sessionRef.current = session;
+  scopeRef.current = scopeId;
+
+  const setScope = useCallback((next: PersonaScopeId | null) => {
+    const parsed = next == null ? null : PersonaScopeIdSchema.safeParse(next);
+
+    setScopeIdState(parsed && parsed.success ? parsed.data : null);
+  }, []);
 
   useEffect(() => {
     if (!isLoaded) return;
     setSession(null);
     setReceipts({});
     setLastReceipt(null);
-    if (!userId) {
+    setError(null);
+    if (!userId || !scopeId) {
       setReady(true);
 
       return;
     }
 
+    setReady(false);
     const controller = new AbortController();
+    const scoped = scopeId;
 
-    fetch("/api/personas/session", { signal: controller.signal })
+    fetch(`/api/personas/session?scopeId=${encodeURIComponent(scoped)}`, {
+      signal: controller.signal,
+    })
       .then(readSession)
-      .then((next) => setSession(next))
+      .then((next) => {
+        if (scopeRef.current === scoped) setSession(next);
+      })
       .catch((cause) => {
         if (!controller.signal.aborted) {
           setError(cause instanceof Error ? cause.message : "Could not load your persona.");
         }
       })
       .finally(() => {
-        if (!controller.signal.aborted) setReady(true);
+        if (!controller.signal.aborted && scopeRef.current === scoped) setReady(true);
       });
 
     return () => controller.abort();
-  }, [isLoaded, userId]);
+  }, [isLoaded, userId, scopeId]);
 
   const run = useCallback(async (task: () => Promise<PersonaSession | null>) => {
     setBusy(true);
@@ -141,43 +163,62 @@ export function PersonaSessionProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
+  const requireScope = useCallback((): PersonaScopeId => {
+    const scoped = scopeRef.current;
+
+    if (!scoped) throw new Error("Open a chat or Speak before switching a persona on.");
+
+    return scoped;
+  }, []);
+
   const enable = useCallback(
     () =>
-      run(() =>
-        fetch(
+      run(() => {
+        const scoped = requireScope();
+
+        return fetch(
           "/api/personas/session",
-          jsonInit("POST", { personaId: "artist-assistant", mode: "resume" })
-        ).then(readSession)
-      ),
-    [run]
+          jsonInit("POST", { personaId: "artist-assistant", mode: "resume", scopeId: scoped })
+        ).then(readSession);
+      }),
+    [requireScope, run]
   );
 
   const disable = useCallback(async () => {
     const current = sessionRef.current;
+    const scoped = scopeRef.current;
 
-    if (!current) return;
+    if (!current || !scoped) {
+      setSession(null);
+
+      return;
+    }
     await run(() =>
-      fetch("/api/personas/session", jsonInit("PATCH", { id: current.id, active: false })).then(
-        readSession
-      )
+      fetch(
+        "/api/personas/session",
+        jsonInit("PATCH", { id: current.id, scopeId: scoped, active: false })
+      ).then(readSession)
     );
   }, [run]);
 
   const startFresh = useCallback(
     () =>
-      run(() =>
-        fetch(
+      run(() => {
+        const scoped = requireScope();
+
+        return fetch(
           "/api/personas/session",
-          jsonInit("POST", { personaId: "artist-assistant", mode: "new" })
-        ).then(readSession)
-      ),
-    [run]
+          jsonInit("POST", { personaId: "artist-assistant", mode: "new", scopeId: scoped })
+        ).then(readSession);
+      }),
+    [requireScope, run]
   );
 
   /** A starter on an untouched session fills it in; on one with history it starts a new one. */
   const chooseStarter = useCallback(
     async (starterId: PersonaStarterId) => {
       const current = sessionRef.current;
+      const scoped = requireScope();
       const starter = findPersonaStarter(starterId);
 
       if (!starter) return;
@@ -185,28 +226,40 @@ export function PersonaSessionProvider({ children }: { children: ReactNode }) {
 
       await run(() =>
         untouched
-          ? fetch("/api/personas/session", jsonInit("PATCH", { id: current.id, starterId })).then(
-              readSession
-            )
+          ? fetch(
+              "/api/personas/session",
+              jsonInit("PATCH", { id: current.id, scopeId: scoped, starterId })
+            ).then(readSession)
           : fetch(
               "/api/personas/session",
-              jsonInit("POST", { personaId: "artist-assistant", mode: "new", starterId })
+              jsonInit("POST", {
+                personaId: "artist-assistant",
+                mode: "new",
+                scopeId: scoped,
+                starterId,
+              })
             ).then(readSession)
       );
     },
-    [run]
+    [requireScope, run]
   );
 
   const setSubject = useCallback(
     async (subject: string) => {
       const current = sessionRef.current;
+      const scoped = scopeRef.current;
       const trimmed = subject.trim();
 
-      if (!current || !trimmed) return;
+      if (!current || !scoped || !trimmed) return;
       await run(() =>
         fetch(
           "/api/personas/session",
-          jsonInit("PATCH", { id: current.id, subject: trimmed, starterId: null })
+          jsonInit("PATCH", {
+            id: current.id,
+            scopeId: scoped,
+            subject: trimmed,
+            starterId: null,
+          })
         ).then(readSession)
       );
     },
@@ -285,6 +338,8 @@ export function PersonaSessionProvider({ children }: { children: ReactNode }) {
   const value = useMemo<PersonaSessionContextValue>(
     () => ({
       session,
+      scopeId,
+      setScope,
       ready,
       busy,
       error,
@@ -302,6 +357,8 @@ export function PersonaSessionProvider({ children }: { children: ReactNode }) {
     }),
     [
       session,
+      scopeId,
+      setScope,
       ready,
       busy,
       error,
@@ -325,4 +382,20 @@ export function PersonaSessionProvider({ children }: { children: ReactNode }) {
 /** `null` outside the provider (tests, isolated sandboxes). */
 export function usePersonaSessionOptional() {
   return useContext(PersonaSessionContext);
+}
+
+/**
+ * Bind the persona on/off flag to this chat/Speak scope for as long as the caller is mounted.
+ * Clearing on unmount keeps the persona from leaking into the next page.
+ */
+export function usePersonaScope(scopeId: PersonaScopeId | null | undefined) {
+  const persona = usePersonaSessionOptional();
+  const setScope = persona?.setScope;
+
+  useEffect(() => {
+    if (!setScope) return;
+    setScope(scopeId ?? null);
+
+    return () => setScope(null);
+  }, [setScope, scopeId]);
 }

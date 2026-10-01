@@ -23,9 +23,9 @@ export function ComposerPersonaChip({ showLabel = false }: { showLabel?: boolean
     <PersonaPanel
       trigger={
         <ComposerActionButton
-          aria-label={active ? `${name} on — open personas` : "Choose a persona"}
+          aria-label={active ? `${name} on for this chat — open personas` : "Choose a persona"}
           engaged={active}
-          title={active ? `${name} is on` : "Personas"}
+          title={active ? `${name} is on for this chat` : "Personas"}
           type="button"
         >
           <PersonaSpark size={18} state={active ? "idle" : "inactive"} />

@@ -1,6 +1,6 @@
 "use client";
 
-import { Camera, Check, Loader2, Plus } from "lucide-react";
+import { Camera, Check, Loader2, Plus, Power } from "lucide-react";
 import { useRef, useState, type ReactElement } from "react";
 
 import { PaintingStateSummary } from "./painting-state-summary";
@@ -22,6 +22,7 @@ import { cn } from "@/lib/utils";
 /**
  * Choosing a persona and steering its session: on/off, what is being painted, starters, and
  * progress photos. One panel, opened from the composer chip in chat and the Speak toolbar.
+ * On/off applies only to the current chat or Speak surface — not a global sticky toggle.
  */
 export function PersonaPanel({
   trigger,
@@ -38,8 +39,9 @@ export function PersonaPanel({
   const photoInput = useRef<HTMLInputElement>(null);
 
   if (!persona) return null;
-  const { session, busy, error, photo } = persona;
+  const { session, busy, error, photo, scopeId } = persona;
   const artist = PERSONAS["artist-assistant"];
+  const canToggle = Boolean(scopeId) && !busy && !locked;
 
   return (
     <Dialog
@@ -53,7 +55,9 @@ export function PersonaPanel({
       <DialogContent className="max-h-[85dvh] w-[calc(100%-2rem)] overflow-y-auto rounded-2xl sm:max-w-md">
         <DialogHeader>
           <DialogTitle>Personas</DialogTitle>
-          <DialogDescription>A persona stays with you across chat and voice.</DialogDescription>
+          <DialogDescription>
+            On for this chat or Speak session only. Your painting project can still resume later.
+          </DialogDescription>
         </DialogHeader>
 
         <button
@@ -64,7 +68,7 @@ export function PersonaPanel({
               ? "border-teal-500/40 bg-teal-500/5"
               : "border-border hover:bg-background-tertiary/60"
           )}
-          disabled={busy || locked}
+          disabled={!canToggle}
           type="button"
           onClick={() => void (session ? persona.disable() : persona.enable())}
         >
@@ -72,7 +76,7 @@ export function PersonaPanel({
           <span className="min-w-0 flex-1">
             <span className="block text-sm font-medium">{artist.name}</span>
             <span className="block text-xs leading-relaxed text-muted-foreground">
-              {artist.tagline}
+              {session ? "On — tap to turn off" : artist.tagline}
             </span>
           </span>
           {busy ? (
@@ -82,7 +86,13 @@ export function PersonaPanel({
           ) : null}
         </button>
         {locked ? (
-          <p className="text-xs text-muted-foreground">End the voice call to switch personas.</p>
+          <p className="text-xs text-muted-foreground">
+            End the voice call to turn the persona off or switch.
+          </p>
+        ) : !scopeId ? (
+          <p className="text-xs text-muted-foreground">
+            Open a chat or Speak to switch a persona on.
+          </p>
         ) : null}
 
         {session ? (
@@ -194,9 +204,17 @@ export function PersonaPanel({
             </section>
 
             <div className="flex items-center justify-between gap-3 border-t border-border pt-3">
-              <p className="text-xs leading-relaxed text-muted-foreground">
-                Asides and sighs are heard, not answered.
-              </p>
+              <Button
+                disabled={!canToggle}
+                size="sm"
+                title="Turn the Artist assistant off for this chat or Speak session"
+                type="button"
+                variant="ghost"
+                onClick={() => void persona.disable()}
+              >
+                <Power aria-hidden className="size-3.5" />
+                Turn off
+              </Button>
               <Button
                 disabled={busy}
                 size="sm"

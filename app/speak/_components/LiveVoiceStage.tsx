@@ -14,9 +14,13 @@ import { glass } from "@/components/design-system/primitives";
 import { SpeakPersonaChip } from "@/components/personas/persona-chip";
 import { PersonaSpark, type PersonaSparkState } from "@/components/personas/persona-spark";
 import { PersonaStarters } from "@/components/personas/persona-starters";
-import { usePersonaSessionOptional } from "@/components/personas/persona-session-provider";
+import {
+  usePersonaScope,
+  usePersonaSessionOptional,
+} from "@/components/personas/persona-session-provider";
 import { useVoiceSession } from "@/components/voice/voice-session-provider";
 import { useSharedChatContext } from "@/lib/context/chat-context";
+import { SPEAK_PERSONA_SCOPE } from "@/lib/personas/unified/session";
 import { cn } from "@/lib/utils";
 
 export function LiveVoiceStage({ onExit }: { onExit?: () => void }) {
@@ -28,6 +32,9 @@ export function LiveVoiceStage({ onExit }: { onExit?: () => void }) {
    */
   const voice = useVoiceSession();
   const persona = usePersonaSessionOptional();
+
+  // Speak is its own scope — enabling here must not force-enable unrelated chats.
+  usePersonaScope(SPEAK_PERSONA_SCOPE);
   const personaActive = Boolean(persona?.session);
   const { caption, modalities, setModalities, memoryEnabled, setMemoryEnabled, visual } = voice;
   const { displayText, genUiBlocks, webPreview, uiStateBySurface } = visual;
