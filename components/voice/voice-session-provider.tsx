@@ -23,7 +23,8 @@ import {
 
 import { VoiceLiveBarHost } from "./voice-live-bar-host";
 
-import { useRealtimeVoice } from "@/hooks/use-realtime-voice";
+import { usePersonaSessionOptional } from "@/components/personas/persona-session-provider";
+import { useRealtimeVoice, type PersonaVoiceTurn } from "@/hooks/use-realtime-voice";
 import { DEFAULT_COMPOSER_MEMORIES } from "@/lib/chat/composer-tool-defaults";
 import { DEFAULT_SPEAK_MODALITIES } from "@/lib/schemas/speak-modalities";
 import { screenSurfaceKey } from "@/lib/schemas/speak-screen-context";
@@ -56,6 +57,8 @@ export type VoiceSessionValue = {
   budget: ReturnType<typeof useRealtimeVoice>["budget"];
   transcript: RealtimeTranscriptEntry[];
   caption: VoiceCaption;
+  /** Persona calls only: what happened to the latest utterance (heard, answered, held). */
+  personaTurn: PersonaVoiceTurn | null;
   /** Epoch ms the conversation began, across reloads. `null` when idle. */
   startedAt: number | null;
   localStream: MediaStream | null;
@@ -140,11 +143,14 @@ export function VoiceSessionProvider({
     setVisual((prev) => applyVoiceEffects(prev, effects));
   }, []);
 
+  const persona = usePersonaSessionOptional();
   const voice = useRealtimeVoice({
     modalities,
     memoryEnabled,
     transportFactory,
     idlePauseMs,
+    personaSessionId: persona?.session?.id ?? null,
+    personaRevision: persona?.revision ?? null,
     onCaptionChange: setCaption,
     onClientEffects: handleEffects,
   });
@@ -232,6 +238,7 @@ export function VoiceSessionProvider({
       budget: voice.budget,
       transcript: voice.transcript,
       caption,
+      personaTurn: voice.personaTurn,
       startedAt: voice.startedAt,
       localStream: voice.localStream,
       remoteStream: voice.remoteStream,
@@ -268,6 +275,7 @@ export function VoiceSessionProvider({
       voice.budget,
       voice.transcript,
       voice.startedAt,
+      voice.personaTurn,
       voice.localStream,
       voice.remoteStream,
       voice.screenContext,

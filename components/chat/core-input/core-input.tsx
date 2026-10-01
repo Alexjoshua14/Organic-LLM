@@ -55,6 +55,9 @@ import { CORE_INPUT_LAYOUT } from "./layout-breakpoints";
 import { organicGlassSubmitClassName, PromptInputSubmit } from "./submit/submit-button";
 import { OrganicSubmitGlyph, resolveOrganicSubmitState } from "./submit/submit-glyph";
 
+import { ComposerPersonaChip } from "@/components/personas/persona-chip";
+import { PersonaSpark } from "@/components/personas/persona-spark";
+import { usePersonaSessionOptional } from "@/components/personas/persona-session-provider";
 import { DiagramNodeChip } from "@/components/mermaid/diagram-node-chip";
 import { FeatureHint } from "@/components/onboarding/feature-hint";
 import { CoreInputVoiceDrawerSlot } from "@/components/voice/core-input-voice-drawer-slot";
@@ -157,6 +160,11 @@ type CoreInputProps = {
   queueSendMode?: boolean;
   /** Optional multitask subagent id stored with the queue row. */
   queueTargetAgentId?: string;
+  /**
+   * Surfaces that forward the unified persona (main chat, Arcadia) show its chip, and its Spark
+   * replaces the send button while it is on.
+   */
+  personaEnabled?: boolean;
 };
 
 /** Max length for the in-flight shimmer copy (matches AiInputForm). */
@@ -213,8 +221,11 @@ export const CoreInput: React.FC<CoreInputProps> = ({
   chatStyle,
   queueSendMode = false,
   queueTargetAgentId,
+  personaEnabled = false,
 }) => {
   const { refreshSidebarChats } = useSharedChatContext();
+  const persona = usePersonaSessionOptional();
+  const personaActive = personaEnabled && Boolean(persona?.session);
   const diagramNodeLinks = useDiagramNodeLinksOptional();
   const queueEnabled = shouldEnqueueInsteadOfSend(queueSendMode) && Boolean(chatId);
   const messageQueue = useMessageSendQueue({
@@ -887,13 +898,31 @@ export const CoreInput: React.FC<CoreInputProps> = ({
 
   const submitControl = (
     <PromptInputSubmit
-      className={cn(submitVariant === "organic-glass" && organicGlassSubmitClassName)}
+      aria-label={personaActive && status === "ready" ? "Send to Artist assistant" : undefined}
+      className={cn(
+        submitVariant === "organic-glass" && !personaActive && organicGlassSubmitClassName,
+        personaActive && "overflow-hidden rounded-lg bg-transparent p-0 hover:bg-transparent"
+      )}
+      variant={personaActive ? "ghost" : undefined}
       // Multi-mode: always submit (never stop). Default: keep stop available while streaming.
       disabled={queueEnabled ? !text.trim() || disabled : (!text && !status) || disabled}
       status={queueEnabled ? "ready" : status}
       stop={queueEnabled ? undefined : stop}
     >
-      {submitVariant === "organic-glass" ? (
+      {personaActive ? (
+        // The persona's visual is where its reply comes from: idle, deciding, then speaking.
+        <PersonaSpark
+          pulseKey={persona?.lastReceipt?.at ?? null}
+          size={32}
+          state={
+            queueEnabled || status === "ready" || status === "error"
+              ? "idle"
+              : status === "submitted"
+                ? "deciding"
+                : "speaking"
+          }
+        />
+      ) : submitVariant === "organic-glass" ? (
         <OrganicSubmitGlyph state={organicSubmitState} />
       ) : undefined}
     </PromptInputSubmit>
@@ -945,6 +974,7 @@ export const CoreInput: React.FC<CoreInputProps> = ({
             {/* `gap-3` separates control groups; the tighter `gap-1` inside each
                 group is owned by the group itself. */}
             <div className="flex min-w-0 items-center gap-3 overflow-visible">
+              {personaEnabled ? <ComposerPersonaChip showLabel={showLabels} /> : null}
               {toolToggles}
 
               {!useCondensedLayout && useSpeechFriendlyRef && !hideWebMemorySpeechToggles ? (
