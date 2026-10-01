@@ -1,6 +1,6 @@
 "use client";
 
-import type { VoiceScreenContextSnapshot } from "@/hooks/use-realtime-voice";
+import type { PersonaVoiceTurn, VoiceScreenContextSnapshot } from "@/hooks/use-realtime-voice";
 
 import { Mic, PhoneOff, X } from "lucide-react";
 
@@ -10,6 +10,7 @@ import { VOICE_BAR_HEIGHT_PX } from "./voice-live-bar-timing";
 import { VoiceSeesChip } from "./voice-sees-chip";
 import { VoiceWaveform } from "./voice-waveform";
 
+import { PersonaSpark } from "@/components/personas/persona-spark";
 import { cn } from "@/lib/utils";
 
 export type VoiceLiveBarProps = {
@@ -29,7 +30,20 @@ export type VoiceLiveBarProps = {
    * passes it only in development; `null` shows "nothing yet".
    */
   sees?: VoiceScreenContextSnapshot | null;
+  /**
+   * Persona calls: the receipt for the latest utterance. A held turn produces no audio, so the
+   * bar — visible on every page — shows that it was heard.
+   */
+  personaTurn?: PersonaVoiceTurn | null;
 };
+
+const PERSONA_SPARK_STATE = {
+  listening: "listening",
+  heard: "idle",
+  deciding: "deciding",
+  responding: "speaking",
+  held: "idle",
+} as const;
 
 const PHASE_LABEL: Record<VoiceLiveBarProps["phase"], string> = {
   idle: "Voice is on",
@@ -64,6 +78,7 @@ export function VoiceLiveBar({
   resumeError = null,
   onResume,
   sees,
+  personaTurn = null,
 }: VoiceLiveBarProps) {
   // A resume in flight looks like any other connect; paused is only the resting state.
   const resting = paused && !connecting;
@@ -122,6 +137,19 @@ export function VoiceLiveBar({
       )}
 
       {sees !== undefined && !resting && !connecting ? <VoiceSeesChip context={sees} /> : null}
+
+      {personaTurn && !resting && !connecting ? (
+        <span className="relative flex shrink-0 items-center gap-1.5 text-2xs text-muted-foreground">
+          <PersonaSpark
+            pulseKey={
+              personaTurn.state === "heard" || personaTurn.state === "held" ? personaTurn.at : null
+            }
+            size={16}
+            state={PERSONA_SPARK_STATE[personaTurn.state]}
+          />
+          {personaTurn.state === "listening" ? null : personaTurn.label}
+        </span>
+      ) : null}
 
       {startedAt !== null && !resting ? (
         <VoiceElapsed className="relative shrink-0 text-2xs" startedAt={startedAt} />

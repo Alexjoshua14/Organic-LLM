@@ -11,6 +11,10 @@ import { SpeakVisualPanel } from "./SpeakVisualPanel";
 import { VoicePresenceOrb } from "./VoicePresenceOrb";
 
 import { glass } from "@/components/design-system/primitives";
+import { SpeakPersonaChip } from "@/components/personas/persona-chip";
+import { PersonaSpark, type PersonaSparkState } from "@/components/personas/persona-spark";
+import { PersonaStarters } from "@/components/personas/persona-starters";
+import { usePersonaSessionOptional } from "@/components/personas/persona-session-provider";
 import { useVoiceSession } from "@/components/voice/voice-session-provider";
 import { useSharedChatContext } from "@/lib/context/chat-context";
 import { cn } from "@/lib/utils";
@@ -23,6 +27,8 @@ export function LiveVoiceStage({ onExit }: { onExit?: () => void }) {
    * connection, captions, or tool output.
    */
   const voice = useVoiceSession();
+  const persona = usePersonaSessionOptional();
+  const personaActive = Boolean(persona?.session);
   const { caption, modalities, setModalities, memoryEnabled, setMemoryEnabled, visual } = voice;
   const { displayText, genUiBlocks, webPreview, uiStateBySurface } = visual;
 
@@ -62,7 +68,20 @@ export function LiveVoiceStage({ onExit }: { onExit?: () => void }) {
       : "Continuing your last conversation"
     : null;
 
-  const idleHint = "Realtime voice — picks up your last conversation. Tap + for a fresh one.";
+  const idleHint = personaActive
+    ? "Artist assistant — ask when you need a hand. Asides are heard, not answered."
+    : "Realtime voice — picks up your last conversation. Tap + for a fresh one.";
+  const turn = voice.personaTurn;
+  // The assistant's visual follows the call: listening, deciding, speaking, else at rest.
+  const sparkState: PersonaSparkState = !voice.connected
+    ? "idle"
+    : voice.phase === "speaking"
+      ? "speaking"
+      : voice.phase === "listening"
+        ? "listening"
+        : turn?.state === "deciding"
+          ? "deciding"
+          : "idle";
   const captionText =
     displayText && modalities.text
       ? displayText
@@ -73,6 +92,7 @@ export function LiveVoiceStage({ onExit }: { onExit?: () => void }) {
     <div className="relative flex h-full min-h-0 w-full flex-col">
       <div className="absolute left-4 right-4 top-4 z-20 flex flex-wrap items-start justify-between gap-3">
         <div className="flex flex-wrap items-center gap-2">
+          <SpeakPersonaChip locked={sessionLocked} />
           <SpeakModalityToggles
             disabled={sessionLocked}
             value={modalities}
@@ -116,7 +136,17 @@ export function LiveVoiceStage({ onExit }: { onExit?: () => void }) {
               initial={{ opacity: 0.7, scale: 0.96 }}
               transition={{ duration: 0.45, ease: [0.25, 0.46, 0.45, 0.94] }}
             >
-              <VoicePresenceOrb phase={voice.phase} />
+              {personaActive ? (
+                <PersonaSpark
+                  pulseKey={
+                    turn && (turn.state === "heard" || turn.state === "held") ? turn.at : null
+                  }
+                  size={200}
+                  state={sparkState}
+                />
+              ) : (
+                <VoicePresenceOrb phase={voice.phase} />
+              )}
 
               {showText ? (
                 <div className="min-h-[5rem] w-full max-w-3xl">
@@ -131,6 +161,22 @@ export function LiveVoiceStage({ onExit }: { onExit?: () => void }) {
           </AnimatePresence>
 
           <p className="mt-6 text-xs text-muted-foreground">{statusHint}</p>
+
+          {personaActive && voice.connected ? (
+            <p
+              aria-live="polite"
+              className="mt-1 min-h-4 text-2xs text-muted-foreground"
+              role="status"
+            >
+              {turn && turn.state !== "listening" ? turn.label : ""}
+            </p>
+          ) : null}
+
+          {personaActive && !voice.connected ? (
+            <div className="mt-6 w-full max-w-lg">
+              <PersonaStarters compact />
+            </div>
+          ) : null}
 
           {voice.connected && resumeHint ? (
             <p className="mt-1 text-2xs text-muted-foreground/80">{resumeHint}</p>
