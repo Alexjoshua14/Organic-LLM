@@ -21,9 +21,12 @@ import { ChatStylePicker } from "./chat-style-picker";
 import { ChatThreadStyleOverlay } from "./chat-thread-style-overlay";
 
 import { PersonaStarters } from "@/components/personas/persona-starters";
-import { usePersonaSessionOptional } from "@/components/personas/persona-session-provider";
+import {
+  usePersonaScope,
+  usePersonaSessionOptional,
+} from "@/components/personas/persona-session-provider";
 import { blobFromUrl } from "@/lib/personas/domains/acrylic/painting-image";
-import { PersonaReceiptSchema } from "@/lib/personas/unified/session";
+import { chatPersonaScope, PersonaReceiptSchema } from "@/lib/personas/unified/session";
 import { DiagramTakeoverShell } from "@/components/mermaid/diagram-takeover-shell";
 import { MemoryEphemeralCards } from "@/components/memory/memory-ephemeral-cards";
 import { MemoryLens } from "@/components/memory/memory-lens";
@@ -457,6 +460,9 @@ export const Chat: React.FC<ChatProps> = ({
         setContextBudgetRefreshKey((key) => key + 1);
       },
     });
+
+  // Active on/off is bound to this thread only — not a user-wide sticky flag.
+  usePersonaScope(personaHost && id ? chatPersonaScope(id) : null);
 
   /**
    * Photos sent to the persona also update its picture of the painting. The chat model sees the

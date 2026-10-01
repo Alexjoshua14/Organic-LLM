@@ -36,7 +36,10 @@ const PREFIX = "persona:v1";
 const TTL_SECONDS = 120 * 24 * 60 * 60;
 
 const keys = {
-  active: (owner: string) => `${PREFIX}:active:${owner}`,
+  /** Per chat/Speak scope — not a single user-wide flag. */
+  active: (owner: string, scopeId: string) => `${PREFIX}:active:${owner}:${scopeId}`,
+  /** Pre-scope global pointer; deleted when a scoped activate runs so sticky leftovers die. */
+  activeLegacy: (owner: string) => `${PREFIX}:active:${owner}`,
   latest: (owner: string) => `${PREFIX}:latest:${owner}`,
   state: (owner: string, id: string) => `${PREFIX}:state:${owner}:${id}`,
   log: (owner: string, id: string) => `${PREFIX}:log:${owner}:${id}`,
@@ -152,9 +155,9 @@ export function createPersonaStore(deps: {
   return {
     load,
 
-    /** The session the user has switched on, if any. */
-    async active(owner: string): Promise<PersonaSession | null> {
-      const id = await pointer(keys.active(owner));
+    /** The session switched on for this chat/Speak scope, if any. */
+    async active(owner: string, scopeId: string): Promise<PersonaSession | null> {
+      const id = await pointer(keys.active(owner, scopeId));
 
       return id ? load(owner, id) : null;
     },
@@ -166,7 +169,11 @@ export function createPersonaStore(deps: {
       return id ? load(owner, id) : null;
     },
 
-    async create(owner: string, input: CreatePersonaSessionInput): Promise<PersonaSession> {
+    async create(
+      owner: string,
+      scopeId: string,
+      input: CreatePersonaSessionInput
+    ): Promise<PersonaSession> {
       const at = now().toISOString();
       const state: StoredState = {
         id: (deps.uuid ?? randomUUID)(),
@@ -181,8 +188,9 @@ export function createPersonaStore(deps: {
 
       await writeState(owner, state);
       await Promise.all([
-        deps.redis.set(keys.active(owner), state.id, { ex: TTL_SECONDS }),
+        deps.redis.set(keys.active(owner, scopeId), state.id, { ex: TTL_SECONDS }),
         deps.redis.set(keys.latest(owner), state.id, { ex: TTL_SECONDS }),
+        deps.redis.del(keys.activeLegacy(owner)),
       ]);
 
       return { ...state, log: [] };
@@ -208,16 +216,21 @@ export function createPersonaStore(deps: {
       return load(owner, id);
     },
 
-    /** Switches the persona on for `id`, or off with `null`. Off keeps the session to resume. */
-    async activate(owner: string, id: string | null): Promise<boolean> {
+    /**
+     * Switches the persona on for `id` in `scopeId`, or off with `null`.
+     * Off keeps the session (via `latest`) so the user can resume later in any scope.
+     */
+    async activate(owner: string, scopeId: string, id: string | null): Promise<boolean> {
+      // Drop the pre-scope global pointer so a sticky leftover cannot resurrect.
+      await deps.redis.del(keys.activeLegacy(owner));
       if (id === null) {
-        await deps.redis.del(keys.active(owner));
+        await deps.redis.del(keys.active(owner, scopeId));
 
         return true;
       }
       if (!(await readState(owner, id))) return false;
       await Promise.all([
-        deps.redis.set(keys.active(owner), id, { ex: TTL_SECONDS }),
+        deps.redis.set(keys.active(owner, scopeId), id, { ex: TTL_SECONDS }),
         deps.redis.set(keys.latest(owner), id, { ex: TTL_SECONDS }),
       ]);
 
