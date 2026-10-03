@@ -8,6 +8,7 @@
 - [Context building](./architecture/context-building.md) — how chat context is assembled before `streamText`
 - [Chat model aliases](./architecture/decisions/20260909-chat-model-aliases.md) — `models.provider.family` vs picker `name` / persisted gateway ids
 - [Arcadia context effort](./architecture/decisions/20260914-arcadia-context-effort.md) — Instant / Quick / Heavy memory compilation; 50k history window unchanged
+- [Arcadia GitHub read](./architecture/decisions/20261002-arcadia-github-read.md) — allowlisted repository reads distilled by cheaper ZDR models
 - [End-to-end encryption overview](./e2ee.md)
 
 ## Product hub
