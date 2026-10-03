@@ -35,6 +35,8 @@ import {
 import { appendIntrospectionMainChatSystemFragments } from "@/lib/api/introspection-system-prompt";
 import { runLLMChatStream } from "@/lib/api/run-llm-chat-stream";
 import { saveChat } from "@/lib/chat/chat-store";
+import { stampTurnWithActivatedMemories } from "@/lib/chat/stamp-activated-memories";
+import { expandActivatedMemoriesForModel } from "@/lib/memory/activated-thread-memories";
 import { resolveMemoryEnabledForExperience } from "@/lib/chat/chat-experience";
 import { getLastUserMessageText } from "@/lib/arcadia/help-response";
 import { compileChatTools } from "@/lib/llm/compile-chat-tools";
@@ -99,7 +101,7 @@ export async function runQueuedChatTurn(args: {
   const assistantMessageId = randomUUID();
   const threadHasTitlePromise = getThreadHasTitle(chatId);
 
-  void saveChat({
+  const userMessageSave = saveChat({
     chatId,
     messages: [userMessage],
     useAdminForSave: true,
@@ -190,7 +192,7 @@ export async function runQueuedChatTurn(args: {
                 experience,
               });
 
-      const {
+      let {
         validatedMessages,
         systemPromptForRequest: afterContext,
         tokenBreakdown,
@@ -198,7 +200,17 @@ export async function runQueuedChatTurn(args: {
         totalThreadMessages,
         scheduleBackgroundCondensation,
         memoriesInjected,
+        activatedMemories,
       } = await loadTurnContext();
+
+      validatedMessages = await stampTurnWithActivatedMemories({
+        chatId,
+        validatedMessages,
+        savedUserMessage: userMessage,
+        activatedMemories,
+        userMessageSave,
+        ownerId: sbUserId,
+      });
 
       if (experience === "arcadia" && scheduleBackgroundCondensation) {
         scheduleArcadiaContextCondensation({
@@ -226,7 +238,7 @@ export async function runQueuedChatTurn(args: {
         systemPromptForRequest = `${systemPromptForRequest}\n\n${multitaskRoutingFragment}`;
       }
 
-      const messages = convertToModelMessages(validatedMessages);
+      const messages = convertToModelMessages(expandActivatedMemoriesForModel(validatedMessages));
       const initialMessageCount = validatedMessages.length;
 
       const { tools, toolInstructions } = await compileChatTools({
