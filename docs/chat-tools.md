@@ -68,7 +68,15 @@ Requires `useGetMoreMessages` and a `chatId`. See also [Context building](./arch
 
 *Arcadia is the sandbox where chat goes beyond prose — the model can publish diagrams, structured UI blocks, and live boards so replies are easier to scan, compare, and act on in-thread.* See [Arcadia](./arcadia.md).
 
-Registered when `experience` is **arcadia** or **topic explore**.
+Registered when `experience` is **arcadia** or **topic explore**. GitHub read tools are **arcadia** only.
+
+### `github_repo_overview`, `github_recent_commits`, `github_pull_requests`, `github_read_file`
+
+Read-only GitHub access for an allowlisted repository. The user-selected chat model calls the tool. When the payload is larger than a short passthrough, a smaller zero-data-retention gateway model (Luna, the Terra alias, Haiku, or Kimi K2.7 Code) distills it. [Jev](https://vercel.com/ai-gateway/models/jev) (`typesafe-ai/jev`) picks fidelity — summary, excerpts, or a capped raw slice — when the caller leaves fidelity on `auto`. A deterministic heuristic runs when Jev is unavailable.
+
+`raw` still caps the slice returned to the main model. Repository text is treated as untrusted data. The deployment token cannot read a repository that is absent from `GITHUB_READ_ALLOWLIST`.
+
+- Implementation: [`createGithubReadTools`](../lib/llm/github-tools.ts) · decision: [`20261002-arcadia-github-read`](./architecture/decisions/20261002-arcadia-github-read.md)
 
 ### `make_mermaid_diagram`
 
@@ -175,7 +183,7 @@ Export is a **user/UI** feature, not part of `compileChatTools`, but it pairs we
 | Experience | Typical tools |
 |------------|----------------|
 | **Main chat** | Memory, web, history (per settings); Arcadia-style tools when configured |
-| **Arcadia** | + Mermaid, Gen UI; + kanban when Ergon style; + meal planning when Remy style |
+| **Arcadia** | + Mermaid, Gen UI, GitHub read; + kanban when Ergon style; + meal planning when Remy style |
 | **Remy** (`/api/ai/remy`) | Culinary persona + Mem0; `mise_plan` + `prep_plan` + `fetch_recipe` always on |
 | **Delphi** | Memory search + propose/commit/link/flag workflow |
 | **Strata hub** | Navigate + search Strata pages |
