@@ -651,7 +651,7 @@ export async function getContext({
       context: string;
       messages: UIMessage[];
       memories?: string[];
-      /** Memories selected for this turn, persisted onto the user message by the route. */
+      /** Memories selected for this turn, unclipped. The route clips or condenses them onto the user message. */
       activatedMemories?: ActivatedMemory[];
       tokenBreakdown?: Array<{ name: string; tokens: number }>;
       packedMessageCount?: number;
@@ -928,7 +928,7 @@ export async function getContext({
 
         memories = effortPhase.memoriesText;
         returnedMemories = effortPhase.selected.map((item) => item.memory).filter(Boolean);
-        activatedMemories = toActivatedMemories(effortPhase.selected);
+        activatedMemories = toActivatedMemories(effortPhase.selected, { clip: false });
 
         contextPieces.push({
           title: "Memories from past conversations:",
@@ -967,7 +967,7 @@ export async function getContext({
 
         memories = formatMemoriesForPrompt(selected);
         returnedMemories = selected.map((item) => item.memory).filter(Boolean);
-        activatedMemories = toActivatedMemories(selected);
+        activatedMemories = toActivatedMemories(selected, { clip: false });
         const conversationMessagesInContext = messages.length + 1;
         const inventoryText = buildArcadiaMemoryInventoryText({
           conversationMessagesInContext,
@@ -1006,7 +1006,7 @@ export async function getContext({
           .split("\n")
           .map((line) => line.trim())
           .filter(Boolean);
-        activatedMemories = toActivatedMemories(memoriesResult.results);
+        activatedMemories = toActivatedMemories(memoriesResult.results, { clip: false });
 
         contextPieces.push({
           title: "Memories from past conversations:",
