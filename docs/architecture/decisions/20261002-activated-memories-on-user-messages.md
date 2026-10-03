@@ -2,7 +2,7 @@
 
 **Status:** Accepted
 **Date:** 2026-10-02
-**Affects:** `lib/chat/chat-store.ts`, `lib/memory/activated-thread-memories.ts`, `app/api/chat/route.ts`, `lib/message-queue/run-queued-chat-turn.ts`
+**Affects:** `lib/chat/chat-store.ts`, `lib/memory/activated-thread-memories.ts`, `lib/memory/condense-activated-memories.ts`, `app/api/chat/route.ts`, `lib/message-queue/run-queued-chat-turn.ts`
 
 ## Context
 
@@ -18,6 +18,7 @@ The memories selected for a turn are stored on that user message as `data-activa
 - The system prompt still receives this turn's fresh retrieval. Those lines can appear twice on the turn they are fetched: once in the system section, once on the user message.
 - `get_more_chat_history` includes the same block, so a lookback still shows memories after the activating message leaves the default window.
 - No new table. Cap is 40 memories per message.
+- Each stored memory is capped at 500 characters. `getContext` returns full text. The stamp clips longer memories at a sentence or word boundary, so the turn never waits on an LLM; the system prompt already has the full text for that turn. After the response (`after()`), memories over the cap are condensed by GPT-6 Luna with forced ZDR, and the row is patched again. A failed or empty call keeps the clip.
 
 ## Consequences
 

@@ -6,6 +6,7 @@ import { getMessageTextForTokenEstimate, getMessageToolPartsForTokenEstimate } f
 import {
   ACTIVATED_MEMORIES_PART_TYPE,
   attachActivatedMemoriesToLatestUserMessage,
+  clipMemoryText,
   expandActivatedMemoriesForModel,
   formatActivatedMemoriesBlock,
   readActivatedMemories,
@@ -35,6 +36,39 @@ describe("toActivatedMemories", () => {
     expect(memories[0]?.text).toBe("Prefers Neo4j");
     expect(memories[2]?.text.endsWith("…")).toBe(true);
     expect(memories[2]?.text.length).toBe(500);
+  });
+
+  test("keeps full text when clip is off, and clips again when written to a message", () => {
+    const [memory] = toActivatedMemories([{ id: "long", memory: "x".repeat(600) }], { clip: false });
+
+    expect(memory?.text.length).toBe(600);
+
+    const stamped = withActivatedMemories(userMessage("u1", "hi"), [memory!]);
+
+    expect(readActivatedMemories(stamped)[0]?.text.length).toBe(500);
+  });
+});
+
+describe("clipMemoryText", () => {
+  test("ends on a sentence boundary near the cap", () => {
+    const text = `${"a".repeat(70)}. ${"b".repeat(40)}`;
+    const clipped = clipMemoryText(text, 100);
+
+    expect(clipped).toBe(`${"a".repeat(70)}.…`);
+    expect(clipped.length).toBeLessThanOrEqual(100);
+  });
+
+  test("falls back to a word boundary, then a hard cut", () => {
+    const words = Array.from({ length: 30 }, () => "word").join(" ");
+    const byWord = clipMemoryText(words, 50);
+
+    expect(byWord.endsWith("word…")).toBe(true);
+    expect(byWord.length).toBeLessThanOrEqual(50);
+    expect(clipMemoryText("y".repeat(80), 50)).toBe(`${"y".repeat(49)}…`);
+  });
+
+  test("leaves text within the cap alone", () => {
+    expect(clipMemoryText("short", 50)).toBe("short");
   });
 });
 

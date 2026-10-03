@@ -6,7 +6,12 @@ export const ACTIVATED_MEMORIES_PART_TYPE = "data-activated-memories";
 /** Safety cap. Retrieval already limits injection; this bounds a malformed payload. */
 export const MAX_ACTIVATED_MEMORIES_PER_MESSAGE = 40;
 
-const MAX_ACTIVATED_MEMORY_CHARS = 500;
+/** Per-memory cap on stored text. Longer memories are clipped here and condensed by an LLM later. */
+export const MAX_ACTIVATED_MEMORY_CHARS = 500;
+
+/** A sentence or word break earlier than this share of the cap loses too much; hard-cut instead. */
+const MIN_SENTENCE_BREAK_RATIO = 0.6;
+const MIN_WORD_BREAK_RATIO = 0.8;
 
 export type ActivatedMemory = {
   id: string;
@@ -22,17 +27,45 @@ function normalizeMemoryText(text: string): string {
   return text.trim().replace(/\s+/g, " ");
 }
 
-function clipMemoryText(text: string): string {
-  if (text.length <= MAX_ACTIVATED_MEMORY_CHARS) return text;
+/**
+ * Fit text within `maxChars`, ending on a sentence or word boundary when one is
+ * close to the cap. The ellipsis marks the cut and counts toward the cap.
+ */
+export function clipMemoryText(text: string, maxChars = MAX_ACTIVATED_MEMORY_CHARS): string {
+  if (text.length <= maxChars) return text;
 
-  return `${text.slice(0, MAX_ACTIVATED_MEMORY_CHARS - 1)}…`;
+  const window = text.slice(0, maxChars - 1);
+  const sentenceEnd = Math.max(
+    window.lastIndexOf(". "),
+    window.lastIndexOf("! "),
+    window.lastIndexOf("? ")
+  );
+
+  if (sentenceEnd >= maxChars * MIN_SENTENCE_BREAK_RATIO) {
+    return `${window.slice(0, sentenceEnd + 1)}…`;
+  }
+
+  const wordEnd = window.lastIndexOf(" ");
+
+  if (wordEnd >= maxChars * MIN_WORD_BREAK_RATIO) {
+    return `${window.slice(0, wordEnd).replace(/[\s,;:–—-]+$/, "")}…`;
+  }
+
+  return `${window}…`;
 }
 
 /**
  * Dedupe retrieved Mem0 rows into the payload stored on a user message.
  * Missing ids fall back to normalized text so the same fact still collapses.
+ *
+ * `clip: false` keeps full text so `condenseActivatedMemories` can work from the
+ * original; anything written to a message is clipped again by `withActivatedMemories`.
  */
-export function toActivatedMemories(items: ActivatedMemorySource[]): ActivatedMemory[] {
+export function toActivatedMemories(
+  items: ActivatedMemorySource[],
+  options: { clip?: boolean } = {}
+): ActivatedMemory[] {
+  const clip = options.clip ?? true;
   const out: ActivatedMemory[] = [];
   const seen = new Set<string>();
 
@@ -45,7 +78,7 @@ export function toActivatedMemories(items: ActivatedMemorySource[]): ActivatedMe
 
     if (seen.has(id)) continue;
     seen.add(id);
-    out.push({ id, text: clipMemoryText(text) });
+    out.push({ id, text: clip ? clipMemoryText(text) : text });
 
     if (out.length >= MAX_ACTIVATED_MEMORIES_PER_MESSAGE) break;
   }
