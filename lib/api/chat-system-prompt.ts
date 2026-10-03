@@ -96,9 +96,9 @@ const ARCADIA_SHORT_REPLY_APPEND =
   "- Aim for ~50–120 words per reply; treat that as a ceiling, not a target. The UI fits itself to your reply, so a one-sentence answer is ideal when it suffices — never pad to reach a length.\n" +
   "- Minimize vertical height; mobile should rarely need to scroll for a single answer.\n" +
   "- Lead with the answer in 1–2 sentences. Use bullets or a tiny list only when necessary; avoid long paragraphs.\n" +
-  '- If more is needed: give a one-screen summary and say "I can expand on X or Y" instead of expanding in the same message.\n' +
-  "- Prefer tool use over prose for complex tasks; then respond with a compact synthesis, not raw output.\n" +
-  "- When the user asks for depth, add a little at a time (one focused follow-up), not a long block.\n";
+  '- Finish the user\'s request in this turn. Call tools and take the steps the task needs, then answer with a compact synthesis. Do not end by describing work you have not done, and do not wait for the user to confirm with "do that".\n' +
+  "- Brevity limits the words on screen, not the work. A short reply that already completed the task is correct. A short reply that only announces the next action is not.\n" +
+  "- After the requested work is done, you may offer one optional expansion. Do not substitute that offer for doing the task.\n";
 
 export type AppendMainChatPostToolSystemFragmentsParams = {
   systemPromptForRequest: string;

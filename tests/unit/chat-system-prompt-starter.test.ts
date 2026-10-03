@@ -19,6 +19,9 @@ describe("appendMainChatPostToolSystemFragments Arcadia starter", () => {
     expect(out).toContain("[Arcadia starter prompt]");
     expect(out).toContain("Stitch my pieces together.");
     expect(out).toContain("[Arcadia mode — keep replies short]");
+    expect(out).toContain("Finish the user's request in this turn");
+    expect(out).not.toContain("I can expand on X or Y");
+    expect(out).not.toContain("one focused follow-up");
   });
 
   test("does not append starter priming outside Arcadia experience", () => {
