@@ -57,9 +57,15 @@ describe("getEffortLevelsForModel", () => {
     expect(getEffortLevelsForModel("perplexity/sonar-pro").map((r) => r.id)).toEqual(["auto"]);
   });
 
-  test("Auto mirrors Sonnet 5 levels", () => {
+  test("Claude Sonnet 5.5 has no none", () => {
+    const ids = getEffortLevelsForModel("anthropic/claude-sonnet-5.5").map((r) => r.id);
+
+    expect(ids).toEqual(["auto", "low", "medium", "high", "xhigh", "max"]);
+  });
+
+  test("Auto mirrors Sonnet 5.5 levels", () => {
     const auto = getEffortLevelsForModel("organic-llm/auto").map((r) => r.id);
-    const sonnet = getEffortLevelsForModel("anthropic/claude-sonnet-5").map((r) => r.id);
+    const sonnet = getEffortLevelsForModel("anthropic/claude-sonnet-5.5").map((r) => r.id);
 
     expect(auto).toEqual(sonnet);
   });
@@ -111,6 +117,15 @@ describe("buildEffortProviderOptions", () => {
     const opts = buildEffortProviderOptions("anthropic/claude-sonnet-5", "none");
 
     expect(opts?.anthropic).toEqual({ thinking: { type: "disabled" } });
+  });
+
+  test("maps Sonnet 5.5 none to low adaptive effort", () => {
+    const opts = buildEffortProviderOptions("anthropic/claude-sonnet-5.5", "none");
+
+    expect(opts?.anthropic).toEqual({
+      thinking: { type: "adaptive" },
+      effort: "low",
+    });
   });
 
   test("maps Opus 5.5 none to adaptive low (thinking always on)", () => {

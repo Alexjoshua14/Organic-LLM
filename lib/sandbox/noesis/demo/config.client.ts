@@ -13,8 +13,8 @@
  * asserts they match so they can't silently drift.
  */
 
-/** Default ultracheap demo model id. Mirror of `DEMO_DEFAULT_MODEL` in `./config.ts`. */
-export const DEMO_DEFAULT_MODEL_ID = "google/gemini-3-flash";
+/** Default demo model id. Mirror of `DEMO_DEFAULT_MODEL` in `./config.ts`. */
+export const DEMO_DEFAULT_MODEL_ID = "google/gemini-3.8-flash";
 
 /** Hard token ceiling per demo run. Mirror of `DEMO_TOKEN_BUDGET` in `./config.ts`. */
 export const DEMO_TOKEN_BUDGET = 25_000;

@@ -27,8 +27,9 @@ work belongs to workers. Arcadia's multitask dashboard already sends
 6. **Identity images** are abstract non-human marks, generated via existing `@ai-sdk/openai`
    image models, stored under `.data/subagent-identity/` behind a blob/meta interface (S3 later).
 7. **Router ZDR** is mandatory (`ORCHESTRATOR_ROUTER_ZDR_PROVIDER_OPTIONS` /
-   `jevRouterCallConfig`). Catalog model **GPT-6 Jev** (`openai/gpt-6-jev`,
-   `requiresZeroDataRetention: true`). Heuristic is labeled fallback only when Jev throws.
+   `jevRouterCallConfig`). Catalog alias **Jev** (`requiresZeroDataRetention: true`).
+   The gateway dropped `openai/gpt-6-jev`; the alias is pinned to `openai/gpt-6-luna`.
+   Heuristic is labeled fallback only when Jev throws.
 
 ## Open
 

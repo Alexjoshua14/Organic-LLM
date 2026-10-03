@@ -34,7 +34,7 @@ export type ThoughtRouterInput = {
 /**
  * Cheap intelligent router for multi-thought splits.
  * Implementations must force ZDR on any LLM call (see {@link ORCHESTRATOR_ROUTER_ZDR_PROVIDER_OPTIONS}).
- * Primary backend: catalog **Jev** (`openai/gpt-6-jev`).
+ * Primary backend: catalog **Jev** (alias pinned to `openai/gpt-6-luna`).
  */
 export type ThoughtRouter = {
   readonly modelId: string;

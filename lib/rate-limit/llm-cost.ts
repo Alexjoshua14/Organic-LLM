@@ -44,6 +44,11 @@ const MODEL_COSTS: Record<string, ModelCost> = {
     outputPerMillion: 50.0,
     cachedInputPerMillion: 1.0,
   },
+  "openai/gpt-6.1-sol": {
+    inputPerMillion: 2.0,
+    outputPerMillion: 10.0,
+    cachedInputPerMillion: 0.1,
+  },
   "openai/gpt-6-sol": {
     inputPerMillion: 2.0,
     outputPerMillion: 10.0,
@@ -86,9 +91,15 @@ const MODEL_COSTS: Record<string, ModelCost> = {
   "anthropic/claude-fable-5.1": { inputPerMillion: 10.0, outputPerMillion: 50.0 },
   "anthropic/claude-fable-5": { inputPerMillion: 10.0, outputPerMillion: 50.0 },
   "anthropic/claude-opus-4.7": { inputPerMillion: 5.0, outputPerMillion: 25.0 },
+  "anthropic/claude-sonnet-5.5": {
+    inputPerMillion: 2.0,
+    outputPerMillion: 10.0,
+    cachedInputPerMillion: 0.2,
+  },
   "anthropic/claude-sonnet-5": { inputPerMillion: 2.0, outputPerMillion: 10.0 },
   "anthropic/claude-sonnet-4.6": { inputPerMillion: 3.0, outputPerMillion: 15.0 },
   "anthropic/claude-haiku-4.5": { inputPerMillion: 1.0, outputPerMillion: 5.0 },
+  "perplexity/sonar": { inputPerMillion: 0.25, outputPerMillion: 2.5 },
   "perplexity/sonar-pro": { inputPerMillion: 1.0, outputPerMillion: 1.0 },
   "perplexity/sonar-reasoning-pro": { inputPerMillion: 3.0, outputPerMillion: 15.0 },
   "moonshotai/kimi-k3": { inputPerMillion: 3.0, outputPerMillion: 15.0 },

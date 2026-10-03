@@ -63,15 +63,15 @@ const catalog: ChatModel[] = [
     supportsZeroDataRetention: true,
   },
   {
-    id: "openai/gpt-6-sol",
-    name: "GPT-6 Sol",
+    id: "openai/gpt-6.1-sol",
+    name: "GPT-6.1 Sol",
     alias: "openai.sol",
     supportsZeroDataRetention: true,
   },
   {
-    // GPT-6 dropped Terra; pin the alias to Sol so orchestration keeps a mid-tier family handle.
-    id: "openai/gpt-6-sol",
-    name: "GPT-6 Sol",
+    // GPT-6 dropped Terra; pin the alias to the current Sol SKU.
+    id: "openai/gpt-6.1-sol",
+    name: "GPT-6.1 Sol",
     alias: "openai.terra",
     picker: false,
     supportsZeroDataRetention: true,
@@ -85,11 +85,12 @@ const catalog: ChatModel[] = [
   {
     /**
      * Cheap house routing model for multi-thought orchestrator splits.
+     * GPT-6 Jev left the gateway; pin the alias to Luna (ZDR-capable, structured output).
      * Not a worker / Realtime voice model. Catalog-only (not in composer picker).
      * ZDR is mandatory — see `requiresZeroDataRetention`.
      */
-    id: "openai/gpt-6-jev",
-    name: "GPT-6 Jev",
+    id: "openai/gpt-6-luna",
+    name: "GPT-6 Luna",
     alias: "openai.jev",
     picker: false,
     supportsZeroDataRetention: true,
@@ -115,6 +116,7 @@ const catalog: ChatModel[] = [
     supportsZeroDataRetention: true,
   },
   {
+    // Newest public Pro on the gateway. Gemini 4 Argon is announced, not listed yet.
     id: "google/gemini-3.1-pro-preview",
     name: "Gemini 3.1 Pro",
     alias: "google.pro",
@@ -127,9 +129,11 @@ const catalog: ChatModel[] = [
     supportsZeroDataRetention: true,
   },
   {
-    id: "google/gemini-3-flash",
-    name: "Gemini 3 Flash",
+    // Gemini 3 Flash is superseded by 3.8; pin the alias to the current Flash head.
+    id: "google/gemini-3.8-flash",
+    name: "Gemini 3.8 Flash",
     alias: "google.flash3",
+    picker: false,
     supportsZeroDataRetention: true,
   },
   {
@@ -139,14 +143,17 @@ const catalog: ChatModel[] = [
     supportsZeroDataRetention: true,
   },
   {
-    id: "google/gemini-2.5-flash-lite",
-    name: "Gemini 2.5 Flash Lite",
+    // 2.5 Flash Lite is superseded; pin the alias to the current Flash Lite head.
+    id: "google/gemini-3.5-flash-lite",
+    name: "Gemini 3.5 Flash Lite",
     alias: "google.flashLite_2_5",
+    picker: false,
     supportsZeroDataRetention: true,
   },
   {
-    id: "google/gemini-3.1-flash-lite",
-    name: "Gemini 3.1 Flash Lite",
+    // 3.1 Flash Lite is superseded; pin the alias to the current Flash Lite head.
+    id: "google/gemini-3.5-flash-lite",
+    name: "Gemini 3.5 Flash Lite",
     alias: "google.flashLite_3_1",
     picker: false,
     supportsZeroDataRetention: true,
@@ -158,8 +165,8 @@ const catalog: ChatModel[] = [
     supportsZeroDataRetention: true,
   },
   {
-    id: "anthropic/claude-sonnet-5",
-    name: "Claude Sonnet 5",
+    id: "anthropic/claude-sonnet-5.5",
+    name: "Claude Sonnet 5.5",
     alias: "anthropic.sonnet",
     supportsZeroDataRetention: true,
   },
@@ -177,15 +184,17 @@ const catalog: ChatModel[] = [
     supportsZeroDataRetention: false,
   },
   {
-    id: "perplexity/sonar-pro",
-    name: "Sonar Pro",
+    id: "perplexity/sonar",
+    name: "Sonar",
     alias: "perplexity.pro",
     supportsZeroDataRetention: false,
   },
   {
-    id: "perplexity/sonar-reasoning-pro",
-    name: "Sonar Reasoning Pro",
+    // Sonar Reasoning Pro left the gateway; pin the alias to Sonar.
+    id: "perplexity/sonar",
+    name: "Sonar",
     alias: "perplexity.reasoningPro",
+    picker: false,
     supportsZeroDataRetention: false,
   },
   {
@@ -201,9 +210,11 @@ const catalog: ChatModel[] = [
     supportsZeroDataRetention: true,
   },
   {
-    id: "moonshotai/kimi-k2.6",
-    name: "Kimi K2.6",
+    // Kimi K2.6 is superseded by K3; pin the alias to the current Kimi head.
+    id: "moonshotai/kimi-k3",
+    name: "Kimi K3",
     alias: "moonshotai.kimi_2_6",
+    picker: false,
     supportsZeroDataRetention: true,
   },
   {
