@@ -18,6 +18,10 @@ import { wrapWebSearchResultsForModel } from "@/lib/security/external-content";
 import { estimateTokenCount } from "@/lib/llm/chat-helpers";
 import { searchMemoriesWithL1Cache } from "@/lib/memory/memory-search-cache";
 import {
+  formatActivatedMemoriesBlock,
+  readActivatedMemories,
+} from "@/lib/memory/activated-thread-memories";
+import {
   ARCADIA_MEMORY_MIN_SCORE,
   MEMORY_TOOL_OVERFETCH_CAP,
   MEMORY_TOOL_OVERFETCH_MIN,
@@ -70,8 +74,10 @@ function formatMessagesForContext(messages: UIMessage[]): string {
         .filter((p): p is { type: "text"; text: string } => p.type === "text")
         .map((p) => p.text)
         .join("");
+      const memoryBlock = formatActivatedMemoriesBlock(readActivatedMemories(m));
+      const body = [text.trim(), memoryBlock].filter(Boolean).join("\n\n");
 
-      return `[${m.role}]: ${text.trim() || "(no text)"}`;
+      return `[${m.role}]: ${body || "(no text)"}`;
     })
     .join("\n\n");
 }

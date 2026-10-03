@@ -563,13 +563,13 @@ export async function updateMessage(
   }
 
   const row = encryptMessageRowContent(supabaseMessage, threadOwnerContext.data.ownerId);
-
+  // text_excerpt is NOT NULL. UI messages often omit it; writing null rejects the update.
   const { error } = await sb
     .from("messages")
     .update({
       content: row.content,
       role: row.role,
-      text_excerpt: row.text_excerpt ?? null,
+      ...(typeof row.text_excerpt === "string" ? { text_excerpt: row.text_excerpt } : {}),
     })
     .eq("id", messageId)
     .eq("thread_id", threadId);
