@@ -38,6 +38,7 @@ export async function loadArcadiaChatTurnContext(
   let packedMessageCount: number | undefined;
   let totalThreadMessages: number | undefined;
   let memoriesInjected: number | undefined;
+  let activatedMemories: LoadMainChatTurnContextResult["activatedMemories"] = undefined;
   let scheduleBackgroundCondensation = false;
 
   try {
@@ -95,6 +96,7 @@ export async function loadArcadiaChatTurnContext(
       packedMessageCount = chatContextResult.data?.packedMessageCount;
       totalThreadMessages = chatContextResult.data?.totalThreadMessages;
       memoriesInjected = chatContextResult.data?.memories?.length;
+      activatedMemories = chatContextResult.data?.activatedMemories;
 
       logger.debug("context", "Arcadia token context gathered", {
         historyMessageCount: chatContextResult.data?.messages?.length ?? 0,
@@ -123,6 +125,7 @@ export async function loadArcadiaChatTurnContext(
     packedMessageCount,
     totalThreadMessages,
     memoriesInjected,
+    activatedMemories,
     scheduleBackgroundCondensation,
   };
 }

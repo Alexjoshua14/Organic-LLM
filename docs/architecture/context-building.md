@@ -23,7 +23,11 @@ streamText({ system, messages, tools })
 │
 ├─ messages: structured model messages, in this order
 │  ├─ Selected stored history (user / assistant / tool content)
-│  └─ Current user message
+│  │    User messages may carry `data-activated-memories` from the turn that
+│  │    retrieved them. Those lines are expanded into that user message for the
+│  │    model, deduped to the latest in-window carrier. The transcript UI does
+│  │    not render the part.
+│  └─ Current user message (this turn's retrieval is stamped the same way)
 │
 └─ tools: separate tool definitions and schemas
    └─ Not the same thing as the system string's Tool Instructions section
