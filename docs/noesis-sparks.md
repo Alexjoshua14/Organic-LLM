@@ -27,7 +27,7 @@ Authored sparks (this catalog) are distinct from the ephemeral, LLM-generated sp
   `spark`, NPC turns marked `you · npc` — not the full chat view); **← Edit** returns, **Re-run**
   replays. It auto-runs `DEMO_REPLY_CYCLES` (3) spark replies against an NPC "main character"
   user via `/api/sandbox/topic-explore/demo-turn` + `/npc-turn`, on the ultracheap model
-  (`google/gemini-3-flash`, swappable via the panel's model select), under `DEMO_TOKEN_BUDGET`
+  (`google/gemini-3.8-flash`, swappable via the panel's model select), under `DEMO_TOKEN_BUDGET`
   (25,000) tokens. Components: `components/sandbox/noesis/spark-editor-dialog.tsx` (two-mode) +
   `spark-demo-panel.tsx` (condensed runner).
 - **Caching:** demos are cached by a SHA-256 of `{ systemPrompt, kickoff, model, cycles,
@@ -46,7 +46,7 @@ Authored sparks (this catalog) are distinct from the ephemeral, LLM-generated sp
 
 | Constant | Value | Meaning |
 |---|---|---|
-| `DEMO_DEFAULT_MODEL` | `google/gemini-3-flash` | Default demo model (swappable live via CoreInput) |
+| `DEMO_DEFAULT_MODEL` | `google/gemini-3.8-flash` | Default demo model (swappable live via CoreInput) |
 | `DEMO_TOKEN_BUDGET` | `25_000` | Hard token ceiling per demo run |
 | `DEMO_REPLY_CYCLES` | `3` | Spark replies per run |
 | `DEMO_MAX_OUTPUT_TOKENS_PER_TURN` | `800` | Per spark-reply output cap |

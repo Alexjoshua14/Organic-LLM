@@ -6,7 +6,7 @@ Runtime roles and orchestration live under this tree (not docs-only):
 |---------|------|
 | Roles `orchestrator` \| `worker` | `roles.ts` |
 | Delegate + 7s return budget | `orchestrator/` |
-| Multi-thought routing (ZDR, **Jev** `openai/gpt-6-jev`) | `orchestrator/thought-router.ts`, `dispatch-inbound.ts`, `router-zdr.ts` |
+| Multi-thought routing (ZDR, **Jev** pinned to `openai/gpt-6-luna`) | `orchestrator/thought-router.ts`, `dispatch-inbound.ts`, `router-zdr.ts` |
 | Worker progress / milestones / completion | `worker/run.ts` + awareness bus |
 | Live worker model runs | `worker/run-with-model.ts` + `orchestrator/execute-assigned-workers.ts` |
 | Abstract identity images | `identity/` |

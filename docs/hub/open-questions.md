@@ -145,8 +145,9 @@ free stream cap, raise it, or leave streams uncapped while the dollar budget sta
 
 **Status:** ✅ **Resolved 2026-09-25** — catalogued and wired.
 
-House catalog entry: `openai/gpt-6-jev` (`alias: openai.jev`, `picker: false`,
-`supportsZeroDataRetention: true`, `requiresZeroDataRetention: true`). Primary router is
+House catalog alias `openai.jev` (`picker: false`, `supportsZeroDataRetention: true`,
+`requiresZeroDataRetention: true`). The gateway dropped `openai/gpt-6-jev`; the alias is
+pinned to `openai/gpt-6-luna`. Primary router is
 `createJevThoughtRouter` with `jevRouterCallConfig()` forcing AI Gateway
 `zeroDataRetention: true` on the request. Heuristic remains only as a labeled fallback when
 the Jev call throws (`usedHeuristicFallback` on the routing result).

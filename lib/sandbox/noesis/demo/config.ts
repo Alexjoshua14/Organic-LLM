@@ -7,8 +7,8 @@
  */
 import type { ChatModelId } from "@/lib/schemas/chat";
 
-/** Default ultracheap model for demo runs (swappable live via CoreInput). */
-export const DEMO_DEFAULT_MODEL: ChatModelId = "google/gemini-3-flash";
+/** Default demo model (current Gemini Flash; swappable live via CoreInput). */
+export const DEMO_DEFAULT_MODEL: ChatModelId = "google/gemini-3.8-flash";
 
 /**
  * Hard ceiling on total tokens spent per demo run (input + output, all turns).

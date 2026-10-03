@@ -66,10 +66,41 @@ describe("ChatModel catalog aliases", () => {
     }
   });
 
-  test("openai.terra is an internal GPT-6 Sol pin", () => {
+  test("openai.terra is an internal GPT-6.1 Sol pin", () => {
+    expect(models.openai.sol.id).toBe("openai/gpt-6.1-sol");
     expect(models.openai.terra.id).toBe(models.openai.sol.id);
     expect(models.openai.terra.picker).toBe(false);
     expect(ChatModels.some((model) => model.alias === "openai.terra")).toBe(false);
+  });
+
+  test("openai.jev is an internal Luna pin with mandatory ZDR", () => {
+    expect(models.openai.jev.id).toBe(models.openai.luna.id);
+    expect(models.openai.jev.picker).toBe(false);
+    expect(models.openai.jev.requiresZeroDataRetention).toBe(true);
+    expect(ChatModels.some((model) => model.alias === "openai.jev")).toBe(false);
+  });
+
+  test("older Gemini and Kimi aliases pin to the current heads", () => {
+    expect(models.google.flash.id).toBe("google/gemini-3.8-flash");
+    expect(models.google.flash3.id).toBe(models.google.flash.id);
+    expect(models.google.flash3.picker).toBe(false);
+    expect(models.google.flashLite.id).toBe("google/gemini-3.5-flash-lite");
+    expect(models.google.flashLite_2_5.id).toBe(models.google.flashLite.id);
+    expect(models.google.flashLite_2_5.picker).toBe(false);
+    expect(models.google.flashLite_3_1.id).toBe(models.google.flashLite.id);
+    expect(models.google.flashLite_3_1.picker).toBe(false);
+    expect(models.moonshotai.kimi.id).toBe("moonshotai/kimi-k3");
+    expect(models.moonshotai.kimi_2_6.id).toBe(models.moonshotai.kimi.id);
+    expect(models.moonshotai.kimi_2_6.picker).toBe(false);
+    expect(ChatModels.some((model) => model.alias === "google.flash3")).toBe(false);
+    expect(ChatModels.some((model) => model.alias === "moonshotai.kimi_2_6")).toBe(false);
+  });
+
+  test("perplexity.reasoningPro is an internal Sonar pin", () => {
+    expect(models.perplexity.pro.id).toBe("perplexity/sonar");
+    expect(models.perplexity.reasoningPro.id).toBe(models.perplexity.pro.id);
+    expect(models.perplexity.reasoningPro.picker).toBe(false);
+    expect(ChatModels.some((model) => model.alias === "perplexity.reasoningPro")).toBe(false);
   });
 
   test("picker excludes picker: false rows and starts with Auto", () => {

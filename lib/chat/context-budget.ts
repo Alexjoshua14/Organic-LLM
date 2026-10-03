@@ -31,6 +31,7 @@ const DEFAULT_CONTEXT_WINDOW_TOKENS = 128_000;
 /** Known gateway model input windows (tokens). */
 const MODEL_CONTEXT_WINDOW_TOKENS: Record<string, number> = {
   "openai/gpt-6-astra": 1_050_000,
+  "openai/gpt-6.1-sol": 1_050_000,
   "openai/gpt-6-sol": 1_050_000,
   "openai/gpt-5.6-terra": 1_050_000,
   "openai/gpt-6-luna": 1_050_000,
@@ -48,8 +49,10 @@ const MODEL_CONTEXT_WINDOW_TOKENS: Record<string, number> = {
   "anthropic/claude-fable-5": 1_000_000,
   "anthropic/claude-opus-5.5": 1_000_000,
   "anthropic/claude-opus-5": 1_000_000,
+  "anthropic/claude-sonnet-5.5": 1_000_000,
   "anthropic/claude-sonnet-5": 1_000_000,
   "anthropic/claude-haiku-4.5": 200_000,
+  "perplexity/sonar": 127_000,
   "perplexity/sonar-pro": 200_000,
   "perplexity/sonar-reasoning-pro": 127_000,
   "moonshotai/kimi-k3": 1_000_000,
