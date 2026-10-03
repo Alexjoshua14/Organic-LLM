@@ -1,6 +1,7 @@
 import type { KanbanCommand } from "@/lib/schemas/kanban";
 import type { IntrospectionGuidedState } from "@/lib/schemas/introspection";
 import type { ContextBudgetEstimate } from "@/lib/chat/context-budget";
+import type { PersonaReceipt } from "@/lib/personas/unified/session";
 
 import { UIMessage } from "ai";
 
@@ -35,6 +36,8 @@ export type ChatUIMessage = UIMessage<
     "introspection-view"?: IntrospectionGuidedState;
     /** Server-measured context budget for the assembled turn. */
     "context-budget"?: ContextBudgetEstimate;
+    /** Unified persona: the respond-or-hold receipt for the user's message. */
+    "persona-receipt"?: PersonaReceipt;
     /**
      * Arcadia multitask: orchestrator thought-routing / direct-to-subagent dispatch.
      * Dashboard shell can render which thought went where.

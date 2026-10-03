@@ -3,13 +3,14 @@
 import type { ExaSearchResultSource } from "@/lib/exa/types";
 import type { ChatStatus, UIMessage } from "ai";
 
-import { FC } from "react";
+import { FC, Fragment } from "react";
 
 import { ConversationContent } from "../third-party/ai-elements/conversation";
 
 import { ChatAIAction, ChatMessage } from "./chat-message";
 
 import { ChatEmptyStateGuide } from "@/components/onboarding/chat-empty-state-guide";
+import { PersonaHeardMark } from "@/components/personas/persona-heard-mark";
 import { ARCADIA_HELP_LATEST_ONLY, isArcadiaHelpMessage } from "@/lib/arcadia/help-response";
 import { resolveThreadLiveAiAction } from "@/lib/chat/optimistic-ai-action";
 import { ChatAIActionEnum } from "@/types/ai";
@@ -41,6 +42,8 @@ type ChatThreadProps = {
   };
   /** When set and there are no messages, replaces the default empty state (e.g. Noesis starters). */
   renderEmptyState?: () => React.ReactNode;
+  /** Unified persona: user messages it heard and chose not to answer, by message id. */
+  heardMarks?: Readonly<Record<string, { label: string; pulseKey: number | null }>>;
 };
 
 export const ChatThread: FC<ChatThreadProps> = ({
@@ -52,6 +55,7 @@ export const ChatThread: FC<ChatThreadProps> = ({
   showActions = true,
   aiActionPayload,
   renderEmptyState,
+  heardMarks,
 }) => {
   const lastMessageIndex = messages.length - 1;
   const liveAiAction = resolveThreadLiveAiAction({
@@ -108,22 +112,26 @@ export const ChatThread: FC<ChatThreadProps> = ({
               !ARCADIA_HELP_LATEST_ONLY ||
               (lastArcadiaHelpMessageId != null && message.id === lastArcadiaHelpMessageId);
 
+            const heard = heardMarks?.[message.id];
+
             return (
-              <ChatMessage
-                key={message.id}
-                aiActionPayload={
-                  index === lastMessageIndex && liveAiAction.placement === "last-message"
-                    ? liveAiAction.payload
-                    : undefined
-                }
-                chatId={chatId}
-                isLatestArcadiaHelp={
-                  isArcadiaHelpMessage(message) ? isLatestArcadiaHelp : undefined
-                }
-                message={message}
-                showActions={showActions}
-                showModelBadge={!modelSummary.shouldUseThreadBadge}
-              />
+              <Fragment key={message.id}>
+                <ChatMessage
+                  aiActionPayload={
+                    index === lastMessageIndex && liveAiAction.placement === "last-message"
+                      ? liveAiAction.payload
+                      : undefined
+                  }
+                  chatId={chatId}
+                  isLatestArcadiaHelp={
+                    isArcadiaHelpMessage(message) ? isLatestArcadiaHelp : undefined
+                  }
+                  message={message}
+                  showActions={showActions}
+                  showModelBadge={!modelSummary.shouldUseThreadBadge}
+                />
+                {heard ? <PersonaHeardMark label={heard.label} pulseKey={heard.pulseKey} /> : null}
+              </Fragment>
             );
           })
         )}

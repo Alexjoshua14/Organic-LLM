@@ -205,6 +205,11 @@ export type { DrawerChatDisplayInput };
 export const ChatRequestSchema = z.object({
   message: UIMessageSchema,
   id: z.uuid(),
+  /**
+   * Active unified persona session. The server loads the owned session itself; persona context
+   * never comes from the client as prompt text.
+   */
+  personaSessionId: z.uuid().optional(),
   model: ChatModelSchema.optional(),
   /** Reasoning effort hint; `auto` or omitted leaves provider defaults unchanged. */
   effort: ChatEffortLevelSchema.optional(),

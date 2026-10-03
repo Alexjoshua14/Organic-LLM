@@ -25,7 +25,10 @@ export type EncryptionFieldName =
   | "memory_feedback.note"
   | "memory_feedback.memory"
   | "threads.introspection_config"
-  | "threads.introspection_guided_state";
+  | "threads.introspection_guided_state"
+  | "persona_sessions.state"
+  | "persona_sessions.log"
+  | "persona_sessions.photo";
 
 export type EncryptionContext = {
   userId: string;
