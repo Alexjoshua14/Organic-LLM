@@ -103,6 +103,7 @@ cinema. Prefer the **lower part** of research ranges.
 | Incoming opacity settle | **250ms** | Material enter short-band |
 | Color burn wave | **200ms** | `PROCESSING_TEXT_BURN_IN_COLOR_DURATION_S`; bright → dim per char |
 | Sustain shimmer loop | **5s** | `PROCESSING_TEXT_BURN_SUSTAIN_SHIMMER_S`; `ShinyText` default |
+| Title-regen loop sweep | **2s** | `PROCESSING_TEXT_BURN_TITLE_REGEN_LOOP_S`; burn sweep while regenerating; shimmer between sweeps; ready title commits on next boundary |
 
 Constants and CSS custom properties **must stay in sync**:
 
@@ -158,6 +159,19 @@ numbers in JSX.
 After burn-in settles, sustain uses **`ShinyText`** at `5s` (`PROCESSING_TEXT_BURN_SUSTAIN_SHIMMER_S`)
 — the same primitive and speed as legacy `ChatThinking`. Burn chars settle on
 `--ptb-shine-dim` (`#b5b5b5`), matching ShinyText at `background-position: 100%`.
+
+### Title regeneration indication
+
+While a thread title is regenerating (sidebar “Generate/Regenerate title”), the visible title
+uses `ProcessingTextBurn` with:
+
+- **Loop sweep** every **2s** (`PROCESSING_TEXT_BURN_TITLE_REGEN_LOOP_S`) — color-burn wave across
+  the current title
+- **Sustain shimmer** between sweeps (same `ShinyText` handoff as processing labels)
+- When the API returns, the new title **waits for the next sweep boundary**, then burns
+  old → new; regen lock clears after that commit settles
+
+Per-thread reclick is blocked via `ChatProvider` (`titleRegenThreadIds`) until finish.
 
 ### Color burn (entry / swap)
 

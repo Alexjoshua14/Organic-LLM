@@ -186,6 +186,13 @@ const chatContextValue = {
   isSidebarChatsLoading: false,
   sidebarChatsError: null,
   refreshSidebarChats: () => {},
+  titleRegenThreadIds: new Set<string>(),
+  isTitleRegenerating: () => false,
+  getTitleRegenBurnText: (_threadId: string, fallbackTitle: string) => fallbackTitle,
+  beginTitleRegen: () => {},
+  resolveTitleRegen: () => {},
+  isTitleRegenReadyToCommit: () => false,
+  finishTitleRegen: () => {},
 } satisfies ChatContextValue;
 
 function Providers({ children }: { children: ReactNode }) {

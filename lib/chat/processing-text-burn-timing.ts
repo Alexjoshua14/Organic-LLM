@@ -19,6 +19,12 @@ export const PROCESSING_TEXT_BURN_IN_COLOR_DURATION_S = 0.2;
 /** Sustain shimmer loop duration (seconds). Matches ShinyText default (`speed={5}`). */
 export const PROCESSING_TEXT_BURN_SUSTAIN_SHIMMER_S = 5;
 
+/**
+ * Title-regeneration indication: burn-sweep cadence while a thread title is regenerating.
+ * Shimmer sustains between sweeps; a ready title burns in on the next sweep boundary.
+ */
+export const PROCESSING_TEXT_BURN_TITLE_REGEN_LOOP_S = 2;
+
 export function processingTextBurnIncomingDelay(sequenceIndex: number): number {
   return (
     PROCESSING_TEXT_BURN_IN_INITIAL_DELAY_S + sequenceIndex * PROCESSING_TEXT_BURN_IN_STAGGER_S

@@ -88,6 +88,26 @@ export interface ChatContextValue {
   sidebarChatsError: Error | null;
   /** Revalidates the sidebar chat list (replaces legacy window.refreshSidebar). */
   refreshSidebarChats: () => void;
+  /** Thread ids currently regenerating an AI title (blocks re-trigger per thread). */
+  titleRegenThreadIds: ReadonlySet<string>;
+  /** True while this thread's title regeneration is in flight or finishing its burn. */
+  isTitleRegenerating: (threadId: string) => boolean;
+  /**
+   * Title string the regen indication should render. Uses the base title until the API
+   * returns, then the next title (queued for the next burn-sweep boundary).
+   */
+  getTitleRegenBurnText: (threadId: string, fallbackTitle: string) => string;
+  /** Mark regeneration started — disables regenerate for this thread until finished. */
+  beginTitleRegen: (threadId: string, baseTitle: string) => void;
+  /**
+   * API returned a title. UI keeps looping on the base title until the next sweep
+   * boundary, then burns to this title; call `finishTitleRegen` after that settles.
+   */
+  resolveTitleRegen: (threadId: string, title: string) => void;
+  /** True once resolve has a title ready to burn in on the next loop boundary. */
+  isTitleRegenReadyToCommit: (threadId: string) => boolean;
+  /** Applies the resolved title to the sidebar cache and clears regen lock. */
+  finishTitleRegen: (threadId: string) => void;
 }
 
 export const ChatContext = createContext<ChatContextValue | undefined>(undefined);
@@ -107,9 +127,20 @@ const sidebarChatsSwrOptions = {
   dedupingInterval: 10_000,
 } as const;
 
+type TitleRegenSession = {
+  baseTitle: string;
+  nextTitle?: string;
+};
+
 export function ChatProvider({ children }: { children: ReactNode }) {
   const [chat, setChat] = useState(() => createChat());
   const [chatId, setChatId] = useState<string>("");
+  const [titleRegenSessions, setTitleRegenSessions] = useState<Record<string, TitleRegenSession>>(
+    {}
+  );
+  const titleRegenSessionsRef = useRef(titleRegenSessions);
+
+  titleRegenSessionsRef.current = titleRegenSessions;
   const sidebarLoadedMarkedRef = useRef(false);
 
   const {
@@ -131,9 +162,107 @@ export function ChatProvider({ children }: { children: ReactNode }) {
     [chatsResponse?.data]
   );
 
+  const titleRegenThreadIds = useMemo(
+    () => new Set(Object.keys(titleRegenSessions)),
+    [titleRegenSessions]
+  );
+
   const refreshSidebarChats = useCallback(() => {
     void mutateSidebarChats();
   }, [mutateSidebarChats]);
+
+  const isTitleRegenerating = useCallback(
+    (threadId: string) => threadId in titleRegenSessions,
+    [titleRegenSessions]
+  );
+
+  const isTitleRegenReadyToCommit = useCallback(
+    (threadId: string) => titleRegenSessions[threadId]?.nextTitle != null,
+    [titleRegenSessions]
+  );
+
+  const getTitleRegenBurnText = useCallback(
+    (threadId: string, fallbackTitle: string) => {
+      const session = titleRegenSessions[threadId];
+
+      if (!session) return fallbackTitle;
+
+      return session.nextTitle ?? session.baseTitle;
+    },
+    [titleRegenSessions]
+  );
+
+  const beginTitleRegen = useCallback((threadId: string, baseTitle: string) => {
+    const trimmed = baseTitle.trim() || "Untitled chat";
+
+    setTitleRegenSessions((prev) => {
+      if (prev[threadId]) return prev;
+
+      return {
+        ...prev,
+        [threadId]: { baseTitle: trimmed },
+      };
+    });
+  }, []);
+
+  const resolveTitleRegen = useCallback((threadId: string, title: string) => {
+    const trimmed = title.trim() || "Chat";
+
+    setTitleRegenSessions((prev) => {
+      const current = prev[threadId];
+
+      if (!current) return prev;
+      if (current.nextTitle === trimmed) return prev;
+
+      return {
+        ...prev,
+        [threadId]: {
+          ...current,
+          nextTitle: trimmed,
+        },
+      };
+    });
+  }, []);
+
+  const finishTitleRegen = useCallback(
+    (threadId: string) => {
+      const session = titleRegenSessionsRef.current[threadId];
+      const nextTitle = session?.nextTitle;
+
+      setTitleRegenSessions((prev) => {
+        if (!(threadId in prev)) return prev;
+        const rest = { ...prev };
+
+        delete rest[threadId];
+
+        return rest;
+      });
+
+      if (nextTitle) {
+        void mutateSidebarChats(
+          (current) => {
+            if (!current?.data) return current;
+
+            return {
+              ...current,
+              data: current.data.map((row) =>
+                row.id === threadId
+                  ? {
+                      ...row,
+                      title: nextTitle,
+                    }
+                  : row
+              ),
+            };
+          },
+          { revalidate: true }
+        );
+      } else {
+        void mutateSidebarChats();
+      }
+    },
+    [mutateSidebarChats]
+  );
 
   const clearChat = () => {
     setChat(createChat());
@@ -149,8 +278,29 @@ export function ChatProvider({ children }: { children: ReactNode }) {
       isSidebarChatsLoading,
       sidebarChatsError: sidebarChatsError ?? null,
       refreshSidebarChats,
+      titleRegenThreadIds,
+      isTitleRegenerating,
+      getTitleRegenBurnText,
+      beginTitleRegen,
+      resolveTitleRegen,
+      isTitleRegenReadyToCommit,
+      finishTitleRegen,
     }),
-    [chat, chatId, sidebarChats, isSidebarChatsLoading, sidebarChatsError, refreshSidebarChats]
+    [
+      chat,
+      chatId,
+      sidebarChats,
+      isSidebarChatsLoading,
+      sidebarChatsError,
+      refreshSidebarChats,
+      titleRegenThreadIds,
+      isTitleRegenerating,
+      getTitleRegenBurnText,
+      beginTitleRegen,
+      resolveTitleRegen,
+      isTitleRegenReadyToCommit,
+      finishTitleRegen,
+    ]
   );
 
   return <ChatContext.Provider value={value}>{children}</ChatContext.Provider>;
