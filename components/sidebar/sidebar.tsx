@@ -1,3 +1,5 @@
+"use client";
+
 import { Search } from "lucide-react";
 import { Input } from "@heroui/input";
 import { SignedIn, SignedOut, SignOutButton } from "@clerk/nextjs";
@@ -18,6 +20,7 @@ import {
   SidebarGroupContent,
   SidebarHeader,
 } from "@/components/third-party/ui/sidebar";
+import { useIsTallViewport } from "@/hooks/use-is-tall-viewport";
 import { APP_VERSION_LABEL } from "@/lib/app-version";
 import { welcomeCopy } from "@/lib/welcome/copy";
 
@@ -57,8 +60,14 @@ function NormalSidebarContent() {
 }
 
 export function Sidebar() {
+  const { isTall, maxHeightCss } = useIsTallViewport();
+
   return (
-    <ShadcnSidebar>
+    <ShadcnSidebar
+      compactHeight={isTall}
+      compactMaxHeight={maxHeightCss}
+      variant={isTall ? "floating" : "sidebar"}
+    >
       <SidebarHeader className="h-16 pl-7 grid place-content-center bg-background-secondary subpixel-antialiased">
         <Link
           className="group/brand cursor-pointer active:scale-95 transition-transform duration-150 font-commissioner"
@@ -95,12 +104,13 @@ export function Sidebar() {
         <SignedIn>
           <SignOutButton />
         </SignedIn>
-        <p
-          className="px-2 pb-1 text-center text-2xs font-light tabular-nums tracking-wide text-muted-foreground/70"
-          aria-label={`App version ${APP_VERSION_LABEL}`}
+        <Link
+          href="/release-notes"
+          className="px-2 pb-1 text-center text-2xs font-light tabular-nums tracking-wide text-muted-foreground/70 transition-colors hover:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50 rounded-sm"
+          aria-label={`App version ${APP_VERSION_LABEL}. Open release notes.`}
         >
           {APP_VERSION_LABEL}
-        </p>
+        </Link>
       </SidebarFooter>
     </ShadcnSidebar>
   );

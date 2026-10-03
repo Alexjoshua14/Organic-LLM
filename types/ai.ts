@@ -35,6 +35,15 @@ export type ChatUIMessage = UIMessage<
     "introspection-view"?: IntrospectionGuidedState;
     /** Server-measured context budget for the assembled turn. */
     "context-budget"?: ContextBudgetEstimate;
+    /**
+     * Arcadia multitask: orchestrator thought-routing / direct-to-subagent dispatch.
+     * Dashboard shell can render which thought went where.
+     */
+    "multitask-routing"?: import("@/lib/schemas/thought-routing").MultitaskInboundDispatch;
+    /**
+     * Arcadia multitask: live worker awareness (progress / milestone / completion / failure).
+     */
+    "multitask-worker"?: import("@/lib/schemas/subagent-runtime").WorkerAwarenessEvent;
   }
 >;
 

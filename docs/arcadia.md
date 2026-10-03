@@ -10,16 +10,62 @@ Arcadia is a **sandbox chat experience** inside Organic LLM: a safe lab for expe
 - Uses the shared chat shell (`components/chat/chat.tsx`) and the shared thread persistence model (Supabase `threads` + `messages`).
 - Threads created from Arcadia are tagged with routing metadata (`threads.feature`, `threads.path`) so the sidebar can route correctly.
 - Arcadia-specific UI variants can exist (e.g. sidebar row styling) while still sharing core primitives and contracts.
+- **Multitask shell** (sandbox): condensed subagent characters with Speak-to. See
+  [Multitask shell](#multitask-shell).
 
 ## What Arcadia is not (non-goals)
 - Not a separate persistence stack or separate auth model.
 - Not guaranteed-stable UX; breakage here is acceptable as part of iteration.
+- Not a production multi-agent backend — the multitask roster is an honest client model until a real swarm exists.
 
 ## UX contract
 - Thread list API (`GET /api/chats`) returns thread metadata including `feature/path`.
 - Sidebar rendering can be filtered via **Coalescence Mode**:
   - OFF: show main chat threads only
   - ON: show threads from all features (including Arcadia)
+
+## Multitask shell
+
+Open any Arcadia thread (`/sandbox/arcadia` → redirect to `/sandbox/arcadia/<id>`). Use the
+**Multiagent** control (top-right) to enter the multitask dashboard for that thread.
+
+| Piece | Path |
+|-------|------|
+| Host + shell UI | `app/sandbox/arcadia/_components/multitask-*.tsx` |
+| Running dashboard | `multitask-dashboard.tsx` + `send-target-picker.tsx` |
+| Layout switch | `lib/arcadia/multitask/layout-mode.ts` (`overlay` vs `dashboard`) |
+| Client model / demo roster | `lib/arcadia/multitask/` |
+| Role → voice presets | `lib/arcadia/multitask/voice-assignment.ts` (also shown in the shell legend) |
+| Speak ADR | [`docs/speak/decisions/20260925-multitask-subagent-speak.md`](./speak/decisions/20260925-multitask-subagent-speak.md) |
+
+**Layout.** Multiagent view is a **per-thread toggle** (default off). Working sandbox agents
+do not force the dashboard. When on: chat is confined with a Send-to picker; the board shows
+condensed cards. Mobile uses one board scroll region and a docked composer stack so layers
+do not paint over each other. Wide screens (`lg` / `MULTITASK_DASHBOARD_WIDE_MIN_PX`) keep
+board + chat side by side.
+
+**Toggle gate.** Flips are refused while `threads.active_stream_id` is set for that thread.
+Local storage + BroadcastChannel sync same-browser tabs; a 2.5s poll syncs other devices
+while the thread page is open. Column: `threads.arcadia_multitask_view`
+(`docs/migrations/threads_arcadia_multitask_view.sql`).
+
+**Composer.** In dashboard mode the confined chat uses the same live `sendMessage` →
+`/api/chat` path as Arcadia idle chat (user bubble + streaming reply). The Send-to picker
+value is sent as `multitaskSendTarget` on the request body so the server can route or
+delegate. `queueSendMode` is intentionally off here — enqueue alone never paints the turn
+into the thread UI. The multi-mode queue still exists for backlog use; see
+[`docs/message-send-queue.md`](./message-send-queue.md).
+
+**Speak to** ends any live call and mints a **new** Realtime session with that subagent's
+Realtime voice id, instructions seeded with goal + current progress. While that session is
+bound:
+
+- `POST /api/ai/speak/realtime/progress` — silent context (no announce)
+- `POST /api/ai/speak/realtime/milestone` — spoken announce (`response.create`)
+
+**Queued composer (optional multi mode):** CoreInput can still take `queueSendMode` when a
+shell wants enqueue-only submits; do not enable it for the Arcadia multitask orchestrator
+window if visible streaming is required. See [`docs/message-send-queue.md`](./message-send-queue.md).
 
 ## Tech + design (3 lines)
 - **Stack**: Next.js (App Router) + React + AI SDK streaming + Clerk + Supabase

@@ -10,17 +10,22 @@ import { ErgonEmptyState } from "@/components/ergon/ErgonEmptyState";
 import { ErgonExpandableSearch } from "@/components/ergon/ErgonExpandableSearch";
 import { ErgonFilterSheet } from "@/components/ergon/ErgonFilterSheet";
 import { ErgonViewSwitcher } from "@/components/ergon/ErgonViewSwitcher";
+import { ergonPageLayout } from "@/components/ergon/ergon-page-layout";
 import { TaskEditorPanel } from "@/components/ergon/TaskEditorPanel";
 import { TaskFilters } from "@/components/ergon/TaskFilters";
 import { TaskQuickAdd } from "@/components/ergon/TaskQuickAdd";
 import { DoneView } from "@/components/ergon/views/DoneView";
 import { ListView } from "@/components/ergon/views/ListView";
 import { PlanView } from "@/components/ergon/views/PlanView";
+import { glass } from "@/components/design-system/primitives";
+import { useErgonOnline } from "@/hooks/use-ergon-online";
+import { isEditableEventTarget } from "@/lib/dom/is-editable-event-target";
 import {
   flattenDoneViewTaskIds,
   flattenListViewTaskIds,
   flattenPlanViewTaskIds,
 } from "@/lib/ergon/flatten-view-tasks";
+import { ERGON_OFFLINE_STATUS_LINE } from "@/lib/ergon/offline";
 import { useErgonTaskListKeyboard } from "@/lib/ergon/use-ergon-task-list-keyboard";
 import { useErgonTasks } from "@/lib/ergon/use-ergon-tasks";
 import { useTaskCategories } from "@/lib/ergon/use-task-categories";
@@ -33,12 +38,7 @@ import {
   type TaskWithCategory,
 } from "@/lib/ergon/types";
 import { filterTasks, isDoneViewTask, isOpenTask } from "@/lib/ergon/task-view";
-import { isEditableEventTarget } from "@/lib/dom/is-editable-event-target";
-import { glass } from "@/components/design-system/primitives";
 import { cn } from "@/lib/utils";
-
-/** Matches former PageContentFrame (5xl) task column width. */
-const ERGON_TASK_COLUMN = "mx-auto w-full max-w-5xl px-6";
 
 type ErgonPageClientProps = {
   initialTasks: TaskWithCategory[];
@@ -59,6 +59,7 @@ export function ErgonPageClient({ initialTasks, initialCategories }: ErgonPageCl
   } = useErgonTasks(initialTasks);
   const { categories, createCategory, updateCategory, deleteCategory } =
     useTaskCategories(initialCategories);
+  const online = useErgonOnline();
 
   const [view, setView] = useState<ErgonView>("plan");
   const [listSort, setListSort] = useState<ListSort>("priority");
@@ -133,9 +134,9 @@ export function ErgonPageClient({ initialTasks, initialCategories }: ErgonPageCl
   const showEmpty = tasks.length === 0;
 
   return (
-    <div className="flex min-h-0 flex-1 flex-col">
-      <header className={cn("shrink-0 space-y-2 py-2 md:space-y-3 md:py-6", ERGON_TASK_COLUMN)}>
-        <div className="flex items-center gap-2 md:justify-between">
+    <div className={ergonPageLayout.shell}>
+      <header className={cn(ergonPageLayout.header, ergonPageLayout.taskColumn)}>
+        <div className={ergonPageLayout.headerRow}>
           <div className="hidden min-w-0 select-none md:block">
             <p className="text-xs uppercase tracking-[0.16em] text-muted-foreground/70">Ergon</p>
             <h1 className="font-commissioner text-2xl font-light tracking-wide text-foreground sm:text-3xl">
@@ -155,8 +156,8 @@ export function ErgonPageClient({ initialTasks, initialCategories }: ErgonPageCl
             <ErgonControlsHelp />
             <ErgonFilterSheet
               categories={categories}
-              filters={filters}
               className="hidden md:inline-flex"
+              filters={filters}
               variant="desktop"
               onChange={setFilters}
               onDeleteCategory={deleteCategory}
@@ -164,14 +165,20 @@ export function ErgonPageClient({ initialTasks, initialCategories }: ErgonPageCl
             />
             <ErgonFilterSheet
               categories={categories}
-              filters={filters}
               className="md:hidden"
+              filters={filters}
               onChange={setFilters}
               onDeleteCategory={deleteCategory}
               onUpdateCategory={updateCategory}
             />
           </div>
         </div>
+
+        {!online ? (
+          <p className={ergonPageLayout.offlineLine} role="status">
+            {ERGON_OFFLINE_STATUS_LINE}
+          </p>
+        ) : null}
 
         <TaskQuickAdd
           categories={categories}
@@ -186,9 +193,9 @@ export function ErgonPageClient({ initialTasks, initialCategories }: ErgonPageCl
         </div>
       </header>
 
-      <main className="min-h-0 min-w-0 flex-1 w-full touch-manipulation overflow-y-auto overscroll-y-contain [scrollbar-gutter:stable]">
-        <div className={cn(ERGON_TASK_COLUMN, "min-h-full pb-2 md:pb-4")}>
-          <div className={cn("min-h-full rounded-xl p-2", glass({ opaque: true }))}>
+      <main className={ergonPageLayout.main}>
+        <div className={cn(ergonPageLayout.taskColumn, "min-h-full pb-2 md:pb-4")}>
+          <div className={cn(ergonPageLayout.boardGlass, glass({ opaque: true }))}>
             {showEmpty ? (
               <ErgonEmptyState onStarterSelect={() => openEditor({ mode: "create" })} />
             ) : viewTasks.length === 0 ? (

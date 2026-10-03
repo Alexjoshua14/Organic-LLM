@@ -63,6 +63,7 @@ import { safeParseMiseCommand } from "@/lib/schemas/mise";
 import { DiagramNodeLinksProvider } from "@/lib/mermaid/diagram-node-links-context";
 import { DiagramTakeoverProvider } from "@/lib/mermaid/diagram-takeover-context";
 import { isEditableEventTarget } from "@/lib/dom/is-editable-event-target";
+import { useArcadiaMultitaskOptional } from "@/app/sandbox/arcadia/_components/multitask-provider";
 const logger = createLogger("components/chat/chat");
 
 export type ChatProps = {
@@ -90,6 +91,19 @@ export const Chat: React.FC<ChatProps> = ({
   assistantSession,
 }) => {
   const { refreshSidebarChats } = useSharedChatContext();
+  const arcadiaMultitask = useArcadiaMultitaskOptional();
+  const multitaskSendTargetRef = useRef(arcadiaMultitask?.sendTarget ?? null);
+  const applyInboundDispatchRef = useRef(arcadiaMultitask?.applyInboundDispatch);
+  const applyAwarenessEventRef = useRef(arcadiaMultitask?.applyAwarenessEvent);
+  const confineInMultitaskDashboard = arcadiaMultitask?.layoutMode === "dashboard";
+  // Multitask dashboard uses live sendMessage → /api/chat (same as Arcadia idle chat).
+  // Do not enable CoreInput queueSendMode here: enqueue never appends/streams into the
+  // thread UI, so orchestrator turns look like a no-op. Subagent targeting still rides on
+  // multitaskSendTarget in the request body.
+
+  multitaskSendTargetRef.current = arcadiaMultitask?.sendTarget ?? null;
+  applyInboundDispatchRef.current = arcadiaMultitask?.applyInboundDispatch;
+  applyAwarenessEventRef.current = arcadiaMultitask?.applyAwarenessEvent;
 
   const selectedModelRef = useRef<ChatModel>(DEFAULT_COMPOSER_MODEL);
   const selectedEffortRef = useRef<ChatEffortLevel>(DEFAULT_COMPOSER_EFFORT);
@@ -222,6 +236,11 @@ export const Chat: React.FC<ChatProps> = ({
               zeroDataRetention: settings.zeroDataRetention,
               coalescenceMode: settings.coalescenceMode,
               ...(contextEffort ? { contextEffort } : {}),
+              // Arcadia multitask dashboard: explicit orchestrator vs subagent destination.
+              // Existing /api/chat path; server may ignore until orchestration wires it.
+              ...(experience === "arcadia" && multitaskSendTargetRef.current
+                ? { multitaskSendTarget: multitaskSendTargetRef.current }
+                : {}),
               // Only include persistedSchemas in payload if true
               ...(usePersistedSchemas.current ? { persistedSchemas: true } : {}),
               ...(diagramNodeLinksRef.current.length > 0
@@ -349,6 +368,14 @@ export const Chat: React.FC<ChatProps> = ({
           }
         } else if (data.type === "data-context-budget") {
           setStreamContextBudget(withLastTurnSnapshot(data.data as ContextBudgetEstimate));
+        } else if (data.type === "data-multitask-routing") {
+          applyInboundDispatchRef.current?.(
+            data.data as import("@/lib/schemas/thought-routing").MultitaskInboundDispatch
+          );
+        } else if (data.type === "data-multitask-worker") {
+          applyAwarenessEventRef.current?.(
+            data.data as import("@/lib/schemas/subagent-runtime").WorkerAwarenessEvent
+          );
         }
       },
       onError: (error) => {
@@ -468,11 +495,12 @@ export const Chat: React.FC<ChatProps> = ({
     <DiagramNodeLinksProvider linksRef={diagramNodeLinksRef}>
       <DiagramTakeoverProvider>
         <div
+          data-arcadia-chat-root
           className={[
             "w-full",
             "min-w-0",
             "h-full",
-            "sm:max-h-[calc(100dvh-2rem)]",
+            confineInMultitaskDashboard ? "max-h-none" : "sm:max-h-[calc(100dvh-2rem)]",
             "flex",
             "flex-col",
             "overflow-x-hidden",
@@ -501,7 +529,7 @@ export const Chat: React.FC<ChatProps> = ({
               contentClassName={persona === "remy" ? MEMORY_PANEL_RESERVE_PADDING : undefined}
               messages={messages}
               renderEmptyState={
-                experience === "arcadia"
+                experience === "arcadia" && !confineInMultitaskDashboard
                   ? () => (
                       <ChatStylePicker
                         chatId={id}

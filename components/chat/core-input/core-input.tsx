@@ -78,6 +78,9 @@ import { deleteEmptyChat } from "@/data/supabase/chat";
 import { useSharedChatContext } from "@/lib/context/chat-context";
 import { useComposerDraft } from "@/hooks/use-composer-draft";
 import { useDiagramNodeLinksOptional } from "@/lib/mermaid/diagram-node-links-context";
+import { useMessageSendQueue } from "@/hooks/use-message-send-queue";
+import { MessageSendQueueStrip } from "@/components/chat/message-send-queue-strip";
+import { shouldEnqueueInsteadOfSend } from "@/lib/message-queue/dispatch-gates";
 
 type CoreInputProps = {
   modelRef: React.RefObject<ChatModel>;
@@ -146,6 +149,14 @@ type CoreInputProps = {
   threadMessages?: UIMessage[];
   experience?: ChatExperience;
   chatStyle?: ChatStyle;
+  /**
+   * Multi-mode: submit enqueues to the server queue instead of calling `sendMessage`.
+   * Composer stays free while the agent streams or budget is exhausted.
+   * Requires `chatId`. Arcadia multitask shell should pass this when multi mode is on.
+   */
+  queueSendMode?: boolean;
+  /** Optional multitask subagent id stored with the queue row. */
+  queueTargetAgentId?: string;
 };
 
 /** Max length for the in-flight shimmer copy (matches AiInputForm). */
@@ -200,9 +211,16 @@ export const CoreInput: React.FC<CoreInputProps> = ({
   threadMessages,
   experience,
   chatStyle,
+  queueSendMode = false,
+  queueTargetAgentId,
 }) => {
   const { refreshSidebarChats } = useSharedChatContext();
   const diagramNodeLinks = useDiagramNodeLinksOptional();
+  const queueEnabled = shouldEnqueueInsteadOfSend(queueSendMode) && Boolean(chatId);
+  const messageQueue = useMessageSendQueue({
+    threadId: chatId,
+    enabled: queueEnabled,
+  });
 
   const modelStorageKey = modelLocalStorageKey ?? "organic-llm-selected-model";
   const effortStorageKey = effortLocalStorageKey ?? "organic-llm-selected-effort";
@@ -574,10 +592,28 @@ export const CoreInput: React.FC<CoreInputProps> = ({
       }
     });
 
-    sendMessage({
-      text: finalText,
-      files: message.files,
-    });
+    if (queueEnabled) {
+      // Multi-mode: enqueue only — server dispatches when idle + budget allows.
+      // Attachments are not queued yet (open question); text path stays free.
+      void messageQueue.enqueue(
+        finalText,
+        {
+          model,
+          effort,
+          webSearch: useWebSearch,
+          memory: useMemories,
+          speechFriendly: useSpeechFriendly,
+          experience,
+          messageSearch: true,
+        },
+        queueTargetAgentId
+      );
+    } else {
+      sendMessage({
+        text: finalText,
+        files: message.files,
+      });
+    }
 
     diagramNodeLinks?.clearLinks();
     clearDraftOnSend();
@@ -632,10 +668,15 @@ export const CoreInput: React.FC<CoreInputProps> = ({
     },
     [onSecondarySubmit, secondarySubmitDisabled, secondarySubmitPending, text]
   );
-  const organicSubmitState = resolveOrganicSubmitState(status, text.trim().length > 0);
+  const organicSubmitState = resolveOrganicSubmitState(
+    queueEnabled ? "ready" : status,
+    text.trim().length > 0
+  );
 
   const showSentShimmer =
-    sentMessageShimmer === true && (status === "submitted" || status === "streaming");
+    !queueEnabled &&
+    sentMessageShimmer === true &&
+    (status === "submitted" || status === "streaming");
   const sentDisplaySource = recentlySentText || recentlySentTextRef.current;
   const sentDisplayText = truncateSentMessageDisplay(sentDisplaySource);
   const composerBodyMeasureClass =
@@ -847,9 +888,10 @@ export const CoreInput: React.FC<CoreInputProps> = ({
   const submitControl = (
     <PromptInputSubmit
       className={cn(submitVariant === "organic-glass" && organicGlassSubmitClassName)}
-      disabled={(!text && !status) || disabled}
-      status={status}
-      stop={stop}
+      // Multi-mode: always submit (never stop). Default: keep stop available while streaming.
+      disabled={queueEnabled ? !text.trim() || disabled : (!text && !status) || disabled}
+      status={queueEnabled ? "ready" : status}
+      stop={queueEnabled ? undefined : stop}
     >
       {submitVariant === "organic-glass" ? (
         <OrganicSubmitGlyph state={organicSubmitState} />
@@ -945,6 +987,13 @@ export const CoreInput: React.FC<CoreInputProps> = ({
       {/* Positioning context for the live voice drawer; layout-neutral otherwise. */}
       <div className="relative w-full min-w-0">
         <CoreInputVoiceDrawerSlot />
+        {queueEnabled ? (
+          <MessageSendQueueStrip
+            budget={messageQueue.budget}
+            className="mb-2"
+            items={messageQueue.items}
+          />
+        ) : null}
         {shell}
       </div>
     </CoreInputControlsProvider>

@@ -40,6 +40,13 @@ type ProductStageProps = {
   remountKey: number;
 };
 
+/**
+ * First-fold spacing for the product stage on a ~390×844 mobile viewport.
+ * Keeps thread + composer inside 100dvh; desktop (`sm+`) stays roomy for the outline/lumen bleed.
+ */
+const STAGE_FRAME_PAD_CLASS = "py-2 sm:py-4";
+const THREAD_STACK_CLASS = "flex w-full flex-col gap-4 px-1 pb-4 pt-1 sm:gap-6 sm:pb-6 sm:pt-2";
+
 /** The shipped `CoreInput` on a width-controlled stage, with the refs it writes read back out. */
 export function ProductStage({ state, chat, remountKey }: ProductStageProps) {
   const modelRef = useRef<ChatModel>(DEFAULT_COMPOSER_MODEL);
@@ -99,10 +106,11 @@ export function ProductStage({ state, chat, remountKey }: ProductStageProps) {
 
   return (
     <div className="space-y-4">
-      {/* Vertical room for the outline offset and the lumen rim's bleed. */}
-      <div className="py-3 sm:py-4">
+      {/* Vertical room for the outline offset and the lumen rim's bleed (tighter on mobile). */}
+      <div className={STAGE_FRAME_PAD_CLASS}>
         <div
           ref={stageRef}
+          data-core-input-lab-example
           className={cn(
             "relative mx-auto w-full",
             state.showStageBounds &&
@@ -216,7 +224,7 @@ function Readout({
 /** Placeholder thread so the composer sits under messages, as it does on a chat page. */
 function ThreadPreview() {
   return (
-    <div className="flex w-full flex-col gap-6 px-1 pb-6 pt-2">
+    <div className={THREAD_STACK_CLASS}>
       {LAB_THREAD.map((message) =>
         message.role === "user" ? (
           <div key={message.id} className="max-w-4/5 w-fit self-end overflow-hidden">
