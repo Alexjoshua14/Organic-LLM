@@ -2,12 +2,22 @@
 
 import React, { useCallback, useEffect, useRef, useState } from "react";
 
+import { ProcessingTextBurn } from "@/components/chat/processing-text-burn";
+import { PROCESSING_TEXT_BURN_TITLE_REGEN_LOOP_S } from "@/lib/chat/processing-text-burn-timing";
+import { cn } from "@/lib/utils";
+
 type SidebarChatTitleProps = {
   title: string;
   editing: boolean;
   onSave: (title: string) => void;
   onEditingChange?: (editing: boolean) => void;
   className?: string;
+  /** AI title regeneration in flight for this thread. */
+  regenerating?: boolean;
+  /** API has returned; burn to the (possibly new) title on the next loop boundary. */
+  commitRegen?: boolean;
+  /** Called after the commit burn sweep settles. */
+  onRegenCommitSettled?: () => void;
 };
 
 const BLUR_GUARD_MS = 600;
@@ -18,6 +28,9 @@ export function SidebarChatTitle({
   onSave,
   onEditingChange,
   className,
+  regenerating = false,
+  commitRegen = false,
+  onRegenCommitSettled,
 }: SidebarChatTitleProps) {
   const [editedTitle, setEditedTitle] = useState<string>(title);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -95,6 +108,19 @@ export function SidebarChatTitle({
           e.stopPropagation();
           handleKeyDown(e);
         }}
+      />
+    );
+  }
+
+  if (regenerating) {
+    return (
+      <ProcessingTextBurn
+        as="span"
+        className={cn("flex-1 truncate py-1 min-w-0 block", className)}
+        commitOnNextSweep={commitRegen}
+        loopSweepIntervalS={PROCESSING_TEXT_BURN_TITLE_REGEN_LOOP_S}
+        text={title}
+        onCommitSweepSettled={onRegenCommitSettled}
       />
     );
   }

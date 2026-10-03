@@ -6,10 +6,15 @@ import { render } from "../helpers/render";
 
 const mockDeleteChat = mock(async () => ({ ok: true, error: null }));
 const mockRefreshSidebarChats = mock(() => {});
+const mockBeginTitleRegen = mock(() => {});
+const mockResolveTitleRegen = mock(() => {});
+const mockFinishTitleRegen = mock(() => {});
+const mockIsTitleRegenerating = mock((_id: string) => false);
 const mockRouterPush = mock(() => {});
 const mockOnOpenChange = mock(() => {});
 
 let currentPathname = "/";
+let fetchImpl: typeof fetch = async () => new Response(null, { status: 500 });
 
 mock.module("@/data/supabase/chat", () => ({
   deleteChat: mockDeleteChat,
@@ -20,6 +25,8 @@ mock.module("next/navigation", () => ({
   usePathname: () => currentPathname,
 }));
 
+const originalFetch = globalThis.fetch;
+
 mock.module("@/components/third-party/ui/dropdown-menu", () => ({
   DropdownMenu: ({ children }: { children: ReactNode }) => <div>{children}</div>,
   DropdownMenuTrigger: ({ children }: { children: ReactNode }) => <div>{children}</div>,
@@ -28,12 +35,14 @@ mock.module("@/components/third-party/ui/dropdown-menu", () => ({
     children,
     onSelect,
     className,
+    disabled,
   }: {
     children: ReactNode;
     onSelect?: () => void;
     className?: string;
+    disabled?: boolean;
   }) => (
-    <button className={className} onClick={() => onSelect?.()}>
+    <button className={className} disabled={disabled} onClick={() => onSelect?.()}>
       {children}
     </button>
   ),
@@ -91,15 +100,27 @@ describe("SidebarThreadActionsMenu", () => {
   afterEach(() => {
     cleanup();
     document.body.innerHTML = "";
+    globalThis.fetch = originalFetch;
   });
 
   beforeEach(() => {
     mockDeleteChat.mockReset();
     mockRefreshSidebarChats.mockReset();
+    mockBeginTitleRegen.mockReset();
+    mockResolveTitleRegen.mockReset();
+    mockFinishTitleRegen.mockReset();
+    mockIsTitleRegenerating.mockReset();
     mockRouterPush.mockReset();
     mockOnOpenChange.mockReset();
     mockDeleteChat.mockResolvedValue({ ok: true, error: null });
+    mockIsTitleRegenerating.mockImplementation(() => false);
     currentPathname = "/";
+    fetchImpl = async () =>
+      new Response(JSON.stringify({ data: "Fresh Title" }), {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      });
+    globalThis.fetch = ((...args: Parameters<typeof fetch>) => fetchImpl(...args)) as typeof fetch;
   });
 
   function renderMenu() {
@@ -115,6 +136,13 @@ describe("SidebarThreadActionsMenu", () => {
             isSidebarChatsLoading: false,
             sidebarChatsError: null,
             refreshSidebarChats: mockRefreshSidebarChats,
+            titleRegenThreadIds: new Set(),
+            isTitleRegenerating: mockIsTitleRegenerating,
+            getTitleRegenBurnText: (_id: string, fallback: string) => fallback,
+            beginTitleRegen: mockBeginTitleRegen,
+            resolveTitleRegen: mockResolveTitleRegen,
+            isTitleRegenReadyToCommit: () => false,
+            finishTitleRegen: mockFinishTitleRegen,
           } as ChatContextValue
         }
       >
@@ -157,5 +185,30 @@ describe("SidebarThreadActionsMenu", () => {
       expect(mockRefreshSidebarChats).toHaveBeenCalled();
       expect(mockRouterPush).not.toHaveBeenCalled();
     });
+  });
+
+  test("starts title regen and resolves when the API returns", async () => {
+    const view = renderMenu();
+
+    fireEvent.click(view.getByText("Regenerate title (AI)"));
+
+    expect(mockBeginTitleRegen).toHaveBeenCalledWith("thread-1", "Thread One");
+    expect(mockOnOpenChange).toHaveBeenCalledWith(false);
+
+    await waitFor(() => {
+      expect(mockResolveTitleRegen).toHaveBeenCalledWith("thread-1", "Fresh Title");
+    });
+    expect(mockFinishTitleRegen).not.toHaveBeenCalled();
+  });
+
+  test("blocks regenerate while that thread is already regenerating", () => {
+    mockIsTitleRegenerating.mockImplementation((id: string) => id === "thread-1");
+    const view = renderMenu();
+
+    const label = view.getByText("Generating title…");
+    const button = label.closest("button");
+    expect(button?.disabled).toBe(true);
+    fireEvent.click(label);
+    expect(mockBeginTitleRegen).not.toHaveBeenCalled();
   });
 });

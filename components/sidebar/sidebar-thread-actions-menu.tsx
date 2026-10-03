@@ -40,7 +40,14 @@ export function SidebarThreadActionsMenu({
   const { isOpen, onOpen, onClose, onOpenChange: onModalOpenChange } = useDisclosure();
   const pathname = usePathname();
   const router = useRouter();
-  const { refreshSidebarChats } = useSharedChatContext();
+  const {
+    refreshSidebarChats,
+    isTitleRegenerating,
+    beginTitleRegen,
+    resolveTitleRegen,
+    finishTitleRegen,
+  } = useSharedChatContext();
+  const titleRegenInFlight = isTitleRegenerating(thread.id);
 
   const handleEditTitle = useCallback(() => {
     onOpenChange(false);
@@ -58,21 +65,41 @@ export function SidebarThreadActionsMenu({
   }, [onOpenChange, onOpen]);
 
   const handleGenerateTitle = useCallback(() => {
+    if (isTitleRegenerating(thread.id)) return;
+
     onOpenChange(false);
     const threadId = thread.id;
 
+    beginTitleRegen(threadId, thread.title);
+
     fetch(`/api/chat/${threadId}/generate-title`, { method: "POST" })
-      .then((res) => {
-        if (res.ok) {
-          refreshSidebarChats();
-        } else {
+      .then(async (res) => {
+        if (!res.ok) {
           logger.error("handleGenerateTitle", `Failed to generate title: ${res.status}`);
+          finishTitleRegen(threadId);
+
+          return;
         }
+
+        const body = (await res.json().catch(() => ({}))) as { data?: string };
+        const nextTitle =
+          typeof body.data === "string" && body.data.trim() !== "" ? body.data.trim() : "Chat";
+
+        resolveTitleRegen(threadId, nextTitle);
       })
       .catch((err) => {
         logger.error("handleGenerateTitle", err);
+        finishTitleRegen(threadId);
       });
-  }, [thread.id, onOpenChange, refreshSidebarChats]);
+  }, [
+    thread.id,
+    thread.title,
+    onOpenChange,
+    isTitleRegenerating,
+    beginTitleRegen,
+    resolveTitleRegen,
+    finishTitleRegen,
+  ]);
 
   const deleteThread = useCallback(() => {
     const handleDeleteThread = async () => {
@@ -103,9 +130,13 @@ export function SidebarThreadActionsMenu({
             <Pencil className="size-4" />
             Edit title
           </DropdownMenuItem>
-          <DropdownMenuItem onSelect={handleGenerateTitle}>
+          <DropdownMenuItem disabled={titleRegenInFlight} onSelect={handleGenerateTitle}>
             <Sparkles className="size-4" />
-            {thread.hasNoTitle === true ? "Generate title (AI)" : "Regenerate title (AI)"}
+            {titleRegenInFlight
+              ? "Generating title…"
+              : thread.hasNoTitle === true
+                ? "Generate title (AI)"
+                : "Regenerate title (AI)"}
           </DropdownMenuItem>
           <DropdownMenuItem onSelect={handleTogglePin}>
             {thread.pinned ? (
