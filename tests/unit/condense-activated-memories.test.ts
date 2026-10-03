@@ -64,4 +64,49 @@ describe("condenseActivatedMemories", () => {
     expect(calls).toBe(1);
     expect(again.memories[0]!.text).toBe("Condensed fact.");
   });
+
+  test("stops at the shared deadline and keeps the clip for late answers", async () => {
+    const hung: CondenseMemoryText = () => new Promise(() => {});
+    const start = performance.now();
+    const result = await condenseActivatedMemories([long("a"), long("b")], {
+      maxChars: 50,
+      condense: hung,
+      budgetMs: 50,
+    });
+
+    expect(performance.now() - start).toBeLessThan(1_000);
+    expect(result.condensed).toBe(0);
+    expect(result.memories.every((memory) => memory.text.endsWith("…"))).toBe(true);
+  });
+
+  test("passes the deadline signal to the condenser", async () => {
+    let signal: AbortSignal | undefined;
+    const condense: CondenseMemoryText = async (_text, _max, abortSignal) => {
+      signal = abortSignal;
+
+      return "Condensed fact.";
+    };
+
+    await condenseActivatedMemories([long("a")], { maxChars: 50, condense, budgetMs: 50 });
+
+    expect(signal).toBeInstanceOf(AbortSignal);
+  });
+
+  test("sends at most maxCondensed memories per turn", async () => {
+    let calls = 0;
+    const condense: CondenseMemoryText = async () => {
+      calls++;
+
+      return "Condensed fact.";
+    };
+    const result = await condenseActivatedMemories([long("a"), long("b"), long("c")], {
+      maxChars: 50,
+      condense,
+      maxCondensed: 2,
+    });
+
+    expect(calls).toBe(2);
+    expect(result.condensed).toBe(2);
+    expect(result.memories[2]!.text.endsWith("…")).toBe(true);
+  });
 });
