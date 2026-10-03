@@ -6,18 +6,20 @@ import { ArcadiaMultitaskProvider, useArcadiaMultitask } from "./multitask-provi
 import { ArcadiaMultitaskShell } from "./multitask-shell";
 import { MultitaskDashboard } from "./multitask-dashboard";
 
+/**
+ * Keep {@link children} (Arcadia Chat) under one stable host so toggling
+ * multitask does not remount the composer — remounts used to race blank-chat
+ * auto-delete and wipe in-flight useChat state.
+ */
 function ArcadiaMultitaskLayout({ children }: { children: ReactNode }) {
   const { layoutMode } = useArcadiaMultitask();
-
-  if (layoutMode === "dashboard") {
-    return <MultitaskDashboard>{children}</MultitaskDashboard>;
-  }
+  const dashboard = layoutMode === "dashboard";
 
   return (
-    <>
-      {children}
-      <ArcadiaMultitaskShell />
-    </>
+    <div className="h-full w-full min-h-0" data-arcadia-multitask-layout={layoutMode}>
+      <MultitaskDashboard enabled={dashboard}>{children}</MultitaskDashboard>
+      {!dashboard ? <ArcadiaMultitaskShell /> : null}
+    </div>
   );
 }
 
