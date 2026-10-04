@@ -1,8 +1,9 @@
-import { beforeEach, describe, expect, test } from "bun:test";
+import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 
 import {
   clearCondensedMemoryCache,
   condenseActivatedMemories,
+  isActivatedMemoryCondenseEnabled,
   type CondenseMemoryText,
 } from "@/lib/memory/condense-activated-memories";
 
@@ -108,5 +109,25 @@ describe("condenseActivatedMemories", () => {
     expect(calls).toBe(2);
     expect(result.condensed).toBe(2);
     expect(result.memories[2]!.text.endsWith("…")).toBe(true);
+  });
+});
+
+describe("isActivatedMemoryCondenseEnabled", () => {
+  const original = process.env.ACTIVATED_MEMORY_CONDENSE_ENABLED;
+
+  afterEach(() => {
+    if (original === undefined) delete process.env.ACTIVATED_MEMORY_CONDENSE_ENABLED;
+    else process.env.ACTIVATED_MEMORY_CONDENSE_ENABLED = original;
+  });
+
+  test("is on by default and off only for an explicit false", () => {
+    delete process.env.ACTIVATED_MEMORY_CONDENSE_ENABLED;
+    expect(isActivatedMemoryCondenseEnabled()).toBe(true);
+
+    process.env.ACTIVATED_MEMORY_CONDENSE_ENABLED = "true";
+    expect(isActivatedMemoryCondenseEnabled()).toBe(true);
+
+    process.env.ACTIVATED_MEMORY_CONDENSE_ENABLED = "false";
+    expect(isActivatedMemoryCondenseEnabled()).toBe(false);
   });
 });

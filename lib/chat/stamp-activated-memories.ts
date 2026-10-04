@@ -10,7 +10,10 @@ import {
   withActivatedMemories,
   type ActivatedMemory,
 } from "@/lib/memory/activated-thread-memories";
-import { condenseActivatedMemories } from "@/lib/memory/condense-activated-memories";
+import {
+  condenseActivatedMemories,
+  isActivatedMemoryCondenseEnabled,
+} from "@/lib/memory/condense-activated-memories";
 
 const logger = createLogger("lib/chat/stamp-activated-memories.ts");
 
@@ -64,7 +67,11 @@ export async function stampTurnWithActivatedMemories(params: {
     );
   }
 
-  if (saved && memories.some((memory) => memory.text.length > MAX_ACTIVATED_MEMORY_CHARS)) {
+  if (
+    saved &&
+    isActivatedMemoryCondenseEnabled() &&
+    memories.some((memory) => memory.text.length > MAX_ACTIVATED_MEMORY_CHARS)
+  ) {
     runAfterResponse(() =>
       persistCondensedMemories({
         chatId: params.chatId,
