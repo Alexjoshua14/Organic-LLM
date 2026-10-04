@@ -92,7 +92,7 @@ export function resolveGithubRoute(input: {
 
   if (input.jev?.distiller && (input.jev.distillerConfidence ?? 0) >= GITHUB_JEV_MIN_CONFIDENCE) {
     distiller = input.jev.distiller;
-    if (router !== "passthrough") router = "jev";
+    router = "jev";
   }
 
   return {
