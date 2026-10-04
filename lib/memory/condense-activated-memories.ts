@@ -37,6 +37,11 @@ const CONDENSE_CACHE_MAX_ENTRIES = 500;
 
 const condensedCache = new Map<string, string>();
 
+/** Kill switch. On unless `ACTIVATED_MEMORY_CONDENSE_ENABLED=false`; off keeps the clip only. */
+export function isActivatedMemoryCondenseEnabled(): boolean {
+  return process.env.ACTIVATED_MEMORY_CONDENSE_ENABLED !== "false";
+}
+
 function condenseSystemPrompt(maxChars: number): string {
   return `You shorten a saved memory about a user so it fits in ${maxChars} characters.
 Keep every specific fact: names, numbers, dates, preferences, decisions, and their qualifiers.
@@ -60,7 +65,7 @@ export const condenseMemoryTextWithLlm: CondenseMemoryText = async (
   const start = performance.now();
   const result = await generateText({
     model: CONDENSE_MODEL,
-    system: condenseSystemPrompt(maxChars),
+    instructions: condenseSystemPrompt(maxChars),
     prompt: text.slice(0, CONDENSE_INPUT_MAX_CHARS),
     maxOutputTokens: CONDENSE_MAX_OUTPUT_TOKENS,
     maxRetries: 0,
