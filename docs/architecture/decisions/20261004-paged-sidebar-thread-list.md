@@ -16,6 +16,8 @@ GET `/api/chats` returned every thread the user owned. That included rabbit-hole
 - `Server-Timing` on every response. Target: first page under 750ms.
 - Client: `useSWRInfinite`. Revalidation refetches the first page only. Mutations with a known result patch the cache instead of refetching. See the contract in `docs/thread-session-architecture.md` §4.
 - Row menus mount on first hover, focus, or open.
+- The cache key includes the Clerk user id. Before, a signed-out load cached a 401 that stuck until SWR's retry timer fired after sign-in, and a second account in the same tab could briefly see the first account's threads.
+- Skeleton rows stand in for the list while clerk-js or the first page loads; `SignedIn` and `SignedOut` both render nothing until the session resolves.
 
 ## Consequences
 

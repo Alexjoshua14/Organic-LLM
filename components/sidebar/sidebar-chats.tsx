@@ -7,6 +7,7 @@ import { useEffect, useMemo, useRef } from "react";
 import { SidebarGroup, SidebarGroupLabel } from "../third-party/ui/sidebar";
 
 import { SidebarChatList } from "./sidebar-chat-list";
+import { SidebarChatsSkeleton, SidebarThreadRowsSkeleton } from "./sidebar-chats-skeleton";
 
 import { useSharedChatContext } from "@/lib/context/chat-context";
 
@@ -74,11 +75,7 @@ export const SidebarChats = () => {
   }, [pinnedChats]);
 
   if (isSidebarChatsLoading && pinnedChats.length === 0 && allChats.length === 0) {
-    return (
-      <div className="flex items-center justify-center py-8 text-muted-foreground text-sm">
-        Loading threads…
-      </div>
-    );
+    return <SidebarChatsSkeleton />;
   }
 
   return (
@@ -92,11 +89,7 @@ export const SidebarChats = () => {
         </SidebarGroupLabel>
         {allChatsComponents}
         {hasMoreSidebarChats && <div ref={loadMoreRef} aria-hidden="true" className="h-px" />}
-        {isSidebarChatsLoadingMore && (
-          <div className="py-2 text-center text-muted-foreground text-xs">
-            Loading older threads…
-          </div>
-        )}
+        {isSidebarChatsLoadingMore && <SidebarThreadRowsSkeleton rows={3} />}
       </SidebarGroup>
     </div>
   );

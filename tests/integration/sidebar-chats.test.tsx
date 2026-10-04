@@ -86,7 +86,8 @@ describe("SidebarChats", () => {
   test("shows a loading state when chats are still loading", () => {
     const view = renderSidebarChats({ ...baseValue, isSidebarChatsLoading: true });
 
-    expect(view.getByText("Loading threads…")).toBeDefined();
+    expect(view.getByRole("status", { name: "Loading threads" })).toBeDefined();
+    expect(view.getByText("All Threads")).toBeDefined();
   });
 
   test("renders pinned chats separately from all threads", () => {
@@ -141,7 +142,8 @@ describe("SidebarChats", () => {
         loadMoreSidebarChats: loadMore,
       });
 
-      expect(view.getByText("Loading older threads…")).toBeDefined();
+      expect(view.getByText("Thread")).toBeDefined();
+      expect(view.queryByRole("status")).toBeNull();
       expect(observers).toHaveLength(1);
 
       observers[0]!.callback(

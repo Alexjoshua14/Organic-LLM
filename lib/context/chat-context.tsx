@@ -27,6 +27,7 @@ import {
   type SidebarThreadsPage,
 } from "@/lib/chat/sidebar-threads";
 import { getSettings } from "@/lib/user-settings";
+import { useClerkUserId } from "@/lib/auth/use-clerk-user-id";
 import { PERF_PHASES } from "@/lib/perf/journeys";
 import { mark } from "@/lib/perf/trace-store";
 import {
@@ -38,8 +39,15 @@ import {
   startTitleRegen,
 } from "@/lib/chat/title-regen-store";
 
+/**
+ * Cache key for one page: the URL plus the Clerk user, so each account gets its own
+ * cache and signing in starts a fetch at once. The server ignores the user part; it
+ * reads the session.
+ */
+type SidebarPageKey = readonly [url: string, userId: string];
+
 /** Fetcher for one sidebar page. Errors carry the HTTP status for callers. */
-async function sidebarPageFetcher(url: string): Promise<SidebarThreadsPage> {
+async function sidebarPageFetcher([url]: SidebarPageKey): Promise<SidebarThreadsPage> {
   const res = await fetch(url);
 
   if (!res.ok) {
@@ -150,9 +158,24 @@ const sidebarChatsSwrOptions = {
   dedupingInterval: 10_000,
   revalidateFirstPage: false,
   revalidateAll: false,
+  // A 401/403/429 will not fix itself on a timer; the user key or focus refetches instead.
+  onErrorRetry: (
+    error: Error & { status?: number },
+    _key: unknown,
+    _config: unknown,
+    revalidate: (opts: { retryCount: number }) => void,
+    { retryCount }: { retryCount: number }
+  ) => {
+    if (error.status === 401 || error.status === 403 || error.status === 429) return;
+    if (retryCount >= SIDEBAR_ERROR_RETRY_MAX) return;
+    setTimeout(() => revalidate({ retryCount }), SIDEBAR_ERROR_RETRY_BASE_MS * 2 ** retryCount);
+  },
 } as const;
 
 const EMPTY_TITLE_REGEN_IDS: ReadonlySet<string> = new Set();
+
+const SIDEBAR_ERROR_RETRY_MAX = 3;
+const SIDEBAR_ERROR_RETRY_BASE_MS = 2_000;
 
 /** Focus refetches the first page at most this often, to catch other tabs and devices. */
 const SIDEBAR_FOCUS_REVALIDATE_MS = 60_000;
@@ -163,16 +186,24 @@ export function ChatProvider({ children }: { children: ReactNode }) {
   const sidebarLoadedMarkedRef = useRef(false);
 
   const scope = useSidebarScope();
+  const { isLoaded: isAuthLoaded, userId } = useClerkUserId();
 
   const {
     data: sidebarPages,
     error: sidebarChatsError,
-    isLoading: isSidebarChatsLoading,
     size: sidebarPageCount,
     setSize: setSidebarPageCount,
     mutate: mutateSidebarPages,
-  } = useSWRInfinite<SidebarThreadsPage>(
-    (index, previous: SidebarThreadsPage | null) => sidebarPageKey(scope, index, previous),
+  } = useSWRInfinite<SidebarThreadsPage, Error & { status?: number }>(
+    (index, previous: SidebarThreadsPage | null): SidebarPageKey | null => {
+      // No request until Clerk knows the user: nothing to show signed out, and a 401
+      // here used to stick until a retry timer fired after sign-in.
+      if (!userId) return null;
+
+      const url = sidebarPageKey(scope, index, previous);
+
+      return url ? [url, userId] : null;
+    },
     sidebarPageFetcher,
     {
       ...sidebarChatsSwrOptions,
@@ -195,6 +226,11 @@ export function ChatProvider({ children }: { children: ReactNode }) {
       sidebarChats: [...pinnedLinks, ...unpinnedLinks],
     };
   }, [sidebarPages]);
+
+  // Loading covers "Clerk not resolved yet" too, so the sidebar shows a skeleton rather
+  // than an empty list between sign-in and the first page.
+  const isSidebarChatsLoading =
+    !sidebarChatsError && sidebarPages === undefined && (!isAuthLoaded || userId !== null);
 
   const lastPage = sidebarPages?.at(-1);
   const hasMoreSidebarChats = Boolean(lastPage?.nextCursor);

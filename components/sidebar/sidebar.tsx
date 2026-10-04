@@ -1,10 +1,11 @@
 import { Search } from "lucide-react";
 import { Input } from "@heroui/input";
-import { SignedIn, SignedOut, SignOutButton } from "@clerk/nextjs";
+import { ClerkLoading, SignedIn, SignedOut, SignOutButton } from "@clerk/nextjs";
 import Link from "next/link";
 import { Suspense } from "react";
 
 import { SidebarChats } from "./sidebar-chats";
+import { SidebarChatsSkeleton } from "./sidebar-chats-skeleton";
 import { SidebarContentSwitcher } from "./sidebar-content-switcher";
 import { SidebarExperienceRail } from "./sidebar-experience-rail";
 import { PrototypesSidebarContent, PrototypesSidebarFallback } from "./prototypes-sidebar-content";
@@ -46,9 +47,7 @@ function NormalSidebarContent() {
         </SidebarGroupContent>
       </SidebarGroup>
       <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden">
-        <Suspense
-          fallback={<div className="flex items-center justify-center py-8">Loading...</div>}
-        >
+        <Suspense fallback={<SidebarChatsSkeleton />}>
           <SidebarChats />
         </Suspense>
       </div>
@@ -70,6 +69,10 @@ export function Sidebar() {
         </Link>
       </SidebarHeader>
       <SidebarContent className="bg-background-secondary subpixel-antialiased flex flex-col overflow-hidden ">
+        {/* SignedIn and SignedOut both render nothing until clerk-js resolves the session. */}
+        <ClerkLoading>
+          <SidebarChatsSkeleton className="pt-3" />
+        </ClerkLoading>
         <SignedOut>
           <SidebarGroup>
             <SidebarGroupContent className="flex w-full flex-col items-center justify-center gap-4 px-4 py-6">

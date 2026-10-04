@@ -5,6 +5,12 @@ import { SWRConfig } from "swr";
 import { createMockFetch } from "../helpers/mock-fetch";
 import { render } from "../helpers/render";
 
+const authState: { isLoaded: boolean; userId: string | null } = { isLoaded: true, userId: "user_a" };
+
+mock.module("@/lib/auth/use-clerk-user-id", () => ({
+  useClerkUserId: () => ({ ...authState }),
+}));
+
 import {
   ChatProvider,
   useSharedChatContext,
@@ -57,6 +63,8 @@ function renderConsumer() {
 }
 
 afterEach(() => {
+  authState.isLoaded = true;
+  authState.userId = "user_a";
   cleanup();
   if (typeof globalThis.fetch === "function" && "mockRestore" in globalThis.fetch) {
     (globalThis.fetch as unknown as { mockRestore: () => void }).mockRestore();
@@ -316,6 +324,118 @@ describe("ChatProvider sidebar chats", () => {
       expect(fetchController.calls).toHaveLength(2);
     } finally {
       setSystemTime();
+      fetchController.restore();
+    }
+  });
+
+  test("does not fetch until Clerk resolves a signed-in user, and shows loading meanwhile", async () => {
+    const pendingFetch = mock(async () => await new Promise<Response>(() => {}));
+    const originalFetch = globalThis.fetch;
+
+    globalThis.fetch = pendingFetch as unknown as typeof fetch;
+    authState.isLoaded = false;
+    authState.userId = null;
+
+    try {
+      const view = renderConsumer();
+
+      expect(view.getByTestId("loading").textContent).toBe("true");
+      expect(pendingFetch).not.toHaveBeenCalled();
+
+      authState.isLoaded = true;
+      view.rerender(
+        <SWRConfig value={{ provider: () => new Map(), dedupingInterval: 0 }}>
+          <ChatProvider>
+            <TestConsumer />
+          </ChatProvider>
+        </SWRConfig>,
+      );
+
+      expect(view.getByTestId("loading").textContent).toBe("false");
+      expect(pendingFetch).not.toHaveBeenCalled();
+    } finally {
+      globalThis.fetch = originalFetch;
+    }
+  });
+
+  test("fetches as soon as the user signs in, without waiting on a retry", async () => {
+    const page = { data: [threadRow("thread-1", "Mine", "2026-03-08T00:00:00.000Z")], pinned: [], nextCursor: null };
+    const fetchController = createMockFetch([], { route: () => ({ body: page }) });
+
+    authState.userId = null;
+
+    try {
+      // A fresh element each time; React skips re-rendering an identical one.
+      const cache = new Map();
+      const tree = () => (
+        <SWRConfig value={{ provider: () => cache, dedupingInterval: 0 }}>
+          <ChatProvider>
+            <TestConsumer />
+          </ChatProvider>
+        </SWRConfig>
+      );
+      const view = render(tree());
+
+      expect(fetchController.calls).toHaveLength(0);
+
+      authState.userId = "user_a";
+      view.rerender(tree());
+
+      await waitFor(() => {
+        expect(view.getByText(/Mine\|false/)).toBeDefined();
+      });
+      expect(fetchController.calls).toHaveLength(1);
+    } finally {
+      fetchController.restore();
+    }
+  });
+
+  test("keeps each user's threads in a separate cache", async () => {
+    const fetchController = createMockFetch([
+      { body: { data: [threadRow("a-1", "Alice thread", "2026-03-08T00:00:00.000Z")], pinned: [], nextCursor: null } },
+      { body: { data: [threadRow("b-1", "Bob thread", "2026-03-08T00:00:00.000Z")], pinned: [], nextCursor: null } },
+    ]);
+
+    try {
+      // A fresh element each time; React skips re-rendering an identical one.
+      const cache = new Map();
+      const tree = () => (
+        <SWRConfig value={{ provider: () => cache, dedupingInterval: 0 }}>
+          <ChatProvider>
+            <TestConsumer />
+          </ChatProvider>
+        </SWRConfig>
+      );
+      const view = render(tree());
+
+      await waitFor(() => {
+        expect(view.getByText(/Alice thread/)).toBeDefined();
+      });
+
+      authState.userId = "user_b";
+      view.rerender(tree());
+
+      expect(view.queryByText(/Alice thread/)).toBeNull();
+      await waitFor(() => {
+        expect(view.getByText(/Bob thread/)).toBeDefined();
+      });
+    } finally {
+      fetchController.restore();
+    }
+  });
+
+  test("does not retry a 401", async () => {
+    const fetchController = createMockFetch([], { route: () => ({ status: 401, body: { error: "Unauthorized" } }) });
+
+    try {
+      const view = renderConsumer();
+
+      await waitFor(() => {
+        expect(view.getByTestId("error").textContent).toBe("Unauthorized");
+      });
+      await new Promise((resolve) => setTimeout(resolve, 50));
+      expect(fetchController.calls).toHaveLength(1);
+    } finally {
       fetchController.restore();
     }
   });

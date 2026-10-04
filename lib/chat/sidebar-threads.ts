@@ -151,8 +151,11 @@ export function sidebarPageKey(
   return `${SIDEBAR_CHATS_PATH}?${params.toString()}`;
 }
 
+/** Accepts the URL or the provider's `[url, userId]` cache key. */
 export function isFirstSidebarPageKey(key: unknown): boolean {
-  return typeof key === "string" && key.startsWith(SIDEBAR_CHATS_PATH) && !key.includes("cursor=");
+  const url = Array.isArray(key) ? key[0] : key;
+
+  return typeof url === "string" && url.startsWith(SIDEBAR_CHATS_PATH) && !url.includes("cursor=");
 }
 
 export function toThreadLink(row: SidebarThreadRow): ThreadLink {
