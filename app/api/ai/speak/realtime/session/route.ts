@@ -226,7 +226,11 @@ export async function POST(req: Request) {
         audio: {
           input: {
             turn_detection: { type: "server_vad" },
-            transcription: { model: "gpt-transcribe" },
+            transcription: {
+              // Realtime accepts gpt-transcribe; the SDK session union has not caught up.
+              // @ts-expect-error OpenAI SDK types omit gpt-transcribe
+              model: "gpt-transcribe",
+            },
           },
           output: {
             voice: "alloy",
@@ -244,7 +248,9 @@ export async function POST(req: Request) {
   }
 
   const clientSecret = secretPayload.value;
-  const openaiSessionId = secretPayload.session.id;
+  const session = secretPayload.session;
+  const openaiSessionId =
+    session && "id" in session && typeof session.id === "string" ? session.id : undefined;
   const ourSessionId = openaiSessionId || crypto.randomUUID();
 
   if (!clientSecret) {

@@ -260,6 +260,25 @@ export const prototypes: PrototypeEntry[] = [
     },
   },
   {
+    slug: "memory-mindmap",
+    title: "Memory mind map",
+    description:
+      "Toggleable overlay of categorical memory sectors. Soft glow marks access, create, update, and delete — not the memory text.",
+    about: {
+      what: "A popup mind map of the LLM's memory as categorical islands. Sectors are derived from topics and wording; a quiet glow shows what was auto-grabbed or just written, updated, or deleted.",
+      authorThoughts:
+        "The map should feel like looking into a living corpus, not reading a transcript. Labels stay categorical. Color is reserved for operations: cyan access, emerald create, amber update, rose delete.",
+      howToUse:
+        "Open the Memory map. Click a sector to go one layer deeper; click the center node to rise. Memory is the root. Simulate auto-grab, then pulse Access / Create / Update / Delete. Optionally load your live corpus.",
+    },
+    ranking: {
+      importance: 8,
+      frequency: 3,
+      createdAt: "2026-09-13",
+      updatedAt: "2026-09-13",
+    },
+  },
+  {
     slug: "strata",
     title: "Strata",
     description:
