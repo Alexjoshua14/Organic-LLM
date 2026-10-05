@@ -24,6 +24,7 @@ import {
   contextControlsScript,
   contextDemoBudget,
   contextDemoMemories,
+  contextEffortFacts,
   deriveContextDemo,
 } from "@/lib/showcase/context-controls";
 import { scriptChapterSettledTimes, scriptChapterStarts } from "@/lib/showcase/scripted-timeline";
@@ -42,6 +43,8 @@ if (!demoModel) {
 }
 
 const DEMO_MODEL = demoModel;
+
+const EFFORT_LEVELS = ["instant", "quick", "heavy"] as const;
 
 const HEAVY_MEMORY_CAP = CONTEXT_EFFORT_BUDGETS.heavy.combinedTokenCap;
 
@@ -118,6 +121,7 @@ export function ContextControlsStage() {
         chapterIndex={frame.chapterIndex}
         chapters={script.chapters}
         playing={replay.playing}
+        bar={replay.bar}
         progress={replay.progress}
         reduceMotion={replay.reduceMotion}
         onPause={replay.pause}
@@ -145,7 +149,7 @@ function ContextEffortCard({
   className?: string;
 }) {
   const levelName = CONTEXT_EFFORT_BUDGETS[effort].name;
-  const fill = Math.min(100, Math.max(0, (memoryTokens / HEAVY_MEMORY_CAP) * 100));
+  const facts = contextEffortFacts(effort);
 
   return (
     <div
@@ -169,35 +173,27 @@ function ContextEffortCard({
         </div>
       </div>
 
-      <div className="mt-3 flex items-baseline justify-between gap-3">
-        <p className="text-xs text-muted-foreground">Memory token budget</p>
-        <p className="font-mono text-lg tabular-nums text-foreground">
-          {formatTokenCount(memoryTokens)}
-        </p>
-      </div>
-      <div
-        aria-label="Memory token budget"
-        aria-valuemax={HEAVY_MEMORY_CAP}
-        aria-valuemin={0}
-        aria-valuenow={memoryTokens}
-        aria-valuetext={`${memoryTokens.toLocaleString()} memory tokens at ${levelName}, against Heavy's ${HEAVY_MEMORY_CAP.toLocaleString()} token cap`}
-        className="mt-1.5 h-1.5 overflow-hidden rounded-full bg-muted/50"
-        role="meter"
-      >
-        <div
-          className="h-full rounded-full bg-amber-400/85 motion-safe:transition-[width] motion-safe:duration-150 motion-reduce:transition-none"
-          style={{ width: `${fill}%` }}
-        />
-      </div>
-      <p className="mt-1.5 text-[11px] text-muted-foreground">
-        Against Heavy&apos;s {formatTokenCount(HEAVY_MEMORY_CAP)} cap
-        {" · "}
-        <EffortScaleMark current={effort} level="instant" />
-        {" · "}
-        <EffortScaleMark current={effort} level="quick" />
-        {" · "}
-        <EffortScaleMark current={effort} level="heavy" />
-      </p>
+      <EffortMeter
+        caption={`${formatTokenCount(CONTEXT_EFFORT_BUDGETS.instant.combinedTokenCap)} · ${formatTokenCount(CONTEXT_EFFORT_BUDGETS.quick.combinedTokenCap)} · ${formatTokenCount(HEAVY_MEMORY_CAP)}`}
+        label="Memory budget"
+        max={HEAVY_MEMORY_CAP}
+        value={memoryTokens}
+        valueLabel={`${formatTokenCount(memoryTokens)} tokens`}
+      />
+      <EffortMeter
+        caption={EFFORT_LEVELS.map((level) =>
+          contextEffortFacts(level).waitLabel.replace("up to ", "")
+        ).join(" · ")}
+        label="Time allowed to retrieve"
+        max={CONTEXT_EFFORT_BUDGETS.heavy.budgetMs}
+        value={facts.waitMs}
+        valueLabel={facts.waitLabel}
+      />
+      <ul className="mt-3 space-y-1 border-t border-border/40 pt-3 text-xs text-muted-foreground">
+        <li>{facts.search}</li>
+        <li>{facts.keeps}</li>
+        <li>{facts.profile}</li>
+      </ul>
       {visitorDriven ? (
         <p className="mt-2 text-[11px] text-muted-foreground">
           You&apos;re driving the budget. Restart to follow the script.
@@ -207,20 +203,45 @@ function ContextEffortCard({
   );
 }
 
-function EffortScaleMark({
-  current,
-  level,
+function EffortMeter({
+  label,
+  value,
+  max,
+  valueLabel,
+  caption,
 }: {
-  current: ContextEffortLevel;
-  level: ContextEffortLevel;
+  label: string;
+  value: number;
+  max: number;
+  valueLabel: string;
+  caption: string;
 }) {
-  const active = current === level;
-  const budget = CONTEXT_EFFORT_BUDGETS[level];
+  const fill = Math.min(100, Math.max(0, (value / max) * 100));
 
   return (
-    <span className={active ? "text-foreground" : undefined}>
-      {budget.name} {formatTokenCount(budget.combinedTokenCap)}
-    </span>
+    <div className="mt-3">
+      <div className="flex items-baseline justify-between gap-3">
+        <p className="text-xs text-muted-foreground">{label}</p>
+        <p className="font-mono text-sm tabular-nums text-foreground">{valueLabel}</p>
+      </div>
+      <div
+        aria-label={label}
+        aria-valuemax={max}
+        aria-valuemin={0}
+        aria-valuenow={Math.round(value)}
+        aria-valuetext={valueLabel}
+        className="mt-1.5 h-1.5 overflow-hidden rounded-full bg-muted/50"
+        role="meter"
+      >
+        <div
+          className="h-full rounded-full bg-amber-400/85 motion-safe:transition-[width] motion-safe:duration-150 motion-reduce:transition-none"
+          style={{ width: `${fill}%` }}
+        />
+      </div>
+      <p className="mt-1 text-[11px] text-muted-foreground/70">
+        Instant · Quick · Heavy: {caption}
+      </p>
+    </div>
   );
 }
 
@@ -236,10 +257,9 @@ function MemoryList({ memories, className }: { memories: readonly string[]; clas
       <h2 className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
         Memories in context
       </h2>
-      <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
-        {SHOWCASE_STORY.premise} Synthetic for this demo —{" "}
+      <p className="mt-1 text-xs text-muted-foreground">
         <span className="font-mono text-foreground">{memories.length}</span> of{" "}
-        {SHOWCASE_STORY.memories.length} are in the window.
+        {SHOWCASE_STORY.memories.length} in the window
       </p>
       <ul className="mt-2.5 space-y-1.5">
         {memories.map((memory) => (

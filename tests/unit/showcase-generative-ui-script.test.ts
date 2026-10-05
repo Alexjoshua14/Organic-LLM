@@ -8,9 +8,16 @@ import {
 import { scriptChapterSettledTimes, scriptChapterStarts } from "@/lib/showcase/scripted-timeline";
 
 describe("generative UI showcase script", () => {
-  test("is an overview-length replay with one chapter per format", () => {
-    expect(genUiCompiledScript.contentEndMs).toBeGreaterThanOrEqual(9_000);
-    expect(genUiCompiledScript.contentEndMs).toBeLessThanOrEqual(14_000);
+  test("gives every finished block time to be read before the next request", () => {
+    for (const view of GEN_UI_VIEW_IDS) {
+      const read = genUiCompiledScript.beats.find((b) => b.id === `${view}-read`)!;
+
+      expect(read.endMs - read.startMs).toBeGreaterThanOrEqual(3_000);
+      expect(deriveGenUiDemo(read.startMs).block).toBe("ready");
+    }
+  });
+
+  test("keeps one chapter per format", () => {
     expect(genUiCompiledScript.chapters.map((c) => c.id)).toEqual([...GEN_UI_VIEW_IDS]);
   });
 

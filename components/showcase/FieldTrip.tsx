@@ -38,6 +38,23 @@ function useMountAhead() {
   return { ref, mounted };
 }
 
+/** Scrolls the showcase's own container; a native anchor jump would also move the page shell. */
+function scrollToChapter(slug: string) {
+  const section = document.getElementById(`trip-${slug}`);
+  const scroller = section?.closest<HTMLElement>(".showcase-scroll");
+
+  if (!section || !scroller) return;
+  const bar = scroller.querySelector<HTMLElement>(".showcase-trip-bar");
+  const top =
+    section.getBoundingClientRect().top -
+    scroller.getBoundingClientRect().top +
+    scroller.scrollTop -
+    (bar?.offsetHeight ?? 0);
+  const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+  scroller.scrollTo({ top, behavior: reduce ? "auto" : "smooth" });
+}
+
 function Chapter({ index }: { index: number }) {
   const chapter = FIELD_TRIP[index]!;
   const stop = SHOWCASE_TOUR.find((s) => s.slug === chapter.slug)!;
@@ -53,14 +70,18 @@ function Chapter({ index }: { index: number }) {
     >
       <header className="showcase-chapter-intro">
         <p className="showcase-chapter-when">
-          <span>{String(index + 1).padStart(2, "0")}</span>
+          <span aria-hidden>{String(index + 1).padStart(2, "0")}</span>
           {chapter.when}
         </p>
         <h2 id={titleId}>{chapter.headline}</h2>
         <div className="showcase-chapter-copy">
           <p>{chapter.narration}</p>
-          <Link className="showcase-text-link" href={stop.href}>
-            Open the full {stop.title} demo <ArrowUpRight aria-hidden size={15} />
+          <Link
+            aria-label={`Open the full ${stop.title} demo`}
+            className="showcase-text-link"
+            href={stop.href}
+          >
+            Full demo <ArrowUpRight aria-hidden size={15} />
           </Link>
         </div>
       </header>
@@ -108,6 +129,10 @@ export function FieldTrip() {
                   aria-current={active === index ? "step" : undefined}
                   className={cn(active === index && "is-active")}
                   href={`#trip-${chapter.slug}`}
+                  onClick={(event) => {
+                    event.preventDefault();
+                    scrollToChapter(chapter.slug);
+                  }}
                 >
                   <span>{index + 1}</span>
                   {chapter.label}

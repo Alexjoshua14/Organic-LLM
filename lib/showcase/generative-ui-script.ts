@@ -15,9 +15,11 @@ export type GenUiViewId = "compare" | "plan" | "kit";
 
 export const GEN_UI_VIEW_IDS: readonly GenUiViewId[] = ["compare", "plan", "kit"];
 
-const ASK_MS = 1400;
-const ANSWER_MS = 900;
-const BUILD_MS = 1300;
+const ASK_MS = 1600;
+const ANSWER_MS = 1000;
+const BUILD_MS = 1500;
+/** Time on the finished block before the next request starts, long enough to read it. */
+const READ_MS = 3600;
 /** Share of the build beat spent on the skeleton; the block holds for the rest. */
 const SKELETON_SHARE = 0.55;
 
@@ -33,6 +35,7 @@ export const GEN_UI_SCRIPT: ScriptSession = {
         { id: "compare-ask", durationMs: ASK_MS },
         { id: "compare-answer", durationMs: ANSWER_MS },
         { id: "compare-build", durationMs: BUILD_MS },
+        { id: "compare-read", durationMs: READ_MS },
       ],
     },
     {
@@ -43,6 +46,7 @@ export const GEN_UI_SCRIPT: ScriptSession = {
         { id: "plan-ask", durationMs: ASK_MS },
         { id: "plan-answer", durationMs: ANSWER_MS },
         { id: "plan-build", durationMs: BUILD_MS },
+        { id: "plan-read", durationMs: READ_MS },
       ],
     },
     {
@@ -53,6 +57,7 @@ export const GEN_UI_SCRIPT: ScriptSession = {
         { id: "kit-ask", durationMs: ASK_MS },
         { id: "kit-answer", durationMs: ANSWER_MS },
         { id: "kit-build", durationMs: BUILD_MS },
+        { id: "kit-read", durationMs: READ_MS },
       ],
     },
   ],

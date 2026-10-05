@@ -11,7 +11,7 @@ const DEMOS = [
   { slug: "generative-ui", title: "Generative UI" },
   { slug: "voice", title: "Voice" },
   { slug: "context-controls", title: "Context Controls" },
-  { slug: "models-and-usage", title: "Model Selection & Usage" },
+  { slug: "models-and-usage", title: "Model Selection" },
 ] as const;
 
 /** Root-layout reads that every page makes; demos add nothing to them. */
@@ -87,6 +87,8 @@ test.describe("Showcase field trip (signed out)", () => {
     await blockMedia(page);
     await page.goto("/showcase", { waitUntil: "domcontentloaded" });
     await expect(page.getByRole("heading", { name: "Follow an idea further." })).toBeVisible();
+    // The wordmark is stable: it always returns to the homepage, never the showcase.
+    await expect(page.locator(".showcase-wordmark")).toHaveAttribute("href", "/");
 
     const bar = page.getByRole("navigation", { name: "Field trip chapters" });
 
@@ -94,9 +96,9 @@ test.describe("Showcase field trip (signed out)", () => {
     for (const [index, demo] of DEMOS.entries()) {
       await page.locator(`#trip-${demo.slug}`).evaluate((el) => el.scrollIntoView());
       await expect(bar.getByRole("link").nth(index)).toHaveAttribute("aria-current", "step");
-      await expect(page.locator(`#trip-${demo.slug}`).getByText("Scripted demo").first()).toBeVisible({
-        timeout: 15_000,
-      });
+      await expect(
+        page.locator(`#trip-${demo.slug}`).getByRole("button", { name: /Pause replay|Play replay/ })
+      ).toBeVisible({ timeout: 15_000 });
     }
 
     expect(await mediaCalls(page)).toEqual([]);
@@ -186,4 +188,20 @@ test("Generative UI demo: replay builds each block, and the kit list is usable",
     "aria-pressed",
     "true"
   );
+});
+
+test("a demo page links back to the showcase", async ({ page }) => {
+  await page.goto("/showcase/rabbit-holes", { waitUntil: "domcontentloaded" });
+  await expect(page.locator(".showcase-wordmark")).toHaveAttribute("href", "/");
+  await page.getByRole("link", { name: "Back to showcase" }).click();
+  await expect(page).toHaveURL(/\/showcase$/);
+});
+
+test("Model Selection demo: no usage, cost or plan information", async ({ page }) => {
+  await page.goto("/showcase/models-and-usage", { waitUntil: "domcontentloaded" });
+  await expect(page.getByLabel("Selected model")).toBeVisible({ timeout: 15_000 });
+  await page.waitForTimeout(1_500);
+  const text = await page.locator("main").innerText();
+
+  expect(text).not.toMatch(/\$\d|est\. cost|plan allotment|free|plus|\bpro\b|tokens over time/i);
 });

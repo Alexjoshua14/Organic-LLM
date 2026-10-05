@@ -3,7 +3,7 @@
 import type { ShoppingListBlock } from "@/lib/schemas/gen-ui";
 
 import { useMemo, useRef, useState } from "react";
-import { ArrowRight, Check, ListChecks, Table2, Route } from "lucide-react";
+import { Check, ListChecks, Table2, Route } from "lucide-react";
 
 import { GenUISkeleton } from "@/components/chat/gen-ui/GenUISkeleton";
 import { ReplayControls } from "@/components/showcase/replay/ReplayControls";
@@ -50,7 +50,7 @@ const VIEWS = [
     prompt: "What should I bring? Add an extra warm layer. I always get cold.",
     reply:
       "Your camera kit, the essentials, and something for the cold. Check things off as you pack.",
-    hint: "Check off an item. This is an interactive list, built from the answer.",
+    hint: "Check off an item.",
   },
 ] as const;
 
@@ -78,6 +78,7 @@ export function GenerativeUIStage() {
         chapterIndex={frame.chapterIndex}
         chapters={GEN_UI_SCRIPT.chapters}
         playing={replay.playing}
+        bar={replay.bar}
         progress={replay.progress}
         reduceMotion={replay.reduceMotion}
         onPause={replay.pause}
@@ -102,7 +103,6 @@ function GenerativeUIPanels({
   const view: GenUiViewId = override ?? frame.view;
   const inspecting = override !== null;
   const current = VIEWS.find((item) => item.id === view)!;
-  const next = VIEWS[(VIEWS.findIndex((item) => item.id === view) + 1) % VIEWS.length]!;
   const promptText = inspecting
     ? current.prompt
     : current.prompt.slice(0, Math.ceil(current.prompt.length * frame.askProgress));
@@ -173,10 +173,6 @@ function GenerativeUIPanels({
       </div>
       <div className="showcase-stage-footnote">
         <p>{current.hint}</p>
-        <button type="button" onClick={() => chooseView(next.id)}>
-          {next.title}
-          <ArrowRight aria-hidden size={15} />
-        </button>
       </div>
     </div>
   );

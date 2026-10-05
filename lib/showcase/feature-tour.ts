@@ -67,11 +67,11 @@ export const SHOWCASE_TOUR: readonly ShowcaseTourStop[] = [
   {
     slug: "models-and-usage",
     href: "/showcase/models-and-usage",
-    title: "Model Selection & Usage",
+    title: "Model Selection",
     facet: "Choose",
-    moment: "Picking the right model and seeing what the week cost",
+    moment: "Matching the model to the job",
     description:
-      "Pick a model in the composer, then read token usage, estimated cost, activity over time, and a per-model breakdown.",
+      "Pick the right model for the job in the composer, and see who made it, how much it can hold, and how your data is handled.",
   },
 ];
 

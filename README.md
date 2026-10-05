@@ -14,7 +14,7 @@
       <strong><a href="https://organic.coalescencelabs.app/showcase">Showcase</a></strong>
     </td>
     <td valign="top">
-      Portfolio demos — a five-part feature tour (<a href="https://organic.coalescencelabs.app/showcase/rabbit-holes">Rabbit Holes</a>, <a href="https://organic.coalescencelabs.app/showcase/generative-ui">Generative UI</a>, <a href="https://organic.coalescencelabs.app/showcase/voice">Voice</a>, <a href="https://organic.coalescencelabs.app/showcase/context-controls">Context Controls</a>, <a href="https://organic.coalescencelabs.app/showcase/models-and-usage">Model Selection &amp; Usage</a>), plus <a href="https://organic.coalescencelabs.app/showcase/ergon">Ergon live board</a>, <a href="https://organic.coalescencelabs.app/showcase/anatomy">Anatomy of a Response</a>, <a href="https://organic.coalescencelabs.app/showcase/memory">Memory</a>
+      Portfolio demos — a five-part feature tour (<a href="https://organic.coalescencelabs.app/showcase/rabbit-holes">Rabbit Holes</a>, <a href="https://organic.coalescencelabs.app/showcase/generative-ui">Generative UI</a>, <a href="https://organic.coalescencelabs.app/showcase/voice">Voice</a>, <a href="https://organic.coalescencelabs.app/showcase/context-controls">Context Controls</a>, <a href="https://organic.coalescencelabs.app/showcase/models-and-usage">Model Selection</a>), plus <a href="https://organic.coalescencelabs.app/showcase/ergon">Ergon live board</a>, <a href="https://organic.coalescencelabs.app/showcase/anatomy">Anatomy of a Response</a>, <a href="https://organic.coalescencelabs.app/showcase/memory">Memory</a>
     </td>
   </tr>
   <tr>

@@ -1,22 +1,28 @@
 "use client";
 
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { ArrowUpRight, Code2 } from "lucide-react";
 
 import { ThemeSwitch } from "@/components/shared/theme-switch";
 
 export function ShowcaseNav() {
+  const pathname = usePathname();
+  const inShowcase = pathname === "/showcase" || pathname?.startsWith("/showcase/");
+
   return (
     <header className="showcase-nav">
-      <Link className="showcase-wordmark" href="/showcase">
+      <Link className="showcase-wordmark" href="/">
         Organic LLM
       </Link>
       <nav aria-label="Showcase navigation" className="showcase-nav-links">
-        <Link className="showcase-nav-detail" href="/showcase#demos">
-          Demos
-        </Link>
-        <Link className="showcase-nav-detail" href="/showcase#engineering">
-          How it works
+        <Link
+          aria-current={pathname === "/showcase" ? "page" : undefined}
+          className="showcase-nav-detail"
+          data-active={inShowcase ? "true" : undefined}
+          href="/showcase"
+        >
+          Showcase
         </Link>
         <a
           aria-label="Organic LLM on GitHub"

@@ -57,40 +57,6 @@ export function VoiceShowcaseStage({ className }: { className?: string }) {
 
   return (
     <div ref={stageRef} className={cn("flex flex-col gap-4", className)}>
-      <section
-        aria-label="Scripted transcript"
-        className={cn(
-          "rounded-2xl border border-border/60 p-4 shadow-sm sm:p-5",
-          glass({ border: "none" })
-        )}
-      >
-        <p className="text-sm leading-relaxed text-foreground/85">
-          In the field at night, hands on the tripod.
-        </p>
-        <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
-          These lines are scripted.
-        </p>
-
-        {frame.lines.length === 0 ? (
-          <p className="mt-4 text-sm leading-relaxed text-muted-foreground">
-            The question will appear here as the demo listens.
-          </p>
-        ) : (
-          <ol className="mt-4 flex list-none flex-col gap-3 p-0">
-            {frame.lines.map((line) => (
-              <li key={line.role} className="min-w-0" data-voice-line={line.role}>
-                <p className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
-                  {line.role === "user" ? "You" : "Assistant"}
-                </p>
-                <p className="mt-1 text-sm leading-relaxed break-words text-foreground">
-                  {line.text}
-                </p>
-              </li>
-            ))}
-          </ol>
-        )}
-      </section>
-
       <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
         <p className="text-sm font-medium text-foreground" data-voice-demo-phase={frame.phase}>
           {PHASE_LABEL[frame.phase]}
@@ -111,8 +77,7 @@ export function VoiceShowcaseStage({ className }: { className?: string }) {
         </button>
       </div>
       <p className="text-xs leading-relaxed text-muted-foreground" id="voice-waveform-hint">
-        Generated audio for the waveform only. Off until you turn it on. No microphone and no live
-        session.
+        Optional synthetic sound. No microphone, no live session.
       </p>
 
       <div className="w-full min-w-0 overflow-hidden rounded-xl">
@@ -126,9 +91,33 @@ export function VoiceShowcaseStage({ className }: { className?: string }) {
           onEnd={onEnd}
         />
       </div>
-      <p className="text-xs leading-relaxed text-muted-foreground">
-        End restarts this scripted exchange and turns waveform audio off.
-      </p>
+
+      <section
+        aria-label="Scripted transcript"
+        className={cn(
+          "rounded-2xl border border-border/60 p-4 shadow-sm sm:p-5",
+          glass({ border: "none" })
+        )}
+      >
+        {frame.lines.length === 0 ? (
+          <p className="text-sm leading-relaxed text-muted-foreground">
+            The question will appear here as the demo listens.
+          </p>
+        ) : (
+          <ol className="flex list-none flex-col gap-3 p-0">
+            {frame.lines.map((line) => (
+              <li key={line.role} className="min-w-0" data-voice-line={line.role}>
+                <p className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+                  {line.role === "user" ? "You" : "Assistant"}
+                </p>
+                <p className="mt-1 text-sm leading-relaxed break-words text-foreground">
+                  {line.text}
+                </p>
+              </li>
+            ))}
+          </ol>
+        )}
+      </section>
 
       <ReplayControls
         caption={frame.chapter.caption}
@@ -138,6 +127,7 @@ export function VoiceShowcaseStage({ className }: { className?: string }) {
           title: chapter.title,
         }))}
         playing={replay.playing}
+        bar={replay.bar}
         progress={replay.progress}
         reduceMotion={replay.reduceMotion}
         onPause={replay.pause}

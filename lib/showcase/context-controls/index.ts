@@ -13,6 +13,7 @@ import {
   type ContextBudgetSegment,
 } from "@/lib/chat/context-budget";
 import {
+  CONTEXT_EFFORT_BUDGETS,
   estimatedMemoryContextTokensForEffort,
   type ContextEffortLevel,
 } from "@/lib/memory/context-effort";
@@ -71,7 +72,7 @@ export const CONTEXT_CONTROLS_SESSION: ScriptSession = {
       id: "effort",
       title: "Effort",
       caption:
-        "Context effort moves from Quick toward Heavy, and the memory token budget grows with it.",
+        "Effort moves from Quick toward Heavy. Retrieval may wait longer, search wider, and carry more memory into the answer.",
       beats: [{ id: "heavy", durationMs: 5_000 }],
     },
   ],
@@ -99,6 +100,41 @@ export function contextDemoBeatEffort(beatId: string): ContextEffortLevel {
   if (beatId === "instant" || beatId === "quick" || beatId === "heavy") return beatId;
 
   throw new Error(`Context demo beat "${beatId}" does not map to a context effort level`);
+}
+
+function formatWait(ms: number): string {
+  return ms < 1_000 ? `${ms} ms` : `${ms / 1_000} s`;
+}
+
+export type ContextEffortFacts = {
+  /** Hard wall-clock for retrieval; anything later is dropped. */
+  waitMs: number;
+  waitLabel: string;
+  search: string;
+  keeps: string;
+  profile: string;
+};
+
+/**
+ * What an effort level changes besides tokens, read from the production budget table
+ * (`lib/memory/context-effort.ts`) so the demo cannot drift from the real limits.
+ */
+export function contextEffortFacts(level: ContextEffortLevel): ContextEffortFacts {
+  const b = CONTEXT_EFFORT_BUDGETS[level];
+  const planning =
+    b.plannerTimeoutMs === null
+      ? "Searches your message directly"
+      : `Plans its queries first (up to ${formatWait(b.plannerTimeoutMs)})`;
+
+  return {
+    waitMs: b.budgetMs,
+    waitLabel: `up to ${formatWait(b.budgetMs)}`,
+    search: b.secondPassMinRemainingMs > 0 ? `${planning}, then a second pass` : planning,
+    keeps: `Pulls ${b.overfetch} candidates, keeps the best ${b.injectCap}`,
+    profile: b.includeProfile
+      ? `Profile: ${b.profileMaxSections} section${b.profileMaxSections === 1 ? "" : "s"}${b.profileRich ? ", in depth" : ""}`
+      : "No profile summary",
+  };
 }
 
 export function contextDemoMemories(effort: ContextEffortLevel): readonly string[] {
