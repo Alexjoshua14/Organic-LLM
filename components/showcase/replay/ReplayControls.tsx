@@ -2,6 +2,7 @@
 
 import { ChevronLeft, ChevronRight, Pause, Play, RotateCcw } from "lucide-react";
 
+import { ReplayProgress, ReplayStatus, type ReplayBar } from "./ReplayProgress";
 import { useShowcasePlaybackMode } from "./showcase-playback-context";
 import { REPLAY_HOTKEY_HINT, useReplayHotkeys } from "./use-replay-hotkeys";
 
@@ -20,6 +21,8 @@ type ReplayControlsProps = {
   caption: string;
   playing: boolean;
   progress: number;
+  /** Duration and chapter marks: lets the bar animate smoothly and show elapsed time. */
+  bar?: ReplayBar;
   onPlay: () => void;
   onPause: () => void;
   onRestart: () => void;
@@ -42,6 +45,7 @@ export function ReplayControls({
   caption,
   playing,
   progress,
+  bar,
   onPlay,
   onPause,
   onRestart,
@@ -52,6 +56,7 @@ export function ReplayControls({
   className,
 }: ReplayControlsProps) {
   const standalone = useShowcasePlaybackMode() === "standalone";
+  const narrated = !standalone;
   const hotkeys = hotkeysProp ?? standalone;
   const lastIndex = chapters.length - 1;
 
@@ -128,6 +133,14 @@ export function ReplayControls({
           <RotateCcw className="size-3.5" />
           <span className="ml-1.5">Restart</span>
         </Button>
+        <ReplayStatus
+          chapterCount={chapters.length}
+          chapterIndex={chapterIndex}
+          durationMs={bar?.durationMs}
+          playing={playing}
+          progress={progress}
+          reduceMotion={reduceMotion}
+        />
         <div aria-label="Chapters" className="ml-auto flex flex-wrap gap-1.5" role="group">
           {chapters.map((chapter, index) => {
             const active = index === chapterIndex;
@@ -152,21 +165,19 @@ export function ReplayControls({
         </div>
       </div>
 
-      <div aria-hidden className="mb-2 h-1 overflow-hidden rounded-full bg-muted/40">
-        <div
-          className="h-full rounded-full bg-linear-to-r from-amber-400/80 to-sky-400/70 transition-[width] duration-100 ease-linear motion-reduce:transition-none"
-          style={{ width: `${Math.min(100, Math.max(0, progress * 100))}%` }}
-        />
-      </div>
+      <ReplayProgress bar={bar} className="mb-2" playing={playing} progress={progress} />
 
       <div className="flex flex-wrap items-start justify-between gap-x-3 gap-y-1.5">
         <p
           aria-live="polite"
-          className="min-w-0 flex-1 text-xs leading-relaxed text-muted-foreground"
+          className={cn(
+            "min-w-0 flex-1 text-xs leading-relaxed text-muted-foreground",
+            narrated && "sr-only"
+          )}
         >
           {caption}
         </p>
-        {label ? (
+        {label && !narrated ? (
           <span className="shrink-0 rounded-full border border-border/50 bg-background-tertiary/40 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
             {label}
           </span>

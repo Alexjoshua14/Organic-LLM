@@ -2,7 +2,6 @@ import type { RabbitHoleNode } from "@/lib/schemas/rabbitHoleSchemas";
 
 import { cn } from "@/lib/utils";
 import {
-  articleContentClasses,
   card,
   heroSpacing,
   layout,
@@ -10,7 +9,6 @@ import {
   takeaway,
   title as titleToken,
 } from "@/lib/rabbit-holes/designTokens";
-import { rabbitHoleDemoProse } from "@/lib/showcase/rabbit-holes";
 import { SHOWCASE_STORY } from "@/lib/showcase/showcase-story";
 
 type RabbitHoleDemoArticleProps = {
@@ -26,8 +24,6 @@ export function RabbitHoleDemoArticle({
   showSummary,
   inspecting,
 }: RabbitHoleDemoArticleProps) {
-  const prose = rabbitHoleDemoProse(node.id);
-
   return (
     <article className={cn("mx-auto min-w-0 max-w-full", layout.articleMaxWidth.desktop)}>
       {inspecting ? (
@@ -35,7 +31,9 @@ export function RabbitHoleDemoArticle({
           You&rsquo;re inspecting this step. Restart the replay to follow the path.
         </p>
       ) : null}
-      <p className="mb-3 text-sm leading-relaxed text-foreground/80">{pathLabel}</p>
+      {pathLabel.includes("→") ? (
+        <p className="mb-3 text-sm leading-relaxed text-foreground/80">{pathLabel}</p>
+      ) : null}
       <h2 className={cn(titleToken.base, titleToken.compact, "sm:text-3xl")}>
         {node.title ?? node.userQuestion}
       </h2>
@@ -67,13 +65,6 @@ export function RabbitHoleDemoArticle({
                 ))}
               </ul>
             </section>
-          ) : null}
-          {prose.length > 0 ? (
-            <div className={cn(...articleContentClasses(false))}>
-              {prose.map((block) => (
-                <p key={block.text}>{block.text}</p>
-              ))}
-            </div>
           ) : null}
         </>
       ) : (

@@ -51,6 +51,7 @@ export function RabbitHolesShowcaseStage() {
         chapterIndex={frame.chapterIndex}
         chapters={script.chapters.map((item) => ({ id: item.id, title: item.title }))}
         playing={replay.playing}
+        bar={replay.bar}
         progress={replay.progress}
         reduceMotion={replay.reduceMotion}
         onPause={replay.pause}

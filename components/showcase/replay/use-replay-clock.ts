@@ -6,6 +6,13 @@ import { useReducedMotion } from "framer-motion";
 import { usePageVisible } from "@/components/hooks/use-page-visible";
 import { useWelcomeInView } from "@/components/pages/welcome/use-welcome-in-view";
 
+/**
+ * Longest frame the clock will count. A heavy stage can stall for 100ms+ while it re-renders;
+ * counting only 64ms of that would slow the replay down against wall time, so the progress bar
+ * and the demo would drift apart. Hidden tabs suspend the clock, so this only guards edge cases.
+ */
+const MAX_FRAME_DELTA_MS = 400;
+
 export type UseReplayClockOptions = {
   durationMs: number;
   /** When false, clock freezes (e.g. off-screen). Defaults to in-view + page-visible. */
@@ -152,7 +159,7 @@ export function useReplayClock({
       const last = lastFrameRef.current ?? now;
 
       lastFrameRef.current = now;
-      const delta = Math.min(64, now - last);
+      const delta = Math.min(MAX_FRAME_DELTA_MS, now - last);
       let next = tRef.current + delta;
 
       if (next >= durationMs) {

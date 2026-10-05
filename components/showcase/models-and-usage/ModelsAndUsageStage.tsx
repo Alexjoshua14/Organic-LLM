@@ -1,12 +1,9 @@
 "use client";
 
 import type { CoreInputControlsValue } from "@/components/chat/core-input/core-input-context";
-import type { ModelsUsageDerivedFrame } from "@/lib/showcase/models-and-usage/script";
-import type { UsageRangePreset } from "@/lib/usage/aggregate";
+import type { ModelDerivedFrame } from "@/lib/showcase/models-and-usage/script";
 
 import { useCallback, useRef, useState } from "react";
-
-import { UsageShowcasePanel } from "./UsageShowcasePanel";
 
 import { CoreInputControlsProvider } from "@/components/chat/core-input/core-input-context";
 import { ComposerModelSelect } from "@/components/chat/core-input/controls/model-select";
@@ -14,13 +11,9 @@ import { homeComposerGlassSurface } from "@/components/design-system/primitives"
 import { ReplayControls } from "@/components/showcase/replay/ReplayControls";
 import { useShowcaseReplay } from "@/components/showcase/replay/use-showcase-replay";
 import {
-  SHOWCASE_USAGE_BY_PERIOD,
-  SHOWCASE_USAGE_DEFAULT_PERIOD,
-} from "@/lib/showcase/models-and-usage/payloads";
-import {
-  MODELS_USAGE_PROMPT,
-  deriveModelsUsageFrame,
-  modelsUsageScript,
+  deriveModelFrame,
+  modelFacts,
+  modelSelectionScript,
   showcaseSelectableModels,
 } from "@/lib/showcase/models-and-usage/script";
 import { scriptChapterSettledTimes, scriptChapterStarts } from "@/lib/showcase/scripted-timeline";
@@ -34,24 +27,25 @@ function noop() {}
 export function ModelsAndUsageStage() {
   const stageRef = useRef<HTMLDivElement>(null);
   const replay = useShowcaseReplay({
-    durationMs: modelsUsageScript.durationMs,
-    chapterStarts: scriptChapterStarts(modelsUsageScript),
-    chapterSettledTimes: scriptChapterSettledTimes(modelsUsageScript),
+    durationMs: modelSelectionScript.durationMs,
+    chapterStarts: scriptChapterStarts(modelSelectionScript),
+    chapterSettledTimes: scriptChapterSettledTimes(modelSelectionScript),
     stageRef,
     loop: false,
     autoplay: false,
-    initialTimeMs: modelsUsageScript.durationMs,
+    initialTimeMs: modelSelectionScript.durationMs,
   });
-  const frame = deriveModelsUsageFrame(modelsUsageScript, replay.tMs);
-  const chapter = modelsUsageScript.chapters[frame.chapterIndex]!;
+  const frame = deriveModelFrame(modelSelectionScript, replay.tMs);
+  const chapter = modelSelectionScript.chapters[frame.chapterIndex]!;
 
   return (
     <div ref={stageRef} className="flex min-w-0 flex-col gap-4">
       <ReplayControls
         caption={chapter.caption}
         chapterIndex={frame.chapterIndex}
-        chapters={modelsUsageScript.chapters}
+        chapters={modelSelectionScript.chapters}
         playing={replay.playing}
+        bar={replay.bar}
         progress={replay.progress}
         reduceMotion={replay.reduceMotion}
         onPause={replay.pause}
@@ -59,23 +53,15 @@ export function ModelsAndUsageStage() {
         onRestart={replay.restart}
         onSeekChapter={replay.seekChapter}
       />
-      {/* Remounting clears a visitor's model and period so restart replays the script. */}
-      <ModelsUsageScene key={replay.resetKey} frame={frame} onTakeover={replay.takeover} />
+      {/* Remounting clears a visitor's model so restart replays the script. */}
+      <ModelScene key={replay.resetKey} frame={frame} onTakeover={replay.takeover} />
     </div>
   );
 }
 
-function ModelsUsageScene({
-  frame,
-  onTakeover,
-}: {
-  frame: ModelsUsageDerivedFrame;
-  onTakeover: () => void;
-}) {
+function ModelScene({ frame, onTakeover }: { frame: ModelDerivedFrame; onTakeover: () => void }) {
   const modelOverrideRef = useRef<string | null>(null);
-  const periodRef = useRef<UsageRangePreset>(SHOWCASE_USAGE_DEFAULT_PERIOD);
   const [modelOverride, setModelOverride] = useState<string | null>(null);
-  const [period, setPeriod] = useState<UsageRangePreset>(SHOWCASE_USAGE_DEFAULT_PERIOD);
   const modelId = modelOverride ?? frame.modelId;
   const model =
     showcaseSelectableModels.find((candidate) => candidate.id === modelId) ??
@@ -92,17 +78,6 @@ function ModelsUsageScene({
       setModelOverride(id);
     },
     [frame.modelId, onTakeover]
-  );
-
-  const handlePeriodChange = useCallback(
-    (next: UsageRangePreset) => {
-      if (periodRef.current === next) return;
-
-      periodRef.current = next;
-      onTakeover();
-      setPeriod(next);
-    },
-    [onTakeover]
   );
 
   const selecting = frame.beatId === "select" && modelOverride === null;
@@ -139,10 +114,8 @@ function ModelsUsageScene({
         className={cn(homeComposerGlassSurface, "min-w-0 p-3 sm:p-4")}
         data-showcase-model={model.id}
       >
-        <p className="sr-only">Sample prompt for the Milky Way shoot. Nothing is submitted.</p>
-        <p className="px-1 pb-3 text-sm leading-relaxed text-foreground/90">
-          {MODELS_USAGE_PROMPT}
-        </p>
+        <p className="sr-only">Sample prompt. Nothing is submitted.</p>
+        <p className="px-1 pb-3 text-sm leading-relaxed text-foreground/90">{frame.prompt}</p>
         <div className="flex items-center border-t border-border/40 pt-2">
           <CoreInputControlsProvider value={controls}>
             <div
@@ -159,15 +132,38 @@ function ModelsUsageScene({
         </div>
       </section>
 
-      {frame.showUsage ? (
-        <div className="min-w-0">
-          <UsageShowcasePanel
-            payload={SHOWCASE_USAGE_BY_PERIOD[period]}
-            period={period}
-            onPeriodChange={handlePeriodChange}
-          />
-        </div>
-      ) : null}
+      <ModelCard facts={modelFacts(model)} name={model.name} />
     </div>
+  );
+}
+
+function ModelCard({ name, facts }: { name: string; facts: ReturnType<typeof modelFacts> }) {
+  return (
+    <section
+      aria-label="Selected model"
+      aria-live="polite"
+      className="rounded-2xl border border-border/60 p-4 sm:p-5"
+    >
+      <p className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+        Answering with
+      </p>
+      <p className="mt-1 text-2xl font-light tracking-tight text-foreground">{name}</p>
+      <dl className="mt-4 grid grid-cols-1 gap-3 text-sm sm:grid-cols-3">
+        <div>
+          <dt className="text-xs text-muted-foreground">Made by</dt>
+          <dd className="mt-0.5 text-foreground">{facts.provider}</dd>
+        </div>
+        <div>
+          <dt className="text-xs text-muted-foreground">Context window</dt>
+          <dd className="mt-0.5 text-foreground">{facts.contextWindow} tokens</dd>
+        </div>
+        <div>
+          <dt className="text-xs text-muted-foreground">Data retention</dt>
+          <dd className="mt-0.5 text-foreground">
+            {facts.zeroDataRetention ? "Zero data retention" : "Standard"}
+          </dd>
+        </div>
+      </dl>
+    </section>
   );
 }

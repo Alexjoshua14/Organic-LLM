@@ -5,17 +5,16 @@ import { ShowcaseDemoFrame } from "@/components/showcase/ShowcaseDemoFrame";
 import { tabTitleMetadata } from "@/lib/metadata/tab-title";
 
 export const metadata: Metadata = {
-  ...tabTitleMetadata(null, "Model Selection & Usage"),
+  ...tabTitleMetadata(null, "Model Selection"),
   description:
-    "Choose a model in the composer, then inspect synthetic token usage, estimated cost, and a per-model breakdown. No sign-in and no live model calls.",
+    "Pick the right model for each job in the composer and see what you are choosing. No sign-in and no live model calls.",
 };
 
-const VALUE =
-  "Choose a model for the turn you're writing, then check tokens, estimated cost, and how the work split across models.";
+const VALUE = "Match the model to the job, and see what you are choosing before you send.";
 
 export default function ModelsAndUsagePage() {
   return (
-    <ShowcaseDemoFrame slug="models-and-usage" title="Model Selection & Usage" value={VALUE}>
+    <ShowcaseDemoFrame slug="models-and-usage" title="Model Selection" value={VALUE}>
       <ModelsAndUsageStage />
     </ShowcaseDemoFrame>
   );

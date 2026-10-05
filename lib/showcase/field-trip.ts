@@ -16,7 +16,7 @@ export type FieldTripChapter = {
 };
 
 export const FIELD_TRIP_INTRO =
-  "One project, five moments: planning your first night photographing the Milky Way. Scroll to follow it from a first question to a week of usage, with each feature working as it would in the app.";
+  "One project, five moments: your first night photographing the Milky Way.";
 
 export const FIELD_TRIP: readonly FieldTripChapter[] = [
   {
@@ -25,7 +25,7 @@ export const FIELD_TRIP: readonly FieldTripChapter[] = [
     label: "Explore",
     headline: "It starts with a question.",
     narration:
-      "You want to photograph the Milky Way. What is its bright core, and when can you see it? Follow the question, then a better one, and every branch stays on the map.",
+      "What is the Milky Way's bright core, and when can you see it? Follow the question, and every branch stays on the map.",
   },
   {
     slug: "generative-ui",
@@ -33,15 +33,14 @@ export const FIELD_TRIP: readonly FieldTripChapter[] = [
     label: "Shape",
     headline: "Turn research into a plan.",
     narration:
-      "Ask for a place and get something you can use: dark-sky sites compared, the weekend laid out, and a kit list to check off.",
+      "Ask for a place and get something you can use: sites compared, the night laid out, a kit list to check off.",
   },
   {
     slug: "voice",
     when: "On the night",
     label: "Converse",
     headline: "Keep your hands on the tripod.",
-    narration:
-      "In the dark, with cold hands on the gear, you ask for camera settings out loud and get an answer you can also read.",
+    narration: "Cold hands on the gear: ask for camera settings out loud, and read the answer too.",
   },
   {
     slug: "context-controls",
@@ -49,14 +48,14 @@ export const FIELD_TRIP: readonly FieldTripChapter[] = [
     label: "Inspect",
     headline: "See what it remembered.",
     narration:
-      "Before trusting the advice, look at what the assistant was working from. Turn memory effort up and watch more of what it knows about you come into view.",
+      "Look at what the assistant was working from, then turn context effort up: more time, a wider search, more of what it knows.",
   },
   {
     slug: "models-and-usage",
     when: "End of the week",
     label: "Choose",
-    headline: "Choose the model. See the cost.",
+    headline: "The right model for the job.",
     narration:
-      "Quick questions and deep planning don't need the same model. Pick one for the job, then see what the week used and what it cost.",
+      "A quick question and a full plan don't need the same model. Switch in the composer.",
   },
 ];

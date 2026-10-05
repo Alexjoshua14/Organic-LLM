@@ -8,6 +8,7 @@ import {
   contextDemoBeatEffort,
   contextDemoBudget,
   contextDemoMemories,
+  contextEffortFacts,
   deriveContextDemo,
 } from "@/lib/showcase/context-controls";
 import { SHOWCASE_STORY } from "@/lib/showcase/showcase-story";
@@ -122,5 +123,33 @@ describe("deriveContextDemo", () => {
     } finally {
       globalThis.fetch = original;
     }
+  });
+});
+
+describe("contextEffortFacts", () => {
+  test("retrieval time and breadth grow with effort, straight from the production table", () => {
+    const instant = contextEffortFacts("instant");
+    const quick = contextEffortFacts("quick");
+    const heavy = contextEffortFacts("heavy");
+
+    expect([instant.waitMs, quick.waitMs, heavy.waitMs]).toEqual([
+      CONTEXT_EFFORT_BUDGETS.instant.budgetMs,
+      CONTEXT_EFFORT_BUDGETS.quick.budgetMs,
+      CONTEXT_EFFORT_BUDGETS.heavy.budgetMs,
+    ]);
+    expect(instant.waitMs).toBeLessThan(quick.waitMs);
+    expect(quick.waitMs).toBeLessThan(heavy.waitMs);
+    expect([instant.waitLabel, quick.waitLabel, heavy.waitLabel]).toEqual([
+      "up to 250 ms",
+      "up to 1 s",
+      "up to 5 s",
+    ]);
+  });
+
+  test("only Instant skips query planning, and only Heavy adds a second pass", () => {
+    expect(contextEffortFacts("instant").search).toBe("Searches your message directly");
+    expect(contextEffortFacts("quick").search).not.toContain("second pass");
+    expect(contextEffortFacts("heavy").search).toContain("second pass");
+    expect(contextEffortFacts("instant").profile).toBe("No profile summary");
   });
 });

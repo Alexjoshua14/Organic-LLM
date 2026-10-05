@@ -48,12 +48,11 @@ export const FEATURE_PRESENTATIONS: Record<
       "The context inspector separates the system prompt, messages, tools, and memories inside the model’s input window.",
   },
   "models-and-usage": {
-    summary: "Choose the model. See the cost.",
+    summary: "Match the model to the job",
     headline: "Your models. Your call.",
-    description:
-      "Choose a model for the task, then see tokens, estimated cost, and usage over time.",
-    tryThis: "Choose a different model, then switch the usage period to compare the sample totals.",
+    description: "Choose a model for the task and see what you are choosing.",
+    tryThis: "Open the model menu and pick another model. The details below it follow.",
     detail:
-      "The composer and usage views are real product components. Usage and costs here are explicitly sample data.",
+      "The model menu is the real composer control. Model details come from the app's catalog; nothing is sent.",
   },
 };

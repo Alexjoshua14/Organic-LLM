@@ -1,6 +1,8 @@
 "use client";
 
-import { useCallback, useState, type RefObject } from "react";
+import type { ReplayBar } from "./ReplayProgress";
+
+import { useCallback, useMemo, useState, type RefObject } from "react";
 
 import { useShowcasePlaybackMode } from "./showcase-playback-context";
 import { useReplayClock, type ReplayClock } from "./use-replay-clock";
@@ -24,6 +26,8 @@ export type UseShowcaseReplayOptions = {
 export type ShowcaseReplay = ReplayClock & {
   /** 0 → 1 across the whole replay. */
   progress: number;
+  /** Pass to `ReplayControls` for a smooth bar with chapter marks and elapsed time. */
+  bar: ReplayBar;
   /**
    * Increments on restart, chapter seek, and replay-from-end. Key interactive overrides
    * and stateful production components on it so the script starts from a clean slate.
@@ -96,8 +100,17 @@ export function useShowcaseReplay({
     clockPlay();
   }, [bump, clockPlay, durationMs, reduceMotion, tMs]);
 
+  const bar = useMemo<ReplayBar>(
+    () => ({
+      durationMs,
+      marks: chapterStarts.slice(1).map((start) => start / durationMs),
+    }),
+    [chapterStarts, durationMs]
+  );
+
   return {
     ...clock,
+    bar,
     play,
     restart,
     seekChapter,

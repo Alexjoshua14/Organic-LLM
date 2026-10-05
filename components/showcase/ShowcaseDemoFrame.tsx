@@ -20,7 +20,7 @@ type ShowcaseDemoFrameProps = {
   children: ReactNode;
 };
 
-const DEFAULT_DISCLOSURE = "Interactive preview with fictional data. No sign-in or live AI calls.";
+const DEFAULT_DISCLOSURE = "Scripted demo · fictional data";
 
 export function ShowcaseDemoFrame({
   slug,
@@ -30,7 +30,7 @@ export function ShowcaseDemoFrame({
   maxWidth = "6xl",
   children,
 }: ShowcaseDemoFrameProps) {
-  const { stop } = showcaseTourStop(slug);
+  const { stop, index } = showcaseTourStop(slug);
   const feature = FEATURE_PRESENTATIONS[slug];
 
   return (
@@ -44,25 +44,18 @@ export function ShowcaseDemoFrame({
       >
         <Link className="showcase-demo-back" href="/showcase">
           <ArrowLeft aria-hidden size={15} />
-          All demos
+          Back to showcase
         </Link>
         <ShowcaseDemoHeader
           disclosure={disclosure}
-          eyebrow={stop.title}
+          eyebrow={`${stop.facet} · ${index + 1} of ${SHOWCASE_TOUR.length}`}
           title={title}
           value={value}
         />
         <div className="showcase-standalone-stage">{children}</div>
-        <div className="showcase-demo-detail">
-          <section>
-            <h2>Try it yourself</h2>
-            <p>{feature.tryThis}</p>
-          </section>
-          <section>
-            <h2>Behind the interface</h2>
-            <p>{feature.detail}</p>
-          </section>
-        </div>
+        <p className="showcase-demo-detail">
+          <strong>Behind the interface.</strong> {feature.detail}
+        </p>
         <ShowcaseTourFooter slug={slug} />
       </div>
     </div>
@@ -97,15 +90,6 @@ export function ShowcaseTourFooter({ slug }: { slug: ShowcaseTourSlug }) {
 
   return (
     <nav aria-label="Showcase tour" className="showcase-tour-footer">
-      <ol>
-        {SHOWCASE_TOUR.map((stop) => (
-          <li key={stop.slug}>
-            <Link aria-current={stop.slug === slug ? "page" : undefined} href={stop.href}>
-              {stop.title}
-            </Link>
-          </li>
-        ))}
-      </ol>
       <div className="showcase-tour-neighbors">
         <Link className="inline-flex items-center gap-2" href={previous?.href ?? "/showcase"}>
           <ArrowLeft aria-hidden size={15} />
