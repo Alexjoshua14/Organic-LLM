@@ -159,6 +159,23 @@ After burn-in settles, sustain uses **`ShinyText`** at `5s` (`PROCESSING_TEXT_BU
 — the same primitive and speed as legacy `ChatThinking`. Burn chars settle on
 `--ptb-shine-dim` (`#b5b5b5`), matching ShinyText at `background-position: 100%`.
 
+### Title regeneration indication
+
+Sidebar and collapsed-thread titles stay in **one line box** (`thread-title` / `thread-title-line`).
+The box’s font, padding, truncation, and line-height do not change between states. Only the
+affected thread re-renders; regen does not update chat context.
+
+| State | What changes |
+|-------|----------------|
+| Stable | Current title styling, including the Arcadia gradient when that row uses it |
+| Regenerating | Same text node. A shine moves across it (`shine`, 5s). No entrance burn |
+| New title | One processing-label burn, old string out and new string in, inside the same line |
+| Landed | Back to stable on the new string. The plain text is held until the sidebar cache catches up so the line does not flash the old title |
+
+The burn reuses `ProcessingTextBurn` timing (`processingTextBurnSwapDurationMs`) and settles on
+the title’s own color, not the status-label gray. Reduced motion keeps the shimmer class inert
+and swaps the string without the character burn.
+
 ### Color burn (entry / swap)
 
 Per-character color animation (`--ptb-in-color-duration: 0.2s`): bright leading edge

@@ -571,7 +571,7 @@ export function TopicExploreClient({ chatData }: TopicExploreClientProps) {
         initial={conversationInitial}
         resize={conversationInitial === false ? "instant" : "smooth"}
       >
-        <ChatThreadTitleOverlay title={threadTitle} />
+        <ChatThreadTitleOverlay threadId={threadId} title={threadTitle} />
         <ChatThread
           aiActionPayload={aiAction}
           messages={messages}

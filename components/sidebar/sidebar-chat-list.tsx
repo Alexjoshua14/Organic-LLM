@@ -31,7 +31,10 @@ type SidebarChatListProps = {
 
 export const SidebarChatList: FC<SidebarChatListProps> = ({ threads }) => {
   const { setOpenMobile, isMobile } = useSidebar();
-  const { setChatId, refreshSidebarChats } = useSharedChatContext();
+  const {
+    setChatId,
+    refreshSidebarChats,
+  } = useSharedChatContext();
   const currentChatId = useChatId();
   const router = useRouter();
 
@@ -179,6 +182,7 @@ export const SidebarChatList: FC<SidebarChatListProps> = ({ threads }) => {
                 >
                   <SidebarChatTitle
                     editing={isEditing}
+                    threadId={thread.id}
                     title={thread.title}
                     onEditingChange={(editing) => setEditingThreadId(editing ? thread.id : null)}
                     onSave={(title) => handleSaveTitle(thread.id, title)}
