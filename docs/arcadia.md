@@ -19,6 +19,7 @@ Arcadia is a **sandbox chat experience** inside Organic LLM: a safe lab for expe
 - Not a production multi-agent backend — the multitask roster is an honest client model until a real swarm exists.
 
 ## UX contract
+- Replies stay short. A turn still finishes the request: tools and steps run, then a compact synthesis. The assistant does not stop after announcing the next action.
 - Thread list API (`GET /api/chats`) returns thread metadata including `feature/path`.
 - Sidebar rendering can be filtered via **Coalescence Mode**:
   - OFF: show main chat threads only
