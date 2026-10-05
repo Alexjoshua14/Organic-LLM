@@ -2,36 +2,29 @@
 
 import React, { useCallback, useEffect, useRef, useState } from "react";
 
-import { ProcessingTextBurn } from "@/components/chat/processing-text-burn";
-import { PROCESSING_TEXT_BURN_TITLE_REGEN_LOOP_S } from "@/lib/chat/processing-text-burn-timing";
+import { ThreadTitleLine, useThreadTitlePhase } from "@/components/chat/thread-title-line";
 import { cn } from "@/lib/utils";
 
 type SidebarChatTitleProps = {
+  threadId: string;
   title: string;
   editing: boolean;
   onSave: (title: string) => void;
   onEditingChange?: (editing: boolean) => void;
   className?: string;
-  /** AI title regeneration in flight for this thread. */
-  regenerating?: boolean;
-  /** API has returned; burn to the (possibly new) title on the next loop boundary. */
-  commitRegen?: boolean;
-  /** Called after the commit burn sweep settles. */
-  onRegenCommitSettled?: () => void;
 };
 
 const BLUR_GUARD_MS = 600;
 
 export function SidebarChatTitle({
+  threadId,
   title,
   editing,
   onSave,
   onEditingChange,
   className,
-  regenerating = false,
-  commitRegen = false,
-  onRegenCommitSettled,
 }: SidebarChatTitleProps) {
+  const { phase, shown, announced, from, to } = useThreadTitlePhase(threadId, title);
   const [editedTitle, setEditedTitle] = useState<string>(title);
   const inputRef = useRef<HTMLInputElement>(null);
   const editStartedAtRef = useRef(0);
@@ -112,27 +105,19 @@ export function SidebarChatTitle({
     );
   }
 
-  if (regenerating) {
-    return (
-      <ProcessingTextBurn
-        as="span"
-        className={cn("flex-1 truncate py-1 min-w-0 block", className)}
-        commitOnNextSweep={commitRegen}
-        loopSweepIntervalS={PROCESSING_TEXT_BURN_TITLE_REGEN_LOOP_S}
-        text={title}
-        onCommitSweepSettled={onRegenCommitSettled}
-      />
-    );
-  }
-
   return (
     <h3
-      className={["flex-1 truncate py-1 min-w-0 cursor-pointer", className]
-        .filter(Boolean)
-        .join(" ")}
-      title={title}
+      className="thread-title min-w-0 flex-1 cursor-pointer truncate py-1"
+      title={announced}
     >
-      {title}
+      <span className="sr-only">{announced}</span>
+      <ThreadTitleLine
+        className={className}
+        from={from}
+        phase={phase}
+        text={shown}
+        to={to}
+      />
     </h3>
   );
 }

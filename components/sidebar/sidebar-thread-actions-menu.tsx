@@ -16,6 +16,7 @@ import { DeleteThreadConfirmModal } from "@/components/sidebar/delete-thread-con
 import { ThreadLink } from "@/types";
 import { deleteChat } from "@/data/supabase/chat";
 import { createLogger } from "@/lib/logger";
+import { useTitleRegenSession } from "@/lib/chat/title-regen-store";
 import { useSharedChatContext } from "@/lib/context/chat-context";
 
 const logger = createLogger("components/sidebar/sidebar-thread-actions-menu.tsx");
@@ -47,7 +48,7 @@ export function SidebarThreadActionsMenu({
     resolveTitleRegen,
     finishTitleRegen,
   } = useSharedChatContext();
-  const titleRegenInFlight = isTitleRegenerating(thread.id);
+  const titleRegenInFlight = useTitleRegenSession(thread.id) != null;
 
   const handleEditTitle = useCallback(() => {
     onOpenChange(false);

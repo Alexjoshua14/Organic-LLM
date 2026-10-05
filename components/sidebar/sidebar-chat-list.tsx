@@ -34,10 +34,6 @@ export const SidebarChatList: FC<SidebarChatListProps> = ({ threads }) => {
   const {
     setChatId,
     refreshSidebarChats,
-    isTitleRegenerating,
-    isTitleRegenReadyToCommit,
-    getTitleRegenBurnText,
-    finishTitleRegen,
   } = useSharedChatContext();
   const currentChatId = useChatId();
   const router = useRouter();
@@ -131,8 +127,6 @@ export const SidebarChatList: FC<SidebarChatListProps> = ({ threads }) => {
           const isEditing = editingThreadId === thread.id;
           const isMenuOpen = openMenuThreadId === thread.id;
           const isArcadia = thread.feature === "arcadia";
-          const isTitleRegen = isTitleRegenerating(thread.id);
-          const isTitleRegenCommit = isTitleRegenReadyToCommit(thread.id);
 
           return (
             <SidebarMenuItem key={thread.id} className="relative">
@@ -187,17 +181,13 @@ export const SidebarChatList: FC<SidebarChatListProps> = ({ threads }) => {
                   }
                 >
                   <SidebarChatTitle
-                    commitRegen={isTitleRegenCommit}
                     editing={isEditing}
-                    regenerating={isTitleRegen}
-                    title={
-                      isTitleRegen ? getTitleRegenBurnText(thread.id, thread.title) : thread.title
-                    }
+                    threadId={thread.id}
+                    title={thread.title}
                     onEditingChange={(editing) => setEditingThreadId(editing ? thread.id : null)}
-                    onRegenCommitSettled={() => finishTitleRegen(thread.id)}
                     onSave={(title) => handleSaveTitle(thread.id, title)}
                     className={
-                      isArcadia && !isTitleRegen
+                      isArcadia
                         ? "bg-linear-to-tr from-emerald-600/85 via-foreground-secondary to-foreground-secondary bg-clip-text text-transparent"
                         : undefined
                     }

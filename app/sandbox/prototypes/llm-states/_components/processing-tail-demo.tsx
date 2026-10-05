@@ -5,6 +5,7 @@ import { motion, useReducedMotion } from "framer-motion";
 
 import { ChatThinking } from "@/components/chat/chat-loading";
 import { ProcessingTextBurn } from "@/components/chat/processing-text-burn";
+import { ThreadTitleLine } from "@/components/chat/thread-title-line";
 import ShinyText from "@/components/ShinyText";
 import { glass } from "@/components/design-system/primitives";
 import { Button } from "@/components/third-party/ui/button";
@@ -269,6 +270,10 @@ export function ProcessingTailDemo() {
         </ul>
       </div>
 
+      <StateBlock label="Thread title — same line box">
+        <TitleLineStates />
+      </StateBlock>
+
       <StateBlock label="Isolated burn transitions (auto-loop)">
         <IsolatedBurnPlayground />
       </StateBlock>
@@ -284,6 +289,42 @@ function StateBlock({ label, children }: { label: string; children: React.ReactN
       </h3>
       <div className={cn("rounded-lg p-4 shadow-md", glass())}>{children}</div>
     </section>
+  );
+}
+
+const TITLE_LINE_SAMPLE = "White holes and the evening read";
+const TITLE_LINE_NEXT = "Could white holes exist?";
+
+function TitleLineStates() {
+  return (
+    <div className="max-w-xs space-y-4 text-sm font-extralight text-foreground-secondary">
+      {(
+        [
+          ["Stable", "stable"],
+          ["Regenerating — shimmer", "shimmer"],
+          ["New title — burn", "burn"],
+        ] as const
+      ).map(([label, phase]) => (
+        <div key={phase}>
+          <p className="mb-1 text-xs font-medium uppercase tracking-wide text-muted-foreground">
+            {label}
+          </p>
+          <h3 className="thread-title min-w-0 truncate py-1">{TITLE_LINE_SAMPLE}</h3>
+          <h3 className="thread-title min-w-0 truncate py-1">
+            <ThreadTitleLine
+              from={TITLE_LINE_SAMPLE}
+              phase={phase}
+              text={phase === "burn" ? TITLE_LINE_NEXT : TITLE_LINE_SAMPLE}
+              to={TITLE_LINE_NEXT}
+            />
+          </h3>
+        </div>
+      ))}
+      <p className="text-xs text-muted-foreground">
+        Each pair is the plain title, then the same box in that regen state. The row should not
+        grow, wrap, or shift.
+      </p>
+    </div>
   );
 }
 

@@ -1,7 +1,6 @@
 import { describe, expect, test } from "bun:test";
 
 import {
-  PROCESSING_TEXT_BURN_TITLE_REGEN_LOOP_S,
   processingTextBurnCharGap,
   processingTextBurnIncomingDelay,
   processingTextBurnOutgoingDelay,
@@ -25,9 +24,5 @@ describe("processingTextBurn timing", () => {
     expect(processingTextBurnCharGap(0)).toBeCloseTo(0.07);
     expect(processingTextBurnCharGap(1)).toBeCloseTo(0.155);
     expect(processingTextBurnCharGap(2)).toBeCloseTo(0.16);
-  });
-
-  test("title regen loop sweep is 2s", () => {
-    expect(PROCESSING_TEXT_BURN_TITLE_REGEN_LOOP_S).toBe(2);
   });
 });

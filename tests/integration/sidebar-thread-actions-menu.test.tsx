@@ -87,6 +87,7 @@ mock.module("@heroui/button", () => ({
 }));
 
 import { SidebarThreadActionsMenu } from "@/components/sidebar/sidebar-thread-actions-menu";
+import { resetTitleRegenStore, startTitleRegen } from "@/lib/chat/title-regen-store";
 import { ChatContext, type ChatContextValue } from "@/lib/context/chat-context";
 
 const thread = {
@@ -113,6 +114,7 @@ describe("SidebarThreadActionsMenu", () => {
     mockRouterPush.mockReset();
     mockOnOpenChange.mockReset();
     mockDeleteChat.mockResolvedValue({ ok: true, error: null });
+    resetTitleRegenStore();
     mockIsTitleRegenerating.mockImplementation(() => false);
     currentPathname = "/";
     fetchImpl = async () =>
@@ -202,6 +204,7 @@ describe("SidebarThreadActionsMenu", () => {
   });
 
   test("blocks regenerate while that thread is already regenerating", () => {
+    startTitleRegen("thread-1", "Thread One");
     mockIsTitleRegenerating.mockImplementation((id: string) => id === "thread-1");
     const view = renderMenu();
 

@@ -2,11 +2,10 @@
 
 import { useMemo } from "react";
 
-import { ProcessingTextBurn } from "@/components/chat/processing-text-burn";
+import { ThreadTitleLine, useThreadTitlePhase } from "@/components/chat/thread-title-line";
 import { glass } from "@/components/design-system/primitives";
 import { FeatureHint } from "@/components/onboarding/feature-hint";
 import { useSidebar } from "@/components/third-party/ui/sidebar";
-import { PROCESSING_TEXT_BURN_TITLE_REGEN_LOOP_S } from "@/lib/chat/processing-text-burn-timing";
 import { useSharedChatContext } from "@/lib/context/chat-context";
 import { cn } from "@/lib/utils";
 
@@ -44,15 +43,10 @@ export function ChatThreadTitleOverlay({
   className,
 }: ChatThreadTitleOverlayProps) {
   const { open, isMobile } = useSidebar();
-  const { isTitleRegenerating, isTitleRegenReadyToCommit, getTitleRegenBurnText } =
-    useSharedChatContext();
-  const label = title?.trim();
-  const regenerating = threadId != null && isTitleRegenerating(threadId);
-  const commitRegen = threadId != null && isTitleRegenReadyToCommit(threadId);
-  const burnText =
-    threadId != null && regenerating && label ? getTitleRegenBurnText(threadId, label) : label;
+  const label = title?.trim() ?? "";
+  const { phase, shown, announced, from, to } = useThreadTitlePhase(threadId, label);
 
-  if (isMobile || open || !burnText) return null;
+  if (isMobile || open || !label) return null;
 
   return (
     <div
@@ -74,19 +68,10 @@ export function ChatThreadTitleOverlay({
             "ring-1 ring-inset ring-white/25 dark:ring-white/10"
           )}
         >
-          {regenerating ? (
-            <ProcessingTextBurn
-              as="span"
-              className="block truncate text-[0.9375rem] font-semibold leading-snug tracking-tight text-foreground md:text-base"
-              commitOnNextSweep={commitRegen}
-              loopSweepIntervalS={PROCESSING_TEXT_BURN_TITLE_REGEN_LOOP_S}
-              text={burnText}
-            />
-          ) : (
-            <h1 className="truncate text-[0.9375rem] font-semibold leading-snug tracking-tight text-foreground md:text-base">
-              {burnText}
-            </h1>
-          )}
+          <h1 className="thread-title truncate text-[0.9375rem] font-semibold leading-snug tracking-tight text-foreground md:text-base">
+            <span className="sr-only">{announced}</span>
+            <ThreadTitleLine from={from} phase={phase} text={shown} to={to} />
+          </h1>
         </div>
       </FeatureHint>
     </div>

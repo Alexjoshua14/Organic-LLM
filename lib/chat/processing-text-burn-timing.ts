@@ -19,12 +19,6 @@ export const PROCESSING_TEXT_BURN_IN_COLOR_DURATION_S = 0.2;
 /** Sustain shimmer loop duration (seconds). Matches ShinyText default (`speed={5}`). */
 export const PROCESSING_TEXT_BURN_SUSTAIN_SHIMMER_S = 5;
 
-/**
- * Title-regeneration indication: burn-sweep cadence while a thread title is regenerating.
- * Shimmer sustains between sweeps; a ready title burns in on the next sweep boundary.
- */
-export const PROCESSING_TEXT_BURN_TITLE_REGEN_LOOP_S = 2;
-
 export function processingTextBurnIncomingDelay(sequenceIndex: number): number {
   return (
     PROCESSING_TEXT_BURN_IN_INITIAL_DELAY_S + sequenceIndex * PROCESSING_TEXT_BURN_IN_STAGGER_S
@@ -41,4 +35,17 @@ export function processingTextBurnCharGap(sequenceIndex: number): number {
     processingTextBurnIncomingDelay(sequenceIndex) - processingTextBurnOutgoingDelay(sequenceIndex);
 
   return sequenceIndex === 0 ? gap - PROCESSING_TEXT_BURN_CHAR_DURATION_S : gap;
+}
+
+/** How long an old→new character burn takes to settle (milliseconds). */
+export function processingTextBurnSwapDurationMs(outgoing: string, incoming: string): number {
+  const outgoingMs =
+    outgoing.length * PROCESSING_TEXT_BURN_OUT_STAGGER_S * 1000 +
+    PROCESSING_TEXT_BURN_CHAR_DURATION_S * 1000;
+  const incomingMs =
+    PROCESSING_TEXT_BURN_IN_INITIAL_DELAY_S * 1000 +
+    Math.max(0, incoming.length - 1) * PROCESSING_TEXT_BURN_IN_STAGGER_S * 1000 +
+    PROCESSING_TEXT_BURN_IN_OPACITY_DURATION_S * 1000;
+
+  return Math.max(outgoingMs, incomingMs) + 60;
 }

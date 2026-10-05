@@ -103,7 +103,6 @@ cinema. Prefer the **lower part** of research ranges.
 | Incoming opacity settle | **250ms** | Material enter short-band |
 | Color burn wave | **200ms** | `PROCESSING_TEXT_BURN_IN_COLOR_DURATION_S`; bright → dim per char |
 | Sustain shimmer loop | **5s** | `PROCESSING_TEXT_BURN_SUSTAIN_SHIMMER_S`; `ShinyText` default |
-| Title-regen loop sweep | **2s** | `PROCESSING_TEXT_BURN_TITLE_REGEN_LOOP_S`; burn sweep while regenerating; shimmer between sweeps; ready title commits on next boundary |
 
 Constants and CSS custom properties **must stay in sync**:
 
@@ -162,16 +161,20 @@ After burn-in settles, sustain uses **`ShinyText`** at `5s` (`PROCESSING_TEXT_BU
 
 ### Title regeneration indication
 
-While a thread title is regenerating (sidebar “Generate/Regenerate title”), the visible title
-uses `ProcessingTextBurn` with:
+Sidebar and collapsed-thread titles stay in **one line box** (`thread-title` / `thread-title-line`).
+The box’s font, padding, truncation, and line-height do not change between states. Only the
+affected thread re-renders; regen does not update chat context.
 
-- **Loop sweep** every **2s** (`PROCESSING_TEXT_BURN_TITLE_REGEN_LOOP_S`) — color-burn wave across
-  the current title
-- **Sustain shimmer** between sweeps (same `ShinyText` handoff as processing labels)
-- When the API returns, the new title **waits for the next sweep boundary**, then burns
-  old → new; regen lock clears after that commit settles
+| State | What changes |
+|-------|----------------|
+| Stable | Current title styling, including the Arcadia gradient when that row uses it |
+| Regenerating | Same text node. A shine moves across it (`shine`, 5s). No entrance burn |
+| New title | One processing-label burn, old string out and new string in, inside the same line |
+| Landed | Back to stable on the new string. The plain text is held until the sidebar cache catches up so the line does not flash the old title |
 
-Per-thread reclick is blocked via `ChatProvider` (`titleRegenThreadIds`) until finish.
+The burn reuses `ProcessingTextBurn` timing (`processingTextBurnSwapDurationMs`) and settles on
+the title’s own color, not the status-label gray. Reduced motion keeps the shimmer class inert
+and swaps the string without the character burn.
 
 ### Color burn (entry / swap)
 
