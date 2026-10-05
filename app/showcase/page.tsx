@@ -1,137 +1,93 @@
+import type { Metadata } from "next";
+
 import Link from "next/link";
+import { ArrowRight, ArrowUpRight, Code2 } from "lucide-react";
 
-import AdaptiveLiquidChrome from "@/components/background/AdaptiveLiquidChrome";
-import Page from "@/components/layout/page";
-import { PageContentFrame } from "@/components/layout/page-content-frame";
-import ShinyText from "@/components/ShinyText";
-import { glass } from "@/components/design-system/primitives";
-import { cn } from "@/lib/utils";
+import { FieldTrip } from "@/components/showcase/FieldTrip";
+import { FIELD_TRIP_INTRO } from "@/lib/showcase/field-trip";
 
-/** Warm amber / natural sunlight — same as sidebar Showcase link (heliophysics-inspired). */
-const SHOWCASE_GLOW_HUE = "75";
-
-type ShowcasePageEntry = {
-  title: string;
-  description: string;
-  href: string;
-  edgeGlow?: boolean;
+export const metadata: Metadata = {
+  title: "Showcase | Organic LLM",
+  description:
+    "An independent AI app and design lab. Explore connected research, generative interfaces, voice, memory, and model controls through interactive demos.",
 };
 
-/**
- * Public showcase gateway. Pages here are snapshots promoted from sandbox —
- * layout/content is fixed until you rebase from sandbox; shared components
- * (e.g. MemoryLensCard) update automatically.
- *
- * Constraint: showcase pages must not call paid APIs (LLM, TTS, Exa, Places,
- * Mem0/Qdrant, etc.) at view time. Prefer hand-authored JSON / scripted replays
- * through production UI components. Optional: one-time bundled assets under
- * /public/showcase.
- */
+/** Public, local-data field trip. Each chapter mounts its demo as it nears view; no model calls. */
 export default function ShowcasePage() {
-  const showcasePages: ShowcasePageEntry[] = [
-    {
-      title: "Ergon live board",
-      description:
-        "Scripted Arcadia · Ergon replay: the model builds a kanban in chat, rearranges it live, then summons a filtered next-up view — bundled data only.",
-      href: "/showcase/ergon",
-      edgeGlow: true,
-    },
-    {
-      title: "Anatomy of a Response",
-      description:
-        "Scrollytelling trace of one assistant turn: context, memory, tools, streaming, structured cards, and TTS — recorded data, real chat UI.",
-      href: "/showcase/anatomy",
-      edgeGlow: true,
-    },
-    {
-      title: "Memory",
-      description:
-        "Persisted memory lens, cards, and ephemeral in-chat components — what Organic LLM stores and how it surfaces across threads.",
-      href: "/showcase/memory",
-    },
-  ];
-
   return (
-    <Page
-      liquidChromeBackground
-      transparentBackground
-      className="items-stretch justify-start overflow-hidden"
-    >
-      <AdaptiveLiquidChrome dimIntensity={0.45} />
-      {/* Full-width scroll shell so the scrollbar sits on the viewport edge (same as /sandbox). */}
-      <div className="relative z-10 h-full min-h-0 w-full overflow-y-auto pb-16">
-        <PageContentFrame maxWidth="5xl">
-          <div className="mb-12 text-center">
-            <h1 className="mb-2 font-commissioner text-3xl font-light tracking-tight text-foreground sm:text-4xl">
-              Showcase
-            </h1>
-            <p className="mx-auto max-w-2xl select-none text-sm text-muted-foreground">
-              Public demos and previews I’m comfortable sharing. Each page is a snapshot; components
-              inside stay up to date.
+    <div className="showcase-scroll">
+      <div className="showcase-container">
+        <header className="showcase-intro">
+          <p className="showcase-kicker">An independent AI app &amp; design lab</p>
+          <h1>Follow an idea further.</h1>
+          <p className="showcase-intro-copy">
+            An AI workspace for connected research, useful answers, and conversations that remember
+            where you left off.
+          </p>
+          <p className="showcase-intro-trip">{FIELD_TRIP_INTRO}</p>
+        </header>
+        <FieldTrip />
+        <section
+          aria-labelledby="engineering-title"
+          className="showcase-engineering"
+          id="engineering"
+        >
+          <div className="showcase-engineering-intro">
+            <Code2 aria-hidden size={26} strokeWidth={1.5} />
+            <h2 id="engineering-title">
+              The details are
+              <br />
+              part of the product.
+            </h2>
+            <p>
+              Organic LLM is a full-stack application and a place to explore how AI interfaces can
+              feel. The code is open to explore, too.
             </p>
+            <a
+              className="showcase-text-link"
+              href="https://github.com/Alexjoshua14/Organic-LLM"
+              rel="noreferrer"
+              target="_blank"
+            >
+              Explore the source <ArrowUpRight aria-hidden size={16} />
+            </a>
           </div>
-
-          <div className="grid w-full grid-cols-1 gap-4">
-            {showcasePages.map((page) => (
-              <Link
-                key={page.href}
-                data-dim-background
-                className={cn(
-                  glass(),
-                  "group relative overflow-hidden rounded-2xl border border-border/70 backdrop-blur-xl",
-                  "transition-all duration-300 ease-in-out hover:bg-muted/40 active:scale-[0.995]",
-                  "flex flex-col gap-4 p-6 sm:flex-row sm:items-center sm:justify-between sm:gap-8 sm:p-8"
-                )}
-                href={page.href}
-              >
-                {page.edgeGlow && (
-                  <div
-                    aria-hidden
-                    className="pointer-events-none absolute inset-y-0 left-0 w-5 rounded-l-2xl opacity-0 transition-opacity duration-300 group-hover:opacity-100"
-                    style={{
-                      background: `linear-gradient(to right, oklch(0.72 0.09 ${SHOWCASE_GLOW_HUE} / 0.45), oklch(0.78 0.05 ${SHOWCASE_GLOW_HUE} / 0.18), transparent)`,
-                    }}
-                  />
-                )}
-
-                <div className="relative z-10 min-w-0 flex-1">
-                  <h2 className="mb-2 font-commissioner text-lg font-light text-foreground sm:text-xl">
-                    {page.title}
-                  </h2>
-                  <p className="text-sm text-muted-foreground sm:text-[15px] sm:leading-relaxed">
-                    {page.description}
-                  </p>
-                </div>
-
-                <div className="relative z-10 flex shrink-0 items-center justify-between gap-4 border-t border-border/50 pt-4 sm:justify-end sm:border-t-0 sm:pt-0">
-                  <div className="select-none text-xs text-muted-foreground sm:text-sm">
-                    <ShinyText
-                      className="cursor-inherit"
-                      shimmerOnParentGroupHover
-                      speed={2.5}
-                      text="View"
-                    />
-                  </div>
-                  <svg
-                    aria-hidden
-                    className="h-4 w-4 text-muted-foreground opacity-100 transition-all duration-200 group-hover:translate-x-0.5 sm:h-5 sm:w-5 md:opacity-0 md:group-hover:opacity-100"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      d="M17 8l4 4m0 0l-4 4m4-4H3"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                    />
-                  </svg>
-                </div>
-              </Link>
-            ))}
+          <div className="showcase-engineering-links">
+            <Link href="/showcase/anatomy">
+              <span>
+                <strong>Follow one response</strong>
+                <span>Context, memory, tools, and streaming, traced through the interface.</span>
+              </span>
+              <ArrowRight aria-hidden size={20} />
+            </Link>
+            <Link href="/showcase/ergon">
+              <span>
+                <strong>Watch a board take shape</strong>
+                <span>A conversation creates and rearranges a working kanban board.</span>
+              </span>
+              <ArrowRight aria-hidden size={20} />
+            </Link>
+            <Link href="/showcase/memory">
+              <span>
+                <strong>Look inside memory</strong>
+                <span>See how stored context surfaces across conversations.</span>
+              </span>
+              <ArrowRight aria-hidden size={20} />
+            </Link>
+            <Link href="/dev/docs">
+              <span>
+                <strong>Read the engineering notes</strong>
+                <span>Architecture, context assembly, and the systems behind the experience.</span>
+              </span>
+              <ArrowRight aria-hidden size={20} />
+            </Link>
           </div>
-        </PageContentFrame>
+        </section>
+        <footer className="showcase-footer">
+          <p>Built with curiosity. Open for exploration.</p>
+          <span>Interactive previews use fictional data and make no live AI calls.</span>
+        </footer>
       </div>
-    </Page>
+    </div>
   );
 }

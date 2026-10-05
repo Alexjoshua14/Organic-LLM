@@ -13,6 +13,8 @@ export type UseReplayClockOptions = {
   loop?: boolean;
   /** Start playing immediately when active. Default true. */
   autoplay?: boolean;
+  /** Open on a useful settled frame when a demo is meant to be inspected first. */
+  initialTimeMs?: number;
 };
 
 export type ReplayClock = {
@@ -30,23 +32,29 @@ export type ReplayClock = {
  * requestAnimationFrame clock for showcase replays.
  * Runs only when the stage is on-screen and the tab is visible.
  * With reduced motion, jumps to the end and stays paused.
+ * A visitor's pause — or a non-looping replay reaching its end — holds the clock: scrolling
+ * away and back, or switching tabs, does not resume it. `play`/`restart` release the hold.
  */
 export function useReplayClock({
   durationMs,
   stageRef,
   loop = true,
   autoplay = true,
+  initialTimeMs = 0,
 }: UseReplayClockOptions): ReplayClock {
   const reduceMotion = useReducedMotion() ?? false;
   const pageVisible = usePageVisible();
   const inView = useWelcomeInView(stageRef, { threshold: 0.2 });
   const active = inView && pageVisible && !reduceMotion;
 
-  const [tMs, setTMs] = useState(() => (reduceMotion ? durationMs : 0));
+  const initialTime = reduceMotion ? durationMs : Math.max(0, Math.min(initialTimeMs, durationMs));
+  const [tMs, setTMs] = useState(initialTime);
   const [playing, setPlaying] = useState(false);
 
   const playingRef = useRef(false);
-  const tRef = useRef(reduceMotion ? durationMs : 0);
+  /** Paused by the visitor, or finished without looping — autoplay must not resume. */
+  const heldRef = useRef(false);
+  const tRef = useRef(initialTime);
   const lastFrameRef = useRef<number | null>(null);
   const rafRef = useRef<number | null>(null);
 
@@ -68,13 +76,20 @@ export function useReplayClock({
     [durationMs]
   );
 
-  const pause = useCallback(() => {
+  /** Stop the clock without recording intent (off-screen, hidden tab). */
+  const suspend = useCallback(() => {
     playingRef.current = false;
     setPlaying(false);
     stopRaf();
   }, [stopRaf]);
 
+  const pause = useCallback(() => {
+    heldRef.current = true;
+    suspend();
+  }, [suspend]);
+
   const play = useCallback(() => {
+    heldRef.current = false;
     if (reduceMotion) {
       seek(durationMs);
 
@@ -89,6 +104,7 @@ export function useReplayClock({
   }, [durationMs, reduceMotion, seek]);
 
   const restart = useCallback(() => {
+    heldRef.current = false;
     if (reduceMotion) {
       seek(durationMs);
       pause();
@@ -112,15 +128,15 @@ export function useReplayClock({
     if (reduceMotion) return;
 
     if (!active) {
-      pause();
+      suspend();
 
       return;
     }
 
-    if (autoplay) {
+    if (autoplay && !heldRef.current) {
       play();
     }
-  }, [active, autoplay, pause, play, reduceMotion]);
+  }, [active, autoplay, play, reduceMotion, suspend]);
 
   // RAF loop.
   useEffect(() => {

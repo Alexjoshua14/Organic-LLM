@@ -424,6 +424,14 @@ export function chapterStartTimes(timeline: CompiledReplay): number[] {
   return timeline.chapters.map((c) => c.composerStartMs);
 }
 
+/**
+ * When each chapter's assistant turn has finished — its settled frame. Reduced-motion
+ * stepping seeks here instead of to the chapter's empty opening.
+ */
+export function chapterSettledTimes(timeline: CompiledReplay): number[] {
+  return timeline.chapters.map((c) => c.assistantEndMs);
+}
+
 /** Effects list in apply order (for store sync). */
 export function replayEffects(timeline: CompiledReplay): unknown[] {
   return timeline.effects.map((e) => e.effect);

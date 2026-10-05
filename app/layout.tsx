@@ -10,6 +10,7 @@ import { Providers } from "./providers";
 import { siteConfig } from "@/config/site";
 import { fontInter, fontSatoshi, fontCommissioner } from "@/config/fonts";
 import { ControlCluster } from "@/components/layout/countrol-cluster";
+import { AppOnlyChrome } from "@/components/layout/app-only-chrome";
 import { ThemeColorSync } from "@/components/layout/theme-color-sync";
 import { SidebarProvider, SidebarTrigger } from "@/components/third-party/ui/sidebar";
 import { getSidebarDefaultOpenFromCookieValue, SIDEBAR_COOKIE_NAME } from "@/lib/sidebar-cookie";
@@ -78,18 +79,22 @@ export default async function RootLayout({ children }: { children: React.ReactNo
                     <VoiceSessionProvider>
                       <SidebarProvider defaultOpen={sidebarDefaultOpen}>
                         <OnboardingHost>
-                          <Sidebar />
-                          <ControlCluster />
+                          <AppOnlyChrome>
+                            <Sidebar />
+                            <ControlCluster />
+                          </AppOnlyChrome>
                           <main className="app-shell grow w-full overflow-hidden bg-transparent sm:bg-transparent-secondary h-full min-h-dvh">
-                            <div
-                              className={`${glass()} absolute top-[env(safe-area-inset-top,0px)] left-0 z-30 flex h-14 w-20 items-center rounded-br-lg pl-4 md:top-0 md:hidden`}
-                              data-mobile-nav-chrome="sidebar-trigger"
-                            >
-                              <SidebarTrigger />
-                            </div>
-                            <div className={`hidden md:flex absolute top-4 left-0 pl-4 z-30`}>
-                              <SidebarTrigger />
-                            </div>
+                            <AppOnlyChrome>
+                              <div
+                                className={`${glass()} absolute top-[env(safe-area-inset-top,0px)] left-0 z-30 flex h-14 w-20 items-center rounded-br-lg pl-4 md:top-0 md:hidden`}
+                                data-mobile-nav-chrome="sidebar-trigger"
+                              >
+                                <SidebarTrigger />
+                              </div>
+                              <div className={`hidden md:flex absolute top-4 left-0 pl-4 z-30`}>
+                                <SidebarTrigger />
+                              </div>
+                            </AppOnlyChrome>
                             <VoiceLiveBarPageAnchor />
                             {children}
                             <PerfHudGate />
