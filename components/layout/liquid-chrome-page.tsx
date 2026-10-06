@@ -1,6 +1,6 @@
-import { LiquidChromeSsrFill } from "@/components/background/LiquidChromeSsrFill";
-
 import Page from "./page";
+
+import { LiquidChromeSsrFill } from "@/components/background/LiquidChromeSsrFill";
 
 type LiquidChromePageProps = Omit<React.ComponentProps<typeof Page>, "liquidChromeBackground">;
 

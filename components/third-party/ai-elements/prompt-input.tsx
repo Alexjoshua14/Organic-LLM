@@ -797,10 +797,7 @@ export const PromptInput = ({
         onChange={handleChange}
       />
       <form ref={formRef} className={cn("w-full", className)} onSubmit={handleSubmit} {...props}>
-        <InputGroup
-          className={homeComposerGlassSurface}
-          data-prompt-input-shell
-        >
+        <InputGroup className={homeComposerGlassSurface} data-prompt-input-shell>
           {children}
         </InputGroup>
       </form>
@@ -1092,6 +1089,7 @@ export const PromptInputSpeechButton = ({
 
   useEffect(() => {
     const SpeechRecognitionCtor = getWebSpeechRecognitionCtor();
+
     if (!SpeechRecognitionCtor) return;
 
     const speechRecognition = new SpeechRecognitionCtor();
@@ -1244,6 +1242,7 @@ export const PromptInputTab = ({ className, ...props }: PromptInputTabProps) => 
 export type PromptInputTabLabelProps = HTMLAttributes<HTMLHeadingElement>;
 
 export const PromptInputTabLabel = ({ className, ...props }: PromptInputTabLabelProps) => (
+  // eslint-disable-next-line jsx-a11y/heading-has-content -- children arrive via props spread
   <h3 className={cn("mb-2 px-3 font-medium text-muted-foreground text-xs", className)} {...props} />
 );
 

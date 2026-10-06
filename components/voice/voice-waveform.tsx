@@ -2,17 +2,10 @@
 
 import { useEffect, useMemo, useRef } from "react";
 
-import {
-  VOICE_BAR_HEIGHT_PX,
-  VOICE_WAVE_STROKE_WIDTH,
-} from "./voice-live-bar-timing";
+import { VOICE_BAR_HEIGHT_PX, VOICE_WAVE_STROKE_WIDTH } from "./voice-live-bar-timing";
 
 import { useVoiceAudioLevels } from "@/hooks/use-voice-audio-levels";
-import {
-  buildRibbonCurves,
-  ribbonCurveCount,
-  toSmoothPath,
-} from "@/lib/speak/waveform-geometry";
+import { buildRibbonCurves, ribbonCurveCount, toSmoothPath } from "@/lib/speak/waveform-geometry";
 import { cn } from "@/lib/utils";
 
 /** Internal viewBox width. Real width comes from CSS; the SVG scales non-uniformly to fit. */

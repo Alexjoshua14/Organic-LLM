@@ -1,13 +1,13 @@
 import type { ModelMessage, ToolSet, UIMessage, UIMessageStreamWriter } from "ai";
 import type { Logger } from "@/lib/logger";
 import type { ChatExperience } from "@/lib/chat/chat-experience";
-import { shouldSkipMemoryWriteForExperience } from "@/lib/chat/chat-experience";
 import type { Result } from "@/types";
 
 import { smoothStream, stepCountIs, streamText } from "ai";
 import { GatewayProviderOptions } from "@ai-sdk/gateway";
 import { OpenAIResponsesProviderOptions } from "@ai-sdk/openai";
 
+import { shouldSkipMemoryWriteForExperience } from "@/lib/chat/chat-experience";
 import { getMessageCount } from "@/data/supabase/chat";
 import { shouldAttemptInitialTitle } from "@/lib/chat/summary-title-cadence";
 import { saveChat } from "@/lib/chat/chat-store";
@@ -172,9 +172,7 @@ export async function runLLMChatStream(params: RunLLMChatStreamParams): Promise<
       gateway: {
         zeroDataRetention: isZeroDataRetention,
       } satisfies GatewayProviderOptions,
-      ...(effortProviderOptions?.anthropic
-        ? { anthropic: effortProviderOptions.anthropic }
-        : {}),
+      ...(effortProviderOptions?.anthropic ? { anthropic: effortProviderOptions.anthropic } : {}),
       ...(effortProviderOptions?.google ? { google: effortProviderOptions.google } : {}),
     },
     tools,
@@ -395,7 +393,10 @@ export async function runLLMChatStream(params: RunLLMChatStreamParams): Promise<
                 logger.error("POST", "Error updating chat summary");
               }
             } else {
-              logger.log("POST", "Skipping exchange-cadence summary refresh for Arcadia token context");
+              logger.log(
+                "POST",
+                "Skipping exchange-cadence summary refresh for Arcadia token context"
+              );
             }
 
             if (memoryEnabled && !shouldSkipMemoryWriteForExperience(experience)) {

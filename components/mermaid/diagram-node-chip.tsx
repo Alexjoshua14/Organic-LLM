@@ -1,8 +1,9 @@
 "use client";
 
+import type { DiagramNodeLink } from "@/lib/mermaid/types";
+
 import { X } from "lucide-react";
 
-import type { DiagramNodeLink } from "@/lib/mermaid/types";
 import { cn } from "@/lib/utils";
 
 type DiagramNodeChipProps = {
@@ -12,8 +13,7 @@ type DiagramNodeChipProps = {
 
 /** Cursor-style reference pill — distinct from composer tool toggles. */
 export function DiagramNodeChip({ link, onRemove }: DiagramNodeChipProps) {
-  const shortLabel =
-    link.label.length > 28 ? `${link.label.slice(0, 26).trimEnd()}…` : link.label;
+  const shortLabel = link.label.length > 28 ? `${link.label.slice(0, 26).trimEnd()}…` : link.label;
 
   return (
     <span

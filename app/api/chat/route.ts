@@ -37,6 +37,7 @@ import { computeMainChatMaxSteps } from "@/lib/api/chat-max-steps";
 import {
   appendMainChatPostToolSystemFragments,
   appendStrataMainChatSystemFragments,
+  appendTopicExploreCustomSystemPrompt,
   wrapSystemPromptWithResponseLength,
 } from "@/lib/api/chat-system-prompt";
 import { appendIntrospectionMainChatSystemFragments } from "@/lib/api/introspection-system-prompt";
@@ -97,6 +98,7 @@ export async function POST(req: Request) {
     drawerDisplay,
     rabbitHoleSessionId,
     diagramNodeLinks,
+    customSystemPromptOverride,
   } = parseResult.data;
   const message = incomingMessage as UIMessage;
   const messageForLlm = augmentUserMessageWithDiagramLinks(message, diagramNodeLinks);
@@ -236,6 +238,13 @@ export async function POST(req: Request) {
         experience,
         chatId: id,
         sbUserId,
+      });
+
+      // Noesis authored-spark override: when a spark drives a topic_explore thread.
+      systemPromptForRequest = appendTopicExploreCustomSystemPrompt({
+        systemPromptForRequest,
+        experience,
+        customSystemPromptOverride,
       });
 
       logger.log(

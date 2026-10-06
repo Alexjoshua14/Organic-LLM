@@ -2,7 +2,10 @@
 
 import React, { useCallback, useEffect, useRef, useState } from "react";
 
+import { ThreadTitleLine, useThreadTitlePhase } from "@/components/chat/thread-title-line";
+
 type SidebarChatTitleProps = {
+  threadId: string;
   title: string;
   editing: boolean;
   onSave: (title: string) => void;
@@ -13,12 +16,14 @@ type SidebarChatTitleProps = {
 const BLUR_GUARD_MS = 600;
 
 export function SidebarChatTitle({
+  threadId,
   title,
   editing,
   onSave,
   onEditingChange,
   className,
 }: SidebarChatTitleProps) {
+  const { phase, shown, announced, from, to } = useThreadTitlePhase(threadId, title);
   const [editedTitle, setEditedTitle] = useState<string>(title);
   const inputRef = useRef<HTMLInputElement>(null);
   const editStartedAtRef = useRef(0);
@@ -100,13 +105,9 @@ export function SidebarChatTitle({
   }
 
   return (
-    <h3
-      className={["flex-1 truncate py-1 min-w-0 cursor-pointer", className]
-        .filter(Boolean)
-        .join(" ")}
-      title={title}
-    >
-      {title}
+    <h3 className="thread-title min-w-0 flex-1 cursor-pointer truncate py-1" title={announced}>
+      <span className="sr-only">{announced}</span>
+      <ThreadTitleLine className={className} from={from} phase={phase} text={shown} to={to} />
     </h3>
   );
 }

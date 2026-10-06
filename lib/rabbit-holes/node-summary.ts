@@ -1,6 +1,6 @@
-import { generateText } from "ai";
-
 import type { RabbitHoleNode } from "@/lib/schemas/rabbitHoleSchemas";
+
+import { generateText } from "ai";
 
 import {
   RABBIT_HOLE_NODE_SUMMARY_MAX_OUTPUT_TOKENS,
@@ -52,9 +52,7 @@ export function formatNodeSummaryDocument(node: RabbitHoleNode): string {
 /**
  * Generate a stored summary for a completed article node (~2000 output token cap).
  */
-export async function generateRabbitHoleNodeSummary(
-  node: RabbitHoleNode
-): Promise<string> {
+export async function generateRabbitHoleNodeSummary(node: RabbitHoleNode): Promise<string> {
   const sourceDoc = formatNodeSummaryDocument(node);
 
   const { text } = await generateText({

@@ -25,9 +25,7 @@ export const IntrospectionGuidedStateSchema = z.object({
   stepComplete: z.boolean(),
   title: z.string().optional(),
   goal: z.string().optional(),
-  steps: z
-    .array(z.object({ id: z.string(), title: z.string() }))
-    .optional(),
+  steps: z.array(z.object({ id: z.string(), title: z.string() })).optional(),
 });
 
 export type IntrospectionGuidedState = z.infer<typeof IntrospectionGuidedStateSchema>;
@@ -42,10 +40,7 @@ export const UpdateIntrospectionViewInputSchema = z.object({
 export type UpdateIntrospectionViewInput = z.infer<typeof UpdateIntrospectionViewInputSchema>;
 
 export function buildInitialGuidedState(
-  config: Pick<
-    IntrospectionStoredConfig,
-    "title" | "goal" | "steps" | "initialOverview"
-  >
+  config: Pick<IntrospectionStoredConfig, "title" | "goal" | "steps" | "initialOverview">
 ): IntrospectionGuidedState {
   const steps = config.steps?.map((s) => ({ id: s.id, title: s.title }));
   const firstStep = config.steps?.[0];

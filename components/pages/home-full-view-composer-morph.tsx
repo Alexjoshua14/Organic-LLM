@@ -1,19 +1,9 @@
 "use client";
 
-import {
-  snapshot,
-  type Vector4,
-} from "@organic-llm/morph-physics";
+import { snapshot, type Vector4 } from "@organic-llm/morph-physics";
 import { useMorphPhysics } from "@organic-llm/morph-physics/react";
 import { useReducedMotion } from "framer-motion";
-import {
-  useCallback,
-  useEffect,
-  useLayoutEffect,
-  useRef,
-  useState,
-  type ReactNode,
-} from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import { flushSync } from "react-dom";
 
 import {
@@ -57,10 +47,7 @@ function ComposerMeasureShell({
 
   return (
     <div
-      className={cn(
-        "mx-auto flex w-full max-w-2xl flex-col justify-end pb-2",
-        gutterClassName
-      )}
+      className={cn("mx-auto flex w-full max-w-2xl flex-col justify-end pb-2", gutterClassName)}
       style={{ marginBottom: DOCKED_BOTTOM_OFFSET }}
     >
       {children}
@@ -146,8 +133,7 @@ export function HomeFullViewComposerMorph({
 
     if (reduceMotion) {
       dockRef.current = next;
-      const target =
-        next === "engaged" ? engagedVecRef.current : dockedVecRef.current;
+      const target = next === "engaged" ? engagedVecRef.current : dockedVecRef.current;
 
       if (target) reset(target);
 
@@ -190,9 +176,7 @@ export function HomeFullViewComposerMorph({
           "will-change-[transform,width,height]"
         )}
       >
-        <div className="h-full w-full min-h-0">
-          {children({ composerDocked })}
-        </div>
+        <div className="h-full w-full min-h-0">{children({ composerDocked })}</div>
       </div>
     </div>
   );

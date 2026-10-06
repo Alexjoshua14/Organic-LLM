@@ -101,7 +101,10 @@ export async function toggleTaskActive(id: string) {
   const nextActive = !task.is_active;
   const patch: TaskPatch = {
     is_active: nextActive,
-    ...(nextActive && task.status !== "doing" && task.status !== "done" && task.status !== "archived"
+    ...(nextActive &&
+    task.status !== "doing" &&
+    task.status !== "done" &&
+    task.status !== "archived"
       ? { status: "doing" }
       : {}),
   };

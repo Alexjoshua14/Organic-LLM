@@ -4,8 +4,7 @@ export const LIQUID_CHROME_FIXED_FILL_CLASS = "liquid-chrome-page-fill";
 /** True when streamed HTML includes an opt-in chrome fill marker (Page section or SSR fixed div). */
 export function ssrHtmlIncludesChromeFill(html: string): boolean {
   return (
-    html.includes(LIQUID_CHROME_PAGE_FILL_CLASS) ||
-    html.includes(LIQUID_CHROME_FIXED_FILL_CLASS)
+    html.includes(LIQUID_CHROME_PAGE_FILL_CLASS) || html.includes(LIQUID_CHROME_FIXED_FILL_CLASS)
   );
 }
 
@@ -43,6 +42,7 @@ export function parseCssRgb(input: string): Rgb | null {
   }
 
   const rgbMatch = value.match(/^rgb\(\s*([\d.]+)\s*,\s*([\d.]+)\s*,\s*([\d.]+)\s*\)$/);
+
   if (rgbMatch) {
     return {
       r: Number(rgbMatch[1]),
@@ -55,6 +55,7 @@ export function parseCssRgb(input: string): Rgb | null {
   const rgbaMatch = value.match(
     /^rgba\(\s*([\d.]+)\s*,\s*([\d.]+)\s*,\s*([\d.]+)\s*,\s*([\d.]+)\s*\)$/
   );
+
   if (rgbaMatch) {
     return {
       r: Number(rgbaMatch[1]),
@@ -70,11 +71,13 @@ export function parseCssRgb(input: string): Rgb | null {
 /** True when the computed background is a chrome gradient or opaque non-white fill. */
 export function isLiquidChromeBackgroundFilled(snapshot: LiquidChromeBackgroundSnapshot): boolean {
   const image = snapshot.backgroundImage?.trim();
+
   if (image && image !== "none") {
     return true;
   }
 
   const rgb = parseCssRgb(snapshot.backgroundColor);
+
   if (!rgb) {
     return snapshot.backgroundColor !== "transparent";
   }
@@ -91,7 +94,9 @@ export function isLiquidChromeBackgroundFilled(snapshot: LiquidChromeBackgroundS
   return true;
 }
 
-export function readLiquidChromeBackground(element: Element | null): LiquidChromeBackgroundSnapshot {
+export function readLiquidChromeBackground(
+  element: Element | null
+): LiquidChromeBackgroundSnapshot {
   if (!element || typeof window === "undefined") {
     return { backgroundColor: "transparent", backgroundImage: "none" };
   }
@@ -113,6 +118,7 @@ export function findLiquidChromeFillElement(
 
   for (const selector of LIQUID_CHROME_FILL_SELECTORS) {
     const element = root.querySelector(selector);
+
     if (element) {
       return { element, selector };
     }
@@ -137,6 +143,7 @@ export async function sampleLiquidChromeFrames(frameCount = 4): Promise<LiquidCh
     }
 
     const match = findLiquidChromeFillElement();
+
     if (!match) {
       samples.push({
         frame,

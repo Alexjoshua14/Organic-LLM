@@ -18,7 +18,7 @@ export type ParsedFullChatHistoryToolOutput =
  * Parses the `get_full_chat_history` tool return shape from {@link createGetFullChatHistoryTool}.
  */
 export function tryParseFullChatHistoryToolOutput(
-  body: unknown,
+  body: unknown
 ): ParsedFullChatHistoryToolOutput | null {
   if (body === null || body === undefined || typeof body !== "object") return null;
   const o = body as Record<string, unknown>;

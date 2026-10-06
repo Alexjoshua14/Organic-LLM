@@ -7,7 +7,6 @@ import { KNOWLEDGE_GATEWAY_PROVIDER_OPTIONS } from "@/lib/knowledge/gateway-opti
 import { createLogger } from "@/lib/logger";
 import { recordLlmCall } from "@/lib/llm/metrics";
 import { ErgonEnhanceFieldsSchema } from "@/lib/schemas/ergon-enhance";
-
 import { models } from "@/lib/schemas/chat-models";
 
 const logger = createLogger("lib/llm/enhance-task.ts");
@@ -53,9 +52,7 @@ function buildPrompt(ctx: EnhanceTaskContext, now: Date): string {
   const categories = ctx.categories.length > 0 ? ctx.categories.join(", ") : "(none yet)";
   const others =
     ctx.otherTasks.length > 0
-      ? ctx.otherTasks
-          .map((t) => `- ${t.title}${t.category ? ` [${t.category}]` : ""}`)
-          .join("\n")
+      ? ctx.otherTasks.map((t) => `- ${t.title}${t.category ? ` [${t.category}]` : ""}`).join("\n")
       : "(none)";
   const memory = ctx.memory.length > 0 ? ctx.memory.map((m) => `- ${m}`).join("\n") : "(none)";
 

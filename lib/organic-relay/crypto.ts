@@ -1,3 +1,5 @@
+import type { IntrospectionBootstrapPayload } from "./schemas";
+
 import { createCipheriv, createDecipheriv, randomBytes, timingSafeEqual } from "node:crypto";
 
 import {
@@ -8,7 +10,6 @@ import {
   WIRE_PREFIX,
   WIRE_VERSION,
 } from "./constants";
-import type { IntrospectionBootstrapPayload } from "./schemas";
 import { IntrospectionBootstrapPayloadSchema } from "./schemas";
 
 function concatBytes(chunks: Uint8Array[]): Uint8Array {
@@ -59,7 +60,7 @@ export function decodeSharedSecret(raw: string): Uint8Array {
 }
 
 export function getSharedSecretKeyFromEnv(
-  envValue: string | undefined = process.env.INTROSPECTION_ORGANIC_SHARED_SECRET,
+  envValue: string | undefined = process.env.INTROSPECTION_ORGANIC_SHARED_SECRET
 ): Uint8Array {
   return decodeSharedSecret(envValue ?? "");
 }
@@ -71,7 +72,7 @@ export type EncryptBootstrapOptions = {
 
 export function encryptBootstrapPayload(
   payload: IntrospectionBootstrapPayload,
-  options?: EncryptBootstrapOptions,
+  options?: EncryptBootstrapOptions
 ): string {
   const parsed = IntrospectionBootstrapPayloadSchema.parse(payload);
   const key = getSharedSecretKeyFromEnv(options?.secret);
@@ -95,7 +96,7 @@ export function encryptBootstrapPayload(
 
 export function decryptBootstrapPayload(
   wire: string,
-  options?: { secret?: string; skipExpiryCheck?: boolean },
+  options?: { secret?: string; skipExpiryCheck?: boolean }
 ): IntrospectionBootstrapPayload {
   const parts = wire.split(":");
 
@@ -156,7 +157,7 @@ export function assertIntrospectionSecretConfigured(secret?: string): void {
 
 export function buildTestBootstrapPayload(
   overrides: Partial<IntrospectionBootstrapPayload> &
-    Pick<IntrospectionBootstrapPayload, "systemInstructions">,
+    Pick<IntrospectionBootstrapPayload, "systemInstructions">
 ): IntrospectionBootstrapPayload {
   const now = Math.floor(Date.now() / 1000);
 

@@ -99,6 +99,7 @@ export function useTaskRowGestures(options: UseTaskRowGesturesOptions): UseTaskR
   const stateRef = useRef<GestureState>(createGestureState());
 
   const optionsRef = useRef(options);
+
   optionsRef.current = options;
 
   const reset = useCallback(() => {

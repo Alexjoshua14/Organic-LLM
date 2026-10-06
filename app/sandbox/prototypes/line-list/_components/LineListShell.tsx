@@ -66,11 +66,11 @@ export function LineListShell({ chatData }: LineListShellProps) {
   const [wines, setWines] = useState<WineEntry[]>(() =>
     listMessage
       ? getWinesFromMessage(
-        listMessage.parts as Array<{
-          type: string;
-          data?: { wines?: WineEntry[] };
-        }>
-      )
+          listMessage.parts as Array<{
+            type: string;
+            data?: { wines?: WineEntry[] };
+          }>
+        )
       : []
   );
 
@@ -222,10 +222,10 @@ export function LineListShell({ chatData }: LineListShellProps) {
                       listMessage?.parts.map((p) =>
                         p.type === "data-wineLineList"
                           ? {
-                            type: p.type,
-                            winesCount: (p as { data?: { wines?: unknown[] } }).data?.wines
-                              ?.length,
-                          }
+                              type: p.type,
+                              winesCount: (p as { data?: { wines?: unknown[] } }).data?.wines
+                                ?.length,
+                            }
                           : { type: p.type }
                       ) ?? null,
                   },

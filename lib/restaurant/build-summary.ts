@@ -1,5 +1,4 @@
 import type { RestaurantStoreType } from "@/lib/schemas/gen-ui/restaurant-card";
-
 import type { VenueBundle } from "./types";
 
 const PRIMARY_TYPE_TO_STORE: Record<string, RestaurantStoreType> = {

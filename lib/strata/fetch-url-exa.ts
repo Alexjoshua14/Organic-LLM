@@ -1,5 +1,3 @@
-import { getContents } from "@/lib/exa/client";
-
 import { assertSafePublicHttpsUrl } from "@/lib/security/external-content/safe-url";
 import { fetchExternalContent } from "@/lib/security/external-content/fetch-external-content";
 

@@ -12,6 +12,7 @@ export function ErgonLiquidChromeRouteSync() {
   useLayoutEffect(() => {
     const sync = () => {
       const enabled = getSettings().ergonLiquidChrome;
+
       syncErgonSsrFillVisibility(enabled);
       writeErgonLiquidChromeCookie(enabled);
     };

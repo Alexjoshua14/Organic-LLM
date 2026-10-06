@@ -1,5 +1,7 @@
 "use client";
 
+import type { ExaSearchResultSource } from "@/lib/exa/types";
+
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 
@@ -14,7 +16,6 @@ import {
   WelcomeDemoUserMessage,
   welcomeDemoCompactClass,
 } from "@/components/pages/welcome/welcome-demo-user-message";
-import type { ExaSearchResultSource } from "@/lib/exa/types";
 import { card, sectionLabel } from "@/lib/rabbit-holes/designTokens";
 import {
   WELCOME_MAIN_CHAT_ASSISTANT_REPLY,
@@ -66,7 +67,7 @@ function WelcomeMemorySearchCard() {
       isPinned={false}
       parsed={WELCOME_MAIN_CHAT_MEMORY_RESULT}
       showPin={false}
-      onTogglePin={() => { }}
+      onTogglePin={() => {}}
     />
   );
 }
@@ -77,7 +78,7 @@ function WelcomeWebSearchCard() {
       isPinned={false}
       parsed={WELCOME_MAIN_CHAT_SEARCH_RESULT}
       showPin={false}
-      onTogglePin={() => { }}
+      onTogglePin={() => {}}
     />
   );
 }
@@ -213,10 +214,7 @@ export function WelcomeMainChatIllustration({ className }: WelcomeMainChatIllust
       const start = performance.now();
 
       const tick = (now: number) => {
-        const count = Math.min(
-          replyTokens.length,
-          Math.floor((now - start) / STREAM_MS)
-        );
+        const count = Math.min(replyTokens.length, Math.floor((now - start) / STREAM_MS));
 
         setStreamCount(count);
 
@@ -329,7 +327,13 @@ export function WelcomeMainChatIllustration({ className }: WelcomeMainChatIllust
     return (
       <div ref={rootRef} aria-label={ARIA_LABEL} className={frameClass} role="img">
         <p className={cn(sectionLabel, "mb-2 text-center")}>Main chat</p>
-        <div className={cn(card, "flex min-h-0 flex-1 flex-col gap-2 overflow-hidden rounded-lg p-2.5 sm:p-3", welcomeDemoCompactClass)}>
+        <div
+          className={cn(
+            card,
+            "flex min-h-0 flex-1 flex-col gap-2 overflow-hidden rounded-lg p-2.5 sm:p-3",
+            welcomeDemoCompactClass
+          )}
+        >
           <WelcomeDemoUserMessage
             animate={false}
             id="welcome-main-chat-user-reduced"
@@ -341,10 +345,7 @@ export function WelcomeMainChatIllustration({ className }: WelcomeMainChatIllust
             content={WELCOME_MAIN_CHAT_ASSISTANT_REPLY}
             id="welcome-main-chat-reduced"
           />
-          <AssistantMessageActions
-            showPinAndCopy
-            text={WELCOME_MAIN_CHAT_ASSISTANT_REPLY}
-          />
+          <AssistantMessageActions showPinAndCopy text={WELCOME_MAIN_CHAT_ASSISTANT_REPLY} />
         </div>
       </div>
     );
@@ -359,7 +360,13 @@ export function WelcomeMainChatIllustration({ className }: WelcomeMainChatIllust
         </span>
       </div>
 
-      <div className={cn(card, "flex min-h-0 flex-1 flex-col overflow-hidden rounded-lg", welcomeDemoCompactClass)}>
+      <div
+        className={cn(
+          card,
+          "flex min-h-0 flex-1 flex-col overflow-hidden rounded-lg",
+          welcomeDemoCompactClass
+        )}
+      >
         <div
           ref={threadRef}
           className="flex min-h-[5.5rem] flex-1 flex-col gap-2 overflow-y-auto px-2.5 py-2.5 sm:min-h-[6.5rem] sm:px-3 sm:py-3"
@@ -441,10 +448,7 @@ export function WelcomeMainChatIllustration({ className }: WelcomeMainChatIllust
               transition={VIEW_TRANSITION}
             >
               <div className="ai-message max-w-full text-foreground prose dark:prose-invert">
-                <ChatMessageMarkdown
-                  content={streamedText}
-                  id="welcome-main-chat-stream"
-                />
+                <ChatMessageMarkdown content={streamedText} id="welcome-main-chat-stream" />
                 {phase === "streaming" ? (
                   <motion.span
                     animate={{ opacity: [0.35, 0.9, 0.35] }}
@@ -465,10 +469,7 @@ export function WelcomeMainChatIllustration({ className }: WelcomeMainChatIllust
               initial={{ opacity: 0, y: 4 }}
               transition={VIEW_TRANSITION}
             >
-              <AssistantMessageActions
-                showPinAndCopy
-                text={WELCOME_MAIN_CHAT_ASSISTANT_REPLY}
-              />
+              <AssistantMessageActions showPinAndCopy text={WELCOME_MAIN_CHAT_ASSISTANT_REPLY} />
             </motion.div>
           ) : null}
         </div>

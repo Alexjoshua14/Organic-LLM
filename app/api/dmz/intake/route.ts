@@ -3,10 +3,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 
 import { getSupabaseUserId } from "@/data/supabase/profiles";
-import {
-  DMZ_CONNECTION_PROVIDERS,
-  intakeDmzIntelligence,
-} from "@/lib/security/dmz";
+import { DMZ_CONNECTION_PROVIDERS, intakeDmzIntelligence } from "@/lib/security/dmz";
 
 const IntakeSchema = z.object({
   provider: z.enum(DMZ_CONNECTION_PROVIDERS),
