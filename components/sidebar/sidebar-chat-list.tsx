@@ -31,10 +31,7 @@ type SidebarChatListProps = {
 
 export const SidebarChatList: FC<SidebarChatListProps> = ({ threads }) => {
   const { setOpenMobile, isMobile } = useSidebar();
-  const {
-    setChatId,
-    refreshSidebarChats,
-  } = useSharedChatContext();
+  const { setChatId, refreshSidebarChats } = useSharedChatContext();
   const currentChatId = useChatId();
   const router = useRouter();
 
