@@ -1,6 +1,6 @@
 import { Search } from "lucide-react";
 import { Input } from "@heroui/input";
-import { ClerkLoading, SignedIn, SignedOut, SignOutButton } from "@clerk/nextjs";
+import { SignedIn, SignedOut, SignOutButton } from "@clerk/nextjs";
 import Link from "next/link";
 import { Suspense } from "react";
 
@@ -69,10 +69,6 @@ export function Sidebar() {
         </Link>
       </SidebarHeader>
       <SidebarContent className="bg-background-secondary subpixel-antialiased flex flex-col overflow-hidden ">
-        {/* SignedIn and SignedOut both render nothing until clerk-js resolves the session. */}
-        <ClerkLoading>
-          <SidebarChatsSkeleton className="pt-3" />
-        </ClerkLoading>
         <SignedOut>
           <SidebarGroup>
             <SidebarGroupContent className="flex w-full flex-col items-center justify-center gap-4 px-4 py-6">
