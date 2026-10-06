@@ -93,6 +93,7 @@ export function ReadAloudStage({ onExit }: { onExit?: () => void }) {
 
   return (
     <div className="relative flex h-full min-h-0 w-full flex-col">
+      {/* eslint-disable-next-line jsx-a11y/media-has-caption -- hidden TTS playback; text shown as karaoke caption */}
       <audio ref={audioRef} className="hidden" />
 
       <div className="flex flex-1 flex-col items-center justify-center px-6 py-8">

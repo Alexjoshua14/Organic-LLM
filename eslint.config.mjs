@@ -17,12 +17,15 @@ import { FlatCompat } from "@eslint/eslintrc";
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const compat = new FlatCompat({
-    baseDirectory: __dirname,
-    recommendedConfig: js.configs.recommended,
-    allConfig: js.configs.all
+  baseDirectory: __dirname,
+  recommendedConfig: js.configs.recommended,
+  allConfig: js.configs.all,
 });
 
-export default defineConfig([globalIgnores([
+export default defineConfig([
+  globalIgnores([
+    ".bench/**",
+    ".claude/**",
     ".now/*",
     "**/*.css",
     "**/.changeset",
@@ -43,120 +46,145 @@ export default defineConfig([globalIgnores([
     "!**/plopfile.js",
     "!**/react-shim.js",
     "!**/tsup.config.ts",
-]), {
-    extends: fixupConfigRules(compat.extends(
+  ]),
+  {
+    extends: fixupConfigRules(
+      compat.extends(
         "plugin:react/recommended",
         "plugin:prettier/recommended",
         "plugin:react-hooks/recommended",
-        "plugin:jsx-a11y/recommended",
-    )),
+        "plugin:jsx-a11y/recommended"
+      )
+    ),
 
     plugins: {
-        react: fixupPluginRules(react),
-        "unused-imports": unusedImports,
-        import: fixupPluginRules(_import),
-        "@typescript-eslint": typescriptEslint,
-        "jsx-a11y": fixupPluginRules(jsxA11Y),
-        prettier: fixupPluginRules(prettier),
-        "@next/next": fixupPluginRules(nextPlugin),
+      react: fixupPluginRules(react),
+      "unused-imports": unusedImports,
+      import: fixupPluginRules(_import),
+      "@typescript-eslint": typescriptEslint,
+      "jsx-a11y": fixupPluginRules(jsxA11Y),
+      prettier: fixupPluginRules(prettier),
+      "@next/next": fixupPluginRules(nextPlugin),
     },
 
     languageOptions: {
-        globals: {
-            ...Object.fromEntries(Object.entries(globals.browser).map(([key]) => [key, "off"])),
-            ...globals.node,
-        },
+      globals: {
+        ...Object.fromEntries(Object.entries(globals.browser).map(([key]) => [key, "off"])),
+        ...globals.node,
+      },
 
-        parser: tsParser,
-        ecmaVersion: 12,
-        sourceType: "module",
+      parser: tsParser,
+      ecmaVersion: 12,
+      sourceType: "module",
 
-        parserOptions: {
-            ecmaFeatures: {
-                jsx: true,
-            },
+      parserOptions: {
+        ecmaFeatures: {
+          jsx: true,
         },
+      },
     },
 
     settings: {
-        react: {
-            version: "detect",
-        },
+      react: {
+        version: "detect",
+      },
     },
 
     files: ["**/*.ts", "**/*.tsx"],
 
     rules: {
-        ...nextPlugin.configs.recommended.rules,
-        ...nextPlugin.configs["core-web-vitals"].rules,
-        "no-console": "warn",
-        "react/prop-types": "off",
-        "react/jsx-uses-react": "off",
-        "react/react-in-jsx-scope": "off",
-        "react-hooks/exhaustive-deps": "off",
-        "jsx-a11y/click-events-have-key-events": "warn",
-        "jsx-a11y/interactive-supports-focus": "warn",
-        "prettier/prettier": "warn",
-        "no-unused-vars": "off",
-        "unused-imports/no-unused-vars": "off",
-        "unused-imports/no-unused-imports": "warn",
+      ...nextPlugin.configs.recommended.rules,
+      ...nextPlugin.configs["core-web-vitals"].rules,
+      "no-console": "warn",
+      "react/prop-types": "off",
+      "react/jsx-uses-react": "off",
+      "react/react-in-jsx-scope": "off",
+      "react-hooks/exhaustive-deps": "off",
+      "jsx-a11y/click-events-have-key-events": "warn",
+      "jsx-a11y/interactive-supports-focus": "warn",
+      // `role` on our own components (ArtifactSlot, KaraokeCaption) is a domain prop, not ARIA.
+      "jsx-a11y/aria-role": ["error", { ignoreNonDOM: true }],
+      "jsx-a11y/label-has-associated-control": ["error", { controlComponents: ["Switch"] }],
+      "prettier/prettier": "warn",
+      "no-unused-vars": "off",
+      "unused-imports/no-unused-vars": "off",
+      "unused-imports/no-unused-imports": "warn",
 
-        "@typescript-eslint/no-unused-vars": ["warn", {
-            args: "after-used",
-            ignoreRestSiblings: false,
-            argsIgnorePattern: "^_.*?$",
-        }],
+      "@typescript-eslint/no-unused-vars": [
+        "warn",
+        {
+          args: "after-used",
+          ignoreRestSiblings: false,
+          argsIgnorePattern: "^_.*?$",
+        },
+      ],
 
-        "import/order": ["warn", {
-            groups: [
-                "type",
-                "builtin",
-                "object",
-                "external",
-                "internal",
-                "parent",
-                "sibling",
-                "index",
-            ],
+      "import/order": [
+        "warn",
+        {
+          groups: [
+            "type",
+            "builtin",
+            "object",
+            "external",
+            "internal",
+            "parent",
+            "sibling",
+            "index",
+          ],
 
-            pathGroups: [{
-                pattern: "~/**",
-                group: "external",
-                position: "after",
-            }],
+          pathGroups: [
+            {
+              pattern: "~/**",
+              group: "external",
+              position: "after",
+            },
+          ],
 
-            "newlines-between": "always",
-        }],
+          "newlines-between": "always",
+        },
+      ],
 
-        "react/self-closing-comp": "warn",
+      "react/self-closing-comp": "warn",
 
-        // Off to avoid circular fixes with prettier/prettier (both modify JSX layout)
-        "react/jsx-sort-props": "off",
+      // Off to avoid circular fixes with prettier/prettier (both modify JSX layout)
+      "react/jsx-sort-props": "off",
 
-        "padding-line-between-statements": ["warn", {
-            blankLine: "always",
-            prev: "*",
-            next: "return",
-        }, {
-            blankLine: "always",
-            prev: ["const", "let", "var"],
-            next: "*",
-        }, {
-            blankLine: "any",
-            prev: ["const", "let", "var"],
-            next: ["const", "let", "var"],
-        }],
+      "padding-line-between-statements": [
+        "warn",
+        {
+          blankLine: "always",
+          prev: "*",
+          next: "return",
+        },
+        {
+          blankLine: "always",
+          prev: ["const", "let", "var"],
+          next: "*",
+        },
+        {
+          blankLine: "any",
+          prev: ["const", "let", "var"],
+          next: ["const", "let", "var"],
+        },
+      ],
     },
-},
-// Memory boundary: app and components must use operations, not store
-{
+  },
+  // Memory boundary: app and components must use operations, not store
+  {
     files: ["app/**/*.ts", "app/**/*.tsx", "components/**/*.ts", "components/**/*.tsx"],
     rules: {
-        "no-restricted-imports": ["error", {
-            paths: [{
-                name: "@/lib/memory/store",
-                message: "Use @/lib/memory/operations instead of store. See lib/memory/README.md.",
-            }],
-        }],
+      "no-restricted-imports": [
+        "error",
+        {
+          paths: [
+            {
+              name: "@/lib/memory/store",
+              message: "Use @/lib/memory/operations instead of store. See lib/memory/README.md.",
+            },
+          ],
+        },
+      ],
     },
-}]);
+  },
+]);

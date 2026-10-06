@@ -330,6 +330,7 @@ export function RabbitHoleTTSButton({
             {error && <p className="text-[11px] text-destructive">{error}</p>}
           </div>
         </div>
+        {/* eslint-disable-next-line jsx-a11y/media-has-caption -- TTS playback; no caption track */}
         <audio
           ref={audioRef}
           controls

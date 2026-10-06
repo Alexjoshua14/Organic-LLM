@@ -103,6 +103,7 @@ export default function TTSButtonV2({ text }: { text: string }) {
               color="var(--accent)"
             />
           </Button>
+          {/* eslint-disable-next-line jsx-a11y/media-has-caption -- TTS playback; no caption track */}
           <audio
             ref={audioRef}
             controls
