@@ -49,7 +49,9 @@ bun run build         # Next.js production build (also builds morph-physics)
 ```
 
 `bun run test` and its variants print failures and a summary only, with console output from the
-code under test silenced. Set `TEST_VERBOSE=1` to restore it (`TEST_VERBOSE=1 bun run test:unit`).
+code under test silenced. Add `--verbose` (or set `TEST_VERBOSE=1`) to restore it and list passing
+tests: `bun run test:unit tests/unit/foo.test.ts --verbose`. A path or a substring of one narrows the
+run; `-t "name"` filters by test name. The scripts live in `scripts/run-tests.ts`.
 
 CI runs tests on PRs to `main`, with `TEST_VERBOSE=1`; changes under `llm/morph-physics/` trigger a separate workflow.
 

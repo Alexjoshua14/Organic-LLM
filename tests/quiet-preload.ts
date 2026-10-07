@@ -4,9 +4,10 @@
  * "Not implemented" warnings). Failures are unaffected: Bun prints the assertion diff, source
  * frame, and stack itself, not through `console`.
  *
- * Set `TEST_VERBOSE=1` to get the console output back, e.g. `TEST_VERBOSE=1 bun run test:unit`.
- * Do that when a failure shows no cause — a route test that fails as "expected 200, got 500"
- * often has the real error only in a `console.error`.
+ * Pass `--verbose` (or set `TEST_VERBOSE=1`) to get the console output back, e.g.
+ * `bun run test:unit tests/unit/foo.test.ts --verbose`. Do that when a failure shows no cause:
+ * a route test that fails as "expected 200, got 500" often has the real error only in a
+ * `console.error`. See scripts/run-tests.ts.
  */
 const verbose = process.env.TEST_VERBOSE === "1" || process.env.TEST_VERBOSE === "true";
 
