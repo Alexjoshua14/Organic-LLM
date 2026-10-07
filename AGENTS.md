@@ -37,6 +37,10 @@ bun run build               # Next.js production build (also builds morph-physic
 Run `bun run lint:check` and `bun run test:unit` before handing work back. CI runs tests on
 PRs to `main`; changes under `llm/morph-physics/` trigger a separate workflow.
 
+Test scripts print failures and a summary only; console output from the code under test is
+silenced. When a failure shows no cause, rerun that suite with `TEST_VERBOSE=1`
+(`TEST_VERBOSE=1 bun run test:unit`).
+
 ## Structure
 
 | Path | Holds |

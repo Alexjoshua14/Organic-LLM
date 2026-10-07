@@ -48,7 +48,10 @@ bun run test:e2e      # Playwright (E2E_CLERK_* for signed-in flows)
 bun run build         # Next.js production build (also builds morph-physics)
 ```
 
-CI runs tests on PRs to `main`; changes under `llm/morph-physics/` trigger a separate workflow.
+`bun run test` and its variants print failures and a summary only, with console output from the
+code under test silenced. Set `TEST_VERBOSE=1` to restore it (`TEST_VERBOSE=1 bun run test:unit`).
+
+CI runs tests on PRs to `main`, with `TEST_VERBOSE=1`; changes under `llm/morph-physics/` trigger a separate workflow.
 
 ## Where to read architecture
 
