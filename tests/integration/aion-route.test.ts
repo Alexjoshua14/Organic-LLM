@@ -1,8 +1,14 @@
 import { describe, test, expect, mock, beforeEach } from "bun:test";
 
-mock.module("@/lib/rate-limit/llm", () => ({
+import * as llmRateLimit from "@/lib/rate-limit/llm";
+
+import { mockModulePreservingReal } from "../helpers/module-mock";
+
+// Keep the module's other exports: a bare stub leaks into later files and drops
+// `checkLlmCostLimit` / `recordLlmCost` for `aion-presence`. No restore — see module-mock.ts.
+mockModulePreservingReal("@/lib/rate-limit/llm", llmRateLimit, {
   checkLlmMessageLimit: async () => ({ success: true, remaining: 10 }),
-}));
+});
 
 const mockGetMessageCount = mock(async () => ({ data: 2, error: null }));
 const mockGetThreadHasTitle = mock(async () => ({ data: true, error: null }));
