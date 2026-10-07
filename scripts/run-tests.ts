@@ -1,6 +1,10 @@
+#!/usr/bin/env -S bun --no-env-file
 /**
  * Entry point behind `bun run test`, `test:unit`, and `test:integration`. Owns the preload list
  * and suite paths so package.json only names the script.
+ *
+ * The shebang carries `--no-env-file`: Bun loads .env.local into any script it runs, and the test
+ * child would inherit it. Run the file directly (as package.json does), not as `bun scripts/...`.
  *
  * Prints failures and a summary only; console output from the code under test is silenced
  * (see tests/quiet-preload.ts).
@@ -20,7 +24,7 @@ const ROOT = resolve(import.meta.dir, "..");
 // Bun loads .env.local into any script it runs, and the test child would inherit it, service-role
 // keys included. A plain `bun test` skips .env.local, so tests must start without it.
 if (!process.execArgv.includes("--no-env-file")) {
-  console.error("Run this through `bun run test` (it needs bun --no-env-file); see the usage above.");
+  console.error("Run this as scripts/run-tests.ts or through `bun run test`, not `bun scripts/run-tests.ts`.");
   process.exit(2);
 }
 

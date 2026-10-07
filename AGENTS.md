@@ -61,8 +61,8 @@ run; `-t "name"` filters by test name.
 - Timing and animation constants live next to the effect, not inline in components. Docs record
   the *why* and the approved range.
 - Tests use Bun's runner with the preloads already wired in `scripts/run-tests.ts`, which the
-  `test*` scripts call. Run tests through `bun run test*`, never a bare `bun test` or the script
-  directly. Put shared setup in `tests/helpers/`.
+  `test*` scripts call. Run tests through `bun run test*`, never a bare `bun test` or
+  `bun scripts/run-tests.ts`. Put shared setup in `tests/helpers/`.
 
 ## Boundaries
 
