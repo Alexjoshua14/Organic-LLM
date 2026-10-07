@@ -150,7 +150,7 @@ export function LiveVoiceStage({ onExit }: { onExit?: () => void }) {
                 )}
                 disabled={voice.connecting}
                 type="button"
-                onClick={voice.paused ? voice.resume : voice.connect}
+                onClick={() => (voice.paused ? voice.resume() : voice.connect())}
               >
                 {voice.connecting ? (
                   <Loader2 className="size-8 animate-spin text-muted-foreground" />
