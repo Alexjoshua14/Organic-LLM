@@ -2,7 +2,7 @@ import { afterEach, describe, expect, mock, setSystemTime, test } from "bun:test
 import { cleanup, fireEvent, waitFor } from "@testing-library/react";
 import { SWRConfig } from "swr";
 
-import { createMockFetch } from "../helpers/mock-fetch";
+import { createFetchResponse, createMockFetch } from "../helpers/mock-fetch";
 import { render } from "../helpers/render";
 
 const authState: { isLoaded: boolean; userId: string | null } = { isLoaded: true, userId: "user_a" };
@@ -199,6 +199,65 @@ describe("ChatProvider sidebar chats", () => {
     created_at: updatedAt,
     updated_at: updatedAt,
     pinned: false,
+  });
+
+  test("keeps pinned and paginated threads visible while the first page refreshes", async () => {
+    const firstPage = {
+      data: [threadRow("thread-2", "Newer", "2026-03-09T00:00:00.000Z")],
+      pinned: [{ ...threadRow("pinned-1", "Pinned", "2026-03-09T00:00:00.000Z"), pinned: true }],
+      nextCursor: "c1",
+    };
+    const fetchController = createMockFetch([
+      { body: firstPage },
+      {
+        body: {
+          data: [threadRow("thread-1", "Older", "2026-03-08T00:00:00.000Z")],
+          nextCursor: null,
+        },
+      },
+    ]);
+    let resolveRefresh!: (response: Response) => void;
+    const pendingResponse = new Promise<Response>((resolve) => {
+      resolveRefresh = resolve;
+    });
+    const pendingFetch = mock(async () => await pendingResponse);
+
+    try {
+      const view = renderConsumer();
+      await waitFor(() => expect(view.getByText(/Newer\|false/)).toBeDefined());
+      fireEvent.click(view.getByText("Load more"));
+      await waitFor(() => expect(view.getByText(/Older\|false/)).toBeDefined());
+      const rows = Array.from(view.getByTestId("threads").children);
+
+      globalThis.fetch = pendingFetch as unknown as typeof fetch;
+      fireEvent.click(view.getByText("Refresh chats"));
+      await waitFor(() => expect(pendingFetch).toHaveBeenCalledTimes(1));
+
+      expect(pendingFetch).toHaveBeenCalledWith("/api/chats?scope=main");
+      expect(view.getByTestId("loading").textContent).toBe("false");
+      expect(view.getByText(/Pinned\|true/)).toBeDefined();
+      expect(view.getByText(/Newer\|false/)).toBeDefined();
+      expect(view.getByText(/Older\|false/)).toBeDefined();
+      const refreshingRows = Array.from(view.getByTestId("threads").children);
+      expect(refreshingRows).toHaveLength(rows.length);
+      rows.forEach((row, index) => expect(refreshingRows[index]).toBe(row));
+
+      resolveRefresh(
+        createFetchResponse({
+          body: {
+            ...firstPage,
+            data: [threadRow("thread-2", "Updated", "2026-03-09T00:00:00.000Z")],
+          },
+        })
+      );
+      await waitFor(() => expect(view.getByText(/Updated\|false/)).toBeDefined());
+      expect(view.getByText(/Older\|false/)).toBeDefined();
+      expect(view.getByText(/Pinned\|true/)).toBeDefined();
+      expect(pendingFetch).toHaveBeenCalledTimes(1);
+    } finally {
+      resolveRefresh(createFetchResponse({ body: firstPage }));
+      fetchController.restore();
+    }
   });
 
   test("loads older pages with the previous page's cursor", async () => {

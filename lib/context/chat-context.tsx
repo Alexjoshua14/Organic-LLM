@@ -251,8 +251,10 @@ export function ChatProvider({ children }: { children: ReactNode }) {
 
         return;
       }
+      // Keep loaded rows visible during refresh. Passing undefined would clear the
+      // aggregate cache and replace them with skeletons until the request completes.
       // A page whose cursor moved has no cache yet, so it loads too.
-      void mutateSidebarPages(undefined, {
+      void mutateSidebarPages((pages) => pages, {
         revalidate: (page, key) => page === undefined || isFirstSidebarPageKey(key),
       });
     },
