@@ -37,6 +37,11 @@ bun run build               # Next.js production build (also builds morph-physic
 Run `bun run lint:check` and `bun run test:unit` before handing work back. CI runs tests on
 PRs to `main`; changes under `llm/morph-physics/` trigger a separate workflow.
 
+Test scripts print failures and a summary only; console output from the code under test is
+silenced. When a failure shows no cause, rerun just that file with `--verbose`
+(`bun run test:unit tests/unit/foo.test.ts --verbose`). A path or a substring of one narrows the
+run; `-t "name"` filters by test name.
+
 ## Structure
 
 | Path | Holds |
@@ -55,8 +60,9 @@ PRs to `main`; changes under `llm/morph-physics/` trigger a separate workflow.
   convention. Read a neighbour before adding a pattern.
 - Timing and animation constants live next to the effect, not inline in components. Docs record
   the *why* and the approved range.
-- Tests use Bun's runner with the preloads already wired in `package.json` scripts. Put shared
-  setup in `tests/helpers/`.
+- Tests use Bun's runner with the preloads already wired in `scripts/run-tests.ts`, which the
+  `test*` scripts call. Run tests through `bun run test*`, never a bare `bun test` or
+  `bun scripts/run-tests.ts`. Put shared setup in `tests/helpers/`.
 
 ## Boundaries
 
