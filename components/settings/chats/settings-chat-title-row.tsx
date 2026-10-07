@@ -84,7 +84,8 @@ export function SettingsChatTitleRow({ thread, onThreadUpdated }: SettingsChatTi
   );
 
   const runAfterMutate = useCallback(async () => {
-    refreshSidebarChats();
+    // Settings can change any thread, including ones in older sidebar pages.
+    refreshSidebarChats({ allPages: true });
     onThreadUpdated();
   }, [refreshSidebarChats, onThreadUpdated]);
 

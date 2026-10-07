@@ -10,6 +10,7 @@ const mockBeginTitleRegen = mock(() => {});
 const mockResolveTitleRegen = mock(() => {});
 const mockFinishTitleRegen = mock(() => {});
 const mockIsTitleRegenerating = mock((_id: string) => false);
+const mockRemoveSidebarChat = mock((_id: string) => {});
 const mockRouterPush = mock(() => {});
 const mockOnOpenChange = mock(() => {});
 
@@ -111,6 +112,7 @@ describe("SidebarThreadActionsMenu", () => {
     mockResolveTitleRegen.mockReset();
     mockFinishTitleRegen.mockReset();
     mockIsTitleRegenerating.mockReset();
+    mockRemoveSidebarChat.mockReset();
     mockRouterPush.mockReset();
     mockOnOpenChange.mockReset();
     mockDeleteChat.mockResolvedValue({ ok: true, error: null });
@@ -145,6 +147,7 @@ describe("SidebarThreadActionsMenu", () => {
             resolveTitleRegen: mockResolveTitleRegen,
             isTitleRegenReadyToCommit: () => false,
             finishTitleRegen: mockFinishTitleRegen,
+            removeSidebarChat: mockRemoveSidebarChat,
           } as ChatContextValue
         }
       >
@@ -161,7 +164,7 @@ describe("SidebarThreadActionsMenu", () => {
     );
   }
 
-  test("deletes the active thread, refreshes chats, and redirects home", async () => {
+  test("deletes the active thread, drops it from the cache, and redirects home", async () => {
     currentPathname = "/chat/thread-1";
     const view = renderMenu();
 
@@ -170,7 +173,8 @@ describe("SidebarThreadActionsMenu", () => {
 
     await waitFor(() => {
       expect(mockDeleteChat).toHaveBeenCalledWith("thread-1");
-      expect(mockRefreshSidebarChats).toHaveBeenCalled();
+      expect(mockRemoveSidebarChat).toHaveBeenCalledWith("thread-1");
+      expect(mockRefreshSidebarChats).not.toHaveBeenCalled();
       expect(mockRouterPush).toHaveBeenCalledWith("/");
     });
   });
@@ -184,7 +188,8 @@ describe("SidebarThreadActionsMenu", () => {
 
     await waitFor(() => {
       expect(mockDeleteChat).toHaveBeenCalledWith("thread-1");
-      expect(mockRefreshSidebarChats).toHaveBeenCalled();
+      expect(mockRemoveSidebarChat).toHaveBeenCalledWith("thread-1");
+      expect(mockRefreshSidebarChats).not.toHaveBeenCalled();
       expect(mockRouterPush).not.toHaveBeenCalled();
     });
   });

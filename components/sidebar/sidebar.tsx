@@ -5,6 +5,7 @@ import Link from "next/link";
 import { Suspense } from "react";
 
 import { SidebarChats } from "./sidebar-chats";
+import { SidebarChatsSkeleton } from "./sidebar-chats-skeleton";
 import { SidebarContentSwitcher } from "./sidebar-content-switcher";
 import { SidebarExperienceRail } from "./sidebar-experience-rail";
 import { PrototypesSidebarContent, PrototypesSidebarFallback } from "./prototypes-sidebar-content";
@@ -46,9 +47,7 @@ function NormalSidebarContent() {
         </SidebarGroupContent>
       </SidebarGroup>
       <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden">
-        <Suspense
-          fallback={<div className="flex items-center justify-center py-8">Loading...</div>}
-        >
+        <Suspense fallback={<SidebarChatsSkeleton />}>
           <SidebarChats />
         </Suspense>
       </div>

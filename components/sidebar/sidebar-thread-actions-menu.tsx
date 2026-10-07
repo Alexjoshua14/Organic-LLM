@@ -2,7 +2,7 @@
 
 import { useDisclosure } from "@heroui/modal";
 import { Pencil, Pin, PinOff, Sparkles, Trash2 } from "lucide-react";
-import { useCallback } from "react";
+import { cloneElement, useCallback, useState, type ReactElement, type HTMLAttributes } from "react";
 import { useRouter, usePathname } from "next/navigation";
 
 import {
@@ -42,7 +42,7 @@ export function SidebarThreadActionsMenu({
   const pathname = usePathname();
   const router = useRouter();
   const {
-    refreshSidebarChats,
+    removeSidebarChat,
     isTitleRegenerating,
     beginTitleRegen,
     resolveTitleRegen,
@@ -108,7 +108,7 @@ export function SidebarThreadActionsMenu({
       const res = await deleteChat(threadID);
 
       if (res.ok) {
-        refreshSidebarChats();
+        removeSidebarChat(threadID);
         onClose();
         if (pathname === `/chat/${threadID}`) {
           router.push("/");
@@ -120,7 +120,7 @@ export function SidebarThreadActionsMenu({
 
     logger.log("deleteThread", `Deleting thread: ${thread.title}`);
     handleDeleteThread();
-  }, [thread, pathname, router, refreshSidebarChats, onClose]);
+  }, [thread, pathname, router, removeSidebarChat, onClose]);
 
   return (
     <>
@@ -167,4 +167,23 @@ export function SidebarThreadActionsMenu({
       />
     </>
   );
+}
+
+type LazySidebarThreadActionsMenuProps = Omit<SidebarThreadActionsMenuProps, "children"> & {
+  children: ReactElement<HTMLAttributes<HTMLElement>>;
+};
+
+/**
+ * Mounts the menu the first time its trigger is pointed at, focused, or opened, then
+ * keeps it mounted so the delete modal survives the menu closing. Until then each row
+ * renders only the trigger, not a dropdown root, modal state, and router hooks.
+ */
+export function LazySidebarThreadActionsMenu(props: LazySidebarThreadActionsMenuProps) {
+  const [armed, setArmed] = useState(false);
+
+  if (armed || props.open) return <SidebarThreadActionsMenu {...props} />;
+
+  const arm = () => setArmed(true);
+
+  return cloneElement(props.children, { onPointerEnter: arm, onFocus: arm });
 }
