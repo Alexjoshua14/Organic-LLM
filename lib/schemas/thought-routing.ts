@@ -60,6 +60,8 @@ export const MultitaskAssignedGoalSchema = z.object({
   goalId: z.string().min(1),
   agentId: z.string().min(1),
   goal: z.string().min(1),
+  /** The subagent's own thread when persistence is available (COA-251). */
+  threadId: z.string().min(1).optional(),
 });
 
 export const MultitaskInboundDispatchSchema = z.object({

@@ -16,6 +16,7 @@ import { CHAT_MODEL, measureAsync } from "@/lib/llm/helpers";
 import { serializeError } from "@/lib/llm/log-error";
 import { addLatestMessagesToMemoryForUser } from "@/lib/memory/operations";
 import { buildEffortProviderOptions, type ChatEffortLevel } from "@/lib/schemas/chat-effort";
+import { gatewayAttribution, readGatewayBilledCostUsd } from "@/lib/usage/gateway-attribution";
 import { trackLlmUsageEvent } from "@/lib/usage/track-llm-usage";
 import { ChatAIActionEnum, type ChatUIMessage } from "@/types/ai";
 
@@ -174,6 +175,7 @@ export async function runLLMChatStream(params: RunLLMChatStreamParams): Promise<
       } satisfies OpenAIResponsesProviderOptions,
       gateway: {
         zeroDataRetention: isZeroDataRetention,
+        ...gatewayAttribution({ userId: sbUserId, operation: "chat" }),
       } satisfies GatewayProviderOptions,
       ...(effortProviderOptions?.anthropic ? { anthropic: effortProviderOptions.anthropic } : {}),
       ...(effortProviderOptions?.google ? { google: effortProviderOptions.google } : {}),
@@ -183,11 +185,12 @@ export async function runLLMChatStream(params: RunLLMChatStreamParams): Promise<
     stopWhen: stepCountIs(maxSteps),
   });
 
-  void result.usage
-    .then(async (usage) => {
+  void Promise.all([result.totalUsage, result.steps])
+    .then(async ([usage, steps]) => {
       if (!usage) return;
 
-      trackLlmUsageEvent({
+      const costs = steps.map((step) => readGatewayBilledCostUsd(step.providerMetadata));
+      await trackLlmUsageEvent({
         ownerId: sbUserId,
         modelId: selectedModel.id,
         inputTokens: usage.inputTokens,
@@ -195,6 +198,9 @@ export async function runLLMChatStream(params: RunLLMChatStreamParams): Promise<
         cachedInputTokens: usage.cachedInputTokens,
         reasoningTokens: usage.reasoningTokens,
         totalTokens: usage.totalTokens,
+        costUsdOverride: costs.length > 0 && costs.every((cost) => cost !== undefined)
+          ? costs.reduce<number>((sum, cost) => sum + (cost ?? 0), 0)
+          : undefined,
         operation: "chat",
         route: "/api/chat",
       });

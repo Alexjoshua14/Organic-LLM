@@ -1,5 +1,7 @@
 import { z } from "zod";
 
+import type { WorkerGoal } from "@/lib/schemas/subagent-runtime";
+
 import { CHAT_EXPERIENCES } from "@/lib/chat/chat-experience";
 import { ChatEffortLevelSchema } from "@/lib/schemas/chat-effort";
 import { ChatModelSchema } from "@/lib/schemas/chat";
@@ -32,6 +34,7 @@ export const MessageSendQueuePayloadSchema = z.object({
   webSearch: z.boolean().optional(),
   memory: z.boolean().optional(),
   speechFriendly: z.boolean().optional(),
+  zeroDataRetention: z.boolean().optional(),
   experience: QueueExperienceSchema.optional(),
   messageSearch: z.boolean().optional(),
 });
@@ -53,7 +56,8 @@ export type MessageSendQueueRow = {
   thread_id: string;
   target_agent_id: string | null;
   body: string;
-  payload: MessageSendQueuePayload;
+  /** Internal heartbeat cause is never accepted by the public enqueue schema. */
+  payload: MessageSendQueuePayload & { heartbeatMessageId?: string; subagentRun?: Omit<WorkerGoal, "goal"> & { modelId: string } };
   position: number;
   status: MessageSendQueueStatus;
   hold_reason: string | null;

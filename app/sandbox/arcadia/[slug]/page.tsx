@@ -1,3 +1,5 @@
+import { getSubagentThreadLink } from "@/data/supabase/subagent-threads";
+
 import type { Metadata } from "next";
 
 import { UIMessage } from "ai";
@@ -67,6 +69,10 @@ export default async function ArcadiaChatPage({ params }: { params: Promise<{ sl
     return <div>Chat creation failed</div>;
   }
 
+  const link = chatData.thread.owner_id
+    ? await getSubagentThreadLink(id, chatData.thread.owner_id)
+    : null;
+
   return (
     <>
       <PerfServerPhases
@@ -74,7 +80,7 @@ export default async function ArcadiaChatPage({ params }: { params: Promise<{ sl
         phases={[...takeServerPhases(id), ...getPhaseCollector()]}
       />
       <Page>
-        <ArcadiaMultitaskHost threadId={id}>
+        <ArcadiaMultitaskHost threadId={id} orchestratorThreadId={link?.parentThreadId} viewingSubagentId={link?.agentId}>
           <div className="w-full h-full">
             <Chat chatData={chatData} endpoint="/api/chat" experience="arcadia" />
           </div>

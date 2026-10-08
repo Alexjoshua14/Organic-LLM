@@ -31,26 +31,26 @@ export type RunWorkerGoalWithModelInput = {
   onEvent?: (event: WorkerAwarenessEvent) => void;
 };
 
-function shortError(err: unknown): string {
+export function shortError(err: unknown): string {
   const raw = err instanceof Error ? err.message : String(err);
   const trimmed = raw.replace(/\s+/g, " ").trim();
   if (!trimmed) return "Worker model call failed";
   return trimmed.length > 280 ? `${trimmed.slice(0, 277)}…` : trimmed;
 }
 
-function summarizeOutcome(text: string): string {
+export function summarizeOutcome(text: string): string {
   const cleaned = text.replace(/\s+/g, " ").trim();
   if (!cleaned) return "Worker finished with an empty response.";
   return cleaned.length > 600 ? `${cleaned.slice(0, 597)}…` : cleaned;
 }
 
-function milestoneFromOutcome(summary: string): string {
+export function milestoneFromOutcome(summary: string): string {
   const first = summary.split(/(?<=[.!?])\s+/)[0]?.trim() ?? summary;
   const label = first.length > 140 ? `${first.slice(0, 137)}…` : first;
   return label || "Worker completed assigned goal";
 }
 
-function buildWorkerSystem(name?: string, role?: string): string {
+export function buildWorkerSystem(name?: string, role?: string): string {
   const who = name?.trim() || "Worker";
   const asRole = role?.trim() || "specialist";
   return [

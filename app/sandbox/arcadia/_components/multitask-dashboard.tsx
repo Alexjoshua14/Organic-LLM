@@ -2,6 +2,8 @@
 
 import type { CSSProperties, ReactNode } from "react";
 
+import Link from "next/link";
+
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import { Layers3, MessageSquare, Play, X } from "lucide-react";
@@ -58,6 +60,8 @@ export function MultitaskDashboard({ children, enabled = true }: MultitaskDashbo
   const reduceMotion = useReducedMotion();
   const {
     agents,
+    orchestratorThreadId,
+    viewingSubagentId,
     selected,
     selectedId,
     liveSpeakAgentId,
@@ -359,7 +363,7 @@ export function MultitaskDashboard({ children, enabled = true }: MultitaskDashbo
         >
           {enabled ? (
             <div className="shrink-0 border-b border-border/30 bg-background/95 p-3">
-              <SendTargetPicker agents={agents} sendTarget={sendTarget} onChange={setSendTarget} />
+              {viewingSubagentId ? <Link className="text-xs underline underline-offset-4" href={`/sandbox/arcadia/${orchestratorThreadId}`}>Back to orchestrator</Link> : <SendTargetPicker agents={agents} sendTarget={sendTarget} onChange={setSendTarget} />}
             </div>
           ) : null}
           {/*

@@ -24,6 +24,11 @@ export type TrackLlmUsageInput = {
   audioOutputTokens?: number | null;
   operation?: string;
   route?: string;
+  /**
+   * Billed USD reported by the Gateway for this call. When set, stored instead of the
+   * price-table estimate so the overlay shows what was actually charged.
+   */
+  costUsdOverride?: number | null;
 };
 
 export async function insertLlmUsageEvent(input: TrackLlmUsageInput): Promise<void> {
@@ -39,13 +44,17 @@ export async function insertLlmUsageEvent(input: TrackLlmUsageInput): Promise<vo
 
   if (totalTokens <= 0) return;
 
-  const costUsd = computeUsageCostUsd(input.modelId, {
-    inputTokens,
-    outputTokens,
-    cachedInputTokens,
-    audioInputTokens,
-    audioOutputTokens,
-  });
+  const billed = input.costUsdOverride;
+  const costUsd =
+    typeof billed === "number" && Number.isFinite(billed) && billed >= 0
+      ? billed
+      : computeUsageCostUsd(input.modelId, {
+          inputTokens,
+          outputTokens,
+          cachedInputTokens,
+          audioInputTokens,
+          audioOutputTokens,
+        });
 
   const { error } = await supabaseAdmin.from("llm_usage_events").insert({
     owner_id: input.ownerId,

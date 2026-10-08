@@ -8,6 +8,10 @@ import { getPlanBudgetForUser } from "@/lib/plans/monthly-budget";
 import { createLogger } from "@/lib/logger";
 import { EnqueueMessageSchema } from "@/lib/schemas/message-send-queue";
 
+// Queued turns drain in `after()`, and Arcadia subagent runs nest inside that drain — keep in
+// step with SUBAGENT_RUN_MAX_DURATION_MS (lib/llm/subagents/threads/status.ts).
+export const maxDuration = 300;
+
 const logger = createLogger("app/api/chat/queue/route.ts");
 
 /**

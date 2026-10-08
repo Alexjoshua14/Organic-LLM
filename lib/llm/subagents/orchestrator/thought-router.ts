@@ -1,3 +1,5 @@
+import type { LanguageModelUsage } from "ai";
+
 import { randomUUID } from "crypto";
 
 import { generateObject } from "ai";
@@ -14,8 +16,10 @@ import {
   JEV_GATEWAY_MODEL_ID,
   ORCHESTRATOR_ROUTER_ZDR_PROVIDER_OPTIONS,
   jevRouterCallConfig,
+  type JevZdrProviderOptions,
 } from "@/lib/llm/subagents/orchestrator/router-zdr";
 import { createLogger } from "@/lib/logger";
+import { gatewayAttribution } from "@/lib/usage/gateway-attribution";
 
 const logger = createLogger("lib/llm/subagents/orchestrator/thought-router");
 
@@ -41,7 +45,7 @@ export type ThoughtRouter = {
   /** Always true — contract for this path. */
   readonly zeroDataRetention: true;
   /** Gateway provider options that must be passed to any generate* call. */
-  readonly providerOptions: typeof ORCHESTRATOR_ROUTER_ZDR_PROVIDER_OPTIONS;
+  readonly providerOptions: JevZdrProviderOptions;
   route(input: ThoughtRouterInput): Promise<ThoughtRoutingResult>;
 };
 
@@ -83,9 +87,13 @@ export type JevRouteGenerate = (args: {
   model: string;
   system: string;
   prompt: string;
-  providerOptions: typeof ORCHESTRATOR_ROUTER_ZDR_PROVIDER_OPTIONS;
+  providerOptions: JevZdrProviderOptions;
   schema: typeof JevRouteObjectSchema;
-}) => Promise<{ object: z.infer<typeof JevRouteObjectSchema> }>;
+}) => Promise<{
+  object: z.infer<typeof JevRouteObjectSchema>;
+  usage?: LanguageModelUsage;
+  providerMetadata?: unknown;
+}>;
 
 function splitIntoThoughtTexts(text: string): string[] {
   const trimmed = text.trim();
@@ -262,13 +270,7 @@ Rules:
 - Keep reasons brief.
 - Output structured data only.`;
 
-async function defaultJevGenerate(args: {
-  model: string;
-  system: string;
-  prompt: string;
-  providerOptions: typeof ORCHESTRATOR_ROUTER_ZDR_PROVIDER_OPTIONS;
-  schema: typeof JevRouteObjectSchema;
-}): Promise<{ object: z.infer<typeof JevRouteObjectSchema> }> {
+const defaultJevGenerate: JevRouteGenerate = async (args) => {
   const result = await generateObject({
     model: args.model,
     system: args.system,
@@ -278,12 +280,20 @@ async function defaultJevGenerate(args: {
     maxOutputTokens: 800,
   });
 
-  return { object: result.object };
-}
+  return { object: result.object, usage: result.usage, providerMetadata: result.providerMetadata };
+};
 
 export type CreateJevThoughtRouterOptions = {
   /** Injected for unit tests — must still receive ZDR provider options. */
   generate?: JevRouteGenerate;
+  /** Owner of the turn: tags the Gateway request so its spend is attributable. */
+  ownerId?: string;
+  /** Called with token usage after a successful Jev call (usage dashboard). */
+  onUsage?: (args: {
+    modelId: string;
+    usage?: LanguageModelUsage;
+    providerMetadata?: unknown;
+  }) => void;
 };
 
 /**
@@ -307,18 +317,29 @@ export function createJevThoughtRouter(options?: CreateJevThoughtRouterOptions):
         input.text,
       ].join("\n");
 
+      const providerOptions: JevZdrProviderOptions = options?.ownerId
+        ? {
+            gateway: {
+              ...call.providerOptions.gateway,
+              ...gatewayAttribution({ userId: options.ownerId, operation: "multitask_router" }),
+            },
+          }
+        : call.providerOptions;
+
       try {
-        const { object } = await generate({
+        const { object, usage, providerMetadata } = await generate({
           model: call.model,
           system: JEV_ROUTER_SYSTEM,
           prompt,
-          providerOptions: call.providerOptions,
+          providerOptions,
           schema: JevRouteObjectSchema,
         });
 
-        if (call.providerOptions.gateway.zeroDataRetention !== true) {
+        if (providerOptions.gateway.zeroDataRetention !== true) {
           throw new Error("Jev routing refused: ZDR must be on");
         }
+
+        options?.onUsage?.({ modelId: call.model, usage, providerMetadata });
 
         const thoughts: RoutedThought[] = reclaimMisroutedDirectThoughts(
           object.thoughts.map((t) => ({

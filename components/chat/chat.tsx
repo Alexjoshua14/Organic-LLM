@@ -63,6 +63,7 @@ import { safeParseMiseCommand } from "@/lib/schemas/mise";
 import { DiagramNodeLinksProvider } from "@/lib/mermaid/diagram-node-links-context";
 import { DiagramTakeoverProvider } from "@/lib/mermaid/diagram-takeover-context";
 import { isEditableEventTarget } from "@/lib/dom/is-editable-event-target";
+import { useBackgroundThreadMessages } from "@/hooks/use-background-thread-messages";
 import { useArcadiaMultitaskOptional } from "@/app/sandbox/arcadia/_components/multitask-provider";
 const logger = createLogger("components/chat/chat");
 
@@ -393,6 +394,8 @@ export const Chat: React.FC<ChatProps> = ({
         setContextBudgetRefreshKey((key) => key + 1);
       },
     });
+
+  useBackgroundThreadMessages({ threadId: id, enabled: experience === "arcadia", status, setMessages });
 
   // Ambient awareness: while this thread is on screen, a live voice session is told its title,
   // latest messages and rolling summary — re-pushed after each finished exchange.

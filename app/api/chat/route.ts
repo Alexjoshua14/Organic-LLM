@@ -46,13 +46,18 @@ import { resolveMemoryEnabledForExperience } from "@/lib/chat/chat-experience";
 import { resolveChatStarterPromptByKey } from "@/lib/chat/chat-style-starters";
 import { compileChatTools } from "@/lib/llm/compile-chat-tools";
 import { runLLMChatStream } from "@/lib/api/run-llm-chat-stream";
-import { dispatchMultitaskInbound } from "@/lib/llm/subagents/orchestrator/dispatch-inbound";
-import { executeAssignedWorkers } from "@/lib/llm/subagents/orchestrator/execute-assigned-workers";
-import { formatMultitaskRoutingSystemFragment } from "@/lib/llm/subagents/orchestrator/format-routing-fragment";
-import { createDemoSubagents } from "@/lib/arcadia/multitask/demo-roster";
+import {
+  prepareArcadiaMultitaskTurn,
+  type PrepareMultitaskTurnResult,
+} from "@/lib/llm/subagents/orchestrator/prepare-multitask-turn";
+import { createMultitaskTurnDeps } from "@/lib/llm/subagents/orchestrator/multitask-turn-deps";
+import { withReadSubagentThreadTool } from "@/lib/llm/subagents/orchestrator/read-subagent-thread-tool";
+import { foldSystemNoticesForModel } from "@/lib/llm/subagents/threads/fold-system-notices";
 
-// Allow streaming responses up to 30 seconds
-export const maxDuration = 30;
+// The stream still ends with the orchestrator's reply. The higher ceiling is for Arcadia subagent
+// runs scheduled with `after()`, which share this route's budget — keep in step with
+// SUBAGENT_RUN_MAX_DURATION_MS (lib/llm/subagents/threads/status.ts).
+export const maxDuration = 300;
 
 // const tools = {};
 
@@ -194,60 +199,21 @@ export async function POST(req: Request) {
         transient: true,
       });
 
-      let multitaskRoutingFragment: string | null = null;
-      let workerRunsPromise: Promise<unknown> | null = null;
+      // Arcadia multitask: subagents run in their own threads after this response, so the
+      // orchestrator frees CoreInput as soon as its reply ends.
+      let multitask: PrepareMultitaskTurnResult | null = null;
 
       if (experience === "arcadia") {
-        const userText = getLastUserMessageText(messageForLlm);
-        if (userText.trim().length > 0) {
-          // Fixture roster identities until the shell publishes a live worker list.
-          const roster = createDemoSubagents().map((a) => ({
-            id: a.id,
-            name: a.name,
-            role: a.role,
-            goal: a.goal,
-          }));
-          const inbound = await dispatchMultitaskInbound({
-            text: userText,
-            sendTarget: multitaskSendTarget,
-            workers: roster,
-            orchestratorId: id,
-          });
-          writer.write({
-            type: "data-multitask-routing",
-            data: {
-              sendTarget: inbound.sendTarget,
-              mode: inbound.mode,
-              routing: inbound.routing,
-              deliveredAgentId: inbound.deliveredAgentId,
-              deliveredText: inbound.deliveredText,
-              assignedGoals: inbound.assignedGoals.map((g) => ({
-                goalId: g.goalId,
-                agentId: g.agentId,
-                goal: g.goal,
-              })),
-              directThoughts: inbound.directThoughts,
-            },
-            transient: true,
-          });
-          multitaskRoutingFragment = formatMultitaskRoutingSystemFragment(inbound);
-
-          if (inbound.assignedGoals.length > 0) {
-            // Fire workers in parallel with the orchestrator reply; await before stream ends.
-            workerRunsPromise = executeAssignedWorkers({
-              goals: inbound.assignedGoals,
-              modelId: selectedModel.id,
-              workers: roster,
-              onEvent: (event) => {
-                writer.write({
-                  type: "data-multitask-worker",
-                  data: event,
-                  transient: true,
-                });
-              },
-            });
-          }
-        }
+        multitask = await prepareArcadiaMultitaskTurn({
+          chatId: id,
+          ownerId: sbUserId,
+          userText: getLastUserMessageText(messageForLlm),
+          sendTarget: multitaskSendTarget,
+          modelId: selectedModel.id,
+          zeroDataRetention: isZeroDataRetention,
+          writer,
+          deps: createMultitaskTurnDeps({ ownerId: sbUserId, clerkUserId, route: "/api/chat" }),
+        });
       }
 
       const loadTurnContext =
@@ -307,8 +273,8 @@ export async function POST(req: Request) {
         experience,
         customSystemPromptOverride,
       });
-      if (multitaskRoutingFragment) {
-        systemPromptForRequest = `${systemPromptForRequest}\n\n${multitaskRoutingFragment}`;
+      for (const fragment of multitask?.systemFragments ?? []) {
+        systemPromptForRequest = `${systemPromptForRequest}\n\n${fragment}`;
       }
 
       logger.log(
@@ -365,7 +331,7 @@ export async function POST(req: Request) {
         transient: true,
       });
 
-      const messages = convertToModelMessages(validatedMessages);
+      const messages = convertToModelMessages(foldSystemNoticesForModel(validatedMessages));
       const initialMessageCount = validatedMessages.length;
       let rabbitHoleActiveNodeId: string | null = null;
 
@@ -378,7 +344,7 @@ export async function POST(req: Request) {
         }
       }
 
-      const { tools, toolInstructions } = await compileChatTools({
+      const compiledTools = await compileChatTools({
         useSearch: parseResult.data.webSearch ?? false,
         useMemory: parseResult.data.memory ?? false,
         useGetMoreMessages: messageSearch ?? true,
@@ -392,6 +358,13 @@ export async function POST(req: Request) {
         rabbitHoleSessionId,
         rabbitHoleActiveNodeId,
       });
+      const { tools, toolInstructions } =
+        multitask?.role === "orchestrator" && multitask.hasSubagentThreads
+          ? withReadSubagentThreadTool(compiledTools, {
+              orchestratorThreadId: id,
+              deps: createMultitaskTurnDeps({ ownerId: sbUserId, clerkUserId, route: "/api/chat" }),
+            })
+          : compiledTools;
 
       const toolNames = Object.keys(tools);
 
@@ -529,9 +502,7 @@ export async function POST(req: Request) {
         threadHasTitlePromise,
       });
 
-      if (workerRunsPromise) {
-        await workerRunsPromise;
-      }
+
     },
   });
 
