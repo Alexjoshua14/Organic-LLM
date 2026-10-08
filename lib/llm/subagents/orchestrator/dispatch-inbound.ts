@@ -29,7 +29,7 @@ export type DispatchMultitaskInboundInput = {
   resolveNewSubagentId?: (suggestedRole: string) => string | null;
 };
 
-export type DispatchMultitaskInboundResult = MultitaskInboundDispatch & {
+export type DispatchMultitaskInboundResult = Omit<MultitaskInboundDispatch, "assignedGoals"> & {
   /** Worker goals assigned this turn (existing match or new). */
   assignedGoals: ReturnType<typeof createWorkerGoal>[];
   /** Direct thought texts the orchestrator should answer inline. */
