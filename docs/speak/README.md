@@ -63,6 +63,7 @@ client-side navigation. Held in a page, the peer connection dies on every route 
 | Session mint | `app/api/ai/speak/realtime/session/route.ts` |
 | Silent subagent progress | `app/api/ai/speak/realtime/progress/route.ts`, `lib/speak/subagent-progress-item.ts` |
 | Spoken subagent milestone | `app/api/ai/speak/realtime/milestone/route.ts`, `lib/speak/subagent-milestone-item.ts` |
+| Homepage resurface seed | `lib/resurface/` (Jev ranking, encrypted cache, voice context), `app/api/homepage/resurface/route.ts`, `components/pages/home-resurface/` |
 | Realtime voice ids | `lib/schemas/speak-realtime-voice.ts` |
 | Thread resolution | `lib/speak/resolve-speak-thread.ts`, policy in `lib/schemas/speak-thread.ts` |
 | Resume context | `lib/speak/speak-session-context.ts` |
@@ -117,6 +118,12 @@ Verified against the session route and hook on 2026-09-17. Design rationale is i
 10. **Arcadia multitask Speak-to.** A subagent session passes `voice` + `subagentSeed` at mint.
     Work updates use distinct routes: `/progress` (silent) vs `/milestone` (announce). See
     [multitask Speak ADR](./decisions/20260925-multitask-subagent-speak.md).
+11. **Homepage resurfaced thoughts (COA-250).** A card's voice start calls `talkAboutThought`,
+    which mints on a **new** thread with `resurfaceSeed: { cardId }`. The server rebuilds the
+    context from its encrypted cache (never from client text) and skips the resumed-thread
+    preamble, whose "do not recap" would contradict the opening. The model speaks first: the hook
+    sends one `response.create` on `session.created`, because `connect` resolves before the data
+    channel opens. Unlike `subagentSeed`, the seed is kept on a connect retry.
 
 Memory is a per-session opt-in sent by the client, mirroring chat's composer toggle. It is
 captured on the session record, so the tool gate and the ingest path read one value.

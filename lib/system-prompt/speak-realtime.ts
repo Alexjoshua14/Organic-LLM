@@ -14,6 +14,11 @@ export type SpeakRealtimeInstructionOptions = {
    * voices that subagent; silent progress vs spoken milestones are covered in the block.
    */
   subagentContext?: string | null;
+  /**
+   * A homepage resurface card, from `formatResurfaceVoiceContext`. Carries its own opening
+   * directive: the model greets first and recaps the thought.
+   */
+  resurfaceContext?: string | null;
 };
 
 /**
@@ -102,6 +107,12 @@ ${toolLines.join("\n")}`,
 
   if (subagent) {
     sections.push(subagent);
+  }
+
+  const resurface = options.resurfaceContext?.trim();
+
+  if (resurface) {
+    sections.push(resurface);
   }
 
   const context = options.sessionContext?.trim();

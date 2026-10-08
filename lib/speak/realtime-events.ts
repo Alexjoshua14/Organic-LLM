@@ -17,6 +17,8 @@ export type RealtimeUsage = {
 };
 
 export type SpeakRealtimeEvent =
+  /** The data channel is open and the session configured — the first moment a send can land. */
+  | { kind: "session_created" }
   | { kind: "user_speech_started" }
   | { kind: "user_speech_stopped" }
   | { kind: "assistant_started" }
@@ -116,6 +118,8 @@ export function classifyRealtimeEvent(event: Record<string, unknown>): SpeakReal
   const type = String(event.type ?? "");
 
   switch (type) {
+    case "session.created":
+      return { kind: "session_created" };
     case "input_audio_buffer.speech_started":
       return { kind: "user_speech_started" };
     case "input_audio_buffer.speech_stopped":

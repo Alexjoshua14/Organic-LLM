@@ -17,6 +17,10 @@ import {
   type SpeakSessionContinuity,
 } from "@/lib/rate-limit/speak-realtime";
 import { formatSubagentSessionContext } from "@/lib/arcadia/multitask/format-seed";
+import { findResurfaceCard } from "@/lib/resurface/cache";
+import { ResurfaceSeedSchema } from "@/lib/resurface/schema";
+import { formatResurfaceVoiceContext } from "@/lib/resurface/voice-context";
+import { loadResurfaceVoiceSeed } from "@/lib/resurface/voice-seed";
 import { DEFAULT_SPEAK_MODALITIES, SpeakModalitiesSchema } from "@/lib/schemas/speak-modalities";
 import {
   DEFAULT_SPEAK_REALTIME_VOICE,
@@ -73,6 +77,11 @@ const SessionBodySchema = z.object({
   voice: SpeakRealtimeVoiceSchema.optional(),
   /** Seeds instructions with a subagent's identity, goal, and current progress. */
   subagentSeed: SpeakSubagentSeedSchema.optional(),
+  /**
+   * A homepage resurface card to talk about. Only the id is sent; the context is rebuilt from the
+   * server cache. Kept on connect retries, unlike `subagentSeed`, since it costs nothing to resend.
+   */
+  resurfaceSeed: ResurfaceSeedSchema.optional(),
 });
 
 export async function POST(req: Request) {
@@ -118,6 +127,20 @@ export async function POST(req: Request) {
 
   if (!messageLimit.success) {
     return NextResponse.json({ error: messageLimit.error ?? "Too many requests" }, { status: 429 });
+  }
+
+  // Before anything is settled or minted: an expired card should fail cleanly, not after the
+  // previous call was already ended.
+  const resurfaceSeed = parsed.data.resurfaceSeed;
+  const resurfaceCard = resurfaceSeed
+    ? await findResurfaceCard(sbUserId, resurfaceSeed.cardId)
+    : null;
+
+  if (resurfaceSeed && !resurfaceCard) {
+    return NextResponse.json(
+      { error: "That thought is no longer on hand. Refresh the homepage and try again." },
+      { status: 404 }
+    );
   }
 
   // Resume must settle the predecessor *before* the start check: the orphaned record still holds
@@ -203,7 +226,10 @@ export async function POST(req: Request) {
   // A resumed thread has history to carry in; a fresh one has nothing to seed a search with.
   let sessionContext: string | null = null;
 
-  const withThreadContext = thread.resumed && parsed.data.withoutThreadContext !== true;
+  // A resurfaced thought opens with its own recap; the "pick up naturally, do not recap" preamble
+  // of a resumed thread would contradict it, including on a retry that inherits the thread.
+  const withThreadContext =
+    thread.resumed && parsed.data.withoutThreadContext !== true && !resurfaceCard;
 
   if (threadId && withThreadContext) {
     const loaded = await loadSpeakSessionContext({ ownerId: sbUserId, threadId, memoryEnabled });
@@ -215,6 +241,11 @@ export async function POST(req: Request) {
   // Prefer the seed's voice when both are sent so identity and timbre stay aligned.
   const voice = subagentSeed?.voice ?? parsed.data.voice ?? DEFAULT_SPEAK_REALTIME_VOICE;
   const subagentContext = subagentSeed ? formatSubagentSessionContext(subagentSeed) : null;
+  const resurfaceContext = resurfaceCard
+    ? formatResurfaceVoiceContext(
+        await loadResurfaceVoiceSeed({ ownerId: sbUserId, card: resurfaceCard, memoryEnabled })
+      )
+    : null;
 
   const model = getSpeakRealtimeModel();
   const tools = compileSpeakRealtimeTools(modalities, { memoryEnabled });
@@ -223,6 +254,7 @@ export async function POST(req: Request) {
     sessionContext,
     resumed: withThreadContext,
     subagentContext,
+    resurfaceContext,
   });
 
   const openai = new OpenAI({ apiKey });
@@ -291,6 +323,7 @@ export async function POST(req: Request) {
     continued: continuity !== null,
     contextChars: sessionContext?.length ?? 0,
     subagentContextChars: subagentContext?.length ?? 0,
+    resurfaceContextChars: resurfaceContext?.length ?? 0,
   });
 
   return NextResponse.json({

@@ -9,6 +9,7 @@ import Page from "../layout/page";
 
 import { HomepagePrimaryActions } from "./homepage-primary-actions";
 import { HomeFullViewComposerMorph } from "./home-full-view-composer-morph";
+import { HomeResurfaceSection } from "./home-resurface/home-resurface-section";
 import { T3CodeStubModal } from "./t3code-stub-modal";
 
 import AdaptiveLiquidChrome from "@/components/background/AdaptiveLiquidChrome";
@@ -40,6 +41,9 @@ const FULL_VIEW_CHROME_SPRING = {
   mass: 0.9,
 };
 const CTRL_SPACE_TOGGLE_MS = 1000;
+
+/** Below this height the resurface row would crowd the composer, so it is not shown. */
+const SHORT_VIEWPORT_HIDDEN = "[@media(max-height:560px)]:hidden";
 
 /** Full-view side gutters: 25vw on md+; comfortable floor on small screens. */
 const fullViewGutterX = "px-4 md:px-[calc(min(12rem, 25vw))]";
@@ -218,9 +222,17 @@ export function HomePageShell() {
         <div
           className={cn(
             "absolute inset-0 flex h-full w-full",
-            fullView ? "flex-col" : "flex-col items-center justify-center gap-10"
+            fullView ? "flex-col" : "flex-col items-center justify-center"
           )}
         >
+          {/*
+            Equal flex-1 regions above and below keep the composer centered exactly as before; the
+            one below belongs to resurfaced thoughts, centered within it. On a viewport too short
+            to spare it, both regions drop out and the row goes with them rather than clipping.
+          */}
+          {fullView ? null : (
+            <div aria-hidden="true" className={cn("min-h-0 flex-1", SHORT_VIEWPORT_HIDDEN)} />
+          )}
           <motion.div
             data-dim-background
             transition={HOME_LAYOUT_SPRING}
@@ -306,6 +318,16 @@ export function HomePageShell() {
               </div>
             )}
           </motion.div>
+          {fullView ? null : (
+            <div
+              className={cn(
+                "flex min-h-0 w-full flex-1 items-center justify-center",
+                SHORT_VIEWPORT_HIDDEN
+              )}
+            >
+              <HomeResurfaceSection />
+            </div>
+          )}
           <AnimatePresence initial={false} mode="sync">
             {fullView ? (
               <motion.div

@@ -292,3 +292,61 @@ describe("VoiceSessionProvider resume", () => {
     app.unmount();
   });
 });
+
+describe("VoiceSessionProvider resurfaced thoughts", () => {
+  const CARD = { id: "card-1", title: "Lisbon trip plan" };
+
+  function responseCreates(transport = harness.transport): number {
+    return transport.sent.filter((e) => e.type === "response.create").length;
+  }
+
+  test("a card opens a fresh thread seeded by id, and the model speaks first once", async () => {
+    const app = renderApp(null);
+
+    act(() => void voice.talkAboutThought(CARD));
+    await waitFor(() => expect(voice.connected).toBe(true));
+
+    const mint = harness.callsTo("session")[0]!.body;
+
+    expect(mint.threadPolicy).toBe("new");
+    expect(mint.resurfaceSeed).toEqual({ cardId: "card-1" });
+    // Only the id travels; the server rebuilds the context from its cache.
+    expect(JSON.stringify(mint)).not.toContain("Lisbon");
+
+    // The data channel is not open until the session exists, so nothing is sent before it.
+    expect(responseCreates()).toBe(0);
+
+    act(() => harness.transport.emit({ type: "session.created" }));
+    expect(responseCreates()).toBe(1);
+
+    // A later session update must not make it speak again.
+    act(() => harness.transport.emit({ type: "session.created" }));
+    expect(responseCreates()).toBe(1);
+    app.unmount();
+  });
+
+  test("an ordinary call waits for the user", async () => {
+    const app = renderApp(null);
+
+    await connect();
+    act(() => harness.transport.emit({ type: "session.created" }));
+
+    expect(responseCreates()).toBe(0);
+    app.unmount();
+  });
+
+  test("a live call ends before the resurfaced one starts", async () => {
+    const app = renderApp(null);
+
+    await connect();
+    act(() => void voice.talkAboutThought(CARD));
+
+    await waitFor(() => expect(harness.transports).toHaveLength(2));
+    await waitFor(() => expect(voice.connected).toBe(true));
+
+    expect(harness.transports[0]!.closed).toBe(true);
+    expect(harness.callsTo("end")).toHaveLength(1);
+    expect(harness.callsTo("session")[1]!.body.resurfaceSeed).toEqual({ cardId: "card-1" });
+    app.unmount();
+  });
+});

@@ -104,6 +104,10 @@ describe("classifyRealtimeEvent tool calls and errors", () => {
     });
   });
 
+  test("session creation is surfaced, since it is the first moment a send can land", () => {
+    expect(classifyRealtimeEvent({ type: "session.created" })).toEqual({ kind: "session_created" });
+  });
+
   test("unknown events are ignored, not thrown", () => {
     expect(classifyRealtimeEvent({ type: "session.updated" })).toEqual({
       kind: "ignore",

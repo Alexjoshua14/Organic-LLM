@@ -1,5 +1,6 @@
 "use client";
 
+import type { ResurfaceCard } from "@/lib/resurface/schema";
 import type { SpeakModalities } from "@/lib/schemas/speak-modalities";
 import type { SpeakRealtimeVoice } from "@/lib/schemas/speak-realtime-voice";
 import type { SpeakScreenSurface } from "@/lib/schemas/speak-screen-context";
@@ -81,6 +82,11 @@ export type VoiceSessionValue = {
    * (fresh thread, seeded goal/progress, distinct voice id).
    */
   speakToSubagent: (seed: SpeakSubagentSeed) => Promise<void>;
+  /**
+   * Ends any live call, then starts a fresh one about a homepage resurface card. The server seeds
+   * it from the card id and the model opens with a recap of the thought.
+   */
+  talkAboutThought: (card: Pick<ResurfaceCard, "id" | "title">) => Promise<void>;
   disconnect: () => void;
   resetSession: () => void;
   sendSubagentProgress: ReturnType<typeof useRealtimeVoice>["sendSubagentProgress"];
@@ -217,6 +223,26 @@ export function VoiceSessionProvider({
     [voice]
   );
 
+  const talkAboutThought = useCallback(
+    async (card: Pick<ResurfaceCard, "id" | "title">) => {
+      if (voice.connected || voice.connecting) {
+        await voice.disconnect();
+      }
+
+      setVisual(EMPTY_VOICE_VISUAL_STATE);
+      setCaption({ role: "system", text: `Opening “${card.title}”…` });
+
+      // Always a fresh thread: resuming the latest Speak thread would tell the model to pick up
+      // naturally and not recap, the opposite of what a resurfaced thought needs.
+      await voice.connect({
+        threadPolicy: "new",
+        resurfaceSeed: { cardId: card.id },
+        greetFirst: true,
+      });
+    },
+    [voice]
+  );
+
   const resetSession = useCallback(() => {
     void voice.resetSession();
     setVisual(EMPTY_VOICE_VISUAL_STATE);
@@ -248,6 +274,7 @@ export function VoiceSessionProvider({
       startNew,
       resume,
       speakToSubagent,
+      talkAboutThought,
       disconnect,
       resetSession,
       sendSubagentProgress: voice.sendSubagentProgress,
@@ -285,6 +312,7 @@ export function VoiceSessionProvider({
       startNew,
       resume,
       speakToSubagent,
+      talkAboutThought,
       disconnect,
       resetSession,
       setScreenSurface,

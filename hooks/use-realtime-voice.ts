@@ -1,5 +1,6 @@
 "use client";
 
+import type { ResurfaceSeed } from "@/lib/resurface/schema";
 import type { SpeakModalities } from "@/lib/schemas/speak-modalities";
 import type { SpeakRealtimeVoice } from "@/lib/schemas/speak-realtime-voice";
 import type { SpeakScreenSurface } from "@/lib/schemas/speak-screen-context";
@@ -225,6 +226,8 @@ export function useRealtimeVoice({
   /** Thread a paused call was writing to, so `resume` lands on it rather than the latest. */
   const pausedThreadIdRef = useRef<string | null>(null);
   const pauseForIdleRef = useRef<() => void>(() => undefined);
+  /** Set by `connect({ greetFirst })`; the model speaks first once the session is created. */
+  const greetOnSessionRef = useRef(false);
   /** See `lib/speak/voice-idle.ts` for what counts as quiet. */
   const [idleTimer] = useState(() =>
     createVoiceIdleTimer({ timeoutMs: idlePauseMs, onIdle: () => pauseForIdleRef.current() })
@@ -468,6 +471,15 @@ export function useRealtimeVoice({
       const ev = classifyRealtimeEvent(event);
 
       switch (ev.kind) {
+        case "session_created":
+          // `connect` resolves before the data channel opens, so a `response.create` sent then is
+          // dropped. This is the first event that arrives on the channel — the first send that lands.
+          if (greetOnSessionRef.current) {
+            greetOnSessionRef.current = false;
+            transportRef.current?.send({ type: "response.create" });
+          }
+
+          return;
         case "user_speech_started":
           idleTimer.begin("user-speech");
           userSpeakingRef.current = true;
@@ -579,8 +591,14 @@ export function useRealtimeVoice({
       threadId?: string;
       voice?: SpeakRealtimeVoice;
       subagentSeed?: SpeakSubagentSeed;
+      /** A homepage resurface card; the server seeds the call from it. */
+      resurfaceSeed?: ResurfaceSeed;
+      /** The model opens the call instead of waiting for the user to speak. */
+      greetFirst?: boolean;
     }) => {
       if (connecting || connectedRef.current) return;
+
+      greetOnSessionRef.current = options?.greetFirst === true;
 
       setConnecting(true);
       setError(null);
@@ -610,6 +628,9 @@ export function useRealtimeVoice({
               // Fresh Speak-to seed only on the first mint; retries keep thread continuity without
               // re-billing a full subagent preamble rewrite.
               subagentSeed: retryFailure ? undefined : options?.subagentSeed,
+              // Unlike the subagent seed this is just an id, and dropping it on a retry would land
+              // the call on the inherited thread with nothing to talk about.
+              resurfaceSeed: options?.resurfaceSeed,
             }),
           });
 
@@ -681,9 +702,11 @@ export function useRealtimeVoice({
           role: "system",
           text: options?.resumeSessionId
             ? "Reconnected — still here."
-            : mint.resumed && !retryFailure
-              ? "Connected — picking up where you left off."
-              : "Connected — speak naturally. Tap End to hang up.",
+            : options?.greetFirst
+              ? "Connected — bringing it back up…"
+              : mint.resumed && !retryFailure
+                ? "Connected — picking up where you left off."
+                : "Connected — speak naturally. Tap End to hang up.",
         });
         startHeartbeat();
         idleTimer.reset();
