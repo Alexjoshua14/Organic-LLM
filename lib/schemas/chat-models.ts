@@ -5,7 +5,8 @@ import { AUTO_CHAT_MODEL_ID } from "@/lib/schemas/chat-model-ids";
 export type ChatModelId = GatewayModelId | typeof AUTO_CHAT_MODEL_ID;
 
 export const MODEL_ALIASES = {
-  openai: ["flagship", "sol", "terra", "luna", "jev", "oss120b", "oss20b", "gpt4oMini"],
+  openai: ["flagship", "sol", "terra", "luna", "oss120b", "oss20b", "gpt4oMini"],
+  typesafe: ["jev"],
   google: ["pro", "flash", "flash3", "flashLite", "flashLite_2_5", "flashLite_3_1"],
   anthropic: ["opus", "sonnet", "haiku", "fable"],
   perplexity: ["pro", "reasoningPro"],
@@ -63,15 +64,15 @@ const catalog: ChatModel[] = [
     supportsZeroDataRetention: true,
   },
   {
-    id: "openai/gpt-6-sol",
-    name: "GPT-6 Sol",
+    id: "openai/gpt-6.1-sol",
+    name: "GPT-6.1 Sol",
     alias: "openai.sol",
     supportsZeroDataRetention: true,
   },
   {
     // GPT-6 dropped Terra; pin the alias to Sol so orchestration keeps a mid-tier family handle.
-    id: "openai/gpt-6-sol",
-    name: "GPT-6 Sol",
+    id: "openai/gpt-6.1-sol",
+    name: "GPT-6.1 Sol",
     alias: "openai.terra",
     picker: false,
     supportsZeroDataRetention: true,
@@ -88,9 +89,9 @@ const catalog: ChatModel[] = [
      * Not a worker / Realtime voice model. Catalog-only (not in composer picker).
      * ZDR is mandatory — see `requiresZeroDataRetention`.
      */
-    id: "openai/gpt-6-jev",
-    name: "GPT-6 Jev",
-    alias: "openai.jev",
+    id: "typesafe-ai/jev",
+    name: "Typesafe AI Jev",
+    alias: "typesafe.jev",
     picker: false,
     supportsZeroDataRetention: true,
     requiresZeroDataRetention: true,
@@ -158,14 +159,14 @@ const catalog: ChatModel[] = [
     supportsZeroDataRetention: true,
   },
   {
-    id: "anthropic/claude-sonnet-5",
-    name: "Claude Sonnet 5",
+    id: "anthropic/claude-sonnet-5.5",
+    name: "Claude Sonnet 5.5",
     alias: "anthropic.sonnet",
     supportsZeroDataRetention: true,
   },
   {
-    id: "anthropic/claude-haiku-4.5",
-    name: "Claude Haiku 4.5",
+    id: "anthropic/claude-haiku-5.5",
+    name: "Claude Haiku 5.5",
     alias: "anthropic.haiku",
     supportsZeroDataRetention: true,
   },

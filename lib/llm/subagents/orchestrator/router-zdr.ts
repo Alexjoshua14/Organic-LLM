@@ -23,9 +23,9 @@ export type JevZdrProviderOptions = {
 };
 
 /** Catalog row for the house routing model (picker: false, ZDR required). */
-export const JEV_CHAT_MODEL: ChatModel = models.openai.jev;
+export const JEV_CHAT_MODEL: ChatModel = models.typesafe.jev;
 
-/** Gateway id — house style `openai/gpt-6-jev`. */
+/** Gateway id — house style `typesafe-ai/jev`. */
 export const JEV_GATEWAY_MODEL_ID = JEV_CHAT_MODEL.id;
 
 /** @deprecated Prefer {@link JEV_GATEWAY_MODEL_ID}; kept for older imports. */
