@@ -24,6 +24,9 @@ mock.module("next/navigation", () => ({
   useRouter: () => ({ push: () => {} }),
 }));
 mock.module("@/hooks/use-mobile", () => ({ useIsMobile: () => false }));
+mock.module("@/hooks/use-is-tall-viewport", () => ({
+  useIsTallViewport: () => ({ isTall: false, maxHeightCss: "88svh" }),
+}));
 mock.module("@/hooks/use-chat-id", () => ({ useChatId: () => null }));
 mock.module("@/components/sidebar/prototypes-sidebar-content", () => ({
   PrototypesSidebarContent: () => null,
