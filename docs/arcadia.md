@@ -61,6 +61,11 @@ delegate. `queueSendMode` is intentionally off here — enqueue alone never pain
 into the thread UI. The multi-mode queue still exists for backlog use; see
 [`docs/message-send-queue.md`](./message-send-queue.md).
 
+**Scripted showcase replay.** `lib/showcase/arcadia-multitask-demo.ts` preserves the original
+demo scenario with a fresh state factory and a pure tick function. Live dashboard progress
+comes from worker awareness and board polling. See the
+[showcase isolation decision](./architecture/decisions/20261009-arcadia-showcase-progress.md).
+
 **Speak to** ends any live call and mints a **new** Realtime session with that subagent's
 Realtime voice id, instructions seeded with goal + current progress. While that session is
 bound:

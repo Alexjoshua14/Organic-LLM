@@ -37,6 +37,7 @@ Canon for the product: what we're building, who owns which kind of truth, how ag
   - [Feature hints (onboarding)](./feature-hints.md) → [/dev/docs/feature-hints](https://organic.coalescencelabs.app/dev/docs/feature-hints)
 - [Chat tools](./chat-tools.md) — assistant toolbelt (memory, search, Gen UI, Mermaid, kanban, experiences)
 - [Arcadia sandbox](./arcadia.md)
+- [Arcadia showcase progress](./architecture/decisions/20261009-arcadia-showcase-progress.md) — scripted replay isolated from live worker progress
 - [Chat LLM transparency](./chat-llm-transparency.md)
 - [Export prompt presets](./export-prompt-presets.md)
 - [Speak page architecture](./speak-page-architecture.md) — ⚠️ **legacy** (pre-Realtime TTS pipeline); current Speak lives in [`docs/speak/`](./speak/README.md)

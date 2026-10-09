@@ -33,7 +33,7 @@ import {
   SUBAGENT_BOARD_POLL_IDLE_MS,
   type SubagentBoardPayload,
 } from "@/lib/arcadia/multitask/board-sync";
-import { createDemoSubagents, DEMO_PROGRESS_SCRIPT } from "@/lib/arcadia/multitask/demo-roster";
+import { createDemoSubagents } from "@/lib/arcadia/multitask/demo-roster";
 import {
   applyAssignedGoalsToRoster,
   applyWorkerAwarenessToSubagent,
@@ -53,8 +53,6 @@ import {
   writeMultitaskViewLocal,
   type MultitaskViewSyncPayload,
 } from "@/lib/arcadia/multitask/view-sync";
-
-const TICK_MS = 9_000;
 
 type HeartbeatNoticeListener = (message: UIMessage) => void;
 
@@ -82,7 +80,6 @@ type ArcadiaMultitaskValue = {
   selectAgent: (id: string | null) => void;
   speakTo: (agentId: string) => Promise<void>;
   endSpeak: () => void;
-  tickDemo: () => void;
   /** Apply live worker awareness from the chat stream onto roster cards. */
   applyAwarenessEvent: (event: WorkerAwarenessEvent) => void;
   /** Adopt assigned goals from orchestrator dispatch onto matching roster slots. */
@@ -101,10 +98,6 @@ type ArcadiaMultitaskValue = {
 };
 
 const ArcadiaMultitaskContext = createContext<ArcadiaMultitaskValue | null>(null);
-
-function nextMilestoneId(): string {
-  return `ms-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}`;
-}
 
 type ProviderProps = {
   threadId: string;
@@ -146,7 +139,6 @@ export function ArcadiaMultitaskProvider({
   const speakInFlightRef = useRef(false);
   const [multitaskViewEnabled, setMultitaskViewEnabled] = useState(initialMultitaskView);
   const [toggleBlockedReason, setToggleBlockedReason] = useState<string | null>(null);
-  const scriptIndexRef = useRef<Record<string, number>>({});
   const speakBindingRef = useRef(speakBinding);
   const agentsRef = useRef(agents);
   const enabledRef = useRef(multitaskViewEnabled);
@@ -328,44 +320,6 @@ export function ArcadiaMultitaskProvider({
     [voice]
   );
 
-  const tickDemo = undefined
-  // const tickDemo = useCallback(() => {
-  //   setAgents((prev) => {
-  //     return prev.map((agent) => {
-  //       const script = DEMO_PROGRESS_SCRIPT[agent.id];
-
-  //       if (!script?.length) return agent;
-
-  //       const idx = scriptIndexRef.current[agent.id] ?? 0;
-
-  //       if (idx >= script.length) return agent;
-
-  //       const step = script[idx]!;
-
-  //       scriptIndexRef.current[agent.id] = idx + 1;
-
-  //       const milestones = step.milestone
-  //         ? [...agent.milestones, { id: nextMilestoneId(), label: step.milestone, at: Date.now() }]
-  //         : agent.milestones;
-
-  //       const updated: ArcadiaSubagent = {
-  //         ...agent,
-  //         progress: step.progress,
-  //         progressPct: step.progressPct,
-  //         status: step.status ?? agent.status,
-  //         milestones,
-  //       };
-
-  //       void pushSpeakUpdate(updated, {
-  //         progress: step.progress,
-  //         milestone: step.milestone,
-  //       });
-
-  //       return updated;
-  //     });
-  //   });
-  // }, [pushSpeakUpdate]);
-
   const applyAwarenessEvent = useCallback(
     (event: WorkerAwarenessEvent) => {
       setAgents((prev) => {
@@ -497,16 +451,6 @@ export function ArcadiaMultitaskProvider({
       }
     },
   });
-
-  useEffect(() => {
-    if (!multitaskViewEnabled) return;
-    // Demo script emptied — live runs feed cards via applyAwarenessEvent.
-    if (Object.keys(DEMO_PROGRESS_SCRIPT).length === 0) return;
-
-    const id = window.setInterval(() => tickDemo(), TICK_MS);
-
-    return () => window.clearInterval(id);
-  }, [multitaskViewEnabled, tickDemo]);
 
   const selectAgent = useCallback((id: string | null) => {
     setSelectedId(id);
@@ -650,7 +594,6 @@ export function ArcadiaMultitaskProvider({
       selectAgent,
       speakTo,
       endSpeak,
-      tickDemo,
       applyAwarenessEvent,
       applyInboundDispatch,
       refreshBoard,
@@ -677,7 +620,6 @@ export function ArcadiaMultitaskProvider({
       selectAgent,
       speakTo,
       endSpeak,
-      tickDemo,
       applyAwarenessEvent,
       applyInboundDispatch,
       refreshBoard,
