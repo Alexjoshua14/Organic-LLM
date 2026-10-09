@@ -1,5 +1,7 @@
 import { createLogger } from "../logger";
-import { DEFAULT_CHAT_MODEL, ChatModel, ChatModelSchema } from "../schemas/chat";
+import { DEFAULT_CHAT_MODEL, ChatModel, ChatModelSchema, models } from "../schemas/chat";
+
+export const DEFAULT_AGENT_MODEL = models.anthropic.sonnet
 
 const logger = createLogger("lib/llm/helpers");
 
@@ -7,6 +9,9 @@ const logger = createLogger("lib/llm/helpers");
 export const GUARDRAIL_MAX_OUTPUT_TOKENS = 2_000;
 /** ~5¢ at $5/M in — guardrail for input/context (use where provider supports it) */
 export const GUARDRAIL_MAX_INPUT_TOKENS = 10_000;
+
+export const GUARDRAIL_MAX_AGENT_OUTPUT_TOKENS = 500_000;
+export const MAX_AGENT_STEPS = 100;
 
 /** Soft limit we tell the model (so it can wrap up); ~words is approximate. */
 export const CHAT_RESPONSE_SOFT_MAX_TOKENS = 7_500;
@@ -28,6 +33,16 @@ export const CHAT_MODEL = {
   name: DEFAULT_CHAT_MODEL,
   maxOutputTokens: CHAT_RESPONSE_MAX_OUTPUT_TOKENS,
 };
+
+export const AGENT_MODEL = () => {
+  const max_output_tokens = GUARDRAIL_MAX_AGENT_OUTPUT_TOKENS
+
+  return {
+    name: DEFAULT_AGENT_MODEL,
+    maxOutputTokens: max_output_tokens,
+    maxStepCount: MAX_AGENT_STEPS,
+  }
+}
 
 /**
  * Gets a validated chat model, falling back to default if invalid

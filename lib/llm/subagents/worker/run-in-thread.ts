@@ -1,4 +1,4 @@
-import type { GatewayProviderOptions } from "@ai-sdk/gateway";
+import type { GatewayModelId, GatewayProviderOptions } from "@ai-sdk/gateway";
 import type { LanguageModelUsage, ModelMessage, UIMessage } from "ai";
 import type { WorkerAwarenessEvent, WorkerGoal } from "@/lib/schemas/subagent-runtime";
 import type { SubagentThreadStatus } from "@/lib/llm/subagents/threads/status";
@@ -6,7 +6,7 @@ import type { RunWorkerGoalResult } from "@/lib/llm/subagents/worker/run";
 
 import { randomUUID } from "crypto";
 
-import { convertToModelMessages, generateText } from "ai";
+import { convertToModelMessages, generateText, isStepCount } from "ai";
 
 import {
   defaultOrchestratorAwarenessBus,
@@ -24,9 +24,18 @@ import {
   summarizeOutcome,
 } from "@/lib/llm/subagents/worker/run-with-model";
 import { gatewayAttribution } from "@/lib/usage/gateway-attribution";
+import { AGENT_MODEL } from "../../helpers";
+import { compileChatTools } from "../../compile-chat-tools";
 
 /** Messages of the subagent's own thread handed to the model each run. */
 export const SUBAGENT_THREAD_CONTEXT_MESSAGES = 30;
+
+const SUBAGENT_MAX_OUTPUT_CAP = {
+  tier0_model: 500_000, // Most expensive models, Fable/Astra level
+  tier1_model: 1_000_000, // Second most expensive, Opus/Sol/ level
+  tier2_model: 2_000_000, // More affordable models, Sonnet level
+  tier3_mode: 10_000_000, // Cheap models, Luna, GPT OSS, level
+};
 
 /** Persistence for one subagent thread. Implementations must scope every call to the owner. */
 export type SubagentThreadStore = {
@@ -36,6 +45,9 @@ export type SubagentThreadStore = {
 };
 
 export type SubagentTurnGenerate = (args: {
+  chatId: string;
+  initialMessageCount: number;
+  sbUserId: string;
   model: string;
   system: string;
   messages: ModelMessage[];
@@ -76,8 +88,32 @@ export function buildSubagentThreadSystem(name?: string, role?: string): string 
 }
 
 const defaultGenerate: SubagentTurnGenerate = async (args) => {
-  const { system, ...options } = args;
-  const result = await generateText({ ...options, instructions: system });
+  const { system, chatId, initialMessageCount, sbUserId, ...options } = args;
+  const agent_defaults = AGENT_MODEL()
+  const output_cap = agent_defaults.maxOutputTokens;
+  const max_steps = agent_defaults.maxStepCount;
+
+  const { tools, toolInstructions } = await compileChatTools({
+    useSearch: true,
+    useMemory: false,
+    useGetMoreMessages: true,
+    useKnowledgeSearch: false,
+    experience: "arcadia",
+    chatId,
+    initialMessageCount,
+    sbUserId,
+  });
+
+  const hasTools = Object.keys(tools).length > 0;
+
+  const result = await generateText({
+    ...options,
+    instructions: [system, toolInstructions].filter(Boolean).join("\n\n"),
+    maxOutputTokens: output_cap,
+    tools,
+    toolChoice: hasTools ? "auto" : "none",
+    stopWhen: isStepCount(max_steps),
+  });
 
   return { text: result.text, usage: result.usage, providerMetadata: result.providerMetadata };
 };
@@ -120,12 +156,20 @@ export async function runSubagentThreadTurn(
     }
 
     const result = await generate({
+      chatId: threadId,
+      initialMessageCount: history.length,
+      sbUserId: input.ownerId,
       model: input.modelId,
       system: buildSubagentThreadSystem(input.workerName, input.workerRole),
-      messages: await convertToModelMessages(foldSystemNoticesForModel([
-        ...history,
-        buildSubagentGoalMessage({ goal: `For this run, respond to this assignment: ${goal.goal}`, goalId: goal.goalId }),
-      ])),
+      messages: await convertToModelMessages(
+        foldSystemNoticesForModel([
+          ...history,
+          buildSubagentGoalMessage({
+            goal: `For this run, respond to this assignment: ${goal.goal}`,
+            goalId: goal.goalId,
+          }),
+        ])
+      ),
       providerOptions: {
         gateway: {
           zeroDataRetention: input.zeroDataRetention,
