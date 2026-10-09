@@ -92,7 +92,7 @@ export async function POST(req: Request) {
   const result = streamText({
     model: model,
     system: appendCurrentDate(prompt),
-    messages: convertToModelMessages(messages),
+    messages: await convertToModelMessages(messages),
     maxOutputTokens: GUARDRAIL_MAX_OUTPUT_TOKENS,
     experimental_transform: smoothStream({
       delayInMs: 20, // optional: defaults to 10ms

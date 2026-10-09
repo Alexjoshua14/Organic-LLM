@@ -121,7 +121,7 @@ export async function runSubagentThreadTurn(
     const result = await generate({
       model: input.modelId,
       system: buildSubagentThreadSystem(input.workerName, input.workerRole),
-      messages: convertToModelMessages(foldSystemNoticesForModel([
+      messages: await convertToModelMessages(foldSystemNoticesForModel([
         ...history,
         buildSubagentGoalMessage({ goal: `For this run, respond to this assignment: ${goal.goal}`, goalId: goal.goalId }),
       ])),

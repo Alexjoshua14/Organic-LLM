@@ -331,7 +331,7 @@ export async function POST(req: Request) {
         transient: true,
       });
 
-      const messages = convertToModelMessages(foldSystemNoticesForModel(validatedMessages));
+      const messages = await convertToModelMessages(foldSystemNoticesForModel(validatedMessages));
       const initialMessageCount = validatedMessages.length;
       let rabbitHoleActiveNodeId: string | null = null;
 

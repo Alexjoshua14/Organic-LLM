@@ -216,7 +216,7 @@ export function createAionHandler(deps: AionDeps) {
           }
         }
 
-        const messages = convertToModelMessages(validatedMessages);
+        const messages = await convertToModelMessages(validatedMessages);
 
         const streamStartTime = performance.now();
 

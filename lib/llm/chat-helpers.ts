@@ -312,7 +312,7 @@ export async function generateChatTitle(chatId: string): Promise<Result<string>>
     const summaryResult = await generateText({
       model: MODEL_SELECTION.summarizer,
       system: ChatTitleSummarizerSystemPrompt,
-      messages: convertToModelMessages(messagesForTitleClean),
+      messages: await convertToModelMessages(messagesForTitleClean),
       maxOutputTokens: GUARDRAIL_MAX_OUTPUT_TOKENS,
     });
     const summaryDuration = performance.now() - summaryStart;
@@ -392,7 +392,7 @@ export async function summarizeChat(chatId: string): Promise<Result<string, stri
   // Convert tool-invocation parts to text so Gemini 3 does not require thought_signature.
   // Preserves tool semantics (name, args, result) for the summarizer.
   const messagesForSummary = convertToolCallsToTextForSummarizer(messages);
-  const modelMessages = convertToModelMessages(messagesForSummary);
+  const modelMessages = await convertToModelMessages(messagesForSummary);
 
   // logger.log(
   //   "summarizeChat",
@@ -680,7 +680,7 @@ export async function updateChatSummary(chatId: string): Promise<Result<string, 
 
   // Convert tool-invocation parts to text so Gemini 3 does not require thought_signature.
   const messagesForSummary = convertToolCallsToTextForSummarizer(uiMessages as UIMessage[]);
-  const modelMessages = convertToModelMessages(messagesForSummary);
+  const modelMessages = await convertToModelMessages(messagesForSummary);
 
   const { text: updatedSummary } = await generateText({
     model: MODEL_SELECTION.updater,

@@ -148,7 +148,7 @@ export async function POST(req: Request) {
 
   const result = streamText({
     model: openai(providerModelSlug(models.openai.terra.id)),
-    messages: convertToModelMessages(validatedMessages),
+    messages: await convertToModelMessages(validatedMessages),
     system: appendCurrentDate(systemPrompt),
     maxOutputTokens: GUARDRAIL_MAX_OUTPUT_TOKENS,
     tools: {

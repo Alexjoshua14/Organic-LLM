@@ -198,7 +198,7 @@ export async function runQueuedChatTurn(args: {
         systemPromptForRequest = `${systemPromptForRequest}\n\n${fragment}`;
       }
 
-      const messages = convertToModelMessages(foldSystemNoticesForModel(validatedMessages));
+      const messages = await convertToModelMessages(foldSystemNoticesForModel(validatedMessages));
       const initialMessageCount = validatedMessages.length;
 
       const compiledTools = await compileChatTools({

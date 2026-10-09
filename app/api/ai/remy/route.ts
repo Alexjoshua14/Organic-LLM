@@ -231,7 +231,7 @@ export async function POST(req: Request) {
 
   const streamTextConfig: Parameters<typeof streamText>[0] = {
     model: openai("gpt-4o"),
-    messages: convertToModelMessages(validatedMessages),
+    messages: await convertToModelMessages(validatedMessages),
     system: finalSystemPrompt,
     maxOutputTokens: GUARDRAIL_MAX_OUTPUT_TOKENS,
     // Mise tools may fire several commands per turn (initiate → upsert → show_view); allow the

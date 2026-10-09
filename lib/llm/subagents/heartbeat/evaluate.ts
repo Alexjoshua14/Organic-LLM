@@ -3,7 +3,6 @@ import type { SubagentThreadSnapshot } from "@/lib/llm/subagents/threads/snapsho
 
 import { randomUUID } from "crypto";
 
-import { generateObject } from "ai";
 import { z } from "zod";
 
 import {
@@ -36,7 +35,7 @@ export type SubagentHeartbeatDecision = {
 
 export type JevHeartbeatGenerate = (args: {
   model: string;
-  system: string;
+  question: string;
   prompt: string;
   providerOptions: JevZdrProviderOptions;
   schema: typeof SubagentHeartbeatDecisionSchema;
@@ -46,21 +45,21 @@ export type JevHeartbeatGenerate = (args: {
   providerMetadata?: unknown;
 }>;
 
-export const JEV_HEARTBEAT_SYSTEM = `You are Jev, Organic LLM's heartbeat gate for an orchestrator agent.
+export const JEV_HEARTBEAT_QUESTION = `You are Organic LLM's heartbeat gate for an orchestrator agent.
 You see each subagent thread twice: PREVIOUS is its state the last time you flagged a change (empty means never), CURRENT is now.
 
-Return notable=true only when something changed that the orchestrator should know about or act on:
+Count as notable when something changed that the orchestrator should know about or act on:
 - a subagent finished and produced a new outcome
 - a subagent failed or stalled (status blocked)
 - a result needs a decision, or the subagent asked a question
 - the user gave a subagent a new request directly in its thread
 
-Return notable=false for: no change, only timestamps moved, a subagent still working with no new output, or a reworded version of the same result.
+Do not count as notable:
+- no change, only timestamps moved,
+- a subagent still working with no new output,
+- or a reworded version of the same result.
 
-For each notable change emit one event with the thread's threadId and agentId exactly as listed:
-- whatHappened: one or two concrete sentences about what changed
-- nextSteps: what the orchestrator should do next (e.g. relay the result to the user, reassign, answer the subagent), or "None" when nothing is needed
-Never invent results that are not in CURRENT. Output structured data only.`;
+Is there a new change the orchestrator should know about or act on?`;
 
 function formatSnapshots(snapshots: ReadonlyArray<SubagentThreadSnapshot>): string {
   if (snapshots.length === 0) return "(empty)";
@@ -121,17 +120,31 @@ export function normalizeHeartbeatDecision(
 }
 
 const defaultGenerate: JevHeartbeatGenerate = async (args) => {
-  const result = await generateObject({
-    model: args.model,
-    system: args.system,
-    prompt: args.prompt,
-    schema: args.schema,
-    providerOptions: args.providerOptions,
-    maxOutputTokens: 1200,
-    abortSignal: AbortSignal.timeout(15_000),
-  });
+  return { object: { notable: false, events: [] }, usage: undefined, providerMetadata: undefined };
 
-  return { object: result.object, usage: result.usage, providerMetadata: result.providerMetadata };
+  // const result = await decide({
+  //   model: args.model,
+  //   state: args.prompt,
+  //   questions: {
+  //     refunded: {
+  //       type: 'boolean',
+  //       instructions: args.question,
+  //     },
+  //   },
+  // })
+
+
+  // const result = await generateObject({
+  //   model: args.model,
+  //   system: args.system,
+  //   prompt: args.prompt,
+  //   schema: args.schema,
+  //   providerOptions: args.providerOptions,
+  //   maxOutputTokens: 1200,
+  //   abortSignal: AbortSignal.timeout(15_000),
+  // });
+
+  //return { object: result.object, usage: result.usage, providerMetadata: result.providerMetadata };
 };
 
 /**
@@ -163,7 +176,7 @@ export async function evaluateSubagentHeartbeat(args: {
 
   const result = await (args.generate ?? defaultGenerate)({
     model: call.model,
-    system: JEV_HEARTBEAT_SYSTEM,
+    question: JEV_HEARTBEAT_QUESTION,
     prompt: buildHeartbeatPrompt(args),
     providerOptions,
     schema: SubagentHeartbeatDecisionSchema,

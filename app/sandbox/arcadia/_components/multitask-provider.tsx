@@ -50,7 +50,6 @@ import {
   MULTITASK_VIEW_BROADCAST_CHANNEL,
   multitaskViewStorageKey,
   parseMultitaskViewStored,
-  readMultitaskViewLocal,
   writeMultitaskViewLocal,
   type MultitaskViewSyncPayload,
 } from "@/lib/arcadia/multitask/view-sync";
@@ -145,24 +144,14 @@ export function ArcadiaMultitaskProvider({
   );
   const closingTimerRef = useRef<number | null>(null);
   const speakInFlightRef = useRef(false);
-  const [multitaskViewEnabled, setMultitaskViewEnabled] = useState(() => {
-    if (typeof window === "undefined") return initialMultitaskView;
-
-    try {
-      const raw = window.localStorage.getItem(multitaskViewStorageKey(orchestratorThreadId));
-
-      if (raw != null) return readMultitaskViewLocal(orchestratorThreadId);
-    } catch {
-      /* ignore */
-    }
-
-    return initialMultitaskView;
-  });
+  const [multitaskViewEnabled, setMultitaskViewEnabled] = useState(initialMultitaskView);
   const [toggleBlockedReason, setToggleBlockedReason] = useState<string | null>(null);
   const scriptIndexRef = useRef<Record<string, number>>({});
   const speakBindingRef = useRef(speakBinding);
   const agentsRef = useRef(agents);
   const enabledRef = useRef(multitaskViewEnabled);
+  const viewRevisionRef = useRef(0);
+  const viewTogglePendingRef = useRef(false);
 
   speakBindingRef.current = speakBinding;
   agentsRef.current = agents;
@@ -179,9 +168,23 @@ export function ArcadiaMultitaskProvider({
   );
 
   const applyEnabled = useCallback((enabled: boolean) => {
+    viewRevisionRef.current += 1;
     enabledRef.current = enabled;
     setMultitaskViewEnabled(enabled);
   }, []);
+
+  // The first client render must match the server; restore the local view after hydration.
+  useEffect(() => {
+    try {
+      const cached = parseMultitaskViewStored(
+        window.localStorage.getItem(multitaskViewStorageKey(orchestratorThreadId))
+      );
+
+      if (cached?.threadId === orchestratorThreadId) applyEnabled(cached.enabled);
+    } catch {
+      /* private mode — use the server value */
+    }
+  }, [orchestratorThreadId, applyEnabled]);
 
   // Same-browser tabs: storage + BroadcastChannel.
   useEffect(() => {
@@ -220,16 +223,25 @@ export function ArcadiaMultitaskProvider({
   // Cross-device / hydrate: short poll while this thread page is open.
   useEffect(() => {
     let cancelled = false;
+    let inFlight = false;
 
     const pull = async () => {
+      if (inFlight || viewTogglePendingRef.current) return;
+      inFlight = true;
+      const revision = viewRevisionRef.current;
+
       try {
         const res = await fetch(`/api/chat/${orchestratorThreadId}/arcadia/multitask-view`, {
           credentials: "include",
+          cache: "no-store",
         });
 
         if (!res.ok || cancelled) return;
 
         const data = (await res.json()) as { enabled?: boolean };
+
+        // A toggle or another tab changed the view while this older read was in flight.
+        if (cancelled || viewTogglePendingRef.current || revision !== viewRevisionRef.current) return;
 
         if (typeof data.enabled === "boolean" && data.enabled !== enabledRef.current) {
           writeMultitaskViewLocal(orchestratorThreadId, data.enabled);
@@ -237,6 +249,8 @@ export function ArcadiaMultitaskProvider({
         }
       } catch {
         /* offline — keep local */
+      } finally {
+        inFlight = false;
       }
     };
 
@@ -551,62 +565,70 @@ export function ArcadiaMultitaskProvider({
   );
 
   const toggleMultitaskView = useCallback(async (): Promise<boolean> => {
+    if (viewTogglePendingRef.current) return false;
+    viewTogglePendingRef.current = true;
+    viewRevisionRef.current += 1;
     setToggleBlockedReason(null);
 
-    let activeStreamId: string | null = null;
-
     try {
-      const res = await fetch(`/api/chat/${orchestratorThreadId}/arcadia/multitask-view`, {
-        credentials: "include",
-      });
+      let activeStreamId: string | null = null;
 
-      if (res.ok) {
-        const data = (await res.json()) as { activeStreamId?: string | null };
+      try {
+        const res = await fetch(`/api/chat/${orchestratorThreadId}/arcadia/multitask-view`, {
+          credentials: "include",
+          cache: "no-store",
+        });
 
-        activeStreamId = data.activeStreamId ?? null;
+        if (res.ok) {
+          const data = (await res.json()) as { activeStreamId?: string | null };
+
+          activeStreamId = data.activeStreamId ?? null;
+        }
+      } catch {
+        /* fall through — PATCH will re-check */
       }
-    } catch {
-      /* fall through — PATCH will re-check */
-    }
 
-    if (!canToggleArcadiaMultitaskView({ activeStreamId })) {
-      setToggleBlockedReason("Wait until this thread finishes streaming.");
-
-      return false;
-    }
-
-    const next = !enabledRef.current;
-
-    // Same-browser first.
-    writeMultitaskViewLocal(orchestratorThreadId, next);
-    applyEnabled(next);
-
-    try {
-      const res = await fetch(`/api/chat/${orchestratorThreadId}/arcadia/multitask-view`, {
-        method: "PATCH",
-        credentials: "include",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ enabled: next }),
-      });
-
-      if (res.status === 409) {
-        // Stream started under us — revert local.
-        writeMultitaskViewLocal(orchestratorThreadId, !next);
-        applyEnabled(!next);
+      if (!canToggleArcadiaMultitaskView({ activeStreamId })) {
         setToggleBlockedReason("Wait until this thread finishes streaming.");
 
         return false;
       }
 
-      if (!res.ok) {
-        // Keep local optimistic value; poll may reconcile.
+      const next = !enabledRef.current;
+
+      // Same-browser first.
+      writeMultitaskViewLocal(orchestratorThreadId, next);
+      applyEnabled(next);
+
+      try {
+        const res = await fetch(`/api/chat/${orchestratorThreadId}/arcadia/multitask-view`, {
+          method: "PATCH",
+          credentials: "include",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ enabled: next }),
+        });
+
+        if (res.status === 409) {
+          // Stream started under us — revert local.
+          writeMultitaskViewLocal(orchestratorThreadId, !next);
+          applyEnabled(!next);
+          setToggleBlockedReason("Wait until this thread finishes streaming.");
+
+          return false;
+        }
+
+        if (!res.ok) {
+          // Keep local optimistic value; poll may reconcile.
+          return true;
+        }
+      } catch {
         return true;
       }
-    } catch {
-      return true;
-    }
 
-    return true;
+      return true;
+    } finally {
+      viewTogglePendingRef.current = false;
+    }
   }, [orchestratorThreadId, applyEnabled]);
 
   const value = useMemo<ArcadiaMultitaskValue>(

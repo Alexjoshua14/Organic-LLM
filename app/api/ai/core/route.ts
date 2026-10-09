@@ -82,7 +82,7 @@ export async function POST(req: Request) {
   let systemPrompt = Aion_SYSTEM_INSTRUCTION.replace("{{currentDateTime}}", currentDateTime);
 
   // Convert message to model format
-  const messages = convertToModelMessages([message]);
+  const messages = await convertToModelMessages([message]);
 
   logger.log(
     "POST",

@@ -114,7 +114,7 @@ export async function POST(req: Request) {
 
       const result = streamText({
         model: openai(providerModelSlug(models.openai.luna.id)),
-        messages: convertToModelMessages(validatedMessages),
+        messages: await convertToModelMessages(validatedMessages),
         system: "Reply with only: Here are the suggestions.",
         maxOutputTokens: 20,
         onError({ error }) {
