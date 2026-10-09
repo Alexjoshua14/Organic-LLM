@@ -101,8 +101,9 @@ export const ChatMessage = memo<ChatMessageProps>(function ChatMessage(props) {
       );
     case "user":
       return <UserMessage message={message} />;
-    case "system":
-      return <SystemMessage message={message} />;
+    // Removing system message for now to accomodate Multiagent Heartbeats
+    // case "system":
+    //   return <SystemMessage message={message} />;
   }
 });
 
