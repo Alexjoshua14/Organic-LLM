@@ -20,8 +20,8 @@
     "migrate:memories-v2": "bun run scripts/migrate-memories-v2.ts"
   },
   "dependencies": {
-    "@ai-sdk/elevenlabs": "^3.0.0",
-    "@ai-sdk/gateway": "^4.0.0",
+    "@ai-sdk/elevenlabs": "^3.0.59",
+    "@ai-sdk/gateway": "^4.0.110",
     "@ai-sdk/openai": "^4.0.91",
     "@ai-sdk/otel": "^1.0.136",
     "@ai-sdk/react": "^4.0.139",
