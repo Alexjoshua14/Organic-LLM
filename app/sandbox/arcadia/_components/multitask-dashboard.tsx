@@ -80,6 +80,7 @@ export function MultitaskDashboard({ children, enabled = true }: MultitaskDashbo
     toggleBlockedReason,
   } = useArcadiaMultitask();
 
+
   const [panelFocus, setPanelFocus] = useState<MultitaskPanelFocus>("orchestrator");
   const [chatMeasurePx, setChatMeasurePx] = useState<number | null>(null);
   const [boardMeasurePx, setBoardMeasurePx] = useState<number | null>(null);
@@ -281,7 +282,7 @@ export function MultitaskDashboard({ children, enabled = true }: MultitaskDashbo
             ) : null}
           </div>
           <div className="flex shrink-0 flex-wrap items-center justify-end gap-1.5">
-            <button
+            {tickDemo && <button
               className="inline-flex items-center gap-1 rounded-md border border-border/50 bg-background/50 px-2 py-1 text-[11px] hover:bg-background-secondary"
               title="Advance demo progress once"
               type="button"
@@ -289,7 +290,7 @@ export function MultitaskDashboard({ children, enabled = true }: MultitaskDashbo
             >
               <Play aria-hidden className="size-3" />
               Tick
-            </button>
+            </button>}
             <button
               aria-expanded={chatOpen}
               className={cn(

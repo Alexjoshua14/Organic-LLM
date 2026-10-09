@@ -328,42 +328,43 @@ export function ArcadiaMultitaskProvider({
     [voice]
   );
 
-  const tickDemo = useCallback(() => {
-    setAgents((prev) => {
-      return prev.map((agent) => {
-        const script = DEMO_PROGRESS_SCRIPT[agent.id];
+  const tickDemo = undefined
+  // const tickDemo = useCallback(() => {
+  //   setAgents((prev) => {
+  //     return prev.map((agent) => {
+  //       const script = DEMO_PROGRESS_SCRIPT[agent.id];
 
-        if (!script?.length) return agent;
+  //       if (!script?.length) return agent;
 
-        const idx = scriptIndexRef.current[agent.id] ?? 0;
+  //       const idx = scriptIndexRef.current[agent.id] ?? 0;
 
-        if (idx >= script.length) return agent;
+  //       if (idx >= script.length) return agent;
 
-        const step = script[idx]!;
+  //       const step = script[idx]!;
 
-        scriptIndexRef.current[agent.id] = idx + 1;
+  //       scriptIndexRef.current[agent.id] = idx + 1;
 
-        const milestones = step.milestone
-          ? [...agent.milestones, { id: nextMilestoneId(), label: step.milestone, at: Date.now() }]
-          : agent.milestones;
+  //       const milestones = step.milestone
+  //         ? [...agent.milestones, { id: nextMilestoneId(), label: step.milestone, at: Date.now() }]
+  //         : agent.milestones;
 
-        const updated: ArcadiaSubagent = {
-          ...agent,
-          progress: step.progress,
-          progressPct: step.progressPct,
-          status: step.status ?? agent.status,
-          milestones,
-        };
+  //       const updated: ArcadiaSubagent = {
+  //         ...agent,
+  //         progress: step.progress,
+  //         progressPct: step.progressPct,
+  //         status: step.status ?? agent.status,
+  //         milestones,
+  //       };
 
-        void pushSpeakUpdate(updated, {
-          progress: step.progress,
-          milestone: step.milestone,
-        });
+  //       void pushSpeakUpdate(updated, {
+  //         progress: step.progress,
+  //         milestone: step.milestone,
+  //       });
 
-        return updated;
-      });
-    });
-  }, [pushSpeakUpdate]);
+  //       return updated;
+  //     });
+  //   });
+  // }, [pushSpeakUpdate]);
 
   const applyAwarenessEvent = useCallback(
     (event: WorkerAwarenessEvent) => {
