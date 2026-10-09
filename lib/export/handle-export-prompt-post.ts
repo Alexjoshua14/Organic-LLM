@@ -148,7 +148,7 @@ export async function handleExportPromptPost(
   try {
     const { text } = await deps.generateTextImpl({
       model: models.openai.luna.id,
-      system: `You generate concise, high-quality external-assistant prompts for Organic LLM.
+      instructions: `You generate concise, high-quality external-assistant prompts for Organic LLM.
 Output only the final prompt text.
 No markdown fences.
 Respect the delivery target conventions described in the user message.`,

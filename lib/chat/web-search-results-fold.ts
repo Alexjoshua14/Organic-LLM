@@ -1,4 +1,4 @@
-import { getToolOrDynamicToolName, isToolOrDynamicToolUIPart } from "ai";
+import { getToolOrDynamicToolName, isToolUIPart } from "ai";
 
 import {
   appendWebSearchContext,
@@ -65,7 +65,7 @@ export function collectWebSearchSnapshotsFromParts(
   const out: WebSearchInvocationSnapshot[] = [];
 
   parts.forEach((part, partIndex) => {
-    if (part && typeof part === "object" && isToolOrDynamicToolUIPart(part as never)) {
+    if (part && typeof part === "object" && isToolUIPart(part as never)) {
       const toolPart = part as {
         toolCallId: string;
         state: string;

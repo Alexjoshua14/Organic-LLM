@@ -59,8 +59,7 @@ function usageFromGenerateText(usage: LanguageModelUsage | undefined): Usage {
   return {
     inputTokens: usage?.inputTokens ?? 0,
     outputTokens: usage?.outputTokens ?? 0,
-    cachedInputTokens:
-      (usage as { cachedInputTokens?: number } | undefined)?.cachedInputTokens ?? 0,
+    cachedInputTokens: usage?.inputTokenDetails?.cacheReadTokens ?? 0,
   };
 }
 
@@ -181,7 +180,7 @@ export function createAionEventHandler(deps: AionEventDeps) {
     try {
       const result = await deps.generateText({
         model: modelId,
-        system,
+        instructions: system,
         prompt: "Respond to the current event. Reply with exactly [silent] if no reply is needed.",
         maxOutputTokens,
       });

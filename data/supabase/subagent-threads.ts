@@ -58,6 +58,27 @@ export type SubagentThreadLink = {
   agentId: string;
 };
 
+/** Delegation requires the owned thread's persisted Multiagent flag; unavailable means off. */
+export async function isThreadArcadiaMultitaskEnabled(
+  threadId: string,
+  ownerId: string
+): Promise<boolean> {
+  const { data, error } = await supabaseAdmin
+    .from("threads")
+    .select("arcadia_multitask_view")
+    .eq("id", threadId)
+    .eq("owner_id", ownerId)
+    .maybeSingle();
+
+  if (error) {
+    logQueryError("isThreadArcadiaMultitaskEnabled", error.message);
+
+    return false;
+  }
+
+  return data?.arcadia_multitask_view === true;
+}
+
 /** When `threadId` is a subagent thread owned by `ownerId`, its parent and slot; else null. */
 export async function getSubagentThreadLink(
   threadId: string,

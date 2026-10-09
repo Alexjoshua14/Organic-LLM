@@ -788,7 +788,7 @@ export function createMermaidDiagramTool(options?: {
 
         const gen = await generateText({
           model: generatorModelId,
-          system,
+          instructions: system,
           prompt: genOrFixPrompt,
           maxOutputTokens: MERMAID_GENERATOR_MAX_OUTPUT_TOKENS,
         });

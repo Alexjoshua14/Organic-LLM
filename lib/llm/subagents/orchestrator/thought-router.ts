@@ -273,7 +273,7 @@ Rules:
 const defaultJevGenerate: JevRouteGenerate = async (args) => {
   const result = await generateObject({
     model: args.model,
-    system: args.system,
+    instructions: args.system,
     prompt: args.prompt,
     schema: args.schema,
     providerOptions: args.providerOptions,

@@ -49,6 +49,11 @@ Local storage + BroadcastChannel sync same-browser tabs; a 2.5s poll syncs other
 while the thread page is open. Column: `threads.arcadia_multitask_view`
 (`docs/migrations/threads_arcadia_multitask_view.sql`).
 
+**Delegation gate — Locked 2026-10-08.** New user requests delegate to subagents only while
+the thread's saved Multiagent flag is on. With it off, requests are answered in the current
+chat without thought routing or new worker assignments. Both live sends and queued sends
+check the saved flag; a retained Send-to selection cannot enable delegation.
+
 **Composer.** In dashboard mode the confined chat uses the same live `sendMessage` →
 `/api/chat` path as Arcadia idle chat (user bubble + streaming reply). The Send-to picker
 value is sent as `multitaskSendTarget` on the request body so the server can route or
@@ -71,4 +76,3 @@ window if visible streaming is required. See [`docs/message-send-queue.md`](./me
 - **Stack**: Next.js (App Router) + React + AI SDK streaming + Clerk + Supabase
 - **LLM**: shared `/api/chat` pipeline (context + tools + streaming UI events)
 - **Design**: forest-chrome text hint + brown-glass cards (Arcadia sidebar variant)
-

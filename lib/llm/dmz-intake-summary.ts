@@ -47,7 +47,7 @@ export async function generateDmzIntakeSummary(options: {
     const start = performance.now();
     const result = await generateText({
       model: DMZ_INTAKE_SUMMARY_MODEL,
-      system: SYSTEM,
+      instructions: SYSTEM,
       prompt: `Provider: ${options.provider}\nSubject: ${options.subjectKey}\n\nExternal text:\n${excerpt}`,
       maxOutputTokens: 120,
       providerOptions: KNOWLEDGE_GATEWAY_PROVIDER_OPTIONS,

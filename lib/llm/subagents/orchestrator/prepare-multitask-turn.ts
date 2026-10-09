@@ -37,6 +37,7 @@ export type SubagentThreadLinkLite = {
 /** Persistence + scheduling seams. {@link createMultitaskTurnDeps} wires the real ones. */
 export type MultitaskTurnDeps = {
   getLink(threadId: string): Promise<SubagentThreadLinkLite | null>;
+  isMultitaskEnabled(threadId: string): Promise<boolean>;
   listChildren(parentThreadId: string): Promise<SubagentThreadRow[]>;
   ensureChild(args: { parentThreadId: string; agentId: string; title: string }): Promise<
     string | null
@@ -119,13 +120,14 @@ function groupGoalsByAgent(goals: ReadonlyArray<WorkerGoal>): Map<string, Worker
  * Arcadia multitask turn preparation, shared by `/api/chat` and the send queue.
  *
  * - On a subagent thread: no dispatch; the turn runs as that subagent over its own thread.
+ * - With Multiagent off: no routing, assignments, or subagent context; answer in this thread.
  * - On an orchestrator thread: route the message, write each assignment into the subagent's own
  *   thread, schedule the run after the response, and give the orchestrator a status summary of
  *   every subagent thread. Never throws — multitask trouble must not fail the orchestrator reply.
  */
 export async function prepareArcadiaMultitaskTurn(
   input: PrepareMultitaskTurnInput
-): Promise<PrepareMultitaskTurnResult> {
+): Promise<PrepareMultitaskTurnResult | null> {
   const { chatId, ownerId, deps } = input;
   const now = input.now ?? Date.now;
 
@@ -139,6 +141,8 @@ export async function prepareArcadiaMultitaskTurn(
         hasSubagentThreads: false,
       };
     }
+
+    if (!(await deps.isMultitaskEnabled(chatId))) return null;
 
     const children = await deps.listChildren(chatId);
     const snapshots = await Promise.all(
@@ -258,11 +262,7 @@ export async function prepareArcadiaMultitaskTurn(
       `multitask preparation failed: ${err instanceof Error ? err.message : String(err)}`
     );
 
-    return {
-      role: "orchestrator",
-      systemFragments: [],
-      hasSubagentThreads: false,
-    };
+    return null;
   }
 }
 

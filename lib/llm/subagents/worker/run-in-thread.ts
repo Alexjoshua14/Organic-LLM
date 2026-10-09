@@ -76,7 +76,8 @@ export function buildSubagentThreadSystem(name?: string, role?: string): string 
 }
 
 const defaultGenerate: SubagentTurnGenerate = async (args) => {
-  const result = await generateText(args);
+  const { system, ...options } = args;
+  const result = await generateText({ ...options, instructions: system });
 
   return { text: result.text, usage: result.usage, providerMetadata: result.providerMetadata };
 };

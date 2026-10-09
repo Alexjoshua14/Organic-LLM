@@ -62,7 +62,7 @@ ${trimmedHint}`;
     const started = performance.now();
     const result = await generateText({
       model: BROWSER_TAB_TITLE_MODEL,
-      system: SYSTEM,
+      instructions: SYSTEM,
       prompt,
       maxOutputTokens: Math.min(BROWSER_TAB_TITLE_MAX_OUT, GUARDRAIL_MAX_OUTPUT_TOKENS),
     });

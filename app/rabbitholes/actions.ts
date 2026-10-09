@@ -583,7 +583,7 @@ Provide a comprehensive analysis that helps the user understand this source's ke
     if (usage) {
       logger.log(
         "createRabbitHoleSession",
-        `AI usage: input tokens=${usage.inputTokens ?? "?"}, reasoning tokens=${usage.reasoningTokens ?? "?"}, output tokens=${usage.outputTokens ?? "?"}, total tokens=${usage.totalTokens ?? "?"}`
+        `AI usage: input tokens=${usage.inputTokens ?? "?"}, reasoning tokens=${usage.outputTokenDetails.reasoningTokens ?? "?"}, output tokens=${usage.outputTokens ?? "?"}, total tokens=${usage.totalTokens ?? "?"}`
       );
     }
 

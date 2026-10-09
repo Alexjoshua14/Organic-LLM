@@ -36,7 +36,7 @@ export async function parseWineCount(userText: string): Promise<number> {
   try {
     const { object } = await generateObject({
       model: models.openai.luna.id,
-      system: PARSER_SYSTEM,
+      instructions: PARSER_SYSTEM,
       prompt: truncated,
       schema: WineCountSchema,
       maxOutputTokens: 10,

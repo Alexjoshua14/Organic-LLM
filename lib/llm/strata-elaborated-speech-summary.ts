@@ -69,7 +69,7 @@ export async function generateStrataElaboratedSpeechSummaryScript(options: {
   try {
     const result = await generateText({
       model: TITLE_PIPELINE_SUMMARIZER_MODEL,
-      system: buildSpeechSummarySystem(options.ttsModelId),
+      instructions: buildSpeechSummarySystem(options.ttsModelId),
       prompt: input,
       maxOutputTokens: GUARDRAIL_MAX_OUTPUT_TOKENS,
     });

@@ -44,7 +44,7 @@ export async function generateStrataClipboardSourceTitle(options: {
     const start = performance.now();
     const result = await generateText({
       model: STRATA_CLIPBOARD_TITLE_MODEL,
-      system: CLIPBOARD_SOURCE_TITLE_SYSTEM,
+      instructions: CLIPBOARD_SOURCE_TITLE_SYSTEM,
       prompt,
       maxOutputTokens: 96,
       providerOptions: KNOWLEDGE_GATEWAY_PROVIDER_OPTIONS,

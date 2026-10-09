@@ -194,8 +194,8 @@ describe("POST /api/ai/aion (integration)", () => {
     const call = streamTextMock.calls[0]!;
     expect(typeof call.model).toBe("string");
     expect(call.model.length > 0).toBe(true);
-    expect(typeof call.system).toBe("string");
-    expect(call.system).toMatch(/\n\nAdditional Info:\nThe current date is \S+Z$/);
+    expect(typeof call.instructions).toBe("string");
+    expect(call.instructions).toMatch(/\n\nAdditional Info:\nThe current date is \S+Z$/);
     expect(call.tools != null).toBe(true);
     expect(call.tools!.search_memories != null).toBe(true);
     expect(call.tools!.show_memories != null).toBe(true);

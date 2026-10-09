@@ -76,7 +76,7 @@ export async function generateShortTitleFromSummary(
     const titleStart = performance.now();
     const titleResult = await generateText({
       model: TITLE_PIPELINE_SHORT_TITLE_MODEL,
-      system,
+      instructions: system,
       prompt: trimmedSummary,
       maxOutputTokens: GUARDRAIL_MAX_OUTPUT_TOKENS,
     });

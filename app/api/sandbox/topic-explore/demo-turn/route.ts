@@ -68,7 +68,7 @@ export async function POST(req: Request) {
   const t0 = performance.now();
   const result = streamText({
     model,
-    system: systemPrompt,
+    instructions: systemPrompt,
     messages,
     experimental_transform: smoothStream({ delayInMs: 15, chunking: "word" }),
     maxOutputTokens: DEMO_MAX_OUTPUT_TOKENS_PER_TURN,

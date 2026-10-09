@@ -1,4 +1,4 @@
-import { experimental_generateImage as generateImage } from "ai";
+import { generateImage as generateImage } from "ai";
 import { openai } from "@ai-sdk/openai";
 
 import type { SubagentIdentity } from "@/lib/schemas/subagent-runtime";

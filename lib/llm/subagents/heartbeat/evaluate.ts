@@ -1,4 +1,4 @@
-import type { LanguageModelUsage, UIMessage } from "ai";
+import type { experimental_decide as decide, LanguageModelUsage, UIMessage } from "ai";
 import type { SubagentThreadSnapshot } from "@/lib/llm/subagents/threads/snapshot";
 
 import { randomUUID } from "crypto";

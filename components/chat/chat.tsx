@@ -93,7 +93,9 @@ export const Chat: React.FC<ChatProps> = ({
 }) => {
   const { refreshSidebarChats } = useSharedChatContext();
   const arcadiaMultitask = useArcadiaMultitaskOptional();
-  const multitaskSendTargetRef = useRef(arcadiaMultitask?.sendTarget ?? null);
+  const multitaskSendTargetRef = useRef(
+    arcadiaMultitask?.multitaskViewEnabled ? arcadiaMultitask.sendTarget : null
+  );
   const applyInboundDispatchRef = useRef(arcadiaMultitask?.applyInboundDispatch);
   const applyAwarenessEventRef = useRef(arcadiaMultitask?.applyAwarenessEvent);
   const confineInMultitaskDashboard = arcadiaMultitask?.layoutMode === "dashboard";
@@ -102,7 +104,9 @@ export const Chat: React.FC<ChatProps> = ({
   // thread UI, so orchestrator turns look like a no-op. Subagent targeting still rides on
   // multitaskSendTarget in the request body.
 
-  multitaskSendTargetRef.current = arcadiaMultitask?.sendTarget ?? null;
+  multitaskSendTargetRef.current = arcadiaMultitask?.multitaskViewEnabled
+    ? arcadiaMultitask.sendTarget
+    : null;
   applyInboundDispatchRef.current = arcadiaMultitask?.applyInboundDispatch;
   applyAwarenessEventRef.current = arcadiaMultitask?.applyAwarenessEvent;
 
@@ -238,7 +242,7 @@ export const Chat: React.FC<ChatProps> = ({
               coalescenceMode: settings.coalescenceMode,
               ...(contextEffort ? { contextEffort } : {}),
               // Arcadia multitask dashboard: explicit orchestrator vs subagent destination.
-              // Existing /api/chat path; server may ignore until orchestration wires it.
+              // Sent only while Multiagent is enabled; the server checks the saved thread flag.
               ...(experience === "arcadia" && multitaskSendTargetRef.current
                 ? { multitaskSendTarget: multitaskSendTargetRef.current }
                 : {}),

@@ -3,7 +3,7 @@ import type { Logger } from "@/lib/logger";
 import type { ChatExperience } from "@/lib/chat/chat-experience";
 import type { Result } from "@/types";
 
-import { smoothStream, stepCountIs, streamText } from "ai";
+import { smoothStream, isStepCount, streamText } from "ai";
 import { GatewayProviderOptions } from "@ai-sdk/gateway";
 import { OpenAIResponsesProviderOptions } from "@ai-sdk/openai";
 
@@ -13,6 +13,7 @@ import { shouldAttemptInitialTitle } from "@/lib/chat/summary-title-cadence";
 import { saveChat } from "@/lib/chat/chat-store";
 import { ensureChatHasTitle, updateChatSummary } from "@/lib/llm/chat-helpers";
 import { CHAT_MODEL, measureAsync } from "@/lib/llm/helpers";
+import { CHAT_STREAM_CHUNKING } from "@/lib/llm/chat-stream-chunking";
 import { serializeError } from "@/lib/llm/log-error";
 import { addLatestMessagesToMemoryForUser } from "@/lib/memory/operations";
 import { buildEffortProviderOptions, type ChatEffortLevel } from "@/lib/schemas/chat-effort";
@@ -111,10 +112,10 @@ export async function runLLMChatStream(params: RunLLMChatStreamParams): Promise<
   const result = streamText({
     model: selectedModel.id,
     messages,
-    system: systemPromptWithLength,
+    instructions: systemPromptWithLength,
     experimental_transform: smoothStream({
       delayInMs: 20, // optional: defaults to 10ms
-      chunking: /(```[\s\S]*?```|^#{1,6}\s.*$|.*?(?:\n|$))/gm, // optional: defaults to 'word'
+      chunking: CHAT_STREAM_CHUNKING,
     }),
     maxOutputTokens: CHAT_MODEL.maxOutputTokens, // Cap output for dev guardrails
     onError({ error }) {
@@ -182,7 +183,7 @@ export async function runLLMChatStream(params: RunLLMChatStreamParams): Promise<
     },
     tools,
     toolChoice: hasTools ? "auto" : "none",
-    stopWhen: stepCountIs(maxSteps),
+    stopWhen: isStepCount(maxSteps),
   });
 
   void Promise.all([result.totalUsage, result.steps])
@@ -195,8 +196,8 @@ export async function runLLMChatStream(params: RunLLMChatStreamParams): Promise<
         modelId: selectedModel.id,
         inputTokens: usage.inputTokens,
         outputTokens: usage.outputTokens,
-        cachedInputTokens: usage.cachedInputTokens,
-        reasoningTokens: usage.reasoningTokens,
+        cachedInputTokens: usage.inputTokenDetails.cacheReadTokens,
+        reasoningTokens: usage.outputTokenDetails.reasoningTokens,
         totalTokens: usage.totalTokens,
         costUsdOverride: costs.length > 0 && costs.every((cost) => cost !== undefined)
           ? costs.reduce<number>((sum, cost) => sum + (cost ?? 0), 0)
@@ -212,7 +213,7 @@ export async function runLLMChatStream(params: RunLLMChatStreamParams): Promise<
         await recordLlmCost(sbUserId, selectedModel.id, {
           inputTokens: usage.inputTokens ?? 0,
           outputTokens: usage.outputTokens ?? 0,
-          cachedInputTokens: usage.cachedInputTokens ?? 0,
+          cachedInputTokens: usage.inputTokenDetails.cacheReadTokens ?? 0,
         });
       } catch {
         /* optional Redis cost/token recording */
@@ -242,7 +243,7 @@ export async function runLLMChatStream(params: RunLLMChatStreamParams): Promise<
 
         return "An unexpected error occurred";
       },
-      onFinish: async ({ messages, isAborted, finishReason }) => {
+      onEnd: async ({ messages, isAborted, finishReason }) => {
         logger.log("POST", "Stream finished", {
           finishReason: finishReason ?? "unknown",
           isAborted,

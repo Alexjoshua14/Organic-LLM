@@ -93,7 +93,7 @@ export async function condenseArcadiaContext(
   try {
     const result = await generateText({
       model: modelId,
-      system: systemPrompt,
+      instructions: systemPrompt,
       temperature: 0.2,
       messages: modelMessages,
       maxOutputTokens: GUARDRAIL_MAX_OUTPUT_TOKENS,

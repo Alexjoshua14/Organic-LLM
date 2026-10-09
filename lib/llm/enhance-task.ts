@@ -86,7 +86,7 @@ export async function enhanceTaskFields(
     const { object, usage } = await withTimeout(
       generateObject({
         model: ERGON_ENHANCE_MODEL,
-        system: ENHANCE_SYSTEM,
+        instructions: ENHANCE_SYSTEM,
         prompt: buildPrompt(ctx, now),
         schema: ErgonEnhanceFieldsSchema,
         maxOutputTokens: 300,

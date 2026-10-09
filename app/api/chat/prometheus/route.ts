@@ -91,7 +91,7 @@ export async function POST(req: Request) {
 
   const result = streamText({
     model: model,
-    system: appendCurrentDate(prompt),
+    instructions: appendCurrentDate(prompt),
     messages: await convertToModelMessages(messages),
     maxOutputTokens: GUARDRAIL_MAX_OUTPUT_TOKENS,
     experimental_transform: smoothStream({
@@ -104,7 +104,7 @@ export async function POST(req: Request) {
 
   return result.toUIMessageStreamResponse({
     originalMessages: messages,
-    onFinish: async ({ messages }) => {
+    onEnd: async ({ messages }) => {
       const saveResult = await saveChat({ chatId: id, messages });
 
       if (!saveResult.ok) {

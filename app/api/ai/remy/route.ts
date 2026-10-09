@@ -2,7 +2,7 @@ import {
   createUIMessageStream,
   createUIMessageStreamResponse,
   streamText,
-  stepCountIs,
+  isStepCount,
   convertToModelMessages,
 } from "ai";
 import { openai } from "@ai-sdk/openai";
@@ -88,7 +88,7 @@ export async function POST(req: Request) {
     message: incomingMessage,
     messages: incomingMessages,
     id,
-    system,
+    instructions: system,
     tools,
     persistToSupabase = true,
     isTmpChat = false,
@@ -232,11 +232,11 @@ export async function POST(req: Request) {
   const streamTextConfig: Parameters<typeof streamText>[0] = {
     model: openai("gpt-4o"),
     messages: await convertToModelMessages(validatedMessages),
-    system: finalSystemPrompt,
+    instructions: finalSystemPrompt,
     maxOutputTokens: GUARDRAIL_MAX_OUTPUT_TOKENS,
     // Mise tools may fire several commands per turn (initiate → upsert → show_view); allow the
     // model to continue after tool results.
-    stopWhen: stepCountIs(10),
+    stopWhen: isStepCount(10),
   };
 
   // Only include tools if they're provided and have execute functions
@@ -367,7 +367,7 @@ export async function POST(req: Request) {
         }
       }
     },
-    onFinish: async ({ messages }) => {
+    onEnd: async ({ messages }) => {
       try {
         // Save chat with all messages (only if persisting to Supabase)
         if (persistToSupabase) {

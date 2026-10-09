@@ -271,7 +271,7 @@ export const ChatRequestSchema = z.object({
   customSystemPromptOverride: z.string().max(8000).optional(),
   /**
    * Arcadia multitask dashboard: explicit orchestrator vs subagent destination.
-   * Omitted → treat as orchestrator (run thought splitter). See layout-mode.ts.
+   * Only honored while the saved Multiagent flag is on; omitted then means orchestrator.
    */
   multitaskSendTarget: ArcadiaMultitaskSendTargetSchema.optional(),
 });

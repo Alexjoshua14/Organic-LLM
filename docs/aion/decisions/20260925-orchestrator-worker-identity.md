@@ -22,7 +22,8 @@ work belongs to workers. Arcadia's multitask dashboard already sends
 3. **Awareness bus** records worker progress, milestones, and completion for orchestrator
    state (separate from Speak-shell “milestones only spoken” policy).
 4. **Multi-thought routing** on orchestrator-targeted (or omitted) sends: split thoughts,
-   answer direct ones inline, assign each routed thought to an existing worker or a new one.
+   answer direct ones inline, assign each routed thought to an existing worker or a new one,
+   subject to the [Arcadia Multiagent delegation gate](../../arcadia.md#multitask-shell).
 5. **Subagent-targeted sends** deliver the whole message to that worker — no re-split.
 6. **Identity images** are abstract non-human marks, generated via existing `@ai-sdk/openai`
    image models, stored under `.data/subagent-identity/` behind a blob/meta interface (S3 later).

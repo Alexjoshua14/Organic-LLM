@@ -71,7 +71,7 @@ export async function runWorkerGoalWithModel(
   const bus = input.bus ?? defaultOrchestratorAwarenessBus;
   const now = input.now ?? Date.now;
   const modelId = input.modelId?.trim() || DEFAULT_CHAT_MODEL.id;
-  const gen = input.generateText ?? ((args) => generateText(args));
+  const gen = input.generateText ?? (({ system, ...args }) => generateText({ ...args, instructions: system }));
   const events: WorkerAwarenessEvent[] = [];
 
   const publish = (event: WorkerAwarenessEvent) => {

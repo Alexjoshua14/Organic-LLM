@@ -1,6 +1,6 @@
 import { openai } from "@ai-sdk/openai";
 import { elevenlabs } from "@ai-sdk/elevenlabs";
-import { experimental_generateSpeech as generateSpeech } from "ai";
+import { generateSpeech as generateSpeech } from "ai";
 import { NextRequest, NextResponse } from "next/server";
 
 import { requireTtsActor } from "@/lib/api/tts-gate";

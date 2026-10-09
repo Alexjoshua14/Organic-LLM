@@ -8,6 +8,7 @@ import {
   appendThreadMessagesWithAdmin,
   ensureSubagentThread,
   getSubagentThreadLink,
+  isThreadArcadiaMultitaskEnabled,
   listSubagentThreadRows,
   readThreadMessagesWithAdmin,
   setSubagentThreadStatus,
@@ -25,6 +26,7 @@ export function createMultitaskTurnDeps(args: { ownerId: string; clerkUserId: st
 
   return {
     getLink: (threadId) => getSubagentThreadLink(threadId, ownerId),
+    isMultitaskEnabled: (threadId) => isThreadArcadiaMultitaskEnabled(threadId, ownerId),
     listChildren: (parentThreadId) => listSubagentThreadRows(parentThreadId, ownerId),
     ensureChild: ({ parentThreadId, agentId, title }) =>
       ensureSubagentThread({ ownerId, parentThreadId, agentId, title }),

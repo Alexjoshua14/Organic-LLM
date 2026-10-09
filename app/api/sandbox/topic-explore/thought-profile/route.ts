@@ -64,7 +64,7 @@ export async function POST(req: Request) {
     const t0 = performance.now();
     const result = await generateText({
       model: TOPIC_EXPLORE_THOUGHT_MODEL,
-      system: SYSTEM,
+      instructions: SYSTEM,
       prompt: `PRIOR_PROFILE:\n${previousProfile?.trim() || "(none)"}\n\nNEW_USER_ONLY:\n${joined}`,
       maxOutputTokens: 700,
       providerOptions: TOPIC_EXPLORE_PROVIDER_OPTIONS,

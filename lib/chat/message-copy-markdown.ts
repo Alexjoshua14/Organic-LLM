@@ -1,4 +1,4 @@
-import { getToolOrDynamicToolName, isToolOrDynamicToolUIPart, type UIMessage } from "ai";
+import { getToolOrDynamicToolName, isToolUIPart, type UIMessage } from "ai";
 
 import {
   extractGenUIBlockFromToolOutput,
@@ -24,7 +24,7 @@ export function messagePartsToCopyMarkdown(parts: UIMessage["parts"]): string {
       continue;
     }
 
-    if (isToolOrDynamicToolUIPart(part)) {
+    if (isToolUIPart(part)) {
       const toolName = getToolOrDynamicToolName(part);
 
       if (part.state !== "output-available") continue;

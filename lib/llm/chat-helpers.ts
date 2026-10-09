@@ -16,7 +16,10 @@ import { ValidSummary, ValidSummarySchema } from "../schemas/llm-tools";
 import { decryptFromStorage, encryptForStorage } from "../crypto/message-encryption";
 
 import { GUARDRAIL_MAX_OUTPUT_TOKENS } from "@/lib/llm/helpers";
-import { convertToolCallsToTextForSummarizer } from "@/lib/llm/summarizer-message-format";
+import {
+  appendSummarizerTask,
+  convertToolCallsToTextForSummarizer,
+} from "@/lib/llm/summarizer-message-format";
 import { createLogger } from "@/lib/logger";
 import { convertMessageToUIMessage } from "@/lib/chat/message-transform";
 import {
@@ -311,8 +314,11 @@ export async function generateChatTitle(chatId: string): Promise<Result<string>>
     const summaryStart = performance.now();
     const summaryResult = await generateText({
       model: MODEL_SELECTION.summarizer,
-      system: ChatTitleSummarizerSystemPrompt,
-      messages: await convertToModelMessages(messagesForTitleClean),
+      instructions: ChatTitleSummarizerSystemPrompt,
+      messages: appendSummarizerTask(
+        await convertToModelMessages(messagesForTitleClean),
+        "Summarize the conversation above for a short chat title."
+      ),
       maxOutputTokens: GUARDRAIL_MAX_OUTPUT_TOKENS,
     });
     const summaryDuration = performance.now() - summaryStart;
@@ -404,9 +410,9 @@ export async function summarizeChat(chatId: string): Promise<Result<string, stri
   const summarizeStart = performance.now();
   const summarizeResult = await generateText({
     model: MODEL_SELECTION.summarizer,
-    system: SummarizerSystemPrompt,
+    instructions: SummarizerSystemPrompt,
     temperature: 0.2,
-    messages: modelMessages,
+    messages: appendSummarizerTask(modelMessages, "Summarize the conversation above."),
     maxOutputTokens: GUARDRAIL_MAX_OUTPUT_TOKENS,
   });
   const summarizeDuration = performance.now() - summarizeStart;
@@ -684,12 +690,15 @@ export async function updateChatSummary(chatId: string): Promise<Result<string, 
 
   const { text: updatedSummary } = await generateText({
     model: MODEL_SELECTION.updater,
-    system: UpdateSummarizerSystemPrompt.replace(
+    instructions: UpdateSummarizerSystemPrompt.replace(
       "{{conversationSummary}}",
       threadSummary.summary_text
     ),
     temperature: 0.3,
-    messages: modelMessages,
+    messages: appendSummarizerTask(
+      modelMessages,
+      "Update the previous summary using the conversation above."
+    ),
     maxOutputTokens: GUARDRAIL_MAX_OUTPUT_TOKENS,
   });
 
@@ -779,12 +788,15 @@ const validateSummary = async (
     const validatorStart = performance.now();
     const validatorRes = await generateObject({
       model: MODEL_SELECTION.validator,
-      system: ValidatorSystemPrompt.replace(
+      instructions: ValidatorSystemPrompt.replace(
         "{{currentPersistedConversationSummary}}",
         currentPersistedConversationSummary ?? "null"
       ).replace("{{conversationSummary}}", conversationSummary),
       temperature: 0.1,
-      messages: messages,
+      messages: appendSummarizerTask(
+        messages,
+        "Validate the proposed summary against the conversation above."
+      ),
       schema: ValidSummarySchema,
       maxOutputTokens: GUARDRAIL_MAX_OUTPUT_TOKENS,
     });
@@ -814,14 +826,17 @@ const validateSummary = async (
     const reviserStart = performance.now();
     const reviserResult = await generateText({
       model: MODEL_SELECTION.reviser,
-      system: ReviserSystemPrompt.replace("{{conversationSummary}}", conversationSummary)
+      instructions: ReviserSystemPrompt.replace("{{conversationSummary}}", conversationSummary)
         .replace(
           "{{currentPersistedConversationSummary}}",
           currentPersistedConversationSummary ?? "null"
         )
         .replace("{{reason}}", validSummary.reason),
       temperature: 0.2,
-      messages: messages,
+      messages: appendSummarizerTask(
+        messages,
+        "Revise the proposed summary using the conversation above and the validation feedback."
+      ),
       maxOutputTokens: GUARDRAIL_MAX_OUTPUT_TOKENS,
     });
     const reviserDuration = performance.now() - reviserStart;

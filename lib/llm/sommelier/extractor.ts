@@ -62,7 +62,7 @@ export async function extractWines(userText: string, expectedCount: number): Pro
 
   const { object } = await generateObject({
     model: models.anthropic.sonnet.id,
-    system,
+    instructions: system,
     prompt,
     schema,
     maxOutputTokens,

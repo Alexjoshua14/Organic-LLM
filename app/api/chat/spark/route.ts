@@ -149,7 +149,7 @@ export async function POST(req: Request) {
   const result = streamText({
     model: openai(providerModelSlug(models.openai.terra.id)),
     messages: await convertToModelMessages(validatedMessages),
-    system: appendCurrentDate(systemPrompt),
+    instructions: appendCurrentDate(systemPrompt),
     maxOutputTokens: GUARDRAIL_MAX_OUTPUT_TOKENS,
     tools: {
       web_search_preview: openai.tools.webSearchPreview({}),
@@ -186,7 +186,7 @@ export async function POST(req: Request) {
           };
       }
     },
-    onFinish: async ({ messages }) => {
+    onEnd: async ({ messages }) => {
       await saveChat({ chatId: id, messages });
 
       const messageCountResult = await getMessageCount(id);

@@ -98,7 +98,7 @@ export async function POST(req: Request) {
   const result = streamText({
     model: selectedModel.id,
     messages: messages,
-    system: systemPrompt,
+    instructions: systemPrompt,
     experimental_transform: smoothStream({
       delayInMs: 5,
       chunking: "word",
@@ -134,7 +134,7 @@ export async function POST(req: Request) {
 
       return GENERIC_SERVER_ERROR;
     },
-    onFinish: async ({ messages }) => {
+    onEnd: async ({ messages }) => {
       logger.log("POST", `Stream finished with ${messages.length} messages`);
 
       // Check for navigation tool calls in the messages
