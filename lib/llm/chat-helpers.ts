@@ -61,17 +61,17 @@ Be concise, neutral, plain text only—no lists, markdown, or citations.
 `;
 
 const SummarizerSystemPrompt = `
-You are Organic LLM's summarizer. 
-Summarize the entire conversation into ONE clear paragraph (2–4 sentences, under 600 tokens). 
-Include: main objectives/tasks, important decisions or open questions, and the current focus/next step. 
+You are Organic LLM's summarizer.
+Summarize the entire conversation into ONE clear paragraph (2–4 sentences, under 600 tokens).
+Include: main objectives/tasks, important decisions or open questions, and the current focus/next step.
 Be concise, neutral, and free of lists, formatting, or citations. Output plain text only.
 `;
 
 const UpdateSummarizerSystemPrompt = `
-You are Organic LLM's summarizer. 
-Update the previous summary by integrating NEW messages since it was last written. 
-Produce ONE clear paragraph (2–4 sentences, under 600 tokens) that preserves all key details from the prior summary while adding new information. 
-Include: objectives/tasks, decisions or questions, and current focus/next step. 
+You are Organic LLM's summarizer.
+Update the previous summary by integrating NEW messages since it was last written.
+Produce ONE clear paragraph (2–4 sentences, under 600 tokens) that preserves all key details from the prior summary while adding new information.
+Include: objectives/tasks, decisions or questions, and current focus/next step.
 Be concise, neutral, and output plain text only.
 
 Previous summary:
@@ -79,12 +79,12 @@ Previous summary:
 `;
 
 const ValidatorSystemPrompt = `
-You are a strict validator. 
+You are a strict validator.
 Given a proposed conversation summary, return valid = TRUE if it clearly includes:
-1. Main objectives or tasks, 
-2. Important decisions or open questions, 
-3. Current focus or next step. 
-Otherwise return valid = FALSE. 
+1. Main objectives or tasks,
+2. Important decisions or open questions,
+3. Current focus or next step.
+Otherwise return valid = FALSE.
 Reply only with the boolean value and a short reason for the validity of the summary.
 
 Proposed summary:
@@ -94,9 +94,9 @@ Current persisted summary (if any):
 `;
 
 const ReviserSystemPrompt = `
-You are Organic LLM's summary reviser. 
-Rewrite the current summary into ONE concise paragraph (2–4 sentences, under 600 tokens). 
-It must include: objectives/tasks, important decisions or open questions, and the current focus/next step. 
+You are Organic LLM's summary reviser.
+Rewrite the current summary into ONE concise paragraph (2–4 sentences, under 600 tokens).
+It must include: objectives/tasks, important decisions or open questions, and the current focus/next step.
 Be clear, compact, neutral, and output plain text only—no lists or formatting.
 
 Current summary:
@@ -263,6 +263,7 @@ export async function generateChatTitle(chatId: string): Promise<Result<string>>
     .from("messages")
     .select("*")
     .eq("thread_id", chatId)
+    .filter("role", "not.eq", "system")
     .order("created_at", { ascending: false });
 
   if (messages.error) {
