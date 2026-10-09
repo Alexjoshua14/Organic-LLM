@@ -69,11 +69,24 @@ function mergeEntry(agent: ArcadiaSubagent, entry: SubagentBoardEntry, now: numb
           : 0
         : agent.progressPct;
 
+  const goal = entry.goal ?? agent.goal;
+
+  if (
+    agent.threadId === entry.threadId &&
+    agent.status === entry.status &&
+    agent.goal === goal &&
+    agent.progress === progress &&
+    agent.progressPct === progressPct &&
+    agent.milestones === milestones
+  ) {
+    return agent;
+  }
+
   return {
     ...agent,
     threadId: entry.threadId,
     status: entry.status,
-    goal: entry.goal ?? agent.goal,
+    goal,
     progress,
     progressPct,
     milestones,

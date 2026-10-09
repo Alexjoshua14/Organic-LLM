@@ -128,7 +128,7 @@ export async function POST(req: Request) {
   if (parsed.data.retryAfterConnectFailure) {
     const { status, detail } = parsed.data.retryAfterConnectFailure;
 
-    logger.warn("POST", `Realtime connect failed for ${parsed.data.resumeSessionId}; retrying`, {
+    logger.warn("POST", "Realtime connect failed; retrying", {
       status,
       detail,
       withoutThreadContext: parsed.data.withoutThreadContext === true,
@@ -280,7 +280,7 @@ export async function POST(req: Request) {
     continuity,
   });
 
-  logger.log("POST", `Minted speak realtime session ${ourSessionId}`, {
+  logger.log("POST", "Minted speak realtime session", {
     model,
     threadId,
     modalities,

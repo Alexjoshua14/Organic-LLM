@@ -59,7 +59,6 @@ export async function POST(req: Request) {
   const surfaceKey = screenSurfaceKey(parsed.data.surface);
 
   logger.log("POST", `Built ambient context for ${surfaceKey}`, {
-    sessionId: session.sessionId,
     chars: context.body.length,
     reason: context.reason,
   });

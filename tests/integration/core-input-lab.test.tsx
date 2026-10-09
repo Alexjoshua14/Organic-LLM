@@ -154,7 +154,12 @@ function registerUserSettingsMock() {
 registerUserSettingsMock();
 
 mock.module("@clerk/nextjs", () => ({
-  useAuth: () => ({ userId: "user_lab_test", isSignedIn: true, isLoaded: true }),
+  useAuth: () => ({
+    userId: "user_lab_test",
+    sessionId: "session_lab_test",
+    isSignedIn: true,
+    isLoaded: true,
+  }),
   useUser: () => ({ user: { id: "user_lab_test" }, isSignedIn: true, isLoaded: true }),
   ClerkProvider: ({ children }: { children?: ReactNode }) => <>{children}</>,
   SignedIn: ({ children }: { children?: ReactNode }) => <>{children}</>,
@@ -162,9 +167,9 @@ mock.module("@clerk/nextjs", () => ({
   UserButton: () => null,
 }));
 
-// "use server" module behind useIsAdmin; Bun cannot load it in tests.
-mock.module("@/data/supabase/profiles", () => ({
-  getShowSandboxGatewayForCurrentUser: async () => true,
+// The shared visibility query stays local to this test.
+mock.module("@/data/supabase/gateway-visibility", () => ({
+  getGatewayVisibilityForCurrentUser: async () => true,
 }));
 
 // `Page` needs the sidebar provider; the lab only needs a container here.

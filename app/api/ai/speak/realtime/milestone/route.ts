@@ -55,7 +55,6 @@ export async function POST(req: Request) {
   const body = formatSubagentMilestoneBody(parsed.data);
 
   logger.log("POST", `Built spoken subagent milestone for ${parsed.data.agentId}`, {
-    sessionId: session.sessionId,
     chars: body.length,
   });
 

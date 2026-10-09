@@ -363,7 +363,7 @@ export async function createRabbitHoleSession(
       sourcesInstruction
     );
     // Create the node and session shells that mirror the AI output.
-    const { session, sessionId } = buildInitialSession({
+    const { session } = buildInitialSession({
       rawPrompt: prompt,
       userQuestion: question,
       aiObject: object,
@@ -371,7 +371,7 @@ export async function createRabbitHoleSession(
       branchSuggestions,
     });
 
-    logger.log("createRabbitHoleSession", `Session created: ${sessionId}`);
+    logger.log("createRabbitHoleSession", "Session created");
 
     return {
       data: session,
@@ -429,10 +429,7 @@ export async function followRabbitHoleBranch(
       };
     }
 
-    logger.log(
-      "followRabbitHoleBranch",
-      `Following branch: ${branch.label} in session: ${session.sessionId}`
-    );
+    logger.log("followRabbitHoleBranch", `Following branch: ${branch.label}`);
 
     // Search sources for this branch.
     const { exaSources, sourcesContext, sourcesInstruction } = await fetchExternalSources(

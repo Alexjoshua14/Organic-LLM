@@ -42,7 +42,7 @@ export type ChatModel = {
    * turn it off. Used by the orchestrator thought-router (Jev).
    */
   requiresZeroDataRetention?: boolean;
-  /** Only selectable by admins (profiles.admin); enforced server-side in the chat route. */
+  /** Only selectable by admin_access members; enforced server-side in the chat route. */
   adminOnly?: boolean;
 };
 

@@ -247,7 +247,7 @@ export async function settleStaleSpeakSessions(userId: string): Promise<void> {
     });
     await closeSpeakRealtimeSession(session);
 
-    logger.log("settleStaleSpeakSessions", `Settled abandoned session ${sessionId}`, {
+    logger.log("settleStaleSpeakSessions", "Settled abandoned session", {
       minutesUsed: session.minutesUsed,
       costUsd: session.costUsd,
     });
@@ -504,7 +504,7 @@ export async function endSpeakRealtimeSession(args: {
   }
 
   await closeSpeakRealtimeSession(session);
-  logger.log("endSpeakRealtimeSession", `Closed ${args.sessionId}`, {
+  logger.log("endSpeakRealtimeSession", "Closed session", {
     minutesUsed: session.minutesUsed,
     costUsd: session.costUsd,
   });

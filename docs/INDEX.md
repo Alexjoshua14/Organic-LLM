@@ -75,6 +75,7 @@ Public routes under `/blog` — see the [blog index](../app/blog/page.tsx) or ru
 
 ## Maintainer notes
 
+- [Shared gateway visibility](./architecture/decisions/20261009-shared-gateway-visibility.md) — request deduplication, session isolation, fresh server authorization, and identifier logging
 - [Performance journeys](./perf-journeys.md) — dev HUD for home load, Chat, and Arcadia transition timings (`?perf=1`)
 - [Strata manual verification](./strata-manual-verification.md)
 - [TTS token tracker](./tts-token-tracker.md) — historical; display components removed

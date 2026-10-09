@@ -99,10 +99,7 @@ async function saveSessionToStorage(session: RabbitHoleSession | null): Promise<
     );
 
     if (hasPending) {
-      logger.log(
-        "saveSessionToStorage",
-        `Session ${session.sessionId} has pending nodes; skipping save to storage.`
-      );
+      logger.log("saveSessionToStorage", "Session has pending nodes; skipping save to storage.");
 
       return;
     }
@@ -113,10 +110,10 @@ async function saveSessionToStorage(session: RabbitHoleSession | null): Promise<
 
     logger.log("saveSessionToStorage", `Serialized session.`);
 
-    logger.log("saveSessionToStorage", `Saving session with ID ${session.sessionId} to storage...`);
+    logger.log("saveSessionToStorage", "Saving session to storage...");
     const res = await saveSession(serialized);
 
-    logger.log("saveSessionToStorage", `Session save result: ${JSON.stringify(res, null, 2)}`);
+    logger.log("saveSessionToStorage", res.error ? "Session save failed" : "Session saved");
   } catch (error) {
     // Handle quota exceeded, disabled, etc.
     logger.warn("saveSessionToStorage", `Failed to save to Database: ${error}`);

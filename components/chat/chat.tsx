@@ -148,9 +148,9 @@ export const Chat: React.FC<ChatProps> = ({
   const errorRef = useRef<Error | undefined>(undefined);
   /** Stored when onError runs; useChat may not expose error/status for pre-stream failures (e.g. 429). */
   const [chatError, setChatError] = useState<unknown>(undefined);
-  const [experimentalArcadiaMarkdownPreview, setExperimentalArcadiaMarkdownPreview] = useState(
-    () => getSettings().experimentalArcadiaMarkdownPreview
-  );
+  // Match the server defaults until the settings effect restores local preferences.
+  const [experimentalArcadiaMarkdownPreview, setExperimentalArcadiaMarkdownPreview] =
+    useState(false);
   const [arcadiaStarterKey, setArcadiaStarterKey] = useState<string | null>(
     () => chatData?.thread.arcadia_starter_key ?? null
   );

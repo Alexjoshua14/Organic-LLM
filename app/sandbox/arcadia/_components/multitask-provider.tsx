@@ -140,12 +140,14 @@ export function ArcadiaMultitaskProvider({
   const [multitaskViewEnabled, setMultitaskViewEnabled] = useState(initialMultitaskView);
   const [toggleBlockedReason, setToggleBlockedReason] = useState<string | null>(null);
   const speakBindingRef = useRef(speakBinding);
+  const voiceRef = useRef(voice);
   const agentsRef = useRef(agents);
   const enabledRef = useRef(multitaskViewEnabled);
   const viewRevisionRef = useRef(0);
   const viewTogglePendingRef = useRef(false);
 
   speakBindingRef.current = speakBinding;
+  voiceRef.current = voice;
   agentsRef.current = agents;
   enabledRef.current = multitaskViewEnabled;
 
@@ -261,15 +263,17 @@ export function ArcadiaMultitaskProvider({
   );
 
   // Multitask owns the in-card glass bar — hide the global host drawer while a session is live.
+  const setSuppressHostBar = voice?.setSuppressHostBar;
+
   useEffect(() => {
-    if (!voice) return;
+    if (!setSuppressHostBar) return;
 
     const suppress = multitaskViewEnabled && liveSpeakAgentId !== null;
 
-    voice.setSuppressHostBar(suppress);
+    setSuppressHostBar(suppress);
 
-    return () => voice.setSuppressHostBar(false);
-  }, [voice, multitaskViewEnabled, liveSpeakAgentId]);
+    return () => setSuppressHostBar(false);
+  }, [setSuppressHostBar, multitaskViewEnabled, liveSpeakAgentId]);
 
   useEffect(() => {
     if (!voice) return;
@@ -297,11 +301,12 @@ export function ArcadiaMultitaskProvider({
   const pushSpeakUpdate = useCallback(
     async (agent: ArcadiaSubagent, update: { progress: string; milestone?: string }) => {
       const binding = speakBindingRef.current;
+      const currentVoice = voiceRef.current;
 
-      if (!voice?.connected || !binding || binding.agentId !== agent.id) return;
+      if (!currentVoice?.connected || !binding || binding.agentId !== agent.id) return;
 
       if (update.milestone) {
-        await voice.sendSubagentMilestone({
+        await currentVoice.sendSubagentMilestone({
           agentId: agent.id,
           role: agent.role,
           name: agent.name,
@@ -309,7 +314,7 @@ export function ArcadiaMultitaskProvider({
           progress: update.progress,
         });
       } else {
-        await voice.sendSubagentProgress({
+        await currentVoice.sendSubagentProgress({
           agentId: agent.id,
           role: agent.role,
           name: agent.name,
@@ -317,7 +322,7 @@ export function ArcadiaMultitaskProvider({
         });
       }
     },
-    [voice]
+    []
   );
 
   const applyAwarenessEvent = useCallback(
@@ -356,6 +361,8 @@ export function ArcadiaMultitaskProvider({
   // Subagents run after the orchestrator's stream closes; their state reaches the board here.
   useEffect(() => {
     let cancelled = false;
+    let inFlight = false;
+    let refreshPending = false;
     let timer: number | null = null;
 
     const schedule = () => {
@@ -370,11 +377,23 @@ export function ArcadiaMultitaskProvider({
     };
 
     const pull = async () => {
+      if (cancelled) return;
+      if (inFlight) {
+        refreshPending = true;
+
+        return;
+      }
       if (document.visibilityState !== "visible") {
         schedule();
 
         return;
       }
+
+      if (timer != null) {
+        window.clearTimeout(timer);
+        timer = null;
+      }
+      inFlight = true;
 
       try {
         const res = await fetch(`/api/chat/${orchestratorThreadId}/arcadia/subagents`, {
@@ -384,11 +403,16 @@ export function ArcadiaMultitaskProvider({
 
         if (res.ok && !cancelled) {
           const payload = (await res.json()) as SubagentBoardPayload;
+
+          if (cancelled) return;
+
           const prev = agentsRef.current;
           const next = mergeSubagentBoard(prev, payload.subagents ?? []);
 
-          agentsRef.current = next;
-          setAgents(next);
+          if (next.length !== prev.length || next.some((agent, index) => agent !== prev[index])) {
+            agentsRef.current = next;
+            setAgents(next);
+          }
 
           for (const update of diffBoardForSpeak(prev, next)) {
             const agent = next.find((a) => a.id === update.agentId);
@@ -400,9 +424,17 @@ export function ArcadiaMultitaskProvider({
         }
       } catch {
         /* offline — keep the last board */
+      } finally {
+        inFlight = false;
+        if (!cancelled) {
+          if (refreshPending) {
+            refreshPending = false;
+            void pull();
+          } else {
+            schedule();
+          }
+        }
       }
-
-      schedule();
     };
 
     boardRefreshRef.current = () => void pull();

@@ -55,7 +55,6 @@ export async function POST(req: Request) {
   const body = formatSubagentProgressBody(parsed.data);
 
   logger.log("POST", `Built silent subagent progress for ${parsed.data.agentId}`, {
-    sessionId: session.sessionId,
     chars: body.length,
   });
 
