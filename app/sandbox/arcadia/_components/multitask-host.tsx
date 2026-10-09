@@ -16,7 +16,7 @@ function ArcadiaMultitaskLayout({ children }: { children: ReactNode }) {
   const dashboard = layoutMode === "dashboard";
 
   return (
-    <div className="h-full w-full min-h-0" data-arcadia-multitask-layout={layoutMode}>
+    <div className="h-full w-full min-h-0 pt-14" data-arcadia-multitask-layout={layoutMode}>
       <MultitaskDashboard enabled={dashboard}>{children}</MultitaskDashboard>
       {!dashboard ? <ArcadiaMultitaskShell /> : null}
     </div>
