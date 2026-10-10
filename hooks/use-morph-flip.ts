@@ -63,6 +63,7 @@ export function useMorphFlip(
     let scale = 1;
     let scaleVelocity = 0;
     let loop: FrameLoop | null = null;
+    let viewportWidth = window.innerWidth;
 
     const clear = () => {
       loop?.stop();
@@ -142,16 +143,27 @@ export function useMorphFlip(
       else if (!loop) resting = after;
     };
     const observer = new ResizeObserver(observe);
+    const resize = () => {
+      const nextWidth = window.innerWidth;
+
+      if (nextWidth !== viewportWidth) transition();
+      else {
+        // Height-only viewport changes (notably the mobile keyboard) must stay docked.
+        clear();
+        resting = measure();
+      }
+      viewportWidth = nextWidth;
+    };
 
     el.style.transformOrigin = "left bottom";
     updateLayout.current = transition;
     transition();
     observer.observe(el);
-    window.addEventListener("resize", transition);
+    window.addEventListener("resize", resize);
 
     return () => {
       observer.disconnect();
-      window.removeEventListener("resize", transition);
+      window.removeEventListener("resize", resize);
       updateLayout.current = null;
       clear();
       el.style.transformOrigin = "";

@@ -234,6 +234,8 @@ window resize, CSS resize observations, and React layout commits. New targets re
 running morph-physics spring with its velocity intact, so reversing a resize does not restart
 or snap the composer. One transform owns the wrapper; CSS owns the final layout. Height-only
 growth while typing updates the baseline without an animation.
+Height-only viewport changes also land immediately, keeping the composer docked when a
+mobile keyboard opens or closes.
 
 `COMPOSER_SHIFT_SPRING` in `lib/chat/composer-shift-spring.ts` uses stiffness 380, damping 36,
 and mass 1 for brief motion with little overshoot. Subpixel shifts below 1px do not start a

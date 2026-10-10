@@ -17,6 +17,12 @@ let timeSpy: ReturnType<typeof spyOn<typeof performance, "now">>;
 let originalRaf: typeof requestAnimationFrame;
 let originalCancelRaf: typeof cancelAnimationFrame;
 let originalObserver: typeof ResizeObserver;
+let viewportDescriptor: PropertyDescriptor | undefined;
+
+function resizeViewport(width: number) {
+  Object.defineProperty(window, "innerWidth", { configurable: true, value: width });
+  window.dispatchEvent(new Event("resize"));
+}
 
 function visibleBox(el: HTMLElement): Box {
   const translation = el.style.transform.match(/translate3d\(([^p]+)px, ([^p]+)px/);
@@ -71,6 +77,8 @@ beforeEach(() => {
   originalRaf = globalThis.requestAnimationFrame;
   originalCancelRaf = globalThis.cancelAnimationFrame;
   originalObserver = globalThis.ResizeObserver;
+  viewportDescriptor = Object.getOwnPropertyDescriptor(window, "innerWidth");
+  Object.defineProperty(window, "innerWidth", { configurable: true, value: 1400 });
   globalThis.requestAnimationFrame = (callback) => {
     frames.set(++frameId, callback);
     return frameId;
@@ -115,6 +123,7 @@ afterEach(() => {
   globalThis.requestAnimationFrame = originalRaf;
   globalThis.cancelAnimationFrame = originalCancelRaf;
   globalThis.ResizeObserver = originalObserver;
+  if (viewportDescriptor) Object.defineProperty(window, "innerWidth", viewportDescriptor);
 });
 
 describe("composer viewport transitions", () => {
@@ -126,7 +135,7 @@ describe("composer viewport transitions", () => {
 
     input.focus();
     layout = { left: 16, bottom: 720, width: 600, height: 120 };
-    act(() => window.dispatchEvent(new Event("resize")));
+    act(() => resizeViewport(700));
     expect(visibleBox(el)).toEqual(before);
     paint();
     expect(visibleBox(el).width).toBeLessThan(before.width);
@@ -147,6 +156,7 @@ describe("composer viewport transitions", () => {
 
     layout = { ...layout, left: 16, width: 600 };
     act(() => observers[0]!.emit());
+    act(() => resizeViewport(700));
     expect(visibleBox(el)).toEqual(initial);
     layout = { ...layout, bottom: 760 };
     view.rerender(<Composer mode="condensed" />);
@@ -156,7 +166,7 @@ describe("composer viewport transitions", () => {
     const midway = visibleBox(el);
 
     layout = { ...layout, left: 280, bottom: 800, width: 820 };
-    act(() => window.dispatchEvent(new Event("resize")));
+    act(() => resizeViewport(1400));
     view.rerender(<Composer mode="wide" />);
     expect(visibleBox(el).left).toBeCloseTo(midway.left, 6);
     expect(visibleBox(el).bottom).toBeCloseTo(midway.bottom, 6);
@@ -175,13 +185,13 @@ describe("composer viewport transitions", () => {
     act(() => observers[0]!.emit());
     expect(frames.size).toBe(0);
     layout = { ...layout, width: 600 };
-    act(() => window.dispatchEvent(new Event("resize")));
+    act(() => resizeViewport(700));
     expect(frames.size).toBe(1);
     view.rerender(<Composer disabled />);
     expect(el.style.transform).toBe("");
     expect(frames.size).toBe(0);
     layout = { ...layout, width: 800 };
-    act(() => window.dispatchEvent(new Event("resize")));
+    act(() => resizeViewport(1400));
     expect(el.style.transform).toBe("");
     expect(frames.size).toBe(0);
   });
@@ -195,10 +205,24 @@ describe("composer viewport transitions", () => {
 
     expect(observers[0]!.disconnected).toBe(true);
     layout = { ...layout, width: 600 };
-    act(() => window.dispatchEvent(new Event("resize")));
+    act(() => resizeViewport(700));
     expect(frames.size).toBe(1);
     view.unmount();
     expect(frames.size).toBe(0);
     expect(observers.every((observer) => observer.disconnected)).toBe(true);
+  });
+
+  test("a height-only viewport resize docks immediately, including while a width spring runs", () => {
+    const view = render(<Composer />);
+    const el = view.getByTestId("composer");
+
+    layout = { ...layout, width: 600 };
+    act(() => resizeViewport(700));
+    expect(frames.size).toBe(1);
+    layout = { ...layout, bottom: 420 };
+    act(() => resizeViewport(700));
+    expect(el.style.transform).toBe("");
+    expect(frames.size).toBe(0);
+    expect(visibleBox(el)).toEqual(layout);
   });
 });
