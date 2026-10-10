@@ -5,7 +5,8 @@ import type { ArcadiaSpeakSessionPhase } from "@/lib/arcadia/multitask/speak-ses
 import type { CSSProperties } from "react";
 
 import Link from "next/link";
-import { Mic, Radio } from "lucide-react";
+import { ChevronDown, Mic, Radio } from "lucide-react";
+import { useId, useState } from "react";
 
 import { glass } from "@/components/design-system/primitives";
 import {
@@ -162,6 +163,7 @@ type SubagentSwipeRowProps = {
   onTarget: (agentId: string) => void;
   onSpeakTo: (agentId: string) => void;
   onEndSpeak: () => void;
+  collapsible?: boolean;
 };
 
 /** Horizontal, snap-scrolling row of compact subagent cards for the condensed dashboard. */
@@ -173,32 +175,60 @@ export function SubagentSwipeRow({
   onTarget,
   onSpeakTo,
   onEndSpeak,
+  collapsible = false,
 }: SubagentSwipeRowProps) {
+  const [expanded, setExpanded] = useState(false);
+  const listId = useId();
+  const working = agents.filter(
+    (agent) => agent.status === "working" || agent.status === "blocked"
+  ).length;
+  const speaking = agents.find((agent) => ["live", "connecting"].includes(speakPhaseFor(agent.id)));
   if (agents.length === 0) return null;
 
   return (
-    <div
-      aria-label="Subagents"
-      className={cn(
-        "flex snap-x snap-mandatory overflow-x-auto overscroll-x-contain pb-0.5",
-        "[scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
-      )}
-      role="list"
-      style={{ gap: MULTITASK_CONDENSED_CARD_GAP_PX } as CSSProperties}
-    >
-      {agents.map((agent) => (
-        <div key={agent.id} className="shrink-0 snap-start" role="listitem">
-          <SubagentCompactCard
-            agent={agent}
-            speakDisabled={speakDisabled}
-            speakPhase={speakPhaseFor(agent.id)}
-            targeted={targetedAgentId === agent.id}
-            onEndSpeak={onEndSpeak}
-            onSpeakTo={() => onSpeakTo(agent.id)}
-            onTarget={() => onTarget(agent.id)}
-          />
-        </div>
-      ))}
+    <div className="min-w-0">
+      {collapsible ? (
+        <button
+          aria-controls={listId}
+          aria-expanded={expanded}
+          className="flex min-h-11 w-full items-center gap-2 rounded-lg px-2 text-xs text-muted-foreground hover:bg-background-secondary focus-visible:outline focus-visible:outline-2 focus-visible:outline-ring"
+          type="button"
+          onClick={() => setExpanded((open) => !open)}
+        >
+          <span className="font-medium text-foreground">Agents · {agents.length}</span>
+          <span className="min-w-0 flex-1 truncate text-left">
+            {speaking ? `Speaking with ${speaking.name}` : `${working} running`}
+          </span>
+          <ChevronDown aria-hidden className={cn("size-4 shrink-0", expanded && "rotate-180")} />
+        </button>
+      ) : null}
+      <div
+        aria-label="Subagents"
+        className={cn(
+          "flex snap-x snap-mandatory overflow-x-auto overscroll-x-contain pb-0.5",
+          "[scrollbar-width:none] [&::-webkit-scrollbar]:hidden",
+          collapsible && !expanded && "hidden",
+          collapsible && "max-h-[28dvh] overflow-y-auto"
+        )}
+        id={listId}
+        hidden={collapsible && !expanded}
+        role="list"
+        style={{ gap: MULTITASK_CONDENSED_CARD_GAP_PX } as CSSProperties}
+      >
+        {agents.map((agent) => (
+          <div key={agent.id} className="shrink-0 snap-start" role="listitem">
+            <SubagentCompactCard
+              agent={agent}
+              speakDisabled={speakDisabled}
+              speakPhase={speakPhaseFor(agent.id)}
+              targeted={targetedAgentId === agent.id}
+              onEndSpeak={onEndSpeak}
+              onSpeakTo={() => onSpeakTo(agent.id)}
+              onTarget={() => onTarget(agent.id)}
+            />
+          </div>
+        ))}
+      </div>
     </div>
   );
 }

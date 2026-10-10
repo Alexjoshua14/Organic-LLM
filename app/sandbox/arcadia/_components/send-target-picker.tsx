@@ -12,6 +12,7 @@ type SendTargetPickerProps = {
   sendTarget: ArcadiaMultitaskSendTarget;
   onChange: (next: ArcadiaMultitaskSendTarget) => void;
   className?: string;
+  compact?: boolean;
 };
 
 /**
@@ -23,8 +24,36 @@ export function SendTargetPicker({
   sendTarget,
   onChange,
   className,
+  compact = false,
 }: SendTargetPickerProps) {
   const label = formatSendTargetLabel(sendTarget, agents);
+
+  if (compact) {
+    return (
+      <label className={cn("flex min-h-11 min-w-0 items-center gap-3", className)}>
+        <span className="shrink-0 text-xs text-muted-foreground">Send to</span>
+        <select
+          aria-label="Message recipient"
+          className="min-h-11 min-w-0 flex-1 rounded-lg bg-transparent px-2 text-base text-foreground focus-visible:outline focus-visible:outline-2 focus-visible:outline-ring"
+          value={sendTarget.kind === "orchestrator" ? "orchestrator" : sendTarget.agentId}
+          onChange={(event) =>
+            onChange(
+              event.target.value === "orchestrator"
+                ? { kind: "orchestrator" }
+                : { kind: "subagent", agentId: event.target.value }
+            )
+          }
+        >
+          <option value="orchestrator">Orchestrator</option>
+          {agents.map((agent) => (
+            <option key={agent.id} value={agent.id}>
+              {agent.name}
+            </option>
+          ))}
+        </select>
+      </label>
+    );
+  }
 
   return (
     <div
