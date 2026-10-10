@@ -2,6 +2,8 @@ import "server-only";
 
 import type { WorktableStore } from "@/lib/llm/subagents/worktable/session";
 
+import { randomUUID } from "crypto";
+
 import { decryptFromStorage, encryptForStorage } from "@/lib/crypto/message-encryption";
 import { createLogger } from "@/lib/logger";
 import { emptyWorktable, parseWorktable } from "@/lib/llm/subagents/worktable/types";
@@ -12,8 +14,9 @@ import { supabaseAdmin } from "@/lib/supabase/supabase-admin";
  * is bypassed, so every query filters on `owner_id`. Encrypted like messages, since bundles
  * quote the user, memories, and subagent output.
  *
- * The column comes from `docs/migrations/threads_subagent_worktable.sql`. Until it runs, loads
- * return null and saves report unavailable.
+ * The columns come from `docs/migrations/threads_subagent_worktable.sql`. Until it runs, loads
+ * return null and saves report unavailable. `subagent_worktable_rev` is the optimistic lock —
+ * a short token, so the guard filter never carries the (large) ciphertext.
  */
 
 const logger = createLogger("data/supabase/subagent-worktable.ts");
@@ -48,7 +51,7 @@ export function createSupabaseWorktableStore(args: {
     load: async () => {
       const { data, error } = await supabaseAdmin
         .from("threads")
-        .select("subagent_worktable")
+        .select("subagent_worktable, subagent_worktable_rev")
         .eq("id", threadId)
         .eq("owner_id", ownerId)
         .maybeSingle();
@@ -60,36 +63,38 @@ export function createSupabaseWorktableStore(args: {
       }
 
       const stored = (data.subagent_worktable as string | null) ?? null;
+      const revision = (data.subagent_worktable_rev as string | null) ?? null;
 
-      if (!stored) return { worktable: emptyWorktable(), revision: null };
+      if (!stored) return { worktable: emptyWorktable(), revision };
 
       try {
         return {
           worktable: parseWorktable(
             JSON.parse(decryptFromStorage(stored, worktableContext(ownerId, threadId)))
           ),
-          revision: stored,
+          revision,
         };
       } catch {
         logger.warn("load", "unreadable worktable — starting fresh");
 
-        return { worktable: emptyWorktable(), revision: stored };
+        return { worktable: emptyWorktable(), revision };
       }
     },
     save: async (worktable, previousRevision) => {
+      const revision = randomUUID();
       const next = encryptForStorage(
         JSON.stringify(worktable),
         worktableContext(ownerId, threadId)
       );
       const base = supabaseAdmin
         .from("threads")
-        .update({ subagent_worktable: next })
+        .update({ subagent_worktable: next, subagent_worktable_rev: revision })
         .eq("id", threadId)
         .eq("owner_id", ownerId);
       const guarded =
         previousRevision === null
-          ? base.is("subagent_worktable", null)
-          : base.eq("subagent_worktable", previousRevision);
+          ? base.is("subagent_worktable_rev", null)
+          : base.eq("subagent_worktable_rev", previousRevision);
       const { data, error } = await guarded.select("id");
 
       if (error) {
@@ -98,7 +103,7 @@ export function createSupabaseWorktableStore(args: {
         return { status: "unavailable" };
       }
 
-      return (data?.length ?? 0) > 0 ? { status: "saved", revision: next } : { status: "conflict" };
+      return (data?.length ?? 0) > 0 ? { status: "saved", revision } : { status: "conflict" };
     },
   };
 }

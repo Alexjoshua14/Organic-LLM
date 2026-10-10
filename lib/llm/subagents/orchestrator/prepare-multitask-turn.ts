@@ -305,6 +305,11 @@ export async function prepareArcadiaMultitaskTurn(
         transient: true,
       });
       systemFragments.push(formatMultitaskRoutingSystemFragment(inbound));
+      if (orchestratorDispatch && inbound.mode === "direct_to_subagent") {
+        systemFragments.push(
+          "This message was already delivered verbatim to that subagent. Do not dispatch it again; dispatch only genuinely new work."
+        );
+      }
     }
 
     const statusFragment = formatSubagentStatusFragment(snapshots);

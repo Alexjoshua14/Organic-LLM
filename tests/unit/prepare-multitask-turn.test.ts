@@ -181,11 +181,12 @@ describe("Arcadia orchestrator-authored dispatch", () => {
   test("a message sent straight to a subagent is still delivered verbatim", async () => {
     const { deps, input } = orchestrating();
 
-    await prepareArcadiaMultitaskTurn({
+    const result = await prepareArcadiaMultitaskTurn({
       ...input,
       sendTarget: { kind: "subagent", agentId: "agent-coder" },
     });
 
+    expect(result?.systemFragments.join("\n")).toContain("Do not dispatch it again");
     expect(deps.router.route).not.toHaveBeenCalled();
     expect(deps.enqueueWorker).toHaveBeenCalledTimes(1);
     const [[, messages]] = deps.appendMessages.mock.calls as unknown as [[string, UIMessage[]]];
