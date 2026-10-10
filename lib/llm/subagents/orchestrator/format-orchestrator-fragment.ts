@@ -8,16 +8,13 @@ import {
 
 function autonomyLine(autonomous: boolean, autonomousRemaining: number | null): string {
   if (!autonomous) {
-    return `You may direct subagents on your own initiative — for example, send finished work to a reviewer. At most ${ORCHESTRATOR_MAX_DISPATCHES_PER_TURN} dispatches per turn; automatic heartbeat turns may dispatch at most ${ORCHESTRATOR_MAX_AUTONOMOUS_DISPATCHES} times between user messages.`;
+    return `You may direct subagents on your own initiative — for example, start the next stage of work once its inputs are ready. At most ${ORCHESTRATOR_MAX_DISPATCHES_PER_TURN} dispatches per turn; automatic heartbeat turns may dispatch at most ${ORCHESTRATOR_MAX_AUTONOMOUS_DISPATCHES} times between user messages.`;
   }
-  if (autonomousRemaining === null) {
-    return "This is an automatic turn and the worktable is unavailable, so you cannot dispatch. Tell the user what you would send next.";
-  }
-  if (autonomousRemaining === 0) {
-    return "This is an automatic turn and the automatic dispatch allowance is spent until the user speaks again. Tell the user what you would send next.";
+  if (!autonomousRemaining) {
+    return "This is an automatic turn after a subagent update, and the automatic dispatch allowance is spent until the user speaks again. Tell the user what you would send next.";
   }
 
-  return `This is an automatic turn. You may dispatch ${autonomousRemaining} more time(s) before the user speaks again — only when the next step is clear from what the user already asked for.`;
+  return `This is an automatic turn after a subagent update. If the update unblocks the next step of work the user already asked for — for example, research has landed and architecture drafting can start — dispatch that step now with everything it needs. You may dispatch ${autonomousRemaining} more time(s) before the user speaks again. Do not start review or judging cycles on your own.`;
 }
 
 /**
@@ -27,7 +24,7 @@ function autonomyLine(autonomous: boolean, autonomousRemaining: number | null): 
 export function formatOrchestratorFragment(args: {
   snapshots: ReadonlyArray<SubagentThreadSnapshot>;
   autonomous: boolean;
-  /** Automatic dispatches left; null when the worktable (which counts them) is unavailable. */
+  /** Automatic dispatches left before the user speaks again; null on user turns. */
   autonomousRemaining: number | null;
 }): string {
   const byAgent = new Map(args.snapshots.map((s) => [s.agentId, s]));

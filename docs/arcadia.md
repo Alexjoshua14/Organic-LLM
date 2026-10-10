@@ -76,8 +76,11 @@ worktable is private to the orchestrator. Subagents see only what is dispatched 
 Limits:
 - Targets must be existing children or roster slots.
 - At most 4 dispatches per turn.
-- Heartbeat-triggered turns may make at most 3 dispatches between user messages, counted on the
-  worktable.
+- Heartbeat-triggered turns may make at most 3 dispatches between user messages. The count is
+  kept on the worktable, or read from the thread's own history when the worktable is
+  unavailable. Heartbeat turns are steered to start the next unblocked step of work the user
+  asked for (e.g. architecture drafting once research lands), not review or judging cycles.
+  Only the orchestrator dispatches.
 
 A message sent straight to one subagent is still delivered verbatim.
 `ARCADIA_ORCHESTRATOR_DISPATCH_ENABLED=false` restores Jev router auto-dispatch. Code:

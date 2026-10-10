@@ -5,6 +5,7 @@ import type { Worktable } from "@/lib/llm/subagents/worktable/types";
 import { describe, expect, mock, test } from "bun:test";
 
 import {
+  countAutonomousDispatchesSinceUser,
   createOrchestratorTools,
   type OrchestratorToolDeps,
 } from "@/lib/llm/subagents/orchestrator/orchestrator-tools";
@@ -60,7 +61,9 @@ function memoryStore(initial: Partial<Worktable> = {}) {
 }
 
 /** One orchestrator thread with in-memory children and messages. */
-function harness(options: { autonomous?: boolean; worktable?: "memory" | "none" } = {}) {
+function harness(
+  options: { autonomous?: boolean; autonomousRemaining?: number; worktable?: "memory" | "none" } = {}
+) {
   const threads = new Map<string, UIMessage[]>([
     [ORCH, [userMessage("u1", "Build the CSV export. It must stream — files can be 2 GB.")]],
   ]);
@@ -92,6 +95,7 @@ function harness(options: { autonomous?: boolean; worktable?: "memory" | "none" 
     modelId: "test-model",
     zeroDataRetention: true,
     autonomous: options.autonomous ?? false,
+    autonomousRemaining: options.autonomousRemaining ?? null,
     currentUserMessage: { id: "u2", text: "Have someone review it before we ship." },
     writer,
     now: () => Date.parse(NOW),
@@ -273,11 +277,45 @@ describe("dispatch_subagent", () => {
     expect(memory.current().autonomousDispatches).toBe(3);
   });
 
-  test("automatic turns cannot dispatch without a worktable to count them", async () => {
-    const { deps, run } = harness({ autonomous: true, worktable: "none" });
+  test("without a worktable, automatic turns spend the allowance counted from history", async () => {
+    const { deps, run } = harness({ autonomous: true, autonomousRemaining: 2, worktable: "none" });
 
-    expect((await run("dispatch_subagent", { agent: "coder", brief: "Follow-up" })).success).toBe(false);
-    expect(deps.enqueueWorker).not.toHaveBeenCalled();
+    expect((await run("dispatch_subagent", { agent: "coder", brief: "Draft the architecture." })).success).toBe(true);
+    expect((await run("dispatch_subagent", { agent: "planner", brief: "Plan the slices." })).success).toBe(true);
+    expect((await run("dispatch_subagent", { agent: "writer", brief: "One more" })).success).toBe(false);
+    expect(deps.enqueueWorker).toHaveBeenCalledTimes(2);
+  });
+
+  test("automatic dispatches are counted from heartbeat replies since the user last spoke", () => {
+    const dispatchPart = (success: boolean) =>
+      ({
+        type: "tool-dispatch_subagent",
+        toolCallId: `t-${Math.random()}`,
+        state: "output-available",
+        input: {},
+        output: { success },
+      }) as unknown as UIMessage["parts"][number];
+    const assistant = (id: string, parts: UIMessage["parts"]): UIMessage => ({ id, role: "assistant", parts });
+    const heartbeat = (id: string): UIMessage => ({
+      id,
+      role: "system",
+      parts: [{ type: "text", text: "Lyra finished." }],
+    });
+
+    const history: UIMessage[] = [
+      heartbeat("h0"),
+      assistant("a0", [dispatchPart(true)]),
+      userMessage("u1", "Research the options, then draft an architecture."),
+      // The user's own turn: not automatic.
+      assistant("a1", [dispatchPart(true)]),
+      heartbeat("h1"),
+      assistant("a2", [dispatchPart(true), dispatchPart(false)]),
+      heartbeat("h2"),
+      assistant("a3", [dispatchPart(true), { type: "text", text: "Started Reed." }]),
+    ];
+
+    expect(countAutonomousDispatchesSinceUser(history)).toBe(2);
+    expect(countAutonomousDispatchesSinceUser([...history, userMessage("u2", "Thanks")])).toBe(0);
   });
 });
 

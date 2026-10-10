@@ -207,6 +207,32 @@ describe("Arcadia orchestrator-authored dispatch", () => {
     expect(user.store.current().autonomousDispatches).toBe(0);
   });
 
+  test("without worktable storage, an automatic turn counts its allowance from thread history", async () => {
+    const { deps, input } = orchestrating();
+
+    Object.assign(deps, {
+      openWorktable: () => ({ load: async () => null, save: async () => ({ status: "unavailable" }) }),
+    });
+    deps.loadMessages.mockResolvedValue([
+      { id: "u1", role: "user", parts: [{ type: "text", text: "Research, then draft the architecture." }] },
+      { id: "h1", role: "system", parts: [{ type: "text", text: "Lyra finished." }] },
+      {
+        id: "a1",
+        role: "assistant",
+        parts: [
+          { type: "tool-dispatch_subagent", toolCallId: "t1", state: "output-available", input: {}, output: { success: true } },
+        ],
+      },
+    ] as never);
+
+    const result = await prepareArcadiaMultitaskTurn({ ...input, userText: "", autonomous: true });
+    const prompt = result?.systemFragments.join("\n") ?? "";
+
+    expect(result?.autonomousRemaining).toBe(2);
+    expect(prompt).toContain("architecture drafting can start");
+    expect(prompt).toContain("You may dispatch 2 more time(s)");
+  });
+
   test("missing worktable storage still lets the orchestrator dispatch inline", async () => {
     const { deps, input } = orchestrating();
 

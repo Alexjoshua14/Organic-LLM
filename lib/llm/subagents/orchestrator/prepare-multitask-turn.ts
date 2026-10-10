@@ -19,6 +19,7 @@ import {
 } from "@/lib/llm/subagents/orchestrator/constants";
 import { dispatchMultitaskInbound } from "@/lib/llm/subagents/orchestrator/dispatch-inbound";
 import { formatOrchestratorFragment } from "@/lib/llm/subagents/orchestrator/format-orchestrator-fragment";
+import { countAutonomousDispatchesSinceUser } from "@/lib/llm/subagents/orchestrator/orchestrator-tools";
 import { formatMultitaskRoutingSystemFragment } from "@/lib/llm/subagents/orchestrator/format-routing-fragment";
 import {
   createJevThoughtRouter,
@@ -37,6 +38,9 @@ import { createWorktableSession } from "@/lib/llm/subagents/worktable/session";
 import { createLogger } from "@/lib/logger";
 
 const logger = createLogger("lib/llm/subagents/orchestrator/prepare-multitask-turn.ts");
+
+/** Orchestrator-thread messages read to count automatic dispatches when there is no worktable. */
+const AUTONOMOUS_DISPATCH_LOOKBACK_MESSAGES = 40;
 
 export type SubagentThreadLinkLite = {
   threadId: string;
@@ -96,6 +100,8 @@ export type PrepareMultitaskTurnResult = {
   orchestratorDispatch: boolean;
   /** This turn's worktable, shared with the tools. Null when unavailable or not orchestrating. */
   worktable: WorktableSession | null;
+  /** Automatic dispatches left before the user speaks again; null on user turns. */
+  autonomousRemaining: number | null;
 };
 
 export function formatSubagentDirectChatFragment(agentId: string): string {
@@ -165,6 +171,7 @@ export async function prepareArcadiaMultitaskTurn(
         hasSubagentThreads: false,
         orchestratorDispatch: false,
         worktable: null,
+        autonomousRemaining: null,
       };
     }
 
@@ -188,6 +195,7 @@ export async function prepareArcadiaMultitaskTurn(
       input.userText.trim().length > 0 &&
       (!orchestratorDispatch || resolveMultitaskSendTarget(input.sendTarget).kind === "subagent");
     let worktable: WorktableSession | null = null;
+    let autonomousRemaining: number | null = null;
 
     if (orchestratorDispatch) {
       worktable = deps.openWorktable ? createWorktableSession(deps.openWorktable(chatId)) : null;
@@ -205,14 +213,19 @@ export async function prepareArcadiaMultitaskTurn(
       }
       if (!table) worktable = null;
 
+      if (autonomous) {
+        // The worktable holds the counter; without it, count from this thread's own history.
+        const used = table
+          ? table.autonomousDispatches
+          : countAutonomousDispatchesSinceUser(
+              await deps.loadMessages(chatId, AUTONOMOUS_DISPATCH_LOOKBACK_MESSAGES)
+            );
+
+        autonomousRemaining = Math.max(0, ORCHESTRATOR_MAX_AUTONOMOUS_DISPATCHES - used);
+      }
+
       systemFragments.push(
-        formatOrchestratorFragment({
-          snapshots,
-          autonomous,
-          autonomousRemaining: table
-            ? Math.max(0, ORCHESTRATOR_MAX_AUTONOMOUS_DISPATCHES - table.autonomousDispatches)
-            : null,
-        }),
+        formatOrchestratorFragment({ snapshots, autonomous, autonomousRemaining }),
         formatWorktableFragment(table)
       );
     }
@@ -322,6 +335,7 @@ export async function prepareArcadiaMultitaskTurn(
       hasSubagentThreads: snapshots.length > 0,
       orchestratorDispatch,
       worktable,
+      autonomousRemaining,
     };
   } catch (err) {
     logger.error(

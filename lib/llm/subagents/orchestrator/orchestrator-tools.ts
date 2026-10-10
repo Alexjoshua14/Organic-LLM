@@ -69,6 +69,11 @@ export type OrchestratorToolsInput = {
   zeroDataRetention: boolean;
   /** True on heartbeat-triggered turns, which dispatch under a tighter cap. */
   autonomous: boolean;
+  /**
+   * Automatic dispatches left before the user speaks again, from prepare. Enforced here when the
+   * worktable (which otherwise holds the counter) is unavailable.
+   */
+  autonomousRemaining?: number | null;
   /** The message that opened this turn — it may not be saved yet when tools run. */
   currentUserMessage?: { id: string; text: string } | null;
   writer?: MultitaskStreamWriter;
@@ -76,6 +81,37 @@ export type OrchestratorToolsInput = {
 };
 
 type Resolution<T> = { ok: true; value: T } | { ok: false; error: string };
+
+function isSuccessfulDispatchPart(part: UIMessage["parts"][number]): boolean {
+  if (part.type !== "tool-dispatch_subagent") return false;
+  const { state, output } = part as { state?: string; output?: { success?: unknown } };
+
+  return state === "output-available" && output?.success === true;
+}
+
+/**
+ * Dispatches made by automatic turns since the user last spoke, read from the orchestrator's own
+ * thread: every successful dispatch in a reply that follows a heartbeat notice (a `system` row).
+ * The fallback counter when worktable storage is unavailable.
+ */
+export function countAutonomousDispatchesSinceUser(messages: ReadonlyArray<UIMessage>): number {
+  let lastUser = -1;
+
+  messages.forEach((m, i) => {
+    if (m.role === "user") lastUser = i;
+  });
+  let afterHeartbeat = false;
+  let count = 0;
+
+  for (const message of messages.slice(lastUser + 1)) {
+    if (message.role === "system") afterHeartbeat = true;
+    else if (message.role === "assistant" && afterHeartbeat) {
+      count += message.parts.filter(isSuccessfulDispatchPart).length;
+    }
+  }
+
+  return count;
+}
 
 export const ORCHESTRATOR_TOOL_INSTRUCTIONS = [
   "Use dispatch_subagent to give a subagent work: a self-contained brief in your own words, plus the context it needs as worktable bundles or inline items.",
@@ -217,6 +253,7 @@ export function createOrchestratorTools(input: OrchestratorToolsInput): ToolSet 
   const now = input.now ?? Date.now;
   const iso = () => new Date(now()).toISOString();
   let dispatchesThisTurn = 0;
+  let autonomousLeft = input.autonomousRemaining ?? 0;
   let dispatchQueue: Promise<unknown> = Promise.resolve();
 
   const listChildren = () => deps.listChildren(orchestratorThreadId);
@@ -480,16 +517,21 @@ export function createOrchestratorTools(input: OrchestratorToolsInput): ToolSet 
     }
 
     if (input.autonomous) {
-      const reserved = input.worktable
-        ? await input.worktable.mutate((table) =>
-            reserveAutonomousDispatch(table, ORCHESTRATOR_MAX_AUTONOMOUS_DISPATCHES)
-          )
-        : {
-            ok: false as const,
-            error: "Automatic turns cannot dispatch while the worktable is unavailable.",
-          };
+      if (input.worktable) {
+        const reserved = await input.worktable.mutate((table) =>
+          reserveAutonomousDispatch(table, ORCHESTRATOR_MAX_AUTONOMOUS_DISPATCHES)
+        );
 
-      if (!reserved.ok) return { success: false, error: reserved.error };
+        if (!reserved.ok) return { success: false, error: reserved.error };
+      } else {
+        if (autonomousLeft <= 0) {
+          return {
+            success: false,
+            error: `Automatic turns may dispatch at most ${ORCHESTRATOR_MAX_AUTONOMOUS_DISPATCHES} times until the user speaks again. Tell the user what you would send next instead.`,
+          };
+        }
+        autonomousLeft -= 1;
+      }
     }
 
     const identity = resolveSubagentIdentity(agentId);
@@ -622,7 +664,11 @@ export function withArcadiaOrchestratorTools(
     next = {
       tools: {
         ...next.tools,
-        ...createOrchestratorTools({ ...toolsInput, worktable: multitask.worktable }),
+        ...createOrchestratorTools({
+          ...toolsInput,
+          worktable: multitask.worktable,
+          autonomousRemaining: multitask.autonomousRemaining,
+        }),
       },
       toolInstructions: [next.toolInstructions, ORCHESTRATOR_TOOL_INSTRUCTIONS]
         .filter(Boolean)

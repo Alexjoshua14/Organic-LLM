@@ -80,7 +80,7 @@ export async function runQueuedChatTurn(args: {
   const userMessage: UIMessage = {
     id: isHeartbeat ? heartbeatMessageId : randomUUID(),
     role: isHeartbeat ? "system" : "user",
-    parts: [{ type: "text", text: isHeartbeat ? "Review the latest subagent update. Read the relevant subagent thread if needed, then give the user a concise update and any next steps. This is an automatic heartbeat, not a new assignment." : item.body }],
+    parts: [{ type: "text", text: isHeartbeat ? "Review the latest subagent update. Read the relevant subagent thread if needed, then give the user a concise update and any next steps. This is an automatic heartbeat, not a new message from the user." : item.body }],
   };
 
   let selectedModel = payload.model ? getChatModel(payload.model) : DEFAULT_CHAT_MODEL;
