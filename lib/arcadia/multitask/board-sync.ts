@@ -1,6 +1,7 @@
 import type { ArcadiaSubagent, ArcadiaSubagentStatus } from "@/lib/arcadia/multitask/types";
 
 import { assignDistinctVoices } from "@/lib/arcadia/multitask/voice-assignment";
+import { getHardSetSubagent } from "@/lib/llm/subagents/hard-set/registry";
 
 /** One subagent thread as served by `GET /api/chat/[id]/arcadia/subagents`. */
 export type SubagentBoardEntry = {
@@ -127,7 +128,9 @@ export function mergeSubagentBoard(
           id: entry.agentId,
           name: entry.name,
           role: entry.role,
-          blurb: "Spawned by the orchestrator for one thread of work.",
+          blurb:
+            getHardSetSubagent(entry.agentId)?.blurb ??
+            "Spawned by the orchestrator for one thread of work.",
           goal: entry.goal ?? "Awaiting assignment.",
           progress: "Idle — no live run yet.",
           progressPct: 0,

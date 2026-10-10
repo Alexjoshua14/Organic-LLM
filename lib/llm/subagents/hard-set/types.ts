@@ -20,6 +20,12 @@ export const HardSetSubagentSchema = z.object({
    */
   helpMenu: z.string().min(1).max(4_000),
   /**
+   * Locked into the orchestrator's roster: the orchestrator can dispatch to it, and it always
+   * runs on these instructions. Assignments direct its work; they cannot change its persona,
+   * role, or boundaries. Off = shell only, while it is still in development.
+   */
+  roster: z.boolean().default(false),
+  /**
    * Tool policy. Each flag forces a tool on or off for this subagent; omitted flags follow the
    * composer toggles, as in normal chat.
    */

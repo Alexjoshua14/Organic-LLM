@@ -1,6 +1,8 @@
 import { describe, expect, mock, test } from "bun:test";
 
+import { mergeSubagentBoard } from "@/lib/arcadia/multitask/board-sync";
 import { createDemoSubagents } from "@/lib/arcadia/multitask/demo-roster";
+import { resolveSubagentIdentity } from "@/lib/arcadia/multitask/subagent-identity";
 import { ARCADIA_HELP_PREFIX } from "@/lib/arcadia/help-response";
 import {
   classifyHelpReflex,
@@ -9,13 +11,25 @@ import {
   type JevHelpReflexDecide,
 } from "@/lib/llm/subagents/hard-set/reflex";
 import { getHardSetSubagent, HARD_SET_SUBAGENTS } from "@/lib/llm/subagents/hard-set/registry";
-import { buildHelpReflexMessage } from "@/lib/llm/subagents/hard-set/shell";
+import {
+  buildHelpReflexMessage,
+  buildLockedWorkerSystem,
+  LOCKED_PERSONA_CLAUSE,
+} from "@/lib/llm/subagents/hard-set/shell";
 import { HardSetSubagentSchema } from "@/lib/llm/subagents/hard-set/types";
-import { withArcadiaOrchestratorTools } from "@/lib/llm/subagents/orchestrator/orchestrator-tools";
+import { formatOrchestratorFragment } from "@/lib/llm/subagents/orchestrator/format-orchestrator-fragment";
+import {
+  resolveDispatchTarget,
+  withArcadiaOrchestratorTools,
+} from "@/lib/llm/subagents/orchestrator/orchestrator-tools";
 import {
   prepareArcadiaMultitaskTurn,
   type MultitaskTurnDeps,
 } from "@/lib/llm/subagents/orchestrator/prepare-multitask-turn";
+import {
+  runSubagentThreadTurn,
+  type SubagentTurnGenerate,
+} from "@/lib/llm/subagents/worker/run-in-thread";
 
 const SHELL_ID = "eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee";
 const agent = HARD_SET_SUBAGENTS[0]!;
@@ -160,5 +174,79 @@ describe("hard-set subagent shell turns", () => {
         deps: d,
       })
     ).toBeNull();
+  });
+});
+
+describe("locked subagent personas (LOCK-1)", () => {
+  const archer = getHardSetSubagent("subagent-architect")!;
+
+  test("a rostered subagent is a dispatch target by id, name, or role — without shadowing roster slots", () => {
+    expect(archer.roster).toBe(true);
+    for (const name of ["subagent-architect", "Archer", "architect"]) {
+      expect(resolveDispatchTarget(name, [])).toBe("subagent-architect");
+    }
+    expect(resolveDispatchTarget("coder", [])).toBe("agent-coder");
+    expect(resolveSubagentIdentity("subagent-architect")).toMatchObject({ name: "Archer", role: "architect" });
+  });
+
+  test("the orchestrator sees it on its roster as a locked persona", () => {
+    const fragment = formatOrchestratorFragment({ snapshots: [], autonomous: false, autonomousRemaining: null });
+
+    expect(fragment).toContain("Archer (architect, agentId=subagent-architect)");
+    expect(fragment).toContain("Locked persona");
+  });
+
+  test("its own thread under an orchestrator runs on its locked instructions", async () => {
+    const multitask = await prepareArcadiaMultitaskTurn({
+      chatId: SHELL_ID,
+      ownerId: "owner",
+      userText: "Can you also cover storage?",
+      modelId: "m",
+      zeroDataRetention: true,
+      deps: {
+        getLink: async () => ({ threadId: SHELL_ID, parentThreadId: "p", agentId: archer.id }),
+        isMultitaskEnabled: async () => true,
+        listChildren: async () => [],
+        ensureChild: async () => null,
+        loadMessages: async () => [],
+        appendMessages: async () => true,
+        setStatus: async () => {},
+        recordUsage: () => {},
+        enqueueWorker: async () => {},
+      },
+    });
+    const prompt = multitask?.systemFragments.join("\n") ?? "";
+
+    expect(multitask).toMatchObject({ role: "subagent", hardSetAgentId: archer.id });
+    expect(prompt).toContain(archer.instructions);
+    expect(prompt).toContain(LOCKED_PERSONA_CLAUSE);
+  });
+
+  test("a dispatched run uses the locked instructions and the subagent's tool policy", async () => {
+    const generate = mock<SubagentTurnGenerate>(async () => ({ text: "Draft architecture." }));
+
+    await runSubagentThreadTurn({
+      goal: { goalId: "g1", agentId: archer.id, goal: "Draft the job runner architecture.", assignedAt: 0, orchestratorId: "p" },
+      threadId: SHELL_ID,
+      modelId: "m",
+      ownerId: "owner",
+      zeroDataRetention: true,
+      lockedPersona: archer,
+      store: { loadMessages: async () => [], appendMessages: async () => true, setStatus: async () => {} },
+      generate,
+    });
+    const [[call]] = generate.mock.calls;
+
+    expect(call.system).toBe(buildLockedWorkerSystem(archer));
+    expect(call.system).toContain(LOCKED_PERSONA_CLAUSE);
+    expect(call.tools).toEqual(archer.tools);
+  });
+
+  test("its board card keeps its own blurb", () => {
+    const [card] = mergeSubagentBoard([], [
+      { agentId: archer.id, threadId: SHELL_ID, name: "Archer", role: "architect", status: "working", statusAt: null, goal: "Draft", outcome: null },
+    ]);
+
+    expect(card!.blurb).toBe(archer.blurb);
   });
 });

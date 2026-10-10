@@ -25,6 +25,7 @@ import {
   ORCHESTRATOR_MAX_DISPATCHES_PER_TURN,
 } from "@/lib/llm/subagents/orchestrator/constants";
 import { createWorkerGoal } from "@/lib/llm/subagents/orchestrator/delegate";
+import { listRosterHardSetSubagents } from "@/lib/llm/subagents/hard-set/registry";
 import { withReadSubagentThreadTool } from "@/lib/llm/subagents/orchestrator/read-subagent-thread-tool";
 import { buildSubagentGoalMessage, uiMessageText } from "@/lib/llm/subagents/threads/messages";
 import { resolveEffectiveSubagentStatus } from "@/lib/llm/subagents/threads/status";
@@ -223,8 +224,8 @@ function matchesAgent(agentId: string, wanted: string): boolean {
 }
 
 /**
- * Who a dispatch may target: an existing child of this orchestrator, a roster slot by id or
- * name, or a roster slot by role. Never a worker id the model made up.
+ * Who a dispatch may target: an existing child of this orchestrator, a roster slot or a locked
+ * hard-set subagent by id or name, or either by role. Never a worker id the model made up.
  */
 export function resolveDispatchTarget(
   agent: string,
@@ -239,9 +240,20 @@ export function resolveDispatchTarget(
   const slot = createDemoSubagents().find((s) => matchesAgent(s.id, wanted));
 
   if (slot) return slot.id;
+  const locked = listRosterHardSetSubagents();
+  const lockedByName = locked.find(
+    (a) => a.id.toLowerCase() === wanted || a.name.toLowerCase() === wanted
+  );
+
+  if (lockedByName) return lockedByName.id;
   const busy = new Set(children.filter((c) => c.status === "working").map((c) => c.agentId));
 
-  return pickRosterSlotForRole(wanted, { busyAgentIds: busy }) ?? pickRosterSlotForRole(wanted);
+  return (
+    pickRosterSlotForRole(wanted, { busyAgentIds: busy }) ??
+    pickRosterSlotForRole(wanted) ??
+    locked.find((a) => a.role.toLowerCase() === wanted)?.id ??
+    null
+  );
 }
 
 /**

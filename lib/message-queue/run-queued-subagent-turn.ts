@@ -9,6 +9,7 @@ import {
   setSubagentThreadStatus,
 } from "@/data/supabase/subagent-threads";
 import { resolveSubagentIdentity } from "@/lib/arcadia/multitask/subagent-identity";
+import { getHardSetSubagent } from "@/lib/llm/subagents/hard-set/registry";
 import { subagentGoalBrief } from "@/lib/llm/subagents/threads/messages";
 import { runSubagentThreadTurn } from "@/lib/llm/subagents/worker/run-in-thread";
 import { recordGatewayCallUsage } from "@/lib/usage/record-gateway-call";
@@ -34,6 +35,7 @@ export async function runQueuedSubagentTurn(item: MessageSendQueueRow, ownerId: 
     zeroDataRetention: item.payload.zeroDataRetention === true,
     workerName: identity.name,
     workerRole: identity.role,
+    lockedPersona: getHardSetSubagent(link.agentId) ?? undefined,
     store: {
       loadMessages: (id, limit) => readThreadMessagesWithAdmin({ threadId: id, ownerId, limit }),
       appendMessages: (id, messages) => appendThreadMessagesWithAdmin({ threadId: id, ownerId, messages }),

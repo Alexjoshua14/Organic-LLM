@@ -36,5 +36,7 @@ Your goal, the constraints that matter (scale, latency, cost, privacy), and anyt
 
 **What I don't do**
 Write full implementations — I hand back a draft someone can build from.`,
+  // Locked into the orchestrator's roster so architecture drafting can be dispatched to it.
+  roster: true,
   tools: { memory: true },
 });

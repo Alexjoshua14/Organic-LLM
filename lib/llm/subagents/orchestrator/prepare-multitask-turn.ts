@@ -33,8 +33,14 @@ import {
   formatSubagentStatusFragment,
   SUBAGENT_SNAPSHOT_MESSAGE_WINDOW,
 } from "@/lib/llm/subagents/threads/snapshot";
-import { getHardSetSubagent } from "@/lib/llm/subagents/hard-set/registry";
-import { formatHardSetShellFragment } from "@/lib/llm/subagents/hard-set/shell";
+import {
+  getHardSetSubagent,
+  listRosterHardSetSubagents,
+} from "@/lib/llm/subagents/hard-set/registry";
+import {
+  formatHardSetShellFragment,
+  formatLockedSubagentThreadFragment,
+} from "@/lib/llm/subagents/hard-set/shell";
 import { formatWorktableFragment } from "@/lib/llm/subagents/worktable/render";
 import { createWorktableSession } from "@/lib/llm/subagents/worktable/session";
 import { createLogger } from "@/lib/logger";
@@ -130,12 +136,18 @@ function rosterForRouter(snapshots: ReadonlyArray<SubagentThreadSnapshot>): Thou
     role: a.role,
     goal: byAgent.get(a.id)?.lastGoal ?? a.goal,
   }));
-  const slotIds = new Set(slots.map((s) => s.id));
+  const locked = listRosterHardSetSubagents().map((a) => ({
+    id: a.id,
+    name: a.name,
+    role: a.role,
+    goal: byAgent.get(a.id)?.lastGoal ?? a.blurb,
+  }));
+  const slotIds = new Set([...slots, ...locked].map((s) => s.id));
   const extras = snapshots
     .filter((s) => !slotIds.has(s.agentId))
     .map((s) => ({ id: s.agentId, name: s.name, role: s.role, goal: s.lastGoal ?? "" }));
 
-  return [...slots, ...extras];
+  return [...slots, ...locked, ...extras];
 }
 
 function groupGoalsByAgent(goals: ReadonlyArray<WorkerGoal>): Map<string, WorkerGoal[]> {
@@ -173,9 +185,16 @@ export async function prepareArcadiaMultitaskTurn(
     const link = await deps.getLink(chatId);
 
     if (link) {
+      const locked = getHardSetSubagent(link.agentId);
+
       return {
         role: "subagent",
-        systemFragments: [formatSubagentDirectChatFragment(link.agentId)],
+        systemFragments: [
+          locked
+            ? formatLockedSubagentThreadFragment(locked)
+            : formatSubagentDirectChatFragment(link.agentId),
+        ],
+        ...(locked ? { hardSetAgentId: locked.id } : {}),
         hasSubagentThreads: false,
         orchestratorDispatch: false,
         worktable: null,
