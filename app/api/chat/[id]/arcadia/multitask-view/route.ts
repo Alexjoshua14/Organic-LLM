@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 
 import { getSupabaseUserId } from "@/data/supabase/profiles";
+import { hasSubagentThreadRows } from "@/data/supabase/subagent-threads";
 import {
   getThreadArcadiaMultitaskView,
   getThreadOwnerContext,
@@ -22,7 +23,7 @@ const PatchBodySchema = z.object({
  * GET /api/chat/[id]/arcadia/multitask-view
  *
  * Per-thread multitask dashboard flag + active_stream_id for the toggle gate.
- * Payload is only the boolean and stream id — no message content.
+ * Includes worker presence so ordinary chat can avoid board/message polling.
  */
 export async function GET(_req: Request, { params }: { params: Promise<{ id: string }> }) {
   const clerkUser = await auth();
@@ -48,7 +49,10 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
-  const result = await getThreadArcadiaMultitaskView(chatId);
+  const [result, hasSubagentThreads] = await Promise.all([
+    getThreadArcadiaMultitaskView(chatId),
+    hasSubagentThreadRows(chatId, sbUserIdResult.data),
+  ]);
 
   if (result.error || !result.data) {
     logger.error("GET", result.error?.message ?? "read failed", { chatId });
@@ -56,11 +60,15 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
     return NextResponse.json({ error: "Failed to read multitask view" }, { status: 500 });
   }
 
-  return NextResponse.json({
-    threadId: chatId,
-    enabled: result.data.enabled,
-    activeStreamId: result.data.activeStreamId,
-  });
+  return NextResponse.json(
+    {
+      threadId: chatId,
+      enabled: result.data.enabled,
+      activeStreamId: result.data.activeStreamId,
+      hasSubagentThreads,
+    },
+    { headers: { "Cache-Control": "no-store" } }
+  );
 }
 
 /**

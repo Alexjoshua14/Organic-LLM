@@ -1,8 +1,12 @@
 import "server-only";
 
 import type { UIMessage } from "ai";
-import type { SubagentThreadRow, SubagentThreadSnapshot } from "@/lib/llm/subagents/threads/snapshot";
+import type {
+  SubagentThreadRow,
+  SubagentThreadSnapshot,
+} from "@/lib/llm/subagents/threads/snapshot";
 import type { SubagentThreadStatus } from "@/lib/llm/subagents/threads/status";
+import type { Message } from "@/lib/schemas/chat";
 
 import { randomUUID } from "crypto";
 
@@ -10,7 +14,6 @@ import { upsertMessagesWithAdmin } from "@/data/supabase/chat-admin";
 import { convertMessageToUIMessage } from "@/lib/chat/message-transform";
 import { decryptFromStorage, encryptForStorage } from "@/lib/crypto/message-encryption";
 import { createLogger } from "@/lib/logger";
-import type { Message } from "@/lib/schemas/chat";
 import { supabaseAdmin } from "@/lib/supabase/supabase-admin";
 import { THREAD_FLAGS } from "@/lib/thread-flags";
 
@@ -57,6 +60,27 @@ export type SubagentThreadLink = {
   parentThreadId: string;
   agentId: string;
 };
+
+/** Cheap worker-presence read; null keeps discovery enabled when the read is unavailable. */
+export async function hasSubagentThreadRows(
+  parentThreadId: string,
+  ownerId: string
+): Promise<boolean | null> {
+  const { data, error } = await supabaseAdmin
+    .from("threads")
+    .select("id")
+    .eq("parent_thread_id", parentThreadId)
+    .eq("owner_id", ownerId)
+    .limit(1);
+
+  if (error) {
+    logQueryError("hasSubagentThreadRows", error.message);
+
+    return null;
+  }
+
+  return (data?.length ?? 0) > 0;
+}
 
 /** Delegation requires the owned thread's persisted Multiagent flag; unavailable means off. */
 export async function isThreadArcadiaMultitaskEnabled(

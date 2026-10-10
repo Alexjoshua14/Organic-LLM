@@ -1,10 +1,10 @@
-import { getSubagentThreadLink } from "@/data/supabase/subagent-threads";
-
 import type { Metadata } from "next";
 
 import { UIMessage } from "ai";
 import { cache } from "react";
 
+import { getThreadArcadiaMultitaskView } from "@/data/supabase/chat";
+import { hasSubagentThreadRows } from "@/data/supabase/subagent-threads";
 import { ArcadiaMultitaskHost } from "@/app/sandbox/arcadia/_components/multitask-host";
 import Page from "@/components/layout/page";
 import { Chat } from "@/components/chat/chat";
@@ -69,9 +69,19 @@ export default async function ArcadiaChatPage({ params }: { params: Promise<{ sl
     return <div>Chat creation failed</div>;
   }
 
-  const link = chatData.thread.owner_id
-    ? await getSubagentThreadLink(id, chatData.thread.owner_id)
-    : null;
+  const parentId = chatData.thread.parent_thread_id;
+  const agentId = chatData.thread.subagent_agent_id;
+  const orchestratorThreadId = parentId && agentId ? parentId : id;
+  const [hasSubagents, parentView] = await Promise.all([
+    chatData.thread.owner_id
+      ? hasSubagentThreadRows(orchestratorThreadId, chatData.thread.owner_id)
+      : Promise.resolve(null),
+    orchestratorThreadId !== id
+      ? getThreadArcadiaMultitaskView(orchestratorThreadId)
+      : Promise.resolve(null),
+  ]);
+  const initialMultitaskView =
+    parentView?.data?.enabled ?? chatData.thread.arcadia_multitask_view === true;
 
   return (
     <>
@@ -80,7 +90,13 @@ export default async function ArcadiaChatPage({ params }: { params: Promise<{ sl
         phases={[...takeServerPhases(id), ...getPhaseCollector()]}
       />
       <Page>
-        <ArcadiaMultitaskHost threadId={id} orchestratorThreadId={link?.parentThreadId} viewingSubagentId={link?.agentId}>
+        <ArcadiaMultitaskHost
+          threadId={id}
+          orchestratorThreadId={orchestratorThreadId}
+          viewingSubagentId={parentId && agentId ? agentId : undefined}
+          initialMultitaskView={initialMultitaskView}
+          initialHasSubagentThreads={hasSubagents ?? undefined}
+        >
           <div className="w-full h-full">
             <Chat chatData={chatData} endpoint="/api/chat" experience="arcadia" />
           </div>

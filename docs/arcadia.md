@@ -26,7 +26,8 @@ Arcadia is a **sandbox chat experience** inside Organic LLM: a safe lab for expe
 
 ## Multitask shell
 
-Open any Arcadia thread (`/sandbox/arcadia` → redirect to `/sandbox/arcadia/<id>`). Use the
+The sidebar creates an Arcadia thread and opens `/sandbox/arcadia/<id>` directly.
+Direct visits to `/sandbox/arcadia` create a thread and redirect to its canonical URL. Use the
 **Multiagent** control (top-right) to enter the multitask dashboard for that thread.
 
 | Piece | Path |
@@ -45,9 +46,17 @@ do not paint over each other. Wide screens (`lg` / `MULTITASK_DASHBOARD_WIDE_MIN
 board + chat side by side.
 
 **Toggle gate.** Flips are refused while `threads.active_stream_id` is set for that thread.
-Local storage + BroadcastChannel sync same-browser tabs; a 2.5s poll syncs other devices
-while the thread page is open. Column: `threads.arcadia_multitask_view`
+Local storage + BroadcastChannel sync same-browser tabs. Visible pages check other devices
+every 2.5s while Multiagent is enabled or workers exist, and every 30s in ordinary chat.
+Focus or returning to a visible tab triggers a check immediately. Column: `threads.arcadia_multitask_view`
 (`docs/migrations/threads_arcadia_multitask_view.sql`).
+
+**Initial load.** The server seeds the view flag and owned worker presence. Ordinary chat
+starts no board, background-message, or heartbeat requests until workers are discovered or
+Multiagent is opened. Existing workers continue updating with the dashboard off. Failed
+presence reads preserve board discovery rather than treating unknown state as empty.
+Both view and board requests are aborted on cleanup; hidden tabs skip network polls.
+See [Chat and Arcadia initial load](./architecture/decisions/20261009-chat-arcadia-initial-load.md).
 
 **Delegation gate — Locked 2026-10-08.** New user requests delegate to subagents only while
 the thread's saved Multiagent flag is on. With it off, requests are answered in the current

@@ -115,8 +115,8 @@ interface getContextProps {
   contextEffort?: ContextEffortLevel;
 }
 
-export async function createChat(): Promise<Result<string>> {
-  const res = await createChatSupabase();
+export async function createChat(experience?: "arcadia"): Promise<Result<string>> {
+  const res = await createChatSupabase(undefined, experience);
 
   if (res.error) {
     logger.error("createChat", `Error creating chat: ${res.error.message}`);

@@ -69,6 +69,8 @@ export function installTestJsdom(): void {
   setGlobalProperty("sessionStorage", dom.window.sessionStorage);
   setGlobalProperty("navigator", dom.window.navigator);
   setGlobalProperty("HTMLElement", dom.window.HTMLElement);
+  setGlobalProperty("HTMLInputElement", dom.window.HTMLInputElement);
+  setGlobalProperty("HTMLTextAreaElement", dom.window.HTMLTextAreaElement);
   setGlobalProperty("Element", dom.window.Element);
   setGlobalProperty("SVGElement", dom.window.SVGElement);
   setGlobalProperty("Node", dom.window.Node);

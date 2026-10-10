@@ -43,6 +43,7 @@ import {
   canToggleArcadiaMultitaskView,
   DEFAULT_MULTITASK_SEND_TARGET,
   MULTITASK_VIEW_POLL_MS,
+  MULTITASK_VIEW_POLL_IDLE_MS,
   resolveArcadiaMultitaskLayoutMode,
 } from "@/lib/arcadia/multitask/layout-mode";
 import { planSpeakHandoff, resolveLiveSpeakAgentId } from "@/lib/arcadia/multitask/speak-session";
@@ -64,6 +65,7 @@ type ArcadiaMultitaskValue = {
   /** Set when the open thread is a subagent's own thread. */
   viewingSubagentId: string | null;
   agents: ArcadiaSubagent[];
+  hasSubagentThreads: boolean;
   selectedId: string | null;
   selected: ArcadiaSubagent | null;
   speakBinding: ArcadiaMultitaskSpeakBinding | null;
@@ -107,6 +109,8 @@ type ProviderProps = {
   viewingSubagentId?: string | null;
   /** Server-hydrated flag when available; default off. */
   initialMultitaskView?: boolean;
+  /** Owned-thread metadata; undefined preserves discovery if the server read failed. */
+  initialHasSubagentThreads?: boolean;
   children: ReactNode;
 };
 
@@ -118,6 +122,7 @@ export function ArcadiaMultitaskProvider({
   orchestratorThreadId: orchestratorThreadIdProp,
   viewingSubagentId = null,
   initialMultitaskView = false,
+  initialHasSubagentThreads,
   children,
 }: ProviderProps) {
   // The board, view flag, and heartbeat all belong to the orchestrator, so a subagent thread
@@ -138,6 +143,10 @@ export function ArcadiaMultitaskProvider({
   const closingTimerRef = useRef<number | null>(null);
   const speakInFlightRef = useRef(false);
   const [multitaskViewEnabled, setMultitaskViewEnabled] = useState(initialMultitaskView);
+  const [workerPresence, setWorkerPresence] = useState<boolean | null>(
+    initialHasSubagentThreads ?? null
+  );
+  const [boardRequested, setBoardRequested] = useState(false);
   const [toggleBlockedReason, setToggleBlockedReason] = useState<string | null>(null);
   const speakBindingRef = useRef(speakBinding);
   const voiceRef = useRef(voice);
@@ -145,11 +154,17 @@ export function ArcadiaMultitaskProvider({
   const enabledRef = useRef(multitaskViewEnabled);
   const viewRevisionRef = useRef(0);
   const viewTogglePendingRef = useRef(false);
+  const viewHydratedRef = useRef(initialHasSubagentThreads !== undefined);
+  const hasSubagentThreads = workerPresence === true || agents.some((a) => Boolean(a.threadId));
+  const boardPollingEnabled =
+    multitaskViewEnabled || hasSubagentThreads || workerPresence === null || boardRequested;
+  const boardPollingEnabledRef = useRef(boardPollingEnabled);
 
   speakBindingRef.current = speakBinding;
   voiceRef.current = voice;
   agentsRef.current = agents;
   enabledRef.current = multitaskViewEnabled;
+  boardPollingEnabledRef.current = boardPollingEnabled;
 
   const selected = useMemo(
     () => agents.find((a) => a.id === selectedId) ?? null,
@@ -169,6 +184,7 @@ export function ArcadiaMultitaskProvider({
 
   // The first client render must match the server; restore the local view after hydration.
   useEffect(() => {
+    if (initialHasSubagentThreads !== undefined) return;
     try {
       const cached = parseMultitaskViewStored(
         window.localStorage.getItem(multitaskViewStorageKey(orchestratorThreadId))
@@ -178,7 +194,7 @@ export function ArcadiaMultitaskProvider({
     } catch {
       /* private mode — use the server value */
     }
-  }, [orchestratorThreadId, applyEnabled]);
+  }, [orchestratorThreadId, applyEnabled, initialHasSubagentThreads]);
 
   // Same-browser tabs: storage + BroadcastChannel.
   useEffect(() => {
@@ -214,28 +230,57 @@ export function ArcadiaMultitaskProvider({
     };
   }, [orchestratorThreadId, applyEnabled]);
 
-  // Cross-device / hydrate: short poll while this thread page is open.
+  // Server-seeded threads need no mount request. Keep cross-device discovery lightweight.
   useEffect(() => {
     let cancelled = false;
     let inFlight = false;
+    let controller: AbortController | null = null;
+    let timer: number | null = null;
+
+    const schedule = () => {
+      if (cancelled) return;
+      if (timer != null) window.clearTimeout(timer);
+      timer = window.setTimeout(
+        () => void pull(),
+        multitaskViewEnabled || hasSubagentThreads
+          ? MULTITASK_VIEW_POLL_MS
+          : MULTITASK_VIEW_POLL_IDLE_MS
+      );
+    };
 
     const pull = async () => {
-      if (inFlight || viewTogglePendingRef.current) return;
+      if (cancelled || inFlight) return;
+      if (viewTogglePendingRef.current || document.visibilityState !== "visible") {
+        schedule();
+
+        return;
+      }
+      if (timer != null) window.clearTimeout(timer);
       inFlight = true;
+      controller = new AbortController();
       const revision = viewRevisionRef.current;
 
       try {
         const res = await fetch(`/api/chat/${orchestratorThreadId}/arcadia/multitask-view`, {
           credentials: "include",
           cache: "no-store",
+          signal: controller.signal,
         });
 
         if (!res.ok || cancelled) return;
 
-        const data = (await res.json()) as { enabled?: boolean };
+        const data = (await res.json()) as {
+          enabled?: boolean;
+          hasSubagentThreads?: boolean | null;
+        };
 
         // A toggle or another tab changed the view while this older read was in flight.
-        if (cancelled || viewTogglePendingRef.current || revision !== viewRevisionRef.current) return;
+        if (cancelled || viewTogglePendingRef.current || revision !== viewRevisionRef.current)
+          return;
+        viewHydratedRef.current = true;
+        if (typeof data.hasSubagentThreads === "boolean") {
+          setWorkerPresence(data.hasSubagentThreads);
+        }
 
         if (typeof data.enabled === "boolean" && data.enabled !== enabledRef.current) {
           writeMultitaskViewLocal(orchestratorThreadId, data.enabled);
@@ -245,17 +290,28 @@ export function ArcadiaMultitaskProvider({
         /* offline — keep local */
       } finally {
         inFlight = false;
+        controller = null;
+        schedule();
       }
     };
 
-    void pull();
-    const id = window.setInterval(() => void pull(), MULTITASK_VIEW_POLL_MS);
+    const onVisible = () => {
+      if (document.visibilityState === "visible") void pull();
+    };
+
+    if (viewHydratedRef.current) schedule();
+    else void pull();
+    document.addEventListener("visibilitychange", onVisible);
+    window.addEventListener("focus", onVisible);
 
     return () => {
       cancelled = true;
-      window.clearInterval(id);
+      controller?.abort();
+      if (timer != null) window.clearTimeout(timer);
+      document.removeEventListener("visibilitychange", onVisible);
+      window.removeEventListener("focus", onVisible);
     };
-  }, [orchestratorThreadId, applyEnabled]);
+  }, [orchestratorThreadId, applyEnabled, multitaskViewEnabled, hasSubagentThreads]);
 
   const liveSpeakAgentId = useMemo(
     () => resolveLiveSpeakAgentId({ speakBindingAgentId: speakBinding?.agentId }),
@@ -350,20 +406,31 @@ export function ArcadiaMultitaskProvider({
     [pushSpeakUpdate]
   );
 
-  const applyInboundDispatch = useCallback((dispatch: MultitaskInboundDispatch) => {
-    const goals = dispatch.assignedGoals ?? [];
-    if (goals.length === 0) return;
-    setAgents((prev) => applyAssignedGoalsToRoster(prev, goals));
-    // Goal rows are written before the orchestrator streams, so the board can pick them up now.
-    boardRefreshRef.current();
+  const refreshBoard = useCallback(() => {
+    if (boardPollingEnabledRef.current) boardRefreshRef.current();
+    else setBoardRequested(true);
   }, []);
+
+  const applyInboundDispatch = useCallback(
+    (dispatch: MultitaskInboundDispatch) => {
+      const goals = dispatch.assignedGoals ?? [];
+
+      if (goals.length === 0) return;
+      setAgents((prev) => applyAssignedGoalsToRoster(prev, goals));
+      // Goal rows are written before the orchestrator streams, so the board can pick them up now.
+      refreshBoard();
+    },
+    [refreshBoard]
+  );
 
   // Subagents run after the orchestrator's stream closes; their state reaches the board here.
   useEffect(() => {
+    if (!boardPollingEnabled) return;
     let cancelled = false;
     let inFlight = false;
     let refreshPending = false;
     let timer: number | null = null;
+    let controller: AbortController | null = null;
 
     const schedule = () => {
       if (cancelled) return;
@@ -394,17 +461,21 @@ export function ArcadiaMultitaskProvider({
         timer = null;
       }
       inFlight = true;
+      controller = new AbortController();
 
       try {
         const res = await fetch(`/api/chat/${orchestratorThreadId}/arcadia/subagents`, {
           credentials: "include",
           cache: "no-store",
+          signal: controller.signal,
         });
 
         if (res.ok && !cancelled) {
           const payload = (await res.json()) as SubagentBoardPayload;
 
           if (cancelled) return;
+          setWorkerPresence((payload.subagents?.length ?? 0) > 0);
+          setBoardRequested(false);
 
           const prev = agentsRef.current;
           const next = mergeSubagentBoard(prev, payload.subagents ?? []);
@@ -418,7 +489,10 @@ export function ArcadiaMultitaskProvider({
             const agent = next.find((a) => a.id === update.agentId);
 
             if (agent) {
-              void pushSpeakUpdate(agent, { progress: update.progress, milestone: update.milestone });
+              void pushSpeakUpdate(agent, {
+                progress: update.progress,
+                milestone: update.milestone,
+              });
             }
           }
         }
@@ -426,6 +500,7 @@ export function ArcadiaMultitaskProvider({
         /* offline — keep the last board */
       } finally {
         inFlight = false;
+        controller = null;
         if (!cancelled) {
           if (refreshPending) {
             refreshPending = false;
@@ -442,12 +517,11 @@ export function ArcadiaMultitaskProvider({
 
     return () => {
       cancelled = true;
+      controller?.abort();
       if (timer != null) window.clearTimeout(timer);
       boardRefreshRef.current = () => undefined;
     };
-  }, [orchestratorThreadId, pushSpeakUpdate]);
-
-  const refreshBoard = useCallback(() => boardRefreshRef.current(), []);
+  }, [orchestratorThreadId, pushSpeakUpdate, boardPollingEnabled]);
 
   const subscribeHeartbeatNotices = useCallback((listener: HeartbeatNoticeListener) => {
     const listeners = heartbeatListenersRef.current;
@@ -459,8 +533,6 @@ export function ArcadiaMultitaskProvider({
     };
   }, []);
 
-  const hasSubagentThreads = agents.some((a) => Boolean(a.threadId));
-
   // Jev heartbeat on the user's Background activity cadence while this thread family is in view.
   useBackgroundProbe({
     key: `subagent-heartbeat:${orchestratorThreadId}`,
@@ -470,7 +542,9 @@ export function ArcadiaMultitaskProvider({
         method: "POST",
         credentials: "include",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ preferences: { zeroDataRetention: getSettings().zeroDataRetention, memory: true } }),
+        body: JSON.stringify({
+          preferences: { zeroDataRetention: getSettings().zeroDataRetention, memory: true },
+        }),
       });
 
       if (!res.ok) return;
@@ -614,6 +688,7 @@ export function ArcadiaMultitaskProvider({
       orchestratorThreadId,
       viewingSubagentId,
       agents,
+      hasSubagentThreads,
       selectedId,
       selected,
       speakBinding,
@@ -642,6 +717,7 @@ export function ArcadiaMultitaskProvider({
       orchestratorThreadId,
       viewingSubagentId,
       agents,
+      hasSubagentThreads,
       selectedId,
       selected,
       speakBinding,

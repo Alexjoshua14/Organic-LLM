@@ -7,7 +7,12 @@ import {
   ArcadiaMultitaskProvider,
   useArcadiaMultitask,
 } from "@/app/sandbox/arcadia/_components/multitask-provider";
-import { MULTITASK_VIEW_POLL_MS } from "@/lib/arcadia/multitask/layout-mode";
+import { StrictMode } from "react";
+import { useBackgroundThreadMessages } from "@/hooks/use-background-thread-messages";
+import {
+  MULTITASK_VIEW_POLL_IDLE_MS,
+  MULTITASK_VIEW_POLL_MS,
+} from "@/lib/arcadia/multitask/layout-mode";
 import {
   multitaskViewStorageKey,
   writeMultitaskViewLocal,
@@ -16,14 +21,24 @@ import {
 const THREAD_ID = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
 
 function View() {
-  const { layoutMode, toggleMultitaskView } = useArcadiaMultitask();
+  const { layoutMode, toggleMultitaskView, hasSubagentThreads } = useArcadiaMultitask();
+
+  useBackgroundThreadMessages({
+    threadId: THREAD_ID,
+    enabled: hasSubagentThreads,
+    status: "ready",
+    setMessages: () => {},
+  });
 
   return <button onClick={() => void toggleMultitaskView()}>{layoutMode}</button>;
 }
 
-function App() {
+function App({ initialHasSubagentThreads }: { initialHasSubagentThreads?: boolean } = {}) {
   return (
-    <ArcadiaMultitaskProvider threadId={THREAD_ID}>
+    <ArcadiaMultitaskProvider
+      threadId={THREAD_ID}
+      initialHasSubagentThreads={initialHasSubagentThreads}
+    >
       <View />
     </ArcadiaMultitaskProvider>
   );
@@ -43,23 +58,23 @@ function viewResponse(enabled: boolean) {
 }
 
 let fetchSpy: ReturnType<typeof spyOn<typeof globalThis, "fetch">>;
-let intervalSpy: ReturnType<typeof spyOn<typeof window, "setInterval">>;
-let poll: () => void;
+const originalVisibility = Object.getOwnPropertyDescriptor(document, "visibilityState");
+
+function poll() {
+  window.dispatchEvent(new Event("focus"));
+}
 
 beforeEach(() => {
   window.localStorage.removeItem(multitaskViewStorageKey(THREAD_ID));
-  intervalSpy = spyOn(window, "setInterval").mockImplementation((handler, ms) => {
-    if (ms === MULTITASK_VIEW_POLL_MS) poll = handler as () => void;
-
-    return 1;
-  });
+  Object.defineProperty(document, "visibilityState", { configurable: true, value: "visible" });
   fetchSpy = spyOn(globalThis, "fetch").mockImplementation(async () => viewResponse(false));
 });
 
 afterEach(() => {
   cleanup();
   fetchSpy.mockRestore();
-  intervalSpy.mockRestore();
+  if (originalVisibility) Object.defineProperty(document, "visibilityState", originalVisibility);
+  else Reflect.deleteProperty(document, "visibilityState");
   window.localStorage.removeItem(multitaskViewStorageKey(THREAD_ID));
 });
 
@@ -92,9 +107,8 @@ describe("Arcadia multitask view", () => {
     expect(app.getByRole("button").textContent).toBe("dashboard");
   });
 
-  test("a poll during a pending toggle cannot restore the old view after the save finishes", async () => {
+  test("a pending toggle suppresses background reads until the save finishes", async () => {
     const patch = deferredResponse();
-    const oldPoll = deferredResponse();
     let reads = 0;
 
     fetchSpy.mockImplementation(async (url, options) => {
@@ -102,7 +116,7 @@ describe("Arcadia multitask view", () => {
       if (options?.method === "PATCH") return patch.promise;
       reads += 1;
 
-      return reads <= 2 ? viewResponse(false) : oldPoll.promise;
+      return viewResponse(false);
     });
 
     const app = render(<App />);
@@ -110,12 +124,12 @@ describe("Arcadia multitask view", () => {
     await act(async () => {});
     fireEvent.click(app.getByRole("button", { name: "overlay" }));
     await waitFor(() => expect(app.getByRole("button").textContent).toBe("dashboard"));
+    const readsBeforePoll = reads;
+
     act(() => poll());
+    expect(reads).toBe(readsBeforePoll);
     await act(async () => {
       patch.resolve(viewResponse(true));
-    });
-    await act(async () => {
-      oldPoll.resolve(viewResponse(false));
     });
     expect(app.getByRole("button").textContent).toBe("dashboard");
   });
@@ -168,6 +182,118 @@ describe("Arcadia multitask view", () => {
     } finally {
       act(() => root.unmount());
       container.remove();
+    }
+  });
+
+  test("a server-seeded ordinary chat makes no Multiagent mount requests in Strict Mode", async () => {
+    await act(async () => {
+      render(
+        <StrictMode>
+          <App initialHasSubagentThreads={false} />
+        </StrictMode>
+      );
+    });
+
+    expect(fetchSpy).not.toHaveBeenCalled();
+  });
+
+  test("persisted workers keep board and message reads enabled with the dashboard off", async () => {
+    fetchSpy.mockImplementation(async (url) => {
+      if (String(url).endsWith("/subagents")) {
+        return Response.json({
+          subagents: [
+            {
+              agentId: "agent-researcher",
+              threadId: "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
+              status: "working",
+            },
+          ],
+        });
+      }
+
+      return Response.json({ messages: [] });
+    });
+    const app = render(<App initialHasSubagentThreads />);
+
+    await act(async () => {});
+    const urls = fetchSpy.mock.calls.map(([url]) => String(url));
+
+    expect(urls.filter((url) => url.endsWith("/subagents"))).toHaveLength(1);
+    expect(urls.filter((url) => url.endsWith("/messages"))).toHaveLength(1);
+    expect(urls.filter((url) => url.endsWith("/multitask-view"))).toHaveLength(0);
+    expect(app.getByRole("button").textContent).toBe("overlay");
+  });
+
+  test("cross-device worker discovery starts the board and message reads", async () => {
+    fetchSpy.mockImplementation(async (url) => {
+      if (String(url).endsWith("/multitask-view")) {
+        return Response.json({ enabled: false, hasSubagentThreads: true });
+      }
+      if (String(url).endsWith("/subagents")) {
+        return Response.json({
+          subagents: [
+            {
+              agentId: "agent-researcher",
+              threadId: "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
+              status: "working",
+            },
+          ],
+        });
+      }
+
+      return Response.json({ messages: [] });
+    });
+    render(<App initialHasSubagentThreads={false} />);
+
+    expect(fetchSpy).not.toHaveBeenCalled();
+    await act(async () => poll());
+    const urls = fetchSpy.mock.calls.map(([url]) => String(url));
+
+    expect(urls.filter((url) => url.endsWith("/subagents"))).toHaveLength(1);
+    expect(urls.filter((url) => url.endsWith("/messages"))).toHaveLength(1);
+  });
+
+  test("unmount aborts pending reads and late responses cannot start more work", async () => {
+    const pending = deferredResponse();
+    const signals: AbortSignal[] = [];
+
+    fetchSpy.mockImplementation(async (_url, options) => {
+      signals.push(options?.signal as AbortSignal);
+
+      return pending.promise;
+    });
+    const app = render(<App />);
+    const reads = fetchSpy.mock.calls.length;
+
+    app.unmount();
+    expect(signals.length).toBeGreaterThan(0);
+    expect(signals.every((signal) => signal.aborted)).toBe(true);
+    await act(async () => {
+      pending.resolve(Response.json({ enabled: true, subagents: [] }));
+      poll();
+    });
+    expect(fetchSpy.mock.calls.length).toBe(reads);
+  });
+
+  test("idle discovery is slower, active discovery is fast, and hidden tabs skip reads", async () => {
+    const timers = spyOn(window, "setTimeout");
+
+    try {
+      fetchSpy.mockImplementation(async (url) =>
+        String(url).endsWith("/multitask-view")
+          ? Response.json({ enabled: true, hasSubagentThreads: false })
+          : Response.json({ subagents: [] })
+      );
+      render(<App initialHasSubagentThreads={false} />);
+      expect(timers.mock.calls.some(([, ms]) => ms === MULTITASK_VIEW_POLL_IDLE_MS)).toBe(true);
+      Object.defineProperty(document, "visibilityState", { configurable: true, value: "hidden" });
+      await act(async () => poll());
+      expect(fetchSpy).not.toHaveBeenCalled();
+      Object.defineProperty(document, "visibilityState", { configurable: true, value: "visible" });
+      await act(async () => document.dispatchEvent(new Event("visibilitychange")));
+      expect(timers.mock.calls.some(([, ms]) => ms === MULTITASK_VIEW_POLL_MS)).toBe(true);
+    } finally {
+      timers.mockRestore();
     }
   });
 });

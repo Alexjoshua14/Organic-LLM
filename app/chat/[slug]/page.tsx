@@ -11,7 +11,6 @@ import { PerfServerPhases } from "@/components/perf/perf-server-phases";
 import { loadChat } from "@/lib/chat/chat-store";
 import { PERF_PHASES } from "@/lib/perf/journeys";
 import { createRequestPhaseCollector, timeServerPhase } from "@/lib/perf/server-phase";
-import { getNMessages } from "@/data/supabase/chat";
 import { resolveChatBrowserTabTitlePrimary } from "@/lib/metadata/resolve-browser-tab-title";
 import { tabTitleMetadata } from "@/lib/metadata/tab-title";
 import { Thread } from "@/lib/schemas/chat";
@@ -67,8 +66,6 @@ export default async function ChatPage({
     }
 
     chatData = chatDataRes.data;
-
-    getNMessages(chatId, 5);
   } catch (err) {
     logger.error("ChatPage", `Error while loading chat: ${err}`);
 

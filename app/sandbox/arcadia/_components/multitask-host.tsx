@@ -26,6 +26,7 @@ function ArcadiaMultitaskLayout({ children }: { children: ReactNode }) {
 type ArcadiaMultitaskHostProps = {
   threadId: string;
   initialMultitaskView?: boolean;
+  initialHasSubagentThreads?: boolean;
   orchestratorThreadId?: string;
   viewingSubagentId?: string;
   children: ReactNode;
@@ -35,12 +36,20 @@ type ArcadiaMultitaskHostProps = {
 export function ArcadiaMultitaskHost({
   threadId,
   initialMultitaskView = false,
+  initialHasSubagentThreads,
   orchestratorThreadId,
   viewingSubagentId,
   children,
 }: ArcadiaMultitaskHostProps) {
   return (
-    <ArcadiaMultitaskProvider key={threadId} initialMultitaskView={initialMultitaskView} threadId={threadId} orchestratorThreadId={orchestratorThreadId} viewingSubagentId={viewingSubagentId}>
+    <ArcadiaMultitaskProvider
+      key={threadId}
+      initialMultitaskView={initialMultitaskView}
+      initialHasSubagentThreads={initialHasSubagentThreads}
+      threadId={threadId}
+      orchestratorThreadId={orchestratorThreadId}
+      viewingSubagentId={viewingSubagentId}
+    >
       <ArcadiaMultitaskLayout>{children}</ArcadiaMultitaskLayout>
     </ArcadiaMultitaskProvider>
   );

@@ -44,6 +44,8 @@ export const MULTITASK_DESKTOP_AGENT_COL_MAX_PX = 300;
 
 /** Cross-device poll while an Arcadia thread page is open (ms). */
 export const MULTITASK_VIEW_POLL_MS = 2_500;
+/** Ordinary chat checks for cross-device changes without polling the worker APIs. */
+export const MULTITASK_VIEW_POLL_IDLE_MS = 30_000;
 
 /**
  * True when, at a given viewport width, the confined chat column is wider than the agent column.

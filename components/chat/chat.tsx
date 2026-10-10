@@ -196,7 +196,7 @@ export const Chat: React.FC<ChatProps> = ({
               ? "/api/ai/remy"
               : persona === "strata"
                 ? "/api/chat"
-                : (endpoint ?? `/api/chat/${persona ?? ""}`),
+                : (endpoint ?? (persona ? `/api/chat/${persona}` : "/api/chat")),
         prepareSendMessagesRequest({ messages, id }) {
           const lastMessage = messages[messages.length - 1];
           const message = isClientPIIRedactionEnabled()
@@ -399,7 +399,12 @@ export const Chat: React.FC<ChatProps> = ({
       },
     });
 
-  useBackgroundThreadMessages({ threadId: id, enabled: experience === "arcadia", status, setMessages });
+  useBackgroundThreadMessages({
+    threadId: id,
+    enabled: experience === "arcadia" && (arcadiaMultitask?.hasSubagentThreads ?? false),
+    status,
+    setMessages,
+  });
 
   // Ambient awareness: while this thread is on screen, a live voice session is told its title,
   // latest messages and rolling summary — re-pushed after each finished exchange.

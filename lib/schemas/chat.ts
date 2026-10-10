@@ -2,10 +2,9 @@ import type { GatewayModelId } from "@ai-sdk/gateway";
 import type { DeviceTier } from "@/lib/memory-ingest/delphi-caption-budget";
 import type { ChatModel } from "@/lib/schemas/chat-models";
 
-import { ArcadiaMultitaskSendTargetSchema } from "@/lib/schemas/arcadia-multitask-send-target";
-
 import z from "zod";
 
+import { ArcadiaMultitaskSendTargetSchema } from "@/lib/schemas/arcadia-multitask-send-target";
 import { CHAT_EXPERIENCES, parseChatExperience } from "@/lib/chat/chat-experience";
 import { parseChatStyle, ChatStyleSchema } from "@/lib/chat/chat-style";
 import { ChatEffortLevelSchema } from "@/lib/schemas/chat-effort";
@@ -83,6 +82,9 @@ export const ThreadSchema = ThreadCreate.partial({ owner_id: true }).extend({
   active_stream_id: z.string().nullable().optional(),
   active_stream_started_at: z.string().nullable().optional(),
   arcadia_starter_key: z.string().nullable().optional(),
+  arcadia_multitask_view: z.boolean().nullable().optional(),
+  parent_thread_id: z.uuid().nullable().optional(),
+  subagent_agent_id: z.string().nullable().optional(),
 });
 
 export const ThreadUpdate = z.object({
