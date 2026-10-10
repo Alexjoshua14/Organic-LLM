@@ -171,6 +171,7 @@ export async function runQueuedChatTurn(args: {
         totalThreadMessages,
         scheduleBackgroundCondensation,
         memoriesInjected,
+        memoryContext,
       } = await loadTurnContext();
 
       if (experience === "arcadia" && scheduleBackgroundCondensation) {
@@ -266,7 +267,7 @@ export async function runQueuedChatTurn(args: {
         return;
       }
 
-      await buildBudgetFromAssembledTurn({
+      const contextBudget = await buildBudgetFromAssembledTurn({
         modelId: requestedModelId,
         resolvedModelId: selectedModel.id,
         draftMessage: userMessage,
@@ -281,8 +282,11 @@ export async function runQueuedChatTurn(args: {
         contextMessageLimit:
           experience === "arcadia" ? undefined : getContextMessageLimit(experience),
         memoriesInjected,
+        memoryContext,
         recordLastTurn: true,
       });
+
+      writer.write({ type: "data-context-budget", id: "context-budget", data: contextBudget });
 
       writer.write({
         type: "data-aiAction",
@@ -292,6 +296,7 @@ export async function runQueuedChatTurn(args: {
 
       await runLLMChatStream({
         writer,
+        contextBudget,
         logger,
         chatId,
         sbUserId,

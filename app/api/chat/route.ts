@@ -258,6 +258,7 @@ export async function POST(req: Request) {
         totalThreadMessages,
         scheduleBackgroundCondensation,
         memoriesInjected,
+        memoryContext,
       } = await loadTurnContext();
 
       if (experience === "arcadia" && scheduleBackgroundCondensation) {
@@ -504,16 +505,19 @@ export async function POST(req: Request) {
         contextMessageLimit:
           experience === "arcadia" ? undefined : getContextMessageLimit(experience),
         memoriesInjected,
+        memoryContext,
         recordLastTurn: true,
       });
 
       writer.write({
         type: "data-context-budget",
+        id: "context-budget",
         data: contextBudget,
       });
 
       await runLLMChatStream({
         writer,
+        contextBudget,
         logger,
         chatId: id,
         sbUserId,

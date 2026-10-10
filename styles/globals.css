@@ -114,6 +114,7 @@
   --background: oklch(1 0 0);
 
   --foreground: oklch(0.22 0.012 70); /* #2D2B26 - warm brown-gray */
+  --context-usage-amber: #916020;
 
   --card: oklch(1 0 0); /* Use with /80% opacity + backdrop-blur in components */
 
@@ -199,6 +200,7 @@
 }
 
 .dark {
+  --context-usage-amber: #bb8334;
   --background: oklch(0.141 0.005 285.823); /* #141516 */
 
   --foreground: oklch(0.96 0.003 145); /* #F3F4F3 - slight green tint */
