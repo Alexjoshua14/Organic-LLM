@@ -319,7 +319,7 @@ export async function prepareArcadiaMultitaskTurn(
         // auto-delete) and the board shows `working` the moment the stream ends.
         const saved = await deps.appendMessages(
           threadId,
-          goals.map((g) => buildSubagentGoalMessage({ goal: g.goal, goalId: g.goalId, id: g.goalId }))
+          goals.map((g) => buildSubagentGoalMessage({ goal: g.goal, goalId: g.goalId, id: g.goalId, modelId: input.modelId }))
         );
         if (!saved) throw new Error("Could not persist subagent assignment");
         await deps.setStatus(threadId, "working");

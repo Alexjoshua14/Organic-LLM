@@ -13,6 +13,8 @@ export const SUBAGENT_REPLY_MESSAGE_SOURCE = "subagent-worker";
 export type SubagentGoalMessageMetadata = {
   source: typeof SUBAGENT_GOAL_MESSAGE_SOURCE;
   goalId: string;
+  /** Server-selected model queued for this assignment. Older assignments may omit it. */
+  modelId?: string;
   /**
    * The orchestrator's brief when context was sent with it (COA-258). The text holds brief plus
    * context; cards, snapshots and the worker's reminder use the brief alone.
@@ -58,6 +60,7 @@ export function buildSubagentGoalMessage(args: {
   goal: string;
   goalId: string;
   id?: string;
+  modelId?: string;
   /** Rendered context sent below the brief. */
   context?: string;
   bundles?: Array<{ id: string; name: string }>;
@@ -71,6 +74,7 @@ export function buildSubagentGoalMessage(args: {
     metadata: {
       source: SUBAGENT_GOAL_MESSAGE_SOURCE,
       goalId: args.goalId,
+      ...(args.modelId ? { modelId: args.modelId } : {}),
       ...(context ? { brief } : {}),
       ...(args.bundles?.length ? { bundles: args.bundles } : {}),
     },

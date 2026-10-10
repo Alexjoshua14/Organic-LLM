@@ -173,11 +173,13 @@ describe("dispatch_subagent", () => {
     expect(text).toContain("[Memory]\nThe user prefers small PRs.");
     expect(subagentGoalBrief(assignment)).toBe("Implement a streaming CSV exporter for the reports page.");
     expect(assignment.id).toBe(result.goalId as string);
+    expect(assignment.metadata).toMatchObject({ modelId: "test-model" });
 
     const [[queued]] = deps.enqueueWorker.mock.calls;
 
     expect(queued.goal.goal).toBe("Implement a streaming CSV exporter for the reports page.");
     expect(queued.threadId).toBe(CODER_THREAD);
+    expect(queued.modelId).toBe("test-model");
     expect(writer.write).toHaveBeenCalledTimes(1);
   });
 

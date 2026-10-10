@@ -12,6 +12,7 @@ import { SubagentSpeakGlassBar } from "./subagent-speak-glass-bar";
 
 import { glass } from "@/components/design-system/primitives";
 import { cn } from "@/lib/utils";
+import { getModelDisplayName } from "@/lib/chat/message-model";
 
 const STATUS_LABEL: Record<ArcadiaSubagent["status"], string> = {
   idle: "Idle",
@@ -51,6 +52,7 @@ export function SubagentCard({
   speakDisabled,
 }: SubagentCardProps) {
   const speaking = speakPhase === "live" || speakPhase === "connecting";
+  const modelName = getModelDisplayName(agent.modelId);
 
   return (
     <article
@@ -90,6 +92,13 @@ export function SubagentCard({
                 </div>
                 <p className="mt-0.5 text-[11px] uppercase tracking-wide text-muted-foreground">
                   {agent.role} · voice {agent.voiceId}
+                </p>
+                <p
+                  className="mt-1 truncate text-[11px] leading-snug text-muted-foreground/70"
+                  title={agent.modelId ?? undefined}
+                >
+                  <span className="text-muted-foreground/50">LLM · </span>
+                  {modelName ?? (agent.threadId ? "Not recorded" : "Not assigned")}
                 </p>
               </div>
               <span

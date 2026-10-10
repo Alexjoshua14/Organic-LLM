@@ -13,6 +13,7 @@ import {
   MULTITASK_CONDENSED_CARD_WIDTH_PX,
 } from "@/lib/arcadia/multitask/layout-mode";
 import { cn } from "@/lib/utils";
+import { getModelDisplayName } from "@/lib/chat/message-model";
 
 const STATUS_DOT: Record<ArcadiaSubagent["status"], string> = {
   idle: "bg-muted-foreground/40",
@@ -53,6 +54,7 @@ function SubagentCompactCard({
   onEndSpeak,
 }: CompactCardProps) {
   const speaking = speakPhase === "live" || speakPhase === "connecting";
+  const modelName = getModelDisplayName(agent.modelId);
   const body = (
     <>
       <div className="flex items-center gap-2 pr-7">
@@ -79,6 +81,13 @@ function SubagentCompactCard({
           </p>
         </div>
       </div>
+      <p
+        className="mt-1 truncate text-[10px] leading-snug text-muted-foreground/70"
+        title={agent.modelId ?? undefined}
+      >
+        <span className="text-muted-foreground/50">LLM · </span>
+        {modelName ?? (agent.threadId ? "Not recorded" : "Not assigned")}
+      </p>
       <p className="mt-1.5 line-clamp-1 text-[11px] leading-snug text-muted-foreground">
         {agent.status === "idle" ? agent.blurb : agent.progress || agent.goal}
       </p>

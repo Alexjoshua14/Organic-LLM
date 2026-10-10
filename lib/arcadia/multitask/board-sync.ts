@@ -13,6 +13,7 @@ export type SubagentBoardEntry = {
   statusAt: string | null;
   goal: string | null;
   outcome: string | null;
+  modelId?: string | null;
 };
 
 export type SubagentBoardPayload = {
@@ -71,11 +72,13 @@ function mergeEntry(agent: ArcadiaSubagent, entry: SubagentBoardEntry, now: numb
         : agent.progressPct;
 
   const goal = entry.goal ?? agent.goal;
+  const modelId = entry.modelId ?? null;
 
   if (
     agent.threadId === entry.threadId &&
     agent.status === entry.status &&
     agent.goal === goal &&
+    (agent.modelId ?? null) === modelId &&
     agent.progress === progress &&
     agent.progressPct === progressPct &&
     agent.milestones === milestones
@@ -88,6 +91,7 @@ function mergeEntry(agent: ArcadiaSubagent, entry: SubagentBoardEntry, now: numb
     threadId: entry.threadId,
     status: entry.status,
     goal,
+    modelId,
     progress,
     progressPct,
     milestones,

@@ -3,7 +3,13 @@ import type { UIMessage } from "ai";
 import { createHash } from "crypto";
 
 import { resolveSubagentIdentity } from "@/lib/arcadia/multitask/subagent-identity";
-import { subagentGoalBrief, uiMessageText } from "@/lib/llm/subagents/threads/messages";
+import { getMessageModelId } from "@/lib/chat/message-model";
+import {
+  SUBAGENT_GOAL_MESSAGE_SOURCE,
+  SUBAGENT_REPLY_MESSAGE_SOURCE,
+  subagentGoalBrief,
+  uiMessageText,
+} from "@/lib/llm/subagents/threads/messages";
 import {
   resolveEffectiveSubagentStatus,
   type SubagentThreadStatus,
@@ -31,6 +37,8 @@ export type SubagentThreadSnapshot = {
   lastMessageId: string | null;
   lastGoal: string | null;
   lastOutcome: string | null;
+  /** Model recorded on the latest assignment or reply; null when it is unknown. */
+  modelId?: string | null;
 };
 
 /** Excerpt ceiling per field — enough for a status line, not a transcript. */
@@ -58,6 +66,29 @@ function lastTextOfRole(messages: ReadonlyArray<UIMessage>, role: UIMessage["rol
   return null;
 }
 
+function latestModelId(messages: ReadonlyArray<UIMessage>): string | null {
+  for (let i = messages.length - 1; i >= 0; i -= 1) {
+    const message = messages[i]!;
+    const metadata = message.metadata as { source?: string; modelId?: unknown } | undefined;
+
+    if (message.role === "assistant") {
+      const model = getMessageModelId(message);
+
+      if (model) return model;
+      if (metadata?.source !== SUBAGENT_REPLY_MESSAGE_SOURCE) continue;
+    } else if (message.role !== "user" || metadata?.source !== SUBAGENT_GOAL_MESSAGE_SOURCE) {
+      continue;
+    }
+
+    // A new assignment without model metadata must not inherit an older run's model.
+    return typeof metadata?.modelId === "string" && metadata.modelId.trim()
+      ? metadata.modelId.trim()
+      : null;
+  }
+
+  return null;
+}
+
 /** Build one snapshot from a child row and its recent messages (chronological). */
 export function buildSubagentThreadSnapshot(
   row: SubagentThreadRow,
@@ -76,6 +107,7 @@ export function buildSubagentThreadSnapshot(
     lastMessageId: messages.at(-1)?.id ?? null,
     lastGoal: lastTextOfRole(messages, "user"),
     lastOutcome: lastTextOfRole(messages, "assistant"),
+    modelId: latestModelId(messages),
   };
 }
 

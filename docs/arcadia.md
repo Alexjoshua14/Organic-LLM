@@ -98,6 +98,15 @@ demo scenario with a fresh state factory and a pure tick function. Live dashboar
 comes from worker awareness and board polling. See the
 [showcase isolation decision](./architecture/decisions/20261009-arcadia-showcase-progress.md).
 
+**Model labels.** Both card layouts show a quiet `LLM · <name>` line, using the chat registry's
+display name (or the exact model ID when it is absent from the registry). Dispatch persists
+the server-selected model with the assignment; replies retain the model used for that run.
+Board polling reads the newest assignment or reply. A new assignment cannot inherit a stale
+model from an older reply. Undispatched slots show `Not assigned`; legacy threads without
+model metadata show `Not recorded`. This describes the latest assignment or reply, rather
+than inferring a model from the viewer's composer selection. Direct user turns gain their
+model label when the reply is persisted.
+
 **Speak to** ends any live call and mints a **new** Realtime session with that subagent's
 Realtime voice id, instructions seeded with goal + current progress. While that session is
 bound:

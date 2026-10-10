@@ -575,6 +575,7 @@ export function createOrchestratorTools(input: OrchestratorToolsInput): ToolSet 
         goal: brief,
         goalId: goal.goalId,
         id: goal.goalId,
+        modelId: input.modelId,
         context,
         bundles: bundles.map((b) => ({ id: b.id, name: b.name })),
       }),
