@@ -39,7 +39,7 @@ export function startShellHelpReflex(args: {
         providerMetadata: decision.providerMetadata,
         operation: "subagent_reflex",
         route: args.route,
-      }).catch(() => undefined);
+      });
     }
 
     return decision;

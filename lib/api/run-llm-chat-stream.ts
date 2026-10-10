@@ -17,8 +17,8 @@ import { CHAT_STREAM_CHUNKING } from "@/lib/llm/chat-stream-chunking";
 import { serializeError } from "@/lib/llm/log-error";
 import { addLatestMessagesToMemoryForUser } from "@/lib/memory/operations";
 import { buildEffortProviderOptions, type ChatEffortLevel } from "@/lib/schemas/chat-effort";
-import { gatewayAttribution, readGatewayBilledCostUsd } from "@/lib/usage/gateway-attribution";
-import { trackLlmUsageEvent } from "@/lib/usage/track-llm-usage";
+import { gatewayAttribution } from "@/lib/usage/gateway-attribution";
+import { createLlmBudgetHooks } from "@/lib/plans/llm-budget-hooks";
 import { ChatAIActionEnum, type ChatUIMessage } from "@/types/ai";
 
 export type RunLLMChatStreamParams = {
@@ -110,6 +110,7 @@ export async function runLLMChatStream(params: RunLLMChatStreamParams): Promise<
   logger.debug("streamText", "providerOptions", providerOptionsSummary);
 
   const result = streamText({
+    ...createLlmBudgetHooks({ ownerId: sbUserId, clerkUserId, modelId: selectedModel.id, operation: "chat", route: "/api/chat" }),
     model: selectedModel.id,
     messages,
     instructions: systemPromptWithLength,
@@ -186,25 +187,9 @@ export async function runLLMChatStream(params: RunLLMChatStreamParams): Promise<
     stopWhen: isStepCount(maxSteps),
   });
 
-  void Promise.all([result.totalUsage, result.steps])
-    .then(async ([usage, steps]) => {
+  void Promise.resolve(result.totalUsage)
+    .then(async (usage) => {
       if (!usage) return;
-
-      const costs = steps.map((step) => readGatewayBilledCostUsd(step.providerMetadata));
-      await trackLlmUsageEvent({
-        ownerId: sbUserId,
-        modelId: selectedModel.id,
-        inputTokens: usage.inputTokens,
-        outputTokens: usage.outputTokens,
-        cachedInputTokens: usage.inputTokenDetails.cacheReadTokens,
-        reasoningTokens: usage.outputTokenDetails.reasoningTokens,
-        totalTokens: usage.totalTokens,
-        costUsdOverride: costs.length > 0 && costs.every((cost) => cost !== undefined)
-          ? costs.reduce<number>((sum, cost) => sum + (cost ?? 0), 0)
-          : undefined,
-        operation: "chat",
-        route: "/api/chat",
-      });
 
       try {
         const { recordLlmCost, recordLlmTokenUsage } = await import("@/lib/rate-limit/llm");

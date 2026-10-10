@@ -1,3 +1,4 @@
+import { createAuthenticatedLlmBudgetHooks, budgetModelId } from "@/lib/plans/llm-budget-hooks";
 /**
  * NPC "main character" user simulator for demo runs.
  *
@@ -60,6 +61,10 @@ export async function generateNpcUserTurn(args: {
 
   const t0 = performance.now();
   const result = await generateText({
+    ...(await createAuthenticatedLlmBudgetHooks({
+      modelId: budgetModelId(model),
+      operation: "sandbox/noesis/demo/npc",
+    })),
     model,
     instructions: NPC_PERSONA_PROMPT,
     prompt: `${sparkContext ? `CONVERSATION_PREMISE:\n${sparkContext}\n\n` : ""}TRANSCRIPT_SO_FAR:\n${transcript}\n\nWrite ONLY your next message as the user.`,
@@ -69,6 +74,7 @@ export async function generateNpcUserTurn(args: {
   const durationMs = performance.now() - t0;
 
   recordLlmCall({
+    persist: false,
     model,
     usage: result.usage,
     durationMs,

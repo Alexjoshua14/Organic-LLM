@@ -1,3 +1,4 @@
+import { createAuthenticatedLlmBudgetHooks, budgetModelId } from "@/lib/plans/llm-budget-hooks";
 import { randomUUID } from "crypto";
 
 import { auth } from "@clerk/nextjs/server";
@@ -16,6 +17,7 @@ import { checkLlmMessageLimit } from "@/lib/rate-limit/llm";
 import { createLogger } from "@/lib/logger";
 import { parseWineCount, extractWines } from "@/lib/llm/sommelier";
 import { models, providerModelSlug } from "@/lib/schemas/chat-models";
+import { requirePlanBudget } from "@/lib/api/plan-budget-gate";
 
 export const maxDuration = 30;
 
@@ -55,6 +57,13 @@ export async function POST(req: Request) {
   if (sbUserIdResult.error || sbUserIdResult.data === null) {
     return new Response("User not found in supabase", { status: 404 });
   }
+
+  const planGate = await requirePlanBudget({
+    clerkUserId: clerkUser.userId,
+    sbUserId: sbUserIdResult.data,
+  });
+
+  if (planGate) return planGate;
 
   const messageLimitResult = await checkLlmMessageLimit(sbUserIdResult.data);
 
@@ -113,6 +122,10 @@ export async function POST(req: Request) {
       });
 
       const result = streamText({
+        ...(await createAuthenticatedLlmBudgetHooks({
+          modelId: budgetModelId(openai(providerModelSlug(models.openai.luna.id))),
+          operation: "/api/prototypes/wine-line-list",
+        })),
         model: openai(providerModelSlug(models.openai.luna.id)),
         messages: await convertToModelMessages(validatedMessages),
         instructions: "Reply with only: Here are the suggestions.",

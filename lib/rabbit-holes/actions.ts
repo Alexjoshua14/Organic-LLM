@@ -1,5 +1,7 @@
 "use server";
 
+import { createAuthenticatedLlmBudgetHooks, budgetModelId } from "@/lib/plans/llm-budget-hooks";
+
 import type { GenerationStep } from "../schemas/rabbitHoleSchemas";
 
 import { auth } from "@clerk/nextjs/server";
@@ -109,6 +111,10 @@ async function generateRefinedQuestion(
   pathHistory: string
 ): Promise<string> {
   const { text } = await generateText({
+    ...(await createAuthenticatedLlmBudgetHooks({
+      modelId: budgetModelId(openai(providerModelSlug(models.openai.luna.id))),
+      operation: "rabbit-holes/actions",
+    })),
     model: openai(providerModelSlug(models.openai.luna.id)),
     instructions: REFINE_QUESTION_SYSTEM_PROMPT,
     prompt: `Question to refine: ${question}\n\nPath history: ${pathHistory}`,

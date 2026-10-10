@@ -1,8 +1,11 @@
 import { afterEach, describe, expect, mock, test } from "bun:test";
-import { cleanup, fireEvent } from "@testing-library/react";
+import { act, cleanup, fireEvent } from "@testing-library/react";
 import { useState } from "react";
 import { SendTargetPicker } from "@/app/sandbox/arcadia/_components/send-target-picker";
 import { SubagentSwipeRow } from "@/app/sandbox/arcadia/_components/subagent-swipe-row";
+import { MultitaskDashboard } from "@/app/sandbox/arcadia/_components/multitask-dashboard";
+import { ArcadiaMultitaskProvider } from "@/app/sandbox/arcadia/_components/multitask-provider";
+import { SidebarProvider } from "@/components/third-party/ui/sidebar";
 import type { ArcadiaMultitaskSendTarget } from "@/lib/arcadia/multitask/layout-mode";
 import type { ArcadiaSubagent } from "@/lib/arcadia/multitask/types";
 import { render } from "../helpers/render";
@@ -25,6 +28,53 @@ const agents: ArcadiaSubagent[] = [
 ];
 
 describe("mobile multiagent controls", () => {
+  test("mobile Chat and Agents navigation keeps the draft mounted", async () => {
+    const previousFetch = globalThis.fetch;
+    const previousMedia = window.matchMedia;
+    globalThis.fetch = (async () =>
+      Response.json({ enabled: true, activeStreamId: null, subagents: [] })) as typeof fetch;
+    window.matchMedia = ((query: string) => ({
+      matches: query.includes("max-width"),
+      media: query,
+      addEventListener() {},
+      removeEventListener() {},
+      addListener() {},
+      removeListener() {},
+      dispatchEvent: () => true,
+      onchange: null,
+    })) as typeof window.matchMedia;
+    try {
+      let app!: ReturnType<typeof render>;
+      await act(async () => {
+        app = render(
+          <SidebarProvider>
+            <ArcadiaMultitaskProvider
+              threadId="aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa"
+              initialMultitaskView
+            >
+              <MultitaskDashboard>
+                <input aria-label="Draft" defaultValue="Keep this draft" />
+              </MultitaskDashboard>
+            </ArcadiaMultitaskProvider>
+          </SidebarProvider>
+        );
+      });
+      const draft = app.getByRole("textbox", { name: "Draft" });
+      expect(app.getByRole("heading", { name: "Multiagent" }).textContent).toBe("Multiagent");
+      expect(app.queryByRole("button", { name: "Hide chat" }) === null).toBe(true);
+      expect(app.queryByText(/Ctrl\+Q/) === null).toBe(true);
+      fireEvent.click(app.getByRole("button", { name: "Agents", exact: true }));
+      expect(draft.isConnected).toBe(true);
+      expect(draft.closest("section")?.getAttribute("aria-hidden")).toBe("true");
+      fireEvent.click(app.getByRole("button", { name: "Chat", exact: true }));
+      expect(app.getByRole("textbox", { name: "Draft" }) === draft).toBe(true);
+      expect((draft as HTMLInputElement).value).toBe("Keep this draft");
+    } finally {
+      cleanup();
+      globalThis.fetch = previousFetch;
+      window.matchMedia = previousMedia;
+    }
+  });
   test("a single recipient selector switches destinations without showing a roster of buttons", () => {
     function Picker() {
       const [target, setTarget] = useState<ArcadiaMultitaskSendTarget>({ kind: "orchestrator" });

@@ -9,24 +9,24 @@ import {
   FREE_PLAN_PUBLISHED_VOICE_HOURS,
   freeBudgetMaxRabbitHoles,
   freeBudgetMaxVoiceHours,
+  FREE_PLAN_WEEKLY_BUDGET_USD,
   getPublicPlanTiers,
   publishedFreeCapacityFitsBudget,
 } from "@/lib/plans/plan-capacity";
-import { FREE_PLAN_MONTHLY_BUDGET_USD } from "@/lib/plans/plan-tags";
 import { getUsagePlanTier } from "@/lib/usage/plans";
 
 describe("plan capacity", () => {
-  test("free is $40 and max has a null dollar cap", () => {
-    expect(FREE_PLAN_MONTHLY_BUDGET_USD).toBe(40);
-    expect(getUsagePlanTier("free").costCapUsd).toBe(40);
+  test("free is $10 a week and max has a null dollar cap", () => {
+    expect(FREE_PLAN_WEEKLY_BUDGET_USD).toBe(10);
+    expect(getUsagePlanTier("free").costCapUsd).toBe(10);
     expect(getUsagePlanTier("max").costCapUsd).toBeNull();
 
     const tiers = getPublicPlanTiers();
     const free = tiers.find((t) => t.id === "free");
     const max = tiers.find((t) => t.id === "max");
 
-    expect(free?.monthlyBudgetUsd).toBe(40);
-    expect(max?.monthlyBudgetUsd).toBeNull();
+    expect(free?.weeklyBudgetUsd).toBe(10);
+    expect(max?.weeklyBudgetUsd).toBeNull();
     expect(tiers).toHaveLength(2);
   });
 
@@ -34,18 +34,18 @@ describe("plan capacity", () => {
     const perHole = estimateRabbitHoleCostUsd();
 
     expect(perHole).toBeCloseTo(0.056, 5);
-    expect(freeBudgetMaxRabbitHoles(40)).toBe(Math.floor(40 / perHole));
-    expect(freeBudgetMaxRabbitHoles(40)).toBeGreaterThanOrEqual(FREE_PLAN_PUBLISHED_RABBIT_HOLES);
+    expect(freeBudgetMaxRabbitHoles(10)).toBe(Math.floor(10 / perHole));
+    expect(freeBudgetMaxRabbitHoles(10)).toBeGreaterThanOrEqual(FREE_PLAN_PUBLISHED_RABBIT_HOLES);
   });
 
   test("budget → voice hours uses the realtime minute estimator", () => {
     const perHour = estimateRealtimeHourCostUsd();
 
     expect(perHour).toBeGreaterThan(0);
-    expect(freeBudgetMaxVoiceHours(40)).toBeGreaterThanOrEqual(FREE_PLAN_PUBLISHED_VOICE_HOURS);
+    expect(freeBudgetMaxVoiceHours(10)).toBeGreaterThanOrEqual(FREE_PLAN_PUBLISHED_VOICE_HOURS);
   });
 
-  test("published free layman figures fit under the $40 budget", () => {
+  test("published free layman figures fit a week's $10 budget", () => {
     expect(
       publishedFreeCapacityFitsBudget({
         rabbitHoles: FREE_PLAN_PUBLISHED_RABBIT_HOLES,

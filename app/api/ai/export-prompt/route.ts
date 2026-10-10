@@ -8,6 +8,7 @@ import {
   handleExportPromptPost,
 } from "@/lib/export/handle-export-prompt-post";
 import { checkLlmMessageLimit } from "@/lib/rate-limit/llm";
+import { requirePlanBudget } from "@/lib/api/plan-budget-gate";
 
 export const maxDuration = 20;
 
@@ -23,6 +24,10 @@ export async function POST(req: Request) {
   if (sbUserId.error || !sbUserId.data) {
     return NextResponse.json({ error: "User not found" }, { status: 404 });
   }
+
+  const planGate = await requirePlanBudget({ clerkUserId: user.userId, sbUserId: sbUserId.data });
+
+  if (planGate) return planGate;
 
   let json: unknown;
 

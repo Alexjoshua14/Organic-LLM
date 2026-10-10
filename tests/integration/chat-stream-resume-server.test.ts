@@ -27,7 +27,8 @@ import * as contextBudget from "@/lib/api/main-chat-context-budget";
 import * as chatTools from "@/lib/llm/compile-chat-tools";
 import * as multitaskTurn from "@/lib/llm/subagents/orchestrator/prepare-multitask-turn";
 import * as chatHelpers from "@/lib/llm/chat-helpers";
-import * as usage from "@/lib/usage/track-llm-usage";
+import * as budgetHooks from "@/lib/plans/llm-budget-hooks";
+import { evaluatePlanBudget } from "@/lib/plans/plan-tags";
 import * as llmLimits from "@/lib/rate-limit/llm";
 import * as dispatch from "@/lib/message-queue/dispatch";
 import { POST } from "@/app/api/chat/route";
@@ -191,9 +192,20 @@ function installPostFixture() {
     mockModulePreservingReal("@/lib/llm/chat-helpers", chatHelpers, {
       updateChatSummary: async () => ({ data: "", error: null }),
     }),
-    mockModulePreservingReal("@/lib/usage/track-llm-usage", usage, {
-      trackLlmUsageEvent: async () => {},
-    }),
+    mockModulePreservingReal("@/lib/plans/llm-budget-hooks", budgetHooks, (real) => ({
+      createLlmBudgetHooks: (input) =>
+        real.createLlmBudgetHooks(input, {
+          read: async () =>
+            evaluatePlanBudget({
+              plan: "free",
+              source: "entitlements",
+              usedUsd: 0,
+              resetsRemaining: 5,
+              cycle: { start: new Date("2026-10-05"), end: new Date("2026-10-12") },
+            }),
+          record: async () => {},
+        }),
+    })),
     mockModulePreservingReal("@/lib/rate-limit/llm", llmLimits, {
       recordLlmTokenUsage: async () => {},
       recordLlmCost: async () => {},

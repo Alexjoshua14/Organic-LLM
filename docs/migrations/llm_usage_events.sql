@@ -3,7 +3,7 @@
 
 CREATE TABLE IF NOT EXISTS llm_usage_events (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  owner_id TEXT NOT NULL DEFAULT current_profile_id() REFERENCES profiles(id) ON DELETE CASCADE,
+  owner_id UUID NOT NULL DEFAULT current_profile_id() REFERENCES profiles(id) ON DELETE CASCADE,
   model_id TEXT NOT NULL,
   input_tokens INTEGER NOT NULL DEFAULT 0 CHECK (input_tokens >= 0),
   output_tokens INTEGER NOT NULL DEFAULT 0 CHECK (output_tokens >= 0),

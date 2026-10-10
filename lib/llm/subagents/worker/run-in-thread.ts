@@ -26,6 +26,7 @@ import {
   summarizeOutcome,
 } from "@/lib/llm/subagents/worker/run-with-model";
 import { gatewayAttribution } from "@/lib/usage/gateway-attribution";
+import { createLlmBudgetHooks } from "@/lib/plans/llm-budget-hooks";
 import { AGENT_MODEL } from "../../helpers";
 import { compileChatTools } from "../../compile-chat-tools";
 
@@ -114,6 +115,7 @@ const defaultGenerate: SubagentTurnGenerate = async (args) => {
 
   const result = await generateText({
     ...options,
+    ...createLlmBudgetHooks({ ownerId: sbUserId, modelId: options.model, operation: "subagent_worker", route: "/api/chat/queue" }),
     instructions: [system, toolInstructions].filter(Boolean).join("\n\n"),
     maxOutputTokens: output_cap,
     tools,
@@ -187,7 +189,8 @@ export async function runSubagentThreadTurn(
       },
     });
 
-    await input.recordUsage?.({
+    // The production generator meters each step. Injected generators retain their recorder.
+    if (input.generate) await input.recordUsage?.({
       modelId: input.modelId,
       usage: result.usage,
       providerMetadata: result.providerMetadata,

@@ -1,3 +1,4 @@
+import { createAuthenticatedLlmBudgetHooks, budgetModelId } from "@/lib/plans/llm-budget-hooks";
 import { openai } from "@ai-sdk/openai";
 import {
   streamText,
@@ -90,6 +91,10 @@ export async function POST(req: Request) {
   const { prompt, messages } = res.data;
 
   const result = streamText({
+    ...(await createAuthenticatedLlmBudgetHooks({
+      modelId: budgetModelId(model),
+      operation: "/api/chat/prometheus",
+    })),
     model: model,
     instructions: appendCurrentDate(prompt),
     messages: await convertToModelMessages(messages),

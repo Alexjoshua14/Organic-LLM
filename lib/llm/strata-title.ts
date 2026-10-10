@@ -4,6 +4,7 @@ import { generateText } from "ai";
 
 import { GUARDRAIL_MAX_OUTPUT_TOKENS } from "@/lib/llm/helpers";
 import { createLogger } from "@/lib/logger";
+import { createLlmBudgetHooks } from "@/lib/plans/llm-budget-hooks";
 import { recordLlmCall } from "@/lib/llm/metrics";
 import { generateShortTitleFromSummary } from "@/lib/llm/short-title-from-summary";
 import { TITLE_PIPELINE_SUMMARIZER_MODEL } from "@/lib/llm/title-models";
@@ -63,6 +64,7 @@ function fallbackTitle(
  */
 export async function generateStrataPageTitleFromSections(options: {
   pageId: string;
+  ownerId: string;
   rawText: string;
   refinedText: string;
   refinedGeneratedTitle?: string | null;
@@ -84,6 +86,11 @@ export async function generateStrataPageTitleFromSections(options: {
       const summaryStart = performance.now();
       const summaryResult = await generateText({
         model: TITLE_PIPELINE_SUMMARIZER_MODEL,
+        ...createLlmBudgetHooks({
+          ownerId: options.ownerId,
+          modelId: TITLE_PIPELINE_SUMMARIZER_MODEL as string,
+          operation: "strataTitle-summary",
+        }),
         instructions: STRATA_DOCUMENT_SUMMARY_SYSTEM,
         prompt: source,
         maxOutputTokens: GUARDRAIL_MAX_OUTPUT_TOKENS,
@@ -113,6 +120,7 @@ export async function generateStrataPageTitleFromSections(options: {
   const shortTitleResult = await generateShortTitleFromSummary(summaryForTitle, {
     contextId: options.pageId,
     operation: "strataTitle-title",
+    ownerId: options.ownerId,
     subject: "strata",
   });
 

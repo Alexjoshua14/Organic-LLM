@@ -1,3 +1,4 @@
+import { createAuthenticatedLlmBudgetHooks, budgetModelId } from "@/lib/plans/llm-budget-hooks";
 import type { Result } from "@/types";
 
 import { generateText } from "ai";
@@ -67,6 +68,10 @@ export async function generateStrataLinkSummary(args: {
     const started = performance.now();
     const prompt = [`URL: ${args.url}`, `Title hint: ${args.titleHint}`, "", body].join("\n");
     const result = await generateText({
+      ...(await createAuthenticatedLlmBudgetHooks({
+        modelId: budgetModelId(STRATA_LINK_SUMMARY_MODEL),
+        operation: "llm/strata-link-block-summary",
+      })),
       model: STRATA_LINK_SUMMARY_MODEL,
       instructions: SYSTEM_PROMPT,
       prompt,
@@ -76,6 +81,7 @@ export async function generateStrataLinkSummary(args: {
     const durationMs = performance.now() - started;
 
     recordLlmCall({
+      persist: false,
       model: STRATA_LINK_SUMMARY_MODEL,
       usage: result.usage,
       durationMs,

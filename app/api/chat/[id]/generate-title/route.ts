@@ -6,6 +6,7 @@ import { clientErrorJson, logRouteError } from "@/lib/api/client-safe-error";
 import { generateChatTitle } from "@/lib/llm/chat-helpers";
 import { createLogger } from "@/lib/logger";
 import { checkTitleGenerationLimit } from "@/lib/rate-limit/title";
+import { requirePlanBudget } from "@/lib/api/plan-budget-gate";
 
 export const maxDuration = 30;
 
@@ -33,6 +34,9 @@ export async function POST(_req: Request, { params }: { params: Promise<{ id: st
 
   const { id } = await params;
   const sbUserId = sbUserIdResult.data;
+  const planGate = await requirePlanBudget({ clerkUserId: clerkUser.userId, sbUserId });
+
+  if (planGate) return planGate;
 
   const limitResult = await checkTitleGenerationLimit(sbUserId, id);
 

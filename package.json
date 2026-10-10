@@ -20,7 +20,8 @@
     "test:e2e": "bunx playwright test",
     "webhook:local": "ngrok http 3000",
     "supabase:types": "supabase gen types typescript --linked --schema public > lib/supabase/types.ts",
-    "migrate:memories-v2": "bun run scripts/migrate-memories-v2.ts"
+    "migrate:memories-v2": "bun run scripts/migrate-memories-v2.ts",
+    "plan:set": "bun run scripts/set-plan.ts"
   },
   "dependencies": {
     "@ai-sdk/elevenlabs": "^3.0.59",

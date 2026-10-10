@@ -1,4 +1,8 @@
-/** Reference plan tiers for allotment comparison and multi-mode budget gating. */
+/**
+ * Plan tiers. `costCapUsd` is the spend allowed per weekly budget cycle
+ * (lib/plans/budget-cycle.ts); reaching it stops new LLM requests until the window resets or
+ * the user spends a reset. A user's plan is verified server-side (account_entitlements).
+ */
 export type UsagePlanTierId = "free" | "plus" | "pro" | "max";
 
 export type UsagePlanTier = {
@@ -6,11 +10,10 @@ export type UsagePlanTier = {
   name: string;
   /** Monthly subscription price in USD. */
   priceUsd: number;
-  /** Included token budget per billing cycle (approximate). */
+  /** Reference token allotment per weekly cycle (display only; spend is what gates). */
   tokenCap: number;
   /**
-   * Included spend cap per billing cycle (USD at list model pricing).
-   * Null when unset (`max` plan — no numeric ceiling defined yet).
+   * Spend cap per weekly cycle (USD at list model pricing). Null when uncapped (`max`).
    */
   costCapUsd: number | null;
 };
@@ -20,30 +23,31 @@ export const USAGE_PLAN_TIERS: UsagePlanTier[] = [
     id: "free",
     name: "Free",
     priceUsd: 0,
-    tokenCap: 500_000,
-    /** Matches multi-mode free monthly budget (lib/plans/plan-tags.ts). */
-    costCapUsd: 40,
+    tokenCap: 2_500_000,
+    // Generous while access is waitlisted and approved by hand; lowered before public launch.
+    costCapUsd: 10,
   },
   {
+    // Interim weekly caps for plus and pro until the owner sets them; never below free.
     id: "plus",
     name: "Plus",
     priceUsd: 20,
-    tokenCap: 10_000_000,
-    costCapUsd: 30,
+    tokenCap: 4_000_000,
+    costCapUsd: 15,
   },
   {
     id: "pro",
     name: "Pro",
     priceUsd: 60,
-    tokenCap: 50_000_000,
-    costCapUsd: 60,
+    tokenCap: 7_500_000,
+    costCapUsd: 25,
   },
   {
     id: "max",
     name: "Max",
     priceUsd: 0,
     tokenCap: 0,
-    /** Numeric ceiling unset — max is not subject to the free $40 cap. */
+    /** Uncapped. */
     costCapUsd: null,
   },
 ];
@@ -56,34 +60,27 @@ export function getUsagePlanTier(id: UsagePlanTier["id"]): UsagePlanTier {
   return tier;
 }
 
+/** Percent of a plan's weekly spend cap used (0 for uncapped plans). */
 export function computePlanAllotmentPercent(args: {
   plan: UsagePlanTier;
   billingCycleTokens: number;
   billingCycleCostUsd: number;
 }): number {
-  const { plan, billingCycleTokens, billingCycleCostUsd } = args;
-  const tokenPct = plan.tokenCap > 0 ? (billingCycleTokens / plan.tokenCap) * 100 : 0;
+  const { plan, billingCycleCostUsd } = args;
   const costPct =
     plan.costCapUsd != null && plan.costCapUsd > 0
       ? (billingCycleCostUsd / plan.costCapUsd) * 100
       : 0;
 
-  return Math.min(999, Math.max(tokenPct, costPct));
+  return Math.min(999, Math.max(0, costPct));
 }
 
 export function formatPlanTooltip(plan: UsagePlanTier): string {
   if (plan.costCapUsd == null) {
-    return "Max plan · monthly spend ceiling unset";
+    return `${plan.name} plan · no weekly spend cap`;
   }
 
-  const tokenLabel =
-    plan.tokenCap >= 1_000_000
-      ? `${(plan.tokenCap / 1_000_000).toFixed(0)}M tokens/mo`
-      : `${Math.round(plan.tokenCap / 1_000)}K tokens/mo`;
+  const spend = `$${plan.costCapUsd.toFixed(0)} spend per week`;
 
-  if (plan.priceUsd === 0) {
-    return `${tokenLabel} · ~$${plan.costCapUsd.toFixed(0)} API spend cap`;
-  }
-
-  return `$${plan.priceUsd}/mo · ${tokenLabel} · ~$${plan.costCapUsd.toFixed(0)} API spend cap`;
+  return plan.priceUsd === 0 ? `${plan.name} · ${spend}` : `$${plan.priceUsd}/mo · ${spend}`;
 }

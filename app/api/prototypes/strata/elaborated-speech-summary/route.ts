@@ -5,6 +5,8 @@ import z from "zod";
 import { generateStrataElaboratedSpeechSummaryScript } from "@/lib/llm/strata-elaborated-speech-summary";
 import { createLogger } from "@/lib/logger";
 import { markdownToTtsPlainText } from "@/lib/strata/elaborated-tts";
+import { requirePlanBudget } from "@/lib/api/plan-budget-gate";
+import { getSupabaseUserId } from "@/data/supabase/profiles";
 
 export const maxDuration = 60;
 
@@ -23,6 +25,19 @@ export async function POST(req: Request) {
   if (!user?.userId) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
+
+  const sbUserIdResult = await getSupabaseUserId(user.userId);
+
+  if (sbUserIdResult.error || !sbUserIdResult.data) {
+    return NextResponse.json({ error: "User not found" }, { status: 404 });
+  }
+
+  const planGate = await requirePlanBudget({
+    clerkUserId: user.userId,
+    sbUserId: sbUserIdResult.data,
+  });
+
+  if (planGate) return planGate;
 
   let body: unknown;
 

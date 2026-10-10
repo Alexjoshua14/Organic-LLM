@@ -19,8 +19,22 @@ const totals = {
   callCount: 0,
 };
 const payload: UsageApiPayload = {
-  range: { start: "2026-10-01", end: "2026-10-10", preset: "30d" },
-  billingCycle: { start: "2026-10-01", end: "2026-11-01" },
+  range: { start: "2026-10-05", end: "2026-10-10", preset: "current" },
+  billingCycle: { start: "2026-10-05T00:00:00.000Z", end: "2026-10-12T00:00:00.000Z" },
+  plan: {
+    status: "available",
+    plan: "free",
+    source: "entitlements",
+    cycleStart: "2026-10-05T00:00:00.000Z",
+    cycleEnd: "2026-10-12T00:00:00.000Z",
+    capUsd: 10,
+    usedUsd: 0,
+    remainingUsd: 10,
+    resetsRemaining: 5,
+    resetVersion: "2026-10-05T00:00:00.000000+00:00",
+    canDispatch: true,
+    holdReason: null,
+  },
   totals,
   billingCycleTotals: totals,
   daily: [],
@@ -83,21 +97,23 @@ describe("usage refresh timing", () => {
     expect(view.queryByRole("heading", { name: "Usage", exact: true })).toBeNull();
     expect(fetchSpy).toHaveBeenCalledTimes(1);
     await advance(5_000);
-    expect(view.getByRole("progressbar").getAttribute("aria-valuetext")).toBe(
-      "Next refresh in 10 seconds"
-    );
+    expect(
+      view.getByRole("progressbar", { name: "Next usage refresh" }).getAttribute("aria-valuetext")
+    ).toBe("Next refresh in 10 seconds");
     await advance(USAGE_REFRESH_MS - 5_000);
     expect(fetchSpy).toHaveBeenCalledTimes(2);
-    expect(view.getByRole("progressbar").getAttribute("aria-valuenow")).toBe("0");
+    expect(
+      view.getByRole("progressbar", { name: "Next usage refresh" }).getAttribute("aria-valuenow")
+    ).toBe("0");
   });
 
   test("range and focus refreshes reset the deadline; a pending request never overlaps", async () => {
     const view = await openUsage();
 
     await advance(10_000);
-    await act(async () => fireEvent.click(view.getByRole("button", { name: "7 days" })));
+    await act(async () => fireEvent.click(view.getByRole("button", { name: "Previous" })));
     expect(fetchSpy).toHaveBeenCalledTimes(2);
-    expect(fetchSpy.mock.calls[1]?.[0]).toBe("/api/usage?range=7d");
+    expect(fetchSpy.mock.calls[1]?.[0]).toBe("/api/usage?range=previous");
     await advance(5_000);
     expect(fetchSpy).toHaveBeenCalledTimes(2);
     await act(async () => window.dispatchEvent(new Event("focus")));
@@ -111,12 +127,16 @@ describe("usage refresh timing", () => {
         })
     );
     await advance(USAGE_REFRESH_MS);
-    expect(view.getByRole("progressbar").getAttribute("aria-valuetext")).toBe("Refreshing usage");
+    expect(
+      view.getByRole("progressbar", { name: "Next usage refresh" }).getAttribute("aria-valuetext")
+    ).toBe("Refreshing usage");
     await advance(USAGE_REFRESH_MS * 2);
     await act(async () => window.dispatchEvent(new Event("focus")));
     expect(fetchSpy).toHaveBeenCalledTimes(4);
     await act(async () => resolve(Response.json(payload)));
-    expect(view.getByRole("progressbar").getAttribute("aria-valuenow")).toBe("0");
+    expect(
+      view.getByRole("progressbar", { name: "Next usage refresh" }).getAttribute("aria-valuenow")
+    ).toBe("0");
     await advance(USAGE_REFRESH_MS);
     expect(fetchSpy).toHaveBeenCalledTimes(5);
     await act(async () => resolve(Response.json(payload)));

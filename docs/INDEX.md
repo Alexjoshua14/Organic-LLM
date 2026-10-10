@@ -6,6 +6,7 @@
 - [Contributing](../CONTRIBUTING.md) — setup, code boundaries, pull requests
 - [Thread & session architecture](./thread-session-architecture.md) — persistence, encryption, sidebar contract
 - [Multi-mode message send queue](./message-send-queue.md) — composer enqueue + server dispatch + plan budget
+- [Usage ledger and entitlements](./architecture/decisions/20261010-usage-ledger-and-entitlements.md) — weekly authorization, immutable spending history, resets, and admin corrections
 - [Context building](./architecture/context-building.md) — how chat context is assembled before `streamText`
 - [Chat model aliases](./architecture/decisions/20260909-chat-model-aliases.md) — `models.provider.family` vs picker `name` / persisted gateway ids
 - [Arcadia context effort](./architecture/decisions/20260914-arcadia-context-effort.md) — Instant / Quick / Heavy memory compilation; 50k history window unchanged

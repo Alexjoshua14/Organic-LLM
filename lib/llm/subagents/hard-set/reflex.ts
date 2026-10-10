@@ -2,6 +2,7 @@ import type { LanguageModelUsage } from "ai";
 import type { HardSetSubagent } from "@/lib/llm/subagents/hard-set/types";
 
 import { experimental_decide as decide } from "ai";
+import { createLlmBudgetHooks } from "@/lib/plans/llm-budget-hooks";
 
 import {
   jevRouterCallConfig,
@@ -105,6 +106,13 @@ export async function classifyHelpReflex(args: {
   };
 
   try {
+    if (!args.decide) {
+      await createLlmBudgetHooks({
+        ownerId: args.ownerId,
+        modelId: call.model,
+        operation: "subagent_reflex",
+      }).prepareStep();
+    }
     const result = await (args.decide ?? defaultDecide)({
       model: call.model,
       question: JEV_HELP_REFLEX_QUESTION,

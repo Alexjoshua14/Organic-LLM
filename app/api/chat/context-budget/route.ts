@@ -23,7 +23,7 @@ export async function POST(req: Request) {
     return Response.json({ error: "Invalid request body" }, { status: 400 });
   }
 
-  const authGate = await requireLlmChatActor();
+  const authGate = await requireLlmChatActor({ planBudget: false });
 
   if (authGate.error != null) {
     return authGate.error;

@@ -9,6 +9,7 @@ import { decryptFromStorage, encryptForStorage } from "@/lib/crypto/message-encr
 import { convertToolCallsToTextForSummarizer } from "@/lib/llm/summarizer-message-format";
 import { GUARDRAIL_MAX_OUTPUT_TOKENS } from "@/lib/llm/helpers";
 import { estimateTokenCount } from "@/lib/llm/chat-helpers";
+import { createLlmBudgetHooks } from "@/lib/plans/llm-budget-hooks";
 import { recordLlmCall } from "@/lib/llm/metrics";
 import { createLogger } from "@/lib/logger";
 import { supabaseServer } from "@/lib/supabase/server";
@@ -93,6 +94,7 @@ export async function condenseArcadiaContext(
   try {
     const result = await generateText({
       model: modelId,
+      ...createLlmBudgetHooks({ ownerId, modelId, operation: "arcadia-context-condense" }),
       instructions: systemPrompt,
       temperature: 0.2,
       messages: modelMessages,
