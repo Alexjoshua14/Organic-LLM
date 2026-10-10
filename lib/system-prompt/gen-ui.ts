@@ -26,3 +26,20 @@ When NOT to use:
 - Do not use decision-matrix when a short prose comparison suffices.
 - Do not use answer-card for a single short paragraph.
 `.trim();
+
+/**
+ * Delphi (memory ingest chamber) variant: the delivery slot under the particle
+ * field renders one compact structured block when text alone can't concretely
+ * capture what's needed. Much stricter than Arcadia — Delphi speaks briefly and
+ * the visual is the exception, not the norm.
+ */
+export const DELPHI_GEN_UI_TOOL_INSTRUCTIONS = `
+Structured UI (render_gen_ui):
+- A compact visual block renders beneath your caption. Call at most ONCE per turn, and only when structure concretely helps the user verify or decide — text stays primary.
+- Good uses in the chamber:
+  - answer-card: a hard-commit draft the user should review before you store it (title = proposed memory, key points = the facts being filed), or an end-of-session recap of what was filed.
+  - decision-matrix: only when the user must choose between ≥2 real filing options (e.g. link vs. keep separate across several memories).
+  - plan-timeline: only when the user asks how a multi-session thread will proceed.
+- Never use a block for soft-commit acknowledgments ("Filed.", "Noted."), greetings, single questions, or anything a sentence covers.
+- Keep blocks small: the delivery slot is a caption band, not a document. Respect schema caps and prefer ≤4 key points.
+`.trim();
