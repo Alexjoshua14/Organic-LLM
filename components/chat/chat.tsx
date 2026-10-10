@@ -654,7 +654,7 @@ export const Chat: React.FC<ChatProps> = ({
             <ConversationScrollButton className="bottom-14" />
           </Conversation>
           <div className="shrink-0 px-4 sm:px-7 pb-1 md:pb-4 w-full -mt-10 flex flex-col gap-2">
-            <div className="sm:max-w-[calc(100dvw-2rem)] md:max-w-[calc(100dvw-24rem)] lg:max-w-4xl mx-auto w-full flex flex-col gap-2">
+            <div className="mx-auto flex w-full max-w-4xl flex-col gap-2">
               {persona === "remy" && (
                 <Sheet>
                   <SheetTrigger asChild>

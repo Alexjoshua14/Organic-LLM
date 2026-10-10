@@ -225,6 +225,22 @@ Opt out of sustain with `sustainShimmer={false}`.
 
 ---
 
+## CoreInput layout continuity
+
+CoreInput fits its local container up to `max-w-4xl`; viewport-based width caps must not
+subtract a fixed sidebar width or introduce a width cliff at a breakpoint. The existing
+`useMorphFlip` wrapper preserves the last visible bottom-left anchor and width through
+window resize, CSS resize observations, and React layout commits. New targets retarget the
+running morph-physics spring with its velocity intact, so reversing a resize does not restart
+or snap the composer. One transform owns the wrapper; CSS owns the final layout. Height-only
+growth while typing updates the baseline without an animation.
+
+`COMPOSER_SHIFT_SPRING` in `lib/chat/composer-shift-spring.ts` uses stiffness 380, damping 36,
+and mass 1 for brief motion with little overshoot. Subpixel shifts below 1px do not start a
+spring. Reduced motion lands immediately and cancels any active spring. The wrapper keeps
+CoreInput mounted, including focus and an unsent draft. No View Transition snapshot or extra
+composer instance is needed.
+
 ## Usage refresh indicator
 
 The Usage overlay keeps the small uppercase wordmark as `Organic • Usage`, with a 1px,

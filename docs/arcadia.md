@@ -45,6 +45,11 @@ condensed cards. Mobile uses one board scroll region and a docked composer stack
 do not paint over each other. Wide screens (`lg` / `MULTITASK_DASHBOARD_WIDE_MIN_PX`) keep
 board + chat side by side.
 
+CoreInput follows its container width in both layouts. Its morph-physics wrapper carries
+the visible position and width across a window resize and the following breakpoint commit,
+retargeting one spring if the user reverses direction. Focus and drafts survive; reduced
+motion settles immediately. See [CoreInput layout continuity](./design/motion-and-text-timing.md#coreinput-layout-continuity).
+
 **Toggle gate.** Flips are refused while `threads.active_stream_id` is set for that thread.
 Local storage + BroadcastChannel sync same-browser tabs. Visible pages check other devices
 every 2.5s while Multiagent is enabled or workers exist, and every 30s in ordinary chat.

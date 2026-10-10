@@ -1,9 +1,10 @@
 "use client";
 
 import { FrameLoop, solveSpring, type SpringConfig } from "@organic-llm/morph-physics";
-import { type RefObject, useEffect, useLayoutEffect, useRef } from "react";
+import { type RefObject, useLayoutEffect, useRef } from "react";
 
 type Offset = { x: number; y: number };
+type Layout = Offset & { width: number };
 
 /** Below these the offset is at rest. */
 const SETTLE_OFFSET_PX = 0.5;
@@ -36,10 +37,10 @@ export function stepFlipOffset(
 }
 
 /**
- * Keep an element visually anchored across layout changes. When `layoutKey` changes and the
- * element lands somewhere else, it is offset back to where it was and the offset springs to zero
- * with morph-physics (FLIP). Transform only — the element stays in normal flow, keeps its state,
- * and is never rendered twice.
+ * Keep an element's position and width continuous across layout and viewport changes. CSS owns
+ * the final layout; one bottom-left transform springs from the previous visible bounds to it.
+ * Resize observations retarget the existing spring instead of discarding its geometry. The
+ * element stays in normal flow, keeps its state, and is never rendered twice.
  *
  * The anchor is the element's bottom-left corner, so a composer growing upward as the user types
  * does not read as a move.
@@ -49,87 +50,115 @@ export function useMorphFlip(
   layoutKey: string,
   options: { spring: SpringConfig; minShiftPx: number; disabled?: boolean }
 ): void {
-  const resting = useRef<Offset | null>(null);
-  const offset = useRef<Offset>({ x: 0, y: 0 });
-  const velocity = useRef<Offset>({ x: 0, y: 0 });
-  const loop = useRef<FrameLoop | null>(null);
+  const updateLayout = useRef<(() => void) | null>(null);
   const { spring, minShiftPx, disabled } = options;
-
-  // Untransformed bottom-left, so a running animation does not skew the next measurement.
-  const measure = (el: HTMLElement): Offset => {
-    const rect = el.getBoundingClientRect();
-
-    return { x: rect.left - offset.current.x, y: rect.bottom - offset.current.y };
-  };
-
-  const apply = (el: HTMLElement) => {
-    const { x, y } = offset.current;
-
-    el.style.transform = x === 0 && y === 0 ? "" : `translate3d(${x}px, ${y}px, 0)`;
-  };
-
-  // Moves nobody animated (window resize, keyboard, the element's own growth) re-baseline silently.
-  useEffect(() => {
-    const el = ref.current;
-
-    if (!el) return;
-    const rebaseline = () => {
-      if (!loop.current) resting.current = measure(el);
-    };
-    const observer = new ResizeObserver(rebaseline);
-
-    observer.observe(el);
-    window.addEventListener("resize", rebaseline);
-
-    return () => {
-      observer.disconnect();
-      window.removeEventListener("resize", rebaseline);
-      loop.current?.stop();
-      loop.current = null;
-    };
-  }, [ref]);
 
   useLayoutEffect(() => {
     const el = ref.current;
 
     if (!el) return;
-    const before = resting.current;
-    const after = measure(el);
+    let resting: Layout | null = null;
+    let offset: Offset = { x: 0, y: 0 };
+    let velocity: Offset = { x: 0, y: 0 };
+    let scale = 1;
+    let scaleVelocity = 0;
+    let loop: FrameLoop | null = null;
 
-    resting.current = after;
-    if (!before) return;
+    const clear = () => {
+      loop?.stop();
+      loop = null;
+      offset = { x: 0, y: 0 };
+      velocity = { x: 0, y: 0 };
+      scale = 1;
+      scaleVelocity = 0;
+      el.style.transform = "";
+      el.style.willChange = "";
+    };
+    const measure = (): Layout => {
+      const rect = el.getBoundingClientRect();
 
-    const dx = before.x + offset.current.x - after.x;
-    const dy = before.y + offset.current.y - after.y;
+      return { x: rect.left - offset.x, y: rect.bottom - offset.y, width: rect.width / scale };
+    };
+    const apply = () => {
+      el.style.transform = `translate3d(${offset.x}px, ${offset.y}px, 0) scaleX(${scale})`;
+    };
+    const transition = () => {
+      const before = resting;
+      const after = measure();
 
-    if (disabled || (Math.abs(dx) < minShiftPx && Math.abs(dy) < minShiftPx)) {
-      loop.current?.stop();
-      loop.current = null;
-      offset.current = { x: 0, y: 0 };
-      velocity.current = { x: 0, y: 0 };
-      apply(el);
+      resting = after;
+      if (disabled || after.width <= 0 || !before || before.width <= 0) {
+        clear();
 
-      return;
-    }
-
-    offset.current = { x: dx, y: dy };
-    apply(el);
-
-    if (loop.current) return;
-    const frames = new FrameLoop(({ deltaTime }) => {
-      const next = stepFlipOffset(offset.current, velocity.current, spring, deltaTime);
-
-      offset.current = next.offset;
-      velocity.current = next.velocity;
-      apply(el);
-
-      if (next.settled) {
-        frames.stop();
-        loop.current = null;
+        return;
       }
-    });
 
-    loop.current = frames;
-    frames.start();
+      const dx = before.x + offset.x - after.x;
+      const dy = before.y + offset.y - after.y;
+      const visibleWidth = before.width * scale;
+
+      if (
+        !loop &&
+        Math.abs(dx) < minShiftPx &&
+        Math.abs(dy) < minShiftPx &&
+        Math.abs(visibleWidth - after.width) < minShiftPx
+      )
+        return;
+
+      offset = { x: dx, y: dy };
+      scaleVelocity *= before.width / after.width;
+      scale = visibleWidth / after.width;
+      el.style.willChange = "transform";
+      apply();
+
+      if (loop) return;
+      const frames = new FrameLoop(({ deltaTime }) => {
+        const next = stepFlipOffset(offset, velocity, spring, deltaTime);
+        const width = solveSpring(scale, 1, scaleVelocity, spring, deltaTime);
+
+        offset = next.offset;
+        velocity = next.velocity;
+        scale = width.position;
+        scaleVelocity = width.velocity;
+        apply();
+
+        if (
+          next.settled &&
+          Math.abs(scale - 1) * resting!.width < SETTLE_OFFSET_PX &&
+          Math.abs(scaleVelocity) * resting!.width < SETTLE_VELOCITY_PX_S
+        )
+          clear();
+      });
+
+      loop = frames;
+      frames.start();
+    };
+    // Width changes can arrive before React's breakpoint commit. Preserve the visible box
+    // through both steps; height-only growth (typing) just updates the bottom-left baseline.
+    const observe = () => {
+      const after = measure();
+
+      if (resting && Math.abs(after.width - resting.width) >= minShiftPx) transition();
+      else if (!loop) resting = after;
+    };
+    const observer = new ResizeObserver(observe);
+
+    el.style.transformOrigin = "left bottom";
+    updateLayout.current = transition;
+    transition();
+    observer.observe(el);
+    window.addEventListener("resize", transition);
+
+    return () => {
+      observer.disconnect();
+      window.removeEventListener("resize", transition);
+      updateLayout.current = null;
+      clear();
+      el.style.transformOrigin = "";
+    };
+  }, [ref, spring, minShiftPx, disabled]);
+
+  useLayoutEffect(() => {
+    updateLayout.current?.();
   }, [layoutKey]);
 }
