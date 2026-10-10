@@ -20,7 +20,7 @@ export function UsageRefreshProgress({
     if (refreshAt === null) return;
 
     const timer = window.setInterval(() => {
-      setRemainingMs(Math.max(0, refreshAt - Date.now()));
+      setRemainingMs(Math.min(USAGE_REFRESH_MS, Math.max(0, refreshAt - Date.now())));
     }, PROGRESS_TICK_MS);
 
     return () => window.clearInterval(timer);

@@ -225,6 +225,20 @@ Opt out of sustain with `sustainShimmer={false}`.
 
 ---
 
+## Usage refresh indicator
+
+The Usage overlay keeps the small uppercase wordmark as `Organic • Usage`, with a 1px,
+128px silver line beneath it. A restrained glow uses the wordmark's neutral color. The
+line fills linearly toward the next refresh, giving a quiet timing cue without a countdown
+label or repeated shimmer. `USAGE_REFRESH_MS` in
+`components/usage/usage-refresh-progress.tsx` is 15 seconds; this reflects elapsed time,
+rather than a functional transition duration.
+
+The deadline starts after a request settles and resets on range changes, focus, or a return
+to a visible tab. Pending requests hold the line full and do not overlap. Hidden and closed
+panels skip polling. Reduced motion disables the continuous animation; progress and the
+accessible timing label update once per second within the indicator only.
+
 ## Sources (for re-research)
 
 - [Apple HIG — Motion](https://developer.apple.com/design/human-interface-guidelines/motion)
