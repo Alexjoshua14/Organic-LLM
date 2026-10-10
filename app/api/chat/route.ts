@@ -492,11 +492,13 @@ export async function POST(req: Request) {
 
       writer.write({
         type: "data-context-budget",
+        id: "context-budget",
         data: contextBudget,
       });
 
       await runLLMChatStream({
         writer,
+        contextBudget,
         logger,
         chatId: id,
         sbUserId,

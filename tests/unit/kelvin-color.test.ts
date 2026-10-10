@@ -7,6 +7,7 @@ import {
   kelvinToRgb,
   LUMEN_KELVIN_DEEP,
   LUMEN_KELVIN_RIM,
+  CONTEXT_KELVIN_WARM,
 } from "@/lib/design/kelvin-color";
 
 describe("kelvin-color", () => {
@@ -24,7 +25,7 @@ describe("kelvin-color", () => {
     const half = contextFillKelvin(0.5);
     const full = contextFillKelvin(1);
 
-    expect(empty).toBe(LUMEN_KELVIN_DEEP);
+    expect(empty).toBe(CONTEXT_KELVIN_WARM);
     expect(half).toBeGreaterThan(empty);
     expect(full).toBeGreaterThan(half);
   });

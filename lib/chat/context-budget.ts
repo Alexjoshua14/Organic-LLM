@@ -16,6 +16,12 @@ import {
   readActivatedMemories,
 } from "@/lib/memory/activated-thread-memories";
 import { AUTO_CHAT_MODEL_ID } from "@/lib/schemas/chat";
+import { selectArcadiaContextMessages } from "@/lib/chat/arcadia-token-context";
+import {
+  getContextMemoryReferences,
+  mergeContextMemoryReferences,
+  type ContextMemoryReference,
+} from "@/lib/chat/context-memory";
 
 /** Approximate system prompt size (matches `SYSTEM_PROMPT` + guardrails). */
 export const ESTIMATED_SYSTEM_PROMPT_TOKENS = 3_400;
@@ -109,6 +115,8 @@ export type ContextBudgetEstimate = {
   activeToolNames?: string[];
   /** Memories merged into the system context (absent when memory search was skipped). */
   memoriesInjected?: number;
+  /** Memories actually present in the packed messages and completed memory-tool outputs. */
+  memoryContext?: ContextMemoryReference[];
   /**
    * Measured pack from the last assembled LLM send. Survives client compose / scaffold polls
    * so the HUD can show what actually went into that window.
@@ -119,17 +127,30 @@ export type ContextBudgetEstimate = {
 };
 
 export type ContextBudgetLastTurn = {
-  /** Total input tokens on that send (system + tools + history + user turn + memory). */
+  /** Legacy assembled input estimate. The HUD displays provider-reported `usage` instead. */
   inputTokens: number;
   /** Portrait + retrieved bullets + inventory, when present. */
   memoryTokens: number;
   /** Memory bullets injected (not the overfetch sample). */
   memoriesInjected: number;
+  /** Provider-reported totals across every model call in this response. */
+  usage?: ContextBudgetUsage;
+};
+
+export type ContextBudgetUsage = {
+  inputTokens?: number;
+  cachedInputTokens?: number;
+  outputTokens?: number;
+  costUsd?: number;
+  costSource?: "gateway" | "estimate";
+  modelCalls: number;
+  complete: boolean;
 };
 
 /**
  * Numbers-only server scaffold for client-side compose.
- * Integers + app-constant tool names only — never message/summary/memory text.
+ * Token counts + app-constant tool names only from polling. Stream-derived scaffolds
+ * also retain opaque memory references and usage; never message/summary/memory text.
  */
 export type ContextBudgetScaffold = {
   systemTokens: number;
@@ -138,6 +159,7 @@ export type ContextBudgetScaffold = {
   memoryTokens: number;
   memoriesInjected?: number;
   lastTurn?: ContextBudgetLastTurn;
+  memoryContext?: ContextMemoryReference[];
   activeToolNames: string[];
   /** Absent / undefined means pack the full thread (e.g. Arcadia). */
   contextMessageLimit?: number;
@@ -156,6 +178,7 @@ export type FinalizeContextBudgetParams = {
   activeToolNames?: string[];
   memoriesInjected?: number;
   lastTurn?: ContextBudgetLastTurn;
+  memoryContext?: ContextMemoryReference[];
   source?: ContextBudgetEstimate["source"];
 };
 
@@ -176,6 +199,7 @@ export function finalizeContextBudget(params: FinalizeContextBudgetParams): Cont
     activeToolNames,
     memoriesInjected,
     lastTurn,
+    memoryContext,
     source,
   } = params;
 
@@ -212,6 +236,7 @@ export function finalizeContextBudget(params: FinalizeContextBudgetParams): Cont
     activeToolNames,
     memoriesInjected,
     lastTurn,
+    memoryContext,
     source,
   };
 }
@@ -225,6 +250,7 @@ export function scaffoldFromStreamBudget(budget: ContextBudgetEstimate): Context
     memoryTokens: segmentTokens(budget, "memory"),
     memoriesInjected: budget.memoriesInjected,
     lastTurn: budget.lastTurn,
+    memoryContext: budget.memoryContext,
     activeToolNames: budget.activeToolNames ?? [],
     contextMessageLimit: budget.contextMessageLimit,
     source: "server",
@@ -247,13 +273,20 @@ export function withLastTurnSnapshot(budget: ContextBudgetEstimate): ContextBudg
 }
 
 /** Keep a measured last send when a later scaffold/poll omits it. */
-export function mergePreservedLastTurn<T extends { lastTurn?: ContextBudgetLastTurn }>(
+export function mergePreservedLastTurn<
+  T extends { lastTurn?: ContextBudgetLastTurn; memoryContext?: ContextMemoryReference[] },
+>(
   incoming: T,
-  previous: { lastTurn?: ContextBudgetLastTurn } | null | undefined
+  previous:
+    | { lastTurn?: ContextBudgetLastTurn; memoryContext?: ContextMemoryReference[] }
+    | null
+    | undefined
 ): T {
-  if (incoming.lastTurn || !previous?.lastTurn) return incoming;
-
-  return { ...incoming, lastTurn: previous.lastTurn };
+  return {
+    ...incoming,
+    lastTurn: incoming.lastTurn ?? previous?.lastTurn,
+    memoryContext: incoming.memoryContext ?? previous?.memoryContext,
+  };
 }
 
 function isContextBudgetDataPart(
@@ -343,7 +376,11 @@ export function composeContextBudget(params: ComposeContextBudgetParams): Contex
 
   const limit = scaffold.contextMessageLimit;
   const packedMessages =
-    limit == null || limit <= 0 ? threadMessages : threadMessages.slice(-limit);
+    experience === "arcadia"
+      ? selectArcadiaContextMessages(threadMessages).contextMessages
+      : limit == null || limit <= 0
+        ? threadMessages
+        : threadMessages.slice(-limit);
 
   let messagesTokens = 0;
   let toolOutputTokens = 0;
@@ -403,6 +440,11 @@ export function composeContextBudget(params: ComposeContextBudgetParams): Contex
   ]);
 
   const resolvedLimit = limit ?? packedMessages.length;
+  const packedIds = new Set(packedMessages.map((message) => message.id));
+  const memoryContext = mergeContextMemoryReferences([
+    ...(scaffold.memoryContext ?? []).filter((ref) => packedIds.has(ref.messageId)),
+    ...getContextMemoryReferences(packedMessages),
+  ]);
 
   return finalizeContextBudget({
     modelId,
@@ -417,6 +459,7 @@ export function composeContextBudget(params: ComposeContextBudgetParams): Contex
     activeToolNames: scaffold.activeToolNames,
     memoriesInjected: scaffold.memoriesInjected,
     lastTurn: scaffold.lastTurn,
+    memoryContext,
     source: "client",
   });
 }
@@ -472,7 +515,8 @@ export function getMessageToolPartsForTokenEstimate(message: UIMessage): string 
     (part) =>
       part.type !== "text" &&
       part.type !== "step-start" &&
-      part.type !== ACTIVATED_MEMORIES_PART_TYPE
+      part.type !== ACTIVATED_MEMORIES_PART_TYPE &&
+      !part.type.startsWith("data-")
   );
 
   return parts.length > 0 ? JSON.stringify(parts) : "";

@@ -138,14 +138,19 @@ So the user sees: gathering → thinking → “Using a tool” / “Searching t
 
 ## Context budget indicator
 
-The Core Input donut (`ContextBudgetIndicator`) shows how much of the model window the next send would use, plus **Last send** (input tokens and memories from the last assembled LLM window) when a measured snapshot exists.
+The Core Input donut (`ContextBudgetIndicator`) shows an estimate of the next send's share of the model window. The thin bar beside it shows the composition of used input, with matching source colors in both charts. Hover, keyboard focus, or tap reveals a section's tokens and percentage in a reserved two-line area.
+
+**Locked (2026-10-09):** **Last send** displays provider-reported input, cached input, output, and cost across all model calls in the response. Cached tokens are a subset of input, not additional tokens. Missing usage remains unreported. Gateway billed cost takes precedence; the existing app price table supplies a clearly marked estimate only when the required token counts are available. This covers the main response's model calls, not auxiliary context-planning or background jobs.
+
+**In context → Memories** counts distinct memory ids across automatic retrieval attached to packed messages and successful `search_memories` / `list_recent_memories` outputs. Facts returned by tools count beyond preprocessing. Overfetch inventory and failed/pending outputs do not count. Overlapping sources count once in the total. The popover shows the total and source counts without a per-message breakdown.
 
 **Main chat (`components/chat/chat.tsx`)** passes `useChat` messages into the hook and uses **client compose**:
 
 1. On thread open / toggle change / post-stream `refreshKey`, the client POSTs `/api/chat/context-budget` with `mode: "scaffold"`.
 2. The server returns a **numbers-only** scaffold (system / tools / summary / memory token counts, `activeToolNames`, optional `memoriesInjected`). No message text, summary text, or memory text is stored or returned for caching — and the server keeps **no per-user cache**. Scaffold polls do **not** include last-send metrics (memory search is off).
 3. While typing, the browser composes the full estimate from that scaffold + local `threadMessages` + draft (`composeContextBudget`). Zero server calls per keystroke.
-4. A streamed `data-context-budget` snapshot (non-transient) carries measured next-send numbers **and** `lastTurn` `{ inputTokens, memoryTokens, memoriesInjected }`. The client keeps `lastTurn` across scaffold refetches and hydrates it from the latest message part on reload.
+4. A streamed `data-context-budget` snapshot (non-transient, stable part id) carries assembled estimates, opaque memory references, and `lastTurn.usage`. Each completed model step updates usage and memory-tool references. The client preserves those fields across scaffold refetches; the final snapshot is saved on the assistant message and hydrated on reload. Historical assembly-only snapshots do not masquerade as provider usage.
+5. Client compose merges references from the stream and local message/tool parts, then removes those outside the selected context window. Arcadia uses the same token-window selector as its send path. HUD data parts are excluded from token estimates, so instrumentation never counts itself as tool output.
 
 **Trade-offs:** Another browser’s sends show up on next open or refresh — same as the chat UI. Scaffold fetch does one summary DB query per open/refresh; typing is local.
 

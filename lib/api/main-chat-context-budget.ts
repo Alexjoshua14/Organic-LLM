@@ -28,6 +28,7 @@ import { compileChatTools } from "@/lib/llm/compile-chat-tools";
 import { createLogger } from "@/lib/logger";
 import { appendCurrentDate } from "@/lib/system-prompt/current-date";
 import { estimatedMemoryContextTokensForEffort } from "@/lib/memory/context-effort";
+import { getContextMemoryReferences } from "@/lib/chat/context-memory";
 
 const logger = createLogger("lib/api/main-chat-context-budget.ts");
 
@@ -301,10 +302,13 @@ export async function buildBudgetFromAssembledTurn(params: {
     memoriesInjected,
   });
 
-  if (!recordLastTurn) return estimate;
+  const memoryContext = getContextMemoryReferences(validatedMessages);
+
+  if (!recordLastTurn) return { ...estimate, memoryContext };
 
   return {
     ...estimate,
+    memoryContext,
     lastTurn: {
       inputTokens: estimate.nextSubmitTokens,
       memoryTokens: scaffoldTokens.memoryTokens,

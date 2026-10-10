@@ -2,6 +2,7 @@ import type { ModelMessage, ToolSet, UIMessage, UIMessageStreamWriter } from "ai
 import type { Logger } from "@/lib/logger";
 import type { ChatExperience } from "@/lib/chat/chat-experience";
 import type { Result } from "@/types";
+import type { ContextBudgetEstimate } from "@/lib/chat/context-budget";
 
 import { smoothStream, isStepCount, streamText } from "ai";
 import { GatewayProviderOptions } from "@ai-sdk/gateway";
@@ -20,9 +21,18 @@ import { buildEffortProviderOptions, type ChatEffortLevel } from "@/lib/schemas/
 import { gatewayAttribution, readGatewayBilledCostUsd } from "@/lib/usage/gateway-attribution";
 import { trackLlmUsageEvent } from "@/lib/usage/track-llm-usage";
 import { ChatAIActionEnum, type ChatUIMessage } from "@/types/ai";
+import {
+  memoryReferencesFromToolResult,
+  mergeContextMemoryReferences,
+} from "@/lib/chat/context-memory";
+import {
+  summarizeContextBudgetUsage,
+  type ContextBudgetUsageStep,
+} from "@/lib/chat/context-budget-usage";
 
 export type RunLLMChatStreamParams = {
   writer: UIMessageStreamWriter<ChatUIMessage>;
+  contextBudget?: ContextBudgetEstimate;
   logger: Logger;
   chatId: string;
   sbUserId: string;
@@ -69,6 +79,20 @@ export async function runLLMChatStream(params: RunLLMChatStreamParams): Promise<
   } = params;
 
   const toolNames = Object.keys(tools);
+  let contextBudget = params.contextBudget;
+  const usageSteps: ContextBudgetUsageStep[] = [];
+  const publishContextBudget = (complete = false) => {
+    if (!contextBudget?.lastTurn) return;
+
+    contextBudget = {
+      ...contextBudget,
+      lastTurn: {
+        ...contextBudget.lastTurn,
+        usage: summarizeContextBudgetUsage(selectedModel.id, usageSteps, complete),
+      },
+    };
+    writer.write({ type: "data-context-budget", id: "context-budget", data: contextBudget });
+  };
 
   logger.debug("streamText", "Calling streamText", {
     model: selectedModel.id,
@@ -127,7 +151,25 @@ export async function runLLMChatStream(params: RunLLMChatStreamParams): Promise<
         toolNames,
       });
     },
+    onStepEnd(step) {
+      usageSteps.push({ usage: step.usage, providerMetadata: step.providerMetadata });
+
+      if (contextBudget) {
+        contextBudget = {
+          ...contextBudget,
+          memoryContext: mergeContextMemoryReferences([
+            ...(contextBudget.memoryContext ?? []),
+            ...step.toolResults.flatMap((result) =>
+              memoryReferencesFromToolResult(result.toolName, result.output, assistantMessageId)
+            ),
+          ]),
+        };
+      }
+
+      publishContextBudget();
+    },
     onFinish() {
+      publishContextBudget(true);
       writer.write({
         type: "data-notification",
         data: { message: "Request completed", level: "info" },
@@ -199,9 +241,10 @@ export async function runLLMChatStream(params: RunLLMChatStreamParams): Promise<
         cachedInputTokens: usage.inputTokenDetails.cacheReadTokens,
         reasoningTokens: usage.outputTokenDetails.reasoningTokens,
         totalTokens: usage.totalTokens,
-        costUsdOverride: costs.length > 0 && costs.every((cost) => cost !== undefined)
-          ? costs.reduce<number>((sum, cost) => sum + (cost ?? 0), 0)
-          : undefined,
+        costUsdOverride:
+          costs.length > 0 && costs.every((cost) => cost !== undefined)
+            ? costs.reduce<number>((sum, cost) => sum + (cost ?? 0), 0)
+            : undefined,
         operation: "chat",
         route: "/api/chat",
       });
@@ -311,7 +354,24 @@ export async function runLLMChatStream(params: RunLLMChatStreamParams): Promise<
         try {
           const messagesWithModel = messages.map((savedMessage) =>
             savedMessage.role === "assistant"
-              ? { ...savedMessage, model: selectedModel.id }
+              ? {
+                  ...savedMessage,
+                  model: selectedModel.id,
+                  ...(savedMessage.id === assistantMessageId && contextBudget
+                    ? {
+                        parts: [
+                          ...savedMessage.parts.filter(
+                            (part) => part.type !== "data-context-budget"
+                          ),
+                          {
+                            type: "data-context-budget" as const,
+                            id: "context-budget",
+                            data: contextBudget,
+                          },
+                        ],
+                      }
+                    : {}),
+                }
               : savedMessage
           );
 

@@ -10,6 +10,7 @@ import {
   DefaultChatTransport,
   type UIMessage,
   type UIMessageChunk,
+  type ToolSet,
 } from "ai";
 import * as clerk from "@clerk/nextjs/server";
 import * as nextServer from "next/server";
@@ -32,7 +33,11 @@ import * as llmLimits from "@/lib/rate-limit/llm";
 import * as dispatch from "@/lib/message-queue/dispatch";
 import { POST } from "@/app/api/chat/route";
 import { GET } from "@/app/api/chat/[id]/stream/route";
-import { finalizeContextBudget } from "@/lib/chat/context-budget";
+import {
+  finalizeContextBudget,
+  getLatestContextBudgetFromMessages,
+} from "@/lib/chat/context-budget";
+import { summarizeContextMemories, type ContextMemoryReference } from "@/lib/chat/context-memory";
 import { consumeChatSseStream } from "@/lib/chat/resumable-sse-stream";
 import { createLogger } from "@/lib/logger";
 
@@ -122,18 +127,24 @@ function text(chat: SdkChat) {
     .join("");
 }
 
-function installPostFixture() {
+function installPostFixture(options?: {
+  model?: MockLanguageModelV4;
+  tools?: ToolSet;
+  memoryContext?: ContextMemoryReference[];
+}) {
   let controller!: ReadableStreamDefaultController<LanguageModelV4StreamPart>;
   let finished = false;
-  const model = new MockLanguageModelV4({
-    doStream: {
-      stream: new ReadableStream<LanguageModelV4StreamPart>({
-        start(value) {
-          controller = value;
-        },
-      }),
-    },
-  });
+  const model =
+    options?.model ??
+    new MockLanguageModelV4({
+      doStream: {
+        stream: new ReadableStream<LanguageModelV4StreamPart>({
+          start(value) {
+            controller = value;
+          },
+        }),
+      },
+    });
   const loadContext = async () => ({
     validatedMessages: [user],
     systemPromptForRequest: "Answer the diagnostic prompt.",
@@ -171,11 +182,13 @@ function installPostFixture() {
           packedMessageCount: 0,
           totalThreadMessages: 0,
           includesRollingSummary: false,
+          memoryContext: options?.memoryContext ?? [],
+          lastTurn: { inputTokens: 0, memoryTokens: 0, memoriesInjected: 0 },
           source: "server",
         }),
     }),
     mockModulePreservingReal("@/lib/llm/compile-chat-tools", chatTools, {
-      compileChatTools: async () => ({ tools: {}, toolInstructions: "" }),
+      compileChatTools: async () => ({ tools: options?.tools ?? {}, toolInstructions: "" }),
     }),
     mockModulePreservingReal(
       "@/lib/llm/subagents/orchestrator/prepare-multitask-turn",
@@ -204,6 +217,7 @@ function installPostFixture() {
   );
 
   const finish = () => {
+    if (!controller) return;
     if (finished) return;
     finished = true;
     controller.enqueue({ type: "text-end", id: "answer" });
@@ -224,6 +238,123 @@ function installPostFixture() {
 }
 
 describe("server-backed chat stream resumption", () => {
+  test("memory tools update context and multi-call usage survives persistence and reload", async () => {
+    let call = 0;
+    const model = new MockLanguageModelV4({
+      doStream: async () => {
+        const first = call++ === 0;
+        const parts: LanguageModelV4StreamPart[] = [
+          { type: "stream-start", warnings: [] },
+          ...(first
+            ? [
+                {
+                  type: "tool-call" as const,
+                  toolCallId: "memory-call",
+                  toolName: "search_memories",
+                  input: '{"query":"facts"}',
+                },
+              ]
+            : [
+                { type: "text-start" as const, id: "answer" },
+                { type: "text-delta" as const, id: "answer", delta: "Recalled." },
+                { type: "text-end" as const, id: "answer" },
+              ]),
+          {
+            type: "finish",
+            finishReason: { unified: first ? "tool-calls" : "stop", raw: "stop" },
+            usage: {
+              inputTokens: {
+                total: first ? 100 : 150,
+                noCache: first ? 40 : 50,
+                cacheRead: first ? 60 : 100,
+                cacheWrite: 0,
+              },
+              outputTokens: { total: first ? 10 : 30, text: first ? 10 : 30, reasoning: 0 },
+            },
+            providerMetadata: { gateway: { cost: first ? "0.001" : "0.002" } },
+          },
+        ];
+
+        return {
+          stream: new ReadableStream({
+            start(controller) {
+              parts.forEach((part) => controller.enqueue(part));
+              controller.close();
+            },
+          }),
+        };
+      },
+    });
+
+    installPostFixture({
+      model,
+      memoryContext: [{ id: "a", messageId: user.id, source: "automatic" }],
+      tools: {
+        search_memories: ai.tool({
+          inputSchema: ai.jsonSchema({
+            type: "object",
+            properties: { query: { type: "string" } },
+            required: ["query"],
+          }),
+          execute: async () => ({
+            success: true,
+            memories: [
+              { id: "a", memory: "Already recalled" },
+              { id: "b", memory: "New fact" },
+            ],
+            count: 99,
+          }),
+        }),
+      },
+    });
+
+    const chat = new SdkChat({
+      id: THREAD_ID,
+      transport: new DefaultChatTransport({
+        api: "/api/chat",
+        fetch: async () =>
+          POST(
+            new Request("http://test/api/chat", {
+              method: "POST",
+              body: JSON.stringify({ id: THREAD_ID, message: user, memory: false }),
+            })
+          ),
+      }),
+    });
+    await chat.sendMessage(user);
+    await Promise.all(lifetimePromises);
+
+    const streamed = getLatestContextBudgetFromMessages(chat.messages)!;
+    expect(call).toBe(2);
+    expect(streamed.lastTurn?.usage).toEqual({
+      inputTokens: 250,
+      cachedInputTokens: 160,
+      outputTokens: 40,
+      costUsd: 0.003,
+      costSource: "gateway",
+      modelCalls: 2,
+      complete: true,
+    });
+    expect(summarizeContextMemories(streamed.memoryContext ?? [])).toEqual({
+      total: 2,
+      automatic: 1,
+      tools: 2,
+      overlap: 1,
+    });
+
+    const saved = saveChatMock.mock.calls
+      .flatMap(([args]) => args.messages ?? [])
+      .filter((message) => message.role === "assistant");
+    expect(saved).toHaveLength(1);
+    expect(saved[0].parts.filter((part) => part.type === "data-context-budget")).toHaveLength(1);
+    expect(getLatestContextBudgetFromMessages(saved)?.lastTurn?.usage).toEqual(
+      streamed.lastTurn?.usage
+    );
+    expect(getLatestContextBudgetFromMessages(saved)?.memoryContext).toEqual(
+      streamed.memoryContext
+    );
+  });
+
   test.each([
     ["Chat", undefined],
     ["Arcadia", "arcadia"],

@@ -5,7 +5,7 @@ import type { ChatExperience } from "@/lib/chat/chat-experience";
 import type { ChatStyle } from "@/lib/chat/chat-style";
 import type { ContextBudgetEstimate } from "@/lib/chat/context-budget";
 
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 
 import { glass } from "@/components/design-system/primitives";
 import {
@@ -14,7 +14,6 @@ import {
   HoverCardTrigger,
 } from "@/components/third-party/ui/hover-card";
 import {
-  formatMemoryPackLabel,
   formatTokenCount,
   getContextComposition,
   getContextHeadroomTurns,
@@ -22,14 +21,11 @@ import {
   type ContextBudgetSegment,
 } from "@/lib/chat/context-budget";
 import { AUTO_CHAT_MODEL_ID, ChatModels } from "@/lib/schemas/chat";
-import {
-  contextArcKelvin,
-  contextFillKelvin,
-  contextSegmentKelvin,
-  kelvinToCss,
-} from "@/lib/design/kelvin-color";
+import { contextSegmentColor, contextUsageLabelColor } from "@/lib/design/kelvin-color";
 import { useThreadContextBudget } from "@/hooks/use-thread-context-budget";
 import { cn } from "@/lib/utils";
+import { summarizeContextMemories } from "@/lib/chat/context-memory";
+import { getActiveToolCategories } from "@/lib/chat/tool-categories";
 
 type ContextBudgetIndicatorProps = {
   chatId?: string;
@@ -63,22 +59,50 @@ function formatResolvedModelLabel(budget: ContextBudgetEstimate): string {
   return formatModelLabel(resolvedId);
 }
 
-function formatActiveToolsLabel(toolNames: string[] | undefined): string {
-  if (!toolNames || toolNames.length === 0) return "None";
+function ToolCategoryPills({ toolNames }: { toolNames?: string[] }) {
+  const categories = getActiveToolCategories(toolNames);
 
-  const preview = toolNames.slice(0, 3).join(", ");
+  if (categories.length === 0) return <span className="text-muted-foreground">None</span>;
 
-  return toolNames.length > 3 ? `${preview} +${toolNames.length - 3}` : preview;
+  return (
+    <ul
+      aria-label="Enabled tool categories"
+      className="flex max-w-[14rem] flex-wrap justify-end gap-1 font-sans"
+    >
+      {categories.map((category) => (
+        <li
+          key={category}
+          className="inline-flex items-center rounded-full border border-border/60 bg-background-tertiary/40 px-1.5 py-px text-2xs font-medium text-foreground shadow-sm"
+        >
+          {category}
+        </li>
+      ))}
+    </ul>
+  );
 }
 
 function formatMemoriesLabel(budget: ContextBudgetEstimate): string {
-  if (budget.memoriesInjected != null) {
-    return String(budget.memoriesInjected);
+  if (budget.memoryContext) {
+    return String(summarizeContextMemories(budget.memoryContext).total);
   }
+  return "Not recorded";
+}
 
-  const memoryTokens = budget.segments.find((segment) => segment.id === "memory")?.tokens ?? 0;
+function formatUsageTokens(tokens: number | undefined): string {
+  return tokens == null ? "Not reported" : `${tokens.toLocaleString()} tok`;
+}
 
-  return memoryTokens > 0 ? "Estimated" : "0";
+function formatCost(cost: number | undefined): string {
+  if (cost == null) return "Not reported";
+  if (cost === 0) return "$0.00";
+  if (cost < 0.0001) return "<$0.0001";
+
+  return new Intl.NumberFormat("en-US", {
+    style: "currency",
+    currency: "USD",
+    minimumFractionDigits: 4,
+    maximumFractionDigits: 4,
+  }).format(cost);
 }
 
 function DetailRow({
@@ -93,17 +117,17 @@ function DetailRow({
   return (
     <div className="flex items-center justify-between gap-3">
       <span className="text-muted-foreground">{label}</span>
-      <span className={cn("font-mono text-foreground", valueClassName)}>{value}</span>
+      <div className={cn("font-mono text-foreground", valueClassName)}>{value}</div>
     </div>
   );
 }
 
 function DetailGroup({ title, children }: { title: string; children: React.ReactNode }) {
   return (
-    <div className="space-y-2">
+    <section aria-label={title} className="space-y-2">
       <p className="text-2xs font-medium uppercase tracking-wide text-muted-foreground">{title}</p>
       <div className="space-y-2">{children}</div>
-    </div>
+    </section>
   );
 }
 
@@ -111,52 +135,15 @@ function segmentSlices(segments: ContextBudgetSegment[], total: number, fillRati
   if (total <= 0) return [];
 
   const used = segments.filter((segment) => segment.id !== "free");
-  const usedTokens = used.reduce((sum, segment) => sum + segment.tokens, 0);
-  let arcCursor = 0;
-
   return used.map((segment) => {
     const pct = (segment.tokens / total) * 100;
-    const arcShare = usedTokens > 0 ? segment.tokens / usedTokens : 0;
-    const arcMid = arcCursor + arcShare / 2;
-
-    arcCursor += arcShare;
 
     return {
       ...segment,
       pct,
-      color: kelvinToCss(contextArcKelvin(arcMid, fillRatio), 0.9),
+      color: contextSegmentColor(segment.id, fillRatio),
     };
   });
-}
-
-function buildConicGradient(
-  segments: ReturnType<typeof segmentSlices>,
-  fillRatio: number,
-  remainingTokens: number,
-  total: number
-): string {
-  if (segments.length === 0) {
-    return `conic-gradient(${kelvinToCss(contextFillKelvin(fillRatio), 0.15)} 0deg 360deg)`;
-  }
-
-  let cursor = 0;
-
-  const stops = segments.map((segment) => {
-    const start = cursor;
-
-    cursor += segment.pct;
-
-    return `${segment.color} ${start}% ${cursor}%`;
-  });
-
-  if (remainingTokens > 0 && total > 0) {
-    const freePct = (remainingTokens / total) * 100;
-    const freeColor = kelvinToCss(contextSegmentKelvin("free", fillRatio), 0.14);
-
-    stops.push(`${freeColor} ${cursor}% ${cursor + freePct}%`);
-  }
-
-  return `conic-gradient(${stops.join(", ")})`;
 }
 
 /** Presentational ring. Exported for the CoreInput lab; production goes through the indicator. */
@@ -173,36 +160,68 @@ export function ContextDonut({
     () => segmentSlices(budget.segments, budget.inputBudgetTokens, budget.fillRatio),
     [budget]
   );
-  const gradient = buildConicGradient(
-    usedSegments,
-    budget.fillRatio,
-    budget.remainingInputTokens,
-    budget.inputBudgetTokens
-  );
-  const fillKelvin = contextFillKelvin(budget.fillRatio);
-  const fillColor = kelvinToCss(fillKelvin);
   const dimension = size === "lg" ? "size-24" : size === "sm" ? "size-5" : "size-3.5";
-  // Ring thickness has to shrink with the donut or the xs variant reads as a solid dot.
-  const holeInset =
-    size === "lg" ? "inset-[14px]" : size === "sm" ? "inset-[4px]" : "inset-[2.5px]";
-  const glowBlur = size === "lg" ? 14 : size === "sm" ? 6 : 5;
+  const diameter = size === "lg" ? 96 : size === "sm" ? 20 : 14;
+  const strokeWidth = size === "lg" ? 4 : 1.5;
+  const radius = diameter / 2 - strokeWidth;
+  const circumference = 2 * Math.PI * radius;
+  let cursor = 0;
   const pctLabel = Math.round(budget.fillRatio * 100);
 
   return (
-    <div
-      className={cn("relative shrink-0 rounded-full", dimension, className)}
-      style={{
-        background: gradient,
-        boxShadow:
-          budget.fillRatio >= 0.75
-            ? `0 0 ${glowBlur}px ${kelvinToCss(fillKelvin, 0.35)}`
-            : undefined,
-      }}
-    >
-      <div className={cn("absolute rounded-full bg-background", holeInset)} />
+    <div className={cn("relative shrink-0 rounded-full", dimension, className)}>
+      <svg
+        viewBox={`0 0 ${diameter} ${diameter}`}
+        className="absolute inset-0 size-full overflow-visible -rotate-90"
+        aria-hidden="true"
+      >
+        <circle
+          cx={diameter / 2}
+          cy={diameter / 2}
+          r={radius}
+          fill="none"
+          stroke={contextSegmentColor("free", budget.fillRatio, 0.16)}
+          strokeWidth={strokeWidth}
+        />
+        {usedSegments.map((segment) => {
+          const length = (segment.pct / 100) * circumference;
+          const offset = cursor;
+          cursor += length;
+          const geometry = {
+            cx: diameter / 2,
+            cy: diameter / 2,
+            r: radius,
+            fill: "none",
+            strokeDasharray: `${length} ${circumference}`,
+            strokeDashoffset: -offset,
+          };
+
+          return (
+            <g key={segment.id}>
+              <circle
+                {...geometry}
+                stroke={segment.color}
+                strokeWidth={strokeWidth}
+                style={{
+                  filter: `drop-shadow(0 0 2px ${contextSegmentColor(segment.id, budget.fillRatio, 0.4)})`,
+                }}
+              />
+              <circle
+                {...geometry}
+                stroke="white"
+                strokeOpacity={0.55}
+                strokeWidth={strokeWidth / 3}
+              />
+            </g>
+          );
+        })}
+      </svg>
       {size === "lg" ? (
         <div className="absolute inset-0 flex flex-col items-center justify-center text-center">
-          <span className="font-mono text-lg font-medium" style={{ color: fillColor }}>
+          <span
+            className="font-mono text-lg font-medium"
+            style={{ color: contextUsageLabelColor(budget.fillRatio) }}
+          >
             {pctLabel}%
           </span>
           <span className="text-2xs uppercase tracking-wide text-muted-foreground">in use</span>
@@ -212,45 +231,58 @@ export function ContextDonut({
   );
 }
 
-function SegmentLegend({ budget }: { budget: ContextBudgetEstimate }) {
+function ContextCompositionBar({ budget }: { budget: ContextBudgetEstimate }) {
   const rows = budget.segments.filter((segment) => segment.id !== "free");
+  const total = rows.reduce((sum, segment) => sum + segment.tokens, 0);
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const selected = rows.find((segment) => segment.id === selectedId);
 
   return (
-    <ul className="space-y-2">
-      {rows.map((segment) => {
-        const share =
-          budget.inputBudgetTokens > 0
-            ? Math.round((segment.tokens / budget.inputBudgetTokens) * 100)
-            : 0;
-        const segmentColor = kelvinToCss(contextSegmentKelvin(segment.id, budget.fillRatio), 0.92);
-
-        return (
-          <li key={segment.id} className="flex items-center gap-2.5">
+    <div>
+      <div className="flex h-6 w-full items-center" aria-label="Breakdown of used input tokens">
+        {rows.map((segment) => (
+          <button
+            key={segment.id}
+            type="button"
+            aria-label={`${segment.label}: ${segment.tokens.toLocaleString()} estimated tokens`}
+            title={`${segment.label} · ${segment.tokens.toLocaleString()} tokens`}
+            aria-pressed={selectedId === segment.id}
+            onMouseEnter={() => setSelectedId(segment.id)}
+            onMouseLeave={() => setSelectedId(null)}
+            onFocus={() => setSelectedId(segment.id)}
+            onBlur={() => setSelectedId(null)}
+            onClick={() => setSelectedId(segment.id)}
+            className="relative h-full shrink-0 rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
+            style={{ width: `${total > 0 ? (segment.tokens / total) * 100 : 0}%` }}
+          >
             <span
-              className="size-2.5 shrink-0 rounded-full"
-              style={{ backgroundColor: segmentColor }}
-            />
-            <div className="min-w-0 flex-1">
-              <div className="flex items-baseline justify-between gap-2 text-xs">
-                <span className="truncate text-foreground">{segment.label}</span>
-                <span className="shrink-0 font-mono text-muted-foreground">
-                  {formatTokenCount(segment.tokens)}
-                </span>
-              </div>
-              <div className="mt-1 h-1 overflow-hidden rounded-full bg-muted/50">
-                <div
-                  className="h-full rounded-full"
-                  style={{
-                    width: `${share}%`,
-                    backgroundColor: segmentColor,
-                  }}
-                />
-              </div>
-            </div>
-          </li>
-        );
-      })}
-    </ul>
+              className="pointer-events-none absolute inset-x-px top-1/2 h-1 -translate-y-1/2 rounded-full"
+              style={{
+                backgroundColor: contextSegmentColor(segment.id, budget.fillRatio),
+                boxShadow: `0 0 4px ${contextSegmentColor(segment.id, budget.fillRatio, 0.4)}`,
+              }}
+            >
+              <span className="absolute inset-x-0 top-1/2 h-px -translate-y-1/2 rounded-full bg-white/55" />
+            </span>
+          </button>
+        ))}
+      </div>
+      <div
+        className="-mt-1 h-8 text-xs leading-4 text-muted-foreground"
+        role="status"
+        aria-live="polite"
+      >
+        {selected ? (
+          <>
+            <span className="block truncate text-foreground">{selected.label}</span>
+            <span className="block">
+              <span className="font-mono">{selected.tokens.toLocaleString()} tok</span> ·{" "}
+              {total > 0 ? Math.round((selected.tokens / total) * 100) : 0}% of input
+            </span>
+          </>
+        ) : null}
+      </div>
+    </div>
   );
 }
 
@@ -259,13 +291,19 @@ export function ContextBudgetPopover({ budget }: { budget: ContextBudgetEstimate
   const coverage = getThreadContextCoverage(budget);
   const composition = getContextComposition(budget);
   const headroomTurns = getContextHeadroomTurns(budget);
+  const usage = budget.lastTurn?.usage;
+  const memories = budget.memoryContext ? summarizeContextMemories(budget.memoryContext) : null;
+  const cacheShare =
+    usage?.cachedInputTokens != null && usage.inputTokens != null && usage.inputTokens > 0
+      ? Math.round((usage.cachedInputTokens / usage.inputTokens) * 100)
+      : null;
 
   return (
-    <div className="space-y-4 p-4">
+    <div className="space-y-stack-lg p-4">
       <div className="flex items-start gap-4">
         <ContextDonut budget={budget} size="lg" />
         <div className="min-w-0 flex-1 space-y-1">
-          <p className="text-sm font-medium text-foreground">Context on next send</p>
+          <p className="text-sm font-medium text-foreground">Next send estimate</p>
           <p className="font-mono text-xs text-muted-foreground">
             {formatTokenCount(budget.nextSubmitTokens)} /{" "}
             {formatTokenCount(budget.inputBudgetTokens)} input tokens
@@ -276,25 +314,36 @@ export function ContextBudgetPopover({ budget }: { budget: ContextBudgetEstimate
               scaffolding
             </p>
           ) : null}
+          <ContextCompositionBar budget={budget} />
         </div>
       </div>
-
-      <SegmentLegend budget={budget} />
 
       <div className={cn("space-y-4 rounded-xl border border-border/50 p-3 text-[11px]", glass())}>
         {budget.lastTurn ? (
           <DetailGroup title="Last send">
+            <DetailRow label="Input tokens" value={formatUsageTokens(usage?.inputTokens)} />
             <DetailRow
-              label="Context window"
-              value={`${formatTokenCount(budget.lastTurn.inputTokens)} tok`}
+              label="Cached tokens"
+              value={
+                <>
+                  {formatUsageTokens(usage?.cachedInputTokens)}
+                  {cacheShare != null ? (
+                    <span className="ml-1.5 text-muted-foreground">{cacheShare}%</span>
+                  ) : null}
+                </>
+              }
             />
+            <DetailRow label="Output tokens" value={formatUsageTokens(usage?.outputTokens)} />
             <DetailRow
-              label="Memories"
-              value={formatMemoryPackLabel({
-                count: budget.lastTurn.memoriesInjected,
-                tokens: budget.lastTurn.memoryTokens,
-              })}
+              label="Cost"
+              value={`${usage?.costSource === "estimate" ? "~" : ""}${formatCost(usage?.costUsd)}`}
             />
+            <p className="text-2xs text-muted-foreground leading-relaxed">
+              {usage
+                ? `${usage.complete ? "Total" : "So far"} across ${usage.modelCalls} model ${usage.modelCalls === 1 ? "call" : "calls"}. Cached tokens are part of input.`
+                : "Usage wasn't recorded for this send."}
+              {usage?.costSource === "estimate" ? " Cost is estimated." : null}
+            </p>
           </DetailGroup>
         ) : null}
 
@@ -310,11 +359,23 @@ export function ContextBudgetPopover({ budget }: { budget: ContextBudgetEstimate
               </>
             }
           />
-          <DetailRow label="Memories injected" value={formatMemoriesLabel(budget)} />
+          <DetailRow label="Memories" value={formatMemoriesLabel(budget)} />
+          {memories ? (
+            <>
+              <DetailRow label="Automatic retrieval" value={memories.automatic.toLocaleString()} />
+              <DetailRow label="Fetched by tools" value={memories.tools.toLocaleString()} />
+              {memories.overlap > 0 ? (
+                <p className="text-2xs text-muted-foreground leading-relaxed">
+                  {memories.overlap} {memories.overlap === 1 ? "memory appears" : "memories appear"}{" "}
+                  in both sources; counted once in the total.
+                </p>
+              ) : null}
+            </>
+          ) : null}
           <DetailRow
             label="Tools armed"
-            value={formatActiveToolsLabel(budget.activeToolNames)}
-            valueClassName="max-w-[11rem] truncate text-right"
+            value={<ToolCategoryPills toolNames={budget.activeToolNames} />}
+            valueClassName="font-sans text-right"
           />
           {budget.includesRollingSummary ? (
             <DetailRow
@@ -364,8 +425,8 @@ export function ContextBudgetIndicatorView({
   budget: ContextBudgetEstimate;
   className?: string;
 }) {
+  const [open, setOpen] = useState(false);
   const pctLabel = Math.round(budget.fillRatio * 100);
-  const fillKelvin = contextFillKelvin(budget.fillRatio);
   const coverage = getThreadContextCoverage(budget);
   const resolvedModel = formatResolvedModelLabel(budget);
   const coverageLabel = coverage
@@ -373,10 +434,12 @@ export function ContextBudgetIndicatorView({
     : "thread coverage unavailable";
 
   return (
-    <HoverCard closeDelay={80} openDelay={120}>
+    <HoverCard closeDelay={80} openDelay={120} open={open} onOpenChange={setOpen}>
       <HoverCardTrigger asChild>
         <button
-          aria-label={`Context usage ${pctLabel} percent, ${coverageLabel}, model ${resolvedModel}, at ${Math.round(fillKelvin)} kelvin. Hover for breakdown.`}
+          aria-label={`Context usage ${pctLabel} percent, ${coverageLabel}, model ${resolvedModel}. Open context breakdown.`}
+          aria-expanded={open}
+          onClick={() => setOpen(true)}
           className={cn(
             "inline-flex items-center rounded-md p-1 transition-colors",
             "hover:bg-muted/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60",
@@ -390,7 +453,7 @@ export function ContextBudgetIndicatorView({
       <HoverCardContent
         align="end"
         className={cn(
-          "w-[min(22rem,calc(100vw-2rem))] overflow-hidden border-border/60 p-0",
+          "w-[min(24rem,calc(100vw-2rem))] max-h-[min(42rem,var(--radix-hover-card-content-available-height))] overflow-y-auto overscroll-contain border-border/60 p-0",
           glass()
         )}
         side="top"

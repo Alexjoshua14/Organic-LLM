@@ -280,7 +280,7 @@ export async function runQueuedChatTurn(args: {
         return;
       }
 
-      await buildBudgetFromAssembledTurn({
+      const contextBudget = await buildBudgetFromAssembledTurn({
         modelId: requestedModelId,
         resolvedModelId: selectedModel.id,
         draftMessage: userMessage,
@@ -298,6 +298,8 @@ export async function runQueuedChatTurn(args: {
         recordLastTurn: true,
       });
 
+      writer.write({ type: "data-context-budget", id: "context-budget", data: contextBudget });
+
       writer.write({
         type: "data-aiAction",
         data: { action: ChatAIActionEnum.Processing, message: "Thinking..." },
@@ -306,6 +308,7 @@ export async function runQueuedChatTurn(args: {
 
       await runLLMChatStream({
         writer,
+        contextBudget,
         logger,
         chatId,
         sbUserId,
