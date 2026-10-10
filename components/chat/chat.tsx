@@ -7,7 +7,7 @@ import type { ContextBudgetEstimate } from "@/lib/chat/context-budget";
 import type { DiagramNodeLink } from "@/lib/mermaid/types";
 
 import { UIMessage, useChat } from "@ai-sdk/react";
-import { DefaultChatTransport } from "ai";
+import { DefaultChatTransport, type ChatTransport, type HttpChatTransportInitOptions } from "ai";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { BrainCircuit } from "lucide-react";
 import { toast } from "sonner";
@@ -66,6 +66,28 @@ import { isEditableEventTarget } from "@/lib/dom/is-editable-event-target";
 import { useBackgroundThreadMessages } from "@/hooks/use-background-thread-messages";
 import { useArcadiaMultitaskOptional } from "@/app/sandbox/arcadia/_components/multitask-provider";
 const logger = createLogger("components/chat/chat");
+
+function createChatTransport({
+  onResumeCheck,
+  ...options
+}: HttpChatTransportInitOptions<UIMessage> & {
+  onResumeCheck: (threadId: string) => () => void;
+}): ChatTransport<UIMessage> {
+  const transport = new DefaultChatTransport<UIMessage>(options);
+
+  return {
+    sendMessages: (options) => transport.sendMessages(options),
+    reconnectToStream: async (options) => {
+      const finishCheck = onResumeCheck(options.chatId);
+
+      try {
+        return await transport.reconnectToStream(options);
+      } finally {
+        finishCheck();
+      }
+    },
+  };
+}
 
 export type ChatProps = {
   chatData: { thread: Thread; messages: UIMessage[] } | null;
@@ -162,6 +184,11 @@ export const Chat: React.FC<ChatProps> = ({
   const [arcadiaSettingsOpen, setArcadiaSettingsOpen] = useState(false);
   const wasStreamingRef = useRef(false);
   const diagramNodeLinksRef = useRef<DiagramNodeLink[]>([]);
+  const [resumeCheck, setResumeCheck] = useState({
+    threadId: chatData?.thread.id ?? "",
+    pending: true,
+  });
+  const pendingSendRef = useRef<{ threadId: string } | null>(null);
 
   useEffect(() => {
     const sync = () =>
@@ -189,7 +216,7 @@ export const Chat: React.FC<ChatProps> = ({
       messages: chatData?.messages ?? [],
       // Navigation can reuse stale thread metadata; the resume endpoint checks current state.
       resume: true,
-      transport: new DefaultChatTransport({
+      transport: createChatTransport({
         api:
           persona === "aion"
             ? "/api/ai/aion"
@@ -258,6 +285,16 @@ export const Chat: React.FC<ChatProps> = ({
           logger.log("chat", `Request being sent: ${JSON.stringify(req, null, 2)}`);
 
           return req;
+        },
+        onResumeCheck(threadId) {
+          const check = { threadId, pending: true };
+
+          setResumeCheck(check);
+
+          return () =>
+            setResumeCheck((current) =>
+              current === check ? { threadId, pending: false } : current
+            );
         },
       }),
       onData: (data) => {
@@ -400,6 +437,34 @@ export const Chat: React.FC<ChatProps> = ({
       },
     });
 
+  const isCheckingStream = resumeCheck.threadId !== id || resumeCheck.pending;
+  const sendStateRef = useRef({ id, status, isCheckingStream });
+
+  sendStateRef.current = { id, status, isCheckingStream };
+  const sendMessageIfIdle = useCallback<typeof sendMessage>(
+    async (...args) => {
+      const current = sendStateRef.current;
+
+      if (
+        current.isCheckingStream ||
+        current.status === "submitted" ||
+        current.status === "streaming" ||
+        pendingSendRef.current?.threadId === current.id
+      )
+        return;
+
+      const submission = { threadId: current.id };
+
+      pendingSendRef.current = submission;
+      try {
+        await sendMessage(...args);
+      } finally {
+        if (pendingSendRef.current === submission) pendingSendRef.current = null;
+      }
+    },
+    [sendMessage]
+  );
+
   useBackgroundThreadMessages({
     threadId: id,
     enabled: experience === "arcadia" && (arcadiaMultitask?.hasSubagentThreads ?? false),
@@ -423,12 +488,13 @@ export const Chat: React.FC<ChatProps> = ({
       initialMessage &&
       !initialMessageSent.current &&
       messages.length === 0 &&
+      !isCheckingStream &&
       status === "ready"
     ) {
       initialMessageSent.current = true;
-      sendMessage({ text: initialMessage });
+      sendMessageIfIdle({ text: initialMessage });
     }
-  }, [initialMessage, messages.length, status, sendMessage]);
+  }, [initialMessage, messages.length, status, isCheckingStream, sendMessageIfIdle]);
 
   useEffect(() => {
     const fromMessages = getLatestContextBudgetFromMessages(messages);
@@ -592,6 +658,7 @@ export const Chat: React.FC<ChatProps> = ({
               <CoreInput
                 chatId={chatData?.thread.id}
                 clearError={clearError}
+                disabled={isCheckingStream}
                 composerInject={composerInject}
                 enableMarkdownInputPreview={
                   experience === "arcadia" && experimentalArcadiaMarkdownPreview
@@ -605,7 +672,7 @@ export const Chat: React.FC<ChatProps> = ({
                 isBlankChat={messages.length === 0 && persona !== "strata"}
                 modelRef={selectedModelRef}
                 effortRef={selectedEffortRef}
-                sendMessage={sendMessage}
+                sendMessage={sendMessageIfIdle}
                 status={status}
                 stop={handleStop}
                 useMemoriesRef={useMemoriesRef}

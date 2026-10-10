@@ -24,11 +24,18 @@ beforeEach(() => {
   // Keep the real Chat and AI SDK transport; isolate presentation and composer budget requests.
   restore = [
     mockModulePreservingReal("@/components/chat/core-input", coreInput, {
-      CoreInput: ({ status, sendMessage }) => (
+      CoreInput: ({ status, sendMessage, disabled }) => (
         <>
           <output data-testid="chat-status">{status}</output>
-          <button type="button" onClick={() => void sendMessage({ text: "Diagnostic" })}>
+          <button
+            type="button"
+            disabled={disabled || status === "submitted" || status === "streaming"}
+            onClick={() => void sendMessage({ text: "Diagnostic" })}
+          >
             Send diagnostic
+          </button>
+          <button type="button" onClick={() => void sendMessage({ text: "Diagnostic" })}>
+            Force diagnostic send
           </button>
         </>
       ),
@@ -71,10 +78,12 @@ function App({
   activeStreamId,
   threadId = THREAD_ID,
   experience,
+  initialMessage,
 }: {
   activeStreamId?: string | null;
   threadId?: string;
   experience?: "arcadia";
+  initialMessage?: string;
 }) {
   const chatData: NonNullable<ComponentProps<typeof Chat>["chatData"]> = {
     thread: {
@@ -92,6 +101,7 @@ function App({
         chatData={chatData}
         endpoint={experience === "arcadia" ? "/api/chat" : undefined}
         experience={experience}
+        initialMessage={initialMessage}
       />
     </ChatContext.Provider>
   );
@@ -149,6 +159,116 @@ describe("Chat stream resumption on navigation", () => {
         .filter(([, options]) => options?.method === "POST")
         .map(([url]) => String(url))
     ).toEqual(["/api/chat"]);
+  });
+
+  test.each([
+    ["Chat", undefined],
+    ["Arcadia", "arcadia"],
+  ] as const)(
+    "%s blocks sends while reconnecting and streaming, then enables the next turn",
+    async (_label, experience) => {
+      let finishResume!: (response: Response) => void;
+      const pendingResume = new Promise<Response>((resolve) => {
+        finishResume = resolve;
+      });
+      const resumed = liveStream("Existing answer");
+      const next = liveStream("Next answer", "assistant-next");
+
+      fetchSpy.mockImplementation(async (_url, options) =>
+        options?.method === "POST" ? next.response : pendingResume
+      );
+      const view = render(<App activeStreamId={null} experience={experience} />);
+
+      await waitFor(() => expect(fetchSpy).toHaveBeenCalledTimes(1));
+      expect(
+        (view.getByRole("button", { name: "Send diagnostic" }) as HTMLButtonElement).disabled
+      ).toBe(true);
+      fireEvent.click(view.getByRole("button", { name: "Force diagnostic send" }));
+      expect(fetchSpy.mock.calls.filter(([, options]) => options?.method === "POST")).toHaveLength(
+        0
+      );
+
+      await act(async () => finishResume(resumed.response));
+      await waitFor(() => expect(view.getByTestId("chat-status").textContent).toBe("streaming"));
+      fireEvent.click(view.getByRole("button", { name: "Force diagnostic send" }));
+      expect(fetchSpy.mock.calls.filter(([, options]) => options?.method === "POST")).toHaveLength(
+        0
+      );
+      expect(view.getByTestId("chat-messages").children).toHaveLength(1);
+      await act(async () => resumed.append(" continues"));
+      await waitFor(() =>
+        expect(view.getByTestId("chat-messages").textContent).toBe("Existing answer continues")
+      );
+      await act(async () => resumed.finish());
+      await waitFor(() =>
+        expect(
+          (view.getByRole("button", { name: "Send diagnostic" }) as HTMLButtonElement).disabled
+        ).toBe(false)
+      );
+      fireEvent.click(view.getByRole("button", { name: "Send diagnostic" }));
+      await waitFor(() =>
+        expect(view.getByTestId("chat-messages").textContent).toBe(
+          "Existing answer continuesDiagnosticNext answer"
+        )
+      );
+      expect(fetchSpy.mock.calls.filter(([, options]) => options?.method === "POST")).toHaveLength(
+        1
+      );
+      await act(async () => next.finish());
+      await waitFor(() => expect(view.getByTestId("chat-status").textContent).toBe("ready"));
+    }
+  );
+
+  test("the Chat send boundary accepts only one turn when callers submit twice before a render", async () => {
+    let finishPost!: (response: Response) => void;
+    const pendingPost = new Promise<Response>((resolve) => {
+      finishPost = resolve;
+    });
+    const stream = liveStream("One answer");
+
+    fetchSpy.mockImplementation(async (_url, options) =>
+      options?.method === "POST" ? pendingPost : new Response(null, { status: 204 })
+    );
+    const view = render(<App activeStreamId={null} />);
+
+    await waitFor(() =>
+      expect(
+        (view.getByRole("button", { name: "Send diagnostic" }) as HTMLButtonElement).disabled
+      ).toBe(false)
+    );
+    await act(async () => {
+      fireEvent.click(view.getByRole("button", { name: "Force diagnostic send" }));
+      fireEvent.click(view.getByRole("button", { name: "Force diagnostic send" }));
+    });
+    expect(fetchSpy.mock.calls.filter(([, options]) => options?.method === "POST")).toHaveLength(1);
+    expect(view.getByTestId("chat-messages").children).toHaveLength(1);
+    await act(async () => finishPost(stream.response));
+    await waitFor(() => expect(view.getByTestId("chat-status").textContent).toBe("streaming"));
+    await act(async () => stream.finish());
+    await waitFor(() => expect(view.getByTestId("chat-status").textContent).toBe("ready"));
+  });
+
+  test("automatic initial messages wait for the authoritative inactive-stream check", async () => {
+    let finishResume!: (response: Response) => void;
+    const pendingResume = new Promise<Response>((resolve) => {
+      finishResume = resolve;
+    });
+    const stream = liveStream("Initial answer");
+
+    fetchSpy.mockImplementation(async (_url, options) =>
+      options?.method === "POST" ? stream.response : pendingResume
+    );
+    const view = render(<App initialMessage="Initial prompt" />);
+
+    await waitFor(() => expect(fetchSpy).toHaveBeenCalledTimes(1));
+    expect(fetchSpy.mock.calls.filter(([, options]) => options?.method === "POST")).toHaveLength(0);
+    await act(async () => finishResume(new Response(null, { status: 204 })));
+    await waitFor(() =>
+      expect(view.getByTestId("chat-messages").textContent).toBe("Initial promptInitial answer")
+    );
+    expect(fetchSpy.mock.calls.filter(([, options]) => options?.method === "POST")).toHaveLength(1);
+    await act(async () => stream.finish());
+    await waitFor(() => expect(view.getByTestId("chat-status").textContent).toBe("ready"));
   });
 
   test("a fresh 204 leaves an inactive thread ready, including Strict Mode mounts", async () => {

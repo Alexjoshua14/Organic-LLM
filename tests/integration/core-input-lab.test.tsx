@@ -1,13 +1,16 @@
 import type { ReactNode } from "react";
 
-import { afterAll, afterEach, beforeAll, describe, expect, mock, test } from "bun:test";
-import { cleanup, waitFor, within } from "@testing-library/react";
+import { afterAll, afterEach, beforeAll, describe, expect, mock, spyOn, test } from "bun:test";
+import { act, cleanup, fireEvent, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 
+import { render } from "../helpers/render";
+
+import { CoreInput } from "@/components/chat/core-input";
+import { DEFAULT_COMPOSER_MODEL } from "@/lib/chat/composer-tool-defaults";
 import { FeatureHintRegistryProvider } from "@/lib/onboarding/feature-hint-context";
 import { ChatContext, type ChatContextValue } from "@/lib/context/chat-context";
 import { defaultUserSettings, type UserSettings } from "@/lib/schemas/userSettings";
-import { render } from "../helpers/render";
 
 // ---------------------------------------------------------------------------
 // Browser globals the shared jsdom install leaves out. Installed for this file only and
@@ -278,12 +281,14 @@ describe("CoreInput lab", () => {
     }
 
     // Focusing a card rewrites the URL; re-render to pick the new params up.
-    await userEvent.setup().click(
-      within(getByRole("heading", { name: "Send button" }).closest("section")!).getByRole(
-        "button",
-        { name: "Focus" }
-      )
-    );
+    await userEvent
+      .setup()
+      .click(
+        within(getByRole("heading", { name: "Send button" }).closest("section")!).getByRole(
+          "button",
+          { name: "Focus" }
+        )
+      );
     expect(search).toBe("view=focus&control=submit");
     rerenderLab();
 
@@ -310,5 +315,143 @@ describe("CoreInput lab", () => {
     // Pinned cells ignore clicks.
     await user.click(getAllByRole("button", { name: "Web search off" })[1]!);
     expect(getAllByRole("button", { name: "Web search off" })).toHaveLength(3);
+  });
+
+  test.each(["submitted", "streaming"] as const)(
+    "the shipped composer blocks Enter and direct form submission while %s without losing the draft",
+    async (status) => {
+      const sendMessage = mock(async () => {});
+      const stop = mock(async () => {});
+      const makeUi = (nextStatus: typeof status | "ready") => (
+        <Providers>
+          <CoreInput
+            modelRef={{ current: DEFAULT_COMPOSER_MODEL }}
+            useWebSearchRef={{ current: false }}
+            useMemoriesRef={{ current: false }}
+            sendMessage={sendMessage}
+            stop={stop}
+            status={nextStatus}
+            featureHints={false}
+            showContextBudget={false}
+          />
+        </Providers>
+      );
+      const view = render(makeUi(status));
+      const textarea = view.container.querySelector("textarea")!;
+      const user = userEvent.setup();
+
+      await user.type(textarea, "Keep this next draft");
+      await user.keyboard("{Enter}");
+      await act(async () => fireEvent.submit(textarea.form!));
+      expect(sendMessage).not.toHaveBeenCalled();
+      expect(textarea.value).toBe("Keep this next draft");
+      await user.click(view.getByRole("button", { name: "Abort" }));
+      expect(stop).toHaveBeenCalledTimes(1);
+      expect(sendMessage).not.toHaveBeenCalled();
+
+      view.rerender(makeUi("ready"));
+      await user.click(view.getByRole("button", { name: "Submit" }));
+      expect(sendMessage).toHaveBeenCalledTimes(1);
+      expect(sendMessage).toHaveBeenCalledWith(
+        expect.objectContaining({ text: "Keep this next draft" })
+      );
+    }
+  );
+
+  test("the shipped composer blocks repeated submissions before the parent publishes a busy status", async () => {
+    let finish!: () => void;
+    const pending = new Promise<void>((resolve) => {
+      finish = resolve;
+    });
+    const sendMessage = mock(() => pending);
+    const view = render(
+      <Providers>
+        <CoreInput
+          modelRef={{ current: DEFAULT_COMPOSER_MODEL }}
+          useWebSearchRef={{ current: false }}
+          useMemoriesRef={{ current: false }}
+          sendMessage={sendMessage}
+          stop={async () => {}}
+          status="ready"
+          featureHints={false}
+          showContextBudget={false}
+        />
+      </Providers>
+    );
+    const textarea = view.container.querySelector("textarea")!;
+
+    await userEvent.setup().type(textarea, "One turn");
+    await act(async () => {
+      fireEvent.submit(textarea.form!);
+      fireEvent.submit(textarea.form!);
+    });
+    expect(sendMessage).toHaveBeenCalledTimes(1);
+    await userEvent.setup().type(textarea, "Next draft");
+    await act(async () => fireEvent.submit(textarea.form!));
+    expect(sendMessage).toHaveBeenCalledTimes(1);
+    expect(textarea.value).toBe("Next draft");
+    await act(async () => finish());
+    await userEvent.setup().click(view.getByRole("button", { name: "Submit" }));
+    expect(sendMessage).toHaveBeenCalledTimes(2);
+  });
+
+  test("a disabled composer rejects direct form submission and retains its draft", async () => {
+    const sendMessage = mock(async () => {});
+    const view = render(
+      <Providers>
+        <CoreInput
+          modelRef={{ current: DEFAULT_COMPOSER_MODEL }}
+          useWebSearchRef={{ current: false }}
+          useMemoriesRef={{ current: false }}
+          sendMessage={sendMessage}
+          stop={async () => {}}
+          status="ready"
+          disabled
+          featureHints={false}
+          showContextBudget={false}
+        />
+      </Providers>
+    );
+    const textarea = view.container.querySelector("textarea")!;
+
+    await userEvent.setup().type(textarea, "Waiting for reconnection");
+    await act(async () => fireEvent.submit(textarea.form!));
+    expect(sendMessage).not.toHaveBeenCalled();
+    expect(textarea.value).toBe("Waiting for reconnection");
+  });
+
+  test("explicit queue mode can enqueue during streaming without invoking the live send handler", async () => {
+    const fetchSpy = spyOn(globalThis, "fetch").mockImplementation(async () =>
+      Response.json({ items: [], openQueue: [] })
+    );
+    const sendMessage = mock(async () => {});
+
+    try {
+      const view = render(
+        <Providers>
+          <CoreInput
+            modelRef={{ current: DEFAULT_COMPOSER_MODEL }}
+            useWebSearchRef={{ current: false }}
+            useMemoriesRef={{ current: false }}
+            sendMessage={sendMessage}
+            stop={async () => {}}
+            status="streaming"
+            chatId="aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa"
+            queueSendMode
+            featureHints={false}
+            showContextBudget={false}
+          />
+        </Providers>
+      );
+
+      await userEvent.setup().type(view.container.querySelector("textarea")!, "Queue this turn");
+      await userEvent.setup().click(view.getByRole("button", { name: "Submit" }));
+      expect(sendMessage).not.toHaveBeenCalled();
+      expect(fetchSpy.mock.calls.filter(([, options]) => options?.method === "POST")).toHaveLength(
+        1
+      );
+    } finally {
+      fetchSpy.mockRestore();
+    }
   });
 });

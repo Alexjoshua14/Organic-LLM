@@ -861,11 +861,11 @@ export const PromptInputTextarea = ({
       }
       e.preventDefault();
 
-      // Check if the submit button is disabled before submitting
+      // A busy composer replaces Submit with an Abort button. Require an enabled Submit.
       const form = e.currentTarget.form;
       const submitButton = form?.querySelector('button[type="submit"]') as HTMLButtonElement | null;
 
-      if (submitButton?.disabled) {
+      if (!submitButton || submitButton.disabled) {
         return;
       }
 

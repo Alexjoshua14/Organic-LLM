@@ -238,6 +238,8 @@ export const CoreInput: React.FC<CoreInputProps> = ({
   const [text, setText] = useState<string>("");
   const [recentlySentText, setRecentlySentText] = useState<string>(""); // For failed/aborted sends
   const recentlySentTextRef = useRef<string>(""); // So restore effect sees value before state flushes
+  const pendingSendRef = useRef<{ threadId: string | undefined } | null>(null);
+  const [pendingSend, setPendingSend] = useState<typeof pendingSendRef.current>(null);
   const [model, setModel] = useState<ChatModel>(defaultModel);
   const [effort, setEffort] = useState<ChatEffortLevel>(defaultEffort);
   const isAdmin = useIsAdmin();
@@ -596,8 +598,24 @@ export const CoreInput: React.FC<CoreInputProps> = ({
     return () => observer.disconnect();
   }, []);
 
+  const isSubmitBlocked = () =>
+    disabled ||
+    (!queueEnabled &&
+      (statusRef.current === "submitted" ||
+        statusRef.current === "streaming" ||
+        (pendingSendRef.current !== null && pendingSendRef.current.threadId === chatId)));
+
+  const handleSubmitCapture = (event: FormEvent<HTMLFormElement>) => {
+    if (!isSubmitBlocked()) return;
+    // Block before PromptInput clears text or converts and removes attachments.
+    event.preventDefault();
+    event.stopPropagation();
+  };
+
   const handleSubmit = (message: PromptInputMessage, event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
+    // File conversion can finish after status changes, or before React publishes the first send.
+    if (isSubmitBlocked()) return;
     // Use form payload first; fallback to current input state (covers FormData quirks e.g. when no PromptInputProvider)
     const textFromForm = (message.text ?? "").trim();
     const textFromState = text.trim();
@@ -610,6 +628,12 @@ export const CoreInput: React.FC<CoreInputProps> = ({
     }
 
     const finalText = textToSend || "Sent with attachments";
+    const submission = queueEnabled ? null : { threadId: chatId };
+
+    if (submission) {
+      pendingSendRef.current = submission;
+      setPendingSend(submission);
+    }
 
     // Disarm blank-chat auto-delete before clearing the composer. AI SDK appends the
     // user message before status flips to "submitted"; an unmount in that window must
@@ -645,10 +669,18 @@ export const CoreInput: React.FC<CoreInputProps> = ({
         queueTargetAgentId
       );
     } else {
-      sendMessage({
+      void sendMessage({
         text: finalText,
         files: message.files,
-      });
+      })
+        .finally(() => {
+          if (pendingSendRef.current !== submission) return;
+          pendingSendRef.current = null;
+          setPendingSend(null);
+        })
+        .catch(() => {
+          // The chat owner reports SDK errors; always release the synchronous send guard.
+        });
     }
 
     diagramNodeLinks?.clearLinks();
@@ -704,10 +736,12 @@ export const CoreInput: React.FC<CoreInputProps> = ({
     },
     [onSecondarySubmit, secondarySubmitDisabled, secondarySubmitPending, text]
   );
-  const organicSubmitState = resolveOrganicSubmitState(
-    queueEnabled ? "ready" : status,
-    text.trim().length > 0
-  );
+  const composerStatus = queueEnabled
+    ? "ready"
+    : pendingSend !== null && pendingSend.threadId === chatId && status === "ready"
+      ? "submitted"
+      : status;
+  const organicSubmitState = resolveOrganicSubmitState(composerStatus, text.trim().length > 0);
 
   const showSentShimmer =
     !queueEnabled &&
@@ -926,7 +960,7 @@ export const CoreInput: React.FC<CoreInputProps> = ({
       className={cn(submitVariant === "organic-glass" && organicGlassSubmitClassName)}
       // Multi-mode: always submit (never stop). Default: keep stop available while streaming.
       disabled={queueEnabled ? !text.trim() || disabled : (!text && !status) || disabled}
-      status={queueEnabled ? "ready" : status}
+      status={composerStatus}
       stop={queueEnabled ? undefined : stop}
     >
       {submitVariant === "organic-glass" ? (
@@ -943,6 +977,7 @@ export const CoreInput: React.FC<CoreInputProps> = ({
       multiple
       className={cn("z-40 w-full min-w-0", className)}
       onSubmit={handleSubmit}
+      onSubmitCapture={handleSubmitCapture}
     >
       {contextBudgetControl ? (
         <div className="absolute right-1.5 top-1 z-20">{contextBudgetControl}</div>
