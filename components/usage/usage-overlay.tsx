@@ -10,6 +10,7 @@ import { useAuth } from "@clerk/nextjs";
 import { PlanAllotmentRow } from "./plan-allotment-row";
 import { UsageChart } from "./usage-chart";
 import { UsageModelBreakdown } from "./usage-model-breakdown";
+import { USAGE_REFRESH_MS, UsageRefreshProgress } from "./usage-refresh-progress";
 
 import { glass } from "@/components/design-system/primitives";
 import { Button } from "@/components/third-party/ui/button";
@@ -23,8 +24,6 @@ import {
 } from "@/components/third-party/ui/dialog";
 import { formatTokenCount, formatUsd } from "@/lib/usage/format";
 import { cn } from "@/lib/utils";
-
-const USAGE_REFRESH_MS = 15_000;
 
 const RANGE_OPTIONS: Array<{ id: UsageRangePreset; label: string }> = [
   { id: "7d", label: "7 days" },
@@ -48,12 +47,16 @@ export function UsageOverlay({ className, triggerClassName }: UsageOverlayProps)
   const [data, setData] = useState<UsageApiPayload | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [refreshAt, setRefreshAt] = useState<number | null>(null);
 
   const requestRef = useRef(0);
+  const loadingRef = useRef(false);
 
   const loadUsage = useCallback(async (preset: UsageRangePreset) => {
     const request = ++requestRef.current;
+    loadingRef.current = true;
     setLoading(true);
+    setRefreshAt(null);
     setError(null);
 
     try {
@@ -70,7 +73,11 @@ export function UsageOverlay({ className, triggerClassName }: UsageOverlayProps)
       if (request !== requestRef.current) return;
       setError(err instanceof Error ? err.message : "Could not load usage");
     } finally {
-      if (request === requestRef.current) setLoading(false);
+      if (request === requestRef.current) {
+        loadingRef.current = false;
+        setLoading(false);
+        setRefreshAt(Date.now() + USAGE_REFRESH_MS);
+      }
     }
   }, []);
 
@@ -79,16 +86,27 @@ export function UsageOverlay({ className, triggerClassName }: UsageOverlayProps)
 
     void loadUsage(range);
     const refresh = () => {
-      if (document.visibilityState === "visible") void loadUsage(range);
+      if (document.visibilityState === "visible" && !loadingRef.current) void loadUsage(range);
     };
-    const timer = window.setInterval(refresh, USAGE_REFRESH_MS);
     window.addEventListener("focus", refresh);
+    document.addEventListener("visibilitychange", refresh);
     return () => {
       requestRef.current += 1;
-      window.clearInterval(timer);
+      loadingRef.current = false;
       window.removeEventListener("focus", refresh);
+      document.removeEventListener("visibilitychange", refresh);
     };
   }, [open, isSignedIn, range, loadUsage]);
+
+  useEffect(() => {
+    if (!open || !isSignedIn || refreshAt === null) return;
+
+    const timer = window.setTimeout(() => {
+      if (document.visibilityState === "visible") void loadUsage(range);
+    }, Math.max(0, refreshAt - Date.now()));
+
+    return () => window.clearTimeout(timer);
+  }, [open, isSignedIn, range, refreshAt, loadUsage]);
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
@@ -118,18 +136,20 @@ export function UsageOverlay({ className, triggerClassName }: UsageOverlayProps)
             "ring-1 ring-inset ring-white/50 dark:ring-white/10"
           )}
         >
-          <DialogHeader className="shrink-0 space-y-3 border-b border-border/40 px-4 py-4 text-left sm:px-6 sm:py-5">
-            <p className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground/70">
-              Organic LLM
-            </p>
-            <div className="flex flex-wrap items-end justify-between gap-3 pr-6">
-              <div className="space-y-1">
-                <DialogTitle className="font-commissioner text-xl font-light tracking-wide sm:text-2xl">
-                  Usage
+          <DialogHeader className="shrink-0 border-b border-border/40 px-4 py-4 text-left sm:px-6 sm:py-5">
+            <div className="flex flex-wrap items-center justify-between gap-3 pr-6">
+              <div className="space-y-3">
+                <DialogTitle className="text-[11px] font-normal uppercase leading-normal tracking-[0.18em] text-muted-foreground/70">
+                  Organic • Usage
                 </DialogTitle>
-                <DialogDescription className="text-sm leading-relaxed text-muted-foreground">
-                  Tracked LLM calls. Refreshes every 15 seconds while open.
+                <DialogDescription className="sr-only">
+                  Tracked LLM calls. Usage refreshes automatically while this panel is open.
                 </DialogDescription>
+                <UsageRefreshProgress
+                  key={refreshAt ?? "refreshing"}
+                  loading={open && !!isSignedIn && loading}
+                  refreshAt={open && isSignedIn ? refreshAt : null}
+                />
               </div>
 
               <div className="flex items-center gap-1 rounded-lg border border-border/50 bg-muted/20 p-0.5">
