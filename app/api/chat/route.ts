@@ -8,6 +8,8 @@ import {
 } from "ai";
 
 import { saveChat } from "@/lib/chat/chat-store";
+import { stampTurnWithActivatedMemories } from "@/lib/chat/stamp-activated-memories";
+import { expandActivatedMemoriesForModel } from "@/lib/memory/activated-thread-memories";
 import { consumeChatSseStream } from "@/lib/chat/resumable-sse-stream";
 import { getThreadArcadiaStarterKey, getThreadHasTitle } from "@/data/supabase/chat";
 import { isAdminUser } from "@/data/supabase/profiles";
@@ -178,7 +180,7 @@ export async function POST(req: Request) {
 
   // Save the user message
 
-  saveChat({ chatId: id, messages: [message] })
+  const userMessageSave = saveChat({ chatId: id, messages: [message] })
     .then(() => {
       logger.log("POST", "User message saved optimistically");
     })
@@ -237,7 +239,7 @@ export async function POST(req: Request) {
                 experience,
               });
 
-      const {
+      let {
         validatedMessages,
         systemPromptForRequest: afterContext,
         tokenBreakdown,
@@ -245,7 +247,16 @@ export async function POST(req: Request) {
         totalThreadMessages,
         scheduleBackgroundCondensation,
         memoriesInjected,
+        activatedMemories,
       } = await loadTurnContext();
+
+      validatedMessages = await stampTurnWithActivatedMemories({
+        chatId: id,
+        validatedMessages,
+        savedUserMessage: message,
+        activatedMemories,
+        userMessageSave,
+      });
 
       if (experience === "arcadia" && scheduleBackgroundCondensation) {
         scheduleArcadiaContextCondensation({
@@ -333,7 +344,9 @@ export async function POST(req: Request) {
         transient: true,
       });
 
-      const messages = await convertToModelMessages(foldSystemNoticesForModel(validatedMessages));
+      const messages = await convertToModelMessages(
+        foldSystemNoticesForModel(expandActivatedMemoriesForModel(validatedMessages))
+      );
       const initialMessageCount = validatedMessages.length;
       let rabbitHoleActiveNodeId: string | null = null;
 
@@ -479,11 +492,13 @@ export async function POST(req: Request) {
 
       writer.write({
         type: "data-context-budget",
+        id: "context-budget",
         data: contextBudget,
       });
 
       await runLLMChatStream({
         writer,
+        contextBudget,
         logger,
         chatId: id,
         sbUserId,
