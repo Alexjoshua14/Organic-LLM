@@ -5,7 +5,6 @@ import type { ParticleFieldHandle } from "../_components/ParticleField";
 import type { CommitFailedMemory, FiledMemory } from "../_lib/memory-ingest-filed";
 import type { MemoryIngestFsmState, ParticleFieldVisualState } from "../_lib/types";
 import type { ChatModel } from "@/lib/schemas/chat";
-
 import type { DelphiDisplayInput } from "@/lib/memory-ingest/delphi-caption-budget";
 
 import { useChat } from "@ai-sdk/react";

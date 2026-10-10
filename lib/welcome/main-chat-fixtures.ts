@@ -1,5 +1,5 @@
 import type { ParsedMemorySearchToolOutput } from "@/components/chat/memory-search-tool-result";
-import type { ParsedWebSearchToolOutput } from "@/components/chat/web-search-tool-result";
+import type { ParsedWebSearchToolOutput } from "@/lib/chat/web-search-tool-output";
 
 export const WELCOME_MAIN_CHAT_USER_PROMPT =
   "What did we land on for episodic recall—and which models offer ZDR today?";

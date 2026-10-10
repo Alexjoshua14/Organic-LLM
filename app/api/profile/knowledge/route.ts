@@ -12,7 +12,6 @@ import { recordLlmCall } from "@/lib/llm/metrics";
 import { searchMemoriesForUser } from "@/lib/memory/operations";
 import { checkLlmMessageLimit } from "@/lib/rate-limit/llm";
 import { createLogger } from "@/lib/logger";
-
 import { models } from "@/lib/schemas/chat-models";
 
 export const maxDuration = 30;
@@ -99,11 +98,11 @@ ${memoriesBlock}`;
 
   const result = streamText({
     model: KNOWLEDGE_MODEL,
-    system,
+    instructions: system,
     prompt,
     maxOutputTokens: 900,
     providerOptions: KNOWLEDGE_GATEWAY_PROVIDER_OPTIONS,
-    onFinish: ({ usage }) => {
+    onEnd: ({ usage }) => {
       recordLlmCall({
         model: KNOWLEDGE_MODEL,
         usage,

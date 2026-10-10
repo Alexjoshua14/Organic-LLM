@@ -49,7 +49,9 @@ client-side navigation. Held in a page, the peer connection dies on every route 
 | FluidGlass material | `components/voice/voice-fluid-glass{,-canvas}.tsx`, geometry in `voice-glass-geometry.ts` |
 | Audio analysis | `hooks/use-voice-audio-levels.ts` |
 | Transport seam | `lib/speak/transport/voice-transport.ts` |
-| Screen context | `hooks/use-voice-screen-context.ts`, `lib/speak/ambient-context.ts`, `lib/speak/ambient-item.ts` |
+| Screen context | `hooks/use-voice-screen-context.ts`, `hooks/use-chat-voice-surface.ts`, `lib/speak/ambient-context.ts`, `lib/speak/ambient-item.ts` |
+| "Sees:" chip (dev only) | `components/voice/voice-sees-chip.tsx` |
+| Idle auto-pause | `lib/speak/voice-idle.ts` |
 | Reload resume | `app/api/ai/speak/realtime/active/route.ts` |
 | Voice visual state | `lib/speak/voice-visual-state.ts` |
 | Perf lab | `app/sandbox/prototypes/voice-bar/` |
@@ -59,6 +61,9 @@ client-side navigation. Held in a page, the peer connection dies on every route 
 | Realtime hook | `hooks/use-realtime-voice.ts` |
 | Server-event classifier | `lib/speak/realtime-events.ts` |
 | Session mint | `app/api/ai/speak/realtime/session/route.ts` |
+| Silent subagent progress | `app/api/ai/speak/realtime/progress/route.ts`, `lib/speak/subagent-progress-item.ts` |
+| Spoken subagent milestone | `app/api/ai/speak/realtime/milestone/route.ts`, `lib/speak/subagent-milestone-item.ts` |
+| Realtime voice ids | `lib/schemas/speak-realtime-voice.ts` |
 | Thread resolution | `lib/speak/resolve-speak-thread.ts`, policy in `lib/schemas/speak-thread.ts` |
 | Resume context | `lib/speak/speak-session-context.ts` |
 | Turn persistence | `app/api/ai/speak/realtime/transcript/route.ts`, `lib/speak/persist-voice-turns.ts`, `lib/speak/voice-turns.ts` |
@@ -98,8 +103,20 @@ Verified against the session route and hook on 2026-09-17. Design rationale is i
 8. **Screen awareness.** Surfaces register what is on screen via `useVoiceScreenContext`; the
    server builds the text and the client sends it as a silent `role: "system"` item with no
    `response.create`. See
-   [the ambient presence ADR](./decisions/20260922-ambient-voice-presence.md) — there is no
-   `.thinking` event in the Realtime API.
+   [the ambient presence ADR](./decisions/20260922-ambient-voice-presence.md).
+   `session.thinking.append` is GPT-Live only and does not exist on the Realtime API — see
+   [rabbit-hole awareness](./decisions/20260922-rabbit-hole-voice-awareness.md), which also
+   covers what a rabbit-hole page sends. Each item opens `[Screen]`, replaces the previous one,
+   and the instructions tell the model how to use it; a chat sends its title, latest messages and
+   summary, re-pushed after each finished exchange. See
+   [screen context delivery](./decisions/20260923-screen-context-delivery.md).
+9. **Idle auto-pause.** After 20s with nobody speaking, no response in flight, no audio playing
+   and no tool running, the call ends itself: the session is settled and the mic released. The
+   bar stays up, paused, and **Resume** continues the same thread. See
+   [idle auto-pause](./decisions/20260922-idle-auto-pause.md).
+10. **Arcadia multitask Speak-to.** A subagent session passes `voice` + `subagentSeed` at mint.
+    Work updates use distinct routes: `/progress` (silent) vs `/milestone` (announce). See
+    [multitask Speak ADR](./decisions/20260925-multitask-subagent-speak.md).
 
 Memory is a per-session opt-in sent by the client, mirroring chat's composer toggle. It is
 captured on the session record, so the tool gate and the ingest path read one value.
@@ -116,7 +133,7 @@ Factual gap analysis, not a plan. Roadmap is private.
 | Resume | Open thread, full history | Latest Speak thread by default; summary and last turns in instructions; **+** for a fresh one |
 | Survives navigation | n/a | Yes — provider in the root layout |
 | Survives page reload | Resumable SSE | Resume: same thread and clock, ~1s audio gap |
-| Screen awareness | n/a | Chat summary, Strata compiled doc, rabbit-hole graph |
+| Screen awareness | n/a | Chat title + latest messages + summary, Strata compiled doc, open rabbit-hole node + map |
 | Visuals | Gen UI inline in the message | Optional side panel, gated by modality toggles |
 
 **Speak tools:** `update_display_text`, `render_gen_ui`, `refresh_component`, `upsert_ui_state`,

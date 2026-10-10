@@ -10,11 +10,11 @@
  */
 import type { GatewayModelId } from "@ai-sdk/gateway";
 import type { MemoryItemType } from "@/lib/schemas/memory";
-import { models } from "@/lib/schemas/chat-models";
 
 import { generateText, type UIMessage } from "ai";
 import { z } from "zod";
 
+import { models } from "@/lib/schemas/chat-models";
 import { getMessageText } from "@/lib/arcadia/help-response";
 import { createLogger } from "@/lib/logger";
 
@@ -301,7 +301,7 @@ export async function rewriteMemoryQuery(
     const result = await withTimeout(
       gen({
         model: modelId,
-        system: REWRITER_SYSTEM,
+        instructions: REWRITER_SYSTEM,
         prompt: userPrompt,
         maxOutputTokens: 400,
       }),

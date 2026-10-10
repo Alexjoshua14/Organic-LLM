@@ -52,5 +52,6 @@ export function getWebSpeechRecognitionCtor(): (new () => WebSpeechRecognition) 
   if (typeof window === "undefined") return null;
 
   const { SpeechRecognition, webkitSpeechRecognition } = window;
+
   return SpeechRecognition ?? webkitSpeechRecognition ?? null;
 }

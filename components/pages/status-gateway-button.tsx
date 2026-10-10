@@ -1,39 +1,16 @@
 "use client";
 
-import { useAuth } from "@clerk/nextjs";
-import { useEffect, useState } from "react";
-
 import { GatewaySmokeLink } from "./gateway-smoke-link";
-import { showGatewayCache } from "./sandbox-gateway-button";
 
-import { getShowSandboxGatewayForCurrentUser } from "@/data/supabase/profiles";
+import { useGatewayVisibility } from "@/hooks/use-gateway-visibility";
 
 /**
- * Admin-only link to /status. Shares sandbox gateway visibility cache.
+ * Admin-only link to /status. Shares the current session's gateway visibility query.
  */
 export function StatusGatewayButton({ className }: { className?: string }) {
-  const { userId } = useAuth();
-  const [show, setShow] = useState<boolean | null>(() =>
-    userId ? (showGatewayCache.get(userId) ?? null) : null
-  );
+  const { visible } = useGatewayVisibility();
 
-  useEffect(() => {
-    if (!userId) return;
-    const cached = showGatewayCache.get(userId);
-
-    if (cached !== undefined) {
-      setShow(cached);
-
-      return;
-    }
-    setShow(null);
-    getShowSandboxGatewayForCurrentUser().then((value) => {
-      showGatewayCache.set(userId, value);
-      setShow(value);
-    });
-  }, [userId]);
-
-  if (!userId || show === false) return null;
+  if (visible !== true) return null;
 
   return (
     <GatewaySmokeLink

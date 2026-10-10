@@ -4,7 +4,7 @@ import Link from "next/link";
 import { ArrowUpRight, CheckCircle2, ListTodo, Pencil, Plus, TriangleAlert } from "lucide-react";
 
 import { glass } from "@/components/design-system/primitives";
-import { formatDueDate, formatEstMinutes, formatPlannedDate } from "@/lib/ergon/format";
+import { formatDueDate, formatPlannedDate } from "@/lib/ergon/format";
 import { type ErgonTaskSummary, ErgonTasksToolOutputSchema } from "@/lib/schemas/ergon-tasks";
 import { cn } from "@/lib/utils";
 

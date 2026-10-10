@@ -68,12 +68,11 @@ export async function searchMemories(
       `Memory search failed [${diagnosis.kind}] — ${diagnosis.hint}`,
       {
         failureKind: diagnosis.kind,
-        userId,
         queryLength: query.length,
         limit: options?.limit ?? 3,
         ...(err ? { errorName: err.name, errorMessage: err.message } : { thrown: String(error) }),
       },
-      error,
+      error
     );
     throw new Error("Memory service may be unavailable.");
   }

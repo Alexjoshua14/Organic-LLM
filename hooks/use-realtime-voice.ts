@@ -1,7 +1,9 @@
 "use client";
 
 import type { SpeakModalities } from "@/lib/schemas/speak-modalities";
+import type { SpeakRealtimeVoice } from "@/lib/schemas/speak-realtime-voice";
 import type { SpeakScreenSurface } from "@/lib/schemas/speak-screen-context";
+import type { SpeakSubagentSeed } from "@/lib/schemas/speak-subagent-context";
 import type { SpeakThreadPolicy } from "@/lib/schemas/speak-thread";
 import type { SpeakBudgetSnapshot } from "@/lib/speak/types";
 import type { SpeakToolClientEffect } from "@/lib/speak/types";
@@ -13,17 +15,26 @@ import { DEFAULT_COMPOSER_MEMORIES } from "@/lib/chat/composer-tool-defaults";
 import { DEFAULT_SPEAK_MODALITIES } from "@/lib/schemas/speak-modalities";
 import { DEFAULT_SPEAK_THREAD_POLICY } from "@/lib/schemas/speak-thread";
 import { screenSurfaceKey } from "@/lib/schemas/speak-screen-context";
-import { buildAmbientContextItem } from "@/lib/speak/ambient-item";
+import {
+  AMBIENT_CLEARED_BODY,
+  AMBIENT_EVENT_PREFIX,
+  buildAmbientContextItem,
+  buildAmbientDeleteEvent,
+  isAmbientClientEvent,
+} from "@/lib/speak/ambient-item";
 import {
   classifyRealtimeEvent,
   sumRealtimeUsage,
   type RealtimeUsage,
 } from "@/lib/speak/realtime-events";
+import { buildSubagentMilestoneItem } from "@/lib/speak/subagent-milestone-item";
+import { buildSubagentProgressItem } from "@/lib/speak/subagent-progress-item";
 import {
   createWebRtcVoiceTransport,
   isRetryableConnectError,
   RealtimeConnectError,
 } from "@/lib/speak/transport/voice-transport";
+import { createVoiceIdleTimer, SPEAK_IDLE_PAUSE_MS } from "@/lib/speak/voice-idle";
 import { SPEAK_TURN_BATCH_MAX, type SpeakVoiceTurn } from "@/lib/speak/voice-turns";
 
 export type LiveVoicePhase = "idle" | "listening" | "thinking" | "speaking";
@@ -33,6 +44,18 @@ export type RealtimeTranscriptEntry = {
   role: "user" | "assistant" | "system";
   text: string;
   interim?: boolean;
+};
+
+/**
+ * What the model was last told about the screen, for the dev "Sees:" chip. `reason` explains an
+ * empty body — the screen was replaced with {@link AMBIENT_CLEARED_BODY} instead.
+ */
+export type VoiceScreenContextSnapshot = {
+  surfaceKey: string;
+  label: string;
+  body: string;
+  reason?: string;
+  at: number;
 };
 
 export type ResumedThreadInfo = {
@@ -129,6 +152,7 @@ export function useRealtimeVoice({
   onClientEffects,
   onBudgetChange,
   transportFactory = createWebRtcVoiceTransport,
+  idlePauseMs = SPEAK_IDLE_PAUSE_MS,
 }: {
   modalities?: SpeakModalities;
   /** Sent at mint; enables `search_memories` and transcript ingest for the session. */
@@ -137,6 +161,8 @@ export function useRealtimeVoice({
   threadPolicy?: SpeakThreadPolicy;
   /** Swap point for a server-side relay; see `lib/speak/transport/voice-transport.ts`. */
   transportFactory?: VoiceTransportFactory;
+  /** Quiet stretch before the call pauses itself. Read once, at mount; tests shorten it. */
+  idlePauseMs?: number;
   onPhaseChange?: (phase: LiveVoicePhase) => void;
   onCaptionChange?: (caption: {
     role: "user" | "assistant" | "system";
@@ -156,10 +182,16 @@ export function useRealtimeVoice({
   const [transcript, setTranscript] = useState<RealtimeTranscriptEntry[]>([]);
   const [resumedThread, setResumedThread] = useState<ResumedThreadInfo | null>(null);
   /**
+   * The idle timer ended the call. The bar stays up offering `resume`; nothing is connected, the
+   * mic is released and the server session is settled.
+   */
+  const [paused, setPaused] = useState(false);
+  /**
    * Epoch ms the user started talking, carried across reloads by the server. The live bar's
    * elapsed clock reads this, so a refresh mid-call does not restart the timer at zero.
    */
   const [startedAt, setStartedAt] = useState<number | null>(null);
+  const [screenContext, setScreenContext] = useState<VoiceScreenContextSnapshot | null>(null);
   /** Mic and model audio, for the waveform's analyser taps. */
   const [streams, setStreams] = useState<{ local: MediaStream | null; remote: MediaStream | null }>(
     { local: null, remote: null }
@@ -186,6 +218,17 @@ export function useRealtimeVoice({
   const assistantStartedAtRef = useRef<number | null>(null);
   /** Last surface pushed, so navigating away and back costs nothing. */
   const ambientSurfaceKeyRef = useRef<string | null>(null);
+  /** Our id for the screen item in the conversation, so the next push can delete it. */
+  const ambientItemIdRef = useRef<string | null>(null);
+  const ambientSeqRef = useRef(0);
+  const threadIdRef = useRef<string | null>(null);
+  /** Thread a paused call was writing to, so `resume` lands on it rather than the latest. */
+  const pausedThreadIdRef = useRef<string | null>(null);
+  const pauseForIdleRef = useRef<() => void>(() => undefined);
+  /** See `lib/speak/voice-idle.ts` for what counts as quiet. */
+  const [idleTimer] = useState(() =>
+    createVoiceIdleTimer({ timeoutMs: idlePauseMs, onIdle: () => pauseForIdleRef.current() })
+  );
 
   modalitiesRef.current = modalities;
   memoryEnabledRef.current = memoryEnabled;
@@ -270,6 +313,7 @@ export function useRealtimeVoice({
   const teardown = useCallback(
     async (opts?: { notifyServer?: boolean; connectFailure?: ConnectFailure }) => {
       stopHeartbeat();
+      idleTimer.stop();
 
       const sid = sessionIdRef.current;
 
@@ -305,9 +349,11 @@ export function useRealtimeVoice({
       userSpeechStartedAtRef.current = null;
       assistantStartedAtRef.current = null;
       ambientSurfaceKeyRef.current = null;
+      ambientItemIdRef.current = null;
+      setScreenContext(null);
       setPhaseSafe("idle");
     },
-    [flushTurns, setPhaseSafe, stopHeartbeat]
+    [flushTurns, idleTimer, setPhaseSafe, stopHeartbeat]
   );
 
   const sendHeartbeat = useCallback(async () => {
@@ -358,6 +404,11 @@ export function useRealtimeVoice({
 
       if (!sid || !call.name || !call.call_id) return;
 
+      // A slow tool is the model working, not silence; see `lib/speak/voice-idle.ts`.
+      const activity = `tool:${call.call_id}` as const;
+
+      idleTimer.begin(activity);
+
       try {
         const res = await fetch("/api/ai/speak/realtime/tool", {
           method: "POST",
@@ -397,9 +448,11 @@ export function useRealtimeVoice({
         }
       } catch (err) {
         setError(err instanceof Error ? err.message : "Tool call failed");
+      } finally {
+        idleTimer.end(activity);
       }
     },
-    [onClientEffects, teardown]
+    [idleTimer, onClientEffects, teardown]
   );
 
   const handleDataEvent = useCallback(
@@ -416,6 +469,7 @@ export function useRealtimeVoice({
 
       switch (ev.kind) {
         case "user_speech_started":
+          idleTimer.begin("user-speech");
           userSpeakingRef.current = true;
           assistantSpeakingRef.current = false;
           userSpeechStartedAtRef.current = Date.now();
@@ -424,23 +478,36 @@ export function useRealtimeVoice({
 
           return;
         case "user_speech_stopped":
+          idleTimer.end("user-speech");
           userSpeakingRef.current = false;
           syncPhase();
 
           return;
         case "assistant_started":
+          idleTimer.begin("response");
           assistantSpeakingRef.current = true;
           assistantStartedAtRef.current ??= Date.now();
           syncPhase();
 
           return;
         case "assistant_finished":
+          idleTimer.end("response");
           assistantSpeakingRef.current = false;
           pendingUsageRef.current = sumRealtimeUsage(pendingUsageRef.current, ev.usage);
           syncPhase();
 
           return;
         case "assistant_audio_stopped":
+          assistantSpeakingRef.current = false;
+          syncPhase();
+
+          return;
+        case "assistant_playback_started":
+          idleTimer.begin("playback");
+
+          return;
+        case "assistant_playback_stopped":
+          idleTimer.end("playback");
           assistantSpeakingRef.current = false;
           syncPhase();
 
@@ -490,6 +557,10 @@ export function useRealtimeVoice({
 
           return;
         case "error":
+          // Deleting a screen item that `retention_ratio` truncation already evicted, say. The
+          // call is fine; the user should never see it.
+          if (isAmbientClientEvent(ev.clientEventId)) return;
+
           setError(ev.message);
 
           return;
@@ -497,11 +568,18 @@ export function useRealtimeVoice({
           return;
       }
     },
-    [handleToolCall, onCaptionChange, scheduleFlush, syncPhase]
+    [handleToolCall, idleTimer, onCaptionChange, scheduleFlush, syncPhase]
   );
 
   const connect = useCallback(
-    async (options?: { threadPolicy?: SpeakThreadPolicy; resumeSessionId?: string }) => {
+    async (options?: {
+      threadPolicy?: SpeakThreadPolicy;
+      resumeSessionId?: string;
+      /** Continue this thread whatever the policy says; the session route checks ownership. */
+      threadId?: string;
+      voice?: SpeakRealtimeVoice;
+      subagentSeed?: SpeakSubagentSeed;
+    }) => {
       if (connecting || connectedRef.current) return;
 
       setConnecting(true);
@@ -524,9 +602,14 @@ export function useRealtimeVoice({
               modalities: modalitiesRef.current,
               memory: memoryEnabledRef.current,
               threadPolicy: options?.threadPolicy ?? threadPolicyRef.current,
+              threadId: options?.threadId,
               resumeSessionId,
               retryAfterConnectFailure: retryFailure ?? undefined,
               withoutThreadContext: retryFailure ? true : undefined,
+              voice: options?.voice,
+              // Fresh Speak-to seed only on the first mint; retries keep thread continuity without
+              // re-billing a full subagent preamble rewrite.
+              subagentSeed: retryFailure ? undefined : options?.subagentSeed,
             }),
           });
 
@@ -539,6 +622,7 @@ export function useRealtimeVoice({
           applyBudget(mint.budget);
           sessionIdRef.current = mint.sessionId;
           setSessionId(mint.sessionId);
+          threadIdRef.current = mint.threadId;
           setThreadId(mint.threadId);
           setStartedAt(mint.startedAt ?? Date.now());
           setResumedThread(
@@ -549,6 +633,7 @@ export function useRealtimeVoice({
           turnBufferRef.current = [];
           pendingUsageRef.current = null;
           ambientSurfaceKeyRef.current = null;
+          ambientItemIdRef.current = null;
 
           const audioEl = audioElRef.current ?? document.createElement("audio");
 
@@ -590,6 +675,7 @@ export function useRealtimeVoice({
         connectedRef.current = true;
         setConnected(true);
         setConnecting(false);
+        setPaused(false);
         setPhaseSafe("idle");
         onCaptionChange?.({
           role: "system",
@@ -600,6 +686,7 @@ export function useRealtimeVoice({
               : "Connected — speak naturally. Tap End to hang up.",
         });
         startHeartbeat();
+        idleTimer.reset();
       } catch (err) {
         const msg = err instanceof Error ? err.message : "Failed to connect";
 
@@ -616,11 +703,41 @@ export function useRealtimeVoice({
       applyBudget,
       connecting,
       handleDataEvent,
+      idleTimer,
       onCaptionChange,
       setPhaseSafe,
       startHeartbeat,
       teardown,
     ]
+  );
+
+  /**
+   * The idle timer's action. Ends the call — settling the server session, releasing the mic and
+   * the concurrency slot — but keeps the bar up and the thread in hand, so `resume` continues
+   * the same conversation. Nothing bills while paused.
+   */
+  const pauseForIdle = useCallback(async () => {
+    if (!connectedRef.current) return;
+
+    pausedThreadIdRef.current = threadIdRef.current;
+    // Set alongside teardown's state so no render sees "disconnected and not paused" — that
+    // frame would start the bar's exit animation. A stale error would read as a failed resume.
+    setPaused(true);
+    setError(null);
+    await teardown({ notifyServer: true });
+    onCaptionChange?.({ role: "system", text: "Paused after a quiet stretch — resume anytime." });
+  }, [onCaptionChange, teardown]);
+
+  pauseForIdleRef.current = () => void pauseForIdle();
+
+  /**
+   * Picks a paused call back up on the thread it was writing to. The mint rehydrates it through
+   * the resume preamble (summary plus recent turns), the same path as any resumed thread. A
+   * failure leaves the call paused, so the bar still offers another try.
+   */
+  const resume = useCallback(
+    () => connect({ threadId: pausedThreadIdRef.current ?? undefined }),
+    [connect]
   );
 
   /** Fresh thread regardless of the hook's default policy. */
@@ -658,11 +775,13 @@ export function useRealtimeVoice({
   }, [connect, connecting]);
 
   /**
-   * Tells the model what the user is now looking at, as a silent system item.
+   * Tells the model what the user is now looking at, as a silent system item that replaces the
+   * previous one.
    *
    * The body is assembled server-side (summaries and compiled docs need privileged reads), then
    * forwarded down the data channel from here because the channel lives in the browser. No
-   * `response.create` follows — see `lib/speak/ambient-item.ts` for why that makes it silent.
+   * `response.create` follows — see `lib/speak/ambient-item.ts` for why that makes it silent, and
+   * why the previous item is deleted rather than left to pile up.
    */
   const sendScreenContext = useCallback(async (surface: SpeakScreenSurface) => {
     const sid = sessionIdRef.current;
@@ -685,30 +804,148 @@ export function useRealtimeVoice({
       });
 
       if (!res.ok) {
-        ambientSurfaceKeyRef.current = null;
+        if (ambientSurfaceKeyRef.current === key) ambientSurfaceKeyRef.current = null;
 
         return;
       }
 
-      const data = (await res.json()) as { body?: string };
-      const item = buildAmbientContextItem(data.body ?? "");
+      const data = (await res.json()) as { body?: string; label?: string; reason?: string };
 
-      // The session can end between the request and the response.
-      if (item && transportRef.current === transport && connectedRef.current) {
-        transport.send(item);
+      // A newer surface claimed the key while this was in flight — clicking through rabbit-hole
+      // nodes does it constantly — so a late reply would overwrite fresher context. The session
+      // can also end between the request and the response.
+      if (
+        ambientSurfaceKeyRef.current !== key ||
+        transportRef.current !== transport ||
+        !connectedRef.current
+      ) {
+        return;
       }
+
+      // Nothing to describe still replaces what was there; otherwise the model goes on describing
+      // the page the user just left.
+      const body = data.body?.trim() || AMBIENT_CLEARED_BODY;
+      const seq = ++ambientSeqRef.current;
+      const itemId = `${AMBIENT_EVENT_PREFIX}item_${seq}`;
+      const previous = ambientItemIdRef.current;
+
+      // Add before delete, so there is never a moment with no screen item at all.
+      transport.send(
+        buildAmbientContextItem(body, { itemId, eventId: `${AMBIENT_EVENT_PREFIX}add_${seq}` })!
+      );
+      ambientItemIdRef.current = itemId;
+
+      if (previous) {
+        transport.send(buildAmbientDeleteEvent(previous, `${AMBIENT_EVENT_PREFIX}del_${seq}`));
+      }
+
+      setScreenContext({
+        surfaceKey: key,
+        label: data.label ?? surface.kind,
+        body,
+        reason: data.reason,
+        at: Date.now(),
+      });
     } catch {
       // Ambient awareness is an enhancement; a failed push must never disturb the call.
-      ambientSurfaceKeyRef.current = null;
+      if (ambientSurfaceKeyRef.current === key) ambientSurfaceKeyRef.current = null;
     }
   }, []);
 
+  /**
+   * Silent subagent progress via `POST /api/ai/speak/realtime/progress`.
+   * Updates model context only — no `response.create`.
+   */
+  const sendSubagentProgress = useCallback(
+    async (args: {
+      agentId: string;
+      role?: string;
+      name?: string;
+      progress: string;
+    }): Promise<boolean> => {
+      const sid = sessionIdRef.current;
+      const transport = transportRef.current;
+
+      if (!sid || !transport || !connectedRef.current) return false;
+
+      try {
+        const res = await fetch("/api/ai/speak/realtime/progress", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ sessionId: sid, ...args }),
+        });
+
+        if (!res.ok) return false;
+
+        const data = (await res.json()) as { body?: string };
+        const item = buildSubagentProgressItem(data.body ?? "");
+
+        if (item && transportRef.current === transport && connectedRef.current) {
+          transport.send(item);
+
+          return true;
+        }
+      } catch {
+        return false;
+      }
+
+      return false;
+    },
+    []
+  );
+
+  /**
+   * Spoken subagent milestone via `POST /api/ai/speak/realtime/milestone`.
+   * Follows the item with `response.create` so the model announces.
+   */
+  const sendSubagentMilestone = useCallback(
+    async (args: {
+      agentId: string;
+      role?: string;
+      name?: string;
+      milestone: string;
+      progress?: string;
+    }): Promise<boolean> => {
+      const sid = sessionIdRef.current;
+      const transport = transportRef.current;
+
+      if (!sid || !transport || !connectedRef.current) return false;
+
+      try {
+        const res = await fetch("/api/ai/speak/realtime/milestone", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ sessionId: sid, ...args }),
+        });
+
+        if (!res.ok) return false;
+
+        const data = (await res.json()) as { body?: string };
+        const item = buildSubagentMilestoneItem(data.body ?? "");
+
+        if (item && transportRef.current === transport && connectedRef.current) {
+          transport.send(item);
+          transport.send({ type: "response.create" });
+
+          return true;
+        }
+      } catch {
+        return false;
+      }
+
+      return false;
+    },
+    []
+  );
+
   const disconnect = useCallback(async () => {
+    setPaused(false);
     await teardown({ notifyServer: true });
     onCaptionChange?.({ role: "system", text: "Session ended." });
   }, [onCaptionChange, teardown]);
 
   const resetSession = useCallback(async () => {
+    setPaused(false);
     await teardown({ notifyServer: true });
     turnBufferRef.current = [];
     setTranscript([]);
@@ -718,6 +955,30 @@ export function useRealtimeVoice({
     onBudgetChange?.(null);
     onCaptionChange?.({ role: "system", text: "" });
   }, [onBudgetChange, onCaptionChange, teardown]);
+
+  /**
+   * Inject a typed/UI text event into the live Realtime conversation (stretch for
+   * Aion presence). Returns false when the data channel is not open.
+   */
+  const sendTextEvent = useCallback((text: string): boolean => {
+    const transport = transportRef.current;
+    const trimmed = text.trim();
+
+    if (!transport || !connectedRef.current || !trimmed) return false;
+
+    const created = transport.send({
+      type: "conversation.item.create",
+      item: {
+        type: "message",
+        role: "user",
+        content: [{ type: "input_text", text: trimmed }],
+      },
+    });
+
+    if (!created) return false;
+
+    return transport.send({ type: "response.create" });
+  }, []);
 
   useEffect(() => {
     return () => {
@@ -729,6 +990,8 @@ export function useRealtimeVoice({
     phase,
     connected,
     connecting,
+    /** Ended by the idle timer; `resume` continues it. See `lib/speak/voice-idle.ts`. */
+    paused,
     error,
     sessionId,
     threadId,
@@ -737,15 +1000,21 @@ export function useRealtimeVoice({
     transcript,
     /** Epoch ms the conversation began, across reloads. `null` when idle. */
     startedAt,
+    /** What the model was last told about the screen; the dev "Sees:" chip reads it. */
+    screenContext,
     /** Mic and model audio for the live bar's waveform analyser. */
     localStream: streams.local,
     remoteStream: streams.remote,
     connect,
     startNew,
+    resume,
     resumeIfActive,
     sendScreenContext,
+    sendSubagentProgress,
+    sendSubagentMilestone,
     disconnect,
     resetSession,
+    sendTextEvent,
     setAudioElement: (el: HTMLAudioElement | null) => {
       audioElRef.current = el;
     },

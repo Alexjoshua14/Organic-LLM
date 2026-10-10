@@ -20,6 +20,17 @@ export const SearchMemoryToolSchema = z.object({
 
 export type SearchMemoryToolInput = z.infer<typeof SearchMemoryToolSchema>;
 
+/** Arcadia: list memories created/updated in a recent wall-clock window. */
+export const ListRecentMemoriesToolSchema = z.object({
+  window: z
+    .enum(["hour", "day"])
+    .describe(
+      "How far back to include memories: `hour` (last 60 minutes) or `day` (last 24 hours)."
+    ),
+});
+
+export type ListRecentMemoriesToolInput = z.infer<typeof ListRecentMemoriesToolSchema>;
+
 export const GetMoreMessagesToolSchema = z.object({
   limit: z
     .number()

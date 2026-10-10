@@ -1,6 +1,6 @@
 "use client";
 
-import type { LiveVoicePhase } from "@/hooks/use-live-voice";
+import type { LiveVoicePhase } from "@/hooks/use-realtime-voice";
 
 import { cn } from "@/lib/utils";
 
@@ -67,7 +67,12 @@ export function VoicePresenceOrb({
           />
         </path>
         <circle cx="50" cy="50" fill={config.color} opacity="0.25" r="22">
-          <animate attributeName="r" dur={config.speed} repeatCount="indefinite" values="20;26;20" />
+          <animate
+            attributeName="r"
+            dur={config.speed}
+            repeatCount="indefinite"
+            values="20;26;20"
+          />
         </circle>
       </svg>
     </div>

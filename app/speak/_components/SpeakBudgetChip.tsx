@@ -1,6 +1,7 @@
 "use client";
 
 import type { SpeakBudgetSnapshot } from "@/lib/speak/types";
+
 import { glass } from "@/components/design-system/primitives";
 import { cn } from "@/lib/utils";
 
@@ -19,9 +20,7 @@ export function SpeakBudgetChip({ budget }: { budget: SpeakBudgetSnapshot | null
   }
 
   const costPct =
-    budget.monthlyCostCapUsd > 0
-      ? (budget.monthlyCostUsedUsd / budget.monthlyCostCapUsd) * 100
-      : 0;
+    budget.monthlyCostCapUsd > 0 ? (budget.monthlyCostUsedUsd / budget.monthlyCostCapUsd) * 100 : 0;
   const warn = costPct >= 80 || budget.dailyMinutesRemaining <= 5;
 
   return (

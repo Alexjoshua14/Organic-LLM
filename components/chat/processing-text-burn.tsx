@@ -35,6 +35,19 @@ export type ProcessingTextBurnProps = {
   sustainShimmer?: boolean;
   /** Sustain shimmer loop duration in seconds (lower = faster). */
   shimmerSpeed?: number;
+  /**
+   * While set, re-run a burn sweep on the current display text every N seconds.
+   * Shimmer sustains between sweeps. Text changes while looping are deferred to the
+   * next sweep boundary so title swaps stay on the loop cadence.
+   */
+  loopSweepIntervalS?: number | null;
+  /**
+   * When true with an active loop, the next sweep boundary applies any deferred text
+   * (or ends the loop if text is unchanged) and then calls `onCommitSweepSettled`.
+   */
+  commitOnNextSweep?: boolean;
+  /** Fires after a commit sweep has burned in and settled (or immediately if text was unchanged). */
+  onCommitSweepSettled?: () => void;
 };
 
 function transitionDurationMs(outgoing: string, incoming: string): number {
@@ -66,6 +79,7 @@ function renderLayer(
   return tokenize(text).map((token, tokenIndex) => {
     if (/^\s+$/.test(token)) {
       const start = charIndex;
+
       charIndex += token.length;
 
       return (
@@ -85,6 +99,7 @@ function renderLayer(
 
     const start = charIndex;
     const chars = Array.from(token);
+
     charIndex += chars.length;
 
     return (
@@ -110,64 +125,179 @@ export function ProcessingTextBurn({
   as: Component = "p",
   sustainShimmer = true,
   shimmerSpeed = DEFAULT_SUSTAIN_SHIMMER_SPEED_S,
+  loopSweepIntervalS = null,
+  commitOnNextSweep = false,
+  onCommitSweepSettled,
 }: ProcessingTextBurnProps) {
   const reduceMotion = useReducedMotion();
-  const prevTextRef = useRef(text);
+  const [displayText, setDisplayText] = useState(text);
+  const prevTextRef = useRef(displayText);
   const [transition, setTransition] = useState<{
     outgoing: string;
     incoming: string;
     key: number;
   } | null>(null);
   const [settled, setSettled] = useState(false);
+  const [sweepKey, setSweepKey] = useState(0);
+  const pendingTextRef = useRef<string | null>(null);
+  const commitPendingRef = useRef(false);
+  const commitStartedRef = useRef(false);
+  const commitAfterSettleRef = useRef(false);
+  const onCommitRef = useRef(onCommitSweepSettled);
+  const transitionBusyRef = useRef(false);
+
+  onCommitRef.current = onCommitSweepSettled;
+  commitPendingRef.current = commitOnNextSweep;
+
+  const isLooping =
+    !reduceMotion &&
+    loopSweepIntervalS != null &&
+    Number.isFinite(loopSweepIntervalS) &&
+    loopSweepIntervalS > 0;
+
+  useEffect(() => {
+    if (!commitOnNextSweep) {
+      commitStartedRef.current = false;
+    }
+  }, [commitOnNextSweep]);
+
+  // Queue text changes while looping so swaps land on the next sweep boundary.
+  useEffect(() => {
+    if (text === displayText) {
+      if (!commitOnNextSweep) {
+        pendingTextRef.current = null;
+      }
+
+      return;
+    }
+
+    if (isLooping) {
+      pendingTextRef.current = text;
+
+      return;
+    }
+
+    pendingTextRef.current = null;
+    setDisplayText(text);
+  }, [text, displayText, isLooping, commitOnNextSweep]);
+
+  // If looping stops with a queued title, apply it immediately.
+  useEffect(() => {
+    if (isLooping) return;
+    const pending = pendingTextRef.current;
+
+    if (pending == null || pending === displayText) return;
+    pendingTextRef.current = null;
+    setDisplayText(pending);
+  }, [isLooping, displayText]);
 
   useEffect(() => {
     if (reduceMotion) {
-      prevTextRef.current = text;
+      prevTextRef.current = displayText;
       setTransition(null);
       setSettled(true);
+      transitionBusyRef.current = false;
+      if (commitAfterSettleRef.current) {
+        commitAfterSettleRef.current = false;
+        onCommitRef.current?.();
+      }
 
       return;
     }
 
     const previous = prevTextRef.current;
 
-    if (previous === text) {
+    if (previous === displayText) {
       setSettled(false);
-      const timeout = window.setTimeout(() => setSettled(true), initialEnterDurationMs(text));
+      transitionBusyRef.current = true;
+      const timeout = window.setTimeout(() => {
+        setSettled(true);
+        transitionBusyRef.current = false;
+        if (commitAfterSettleRef.current) {
+          commitAfterSettleRef.current = false;
+          onCommitRef.current?.();
+        }
+      }, initialEnterDurationMs(displayText));
 
       return () => window.clearTimeout(timeout);
     }
 
-    prevTextRef.current = text;
+    prevTextRef.current = displayText;
     setSettled(false);
-    setTransition({ outgoing: previous, incoming: text, key: Date.now() });
+    transitionBusyRef.current = true;
+    setTransition({ outgoing: previous, incoming: displayText, key: Date.now() });
 
-    const timeout = window.setTimeout(() => {
-      setTransition(null);
-      setSettled(true);
-    }, transitionDurationMs(previous, text));
+    const timeout = window.setTimeout(
+      () => {
+        setTransition(null);
+        setSettled(true);
+        transitionBusyRef.current = false;
+        if (commitAfterSettleRef.current) {
+          commitAfterSettleRef.current = false;
+          onCommitRef.current?.();
+        }
+      },
+      transitionDurationMs(previous, displayText)
+    );
 
     return () => window.clearTimeout(timeout);
-  }, [reduceMotion, text]);
+  }, [reduceMotion, displayText, sweepKey]);
+
+  // Cadence: self-sweep, or commit deferred text / end loop on the next boundary.
+  useEffect(() => {
+    if (!isLooping || loopSweepIntervalS == null) return;
+
+    const id = window.setInterval(() => {
+      if (transitionBusyRef.current) return;
+
+      const pending = pendingTextRef.current;
+      const shouldCommit = commitPendingRef.current;
+
+      if (shouldCommit) {
+        if (commitStartedRef.current) return;
+        commitStartedRef.current = true;
+        commitAfterSettleRef.current = true;
+
+        if (pending != null && pending !== prevTextRef.current) {
+          pendingTextRef.current = null;
+          setDisplayText(pending);
+        } else {
+          pendingTextRef.current = null;
+          // Same title: one final self-sweep, then settle → onCommit.
+          setSweepKey(Date.now());
+        }
+
+        return;
+      }
+
+      // Self-sweep: remount incoming-initial on the same text.
+      setSweepKey(Date.now());
+    }, loopSweepIntervalS * 1000);
+
+    return () => window.clearInterval(id);
+  }, [isLooping, loopSweepIntervalS]);
 
   if (reduceMotion) {
-    return <Component className={className}>{text}</Component>;
+    return <Component className={className}>{displayText}</Component>;
   }
 
   const showSustainShimmer = sustainShimmer && settled && transition == null;
   const outgoing = transition?.outgoing;
-  const incoming = transition?.incoming ?? text;
-  const animKey = transition?.key ?? 0;
+  const incoming = transition?.incoming ?? displayText;
+  const animKey = transition?.key ?? sweepKey;
   const incomingClass = outgoing
     ? "processing-text-burn__char--incoming"
     : "processing-text-burn__char--incoming-initial";
 
   return (
     <Component className={cn("processing-text-burn", className)} aria-live="polite">
-      <span className="sr-only">{text}</span>
+      <span className="sr-only">{displayText}</span>
       {showSustainShimmer ? (
-        <span aria-hidden className="processing-text-burn__layer processing-text-burn__sustain-host">
-          <ShinyText as="span" speed={shimmerSpeed} text={text} />
+        <span
+          aria-hidden
+          className="processing-text-burn__layer processing-text-burn__sustain-host"
+        >
+          <ShinyText as="span" speed={shimmerSpeed} text={displayText} />
         </span>
       ) : (
         <>

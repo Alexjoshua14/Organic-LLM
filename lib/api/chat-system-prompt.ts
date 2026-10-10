@@ -1,6 +1,7 @@
 import type { z } from "zod";
 import type { ChatStyle } from "@/lib/chat/chat-style";
 import type { DelphiDisplayInput } from "@/lib/memory-ingest/delphi-caption-budget";
+import type { DrawerChatDisplayInput } from "@/lib/rabbit-holes/drawer-chat-ui-budget";
 
 import {
   type ChatExperience,
@@ -17,7 +18,6 @@ import {
 } from "@/lib/personas/delphi";
 import { StrataAssistantPersonaRequestSchema } from "@/lib/schemas/chat";
 import { appendRabbitHoleDrawerSystemFragments } from "@/lib/llm/rabbit-hole-chat-augmentation";
-import type { DrawerChatDisplayInput } from "@/lib/rabbit-holes/drawer-chat-ui-budget";
 import {
   computeDelphiCaptionBudget,
   delphiScrollCharBudget,
@@ -54,6 +54,38 @@ export async function appendStrataMainChatSystemFragments(
   }
 
   return out;
+}
+
+export type AppendTopicExploreCustomSystemPromptParams = {
+  systemPromptForRequest: string;
+  experience: ChatExperience | undefined;
+  customSystemPromptOverride: string | undefined;
+};
+
+/**
+ * Noesis authored-spark override. When a user taps an authored spark, its system prompt
+ * is sent as `customSystemPromptOverride`; here it is prepended as an authoritative
+ * directive that governs the `topic_explore` thread, while the platform's base context
+ * (and the later post-tool fragments) still apply. No-op for other experiences or when
+ * no override is supplied.
+ */
+export function appendTopicExploreCustomSystemPrompt(
+  params: AppendTopicExploreCustomSystemPromptParams
+): string {
+  const { systemPromptForRequest, experience, customSystemPromptOverride } = params;
+
+  const override = customSystemPromptOverride?.trim();
+
+  if (experience !== "topic_explore" || !override) {
+    return systemPromptForRequest;
+  }
+
+  return (
+    "[Noesis spark directive — authoritative; governs this conversation]\n" +
+    override +
+    "\n\n[End spark directive]\n\n" +
+    systemPromptForRequest
+  );
 }
 
 const SPEECH_FRIENDLY_APPEND =
@@ -113,6 +145,7 @@ export function appendMainChatPostToolSystemFragments(
     }
 
     const priming = arcadiaStarterPriming?.trim();
+
     if (priming) {
       out += `\n\n[Arcadia starter prompt]\n${priming}`;
     }

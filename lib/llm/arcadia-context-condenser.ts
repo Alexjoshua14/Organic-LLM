@@ -1,5 +1,7 @@
 "use server";
 
+import type { Result } from "@/types";
+
 import { convertToModelMessages, generateText, type UIMessage } from "ai";
 
 import { getThreadOwnerContext } from "@/data/supabase/chat";
@@ -10,7 +12,6 @@ import { estimateTokenCount } from "@/lib/llm/chat-helpers";
 import { recordLlmCall } from "@/lib/llm/metrics";
 import { createLogger } from "@/lib/logger";
 import { supabaseServer } from "@/lib/supabase/server";
-import type { Result } from "@/types";
 
 const logger = createLogger("lib/llm/arcadia-context-condenser.ts");
 
@@ -79,12 +80,11 @@ export async function condenseArcadiaContext(
 
   const ownerId = threadOwnerContext.data.ownerId;
   const messagesForSummary = convertToolCallsToTextForSummarizer(messagesToCondense);
-  const modelMessages = convertToModelMessages(messagesForSummary);
+  const modelMessages = await convertToModelMessages(messagesForSummary);
 
-  const systemPrompt =
-    existingSummary?.trim().length
-      ? UpdateCondenserSystemPrompt.replace("{{conversationSummary}}", existingSummary.trim())
-      : InitialCondenserSystemPrompt;
+  const systemPrompt = existingSummary?.trim().length
+    ? UpdateCondenserSystemPrompt.replace("{{conversationSummary}}", existingSummary.trim())
+    : InitialCondenserSystemPrompt;
 
   const condenseStart = performance.now();
 
@@ -93,7 +93,7 @@ export async function condenseArcadiaContext(
   try {
     const result = await generateText({
       model: modelId,
-      system: systemPrompt,
+      instructions: systemPrompt,
       temperature: 0.2,
       messages: modelMessages,
       maxOutputTokens: GUARDRAIL_MAX_OUTPUT_TOKENS,
@@ -181,10 +181,7 @@ export async function condenseArcadiaContext(
     }
   }
 
-  await sb
-    .from("threads")
-    .update({ conversation_summary: summaryText })
-    .eq("id", chatId);
+  await sb.from("threads").update({ conversation_summary: summaryText }).eq("id", chatId);
 
   logger.log("condenseArcadiaContext", "Arcadia context condensed", {
     chatId,

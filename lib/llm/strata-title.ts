@@ -84,7 +84,7 @@ export async function generateStrataPageTitleFromSections(options: {
       const summaryStart = performance.now();
       const summaryResult = await generateText({
         model: TITLE_PIPELINE_SUMMARIZER_MODEL,
-        system: STRATA_DOCUMENT_SUMMARY_SYSTEM,
+        instructions: STRATA_DOCUMENT_SUMMARY_SYSTEM,
         prompt: source,
         maxOutputTokens: GUARDRAIL_MAX_OUTPUT_TOKENS,
       });

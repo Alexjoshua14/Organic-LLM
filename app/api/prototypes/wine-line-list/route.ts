@@ -114,8 +114,8 @@ export async function POST(req: Request) {
 
       const result = streamText({
         model: openai(providerModelSlug(models.openai.luna.id)),
-        messages: convertToModelMessages(validatedMessages),
-        system: "Reply with only: Here are the suggestions.",
+        messages: await convertToModelMessages(validatedMessages),
+        instructions: "Reply with only: Here are the suggestions.",
         maxOutputTokens: 20,
         onError({ error }) {
           const err = error instanceof Error ? error : new Error(String(error));
@@ -127,7 +127,7 @@ export async function POST(req: Request) {
       writer.merge(
         result.toUIMessageStream({
           generateMessageId: () => assistantMessageId,
-          onFinish: async ({ messages }) => {
+          onEnd: async ({ messages }) => {
             try {
               await saveChat({ chatId: id, messages });
             } catch (err) {

@@ -1,5 +1,5 @@
 import type { AnthropicProviderOptions } from "@ai-sdk/anthropic";
-import type { GoogleGenerativeAIProviderOptions } from "@ai-sdk/google";
+import type { GoogleGenerativeAIProviderOptions as GoogleProviderOptions } from "@ai-sdk/google";
 import type { OpenAIResponsesProviderOptions } from "@ai-sdk/openai";
 import type { JSONValue } from "@ai-sdk/provider";
 
@@ -56,9 +56,10 @@ const EFFORT_RANK: Record<ChatEffortLevel, number> = {
   max: 6,
 };
 
-const LEVEL_BY_ID = Object.fromEntries(
-  CHAT_EFFORT_LEVELS.map((row) => [row.id, row])
-) as Record<ChatEffortLevel, ChatEffortLevelRow>;
+const LEVEL_BY_ID = Object.fromEntries(CHAT_EFFORT_LEVELS.map((row) => [row.id, row])) as Record<
+  ChatEffortLevel,
+  ChatEffortLevelRow
+>;
 
 /** Non-auto levels a model can actually send to its provider. */
 export type EffortCapability = {
@@ -188,7 +189,12 @@ export function getEffortCapabilityForModel(modelId: string): EffortCapability {
     if (slug.includes("gpt-5-pro") || slug.includes("gpt-5.4-pro")) {
       return { configurable: true, levels: ["high"] };
     }
-    if (slug.startsWith("gpt-5") || slug.startsWith("o1") || slug.startsWith("o3") || slug.startsWith("o4")) {
+    if (
+      slug.startsWith("gpt-5") ||
+      slug.startsWith("o1") ||
+      slug.startsWith("o3") ||
+      slug.startsWith("o4")
+    ) {
       // Legacy GPT-5 / o-series: minimal–high is the common intersection.
       return { configurable: true, levels: ["minimal", "low", "medium", "high"] };
     }
@@ -213,7 +219,8 @@ export function getEffortCapabilityForModel(modelId: string): EffortCapability {
   }
 
   if (provider === "google") {
-    if (slug.includes("2.5-flash-lite") || slug.includes("2.5-flash")) return GOOGLE_25_FLASH_BUDGET;
+    if (slug.includes("2.5-flash-lite") || slug.includes("2.5-flash"))
+      return GOOGLE_25_FLASH_BUDGET;
     if (slug.includes("2.5-pro")) return GOOGLE_25_PRO_BUDGET;
     if (slug.includes("3.1-pro") || (slug.includes("3-pro") && !slug.includes("flash"))) {
       return GOOGLE_PRO_LEVELS;
@@ -238,10 +245,7 @@ export function getEffortLevelsForModel(modelId: string): ChatEffortLevelRow[] {
     return [LEVEL_BY_ID.auto];
   }
 
-  return [
-    LEVEL_BY_ID.auto,
-    ...capability.levels.map((id) => LEVEL_BY_ID[id]),
-  ];
+  return [LEVEL_BY_ID.auto, ...capability.levels.map((id) => LEVEL_BY_ID[id])];
 }
 
 export function modelSupportsEffortControl(modelId: string): boolean {
@@ -296,7 +300,7 @@ type EffortProviderOptions = {
   openai?: OpenAIResponsesProviderOptions;
   /** SDK types may lag gateway fields; JSONValue keeps streamText providerOptions assignable. */
   anthropic?: AnthropicProviderOptions | Record<string, JSONValue>;
-  google?: GoogleGenerativeAIProviderOptions | Record<string, JSONValue>;
+  google?: GoogleProviderOptions | Record<string, JSONValue>;
 };
 
 function anthropicSlugUsesBudgetTokens(slug: string): boolean {
@@ -340,8 +344,7 @@ export function buildEffortProviderOptions(
 
   if (clamped === "auto") return undefined;
 
-  const resolvedId =
-    modelId === AUTO_CHAT_MODEL_ID ? AUTO_RESOLVED_SONNET_MODEL_ID : modelId;
+  const resolvedId = modelId === AUTO_CHAT_MODEL_ID ? AUTO_RESOLVED_SONNET_MODEL_ID : modelId;
   const provider = providerOf(resolvedId);
   const slug = stripProviderPrefix(resolvedId).toLowerCase();
 
@@ -423,7 +426,7 @@ export function buildEffortProviderOptions(
         return {
           google: {
             thinkingConfig: { thinkingLevel: level },
-          } as GoogleGenerativeAIProviderOptions,
+          } as GoogleProviderOptions,
         };
       }
 
@@ -437,7 +440,7 @@ export function buildEffortProviderOptions(
       return {
         google: {
           thinkingConfig: { thinkingLevel: level },
-        } as GoogleGenerativeAIProviderOptions,
+        } as GoogleProviderOptions,
       };
     }
 
@@ -446,7 +449,7 @@ export function buildEffortProviderOptions(
       return {
         google: {
           thinkingConfig: { thinkingBudget: 0 },
-        } satisfies GoogleGenerativeAIProviderOptions,
+        } satisfies GoogleProviderOptions,
       };
     }
 
@@ -455,7 +458,7 @@ export function buildEffortProviderOptions(
     return {
       google: {
         thinkingConfig: { thinkingBudget },
-      } satisfies GoogleGenerativeAIProviderOptions,
+      } satisfies GoogleProviderOptions,
     };
   }
 

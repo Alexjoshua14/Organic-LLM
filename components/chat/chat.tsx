@@ -7,7 +7,7 @@ import type { ContextBudgetEstimate } from "@/lib/chat/context-budget";
 import type { DiagramNodeLink } from "@/lib/mermaid/types";
 
 import { UIMessage, useChat } from "@ai-sdk/react";
-import { DefaultChatTransport } from "ai";
+import { DefaultChatTransport, type ChatTransport, type HttpChatTransportInitOptions } from "ai";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { BrainCircuit } from "lucide-react";
 import { toast } from "sonner";
@@ -37,6 +37,7 @@ import { Thread } from "@/lib/schemas/chat";
 import { createLogger } from "@/lib/logger";
 import { PERF_PHASES } from "@/lib/perf/journeys";
 import { completeForJourney } from "@/lib/perf/trace-store";
+import { useChatVoiceSurface } from "@/hooks/use-chat-voice-surface";
 import { useVoiceScreenContext } from "@/hooks/use-voice-screen-context";
 import { useSharedChatContext } from "@/lib/context/chat-context";
 import { ChatModel } from "@/lib/schemas/chat";
@@ -62,7 +63,31 @@ import { safeParseMiseCommand } from "@/lib/schemas/mise";
 import { DiagramNodeLinksProvider } from "@/lib/mermaid/diagram-node-links-context";
 import { DiagramTakeoverProvider } from "@/lib/mermaid/diagram-takeover-context";
 import { isEditableEventTarget } from "@/lib/dom/is-editable-event-target";
+import { useBackgroundThreadMessages } from "@/hooks/use-background-thread-messages";
+import { useArcadiaMultitaskOptional } from "@/app/sandbox/arcadia/_components/multitask-provider";
 const logger = createLogger("components/chat/chat");
+
+function createChatTransport({
+  onResumeCheck,
+  ...options
+}: HttpChatTransportInitOptions<UIMessage> & {
+  onResumeCheck: (threadId: string) => () => void;
+}): ChatTransport<UIMessage> {
+  const transport = new DefaultChatTransport<UIMessage>(options);
+
+  return {
+    sendMessages: (options) => transport.sendMessages(options),
+    reconnectToStream: async (options) => {
+      const finishCheck = onResumeCheck(options.chatId);
+
+      try {
+        return await transport.reconnectToStream(options);
+      } finally {
+        finishCheck();
+      }
+    },
+  };
+}
 
 export type ChatProps = {
   chatData: { thread: Thread; messages: UIMessage[] } | null;
@@ -89,12 +114,23 @@ export const Chat: React.FC<ChatProps> = ({
   assistantSession,
 }) => {
   const { refreshSidebarChats } = useSharedChatContext();
-
-  // Ambient awareness: while this thread is on screen, a live voice session is told what it has
-  // covered (via its rolling summary) so the user can refer to "this conversation" out loud.
-  useVoiceScreenContext(
-    chatData?.thread.id ? { kind: "chat", id: chatData.thread.id } : null
+  const arcadiaMultitask = useArcadiaMultitaskOptional();
+  const multitaskSendTargetRef = useRef(
+    arcadiaMultitask?.multitaskViewEnabled ? arcadiaMultitask.sendTarget : null
   );
+  const applyInboundDispatchRef = useRef(arcadiaMultitask?.applyInboundDispatch);
+  const applyAwarenessEventRef = useRef(arcadiaMultitask?.applyAwarenessEvent);
+  const confineInMultitaskDashboard = arcadiaMultitask?.layoutMode === "dashboard";
+  // Multitask dashboard uses live sendMessage → /api/chat (same as Arcadia idle chat).
+  // Do not enable CoreInput queueSendMode here: enqueue never appends/streams into the
+  // thread UI, so orchestrator turns look like a no-op. Subagent targeting still rides on
+  // multitaskSendTarget in the request body.
+
+  multitaskSendTargetRef.current = arcadiaMultitask?.multitaskViewEnabled
+    ? arcadiaMultitask.sendTarget
+    : null;
+  applyInboundDispatchRef.current = arcadiaMultitask?.applyInboundDispatch;
+  applyAwarenessEventRef.current = arcadiaMultitask?.applyAwarenessEvent;
 
   const selectedModelRef = useRef<ChatModel>(DEFAULT_COMPOSER_MODEL);
   const selectedEffortRef = useRef<ChatEffortLevel>(DEFAULT_COMPOSER_EFFORT);
@@ -134,9 +170,9 @@ export const Chat: React.FC<ChatProps> = ({
   const errorRef = useRef<Error | undefined>(undefined);
   /** Stored when onError runs; useChat may not expose error/status for pre-stream failures (e.g. 429). */
   const [chatError, setChatError] = useState<unknown>(undefined);
-  const [experimentalArcadiaMarkdownPreview, setExperimentalArcadiaMarkdownPreview] = useState(
-    () => getSettings().experimentalArcadiaMarkdownPreview
-  );
+  // Match the server defaults until the settings effect restores local preferences.
+  const [experimentalArcadiaMarkdownPreview, setExperimentalArcadiaMarkdownPreview] =
+    useState(false);
   const [arcadiaStarterKey, setArcadiaStarterKey] = useState<string | null>(
     () => chatData?.thread.arcadia_starter_key ?? null
   );
@@ -148,6 +184,11 @@ export const Chat: React.FC<ChatProps> = ({
   const [arcadiaSettingsOpen, setArcadiaSettingsOpen] = useState(false);
   const wasStreamingRef = useRef(false);
   const diagramNodeLinksRef = useRef<DiagramNodeLink[]>([]);
+  const [resumeCheck, setResumeCheck] = useState({
+    threadId: chatData?.thread.id ?? "",
+    pending: true,
+  });
+  const pendingSendRef = useRef<{ threadId: string } | null>(null);
 
   useEffect(() => {
     const sync = () =>
@@ -173,8 +214,9 @@ export const Chat: React.FC<ChatProps> = ({
     useChat({
       id: chatData?.thread.id ?? "",
       messages: chatData?.messages ?? [],
+      // Navigation can reuse stale thread metadata; the resume endpoint checks current state.
       resume: true,
-      transport: new DefaultChatTransport({
+      transport: createChatTransport({
         api:
           persona === "aion"
             ? "/api/ai/aion"
@@ -182,7 +224,7 @@ export const Chat: React.FC<ChatProps> = ({
               ? "/api/ai/remy"
               : persona === "strata"
                 ? "/api/chat"
-                : (endpoint ?? `/api/chat/${persona ?? ""}`),
+                : (endpoint ?? (persona ? `/api/chat/${persona}` : "/api/chat")),
         prepareSendMessagesRequest({ messages, id }) {
           const lastMessage = messages[messages.length - 1];
           const message = isClientPIIRedactionEnabled()
@@ -227,6 +269,11 @@ export const Chat: React.FC<ChatProps> = ({
               zeroDataRetention: settings.zeroDataRetention,
               coalescenceMode: settings.coalescenceMode,
               ...(contextEffort ? { contextEffort } : {}),
+              // Arcadia multitask dashboard: explicit orchestrator vs subagent destination.
+              // Sent only while Multiagent is enabled; the server checks the saved thread flag.
+              ...(experience === "arcadia" && multitaskSendTargetRef.current
+                ? { multitaskSendTarget: multitaskSendTargetRef.current }
+                : {}),
               // Only include persistedSchemas in payload if true
               ...(usePersistedSchemas.current ? { persistedSchemas: true } : {}),
               ...(diagramNodeLinksRef.current.length > 0
@@ -238,6 +285,16 @@ export const Chat: React.FC<ChatProps> = ({
           logger.log("chat", `Request being sent: ${JSON.stringify(req, null, 2)}`);
 
           return req;
+        },
+        onResumeCheck(threadId) {
+          const check = { threadId, pending: true };
+
+          setResumeCheck(check);
+
+          return () =>
+            setResumeCheck((current) =>
+              current === check ? { threadId, pending: false } : current
+            );
         },
       }),
       onData: (data) => {
@@ -354,6 +411,14 @@ export const Chat: React.FC<ChatProps> = ({
           }
         } else if (data.type === "data-context-budget") {
           setStreamContextBudget(withLastTurnSnapshot(data.data as ContextBudgetEstimate));
+        } else if (data.type === "data-multitask-routing") {
+          applyInboundDispatchRef.current?.(
+            data.data as import("@/lib/schemas/thought-routing").MultitaskInboundDispatch
+          );
+        } else if (data.type === "data-multitask-worker") {
+          applyAwarenessEventRef.current?.(
+            data.data as import("@/lib/schemas/subagent-runtime").WorkerAwarenessEvent
+          );
         }
       },
       onError: (error) => {
@@ -372,6 +437,45 @@ export const Chat: React.FC<ChatProps> = ({
       },
     });
 
+  const isCheckingStream = resumeCheck.threadId !== id || resumeCheck.pending;
+  const sendStateRef = useRef({ id, status, isCheckingStream });
+
+  sendStateRef.current = { id, status, isCheckingStream };
+  const sendMessageIfIdle = useCallback<typeof sendMessage>(
+    async (...args) => {
+      const current = sendStateRef.current;
+
+      if (
+        current.isCheckingStream ||
+        current.status === "submitted" ||
+        current.status === "streaming" ||
+        pendingSendRef.current?.threadId === current.id
+      )
+        return;
+
+      const submission = { threadId: current.id };
+
+      pendingSendRef.current = submission;
+      try {
+        await sendMessage(...args);
+      } finally {
+        if (pendingSendRef.current === submission) pendingSendRef.current = null;
+      }
+    },
+    [sendMessage]
+  );
+
+  useBackgroundThreadMessages({
+    threadId: id,
+    enabled: experience === "arcadia" && (arcadiaMultitask?.hasSubagentThreads ?? false),
+    status,
+    setMessages,
+  });
+
+  // Ambient awareness: while this thread is on screen, a live voice session is told its title,
+  // latest messages and rolling summary — re-pushed after each finished exchange.
+  useVoiceScreenContext(useChatVoiceSurface(chatData?.thread.id, messages, status));
+
   if (streamBudgetThreadId !== id) {
     setStreamBudgetThreadId(id);
     setStreamContextBudget(getLatestContextBudgetFromMessages(messages));
@@ -384,12 +488,13 @@ export const Chat: React.FC<ChatProps> = ({
       initialMessage &&
       !initialMessageSent.current &&
       messages.length === 0 &&
+      !isCheckingStream &&
       status === "ready"
     ) {
       initialMessageSent.current = true;
-      sendMessage({ text: initialMessage });
+      sendMessageIfIdle({ text: initialMessage });
     }
-  }, [initialMessage, messages.length, status, sendMessage]);
+  }, [initialMessage, messages.length, status, isCheckingStream, sendMessageIfIdle]);
 
   useEffect(() => {
     const fromMessages = getLatestContextBudgetFromMessages(messages);
@@ -469,11 +574,12 @@ export const Chat: React.FC<ChatProps> = ({
     <DiagramNodeLinksProvider linksRef={diagramNodeLinksRef}>
       <DiagramTakeoverProvider>
         <div
+          data-arcadia-chat-root
           className={[
             "w-full",
             "min-w-0",
             "h-full",
-            "sm:max-h-[calc(100dvh-2rem)]",
+            confineInMultitaskDashboard ? "max-h-none" : "sm:max-h-[calc(100dvh-2rem)]",
             "flex",
             "flex-col",
             "overflow-x-hidden",
@@ -502,7 +608,7 @@ export const Chat: React.FC<ChatProps> = ({
               contentClassName={persona === "remy" ? MEMORY_PANEL_RESERVE_PADDING : undefined}
               messages={messages}
               renderEmptyState={
-                experience === "arcadia"
+                experience === "arcadia" && !confineInMultitaskDashboard
                   ? () => (
                       <ChatStylePicker
                         chatId={id}
@@ -552,6 +658,7 @@ export const Chat: React.FC<ChatProps> = ({
               <CoreInput
                 chatId={chatData?.thread.id}
                 clearError={clearError}
+                disabled={isCheckingStream}
                 composerInject={composerInject}
                 enableMarkdownInputPreview={
                   experience === "arcadia" && experimentalArcadiaMarkdownPreview
@@ -565,7 +672,7 @@ export const Chat: React.FC<ChatProps> = ({
                 isBlankChat={messages.length === 0 && persona !== "strata"}
                 modelRef={selectedModelRef}
                 effortRef={selectedEffortRef}
-                sendMessage={sendMessage}
+                sendMessage={sendMessageIfIdle}
                 status={status}
                 stop={handleStop}
                 useMemoriesRef={useMemoriesRef}

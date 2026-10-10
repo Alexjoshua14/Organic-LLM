@@ -101,7 +101,11 @@ function RabbitHoleShellInner() {
 
   const [activeTakeawayIndex, setActiveTakeawayIndex] = useState<number | null>(null);
   const [focusMode, setFocusMode] = useState(false);
-  const { open: chatOpen, setOpen: setChatOpen, toggle: toggleChat } = useRabbitHoleDesktopChatOpen();
+  const {
+    open: chatOpen,
+    setOpen: setChatOpen,
+    toggle: toggleChat,
+  } = useRabbitHoleDesktopChatOpen();
   const { open, setOpen } = useSidebar();
   const sidebarOpenBeforeFocusRef = useRef(open);
 
@@ -242,14 +246,16 @@ function RabbitHoleShellInner() {
     [setChatOpen, syncSessionToUrl]
   );
 
-  // Ambient awareness: the node summaries and the graph's branching shape, so a live voice
+  // Ambient awareness: the open node's summary and the graph's branching shape, so a live voice
   // session can follow "this rabbit hole" and "the node I'm on" without being asked anything.
+  // `activeNodePending` flips when a fresh branch's article lands, which re-pushes it with content.
   useVoiceScreenContext(
     session?.sessionId
       ? {
           kind: "rabbit-hole",
           id: session.sessionId,
           activeNodeId: session.activeNodeId,
+          activeNodePending: activeNode ? !activeNode.articleHtml?.trim() : false,
         }
       : null
   );
@@ -381,6 +387,7 @@ function RabbitHoleShellInner() {
           <main
             className={cn(
               "flex-1 min-h-0 overflow-y-auto overscroll-y-contain px-8 lg:px-12 pt-8",
+              layoutTokens.gridContainer,
               focusMode ? "scroll-pb-8" : "scroll-pb-36"
             )}
           >
@@ -388,7 +395,7 @@ function RabbitHoleShellInner() {
               className={cn(
                 cn("mx-auto w-full", layoutTokens.gridMaxWidth),
                 "flex flex-col gap-12",
-                "lg:grid lg:gap-8",
+                layoutTokens.gridDisplay,
                 focusMode ? layoutTokens.gridColsFocus : layoutTokens.gridCols
               )}
             >
@@ -398,7 +405,7 @@ function RabbitHoleShellInner() {
                   <motion.aside
                     key="rabbit-hole-path-rail"
                     animate={{ opacity: 1, x: 0 }}
-                    className="lg:col-start-1"
+                    className={layoutTokens.gridColStart1}
                     exit={{ opacity: 0, x: -32 }}
                     initial={{ opacity: 0, x: -32 }}
                     transition={chromeMotionTransition}
@@ -415,7 +422,12 @@ function RabbitHoleShellInner() {
               </AnimatePresence>
 
               {/* ── Center column: Article + Prompt ── */}
-              <section className={cn("min-w-0", focusMode ? "lg:col-span-1" : "lg:col-start-2")}>
+              <section
+                className={cn(
+                  "min-w-0 w-full",
+                  focusMode ? layoutTokens.gridColSpan1 : layoutTokens.gridColStart2
+                )}
+              >
                 {session &&
                   session.path.length > 1 &&
                   centerViewState.kind === "article_loaded" && (
@@ -538,11 +550,13 @@ function RabbitHoleShellInner() {
 
               {/* ── Right column: Sources + Explore Further ── */}
               <AnimatePresence initial={false} mode="popLayout">
-                {!focusMode && (
+                {!focusMode &&
+                  (chatOpen ||
+                    (centerViewState.kind === "article_loaded" && Boolean(activeNode))) && (
                   <motion.aside
                     key={chatOpen ? "rabbit-hole-assistant" : "rabbit-hole-right-column"}
                     animate={{ opacity: 1, x: 0 }}
-                    className="lg:col-start-3"
+                    className={layoutTokens.gridColStart3}
                     exit={{ opacity: 0, x: 32 }}
                     initial={{ opacity: 0, x: 32 }}
                     transition={chromeMotionTransition}

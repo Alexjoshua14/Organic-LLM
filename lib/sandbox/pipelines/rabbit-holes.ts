@@ -137,7 +137,7 @@ export async function runQuestionRefinementScenario(params: {
   try {
     const { text, usage } = await generateText({
       model: openai(providerModelSlug(models.openai.luna.id)),
-      system: REFINE_QUESTION_SYSTEM_PROMPT,
+      instructions: REFINE_QUESTION_SYSTEM_PROMPT,
       prompt,
       maxOutputTokens: GUARDRAIL_MAX_OUTPUT_TOKENS,
     });

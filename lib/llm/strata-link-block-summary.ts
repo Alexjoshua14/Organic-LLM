@@ -6,7 +6,6 @@ import { KNOWLEDGE_GATEWAY_PROVIDER_OPTIONS } from "@/lib/knowledge/gateway-opti
 import { createLogger } from "@/lib/logger";
 import { recordLlmCall } from "@/lib/llm/metrics";
 import { getModelCost } from "@/lib/rate-limit/llm-cost";
-
 import { models } from "@/lib/schemas/chat-models";
 
 const logger = createLogger("lib/llm/strata-link-block-summary.ts");
@@ -69,7 +68,7 @@ export async function generateStrataLinkSummary(args: {
     const prompt = [`URL: ${args.url}`, `Title hint: ${args.titleHint}`, "", body].join("\n");
     const result = await generateText({
       model: STRATA_LINK_SUMMARY_MODEL,
-      system: SYSTEM_PROMPT,
+      instructions: SYSTEM_PROMPT,
       prompt,
       maxOutputTokens: 220,
       providerOptions: KNOWLEDGE_GATEWAY_PROVIDER_OPTIONS,

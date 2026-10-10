@@ -4,7 +4,7 @@ import { openai } from "@ai-sdk/openai";
 import {
   GeneratedAudioFile,
   generateObject,
-  experimental_generateSpeech as generateSpeech,
+  generateSpeech as generateSpeech,
   generateText,
 } from "ai";
 import z from "zod";
@@ -94,7 +94,7 @@ export async function transformTextToSpeechFriendly(text: string): Promise<strin
   const firstAttemptSpeechFriendlyTextStartGeneration = performance.now();
   const speechFriendlyText = await generateText({
     model: luna,
-    system: SpeechFriendlySystemPrompt,
+    instructions: SpeechFriendlySystemPrompt,
     prompt: text,
     temperature: 0,
     maxOutputTokens: GUARDRAIL_MAX_OUTPUT_TOKENS,
@@ -110,7 +110,7 @@ export async function transformTextToSpeechFriendly(text: string): Promise<strin
   const validatedTranscriptStartGeneration = performance.now();
   const validatedTranscript = await generateObject({
     model: luna,
-    system: ValidationSystemPrompt,
+    instructions: ValidationSystemPrompt,
     prompt: `Original text: ${text}\n\nTransformed text: ${speechFriendlyText.text}`,
     temperature: 0,
     schema: ValidationSchema,
@@ -143,7 +143,7 @@ export async function transformTextToSpeechFriendly(text: string): Promise<strin
     const regeneratedTranscriptStartGeneration = performance.now();
     const regeneratedTranscript = await generateText({
       model: terra,
-      system: CorrectionSystemPrompt.replace(
+      instructions: CorrectionSystemPrompt.replace(
         "{{validationErrorReasoning}}",
         validatedTranscript.object.reason
       ),
@@ -168,7 +168,7 @@ export async function transformTextToSpeechFriendly(text: string): Promise<strin
     const betterVersionOfTranscriptStartGeneration = performance.now();
     const betterVersionOfTranscript = await generateObject({
       model: luna,
-      system: `Based on the validation criteria, determine whether transcript A, B, or C is best. \nValidation criteria: ${ValidationCriteria}`,
+      instructions: `Based on the validation criteria, determine whether transcript A, B, or C is best. \nValidation criteria: ${ValidationCriteria}`,
       prompt: `Option A: ${text}\n\nOption B: ${speechFriendlyText.text}\n\nOption C: ${regeneratedTranscript.text}`,
       temperature: 0,
       schema: z.object({
@@ -210,7 +210,7 @@ export async function transformTextToSpeechFriendly(text: string): Promise<strin
     const betterVersionOfTranscriptStartGeneration = performance.now();
     const betterVersionOfTranscript = await generateObject({
       model: luna,
-      system: `Based on the validation criteria, determine whether transcript A, B, or C is best. \nValidation criteria: ${ValidationCriteria}`,
+      instructions: `Based on the validation criteria, determine whether transcript A, B, or C is best. \nValidation criteria: ${ValidationCriteria}`,
       prompt: `Option A: ${text}\n\nOption B: ${speechFriendlyText.text}}`,
       temperature: 0,
       schema: z.object({
@@ -306,7 +306,7 @@ export async function transformTextToSpeechFriendlyV2(text: string): Promise<str
 
   const result = await generateObject({
     model: luna,
-    system: SpeechFriendlySystemPromptV2,
+    instructions: SpeechFriendlySystemPromptV2,
     prompt: text,
     temperature: 0,
     schema: SpeechResultSchema,
@@ -325,7 +325,7 @@ export async function transformTextToSpeechFriendlyV2(text: string): Promise<str
 
   const regeneratedTranscript = await generateObject({
     model: luna,
-    system: CorrectionSystemPrompt.replace("{{validationErrorReasoning}}", result.object.reason),
+    instructions: CorrectionSystemPrompt.replace("{{validationErrorReasoning}}", result.object.reason),
     prompt: `Original text: ${text}\n\nTransformed text: ${result.object.speechFriendlyText}`,
     temperature: 0,
     schema: SpeechResultSchema,

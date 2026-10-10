@@ -28,8 +28,8 @@ import {
   QUICK_PREVIEW_SYSTEM_PROMPT,
   SOURCE_ANALYSIS_SYSTEM_PROMPT,
 } from "@/lib/system-prompt/rabbit-hole";
-
 import { models, providerModelSlug } from "@/lib/schemas/chat-models";
+
 import { z } from "zod";
 
 const logger = createLogger("lib/llm/rabbit-hole/generation.ts");
@@ -75,7 +75,7 @@ export async function generateRabbitHoleObject<T>({
   try {
     const { object, usage } = await generateObject({
       model,
-      system: systemPrompt,
+      instructions: systemPrompt,
       prompt,
       schema: RabbitHoleAIResponseSchema,
       maxOutputTokens: 7000,
@@ -90,7 +90,7 @@ export async function generateRabbitHoleObject<T>({
     if (usage) {
       logger.log(
         logContext,
-        `AI usage: input tokens=${usage.inputTokens ?? "?"}, reasoning tokens=${usage.reasoningTokens ?? "?"}, output tokens=${usage.outputTokens ?? "?"}, total tokens=${usage.totalTokens ?? "?"}`
+        `AI usage: input tokens=${usage.inputTokens ?? "?"}, reasoning tokens=${usage.outputTokenDetails.reasoningTokens ?? "?"}, output tokens=${usage.outputTokens ?? "?"}, total tokens=${usage.totalTokens ?? "?"}`
       );
     }
 
@@ -125,7 +125,7 @@ export async function generateSourceAnalysis({
 }: GenerateSourceAnalysisParams): Promise<any> {
   const { object, usage } = await generateObject({
     model,
-    system: SOURCE_ANALYSIS_SYSTEM_PROMPT,
+    instructions: SOURCE_ANALYSIS_SYSTEM_PROMPT,
     prompt,
     schema: RabbitHoleSourceAnalysisSchema.omit({ originalUrl: true }),
     temperature: 0.7,
@@ -148,7 +148,7 @@ export async function generateQuickPreviewLLM({
 }: GenerateQuickPreviewParams): Promise<{ text: string }> {
   const res = await generateText({
     model: rapidModel,
-    system: QUICK_PREVIEW_SYSTEM_PROMPT,
+    instructions: QUICK_PREVIEW_SYSTEM_PROMPT,
     prompt,
     maxOutputTokens: 400,
   });
@@ -206,7 +206,7 @@ export async function generateBranchSuggestions({
 
     const { object, usage } = await generateObject({
       model: quickModel,
-      system: BRANCH_SUGGESTIONS_SYSTEM_PROMPT,
+      instructions: BRANCH_SUGGESTIONS_SYSTEM_PROMPT,
       prompt,
       output: "array",
       schema: RabbitHoleBranchSuggestionSchema,
@@ -224,7 +224,7 @@ export async function generateBranchSuggestions({
     if (usage) {
       logger.log(
         logContext,
-        `AI usage: input tokens=${usage.inputTokens ?? "?"}, reasoning tokens=${usage.reasoningTokens ?? "?"}, output tokens=${usage.outputTokens ?? "?"}, total tokens=${usage.totalTokens ?? "?"}`
+        `AI usage: input tokens=${usage.inputTokens ?? "?"}, reasoning tokens=${usage.outputTokenDetails.reasoningTokens ?? "?"}, output tokens=${usage.outputTokens ?? "?"}, total tokens=${usage.totalTokens ?? "?"}`
       );
     }
 
@@ -265,7 +265,7 @@ export async function generateTitle({
   try {
     res = await generateText({
       model: quickModel,
-      system: CREATE_TITLE_SYSTEM_PROMPT,
+      instructions: CREATE_TITLE_SYSTEM_PROMPT,
       prompt: html,
       maxOutputTokens: 80,
     });

@@ -99,4 +99,17 @@ describe("LLM cost (lib/rate-limit/llm-cost)", () => {
     expect(cost.inputPerMillion).toBe(0.25);
     expect(cost.outputPerMillion).toBe(2.0);
   });
+
+  test("cache discounts work for SDK 7 usage and flat ledger usage", async () => {
+    const { computeUsageCostUsd } = await import("@/lib/rate-limit/llm-cost");
+    const base = { inputTokens: 1_000_000, outputTokens: 0 };
+    const flat = computeUsageCostUsd("openai/gpt-6-sol", { ...base, cachedInputTokens: 500_000 });
+    const sdk = computeUsageCostUsd("openai/gpt-6-sol", {
+      ...base,
+      inputTokenDetails: { cacheReadTokens: 500_000 },
+    });
+
+    expect(flat).toBeCloseTo(1.1);
+    expect(sdk).toBeCloseTo(flat);
+  });
 });

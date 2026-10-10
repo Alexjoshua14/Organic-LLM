@@ -7,10 +7,7 @@ import {
   RABBIT_HOLE_MEMORY_SYNTHESIS_CAP,
 } from "@/lib/rabbit-holes/memory-context-models";
 import { searchMemoriesForUser } from "@/lib/memory/operations";
-import {
-  formatMemoriesForPrompt,
-  selectMemoriesForPrompt,
-} from "@/lib/memory/memory-relevance";
+import { formatMemoriesForPrompt, selectMemoriesForPrompt } from "@/lib/memory/memory-relevance";
 import { createLogger } from "@/lib/logger";
 
 const logger = createLogger("lib/rabbit-holes/memory-context-builder.ts");
@@ -137,7 +134,7 @@ export async function buildRabbitHoleMemoryContextBlock(
 
   const { text } = await generateText({
     model: RABBIT_HOLE_MEMORY_CONTEXT_MODEL,
-    system: SYNTHESIS_SYSTEM,
+    instructions: SYNTHESIS_SYSTEM,
     prompt: synthesisPrompt,
     maxOutputTokens: 220,
     temperature: 0.2,

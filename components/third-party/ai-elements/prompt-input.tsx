@@ -797,10 +797,7 @@ export const PromptInput = ({
         onChange={handleChange}
       />
       <form ref={formRef} className={cn("w-full", className)} onSubmit={handleSubmit} {...props}>
-        <InputGroup
-          className={homeComposerGlassSurface}
-          data-prompt-input-shell
-        >
+        <InputGroup className={homeComposerGlassSurface} data-prompt-input-shell>
           {children}
         </InputGroup>
       </form>
@@ -864,11 +861,11 @@ export const PromptInputTextarea = ({
       }
       e.preventDefault();
 
-      // Check if the submit button is disabled before submitting
+      // A busy composer replaces Submit with an Abort button. Require an enabled Submit.
       const form = e.currentTarget.form;
       const submitButton = form?.querySelector('button[type="submit"]') as HTMLButtonElement | null;
 
-      if (submitButton?.disabled) {
+      if (!submitButton || submitButton.disabled) {
         return;
       }
 
@@ -1092,6 +1089,7 @@ export const PromptInputSpeechButton = ({
 
   useEffect(() => {
     const SpeechRecognitionCtor = getWebSpeechRecognitionCtor();
+
     if (!SpeechRecognitionCtor) return;
 
     const speechRecognition = new SpeechRecognitionCtor();

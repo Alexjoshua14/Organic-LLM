@@ -46,7 +46,11 @@ export function applyVoiceEffect(
         genUiBlocks: existing
           ? state.genUiBlocks.map((b) =>
               b.instanceId === effect.instanceId
-                ? { instanceId: effect.instanceId, block: effect.block, remountKey: b.remountKey + 1 }
+                ? {
+                    instanceId: effect.instanceId,
+                    block: effect.block,
+                    remountKey: b.remountKey + 1,
+                  }
                 : b
             )
           : [

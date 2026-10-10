@@ -61,3 +61,9 @@ memory.db
 .local-profile.md
 .local-profile-overrides.ts
 
+# Noesis demo-thread cache (generated locally, not committed)
+data/noesis/
+
+# Generated subagent identity blobs (local store; not for git)
+.data/
+

@@ -8,6 +8,8 @@ import { Duration, Ratelimit } from "@upstash/ratelimit";
 
 import { fetchLlmUsageEvents } from "@/data/supabase/llm-usage";
 import { createLogger } from "@/lib/logger";
+import { getPlanBudgetForUser } from "@/lib/plans/monthly-budget";
+import { canStartRealtimeGivenPlanBudget } from "@/lib/speak/weave-policy";
 import {
   computeCost,
   computeUsageCostUsd,
@@ -200,9 +202,11 @@ async function recordSpeakUsage(args: {
     trackLlmUsageEvent({
       ownerId: session.userId,
       modelId,
-      inputTokens: (usage?.inputTokens ?? 0) + Math.ceil((usage?.audioInputTokens ?? 0) / 2),
-      outputTokens: (usage?.outputTokens ?? 0) + Math.ceil((usage?.audioOutputTokens ?? 0) / 2),
+      inputTokens: usage?.inputTokens ?? 0,
+      outputTokens: usage?.outputTokens ?? 0,
       cachedInputTokens: usage?.cachedInputTokens ?? 0,
+      audioInputTokens: usage?.audioInputTokens ?? 0,
+      audioOutputTokens: usage?.audioOutputTokens ?? 0,
       totalTokens: Math.max(1, totalTokens || Math.ceil(incrementalCost * 1000)),
       operation: "speak-realtime",
       route: "/api/ai/speak/realtime",
@@ -243,7 +247,7 @@ export async function settleStaleSpeakSessions(userId: string): Promise<void> {
     });
     await closeSpeakRealtimeSession(session);
 
-    logger.log("settleStaleSpeakSessions", `Settled abandoned session ${sessionId}`, {
+    logger.log("settleStaleSpeakSessions", "Settled abandoned session", {
       minutesUsed: session.minutesUsed,
       costUsd: session.costUsd,
     });
@@ -500,7 +504,7 @@ export async function endSpeakRealtimeSession(args: {
   }
 
   await closeSpeakRealtimeSession(session);
-  logger.log("endSpeakRealtimeSession", `Closed ${args.sessionId}`, {
+  logger.log("endSpeakRealtimeSession", "Closed session", {
     minutesUsed: session.minutesUsed,
     costUsd: session.costUsd,
   });

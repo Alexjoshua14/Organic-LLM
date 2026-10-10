@@ -174,7 +174,7 @@ export async function routeHomepagePrompt(params: {
   try {
     const { object, usage } = await generateObject({
       model: ROUTING_MODEL,
-      system: ROUTING_SYSTEM,
+      instructions: ROUTING_SYSTEM,
       prompt: buildClassifierPrompt(trimmed, candidates),
       schema: HomepageRoutingDecisionSchema,
       maxOutputTokens: GUARDRAIL_MAX_OUTPUT_TOKENS,

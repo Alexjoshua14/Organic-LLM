@@ -23,7 +23,7 @@ export const generateLensOverviewTextCached = unstable_cache(
     const start = performance.now();
     const result = await generateText({
       model: LENS_OVERVIEW_MODEL,
-      system: SYSTEM,
+      instructions: SYSTEM,
       prompt: `Memory snippets on this page:\n${userBlob}`,
       maxOutputTokens: 320,
       temperature: 0.3,

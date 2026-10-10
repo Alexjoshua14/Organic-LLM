@@ -1,15 +1,20 @@
+import type { GatherRestaurantInput, VenueBundle } from "./types";
+
+import { buildTextQuery, resolveSearchResults } from "./search-venue";
+
 import {
   getPlaceDetails,
   googlePlacesErrorMessage,
   textSearchPlaces,
 } from "@/lib/google-places/client";
 
-import { buildTextQuery, resolveSearchResults } from "./search-venue";
-import type { GatherRestaurantInput, VenueBundle } from "./types";
-
 export type SearchVenueResult =
   | { ok: true; bundle: VenueBundle }
-  | { ok: false; kind: "ambiguous"; candidates: { placeId: string; name: string; address?: string }[] }
+  | {
+      ok: false;
+      kind: "ambiguous";
+      candidates: { placeId: string; name: string; address?: string }[];
+    }
   | { ok: false; kind: "not_found" }
   | { ok: false; kind: "error"; error: string };
 
@@ -32,11 +37,7 @@ export async function searchAndGatherVenue(
     return { ok: false, kind: "error", error: googlePlacesErrorMessage(searchResult.error) };
   }
 
-  const resolution = resolveSearchResults(
-    searchResult.data.places ?? [],
-    input.name,
-    input.city
-  );
+  const resolution = resolveSearchResults(searchResult.data.places ?? [], input.name, input.city);
 
   if (resolution.kind === "not_found") {
     return { ok: false, kind: "not_found" };

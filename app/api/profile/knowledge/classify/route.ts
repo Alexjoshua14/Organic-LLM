@@ -10,7 +10,6 @@ import { KNOWLEDGE_GATEWAY_PROVIDER_OPTIONS } from "@/lib/knowledge/gateway-opti
 import { CLASSIFIER_SYSTEM_PROMPT } from "@/lib/knowledge/prompts";
 import { recordLlmCall } from "@/lib/llm/metrics";
 import { checkLlmMessageLimit } from "@/lib/rate-limit/llm";
-
 import { models } from "@/lib/schemas/chat-models";
 
 export const maxDuration = 15;
@@ -65,7 +64,7 @@ export async function POST(req: Request) {
   try {
     const { text, usage } = await generateText({
       model: CLASSIFY_MODEL,
-      system: CLASSIFIER_SYSTEM_PROMPT,
+      instructions: CLASSIFIER_SYSTEM_PROMPT,
       prompt: body.text,
       maxOutputTokens: 8,
       providerOptions: KNOWLEDGE_GATEWAY_PROVIDER_OPTIONS,

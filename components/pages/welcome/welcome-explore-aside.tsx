@@ -37,9 +37,7 @@ export function WelcomeExploreAside({ className }: WelcomeExploreAsideProps) {
           <p className={sectionLabel} id="welcome-explore-label">
             {welcomeCopy.explore.label}
           </p>
-          <span className="text-2xs text-muted-foreground/75">
-            {welcomeCopy.explore.subtitle}
-          </span>
+          <span className="text-2xs text-muted-foreground/75">{welcomeCopy.explore.subtitle}</span>
         </div>
 
         <div className={cn(card, "rounded-lg p-1 sm:p-1.5")}>

@@ -4,7 +4,8 @@ import { auth } from "@clerk/nextjs/server";
 import { NextResponse } from "next/server";
 
 import { buildUsageSummaryForUser } from "@/data/supabase/llm-usage";
-import { getSupabaseUserId } from "@/data/supabase/profiles";
+import { getGatewaySpendSummary } from "@/lib/usage/gateway-spend";
+import { getSupabaseUserId, isAdminUser } from "@/data/supabase/profiles";
 
 const VALID_PRESETS = new Set<UsageRangePreset>(["7d", "30d", "90d"]);
 
@@ -32,5 +33,12 @@ export async function GET(req: Request) {
     preset,
   });
 
-  return NextResponse.json(summary);
+  if (await isAdminUser(clerkUser.userId)) {
+    summary.gatewaySpend = await getGatewaySpendSummary({
+      ownerId: sbUserIdResult.data,
+      startDate: summary.range.start.slice(0, 10),
+      endDate: summary.range.end.slice(0, 10),
+    });
+  }
+  return NextResponse.json(summary, { headers: { "Cache-Control": "no-store" } });
 }

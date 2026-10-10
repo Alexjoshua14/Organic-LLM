@@ -41,10 +41,7 @@ import { sanitizeRabbitHoleArticleHtml } from "@/lib/html/sanitize";
 import { GUARDRAIL_MAX_OUTPUT_TOKENS } from "@/lib/llm/helpers";
 import { models, providerModelSlug } from "@/lib/schemas/chat-models";
 import { checkExternalFetchLimit } from "@/lib/rate-limit/external-fetch";
-import {
-  sanitizeUntrustedText,
-  wrapUntrustedContent,
-} from "@/lib/security/external-content";
+import { sanitizeUntrustedText, wrapUntrustedContent } from "@/lib/security/external-content";
 
 const logger = createLogger("lib/rabbit-holes/actions.ts");
 
@@ -113,7 +110,7 @@ async function generateRefinedQuestion(
 ): Promise<string> {
   const { text } = await generateText({
     model: openai(providerModelSlug(models.openai.luna.id)),
-    system: REFINE_QUESTION_SYSTEM_PROMPT,
+    instructions: REFINE_QUESTION_SYSTEM_PROMPT,
     prompt: `Question to refine: ${question}\n\nPath history: ${pathHistory}`,
     maxOutputTokens: GUARDRAIL_MAX_OUTPUT_TOKENS,
   });

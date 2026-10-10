@@ -1,21 +1,23 @@
 import type { ModelMessage, ToolSet, UIMessage, UIMessageStreamWriter } from "ai";
 import type { Logger } from "@/lib/logger";
 import type { ChatExperience } from "@/lib/chat/chat-experience";
-import { shouldSkipMemoryWriteForExperience } from "@/lib/chat/chat-experience";
 import type { Result } from "@/types";
 
-import { smoothStream, stepCountIs, streamText } from "ai";
+import { smoothStream, isStepCount, streamText } from "ai";
 import { GatewayProviderOptions } from "@ai-sdk/gateway";
 import { OpenAIResponsesProviderOptions } from "@ai-sdk/openai";
 
+import { shouldSkipMemoryWriteForExperience } from "@/lib/chat/chat-experience";
 import { getMessageCount } from "@/data/supabase/chat";
 import { shouldAttemptInitialTitle } from "@/lib/chat/summary-title-cadence";
 import { saveChat } from "@/lib/chat/chat-store";
 import { ensureChatHasTitle, updateChatSummary } from "@/lib/llm/chat-helpers";
 import { CHAT_MODEL, measureAsync } from "@/lib/llm/helpers";
+import { CHAT_STREAM_CHUNKING } from "@/lib/llm/chat-stream-chunking";
 import { serializeError } from "@/lib/llm/log-error";
 import { addLatestMessagesToMemoryForUser } from "@/lib/memory/operations";
 import { buildEffortProviderOptions, type ChatEffortLevel } from "@/lib/schemas/chat-effort";
+import { gatewayAttribution, readGatewayBilledCostUsd } from "@/lib/usage/gateway-attribution";
 import { trackLlmUsageEvent } from "@/lib/usage/track-llm-usage";
 import { ChatAIActionEnum, type ChatUIMessage } from "@/types/ai";
 
@@ -24,6 +26,8 @@ export type RunLLMChatStreamParams = {
   logger: Logger;
   chatId: string;
   sbUserId: string;
+  /** When set, kick multi-mode queue dispatch after the stream clears. */
+  clerkUserId?: string;
   assistantMessageId: string;
   selectedModel: { id: string; name: string };
   effort?: ChatEffortLevel;
@@ -47,6 +51,7 @@ export async function runLLMChatStream(params: RunLLMChatStreamParams): Promise<
     logger,
     chatId,
     sbUserId,
+    clerkUserId,
     assistantMessageId,
     selectedModel,
     effort,
@@ -107,10 +112,10 @@ export async function runLLMChatStream(params: RunLLMChatStreamParams): Promise<
   const result = streamText({
     model: selectedModel.id,
     messages,
-    system: systemPromptWithLength,
+    instructions: systemPromptWithLength,
     experimental_transform: smoothStream({
       delayInMs: 20, // optional: defaults to 10ms
-      chunking: /(```[\s\S]*?```|^#{1,6}\s.*$|.*?(?:\n|$))/gm, // optional: defaults to 'word'
+      chunking: CHAT_STREAM_CHUNKING,
     }),
     maxOutputTokens: CHAT_MODEL.maxOutputTokens, // Cap output for dev guardrails
     onError({ error }) {
@@ -171,29 +176,32 @@ export async function runLLMChatStream(params: RunLLMChatStreamParams): Promise<
       } satisfies OpenAIResponsesProviderOptions,
       gateway: {
         zeroDataRetention: isZeroDataRetention,
+        ...gatewayAttribution({ userId: sbUserId, operation: "chat" }),
       } satisfies GatewayProviderOptions,
-      ...(effortProviderOptions?.anthropic
-        ? { anthropic: effortProviderOptions.anthropic }
-        : {}),
+      ...(effortProviderOptions?.anthropic ? { anthropic: effortProviderOptions.anthropic } : {}),
       ...(effortProviderOptions?.google ? { google: effortProviderOptions.google } : {}),
     },
     tools,
     toolChoice: hasTools ? "auto" : "none",
-    stopWhen: stepCountIs(maxSteps),
+    stopWhen: isStepCount(maxSteps),
   });
 
-  void result.usage
-    .then(async (usage) => {
+  void Promise.all([result.totalUsage, result.steps])
+    .then(async ([usage, steps]) => {
       if (!usage) return;
 
-      trackLlmUsageEvent({
+      const costs = steps.map((step) => readGatewayBilledCostUsd(step.providerMetadata));
+      await trackLlmUsageEvent({
         ownerId: sbUserId,
         modelId: selectedModel.id,
         inputTokens: usage.inputTokens,
         outputTokens: usage.outputTokens,
-        cachedInputTokens: usage.cachedInputTokens,
-        reasoningTokens: usage.reasoningTokens,
+        cachedInputTokens: usage.inputTokenDetails.cacheReadTokens,
+        reasoningTokens: usage.outputTokenDetails.reasoningTokens,
         totalTokens: usage.totalTokens,
+        costUsdOverride: costs.length > 0 && costs.every((cost) => cost !== undefined)
+          ? costs.reduce<number>((sum, cost) => sum + (cost ?? 0), 0)
+          : undefined,
         operation: "chat",
         route: "/api/chat",
       });
@@ -205,7 +213,7 @@ export async function runLLMChatStream(params: RunLLMChatStreamParams): Promise<
         await recordLlmCost(sbUserId, selectedModel.id, {
           inputTokens: usage.inputTokens ?? 0,
           outputTokens: usage.outputTokens ?? 0,
-          cachedInputTokens: usage.cachedInputTokens ?? 0,
+          cachedInputTokens: usage.inputTokenDetails.cacheReadTokens ?? 0,
         });
       } catch {
         /* optional Redis cost/token recording */
@@ -218,6 +226,7 @@ export async function runLLMChatStream(params: RunLLMChatStreamParams): Promise<
   writer.merge(
     result.toUIMessageStream({
       generateMessageId: () => assistantMessageId,
+      sendStart: false, // The outer stream announces this ID before context and progress data.
       onError: (error) => {
         logger.error("POST", "UI stream error", {
           err: serializeError(error),
@@ -235,7 +244,7 @@ export async function runLLMChatStream(params: RunLLMChatStreamParams): Promise<
 
         return "An unexpected error occurred";
       },
-      onFinish: async ({ messages, isAborted, finishReason }) => {
+      onEnd: async ({ messages, isAborted, finishReason }) => {
         logger.log("POST", "Stream finished", {
           finishReason: finishReason ?? "unknown",
           isAborted,
@@ -328,6 +337,17 @@ export async function runLLMChatStream(params: RunLLMChatStreamParams): Promise<
             return; // Don't continue if save fails
           }
 
+          // Multi-mode queue: after this stream clears, try to send the next queued message.
+          if (clerkUserId) {
+            const { kickDispatchAfterStream } = await import("@/lib/message-queue/dispatch");
+
+            void kickDispatchAfterStream({
+              ownerId: sbUserId,
+              clerkUserId,
+              threadId: chatId,
+            });
+          }
+
           // Fire-and-forget post-processing (don't block `onFinish`)
           void (async () => {
             let ensureChatHasTitleMs: number | undefined;
@@ -395,7 +415,10 @@ export async function runLLMChatStream(params: RunLLMChatStreamParams): Promise<
                 logger.error("POST", "Error updating chat summary");
               }
             } else {
-              logger.log("POST", "Skipping exchange-cadence summary refresh for Arcadia token context");
+              logger.log(
+                "POST",
+                "Skipping exchange-cadence summary refresh for Arcadia token context"
+              );
             }
 
             if (memoryEnabled && !shouldSkipMemoryWriteForExperience(experience)) {

@@ -1,9 +1,10 @@
 import "server-only";
 
 import type { LanguageModel } from "ai";
+import type { OpenAIResponsesProviderOptions } from "@ai-sdk/openai";
+
 import { generateObject, NoObjectGeneratedError } from "ai";
 import { openai } from "@ai-sdk/openai";
-import type { OpenAIResponsesProviderOptions } from "@ai-sdk/openai";
 
 import {
   MEMORY_QUALITY_CLASSIFIER_SYSTEM,
@@ -41,7 +42,7 @@ export async function classifyMemoryQuality(
           store: false,
         } satisfies OpenAIResponsesProviderOptions,
       },
-      system: MEMORY_QUALITY_CLASSIFIER_SYSTEM,
+      instructions: MEMORY_QUALITY_CLASSIFIER_SYSTEM,
       prompt: `Classify this memory line:\n\n${text.slice(0, 8000)}`,
     });
 

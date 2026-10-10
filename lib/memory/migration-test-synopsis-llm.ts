@@ -87,7 +87,7 @@ export async function generateMigrationTestSynopsis(
   const start = performance.now();
   const result = await generateText({
     model: MEMORY_MIGRATION_SYNOPSIS_MODEL,
-    system: SYSTEM,
+    instructions: SYSTEM,
     prompt: `Comparison run data:\n${blob}`,
     maxOutputTokens: 400,
     temperature: 0.2,
