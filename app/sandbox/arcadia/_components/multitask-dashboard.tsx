@@ -3,11 +3,11 @@
 import type { CSSProperties, ReactNode } from "react";
 
 import Link from "next/link";
-
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import { Layers3, MessageSquare, X } from "lucide-react";
 
+import { MultitaskComposerSlotProvider } from "./multitask-composer-slot";
 import { MultitaskSidebarGate } from "./multitask-sidebar-gate";
 import {
   MULTITASK_FOCUS_WIDTH_MS,
@@ -20,6 +20,8 @@ import { runAnchoredLayoutChange } from "./multitask-scroll-anchor";
 import { SendTargetPicker } from "./send-target-picker";
 import { SubagentCard } from "./subagent-card";
 import { SubagentDetail } from "./subagent-detail";
+import { SubagentSwipeRow } from "./subagent-swipe-row";
+import { useMultitaskCondensed } from "./use-multitask-condensed";
 import { VoiceRosterLegend } from "./voice-roster-legend";
 
 import { glass } from "@/components/design-system/primitives";
@@ -52,12 +54,15 @@ type MultitaskDashboardProps = {
 /**
  * User-toggled multiagent layout.
  *
- * Mobile (&lt; {@link MULTITASK_DASHBOARD_WIDE_MIN_PX}): board scrolls above a docked chat
- * stack. Wide: chat beside board with focus shares, Ctrl+Q/W panel slides, scroll eye-line pin.
+ * Condensed (&lt; {@link MULTITASK_DASHBOARD_WIDE_MIN_PX}): chat keeps the full page so CoreInput
+ * stays where it is in plain Arcadia, and subagents ride a swipe row just above the composer.
+ * With chat hidden, the full board takes the page. Wide: chat beside board with focus shares,
+ * Ctrl+Q/W panel slides, scroll eye-line pin.
  */
 export function MultitaskDashboard({ children, enabled = true }: MultitaskDashboardProps) {
   const voice = useVoiceSessionOptional();
   const reduceMotion = useReducedMotion();
+  const condensed = useMultitaskCondensed();
   const {
     agents,
     orchestratorThreadId,
@@ -78,7 +83,6 @@ export function MultitaskDashboard({ children, enabled = true }: MultitaskDashbo
     toggleMultitaskView,
     toggleBlockedReason,
   } = useArcadiaMultitask();
-
 
   const [panelFocus, setPanelFocus] = useState<MultitaskPanelFocus>("orchestrator");
   const [chatMeasurePx, setChatMeasurePx] = useState<number | null>(null);
@@ -210,6 +214,32 @@ export function MultitaskDashboard({ children, enabled = true }: MultitaskDashbo
       };
 
   const bothOpen = chatOpen && shellOpen;
+  // Condensed with chat open: the board becomes the swipe row above CoreInput.
+  const swipeRowActive = enabled && condensed && bothOpen;
+  const speakPhaseFor = (agentId: string) =>
+    resolveSpeakBarPhase({
+      agentId,
+      liveAgentId: liveSpeakAgentId,
+      closingAgentId: closingSpeakAgentId,
+      voiceConnecting,
+      voiceConnected,
+    });
+  const targetedAgentId = sendTarget.kind === "subagent" ? sendTarget.agentId : null;
+  const swipeRow = swipeRowActive ? (
+    <SubagentSwipeRow
+      agents={agents}
+      speakDisabled={speakDisabled}
+      speakPhaseFor={speakPhaseFor}
+      targetedAgentId={viewingSubagentId ? null : targetedAgentId}
+      onEndSpeak={endSpeak}
+      onSpeakTo={(agentId) => void speakTo(agentId)}
+      onTarget={(agentId) =>
+        setSendTarget(
+          targetedAgentId === agentId ? { kind: "orchestrator" } : { kind: "subagent", agentId }
+        )
+      }
+    />
+  ) : null;
   const wideGridStyle: CSSProperties = bothOpen
     ? {
         gridTemplateColumns: `minmax(0, ${shares.chat}fr) minmax(0, ${shares.board}fr)`,
@@ -241,7 +271,7 @@ export function MultitaskDashboard({ children, enabled = true }: MultitaskDashbo
           : undefined
       }
     >
-      {children}
+      <MultitaskComposerSlotProvider slot={swipeRow}>{children}</MultitaskComposerSlotProvider>
     </div>
   );
 
@@ -254,13 +284,16 @@ export function MultitaskDashboard({ children, enabled = true }: MultitaskDashbo
           ? ({
               ["--multitask-wide-min" as string]: `${MULTITASK_DASHBOARD_WIDE_MIN_PX}px`,
               ["--multitask-pad-top" as string]: `${MULTITASK_DESKTOP_PAD_TOP_PX}px`,
-              ["--multitask-pad-x" as string]: `${MULTITASK_DESKTOP_PAD_X_PX}px`,
+              // Condensed: chat runs edge to edge like plain Arcadia; only the header is inset.
+              ["--multitask-pad-x" as string]: condensed
+                ? "0px"
+                : `${MULTITASK_DESKTOP_PAD_X_PX}px`,
               ["--multitask-pad-bottom" as string]: `${MULTITASK_DESKTOP_PAD_BOTTOM_PX}px`,
               ["--multitask-gutter" as string]: `${MULTITASK_DESKTOP_GUTTER_PX}px`,
               paddingTop: "max(var(--multitask-pad-top), env(safe-area-inset-top, 0px))",
               paddingLeft: "var(--multitask-pad-x)",
               paddingRight: "var(--multitask-pad-x)",
-              paddingBottom: "var(--multitask-pad-bottom)",
+              paddingBottom: condensed ? 0 : "var(--multitask-pad-bottom)",
             } as CSSProperties)
           : undefined
       }
@@ -268,7 +301,12 @@ export function MultitaskDashboard({ children, enabled = true }: MultitaskDashbo
       {enabled ? <MultitaskSidebarGate dashboardOpen /> : null}
 
       {enabled ? (
-        <header className="flex shrink-0 items-start justify-between gap-3 pb-3">
+        <header
+          className={cn(
+            "flex shrink-0 items-start justify-between gap-3 pb-3",
+            condensed && "px-4"
+          )}
+        >
           <div className="min-w-0 flex-1 pr-2">
             <h1 className="truncate text-sm font-semibold tracking-tight">Multitask dashboard</h1>
             <p className="truncate text-[11px] text-muted-foreground">
@@ -339,11 +377,12 @@ export function MultitaskDashboard({ children, enabled = true }: MultitaskDashbo
           className={cn(
             enabled
               ? cn(
-                  glass({ tone: "brown", opaque: true }),
-                  "flex min-h-0 flex-col overflow-hidden rounded-2xl border border-border/40",
-                  shellOpen
-                    ? "h-[min(46dvh,22rem)] shrink-0 lg:h-auto lg:min-h-0 lg:flex-1"
-                    : "min-h-0 flex-1",
+                  "flex min-h-0 flex-1 flex-col overflow-hidden",
+                  !condensed &&
+                    cn(
+                      glass({ tone: "brown", opaque: true }),
+                      "rounded-2xl border border-border/40"
+                    ),
                   "lg:min-w-0",
                   !chatOpen && "hidden"
                 )
@@ -353,8 +392,26 @@ export function MultitaskDashboard({ children, enabled = true }: MultitaskDashbo
           onPointerDownCapture={enabled ? () => setFocusAnchored("orchestrator") : undefined}
         >
           {enabled ? (
-            <div className="shrink-0 border-b border-border/30 bg-background/95 p-3">
-              {viewingSubagentId ? <Link className="text-xs underline underline-offset-4" href={`/sandbox/arcadia/${orchestratorThreadId}`}>Back to orchestrator</Link> : <SendTargetPicker agents={agents} sendTarget={sendTarget} onChange={setSendTarget} />}
+            <div
+              className={cn(
+                "shrink-0 border-b border-border/30 bg-background/95",
+                condensed ? "px-4 py-2" : "p-3"
+              )}
+            >
+              {viewingSubagentId ? (
+                <Link
+                  className="text-xs underline underline-offset-4"
+                  href={`/sandbox/arcadia/${orchestratorThreadId}`}
+                >
+                  Back to orchestrator
+                </Link>
+              ) : (
+                <SendTargetPicker
+                  agents={agents}
+                  sendTarget={sendTarget}
+                  onChange={setSendTarget}
+                />
+              )}
             </div>
           ) : null}
           {/*
@@ -375,7 +432,7 @@ export function MultitaskDashboard({ children, enabled = true }: MultitaskDashbo
 
         {enabled ? (
           <AnimatePresence initial={false} mode="popLayout">
-            {shellOpen ? (
+            {shellOpen && !swipeRowActive ? (
               <motion.section
                 key="subagent-board"
                 animate={{ x: 0, opacity: 1 }}

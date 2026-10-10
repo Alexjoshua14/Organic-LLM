@@ -10,6 +10,7 @@ import { UIMessage, useChat } from "@ai-sdk/react";
 import { DefaultChatTransport, type ChatTransport, type HttpChatTransportInitOptions } from "ai";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { BrainCircuit } from "lucide-react";
+import { useReducedMotion } from "framer-motion";
 import { toast } from "sonner";
 
 import { Conversation, ConversationScrollButton } from "../third-party/ai-elements/conversation";
@@ -64,6 +65,9 @@ import { DiagramNodeLinksProvider } from "@/lib/mermaid/diagram-node-links-conte
 import { DiagramTakeoverProvider } from "@/lib/mermaid/diagram-takeover-context";
 import { isEditableEventTarget } from "@/lib/dom/is-editable-event-target";
 import { useBackgroundThreadMessages } from "@/hooks/use-background-thread-messages";
+import { useMorphFlip } from "@/hooks/use-morph-flip";
+import { COMPOSER_SHIFT_MIN_PX, COMPOSER_SHIFT_SPRING } from "@/lib/chat/composer-shift-spring";
+import { useMultitaskComposerSlot } from "@/app/sandbox/arcadia/_components/multitask-composer-slot";
 import { useArcadiaMultitaskOptional } from "@/app/sandbox/arcadia/_components/multitask-provider";
 const logger = createLogger("components/chat/chat");
 
@@ -121,6 +125,25 @@ export const Chat: React.FC<ChatProps> = ({
   const applyInboundDispatchRef = useRef(arcadiaMultitask?.applyInboundDispatch);
   const applyAwarenessEventRef = useRef(arcadiaMultitask?.applyAwarenessEvent);
   const confineInMultitaskDashboard = arcadiaMultitask?.layoutMode === "dashboard";
+  // Condensed multiagent row sits above CoreInput; CoreInput itself keeps its place.
+  const composerSlot = useMultitaskComposerSlot();
+  const composerAnchorRef = useRef<HTMLDivElement | null>(null);
+  const reduceMotion = useReducedMotion();
+
+  useMorphFlip(
+    composerAnchorRef,
+    [
+      arcadiaMultitask?.layoutMode ?? "none",
+      arcadiaMultitask?.chatOpen ?? true,
+      arcadiaMultitask?.shellOpen ?? false,
+      composerSlot ? "slot" : "no-slot",
+    ].join(":"),
+    {
+      spring: COMPOSER_SHIFT_SPRING,
+      minShiftPx: COMPOSER_SHIFT_MIN_PX,
+      disabled: Boolean(reduceMotion),
+    }
+  );
   // Multitask dashboard uses live sendMessage → /api/chat (same as Arcadia idle chat).
   // Do not enable CoreInput queueSendMode here: enqueue never appends/streams into the
   // thread UI, so orchestrator turns look like a no-op. Subagent targeting still rides on
@@ -655,36 +678,39 @@ export const Chat: React.FC<ChatProps> = ({
                   </SheetContent>
                 </Sheet>
               )}
-              <CoreInput
-                chatId={chatData?.thread.id}
-                clearError={clearError}
-                disabled={isCheckingStream}
-                composerInject={composerInject}
-                enableMarkdownInputPreview={
-                  experience === "arcadia" && experimentalArcadiaMarkdownPreview
-                }
-                error={error ?? chatError}
-                featureHints={!(experience === "arcadia" && messages.length === 0)}
-                hideWebMemorySpeechToggles={
-                  experience === "strata_page" && Boolean(assistantSession)
-                }
-                initialDraft={initialDraft}
-                isBlankChat={messages.length === 0 && persona !== "strata"}
-                modelRef={selectedModelRef}
-                effortRef={selectedEffortRef}
-                sendMessage={sendMessageIfIdle}
-                status={status}
-                stop={handleStop}
-                useMemoriesRef={useMemoriesRef}
-                useSpeechFriendlyRef={useSpeechFriendlyRef}
-                useWebSearchRef={useWebSearchRef}
-                streamContextBudget={streamContextBudget}
-                contextBudgetRefreshKey={contextBudgetRefreshKey}
-                threadMessages={messages}
-                experience={experience as ChatExperience | undefined}
-                chatStyle={experience === "arcadia" && id ? getChatStyle(id) : undefined}
-                onErrorCleared={() => setChatError(undefined)}
-              />
+              {composerSlot}
+              <div ref={composerAnchorRef}>
+                <CoreInput
+                  chatId={chatData?.thread.id}
+                  clearError={clearError}
+                  disabled={isCheckingStream}
+                  composerInject={composerInject}
+                  enableMarkdownInputPreview={
+                    experience === "arcadia" && experimentalArcadiaMarkdownPreview
+                  }
+                  error={error ?? chatError}
+                  featureHints={!(experience === "arcadia" && messages.length === 0)}
+                  hideWebMemorySpeechToggles={
+                    experience === "strata_page" && Boolean(assistantSession)
+                  }
+                  initialDraft={initialDraft}
+                  isBlankChat={messages.length === 0 && persona !== "strata"}
+                  modelRef={selectedModelRef}
+                  effortRef={selectedEffortRef}
+                  sendMessage={sendMessageIfIdle}
+                  status={status}
+                  stop={handleStop}
+                  useMemoriesRef={useMemoriesRef}
+                  useSpeechFriendlyRef={useSpeechFriendlyRef}
+                  useWebSearchRef={useWebSearchRef}
+                  streamContextBudget={streamContextBudget}
+                  contextBudgetRefreshKey={contextBudgetRefreshKey}
+                  threadMessages={messages}
+                  experience={experience as ChatExperience | undefined}
+                  chatStyle={experience === "arcadia" && id ? getChatStyle(id) : undefined}
+                  onErrorCleared={() => setChatError(undefined)}
+                />
+              </div>
             </div>
           </div>
           <DiagramTakeoverShell />
