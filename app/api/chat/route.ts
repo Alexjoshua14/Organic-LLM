@@ -53,6 +53,10 @@ import {
 import { createMultitaskTurnDeps } from "@/lib/llm/subagents/orchestrator/multitask-turn-deps";
 import { withReadSubagentThreadTool } from "@/lib/llm/subagents/orchestrator/read-subagent-thread-tool";
 import { foldSystemNoticesForModel } from "@/lib/llm/subagents/threads/fold-system-notices";
+import { buildPersonaInstructions } from "@/lib/personas/unified/prompt";
+import { decidePersonaResponse } from "@/lib/personas/unified/response-gate";
+import { receiptLabel, type PersonaSession } from "@/lib/personas/unified/session";
+import { getPersonaStore, type PersonaStore } from "@/lib/personas/unified/store";
 
 // The stream still ends with the orchestrator's reply. The higher ceiling is for Arcadia subagent
 // runs scheduled with `after()`, which share this route's budget — keep in step with
@@ -109,6 +113,7 @@ export async function POST(req: Request) {
     diagramNodeLinks,
     customSystemPromptOverride,
     multitaskSendTarget,
+    personaSessionId,
   } = parseResult.data;
   const message = incomingMessage as UIMessage;
   const messageForLlm = augmentUserMessageWithDiagramLinks(message, diagramNodeLinks);
@@ -145,6 +150,22 @@ export async function POST(req: Request) {
   }
 
   const { sbUserId, clerkUserId } = authGate.data!;
+
+  // A unified persona that cannot be loaded (expired, switched off elsewhere) degrades to a
+  // normal reply rather than failing the user's message.
+  let personaStore: PersonaStore | null = null;
+  let personaSession: PersonaSession | null = null;
+
+  if (personaSessionId) {
+    try {
+      personaStore = await getPersonaStore();
+      personaSession = await personaStore.load(sbUserId, personaSessionId);
+    } catch (err) {
+      logger.error("POST", "Persona session unavailable; replying without it", {
+        err: err instanceof Error ? err.message : String(err),
+      });
+    }
+  }
 
   // Admin-only models: check the canonical registry entry (the client payload isn't trusted
   // to carry the adminOnly flag) and fall back to the default model for non-admins.
@@ -190,6 +211,47 @@ export async function POST(req: Request) {
 
   const stream = createUIMessageStream<ChatUIMessage>({
     execute: async ({ writer }) => {
+      // Not every message needs a reply. The gate decides; the receipt tells the user either way.
+      if (personaSession && personaStore) {
+        const userText = getLastUserMessageText(message);
+        const hasImage = message.parts.some(
+          (part) => part.type === "file" && part.mediaType.startsWith("image/")
+        );
+        const decision = await decidePersonaResponse({
+          text: userText,
+          hasImage,
+          recent: personaSession.log,
+          subject: personaSession.subject,
+        });
+
+        writer.write({
+          type: "data-persona-receipt",
+          data: {
+            messageId: message.id ?? null,
+            disposition: decision.respond ? "respond" : "hold",
+            kind: decision.kind,
+            label: receiptLabel(decision.respond, decision.kind),
+          },
+          transient: true,
+        });
+        logger.log("POST", `Persona gate ${decision.respond ? "respond" : "hold"}`, {
+          kind: decision.kind,
+          source: decision.source,
+        });
+        void personaStore
+          .appendLog(sbUserId, personaSession.id, [
+            {
+              surface: "chat",
+              role: "user",
+              text: userText || (hasImage ? "(sent a photo)" : ""),
+              held: !decision.respond,
+            },
+          ])
+          .catch((err) => logger.warn("POST", "Could not log persona turn", { err: String(err) }));
+
+        if (!decision.respond) return;
+      }
+
       // Identify the response before data parts can create a client-side message during replay.
       writer.write({ type: "start", messageId: assistantMessageId });
       writer.write({
@@ -205,7 +267,7 @@ export async function POST(req: Request) {
       // orchestrator frees CoreInput as soon as its reply ends.
       let multitask: PrepareMultitaskTurnResult | null = null;
 
-      if (experience === "arcadia") {
+      if (experience === "arcadia" && !personaSession) {
         multitask = await prepareArcadiaMultitaskTurn({
           chatId: id,
           ownerId: sbUserId,
@@ -313,7 +375,8 @@ export async function POST(req: Request) {
       });
 
       if (
-        await tryArcadiaChatHelpShortcut({
+        !personaSession &&
+        (await tryArcadiaChatHelpShortcut({
           experience,
           message,
           validatedMessages,
@@ -322,7 +385,7 @@ export async function POST(req: Request) {
           sbUserId,
           writer,
           logger,
-        })
+        }))
       ) {
         return;
       }
@@ -409,6 +472,9 @@ export async function POST(req: Request) {
         drawerDisplay,
         arcadiaStarterPriming,
       });
+      if (personaSession) {
+        systemPromptForRequest += buildPersonaInstructions(personaSession, { surface: "chat" });
+      }
 
       writer.write({
         type: "data-aiAction",
@@ -502,6 +568,16 @@ export async function POST(req: Request) {
         experience,
         userMessage: message,
         threadHasTitlePromise,
+        onAssistantMessage:
+          personaSession && personaStore
+            ? (text) => {
+                void personaStore
+                  .appendLog(sbUserId, personaSession.id, [
+                    { surface: "chat", role: "assistant", text },
+                  ])
+                  .catch(() => undefined);
+              }
+            : undefined,
       });
 
 

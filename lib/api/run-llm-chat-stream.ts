@@ -43,6 +43,8 @@ export type RunLLMChatStreamParams = {
   experience: ChatExperience | undefined;
   userMessage: UIMessage;
   threadHasTitlePromise: Promise<Result<boolean>>;
+  /** Called with the saved assistant reply's text; the unified persona logs it. */
+  onAssistantMessage?: (text: string) => void;
 };
 
 export async function runLLMChatStream(params: RunLLMChatStreamParams): Promise<void> {
@@ -66,6 +68,7 @@ export async function runLLMChatStream(params: RunLLMChatStreamParams): Promise<
     experience,
     userMessage,
     threadHasTitlePromise,
+    onAssistantMessage,
   } = params;
 
   const toolNames = Object.keys(tools);
@@ -335,6 +338,16 @@ export async function runLLMChatStream(params: RunLLMChatStreamParams): Promise<
             logger.error("POST", `Error saving chat: ${msg}`);
 
             return; // Don't continue if save fails
+          }
+
+          if (onAssistantMessage) {
+            const reply = messages.findLast((saved) => saved.role === "assistant");
+            const text = reply?.parts
+              .flatMap((part) => (part.type === "text" ? [part.text] : []))
+              .join("")
+              .trim();
+
+            if (text) onAssistantMessage(text);
           }
 
           // Multi-mode queue: after this stream clears, try to send the next queued message.

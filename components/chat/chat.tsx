@@ -8,7 +8,7 @@ import type { DiagramNodeLink } from "@/lib/mermaid/types";
 
 import { UIMessage, useChat } from "@ai-sdk/react";
 import { DefaultChatTransport, type ChatTransport, type HttpChatTransportInitOptions } from "ai";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { BrainCircuit } from "lucide-react";
 import { toast } from "sonner";
 
@@ -20,6 +20,13 @@ import { CoreInput } from "./core-input";
 import { ChatStylePicker } from "./chat-style-picker";
 import { ChatThreadStyleOverlay } from "./chat-thread-style-overlay";
 
+import { PersonaStarters } from "@/components/personas/persona-starters";
+import {
+  usePersonaScope,
+  usePersonaSessionOptional,
+} from "@/components/personas/persona-session-provider";
+import { blobFromUrl } from "@/lib/personas/domains/acrylic/painting-image";
+import { chatPersonaScope, PersonaReceiptSchema } from "@/lib/personas/unified/session";
 import { DiagramTakeoverShell } from "@/components/mermaid/diagram-takeover-shell";
 import { MemoryEphemeralCards } from "@/components/memory/memory-ephemeral-cards";
 import { MemoryLens } from "@/components/memory/memory-lens";
@@ -114,6 +121,16 @@ export const Chat: React.FC<ChatProps> = ({
   assistantSession,
 }) => {
   const { refreshSidebarChats } = useSharedChatContext();
+  /**
+   * The unified persona rides along on the main chat and Arcadia (no `persona` prop); the
+   * single-purpose personas (Remy, Strata, Aion…) keep their own voice.
+   */
+  const personaHost = !persona;
+  const unifiedPersona = usePersonaSessionOptional();
+  const unifiedPersonaRef = useRef(unifiedPersona);
+
+  unifiedPersonaRef.current = unifiedPersona;
+  const personaActive = personaHost && Boolean(unifiedPersona?.session);
   const arcadiaMultitask = useArcadiaMultitaskOptional();
   const multitaskSendTargetRef = useRef(
     arcadiaMultitask?.multitaskViewEnabled ? arcadiaMultitask.sendTarget : null
@@ -263,6 +280,9 @@ export const Chat: React.FC<ChatProps> = ({
               effort: selectedEffortRef.current,
               ...strataPageTools,
               speechFriendly: useSpeechFriendlyRef.current,
+              ...(personaHost && unifiedPersonaRef.current?.session
+                ? { personaSessionId: unifiedPersonaRef.current.session.id }
+                : {}),
               experience,
               ...(experience === "arcadia" ? { chatStyle: getChatStyle(id) } : {}),
               ...(strataPageId ? { strataPageId } : {}),
@@ -301,7 +321,11 @@ export const Chat: React.FC<ChatProps> = ({
         /** Side channel for UI events */
         logger.log("chat", JSON.stringify(data, null, 2));
 
-        if (data.type === "data-kanban") {
+        if (data.type === "data-persona-receipt") {
+          const parsed = PersonaReceiptSchema.safeParse(data.data);
+
+          if (parsed.success) unifiedPersonaRef.current?.recordReceipt(parsed.data);
+        } else if (data.type === "data-kanban") {
           const parsed = safeParseKanbanCommand(data.data);
 
           if (parsed.ok && id) {
@@ -437,6 +461,53 @@ export const Chat: React.FC<ChatProps> = ({
       },
     });
 
+  // Active on/off is bound to this thread only — not a user-wide sticky flag.
+  usePersonaScope(personaHost && id ? chatPersonaScope(id) : null);
+
+  /**
+   * Photos sent to the persona also update its picture of the painting. The chat model sees the
+   * image itself either way; this keeps chat and voice on the same running state.
+   */
+  const sendMessageWithPersona = useCallback<typeof sendMessage>(
+    (message, options) => {
+      const persona = unifiedPersonaRef.current;
+      const files = message && "files" in message ? message.files : undefined;
+      const image = Array.isArray(files)
+        ? files.find((file) => file.mediaType?.startsWith("image/") && file.url)
+        : undefined;
+
+      if (personaHost && persona?.session && image) {
+        const note =
+          message && "text" in message && typeof message.text === "string" ? message.text : "";
+
+        void blobFromUrl(image.url).then((blob) =>
+          persona.analyzePhoto(blob, note === "Sent with attachments" ? undefined : note)
+        );
+      }
+
+      return sendMessage(message, options);
+    },
+    [personaHost, sendMessage]
+  );
+
+  /** User messages the persona heard and let pass, each with its receipt. */
+  const heardMarks = useMemo(() => {
+    if (!personaActive) return undefined;
+    const marks: Record<string, { label: string; pulseKey: number | null }> = {};
+    const receipts = unifiedPersona?.receipts ?? {};
+
+    messages.forEach((message, index) => {
+      if (message.role !== "user") return;
+      const next = messages[index + 1];
+      const inFlight = index === messages.length - 1 && status !== "ready";
+      const receipt = receipts[message.id];
+
+      if (receipt?.disposition === "respond" || inFlight || (next && next.role !== "user")) return;
+      marks[message.id] = { label: receipt?.label ?? "Heard", pulseKey: receipt?.at ?? null };
+    });
+
+    return marks;
+  }, [messages, personaActive, status, unifiedPersona?.receipts]);
   const isCheckingStream = resumeCheck.threadId !== id || resumeCheck.pending;
   const sendStateRef = useRef({ id, status, isCheckingStream });
 
@@ -457,12 +528,12 @@ export const Chat: React.FC<ChatProps> = ({
 
       pendingSendRef.current = submission;
       try {
-        await sendMessage(...args);
+        await sendMessageWithPersona(...args);
       } finally {
         if (pendingSendRef.current === submission) pendingSendRef.current = null;
       }
     },
-    [sendMessage]
+    [sendMessageWithPersona]
   );
 
   useBackgroundThreadMessages({
@@ -606,18 +677,21 @@ export const Chat: React.FC<ChatProps> = ({
               chatId={id}
               status={status}
               contentClassName={persona === "remy" ? MEMORY_PANEL_RESERVE_PADDING : undefined}
+              heardMarks={heardMarks}
               messages={messages}
               renderEmptyState={
-                experience === "arcadia" && !confineInMultitaskDashboard
-                  ? () => (
-                      <ChatStylePicker
-                        chatId={id}
-                        showStartersHint={messages.length === 0}
-                        starterKey={arcadiaStarterKey}
-                        onStarterKeyChange={setArcadiaStarterKey}
-                      />
-                    )
-                  : undefined
+                personaActive && !confineInMultitaskDashboard
+                  ? () => <PersonaStarters />
+                  : experience === "arcadia" && !confineInMultitaskDashboard
+                    ? () => (
+                        <ChatStylePicker
+                          chatId={id}
+                          showStartersHint={messages.length === 0}
+                          starterKey={arcadiaStarterKey}
+                          onStarterKeyChange={setArcadiaStarterKey}
+                        />
+                      )
+                    : undefined
               }
             />
             {persona === "remy" && (
@@ -672,6 +746,7 @@ export const Chat: React.FC<ChatProps> = ({
                 isBlankChat={messages.length === 0 && persona !== "strata"}
                 modelRef={selectedModelRef}
                 effortRef={selectedEffortRef}
+                personaEnabled={personaHost}
                 sendMessage={sendMessageIfIdle}
                 status={status}
                 stop={handleStop}

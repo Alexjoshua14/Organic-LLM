@@ -80,6 +80,9 @@ run; `-t "name"` filters by test name.
   and implementation issues are gated — see `docs/hub/phases.md`.
 - Bumping the major version — see `.cursor/skills/app-semver/SKILL.md`.
 - `git commit`. Write files freely; commit only when the user asks.
+- Starting a server — `bun dev`, `bun start`, `next start`, or anything else that listens on a
+  port. Start one only when the user asks; one may already be running (the preview checkout
+  serves :3000).
 
 **Never**
 
