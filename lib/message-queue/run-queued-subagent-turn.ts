@@ -9,7 +9,7 @@ import {
   setSubagentThreadStatus,
 } from "@/data/supabase/subagent-threads";
 import { resolveSubagentIdentity } from "@/lib/arcadia/multitask/subagent-identity";
-import { stripSubagentGoalPrefix, uiMessageText } from "@/lib/llm/subagents/threads/messages";
+import { subagentGoalBrief } from "@/lib/llm/subagents/threads/messages";
 import { runSubagentThreadTurn } from "@/lib/llm/subagents/worker/run-in-thread";
 import { recordGatewayCallUsage } from "@/lib/usage/record-gateway-call";
 
@@ -27,7 +27,7 @@ export async function runQueuedSubagentTurn(item: MessageSendQueueRow, ownerId: 
   if (!assignment) return { ok: false as const, error: "Subagent assignment is unavailable" };
   const identity = resolveSubagentIdentity(link.agentId);
   const result = await runSubagentThreadTurn({
-    goal: { ...run, goal: stripSubagentGoalPrefix(uiMessageText(assignment)) },
+    goal: { ...run, goal: subagentGoalBrief(assignment) },
     threadId,
     ownerId,
     modelId: run.modelId,

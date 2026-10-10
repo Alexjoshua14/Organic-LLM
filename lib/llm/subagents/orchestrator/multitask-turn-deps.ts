@@ -14,6 +14,7 @@ import {
   setSubagentThreadStatus,
 } from "@/data/supabase/subagent-threads";
 import { insertQueuedMessage } from "@/data/supabase/message-send-queue";
+import { createSupabaseWorktableStore } from "@/data/supabase/subagent-worktable";
 import { recordGatewayCallUsage } from "@/lib/usage/record-gateway-call";
 
 
@@ -34,6 +35,7 @@ export function createMultitaskTurnDeps(args: { ownerId: string; clerkUserId: st
     appendMessages: (threadId, messages) =>
       appendThreadMessagesWithAdmin({ threadId, ownerId, messages }),
     setStatus: (threadId, status) => setSubagentThreadStatus({ threadId, ownerId, status }),
+    openWorktable: (threadId) => createSupabaseWorktableStore({ threadId, ownerId }),
     recordUsage: ({ modelId, usage, providerMetadata, operation }) =>
       recordGatewayCallUsage({ ownerId, modelId, usage, providerMetadata, operation, route }),
     enqueueWorker: async ({ goal, threadId, modelId, zeroDataRetention }) => {

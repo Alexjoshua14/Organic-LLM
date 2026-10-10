@@ -13,6 +13,13 @@ export const SUBAGENT_REPLY_MESSAGE_SOURCE = "subagent-worker";
 export type SubagentGoalMessageMetadata = {
   source: typeof SUBAGENT_GOAL_MESSAGE_SOURCE;
   goalId: string;
+  /**
+   * The orchestrator's brief when context was sent with it (COA-258). The text holds brief plus
+   * context; cards, snapshots and the worker's reminder use the brief alone.
+   */
+  brief?: string;
+  /** Worktable bundles sent with this assignment. */
+  bundles?: Array<{ id: string; name: string }>;
 };
 
 export type SubagentReplyMessageMetadata = {
@@ -40,16 +47,39 @@ export function stripSubagentGoalPrefix(text: string): string {
     : trimmed;
 }
 
+/** The assignment itself: the stored brief, else the text without its label. */
+export function subagentGoalBrief(message: UIMessage): string {
+  const brief = (message.metadata as Partial<SubagentGoalMessageMetadata> | undefined)?.brief;
+
+  return typeof brief === "string" && brief.trim() ? brief.trim() : stripSubagentGoalPrefix(uiMessageText(message));
+}
+
 export function buildSubagentGoalMessage(args: {
   goal: string;
   goalId: string;
   id?: string;
+  /** Rendered context sent below the brief. */
+  context?: string;
+  bundles?: Array<{ id: string; name: string }>;
 }): UIMessage<SubagentGoalMessageMetadata> {
+  const brief = args.goal.trim();
+  const context = args.context?.trim();
+
   return {
     id: args.id ?? randomUUID(),
     role: "user",
-    metadata: { source: SUBAGENT_GOAL_MESSAGE_SOURCE, goalId: args.goalId },
-    parts: [{ type: "text", text: `${SUBAGENT_GOAL_TEXT_PREFIX}\n${args.goal.trim()}` }],
+    metadata: {
+      source: SUBAGENT_GOAL_MESSAGE_SOURCE,
+      goalId: args.goalId,
+      ...(context ? { brief } : {}),
+      ...(args.bundles?.length ? { bundles: args.bundles } : {}),
+    },
+    parts: [
+      {
+        type: "text",
+        text: `${SUBAGENT_GOAL_TEXT_PREFIX}\n${brief}${context ? `\n\n${context}` : ""}`,
+      },
+    ],
   };
 }
 

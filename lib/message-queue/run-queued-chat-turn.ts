@@ -49,7 +49,7 @@ import {
   type PrepareMultitaskTurnResult,
 } from "@/lib/llm/subagents/orchestrator/prepare-multitask-turn";
 import { createMultitaskTurnDeps } from "@/lib/llm/subagents/orchestrator/multitask-turn-deps";
-import { withReadSubagentThreadTool } from "@/lib/llm/subagents/orchestrator/read-subagent-thread-tool";
+import { withArcadiaOrchestratorTools } from "@/lib/llm/subagents/orchestrator/orchestrator-tools";
 import { foldSystemNoticesForModel } from "@/lib/llm/subagents/threads/fold-system-notices";
 
 const logger = createLogger("lib/message-queue/run-queued-chat-turn.ts");
@@ -141,6 +141,7 @@ export async function runQueuedChatTurn(args: {
           zeroDataRetention: payload.zeroDataRetention === true,
           writer,
           deps: createMultitaskTurnDeps({ ownerId: sbUserId, clerkUserId, route: "/api/chat/queue" }),
+          autonomous: isHeartbeat,
         });
       }
 
@@ -212,13 +213,18 @@ export async function runQueuedChatTurn(args: {
         sbUserId,
         writer,
       });
-      const { tools, toolInstructions } =
-        multitask?.role === "orchestrator" && multitask.hasSubagentThreads
-          ? withReadSubagentThreadTool(compiledTools, {
-              orchestratorThreadId: chatId,
-              deps: createMultitaskTurnDeps({ ownerId: sbUserId, clerkUserId, route: "/api/chat/queue" }),
-            })
-          : compiledTools;
+      const { tools, toolInstructions } = withArcadiaOrchestratorTools(compiledTools, {
+        multitask,
+        orchestratorThreadId: chatId,
+        deps: createMultitaskTurnDeps({ ownerId: sbUserId, clerkUserId, route: "/api/chat/queue" }),
+        modelId: selectedModel.id,
+        zeroDataRetention: payload.zeroDataRetention === true,
+        autonomous: isHeartbeat,
+        currentUserMessage: isHeartbeat
+          ? null
+          : { id: userMessage.id, text: getLastUserMessageText(userMessage) },
+        writer,
+      });
 
       const toolNames = Object.keys(tools);
       const hasTools = toolNames.length > 0;

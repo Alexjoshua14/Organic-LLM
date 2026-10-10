@@ -63,6 +63,26 @@ the thread's saved Multiagent flag is on. With it off, requests are answered in 
 chat without thought routing or new worker assignments. Both live sends and queued sends
 check the saved flag; a retained Send-to selection cannot enable delegation.
 
+**Orchestrator-authored dispatch (COA-258).** The orchestrator, not the router, decides what
+each subagent receives. `dispatch_subagent` sends a brief the orchestrator wrote itself, plus
+context: the user's words (each quote is checked against this thread), other subagents' output,
+memories, and notes. The `worktable` tool keeps reusable context bundles on the orchestrator's
+own thread row (`threads.subagent_worktable`, encrypted;
+`docs/migrations/threads_subagent_worktable.sql`). A bundle can be sent again and again, and a
+`live_subagent_output` item picks up an agent's latest reply on every send. Live items are
+resolved when the dispatch goes out, so the child thread records exactly what was sent. The
+worktable is private to the orchestrator. Subagents see only what is dispatched to them.
+
+Limits:
+- Targets must be existing children or roster slots.
+- At most 4 dispatches per turn.
+- Heartbeat-triggered turns may make at most 3 dispatches between user messages, counted on the
+  worktable.
+
+A message sent straight to one subagent is still delivered verbatim.
+`ARCADIA_ORCHESTRATOR_DISPATCH_ENABLED=false` restores Jev router auto-dispatch. Code:
+`lib/llm/subagents/worktable/`, `lib/llm/subagents/orchestrator/orchestrator-tools.ts`.
+
 **Composer.** In dashboard mode the confined chat uses the same live `sendMessage` →
 `/api/chat` path as Arcadia idle chat (user bubble + streaming reply). The Send-to picker
 value is sent as `multitaskSendTarget` on the request body so the server can route or

@@ -51,7 +51,7 @@ import {
   type PrepareMultitaskTurnResult,
 } from "@/lib/llm/subagents/orchestrator/prepare-multitask-turn";
 import { createMultitaskTurnDeps } from "@/lib/llm/subagents/orchestrator/multitask-turn-deps";
-import { withReadSubagentThreadTool } from "@/lib/llm/subagents/orchestrator/read-subagent-thread-tool";
+import { withArcadiaOrchestratorTools } from "@/lib/llm/subagents/orchestrator/orchestrator-tools";
 import { foldSystemNoticesForModel } from "@/lib/llm/subagents/threads/fold-system-notices";
 
 // The stream still ends with the orchestrator's reply. The higher ceiling is for Arcadia subagent
@@ -360,13 +360,16 @@ export async function POST(req: Request) {
         rabbitHoleSessionId,
         rabbitHoleActiveNodeId,
       });
-      const { tools, toolInstructions } =
-        multitask?.role === "orchestrator" && multitask.hasSubagentThreads
-          ? withReadSubagentThreadTool(compiledTools, {
-              orchestratorThreadId: id,
-              deps: createMultitaskTurnDeps({ ownerId: sbUserId, clerkUserId, route: "/api/chat" }),
-            })
-          : compiledTools;
+      const { tools, toolInstructions } = withArcadiaOrchestratorTools(compiledTools, {
+        multitask,
+        orchestratorThreadId: id,
+        deps: createMultitaskTurnDeps({ ownerId: sbUserId, clerkUserId, route: "/api/chat" }),
+        modelId: selectedModel.id,
+        zeroDataRetention: isZeroDataRetention,
+        autonomous: false,
+        currentUserMessage: { id: message.id, text: getLastUserMessageText(messageForLlm) },
+        writer,
+      });
 
       const toolNames = Object.keys(tools);
 

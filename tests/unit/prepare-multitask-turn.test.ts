@@ -1,3 +1,6 @@
+import type { UIMessage } from "ai";
+import type { Worktable } from "@/lib/llm/subagents/worktable/types";
+
 import { describe, expect, mock, test } from "bun:test";
 
 import {
@@ -6,6 +9,8 @@ import {
   type PrepareMultitaskTurnInput,
 } from "@/lib/llm/subagents/orchestrator/prepare-multitask-turn";
 import { createHeuristicThoughtRouter } from "@/lib/llm/subagents/orchestrator/thought-router";
+import { uiMessageText } from "@/lib/llm/subagents/threads/messages";
+import { emptyWorktable } from "@/lib/llm/subagents/worktable/types";
 
 const CHAT_ID = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
 const CHILD_ID = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb";
@@ -33,6 +38,8 @@ function setup() {
     zeroDataRetention: true,
     deps,
     writer,
+    // Router auto-dispatch: the ARCADIA_ORCHESTRATOR_DISPATCH_ENABLED=false path.
+    orchestratorDispatch: false,
   };
 
   return { deps, writer, input };
@@ -121,5 +128,92 @@ describe("Arcadia multitask delegation gate", () => {
     expect(result?.systemFragments.join("\n")).toContain("Reed");
     expect(state.deps.isMultitaskEnabled).not.toHaveBeenCalled();
     expectNoDelegation(state);
+  });
+});
+
+function memoryWorktableStore(initial: Partial<Worktable> = {}) {
+  let state = { worktable: { ...emptyWorktable(), ...initial }, revision: null as string | null };
+  let saves = 0;
+
+  return {
+    load: mock(async () => structuredClone(state)),
+    save: mock(async (worktable: Worktable, previous: string | null) => {
+      if (previous !== state.revision) return { status: "conflict" as const };
+      saves += 1;
+      state = { worktable: structuredClone(worktable), revision: `r${saves}` };
+
+      return { status: "saved" as const, revision: state.revision };
+    }),
+    current: () => state.worktable,
+  };
+}
+
+describe("Arcadia orchestrator-authored dispatch", () => {
+  function orchestrating(initial?: Partial<Worktable>) {
+    const state = setup();
+    const store = memoryWorktableStore(initial);
+
+    state.deps.isMultitaskEnabled.mockResolvedValue(true);
+    Object.assign(state.deps, { openWorktable: () => store });
+    state.input.orchestratorDispatch = true;
+
+    return { ...state, store };
+  }
+
+  test("the orchestrator decides: no router call and nothing assigned before it speaks", async () => {
+    const { deps, input, writer } = orchestrating();
+
+    const result = await prepareArcadiaMultitaskTurn(input);
+    const prompt = result?.systemFragments.join("\n\n") ?? "";
+
+    expect(result?.role).toBe("orchestrator");
+    expect(result?.orchestratorDispatch).toBe(true);
+    expect(result?.worktable).not.toBeNull();
+    expect(deps.router.route).not.toHaveBeenCalled();
+    expect(deps.appendMessages).not.toHaveBeenCalled();
+    expect(deps.enqueueWorker).not.toHaveBeenCalled();
+    expect(writer.write).not.toHaveBeenCalled();
+    expect(prompt).toContain("[Orchestrator]");
+    expect(prompt).toContain("agentId=agent-coder");
+    expect(prompt).toContain("[Worktable]\nNo saved bundles yet.");
+  });
+
+  test("a message sent straight to a subagent is still delivered verbatim", async () => {
+    const { deps, input } = orchestrating();
+
+    await prepareArcadiaMultitaskTurn({
+      ...input,
+      sendTarget: { kind: "subagent", agentId: "agent-coder" },
+    });
+
+    expect(deps.router.route).not.toHaveBeenCalled();
+    expect(deps.enqueueWorker).toHaveBeenCalledTimes(1);
+    const [[, messages]] = deps.appendMessages.mock.calls as unknown as [[string, UIMessage[]]];
+
+    expect(uiMessageText(messages[0]!)).toContain(input.userText);
+  });
+
+  test("the user speaking restores the automatic dispatch allowance; automatic turns do not", async () => {
+    const auto = orchestrating({ autonomousDispatches: 2 });
+    const autoResult = await prepareArcadiaMultitaskTurn({ ...auto.input, userText: "", autonomous: true });
+
+    expect(auto.store.current().autonomousDispatches).toBe(2);
+    expect(autoResult?.systemFragments.join("\n")).toContain("dispatch 1 more time(s)");
+
+    const user = orchestrating({ autonomousDispatches: 3 });
+
+    await prepareArcadiaMultitaskTurn(user.input);
+    expect(user.store.current().autonomousDispatches).toBe(0);
+  });
+
+  test("missing worktable storage still lets the orchestrator dispatch inline", async () => {
+    const { deps, input } = orchestrating();
+
+    Object.assign(deps, { openWorktable: () => ({ load: async () => null, save: async () => ({ status: "unavailable" }) }) });
+    const result = await prepareArcadiaMultitaskTurn(input);
+
+    expect(result?.orchestratorDispatch).toBe(true);
+    expect(result?.worktable).toBeNull();
+    expect(result?.systemFragments.join("\n")).toContain("Worktable storage is unavailable");
   });
 });

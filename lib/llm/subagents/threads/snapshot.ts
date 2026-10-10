@@ -3,7 +3,7 @@ import type { UIMessage } from "ai";
 import { createHash } from "crypto";
 
 import { resolveSubagentIdentity } from "@/lib/arcadia/multitask/subagent-identity";
-import { stripSubagentGoalPrefix, uiMessageText } from "@/lib/llm/subagents/threads/messages";
+import { subagentGoalBrief, uiMessageText } from "@/lib/llm/subagents/threads/messages";
 import {
   resolveEffectiveSubagentStatus,
   type SubagentThreadStatus,
@@ -50,7 +50,7 @@ function lastTextOfRole(messages: ReadonlyArray<UIMessage>, role: UIMessage["rol
     const message = messages[i]!;
 
     if (message.role !== role) continue;
-    const text = role === "user" ? stripSubagentGoalPrefix(uiMessageText(message)) : uiMessageText(message);
+    const text = role === "user" ? subagentGoalBrief(message) : uiMessageText(message);
 
     if (text) return clampExcerpt(text);
   }

@@ -24,7 +24,8 @@ export type EncryptionFieldName =
   | "memory.cache.semantic_search"
   | "threads.introspection_config"
   | "threads.introspection_guided_state"
-  | "threads.subagent_heartbeat_baseline";
+  | "threads.subagent_heartbeat_baseline"
+  | "threads.subagent_worktable";
 
 export type EncryptionContext = {
   userId: string;
