@@ -8,6 +8,8 @@ import {
   insertQueuedMessage,
   listOpenQueuedMessages,
   releaseClaimedMessage,
+  reserveThreadStream,
+  releaseThreadStream,
   updateQueuedMessageStatus,
 } from "@/data/supabase/message-send-queue";
 import { createLogger } from "@/lib/logger";
@@ -132,11 +134,19 @@ export async function tryDispatchThreadQueue(args: {
             `Dispatching queue item ${claimed.id} on thread ${threadId}`
           );
 
-          const turnResult = await runQueuedChatTurn({
-            item: claimed,
-            sbUserId: ownerId,
-            clerkUserId,
-          });
+          const reservation = { ownerId, threadId, streamId: `queue:${claimed.id}` };
+          if (!(await reserveThreadStream(reservation))) {
+            await releaseClaimedMessage({ id: claimed.id, status: "blocked_streaming", holdReason: "Thread is busy" });
+            return { dispatched: false, holdReason: "Thread is busy" };
+          }
+          let turnResult: Awaited<ReturnType<typeof runQueuedChatTurn>>;
+          try {
+            turnResult = await runQueuedChatTurn({ item: claimed, sbUserId: ownerId, clerkUserId });
+          } catch (error) {
+            turnResult = { ok: false, error: error instanceof Error ? error.message : "Background turn failed" };
+          } finally {
+            await releaseThreadStream(reservation);
+          }
 
           if (!turnResult.ok) {
             await releaseClaimedMessage({

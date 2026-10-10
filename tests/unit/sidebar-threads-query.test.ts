@@ -1,4 +1,5 @@
-import { beforeEach, describe, expect, mock, test } from "bun:test";
+import { afterEach, beforeEach, describe, expect, mock, spyOn, test } from "bun:test";
+import * as supabase from "@/lib/supabase/server";
 
 mock.module("server-only", () => ({}));
 
@@ -33,10 +34,7 @@ class RecordingClient {
 }
 
 let client: RecordingClient;
-
-mock.module("@/lib/supabase/server", () => ({
-  supabaseServer: () => Promise.resolve(client),
-}));
+let clientSpy: ReturnType<typeof spyOn<typeof supabase, "supabaseServer">>;
 
 const { getSidebarThreadsPage } = await import("@/data/supabase/sidebar-threads");
 
@@ -54,7 +52,11 @@ const row = (id: string, updatedAt: string, pinned = false) => ({
 describe("getSidebarThreadsPage", () => {
   beforeEach(() => {
     client = new RecordingClient();
+    // Other data tests replace this process-wide module; bind this test's client each time.
+    clientSpy = spyOn(supabase, "supabaseServer").mockImplementation((async () => client) as never);
   });
+
+  afterEach(() => clientSpy.mockRestore());
 
   test("first page: unpinned page and pinned list, both owner- and scope-filtered", async () => {
     client.results = [

@@ -34,6 +34,8 @@ export type ArcadiaSubagent = {
    * the card keeps the slot even when empty.
    */
   identityImageUrl?: string | null;
+  /** The subagent's own thread once the orchestrator has assigned it work (COA-251). */
+  threadId?: string | null;
 };
 
 export type ArcadiaMultitaskSpeakBinding = {

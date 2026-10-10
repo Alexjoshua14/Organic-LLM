@@ -1,7 +1,7 @@
 import type { ExaSearchResultSource } from "@/lib/exa/types";
 
 import { FC, memo, useCallback, useState } from "react";
-import { getToolOrDynamicToolName, isToolOrDynamicToolUIPart, UIMessage } from "ai";
+import { getToolOrDynamicToolName, isToolUIPart, UIMessage } from "ai";
 
 import { glass } from "../design-system/primitives";
 
@@ -101,8 +101,9 @@ export const ChatMessage = memo<ChatMessageProps>(function ChatMessage(props) {
       );
     case "user":
       return <UserMessage message={message} />;
-    case "system":
-      return <SystemMessage message={message} />;
+    // Removing system message for now to accomodate Multiagent Heartbeats
+    // case "system":
+    //   return <SystemMessage message={message} />;
   }
 });
 
@@ -174,7 +175,7 @@ const AIMessage: FC<ChatMessageProps> = ({
               );
 
             default:
-              if (isToolOrDynamicToolUIPart(part)) {
+              if (isToolUIPart(part)) {
                 const toolName = getToolOrDynamicToolName(part);
                 const toolCallId = part.toolCallId;
 
@@ -508,7 +509,7 @@ function messagePartsIndicateStreaming(parts: MessageParts): boolean {
   for (const part of parts) {
     if (part.type === "reasoning" && part.state === "streaming") return true;
     if (part.type === "text" && part.state === "streaming") return true;
-    if (isToolOrDynamicToolUIPart(part)) {
+    if (isToolUIPart(part)) {
       if (part.state === "input-streaming" || part.state === "input-available") return true;
       continue;
     }
@@ -528,7 +529,7 @@ function partListHasStreamingReasoning(parts: MessageParts): boolean {
 /** True when the message already has inline tool UI (loading or result). */
 function partListHasToolUIPart(parts: MessageParts): boolean {
   return parts.some(
-    (part) => isToolOrDynamicToolUIPart(part) || getLegacyToolInvocationPart(part) !== null
+    (part) => isToolUIPart(part) || getLegacyToolInvocationPart(part) !== null
   );
 }
 
@@ -536,7 +537,7 @@ function partListHasMemorySearchToolPart(parts: MessageParts): boolean {
   const names = new Set(["search_memories", "memory_search"]);
 
   return parts.some((part) => {
-    if (isToolOrDynamicToolUIPart(part)) {
+    if (isToolUIPart(part)) {
       return names.has(getToolOrDynamicToolName(part).toLowerCase());
     }
 
@@ -548,7 +549,7 @@ function partListHasMemorySearchToolPart(parts: MessageParts): boolean {
 
 function partListHasInFlightWebSearch(parts: MessageParts): boolean {
   return parts.some((part) => {
-    if (isToolOrDynamicToolUIPart(part)) {
+    if (isToolUIPart(part)) {
       const inFlight = part.state === "input-streaming" || part.state === "input-available";
 
       return inFlight && getToolOrDynamicToolName(part).toLowerCase() === "web_search";

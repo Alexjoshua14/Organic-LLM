@@ -98,11 +98,11 @@ ${memoriesBlock}`;
 
   const result = streamText({
     model: KNOWLEDGE_MODEL,
-    system,
+    instructions: system,
     prompt,
     maxOutputTokens: 900,
     providerOptions: KNOWLEDGE_GATEWAY_PROVIDER_OPTIONS,
-    onFinish: ({ usage }) => {
+    onEnd: ({ usage }) => {
       recordLlmCall({
         model: KNOWLEDGE_MODEL,
         usage,

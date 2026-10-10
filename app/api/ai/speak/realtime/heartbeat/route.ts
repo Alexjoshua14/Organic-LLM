@@ -57,7 +57,7 @@ export async function POST(req: Request) {
   });
 
   if (!result.ok || result.shouldClose) {
-    logger.log("POST", `Heartbeat closing session ${parsed.data.sessionId}: ${result.error}`);
+    logger.log("POST", `Heartbeat closing session: ${result.error}`);
 
     return NextResponse.json(
       {

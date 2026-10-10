@@ -24,7 +24,7 @@ describe("usage aggregate", () => {
           input_tokens: 100,
           output_tokens: 50,
           cached_input_tokens: 0,
-          reasoning_tokens: 0,
+          reasoning_tokens: 5,
           total_tokens: 150,
           cost_usd: 0.000045,
           operation: "chat",
@@ -57,6 +57,9 @@ describe("usage aggregate", () => {
     expect(result.byModel).toHaveLength(1);
     expect(result.byModel[0].callCount).toBe(2);
     expect(result.totals.cachedInputTokens).toBe(40);
+    expect(result.totals.reasoningTokens).toBe(5);
+    expect(result.byModel[0].cachedInputTokens).toBe(40);
+    expect(result.byModel[0].reasoningTokens).toBe(5);
   });
 
   test("startOfBillingCycle is first day of month UTC", () => {

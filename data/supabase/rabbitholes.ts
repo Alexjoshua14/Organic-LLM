@@ -366,20 +366,20 @@ export async function saveSession(
     }
 
     if (DEBUG_MODE) {
-      logger.log("saveSession", `Deserializing session: ${serialized.substring(0, 100)}...`);
+      logger.log("saveSession", "Deserializing session");
     }
     const session = await deserializeSession(serialized);
 
     if (DEBUG_MODE) {
       logger.log(
         "saveSession",
-        `Deserialized session ${session.sessionId} with ${Object.keys(session.nodesById).length} nodes, ${session.path.length} path segments`
+        `Deserialized session with ${Object.keys(session.nodesById).length} nodes, ${session.path.length} path segments`
       );
     }
 
     // Upsert the main session
     if (DEBUG_MODE) {
-      logger.log("saveSession", `Upserting main session: ${session.sessionId}`);
+      logger.log("saveSession", "Upserting main session");
     }
 
     // Convert timestamps to ISO strings if they're Unix timestamps
@@ -395,7 +395,7 @@ export async function saveSession(
     let ownerId: string | undefined;
 
     if (client) {
-      logger.log("saveSession", `Admin client: fetching owner_id for session ${session.sessionId}`);
+      logger.log("saveSession", "Admin client: fetching session owner");
       const { data: existing } = await supabase
         .from("rabbit_hole_sessions")
         .select("owner_id")
@@ -645,7 +645,7 @@ export async function saveSession(
     }
 
     if (DEBUG_MODE) {
-      logger.log("saveSession", `Successfully saved session ${session.sessionId}`);
+      logger.log("saveSession", "Successfully saved session");
     }
 
     return {

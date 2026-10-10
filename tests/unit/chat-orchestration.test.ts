@@ -11,11 +11,12 @@ import {
 import { computeMainChatMaxSteps, MAX_TOOL_STEPS } from "@/lib/api/chat-max-steps";
 
 describe("computeMainChatMaxSteps", () => {
-  test("no tools caps at 2", () => {
-    expect(computeMainChatMaxSteps({ experience: undefined, hasTools: false })).toBe(2);
+  test("no tools caps at 8", () => {
+    expect(computeMainChatMaxSteps({ experience: undefined, hasTools: false })).toBe(8);
   });
 
   test("tools use MAX_TOOL_STEPS", () => {
+    expect(MAX_TOOL_STEPS).toBe(16);
     expect(computeMainChatMaxSteps({ experience: undefined, hasTools: true })).toBe(MAX_TOOL_STEPS);
   });
 
@@ -23,8 +24,8 @@ describe("computeMainChatMaxSteps", () => {
     expect(computeMainChatMaxSteps({ experience: "strata_hub", hasTools: true })).toBe(8);
   });
 
-  test("strata_hub does not raise floor when no tools", () => {
-    expect(computeMainChatMaxSteps({ experience: "strata_hub", hasTools: false })).toBe(2);
+  test("strata_hub also caps at 8 without tools", () => {
+    expect(computeMainChatMaxSteps({ experience: "strata_hub", hasTools: false })).toBe(8);
   });
 });
 

@@ -44,10 +44,13 @@ import { AUTO_CHAT_MODEL_ID, ChatModels, DEFAULT_CHAT_MODEL } from "@/lib/schema
 import { sendTargetFromQueueAgentId } from "@/lib/schemas/arcadia-multitask-send-target";
 import { appendCurrentDate } from "@/lib/system-prompt/current-date";
 import { ChatAIActionEnum, type ChatUIMessage } from "@/types/ai";
-import { dispatchMultitaskInbound } from "@/lib/llm/subagents/orchestrator/dispatch-inbound";
-import { executeAssignedWorkers } from "@/lib/llm/subagents/orchestrator/execute-assigned-workers";
-import { formatMultitaskRoutingSystemFragment } from "@/lib/llm/subagents/orchestrator/format-routing-fragment";
-import { createDemoSubagents } from "@/lib/arcadia/multitask/demo-roster";
+import {
+  prepareArcadiaMultitaskTurn,
+  type PrepareMultitaskTurnResult,
+} from "@/lib/llm/subagents/orchestrator/prepare-multitask-turn";
+import { createMultitaskTurnDeps } from "@/lib/llm/subagents/orchestrator/multitask-turn-deps";
+import { withReadSubagentThreadTool } from "@/lib/llm/subagents/orchestrator/read-subagent-thread-tool";
+import { foldSystemNoticesForModel } from "@/lib/llm/subagents/threads/fold-system-notices";
 
 const logger = createLogger("lib/message-queue/run-queued-chat-turn.ts");
 
@@ -62,16 +65,22 @@ export async function runQueuedChatTurn(args: {
   clerkUserId: string;
 }): Promise<{ ok: true } | { ok: false; error: string }> {
   const { item, sbUserId, clerkUserId } = args;
+  if (item.payload?.subagentRun) {
+    const { runQueuedSubagentTurn } = await import("@/lib/message-queue/run-queued-subagent-turn");
+    return runQueuedSubagentTurn(item, sbUserId);
+  }
   const chatId = item.thread_id;
   const payload: MessageSendQueuePayload =
     item.payload && typeof item.payload === "object" ? item.payload : {};
   const experience = payload.experience;
   const memoryEnabled = resolveMemoryEnabledForExperience(experience, payload.memory);
 
+  const heartbeatMessageId = item.payload?.heartbeatMessageId;
+  const isHeartbeat = typeof heartbeatMessageId === "string";
   const userMessage: UIMessage = {
-    id: randomUUID(),
-    role: "user",
-    parts: [{ type: "text", text: item.body }],
+    id: isHeartbeat ? heartbeatMessageId : randomUUID(),
+    role: isHeartbeat ? "system" : "user",
+    parts: [{ type: "text", text: isHeartbeat ? "Review the latest subagent update. Read the relevant subagent thread if needed, then give the user a concise update and any next steps. This is an automatic heartbeat, not a new assignment." : item.body }],
   };
 
   let selectedModel = payload.model ? getChatModel(payload.model) : DEFAULT_CHAT_MODEL;
@@ -82,7 +91,7 @@ export async function runQueuedChatTurn(args: {
       modelId: selectedModel.id,
       draftText: getLastUserMessageText(userMessage),
       experience,
-      zeroDataRetention: false,
+      zeroDataRetention: payload.zeroDataRetention === true,
     });
   }
 
@@ -99,7 +108,7 @@ export async function runQueuedChatTurn(args: {
   const assistantMessageId = randomUUID();
   const threadHasTitlePromise = getThreadHasTitle(chatId);
 
-  void saveChat({
+  if (!isHeartbeat) await saveChat({
     chatId,
     messages: [userMessage],
     useAdminForSave: true,
@@ -118,58 +127,21 @@ export async function runQueuedChatTurn(args: {
         transient: true,
       });
 
-      let multitaskRoutingFragment: string | null = null;
-      let workerRunsPromise: Promise<unknown> | null = null;
+      // Arcadia multitask: same path as /api/chat — subagents run in their own threads via
+      // `after()` (nested inside the queue route's `after` drain).
+      let multitask: PrepareMultitaskTurnResult | null = null;
 
       if (experience === "arcadia") {
-        const userText = getLastUserMessageText(userMessage);
-        if (userText.trim().length > 0) {
-          const roster = createDemoSubagents().map((a) => ({
-            id: a.id,
-            name: a.name,
-            role: a.role,
-            goal: a.goal,
-          }));
-          const inbound = await dispatchMultitaskInbound({
-            text: userText,
-            sendTarget: sendTargetFromQueueAgentId(item.target_agent_id),
-            workers: roster,
-            orchestratorId: chatId,
-          });
-          writer.write({
-            type: "data-multitask-routing",
-            data: {
-              sendTarget: inbound.sendTarget,
-              mode: inbound.mode,
-              routing: inbound.routing,
-              deliveredAgentId: inbound.deliveredAgentId,
-              deliveredText: inbound.deliveredText,
-              assignedGoals: inbound.assignedGoals.map((g) => ({
-                goalId: g.goalId,
-                agentId: g.agentId,
-                goal: g.goal,
-              })),
-              directThoughts: inbound.directThoughts,
-            },
-            transient: true,
-          });
-          multitaskRoutingFragment = formatMultitaskRoutingSystemFragment(inbound);
-
-          if (inbound.assignedGoals.length > 0) {
-            workerRunsPromise = executeAssignedWorkers({
-              goals: inbound.assignedGoals,
-              modelId: selectedModel.id,
-              workers: roster,
-              onEvent: (event) => {
-                writer.write({
-                  type: "data-multitask-worker",
-                  data: event,
-                  transient: true,
-                });
-              },
-            });
-          }
-        }
+        multitask = await prepareArcadiaMultitaskTurn({
+          chatId,
+          ownerId: sbUserId,
+          userText: isHeartbeat ? "" : getLastUserMessageText(userMessage),
+          sendTarget: sendTargetFromQueueAgentId(item.target_agent_id),
+          modelId: selectedModel.id,
+          zeroDataRetention: payload.zeroDataRetention === true,
+          writer,
+          deps: createMultitaskTurnDeps({ ownerId: sbUserId, clerkUserId, route: "/api/chat/queue" }),
+        });
       }
 
       const loadTurnContext =
@@ -222,14 +194,14 @@ export async function runQueuedChatTurn(args: {
         sbUserId,
       });
 
-      if (multitaskRoutingFragment) {
-        systemPromptForRequest = `${systemPromptForRequest}\n\n${multitaskRoutingFragment}`;
+      for (const fragment of multitask?.systemFragments ?? []) {
+        systemPromptForRequest = `${systemPromptForRequest}\n\n${fragment}`;
       }
 
-      const messages = convertToModelMessages(validatedMessages);
+      const messages = await convertToModelMessages(foldSystemNoticesForModel(validatedMessages));
       const initialMessageCount = validatedMessages.length;
 
-      const { tools, toolInstructions } = await compileChatTools({
+      const compiledTools = await compileChatTools({
         useSearch: payload.webSearch ?? false,
         useMemory: payload.memory ?? false,
         useGetMoreMessages: payload.messageSearch ?? true,
@@ -240,6 +212,13 @@ export async function runQueuedChatTurn(args: {
         sbUserId,
         writer,
       });
+      const { tools, toolInstructions } =
+        multitask?.role === "orchestrator" && multitask.hasSubagentThreads
+          ? withReadSubagentThreadTool(compiledTools, {
+              orchestratorThreadId: chatId,
+              deps: createMultitaskTurnDeps({ ownerId: sbUserId, clerkUserId, route: "/api/chat/queue" }),
+            })
+          : compiledTools;
 
       const toolNames = Object.keys(tools);
       const hasTools = toolNames.length > 0;
@@ -319,7 +298,7 @@ export async function runQueuedChatTurn(args: {
         tools,
         hasTools,
         maxSteps,
-        isZeroDataRetention: false,
+        isZeroDataRetention: payload.zeroDataRetention === true,
         coalescenceMode: false,
         memoryEnabled,
         experience,
@@ -327,9 +306,6 @@ export async function runQueuedChatTurn(args: {
         threadHasTitlePromise,
       });
 
-      if (workerRunsPromise) {
-        await workerRunsPromise;
-      }
     },
   });
 

@@ -1,5 +1,7 @@
 "use server";
 
+import { randomUUID } from "crypto";
+
 import { UIMessage } from "ai";
 import { auth } from "@clerk/nextjs/server";
 
@@ -73,6 +75,18 @@ function decryptMessageRowContent(message: Message, ownerId: string): Message {
       buildMessageContentContext(ownerId, message.thread_id)
     ),
   };
+}
+
+function decodeThreadMessages(messages: Message[], ownerId: string): UIMessage[] {
+  const uiMessages = messages
+    .map((message) => convertMessageToUIMessage(decryptMessageRowContent(message, ownerId)))
+    .filter((message) => message !== null);
+
+  if (uiMessages.length !== messages.length) {
+    logger.error("getMessages", "A message was not converted to UIMessage");
+  }
+
+  return uiMessages;
 }
 
 function encryptThreadSummaryText(summaryText: string, ownerId: string, chatId: string): string {
@@ -306,11 +320,17 @@ export async function loadChat(
 ): Promise<Result<{ thread: Thread; messages: UIMessage[] }>> {
   const sb = await supabaseServer();
 
-  const { data: thread, error: threadErr } = await sb
-    .from("threads")
-    .select("*")
-    .eq("id", chatId)
-    .single();
+  // Both reads use the same authenticated RLS client. The loaded thread supplies the
+  // decryption owner, avoiding another client/token setup and ownership read.
+  const [{ data: thread, error: threadErr }, { data: messages, error: messagesErr }] =
+    await Promise.all([
+      sb.from("threads").select("*").eq("id", chatId).single(),
+      sb
+        .from("messages")
+        .select("*")
+        .eq("thread_id", chatId)
+        .order("created_at", { ascending: true }),
+    ]);
 
   if (threadErr || !thread) {
     return {
@@ -318,9 +338,7 @@ export async function loadChat(
       error: new Error(threadErr?.message ?? "Unknown error"),
     };
   }
-  const { data: uiMessages, error: messagesErr } = await getMessages(chatId);
-
-  if (messagesErr || !uiMessages) {
+  if (messagesErr || !messages) {
     return {
       data: null,
       error: new Error(messagesErr?.message ?? "Unknown error"),
@@ -329,7 +347,7 @@ export async function loadChat(
 
   const chat = {
     thread: ThreadSchema.parse(thread),
-    messages: uiMessages,
+    messages: decodeThreadMessages(messages as Message[], thread.owner_id),
   };
 
   return {
@@ -440,7 +458,10 @@ export async function saveChat(params: {
  * @param chatId - The chat ID
  * @returns Chat ID
  */
-export async function createChat(chatId?: string): Promise<Result<string>> {
+export async function createChat(chatId?: string, experience?: "arcadia"): Promise<Result<string>> {
+  if (experience !== undefined && experience !== "arcadia") {
+    return { data: null, error: new Error("Invalid chat experience") };
+  }
   const { userId: clerkUserId } = await auth();
 
   if (!clerkUserId) {
@@ -461,11 +482,13 @@ export async function createChat(chatId?: string): Promise<Result<string>> {
     };
   }
 
+  const id = chatId ?? randomUUID();
   const { data, error } = await sb
     .from("threads")
     .insert({
-      id: chatId ?? undefined,
+      id,
       owner_id: supabaseUserId.data,
+      ...(experience === "arcadia" ? { feature: "arcadia", path: `/sandbox/arcadia/${id}` } : {}),
     })
     .select("id")
     .single();
@@ -673,18 +696,8 @@ export async function getMessages(chatId: string): Promise<Result<UIMessage[]>> 
 
   const ownerId = threadOwnerContext.data.ownerId;
 
-  const uiMessages = messages
-    .map((message) =>
-      convertMessageToUIMessage(decryptMessageRowContent(message as Message, ownerId))
-    )
-    .filter((message) => message !== null);
-
-  if (uiMessages.length !== messages.length) {
-    logger.error("getMessages", "A message was not converted to UIMessage");
-  }
-
   return {
-    data: uiMessages,
+    data: decodeThreadMessages(messages as Message[], ownerId),
     error: null,
   };
 }
@@ -892,9 +905,9 @@ export async function getThreadArcadiaStarterKey(chatId: string): Promise<Result
  * Arcadia multitask dashboard flag + live stream id for the toggle gate.
  * Column `arcadia_multitask_view` is additive (see docs/migrations/threads_arcadia_multitask_view.sql).
  */
-export async function getThreadArcadiaMultitaskView(chatId: string): Promise<
-  Result<{ enabled: boolean; activeStreamId: string | null }>
-> {
+export async function getThreadArcadiaMultitaskView(
+  chatId: string
+): Promise<Result<{ enabled: boolean; activeStreamId: string | null }>> {
   const sb = await supabaseServer();
   // Column is additive; cast until supabase gen types catch up.
   const { data, error } = await sb

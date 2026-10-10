@@ -80,7 +80,7 @@ export async function condenseArcadiaContext(
 
   const ownerId = threadOwnerContext.data.ownerId;
   const messagesForSummary = convertToolCallsToTextForSummarizer(messagesToCondense);
-  const modelMessages = convertToModelMessages(messagesForSummary);
+  const modelMessages = await convertToModelMessages(messagesForSummary);
 
   const systemPrompt = existingSummary?.trim().length
     ? UpdateCondenserSystemPrompt.replace("{{conversationSummary}}", existingSummary.trim())
@@ -93,7 +93,7 @@ export async function condenseArcadiaContext(
   try {
     const result = await generateText({
       model: modelId,
-      system: systemPrompt,
+      instructions: systemPrompt,
       temperature: 0.2,
       messages: modelMessages,
       maxOutputTokens: GUARDRAIL_MAX_OUTPUT_TOKENS,

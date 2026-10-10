@@ -92,7 +92,7 @@ export async function refineTasksWithLlm(options: {
     const { object, usage } = await withTimeout(
       generateObject({
         model: ERGON_REFINE_MODEL,
-        system: ERGON_REFINE_SYSTEM,
+        instructions: ERGON_REFINE_SYSTEM,
         prompt,
         schema,
         maxOutputTokens: Math.min(120 * count + 80, 1_200),

@@ -49,7 +49,7 @@ export const generateReleaseNotesWithLlm: ReleaseNotesGenerator = async (input) 
   try {
     const { object, usage } = await generateObject({
       model: RELEASE_NOTES_MODEL,
-      system: RELEASE_NOTES_SYSTEM_PROMPT,
+      instructions: RELEASE_NOTES_SYSTEM_PROMPT,
       prompt,
       schema: ReleaseNotesSchema,
       maxOutputTokens: 1_200,

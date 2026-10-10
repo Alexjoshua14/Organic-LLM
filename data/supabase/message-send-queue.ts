@@ -17,11 +17,12 @@ function isMissingTableError(message: string): boolean {
 }
 
 export async function insertQueuedMessage(args: {
+  id?: string;
   ownerId: string;
   threadId: string;
   body: string;
   targetAgentId?: string | null;
-  payload?: MessageSendQueuePayload;
+  payload?: MessageSendQueueRow["payload"];
 }): Promise<MessageSendQueueRow | null> {
   const { ownerId, threadId, body, targetAgentId, payload } = args;
 
@@ -51,6 +52,7 @@ export async function insertQueuedMessage(args: {
   const { data, error } = await supabaseAdmin
     .from("message_send_queue")
     .insert({
+      ...(args.id ? { id: args.id } : {}),
       owner_id: ownerId,
       thread_id: threadId,
       target_agent_id: targetAgentId ?? null,
@@ -63,6 +65,11 @@ export async function insertQueuedMessage(args: {
     .single();
 
   if (error) {
+    if (error.code === "23505" && args.id) {
+      const existing = await supabaseAdmin.from("message_send_queue").select("*")
+        .eq("id", args.id).eq("owner_id", ownerId).eq("thread_id", threadId).maybeSingle();
+      return existing.data as MessageSendQueueRow | null;
+    }
     if (isMissingTableError(error.message)) {
       logger.warn("insertQueuedMessage", "message_send_queue table missing — run migration");
 
@@ -232,4 +239,24 @@ export async function countOwnerActiveStreams(ownerId: string): Promise<number> 
   }
 
   return count ?? 0;
+}
+
+/** Cross-process reservation shared with live chat, released only by its current holder. */
+export async function reserveThreadStream(args: {
+  threadId: string; ownerId: string; streamId: string;
+}): Promise<boolean> {
+  const { data, error } = await supabaseAdmin.from("threads")
+    .update({ active_stream_id: args.streamId })
+    .eq("id", args.threadId).eq("owner_id", args.ownerId).is("active_stream_id", null)
+    .select("id");
+  if (error) throw new Error("Could not reserve thread");
+  return Boolean(data?.length);
+}
+
+export async function releaseThreadStream(args: {
+  threadId: string; ownerId: string; streamId: string;
+}): Promise<void> {
+  const { error } = await supabaseAdmin.from("threads").update({ active_stream_id: null })
+    .eq("id", args.threadId).eq("owner_id", args.ownerId).eq("active_stream_id", args.streamId);
+  if (error) throw new Error("Could not release thread");
 }

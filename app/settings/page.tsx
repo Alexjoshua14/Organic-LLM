@@ -6,6 +6,8 @@ import { useAuth, useUser } from "@clerk/nextjs";
 import { Switch } from "@heroui/switch";
 import { X } from "lucide-react";
 
+import { BackgroundActivitySetting } from "@/components/settings/background-activity-setting";
+
 import Page from "@/components/layout/page";
 import { PageTopBar } from "@/components/layout/page-top-bar";
 import { ReturnButton } from "@/components/ReturnButton";
@@ -104,6 +106,7 @@ export default function SettingsPage() {
             <TabsTrigger value="chats">Chats</TabsTrigger>
             <TabsTrigger value="memory">Memory</TabsTrigger>
             <TabsTrigger value="appearance">Appearance</TabsTrigger>
+            <TabsTrigger value="ai">AI</TabsTrigger>
             <TabsTrigger value="privacy">Privacy</TabsTrigger>
             {showDevSettings && <TabsTrigger value="advanced">Advanced</TabsTrigger>}
           </TabsList>
@@ -243,6 +246,13 @@ export default function SettingsPage() {
                   </SettingsRow>
                 </div>
               </section>
+            </div>
+          </TabsContent>
+
+          <TabsContent className="mt-0" value="ai">
+            <div className="flex flex-col gap-8">
+              <h2 className="text-xl font-semibold text-foreground">AI</h2>
+              <BackgroundActivitySetting />
             </div>
           </TabsContent>
 

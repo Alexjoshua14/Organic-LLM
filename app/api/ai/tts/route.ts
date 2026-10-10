@@ -1,6 +1,6 @@
 import { openai } from "@ai-sdk/openai";
 import { elevenlabs } from "@ai-sdk/elevenlabs";
-import { experimental_generateSpeech as generateSpeech, SpeechModel } from "ai";
+import { generateSpeech as generateSpeech } from "ai";
 import { NextRequest, NextResponse } from "next/server";
 
 import { requireTtsActor } from "@/lib/api/tts-gate";
@@ -10,7 +10,7 @@ import { stripSpeechTags } from "@/lib/tts/speech-tags";
 
 const logger = createLogger("app/api/tts/route.ts");
 
-let availableSpeechModels: SpeechModel[] = [
+const availableSpeechModels = [
   openai.speech("gpt-4o-mini-tts"),
   elevenlabs.speech("eleven_multilingual_v2"),
   elevenlabs.speech("eleven_flash_v2_5"),
@@ -73,7 +73,7 @@ export async function POST(req: NextRequest) {
     model && typeof model === "string"
       ? (availableSpeechModels.find((m) => m.modelId === model) ?? null)
       : null;
-  const speechModel: SpeechModel = resolvedModel ?? availableSpeechModels[0]!;
+  const speechModel = resolvedModel ?? availableSpeechModels[0]!;
 
   logger.log(
     "TTS Route",

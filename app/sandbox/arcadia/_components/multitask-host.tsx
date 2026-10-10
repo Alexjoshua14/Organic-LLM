@@ -16,7 +16,7 @@ function ArcadiaMultitaskLayout({ children }: { children: ReactNode }) {
   const dashboard = layoutMode === "dashboard";
 
   return (
-    <div className="h-full w-full min-h-0" data-arcadia-multitask-layout={layoutMode}>
+    <div className="h-full w-full min-h-0 pt-14" data-arcadia-multitask-layout={layoutMode}>
       <MultitaskDashboard enabled={dashboard}>{children}</MultitaskDashboard>
       {!dashboard ? <ArcadiaMultitaskShell /> : null}
     </div>
@@ -26,6 +26,9 @@ function ArcadiaMultitaskLayout({ children }: { children: ReactNode }) {
 type ArcadiaMultitaskHostProps = {
   threadId: string;
   initialMultitaskView?: boolean;
+  initialHasSubagentThreads?: boolean;
+  orchestratorThreadId?: string;
+  viewingSubagentId?: string;
   children: ReactNode;
 };
 
@@ -33,10 +36,20 @@ type ArcadiaMultitaskHostProps = {
 export function ArcadiaMultitaskHost({
   threadId,
   initialMultitaskView = false,
+  initialHasSubagentThreads,
+  orchestratorThreadId,
+  viewingSubagentId,
   children,
 }: ArcadiaMultitaskHostProps) {
   return (
-    <ArcadiaMultitaskProvider initialMultitaskView={initialMultitaskView} threadId={threadId}>
+    <ArcadiaMultitaskProvider
+      key={threadId}
+      initialMultitaskView={initialMultitaskView}
+      initialHasSubagentThreads={initialHasSubagentThreads}
+      threadId={threadId}
+      orchestratorThreadId={orchestratorThreadId}
+      viewingSubagentId={viewingSubagentId}
+    >
       <ArcadiaMultitaskLayout>{children}</ArcadiaMultitaskLayout>
     </ArcadiaMultitaskProvider>
   );

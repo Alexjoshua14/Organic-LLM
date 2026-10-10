@@ -9,6 +9,8 @@ export type Usage = {
   inputTokens?: number;
   outputTokens?: number;
   cachedInputTokens?: number;
+  /** AI SDK usage, before conversion to the flat ledger shape. */
+  inputTokenDetails?: { cacheReadTokens?: number };
   totalTokens?: number;
   /** Realtime audio input tokens (≈1 token / 100ms user audio). */
   audioInputTokens?: number;
@@ -167,7 +169,7 @@ export function computeUsageCostUsd(modelId: string, usage: Usage): number {
   const cost = getModelCost(modelId);
   const input = usage.promptTokens ?? usage.inputTokens ?? 0;
   const output = usage.completionTokens ?? usage.outputTokens ?? 0;
-  const cached = usage.cachedInputTokens ?? 0;
+  const cached = usage.inputTokenDetails?.cacheReadTokens ?? usage.cachedInputTokens ?? 0;
   const uncachedInput = Math.max(0, input - cached);
   const audioIn = usage.audioInputTokens ?? 0;
   const audioOut = usage.audioOutputTokens ?? 0;

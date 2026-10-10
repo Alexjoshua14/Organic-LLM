@@ -116,18 +116,18 @@ describe("orchestrator vs worker", () => {
 
 describe("Jev catalog + thought routing", () => {
   test("Jev is registered as the house routing model with mandatory ZDR", () => {
-    expect(models.openai.jev.id).toBe("openai/gpt-6-jev");
-    expect(models.openai.jev.name).toBe("GPT-6 Jev");
-    expect(models.openai.jev.picker).toBe(false);
-    expect(models.openai.jev.supportsZeroDataRetention).toBe(true);
-    expect(models.openai.jev.requiresZeroDataRetention).toBe(true);
-    expect(JEV_GATEWAY_MODEL_ID).toBe("openai/gpt-6-jev");
+    expect(models.typesafe.jev.id).toBe("typesafe-ai/jev");
+    expect(models.typesafe.jev.name).toBe("Typesafe AI Jev");
+    expect(models.typesafe.jev.picker).toBe(false);
+    expect(models.typesafe.jev.supportsZeroDataRetention).toBe(true);
+    expect(models.typesafe.jev.requiresZeroDataRetention).toBe(true);
+    expect(JEV_GATEWAY_MODEL_ID).toBe("typesafe-ai/jev");
     assertJevRequiresZdr();
   });
 
   test("jevRouterCallConfig forces ZDR on the model request config", () => {
     const cfg = jevRouterCallConfig();
-    expect(cfg.model).toBe("openai/gpt-6-jev");
+    expect(cfg.model).toBe("typesafe-ai/jev");
     expect(cfg.zeroDataRetention).toBe(true);
     expect(cfg.providerOptions.gateway.zeroDataRetention).toBe(true);
     expect(ORCHESTRATOR_ROUTER_ZDR_PROVIDER_OPTIONS.gateway.zeroDataRetention).toBe(true);
@@ -174,9 +174,9 @@ describe("Jev catalog + thought routing", () => {
       workers,
     });
 
-    expect(seenModel).toBe("openai/gpt-6-jev");
+    expect(seenModel).toBe("typesafe-ai/jev");
     expect(seenZdr).toBe(true);
-    expect(result.routerModelId).toBe("openai/gpt-6-jev");
+    expect(result.routerModelId).toBe("typesafe-ai/jev");
     expect(result.zeroDataRetention).toBe(true);
     expect(result.usedHeuristicFallback).toBe(false);
     expect(result.singleThought).toBe(true);
@@ -310,7 +310,7 @@ describe("Jev catalog + thought routing", () => {
       workers,
       router: createJevThoughtRouter({
         generate: async (args) => {
-          expect(args.model).toBe("openai/gpt-6-jev");
+          expect(args.model).toBe("typesafe-ai/jev");
           expect(args.providerOptions.gateway.zeroDataRetention).toBe(true);
 
           return {
@@ -336,7 +336,7 @@ describe("Jev catalog + thought routing", () => {
     });
     expect(inbound.mode).toBe("routed");
     expect(inbound.sendTarget.kind).toBe("orchestrator");
-    expect(inbound.routing?.routerModelId).toBe("openai/gpt-6-jev");
+    expect(inbound.routing?.routerModelId).toBe("typesafe-ai/jev");
     expect(inbound.routing?.usedHeuristicFallback).toBe(false);
     expect(inbound.routing?.thoughts.length).toBe(2);
   });

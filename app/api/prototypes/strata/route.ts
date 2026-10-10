@@ -159,7 +159,7 @@ Return JSON only using the required output schema.`;
 
     const { text: toolingContext } = await generateText({
       model: models.openai.terra.id,
-      system: `${system}
+      instructions: `${system}
 
 This pass exists to gather context using tools before final section generation.
 Use tools to collect only relevant context, then return concise bullet notes.
@@ -174,7 +174,7 @@ Do not return final Refined/Elaborated content in this pass.`,
 
     const { object } = await generateObject({
       model: models.google.flash.id,
-      system,
+      instructions: system,
       prompt: `${prompt}
 
 Tooling context notes (from Mem0 + knowledge graph tools):

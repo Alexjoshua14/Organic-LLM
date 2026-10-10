@@ -6,7 +6,12 @@ import type {
   UsageModelBreakdown,
 } from "@/lib/usage/aggregate";
 
+export type GatewaySpendSummary =
+  | { status: "available"; accountCostUsd: number; attributedCostUsd: number; asOf: string }
+  | { status: "unavailable" };
+
 export type UsageApiPayload = {
+  gatewaySpend?: GatewaySpendSummary;
   range: { start: string; end: string; preset: UsageRangePreset };
   billingCycle: { start: string; end: string };
   totals: UsageTotals;

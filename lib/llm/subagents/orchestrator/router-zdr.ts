@@ -14,10 +14,18 @@ export const ORCHESTRATOR_ROUTER_ZDR_PROVIDER_OPTIONS = {
   } satisfies GatewayProviderOptions,
 } as const;
 
-/** Catalog row for the house routing model (picker: false, ZDR required). */
-export const JEV_CHAT_MODEL: ChatModel = models.openai.jev;
+/**
+ * Gateway options for any Jev call: ZDR pinned to `true`, plus optional attribution
+ * (`user`, `tags`) so the Gateway spend report can group Jev cost by owner and operation.
+ */
+export type JevZdrProviderOptions = {
+  gateway: Pick<GatewayProviderOptions, "user" | "tags"> & { zeroDataRetention: true };
+};
 
-/** Gateway id — house style `openai/gpt-6-jev`. */
+/** Catalog row for the house routing model (picker: false, ZDR required). */
+export const JEV_CHAT_MODEL: ChatModel = models.typesafe.jev;
+
+/** Gateway id — house style `typesafe-ai/jev`. */
 export const JEV_GATEWAY_MODEL_ID = JEV_CHAT_MODEL.id;
 
 /** @deprecated Prefer {@link JEV_GATEWAY_MODEL_ID}; kept for older imports. */

@@ -4,7 +4,7 @@ import type { UsageRangePreset } from "@/lib/usage/aggregate";
 import type { UsageApiPayload } from "@/lib/usage/types";
 
 import { BarChart3, Loader2 } from "lucide-react";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useAuth } from "@clerk/nextjs";
 
 import { PlanAllotmentRow } from "./plan-allotment-row";
@@ -23,6 +23,8 @@ import {
 } from "@/components/third-party/ui/dialog";
 import { formatTokenCount, formatUsd } from "@/lib/usage/format";
 import { cn } from "@/lib/utils";
+
+const USAGE_REFRESH_MS = 15_000;
 
 const RANGE_OPTIONS: Array<{ id: UsageRangePreset; label: string }> = [
   { id: "7d", label: "7 days" },
@@ -47,7 +49,10 @@ export function UsageOverlay({ className, triggerClassName }: UsageOverlayProps)
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  const requestRef = useRef(0);
+
   const loadUsage = useCallback(async (preset: UsageRangePreset) => {
+    const request = ++requestRef.current;
     setLoading(true);
     setError(null);
 
@@ -60,12 +65,12 @@ export function UsageOverlay({ className, triggerClassName }: UsageOverlayProps)
 
       const payload = (await response.json()) as UsageApiPayload;
 
-      setData(payload);
+      if (request === requestRef.current) setData(payload);
     } catch (err) {
+      if (request !== requestRef.current) return;
       setError(err instanceof Error ? err.message : "Could not load usage");
-      setData(null);
     } finally {
-      setLoading(false);
+      if (request === requestRef.current) setLoading(false);
     }
   }, []);
 
@@ -73,6 +78,16 @@ export function UsageOverlay({ className, triggerClassName }: UsageOverlayProps)
     if (!open || !isSignedIn) return;
 
     void loadUsage(range);
+    const refresh = () => {
+      if (document.visibilityState === "visible") void loadUsage(range);
+    };
+    const timer = window.setInterval(refresh, USAGE_REFRESH_MS);
+    window.addEventListener("focus", refresh);
+    return () => {
+      requestRef.current += 1;
+      window.clearInterval(timer);
+      window.removeEventListener("focus", refresh);
+    };
   }, [open, isSignedIn, range, loadUsage]);
 
   return (
@@ -113,7 +128,7 @@ export function UsageOverlay({ className, triggerClassName }: UsageOverlayProps)
                   Usage
                 </DialogTitle>
                 <DialogDescription className="text-sm leading-relaxed text-muted-foreground">
-                  Tokens and estimated API cost from your LLM calls.
+                  Tracked LLM calls. Refreshes every 15 seconds while open.
                 </DialogDescription>
               </div>
 
@@ -162,7 +177,7 @@ export function UsageOverlay({ className, triggerClassName }: UsageOverlayProps)
                       label="Total tokens"
                       value={formatTokenCount(data.totals.totalTokens)}
                     />
-                    <StatCard label="Est. cost" value={formatUsd(data.totals.costUsd)} accent />
+                    <StatCard label="Tracked cost" value={formatUsd(data.totals.costUsd)} accent />
                     <StatCard
                       label="Input"
                       value={formatTokenCount(data.totals.inputTokens)}
@@ -175,6 +190,17 @@ export function UsageOverlay({ className, triggerClassName }: UsageOverlayProps)
                     />
                   </div>
 
+                  {data.gatewaySpend ? (
+                    <div className="space-y-2 rounded-xl border border-border/50 px-3 py-3 text-xs">
+                      <p className="font-medium">Gateway spend · admin</p>
+                      {data.gatewaySpend.status === "available" ? <>
+                        <p className="flex justify-between gap-3"><span>Gateway account total</span><span className="tabular-nums">{formatUsd(data.gatewaySpend.accountCostUsd)}</span></p>
+                        <p className="flex justify-between gap-3"><span>Attributed to you</span><span className="tabular-nums">{formatUsd(data.gatewaySpend.attributedCostUsd)}</span></p>
+                        <p className="text-muted-foreground">Account total includes other users and apps on this Gateway account. User attribution covers tagged requests; older calls may be unattributed. Direct-provider calls are separate. Reports can lag recent activity.</p>
+                      </> : <p className="text-muted-foreground">Gateway reporting is unavailable. Tracked cost below is not a complete account bill.</p>}
+                    </div>
+                  ) : null}
+                  <p className="text-xs text-muted-foreground">Tracked cost uses reported charges when available and estimates otherwise. Some older and auxiliary calls may be missing.</p>
                   <UsageChart daily={data.daily} />
 
                   <PlanAllotmentRow

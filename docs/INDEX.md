@@ -37,6 +37,7 @@ Canon for the product: what we're building, who owns which kind of truth, how ag
   - [Feature hints (onboarding)](./feature-hints.md) → [/dev/docs/feature-hints](https://organic.coalescencelabs.app/dev/docs/feature-hints)
 - [Chat tools](./chat-tools.md) — assistant toolbelt (memory, search, Gen UI, Mermaid, kanban, experiences)
 - [Arcadia sandbox](./arcadia.md)
+- [Arcadia showcase progress](./architecture/decisions/20261009-arcadia-showcase-progress.md) — scripted replay isolated from live worker progress
 - [Chat LLM transparency](./chat-llm-transparency.md)
 - [Export prompt presets](./export-prompt-presets.md)
 - [Speak page architecture](./speak-page-architecture.md) — ⚠️ **legacy** (pre-Realtime TTS pipeline); current Speak lives in [`docs/speak/`](./speak/README.md)
@@ -74,6 +75,8 @@ Public routes under `/blog` — see the [blog index](../app/blog/page.tsx) or ru
 
 ## Maintainer notes
 
+- [Shared gateway visibility](./architecture/decisions/20261009-shared-gateway-visibility.md) — request deduplication, session isolation, fresh server authorization, and identifier logging
 - [Performance journeys](./perf-journeys.md) — dev HUD for home load, Chat, and Arcadia transition timings (`?perf=1`)
+- [Chat and Arcadia initial load](./architecture/decisions/20261009-chat-arcadia-initial-load.md) — direct creation navigation, parallel owned reads, stream resumption, and worker discovery
 - [Strata manual verification](./strata-manual-verification.md)
 - [TTS token tracker](./tts-token-tracker.md) — historical; display components removed

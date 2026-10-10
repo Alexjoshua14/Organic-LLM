@@ -72,17 +72,3 @@ export function createDemoSubagents(): ArcadiaSubagent[] {
     milestones: [],
   }));
 }
-
-/**
- * Former scripted demo ticks — kept empty so the provider interval is a no-op.
- * Live progress comes from worker model runs via awareness events.
- */
-export const DEMO_PROGRESS_SCRIPT: Record<
-  string,
-  Array<{
-    progress: string;
-    progressPct: number;
-    milestone?: string;
-    status?: ArcadiaSubagent["status"];
-  }>
-> = {};

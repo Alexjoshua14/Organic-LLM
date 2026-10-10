@@ -4,6 +4,8 @@ import type { ArcadiaSubagent } from "@/lib/arcadia/multitask/types";
 import type { ArcadiaSpeakSessionPhase } from "@/lib/arcadia/multitask/speak-session";
 import type { LiveVoicePhase } from "@/hooks/use-realtime-voice";
 
+import Link from "next/link";
+
 import { Radio } from "lucide-react";
 
 import { SubagentSpeakGlassBar } from "./subagent-speak-glass-bar";
@@ -125,7 +127,12 @@ export function SubagentCard({
         </div>
       </button>
       <div className="mt-3 flex flex-col gap-2 sm:flex-row sm:items-stretch">
-        <button
+        {agent.threadId ? <Link
+          href={`/sandbox/arcadia/${agent.threadId}`}
+          className="rounded-lg border border-border/60 bg-background/50 px-2.5 py-1.5 text-center text-xs font-medium hover:bg-background-secondary focus-visible:outline focus-visible:outline-2"
+        >
+          Open thread
+        </Link> : <button
           className={cn(
             "rounded-lg border border-border/60 bg-background/50 px-2.5 py-1.5 text-xs font-medium",
             "hover:bg-background-secondary transition-colors sm:w-auto sm:shrink-0",
@@ -134,8 +141,8 @@ export function SubagentCard({
           type="button"
           onClick={onSelect}
         >
-          Open thread
-        </button>
+          View agent
+        </button>}
         <div className="min-w-0 flex-1">
           <SubagentSpeakGlassBar
             agentName={agent.name}

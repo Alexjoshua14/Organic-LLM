@@ -4,7 +4,7 @@ import { useCallback, useState, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
 
-import { AdminBlogLink } from "./admin-blog-link";
+import { BlogLink } from "./blog-link";
 import { GatewaySmokeLink } from "./gateway-smoke-link";
 import { SandboxGatewayButton } from "./sandbox-gateway-button";
 import { ShowcaseGatewayButton } from "./showcase-gateway-button";
@@ -126,7 +126,7 @@ export function HomepagePrimaryActions({
       <ActionRow>
         {wrap("sandbox", <SandboxGatewayButton />)}
         {wrap("showcase", <ShowcaseGatewayButton />)}
-        {wrap("blog", <AdminBlogLink />)}
+        {wrap("blog", <BlogLink />)}
       </ActionRow>
 
       <ActionRow>

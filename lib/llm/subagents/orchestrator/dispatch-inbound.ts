@@ -22,9 +22,14 @@ export type DispatchMultitaskInboundInput = {
   orchestratorId?: string;
   router?: ThoughtRouter;
   now?: () => number;
+  /**
+   * Map a `new_subagent` suggestion onto an existing slot (e.g. an idle roster slot of the same
+   * role) so repeat thoughts reuse one thread. Null keeps the provisional worker id.
+   */
+  resolveNewSubagentId?: (suggestedRole: string) => string | null;
 };
 
-export type DispatchMultitaskInboundResult = MultitaskInboundDispatch & {
+export type DispatchMultitaskInboundResult = Omit<MultitaskInboundDispatch, "assignedGoals"> & {
   /** Worker goals assigned this turn (existing match or new). */
   assignedGoals: ReturnType<typeof createWorkerGoal>[];
   /** Direct thought texts the orchestrator should answer inline. */
@@ -104,12 +109,14 @@ export async function dispatchMultitaskInbound(
       continue;
     }
 
-    // new_subagent — provisional id; shell/runtime may replace when spawning.
-    const provisionalId = `worker-${thought.disposition.suggestedRole}-${randomUUID().slice(0, 8)}`;
+    // new_subagent — reuse a slot when the caller maps one; otherwise a provisional id.
+    const workerAgentId =
+      input.resolveNewSubagentId?.(thought.disposition.suggestedRole) ??
+      `worker-${thought.disposition.suggestedRole}-${randomUUID().slice(0, 8)}`;
     assignedGoals.push(
       createWorkerGoal({
         orchestratorId,
-        workerAgentId: provisionalId,
+        workerAgentId,
         goal: thought.text,
         now: (input.now ?? Date.now)(),
       })

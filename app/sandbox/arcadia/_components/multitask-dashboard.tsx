@@ -2,9 +2,11 @@
 
 import type { CSSProperties, ReactNode } from "react";
 
+import Link from "next/link";
+
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
-import { Layers3, MessageSquare, Play, X } from "lucide-react";
+import { Layers3, MessageSquare, X } from "lucide-react";
 
 import { MultitaskSidebarGate } from "./multitask-sidebar-gate";
 import {
@@ -58,6 +60,8 @@ export function MultitaskDashboard({ children, enabled = true }: MultitaskDashbo
   const reduceMotion = useReducedMotion();
   const {
     agents,
+    orchestratorThreadId,
+    viewingSubagentId,
     selected,
     selectedId,
     liveSpeakAgentId,
@@ -69,12 +73,12 @@ export function MultitaskDashboard({ children, enabled = true }: MultitaskDashbo
     selectAgent,
     speakTo,
     endSpeak,
-    tickDemo,
     sendTarget,
     setSendTarget,
     toggleMultitaskView,
     toggleBlockedReason,
   } = useArcadiaMultitask();
+
 
   const [panelFocus, setPanelFocus] = useState<MultitaskPanelFocus>("orchestrator");
   const [chatMeasurePx, setChatMeasurePx] = useState<number | null>(null);
@@ -278,15 +282,6 @@ export function MultitaskDashboard({ children, enabled = true }: MultitaskDashbo
           </div>
           <div className="flex shrink-0 flex-wrap items-center justify-end gap-1.5">
             <button
-              className="inline-flex items-center gap-1 rounded-md border border-border/50 bg-background/50 px-2 py-1 text-[11px] hover:bg-background-secondary"
-              title="Advance demo progress once"
-              type="button"
-              onClick={() => tickDemo()}
-            >
-              <Play aria-hidden className="size-3" />
-              Tick
-            </button>
-            <button
               aria-expanded={chatOpen}
               className={cn(
                 glass({ tone: "brown", opaque: true }),
@@ -359,7 +354,7 @@ export function MultitaskDashboard({ children, enabled = true }: MultitaskDashbo
         >
           {enabled ? (
             <div className="shrink-0 border-b border-border/30 bg-background/95 p-3">
-              <SendTargetPicker agents={agents} sendTarget={sendTarget} onChange={setSendTarget} />
+              {viewingSubagentId ? <Link className="text-xs underline underline-offset-4" href={`/sandbox/arcadia/${orchestratorThreadId}`}>Back to orchestrator</Link> : <SendTargetPicker agents={agents} sendTarget={sendTarget} onChange={setSendTarget} />}
             </div>
           ) : null}
           {/*

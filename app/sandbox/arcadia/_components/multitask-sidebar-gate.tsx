@@ -5,48 +5,33 @@ import { useEffect, useRef } from "react";
 import { useSidebar } from "@/components/third-party/ui/sidebar";
 
 /**
- * While the multiagent dashboard is open, collapse the app thread-list sidebar so it is not a
- * permanent wall. Restoring normal chat (toggle off / unmount) brings the prior open state back.
+ * Collapse the app thread-list sidebar on dashboard entry, while allowing manual reopening.
+ * Restoring normal chat (toggle off / unmount) brings the prior desktop open state back.
  */
 export function MultitaskSidebarGate({ dashboardOpen }: { dashboardOpen: boolean }) {
   const { setOpen, open, isMobile, setOpenMobile } = useSidebar();
-  const previousDesktopOpen = useRef<boolean | null>(null);
-  const wasDashboardOpen = useRef(false);
+  const sidebarRef = useRef({ open, setOpen, setOpenMobile });
 
   useEffect(() => {
+    sidebarRef.current = { open, setOpen, setOpenMobile };
+  }, [open, setOpen, setOpenMobile]);
+
+  // SidebarProvider changes setOpen when open changes. Only dashboard / viewport transitions
+  // should collapse or restore the sidebar; keep the current setter available for cleanup.
+  useEffect(() => {
+    if (!dashboardOpen) return;
     if (isMobile) {
-      if (dashboardOpen) setOpenMobile(false);
-      wasDashboardOpen.current = dashboardOpen;
+      sidebarRef.current.setOpenMobile(false);
 
       return;
     }
 
-    if (dashboardOpen) {
-      if (!wasDashboardOpen.current && previousDesktopOpen.current === null) {
-        previousDesktopOpen.current = open;
-      }
-      wasDashboardOpen.current = true;
-      if (open) setOpen(false);
+    const previousDesktopOpen = sidebarRef.current.open;
 
-      return;
-    }
+    sidebarRef.current.setOpen(false);
 
-    wasDashboardOpen.current = false;
-
-    if (previousDesktopOpen.current !== null) {
-      setOpen(previousDesktopOpen.current);
-      previousDesktopOpen.current = null;
-    }
-  }, [dashboardOpen, isMobile, open, setOpen, setOpenMobile]);
-
-  useEffect(() => {
-    return () => {
-      if (previousDesktopOpen.current !== null) {
-        setOpen(previousDesktopOpen.current);
-        previousDesktopOpen.current = null;
-      }
-    };
-  }, [setOpen]);
+    return () => sidebarRef.current.setOpen(previousDesktopOpen);
+  }, [dashboardOpen, isMobile]);
 
   return null;
 }
