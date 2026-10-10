@@ -1,7 +1,7 @@
 import type { ChatExperience } from "@/lib/chat/chat-experience";
 
-/** Same cap as historical app/api/chat/route.ts */
-export const MAX_TOOL_STEPS = 10;
+/** Maximum model steps for main-chat turns with tools. */
+export const MAX_TOOL_STEPS = 16;
 
 export type ComputeMainChatMaxStepsParams = {
   experience: ChatExperience | undefined;
@@ -11,7 +11,7 @@ export type ComputeMainChatMaxStepsParams = {
 export function computeMainChatMaxSteps(params: ComputeMainChatMaxStepsParams): number {
   const { experience, hasTools } = params;
 
-  let maxSteps = hasTools ? MAX_TOOL_STEPS : 2;
+  let maxSteps = hasTools ? MAX_TOOL_STEPS : 8;
 
   if (experience === "strata_hub") {
     maxSteps = Math.min(maxSteps, 8);
