@@ -301,7 +301,7 @@ export async function rewriteMemoryQuery(
     const result = await withTimeout(
       gen({
         model: modelId,
-        system: REWRITER_SYSTEM,
+        instructions: REWRITER_SYSTEM,
         prompt: userPrompt,
         maxOutputTokens: 400,
       }),

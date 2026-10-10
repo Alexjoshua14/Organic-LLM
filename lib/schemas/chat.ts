@@ -4,6 +4,7 @@ import type { ChatModel } from "@/lib/schemas/chat-models";
 
 import z from "zod";
 
+import { ArcadiaMultitaskSendTargetSchema } from "@/lib/schemas/arcadia-multitask-send-target";
 import { CHAT_EXPERIENCES, parseChatExperience } from "@/lib/chat/chat-experience";
 import { parseChatStyle, ChatStyleSchema } from "@/lib/chat/chat-style";
 import { ChatEffortLevelSchema } from "@/lib/schemas/chat-effort";
@@ -59,6 +60,7 @@ export const ChatModelSchema: z.ZodType<ChatModel> = z.object({
   alias: z.string().optional(),
   picker: z.boolean().optional(),
   supportsZeroDataRetention: z.boolean().optional(),
+  requiresZeroDataRetention: z.boolean().optional(),
   adminOnly: z.boolean().optional(),
 }) as z.ZodType<ChatModel>;
 
@@ -80,6 +82,9 @@ export const ThreadSchema = ThreadCreate.partial({ owner_id: true }).extend({
   active_stream_id: z.string().nullable().optional(),
   active_stream_started_at: z.string().nullable().optional(),
   arcadia_starter_key: z.string().nullable().optional(),
+  arcadia_multitask_view: z.boolean().nullable().optional(),
+  parent_thread_id: z.uuid().nullable().optional(),
+  subagent_agent_id: z.string().nullable().optional(),
 });
 
 export const ThreadUpdate = z.object({
@@ -266,6 +271,11 @@ export const ChatRequestSchema = z.object({
     .optional(),
   /** Noesis authored spark: system-prompt override that drives a `topic_explore` thread. */
   customSystemPromptOverride: z.string().max(8000).optional(),
+  /**
+   * Arcadia multitask dashboard: explicit orchestrator vs subagent destination.
+   * Only honored while the saved Multiagent flag is on; omitted then means orchestrator.
+   */
+  multitaskSendTarget: ArcadiaMultitaskSendTargetSchema.optional(),
 });
 
 export const ThreadSummarySchema = z.object({

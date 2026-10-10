@@ -1,5 +1,9 @@
 import { z } from "zod";
 
+import {
+  BackgroundActivityModeSchema,
+  DEFAULT_BACKGROUND_ACTIVITY_MODE,
+} from "@/lib/background-activity";
 import { ContextEffortLevelSchema, DEFAULT_CONTEXT_EFFORT } from "@/lib/memory/context-effort";
 
 /**
@@ -24,6 +28,8 @@ export const UserSettingsSchema = z.object({
   ergonLiquidChrome: z.boolean().default(true),
   /** When true, show feature hints/coachmarks again (ignores persisted dismissals until turned off). */
   replayFeatureHints: z.boolean().default(false),
+  /** Settings → AI: cadence of in-view background probes (Arcadia subagent heartbeat). */
+  backgroundActivity: BackgroundActivityModeSchema.default(DEFAULT_BACKGROUND_ACTIVITY_MODE),
 });
 
 export type UserSettings = z.infer<typeof UserSettingsSchema>;
@@ -38,4 +44,5 @@ export const defaultUserSettings = (): UserSettings => ({
   contextEffortLevel: DEFAULT_CONTEXT_EFFORT,
   ergonLiquidChrome: true,
   replayFeatureHints: false,
+  backgroundActivity: DEFAULT_BACKGROUND_ACTIVITY_MODE,
 });

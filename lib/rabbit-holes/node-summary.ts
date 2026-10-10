@@ -57,7 +57,7 @@ export async function generateRabbitHoleNodeSummary(node: RabbitHoleNode): Promi
 
   const { text } = await generateText({
     model: RABBIT_HOLE_NODE_SUMMARY_MODEL,
-    system: NODE_SUMMARY_SYSTEM,
+    instructions: NODE_SUMMARY_SYSTEM,
     prompt: sourceDoc,
     maxOutputTokens: RABBIT_HOLE_NODE_SUMMARY_MAX_OUTPUT_TOKENS,
     temperature: 0.2,

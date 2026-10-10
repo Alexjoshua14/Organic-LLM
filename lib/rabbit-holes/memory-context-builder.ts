@@ -134,7 +134,7 @@ export async function buildRabbitHoleMemoryContextBlock(
 
   const { text } = await generateText({
     model: RABBIT_HOLE_MEMORY_CONTEXT_MODEL,
-    system: SYNTHESIS_SYSTEM,
+    instructions: SYNTHESIS_SYSTEM,
     prompt: synthesisPrompt,
     maxOutputTokens: 220,
     temperature: 0.2,

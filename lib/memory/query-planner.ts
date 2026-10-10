@@ -208,7 +208,7 @@ export async function planMemoryQueries(
     const result = await withTimeout(
       gen({
         model: modelId,
-        system: PLANNER_SYSTEM,
+        instructions: PLANNER_SYSTEM,
         prompt: userPrompt,
         maxOutputTokens: 400,
       }),

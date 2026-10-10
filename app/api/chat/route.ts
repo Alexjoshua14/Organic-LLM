@@ -46,9 +46,18 @@ import { resolveMemoryEnabledForExperience } from "@/lib/chat/chat-experience";
 import { resolveChatStarterPromptByKey } from "@/lib/chat/chat-style-starters";
 import { compileChatTools } from "@/lib/llm/compile-chat-tools";
 import { runLLMChatStream } from "@/lib/api/run-llm-chat-stream";
+import {
+  prepareArcadiaMultitaskTurn,
+  type PrepareMultitaskTurnResult,
+} from "@/lib/llm/subagents/orchestrator/prepare-multitask-turn";
+import { createMultitaskTurnDeps } from "@/lib/llm/subagents/orchestrator/multitask-turn-deps";
+import { withReadSubagentThreadTool } from "@/lib/llm/subagents/orchestrator/read-subagent-thread-tool";
+import { foldSystemNoticesForModel } from "@/lib/llm/subagents/threads/fold-system-notices";
 
-// Allow streaming responses up to 30 seconds
-export const maxDuration = 30;
+// The stream still ends with the orchestrator's reply. The higher ceiling is for Arcadia subagent
+// runs scheduled with `after()`, which share this route's budget — keep in step with
+// SUBAGENT_RUN_MAX_DURATION_MS (lib/llm/subagents/threads/status.ts).
+export const maxDuration = 300;
 
 // const tools = {};
 
@@ -99,6 +108,7 @@ export async function POST(req: Request) {
     rabbitHoleSessionId,
     diagramNodeLinks,
     customSystemPromptOverride,
+    multitaskSendTarget,
   } = parseResult.data;
   const message = incomingMessage as UIMessage;
   const messageForLlm = augmentUserMessageWithDiagramLinks(message, diagramNodeLinks);
@@ -180,6 +190,8 @@ export async function POST(req: Request) {
 
   const stream = createUIMessageStream<ChatUIMessage>({
     execute: async ({ writer }) => {
+      // Identify the response before data parts can create a client-side message during replay.
+      writer.write({ type: "start", messageId: assistantMessageId });
       writer.write({
         type: "data-aiAction",
         data: {
@@ -188,6 +200,23 @@ export async function POST(req: Request) {
         },
         transient: true,
       });
+
+      // Arcadia multitask: subagents run in their own threads after this response, so the
+      // orchestrator frees CoreInput as soon as its reply ends.
+      let multitask: PrepareMultitaskTurnResult | null = null;
+
+      if (experience === "arcadia") {
+        multitask = await prepareArcadiaMultitaskTurn({
+          chatId: id,
+          ownerId: sbUserId,
+          userText: getLastUserMessageText(messageForLlm),
+          sendTarget: multitaskSendTarget,
+          modelId: selectedModel.id,
+          zeroDataRetention: isZeroDataRetention,
+          writer,
+          deps: createMultitaskTurnDeps({ ownerId: sbUserId, clerkUserId, route: "/api/chat" }),
+        });
+      }
 
       const loadTurnContext =
         experience === "arcadia"
@@ -246,6 +275,9 @@ export async function POST(req: Request) {
         experience,
         customSystemPromptOverride,
       });
+      for (const fragment of multitask?.systemFragments ?? []) {
+        systemPromptForRequest = `${systemPromptForRequest}\n\n${fragment}`;
+      }
 
       logger.log(
         "POST",
@@ -301,7 +333,7 @@ export async function POST(req: Request) {
         transient: true,
       });
 
-      const messages = convertToModelMessages(validatedMessages);
+      const messages = await convertToModelMessages(foldSystemNoticesForModel(validatedMessages));
       const initialMessageCount = validatedMessages.length;
       let rabbitHoleActiveNodeId: string | null = null;
 
@@ -314,7 +346,7 @@ export async function POST(req: Request) {
         }
       }
 
-      const { tools, toolInstructions } = await compileChatTools({
+      const compiledTools = await compileChatTools({
         useSearch: parseResult.data.webSearch ?? false,
         useMemory: parseResult.data.memory ?? false,
         useGetMoreMessages: messageSearch ?? true,
@@ -328,6 +360,13 @@ export async function POST(req: Request) {
         rabbitHoleSessionId,
         rabbitHoleActiveNodeId,
       });
+      const { tools, toolInstructions } =
+        multitask?.role === "orchestrator" && multitask.hasSubagentThreads
+          ? withReadSubagentThreadTool(compiledTools, {
+              orchestratorThreadId: id,
+              deps: createMultitaskTurnDeps({ ownerId: sbUserId, clerkUserId, route: "/api/chat" }),
+            })
+          : compiledTools;
 
       const toolNames = Object.keys(tools);
 
@@ -448,6 +487,7 @@ export async function POST(req: Request) {
         logger,
         chatId: id,
         sbUserId,
+        clerkUserId,
         assistantMessageId,
         selectedModel,
         effort: requestedEffort,
@@ -463,6 +503,8 @@ export async function POST(req: Request) {
         userMessage: message,
         threadHasTitlePromise,
       });
+
+
     },
   });
 

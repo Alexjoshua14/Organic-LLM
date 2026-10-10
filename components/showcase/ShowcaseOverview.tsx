@@ -49,6 +49,7 @@ export function ShowcaseOverview({ className, placement = "footer" }: ShowcaseOv
             key={l.href}
             className="text-foreground/80 underline-offset-4 hover:text-foreground hover:underline"
             href={l.href}
+            prefetch={l.href === "/chat" || l.href === "/sandbox/arcadia" ? false : undefined}
           >
             {l.label}
           </Link>

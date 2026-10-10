@@ -47,7 +47,8 @@ import { Button } from "@/components/third-party/ui/button";
 import { glass } from "@/components/design-system/primitives";
 import { RecipeCard } from "@/components/chat/gen-ui/blocks/RecipeCard";
 
-const REMY_COLUMN = "mx-auto w-full max-w-7xl px-6";
+/** Column measure — tighter side pad on phone so controls stay in-viewport. */
+const REMY_COLUMN = "mx-auto w-full max-w-7xl px-3 sm:px-6";
 
 type RemyPageClientProps = {
   weekStart: string;
@@ -243,45 +244,57 @@ export function RemyPageClient({
   return (
     <div
       className={cn(
-        "relative z-10 flex min-h-0 w-full flex-1 flex-col pb-4 md:pb-8",
+        "relative z-10 flex min-h-0 w-full min-w-0 flex-1 flex-col overflow-x-hidden pb-[max(1rem,env(safe-area-inset-bottom,0px))] md:pb-8",
         pageContentFrameInsets
       )}
     >
-      <div className="flex min-h-0 flex-1 flex-col">
+      <div className="flex min-h-0 min-w-0 flex-1 flex-col">
         <header className={cn("shrink-0 space-y-2 py-2 md:space-y-3 md:py-6", REMY_COLUMN)}>
-          <div className="flex items-center gap-2 md:justify-between">
+          <div className="flex min-w-0 flex-col gap-2 md:flex-row md:items-center md:justify-between">
             <div className="hidden min-w-0 select-none md:block">
               <p className="text-xs uppercase tracking-[0.16em] text-muted-foreground/70">Remy</p>
               <h1 className="font-commissioner text-2xl font-light tracking-wide text-foreground sm:text-3xl">
                 Meal prep
               </h1>
             </div>
-            <div className="flex min-w-0 flex-1 flex-wrap items-center justify-end gap-2 md:flex-none">
+            <div className="flex min-w-0 flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center sm:justify-end md:flex-none">
               <RemyWeekNav
+                className="w-full justify-between sm:w-auto sm:justify-start"
                 weekStart={weekStart}
                 onNext={() => navigate(shiftWeek(weekStart, 1), mode)}
                 onPrev={() => navigate(shiftWeek(weekStart, -1), mode)}
                 onThisWeek={() => navigate(mondayOf(localCalendarIso()), mode)}
               />
-              <RemyModeSwitcher value={mode} onChange={onModeChange} />
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={() => {
-                  setAskContext(null);
-                  setChatOpen(true);
-                }}
-              >
-                <MessageSquare className="size-4" />
-                Chat
-              </Button>
+              <div className="flex min-w-0 items-center gap-2">
+                <RemyModeSwitcher
+                  className="min-w-0 flex-1 sm:flex-none"
+                  value={mode}
+                  onChange={onModeChange}
+                />
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => {
+                    setAskContext(null);
+                    setChatOpen(true);
+                  }}
+                >
+                  <MessageSquare className="size-4" />
+                  Chat
+                </Button>
+              </div>
             </div>
           </div>
         </header>
 
-        <main className="min-h-0 min-w-0 flex-1 w-full overflow-y-auto overscroll-y-contain [scrollbar-gutter:stable]">
-          <div className={cn(REMY_COLUMN, "min-h-full pb-2 md:pb-4")}>
-            <div className={cn("min-h-full rounded-xl p-inset-md", glass({ opaque: true }))}>
+        <main className="min-h-0 min-w-0 w-full flex-1 touch-manipulation overflow-x-hidden overflow-y-auto overscroll-y-contain [scrollbar-gutter:stable]">
+          <div className={cn(REMY_COLUMN, "min-h-full min-w-0 pb-2 md:pb-4")}>
+            <div
+              className={cn(
+                "min-h-full min-w-0 rounded-xl p-inset-sm sm:p-inset-md",
+                glass({ opaque: true })
+              )}
+            >
               {mode === "week" ? (
                 <div className="space-y-stack-lg">
                   <RemyWeekGrid

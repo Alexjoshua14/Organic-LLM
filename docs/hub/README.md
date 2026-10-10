@@ -86,6 +86,7 @@ positioning material is moved. Which side is authoritative during the overlap is
 | Workstream | Public docs | Private intent | Status |
 |------------|-------------|----------------|--------|
 | **Speak** — voice agent | [`docs/speak/`](../speak/README.md) | `organic-llm-hub/speak/` | **Active** — first large-scale workstream |
+| **Aion** — presence layer | [`docs/aion/`](../aion/README.md) | `organic-llm-hub/aion/` | **Active** — sandbox first slice on `/sandbox/aion` |
 | **Remy** — meal prep | [`docs/remy/`](../remy/README.md) | `organic-llm-hub/remy/` | **Active** — weekly meal-prep dashboard |
 | Chat, Memory, Rabbit Holes, Ergon, Noesis | — | — | Not yet migrated into the hub |
 

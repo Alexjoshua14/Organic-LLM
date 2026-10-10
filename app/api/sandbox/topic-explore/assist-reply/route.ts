@@ -114,7 +114,7 @@ export async function POST(req: Request) {
     const t0 = performance.now();
     const result = await generateText({
       model: TOPIC_EXPLORE_ASSIST_MODEL,
-      system: SYSTEM,
+      instructions: SYSTEM,
       prompt,
       maxOutputTokens: 900,
       providerOptions: TOPIC_EXPLORE_PROVIDER_OPTIONS,

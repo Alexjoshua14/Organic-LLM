@@ -66,7 +66,7 @@ export async function POST(req: Request) {
     const t0 = performance.now();
     const result = await generateText({
       model: TOPIC_EXPLORE_STEER_MODEL,
-      system: SYSTEM,
+      instructions: SYSTEM,
       prompt: `RECENT_TRANSCRIPT:\n${transcript}\n\nUSER_STEER_INSTRUCTION:\n${instruction}`,
       maxOutputTokens: 700,
       providerOptions: TOPIC_EXPLORE_PROVIDER_OPTIONS,

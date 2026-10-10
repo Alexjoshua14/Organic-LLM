@@ -109,7 +109,7 @@ async function generateRefinedQuestion(
 ): Promise<string> {
   const { text } = await generateText({
     model: openai(providerModelSlug(models.openai.luna.id)),
-    system: REFINE_QUESTION_SYSTEM_PROMPT,
+    instructions: REFINE_QUESTION_SYSTEM_PROMPT,
     prompt: `Question to refine: ${question}\n\nPath history: ${pathHistory}`,
     maxOutputTokens: GUARDRAIL_MAX_OUTPUT_TOKENS,
   });

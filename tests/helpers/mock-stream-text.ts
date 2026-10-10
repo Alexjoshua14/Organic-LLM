@@ -1,7 +1,7 @@
 import type { UIMessage } from "ai";
 
 type ToUIMessageStreamArgs = {
-  onFinish?: (args: {
+  onEnd?: (args: {
     messages: UIMessage[];
     isAborted: boolean;
     finishReason?: string;
@@ -12,7 +12,7 @@ type ToUIMessageStreamArgs = {
 type StreamTextCall = {
   model: string;
   messages: unknown[];
-  system?: string;
+  instructions?: string;
   tools?: Record<string, unknown>;
 };
 
@@ -20,9 +20,9 @@ type StreamTextCall = {
  * Fake `streamText()` that never calls a real provider.
  *
  * It returns an object that matches only the surface area your Aion route uses:
- * - `result.toUIMessageStream({ onFinish, onError })`
+ * - `result.toUIMessageStream({ onEnd, onError })`
  *
- * When the returned stream is consumed, it optionally calls `onFinish()` with
+ * When the returned stream is consumed, it optionally calls `onEnd()` with
  * `onFinishMessages`, then ends immediately.
  */
 export function createMockStreamText(options?: {
@@ -46,12 +46,12 @@ export function createMockStreamText(options?: {
     }
 
     return {
-      toUIMessageStream: ({ onFinish }: ToUIMessageStreamArgs) => {
+      toUIMessageStream: ({ onEnd }: ToUIMessageStreamArgs) => {
         return new ReadableStream({
           start(controller) {
             const finish = async () => {
-              if (onFinish) {
-                await onFinish({
+              if (onEnd) {
+                await onEnd({
                   messages: options?.onFinishMessages ?? [],
                   isAborted: options?.isAborted ?? false,
                   finishReason: options?.finishReason ?? "stop",
@@ -74,4 +74,3 @@ export function createMockStreamText(options?: {
 
   return { streamText, calls };
 }
-

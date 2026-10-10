@@ -75,9 +75,17 @@ import {
 import { useContextEffortSettings } from "@/hooks/use-context-effort-settings";
 import { useIsAdmin } from "@/hooks/use-is-admin";
 import { deleteEmptyChat } from "@/data/supabase/chat";
+import {
+  isBlankChatMounted,
+  releaseBlankChatMount,
+  retainBlankChatMount,
+} from "@/lib/chat/blank-chat-mount-registry";
 import { useSharedChatContext } from "@/lib/context/chat-context";
 import { useComposerDraft } from "@/hooks/use-composer-draft";
 import { useDiagramNodeLinksOptional } from "@/lib/mermaid/diagram-node-links-context";
+import { useMessageSendQueue } from "@/hooks/use-message-send-queue";
+import { MessageSendQueueStrip } from "@/components/chat/message-send-queue-strip";
+import { shouldEnqueueInsteadOfSend } from "@/lib/message-queue/dispatch-gates";
 
 type CoreInputProps = {
   modelRef: React.RefObject<ChatModel>;
@@ -146,6 +154,14 @@ type CoreInputProps = {
   threadMessages?: UIMessage[];
   experience?: ChatExperience;
   chatStyle?: ChatStyle;
+  /**
+   * Multi-mode: submit enqueues to the server queue instead of calling `sendMessage`.
+   * Composer stays free while the agent streams or budget is exhausted.
+   * Requires `chatId`. Arcadia multitask shell should pass this when multi mode is on.
+   */
+  queueSendMode?: boolean;
+  /** Optional multitask subagent id stored with the queue row. */
+  queueTargetAgentId?: string;
 };
 
 /** Max length for the in-flight shimmer copy (matches AiInputForm). */
@@ -200,9 +216,16 @@ export const CoreInput: React.FC<CoreInputProps> = ({
   threadMessages,
   experience,
   chatStyle,
+  queueSendMode = false,
+  queueTargetAgentId,
 }) => {
   const { refreshSidebarChats } = useSharedChatContext();
   const diagramNodeLinks = useDiagramNodeLinksOptional();
+  const queueEnabled = shouldEnqueueInsteadOfSend(queueSendMode) && Boolean(chatId);
+  const messageQueue = useMessageSendQueue({
+    threadId: chatId,
+    enabled: queueEnabled,
+  });
 
   const modelStorageKey = modelLocalStorageKey ?? "organic-llm-selected-model";
   const effortStorageKey = effortLocalStorageKey ?? "organic-llm-selected-effort";
@@ -215,6 +238,8 @@ export const CoreInput: React.FC<CoreInputProps> = ({
   const [text, setText] = useState<string>("");
   const [recentlySentText, setRecentlySentText] = useState<string>(""); // For failed/aborted sends
   const recentlySentTextRef = useRef<string>(""); // So restore effect sees value before state flushes
+  const pendingSendRef = useRef<{ threadId: string | undefined } | null>(null);
+  const [pendingSend, setPendingSend] = useState<typeof pendingSendRef.current>(null);
   const [model, setModel] = useState<ChatModel>(defaultModel);
   const [effort, setEffort] = useState<ChatEffortLevel>(defaultEffort);
   const isAdmin = useIsAdmin();
@@ -242,24 +267,50 @@ export const CoreInput: React.FC<CoreInputProps> = ({
   // Refs for unmount cleanup: must see latest values when component unmounts
   const inputEmptyRef = useRef(false);
   const statusRef = useRef<typeof status>("ready");
+  const isBlankChatRef = useRef(Boolean(isBlankChat));
 
   inputEmptyRef.current = text.trim() === "";
   statusRef.current = status ?? "ready";
+  isBlankChatRef.current = Boolean(isBlankChat);
   // Mirror the toggle state into the caller-owned refs every render, so the value
   // sent (read from the ref at submit time) always matches what the composer shows.
   if (useWebSearchRef) useWebSearchRef.current = useWebSearch;
   if (useMemoriesRef) useMemoriesRef.current = useMemories;
 
-  // Auto-delete blank chat when user navigates away with empty input
+  /**
+   * Auto-delete blank chats only on true leave (unmount with no remount).
+   *
+   * Important: do **not** list `isBlankChat` in the effect deps. On the first send,
+   * AI SDK `pushMessage` updates messages (isBlankChat → false) before `status`
+   * becomes `"submitted"`. An effect cleanup that closed over `isBlankChat: true`
+   * would call `deleteEmptyChat` while the optimistic message was not yet persisted,
+   * deleting the thread mid-turn (Arcadia multitask looks like a crash + new chat).
+   */
   useEffect(() => {
+    if (!chatId) return;
+
+    retainBlankChatMount(chatId);
+
     return () => {
-      if (chatId && isBlankChat && inputEmptyRef.current && statusRef.current === "ready") {
-        deleteEmptyChat(chatId).then((res) => {
+      releaseBlankChatMount(chatId);
+
+      const shouldDelete =
+        isBlankChatRef.current && inputEmptyRef.current && statusRef.current === "ready";
+
+      if (!shouldDelete) return;
+
+      const id = chatId;
+
+      queueMicrotask(() => {
+        // Same-tick remount (multitask layout / Strict Mode) — keep the thread.
+        if (isBlankChatMounted(id)) return;
+
+        void deleteEmptyChat(id).then((res) => {
           if (res.ok) refreshSidebarChats();
         });
-      }
+      });
     };
-  }, [chatId, isBlankChat, refreshSidebarChats]);
+  }, [chatId, refreshSidebarChats]);
 
   useEffect(() => {
     if (!enableMarkdownInputPreview) {
@@ -547,8 +598,24 @@ export const CoreInput: React.FC<CoreInputProps> = ({
     return () => observer.disconnect();
   }, []);
 
+  const isSubmitBlocked = () =>
+    disabled ||
+    (!queueEnabled &&
+      (statusRef.current === "submitted" ||
+        statusRef.current === "streaming" ||
+        (pendingSendRef.current !== null && pendingSendRef.current.threadId === chatId)));
+
+  const handleSubmitCapture = (event: FormEvent<HTMLFormElement>) => {
+    if (!isSubmitBlocked()) return;
+    // Block before PromptInput clears text or converts and removes attachments.
+    event.preventDefault();
+    event.stopPropagation();
+  };
+
   const handleSubmit = (message: PromptInputMessage, event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
+    // File conversion can finish after status changes, or before React publishes the first send.
+    if (isSubmitBlocked()) return;
     // Use form payload first; fallback to current input state (covers FormData quirks e.g. when no PromptInputProvider)
     const textFromForm = (message.text ?? "").trim();
     const textFromState = text.trim();
@@ -561,6 +628,17 @@ export const CoreInput: React.FC<CoreInputProps> = ({
     }
 
     const finalText = textToSend || "Sent with attachments";
+    const submission = queueEnabled ? null : { threadId: chatId };
+
+    if (submission) {
+      pendingSendRef.current = submission;
+      setPendingSend(submission);
+    }
+
+    // Disarm blank-chat auto-delete before clearing the composer. AI SDK appends the
+    // user message before status flips to "submitted"; an unmount in that window must
+    // not treat this thread as an abandoned blank chat.
+    isBlankChatRef.current = false;
 
     // Store the text of the recently sent message for failed/aborted sends (ref = no race with effect)
     recentlySentTextRef.current = finalText;
@@ -574,10 +652,36 @@ export const CoreInput: React.FC<CoreInputProps> = ({
       }
     });
 
-    sendMessage({
-      text: finalText,
-      files: message.files,
-    });
+    if (queueEnabled) {
+      // Multi-mode: enqueue only — server dispatches when idle + budget allows.
+      // Attachments are not queued yet (open question); text path stays free.
+      void messageQueue.enqueue(
+        finalText,
+        {
+          model,
+          effort,
+          webSearch: useWebSearch,
+          memory: useMemories,
+          speechFriendly: useSpeechFriendly,
+          experience,
+          messageSearch: true,
+        },
+        queueTargetAgentId
+      );
+    } else {
+      void sendMessage({
+        text: finalText,
+        files: message.files,
+      })
+        .finally(() => {
+          if (pendingSendRef.current !== submission) return;
+          pendingSendRef.current = null;
+          setPendingSend(null);
+        })
+        .catch(() => {
+          // The chat owner reports SDK errors; always release the synchronous send guard.
+        });
+    }
 
     diagramNodeLinks?.clearLinks();
     clearDraftOnSend();
@@ -632,10 +736,17 @@ export const CoreInput: React.FC<CoreInputProps> = ({
     },
     [onSecondarySubmit, secondarySubmitDisabled, secondarySubmitPending, text]
   );
-  const organicSubmitState = resolveOrganicSubmitState(status, text.trim().length > 0);
+  const composerStatus = queueEnabled
+    ? "ready"
+    : pendingSend !== null && pendingSend.threadId === chatId && status === "ready"
+      ? "submitted"
+      : status;
+  const organicSubmitState = resolveOrganicSubmitState(composerStatus, text.trim().length > 0);
 
   const showSentShimmer =
-    sentMessageShimmer === true && (status === "submitted" || status === "streaming");
+    !queueEnabled &&
+    sentMessageShimmer === true &&
+    (status === "submitted" || status === "streaming");
   const sentDisplaySource = recentlySentText || recentlySentTextRef.current;
   const sentDisplayText = truncateSentMessageDisplay(sentDisplaySource);
   const composerBodyMeasureClass =
@@ -847,9 +958,10 @@ export const CoreInput: React.FC<CoreInputProps> = ({
   const submitControl = (
     <PromptInputSubmit
       className={cn(submitVariant === "organic-glass" && organicGlassSubmitClassName)}
-      disabled={(!text && !status) || disabled}
-      status={status}
-      stop={stop}
+      // Multi-mode: always submit (never stop). Default: keep stop available while streaming.
+      disabled={queueEnabled ? !text.trim() || disabled : (!text && !status) || disabled}
+      status={composerStatus}
+      stop={queueEnabled ? undefined : stop}
     >
       {submitVariant === "organic-glass" ? (
         <OrganicSubmitGlyph state={organicSubmitState} />
@@ -865,6 +977,7 @@ export const CoreInput: React.FC<CoreInputProps> = ({
       multiple
       className={cn("z-40 w-full min-w-0", className)}
       onSubmit={handleSubmit}
+      onSubmitCapture={handleSubmitCapture}
     >
       {contextBudgetControl ? (
         <div className="absolute right-1.5 top-1 z-20">{contextBudgetControl}</div>
@@ -945,6 +1058,13 @@ export const CoreInput: React.FC<CoreInputProps> = ({
       {/* Positioning context for the live voice drawer; layout-neutral otherwise. */}
       <div className="relative w-full min-w-0">
         <CoreInputVoiceDrawerSlot />
+        {queueEnabled ? (
+          <MessageSendQueueStrip
+            budget={messageQueue.budget}
+            className="mb-2"
+            items={messageQueue.items}
+          />
+        ) : null}
         {shell}
       </div>
     </CoreInputControlsProvider>

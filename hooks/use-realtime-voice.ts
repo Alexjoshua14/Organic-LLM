@@ -1,7 +1,9 @@
 "use client";
 
 import type { SpeakModalities } from "@/lib/schemas/speak-modalities";
+import type { SpeakRealtimeVoice } from "@/lib/schemas/speak-realtime-voice";
 import type { SpeakScreenSurface } from "@/lib/schemas/speak-screen-context";
+import type { SpeakSubagentSeed } from "@/lib/schemas/speak-subagent-context";
 import type { SpeakThreadPolicy } from "@/lib/schemas/speak-thread";
 import type { SpeakBudgetSnapshot } from "@/lib/speak/types";
 import type { SpeakToolClientEffect } from "@/lib/speak/types";
@@ -25,6 +27,8 @@ import {
   sumRealtimeUsage,
   type RealtimeUsage,
 } from "@/lib/speak/realtime-events";
+import { buildSubagentMilestoneItem } from "@/lib/speak/subagent-milestone-item";
+import { buildSubagentProgressItem } from "@/lib/speak/subagent-progress-item";
 import {
   createWebRtcVoiceTransport,
   isRetryableConnectError,
@@ -573,6 +577,8 @@ export function useRealtimeVoice({
       resumeSessionId?: string;
       /** Continue this thread whatever the policy says; the session route checks ownership. */
       threadId?: string;
+      voice?: SpeakRealtimeVoice;
+      subagentSeed?: SpeakSubagentSeed;
     }) => {
       if (connecting || connectedRef.current) return;
 
@@ -600,6 +606,10 @@ export function useRealtimeVoice({
               resumeSessionId,
               retryAfterConnectFailure: retryFailure ?? undefined,
               withoutThreadContext: retryFailure ? true : undefined,
+              voice: options?.voice,
+              // Fresh Speak-to seed only on the first mint; retries keep thread continuity without
+              // re-billing a full subagent preamble rewrite.
+              subagentSeed: retryFailure ? undefined : options?.subagentSeed,
             }),
           });
 
@@ -842,6 +852,92 @@ export function useRealtimeVoice({
     }
   }, []);
 
+  /**
+   * Silent subagent progress via `POST /api/ai/speak/realtime/progress`.
+   * Updates model context only — no `response.create`.
+   */
+  const sendSubagentProgress = useCallback(
+    async (args: {
+      agentId: string;
+      role?: string;
+      name?: string;
+      progress: string;
+    }): Promise<boolean> => {
+      const sid = sessionIdRef.current;
+      const transport = transportRef.current;
+
+      if (!sid || !transport || !connectedRef.current) return false;
+
+      try {
+        const res = await fetch("/api/ai/speak/realtime/progress", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ sessionId: sid, ...args }),
+        });
+
+        if (!res.ok) return false;
+
+        const data = (await res.json()) as { body?: string };
+        const item = buildSubagentProgressItem(data.body ?? "");
+
+        if (item && transportRef.current === transport && connectedRef.current) {
+          transport.send(item);
+
+          return true;
+        }
+      } catch {
+        return false;
+      }
+
+      return false;
+    },
+    []
+  );
+
+  /**
+   * Spoken subagent milestone via `POST /api/ai/speak/realtime/milestone`.
+   * Follows the item with `response.create` so the model announces.
+   */
+  const sendSubagentMilestone = useCallback(
+    async (args: {
+      agentId: string;
+      role?: string;
+      name?: string;
+      milestone: string;
+      progress?: string;
+    }): Promise<boolean> => {
+      const sid = sessionIdRef.current;
+      const transport = transportRef.current;
+
+      if (!sid || !transport || !connectedRef.current) return false;
+
+      try {
+        const res = await fetch("/api/ai/speak/realtime/milestone", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ sessionId: sid, ...args }),
+        });
+
+        if (!res.ok) return false;
+
+        const data = (await res.json()) as { body?: string };
+        const item = buildSubagentMilestoneItem(data.body ?? "");
+
+        if (item && transportRef.current === transport && connectedRef.current) {
+          transport.send(item);
+          transport.send({ type: "response.create" });
+
+          return true;
+        }
+      } catch {
+        return false;
+      }
+
+      return false;
+    },
+    []
+  );
+
   const disconnect = useCallback(async () => {
     setPaused(false);
     await teardown({ notifyServer: true });
@@ -859,6 +955,30 @@ export function useRealtimeVoice({
     onBudgetChange?.(null);
     onCaptionChange?.({ role: "system", text: "" });
   }, [onBudgetChange, onCaptionChange, teardown]);
+
+  /**
+   * Inject a typed/UI text event into the live Realtime conversation (stretch for
+   * Aion presence). Returns false when the data channel is not open.
+   */
+  const sendTextEvent = useCallback((text: string): boolean => {
+    const transport = transportRef.current;
+    const trimmed = text.trim();
+
+    if (!transport || !connectedRef.current || !trimmed) return false;
+
+    const created = transport.send({
+      type: "conversation.item.create",
+      item: {
+        type: "message",
+        role: "user",
+        content: [{ type: "input_text", text: trimmed }],
+      },
+    });
+
+    if (!created) return false;
+
+    return transport.send({ type: "response.create" });
+  }, []);
 
   useEffect(() => {
     return () => {
@@ -890,8 +1010,11 @@ export function useRealtimeVoice({
     resume,
     resumeIfActive,
     sendScreenContext,
+    sendSubagentProgress,
+    sendSubagentMilestone,
     disconnect,
     resetSession,
+    sendTextEvent,
     setAudioElement: (el: HTMLAudioElement | null) => {
       audioElRef.current = el;
     },

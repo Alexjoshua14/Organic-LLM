@@ -64,7 +64,7 @@ export async function POST(req: Request) {
   try {
     const { text, usage } = await generateText({
       model: CLASSIFY_MODEL,
-      system: CLASSIFIER_SYSTEM_PROMPT,
+      instructions: CLASSIFIER_SYSTEM_PROMPT,
       prompt: body.text,
       maxOutputTokens: 8,
       providerOptions: KNOWLEDGE_GATEWAY_PROVIDER_OPTIONS,

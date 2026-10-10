@@ -6,7 +6,7 @@ import type { ProfileSection, ProfileTree } from "@/lib/schemas/profileTree";
 import type { Usage } from "@/lib/rate-limit/llm-cost";
 import type { Json } from "@/lib/supabase/types";
 
-import { generateObject, generateText, stepCountIs, tool } from "ai";
+import { generateObject, generateText, isStepCount, tool } from "ai";
 import { z } from "zod";
 
 import { createProfileTreeRevisionForCurrentUser } from "@/data/supabase/profiles";
@@ -341,7 +341,7 @@ async function callGenerateObject<T>({
   schema,
   schemaName,
   schemaDescription,
-  system,
+  instructions,
   prompt,
   maxOutputTokens,
   budget,
@@ -351,7 +351,7 @@ async function callGenerateObject<T>({
   schema: z.ZodType<T>;
   schemaName?: string;
   schemaDescription?: string;
-  system: string;
+  instructions: string;
   prompt: string;
   maxOutputTokens: number;
   budget: ProfileGenerationBudget;
@@ -359,7 +359,7 @@ async function callGenerateObject<T>({
   const start = performance.now();
   const { object, usage } = await generateObject({
     model,
-    system,
+    instructions,
     prompt,
     schema,
     schemaName,
@@ -383,7 +383,7 @@ async function callGenerateObject<T>({
 async function callGenerateText({
   model,
   operation,
-  system,
+  instructions,
   prompt,
   maxOutputTokens,
   budget,
@@ -392,7 +392,7 @@ async function callGenerateText({
 }: {
   model: string;
   operation: string;
-  system: string;
+  instructions: string;
   prompt: string;
   maxOutputTokens: number;
   budget: ProfileGenerationBudget;
@@ -402,7 +402,7 @@ async function callGenerateText({
   const start = performance.now();
   const { text, usage } = await generateText({
     model,
-    system,
+    instructions,
     prompt,
     tools,
     stopWhen,
@@ -456,7 +456,7 @@ async function planProfileSections({
     schemaName: "ProfileSectionPlan",
     schemaDescription:
       "A memory-grounded plan for a ProfileTree, including headline direction, roles, optional signature direction, and 3-8 section plans.",
-    system: PLANNER_SYSTEM,
+    instructions: PLANNER_SYSTEM,
     prompt,
     maxOutputTokens: PLANNER_MAX_OUTPUT_TOKENS,
     budget,
@@ -527,7 +527,7 @@ async function generateProfileSection({
   const text = await callGenerateText({
     model: SECTION_MODEL,
     operation: feedback ? "profile-section-regenerate" : "profile-section-generate",
-    system: `You write one section of a memory-grounded profile. ${INJECTION_GUARDRAIL}
+    instructions: `You write one section of a memory-grounded profile. ${INJECTION_GUARDRAIL}
 Return exactly one raw JSON object matching the ProfileSection shape. Do not wrap it in Markdown. Write only this section.`,
     prompt: `Display name: ${displayName}
 
@@ -545,7 +545,7 @@ Write this section with concrete, grounded details. Omit unsupported claims and 
     tools: {
       search_memories: createProfileMemorySearchTool(userId, budget),
     },
-    stopWhen: stepCountIs(1),
+    stopWhen: isStepCount(1),
     maxOutputTokens: 450,
     budget,
   });
@@ -571,7 +571,7 @@ async function reviewGeneratedSections({
     schemaName: "ProfileSectionBatchReview",
     schemaDescription:
       "A batched quality review for all generated profile sections, with per-section score, decision, issues, and rewrite instructions.",
-    system: `You are a strict quality reviewer for memory-grounded profile sections. ${INJECTION_GUARDRAIL}
+    instructions: `You are a strict quality reviewer for memory-grounded profile sections. ${INJECTION_GUARDRAIL}
 Score specificity, groundedness, section fit, voice, and UI fit. Flag generic labels like Builder, Visionary, and Lifelong Learner when unsupported.`,
     prompt: `Section plan:
 ${JSON.stringify(plan)}
@@ -701,7 +701,7 @@ async function reviewProfileTree({
     schemaName: "ProfileTreeReview",
     schemaDescription:
       "A final quality review for a complete ProfileTree, with score, decision, weak section ids, issues, and optional rewrite instructions.",
-    system: `You are a final reviewer for a memory-grounded ProfileTree. ${INJECTION_GUARDRAIL}
+    instructions: `You are a final reviewer for a memory-grounded ProfileTree. ${INJECTION_GUARDRAIL}
 Reject unsupported claims, generic resume filler, or weak coverage. Prefer draft over publishing low-quality output.`,
     prompt: `Memory evidence:
 ${baselineMemories}

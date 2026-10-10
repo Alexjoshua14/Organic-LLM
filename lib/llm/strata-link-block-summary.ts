@@ -68,7 +68,7 @@ export async function generateStrataLinkSummary(args: {
     const prompt = [`URL: ${args.url}`, `Title hint: ${args.titleHint}`, "", body].join("\n");
     const result = await generateText({
       model: STRATA_LINK_SUMMARY_MODEL,
-      system: SYSTEM_PROMPT,
+      instructions: SYSTEM_PROMPT,
       prompt,
       maxOutputTokens: 220,
       providerOptions: KNOWLEDGE_GATEWAY_PROVIDER_OPTIONS,

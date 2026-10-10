@@ -2,19 +2,21 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
+import { useRef, useState } from "react";
 
 import { FeatureHint } from "@/components/onboarding/feature-hint";
 import { Logger } from "@/lib/logger";
 import { PERF_PHASES } from "@/lib/perf/journeys";
 import { mark, startJourney } from "@/lib/perf/trace-store";
 import { createChat } from "@/lib/chat/chat-store";
+import { createArcadiaThreadAction } from "@/lib/chat/create-arcadia-thread";
 import { useSharedChatContext } from "@/lib/context/chat-context";
 import { cn } from "@/lib/utils";
 
 const logger = new Logger(`components/sidebar/sidebar-experience-rail.tsx`);
 
 type RailItem =
-  | { id: "chat"; label: "Chat"; type: "action" }
+  | { id: "chat" | "arcadia"; label: string; type: "action" }
   | {
       id: string;
       label: string;
@@ -29,9 +31,7 @@ const RAIL_ROWS: RailItem[][] = [
     {
       id: "arcadia",
       label: "Arcadia",
-      type: "link",
-      href: "/sandbox/arcadia",
-      match: (p) => p.startsWith("/sandbox/arcadia"),
+      type: "action",
     },
   ],
   [
@@ -95,27 +95,43 @@ export function SidebarExperienceRail() {
   const router = useRouter();
   const pathname = usePathname() ?? "";
   const { refreshSidebarChats } = useSharedChatContext();
+  const creatingRef = useRef(false);
+  const [creating, setCreating] = useState(false);
 
-  const onNewChat = () => {
+  const onNewChat = (experience: "chat" | "arcadia") => {
     async function run() {
-      logger.log("SidebarExperienceRail", "Chat segment clicked");
-      startJourney("to-chat", "rail-chat");
-      const res = await createChat();
+      if (creatingRef.current) return;
+      creatingRef.current = true;
+      setCreating(true);
+      startJourney(experience === "arcadia" ? "to-arcadia" : "to-chat", `rail-${experience}`);
 
-      if (res.error || res.data === null) {
+      try {
+        let path: string;
+
+        if (experience === "arcadia") {
+          const res = await createArcadiaThreadAction();
+
+          if (!res.ok) throw new Error("Error creating Arcadia chat");
+          path = res.path;
+        } else {
+          const res = await createChat();
+
+          if (res.error || res.data === null) throw new Error("Error creating chat");
+          path = `/chat/${res.data}`;
+        }
+        mark(PERF_PHASES.chatCreated);
+        refreshSidebarChats();
+        mark(PERF_PHASES.navPush);
+        router.push(path);
+      } catch {
         logger.error("SidebarExperienceRail", "Error creating chat");
-
-        return;
+      } finally {
+        creatingRef.current = false;
+        setCreating(false);
       }
-      mark(PERF_PHASES.chatCreated);
-      refreshSidebarChats();
-      mark(PERF_PHASES.navPush);
-      router.push(`/chat/${res.data}`);
     }
     void run();
   };
-
-  const chatActive = pathname.startsWith("/chat");
 
   const renderItem = (item: RailItem) => {
     if (item.type === "action") {
@@ -123,9 +139,10 @@ export function SidebarExperienceRail() {
         <button
           key={item.id}
           className={segmentClass}
-          data-active={chatActive}
+          data-active={pathname.startsWith(item.id === "arcadia" ? "/sandbox/arcadia" : "/chat")}
           type="button"
-          onClick={onNewChat}
+          disabled={creating}
+          onClick={() => onNewChat(item.id)}
         >
           {item.label}
         </button>
