@@ -14,6 +14,7 @@ import {
   setSubagentThreadStatus,
 } from "@/data/supabase/subagent-threads";
 import { insertQueuedMessage } from "@/data/supabase/message-send-queue";
+import { getHardSetShellAgentId } from "@/data/supabase/subagent-shells";
 import { createSupabaseWorktableStore } from "@/data/supabase/subagent-worktable";
 import { recordGatewayCallUsage } from "@/lib/usage/record-gateway-call";
 
@@ -27,6 +28,7 @@ export function createMultitaskTurnDeps(args: { ownerId: string; clerkUserId: st
 
   return {
     getLink: (threadId) => getSubagentThreadLink(threadId, ownerId),
+    getHardSetShellAgentId: (threadId) => getHardSetShellAgentId(threadId, ownerId),
     isMultitaskEnabled: (threadId) => isThreadArcadiaMultitaskEnabled(threadId, ownerId),
     listChildren: (parentThreadId) => listSubagentThreadRows(parentThreadId, ownerId),
     ensureChild: ({ parentThreadId, agentId, title }) =>

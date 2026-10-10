@@ -24,6 +24,8 @@ import {
 } from "@/lib/schemas/chat";
 import { ChatUIMessage, ChatAIActionEnum } from "@/types/ai";
 import { tryArcadiaChatHelpShortcut } from "@/lib/api/arcadia-chat-help-shortcut";
+import { respondWithShellHelpReflex, startShellHelpReflex } from "@/lib/api/subagent-help-reflex";
+import { getHardSetSubagent } from "@/lib/llm/subagents/hard-set/registry";
 import { requireLlmChatActor } from "@/lib/api/chat-llm-gate";
 import { loadMainChatTurnContext, getContextMessageLimit } from "@/lib/api/chat-turn-context";
 import { loadArcadiaChatTurnContext } from "@/lib/api/arcadia-chat-turn-context";
@@ -218,6 +220,17 @@ export async function POST(req: Request) {
         });
       }
 
+      // Hard-set subagent shell: Jev decides help reflex vs. a normal turn, alongside context load.
+      const shellAgent = getHardSetSubagent(multitask?.hardSetAgentId);
+      const shellReflex = shellAgent
+        ? startShellHelpReflex({
+            agent: shellAgent,
+            message: messageForLlm,
+            ownerId: sbUserId,
+            route: "/api/chat",
+          })
+        : null;
+
       const loadTurnContext =
         experience === "arcadia"
           ? () =>
@@ -312,7 +325,21 @@ export async function POST(req: Request) {
         }),
       });
 
-      if (
+      if (shellAgent && shellReflex) {
+        if ((await shellReflex).reflex) {
+          await respondWithShellHelpReflex({
+            agent: shellAgent,
+            assistantMessageId,
+            validatedMessages,
+            chatId: id,
+            sbUserId,
+            writer,
+            logger,
+          });
+
+          return;
+        }
+      } else if (
         await tryArcadiaChatHelpShortcut({
           experience,
           message,
@@ -347,9 +374,9 @@ export async function POST(req: Request) {
       }
 
       const compiledTools = await compileChatTools({
-        useSearch: parseResult.data.webSearch ?? false,
-        useMemory: parseResult.data.memory ?? false,
-        useGetMoreMessages: messageSearch ?? true,
+        useSearch: shellAgent?.tools.webSearch ?? parseResult.data.webSearch ?? false,
+        useMemory: shellAgent?.tools.memory ?? parseResult.data.memory ?? false,
+        useGetMoreMessages: shellAgent?.tools.chatHistory ?? messageSearch ?? true,
         useKnowledgeSearch: Boolean(knowledgeSearch) && experience === "strata_page",
         experience,
         chatStyle,

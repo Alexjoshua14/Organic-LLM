@@ -33,6 +33,8 @@ import {
   formatSubagentStatusFragment,
   SUBAGENT_SNAPSHOT_MESSAGE_WINDOW,
 } from "@/lib/llm/subagents/threads/snapshot";
+import { getHardSetSubagent } from "@/lib/llm/subagents/hard-set/registry";
+import { formatHardSetShellFragment } from "@/lib/llm/subagents/hard-set/shell";
 import { formatWorktableFragment } from "@/lib/llm/subagents/worktable/render";
 import { createWorktableSession } from "@/lib/llm/subagents/worktable/session";
 import { createLogger } from "@/lib/logger";
@@ -51,6 +53,8 @@ export type SubagentThreadLinkLite = {
 /** Persistence + scheduling seams. {@link createMultitaskTurnDeps} wires the real ones. */
 export type MultitaskTurnDeps = {
   getLink(threadId: string): Promise<SubagentThreadLinkLite | null>;
+  /** The hard-set subagent a parentless thread is a shell for (Subagent lab), if any. */
+  getHardSetShellAgentId?(threadId: string): Promise<string | null>;
   isMultitaskEnabled(threadId: string): Promise<boolean>;
   listChildren(parentThreadId: string): Promise<SubagentThreadRow[]>;
   ensureChild(args: { parentThreadId: string; agentId: string; title: string }): Promise<
@@ -102,6 +106,8 @@ export type PrepareMultitaskTurnResult = {
   worktable: WorktableSession | null;
   /** Automatic dispatches left before the user speaks again; null on user turns. */
   autonomousRemaining: number | null;
+  /** Set on a hard-set subagent's shell thread: the turn runs as that subagent. */
+  hardSetAgentId?: string;
 };
 
 export function formatSubagentDirectChatFragment(agentId: string): string {
@@ -146,6 +152,8 @@ function groupGoalsByAgent(goals: ReadonlyArray<WorkerGoal>): Map<string, Worker
  * Arcadia multitask turn preparation, shared by `/api/chat` and the send queue.
  *
  * - On a subagent thread: no dispatch; the turn runs as that subagent over its own thread.
+ * - On a hard-set subagent's shell thread: the same, with that subagent's own instructions —
+ *   checked before the Multiagent flag, so a shell never orchestrates.
  * - With Multiagent off: no routing, assignments, or subagent context; answer in this thread.
  * - On an orchestrator thread with orchestrator-authored dispatch (default): no router. The
  *   orchestrator gets its role, roster and worktable, and delegates with its own tools.
@@ -172,6 +180,20 @@ export async function prepareArcadiaMultitaskTurn(
         orchestratorDispatch: false,
         worktable: null,
         autonomousRemaining: null,
+      };
+    }
+
+    const shellAgent = getHardSetSubagent(await deps.getHardSetShellAgentId?.(chatId));
+
+    if (shellAgent) {
+      return {
+        role: "subagent",
+        systemFragments: [formatHardSetShellFragment(shellAgent)],
+        hasSubagentThreads: false,
+        orchestratorDispatch: false,
+        worktable: null,
+        autonomousRemaining: null,
+        hardSetAgentId: shellAgent.id,
       };
     }
 

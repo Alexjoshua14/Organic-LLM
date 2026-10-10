@@ -10,6 +10,7 @@ Runtime roles and orchestration live under this tree (not docs-only):
 | Worker progress / milestones / completion | `worker/run.ts` + awareness bus |
 | Live worker model runs | `worker/run-with-model.ts` + `orchestrator/execute-assigned-workers.ts` |
 | Orchestrator-authored dispatch + context worktable (COA-258) | `orchestrator/orchestrator-tools.ts`, `worktable/` |
+| Hard-set subagents, shells, and the Jev help reflex | `hard-set/` ([README](hard-set/README.md)) |
 | Abstract identity images | `identity/` |
 
 Arcadia display roles (`researcher`, `coder`, …) and Speak voice assignment stay in
