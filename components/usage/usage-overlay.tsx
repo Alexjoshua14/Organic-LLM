@@ -54,6 +54,7 @@ export function UsageOverlay({ className, triggerClassName }: UsageOverlayProps)
 
   const loadUsage = useCallback(async (preset: UsageRangePreset) => {
     const request = ++requestRef.current;
+
     loadingRef.current = true;
     setLoading(true);
     setRefreshAt(null);
@@ -88,8 +89,10 @@ export function UsageOverlay({ className, triggerClassName }: UsageOverlayProps)
     const refresh = () => {
       if (document.visibilityState === "visible" && !loadingRef.current) void loadUsage(range);
     };
+
     window.addEventListener("focus", refresh);
     document.addEventListener("visibilitychange", refresh);
+
     return () => {
       requestRef.current += 1;
       loadingRef.current = false;
@@ -101,9 +104,12 @@ export function UsageOverlay({ className, triggerClassName }: UsageOverlayProps)
   useEffect(() => {
     if (!open || !isSignedIn || refreshAt === null) return;
 
-    const timer = window.setTimeout(() => {
-      if (document.visibilityState === "visible") void loadUsage(range);
-    }, Math.max(0, refreshAt - Date.now()));
+    const timer = window.setTimeout(
+      () => {
+        if (document.visibilityState === "visible") void loadUsage(range);
+      },
+      Math.max(0, refreshAt - Date.now())
+    );
 
     return () => window.clearTimeout(timer);
   }, [open, isSignedIn, range, refreshAt, loadUsage]);
