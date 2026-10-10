@@ -190,6 +190,8 @@ export async function POST(req: Request) {
 
   const stream = createUIMessageStream<ChatUIMessage>({
     execute: async ({ writer }) => {
+      // Identify the response before data parts can create a client-side message during replay.
+      writer.write({ type: "start", messageId: assistantMessageId });
       writer.write({
         type: "data-aiAction",
         data: {

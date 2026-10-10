@@ -226,6 +226,7 @@ export async function runLLMChatStream(params: RunLLMChatStreamParams): Promise<
   writer.merge(
     result.toUIMessageStream({
       generateMessageId: () => assistantMessageId,
+      sendStart: false, // The outer stream announces this ID before context and progress data.
       onError: (error) => {
         logger.error("POST", "UI stream error", {
           err: serializeError(error),

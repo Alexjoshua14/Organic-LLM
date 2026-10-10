@@ -187,6 +187,7 @@ export const Chat: React.FC<ChatProps> = ({
     useChat({
       id: chatData?.thread.id ?? "",
       messages: chatData?.messages ?? [],
+      // Navigation can reuse stale thread metadata; the resume endpoint checks current state.
       resume: true,
       transport: new DefaultChatTransport({
         api:

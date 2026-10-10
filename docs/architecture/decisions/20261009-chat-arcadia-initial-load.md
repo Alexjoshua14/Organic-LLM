@@ -22,7 +22,12 @@ in ordinary Arcadia chats. Compilation and application latency must be measured 
 - Load thread and messages concurrently through one authenticated Supabase RLS client.
   Decode messages only after a successful thread read, using that thread's owner as the
   encryption context. Preserve errors rather than returning partial conversations.
-- Remove the unused extra message query from the main Chat page.
+- Always attempt AI SDK stream resumption when opening or switching threads. Navigation
+  can reuse a snapshot with stale or missing active-stream metadata; the authenticated
+  resume endpoint reads current state and returns an uncached 204 when no stream exists
+  or Redis reports it finished/expired. A 204 leaves the chat ready. Connect the shared
+  Redis clients before registration; the library does not connect custom clients.
+  Remove the unused extra message query from the main Chat page.
 - Preserve Multiagent and parent linkage fields already returned by the thread query.
   Seed Arcadia with its saved view and an owner-filtered, limited worker-presence read.
   Subagent pages use their parent's view and workers. UI state never authorizes a request.
@@ -46,7 +51,12 @@ off, cross-device discovery, pending toggles, stale responses, hydration, and un
 Board tests retain serialized refresh, unchanged-roster identity, and voice-context coverage.
 Data tests cover atomic routing/ownership, unauthenticated creation denial, owner-filtered
 worker presence, parallel reads, encrypted-message round trips, denied reads, and wrong-owner
-decryption failure. Sidebar integration tests cover creation navigation, including repeated clicks.
+decryption failure. Integration tests exercise the real Chat/AI SDK resume path with live
+chunks, stale or missing metadata, navigation away and back, and inactive-thread 204 responses.
+Server-backed tests retain the real resumable-stream and AI SDK implementations, covering
+registration, replay, live delivery after client cancellation, finished/expired streams,
+authorization failures, and connection failure/retry.
+Sidebar integration tests cover creation navigation, including repeated clicks.
 
 Use the [performance journey workflow](../../perf-journeys.md) for warm-run comparisons.
 A single development timing is diagnostic evidence, not a performance guarantee.
