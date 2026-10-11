@@ -328,7 +328,9 @@ export function MultitaskDashboard({ children, enabled = true }: MultitaskDashbo
                   onChange={setSendTarget}
                 />
               )}
-              <p className="truncate text-[11px] text-muted-foreground">{runningCount} running</p>
+              <p className="truncate ps-[0.5em] text-[11px] text-muted-foreground">
+                {runningCount} running
+              </p>
               {toggleBlockedReason ? (
                 <p className="mt-0.5 text-[11px] text-amber-800 dark:text-amber-200">
                   {toggleBlockedReason}
