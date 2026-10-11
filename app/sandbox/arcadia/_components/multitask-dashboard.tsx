@@ -300,14 +300,14 @@ export function MultitaskDashboard({ children, enabled = true }: MultitaskDashbo
       {enabled ? (
         <header
           className={cn(
-            "grid shrink-0 grid-cols-[minmax(0,1fr)_auto] items-center gap-x-2 px-4",
+            "flex shrink-0 items-baseline justify-between gap-2 px-4",
             condensed ? "pb-1" : "pb-3"
           )}
         >
           <FeatureHint id="arcadia-multiagent" showWhen={!viewingSubagentId}>
-            <div className="min-w-0 pr-2">
+            <div className="min-w-0 flex-1 pr-2">
               {viewingSubagentId ? (
-                <h1 className="truncate py-1 text-sm font-medium">
+                <h1 className="truncate text-sm font-medium">
                   {formatSendTargetLabel({ kind: "subagent", agentId: viewingSubagentId }, agents)}
                 </h1>
               ) : (
@@ -317,6 +317,22 @@ export function MultitaskDashboard({ children, enabled = true }: MultitaskDashbo
                   onChange={setSendTarget}
                 />
               )}
+              {viewingSubagentId ? (
+                <Link
+                  className="block text-xs underline underline-offset-4"
+                  href={`/sandbox/arcadia/${orchestratorThreadId}`}
+                >
+                  Back to orchestrator
+                </Link>
+              ) : null}
+              <p className="truncate ps-[0.5em] text-[11px] text-muted-foreground">
+                {runningCount} running
+              </p>
+              {toggleBlockedReason ? (
+                <p className="mt-0.5 text-[11px] text-amber-800 dark:text-amber-200">
+                  {toggleBlockedReason}
+                </p>
+              ) : null}
             </div>
           </FeatureHint>
           <div className="flex shrink-0 items-center justify-end gap-2">
@@ -386,24 +402,6 @@ export function MultitaskDashboard({ children, enabled = true }: MultitaskDashbo
               <X aria-hidden className="size-3.5" />
               {!condensed ? "Exit" : null}
             </button>
-          </div>
-          <div className="col-start-1 -mt-stack-xs min-w-0">
-            {viewingSubagentId ? (
-              <Link
-                className="text-xs underline underline-offset-4"
-                href={`/sandbox/arcadia/${orchestratorThreadId}`}
-              >
-                Back to orchestrator
-              </Link>
-            ) : null}
-            <p className="truncate ps-[0.5em] text-[11px] text-muted-foreground">
-              {runningCount} running
-            </p>
-            {toggleBlockedReason ? (
-              <p className="mt-0.5 text-[11px] text-amber-800 dark:text-amber-200">
-                {toggleBlockedReason}
-              </p>
-            ) : null}
           </div>
         </header>
       ) : null}
