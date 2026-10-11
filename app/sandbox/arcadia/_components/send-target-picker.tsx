@@ -115,9 +115,7 @@ export function SendTargetPicker({
               className={cn(
                 glass({ tone: active ? "brown" : "default" }),
                 "inline-flex min-h-10 shrink-0 cursor-pointer items-center whitespace-nowrap rounded-full px-3 text-sm font-medium transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-ring",
-                active
-                  ? "z-10 border-amber-800/35 text-foreground"
-                  : "text-muted-foreground",
+                active ? "z-10 border-amber-800/35 text-foreground" : "text-muted-foreground",
                 expanded &&
                   (active
                     ? "hover:border-amber-800/50 hover:bg-background-secondary/45 dark:hover:border-amber-200/25"
