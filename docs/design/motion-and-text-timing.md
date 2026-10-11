@@ -245,8 +245,9 @@ composer instance is needed.
 
 ## Multiagent recipient disclosure
 
-The header's recipient pills use Framer Motion to expand from and return to the same
-left edge. Their expanded roster slots remain fixed across selections. Measured layout
+The header's recipient pills use the shared `glass()` surface and Framer Motion to expand
+from and return to the same left edge. Their expanded roster slots remain fixed across
+selections. Measured layout
 offsets drive transforms; active styling keeps font weight and padding unchanged so
 pill widths stay fixed. Expanded pills highlight their background and border on hover;
 the active pill retains its amber treatment. The thread and composer stay mounted throughout.
