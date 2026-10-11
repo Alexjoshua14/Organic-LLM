@@ -70,6 +70,7 @@ export function SubagentCard({
           <SubagentIdentityMark
             imageUrl={agent.identityImageUrl}
             name={agent.name}
+            seed={agent.activitySeed ?? agent.id}
             state={agent.status === "done" ? "complete" : agent.status}
           />
           <div className="min-w-0 flex-1">

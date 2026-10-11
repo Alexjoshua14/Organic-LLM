@@ -1,11 +1,13 @@
 import { afterEach, beforeEach, expect, mock, test } from "bun:test";
 import { act, cleanup } from "@testing-library/react";
 import { renderToString } from "react-dom/server";
+import { Profiler } from "react";
 
 import { AdaptiveAgentDotGrid } from "@/components/agents/adaptive-agent-dot-grid";
 import { PhysicsAgentDotGrid } from "@/components/agents/physics-agent-dot-grid";
 import { AgentDotGrid } from "@/components/agents/agent-dot-grid";
 import { dotOpacity } from "@/components/agents/agent-dot-grid-motion";
+import { createSubagentActivitySeed } from "@/lib/arcadia/multitask/activity-seed";
 import { getSettings, setSettings, USER_SETTINGS_STORAGE_KEY } from "@/lib/user-settings";
 import * as userSettings from "@/lib/user-settings";
 import { UserSettingsSchema } from "@/lib/schemas/userSettings";
@@ -83,25 +85,37 @@ test("actual SVG delivery uses independent physics dots, linked opacity, visibil
   const fixture = schedulerFixture();
   const fail = mock(() => {});
   let profiledUpdates = 0;
+  let reactCommits = 0;
+  const seed = createSubagentActivitySeed({
+    id: "agent-researcher",
+    name: "Lyra",
+    role: "researcher",
+    blurb: "Researches sources",
+    goal: "Review the architecture",
+  });
   fixture.scheduler.subscribeMetrics((sample) => {
     profiledUpdates += sample.groups.find((group) => group.id === "working-auto")?.updates ?? 0;
   });
   const view = render(
-    <PhysicsAgentDotGrid
-      onFailure={fail}
-      performanceId="working-auto"
-      scheduler={fixture.scheduler}
-      seed="Lyra"
-      state="working"
-    />
+    <Profiler id="physics-grid" onRender={() => reactCommits++}>
+      <PhysicsAgentDotGrid
+        onFailure={fail}
+        performanceId="working-auto"
+        scheduler={fixture.scheduler}
+        seed={seed}
+        state="working"
+      />
+    </Profiler>
   );
   expect(view.container.querySelectorAll("circle")).toHaveLength(18);
   expect(fixture.frames.size).toBe(0);
   await visible();
   expect(fixture.frames.size).toBe(1);
+  const beforeAnimation = reactCommits;
   await act(async () => {
     for (let frame = 0; frame < 20; frame++) fixture.frame(1000 / 60);
   });
+  expect(reactCommits).toBe(beforeAnimation);
   const transforms = new Set<string>();
   for (const dot of view.container.querySelectorAll("g > g")) {
     const style = (dot as SVGGElement).style;

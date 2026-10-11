@@ -104,19 +104,36 @@ describe("Arcadia board polling", () => {
   });
 
   test("unchanged board responses preserve the roster and do not rerender consumers", async () => {
+    // Include a newly spawned worker: capturing its seed must be a one-time update.
+    boardReply = async () =>
+      Response.json({
+        subagents: [
+          ...payload.subagents,
+          {
+            ...payload.subagents[0],
+            agentId: "worker-analyst-12345678",
+            name: "Analyst",
+            role: "analyst",
+            threadId: "cccccccc-cccc-4ccc-8ccc-cccccccccccc",
+          },
+        ],
+      });
     await act(async () => {
       render(<App />);
     });
     const agents = board.agents;
+    const seeds = agents.map((agent) => agent.activitySeed);
     const before = renders;
 
-    await act(async () => {
-      board.refreshBoard();
-    });
-
-    expect(boardReads).toBe(2);
-    expect(board.agents).toBe(agents);
-    expect(renders).toBe(before);
+    for (let refresh = 0; refresh < 10; refresh++) {
+      await act(async () => {
+        board.refreshBoard();
+      });
+      expect(boardReads).toBe(refresh + 2);
+      expect(board.agents).toBe(agents);
+      expect(board.agents.map((agent) => agent.activitySeed)).toEqual(seeds);
+      expect(renders).toBe(before);
+    }
   });
 
   test("a changed response still updates progress without repeating the completion milestone", async () => {

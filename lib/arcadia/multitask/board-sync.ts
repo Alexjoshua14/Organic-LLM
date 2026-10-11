@@ -1,5 +1,7 @@
 import type { ArcadiaSubagent, ArcadiaSubagentStatus } from "@/lib/arcadia/multitask/types";
 
+import { createSubagentActivitySeed } from "./activity-seed";
+
 import { assignDistinctVoices } from "@/lib/arcadia/multitask/voice-assignment";
 import { getHardSetSubagent } from "@/lib/llm/subagents/hard-set/registry";
 
@@ -38,7 +40,12 @@ export function firstSentence(text: string, max = 140): string {
   return first.length > max ? `${first.slice(0, max - 1)}…` : first;
 }
 
-function mergeEntry(agent: ArcadiaSubagent, entry: SubagentBoardEntry, now: number): ArcadiaSubagent {
+function mergeEntry(
+  agent: ArcadiaSubagent,
+  entry: SubagentBoardEntry,
+  now: number
+): ArcadiaSubagent {
+  const activitySeed = agent.activitySeed ?? createSubagentActivitySeed(agent);
   const finishedNow = entry.status === "done" && agent.status !== "done" && Boolean(entry.outcome);
   const milestoneId = `ms-${entry.threadId}-${entry.statusAt ?? "na"}`;
   const milestones =
@@ -76,6 +83,7 @@ function mergeEntry(agent: ArcadiaSubagent, entry: SubagentBoardEntry, now: numb
 
   if (
     agent.threadId === entry.threadId &&
+    agent.activitySeed === activitySeed &&
     agent.status === entry.status &&
     agent.goal === goal &&
     (agent.modelId ?? null) === modelId &&
@@ -88,6 +96,7 @@ function mergeEntry(agent: ArcadiaSubagent, entry: SubagentBoardEntry, now: numb
 
   return {
     ...agent,
+    activitySeed,
     threadId: entry.threadId,
     status: entry.status,
     goal,

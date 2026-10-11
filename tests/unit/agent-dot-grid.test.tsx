@@ -11,6 +11,8 @@ import {
 } from "@/components/agents/agent-dot-grid-motion";
 import { OrganicActivityMark } from "@/components/agents/organic-activity-mark";
 import { SubagentIdentityMark } from "@/components/agents/subagent-identity-mark";
+import { createSubagentActivitySeed } from "@/lib/arcadia/multitask/activity-seed";
+import { createDemoSubagents } from "@/lib/arcadia/multitask/demo-roster";
 import { render } from "../helpers/render";
 
 type RecordedAnimation = {
@@ -242,6 +244,39 @@ test("soft starting noise is stable, varies by identity, and gently favors the c
   }
   const html = renderToString(<OrganicActivityMark seed="Lyra" />);
   expect(html).toBe(renderToString(<OrganicActivityMark seed="Lyra" />));
+});
+
+test("same-name subagents render distinct starting frames and retain them across card updates", () => {
+  reduced = true;
+  const agent = createDemoSubagents()[0]!;
+  const seed = agent.activitySeed!;
+  const otherSeed = createSubagentActivitySeed({ ...agent, id: "another-agent" });
+  const marks = (state: "idle" | "working") => (
+    <>
+      <SubagentIdentityMark name={agent.name} seed={seed} state={state} />
+      <SubagentIdentityMark name={agent.name} seed={otherSeed} state={state} />
+    </>
+  );
+  const view = render(marks("idle"));
+  const startingFrames = () =>
+    Array.from(view.container.querySelectorAll("svg"), (grid) =>
+      Array.from(grid.querySelectorAll("g > g"), (dot) => (dot as SVGGElement).style.cssText)
+    );
+  const initial = startingFrames();
+
+  expect(initial).toHaveLength(2);
+  expect(initial[0]).not.toEqual(initial[1]);
+  view.rerender(marks("working"));
+  expect(startingFrames()).toEqual(initial);
+  expect(renderToString(marks("idle"))).toBe(renderToString(marks("idle")));
+  view.unmount();
+  const remounted = render(marks("idle"));
+  expect(
+    Array.from(
+      remounted.container.querySelectorAll("g > g"),
+      (dot) => (dot as SVGGElement).style.cssText
+    )
+  ).toEqual(initial.flat());
 });
 
 test("the glass cover and SVG fill one local stack; stored identity images remain available", () => {

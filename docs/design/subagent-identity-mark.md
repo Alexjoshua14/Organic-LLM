@@ -110,6 +110,15 @@ each agent its own pattern. Initial opacity follows initial size. Motion varies 
 each dot's individual resting size, with final scales clamped to .65–1.35; the center
 bias persists across cycles and after completion rather than returning to a rigid grid.
 
+Arcadia captures an `activitySeed` when a roster slot or board worker is created:
+a deterministic hash of its ID, name, role, purpose (`blurb`), and initial goal.
+Live assignments, progress, status, and model changes retain that seed. Full and
+compact cards pass the same seed to the mark, so rerenders and layout remounts keep
+the same starting pattern, including for agents that share a display name. Existing
+agents without a seed acquire one on their first board merge; cards use the agent ID
+until then. The hash is computed without random values during render, preserving
+server/client agreement. The explicit lab seeds still support controlled comparisons.
+
 ## V0 fallback motion API
 
 `AgentDotGrid` and `SubagentIdentityMark` accept `state`:

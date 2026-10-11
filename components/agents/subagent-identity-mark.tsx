@@ -7,6 +7,8 @@ type SubagentIdentityMarkProps = {
   /** Stored identity image URL; when absent, renders the layered activity mark. */
   imageUrl?: string | null;
   name: string;
+  /** Stable seed derived from the agent's starting context. */
+  seed?: string;
   className?: string;
   size?: "sm" | "md" | "lg";
   state?: AgentDotState;
@@ -19,6 +21,7 @@ type SubagentIdentityMarkProps = {
 export function SubagentIdentityMark({
   imageUrl,
   name,
+  seed = name,
   className,
   size = "md",
   state = "idle",
@@ -28,7 +31,7 @@ export function SubagentIdentityMark({
       className={className}
       imageUrl={imageUrl}
       label={`${name} identity mark`}
-      seed={name}
+      seed={seed}
       size={size}
       state={state}
     />

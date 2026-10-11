@@ -1,5 +1,7 @@
 import type { ArcadiaSubagent } from "@/lib/arcadia/multitask/types";
 
+import { createSubagentActivitySeed } from "./activity-seed";
+
 import { researcherSubagent } from "@/lib/llm/subagents/hard-set/agents/researcher";
 import { assignDistinctVoices } from "@/lib/arcadia/multitask/voice-assignment";
 
@@ -69,6 +71,7 @@ export function createDemoSubagents(): ArcadiaSubagent[] {
 
   return DEMO_SEEDS.map((seed) => ({
     ...seed,
+    activitySeed: createSubagentActivitySeed(seed),
     voiceId: voices.get(seed.id)!,
     milestones: [],
   }));

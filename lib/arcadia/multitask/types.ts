@@ -21,6 +21,8 @@ export type ArcadiaSubagent = {
   /** One-line character framing shown in the condensed card. */
   blurb: string;
   goal: string;
+  /** Hashed starting context, retained when assignments and live progress change. */
+  readonly activitySeed?: string;
   /** Latest progress narrative the Speak session should know. */
   progress: string;
   /** Percent 0–100 for the condensed meter; narrative is in `progress`. */

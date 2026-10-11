@@ -64,6 +64,7 @@ function SubagentCompactCard({
           className="size-7 rounded-md"
           imageUrl={agent.identityImageUrl}
           name={agent.name}
+          seed={agent.activitySeed ?? agent.id}
           size="sm"
           state={agent.status === "done" ? "complete" : agent.status}
         />
