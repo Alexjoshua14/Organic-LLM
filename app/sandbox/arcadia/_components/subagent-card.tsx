@@ -80,7 +80,7 @@ export function SubagentCard({
             <div className="flex items-start justify-between gap-2">
               <div className="min-w-0">
                 <div className="flex items-center gap-2">
-                  <h3 className="truncate font-semibold tracking-tight text-foreground">
+                  <h3 className="truncate font-semibold leading-tight tracking-tight text-foreground">
                     {agent.name}
                   </h3>
                   {speaking ? (
@@ -90,11 +90,11 @@ export function SubagentCard({
                     </span>
                   ) : null}
                 </div>
-                <p className="mt-0.5 text-[11px] uppercase tracking-wide text-muted-foreground">
+                <p className="mt-px text-[11px] leading-tight uppercase tracking-wide text-muted-foreground">
                   {agent.role}
                 </p>
                 <p
-                  className="mt-1 truncate text-[11px] leading-snug text-muted-foreground/70"
+                  className="mt-px truncate text-[11px] leading-tight text-muted-foreground/70"
                   title={agent.modelId ?? undefined}
                 >
                   <span className="text-muted-foreground/50">LLM · </span>

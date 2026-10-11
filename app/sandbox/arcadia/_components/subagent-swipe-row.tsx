@@ -72,7 +72,7 @@ function SubagentCompactCard({
           <p className="truncate text-sm font-semibold leading-tight tracking-tight">
             {agent.name}
           </p>
-          <p className="flex items-center gap-1 truncate text-[10px] uppercase tracking-wide text-muted-foreground">
+          <p className="flex items-center gap-1 truncate text-[10px] leading-tight uppercase tracking-wide text-muted-foreground">
             <span
               aria-hidden
               className={cn("size-1.5 shrink-0 rounded-full", STATUS_DOT[agent.status])}
@@ -83,7 +83,7 @@ function SubagentCompactCard({
         </div>
       </div>
       <p
-        className="mt-1 truncate text-[10px] leading-snug text-muted-foreground/70"
+        className="mt-0.5 truncate text-[10px] leading-tight text-muted-foreground/70"
         title={agent.modelId ?? undefined}
       >
         <span className="text-muted-foreground/50">LLM · </span>
