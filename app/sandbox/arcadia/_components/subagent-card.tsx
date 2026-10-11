@@ -118,9 +118,6 @@ export function SubagentCard({
           </div>
         </div>
         <p className="mt-2 text-sm leading-snug text-foreground/90">{agent.blurb}</p>
-        <p className="mt-2 line-clamp-2 text-xs leading-relaxed text-muted-foreground">
-          {agent.goal}
-        </p>
         <div className="mt-3">
           <div className="mb-1 flex items-center justify-between text-[10px] uppercase tracking-wide text-muted-foreground">
             <span>Progress</span>
