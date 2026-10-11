@@ -20,12 +20,19 @@ export const ACTIVITY_GLASS_TINTS = {
   amber: "color-mix(in oklch, var(--background) 92%, #b77945)",
 } as const;
 
+const DEFAULT_ACTIVITY_GLASS: ActivityGlassAppearance = {
+  opacity: 0.72,
+  blur: 1.25,
+  brightness: 1,
+  tint: ACTIVITY_GLASS_TINTS.neutral,
+};
+
 export const ACTIVITY_GLASS_BY_STATE: Record<AgentDotState, ActivityGlassAppearance> = {
-  idle: { opacity: 0.32, blur: 10, brightness: 1, tint: ACTIVITY_GLASS_TINTS.neutral },
-  working: { opacity: 0.28, blur: 4, brightness: 1.08, tint: ACTIVITY_GLASS_TINTS.organic },
-  waiting: { opacity: 0.38, blur: 8, brightness: 1, tint: ACTIVITY_GLASS_TINTS.neutral },
-  blocked: { opacity: 0.44, blur: 10, brightness: 0.96, tint: ACTIVITY_GLASS_TINTS.amber },
-  complete: { opacity: 0.32, blur: 6, brightness: 1.04, tint: ACTIVITY_GLASS_TINTS.organic },
+  idle: { ...DEFAULT_ACTIVITY_GLASS },
+  working: { opacity: 0.28, blur: 0.5, brightness: 1.08, tint: ACTIVITY_GLASS_TINTS.organic },
+  waiting: { ...DEFAULT_ACTIVITY_GLASS },
+  blocked: { ...DEFAULT_ACTIVITY_GLASS, tint: ACTIVITY_GLASS_TINTS.amber },
+  complete: { ...DEFAULT_ACTIVITY_GLASS },
 };
 
 /** One state selects both layers; overrides only change the material for that state. */

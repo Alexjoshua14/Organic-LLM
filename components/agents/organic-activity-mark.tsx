@@ -2,6 +2,7 @@
 
 import type { AgentDotState } from "./agent-dot-grid";
 import type { ActivityGlassByState } from "./activity-mark-glass";
+import type { GlassDistortionSettings } from "@/components/design-system/glass-backdrop";
 
 import { useRef } from "react";
 
@@ -23,8 +24,10 @@ export type OrganicActivityMarkProps = {
   renderer?: "auto" | "v0";
   /** Per-state material tuning; the glass always follows the same state as the dots. */
   glassByState?: ActivityGlassByState;
-  /** Static refraction of the dot/image layer beneath the cover; off by default. */
+  /** Static refraction of the dot/image layer beneath the cover; on by default for agents. */
   glassDistortion?: boolean;
+  /** Bounded strength, frequency and smoothness for optional refraction. */
+  glassDistortionSettings?: Partial<GlassDistortionSettings>;
   /** Opt-in prototype profiling group; ordinary marks incur no per-instance timing. */
   performanceId?: string;
   /** Compatibility with existing stored identity images, inside the lower layer. */
@@ -42,7 +45,8 @@ export function OrganicActivityMark({
   className,
   renderer = "auto",
   glassByState,
-  glassDistortion = false,
+  glassDistortion = true,
+  glassDistortionSettings,
   performanceId,
   imageUrl,
 }: OrganicActivityMarkProps) {
@@ -75,6 +79,7 @@ export function OrganicActivityMark({
           data-activity-layer="base"
           data-activity-state={state}
           distortion={glassDistortion}
+          distortionSettings={glassDistortionSettings}
           style={{ zIndex: 0 }}
         >
           {imageUrl ? (
@@ -106,3 +111,4 @@ export function OrganicActivityMark({
 
 export type { AgentDotState };
 export type { ActivityGlassAppearance, ActivityGlassByState } from "./activity-mark-glass";
+export type { GlassDistortionSettings };

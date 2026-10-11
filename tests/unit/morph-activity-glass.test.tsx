@@ -122,9 +122,9 @@ test("the actual cover hydrates a stable baseline, springs CSS values and stops 
   });
   const markup = renderToString(<MorphActivityGlass appearance={initial} state="idle" />);
   expect(markup).toBe(renderToString(<MorphActivityGlass appearance={initial} state="idle" />));
-  expect(markup).toContain("--activity-glass-blur:10px");
-  expect(markup).toContain("backdrop-filter:blur(10px) brightness(1)");
-  expect(markup).toContain("-webkit-backdrop-filter:blur(10px) brightness(1)");
+  expect(markup).toContain("--activity-glass-blur:1.25px");
+  expect(markup).toContain("backdrop-filter:blur(1.25px) brightness(1)");
+  expect(markup).toContain("-webkit-backdrop-filter:blur(1.25px) brightness(1)");
   const view = render(
     <MorphActivityGlass
       appearance={initial}
@@ -146,19 +146,21 @@ test("the actual cover hydrates a stable baseline, springs CSS values and stops 
   );
   expect(view.container.firstElementChild).toBe(cover);
   expect(cover.dataset.activityState).toBe("working");
-  expect(cover.style.getPropertyValue("--activity-glass-blur")).toBe("10px");
+  expect(cover.style.getPropertyValue("--activity-glass-blur")).toBe("1.25px");
   fixture.frame(16);
   const blur = Number.parseFloat(cover.style.getPropertyValue("--activity-glass-blur"));
-  expect(blur).toBeGreaterThan(4);
-  expect(blur).toBeLessThan(10);
+  expect(blur).toBeGreaterThan(0.5);
+  expect(blur).toBeLessThan(1.25);
   expect(cover.style.getPropertyValue("backdrop-filter")).toStartWith(`blur(${blur}px)`);
   expect(
     Number.parseFloat(cover.style.getPropertyValue("--activity-glass-brightness"))
   ).toBeGreaterThan(1);
   for (let frame = 0; frame < 200 && fixture.frames.size; frame++) fixture.frame(16);
-  expect(cover.style.getPropertyValue("--activity-glass-blur")).toBe("4px");
+  expect(cover.style.getPropertyValue("--activity-glass-blur")).toBe("0.5px");
   expect(cover.style.getPropertyValue("--activity-glass-brightness")).toBe("1.08");
-  expect(cover.style.getPropertyValue("backdrop-filter")).toStartWith("blur(4px) brightness(1.08)");
+  expect(cover.style.getPropertyValue("backdrop-filter")).toStartWith(
+    "blur(0.5px) brightness(1.08)"
+  );
   expect(fixture.frames.size).toBe(0);
   expect(profiledUpdates).toBeGreaterThan(0);
 
@@ -202,18 +204,18 @@ test("the cover spring paints the composed background and never adds a second ba
   );
   const view = render(content());
   show();
-  expect(background.current!.style.filter).toBe("blur(10px) brightness(1) saturate(1.12)");
+  expect(background.current!.style.filter).toBe("blur(1.25px) brightness(1) saturate(1.12)");
   view.rerender(content(target));
   fixture.frame(16);
   const cover = view.container.querySelector<HTMLElement>('[data-activity-layer="glass"]')!;
   const blur = Number.parseFloat(cover.style.getPropertyValue("--activity-glass-blur"));
-  expect(blur).toBeGreaterThan(4);
-  expect(blur).toBeLessThan(10);
+  expect(blur).toBeGreaterThan(0.5);
+  expect(blur).toBeLessThan(1.25);
   expect(background.current!.style.filter).toStartWith(`blur(${blur}px)`);
   expect(cover.style.getPropertyValue("backdrop-filter")).toBe("none");
   expect(background.current!.contains(view.getByTestId("noise"))).toBe(true);
   for (let frame = 0; frame < 200 && fixture.frames.size; frame++) fixture.frame(16);
-  expect(background.current!.style.filter).toBe("blur(4px) brightness(1.08) saturate(1.12)");
+  expect(background.current!.style.filter).toBe("blur(0.5px) brightness(1.08) saturate(1.12)");
   expect(fixture.frames.size).toBe(0);
 });
 
@@ -275,7 +277,7 @@ test("reduced motion and same-tab/cross-tab lightweight settings snap to the tar
     media.dispatchEvent(new window.Event("change"));
   });
   const cover = view.container.firstElementChild as HTMLElement;
-  expect(cover.style.getPropertyValue("--activity-glass-blur")).toBe("4px");
+  expect(cover.style.getPropertyValue("--activity-glass-blur")).toBe("0.5px");
   expect(fixture.frames.size).toBe(0);
   reduced = false;
   media.dispatchEvent(new window.Event("change"));
@@ -289,7 +291,7 @@ test("reduced motion and same-tab/cross-tab lightweight settings snap to the tar
   expect(fixture.frames.size).toBe(1);
   setSettings({ lightweightMode: true });
   expect(getSettings().lightweightMode).toBe(true);
-  expect(cover.style.getPropertyValue("--activity-glass-blur")).toBe("10px");
+  expect(cover.style.getPropertyValue("--activity-glass-blur")).toBe("1.25px");
   expect(fixture.frames.size).toBe(0);
   localStorage.setItem(USER_SETTINGS_STORAGE_KEY, JSON.stringify({ lightweightMode: false }));
   window.dispatchEvent(new window.StorageEvent("storage", { key: USER_SETTINGS_STORAGE_KEY }));
@@ -304,7 +306,7 @@ test("reduced motion and same-tab/cross-tab lightweight settings snap to the tar
   localStorage.setItem(USER_SETTINGS_STORAGE_KEY, JSON.stringify({ lightweightMode: true }));
   window.dispatchEvent(new window.StorageEvent("storage", { key: USER_SETTINGS_STORAGE_KEY }));
   expect(fixture.frames.size).toBe(0);
-  expect(cover.style.getPropertyValue("--activity-glass-blur")).toBe("4px");
+  expect(cover.style.getPropertyValue("--activity-glass-blur")).toBe("0.5px");
 });
 
 test("scheduler failure settles the cover explicitly, leaving no animation retry loop", () => {
@@ -331,7 +333,7 @@ test("scheduler failure settles the cover explicitly, leaving no animation retry
   expect(fixture.scheduler.failure).toBe("engine-error");
   expect(fixture.frames.size).toBe(0);
   const cover = view.container.firstElementChild as HTMLElement;
-  expect(cover.style.getPropertyValue("--activity-glass-blur")).toBe("4px");
+  expect(cover.style.getPropertyValue("--activity-glass-blur")).toBe("0.5px");
   view.rerender(
     <MorphActivityGlass
       appearance={activityGlassForState("idle")}
@@ -339,6 +341,6 @@ test("scheduler failure settles the cover explicitly, leaving no animation retry
       scheduler={fixture.scheduler}
     />
   );
-  expect(cover.style.getPropertyValue("--activity-glass-blur")).toBe("10px");
+  expect(cover.style.getPropertyValue("--activity-glass-blur")).toBe("1.25px");
   expect(fixture.frames.size).toBe(0);
 });

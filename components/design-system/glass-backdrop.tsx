@@ -10,8 +10,32 @@ import { cn } from "@/lib/utils";
 import { getSettings, USER_SETTINGS_STORAGE_KEY } from "@/lib/user-settings";
 
 // Broad, static bends; keep the two-octave noise out of the animation loop.
-const DISTORTION_FREQUENCY = 0.035;
-const DISTORTION_SCALE = 6;
+export type GlassDistortionSettings = {
+  /** Displacement distance in CSS pixels. */
+  strength: number;
+  /** Spatial frequency of the static fractal noise. */
+  frequency: number;
+  /** Blur radius of the displacement map, not the backdrop. */
+  softness: number;
+};
+export const GLASS_DISTORTION_DEFAULTS: GlassDistortionSettings = {
+  strength: 6,
+  frequency: 0.035,
+  softness: 2.5,
+};
+export const GLASS_DISTORTION_BOUNDS = {
+  strength: [0, 20],
+  frequency: [0.005, 0.12],
+  softness: [0, 5],
+} as const;
+
+function distortionValue(key: keyof GlassDistortionSettings, value?: number): number {
+  const [min, max] = GLASS_DISTORTION_BOUNDS[key];
+
+  return value !== undefined && Number.isFinite(value)
+    ? Math.max(min, Math.min(max, value))
+    : GLASS_DISTORTION_DEFAULTS[key];
+}
 const DISTORTION_PREFERENCES = [
   "(prefers-reduced-motion: reduce)",
   "(prefers-reduced-transparency: reduce)",
@@ -21,11 +45,14 @@ const DISTORTION_PREFERENCES = [
 export type GlassBackdropProps = ComponentProps<"div"> & {
   /** Refract this owned background beneath a separate glass() cover. Off by default. */
   distortion?: boolean;
+  /** Optional tuning, bounded to the prototype's safe material ranges. */
+  distortionSettings?: Partial<GlassDistortionSettings>;
 };
 
 /** Safari-compatible refraction of owned background content, leaving foreground UI untouched. */
 export function GlassBackdrop({
   distortion = false,
+  distortionSettings,
   children,
   className,
   style,
@@ -89,9 +116,10 @@ export function GlassBackdrop({
     >
       {active ? (
         <OrganicGlassRefractFilterSvg
-          baseFrequency={DISTORTION_FREQUENCY}
+          baseFrequency={distortionValue("frequency", distortionSettings?.frequency)}
           id={filterId}
-          scale={DISTORTION_SCALE}
+          scale={distortionValue("strength", distortionSettings?.strength)}
+          softness={distortionValue("softness", distortionSettings?.softness)}
         />
       ) : null}
       {children}

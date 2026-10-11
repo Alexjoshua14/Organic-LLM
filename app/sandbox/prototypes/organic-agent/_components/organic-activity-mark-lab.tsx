@@ -5,8 +5,10 @@ import type {
   ActivityGlassByState,
   ActivityGlassAppearance,
 } from "@/components/agents/organic-activity-mark";
+import type { GlassDistortionSettings } from "@/components/design-system/glass-backdrop";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import { Check, Copy } from "lucide-react";
 
 import { ActivityPerformancePanel } from "./activity-performance-panel";
 
@@ -18,6 +20,10 @@ import {
 } from "@/components/agents/activity-mark-glass";
 import { glass } from "@/components/design-system/primitives";
 import { Switch } from "@/components/design-system/switch";
+import {
+  GLASS_DISTORTION_BOUNDS,
+  GLASS_DISTORTION_DEFAULTS,
+} from "@/components/design-system/glass-backdrop";
 import Page from "@/components/layout/page";
 import { PageContentFrame, PageNavBack } from "@/components/layout/page-content-frame";
 import { cn } from "@/lib/utils";
@@ -45,6 +51,11 @@ const MODES: { value: PreviewMode; label: string }[] = [
 ];
 const BUTTON_CLASS =
   "min-h-10 rounded-lg px-3 text-xs font-medium text-muted-foreground hover:bg-foreground/5 hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent";
+const DISTORTION_CONTROLS = [
+  { key: "strength", label: "Distortion strength", step: 0.5, unit: "px" },
+  { key: "frequency", label: "Noise frequency", step: 0.001, unit: "" },
+  { key: "softness", label: "Noise smoothness", step: 0.25, unit: "px" },
+] as const;
 
 function MarkPreview({
   state,
@@ -54,6 +65,7 @@ function MarkPreview({
   replay,
   glassByState,
   glassDistortion,
+  glassDistortionSettings,
 }: {
   state: AgentDotState;
   size: PreviewSize;
@@ -62,6 +74,7 @@ function MarkPreview({
   replay: number;
   glassByState: ActivityGlassByState;
   glassDistortion: boolean;
+  glassDistortionSettings: GlassDistortionSettings;
 }) {
   const ref = useRef<HTMLDivElement>(null);
   const performanceId = `${state}-${renderer}`;
@@ -95,6 +108,7 @@ function MarkPreview({
           className={SIZES[size].className}
           glassByState={glassByState}
           glassDistortion={glassDistortion}
+          glassDistortionSettings={glassDistortionSettings}
           performanceId={performanceId}
           label={`${renderer === "auto" ? "Adaptive" : "Original"} ${state} activity mark`}
           renderer={renderer}
@@ -118,7 +132,10 @@ export function OrganicActivityMarkLab() {
   const [transitionState, setTransitionState] = useState<AgentDotState>("idle");
   const [glassState, setGlassState] = useState<AgentDotState>("working");
   const [glassByState, setGlassByState] = useState<ActivityGlassByState>({});
-  const [glassDistortion, setGlassDistortion] = useState(false);
+  const [glassDistortion, setGlassDistortion] = useState(true);
+  const [glassDistortionSettings, setGlassDistortionSettings] = useState(GLASS_DISTORTION_DEFAULTS);
+  const [copyStatus, setCopyStatus] = useState<"idle" | "copied" | "failed">("idle");
+  const copyAttempt = useRef(0);
   const previewsRef = useRef<HTMLElement>(null);
   const performanceVariants = useMemo(
     () =>
@@ -131,6 +148,33 @@ export function OrganicActivityMarkLab() {
     [mode]
   );
   const glassAppearance = activityGlassForState(glassState, glassByState);
+  const indent = (value: object) => JSON.stringify(value, null, 2).replace(/\n/g, "\n  ");
+  const styleSnippet = `<OrganicActivityMark
+  state=${JSON.stringify(glassState)}
+  glassByState={${indent({ [glassState]: glassAppearance })}}
+  glassDistortion={${glassDistortion}}
+  glassDistortionSettings={${indent(glassDistortionSettings)}}
+/>`;
+  const copyStyle = async () => {
+    const attempt = ++copyAttempt.current;
+
+    try {
+      // Invoke directly from the click; Safari requires clipboard writes within user activation.
+      await navigator.clipboard.writeText(styleSnippet);
+      if (attempt === copyAttempt.current) setCopyStatus("copied");
+    } catch {
+      if (attempt === copyAttempt.current) setCopyStatus("failed");
+    }
+  };
+
+  useEffect(() => {
+    copyAttempt.current++;
+    setCopyStatus("idle");
+
+    return () => {
+      copyAttempt.current++;
+    };
+  }, [glassState, glassByState, glassDistortion, glassDistortionSettings]);
   const seed = `organic-agent-lab-${pattern}`;
   const updateGlass = (appearance: Partial<ActivityGlassAppearance>) => {
     setGlassByState((previous) => ({
@@ -258,6 +302,28 @@ export function OrganicActivityMarkLab() {
               >
                 Reset
               </button>
+              <button
+                className={cn(
+                  BUTTON_CLASS,
+                  "flex min-h-8 min-w-24 items-center justify-center gap-1.5 px-2 text-[11px]"
+                )}
+                type="button"
+                onClick={copyStyle}
+              >
+                {copyStatus === "copied" ? (
+                  <Check aria-hidden className="size-3" />
+                ) : (
+                  <Copy aria-hidden className="size-3" />
+                )}
+                {copyStatus === "copied" ? "Copied" : "Copy style"}
+              </button>
+              <span aria-live="polite" className="sr-only">
+                {copyStatus === "copied"
+                  ? "Style copied to clipboard"
+                  : copyStatus === "failed"
+                    ? "Clipboard unavailable"
+                    : ""}
+              </span>
             </div>
             <div className="mt-2 grid grid-cols-2 items-center gap-x-4 gap-y-2 md:grid-cols-4">
               <label className="min-w-0 text-[11px] text-muted-foreground">
@@ -325,6 +391,53 @@ export function OrganicActivityMarkLab() {
                 </select>
               </label>
             </div>
+            {glassDistortion ? (
+              <div className="mt-2 grid grid-cols-2 items-center gap-x-4 gap-y-2 border-t border-border/30 pt-2 md:grid-cols-3">
+                {DISTORTION_CONTROLS.map(({ key, label, step, unit }) => (
+                  <label key={key} className="min-w-0 text-[11px] text-muted-foreground">
+                    <span className="flex items-center justify-between gap-2">
+                      {label}
+                      <span className="tabular-nums text-foreground">
+                        {key === "frequency"
+                          ? glassDistortionSettings[key].toFixed(3)
+                          : glassDistortionSettings[key]}
+                        {unit}
+                      </span>
+                    </span>
+                    <input
+                      aria-label={label}
+                      className="mt-1 h-8 w-full cursor-pointer accent-accent sm:h-6"
+                      type="range"
+                      min={GLASS_DISTORTION_BOUNDS[key][0]}
+                      max={GLASS_DISTORTION_BOUNDS[key][1]}
+                      step={step}
+                      value={glassDistortionSettings[key]}
+                      onChange={(event) =>
+                        setGlassDistortionSettings((previous) => ({
+                          ...previous,
+                          [key]: Number(event.target.value),
+                        }))
+                      }
+                    />
+                  </label>
+                ))}
+              </div>
+            ) : null}
+            {copyStatus === "failed" ? (
+              <label className="mt-2 block text-[11px] text-muted-foreground">
+                Clipboard unavailable. Select and copy the style below.
+                <textarea
+                  aria-label="Style to copy"
+                  className={cn(
+                    glass({ chip: true }),
+                    "mt-1 h-40 w-full resize-y rounded-lg p-2 font-mono text-[11px] text-foreground"
+                  )}
+                  readOnly
+                  value={styleSnippet}
+                  onFocus={(event) => event.currentTarget.select()}
+                />
+              </label>
+            ) : null}
           </section>
 
           <section
@@ -341,6 +454,7 @@ export function OrganicActivityMarkLab() {
                 <MarkPreview
                   glassByState={glassByState}
                   glassDistortion={glassDistortion}
+                  glassDistortionSettings={glassDistortionSettings}
                   renderer={mode === "v0" ? "v0" : "auto"}
                   replay={state === "complete" ? replay : 0}
                   seed={seed}
@@ -352,6 +466,7 @@ export function OrganicActivityMarkLab() {
                     <MarkPreview
                       glassByState={glassByState}
                       glassDistortion={glassDistortion}
+                      glassDistortionSettings={glassDistortionSettings}
                       renderer="v0"
                       replay={state === "complete" ? replay : 0}
                       seed={seed}
@@ -367,7 +482,7 @@ export function OrganicActivityMarkLab() {
             ))}
           </section>
           <ActivityPerformancePanel
-            key={`${mode}-${size}-${pattern}-${glassDistortion}`}
+            key={`${mode}-${size}-${pattern}-${glassDistortion}-${glassDistortionSettings.strength}-${glassDistortionSettings.frequency}-${glassDistortionSettings.softness}`}
             previewRef={previewsRef}
             variants={performanceVariants}
           />
@@ -414,6 +529,7 @@ export function OrganicActivityMarkLab() {
               <MarkPreview
                 glassByState={glassByState}
                 glassDistortion={glassDistortion}
+                glassDistortionSettings={glassDistortionSettings}
                 renderer={mode === "v0" ? "v0" : "auto"}
                 replay={transitionReplay}
                 seed={seed}
@@ -424,6 +540,7 @@ export function OrganicActivityMarkLab() {
                 <MarkPreview
                   glassByState={glassByState}
                   glassDistortion={glassDistortion}
+                  glassDistortionSettings={glassDistortionSettings}
                   renderer="v0"
                   replay={transitionReplay}
                   seed={seed}

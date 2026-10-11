@@ -294,7 +294,7 @@ test("the glass cover and SVG fill one local stack; stored identity images remai
   expect(noise.style.zIndex).toBe("1");
   expect(background.contains(base)).toBe(true);
   expect(background.contains(noise)).toBe(true);
-  expect(background.style.filter).toStartWith("blur(4px)");
+  expect(background.style.filter).toStartWith("blur(0.5px)");
   const cover = mark.lastElementChild as HTMLElement;
   expect(cover.classList.contains("organic-glass-smoke")).toBe(true);
   expect(cover.classList.contains("inset-0")).toBe(true);
@@ -314,7 +314,7 @@ test("one owner state synchronizes dots and glass while per-state material overr
   const base = mark.querySelector<HTMLElement>('[data-activity-layer="base"]')!;
   const noise = mark.querySelector<HTMLElement>('[data-activity-layer="noise"]')!;
   const cover = mark.lastElementChild as HTMLElement;
-  expect(cover.style.getPropertyValue("--activity-glass-blur")).toBe("4px");
+  expect(cover.style.getPropertyValue("--activity-glass-blur")).toBe("0.5px");
   expect(cover.style.getPropertyValue("--activity-glass-brightness")).toBe("1.08");
   expect(Number.parseFloat(cover.style.getPropertyValue("--activity-glass-opacity"))).toBeCloseTo(
     28
@@ -365,8 +365,8 @@ test("one owner state synchronizes dots and glass while per-state material overr
     />
   );
   expect(Number.parseFloat(cover.style.getPropertyValue("--activity-glass-opacity"))).toBeCloseTo(
-    38
+    72
   );
-  expect(cover.style.getPropertyValue("--activity-glass-blur")).toBe("8px");
+  expect(cover.style.getPropertyValue("--activity-glass-blur")).toBe("1.25px");
   expect(cover.style.getPropertyValue("--activity-glass-tint")).toBe("var(--background)");
 });

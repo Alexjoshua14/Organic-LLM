@@ -6,10 +6,12 @@ export function OrganicGlassRefractFilterSvg({
   id = "organic-glass-refract",
   baseFrequency = 0.012,
   scale = 14,
+  softness = 2.5,
 }: {
   id?: string;
   baseFrequency?: number;
   scale?: number;
+  softness?: number;
 } = {}) {
   return (
     <svg
@@ -27,7 +29,7 @@ export function OrganicGlassRefractFilterSvg({
           seed="4"
           type="fractalNoise"
         />
-        <feGaussianBlur in="noise" result="softNoise" stdDeviation="2.5" />
+        <feGaussianBlur in="noise" result="softNoise" stdDeviation={softness} />
         <feDisplacementMap
           in="SourceGraphic"
           in2="softNoise"

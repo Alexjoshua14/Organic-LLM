@@ -16,6 +16,16 @@ import { glass } from "@/components/design-system/primitives";
 ```
 
 `distortion?: boolean` defaults to `false`; ordinary div props are preserved.
+`distortionSettings?: Partial<GlassDistortionSettings>` tunes three numeric fields:
+
+| Field | Default | Range | Meaning |
+|-------|---------|-------|---------|
+| `strength` | 6 | 0–20 | Displacement distance in CSS pixels |
+| `frequency` | .035 | .005–.12 | Spatial frequency of the noise |
+| `softness` | 2.5 | 0–5 | Blur radius of the displacement map |
+
+Finite inputs are bounded; missing or non-finite inputs use the defaults. Smoothness
+softens the displacement map without changing the material's backdrop blur.
 Disabled instances mount no SVG filter. Server output and the first client render
 keep the undistorted source; eligibility is checked after mount. Each enabled
 instance has a stable, unique React ID.
@@ -40,8 +50,12 @@ live, including cross-tab settings changes. CSS parsing support is an eligibilit
 check, not a pixel-rendering test. DOM tests verify delivery, preferences, and
 lifecycle; they do not measure native Safari/Chrome rendering or GPU cost.
 
-`OrganicActivityMark` exposes `glassDistortion?: boolean`, also off by default.
+`OrganicActivityMark` exposes `glassDistortion?: boolean`, on by default for agents,
+and `glassDistortionSettings?: Partial<GlassDistortionSettings>`.
 The **Distortion** switch in `/sandbox/prototypes/organic-agent` applies across all
 states, renderers, and the transition preview without remounting the dot instances.
-Toggling starts a fresh performance sample set. Strong diffusion can obscure the
+Enabling reveals the three compact controls. Toggling or tuning starts a fresh
+performance sample set. **Copy style** exports the selected state's complete
+material and distortion props as JSX, preserving the actual numeric/CSS values.
+Strong diffusion can obscure the
 small bends; use a low blur while inspecting refraction.

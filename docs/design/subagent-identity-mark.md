@@ -49,14 +49,14 @@ comes from `components/agents/activity-mark-glass.ts`.
 
 | State | Material opacity | Blur | Brightness | Tint |
 |-------|------------------|------|------------|------|
-| idle | 32% | 10px | 100% | Theme neutral |
-| working | 28% | 4px | 108% | Theme neutral with 8% Organic accent |
-| waiting | 38% | 8px | 100% | Theme neutral |
-| blocked | 44% | 10px | 96% | Theme neutral with 8% warm amber |
-| complete | 32% | 6px | 104% | Theme neutral with 8% Organic accent |
+| idle | 72% | 1.25px | 100% | Theme neutral |
+| working | 28% | 0.5px | 108% | Theme neutral with 8% Organic accent |
+| waiting | 72% | 1.25px | 100% | Theme neutral |
+| blocked | 72% | 1.25px | 100% | Theme neutral with 8% warm amber |
+| complete | 72% | 1.25px | 100% | Theme neutral |
 
-Idle is the diffused baseline; working clears toward a small 4px radius so the
-active dots become sharper. Brightness applies to the backdrop,
+Idle uses light 1.25px diffusion with 72% material opacity; working uses a 0.5px radius
+and lighter 28% material fill. Brightness applies to the backdrop,
 including the dots and grain, rather than filtering the cover's own border.
 The cover writes the owned group's `filter` directly from each spring pose (blur
 and brightness), with saturation 1.12 matching `glass()`. The SSR baseline uses the
@@ -98,7 +98,7 @@ scheduler failure apply the target immediately. The primitive's reduced-transpar
 and high-contrast CSS rules still override the material and disable backdrop filters.
 Interpolating blur can add GPU/compositing work that the CPU health budget cannot
 attribute or measure directly; the prototype bench exposes the measurable costs.
-The bench's blur slider spans 0–14px; production presets stay at 4–10px. Both
+The bench's blur slider spans 0–14px; production presets stay at 0.5–1.25px. Both
 material targets and actual spring positions use that same bound. Physics component modules opt into Next's
 `// @refresh reset` during development: code edits dispose/remount their spring
 instances rather than preserving hook state from an older effect dependency list.
@@ -215,15 +215,22 @@ changes; selecting Complete again intentionally restarts that pulse. Controls st
 local to the bench and never rewrite user preferences or bypass reduced motion.
 **Glass by state** is an always-visible compact glass strip directly after the size,
 renderer, replay, and pattern controls, above the state previews and performance panel.
-Its header contains the selected state, the global **Distortion** switch, and reset;
+Its header contains the selected state, the global **Distortion** switch, reset,
+and **Copy style**;
 the material controls share a row
 on wider screens and two columns on narrow screens. Tune opacity, backdrop blur,
 brightness, and tint for a selected state. All
 matching previews, including v0 and the transition preview, use that same material
 map without restarting the dots. Reset restores only the selected state's defaults.
-Optional refraction is off by default and uses the shared
+Agent refraction is on by default and uses the shared
 [`GlassBackdrop`](./glass-distortion.md) source filter below the diffused noise and
 cover. Toggling resets performance samples without restarting the dot instances.
+Enabling distortion reveals strength, noise frequency, and noise smoothness controls.
+**Copy style** copies the selected state's complete material and the global distortion
+configuration as ready-to-paste `OrganicActivityMark` JSX. It includes the state,
+opacity, blur, brightness, tint, distortion enabled flag, and all three distortion
+settings. Clipboard writes run directly from the click; unavailable/denied clipboard
+access reveals selectable source text. Editing a control clears the copied feedback.
 
 The performance panel immediately below the state previews samples every 500ms and
 keeps 40 sampling windows (about 20 seconds) of frame-rate, p95 frame-interval,
