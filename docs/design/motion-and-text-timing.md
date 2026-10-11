@@ -257,6 +257,20 @@ to a visible tab. Pending requests hold the line full and do not overlap. Hidden
 panels skip polling. Reduced motion disables the continuous animation; progress and the
 accessible timing label update once per second within the indicator only.
 
+## Usage panel loading
+
+The Usage dialog holds a height of `min(92dvh, 780px)` before and after data arrives; its
+body scrolls independently and keeps a stable scrollbar gutter. Initial loads use a custom
+dashboard skeleton with the same card borders, responsive totals grid, 120px chart, and
+section spacing as the loaded panel. Totals share one card component with a fixed value
+line height, and the chart reserves its date-label row even for empty ranges.
+
+Placeholders use the existing neutral, two-second Tailwind opacity pulse and stop animating
+under reduced motion. They expose one loading announcement, with decorative placeholders
+hidden from assistive technology. They never show fabricated zero usage. Refreshes keep
+the previous dashboard mounted; a failed refresh uses an overlaid retry notice so it does
+not reflow the content. Initial failures retain the same dialog frame.
+
 ## Sources (for re-research)
 
 - [Apple HIG — Motion](https://developer.apple.com/design/human-interface-guidelines/motion)

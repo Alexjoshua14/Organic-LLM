@@ -3,7 +3,7 @@
 import type { BudgetCycleRange } from "@/lib/plans/budget-cycle";
 import type { UsageApiPayload } from "@/lib/usage/types";
 
-import { BarChart3, Loader2 } from "lucide-react";
+import { BarChart3 } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useAuth } from "@clerk/nextjs";
 
@@ -11,7 +11,9 @@ import { PlanAllotmentRow } from "./plan-allotment-row";
 import { PlanStatusCard } from "./plan-status-card";
 import { UsageChart } from "./usage-chart";
 import { UsageModelBreakdown } from "./usage-model-breakdown";
+import { UsagePanelSkeleton, UsageTrackingNote } from "./usage-panel-skeleton";
 import { USAGE_REFRESH_MS, UsageRefreshProgress } from "./usage-refresh-progress";
+import { UsageStatCard } from "./usage-stat-card";
 
 import { glass } from "@/components/design-system/primitives";
 import { Button } from "@/components/third-party/ui/button";
@@ -156,12 +158,12 @@ export function UsageOverlay({ className, triggerClassName }: UsageOverlayProps)
       </DialogTrigger>
 
       <DialogContent
-        className="flex max-h-[min(92dvh,780px)] w-[calc(100%-1.5rem)] flex-col gap-0 overflow-hidden border-0 bg-transparent p-0 shadow-none sm:max-w-2xl"
+        className="flex h-[min(92dvh,780px)] w-[calc(100%-1.5rem)] flex-col gap-0 overflow-hidden border-0 bg-transparent p-0 shadow-none sm:max-w-2xl"
         overlayClassName="bg-black/30 dark:bg-black/80"
       >
         <div
           className={cn(
-            "flex min-h-0 flex-1 flex-col overflow-hidden sm:rounded-lg",
+            "relative flex min-h-0 flex-1 flex-col overflow-hidden sm:rounded-lg",
             glass({ opaque: true }),
             "backdrop-brightness-[1.18] backdrop-saturate-[1.05]",
             "dark:backdrop-brightness-100 dark:backdrop-saturate-[1.12]",
@@ -205,18 +207,20 @@ export function UsageOverlay({ className, triggerClassName }: UsageOverlayProps)
             </div>
           </DialogHeader>
 
-          <div className="min-h-0 flex-1 overflow-y-auto overscroll-y-contain touch-manipulation [scrollbar-gutter:stable]">
+          <div
+            aria-busy={isSignedIn !== false && (loading || (!data && !error))}
+            aria-label="Usage data"
+            className="min-h-0 flex-1 overflow-y-auto overscroll-y-contain touch-manipulation [scrollbar-gutter:stable]"
+            role="region"
+          >
             <div className="space-y-5 px-4 py-4 sm:px-6 sm:py-5">
-              {!isSignedIn ? (
+              {isSignedIn === false ? (
                 <p className="rounded-xl border border-dashed border-border/50 px-4 py-8 text-center text-sm text-muted-foreground">
                   Sign in to track usage across chat and tools.
                 </p>
-              ) : loading && !data ? (
-                <div className="flex items-center justify-center gap-2 py-16 text-sm text-muted-foreground">
-                  <Loader2 className="size-4 animate-spin" />
-                  Loading usage…
-                </div>
-              ) : error ? (
+              ) : !data && (loading || !error) ? (
+                <UsagePanelSkeleton />
+              ) : error && !data ? (
                 <div className="space-y-3 rounded-xl border border-destructive/30 bg-destructive/5 px-4 py-6 text-center">
                   <p className="text-sm text-destructive">{error}</p>
                   <Button size="sm" variant="secondary" onClick={() => void loadUsage(range)}>
@@ -228,17 +232,17 @@ export function UsageOverlay({ className, triggerClassName }: UsageOverlayProps)
                   <PlanStatusCard plan={data.plan} onReset={spendReset} />
 
                   <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-                    <StatCard
+                    <UsageStatCard
                       label="Total tokens"
                       value={formatTokenCount(data.totals.totalTokens)}
                     />
-                    <StatCard label="Tracked cost" value={formatUsd(data.totals.costUsd)} accent />
-                    <StatCard
+                    <UsageStatCard label="Tracked cost" value={formatUsd(data.totals.costUsd)} accent />
+                    <UsageStatCard
                       label="Input"
                       value={formatTokenCount(data.totals.inputTokens)}
                       subtle
                     />
-                    <StatCard
+                    <UsageStatCard
                       label="Output"
                       value={formatTokenCount(data.totals.outputTokens)}
                       subtle
@@ -255,7 +259,7 @@ export function UsageOverlay({ className, triggerClassName }: UsageOverlayProps)
                       </> : <p className="text-muted-foreground">Gateway reporting is unavailable. Tracked cost below is not a complete account bill.</p>}
                     </div>
                   ) : null}
-                  <p className="text-xs text-muted-foreground">Tracked cost uses reported charges when available and estimates otherwise. Some older and auxiliary calls may be missing.</p>
+                  <UsageTrackingNote />
                   <UsageChart daily={data.daily} />
 
                   <PlanAllotmentRow
@@ -274,34 +278,19 @@ export function UsageOverlay({ className, triggerClassName }: UsageOverlayProps)
               ) : null}
             </div>
           </div>
+          {isSignedIn && data && error ? (
+            <div
+              className="absolute inset-x-4 bottom-4 flex items-center justify-between gap-3 rounded-xl border border-destructive/30 bg-background/95 px-3 py-2 shadow-sm sm:inset-x-6"
+              role="status"
+            >
+              <p className="text-xs text-muted-foreground">{error}. Showing previous data.</p>
+              <Button size="sm" variant="secondary" onClick={() => void loadUsage(range)}>
+                Retry refresh
+              </Button>
+            </div>
+          ) : null}
         </div>
       </DialogContent>
     </Dialog>
-  );
-}
-
-function StatCard({
-  label,
-  value,
-  accent,
-  subtle,
-}: {
-  label: string;
-  value: string;
-  accent?: boolean;
-  subtle?: boolean;
-}) {
-  return (
-    <div className="rounded-xl border border-border/50 bg-muted/15 px-3 py-2.5">
-      <p className="text-2xs uppercase tracking-[0.12em] text-muted-foreground/70">{label}</p>
-      <p
-        className={cn(
-          "mt-1 text-lg font-semibold tabular-nums sm:text-xl",
-          accent ? "text-lumen" : subtle ? "text-muted-foreground" : "text-foreground"
-        )}
-      >
-        {value}
-      </p>
-    </div>
   );
 }

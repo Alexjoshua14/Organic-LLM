@@ -90,6 +90,83 @@ async function openUsage() {
 }
 
 describe("usage refresh timing", () => {
+  test("a pending first load shows the dashboard skeleton, not a zero-usage or sign-in state", async () => {
+    let resolve!: (response: Response) => void;
+    fetchSpy.mockImplementation(
+      () =>
+        new Promise<Response>((done) => {
+          resolve = done;
+        })
+    );
+    const view = await openUsage();
+    const panel = view.getByRole("dialog");
+    const content = view.getByRole("region", { name: "Usage data" });
+
+    expect(view.getByText("Loading usage…")).toBeTruthy();
+    expect(content.getAttribute("aria-busy")).toBe("true");
+    expect(view.queryByText("Free plan")).toBeNull();
+    expect(view.queryByText("$0.00")).toBeNull();
+    expect(view.queryByText(/Sign in to track usage/)).toBeNull();
+
+    await act(async () => resolve(Response.json(payload)));
+
+    expect(view.getByRole("dialog")).toBe(panel);
+    expect(view.getByRole("region", { name: "Usage data" })).toBe(content);
+    expect(content.getAttribute("aria-busy")).toBe("false");
+    expect(view.queryByText("Loading usage…")).toBeNull();
+    expect(view.getByText("Free plan")).toBeTruthy();
+  });
+
+  test("a failed background refresh preserves the dashboard and offers a retry without a skeleton", async () => {
+    const view = await openUsage();
+    const plan = view
+      .getByRole("region", { name: "Usage data" })
+      .querySelector('[aria-label="Plan status"]');
+    let resolve!: (response: Response) => void;
+    fetchSpy.mockImplementation(
+      () =>
+        new Promise<Response>((done) => {
+          resolve = done;
+        })
+    );
+
+    await advance(USAGE_REFRESH_MS);
+    expect(view.queryByText("Loading usage…")).toBeNull();
+    expect(view.getByRole("region", { name: "Usage data" }).getAttribute("aria-busy")).toBe("true");
+    expect(view.getByText("Free plan").closest("section")).toBe(plan);
+
+    await act(async () => resolve(Response.json({ error: "Unavailable" }, { status: 503 })));
+    expect(view.getByText(/Showing previous data/)).toBeTruthy();
+    expect(view.getByText("Free plan").closest("section")).toBe(plan);
+    expect(view.queryByText("Loading usage…")).toBeNull();
+
+    await act(async () => fireEvent.click(view.getByRole("button", { name: "Retry refresh" })));
+    expect(view.queryByText(/Showing previous data/)).toBeNull();
+    await act(async () => resolve(Response.json(payload)));
+    expect(view.getByText("Free plan").closest("section")).toBe(plan);
+  });
+
+  test("retrying an initial failure restores the skeleton until data is available", async () => {
+    fetchSpy.mockResolvedValueOnce(Response.json({ error: "Unavailable" }, { status: 503 }));
+    const view = await openUsage();
+    const panel = view.getByRole("dialog");
+    expect(view.getByText("Could not load usage")).toBeTruthy();
+    let resolve!: (response: Response) => void;
+    fetchSpy.mockImplementation(
+      () =>
+        new Promise<Response>((done) => {
+          resolve = done;
+        })
+    );
+
+    await act(async () => fireEvent.click(view.getByRole("button", { name: "Retry" })));
+    expect(view.getByText("Loading usage…")).toBeTruthy();
+    expect(view.getByRole("dialog")).toBe(panel);
+    await act(async () => resolve(Response.json(payload)));
+    expect(view.queryByText("Loading usage…")).toBeNull();
+    expect(view.getByText("Free plan")).toBeTruthy();
+  });
+
   test("the compact header's indicator reaches the actual next refresh and resets", async () => {
     const view = await openUsage();
 
