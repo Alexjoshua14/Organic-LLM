@@ -707,12 +707,13 @@ body.font-theme-commissioner {
 }
 
 /*
- * Organic Glass Frost grain — a once-rasterized SVG noise tile blended over the milk fill.
- * Static texture: the browser rasterizes the data URI a single time, so it adds zero
- * per-frame cost (unlike a live feTurbulence backdrop-filter). This is what separates
+ * Shared frosted-grain tile, also used beneath the activity mark's glass cover.
+ * Static texture: the browser can reuse the rasterized data URI without regenerating
+ * a noise filter per frame (unlike a live feTurbulence backdrop-filter). This separates
  * "blurred panel" from "frosted pane".
  */
-.organic-glass-frost::before {
+.organic-glass-frost::before,
+.organic-activity-grain {
   content: "";
   position: absolute;
   inset: 0;
@@ -726,7 +727,8 @@ body.font-theme-commissioner {
   mix-blend-mode: overlay;
 }
 
-.dark .organic-glass-frost::before {
+.dark .organic-glass-frost::before,
+.dark .organic-activity-grain {
   opacity: 0.07;
 }
 
@@ -820,7 +822,8 @@ body.font-theme-commissioner {
     background: color-mix(in oklch, var(--secondary) 95%, transparent) !important;
   }
 
-  .organic-glass-frost::before {
+  .organic-glass-frost::before,
+  .organic-activity-grain {
     display: none;
   }
 }

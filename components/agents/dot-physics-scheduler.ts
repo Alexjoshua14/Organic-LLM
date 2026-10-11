@@ -1,4 +1,9 @@
 export type DotPhysicsFailure = "frame-rate" | "update-cost" | "engine-error";
+export type ActivityFrameSample = {
+  frameMs: number;
+  updateMs: number;
+  groups: { id: string; updateMs: number; updates: number }[];
+};
 
 const WARMUP_MS = 750;
 const SAMPLE_WINDOW_MS = 2000;
@@ -51,11 +56,12 @@ type SchedulerRuntime = {
   onVisibility: (callback: () => void) => () => void;
 };
 
-/** All independent dot instances share one page-level frame callback and health budget. */
+/** Dot and glass instances share one page-level frame callback and health budget. */
 export class DotPhysicsScheduler {
   failure: DotPhysicsFailure | null = null;
-  private ticks = new Set<(deltaTime: number) => void>();
+  private ticks = new Map<(deltaTime: number) => void, string | undefined>();
   private listeners = new Set<() => void>();
+  private metrics = new Set<(sample: ActivityFrameSample) => void>();
   private frame: number | null = null;
   private lastTime = 0;
   private health = new DotFrameHealth();
@@ -72,9 +78,18 @@ export class DotPhysicsScheduler {
     };
   }
 
-  register(tick: (deltaTime: number) => void): () => void {
+  /** Opt-in lab telemetry; production frames do not time each individual instance. */
+  subscribeMetrics(callback: (sample: ActivityFrameSample) => void): () => void {
+    this.metrics.add(callback);
+
+    return () => {
+      this.metrics.delete(callback);
+    };
+  }
+
+  register(tick: (deltaTime: number) => void, performanceId?: string): () => void {
     if (this.failure) return () => {};
-    this.ticks.add(tick);
+    this.ticks.set(tick, performanceId);
     if (!this.removeVisibility) this.removeVisibility = this.runtime.onVisibility(this.visibility);
     this.start();
 
@@ -128,10 +143,39 @@ export class DotPhysicsScheduler {
 
     try {
       if (!Number.isFinite(dt) || !Number.isFinite(start)) throw new Error("Invalid physics clock");
-      if (dt > 0) this.ticks.forEach((tick) => tick(dt));
-      const failure = dt > 0 ? this.health.sample(dt, this.runtime.now() - start) : null;
+      const groups = this.metrics.size
+        ? new Map<string, { id: string; updateMs: number; updates: number }>()
+        : null;
+
+      if (dt > 0)
+        this.ticks.forEach((id, tick) => {
+          const before = groups && id ? this.runtime.now() : 0;
+
+          tick(dt);
+          if (groups && id) {
+            const group = groups.get(id) ?? { id, updateMs: 0, updates: 0 };
+
+            group.updateMs += Math.max(0, this.runtime.now() - before);
+            group.updates++;
+            groups.set(id, group);
+          }
+        });
+      const updateMs = this.runtime.now() - start;
+      const failure = dt > 0 ? this.health.sample(dt, updateMs) : null;
 
       if (failure) this.fail(failure);
+      if (groups && dt > 0) {
+        const sample = { frameMs: dt, updateMs, groups: [...groups.values()] };
+
+        this.metrics.forEach((listener) => {
+          // A diagnostics view must never break the actual animation engine.
+          try {
+            listener(sample);
+          } catch {
+            this.metrics.delete(listener);
+          }
+        });
+      }
       if (!this.failure && this.ticks.size) this.frame = this.runtime.requestFrame(this.tick);
     } catch {
       this.fail("engine-error");

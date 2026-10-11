@@ -3,16 +3,21 @@
 The empty identity slot in full and compact Arcadia cards uses a locally isolated,
 layered mark. Existing stored identity images render inside the same lower layer,
 with the glass cover above them as well.
-These are the first two layers of the user-directed redesign; further layers are pending.
+These are the first three layers of the user-directed redesign; further layers are pending.
 
 - **z-0:** a full-size HTML layer containing an adaptive full-size SVG with 18
   dots in six rows: 1, 3, 5, 5, 3, 1 (or the existing identity image when present).
-- **z-1:** a full-cover, absolutely positioned `glass()` surface. Its existing blur,
-  tint, and border provide diffusion; the consumer adds positioning and inherited
-  rounding, without another material or filter.
+- **z-1:** a subtle static monochrome noise layer, reusing Organic Glass Frost's
+  tiled SVG texture at .05 opacity (.07 in dark mode). It has no animation loop.
+- **z-2:** a full-cover, absolutely positioned `glass()` surface. Material alpha,
+  blur, brightness, and tint follow the same owner state as the dots. It retains the primitive's
+  border, saturation, theme colors, and accessibility fallbacks.
 
-The two layers are HTML siblings with explicit local z-indices. The cover always
-renders last, above the lower layer; nested SVG/glass content cannot paint above it.
+The three layers are HTML siblings with explicit local z-indices. The cover always
+renders last, above the dots and noise; nested SVG/glass content cannot paint above it.
+The cover diffuses both lower layers. Noise is hidden under reduced transparency or
+increased contrast and adds no per-frame JavaScript; its raster/compositing cost is
+not covered by the CPU spring benchmark.
 
 [`OrganicActivityMark`](../../components/agents/organic-activity-mark.tsx) owns the
 entire stack. Other app surfaces render this single component; `SubagentIdentityMark`
@@ -29,6 +34,64 @@ An optional `label` gives the mark image semantics; otherwise it is decorative.
 Callers do not need to mount filters, schedule animation, or arrange layers.
 `renderer="v0"` selects the original grid for lab comparisons; the default `"auto"`
 retains all preference and performance safeguards.
+
+## Glass follows the owner state
+
+`OrganicActivityMark` sends its single `state` to both the dot renderer and the glass
+cover in the same render. There is no separate glass state or state-change timer.
+The top cover stays mounted at z-2 across state and renderer changes; its material
+comes from `components/agents/activity-mark-glass.ts`.
+
+| State | Material opacity | Blur | Brightness | Tint |
+|-------|------------------|------|------------|------|
+| idle | 32% | 10px | 100% | Theme neutral |
+| working | 28% | 4px | 108% | Theme neutral with 8% Organic accent |
+| waiting | 38% | 8px | 100% | Theme neutral |
+| blocked | 44% | 10px | 96% | Theme neutral with 8% warm amber |
+| complete | 32% | 6px | 104% | Theme neutral with 8% Organic accent |
+
+Idle is the diffused baseline; working clears toward a small 4px radius so the
+active dots become sharper. Brightness applies to the backdrop,
+including the dots and grain, rather than filtering the cover's own border.
+Opacity means material
+fill alpha, rather than opacity on the whole filtering element; the backdrop filter
+remains fully active. Tint uses the existing theme/Organic accent and the warm amber
+already used in Organic's agent UI. These are local material presets, not changes to
+the shared glass primitive.
+
+The optional `glassByState` prop overrides any material fields for any state:
+
+```tsx
+<OrganicActivityMark
+  state="waiting"
+  glassByState={{ waiting: { opacity: 0.3, blur: 4, brightness: 1, tint: "var(--background)" } }}
+/>
+```
+
+Material alpha is bounded to 0–1, blur to 0–200px, and brightness to 0–2;
+non-finite values and empty tint fall back to that state's defaults. Tint accepts
+a CSS color and follows state selection directly. These bounds apply to actual
+spring positions as well as targets.
+
+`MorphActivityGlass` owns one material-only `GlassMorphPhysics` instance using the
+existing package's scalar `solveSpring`; the layout hook accepts geometry only.
+Blur, alpha, and brightness spring together without per-frame React renders or
+CSS transitions competing with the solver. Retargeting preserves velocity.
+The critically damped spring uses stiffness 400, damping 40, mass 1, precision .001:
+most of the transition happens within roughly 250ms, then quietly settles. Integration
+uses the same bounded 50ms frames and 1/120-second maximum substeps as the dots.
+The shared page-level scheduler includes cover DOM writes in its health budget;
+settled covers unregister entirely. Offscreen and hidden-tab work pauses. Reduced
+motion, Lightweight Mode, unsupported APIs, preference-read failures, or a latched
+scheduler failure apply the target immediately. The primitive's reduced-transparency
+and high-contrast CSS rules still override the material and disable backdrop filters.
+Interpolating blur can add GPU/compositing work that the CPU health budget cannot
+attribute or measure directly; the prototype bench exposes the measurable costs.
+The bench's blur slider deliberately permits very strong diffusion up to 200px;
+production presets stay at 4–10px. Physics component modules opt into Next's
+`// @refresh reset` during development: code edits dispose/remount their spring
+instances rather than preserving hook state from an older effect dependency list.
+Normal runtime state changes preserve velocity and mounted cover identity.
 
 Dots have a native SVG circle and an embedded HTML `glass()` surface using
 `foreignObject`: HTML background/backdrop utilities do not paint SVG circles.
@@ -130,6 +193,31 @@ a new seed. Each preview reports the renderer actually mounted, including fallba
 The separate transition preview keeps the same instances and velocity as its state
 changes; selecting Complete again intentionally restarts that pulse. Controls stay
 local to the bench and never rewrite user preferences or bypass reduced motion.
+Open **Glass by state** to tune opacity, blur, brightness, and tint for a selected state. All
+matching previews, including v0 and the transition preview, use that same material
+map without restarting the dots. Reset restores only the selected state's defaults.
+
+The performance panel immediately below the state previews samples every 500ms and
+keeps 20 seconds of frame-rate, p95 frame-interval, and combined animation-JS history.
+All three graphs remain side by side even at phone widths; compact metric rows and
+per-preview relative-cost bars preserve the same measurements in a smaller panel.
+It uses the device's actual RAF cadence, with 60fps/16.7ms reference guides, rather
+than assuming the display runs at 60Hz. The animation-JS guide is 4ms; the automatic
+fallback uses **mean** update cost across two poor health windows, while this chart
+shows p95. Long tasks (at least 50ms) are counted when the browser supports that API;
+unsupported measurement is shown explicitly. Hidden-tab gaps are excluded.
+
+Opt-in `performanceId` tags group independent dots and cover updates into one CPU
+sample per active frame per preview. The table reports mean/p95 costs, sample counts,
+actual mounted renderer, and relative p95 bars. v0 native animation is unmeasured;
+only any glass-transition JavaScript is attributed to that variant. Missing samples
+stay unknown rather than becoming fabricated zeros. Profiling is local to the bench,
+has Pause/Clear controls, resets when size/renderer/pattern changes, and adds no
+per-instance timing to production marks unless a metrics subscriber is present.
+The transition preview participates in combined page cost but has no table group.
+These readings include profiling overhead and DOM writes, exclude browser rendering,
+GPU blur/compositing and battery, and do not give per-variant rendered FPS. Comparing
+GPU/rendering cost still requires isolating a variant with browser profiling.
 
 The bench follows the existing LLM-states catalog's production-component fixtures,
 the glass lab's paired comparison pattern, and the design backbone's reserved-space

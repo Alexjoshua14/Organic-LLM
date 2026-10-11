@@ -1,5 +1,8 @@
 "use client";
 
+// @refresh reset
+// Stateful spring instances must remount when their effect setup changes during dev refresh.
+
 import type { AgentDotState } from "./agent-dot-grid-motion";
 import type { DotPhysicsScheduler } from "./dot-physics-scheduler";
 
@@ -18,12 +21,14 @@ function PhysicsDot({
   index,
   active,
   scheduler,
+  performanceId,
 }: {
   state: AgentDotState;
   seed: string;
   index: number;
   active: boolean;
   scheduler: DotPhysicsScheduler;
+  performanceId?: string;
 }) {
   const ref = useRef<SVGGElement>(null);
   const physics = useRef<DotMorphPhysics | null>(null);
@@ -46,10 +51,10 @@ function PhysicsDot({
       element.style.transform = `translate(${x}px, ${y}px) scale(${scale})`;
       element.style.opacity = String(dotOpacity(scale));
       if (instance.complete) remove();
-    });
+    }, performanceId);
 
     return remove;
-  }, [active, state, restScale, index, scheduler]);
+  }, [active, state, restScale, index, scheduler, performanceId]);
 
   const dot = AGENT_DOTS[index]!;
 
@@ -77,11 +82,13 @@ export function PhysicsAgentDotGrid({
   seed = "organic-agent-dots",
   onFailure,
   scheduler = dotPhysicsScheduler,
+  performanceId,
 }: {
   state?: AgentDotState;
   seed?: string;
   onFailure: () => void;
   scheduler?: DotPhysicsScheduler;
+  performanceId?: string;
 }) {
   const ref = useRef<SVGSVGElement>(null);
   const [active, setActive] = useState(false);
@@ -120,6 +127,7 @@ export function PhysicsAgentDotGrid({
           active={active}
           index={index}
           scheduler={scheduler}
+          performanceId={performanceId}
           seed={seed}
           state={state}
         />

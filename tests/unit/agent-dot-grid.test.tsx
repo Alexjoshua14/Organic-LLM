@@ -23,6 +23,7 @@ const originalAnimate = Object.getOwnPropertyDescriptor(Element.prototype, "anim
 const originalMedia = Object.getOwnPropertyDescriptor(window, "matchMedia");
 const originalObserver = Object.getOwnPropertyDescriptor(globalThis, "IntersectionObserver");
 const originalHidden = Object.getOwnPropertyDescriptor(document, "hidden");
+const originalRaf = Object.getOwnPropertyDescriptor(window, "requestAnimationFrame");
 let reduced = false;
 let mediaEvents: EventTarget;
 let intersection: IntersectionObserverCallback;
@@ -84,6 +85,7 @@ afterEach(() => {
   restore(window, "matchMedia", originalMedia);
   restore(globalThis, "IntersectionObserver", originalObserver);
   restore(document, "hidden", originalHidden);
+  restore(window, "requestAnimationFrame", originalRaf);
 });
 
 test("the SVG has the requested 1/3/5/5/3/1 grid and stable server markup", () => {
@@ -250,13 +252,81 @@ test("the glass cover and SVG fill one local stack; stored identity images remai
   expect(base.classList.contains("inset-0")).toBe(true);
   expect(base.style.zIndex).toBe("0");
   expect(base.querySelector("svg")?.getAttribute("width")).toBe("100%");
+  const noise = mark.children[1] as HTMLElement;
+  expect(noise.getAttribute("data-activity-layer")).toBe("noise");
+  expect(noise.classList.contains("organic-activity-grain")).toBe(true);
+  expect(noise.style.zIndex).toBe("1");
   const cover = mark.lastElementChild as HTMLElement;
   expect(cover.classList.contains("organic-glass-smoke")).toBe(true);
   expect(cover.classList.contains("inset-0")).toBe(true);
-  expect(cover.style.zIndex).toBe("1");
+  expect(cover.style.zIndex).toBe("2");
   view.rerender(<SubagentIdentityMark imageUrl="/identity.png" name="Lyra" />);
   expect(mark.querySelector("img")?.getAttribute("src")).toBe("/identity.png");
   expect(mark.querySelector("svg")).toBeNull();
   expect(mark.lastElementChild).toBe(cover);
-  expect(cover.style.zIndex).toBe("1");
+  expect(cover.style.zIndex).toBe("2");
+});
+
+test("one owner state synchronizes dots and glass while per-state material overrides stay bounded", () => {
+  // Unsupported physics keeps material changes immediate while the native dot grid still runs.
+  Object.defineProperty(window, "requestAnimationFrame", { configurable: true, value: undefined });
+  const view = render(<OrganicActivityMark label="Agent" renderer="v0" state="working" />);
+  const mark = view.getByRole("img", { name: "Agent" });
+  const base = mark.firstElementChild as HTMLElement;
+  const cover = mark.lastElementChild as HTMLElement;
+  expect(cover.style.getPropertyValue("--activity-glass-blur")).toBe("4px");
+  expect(cover.style.getPropertyValue("--activity-glass-brightness")).toBe("1.08");
+  expect(Number.parseFloat(cover.style.getPropertyValue("--activity-glass-opacity"))).toBeCloseTo(
+    28
+  );
+  const before = calls.length;
+  view.rerender(
+    <OrganicActivityMark
+      label="Agent"
+      renderer="v0"
+      state="waiting"
+      glassByState={{
+        working: { blur: 12 },
+        waiting: { opacity: 0, blur: 5, tint: "var(--accent)" },
+      }}
+    />
+  );
+  expect(mark.lastElementChild).toBe(cover);
+  expect(
+    [mark, base, mark.children[1]!, cover].map((layer) => layer.getAttribute("data-activity-state"))
+  ).toEqual(["waiting", "waiting", "waiting", "waiting"]);
+  expect(cover.style.zIndex).toBe("2");
+  expect(base.style.zIndex).toBe("0");
+  expect(calls.slice(before)).toHaveLength(18);
+  expect(calls.slice(before).every(({ options }) => options.duration === 5000)).toBe(true);
+  expect(cover.style.getPropertyValue("--activity-glass-opacity")).toBe("0%");
+  expect(cover.style.getPropertyValue("--activity-glass-blur")).toBe("5px");
+  expect(cover.style.getPropertyValue("--activity-glass-tint")).toBe("var(--accent)");
+  view.rerender(
+    <OrganicActivityMark
+      label="Agent"
+      renderer="v0"
+      state="waiting"
+      glassByState={{
+        waiting: { opacity: 2, blur: 500 },
+      }}
+    />
+  );
+  expect(cover.style.getPropertyValue("--activity-glass-opacity")).toBe("100%");
+  expect(cover.style.getPropertyValue("--activity-glass-blur")).toBe("200px");
+  view.rerender(
+    <OrganicActivityMark
+      label="Agent"
+      renderer="v0"
+      state="waiting"
+      glassByState={{
+        waiting: { opacity: NaN, blur: Infinity, tint: "" },
+      }}
+    />
+  );
+  expect(Number.parseFloat(cover.style.getPropertyValue("--activity-glass-opacity"))).toBeCloseTo(
+    38
+  );
+  expect(cover.style.getPropertyValue("--activity-glass-blur")).toBe("8px");
+  expect(cover.style.getPropertyValue("--activity-glass-tint")).toBe("var(--background)");
 });

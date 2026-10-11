@@ -1,10 +1,21 @@
 "use client";
 
-import type { AgentDotState } from "@/components/agents/organic-activity-mark";
+import type {
+  AgentDotState,
+  ActivityGlassByState,
+  ActivityGlassAppearance,
+} from "@/components/agents/organic-activity-mark";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+
+import { ActivityPerformancePanel } from "./activity-performance-panel";
 
 import { OrganicActivityMark } from "@/components/agents/organic-activity-mark";
+import {
+  activityGlassForState,
+  ACTIVITY_GLASS_TINTS,
+  ACTIVITY_GLASS_MAX_BLUR,
+} from "@/components/agents/activity-mark-glass";
 import { glass } from "@/components/design-system/primitives";
 import Page from "@/components/layout/page";
 import { PageContentFrame, PageNavBack } from "@/components/layout/page-content-frame";
@@ -40,14 +51,17 @@ function MarkPreview({
   renderer,
   seed,
   replay,
+  glassByState,
 }: {
   state: AgentDotState;
   size: PreviewSize;
   renderer: "auto" | "v0";
   seed: string;
   replay: number;
+  glassByState: ActivityGlassByState;
 }) {
   const ref = useRef<HTMLDivElement>(null);
+  const performanceId = `${state}-${renderer}`;
   const [activeRenderer, setActiveRenderer] = useState("Original grid");
 
   useEffect(() => {
@@ -71,11 +85,13 @@ function MarkPreview({
   }, []);
 
   return (
-    <div ref={ref} className="min-w-0">
+    <div ref={ref} className="min-w-0" data-performance-preview={performanceId}>
       <div className="flex h-40 items-center justify-center">
         <OrganicActivityMark
           key={replay}
           className={SIZES[size].className}
+          glassByState={glassByState}
+          performanceId={performanceId}
           label={`${renderer === "auto" ? "Adaptive" : "Original"} ${state} activity mark`}
           renderer={renderer}
           seed={seed}
@@ -96,7 +112,27 @@ export function OrganicActivityMarkLab() {
   const [replay, setReplay] = useState(0);
   const [transitionReplay, setTransitionReplay] = useState(0);
   const [transitionState, setTransitionState] = useState<AgentDotState>("idle");
+  const [glassState, setGlassState] = useState<AgentDotState>("working");
+  const [glassByState, setGlassByState] = useState<ActivityGlassByState>({});
+  const previewsRef = useRef<HTMLElement>(null);
+  const performanceVariants = useMemo(
+    () =>
+      STATES.flatMap(({ state, label }) =>
+        (mode === "compare" ? ["auto", "v0"] : [mode === "v0" ? "v0" : "auto"]).map((renderer) => ({
+          id: `${state}-${renderer}`,
+          label: `${label}${mode === "compare" ? (renderer === "auto" ? " · Adaptive" : " · v0") : ""}`,
+        }))
+      ),
+    [mode]
+  );
+  const glassAppearance = activityGlassForState(glassState, glassByState);
   const seed = `organic-agent-lab-${pattern}`;
+  const updateGlass = (appearance: Partial<ActivityGlassAppearance>) => {
+    setGlassByState((previous) => ({
+      ...previous,
+      [glassState]: { ...previous[glassState], ...appearance },
+    }));
+  };
 
   return (
     <Page className="items-stretch justify-start overflow-hidden">
@@ -172,6 +208,7 @@ export function OrganicActivityMarkLab() {
           </div>
 
           <section
+            ref={previewsRef}
             aria-label="All activity states"
             className={cn(
               glass(),
@@ -182,6 +219,7 @@ export function OrganicActivityMarkLab() {
               <div key={state} className="min-w-0 px-3 pt-4">
                 <h2 className="text-center text-sm font-medium text-foreground">{label}</h2>
                 <MarkPreview
+                  glassByState={glassByState}
                   renderer={mode === "v0" ? "v0" : "auto"}
                   replay={state === "complete" ? replay : 0}
                   seed={seed}
@@ -191,6 +229,7 @@ export function OrganicActivityMarkLab() {
                 {mode === "compare" && (
                   <div className="border-t border-border/40">
                     <MarkPreview
+                      glassByState={glassByState}
                       renderer="v0"
                       replay={state === "complete" ? replay : 0}
                       seed={seed}
@@ -205,10 +244,119 @@ export function OrganicActivityMarkLab() {
               </div>
             ))}
           </section>
+          <ActivityPerformancePanel
+            key={`${mode}-${size}-${pattern}`}
+            previewRef={previewsRef}
+            variants={performanceVariants}
+          />
           <p className="mt-3 text-xs leading-relaxed text-muted-foreground">
             Adaptive uses physics when possible. Reduced Motion, Lightweight Mode, or sustained
             performance pressure keep the original grid.
           </p>
+
+          <details className={cn(glass(), "mt-6 rounded-xl p-4")}>
+            <summary className="cursor-pointer text-xs font-medium text-foreground focus-visible:outline-2 focus-visible:outline-accent">
+              Glass by state
+            </summary>
+            <div className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
+              <label className="text-xs text-muted-foreground">
+                State to tune
+                <select
+                  className={cn(
+                    glass(),
+                    "mt-2 min-h-10 w-full rounded-lg px-3 text-xs text-foreground focus-visible:outline-2 focus-visible:outline-accent"
+                  )}
+                  value={glassState}
+                  onChange={(event) => setGlassState(event.target.value as AgentDotState)}
+                >
+                  {STATES.map(({ state, label }) => (
+                    <option key={state} value={state}>
+                      {label}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label className="text-xs text-muted-foreground">
+                <span className="flex items-center justify-between gap-2">
+                  Opacity{" "}
+                  <span className="tabular-nums text-foreground">
+                    {Math.round(glassAppearance.opacity * 100)}%
+                  </span>
+                </span>
+                <input
+                  className="mt-2 h-10 w-full accent-accent"
+                  type="range"
+                  min="0"
+                  max="1"
+                  step="0.01"
+                  value={glassAppearance.opacity}
+                  onChange={(event) => updateGlass({ opacity: Number(event.target.value) })}
+                />
+              </label>
+              <label className="text-xs text-muted-foreground">
+                <span className="flex items-center justify-between gap-2">
+                  Blur{" "}
+                  <span className="tabular-nums text-foreground">{glassAppearance.blur}px</span>
+                </span>
+                <input
+                  className="mt-2 h-10 w-full accent-accent"
+                  type="range"
+                  min="0"
+                  max={ACTIVITY_GLASS_MAX_BLUR}
+                  step="0.25"
+                  value={glassAppearance.blur}
+                  onChange={(event) => updateGlass({ blur: Number(event.target.value) })}
+                />
+              </label>
+              <label className="text-xs text-muted-foreground">
+                <span className="flex items-center justify-between gap-2">
+                  Brightness{" "}
+                  <span className="tabular-nums text-foreground">
+                    {Math.round(glassAppearance.brightness * 100)}%
+                  </span>
+                </span>
+                <input
+                  className="mt-2 h-10 w-full accent-accent"
+                  type="range"
+                  min="0"
+                  max="2"
+                  step="0.01"
+                  value={glassAppearance.brightness}
+                  onChange={(event) => updateGlass({ brightness: Number(event.target.value) })}
+                />
+              </label>
+              <label className="text-xs text-muted-foreground">
+                Color tint
+                <select
+                  className={cn(
+                    glass(),
+                    "mt-2 min-h-10 w-full rounded-lg px-3 text-xs text-foreground focus-visible:outline-2 focus-visible:outline-accent"
+                  )}
+                  value={glassAppearance.tint}
+                  onChange={(event) => updateGlass({ tint: event.target.value })}
+                >
+                  <option value={ACTIVITY_GLASS_TINTS.neutral}>Neutral</option>
+                  <option value={ACTIVITY_GLASS_TINTS.organic}>Organic green</option>
+                  <option value={ACTIVITY_GLASS_TINTS.amber}>Warm amber</option>
+                </select>
+              </label>
+            </div>
+            <button
+              className={cn(BUTTON_CLASS, "mt-3")}
+              type="button"
+              onClick={() =>
+                setGlassByState((previous) => {
+                  const next = { ...previous };
+
+                  delete next[glassState];
+
+                  return next;
+                })
+              }
+            >
+              Reset {STATES.find(({ state }) => state === glassState)?.label} glass
+            </button>
+          </details>
 
           <section
             aria-labelledby="transitions-title"
@@ -246,6 +394,7 @@ export function OrganicActivityMarkLab() {
             </div>
             <div className={cn("grid", mode === "compare" ? "grid-cols-2" : "grid-cols-1")}>
               <MarkPreview
+                glassByState={glassByState}
                 renderer={mode === "v0" ? "v0" : "auto"}
                 replay={transitionReplay}
                 seed={seed}
@@ -254,6 +403,7 @@ export function OrganicActivityMarkLab() {
               />
               {mode === "compare" && (
                 <MarkPreview
+                  glassByState={glassByState}
                   renderer="v0"
                   replay={transitionReplay}
                   seed={seed}

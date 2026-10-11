@@ -9,7 +9,7 @@ import { AgentDotGrid } from "./agent-dot-grid";
 
 import { getSettings, USER_SETTINGS_STORAGE_KEY } from "@/lib/user-settings";
 
-type GridProps = { state?: AgentDotState; seed?: string };
+type GridProps = { state?: AgentDotState; seed?: string; performanceId?: string };
 type PhysicsGrid = ComponentType<GridProps & { onFailure: () => void }>;
 const loadPhysicsGrid = () => import("./physics-agent-dot-grid");
 

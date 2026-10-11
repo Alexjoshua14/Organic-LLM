@@ -82,9 +82,14 @@ async function visible(value = true) {
 test("actual SVG delivery uses independent physics dots, linked opacity, visibility cleanup, and one shared frame", async () => {
   const fixture = schedulerFixture();
   const fail = mock(() => {});
+  let profiledUpdates = 0;
+  fixture.scheduler.subscribeMetrics((sample) => {
+    profiledUpdates += sample.groups.find((group) => group.id === "working-auto")?.updates ?? 0;
+  });
   const view = render(
     <PhysicsAgentDotGrid
       onFailure={fail}
+      performanceId="working-auto"
       scheduler={fixture.scheduler}
       seed="Lyra"
       state="working"
@@ -106,6 +111,7 @@ test("actual SVG delivery uses independent physics dots, linked opacity, visibil
     transforms.add(style.transform);
   }
   expect(transforms.size).toBe(18);
+  expect(profiledUpdates).toBe(20 * 18);
   await visible(false);
   expect(fixture.frames.size).toBe(0);
   await visible();
