@@ -9,6 +9,7 @@ feel — so improvements stay consistent and do not regress quality.
 | Doc | When to read |
 |-----|----------------|
 | [Spacing](./spacing.md) | Card density, stack/gap/inset tokens, gen-ui vertical rhythm |
+| [Switches & quick settings](./switches-and-quick-settings.md) | Compact glass switches, caption popovers, quick-settings density |
 | [Motion & character text timing](./motion-and-text-timing.md) | Any char-by-char / stagger / status-label / loading-state animation |
 | [Adaptive background](../adaptive-background.md) + [timing](../adaptive-background-timing.md) | Ambient dim / focus atmospheres |
 | [Organic presence](../organic-presence.md) | Presence indicators and ambient life |

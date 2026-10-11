@@ -47,6 +47,7 @@ Canon for the product: what we're building, who owns which kind of truth, how ag
 
 - **[Design backbone](./design/README.md)** — agent-facing design standards (start here for UI/motion quality)
   - [Spacing](./design/spacing.md) — stack/gap/inset tokens, card density
+  - [Switches & quick settings](./design/switches-and-quick-settings.md) — shared glass switches and compact caption popovers
   - [Motion & character text timing](./design/motion-and-text-timing.md) — status labels, loading burns, stagger budgets
 - [Adaptive background](./adaptive-background.md)
 - [Organic presence](./organic-presence.md)
