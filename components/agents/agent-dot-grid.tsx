@@ -29,7 +29,7 @@ export function AgentDotGrid({
     const svg = svgRef.current;
     const dots = dotsRef.current.filter((dot): dot is SVGGElement => dot !== null);
 
-    if (!svg || !dots[0]?.animate) return;
+    if (!svg || !dots[0]?.animate || typeof window.matchMedia !== "function") return;
 
     const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)");
     let animations: Animation[] = [];
@@ -123,6 +123,7 @@ export function AgentDotGrid({
       ref={svgRef}
       viewBox="0 0 40 40"
       width="100%"
+      data-dot-renderer="v0"
     >
       {AGENT_DOTS.map(({ x, y }, index) => (
         <g key={`${x}-${y}`} transform={`translate(${x} ${y})`}>

@@ -1,5 +1,6 @@
 import type { AgentDotState } from "./agent-dot-grid";
 
+import { AdaptiveAgentDotGrid } from "./adaptive-agent-dot-grid";
 import { AgentDotGrid } from "./agent-dot-grid";
 
 import { glass } from "@/components/design-system/primitives";
@@ -11,6 +12,8 @@ export type OrganicActivityMarkProps = {
   seed?: string;
   label?: string;
   className?: string;
+  /** Select the original grid for comparisons; auto keeps all adaptive safeguards. */
+  renderer?: "auto" | "v0";
   /** Compatibility with existing stored identity images, inside the lower layer. */
   imageUrl?: string | null;
 };
@@ -24,6 +27,7 @@ export function OrganicActivityMark({
   seed,
   label,
   className,
+  renderer = "auto",
   imageUrl,
 }: OrganicActivityMarkProps) {
   return (
@@ -41,8 +45,10 @@ export function OrganicActivityMark({
         {imageUrl ? (
           // eslint-disable-next-line @next/next/no-img-element -- may be file://, data:, or remote
           <img alt="" className="size-full object-cover" src={imageUrl} />
-        ) : (
+        ) : renderer === "v0" ? (
           <AgentDotGrid seed={seed} state={state} />
+        ) : (
+          <AdaptiveAgentDotGrid seed={seed} state={state} />
         )}
       </div>
       <div

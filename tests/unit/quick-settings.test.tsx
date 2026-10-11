@@ -83,6 +83,7 @@ test("captions are hidden initially, including Theme, and every feature label ca
   const view = await openSettings();
   const captions = [
     ["Theme", "System / Light / Dark"],
+    ["Lightweight Mode", "Use simpler agent animations to reduce rendering work."],
     ["Coalescence Mode", coalescenceCaption],
     ["Arcadia preview (experimental)", "Markdown preview toggle on the Arcadia composer."],
     ["Context effort (beta)", /When on, Arcadia shows a slider/],
@@ -99,6 +100,16 @@ test("captions are hidden initially, including Theme, and every feature label ca
   }
   expect(view.queryByRole("button", { name: "About Ergon background" })).toBeNull();
   expect(persist).not.toHaveBeenCalled();
+});
+
+test("Lightweight Mode saves through the existing switch and settings path", async () => {
+  const view = await openSettings();
+  const toggle = view.getByRole("switch", { name: "Lightweight Mode" });
+  expect(settings.lightweightMode).toBe(false);
+  await act(async () => fireEvent.click(toggle));
+  expect(settings.lightweightMode).toBe(true);
+  expect(persist).toHaveBeenCalledWith("quick-settings-user", settings);
+  expect((toggle as HTMLInputElement).checked).toBe(true);
 });
 
 test("a hovered caption stays readable across the gap, then closes without moving focus", async () => {

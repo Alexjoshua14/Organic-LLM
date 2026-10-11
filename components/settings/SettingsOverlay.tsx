@@ -7,6 +7,7 @@ import { Brain, ExternalLink, Settings2Icon, Sparkles } from "lucide-react";
 import { useAuth, useUser } from "@clerk/nextjs";
 
 import { QuickSettingRow } from "./quick-setting-row";
+import { LightweightModeSetting } from "./lightweight-mode-setting";
 
 import { Switch } from "@/components/design-system/switch";
 import { glass } from "@/components/design-system/primitives";
@@ -96,6 +97,8 @@ export function SettingsOverlay({ open, onOpenChange, trigger }: SettingsOverlay
             <QuickSettingRow caption="System / Light / Dark" label="Theme">
               <ThemeSwitch className="text-foreground" />
             </QuickSettingRow>
+
+            <LightweightModeSetting compact />
 
             <QuickSettingRow
               caption="Unlock Organic’s full potential by connecting its features."

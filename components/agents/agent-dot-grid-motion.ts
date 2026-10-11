@@ -13,6 +13,8 @@ const KEYFRAME_COUNT = 8;
 const IDLE_DURATION_MS = [12_000, 20_000] as const;
 const WORKING_DURATION_MS = [4_800, 7_200] as const;
 const WAITING_DURATION_MS = 5_000;
+
+export const WAITING_VARIANCE = 0.1;
 const BLOCKED_DURATION_MS = 3_600;
 const COMPLETE_DURATION_MS = 400;
 const COMPLETE_STAGGER_MS = 20;
@@ -75,7 +77,7 @@ export function createDotAnimation(
       break;
     }
     case "waiting":
-      scales = [1.07, 0.93, 1].map((scale) => restScale * scale);
+      scales = [1 + WAITING_VARIANCE, 1 - WAITING_VARIANCE, 1].map((scale) => restScale * scale);
       duration = WAITING_DURATION_MS;
       break;
     case "blocked":
