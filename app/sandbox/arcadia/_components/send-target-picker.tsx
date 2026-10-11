@@ -5,7 +5,6 @@ import type { ArcadiaSubagent } from "@/lib/arcadia/multitask/types";
 
 import { useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { motion, useReducedMotion } from "framer-motion";
-import { ChevronDown } from "lucide-react";
 
 import {
   SEND_TARGET_ENTER_MS,
@@ -113,10 +112,14 @@ export function SendTargetPicker({
               aria-hidden={!visible}
               aria-pressed={active}
               className={cn(
-                "inline-flex min-h-10 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full border px-3 text-sm font-medium transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-ring",
+                "inline-flex min-h-10 shrink-0 items-center whitespace-nowrap rounded-full border px-3 text-sm font-medium transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-ring",
                 active
                   ? "z-10 border-amber-800/35 bg-amber-900/10 text-foreground"
-                  : "border-border/50 bg-background/40 text-muted-foreground hover:bg-background/70",
+                  : "border-border/50 bg-background/40 text-muted-foreground",
+                expanded &&
+                  (active
+                    ? "hover:border-amber-800/50 hover:bg-amber-900/20"
+                    : "hover:border-border hover:bg-background/70 hover:text-foreground"),
                 !visible && "pointer-events-none"
               )}
               initial={false}
@@ -145,10 +148,6 @@ export function SendTargetPicker({
               }}
             >
               {name}
-              <ChevronDown
-                aria-hidden
-                className={cn("size-3.5", !active && "invisible", expanded && "rotate-180")}
-              />
             </motion.button>
           );
         })}
