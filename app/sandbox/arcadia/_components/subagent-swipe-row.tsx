@@ -9,6 +9,7 @@ import { ChevronDown, Mic, Radio } from "lucide-react";
 import { useId, useState } from "react";
 
 import { glass } from "@/components/design-system/primitives";
+import { SubagentIdentityMark } from "@/components/agents/subagent-identity-mark";
 import {
   MULTITASK_CONDENSED_CARD_GAP_PX,
   MULTITASK_CONDENSED_CARD_WIDTH_PX,
@@ -59,15 +60,13 @@ function SubagentCompactCard({
   const body = (
     <>
       <div className="flex items-center gap-2 pr-7">
-        <div
-          aria-hidden
-          className="size-7 shrink-0 overflow-hidden rounded-md border border-border/40 bg-background/50"
-        >
-          {agent.identityImageUrl ? (
-            // eslint-disable-next-line @next/next/no-img-element -- sandbox identity slot; URL may be data: or remote
-            <img alt="" className="size-full object-cover" src={agent.identityImageUrl} />
-          ) : null}
-        </div>
+        <SubagentIdentityMark
+          className="size-7 rounded-md"
+          imageUrl={agent.identityImageUrl}
+          name={agent.name}
+          size="sm"
+          state={agent.status === "done" ? "complete" : agent.status}
+        />
         <div className="min-w-0">
           <p className="truncate text-sm font-semibold leading-tight tracking-tight">
             {agent.name}

@@ -1,20 +1,16 @@
 import type { SubagentIdentityImageRecord } from "@/lib/schemas/subagent-runtime";
+import type { AgentDotState } from "./organic-activity-mark";
 
-import { cn } from "@/lib/utils";
+import { OrganicActivityMark } from "./organic-activity-mark";
 
 type SubagentIdentityMarkProps = {
-  /** Stored identity image URL; when absent, renders an empty mark slot. */
+  /** Stored identity image URL; when absent, renders the layered activity mark. */
   imageUrl?: string | null;
   name: string;
   className?: string;
   size?: "sm" | "md" | "lg";
+  state?: AgentDotState;
 };
-
-const SIZE_CLASS = {
-  sm: "size-8",
-  md: "size-10",
-  lg: "size-14",
-} as const;
 
 /**
  * Presentational abstract identity mark for condensed subagent cards.
@@ -25,22 +21,17 @@ export function SubagentIdentityMark({
   name,
   className,
   size = "md",
+  state = "idle",
 }: SubagentIdentityMarkProps) {
   return (
-    <div
-      aria-label={`${name} identity mark`}
-      className={cn(
-        SIZE_CLASS[size],
-        "shrink-0 overflow-hidden rounded-lg border border-border/40 bg-background/50",
-        className
-      )}
-      role="img"
-    >
-      {imageUrl ? (
-        // eslint-disable-next-line @next/next/no-img-element -- may be file://, data:, or remote
-        <img alt="" className="size-full object-cover" src={imageUrl} />
-      ) : null}
-    </div>
+    <OrganicActivityMark
+      className={className}
+      imageUrl={imageUrl}
+      label={`${name} identity mark`}
+      seed={name}
+      size={size}
+      state={state}
+    />
   );
 }
 

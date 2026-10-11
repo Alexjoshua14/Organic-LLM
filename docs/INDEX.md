@@ -49,6 +49,7 @@ Canon for the product: what we're building, who owns which kind of truth, how ag
   - [Spacing](./design/spacing.md) — stack/gap/inset tokens, card density
   - [Switches & quick settings](./design/switches-and-quick-settings.md) — shared glass switches and compact caption popovers
   - [Context usage](./design/context-usage.md) — composer charts, source colors, percentage ramp, hover labels
+  - [Subagent identity mark](./design/subagent-identity-mark.md) — SVG dot states, glass diffusion, local layering
   - [Motion & character text timing](./design/motion-and-text-timing.md) — status labels, loading burns, stagger budgets
 - [Adaptive background](./adaptive-background.md)
 - [Organic presence](./organic-presence.md)

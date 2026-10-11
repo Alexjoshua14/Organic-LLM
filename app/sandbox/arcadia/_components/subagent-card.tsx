@@ -11,6 +11,7 @@ import { Radio } from "lucide-react";
 import { SubagentSpeakGlassBar } from "./subagent-speak-glass-bar";
 
 import { glass } from "@/components/design-system/primitives";
+import { SubagentIdentityMark } from "@/components/agents/subagent-identity-mark";
 import { cn } from "@/lib/utils";
 import { getModelDisplayName } from "@/lib/chat/message-model";
 
@@ -66,16 +67,11 @@ export function SubagentCard({
     >
       <button className="w-full text-left" type="button" onClick={onSelect}>
         <div className="flex items-start gap-3">
-          {/* Identity image slot — leave intact for non-human portraits from other work. */}
-          <div
-            aria-hidden={agent.identityImageUrl ? undefined : true}
-            className="size-10 shrink-0 overflow-hidden rounded-lg border border-border/40 bg-background/50"
-          >
-            {agent.identityImageUrl ? (
-              // eslint-disable-next-line @next/next/no-img-element -- sandbox identity slot; URL may be data: or remote
-              <img alt="" className="size-full object-cover" src={agent.identityImageUrl} />
-            ) : null}
-          </div>
+          <SubagentIdentityMark
+            imageUrl={agent.identityImageUrl}
+            name={agent.name}
+            state={agent.status === "done" ? "complete" : agent.status}
+          />
           <div className="min-w-0 flex-1">
             <div className="flex items-start justify-between gap-2">
               <div className="min-w-0">
