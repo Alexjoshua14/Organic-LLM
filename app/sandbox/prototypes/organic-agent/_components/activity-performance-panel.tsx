@@ -17,6 +17,7 @@ import { cn } from "@/lib/utils";
 const SAMPLE_MS = 500;
 const HISTORY_POINTS = 40;
 const TARGET_FRAME_RATES = [30, 60, 90, 120];
+const FPS_GUIDE_BUFFER = 0.05;
 
 export type PerformanceVariant = { id: string; label: string };
 type VariantReading = { renderer: string; timings: TimingSummary | null };
@@ -48,13 +49,20 @@ function HistoryGraph({
   values,
   reference,
   label,
+  buffer = 0,
 }: {
   values: number[];
   reference: number;
   label: string;
+  /** A target band; the FPS graph focuses near its target while retaining every observed dip. */
+  buffer?: number;
 }) {
   const max = Math.max(reference * 1.25, ...values, 0.001);
-  const y = (value: number) => 48 - (value / max) * 44;
+  const min = buffer ? Math.min(reference * 0.8, ...values) : 0;
+  const y = (value: number) => 48 - ((value - min) / (max - min)) * 44;
+  const guides = buffer
+    ? [reference * (1 - buffer), reference, reference * (1 + buffer)]
+    : [reference];
   const points = values
     .map((value, index) => `${(index / (HISTORY_POINTS - 1)) * 240},${y(value)}`)
     .join(" ");
@@ -67,16 +75,35 @@ function HistoryGraph({
       viewBox="0 0 240 52"
       preserveAspectRatio="none"
     >
-      <line
-        x1="0"
-        x2="240"
-        y1={y(reference)}
-        y2={y(reference)}
-        stroke="currentColor"
-        strokeOpacity="0.2"
-        strokeDasharray="3 4"
-        vectorEffect="non-scaling-stroke"
-      />
+      {buffer > 0 && (
+        <rect
+          x="0"
+          y={y(reference * (1 + buffer))}
+          width="240"
+          height={y(reference * (1 - buffer)) - y(reference * (1 + buffer))}
+          fill="currentColor"
+          fillOpacity="0.04"
+        />
+      )}
+      {guides.map((guide) => (
+        <line
+          key={guide}
+          x1="0"
+          x2="240"
+          y1={y(guide)}
+          y2={y(guide)}
+          stroke="currentColor"
+          strokeOpacity={buffer && guide === reference ? 0.45 : 0.2}
+          strokeDasharray={buffer ? "1 4" : "3 4"}
+          strokeLinecap={buffer ? "round" : undefined}
+          vectorEffect="non-scaling-stroke"
+        >
+          <title>
+            {guide.toFixed(1)}
+            {buffer ? "fps guideline" : " guide"}
+          </title>
+        </line>
+      ))}
       {values.length > 1 && (
         <polyline
           points={points}
@@ -289,9 +316,10 @@ export function ActivityPerformancePanel({
           <HistoryGraph
             values={reading.fpsHistory}
             reference={targetFps}
-            label={`Page frame-rate history; dashed line is the ${targetFps}fps target`}
+            buffer={FPS_GUIDE_BUFFER}
+            label={`Page frame-rate history; dotted guides show ${targetFps}fps and a ±5% band from ${targetFps * (1 - FPS_GUIDE_BUFFER)} to ${targetFps * (1 + FPS_GUIDE_BUFFER)}fps`}
           />
-          <p className="mt-0.5 text-[10px] text-muted-foreground">{targetFps}fps guide</p>
+          <p className="mt-0.5 text-[10px] text-muted-foreground">{targetFps}fps ±5%</p>
         </div>
         <div>
           <p className="min-h-7 text-[10px] text-muted-foreground sm:min-h-0">

@@ -26,6 +26,11 @@ function materialStyle(pose: GlassPose): CSSProperties {
   } as CSSProperties;
 }
 
+function backdropFilter(pose: GlassPose): string {
+  // Write the animated filter itself; keep saturation supplied by the glass primitive.
+  return `blur(${pose.blur}px) brightness(${pose.brightness}) var(--tw-backdrop-saturate, saturate(1))`;
+}
+
 /** The owner selects the target; this persistent cover springs only while it is changing. */
 export function MorphActivityGlass({
   state,
@@ -60,6 +65,10 @@ export function MorphActivityGlass({
       const style = materialStyle(pose) as Record<string, string>;
 
       for (const key of Object.keys(style)) element.style.setProperty(key, style[key]!);
+      const filter = backdropFilter(pose);
+
+      element.style.setProperty("backdrop-filter", filter);
+      element.style.setProperty("-webkit-backdrop-filter", filter);
     };
     const stop = () => {
       removeFrame?.();
@@ -138,15 +147,14 @@ export function MorphActivityGlass({
     <div
       ref={elementRef}
       aria-hidden
-      className={cn(
-        glass(),
-        "pointer-events-none absolute inset-0 rounded-[inherit] backdrop-blur-[var(--activity-glass-blur)] backdrop-brightness-[var(--activity-glass-brightness)]"
-      )}
+      className={cn(glass(), "pointer-events-none absolute inset-0 rounded-[inherit]")}
       data-activity-state={state}
       data-activity-layer="glass"
       style={
         {
           ...materialStyle(initial),
+          backdropFilter: backdropFilter(initial),
+          WebkitBackdropFilter: backdropFilter(initial),
           zIndex: 2,
           "--activity-glass-tint": initial.tint,
           backgroundColor:

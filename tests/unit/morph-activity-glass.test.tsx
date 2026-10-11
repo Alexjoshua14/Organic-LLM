@@ -119,6 +119,8 @@ test("the actual cover hydrates a stable baseline, springs CSS values and stops 
   const markup = renderToString(<MorphActivityGlass appearance={initial} state="idle" />);
   expect(markup).toBe(renderToString(<MorphActivityGlass appearance={initial} state="idle" />));
   expect(markup).toContain("--activity-glass-blur:10px");
+  expect(markup).toContain("backdrop-filter:blur(10px) brightness(1)");
+  expect(markup).toContain("-webkit-backdrop-filter:blur(10px) brightness(1)");
   const view = render(
     <MorphActivityGlass
       appearance={initial}
@@ -145,14 +147,32 @@ test("the actual cover hydrates a stable baseline, springs CSS values and stops 
   const blur = Number.parseFloat(cover.style.getPropertyValue("--activity-glass-blur"));
   expect(blur).toBeGreaterThan(4);
   expect(blur).toBeLessThan(10);
+  expect(cover.style.getPropertyValue("backdrop-filter")).toStartWith(`blur(${blur}px)`);
   expect(
     Number.parseFloat(cover.style.getPropertyValue("--activity-glass-brightness"))
   ).toBeGreaterThan(1);
   for (let frame = 0; frame < 200 && fixture.frames.size; frame++) fixture.frame(16);
   expect(cover.style.getPropertyValue("--activity-glass-blur")).toBe("4px");
   expect(cover.style.getPropertyValue("--activity-glass-brightness")).toBe("1.08");
+  expect(cover.style.getPropertyValue("backdrop-filter")).toStartWith("blur(4px) brightness(1.08)");
   expect(fixture.frames.size).toBe(0);
   expect(profiledUpdates).toBeGreaterThan(0);
+
+  // Same-state tuning changes the rendered backdrop without remounting the dots or cover.
+  for (const blur of [80, 0]) {
+    view.rerender(
+      <MorphActivityGlass
+        appearance={{ ...target, blur }}
+        performanceId="cover"
+        state="working"
+        scheduler={fixture.scheduler}
+      />
+    );
+    for (let frame = 0; frame < 200 && fixture.frames.size; frame++) fixture.frame(16);
+    expect(view.container.firstElementChild).toBe(cover);
+    expect(cover.style.getPropertyValue("backdrop-filter")).toStartWith(`blur(${blur}px)`);
+    expect(fixture.frames.size).toBe(0);
+  }
 });
 
 test("offscreen and hidden covers pause without losing their spring and unmount removes work", () => {

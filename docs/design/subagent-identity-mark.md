@@ -53,6 +53,10 @@ comes from `components/agents/activity-mark-glass.ts`.
 Idle is the diffused baseline; working clears toward a small 4px radius so the
 active dots become sharper. Brightness applies to the backdrop,
 including the dots and grain, rather than filtering the cover's own border.
+The cover writes both `backdrop-filter` and `-webkit-backdrop-filter` directly from
+each spring pose (blur and brightness), with saturation from `glass()`. The SSR
+baseline uses the same explicit filter. Material tuning does not depend on a
+composed chain of dynamic Tailwind backdrop variables being updated correctly.
 Opacity means material
 fill alpha, rather than opacity on the whole filtering element; the backdrop filter
 remains fully active. Tint uses the existing theme/Organic accent and the warm amber
@@ -193,7 +197,11 @@ a new seed. Each preview reports the renderer actually mounted, including fallba
 The separate transition preview keeps the same instances and velocity as its state
 changes; selecting Complete again intentionally restarts that pulse. Controls stay
 local to the bench and never rewrite user preferences or bypass reduced motion.
-Open **Glass by state** to tune opacity, blur, brightness, and tint for a selected state. All
+**Glass by state** is an always-visible compact glass strip directly after the size,
+renderer, replay, and pattern controls, above the state previews and performance panel.
+Its header contains the selected state and reset; the material controls share a row
+on wider screens and two columns on narrow screens. Tune opacity, backdrop blur,
+brightness, and tint for a selected state. All
 matching previews, including v0 and the transition preview, use that same material
 map without restarting the dots. Reset restores only the selected state's defaults.
 
@@ -204,7 +212,11 @@ All four graphs remain side by side even at phone widths; compact metric rows an
 per-preview relative-cost bars preserve the same measurements in a smaller panel.
 It uses the device's actual RAF cadence, with a selectable target of 30/60/90/120fps
 (60 by default), rather than assuming the display runs at 60Hz. Target FPS sets the
-frame budget to 1000/FPS milliseconds and both cadence/interval guides. **JS budget
+frame budget to 1000/FPS milliseconds and both cadence/interval guides. The FPS
+graph has dotted horizontal guides at the target and ±5% (57/60/63fps at 60fps),
+with a faint band between the outer guides. Its scale focuses near the target but
+expands to include all measured dips or higher refresh rates. This is a visual
+tolerance band; it does not change the scheduler's performance thresholds. **JS budget
 used** divides measured animation-JS p95 by that budget: 18ms at 60fps is 108%.
 It is not clamped at 100%; changing the target rescales recorded history without
 discarding measurements. It describes the measured spring/DOM workload, not total

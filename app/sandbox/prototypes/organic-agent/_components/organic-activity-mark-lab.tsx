@@ -151,7 +151,7 @@ export function OrganicActivityMarkLab() {
             </p>
           </header>
 
-          <div className="mb-6 flex flex-wrap items-center gap-x-6 gap-y-3">
+          <div className="mb-3 flex flex-wrap items-center gap-x-6 gap-y-3">
             <label className="flex items-center gap-3 text-xs text-muted-foreground">
               Size
               <select
@@ -208,6 +208,114 @@ export function OrganicActivityMarkLab() {
           </div>
 
           <section
+            aria-label="Glass by state"
+            className={cn(glass(), "mb-5 rounded-2xl px-3 py-3")}
+          >
+            <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
+              <h2 className="text-xs font-medium text-foreground">Glass by state</h2>
+              <label className="min-w-0">
+                <span className="sr-only">State to tune</span>
+                <select
+                  className={cn(
+                    glass({ chip: true }),
+                    "min-h-8 rounded-lg px-2 text-[11px] text-foreground focus-visible:outline-2 focus-visible:outline-accent"
+                  )}
+                  value={glassState}
+                  onChange={(event) => setGlassState(event.target.value as AgentDotState)}
+                >
+                  {STATES.map(({ state, label }) => (
+                    <option key={state} value={state}>
+                      {label}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <button
+                aria-label={`Reset ${glassState} glass`}
+                className={cn(BUTTON_CLASS, "ml-auto min-h-8 px-2 text-[11px]")}
+                type="button"
+                onClick={() =>
+                  setGlassByState((previous) => {
+                    const next = { ...previous };
+
+                    delete next[glassState];
+
+                    return next;
+                  })
+                }
+              >
+                Reset
+              </button>
+            </div>
+            <div className="mt-2 grid grid-cols-2 items-center gap-x-4 gap-y-2 md:grid-cols-4">
+              <label className="min-w-0 text-[11px] text-muted-foreground">
+                <span className="flex items-center justify-between gap-2">
+                  Opacity
+                  <span className="tabular-nums text-foreground">
+                    {Math.round(glassAppearance.opacity * 100)}%
+                  </span>
+                </span>
+                <input
+                  className="mt-1 h-8 w-full cursor-pointer accent-accent sm:h-6"
+                  type="range"
+                  min="0"
+                  max="1"
+                  step="0.01"
+                  value={glassAppearance.opacity}
+                  onChange={(event) => updateGlass({ opacity: Number(event.target.value) })}
+                />
+              </label>
+              <label className="min-w-0 text-[11px] text-muted-foreground">
+                <span className="flex items-center justify-between gap-2">
+                  Backdrop blur
+                  <span className="tabular-nums text-foreground">{glassAppearance.blur}px</span>
+                </span>
+                <input
+                  className="mt-1 h-8 w-full cursor-pointer accent-accent sm:h-6"
+                  type="range"
+                  min="0"
+                  max={ACTIVITY_GLASS_MAX_BLUR}
+                  step="0.25"
+                  value={glassAppearance.blur}
+                  onChange={(event) => updateGlass({ blur: Number(event.target.value) })}
+                />
+              </label>
+              <label className="min-w-0 text-[11px] text-muted-foreground">
+                <span className="flex items-center justify-between gap-2">
+                  Brightness
+                  <span className="tabular-nums text-foreground">
+                    {Math.round(glassAppearance.brightness * 100)}%
+                  </span>
+                </span>
+                <input
+                  className="mt-1 h-8 w-full cursor-pointer accent-accent sm:h-6"
+                  type="range"
+                  min="0"
+                  max="2"
+                  step="0.01"
+                  value={glassAppearance.brightness}
+                  onChange={(event) => updateGlass({ brightness: Number(event.target.value) })}
+                />
+              </label>
+              <label className="min-w-0 text-[11px] text-muted-foreground">
+                Color tint
+                <select
+                  className={cn(
+                    glass({ chip: true }),
+                    "mt-1 min-h-8 w-full rounded-lg px-2 text-[11px] text-foreground focus-visible:outline-2 focus-visible:outline-accent"
+                  )}
+                  value={glassAppearance.tint}
+                  onChange={(event) => updateGlass({ tint: event.target.value })}
+                >
+                  <option value={ACTIVITY_GLASS_TINTS.neutral}>Neutral</option>
+                  <option value={ACTIVITY_GLASS_TINTS.organic}>Organic green</option>
+                  <option value={ACTIVITY_GLASS_TINTS.amber}>Warm amber</option>
+                </select>
+              </label>
+            </div>
+          </section>
+
+          <section
             ref={previewsRef}
             aria-label="All activity states"
             className={cn(
@@ -253,110 +361,6 @@ export function OrganicActivityMarkLab() {
             Adaptive uses physics when possible. Reduced Motion, Lightweight Mode, or sustained
             performance pressure keep the original grid.
           </p>
-
-          <details className={cn(glass(), "mt-6 rounded-xl p-4")}>
-            <summary className="cursor-pointer text-xs font-medium text-foreground focus-visible:outline-2 focus-visible:outline-accent">
-              Glass by state
-            </summary>
-            <div className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
-              <label className="text-xs text-muted-foreground">
-                State to tune
-                <select
-                  className={cn(
-                    glass(),
-                    "mt-2 min-h-10 w-full rounded-lg px-3 text-xs text-foreground focus-visible:outline-2 focus-visible:outline-accent"
-                  )}
-                  value={glassState}
-                  onChange={(event) => setGlassState(event.target.value as AgentDotState)}
-                >
-                  {STATES.map(({ state, label }) => (
-                    <option key={state} value={state}>
-                      {label}
-                    </option>
-                  ))}
-                </select>
-              </label>
-              <label className="text-xs text-muted-foreground">
-                <span className="flex items-center justify-between gap-2">
-                  Opacity{" "}
-                  <span className="tabular-nums text-foreground">
-                    {Math.round(glassAppearance.opacity * 100)}%
-                  </span>
-                </span>
-                <input
-                  className="mt-2 h-10 w-full accent-accent"
-                  type="range"
-                  min="0"
-                  max="1"
-                  step="0.01"
-                  value={glassAppearance.opacity}
-                  onChange={(event) => updateGlass({ opacity: Number(event.target.value) })}
-                />
-              </label>
-              <label className="text-xs text-muted-foreground">
-                <span className="flex items-center justify-between gap-2">
-                  Blur{" "}
-                  <span className="tabular-nums text-foreground">{glassAppearance.blur}px</span>
-                </span>
-                <input
-                  className="mt-2 h-10 w-full accent-accent"
-                  type="range"
-                  min="0"
-                  max={ACTIVITY_GLASS_MAX_BLUR}
-                  step="0.25"
-                  value={glassAppearance.blur}
-                  onChange={(event) => updateGlass({ blur: Number(event.target.value) })}
-                />
-              </label>
-              <label className="text-xs text-muted-foreground">
-                <span className="flex items-center justify-between gap-2">
-                  Brightness{" "}
-                  <span className="tabular-nums text-foreground">
-                    {Math.round(glassAppearance.brightness * 100)}%
-                  </span>
-                </span>
-                <input
-                  className="mt-2 h-10 w-full accent-accent"
-                  type="range"
-                  min="0"
-                  max="2"
-                  step="0.01"
-                  value={glassAppearance.brightness}
-                  onChange={(event) => updateGlass({ brightness: Number(event.target.value) })}
-                />
-              </label>
-              <label className="text-xs text-muted-foreground">
-                Color tint
-                <select
-                  className={cn(
-                    glass(),
-                    "mt-2 min-h-10 w-full rounded-lg px-3 text-xs text-foreground focus-visible:outline-2 focus-visible:outline-accent"
-                  )}
-                  value={glassAppearance.tint}
-                  onChange={(event) => updateGlass({ tint: event.target.value })}
-                >
-                  <option value={ACTIVITY_GLASS_TINTS.neutral}>Neutral</option>
-                  <option value={ACTIVITY_GLASS_TINTS.organic}>Organic green</option>
-                  <option value={ACTIVITY_GLASS_TINTS.amber}>Warm amber</option>
-                </select>
-              </label>
-            </div>
-            <button
-              className={cn(BUTTON_CLASS, "mt-3")}
-              type="button"
-              onClick={() =>
-                setGlassByState((previous) => {
-                  const next = { ...previous };
-
-                  delete next[glassState];
-
-                  return next;
-                })
-              }
-            >
-              Reset {STATES.find(({ state }) => state === glassState)?.label} glass
-            </button>
-          </details>
 
           <section
             aria-labelledby="transitions-title"
