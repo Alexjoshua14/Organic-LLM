@@ -23,6 +23,8 @@ const EXEMPT: Record<string, string> = {
   "app/api/ai/ideas/route.ts": "Model call is commented out; returns a static response.",
   "app/api/subagents/shells/route.ts": "Creates a shell thread; no model call.",
   "app/api/chat/[id]/stream/route.ts": "Resumes an existing stream; starts no new generation.",
+  "app/api/chat/[id]/research/sources/[sourceId]/route.ts":
+    "Reads an owned captured source; makes no model or research provider call.",
   "app/api/chat/[id]/arcadia/subagents/route.ts": "Reads the subagent board; no model call.",
   "app/api/chat/context-budget/route.ts": "Estimates context size; no model call.",
   "app/api/chat/arcadia-starter/route.ts": "Saves a starter key; no model call.",

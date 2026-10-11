@@ -93,6 +93,7 @@ export function buildSubagentReplyMessage(args: {
   modelId: string;
   failed?: boolean;
   id?: string;
+  toolParts?: UIMessage["parts"];
 }): UIMessage<SubagentReplyMessageMetadata> {
   return {
     id: args.id ?? randomUUID(),
@@ -103,6 +104,6 @@ export function buildSubagentReplyMessage(args: {
       modelId: args.modelId,
       ...(args.failed ? { failed: true as const } : {}),
     },
-    parts: [{ type: "text", text: args.text }],
+    parts: [...(args.toolParts ?? []), { type: "text", text: args.text }],
   };
 }

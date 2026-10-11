@@ -29,6 +29,7 @@ import { gatewayAttribution } from "@/lib/usage/gateway-attribution";
 import { createLlmBudgetHooks } from "@/lib/plans/llm-budget-hooks";
 import { AGENT_MODEL } from "../../helpers";
 import { compileChatTools } from "../../compile-chat-tools";
+import { researchToolParts } from "./research-tool-parts";
 
 /** Messages of the subagent's own thread handed to the model each run. */
 export const SUBAGENT_THREAD_CONTEXT_MESSAGES = 30;
@@ -59,7 +60,7 @@ export type SubagentTurnGenerate = (args: {
   providerOptions: {
     gateway: Pick<GatewayProviderOptions, "zeroDataRetention" | "user" | "tags">;
   };
-}) => Promise<{ text: string; usage?: LanguageModelUsage; providerMetadata?: unknown }>;
+}) => Promise<{ text: string; toolParts?: UIMessage["parts"]; usage?: LanguageModelUsage; providerMetadata?: unknown }>;
 
 export type SubagentUsageRecorder = (args: {
   modelId: string;
@@ -102,6 +103,7 @@ const defaultGenerate: SubagentTurnGenerate = async (args) => {
 
   const { tools, toolInstructions } = await compileChatTools({
     useSearch: toolPolicy?.webSearch ?? true,
+    useResearch: toolPolicy?.research ?? false,
     useMemory: toolPolicy?.memory ?? false,
     useGetMoreMessages: toolPolicy?.chatHistory ?? true,
     useKnowledgeSearch: false,
@@ -123,7 +125,7 @@ const defaultGenerate: SubagentTurnGenerate = async (args) => {
     stopWhen: isStepCount(max_steps),
   });
 
-  return { text: result.text, usage: result.usage, providerMetadata: result.providerMetadata };
+  return { text: result.text, ...(toolPolicy?.research ? { toolParts: researchToolParts(result.steps) } : {}), usage: result.usage, providerMetadata: result.providerMetadata };
 };
 
 /**
@@ -199,7 +201,7 @@ export async function runSubagentThreadTurn(
     const text = result.text.trim() || "I finished without anything to report.";
 
     const saved = await store.appendMessages(threadId, [
-      buildSubagentReplyMessage({ text, goalId: goal.goalId, modelId: input.modelId }),
+      buildSubagentReplyMessage({ text, toolParts: result.toolParts, goalId: goal.goalId, modelId: input.modelId }),
     ]);
     if (!saved) throw new Error("Could not save subagent result");
     await store.setStatus(threadId, "done");

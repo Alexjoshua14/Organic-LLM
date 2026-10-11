@@ -1,5 +1,6 @@
 import type { ArcadiaSubagent } from "@/lib/arcadia/multitask/types";
 
+import { researcherSubagent } from "@/lib/llm/subagents/hard-set/agents/researcher";
 import { assignDistinctVoices } from "@/lib/arcadia/multitask/voice-assignment";
 
 /**
@@ -13,9 +14,9 @@ const DEMO_SEEDS: Array<
 > = [
   {
     id: "agent-researcher",
-    name: "Lyra",
-    role: "researcher",
-    blurb: "Pulls sources and threads citations.",
+    name: researcherSubagent.name,
+    role: researcherSubagent.role,
+    blurb: researcherSubagent.blurb,
     goal: "Awaiting assignment.",
     progress: "Idle — no live run yet.",
     progressPct: 0,

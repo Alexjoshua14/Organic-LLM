@@ -136,7 +136,7 @@ function rosterForRouter(snapshots: ReadonlyArray<SubagentThreadSnapshot>): Thou
     role: a.role,
     goal: byAgent.get(a.id)?.lastGoal ?? a.goal,
   }));
-  const locked = listRosterHardSetSubagents().map((a) => ({
+  const locked = listRosterHardSetSubagents().filter((a) => !a.rosterSlotId).map((a) => ({
     id: a.id,
     name: a.name,
     role: a.role,

@@ -1,7 +1,7 @@
 import type { SubagentThreadSnapshot } from "@/lib/llm/subagents/threads/snapshot";
 
 import { createDemoSubagents } from "@/lib/arcadia/multitask/demo-roster";
-import { listRosterHardSetSubagents } from "@/lib/llm/subagents/hard-set/registry";
+import { getHardSetSubagent, listRosterHardSetSubagents } from "@/lib/llm/subagents/hard-set/registry";
 import {
   ORCHESTRATOR_MAX_AUTONOMOUS_DISPATCHES,
   ORCHESTRATOR_MAX_DISPATCHES_PER_TURN,
@@ -30,12 +30,12 @@ export function formatOrchestratorFragment(args: {
 }): string {
   const byAgent = new Map(args.snapshots.map((s) => [s.agentId, s]));
   const slots = createDemoSubagents();
-  const locked = listRosterHardSetSubagents();
+  const locked = listRosterHardSetSubagents().filter((a) => !a.rosterSlotId);
   const slotIds = new Set([...slots.map((s) => s.id), ...locked.map((a) => a.id)]);
   const roster = [
     ...slots.map(
       (s) =>
-        `- ${s.name} (${s.role}, agentId=${s.id}) — ${byAgent.get(s.id)?.status ?? "idle"}. ${s.blurb}`
+        `- ${s.name} (${s.role}, agentId=${s.id}) — ${byAgent.get(s.id)?.status ?? "idle"}. ${s.blurb}${getHardSetSubagent(s.id)?.roster ? " Locked persona: give it assignments within its role; it will not take on another role." : ""}`
     ),
     ...locked.map(
       (a) =>

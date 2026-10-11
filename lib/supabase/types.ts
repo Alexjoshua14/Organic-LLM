@@ -1559,6 +1559,8 @@ export type Database = {
           owner_id: string
           parent_thread_id: string | null
           path: string | null
+          research_ledger: string | null
+          research_ledger_rev: string | null
           persisted_schemas: Json | null
           persona: string | null
           pinned: boolean
@@ -1588,6 +1590,8 @@ export type Database = {
           owner_id: string
           parent_thread_id?: string | null
           path?: string | null
+          research_ledger?: string | null
+          research_ledger_rev?: string | null
           persisted_schemas?: Json | null
           persona?: string | null
           pinned?: boolean
@@ -1617,6 +1621,8 @@ export type Database = {
           owner_id?: string
           parent_thread_id?: string | null
           path?: string | null
+          research_ledger?: string | null
+          research_ledger_rev?: string | null
           persisted_schemas?: Json | null
           persona?: string | null
           pinned?: boolean

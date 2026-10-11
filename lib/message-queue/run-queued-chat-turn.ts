@@ -38,6 +38,7 @@ import { saveChat } from "@/lib/chat/chat-store";
 import { resolveMemoryEnabledForExperience } from "@/lib/chat/chat-experience";
 import { getLastUserMessageText } from "@/lib/arcadia/help-response";
 import { compileChatTools } from "@/lib/llm/compile-chat-tools";
+import { getHardSetSubagent } from "@/lib/llm/subagents/hard-set/registry";
 import { getChatModel } from "@/lib/llm/helpers";
 import { createLogger } from "@/lib/logger";
 import { AUTO_CHAT_MODEL_ID, ChatModels, DEFAULT_CHAT_MODEL } from "@/lib/schemas/chat";
@@ -203,10 +204,12 @@ export async function runQueuedChatTurn(args: {
       const messages = await convertToModelMessages(foldSystemNoticesForModel(validatedMessages));
       const initialMessageCount = validatedMessages.length;
 
+      const shellAgent = getHardSetSubagent(multitask?.hardSetAgentId);
       const compiledTools = await compileChatTools({
-        useSearch: payload.webSearch ?? false,
-        useMemory: payload.memory ?? false,
-        useGetMoreMessages: payload.messageSearch ?? true,
+        useSearch: shellAgent?.tools.webSearch ?? payload.webSearch ?? false,
+        useResearch: shellAgent?.tools.research ?? false,
+        useMemory: shellAgent?.tools.memory ?? payload.memory ?? false,
+        useGetMoreMessages: shellAgent?.tools.chatHistory ?? payload.messageSearch ?? true,
         useKnowledgeSearch: false,
         experience,
         chatId,

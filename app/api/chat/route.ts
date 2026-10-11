@@ -376,6 +376,7 @@ export async function POST(req: Request) {
 
       const compiledTools = await compileChatTools({
         useSearch: shellAgent?.tools.webSearch ?? parseResult.data.webSearch ?? false,
+        useResearch: shellAgent?.tools.research ?? false,
         useMemory: shellAgent?.tools.memory ?? parseResult.data.memory ?? false,
         useGetMoreMessages: shellAgent?.tools.chatHistory ?? messageSearch ?? true,
         useKnowledgeSearch: Boolean(knowledgeSearch) && experience === "strata_page",

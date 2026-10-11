@@ -16,14 +16,17 @@ One file per subagent in `agents/<slug>.ts`, built with `defineHardSetSubagent` 
 | `name`, `role`, `blurb` | Identity. The blurb is the one line shown in the lab. |
 | `instructions` | The subagent's own system prompt fragment, sent on every model turn in its shell. |
 | `helpMenu` | Markdown sent as the reflex, with no model call. It also seeds every new shell. It must not start with Arcadia's help prefix. |
-| `tools` | `webSearch`, `memory`, `chatHistory`. Each flag forces that tool on or off. An omitted flag follows the composer toggles. |
+| `tools` | `webSearch`, `memory`, `chatHistory`, `research`. Each flag forces a capability on or off. An omitted flag follows the turn's defaults. The research toolbox is server-selected. |
+| `roster` | Include the fixed persona in orchestration. |
+| `rosterSlotId` | Optional binding to an existing `agent-*` slot; dispatch uses that id and does not add a duplicate roster entry. |
 
 Register the subagent in `registry.ts`. `tests/unit/hard-set-subagents.test.ts` checks every
 definition: valid schema, unique id, no clash with the orchestrator's roster, and a help menu
 that won't render as Arcadia's help card.
 
-`agents/architect.ts` (Archer) is a **sample** created by the skill. Keep it, iterate on it, or
-delete it.
+`agents/architect.ts` defines Archer. `agents/researcher.ts` defines Lyra, bound to the existing
+researcher slot. Her [research guide](../research/README.md) owns provider setup, evidence
+storage and the browsable research UI.
 
 ## Shells
 
@@ -53,12 +56,12 @@ Every live send in a shell (`/api/chat`) goes through these steps:
 
 ### Limits (current)
 
-- Queued sends (`/api/chat/queue`) skip the reflex gate and the tool policy, and run as a
-  plain shell turn.
+- Queued direct sends (`/api/chat/queue`) skip the reflex gate but apply the fixed persona
+  and tool policy. Delegated background runs also use that policy.
 - The Arcadia base system prompt still sits under the shell fragment. The fragment tells the
   model to follow the subagent's instructions over any general persona.
-- Hard-set subagents are not yet in the orchestrator's roster, so `dispatch_subagent` cannot
-  target them. Promoting a finished subagent into the roster is a separate step.
+- `roster: true` enables dispatch by id, name or role. A bound `rosterSlotId` preserves an
+  existing slot; otherwise the canonical subagent id is used.
 
 ## Probing a subagent
 

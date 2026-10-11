@@ -245,12 +245,13 @@ export function resolveDispatchTarget(
     (a) => a.id.toLowerCase() === wanted || a.name.toLowerCase() === wanted
   );
 
-  if (lockedByName) return lockedByName.id;
+  if (lockedByName) return lockedByName.rosterSlotId ?? lockedByName.id;
   const busy = new Set(children.filter((c) => c.status === "working").map((c) => c.agentId));
 
   return (
     pickRosterSlotForRole(wanted, { busyAgentIds: busy }) ??
     pickRosterSlotForRole(wanted) ??
+    locked.find((a) => a.role.toLowerCase() === wanted)?.rosterSlotId ??
     locked.find((a) => a.role.toLowerCase() === wanted)?.id ??
     null
   );
