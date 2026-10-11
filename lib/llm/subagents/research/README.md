@@ -79,8 +79,8 @@ the ledger binding and clears that marker. Existing legacy thread columns stay a
 copy and are not read or written by the app. New deployments never create them. No automatic
 cross-thread sharing is introduced, but same-owner threads can reference the same ledger without
 duplicating/rebinding ciphertext. Deleting a thread leaves the independent ledger; unlink its
-threads before explicitly deleting a ledger. Profile deletion cascades both within the deferred
-FK transaction.
+threads before explicitly deleting a ledger. The ledger's profile reference cascades on owner
+deletion; its deferred thread FK permits coordinated deletion within one transaction.
 
 Limits:
 60 sources, 100 claims, 10 crawl jobs, 80,000 text characters per source, and 1,500,000 serialized
