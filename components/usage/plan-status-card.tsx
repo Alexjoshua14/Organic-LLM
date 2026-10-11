@@ -7,7 +7,7 @@ import { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/third-party/ui/button";
 import { formatResetCountdown } from "@/lib/plans/budget-cycle";
 import { getUsagePlanTier } from "@/lib/usage/plans";
-import { formatUsd } from "@/lib/usage/format";
+import { formatPercent } from "@/lib/usage/format";
 import { cn } from "@/lib/utils";
 
 /** How often the reset countdown re-renders. Minutes are its finest unit, so 30s is plenty. */
@@ -38,7 +38,8 @@ export function PlanStatusCard({ plan, onReset }: PlanStatusCardProps) {
 
   const tier = getUsagePlanTier(plan.plan);
   const resetsIn = formatResetCountdown(Date.parse(plan.cycleEnd) - now);
-  const percent = plan.capUsd ? Math.min(100, (plan.usedUsd / plan.capUsd) * 100) : 0;
+  const percent = plan.capUsd ? (plan.usedUsd / plan.capUsd) * 100 : 0;
+  const progressPercent = Math.min(100, percent);
   const unavailable = plan.status === "unavailable";
   const reached = !unavailable && !plan.canDispatch;
   const resets = plan.resetsRemaining;
@@ -91,15 +92,15 @@ export function PlanStatusCard({ plan, onReset }: PlanStatusCardProps) {
       ) : plan.capUsd !== null ? (
         <div className="space-y-1.5">
           <p className="text-xs tabular-nums text-muted-foreground">
-            <span className="text-foreground">{formatUsd(plan.usedUsd)}</span> of{" "}
-            {formatUsd(plan.capUsd)} this week
+            <span className="text-foreground">{formatPercent(percent)}</span> used this week
           </p>
           <div
             role="progressbar"
             aria-label="Weekly plan allowance"
             aria-valuemin={0}
             aria-valuemax={100}
-            aria-valuenow={Math.round(percent)}
+            aria-valuenow={Math.round(progressPercent)}
+            aria-valuetext={`${formatPercent(percent)} used this week`}
             className="h-1 overflow-hidden rounded-full bg-border/40"
           >
             <div
@@ -107,7 +108,7 @@ export function PlanStatusCard({ plan, onReset }: PlanStatusCardProps) {
                 "h-full rounded-full transition-[width] duration-500 motion-reduce:transition-none",
                 reached ? "bg-amber-500/90" : "bg-lumen/80"
               )}
-              style={{ width: `${percent}%` }}
+              style={{ width: `${progressPercent}%` }}
             />
           </div>
         </div>
@@ -115,9 +116,10 @@ export function PlanStatusCard({ plan, onReset }: PlanStatusCardProps) {
         <p className="text-xs text-muted-foreground">No weekly spend cap.</p>
       )}
 
-      {!unavailable && plan.holdReason ? (
+      {reached ? (
         <p className="text-xs text-amber-700 dark:text-amber-300">
-          {plan.holdReason} New requests are paused until the window resets.
+          You’ve used this week’s {tier.name} plan allowance. New requests are paused until the
+          window resets.
         </p>
       ) : null}
 
