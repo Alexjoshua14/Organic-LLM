@@ -1,3 +1,4 @@
+import { createAuthenticatedLlmBudgetHooks, budgetModelId } from "@/lib/plans/llm-budget-hooks";
 import type { RabbitHoleNode } from "@/lib/schemas/rabbitHoleSchemas";
 
 import { generateText } from "ai";
@@ -56,6 +57,10 @@ export async function generateRabbitHoleNodeSummary(node: RabbitHoleNode): Promi
   const sourceDoc = await formatNodeSummaryDocument(node);
 
   const { text } = await generateText({
+    ...(await createAuthenticatedLlmBudgetHooks({
+      modelId: budgetModelId(RABBIT_HOLE_NODE_SUMMARY_MODEL),
+      operation: "rabbit-holes/node-summary",
+    })),
     model: RABBIT_HOLE_NODE_SUMMARY_MODEL,
     instructions: NODE_SUMMARY_SYSTEM,
     prompt: sourceDoc,

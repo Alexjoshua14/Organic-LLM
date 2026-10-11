@@ -32,6 +32,7 @@ import {
 
 import { ErgonTaskResult } from "@/components/ergon/ErgonTaskResult";
 import { GenUIStreamingPart } from "@/components/chat/gen-ui/GenUIStreamingPart";
+import { ResearchToolResult } from "@/components/chat/gen-ui/ResearchToolResult";
 import { GenUIToolResult } from "@/components/chat/gen-ui/GenUIToolResult";
 import { KanbanInFlight } from "@/components/chat/kanban/KanbanInFlight";
 import { KanbanToolResult } from "@/components/chat/kanban/KanbanToolResult";
@@ -178,6 +179,16 @@ const AIMessage: FC<ChatMessageProps> = ({
               if (isToolUIPart(part)) {
                 const toolName = getToolOrDynamicToolName(part);
                 const toolCallId = part.toolCallId;
+
+                if (toolName.startsWith("research_")) {
+                  if (part.state === "input-streaming" || part.state === "input-available") {
+                    return <ChatThinking key={`${message.id}-${i}-research-pending`} text={toolInvocationInFlightLabel(toolName)} />;
+                  }
+                  if (part.state === "output-available" || part.state === "output-error") {
+                    return <ResearchToolResult key={`${message.id}-${i}-research-result`} toolName={toolName} output={part.state === "output-available" ? part.output : { error: part.errorText }} threadId={chatId} />;
+                  }
+                  return null;
+                }
 
                 if (toolName === KANBAN_BOARD_TOOL_NAME) {
                   if (part.state === "input-streaming" || part.state === "input-available") {
@@ -599,6 +610,17 @@ function shouldShowTailAiAction(
 
 const KNOWN_TOOL_IN_FLIGHT_LABELS: Record<string, string> = {
   render_gen_ui: "Structuring response…",
+  research_capabilities: "Checking research access…",
+  research_search: "Finding research sources…",
+  research_read: "Reading sources…",
+  research_scrape: "Capturing source material…",
+  research_map: "Exploring site pages…",
+  research_crawl: "Collecting site pages…",
+  research_parse_document: "Reading document pages…",
+  research_source: "Reading captured text…",
+  research_record_claim: "Linking findings to evidence…",
+  research_audit: "Reviewing evidence…",
+  research_publish: "Preparing research report…",
   gather_restaurant: "Looking up restaurant…",
   kanban_board: "Updating board…",
   manage_tasks: "Updating tasks…",
@@ -611,6 +633,9 @@ const KNOWN_TOOL_IN_FLIGHT_LABELS: Record<string, string> = {
   get_full_chat_history: "Getting full chat history...",
   get_more_chat_history: "Getting more chat history...",
   get_messages_from_date: "Getting chat history for that date...",
+  read_subagent_thread: "Reading a subagent's thread...",
+  worktable: "Updating the worktable...",
+  dispatch_subagent: "Briefing a subagent...",
 };
 
 function toolInvocationInFlightLabel(toolName: string): string {

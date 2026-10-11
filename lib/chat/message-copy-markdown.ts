@@ -6,6 +6,7 @@ import {
   genUIBlockToMarkdownLoose,
   safeParseGenUIBlock,
 } from "@/lib/schemas/gen-ui";
+import { RESEARCH_PUBLISH_TOOL_NAME } from "@/lib/schemas/gen-ui/research-report";
 import { RENDER_GEN_UI_TOOL_NAME } from "@/lib/llm/gen-ui-tool";
 import { KANBAN_BOARD_TOOL_NAME } from "@/lib/llm/kanban-tool";
 import { extractKanbanViewFromToolOutput, kanbanViewToMarkdown } from "@/lib/schemas/kanban";
@@ -36,7 +37,7 @@ export function messagePartsToCopyMarkdown(parts: UIMessage["parts"]): string {
         continue;
       }
 
-      if (toolName !== RENDER_GEN_UI_TOOL_NAME) continue;
+      if (toolName !== RENDER_GEN_UI_TOOL_NAME && toolName !== RESEARCH_PUBLISH_TOOL_NAME) continue;
 
       const raw = extractGenUIBlockFromToolOutput(part.output);
       const parsed = safeParseGenUIBlock(raw);

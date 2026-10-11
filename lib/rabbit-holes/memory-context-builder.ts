@@ -1,4 +1,5 @@
 import { generateText } from "ai";
+import { budgetModelId, createLlmBudgetHooks } from "@/lib/plans/llm-budget-hooks";
 
 import {
   RABBIT_HOLE_MEMORY_CONTEXT_MODEL,
@@ -133,6 +134,11 @@ export async function buildRabbitHoleMemoryContextBlock(
   const llmStarted = performance.now();
 
   const { text } = await generateText({
+    ...createLlmBudgetHooks({
+      ownerId: params.userId,
+      modelId: budgetModelId(RABBIT_HOLE_MEMORY_CONTEXT_MODEL),
+      operation: "rabbit_hole_memory_context",
+    }),
     model: RABBIT_HOLE_MEMORY_CONTEXT_MODEL,
     instructions: SYNTHESIS_SYSTEM,
     prompt: synthesisPrompt,

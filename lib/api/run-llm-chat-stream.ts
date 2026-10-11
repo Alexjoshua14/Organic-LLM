@@ -2,6 +2,7 @@ import type { ModelMessage, ToolSet, UIMessage, UIMessageStreamWriter } from "ai
 import type { Logger } from "@/lib/logger";
 import type { ChatExperience } from "@/lib/chat/chat-experience";
 import type { Result } from "@/types";
+import type { ContextBudgetEstimate } from "@/lib/chat/context-budget";
 
 import { smoothStream, isStepCount, streamText } from "ai";
 import { GatewayProviderOptions } from "@ai-sdk/gateway";
@@ -17,12 +18,21 @@ import { CHAT_STREAM_CHUNKING } from "@/lib/llm/chat-stream-chunking";
 import { serializeError } from "@/lib/llm/log-error";
 import { addLatestMessagesToMemoryForUser } from "@/lib/memory/operations";
 import { buildEffortProviderOptions, type ChatEffortLevel } from "@/lib/schemas/chat-effort";
-import { gatewayAttribution, readGatewayBilledCostUsd } from "@/lib/usage/gateway-attribution";
-import { trackLlmUsageEvent } from "@/lib/usage/track-llm-usage";
+import { gatewayAttribution } from "@/lib/usage/gateway-attribution";
+import { createLlmBudgetHooks } from "@/lib/plans/llm-budget-hooks";
 import { ChatAIActionEnum, type ChatUIMessage } from "@/types/ai";
+import {
+  memoryReferencesFromToolResult,
+  mergeContextMemoryReferences,
+} from "@/lib/chat/context-memory";
+import {
+  summarizeContextBudgetUsage,
+  type ContextBudgetUsageStep,
+} from "@/lib/chat/context-budget-usage";
 
 export type RunLLMChatStreamParams = {
   writer: UIMessageStreamWriter<ChatUIMessage>;
+  contextBudget?: ContextBudgetEstimate;
   logger: Logger;
   chatId: string;
   sbUserId: string;
@@ -69,6 +79,20 @@ export async function runLLMChatStream(params: RunLLMChatStreamParams): Promise<
   } = params;
 
   const toolNames = Object.keys(tools);
+  let contextBudget = params.contextBudget;
+  const usageSteps: ContextBudgetUsageStep[] = [];
+  const publishContextBudget = (complete = false) => {
+    if (!contextBudget?.lastTurn) return;
+
+    contextBudget = {
+      ...contextBudget,
+      lastTurn: {
+        ...contextBudget.lastTurn,
+        usage: summarizeContextBudgetUsage(selectedModel.id, usageSteps, complete),
+      },
+    };
+    writer.write({ type: "data-context-budget", id: "context-budget", data: contextBudget });
+  };
 
   logger.debug("streamText", "Calling streamText", {
     model: selectedModel.id,
@@ -109,7 +133,15 @@ export async function runLLMChatStream(params: RunLLMChatStreamParams): Promise<
 
   logger.debug("streamText", "providerOptions", providerOptionsSummary);
 
+  const budgetHooks = createLlmBudgetHooks({
+    ownerId: sbUserId,
+    clerkUserId,
+    modelId: selectedModel.id,
+    operation: "chat",
+    route: "/api/chat",
+  });
   const result = streamText({
+    ...budgetHooks,
     model: selectedModel.id,
     messages,
     instructions: systemPromptWithLength,
@@ -127,7 +159,26 @@ export async function runLLMChatStream(params: RunLLMChatStreamParams): Promise<
         toolNames,
       });
     },
+    async onStepEnd(step) {
+      await budgetHooks.onStepFinish(step);
+      usageSteps.push({ usage: step.usage, providerMetadata: step.providerMetadata });
+
+      if (contextBudget) {
+        contextBudget = {
+          ...contextBudget,
+          memoryContext: mergeContextMemoryReferences([
+            ...(contextBudget.memoryContext ?? []),
+            ...step.toolResults.flatMap((result) =>
+              memoryReferencesFromToolResult(result.toolName, result.output, assistantMessageId)
+            ),
+          ]),
+        };
+      }
+
+      publishContextBudget();
+    },
     onFinish() {
+      publishContextBudget(true);
       writer.write({
         type: "data-notification",
         data: { message: "Request completed", level: "info" },
@@ -186,25 +237,9 @@ export async function runLLMChatStream(params: RunLLMChatStreamParams): Promise<
     stopWhen: isStepCount(maxSteps),
   });
 
-  void Promise.all([result.totalUsage, result.steps])
-    .then(async ([usage, steps]) => {
+  void Promise.resolve(result.totalUsage)
+    .then(async (usage) => {
       if (!usage) return;
-
-      const costs = steps.map((step) => readGatewayBilledCostUsd(step.providerMetadata));
-      await trackLlmUsageEvent({
-        ownerId: sbUserId,
-        modelId: selectedModel.id,
-        inputTokens: usage.inputTokens,
-        outputTokens: usage.outputTokens,
-        cachedInputTokens: usage.inputTokenDetails.cacheReadTokens,
-        reasoningTokens: usage.outputTokenDetails.reasoningTokens,
-        totalTokens: usage.totalTokens,
-        costUsdOverride: costs.length > 0 && costs.every((cost) => cost !== undefined)
-          ? costs.reduce<number>((sum, cost) => sum + (cost ?? 0), 0)
-          : undefined,
-        operation: "chat",
-        route: "/api/chat",
-      });
 
       try {
         const { recordLlmCost, recordLlmTokenUsage } = await import("@/lib/rate-limit/llm");
@@ -311,7 +346,24 @@ export async function runLLMChatStream(params: RunLLMChatStreamParams): Promise<
         try {
           const messagesWithModel = messages.map((savedMessage) =>
             savedMessage.role === "assistant"
-              ? { ...savedMessage, model: selectedModel.id }
+              ? {
+                  ...savedMessage,
+                  model: selectedModel.id,
+                  ...(savedMessage.id === assistantMessageId && contextBudget
+                    ? {
+                        parts: [
+                          ...savedMessage.parts.filter(
+                            (part) => part.type !== "data-context-budget"
+                          ),
+                          {
+                            type: "data-context-budget" as const,
+                            id: "context-budget",
+                            data: contextBudget,
+                          },
+                        ],
+                      }
+                    : {}),
+                }
               : savedMessage
           );
 

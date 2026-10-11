@@ -24,6 +24,8 @@ import {
 } from "@/lib/schemas/chat";
 import { ChatUIMessage, ChatAIActionEnum } from "@/types/ai";
 import { tryArcadiaChatHelpShortcut } from "@/lib/api/arcadia-chat-help-shortcut";
+import { respondWithShellHelpReflex, startShellHelpReflex } from "@/lib/api/subagent-help-reflex";
+import { getHardSetSubagent } from "@/lib/llm/subagents/hard-set/registry";
 import { requireLlmChatActor } from "@/lib/api/chat-llm-gate";
 import { loadMainChatTurnContext, getContextMessageLimit } from "@/lib/api/chat-turn-context";
 import { loadArcadiaChatTurnContext } from "@/lib/api/arcadia-chat-turn-context";
@@ -51,7 +53,7 @@ import {
   type PrepareMultitaskTurnResult,
 } from "@/lib/llm/subagents/orchestrator/prepare-multitask-turn";
 import { createMultitaskTurnDeps } from "@/lib/llm/subagents/orchestrator/multitask-turn-deps";
-import { withReadSubagentThreadTool } from "@/lib/llm/subagents/orchestrator/read-subagent-thread-tool";
+import { withArcadiaOrchestratorTools } from "@/lib/llm/subagents/orchestrator/orchestrator-tools";
 import { foldSystemNoticesForModel } from "@/lib/llm/subagents/threads/fold-system-notices";
 
 // The stream still ends with the orchestrator's reply. The higher ceiling is for Arcadia subagent
@@ -218,6 +220,17 @@ export async function POST(req: Request) {
         });
       }
 
+      // Hard-set subagent shell: Jev decides help reflex vs. a normal turn, alongside context load.
+      const shellAgent = getHardSetSubagent(multitask?.hardSetAgentId);
+      const shellReflex = shellAgent
+        ? startShellHelpReflex({
+            agent: shellAgent,
+            message: messageForLlm,
+            ownerId: sbUserId,
+            route: "/api/chat",
+          })
+        : null;
+
       const loadTurnContext =
         experience === "arcadia"
           ? () =>
@@ -245,6 +258,7 @@ export async function POST(req: Request) {
         totalThreadMessages,
         scheduleBackgroundCondensation,
         memoriesInjected,
+        memoryContext,
       } = await loadTurnContext();
 
       if (experience === "arcadia" && scheduleBackgroundCondensation) {
@@ -312,7 +326,21 @@ export async function POST(req: Request) {
         }),
       });
 
-      if (
+      if (shellAgent && shellReflex) {
+        if ((await shellReflex).reflex) {
+          await respondWithShellHelpReflex({
+            agent: shellAgent,
+            assistantMessageId,
+            validatedMessages,
+            chatId: id,
+            sbUserId,
+            writer,
+            logger,
+          });
+
+          return;
+        }
+      } else if (
         await tryArcadiaChatHelpShortcut({
           experience,
           message,
@@ -347,9 +375,12 @@ export async function POST(req: Request) {
       }
 
       const compiledTools = await compileChatTools({
-        useSearch: parseResult.data.webSearch ?? false,
-        useMemory: parseResult.data.memory ?? false,
-        useGetMoreMessages: messageSearch ?? true,
+        useSearch: shellAgent?.tools.webSearch ?? parseResult.data.webSearch ?? false,
+        useResearch: shellAgent?.tools.research ?? false,
+        researchModelId: selectedModel.id,
+        researchGenerationContext: { messages, system: systemPromptForRequest },
+        useMemory: shellAgent?.tools.memory ?? parseResult.data.memory ?? false,
+        useGetMoreMessages: shellAgent?.tools.chatHistory ?? messageSearch ?? true,
         useKnowledgeSearch: Boolean(knowledgeSearch) && experience === "strata_page",
         experience,
         chatStyle,
@@ -360,13 +391,16 @@ export async function POST(req: Request) {
         rabbitHoleSessionId,
         rabbitHoleActiveNodeId,
       });
-      const { tools, toolInstructions } =
-        multitask?.role === "orchestrator" && multitask.hasSubagentThreads
-          ? withReadSubagentThreadTool(compiledTools, {
-              orchestratorThreadId: id,
-              deps: createMultitaskTurnDeps({ ownerId: sbUserId, clerkUserId, route: "/api/chat" }),
-            })
-          : compiledTools;
+      const { tools, toolInstructions } = withArcadiaOrchestratorTools(compiledTools, {
+        multitask,
+        orchestratorThreadId: id,
+        deps: createMultitaskTurnDeps({ ownerId: sbUserId, clerkUserId, route: "/api/chat" }),
+        modelId: selectedModel.id,
+        zeroDataRetention: isZeroDataRetention,
+        autonomous: false,
+        currentUserMessage: { id: message.id, text: getLastUserMessageText(messageForLlm) },
+        writer,
+      });
 
       const toolNames = Object.keys(tools);
 
@@ -474,16 +508,19 @@ export async function POST(req: Request) {
         contextMessageLimit:
           experience === "arcadia" ? undefined : getContextMessageLimit(experience),
         memoriesInjected,
+        memoryContext,
         recordLastTurn: true,
       });
 
       writer.write({
         type: "data-context-budget",
+        id: "context-budget",
         data: contextBudget,
       });
 
       await runLLMChatStream({
         writer,
+        contextBudget,
         logger,
         chatId: id,
         sbUserId,

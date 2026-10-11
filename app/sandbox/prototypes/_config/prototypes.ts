@@ -32,6 +32,19 @@ export type PrototypeEntry = {
 
 export const prototypes: PrototypeEntry[] = [
   {
+    slug: "organic-agent",
+    title: "Organic Agent",
+    description:
+      "ActivityMark's five states together, with size controls, physics/v0 comparison, and live state transitions.",
+    about: {
+      what: "A focused bench for the production OrganicActivityMark: independent physics dots beneath the glass layer, with the original SVG grid preserved for comparison and fallback.",
+      authorThoughts:
+        "Each dot should have independent physics for advanced microanimations, while the original grid remains available when motion preferences or device performance call for it.",
+      howToUse:
+        "Compare all five states, change the preview size, replay completion, or select Compare to see adaptive and v0 motion together. Use the transition preview to interrupt one state with another.",
+    },
+  },
+  {
     slug: "background",
     title: "AdaptiveLiquidChrome",
     description:

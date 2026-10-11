@@ -14,6 +14,7 @@ export function ComposerMemoryChip() {
       active={useMemories}
       aria-label={useMemories ? "Memory on" : "Memory off"}
       chip="memory"
+      size="icon-sm"
       title="Let the model recall and write memories on this turn"
       onClick={() => setUseMemories(!useMemories)}
     >

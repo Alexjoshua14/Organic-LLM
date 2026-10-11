@@ -1,3 +1,4 @@
+import { createLlmBudgetHooks } from "@/lib/plans/llm-budget-hooks";
 import { randomUUID } from "crypto";
 
 import { auth } from "@clerk/nextjs/server";
@@ -12,6 +13,7 @@ import { ChatRequestSchema, DEFAULT_CHAT_MODEL } from "@/lib/schemas/chat";
 import { CHAT_MODEL } from "@/lib/llm/helpers";
 import { Aion_SYSTEM_INSTRUCTION } from "@/lib/system-prompt/aion";
 import { createCoreToolKit } from "@/lib/llm/core/coreToolKit";
+import { requirePlanBudget } from "@/lib/api/plan-budget-gate";
 // TODO: Make this stream resumable, using some external source to the client for tracking running job
 
 const MAX_STEP_COUNT = 3;
@@ -61,6 +63,10 @@ export async function POST(req: Request) {
   }
   const sbUserId = sbUserIdResult.data;
 
+  const planGate = await requirePlanBudget({ clerkUserId: clerkUser.userId, sbUserId: sbUserId });
+
+  if (planGate) return planGate;
+
   const messageLimitResult = await checkLlmMessageLimit(sbUserId);
 
   if (!messageLimitResult.success) {
@@ -96,6 +102,13 @@ export async function POST(req: Request) {
   systemPrompt = systemPrompt.replace("{{ADDITIONAL_INSTRUCTIONS}}", instructions ?? "");
 
   const result = streamText({
+    ...createLlmBudgetHooks({
+      ownerId: sbUserId,
+      clerkUserId: clerkUser.userId,
+      modelId: selectedModel.id,
+      operation: "core",
+      route: "/api/ai/core",
+    }),
     model: selectedModel.id,
     messages: messages,
     instructions: systemPrompt,

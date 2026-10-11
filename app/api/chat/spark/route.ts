@@ -1,3 +1,4 @@
+import { createAuthenticatedLlmBudgetHooks, budgetModelId } from "@/lib/plans/llm-budget-hooks";
 import { openai, OpenAIProvider } from "@ai-sdk/openai";
 import {
   streamText,
@@ -25,6 +26,7 @@ import SYSTEM_PROMPT from "@/lib/system-prompt";
 import { appendCurrentDate } from "@/lib/system-prompt/current-date";
 import { getSupabaseUserId } from "@/data/supabase/profiles";
 import { models, providerModelSlug } from "@/lib/schemas/chat-models";
+import { requirePlanBudget } from "@/lib/api/plan-budget-gate";
 
 // Allow streaming responses up to 30 seconds
 export const maxDuration = 30;
@@ -55,6 +57,13 @@ export async function POST(req: Request) {
   if (sbUserId.error || sbUserId.data === null) {
     return new Response("User not found in supabase", { status: 404 });
   }
+
+  const planGate = await requirePlanBudget({
+    clerkUserId: clerkUser.userId,
+    sbUserId: sbUserId.data,
+  });
+
+  if (planGate) return planGate;
 
   const messageLimitResult = await checkLlmMessageLimit(sbUserId.data);
 
@@ -147,6 +156,10 @@ export async function POST(req: Request) {
   const start = performance.now();
 
   const result = streamText({
+    ...(await createAuthenticatedLlmBudgetHooks({
+      modelId: budgetModelId(openai(providerModelSlug(models.openai.terra.id))),
+      operation: "/api/chat/spark",
+    })),
     model: openai(providerModelSlug(models.openai.terra.id)),
     messages: await convertToModelMessages(validatedMessages),
     instructions: appendCurrentDate(systemPrompt),

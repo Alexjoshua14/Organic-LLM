@@ -1,3 +1,4 @@
+import { createAuthenticatedLlmBudgetHooks, budgetModelId } from "@/lib/plans/llm-budget-hooks";
 import "server-only";
 
 import type { MemoryMigrationTestRun } from "@/lib/memory/memory-migration-test-types";
@@ -86,6 +87,10 @@ export async function generateMigrationTestSynopsis(
   const blob = serializeMigrationRunsForSynopsis(runs);
   const start = performance.now();
   const result = await generateText({
+    ...(await createAuthenticatedLlmBudgetHooks({
+      modelId: budgetModelId(MEMORY_MIGRATION_SYNOPSIS_MODEL),
+      operation: "memory/migration-test-synopsis-llm",
+    })),
     model: MEMORY_MIGRATION_SYNOPSIS_MODEL,
     instructions: SYSTEM,
     prompt: `Comparison run data:\n${blob}`,
@@ -100,6 +105,7 @@ export async function generateMigrationTestSynopsis(
   const durationMs = performance.now() - start;
 
   recordLlmCall({
+    persist: false,
     model: MEMORY_MIGRATION_SYNOPSIS_MODEL,
     usage: result.usage,
     durationMs,

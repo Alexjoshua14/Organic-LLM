@@ -1,3 +1,4 @@
+import { createAuthenticatedLlmBudgetHooks, budgetModelId } from "@/lib/plans/llm-budget-hooks";
 import "server-only";
 
 import type { GatewayProviderOptions } from "@ai-sdk/gateway";
@@ -358,6 +359,10 @@ async function callGenerateObject<T>({
 }): Promise<T> {
   const start = performance.now();
   const { object, usage } = await generateObject({
+    ...(await createAuthenticatedLlmBudgetHooks({
+      modelId: budgetModelId(model),
+      operation: "profile-generation",
+    })),
     model,
     instructions,
     prompt,
@@ -371,6 +376,7 @@ async function callGenerateObject<T>({
   budget.reviewCalls += operation.includes("review") ? 1 : 0;
   recordBudgetUsage(budget, model, usage);
   recordLlmCall({
+    persist: false,
     model,
     usage,
     durationMs: performance.now() - start,
@@ -401,6 +407,10 @@ async function callGenerateText({
 }): Promise<string> {
   const start = performance.now();
   const { text, usage } = await generateText({
+    ...(await createAuthenticatedLlmBudgetHooks({
+      modelId: budgetModelId(model),
+      operation: "profile-generation",
+    })),
     model,
     instructions,
     prompt,
@@ -412,6 +422,7 @@ async function callGenerateText({
 
   recordBudgetUsage(budget, model, usage);
   recordLlmCall({
+    persist: false,
     model,
     usage,
     durationMs: performance.now() - start,

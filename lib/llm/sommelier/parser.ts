@@ -1,3 +1,4 @@
+import { createAuthenticatedLlmBudgetHooks, budgetModelId } from "@/lib/plans/llm-budget-hooks";
 import { z } from "zod";
 import { generateObject } from "ai";
 
@@ -35,6 +36,10 @@ export async function parseWineCount(userText: string): Promise<number> {
 
   try {
     const { object } = await generateObject({
+      ...(await createAuthenticatedLlmBudgetHooks({
+        modelId: budgetModelId(models.openai.luna.id),
+        operation: "llm/sommelier/parser",
+      })),
       model: models.openai.luna.id,
       instructions: PARSER_SYSTEM,
       prompt: truncated,

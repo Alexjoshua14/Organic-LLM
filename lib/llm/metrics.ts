@@ -63,6 +63,8 @@ export function recordLlmCall(args: {
   usage?: LlmUsageLike | null;
   durationMs: number;
   metadata?: LlmCallMetadata;
+  /** False when an awaited per-step ledger hook already recorded this call. */
+  persist?: boolean;
 }) {
   const { model, usage, durationMs, metadata } = args;
 
@@ -102,7 +104,7 @@ export function recordLlmCall(args: {
     })
   );
 
-  if (metadata?.userId && totalTokens > 0) {
+  if (args.persist !== false && metadata?.userId && totalTokens > 0) {
     trackLlmUsageEvent({
       ownerId: metadata.userId,
       modelId: model,

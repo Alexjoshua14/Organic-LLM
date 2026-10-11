@@ -1,5 +1,7 @@
 "use server";
 
+import { createAuthenticatedLlmBudgetHooks, budgetModelId } from "@/lib/plans/llm-budget-hooks";
+
 import type {
   HomepageRouteCandidate,
   HomepageRouteCandidateKind,
@@ -173,6 +175,10 @@ export async function routeHomepagePrompt(params: {
 
   try {
     const { object, usage } = await generateObject({
+      ...(await createAuthenticatedLlmBudgetHooks({
+        modelId: budgetModelId(ROUTING_MODEL),
+        operation: "chat/thread-routing",
+      })),
       model: ROUTING_MODEL,
       instructions: ROUTING_SYSTEM,
       prompt: buildClassifierPrompt(trimmed, candidates),
@@ -184,6 +190,7 @@ export async function routeHomepagePrompt(params: {
     classificationMs = performance.now() - llmStart;
 
     recordLlmCall({
+      persist: false,
       model: models.openai.luna.id,
       usage,
       durationMs: classificationMs,

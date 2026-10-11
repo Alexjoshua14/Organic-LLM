@@ -1541,6 +1541,42 @@ export type Database = {
           },
         ]
       }
+      research_ledgers: {
+        Row: {
+          id: string
+          owner_id: string
+          payload: string | null
+          payload_rev: string | null
+          legacy_thread_id: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          owner_id?: string
+          payload?: string | null
+          payload_rev?: string | null
+          legacy_thread_id?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          owner_id?: string
+          payload?: string | null
+          payload_rev?: string | null
+          legacy_thread_id?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: [{
+          foreignKeyName: "research_ledgers_owner_id_fkey"
+          columns: ["owner_id"]
+          isOneToOne: false
+          referencedRelation: "profiles"
+          referencedColumns: ["id"]
+        }]
+      }
       threads: {
         Row: {
           active_stream_id: string | null
@@ -1559,6 +1595,7 @@ export type Database = {
           owner_id: string
           parent_thread_id: string | null
           path: string | null
+          research_ledger_id: string | null
           persisted_schemas: Json | null
           persona: string | null
           pinned: boolean
@@ -1588,6 +1625,7 @@ export type Database = {
           owner_id: string
           parent_thread_id?: string | null
           path?: string | null
+          research_ledger_id?: string | null
           persisted_schemas?: Json | null
           persona?: string | null
           pinned?: boolean
@@ -1617,6 +1655,7 @@ export type Database = {
           owner_id?: string
           parent_thread_id?: string | null
           path?: string | null
+          research_ledger_id?: string | null
           persisted_schemas?: Json | null
           persona?: string | null
           pinned?: boolean
@@ -1636,6 +1675,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "profiles"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "threads_research_ledger_owner_fkey"
+            columns: ["research_ledger_id", "owner_id"]
+            isOneToOne: false
+            referencedRelation: "research_ledgers"
+            referencedColumns: ["id", "owner_id"]
           },
           {
             foreignKeyName: "threads_parent_thread_id_fkey"

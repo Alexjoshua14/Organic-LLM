@@ -9,15 +9,15 @@ import { cn } from "@/lib/utils";
 
 function formatTokenCap(tokenCap: number | null): string {
   if (tokenCap == null) return "No fixed token allotment";
-  if (tokenCap >= 1_000_000) return `${(tokenCap / 1_000_000).toFixed(0)}M tokens / month`;
+  if (tokenCap >= 1_000_000) return `${(tokenCap / 1_000_000).toFixed(0)}M tokens / week`;
 
-  return `${Math.round(tokenCap / 1_000)}K tokens / month`;
+  return `${Math.round(tokenCap / 1_000)}K tokens / week`;
 }
 
-function formatBudget(monthlyBudgetUsd: number | null): string {
-  if (monthlyBudgetUsd == null) return "No monthly dollar ceiling";
+function formatBudget(weeklyBudgetUsd: number | null): string {
+  if (weeklyBudgetUsd == null) return "No weekly dollar ceiling";
 
-  return `$${monthlyBudgetUsd.toFixed(0)} API spend / UTC calendar month`;
+  return `$${weeklyBudgetUsd.toFixed(0)} API spend / week`;
 }
 
 function capacityLine(tier: PlanPublicTier): string[] {
@@ -30,7 +30,7 @@ function capacityLine(tier: PlanPublicTier): string[] {
   }
 
   if (tier.voiceHours != null) {
-    lines.push(`Use up to ${tier.voiceHours} hours of realtime voice a month`);
+    lines.push(`Use up to ${tier.voiceHours} hours of realtime voice a week`);
   } else {
     lines.push("Realtime voice follows your uncapped spend budget");
   }
@@ -77,8 +77,8 @@ function TierCard({ tier }: { tier: PlanPublicTier }) {
         </p>
         <dl className="space-y-2 text-sm">
           <div className="flex flex-col gap-0.5 sm:flex-row sm:items-baseline sm:justify-between sm:gap-3">
-            <dt className="text-muted-foreground">Monthly budget</dt>
-            <dd className="text-foreground sm:text-right">{formatBudget(tier.monthlyBudgetUsd)}</dd>
+            <dt className="text-muted-foreground">Weekly budget</dt>
+            <dd className="text-foreground sm:text-right">{formatBudget(tier.weeklyBudgetUsd)}</dd>
           </div>
           <div className="flex flex-col gap-0.5 sm:flex-row sm:items-baseline sm:justify-between sm:gap-3">
             <dt className="text-muted-foreground">Token allotment</dt>
@@ -113,7 +113,7 @@ export function PlansPageClient({ tiers }: { tiers: PlanPublicTier[] }) {
               Organic LLM
             </h1>
             <p className="max-w-prose text-sm leading-relaxed text-muted-foreground md:text-base">
-              Two tiers. Free includes a monthly spend budget measured from real model usage. Max
+              Two tiers. Free includes a weekly spend budget measured from real model usage. Max
               removes the dollar ceiling while keeping the same stream and request guards that keep
               the service steady.
             </p>
@@ -126,10 +126,10 @@ export function PlansPageClient({ tiers }: { tiers: PlanPublicTier[] }) {
           </div>
 
           <p className="text-xs leading-relaxed text-muted-foreground">
-            Capacity figures for chats, rabbit holes, and voice are derived from the monthly spend
+            Capacity figures for chats, rabbit holes, and voice are derived from the weekly spend
             budget at published model rates. Actual use varies with model choice and session length.
             Max does not promise unlimited rabbit holes or voice — only that there is no fixed
-            monthly dollar cap.
+            weekly dollar cap.
           </p>
         </div>
       </div>

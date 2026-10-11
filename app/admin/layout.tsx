@@ -1,4 +1,5 @@
 import { notFound } from "next/navigation";
+import Link from "next/link";
 
 import { requireAdmin } from "@/lib/admin/require-admin";
 
@@ -17,12 +18,20 @@ export default async function AdminLayout({ children }: { children: React.ReactN
             <p className="text-2xs uppercase tracking-wider text-muted-foreground">Admin</p>
             <h1 className="text-sm font-medium">Operator dashboards</h1>
           </div>
-          <a
-            className="text-xs text-muted-foreground hover:text-foreground transition-colors"
-            href="/"
+          <nav
+            aria-label="Admin"
+            className="flex flex-wrap items-center gap-4 text-xs text-muted-foreground"
           >
-            Back to app
-          </a>
+            <Link className="hover:text-foreground" href="/admin/usage">
+              Usage ledger
+            </Link>
+            <Link
+              className="text-xs text-muted-foreground hover:text-foreground transition-colors"
+              href="/"
+            >
+              Back to app
+            </Link>
+          </nav>
         </div>
       </header>
       <main className="mx-auto max-w-6xl px-4 py-6 sm:px-6">{children}</main>

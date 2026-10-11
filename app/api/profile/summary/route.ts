@@ -7,6 +7,7 @@ import {
   ProfileGenerationRequestSchema,
 } from "@/lib/profile-generation";
 import { checkProfileTreeGenerationLimit } from "@/lib/rate-limit/profile";
+import { requirePlanBudget } from "@/lib/api/plan-budget-gate";
 
 /**
  * Generates and persists a memory-only ProfileTree for the signed-in settings profile.
@@ -30,6 +31,9 @@ export async function POST(req: Request) {
   if (sbUserId.error || !sbUserId.data) {
     return NextResponse.json({ error: "User not found" }, { status: 404 });
   }
+
+  const planGate = await requirePlanBudget({ clerkUserId: user.userId, sbUserId: sbUserId.data });
+  if (planGate) return planGate;
 
   let body;
 

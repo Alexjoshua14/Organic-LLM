@@ -1,19 +1,14 @@
 /**
  * Multitask dashboard panel shares, shortcuts, and scroll-anchor math.
- * Spacing / focus constants live next to layout — do not scatter magic numbers.
+ * Spacing / width constants live next to layout — do not scatter magic numbers.
  */
-
-/** Small focus bias when both panels are open (fraction of the row). Not a takeover. */
-export const MULTITASK_FOCUS_SHARE_SHIFT = 0.04;
 
 /**
- * Base shares when both panels are visible and focus is neutral / orchestrator-default.
- * Chat stays the main column; board is supporting.
+ * Fixed shares when both panels are visible. Keep the original orchestrator-default split;
+ * focusing or selecting an agent must not squeeze the thread.
  */
-export const MULTITASK_BASE_CHAT_SHARE = 0.66;
-export const MULTITASK_BASE_BOARD_SHARE = 0.34;
-
-export type MultitaskPanelFocus = "orchestrator" | "subagent";
+export const MULTITASK_BASE_CHAT_SHARE = 0.7;
+export const MULTITASK_BASE_BOARD_SHARE = 0.3;
 
 export type MultitaskPanelVisibility = {
   chatOpen: boolean;
@@ -32,26 +27,16 @@ export type MultitaskPanelShares = {
 export function resolveMultitaskPanelShares(args: {
   chatOpen: boolean;
   boardOpen: boolean;
-  focus: MultitaskPanelFocus;
 }): MultitaskPanelShares {
-  const { chatOpen, boardOpen, focus } = args;
+  const { chatOpen, boardOpen } = args;
 
   if (chatOpen && !boardOpen) return { chat: 1, board: 0 };
   if (!chatOpen && boardOpen) return { chat: 0, board: 1 };
   if (!chatOpen && !boardOpen) return { chat: 0, board: 0 };
 
-  const shift = MULTITASK_FOCUS_SHARE_SHIFT;
-
-  if (focus === "orchestrator") {
-    return {
-      chat: MULTITASK_BASE_CHAT_SHARE + shift,
-      board: MULTITASK_BASE_BOARD_SHARE - shift,
-    };
-  }
-
   return {
-    chat: MULTITASK_BASE_CHAT_SHARE - shift,
-    board: MULTITASK_BASE_BOARD_SHARE + shift,
+    chat: MULTITASK_BASE_CHAT_SHARE,
+    board: MULTITASK_BASE_BOARD_SHARE,
   };
 }
 

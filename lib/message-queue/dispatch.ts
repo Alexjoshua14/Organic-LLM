@@ -15,7 +15,7 @@ import {
 import { createLogger } from "@/lib/logger";
 import { evaluateDispatchGates } from "@/lib/message-queue/dispatch-gates";
 import { runQueuedChatTurn } from "@/lib/message-queue/run-queued-chat-turn";
-import { getPlanBudgetForUser } from "@/lib/plans/monthly-budget";
+import { getPlanBudgetForUser } from "@/lib/plans/plan-budget";
 
 const logger = createLogger("lib/message-queue/dispatch.ts");
 

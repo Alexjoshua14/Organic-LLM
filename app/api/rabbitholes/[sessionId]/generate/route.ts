@@ -6,6 +6,7 @@ import { clientErrorJson, logRouteError } from "@/lib/api/client-safe-error";
 import { createLogger } from "@/lib/logger";
 import { checkRabbitHoleNodeLimit } from "@/lib/rate-limit/llm";
 import { scheduleNodeGeneration } from "@/lib/rabbit-holes/scheduleNodeGeneration";
+import { requirePlanBudget } from "@/lib/api/plan-budget-gate";
 
 export const maxDuration = 30;
 
@@ -32,6 +33,9 @@ export async function POST(req: Request, { params }: { params: Promise<{ session
   }
 
   const sbUserId = sbUserIdResult.data;
+  const planGate = await requirePlanBudget({ clerkUserId: clerkUser.userId, sbUserId });
+
+  if (planGate) return planGate;
 
   const nodeLimitResult = await checkRabbitHoleNodeLimit(sbUserId);
 

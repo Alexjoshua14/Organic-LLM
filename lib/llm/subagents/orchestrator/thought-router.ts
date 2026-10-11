@@ -3,6 +3,7 @@ import type { LanguageModelUsage } from "ai";
 import { randomUUID } from "crypto";
 
 import { generateObject } from "ai";
+import { createLlmBudgetHooks } from "@/lib/plans/llm-budget-hooks";
 import { z } from "zod";
 
 import type {
@@ -293,7 +294,7 @@ export type CreateJevThoughtRouterOptions = {
     modelId: string;
     usage?: LanguageModelUsage;
     providerMetadata?: unknown;
-  }) => void;
+  }) => void | Promise<void>;
 };
 
 /**
@@ -327,6 +328,10 @@ export function createJevThoughtRouter(options?: CreateJevThoughtRouterOptions):
         : call.providerOptions;
 
       try {
+        if (!options?.generate) {
+          if (!options?.ownerId) throw new Error("Routing requires a verified owner");
+          await createLlmBudgetHooks({ ownerId: options.ownerId, modelId: call.model, operation: "multitask_router" }).prepareStep();
+        }
         const { object, usage, providerMetadata } = await generate({
           model: call.model,
           system: JEV_ROUTER_SYSTEM,
@@ -339,7 +344,7 @@ export function createJevThoughtRouter(options?: CreateJevThoughtRouterOptions):
           throw new Error("Jev routing refused: ZDR must be on");
         }
 
-        options?.onUsage?.({ modelId: call.model, usage, providerMetadata });
+        await options?.onUsage?.({ modelId: call.model, usage, providerMetadata });
 
         const thoughts: RoutedThought[] = reclaimMisroutedDirectThoughts(
           object.thoughts.map((t) => ({

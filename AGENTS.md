@@ -17,6 +17,7 @@ Route to the doc that owns the topic. Do not re-derive what is already written d
 | UI, motion, spacing, loading states | [`docs/design/README.md`](docs/design/README.md) |
 | Architecture orientation | [`docs/INDEX.md`](docs/INDEX.md) |
 | Chat tools and the assistant toolbelt | [`docs/chat-tools.md`](docs/chat-tools.md) |
+| A new hard-set subagent (Subagent lab) | [`lib/llm/subagents/hard-set/README.md`](lib/llm/subagents/hard-set/README.md) |
 | Threads, persistence, encryption | [`docs/thread-session-architecture.md`](docs/thread-session-architecture.md) |
 | Setup, env vars, PRs | [`CONTRIBUTING.md`](CONTRIBUTING.md) |
 
@@ -93,7 +94,7 @@ run; `-t "name"` filters by test name.
 
 <!-- BEGIN:nextjs-agent-rules -->
 
-# This is NOT the Next.js you know
+## This is NOT the Next.js you know
 
 This version has breaking changes — APIs, conventions, and file structure may all differ from your training data. Read the relevant guide in `node_modules/next/dist/docs/` (resolved from this file's directory; in monorepos the `next` package may not be visible from the repo root) before writing any code. Heed deprecation notices.
 

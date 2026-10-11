@@ -16,7 +16,7 @@ import { computeCost, computeUsageCostUsd, costUnitsFromUsd } from "@/lib/rate-l
 import { checkLlmCostLimit, recordLlmCost } from "@/lib/rate-limit/llm";
 import { runLimiter } from "@/lib/rate-limit/run-limiter";
 import { redis } from "@/lib/redis/redis";
-import { trackLlmUsageEvent } from "@/lib/usage/track-llm-usage";
+import { insertLlmUsageEvent } from "@/data/supabase/llm-usage";
 
 const logger = createLogger("lib/rate-limit/aion-presence.ts");
 
@@ -174,7 +174,7 @@ export async function recordAionPresenceUsage(args: {
     );
   }
 
-  trackLlmUsageEvent({
+  await insertLlmUsageEvent({
     ownerId: userId,
     modelId,
     inputTokens: usage.inputTokens ?? usage.promptTokens ?? 0,

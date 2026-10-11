@@ -1,17 +1,24 @@
-import type { GatewayModelId, GatewayProviderOptions } from "@ai-sdk/gateway";
+import type { GatewayProviderOptions } from "@ai-sdk/gateway";
 import type { LanguageModelUsage, ModelMessage, UIMessage } from "ai";
 import type { WorkerAwarenessEvent, WorkerGoal } from "@/lib/schemas/subagent-runtime";
 import type { SubagentThreadStatus } from "@/lib/llm/subagents/threads/status";
 import type { RunWorkerGoalResult } from "@/lib/llm/subagents/worker/run";
+import type { HardSetSubagent } from "@/lib/llm/subagents/hard-set/types";
 
 import { randomUUID } from "crypto";
 
-import { convertToModelMessages, generateText, isStepCount } from "ai";
+import { asSchema, convertToModelMessages, generateText, isStepCount } from "ai";
+
+import { compileChatTools } from "../../compile-chat-tools";
+
+import { subagentRunLimits, withSubagentCostLimits } from "./cost-limits";
+import { researchToolParts } from "./research-tool-parts";
 
 import {
   defaultOrchestratorAwarenessBus,
   type OrchestratorAwarenessBus,
 } from "@/lib/llm/subagents/orchestrator/awareness";
+import { buildLockedWorkerSystem } from "@/lib/llm/subagents/hard-set/shell";
 import { foldSystemNoticesForModel } from "@/lib/llm/subagents/threads/fold-system-notices";
 import {
   buildSubagentGoalMessage,
@@ -24,18 +31,10 @@ import {
   summarizeOutcome,
 } from "@/lib/llm/subagents/worker/run-with-model";
 import { gatewayAttribution } from "@/lib/usage/gateway-attribution";
-import { AGENT_MODEL } from "../../helpers";
-import { compileChatTools } from "../../compile-chat-tools";
+import { createLlmBudgetHooks } from "@/lib/plans/llm-budget-hooks";
 
 /** Messages of the subagent's own thread handed to the model each run. */
 export const SUBAGENT_THREAD_CONTEXT_MESSAGES = 30;
-
-const SUBAGENT_MAX_OUTPUT_CAP = {
-  tier0_model: 500_000, // Most expensive models, Fable/Astra level
-  tier1_model: 1_000_000, // Second most expensive, Opus/Sol/ level
-  tier2_model: 2_000_000, // More affordable models, Sonnet level
-  tier3_mode: 10_000_000, // Cheap models, Luna, GPT OSS, level
-};
 
 /** Persistence for one subagent thread. Implementations must scope every call to the owner. */
 export type SubagentThreadStore = {
@@ -46,6 +45,8 @@ export type SubagentThreadStore = {
 
 export type SubagentTurnGenerate = (args: {
   chatId: string;
+  /** A locked subagent's tool policy; omitted flags use the worker defaults. */
+  tools?: HardSetSubagent["tools"];
   initialMessageCount: number;
   sbUserId: string;
   model: string;
@@ -54,7 +55,12 @@ export type SubagentTurnGenerate = (args: {
   providerOptions: {
     gateway: Pick<GatewayProviderOptions, "zeroDataRetention" | "user" | "tags">;
   };
-}) => Promise<{ text: string; usage?: LanguageModelUsage; providerMetadata?: unknown }>;
+}) => Promise<{
+  text: string;
+  toolParts?: UIMessage["parts"];
+  usage?: LanguageModelUsage;
+  providerMetadata?: unknown;
+}>;
 
 export type SubagentUsageRecorder = (args: {
   modelId: string;
@@ -71,6 +77,8 @@ export type RunSubagentThreadTurnInput = {
   zeroDataRetention: boolean;
   workerName?: string;
   workerRole?: string;
+  /** A hard-set subagent locked into the roster: runs on its own instructions and tool policy. */
+  lockedPersona?: HardSetSubagent;
   store: SubagentThreadStore;
   generate?: SubagentTurnGenerate;
   recordUsage?: SubagentUsageRecorder;
@@ -88,15 +96,17 @@ export function buildSubagentThreadSystem(name?: string, role?: string): string 
 }
 
 const defaultGenerate: SubagentTurnGenerate = async (args) => {
-  const { system, chatId, initialMessageCount, sbUserId, ...options } = args;
-  const agent_defaults = AGENT_MODEL()
-  const output_cap = agent_defaults.maxOutputTokens;
-  const max_steps = agent_defaults.maxStepCount;
+  const { system, chatId, initialMessageCount, sbUserId, tools: toolPolicy, ...options } = args;
+  const research = toolPolicy?.research === true;
+  const limits = subagentRunLimits(research);
 
   const { tools, toolInstructions } = await compileChatTools({
-    useSearch: true,
-    useMemory: false,
-    useGetMoreMessages: true,
+    useSearch: toolPolicy?.webSearch ?? true,
+    useResearch: toolPolicy?.research ?? false,
+    researchModelId: options.model,
+    researchGenerationContext: { messages: options.messages, system },
+    useMemory: toolPolicy?.memory ?? false,
+    useGetMoreMessages: toolPolicy?.chatHistory ?? true,
     useKnowledgeSearch: false,
     experience: "arcadia",
     chatId,
@@ -105,17 +115,41 @@ const defaultGenerate: SubagentTurnGenerate = async (args) => {
   });
 
   const hasTools = Object.keys(tools).length > 0;
+  const instructions = [system, toolInstructions].filter(Boolean).join("\n\n");
+  const toolSchemaText = JSON.stringify(
+    await Promise.all(
+      Object.entries(tools).map(async ([name, definition]) => ({
+        name,
+        description: definition.description,
+        schema: await asSchema(definition.inputSchema).jsonSchema,
+      }))
+    )
+  );
+  const budgetHooks = createLlmBudgetHooks({
+    ownerId: sbUserId,
+    modelId: options.model,
+    operation: "subagent_worker",
+    route: "/api/chat/queue",
+  });
 
   const result = await generateText({
     ...options,
-    instructions: [system, toolInstructions].filter(Boolean).join("\n\n"),
-    maxOutputTokens: output_cap,
+    ...withSubagentCostLimits(budgetHooks, { instructions, toolSchemaText, research }),
+    instructions,
+    maxOutputTokens: limits.maxOutputTokens,
     tools,
     toolChoice: hasTools ? "auto" : "none",
-    stopWhen: isStepCount(max_steps),
+    stopWhen: isStepCount(limits.maxSteps),
+    maxRetries: 1,
+    abortSignal: AbortSignal.timeout(180_000),
   });
 
-  return { text: result.text, usage: result.usage, providerMetadata: result.providerMetadata };
+  return {
+    text: result.text,
+    ...(research ? { toolParts: researchToolParts(result.steps) } : {}),
+    usage: result.totalUsage,
+    providerMetadata: result.providerMetadata,
+  };
 };
 
 /**
@@ -160,7 +194,10 @@ export async function runSubagentThreadTurn(
       initialMessageCount: history.length,
       sbUserId: input.ownerId,
       model: input.modelId,
-      system: buildSubagentThreadSystem(input.workerName, input.workerRole),
+      system: input.lockedPersona
+        ? buildLockedWorkerSystem(input.lockedPersona)
+        : buildSubagentThreadSystem(input.workerName, input.workerRole),
+      ...(input.lockedPersona ? { tools: input.lockedPersona.tools } : {}),
       messages: await convertToModelMessages(
         foldSystemNoticesForModel([
           ...history,
@@ -178,17 +215,25 @@ export async function runSubagentThreadTurn(
       },
     });
 
-    await input.recordUsage?.({
-      modelId: input.modelId,
-      usage: result.usage,
-      providerMetadata: result.providerMetadata,
-    });
+    // The production generator meters each step. Injected generators retain their recorder.
+    if (input.generate)
+      await input.recordUsage?.({
+        modelId: input.modelId,
+        usage: result.usage,
+        providerMetadata: result.providerMetadata,
+      });
 
     const text = result.text.trim() || "I finished without anything to report.";
 
     const saved = await store.appendMessages(threadId, [
-      buildSubagentReplyMessage({ text, goalId: goal.goalId, modelId: input.modelId }),
+      buildSubagentReplyMessage({
+        text,
+        toolParts: result.toolParts,
+        goalId: goal.goalId,
+        modelId: input.modelId,
+      }),
     ]);
+
     if (!saved) throw new Error("Could not save subagent result");
     await store.setStatus(threadId, "done");
 

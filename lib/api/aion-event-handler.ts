@@ -42,6 +42,8 @@ export type AionEventDeps = {
   auth: (...args: any[]) => Promise<any>;
   getSupabaseUserId: (clerkUserId: string) => Promise<{ data: string | null; error: Error | null }>;
   checkLlmMessageLimit: typeof checkLlmMessageLimit;
+  /** Weekly plan budget gate; a Response means the budget is spent. Omit only in tests. */
+  requirePlanBudget?: (args: { clerkUserId: string; sbUserId: string }) => Promise<Response | null>;
   checkAionPresenceTurn: typeof checkAionPresenceTurn;
   recordAionPresenceUsage: typeof recordAionPresenceUsage;
   resolveFeatureThread: typeof resolveFeatureThread;
@@ -95,6 +97,10 @@ export function createAionEventHandler(deps: AionEventDeps) {
     }
 
     const sbUserId = sbUserIdResult.data;
+
+    const planGate = await deps.requirePlanBudget?.({ clerkUserId: clerkUser.userId, sbUserId });
+
+    if (planGate) return planGate;
 
     const messageLimitResult = await deps.checkLlmMessageLimit(sbUserId);
 

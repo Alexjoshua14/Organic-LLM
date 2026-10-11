@@ -3,7 +3,6 @@ import { describe, expect, test } from "bun:test";
 import {
   MULTITASK_BASE_BOARD_SHARE,
   MULTITASK_BASE_CHAT_SHARE,
-  MULTITASK_FOCUS_SHARE_SHIFT,
   multitaskShortcutAction,
   nodeViewportY,
   pickMidpointScrollAnchor,
@@ -40,25 +39,15 @@ describe("multitaskShortcutAction", () => {
 });
 
 describe("resolveMultitaskPanelShares", () => {
-  test("focus share favors the active thread by the small constant", () => {
-    const orch = resolveMultitaskPanelShares({
+  test("both visible panels keep the fixed chat and board split", () => {
+    const shares = resolveMultitaskPanelShares({
       chatOpen: true,
       boardOpen: true,
-      focus: "orchestrator",
-    });
-    const sub = resolveMultitaskPanelShares({
-      chatOpen: true,
-      boardOpen: true,
-      focus: "subagent",
     });
 
-    expect(orch.chat).toBe(MULTITASK_BASE_CHAT_SHARE + MULTITASK_FOCUS_SHARE_SHIFT);
-    expect(orch.board).toBe(MULTITASK_BASE_BOARD_SHARE - MULTITASK_FOCUS_SHARE_SHIFT);
-    expect(sub.chat).toBe(MULTITASK_BASE_CHAT_SHARE - MULTITASK_FOCUS_SHARE_SHIFT);
-    expect(sub.board).toBe(MULTITASK_BASE_BOARD_SHARE + MULTITASK_FOCUS_SHARE_SHIFT);
-    expect(orch.chat - sub.chat).toBeCloseTo(MULTITASK_FOCUS_SHARE_SHIFT * 2);
-    expect(orch.chat + orch.board).toBeCloseTo(1);
-    expect(sub.chat + sub.board).toBeCloseTo(1);
+    expect(shares.chat).toBe(MULTITASK_BASE_CHAT_SHARE);
+    expect(shares.board).toBe(MULTITASK_BASE_BOARD_SHARE);
+    expect(shares.chat + shares.board).toBeCloseTo(1);
   });
 
   test("collapsed panel frees its share for the visible one", () => {
@@ -66,14 +55,12 @@ describe("resolveMultitaskPanelShares", () => {
       resolveMultitaskPanelShares({
         chatOpen: true,
         boardOpen: false,
-        focus: "orchestrator",
       })
     ).toEqual({ chat: 1, board: 0 });
     expect(
       resolveMultitaskPanelShares({
         chatOpen: false,
         boardOpen: true,
-        focus: "subagent",
       })
     ).toEqual({ chat: 0, board: 1 });
   });

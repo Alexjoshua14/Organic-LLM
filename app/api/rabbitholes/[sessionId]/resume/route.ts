@@ -5,6 +5,8 @@ import { getSessionById } from "@/data/supabase/rabbitholes";
 import { clientErrorJson, logRouteError } from "@/lib/api/client-safe-error";
 import { createLogger } from "@/lib/logger";
 import { runGenerationAndPersist } from "@/lib/rabbit-holes/runGenerationAndPersist";
+import { requirePlanBudget } from "@/lib/api/plan-budget-gate";
+import { getSupabaseUserId } from "@/data/supabase/profiles";
 
 export const maxDuration = 60;
 
@@ -22,6 +24,19 @@ export async function POST(_req: Request, { params }: { params: Promise<{ sessio
   if (!clerkUser?.userId) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
+
+  const sbUserIdResult = await getSupabaseUserId(clerkUser.userId);
+
+  if (sbUserIdResult.error || !sbUserIdResult.data) {
+    return NextResponse.json({ error: "User not found" }, { status: 404 });
+  }
+
+  const planGate = await requirePlanBudget({
+    clerkUserId: clerkUser.userId,
+    sbUserId: sbUserIdResult.data,
+  });
+
+  if (planGate) return planGate;
 
   const { sessionId } = await params;
 

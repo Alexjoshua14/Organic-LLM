@@ -169,16 +169,17 @@ export function computeUsageCostUsd(modelId: string, usage: Usage): number {
   const cost = getModelCost(modelId);
   const input = usage.promptTokens ?? usage.inputTokens ?? 0;
   const output = usage.completionTokens ?? usage.outputTokens ?? 0;
-  const cached = usage.inputTokenDetails?.cacheReadTokens ?? usage.cachedInputTokens ?? 0;
+  const cached = Math.min(
+    input,
+    Math.max(0, usage.inputTokenDetails?.cacheReadTokens ?? usage.cachedInputTokens ?? 0)
+  );
   const uncachedInput = Math.max(0, input - cached);
   const audioIn = usage.audioInputTokens ?? 0;
   const audioOut = usage.audioOutputTokens ?? 0;
 
   const inputCost = (uncachedInput / 1_000_000) * cost.inputPerMillion;
   const cachedCost =
-    cached > 0 && cost.cachedInputPerMillion !== undefined
-      ? (cached / 1_000_000) * cost.cachedInputPerMillion
-      : 0;
+    cached > 0 ? (cached / 1_000_000) * (cost.cachedInputPerMillion ?? cost.inputPerMillion) : 0;
   const outputCost = (output / 1_000_000) * cost.outputPerMillion;
   const audioInCost =
     audioIn > 0 && cost.audioInputPerMillion !== undefined
