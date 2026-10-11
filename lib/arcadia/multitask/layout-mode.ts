@@ -27,8 +27,8 @@ export const ARCADIA_RUNNING_STATUSES = new Set<ArcadiaSubagent["status"]>(["wor
  */
 export const MULTITASK_DASHBOARD_WIDE_MIN_PX = 1024;
 
-/** Outer pad — title must clear the viewport edge (not flush). */
-export const MULTITASK_DESKTOP_PAD_TOP_PX = 20;
+/** Compact header gap below the navigation clearance provided by the host. */
+export const MULTITASK_DESKTOP_PAD_TOP_PX = 8;
 export const MULTITASK_DESKTOP_PAD_X_PX = 16;
 export const MULTITASK_DESKTOP_PAD_BOTTOM_PX = 12;
 

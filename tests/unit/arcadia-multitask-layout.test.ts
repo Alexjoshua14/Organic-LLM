@@ -88,8 +88,8 @@ describe("formatSendTargetLabel", () => {
 });
 
 describe("desktop multitask spacing", () => {
-  test("top pad keeps the header off the viewport edge", () => {
-    expect(MULTITASK_DESKTOP_PAD_TOP_PX).toBeGreaterThanOrEqual(16);
+  test("top pad leaves a compact gap below navigation", () => {
+    expect(MULTITASK_DESKTOP_PAD_TOP_PX).toBeGreaterThanOrEqual(8);
   });
 
   test("chat column wins width over the capped agent board on desktop", () => {
