@@ -93,7 +93,7 @@ export function SubagentCard({
                   className="mt-px truncate text-[11px] leading-tight text-muted-foreground/70"
                   title={agent.modelId ?? undefined}
                 >
-                  <span className="text-muted-foreground/50">LLM · </span>
+                  <span className="select-none text-muted-foreground/50">LLM · </span>
                   {modelName ?? (agent.threadId ? "Not recorded" : "Not assigned")}
                 </p>
               </div>
@@ -130,12 +130,12 @@ export function SubagentCard({
       <div className="mt-2 flex flex-col gap-2 sm:flex-row sm:items-stretch">
         {agent.threadId ? <Link
           href={`/sandbox/arcadia/${agent.threadId}`}
-          className="rounded-lg border border-border/60 bg-background/50 px-2.5 py-1.5 text-center text-xs font-medium hover:bg-background-secondary focus-visible:outline focus-visible:outline-2"
+          className="select-none rounded-lg border border-border/60 bg-background/50 px-2.5 py-1.5 text-center text-xs font-medium hover:bg-background-secondary focus-visible:outline focus-visible:outline-2"
         >
           Open thread
         </Link> : <button
           className={cn(
-            "rounded-lg border border-border/60 bg-background/50 px-2.5 py-1.5 text-xs font-medium",
+            "select-none rounded-lg border border-border/60 bg-background/50 px-2.5 py-1.5 text-xs font-medium",
             "hover:bg-background-secondary transition-colors sm:w-auto sm:shrink-0",
             selected && "border-amber-800/30"
           )}

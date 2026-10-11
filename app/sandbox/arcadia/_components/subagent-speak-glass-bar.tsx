@@ -71,7 +71,7 @@ export function SubagentSpeakGlassBar({
             key="idle"
             animate={{ opacity: 1 }}
             className={cn(
-              "relative grid size-full grid-cols-[1rem_minmax(0,1fr)_1rem] items-center gap-1.5 px-3 text-center",
+              "relative grid size-full select-none grid-cols-[1rem_minmax(0,1fr)_1rem] items-center gap-1.5 px-3 text-center",
               "text-xs font-medium text-foreground/85",
               "hover:text-foreground transition-colors",
               "disabled:pointer-events-none disabled:opacity-40"

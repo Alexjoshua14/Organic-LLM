@@ -89,7 +89,7 @@ export function SendTargetPicker({
       ref={rootRef}
       aria-label="Message recipient"
       className={cn(
-        "min-w-0 py-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden",
+        "min-w-0 select-none py-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden",
         expanded ? "overflow-x-auto" : "overflow-x-hidden",
         className
       )}

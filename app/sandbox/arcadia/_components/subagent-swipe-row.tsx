@@ -85,7 +85,7 @@ function SubagentCompactCard({
         className="mt-0.5 truncate text-[10px] leading-tight text-muted-foreground/70"
         title={agent.modelId ?? undefined}
       >
-        <span className="text-muted-foreground/50">LLM · </span>
+        <span className="select-none text-muted-foreground/50">LLM · </span>
         {modelName ?? (agent.threadId ? "Not recorded" : "Not assigned")}
       </p>
       <div className="mt-1.5 h-1 overflow-hidden rounded-full bg-background/60">
@@ -187,7 +187,7 @@ export function SubagentSwipeRow({
         <button
           aria-controls={listId}
           aria-expanded={expanded}
-          className="flex min-h-11 w-full items-center gap-2 rounded-lg px-2 text-xs text-muted-foreground hover:bg-background-secondary focus-visible:outline focus-visible:outline-2 focus-visible:outline-ring"
+          className="flex min-h-11 w-full select-none items-center gap-2 rounded-lg px-2 text-xs text-muted-foreground hover:bg-background-secondary focus-visible:outline focus-visible:outline-2 focus-visible:outline-ring"
           type="button"
           onClick={() => setExpanded((open) => !open)}
         >

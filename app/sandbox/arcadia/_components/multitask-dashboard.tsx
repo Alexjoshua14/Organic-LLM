@@ -305,7 +305,7 @@ export function MultitaskDashboard({ children, enabled = true }: MultitaskDashbo
           )}
         >
           <FeatureHint id="arcadia-multiagent" showWhen={!viewingSubagentId}>
-            <div className="min-w-0 flex-1 pr-2">
+            <div className="min-w-0 flex-1 select-none pr-2">
               {viewingSubagentId ? (
                 <h1 className="truncate text-sm font-medium">
                   {formatSendTargetLabel({ kind: "subagent", agentId: viewingSubagentId }, agents)}
@@ -325,7 +325,7 @@ export function MultitaskDashboard({ children, enabled = true }: MultitaskDashbo
                   Back to orchestrator
                 </Link>
               ) : null}
-              <p className="truncate ps-[0.5em] text-[11px] text-muted-foreground">
+              <p className="select-none truncate ps-[0.5em] text-[11px] text-muted-foreground">
                 {runningCount} running
               </p>
               {toggleBlockedReason ? (
@@ -339,7 +339,7 @@ export function MultitaskDashboard({ children, enabled = true }: MultitaskDashbo
             {condensed ? (
               <div
                 aria-label="Multiagent view"
-                className="flex rounded-full border border-border/50 bg-background/60 p-0.5"
+                className="flex select-none rounded-full border border-border/50 bg-background/60 p-0.5"
                 role="group"
               >
                 <button
