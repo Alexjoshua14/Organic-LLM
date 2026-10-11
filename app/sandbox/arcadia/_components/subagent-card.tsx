@@ -91,7 +91,7 @@ export function SubagentCard({
                   ) : null}
                 </div>
                 <p className="mt-0.5 text-[11px] uppercase tracking-wide text-muted-foreground">
-                  {agent.role} · voice {agent.voiceId}
+                  {agent.role}
                 </p>
                 <p
                   className="mt-1 truncate text-[11px] leading-snug text-muted-foreground/70"
