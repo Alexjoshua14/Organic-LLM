@@ -89,7 +89,9 @@ Structured blocks as first-class UI, not markdown-only. Block types (Zod schemas
 | **audio-snippet** | Short audio-oriented payloads in-thread |
 | **research-report** | Lyra's source synopses, takeaways and quoted evidence; constructed by `research_publish` from saved source/claim ids. |
 
-- Implementation: [`createRenderGenUiTool`](../lib/llm/gen-ui-tool.ts) · prompt hints: [`lib/system-prompt/gen-ui.ts`](../lib/system-prompt/gen-ui.ts)
+Also available in the **Delphi** memory-ingest chamber (stricter guidance: one compact block, reserved for hard-commit drafts, session recaps, or genuine filing choices; rendered in the delivery slot beneath the assistant caption).
+
+- Implementation: [`createRenderGenUiTool`](../lib/llm/gen-ui-tool.ts) · prompt hints: [`lib/system-prompt/gen-ui.ts`](../lib/system-prompt/gen-ui.ts) (`GEN_UI_TOOL_INSTRUCTIONS`, `DELPHI_GEN_UI_TOOL_INSTRUCTIONS`)
 
 ### `kanban_board` (Ergon chat style)
 
