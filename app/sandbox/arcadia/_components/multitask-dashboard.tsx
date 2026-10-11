@@ -387,7 +387,7 @@ export function MultitaskDashboard({ children, enabled = true }: MultitaskDashbo
               {!condensed ? "Exit" : null}
             </button>
           </div>
-          <div className="col-span-2 min-w-0">
+          <div className="col-start-1 -mt-stack-xs min-w-0">
             {viewingSubagentId ? (
               <Link
                 className="text-xs underline underline-offset-4"
