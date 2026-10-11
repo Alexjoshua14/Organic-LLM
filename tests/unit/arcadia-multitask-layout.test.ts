@@ -1,5 +1,7 @@
 import { describe, expect, test } from "bun:test";
 
+import { stepFlipOffset } from "@/hooks/use-morph-flip";
+import { COMPOSER_SHIFT_SPRING } from "@/lib/chat/composer-shift-spring";
 import {
   canToggleArcadiaMultitaskView,
   desktopChatWiderThanAgentColumn,
@@ -7,6 +9,7 @@ import {
   MULTITASK_DASHBOARD_WIDE_MIN_PX,
   MULTITASK_DESKTOP_AGENT_COL_MAX_PX,
   MULTITASK_DESKTOP_PAD_TOP_PX,
+  multitaskCondensedCardsInView,
   resolveArcadiaMultitaskLayoutMode,
 } from "@/lib/arcadia/multitask/layout-mode";
 import {
@@ -110,5 +113,34 @@ describe("queueAgentIdFromSendTarget", () => {
     expect(queueAgentIdFromSendTarget(sendTargetFromQueueAgentId("agent-planner"))).toBe(
       "agent-planner"
     );
+  });
+});
+
+describe("condensed multiagent swipe row", () => {
+  test("a phone shows a few compact cards, with a partial one hinting the row scrolls", () => {
+    const cards = multitaskCondensedCardsInView(390);
+
+    expect(cards).toBeGreaterThanOrEqual(2.4);
+    expect(cards % 1).toBeGreaterThan(0.2);
+    expect(multitaskCondensedCardsInView(360)).toBeGreaterThanOrEqual(2);
+  });
+});
+
+describe("CoreInput shift spring", () => {
+  test("a layout shift springs back to rest quickly without a visible bounce", () => {
+    let state = { offset: { x: 0, y: 120 }, velocity: { x: 0, y: 0 }, settled: false };
+    let elapsed = 0;
+    let overshoot = 0;
+
+    while (!state.settled && elapsed < 2_000) {
+      state = stepFlipOffset(state.offset, state.velocity, COMPOSER_SHIFT_SPRING, 16);
+      elapsed += 16;
+      overshoot = Math.min(overshoot, state.offset.y);
+    }
+
+    expect(state.settled).toBe(true);
+    expect(state.offset).toEqual({ x: 0, y: 0 });
+    expect(elapsed).toBeLessThan(600);
+    expect(overshoot).toBeGreaterThan(-2);
   });
 });

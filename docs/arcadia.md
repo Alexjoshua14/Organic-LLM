@@ -45,6 +45,11 @@ condensed cards. Mobile uses one board scroll region and a docked composer stack
 do not paint over each other. Wide screens (`lg` / `MULTITASK_DASHBOARD_WIDE_MIN_PX`) keep
 board + chat side by side.
 
+CoreInput follows its container width in both layouts. Its morph-physics wrapper carries
+the visible position and width across a window resize and the following breakpoint commit,
+retargeting one spring if the user reverses direction. Focus and drafts survive; reduced
+motion settles immediately. See [CoreInput layout continuity](./design/motion-and-text-timing.md#coreinput-layout-continuity).
+
 **Toggle gate.** Flips are refused while `threads.active_stream_id` is set for that thread.
 Local storage + BroadcastChannel sync same-browser tabs. Visible pages check other devices
 every 2.5s while Multiagent is enabled or workers exist, and every 30s in ordinary chat.
@@ -63,6 +68,29 @@ the thread's saved Multiagent flag is on. With it off, requests are answered in 
 chat without thought routing or new worker assignments. Both live sends and queued sends
 check the saved flag; a retained Send-to selection cannot enable delegation.
 
+**Orchestrator-authored dispatch (COA-258).** The orchestrator, not the router, decides what
+each subagent receives. `dispatch_subagent` sends a brief the orchestrator wrote itself, plus
+context: the user's words (each quote is checked against this thread), other subagents' output,
+memories, and notes. The `worktable` tool keeps reusable context bundles on the orchestrator's
+own thread row (`threads.subagent_worktable`, encrypted;
+`docs/migrations/threads_subagent_worktable.sql`). A bundle can be sent again and again, and a
+`live_subagent_output` item picks up an agent's latest reply on every send. Live items are
+resolved when the dispatch goes out, so the child thread records exactly what was sent. The
+worktable is private to the orchestrator. Subagents see only what is dispatched to them.
+
+Limits:
+- Targets must be existing children or roster slots.
+- At most 4 dispatches per turn.
+- Heartbeat-triggered turns may make at most 3 dispatches between user messages. The count is
+  kept on the worktable, or read from the thread's own history when the worktable is
+  unavailable. Heartbeat turns are steered to start the next unblocked step of work the user
+  asked for (e.g. architecture drafting once research lands), not review or judging cycles.
+  Only the orchestrator dispatches.
+
+A message sent straight to one subagent is still delivered verbatim.
+`ARCADIA_ORCHESTRATOR_DISPATCH_ENABLED=false` restores Jev router auto-dispatch. Code:
+`lib/llm/subagents/worktable/`, `lib/llm/subagents/orchestrator/orchestrator-tools.ts`.
+
 **Composer.** In dashboard mode the confined chat uses the same live `sendMessage` →
 `/api/chat` path as Arcadia idle chat (user bubble + streaming reply). The Send-to picker
 value is sent as `multitaskSendTarget` on the request body so the server can route or
@@ -74,6 +102,15 @@ into the thread UI. The multi-mode queue still exists for backlog use; see
 demo scenario with a fresh state factory and a pure tick function. Live dashboard progress
 comes from worker awareness and board polling. See the
 [showcase isolation decision](./architecture/decisions/20261009-arcadia-showcase-progress.md).
+
+**Model labels.** Both card layouts show a quiet `LLM · <name>` line, using the chat registry's
+display name (or the exact model ID when it is absent from the registry). Dispatch persists
+the server-selected model with the assignment; replies retain the model used for that run.
+Board polling reads the newest assignment or reply. A new assignment cannot inherit a stale
+model from an older reply. Undispatched slots show `Not assigned`; legacy threads without
+model metadata show `Not recorded`. This describes the latest assignment or reply, rather
+than inferring a model from the viewer's composer selection. Direct user turns gain their
+model label when the reply is persisted.
 
 **Speak to** ends any live call and mints a **new** Realtime session with that subagent's
 Realtime voice id, instructions seeded with goal + current progress. While that session is

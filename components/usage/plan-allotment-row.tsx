@@ -18,7 +18,7 @@ export function PlanAllotmentRow({ planAllotments, billingCycleLabel }: PlanAllo
   return (
     <section className="space-y-2">
       <UsageSectionHeader
-        caption={`Billing cycle so far · ${billingCycleLabel}`}
+        caption={`This cycle so far · ${billingCycleLabel}`}
         title="Plan allotment"
       />
 

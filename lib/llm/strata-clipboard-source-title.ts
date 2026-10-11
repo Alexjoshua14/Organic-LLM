@@ -1,3 +1,4 @@
+import { createAuthenticatedLlmBudgetHooks, budgetModelId } from "@/lib/plans/llm-budget-hooks";
 import type { Result } from "@/types";
 
 import { generateText } from "ai";
@@ -43,6 +44,10 @@ export async function generateStrataClipboardSourceTitle(options: {
   try {
     const start = performance.now();
     const result = await generateText({
+      ...(await createAuthenticatedLlmBudgetHooks({
+        modelId: budgetModelId(STRATA_CLIPBOARD_TITLE_MODEL),
+        operation: "llm/strata-clipboard-source-title",
+      })),
       model: STRATA_CLIPBOARD_TITLE_MODEL,
       instructions: CLIPBOARD_SOURCE_TITLE_SYSTEM,
       prompt,
@@ -52,6 +57,7 @@ export async function generateStrataClipboardSourceTitle(options: {
     const durationMs = performance.now() - start;
 
     recordLlmCall({
+      persist: false,
       model: STRATA_CLIPBOARD_TITLE_MODEL,
       usage: result.usage,
       durationMs,

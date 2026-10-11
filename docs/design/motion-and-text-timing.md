@@ -225,6 +225,52 @@ Opt out of sustain with `sustainShimmer={false}`.
 
 ---
 
+## CoreInput layout continuity
+
+CoreInput fits its local container up to `max-w-4xl`; viewport-based width caps must not
+subtract a fixed sidebar width or introduce a width cliff at a breakpoint. The existing
+`useMorphFlip` wrapper preserves the last visible bottom-left anchor and width through
+window resize, CSS resize observations, and React layout commits. New targets retarget the
+running morph-physics spring with its velocity intact, so reversing a resize does not restart
+or snap the composer. One transform owns the wrapper; CSS owns the final layout. Height-only
+growth while typing updates the baseline without an animation.
+Height-only viewport changes also land immediately, keeping the composer docked when a
+mobile keyboard opens or closes.
+
+`COMPOSER_SHIFT_SPRING` in `lib/chat/composer-shift-spring.ts` uses stiffness 380, damping 36,
+and mass 1 for brief motion with little overshoot. Subpixel shifts below 1px do not start a
+spring. Reduced motion lands immediately and cancels any active spring. The wrapper keeps
+CoreInput mounted, including focus and an unsent draft. No View Transition snapshot or extra
+composer instance is needed.
+
+## Usage refresh indicator
+
+The Usage overlay keeps the small uppercase wordmark as `Organic • Usage`, with a 1px,
+128px silver line beneath it. A restrained glow uses the wordmark's neutral color. The
+line fills linearly toward the next refresh, giving a quiet timing cue without a countdown
+label or repeated shimmer. `USAGE_REFRESH_MS` in
+`components/usage/usage-refresh-progress.tsx` is 15 seconds; this reflects elapsed time,
+rather than a functional transition duration.
+
+The deadline starts after a request settles and resets on range changes, focus, or a return
+to a visible tab. Pending requests hold the line full and do not overlap. Hidden and closed
+panels skip polling. Reduced motion disables the continuous animation; progress and the
+accessible timing label update once per second within the indicator only.
+
+## Usage panel loading
+
+The Usage dialog holds a height of `min(92dvh, 780px)` before and after data arrives; its
+body scrolls independently and keeps a stable scrollbar gutter. Initial loads use a custom
+dashboard skeleton with the same card borders, responsive totals grid, 120px chart, and
+section spacing as the loaded panel. Totals share one card component with a fixed value
+line height, and the chart reserves its date-label row even for empty ranges.
+
+Placeholders use the existing neutral, two-second Tailwind opacity pulse and stop animating
+under reduced motion. They expose one loading announcement, with decorative placeholders
+hidden from assistive technology. They never show fabricated zero usage. Refreshes keep
+the previous dashboard mounted; a failed refresh uses an overlaid retry notice so it does
+not reflow the content. Initial failures retain the same dialog frame.
+
 ## Sources (for re-research)
 
 - [Apple HIG — Motion](https://developer.apple.com/design/human-interface-guidelines/motion)

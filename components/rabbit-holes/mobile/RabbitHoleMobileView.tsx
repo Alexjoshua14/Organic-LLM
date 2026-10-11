@@ -218,15 +218,7 @@ export function RabbitHoleMobileView({
               <motion.div
                 key={activeNode.id}
                 animate={{ opacity: 1, x: 0 }}
-                className={cn(
-                  "relative",
-                  session &&
-                    session.path.length > 1 &&
-                    "before:pointer-events-none before:absolute before:inset-y-0 before:left-0 before:w-2 before:bg-linear-to-r before:from-accent/10 before:to-transparent",
-                  session &&
-                    session.path.length > 1 &&
-                    "after:pointer-events-none after:absolute after:inset-y-0 after:right-0 after:w-2 after:bg-linear-to-l after:from-accent/10 after:to-transparent"
-                )}
+                className="relative"
                 exit={{ opacity: 0, x: -12 }}
                 initial={{ opacity: 0, x: 12 }}
                 transition={{ duration: 0.25 }}

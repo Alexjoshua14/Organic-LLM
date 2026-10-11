@@ -70,28 +70,26 @@ describe("usage aggregate", () => {
 });
 
 describe("usage plans", () => {
-  test("allotment uses higher of token or cost percent", () => {
+  test("allotment is the percent of the plan's weekly spend cap", () => {
     const plan = getUsagePlanTier("free");
 
     expect(
-      computePlanAllotmentPercent({
-        plan,
-        billingCycleTokens: 250_000,
-        billingCycleCostUsd: 1.5,
-      })
+      computePlanAllotmentPercent({ plan, billingCycleTokens: 9_000_000, billingCycleCostUsd: 5 })
     ).toBe(50);
-
+    expect(
+      computePlanAllotmentPercent({ plan, billingCycleTokens: 100_000, billingCycleCostUsd: 32 })
+    ).toBe(320);
     expect(
       computePlanAllotmentPercent({
-        plan,
-        billingCycleTokens: 100_000,
-        billingCycleCostUsd: 32,
+        plan: getUsagePlanTier("max"),
+        billingCycleTokens: 1,
+        billingCycleCostUsd: 999,
       })
-    ).toBe(80);
+    ).toBe(0);
   });
 
   test("formatPlanTooltip includes price and caps", () => {
     expect(formatPlanTooltip(getUsagePlanTier("plus"))).toContain("$20/mo");
-    expect(formatPlanTooltip(getUsagePlanTier("plus"))).toContain("10M tokens");
+    expect(formatPlanTooltip(getUsagePlanTier("plus"))).toContain("$15 spend per week");
   });
 });

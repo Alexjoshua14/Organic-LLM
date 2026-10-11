@@ -1,21 +1,26 @@
+import type { UsagePlanTierId } from "@/lib/usage/plans";
+
+import { getUsagePlanTier } from "@/lib/usage/plans";
+
 /**
- * Product plan tags for monthly spend gating (multi-mode queue dispatch).
- *
- * - `free` — default for every user; $40 calendar-month API spend budget.
- * - `max` — assigned only via server-side Clerk user id allowlist (env).
- *   Numeric ceiling is intentionally unset until product defines one.
+ * Plan budget gating. A user's plan comes from `account_entitlements` (verified server-side,
+ * never user-editable). Every LLM request that spends tokens checks the current weekly budget
+ * cycle against the plan's cap; at the cap, new requests stop until the window resets or the
+ * user spends a reset.
  */
 
-export const PLAN_TAGS = ["free", "max"] as const;
-export type PlanTag = (typeof PLAN_TAGS)[number];
-
-/** Free plan: total LLM spend per calendar month (UTC), from llm_usage_events.cost_usd. */
-export const FREE_PLAN_MONTHLY_BUDGET_USD = 40;
+export const PLAN_IDS = [
+  "free",
+  "plus",
+  "pro",
+  "max",
+] as const satisfies readonly UsagePlanTierId[];
+export type PlanId = UsagePlanTierId;
 
 /**
- * Comma-separated Clerk user ids granted the `max` plan.
- * Example: MAX_PLAN_CLERK_USER_IDS=user_abc,user_def
- * Never put personal names or emails in source — only this env allowlist.
+ * Break-glass only: comma-separated Clerk user ids forced to `max`, overriding the entitlements
+ * table. Leave unset in normal operation — assign plans with scripts/set-plan.ts. Never put
+ * personal names or emails in source.
  */
 export const MAX_PLAN_CLERK_USER_IDS_ENV = "MAX_PLAN_CLERK_USER_IDS";
 
@@ -32,58 +37,88 @@ export function parseMaxPlanClerkUserIds(
   );
 }
 
-/** Default every user to `free`; promote to `max` only via env allowlist. */
-export function resolvePlanTag(clerkUserId: string, envRaw?: string): PlanTag {
-  const allowlist = parseMaxPlanClerkUserIds(envRaw);
+export function isPlanId(value: unknown): value is PlanId {
+  return typeof value === "string" && (PLAN_IDS as readonly string[]).includes(value);
+}
 
-  if (allowlist.has(clerkUserId)) return "max";
+/** The stored plan, unless the break-glass allowlist forces `max`. Unknown values read as free. */
+export function resolvePlan(args: {
+  clerkUserId: string;
+  storedPlan: string | null | undefined;
+  envRaw?: string;
+}): PlanId {
+  if (parseMaxPlanClerkUserIds(args.envRaw).has(args.clerkUserId)) return "max";
 
-  return "free";
+  return isPlanId(args.storedPlan) ? args.storedPlan : "free";
 }
 
 export type PlanBudgetSnapshot = {
-  plan: PlanTag;
-  /** Null when the plan has no numeric ceiling (`max`). */
-  monthlyBudgetUsd: number | null;
-  monthlyUsedUsd: number;
-  monthlyRemainingUsd: number | null;
-  /** True when dispatch is allowed under this plan's budget rules. */
+  status: "available" | "unavailable";
+  plan: PlanId;
+  /** Where the plan came from: the entitlements table, defaults (table not migrated), or the override. */
+  source: "entitlements" | "default" | "override";
+  /** Current weekly window, ISO. */
+  cycleStart: string;
+  cycleEnd: string;
+  /** Null when the plan is uncapped (`max`). */
+  capUsd: number | null;
+  usedUsd: number;
+  remainingUsd: number | null;
+  /** Null when resets are unavailable (entitlements not migrated). */
+  resetsRemaining: number | null;
+  /** Opaque window version, used only to prevent duplicate reset consumption. */
+  resetVersion: string | null;
+  /** True when new LLM requests are allowed under this plan's budget. */
   canDispatch: boolean;
-  /** Human-readable hold reason when canDispatch is false. */
+  /** User-facing reason when canDispatch is false. */
   holdReason: string | null;
 };
 
 export function evaluatePlanBudget(args: {
-  plan: PlanTag;
-  monthlyUsedUsd: number;
-  freeBudgetUsd?: number;
+  plan: PlanId;
+  source: PlanBudgetSnapshot["source"];
+  cycle: { start: Date; end: Date };
+  usedUsd: number;
+  resetsRemaining: number | null;
+  resetVersion?: string | null;
 }): PlanBudgetSnapshot {
-  const { plan, monthlyUsedUsd } = args;
-  const freeBudget = args.freeBudgetUsd ?? FREE_PLAN_MONTHLY_BUDGET_USD;
-  const used = Math.max(0, monthlyUsedUsd);
-
-  if (plan === "max") {
-    return {
-      plan,
-      monthlyBudgetUsd: null,
-      monthlyUsedUsd: used,
-      monthlyRemainingUsd: null,
-      canDispatch: true,
-      holdReason: null,
-    };
-  }
-
-  const remaining = Math.max(0, freeBudget - used);
-  const canDispatch = used < freeBudget;
+  const tier = getUsagePlanTier(args.plan);
+  const used = Math.max(0, args.usedUsd);
+  const cap = tier.costCapUsd;
+  const canDispatch = cap === null || used < cap;
 
   return {
-    plan: "free",
-    monthlyBudgetUsd: freeBudget,
-    monthlyUsedUsd: used,
-    monthlyRemainingUsd: remaining,
+    status: "available",
+    plan: args.plan,
+    source: args.source,
+    cycleStart: args.cycle.start.toISOString(),
+    cycleEnd: args.cycle.end.toISOString(),
+    capUsd: cap,
+    usedUsd: used,
+    remainingUsd: cap === null ? null : Math.max(0, cap - used),
+    resetsRemaining: args.resetsRemaining,
+    resetVersion: args.resetVersion ?? null,
     canDispatch,
     holdReason: canDispatch
       ? null
-      : `Free plan monthly budget ($${freeBudget.toFixed(0)}) exhausted`,
+      : `You've used this week's ${tier.name} plan allowance ($${cap!.toFixed(0)}).`,
+  };
+}
+
+/** Snapshot that blocks everything — used when spend cannot be read (fail closed). */
+export function unavailablePlanBudget(cycle: { start: Date; end: Date }): PlanBudgetSnapshot {
+  return {
+    status: "unavailable",
+    plan: "free",
+    source: "default",
+    cycleStart: cycle.start.toISOString(),
+    cycleEnd: cycle.end.toISOString(),
+    capUsd: null,
+    usedUsd: 0,
+    remainingUsd: null,
+    resetsRemaining: null,
+    resetVersion: null,
+    canDispatch: false,
+    holdReason: "Usage limits can't be checked right now. Try again in a moment.",
   };
 }

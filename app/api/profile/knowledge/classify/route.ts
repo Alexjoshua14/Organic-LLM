@@ -1,3 +1,4 @@
+import { createAuthenticatedLlmBudgetHooks, budgetModelId } from "@/lib/plans/llm-budget-hooks";
 import { performance } from "node:perf_hooks";
 
 import { auth } from "@clerk/nextjs/server";
@@ -11,6 +12,7 @@ import { CLASSIFIER_SYSTEM_PROMPT } from "@/lib/knowledge/prompts";
 import { recordLlmCall } from "@/lib/llm/metrics";
 import { checkLlmMessageLimit } from "@/lib/rate-limit/llm";
 import { models } from "@/lib/schemas/chat-models";
+import { requirePlanBudget } from "@/lib/api/plan-budget-gate";
 
 export const maxDuration = 15;
 
@@ -42,6 +44,10 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "User not found" }, { status: 404 });
   }
 
+  const planGate = await requirePlanBudget({ clerkUserId: user.userId, sbUserId: sbUserId.data });
+
+  if (planGate) return planGate;
+
   const messageLimitResult = await checkLlmMessageLimit(sbUserId.data);
 
   if (!messageLimitResult.success) {
@@ -63,6 +69,10 @@ export async function POST(req: Request) {
 
   try {
     const { text, usage } = await generateText({
+      ...(await createAuthenticatedLlmBudgetHooks({
+        modelId: budgetModelId(CLASSIFY_MODEL),
+        operation: "/api/profile/knowledge/classify",
+      })),
       model: CLASSIFY_MODEL,
       instructions: CLASSIFIER_SYSTEM_PROMPT,
       prompt: body.text,
@@ -71,6 +81,7 @@ export async function POST(req: Request) {
     });
 
     recordLlmCall({
+      persist: false,
       model: CLASSIFY_MODEL,
       usage,
       durationMs: performance.now() - start,

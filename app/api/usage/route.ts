@@ -1,14 +1,16 @@
-import type { UsageRangePreset } from "@/lib/usage/aggregate";
-
 import { auth } from "@clerk/nextjs/server";
 import { NextResponse } from "next/server";
 
 import { buildUsageSummaryForUser } from "@/data/supabase/llm-usage";
-import { getGatewaySpendSummary } from "@/lib/usage/gateway-spend";
 import { getSupabaseUserId, isAdminUser } from "@/data/supabase/profiles";
+import { isBudgetCycleRange } from "@/lib/plans/budget-cycle";
+import { getPlanBudgetForUser } from "@/lib/plans/plan-budget";
+import { getGatewaySpendSummary } from "@/lib/usage/gateway-spend";
 
-const VALID_PRESETS = new Set<UsageRangePreset>(["7d", "30d", "90d"]);
-
+/**
+ * GET /api/usage?range=current|previous|last3|last6 — usage by weekly budget cycle, plus the
+ * user's verified plan, spend in the current window, when it resets, and resets left.
+ */
 export async function GET(req: Request) {
   const clerkUser = await auth();
 
@@ -23,15 +25,13 @@ export async function GET(req: Request) {
   }
 
   const { searchParams } = new URL(req.url);
-  const rawPreset = searchParams.get("range") ?? "30d";
-  const preset = VALID_PRESETS.has(rawPreset as UsageRangePreset)
-    ? (rawPreset as UsageRangePreset)
-    : "30d";
-
-  const summary = await buildUsageSummaryForUser({
+  const rawRange = searchParams.get("range");
+  const range = isBudgetCycleRange(rawRange) ? rawRange : "current";
+  const plan = await getPlanBudgetForUser({
+    clerkUserId: clerkUser.userId,
     ownerId: sbUserIdResult.data,
-    preset,
   });
+  const summary = await buildUsageSummaryForUser({ ownerId: sbUserIdResult.data, range, plan });
 
   if (await isAdminUser(clerkUser.userId)) {
     summary.gatewaySpend = await getGatewaySpendSummary({
@@ -40,5 +40,6 @@ export async function GET(req: Request) {
       endDate: summary.range.end.slice(0, 10),
     });
   }
+
   return NextResponse.json(summary, { headers: { "Cache-Control": "no-store" } });
 }

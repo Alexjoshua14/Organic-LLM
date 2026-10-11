@@ -70,14 +70,28 @@ export function installTestJsdom(): void {
   setGlobalProperty("navigator", dom.window.navigator);
   setGlobalProperty("HTMLElement", dom.window.HTMLElement);
   setGlobalProperty("HTMLInputElement", dom.window.HTMLInputElement);
+  setGlobalProperty("HTMLFormElement", dom.window.HTMLFormElement);
   setGlobalProperty("HTMLTextAreaElement", dom.window.HTMLTextAreaElement);
   setGlobalProperty("Element", dom.window.Element);
   setGlobalProperty("SVGElement", dom.window.SVGElement);
   setGlobalProperty("Node", dom.window.Node);
   setGlobalProperty("Event", dom.window.Event);
+  setGlobalProperty("CustomEvent", dom.window.CustomEvent);
+  setGlobalProperty("NodeFilter", dom.window.NodeFilter);
   setGlobalProperty("MouseEvent", dom.window.MouseEvent);
   setGlobalProperty("KeyboardEvent", dom.window.KeyboardEvent);
   setGlobalProperty("MutationObserver", dom.window.MutationObserver);
+  // JSDOM has no layout engine. Hooks may subscribe, but no resize events are synthesized.
+  class TestResizeObserver implements ResizeObserver {
+    observe() {}
+    unobserve() {}
+    disconnect() {}
+  }
+  setGlobalProperty("ResizeObserver", TestResizeObserver);
+  Object.defineProperty(dom.window, "ResizeObserver", {
+    configurable: true,
+    value: TestResizeObserver,
+  });
   setGlobalProperty("getComputedStyle", dom.window.getComputedStyle.bind(dom.window));
   setGlobalProperty("requestAnimationFrame", (cb: FrameRequestCallback) => {
     return setTimeout(() => cb(Date.now()), 0) as unknown as number;

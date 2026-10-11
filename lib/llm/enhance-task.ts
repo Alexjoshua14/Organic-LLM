@@ -1,3 +1,4 @@
+import { createAuthenticatedLlmBudgetHooks, budgetModelId } from "@/lib/plans/llm-budget-hooks";
 import type { ErgonEnhanceFields } from "@/lib/schemas/ergon-enhance";
 import type { Result } from "@/types";
 
@@ -85,6 +86,10 @@ export async function enhanceTaskFields(
 
     const { object, usage } = await withTimeout(
       generateObject({
+        ...(await createAuthenticatedLlmBudgetHooks({
+          modelId: budgetModelId(ERGON_ENHANCE_MODEL),
+          operation: "llm/enhance-task",
+        })),
         model: ERGON_ENHANCE_MODEL,
         instructions: ENHANCE_SYSTEM,
         prompt: buildPrompt(ctx, now),
@@ -96,6 +101,7 @@ export async function enhanceTaskFields(
     );
 
     recordLlmCall({
+      persist: false,
       model: ERGON_ENHANCE_MODEL,
       usage,
       durationMs: performance.now() - start,

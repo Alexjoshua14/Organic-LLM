@@ -1010,7 +1010,7 @@ export const CoreInput: React.FC<CoreInputProps> = ({
         ) : null}
         {renderComposerBody()}
       </PromptInputBody>
-      <PromptInputFooter className="overflow-visible">
+      <PromptInputFooter className="cursor-default overflow-visible">
         <div ref={toolsRef} className="min-w-0 flex-1 overflow-visible">
           <PromptInputTools className="flex min-w-0 w-full items-center justify-between gap-1 overflow-visible">
             {/* `gap-3` separates control groups; the tighter `gap-1` inside each

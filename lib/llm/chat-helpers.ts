@@ -30,6 +30,7 @@ import {
   updateConversationSummary,
 } from "@/data/supabase/chat";
 import { Result } from "@/types";
+import { createLlmBudgetHooks } from "@/lib/plans/llm-budget-hooks";
 import { recordLlmCall } from "@/lib/llm/metrics";
 import { generateShortTitleFromSummary } from "@/lib/llm/short-title-from-summary";
 import { TITLE_PIPELINE_SUMMARIZER_MODEL } from "@/lib/llm/title-models";
@@ -315,6 +316,11 @@ export async function generateChatTitle(chatId: string): Promise<Result<string>>
     const summaryStart = performance.now();
     const summaryResult = await generateText({
       model: MODEL_SELECTION.summarizer,
+      ...createLlmBudgetHooks({
+        ownerId,
+        modelId: MODEL_SELECTION.summarizer as string,
+        operation: "chat-summary",
+      }),
       instructions: ChatTitleSummarizerSystemPrompt,
       messages: appendSummarizerTask(
         await convertToModelMessages(messagesForTitleClean),
@@ -346,6 +352,7 @@ export async function generateChatTitle(chatId: string): Promise<Result<string>>
   const shortTitleResult = await generateShortTitleFromSummary(conversationSummary, {
     contextId: chatId,
     operation: "chatTitle-title",
+    ownerId,
     subject: "chat",
   });
 
@@ -377,6 +384,9 @@ export async function generateChatTitle(chatId: string): Promise<Result<string>>
 }
 
 export async function summarizeChat(chatId: string): Promise<Result<string, string>> {
+  const owner = await getThreadOwnerContext(chatId);
+  if (!owner.data || owner.error) return { data: null, error: "Thread owner unavailable" };
+  const ownerId = owner.data.ownerId;
   logger.log("summarizeChat", `Summarizing chat ${chatId}`);
   // Get all chat messages
   let { data: messages, error } = await getMessages(chatId);
@@ -411,6 +421,11 @@ export async function summarizeChat(chatId: string): Promise<Result<string, stri
   const summarizeStart = performance.now();
   const summarizeResult = await generateText({
     model: MODEL_SELECTION.summarizer,
+    ...createLlmBudgetHooks({
+      ownerId,
+      modelId: MODEL_SELECTION.summarizer as string,
+      operation: "chat-summary",
+    }),
     instructions: SummarizerSystemPrompt,
     temperature: 0.2,
     messages: appendSummarizerTask(modelMessages, "Summarize the conversation above."),
@@ -435,7 +450,7 @@ export async function summarizeChat(chatId: string): Promise<Result<string, stri
     //`Conversation Summary (v${summaryGenerationCount}): ${conversationSummary}`,
   );
 
-  const validatedSummaryRes = await validateSummary(conversationSummary, modelMessages);
+  const validatedSummaryRes = await validateSummary(ownerId, conversationSummary, modelMessages);
 
   if (validatedSummaryRes.error || !validatedSummaryRes.data) {
     return {
@@ -691,6 +706,11 @@ export async function updateChatSummary(chatId: string): Promise<Result<string, 
 
   const { text: updatedSummary } = await generateText({
     model: MODEL_SELECTION.updater,
+    ...createLlmBudgetHooks({
+      ownerId,
+      modelId: MODEL_SELECTION.updater as string,
+      operation: "chat-summary-update",
+    }),
     instructions: UpdateSummarizerSystemPrompt.replace(
       "{{conversationSummary}}",
       threadSummary.summary_text
@@ -705,7 +725,7 @@ export async function updateChatSummary(chatId: string): Promise<Result<string, 
 
   // logger.log("updateChatSummary", `Updated summary: ${updatedSummary}`);
 
-  const validatedSummaryRes = await validateSummary(updatedSummary, modelMessages);
+  const validatedSummaryRes = await validateSummary(ownerId, updatedSummary, modelMessages);
 
   if (validatedSummaryRes.error) {
     return {
@@ -777,6 +797,7 @@ export async function updateChatSummary(chatId: string): Promise<Result<string, 
  * @returns The validated summary
  */
 const validateSummary = async (
+  ownerId: string,
   conversationSummary: string,
   messages: ModelMessage[],
   currentPersistedConversationSummary?: string,
@@ -787,7 +808,14 @@ const validateSummary = async (
   // Generate conversation summary and validate result
   for (let i = 1; i <= 3; i++) {
     const validatorStart = performance.now();
+    const validatorBudget = createLlmBudgetHooks({
+      ownerId,
+      modelId: MODEL_SELECTION.validator as string,
+      operation: "summary-validator",
+    });
+    await validatorBudget.prepareStep();
     const validatorRes = await generateObject({
+      onStepFinish: validatorBudget.onStepFinish,
       model: MODEL_SELECTION.validator,
       instructions: ValidatorSystemPrompt.replace(
         "{{currentPersistedConversationSummary}}",
@@ -827,6 +855,11 @@ const validateSummary = async (
     const reviserStart = performance.now();
     const reviserResult = await generateText({
       model: MODEL_SELECTION.reviser,
+      ...createLlmBudgetHooks({
+        ownerId,
+        modelId: MODEL_SELECTION.reviser as string,
+        operation: "summary-reviser",
+      }),
       instructions: ReviserSystemPrompt.replace("{{conversationSummary}}", conversationSummary)
         .replace(
           "{{currentPersistedConversationSummary}}",

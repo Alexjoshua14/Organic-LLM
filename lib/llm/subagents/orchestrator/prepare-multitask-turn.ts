@@ -4,13 +4,22 @@ import type { ArcadiaMultitaskSendTargetParsed } from "@/lib/schemas/arcadia-mul
 import type { WorkerGoal } from "@/lib/schemas/subagent-runtime";
 import type { SubagentThreadRow, SubagentThreadSnapshot } from "@/lib/llm/subagents/threads/snapshot";
 import type { SubagentThreadStatus } from "@/lib/llm/subagents/threads/status";
+import type { WorktableSession, WorktableStore } from "@/lib/llm/subagents/worktable/session";
+
+import { resolveMultitaskSendTarget } from "@/lib/schemas/arcadia-multitask-send-target";
 
 import { createDemoSubagents } from "@/lib/arcadia/multitask/demo-roster";
 import {
   pickRosterSlotForRole,
   resolveSubagentIdentity,
 } from "@/lib/arcadia/multitask/subagent-identity";
+import {
+  isOrchestratorDispatchEnabled,
+  ORCHESTRATOR_MAX_AUTONOMOUS_DISPATCHES,
+} from "@/lib/llm/subagents/orchestrator/constants";
 import { dispatchMultitaskInbound } from "@/lib/llm/subagents/orchestrator/dispatch-inbound";
+import { formatOrchestratorFragment } from "@/lib/llm/subagents/orchestrator/format-orchestrator-fragment";
+import { countAutonomousDispatchesSinceUser } from "@/lib/llm/subagents/orchestrator/orchestrator-tools";
 import { formatMultitaskRoutingSystemFragment } from "@/lib/llm/subagents/orchestrator/format-routing-fragment";
 import {
   createJevThoughtRouter,
@@ -24,9 +33,22 @@ import {
   formatSubagentStatusFragment,
   SUBAGENT_SNAPSHOT_MESSAGE_WINDOW,
 } from "@/lib/llm/subagents/threads/snapshot";
+import {
+  getHardSetSubagent,
+  listRosterHardSetSubagents,
+} from "@/lib/llm/subagents/hard-set/registry";
+import {
+  formatHardSetShellFragment,
+  formatLockedSubagentThreadFragment,
+} from "@/lib/llm/subagents/hard-set/shell";
+import { formatWorktableFragment } from "@/lib/llm/subagents/worktable/render";
+import { createWorktableSession } from "@/lib/llm/subagents/worktable/session";
 import { createLogger } from "@/lib/logger";
 
 const logger = createLogger("lib/llm/subagents/orchestrator/prepare-multitask-turn.ts");
+
+/** Orchestrator-thread messages read to count automatic dispatches when there is no worktable. */
+const AUTONOMOUS_DISPATCH_LOOKBACK_MESSAGES = 40;
 
 export type SubagentThreadLinkLite = {
   threadId: string;
@@ -37,6 +59,8 @@ export type SubagentThreadLinkLite = {
 /** Persistence + scheduling seams. {@link createMultitaskTurnDeps} wires the real ones. */
 export type MultitaskTurnDeps = {
   getLink(threadId: string): Promise<SubagentThreadLinkLite | null>;
+  /** The hard-set subagent a parentless thread is a shell for (Subagent lab), if any. */
+  getHardSetShellAgentId?(threadId: string): Promise<string | null>;
   isMultitaskEnabled(threadId: string): Promise<boolean>;
   listChildren(parentThreadId: string): Promise<SubagentThreadRow[]>;
   ensureChild(args: { parentThreadId: string; agentId: string; title: string }): Promise<
@@ -53,6 +77,8 @@ export type MultitaskTurnDeps = {
   }): void | Promise<void>;
   /** Persist an assignment for background dispatch, without awaiting the worker. */
   enqueueWorker(args: { goal: WorkerGoal; threadId: string; modelId: string; zeroDataRetention: boolean }): Promise<void>;
+  /** The orchestrator thread's worktable store. Absent means the worktable is unavailable. */
+  openWorktable?(threadId: string): WorktableStore;
   router?: ThoughtRouter;
 };
 
@@ -67,6 +93,10 @@ export type PrepareMultitaskTurnInput = {
   zeroDataRetention: boolean;
   writer?: MultitaskStreamWriter;
   deps: MultitaskTurnDeps;
+  /** Heartbeat-triggered turn: no user spoke, so dispatches count against the automatic cap. */
+  autonomous?: boolean;
+  /** Orchestrator-authored dispatch (COA-258). Defaults to the env kill switch. */
+  orchestratorDispatch?: boolean;
   now?: () => number;
 };
 
@@ -76,6 +106,14 @@ export type PrepareMultitaskTurnResult = {
   systemFragments: string[];
   /** True when this orchestrator has at least one subagent thread (gates the reader tool). */
   hasSubagentThreads: boolean;
+  /** The orchestrator writes its own dispatches: gates the worktable and dispatch tools. */
+  orchestratorDispatch: boolean;
+  /** This turn's worktable, shared with the tools. Null when unavailable or not orchestrating. */
+  worktable: WorktableSession | null;
+  /** Automatic dispatches left before the user speaks again; null on user turns. */
+  autonomousRemaining: number | null;
+  /** Set on a hard-set subagent's shell thread: the turn runs as that subagent. */
+  hardSetAgentId?: string;
 };
 
 export function formatSubagentDirectChatFragment(agentId: string): string {
@@ -98,12 +136,18 @@ function rosterForRouter(snapshots: ReadonlyArray<SubagentThreadSnapshot>): Thou
     role: a.role,
     goal: byAgent.get(a.id)?.lastGoal ?? a.goal,
   }));
-  const slotIds = new Set(slots.map((s) => s.id));
+  const locked = listRosterHardSetSubagents().map((a) => ({
+    id: a.id,
+    name: a.name,
+    role: a.role,
+    goal: byAgent.get(a.id)?.lastGoal ?? a.blurb,
+  }));
+  const slotIds = new Set([...slots, ...locked].map((s) => s.id));
   const extras = snapshots
     .filter((s) => !slotIds.has(s.agentId))
     .map((s) => ({ id: s.agentId, name: s.name, role: s.role, goal: s.lastGoal ?? "" }));
 
-  return [...slots, ...extras];
+  return [...slots, ...locked, ...extras];
 }
 
 function groupGoalsByAgent(goals: ReadonlyArray<WorkerGoal>): Map<string, WorkerGoal[]> {
@@ -120,10 +164,16 @@ function groupGoalsByAgent(goals: ReadonlyArray<WorkerGoal>): Map<string, Worker
  * Arcadia multitask turn preparation, shared by `/api/chat` and the send queue.
  *
  * - On a subagent thread: no dispatch; the turn runs as that subagent over its own thread.
+ * - On a hard-set subagent's shell thread: the same, with that subagent's own instructions —
+ *   checked before the Multiagent flag, so a shell never orchestrates.
  * - With Multiagent off: no routing, assignments, or subagent context; answer in this thread.
- * - On an orchestrator thread: route the message, write each assignment into the subagent's own
- *   thread, schedule the run after the response, and give the orchestrator a status summary of
- *   every subagent thread. Never throws — multitask trouble must not fail the orchestrator reply.
+ * - On an orchestrator thread with orchestrator-authored dispatch (default): no router. The
+ *   orchestrator gets its role, roster and worktable, and delegates with its own tools.
+ * - On an orchestrator thread with the kill switch off: route the message, write each assignment
+ *   into the subagent's own thread, and schedule the run after the response.
+ * - A message sent straight to one subagent is delivered verbatim either way.
+ * Every orchestrator turn gets a status summary of every subagent thread. Never throws —
+ * multitask trouble must not fail the orchestrator reply.
  */
 export async function prepareArcadiaMultitaskTurn(
   input: PrepareMultitaskTurnInput
@@ -135,10 +185,34 @@ export async function prepareArcadiaMultitaskTurn(
     const link = await deps.getLink(chatId);
 
     if (link) {
+      const locked = getHardSetSubagent(link.agentId);
+
       return {
         role: "subagent",
-        systemFragments: [formatSubagentDirectChatFragment(link.agentId)],
+        systemFragments: [
+          locked
+            ? formatLockedSubagentThreadFragment(locked)
+            : formatSubagentDirectChatFragment(link.agentId),
+        ],
+        ...(locked ? { hardSetAgentId: locked.id } : {}),
         hasSubagentThreads: false,
+        orchestratorDispatch: false,
+        worktable: null,
+        autonomousRemaining: null,
+      };
+    }
+
+    const shellAgent = getHardSetSubagent(await deps.getHardSetShellAgentId?.(chatId));
+
+    if (shellAgent) {
+      return {
+        role: "subagent",
+        systemFragments: [formatHardSetShellFragment(shellAgent)],
+        hasSubagentThreads: false,
+        orchestratorDispatch: false,
+        worktable: null,
+        autonomousRemaining: null,
+        hardSetAgentId: shellAgent.id,
       };
     }
 
@@ -156,8 +230,48 @@ export async function prepareArcadiaMultitaskTurn(
     );
     const childByAgent = new Map(children.map((row) => [row.agentId, row]));
     const systemFragments: string[] = [];
+    const orchestratorDispatch = input.orchestratorDispatch ?? isOrchestratorDispatchEnabled();
+    const autonomous = input.autonomous === true;
+    const routeInbound =
+      input.userText.trim().length > 0 &&
+      (!orchestratorDispatch || resolveMultitaskSendTarget(input.sendTarget).kind === "subagent");
+    let worktable: WorktableSession | null = null;
+    let autonomousRemaining: number | null = null;
 
-    if (input.userText.trim().length > 0) {
+    if (orchestratorDispatch) {
+      worktable = deps.openWorktable ? createWorktableSession(deps.openWorktable(chatId)) : null;
+      let table = worktable ? await worktable.read() : null;
+
+      // The user spoke: automatic turns get their full allowance back.
+      if (worktable && table && !autonomous && table.autonomousDispatches > 0) {
+        const reset = await worktable.mutate((t) => ({
+          ok: true as const,
+          worktable: { ...t, autonomousDispatches: 0 },
+          value: null,
+        }));
+
+        if (reset.ok) table = reset.worktable;
+      }
+      if (!table) worktable = null;
+
+      if (autonomous) {
+        // The worktable holds the counter; without it, count from this thread's own history.
+        const used = table
+          ? table.autonomousDispatches
+          : countAutonomousDispatchesSinceUser(
+              await deps.loadMessages(chatId, AUTONOMOUS_DISPATCH_LOOKBACK_MESSAGES)
+            );
+
+        autonomousRemaining = Math.max(0, ORCHESTRATOR_MAX_AUTONOMOUS_DISPATCHES - used);
+      }
+
+      systemFragments.push(
+        formatOrchestratorFragment({ snapshots, autonomous, autonomousRemaining }),
+        formatWorktableFragment(table)
+      );
+    }
+
+    if (routeInbound) {
       const roster = rosterForRouter(snapshots);
       const busy = new Set(snapshots.filter((s) => s.status === "working").map((s) => s.agentId));
       const router =
@@ -205,7 +319,14 @@ export async function prepareArcadiaMultitaskTurn(
         // auto-delete) and the board shows `working` the moment the stream ends.
         const saved = await deps.appendMessages(
           threadId,
-          goals.map((g) => buildSubagentGoalMessage({ goal: g.goal, goalId: g.goalId, id: g.goalId }))
+          goals.map((g) =>
+            buildSubagentGoalMessage({
+              goal: g.goal,
+              goalId: g.goalId,
+              id: g.goalId,
+              modelId: input.modelId,
+            })
+          )
         );
         if (!saved) throw new Error("Could not persist subagent assignment");
         await deps.setStatus(threadId, "working");
@@ -245,6 +366,11 @@ export async function prepareArcadiaMultitaskTurn(
         transient: true,
       });
       systemFragments.push(formatMultitaskRoutingSystemFragment(inbound));
+      if (orchestratorDispatch && inbound.mode === "direct_to_subagent") {
+        systemFragments.push(
+          "This message was already delivered verbatim to that subagent. Do not dispatch it again; dispatch only genuinely new work."
+        );
+      }
     }
 
     const statusFragment = formatSubagentStatusFragment(snapshots);
@@ -255,6 +381,9 @@ export async function prepareArcadiaMultitaskTurn(
       role: "orchestrator",
       systemFragments,
       hasSubagentThreads: snapshots.length > 0,
+      orchestratorDispatch,
+      worktable,
+      autonomousRemaining,
     };
   } catch (err) {
     logger.error(

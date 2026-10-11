@@ -611,6 +611,9 @@ const KNOWN_TOOL_IN_FLIGHT_LABELS: Record<string, string> = {
   get_full_chat_history: "Getting full chat history...",
   get_more_chat_history: "Getting more chat history...",
   get_messages_from_date: "Getting chat history for that date...",
+  read_subagent_thread: "Reading a subagent's thread...",
+  worktable: "Updating the worktable...",
+  dispatch_subagent: "Briefing a subagent...",
 };
 
 function toolInvocationInFlightLabel(toolName: string): string {

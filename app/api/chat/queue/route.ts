@@ -4,7 +4,7 @@ import { getThreadOwnerContext } from "@/data/supabase/chat";
 import { listOpenQueuedMessages } from "@/data/supabase/message-send-queue";
 import { requireLlmChatActor } from "@/lib/api/chat-llm-gate";
 import { enqueueAndTryDispatch, tryDispatchThreadQueue } from "@/lib/message-queue/dispatch";
-import { getPlanBudgetForUser } from "@/lib/plans/monthly-budget";
+import { getPlanBudgetForUser } from "@/lib/plans/plan-budget";
 import { createLogger } from "@/lib/logger";
 import { EnqueueMessageSchema } from "@/lib/schemas/message-send-queue";
 
@@ -19,7 +19,7 @@ const logger = createLogger("app/api/chat/queue/route.ts");
  * Lists open queued messages for the signed-in user (optionally filtered by thread).
  */
 export async function GET(req: Request) {
-  const authGate = await requireLlmChatActor();
+  const authGate = await requireLlmChatActor({ planBudget: false });
 
   if (authGate.error != null) return authGate.error;
 
@@ -52,7 +52,7 @@ export async function GET(req: Request) {
  * when the thread is idle and plan budget allows.
  */
 export async function POST(req: Request) {
-  const authGate = await requireLlmChatActor();
+  const authGate = await requireLlmChatActor({ planBudget: false });
 
   if (authGate.error != null) return authGate.error;
 

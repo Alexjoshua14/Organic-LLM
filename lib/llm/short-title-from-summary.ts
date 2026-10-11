@@ -4,6 +4,7 @@ import { generateText } from "ai";
 
 import { GUARDRAIL_MAX_OUTPUT_TOKENS } from "@/lib/llm/helpers";
 import { createLogger } from "@/lib/logger";
+import { createLlmBudgetHooks } from "@/lib/plans/llm-budget-hooks";
 import { recordLlmCall } from "@/lib/llm/metrics";
 import { TITLE_PIPELINE_SHORT_TITLE_MODEL } from "@/lib/llm/title-models";
 
@@ -60,6 +61,7 @@ export async function generateShortTitleFromSummary(
   summary: string,
   options: {
     contextId: string;
+    ownerId: string;
     operation: string;
     subject: "chat" | "strata";
   }
@@ -76,6 +78,11 @@ export async function generateShortTitleFromSummary(
     const titleStart = performance.now();
     const titleResult = await generateText({
       model: TITLE_PIPELINE_SHORT_TITLE_MODEL,
+      ...createLlmBudgetHooks({
+        ownerId: options.ownerId,
+        modelId: TITLE_PIPELINE_SHORT_TITLE_MODEL as string,
+        operation: options.operation,
+      }),
       instructions: system,
       prompt: trimmedSummary,
       maxOutputTokens: GUARDRAIL_MAX_OUTPUT_TOKENS,

@@ -7,6 +7,7 @@ import { auth } from "@clerk/nextjs/server";
 import { getSupabaseUserId } from "@/data/supabase/profiles";
 import { checkLlmMessageLimit } from "@/lib/rate-limit/llm";
 import { checkTtsCharLimit, checkTtsRequestLimit } from "@/lib/rate-limit/tts";
+import { requirePlanBudget } from "@/lib/api/plan-budget-gate";
 
 export type TtsActorData = { sbUserId: string };
 
@@ -48,6 +49,10 @@ export async function requireTtsActor(charCount?: number): Promise<Result<TtsAct
   }
 
   const sbUserId = sbUserIdResult.data;
+  const planGate = await requirePlanBudget({ clerkUserId: clerkUser.userId, sbUserId });
+
+  if (planGate) return { data: null, error: planGate };
+
   const messageLimitResult = await checkLlmMessageLimit(sbUserId);
 
   if (!messageLimitResult.success) {

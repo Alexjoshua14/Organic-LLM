@@ -4,53 +4,66 @@ import {
   evaluateDispatchGates,
   shouldEnqueueInsteadOfSend,
 } from "@/lib/message-queue/dispatch-gates";
-import {
-  evaluatePlanBudget,
-  FREE_PLAN_MONTHLY_BUDGET_USD,
-  parseMaxPlanClerkUserIds,
-  resolvePlanTag,
-} from "@/lib/plans/plan-tags";
+import { evaluatePlanBudget, parseMaxPlanClerkUserIds, resolvePlan } from "@/lib/plans/plan-tags";
 
-describe("multi-mode plan tags", () => {
-  test("free is the default for every user", () => {
-    expect(resolvePlanTag("user_anyone")).toBe("free");
-    expect(resolvePlanTag("user_anyone", "")).toBe("free");
-    expect(resolvePlanTag("user_anyone", "   ")).toBe("free");
+const WEEK = {
+  start: new Date("2026-10-05T00:00:00.000Z"),
+  end: new Date("2026-10-12T00:00:00.000Z"),
+};
+
+describe("plan budget", () => {
+  test("free is the default for every user and unknown stored plans", () => {
+    expect(resolvePlan({ clerkUserId: "user_anyone", storedPlan: null, envRaw: "" })).toBe("free");
+    expect(resolvePlan({ clerkUserId: "user_anyone", storedPlan: "platinum", envRaw: "" })).toBe(
+      "free"
+    );
+    expect(resolvePlan({ clerkUserId: "user_anyone", storedPlan: "pro", envRaw: "   " })).toBe(
+      "pro"
+    );
   });
 
-  test("max plan comes only from env allowlist (Clerk ids)", () => {
+  test("the env allowlist is a break-glass override to max (Clerk ids)", () => {
     const raw = "user_alpha, user_beta";
 
-    expect(resolvePlanTag("user_alpha", raw)).toBe("max");
-    expect(resolvePlanTag("user_beta", raw)).toBe("max");
-    expect(resolvePlanTag("user_gamma", raw)).toBe("free");
+    expect(resolvePlan({ clerkUserId: "user_alpha", storedPlan: "free", envRaw: raw })).toBe("max");
+    expect(resolvePlan({ clerkUserId: "user_gamma", storedPlan: "free", envRaw: raw })).toBe(
+      "free"
+    );
     expect(parseMaxPlanClerkUserIds(raw).size).toBe(2);
   });
 
-  test("free plan is capped at $40; exhausted budget cannot dispatch", () => {
-    expect(FREE_PLAN_MONTHLY_BUDGET_USD).toBe(40);
-
-    const under = evaluatePlanBudget({ plan: "free", monthlyUsedUsd: 39.99 });
+  test("free is capped at $10 a week; a spent budget cannot dispatch", () => {
+    const base = {
+      plan: "free" as const,
+      source: "entitlements" as const,
+      cycle: WEEK,
+      resetsRemaining: 5,
+    };
+    const under = evaluatePlanBudget({ ...base, usedUsd: 9.99 });
 
     expect(under.canDispatch).toBe(true);
-    expect(under.monthlyBudgetUsd).toBe(40);
+    expect(under.capUsd).toBe(10);
+    expect(under.cycleEnd).toBe("2026-10-12T00:00:00.000Z");
 
-    const atCap = evaluatePlanBudget({ plan: "free", monthlyUsedUsd: 40 });
+    const atCap = evaluatePlanBudget({ ...base, usedUsd: 10 });
 
     expect(atCap.canDispatch).toBe(false);
-    expect(atCap.holdReason).toMatch(/\$40/);
-
-    const over = evaluatePlanBudget({ plan: "free", monthlyUsedUsd: 55 });
-
-    expect(over.canDispatch).toBe(false);
+    expect(atCap.holdReason).toMatch(/\$10/);
+    expect(evaluatePlanBudget({ ...base, usedUsd: 55 }).canDispatch).toBe(false);
   });
 
-  test("max plan is not capped at $40 (ceiling unset)", () => {
-    const snap = evaluatePlanBudget({ plan: "max", monthlyUsedUsd: 500 });
+  test("max has no weekly cap", () => {
+    const snap = evaluatePlanBudget({
+      plan: "max",
+      source: "override",
+      cycle: WEEK,
+      usedUsd: 500,
+      resetsRemaining: null,
+    });
 
     expect(snap.canDispatch).toBe(true);
-    expect(snap.monthlyBudgetUsd).toBeNull();
-    expect(snap.monthlyRemainingUsd).toBeNull();
+    expect(snap.capUsd).toBeNull();
+    expect(snap.remainingUsd).toBeNull();
     expect(snap.holdReason).toBeNull();
   });
 });
@@ -75,7 +88,13 @@ describe("multi-mode dispatch gates", () => {
   });
 
   test("dispatch waits when free budget is exhausted", () => {
-    const budget = evaluatePlanBudget({ plan: "free", monthlyUsedUsd: 40 });
+    const budget = evaluatePlanBudget({
+      plan: "free",
+      source: "entitlements",
+      cycle: WEEK,
+      usedUsd: 10,
+      resetsRemaining: 0,
+    });
     const gate = evaluateDispatchGates({
       activeStreamId: null,
       canDispatchBudget: budget.canDispatch,
@@ -89,7 +108,13 @@ describe("multi-mode dispatch gates", () => {
   });
 
   test("dispatch proceeds when idle and under budget", () => {
-    const budget = evaluatePlanBudget({ plan: "free", monthlyUsedUsd: 1 });
+    const budget = evaluatePlanBudget({
+      plan: "free",
+      source: "entitlements",
+      cycle: WEEK,
+      usedUsd: 1,
+      resetsRemaining: 5,
+    });
     const gate = evaluateDispatchGates({
       activeStreamId: null,
       canDispatchBudget: budget.canDispatch,
@@ -100,7 +125,13 @@ describe("multi-mode dispatch gates", () => {
   });
 
   test("max plan dispatches even at high usage when idle", () => {
-    const budget = evaluatePlanBudget({ plan: "max", monthlyUsedUsd: 999 });
+    const budget = evaluatePlanBudget({
+      plan: "max",
+      source: "override",
+      cycle: WEEK,
+      usedUsd: 999,
+      resetsRemaining: null,
+    });
     const gate = evaluateDispatchGates({
       activeStreamId: null,
       canDispatchBudget: budget.canDispatch,

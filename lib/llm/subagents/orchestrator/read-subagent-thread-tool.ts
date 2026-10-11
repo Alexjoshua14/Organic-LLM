@@ -21,7 +21,7 @@ export type ReadSubagentThreadDeps = {
 };
 
 export const READ_SUBAGENT_THREAD_TOOL_INSTRUCTIONS =
-  "Use read_subagent_thread to read a subagent's own thread when its status summary is not enough — for example to quote its result or check what it was asked. Pass the agentId (or name) from [Subagent threads]; call it with no agentId to list subagents and their status.";
+  "Use read_subagent_thread to read a subagent's own thread when its status summary is not enough — for example to quote its result or check what it was asked. Pass the agentId (or name) from [Subagent threads]; call it with no agentId to list subagents and their status. Message ids it returns can pin a specific reply as subagent_output context.";
 
 const ReadSubagentThreadInputSchema = z.object({
   agentId: z
@@ -40,11 +40,11 @@ const ReadSubagentThreadInputSchema = z.object({
 });
 
 /** Newest-last messages trimmed from the oldest end until they fit the character budget. */
-export function capThreadTranscript(
-  messages: ReadonlyArray<{ role: string; text: string }>,
+export function capThreadTranscript<T extends { role: string; text: string }>(
+  messages: ReadonlyArray<T>,
   maxChars = READ_SUBAGENT_THREAD_MAX_CHARS
-): { messages: Array<{ role: string; text: string }>; truncated: boolean } {
-  const kept: Array<{ role: string; text: string }> = [];
+): { messages: T[]; truncated: boolean } {
+  const kept: T[] = [];
   let used = 0;
 
   for (let i = messages.length - 1; i >= 0; i -= 1) {
@@ -55,7 +55,7 @@ export function capThreadTranscript(
     const text =
       message.text.length > remaining ? `…${message.text.slice(-(remaining - 1))}` : message.text;
 
-    kept.unshift({ role: message.role, text });
+    kept.unshift({ ...message, text });
     used += text.length;
   }
 
@@ -115,7 +115,7 @@ export function createReadSubagentThreadTool(args: {
       );
       const transcript = capThreadTranscript(
         messages
-          .map((m) => ({ role: m.role, text: uiMessageText(m) }))
+          .map((m) => ({ id: m.id, role: m.role, text: uiMessageText(m) }))
           .filter((m) => m.text.length > 0)
       );
 

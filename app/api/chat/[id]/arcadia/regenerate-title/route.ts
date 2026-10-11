@@ -8,6 +8,7 @@ import { generateChatTitle } from "@/lib/llm/chat-helpers";
 import { createLogger } from "@/lib/logger";
 import { checkArcadiaSettingsTitleLimit } from "@/lib/rate-limit/arcadia-chat-settings";
 import { supabaseServer } from "@/lib/supabase/server";
+import { requirePlanBudget } from "@/lib/api/plan-budget-gate";
 
 export const maxDuration = 30;
 
@@ -33,6 +34,9 @@ export async function POST(_req: Request, { params }: { params: Promise<{ id: st
 
   const { id: chatId } = await params;
   const sbUserId = sbUserIdResult.data;
+  const planGate = await requirePlanBudget({ clerkUserId: clerkUser.userId, sbUserId });
+
+  if (planGate) return planGate;
   const threadOwnerContext = await getThreadOwnerContext(chatId);
 
   if (threadOwnerContext.error || !threadOwnerContext.data) {

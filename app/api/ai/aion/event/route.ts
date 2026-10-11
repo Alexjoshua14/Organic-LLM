@@ -9,12 +9,14 @@ import { resolveFeatureThread } from "@/lib/chat/resolve-feature-thread";
 import { formatSessionContext, loadSessionContext } from "@/lib/llm/session-context";
 import { checkAionPresenceTurn, recordAionPresenceUsage } from "@/lib/rate-limit/aion-presence";
 import { checkLlmMessageLimit } from "@/lib/rate-limit/llm";
+import { requirePlanBudget } from "@/lib/api/plan-budget-gate";
 
 export const maxDuration = 30;
 
 const productionDeps = {
   auth: (() => auth()) as any,
   getSupabaseUserId,
+  requirePlanBudget,
   checkLlmMessageLimit,
   checkAionPresenceTurn,
   recordAionPresenceUsage,

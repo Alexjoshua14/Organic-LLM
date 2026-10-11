@@ -1,3 +1,4 @@
+import { createAuthenticatedLlmBudgetHooks, budgetModelId } from "@/lib/plans/llm-budget-hooks";
 import { generateText } from "ai";
 import z from "zod";
 
@@ -113,6 +114,10 @@ export async function POST(req: Request) {
   try {
     const t0 = performance.now();
     const result = await generateText({
+      ...(await createAuthenticatedLlmBudgetHooks({
+        modelId: budgetModelId(TOPIC_EXPLORE_ASSIST_MODEL),
+        operation: "/api/sandbox/topic-explore/assist-reply",
+      })),
       model: TOPIC_EXPLORE_ASSIST_MODEL,
       instructions: SYSTEM,
       prompt,
@@ -122,6 +127,7 @@ export async function POST(req: Request) {
     const durationMs = performance.now() - t0;
 
     recordLlmCall({
+      persist: false,
       model: TOPIC_EXPLORE_ASSIST_MODEL,
       usage: result.usage,
       durationMs,

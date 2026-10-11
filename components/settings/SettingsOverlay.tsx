@@ -1,12 +1,16 @@
 "use client";
 
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Switch } from "@heroui/switch";
 import { Brain, ExternalLink, Settings2Icon, Sparkles } from "lucide-react";
 import { useAuth, useUser } from "@clerk/nextjs";
 
+import { QuickSettingRow } from "./quick-setting-row";
+
+import { Switch } from "@/components/design-system/switch";
+import { glass } from "@/components/design-system/primitives";
+import { cn } from "@/lib/utils";
 import { KnowledgeModal } from "@/components/knowledge/KnowledgeModal";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/third-party/ui/sheet";
 import { ThemeSwitch } from "@/components/shared/theme-switch";
@@ -20,6 +24,7 @@ type SettingsOverlayProps = {
 };
 
 export function SettingsOverlay({ open, onOpenChange, trigger }: SettingsOverlayProps) {
+  const panelRef = useRef<HTMLDivElement>(null);
   const pathname = usePathname();
   const onErgonPage = pathname === "/ergon" || pathname.startsWith("/ergon/");
   const { userId } = useAuth();
@@ -68,9 +73,17 @@ export function SettingsOverlay({ open, onOpenChange, trigger }: SettingsOverlay
       <Sheet open={open} onOpenChange={onOpenChange}>
         {trigger}
         <SheetContent
-          className="flex flex-col gap-5 px-6 py-4 md:gap-8 md:py-7"
+          className={cn(
+            glass({ opaque: true, border: "left" }),
+            "flex flex-col gap-5 overflow-y-auto px-6 py-4 md:gap-6 md:py-7"
+          )}
+          ref={panelRef}
           overlayPriority="chrome"
           side="right"
+          onOpenAutoFocus={(event) => {
+            event.preventDefault();
+            panelRef.current?.focus();
+          }}
         >
           <SheetHeader className="pt-0 pb-0 px-0">
             <SheetTitle className="flex items-center gap-2 text-foreground">
@@ -79,113 +92,87 @@ export function SettingsOverlay({ open, onOpenChange, trigger }: SettingsOverlay
             </SheetTitle>
           </SheetHeader>
 
-          <div className="flex flex-col gap-6 px-0 pt-2 md:gap-9 md:pt-4">
-            <section className="space-y-3">
-              <h3 className="text-sm font-medium text-foreground">Theme</h3>
-              <div className="flex items-center gap-3">
-                <ThemeSwitch className="text-foreground" />
-                <span className="text-xs text-muted-foreground">System / Light / Dark</span>
-              </div>
-            </section>
+          <div className="flex flex-col gap-2 px-0 pt-2">
+            <QuickSettingRow caption="System / Light / Dark" label="Theme">
+              <ThemeSwitch className="text-foreground" />
+            </QuickSettingRow>
 
-            <section className="space-y-3">
-              <h3 className="text-sm font-medium text-foreground">Coalescence Mode</h3>
-              <div className="flex items-center justify-between gap-3">
-                <span className="text-xs text-muted-foreground">
-                  When on, your sidebar includes Arcadia and other feature threads and indexes
-                  gen-ui blocks into the spatial artifact library.
-                </span>
-                <Switch
-                  aria-label="Coalescence Mode"
-                  isSelected={coalescenceMode}
-                  onValueChange={(enabled) => {
-                    setCoalescenceMode(enabled);
-                    setSettings({ coalescenceMode: enabled });
-                    if (userId) void persistUserSettingsToSupabase(userId, getSettings());
-                  }}
-                />
-              </div>
-            </section>
+            <QuickSettingRow
+              caption="Unlock Organic’s full potential by connecting its features."
+              label="Coalescence Mode"
+            >
+              <Switch
+                aria-label="Coalescence Mode"
+                isSelected={coalescenceMode}
+                onValueChange={(enabled) => {
+                  setCoalescenceMode(enabled);
+                  setSettings({ coalescenceMode: enabled });
+                  if (userId) void persistUserSettingsToSupabase(userId, getSettings());
+                }}
+              />
+            </QuickSettingRow>
 
-            <section className="space-y-3">
-              <h3 className="text-sm font-medium text-foreground">
-                Arcadia preview (experimental)
-              </h3>
-              <div className="flex items-center justify-between gap-3">
-                <span className="text-xs text-muted-foreground">
-                  Markdown preview toggle on the Arcadia composer.
-                </span>
-                <Switch
-                  aria-label="Arcadia markdown preview (experimental)"
-                  isSelected={experimentalArcadiaMarkdownPreview}
-                  onValueChange={(enabled) => {
-                    setExperimentalArcadiaMarkdownPreview(enabled);
-                    setSettings({ experimentalArcadiaMarkdownPreview: enabled });
-                    if (userId) void persistUserSettingsToSupabase(userId, getSettings());
-                  }}
-                />
-              </div>
-            </section>
+            <QuickSettingRow
+              caption="Markdown preview toggle on the Arcadia composer."
+              label="Arcadia preview (experimental)"
+            >
+              <Switch
+                aria-label="Arcadia markdown preview (experimental)"
+                isSelected={experimentalArcadiaMarkdownPreview}
+                onValueChange={(enabled) => {
+                  setExperimentalArcadiaMarkdownPreview(enabled);
+                  setSettings({ experimentalArcadiaMarkdownPreview: enabled });
+                  if (userId) void persistUserSettingsToSupabase(userId, getSettings());
+                }}
+              />
+            </QuickSettingRow>
 
-            <section className="space-y-3">
-              <h3 className="text-sm font-medium text-foreground">Context effort (beta)</h3>
-              <div className="flex items-center justify-between gap-3">
-                <span className="text-xs text-muted-foreground">
-                  When on, Arcadia shows a slider for how hard Organic LLM works to compile your
-                  memories and portrait before answering. Off keeps today&apos;s retrieval.
-                </span>
-                <Switch
-                  aria-label="Context effort (beta)"
-                  isSelected={experimentalContextEffort}
-                  onValueChange={(enabled) => {
-                    setExperimentalContextEffort(enabled);
-                    setSettings({ experimentalContextEffort: enabled });
-                    if (userId) void persistUserSettingsToSupabase(userId, getSettings());
-                  }}
-                />
-              </div>
-            </section>
+            <QuickSettingRow
+              caption="When on, Arcadia shows a slider for how hard Organic LLM works to compile your memories and portrait before answering. Off keeps today's retrieval."
+              label="Context effort (beta)"
+            >
+              <Switch
+                aria-label="Context effort (beta)"
+                isSelected={experimentalContextEffort}
+                onValueChange={(enabled) => {
+                  setExperimentalContextEffort(enabled);
+                  setSettings({ experimentalContextEffort: enabled });
+                  if (userId) void persistUserSettingsToSupabase(userId, getSettings());
+                }}
+              />
+            </QuickSettingRow>
 
-            <section className="space-y-3">
-              <h3 className="flex items-center gap-2 text-sm font-medium text-foreground">
-                <Sparkles className="size-4 text-lumen" />
-                Tips &amp; coachmarks
-              </h3>
-              <div className="flex items-center justify-between gap-3">
-                <span className="text-xs text-muted-foreground">
-                  Re-show surface tips you dismissed. Sidebar and composer tips stay dismissed; turn
-                  off to return to normal.
-                </span>
-                <Switch
-                  aria-label="Replay feature tips and coachmarks"
-                  isSelected={replayFeatureHints}
-                  onValueChange={(enabled) => {
-                    setReplayFeatureHints(enabled);
-                    setSettings({ replayFeatureHints: enabled });
-                    if (userId) void persistUserSettingsToSupabase(userId, getSettings());
-                  }}
-                />
-              </div>
-            </section>
+            <QuickSettingRow
+              caption="Re-show surface tips you dismissed. Sidebar and composer tips stay dismissed; turn off to return to normal."
+              icon={<Sparkles aria-hidden className="size-4 shrink-0 text-lumen" />}
+              label="Tips & coachmarks"
+            >
+              <Switch
+                aria-label="Replay feature tips and coachmarks"
+                isSelected={replayFeatureHints}
+                onValueChange={(enabled) => {
+                  setReplayFeatureHints(enabled);
+                  setSettings({ replayFeatureHints: enabled });
+                  if (userId) void persistUserSettingsToSupabase(userId, getSettings());
+                }}
+              />
+            </QuickSettingRow>
 
             {onErgonPage ? (
-              <section className="space-y-3">
-                <h3 className="text-sm font-medium text-foreground">Ergon background</h3>
-                <div className="flex items-center justify-between gap-3">
-                  <span className="text-xs text-muted-foreground">
-                    Animated liquid chrome behind the task list.
-                  </span>
-                  <Switch
-                    aria-label="Ergon liquid chrome background"
-                    isSelected={ergonLiquidChrome}
-                    onValueChange={(enabled) => {
-                      setErgonLiquidChrome(enabled);
-                      setSettings({ ergonLiquidChrome: enabled });
-                      if (userId) void persistUserSettingsToSupabase(userId, getSettings());
-                    }}
-                  />
-                </div>
-              </section>
+              <QuickSettingRow
+                caption="Animated liquid chrome behind the task list."
+                label="Ergon background"
+              >
+                <Switch
+                  aria-label="Ergon liquid chrome background"
+                  isSelected={ergonLiquidChrome}
+                  onValueChange={(enabled) => {
+                    setErgonLiquidChrome(enabled);
+                    setSettings({ ergonLiquidChrome: enabled });
+                    if (userId) void persistUserSettingsToSupabase(userId, getSettings());
+                  }}
+                />
+              </QuickSettingRow>
             ) : null}
           </div>
 

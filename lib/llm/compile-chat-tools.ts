@@ -182,7 +182,7 @@ export async function compileChatTools({
   }
 
   if (isArcadiaStyleMemoryReadExperience(experience)) {
-    tools["make_mermaid_diagram"] = createMermaidDiagramTool({ writer });
+    tools["make_mermaid_diagram"] = createMermaidDiagramTool({ writer, ownerId: sbUserId });
     toolInstructions +=
       "You can generate Mermaid diagrams using make_mermaid_diagram. The tool returns overview + detailed sources with shared node IDs. You may also include the overview in a ```mermaid code block for prose continuity.\n";
     tools["render_gen_ui"] = createRenderGenUiTool();

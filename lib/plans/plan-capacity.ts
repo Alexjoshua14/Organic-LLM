@@ -1,8 +1,8 @@
 /**
  * Plan capacity math for the signed-in /plans page.
  *
- * Product tiers today are only `free` and `max` (see lib/plans/plan-tags.ts).
- * Plus/Pro rows in lib/usage/plans.ts are allotment references — not sold here.
+ * Public tiers shown here are `free` and `max`. Plus and pro exist (lib/usage/plans.ts) but are
+ * assigned by the owner, not sold here. Budgets are per weekly cycle (lib/plans/budget-cycle.ts).
  *
  * --- Estimators (single source; do not duplicate token prices elsewhere) ---
  *
@@ -10,14 +10,14 @@
  *   Generation uses openai/gpt-6-sol for the article body (lib/llm/rabbit-hole/generation.ts).
  *   Assumed typical usage per hole: 8_000 input + 4_000 output tokens.
  *   At list rates ($2 / $10 per 1M): 8k×$2/1M + 4k×$10/1M = $0.016 + $0.040 = $0.056.
- *   Budget headroom: FREE $40 / $0.056 ≈ 714 holes. Published layman figure: 120
- *   (120 × $0.056 = $6.72 ≪ $40). User-offered 120 fits; not inflated to the ceiling.
+ *   Budget headroom: FREE $10/week / $0.056 ≈ 178 holes. Published layman figure: 120
+ *   (120 × $0.056 = $6.72 < $10). Fits a single week; not inflated to the ceiling.
  *
  * Realtime voice (estimate):
  *   Default Speak model gpt-realtime-2.1-mini via estimateRealtimeMinuteCostUsd
  *   (lib/rate-limit/llm-cost.ts) ≈ $0.0156 / wall-clock minute.
- *   5 hours = 300 min → 300 × $0.0156 = $4.68 ≪ $40. Published: 5 hours.
- *   ($40 would cover ~42 h at that rate; we publish the conservative product figure.)
+ *   5 hours = 300 min → 300 × $0.0156 = $4.68 < $10. Published: 5 hours a week.
+ *   ($10 would cover ~10 h at that rate; we publish the conservative product figure.)
  *
  * Simultaneous streams:
  *   Published free-tier (and current max) cap: 5. Enforced via threads.active_stream_id
@@ -25,9 +25,11 @@
  */
 
 import { estimateRealtimeMinuteCostUsd, computeUsageCostUsd } from "@/lib/rate-limit/llm-cost";
-import { FREE_PLAN_MONTHLY_BUDGET_USD } from "@/lib/plans/plan-tags";
 import { LLM_MESSAGE_RATE_LIMIT } from "@/lib/rate-limit/catalog";
 import { getUsagePlanTier } from "@/lib/usage/plans";
+
+/** Free plan spend per weekly budget cycle (lib/usage/plans.ts is the source). */
+export const FREE_PLAN_WEEKLY_BUDGET_USD = getUsagePlanTier("free").costCapUsd ?? 0;
 
 /** Published free-tier simultaneous LLM stream ceiling (product copy + gate). */
 export const FREE_PLAN_MAX_SIMULTANEOUS_STREAMS = 5;
@@ -50,10 +52,10 @@ export const PLAN_CAPACITY_RABBIT_HOLE_ESTIMATE_USAGE = {
   outputTokens: 4_000,
 } as const;
 
-/** Published layman rabbit-hole count for free (fits under $40 at the estimate above). */
+/** Published layman rabbit-hole count for free (fits a week's budget at the estimate above). */
 export const FREE_PLAN_PUBLISHED_RABBIT_HOLES = 120;
 
-/** Published layman realtime voice hours for free (fits under $40 at the minute estimate). */
+/** Published layman realtime voice hours for free (fits a week's budget at the minute estimate). */
 export const FREE_PLAN_PUBLISHED_VOICE_HOURS = 5;
 
 export function estimateRabbitHoleCostUsd(): number {
@@ -69,7 +71,7 @@ export function estimateRealtimeHourCostUsd(
 }
 
 /** Max rabbit holes the free dollar budget could fund at the documented estimate. */
-export function freeBudgetMaxRabbitHoles(budgetUsd: number = FREE_PLAN_MONTHLY_BUDGET_USD): number {
+export function freeBudgetMaxRabbitHoles(budgetUsd: number = FREE_PLAN_WEEKLY_BUDGET_USD): number {
   const perHole = estimateRabbitHoleCostUsd();
 
   if (perHole <= 0) return 0;
@@ -78,7 +80,7 @@ export function freeBudgetMaxRabbitHoles(budgetUsd: number = FREE_PLAN_MONTHLY_B
 }
 
 /** Max realtime voice hours the free dollar budget could fund at the documented estimate. */
-export function freeBudgetMaxVoiceHours(budgetUsd: number = FREE_PLAN_MONTHLY_BUDGET_USD): number {
+export function freeBudgetMaxVoiceHours(budgetUsd: number = FREE_PLAN_WEEKLY_BUDGET_USD): number {
   const perHour = estimateRealtimeHourCostUsd();
 
   if (perHour <= 0) return 0;
@@ -92,7 +94,7 @@ export function publishedFreeCapacityFitsBudget(args: {
   voiceHours: number;
   budgetUsd?: number;
 }): boolean {
-  const budget = args.budgetUsd ?? FREE_PLAN_MONTHLY_BUDGET_USD;
+  const budget = args.budgetUsd ?? FREE_PLAN_WEEKLY_BUDGET_USD;
   const rabbitCost = args.rabbitHoles * estimateRabbitHoleCostUsd();
   const voiceCost = args.voiceHours * estimateRealtimeHourCostUsd();
 
@@ -120,8 +122,8 @@ export type PlanPublicTier = {
   name: string;
   /** Null when the tier has no public subscription price (max is allowlist / uncapped). */
   priceLabel: string;
-  /** Null when there is no numeric monthly dollar ceiling. */
-  monthlyBudgetUsd: number | null;
+  /** Spend per weekly budget cycle; null when there is no ceiling. */
+  weeklyBudgetUsd: number | null;
   /** Token allotment from usage plan table; null when unset (max). */
   tokenCap: number | null;
   rabbitHoles: number | null;
@@ -140,7 +142,7 @@ export function getPublicPlanTiers(): PlanPublicTier[] {
       id: "free",
       name: "Free",
       priceLabel: "$0",
-      monthlyBudgetUsd: FREE_PLAN_MONTHLY_BUDGET_USD,
+      weeklyBudgetUsd: FREE_PLAN_WEEKLY_BUDGET_USD,
       tokenCap: freeUsage.tokenCap > 0 ? freeUsage.tokenCap : null,
       rabbitHoles: FREE_PLAN_PUBLISHED_RABBIT_HOLES,
       voiceHours: FREE_PLAN_PUBLISHED_VOICE_HOURS,
@@ -151,7 +153,7 @@ export function getPublicPlanTiers(): PlanPublicTier[] {
       id: "max",
       name: "Max",
       priceLabel: "Uncapped",
-      monthlyBudgetUsd: maxUsage.costCapUsd,
+      weeklyBudgetUsd: maxUsage.costCapUsd,
       tokenCap: maxUsage.tokenCap > 0 ? maxUsage.tokenCap : null,
       // Dollar budget is uncapped — do not promise unlimited rabbit holes / voice.
       rabbitHoles: null,
