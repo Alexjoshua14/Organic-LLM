@@ -10,6 +10,7 @@ import { generateObject } from "../../node_modules/ai/src/generate-object/genera
 import { isStepCount } from "../../node_modules/ai/src/generate-text/stop-condition";
 import { createLlmBudgetHooks } from "@/lib/plans/llm-budget-hooks";
 import { evaluatePlanBudget } from "@/lib/plans/plan-tags";
+import { withSubagentCostLimits } from "@/lib/llm/subagents/worker/cost-limits";
 
 const input = { ownerId: "trusted-owner", modelId: "openai/test", operation: "sdk-regression" };
 const budget = (usedUsd: number) =>
@@ -33,6 +34,67 @@ const result = {
 };
 
 describe("actual SDK budget enforcement", () => {
+  test("worker cost limits retain plan checks and metering between actual SDK calls", async () => {
+    let spent = 9.75;
+    const record = mock(async () => {
+      spent = 10;
+    });
+    const model = new MockLanguageModelV4({ doGenerate: result });
+    const hooks = withSubagentCostLimits(
+      createLlmBudgetHooks(input, { read: async () => budget(spent), record }),
+      { instructions: "Gather the evidence.", toolSchemaText: "[]", research: true }
+    );
+
+    await expect(
+      generateText({
+        model,
+        prompt: "Look up the evidence",
+        ...hooks,
+        maxRetries: 0,
+        tools: { lookup: tool({ inputSchema: z.object({}), execute: async () => "Evidence" }) },
+        stopWhen: isStepCount(12),
+      })
+    ).rejects.toThrow("plan_limit");
+    expect(model.doGenerateCalls).toHaveLength(1);
+    expect(model.doGenerateCalls[0].maxOutputTokens).toBe(4_000);
+    expect(record).toHaveBeenCalledTimes(1);
+  });
+
+  test("worker total output allowance narrows the final SDK call and disables tools", async () => {
+    const model = new MockLanguageModelV4({
+      doGenerate: [
+        {
+          ...result,
+          usage: { ...usage, outputTokens: { total: 15_100, text: 100, reasoning: 15_000 } },
+        },
+        {
+          ...result,
+          content: [{ type: "text", text: "Evidence is partial; here is the result so far." }],
+          finishReason: { unified: "stop", raw: "stop" },
+        },
+      ],
+    });
+    const record = mock(async () => {});
+    const hooks = withSubagentCostLimits(
+      createLlmBudgetHooks(input, { read: async () => budget(0), record }),
+      { instructions: "Gather the evidence.", toolSchemaText: "[]", research: true }
+    );
+    const output = await generateText({
+      model,
+      prompt: "Look up the evidence",
+      ...hooks,
+      maxRetries: 0,
+      tools: { lookup: tool({ inputSchema: z.object({}), execute: async () => "Evidence" }) },
+      stopWhen: isStepCount(12),
+    });
+
+    expect(output.text).toContain("partial");
+    expect(model.doGenerateCalls).toHaveLength(2);
+    expect(model.doGenerateCalls[1].maxOutputTokens).toBe(900);
+    expect(model.doGenerateCalls[1].toolChoice).toEqual({ type: "none" });
+    expect(record).toHaveBeenCalledTimes(2);
+  });
+
   test("stream delivery reports the allowance error and makes no second provider call", async () => {
     let spent = 9.75;
     const record = mock(async () => {

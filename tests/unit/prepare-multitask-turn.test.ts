@@ -11,6 +11,7 @@ import {
 import { createHeuristicThoughtRouter } from "@/lib/llm/subagents/orchestrator/thought-router";
 import { uiMessageText } from "@/lib/llm/subagents/threads/messages";
 import { emptyWorktable } from "@/lib/llm/subagents/worktable/types";
+import { models } from "@/lib/schemas/chat-models";
 
 const CHAT_ID = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
 const CHILD_ID = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb";
@@ -92,7 +93,47 @@ describe("Arcadia multitask delegation gate", () => {
     expect(deps.appendMessages).toHaveBeenCalledTimes(1);
     expect(deps.setStatus).toHaveBeenCalledWith(CHILD_ID, "working");
     expect(deps.enqueueWorker).toHaveBeenCalledTimes(1);
+    expect(deps.enqueueWorker.mock.calls[0][0]).toMatchObject({
+      modelId: models.anthropic.haiku.id,
+      zeroDataRetention: true,
+    });
     expect(writer.write).toHaveBeenCalledTimes(1);
+  });
+
+  test("fallback routing consolidates one specialist's thoughts and handles the rest inline", async () => {
+    const { deps, input, writer } = setup();
+
+    deps.isMultitaskEnabled.mockResolvedValue(true);
+    await prepareArcadiaMultitaskTurn({
+      ...input,
+      userText:
+        "Have Reed implement the exporter.\n\nHave Reed fix the exporter tests.\n\nHave Cass write the release notes.",
+    });
+    expect(deps.enqueueWorker).toHaveBeenCalledTimes(1);
+    const queued = deps.enqueueWorker.mock.calls[0][0];
+
+    expect(queued.goal.agentId).toBe("agent-coder");
+    expect(queued.goal.goal).toContain("implement the exporter");
+    expect(queued.goal.goal).toContain("fix the exporter tests");
+    expect(writer.write.mock.calls[0][0].data.directThoughts).toContain(
+      "Have Cass write the release notes."
+    );
+  });
+
+  test("fallback routing does not queue work onto a currently working specialist", async () => {
+    const { deps, input } = setup();
+
+    deps.isMultitaskEnabled.mockResolvedValue(true);
+    deps.listChildren.mockResolvedValue([
+      {
+        threadId: CHILD_ID,
+        agentId: "agent-coder",
+        status: "working",
+        statusAt: new Date().toISOString(),
+      },
+    ]);
+    await prepareArcadiaMultitaskTurn(input);
+    expect(deps.enqueueWorker).not.toHaveBeenCalled();
   });
 
   test("turning mode off stops new assignments on the next turn", async () => {
@@ -192,14 +233,20 @@ describe("Arcadia orchestrator-authored dispatch", () => {
     const [[, messages]] = deps.appendMessages.mock.calls as unknown as [[string, UIMessage[]]];
 
     expect(uiMessageText(messages[0]!)).toContain(input.userText);
+    expect(deps.enqueueWorker.mock.calls[0][0].modelId).toBe(input.modelId);
   });
 
   test("the user speaking restores the automatic dispatch allowance; automatic turns do not", async () => {
-    const auto = orchestrating({ autonomousDispatches: 2 });
-    const autoResult = await prepareArcadiaMultitaskTurn({ ...auto.input, userText: "", autonomous: true });
+    const auto = orchestrating({ autonomousDispatches: 1 });
+    const autoResult = await prepareArcadiaMultitaskTurn({
+      ...auto.input,
+      userText: "",
+      autonomous: true,
+    });
 
-    expect(auto.store.current().autonomousDispatches).toBe(2);
-    expect(autoResult?.systemFragments.join("\n")).toContain("dispatch 1 more time(s)");
+    expect(auto.store.current().autonomousDispatches).toBe(1);
+    expect(autoResult?.autonomousRemaining).toBe(0);
+    expect(autoResult?.systemFragments.join("\n")).toContain("allowance is spent");
 
     const user = orchestrating({ autonomousDispatches: 3 });
 
@@ -211,16 +258,29 @@ describe("Arcadia orchestrator-authored dispatch", () => {
     const { deps, input } = orchestrating();
 
     Object.assign(deps, {
-      openWorktable: () => ({ load: async () => null, save: async () => ({ status: "unavailable" }) }),
+      openWorktable: () => ({
+        load: async () => null,
+        save: async () => ({ status: "unavailable" }),
+      }),
     });
     deps.loadMessages.mockResolvedValue([
-      { id: "u1", role: "user", parts: [{ type: "text", text: "Research, then draft the architecture." }] },
+      {
+        id: "u1",
+        role: "user",
+        parts: [{ type: "text", text: "Research, then draft the architecture." }],
+      },
       { id: "h1", role: "system", parts: [{ type: "text", text: "Lyra finished." }] },
       {
         id: "a1",
         role: "assistant",
         parts: [
-          { type: "tool-dispatch_subagent", toolCallId: "t1", state: "output-available", input: {}, output: { success: true } },
+          {
+            type: "tool-dispatch_subagent",
+            toolCallId: "t1",
+            state: "output-available",
+            input: {},
+            output: { success: true },
+          },
         ],
       },
     ] as never);
@@ -228,15 +288,19 @@ describe("Arcadia orchestrator-authored dispatch", () => {
     const result = await prepareArcadiaMultitaskTurn({ ...input, userText: "", autonomous: true });
     const prompt = result?.systemFragments.join("\n") ?? "";
 
-    expect(result?.autonomousRemaining).toBe(2);
-    expect(prompt).toContain("architecture drafting can start");
-    expect(prompt).toContain("You may dispatch 2 more time(s)");
+    expect(result?.autonomousRemaining).toBe(0);
+    expect(prompt).toContain("allowance is spent");
   });
 
   test("missing worktable storage still lets the orchestrator dispatch inline", async () => {
     const { deps, input } = orchestrating();
 
-    Object.assign(deps, { openWorktable: () => ({ load: async () => null, save: async () => ({ status: "unavailable" }) }) });
+    Object.assign(deps, {
+      openWorktable: () => ({
+        load: async () => null,
+        save: async () => ({ status: "unavailable" }),
+      }),
+    });
     const result = await prepareArcadiaMultitaskTurn(input);
 
     expect(result?.orchestratorDispatch).toBe(true);

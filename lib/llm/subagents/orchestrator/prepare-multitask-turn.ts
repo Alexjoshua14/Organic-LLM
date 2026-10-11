@@ -2,12 +2,14 @@ import type { LanguageModelUsage, UIMessage, UIMessageStreamWriter } from "ai";
 import type { ChatUIMessage } from "@/types/ai";
 import type { ArcadiaMultitaskSendTargetParsed } from "@/lib/schemas/arcadia-multitask-send-target";
 import type { WorkerGoal } from "@/lib/schemas/subagent-runtime";
-import type { SubagentThreadRow, SubagentThreadSnapshot } from "@/lib/llm/subagents/threads/snapshot";
+import type {
+  SubagentThreadRow,
+  SubagentThreadSnapshot,
+} from "@/lib/llm/subagents/threads/snapshot";
 import type { SubagentThreadStatus } from "@/lib/llm/subagents/threads/status";
 import type { WorktableSession, WorktableStore } from "@/lib/llm/subagents/worktable/session";
 
 import { resolveMultitaskSendTarget } from "@/lib/schemas/arcadia-multitask-send-target";
-
 import { createDemoSubagents } from "@/lib/arcadia/multitask/demo-roster";
 import {
   pickRosterSlotForRole,
@@ -19,6 +21,7 @@ import {
 } from "@/lib/llm/subagents/orchestrator/constants";
 import { dispatchMultitaskInbound } from "@/lib/llm/subagents/orchestrator/dispatch-inbound";
 import { formatOrchestratorFragment } from "@/lib/llm/subagents/orchestrator/format-orchestrator-fragment";
+import { selectSubagentModel } from "@/lib/llm/subagents/orchestrator/cost-policy";
 import { countAutonomousDispatchesSinceUser } from "@/lib/llm/subagents/orchestrator/orchestrator-tools";
 import { formatMultitaskRoutingSystemFragment } from "@/lib/llm/subagents/orchestrator/format-routing-fragment";
 import {
@@ -63,9 +66,11 @@ export type MultitaskTurnDeps = {
   getHardSetShellAgentId?(threadId: string): Promise<string | null>;
   isMultitaskEnabled(threadId: string): Promise<boolean>;
   listChildren(parentThreadId: string): Promise<SubagentThreadRow[]>;
-  ensureChild(args: { parentThreadId: string; agentId: string; title: string }): Promise<
-    string | null
-  >;
+  ensureChild(args: {
+    parentThreadId: string;
+    agentId: string;
+    title: string;
+  }): Promise<string | null>;
   loadMessages(threadId: string, limit: number): Promise<UIMessage[]>;
   appendMessages(threadId: string, messages: UIMessage[]): Promise<boolean>;
   setStatus(threadId: string, status: SubagentThreadStatus): Promise<void>;
@@ -76,7 +81,12 @@ export type MultitaskTurnDeps = {
     operation: "multitask_router" | "subagent_worker";
   }): void | Promise<void>;
   /** Persist an assignment for background dispatch, without awaiting the worker. */
-  enqueueWorker(args: { goal: WorkerGoal; threadId: string; modelId: string; zeroDataRetention: boolean }): Promise<void>;
+  enqueueWorker(args: {
+    goal: WorkerGoal;
+    threadId: string;
+    modelId: string;
+    zeroDataRetention: boolean;
+  }): Promise<void>;
   /** The orchestrator thread's worktable store. Absent means the worktable is unavailable. */
   openWorktable?(threadId: string): WorktableStore;
   router?: ThoughtRouter;
@@ -136,12 +146,14 @@ function rosterForRouter(snapshots: ReadonlyArray<SubagentThreadSnapshot>): Thou
     role: a.role,
     goal: byAgent.get(a.id)?.lastGoal ?? a.goal,
   }));
-  const locked = listRosterHardSetSubagents().filter((a) => !a.rosterSlotId).map((a) => ({
-    id: a.id,
-    name: a.name,
-    role: a.role,
-    goal: byAgent.get(a.id)?.lastGoal ?? a.blurb,
-  }));
+  const locked = listRosterHardSetSubagents()
+    .filter((a) => !a.rosterSlotId)
+    .map((a) => ({
+      id: a.id,
+      name: a.name,
+      role: a.role,
+      goal: byAgent.get(a.id)?.lastGoal ?? a.blurb,
+    }));
   const slotIds = new Set([...slots, ...locked].map((s) => s.id));
   const extras = snapshots
     .filter((s) => !slotIds.has(s.agentId))
@@ -297,6 +309,42 @@ export async function prepareArcadiaMultitaskTurn(
         },
       });
 
+      // The fallback router cannot justify a second specialist. Consolidate its thoughts into
+      // one run for one idle worker; keep all remaining work visible to the orchestrator.
+      if (inbound.mode === "routed") {
+        const selected: WorkerGoal[] = [];
+
+        for (const [agentId, goals] of groupGoalsByAgent(inbound.assignedGoals)) {
+          if (
+            selected.length > 0 ||
+            snapshots.some((s) => s.agentId === agentId && s.status === "working")
+          ) {
+            inbound.directThoughts.push(...goals.map((g) => g.goal));
+            for (const thought of inbound.routing?.thoughts ?? []) {
+              if (goals.some((g) => g.goal === thought.text)) {
+                thought.disposition = {
+                  kind: "direct",
+                  reason:
+                    "Budget-first policy: no additional worker was started; handle here or await existing work.",
+                };
+              }
+            }
+            continue;
+          }
+          selected.push({
+            ...goals[0]!,
+            goal: [...new Set(goals.map((g) => g.goal))].join("\n\n"),
+          });
+        }
+        inbound.assignedGoals = selected;
+      }
+      const workerSelection = selectSubagentModel({ zeroDataRetention: input.zeroDataRetention });
+
+      if (!workerSelection.ok) throw new Error(workerSelection.error);
+      // An explicit send to a subagent honors the user's selected chat model.
+      const workerModelId =
+        inbound.mode === "direct_to_subagent" ? input.modelId : workerSelection.modelId;
+
       const threadIdByAgent = new Map<string, string>();
       const fallbackGoals: WorkerGoal[] = [];
 
@@ -324,10 +372,12 @@ export async function prepareArcadiaMultitaskTurn(
               goal: g.goal,
               goalId: g.goalId,
               id: g.goalId,
-              modelId: input.modelId,
+              modelId: workerModelId,
+              ...(inbound.mode === "routed" ? { modelTier: workerSelection.tier } : {}),
             })
           )
         );
+
         if (!saved) throw new Error("Could not persist subagent assignment");
         await deps.setStatus(threadId, "working");
         threadIdByAgent.set(agentId, threadId);
@@ -335,16 +385,26 @@ export async function prepareArcadiaMultitaskTurn(
         upsertWorkingSnapshot(snapshots, { agentId, threadId, goal: goals.at(-1)!.goal, now });
 
         for (const goal of goals) {
-          await deps.enqueueWorker({ goal, threadId, modelId: input.modelId, zeroDataRetention: input.zeroDataRetention });
+          await deps.enqueueWorker({
+            goal,
+            threadId,
+            modelId: workerModelId,
+            zeroDataRetention: input.zeroDataRetention,
+          });
         }
       }
 
       if (fallbackGoals.length > 0) {
         // Missing schema must never restore the old blocking behavior or invent a delegation.
         const unavailable = new Set(fallbackGoals.map((goal) => goal.goalId));
-        inbound.assignedGoals = inbound.assignedGoals.filter((goal) => !unavailable.has(goal.goalId));
+
+        inbound.assignedGoals = inbound.assignedGoals.filter(
+          (goal) => !unavailable.has(goal.goalId)
+        );
         inbound.directThoughts.push(...fallbackGoals.map((goal) => goal.goal));
-        systemFragments.push("Subagent storage is unavailable. No background worker was started for the unassigned work; answer it here and explain that delegation is unavailable.");
+        systemFragments.push(
+          "Subagent storage is unavailable. No background worker was started for the unassigned work; answer it here and explain that delegation is unavailable."
+        );
       }
 
       input.writer?.write({

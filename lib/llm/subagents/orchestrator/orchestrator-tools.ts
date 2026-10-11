@@ -12,6 +12,8 @@ import type {
   WorktableItemInput,
 } from "@/lib/llm/subagents/worktable/types";
 
+import { createHash } from "crypto";
+
 import { tool } from "ai";
 import { z } from "zod";
 
@@ -25,6 +27,7 @@ import {
   ORCHESTRATOR_MAX_DISPATCHES_PER_TURN,
 } from "@/lib/llm/subagents/orchestrator/constants";
 import { createWorkerGoal } from "@/lib/llm/subagents/orchestrator/delegate";
+import { selectSubagentModel } from "@/lib/llm/subagents/orchestrator/cost-policy";
 import { listRosterHardSetSubagents } from "@/lib/llm/subagents/hard-set/registry";
 import { withReadSubagentThreadTool } from "@/lib/llm/subagents/orchestrator/read-subagent-thread-tool";
 import { buildSubagentGoalMessage, uiMessageText } from "@/lib/llm/subagents/threads/messages";
@@ -65,7 +68,7 @@ export type OrchestratorToolsInput = {
   deps: OrchestratorToolDeps;
   /** Null when worktable storage is unavailable; dispatch still works with inline items. */
   worktable: WorktableSession | null;
-  /** Model the subagent runs on (the turn's chat model). */
+  /** The orchestrator's model; workers are selected separately by the cost policy. */
   modelId: string;
   zeroDataRetention: boolean;
   /** True on heartbeat-triggered turns, which dispatch under a tighter cap. */
@@ -115,7 +118,7 @@ export function countAutonomousDispatchesSinceUser(messages: ReadonlyArray<UIMes
 }
 
 export const ORCHESTRATOR_TOOL_INSTRUCTIONS = [
-  "Use dispatch_subagent to give a subagent work: a self-contained brief in your own words, plus the context it needs as worktable bundles or inline items.",
+  "Use dispatch_subagent only when the budget-first policy in [Orchestrator] warrants a specialist. Prefer one economy worker; a second dispatch needs additionalDispatchReason, and standard modelTier needs modelReason.",
   "Use worktable to keep reusable context bundles — create once, update single items, and send again.",
 ].join(" ");
 
@@ -178,6 +181,26 @@ const DispatchToolInputSchema = z.object({
     .max(BRIEF_MAX_CHARS)
     .describe(
       "The assignment in your own words, standing alone: the task, why it matters, constraints, the deliverable, and when it is done."
+    ),
+  modelTier: z
+    .enum(["economy", "standard"])
+    .optional()
+    .describe(
+      "Default economy. Standard only when the assignment needs stronger reasoning; never inherits the orchestrator's model."
+    ),
+  modelReason: z
+    .string()
+    .max(500)
+    .optional()
+    .describe(
+      "Required for standard: why this task cannot be done well by the economy worker (at least 20 characters)."
+    ),
+  additionalDispatchReason: z
+    .string()
+    .max(500)
+    .optional()
+    .describe(
+      "Required after the first dispatch this turn: the independent work another specialist adds (at least 20 characters)."
     ),
   bundles: z
     .array(z.string().max(128))
@@ -266,8 +289,13 @@ export function createOrchestratorTools(input: OrchestratorToolsInput): ToolSet 
   const now = input.now ?? Date.now;
   const iso = () => new Date(now()).toISOString();
   let dispatchesThisTurn = 0;
-  let autonomousLeft = input.autonomousRemaining ?? 0;
+  let autonomousLeft = Math.min(
+    input.autonomousRemaining ?? 0,
+    ORCHESTRATOR_MAX_AUTONOMOUS_DISPATCHES
+  );
   let dispatchQueue: Promise<unknown> = Promise.resolve();
+  const dispatchedAgents = new Set<string>();
+  const dispatchedWork = new Set<string>();
 
   const listChildren = () => deps.listChildren(orchestratorThreadId);
 
@@ -479,6 +507,20 @@ export function createOrchestratorTools(input: OrchestratorToolsInput): ToolSet 
         error: `You can dispatch at most ${ORCHESTRATOR_MAX_DISPATCHES_PER_TURN} times per turn. Tell the user what is queued next.`,
       };
     }
+    if (dispatchesThisTurn > 0 && (args.additionalDispatchReason?.trim().length ?? 0) < 20) {
+      return {
+        success: false,
+        error:
+          "One specialist is the default. A second dispatch needs additionalDispatchReason explaining the independent work it adds (at least 20 characters).",
+      };
+    }
+    const selection = selectSubagentModel({
+      tier: args.modelTier,
+      reason: args.modelReason,
+      zeroDataRetention: input.zeroDataRetention,
+    });
+
+    if (!selection.ok) return { success: false, error: selection.error };
 
     const brief = args.brief.trim();
 
@@ -490,6 +532,19 @@ export function createOrchestratorTools(input: OrchestratorToolsInput): ToolSet 
       return {
         success: false,
         error: `No subagent "${args.agent}" on the roster. Use an agentId, name, or role from [Orchestrator].`,
+      };
+    }
+    const existing = children.find((c) => c.agentId === agentId);
+
+    if (
+      dispatchedAgents.has(agentId) ||
+      (existing &&
+        resolveEffectiveSubagentStatus(existing.status, existing.statusAt, now()) === "working")
+    ) {
+      return {
+        success: false,
+        agentId,
+        error: `${resolveSubagentIdentity(agentId).name} already has work in flight. Wait for its result; no additional assignment was queued.`,
       };
     }
 
@@ -528,6 +583,17 @@ export function createOrchestratorTools(input: OrchestratorToolsInput): ToolSet 
         error: `That context is ${context.length} characters; the limit per dispatch is ${WORKTABLE_LIMITS.dispatchContextChars}. Send fewer bundles or trim items.`,
       };
     }
+    const fingerprint = createHash("sha256")
+      .update(JSON.stringify([brief, context]))
+      .digest("hex");
+
+    if (dispatchedWork.has(fingerprint)) {
+      return {
+        success: false,
+        error:
+          "This work was already dispatched this turn. Reuse its result instead of sending it to another specialist.",
+      };
+    }
 
     if (input.autonomous) {
       if (input.worktable) {
@@ -548,7 +614,6 @@ export function createOrchestratorTools(input: OrchestratorToolsInput): ToolSet 
     }
 
     const identity = resolveSubagentIdentity(agentId);
-    const existing = children.find((c) => c.agentId === agentId);
     const threadId =
       existing?.threadId ??
       (await deps.ensureChild({
@@ -576,7 +641,9 @@ export function createOrchestratorTools(input: OrchestratorToolsInput): ToolSet 
         goal: brief,
         goalId: goal.goalId,
         id: goal.goalId,
-        modelId: input.modelId,
+        modelId: selection.modelId,
+        modelTier: selection.tier,
+        modelReason: args.modelReason?.trim(),
         context,
         bundles: bundles.map((b) => ({ id: b.id, name: b.name })),
       }),
@@ -588,10 +655,12 @@ export function createOrchestratorTools(input: OrchestratorToolsInput): ToolSet 
     await deps.enqueueWorker({
       goal,
       threadId,
-      modelId: input.modelId,
+      modelId: selection.modelId,
       zeroDataRetention: input.zeroDataRetention,
     });
     dispatchesThisTurn += 1;
+    dispatchedAgents.add(agentId);
+    dispatchedWork.add(fingerprint);
 
     if (bundles.length > 0) {
       const at = iso();
@@ -618,28 +687,23 @@ export function createOrchestratorTools(input: OrchestratorToolsInput): ToolSet 
       transient: true,
     });
 
-    const wasWorking =
-      existing &&
-      resolveEffectiveSubagentStatus(existing.status, existing.statusAt, now()) === "working";
-
     return {
       success: true,
       agentId,
       name: identity.name,
       role: identity.role,
       goalId: goal.goalId,
+      modelId: selection.modelId,
+      modelTier: selection.tier,
       bundlesSent: bundles.map((b) => b.name),
       contextItems: bundles.reduce((n, b) => n + b.items.length, 0) + items.value.length,
       contextChars: context.length,
-      ...(wasWorking
-        ? { note: `${identity.name} was already working; this runs after its current assignment.` }
-        : {}),
     };
   };
 
   const dispatch_subagent = tool({
     description:
-      "Send work to one subagent. It runs in the background in the subagent's own thread and sees only this brief and the context you attach — not this conversation. Returns immediately.",
+      "Send necessary work to one idle specialist under the budget-first policy. Defaults to an economy model. A second dispatch needs a reason for independent work; standard tier needs a model justification. Repeated work and busy specialists are blocked. Returns immediately.",
     inputSchema: DispatchToolInputSchema,
     // One at a time: parallel calls in a step must not overrun the caps or race a child thread.
     execute: (args) => {

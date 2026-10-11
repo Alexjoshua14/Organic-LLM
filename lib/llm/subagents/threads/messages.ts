@@ -8,6 +8,7 @@ import { randomUUID } from "crypto";
  */
 export const SUBAGENT_GOAL_MESSAGE_SOURCE = "orchestrator";
 const SUBAGENT_GOAL_TEXT_PREFIX = "From the orchestrator:";
+
 export const SUBAGENT_REPLY_MESSAGE_SOURCE = "subagent-worker";
 
 export type SubagentGoalMessageMetadata = {
@@ -15,6 +16,9 @@ export type SubagentGoalMessageMetadata = {
   goalId: string;
   /** Server-selected model queued for this assignment. Older assignments may omit it. */
   modelId?: string;
+  /** Budget policy for orchestrator-authored assignments. Direct sends may omit it. */
+  modelTier?: "economy" | "standard";
+  modelReason?: string;
   /**
    * The orchestrator's brief when context was sent with it (COA-258). The text holds brief plus
    * context; cards, snapshots and the worker's reminder use the brief alone.
@@ -53,7 +57,9 @@ export function stripSubagentGoalPrefix(text: string): string {
 export function subagentGoalBrief(message: UIMessage): string {
   const brief = (message.metadata as Partial<SubagentGoalMessageMetadata> | undefined)?.brief;
 
-  return typeof brief === "string" && brief.trim() ? brief.trim() : stripSubagentGoalPrefix(uiMessageText(message));
+  return typeof brief === "string" && brief.trim()
+    ? brief.trim()
+    : stripSubagentGoalPrefix(uiMessageText(message));
 }
 
 export function buildSubagentGoalMessage(args: {
@@ -61,6 +67,8 @@ export function buildSubagentGoalMessage(args: {
   goalId: string;
   id?: string;
   modelId?: string;
+  modelTier?: "economy" | "standard";
+  modelReason?: string;
   /** Rendered context sent below the brief. */
   context?: string;
   bundles?: Array<{ id: string; name: string }>;
@@ -75,6 +83,8 @@ export function buildSubagentGoalMessage(args: {
       source: SUBAGENT_GOAL_MESSAGE_SOURCE,
       goalId: args.goalId,
       ...(args.modelId ? { modelId: args.modelId } : {}),
+      ...(args.modelTier ? { modelTier: args.modelTier } : {}),
+      ...(args.modelReason ? { modelReason: args.modelReason } : {}),
       ...(context ? { brief } : {}),
       ...(args.bundles?.length ? { bundles: args.bundles } : {}),
     },

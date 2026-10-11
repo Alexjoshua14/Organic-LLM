@@ -10,13 +10,13 @@ export const ORCHESTRATOR_RETURN_TARGET_MS = 7_000;
 export const ORCHESTRATOR_INLINE_MAX_ESTIMATED_MS = ORCHESTRATOR_RETURN_TARGET_MS;
 
 /** Most subagent dispatches one orchestrator turn may make (COA-258). */
-export const ORCHESTRATOR_MAX_DISPATCHES_PER_TURN = 4;
+export const ORCHESTRATOR_MAX_DISPATCHES_PER_TURN = 2;
 
 /**
  * Most dispatches automatic (heartbeat) turns may make between real user messages. Bounds the
  * heartbeat → reply → dispatch → heartbeat loop while the user is not steering.
  */
-export const ORCHESTRATOR_MAX_AUTONOMOUS_DISPATCHES = 3;
+export const ORCHESTRATOR_MAX_AUTONOMOUS_DISPATCHES = 1;
 
 /**
  * Kill switch for orchestrator-authored dispatch. On unless

@@ -1,7 +1,11 @@
 import type { SubagentThreadSnapshot } from "@/lib/llm/subagents/threads/snapshot";
 
 import { createDemoSubagents } from "@/lib/arcadia/multitask/demo-roster";
-import { getHardSetSubagent, listRosterHardSetSubagents } from "@/lib/llm/subagents/hard-set/registry";
+import {
+  getHardSetSubagent,
+  listRosterHardSetSubagents,
+} from "@/lib/llm/subagents/hard-set/registry";
+import { formatSubagentCostPolicy } from "@/lib/llm/subagents/orchestrator/cost-policy";
 import {
   ORCHESTRATOR_MAX_AUTONOMOUS_DISPATCHES,
   ORCHESTRATOR_MAX_DISPATCHES_PER_TURN,
@@ -9,13 +13,13 @@ import {
 
 function autonomyLine(autonomous: boolean, autonomousRemaining: number | null): string {
   if (!autonomous) {
-    return `You may direct subagents on your own initiative — for example, start the next stage of work once its inputs are ready. At most ${ORCHESTRATOR_MAX_DISPATCHES_PER_TURN} dispatches per turn; automatic heartbeat turns may dispatch at most ${ORCHESTRATOR_MAX_AUTONOMOUS_DISPATCHES} times between user messages.`;
+    return `You may direct subagents within the user's requested scope and the cost policy below. At most ${ORCHESTRATOR_MAX_DISPATCHES_PER_TURN} dispatches per turn; automatic heartbeat turns may dispatch at most ${ORCHESTRATOR_MAX_AUTONOMOUS_DISPATCHES} time(s) between user messages.`;
   }
   if (!autonomousRemaining) {
     return "This is an automatic turn after a subagent update, and the automatic dispatch allowance is spent until the user speaks again. Tell the user what you would send next.";
   }
 
-  return `This is an automatic turn after a subagent update. If the update unblocks the next step of work the user already asked for — for example, research has landed and architecture drafting can start — dispatch that step now with everything it needs. You may dispatch ${autonomousRemaining} more time(s) before the user speaks again. Do not start review or judging cycles on your own.`;
+  return `This is an automatic turn after a subagent update. Relay the result and finish here when possible. Dispatch only a necessary next step of work the user already asked for that cannot be completed with your existing context and tools. You may dispatch ${autonomousRemaining} more time(s) before the user speaks again. Do not start review or judging cycles on your own.`;
 }
 
 /**
@@ -49,7 +53,7 @@ export function formatOrchestratorFragment(args: {
   return [
     "[Orchestrator]",
     "You orchestrate Arcadia's subagents. Nothing reaches a subagent unless you send it with dispatch_subagent; each sees only its own thread — never this conversation or the other subagents' threads.",
-    "- Answer quick conversational beats yourself. Delegate research, building, writing, planning, and review that takes real work.",
+    formatSubagentCostPolicy(),
     "- Write each brief in your own words so it stands alone: the actual task (not the user's message pasted), why it matters, constraints, the deliverable, and when it is done.",
     "- Attach what the subagent needs: the user's exact words where they matter (user_message), other subagents' results (subagent_output), relevant memories (memory), and your own notes.",
     "- Keep reusable context on your worktable. Build a bundle once — for example a reviewer's rubric plus a live_subagent_output slot for the coder's latest work — then send it again, updating single items instead of rebuilding.",
