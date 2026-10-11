@@ -92,7 +92,7 @@ export function SettingsOverlay({ open, onOpenChange, trigger }: SettingsOverlay
               <h3 className="text-sm font-medium text-foreground">Coalescence Mode</h3>
               <div className="flex items-center justify-between gap-3">
                 <span className="text-xs text-muted-foreground">
-                  Feature threads in your sidebar; generated UI in your library.
+                  Show app chats like Arcadia and save AI-generated cards.
                 </span>
                 <Switch
                   aria-label="Coalescence Mode"
