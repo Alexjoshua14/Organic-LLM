@@ -300,27 +300,19 @@ export function MultitaskDashboard({ children, enabled = true }: MultitaskDashbo
       {enabled ? (
         <header
           className={cn(
-            "flex shrink-0 justify-between gap-2 px-4",
-            condensed ? "items-center pb-1" : "items-start pb-3"
+            "grid shrink-0 grid-cols-[minmax(0,1fr)_auto] items-center gap-x-2 px-4",
+            condensed ? "pb-1" : "pb-3"
           )}
         >
           <FeatureHint id="arcadia-multiagent" showWhen={!viewingSubagentId}>
-            <div className="min-w-0 flex-1 pr-2">
+            <div className="min-w-0 pr-2">
               {viewingSubagentId ? (
-                <>
-                  <h1 className="truncate py-1 text-sm font-medium">
-                    {formatSendTargetLabel(
-                      { kind: "subagent", agentId: viewingSubagentId },
-                      agents
-                    )}
-                  </h1>
-                  <Link
-                    className="text-xs underline underline-offset-4"
-                    href={`/sandbox/arcadia/${orchestratorThreadId}`}
-                  >
-                    Back to orchestrator
-                  </Link>
-                </>
+                <h1 className="truncate py-1 text-sm font-medium">
+                  {formatSendTargetLabel(
+                    { kind: "subagent", agentId: viewingSubagentId },
+                    agents
+                  )}
+                </h1>
               ) : (
                 <SendTargetPicker
                   agents={agents}
@@ -328,14 +320,6 @@ export function MultitaskDashboard({ children, enabled = true }: MultitaskDashbo
                   onChange={setSendTarget}
                 />
               )}
-              <p className="truncate ps-[0.5em] text-[11px] text-muted-foreground">
-                {runningCount} running
-              </p>
-              {toggleBlockedReason ? (
-                <p className="mt-0.5 text-[11px] text-amber-800 dark:text-amber-200">
-                  {toggleBlockedReason}
-                </p>
-              ) : null}
             </div>
           </FeatureHint>
           <div className="flex shrink-0 items-center justify-end gap-2">
@@ -397,7 +381,7 @@ export function MultitaskDashboard({ children, enabled = true }: MultitaskDashbo
               className={cn(
                 glass({ opaque: true }),
                 "inline-flex items-center justify-center gap-1 rounded-full border border-border/60 text-xs font-medium focus-visible:outline focus-visible:outline-2 focus-visible:outline-ring",
-                condensed ? "size-11" : "px-2.5 py-1.5"
+                condensed ? "size-11" : "min-h-10 px-2.5"
               )}
               type="button"
               onClick={() => void toggleMultitaskView()}
@@ -405,6 +389,24 @@ export function MultitaskDashboard({ children, enabled = true }: MultitaskDashbo
               <X aria-hidden className="size-3.5" />
               {!condensed ? "Exit" : null}
             </button>
+          </div>
+          <div className="col-span-2 min-w-0">
+            {viewingSubagentId ? (
+              <Link
+                className="text-xs underline underline-offset-4"
+                href={`/sandbox/arcadia/${orchestratorThreadId}`}
+              >
+                Back to orchestrator
+              </Link>
+            ) : null}
+            <p className="truncate ps-[0.5em] text-[11px] text-muted-foreground">
+              {runningCount} running
+            </p>
+            {toggleBlockedReason ? (
+              <p className="mt-0.5 text-[11px] text-amber-800 dark:text-amber-200">
+                {toggleBlockedReason}
+              </p>
+            ) : null}
           </div>
         </header>
       ) : null}
