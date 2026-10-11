@@ -19,7 +19,9 @@ The user may have another coding agent working concurrently. Keep implementation
 - Preserve concurrent edits and keep commits scoped to your own work. Follow repository checks and run verification appropriate to the change before integration.
 - Commit finished, reviewable increments in the isolated worktree. This mode requests local commits and integration; do not ask again for those steps when already authorized by the user.
 - Stage explicit files or hunks belonging to your change. Never include another agent's work, secrets, or private local files.
-- Build in the isolated worktree when needed; avoid disturbing the primary checkout's running dev server or its build output.
+- Do not install packages in worktrees or run builds unless the user later explicitly requests them. Use existing dependencies in the primary checkout for focused checks after integration; never disturb its running dev server or build output.
+- Keep small refinements lightweight and integrate them promptly. Avoid unnecessary full test runs, duplicate dependency trees, caches, or background processes.
+- Prefer the user's existing dev server. If a temporary server is necessary, stop it within five minutes of starting it, and stop it immediately after its check finishes. Remove any temporary dependency tree or build cache you created.
 
 ## Integrate into the primary checkout
 
