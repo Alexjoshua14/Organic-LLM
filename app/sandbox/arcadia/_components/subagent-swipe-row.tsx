@@ -42,7 +42,7 @@ type CompactCardProps = {
 };
 
 /**
- * Condensed-layout subagent card: identity, status, one line of progress. Opens the subagent's
+ * Condensed-layout subagent card: identity, status, model, and progress bar. Opens the subagent's
  * thread when it has one; otherwise addresses the composer to it.
  */
 function SubagentCompactCard({
@@ -89,9 +89,6 @@ function SubagentCompactCard({
         <span className="text-muted-foreground/50">LLM · </span>
         {modelName ?? (agent.threadId ? "Not recorded" : "Not assigned")}
       </p>
-      <p className="mt-1.5 line-clamp-1 text-[11px] leading-snug text-muted-foreground">
-        {agent.status === "idle" ? agent.blurb : agent.progress || agent.goal}
-      </p>
       <div className="mt-1.5 h-1 overflow-hidden rounded-full bg-background/60">
         <div
           className="h-full rounded-full bg-amber-800/70 transition-[width] duration-500 dark:bg-amber-200/50"
@@ -101,12 +98,12 @@ function SubagentCompactCard({
     </>
   );
   const surface =
-    "block w-full rounded-xl p-2.5 text-left focus-visible:outline focus-visible:outline-2";
+    "block w-full rounded-xl p-2.5 pb-2 text-left focus-visible:outline focus-visible:outline-2";
 
   return (
     <article
       className={cn(
-        glass({ tone: "brown", opaque: true }),
+        glass(),
         "relative rounded-xl border transition-colors",
         targeted || speaking
           ? "border-amber-700/40 ring-1 ring-amber-800/20 dark:border-amber-200/25"

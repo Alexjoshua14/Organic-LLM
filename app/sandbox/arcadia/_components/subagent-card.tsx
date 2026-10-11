@@ -57,8 +57,8 @@ export function SubagentCard({
   return (
     <article
       className={cn(
-        glass({ tone: "brown", opaque: true }),
-        "rounded-xl border p-3 transition-colors",
+        glass(),
+        "rounded-xl border p-3 pb-2 transition-colors",
         selected
           ? "border-amber-700/40 dark:border-amber-200/25 ring-1 ring-amber-800/20"
           : "border-border/50 hover:border-border"
@@ -132,10 +132,9 @@ export function SubagentCard({
               style={{ width: `${Math.min(100, Math.max(0, agent.progressPct))}%` }}
             />
           </div>
-          <p className="mt-1.5 line-clamp-2 text-xs text-muted-foreground">{agent.progress}</p>
         </div>
       </button>
-      <div className="mt-3 flex flex-col gap-2 sm:flex-row sm:items-stretch">
+      <div className="mt-2 flex flex-col gap-2 sm:flex-row sm:items-stretch">
         {agent.threadId ? <Link
           href={`/sandbox/arcadia/${agent.threadId}`}
           className="rounded-lg border border-border/60 bg-background/50 px-2.5 py-1.5 text-center text-xs font-medium hover:bg-background-secondary focus-visible:outline focus-visible:outline-2"
