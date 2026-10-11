@@ -1,4 +1,5 @@
 import { createDemoSubagents } from "@/lib/arcadia/multitask/demo-roster";
+import { getHardSetSubagent } from "@/lib/llm/subagents/hard-set/registry";
 
 /** Display identity for a subagent slot, resolvable on the server without client state. */
 export type SubagentIdentityLite = {
@@ -36,6 +37,12 @@ export function resolveSubagentIdentity(agentId: string): SubagentIdentityLite {
   const slot = rosterSlots().find((s) => s.agentId === agentId);
 
   if (slot) return slot;
+
+  const hardSet = getHardSetSubagent(agentId);
+
+  if (hardSet) {
+    return { agentId, name: hardSet.name, role: hardSet.role, blurb: hardSet.blurb };
+  }
 
   const provisional = PROVISIONAL_WORKER_ID.exec(agentId);
   const role = provisional?.[1]?.trim().toLowerCase() || "generalist";

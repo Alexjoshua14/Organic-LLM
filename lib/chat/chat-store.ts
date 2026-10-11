@@ -14,9 +14,11 @@
  */
 import type { MemoryItemType } from "@/lib/schemas/memory";
 import type { ContextEffortLevel } from "../memory/context-effort";
+import type { ContextMemoryReference } from "./context-memory";
 
 import { UIMessage } from "ai";
 import { auth } from "@clerk/nextjs/server";
+import { memoryReferencesFromAutomaticRecall } from "./context-memory";
 
 import { createLogger } from "../logger";
 import { SYSTEM_PROMPT, PROMETHEUS_SYSTEM_PROMPT } from "../system-prompt/prompt-v0";
@@ -651,7 +653,8 @@ export async function getContext({
       context: string;
       messages: UIMessage[];
       memories?: string[];
-      /** Memories selected for this turn, unclipped. The route clips or condenses them onto the user message. */
+      memoryContext?: ContextMemoryReference[];
+      /** Unclipped selected memories, to persist on the activating user message. */
       activatedMemories?: ActivatedMemory[];
       tokenBreakdown?: Array<{ name: string; tokens: number }>;
       packedMessageCount?: number;
@@ -807,7 +810,7 @@ export async function getContext({
     let arcadiaEffectiveQueryCount: number | undefined;
     let effortPhase: Awaited<ReturnType<typeof runArcadiaMemoryPhase>> | undefined;
     let returnedMemories: string[] | undefined;
-    let activatedMemories: ActivatedMemory[] = [];
+    let selectedContextMemories: MemoryItemType[] = [];
 
     const useEffortPath = memoryEnabled && experience === "arcadia" && contextEffort;
 
@@ -934,7 +937,7 @@ export async function getContext({
 
         memories = effortPhase.memoriesText;
         returnedMemories = effortPhase.selected.map((item) => item.memory).filter(Boolean);
-        activatedMemories = toActivatedMemories(effortPhase.selected, { clip: false });
+        selectedContextMemories = effortPhase.selected;
 
         contextPieces.push({
           title: "Memories from past conversations:",
@@ -973,7 +976,7 @@ export async function getContext({
 
         memories = formatMemoriesForPrompt(selected);
         returnedMemories = selected.map((item) => item.memory).filter(Boolean);
-        activatedMemories = toActivatedMemories(selected, { clip: false });
+        selectedContextMemories = selected;
         const conversationMessagesInContext = messages.length + 1;
         const inventoryText = buildArcadiaMemoryInventoryText({
           conversationMessagesInContext,
@@ -1004,6 +1007,7 @@ export async function getContext({
           });
         }
       } else {
+        selectedContextMemories = memoriesResult.results;
         memories = memoriesResult.results
           .map((result: { memory?: string }) => result.memory)
           .filter((memory: string | undefined): memory is string => memory != null)
@@ -1012,7 +1016,6 @@ export async function getContext({
           .split("\n")
           .map((line) => line.trim())
           .filter(Boolean);
-        activatedMemories = toActivatedMemories(memoriesResult.results, { clip: false });
 
         contextPieces.push({
           title: "Memories from past conversations:",
@@ -1128,7 +1131,8 @@ export async function getContext({
         context,
         messages,
         memories: returnedMemories,
-        activatedMemories,
+        memoryContext: memoryReferencesFromAutomaticRecall(selectedContextMemories, message.id),
+        activatedMemories: toActivatedMemories(selectedContextMemories, { clip: false }),
         tokenBreakdown: contextTokenSizes,
         totalThreadMessages: totalCount ?? messages.length,
         packedMessageCount: messages.length,

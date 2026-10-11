@@ -17,8 +17,8 @@ export const SPEAK_WEAVE_IDLE_HANGUP_MS = 25_000;
 export const SPEAK_WEAVE_IDLE_POLL_MS = 1_000;
 
 /**
- * Free-plan $40 / max allowlist gate — same as multi-mode queue.
- * Exhausted free budget must refuse weave-in and Speak-to mint.
+ * Verified weekly plan gate — same as multi-mode queue.
+ * Exhausted or unreadable budgets refuse weave-in and Speak-to mint.
  */
 export function canStartRealtimeGivenPlanBudget(budget: PlanBudgetSnapshot): boolean {
   return budget.canDispatch === true;

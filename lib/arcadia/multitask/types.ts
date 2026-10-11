@@ -21,6 +21,8 @@ export type ArcadiaSubagent = {
   /** One-line character framing shown in the condensed card. */
   blurb: string;
   goal: string;
+  /** Hashed starting context, retained when assignments and live progress change. */
+  readonly activitySeed?: string;
   /** Latest progress narrative the Speak session should know. */
   progress: string;
   /** Percent 0–100 for the condensed meter; narrative is in `progress`. */
@@ -36,6 +38,8 @@ export type ArcadiaSubagent = {
   identityImageUrl?: string | null;
   /** The subagent's own thread once the orchestrator has assigned it work (COA-251). */
   threadId?: string | null;
+  /** Model recorded for the latest assignment or reply, never inferred from composer defaults. */
+  modelId?: string | null;
 };
 
 export type ArcadiaMultitaskSpeakBinding = {

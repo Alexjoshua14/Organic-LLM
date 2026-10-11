@@ -7,6 +7,7 @@ import { generateStrataClipboardSourceTitle } from "@/lib/llm/strata-clipboard-s
 import { createLogger } from "@/lib/logger";
 import { checkStrataClipboardSourceTitleLimit } from "@/lib/rate-limit/title";
 import { StrataClipboardSourceTitleBodySchema } from "@/lib/schemas/strata";
+import { requirePlanBudget } from "@/lib/api/plan-budget-gate";
 
 export const maxDuration = 20;
 
@@ -37,6 +38,9 @@ export async function POST(req: Request) {
   }
 
   const sbUserId = sbUserIdResult.data;
+  const planGate = await requirePlanBudget({ clerkUserId: clerkUser.userId, sbUserId });
+
+  if (planGate) return planGate;
 
   let json: unknown;
 

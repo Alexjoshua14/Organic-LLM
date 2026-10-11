@@ -11,6 +11,7 @@ import {
 } from "@/lib/memory/activated-thread-memories";
 import { buildEffortProviderOptions } from "@/lib/schemas/chat-effort";
 import { models } from "@/lib/schemas/chat-models";
+import { createAuthenticatedLlmBudgetHooks } from "@/lib/plans/llm-budget-hooks";
 
 const logger = createLogger("lib/memory/condense-activated-memories.ts");
 
@@ -64,6 +65,10 @@ export const condenseMemoryTextWithLlm: CondenseMemoryText = async (
 ) => {
   const start = performance.now();
   const result = await generateText({
+    ...(await createAuthenticatedLlmBudgetHooks({
+      modelId: CONDENSE_MODEL,
+      operation: "condense-activated-memory",
+    })),
     model: CONDENSE_MODEL,
     instructions: condenseSystemPrompt(maxChars),
     prompt: text.slice(0, CONDENSE_INPUT_MAX_CHARS),

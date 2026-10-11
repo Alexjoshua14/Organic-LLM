@@ -1,5 +1,13 @@
 // @ts-nocheck
-import { beforeEach, describe, expect, mock, test } from "bun:test";
+import { afterEach, beforeEach, describe, expect, mock, test } from "bun:test";
+import * as budgetGate from "@/lib/api/plan-budget-gate";
+import { mockModulePreservingReal } from "../helpers/module-mock";
+import { mockAllowedAuthenticatedBudget } from "../helpers/llm-budget";
+
+let restoreHooks: () => void;
+let restoreGate: () => void;
+const mockPlanGate = mock(async (): Promise<Response | null> => null);
+afterEach(() => { restoreHooks(); restoreGate(); });
 
 import { createMockAuth, createMockClerkUser } from "../helpers/mock-auth";
 
@@ -172,6 +180,9 @@ import { POST } from "@/app/api/profile/summary/route";
 
 describe("POST /api/profile/summary", () => {
   beforeEach(() => {
+    restoreHooks = mockAllowedAuthenticatedBudget();
+    restoreGate = mockModulePreservingReal("@/lib/api/plan-budget-gate", budgetGate, { requirePlanBudget: mockPlanGate });
+    mockPlanGate.mockClear();
     mockAuth.mockClear();
     mockGenerateText.mockClear();
     mockGenerateObject.mockClear();

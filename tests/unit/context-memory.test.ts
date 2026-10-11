@@ -8,6 +8,7 @@ import {
 } from "@/lib/chat/context-budget";
 import {
   getContextMemoryReferences,
+  memoryReferencesFromAutomaticRecall,
   memoryReferencesFromToolResult,
   summarizeContextMemories,
 } from "@/lib/chat/context-memory";
@@ -20,6 +21,33 @@ const user = (id: string): UIMessage => ({
 });
 
 describe("working context memories", () => {
+  test("counts the current system-prompt recall and tool results once without leaking fact text", () => {
+    const automatic = memoryReferencesFromAutomaticRecall(
+      [
+        { id: "a", memory: "First selected fact" },
+        { id: "a", memory: "First selected fact" },
+        { id: "empty", memory: " " },
+        { memory: "Private fact" },
+      ],
+      "u1"
+    );
+    const tools = memoryReferencesFromToolResult(
+      "search_memories",
+      { memories: [{ id: "a", memory: "First selected fact" }, { memory: "Private fact" }] },
+      "a1"
+    );
+
+    expect(summarizeContextMemories([...automatic, ...tools])).toEqual({
+      total: 2,
+      automatic: 2,
+      tools: 2,
+      overlap: 2,
+    });
+    expect(automatic.every((reference) => reference.messageId === "u1")).toBe(true);
+    expect(JSON.stringify(automatic)).not.toContain("Private fact");
+    expect(JSON.stringify(automatic)).not.toContain("First selected fact");
+  });
+
   test("deduplicates retained, automatic, and tool-fetched memories without counting the inventory", () => {
     const messages: UIMessage[] = [
       withActivatedMemories(user("u1"), [{ id: "a", text: "First fact" }]),

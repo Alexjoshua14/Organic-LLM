@@ -27,8 +27,8 @@ export const ARCADIA_RUNNING_STATUSES = new Set<ArcadiaSubagent["status"]>(["wor
  */
 export const MULTITASK_DASHBOARD_WIDE_MIN_PX = 1024;
 
-/** Outer pad — title must clear the viewport edge (not flush). */
-export const MULTITASK_DESKTOP_PAD_TOP_PX = 20;
+/** Compact header gap below the navigation clearance provided by the host. */
+export const MULTITASK_DESKTOP_PAD_TOP_PX = 8;
 export const MULTITASK_DESKTOP_PAD_X_PX = 16;
 export const MULTITASK_DESKTOP_PAD_BOTTOM_PX = 12;
 
@@ -97,4 +97,25 @@ export function formatSendTargetLabel(
   const agent = agents.find((a) => a.id === target.agentId);
 
   return agent?.name ?? "Subagent";
+}
+
+/**
+ * Condensed layout (below {@link MULTITASK_DASHBOARD_WIDE_MIN_PX}): chat keeps the full page so
+ * CoreInput sits where it does in plain Arcadia, and subagents ride a horizontal swipe row just
+ * above the composer. Card width is tuned so ~2.5 cards show on a 390px phone — the partial card
+ * signals the row scrolls.
+ */
+export const MULTITASK_CONDENSED_CARD_WIDTH_PX = 136;
+export const MULTITASK_CONDENSED_CARD_GAP_PX = 8;
+/** Matches the composer's own mobile gutter (`px-4`), so the row lines up with CoreInput. */
+export const MULTITASK_CONDENSED_GUTTER_PX = 16;
+
+/** How many condensed cards are visible at a viewport width (fractional = partly visible). */
+export function multitaskCondensedCardsInView(viewportWidthPx: number): number {
+  const usable = viewportWidthPx - MULTITASK_CONDENSED_GUTTER_PX * 2;
+
+  return (
+    (usable + MULTITASK_CONDENSED_CARD_GAP_PX) /
+    (MULTITASK_CONDENSED_CARD_WIDTH_PX + MULTITASK_CONDENSED_CARD_GAP_PX)
+  );
 }

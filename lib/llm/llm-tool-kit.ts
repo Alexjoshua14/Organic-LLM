@@ -1,3 +1,4 @@
+import { createLlmBudgetHooks } from "@/lib/plans/llm-budget-hooks";
 import type { ExaSearchResultSource } from "../exa/types";
 import type { MermaidDiagramDensity } from "@/lib/mermaid/types";
 
@@ -739,6 +740,7 @@ const MermaidDiagramToolSchema = z.object({
  * validate both independently, and enforce shared node IDs across them.
  */
 export function createMermaidDiagramTool(options?: {
+  ownerId?: string;
   generatorModelId?: GatewayModelId;
   writer?: WebSearchStreamWriter;
 }) {
@@ -792,7 +794,14 @@ export function createMermaidDiagramTool(options?: {
 
         const system = attempt === 0 ? generatorSystem : fixSystem;
 
+        if (!options?.ownerId)
+          throw new Error("Diagram generation requires an authenticated owner");
         const gen = await generateText({
+          ...createLlmBudgetHooks({
+            ownerId: options.ownerId,
+            modelId: generatorModelId,
+            operation: "mermaid-diagram",
+          }),
           model: generatorModelId,
           instructions: system,
           prompt: genOrFixPrompt,

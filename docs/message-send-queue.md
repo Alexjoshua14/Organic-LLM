@@ -44,7 +44,7 @@ paint the turn into the open chat UI.
 | Gates (pure) | `lib/message-queue/dispatch-gates.ts` |
 | Turn runner | `lib/message-queue/run-queued-chat-turn.ts` (reuses `runLLMChatStream`) |
 | Plan tags | `lib/plans/plan-tags.ts` |
-| Monthly budget | `lib/plans/monthly-budget.ts` |
+| Weekly budget | `lib/plans/plan-budget.ts` |
 | Migration | `docs/migrations/message_send_queue.sql` |
 
 Dispatch runs: after enqueue, via `after()` on the queue route, and when a live chat
@@ -52,10 +52,12 @@ stream finishes (`runLLMChatStream` onFinish → `kickDispatchAfterStream`).
 
 ## Plans
 
-- Default: `free` — **$40 / UTC calendar month** from sum of `llm_usage_events.cost_usd`
-  (same estimator as the usage overlay: `lib/rate-limit/llm-cost`).
-- `max`: Clerk user ids in env `MAX_PLAN_CLERK_USER_IDS` (comma-separated). Not subject to
-  the $40 cap. **Numeric max ceiling is unset.**
+- The server reads the owner's plan from `account_entitlements` and checks net spend in the
+  current weekly window. Exhausted allowances hold queued messages; unreadable authorization
+  or accounting data also holds dispatch. A reset opens a fresh window without deleting history.
+- The privileged `MAX_PLAN_CLERK_USER_IDS` override remains available. See
+  [usage ledger and entitlements](./architecture/decisions/20261010-usage-ledger-and-entitlements.md)
+  for authorization, migration, corrections, and the limits of recorded-spend enforcement.
 
 ## Apply migration
 

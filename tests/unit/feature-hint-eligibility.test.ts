@@ -7,6 +7,8 @@ import {
   isSurfaceEntryHintPending,
 } from "@/lib/onboarding/feature-hint-eligibility";
 import type { FeatureHintRegistration } from "@/lib/onboarding/feature-hint-context";
+import { getEligibleFeatureHintQueue } from "@/lib/onboarding/feature-hint-queue";
+import { getFeatureHint } from "@/lib/onboarding/feature-hints";
 
 function mockRegistration(showWhen: boolean, hasAnchor = true): FeatureHintRegistration {
   return {
@@ -19,6 +21,36 @@ function mockRegistration(showWhen: boolean, hasAnchor = true): FeatureHintRegis
 }
 
 describe("feature hint eligibility", () => {
+  test("multiagent tips appear on mode entry, persist dismissal, and support replay", () => {
+    const registrations = new Map([
+      ["arcadia-multiagent", { ...mockRegistration(false), id: "arcadia-multiagent" as const }],
+      ["composer-auto-model", { ...mockRegistration(true), id: "composer-auto-model" as const }],
+    ]);
+    const context = {
+      hydrated: true,
+      guideBreathBlocked: false,
+      pathname: "/sandbox/arcadia/thread",
+      navigationSettled: true,
+      registrations,
+      dismissRecord: {},
+      replayFeatureHints: false,
+      sessionDismissedIds: new Set<never>(),
+    };
+
+    expect(getEligibleFeatureHintQueue(context)).not.toContain("arcadia-multiagent");
+    registrations.get("arcadia-multiagent")!.showWhen = true;
+    expect(getEligibleFeatureHintQueue(context)).toEqual(["arcadia-multiagent"]);
+
+    const dismissed = {
+      ...context,
+      dismissRecord: { "arcadia-multiagent": getFeatureHint("arcadia-multiagent").version },
+    };
+
+    expect(getEligibleFeatureHintQueue(dismissed)).toEqual(["composer-auto-model"]);
+    expect(getEligibleFeatureHintQueue({ ...dismissed, replayFeatureHints: true })).toEqual([
+      "arcadia-multiagent",
+    ]);
+  });
   test("maps surface paths to entry hints", () => {
     expect(getSurfaceEntryHintForPath("/sandbox/arcadia/new")).toBe("arcadia-starters");
     expect(getSurfaceEntryHintForPath("/sandbox/topic-explore/abc")).toBe("noesis-sparks");
@@ -30,9 +62,7 @@ describe("feature hint eligibility", () => {
       ["arcadia-starters", { ...mockRegistration(true), id: "arcadia-starters" as const }],
     ]);
 
-    expect(
-      isSurfaceEntryHintPending("/sandbox/arcadia", registrations, {}, false)
-    ).toBe(true);
+    expect(isSurfaceEntryHintPending("/sandbox/arcadia", registrations, {}, false)).toBe(true);
 
     for (const globalHint of GLOBAL_HINTS_DEFERRED_ON_SURFACE) {
       expect(

@@ -1,6 +1,9 @@
 import type { UIMessage } from "ai";
 
-import { readActivatedMemories } from "@/lib/memory/activated-thread-memories";
+import {
+  readActivatedMemories,
+  toActivatedMemories,
+} from "@/lib/memory/activated-thread-memories";
 
 /** Opaque references only. Memory text stays in the encrypted message/tool payload. */
 export type ContextMemoryReference = {
@@ -22,6 +25,18 @@ function referenceId(id: string): string {
   }
 
   return `anonymous:${hash.toString(16)}`;
+}
+
+/** References for the selected facts actually inserted into this turn's system prompt. */
+export function memoryReferencesFromAutomaticRecall(
+  memories: Array<{ id?: string | null; memory?: string | null }>,
+  messageId: string
+): ContextMemoryReference[] {
+  return toActivatedMemories(memories, { clip: false }).map((memory) => ({
+    id: referenceId(memory.id),
+    messageId,
+    source: "automatic",
+  }));
 }
 
 /** Count returned facts, never an overfetch inventory or a tool's claimed count. */

@@ -1,3 +1,4 @@
+import { createLlmBudgetHooks } from "@/lib/plans/llm-budget-hooks";
 import {
   createUIMessageStream,
   createUIMessageStreamResponse,
@@ -27,6 +28,7 @@ import { MISE_TOOL_INSTRUCTIONS } from "@/lib/system-prompt/mise";
 import { PREP_PLAN_TOOL_INSTRUCTIONS } from "@/lib/system-prompt/prep";
 import { appendCurrentDate } from "@/lib/system-prompt/current-date";
 import { createLogger } from "@/lib/logger";
+import { requirePlanBudget } from "@/lib/api/plan-budget-gate";
 
 export const maxDuration = 30;
 
@@ -113,6 +115,10 @@ export async function POST(req: Request) {
     return new Response("User not found in supabase", { status: 404 });
   }
   const sbUserId = sbUserIdResult.data;
+
+  const planGate = await requirePlanBudget({ clerkUserId: clerkUser.userId, sbUserId: sbUserId });
+
+  if (planGate) return planGate;
 
   const messageLimitResult = await checkLlmMessageLimit(sbUserId);
 
@@ -230,6 +236,13 @@ export async function POST(req: Request) {
   );
 
   const streamTextConfig: Parameters<typeof streamText>[0] = {
+    ...createLlmBudgetHooks({
+      ownerId: sbUserId,
+      clerkUserId: clerkUser.userId,
+      modelId: "openai/gpt-4o",
+      operation: "remy",
+      route: "/api/ai/remy",
+    }),
     model: openai("gpt-4o"),
     messages: await convertToModelMessages(validatedMessages),
     instructions: finalSystemPrompt,

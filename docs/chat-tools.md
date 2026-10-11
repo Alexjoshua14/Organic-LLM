@@ -17,6 +17,7 @@ On each chat turn, `compileChatTools()` builds a `ToolSet` plus a **Tool Instruc
 | `useGetMoreMessages` + `chatId` | Deep thread access when the last-N window and rolling summary are not enough. |
 | `experience` | Changes the *mix* of tools: **Delphi** (propose/commit memory workflow), **Arcadia** / **topic explore** (Mermaid + Gen UI; **Ergon** chat style adds live kanban, **Remy** chat style adds event meal planning), **Strata hub** (navigate/search pages), **Strata page** (optional KG when knowledge search is on). Plain chat uses only the toggles above. |
 | `useKnowledgeSearch` | On **Strata page** only — experimental knowledge-graph tools; persistence is incomplete, so summarizing page content is usually better. |
+| `useResearch` | Server-selected Lyra persona: a dedicated [research toolbox](../lib/llm/subagents/research/README.md), evidence ledger and browsable reports. |
 
 Many tools accept a **stream writer** so the UI can show live state—search sources, tool labels, kanban commands—while the model continues. See [Chat LLM transparency](./chat-llm-transparency.md).
 
@@ -86,6 +87,7 @@ Structured blocks as first-class UI, not markdown-only. Block types (Zod schemas
 | **decision-matrix** | Compare options in a grid |
 | **plan-timeline** | Phased plans with milestones |
 | **audio-snippet** | Short audio-oriented payloads in-thread |
+| **research-report** | Lyra's source synopses, takeaways and quoted evidence; constructed by `research_publish` from saved source/claim ids. |
 
 - Implementation: [`createRenderGenUiTool`](../lib/llm/gen-ui-tool.ts) · prompt hints: [`lib/system-prompt/gen-ui.ts`](../lib/system-prompt/gen-ui.ts)
 

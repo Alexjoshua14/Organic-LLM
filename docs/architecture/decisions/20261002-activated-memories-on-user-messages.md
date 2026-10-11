@@ -25,3 +25,4 @@ The memories selected for a turn are stored on that user message as `data-activa
 - Recently fetched memories remain in the chat window for as long as the user message that retrieved them stays in the window (default chat: latest 10 messages; Strata: 30; Arcadia: the 50k-token window).
 - When that message scrolls out, the memory leaves with it unless a later turn retrieved it again.
 - Token estimates count the block on each carrying message. The hard cap can count a memory twice when it is also in the system prompt for the current turn.
+- The merge with the usage-ledger implementation retains current system-recall references and per-step budget gates. Background memory condensation also checks the authenticated user's plan budget and records its provider usage through the same hooks.

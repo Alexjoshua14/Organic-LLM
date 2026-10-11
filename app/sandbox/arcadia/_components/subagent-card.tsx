@@ -11,7 +11,9 @@ import { Radio } from "lucide-react";
 import { SubagentSpeakGlassBar } from "./subagent-speak-glass-bar";
 
 import { glass } from "@/components/design-system/primitives";
+import { SubagentIdentityMark } from "@/components/agents/subagent-identity-mark";
 import { cn } from "@/lib/utils";
+import { getModelDisplayName } from "@/lib/chat/message-model";
 
 const STATUS_LABEL: Record<ArcadiaSubagent["status"], string> = {
   idle: "Idle",
@@ -51,12 +53,13 @@ export function SubagentCard({
   speakDisabled,
 }: SubagentCardProps) {
   const speaking = speakPhase === "live" || speakPhase === "connecting";
+  const modelName = getModelDisplayName(agent.modelId);
 
   return (
     <article
       className={cn(
-        glass({ tone: "brown", opaque: true }),
-        "rounded-xl border p-3 transition-colors",
+        glass(),
+        "rounded-xl border p-3 pb-2 transition-colors",
         selected
           ? "border-amber-700/40 dark:border-amber-200/25 ring-1 ring-amber-800/20"
           : "border-border/50 hover:border-border"
@@ -64,21 +67,17 @@ export function SubagentCard({
     >
       <button className="w-full text-left" type="button" onClick={onSelect}>
         <div className="flex items-start gap-3">
-          {/* Identity image slot — leave intact for non-human portraits from other work. */}
-          <div
-            aria-hidden={agent.identityImageUrl ? undefined : true}
-            className="size-10 shrink-0 overflow-hidden rounded-lg border border-border/40 bg-background/50"
-          >
-            {agent.identityImageUrl ? (
-              // eslint-disable-next-line @next/next/no-img-element -- sandbox identity slot; URL may be data: or remote
-              <img alt="" className="size-full object-cover" src={agent.identityImageUrl} />
-            ) : null}
-          </div>
+          <SubagentIdentityMark
+            imageUrl={agent.identityImageUrl}
+            name={agent.name}
+            seed={agent.activitySeed ?? agent.id}
+            state={agent.status === "done" ? "complete" : agent.status}
+          />
           <div className="min-w-0 flex-1">
             <div className="flex items-start justify-between gap-2">
               <div className="min-w-0">
                 <div className="flex items-center gap-2">
-                  <h3 className="truncate font-semibold tracking-tight text-foreground">
+                  <h3 className="truncate font-semibold leading-tight tracking-tight text-foreground">
                     {agent.name}
                   </h3>
                   {speaking ? (
@@ -88,8 +87,15 @@ export function SubagentCard({
                     </span>
                   ) : null}
                 </div>
-                <p className="mt-0.5 text-[11px] uppercase tracking-wide text-muted-foreground">
-                  {agent.role} · voice {agent.voiceId}
+                <p className="mt-px text-[11px] leading-tight uppercase tracking-wide text-muted-foreground">
+                  {agent.role}
+                </p>
+                <p
+                  className="mt-px truncate text-[11px] leading-tight text-muted-foreground/70"
+                  title={agent.modelId ?? undefined}
+                >
+                  <span className="select-none text-muted-foreground/50">LLM · </span>
+                  {modelName ?? (agent.threadId ? "Not recorded" : "Not assigned")}
                 </p>
               </div>
               <span
@@ -109,9 +115,6 @@ export function SubagentCard({
           </div>
         </div>
         <p className="mt-2 text-sm leading-snug text-foreground/90">{agent.blurb}</p>
-        <p className="mt-2 line-clamp-2 text-xs leading-relaxed text-muted-foreground">
-          {agent.goal}
-        </p>
         <div className="mt-3">
           <div className="mb-1 flex items-center justify-between text-[10px] uppercase tracking-wide text-muted-foreground">
             <span>Progress</span>
@@ -123,18 +126,17 @@ export function SubagentCard({
               style={{ width: `${Math.min(100, Math.max(0, agent.progressPct))}%` }}
             />
           </div>
-          <p className="mt-1.5 line-clamp-2 text-xs text-muted-foreground">{agent.progress}</p>
         </div>
       </button>
-      <div className="mt-3 flex flex-col gap-2 sm:flex-row sm:items-stretch">
+      <div className="mt-2 flex flex-col gap-2 sm:flex-row sm:items-stretch">
         {agent.threadId ? <Link
           href={`/sandbox/arcadia/${agent.threadId}`}
-          className="rounded-lg border border-border/60 bg-background/50 px-2.5 py-1.5 text-center text-xs font-medium hover:bg-background-secondary focus-visible:outline focus-visible:outline-2"
+          className="select-none rounded-lg border border-border/60 bg-background/50 px-2.5 py-1.5 text-center text-xs font-medium hover:bg-background-secondary focus-visible:outline focus-visible:outline-2"
         >
           Open thread
         </Link> : <button
           className={cn(
-            "rounded-lg border border-border/60 bg-background/50 px-2.5 py-1.5 text-xs font-medium",
+            "select-none rounded-lg border border-border/60 bg-background/50 px-2.5 py-1.5 text-xs font-medium",
             "hover:bg-background-secondary transition-colors sm:w-auto sm:shrink-0",
             selected && "border-amber-800/30"
           )}

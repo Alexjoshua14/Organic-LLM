@@ -1,3 +1,4 @@
+import { createAuthenticatedLlmBudgetHooks, budgetModelId } from "@/lib/plans/llm-budget-hooks";
 import type { ErgonRefineLlmTask } from "@/lib/schemas/ergon-refine";
 import type { Result } from "@/types";
 
@@ -91,6 +92,10 @@ export async function refineTasksWithLlm(options: {
 
     const { object, usage } = await withTimeout(
       generateObject({
+        ...(await createAuthenticatedLlmBudgetHooks({
+          modelId: budgetModelId(ERGON_REFINE_MODEL),
+          operation: "ergon/refine-task-capture-llm",
+        })),
         model: ERGON_REFINE_MODEL,
         instructions: ERGON_REFINE_SYSTEM,
         prompt,
@@ -104,6 +109,7 @@ export async function refineTasksWithLlm(options: {
     const durationMs = performance.now() - start;
 
     recordLlmCall({
+      persist: false,
       model: ERGON_REFINE_MODEL,
       usage,
       durationMs,

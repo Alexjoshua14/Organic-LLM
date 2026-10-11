@@ -1,5 +1,7 @@
 "use server";
 
+import { createAuthenticatedLlmBudgetHooks, budgetModelId } from "@/lib/plans/llm-budget-hooks";
+
 import { generateObject, generateText, NoObjectGeneratedError } from "ai";
 
 import {
@@ -74,6 +76,10 @@ export async function generateRabbitHoleObject<T>({
 
   try {
     const { object, usage } = await generateObject({
+      ...(await createAuthenticatedLlmBudgetHooks({
+        modelId: budgetModelId(model),
+        operation: "llm/rabbit-hole/generation",
+      })),
       model,
       instructions: systemPrompt,
       prompt,
@@ -124,6 +130,10 @@ export async function generateSourceAnalysis({
   prompt,
 }: GenerateSourceAnalysisParams): Promise<any> {
   const { object, usage } = await generateObject({
+    ...(await createAuthenticatedLlmBudgetHooks({
+      modelId: budgetModelId(model),
+      operation: "llm/rabbit-hole/generation",
+    })),
     model,
     instructions: SOURCE_ANALYSIS_SYSTEM_PROMPT,
     prompt,
@@ -147,6 +157,10 @@ export async function generateQuickPreviewLLM({
   prompt,
 }: GenerateQuickPreviewParams): Promise<{ text: string }> {
   const res = await generateText({
+    ...(await createAuthenticatedLlmBudgetHooks({
+      modelId: budgetModelId(rapidModel),
+      operation: "llm/rabbit-hole/generation",
+    })),
     model: rapidModel,
     instructions: QUICK_PREVIEW_SYSTEM_PROMPT,
     prompt,
@@ -205,6 +219,10 @@ export async function generateBranchSuggestions({
       "\n\nGenerate 5-10 diverse, intriguing branch suggestions that represent natural next steps in this exploration.";
 
     const { object, usage } = await generateObject({
+      ...(await createAuthenticatedLlmBudgetHooks({
+        modelId: budgetModelId(quickModel),
+        operation: "llm/rabbit-hole/generation",
+      })),
       model: quickModel,
       instructions: BRANCH_SUGGESTIONS_SYSTEM_PROMPT,
       prompt,
@@ -264,6 +282,10 @@ export async function generateTitle({
 
   try {
     res = await generateText({
+      ...(await createAuthenticatedLlmBudgetHooks({
+        modelId: budgetModelId(quickModel),
+        operation: "llm/rabbit-hole/generation",
+      })),
       model: quickModel,
       instructions: CREATE_TITLE_SYSTEM_PROMPT,
       prompt: html,

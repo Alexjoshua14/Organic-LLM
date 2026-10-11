@@ -1,3 +1,4 @@
+import { createAuthenticatedLlmBudgetHooks, budgetModelId } from "@/lib/plans/llm-budget-hooks";
 import type { WineEntry } from "@/lib/schemas/wine-line-list";
 
 import { randomUUID } from "crypto";
@@ -61,6 +62,10 @@ export async function extractWines(userText: string, expectedCount: number): Pro
   });
 
   const { object } = await generateObject({
+    ...(await createAuthenticatedLlmBudgetHooks({
+      modelId: budgetModelId(models.anthropic.sonnet.id),
+      operation: "llm/sommelier/extractor",
+    })),
     model: models.anthropic.sonnet.id,
     instructions: system,
     prompt,

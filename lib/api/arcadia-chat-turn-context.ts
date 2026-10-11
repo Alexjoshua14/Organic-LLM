@@ -2,6 +2,7 @@ import type { UIMessage } from "ai";
 import type { Logger } from "@/lib/logger";
 import type { ContextEffortLevel } from "@/lib/memory/context-effort";
 import type { LoadMainChatTurnContextResult } from "./chat-turn-context";
+import type { ContextMemoryReference } from "@/lib/chat/context-memory";
 
 import { TypeValidationError } from "ai";
 
@@ -38,7 +39,8 @@ export async function loadArcadiaChatTurnContext(
   let packedMessageCount: number | undefined;
   let totalThreadMessages: number | undefined;
   let memoriesInjected: number | undefined;
-  let activatedMemories: LoadMainChatTurnContextResult["activatedMemories"] = undefined;
+  let memoryContext: ContextMemoryReference[] | undefined;
+  let activatedMemories: LoadMainChatTurnContextResult["activatedMemories"];
   let scheduleBackgroundCondensation = false;
 
   try {
@@ -96,6 +98,7 @@ export async function loadArcadiaChatTurnContext(
       packedMessageCount = chatContextResult.data?.packedMessageCount;
       totalThreadMessages = chatContextResult.data?.totalThreadMessages;
       memoriesInjected = chatContextResult.data?.memories?.length;
+      memoryContext = chatContextResult.data?.memoryContext;
       activatedMemories = chatContextResult.data?.activatedMemories;
 
       logger.debug("context", "Arcadia token context gathered", {
@@ -125,6 +128,7 @@ export async function loadArcadiaChatTurnContext(
     packedMessageCount,
     totalThreadMessages,
     memoriesInjected,
+    memoryContext,
     activatedMemories,
     scheduleBackgroundCondensation,
   };

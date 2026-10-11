@@ -3,11 +3,11 @@
 import Link from "next/link";
 import { Suspense, useCallback, useEffect, useState } from "react";
 import { useAuth, useUser } from "@clerk/nextjs";
-import { Switch } from "@heroui/switch";
 import { X } from "lucide-react";
 
+import { Switch } from "@/components/design-system/switch";
 import { BackgroundActivitySetting } from "@/components/settings/background-activity-setting";
-
+import { LightweightModeSetting } from "@/components/settings/lightweight-mode-setting";
 import Page from "@/components/layout/page";
 import { PageTopBar } from "@/components/layout/page-top-bar";
 import { ReturnButton } from "@/components/ReturnButton";
@@ -205,6 +205,7 @@ export default function SettingsPage() {
                     }}
                   />
                 </SettingsRow>
+                <LightweightModeSetting />
                 <FontSetting />
                 <div className="space-y-2">
                   <h3 className="text-sm font-medium text-foreground">Experimental</h3>

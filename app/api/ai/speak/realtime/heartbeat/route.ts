@@ -53,6 +53,7 @@ export async function POST(req: Request) {
   const result = await assertSpeakBudgetOrClose({
     sessionId: parsed.data.sessionId,
     userId: sbUserIdResult.data,
+    clerkUserId: clerkUser.userId,
     usage: parsed.data.usage,
   });
 

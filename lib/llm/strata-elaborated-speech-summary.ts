@@ -1,3 +1,4 @@
+import { createAuthenticatedLlmBudgetHooks, budgetModelId } from "@/lib/plans/llm-budget-hooks";
 import "server-only";
 
 import type { Result } from "@/types";
@@ -68,6 +69,10 @@ export async function generateStrataElaboratedSpeechSummaryScript(options: {
 
   try {
     const result = await generateText({
+      ...(await createAuthenticatedLlmBudgetHooks({
+        modelId: budgetModelId(TITLE_PIPELINE_SUMMARIZER_MODEL),
+        operation: "llm/strata-elaborated-speech-summary",
+      })),
       model: TITLE_PIPELINE_SUMMARIZER_MODEL,
       instructions: buildSpeechSummarySystem(options.ttsModelId),
       prompt: input,
@@ -76,6 +81,7 @@ export async function generateStrataElaboratedSpeechSummaryScript(options: {
     const durationMs = performance.now() - start;
 
     recordLlmCall({
+      persist: false,
       model: TITLE_PIPELINE_SUMMARIZER_MODEL as string,
       usage: result.usage,
       durationMs,

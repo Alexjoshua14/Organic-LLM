@@ -22,7 +22,7 @@ import { createLogger } from "@/lib/logger";
 import { recordGatewayCallUsage } from "@/lib/usage/record-gateway-call";
 import { insertQueuedMessage } from "@/data/supabase/message-send-queue";
 import { tryDispatchThreadQueue } from "@/lib/message-queue/dispatch";
-import { getPlanBudgetForUser } from "@/lib/plans/monthly-budget";
+import { getPlanBudgetForUser } from "@/lib/plans/plan-budget";
 import { MessageSendQueuePayloadSchema } from "@/lib/schemas/message-send-queue";
 
 export const maxDuration = 300;

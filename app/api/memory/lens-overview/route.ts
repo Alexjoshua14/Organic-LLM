@@ -7,6 +7,7 @@ import { generateLensOverviewTextCached } from "@/lib/memory/lens-overview-llm";
 import { getMemoriesOwnershipSnapshotForUser } from "@/lib/memory/operations";
 import { createLogger } from "@/lib/logger";
 import { checkLlmMessageLimit } from "@/lib/rate-limit/llm";
+import { requirePlanBudget } from "@/lib/api/plan-budget-gate";
 
 export const maxDuration = 30;
 
@@ -50,6 +51,10 @@ export async function POST(req: Request) {
   }
 
   const sbUserId = sbUserIdResult.data;
+
+  const planGate = await requirePlanBudget({ clerkUserId: clerkUser.userId, sbUserId: sbUserId });
+
+  if (planGate) return planGate;
 
   const limitResult = await checkLlmMessageLimit(sbUserId);
 

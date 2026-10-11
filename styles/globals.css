@@ -706,13 +706,20 @@ body.font-theme-commissioner {
   opacity: 0.36;
 }
 
+/* A small dark-mode lift beneath the material; both renderers retain linked dot opacity. */
+.dark .organic-agent-dot-grid {
+  color: oklch(0.99 0.003 145);
+  filter: drop-shadow(0 0 0.65px rgb(255 255 255 / 0.18));
+}
+
 /*
- * Organic Glass Frost grain — a once-rasterized SVG noise tile blended over the milk fill.
- * Static texture: the browser rasterizes the data URI a single time, so it adds zero
- * per-frame cost (unlike a live feTurbulence backdrop-filter). This is what separates
+ * Shared frosted-grain tile, also used beneath the activity mark's glass cover.
+ * Static texture: the browser can reuse the rasterized data URI without regenerating
+ * a noise filter per frame (unlike a live feTurbulence backdrop-filter). This separates
  * "blurred panel" from "frosted pane".
  */
-.organic-glass-frost::before {
+.organic-glass-frost::before,
+.organic-activity-grain {
   content: "";
   position: absolute;
   inset: 0;
@@ -726,7 +733,8 @@ body.font-theme-commissioner {
   mix-blend-mode: overlay;
 }
 
-.dark .organic-glass-frost::before {
+.dark .organic-glass-frost::before,
+.dark .organic-activity-grain {
   opacity: 0.07;
 }
 
@@ -764,6 +772,10 @@ body.font-theme-commissioner {
   .prototype-card-enter {
     animation: none;
   }
+
+  .organic-glass-distorted-backdrop {
+    filter: none !important;
+  }
 }
 
 @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
@@ -793,6 +805,18 @@ body.font-theme-commissioner {
 }
 
 @media (prefers-reduced-transparency: reduce), (prefers-contrast: more) {
+  .organic-agent-dot-grid {
+    filter: none !important;
+  }
+
+  .organic-activity-backdrop {
+    filter: none !important;
+  }
+
+  .organic-glass-distorted-backdrop {
+    filter: none !important;
+  }
+
   .organic-glass-preview {
     background: color-mix(in oklch, var(--background) 95%, transparent) !important;
     backdrop-filter: none !important;
@@ -820,7 +844,8 @@ body.font-theme-commissioner {
     background: color-mix(in oklch, var(--secondary) 95%, transparent) !important;
   }
 
-  .organic-glass-frost::before {
+  .organic-glass-frost::before,
+  .organic-activity-grain {
     display: none;
   }
 }

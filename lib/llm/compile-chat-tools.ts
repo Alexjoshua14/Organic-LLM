@@ -1,4 +1,9 @@
 import type { ToolSet } from "ai";
+import {
+  createResearchTools,
+  RESEARCH_TOOL_INSTRUCTIONS,
+} from "@/lib/llm/subagents/research/tools";
+
 import type { ChatStyle } from "@/lib/chat/chat-style";
 
 import {
@@ -49,6 +54,11 @@ import { RABBIT_HOLE_TOOL_INSTRUCTIONS } from "@/lib/system-prompt/rabbit-hole-d
 
 export type CompileChatToolsParams = {
   useSearch: boolean;
+  /** Server-selected research persona; never accepted directly from user payloads. */
+  useResearch?: boolean;
+  /** Identity/context of the server-selected research generator, for exact annotation reuse. */
+  researchModelId?: string;
+  researchGenerationContext?: unknown;
   useMemory: boolean;
   /** When true with `chatId` + `initialMessageCount`, registers history-fetch tools. */
   useGetMoreMessages?: boolean;
@@ -76,6 +86,9 @@ export type CompileChatToolsParams = {
  */
 export async function compileChatTools({
   useSearch,
+  useResearch,
+  researchModelId,
+  researchGenerationContext,
   useMemory,
   useGetMoreMessages,
   useKnowledgeSearch,
@@ -142,6 +155,28 @@ export async function compileChatTools({
     return { tools, toolInstructions: toolInstructions.trim() };
   }
 
+  if (useResearch && chatId) {
+    const tools: ToolSet = createResearchTools({
+      threadId: chatId,
+      ownerId: sbUserId,
+      modelId: researchModelId,
+      generationContext: researchGenerationContext,
+    });
+    let toolInstructions = RESEARCH_TOOL_INSTRUCTIONS;
+    if (useMemory) {
+      tools.search_memories = createMemorySearchTool(sbUserId, writer);
+      toolInstructions += "\nUse search_memories only when the assignment needs personal context.";
+    }
+    if (useGetMoreMessages && initialMessageCount != null) {
+      tools.get_more_chat_history = createGetMoreMessagesTool(chatId, initialMessageCount);
+      tools.get_full_chat_history = createGetFullChatHistoryTool(chatId);
+      tools.get_messages_from_date = createGetMessagesFromDateTool(chatId);
+      toolInstructions +=
+        "\nHistory tools read only this thread. Fetch earlier assignments when needed; fetch the full thread only when explicitly requested.";
+    }
+    return { tools, toolInstructions };
+  }
+
   const tools: ToolSet = {};
   let toolInstructions = "";
 
@@ -182,7 +217,7 @@ export async function compileChatTools({
   }
 
   if (isArcadiaStyleMemoryReadExperience(experience)) {
-    tools["make_mermaid_diagram"] = createMermaidDiagramTool({ writer });
+    tools["make_mermaid_diagram"] = createMermaidDiagramTool({ writer, ownerId: sbUserId });
     toolInstructions +=
       "You can generate Mermaid diagrams using make_mermaid_diagram. The tool returns overview + detailed sources with shared node IDs. You may also include the overview in a ```mermaid code block for prose continuity.\n";
     tools["render_gen_ui"] = createRenderGenUiTool();

@@ -12,6 +12,8 @@ import { ContextEffortLevelSchema, DEFAULT_CONTEXT_EFFORT } from "@/lib/memory/c
  */
 export const UserSettingsSchema = z.object({
   fontId: z.string().default("satoshi"),
+  /** Prefer the inexpensive activity-mark renderer over per-dot spring physics. */
+  lightweightMode: z.boolean().default(false),
   /** When true, TTS plays the whole message; when false, only the first section (paragraph). Dev-only setting under Advanced. */
   ttsWholeMessage: z.boolean().default(true),
   /** When true, no chat data is retained (zero data retention). */
@@ -36,6 +38,7 @@ export type UserSettings = z.infer<typeof UserSettingsSchema>;
 
 export const defaultUserSettings = (): UserSettings => ({
   fontId: "satoshi",
+  lightweightMode: false,
   ttsWholeMessage: true,
   zeroDataRetention: false,
   coalescenceMode: false,

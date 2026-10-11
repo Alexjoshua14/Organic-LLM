@@ -6,7 +6,9 @@
 - [Contributing](../CONTRIBUTING.md) — setup, code boundaries, pull requests
 - [Thread & session architecture](./thread-session-architecture.md) — persistence, encryption, sidebar contract
 - [Multi-mode message send queue](./message-send-queue.md) — composer enqueue + server dispatch + plan budget
+- [Usage ledger and entitlements](./architecture/decisions/20261010-usage-ledger-and-entitlements.md) — weekly authorization, immutable spending history, resets, and admin corrections
 - [Context building](./architecture/context-building.md) — how chat context is assembled before `streamText`
+- [Activated memories](./architecture/decisions/20261002-activated-memories-on-user-messages.md) — retain automatic recall on its user message within the history window
 - [Chat model aliases](./architecture/decisions/20260909-chat-model-aliases.md) — `models.provider.family` vs picker `name` / persisted gateway ids
 - [Arcadia context effort](./architecture/decisions/20260914-arcadia-context-effort.md) — Instant / Quick / Heavy memory compilation; 50k history window unchanged
 - [End-to-end encryption overview](./e2ee.md)
@@ -46,7 +48,11 @@ Canon for the product: what we're building, who owns which kind of truth, how ag
 
 - **[Design backbone](./design/README.md)** — agent-facing design standards (start here for UI/motion quality)
   - [Spacing](./design/spacing.md) — stack/gap/inset tokens, card density
+  - [Switches & quick settings](./design/switches-and-quick-settings.md) — shared glass switches and compact caption popovers
   - [Context usage](./design/context-usage.md) — composer charts, source colors, percentage ramp, hover labels
+  - [Subagent identity mark](./design/subagent-identity-mark.md) — SVG dot states, glass diffusion, local layering
+  - [Glass distortion](./design/glass-distortion.md) — opt-in source refraction beneath glass, Safari compatibility
+  - [Activity-mark physics and fallback](./architecture/decisions/20261010-activity-mark-physics-and-fallback.md) — independent springs, shared scheduling, adaptive performance guard
   - [Motion & character text timing](./design/motion-and-text-timing.md) — status labels, loading burns, stagger budgets
 - [Adaptive background](./adaptive-background.md)
 - [Organic presence](./organic-presence.md)

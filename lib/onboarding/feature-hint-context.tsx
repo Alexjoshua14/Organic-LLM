@@ -20,7 +20,7 @@ export type FeatureHintRegistration = {
 
 type Listener = () => void;
 
-const registrations = new Map<FeatureHintId, FeatureHintRegistration>();
+let registrations = new Map<FeatureHintId, FeatureHintRegistration>();
 const listeners = new Set<Listener>();
 
 function emitChange() {
@@ -50,11 +50,14 @@ export function registerFeatureHintAnchor(registration: FeatureHintRegistration)
     return;
   }
 
-  registrations.set(registration.id, registration);
+  registrations = new Map(registrations).set(registration.id, registration);
   emitChange();
 }
 
 export function unregisterFeatureHintAnchor(id: FeatureHintId) {
+  if (!registrations.has(id)) return;
+
+  registrations = new Map(registrations);
   registrations.delete(id);
   emitChange();
 }

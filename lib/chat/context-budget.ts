@@ -10,12 +10,11 @@ import {
   estimatedMemoryContextTokensForEffort,
   LEGACY_ESTIMATED_MEMORY_CONTEXT_TOKENS,
 } from "@/lib/memory/context-effort";
+import { AUTO_CHAT_MODEL_ID } from "@/lib/schemas/chat";
 import {
-  ACTIVATED_MEMORIES_PART_TYPE,
   formatActivatedMemoriesBlock,
   readActivatedMemories,
 } from "@/lib/memory/activated-thread-memories";
-import { AUTO_CHAT_MODEL_ID } from "@/lib/schemas/chat";
 import { selectArcadiaContextMessages } from "@/lib/chat/arcadia-token-context";
 import {
   getContextMemoryReferences,
@@ -492,6 +491,7 @@ export function getMessageTextForTokenEstimate(message: UIMessage): string {
   const text = parts
     .map((part) => (part.type === "text" && "text" in part ? part.text : ""))
     .join("");
+
   const memoryBlock = formatActivatedMemoriesBlock(readActivatedMemories(message));
   const combined = [text, memoryBlock].filter((part) => part.trim()).join("\n\n");
 
@@ -515,7 +515,6 @@ export function getMessageToolPartsForTokenEstimate(message: UIMessage): string 
     (part) =>
       part.type !== "text" &&
       part.type !== "step-start" &&
-      part.type !== ACTIVATED_MEMORIES_PART_TYPE &&
       !part.type.startsWith("data-")
   );
 

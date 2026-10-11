@@ -25,6 +25,7 @@ import { setArchetypeStateTool, viewArchetypeTool } from "@/lib/llm/archetype";
 import { getStrataPageById } from "@/data/supabase/strata";
 import { buildStrataSystemSuffix } from "@/lib/llm/strata-chat-augmentation";
 import { createStrataHubAssistantTools } from "@/lib/llm/strata-assistant-tools";
+import type { createLlmBudgetHooks } from "@/lib/plans/llm-budget-hooks";
 
 const logger = createLogger("lib/api/aion-handler.ts");
 
@@ -33,6 +34,9 @@ export type AionDeps = {
   // but the Aion route calls it with no args.
   auth: (...args: any[]) => Promise<any>;
   getSupabaseUserId: (clerkUserId: string) => Promise<{ data: string | null; error: Error | null }>;
+  /** Weekly plan budget gate; a Response means the budget is spent. Omit only in tests. */
+  requirePlanBudget?: (args: { clerkUserId: string; sbUserId: string }) => Promise<Response | null>;
+  budgetHooks?: typeof createLlmBudgetHooks;
   getContext: (args: {
     chatId: string;
     limit?: number;
@@ -121,6 +125,9 @@ export function createAionHandler(deps: AionDeps) {
       return new Response("User not found in supabase", { status: 404 });
     }
     const sbUserId = sbUserIdResult.data;
+    const planGate = await deps.requirePlanBudget?.({ clerkUserId: clerkUser.userId, sbUserId });
+
+    if (planGate) return planGate;
 
     const messageLimitResult = await checkLlmMessageLimit(sbUserId);
 
@@ -244,7 +251,15 @@ export function createAionHandler(deps: AionDeps) {
 
         const systemWithStrata = appendCurrentDate(`${systemPromptForRequest}${strataSystem}`);
 
+        const budgetHooks = deps.budgetHooks?.({
+          ownerId: sbUserId,
+          clerkUserId: clerkUser.userId,
+          modelId: selectedModel.id,
+          operation: "aion_chat",
+          route: "/api/ai/aion",
+        });
         const result = deps.streamText({
+          ...budgetHooks,
           model: selectedModel.id,
           messages: messages,
           instructions: systemWithStrata,
@@ -274,7 +289,8 @@ export function createAionHandler(deps: AionDeps) {
               transient: true,
             });
           },
-          onStepFinish(step: any) {
+          async onStepFinish(step: any) {
+            await budgetHooks?.onStepFinish(step);
             writer.write({
               type: "data-notification",
               transient: true,

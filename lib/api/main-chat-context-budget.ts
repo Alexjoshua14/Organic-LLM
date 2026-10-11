@@ -28,7 +28,11 @@ import { compileChatTools } from "@/lib/llm/compile-chat-tools";
 import { createLogger } from "@/lib/logger";
 import { appendCurrentDate } from "@/lib/system-prompt/current-date";
 import { estimatedMemoryContextTokensForEffort } from "@/lib/memory/context-effort";
-import { getContextMemoryReferences } from "@/lib/chat/context-memory";
+import {
+  getContextMemoryReferences,
+  mergeContextMemoryReferences,
+  type ContextMemoryReference,
+} from "@/lib/chat/context-memory";
 
 const logger = createLogger("lib/api/main-chat-context-budget.ts");
 
@@ -208,6 +212,7 @@ export async function buildBudgetFromAssembledTurn(params: {
   memoriesInjected?: number;
   /** Stamp `lastTurn` — only for a real LLM send, never poll/scaffold. */
   recordLastTurn?: boolean;
+  memoryContext?: ContextMemoryReference[];
 }): Promise<ContextBudgetEstimate> {
   const {
     modelId,
@@ -224,6 +229,7 @@ export async function buildBudgetFromAssembledTurn(params: {
     contextMessageLimit,
     memoriesInjected,
     recordLastTurn = false,
+    memoryContext: automaticMemoryContext,
   } = params;
 
   const historyMessages = validatedMessages.slice(0, -1);
@@ -302,7 +308,10 @@ export async function buildBudgetFromAssembledTurn(params: {
     memoriesInjected,
   });
 
-  const memoryContext = getContextMemoryReferences(validatedMessages);
+  const memoryContext = mergeContextMemoryReferences([
+    ...(automaticMemoryContext ?? []),
+    ...getContextMemoryReferences(validatedMessages),
+  ]);
 
   if (!recordLastTurn) return { ...estimate, memoryContext };
 
@@ -556,5 +565,6 @@ export async function assembleMainChatContextBudget(
     totalThreadMessages: assembled.turnContext.totalThreadMessages,
     contextMessageLimit: experience === "arcadia" ? undefined : contextMessageLimit,
     memoriesInjected: assembled.turnContext.memoriesInjected,
+    memoryContext: assembled.turnContext.memoryContext,
   });
 }

@@ -39,6 +39,14 @@ export const sandboxGatewayEntries: SandboxEntry[] = [
     badge: "experimental",
   },
   {
+    title: "Subagent lab",
+    description:
+      "Develop hard-set subagents: open a shell thread to talk to one directly and probe whether it behaves as intended. Admin only.",
+    href: "/sandbox/subagents",
+    size: "small",
+    badge: "admin-tools",
+  },
+  {
     title: "Ideas",
     description:
       "Lightweight idea inbox: capture thoughts, set priority, and track status while features are still forming.",

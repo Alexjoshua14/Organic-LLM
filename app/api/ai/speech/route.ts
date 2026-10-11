@@ -1,3 +1,4 @@
+import { createAuthenticatedLlmBudgetHooks, budgetModelId } from "@/lib/plans/llm-budget-hooks";
 import { openai } from "@ai-sdk/openai";
 import { generateText } from "ai";
 import { auth } from "@clerk/nextjs/server";
@@ -7,6 +8,7 @@ import { checkLlmMessageLimit } from "@/lib/rate-limit/llm";
 import { createLogger } from "@/lib/logger";
 import { recordLlmCall } from "@/lib/llm/metrics";
 import { models, providerModelSlug } from "@/lib/schemas/chat-models";
+import { requirePlanBudget } from "@/lib/api/plan-budget-gate";
 
 // Allow responses up to 30 seconds
 export const maxDuration = 30;
@@ -55,6 +57,10 @@ export async function POST(req: Request) {
     }
     const sbUserId = sbUserIdResult.data;
 
+    const planGate = await requirePlanBudget({ clerkUserId: clerkUser.userId, sbUserId: sbUserId });
+
+    if (planGate) return planGate;
+
     const messageLimitResult = await checkLlmMessageLimit(sbUserId);
 
     if (!messageLimitResult.success) {
@@ -66,6 +72,10 @@ export async function POST(req: Request) {
 
     const start = performance.now();
     const result = await generateText({
+      ...(await createAuthenticatedLlmBudgetHooks({
+        modelId: budgetModelId(openai(providerModelSlug(speechModel.id))),
+        operation: "/api/ai/speech",
+      })),
       model: openai(providerModelSlug(speechModel.id)), // Using a faster model for speech generation
       messages: [
         {
@@ -83,6 +93,7 @@ export async function POST(req: Request) {
     const durationMs = performance.now() - start;
 
     recordLlmCall({
+      persist: false,
       model: speechModel.id,
       usage: result.usage,
       durationMs,

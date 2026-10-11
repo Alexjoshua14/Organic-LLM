@@ -17,6 +17,7 @@ import { getAllMemories } from "@/lib/memory/store";
 import { checkLlmMessageLimit } from "@/lib/rate-limit/llm";
 import { checkMemoryListLimit, checkMemorySearchLimit } from "@/lib/rate-limit/memory";
 import { SearchResult as SearchResultSchema, type SearchResultType } from "@/lib/schemas/memory";
+import { requirePlanBudget } from "@/lib/api/plan-budget-gate";
 
 export const maxDuration = 120;
 
@@ -112,6 +113,9 @@ export async function POST(req: Request) {
     return Response.json({ error: "User not found" }, { status: 404 });
   }
   const sbUserId = sbUserIdResult.data;
+  const planGate = await requirePlanBudget({ clerkUserId: clerkUser.userId, sbUserId });
+
+  if (planGate) return planGate;
 
   const listLimit = await checkMemoryListLimit(sbUserId);
 
