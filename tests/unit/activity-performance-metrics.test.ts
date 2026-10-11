@@ -1,6 +1,9 @@
 import { expect, test } from "bun:test";
 
-import { summarizeTimings } from "@/components/agents/activity-performance-metrics";
+import {
+  processingBudgetPercent,
+  summarizeTimings,
+} from "@/components/agents/activity-performance-metrics";
 import { schedulerFixture } from "../helpers/dot-physics-runtime";
 
 test("per-preview costs aggregate independent dots and cover within the same active frame", () => {
@@ -48,4 +51,19 @@ test("timing summaries retain missing data and use measured mean and nearest-ran
   expect(summarizeTimings(values)).toEqual({ mean: 50.5, p95: 95, count: 100 });
   expect(values[0]).toBe(100);
   expect(summarizeTimings([0])).toEqual({ mean: 0, p95: 0, count: 1 });
+});
+
+test("frame-budget utilization uses the requested cadence and preserves oversaturation", () => {
+  expect(processingBudgetPercent(18, 60)).toBeCloseTo(108);
+  expect(processingBudgetPercent(8, 60)).toBeCloseTo(48);
+  expect(processingBudgetPercent(8, 120)).toBeCloseTo(96);
+  expect(processingBudgetPercent(0, 60)).toBe(0);
+  for (const [ms, fps] of [
+    [NaN, 60],
+    [-1, 60],
+    [1, Infinity],
+    [1, 0],
+  ]) {
+    expect(() => processingBudgetPercent(ms!, fps!)).toThrow();
+  }
 });

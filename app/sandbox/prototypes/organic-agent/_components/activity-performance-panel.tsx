@@ -6,14 +6,17 @@ import type { DotPhysicsScheduler } from "@/components/agents/dot-physics-schedu
 
 import { useEffect, useState } from "react";
 
-import { summarizeTimings } from "@/components/agents/activity-performance-metrics";
+import {
+  processingBudgetPercent,
+  summarizeTimings,
+} from "@/components/agents/activity-performance-metrics";
 import { dotPhysicsScheduler } from "@/components/agents/dot-physics-scheduler";
 import { glass } from "@/components/design-system/primitives";
 import { cn } from "@/lib/utils";
 
 const SAMPLE_MS = 500;
 const HISTORY_POINTS = 40;
-const FRAME_BUDGET_MS = 1000 / 60;
+const TARGET_FRAME_RATES = [30, 60, 90, 120];
 
 export type PerformanceVariant = { id: string; label: string };
 type VariantReading = { renderer: string; timings: TimingSummary | null };
@@ -101,6 +104,11 @@ export function ActivityPerformancePanel({
   const [reading, setReading] = useState<Reading>(EMPTY);
   const [paused, setPaused] = useState(false);
   const [reset, setReset] = useState(0);
+  const [targetFps, setTargetFps] = useState(60);
+  const frameBudgetMs = 1000 / targetFps;
+  const budgetUsed = reading.updates
+    ? processingBudgetPercent(reading.updates.p95, targetFps)
+    : null;
 
   useEffect(() => {
     if (paused || typeof window.requestAnimationFrame !== "function") return;
@@ -229,7 +237,7 @@ export function ActivityPerformancePanel({
           <h2 className="text-xs font-medium text-foreground">
             Performance{" "}
             <span className="ml-2 text-[10px] font-normal text-muted-foreground">
-              {paused ? "Paused" : "Live · 0.5s / 20s history"}
+              {paused ? "Paused" : "Live · 0.5s / ≈20s history"}
             </span>
           </h2>
           <p className="mt-0.5 text-[10px] text-muted-foreground">
@@ -237,6 +245,21 @@ export function ActivityPerformancePanel({
           </p>
         </div>
         <div className="flex gap-2 text-[11px] text-muted-foreground">
+          <label className="flex items-center gap-1.5">
+            Target
+            <select
+              aria-label="Target frame rate"
+              className={cn(glass(), "min-h-8 rounded-md px-1.5 text-[11px] text-foreground")}
+              value={targetFps}
+              onChange={(event) => setTargetFps(Number(event.target.value))}
+            >
+              {TARGET_FRAME_RATES.map((fps) => (
+                <option key={fps} value={fps}>
+                  {fps}fps
+                </option>
+              ))}
+            </select>
+          </label>
           <button
             className="min-h-8 px-1 hover:text-foreground"
             type="button"
@@ -256,35 +279,39 @@ export function ActivityPerformancePanel({
           </button>
         </div>
       </div>
-      <div className="grid grid-cols-3 gap-3">
+      <div className="grid grid-cols-4 gap-2 sm:gap-3">
         <div>
-          <p className="text-[10px] text-muted-foreground">Frame rate</p>
+          <p className="min-h-7 text-[10px] text-muted-foreground sm:min-h-0">Frame rate</p>
           <p className="mt-0.5 text-base font-light tabular-nums text-foreground">
             {reading.fps === null ? "—" : reading.fps.toFixed(1)}{" "}
             <span className="text-[10px] text-muted-foreground">fps</span>
           </p>
           <HistoryGraph
             values={reading.fpsHistory}
-            reference={60}
-            label="Page frame-rate history; dashed line is 60fps"
+            reference={targetFps}
+            label={`Page frame-rate history; dashed line is the ${targetFps}fps target`}
           />
-          <p className="mt-0.5 text-[10px] text-muted-foreground">60fps guide</p>
+          <p className="mt-0.5 text-[10px] text-muted-foreground">{targetFps}fps guide</p>
         </div>
         <div>
-          <p className="text-[10px] text-muted-foreground">Frame · p95</p>
+          <p className="min-h-7 text-[10px] text-muted-foreground sm:min-h-0">
+            Frame interval · p95
+          </p>
           <p className="mt-0.5 text-base font-light tabular-nums text-foreground">
-            {reading.frames ? reading.frames.p95.toFixed(1) : "—"}{" "}
+            {reading.frames ? reading.frames.p95.toFixed(3) : "—"}{" "}
             <span className="text-[10px] text-muted-foreground">ms</span>
           </p>
           <HistoryGraph
             values={reading.frameHistory}
-            reference={FRAME_BUDGET_MS}
-            label="Frame-interval p95 history; dashed line is the 16.7ms 60Hz budget"
+            reference={frameBudgetMs}
+            label={`Frame-interval p95 history; dashed line is the ${frameBudgetMs.toFixed(2)}ms target budget`}
           />
-          <p className="mt-0.5 text-[10px] text-muted-foreground">16.7ms guide</p>
+          <p className="mt-0.5 text-[10px] text-muted-foreground">
+            {frameBudgetMs.toFixed(2)}ms guide
+          </p>
         </div>
         <div>
-          <p className="text-[10px] text-muted-foreground">JS · p95</p>
+          <p className="min-h-7 text-[10px] text-muted-foreground sm:min-h-0">JS · p95</p>
           <p className="mt-0.5 text-base font-light tabular-nums text-foreground">
             {reading.updates ? reading.updates.p95.toFixed(3) : "—"}{" "}
             <span className="text-[10px] text-muted-foreground">ms</span>
@@ -295,6 +322,26 @@ export function ActivityPerformancePanel({
             label="Combined spring and DOM-write p95 history; dashed line is the 4ms mean-work guard"
           />
           <p className="mt-0.5 text-[10px] text-muted-foreground">4ms mean guard</p>
+        </div>
+        <div>
+          <p className="min-h-7 text-[10px] text-muted-foreground sm:min-h-0">JS budget used</p>
+          <p
+            className={cn(
+              "mt-0.5 text-base font-light tabular-nums text-foreground",
+              budgetUsed !== null && budgetUsed >= 100 && "text-amber-700 dark:text-amber-400"
+            )}
+          >
+            {budgetUsed === null ? "—" : budgetUsed.toFixed(1)}
+            <span className="text-[10px] text-muted-foreground">%</span>
+          </p>
+          <HistoryGraph
+            values={reading.updateHistory.map((ms) => processingBudgetPercent(ms, targetFps))}
+            reference={100}
+            label={`Measured animation JS share of the ${targetFps}fps frame budget; dashed line is 100%`}
+          />
+          <p className="mt-0.5 text-[10px] text-muted-foreground">
+            {frameBudgetMs.toFixed(2)}ms/frame
+          </p>
         </div>
       </div>
       <div className="mt-2.5 border-t border-border/40 pt-2">
@@ -368,6 +415,12 @@ export function ActivityPerformancePanel({
       </div>
       <div className="mt-2 flex flex-wrap gap-x-3 gap-y-0.5 text-[10px] text-muted-foreground">
         <span>
+          Frame p95: {reading.frames?.count ?? "—"} raw intervals ·{" "}
+          {reading.frames
+            ? `${((reading.frames.mean * reading.frames.count) / 1000).toFixed(3)}s observed`
+            : "Sampling…"}
+        </span>
+        <span>
           {variants.length} previews · {variants.length * 18} dots
         </span>
         <span>
@@ -381,10 +434,12 @@ export function ActivityPerformancePanel({
         )}
       </div>
       <p className="mt-1.5 text-[10px] leading-snug text-muted-foreground">
-        p95 covers 95% of samples; lower timings are better. JS includes all active spring/DOM work
-        and profiling overhead. Page FPS includes the bench and varies with display refresh rate.
-        Native animation, per-variant rendered FPS, GPU blur/compositing and battery are unmeasured.
-        Compare matching sizes; browser profiling is needed to isolate rendering cost.
+        p95 uses nearest rank over raw samples; lower timings are better. Frame intervals include
+        display pacing and idle time. JS includes all active spring/DOM work and profiling overhead.
+        Page FPS includes the bench and varies with display refresh rate. Native animation,
+        per-variant rendered FPS, GPU blur/compositing and battery are unmeasured. Budget % = JS p95
+        ÷ (1000/target fps); 18ms at 60fps is 108%. Compare matching sizes; browser profiling is
+        needed to isolate rendering cost.
       </p>
     </section>
   );

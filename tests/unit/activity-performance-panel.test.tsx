@@ -57,8 +57,8 @@ function previewRef() {
   return { current: element };
 }
 
-function monitorFrame() {
-  time += 1000 / 60;
+function monitorFrame(delta = 1000 / 60) {
+  time += delta;
   const callbacks = [...requests.entries()];
   callbacks.forEach(([id, callback]) => {
     requests.delete(id);
@@ -84,7 +84,13 @@ test("actual scheduler samples reach the compact graphs/table and native animati
       monitorFrame();
     }
   });
-  expect(view.getAllByRole("img")).toHaveLength(3);
+  expect(view.getAllByRole("img")).toHaveLength(4);
+  expect(view.getByText("3.0")).toBeTruthy(); // 0.5ms / 16.67ms at the default 60fps.
+  fireEvent.change(view.getByRole("combobox", { name: "Target frame rate" }), {
+    target: { value: "120" },
+  });
+  expect(view.getByText("6.0")).toBeTruthy();
+  expect(view.getByText("8.33ms/frame")).toBeTruthy();
   expect(view.getByText("60.0")).toBeTruthy();
   const rows = view.getAllByRole("row");
   expect(within(rows[1]!).getAllByText("0.500")).toHaveLength(2);
@@ -127,5 +133,46 @@ test("hidden-tab time is excluded from frame cadence instead of being reported a
     for (let frame = 0; frame < 40; frame++) monitorFrame();
   });
   expect(view.getByText("60.0")).toBeTruthy();
-  expect(view.getByText("16.7")).toBeTruthy();
+  expect(view.getByText("16.667")).toBeTruthy();
+});
+
+test("frame p95 uses raw intervals including missed frames, with exact nearest-rank counts", async () => {
+  const fixture = schedulerFixture();
+  const view = render(
+    <ActivityPerformancePanel
+      previewRef={previewRef()}
+      variants={variants}
+      scheduler={fixture.scheduler}
+    />
+  );
+  time = performance.now();
+  await act(async () => {
+    monitorFrame(0); // Establish the first timestamp without inventing an interval.
+    for (let frame = 0; frame < 25; frame++) monitorFrame(16);
+    monitorFrame(50);
+    monitorFrame(50); // 27 raw intervals; nearest rank ceil(27*.95)=26, so p95=50ms.
+  });
+  expect(view.getByText("50.000")).toBeTruthy();
+  expect(view.getByText("Frame p95: 27 raw intervals · 0.500s observed")).toBeTruthy();
+  expect(view.getByText("54.0")).toBeTruthy(); // 1000 / (500/27); not a fixed 60fps assumption.
+});
+
+test("120Hz frame intervals retain their measured precision independently of the target FPS", async () => {
+  const fixture = schedulerFixture();
+  const view = render(
+    <ActivityPerformancePanel
+      previewRef={previewRef()}
+      variants={variants}
+      scheduler={fixture.scheduler}
+    />
+  );
+  time = performance.now();
+  await act(async () => {
+    for (let frame = 0; frame < 65; frame++) monitorFrame(1000 / 120);
+  });
+  expect(view.getByText("8.333")).toBeTruthy();
+  expect(view.getByText("120.0")).toBeTruthy();
+  expect(
+    (view.getByRole("combobox", { name: "Target frame rate" }) as HTMLSelectElement).value
+  ).toBe("60");
 });

@@ -198,14 +198,32 @@ matching previews, including v0 and the transition preview, use that same materi
 map without restarting the dots. Reset restores only the selected state's defaults.
 
 The performance panel immediately below the state previews samples every 500ms and
-keeps 20 seconds of frame-rate, p95 frame-interval, and combined animation-JS history.
-All three graphs remain side by side even at phone widths; compact metric rows and
+keeps 40 sampling windows (about 20 seconds) of frame-rate, p95 frame-interval,
+combined animation-JS, and frame-budget history.
+All four graphs remain side by side even at phone widths; compact metric rows and
 per-preview relative-cost bars preserve the same measurements in a smaller panel.
-It uses the device's actual RAF cadence, with 60fps/16.7ms reference guides, rather
-than assuming the display runs at 60Hz. The animation-JS guide is 4ms; the automatic
-fallback uses **mean** update cost across two poor health windows, while this chart
+It uses the device's actual RAF cadence, with a selectable target of 30/60/90/120fps
+(60 by default), rather than assuming the display runs at 60Hz. Target FPS sets the
+frame budget to 1000/FPS milliseconds and both cadence/interval guides. **JS budget
+used** divides measured animation-JS p95 by that budget: 18ms at 60fps is 108%.
+It is not clamped at 100%; changing the target rescales recorded history without
+discarding measurements. It describes the measured spring/DOM workload, not total
+rendering utilization or GPU headroom. RAF intervals include pacing/idle time and
+are deliberately not used as processing duration. The animation-JS guide is 4ms;
+the automatic fallback uses **mean** update cost across two poor health windows, while this chart
 shows p95. Long tasks (at least 50ms) are counted when the browser supports that API;
 unsupported measurement is shown explicitly. Hidden-tab gaps are excluded.
+Frame-interval p95 uses nearest rank (`ceil(.95 * N)`) over **raw RAF timestamp
+differences since the previous sampling publication**, including missed-frame gaps. The
+panel publishes on the first delivered RAF at least 500ms after the last publication;
+this interval can stretch under load, and the actual observed span is displayed.
+The first callback after mount/resume establishes the baseline and is not a sample.
+The panel displays the raw interval count/observed span and rounds the final p95 to
+.001ms for display; it never averages percentile summaries or substitutes a target frame time.
+RAF cadence is still a proxy rather than compositor-presented frame or rendering
+duration measurement. Tests exercise 16ms intervals with 50ms missed-frame gaps,
+120Hz intervals, hidden-tab resumption, and target changes independent of observed
+cadence. Both chart and percentage read the original unrounded timing summaries.
 
 Opt-in `performanceId` tags group independent dots and cover updates into one CPU
 sample per active frame per preview. The table reports mean/p95 costs, sample counts,
