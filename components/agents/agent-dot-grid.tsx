@@ -117,7 +117,10 @@ export function AgentDotGrid({
   return (
     <svg
       aria-hidden
-      className={cn("pointer-events-none size-full text-foreground", className)}
+      className={cn(
+        "organic-agent-dot-grid pointer-events-none size-full text-foreground",
+        className
+      )}
       focusable="false"
       height="100%"
       ref={svgRef}

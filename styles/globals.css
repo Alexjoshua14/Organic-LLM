@@ -706,6 +706,12 @@ body.font-theme-commissioner {
   opacity: 0.36;
 }
 
+/* A small dark-mode lift beneath the material; both renderers retain linked dot opacity. */
+.dark .organic-agent-dot-grid {
+  color: oklch(0.99 0.003 145);
+  filter: drop-shadow(0 0 0.65px rgb(255 255 255 / 0.18));
+}
+
 /*
  * Shared frosted-grain tile, also used beneath the activity mark's glass cover.
  * Static texture: the browser can reuse the rasterized data URI without regenerating
@@ -799,6 +805,10 @@ body.font-theme-commissioner {
 }
 
 @media (prefers-reduced-transparency: reduce), (prefers-contrast: more) {
+  .organic-agent-dot-grid {
+    filter: none !important;
+  }
+
   .organic-activity-backdrop {
     filter: none !important;
   }

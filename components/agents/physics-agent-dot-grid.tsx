@@ -113,7 +113,7 @@ export function PhysicsAgentDotGrid({
   return (
     <svg
       aria-hidden
-      className="pointer-events-none size-full text-foreground"
+      className="organic-agent-dot-grid pointer-events-none size-full text-foreground"
       focusable="false"
       height="100%"
       ref={ref}

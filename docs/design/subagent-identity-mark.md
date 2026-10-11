@@ -116,6 +116,10 @@ with ±.065 soft noise. The stable `seed` keeps SSR and hydration identical and 
 each agent its own pattern. Initial opacity follows initial size. Motion varies around
 each dot's individual resting size, with final scales clamped to .65–1.35; the center
 bias persists across cycles and after completion rather than returning to a rigid grid.
+Both dot renderers use a brighter near-white in dark mode, with a static .65px white
+highlight at .18 alpha beneath the glass. This small contrast lift leaves the linked
+size/opacity values unchanged and adds no animation loop. Reduced transparency or
+increased contrast removes the highlight filter.
 
 Arcadia captures an `activitySeed` when a roster slot or board worker is created:
 a deterministic hash of its ID, name, role, purpose (`blurb`), and initial goal.
