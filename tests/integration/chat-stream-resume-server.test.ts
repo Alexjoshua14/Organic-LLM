@@ -41,6 +41,7 @@ import {
 import { summarizeContextMemories, type ContextMemoryReference } from "@/lib/chat/context-memory";
 import { consumeChatSseStream } from "@/lib/chat/resumable-sse-stream";
 import { createLogger } from "@/lib/logger";
+import { readActivatedMemories, type ActivatedMemory } from "@/lib/memory/activated-thread-memories";
 
 const THREAD_ID = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
 const logger = createLogger("tests/integration/chat-stream-resume-server.test");
@@ -76,6 +77,9 @@ const saveChatMock = mock(async (args: Parameters<typeof chatStore.saveChat>[0])
 
   return { ok: true, error: null };
 });
+const updateChatMessageMock = mock(async (_args: Parameters<typeof chatStore.updateChatMessage>[0]) =>
+  ({ ok: true, error: null })
+);
 
 beforeEach(() => {
   fixture = createResumableRedisFixture();
@@ -87,6 +91,7 @@ beforeEach(() => {
   authMock.mockResolvedValue({ userId: "clerk-test" });
   readChatMock.mockClear();
   saveChatMock.mockClear();
+  updateChatMessageMock.mockClear();
   restore = [
     mockModulePreservingReal("@clerk/nextjs/server", clerk, {
       auth: authMock as unknown as typeof clerk.auth,
@@ -102,6 +107,7 @@ beforeEach(() => {
     mockModulePreservingReal("@/lib/chat/chat-store", chatStore, {
       readChat: readChatMock,
       saveChat: saveChatMock,
+      updateChatMessage: updateChatMessageMock,
     }),
   ];
 });
@@ -132,6 +138,8 @@ function installPostFixture(options?: {
   model?: MockLanguageModelV4;
   tools?: ToolSet;
   memoryContext?: ContextMemoryReference[];
+  activatedMemories?: ActivatedMemory[];
+  history?: UIMessage[];
   exhaustAfterFirstStep?: boolean;
 }) {
   let controller!: ReadableStreamDefaultController<LanguageModelV4StreamPart>;
@@ -148,10 +156,11 @@ function installPostFixture(options?: {
         }),
       },
     });
-  const loadContext = async () => ({
-    validatedMessages: [user],
+  const loadContext = async ({ message }: { message: UIMessage }) => ({
+    validatedMessages: [...(options?.history ?? []), message],
     systemPromptForRequest: "Answer the diagnostic prompt.",
     memoryContext: options?.memoryContext ?? [],
+    activatedMemories: options?.activatedMemories,
   });
 
   // Exercise the production POST, streamText, UI stream composition, and persistence.
@@ -253,6 +262,53 @@ function installPostFixture(options?: {
 }
 
 describe("server-backed chat stream resumption", () => {
+  test("retains automatic recall on the saved user message for a follow-up without fresh retrieval", async () => {
+    const fact = "The user prefers morning meetings.";
+    const model = new MockLanguageModelV4({
+      doStream: async () => ({
+        stream: new ReadableStream<LanguageModelV4StreamPart>({
+          start(controller) {
+            controller.enqueue({ type: "stream-start", warnings: [] });
+            controller.enqueue({ type: "text-start", id: "answer" });
+            controller.enqueue({ type: "text-delta", id: "answer", delta: "Understood." });
+            controller.enqueue({ type: "text-end", id: "answer" });
+            controller.enqueue({
+              type: "finish",
+              finishReason: { unified: "stop", raw: "stop" },
+              usage: {
+                inputTokens: { total: 10, noCache: 10, cacheRead: 0, cacheWrite: 0 },
+                outputTokens: { total: 10, text: 10, reasoning: 0 },
+              },
+            });
+            controller.close();
+          },
+        }),
+      }),
+    });
+    installPostFixture({ model, activatedMemories: [{ id: "meeting-time", text: fact }] });
+    const send = async (message: UIMessage) => {
+      const response = await POST(new Request("http://test/api/chat", {
+        method: "POST",
+        body: JSON.stringify({ id: THREAD_ID, message, memory: false }),
+      }));
+      await response.text();
+      await Promise.all(lifetimePromises);
+    };
+    await send(user);
+
+    expect(updateChatMessageMock).toHaveBeenCalledTimes(1);
+    const persisted = updateChatMessageMock.mock.calls[0]![0].message;
+    expect(readActivatedMemories(persisted)).toEqual([{ id: "meeting-time", text: fact }]);
+    expect(persisted.parts.filter((part) => part.type === "text")).toEqual(user.parts);
+
+    installPostFixture({ model, history: [persisted], activatedMemories: [] });
+    await send({ id: "follow-up", role: "user", parts: [{ type: "text", text: "What time suits me?" }] });
+
+    expect(model.doStreamCalls).toHaveLength(2);
+    expect(JSON.stringify(model.doStreamCalls[1]!.prompt)).toContain(fact);
+    expect(updateChatMessageMock).toHaveBeenCalledTimes(1);
+  });
+
   test("context usage updates preserve the ledger gate before a second model call", async () => {
     const model = new MockLanguageModelV4({
       doStream: async () => ({

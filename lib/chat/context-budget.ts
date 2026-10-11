@@ -11,6 +11,10 @@ import {
   LEGACY_ESTIMATED_MEMORY_CONTEXT_TOKENS,
 } from "@/lib/memory/context-effort";
 import { AUTO_CHAT_MODEL_ID } from "@/lib/schemas/chat";
+import {
+  formatActivatedMemoriesBlock,
+  readActivatedMemories,
+} from "@/lib/memory/activated-thread-memories";
 import { selectArcadiaContextMessages } from "@/lib/chat/arcadia-token-context";
 import {
   getContextMemoryReferences,
@@ -488,8 +492,11 @@ export function getMessageTextForTokenEstimate(message: UIMessage): string {
     .map((part) => (part.type === "text" && "text" in part ? part.text : ""))
     .join("");
 
-  if (text.trim()) {
-    return `${message.role ?? "user"}: ${text}`;
+  const memoryBlock = formatActivatedMemoriesBlock(readActivatedMemories(message));
+  const combined = [text, memoryBlock].filter((part) => part.trim()).join("\n\n");
+
+  if (combined.trim()) {
+    return `${message.role ?? "user"}: ${combined}`;
   }
 
   const legacyContent =

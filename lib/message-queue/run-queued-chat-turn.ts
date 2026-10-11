@@ -35,6 +35,8 @@ import {
 import { appendIntrospectionMainChatSystemFragments } from "@/lib/api/introspection-system-prompt";
 import { runLLMChatStream } from "@/lib/api/run-llm-chat-stream";
 import { saveChat } from "@/lib/chat/chat-store";
+import { stampTurnWithActivatedMemories } from "@/lib/chat/stamp-activated-memories";
+import { expandActivatedMemoriesForModel } from "@/lib/memory/activated-thread-memories";
 import { resolveMemoryEnabledForExperience } from "@/lib/chat/chat-experience";
 import { getLastUserMessageText } from "@/lib/arcadia/help-response";
 import { compileChatTools } from "@/lib/llm/compile-chat-tools";
@@ -109,16 +111,20 @@ export async function runQueuedChatTurn(args: {
   const assistantMessageId = randomUUID();
   const threadHasTitlePromise = getThreadHasTitle(chatId);
 
-  if (!isHeartbeat) await saveChat({
-    chatId,
-    messages: [userMessage],
-    useAdminForSave: true,
-    ownerId: sbUserId,
-  }).catch((err) => {
-    logger.error("runQueuedChatTurn", "Failed to save user message", {
-      err: err instanceof Error ? err.message : String(err),
-    });
-  });
+  const userMessageSave = isHeartbeat
+    ? Promise.resolve()
+    : saveChat({
+        chatId,
+        messages: [userMessage],
+        useAdminForSave: true,
+        ownerId: sbUserId,
+      }).catch((err) => {
+        logger.error("runQueuedChatTurn", "Failed to save user message", {
+          err: err instanceof Error ? err.message : String(err),
+        });
+      });
+
+  await userMessageSave;
 
   const stream = createUIMessageStream<ChatUIMessage>({
     execute: async ({ writer }) => {
@@ -164,7 +170,7 @@ export async function runQueuedChatTurn(args: {
                 experience,
               });
 
-      const {
+      let {
         validatedMessages,
         systemPromptForRequest: afterContext,
         tokenBreakdown,
@@ -173,7 +179,19 @@ export async function runQueuedChatTurn(args: {
         scheduleBackgroundCondensation,
         memoriesInjected,
         memoryContext,
+        activatedMemories,
       } = await loadTurnContext();
+
+      if (!isHeartbeat) {
+        validatedMessages = await stampTurnWithActivatedMemories({
+          chatId,
+          validatedMessages,
+          savedUserMessage: userMessage,
+          activatedMemories,
+          userMessageSave,
+          ownerId: sbUserId,
+        });
+      }
 
       if (experience === "arcadia" && scheduleBackgroundCondensation) {
         scheduleArcadiaContextCondensation({
@@ -201,7 +219,9 @@ export async function runQueuedChatTurn(args: {
         systemPromptForRequest = `${systemPromptForRequest}\n\n${fragment}`;
       }
 
-      const messages = await convertToModelMessages(foldSystemNoticesForModel(validatedMessages));
+      const messages = await convertToModelMessages(
+        foldSystemNoticesForModel(expandActivatedMemoriesForModel(validatedMessages))
+      );
       const initialMessageCount = validatedMessages.length;
 
       const shellAgent = getHardSetSubagent(multitask?.hardSetAgentId);

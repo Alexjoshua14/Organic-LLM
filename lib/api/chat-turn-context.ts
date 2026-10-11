@@ -2,6 +2,7 @@ import type { UIMessage } from "ai";
 import type { ChatExperience } from "@/lib/chat/chat-experience";
 import type { Logger } from "@/lib/logger";
 import type { ContextMemoryReference } from "@/lib/chat/context-memory";
+import type { ActivatedMemory } from "@/lib/memory/activated-thread-memories";
 
 import { TypeValidationError } from "ai";
 
@@ -31,6 +32,8 @@ export type LoadMainChatTurnContextResult = {
   totalThreadMessages?: number;
   memoriesInjected?: number;
   memoryContext?: ContextMemoryReference[];
+  /** Memories selected for this turn, to persist on the user message. */
+  activatedMemories?: ActivatedMemory[];
   /** Arcadia: condensation queued for after-response (not blocking this turn). */
   scheduleBackgroundCondensation?: boolean;
 };
@@ -69,6 +72,7 @@ export async function loadMainChatTurnContext(
   let totalThreadMessages: number | undefined;
   let memoriesInjected: number | undefined;
   let memoryContext: ContextMemoryReference[] | undefined;
+  let activatedMemories: ActivatedMemory[] | undefined;
 
   try {
     const chatContextResult = await getContext({
@@ -97,6 +101,7 @@ export async function loadMainChatTurnContext(
       totalThreadMessages = chatContextResult.data?.totalThreadMessages;
       memoriesInjected = chatContextResult.data?.memories?.length;
       memoryContext = chatContextResult.data?.memoryContext;
+      activatedMemories = chatContextResult.data?.activatedMemories;
       logger.debug("context", "Context gathered", {
         historyMessageCount: chatContextResult.data?.messages?.length ?? 0,
         contextLength: chatContextResult.data?.context?.length ?? 0,
@@ -121,5 +126,6 @@ export async function loadMainChatTurnContext(
     totalThreadMessages,
     memoriesInjected,
     memoryContext,
+    activatedMemories,
   };
 }

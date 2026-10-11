@@ -24,6 +24,7 @@ import { createLogger } from "../logger";
 import { SYSTEM_PROMPT, PROMETHEUS_SYSTEM_PROMPT } from "../system-prompt/prompt-v0";
 import SPARK_SYSTEM_PROMPT from "../system-prompt";
 import { getStateString } from "../supabase/organicStateStore";
+import { toActivatedMemories, type ActivatedMemory } from "../memory/activated-thread-memories";
 import { searchMemoriesForUser } from "../memory/operations";
 import { searchMemoriesWithL1Cache } from "../memory/memory-search-cache";
 import { runArcadiaMemoryPhase } from "../memory/arcadia-memory-phase";
@@ -62,9 +63,14 @@ import {
   upsertMessages,
   deleteMessage,
   addMessage,
+  updateMessage,
   updateChatStream,
 } from "@/data/supabase/chat";
-import { upsertMessagesWithAdmin, updateChatStreamWithAdmin } from "@/data/supabase/chat-admin";
+import {
+  upsertMessagesWithAdmin,
+  updateChatStreamWithAdmin,
+  updateMessageWithAdmin,
+} from "@/data/supabase/chat-admin";
 import { Result, SimpleResult } from "@/types";
 import {
   type ChatExperience,
@@ -317,6 +323,76 @@ export async function saveMessage({
     return {
       ok: false,
       error: error instanceof Error ? error : new Error("Unknown error saving message"),
+    };
+  }
+}
+
+/**
+ * Replaces one stored UI message. Used to attach activated memories after the
+ * optimistic insert of the user message.
+ */
+export async function updateChatMessage({
+  chatId,
+  message,
+  ownerId,
+}: {
+  chatId: string;
+  message: UIMessage;
+  /** When set, update with the admin client (queued turns whose user JWT may be expired). */
+  ownerId?: string;
+}): Promise<SimpleResult> {
+  if (!message.id) {
+    return {
+      ok: false,
+      error: new Error("Message id required"),
+    };
+  }
+
+  if (ownerId) {
+    const clerkUser = await auth();
+
+    if (!clerkUser?.userId) {
+      return { ok: false, error: new Error("Unauthorized") };
+    }
+
+    const currentSbUserIdResult = await getSupabaseUserIdWithAdmin(clerkUser.userId);
+
+    if (
+      currentSbUserIdResult.error ||
+      currentSbUserIdResult.data === null ||
+      currentSbUserIdResult.data !== ownerId
+    ) {
+      return { ok: false, error: new Error("Unauthorized") };
+    }
+  }
+
+  try {
+    const result = ownerId
+      ? await updateMessageWithAdmin({ chatId, message, ownerId })
+      : await updateMessage(chatId, message.id, message);
+
+    if (!result.ok) {
+      logger.error(
+        "updateChatMessage",
+        `Failed to update message ${message.id}: ${result.error?.message}`
+      );
+
+      return {
+        ok: false,
+        error: result.error ?? new Error("Unknown error updating message"),
+      };
+    }
+
+    return { ok: true, error: null };
+  } catch (error) {
+    logger.error(
+      "updateChatMessage",
+      `Error updating message: ${error instanceof Error ? error.message : String(error)}`
+    );
+
+    return {
+      ok: false,
+      error: error instanceof Error ? error : new Error("Unknown error updating message"),
     };
   }
 }
@@ -578,6 +654,8 @@ export async function getContext({
       messages: UIMessage[];
       memories?: string[];
       memoryContext?: ContextMemoryReference[];
+      /** Unclipped selected memories, to persist on the activating user message. */
+      activatedMemories?: ActivatedMemory[];
       tokenBreakdown?: Array<{ name: string; tokens: number }>;
       packedMessageCount?: number;
       totalThreadMessages?: number;
@@ -1054,6 +1132,7 @@ export async function getContext({
         messages,
         memories: returnedMemories,
         memoryContext: memoryReferencesFromAutomaticRecall(selectedContextMemories, message.id),
+        activatedMemories: toActivatedMemories(selectedContextMemories, { clip: false }),
         tokenBreakdown: contextTokenSizes,
         totalThreadMessages: totalCount ?? messages.length,
         packedMessageCount: messages.length,
