@@ -71,7 +71,7 @@ export function SubagentSpeakGlassBar({
             key="idle"
             animate={{ opacity: 1 }}
             className={cn(
-              "relative flex size-full items-center justify-center gap-1.5 px-3",
+              "relative grid size-full grid-cols-[1rem_minmax(0,1fr)_1rem] items-center gap-1.5 px-3 text-center",
               "text-xs font-medium text-foreground/85",
               "hover:text-foreground transition-colors",
               "disabled:pointer-events-none disabled:opacity-40"
@@ -86,8 +86,8 @@ export function SubagentSpeakGlassBar({
               onSpeakTo();
             }}
           >
-            <Mic aria-hidden className="size-3.5 opacity-80" />
-            <span>Speak to {agentName}</span>
+            <Mic aria-hidden className="size-3.5 justify-self-center opacity-80" />
+            <span className="min-w-0">Speak to {agentName}</span>
           </motion.button>
         ) : (
           <motion.div
