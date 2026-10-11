@@ -14,6 +14,7 @@ export function ComposerSearchChip() {
       active={useWebSearch}
       aria-label={useWebSearch ? "Web search on" : "Web search off"}
       chip="search"
+      size="icon-sm"
       title="Let the model search the web on this turn"
       onClick={() => setUseWebSearch(!useWebSearch)}
     >

@@ -308,10 +308,7 @@ export function MultitaskDashboard({ children, enabled = true }: MultitaskDashbo
             <div className="min-w-0 pr-2">
               {viewingSubagentId ? (
                 <h1 className="truncate py-1 text-sm font-medium">
-                  {formatSendTargetLabel(
-                    { kind: "subagent", agentId: viewingSubagentId },
-                    agents
-                  )}
+                  {formatSendTargetLabel({ kind: "subagent", agentId: viewingSubagentId }, agents)}
                 </h1>
               ) : (
                 <SendTargetPicker
