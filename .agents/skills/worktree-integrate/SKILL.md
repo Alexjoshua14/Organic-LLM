@@ -24,6 +24,7 @@ The user may have another coding agent working concurrently. Keep implementation
 - Prevent tooling from creating dependency/cache directories indirectly: give Prettier an explicit temporary `--cache-location` even when caching is off, and run type checks with `noEmit` and `incremental: false`. Check the worktree after tooling and remove only empty or task-created artifacts.
 - Keep small refinements lightweight and integrate them promptly. Avoid unnecessary full test runs, duplicate dependency trees, caches, or background processes.
 - Prefer the user's existing dev server. If a temporary server is necessary, stop it within five minutes of starting it, and stop it immediately after its check finishes. Remove any temporary dependency tree or build cache you created.
+- Ask the user before controlling desktop apps or browser tabs with computer-use tools. Use repository edits and focused code checks by default.
 
 ## Integrate into the primary checkout
 
