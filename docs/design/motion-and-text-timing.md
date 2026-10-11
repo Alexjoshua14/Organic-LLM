@@ -243,6 +243,18 @@ spring. Reduced motion lands immediately and cancels any active spring. The wrap
 CoreInput mounted, including focus and an unsent draft. No View Transition snapshot or extra
 composer instance is needed.
 
+## Multiagent recipient disclosure
+
+The header's recipient pills use Framer Motion to expand from and return to the same
+left edge. Their expanded roster slots remain fixed across selections. Measured layout
+offsets drive transforms; active styling and the reserved chevron space do not change
+pill widths. The thread and composer stay mounted throughout.
+
+Timing lives in `app/sandbox/arcadia/_components/send-target-picker-motion.ts`:
+**220ms enter / 160ms exit**, within the brief 160–240ms disclosure band. Reduced motion
+settles immediately. Escape and clicking outside collapse the picker; hidden recipients
+leave the tab order and accessibility tree.
+
 ## Usage refresh indicator
 
 The Usage overlay keeps the small uppercase wordmark as `Organic • Usage`, with a 1px,

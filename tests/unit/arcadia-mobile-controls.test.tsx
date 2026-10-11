@@ -1,11 +1,16 @@
 import { afterEach, describe, expect, mock, test } from "bun:test";
 import { act, cleanup, fireEvent } from "@testing-library/react";
-import { useState } from "react";
+import { memo, useState } from "react";
 import { SendTargetPicker } from "@/app/sandbox/arcadia/_components/send-target-picker";
 import { SubagentSwipeRow } from "@/app/sandbox/arcadia/_components/subagent-swipe-row";
 import { MultitaskDashboard } from "@/app/sandbox/arcadia/_components/multitask-dashboard";
 import { ArcadiaMultitaskProvider } from "@/app/sandbox/arcadia/_components/multitask-provider";
 import { SidebarProvider } from "@/components/third-party/ui/sidebar";
+import { FeatureHint } from "@/components/onboarding/feature-hint";
+import {
+  FeatureHintRegistryProvider,
+  useFeatureHintRegistrations,
+} from "@/lib/onboarding/feature-hint-context";
 import type { ArcadiaMultitaskSendTarget } from "@/lib/arcadia/multitask/layout-mode";
 import type { ArcadiaSubagent } from "@/lib/arcadia/multitask/types";
 import { render } from "../helpers/render";
@@ -28,66 +33,149 @@ const agents: ArcadiaSubagent[] = [
 ];
 
 describe("mobile multiagent controls", () => {
-  test("mobile Chat and Agents navigation keeps the draft mounted", async () => {
-    const previousFetch = globalThis.fetch;
-    const previousMedia = window.matchMedia;
-    globalThis.fetch = (async () =>
-      Response.json({ enabled: true, activeStreamId: null, subagents: [] })) as typeof fetch;
-    window.matchMedia = ((query: string) => ({
-      matches: query.includes("max-width"),
-      media: query,
-      addEventListener() {},
-      removeEventListener() {},
-      addListener() {},
-      removeListener() {},
-      dispatchEvent: () => true,
-      onchange: null,
-    })) as typeof window.matchMedia;
-    try {
-      let app!: ReturnType<typeof render>;
-      await act(async () => {
-        app = render(
-          <SidebarProvider>
-            <ArcadiaMultitaskProvider
-              threadId="aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa"
-              initialMultitaskView
-            >
-              <MultitaskDashboard>
-                <input aria-label="Draft" defaultValue="Keep this draft" />
-              </MultitaskDashboard>
-            </ArcadiaMultitaskProvider>
-          </SidebarProvider>
-        );
-      });
-      const draft = app.getByRole("textbox", { name: "Draft" });
-      expect(app.getByRole("heading", { name: "Multiagent" }).textContent).toBe("Multiagent");
-      expect(app.queryByRole("button", { name: "Hide chat" }) === null).toBe(true);
-      expect(app.queryByText(/Ctrl\+Q/) === null).toBe(true);
-      fireEvent.click(app.getByRole("button", { name: "Agents", exact: true }));
-      expect(draft.isConnected).toBe(true);
-      expect(draft.closest("section")?.getAttribute("aria-hidden")).toBe("true");
-      fireEvent.click(app.getByRole("button", { name: "Chat", exact: true }));
-      expect(app.getByRole("textbox", { name: "Draft" }) === draft).toBe(true);
-      expect((draft as HTMLInputElement).value).toBe("Keep this draft");
-    } finally {
-      cleanup();
-      globalThis.fetch = previousFetch;
-      window.matchMedia = previousMedia;
+  test("opening multiagent mode notifies the first-use guide without navigation", () => {
+    const GuideProbe = memo(function GuideProbe() {
+      const registrations = useFeatureHintRegistrations();
+      return (
+        <output>{registrations.has("arcadia-multiagent") ? "Guide ready" : "Guide idle"}</output>
+      );
+    });
+    function ModeSwitch() {
+      const [enabled, setEnabled] = useState(false);
+      return (
+        <FeatureHintRegistryProvider>
+          <button onClick={() => setEnabled(!enabled)}>Toggle mode</button>
+          {enabled && (
+            <FeatureHint id="arcadia-multiagent">
+              <div>Orchestrator</div>
+            </FeatureHint>
+          )}
+          <GuideProbe />
+        </FeatureHintRegistryProvider>
+      );
     }
+    const app = render(<ModeSwitch />);
+    expect(app.getByText("Guide idle")).toBeTruthy();
+    fireEvent.click(app.getByRole("button", { name: "Toggle mode" }));
+    expect(app.getByText("Guide ready")).toBeTruthy();
+    fireEvent.click(app.getByRole("button", { name: "Toggle mode" }));
+    expect(app.getByText("Guide idle")).toBeTruthy();
   });
-  test("a single recipient selector switches destinations without showing a roster of buttons", () => {
+  test.each([true, false])(
+    "panel controls keep the draft mounted (condensed: %s)",
+    async (condensed) => {
+      const previousFetch = globalThis.fetch;
+      const previousMedia = window.matchMedia;
+      globalThis.fetch = (async () =>
+        Response.json({ enabled: true, activeStreamId: null, subagents: [] })) as typeof fetch;
+      window.matchMedia = ((query: string) => ({
+        matches: condensed && query.includes("max-width"),
+        media: query,
+        addEventListener() {},
+        removeEventListener() {},
+        addListener() {},
+        removeListener() {},
+        dispatchEvent: () => true,
+        onchange: null,
+      })) as typeof window.matchMedia;
+      try {
+        let app!: ReturnType<typeof render>;
+        await act(async () => {
+          app = render(
+            <FeatureHintRegistryProvider>
+              <SidebarProvider>
+                <ArcadiaMultitaskProvider
+                  threadId="aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa"
+                  initialMultitaskView
+                >
+                  <MultitaskDashboard>
+                    <input aria-label="Draft" defaultValue="Keep this draft" />
+                  </MultitaskDashboard>
+                </ArcadiaMultitaskProvider>
+              </SidebarProvider>
+            </FeatureHintRegistryProvider>
+          );
+        });
+        const draft = app.getByRole("textbox", { name: "Draft" });
+        expect(
+          app
+            .getByRole("button", { name: "Orchestrator", exact: true })
+            .getAttribute("aria-expanded")
+        ).toBe("false");
+        expect(app.queryByRole("heading", { name: "Multitask dashboard" })).toBeNull();
+        expect(app.queryByText(/Ctrl\+Q/) === null).toBe(true);
+        if (!condensed) {
+          expect(
+            app.getByRole("button", { name: "Hide chat" }).getAttribute("aria-keyshortcuts")
+          ).toBe("Control+Q");
+          expect(
+            app.getByRole("button", { name: "Hide board" }).getAttribute("aria-keyshortcuts")
+          ).toBe("Control+W");
+        }
+        fireEvent.click(
+          app.getByRole("button", { name: condensed ? "Agents" : "Hide chat", exact: true })
+        );
+        expect(draft.isConnected).toBe(true);
+        expect(draft.closest("section")?.getAttribute("aria-hidden")).toBe("true");
+        fireEvent.click(
+          app.getByRole("button", { name: condensed ? "Chat" : "Show chat", exact: true })
+        );
+        expect(app.getByRole("textbox", { name: "Draft" }) === draft).toBe(true);
+        expect((draft as HTMLInputElement).value).toBe("Keep this draft");
+      } finally {
+        cleanup();
+        globalThis.fetch = previousFetch;
+        window.matchMedia = previousMedia;
+      }
+    }
+  );
+  test("the target name reveals a stable roster and collapses to the selected recipient", () => {
     function Picker() {
       const [target, setTarget] = useState<ArcadiaMultitaskSendTarget>({ kind: "orchestrator" });
-      return <SendTargetPicker compact agents={agents} sendTarget={target} onChange={setTarget} />;
+      return <SendTargetPicker agents={agents} sendTarget={target} onChange={setTarget} />;
     }
     const app = render(<Picker />);
-    const select = app.getByRole("combobox", { name: "Message recipient" }) as HTMLSelectElement;
-    expect(select.value).toBe("orchestrator");
+    const roster = app.getByRole("group", { name: "Message recipient" });
+    const originalSlots = [...roster.querySelectorAll("button")];
     expect(app.queryByRole("button", { name: "Lyra" })).toBeNull();
-    fireEvent.change(select, { target: { value: "lyra" } });
-    expect(select.value).toBe("lyra");
-    fireEvent.change(select, { target: { value: "orchestrator" } });
-    expect(select.value).toBe("orchestrator");
+    fireEvent.click(app.getByRole("button", { name: "Orchestrator" }));
+    expect(app.getByRole("button", { name: "Orchestrator" }).getAttribute("aria-expanded")).toBe(
+      "true"
+    );
+    fireEvent.click(app.getByRole("button", { name: "Lyra" }));
+    expect(app.queryByRole("button", { name: "Orchestrator" })).toBeNull();
+    const lyra = app.getByRole("button", { name: "Lyra" });
+    expect(lyra.getAttribute("aria-pressed")).toBe("true");
+    expect(lyra.getAttribute("aria-expanded")).toBe("false");
+    fireEvent.click(lyra);
+    expect([...roster.querySelectorAll("button")]).toEqual(originalSlots);
+    expect(app.getByRole("button", { name: "Orchestrator" }).getAttribute("aria-pressed")).toBe(
+      "false"
+    );
+    fireEvent.click(app.getByRole("button", { name: "Orchestrator" }));
+    expect(app.getByRole("button", { name: "Orchestrator" }).getAttribute("aria-expanded")).toBe(
+      "false"
+    );
+    expect(app.queryByText("Send to")).toBeNull();
+  });
+  test("Escape and outside clicks dismiss the roster, leaving only the active button focusable", () => {
+    const app = render(
+      <SendTargetPicker
+        agents={agents}
+        sendTarget={{ kind: "subagent", agentId: "lyra" }}
+        onChange={() => {}}
+      />
+    );
+    const lyra = app.getByRole("button", { name: "Lyra" });
+    fireEvent.click(lyra);
+    fireEvent.keyDown(app.getByRole("button", { name: "Orchestrator" }), { key: "Escape" });
+    expect(document.activeElement).toBe(lyra);
+    expect(lyra.getAttribute("aria-expanded")).toBe("false");
+    const hiddenOrchestrator = app.getByRole("group").querySelector("button")!;
+    expect(hiddenOrchestrator.tabIndex).toBe(-1);
+    fireEvent.click(lyra);
+    fireEvent.pointerDown(document.body);
+    expect(lyra.getAttribute("aria-expanded")).toBe("false");
   });
   test("the agent tray starts collapsed and retains targeting, model identity, and call controls when opened", () => {
     const target = mock(() => {});

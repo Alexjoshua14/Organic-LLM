@@ -40,8 +40,13 @@ Direct visits to `/sandbox/arcadia` create a thread and redirect to its canonica
 | Speak ADR | [`docs/speak/decisions/20260925-multitask-subagent-speak.md`](./speak/decisions/20260925-multitask-subagent-speak.md) |
 
 **Layout.** Multiagent view is a **per-thread toggle** (default off). Working sandbox agents
-do not force the dashboard. When on: chat is confined with a Send-to picker; the board shows
-condensed cards. Mobile uses one board scroll region and a docked composer stack so layers
+do not force the dashboard. When on: chat shares the ordinary Arcadia canvas, without a
+separate glass frame or thread-style badge. The header shows the current message recipient
+instead of a dashboard title. Clicking that name fans out the orchestrator and subagents
+as pills in roster order; choosing a recipient collapses the pills to the same left edge.
+Selection changes styling without reordering the expanded slots. Mobile keeps that picker
+in a horizontally scrollable row. The board shows condensed cards, with one board scroll
+region and a docked composer stack so layers
 do not paint over each other. Wide screens (`lg` / `MULTITASK_DASHBOARD_WIDE_MIN_PX`) keep
 board + chat side by side.
 
@@ -91,7 +96,12 @@ A message sent straight to one subagent is still delivered verbatim.
 `ARCADIA_ORCHESTRATOR_DISPATCH_ENABLED=false` restores Jev router auto-dispatch. Code:
 `lib/llm/subagents/worktable/`, `lib/llm/subagents/orchestrator/orchestrator-tools.ts`.
 
-**Composer.** In dashboard mode the confined chat uses the same live `sendMessage` →
+**First-use guidance.** Opening Multiagent registers its controls tip with the existing
+feature-hint system. Dismissal persists; replay tips can show it again. The tip explains
+recipient selection and Ctrl+Q / Ctrl+W. Panel buttons show those shortcuts in tooltips
+using the shared keyboard-key component; Organic Help lists them too.
+
+**Composer.** In dashboard mode the chat uses the same live `sendMessage` →
 `/api/chat` path as Arcadia idle chat (user bubble + streaming reply). The Send-to picker
 value is sent as `multitaskSendTarget` on the request body so the server can route or
 delegate. `queueSendMode` is intentionally off here — enqueue alone never paints the turn

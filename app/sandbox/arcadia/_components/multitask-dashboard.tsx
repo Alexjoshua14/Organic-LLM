@@ -25,14 +25,16 @@ import { useMultitaskCondensed } from "./use-multitask-condensed";
 import { VoiceRosterLegend } from "./voice-roster-legend";
 
 import { glass } from "@/components/design-system/primitives";
+import { FeatureHint } from "@/components/onboarding/feature-hint";
+import { KeyboardShortcutKbd } from "@/components/onboarding/keyboard-shortcut-kbd";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/third-party/ui/tooltip";
 import { useVoiceSessionOptional } from "@/components/voice/voice-session-provider";
 import {
+  formatSendTargetLabel,
   isArcadiaSubagentRunning,
   MULTITASK_DASHBOARD_WIDE_MIN_PX,
   MULTITASK_DESKTOP_GUTTER_PX,
-  MULTITASK_DESKTOP_PAD_BOTTOM_PX,
   MULTITASK_DESKTOP_PAD_TOP_PX,
-  MULTITASK_DESKTOP_PAD_X_PX,
 } from "@/lib/arcadia/multitask/layout-mode";
 import {
   multitaskShortcutAction,
@@ -287,16 +289,8 @@ export function MultitaskDashboard({ children, enabled = true }: MultitaskDashbo
               ["--multitask-pad-top" as string]: condensed
                 ? "4px"
                 : `${MULTITASK_DESKTOP_PAD_TOP_PX}px`,
-              // Condensed: chat runs edge to edge like plain Arcadia; only the header is inset.
-              ["--multitask-pad-x" as string]: condensed
-                ? "0px"
-                : `${MULTITASK_DESKTOP_PAD_X_PX}px`,
-              ["--multitask-pad-bottom" as string]: `${MULTITASK_DESKTOP_PAD_BOTTOM_PX}px`,
               ["--multitask-gutter" as string]: `${MULTITASK_DESKTOP_GUTTER_PX}px`,
               paddingTop: "max(var(--multitask-pad-top), env(safe-area-inset-top, 0px))",
-              paddingLeft: "var(--multitask-pad-x)",
-              paddingRight: "var(--multitask-pad-x)",
-              paddingBottom: condensed ? 0 : "var(--multitask-pad-bottom)",
             } as CSSProperties)
           : undefined
       }
@@ -306,23 +300,42 @@ export function MultitaskDashboard({ children, enabled = true }: MultitaskDashbo
       {enabled ? (
         <header
           className={cn(
-            "flex shrink-0 justify-between gap-2",
-            condensed ? "items-center px-4 pb-1" : "items-start pb-3"
+            "flex shrink-0 justify-between gap-2 px-4",
+            condensed ? "items-center pb-1" : "items-start pb-3"
           )}
         >
-          <div className="min-w-0 flex-1 pr-2">
-            <h1 className="truncate text-sm font-semibold tracking-tight">
-              {condensed ? "Multiagent" : "Multitask dashboard"}
-            </h1>
-            <p className="truncate text-[11px] text-muted-foreground">
-              {runningCount} running{!condensed ? " · Ctrl+Q chat · Ctrl+W agents" : ""}
-            </p>
-            {toggleBlockedReason ? (
-              <p className="mt-0.5 text-[11px] text-amber-800 dark:text-amber-200">
-                {toggleBlockedReason}
-              </p>
-            ) : null}
-          </div>
+          <FeatureHint id="arcadia-multiagent" showWhen={!viewingSubagentId}>
+            <div className="min-w-0 flex-1 pr-2">
+              {viewingSubagentId ? (
+                <>
+                  <h1 className="truncate py-1 text-sm font-medium">
+                    {formatSendTargetLabel(
+                      { kind: "subagent", agentId: viewingSubagentId },
+                      agents
+                    )}
+                  </h1>
+                  <Link
+                    className="text-xs underline underline-offset-4"
+                    href={`/sandbox/arcadia/${orchestratorThreadId}`}
+                  >
+                    Back to orchestrator
+                  </Link>
+                </>
+              ) : (
+                <SendTargetPicker
+                  agents={agents}
+                  sendTarget={sendTarget}
+                  onChange={setSendTarget}
+                />
+              )}
+              <p className="truncate text-[11px] text-muted-foreground">{runningCount} running</p>
+              {toggleBlockedReason ? (
+                <p className="mt-0.5 text-[11px] text-amber-800 dark:text-amber-200">
+                  {toggleBlockedReason}
+                </p>
+              ) : null}
+            </div>
+          </FeatureHint>
           <div className="flex shrink-0 items-center justify-end gap-2">
             {condensed ? (
               <div
@@ -369,32 +382,12 @@ export function MultitaskDashboard({ children, enabled = true }: MultitaskDashbo
               </div>
             ) : (
               <>
-                <button
-                  aria-expanded={chatOpen}
-                  className={cn(
-                    glass({ tone: "brown", opaque: true }),
-                    "inline-flex items-center gap-1.5 rounded-full border border-border/60 px-2.5 py-1.5 text-xs font-medium"
-                  )}
-                  title="Toggle orchestrator chat (Ctrl+Q)"
-                  type="button"
-                  onClick={toggleChat}
-                >
+                <PanelToggle open={chatOpen} panel="chat" shortcutKey="Q" onClick={toggleChat}>
                   <MessageSquare aria-hidden className="size-3.5" />
-                  {chatOpen ? "Hide chat" : "Show chat"}
-                </button>
-                <button
-                  aria-expanded={shellOpen}
-                  className={cn(
-                    glass({ tone: "brown", opaque: true }),
-                    "inline-flex items-center gap-1.5 rounded-full border border-border/60 px-2.5 py-1.5 text-xs font-medium"
-                  )}
-                  title="Toggle subagent board (Ctrl+W)"
-                  type="button"
-                  onClick={toggleBoard}
-                >
+                </PanelToggle>
+                <PanelToggle open={shellOpen} panel="board" shortcutKey="W" onClick={toggleBoard}>
                   <Layers3 aria-hidden className="size-3.5" />
-                  {shellOpen ? "Hide board" : "Show board"}
-                </button>
+                </PanelToggle>
               </>
             )}
             <button
@@ -427,16 +420,11 @@ export function MultitaskDashboard({ children, enabled = true }: MultitaskDashbo
       >
         <section
           aria-hidden={enabled && !chatOpen ? true : undefined}
-          aria-label={enabled ? "Confined orchestrator chat" : undefined}
+          aria-label={enabled ? "Orchestrator chat" : undefined}
           className={cn(
             enabled
               ? cn(
                   "flex min-h-0 flex-1 flex-col overflow-hidden",
-                  !condensed &&
-                    cn(
-                      glass({ tone: "brown", opaque: true }),
-                      "rounded-2xl border border-border/40"
-                    ),
                   "lg:min-w-0",
                   !chatOpen && "hidden"
                 )
@@ -445,30 +433,6 @@ export function MultitaskDashboard({ children, enabled = true }: MultitaskDashbo
           onFocusCapture={enabled ? () => setFocusAnchored("orchestrator") : undefined}
           onPointerDownCapture={enabled ? () => setFocusAnchored("orchestrator") : undefined}
         >
-          {enabled ? (
-            <div
-              className={cn(
-                "shrink-0 border-b border-border/30 bg-background/95",
-                condensed ? "px-4" : "p-3"
-              )}
-            >
-              {viewingSubagentId ? (
-                <Link
-                  className="text-xs underline underline-offset-4"
-                  href={`/sandbox/arcadia/${orchestratorThreadId}`}
-                >
-                  Back to orchestrator
-                </Link>
-              ) : (
-                <SendTargetPicker
-                  agents={agents}
-                  compact={condensed}
-                  sendTarget={sendTarget}
-                  onChange={setSendTarget}
-                />
-              )}
-            </div>
-          ) : null}
           {/*
             Reading column measure freezes during width/slide so text does not reflow
             under the eye-line. Extra pane width becomes gutter, not a moving column.
@@ -492,7 +456,7 @@ export function MultitaskDashboard({ children, enabled = true }: MultitaskDashbo
                 key="subagent-board"
                 animate={{ x: 0, opacity: 1 }}
                 aria-label="Subagent board"
-                className="min-h-0 flex-1 overflow-hidden lg:min-w-0 lg:h-full"
+                className="min-h-0 flex-1 overflow-hidden px-4 lg:min-w-0 lg:h-full lg:pl-0"
                 exit={{
                   x: reduceMotion ? 0 : "12%",
                   opacity: 0,
@@ -585,5 +549,57 @@ export function MultitaskDashboard({ children, enabled = true }: MultitaskDashbo
         ) : null}
       </div>
     </div>
+  );
+}
+
+function PanelToggle({
+  open,
+  panel,
+  shortcutKey,
+  onClick,
+  children,
+}: {
+  open: boolean;
+  panel: "chat" | "board";
+  shortcutKey: "Q" | "W";
+  onClick: () => void;
+  children: ReactNode;
+}) {
+  const label = `${open ? "Hide" : "Show"} ${panel}`;
+
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <button
+          aria-expanded={open}
+          aria-keyshortcuts={`Control+${shortcutKey}`}
+          className={cn(
+            glass({ tone: "brown", opaque: true }),
+            "inline-flex min-h-10 items-center gap-1.5 rounded-full border border-border/60 px-2.5 text-xs font-medium focus-visible:outline focus-visible:outline-2 focus-visible:outline-ring"
+          )}
+          type="button"
+          onClick={onClick}
+        >
+          {children}
+          {label}
+        </button>
+      </TooltipTrigger>
+      <TooltipContent
+        className={cn(
+          glass({ opaque: true }),
+          "border border-border/50 text-foreground [&>svg:last-of-type]:hidden"
+        )}
+        side="bottom"
+        sideOffset={6}
+      >
+        <span className="flex items-center gap-2">
+          {label}
+          <span className="inline-flex items-center gap-1">
+            <KeyboardShortcutKbd>Ctrl</KeyboardShortcutKbd>
+            <KeyboardShortcutKbd>{shortcutKey}</KeyboardShortcutKbd>
+          </span>
+        </span>
+      </TooltipContent>
+    </Tooltip>
   );
 }

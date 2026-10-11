@@ -621,9 +621,8 @@ export const Chat: React.FC<ChatProps> = ({
               "overscroll-x-none",
             ].join(" ")}
           >
-            {experience === "arcadia" && id ? (
+            {experience === "arcadia" && id && !confineInMultitaskDashboard ? (
               <ChatThreadStyleOverlay
-                className={confineInMultitaskDashboard ? "hidden lg:block" : undefined}
                 threadId={id}
                 visible={messages.length > 0}
               />

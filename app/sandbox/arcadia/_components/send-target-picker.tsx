@@ -3,8 +3,16 @@
 import type { ArcadiaMultitaskSendTarget } from "@/lib/arcadia/multitask/layout-mode";
 import type { ArcadiaSubagent } from "@/lib/arcadia/multitask/types";
 
-import { glass } from "@/components/design-system/primitives";
-import { formatSendTargetLabel } from "@/lib/arcadia/multitask/layout-mode";
+import { useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { motion, useReducedMotion } from "framer-motion";
+import { ChevronDown } from "lucide-react";
+
+import {
+  SEND_TARGET_ENTER_MS,
+  SEND_TARGET_EXIT_MS,
+  SEND_TARGET_EASE,
+} from "./send-target-picker-motion";
+
 import { cn } from "@/lib/utils";
 
 type SendTargetPickerProps = {
@@ -12,91 +20,136 @@ type SendTargetPickerProps = {
   sendTarget: ArcadiaMultitaskSendTarget;
   onChange: (next: ArcadiaMultitaskSendTarget) => void;
   className?: string;
-  compact?: boolean;
 };
 
-/**
- * Explicit composer destination: orchestrator thread vs a chosen subagent.
- * Does not disable the composer while workers run.
- */
+/** Stable roster slots fan out from the same left edge, regardless of the current target. */
 export function SendTargetPicker({
   agents,
   sendTarget,
   onChange,
   className,
-  compact = false,
 }: SendTargetPickerProps) {
-  const label = formatSendTargetLabel(sendTarget, agents);
+  const [expanded, setExpanded] = useState(false);
+  const [offsets, setOffsets] = useState<Record<string, number>>({});
+  const rootRef = useRef<HTMLDivElement>(null);
+  const buttonRefs = useRef(new Map<string, HTMLButtonElement>());
+  const rowId = useId();
+  const reduceMotion = useReducedMotion();
+  const targets = useMemo(
+    () => [
+      { id: "orchestrator", name: "Orchestrator", target: { kind: "orchestrator" } as const },
+      ...agents.map((agent) => ({
+        id: agent.id,
+        name: agent.name,
+        target: { kind: "subagent", agentId: agent.id } as const,
+      })),
+    ],
+    [agents]
+  );
+  const activeId = sendTarget.kind === "orchestrator" ? "orchestrator" : sendTarget.agentId;
 
-  if (compact) {
-    return (
-      <label className={cn("flex min-h-11 min-w-0 items-center gap-3", className)}>
-        <span className="shrink-0 text-xs text-muted-foreground">Send to</span>
-        <select
-          aria-label="Message recipient"
-          className="min-h-11 min-w-0 flex-1 rounded-lg bg-transparent px-2 text-base text-foreground focus-visible:outline focus-visible:outline-2 focus-visible:outline-ring"
-          value={sendTarget.kind === "orchestrator" ? "orchestrator" : sendTarget.agentId}
-          onChange={(event) =>
-            onChange(
-              event.target.value === "orchestrator"
-                ? { kind: "orchestrator" }
-                : { kind: "subagent", agentId: event.target.value }
-            )
-          }
-        >
-          <option value="orchestrator">Orchestrator</option>
-          {agents.map((agent) => (
-            <option key={agent.id} value={agent.id}>
-              {agent.name}
-            </option>
-          ))}
-        </select>
-      </label>
-    );
-  }
+  useLayoutEffect(() => {
+    const measure = () => {
+      const next = Object.fromEntries(
+        targets.map(({ id }) => [id, buttonRefs.current.get(id)?.offsetLeft ?? 0])
+      );
+
+      setOffsets((previous) =>
+        targets.every(({ id }) => previous[id] === next[id]) ? previous : next
+      );
+    };
+
+    measure();
+
+    const observer = new ResizeObserver(measure);
+
+    for (const button of buttonRefs.current.values()) observer.observe(button);
+
+    return () => observer.disconnect();
+  }, [targets]);
+
+  useLayoutEffect(() => {
+    if (!expanded && rootRef.current) rootRef.current.scrollLeft = 0;
+  }, [expanded]);
+
+  useEffect(() => {
+    if (!expanded) return;
+
+    const onPointerDown = (event: PointerEvent) => {
+      if (!rootRef.current?.contains(event.target as Node)) setExpanded(false);
+    };
+
+    document.addEventListener("pointerdown", onPointerDown);
+
+    return () => document.removeEventListener("pointerdown", onPointerDown);
+  }, [expanded]);
 
   return (
     <div
+      ref={rootRef}
+      aria-label="Message recipient"
       className={cn(
-        glass({ opaque: true }),
-        "flex flex-col gap-2 rounded-xl border border-border/50 px-3 py-2",
+        "min-w-0 py-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden",
+        expanded ? "overflow-x-auto" : "overflow-x-hidden",
         className
       )}
+      role="group"
     >
-      <div className="flex items-center justify-between gap-2">
-        <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Send to</p>
-        <p className="truncate text-xs font-medium text-foreground">{label}</p>
-      </div>
-      <div className="flex flex-wrap gap-1.5">
-        <button
-          className={cn(
-            "rounded-md border px-2.5 py-1 text-xs transition-colors",
-            sendTarget.kind === "orchestrator"
-              ? "border-amber-800/35 bg-amber-900/10 text-foreground"
-              : "border-border/50 bg-background/40 text-muted-foreground hover:bg-background/70"
-          )}
-          type="button"
-          onClick={() => onChange({ kind: "orchestrator" })}
-        >
-          Orchestrator
-        </button>
-        {agents.map((agent) => {
-          const active = sendTarget.kind === "subagent" && sendTarget.agentId === agent.id;
+      <div className="relative flex w-max items-center gap-2" id={rowId}>
+        {targets.map(({ id, name, target }) => {
+          const active = activeId === id;
+          const visible = expanded || active;
 
           return (
-            <button
-              key={agent.id}
+            <motion.button
+              key={id}
+              ref={(node) => {
+                if (node) buttonRefs.current.set(id, node);
+                else buttonRefs.current.delete(id);
+              }}
+              animate={{ x: expanded ? 0 : -(offsets[id] ?? 0), opacity: visible ? 1 : 0 }}
+              aria-controls={active ? rowId : undefined}
+              aria-expanded={active ? expanded : undefined}
+              aria-hidden={!visible}
+              aria-pressed={active}
               className={cn(
-                "rounded-md border px-2.5 py-1 text-xs transition-colors",
+                "inline-flex min-h-10 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full border px-3 text-sm font-medium transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-ring",
                 active
-                  ? "border-amber-800/35 bg-amber-900/10 text-foreground"
-                  : "border-border/50 bg-background/40 text-muted-foreground hover:bg-background/70"
+                  ? "z-10 border-amber-800/35 bg-amber-900/10 text-foreground"
+                  : "border-border/50 bg-background/40 text-muted-foreground hover:bg-background/70",
+                !visible && "pointer-events-none"
               )}
+              initial={false}
+              tabIndex={visible ? 0 : -1}
+              transition={{
+                duration: reduceMotion
+                  ? 0
+                  : (expanded ? SEND_TARGET_ENTER_MS : SEND_TARGET_EXIT_MS) / 1000,
+                ease: SEND_TARGET_EASE,
+              }}
               type="button"
-              onClick={() => onChange({ kind: "subagent", agentId: agent.id })}
+              onKeyDown={(event) => {
+                if (event.key !== "Escape" || !expanded) return;
+
+                event.preventDefault();
+                event.stopPropagation();
+                setExpanded(false);
+                buttonRefs.current.get(activeId)?.focus();
+              }}
+              onClick={() => {
+                if (active) setExpanded((previous) => !previous);
+                else {
+                  onChange(target);
+                  setExpanded(false);
+                }
+              }}
             >
-              {agent.name}
-            </button>
+              {name}
+              <ChevronDown
+                aria-hidden
+                className={cn("size-3.5", !active && "invisible", expanded && "rotate-180")}
+              />
+            </motion.button>
           );
         })}
       </div>
