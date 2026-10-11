@@ -3,7 +3,7 @@ import type { AgentDotState } from "./agent-dot-grid-motion";
 export type ActivityGlassAppearance = {
   /** Material alpha; the backdrop filter itself stays fully active. */
   opacity: number;
-  /** Backdrop radius in CSS pixels; prototype tuning supports up to 200px. */
+  /** Backdrop radius in CSS pixels, bounded to the 0–14px material range. */
   blur: number;
   /** Brightness of the layers behind the cover; 1 is the unchanged baseline. */
   brightness: number;
@@ -12,7 +12,7 @@ export type ActivityGlassAppearance = {
 };
 export type ActivityGlassByState = Partial<Record<AgentDotState, Partial<ActivityGlassAppearance>>>;
 
-export const ACTIVITY_GLASS_MAX_BLUR = 200;
+export const ACTIVITY_GLASS_MAX_BLUR = 14;
 
 export const ACTIVITY_GLASS_TINTS = {
   neutral: "var(--background)",

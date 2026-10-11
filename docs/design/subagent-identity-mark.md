@@ -79,7 +79,7 @@ The optional `glassByState` prop overrides any material fields for any state:
 />
 ```
 
-Material alpha is bounded to 0–1, blur to 0–200px, and brightness to 0–2;
+Material alpha is bounded to 0–1, blur to 0–14px, and brightness to 0–2;
 non-finite values and empty tint fall back to that state's defaults. Tint accepts
 a CSS color and follows state selection directly. These bounds apply to actual
 spring positions as well as targets.
@@ -98,8 +98,8 @@ scheduler failure apply the target immediately. The primitive's reduced-transpar
 and high-contrast CSS rules still override the material and disable backdrop filters.
 Interpolating blur can add GPU/compositing work that the CPU health budget cannot
 attribute or measure directly; the prototype bench exposes the measurable costs.
-The bench's blur slider deliberately permits very strong diffusion up to 200px;
-production presets stay at 4–10px. Physics component modules opt into Next's
+The bench's blur slider spans 0–14px; production presets stay at 4–10px. Both
+material targets and actual spring positions use that same bound. Physics component modules opt into Next's
 `// @refresh reset` during development: code edits dispose/remount their spring
 instances rather than preserving hook state from an older effect dependency list.
 Normal runtime state changes preserve velocity and mounted cover identity.

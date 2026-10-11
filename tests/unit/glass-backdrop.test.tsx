@@ -184,7 +184,7 @@ test("activity refraction preserves mounted dots, seeded poses, glass material a
   }
 });
 
-test("glass tuning blurs both owned layers once, including large radii and stored identity images", () => {
+test("glass tuning blurs both owned layers once, bounds oversized input and includes identity images", () => {
   const view = render(<OrganicActivityMark renderer="v0" state="idle" />);
   const background = view.container.querySelector<HTMLElement>('[data-activity-layer="backdrop"]')!;
   const cover = view.container.querySelector<HTMLElement>('[data-activity-layer="glass"]')!;
@@ -194,11 +194,13 @@ test("glass tuning blurs both owned layers once, including large radii and store
   expect(background.contains(noise)).toBe(true);
   expect(background.contains(cover)).toBe(false);
   expect(background.style.filter).toBe("blur(10px) brightness(1) saturate(1.12)");
-  for (const blur of [0, 80, 200]) {
+  for (const blur of [-5, 0, 14, 200]) {
     view.rerender(
       <OrganicActivityMark renderer="v0" state="working" glassByState={{ working: { blur } }} />
     );
-    expect(background.style.filter).toBe(`blur(${blur}px) brightness(1.08) saturate(1.12)`);
+    expect(background.style.filter).toBe(
+      `blur(${Math.max(0, Math.min(blur, 14))}px) brightness(1.08) saturate(1.12)`
+    );
     expect(cover.style.getPropertyValue("backdrop-filter")).toBe("none");
     expect(view.container.querySelector("[data-dot-renderer]")).toBe(dots);
     expect(view.container.querySelector('[data-activity-layer="noise"]')).toBe(noise);
@@ -221,6 +223,14 @@ test("the lab toggle covers all states and renderers, resets diagnostics and ret
   );
   const toggle = view.getByRole("switch", { name: "Distortion" });
   expect((toggle as HTMLInputElement).checked).toBe(false);
+  const blur = view.getByRole("slider", { name: /Backdrop blur/ }) as HTMLInputElement;
+  expect(blur.min).toBe("0");
+  expect(blur.max).toBe("14");
+  await act(async () => fireEvent.change(blur, { target: { value: "14" } }));
+  const working = view.container.querySelector<HTMLElement>(
+    '[data-activity-layer="backdrop"][data-activity-state="working"]'
+  )!;
+  expect(working.style.filter).toStartWith("blur(14px)");
   await act(async () => fireEvent.click(view.getByRole("button", { name: "Compare" })));
   const dots = [...view.container.querySelectorAll("[data-dot-renderer]")];
   const diagnostics = view.getByRole("region", { name: "Live activity performance" });

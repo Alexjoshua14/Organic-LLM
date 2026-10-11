@@ -102,11 +102,11 @@ test("material springs interpolate all channels, retain momentum on retarget, st
   physics.morphTo({ blur: 500, opacity: -1, brightness: 9 });
   for (let frame = 0; frame < 200 && !physics.settled; frame++) {
     const pose = physics.step(5000);
-    expect(pose.blur).toBeLessThanOrEqual(200);
+    expect(pose.blur).toBeLessThanOrEqual(14);
     expect(pose.opacity).toBeGreaterThanOrEqual(0);
     expect(pose.brightness).toBeLessThanOrEqual(2);
   }
-  expect(physics.current).toEqual({ blur: 200, opacity: 0, brightness: 2 });
+  expect(physics.current).toEqual({ blur: 14, opacity: 0, brightness: 2 });
   expect(() => physics.morphTo({ blur: NaN, opacity: 1, brightness: 1 })).toThrow();
   expect(() => physics.step(Infinity)).toThrow();
   expect(activityGlassForState("idle", { idle: { brightness: NaN } }).brightness).toBe(1);
@@ -163,7 +163,7 @@ test("the actual cover hydrates a stable baseline, springs CSS values and stops 
   expect(profiledUpdates).toBeGreaterThan(0);
 
   // Same-state tuning changes the rendered backdrop without remounting the dots or cover.
-  for (const blur of [80, 0]) {
+  for (const blur of [14, 0]) {
     view.rerender(
       <MorphActivityGlass
         appearance={{ ...target, blur }}

@@ -353,7 +353,7 @@ test("one owner state synchronizes dots and glass while per-state material overr
     />
   );
   expect(cover.style.getPropertyValue("--activity-glass-opacity")).toBe("100%");
-  expect(cover.style.getPropertyValue("--activity-glass-blur")).toBe("200px");
+  expect(cover.style.getPropertyValue("--activity-glass-blur")).toBe("14px");
   view.rerender(
     <OrganicActivityMark
       label="Agent"
