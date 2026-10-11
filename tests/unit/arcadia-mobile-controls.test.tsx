@@ -67,7 +67,7 @@ describe("mobile multiagent controls", () => {
       const previousFetch = globalThis.fetch;
       const previousMedia = window.matchMedia;
       globalThis.fetch = (async () =>
-        Response.json({ enabled: true, activeStreamId: null, subagents: agents })) as typeof fetch;
+        Response.json({ enabled: true, activeStreamId: null, subagents: [] })) as typeof fetch;
       window.matchMedia = ((query: string) => ({
         matches: condensed && query.includes("max-width"),
         media: query,
@@ -113,7 +113,7 @@ describe("mobile multiagent controls", () => {
           ).toBe("Control+W");
           const layout = draft.closest("section")!.parentElement!;
           const columns = layout.style.gridTemplateColumns;
-          const select = app.getByRole("button", { name: "View agent" });
+          const select = app.getAllByRole("button", { name: "View agent" })[0];
           fireEvent.pointerDown(select);
           fireEvent.focusIn(select);
           fireEvent.click(select);

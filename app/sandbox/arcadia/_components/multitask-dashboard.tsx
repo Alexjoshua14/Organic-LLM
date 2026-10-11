@@ -428,11 +428,7 @@ export function MultitaskDashboard({ children, enabled = true }: MultitaskDashbo
           */}
           <div
             ref={chatViewportRef}
-            className={cn(
-              enabled
-                ? "relative min-h-0 flex-1 overflow-hidden"
-                : "h-full min-h-0"
-            )}
+            className={cn(enabled ? "relative min-h-0 flex-1 overflow-hidden" : "h-full min-h-0")}
           >
             {chatSlot}
           </div>
