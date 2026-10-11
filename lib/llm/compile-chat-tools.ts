@@ -1,5 +1,8 @@
 import type { ToolSet } from "ai";
-import { createResearchTools, RESEARCH_TOOL_INSTRUCTIONS } from "@/lib/llm/subagents/research/tools";
+import {
+  createResearchTools,
+  RESEARCH_TOOL_INSTRUCTIONS,
+} from "@/lib/llm/subagents/research/tools";
 
 import type { ChatStyle } from "@/lib/chat/chat-style";
 
@@ -53,6 +56,9 @@ export type CompileChatToolsParams = {
   useSearch: boolean;
   /** Server-selected research persona; never accepted directly from user payloads. */
   useResearch?: boolean;
+  /** Identity/context of the server-selected research generator, for exact annotation reuse. */
+  researchModelId?: string;
+  researchGenerationContext?: unknown;
   useMemory: boolean;
   /** When true with `chatId` + `initialMessageCount`, registers history-fetch tools. */
   useGetMoreMessages?: boolean;
@@ -81,6 +87,8 @@ export type CompileChatToolsParams = {
 export async function compileChatTools({
   useSearch,
   useResearch,
+  researchModelId,
+  researchGenerationContext,
   useMemory,
   useGetMoreMessages,
   useKnowledgeSearch,
@@ -148,7 +156,12 @@ export async function compileChatTools({
   }
 
   if (useResearch && chatId) {
-    const tools: ToolSet = createResearchTools({ threadId: chatId, ownerId: sbUserId });
+    const tools: ToolSet = createResearchTools({
+      threadId: chatId,
+      ownerId: sbUserId,
+      modelId: researchModelId,
+      generationContext: researchGenerationContext,
+    });
     let toolInstructions = RESEARCH_TOOL_INSTRUCTIONS;
     if (useMemory) {
       tools.search_memories = createMemorySearchTool(sbUserId, writer);
@@ -158,7 +171,8 @@ export async function compileChatTools({
       tools.get_more_chat_history = createGetMoreMessagesTool(chatId, initialMessageCount);
       tools.get_full_chat_history = createGetFullChatHistoryTool(chatId);
       tools.get_messages_from_date = createGetMessagesFromDateTool(chatId);
-      toolInstructions += "\nHistory tools read only this thread. Fetch earlier assignments when needed; fetch the full thread only when explicitly requested.";
+      toolInstructions +=
+        "\nHistory tools read only this thread. Fetch earlier assignments when needed; fetch the full thread only when explicitly requested.";
     }
     return { tools, toolInstructions };
   }

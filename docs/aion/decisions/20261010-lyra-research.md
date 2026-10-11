@@ -22,3 +22,6 @@ same renderer and model replay path as direct chat without introducing a second 
 
 Configuration, limits, migration and tool contracts live in the
 [research guide](../../../lib/llm/subagents/research/README.md).
+
+The storage placement and reuse contract above are superseded by
+[independent ledgers and permission-controlled reuse](20261010-lyra-ledger-reuse.md).

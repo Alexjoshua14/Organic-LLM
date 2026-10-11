@@ -1,4 +1,5 @@
--- Apply explicitly via the SQL editor or migration pipeline; not auto-applied.
+-- LEGACY: use research_ledgers.sql instead. Kept only as the historical pre-table schema.
+-- Do not apply this script to new deployments.
 -- Source snapshots, claims and owned crawl jobs stay in the researcher's own thread.
 BEGIN;
 ALTER TABLE public.threads ADD COLUMN IF NOT EXISTS research_ledger text;

@@ -104,6 +104,8 @@ const defaultGenerate: SubagentTurnGenerate = async (args) => {
   const { tools, toolInstructions } = await compileChatTools({
     useSearch: toolPolicy?.webSearch ?? true,
     useResearch: toolPolicy?.research ?? false,
+    researchModelId: options.model,
+    researchGenerationContext: { messages: options.messages, system },
     useMemory: toolPolicy?.memory ?? false,
     useGetMoreMessages: toolPolicy?.chatHistory ?? true,
     useKnowledgeSearch: false,

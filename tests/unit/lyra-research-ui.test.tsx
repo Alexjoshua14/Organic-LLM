@@ -16,6 +16,38 @@ afterEach(() => {
 });
 
 describe("Lyra's browsable research", () => {
+  test("shows reused source notes as inspectable text and identifies saved source reuse", () => {
+    const notes = render(
+      <ResearchToolResult
+        toolName="research_annotations"
+        output={{
+          annotations: [
+            {
+              sourceId: "src-a",
+              reused: true,
+              synopsis: "Saved article synopsis",
+              takeaways: ["Review its methods"],
+              generatedAt: "2026-10-10T12:00:00.000Z",
+            },
+            { sourceId: "src-b", reused: false },
+          ],
+        }}
+      />
+    );
+    expect(notes.getByText("Saved article synopsis")).toBeTruthy();
+    expect(notes.getByText("Review its methods")).toBeTruthy();
+    expect(notes.getByText("No reusable notes for this source and assignment.")).toBeTruthy();
+    cleanup();
+    const source = render(
+      <ResearchToolResult
+        toolName="research_read"
+        output={{ cache: { hits: 1, providerCalls: 0 }, sources: [] }}
+      />
+    );
+    expect(
+      source.getByText("Reused 1 saved source. Original capture dates appear below.")
+    ).toBeTruthy();
+  });
   test("renders synopses, takeaways, source scope and page evidence through the Gen UI registry", () => {
     const view = render(<GenUIRenderer data={{ block: FIXTURE_RESEARCH_REPORT }} />);
     expect(view.getByText(FIXTURE_RESEARCH_REPORT.title)).toBeTruthy();

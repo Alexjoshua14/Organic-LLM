@@ -4,6 +4,8 @@ import { createHash, randomUUID } from "node:crypto";
 
 import { z } from "zod";
 
+import { RESEARCH_REUSE_LIMIT, ResearchReuseEntrySchema } from "./reuse-schema";
+
 export const RESEARCH_LIMITS = {
   sources: 60,
   sourceChars: 80_000,
@@ -57,6 +59,7 @@ export const ResearchLedgerSchema = z.object({
   sources: z.array(ResearchSourceSchema).max(RESEARCH_LIMITS.sources),
   claims: z.array(ClaimSchema).max(RESEARCH_LIMITS.claims),
   crawls: z.array(CrawlSchema).max(RESEARCH_LIMITS.crawls),
+  reuse: z.array(ResearchReuseEntrySchema).max(RESEARCH_REUSE_LIMIT).default([]),
 });
 export type ResearchLedger = z.infer<typeof ResearchLedgerSchema>;
 export const emptyResearchLedger = (): ResearchLedger => ({
@@ -64,6 +67,7 @@ export const emptyResearchLedger = (): ResearchLedger => ({
   sources: [],
   claims: [],
   crawls: [],
+  reuse: [],
 });
 
 export type LedgerEdit<T> =
@@ -77,7 +81,7 @@ export type ResearchLedgerStore = {
   ): Promise<{ status: "saved"; revision: string } | { status: "conflict" | "unavailable" }>;
 };
 export const LEDGER_UNAVAILABLE =
-  "Research evidence storage is unavailable. Check the threads_research_ledger.sql migration and thread ownership.";
+  "Research evidence storage is unavailable. Check the research_ledgers.sql migration and thread/ledger ownership.";
 
 /** Serialized in one run; revision conflicts reload and reapply without dropping another run's evidence. */
 export function createResearchLedgerSession(store: ResearchLedgerStore) {

@@ -18,6 +18,21 @@ const ResultSchema = z.object({
   block: z.unknown().optional(),
   threadId: z.string().optional(),
   saved: z.boolean().optional(),
+  cache: z
+    .object({ hits: z.number().int().nonnegative(), providerCalls: z.number().int().nonnegative() })
+    .optional(),
+  annotations: z
+    .array(
+      z.object({
+        sourceId: z.string(),
+        reused: z.boolean(),
+        synopsis: z.string().max(1_200).optional(),
+        takeaways: z.array(z.string().max(500)).max(5).optional(),
+        generatedAt: z.string().optional(),
+      })
+    )
+    .max(8)
+    .optional(),
   sources: z.array(z.unknown()).max(60).optional(),
   claim: ResearchClaimViewSchema.optional(),
   untrustedLinks: z
@@ -69,6 +84,7 @@ const labels: Record<string, string> = {
   research_source: "Captured text",
   research_record_claim: "Finding recorded",
   research_audit: "Evidence review",
+  research_annotations: "Saved source notes",
 };
 
 export function ResearchToolResult({
@@ -107,6 +123,43 @@ export function ResearchToolResult({
         </span>
       </summary>
       <div className="space-y-stack-md border-t border-border/30 p-inset-md">
+        {result.cache && result.cache.hits > 0 ? (
+          <p className="text-xs leading-relaxed text-muted-foreground">
+            Reused {result.cache.hits} saved {result.cache.hits === 1 ? "source" : "sources"}.
+            Original capture dates appear below.
+          </p>
+        ) : null}
+        {result.annotations?.map((annotation) => (
+          <div key={annotation.sourceId} className="space-y-stack-sm">
+            <p className="break-all font-mono text-2xs text-muted-foreground">
+              {annotation.sourceId}
+            </p>
+            {annotation.reused ? (
+              <>
+                <p className="whitespace-pre-wrap break-words text-sm leading-relaxed">
+                  {annotation.synopsis}
+                </p>
+                {annotation.takeaways?.length ? (
+                  <ul className="list-disc space-y-stack-xs pl-inset-lg text-xs leading-relaxed text-muted-foreground">
+                    {annotation.takeaways.map((text, index) => (
+                      <li key={index}>{text}</li>
+                    ))}
+                  </ul>
+                ) : null}
+                <p className="text-2xs text-muted-foreground">
+                  Saved notes
+                  {annotation.generatedAt
+                    ? ` · ${new Date(annotation.generatedAt).toLocaleString()}`
+                    : ""}
+                </p>
+              </>
+            ) : (
+              <p className="text-xs text-muted-foreground">
+                No reusable notes for this source and assignment.
+              </p>
+            )}
+          </div>
+        ))}
         {result.error ? (
           <p role="status" className="text-xs leading-relaxed text-muted-foreground">
             {result.saved === false

@@ -197,7 +197,7 @@ export function createResearchProviders(config: ResearchProviderConfig = {}) {
         await exa("contents", {
           urls: safeUrls,
           text: { maxCharacters: RESEARCH_LIMITS.sourceChars },
-          ...(fresh ? { livecrawl: "always" } : {}),
+          maxAgeHours: fresh ? 0 : 1,
         })
       );
 

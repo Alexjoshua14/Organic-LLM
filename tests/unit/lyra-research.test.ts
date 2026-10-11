@@ -13,16 +13,13 @@ import {
   recordClaim,
 } from "@/lib/llm/subagents/research/ledger";
 import { createResearchProviders } from "@/lib/llm/subagents/research/providers";
-import { createResearchTools } from "@/lib/llm/subagents/research/tools";
+import { createResearchTools, ResearchCrawlInputSchema } from "@/lib/llm/subagents/research/tools";
 import { compileChatTools } from "@/lib/llm/compile-chat-tools";
-import { convertToModelMessages } from "ai";
+import { asSchema, convertToModelMessages } from "ai";
 import { researchToolParts } from "@/lib/llm/subagents/worker/research-tool-parts";
 import { runSubagentThreadTurn } from "@/lib/llm/subagents/worker/run-in-thread";
 import { buildSubagentReplyMessage } from "@/lib/llm/subagents/threads/messages";
 import { readResearchSource } from "@/lib/llm/subagents/research/presentation";
-import { createSupabaseResearchLedgerStore } from "@/data/supabase/research-ledger";
-import { createMessageEncryptionService } from "@/lib/crypto/message-encryption";
-import type { supabaseAdmin } from "@/lib/supabase/supabase-admin";
 
 const NOW = "2026-10-10T12:00:00.000Z";
 const URL = "https://example.com/report";
@@ -65,6 +62,23 @@ const fakeProviders = (fetcher: typeof fetch) =>
   });
 
 describe("Lyra identity and toolbox", () => {
+  test("every tool serializes to an explicit JSON object schema for model-provider compatibility", async () => {
+    const tools = createResearchTools({ threadId: "thread", ownerId: "owner" });
+    for (const [name, definition] of Object.entries(tools)) {
+      const schema = await asSchema(definition.inputSchema).jsonSchema;
+      expect({ name, type: schema.type }).toEqual({ name, type: "object" });
+    }
+    expect(ResearchCrawlInputSchema.safeParse({ action: "start" }).success).toBe(false);
+    expect(ResearchCrawlInputSchema.safeParse({ action: "status" }).success).toBe(false);
+    expect(ResearchCrawlInputSchema.safeParse({ action: "cancel" }).success).toBe(false);
+    expect(ResearchCrawlInputSchema.safeParse({ action: "start", url: URL }).success).toBe(true);
+    expect(ResearchCrawlInputSchema.safeParse({ action: "status", jobId: "job" }).success).toBe(
+      true
+    );
+    expect(ResearchCrawlInputSchema.safeParse({ action: "cancel", jobId: "job" }).success).toBe(
+      true
+    );
+  });
   test("refines the existing slot without duplicating Lyra on the orchestrator's roster", () => {
     const lyra = getHardSetSubagent("agent-researcher")!;
     expect(lyra.name).toBe("Lyra");
@@ -256,7 +270,7 @@ describe("research provider adapters", () => {
     expect(read.sources[0]!.excerptOnly).toBe(false);
     expect(JSON.parse(fetcher.mock.calls[1]![1]!.body as string)).toMatchObject({
       urls: [URL],
-      livecrawl: "always",
+      maxAgeHours: 0,
       text: { maxCharacters: 80_000 },
     });
   });
@@ -551,67 +565,6 @@ describe("research tools", () => {
 });
 
 describe("research persistence boundaries", () => {
-  test("binds encrypted snapshots to the owner and thread, guarding writes with a revision", async () => {
-    let stored = {
-      research_ledger: null as string | null,
-      research_ledger_rev: null as string | null,
-    };
-    const filters: Array<[string, unknown]> = [];
-    let wrote: Record<string, unknown> | undefined;
-    const builder = {
-      select: () => builder,
-      eq: (key: string, value: unknown) => {
-        filters.push([key, value]);
-        return builder;
-      },
-      is: (key: string, value: unknown) => {
-        filters.push([key, value]);
-        return builder;
-      },
-      update: (value: Record<string, unknown>) => {
-        wrote = value;
-        return builder;
-      },
-      maybeSingle: async () => ({ data: stored, error: null }),
-      then: (resolve: (value: unknown) => unknown) =>
-        resolve({ data: [{ id: "thread" }], error: null }),
-    };
-    const encryption = createMessageEncryptionService({
-      activeKeyId: "test",
-      keyRegistry: { test: "test-only-ledger-key" },
-    });
-    const client = { from: () => builder } as unknown as Pick<typeof supabaseAdmin, "from">;
-    const store = createSupabaseResearchLedgerStore(
-      { threadId: "thread", ownerId: "owner" },
-      { client, encryption }
-    );
-    expect((await store.load())!.ledger).toEqual(emptyResearchLedger());
-    const captured = captureSources(emptyResearchLedger(), [source()], NOW);
-    if (!captured.ok) throw new Error("Fixture failed");
-    await store.save(captured.ledger, null);
-    expect(filters).toContainEqual(["owner_id", "owner"]);
-    expect(filters).toContainEqual(["id", "thread"]);
-    expect(filters).toContainEqual(["research_ledger_rev", null]);
-    expect(wrote!.research_ledger).toMatch(/^enc:/);
-    expect(wrote!.research_ledger).not.toContain("120 participants");
-    stored = wrote as typeof stored;
-    expect((await store.load())!.ledger.sources[0]!.text).toContain("120 participants");
-    const otherOwner = createSupabaseResearchLedgerStore(
-      { threadId: "thread", ownerId: "other" },
-      { client, encryption }
-    );
-    expect(await otherOwner.load()).toBeNull();
-    await store.save(captured.ledger, stored.research_ledger_rev);
-    expect(filters).toContainEqual(["research_ledger_rev", stored.research_ledger_rev]);
-    expect(
-      readResearchSource(captured.ledger, {
-        sourceId: "other-thread-source",
-        offset: 0,
-        limit: 12_000,
-      })
-    ).toMatchObject({ error: "Unknown source id in this thread." });
-  });
-
   test("retains delegated research results in Lyra's thread and replays them as model tool messages", async () => {
     const output = { sources: [{ untrustedText: "x".repeat(12_000) }] };
     const toolParts = researchToolParts([

@@ -22,6 +22,17 @@ import {
 } from "./ledger";
 import { createResearchProviders } from "./providers";
 import { presentResearchClaim, readResearchSource, summarizeResearchSource } from "./presentation";
+import {
+  findResearchReuse,
+  invalidateResearchReuse,
+  readResearchReusePolicy,
+  researchAnnotationKey,
+  researchReuseKey,
+  researchUrlKey,
+  saveResearchReuse,
+  withResearchReuseLock,
+  type ResearchReusePolicy,
+} from "./reuse";
 
 import { createSupabaseResearchLedgerStore } from "@/data/supabase/research-ledger";
 import { checkExternalFetchLimit } from "@/lib/rate-limit/external-fetch";
@@ -35,6 +46,27 @@ const MAX_PROVIDER_CALLS_PER_TURN = 12;
 const UrlSchema = z.string().url().max(2_000);
 const CrawlIdSchema = z.string().regex(/^[a-zA-Z0-9-]{1,120}$/);
 const DateSchema = z.string().datetime();
+
+// Model providers require an explicit object root; a top-level discriminated union omits it.
+export const ResearchCrawlInputSchema = z
+  .object({
+    action: z.enum(["start", "status", "cancel"]),
+    url: UrlSchema.optional(),
+    limit: z.number().int().min(1).max(10).optional(),
+    includePaths: z.array(z.string().max(200)).max(10).optional(),
+    jobId: CrawlIdSchema.optional(),
+    skip: z.number().int().min(0).max(10).optional(),
+  })
+  .superRefine((input, context) => {
+    const required = input.action === "start" ? "url" : "jobId";
+
+    if (!input[required])
+      context.addIssue({
+        code: "custom",
+        path: [required],
+        message: `${required} is required for ${input.action}.`,
+      });
+  });
 const ExtractionFieldSchema = z.object({
   name: z.string().regex(/^[a-zA-Z][a-zA-Z0-9_]{0,63}$/),
   description: z.string().min(1).max(400),
@@ -45,12 +77,14 @@ export const RESEARCH_TOOL_INSTRUCTIONS = `Research tools:
 - Check research_capabilities when a provider may be unavailable. Report unavailable access plainly.
 - research_search discovers sources with domain/date/category controls. Search snapshots are excerpts: read important sources with research_read, research_scrape, or research_parse_document before using them as decisive evidence.
 - research_read fetches up to five URLs through Exa. research_scrape reads a page with Firecrawl and optionally extracts named fields. Extraction fields are interpretations; verify important values against the captured page.
+- Local result reuse requires a server-reviewed provider/publisher permission policy. Exa application caching is disabled by default. Cache hits preserve the original capture time; they are not new crawls. Use fresh:true for current events, pricing, policies, changed pages or any freshness-sensitive decision. Hits do not spend provider calls.
 - research_map discovers a site's pages. research_crawl starts, checks, or cancels a bounded asynchronous crawl. Only poll job ids started in this thread. If still running, report its id for a later assignment; do not spend the turn repeatedly polling.
 - research_parse_document reads a bounded page range through Docling with OCR and tables. It returns available page locations; do not claim a page citation when no matching page text was captured.
 - Retrieval captures immutable sources in this thread's encrypted evidence ledger. Use research_source to read additional portions by sourceId and offset or page. Respect partial-source flags.
 - Record each substantial conclusion with research_record_claim. Cite sourceIds and matching quotations; include contradictory evidence and explain your assessment. Quote matching checks provenance, not truth or methodological quality.
 - Before your handoff, call research_audit (page through additional claims when present). Return findings with clickable source links, claim/source ids, dates, limitations and unresolved contradictions. Preserve unsupported findings as open questions. Repeated pages or publishers that repeat one source do not establish independent corroboration.
 - Publish a browsable research report with research_publish after reading sources and recording claims. Include article synopses and your takeaways, distinguishing reported facts from your interpretation. The server supplies saved source links, capture scope and quotations. Users can inspect captured text in your chat. If storage is unavailable, use prose and the retrieval results instead; never pretend a report was saved.
+- Before regenerating source synopses/takeaways, call research_annotations with saved sourceIds and a context string containing the exact assignment, relevant prior context and annotation requirements. Reuse only when that context is identical. Supply the same annotationContext to research_publish to save eligible annotations. New source versions, models, prompt versions and contexts miss the cache. Do not reuse an article synopsis as a verified claim or reuse a whole report conclusion for another question.
 - At most ${MAX_PROVIDER_CALLS_PER_TURN} provider calls per turn. Choose sources deliberately.
 ${UNTRUSTED_EXTERNAL_CONTENT_GUARDRAIL}`;
 
@@ -61,6 +95,10 @@ export function createResearchTools(args: {
   providers?: ResearchProviders;
   checkLimit?: (ownerId: string) => Promise<{ success: boolean; error?: string }>;
   now?: () => string;
+  /** Server-selected generating model; absent identity disables annotation reuse. */
+  modelId?: string;
+  generationContext?: unknown;
+  reusePolicy?: ResearchReusePolicy;
 }) {
   const providers = args.providers ?? createResearchProviders();
   const session: ResearchLedgerSession = createResearchLedgerSession(
@@ -68,6 +106,11 @@ export function createResearchTools(args: {
   );
   const checkLimit = args.checkLimit ?? checkExternalFetchLimit;
   const now = args.now ?? (() => new Date().toISOString());
+  const reusePolicy = args.reusePolicy ?? readResearchReusePolicy();
+  const generationContextHash = researchReuseKey(
+    "generation-context",
+    args.generationContext ?? null
+  );
   let calls = 0;
   let published = 0;
 
@@ -127,6 +170,23 @@ export function createResearchTools(args: {
     return { threadId: args.threadId, saved: true, sources: outcome.value.map(preview) };
   }
 
+  function capturedIds(result: Awaited<ReturnType<typeof capture>>) {
+    return result.saved
+      ? result.sources.flatMap((source) => ("id" in source ? [source.id] : []))
+      : [];
+  }
+  function cacheAllowed() {
+    return reusePolicy.grants.some(
+      (grant) =>
+        grant.provider === "exa" &&
+        grant.purposes.includes("retrieval") &&
+        Date.parse(grant.expiresAt) > Date.parse(now())
+    );
+  }
+  async function reuseRetrieval<T>(task: () => Promise<T>) {
+    return cacheAllowed() ? withResearchReuseLock(args.ownerId, args.threadId, task) : task();
+  }
+
   return {
     research_capabilities: tool({
       description:
@@ -136,6 +196,15 @@ export function createResearchTools(args: {
         safe(async () => ({
           ...providers.capabilities(),
           evidenceStorage: Boolean(await session.read()),
+          localExaReuse: cacheAllowed(),
+          annotationReuse: Boolean(
+            args.modelId &&
+              reusePolicy.grants.some(
+                (grant) =>
+                  grant.purposes.includes("annotation") &&
+                  Date.parse(grant.expiresAt) > Date.parse(now())
+              )
+          ),
         })),
     }),
     research_search: tool({
@@ -150,6 +219,10 @@ export function createResearchTools(args: {
           startPublishedDate: DateSchema.optional(),
           endPublishedDate: DateSchema.optional(),
           category: z.enum(["research paper", "news", "company"]).optional(),
+          fresh: z
+            .boolean()
+            .optional()
+            .describe("Bypass local result reuse for time-sensitive research."),
         })
         .refine(
           (a) =>
@@ -158,7 +231,42 @@ export function createResearchTools(args: {
             a.startPublishedDate <= a.endPublishedDate,
           "Publication date range is reversed."
         ),
-      execute: (input) => safe(async () => capture(await external(() => providers.search(input)))),
+      execute: ({ fresh, ...input }) =>
+        safe(() =>
+          reuseRetrieval(async () => {
+            const key = researchReuseKey("exa-search-v1", input);
+
+            if (fresh && cacheAllowed()) await invalidateResearchReuse(session, [key]);
+            const ledger = cacheAllowed() && !fresh ? await session.read() : null;
+            const cached = ledger
+              ? findResearchReuse(ledger, key, "search", reusePolicy, now())
+              : null;
+
+            if (cached)
+              return {
+                threadId: args.threadId,
+                saved: true,
+                sources: cached.sources.map(preview),
+                cache: {
+                  hits: cached.sources.length,
+                  providerCalls: 0,
+                  createdAt: cached.entry.createdAt,
+                  expiresAt: cached.entry.expiresAt,
+                },
+              };
+            const result = await capture(await external(() => providers.search(input)));
+
+            if (cacheAllowed() && result.saved)
+              await saveResearchReuse(
+                session,
+                [{ key, kind: "search", sourceIds: capturedIds(result) }],
+                reusePolicy,
+                now()
+              );
+
+            return { ...result, cache: { hits: 0, providerCalls: 1 } };
+          })
+        ),
     }),
     research_read: tool({
       description:
@@ -168,11 +276,95 @@ export function createResearchTools(args: {
         fresh: z.boolean().default(false),
       }),
       execute: ({ urls, fresh }) =>
-        safe(async () => {
-          const result = await external(() => providers.read(urls, fresh));
+        safe(() =>
+          reuseRetrieval(async () => {
+            const uniqueUrls = [...new Set(urls.map(researchUrlKey))];
 
-          return { ...(await capture(result.sources)), statuses: result.statuses };
-        }),
+            if (fresh && cacheAllowed())
+              await invalidateResearchReuse(
+                session,
+                uniqueUrls.map((url) => researchReuseKey("exa-read-v1", { url }))
+              );
+            const ledger = cacheAllowed() && !fresh ? await session.read() : null;
+            const hits = uniqueUrls.flatMap((url) => {
+              const cached = ledger
+                ? findResearchReuse(
+                    ledger,
+                    researchReuseKey("exa-read-v1", { url }),
+                    "read",
+                    reusePolicy,
+                    now()
+                  )
+                : null;
+
+              return cached ? [{ url, cached }] : [];
+            });
+            const misses = uniqueUrls.filter((url) => !hits.some((hit) => hit.url === url));
+            const result = misses.length
+              ? await external(() => providers.read(misses, fresh))
+              : { sources: [], statuses: [] };
+            const captured = await capture([
+              ...hits.flatMap((hit) => hit.cached.sources),
+              ...result.sources,
+            ]);
+
+            if (cacheAllowed() && captured.saved) {
+              const ids = capturedIds(captured);
+              const current = await session.read();
+
+              if (current)
+                await saveResearchReuse(
+                  session,
+                  misses.flatMap((url) => {
+                    if (
+                      result.statuses.some(
+                        (status) => status.id === url && status.status !== "success"
+                      )
+                    )
+                      return [];
+                    const source = current.sources.find(
+                      (item) =>
+                        ids.includes(item.id) &&
+                        researchUrlKey(item.url) === url &&
+                        item.provider === "exa" &&
+                        !item.excerptOnly &&
+                        result.sources.some(
+                          (returned) =>
+                            returned.url === item.url &&
+                            returned.text.slice(0, RESEARCH_LIMITS.sourceChars) === item.text
+                        )
+                    );
+
+                    return source
+                      ? [
+                          {
+                            key: researchReuseKey("exa-read-v1", { url }),
+                            kind: "read" as const,
+                            sourceIds: [source.id],
+                          },
+                        ]
+                      : [];
+                  }),
+                  reusePolicy,
+                  now()
+                );
+            }
+
+            return {
+              ...captured,
+              statuses: result.statuses,
+              cache: {
+                hits: hits.length,
+                providerCalls: misses.length ? 1 : 0,
+                reused: hits.map((hit) => ({
+                  url: hit.url,
+                  createdAt: hit.cached.entry.createdAt,
+                  expiresAt: hit.cached.entry.expiresAt,
+                })),
+              },
+            };
+          })
+        ),
     }),
     research_scrape: tool({
       description:
@@ -203,22 +395,11 @@ export function createResearchTools(args: {
     research_crawl: tool({
       description:
         "Start a bounded Firecrawl crawl, retrieve its results, or cancel it. Jobs remain associated with this thread across assignments.",
-      inputSchema: z.discriminatedUnion("action", [
-        z.object({
-          action: z.literal("start"),
-          url: UrlSchema,
-          limit: z.number().int().min(1).max(10).default(5),
-          includePaths: z.array(z.string().max(200)).max(10).optional(),
-        }),
-        z.object({
-          action: z.literal("status"),
-          jobId: CrawlIdSchema,
-          skip: z.number().int().min(0).max(10).default(0),
-        }),
-        z.object({ action: z.literal("cancel"), jobId: CrawlIdSchema }),
-      ]),
+      inputSchema: ResearchCrawlInputSchema,
       execute: (input) =>
         safe(async () => {
+          const parsed = ResearchCrawlInputSchema.parse(input);
+          const limit = parsed.limit ?? 5;
           const ledger = await session.read();
 
           if (!ledger) return { error: LEDGER_UNAVAILABLE };
@@ -226,7 +407,7 @@ export function createResearchTools(args: {
             if (ledger.crawls.length >= RESEARCH_LIMITS.crawls)
               return { error: "This thread has reached its crawl job limit." };
             const job = await external(() =>
-              providers.startCrawl(input.url, input.limit, input.includePaths)
+              providers.startCrawl(parsed.url!, limit, parsed.includePaths)
             );
             let persisted = false;
 
@@ -247,7 +428,7 @@ export function createResearchTools(args: {
               if (!saved.ok) return { error: saved.error };
               persisted = true;
 
-              return { jobId: job.id, status: "started", limit: input.limit };
+              return { jobId: job.id, status: "started", limit };
             } finally {
               if (!persisted) await providers.cancelCrawl(job.id).catch(() => undefined);
             }
@@ -257,7 +438,7 @@ export function createResearchTools(args: {
           if (!job) return { error: "Unknown crawl job in this thread." };
           if (input.action === "cancel") return external(() => providers.cancelCrawl(job.id));
           const { sources, ...status } = await external(() =>
-            providers.crawlStatus(job.id, job.url, input.skip)
+            providers.crawlStatus(job.id, job.url, parsed.skip ?? 0)
           );
 
           return { jobId: job.id, ...status, ...(await capture(sources)) };
@@ -321,6 +502,57 @@ export function createResearchTools(args: {
             : { error: result.error };
         }),
     }),
+    research_annotations: tool({
+      description:
+        "Look up previously generated source synopses and takeaways for this exact task context, model and source version. Only server-approved reuse is returned; misses need new annotations. Does not call an LLM or research provider.",
+      inputSchema: z.object({
+        sourceIds: z.array(z.string()).min(1).max(8),
+        context: z.string().min(1).max(4_000),
+        fresh: z.boolean().optional(),
+      }),
+      execute: ({ sourceIds, context, fresh }) =>
+        safe(async () => {
+          const ledger = await session.read();
+
+          if (!ledger) return { error: LEDGER_UNAVAILABLE };
+          const sources = [...new Set(sourceIds)].map((id) =>
+            ledger.sources.find((source) => source.id === id)
+          );
+
+          if (sources.some((source) => !source))
+            return { error: "Unknown source id in this thread." };
+
+          return {
+            annotations: sources.map((source) => {
+              const cached =
+                !fresh && args.modelId
+                  ? findResearchReuse(
+                      ledger,
+                      researchAnnotationKey(source!, args.modelId, context, generationContextHash),
+                      "annotation",
+                      reusePolicy,
+                      now()
+                    )
+                  : null;
+
+              return {
+                sourceId: source!.id,
+                reused: Boolean(cached),
+                ...(cached
+                  ? {
+                      synopsis: sanitizeUntrustedText(cached.entry.annotation!.synopsis, 1_200),
+                      takeaways: cached.entry.annotation!.takeaways.map((text) =>
+                        sanitizeUntrustedText(text, 500)
+                      ),
+                      generatedAt: cached.entry.createdAt,
+                      expiresAt: cached.entry.expiresAt,
+                    }
+                  : {}),
+              };
+            }),
+          };
+        }),
+    }),
     research_publish: tool({
       description:
         "Publish an inspectable Gen UI research report in your chat. Supply synopses and takeaways for saved sources and ids of recorded claims; source metadata and evidence come from this thread's ledger. At most two reports per turn.",
@@ -338,6 +570,7 @@ export function createResearchTools(args: {
           .max(8),
         claimIds: z.array(z.string()).max(6).default([]),
         limitations: z.array(z.string().max(500)).max(8).default([]),
+        annotationContext: z.string().min(1).max(4_000).optional(),
       }),
       execute: (input) =>
         safe(async () => {
@@ -392,8 +625,36 @@ export function createResearchTools(args: {
           if (JSON.stringify(block).length > 96_000)
             return { error: "This report is too large. Publish fewer claims or sources." };
           published += 1;
+          const annotationsSaved =
+            input.annotationContext && args.modelId
+              ? await saveResearchReuse(
+                  session,
+                  input.sources
+                    .filter((annotation) => annotation.synopsis.trim())
+                    .map((annotation) => {
+                      const source = sources.find((item) => item!.id === annotation.sourceId)!;
 
-          return { block };
+                      return {
+                        key: researchAnnotationKey(
+                          source!,
+                          args.modelId!,
+                          input.annotationContext!,
+                          generationContextHash
+                        ),
+                        kind: "annotation" as const,
+                        sourceIds: [source!.id],
+                        annotation: {
+                          synopsis: annotation.synopsis,
+                          takeaways: annotation.takeaways,
+                        },
+                      };
+                    }),
+                  reusePolicy,
+                  now()
+                )
+              : 0;
+
+          return { block, annotationsSaved };
         }),
     }),
     research_audit: tool({
