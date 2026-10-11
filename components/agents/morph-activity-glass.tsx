@@ -3,7 +3,7 @@
 // @refresh reset
 // Preserve velocity for runtime retargets, but discard stale instances after dev code edits.
 
-import type { CSSProperties } from "react";
+import type { CSSProperties, RefObject } from "react";
 import type { AgentDotState } from "./agent-dot-grid-motion";
 import type { ActivityGlassAppearance } from "./activity-mark-glass";
 import type { DotPhysicsScheduler } from "./dot-physics-scheduler";
@@ -31,18 +31,26 @@ function backdropFilter(pose: GlassPose): string {
   return `blur(${pose.blur}px) brightness(${pose.brightness}) var(--tw-backdrop-saturate, saturate(1))`;
 }
 
+/** Filter the complete owned background once, including SVG dots and the grain layer. */
+export function activityBackgroundFilter(pose: GlassPose): string {
+  return `blur(${pose.blur}px) brightness(${pose.brightness}) saturate(1.12)`;
+}
+
 /** The owner selects the target; this persistent cover springs only while it is changing. */
 export function MorphActivityGlass({
   state,
   appearance,
   scheduler = dotPhysicsScheduler,
   performanceId,
+  backdropRef,
 }: {
   state: AgentDotState;
   appearance: ActivityGlassAppearance;
   /** Shared scheduler is injectable for actual DOM delivery/lifecycle tests. */
   scheduler?: DotPhysicsScheduler;
   performanceId?: string;
+  /** Owned layers receive the material directly, avoiding nested-backdrop sampling differences. */
+  backdropRef?: RefObject<HTMLDivElement | null>;
 }) {
   const elementRef = useRef<HTMLDivElement>(null);
   const retarget = useRef<(target: ActivityGlassAppearance) => void>(() => {});
@@ -65,7 +73,11 @@ export function MorphActivityGlass({
       const style = materialStyle(pose) as Record<string, string>;
 
       for (const key of Object.keys(style)) element.style.setProperty(key, style[key]!);
-      const filter = backdropFilter(pose);
+      if (backdropRef?.current) {
+        backdropRef.current.style.filter = activityBackgroundFilter(pose);
+      }
+      // Do not blur the owned background a second time through the cover.
+      const filter = backdropRef ? "none" : backdropFilter(pose);
 
       element.style.setProperty("backdrop-filter", filter);
       element.style.setProperty("-webkit-backdrop-filter", filter);
@@ -137,11 +149,11 @@ export function MorphActivityGlass({
       window.removeEventListener("organic-llm-settings", sync);
       window.removeEventListener("storage", storage);
     };
-  }, [initial, scheduler, performanceId]);
+  }, [initial, scheduler, performanceId, backdropRef]);
 
   useEffect(() => {
     retarget.current({ blur, opacity, brightness, tint });
-  }, [blur, opacity, brightness, tint, scheduler, performanceId]);
+  }, [blur, opacity, brightness, tint, scheduler, performanceId, backdropRef]);
 
   return (
     <div
@@ -153,8 +165,8 @@ export function MorphActivityGlass({
       style={
         {
           ...materialStyle(initial),
-          backdropFilter: backdropFilter(initial),
-          WebkitBackdropFilter: backdropFilter(initial),
+          backdropFilter: backdropRef ? "none" : backdropFilter(initial),
+          WebkitBackdropFilter: backdropRef ? "none" : backdropFilter(initial),
           zIndex: 2,
           "--activity-glass-tint": initial.tint,
           backgroundColor:

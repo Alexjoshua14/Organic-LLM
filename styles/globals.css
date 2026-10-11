@@ -766,6 +766,10 @@ body.font-theme-commissioner {
   .prototype-card-enter {
     animation: none;
   }
+
+  .organic-glass-distorted-backdrop {
+    filter: none !important;
+  }
 }
 
 @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
@@ -795,6 +799,14 @@ body.font-theme-commissioner {
 }
 
 @media (prefers-reduced-transparency: reduce), (prefers-contrast: more) {
+  .organic-activity-backdrop {
+    filter: none !important;
+  }
+
+  .organic-glass-distorted-backdrop {
+    filter: none !important;
+  }
+
   .organic-glass-preview {
     background: color-mix(in oklch, var(--background) 95%, transparent) !important;
     backdrop-filter: none !important;

@@ -17,6 +17,7 @@ import {
   ACTIVITY_GLASS_MAX_BLUR,
 } from "@/components/agents/activity-mark-glass";
 import { glass } from "@/components/design-system/primitives";
+import { Switch } from "@/components/design-system/switch";
 import Page from "@/components/layout/page";
 import { PageContentFrame, PageNavBack } from "@/components/layout/page-content-frame";
 import { cn } from "@/lib/utils";
@@ -52,6 +53,7 @@ function MarkPreview({
   seed,
   replay,
   glassByState,
+  glassDistortion,
 }: {
   state: AgentDotState;
   size: PreviewSize;
@@ -59,6 +61,7 @@ function MarkPreview({
   seed: string;
   replay: number;
   glassByState: ActivityGlassByState;
+  glassDistortion: boolean;
 }) {
   const ref = useRef<HTMLDivElement>(null);
   const performanceId = `${state}-${renderer}`;
@@ -91,6 +94,7 @@ function MarkPreview({
           key={replay}
           className={SIZES[size].className}
           glassByState={glassByState}
+          glassDistortion={glassDistortion}
           performanceId={performanceId}
           label={`${renderer === "auto" ? "Adaptive" : "Original"} ${state} activity mark`}
           renderer={renderer}
@@ -114,6 +118,7 @@ export function OrganicActivityMarkLab() {
   const [transitionState, setTransitionState] = useState<AgentDotState>("idle");
   const [glassState, setGlassState] = useState<AgentDotState>("working");
   const [glassByState, setGlassByState] = useState<ActivityGlassByState>({});
+  const [glassDistortion, setGlassDistortion] = useState(false);
   const previewsRef = useRef<HTMLElement>(null);
   const performanceVariants = useMemo(
     () =>
@@ -230,6 +235,13 @@ export function OrganicActivityMarkLab() {
                   ))}
                 </select>
               </label>
+              <Switch
+                classNames={{ label: "text-[11px] text-muted-foreground" }}
+                isSelected={glassDistortion}
+                onValueChange={setGlassDistortion}
+              >
+                Distortion
+              </Switch>
               <button
                 aria-label={`Reset ${glassState} glass`}
                 className={cn(BUTTON_CLASS, "ml-auto min-h-8 px-2 text-[11px]")}
@@ -328,6 +340,7 @@ export function OrganicActivityMarkLab() {
                 <h2 className="text-center text-sm font-medium text-foreground">{label}</h2>
                 <MarkPreview
                   glassByState={glassByState}
+                  glassDistortion={glassDistortion}
                   renderer={mode === "v0" ? "v0" : "auto"}
                   replay={state === "complete" ? replay : 0}
                   seed={seed}
@@ -338,6 +351,7 @@ export function OrganicActivityMarkLab() {
                   <div className="border-t border-border/40">
                     <MarkPreview
                       glassByState={glassByState}
+                      glassDistortion={glassDistortion}
                       renderer="v0"
                       replay={state === "complete" ? replay : 0}
                       seed={seed}
@@ -353,7 +367,7 @@ export function OrganicActivityMarkLab() {
             ))}
           </section>
           <ActivityPerformancePanel
-            key={`${mode}-${size}-${pattern}`}
+            key={`${mode}-${size}-${pattern}-${glassDistortion}`}
             previewRef={previewsRef}
             variants={performanceVariants}
           />
@@ -399,6 +413,7 @@ export function OrganicActivityMarkLab() {
             <div className={cn("grid", mode === "compare" ? "grid-cols-2" : "grid-cols-1")}>
               <MarkPreview
                 glassByState={glassByState}
+                glassDistortion={glassDistortion}
                 renderer={mode === "v0" ? "v0" : "auto"}
                 replay={transitionReplay}
                 seed={seed}
@@ -408,6 +423,7 @@ export function OrganicActivityMarkLab() {
               {mode === "compare" && (
                 <MarkPreview
                   glassByState={glassByState}
+                  glassDistortion={glassDistortion}
                   renderer="v0"
                   replay={transitionReplay}
                   seed={seed}

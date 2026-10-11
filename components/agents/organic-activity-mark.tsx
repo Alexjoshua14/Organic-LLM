@@ -1,11 +1,16 @@
+"use client";
+
 import type { AgentDotState } from "./agent-dot-grid";
 import type { ActivityGlassByState } from "./activity-mark-glass";
+
+import { useRef } from "react";
 
 import { AdaptiveAgentDotGrid } from "./adaptive-agent-dot-grid";
 import { AgentDotGrid } from "./agent-dot-grid";
 import { activityGlassForState } from "./activity-mark-glass";
-import { MorphActivityGlass } from "./morph-activity-glass";
+import { activityBackgroundFilter, MorphActivityGlass } from "./morph-activity-glass";
 
+import { GlassBackdrop } from "@/components/design-system/glass-backdrop";
 import { cn } from "@/lib/utils";
 
 export type OrganicActivityMarkProps = {
@@ -18,6 +23,8 @@ export type OrganicActivityMarkProps = {
   renderer?: "auto" | "v0";
   /** Per-state material tuning; the glass always follows the same state as the dots. */
   glassByState?: ActivityGlassByState;
+  /** Static refraction of the dot/image layer beneath the cover; off by default. */
+  glassDistortion?: boolean;
   /** Opt-in prototype profiling group; ordinary marks incur no per-instance timing. */
   performanceId?: string;
   /** Compatibility with existing stored identity images, inside the lower layer. */
@@ -35,10 +42,14 @@ export function OrganicActivityMark({
   className,
   renderer = "auto",
   glassByState,
+  glassDistortion = false,
   performanceId,
   imageUrl,
 }: OrganicActivityMarkProps) {
   const appearance = activityGlassForState(state, glassByState);
+  const backdropRef = useRef<HTMLDivElement>(null);
+  // Keep React's baseline stable while the cover writes the live spring pose.
+  const initialAppearance = useRef(appearance).current;
 
   return (
     <div
@@ -53,28 +64,42 @@ export function OrganicActivityMark({
       role={label ? "img" : undefined}
     >
       <div
-        className="absolute inset-0"
-        data-activity-layer="base"
+        ref={backdropRef}
+        className="organic-activity-backdrop pointer-events-none absolute inset-0"
+        data-activity-layer="backdrop"
         data-activity-state={state}
-        style={{ zIndex: 0 }}
+        style={{ zIndex: 0, filter: activityBackgroundFilter(initialAppearance) }}
       >
-        {imageUrl ? (
-          // eslint-disable-next-line @next/next/no-img-element -- may be file://, data:, or remote
-          <img alt="" className="size-full object-cover" src={imageUrl} />
-        ) : renderer === "v0" ? (
-          <AgentDotGrid seed={seed} state={state} />
-        ) : (
-          <AdaptiveAgentDotGrid performanceId={performanceId} seed={seed} state={state} />
-        )}
+        <GlassBackdrop
+          className="absolute inset-0"
+          data-activity-layer="base"
+          data-activity-state={state}
+          distortion={glassDistortion}
+          style={{ zIndex: 0 }}
+        >
+          {imageUrl ? (
+            // eslint-disable-next-line @next/next/no-img-element -- may be file://, data:, or remote
+            <img alt="" className="size-full object-cover" src={imageUrl} />
+          ) : renderer === "v0" ? (
+            <AgentDotGrid seed={seed} state={state} />
+          ) : (
+            <AdaptiveAgentDotGrid performanceId={performanceId} seed={seed} state={state} />
+          )}
+        </GlassBackdrop>
+        <div
+          aria-hidden
+          className="organic-activity-grain pointer-events-none absolute inset-0 rounded-[inherit]"
+          data-activity-layer="noise"
+          data-activity-state={state}
+          style={{ zIndex: 1 }}
+        />
       </div>
-      <div
-        aria-hidden
-        className="organic-activity-grain pointer-events-none absolute inset-0 rounded-[inherit]"
-        data-activity-layer="noise"
-        data-activity-state={state}
-        style={{ zIndex: 1 }}
+      <MorphActivityGlass
+        appearance={appearance}
+        backdropRef={backdropRef}
+        performanceId={performanceId}
+        state={state}
       />
-      <MorphActivityGlass appearance={appearance} performanceId={performanceId} state={state} />
     </div>
   );
 }

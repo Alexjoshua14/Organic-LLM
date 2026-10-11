@@ -283,14 +283,18 @@ test("the glass cover and SVG fill one local stack; stored identity images remai
   const view = render(<SubagentIdentityMark name="Lyra" state="working" />);
   const mark = view.getByRole("img", { name: "Lyra identity mark" });
   expect(mark.classList.contains("isolate")).toBe(true);
-  const base = mark.firstElementChild as HTMLElement;
+  const background = mark.firstElementChild as HTMLElement;
+  const base = mark.querySelector<HTMLElement>('[data-activity-layer="base"]')!;
   expect(base.classList.contains("inset-0")).toBe(true);
   expect(base.style.zIndex).toBe("0");
   expect(base.querySelector("svg")?.getAttribute("width")).toBe("100%");
-  const noise = mark.children[1] as HTMLElement;
+  const noise = mark.querySelector<HTMLElement>('[data-activity-layer="noise"]')!;
   expect(noise.getAttribute("data-activity-layer")).toBe("noise");
   expect(noise.classList.contains("organic-activity-grain")).toBe(true);
   expect(noise.style.zIndex).toBe("1");
+  expect(background.contains(base)).toBe(true);
+  expect(background.contains(noise)).toBe(true);
+  expect(background.style.filter).toStartWith("blur(4px)");
   const cover = mark.lastElementChild as HTMLElement;
   expect(cover.classList.contains("organic-glass-smoke")).toBe(true);
   expect(cover.classList.contains("inset-0")).toBe(true);
@@ -307,7 +311,8 @@ test("one owner state synchronizes dots and glass while per-state material overr
   Object.defineProperty(window, "requestAnimationFrame", { configurable: true, value: undefined });
   const view = render(<OrganicActivityMark label="Agent" renderer="v0" state="working" />);
   const mark = view.getByRole("img", { name: "Agent" });
-  const base = mark.firstElementChild as HTMLElement;
+  const base = mark.querySelector<HTMLElement>('[data-activity-layer="base"]')!;
+  const noise = mark.querySelector<HTMLElement>('[data-activity-layer="noise"]')!;
   const cover = mark.lastElementChild as HTMLElement;
   expect(cover.style.getPropertyValue("--activity-glass-blur")).toBe("4px");
   expect(cover.style.getPropertyValue("--activity-glass-brightness")).toBe("1.08");
@@ -328,7 +333,7 @@ test("one owner state synchronizes dots and glass while per-state material overr
   );
   expect(mark.lastElementChild).toBe(cover);
   expect(
-    [mark, base, mark.children[1]!, cover].map((layer) => layer.getAttribute("data-activity-state"))
+    [mark, base, noise, cover].map((layer) => layer.getAttribute("data-activity-state"))
   ).toEqual(["waiting", "waiting", "waiting", "waiting"]);
   expect(cover.style.zIndex).toBe("2");
   expect(base.style.zIndex).toBe("0");

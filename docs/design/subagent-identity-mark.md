@@ -13,9 +13,14 @@ These are the first three layers of the user-directed redesign; further layers a
   blur, brightness, and tint follow the same owner state as the dots. It retains the primitive's
   border, saturation, theme colors, and accessibility fallbacks.
 
-The three layers are HTML siblings with explicit local z-indices. The cover always
-renders last, above the dots and noise; nested SVG/glass content cannot paint above it.
-The cover diffuses both lower layers. Noise is hidden under reduced transparency or
+Dots and noise share an owned background group at z-0; inside it they retain their
+local z-0/z-1 order. The cover is a sibling at z-2 and always renders last, above both.
+The cover's material spring writes one regular CSS blur/brightness/saturation filter
+onto the whole background group. This includes both the SVG dots (or identity image)
+and the noise in the same pass, avoiding differences in nested backdrop sampling in
+Safari and Chrome. The cover retains `glass()` for tint and border, with its own
+backdrop filter disabled so the background is not blurred twice.
+Noise is hidden under reduced transparency or
 increased contrast and adds no per-frame JavaScript; its raster/compositing cost is
 not covered by the CPU spring benchmark.
 
@@ -53,10 +58,12 @@ comes from `components/agents/activity-mark-glass.ts`.
 Idle is the diffused baseline; working clears toward a small 4px radius so the
 active dots become sharper. Brightness applies to the backdrop,
 including the dots and grain, rather than filtering the cover's own border.
-The cover writes both `backdrop-filter` and `-webkit-backdrop-filter` directly from
-each spring pose (blur and brightness), with saturation from `glass()`. The SSR
-baseline uses the same explicit filter. Material tuning does not depend on a
-composed chain of dynamic Tailwind backdrop variables being updated correctly.
+The cover writes the owned group's `filter` directly from each spring pose (blur
+and brightness), with saturation 1.12 matching `glass()`. The SSR baseline uses the
+same explicit filter, without relying on dynamic Tailwind filter variables. A
+standalone `MorphActivityGlass` without an owned-background ref retains its ordinary
+prefixed/unprefixed backdrop-filter path. Reduced transparency or increased contrast
+disables the group filter as well as the primitive's backdrop filter.
 Opacity means material
 fill alpha, rather than opacity on the whole filtering element; the backdrop filter
 remains fully active. Tint uses the existing theme/Organic accent and the warm amber
@@ -208,11 +215,15 @@ changes; selecting Complete again intentionally restarts that pulse. Controls st
 local to the bench and never rewrite user preferences or bypass reduced motion.
 **Glass by state** is an always-visible compact glass strip directly after the size,
 renderer, replay, and pattern controls, above the state previews and performance panel.
-Its header contains the selected state and reset; the material controls share a row
+Its header contains the selected state, the global **Distortion** switch, and reset;
+the material controls share a row
 on wider screens and two columns on narrow screens. Tune opacity, backdrop blur,
 brightness, and tint for a selected state. All
 matching previews, including v0 and the transition preview, use that same material
 map without restarting the dots. Reset restores only the selected state's defaults.
+Optional refraction is off by default and uses the shared
+[`GlassBackdrop`](./glass-distortion.md) source filter below the diffused noise and
+cover. Toggling resets performance samples without restarting the dot instances.
 
 The performance panel immediately below the state previews samples every 500ms and
 keeps 40 sampling windows (about 20 seconds) of frame-rate, p95 frame-interval,

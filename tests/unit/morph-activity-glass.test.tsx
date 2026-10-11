@@ -1,10 +1,14 @@
 import { afterEach, beforeEach, expect, test } from "bun:test";
 import { act, cleanup } from "@testing-library/react";
 import { renderToString } from "react-dom/server";
+import { createRef } from "react";
 
 import { activityGlassForState } from "@/components/agents/activity-mark-glass";
 import { GlassMorphPhysics } from "@/components/agents/glass-morph-physics";
-import { MorphActivityGlass } from "@/components/agents/morph-activity-glass";
+import {
+  activityBackgroundFilter,
+  MorphActivityGlass,
+} from "@/components/agents/morph-activity-glass";
 import { getSettings, setSettings, USER_SETTINGS_STORAGE_KEY } from "@/lib/user-settings";
 import * as userSettings from "@/lib/user-settings";
 import { schedulerFixture } from "../helpers/dot-physics-runtime";
@@ -173,6 +177,44 @@ test("the actual cover hydrates a stable baseline, springs CSS values and stops 
     expect(cover.style.getPropertyValue("backdrop-filter")).toStartWith(`blur(${blur}px)`);
     expect(fixture.frames.size).toBe(0);
   }
+});
+
+test("the cover spring paints the composed background and never adds a second backdrop blur", () => {
+  const fixture = schedulerFixture();
+  const background = createRef<HTMLDivElement>();
+  const initial = activityGlassForState("idle");
+  const target = activityGlassForState("working");
+  const content = (appearance = initial) => (
+    <>
+      <div ref={background} style={{ filter: activityBackgroundFilter(initial) }}>
+        <svg>
+          <circle r="2" />
+        </svg>
+        <div data-testid="noise" />
+      </div>
+      <MorphActivityGlass
+        appearance={appearance}
+        backdropRef={background}
+        state="working"
+        scheduler={fixture.scheduler}
+      />
+    </>
+  );
+  const view = render(content());
+  show();
+  expect(background.current!.style.filter).toBe("blur(10px) brightness(1) saturate(1.12)");
+  view.rerender(content(target));
+  fixture.frame(16);
+  const cover = view.container.querySelector<HTMLElement>('[data-activity-layer="glass"]')!;
+  const blur = Number.parseFloat(cover.style.getPropertyValue("--activity-glass-blur"));
+  expect(blur).toBeGreaterThan(4);
+  expect(blur).toBeLessThan(10);
+  expect(background.current!.style.filter).toStartWith(`blur(${blur}px)`);
+  expect(cover.style.getPropertyValue("backdrop-filter")).toBe("none");
+  expect(background.current!.contains(view.getByTestId("noise"))).toBe(true);
+  for (let frame = 0; frame < 200 && fixture.frames.size; frame++) fixture.frame(16);
+  expect(background.current!.style.filter).toBe("blur(4px) brightness(1.08) saturate(1.12)");
+  expect(fixture.frames.size).toBe(0);
 });
 
 test("offscreen and hidden covers pause without losing their spring and unmount removes work", () => {
