@@ -67,7 +67,7 @@ describe("mobile multiagent controls", () => {
       const previousFetch = globalThis.fetch;
       const previousMedia = window.matchMedia;
       globalThis.fetch = (async () =>
-        Response.json({ enabled: true, activeStreamId: null, subagents: [] })) as typeof fetch;
+        Response.json({ enabled: true, activeStreamId: null, subagents: agents })) as typeof fetch;
       window.matchMedia = ((query: string) => ({
         matches: condensed && query.includes("max-width"),
         media: query,
@@ -111,6 +111,15 @@ describe("mobile multiagent controls", () => {
           expect(
             app.getByRole("button", { name: "Hide board" }).getAttribute("aria-keyshortcuts")
           ).toBe("Control+W");
+          const layout = draft.closest("section")!.parentElement!;
+          const columns = layout.style.gridTemplateColumns;
+          const select = app.getByRole("button", { name: "View agent" });
+          fireEvent.pointerDown(select);
+          fireEvent.focusIn(select);
+          fireEvent.click(select);
+          expect(layout.style.gridTemplateColumns).toBe(columns);
+          fireEvent.focusIn(draft);
+          expect(layout.style.gridTemplateColumns).toBe(columns);
         }
         fireEvent.click(
           app.getByRole("button", { name: condensed ? "Agents" : "Hide chat", exact: true })

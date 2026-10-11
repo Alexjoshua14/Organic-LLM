@@ -48,7 +48,13 @@ Selection changes styling without reordering the expanded slots. Mobile keeps th
 in a horizontally scrollable row. The board shows condensed cards, with one board scroll
 region and a docked composer stack so layers
 do not paint over each other. Wide screens (`lg` / `MULTITASK_DASHBOARD_WIDE_MIN_PX`) keep
-board + chat side by side.
+board + chat side by side at the original 70% chat / 30% board split. Focusing or selecting
+an agent keeps both column widths stable.
+
+**Thread viewport — Locked 2026-10-11.** Multiagent reuses Arcadia's `Chat` and the shared
+`Conversation` component, including its instant bottom positioning on initial render.
+The dashboard bounds the chat pane's height and lets that conversation own scrolling;
+panel transitions anchor its scroll area rather than adding a second thread scroller.
 
 CoreInput follows its container width in both layouts. Its morph-physics wrapper carries
 the visible position and width across a window resize and the following breakpoint commit,

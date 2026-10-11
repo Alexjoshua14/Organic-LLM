@@ -10,7 +10,7 @@ import { Layers3, MessageSquare, X } from "lucide-react";
 import { MultitaskComposerSlotProvider } from "./multitask-composer-slot";
 import { MultitaskSidebarGate } from "./multitask-sidebar-gate";
 import {
-  MULTITASK_FOCUS_WIDTH_MS,
+  MULTITASK_PANEL_WIDTH_MS,
   MULTITASK_PANEL_EASE,
   MULTITASK_PANEL_ENTER_MS,
   MULTITASK_PANEL_EXIT_MS,
@@ -39,7 +39,6 @@ import {
 import {
   multitaskShortcutAction,
   resolveMultitaskPanelShares,
-  type MultitaskPanelFocus,
 } from "@/lib/arcadia/multitask/panel-layout";
 import { resolveSpeakBarPhase } from "@/lib/arcadia/multitask/speak-session";
 import { cn } from "@/lib/utils";
@@ -58,7 +57,7 @@ type MultitaskDashboardProps = {
  *
  * Condensed (&lt; {@link MULTITASK_DASHBOARD_WIDE_MIN_PX}): chat keeps the full page so CoreInput
  * stays where it is in plain Arcadia, and subagents ride a swipe row just above the composer.
- * With chat hidden, the full board takes the page. Wide: chat beside board with focus shares,
+ * With chat hidden, the full board takes the page. Wide: chat beside board with fixed shares,
  * Ctrl+Q/W panel slides, scroll eye-line pin.
  */
 export function MultitaskDashboard({ children, enabled = true }: MultitaskDashboardProps) {
@@ -86,11 +85,10 @@ export function MultitaskDashboard({ children, enabled = true }: MultitaskDashbo
     toggleBlockedReason,
   } = useArcadiaMultitask();
 
-  const [panelFocus, setPanelFocus] = useState<MultitaskPanelFocus>("orchestrator");
   const [chatMeasurePx, setChatMeasurePx] = useState<number | null>(null);
   const [boardMeasurePx, setBoardMeasurePx] = useState<number | null>(null);
 
-  const chatScrollRef = useRef<HTMLDivElement | null>(null);
+  const chatViewportRef = useRef<HTMLDivElement | null>(null);
   const boardScrollRef = useRef<HTMLDivElement | null>(null);
   const chatMeasureRef = useRef<HTMLDivElement | null>(null);
   const boardMeasureRef = useRef<HTMLDivElement | null>(null);
@@ -110,9 +108,8 @@ export function MultitaskDashboard({ children, enabled = true }: MultitaskDashbo
       resolveMultitaskPanelShares({
         chatOpen,
         boardOpen: shellOpen,
-        focus: panelFocus,
       }),
-    [chatOpen, shellOpen, panelFocus]
+    [chatOpen, shellOpen]
   );
 
   const freezeReadingMeasures = useCallback(() => {
@@ -128,7 +125,7 @@ export function MultitaskDashboard({ children, enabled = true }: MultitaskDashbo
 
     const unlockMs = reduceMotion
       ? 0
-      : Math.max(MULTITASK_PANEL_ENTER_MS, MULTITASK_FOCUS_WIDTH_MS) + 40;
+      : Math.max(MULTITASK_PANEL_ENTER_MS, MULTITASK_PANEL_WIDTH_MS) + 40;
 
     measureUnlockTimer.current = window.setTimeout(() => {
       setChatMeasurePx(null);
@@ -140,8 +137,11 @@ export function MultitaskDashboard({ children, enabled = true }: MultitaskDashbo
   const runPanelChange = useCallback(
     (apply: () => void, durationMs: number) => {
       freezeReadingMeasures();
+      const chatScrollEl =
+        chatViewportRef.current?.querySelector<HTMLElement>(".conversation-scroll") ?? null;
+
       runAnchoredLayoutChange({
-        scrollEls: [chatScrollRef.current, boardScrollRef.current],
+        scrollEls: [chatScrollEl, boardScrollRef.current],
         durationMs: reduceMotion ? 0 : durationMs,
         reducedMotion: !!reduceMotion,
         apply,
@@ -163,15 +163,6 @@ export function MultitaskDashboard({ children, enabled = true }: MultitaskDashbo
 
     runPanelChange(() => setShellOpen(next), duration);
   }, [reduceMotion, runPanelChange, setShellOpen, shellOpen]);
-
-  // Focus share shift — pin scroll, freeze measure, then update focus.
-  const setFocusAnchored = useCallback(
-    (next: MultitaskPanelFocus) => {
-      if (next === panelFocus) return;
-      runPanelChange(() => setPanelFocus(next), reduceMotion ? 0 : MULTITASK_FOCUS_WIDTH_MS);
-    },
-    [panelFocus, reduceMotion, runPanelChange]
-  );
 
   useEffect(() => {
     if (!enabled) return;
@@ -249,7 +240,7 @@ export function MultitaskDashboard({ children, enabled = true }: MultitaskDashbo
         gap: MULTITASK_DESKTOP_GUTTER_PX,
         transition: reduceMotion
           ? undefined
-          : `grid-template-columns ${MULTITASK_FOCUS_WIDTH_MS}ms cubic-bezier(${MULTITASK_PANEL_EASE.join(",")})`,
+          : `grid-template-columns ${MULTITASK_PANEL_WIDTH_MS}ms cubic-bezier(${MULTITASK_PANEL_EASE.join(",")})`,
       }
     : {
         gridTemplateColumns: "minmax(0, 1fr)",
@@ -411,7 +402,7 @@ export function MultitaskDashboard({ children, enabled = true }: MultitaskDashbo
           enabled
             ? cn(
                 "flex min-h-0 flex-1 flex-col overflow-hidden gap-3",
-                "lg:grid lg:transition-[grid-template-columns] lg:duration-200"
+                "lg:grid lg:grid-rows-[minmax(0,1fr)] lg:transition-[grid-template-columns] lg:duration-200"
               )
             : "h-full min-h-0"
         )}
@@ -429,18 +420,17 @@ export function MultitaskDashboard({ children, enabled = true }: MultitaskDashbo
                 )
               : "h-full min-h-0"
           )}
-          onFocusCapture={enabled ? () => setFocusAnchored("orchestrator") : undefined}
-          onPointerDownCapture={enabled ? () => setFocusAnchored("orchestrator") : undefined}
         >
           {/*
             Reading column measure freezes during width/slide so text does not reflow
             under the eye-line. Extra pane width becomes gutter, not a moving column.
+            Arcadia's Conversation owns scrolling inside this bounded viewport.
           */}
           <div
-            ref={chatScrollRef}
+            ref={chatViewportRef}
             className={cn(
               enabled
-                ? "relative min-h-0 flex-1 overflow-y-auto overscroll-contain"
+                ? "relative min-h-0 flex-1 overflow-hidden"
                 : "h-full min-h-0"
             )}
           >
@@ -463,8 +453,6 @@ export function MultitaskDashboard({ children, enabled = true }: MultitaskDashbo
                 }}
                 initial={{ x: reduceMotion ? 0 : "12%", opacity: 0 }}
                 transition={panelTransition}
-                onFocusCapture={() => setFocusAnchored("subagent")}
-                onPointerDownCapture={() => setFocusAnchored("subagent")}
               >
                 <div
                   ref={boardScrollRef}
