@@ -72,3 +72,24 @@ export function specimenPaneMatrix(width: number, mobile: boolean, dark = false)
     1,
   ];
 }
+
+/**
+ * CSS form of `specimenPaneMatrix` that holds at any pane width, so the server-rendered pane
+ * is projected in the first frame. The width-dependent terms become a percentage translate
+ * and `perspective(100cqw)`; the pane's parent must be an inline-size container.
+ */
+export function specimenPaneTransform(mobile: boolean, dark = false): string {
+  const frame = mobile ? SPECIMEN_FRAMES.mobile : SPECIMEN_FRAMES.desktop;
+  const m = specimenPaneMatrix(frame.width, mobile, dark);
+  const [tx, ty] = [m[12]!, m[13]!];
+  const [gx, gy] = [m[3]! * frame.width, m[7]! * frame.width];
+  const linear = [
+    [m[0]! - tx * m[3]!, m[1]! - ty * m[3]!, -gx, 0],
+    [m[4]! - tx * m[7]!, m[5]! - ty * m[7]!, -gy, 0],
+    [0, 0, 1, 0],
+    [0, 0, 0, 1],
+  ].flat();
+  const percent = (value: number) => `${(value / frame.width) * 100}%`;
+
+  return `translate(${percent(tx)}, ${percent(ty)}) perspective(100cqw) matrix3d(${linear.join(",")})`;
+}

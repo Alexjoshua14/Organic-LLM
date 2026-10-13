@@ -64,6 +64,8 @@
   left: 50%;
   width: min(100%, 140svh);
   aspect-ratio: 1586 / 992;
+  /* The pane's projection resolves its perspective against this width. */
+  container-type: inline-size;
   transform: translate(-50%, -50%);
   /* Only the room edges blend; the pane remains inside the fully opaque area. */
   mask-image:
@@ -99,8 +101,12 @@
   left: 0;
   width: 100%;
   aspect-ratio: 1;
-  visibility: hidden;
   transform-origin: 0 0;
+  transform: var(--specimen-pane-desktop-light);
+}
+
+:global(.dark) .pane {
+  transform: var(--specimen-pane-desktop-dark);
 }
 
 .hero .paneGrain {
@@ -401,6 +407,14 @@
   .canvas {
     width: min(100%, 46.21svh);
     aspect-ratio: 780 / 1688;
+  }
+
+  .pane {
+    transform: var(--specimen-pane-mobile-light);
+  }
+
+  :global(.dark) .pane {
+    transform: var(--specimen-pane-mobile-dark);
   }
 
   .hero .paneGrain {

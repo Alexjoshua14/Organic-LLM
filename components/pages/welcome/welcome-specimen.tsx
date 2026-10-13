@@ -9,7 +9,7 @@ import { motion, useMotionValue, useReducedMotion, useSpring, useTransform } fro
 
 import { useHydrated } from "./use-hydrated";
 import styles from "./welcome-specimen.module.css";
-import { specimenPaneMatrix } from "./welcome-specimen-projection";
+import { specimenPaneTransform } from "./welcome-specimen-projection";
 
 import { OrganicActivityMark } from "@/components/agents/organic-activity-mark";
 import sceneLight from "@/public/images/welcome/living-specimen-scene-light.webp";
@@ -23,6 +23,12 @@ const SCROLL_PERSPECTIVE = { tiltDegrees: 2.4, travelPx: 18 };
 const SPECIMEN_GLASS: ActivityGlassByState = {
   idle: { opacity: 0, blur: 5.5, brightness: 1, tint: "#eeebe6" },
 };
+const PANE_TRANSFORMS = {
+  "--specimen-pane-desktop-light": specimenPaneTransform(false),
+  "--specimen-pane-desktop-dark": specimenPaneTransform(false, true),
+  "--specimen-pane-mobile-light": specimenPaneTransform(true),
+  "--specimen-pane-mobile-dark": specimenPaneTransform(true, true),
+};
 
 /** Photographic glass and light surround the same live mark used by the agents. */
 export function WelcomeSpecimen() {
@@ -31,8 +37,6 @@ export function WelcomeSpecimen() {
   const cameraMotion = useHydrated() && !reduce;
   const materialId = `welcome-dot-${useId().replace(/:/g, "")}`;
   const sceneRef = useRef<HTMLElement>(null);
-  const canvasRef = useRef<HTMLDivElement>(null);
-  const paneRef = useRef<HTMLDivElement>(null);
   const targetX = useMotionValue(0);
   const targetY = useMotionValue(0);
   const x = useSpring(targetX, PARALLAX_SPRING);
@@ -44,41 +48,6 @@ export function WelcomeSpecimen() {
     [pointerY, scrollY],
     ([pointer, scroll]) => Number(pointer) + Number(scroll)
   );
-
-  useEffect(() => {
-    const canvas = canvasRef.current;
-    const pane = paneRef.current;
-
-    if (!canvas || !pane) return;
-
-    let width = 0;
-    let height = 0;
-    const project = () => {
-      if (!width) return;
-      const mobile = height > width;
-      const dark = document.documentElement.classList.contains("dark");
-
-      pane.style.transform = `matrix3d(${specimenPaneMatrix(width, mobile, dark).join(",")})`;
-      pane.style.visibility = "visible";
-    };
-    const observer = new ResizeObserver(([entry]) => {
-      width = entry?.contentRect.width ?? 0;
-      height = entry?.contentRect.height ?? 0;
-      project();
-    });
-    const themeObserver = new MutationObserver(project);
-
-    observer.observe(canvas);
-    themeObserver.observe(document.documentElement, {
-      attributes: true,
-      attributeFilter: ["class"],
-    });
-
-    return () => {
-      observer.disconnect();
-      themeObserver.disconnect();
-    };
-  }, []);
 
   useEffect(() => {
     if (reduce) return;
@@ -120,6 +89,7 @@ export function WelcomeSpecimen() {
       className={styles.scene}
       style={
         {
+          ...PANE_TRANSFORMS,
           "--specimen-dot-fill-light": `url(#${materialId}-light)`,
           "--specimen-dot-fill-dark": `url(#${materialId}-dark)`,
         } as CSSProperties
@@ -145,7 +115,7 @@ export function WelcomeSpecimen() {
         </defs>
       </svg>
       <motion.div className={styles.camera} style={cameraMotion ? { x, y, rotateX } : undefined}>
-        <div ref={canvasRef} className={styles.canvas}>
+        <div className={styles.canvas}>
           <picture className={styles.sceneLight}>
             <source
               media="(max-width: 767px) and (orientation: portrait)"
@@ -179,7 +149,7 @@ export function WelcomeSpecimen() {
               draggable={false}
             />
           </picture>
-          <div ref={paneRef} className={styles.pane}>
+          <div className={styles.pane}>
             <div className={styles.markAnchor}>
               <OrganicActivityMark
                 state="idle"

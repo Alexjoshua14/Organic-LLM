@@ -9,8 +9,11 @@ live agent dots visible while its floor joins the themed Liquid Chrome backgroun
   first screen on wide displays. Portrait screens use a separate photograph.
 - `welcome-specimen-projection.ts` records each photograph's measured pane corners.
   A projective transform maps the square dot surface onto those four corners,
-  including the difference between the pane's top and bottom slopes. Recompute
-  after a resize or theme change; remeasure corners when replacing an asset.
+  including the difference between the pane's top and bottom slopes. It ships
+  as a width-independent CSS transform (percentage translate plus
+  `perspective(100cqw)` against the canvas container), chosen per theme and
+  portrait media query, so the server-rendered pane is placed in the first frame
+  and follows resizes without script. Remeasure corners when replacing an asset.
 - The photo and projected dots share one camera transform. Pointer movement shifts
   that whole assembly, rather than moving the dots independently through the glass.
 - The existing `organic-activity-grain` texture sits above dot diffusion on the
