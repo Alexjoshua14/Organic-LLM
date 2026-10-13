@@ -189,8 +189,8 @@
   /* Static fallback while Liquid Chrome WebGL initializes (matches AdaptiveLiquidChrome reduced-motion). */
   --liquid-chrome-fallback-light: radial-gradient(
     ellipse 120% 80% at 50% 40%,
-    rgb(128, 122, 117) 0%,
-    rgb(138, 132, 127) 100%
+    rgb(247, 245, 239) 0%,
+    rgb(241, 239, 233) 100%
   );
   --liquid-chrome-fallback-dark: radial-gradient(
     ellipse 120% 80% at 50% 40%,

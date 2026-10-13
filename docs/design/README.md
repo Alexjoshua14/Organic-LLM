@@ -13,6 +13,7 @@ feel — so improvements stay consistent and do not regress quality.
 | [Context usage](./context-usage.md) | Composer context charts, source colors, percentage ramp, hover labels |
 | [Subagent identity mark](./subagent-identity-mark.md) | Layered SVG dots, glass diffusion, agent-state motion |
 | [Glass distortion](./glass-distortion.md) | Opt-in refraction of owned backgrounds, Safari compatibility |
+| [Liquid chrome materials](./liquid-chrome-materials.md) | Light-mode paper and ink, dark-mode preservation, refraction and fallback parity |
 | [Motion & character text timing](./motion-and-text-timing.md) | Any char-by-char / stagger / status-label / loading-state animation |
 | [Adaptive background](../adaptive-background.md) + [timing](../adaptive-background-timing.md) | Ambient dim / focus atmospheres |
 | [Organic presence](../organic-presence.md) | Presence indicators and ambient life |
