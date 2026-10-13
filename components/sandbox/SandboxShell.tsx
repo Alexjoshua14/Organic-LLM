@@ -160,7 +160,10 @@ export function SandboxShell() {
       {/* Scenario selector */}
       <header className="shrink-0 border-b border-border px-4 py-3 flex flex-wrap items-center gap-4">
         <div className="flex items-center gap-2">
-          <label className="text-sm font-medium text-muted-foreground flex items-center gap-1">
+          <label
+            className="text-sm font-medium text-muted-foreground flex items-center gap-1"
+            htmlFor="sandbox-scenario-select"
+          >
             Scenario
             <Tooltip>
               <TooltipTrigger asChild>
@@ -175,6 +178,7 @@ export function SandboxShell() {
           </label>
           <select
             className="rounded-md border border-border bg-card px-3 py-1.5 text-sm text-foreground"
+            id="sandbox-scenario-select"
             value={activeScenarioId}
             onChange={(e) => setActiveScenarioId(e.target.value)}
           >
@@ -186,7 +190,10 @@ export function SandboxShell() {
           </select>
         </div>
         <div className="flex items-center gap-2">
-          <label className="text-sm font-medium text-muted-foreground flex items-center gap-1">
+          <label
+            className="text-sm font-medium text-muted-foreground flex items-center gap-1"
+            htmlFor="sandbox-environment-select"
+          >
             Environment
             <Tooltip>
               <TooltipTrigger asChild>
@@ -209,6 +216,7 @@ export function SandboxShell() {
           </label>
           <select
             className="rounded-md border border-border bg-card px-3 py-1.5 text-sm text-foreground"
+            id="sandbox-environment-select"
             value={environment.type}
             onChange={(e) => {
               const t = e.target.value as SandboxEnvironment["type"];

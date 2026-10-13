@@ -48,6 +48,7 @@ export function ArtifactSlot({
   });
 
   return (
+    // eslint-disable-next-line jsx-a11y/no-static-element-interactions -- sandbox hover/tap preview; keyboard access is not part of this prototype
     <div
       ref={ref}
       className={cn(
