@@ -48,7 +48,7 @@ If the user hovers/focuses again during phase 1 or 2, the background dims again 
 
 ## Accessibility
 
-When the user has **Reduce motion** enabled (`prefers-reduced-motion: reduce`), the WebGL canvas is not mounted. Instead, a static radial gradient is rendered using the same theme base colors. Opacity dimming (`data-dim-background`, focus, and `data-adaptive-active`) still works the same way.
+When the user has **Reduce motion** enabled (`prefers-reduced-motion: reduce`), the WebGL canvas is not mounted. Light mode uses the static paper fallback; dark mode retains its existing radial gradient. Opacity dimming (`data-dim-background`, focus, and `data-adaptive-active`) still works the same way.
 
 ## Performance
 
@@ -67,7 +67,7 @@ Transitions use a single cubic-bezier for now: `cubic-bezier(0.25, 0.46, 0.45, 0
 
 - **Brightness state** is one of: `dimmed` | `to65` | `rest`. The wrapper div’s opacity is derived from this and `effectiveDimIntensity`.
 - **Event handling** — Global `pointerover` / `pointerout` and `focusin` / `focusout` with `closest('[data-dim-background]')`. A narrow `MutationObserver` watches only `data-adaptive-active` attribute changes.
-- **Theme** — Base color and opacity of the LiquidChrome layer respect `next-themes` (dark: deep blue-gray, light: warm gray).
+- **Theme** — The HTML dark class selects the material (dark: existing deep blue-gray chrome; light: paper and ink). See the [material contract](../../docs/design/liquid-chrome-materials.md) for shared shader, texture, and fallback rules.
 
 ## File location
 

@@ -1,25 +1,13 @@
 export const welcomeCopy = {
-  kicker: "Organic LLM · UI & cognition lab",
-  headline: {
-    line1: "An AI workspace that",
-    accent: "remembers",
-    line2: "how you think",
-  },
-  sublineSegments: [
-    { type: "text", value: "More than a chat box: branch ideas into " },
-    { type: "emphasis", value: "rabbit holes" },
-    { type: "text", value: ", turn conversations into a " },
-    { type: "emphasis", value: "memory you can browse" },
-    { type: "text", value: ", and watch every tool work—" },
-    { type: "emphasis", value: "encrypted at rest" },
-    { type: "text", value: "." },
-  ] as const,
+  headline: "Organic LLM",
+  subline: "An AI workspace for chat, memory and research.",
   cta: {
     signUp: "Create account",
     signIn: "Sign in",
   },
   scrollInvite: {
     label: "Scroll to explore the workspace",
+    text: "Scroll to explore",
   },
   explore: {
     label: "Explore first",
