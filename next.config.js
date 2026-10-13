@@ -12,6 +12,10 @@ try {
 const { version: appVersion } = require("./package.json");
 
 const nextConfig = {
+  // Server Function arguments may contain user/session identifiers or private content.
+  logging: {
+    serverFunctions: false,
+  },
   env: {
     NEXT_PUBLIC_APP_VERSION: appVersion,
   },

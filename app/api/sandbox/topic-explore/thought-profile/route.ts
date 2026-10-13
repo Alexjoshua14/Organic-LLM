@@ -1,3 +1,4 @@
+import { createAuthenticatedLlmBudgetHooks, budgetModelId } from "@/lib/plans/llm-budget-hooks";
 import { generateText } from "ai";
 import z from "zod";
 
@@ -63,8 +64,12 @@ export async function POST(req: Request) {
   try {
     const t0 = performance.now();
     const result = await generateText({
+      ...(await createAuthenticatedLlmBudgetHooks({
+        modelId: budgetModelId(TOPIC_EXPLORE_THOUGHT_MODEL),
+        operation: "/api/sandbox/topic-explore/thought-profile",
+      })),
       model: TOPIC_EXPLORE_THOUGHT_MODEL,
-      system: SYSTEM,
+      instructions: SYSTEM,
       prompt: `PRIOR_PROFILE:\n${previousProfile?.trim() || "(none)"}\n\nNEW_USER_ONLY:\n${joined}`,
       maxOutputTokens: 700,
       providerOptions: TOPIC_EXPLORE_PROVIDER_OPTIONS,
@@ -72,6 +77,7 @@ export async function POST(req: Request) {
     const durationMs = performance.now() - t0;
 
     recordLlmCall({
+      persist: false,
       model: TOPIC_EXPLORE_THOUGHT_MODEL,
       usage: result.usage,
       durationMs,

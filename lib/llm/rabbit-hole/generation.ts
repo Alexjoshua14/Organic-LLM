@@ -1,5 +1,7 @@
 "use server";
 
+import { createAuthenticatedLlmBudgetHooks, budgetModelId } from "@/lib/plans/llm-budget-hooks";
+
 import { generateObject, generateText, NoObjectGeneratedError } from "ai";
 
 import {
@@ -74,8 +76,12 @@ export async function generateRabbitHoleObject<T>({
 
   try {
     const { object, usage } = await generateObject({
+      ...(await createAuthenticatedLlmBudgetHooks({
+        modelId: budgetModelId(model),
+        operation: "llm/rabbit-hole/generation",
+      })),
       model,
-      system: systemPrompt,
+      instructions: systemPrompt,
       prompt,
       schema: RabbitHoleAIResponseSchema,
       maxOutputTokens: 7000,
@@ -90,7 +96,7 @@ export async function generateRabbitHoleObject<T>({
     if (usage) {
       logger.log(
         logContext,
-        `AI usage: input tokens=${usage.inputTokens ?? "?"}, reasoning tokens=${usage.reasoningTokens ?? "?"}, output tokens=${usage.outputTokens ?? "?"}, total tokens=${usage.totalTokens ?? "?"}`
+        `AI usage: input tokens=${usage.inputTokens ?? "?"}, reasoning tokens=${usage.outputTokenDetails.reasoningTokens ?? "?"}, output tokens=${usage.outputTokens ?? "?"}, total tokens=${usage.totalTokens ?? "?"}`
       );
     }
 
@@ -124,8 +130,12 @@ export async function generateSourceAnalysis({
   prompt,
 }: GenerateSourceAnalysisParams): Promise<any> {
   const { object, usage } = await generateObject({
+    ...(await createAuthenticatedLlmBudgetHooks({
+      modelId: budgetModelId(model),
+      operation: "llm/rabbit-hole/generation",
+    })),
     model,
-    system: SOURCE_ANALYSIS_SYSTEM_PROMPT,
+    instructions: SOURCE_ANALYSIS_SYSTEM_PROMPT,
     prompt,
     schema: RabbitHoleSourceAnalysisSchema.omit({ originalUrl: true }),
     temperature: 0.7,
@@ -147,8 +157,12 @@ export async function generateQuickPreviewLLM({
   prompt,
 }: GenerateQuickPreviewParams): Promise<{ text: string }> {
   const res = await generateText({
+    ...(await createAuthenticatedLlmBudgetHooks({
+      modelId: budgetModelId(rapidModel),
+      operation: "llm/rabbit-hole/generation",
+    })),
     model: rapidModel,
-    system: QUICK_PREVIEW_SYSTEM_PROMPT,
+    instructions: QUICK_PREVIEW_SYSTEM_PROMPT,
     prompt,
     maxOutputTokens: 400,
   });
@@ -205,8 +219,12 @@ export async function generateBranchSuggestions({
       "\n\nGenerate 5-10 diverse, intriguing branch suggestions that represent natural next steps in this exploration.";
 
     const { object, usage } = await generateObject({
+      ...(await createAuthenticatedLlmBudgetHooks({
+        modelId: budgetModelId(quickModel),
+        operation: "llm/rabbit-hole/generation",
+      })),
       model: quickModel,
-      system: BRANCH_SUGGESTIONS_SYSTEM_PROMPT,
+      instructions: BRANCH_SUGGESTIONS_SYSTEM_PROMPT,
       prompt,
       output: "array",
       schema: RabbitHoleBranchSuggestionSchema,
@@ -224,7 +242,7 @@ export async function generateBranchSuggestions({
     if (usage) {
       logger.log(
         logContext,
-        `AI usage: input tokens=${usage.inputTokens ?? "?"}, reasoning tokens=${usage.reasoningTokens ?? "?"}, output tokens=${usage.outputTokens ?? "?"}, total tokens=${usage.totalTokens ?? "?"}`
+        `AI usage: input tokens=${usage.inputTokens ?? "?"}, reasoning tokens=${usage.outputTokenDetails.reasoningTokens ?? "?"}, output tokens=${usage.outputTokens ?? "?"}, total tokens=${usage.totalTokens ?? "?"}`
       );
     }
 
@@ -264,8 +282,12 @@ export async function generateTitle({
 
   try {
     res = await generateText({
+      ...(await createAuthenticatedLlmBudgetHooks({
+        modelId: budgetModelId(quickModel),
+        operation: "llm/rabbit-hole/generation",
+      })),
       model: quickModel,
-      system: CREATE_TITLE_SYSTEM_PROMPT,
+      instructions: CREATE_TITLE_SYSTEM_PROMPT,
       prompt: html,
       maxOutputTokens: 80,
     });

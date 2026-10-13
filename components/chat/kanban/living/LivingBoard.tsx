@@ -45,6 +45,8 @@ type LivingBoardProps = {
   /** Optional header actions (e.g. copy markdown), rendered opposite the Presence orb. */
   headerActions?: ReactNode;
   className?: string;
+  /** Merged onto the lane scroller (e.g. lab short-viewport max-height). */
+  scrollerClassName?: string;
 };
 
 export const LivingBoard = memo(function LivingBoard({
@@ -55,6 +57,7 @@ export const LivingBoard = memo(function LivingBoard({
   followChanges = false,
   headerActions,
   className,
+  scrollerClassName,
 }: LivingBoardProps) {
   const behavior = LIGHT_BEHAVIOR[light];
   const reduceMotion = useReducedMotion() ?? false;
@@ -160,7 +163,11 @@ export const LivingBoard = memo(function LivingBoard({
           <motion.div
             ref={scrollerRef}
             layoutScroll
-            className="@container relative max-h-[60vh] overflow-auto overscroll-x-contain pb-3 pt-3 [scrollbar-width:thin]"
+            data-living-board-scroller
+            className={cn(
+              "@container relative max-h-[60vh] overflow-auto overscroll-x-contain pb-3 pt-3 [scrollbar-width:thin]",
+              scrollerClassName
+            )}
           >
             {!settingUp && items.length === 0 ? (
               <p className="px-3 py-6 text-center text-sm text-muted-foreground">

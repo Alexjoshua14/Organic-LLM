@@ -32,6 +32,19 @@ export type PrototypeEntry = {
 
 export const prototypes: PrototypeEntry[] = [
   {
+    slug: "organic-agent",
+    title: "Organic Agent",
+    description:
+      "ActivityMark's five states together, with size controls, physics/v0 comparison, and live state transitions.",
+    about: {
+      what: "A focused bench for the production OrganicActivityMark: independent physics dots beneath the glass layer, with the original SVG grid preserved for comparison and fallback.",
+      authorThoughts:
+        "Each dot should have independent physics for advanced microanimations, while the original grid remains available when motion preferences or device performance call for it.",
+      howToUse:
+        "Compare all five states, change the preview size, replay completion, or select Compare to see adaptive and v0 motion together. Use the transition preview to interrupt one state with another.",
+    },
+  },
+  {
     slug: "background",
     title: "AdaptiveLiquidChrome",
     description:
@@ -149,13 +162,13 @@ export const prototypes: PrototypeEntry[] = [
     slug: "glass-primitive",
     title: "Glass primitive",
     description:
-      "Three-column lab: shipped glass(), approved Organic Glass baseline, and a working surface column for lighting experiments — tuned for AdaptiveLiquidChrome.",
+      "Showcase of three glass materials over AdaptiveLiquidChrome: shipped glass(), approved Organic Glass baseline, and a working refraction preview — side-by-side on desktop, stacked on mobile.",
     about: {
-      what: "A three-column comparison lab for the glass() primitive — what ships today, the approved Organic Glass baseline, and a scratch column for lighting experiments.",
+      what: "A responsive comparison of three glass materials — production glass(), the approved Organic Glass baseline, and a working refraction surface — shown as live foreground lenses over AdaptiveLiquidChrome.",
       authorThoughts:
         "Glass surfaces are tuned as foreground lenses for AdaptiveLiquidChrome: readable by default, responsive through cheap opacity shifts when the background dims.",
       howToUse:
-        "Compare columns side by side under a live liquid chrome background; adjust lighting in the working column without touching production tokens.",
+        "On desktop, compare the three columns side by side. On a phone, scroll the stack — each hero surface is the primary example. Toggle the production capability chips to feel the chip aperture lens.",
     },
     ranking: {
       importance: 10,

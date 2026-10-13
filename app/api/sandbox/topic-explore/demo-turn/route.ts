@@ -1,3 +1,4 @@
+import { createAuthenticatedLlmBudgetHooks, budgetModelId } from "@/lib/plans/llm-budget-hooks";
 /**
  * Noesis admin **demo-turn** route — one streamed spark reply, fully isolated.
  *
@@ -63,12 +64,16 @@ export async function POST(req: Request) {
   const { systemPrompt } = parsed.data;
   const rawMessages = parsed.data.messages as UIMessage[];
   const model = parsed.data.model || DEMO_DEFAULT_MODEL;
-  const messages = convertToModelMessages(rawMessages);
+  const messages = await convertToModelMessages(rawMessages);
 
   const t0 = performance.now();
   const result = streamText({
+    ...(await createAuthenticatedLlmBudgetHooks({
+      modelId: budgetModelId(model),
+      operation: "/api/sandbox/topic-explore/demo-turn",
+    })),
     model,
-    system: systemPrompt,
+    instructions: systemPrompt,
     messages,
     experimental_transform: smoothStream({ delayInMs: 15, chunking: "word" }),
     maxOutputTokens: DEMO_MAX_OUTPUT_TOKENS_PER_TURN,
@@ -78,6 +83,7 @@ export async function POST(req: Request) {
     },
     onFinish({ usage }) {
       recordLlmCall({
+        persist: false,
         model,
         usage,
         durationMs: performance.now() - t0,

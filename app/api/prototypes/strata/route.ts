@@ -1,3 +1,4 @@
+import { createAuthenticatedLlmBudgetHooks, budgetModelId } from "@/lib/plans/llm-budget-hooks";
 import { auth } from "@clerk/nextjs/server";
 import { generateObject, generateText } from "ai";
 
@@ -16,6 +17,7 @@ import { createStrataKnowledgeGraphTools } from "@/lib/llm/strata-knowledge-grap
 import { buildPromptSafeRawInputBlock, sanitizeRawUserInput } from "@/lib/strata/input-safety";
 import { buildRawDiffPromptBlock } from "@/lib/strata/raw-diff";
 import { models } from "@/lib/schemas/chat-models";
+import { requirePlanBudget } from "@/lib/api/plan-budget-gate";
 
 export const maxDuration = 30;
 
@@ -70,6 +72,13 @@ export async function POST(req: Request) {
       headers: { "Content-Type": "application/json" },
     });
   }
+  const planGate = await requirePlanBudget({
+    clerkUserId: user.userId,
+    sbUserId: sbUserIdResult.data,
+  });
+
+  if (planGate) return planGate;
+
   const sbUserId = sbUserIdResult.data;
 
   try {
@@ -158,8 +167,12 @@ Return JSON only using the required output schema.`;
         : (await import("@/lib/llm/strata-memory-tool")).createStrataMemorySearchTool(sbUserId);
 
     const { text: toolingContext } = await generateText({
+      ...(await createAuthenticatedLlmBudgetHooks({
+        modelId: budgetModelId(models.openai.terra.id),
+        operation: "/api/prototypes/strata",
+      })),
       model: models.openai.terra.id,
-      system: `${system}
+      instructions: `${system}
 
 This pass exists to gather context using tools before final section generation.
 Use tools to collect only relevant context, then return concise bullet notes.
@@ -173,8 +186,12 @@ Do not return final Refined/Elaborated content in this pass.`,
     });
 
     const { object } = await generateObject({
+      ...(await createAuthenticatedLlmBudgetHooks({
+        modelId: budgetModelId(models.google.flash.id),
+        operation: "/api/prototypes/strata",
+      })),
       model: models.google.flash.id,
-      system,
+      instructions: system,
       prompt: `${prompt}
 
 Tooling context notes (from Mem0 + knowledge graph tools):

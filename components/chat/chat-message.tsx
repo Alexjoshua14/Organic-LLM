@@ -1,7 +1,7 @@
 import type { ExaSearchResultSource } from "@/lib/exa/types";
 
 import { FC, memo, useCallback, useState } from "react";
-import { getToolOrDynamicToolName, isToolOrDynamicToolUIPart, UIMessage } from "ai";
+import { getToolOrDynamicToolName, isToolUIPart, UIMessage } from "ai";
 
 import { glass } from "../design-system/primitives";
 
@@ -32,6 +32,7 @@ import {
 
 import { ErgonTaskResult } from "@/components/ergon/ErgonTaskResult";
 import { GenUIStreamingPart } from "@/components/chat/gen-ui/GenUIStreamingPart";
+import { ResearchToolResult } from "@/components/chat/gen-ui/ResearchToolResult";
 import { GenUIToolResult } from "@/components/chat/gen-ui/GenUIToolResult";
 import { KanbanInFlight } from "@/components/chat/kanban/KanbanInFlight";
 import { KanbanToolResult } from "@/components/chat/kanban/KanbanToolResult";
@@ -39,6 +40,11 @@ import { MiseLoadingShell } from "@/components/chat/mise/MiseLoadingShell";
 import { MiseToolResult } from "@/components/chat/mise/MiseToolResult";
 import { ARCADIA_HELP_PREFIX } from "@/lib/arcadia/help-response";
 import { messagePartsToCopyMarkdown } from "@/lib/chat/message-copy-markdown";
+import {
+  collectWebSearchSnapshotsFromParts,
+  foldWebSearchResults,
+  isClosedWebSearchResult,
+} from "@/lib/chat/web-search-results-fold";
 import { RENDER_GEN_UI_TOOL_NAME } from "@/lib/llm/gen-ui-tool";
 import { KANBAN_BOARD_TOOL_NAME } from "@/lib/llm/kanban-tool";
 import { MISE_PLAN_TOOL_NAME } from "@/lib/llm/mise-tool";
@@ -96,8 +102,9 @@ export const ChatMessage = memo<ChatMessageProps>(function ChatMessage(props) {
       );
     case "user":
       return <UserMessage message={message} />;
-    case "system":
-      return <SystemMessage message={message} />;
+    // Removing system message for now to accomodate Multiagent Heartbeats
+    // case "system":
+    //   return <SystemMessage message={message} />;
   }
 });
 
@@ -126,6 +133,8 @@ const AIMessage: FC<ChatMessageProps> = ({
   const isActivelyStreaming =
     Boolean(aiActionPayload) || messagePartsIndicateStreaming(message.parts);
   const modelLabel = showModelBadge ? getModelDisplayName(getMessageModelId(message)) : null;
+
+  const webSearchFold = foldWebSearchResults(collectWebSearchSnapshotsFromParts(message.parts));
 
   let arcadiaHelpRendered = false;
 
@@ -167,9 +176,19 @@ const AIMessage: FC<ChatMessageProps> = ({
               );
 
             default:
-              if (isToolOrDynamicToolUIPart(part)) {
+              if (isToolUIPart(part)) {
                 const toolName = getToolOrDynamicToolName(part);
                 const toolCallId = part.toolCallId;
+
+                if (toolName.startsWith("research_")) {
+                  if (part.state === "input-streaming" || part.state === "input-available") {
+                    return <ChatThinking key={`${message.id}-${i}-research-pending`} text={toolInvocationInFlightLabel(toolName)} />;
+                  }
+                  if (part.state === "output-available" || part.state === "output-error") {
+                    return <ResearchToolResult key={`${message.id}-${i}-research-result`} toolName={toolName} output={part.state === "output-available" ? part.output : { error: part.errorText }} threadId={chatId} />;
+                  }
+                  return null;
+                }
 
                 if (toolName === KANBAN_BOARD_TOOL_NAME) {
                   if (part.state === "input-streaming" || part.state === "input-available") {
@@ -320,6 +339,55 @@ const AIMessage: FC<ChatMessageProps> = ({
                   return null;
                 }
 
+                if (toolName.toLowerCase() === "web_search") {
+                  if (part.state === "input-streaming" || part.state === "input-available") {
+                    return (
+                      <div
+                        key={`${message.id}-${i}-tool-active`}
+                        className="not-prose rounded-lg border border-border/40 bg-background-tertiary/20 px-3 py-2"
+                      >
+                        <ChatThinking text={toolInvocationInFlightLabel(toolName)} />
+                      </div>
+                    );
+                  }
+
+                  if (part.state === "output-available" || part.state === "output-error") {
+                    if (isClosedWebSearchResult(webSearchFold, toolCallId)) {
+                      return null;
+                    }
+
+                    const parsed =
+                      webSearchFold.anchorToolCallId === toolCallId && webSearchFold.combined
+                        ? webSearchFold.combined
+                        : tryParseWebSearchToolOutput(
+                            part.state === "output-error" ? part.errorText : part.output
+                          );
+
+                    if (parsed !== null) {
+                      return (
+                        <WebSearchToolResultCard
+                          key={`${message.id}-${i}-tool-result`}
+                          isPinned={pinnedToolIds[toolCallId] === true}
+                          parsed={parsed}
+                          onTogglePin={() => toggleToolPinned(toolCallId)}
+                        />
+                      );
+                    }
+
+                    return (
+                      <ArcadiaToolResultCard
+                        key={`${message.id}-${i}-tool-result`}
+                        displayBody={part.state === "output-error" ? part.errorText : part.output}
+                        isPinned={pinnedToolIds[toolCallId] === true}
+                        toolName={toolName}
+                        onTogglePin={() => toggleToolPinned(toolCallId)}
+                      />
+                    );
+                  }
+
+                  return null;
+                }
+
                 if (part.state === "input-streaming" || part.state === "input-available") {
                   return (
                     <div
@@ -375,6 +443,30 @@ const AIMessage: FC<ChatMessageProps> = ({
                     return null;
                   }
 
+                  if (tp.toolName.toLowerCase() === "web_search") {
+                    if (isClosedWebSearchResult(webSearchFold, tp.toolInvocationId)) {
+                      return null;
+                    }
+
+                    const displayBody = tp.state === "output-error" ? tp.errorText : tp.result;
+                    const parsed =
+                      webSearchFold.anchorToolCallId === tp.toolInvocationId &&
+                      webSearchFold.combined
+                        ? webSearchFold.combined
+                        : tryParseWebSearchToolOutput(displayBody);
+
+                    if (parsed !== null) {
+                      return (
+                        <WebSearchToolResultCard
+                          key={`${message.id}-${i}-tool-result`}
+                          isPinned={pinnedToolIds[tp.toolInvocationId] === true}
+                          parsed={parsed}
+                          onTogglePin={() => toggleToolPinned(tp.toolInvocationId)}
+                        />
+                      );
+                    }
+                  }
+
                   return (
                     <ArcadiaToolResultCard
                       key={`${message.id}-${i}-tool-result`}
@@ -428,7 +520,7 @@ function messagePartsIndicateStreaming(parts: MessageParts): boolean {
   for (const part of parts) {
     if (part.type === "reasoning" && part.state === "streaming") return true;
     if (part.type === "text" && part.state === "streaming") return true;
-    if (isToolOrDynamicToolUIPart(part)) {
+    if (isToolUIPart(part)) {
       if (part.state === "input-streaming" || part.state === "input-available") return true;
       continue;
     }
@@ -448,7 +540,7 @@ function partListHasStreamingReasoning(parts: MessageParts): boolean {
 /** True when the message already has inline tool UI (loading or result). */
 function partListHasToolUIPart(parts: MessageParts): boolean {
   return parts.some(
-    (part) => isToolOrDynamicToolUIPart(part) || getLegacyToolInvocationPart(part) !== null
+    (part) => isToolUIPart(part) || getLegacyToolInvocationPart(part) !== null
   );
 }
 
@@ -456,7 +548,7 @@ function partListHasMemorySearchToolPart(parts: MessageParts): boolean {
   const names = new Set(["search_memories", "memory_search"]);
 
   return parts.some((part) => {
-    if (isToolOrDynamicToolUIPart(part)) {
+    if (isToolUIPart(part)) {
       return names.has(getToolOrDynamicToolName(part).toLowerCase());
     }
 
@@ -468,7 +560,7 @@ function partListHasMemorySearchToolPart(parts: MessageParts): boolean {
 
 function partListHasInFlightWebSearch(parts: MessageParts): boolean {
   return parts.some((part) => {
-    if (isToolOrDynamicToolUIPart(part)) {
+    if (isToolUIPart(part)) {
       const inFlight = part.state === "input-streaming" || part.state === "input-available";
 
       return inFlight && getToolOrDynamicToolName(part).toLowerCase() === "web_search";
@@ -518,6 +610,17 @@ function shouldShowTailAiAction(
 
 const KNOWN_TOOL_IN_FLIGHT_LABELS: Record<string, string> = {
   render_gen_ui: "Structuring response…",
+  research_capabilities: "Checking research access…",
+  research_search: "Finding research sources…",
+  research_read: "Reading sources…",
+  research_scrape: "Capturing source material…",
+  research_map: "Exploring site pages…",
+  research_crawl: "Collecting site pages…",
+  research_parse_document: "Reading document pages…",
+  research_source: "Reading captured text…",
+  research_record_claim: "Linking findings to evidence…",
+  research_audit: "Reviewing evidence…",
+  research_publish: "Preparing research report…",
   gather_restaurant: "Looking up restaurant…",
   kanban_board: "Updating board…",
   manage_tasks: "Updating tasks…",
@@ -530,6 +633,9 @@ const KNOWN_TOOL_IN_FLIGHT_LABELS: Record<string, string> = {
   get_full_chat_history: "Getting full chat history...",
   get_more_chat_history: "Getting more chat history...",
   get_messages_from_date: "Getting chat history for that date...",
+  read_subagent_thread: "Reading a subagent's thread...",
+  worktable: "Updating the worktable...",
+  dispatch_subagent: "Briefing a subagent...",
 };
 
 function toolInvocationInFlightLabel(toolName: string): string {

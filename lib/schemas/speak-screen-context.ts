@@ -4,9 +4,10 @@ import { z } from "zod";
  * What the user currently has open, as the client reports it.
  *
  * Deliberately a *descriptor*, not the content: surfaces register an id and the server assembles
- * the body from canonical sources (thread summary, compiled Strata doc, rabbit-hole graph). That
- * keeps decryption, ownership checks, and the token budget on the server, and keeps the payload
- * the client sends to a few dozen bytes.
+ * the body from canonical sources (a chat's title, latest messages and summary; the compiled Strata
+ * doc; the open rabbit-hole node and map). That keeps decryption, ownership checks, and the token
+ * budget on the server, and keeps the payload the client sends to a few dozen bytes. `revision` and
+ * `activeNodePending` carry no content either — they exist only to change the key.
  *
  * Client-safe: `useVoiceScreenContext` builds it, `/api/ai/speak/realtime/context` validates it.
  */

@@ -12,6 +12,7 @@ import {
 import { usePathname } from "next/navigation";
 
 import { glass } from "@/components/design-system/primitives";
+import { strataWorkspaceChrome } from "@/lib/strata/workspace-layout";
 import { cn } from "@/lib/utils";
 
 const STRATA_PATH_PREFIX = "/sandbox/prototypes/strata";
@@ -58,6 +59,8 @@ export function StrataAssistantOpenHint() {
 
 /**
  * Strata-wide layout: main column + optional right assistant (Cmd+Opt+B / Ctrl+Alt+B).
+ * Below `lg` the assistant overlays as a full-viewport sheet so the browser stays
+ * full-width; from `lg` up it docks beside the main column.
  * Keyboard listener only applies under `/sandbox/prototypes/strata`.
  */
 export function StrataWorkspace({
@@ -98,16 +101,11 @@ export function StrataWorkspace({
 
   return (
     <StrataAgentUiContext.Provider value={value}>
-      <div className="flex h-full min-h-0 w-full flex-1 flex-col md:flex-row">
-        <div className="flex min-h-0 min-w-0 flex-1 flex-col">{children}</div>
+      <div className={strataWorkspaceChrome.root}>
+        <div className={strataWorkspaceChrome.main}>{children}</div>
         {open ? (
-          <aside
-            className={cn(
-              glass({ opaque: true }),
-              "flex h-full min-h-0 w-full shrink-0 flex-col border-border/60 md:w-[min(26rem,100%)] md:border-l"
-            )}
-          >
-            <div className="flex shrink-0 items-center justify-between gap-2 border-b border-border/50 px-3 py-2">
+          <aside className={cn(glass({ opaque: true }), strataWorkspaceChrome.aside)}>
+            <div className={strataWorkspaceChrome.asideHeader}>
               <div className="min-w-0 flex-1 text-left">
                 <span className="block text-2xs font-medium uppercase tracking-[0.2em] text-muted-foreground">
                   Assistant
@@ -124,7 +122,7 @@ export function StrataWorkspace({
                 Close
               </button>
             </div>
-            <div className="min-h-0 flex-1 overflow-hidden">{agentPanel}</div>
+            <div className={strataWorkspaceChrome.asideBody}>{agentPanel}</div>
           </aside>
         ) : null}
       </div>

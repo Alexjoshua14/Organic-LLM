@@ -37,6 +37,7 @@ export default function SandboxPage() {
                   "p-5 flex flex-col justify-between"
                 )}
                 href={page.href}
+                prefetch={page.href === "/sandbox/arcadia" ? false : undefined}
               >
                 <div>
                   <div className="mb-2 flex flex-wrap items-center gap-2">

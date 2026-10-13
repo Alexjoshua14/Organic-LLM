@@ -1,5 +1,7 @@
 "use server";
 
+import { createAuthenticatedLlmBudgetHooks, budgetModelId } from "@/lib/plans/llm-budget-hooks";
+
 import type { RabbitHoleBranchSuggestion } from "@/lib/schemas/rabbitHoleSchemas";
 import type { PipelineTrace } from "./trace";
 
@@ -136,8 +138,12 @@ export async function runQuestionRefinementScenario(params: {
 
   try {
     const { text, usage } = await generateText({
+      ...(await createAuthenticatedLlmBudgetHooks({
+        modelId: budgetModelId(openai(providerModelSlug(models.openai.luna.id))),
+        operation: "sandbox/pipelines/rabbit-holes",
+      })),
       model: openai(providerModelSlug(models.openai.luna.id)),
-      system: REFINE_QUESTION_SYSTEM_PROMPT,
+      instructions: REFINE_QUESTION_SYSTEM_PROMPT,
       prompt,
       maxOutputTokens: GUARDRAIL_MAX_OUTPUT_TOKENS,
     });

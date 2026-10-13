@@ -9,6 +9,7 @@ import { render } from "../helpers/render";
 const mockRouterPush = mock(() => {});
 const mockSetChatId = mock(() => {});
 const mockRefreshSidebarChats = mock(() => {});
+const mockUpdateSidebarChat = mock((_id: string, _patch: unknown) => {});
 const mockSetOpenMobile = mock(() => {});
 const mockUpdateChatTitle = mock(async () => ({ ok: true, error: null }));
 const mockUpdateChatPinned = mock(async () => ({ ok: true, error: null }));
@@ -180,6 +181,7 @@ describe("SidebarChatList", () => {
     mockRouterPush.mockReset();
     mockSetChatId.mockReset();
     mockRefreshSidebarChats.mockReset();
+    mockUpdateSidebarChat.mockReset();
     mockSetOpenMobile.mockReset();
     mockUpdateChatTitle.mockReset();
     mockUpdateChatPinned.mockReset();
@@ -207,6 +209,7 @@ describe("SidebarChatList", () => {
             isSidebarChatsLoading: false,
             sidebarChatsError: null,
             refreshSidebarChats: mockRefreshSidebarChats,
+            updateSidebarChat: mockUpdateSidebarChat,
           } as ChatContextValue
         }
       >
@@ -226,9 +229,20 @@ describe("SidebarChatList", () => {
     expect(mockRouterPush).toHaveBeenCalledWith("/chat/thread-1");
   });
 
-  test("renames a thread and refreshes the sidebar list", async () => {
+  test("mounts a row's actions menu only once its trigger is pointed at", () => {
     const view = renderList();
 
+    expect(view.queryByText("Edit title")).toBeNull();
+
+    fireEvent.pointerEnter(view.getByLabelText("Thread options"));
+
+    expect(view.getByText("Edit title")).toBeDefined();
+  });
+
+  test("renames a thread and patches the cached title without a refetch", async () => {
+    const view = renderList();
+
+    fireEvent.pointerEnter(view.getByLabelText("Thread options"));
     fireEvent.click(view.getByText("Edit title"));
     fireEvent.click(await view.findByText("Save edited title"));
 
@@ -238,18 +252,34 @@ describe("SidebarChatList", () => {
         "Renamed Thread",
       );
     });
-    expect(mockRefreshSidebarChats).toHaveBeenCalled();
+    expect(mockUpdateSidebarChat).toHaveBeenCalledWith("thread-1", { title: "Renamed Thread" });
+    expect(mockRefreshSidebarChats).not.toHaveBeenCalled();
   });
 
-  test("toggles pin state and refreshes on success", async () => {
+  test("toggles pin state and patches the cache on success", async () => {
     const view = renderList();
 
+    fireEvent.pointerEnter(view.getByLabelText("Thread options"));
     fireEvent.click(view.getByText("Pin"));
 
     await waitFor(() => {
       expect(mockUpdateChatPinned).toHaveBeenCalledWith("thread-1", true);
     });
-    expect(mockRefreshSidebarChats).toHaveBeenCalled();
+    expect(mockUpdateSidebarChat).toHaveBeenCalledWith("thread-1", { pinned: true });
+    expect(mockRefreshSidebarChats).not.toHaveBeenCalled();
+  });
+
+  test("leaves the cache alone when pinning fails", async () => {
+    mockUpdateChatPinned.mockResolvedValueOnce({ ok: false, error: new Error("nope") } as never);
+    const view = renderList();
+
+    fireEvent.pointerEnter(view.getByLabelText("Thread options"));
+    fireEvent.click(view.getByText("Pin"));
+
+    await waitFor(() => {
+      expect(mockUpdateChatPinned).toHaveBeenCalled();
+    });
+    expect(mockUpdateSidebarChat).not.toHaveBeenCalled();
   });
 
   test("ignores the first title click immediately after a mobile long press", async () => {

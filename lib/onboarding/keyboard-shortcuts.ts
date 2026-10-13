@@ -99,6 +99,22 @@ export const KEYBOARD_SHORTCUTS: KeyboardShortcutDefinition[] = [
     scope: "chat",
     enabled: true,
   },
+  {
+    id: "arcadia-multiagent-chat",
+    keys: ["Ctrl", "Q"],
+    label: "Show or hide multiagent chat",
+    hint: "In Arcadia Multiagent mode",
+    scope: "chat",
+    enabled: true,
+  },
+  {
+    id: "arcadia-multiagent-board",
+    keys: ["Ctrl", "W"],
+    label: "Show or hide the agent board",
+    hint: "In Arcadia Multiagent mode",
+    scope: "chat",
+    enabled: true,
+  },
 ];
 
 export function getEnabledKeyboardShortcuts(): KeyboardShortcutDefinition[] {

@@ -1,3 +1,4 @@
+import { createLlmBudgetHooks } from "@/lib/plans/llm-budget-hooks";
 import type { ExaSearchResultSource } from "../exa/types";
 import type { MermaidDiagramDensity } from "@/lib/mermaid/types";
 
@@ -18,6 +19,10 @@ import { wrapWebSearchResultsForModel } from "@/lib/security/external-content";
 import { estimateTokenCount } from "@/lib/llm/chat-helpers";
 import { searchMemoriesWithL1Cache } from "@/lib/memory/memory-search-cache";
 import {
+  formatActivatedMemoriesBlock,
+  readActivatedMemories,
+} from "@/lib/memory/activated-thread-memories";
+import {
   ARCADIA_MEMORY_MIN_SCORE,
   MEMORY_TOOL_OVERFETCH_CAP,
   MEMORY_TOOL_OVERFETCH_MIN,
@@ -27,9 +32,18 @@ import {
 } from "@/lib/memory/memory-relevance";
 import {
   GetMoreMessagesToolSchema,
+  ListRecentMemoriesToolSchema,
   SearchMemoryToolSchema,
   clampHistoryMessageLimit,
 } from "@/lib/llm/chat-tool-schemas";
+import { getMemoriesForUser } from "@/lib/memory/operations";
+import {
+  filterMemoriesSince,
+  LIST_RECENT_MEMORIES_MAX,
+  memoryActivityAt,
+  recentMemoryWindowSinceMs,
+  type RecentMemoryWindow,
+} from "@/lib/memory/recent-memories";
 import { ChatAIActionEnum } from "@/types/ai";
 import {
   MERMAID_DIAGRAM_FIX_SYSTEM_PROMPT,
@@ -61,8 +75,10 @@ function formatMessagesForContext(messages: UIMessage[]): string {
         .filter((p): p is { type: "text"; text: string } => p.type === "text")
         .map((p) => p.text)
         .join("");
+      const memoryBlock = formatActivatedMemoriesBlock(readActivatedMemories(m));
+      const body = [text.trim(), memoryBlock].filter(Boolean).join("\n\n");
 
-      return `[${m.role}]: ${text.trim() || "(no text)"}`;
+      return `[${m.role}]: ${body || "(no text)"}`;
     })
     .join("\n\n");
 }
@@ -237,6 +253,88 @@ export function createMemorySearchTool(
           error: error instanceof Error ? error.message : "Unknown error",
           memories: [],
           count: 0,
+        };
+      }
+    },
+  });
+}
+
+/**
+ * AI SDK tool: **`list_recent_memories`** — wall-clock list of memories created/updated
+ * in the last hour or day. Arcadia-only registration; not a substitute for semantic
+ * {@link createMemorySearchTool}.
+ *
+ * Mem0 has no server-side `since` filter in this app — we getAll (rate-limited) then
+ * filter on `createdAt` / `updatedAt` and cap the return set.
+ */
+export function createListRecentMemoriesTool(userId: string, writer?: WebSearchStreamWriter) {
+  return tool({
+    description:
+      "List memories that were newly created or updated in the recent past (last hour or last day). Use when the user asks what is new, what changed recently, or wants a digest of recent memory activity — not for topical recall (use search_memories for that).",
+    inputSchema: ListRecentMemoriesToolSchema,
+    execute: async ({ window }) => {
+      const windowKey = (
+        window === "hour" || window === "day" ? window : "day"
+      ) as RecentMemoryWindow;
+      const sinceMs = recentMemoryWindowSinceMs(windowKey);
+      const sinceIso = new Date(sinceMs).toISOString();
+
+      logger.log("createListRecentMemoriesTool", `window=${windowKey} since=${sinceIso}`);
+
+      if (writer) {
+        writer.write({
+          type: "data-aiAction",
+          data: { action: ChatAIActionEnum.Memory, query: `recent:${windowKey}` },
+          transient: true,
+        });
+      }
+
+      try {
+        const listResult = await getMemoriesForUser(userId);
+
+        if (listResult.error || !listResult.data) {
+          return {
+            success: false,
+            window: windowKey,
+            since: sinceIso,
+            error: listResult.error ?? "Failed to list memories",
+            memories: [],
+            count: 0,
+            truncated: false,
+          };
+        }
+
+        const all = listResult.data.results ?? [];
+        const matchingCount = all.filter((m) => {
+          const at = memoryActivityAt(m);
+
+          return at != null && at >= sinceMs;
+        }).length;
+        const filtered = filterMemoriesSince(all, sinceMs, LIST_RECENT_MEMORIES_MAX);
+        const truncated = matchingCount > filtered.length;
+
+        return {
+          success: true,
+          window: windowKey,
+          since: sinceIso,
+          memories: filtered.map((m) => ({
+            id: m.id,
+            memory: m.memory,
+            createdAt: m.createdAt ?? null,
+            updatedAt: m.updatedAt ?? null,
+          })),
+          count: filtered.length,
+          truncated,
+        };
+      } catch (error) {
+        return {
+          success: false,
+          window: windowKey,
+          since: sinceIso,
+          error: error instanceof Error ? error.message : "Unknown error",
+          memories: [],
+          count: 0,
+          truncated: false,
         };
       }
     },
@@ -642,6 +740,7 @@ const MermaidDiagramToolSchema = z.object({
  * validate both independently, and enforce shared node IDs across them.
  */
 export function createMermaidDiagramTool(options?: {
+  ownerId?: string;
   generatorModelId?: GatewayModelId;
   writer?: WebSearchStreamWriter;
 }) {
@@ -695,9 +794,16 @@ export function createMermaidDiagramTool(options?: {
 
         const system = attempt === 0 ? generatorSystem : fixSystem;
 
+        if (!options?.ownerId)
+          throw new Error("Diagram generation requires an authenticated owner");
         const gen = await generateText({
+          ...createLlmBudgetHooks({
+            ownerId: options.ownerId,
+            modelId: generatorModelId,
+            operation: "mermaid-diagram",
+          }),
           model: generatorModelId,
-          system,
+          instructions: system,
           prompt: genOrFixPrompt,
           maxOutputTokens: MERMAID_GENERATOR_MAX_OUTPUT_TOKENS,
         });

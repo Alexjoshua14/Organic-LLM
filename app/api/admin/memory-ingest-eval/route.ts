@@ -12,6 +12,7 @@ import {
   MEMORY_INGEST_GOLDEN_CASES,
   getMemoryIngestGoldenCase,
 } from "@/test-data/memory-ingest-golden";
+import { requirePlanBudget } from "@/lib/api/plan-budget-gate";
 
 export const maxDuration = 120;
 
@@ -36,6 +37,13 @@ export async function POST(req: Request) {
   if (!admin) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
+
+  const planGate = await requirePlanBudget({
+    clerkUserId: admin.clerkUserId,
+    sbUserId: admin.sbUserId,
+  });
+
+  if (planGate) return planGate;
 
   let body: z.infer<typeof BodySchema> = {};
 

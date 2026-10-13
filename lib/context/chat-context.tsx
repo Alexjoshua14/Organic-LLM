@@ -11,10 +11,23 @@ import React, {
   useState,
 } from "react";
 import { Chat } from "@ai-sdk/react";
-import useSWR from "swr";
+import useSWRInfinite from "swr/infinite";
 import { DefaultChatTransport, UIMessage } from "ai";
 
 import { ThreadLink } from "@/types";
+import {
+  isFirstSidebarPageKey,
+  mergeSidebarPages,
+  patchSidebarPages,
+  removeFromSidebarPages,
+  sidebarPageKey,
+  toThreadLink,
+  type SidebarThreadPatch,
+  type SidebarThreadScope,
+  type SidebarThreadsPage,
+} from "@/lib/chat/sidebar-threads";
+import { getSettings } from "@/lib/user-settings";
+import { useClerkUserId } from "@/lib/auth/use-clerk-user-id";
 import { PERF_PHASES } from "@/lib/perf/journeys";
 import { mark } from "@/lib/perf/trace-store";
 import {
@@ -27,30 +40,14 @@ import {
 } from "@/lib/chat/title-regen-store";
 
 /**
- * SWR key for the sidebar chat list; shared so mutate(key) revalidates everywhere.
- * See docs/thread-session-architecture.md for client cache contract and when to refresh.
+ * Cache key for one page: the URL plus the Clerk user, so each account gets its own
+ * cache and signing in starts a fetch at once. The server ignores the user part; it
+ * reads the session.
  */
-const SIDEBAR_CHATS_KEY = "/api/chats";
+type SidebarPageKey = readonly [url: string, userId: string];
 
-/** API response shape from GET /api/chats */
-interface ChatsApiResponse {
-  data?: Array<{
-    id: string;
-    title: string | null;
-    owner_id?: string;
-    created_at: string;
-    updated_at: string;
-    pinned?: boolean;
-    feature?: string | null;
-    path?: string | null;
-  }>;
-}
-
-/**
- * Fetcher for SWR: returns raw API response. Normalization to ThreadLink[]
- * happens in the provider so consumers receive a stable shape.
- */
-async function sidebarChatsFetcher(url: string): Promise<ChatsApiResponse> {
+/** Fetcher for one sidebar page. Errors carry the HTTP status for callers. */
+async function sidebarPageFetcher([url]: SidebarPageKey): Promise<SidebarThreadsPage> {
   const res = await fetch(url);
 
   if (!res.ok) {
@@ -63,27 +60,28 @@ async function sidebarChatsFetcher(url: string): Promise<ChatsApiResponse> {
   return res.json();
 }
 
-/**
- * Maps API thread rows to the ThreadLink shape used by the sidebar.
- */
-function normalizeToThreadLinks(rows: ChatsApiResponse["data"]): ThreadLink[] {
-  if (!rows || !Array.isArray(rows)) return [];
+/** Coalescence mode lists every feature; it is the sidebar scope, so it is part of the key. */
+function useSidebarScope(): SidebarThreadScope {
+  // Read on first client render so coalescence mode does not fetch `main` first. The
+  // scope only shapes the SWR key, and nothing is fetched during SSR.
+  const [scope, setScope] = useState<SidebarThreadScope>(() =>
+    typeof window !== "undefined" && getSettings().coalescenceMode ? "all" : "main"
+  );
 
-  return rows.map((thread) => {
-    const feature = thread.feature ?? undefined;
-    const href =
-      thread.path && String(thread.path).trim() !== "" ? String(thread.path) : `/chat/${thread.id}`;
+  useEffect(() => {
+    const update = () => setScope(getSettings().coalescenceMode ? "all" : "main");
 
-    return {
-      title: thread.title ?? "Unknown title",
-      id: thread.id,
-      pinned: thread.pinned ?? false,
-      date: new Date(thread.updated_at).toISOString(),
-      href,
-      feature,
-      hasNoTitle: thread.title == null || String(thread.title).trim() === "",
+    update();
+    window.addEventListener("organic-llm-settings", update);
+    window.addEventListener("storage", update);
+
+    return () => {
+      window.removeEventListener("organic-llm-settings", update);
+      window.removeEventListener("storage", update);
     };
-  });
+  }, []);
+
+  return scope;
 }
 
 export interface ChatContextValue {
@@ -91,12 +89,29 @@ export interface ChatContextValue {
   clearChat: () => void;
   setChatId: (chatId: string) => void;
   chatId: string;
-  /** Sidebar chat list; owned here so it can start fetching on app mount, independent of sidebar visibility. */
+  /**
+   * Loaded sidebar threads (pinned first, then newest unpinned), already filtered to the
+   * current scope. Owned here so it can start fetching on app mount, independent of
+   * sidebar visibility. Older threads arrive page by page via `loadMoreSidebarChats`.
+   */
   sidebarChats: ThreadLink[];
+  sidebarPinnedChats: ThreadLink[];
+  sidebarUnpinnedChats: ThreadLink[];
   isSidebarChatsLoading: boolean;
+  isSidebarChatsLoadingMore: boolean;
+  hasMoreSidebarChats: boolean;
   sidebarChatsError: Error | null;
-  /** Revalidates the sidebar chat list (replaces legacy window.refreshSidebar). */
-  refreshSidebarChats: () => void;
+  loadMoreSidebarChats: () => void;
+  /**
+   * Revalidate after a change the client cannot describe (create, new activity).
+   * Refetches the first page only, where new and bumped threads land. Pass
+   * `{ allPages: true }` after changing threads that may sit in older pages.
+   */
+  refreshSidebarChats: (options?: { allPages?: boolean }) => void;
+  /** Apply a change the server already confirmed (rename, pin) without refetching. */
+  updateSidebarChat: (id: string, patch: SidebarThreadPatch) => void;
+  /** Drop a thread the server already deleted, without refetching. */
+  removeSidebarChat: (id: string) => void;
   /**
    * Kept for existing callers. Live checks use `isTitleRegenerating` or
    * `useTitleRegenSession`, which do not re-render the chat tree.
@@ -132,73 +147,173 @@ function createChat() {
   });
 }
 
-/** SWR options: conservative for a private sidebar list — no focus revalidation, dedupe 10s. */
+/**
+ * SWR's own focus/reconnect revalidation is off: with `revalidateFirstPage` it also
+ * refetches page one before every older page, doubling the cost of each scroll. The
+ * provider revalidates the first page itself on focus and reconnect instead.
+ */
 const sidebarChatsSwrOptions = {
-  revalidateOnReconnect: true,
+  revalidateOnReconnect: false,
   revalidateOnFocus: false,
   dedupingInterval: 10_000,
+  revalidateFirstPage: false,
+  revalidateAll: false,
+  // A 401/403/429 will not fix itself on a timer; the user key or focus refetches instead.
+  onErrorRetry: (
+    error: Error & { status?: number },
+    _key: unknown,
+    _config: unknown,
+    revalidate: (opts: { retryCount: number }) => void,
+    { retryCount }: { retryCount: number }
+  ) => {
+    if (error.status === 401 || error.status === 403 || error.status === 429) return;
+    if (retryCount >= SIDEBAR_ERROR_RETRY_MAX) return;
+    setTimeout(() => revalidate({ retryCount }), SIDEBAR_ERROR_RETRY_BASE_MS * 2 ** retryCount);
+  },
 } as const;
 
 const EMPTY_TITLE_REGEN_IDS: ReadonlySet<string> = new Set();
+
+const SIDEBAR_ERROR_RETRY_MAX = 3;
+const SIDEBAR_ERROR_RETRY_BASE_MS = 2_000;
+
+/** Focus refetches the first page at most this often, to catch other tabs and devices. */
+const SIDEBAR_FOCUS_REVALIDATE_MS = 60_000;
 
 export function ChatProvider({ children }: { children: ReactNode }) {
   const [chat, setChat] = useState(() => createChat());
   const [chatId, setChatId] = useState<string>("");
   const sidebarLoadedMarkedRef = useRef(false);
 
-  const {
-    data: chatsResponse,
-    error: sidebarChatsError,
-    isLoading: isSidebarChatsLoading,
-    mutate: mutateSidebarChats,
-  } = useSWR<ChatsApiResponse>(SIDEBAR_CHATS_KEY, sidebarChatsFetcher, {
-    ...sidebarChatsSwrOptions,
-    onSuccess: () => {
-      if (sidebarLoadedMarkedRef.current) return;
-      sidebarLoadedMarkedRef.current = true;
-      mark(PERF_PHASES.sidebarChatsLoaded);
-    },
-  });
+  const scope = useSidebarScope();
+  const { isLoaded: isAuthLoaded, userId } = useClerkUserId();
 
-  const sidebarChats = useMemo(
-    () => normalizeToThreadLinks(chatsResponse?.data),
-    [chatsResponse?.data]
+  const {
+    data: sidebarPages,
+    error: sidebarChatsError,
+    size: sidebarPageCount,
+    setSize: setSidebarPageCount,
+    mutate: mutateSidebarPages,
+  } = useSWRInfinite<SidebarThreadsPage, Error & { status?: number }>(
+    (index, previous: SidebarThreadsPage | null): SidebarPageKey | null => {
+      // No request until Clerk knows the user: nothing to show signed out, and a 401
+      // here used to stick until a retry timer fired after sign-in.
+      if (!userId) return null;
+
+      const url = sidebarPageKey(scope, index, previous);
+
+      return url ? [url, userId] : null;
+    },
+    sidebarPageFetcher,
+    {
+      ...sidebarChatsSwrOptions,
+      onSuccess: () => {
+        if (sidebarLoadedMarkedRef.current) return;
+        sidebarLoadedMarkedRef.current = true;
+        mark(PERF_PHASES.sidebarChatsLoaded);
+      },
+    }
+  );
+
+  const { sidebarPinnedChats, sidebarUnpinnedChats, sidebarChats } = useMemo(() => {
+    const { pinned, unpinned } = mergeSidebarPages(sidebarPages);
+    const pinnedLinks = pinned.map(toThreadLink);
+    const unpinnedLinks = unpinned.map(toThreadLink);
+
+    return {
+      sidebarPinnedChats: pinnedLinks,
+      sidebarUnpinnedChats: unpinnedLinks,
+      sidebarChats: [...pinnedLinks, ...unpinnedLinks],
+    };
+  }, [sidebarPages]);
+
+  // Loading covers "Clerk not resolved yet" too, so the sidebar shows a skeleton rather
+  // than an empty list between sign-in and the first page.
+  const isSidebarChatsLoading =
+    !sidebarChatsError && sidebarPages === undefined && (!isAuthLoaded || userId !== null);
+
+  const lastPage = sidebarPages?.at(-1);
+  const hasMoreSidebarChats = Boolean(lastPage?.nextCursor);
+  const isSidebarChatsLoadingMore =
+    !sidebarChatsError &&
+    sidebarPages !== undefined &&
+    sidebarPages[sidebarPageCount - 1] === undefined;
+
+  const loadMoreSidebarChats = useCallback(() => {
+    if (!hasMoreSidebarChats || isSidebarChatsLoadingMore) return;
+    void setSidebarPageCount((count) => count + 1);
+  }, [hasMoreSidebarChats, isSidebarChatsLoadingMore, setSidebarPageCount]);
+
+  const refreshSidebarChats = useCallback(
+    (options?: { allPages?: boolean }) => {
+      if (options?.allPages) {
+        void mutateSidebarPages();
+
+        return;
+      }
+      // Keep loaded rows visible during refresh. Passing undefined would clear the
+      // aggregate cache and replace them with skeletons until the request completes.
+      // A page whose cursor moved has no cache yet, so it loads too.
+      void mutateSidebarPages((pages) => pages, {
+        revalidate: (page, key) => page === undefined || isFirstSidebarPageKey(key),
+      });
+    },
+    [mutateSidebarPages]
+  );
+
+  const lastFocusRefreshRef = useRef(Date.now());
+
+  useEffect(() => {
+    const onFocus = () => {
+      if (document.visibilityState === "hidden") return;
+      if (Date.now() - lastFocusRefreshRef.current < SIDEBAR_FOCUS_REVALIDATE_MS) return;
+      lastFocusRefreshRef.current = Date.now();
+      refreshSidebarChats();
+    };
+    const onOnline = () => refreshSidebarChats();
+
+    window.addEventListener("focus", onFocus);
+    document.addEventListener("visibilitychange", onFocus);
+    window.addEventListener("online", onOnline);
+
+    return () => {
+      window.removeEventListener("focus", onFocus);
+      document.removeEventListener("visibilitychange", onFocus);
+      window.removeEventListener("online", onOnline);
+    };
+  }, [refreshSidebarChats]);
+
+  const updateSidebarChat = useCallback(
+    (id: string, patch: SidebarThreadPatch) => {
+      void mutateSidebarPages((pages) => patchSidebarPages(pages, id, patch), {
+        revalidate: false,
+      });
+    },
+    [mutateSidebarPages]
+  );
+
+  const removeSidebarChat = useCallback(
+    (id: string) => {
+      void mutateSidebarPages((pages) => removeFromSidebarPages(pages, id), {
+        revalidate: false,
+      });
+    },
+    [mutateSidebarPages]
   );
 
   useEffect(() => {
     bindTitleRegenFinish((threadId, nextTitle) => {
       if (!nextTitle) {
-        void mutateSidebarChats();
+        refreshSidebarChats();
 
         return;
       }
 
-      void mutateSidebarChats(
-        (current) => {
-          if (!current?.data) return current;
-
-          return {
-            ...current,
-            data: current.data.map((row) =>
-              row.id === threadId
-                ? {
-                    ...row,
-                    title: nextTitle,
-                  }
-                : row
-            ),
-          };
-        },
-        { revalidate: true }
-      );
+      updateSidebarChat(threadId, { title: nextTitle });
     });
 
     return () => bindTitleRegenFinish(() => {});
-  }, [mutateSidebarChats]);
-
-  const refreshSidebarChats = useCallback(() => {
-    void mutateSidebarChats();
-  }, [mutateSidebarChats]);
+  }, [refreshSidebarChats, updateSidebarChat]);
 
   const isTitleRegenerating = useCallback((threadId: string) => hasTitleRegen(threadId), []);
 
@@ -238,8 +353,13 @@ export function ChatProvider({ children }: { children: ReactNode }) {
       setChatId,
       chatId,
       sidebarChats,
+      sidebarPinnedChats,
+      sidebarUnpinnedChats,
       isSidebarChatsLoading,
+      isSidebarChatsLoadingMore,
+      hasMoreSidebarChats,
       sidebarChatsError: sidebarChatsError ?? null,
+      loadMoreSidebarChats,
       refreshSidebarChats,
       titleRegenThreadIds: EMPTY_TITLE_REGEN_IDS,
       isTitleRegenerating,
@@ -248,14 +368,23 @@ export function ChatProvider({ children }: { children: ReactNode }) {
       resolveTitleRegen,
       isTitleRegenReadyToCommit,
       finishTitleRegen,
+      updateSidebarChat,
+      removeSidebarChat,
     }),
     [
       chat,
       chatId,
       sidebarChats,
+      sidebarPinnedChats,
+      sidebarUnpinnedChats,
       isSidebarChatsLoading,
+      isSidebarChatsLoadingMore,
+      hasMoreSidebarChats,
       sidebarChatsError,
+      loadMoreSidebarChats,
       refreshSidebarChats,
+      updateSidebarChat,
+      removeSidebarChat,
       isTitleRegenerating,
       getTitleRegenBurnText,
       beginTitleRegen,

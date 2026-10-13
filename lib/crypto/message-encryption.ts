@@ -23,7 +23,11 @@ export type EncryptionFieldName =
   | "strata_sections.ai_instructions"
   | "memory.cache.semantic_search"
   | "threads.introspection_config"
-  | "threads.introspection_guided_state";
+  | "threads.introspection_guided_state"
+  | "threads.subagent_heartbeat_baseline"
+  | "threads.subagent_worktable"
+  | "threads.research_ledger"
+  | "research_ledgers.payload";
 
 export type EncryptionContext = {
   userId: string;

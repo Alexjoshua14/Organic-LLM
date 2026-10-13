@@ -1,13 +1,22 @@
 "use client";
 
 import { scan, setOptions } from "react-scan";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
+
+import { MORPH_DEMO_HUD_SIDE_MIN_WIDTH_PX } from "../_lib/morph-demo-layout";
 
 const SCAN_SAFE_AREA_BASE = {
   bottom: 96,
   left: 16,
   top: 72,
 } as const;
+
+/** Keep Scan clear of the side HUD on wide viewports; narrow uses a top sheet. */
+function scanSafeRight(debugPanelExpanded: boolean, sideDock: boolean): number {
+  if (!sideDock) return 16;
+
+  return debugPanelExpanded ? 300 : 52;
+}
 
 type MorphDemoReactScanProps = {
   /** When false, HUD is docked narrow — free top-right for the Scan toolbar. */
@@ -20,6 +29,20 @@ type MorphDemoReactScanProps = {
  * and bottom morph button.
  */
 export function MorphDemoReactScan({ debugPanelExpanded = true }: MorphDemoReactScanProps) {
+  const [sideDock, setSideDock] = useState(false);
+
+  useEffect(() => {
+    const mql = window.matchMedia(`(min-width: ${MORPH_DEMO_HUD_SIDE_MIN_WIDTH_PX}px)`);
+    const sync = () => {
+      setSideDock(mql.matches);
+    };
+
+    sync();
+    mql.addEventListener("change", sync);
+
+    return () => mql.removeEventListener("change", sync);
+  }, []);
+
   useEffect(() => {
     if (process.env.NODE_ENV !== "development") return;
 
@@ -31,7 +54,7 @@ export function MorphDemoReactScan({ debugPanelExpanded = true }: MorphDemoReact
       showToolbar: true,
       safeArea: {
         ...SCAN_SAFE_AREA_BASE,
-        right: 300,
+        right: scanSafeRight(debugPanelExpanded, sideDock),
       },
     });
 
@@ -46,10 +69,10 @@ export function MorphDemoReactScan({ debugPanelExpanded = true }: MorphDemoReact
     setOptions({
       safeArea: {
         ...SCAN_SAFE_AREA_BASE,
-        right: debugPanelExpanded ? 300 : 52,
+        right: scanSafeRight(debugPanelExpanded, sideDock),
       },
     });
-  }, [debugPanelExpanded]);
+  }, [debugPanelExpanded, sideDock]);
 
   return null;
 }

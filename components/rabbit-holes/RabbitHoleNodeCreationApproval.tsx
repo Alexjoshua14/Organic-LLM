@@ -4,7 +4,7 @@ import type { UIMessage } from "ai";
 import type { useChat } from "@ai-sdk/react";
 import type { RabbitHoleSession } from "@/lib/schemas/rabbitHoleSchemas";
 
-import { getToolOrDynamicToolName, isToolOrDynamicToolUIPart } from "ai";
+import { getToolOrDynamicToolName, isToolUIPart } from "ai";
 
 import { glass } from "@/components/design-system/primitives";
 import { GENERATE_RABBIT_HOLE_NODE_TOOL_NAME } from "@/lib/llm/rabbit-hole-assistant-tools";
@@ -30,7 +30,7 @@ function findPendingNodeCreation(messages: UIMessage[]): PendingApproval | null 
     if (message.role !== "assistant") continue;
 
     for (const part of message.parts ?? []) {
-      if (!isToolOrDynamicToolUIPart(part)) continue;
+      if (!isToolUIPart(part)) continue;
       if (getToolOrDynamicToolName(part) !== GENERATE_RABBIT_HOLE_NODE_TOOL_NAME) continue;
 
       const state = part.state as string;

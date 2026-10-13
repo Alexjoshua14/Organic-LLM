@@ -94,6 +94,72 @@ export async function upsertMessagesWithAdmin(params: {
 }
 
 /**
+ * Replaces one message using the admin client. Caller must pass the authenticated ownerId.
+ * Used when a queued turn stamps activated memories after the user JWT may have expired.
+ */
+export async function updateMessageWithAdmin(params: {
+  chatId: string;
+  message: UIMessage;
+  ownerId: string;
+}): Promise<SimpleResult> {
+  const { chatId, message, ownerId } = params;
+
+  if (!message.id) {
+    return { ok: false, error: new Error("Message id required") };
+  }
+
+  const sb = supabaseAdmin;
+  const { data: thread, error: threadError } = await sb
+    .from("threads")
+    .select("id, owner_id")
+    .eq("id", chatId)
+    .single();
+
+  if (threadError || !thread) {
+    return {
+      ok: false,
+      error: new Error(threadError?.message ?? "Thread not found"),
+    };
+  }
+
+  if (thread.owner_id !== ownerId) {
+    return {
+      ok: false,
+      error: new Error("Thread owner does not match"),
+    };
+  }
+
+  const supabaseMessage = convertUIMessageToMessage(message, chatId);
+
+  if (!supabaseMessage) {
+    return { ok: false, error: new Error("Invalid message") };
+  }
+
+  const row = encryptMessageRowContent(supabaseMessage, ownerId);
+  // text_excerpt is NOT NULL. UI messages often omit it; writing null rejects the update.
+  const { error } = await sb
+    .from("messages")
+    .update({
+      content: row.content,
+      role: row.role,
+      ...(typeof row.text_excerpt === "string" ? { text_excerpt: row.text_excerpt } : {}),
+    })
+    .eq("id", message.id)
+    .eq("thread_id", chatId);
+
+  if (error) {
+    logger.error("updateMessageWithAdmin", `Error updating message: ${error.code ?? "unknown"}`);
+
+    return {
+      ok: false,
+      error: new Error(error.message ?? "Unknown error"),
+    };
+  }
+
+  return { ok: true, error: null };
+}
+
+/**
  * Updates active_stream_id using the admin client. Use when the user JWT may be expired (e.g. in onFinish).
  */
 export async function updateChatStreamWithAdmin(params: {

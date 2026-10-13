@@ -76,6 +76,7 @@ export function normalizeUsage(usage: {
   completionTokens?: number | null;
   totalTokens?: number | null;
   reasoningTokens?: number | null;
+  outputTokenDetails?: { reasoningTokens?: number | null };
 }): TokenUsage {
   return {
     inputTokens: usage.inputTokens ?? usage.promptTokens ?? undefined,
@@ -83,6 +84,6 @@ export function normalizeUsage(usage: {
     promptTokens: usage.promptTokens ?? usage.inputTokens ?? undefined,
     completionTokens: usage.completionTokens ?? usage.outputTokens ?? undefined,
     totalTokens: usage.totalTokens ?? undefined,
-    reasoningTokens: usage.reasoningTokens ?? undefined,
+    reasoningTokens: usage.outputTokenDetails?.reasoningTokens ?? usage.reasoningTokens ?? undefined,
   };
 }

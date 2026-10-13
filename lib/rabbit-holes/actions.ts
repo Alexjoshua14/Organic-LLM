@@ -1,5 +1,7 @@
 "use server";
 
+import { createAuthenticatedLlmBudgetHooks, budgetModelId } from "@/lib/plans/llm-budget-hooks";
+
 import type { GenerationStep } from "../schemas/rabbitHoleSchemas";
 
 import { auth } from "@clerk/nextjs/server";
@@ -37,6 +39,7 @@ import { generateRabbitHoleNodeSummary } from "./node-summary";
 import { Result } from "@/types";
 import { getSupabaseUserId } from "@/data/supabase/profiles";
 import { getRabbitHoleSessionOwnerId } from "@/data/supabase/rabbitholes";
+import { sanitizeRabbitHoleArticleHtml } from "@/lib/html/sanitize";
 import { GUARDRAIL_MAX_OUTPUT_TOKENS } from "@/lib/llm/helpers";
 import { models, providerModelSlug } from "@/lib/schemas/chat-models";
 import { checkExternalFetchLimit } from "@/lib/rate-limit/external-fetch";
@@ -108,8 +111,12 @@ async function generateRefinedQuestion(
   pathHistory: string
 ): Promise<string> {
   const { text } = await generateText({
+    ...(await createAuthenticatedLlmBudgetHooks({
+      modelId: budgetModelId(openai(providerModelSlug(models.openai.luna.id))),
+      operation: "rabbit-holes/actions",
+    })),
     model: openai(providerModelSlug(models.openai.luna.id)),
-    system: REFINE_QUESTION_SYSTEM_PROMPT,
+    instructions: REFINE_QUESTION_SYSTEM_PROMPT,
     prompt: `Question to refine: ${question}\n\nPath history: ${pathHistory}`,
     maxOutputTokens: GUARDRAIL_MAX_OUTPUT_TOKENS,
   });
@@ -484,7 +491,7 @@ function applyArticleStep(
 
     const articleTitle = resolvedArticleTitle(object.title);
 
-    updatedNode.articleHtml = object.articleHtml;
+    updatedNode.articleHtml = await sanitizeRabbitHoleArticleHtml(object.articleHtml);
     updatedNode.keyTakeaways = object.keyTakeaways;
     updatedNode.title = articleTitle;
     updatedNode.rawPrompt = updatedNode.userQuestion;
@@ -674,7 +681,7 @@ export async function generateRabbitHoleNode(
 
     const articleTitle = resolvedArticleTitle(object.title);
 
-    updatedNode.articleHtml = object.articleHtml;
+    updatedNode.articleHtml = await sanitizeRabbitHoleArticleHtml(object.articleHtml);
     updatedNode.keyTakeaways = object.keyTakeaways;
     updatedNode.title = articleTitle;
     updatedNode.rawPrompt = updatedNode.userQuestion;

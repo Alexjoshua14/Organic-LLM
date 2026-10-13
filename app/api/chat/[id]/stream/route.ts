@@ -6,6 +6,7 @@ import { createLogger } from "@/lib/logger";
 import { readChat } from "@/lib/chat/chat-store";
 
 const logger = createLogger("app/api/chat/[id]/stream/route.ts");
+const STREAM_HEADERS = { ...UI_MESSAGE_STREAM_HEADERS, "cache-control": "no-store" };
 
 export async function GET(_: Request, { params }: { params: Promise<{ id: string }> }) {
   const clerkUser = await auth();
@@ -32,12 +33,17 @@ export async function GET(_: Request, { params }: { params: Promise<{ id: string
 
   if (chat.thread.active_stream_id == null) {
     // no content response when there is no active stream
-    return new Response(null, { status: 204 });
+    return new Response(null, { status: 204, headers: STREAM_HEADERS });
   }
 
-  const streamContext = createChatResumableStreamContext();
+  const streamContext = await createChatResumableStreamContext();
+  const stream = await streamContext.resumeExistingStream(chat.thread.active_stream_id);
 
-  return new Response(await streamContext.resumeExistingStream(chat.thread.active_stream_id), {
-    headers: UI_MESSAGE_STREAM_HEADERS,
+  if (!stream) {
+    return new Response(null, { status: 204, headers: STREAM_HEADERS });
+  }
+
+  return new Response(stream.pipeThrough(new TextEncoderStream()), {
+    headers: STREAM_HEADERS,
   });
 }

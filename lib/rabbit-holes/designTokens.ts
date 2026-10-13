@@ -8,6 +8,10 @@
  * "compact" = mobile Safari layout. Default = desktop.
  */
 
+import {
+  RABBIT_HOLE_SIDE_COLUMN_PX,
+  rabbitHoleExplorerGrid,
+} from "@/lib/rabbit-holes/explorer-layout";
 import { cn } from "@/lib/utils";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -23,13 +27,20 @@ export const layout = {
   /** Max-width for the TTS audio block */
   ttsMaxWidth: "max-w-xl",
   /** Grid column width for left / right sidebars (raw CSS value) */
-  sideColumnWidth: "260px",
-  /** Full Tailwind grid-cols class (must be a static string for JIT) */
-  gridCols: "lg:grid-cols-[260px_1fr_260px]",
-  /** Focus-mode grid (single column) */
-  gridColsFocus: "lg:grid-cols-[1fr]",
-  /** Max-width for the overall 3-column grid */
-  gridMaxWidth: "max-w-7xl",
+  sideColumnWidth: `${RABBIT_HOLE_SIDE_COLUMN_PX}px`,
+  /**
+   * Explorer shell grid — container-query based so portrait main panes stack
+   * instead of collapsing the center column. See `explorer-layout.ts`.
+   */
+  gridContainer: rabbitHoleExplorerGrid.container,
+  gridDisplay: rabbitHoleExplorerGrid.display,
+  gridCols: rabbitHoleExplorerGrid.cols,
+  gridColsFocus: rabbitHoleExplorerGrid.colsFocus,
+  gridMaxWidth: rabbitHoleExplorerGrid.maxWidth,
+  gridColStart1: rabbitHoleExplorerGrid.colStart1,
+  gridColStart2: rabbitHoleExplorerGrid.colStart2,
+  gridColStart3: rabbitHoleExplorerGrid.colStart3,
+  gridColSpan1: rabbitHoleExplorerGrid.colSpan1,
 };
 
 // ─── Page title (h1) ──────────────────────────────────────────────────────────

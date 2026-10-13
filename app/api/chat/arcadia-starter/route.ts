@@ -33,7 +33,7 @@ export async function PATCH(req: Request) {
     return NextResponse.json({ error: "Invalid request body" }, { status: 400 });
   }
 
-  const authGate = await requireLlmChatActor();
+  const authGate = await requireLlmChatActor({ planBudget: false });
 
   if (authGate.error != null) {
     return authGate.error;

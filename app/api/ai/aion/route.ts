@@ -13,6 +13,8 @@ import { fakeStreamText } from "@/lib/llm/fake-stream-text";
 import { createMemorySearchTool } from "@/lib/llm/llm-tool-kit";
 import { addLatestMessagesToMemoryForUser } from "@/lib/memory/operations";
 import { createAionHandler, type AionDeps } from "@/lib/api/aion-handler";
+import { requirePlanBudget } from "@/lib/api/plan-budget-gate";
+import { createLlmBudgetHooks } from "@/lib/plans/llm-budget-hooks";
 
 // Allow streaming responses up to 30 seconds
 export const maxDuration = 30;
@@ -20,6 +22,8 @@ export const maxDuration = 30;
 const productionDeps = {
   auth: (() => auth()) as any,
   getSupabaseUserId,
+  requirePlanBudget,
+  budgetHooks: createLlmBudgetHooks,
   getContext,
   saveChat,
   deleteChatMessage,

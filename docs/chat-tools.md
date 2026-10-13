@@ -17,6 +17,7 @@ On each chat turn, `compileChatTools()` builds a `ToolSet` plus a **Tool Instruc
 | `useGetMoreMessages` + `chatId` | Deep thread access when the last-N window and rolling summary are not enough. |
 | `experience` | Changes the *mix* of tools: **Delphi** (propose/commit memory workflow), **Arcadia** / **topic explore** (Mermaid + Gen UI; **Ergon** chat style adds live kanban, **Remy** chat style adds event meal planning), **Strata hub** (navigate/search pages), **Strata page** (optional KG when knowledge search is on). Plain chat uses only the toggles above. |
 | `useKnowledgeSearch` | On **Strata page** only — experimental knowledge-graph tools; persistence is incomplete, so summarizing page content is usually better. |
+| `useResearch` | Server-selected Lyra persona: a dedicated [research toolbox](../lib/llm/subagents/research/README.md), evidence ledger and browsable reports. |
 
 Many tools accept a **stream writer** so the UI can show live state—search sources, tool labels, kanban commands—while the model continues. See [Chat LLM transparency](./chat-llm-transparency.md).
 
@@ -35,6 +36,14 @@ Vector search over the user’s long-term memory (Mem0 / Qdrant). Relevance tier
 Memory text is **encrypted at rest** in Qdrant (AES-256-GCM via [`EncryptedVectorStore`](../lib/memory/encrypted-vector-store.ts)); embeddings stay unencrypted so vector search still works. The server decrypts hits before returning them to the model. See [E2EE overview](./e2ee.md).
 
 - Implementation: [`createMemorySearchTool`](../lib/llm/llm-tool-kit.ts) → [`lib/memory/operations.ts`](../lib/memory/operations.ts)
+
+### `list_recent_memories` (Arcadia / topic explore)
+
+Wall-clock list of memories **created or updated** in the last **hour** or **day**. Use for “what’s new” digests; use `search_memories` for topical recall. Mem0 has no `since` filter here — the tool rate-limits a getAll, filters on timestamps, and caps the return set (~50).
+
+- Args: `{ window: "hour" | "day" }`
+- Implementation: [`createListRecentMemoriesTool`](../lib/llm/llm-tool-kit.ts) → [`getMemoriesForUser`](../lib/memory/operations.ts) + [`filterMemoriesSince`](../lib/memory/recent-memories.ts)
+- Registered when `useMemory` and experience is Arcadia-style (`arcadia` | `topic_explore`)
 
 ### `web_search`
 
@@ -78,8 +87,11 @@ Structured blocks as first-class UI, not markdown-only. Block types (Zod schemas
 | **decision-matrix** | Compare options in a grid |
 | **plan-timeline** | Phased plans with milestones |
 | **audio-snippet** | Short audio-oriented payloads in-thread |
+| **research-report** | Lyra's source synopses, takeaways and quoted evidence; constructed by `research_publish` from saved source/claim ids. |
 
-- Implementation: [`createRenderGenUiTool`](../lib/llm/gen-ui-tool.ts) · prompt hints: [`lib/system-prompt/gen-ui.ts`](../lib/system-prompt/gen-ui.ts)
+Also available in the **Delphi** memory-ingest chamber (stricter guidance: one compact block, reserved for hard-commit drafts, session recaps, or genuine filing choices; rendered in the delivery slot beneath the assistant caption).
+
+- Implementation: [`createRenderGenUiTool`](../lib/llm/gen-ui-tool.ts) · prompt hints: [`lib/system-prompt/gen-ui.ts`](../lib/system-prompt/gen-ui.ts) (`GEN_UI_TOOL_INSTRUCTIONS`, `DELPHI_GEN_UI_TOOL_INSTRUCTIONS`)
 
 ### `kanban_board` (Ergon chat style)
 

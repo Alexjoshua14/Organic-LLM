@@ -10,6 +10,8 @@ type LlmUsageLike = {
   outputTokens?: number | null;
   cachedInputTokens?: number | null;
   reasoningTokens?: number | null;
+  inputTokenDetails?: { cacheReadTokens?: number | null };
+  outputTokenDetails?: { reasoningTokens?: number | null };
   totalTokens?: number | null;
 };
 
@@ -61,13 +63,15 @@ export function recordLlmCall(args: {
   usage?: LlmUsageLike | null;
   durationMs: number;
   metadata?: LlmCallMetadata;
+  /** False when an awaited per-step ledger hook already recorded this call. */
+  persist?: boolean;
 }) {
   const { model, usage, durationMs, metadata } = args;
 
   const inputTokens = coerceCount(usage?.inputTokens);
   const outputTokens = coerceCount(usage?.outputTokens);
-  const cachedInputTokens = coerceCount(usage?.cachedInputTokens);
-  const reasoningTokens = coerceCount(usage?.reasoningTokens);
+  const cachedInputTokens = coerceCount(usage?.inputTokenDetails?.cacheReadTokens ?? usage?.cachedInputTokens);
+  const reasoningTokens = coerceCount(usage?.outputTokenDetails?.reasoningTokens ?? usage?.reasoningTokens);
   const totalTokens = coerceCount(usage?.totalTokens) || inputTokens + outputTokens;
 
   const totals = getOrCreateTotals(model);
@@ -100,7 +104,7 @@ export function recordLlmCall(args: {
     })
   );
 
-  if (metadata?.userId && totalTokens > 0) {
+  if (args.persist !== false && metadata?.userId && totalTokens > 0) {
     trackLlmUsageEvent({
       ownerId: metadata.userId,
       modelId: model,

@@ -9,7 +9,7 @@ Sandbox-only prototype: [`MorphChatRabbitDemo`](_components/morph-chat-rabbit-de
 | Left rail | [`RabbitHolePathRail`](../../../app/rabbitholes/_components/RabbitHolePathRail.tsx) | Fixture [`MORPH_CHAT_RABBIT_SESSION`](_lib/morph-chat-rabbit-fixtures.ts); clicks update local `activeNodeId` only | No |
 | Right rail | [`RabbitHoleSourceList`](../../../app/rabbitholes/_components/RabbitHoleSourceList.tsx), [`RabbitHoleBranchSuggestionsBlock`](../../../app/rabbitholes/_components/RabbitHoleBranchSuggestionsBlock.tsx) | No-op clicks; mirrors shell stacking | No |
 | Center morph | `@organic-llm/morph-physics` | Ghost `snapshot()` rects: chat = centered `max-w-4xl` column; rabbit = grid center column [`layout.gridCols`](../../../lib/rabbit-holes/designTokens.ts) | N |
-| Rails motion | Framer | `x: 0` vs `±115%` on `lg+` absolutely positioned asides; rails hidden (`hidden lg:block`) on small screens | N |
+| Rails motion | Framer | `x: 0` vs `±115%` on `lg+` absolutely positioned asides; below `lg` path/sources stack around the morph stage (see `morph-demo-layout`) | N |
 | Keyboard | `Shift+Tab` | Toggles archetype only on this route (same chord as input morph demo on its route) | N |
 
 ## Known compromises

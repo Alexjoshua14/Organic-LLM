@@ -1,5 +1,5 @@
 import type { AnthropicProviderOptions } from "@ai-sdk/anthropic";
-import type { GoogleGenerativeAIProviderOptions } from "@ai-sdk/google";
+import type { GoogleGenerativeAIProviderOptions as GoogleProviderOptions } from "@ai-sdk/google";
 import type { OpenAIResponsesProviderOptions } from "@ai-sdk/openai";
 import type { JSONValue } from "@ai-sdk/provider";
 
@@ -300,7 +300,7 @@ type EffortProviderOptions = {
   openai?: OpenAIResponsesProviderOptions;
   /** SDK types may lag gateway fields; JSONValue keeps streamText providerOptions assignable. */
   anthropic?: AnthropicProviderOptions | Record<string, JSONValue>;
-  google?: GoogleGenerativeAIProviderOptions | Record<string, JSONValue>;
+  google?: GoogleProviderOptions | Record<string, JSONValue>;
 };
 
 function anthropicSlugUsesBudgetTokens(slug: string): boolean {
@@ -426,7 +426,7 @@ export function buildEffortProviderOptions(
         return {
           google: {
             thinkingConfig: { thinkingLevel: level },
-          } as GoogleGenerativeAIProviderOptions,
+          } as GoogleProviderOptions,
         };
       }
 
@@ -440,7 +440,7 @@ export function buildEffortProviderOptions(
       return {
         google: {
           thinkingConfig: { thinkingLevel: level },
-        } as GoogleGenerativeAIProviderOptions,
+        } as GoogleProviderOptions,
       };
     }
 
@@ -449,7 +449,7 @@ export function buildEffortProviderOptions(
       return {
         google: {
           thinkingConfig: { thinkingBudget: 0 },
-        } satisfies GoogleGenerativeAIProviderOptions,
+        } satisfies GoogleProviderOptions,
       };
     }
 
@@ -458,7 +458,7 @@ export function buildEffortProviderOptions(
     return {
       google: {
         thinkingConfig: { thinkingBudget },
-      } satisfies GoogleGenerativeAIProviderOptions,
+      } satisfies GoogleProviderOptions,
     };
   }
 

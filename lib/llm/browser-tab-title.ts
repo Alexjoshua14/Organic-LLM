@@ -1,3 +1,4 @@
+import { createAuthenticatedLlmBudgetHooks, budgetModelId } from "@/lib/plans/llm-budget-hooks";
 import { generateText } from "ai";
 
 import { GUARDRAIL_MAX_OUTPUT_TOKENS } from "@/lib/llm/helpers";
@@ -61,14 +62,19 @@ ${trimmedHint}`;
   try {
     const started = performance.now();
     const result = await generateText({
+      ...(await createAuthenticatedLlmBudgetHooks({
+        modelId: budgetModelId(BROWSER_TAB_TITLE_MODEL),
+        operation: "llm/browser-tab-title",
+      })),
       model: BROWSER_TAB_TITLE_MODEL,
-      system: SYSTEM,
+      instructions: SYSTEM,
       prompt,
       maxOutputTokens: Math.min(BROWSER_TAB_TITLE_MAX_OUT, GUARDRAIL_MAX_OUTPUT_TOKENS),
     });
     const durationMs = performance.now() - started;
 
     recordLlmCall({
+      persist: false,
       model: BROWSER_TAB_TITLE_MODEL as string,
       usage: result.usage,
       durationMs,

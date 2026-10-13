@@ -5,6 +5,8 @@ import { auth } from "@clerk/nextjs/server";
 import { z } from "zod";
 
 import { supabaseServer } from "@/lib/supabase/server";
+import { isAdminUser as readIsAdminUser, readAdminProfile } from "@/lib/admin/read-admin-profile";
+import { getGatewayVisibilityForCurrentUser } from "@/data/supabase/gateway-visibility";
 import { Result } from "@/types";
 import { Profile, ProfileSchema } from "@/lib/schemas/profiles";
 import {
@@ -466,28 +468,20 @@ export async function patchProfileTreeFieldsForCurrentUser({
 
 /**
  * Whether the given user should see the sandbox gateway (admin-only entry).
- * Defaults to true until the profiles.admin column exists; once it exists, respects profile.admin.
- * Cached per user on the client — call from a server action for the current user.
+ * Requires explicit admin_access membership. Lookup failures throw so clients can retry.
  */
 export async function getShowSandboxGateway(clerkUserId: string): Promise<boolean> {
-  const result = await getProfile(clerkUserId);
+  const profile = await readAdminProfile(clerkUserId);
 
-  if (result.error || !result.data) return true;
-
-  return result.data.admin !== false;
+  return profile?.admin === true;
 }
 
 /**
  * Strict admin check for authorization decisions.
- * Unlike `getShowSandboxGateway` (which fails open so UI entry points stay visible),
- * this returns false whenever the profile can't be read or `admin` isn't explicitly true.
+ * Returns false whenever admin membership can't be verified.
  */
 export async function isAdminUser(clerkUserId: string): Promise<boolean> {
-  const result = await getProfile(clerkUserId);
-
-  if (result.error || !result.data) return false;
-
-  return result.data.admin === true;
+  return readIsAdminUser(clerkUserId);
 }
 
 /**
@@ -495,9 +489,5 @@ export async function isAdminUser(clerkUserId: string): Promise<boolean> {
  * Use from the client and cache the result per userId.
  */
 export async function getShowSandboxGatewayForCurrentUser(): Promise<boolean> {
-  const { userId } = await auth();
-
-  if (!userId) return false;
-
-  return getShowSandboxGateway(userId);
+  return getGatewayVisibilityForCurrentUser();
 }

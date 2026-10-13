@@ -1,3 +1,4 @@
+import { createAuthenticatedLlmBudgetHooks, budgetModelId } from "@/lib/plans/llm-budget-hooks";
 import { openai } from "@ai-sdk/openai";
 import {
   streamText,
@@ -90,9 +91,13 @@ export async function POST(req: Request) {
   const { prompt, messages } = res.data;
 
   const result = streamText({
+    ...(await createAuthenticatedLlmBudgetHooks({
+      modelId: budgetModelId(model),
+      operation: "/api/chat/prometheus",
+    })),
     model: model,
-    system: appendCurrentDate(prompt),
-    messages: convertToModelMessages(messages),
+    instructions: appendCurrentDate(prompt),
+    messages: await convertToModelMessages(messages),
     maxOutputTokens: GUARDRAIL_MAX_OUTPUT_TOKENS,
     experimental_transform: smoothStream({
       delayInMs: 20, // optional: defaults to 10ms
@@ -104,7 +109,7 @@ export async function POST(req: Request) {
 
   return result.toUIMessageStreamResponse({
     originalMessages: messages,
-    onFinish: async ({ messages }) => {
+    onEnd: async ({ messages }) => {
       const saveResult = await saveChat({ chatId: id, messages });
 
       if (!saveResult.ok) {

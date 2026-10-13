@@ -42,7 +42,7 @@ export async function classifyMemoryQuality(
           store: false,
         } satisfies OpenAIResponsesProviderOptions,
       },
-      system: MEMORY_QUALITY_CLASSIFIER_SYSTEM,
+      instructions: MEMORY_QUALITY_CLASSIFIER_SYSTEM,
       prompt: `Classify this memory line:\n\n${text.slice(0, 8000)}`,
     });
 

@@ -39,7 +39,7 @@ export function RabbitHoleEmptyState({
         key="empty"
         animate={{ opacity: 1, y: 0 }}
         className={cn(
-          "flex min-h-[280px] flex-col items-center justify-center px-8 text-center",
+          "flex w-full min-h-[280px] flex-col items-center justify-center px-8 text-center",
           compact && "min-h-[200px] px-5"
         )}
         exit={{ opacity: 0 }}

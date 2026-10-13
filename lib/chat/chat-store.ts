@@ -14,14 +14,17 @@
  */
 import type { MemoryItemType } from "@/lib/schemas/memory";
 import type { ContextEffortLevel } from "../memory/context-effort";
+import type { ContextMemoryReference } from "./context-memory";
 
 import { UIMessage } from "ai";
 import { auth } from "@clerk/nextjs/server";
+import { memoryReferencesFromAutomaticRecall } from "./context-memory";
 
 import { createLogger } from "../logger";
 import { SYSTEM_PROMPT, PROMETHEUS_SYSTEM_PROMPT } from "../system-prompt/prompt-v0";
 import SPARK_SYSTEM_PROMPT from "../system-prompt";
 import { getStateString } from "../supabase/organicStateStore";
+import { toActivatedMemories, type ActivatedMemory } from "../memory/activated-thread-memories";
 import { searchMemoriesForUser } from "../memory/operations";
 import { searchMemoriesWithL1Cache } from "../memory/memory-search-cache";
 import { runArcadiaMemoryPhase } from "../memory/arcadia-memory-phase";
@@ -60,9 +63,14 @@ import {
   upsertMessages,
   deleteMessage,
   addMessage,
+  updateMessage,
   updateChatStream,
 } from "@/data/supabase/chat";
-import { upsertMessagesWithAdmin, updateChatStreamWithAdmin } from "@/data/supabase/chat-admin";
+import {
+  upsertMessagesWithAdmin,
+  updateChatStreamWithAdmin,
+  updateMessageWithAdmin,
+} from "@/data/supabase/chat-admin";
 import { Result, SimpleResult } from "@/types";
 import {
   type ChatExperience,
@@ -115,8 +123,8 @@ interface getContextProps {
   contextEffort?: ContextEffortLevel;
 }
 
-export async function createChat(): Promise<Result<string>> {
-  const res = await createChatSupabase();
+export async function createChat(experience?: "arcadia"): Promise<Result<string>> {
+  const res = await createChatSupabase(undefined, experience);
 
   if (res.error) {
     logger.error("createChat", `Error creating chat: ${res.error.message}`);
@@ -315,6 +323,76 @@ export async function saveMessage({
     return {
       ok: false,
       error: error instanceof Error ? error : new Error("Unknown error saving message"),
+    };
+  }
+}
+
+/**
+ * Replaces one stored UI message. Used to attach activated memories after the
+ * optimistic insert of the user message.
+ */
+export async function updateChatMessage({
+  chatId,
+  message,
+  ownerId,
+}: {
+  chatId: string;
+  message: UIMessage;
+  /** When set, update with the admin client (queued turns whose user JWT may be expired). */
+  ownerId?: string;
+}): Promise<SimpleResult> {
+  if (!message.id) {
+    return {
+      ok: false,
+      error: new Error("Message id required"),
+    };
+  }
+
+  if (ownerId) {
+    const clerkUser = await auth();
+
+    if (!clerkUser?.userId) {
+      return { ok: false, error: new Error("Unauthorized") };
+    }
+
+    const currentSbUserIdResult = await getSupabaseUserIdWithAdmin(clerkUser.userId);
+
+    if (
+      currentSbUserIdResult.error ||
+      currentSbUserIdResult.data === null ||
+      currentSbUserIdResult.data !== ownerId
+    ) {
+      return { ok: false, error: new Error("Unauthorized") };
+    }
+  }
+
+  try {
+    const result = ownerId
+      ? await updateMessageWithAdmin({ chatId, message, ownerId })
+      : await updateMessage(chatId, message.id, message);
+
+    if (!result.ok) {
+      logger.error(
+        "updateChatMessage",
+        `Failed to update message ${message.id}: ${result.error?.message}`
+      );
+
+      return {
+        ok: false,
+        error: result.error ?? new Error("Unknown error updating message"),
+      };
+    }
+
+    return { ok: true, error: null };
+  } catch (error) {
+    logger.error(
+      "updateChatMessage",
+      `Error updating message: ${error instanceof Error ? error.message : String(error)}`
+    );
+
+    return {
+      ok: false,
+      error: error instanceof Error ? error : new Error("Unknown error updating message"),
     };
   }
 }
@@ -575,6 +653,9 @@ export async function getContext({
       context: string;
       messages: UIMessage[];
       memories?: string[];
+      memoryContext?: ContextMemoryReference[];
+      /** Unclipped selected memories, to persist on the activating user message. */
+      activatedMemories?: ActivatedMemory[];
       tokenBreakdown?: Array<{ name: string; tokens: number }>;
       packedMessageCount?: number;
       totalThreadMessages?: number;
@@ -644,7 +725,13 @@ export async function getContext({
       .filter((part) => part.type === "text")
       .reduce((acc, part) => acc + part.text, "");
 
-    logger.log("getContext", `User message length: ${userMessage.length}`);
+    // Length 0 is normal for context-budget scaffold polls (empty draftMessage).
+    logger.log(
+      "getContext",
+      userMessage.length === 0
+        ? "User message length: 0 (empty draft or non-text parts)"
+        : `User message length: ${userMessage.length}`
+    );
 
     // Arcadia defers memory to phase 2 (needs DB messages for rewrite transcript).
     const memNonArcadiaPromise =
@@ -723,6 +810,7 @@ export async function getContext({
     let arcadiaEffectiveQueryCount: number | undefined;
     let effortPhase: Awaited<ReturnType<typeof runArcadiaMemoryPhase>> | undefined;
     let returnedMemories: string[] | undefined;
+    let selectedContextMemories: MemoryItemType[] = [];
 
     const useEffortPath = memoryEnabled && experience === "arcadia" && contextEffort;
 
@@ -849,6 +937,7 @@ export async function getContext({
 
         memories = effortPhase.memoriesText;
         returnedMemories = effortPhase.selected.map((item) => item.memory).filter(Boolean);
+        selectedContextMemories = effortPhase.selected;
 
         contextPieces.push({
           title: "Memories from past conversations:",
@@ -887,6 +976,7 @@ export async function getContext({
 
         memories = formatMemoriesForPrompt(selected);
         returnedMemories = selected.map((item) => item.memory).filter(Boolean);
+        selectedContextMemories = selected;
         const conversationMessagesInContext = messages.length + 1;
         const inventoryText = buildArcadiaMemoryInventoryText({
           conversationMessagesInContext,
@@ -917,6 +1007,7 @@ export async function getContext({
           });
         }
       } else {
+        selectedContextMemories = memoriesResult.results;
         memories = memoriesResult.results
           .map((result: { memory?: string }) => result.memory)
           .filter((memory: string | undefined): memory is string => memory != null)
@@ -1040,6 +1131,8 @@ export async function getContext({
         context,
         messages,
         memories: returnedMemories,
+        memoryContext: memoryReferencesFromAutomaticRecall(selectedContextMemories, message.id),
+        activatedMemories: toActivatedMemories(selectedContextMemories, { clip: false }),
         tokenBreakdown: contextTokenSizes,
         totalThreadMessages: totalCount ?? messages.length,
         packedMessageCount: messages.length,
