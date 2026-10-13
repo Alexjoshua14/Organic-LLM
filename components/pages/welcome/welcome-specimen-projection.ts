@@ -40,13 +40,9 @@ export const SPECIMEN_FRAMES = {
 export function specimenPaneMatrix(width: number, mobile: boolean, dark = false): number[] {
   const frame = mobile ? SPECIMEN_FRAMES.mobile : SPECIMEN_FRAMES.desktop;
   const ratio = width / frame.width;
-  const corners = dark ? frame.darkCorners : frame.corners;
-  const [p0, p1, p2, p3] = corners.map(([x, y]) => [x * ratio, y * ratio]) as [
-    Point,
-    Point,
-    Point,
-    Point,
-  ];
+  const [c0, c1, c2, c3] = dark ? frame.darkCorners : frame.corners;
+  const scale = ([x, y]: Point): Point => [x * ratio, y * ratio];
+  const [p0, p1, p2, p3] = [scale(c0), scale(c1), scale(c2), scale(c3)];
   const dx1 = p1[0] - p2[0];
   const dx2 = p3[0] - p2[0];
   const dx3 = p0[0] - p1[0] + p2[0] - p3[0];
