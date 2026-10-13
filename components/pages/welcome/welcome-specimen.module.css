@@ -313,6 +313,54 @@
   outline-offset: 6px;
 }
 
+/*
+ * Hero entrance runs in CSS so it starts at first paint, before hydration. Copy rises first,
+ * then the action, then the surrounding chrome fades in. Ease matches WELCOME_EASE in
+ * welcome-motion.ts; the scene itself stays static so refreshes hold the glass steady.
+ */
+@media (prefers-reduced-motion: no-preference) {
+  .hero {
+    --welcome-enter-duration: 700ms;
+    --welcome-enter-ease: cubic-bezier(0.16, 1, 0.3, 1);
+  }
+
+  .headline,
+  .subline,
+  .primaryAction {
+    animation: welcomeRise var(--welcome-enter-duration) var(--welcome-enter-ease) both;
+  }
+
+  .subline {
+    animation-delay: 90ms;
+  }
+
+  .primaryAction {
+    animation-delay: 200ms;
+  }
+
+  .header,
+  .scrollInvite {
+    animation: welcomeFade var(--welcome-enter-duration) var(--welcome-enter-ease) 280ms both;
+  }
+
+  .scrollInvite {
+    animation-delay: 420ms;
+  }
+}
+
+@keyframes welcomeRise {
+  from {
+    opacity: 0;
+    translate: 0 14px;
+  }
+}
+
+@keyframes welcomeFade {
+  from {
+    opacity: 0;
+  }
+}
+
 .details {
   position: relative;
   z-index: 1;

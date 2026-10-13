@@ -50,6 +50,21 @@ live agent dots visible while its floor joins the themed Liquid Chrome backgroun
   covers and secondary refraction are disabled locally to preserve circles under
   projective transforms; other agent marks retain their materials.
 
+## Section entrances
+
+- The hero's copy, action and chrome enter with CSS keyframes, so they start at
+  first paint instead of waiting for hydration. The scene does not animate.
+- Below-fold groups use Framer Motion and reveal once, after 40% of the group
+  has cleared the lowest 15% of the viewport; tokens live in `welcome-motion.ts`.
+  "What you can work in" rises from behind with a slight scale. Rabbit holes
+  enters from the left and Strata from the right. Highlight rows alternate by
+  order, starting from the left. The other groups stagger a short rise.
+- The chat card's title and modes trigger individually: on phones the card is
+  several viewports tall and would never reach a group threshold. Side-by-side
+  modes keep their stagger through an index delay. The footer drops the bottom
+  inset because it ends the page.
+- Reduced motion removes every entrance.
+
 ## First frame and selection
 
 - `app/page.tsx` passes a server auth hint, so signed-out visitors get the hero in

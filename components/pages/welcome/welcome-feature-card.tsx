@@ -1,5 +1,9 @@
 "use client";
 
+import type { Variants } from "framer-motion";
+
+import { motion } from "framer-motion";
+
 import { WelcomeHighlightVisual, type WelcomeVisualImageSrc } from "./welcome-highlight-visual";
 
 import { glass } from "@/components/design-system/primitives";
@@ -12,6 +16,8 @@ type WelcomeFeatureCardProps = {
   visualPlaceholder: { label: string; hint: string };
   imageSrc?: WelcomeVisualImageSrc;
   className?: string;
+  /** Entrance variants; the parent group owns the in-view trigger. */
+  variants?: Variants;
 };
 
 export function WelcomeFeatureCard({
@@ -21,9 +27,11 @@ export function WelcomeFeatureCard({
   visualPlaceholder,
   imageSrc,
   className,
+  variants,
 }: WelcomeFeatureCardProps) {
   return (
-    <div
+    <motion.div
+      variants={variants}
       className={cn(
         "flex h-full min-h-0 flex-col rounded-2xl border border-border/50 p-4 sm:p-5",
         glass({ border: "none", opaque: true }),
@@ -49,6 +57,6 @@ export function WelcomeFeatureCard({
           size="mode"
         />
       </div>
-    </div>
+    </motion.div>
   );
 }

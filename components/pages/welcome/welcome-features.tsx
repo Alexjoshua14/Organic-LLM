@@ -6,8 +6,8 @@ import { ArrowRight } from "lucide-react";
 
 import { WelcomeFeatureCard } from "./welcome-feature-card";
 import { WelcomeHighlightVisual } from "./welcome-highlight-visual";
+import { useWelcomeMotion } from "./welcome-motion";
 
-import { useLandingMotion } from "@/components/pages/use-landing-motion";
 import { glass } from "@/components/design-system/primitives";
 import { welcomeCopy } from "@/lib/welcome/copy";
 import { cn } from "@/lib/utils";
@@ -23,22 +23,25 @@ type WelcomeFeaturesProps = {
 };
 
 export function WelcomeFeatures({ className }: WelcomeFeaturesProps) {
-  const { sectionReveal } = useLandingMotion();
+  const { inViewGroup, inViewItem, riseFromBehind, fromLeft, fromRight } = useWelcomeMotion();
   const { features } = welcomeCopy;
   const { chat, rabbitHoles, strata } = features;
 
   return (
-    <motion.section
+    <section
       aria-labelledby="welcome-features-heading"
       className={cn(
         "py-12 pb-16 sm:py-14 sm:pb-20 [content-visibility:auto] [contain-intrinsic-size:auto_1200px]",
         className
       )}
       id="welcome-features"
-      {...(sectionReveal ?? {})}
     >
       <div className="mx-auto flex w-full max-w-6xl flex-col px-5 sm:px-8 lg:px-12">
-        <header className="mb-6 max-w-2xl shrink-0 text-left sm:mb-8">
+        <motion.header
+          className="mb-6 max-w-2xl shrink-0 origin-bottom-left text-left sm:mb-8"
+          {...inViewGroup}
+          variants={riseFromBehind}
+        >
           <h2
             className="cursor-auto select-text font-commissioner text-2xl font-light tracking-tight text-foreground sm:text-3xl"
             id="welcome-features-heading"
@@ -48,7 +51,7 @@ export function WelcomeFeatures({ className }: WelcomeFeaturesProps) {
           <p className="mt-2 text-pretty text-sm leading-relaxed text-muted-foreground sm:text-[15px]">
             {features.intro}
           </p>
-        </header>
+        </motion.header>
 
         <div className="flex flex-col gap-4">
           <div
@@ -57,7 +60,7 @@ export function WelcomeFeatures({ className }: WelcomeFeaturesProps) {
               glass({ border: "none", opaque: true })
             )}
           >
-            <div>
+            <motion.div {...inViewItem}>
               <h3 className="cursor-auto select-text font-commissioner text-lg font-light tracking-tight text-foreground sm:text-xl">
                 {chat.title}
               </h3>
@@ -73,11 +76,16 @@ export function WelcomeFeatures({ className }: WelcomeFeaturesProps) {
                   <ArrowRight aria-hidden className="size-3.5 shrink-0" strokeWidth={1.5} />
                 </Link>
               </p>
-            </div>
+            </motion.div>
 
             <ul className="grid grid-cols-1 gap-4 sm:grid-cols-3 sm:items-stretch sm:gap-6">
-              {chat.modes.map((mode) => (
-                <li key={mode.id} className="flex min-w-0 flex-col">
+              {chat.modes.map((mode, index) => (
+                <motion.li
+                  key={mode.id}
+                  className="flex min-w-0 flex-col"
+                  custom={index}
+                  {...inViewItem}
+                >
                   <h4 className="cursor-auto select-text text-sm font-medium text-foreground">
                     {mode.title}
                   </h4>
@@ -94,17 +102,18 @@ export function WelcomeFeatures({ className }: WelcomeFeaturesProps) {
                       size="mode"
                     />
                   </div>
-                </li>
+                </motion.li>
               ))}
             </ul>
           </div>
 
-          <div className="grid shrink-0 grid-cols-1 gap-4 sm:grid-cols-2">
+          <motion.div className="grid shrink-0 grid-cols-1 gap-4 sm:grid-cols-2" {...inViewGroup}>
             <WelcomeFeatureCard
               body={rabbitHoles.body}
               imageSrc={rabbitHoles.imageSrc}
               placeholderId="feature-rabbitholes"
               title={rabbitHoles.title}
+              variants={fromLeft}
               visualPlaceholder={rabbitHoles.visualPlaceholder}
             />
 
@@ -112,11 +121,12 @@ export function WelcomeFeatures({ className }: WelcomeFeaturesProps) {
               body={strata.body}
               placeholderId="feature-strata"
               title={strata.title}
+              variants={fromRight}
               visualPlaceholder={strata.visualPlaceholder}
             />
-          </div>
+          </motion.div>
         </div>
       </div>
-    </motion.section>
+    </section>
   );
 }
