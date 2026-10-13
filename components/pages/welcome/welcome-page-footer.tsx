@@ -30,7 +30,7 @@ export function WelcomePageFooter({ className }: WelcomePageFooterProps) {
             {footer.privacy.label}
           </Link>
           <span>
-            © {year} {footer.organization}
+            {footer.organization} {year}
           </span>
         </div>
       </div>

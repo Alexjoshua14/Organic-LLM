@@ -1,0 +1,446 @@
+.welcomePage {
+  --welcome-room: #f7f5ef;
+  --welcome-ink: #171716;
+  --welcome-muted: #575651;
+  --welcome-action-ink: #fff;
+  --welcome-margin: clamp(24px, 4.5vw, 72px);
+
+  position: relative;
+  display: flex;
+  width: 100%;
+  flex-direction: column;
+  background: var(--welcome-room);
+}
+
+:global(.dark) .welcomePage {
+  --welcome-room: #080d12;
+  --welcome-ink: #f2f1ed;
+  --welcome-muted: #b1b4b8;
+  --welcome-action-ink: #080d12;
+}
+
+.hero {
+  position: relative;
+  min-height: 100svh;
+  height: 100svh;
+  color: var(--welcome-ink);
+  color-scheme: light;
+  font-family: var(--font-satoshi), sans-serif;
+}
+
+:global(.dark) .hero {
+  color-scheme: dark;
+}
+
+.scene {
+  position: absolute;
+  inset: 0;
+  bottom: -28svh;
+  margin: 0;
+  overflow: hidden;
+  perspective: 1800px;
+}
+
+.camera {
+  position: absolute;
+  inset: 0;
+  height: 100svh;
+  transform-origin: 50% 75%;
+}
+
+.materialDefinitions {
+  position: absolute;
+  width: 0;
+  height: 0;
+  pointer-events: none;
+}
+
+.canvas {
+  position: absolute;
+  top: 50svh;
+  left: 50%;
+  width: min(100%, 140svh);
+  aspect-ratio: 1586 / 992;
+  transform: translate(-50%, -50%);
+  /* Only the room edges blend; the pane remains inside the fully opaque area. */
+  mask-image:
+    linear-gradient(to right, transparent, #000 7%, #000 93%, transparent),
+    linear-gradient(to bottom, transparent, #000 5%, #000 83%, transparent);
+  mask-composite: intersect;
+}
+
+.sceneImage {
+  object-fit: cover;
+}
+
+.sceneLight,
+.sceneDark {
+  position: absolute;
+  inset: 0;
+}
+
+.sceneDark,
+:global(.dark) .sceneLight {
+  display: none;
+}
+
+:global(.dark) .sceneDark {
+  display: block;
+}
+
+.pane {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  aspect-ratio: 1;
+  visibility: hidden;
+  transform-origin: 0 0;
+}
+
+.hero .paneGrain {
+  inset: 0.75%;
+  background-size: 368px 368px;
+  filter: contrast(3.2);
+  opacity: 0.4;
+  mix-blend-mode: normal;
+}
+
+:global(.dark) .hero .paneGrain {
+  opacity: 0.3;
+}
+
+.mark :global([data-activity-layer="noise"]) {
+  display: none;
+}
+
+/* Local pane coordinates are projected with the photographed glass corners. */
+.markAnchor {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 84%;
+  aspect-ratio: 1;
+  transform: translate(-50%, -50%);
+  mix-blend-mode: multiply;
+}
+
+:global(.dark) .markAnchor {
+  mix-blend-mode: screen;
+}
+
+.markAnchor .mark {
+  width: 100%;
+  height: 100%;
+  border-radius: 0;
+}
+
+.hero .mark :global(.organic-agent-dot-grid) {
+  color: #29282a;
+  filter: none;
+}
+
+.hero .mark :global(circle) {
+  fill: var(--specimen-dot-fill-light);
+}
+
+:global(.dark) .hero .mark :global(circle) {
+  fill: var(--specimen-dot-fill-dark);
+}
+
+:global(.dark) .hero .mark :global(.organic-agent-dot-grid) {
+  color: #f0efeb;
+}
+
+.mark :global([data-activity-layer="glass"]) {
+  border: 0;
+  box-shadow: none;
+}
+
+/* The photographed pane supplies the glass; keep projected SVG dots circular. */
+.mark :global(foreignObject) {
+  display: none;
+}
+
+.header {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+  padding: max(24px, env(safe-area-inset-top, 0px)) var(--welcome-margin) 0;
+}
+
+.brand {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  font-size: 22px;
+  font-weight: 500;
+  letter-spacing: -0.045em;
+  white-space: nowrap;
+}
+
+.navigation {
+  display: flex;
+  align-items: center;
+  gap: clamp(20px, 3.4vw, 54px);
+}
+
+.navLink {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-size: 16px;
+  cursor: pointer;
+}
+
+.navLink:hover {
+  text-decoration: underline;
+  text-underline-offset: 5px;
+}
+
+.content {
+  position: absolute;
+  z-index: 1;
+  inset-inline: var(--welcome-margin);
+  bottom: 10.2svh;
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 32px;
+}
+
+.copy {
+  min-width: 0;
+}
+
+.headline {
+  margin: 0;
+  color: inherit;
+  font-family: inherit;
+  font-size: clamp(48px, 6vw, 96px);
+  font-weight: 400;
+  line-height: 1.08;
+  letter-spacing: -0.06em;
+  text-wrap: balance;
+}
+
+.subline {
+  margin: 10px 0 0;
+  max-width: 40em;
+  font-size: clamp(16px, 1.55vw, 24px);
+  font-weight: 400;
+  line-height: 1.5;
+  letter-spacing: -0.025em;
+  text-wrap: pretty;
+}
+
+.primaryAction {
+  display: inline-flex;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  gap: 24px;
+  min-height: 50px;
+  padding: 14px 26px;
+  border: 1px solid var(--welcome-ink);
+  border-radius: 999px;
+  background: var(--welcome-ink);
+  color: var(--welcome-action-ink);
+  font-family: inherit;
+  font-size: 16px;
+  font-weight: 400;
+  line-height: 1.25;
+  cursor: pointer;
+}
+
+.primaryAction:hover {
+  background: color-mix(in srgb, var(--welcome-ink), var(--welcome-room) 16%);
+}
+
+.scrollInvite {
+  position: absolute;
+  z-index: 1;
+  left: var(--welcome-margin);
+  bottom: max(20px, env(safe-area-inset-bottom, 0px));
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--welcome-muted);
+  font: inherit;
+  font-size: 13px;
+  letter-spacing: 0.08em;
+  cursor: pointer;
+}
+
+.scrollInvite:hover {
+  color: var(--welcome-ink);
+}
+
+.brand:focus-visible,
+.navLink:focus-visible,
+.primaryAction:focus-visible,
+.scrollInvite:focus-visible {
+  outline: 2px solid var(--welcome-ink);
+  outline-offset: 6px;
+}
+
+.details {
+  position: relative;
+  z-index: 1;
+  isolation: isolate;
+  padding-top: 8svh;
+}
+
+.detailsAtmosphere {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  mask-image: linear-gradient(to bottom, transparent, #000 28svh);
+}
+
+.chromeViewport {
+  position: sticky;
+  top: 0;
+  height: 100dvh;
+  overflow: hidden;
+}
+
+.detailsContent {
+  position: relative;
+}
+
+.detailsContent > footer {
+  padding-bottom: calc(2rem + env(safe-area-inset-bottom, 0px));
+}
+
+@media (min-width: 640px) {
+  .detailsContent > footer {
+    padding-bottom: calc(2.5rem + env(safe-area-inset-bottom, 0px));
+  }
+}
+
+/* Public welcome owns its navigation without changing saved sidebar preferences. */
+:global(body):has(.hero) :global([data-slot="sidebar"]),
+:global(body):has(.hero) :global(.control-cluster),
+:global(body):has(.hero) :global([data-onboarding-chrome="first-steps"]),
+:global(body):has(.hero) :global(.first-session-toast),
+:global(body):has(.hero) :global(main > div:has(> [data-sidebar="trigger"])) {
+  display: none;
+}
+
+@media (max-width: 767px) {
+  .header {
+    gap: 16px;
+    padding-top: max(16px, env(safe-area-inset-top, 0px));
+  }
+
+  .brand {
+    font-size: 19px;
+  }
+
+  .navigation {
+    gap: 20px;
+  }
+
+  .navLink {
+    font-size: 14px;
+  }
+
+  .content {
+    bottom: max(80px, calc(64px + env(safe-area-inset-bottom, 0px)));
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 20px;
+  }
+
+  .headline {
+    font-size: clamp(40px, 12vw, 64px);
+  }
+
+  .subline {
+    max-width: 25em;
+    font-size: 16px;
+  }
+
+  .primaryAction {
+    min-height: 48px;
+    padding: 12px 22px;
+    font-size: 14px;
+  }
+
+  .scrollInvite {
+    bottom: max(16px, env(safe-area-inset-bottom, 0px));
+    font-size: 12px;
+  }
+}
+
+@media (max-width: 767px) and (orientation: portrait) {
+  .canvas {
+    width: min(100%, 46.21svh);
+    aspect-ratio: 780 / 1688;
+  }
+
+  .hero .paneGrain {
+    background-size: 200px 200px;
+  }
+}
+
+@media (max-width: 767px) and (max-height: 650px) and (orientation: portrait) {
+  .canvas {
+    transform: translate(-50%, calc(-50% - 30px));
+  }
+
+  .content {
+    gap: 14px;
+    bottom: 70px;
+  }
+
+  .headline {
+    font-size: 38px;
+  }
+
+  .subline {
+    margin-top: 8px;
+    font-size: 14px;
+  }
+}
+
+@media (max-width: 767px) and (orientation: landscape) {
+  .content {
+    bottom: 10.2svh;
+    flex-direction: row;
+    align-items: flex-end;
+  }
+
+  .headline {
+    font-size: clamp(32px, 6vw, 48px);
+  }
+
+  .subline {
+    max-width: 24em;
+    font-size: 14px;
+  }
+
+  .primaryAction {
+    min-height: 44px;
+    padding: 10px 18px;
+    gap: 12px;
+  }
+}
+
+@media (prefers-reduced-transparency: reduce), (prefers-contrast: more) {
+  .markAnchor {
+    mix-blend-mode: normal;
+  }
+}
