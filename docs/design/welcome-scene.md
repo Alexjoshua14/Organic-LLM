@@ -47,6 +47,19 @@ live agent dots visible while its floor joins the themed Liquid Chrome backgroun
   covers and secondary refraction are disabled locally to preserve circles under
   projective transforms; other agent marks retain their materials.
 
+## First frame and selection
+
+- `app/page.tsx` passes a server auth hint, so signed-out visitors get the hero in
+  the first HTML. Its `:has(.hero)` rule then hides the app sidebar and control
+  cluster before Clerk loads; Clerk's client state takes over once loaded.
+  Below-fold sections mount after hydration because their reveal motion depends
+  on reduced-motion, which the server cannot read.
+- Only reading copy is selectable: the hero headline and subline, plus section
+  headings and body text below the fold. The scene, navigation, actions, scroll
+  invite, illustrations and screenshots use `user-select: none`, and images are
+  not draggable. Base styles make headings unselectable app-wide, so welcome
+  headings opt back in.
+
 ## Verification
 
 Projection unit tests check the four photographed corners at multiple sizes and

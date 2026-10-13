@@ -40,7 +40,7 @@ export function WelcomeFeatures({ className }: WelcomeFeaturesProps) {
       <div className="mx-auto flex w-full max-w-6xl flex-col px-5 sm:px-8 lg:px-12">
         <header className="mb-6 max-w-2xl shrink-0 text-left sm:mb-8">
           <h2
-            className="font-commissioner text-2xl font-light tracking-tight text-foreground sm:text-3xl"
+            className="cursor-auto select-text font-commissioner text-2xl font-light tracking-tight text-foreground sm:text-3xl"
             id="welcome-features-heading"
           >
             {features.heading}
@@ -58,7 +58,7 @@ export function WelcomeFeatures({ className }: WelcomeFeaturesProps) {
             )}
           >
             <div>
-              <h3 className="font-commissioner text-lg font-light tracking-tight text-foreground sm:text-xl">
+              <h3 className="cursor-auto select-text font-commissioner text-lg font-light tracking-tight text-foreground sm:text-xl">
                 {chat.title}
               </h3>
               <p className="mt-1.5 line-clamp-2 text-sm leading-snug text-muted-foreground">
@@ -78,7 +78,9 @@ export function WelcomeFeatures({ className }: WelcomeFeaturesProps) {
             <ul className="grid grid-cols-1 gap-4 sm:grid-cols-3 sm:items-stretch sm:gap-6">
               {chat.modes.map((mode) => (
                 <li key={mode.id} className="flex min-w-0 flex-col">
-                  <h4 className="text-sm font-medium text-foreground">{mode.title}</h4>
+                  <h4 className="cursor-auto select-text text-sm font-medium text-foreground">
+                    {mode.title}
+                  </h4>
                   <p className="mt-1 line-clamp-3 whitespace-pre-line text-xs leading-snug text-muted-foreground sm:text-sm">
                     {mode.body}
                   </p>

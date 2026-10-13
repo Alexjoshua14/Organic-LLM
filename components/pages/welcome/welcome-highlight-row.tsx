@@ -28,7 +28,7 @@ export function WelcomeHighlightRow({ item }: WelcomeHighlightRowProps) {
       {...(sectionReveal ?? {})}
     >
       <div className="min-w-0 flex-1 text-left">
-        <h3 className="font-commissioner text-2xl font-light tracking-tight text-foreground sm:text-[1.65rem]">
+        <h3 className="cursor-auto select-text font-commissioner text-2xl font-light tracking-tight text-foreground sm:text-[1.65rem]">
           {item.title}
         </h3>
         <p className="mt-3 text-pretty text-sm leading-relaxed text-muted-foreground sm:text-[15px] sm:leading-[1.65]">

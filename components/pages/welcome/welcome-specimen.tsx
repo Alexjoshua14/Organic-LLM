@@ -7,6 +7,7 @@ import Image from "next/image";
 import { useEffect, useId, useRef } from "react";
 import { motion, useMotionValue, useReducedMotion, useSpring, useTransform } from "framer-motion";
 
+import { useHydrated } from "./use-hydrated";
 import styles from "./welcome-specimen.module.css";
 import { specimenPaneMatrix } from "./welcome-specimen-projection";
 
@@ -26,6 +27,8 @@ const SPECIMEN_GLASS: ActivityGlassByState = {
 /** Photographic glass and light surround the same live mark used by the agents. */
 export function WelcomeSpecimen() {
   const reduce = useReducedMotion();
+  // The server cannot read reduced motion; attach camera motion after hydration.
+  const cameraMotion = useHydrated() && !reduce;
   const materialId = `welcome-dot-${useId().replace(/:/g, "")}`;
   const sceneRef = useRef<HTMLElement>(null);
   const canvasRef = useRef<HTMLDivElement>(null);
@@ -141,7 +144,7 @@ export function WelcomeSpecimen() {
           </radialGradient>
         </defs>
       </svg>
-      <motion.div className={styles.camera} style={reduce ? undefined : { x, y, rotateX }}>
+      <motion.div className={styles.camera} style={cameraMotion ? { x, y, rotateX } : undefined}>
         <div ref={canvasRef} className={styles.canvas}>
           <picture className={styles.sceneLight}>
             <source
@@ -157,6 +160,7 @@ export function WelcomeSpecimen() {
               loading="eager"
               fetchPriority="high"
               className={styles.sceneImage}
+              draggable={false}
             />
           </picture>
           <picture className={styles.sceneDark}>
@@ -172,6 +176,7 @@ export function WelcomeSpecimen() {
               sizes="(max-width: 767px) 100vw, min(100vw, 140vh)"
               loading="eager"
               className={styles.sceneImage}
+              draggable={false}
             />
           </picture>
           <div ref={paneRef} className={styles.pane}>

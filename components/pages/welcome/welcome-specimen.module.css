@@ -26,6 +26,9 @@
   color: var(--welcome-ink);
   color-scheme: light;
   font-family: var(--font-satoshi), sans-serif;
+  /* Scene, navigation and actions are controls; only the headline and subline read as copy. */
+  -webkit-user-select: none;
+  user-select: none;
 }
 
 :global(.dark) .hero {
@@ -71,6 +74,8 @@
 
 .sceneImage {
   object-fit: cover;
+  -webkit-user-drag: none;
+  -webkit-touch-callout: none;
 }
 
 .sceneLight,
@@ -219,6 +224,13 @@
 
 .copy {
   min-width: 0;
+}
+
+.copy,
+.headline {
+  -webkit-user-select: text;
+  user-select: text;
+  cursor: auto;
 }
 
 .headline {

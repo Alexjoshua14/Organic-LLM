@@ -30,7 +30,7 @@ export function WelcomeFeatureCard({
         className
       )}
     >
-      <h3 className="font-commissioner text-base font-light tracking-tight text-foreground sm:text-lg">
+      <h3 className="cursor-auto select-text font-commissioner text-base font-light tracking-tight text-foreground sm:text-lg">
         {title}
       </h3>
       <p className="mt-1.5 line-clamp-3 shrink-0 text-sm leading-snug text-muted-foreground">

@@ -5,6 +5,7 @@ import { SignInButton, SignUpButton } from "@clerk/nextjs";
 import { ArrowRight } from "lucide-react";
 import { useRef } from "react";
 
+import { useHydrated } from "./use-hydrated";
 import { useWelcomeInView } from "./use-welcome-in-view";
 import { WelcomeFeatures } from "./welcome-features";
 import { WelcomeHeadline } from "./welcome-headline";
@@ -20,6 +21,9 @@ import { welcomeCopy } from "@/lib/welcome/copy";
 
 export function WelcomeHero() {
   const detailsRef = useRef<HTMLDivElement>(null);
+  // The hero server-renders for signed-out visitors. Below-fold sections wait for hydration:
+  // their reveal motion depends on reduced-motion, which the server cannot know.
+  const hydrated = useHydrated();
   const detailsVisible = useWelcomeInView(detailsRef, {
     threshold: 0,
     rootMargin: "0px 0px -1px 0px",
@@ -70,18 +74,22 @@ export function WelcomeHero() {
           </section>
 
           <div ref={detailsRef} className={styles.details} data-welcome-details>
-            <div className={styles.detailsAtmosphere} aria-hidden>
-              <div className={styles.chromeViewport}>
-                {detailsVisible ? (
-                  <AdaptiveLiquidChrome cover="parent" dimIntensity={0.45} />
-                ) : null}
-              </div>
-            </div>
-            <div className={styles.detailsContent}>
-              <WelcomeFeatures />
-              <WelcomeHighlights />
-              <WelcomePageFooter />
-            </div>
+            {hydrated ? (
+              <>
+                <div className={styles.detailsAtmosphere} aria-hidden>
+                  <div className={styles.chromeViewport}>
+                    {detailsVisible ? (
+                      <AdaptiveLiquidChrome cover="parent" dimIntensity={0.45} />
+                    ) : null}
+                  </div>
+                </div>
+                <div className={styles.detailsContent}>
+                  <WelcomeFeatures />
+                  <WelcomeHighlights />
+                  <WelcomePageFooter />
+                </div>
+              </>
+            ) : null}
           </div>
         </div>
       </div>
