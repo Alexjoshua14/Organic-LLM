@@ -25,6 +25,8 @@ type PageContentFrameProps = {
   children: ReactNode;
   maxWidth?: PageContentFrameMaxWidth;
   withTopClearance?: boolean;
+  /** Pad around the sidebar trigger and control cluster; off for pages with their own header. */
+  clearNavChrome?: boolean;
   className?: string;
 };
 
@@ -32,6 +34,7 @@ export function PageContentFrame({
   children,
   maxWidth = "5xl",
   withTopClearance = true,
+  clearNavChrome = true,
   className,
 }: PageContentFrameProps) {
   return (
@@ -39,9 +42,9 @@ export function PageContentFrame({
       className={cn(
         "mx-auto w-full",
         MAX_WIDTH_CLASS[maxWidth],
-        triggerInsetX,
-        clusterInsetX,
-        withTopClearance && triggerInsetY,
+        clearNavChrome && triggerInsetX,
+        clearNavChrome && clusterInsetX,
+        clearNavChrome && withTopClearance && triggerInsetY,
         "px-6 pb-6",
         className
       )}

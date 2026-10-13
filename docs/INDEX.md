@@ -52,6 +52,8 @@ Canon for the product: what we're building, who owns which kind of truth, how ag
   - [Context usage](./design/context-usage.md) — composer charts, source colors, percentage ramp, hover labels
   - [Subagent identity mark](./design/subagent-identity-mark.md) — SVG dot states, glass diffusion, local layering
   - [Glass distortion](./design/glass-distortion.md) — opt-in source refraction beneath glass, Safari compatibility
+  - [Liquid chrome materials](./design/liquid-chrome-materials.md) — theme-specific shader materials, fallbacks, and refraction parity
+  - [Welcome scene](./design/welcome-scene.md) — pane projection, scroll perspective, and themed floor continuity
   - [Activity-mark physics and fallback](./architecture/decisions/20261010-activity-mark-physics-and-fallback.md) — independent springs, shared scheduling, adaptive performance guard
   - [Motion & character text timing](./design/motion-and-text-timing.md) — status labels, loading burns, stagger budgets
 - [Adaptive background](./adaptive-background.md)
