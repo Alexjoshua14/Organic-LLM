@@ -173,50 +173,6 @@
   display: none;
 }
 
-.header {
-  position: relative;
-  z-index: 1;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 24px;
-  padding: max(24px, env(safe-area-inset-top, 0px)) var(--welcome-margin) 0;
-}
-
-.brand {
-  display: inline-flex;
-  align-items: center;
-  min-height: 44px;
-  font-size: 22px;
-  font-weight: 500;
-  letter-spacing: -0.045em;
-  white-space: nowrap;
-}
-
-.navigation {
-  display: flex;
-  align-items: center;
-  gap: clamp(20px, 3.4vw, 54px);
-}
-
-.navLink {
-  display: inline-flex;
-  align-items: center;
-  min-height: 44px;
-  padding: 0;
-  border: 0;
-  background: transparent;
-  color: inherit;
-  font: inherit;
-  font-size: 16px;
-  cursor: pointer;
-}
-
-.navLink:hover {
-  text-decoration: underline;
-  text-underline-offset: 5px;
-}
-
 .content {
   position: absolute;
   z-index: 1;
@@ -305,8 +261,6 @@
   color: var(--welcome-ink);
 }
 
-.brand:focus-visible,
-.navLink:focus-visible,
 .primaryAction:focus-visible,
 .scrollInvite:focus-visible {
   outline: 2px solid var(--welcome-ink);
@@ -396,33 +350,7 @@
   }
 }
 
-/* Public welcome owns its navigation without changing saved sidebar preferences. */
-:global(body):has(.hero) :global([data-slot="sidebar"]),
-:global(body):has(.hero) :global(.control-cluster),
-:global(body):has(.hero) :global([data-onboarding-chrome="first-steps"]),
-:global(body):has(.hero) :global(.first-session-toast),
-:global(body):has(.hero) :global(main > div:has(> [data-sidebar="trigger"])) {
-  display: none;
-}
-
 @media (max-width: 767px) {
-  .header {
-    gap: 16px;
-    padding-top: max(16px, env(safe-area-inset-top, 0px));
-  }
-
-  .brand {
-    font-size: 19px;
-  }
-
-  .navigation {
-    gap: 20px;
-  }
-
-  .navLink {
-    font-size: 14px;
-  }
-
   .content {
     bottom: max(80px, calc(64px + env(safe-area-inset-bottom, 0px)));
     flex-direction: column;

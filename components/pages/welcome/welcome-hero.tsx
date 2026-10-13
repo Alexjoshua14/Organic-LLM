@@ -1,7 +1,6 @@
 "use client";
 
-import Link from "next/link";
-import { SignInButton, SignUpButton } from "@clerk/nextjs";
+import { SignUpButton } from "@clerk/nextjs";
 import { ArrowRight } from "lucide-react";
 import { useRef } from "react";
 
@@ -17,6 +16,7 @@ import styles from "./welcome-specimen.module.css";
 
 import AdaptiveLiquidChrome from "@/components/background/AdaptiveLiquidChrome";
 import Page from "@/components/layout/page";
+import { PublicSiteHeader } from "@/components/layout/public-site-header";
 import { welcomeCopy } from "@/lib/welcome/copy";
 
 export function WelcomeHero() {
@@ -41,21 +41,7 @@ export function WelcomeHero() {
           <section className={styles.hero} aria-label="Welcome to Organic LLM">
             <WelcomeSpecimen />
 
-            <header className={styles.header}>
-              <Link className={styles.brand} href="/" aria-label="Organic LLM home">
-                {welcomeCopy.headline}
-              </Link>
-              <nav className={styles.navigation} aria-label="Homepage navigation">
-                <Link className={styles.navLink} href="/showcase">
-                  Showcase
-                </Link>
-                <SignInButton mode="modal">
-                  <button className={styles.navLink} type="button">
-                    {welcomeCopy.cta.signIn}
-                  </button>
-                </SignInButton>
-              </nav>
-            </header>
+            <PublicSiteHeader className={styles.header} />
 
             <div className={styles.content}>
               <div className={styles.copy}>

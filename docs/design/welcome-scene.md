@@ -68,8 +68,9 @@ live agent dots visible while its floor joins the themed Liquid Chrome backgroun
 ## First frame and selection
 
 - `app/page.tsx` passes a server auth hint, so signed-out visitors get the hero in
-  the first HTML. Its `:has(.hero)` rule then hides the app sidebar and control
-  cluster before Clerk loads; Clerk's client state takes over once loaded.
+  the first HTML. `PublicSiteHeader` (shared with Showcase) carries the `:has()`
+  rule that hides the app sidebar and control cluster, so they are gone before
+  Clerk loads; Clerk's client state takes over once loaded.
   Below-fold sections mount after hydration because their reveal motion depends
   on reduced-motion, which the server cannot read.
 - Only reading copy is selectable: the hero headline and subline, plus section
