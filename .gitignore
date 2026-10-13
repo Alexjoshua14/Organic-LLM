@@ -67,3 +67,5 @@ data/noesis/
 # Generated subagent identity blobs (local store; not for git)
 .data/
 
+# Local bench harness and its built output
+.bench/
