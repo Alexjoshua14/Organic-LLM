@@ -71,6 +71,10 @@ live agent dots visible while its floor joins the themed Liquid Chrome backgroun
   Sign in. It cycles system, light, and dark using the app's saved theme preference
   and retains a 44px target. The control sits near the viewport edge independently
   of the existing navigation spacing.
+- Public navigation underlines wipe in from the left and out toward the right on
+  hover or keyboard focus, without changing layout. Entry takes 180ms and exit 140ms,
+  within the brief feedback band; reduced motion switches it instantly. Timing lives in
+  `public-site-header.module.css` beside the effect.
 - The compact outline signup action sits at the bottom-right of the first viewport,
   centered on the same row as the subline. Its height is 36px. The headline-to-subline
   row gap stays 10px, or 8px on short portrait screens.

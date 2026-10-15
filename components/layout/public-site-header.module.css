@@ -29,6 +29,11 @@
 }
 
 .navLink {
+  --public-nav-underline-enter: 180ms;
+  --public-nav-underline-exit: 140ms;
+  --public-nav-underline-ease: cubic-bezier(0, 0, 0.2, 1);
+
+  position: relative;
   display: inline-flex;
   align-items: center;
   min-height: 44px;
@@ -41,9 +46,30 @@
   cursor: pointer;
 }
 
-.navLink:hover {
-  text-decoration: underline;
-  text-underline-offset: 5px;
+.navLink::after {
+  position: absolute;
+  inset-inline: 0;
+  bottom: calc(50% - 0.8em);
+  height: 1px;
+  background: currentColor;
+  content: "";
+  pointer-events: none;
+  transform: scaleX(0);
+  transform-origin: right;
+  transition: transform var(--public-nav-underline-exit) var(--public-nav-underline-ease);
+}
+
+.navLink:hover::after,
+.navLink:focus-visible::after {
+  transform: scaleX(1);
+  transform-origin: left;
+  transition-duration: var(--public-nav-underline-enter);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .navLink::after {
+    transition: none;
+  }
 }
 
 .withThemeToggle .navigation {
