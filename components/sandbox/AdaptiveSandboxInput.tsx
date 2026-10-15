@@ -2,7 +2,7 @@
 
 import type { SandboxInputMode } from "@/lib/sandbox/scenarios/registry";
 
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useId, useRef, useState } from "react";
 import { useChat } from "@ai-sdk/react";
 import { ChatStatus } from "ai";
 import { Button } from "@heroui/button";
@@ -37,6 +37,7 @@ export function AdaptiveSandboxInput({
   buttonLabel = "Generate",
   hybridOptions,
 }: AdaptiveSandboxInputProps) {
+  const articleSelectId = useId();
   const modelRef = useRef<ChatModel>(DEFAULT_CHAT_MODEL);
   const useWebSearchRef = useRef<boolean>(false);
   const useMemoriesRef = useRef<boolean>(false);
@@ -121,8 +122,11 @@ export function AdaptiveSandboxInput({
 
     return (
       <div className="flex flex-col gap-3 w-full max-w-xl">
-        <label className="text-sm font-medium text-foreground">Article context</label>
+        <label className="text-sm font-medium text-foreground" htmlFor={articleSelectId}>
+          Article context
+        </label>
         <select
+          id={articleSelectId}
           className="w-full rounded-md border border-border bg-card px-3 py-2 text-sm text-foreground"
           disabled={effectiveDisabled}
           value={selectedIndex}

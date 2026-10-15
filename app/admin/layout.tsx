@@ -1,5 +1,5 @@
-import { notFound } from "next/navigation";
 import Link from "next/link";
+import { notFound } from "next/navigation";
 
 import { requireAdmin } from "@/lib/admin/require-admin";
 
