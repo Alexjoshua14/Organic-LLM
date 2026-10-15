@@ -3,7 +3,6 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
 
 import { ThreadTitleLine, useThreadTitlePhase } from "@/components/chat/thread-title-line";
-import { cn } from "@/lib/utils";
 
 type SidebarChatTitleProps = {
   threadId: string;
@@ -106,18 +105,9 @@ export function SidebarChatTitle({
   }
 
   return (
-    <h3
-      className="thread-title min-w-0 flex-1 cursor-pointer truncate py-1"
-      title={announced}
-    >
+    <h3 className="thread-title min-w-0 flex-1 cursor-pointer truncate py-1" title={announced}>
       <span className="sr-only">{announced}</span>
-      <ThreadTitleLine
-        className={className}
-        from={from}
-        phase={phase}
-        text={shown}
-        to={to}
-      />
+      <ThreadTitleLine className={className} from={from} phase={phase} text={shown} to={to} />
     </h3>
   );
 }

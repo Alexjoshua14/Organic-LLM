@@ -79,7 +79,8 @@ export function threadTitlePhase(
   reduceMotion: boolean
 ): ThreadTitlePhase {
   if (!session) return "stable";
-  if (!session.nextTitle || session.nextTitle === session.baseTitle || reduceMotion) return "shimmer";
+  if (!session.nextTitle || session.nextTitle === session.baseTitle || reduceMotion)
+    return "shimmer";
 
   return "burn";
 }
@@ -142,8 +143,7 @@ export function useThreadTitlePhase(threadId: string | undefined, title: string)
 
     const next = session.nextTitle;
     const same = next === session.baseTitle;
-    const ms =
-      reduceMotion || same ? 0 : processingTextBurnSwapDurationMs(session.baseTitle, next);
+    const ms = reduceMotion || same ? 0 : processingTextBurnSwapDurationMs(session.baseTitle, next);
     const timeout = window.setTimeout(() => completeTitleRegen(threadId), ms);
 
     return () => window.clearTimeout(timeout);

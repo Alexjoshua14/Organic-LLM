@@ -13,6 +13,7 @@ import {
   searchMemoriesLegacyFromQdrant,
 } from "@/lib/memory/search-memories-legacy-qdrant";
 import { searchMemoriesV2FromQdrant } from "@/lib/memory/search-memories-v2-qdrant";
+// eslint-disable-next-line no-restricted-imports -- sandbox migration test lists by explicit sbUserId and rate-limits itself
 import { getAllMemories } from "@/lib/memory/store";
 import { checkLlmMessageLimit } from "@/lib/rate-limit/llm";
 import { checkMemoryListLimit, checkMemorySearchLimit } from "@/lib/rate-limit/memory";

@@ -116,6 +116,7 @@ export function DebugTracePanel({ trace, extra, className, headerTooltip }: Debu
               <TooltipTrigger asChild>
                 <span
                   className="inline-flex cursor-help text-muted-foreground hover:text-foreground"
+                  role="presentation"
                   onClick={(e) => e.stopPropagation()}
                 >
                   <HelpCircle aria-hidden size={14} />
