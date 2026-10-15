@@ -1,7 +1,6 @@
 "use client";
 
 import { SignUpButton } from "@clerk/nextjs";
-import { ArrowRight } from "lucide-react";
 import { useRef } from "react";
 
 import { useHydrated } from "./use-hydrated";
@@ -41,19 +40,20 @@ export function WelcomeHero() {
           <section className={styles.hero} aria-label="Welcome to Organic LLM">
             <WelcomeSpecimen />
 
-            <PublicSiteHeader className={styles.header} />
+            <PublicSiteHeader className={styles.header} showThemeToggle />
 
             <div className={styles.content}>
               <div className={styles.copy}>
                 <WelcomeHeadline className={styles.headline} />
-                <p className={styles.subline}>{welcomeCopy.subline}</p>
+                <div className={styles.heroActions}>
+                  <p className={styles.subline}>{welcomeCopy.subline}</p>
+                  <SignUpButton mode="modal">
+                    <button className={styles.accountAction} type="button">
+                      {welcomeCopy.cta.signUp}
+                    </button>
+                  </SignUpButton>
+                </div>
               </div>
-              <SignUpButton mode="modal">
-                <button className={styles.primaryAction} type="button">
-                  {welcomeCopy.cta.signUp}
-                  <ArrowRight aria-hidden size={20} strokeWidth={1.25} />
-                </button>
-              </SignUpButton>
             </div>
 
             <WelcomeScrollInvite className={styles.scrollInvite} />

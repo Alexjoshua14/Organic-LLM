@@ -65,6 +65,28 @@ live agent dots visible while its floor joins the themed Liquid Chrome backgroun
   inset because it ends the page.
 - Reduced motion removes every entrance.
 
+## Hero actions
+
+- The welcome header places the shared compact theme control at the top-right, after
+  Sign in. It cycles system, light, and dark using the app's saved theme preference
+  and retains a 44px target. The control sits near the viewport edge independently
+  of the existing navigation spacing.
+- Public navigation underlines wipe in from the left and out toward the right on
+  hover or keyboard focus, without changing layout. Entry takes 180ms and exit 140ms,
+  within the brief feedback band; reduced motion switches it instantly. Timing lives in
+  `public-site-header.module.css` beside the effect.
+- The compact outline signup action sits at the bottom-right of the first viewport,
+  centered on the same row as the subline. Its height is 36px. The headline-to-subline
+  row gap stays 10px, or 8px on short portrait screens.
+- The scroll invitation centers a label above a downward chevron near the viewport's
+  bottom edge, with one accessible label and a 44px target. Its space exists from first paint
+  below the copy and signup row, preventing layout shift when the cue appears.
+- The scroll label and chevron wait three seconds so the scene and copy settle first,
+  then fade in together within the brief functional entrance band. The chevron pulses
+  gently within the existing 2–5 second idle-motion band. Timing and travel tokens live beside the effect in
+  `welcome-specimen.module.css`. Reduced motion retains the delay, reveals the cue
+  instantly, and removes the pulse; scrolling also becomes immediate.
+
 ## First frame and selection
 
 - `app/page.tsx` passes a server auth hint, so signed-out visitors get the hero in

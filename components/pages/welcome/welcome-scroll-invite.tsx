@@ -1,6 +1,9 @@
 "use client";
 
 import { useReducedMotion } from "framer-motion";
+import { ChevronDown } from "lucide-react";
+
+import styles from "./welcome-specimen.module.css";
 
 import { welcomeCopy } from "@/lib/welcome/copy";
 
@@ -36,7 +39,10 @@ export function WelcomeScrollInvite({
       type="button"
       onClick={handleClick}
     >
-      {welcomeCopy.scrollInvite.text}
+      <span>{welcomeCopy.scrollInvite.text}</span>
+      <span aria-hidden className={styles.scrollCue}>
+        <ChevronDown size={18} strokeWidth={1.25} />
+      </span>
     </button>
   );
 }
