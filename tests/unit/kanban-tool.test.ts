@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
 
 import { createKanbanBoardTool, type KanbanStreamWriter } from "@/lib/llm/kanban-tool";
-import type { KanbanCommand } from "@/lib/schemas/kanban";
+import type { KanbanChannelCommand } from "@/lib/schemas/kanban";
 import { toKanbanToolOutput } from "@/lib/schemas/kanban";
 import {
   FIXTURE_INITIATE,
@@ -10,7 +10,7 @@ import {
 } from "@/lib/schemas/kanban/fixtures";
 
 function makeWriter() {
-  const written: { type: string; data: KanbanCommand; transient?: boolean }[] = [];
+  const written: { type: string; data: KanbanChannelCommand; transient?: boolean }[] = [];
   const writer: KanbanStreamWriter = {
     write: (part) => {
       written.push(part);
