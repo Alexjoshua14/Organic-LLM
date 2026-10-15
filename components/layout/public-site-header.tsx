@@ -5,11 +5,13 @@ import { SignInButton, useAuth } from "@clerk/nextjs";
 
 import styles from "./public-site-header.module.css";
 
+import { ThemeSwitch } from "@/components/shared/theme-switch";
 import { welcomeCopy } from "@/lib/welcome/copy";
 import { cn } from "@/lib/utils";
 
 type PublicSiteHeaderProps = {
   className?: string;
+  showThemeToggle?: boolean;
 };
 
 /**
@@ -17,11 +19,11 @@ type PublicSiteHeaderProps = {
  * sidebar and control cluster. Sign in shows until Clerk confirms a session, so signed-out
  * visitors never see it pop in.
  */
-export function PublicSiteHeader({ className }: PublicSiteHeaderProps) {
+export function PublicSiteHeader({ className, showThemeToggle = false }: PublicSiteHeaderProps) {
   const { isSignedIn } = useAuth();
 
   return (
-    <header className={cn(styles.header, className)}>
+    <header className={cn(styles.header, showThemeToggle && styles.withThemeToggle, className)}>
       <Link className={styles.brand} href="/" aria-label="Organic LLM home">
         {welcomeCopy.headline}
       </Link>
@@ -37,6 +39,7 @@ export function PublicSiteHeader({ className }: PublicSiteHeaderProps) {
           </SignInButton>
         )}
       </nav>
+      {showThemeToggle ? <ThemeSwitch className={styles.themeToggle} variant="compact" /> : null}
     </header>
   );
 }
