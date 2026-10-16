@@ -2,13 +2,15 @@ import "server-only";
 
 import type { HealthCheckResult } from "@/lib/health/types";
 
+import { cloudflareAccessHeaders, isCloudflareAccessConfigured } from "@/lib/cloudflare-access";
+import { describeHttpFailure, describeThrownError } from "@/lib/health/describe-failure";
 import { getOllamaConfig, getOllamaPlanModel } from "@/lib/ollama/client";
 import { HEALTH_CHECK_TIMEOUT_MS, withTimeout } from "@/lib/health/with-timeout";
 
 const OLLAMA_EMBED_MODEL = process.env.OLLAMA_EMBED_MODEL ?? "nomic-embed-text";
 
 function ollamaHeaders(): Record<string, string> {
-  const headers: Record<string, string> = {};
+  const headers: Record<string, string> = { ...cloudflareAccessHeaders("ollama") };
   const apiKey = process.env.OLLAMA_API_KEY;
 
   if (apiKey) headers.Authorization = `Bearer ${apiKey}`;
@@ -45,6 +47,7 @@ export async function checkOllama(): Promise<HealthCheckResult> {
     model,
     planModel: getOllamaPlanModel(),
     embedModel: OLLAMA_EMBED_MODEL,
+    accessTokenConfigured: isCloudflareAccessConfigured("ollama") ? "yes" : "no",
   };
 
   const base: Omit<HealthCheckResult, "status" | "latencyMs" | "summary"> = {
@@ -65,14 +68,11 @@ export async function checkOllama(): Promise<HealthCheckResult> {
         const latencyMs = Math.round(performance.now() - start);
 
         if (!res.ok) {
-          const errText = await res.text().catch(() => "");
-
           return {
             ...base,
             status: "down",
             latencyMs,
-            summary: `tags returned ${res.status}`,
-            message: errText.slice(0, 500) || undefined,
+            ...describeHttpFailure(res, await res.text().catch(() => "")),
           };
         }
 
@@ -111,14 +111,12 @@ export async function checkOllama(): Promise<HealthCheckResult> {
         };
       } catch (error) {
         const latencyMs = Math.round(performance.now() - start);
-        const message = error instanceof Error ? error.message : String(error);
 
         return {
           ...base,
           status: "down",
           latencyMs,
-          summary: message.length > 80 ? `${message.slice(0, 77)}…` : message,
-          message,
+          ...describeThrownError(error),
         };
       }
     },
