@@ -1,5 +1,6 @@
 import "server-only";
 
+import { cloudflareAccessHeaders } from "../cloudflare-access";
 import { createLogger } from "../logger";
 
 const logger = createLogger("ollama-config.ts");
@@ -15,13 +16,17 @@ export function isLocalOllamaUrl(url: string = OLLAMA_URL): boolean {
 /**
  * Headers for Ollama HTTP requests.
  *
- * Attaches a bearer token for the authenticating Ollama proxy (the token-gated
- * Cloudflare tunnel origin) when OLLAMA_API_KEY is set. Local/on-box Ollama
+ * Attaches Cloudflare Access service-token headers when configured, and a bearer token for the
+ * authenticating Ollama proxy (the token-gated Cloudflare tunnel origin) when OLLAMA_API_KEY is
+ * set. Local/on-box Ollama
  * (localhost:11434) needs no auth, so we only warn about a missing key when
  * OLLAMA_URL points at a remote host — where a missing key means 401s.
  */
 export function ollamaHeaders(): Record<string, string> {
-  const headers: Record<string, string> = { "Content-Type": "application/json" };
+  const headers: Record<string, string> = {
+    "Content-Type": "application/json",
+    ...cloudflareAccessHeaders("ollama"),
+  };
 
   if (OLLAMA_API_KEY) {
     headers.Authorization = `Bearer ${OLLAMA_API_KEY}`;

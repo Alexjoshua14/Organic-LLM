@@ -3,6 +3,8 @@ import "server-only";
 import type { HealthCheckResult } from "@/lib/health/types";
 
 import { MEMORY_PRODUCTION_QDRANT_COLLECTION } from "@/config/memory-production-meta";
+import { cloudflareAccessHeaders, isCloudflareAccessConfigured } from "@/lib/cloudflare-access";
+import { describeHttpFailure, describeThrownError } from "@/lib/health/describe-failure";
 import { HEALTH_CHECK_TIMEOUT_MS, withTimeout } from "@/lib/health/with-timeout";
 import {
   createQdrantClient,
@@ -19,6 +21,7 @@ function memoryConfigRecord(): Record<string, string> {
     scheme: https ? "https" : "http",
     collection: MEMORY_PRODUCTION_QDRANT_COLLECTION,
     secretConfigured: isMemoryApiSecretConfigured() ? "yes" : "no",
+    accessTokenConfigured: isCloudflareAccessConfigured("memory") ? "yes" : "no",
   };
 }
 
@@ -43,7 +46,7 @@ export async function checkMemoryQdrant(deep: boolean): Promise<HealthCheckResul
     HEALTH_CHECK_TIMEOUT_MS,
     async () => {
       try {
-        const headers: Record<string, string> = {};
+        const headers: Record<string, string> = { ...cloudflareAccessHeaders("memory") };
 
         if (apiKey) headers["api-key"] = apiKey;
 
@@ -59,8 +62,7 @@ export async function checkMemoryQdrant(deep: boolean): Promise<HealthCheckResul
             ...base,
             status: "down",
             latencyMs,
-            summary: `healthz returned ${res.status}`,
-            message: await res.text().catch(() => undefined),
+            ...describeHttpFailure(res, await res.text().catch(() => "")),
           };
         }
 
@@ -106,14 +108,12 @@ export async function checkMemoryQdrant(deep: boolean): Promise<HealthCheckResul
         };
       } catch (error) {
         const latencyMs = Math.round(performance.now() - start);
-        const message = error instanceof Error ? error.message : String(error);
 
         return {
           ...base,
           status: "down",
           latencyMs,
-          summary: message.length > 80 ? `${message.slice(0, 77)}…` : message,
-          message,
+          ...describeThrownError(error),
         };
       }
     },
