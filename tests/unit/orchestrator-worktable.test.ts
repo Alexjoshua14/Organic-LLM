@@ -602,13 +602,13 @@ describe("dispatch_subagent", () => {
   });
 
   test("automatic dispatches are counted from heartbeat replies since the user last spoke", () => {
-    const dispatchPart = (success: boolean) =>
+    const dispatchPart = (success: boolean, dryRun = false) =>
       ({
         type: "tool-dispatch_subagent",
         toolCallId: `t-${Math.random()}`,
         state: "output-available",
         input: {},
-        output: { success },
+        output: { success, ...(dryRun ? { dryRun: true } : {}) },
       }) as unknown as UIMessage["parts"][number];
     const assistant = (id: string, parts: UIMessage["parts"]): UIMessage => ({
       id,
@@ -628,7 +628,7 @@ describe("dispatch_subagent", () => {
       // The user's own turn: not automatic.
       assistant("a1", [dispatchPart(true)]),
       heartbeat("h1"),
-      assistant("a2", [dispatchPart(true), dispatchPart(false)]),
+      assistant("a2", [dispatchPart(true), dispatchPart(false), dispatchPart(true, true)]),
       heartbeat("h2"),
       assistant("a3", [dispatchPart(true), { type: "text", text: "Started Reed." }]),
     ];

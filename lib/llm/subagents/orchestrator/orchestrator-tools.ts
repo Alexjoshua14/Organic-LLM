@@ -109,9 +109,12 @@ type Resolution<T> = { ok: true; value: T } | { ok: false; error: string };
 
 function isSuccessfulDispatchPart(part: UIMessage["parts"][number]): boolean {
   if (part.type !== "tool-dispatch_subagent") return false;
-  const { state, output } = part as { state?: string; output?: { success?: unknown } };
+  const { state, output } = part as {
+    state?: string;
+    output?: { success?: unknown; dryRun?: unknown };
+  };
 
-  return state === "output-available" && output?.success === true;
+  return state === "output-available" && output?.success === true && output.dryRun !== true;
 }
 
 /**
