@@ -19,6 +19,7 @@ export async function runQueuedSubagentTurn(item: MessageSendQueueRow, ownerId: 
   const run = item.payload.subagentRun!;
   const threadId = item.thread_id;
   const link = await getSubagentThreadLink(threadId, ownerId);
+
   if (!link || link.agentId !== run.agentId || link.parentThreadId !== run.orchestratorId) {
     return {
       ok: false as const,
@@ -31,6 +32,7 @@ export async function runQueuedSubagentTurn(item: MessageSendQueueRow, ownerId: 
     limit: 1,
     messageId: run.goalId,
   });
+
   if (!assignment) return { ok: false as const, error: "Subagent assignment is unavailable" };
   const identity = resolveSubagentIdentity(link.agentId);
   const result = await runSubagentThreadTurn({
@@ -60,6 +62,7 @@ export async function runQueuedSubagentTurn(item: MessageSendQueueRow, ownerId: 
         route: "/api/chat/queue",
       }),
   });
+
   return result.completed
     ? { ok: true as const }
     : { ok: false as const, error: "Subagent could not complete the assignment" };

@@ -1,8 +1,8 @@
 import type { UIMessage } from "ai";
-
-import { randomUUID } from "crypto";
 import type { SubagentContext } from "./context-items";
 import type { ContextBudgetUsage } from "@/lib/chat/context-budget";
+
+import { randomUUID } from "crypto";
 
 /**
  * Message conventions inside a subagent's own thread. The orchestrator's assignment arrives as a
@@ -46,6 +46,7 @@ export function uiMessageText(message: UIMessage, trim = true): string {
     .filter((part): part is { type: "text"; text: string } => part.type === "text")
     .map((part) => part.text)
     .join("");
+
   return trim ? text.trim() : text;
 }
 

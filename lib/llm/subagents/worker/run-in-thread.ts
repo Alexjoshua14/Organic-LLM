@@ -4,6 +4,7 @@ import type { WorkerAwarenessEvent, WorkerGoal } from "@/lib/schemas/subagent-ru
 import type { SubagentThreadStatus } from "@/lib/llm/subagents/threads/status";
 import type { RunWorkerGoalResult } from "@/lib/llm/subagents/worker/run";
 import type { HardSetSubagent } from "@/lib/llm/subagents/hard-set/types";
+import type { ContextBudgetUsage } from "@/lib/chat/context-budget";
 
 import { randomUUID } from "crypto";
 
@@ -11,6 +12,12 @@ import { generateText, isStepCount } from "ai";
 
 import { subagentRunLimits, withSubagentCostLimits } from "./cost-limits";
 import { researchToolParts } from "./research-tool-parts";
+import {
+  buildSubagentThreadSystem,
+  prepareWorkerTools,
+  SUBAGENT_THREAD_CONTEXT_MESSAGES,
+  workerModelMessages,
+} from "./prepare-input";
 
 import {
   defaultOrchestratorAwarenessBus,
@@ -19,13 +26,6 @@ import {
 import { buildLockedWorkerSystem } from "@/lib/llm/subagents/hard-set/shell";
 import { readSubagentContext } from "@/lib/llm/subagents/threads/context-items";
 import { summarizeContextBudgetUsage } from "@/lib/chat/context-budget-usage";
-import type { ContextBudgetUsage } from "@/lib/chat/context-budget";
-import {
-  buildSubagentThreadSystem,
-  prepareWorkerTools,
-  SUBAGENT_THREAD_CONTEXT_MESSAGES,
-  workerModelMessages,
-} from "./prepare-input";
 import {
   buildSubagentGoalMessage,
   buildSubagentReplyMessage,
@@ -119,6 +119,7 @@ const defaultGenerate: SubagentTurnGenerate = async (args) => {
     model: options.model,
     messages: options.messages,
   });
+
   if (
     assignment &&
     readSubagentContext(assignment) &&
@@ -194,19 +195,23 @@ export async function runSubagentThreadTurn(
       buildSubagentGoalMessage({ goal: goal.goal, goalId: goal.goalId, id: goal.goalId });
     const context = readSubagentContext(assignment);
     let history = recent.filter((message) => message.id !== assignment.id);
+
     if (context) {
       const frozen = await Promise.all(
         context.history.messageIds.map(async (id) => {
           const message =
             history.find((candidate) => candidate.id === id) ??
             (await store.loadMessage?.(threadId, id));
+
           if (!message)
             throw new Error(
               "Selected assignment history is no longer available. Dispatch again with current history or fresh mode."
             );
+
           return message;
         })
       );
+
       history = frozen;
     }
 

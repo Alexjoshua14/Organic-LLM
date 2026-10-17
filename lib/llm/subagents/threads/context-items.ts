@@ -42,6 +42,7 @@ export type SubagentContext = {
 export function readSubagentContext(message: UIMessage): SubagentContext | undefined {
   const context = (message.metadata as { subagentContext?: SubagentContext } | undefined)
     ?.subagentContext;
+
   if (
     context?.version !== 1 ||
     !Array.isArray(context.items) ||
@@ -60,6 +61,7 @@ export function readSubagentContext(message: UIMessage): SubagentContext | undef
     )
   )
     return undefined;
+
   return context.items.reduce((sum, item) => sum + item.text.length, 0) <=
     WORKTABLE_LIMITS.dispatchSourceChars
     ? context
@@ -68,6 +70,7 @@ export function readSubagentContext(message: UIMessage): SubagentContext | undef
 
 export function selectContextExcerpt(text: string, range: { offset?: number; limit?: number }) {
   const offset = range.offset ?? 0;
+
   if (
     !Number.isSafeInteger(offset) ||
     offset < 0 ||
@@ -75,12 +78,14 @@ export function selectContextExcerpt(text: string, range: { offset?: number; lim
   )
     throw new Error("Excerpt offset must be a nonnegative integer and limit a positive integer.");
   const selected = text.slice(offset, range.limit === undefined ? undefined : offset + range.limit);
+
   if (!selected.trim())
     throw new Error("The selected context excerpt is empty or outside the source.");
   if (selected.length > WORKTABLE_LIMITS.sourceChars)
     throw new Error(
       `Selected context exceeds ${WORKTABLE_LIMITS.sourceChars} characters. Choose a smaller offset/limit excerpt.`
     );
+
   return { text: selected, sourceOffset: offset };
 }
 
@@ -91,12 +96,13 @@ export function contextItemPreview(item: ContextItemSnapshot) {
   const marker = truncated
     ? `\n[TRUNCATED: showing ${deliveredChars} of ${item.text.length} chars. Call read_context_item("${item.itemId}", offset, limit) for the rest]`
     : "";
-  const { text: _text, ...source } = item;
+  const { text, ...source } = item;
+
   return {
     content: content + marker,
     manifest: {
       ...source,
-      originalChars: item.text.length,
+      originalChars: text.length,
       deliveredChars,
       truncated,
       estimatedTokens: estimateTokenCountSync(content + marker),
@@ -109,6 +115,7 @@ export function frameContextData(data: unknown): string {
 }
 
 const UNAVAILABLE = { error: "Context item unavailable for this assignment." } as const;
+
 export const CONTEXT_PAGE_CHARS = 8_000;
 
 /** The loader is bound to an owned thread/assignment by the server, never tool arguments. */
@@ -125,11 +132,13 @@ export function createReadContextItemTool(
     }),
     execute: async ({ itemId, offset = 0, limit = CONTEXT_PAGE_CHARS }) => {
       const item = (await loadItems()).find((candidate) => candidate.itemId === itemId);
+
       if (!item) return UNAVAILABLE;
       offset = Math.max(0, offset);
       limit = Math.max(1, Math.min(CONTEXT_PAGE_CHARS, limit));
       const content = item.text.slice(offset, offset + limit);
       const next = offset + content.length;
+
       return {
         itemId,
         offset,

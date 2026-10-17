@@ -42,6 +42,7 @@ export function createMultitaskTurnDeps(args: {
     inspectWorkerInput: async (input) => {
       const { inspectWorkerInput } = await import("@/lib/llm/subagents/worker/prepare-input");
       const identity = resolveSubagentIdentity(input.agentId);
+
       return inspectWorkerInput({
         ...input,
         ownerId,
@@ -69,9 +70,11 @@ export function createMultitaskTurnDeps(args: {
           subagentRun: { ...reference, modelId },
         },
       });
+
       if (!queued) throw new Error("Could not queue subagent assignment");
       after(async () => {
         const { tryDispatchThreadQueue } = await import("@/lib/message-queue/dispatch");
+
         await tryDispatchThreadQueue({ ownerId, clerkUserId: args.clerkUserId, threadId });
       });
     },

@@ -446,6 +446,7 @@ export function createOrchestratorTools(input: OrchestratorToolsInput): ToolSet 
 
     for (const [index, item] of (items ?? []).entries()) {
       let result: Resolution<ResolvedWorktableItem>;
+
       try {
         result = await resolveItem(item);
       } catch (error) {
@@ -594,12 +595,14 @@ export function createOrchestratorTools(input: OrchestratorToolsInput): ToolSet 
 
     let bundles: ContextBundle[] = [];
     let omittedBundleItems = 0;
+
     if (args.bundles?.length) {
       const table = input.worktable ? await input.worktable.read() : null;
 
       if (!table) return { success: false, error: WORKTABLE_UNAVAILABLE_ERROR };
       try {
         const selected = selectDispatchBundles(table, args.bundles);
+
         bundles = selected.bundles;
         omittedBundleItems = selected.omittedItems;
       } catch (error) {
@@ -614,6 +617,7 @@ export function createOrchestratorTools(input: OrchestratorToolsInput): ToolSet 
 
     if (!items.ok) return { success: false, error: items.error };
     let rendered: Awaited<ReturnType<typeof renderDispatchContext>>;
+
     try {
       rendered = await renderDispatchContext({ bundles, items: items.value, resolveLive });
     } catch (error) {
@@ -655,6 +659,7 @@ export function createOrchestratorTools(input: OrchestratorToolsInput): ToolSet 
       now: now(),
     });
     let selectedHistory: ReturnType<typeof selectWorkerHistory>;
+
     try {
       selectedHistory = selectWorkerHistory(
         existing
@@ -680,12 +685,14 @@ export function createOrchestratorTools(input: OrchestratorToolsInput): ToolSet 
       bundles: bundles.map((bundle) => ({ id: bundle.id, name: bundle.name })),
       subagentContext: { version: 1, items: rendered.items, history: selectedHistory.selection },
     });
+
     if (!deps.inspectWorkerInput)
       return {
         success: false,
         error: "Worker input inspection is unavailable; nothing was queued.",
       };
     let inspection: Awaited<ReturnType<NonNullable<OrchestratorToolDeps["inspectWorkerInput"]>>>;
+
     try {
       inspection = await deps.inspectWorkerInput({
         assignment,
@@ -703,6 +710,7 @@ export function createOrchestratorTools(input: OrchestratorToolsInput): ToolSet 
       history: selectedHistory.selection,
       budget: inspection.budget,
     };
+
     if (!inspection.fits)
       return {
         success: false,
@@ -844,10 +852,13 @@ export function withArcadiaOrchestratorTools(
                 message.role === "user" &&
                 (message.metadata as { source?: string } | undefined)?.source === "orchestrator"
             );
+
           return assignment ? (readSubagentContext(assignment)?.items ?? []) : [];
         });
+
       return items;
     });
+
     return {
       tools: { ...compiled.tools, read_context_item: reader },
       toolInstructions: [compiled.toolInstructions, CONTEXT_DATA_INSTRUCTIONS]

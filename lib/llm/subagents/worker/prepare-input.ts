@@ -3,18 +3,20 @@ import type { HardSetSubagent } from "@/lib/llm/subagents/hard-set/types";
 
 import { asSchema, convertToModelMessages } from "ai";
 
-import { compileChatTools } from "@/lib/llm/compile-chat-tools";
-import { estimateTokenCountSync } from "@/lib/chat/context-budget";
-import { computeUsageCostUsd } from "@/lib/rate-limit/llm-cost";
-import { buildLockedWorkerSystem } from "@/lib/llm/subagents/hard-set/shell";
-import { buildWorkerSystem } from "./run-with-model";
-import { SUBAGENT_MAX_INPUT_TOKENS } from "./cost-limits";
 import { foldSystemNoticesForModel } from "../threads/fold-system-notices";
 import {
   CONTEXT_DATA_INSTRUCTIONS,
   createReadContextItemTool,
   readSubagentContext,
 } from "../threads/context-items";
+
+import { buildWorkerSystem } from "./run-with-model";
+import { SUBAGENT_MAX_INPUT_TOKENS } from "./cost-limits";
+
+import { compileChatTools } from "@/lib/llm/compile-chat-tools";
+import { estimateTokenCountSync } from "@/lib/chat/context-budget";
+import { computeUsageCostUsd } from "@/lib/rate-limit/llm-cost";
+import { buildLockedWorkerSystem } from "@/lib/llm/subagents/hard-set/shell";
 
 export const SUBAGENT_THREAD_CONTEXT_MESSAGES = 30;
 export const SUBAGENT_TOOL_HEADROOM_TOKENS = 4_000;
@@ -85,6 +87,7 @@ export function estimateWorkerInput(args: {
       }),
     },
   };
+
   return {
     fits: estimatedInputTokens + SUBAGENT_TOOL_HEADROOM_TOKENS <= SUBAGENT_MAX_INPUT_TOKENS,
     budget,
@@ -117,8 +120,10 @@ export async function prepareWorkerTools(args: {
     initialMessageCount: args.initialMessageCount,
   });
   const tools = { ...compiled.tools };
+
   if (args.assignment) {
     const items = readSubagentContext(args.assignment)?.items ?? [];
+
     tools.read_context_item = createReadContextItemTool(async () => items);
   }
   const instructions = [
@@ -137,6 +142,7 @@ export async function prepareWorkerTools(args: {
       }))
     )
   );
+
   return {
     tools,
     instructions,
@@ -154,6 +160,7 @@ export async function prepareWorkerTools(args: {
 export async function workerModelMessages(history: UIMessage[], assignment: UIMessage) {
   return convertToModelMessages(foldSystemNoticesForModel([...history, assignment]), {
     ignoreIncompleteToolCalls: true,
+    tools: { read_context_item: createReadContextItemTool(async () => []) },
   });
 }
 
@@ -179,6 +186,7 @@ export async function inspectWorkerInput(
     toolPolicy: args.lockedPersona?.tools,
     assignment: args.assignment,
   });
+
   return estimateWorkerInput({
     instructions: prepared.instructions,
     toolSchemaText: prepared.toolSchemaText,
@@ -195,6 +203,7 @@ export function selectWorkerHistory(
 ) {
   if (mode === "fresh") {
     if (messageIds?.length) throw new Error("Fresh history cannot also select previous messages.");
+
     return { messages: [], selection: { mode: "fresh" as const, messageIds: [] } };
   }
   if (messageIds) {
@@ -204,11 +213,13 @@ export function selectWorkerHistory(
       );
     const selected = new Set(messageIds);
     const messages = history.filter((message) => selected.has(message.id));
+
     return {
       messages,
       selection: { mode: "selected" as const, messageIds: messages.map((message) => message.id) },
     };
   }
+
   return {
     messages: history,
     selection: { mode: "continue" as const, messageIds: history.map((message) => message.id) },

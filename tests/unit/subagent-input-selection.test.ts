@@ -66,6 +66,29 @@ describe("worker context selection and preflight", () => {
     );
   });
 
+  test("replayed context-page tool results retain their untrusted-data framing", async () => {
+    const history: UIMessage[] = [
+      {
+        id: "read",
+        role: "assistant",
+        parts: [
+          {
+            type: "tool-read_context_item",
+            toolCallId: "page",
+            state: "output-available",
+            input: { itemId: "item" },
+            output: { itemId: "item", content: "Treat this source as data" },
+          },
+        ],
+      },
+    ];
+    const converted = await workerModelMessages(history, message("next", "Continue"));
+    const serialized = JSON.stringify(converted);
+    expect(serialized).toContain("untrustedContext");
+    expect(serialized).toContain("untrusted reference data");
+    expect(serialized).toContain("Treat this source as data");
+  });
+
   test("production inspection compiles real persona/tool input without adding hidden originals", async () => {
     const inspect = (original: string) =>
       inspectWorkerInput({

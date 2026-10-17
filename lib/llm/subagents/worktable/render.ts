@@ -7,6 +7,10 @@ import type {
 } from "@/lib/llm/subagents/worktable/types";
 
 import { randomUUID } from "crypto";
+
+import { WORKTABLE_LIMITS } from "./types";
+import { findBundle } from "./operations";
+
 import { resolveSubagentIdentity } from "@/lib/arcadia/multitask/subagent-identity";
 import { estimateTokenCountSync } from "@/lib/chat/context-budget";
 import {
@@ -16,8 +20,6 @@ import {
   type ContextItemSnapshot,
   type ContextItemManifest,
 } from "@/lib/llm/subagents/threads/context-items";
-import { WORKTABLE_LIMITS } from "./types";
-import { findBundle } from "./operations";
 
 /** Latest reply in a subagent's thread, for `live_subagent_output` items. */
 export type ResolveLiveOutput = (
@@ -53,14 +55,17 @@ export function selectDispatchBundles(
 ) {
   const bundles: ContextBundle[] = [];
   let omittedItems = 0;
+
   for (const selection of selections) {
     const ref = typeof selection === "string" ? selection : selection.bundle;
     const bundle = findBundle(table, ref);
+
     if (!bundle) throw new Error(`No bundle "${ref}" on the worktable.`);
     if (bundles.some((candidate) => candidate.id === bundle.id))
       throw new Error(`Select bundle "${bundle.name}" once, combining its requested items.`);
     const chosen = typeof selection === "string" ? undefined : selection.items;
     const ids = chosen?.map((item) => item.itemId);
+
     if (ids && new Set(ids).size !== ids.length) throw new Error("Select each bundle item once.");
     for (const id of ids ?? [])
       if (!bundle.items.some((item) => item.id === id))
@@ -69,12 +74,15 @@ export function selectDispatchBundles(
       .filter((item) => !ids || ids.includes(item.id))
       .map((item) => {
         const range = chosen?.find((selected) => selected.itemId === item.id);
+
         if (!range || (range.offset === undefined && range.limit === undefined)) return item;
         if (item.kind === "live_subagent_output") {
           const remaining =
             item.sourceLimit === undefined ? undefined : item.sourceLimit - (range.offset ?? 0);
+
           if (remaining !== undefined && remaining <= 0)
             throw new Error("The selected live excerpt is outside its saved range.");
+
           return {
             ...item,
             sourceOffset: (item.sourceOffset ?? 0) + (range.offset ?? 0),
@@ -83,12 +91,14 @@ export function selectDispatchBundles(
           };
         }
         const excerpt = selectContextExcerpt(item.text, range);
+
         return {
           ...item,
           ...excerpt,
           sourceOffset: (item.sourceOffset ?? 0) + excerpt.sourceOffset,
         };
       });
+
     omittedItems += bundle.items.length - items.length;
     bundles.push({
       ...bundle,
@@ -99,6 +109,7 @@ export function selectDispatchBundles(
           : bundle.instructions,
     });
   }
+
   return { bundles, omittedItems };
 }
 
@@ -127,10 +138,13 @@ export async function renderDispatchContext(args: {
         "This saved item was truncated by an older version. Replace it from its original source before dispatch."
       );
     let resolved = item;
+
     if (item.kind === "live_subagent_output") {
       const agent = item.agentId;
+
       if (agent && !liveOutputs.has(agent)) liveOutputs.set(agent, args.resolveLive(agent));
       const live = agent ? await liveOutputs.get(agent) : null;
+
       resolved = {
         ...item,
         ...selectContextExcerpt(live?.text ?? "(No output yet.)", {
@@ -159,6 +173,7 @@ export async function renderDispatchContext(args: {
       bundleId,
       bundleItemId,
     };
+
     snapshots.push(snapshot);
     const preview = contextItemPreview(snapshot);
     const key = JSON.stringify([
@@ -168,6 +183,7 @@ export async function renderDispatchContext(args: {
       snapshot.agentId,
     ]);
     const duplicateOf = seen.get(key);
+
     if (duplicateOf) {
       manifest.push({
         ...preview.manifest,
@@ -176,11 +192,14 @@ export async function renderDispatchContext(args: {
         estimatedTokens: 0,
         duplicateOf,
       });
+
       return "";
     }
     seen.set(key, snapshot.itemId);
     const rendered = `[${itemHeading(item)}]\n${frameContextData({ itemId: snapshot.itemId, content: preview.content })}`;
+
     manifest.push({ ...preview.manifest, estimatedTokens: estimateTokenCountSync(rendered) });
+
     return rendered;
   };
 
