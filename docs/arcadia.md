@@ -102,6 +102,9 @@ A message sent straight to one subagent is still delivered verbatim.
 `ARCADIA_ORCHESTRATOR_DISPATCH_ENABLED=false` restores Jev router auto-dispatch. Code:
 `lib/llm/subagents/worktable/`, `lib/llm/subagents/orchestrator/orchestrator-tools.ts`.
 
+Bundle-item selection, excerpts, explicit worker history, input preflight and attachment
+paging are documented in [Subagent dispatch context](./aion/subagent-context.md).
+
 **First-use guidance.** Opening Multiagent registers its controls tip with the existing
 feature-hint system. Dismissal persists; replay tips can show it again. The tip explains
 recipient selection and Ctrl+Q / Ctrl+W. Panel buttons show those shortcuts in tooltips

@@ -20,15 +20,22 @@ export async function runQueuedSubagentTurn(item: MessageSendQueueRow, ownerId: 
   const threadId = item.thread_id;
   const link = await getSubagentThreadLink(threadId, ownerId);
   if (!link || link.agentId !== run.agentId || link.parentThreadId !== run.orchestratorId) {
-    return { ok: false as const, error: "Subagent thread is no longer attached to this orchestrator" };
+    return {
+      ok: false as const,
+      error: "Subagent thread is no longer attached to this orchestrator",
+    };
   }
   const [assignment] = await readThreadMessagesWithAdmin({
-    threadId, ownerId, limit: 1, messageId: run.goalId,
+    threadId,
+    ownerId,
+    limit: 1,
+    messageId: run.goalId,
   });
   if (!assignment) return { ok: false as const, error: "Subagent assignment is unavailable" };
   const identity = resolveSubagentIdentity(link.agentId);
   const result = await runSubagentThreadTurn({
     goal: { ...run, goal: subagentGoalBrief(assignment) },
+    assignment,
     threadId,
     ownerId,
     modelId: run.modelId,
@@ -38,10 +45,22 @@ export async function runQueuedSubagentTurn(item: MessageSendQueueRow, ownerId: 
     lockedPersona: getHardSetSubagent(link.agentId) ?? undefined,
     store: {
       loadMessages: (id, limit) => readThreadMessagesWithAdmin({ threadId: id, ownerId, limit }),
-      appendMessages: (id, messages) => appendThreadMessagesWithAdmin({ threadId: id, ownerId, messages }),
+      loadMessage: async (id, messageId) =>
+        (await readThreadMessagesWithAdmin({ threadId: id, ownerId, limit: 1, messageId }))[0] ??
+        null,
+      appendMessages: (id, messages) =>
+        appendThreadMessagesWithAdmin({ threadId: id, ownerId, messages }),
       setStatus: (id, status) => setSubagentThreadStatus({ threadId: id, ownerId, status }),
     },
-    recordUsage: (usage) => recordGatewayCallUsage({ ...usage, ownerId, operation: "subagent_worker", route: "/api/chat/queue" }),
+    recordUsage: (usage) =>
+      recordGatewayCallUsage({
+        ...usage,
+        ownerId,
+        operation: "subagent_worker",
+        route: "/api/chat/queue",
+      }),
   });
-  return result.completed ? { ok: true as const } : { ok: false as const, error: "Subagent could not complete the assignment" };
+  return result.completed
+    ? { ok: true as const }
+    : { ok: false as const, error: "Subagent could not complete the assignment" };
 }

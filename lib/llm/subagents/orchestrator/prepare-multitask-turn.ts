@@ -8,6 +8,10 @@ import type {
 } from "@/lib/llm/subagents/threads/snapshot";
 import type { SubagentThreadStatus } from "@/lib/llm/subagents/threads/status";
 import type { WorktableSession, WorktableStore } from "@/lib/llm/subagents/worktable/session";
+import type {
+  WorkerInputRequest,
+  WorkerInputInspection,
+} from "@/lib/llm/subagents/worker/prepare-input";
 
 import { resolveMultitaskSendTarget } from "@/lib/schemas/arcadia-multitask-send-target";
 import { createDemoSubagents } from "@/lib/arcadia/multitask/demo-roster";
@@ -72,6 +76,7 @@ export type MultitaskTurnDeps = {
     title: string;
   }): Promise<string | null>;
   loadMessages(threadId: string, limit: number): Promise<UIMessage[]>;
+  inspectWorkerInput?(input: WorkerInputRequest): Promise<WorkerInputInspection>;
   appendMessages(threadId: string, messages: UIMessage[]): Promise<boolean>;
   setStatus(threadId: string, status: SubagentThreadStatus): Promise<void>;
   recordUsage(args: {
@@ -112,6 +117,8 @@ export type PrepareMultitaskTurnInput = {
 
 export type PrepareMultitaskTurnResult = {
   role: "orchestrator" | "subagent";
+  /** Set only for an owned child, not a standalone persona shell. */
+  parentThreadId?: string;
   /** Appended to the turn's system prompt, in order. */
   systemFragments: string[];
   /** True when this orchestrator has at least one subagent thread (gates the reader tool). */
@@ -201,6 +208,7 @@ export async function prepareArcadiaMultitaskTurn(
 
       return {
         role: "subagent",
+        parentThreadId: link.parentThreadId,
         systemFragments: [
           locked
             ? formatLockedSubagentThreadFragment(locked)

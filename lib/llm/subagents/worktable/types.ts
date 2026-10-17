@@ -9,6 +9,9 @@ export const WORKTABLE_LIMITS = {
   bundles: 12,
   itemsPerBundle: 24,
   itemChars: 6_000,
+  /** Full selected originals stay out of model input and remain available for paging. */
+  sourceChars: 120_000,
+  dispatchSourceChars: 240_000,
   labelChars: 120,
   nameChars: 80,
   purposeChars: 400,
@@ -33,6 +36,8 @@ const WorktableItemSchema = z.object({
   label: z.string().nullable(),
   /** Frozen text. Empty for `live_subagent_output`, which resolves at each dispatch. */
   text: z.string(),
+  sourceOffset: z.number().int().nonnegative().optional(),
+  sourceLimit: z.number().int().positive().optional(),
   /** The thread message the text was taken from (`user_message`, `subagent_output`). */
   sourceMessageId: z.string().nullable(),
   /** Whose output this is (`subagent_output`, `live_subagent_output`). */
@@ -92,7 +97,7 @@ export const WorktableItemInputSchema = z.object({
     .describe("Short heading the subagent sees above this item."),
   text: z
     .string()
-    .max(WORKTABLE_LIMITS.itemChars)
+    .max(WORKTABLE_LIMITS.sourceChars)
     .optional()
     .describe(
       "note/memory: the text. user_message: an exact quote from one of the user's messages in this thread; omit to use the latest user message in full."
@@ -107,8 +112,21 @@ export const WorktableItemInputSchema = z.object({
     .max(128)
     .optional()
     .describe(
-      "subagent_output: a message id from read_subagent_thread; omit for its latest reply."
+      "user_message / subagent_output: select a specific recent message; omit for the latest."
     ),
+  offset: z
+    .number()
+    .int()
+    .nonnegative()
+    .optional()
+    .describe("Start of the selected excerpt (JS string characters)."),
+  limit: z
+    .number()
+    .int()
+    .positive()
+    .max(WORKTABLE_LIMITS.sourceChars)
+    .optional()
+    .describe("Excerpt length; omit for the remaining source. Only this selection is attached."),
 });
 
 export type WorktableItemInput = z.infer<typeof WorktableItemInputSchema>;
@@ -116,5 +134,24 @@ export type WorktableItemInput = z.infer<typeof WorktableItemInputSchema>;
 /** An item after server-side resolution, before it gets an id and timestamps. */
 export type ResolvedWorktableItem = Pick<
   WorktableItem,
-  "kind" | "label" | "text" | "sourceMessageId" | "agentId"
+  "kind" | "label" | "text" | "sourceMessageId" | "agentId" | "sourceOffset" | "sourceLimit"
 >;
+
+export const BundleSelectionSchema = z.union([
+  z.string().max(128),
+  z.object({
+    bundle: z.string().max(128),
+    items: z
+      .array(
+        z.object({
+          itemId: z.string().max(128),
+          offset: z.number().int().nonnegative().optional(),
+          limit: z.number().int().positive().max(WORKTABLE_LIMITS.sourceChars).optional(),
+        })
+      )
+      .max(WORKTABLE_LIMITS.itemsPerBundle)
+      .optional(),
+    includeInstructions: z.boolean().optional(),
+  }),
+]);
+export type BundleSelection = z.infer<typeof BundleSelectionSchema>;

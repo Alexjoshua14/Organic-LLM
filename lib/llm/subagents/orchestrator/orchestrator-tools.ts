@@ -31,6 +31,16 @@ import { selectSubagentModel } from "@/lib/llm/subagents/orchestrator/cost-polic
 import { listRosterHardSetSubagents } from "@/lib/llm/subagents/hard-set/registry";
 import { withReadSubagentThreadTool } from "@/lib/llm/subagents/orchestrator/read-subagent-thread-tool";
 import { buildSubagentGoalMessage, uiMessageText } from "@/lib/llm/subagents/threads/messages";
+import {
+  CONTEXT_DATA_INSTRUCTIONS,
+  createReadContextItemTool,
+  readSubagentContext,
+  selectContextExcerpt,
+} from "@/lib/llm/subagents/threads/context-items";
+import {
+  selectWorkerHistory,
+  SUBAGENT_THREAD_CONTEXT_MESSAGES,
+} from "@/lib/llm/subagents/worker/prepare-input";
 import { resolveEffectiveSubagentStatus } from "@/lib/llm/subagents/threads/status";
 import {
   type WorktableOutcome,
@@ -47,10 +57,15 @@ import {
 import {
   describeBundle,
   renderDispatchContext,
+  selectDispatchBundles,
   summarizeBundle,
 } from "@/lib/llm/subagents/worktable/render";
 import { WORKTABLE_UNAVAILABLE_ERROR } from "@/lib/llm/subagents/worktable/session";
-import { WORKTABLE_LIMITS, WorktableItemInputSchema } from "@/lib/llm/subagents/worktable/types";
+import {
+  BundleSelectionSchema,
+  WORKTABLE_LIMITS,
+  WorktableItemInputSchema,
+} from "@/lib/llm/subagents/worktable/types";
 
 /** Orchestrator-thread messages searched when quoting the user. */
 const USER_MESSAGE_LOOKBACK = 40;
@@ -60,7 +75,13 @@ const BRIEF_MAX_CHARS = 8_000;
 
 export type OrchestratorToolDeps = Pick<
   MultitaskTurnDeps,
-  "listChildren" | "loadMessages" | "ensureChild" | "appendMessages" | "setStatus" | "enqueueWorker"
+  | "listChildren"
+  | "loadMessages"
+  | "ensureChild"
+  | "appendMessages"
+  | "setStatus"
+  | "enqueueWorker"
+  | "inspectWorkerInput"
 >;
 
 export type OrchestratorToolsInput = {
@@ -120,6 +141,7 @@ export function countAutonomousDispatchesSinceUser(messages: ReadonlyArray<UIMes
 export const ORCHESTRATOR_TOOL_INSTRUCTIONS = [
   "Use dispatch_subagent only when the budget-first policy in [Orchestrator] warrants a specialist. Prefer one economy worker; a second dispatch needs additionalDispatchReason, and standard modelTier needs modelReason.",
   "Use worktable to keep reusable context bundles — create once, update single items, and send again.",
+  "Select only relevant bundle items and source excerpts. Preserve exact constraints. Use dryRun to inspect complete input sizing. Continue preserves cached history; fresh or historyMessageIds explicitly narrows it. Cost estimates show uncached/fully-cached scenarios, not promised cache hits. Never drop required context merely to fit.",
 ].join(" ");
 
 const WorktableToolInputSchema = z.object({
@@ -203,10 +225,31 @@ const DispatchToolInputSchema = z.object({
       "Required after the first dispatch this turn: the independent work another specialist adds (at least 20 characters)."
     ),
   bundles: z
-    .array(z.string().max(128))
+    .array(BundleSelectionSchema)
     .max(WORKTABLE_LIMITS.bundles)
     .optional()
-    .describe("Worktable bundle ids or names to send with the brief."),
+    .describe(
+      "Whole bundle ids/names, or {bundle, items:[{itemId,offset?,limit?}], includeInstructions?}. Prefer selected items; omitted items sends all, [] sends instructions only."
+    ),
+  history: z
+    .enum(["continue", "fresh"])
+    .optional()
+    .describe(
+      "Default continue preserves prior input/cache prefix. Fresh sends only this new assignment."
+    ),
+  historyMessageIds: z
+    .array(z.string().min(1).max(128))
+    .max(SUBAGENT_THREAD_CONTEXT_MESSAGES)
+    .optional()
+    .describe(
+      "Explicit own-thread history IDs from read_subagent_thread; excludes other history. [] keeps none."
+    ),
+  dryRun: z
+    .boolean()
+    .optional()
+    .describe(
+      "Inspect selection and complete token/cost estimates without saving or queueing an assignment."
+    ),
   items: z
     .array(WorktableItemInputSchema)
     .max(WORKTABLE_LIMITS.itemsPerBundle)
@@ -218,22 +261,14 @@ function normalizeQuote(text: string): string {
   return text.replace(/[‘’]/g, "'").replace(/[“”]/g, '"').replace(/\s+/g, " ").trim().toLowerCase();
 }
 
-function clampItemText(text: string): string {
-  const trimmed = text.trim();
-
-  return trimmed.length > WORKTABLE_LIMITS.itemChars
-    ? `${trimmed.slice(0, WORKTABLE_LIMITS.itemChars - 16)}\n…(truncated)`
-    : trimmed;
-}
-
 function lastReply(messages: ReadonlyArray<UIMessage>): { text: string; messageId: string } | null {
   for (let i = messages.length - 1; i >= 0; i -= 1) {
     const message = messages[i]!;
 
     if (message.role !== "assistant") continue;
-    const text = uiMessageText(message);
+    const text = uiMessageText(message, false);
 
-    if (text) return { text: clampItemText(text), messageId: message.id };
+    if (text.trim()) return { text, messageId: message.id };
   }
 
   return null;
@@ -318,42 +353,42 @@ export function createOrchestratorTools(input: OrchestratorToolsInput): ToolSet 
   ): Promise<Resolution<ResolvedWorktableItem>> => {
     const label = item.label?.trim() || null;
     const base = { kind: item.kind, label, sourceMessageId: null, agentId: null };
+    const attach = (text: string, fields: Partial<ResolvedWorktableItem> = {}) => ({
+      ok: true as const,
+      value: { ...base, ...fields, ...selectContextExcerpt(text, item) },
+    });
 
     if (item.kind === "note" || item.kind === "memory") {
-      const text = item.text?.trim();
+      const text = item.text;
 
-      return text
-        ? { ok: true, value: { ...base, text: clampItemText(text) } }
-        : { ok: false, error: `A ${item.kind} item needs text.` };
+      return text?.trim() ? attach(text) : { ok: false, error: `A ${item.kind} item needs text.` };
     }
 
     if (item.kind === "user_message") {
       const recent = await deps.loadMessages(orchestratorThreadId, USER_MESSAGE_LOOKBACK);
       const pool = recent
         .filter((m) => m.role === "user")
-        .map((m) => ({ id: m.id, text: uiMessageText(m) }))
+        .map((m) => ({ id: m.id, text: uiMessageText(m, false) }))
         .filter((m) => m.text);
       const current = input.currentUserMessage;
 
       if (current?.text.trim() && !pool.some((m) => m.id === current.id)) pool.push(current);
-      const quote = item.text?.trim();
+      const quote = item.text;
+      const sources = item.messageId ? pool.filter((m) => m.id === item.messageId) : pool;
 
-      if (!quote) {
-        const latest = pool.at(-1);
+      if (!quote?.trim()) {
+        const latest = sources.at(-1);
 
         return latest
-          ? {
-              ok: true,
-              value: { ...base, text: clampItemText(latest.text), sourceMessageId: latest.id },
-            }
+          ? attach(latest.text, { sourceMessageId: latest.id })
           : { ok: false, error: "There is no user message in this thread to attach." };
       }
 
       const wanted = normalizeQuote(quote);
-      const source = [...pool].reverse().find((m) => normalizeQuote(m.text).includes(wanted));
+      const source = [...sources].reverse().find((m) => normalizeQuote(m.text).includes(wanted));
 
       return source
-        ? { ok: true, value: { ...base, text: clampItemText(quote), sourceMessageId: source.id } }
+        ? attach(quote, { sourceMessageId: source.id })
         : {
             ok: false,
             error:
@@ -369,7 +404,16 @@ export function createOrchestratorTools(input: OrchestratorToolsInput): ToolSet 
       const agentId = resolveDispatchTarget(agent, await listChildren());
 
       return agentId
-        ? { ok: true, value: { ...base, text: "", agentId } }
+        ? {
+            ok: true,
+            value: {
+              ...base,
+              text: "",
+              agentId,
+              sourceOffset: item.offset,
+              sourceLimit: item.limit,
+            },
+          }
         : { ok: false, error: `No subagent "${agent}" on the roster.` };
     }
 
@@ -381,7 +425,7 @@ export function createOrchestratorTools(input: OrchestratorToolsInput): ToolSet 
     const picked = item.messageId
       ? messages.find((m) => m.id === item.messageId)
       : [...messages].reverse().find((m) => m.role === "assistant" && uiMessageText(m));
-    const text = picked ? uiMessageText(picked) : "";
+    const text = picked ? uiMessageText(picked, false) : "";
 
     if (!picked || !text) {
       return {
@@ -392,15 +436,7 @@ export function createOrchestratorTools(input: OrchestratorToolsInput): ToolSet 
       };
     }
 
-    return {
-      ok: true,
-      value: {
-        ...base,
-        text: clampItemText(text),
-        sourceMessageId: picked.id,
-        agentId: child.agentId,
-      },
-    };
+    return attach(text, { sourceMessageId: picked.id, agentId: child.agentId });
   };
 
   const resolveItems = async (
@@ -409,7 +445,15 @@ export function createOrchestratorTools(input: OrchestratorToolsInput): ToolSet 
     const resolved: ResolvedWorktableItem[] = [];
 
     for (const [index, item] of (items ?? []).entries()) {
-      const result = await resolveItem(item);
+      let result: Resolution<ResolvedWorktableItem>;
+      try {
+        result = await resolveItem(item);
+      } catch (error) {
+        return {
+          ok: false,
+          error: `Item ${index + 1}: ${error instanceof Error ? error.message : "Context selection failed."}`,
+        };
+      }
 
       if (!result.ok) return { ok: false, error: `Item ${index + 1}: ${result.error}` };
       resolved.push(result.value);
@@ -549,33 +593,36 @@ export function createOrchestratorTools(input: OrchestratorToolsInput): ToolSet 
     }
 
     let bundles: ContextBundle[] = [];
-
+    let omittedBundleItems = 0;
     if (args.bundles?.length) {
       const table = input.worktable ? await input.worktable.read() : null;
 
       if (!table) return { success: false, error: WORKTABLE_UNAVAILABLE_ERROR };
-      const missing = args.bundles.filter((ref) => !findBundle(table, ref));
-
-      if (missing.length > 0) {
+      try {
+        const selected = selectDispatchBundles(table, args.bundles);
+        bundles = selected.bundles;
+        omittedBundleItems = selected.omittedItems;
+      } catch (error) {
         return {
           success: false,
-          error: `No bundle ${missing.map((m) => `"${m}"`).join(", ")} on the worktable.`,
+          error: error instanceof Error ? error.message : "Bundle selection failed.",
         };
       }
-      const byId = new Map<string, ContextBundle>();
-
-      for (const ref of args.bundles) {
-        const bundle = findBundle(table, ref);
-
-        if (bundle) byId.set(bundle.id, bundle);
-      }
-      bundles = [...byId.values()];
     }
 
     const items = await resolveItems(args.items);
 
     if (!items.ok) return { success: false, error: items.error };
-    const context = await renderDispatchContext({ bundles, items: items.value, resolveLive });
+    let rendered: Awaited<ReturnType<typeof renderDispatchContext>>;
+    try {
+      rendered = await renderDispatchContext({ bundles, items: items.value, resolveLive });
+    } catch (error) {
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : "Context rendering failed.",
+      };
+    }
+    const { context } = rendered;
 
     if (context.length > WORKTABLE_LIMITS.dispatchContextChars) {
       return {
@@ -584,7 +631,13 @@ export function createOrchestratorTools(input: OrchestratorToolsInput): ToolSet 
       };
     }
     const fingerprint = createHash("sha256")
-      .update(JSON.stringify([brief, context]))
+      .update(
+        JSON.stringify([
+          brief,
+          bundles.map((bundle) => [bundle.name, bundle.instructions]),
+          rendered.items.map(({ itemId: _id, ...item }) => item),
+        ])
+      )
       .digest("hex");
 
     if (dispatchedWork.has(fingerprint)) {
@@ -594,6 +647,71 @@ export function createOrchestratorTools(input: OrchestratorToolsInput): ToolSet 
           "This work was already dispatched this turn. Reuse its result instead of sending it to another specialist.",
       };
     }
+
+    const goal = createWorkerGoal({
+      orchestratorId: orchestratorThreadId,
+      workerAgentId: agentId,
+      goal: brief,
+      now: now(),
+    });
+    let selectedHistory: ReturnType<typeof selectWorkerHistory>;
+    try {
+      selectedHistory = selectWorkerHistory(
+        existing
+          ? await deps.loadMessages(existing.threadId, SUBAGENT_THREAD_CONTEXT_MESSAGES)
+          : [],
+        args.history,
+        args.historyMessageIds
+      );
+    } catch (error) {
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : "History selection failed.",
+      };
+    }
+    const assignment = buildSubagentGoalMessage({
+      goal: brief,
+      goalId: goal.goalId,
+      id: goal.goalId,
+      modelId: selection.modelId,
+      modelTier: selection.tier,
+      modelReason: args.modelReason?.trim(),
+      context,
+      bundles: bundles.map((bundle) => ({ id: bundle.id, name: bundle.name })),
+      subagentContext: { version: 1, items: rendered.items, history: selectedHistory.selection },
+    });
+    if (!deps.inspectWorkerInput)
+      return {
+        success: false,
+        error: "Worker input inspection is unavailable; nothing was queued.",
+      };
+    let inspection: Awaited<ReturnType<NonNullable<OrchestratorToolDeps["inspectWorkerInput"]>>>;
+    try {
+      inspection = await deps.inspectWorkerInput({
+        assignment,
+        history: selectedHistory.messages,
+        threadId: existing?.threadId ?? goal.goalId,
+        agentId,
+        modelId: selection.modelId,
+      });
+    } catch {
+      return { success: false, error: "Could not inspect worker input; nothing was queued." };
+    }
+    const manifest = {
+      items: rendered.manifest,
+      omittedBundleItems,
+      history: selectedHistory.selection,
+      budget: inspection.budget,
+    };
+    if (!inspection.fits)
+      return {
+        success: false,
+        manifest,
+        error:
+          "Selected worker input exceeds its budget including tools, instructions, retained history, and tool-result headroom. Select fewer items/excerpts or use fresh/historyMessageIds; required content must stay intact.",
+      };
+    if (args.dryRun)
+      return { success: true, dryRun: true, agentId, modelId: selection.modelId, manifest };
 
     if (input.autonomous) {
       if (input.worktable) {
@@ -630,24 +748,7 @@ export function createOrchestratorTools(input: OrchestratorToolsInput): ToolSet 
       };
     }
 
-    const goal = createWorkerGoal({
-      orchestratorId: orchestratorThreadId,
-      workerAgentId: agentId,
-      goal: brief,
-      now: now(),
-    });
-    const saved = await deps.appendMessages(threadId, [
-      buildSubagentGoalMessage({
-        goal: brief,
-        goalId: goal.goalId,
-        id: goal.goalId,
-        modelId: selection.modelId,
-        modelTier: selection.tier,
-        modelReason: args.modelReason?.trim(),
-        context,
-        bundles: bundles.map((b) => ({ id: b.id, name: b.name })),
-      }),
-    ]);
+    const saved = await deps.appendMessages(threadId, [assignment]);
 
     if (!saved)
       return { success: false, error: "Could not save the assignment, so nothing was sent." };
@@ -698,6 +799,7 @@ export function createOrchestratorTools(input: OrchestratorToolsInput): ToolSet 
       bundlesSent: bundles.map((b) => b.name),
       contextItems: bundles.reduce((n, b) => n + b.items.length, 0) + items.value.length,
       contextChars: context.length,
+      manifest,
     };
   };
 
@@ -729,6 +831,30 @@ export function withArcadiaOrchestratorTools(
 ): { tools: ToolSet; toolInstructions: string } {
   const { multitask, ...toolsInput } = args;
 
+  if (multitask?.role === "subagent" && multitask.parentThreadId) {
+    let items: Promise<NonNullable<ReturnType<typeof readSubagentContext>>["items"]> | undefined;
+    const reader = createReadContextItemTool(() => {
+      items ??= toolsInput.deps
+        .loadMessages(toolsInput.orchestratorThreadId, SUBAGENT_THREAD_CONTEXT_MESSAGES)
+        .then((messages) => {
+          const assignment = [...messages]
+            .reverse()
+            .find(
+              (message) =>
+                message.role === "user" &&
+                (message.metadata as { source?: string } | undefined)?.source === "orchestrator"
+            );
+          return assignment ? (readSubagentContext(assignment)?.items ?? []) : [];
+        });
+      return items;
+    });
+    return {
+      tools: { ...compiled.tools, read_context_item: reader },
+      toolInstructions: [compiled.toolInstructions, CONTEXT_DATA_INSTRUCTIONS]
+        .filter(Boolean)
+        .join("\n\n"),
+    };
+  }
   if (multitask?.role !== "orchestrator") return compiled;
   let next = compiled;
 

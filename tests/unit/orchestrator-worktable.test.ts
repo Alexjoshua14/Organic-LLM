@@ -25,6 +25,8 @@ import {
 import { createWorktableSession, type WorktableStore } from "@/lib/llm/subagents/worktable/session";
 import { emptyWorktable } from "@/lib/llm/subagents/worktable/types";
 import { models } from "@/lib/schemas/chat-models";
+import { estimateWorkerInput, workerModelMessages } from "@/lib/llm/subagents/worker/prepare-input";
+import { readSubagentContext } from "@/lib/llm/subagents/threads/context-items";
 
 const ORCH = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
 const CODER_THREAD = "cccccccc-cccc-4ccc-8ccc-cccccccccccc";
@@ -78,6 +80,14 @@ function harness(
     listChildren: mock(async () => children.map((c) => ({ ...c }))),
     loadMessages: mock(async (threadId: string, limit: number) =>
       (threads.get(threadId) ?? []).slice(-limit)
+    ),
+    inspectWorkerInput: mock(async (input) =>
+      estimateWorkerInput({
+        instructions: "worker",
+        toolSchemaText: "[]",
+        messages: await workerModelMessages(input.history, input.assignment),
+        modelId: input.modelId,
+      })
     ),
     ensureChild: mock(async ({ agentId }: { agentId: string }) => {
       const threadId =
@@ -218,8 +228,9 @@ describe("dispatch_subagent", () => {
     expect(text.startsWith("From the orchestrator:\nImplement a streaming CSV exporter")).toBe(
       true
     );
-    expect(text).toContain("[The user's words]\nit must  stream — files can be 2 GB");
-    expect(text).toContain("[Memory]\nThe user prefers small PRs.");
+    expect(text).toContain("[The user's words]");
+    expect(text).toContain('"content":"it must  stream — files can be 2 GB"');
+    expect(text).toContain('"content":"The user prefers small PRs."');
     expect(subagentGoalBrief(assignment)).toBe(
       "Implement a streaming CSV exporter for the reports page."
     );
@@ -284,18 +295,16 @@ describe("dispatch_subagent", () => {
       additionalDispatchReason: "The user explicitly requested an independent streaming review.",
     });
     expect(uiMessageText(lastMessage(threads, CRITIC_THREAD))).toContain(
-      "[Reed (coder) — latest output]\nDraft 1: buffered export."
+      '"content":"Draft 1: buffered export."'
     );
 
-    threads
-      .get(CODER_THREAD)!
-      .push(
-        buildSubagentReplyMessage({
-          text: "Draft 2: streams in chunks.",
-          goalId: "g2",
-          modelId: "m",
-        })
-      );
+    threads.get(CODER_THREAD)!.push(
+      buildSubagentReplyMessage({
+        text: "Draft 2: streams in chunks.",
+        goalId: "g2",
+        modelId: "m",
+      })
+    );
     await deps.setStatus(CRITIC_THREAD, "done");
     nextTurn();
     await run("dispatch_subagent", {
@@ -322,6 +331,126 @@ describe("dispatch_subagent", () => {
 
     expect(result.success).toBe(false);
     expect(deps.ensureChild).not.toHaveBeenCalled();
+  });
+
+  test("selected items and message excerpts produce an inspectable, scoped assignment", async () => {
+    const { run, threads, memory } = harness();
+    await run("worktable", {
+      action: "create",
+      name: "Kit",
+      instructions: "Keep citations.",
+      items: [
+        { kind: "note", text: "unrelated" },
+        { kind: "note", text: "prefix-needed-tail" },
+      ],
+    });
+    const id = memory.current().bundles[0]!.items[1]!.id;
+    const result = await run("dispatch_subagent", {
+      agent: "coder",
+      brief: "Check the requirement.",
+      history: "fresh",
+      bundles: [{ bundle: "Kit", items: [{ itemId: id, offset: 7, limit: 6 }] }],
+      items: [{ kind: "user_message", messageId: "u1", offset: 6, limit: 3 }],
+    });
+    expect(result.success).toBe(true);
+    const context = readSubagentContext(lastMessage(threads, CODER_THREAD))!;
+    expect(context.items.map((item) => item.text)).toEqual(["needed", "the"]);
+    expect(result.manifest).toMatchObject({
+      omittedBundleItems: 1,
+      history: { mode: "fresh", messageIds: [] },
+      items: [
+        { originalChars: 6, deliveredChars: 6, bundleItemId: id },
+        { originalChars: 3, sourceMessageId: "u1" },
+      ],
+    });
+    expect(uiMessageText(lastMessage(threads, CODER_THREAD))).not.toContain("unrelated");
+    expect(memory.current().bundles[0]!.items[1]!.text).toBe("prefix-needed-tail");
+  });
+
+  test("large originals survive dispatch; only bounded, marked previews reach the worker", async () => {
+    const { run, threads } = harness();
+    const original = "full source 😀 ".repeat(2_000);
+    const result = await run("dispatch_subagent", {
+      agent: "coder",
+      brief: "Review the source.",
+      items: [{ kind: "note", text: original }],
+    });
+    expect(result.success).toBe(true);
+    const assignment = lastMessage(threads, CODER_THREAD);
+    expect(readSubagentContext(assignment)!.items[0]!.text).toBe(original);
+    expect(result.manifest).toMatchObject({
+      items: [{ originalChars: original.length, deliveredChars: 6_000, truncated: true }],
+    });
+    expect(uiMessageText(assignment)).toContain("[TRUNCATED: showing 6000");
+    expect(uiMessageText(assignment).length).toBeLessThan(original.length);
+  });
+
+  test("dry runs make no writes, consume no dispatch, and retain prefix order for selected history", async () => {
+    const { run, deps, children, threads } = harness();
+    children.push({
+      threadId: CODER_THREAD,
+      agentId: "agent-coder",
+      status: "idle",
+      statusAt: NOW,
+    });
+    threads.set(CODER_THREAD, [userMessage("old-1", "first"), userMessage("old-2", "second")]);
+    const result = await run("dispatch_subagent", {
+      agent: "coder",
+      brief: "Continue",
+      dryRun: true,
+      historyMessageIds: ["old-2", "old-1"],
+    });
+    expect(result).toMatchObject({
+      success: true,
+      dryRun: true,
+      manifest: { history: { mode: "selected", messageIds: ["old-1", "old-2"] } },
+    });
+    expect(deps.ensureChild).not.toHaveBeenCalled();
+    expect(deps.appendMessages).not.toHaveBeenCalled();
+    expect(deps.enqueueWorker).not.toHaveBeenCalled();
+    expect((await run("dispatch_subagent", { agent: "coder", brief: "Continue" })).success).toBe(
+      true
+    );
+  });
+
+  test("oversized retained history is rejected before scheduling; fresh mode can proceed", async () => {
+    const { run, deps, children, threads } = harness();
+    children.push({
+      threadId: CODER_THREAD,
+      agentId: "agent-coder",
+      status: "idle",
+      statusAt: NOW,
+    });
+    threads.set(CODER_THREAD, [userMessage("large-old", "captured evidence ".repeat(20_000))]);
+    const rejected = await run("dispatch_subagent", { agent: "coder", brief: "Say hello." });
+    expect(rejected.success).toBe(false);
+    expect(rejected.error).toContain("retained history");
+    expect(deps.appendMessages).not.toHaveBeenCalled();
+    expect(deps.enqueueWorker).not.toHaveBeenCalled();
+    expect(
+      (await run("dispatch_subagent", { agent: "coder", brief: "Say hello.", history: "fresh" }))
+        .success
+    ).toBe(true);
+    expect(readSubagentContext(lastMessage(threads, CODER_THREAD))?.history.messageIds).toEqual([]);
+  });
+
+  test("history IDs cannot cross subagent boundaries", async () => {
+    const { run, deps, children, threads } = harness();
+    children.push({
+      threadId: CODER_THREAD,
+      agentId: "agent-coder",
+      status: "idle",
+      statusAt: NOW,
+    });
+    threads.set(CRITIC_THREAD, [userMessage("sibling-id", "private sibling context")]);
+    const rejected = await run("dispatch_subagent", {
+      agent: "coder",
+      brief: "Inspect",
+      historyMessageIds: ["sibling-id"],
+    });
+    expect(rejected.success).toBe(false);
+    expect(deps.loadMessages.mock.calls.every(([id]) => id !== CRITIC_THREAD)).toBe(true);
+    expect(deps.enqueueWorker).not.toHaveBeenCalled();
   });
 
   test("subagent_output only reads this orchestrator's own children", async () => {

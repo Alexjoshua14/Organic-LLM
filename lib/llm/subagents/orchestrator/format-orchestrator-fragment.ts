@@ -56,6 +56,7 @@ export function formatOrchestratorFragment(args: {
     formatSubagentCostPolicy(),
     "- Write each brief in your own words so it stands alone: the actual task (not the user's message pasted), why it matters, constraints, the deliverable, and when it is done.",
     "- Attach what the subagent needs: the user's exact words where they matter (user_message), other subagents' results (subagent_output), relevant memories (memory), and your own notes.",
+    "- Select bundle items and offset/limit excerpts deliberately. Use a dryRun to inspect the complete input budget before dispatch. Continue preserves history/cache; use fresh for independent tasks or historyMessageIds for exact prior messages. Preserve required constraints and evidence. A marked preview can be expanded with read_context_item in the recipient's own assignment.",
     "- Keep reusable context on your worktable. Build a bundle once — for example a reviewer's rubric plus a live_subagent_output slot for the coder's latest work — then send it again, updating single items instead of rebuilding.",
     `- ${autonomyLine(args.autonomous, args.autonomousRemaining)}`,
     "- After dispatching, tell the user briefly who is doing what. Do not do delegated work inline.",

@@ -7,9 +7,7 @@ import type { HardSetSubagent } from "@/lib/llm/subagents/hard-set/types";
 
 import { randomUUID } from "crypto";
 
-import { asSchema, convertToModelMessages, generateText, isStepCount } from "ai";
-
-import { compileChatTools } from "../../compile-chat-tools";
+import { generateText, isStepCount } from "ai";
 
 import { subagentRunLimits, withSubagentCostLimits } from "./cost-limits";
 import { researchToolParts } from "./research-tool-parts";
@@ -19,13 +17,20 @@ import {
   type OrchestratorAwarenessBus,
 } from "@/lib/llm/subagents/orchestrator/awareness";
 import { buildLockedWorkerSystem } from "@/lib/llm/subagents/hard-set/shell";
-import { foldSystemNoticesForModel } from "@/lib/llm/subagents/threads/fold-system-notices";
+import { readSubagentContext } from "@/lib/llm/subagents/threads/context-items";
+import { summarizeContextBudgetUsage } from "@/lib/chat/context-budget-usage";
+import type { ContextBudgetUsage } from "@/lib/chat/context-budget";
+import {
+  buildSubagentThreadSystem,
+  prepareWorkerTools,
+  SUBAGENT_THREAD_CONTEXT_MESSAGES,
+  workerModelMessages,
+} from "./prepare-input";
 import {
   buildSubagentGoalMessage,
   buildSubagentReplyMessage,
 } from "@/lib/llm/subagents/threads/messages";
 import {
-  buildWorkerSystem,
   milestoneFromOutcome,
   shortError,
   summarizeOutcome,
@@ -34,11 +39,12 @@ import { gatewayAttribution } from "@/lib/usage/gateway-attribution";
 import { createLlmBudgetHooks } from "@/lib/plans/llm-budget-hooks";
 
 /** Messages of the subagent's own thread handed to the model each run. */
-export const SUBAGENT_THREAD_CONTEXT_MESSAGES = 30;
+export { SUBAGENT_THREAD_CONTEXT_MESSAGES, buildSubagentThreadSystem } from "./prepare-input";
 
 /** Persistence for one subagent thread. Implementations must scope every call to the owner. */
 export type SubagentThreadStore = {
   loadMessages(threadId: string, limit: number): Promise<UIMessage[]>;
+  loadMessage?(threadId: string, messageId: string): Promise<UIMessage | null>;
   appendMessages(threadId: string, messages: UIMessage[]): Promise<boolean>;
   setStatus(threadId: string, status: SubagentThreadStatus): Promise<void>;
 };
@@ -52,6 +58,7 @@ export type SubagentTurnGenerate = (args: {
   model: string;
   system: string;
   messages: ModelMessage[];
+  assignment?: UIMessage;
   providerOptions: {
     gateway: Pick<GatewayProviderOptions, "zeroDataRetention" | "user" | "tags">;
   };
@@ -60,6 +67,7 @@ export type SubagentTurnGenerate = (args: {
   toolParts?: UIMessage["parts"];
   usage?: LanguageModelUsage;
   providerMetadata?: unknown;
+  contextUsage?: ContextBudgetUsage;
 }>;
 
 export type SubagentUsageRecorder = (args: {
@@ -80,51 +88,47 @@ export type RunSubagentThreadTurnInput = {
   /** A hard-set subagent locked into the roster: runs on its own instructions and tool policy. */
   lockedPersona?: HardSetSubagent;
   store: SubagentThreadStore;
+  /** Exact owned assignment loaded by the queue, independent of the history window. */
+  assignment?: UIMessage;
   generate?: SubagentTurnGenerate;
   recordUsage?: SubagentUsageRecorder;
   bus?: OrchestratorAwarenessBus;
   now?: () => number;
 };
 
-export function buildSubagentThreadSystem(name?: string, role?: string): string {
-  return [
-    buildWorkerSystem(name, role),
-    "This thread is yours alone: it holds your assignments and replies. You cannot see the",
-    "orchestrator's thread or other subagents' threads. Messages marked “From the orchestrator”",
-    "are assignments; other user messages are the user talking to you directly.",
-  ].join(" ");
-}
-
 const defaultGenerate: SubagentTurnGenerate = async (args) => {
-  const { system, chatId, initialMessageCount, sbUserId, tools: toolPolicy, ...options } = args;
-  const research = toolPolicy?.research === true;
-  const limits = subagentRunLimits(research);
-
-  const { tools, toolInstructions } = await compileChatTools({
-    useSearch: toolPolicy?.webSearch ?? true,
-    useResearch: toolPolicy?.research ?? false,
-    researchModelId: options.model,
-    researchGenerationContext: { messages: options.messages, system },
-    useMemory: toolPolicy?.memory ?? false,
-    useGetMoreMessages: toolPolicy?.chatHistory ?? true,
-    useKnowledgeSearch: false,
-    experience: "arcadia",
+  const {
+    system,
     chatId,
     initialMessageCount,
     sbUserId,
+    assignment,
+    tools: toolPolicy,
+    ...options
+  } = args;
+  const research = toolPolicy?.research === true;
+  const limits = subagentRunLimits(research);
+
+  const { tools, instructions, toolSchemaText, budget } = await prepareWorkerTools({
+    chatId,
+    initialMessageCount,
+    sbUserId,
+    assignment,
+    system,
+    toolPolicy,
+    model: options.model,
+    messages: options.messages,
   });
+  if (
+    assignment &&
+    readSubagentContext(assignment) &&
+    budget.estimatedInputTokens + budget.reservedToolTokens > budget.inputLimitTokens
+  )
+    throw new Error(
+      `Subagent input needs ${budget.estimatedInputTokens} estimated tokens plus ${budget.reservedToolTokens} for tool results. Select less history/context or start a fresh assignment.`
+    );
 
   const hasTools = Object.keys(tools).length > 0;
-  const instructions = [system, toolInstructions].filter(Boolean).join("\n\n");
-  const toolSchemaText = JSON.stringify(
-    await Promise.all(
-      Object.entries(tools).map(async ([name, definition]) => ({
-        name,
-        description: definition.description,
-        schema: await asSchema(definition.inputSchema).jsonSchema,
-      }))
-    )
-  );
   const budgetHooks = createLlmBudgetHooks({
     ownerId: sbUserId,
     modelId: options.model,
@@ -149,6 +153,7 @@ const defaultGenerate: SubagentTurnGenerate = async (args) => {
     ...(research ? { toolParts: researchToolParts(result.steps) } : {}),
     usage: result.totalUsage,
     providerMetadata: result.providerMetadata,
+    contextUsage: summarizeContextBudgetUsage(options.model, result.steps, true),
   };
 };
 
@@ -182,31 +187,40 @@ export async function runSubagentThreadTurn(
   });
 
   try {
-    let history = await store.loadMessages(threadId, SUBAGENT_THREAD_CONTEXT_MESSAGES);
-
-    // The goal row is written before scheduling; if that save failed, still give the model it.
-    if (history.length === 0) {
-      history = [buildSubagentGoalMessage({ goal: goal.goal, goalId: goal.goalId })];
+    const recent = await store.loadMessages(threadId, SUBAGENT_THREAD_CONTEXT_MESSAGES);
+    const assignment =
+      input.assignment ??
+      recent.find((message) => message.id === goal.goalId) ??
+      buildSubagentGoalMessage({ goal: goal.goal, goalId: goal.goalId, id: goal.goalId });
+    const context = readSubagentContext(assignment);
+    let history = recent.filter((message) => message.id !== assignment.id);
+    if (context) {
+      const frozen = await Promise.all(
+        context.history.messageIds.map(async (id) => {
+          const message =
+            history.find((candidate) => candidate.id === id) ??
+            (await store.loadMessage?.(threadId, id));
+          if (!message)
+            throw new Error(
+              "Selected assignment history is no longer available. Dispatch again with current history or fresh mode."
+            );
+          return message;
+        })
+      );
+      history = frozen;
     }
 
     const result = await generate({
       chatId: threadId,
-      initialMessageCount: history.length,
+      initialMessageCount: history.length + 1,
+      assignment,
       sbUserId: input.ownerId,
       model: input.modelId,
       system: input.lockedPersona
         ? buildLockedWorkerSystem(input.lockedPersona)
         : buildSubagentThreadSystem(input.workerName, input.workerRole),
       ...(input.lockedPersona ? { tools: input.lockedPersona.tools } : {}),
-      messages: await convertToModelMessages(
-        foldSystemNoticesForModel([
-          ...history,
-          buildSubagentGoalMessage({
-            goal: `For this run, respond to this assignment: ${goal.goal}`,
-            goalId: goal.goalId,
-          }),
-        ])
-      ),
+      messages: await workerModelMessages(history, assignment),
       providerOptions: {
         gateway: {
           zeroDataRetention: input.zeroDataRetention,
@@ -231,6 +245,15 @@ export async function runSubagentThreadTurn(
         toolParts: result.toolParts,
         goalId: goal.goalId,
         modelId: input.modelId,
+        contextUsage:
+          result.contextUsage ??
+          (result.usage
+            ? summarizeContextBudgetUsage(
+                input.modelId,
+                [{ usage: result.usage, providerMetadata: result.providerMetadata }],
+                true
+              )
+            : undefined),
       }),
     ]);
 
