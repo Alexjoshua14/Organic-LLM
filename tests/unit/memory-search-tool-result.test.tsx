@@ -29,7 +29,7 @@ describe("memory search evidence disclosure", () => {
     await user.keyboard("{Enter}");
     expect(trigger.getAttribute("aria-expanded")).toBe("true");
     await user.tab();
-    expect(document.activeElement).toBe(view.getByRole("list", { name: "Retrieved memories" }));
+    expect(document.activeElement).toBe(view.getByRole("region", { name: "Retrieved memories" }));
     await user.tab();
     expect(document.activeElement).toBe(view.getByRole("button", { name: "Pin tool output" }));
     await user.keyboard(" ");
