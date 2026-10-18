@@ -11,6 +11,7 @@ feel — so improvements stay consistent and do not regress quality.
 | [Spacing](./spacing.md) | Card density, stack/gap/inset tokens, gen-ui vertical rhythm |
 | [Switches & quick settings](./switches-and-quick-settings.md) | Compact glass switches, caption popovers, quick-settings density |
 | [Context usage](./context-usage.md) | Composer context charts, source colors, percentage ramp, hover labels |
+| [Reasoning display](./reasoning-display.md) | Secondary summary typography, stable streaming disclosure, and provider-stream verification |
 | [Subagent identity mark](./subagent-identity-mark.md) | Layered SVG dots, glass diffusion, agent-state motion |
 | [Welcome scene](./welcome-scene.md) | Photographic pane projection, camera motion, and themed floor continuity |
 | [Glass distortion](./glass-distortion.md) | Opt-in refraction of owned backgrounds, Safari compatibility |
