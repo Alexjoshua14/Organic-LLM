@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, mock, test } from "bun:test";
 import { cleanup, fireEvent } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 
 import { MemorySearchToolResultCard } from "@/components/chat/memory-search-tool-result";
 import { render } from "../helpers/render";
@@ -7,6 +8,35 @@ import { render } from "../helpers/render";
 afterEach(() => cleanup());
 
 describe("memory search evidence disclosure", () => {
+  test("keyboard users can open the result, reach long memories, and pin without closing", async () => {
+    const user = userEvent.setup({ document });
+    const onTogglePin = mock(() => {});
+    const view = render(
+      <MemorySearchToolResultCard
+        isPinned={false}
+        onTogglePin={onTogglePin}
+        parsed={{
+          status: "ok",
+          query: "A long result",
+          count: 1,
+          memories: [{ id: "long", memory: "Complete memory text. ".repeat(200) }],
+        }}
+      />
+    );
+    await user.tab();
+    const trigger = view.getByRole("button", { name: /Memory search/ });
+    expect(document.activeElement).toBe(trigger);
+    await user.keyboard("{Enter}");
+    expect(trigger.getAttribute("aria-expanded")).toBe("true");
+    await user.tab();
+    expect(document.activeElement).toBe(view.getByRole("list", { name: "Retrieved memories" }));
+    await user.tab();
+    expect(document.activeElement).toBe(view.getByRole("button", { name: "Pin tool output" }));
+    await user.keyboard(" ");
+    expect(onTogglePin).toHaveBeenCalledTimes(1);
+    expect(trigger.getAttribute("aria-expanded")).toBe("true");
+  });
+
   test("separates query and count, expands full matches, and keeps pinning independent", () => {
     const query =
       "Organic LLM project purpose, features, and architecture, including previous research";

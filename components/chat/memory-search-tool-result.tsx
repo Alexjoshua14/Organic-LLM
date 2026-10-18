@@ -180,7 +180,11 @@ export const MemorySearchToolResultCard = memo(function MemorySearchToolResultCa
             {memories.length === 0 ? (
               <p>No memories matched this query.</p>
             ) : (
-              <ul className="memory-search-result__matches">
+              <ul
+                aria-label="Retrieved memories"
+                className="memory-search-result__matches"
+                tabIndex={0}
+              >
                 {memories.map((m) => (
                   <li key={m.id}>{m.memory}</li>
                 ))}

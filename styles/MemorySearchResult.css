@@ -115,6 +115,12 @@
   font: inherit;
 }
 
+.memory-search-result__matches:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 2px;
+  border-radius: 0.25rem;
+}
+
 .memory-search-result__matches li + li {
   border-top: 1px solid color-mix(in oklch, var(--border) 50%, transparent);
 }
