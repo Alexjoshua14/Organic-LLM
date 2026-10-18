@@ -38,6 +38,8 @@ searches retain the same structure with explicit status text.
 `runLLMChatStream` forwards provider `reasoning-delta` events through the AI SDK UI stream.
 The installed SDK defaults `sendReasoning` to true. Live and queued main chat share this path.
 Consecutive reasoning parts are grouped for display rather than selecting only the first.
+A stream that errors or aborts before a part's end chunk leaves it `streaming`; the saved turn
+finalizes those parts so a reloaded message never shows reasoning as still in progress.
 
 OpenAI reasoning-capable models request `reasoningSummary: "auto"`, which asks for the
 most detailed supported summary. This is a provider summary, not the raw internal reasoning;
