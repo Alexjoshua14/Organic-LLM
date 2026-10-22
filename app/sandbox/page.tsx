@@ -1,14 +1,19 @@
 import Link from "next/link";
+import { notFound } from "next/navigation";
 
 import LiquidChromePage from "@/components/layout/liquid-chrome-page";
 import { PageContentFrame } from "@/components/layout/page-content-frame";
 import ShinyText from "@/components/ShinyText";
 import AdaptiveLiquidChrome from "@/components/background/AdaptiveLiquidChrome";
 import { glass } from "@/components/design-system/primitives";
+import { requireAdmin } from "@/lib/admin/require-admin";
 import { sandboxGatewayEntries } from "@/lib/sandbox/gateway";
 import { cn } from "@/lib/utils";
 
-export default function SandboxPage() {
+export default async function SandboxPage() {
+  // The gateway lists labs; only /sandbox/arcadia is a finished surface for non-admins.
+  if (!(await requireAdmin())) notFound();
+
   return (
     <LiquidChromePage transparentBackground className="items-stretch justify-start overflow-hidden">
       <AdaptiveLiquidChrome dimIntensity={0.45} />

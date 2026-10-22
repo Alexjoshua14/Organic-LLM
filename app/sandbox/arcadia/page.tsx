@@ -16,7 +16,7 @@ export default async function ArcadiaIndexPage() {
 
   if (res.error || res.data === null) {
     logger.error("ArcadiaIndexPage", "Error creating chat");
-    redirect("/sandbox");
+    redirect("/");
   }
 
   const id = res.data;
