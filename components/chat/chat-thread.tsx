@@ -19,7 +19,6 @@ import {
   inlineSubagentDispatch,
   liveAgentForDispatch,
 } from "@/lib/arcadia/multitask/inline-dispatches";
-
 import { ChatEmptyStateGuide } from "@/components/onboarding/chat-empty-state-guide";
 import { ARCADIA_HELP_LATEST_ONLY, isArcadiaHelpMessage } from "@/lib/arcadia/help-response";
 import { resolveThreadLiveAiAction } from "@/lib/chat/optimistic-ai-action";
@@ -76,6 +75,7 @@ export const ChatThread: FC<ChatThreadProps> = ({
       agents && message.role === "assistant"
         ? message.parts.flatMap((part) => {
             const dispatch = inlineSubagentDispatch(part);
+
             return dispatch ? [dispatch] : [];
           })
         : [],
@@ -118,6 +118,7 @@ export const ChatThread: FC<ChatThreadProps> = ({
             const dispatch = dispatches.find(
               (item) => item.agentId === agent.id && item.goalId === agent.latestGoalId
             );
+
             revealSubagentActivity(rowId(dispatch ? dispatch.goalId : `current-${agent.id}`));
           }}
         />

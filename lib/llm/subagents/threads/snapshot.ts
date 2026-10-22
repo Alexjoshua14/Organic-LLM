@@ -98,6 +98,7 @@ function latestAssignmentId(messages: ReadonlyArray<UIMessage>): string | null {
   for (let i = messages.length - 1; i >= 0; i -= 1) {
     const message = messages[i]!;
     const metadata = message.metadata as { source?: string; goalId?: unknown } | undefined;
+
     if (
       message.role === "user" ||
       (message.role === "assistant" && metadata?.source === SUBAGENT_REPLY_MESSAGE_SOURCE)
@@ -109,6 +110,7 @@ function latestAssignmentId(messages: ReadonlyArray<UIMessage>): string | null {
         : null;
     }
   }
+
   return null;
 }
 

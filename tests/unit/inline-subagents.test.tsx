@@ -2,7 +2,7 @@ import type { UIMessage } from "ai";
 import type { ArcadiaSubagent } from "@/lib/arcadia/multitask/types";
 
 import { afterEach, describe, expect, test } from "bun:test";
-import { cleanup, fireEvent } from "@testing-library/react";
+import { act, cleanup, fireEvent } from "@testing-library/react";
 
 import { render } from "../helpers/render";
 
@@ -22,6 +22,10 @@ import {
   buildSubagentGoalMessage,
   buildSubagentReplyMessage,
 } from "@/lib/llm/subagents/threads/messages";
+
+import { ArcadiaMultitaskProvider } from "@/app/sandbox/arcadia/_components/multitask-provider";
+import { ChatThread } from "@/components/chat/chat-thread";
+import { Conversation } from "@/components/third-party/ai-elements/conversation";
 
 afterEach(cleanup);
 
@@ -172,4 +176,54 @@ describe("inline subagent assignments", () => {
     expect(app.getByText("Sent")).toBeTruthy();
     expect(app.queryByText("Done")).toBeNull();
   });
+});
+
+describe("subagents inside the conversation", () => {
+  test.each(["parent", "child", "unrelated"])(
+    "only the owning orchestrator renders live rows (%s)",
+    async (chatId) => {
+      const originalFetch = globalThis.fetch;
+      globalThis.fetch = (async () =>
+        Response.json({
+          enabled: false,
+          activeStreamId: null,
+          subagents: [{ ...agent, agentId: agent.id, statusAt: null, outcome: null }],
+        })) as typeof fetch;
+      try {
+        let app!: ReturnType<typeof render>;
+        await act(async () => {
+          app = render(
+            <ArcadiaMultitaskProvider
+              threadId={chatId === "child" ? "child" : "parent"}
+              orchestratorThreadId="parent"
+              viewingSubagentId={chatId === "child" ? agent.id : undefined}
+              initialHasSubagentThreads
+            >
+              <Conversation>
+                <ChatThread
+                  chatId={chatId}
+                  messages={[{ id: "dispatch-message", role: "assistant", parts: [part] }]}
+                  showActions={false}
+                />
+              </Conversation>
+            </ArcadiaMultitaskProvider>
+          );
+        });
+        if (chatId === "parent") {
+          const strip = app.getByRole("navigation", { name: "Active subagents" });
+          expect(strip.closest(".conversation-scroll")).toBeNull();
+          const details = app.container.querySelector("details");
+          expect(details?.closest(".conversation-scroll")).toBeTruthy();
+          expect(app.queryByText("dispatch_subagent")).toBeNull();
+          expect(app.getByRole("link", { name: "Open conversation" })).toBeTruthy();
+        } else {
+          expect(app.queryByRole("navigation", { name: "Active subagents" })).toBeNull();
+          expect(app.getByText("dispatch_subagent")).toBeTruthy();
+        }
+      } finally {
+        cleanup();
+        globalThis.fetch = originalFetch;
+      }
+    }
+  );
 });

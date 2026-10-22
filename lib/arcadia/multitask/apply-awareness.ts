@@ -67,7 +67,9 @@ export function applyAssignedGoalsToRoster(
 
   return agents.map((agent) => {
     const goal = byAgent.get(agent.id);
+
     if (!goal) return agent;
+
     return {
       ...agent,
       goal: goal.goal,
