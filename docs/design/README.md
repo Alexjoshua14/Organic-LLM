@@ -15,6 +15,7 @@ feel — so improvements stay consistent and do not regress quality.
 | [Welcome scene](./welcome-scene.md) | Photographic pane projection, camera motion, and themed floor continuity |
 | [Glass distortion](./glass-distortion.md) | Opt-in refraction of owned backgrounds, Safari compatibility |
 | [Liquid chrome materials](./liquid-chrome-materials.md) | Light-mode paper and ink, dark-mode preservation, refraction and fallback parity |
+| [CoreInput snapshot morph](./core-input-morph.md) | Composer settings morphing between threads, areas, and `/btw`; fast-forward on touch |
 | [Motion & character text timing](./motion-and-text-timing.md) | Any char-by-char / stagger / status-label / loading-state animation |
 | [Adaptive background](../adaptive-background.md) + [timing](../adaptive-background-timing.md) | Ambient dim / focus atmospheres |
 | [Organic presence](../organic-presence.md) | Presence indicators and ambient life |
