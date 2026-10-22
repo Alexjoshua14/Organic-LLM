@@ -180,6 +180,7 @@ export async function sumLlmUsageCostUsd(args: {
     }
     for (const row of data ?? []) {
       const cost = Number(row.cost_usd);
+
       if (!Number.isFinite(cost) || cost < 0) return { status: "error", message: "Bad cost" };
       usd += cost;
     }

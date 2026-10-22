@@ -72,10 +72,7 @@ export const generateReleaseNotesWithLlm: ReleaseNotesGenerator = async (input) 
 
     return { notes: object, model: RELEASE_NOTES_MODEL };
   } catch (err) {
-    logger.error(
-      "generateReleaseNotesWithLlm",
-      err instanceof Error ? err.message : String(err)
-    );
+    logger.error("generateReleaseNotesWithLlm", err instanceof Error ? err.message : String(err));
     throw err;
   }
 };

@@ -26,6 +26,7 @@ export type EncryptionFieldName =
   | "threads.introspection_guided_state"
   | "threads.subagent_heartbeat_baseline"
   | "threads.subagent_worktable"
+  | "user_connectors.profile"
   | "threads.research_ledger"
   | "research_ledgers.payload"
   | "stage.events";

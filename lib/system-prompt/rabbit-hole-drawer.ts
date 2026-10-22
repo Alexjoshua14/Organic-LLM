@@ -11,9 +11,17 @@ export const RABBIT_HOLE_DRAWER_SYSTEM_APPEND = `
 - Match Organic LLM tone: concise, scannable, glass-card density — not a blog post.
 `.trim();
 
+export const RABBIT_HOLE_SUBAGENT_MESH_APPEND = `
+[Rabbit hole subagent mesh & workbench]
+- You can orchestrate Organic LLM's subagent roster in parallel (up to 4 dispatches/turn within the self-managed USD budget): Lyra (agent-researcher), Reed (agent-coder), Archer (subagent-architect), Mira (agent-planner), Cass (agent-writer), and Vesper (agent-critic).
+- Call worktable({ action: "man", topic }) (topics: overview, rabbit_hole, shorthand, budget, lyra, reed, archer, mira, cass, vesper) to inspect LLM workbench manpages.
+- Reference session graph nodes compactly with shorthand ("node:<nodeId>", "node:active", "node:root") and specialist outputs with "out:<agentId>" in worktable or dispatch_subagent without copying raw article HTML.
+`.trim();
+
 export const RABBIT_HOLE_TOOL_INSTRUCTIONS = `
 Rabbit hole assistant tools:
 - navigate_rabbit_hole_node: switch the article viewport to an existing node in the current session.
 - generate_rabbit_hole_node: propose creating one new article node. Explain the proposal in chat first; the tool requires user approval before execution. Call at most once per turn.
 - search_rabbit_hole_context: retrieve relevant passages from nodes in the session graph (when available).
+- worktable / dispatch_subagent / read_subagent_thread: bundle node context (e.g. shorthand: ["node:active"]), consult LLM manpages (worktable({ action: "man" })), and delegate parallel deep research (Lyra), implementation/prototyping (Reed), or architecture (Archer) within budget.
 `.trim();

@@ -25,6 +25,10 @@ import {
 import { createWorktableSession, type WorktableStore } from "@/lib/llm/subagents/worktable/session";
 import { emptyWorktable } from "@/lib/llm/subagents/worktable/types";
 import { models } from "@/lib/schemas/chat-models";
+import {
+  normalizeUserConnectorsProfile,
+  type UserConnectorsProfile,
+} from "@/lib/schemas/user-connectors";
 import { estimateWorkerInput, workerModelMessages } from "@/lib/llm/subagents/worker/prepare-input";
 import { readSubagentContext } from "@/lib/llm/subagents/threads/context-items";
 
@@ -69,6 +73,8 @@ function harness(
     autonomous?: boolean;
     autonomousRemaining?: number;
     worktable?: "memory" | "none";
+    userConnectors?: UserConnectorsProfile | null;
+    loadUserConnectors?: () => Promise<UserConnectorsProfile | null>;
   } = {}
 ) {
   const threads = new Map<string, UIMessage[]>([
@@ -123,6 +129,8 @@ function harness(
     currentUserMessage: { id: "u2", text: "Have someone review it before we ship." },
     writer,
     now: () => Date.parse(NOW),
+    userConnectors: options.userConnectors,
+    loadUserConnectors: options.loadUserConnectors,
   };
   let tools = createOrchestratorTools(toolInput);
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -413,8 +421,30 @@ describe("dispatch_subagent", () => {
     );
   });
 
-  test("oversized retained history is rejected before scheduling; fresh mode can proceed", async () => {
+  test("continue mode windows oversized history; selecting that history explicitly is rejected", async () => {
+    const continued = harness();
+
+    continued.children.push({
+      threadId: CODER_THREAD,
+      agentId: "agent-coder",
+      status: "idle",
+      statusAt: NOW,
+    });
+    continued.threads.set(CODER_THREAD, [
+      userMessage("large-old", "captured evidence ".repeat(20_000)),
+    ]);
+    const windowed = await continued.run("dispatch_subagent", {
+      agent: "coder",
+      brief: "Say hello.",
+    });
+
+    expect(windowed.success).toBe(true);
+    expect(windowed.manifest).toMatchObject({
+      history: { mode: "continue", messageIds: [] },
+    });
+
     const { run, deps, children, threads } = harness();
+
     children.push({
       threadId: CODER_THREAD,
       agentId: "agent-coder",
@@ -422,7 +452,12 @@ describe("dispatch_subagent", () => {
       statusAt: NOW,
     });
     threads.set(CODER_THREAD, [userMessage("large-old", "captured evidence ".repeat(20_000))]);
-    const rejected = await run("dispatch_subagent", { agent: "coder", brief: "Say hello." });
+    const rejected = await run("dispatch_subagent", {
+      agent: "coder",
+      brief: "Say hello.",
+      historyMessageIds: ["large-old"],
+    });
+
     expect(rejected.success).toBe(false);
     expect(rejected.error).toContain("retained history");
     expect(deps.appendMessages).not.toHaveBeenCalled();
@@ -659,5 +694,124 @@ describe("goal briefs downstream", () => {
 
     expect(message.metadata).toEqual({ source: "orchestrator", goalId: "g1" });
     expect(subagentGoalBrief(message)).toBe("Do the thing.");
+  });
+});
+
+describe("connector shorthand routing", () => {
+  const profile = normalizeUserConnectorsProfile({
+    githubUrl: "https://github.com/Alexjoshua14/",
+    linkedinUrl: "https://www.linkedin.com/in/alex",
+    educationAndTranscripts: "Williams College CS and Studio Art",
+    careerHistory: "Built Organic LLM and multi-agent orchestration",
+    resumeText: "Engineer, 2020–2026",
+    workingPreferences: "MacBook plus aetherion, a Raspberry Pi 5. TypeScript and Bun.",
+    autoShareWithSubagents: true,
+    cachedGithubSnapshot: {
+      username: "Alexjoshua14",
+      profileUrl: "https://github.com/Alexjoshua14",
+      fetchedAt: NOW,
+      profile: {
+        login: "Alexjoshua14",
+        name: "Alex",
+        bio: "Design lab",
+        html_url: "https://github.com/Alexjoshua14",
+        public_repos: 2,
+        followers: 1,
+        company: null,
+        location: null,
+        blog: null,
+      },
+      repos: [
+        {
+          name: "organic-llm",
+          description: "A design lab",
+          language: "TypeScript",
+          html_url: "https://github.com/Alexjoshua14/organic-llm",
+          updated_at: "2026-10-01T00:00:00Z",
+          stargazers_count: 1,
+          fork: false,
+          topics: ["llm"],
+        },
+      ],
+    },
+  });
+
+  test("expands connector slices onto the worktable and into Lyra and Reed assignments", async () => {
+    const { run, threads } = harness({ userConnectors: profile });
+    const created = await run("worktable", {
+      action: "create",
+      name: "Grounding",
+      shorthand: [
+        "connector:github",
+        "connector:education",
+        "connector:career",
+        "connector:resume",
+      ],
+    });
+
+    expect(created.success).toBe(true);
+    const items = (created.bundle as { items: Array<{ sourceRef?: string; text: string }> }).items;
+
+    expect(items.map((item) => item.sourceRef)).toEqual([
+      "connector:github",
+      "connector:education",
+      "connector:career",
+      "connector:resume",
+    ]);
+    expect(items[0]?.text).toContain("@Alexjoshua14");
+    expect(items[0]?.text).toContain("organic-llm");
+    expect(items[0]?.text).toContain("Reed");
+    expect(items[1]?.text).toContain("Williams College");
+
+    const lyra = await run("dispatch_subagent", {
+      agent: "Lyra",
+      brief: "Ground this research question in the user's coursework and career.",
+      shorthand: ["connector:education", "connector:career", "connector:resume"],
+    });
+
+    expect(lyra).toMatchObject({ success: true, agentId: "agent-researcher" });
+    const lyraText = uiMessageText(threads.get("thread-agent-researcher")!.at(-1)!);
+
+    expect(lyraText).toContain("Williams College");
+    expect(lyraText).toContain("multi-agent orchestration");
+    expect(lyraText).toContain("Engineer, 2020–2026");
+
+    const reed = await run("dispatch_subagent", {
+      agent: "Reed",
+      brief: "Inspect the user's public repositories and say where a new service fits.",
+      shorthand: ["connector:github"],
+      additionalDispatchReason:
+        "Independent repository inspection alongside Lyra's career synthesis.",
+    });
+
+    expect(reed).toMatchObject({ success: true, agentId: "agent-coder" });
+    const reedText = uiMessageText(threads.get(CODER_THREAD)!.at(-1)!);
+
+    expect(reedText).toContain("organic-llm");
+    expect(reedText).toContain("TypeScript");
+  });
+
+  test("loads connectors lazily and blocks shorthand when automatic sharing is off", async () => {
+    const lazy = harness({ loadUserConnectors: async () => profile });
+    const created = await lazy.run("worktable", {
+      action: "create",
+      name: "Lazy GitHub",
+      shorthand: ["connector:github"],
+    });
+
+    expect(created.success).toBe(true);
+    expect(JSON.stringify(created.bundle)).toContain("Alexjoshua14");
+
+    const blocked = harness({
+      userConnectors: { ...profile, autoShareWithSubagents: false },
+    });
+    const denied = await blocked.run("worktable", {
+      action: "create",
+      name: "Blocked",
+      shorthand: ["connector:preferences"],
+    });
+
+    expect(denied.success).toBe(false);
+    expect(String(denied.error)).toContain("automatic subagent connector sharing is disabled");
   });
 });

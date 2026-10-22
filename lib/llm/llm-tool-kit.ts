@@ -1,4 +1,3 @@
-import { createLlmBudgetHooks } from "@/lib/plans/llm-budget-hooks";
 import type { ExaSearchResultSource } from "../exa/types";
 import type { MermaidDiagramDensity } from "@/lib/mermaid/types";
 
@@ -12,6 +11,7 @@ import { exaSearchOptionsSchema, searchOptionsSchema } from "../exa/types";
 import { searchWeb, searchWebWithQuery } from "../exa/client";
 import { mapSearchResponseToExaSources } from "../exa/utils";
 
+import { createLlmBudgetHooks } from "@/lib/plans/llm-budget-hooks";
 import { models } from "@/lib/schemas/chat-models";
 import { getMessages, getMessagesSince, getMessageCount, getNMessages } from "@/data/supabase/chat";
 import { checkExternalFetchLimit } from "@/lib/rate-limit/external-fetch";

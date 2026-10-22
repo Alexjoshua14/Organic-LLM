@@ -266,6 +266,7 @@ export async function readThreadMessagesWithAdmin(args: {
     .eq("thread_id", args.threadId)
     .order("created_at", { ascending: false })
     .limit(Math.max(1, args.limit));
+
   if (args.messageId) query = query.eq("id", args.messageId);
   const { data, error } = await query;
 
@@ -366,14 +367,19 @@ export async function claimSubagentHeartbeat(args: {
   previousAt: string | null;
   at: string;
 }): Promise<boolean> {
-  const base = supabaseAdmin.from("threads")
+  const base = supabaseAdmin
+    .from("threads")
     .update({ subagent_heartbeat_at: args.at })
-    .eq("id", args.threadId).eq("owner_id", args.ownerId);
-  const guarded = args.previousAt === null
-    ? base.is("subagent_heartbeat_at", null)
-    : base.eq("subagent_heartbeat_at", args.previousAt);
+    .eq("id", args.threadId)
+    .eq("owner_id", args.ownerId);
+  const guarded =
+    args.previousAt === null
+      ? base.is("subagent_heartbeat_at", null)
+      : base.eq("subagent_heartbeat_at", args.previousAt);
   const { data, error } = await guarded.select("id");
+
   if (error) throw new Error("Could not claim heartbeat");
+
   return (data?.length ?? 0) > 0;
 }
 
@@ -385,14 +391,23 @@ export async function completeSubagentHeartbeat(args: {
   digest: string;
   baseline?: SubagentThreadSnapshot[];
 }): Promise<void> {
-  const { data, error } = await supabaseAdmin.from("threads")
+  const { data, error } = await supabaseAdmin
+    .from("threads")
     .update({
       subagent_heartbeat_digest: args.digest,
-      ...(args.baseline ? { subagent_heartbeat_baseline: encryptForStorage(
-        JSON.stringify(args.baseline), baselineContext(args.ownerId, args.threadId)
-      ) } : {}),
+      ...(args.baseline
+        ? {
+            subagent_heartbeat_baseline: encryptForStorage(
+              JSON.stringify(args.baseline),
+              baselineContext(args.ownerId, args.threadId)
+            ),
+          }
+        : {}),
     })
-    .eq("id", args.threadId).eq("owner_id", args.ownerId)
-    .eq("subagent_heartbeat_at", args.at).select("id");
+    .eq("id", args.threadId)
+    .eq("owner_id", args.ownerId)
+    .eq("subagent_heartbeat_at", args.at)
+    .select("id");
+
   if (error || !data?.length) throw new Error("Could not commit heartbeat state");
 }

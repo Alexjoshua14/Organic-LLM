@@ -1,8 +1,12 @@
-import { createAuthenticatedLlmBudgetHooks, budgetModelId } from "@/lib/plans/llm-budget-hooks";
 import type { RabbitHoleNode } from "@/lib/schemas/rabbitHoleSchemas";
 
 import { generateText } from "ai";
 
+import {
+  createAuthenticatedLlmBudgetHooks,
+  createOwnerLlmBudgetHooks,
+  budgetModelId,
+} from "@/lib/plans/llm-budget-hooks";
 import {
   RABBIT_HOLE_NODE_SUMMARY_MAX_OUTPUT_TOKENS,
   RABBIT_HOLE_NODE_SUMMARY_MODEL,
@@ -53,14 +57,19 @@ export async function formatNodeSummaryDocument(node: RabbitHoleNode): Promise<s
 /**
  * Generate a stored summary for a completed article node (~2000 output token cap).
  */
-export async function generateRabbitHoleNodeSummary(node: RabbitHoleNode): Promise<string> {
+export async function generateRabbitHoleNodeSummary(
+  node: RabbitHoleNode,
+  ownerId?: string | null
+): Promise<string> {
   const sourceDoc = await formatNodeSummaryDocument(node);
+  const modelId = budgetModelId(RABBIT_HOLE_NODE_SUMMARY_MODEL);
+  const operation = "rabbit-holes/node-summary";
+  const budgetHooks = ownerId
+    ? await createOwnerLlmBudgetHooks({ ownerId, modelId, operation })
+    : await createAuthenticatedLlmBudgetHooks({ modelId, operation });
 
   const { text } = await generateText({
-    ...(await createAuthenticatedLlmBudgetHooks({
-      modelId: budgetModelId(RABBIT_HOLE_NODE_SUMMARY_MODEL),
-      operation: "rabbit-holes/node-summary",
-    })),
+    ...budgetHooks,
     model: RABBIT_HOLE_NODE_SUMMARY_MODEL,
     instructions: NODE_SUMMARY_SYSTEM,
     prompt: sourceDoc,
@@ -78,14 +87,17 @@ export async function generateRabbitHoleNodeSummary(node: RabbitHoleNode): Promi
   return trimmed;
 }
 
-export async function ensureRabbitHoleNodeSummary(node: RabbitHoleNode): Promise<string> {
+export async function ensureRabbitHoleNodeSummary(
+  node: RabbitHoleNode,
+  ownerId?: string | null
+): Promise<string> {
   const existing = node.summary?.trim();
 
   if (existing) return existing;
 
   if (!node.articleHtml?.trim()) return "";
 
-  const generated = await generateRabbitHoleNodeSummary(node);
+  const generated = await generateRabbitHoleNodeSummary(node, ownerId);
 
   return generated;
 }

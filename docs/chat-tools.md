@@ -102,6 +102,17 @@ When `chatStyle === "ergon"`, the model drives a **live** kanban board over a tr
 
 ### `manage_tasks` (durable Ergon todos)
 
+An optional connection to a separate Ergon engineering workspace adds `ergon_list_issues`,
+`ergon_get_issue`, `ergon_save_issue`, `ergon_save_comment`, `ergon_list_projects`,
+`ergon_list_issue_statuses`, and `ergon_list_issue_labels` to main chat. Configure the
+server-only `ERGON_URL` (HTTPS origin), `ERGON_TOKEN` (read/write token with client
+`organic`), and `ERGON_OWNER_PROFILE_ID` (the authorized user's Supabase profile UUID).
+Only that authenticated profile receives the tools; unset or invalid configuration disables
+them. Other users cannot select the profile or workspace through tool arguments. Loopback
+HTTP is allowed for local development. The existing personal todo tool remains independent.
+Requests use the tracker's existing REST tool registry; they do not invoke its AI intake.
+Implementation: [`ergon-ticket-tools.ts`](../lib/llm/ergon-ticket-tools.ts).
+
 Always available in the main chat. Lets Aion manage the user's **durable** todo list (the `/ergon` page) via the Supabase data layer (RLS-scoped): `CREATE_TASKS`, `UPDATE_TASK`, `COMPLETE_TASK`, `LIST_TASKS`. Categories are passed by name (resolve-or-create). Returns a compact `{ kind: "ergon-tasks", action, tasks }` payload rendered by [`ErgonTaskResult`](../components/ergon/ErgonTaskResult.tsx) with a link to `/ergon`. Distinct from `kanban_board`: that is a client-side puppet board; `manage_tasks` writes through to the database.
 
 - Implementation: [`createManageTasksTool`](../lib/llm/ergon-tasks-tool.ts) · executor [`executeManageTasks`](../lib/llm/ergon-tasks-execute.ts) · schema [`lib/schemas/ergon-tasks.ts`](../lib/schemas/ergon-tasks.ts) · prompt hints [`lib/system-prompt/ergon.ts`](../lib/system-prompt/ergon.ts)
@@ -136,6 +147,37 @@ Always on in the **Remy** route (`/api/ai/remy`); in Arcadia it's the **Remy** c
 
 - Implementation: [`createMisePlanTool` / `createFetchRecipeTool`](../lib/llm/mise-tool.ts) · [`lib/schemas/mise`](../lib/schemas/mise/) · [`data/supabase/mise.ts`](../data/supabase/mise.ts) · store [`lib/mise/store.ts`](../lib/mise/store.ts)
 - Requires the migration [`docs/migrations/mise_tables.sql`](./migrations/mise_tables.sql) applied and `lib/supabase/types.ts` regenerated.
+
+---
+
+## Connected-app tools (hard-set tool policy)
+
+These are registered only when a hard-set subagent's tool policy forces them on, in its shell, its
+queued sends and its dispatched worker runs. They are never composer toggles. Each set is owner-gated
+the same way as the connected Ergon tickets: the authenticated Supabase profile must match the
+configured owner, and missing or invalid configuration registers nothing.
+
+### `chronos_list_repos` + `chronos_git` (Reed, `tools.chronos`)
+
+Read-only git over the owner's local repositories, through Chronos's MCP endpoint (Streamable HTTP,
+via `@ai-sdk/mcp`). Each call opens one short-lived MCP session. Chronos runs an exact-token
+allowlist of subcommands and flags with no shell, so `branch` and `tag` only list and commands that
+print file contents are off unless Chronos enables them. Results carry HEAD's SHA and branch, the
+exit code and a truncation flag. Configure `CHRONOS_MCP_URL`, `CHRONOS_MCP_TOKEN` and
+`CHRONOS_OWNER_PROFILE_ID`. A deployed Organic cannot reach `localhost`, so it needs a tunnel.
+
+- Implementation: [`createChronosTools`](../lib/llm/chronos-mcp-tools.ts)
+
+### `ergon_*` agent tools (Mira, `tools.ergon`)
+
+Mira is Ergon's representative in Organic. Through Ergon's REST tool registry she can list and search
+vault docs, read a doc (content capped at 12,000 characters, clauses complete), resolve clauses, list
+open questions, read issue briefs, hooks and agent runs, and start an agent run on an issue. She uses
+`ERGON_AGENT_TOKEN`, scoped `read,agents`, so Ergon itself refuses doc, ticket and hook writes. Her turns
+skip the read,write connected-ticket tools that other chats get. Starts
+are never retried automatically.
+
+- Implementation: [`createErgonAgentTools`](../lib/llm/ergon-agent-tools.ts)
 
 ---
 

@@ -88,8 +88,18 @@ const MODEL_COSTS: Record<string, ModelCost> = {
   "anthropic/claude-fable-5.1": { inputPerMillion: 10.0, outputPerMillion: 50.0 },
   "anthropic/claude-fable-5": { inputPerMillion: 10.0, outputPerMillion: 50.0 },
   "anthropic/claude-opus-4.7": { inputPerMillion: 5.0, outputPerMillion: 25.0 },
+  "anthropic/claude-sonnet-5.5": {
+    inputPerMillion: 3.0,
+    outputPerMillion: 15.0,
+    cachedInputPerMillion: 0.3,
+  },
   "anthropic/claude-sonnet-5": { inputPerMillion: 2.0, outputPerMillion: 10.0 },
   "anthropic/claude-sonnet-4.6": { inputPerMillion: 3.0, outputPerMillion: 15.0 },
+  "anthropic/claude-haiku-5.5": {
+    inputPerMillion: 0.8,
+    outputPerMillion: 4.0,
+    cachedInputPerMillion: 0.08,
+  },
   "anthropic/claude-haiku-4.5": { inputPerMillion: 1.0, outputPerMillion: 5.0 },
   "perplexity/sonar-pro": { inputPerMillion: 1.0, outputPerMillion: 1.0 },
   "perplexity/sonar-reasoning-pro": { inputPerMillion: 3.0, outputPerMillion: 15.0 },

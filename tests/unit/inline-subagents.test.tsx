@@ -216,11 +216,19 @@ describe("subagents inside the conversation", () => {
           expect(strip.closest(".conversation-scroll")).toBeNull();
           const details = app.container.querySelector("details");
           expect(details?.closest(".conversation-scroll")).toBeTruthy();
-          expect(app.queryByText("dispatch_subagent")).toBeNull();
+          // Owning orchestrator replaces the tool chip with InlineSubagentActivity.
+          expect(
+            app.container.querySelector('[data-organic-tool-presence="dispatch_subagent"]')
+          ).toBeNull();
           expect(app.getByRole("link", { name: "Open conversation" })).toBeTruthy();
         } else {
           expect(app.queryByRole("navigation", { name: "Active subagents" })).toBeNull();
-          expect(app.getByText("dispatch_subagent")).toBeTruthy();
+          // Non-owning views keep the OrganicToolCallPresence chip (tool name is not visible text).
+          const presence = app.container.querySelector(
+            '[data-organic-tool-presence="dispatch_subagent"]'
+          );
+          expect(presence).toBeTruthy();
+          expect(presence?.getAttribute("data-tool-state")).toBe("complete");
         }
       } finally {
         cleanup();

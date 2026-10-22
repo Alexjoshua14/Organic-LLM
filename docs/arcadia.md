@@ -158,6 +158,12 @@ bound:
 shell wants enqueue-only submits; do not enable it for the Arcadia multitask orchestrator
 window if visible streaming is required. See [`docs/message-send-queue.md`](./message-send-queue.md).
 
+**Side questions (`/btw`):** `/btw <question>` opens an unsaved side thread above the composer.
+It answers from a compact snapshot of the thread (summary plus recent turns, no tools) and
+works while the main turn streams. CoreInput takes the side thread's settings while it is
+open and morphs back on close. See
+[Composer preferences → `/btw`](../content/dev-docs/composer-preferences.md#btw-side-questions-arcadia).
+
 ## Tech + design (3 lines)
 - **Stack**: Next.js (App Router) + React + AI SDK streaming + Clerk + Supabase
 - **LLM**: shared `/api/chat` pipeline (context + tools + streaming UI events)

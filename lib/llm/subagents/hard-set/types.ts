@@ -9,7 +9,10 @@ export const HardSetSubagentSchema = z.object({
   /** Stable id stored on the shell thread (`threads.subagent_agent_id`). `subagent-<slug>`. */
   id: z.string().regex(/^subagent-[a-z0-9]+(?:-[a-z0-9]+)*$/),
   /** Existing worker slot to refine without renaming persisted thread identities. */
-  rosterSlotId: z.string().regex(/^agent-[a-z0-9-]+$/).optional(),
+  rosterSlotId: z
+    .string()
+    .regex(/^agent-[a-z0-9-]+$/)
+    .optional(),
   name: z.string().min(1).max(40),
   role: z.string().min(1).max(40),
   /** One line: what this subagent is for. Shown in the lab list. */
@@ -38,6 +41,10 @@ export const HardSetSubagentSchema = z.object({
       chatHistory: z.boolean().optional(),
       /** Dedicated research toolbox instead of generic Arcadia tools. */
       research: z.boolean().optional(),
+      /** Chronos MCP: allowlisted read-only git over the owner's local repositories. */
+      chronos: z.boolean().optional(),
+      /** Ergon core: docs, clauses, briefs, hooks and agent runs (read; starts agent runs). */
+      ergon: z.boolean().optional(),
     })
     .default({}),
 });
