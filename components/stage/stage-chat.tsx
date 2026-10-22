@@ -205,6 +205,7 @@ function LoadedStageChat({ data, onReload }: { data: ChatData; onReload: () => v
 
   return (
     <div className={styles.root}>
+      {/* eslint-disable jsx-a11y/no-noninteractive-tabindex -- Named scroll region needs keyboard focus for native scrolling (MDN CSS overflow accessibility). */}
       <div
         aria-label="Conversation"
         className={styles.messages}
@@ -217,6 +218,7 @@ function LoadedStageChat({ data, onReload }: { data: ChatData; onReload: () => v
           followingRef.current = list.scrollHeight - list.scrollTop - list.clientHeight < 48;
         }}
       >
+        {/* eslint-enable jsx-a11y/no-noninteractive-tabindex */}
         {messages.length === 0 ? (
           <p className={styles.empty}>Start a conversation.</p>
         ) : (
