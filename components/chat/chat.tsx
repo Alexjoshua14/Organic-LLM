@@ -17,6 +17,7 @@ import { Conversation, ConversationScrollButton } from "../third-party/ai-elemen
 
 import { ChatThread, MEMORY_PANEL_RESERVE_PADDING } from "./chat-thread";
 import { ArcadiaChatSettingsDialog } from "./arcadia-chat-settings-dialog";
+import { ErgonDocumentOpenProvider } from "./ergon-documents/ErgonDocumentOpenProvider";
 import { CoreInput } from "./core-input";
 import { ChatStylePicker } from "./chat-style-picker";
 import { ChatThreadStyleOverlay } from "./chat-thread-style-overlay";
@@ -594,6 +595,7 @@ export const Chat: React.FC<ChatProps> = ({
   }, [messages]);
 
   return (
+    <ErgonDocumentOpenProvider chatId={id} setMessages={setMessages} status={status}>
     <DiagramNodeLinksProvider linksRef={diagramNodeLinksRef}>
       <DiagramTakeoverProvider>
         <div
@@ -728,5 +730,6 @@ export const Chat: React.FC<ChatProps> = ({
         </div>
       </DiagramTakeoverProvider>
     </DiagramNodeLinksProvider>
+    </ErgonDocumentOpenProvider>
   );
 };

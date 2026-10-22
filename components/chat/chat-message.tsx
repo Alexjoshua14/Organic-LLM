@@ -38,6 +38,7 @@ import { KanbanInFlight } from "@/components/chat/kanban/KanbanInFlight";
 import { KanbanToolResult } from "@/components/chat/kanban/KanbanToolResult";
 import { MiseLoadingShell } from "@/components/chat/mise/MiseLoadingShell";
 import { MiseToolResult } from "@/components/chat/mise/MiseToolResult";
+import { ErgonDocumentToolResult } from "@/components/chat/ergon-documents/ErgonDocumentToolResult";
 import { ARCADIA_HELP_PREFIX } from "@/lib/arcadia/help-response";
 import { messagePartsToCopyMarkdown } from "@/lib/chat/message-copy-markdown";
 import {
@@ -50,6 +51,7 @@ import { KANBAN_BOARD_TOOL_NAME } from "@/lib/llm/kanban-tool";
 import { MISE_PLAN_TOOL_NAME } from "@/lib/llm/mise-tool";
 import { MANAGE_TASKS_TOOL_NAME } from "@/lib/schemas/ergon-tasks";
 import { peekKanbanCommandType } from "@/lib/schemas/kanban";
+import { ERGON_DOCUMENT_TOOL_NAME } from "@/lib/schemas/ergon-documents";
 import { cn } from "@/lib/utils";
 import { ChatAIActionEnum } from "@/types/ai";
 import { MermaidDiagram } from "@/components/blog/mermaid-diagram";
@@ -84,6 +86,7 @@ export const ChatMessage = memo<ChatMessageProps>(function ChatMessage(props) {
     chatId,
     aiActionPayload,
     isLatestArcadiaHelp,
+    isLastMessage,
     showModelBadge,
     showActions = true,
   } = props;
@@ -94,6 +97,7 @@ export const ChatMessage = memo<ChatMessageProps>(function ChatMessage(props) {
         <AIMessage
           aiActionPayload={aiActionPayload}
           chatId={chatId}
+          isLastMessage={isLastMessage}
           isLatestArcadiaHelp={isLatestArcadiaHelp}
           message={message}
           showActions={showActions}
@@ -115,6 +119,7 @@ const AIMessage: FC<ChatMessageProps> = ({
   chatId,
   aiActionPayload,
   isLatestArcadiaHelp,
+  isLastMessage,
   showModelBadge,
   showActions = true,
 }) => {
@@ -228,6 +233,44 @@ const AIMessage: FC<ChatMessageProps> = ({
                     return (
                       <ErgonTaskResult
                         key={`${message.id}-${i}-ergon-tasks`}
+                        output={part.output}
+                      />
+                    );
+                  }
+
+                  return null;
+                }
+
+                if (toolName === ERGON_DOCUMENT_TOOL_NAME) {
+                  if (part.state === "input-streaming" || part.state === "input-available") {
+                    return (
+                      <div
+                        key={`${message.id}-${i}-ergon-doc-stream`}
+                        className="not-prose rounded-lg border border-border/40 bg-background-tertiary/20 px-3 py-2"
+                      >
+                        <ChatThinking text={toolInvocationInFlightLabel(toolName)} />
+                      </div>
+                    );
+                  }
+                  if (part.state === "output-available" || part.state === "output-error") {
+                    if (part.state === "output-error") {
+                      return (
+                        <ErgonDocumentToolResult
+                          key={`${message.id}-${i}-ergon-doc-error`}
+                          isActive={isLastMessage === true}
+                          output={{
+                            kind: "ergon-document",
+                            action: "error",
+                            error: part.errorText,
+                          }}
+                        />
+                      );
+                    }
+
+                    return (
+                      <ErgonDocumentToolResult
+                        key={`${message.id}-${i}-ergon-doc-result`}
+                        isActive={isLastMessage === true}
                         output={part.output}
                       />
                     );
@@ -623,6 +666,7 @@ const KNOWN_TOOL_IN_FLIGHT_LABELS: Record<string, string> = {
   research_publish: "Preparing research report…",
   gather_restaurant: "Looking up restaurant…",
   kanban_board: "Updating board…",
+  ergon_document: "Writing document…",
   manage_tasks: "Updating tasks…",
   mise_plan: "Updating plan…",
   fetch_recipe: "Reading recipe…",
