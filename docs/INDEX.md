@@ -58,6 +58,7 @@ Canon for the product: what we're building, who owns which kind of truth, how ag
   - [Welcome scene](./design/welcome-scene.md) — pane projection, scroll perspective, and themed floor continuity
   - [Activity-mark physics and fallback](./architecture/decisions/20261010-activity-mark-physics-and-fallback.md) — independent springs, shared scheduling, adaptive performance guard
   - [Motion & character text timing](./design/motion-and-text-timing.md) — status labels, loading burns, stagger budgets
+  - [CoreInput snapshot morph](./design/core-input-morph.md) — per-scope composer settings, 400ms morph, touch to fast-forward
 - [Adaptive background](./adaptive-background.md)
 - [Organic presence](./organic-presence.md)
 - [Mermaid diagrams](./mermaid-diagram-design.md) — density tiers, inline well, expanded takeover, node linking

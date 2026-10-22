@@ -47,6 +47,7 @@ export function ComposerContextEffortSlider() {
 
   return (
     <div
+      data-core-input-field="context-effort"
       className={cn(
         "flex h-8 shrink-0 select-none flex-col justify-center rounded-md bg-background ring-1 ring-inset ring-border/50",
         "motion-safe:transition-shadow motion-safe:duration-200 hover:ring-border",
