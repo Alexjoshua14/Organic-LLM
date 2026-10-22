@@ -41,6 +41,10 @@ export const HardSetSubagentSchema = z.object({
       chatHistory: z.boolean().optional(),
       /** Dedicated research toolbox instead of generic Arcadia tools. */
       research: z.boolean().optional(),
+      /** Chronos MCP: allowlisted read-only git over the owner's local repositories. */
+      chronos: z.boolean().optional(),
+      /** Ergon core: docs, clauses, briefs, hooks and agent runs (read; starts agent runs). */
+      ergon: z.boolean().optional(),
     })
     .default({}),
 });

@@ -2,6 +2,7 @@ import type { HardSetSubagent } from "@/lib/llm/subagents/hard-set/types";
 
 import { architectSubagent } from "@/lib/llm/subagents/hard-set/agents/architect";
 import { coderSubagent } from "@/lib/llm/subagents/hard-set/agents/coder";
+import { plannerSubagent } from "@/lib/llm/subagents/hard-set/agents/planner";
 import { researcherSubagent } from "@/lib/llm/subagents/hard-set/agents/researcher";
 
 /** Every hard-set subagent. Add new ones here (the `new-subagent` skill does it for you). */
@@ -9,6 +10,7 @@ export const HARD_SET_SUBAGENTS: ReadonlyArray<HardSetSubagent> = [
   architectSubagent,
   researcherSubagent,
   coderSubagent,
+  plannerSubagent,
 ];
 
 /** Hard-set subagents locked into the orchestrator's roster. */

@@ -150,6 +150,37 @@ Always on in the **Remy** route (`/api/ai/remy`); in Arcadia it's the **Remy** c
 
 ---
 
+## Connected-app tools (hard-set tool policy)
+
+These are registered only when a hard-set subagent's tool policy forces them on, in its shell, its
+queued sends and its dispatched worker runs. They are never composer toggles. Each set is owner-gated
+the same way as the connected Ergon tickets: the authenticated Supabase profile must match the
+configured owner, and missing or invalid configuration registers nothing.
+
+### `chronos_list_repos` + `chronos_git` (Reed, `tools.chronos`)
+
+Read-only git over the owner's local repositories, through Chronos's MCP endpoint (Streamable HTTP,
+via `@ai-sdk/mcp`). Each call opens one short-lived MCP session. Chronos runs an exact-token
+allowlist of subcommands and flags with no shell, so `branch` and `tag` only list and commands that
+print file contents are off unless Chronos enables them. Results carry HEAD's SHA and branch, the
+exit code and a truncation flag. Configure `CHRONOS_MCP_URL`, `CHRONOS_MCP_TOKEN` and
+`CHRONOS_OWNER_PROFILE_ID`. A deployed Organic cannot reach `localhost`, so it needs a tunnel.
+
+- Implementation: [`createChronosTools`](../lib/llm/chronos-mcp-tools.ts)
+
+### `ergon_*` agent tools (Mira, `tools.ergon`)
+
+Mira is Ergon's representative in Organic. Through Ergon's REST tool registry she can list and search
+vault docs, read a doc (content capped at 12,000 characters, clauses complete), resolve clauses, list
+open questions, read issue briefs, hooks and agent runs, and start an agent run on an issue. She uses
+`ERGON_AGENT_TOKEN`, scoped `read,agents`, so Ergon itself refuses doc, ticket and hook writes. Her turns
+skip the read,write connected-ticket tools that other chats get. Starts
+are never retried automatically.
+
+- Implementation: [`createErgonAgentTools`](../lib/llm/ergon-agent-tools.ts)
+
+---
+
 ## Delphi experience
 
 Delphi uses a dedicated tool set for intentional memory curation ([`createDelphiMemoryTools`](../lib/llm/delphi-memory-tools.ts)):

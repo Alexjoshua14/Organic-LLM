@@ -109,6 +109,8 @@ export async function prepareWorkerTools(args: {
   const compiled = await compileChatTools({
     useSearch: policy?.webSearch ?? true,
     useResearch: policy?.research ?? false,
+    useChronos: policy?.chronos ?? false,
+    useErgonAgent: policy?.ergon ?? false,
     researchModelId: args.model,
     researchGenerationContext: { messages: args.messages, system: args.system },
     useMemory: policy?.memory ?? false,

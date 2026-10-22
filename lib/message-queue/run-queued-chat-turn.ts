@@ -241,6 +241,8 @@ export async function runQueuedChatTurn(args: {
       const compiledTools = await compileChatTools({
         useSearch: shellAgent?.tools.webSearch ?? payload.webSearch ?? false,
         useResearch: shellAgent?.tools.research ?? false,
+        useChronos: shellAgent?.tools.chronos ?? false,
+        useErgonAgent: shellAgent?.tools.ergon ?? false,
         researchModelId: selectedModel.id,
         researchGenerationContext: { messages, system: systemPromptForRequest },
         useMemory: shellAgent?.tools.memory ?? payload.memory ?? false,
