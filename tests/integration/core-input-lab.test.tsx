@@ -466,64 +466,73 @@ describe("CoreInput snapshot scopes", () => {
 
   const webSearchChip = (view: ReturnType<typeof render>) =>
     view.getByRole("button", { name: /^web search (on|off)$/i });
-  /** Scope changes morph over ~400ms; wait for the composer to settle. */
+  /**
+   * Scope changes morph over ~400ms of real time; wait for the composer to settle. The /btw test
+   * waits three times and took 5.5s on the Linux runner against Bun's 5s default, so these tests
+   * carry an explicit limit, and a timed-out test no longer leaves work running into later files.
+   */
+  const SLOW_UI_TEST_MS = 30_000;
   const settled = (view: ReturnType<typeof render>) =>
     waitFor(() => expect(view.container.querySelector("[data-core-input-morph]")).toBeNull(), {
-      timeout: 2_000,
+      timeout: 8_000,
     });
 
-  test("a /btw scope keeps its own settings and the thread's snap back on close", async () => {
-    // Sync is best-effort; a missing table keeps the composer local-only.
-    const fetchSpy = spyOn(globalThis, "fetch").mockImplementation(
-      async () => new Response("{}", { status: 503 })
-    );
-    const threadId = crypto.randomUUID();
-    const thread = coreInputScopes.thread("arcadia", threadId);
-    const btw = coreInputScopes.btw("arcadia", threadId);
-    const webSearchRef = { current: true };
-    const makeUi = (scope: CoreInputScope) => (
-      <Providers>
-        <CoreInput
-          modelRef={{ current: DEFAULT_COMPOSER_MODEL }}
-          useWebSearchRef={webSearchRef}
-          useMemoriesRef={{ current: false }}
-          sendMessage={mock(async () => {})}
-          stop={async () => {}}
-          status="ready"
-          featureHints={false}
-          showContextBudget={false}
-          snapshotScope={scope}
-        />
-      </Providers>
-    );
+  test(
+    "a /btw scope keeps its own settings and the thread's snap back on close",
+    async () => {
+      // Sync is best-effort; a missing table keeps the composer local-only.
+      const fetchSpy = spyOn(globalThis, "fetch").mockImplementation(
+        async () => new Response("{}", { status: 503 })
+      );
+      const threadId = crypto.randomUUID();
+      const thread = coreInputScopes.thread("arcadia", threadId);
+      const btw = coreInputScopes.btw("arcadia", threadId);
+      const webSearchRef = { current: true };
+      const makeUi = (scope: CoreInputScope) => (
+        <Providers>
+          <CoreInput
+            modelRef={{ current: DEFAULT_COMPOSER_MODEL }}
+            useWebSearchRef={webSearchRef}
+            useMemoriesRef={{ current: false }}
+            sendMessage={mock(async () => {})}
+            stop={async () => {}}
+            status="ready"
+            featureHints={false}
+            showContextBudget={false}
+            snapshotScope={scope}
+          />
+        </Providers>
+      );
 
-    try {
-      const user = userEvent.setup();
-      const view = render(makeUi(thread));
+      try {
+        const user = userEvent.setup();
+        const view = render(makeUi(thread));
 
-      await settled(view);
-      if (webSearchChip(view).getAttribute("aria-label") === "Web search on") {
+        await settled(view);
+        if (webSearchChip(view).getAttribute("aria-label") === "Web search on") {
+          await user.click(webSearchChip(view));
+        }
+        expect(webSearchChip(view).getAttribute("aria-label")).toBe("Web search off");
+
+        // Opening /btw starts from the thread's settings; changing them stays in the side thread.
+        view.rerender(makeUi(btw));
+        await settled(view);
+        expect(webSearchChip(view).getAttribute("aria-label")).toBe("Web search off");
         await user.click(webSearchChip(view));
+        expect(webSearchChip(view).getAttribute("aria-label")).toBe("Web search on");
+        expect(webSearchRef.current).toBe(true);
+
+        // Closing /btw morphs back to the thread, and the refs a send reads follow it.
+        view.rerender(makeUi(thread));
+        await settled(view);
+        expect(webSearchChip(view).getAttribute("aria-label")).toBe("Web search off");
+        expect(webSearchRef.current).toBe(false);
+      } finally {
+        fetchSpy.mockRestore();
       }
-      expect(webSearchChip(view).getAttribute("aria-label")).toBe("Web search off");
-
-      // Opening /btw starts from the thread's settings; changing them stays in the side thread.
-      view.rerender(makeUi(btw));
-      await settled(view);
-      expect(webSearchChip(view).getAttribute("aria-label")).toBe("Web search off");
-      await user.click(webSearchChip(view));
-      expect(webSearchChip(view).getAttribute("aria-label")).toBe("Web search on");
-      expect(webSearchRef.current).toBe(true);
-
-      // Closing /btw morphs back to the thread, and the refs a send reads follow it.
-      view.rerender(makeUi(thread));
-      await settled(view);
-      expect(webSearchChip(view).getAttribute("aria-label")).toBe("Web search off");
-      expect(webSearchRef.current).toBe(false);
-    } finally {
-      fetchSpy.mockRestore();
-    }
-  });
+    },
+    SLOW_UI_TEST_MS
+  );
 
   test("a slash command runs while the thread streams and is never sent to it", async () => {
     const sendMessage = mock(async () => {});
