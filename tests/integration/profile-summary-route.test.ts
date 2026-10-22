@@ -8,7 +8,10 @@ import { mockAllowedAuthenticatedBudget } from "../helpers/llm-budget";
 let restoreHooks: () => void;
 let restoreGate: () => void;
 const mockPlanGate = mock(async (): Promise<Response | null> => null);
-afterEach(() => { restoreHooks(); restoreGate(); });
+afterEach(() => {
+  restoreHooks();
+  restoreGate();
+});
 
 import { createMockAuth, createMockClerkUser } from "../helpers/mock-auth";
 
@@ -70,19 +73,26 @@ const sampleTree = {
   sections: [generatedSections.about, generatedSections.tech, generatedSections.lifestyle],
 };
 
-const mockAuth = mock(createMockAuth());
-const mockGenerateText = mock(async ({ prompt }) => {
-  if (String(prompt).includes('"id":"about"')) {
-    return { text: JSON.stringify(generatedSections.about), usage: { inputTokens: 1000, outputTokens: 120 } };
-  }
-  if (String(prompt).includes('"id":"tech"')) {
-    return { text: JSON.stringify(generatedSections.tech), usage: { inputTokens: 1000, outputTokens: 160 } };
-  }
+// Sections are structured output: the strict schema means every key is present.
+function sectionObject(promptText) {
+  if (!promptText.includes("Section-scoped memory evidence")) return null;
+  const section = generatedSections[/"id":"([^"]+)"/.exec(promptText)[1]];
 
-  return { text: JSON.stringify(generatedSections.lifestyle), usage: { inputTokens: 1000, outputTokens: 120 } };
-});
+  return {
+    id: section.id,
+    title: section.title,
+    body: section.body ?? null,
+    items: section.items ?? [],
+    children: [],
+  };
+}
+
+const mockAuth = mock(createMockAuth());
 const mockGenerateObject = mock(async ({ prompt }) => {
   const promptText = String(prompt);
+  const generated = sectionObject(promptText);
+
+  if (generated) return { object: generated, usage: { inputTokens: 1000, outputTokens: 120 } };
 
   if (promptText.includes("Plan the ideal ProfileTree sections")) {
     return { object: samplePlan, usage: { inputTokens: 2500, outputTokens: 500 } };
@@ -96,6 +106,7 @@ const mockGenerateObject = mock(async ({ prompt }) => {
           score: 0.84,
           decision: "accept",
           issues: [],
+          rewriteInstructions: null,
         })),
       },
       usage: { inputTokens: 3500, outputTokens: 500 },
@@ -108,6 +119,7 @@ const mockGenerateObject = mock(async ({ prompt }) => {
       decision: "accept",
       weakSectionIds: [],
       issues: [],
+      rewriteInstructions: null,
     },
     usage: { inputTokens: 2200, outputTokens: 260 },
   };
@@ -146,7 +158,6 @@ mock.module("@clerk/nextjs/server", () => ({
 
 // Keep real SDK predicates: a global stepCountIs stub also replaces its isStepCount alias.
 mockModulePreservingReal("ai", ai, {
-  generateText: mockGenerateText,
   generateObject: mockGenerateObject,
 });
 
@@ -181,10 +192,11 @@ import { POST } from "@/app/api/profile/summary/route";
 describe("POST /api/profile/summary", () => {
   beforeEach(() => {
     restoreHooks = mockAllowedAuthenticatedBudget();
-    restoreGate = mockModulePreservingReal("@/lib/api/plan-budget-gate", budgetGate, { requirePlanBudget: mockPlanGate });
+    restoreGate = mockModulePreservingReal("@/lib/api/plan-budget-gate", budgetGate, {
+      requirePlanBudget: mockPlanGate,
+    });
     mockPlanGate.mockClear();
     mockAuth.mockClear();
-    mockGenerateText.mockClear();
     mockGenerateObject.mockClear();
     mockGetSupabaseUserId.mockClear();
     mockCreateProfileTreeRevision.mockClear();
@@ -193,27 +205,11 @@ describe("POST /api/profile/summary", () => {
     mockRecordLlmCall.mockClear();
 
     mockAuth.mockResolvedValue(createMockClerkUser());
-    mockGenerateText.mockImplementation(async ({ prompt }) => {
-      if (String(prompt).includes('"id":"about"')) {
-        return {
-          text: JSON.stringify(generatedSections.about),
-          usage: { inputTokens: 1000, outputTokens: 120 },
-        };
-      }
-      if (String(prompt).includes('"id":"tech"')) {
-        return {
-          text: JSON.stringify(generatedSections.tech),
-          usage: { inputTokens: 1000, outputTokens: 160 },
-        };
-      }
-
-      return {
-        text: JSON.stringify(generatedSections.lifestyle),
-        usage: { inputTokens: 1000, outputTokens: 120 },
-      };
-    });
     mockGenerateObject.mockImplementation(async ({ prompt }) => {
       const promptText = String(prompt);
+      const generated = sectionObject(promptText);
+
+      if (generated) return { object: generated, usage: { inputTokens: 1000, outputTokens: 120 } };
 
       if (promptText.includes("Plan the ideal ProfileTree sections")) {
         return { object: samplePlan, usage: { inputTokens: 2500, outputTokens: 500 } };
@@ -227,6 +223,7 @@ describe("POST /api/profile/summary", () => {
               score: 0.84,
               decision: "accept",
               issues: [],
+              rewriteInstructions: null,
             })),
           },
           usage: { inputTokens: 3500, outputTokens: 500 },
@@ -239,6 +236,7 @@ describe("POST /api/profile/summary", () => {
           decision: "accept",
           weakSectionIds: [],
           issues: [],
+          rewriteInstructions: null,
         },
         usage: { inputTokens: 2200, outputTokens: 260 },
       };
@@ -351,14 +349,12 @@ describe("POST /api/profile/summary", () => {
         schemaName: "ProfileTreeReview",
       })
     );
-    expect(mockGenerateText).toHaveBeenCalledWith(
-      expect.objectContaining({
-        tools: expect.objectContaining({
-          search_memories: expect.objectContaining({
-            inputSchema: expect.anything(),
-          }),
-        }),
-      })
+    expect(mockGenerateObject).toHaveBeenCalledWith(
+      expect.objectContaining({ schemaName: "ProfileSection" })
+    );
+    // Sections are written from evidence fetched up front; no model-driven tool calls.
+    expect(mockGenerateObject).not.toHaveBeenCalledWith(
+      expect.objectContaining({ tools: expect.anything() })
     );
     expect(mockCreateProfileTreeRevision).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -382,7 +378,6 @@ describe("POST /api/profile/summary", () => {
 
     expect(res.status).toBe(503);
     expect(body.error).toContain("Memory search is unavailable");
-    expect(mockGenerateText).not.toHaveBeenCalled();
     expect(mockGenerateObject).not.toHaveBeenCalled();
     expect(mockCreateProfileTreeRevision).not.toHaveBeenCalled();
   });
@@ -400,7 +395,6 @@ describe("POST /api/profile/summary", () => {
 
     expect(res.status).toBe(422);
     expect(body.error).toContain("could not find enough relevant memories");
-    expect(mockGenerateText).not.toHaveBeenCalled();
     expect(mockGenerateObject).not.toHaveBeenCalled();
     expect(mockCreateProfileTreeRevision).not.toHaveBeenCalled();
   });
@@ -408,26 +402,22 @@ describe("POST /api/profile/summary", () => {
   test("rewrites a weak high-priority section exactly once", async () => {
     let aboutCalls = 0;
 
-    mockGenerateText.mockImplementation(async ({ prompt }) => {
-      if (String(prompt).includes('"id":"about"')) {
+    mockGenerateObject.mockImplementation(async ({ prompt }) => {
+      const promptText = String(prompt);
+      const generated = sectionObject(promptText);
+
+      if (generated?.id === "about") {
         aboutCalls += 1;
 
         return {
-          text: JSON.stringify({
-            ...generatedSections.about,
+          object: {
+            ...generated,
             body: aboutCalls === 1 ? "Generic builder." : "Memory-aware systems engineer.",
-          }),
-          usage: { inputTokens: 1000, outputTokens: 120 },
+          },
+          usage: {},
         };
       }
-      if (String(prompt).includes('"id":"tech"')) {
-        return { text: JSON.stringify(generatedSections.tech), usage: {} };
-      }
-
-      return { text: JSON.stringify(generatedSections.lifestyle), usage: {} };
-    });
-    mockGenerateObject.mockImplementation(async ({ prompt }) => {
-      const promptText = String(prompt);
+      if (generated) return { object: generated, usage: {} };
 
       if (promptText.includes("Plan the ideal ProfileTree sections")) {
         return { object: samplePlan, usage: {} };
@@ -444,15 +434,36 @@ describe("POST /api/profile/summary", () => {
                 issues: ["Too generic"],
                 rewriteInstructions: "Use concrete memory-backed identity.",
               },
-              { sectionId: "tech", score: 0.84, decision: "accept", issues: [] },
-              { sectionId: "lifestyle", score: 0.84, decision: "accept", issues: [] },
+              {
+                sectionId: "tech",
+                score: 0.84,
+                decision: "accept",
+                issues: [],
+                rewriteInstructions: null,
+              },
+              {
+                sectionId: "lifestyle",
+                score: 0.84,
+                decision: "accept",
+                issues: [],
+                rewriteInstructions: null,
+              },
             ],
           },
           usage: {},
         };
       }
 
-      return { object: { score: 0.8, decision: "accept", weakSectionIds: [], issues: [] }, usage: {} };
+      return {
+        object: {
+          score: 0.8,
+          decision: "accept",
+          weakSectionIds: [],
+          issues: [],
+          rewriteInstructions: null,
+        },
+        usage: {},
+      };
     });
 
     const res = await POST(new Request("http://localhost/api/profile/summary"));
@@ -473,6 +484,9 @@ describe("POST /api/profile/summary", () => {
   test("persists low-quality partial output as failed revision without publishing", async () => {
     mockGenerateObject.mockImplementation(async ({ prompt }) => {
       const promptText = String(prompt);
+      const generated = sectionObject(promptText);
+
+      if (generated) return { object: generated, usage: { inputTokens: 1000, outputTokens: 120 } };
 
       if (promptText.includes("Plan the ideal ProfileTree sections")) {
         return { object: samplePlan, usage: {} };
@@ -486,6 +500,7 @@ describe("POST /api/profile/summary", () => {
               score: 0.84,
               decision: "accept",
               issues: [],
+              rewriteInstructions: null,
             })),
           },
           usage: {},
@@ -498,6 +513,7 @@ describe("POST /api/profile/summary", () => {
           decision: "revise",
           weakSectionIds: ["about"],
           issues: ["Unsupported claims"],
+          rewriteInstructions: null,
         },
         usage: {},
       };
