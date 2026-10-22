@@ -1,6 +1,9 @@
-import { afterEach, beforeEach, describe, expect, mock, test } from "bun:test";
+import { afterAll, afterEach, beforeEach, describe, expect, mock, test } from "bun:test";
+import * as clerk from "@clerk/nextjs/server";
 
 import { createMockAuth, createMockClerkUser } from "../helpers/mock-auth";
+import { mockModulePreservingReal } from "../helpers/module-mock";
+import * as userConnectorsStore from "@/lib/connectors/user-connectors-store";
 import {
   defaultUserConnectorsProfile,
   normalizeUserConnectorsProfile,
@@ -11,21 +14,28 @@ import {
 const mockAuth = mock(createMockAuth());
 let stored: UserConnectorsProfile = defaultUserConnectorsProfile();
 
-mock.module("@clerk/nextjs/server", () => ({
-  auth: mockAuth,
-}));
+// Restored in afterAll: user-connectors.test.ts exercises the real store, and a stub left
+// registered here made it fail on the Linux runner, where files run in a different order.
+const restoreStubs = [
+  mockModulePreservingReal("@clerk/nextjs/server", clerk, {
+    auth: mockAuth as unknown as typeof clerk.auth,
+  }),
+  mockModulePreservingReal("@/lib/connectors/user-connectors-store", userConnectorsStore, {
+    loadUserConnectorsProfile: async () => stored,
+    saveUserConnectorsProfile: async (
+      _userId: string,
+      input: Partial<UserConnectorsProfileInput>
+    ) => {
+      stored = normalizeUserConnectorsProfile(input, stored);
 
-mock.module("@/lib/connectors/user-connectors-store", () => ({
-  loadUserConnectorsProfile: async () => stored,
-  saveUserConnectorsProfile: async (
-    _userId: string,
-    input: Partial<UserConnectorsProfileInput>
-  ) => {
-    stored = normalizeUserConnectorsProfile(input, stored);
+      return stored;
+    },
+  }),
+];
 
-    return stored;
-  },
-}));
+afterAll(() => {
+  for (const restore of restoreStubs) restore();
+});
 
 import { GET, PUT } from "@/app/api/profile/connectors/route";
 import { GET as getGithub } from "@/app/api/profile/connectors/github/route";
