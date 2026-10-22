@@ -39,6 +39,22 @@ Direct visits to `/sandbox/arcadia` create a thread and redirect to its canonica
 | Role → voice presets | `lib/arcadia/multitask/voice-assignment.ts` (also shown in the shell legend) |
 | Speak ADR | [`docs/speak/decisions/20260925-multitask-subagent-speak.md`](./speak/decisions/20260925-multitask-subagent-speak.md) |
 
+**Inline subagent activity.** The orchestrator conversation renders accepted `dispatch_subagent`
+results as collapsed assignment rows after the assistant turn. Expand a row for its brief,
+latest available progress/outcome, model, and a link to the child's conversation. Working and
+blocked agents also appear in a compact strip outside the message scroll viewport; selecting
+one expands and focuses its row without changing the composer target or dashboard mode.
+The strip scrolls horizontally on small screens. Completed agents leave the strip while their
+rows remain in the conversation. Failures and dry-run tool previews keep the normal tool UI.
+
+Live status is correlated by `latestGoalId` from the existing subagent board endpoint and
+inbound dispatch events. Older assignments never inherit a later run's progress. When the
+current assignment has no retained parent dispatch (including direct sends), its current
+activity appears at the end of the thread. Older rows with no matching live snapshot say
+“Sent”; full historical results remain in the linked child conversation. This adds no polling
+loop or transcript fetch. Rendering lives in `components/chat/subagent-activity.tsx` and
+`chat-thread.tsx`; dispatch validation lives in `lib/arcadia/multitask/inline-dispatches.ts`.
+
 **Layout.** Multiagent view is a **per-thread toggle** (default off). Working sandbox agents
 do not force the dashboard. When on: chat shares the ordinary Arcadia canvas, without a
 separate glass frame or thread-style badge. The header shows the current message recipient
