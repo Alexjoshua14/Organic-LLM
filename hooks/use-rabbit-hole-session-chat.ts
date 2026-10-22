@@ -162,12 +162,39 @@ function countSubagentToolSignals(messages: ReadonlyArray<UIMessage>): number {
   return count;
 }
 
+function collectCompletedRabbitHoleToolCallIds(messages: ReadonlyArray<UIMessage>): Set<string> {
+  const seen = new Set<string>();
+
+  for (const message of messages) {
+    if (message.role !== "assistant") continue;
+    for (const part of message.parts ?? []) {
+      if (!isToolUIPart(part)) continue;
+      if (part.state !== "output-available") continue;
+      const toolName = getToolOrDynamicToolName(part);
+
+      if (toolName !== "generate_rabbit_hole_node" && toolName !== "navigate_rabbit_hole_node") {
+        continue;
+      }
+
+      if (part.toolCallId) {
+        seen.add(part.toolCallId);
+      }
+    }
+  }
+
+  return seen;
+}
+
 export function useRabbitHoleSessionChat({
   sessionId,
   drawerDisplayRef,
   onNavigate,
 }: UseRabbitHoleSessionChatOptions) {
   const modelRef = useRef<ChatModel>(DEFAULT_CHAT_MODEL);
+  const onNavigateRef = useRef(onNavigate);
+
+  onNavigateRef.current = onNavigate;
+  const handledToolNavCallIdsRef = useRef<Set<string>>(new Set());
   const [bootstrapping, setBootstrapping] = useState(false);
   const [bootError, setBootError] = useState<string | null>(null);
   const [initialMessages, setInitialMessages] = useState<UIMessage[]>([]);
@@ -184,6 +211,7 @@ export function useRabbitHoleSessionChat({
       setThreadId(null);
       setInitialMessages([]);
       setPolledSubagents([]);
+      handledToolNavCallIdsRef.current = new Set();
 
       return;
     }
@@ -209,8 +237,11 @@ export function useRabbitHoleSessionChat({
       .then((data) => {
         if (cancelled) return;
 
+        const loadedMessages = data.messages ?? [];
+
+        handledToolNavCallIdsRef.current = collectCompletedRabbitHoleToolCallIds(loadedMessages);
         setThreadId(data.threadId);
-        setInitialMessages(data.messages ?? []);
+        setInitialMessages(loadedMessages);
       })
       .catch((err: unknown) => {
         if (cancelled) return;
@@ -273,6 +304,39 @@ export function useRabbitHoleSessionChat({
   });
 
   const isStreaming = chat.status === "streaming" || chat.status === "submitted" || bootstrapping;
+
+  // Ensure generate_rabbit_hole_node / navigate_rabbit_hole_node output-available parts trigger
+  // session reload & navigation even if a transient stream event was missed.
+  useEffect(() => {
+    for (const message of chat.messages) {
+      if (message.role !== "assistant") continue;
+      for (const part of message.parts ?? []) {
+        if (!isToolUIPart(part)) continue;
+        if (part.state !== "output-available") continue;
+        const toolName = getToolOrDynamicToolName(part);
+
+        if (toolName !== "generate_rabbit_hole_node" && toolName !== "navigate_rabbit_hole_node") {
+          continue;
+        }
+
+        const toolCallId = part.toolCallId;
+
+        if (!toolCallId || handledToolNavCallIdsRef.current.has(toolCallId)) {
+          continue;
+        }
+
+        const output = part.output as
+          | { ok?: boolean; nodeId?: string; activeNodeId?: string }
+          | undefined;
+        const targetNodeId = output?.nodeId ?? output?.activeNodeId;
+
+        if (output?.ok !== false && typeof targetNodeId === "string" && targetNodeId.length > 0) {
+          handledToolNavCallIdsRef.current.add(toolCallId);
+          onNavigateRef.current?.(targetNodeId);
+        }
+      }
+    }
+  }, [chat.messages]);
 
   // Fetch weekly usage budget snapshot once per session mount and after turns complete.
   useEffect(() => {

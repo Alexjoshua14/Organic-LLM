@@ -39,6 +39,7 @@ import { stampTurnWithActivatedMemories } from "@/lib/chat/stamp-activated-memor
 import { expandActivatedMemoriesForModel } from "@/lib/memory/activated-thread-memories";
 import { resolveMemoryEnabledForExperience } from "@/lib/chat/chat-experience";
 import { getLastUserMessageText } from "@/lib/arcadia/help-response";
+import { loadUserConnectorsProfile } from "@/lib/connectors/user-connectors-store";
 import { compileChatTools } from "@/lib/llm/compile-chat-tools";
 import { getHardSetSubagent } from "@/lib/llm/subagents/hard-set/registry";
 import { getChatModel } from "@/lib/llm/helpers";
@@ -147,6 +148,11 @@ export async function runQueuedChatTurn(args: {
       // `after()` (nested inside the queue route's `after` drain).
       let multitask: PrepareMultitaskTurnResult | null = null;
 
+      const userConnectors =
+        experience === "arcadia"
+          ? await loadUserConnectorsProfile(clerkUserId).catch(() => null)
+          : null;
+
       if (experience === "arcadia") {
         multitask = await prepareArcadiaMultitaskTurn({
           chatId,
@@ -162,6 +168,7 @@ export async function runQueuedChatTurn(args: {
             route: "/api/chat/queue",
           }),
           autonomous: isHeartbeat,
+          userConnectors,
         });
       }
 
@@ -263,6 +270,7 @@ export async function runQueuedChatTurn(args: {
           ? null
           : { id: userMessage.id, text: getLastUserMessageText(userMessage) },
         writer,
+        userConnectors,
       });
 
       const toolNames = Object.keys(tools);

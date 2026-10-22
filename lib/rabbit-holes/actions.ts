@@ -26,7 +26,7 @@ import {
 import { createLogger } from "../logger";
 import { fetchExternalSources, getWebpageContent } from "../exa/sources";
 
-import { RABBIT_HOLE_UNTITLED } from "./constants";
+import { resolvedArticleTitle } from "./article-title";
 import { buildRabbitHoleMemoryContextBlock } from "./memory-context-builder";
 import {
   buildRabbitHoleGraphContextBlock,
@@ -34,10 +34,13 @@ import {
 } from "./graph-context-builder";
 import { generateRabbitHoleNodeSummary } from "./node-summary";
 
-import { createAuthenticatedLlmBudgetHooks, budgetModelId } from "@/lib/plans/llm-budget-hooks";
+import {
+  createAuthenticatedLlmBudgetHooks,
+  createOwnerLlmBudgetHooks,
+  budgetModelId,
+} from "@/lib/plans/llm-budget-hooks";
 import { Result } from "@/types";
 import { getSupabaseUserId } from "@/data/supabase/profiles";
-import { getRabbitHoleSessionOwnerId } from "@/data/supabase/rabbitholes";
 import { sanitizeRabbitHoleArticleHtml } from "@/lib/html/sanitize";
 import { GUARDRAIL_MAX_OUTPUT_TOKENS } from "@/lib/llm/helpers";
 import { models, providerModelSlug } from "@/lib/schemas/chat-models";
@@ -45,12 +48,6 @@ import { checkExternalFetchLimit } from "@/lib/rate-limit/external-fetch";
 import { sanitizeUntrustedText, wrapUntrustedContent } from "@/lib/security/external-content";
 
 const logger = createLogger("lib/rabbit-holes/actions.ts");
-
-function resolvedArticleTitle(title: string): string {
-  const t = title.trim();
-
-  return t.length > 0 ? t : RABBIT_HOLE_UNTITLED;
-}
 
 const initialNodePrompt =
   `Generate a comprehensive Rabbit Hole exploration for the following question:\n\n{{question}}\n\n` +
@@ -82,7 +79,10 @@ function formatMemoryContextSection(memoryContext?: string): string {
  * Used by generateRabbitHoleNode; branch suggestions are generated separately after checkpoint.
  * Throws on LLM error (caller handles in try/catch).
  */
-async function generateArticleOnly(prompt: string): Promise<RabbitHoleAIResponse> {
+async function generateArticleOnly(
+  prompt: string,
+  ownerId?: string | null
+): Promise<RabbitHoleAIResponse> {
   const { data } = await generateRabbitHoleObject<RabbitHoleNode>({
     logContext: "generateRabbitHoleNode",
     startMessage: `Starting AI generation for rabbit hole node`,
@@ -90,6 +90,7 @@ async function generateArticleOnly(prompt: string): Promise<RabbitHoleAIResponse
     keyTakeawayLabel: "First key takeaway",
     systemPrompt: RABBIT_HOLE_SYSTEM_PROMPT,
     prompt,
+    ownerId,
   });
 
   return RabbitHoleAIResponseSchema.parse(data);
@@ -107,13 +108,16 @@ async function generateArticleOnly(prompt: string): Promise<RabbitHoleAIResponse
 async function generateRefinedQuestion(
   session: RabbitHoleSession,
   question: string,
-  pathHistory: string
+  pathHistory: string,
+  ownerId?: string | null
 ): Promise<string> {
+  const modelId = budgetModelId(openai(providerModelSlug(models.openai.luna.id)));
+  const operation = "rabbit-holes/actions";
+  const budgetHooks = ownerId
+    ? await createOwnerLlmBudgetHooks({ ownerId, modelId, operation })
+    : await createAuthenticatedLlmBudgetHooks({ modelId, operation });
   const { text } = await generateText({
-    ...(await createAuthenticatedLlmBudgetHooks({
-      modelId: budgetModelId(openai(providerModelSlug(models.openai.luna.id))),
-      operation: "rabbit-holes/actions",
-    })),
+    ...budgetHooks,
     model: openai(providerModelSlug(models.openai.luna.id)),
     instructions: REFINE_QUESTION_SYSTEM_PROMPT,
     prompt: `Question to refine: ${question}\n\nPath history: ${pathHistory}`,
@@ -351,7 +355,8 @@ function applySourcesStep(
   session: RabbitHoleSession,
   nodeId: string,
   node: RabbitHoleNode,
-  pathHistory: ReturnType<typeof buildPathHistory>
+  pathHistory: ReturnType<typeof buildPathHistory>,
+  ownerId: string
 ): Promise<Result<RabbitHoleSession>> {
   return (async () => {
     const updatedNode: RabbitHoleNode & {
@@ -361,7 +366,6 @@ function applySourcesStep(
       _graphContext?: string;
     } = { ...node };
 
-    const ownerId = await getRabbitHoleSessionOwnerId(session.sessionId);
     let memoryContext = "";
 
     if (ownerId) {
@@ -384,6 +388,7 @@ function applySourcesStep(
       session,
       nodeId,
       topicQuery: node.userQuestion,
+      ownerId,
     });
 
     updatedNode._graphContext = graphBlock.contextBlock;
@@ -392,7 +397,7 @@ function applySourcesStep(
 
     const refinedQuestion =
       updatedNode.refinedQuestion ??
-      (await generateRefinedQuestion(session, updatedNode.userQuestion, pathHistory));
+      (await generateRefinedQuestion(session, updatedNode.userQuestion, pathHistory, ownerId));
 
     updatedNode.refinedQuestion = refinedQuestion;
 
@@ -420,7 +425,8 @@ function applyArticleStep(
   nodeId: string,
   node: RabbitHoleNode,
   pathHistory: ReturnType<typeof buildPathHistory>,
-  isInitialNode: boolean
+  isInitialNode: boolean,
+  ownerId: string
 ): Promise<Result<RabbitHoleSession>> {
   return (async () => {
     let workingSession = session;
@@ -439,23 +445,17 @@ function applyArticleStep(
     let graphContext = updatedNode._graphContext;
 
     if (memoryContext === undefined) {
-      const ownerId = await getRabbitHoleSessionOwnerId(session.sessionId);
+      const memoryBlock = await buildRabbitHoleMemoryContextBlock(
+        {
+          userId: ownerId,
+          topicQuery: refinedQuestion,
+          pathHistory,
+          rootQuestion: session.rootQuestion,
+        },
+        { sessionId: session.sessionId, nodeId }
+      );
 
-      if (ownerId) {
-        const memoryBlock = await buildRabbitHoleMemoryContextBlock(
-          {
-            userId: ownerId,
-            topicQuery: refinedQuestion,
-            pathHistory,
-            rootQuestion: session.rootQuestion,
-          },
-          { sessionId: session.sessionId, nodeId }
-        );
-
-        memoryContext = memoryBlock.contextBlock;
-      } else {
-        memoryContext = "";
-      }
+      memoryContext = memoryBlock.contextBlock;
     }
 
     if (graphContext === undefined) {
@@ -463,6 +463,7 @@ function applyArticleStep(
         session: workingSession,
         nodeId,
         topicQuery: refinedQuestion,
+        ownerId,
       });
 
       graphContext = graphBlock.contextBlock;
@@ -486,7 +487,7 @@ function applyArticleStep(
       memoryContext,
       graphContext
     );
-    const object = await generateArticleOnly(prompt);
+    const object = await generateArticleOnly(prompt, ownerId);
 
     const articleTitle = resolvedArticleTitle(object.title);
 
@@ -498,7 +499,7 @@ function applyArticleStep(
     updatedNode.createdAt = new Date().toISOString();
 
     try {
-      updatedNode.summary = await generateRabbitHoleNodeSummary(updatedNode);
+      updatedNode.summary = await generateRabbitHoleNodeSummary(updatedNode, ownerId);
     } catch (error) {
       logger.warn(
         "applyArticleStep",
@@ -525,7 +526,8 @@ function applyArticleStep(
 function applyBranchSuggestionsStep(
   session: RabbitHoleSession,
   nodeId: string,
-  node: RabbitHoleNode
+  node: RabbitHoleNode,
+  ownerId: string
 ): Promise<Result<RabbitHoleSession>> {
   return (async () => {
     const updatedNode = { ...node };
@@ -534,6 +536,7 @@ function applyBranchSuggestionsStep(
     const branchResult = await generateBranchSuggestions({
       context: updatedNode.articleHtml ?? "",
       rootQuestion: branchSuggestionRootQuestion,
+      ownerId,
     });
 
     updatedNode.branchSuggestions = branchResult.data ?? [];
@@ -550,7 +553,8 @@ function applyBranchSuggestionsStep(
 export async function runOneGenerationStep(
   session: RabbitHoleSession,
   nodeId: string,
-  step: GenerationStep
+  step: GenerationStep,
+  options?: { ownerId?: string | null }
 ): Promise<Result<RabbitHoleSession>> {
   const node = session.nodesById[nodeId];
 
@@ -558,20 +562,29 @@ export async function runOneGenerationStep(
     return { data: null, error: new Error("Node not found") };
   }
 
+  const ownerId = options?.ownerId ?? null;
+
+  if (!ownerId) {
+    return {
+      data: null,
+      error: new Error("Rabbit hole session owner is required for generation"),
+    };
+  }
+
   try {
     const isInitialNode = nodeId === session.rootNodeId;
     const pathHistory = buildPathHistory(session);
 
     if (step === "sources") {
-      return await applySourcesStep(session, nodeId, node, pathHistory);
+      return await applySourcesStep(session, nodeId, node, pathHistory, ownerId);
     }
 
     if (step === "article") {
-      return await applyArticleStep(session, nodeId, node, pathHistory, isInitialNode);
+      return await applyArticleStep(session, nodeId, node, pathHistory, isInitialNode, ownerId);
     }
 
     if (step === "branch_suggestions") {
-      return await applyBranchSuggestionsStep(session, nodeId, node);
+      return await applyBranchSuggestionsStep(session, nodeId, node, ownerId);
     }
 
     return { data: null, error: new Error(`Unknown step: ${step}`) };
@@ -610,6 +623,9 @@ export async function generateRabbitHoleNode(
       return { data: null, error: new Error("Unauthorized") };
     }
 
+    const sbUserIdResult = await getSupabaseUserId(clerkUser.userId);
+    const ownerId = !sbUserIdResult.error && sbUserIdResult.data ? sbUserIdResult.data : null;
+
     updatedNode = { ...session.nodesById[nodeId] };
     if (updatedNode.articleHtml?.trim()) {
       return { data: null, error: new Error("Node already has content") };
@@ -619,7 +635,8 @@ export async function generateRabbitHoleNode(
     const refinedQuestion = await generateRefinedQuestion(
       session,
       updatedNode.userQuestion,
-      pathHistory
+      pathHistory,
+      ownerId
     );
 
     updatedNode.refinedQuestion = refinedQuestion;
@@ -641,12 +658,10 @@ export async function generateRabbitHoleNode(
 
     let memoryContext = "";
 
-    const sbUserIdResult = await getSupabaseUserId(clerkUser.userId);
-
-    if (!sbUserIdResult.error && sbUserIdResult.data) {
+    if (ownerId) {
       const memoryBlock = await buildRabbitHoleMemoryContextBlock(
         {
-          userId: sbUserIdResult.data,
+          userId: ownerId,
           topicQuery: updatedNode.userQuestion,
           pathHistory,
           rootQuestion: session.rootQuestion,
@@ -661,6 +676,7 @@ export async function generateRabbitHoleNode(
       session: updatedSession,
       nodeId,
       topicQuery: updatedNode.userQuestion,
+      ownerId,
     });
 
     updatedSession = applySummaryUpdatesToSession(updatedSession, graphBlock.summaryUpdates);
@@ -676,7 +692,7 @@ export async function generateRabbitHoleNode(
       memoryContext,
       graphBlock.contextBlock
     );
-    const object = await generateArticleOnly(prompt);
+    const object = await generateArticleOnly(prompt, ownerId);
 
     const articleTitle = resolvedArticleTitle(object.title);
 
@@ -688,7 +704,7 @@ export async function generateRabbitHoleNode(
     updatedNode.createdAt = new Date().toISOString();
 
     try {
-      updatedNode.summary = await generateRabbitHoleNodeSummary(updatedNode);
+      updatedNode.summary = await generateRabbitHoleNodeSummary(updatedNode, ownerId);
     } catch (error) {
       logger.warn(
         "generateRabbitHoleNode",
@@ -715,6 +731,7 @@ export async function generateRabbitHoleNode(
     const branchResult = await generateBranchSuggestions({
       context: updatedNode.articleHtml ?? "",
       rootQuestion: branchSuggestionRootQuestion,
+      ownerId,
     });
 
     updatedNode.branchSuggestions = branchResult.data ?? [];

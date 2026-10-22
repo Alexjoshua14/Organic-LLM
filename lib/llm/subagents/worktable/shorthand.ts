@@ -9,8 +9,16 @@ import {
 } from "@/lib/arcadia/multitask/subagent-identity";
 import { listRosterHardSetSubagents } from "@/lib/llm/subagents/hard-set/registry";
 import { uiMessageText } from "@/lib/llm/subagents/threads/messages";
+import {
+  formatDossierForWorktable,
+  formatGithubConnectorForWorktable,
+  hasPopulatedConnectorsProfile,
+  normalizeGithubUsername,
+  type GithubConnectorSnapshot,
+  type UserConnectorsProfile,
+} from "@/lib/schemas/user-connectors";
 
-export type ShorthandPrefix = "node" | "rh" | "out" | "th" | "msg" | "bundle";
+export type ShorthandPrefix = "node" | "rh" | "out" | "th" | "msg" | "bundle" | "connector";
 
 export type ParsedShorthandRef = {
   prefix: ShorthandPrefix;
@@ -64,6 +72,10 @@ export type ShorthandResolutionContext = {
   children?: ReadonlyArray<SubagentThreadRow>;
   messages?: ReadonlyArray<ShorthandMessageLike>;
   resolveAgentId?: (agent: string) => string | null;
+  /** User's private connectors & personal dossier for `connector:<slice>` shorthand expansion. */
+  userConnectors?: UserConnectorsProfile | null;
+  /** Optional live or cached GitHub snapshot for `connector:github`. */
+  githubSnapshot?: GithubConnectorSnapshot | null;
 };
 
 export type ShorthandResolutionResult =
@@ -79,7 +91,7 @@ export type ShorthandBatchResolutionResult =
     }
   | { ok: false; error: string };
 
-const SHORTHAND_RE = /^(node|rh|out|th|msg|bundle):(.+)$/i;
+const SHORTHAND_RE = /^(node|rh|out|th|msg|bundle|connector):(.+)$/i;
 
 export function parseShorthandRef(raw: string): ParsedShorthandRef | null {
   const trimmed = raw.trim();
@@ -207,8 +219,191 @@ function extractMessageText(message: ShorthandMessageLike): string {
   return "";
 }
 
+function resolveConnectorShorthand(
+  raw: string,
+  target: string,
+  context: ShorthandResolutionContext
+): ShorthandResolutionResult {
+  const connectors = context.userConnectors ?? null;
+
+  if (connectors && connectors.autoShareWithSubagents === false) {
+    return {
+      ok: false,
+      error: `Cannot resolve "${raw}": automatic subagent connector sharing is disabled in Settings → Connectors.`,
+    };
+  }
+
+  const slice = target.trim().toLowerCase();
+
+  if (slice === "github" || slice === "repos" || slice === "git") {
+    const snapshot = context.githubSnapshot ?? connectors?.cachedGithubSnapshot ?? null;
+    const username =
+      snapshot?.username ||
+      normalizeGithubUsername(connectors?.githubUsername) ||
+      normalizeGithubUsername(connectors?.githubUrl);
+
+    if (!username && !snapshot) {
+      return {
+        ok: false,
+        error: `Cannot resolve "${raw}": no GitHub connector handle or repository snapshot is configured in Settings → Connectors.`,
+      };
+    }
+
+    const sourceRef = "connector:github";
+    const label = username ? `connector:github · @${username}` : "connector:github";
+
+    return {
+      ok: true,
+      kind: "item",
+      sourceRef,
+      item: {
+        kind: "note",
+        label,
+        text: formatGithubConnectorForWorktable(connectors, snapshot),
+        sourceMessageId: null,
+        sourceRef,
+        agentId: null,
+      },
+    };
+  }
+
+  if (slice === "dossier" || slice === "profile" || slice === "all") {
+    if (!connectors || !hasPopulatedConnectorsProfile(connectors)) {
+      return {
+        ok: false,
+        error: `Cannot resolve "${raw}": personal dossier is empty in Settings → Connectors.`,
+      };
+    }
+
+    const sourceRef = slice === "profile" ? "connector:profile" : "connector:dossier";
+
+    return {
+      ok: true,
+      kind: "item",
+      sourceRef,
+      item: {
+        kind: "note",
+        label: `${sourceRef} · Personal Dossier`,
+        text: formatDossierForWorktable(connectors, "dossier"),
+        sourceMessageId: null,
+        sourceRef,
+        agentId: null,
+      },
+    };
+  }
+
+  if (slice === "education" || slice === "transcripts") {
+    if (!connectors?.educationAndTranscripts?.trim()) {
+      return {
+        ok: false,
+        error: `Cannot resolve "${raw}": no education or transcript notes are saved in Settings → Connectors.`,
+      };
+    }
+
+    const sourceRef = "connector:education";
+
+    return {
+      ok: true,
+      kind: "item",
+      sourceRef,
+      item: {
+        kind: "note",
+        label: "connector:education · Education & Transcripts",
+        text: formatDossierForWorktable(connectors, "education"),
+        sourceMessageId: null,
+        sourceRef,
+        agentId: null,
+      },
+    };
+  }
+
+  if (slice === "career" || slice === "history" || slice === "projects") {
+    if (
+      !connectors?.careerHistory?.trim() &&
+      !connectors?.linkedinUrl?.trim() &&
+      !connectors?.websiteUrl?.trim()
+    ) {
+      return {
+        ok: false,
+        error: `Cannot resolve "${raw}": no career history is saved in Settings → Connectors.`,
+      };
+    }
+
+    const sourceRef = "connector:career";
+
+    return {
+      ok: true,
+      kind: "item",
+      sourceRef,
+      item: {
+        kind: "note",
+        label: "connector:career · Career History & Projects",
+        text: formatDossierForWorktable(connectors, "career"),
+        sourceMessageId: null,
+        sourceRef,
+        agentId: null,
+      },
+    };
+  }
+
+  if (slice === "resume" || slice === "cv") {
+    if (!connectors?.resumeText?.trim()) {
+      return {
+        ok: false,
+        error: `Cannot resolve "${raw}": no resume or CV text is saved in Settings → Connectors.`,
+      };
+    }
+
+    const sourceRef = "connector:resume";
+
+    return {
+      ok: true,
+      kind: "item",
+      sourceRef,
+      item: {
+        kind: "note",
+        label: "connector:resume · Resume / CV",
+        text: formatDossierForWorktable(connectors, "resume"),
+        sourceMessageId: null,
+        sourceRef,
+        agentId: null,
+      },
+    };
+  }
+
+  if (slice === "preferences" || slice === "infra" || slice === "stack") {
+    if (!connectors?.workingPreferences?.trim()) {
+      return {
+        ok: false,
+        error: `Cannot resolve "${raw}": no working or infrastructure preferences are saved in Settings → Connectors.`,
+      };
+    }
+
+    const sourceRef = "connector:preferences";
+
+    return {
+      ok: true,
+      kind: "item",
+      sourceRef,
+      item: {
+        kind: "note",
+        label: "connector:preferences · Working Preferences",
+        text: formatDossierForWorktable(connectors, "preferences"),
+        sourceMessageId: null,
+        sourceRef,
+        agentId: null,
+      },
+    };
+  }
+
+  return {
+    ok: false,
+    error: `Unknown connector shorthand "${raw}". Expected connector:github, connector:dossier, connector:education, connector:career, connector:resume, or connector:preferences.`,
+  };
+}
+
 /**
- * Resolve one shorthand token (`node:<id>`, `rh:<id>`, `out:<agentId>`, `th:<threadId>`, `msg:<id>`, `bundle:<id>`).
+ * Resolve one shorthand token (`node:<id>`, `rh:<id>`, `out:<agentId>`, `th:<threadId>`, `msg:<id>`, `bundle:<id>`, `connector:<slice>`).
  */
 export function resolveShorthandRef(
   raw: string,
@@ -219,7 +414,7 @@ export function resolveShorthandRef(
   if (!parsed) {
     return {
       ok: false,
-      error: `Invalid shorthand reference "${raw}". Expected node:<id>, out:<agentId>, th:<threadId>, msg:<messageId>, or bundle:<bundleId>.`,
+      error: `Invalid shorthand reference "${raw}". Expected node:<id>, out:<agentId>, th:<threadId>, msg:<messageId>, bundle:<bundleId>, or connector:<slice>.`,
     };
   }
 
@@ -232,6 +427,10 @@ export function resolveShorthandRef(
       bundle: target,
       sourceRef: `bundle:${target}`,
     };
+  }
+
+  if (prefix === "connector") {
+    return resolveConnectorShorthand(raw, target, context);
   }
 
   if (prefix === "node" || prefix === "rh") {
