@@ -12,12 +12,13 @@ import { shouldSkipMemoryWriteForExperience } from "@/lib/chat/chat-experience";
 import { getMessageCount } from "@/data/supabase/chat";
 import { shouldAttemptInitialTitle } from "@/lib/chat/summary-title-cadence";
 import { saveChat } from "@/lib/chat/chat-store";
+import { finalizeStreamingParts } from "@/lib/chat/finalize-message-parts";
 import { ensureChatHasTitle, updateChatSummary } from "@/lib/llm/chat-helpers";
 import { CHAT_MODEL, measureAsync } from "@/lib/llm/helpers";
 import { CHAT_STREAM_CHUNKING } from "@/lib/llm/chat-stream-chunking";
 import { serializeError } from "@/lib/llm/log-error";
 import { addLatestMessagesToMemoryForUser } from "@/lib/memory/operations";
-import { buildEffortProviderOptions, type ChatEffortLevel } from "@/lib/schemas/chat-effort";
+import { buildChatReasoningProviderOptions, type ChatEffortLevel } from "@/lib/schemas/chat-effort";
 import { gatewayAttribution } from "@/lib/usage/gateway-attribution";
 import { createLlmBudgetHooks } from "@/lib/plans/llm-budget-hooks";
 import { ChatAIActionEnum, type ChatUIMessage } from "@/types/ai";
@@ -123,7 +124,8 @@ export async function runLLMChatStream(params: RunLLMChatStreamParams): Promise<
     if (chunkRing.length > 24) chunkRing.shift();
   };
 
-  const effortProviderOptions = buildEffortProviderOptions(selectedModel.id, effort);
+  // Effort plus reasoning-summary opt-ins so the chat can show provider reasoning.
+  const effortProviderOptions = buildChatReasoningProviderOptions(selectedModel.id, effort);
 
   const providerOptionsSummary = {
     zeroDataRetention: isZeroDataRetention,
@@ -223,14 +225,14 @@ export async function runLLMChatStream(params: RunLLMChatStreamParams): Promise<
     providerOptions: {
       openai: {
         include: ["reasoning.encrypted_content"],
-        ...effortProviderOptions?.openai,
+        ...effortProviderOptions.openai,
       } satisfies OpenAIResponsesProviderOptions,
       gateway: {
         zeroDataRetention: isZeroDataRetention,
         ...gatewayAttribution({ userId: sbUserId, operation: "chat" }),
       } satisfies GatewayProviderOptions,
-      ...(effortProviderOptions?.anthropic ? { anthropic: effortProviderOptions.anthropic } : {}),
-      ...(effortProviderOptions?.google ? { google: effortProviderOptions.google } : {}),
+      ...(effortProviderOptions.anthropic ? { anthropic: effortProviderOptions.anthropic } : {}),
+      ...(effortProviderOptions.google ? { google: effortProviderOptions.google } : {}),
     },
     tools,
     toolChoice: hasTools ? "auto" : "none",
@@ -344,8 +346,12 @@ export async function runLLMChatStream(params: RunLLMChatStreamParams): Promise<
         );
 
         try {
-          const messagesWithModel = messages.map((savedMessage) =>
-            savedMessage.role === "assistant"
+          // Saved after the stream ends, so any part still `streaming` was cut off.
+          const messagesWithModel = messages.map((message) => {
+            const savedMessage =
+              message.role === "assistant" ? finalizeStreamingParts(message) : message;
+
+            return savedMessage.role === "assistant"
               ? {
                   ...savedMessage,
                   model: selectedModel.id,
@@ -364,8 +370,8 @@ export async function runLLMChatStream(params: RunLLMChatStreamParams): Promise<
                       }
                     : {}),
                 }
-              : savedMessage
-          );
+              : savedMessage;
+          });
 
           // Use admin client so save succeeds even if the user JWT expired during a long stream (e.g. finish_reason length).
           const { result: saveResult, durationMs: saveChatMs } = await measureAsync(() =>

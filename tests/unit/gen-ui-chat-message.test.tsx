@@ -8,6 +8,7 @@ import { render } from "../helpers/render";
 
 import * as ttsContext from "@/lib/context/tts-context";
 import { FIXTURE_ANSWER_CARD, FIXTURE_RESTAURANT_CARD } from "@/lib/schemas/gen-ui/fixtures";
+import { ChatAIActionEnum } from "@/types/ai";
 
 // Merged over the real module so the stub keeps `TTSProvider` and `useTTSOptional` for files
 // loaded after this one. Deliberately not restored: other files register their own TTS stub at
@@ -137,5 +138,64 @@ describe("ChatMessage gather_restaurant", () => {
 
     const { getByText } = render(<ChatMessage message={message} />);
     expect(getByText("Looking up restaurant…")).toBeTruthy();
+  });
+});
+
+function assistantWithReasoning(
+  parts: Array<{ text: string; state: "streaming" | "done" }>
+): UIMessage {
+  return {
+    id: "msg-reasoning",
+    role: "assistant",
+    parts: [
+      ...parts.map((part) => ({ type: "reasoning" as const, ...part })),
+      { type: "text", text: "Final answer.", state: "done" },
+    ],
+  };
+}
+
+describe("ChatMessage reasoning", () => {
+  test("done reasoning with text renders one collapsed disclosure", () => {
+    const message = assistantWithReasoning([
+      { text: "First summary.", state: "done" },
+      { text: "Second summary.", state: "done" },
+    ]);
+    const { getAllByRole, getByText } = render(<ChatMessage message={message} />);
+    const triggers = getAllByRole("button", { name: /Reasoning/ });
+
+    expect(triggers).toHaveLength(1);
+    expect(triggers[0].getAttribute("aria-expanded")).toBe("false");
+    expect(getByText("Final answer.")).toBeTruthy();
+  });
+
+  test("streaming reasoning with text shows one live disclosure", () => {
+    const message = assistantWithReasoning([{ text: "Weighing options.", state: "streaming" }]);
+    const { getAllByRole, container } = render(
+      <ChatMessage aiActionPayload={{ action: ChatAIActionEnum.Reasoning }} message={message} />
+    );
+
+    expect(getAllByRole("button", { name: /Reasoning/ })).toHaveLength(1);
+    // One burn label (its sr-only copy) — the tail action shimmer must not double it.
+    const labels = [...container.querySelectorAll(".sr-only")].filter((el) =>
+      el.textContent?.includes("Reasoning")
+    );
+
+    expect(labels).toHaveLength(1);
+  });
+
+  test("done reasoning without text renders nothing", () => {
+    const message = assistantWithReasoning([{ text: "", state: "done" }]);
+    const { queryByRole, queryByText } = render(<ChatMessage message={message} />);
+
+    expect(queryByRole("button", { name: /Reasoning/ })).toBeNull();
+    expect(queryByText(/Reasoning/)).toBeNull();
+  });
+
+  test("streaming reasoning without text keeps the shimmer label", () => {
+    const message = assistantWithReasoning([{ text: "", state: "streaming" }]);
+    const { queryByRole, container } = render(<ChatMessage message={message} />);
+
+    expect(queryByRole("button", { name: /Reasoning/ })).toBeNull();
+    expect(container.textContent).toContain("Reasoning");
   });
 });
