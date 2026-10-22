@@ -16,6 +16,8 @@ import { createKanbanBoardTool, type KanbanStreamWriter } from "@/lib/llm/kanban
 import { KANBAN_TOOL_INSTRUCTIONS } from "@/lib/system-prompt/kanban";
 import { createManageTasksTool } from "@/lib/llm/ergon-tasks-tool";
 import { createErgonTicketTools, ERGON_TICKET_INSTRUCTIONS } from "@/lib/llm/ergon-ticket-tools";
+import { createChronosTools, CHRONOS_TOOL_INSTRUCTIONS } from "@/lib/llm/chronos-mcp-tools";
+import { createErgonAgentTools, ERGON_AGENT_INSTRUCTIONS } from "@/lib/llm/ergon-agent-tools";
 import { MANAGE_TASKS_TOOL_INSTRUCTIONS } from "@/lib/system-prompt/ergon";
 import {
   createFetchRecipeTool,
@@ -76,6 +78,10 @@ export type CompileChatToolsParams = {
   useSearch: boolean;
   /** Server-selected research persona; never accepted directly from user payloads. */
   useResearch?: boolean;
+  /** Hard-set tool policy only (Reed): read-only git through Chronos MCP. */
+  useChronos?: boolean;
+  /** Hard-set tool policy only (Mira): Ergon docs, briefs, hooks and agent runs. */
+  useErgonAgent?: boolean;
   /** Identity/context of the server-selected research generator, for exact annotation reuse. */
   researchModelId?: string;
   researchGenerationContext?: unknown;
@@ -111,6 +117,8 @@ export type CompileChatToolsParams = {
 export async function compileChatTools({
   useSearch,
   useResearch,
+  useChronos,
+  useErgonAgent,
   researchModelId,
   researchGenerationContext,
   useMemory,
@@ -265,11 +273,27 @@ export async function compileChatTools({
   tools["manage_tasks"] = createManageTasksTool();
   toolInstructions += `${MANAGE_TASKS_TOOL_INSTRUCTIONS}\n`;
 
-  const ticketTools = createErgonTicketTools(sbUserId);
+  // Mira's read,agents token stands in for the chat's read,write ticket tools.
+  const ticketTools = useErgonAgent ? {} : createErgonTicketTools(sbUserId);
 
   if (Object.keys(ticketTools).length > 0) {
     Object.assign(tools, ticketTools);
     toolInstructions += `${ERGON_TICKET_INSTRUCTIONS}\n`;
+  }
+
+  // Owner-gated connections to Coalescence apps; each returns {} unless configured for sbUserId.
+  const chronosTools = useChronos ? createChronosTools(sbUserId) : {};
+
+  if (Object.keys(chronosTools).length > 0) {
+    Object.assign(tools, chronosTools);
+    toolInstructions += `${CHRONOS_TOOL_INSTRUCTIONS}\n`;
+  }
+
+  const ergonAgentTools = useErgonAgent ? createErgonAgentTools(sbUserId) : {};
+
+  if (Object.keys(ergonAgentTools).length > 0) {
+    Object.assign(tools, ergonAgentTools);
+    toolInstructions += `${ERGON_AGENT_INSTRUCTIONS}\n`;
   }
 
   if (useGetMoreMessages && chatId != null && initialMessageCount != null) {

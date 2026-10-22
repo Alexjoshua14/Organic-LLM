@@ -442,6 +442,8 @@ export async function POST(req: Request) {
       const compiledTools = await compileChatTools({
         useSearch: shellAgent?.tools.webSearch ?? parseResult.data.webSearch ?? false,
         useResearch: shellAgent?.tools.research ?? false,
+        useChronos: shellAgent?.tools.chronos ?? false,
+        useErgonAgent: shellAgent?.tools.ergon ?? false,
         researchModelId: selectedModel.id,
         researchGenerationContext: { messages, system: systemPromptForRequest },
         useMemory: shellAgent?.tools.memory ?? parseResult.data.memory ?? false,

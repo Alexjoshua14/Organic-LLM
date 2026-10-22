@@ -184,6 +184,7 @@ describe("Reed (subagent-coder) hard-set persona & roster slot binding", () => {
       memory: false,
       chatHistory: false,
       research: false,
+      chronos: true,
     });
     expect(coderSubagent.helpMenu.startsWith("**Reed** · coding subagent")).toBe(true);
     expect(coderSubagent.instructions).toContain("Archer");
