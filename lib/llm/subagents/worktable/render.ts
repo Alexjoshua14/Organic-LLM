@@ -228,6 +228,7 @@ function describeItem(item: WorktableItem) {
     heading: itemHeading(item),
     ...(item.agentId ? { agentId: item.agentId } : {}),
     ...(item.sourceMessageId ? { sourceMessageId: item.sourceMessageId } : {}),
+    ...(item.sourceRef ? { sourceRef: item.sourceRef } : {}),
     text:
       item.kind === "live_subagent_output"
         ? "(resolved when sent)"

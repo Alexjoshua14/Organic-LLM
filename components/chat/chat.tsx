@@ -622,10 +622,7 @@ export const Chat: React.FC<ChatProps> = ({
             ].join(" ")}
           >
             {experience === "arcadia" && id && !confineInMultitaskDashboard ? (
-              <ChatThreadStyleOverlay
-                threadId={id}
-                visible={messages.length > 0}
-              />
+              <ChatThreadStyleOverlay threadId={id} visible={messages.length > 0} />
             ) : null}
             <ChatThread
               aiActionPayload={aiAction}

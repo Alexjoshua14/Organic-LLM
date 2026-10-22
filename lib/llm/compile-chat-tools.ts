@@ -1,11 +1,13 @@
 import type { ToolSet } from "ai";
+import type { ChatStyle } from "@/lib/chat/chat-style";
+import type { PrepareMultitaskTurnResult } from "@/lib/llm/subagents/orchestrator/prepare-multitask-turn";
+import type { WorktableSession } from "@/lib/llm/subagents/worktable/session";
+import type { RabbitHoleNodeLike } from "@/lib/llm/subagents/worktable/shorthand";
+
 import {
   createResearchTools,
   RESEARCH_TOOL_INSTRUCTIONS,
 } from "@/lib/llm/subagents/research/tools";
-
-import type { ChatStyle } from "@/lib/chat/chat-style";
-
 import {
   type ChatExperience,
   isArcadiaStyleMemoryReadExperience,
@@ -13,6 +15,7 @@ import {
 import { createKanbanBoardTool, type KanbanStreamWriter } from "@/lib/llm/kanban-tool";
 import { KANBAN_TOOL_INSTRUCTIONS } from "@/lib/system-prompt/kanban";
 import { createManageTasksTool } from "@/lib/llm/ergon-tasks-tool";
+import { createErgonTicketTools, ERGON_TICKET_INSTRUCTIONS } from "@/lib/llm/ergon-ticket-tools";
 import { MANAGE_TASKS_TOOL_INSTRUCTIONS } from "@/lib/system-prompt/ergon";
 import {
   createFetchRecipeTool,
@@ -54,6 +57,20 @@ import {
   type RabbitHoleStreamWriter,
 } from "@/lib/llm/rabbit-hole-assistant-tools";
 import { RABBIT_HOLE_TOOL_INSTRUCTIONS } from "@/lib/system-prompt/rabbit-hole-drawer";
+import { RABBIT_HOLE_MAX_DISPATCHES_PER_TURN } from "@/lib/llm/subagents/orchestrator/constants";
+import {
+  withArcadiaOrchestratorTools,
+  type OrchestratorToolDeps,
+  type OrchestratorToolsInput,
+} from "@/lib/llm/subagents/orchestrator/orchestrator-tools";
+import { DEFAULT_CHAT_MODEL } from "@/lib/schemas/chat-models";
+
+export type MultitaskOrchestratorCompileInput = Partial<Omit<OrchestratorToolsInput, "deps">> & {
+  deps: OrchestratorToolDeps;
+  multitask?: PrepareMultitaskTurnResult | null;
+  worktable?: WorktableSession | null;
+  hasSubagentThreads?: boolean;
+};
 
 export type CompileChatToolsParams = {
   useSearch: boolean;
@@ -80,6 +97,10 @@ export type CompileChatToolsParams = {
   /** Rabbit hole drawer assistant tools. */
   rabbitHoleSessionId?: string;
   rabbitHoleActiveNodeId?: string | null;
+  rabbitHoleRootNodeId?: string | null;
+  rabbitHoleNodes?: Record<string, RabbitHoleNodeLike> | null;
+  /** Subagent mesh orchestrator configuration (enabled in Arcadia and Rabbit Hole). */
+  multitaskOrchestrator?: MultitaskOrchestratorCompileInput | null;
 };
 
 /**
@@ -103,10 +124,13 @@ export async function compileChatTools({
   writer,
   rabbitHoleSessionId,
   rabbitHoleActiveNodeId,
+  rabbitHoleRootNodeId,
+  rabbitHoleNodes,
+  multitaskOrchestrator,
 }: CompileChatToolsParams): Promise<{ tools: ToolSet; toolInstructions: string }> {
-  if (experience === "rabbit_hole" && rabbitHoleSessionId) {
+  if (experience === "rabbit_hole" && (rabbitHoleSessionId || multitaskOrchestrator)) {
     const rhTools = createRabbitHoleAssistantTools({
-      sessionId: rabbitHoleSessionId,
+      sessionId: rabbitHoleSessionId ?? chatId ?? "rabbit-hole-session",
       sbUserId,
       writer: writer as unknown as RabbitHoleStreamWriter,
       getActiveNodeId: () => rabbitHoleActiveNodeId ?? null,
@@ -121,10 +145,39 @@ export async function compileChatTools({
         "\nYou have read-only access to search_memories for personalization. Rabbit hole chat never writes to the user's memory store — recall only.\n";
     }
 
-    return {
-      tools,
-      toolInstructions,
-    };
+    const baseCompiled = { tools, toolInstructions };
+
+    if (multitaskOrchestrator) {
+      const effectiveMultitask: PrepareMultitaskTurnResult = multitaskOrchestrator.multitask ?? {
+        role: "orchestrator",
+        systemFragments: [],
+        hasSubagentThreads: multitaskOrchestrator.hasSubagentThreads ?? true,
+        orchestratorDispatch: true,
+        worktable: multitaskOrchestrator.worktable ?? null,
+        autonomousRemaining: multitaskOrchestrator.autonomousRemaining ?? null,
+      };
+
+      return withArcadiaOrchestratorTools(baseCompiled, {
+        ...multitaskOrchestrator,
+        multitask: effectiveMultitask,
+        orchestratorThreadId:
+          multitaskOrchestrator.orchestratorThreadId ?? chatId ?? "rabbit-hole-thread",
+        modelId: multitaskOrchestrator.modelId ?? researchModelId ?? DEFAULT_CHAT_MODEL.id,
+        zeroDataRetention: multitaskOrchestrator.zeroDataRetention ?? false,
+        autonomous: multitaskOrchestrator.autonomous ?? false,
+        rabbitHoleNodes: multitaskOrchestrator.rabbitHoleNodes ?? rabbitHoleNodes ?? null,
+        rabbitHoleActiveNodeId:
+          multitaskOrchestrator.rabbitHoleActiveNodeId ?? rabbitHoleActiveNodeId ?? null,
+        rabbitHoleRootNodeId:
+          multitaskOrchestrator.rabbitHoleRootNodeId ?? rabbitHoleRootNodeId ?? null,
+        maxDispatchesPerTurn:
+          multitaskOrchestrator.maxDispatchesPerTurn ?? RABBIT_HOLE_MAX_DISPATCHES_PER_TURN,
+        alwaysIncludeReadSubagentThread:
+          multitaskOrchestrator.alwaysIncludeReadSubagentThread ?? true,
+      });
+    }
+
+    return baseCompiled;
   }
 
   if (experience === "delphi") {
@@ -169,6 +222,7 @@ export async function compileChatTools({
       generationContext: researchGenerationContext,
     });
     let toolInstructions = RESEARCH_TOOL_INSTRUCTIONS;
+
     if (useMemory) {
       tools.search_memories = createMemorySearchTool(sbUserId, writer);
       toolInstructions += "\nUse search_memories only when the assignment needs personal context.";
@@ -180,6 +234,7 @@ export async function compileChatTools({
       toolInstructions +=
         "\nHistory tools read only this thread. Fetch earlier assignments when needed; fetch the full thread only when explicitly requested.";
     }
+
     return { tools, toolInstructions };
   }
 
@@ -209,6 +264,13 @@ export async function compileChatTools({
   // Durable Ergon todos: always available so Aion can capture/manage tasks in any chat.
   tools["manage_tasks"] = createManageTasksTool();
   toolInstructions += `${MANAGE_TASKS_TOOL_INSTRUCTIONS}\n`;
+
+  const ticketTools = createErgonTicketTools(sbUserId);
+
+  if (Object.keys(ticketTools).length > 0) {
+    Object.assign(tools, ticketTools);
+    toolInstructions += `${ERGON_TICKET_INSTRUCTIONS}\n`;
+  }
 
   if (useGetMoreMessages && chatId != null && initialMessageCount != null) {
     tools["get_more_chat_history"] = createGetMoreMessagesTool(chatId, initialMessageCount);

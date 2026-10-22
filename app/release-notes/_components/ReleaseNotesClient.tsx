@@ -282,9 +282,7 @@ export function ReleaseNotesClient() {
 
       {quietLoading ? (
         <div className="py-6">
-          <ChatThinking
-            text={loadingCatalog ? "Loading versions…" : "Preparing release notes…"}
-          />
+          <ChatThinking text={loadingCatalog ? "Loading versions…" : "Preparing release notes…"} />
         </div>
       ) : null}
 
@@ -317,9 +315,7 @@ export function ReleaseNotesClient() {
               <span className="mx-2 text-border">·</span>
               {result.payload.commitCount} commit
               {result.payload.commitCount === 1 ? "" : "s"}
-              {result.cached ? (
-                <span className="ml-2 text-muted-foreground/70">cached</span>
-              ) : null}
+              {result.cached ? <span className="ml-2 text-muted-foreground/70">cached</span> : null}
             </p>
             <h2 className="text-xl font-semibold tracking-tight text-foreground md:text-2xl">
               {result.payload.notes.headline}
@@ -334,9 +330,7 @@ export function ReleaseNotesClient() {
               {result.payload.notes.highlights.map((h) => (
                 <li
                   key={`${h.title}-${h.detail.slice(0, 24)}`}
-                  className={cn(
-                    "rounded-lg border border-border/40 bg-background/40 px-4 py-3"
-                  )}
+                  className={cn("rounded-lg border border-border/40 bg-background/40 px-4 py-3")}
                 >
                   <p className="text-sm font-medium text-foreground">{h.title}</p>
                   <p className="mt-1 text-sm leading-relaxed text-muted-foreground">{h.detail}</p>

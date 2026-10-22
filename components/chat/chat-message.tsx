@@ -8,6 +8,7 @@ import { glass } from "../design-system/primitives";
 import { AssistantMessageActions } from "./assistant-message-actions";
 import { ChatMessageMarkdown } from "./chat-message-markdown";
 import { ArcadiaHelpMessage } from "./arcadia-help-message";
+import { ChatReasoningBlock } from "./chat-reasoning-block";
 import { ChatReasoning, ChatThinking, ChatSearching } from "./chat-loading";
 import {
   FullChatHistoryToolResultCard,
@@ -40,6 +41,7 @@ import { MiseLoadingShell } from "@/components/chat/mise/MiseLoadingShell";
 import { MiseToolResult } from "@/components/chat/mise/MiseToolResult";
 import { ARCADIA_HELP_PREFIX } from "@/lib/arcadia/help-response";
 import { messagePartsToCopyMarkdown } from "@/lib/chat/message-copy-markdown";
+import { groupReasoningParts } from "@/lib/chat/reasoning-parts";
 import {
   collectWebSearchSnapshotsFromParts,
   foldWebSearchResults,
@@ -135,6 +137,7 @@ const AIMessage: FC<ChatMessageProps> = ({
   const modelLabel = showModelBadge ? getModelDisplayName(getMessageModelId(message)) : null;
 
   const webSearchFold = foldWebSearchResults(collectWebSearchSnapshotsFromParts(message.parts));
+  const reasoningRuns = groupReasoningParts(message.parts);
 
   let arcadiaHelpRendered = false;
 
@@ -150,14 +153,21 @@ const AIMessage: FC<ChatMessageProps> = ({
       <div className="ai-message space-y-2 text-foreground max-w-full prose dark:prose-invert">
         {message.parts.map((part, i) => {
           switch (part.type) {
-            case "reasoning":
-              // Only show the live reasoning shimmer while actively streaming; a
-              // persisted/legacy part (state "done" or undefined) must stay inert.
-              if (part.state !== "streaming") {
-                return null;
-              }
+            case "reasoning": {
+              // Consecutive reasoning parts render once, as a single disclosure.
+              const run = reasoningRuns.runsByStartIndex.get(i);
 
-              return <ChatReasoning key={`${message.id}-${i}`} />;
+              if (!run) return null;
+
+              return (
+                <ChatReasoningBlock
+                  key={`${message.id}-${i}`}
+                  id={`${message.id}-${i}`}
+                  isStreaming={run.isStreaming}
+                  text={run.text}
+                />
+              );
+            }
 
             case "text":
               if (showCustomArcadiaHelp) {
@@ -182,11 +192,28 @@ const AIMessage: FC<ChatMessageProps> = ({
 
                 if (toolName.startsWith("research_")) {
                   if (part.state === "input-streaming" || part.state === "input-available") {
-                    return <ChatThinking key={`${message.id}-${i}-research-pending`} text={toolInvocationInFlightLabel(toolName)} />;
+                    return (
+                      <ChatThinking
+                        key={`${message.id}-${i}-research-pending`}
+                        text={toolInvocationInFlightLabel(toolName)}
+                      />
+                    );
                   }
                   if (part.state === "output-available" || part.state === "output-error") {
-                    return <ResearchToolResult key={`${message.id}-${i}-research-result`} toolName={toolName} output={part.state === "output-available" ? part.output : { error: part.errorText }} threadId={chatId} />;
+                    return (
+                      <ResearchToolResult
+                        key={`${message.id}-${i}-research-result`}
+                        toolName={toolName}
+                        output={
+                          part.state === "output-available"
+                            ? part.output
+                            : { error: part.errorText }
+                        }
+                        threadId={chatId}
+                      />
+                    );
                   }
+
                   return null;
                 }
 
@@ -539,9 +566,7 @@ function partListHasStreamingReasoning(parts: MessageParts): boolean {
 
 /** True when the message already has inline tool UI (loading or result). */
 function partListHasToolUIPart(parts: MessageParts): boolean {
-  return parts.some(
-    (part) => isToolUIPart(part) || getLegacyToolInvocationPart(part) !== null
-  );
+  return parts.some((part) => isToolUIPart(part) || getLegacyToolInvocationPart(part) !== null);
 }
 
 function partListHasMemorySearchToolPart(parts: MessageParts): boolean {

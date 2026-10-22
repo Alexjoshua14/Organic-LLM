@@ -18,7 +18,6 @@ import type { ContextMemoryReference } from "./context-memory";
 
 import { UIMessage } from "ai";
 import { auth } from "@clerk/nextjs/server";
-import { memoryReferencesFromAutomaticRecall } from "./context-memory";
 
 import { createLogger } from "../logger";
 import { SYSTEM_PROMPT, PROMETHEUS_SYSTEM_PROMPT } from "../system-prompt/prompt-v0";
@@ -52,6 +51,8 @@ import {
 } from "../schemas/llm-context";
 import { estimateTokenCount } from "../llm/chat-helpers";
 import { getPersistedSchemas } from "../persistedSchemas";
+
+import { memoryReferencesFromAutomaticRecall } from "./context-memory";
 
 import {
   createChat as createChatSupabase,

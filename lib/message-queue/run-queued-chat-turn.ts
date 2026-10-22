@@ -68,8 +68,10 @@ export async function runQueuedChatTurn(args: {
   clerkUserId: string;
 }): Promise<{ ok: true } | { ok: false; error: string }> {
   const { item, sbUserId, clerkUserId } = args;
+
   if (item.payload?.subagentRun) {
     const { runQueuedSubagentTurn } = await import("@/lib/message-queue/run-queued-subagent-turn");
+
     return runQueuedSubagentTurn(item, sbUserId);
   }
   const chatId = item.thread_id;
@@ -83,7 +85,14 @@ export async function runQueuedChatTurn(args: {
   const userMessage: UIMessage = {
     id: isHeartbeat ? heartbeatMessageId : randomUUID(),
     role: isHeartbeat ? "system" : "user",
-    parts: [{ type: "text", text: isHeartbeat ? "Review the latest subagent update. Read the relevant subagent thread if needed, then give the user a concise update and any next steps. This is an automatic heartbeat, not a new message from the user." : item.body }],
+    parts: [
+      {
+        type: "text",
+        text: isHeartbeat
+          ? "Review the latest subagent update. Read the relevant subagent thread if needed, then give the user a concise update and any next steps. This is an automatic heartbeat, not a new message from the user."
+          : item.body,
+      },
+    ],
   };
 
   let selectedModel = payload.model ? getChatModel(payload.model) : DEFAULT_CHAT_MODEL;
@@ -147,7 +156,11 @@ export async function runQueuedChatTurn(args: {
           modelId: selectedModel.id,
           zeroDataRetention: payload.zeroDataRetention === true,
           writer,
-          deps: createMultitaskTurnDeps({ ownerId: sbUserId, clerkUserId, route: "/api/chat/queue" }),
+          deps: createMultitaskTurnDeps({
+            ownerId: sbUserId,
+            clerkUserId,
+            route: "/api/chat/queue",
+          }),
           autonomous: isHeartbeat,
         });
       }
@@ -341,7 +354,6 @@ export async function runQueuedChatTurn(args: {
         userMessage,
         threadHasTitlePromise,
       });
-
     },
   });
 

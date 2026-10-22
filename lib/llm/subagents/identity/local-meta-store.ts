@@ -1,3 +1,5 @@
+import type { IdentityImageMetaStore } from "@/lib/llm/subagents/identity/storage";
+
 import { mkdir, readFile, writeFile } from "fs/promises";
 import path from "path";
 
@@ -5,8 +7,6 @@ import {
   SubagentIdentityImageRecordSchema,
   type SubagentIdentityImageRecord,
 } from "@/lib/schemas/subagent-runtime";
-
-import type { IdentityImageMetaStore } from "@/lib/llm/subagents/identity/storage";
 
 export function createLocalIdentityMetaStore(options?: {
   rootDir?: string;
@@ -39,6 +39,7 @@ export function createLocalIdentityMetaStore(options?: {
     async put(record: SubagentIdentityImageRecord) {
       await ensureRoot();
       const validated = SubagentIdentityImageRecordSchema.parse(record);
+
       await writeFile(fileFor(validated.agentId), JSON.stringify(validated, null, 2), "utf8");
     },
   };

@@ -5,6 +5,11 @@ import type {
   RabbitHoleSession,
   RabbitHoleSource,
 } from "@/lib/schemas/rabbitHoleSchemas";
+import type {
+  RabbitHolePlanBudgetSummary,
+  RabbitHoleSubagentMeshItem,
+} from "@/components/rabbit-holes/RabbitHoleSubagentMeshBar";
+import type { LlmProcessingIntensitySnapshot } from "@/lib/usage/processing-intensity";
 import type { SimpleResult } from "@/types";
 
 import { useRef } from "react";
@@ -21,6 +26,10 @@ export type RabbitHoleAssistantPanelProps = {
   activeNode: RabbitHoleNode | null;
   isBusy: boolean;
   canGoBack: boolean;
+  subagents?: readonly RabbitHoleSubagentMeshItem[];
+  processingIntensity?: LlmProcessingIntensitySnapshot;
+  planBudget?: RabbitHolePlanBudgetSummary | null;
+  zeroDataRetention?: boolean;
   onNavigateBack: () => void;
   onBranchClick: (branchId: string) => void;
   onSourceClick: (source: RabbitHoleSource) => void;
@@ -37,6 +46,10 @@ export function RabbitHoleAssistantPanel({
   activeNode,
   isBusy,
   canGoBack,
+  subagents,
+  processingIntensity,
+  planBudget,
+  zeroDataRetention,
   onNavigateBack,
   onBranchClick,
   onSourceClick,
@@ -92,8 +105,12 @@ export function RabbitHoleAssistantPanel({
           isBusy={isBusy}
           isStreaming={chat.isStreaming}
           messages={chat.messages}
+          planBudget={planBudget ?? chat.planBudget}
+          processingIntensity={processingIntensity ?? chat.processingIntensity}
           session={session}
           sources={session ? sources : []}
+          subagents={subagents && subagents.length > 0 ? subagents : chat.subagents}
+          zeroDataRetention={zeroDataRetention ?? chat.zeroDataRetention}
           onBranchClick={onBranchClick}
           onNavigateBack={onNavigateBack}
           onSourceClick={onSourceClick}

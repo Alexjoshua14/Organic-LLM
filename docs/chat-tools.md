@@ -102,6 +102,17 @@ When `chatStyle === "ergon"`, the model drives a **live** kanban board over a tr
 
 ### `manage_tasks` (durable Ergon todos)
 
+An optional connection to a separate Ergon engineering workspace adds `ergon_list_issues`,
+`ergon_get_issue`, `ergon_save_issue`, `ergon_save_comment`, `ergon_list_projects`,
+`ergon_list_issue_statuses`, and `ergon_list_issue_labels` to main chat. Configure the
+server-only `ERGON_URL` (HTTPS origin), `ERGON_TOKEN` (read/write token with client
+`organic`), and `ERGON_OWNER_PROFILE_ID` (the authorized user's Supabase profile UUID).
+Only that authenticated profile receives the tools; unset or invalid configuration disables
+them. Other users cannot select the profile or workspace through tool arguments. Loopback
+HTTP is allowed for local development. The existing personal todo tool remains independent.
+Requests use the tracker's existing REST tool registry; they do not invoke its AI intake.
+Implementation: [`ergon-ticket-tools.ts`](../lib/llm/ergon-ticket-tools.ts).
+
 Always available in the main chat. Lets Aion manage the user's **durable** todo list (the `/ergon` page) via the Supabase data layer (RLS-scoped): `CREATE_TASKS`, `UPDATE_TASK`, `COMPLETE_TASK`, `LIST_TASKS`. Categories are passed by name (resolve-or-create). Returns a compact `{ kind: "ergon-tasks", action, tasks }` payload rendered by [`ErgonTaskResult`](../components/ergon/ErgonTaskResult.tsx) with a link to `/ergon`. Distinct from `kanban_board`: that is a client-side puppet board; `manage_tasks` writes through to the database.
 
 - Implementation: [`createManageTasksTool`](../lib/llm/ergon-tasks-tool.ts) · executor [`executeManageTasks`](../lib/llm/ergon-tasks-execute.ts) · schema [`lib/schemas/ergon-tasks.ts`](../lib/schemas/ergon-tasks.ts) · prompt hints [`lib/system-prompt/ergon.ts`](../lib/system-prompt/ergon.ts)

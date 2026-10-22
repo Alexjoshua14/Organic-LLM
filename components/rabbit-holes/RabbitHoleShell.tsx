@@ -553,55 +553,59 @@ function RabbitHoleShellInner() {
                 {!focusMode &&
                   (chatOpen ||
                     (centerViewState.kind === "article_loaded" && Boolean(activeNode))) && (
-                  <motion.aside
-                    key={chatOpen ? "rabbit-hole-assistant" : "rabbit-hole-right-column"}
-                    animate={{ opacity: 1, x: 0 }}
-                    className={layoutTokens.gridColStart3}
-                    exit={{ opacity: 0, x: 32 }}
-                    initial={{ opacity: 0, x: 32 }}
-                    transition={chromeMotionTransition}
-                  >
-                    {chatOpen ? (
-                      <RabbitHoleAssistantPanel
-                        activeNode={activeNode}
-                        canGoBack={canGoBack()}
-                        isBusy={isBusy}
-                        session={session}
-                        onBranchClick={followBranch}
-                        onClose={() => setChatOpen(false)}
-                        ensureEmptySession={ensureEmptySessionForChat}
-                        onSessionCreated={handleSessionCreated}
-                        onNavFromTool={setActiveNode}
-                        onNavigateBack={handleNavigateBack}
-                        onReset={handleReset}
-                        onSourceClick={selectSource}
-                      />
-                    ) : (
-                      <AnimatePresence>
-                        {centerViewState.kind === "article_loaded" && activeNode && (
-                          <div key={activeNode.id} className="flex flex-col gap-3">
-                            <RabbitHoleSourceList
-                              hasBranches={
-                                generatingNodeId !== activeNode.id &&
-                                (activeNode.branchSuggestions ?? []).length > 0
-                              }
-                              sources={activeNode.sources ?? []}
-                              onSourceClick={selectSource}
-                            />
-                            {generatingNodeId !== activeNode.id && (
-                              <RabbitHoleBranchSuggestionsBlock
-                                branches={activeNode.branchSuggestions ?? []}
-                                hasSources={(activeNode.sources ?? []).length > 0}
-                                isLoading={isBusy}
-                                onBranchClick={followBranch}
+                    <motion.aside
+                      key={chatOpen ? "rabbit-hole-assistant" : "rabbit-hole-right-column"}
+                      animate={{ opacity: 1, x: 0 }}
+                      className={layoutTokens.gridColStart3}
+                      exit={{ opacity: 0, x: 32 }}
+                      initial={{ opacity: 0, x: 32 }}
+                      transition={chromeMotionTransition}
+                    >
+                      {chatOpen ? (
+                        <RabbitHoleAssistantPanel
+                          activeNode={activeNode}
+                          canGoBack={canGoBack()}
+                          isBusy={isBusy}
+                          planBudget={desktopChat.planBudget}
+                          processingIntensity={desktopChat.processingIntensity}
+                          session={session}
+                          subagents={desktopChat.subagents}
+                          zeroDataRetention={desktopChat.zeroDataRetention}
+                          onBranchClick={followBranch}
+                          onClose={() => setChatOpen(false)}
+                          ensureEmptySession={ensureEmptySessionForChat}
+                          onSessionCreated={handleSessionCreated}
+                          onNavFromTool={setActiveNode}
+                          onNavigateBack={handleNavigateBack}
+                          onReset={handleReset}
+                          onSourceClick={selectSource}
+                        />
+                      ) : (
+                        <AnimatePresence>
+                          {centerViewState.kind === "article_loaded" && activeNode && (
+                            <div key={activeNode.id} className="flex flex-col gap-3">
+                              <RabbitHoleSourceList
+                                hasBranches={
+                                  generatingNodeId !== activeNode.id &&
+                                  (activeNode.branchSuggestions ?? []).length > 0
+                                }
+                                sources={activeNode.sources ?? []}
+                                onSourceClick={selectSource}
                               />
-                            )}
-                          </div>
-                        )}
-                      </AnimatePresence>
-                    )}
-                  </motion.aside>
-                )}
+                              {generatingNodeId !== activeNode.id && (
+                                <RabbitHoleBranchSuggestionsBlock
+                                  branches={activeNode.branchSuggestions ?? []}
+                                  hasSources={(activeNode.sources ?? []).length > 0}
+                                  isLoading={isBusy}
+                                  onBranchClick={followBranch}
+                                />
+                              )}
+                            </div>
+                          )}
+                        </AnimatePresence>
+                      )}
+                    </motion.aside>
+                  )}
               </AnimatePresence>
             </div>
           </main>

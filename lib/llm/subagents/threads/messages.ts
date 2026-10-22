@@ -1,5 +1,6 @@
 import type { UIMessage } from "ai";
 import type { SubagentContext } from "./context-items";
+import type { SubagentModelTier } from "@/lib/llm/subagents/orchestrator/cost-policy";
 import type { ContextBudgetUsage } from "@/lib/chat/context-budget";
 
 import { randomUUID } from "crypto";
@@ -19,7 +20,7 @@ export type SubagentGoalMessageMetadata = {
   /** Server-selected model queued for this assignment. Older assignments may omit it. */
   modelId?: string;
   /** Budget policy for orchestrator-authored assignments. Direct sends may omit it. */
-  modelTier?: "economy" | "standard";
+  modelTier?: SubagentModelTier;
   modelReason?: string;
   /**
    * The orchestrator's brief when context was sent with it (COA-258). The text holds brief plus
@@ -73,7 +74,7 @@ export function buildSubagentGoalMessage(args: {
   goalId: string;
   id?: string;
   modelId?: string;
-  modelTier?: "economy" | "standard";
+  modelTier?: SubagentModelTier;
   modelReason?: string;
   /** Rendered context sent below the brief. */
   context?: string;

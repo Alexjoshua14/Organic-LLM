@@ -3,9 +3,10 @@ import "server-only";
 import type { LanguageModel, LanguageModelUsage } from "ai";
 import type { PlanBudgetSnapshot } from "@/lib/plans/plan-tags";
 
+import { auth } from "@clerk/nextjs/server";
+
 import { getPlanBudgetForUser } from "@/lib/plans/plan-budget";
 import { recordGatewayCallUsage } from "@/lib/usage/record-gateway-call";
-import { auth } from "@clerk/nextjs/server";
 import { getSupabaseUserId } from "@/data/supabase/profiles";
 
 type BudgetHookInput = {
@@ -24,6 +25,7 @@ type BudgetHookDeps = {
 /** Direct providers report a bare model slug; the price registry uses provider/model IDs. */
 export function budgetModelId(model: LanguageModel): string {
   if (typeof model === "string") return model;
+
   return model.modelId.includes("/")
     ? model.modelId
     : `${model.provider.split(".")[0]}/${model.modelId}`;
@@ -38,12 +40,14 @@ export function createLlmBudgetHooks(
   }
 ) {
   let ledgerFailure: Error | null = null;
+
   return {
     prepareStep: async () => {
       // SDK 7 awaits notification callbacks but swallows their errors. Retain the failure
       // and throw from prepareStep, which is part of the generation control flow.
       if (ledgerFailure) throw ledgerFailure;
       const budget = await deps.read(input);
+
       if (!budget.canDispatch)
         throw new Error(
           JSON.stringify({
@@ -54,6 +58,7 @@ export function createLlmBudgetHooks(
             resetsRemaining: budget.resetsRemaining,
           })
         );
+
       return {};
     },
     onStepFinish: async (step: StepUsage) => {
@@ -72,11 +77,15 @@ export async function createAuthenticatedLlmBudgetHooks(
   input: Omit<BudgetHookInput, "ownerId" | "clerkUserId">
 ) {
   const { userId } = await auth();
+
   if (!userId) throw new Error("Unauthorized");
   const profile = await getSupabaseUserId(userId);
+
   if (!profile.data || profile.error) throw new Error("User not found");
   const hooks = createLlmBudgetHooks({ ...input, ownerId: profile.data, clerkUserId: userId });
+
   // generateObject has no prepareStep hook. This initial check protects both SDK APIs.
   await hooks.prepareStep();
+
   return hooks;
 }

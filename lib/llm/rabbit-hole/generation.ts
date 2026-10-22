@@ -1,9 +1,9 @@
 "use server";
 
-import { createAuthenticatedLlmBudgetHooks, budgetModelId } from "@/lib/plans/llm-budget-hooks";
-
 import { generateObject, generateText, NoObjectGeneratedError } from "ai";
+import { z } from "zod";
 
+import { createAuthenticatedLlmBudgetHooks, budgetModelId } from "@/lib/plans/llm-budget-hooks";
 import {
   RabbitHoleAIResponse,
   RabbitHoleAIResponseSchema,
@@ -31,8 +31,6 @@ import {
   SOURCE_ANALYSIS_SYSTEM_PROMPT,
 } from "@/lib/system-prompt/rabbit-hole";
 import { models, providerModelSlug } from "@/lib/schemas/chat-models";
-
-import { z } from "zod";
 
 const logger = createLogger("lib/llm/rabbit-hole/generation.ts");
 

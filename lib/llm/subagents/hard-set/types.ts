@@ -9,7 +9,10 @@ export const HardSetSubagentSchema = z.object({
   /** Stable id stored on the shell thread (`threads.subagent_agent_id`). `subagent-<slug>`. */
   id: z.string().regex(/^subagent-[a-z0-9]+(?:-[a-z0-9]+)*$/),
   /** Existing worker slot to refine without renaming persisted thread identities. */
-  rosterSlotId: z.string().regex(/^agent-[a-z0-9-]+$/).optional(),
+  rosterSlotId: z
+    .string()
+    .regex(/^agent-[a-z0-9-]+$/)
+    .optional(),
   name: z.string().min(1).max(40),
   role: z.string().min(1).max(40),
   /** One line: what this subagent is for. Shown in the lab list. */

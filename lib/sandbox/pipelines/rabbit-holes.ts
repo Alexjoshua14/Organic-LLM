@@ -1,7 +1,5 @@
 "use server";
 
-import { createAuthenticatedLlmBudgetHooks, budgetModelId } from "@/lib/plans/llm-budget-hooks";
-
 import type { RabbitHoleBranchSuggestion } from "@/lib/schemas/rabbitHoleSchemas";
 import type { PipelineTrace } from "./trace";
 
@@ -10,6 +8,7 @@ import { openai } from "@ai-sdk/openai";
 
 import { createTrace, normalizeUsage } from "./trace";
 
+import { createAuthenticatedLlmBudgetHooks, budgetModelId } from "@/lib/plans/llm-budget-hooks";
 import { generateTitle, generateBranchSuggestions } from "@/lib/llm/rabbit-hole/generation";
 import { REFINE_QUESTION_SYSTEM_PROMPT } from "@/lib/system-prompt/rabbit-hole";
 import { GUARDRAIL_MAX_OUTPUT_TOKENS } from "@/lib/llm/helpers";

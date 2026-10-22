@@ -1,7 +1,5 @@
 "use server";
 
-import { createAuthenticatedLlmBudgetHooks, budgetModelId } from "@/lib/plans/llm-budget-hooks";
-
 import type { GenerationStep } from "../schemas/rabbitHoleSchemas";
 
 import { auth } from "@clerk/nextjs/server";
@@ -36,6 +34,7 @@ import {
 } from "./graph-context-builder";
 import { generateRabbitHoleNodeSummary } from "./node-summary";
 
+import { createAuthenticatedLlmBudgetHooks, budgetModelId } from "@/lib/plans/llm-budget-hooks";
 import { Result } from "@/types";
 import { getSupabaseUserId } from "@/data/supabase/profiles";
 import { getRabbitHoleSessionOwnerId } from "@/data/supabase/rabbitholes";

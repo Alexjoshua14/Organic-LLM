@@ -27,6 +27,50 @@ describe("RabbitHoleDrawerChat", () => {
     );
 
     expect(html).toContain("Ask a question to start the conversation");
+    expect(html).not.toContain("data-mesh-bar");
+  });
+
+  test("hides mesh bar when empty and budget utilization is low, and shows it when subagents are active", () => {
+    const idleHtml = renderDrawerChat(
+      <RabbitHoleDrawerChat
+        activeNode={null}
+        branches={[]}
+        canGoBack={false}
+        chatId="chat-1"
+        isBusy={false}
+        messages={[]}
+        planBudget={{ spentUsd: 2.37, limitUsd: 25, canDispatch: true }}
+        session={null}
+        sources={[]}
+        subagents={[]}
+        onBranchClick={() => undefined}
+        onNavigateBack={() => undefined}
+        onSourceClick={() => undefined}
+      />
+    );
+
+    expect(idleHtml).not.toContain("data-mesh-bar");
+
+    const activeHtml = renderDrawerChat(
+      <RabbitHoleDrawerChat
+        activeNode={null}
+        branches={[]}
+        canGoBack={false}
+        chatId="chat-1"
+        isBusy={false}
+        messages={[]}
+        planBudget={{ spentUsd: 2.37, limitUsd: 25, canDispatch: true }}
+        session={null}
+        sources={[]}
+        subagents={[{ name: "Lyra", role: "researcher", status: "working" }]}
+        onBranchClick={() => undefined}
+        onNavigateBack={() => undefined}
+        onSourceClick={() => undefined}
+      />
+    );
+
+    expect(activeHtml).toContain("data-mesh-bar");
+    expect(activeHtml).toContain("Lyra");
   });
 
   test("renders tethered turn pair from messages", () => {

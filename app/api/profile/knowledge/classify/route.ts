@@ -1,4 +1,3 @@
-import { createAuthenticatedLlmBudgetHooks, budgetModelId } from "@/lib/plans/llm-budget-hooks";
 import { performance } from "node:perf_hooks";
 
 import { auth } from "@clerk/nextjs/server";
@@ -6,6 +5,7 @@ import { generateText } from "ai";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 
+import { createAuthenticatedLlmBudgetHooks, budgetModelId } from "@/lib/plans/llm-budget-hooks";
 import { getSupabaseUserId } from "@/data/supabase/profiles";
 import { KNOWLEDGE_GATEWAY_PROVIDER_OPTIONS } from "@/lib/knowledge/gateway-options";
 import { CLASSIFIER_SYSTEM_PROMPT } from "@/lib/knowledge/prompts";

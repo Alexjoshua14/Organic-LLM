@@ -82,6 +82,7 @@ import {
 } from "@/lib/chat/blank-chat-mount-registry";
 import { useSharedChatContext } from "@/lib/context/chat-context";
 import { useComposerDraft } from "@/hooks/use-composer-draft";
+import { useAutoModelPreview } from "@/hooks/use-auto-model-preview";
 import { useDiagramNodeLinksOptional } from "@/lib/mermaid/diagram-node-links-context";
 import { useMessageSendQueue } from "@/hooks/use-message-send-queue";
 import { MessageSendQueueStrip } from "@/components/chat/message-send-queue-strip";
@@ -714,14 +715,23 @@ export const CoreInput: React.FC<CoreInputProps> = ({
     [model.id]
   );
 
+  const autoModelPreview = useAutoModelPreview({
+    selectedModelId: model.id,
+    text,
+    experience,
+    webSearch: useWebSearch,
+    memory: useMemories,
+  });
+
   const handleInputChange: ChangeEventHandler<HTMLTextAreaElement> = useCallback(
     (e) => {
       const v = e.target.value;
 
       setText(v);
+      autoModelPreview.notifyKeystroke();
       onComposerTextChange?.(v);
     },
-    [onComposerTextChange]
+    [autoModelPreview, onComposerTextChange]
   );
 
   const handleTextareaKeyDown: KeyboardEventHandler<HTMLTextAreaElement> = useCallback(
@@ -794,9 +804,10 @@ export const CoreInput: React.FC<CoreInputProps> = ({
       <PromptInputTextarea
         ref={textareaRef}
         value={text}
-        className={cn(variant === "compact" && "min-h-10 max-h-24 resize-none")}
+        className={cn(variant === "compact" && "min-h-8 max-h-24 resize-none")}
         onChange={handleInputChange}
         onKeyDown={onSecondarySubmit ? handleTextareaKeyDown : undefined}
+        onSelect={autoModelPreview.notifySelectionOrCursorMove}
       />
     );
 
@@ -829,6 +840,7 @@ export const CoreInput: React.FC<CoreInputProps> = ({
       showContextEffort,
       contextEffort: contextEffortLevel,
       onContextEffortChange: handleContextEffortChange,
+      autoModelPreview,
     }),
     [
       showLabels,
@@ -845,6 +857,7 @@ export const CoreInput: React.FC<CoreInputProps> = ({
       showContextEffort,
       contextEffortLevel,
       handleContextEffortChange,
+      autoModelPreview,
     ]
   );
 

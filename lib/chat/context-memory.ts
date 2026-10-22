@@ -1,9 +1,6 @@
 import type { UIMessage } from "ai";
 
-import {
-  readActivatedMemories,
-  toActivatedMemories,
-} from "@/lib/memory/activated-thread-memories";
+import { readActivatedMemories, toActivatedMemories } from "@/lib/memory/activated-thread-memories";
 
 /** Opaque references only. Memory text stays in the encrypted message/tool payload. */
 export type ContextMemoryReference = {

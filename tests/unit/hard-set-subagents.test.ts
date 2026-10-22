@@ -47,7 +47,8 @@ describe("hard-set subagent registry", () => {
       expect(definition.helpMenu.startsWith(ARCADIA_HELP_PREFIX)).toBe(false);
       expect(getHardSetSubagent(definition.id)).toBe(definition);
     }
-    expect(getHardSetSubagent("agent-coder")).toBeNull();
+    expect(getHardSetSubagent("agent-coder")?.id).toBe("subagent-coder");
+    expect(getHardSetSubagent("agent-planner")).toBeNull();
   });
 
   test("the help reflex is a marked assistant message holding the menu", () => {

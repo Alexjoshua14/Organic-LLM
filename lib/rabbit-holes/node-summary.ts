@@ -1,8 +1,8 @@
-import { createAuthenticatedLlmBudgetHooks, budgetModelId } from "@/lib/plans/llm-budget-hooks";
 import type { RabbitHoleNode } from "@/lib/schemas/rabbitHoleSchemas";
 
 import { generateText } from "ai";
 
+import { createAuthenticatedLlmBudgetHooks, budgetModelId } from "@/lib/plans/llm-budget-hooks";
 import {
   RABBIT_HOLE_NODE_SUMMARY_MAX_OUTPUT_TOKENS,
   RABBIT_HOLE_NODE_SUMMARY_MODEL,

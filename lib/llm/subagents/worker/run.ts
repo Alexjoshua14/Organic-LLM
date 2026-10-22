@@ -3,12 +3,12 @@ import type {
   WorkerGoal,
   WorkerMilestone,
 } from "@/lib/schemas/subagent-runtime";
+import type { AgentRuntimeRole } from "@/lib/llm/subagents/roles";
 
 import {
   defaultOrchestratorAwarenessBus,
   type OrchestratorAwarenessBus,
 } from "@/lib/llm/subagents/orchestrator/awareness";
-import type { AgentRuntimeRole } from "@/lib/llm/subagents/roles";
 
 export type WorkerStep =
   | { kind: "progress"; narrative: string; progressPct: number }

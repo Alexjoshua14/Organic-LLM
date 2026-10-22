@@ -512,10 +512,7 @@ export function getMessageTextForTokenEstimate(message: UIMessage): string {
 /** Serialized non-text parts (tool calls and results) that ship with the message. */
 export function getMessageToolPartsForTokenEstimate(message: UIMessage): string {
   const parts = (message.parts ?? []).filter(
-    (part) =>
-      part.type !== "text" &&
-      part.type !== "step-start" &&
-      !part.type.startsWith("data-")
+    (part) => part.type !== "text" && part.type !== "step-start" && !part.type.startsWith("data-")
   );
 
   return parts.length > 0 ? JSON.stringify(parts) : "";

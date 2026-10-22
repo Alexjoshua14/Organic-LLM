@@ -40,6 +40,8 @@ const WorktableItemSchema = z.object({
   sourceLimit: z.number().int().positive().optional(),
   /** The thread message the text was taken from (`user_message`, `subagent_output`). */
   sourceMessageId: z.string().nullable(),
+  /** Optional shorthand reference that produced this item (e.g. `node:<id>`, `out:<agentId>`). */
+  sourceRef: z.string().nullable().optional(),
   /** Whose output this is (`subagent_output`, `live_subagent_output`). */
   agentId: z.string().nullable(),
   addedAt: z.string(),
@@ -134,7 +136,14 @@ export type WorktableItemInput = z.infer<typeof WorktableItemInputSchema>;
 /** An item after server-side resolution, before it gets an id and timestamps. */
 export type ResolvedWorktableItem = Pick<
   WorktableItem,
-  "kind" | "label" | "text" | "sourceMessageId" | "agentId" | "sourceOffset" | "sourceLimit"
+  | "kind"
+  | "label"
+  | "text"
+  | "sourceMessageId"
+  | "sourceRef"
+  | "agentId"
+  | "sourceOffset"
+  | "sourceLimit"
 >;
 
 export const BundleSelectionSchema = z.union([
