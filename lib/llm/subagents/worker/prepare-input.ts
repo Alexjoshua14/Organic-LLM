@@ -11,14 +11,14 @@ import {
 } from "../threads/context-items";
 
 import { buildWorkerSystem } from "./run-with-model";
-import { SUBAGENT_MAX_INPUT_TOKENS } from "./cost-limits";
+import { SUBAGENT_MAX_INPUT_TOKENS, SUBAGENT_THREAD_CONTEXT_MESSAGES } from "./cost-limits";
 
 import { compileChatTools } from "@/lib/llm/compile-chat-tools";
 import { estimateTokenCountSync } from "@/lib/chat/context-budget";
 import { computeUsageCostUsd } from "@/lib/rate-limit/llm-cost";
 import { buildLockedWorkerSystem } from "@/lib/llm/subagents/hard-set/shell";
 
-export const SUBAGENT_THREAD_CONTEXT_MESSAGES = 30;
+export { SUBAGENT_THREAD_CONTEXT_MESSAGES };
 export const SUBAGENT_TOOL_HEADROOM_TOKENS = 4_000;
 
 export type WorkerInputBudget = {

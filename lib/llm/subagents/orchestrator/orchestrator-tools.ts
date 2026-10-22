@@ -50,9 +50,9 @@ import {
 import {
   estimateWorkerInput,
   selectWorkerHistory,
-  SUBAGENT_THREAD_CONTEXT_MESSAGES,
   workerModelMessages,
 } from "@/lib/llm/subagents/worker/prepare-input";
+import { SUBAGENT_THREAD_CONTEXT_MESSAGES } from "@/lib/llm/subagents/worker/cost-limits";
 import { resolveEffectiveSubagentStatus } from "@/lib/llm/subagents/threads/status";
 import { getWorkbenchManpage } from "@/lib/llm/subagents/worktable/manpages";
 import {

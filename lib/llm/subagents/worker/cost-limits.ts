@@ -5,6 +5,8 @@ import { AGENT_MODEL } from "@/lib/llm/helpers";
 
 export const SUBAGENT_TOTAL_OUTPUT_TOKENS = 16_000;
 /** Estimated input includes messages, instructions and serialized tool schemas on every step. */
+/** Lives here, not in prepare-input, so orchestrator-tools can read it at module load. */
+export const SUBAGENT_THREAD_CONTEXT_MESSAGES = 30;
 export const SUBAGENT_MAX_INPUT_TOKENS = 24_000;
 
 export function subagentRunLimits(research: boolean) {
