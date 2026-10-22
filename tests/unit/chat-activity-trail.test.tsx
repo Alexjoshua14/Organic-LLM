@@ -1,7 +1,8 @@
 import { afterEach, describe, expect, jest, test } from "bun:test";
 import { act, cleanup, fireEvent, renderHook } from "@testing-library/react";
+import { useState } from "react";
 
-import { ChatReasoningBlock } from "@/components/chat/chat-reasoning-block";
+import { ChatActivityTrail, ChatReasoningProse } from "@/components/chat/chat-activity-trail";
 import { useReasoningText } from "@/components/chat/use-reasoning-text";
 import { render } from "../helpers/render";
 
@@ -10,53 +11,79 @@ afterEach(() => {
   jest.useRealTimers();
 });
 
-describe("reasoning presentation", () => {
-  test("keeps an opened disclosure and its text mounted through updates and completion", () => {
-    const view = render(<ChatReasoningBlock id="reason" isStreaming text="First point." />);
-    const trigger = view.getByRole("button", { name: /Reasoning/ });
+function Trail(props: {
+  isLive: boolean;
+  text: string;
+  summary?: string | null;
+  headline?: string;
+}) {
+  const [open, setOpen] = useState(false);
+
+  return (
+    <ChatActivityTrail
+      hasContent={Boolean(props.text)}
+      headline={props.headline ?? "Thinking…"}
+      id="reason"
+      isLive={props.isLive}
+      open={open}
+      summary={props.summary ?? null}
+      onOpenChange={setOpen}
+    >
+      {props.text ? <ChatReasoningProse animate={props.isLive && open} text={props.text} /> : null}
+    </ChatActivityTrail>
+  );
+}
+
+describe("activity trail presentation", () => {
+  test("keeps an opened trail and its text mounted from live headline to settled summary", () => {
+    const view = render(<Trail isLive headline="Checking sources" text="First point." />);
+    const trigger = view.getByRole("button", { name: /Reasoning in progress/ });
+
+    expect(trigger.textContent).toContain("Checking sources");
     fireEvent.click(trigger);
     const paragraph = view.getByText("First point.");
 
+    view.rerender(<Trail isLive headline="Comparing" text="First point. More evidence." />);
     view.rerender(
-      <ChatReasoningBlock id="reason" isStreaming text="First point. More evidence." />
-    );
-    view.rerender(
-      <ChatReasoningBlock id="reason" isStreaming={false} text="First point. More evidence." />
+      <Trail isLive={false} summary="Thought for 14s" text="First point. More evidence." />
     );
 
-    expect(view.getByRole("button", { name: "Reasoning" })).toBe(trigger);
+    expect(view.getByRole("button", { name: "Thought for 14s" })).toBe(trigger);
     expect(trigger.getAttribute("aria-expanded")).toBe("true");
     expect(view.getByText("First point. More evidence.")).toBe(paragraph);
     expect(view.container.querySelector(".processing-text-burn")).toBeNull();
   });
 
-  test("loading and populated reasoning share the same quiet header treatment", () => {
-    const view = render(<ChatReasoningBlock id="reason" isStreaming text="" />);
+  test("without inspectable content the header is static, and absent when there is nothing to say", () => {
+    const view = render(<Trail isLive text="" />);
+
     expect(view.getByRole("status").className).toContain("chat-reasoning__header");
-    view.rerender(<ChatReasoningBlock id="reason" isStreaming text="Evidence" />);
-    expect(view.getByRole("button", { name: /Reasoning/ }).className).toContain(
-      "chat-reasoning__header"
-    );
-    expect(view.container.firstElementChild?.className).toContain("not-prose");
+    view.rerender(<Trail isLive={false} summary="Thought for 3s" text="" />);
+    expect(view.queryByRole("button")).toBeNull();
+    expect(view.container.textContent).toContain("Thought for 3s");
+    view.rerender(<Trail isLive={false} text="" />);
+    expect(view.container.firstElementChild).toBeNull();
   });
 
-  test("retains readable Markdown and every paragraph in an independently styled disclosure", () => {
+  test("retains readable Markdown and every paragraph in an independently styled trail", () => {
     const text =
       "## A secondary heading\n\nEvidence with **emphasis**.\n\nAnother paragraph and [a source](https://example.com).";
     const view = render(
       <div className="prose">
-        <ChatReasoningBlock id="reason" isStreaming={false} text={text} />
+        <Trail isLive={false} text={text} />
       </div>
     );
+
     fireEvent.click(view.getByRole("button", { name: "Reasoning" }));
     expect(
-      view.getByRole("heading", { name: "A secondary heading" }).closest(".chat-reasoning__content")
+      view.getByRole("heading", { name: "A secondary heading" }).closest(".chat-reasoning__prose")
     ).toBeTruthy();
     expect(view.getByText("emphasis").tagName).toBe("STRONG");
     expect(view.getByRole("link", { name: "a source" }).getAttribute("href")).toBe(
       "https://example.com"
     );
     expect(view.container.textContent).toContain("Another paragraph");
+    expect(view.container.querySelector(".chat-reasoning")?.className).toContain("not-prose");
   });
 });
 

@@ -10,6 +10,7 @@
 
 .chat-reasoning__header {
   display: inline-flex;
+  max-width: 100%;
   min-height: 1.5rem;
   align-items: center;
   gap: 0.375rem;
@@ -19,6 +20,26 @@
   font-size: 0.75rem;
   font-weight: 500;
   line-height: 1.25rem;
+}
+
+/* Reasoning and process tools, in the order they happened. */
+.chat-reasoning__steps {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+/* Live headlines change per step; one truncated line keeps the header from reflowing. */
+.chat-reasoning__label {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* A fixed slot while live, so the chevron holds still as headlines change; it resizes once on settle. */
+.chat-reasoning[data-streaming="true"] .chat-reasoning__label {
+  width: min(36ch, 100%);
 }
 
 .chat-reasoning__icon {
@@ -73,18 +94,18 @@
   overflow-wrap: anywhere;
 }
 
-.chat-reasoning__content :is(p, ul, ol, pre, blockquote, table) {
+.chat-reasoning__prose :is(p, ul, ol, pre, blockquote, table) {
   margin: 0.5rem 0;
 }
 
 /* Global paragraph/list defaults set answer-sized type; override them inside summaries. */
-.chat-reasoning__content :is(p, li) {
+.chat-reasoning__prose :is(p, li) {
   color: inherit;
   font-size: inherit;
   line-height: inherit;
 }
 
-.chat-reasoning__content :is(h1, h2, h3, h4, h5, h6) {
+.chat-reasoning__prose :is(h1, h2, h3, h4, h5, h6) {
   margin: 0.75rem 0 0.25rem;
   color: inherit;
   font-size: inherit;
@@ -92,53 +113,53 @@
   line-height: inherit;
 }
 
-.chat-reasoning__content :is(strong, b) {
+.chat-reasoning__prose :is(strong, b) {
   color: inherit;
   font-weight: 500;
 }
 
-.chat-reasoning__content :is(a, code, blockquote) {
+.chat-reasoning__prose :is(a, code, blockquote) {
   color: inherit;
 }
 
-.chat-reasoning__content a {
+.chat-reasoning__prose a {
   text-decoration: underline;
   text-underline-offset: 2px;
 }
 
-.chat-reasoning__content :is(ul, ol) {
+.chat-reasoning__prose :is(ul, ol) {
   padding-left: 1.25rem;
   list-style: revert;
 }
 
-.chat-reasoning__content blockquote {
+.chat-reasoning__prose blockquote {
   padding-left: 0.75rem;
   border-left: 1px solid var(--border);
 }
 
-.chat-reasoning__content code {
+.chat-reasoning__prose code {
   font-size: 0.75rem;
 }
 
-.chat-reasoning__content :is(pre, table) {
+.chat-reasoning__prose :is(pre, table) {
   max-width: 100%;
   overflow-x: auto;
 }
 
-.chat-reasoning__content table {
+.chat-reasoning__prose table {
   display: block;
   border-collapse: collapse;
 }
 
-.chat-reasoning__content :is(th, td) {
+.chat-reasoning__prose :is(th, td) {
   padding: 0.25rem 0.5rem;
   border: 1px solid var(--border);
 }
 
-.chat-reasoning__content > :first-child {
+.chat-reasoning__prose > :first-child {
   margin-top: 0;
 }
-.chat-reasoning__content > :last-child {
+.chat-reasoning__prose > :last-child {
   margin-bottom: 0;
 }
 

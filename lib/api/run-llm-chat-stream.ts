@@ -12,6 +12,7 @@ import { shouldSkipMemoryWriteForExperience } from "@/lib/chat/chat-experience";
 import { getMessageCount } from "@/data/supabase/chat";
 import { shouldAttemptInitialTitle } from "@/lib/chat/summary-title-cadence";
 import { saveChat } from "@/lib/chat/chat-store";
+import { createActivityTrailTimer } from "@/lib/chat/activity-trail";
 import { finalizeStreamingParts } from "@/lib/chat/finalize-message-parts";
 import { ensureChatHasTitle, updateChatSummary } from "@/lib/llm/chat-helpers";
 import { CHAT_MODEL, measureAsync } from "@/lib/llm/helpers";
@@ -126,6 +127,7 @@ export async function runLLMChatStream(params: RunLLMChatStreamParams): Promise<
 
   // Effort plus reasoning-summary opt-ins so the chat can show provider reasoning.
   const effortProviderOptions = buildChatReasoningProviderOptions(selectedModel.id, effort);
+  const observeActivityTrail = createActivityTrailTimer();
 
   const providerOptionsSummary = {
     zeroDataRetention: isZeroDataRetention,
@@ -263,6 +265,8 @@ export async function runLLMChatStream(params: RunLLMChatStreamParams): Promise<
   writer.merge(
     result.toUIMessageStream({
       generateMessageId: () => assistantMessageId,
+      // Per-trail "Thought for Ns", measured in stream order and saved with the message.
+      messageMetadata: ({ part }) => observeActivityTrail(part),
       sendStart: false, // The outer stream announces this ID before context and progress data.
       onError: (error) => {
         logger.error("POST", "UI stream error", {
