@@ -5,6 +5,8 @@ import remarkGfm from "remark-gfm";
 
 import { MermaidDiagram } from "@/components/blog/mermaid-diagram";
 import { CodeBlock, CodeInline } from "@/components/shared/code-block";
+import { ThreadReferenceCard } from "@/components/chat/thread-reference/thread-reference-card";
+import { parseThreadPointer } from "@/lib/chat/thread-reference";
 
 const InBlockCodeContext = createContext(false);
 
@@ -82,9 +84,11 @@ export const ChatMessageMarkdown = memo(
 
     return (
       <WrapCodeBlocksContext.Provider value={wrapCodeBlocks}>
-        {blocks.map((block, index) => (
-          <MemoizedMarkdownBlock key={`${id}-block_${index}`} content={block} />
-        ))}
+        {blocks.map((block, index) => {
+          // Whole marker blocks only: fenced/inline code and ordinary UUID prose stay literal.
+          const threadId = block.trim().startsWith("[thread:") ? parseThreadPointer(block) : null;
+          return threadId ? <div key={`${id}-block_${index}`} className="my-2"><ThreadReferenceCard id={threadId} /></div> : <MemoizedMarkdownBlock key={`${id}-block_${index}`} content={block} />;
+        })}
       </WrapCodeBlocksContext.Provider>
     );
   },

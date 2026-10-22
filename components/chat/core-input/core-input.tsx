@@ -86,6 +86,9 @@ import { useDiagramNodeLinksOptional } from "@/lib/mermaid/diagram-node-links-co
 import { useMessageSendQueue } from "@/hooks/use-message-send-queue";
 import { MessageSendQueueStrip } from "@/components/chat/message-send-queue-strip";
 import { shouldEnqueueInsteadOfSend } from "@/lib/message-queue/dispatch-gates";
+import { ThreadReferenceCard } from "@/components/chat/thread-reference/thread-reference-card";
+import { ThreadClipboardPicker } from "@/components/chat/thread-reference/thread-clipboard-picker";
+import { parseThreadPointer, threadReferenceMarker } from "@/lib/chat/thread-reference";
 
 type CoreInputProps = {
   modelRef: React.RefObject<ChatModel>;
@@ -248,6 +251,12 @@ export const CoreInput: React.FC<CoreInputProps> = ({
   const [useMemories, setUseMemories] = useState<boolean>(defaultMemories);
   const [useSpeechFriendly, setUseSpeechFriendly] = useState<boolean>(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const [threadReferences, setThreadReferences] = useState<string[]>([]);
+  const addThreadReference = (id: string) => {
+    const pointer = parseThreadPointer(id);
+    if (pointer) setThreadReferences((current) => [...new Set([...current, pointer])].slice(0, 8));
+  };
+  useEffect(() => { setThreadReferences([]); }, [chatId]);
   const toolsRef = useRef<HTMLDivElement | null>(null);
   const showLabelsRef = useRef(false);
   const isCondensedRef = useRef(false);
@@ -269,7 +278,7 @@ export const CoreInput: React.FC<CoreInputProps> = ({
   const statusRef = useRef<typeof status>("ready");
   const isBlankChatRef = useRef(Boolean(isBlankChat));
 
-  inputEmptyRef.current = text.trim() === "";
+  inputEmptyRef.current = text.trim() === "" && threadReferences.length === 0;
   statusRef.current = status ?? "ready";
   isBlankChatRef.current = Boolean(isBlankChat);
   // Mirror the toggle state into the caller-owned refs every render, so the value
@@ -621,13 +630,13 @@ export const CoreInput: React.FC<CoreInputProps> = ({
     const textFromState = text.trim();
     const textToSend = textFromForm || textFromState || (textareaRef.current?.value ?? "").trim();
     const hasText = Boolean(textToSend);
-    const hasAttachments = Boolean(message.files?.length);
+    const hasAttachments = Boolean(message.files?.length) || threadReferences.length > 0;
 
     if (!(hasText || hasAttachments)) {
       return;
     }
 
-    const finalText = textToSend || "Sent with attachments";
+    const finalText = [textToSend, ...threadReferences.map(threadReferenceMarker)].filter(Boolean).join("\n\n") || "Sent with attachments";
     const submission = queueEnabled ? null : { threadId: chatId };
 
     if (submission) {
@@ -646,6 +655,7 @@ export const CoreInput: React.FC<CoreInputProps> = ({
 
     flushSync(() => {
       setText("");
+      setThreadReferences([]);
       onComposerTextChange?.("");
       if (enableMarkdownInputPreview) {
         setInputMarkdownMode("edit");
@@ -741,7 +751,7 @@ export const CoreInput: React.FC<CoreInputProps> = ({
     : pendingSend !== null && pendingSend.threadId === chatId && status === "ready"
       ? "submitted"
       : status;
-  const organicSubmitState = resolveOrganicSubmitState(composerStatus, text.trim().length > 0);
+  const organicSubmitState = resolveOrganicSubmitState(composerStatus, text.trim().length > 0 || threadReferences.length > 0);
 
   const showSentShimmer =
     !queueEnabled &&
@@ -796,6 +806,13 @@ export const CoreInput: React.FC<CoreInputProps> = ({
         value={text}
         className={cn(variant === "compact" && "min-h-10 max-h-24 resize-none")}
         onChange={handleInputChange}
+        onPasteCapture={(event) => {
+          const id = parseThreadPointer(event.clipboardData.getData("text/plain"));
+          if (!id || threadReferences.length >= 8) return;
+          event.preventDefault();
+          event.stopPropagation();
+          addThreadReference(id);
+        }}
         onKeyDown={onSecondarySubmit ? handleTextareaKeyDown : undefined}
       />
     );
@@ -890,6 +907,7 @@ export const CoreInput: React.FC<CoreInputProps> = ({
   const attachmentActions = (
     <>
       <ComposerAddFilesButton />
+      <ThreadClipboardPicker onSelect={addThreadReference} />
       {(!enableMarkdownInputPreview || inputMarkdownMode === "edit") && (
         <ComposerMicButton textareaRef={textareaRef} onTranscriptionChange={setText} />
       )}
@@ -959,7 +977,7 @@ export const CoreInput: React.FC<CoreInputProps> = ({
     <PromptInputSubmit
       className={cn(submitVariant === "organic-glass" && organicGlassSubmitClassName)}
       // Multi-mode: always submit (never stop). Default: keep stop available while streaming.
-      disabled={queueEnabled ? !text.trim() || disabled : (!text && !status) || disabled}
+      disabled={queueEnabled ? (!text.trim() && threadReferences.length === 0) || disabled : (!text && !status && threadReferences.length === 0) || disabled}
       status={composerStatus}
       stop={queueEnabled ? undefined : stop}
     >
@@ -986,6 +1004,9 @@ export const CoreInput: React.FC<CoreInputProps> = ({
       {/* Carries no padding of its own: the attachment rail brings `p-3`, and an
           empty header would otherwise reserve a blank band above the textarea. */}
       <PromptInputHeader className="p-0">
+        {threadReferences.length > 0 ? <div className="flex flex-wrap gap-1.5 px-3 pt-3">
+          {threadReferences.map((id) => <ThreadReferenceCard key={id} id={id} onRemove={() => setThreadReferences((current) => current.filter((item) => item !== id))} />)}
+        </div> : null}
         <PromptInputAttachments>
           {(attachment) => <PromptInputAttachment data={attachment} />}
         </PromptInputAttachments>
