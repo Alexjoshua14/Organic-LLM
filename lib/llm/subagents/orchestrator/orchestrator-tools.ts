@@ -692,6 +692,7 @@ export function createOrchestratorTools(input: OrchestratorToolsInput): ToolSet 
       agentId,
       name: identity.name,
       role: identity.role,
+      threadId,
       goalId: goal.goalId,
       modelId: selection.modelId,
       modelTier: selection.tier,

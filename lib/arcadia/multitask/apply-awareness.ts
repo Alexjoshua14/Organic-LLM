@@ -57,21 +57,22 @@ export function applyWorkerAwarenessToSubagent(
 /** Adopt assigned goals from a dispatch onto matching roster slots. */
 export function applyAssignedGoalsToRoster(
   agents: ReadonlyArray<ArcadiaSubagent>,
-  goals: ReadonlyArray<Pick<WorkerGoal, "agentId" | "goal">>
+  goals: ReadonlyArray<
+    Pick<WorkerGoal, "agentId" | "goal"> & { goalId?: string; threadId?: string }
+  >
 ): ArcadiaSubagent[] {
   if (goals.length === 0) return [...agents];
 
-  const byAgent = new Map<string, string>();
-  for (const g of goals) {
-    byAgent.set(g.agentId, g.goal);
-  }
+  const byAgent = new Map(goals.map((goal) => [goal.agentId, goal]));
 
   return agents.map((agent) => {
     const goal = byAgent.get(agent.id);
     if (!goal) return agent;
     return {
       ...agent,
-      goal,
+      goal: goal.goal,
+      latestGoalId: goal.goalId ?? null,
+      threadId: goal.threadId ?? agent.threadId,
       progress: "Accepted — starting model run.",
       progressPct: 0,
       status: "working" as const,
