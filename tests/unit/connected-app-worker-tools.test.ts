@@ -59,10 +59,8 @@ describe("connected-app tools in hard-set worker runs", () => {
 
       expect(names.some((name) => name.startsWith("chronos_"))).toBe(agent.tools.chronos === true);
       expect(names.includes("ergon_start_agent_run")).toBe(agent.tools.ergon === true);
-      // Mira's read,agents token replaces the read,write ticket tools; research runs get neither.
-      expect(names.includes("ergon_save_issue")).toBe(
-        agent.tools.ergon !== true && agent.tools.research !== true
-      );
+      // Worker runs never get the read,write ticket tools, so Mira stays read-plus-agent-runs.
+      expect(names.includes("ergon_save_issue")).toBe(false);
     }
   });
 

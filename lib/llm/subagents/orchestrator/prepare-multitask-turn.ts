@@ -2,6 +2,7 @@ import type { LanguageModelUsage, UIMessage, UIMessageStreamWriter } from "ai";
 import type { ChatUIMessage } from "@/types/ai";
 import type { ArcadiaMultitaskSendTargetParsed } from "@/lib/schemas/arcadia-multitask-send-target";
 import type { WorkerGoal } from "@/lib/schemas/subagent-runtime";
+import type { UserConnectorsProfile } from "@/lib/schemas/user-connectors";
 import type {
   SubagentThreadRow,
   SubagentThreadSnapshot,
@@ -125,6 +126,8 @@ export type PrepareMultitaskTurnInput = {
   hardLimitUsd?: number;
   /** Optional max parallel dispatches per turn override (e.g. 4 in Rabbit Hole). */
   maxDispatchesPerTurn?: number;
+  /** Private connectors profile, so the orchestrator can route grounding to Reed, Lyra, and Archer. */
+  userConnectors?: UserConnectorsProfile | null;
   now?: () => number;
 };
 
@@ -315,6 +318,7 @@ export async function prepareArcadiaMultitaskTurn(
           autonomousRemaining,
           budget: budgetSnapshot,
           maxDispatchesPerTurn: input.maxDispatchesPerTurn,
+          connectors: input.userConnectors,
         }),
         formatWorktableFragment(table)
       );

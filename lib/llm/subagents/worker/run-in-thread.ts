@@ -16,6 +16,7 @@ import {
   buildSubagentThreadSystem,
   prepareWorkerTools,
   SUBAGENT_THREAD_CONTEXT_MESSAGES,
+  trimModelMessagesToPreflight,
   workerModelMessages,
 } from "./prepare-input";
 
@@ -109,7 +110,8 @@ const defaultGenerate: SubagentTurnGenerate = async (args) => {
   const research = toolPolicy?.research === true;
   const limits = subagentRunLimits(research);
 
-  const { tools, instructions, toolSchemaText, budget } = await prepareWorkerTools({
+  let messages = options.messages;
+  let prepared = await prepareWorkerTools({
     chatId,
     initialMessageCount,
     sbUserId,
@@ -117,8 +119,41 @@ const defaultGenerate: SubagentTurnGenerate = async (args) => {
     system,
     toolPolicy,
     model: options.model,
-    messages: options.messages,
+    messages,
   });
+  const historyMode = assignment ? readSubagentContext(assignment)?.history.mode : undefined;
+
+  if (
+    (!historyMode || historyMode === "continue") &&
+    prepared.budget.estimatedInputTokens + prepared.budget.reservedToolTokens >
+      prepared.budget.inputLimitTokens &&
+    messages.length > 1
+  ) {
+    const trimmed = trimModelMessagesToPreflight({
+      messages,
+      instructions: prepared.instructions,
+      toolSchemaText: prepared.toolSchemaText,
+      modelId: options.model,
+    });
+
+    if (trimmed.messages.length < messages.length) {
+      messages = trimmed.messages;
+      prepared = trimmed.inspection.fits
+        ? await prepareWorkerTools({
+            chatId,
+            initialMessageCount: messages.length,
+            sbUserId,
+            assignment,
+            system,
+            toolPolicy,
+            model: options.model,
+            messages,
+          })
+        : { ...prepared, budget: trimmed.inspection.budget };
+    }
+  }
+
+  const { tools, instructions, toolSchemaText, budget } = prepared;
 
   if (
     assignment &&
@@ -139,7 +174,13 @@ const defaultGenerate: SubagentTurnGenerate = async (args) => {
 
   const result = await generateText({
     ...options,
-    ...withSubagentCostLimits(budgetHooks, { instructions, toolSchemaText, research }),
+    messages,
+    ...withSubagentCostLimits(budgetHooks, {
+      instructions,
+      toolSchemaText,
+      research,
+      modelId: options.model,
+    }),
     instructions,
     maxOutputTokens: limits.maxOutputTokens,
     tools,

@@ -62,6 +62,7 @@ import { RABBIT_HOLE_MAX_DISPATCHES_PER_TURN } from "@/lib/llm/subagents/orchest
 import { createMultitaskTurnDeps } from "@/lib/llm/subagents/orchestrator/multitask-turn-deps";
 import { withArcadiaOrchestratorTools } from "@/lib/llm/subagents/orchestrator/orchestrator-tools";
 import { foldSystemNoticesForModel } from "@/lib/llm/subagents/threads/fold-system-notices";
+import { loadUserConnectorsProfile } from "@/lib/connectors/user-connectors-store";
 import { getPlanBudgetForUser } from "@/lib/plans/plan-budget";
 
 // The stream still ends with the orchestrator's reply. The higher ceiling is for Arcadia subagent
@@ -224,6 +225,10 @@ export async function POST(req: Request) {
         clerkUserId,
         route: "/api/chat",
       });
+      const userConnectors =
+        experience === "arcadia" || experience === "rabbit_hole"
+          ? await loadUserConnectorsProfile(clerkUserId).catch(() => null)
+          : null;
 
       if (experience === "arcadia") {
         multitask = await prepareArcadiaMultitaskTurn({
@@ -235,6 +240,7 @@ export async function POST(req: Request) {
           zeroDataRetention: isZeroDataRetention,
           writer,
           deps: multitaskDeps,
+          userConnectors,
         });
       } else if (experience === "rabbit_hole" && id) {
         if (rabbitHoleSessionId) {
@@ -263,6 +269,7 @@ export async function POST(req: Request) {
           deps: multitaskDeps,
           planBudget: livePlanBudget,
           maxDispatchesPerTurn: RABBIT_HOLE_MAX_DISPATCHES_PER_TURN,
+          userConnectors,
         });
       }
 
@@ -433,6 +440,7 @@ export async function POST(req: Request) {
         rabbitHoleNodes,
         rabbitHoleActiveNodeId,
         rabbitHoleRootNodeId,
+        userConnectors,
         planBudget: livePlanBudget,
         maxDispatchesPerTurn:
           experience === "rabbit_hole" ? RABBIT_HOLE_MAX_DISPATCHES_PER_TURN : undefined,

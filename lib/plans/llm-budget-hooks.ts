@@ -72,6 +72,18 @@ export function createLlmBudgetHooks(
   };
 }
 
+/**
+ * Background work that already knows the Supabase profile id. Does not call `auth()`.
+ * Awaits the initial budget check because `generateObject` has no `prepareStep` hook.
+ */
+export async function createOwnerLlmBudgetHooks(input: BudgetHookInput) {
+  const hooks = createLlmBudgetHooks(input);
+
+  await hooks.prepareStep();
+
+  return hooks;
+}
+
 /** For server actions/helpers: resolve identity from the request, never from action arguments. */
 export async function createAuthenticatedLlmBudgetHooks(
   input: Omit<BudgetHookInput, "ownerId" | "clerkUserId">

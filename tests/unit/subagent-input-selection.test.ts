@@ -1,12 +1,16 @@
 import type { UIMessage } from "ai";
 import { describe, expect, mock, test } from "bun:test";
 
+import { estimateTokenCountSync } from "@/lib/chat/context-budget";
 import { buildSubagentGoalMessage } from "@/lib/llm/subagents/threads/messages";
 import { runSubagentThreadTurn } from "@/lib/llm/subagents/worker/run-in-thread";
 import {
+  SUBAGENT_PREFLIGHT_INPUT_LIMIT_TOKENS,
   estimateWorkerInput,
   inspectWorkerInput,
   selectWorkerHistory,
+  trimModelMessagesToPreflight,
+  trimWorkerHistoryToBudget,
   workerModelMessages,
 } from "@/lib/llm/subagents/worker/prepare-input";
 import {
@@ -42,7 +46,77 @@ describe("worker context selection and preflight", () => {
     expect(() => selectWorkerHistory(history, "fresh", ["first"])).toThrow("cannot also select");
     const assignment = buildSubagentGoalMessage({ goal: "Continue", goalId: "goal" });
     const prefix = await workerModelMessages(history, assignment);
+
     expect(prefix.slice(0, 2)).toEqual(await workerModelMessages(history.slice(0, 1), history[1]!));
+  });
+
+  test("continue mode keeps the newest history that fits the 20k preflight window", () => {
+    const history: UIMessage[] = [];
+
+    while (
+      estimateTokenCountSync(JSON.stringify(history)) <= SUBAGENT_PREFLIGHT_INPUT_LIMIT_TOKENS
+    ) {
+      history.push(
+        message(`h${history.length}`, `turn ${history.length} ${"evidence ".repeat(1_500)}`)
+      );
+      if (history.length > 30) break;
+    }
+
+    expect(history.length).toBeGreaterThan(1);
+    const selected = selectWorkerHistory(history);
+
+    expect(estimateTokenCountSync(JSON.stringify(selected.messages))).toBeLessThanOrEqual(
+      SUBAGENT_PREFLIGHT_INPUT_LIMIT_TOKENS
+    );
+    expect(selected.messages.length).toBeGreaterThan(0);
+    expect(selected.messages.length).toBeLessThan(history.length);
+    expect(selected.messages.at(-1)?.id).toBe(history.at(-1)?.id);
+    expect(selected.selection).toEqual({
+      mode: "continue",
+      messageIds: selected.messages.map((item) => item.id),
+    });
+    expect(
+      selectWorkerHistory(history, "continue", ["h0"]).messages.map((item) => item.id)
+    ).toEqual(["h0"]);
+  });
+
+  test("history trimming reserves the 4k tool headroom under the 24k input limit", async () => {
+    const history: UIMessage[] = [];
+
+    while (
+      estimateTokenCountSync(JSON.stringify(history)) <= SUBAGENT_PREFLIGHT_INPUT_LIMIT_TOKENS
+    ) {
+      history.push(
+        message(`t${history.length}`, `turn ${history.length} ${"evidence ".repeat(1_500)}`)
+      );
+      if (history.length > 30) break;
+    }
+
+    const assignment = message("job", "Summarize the newest turn.");
+    const trimmed = await trimWorkerHistoryToBudget({
+      history,
+      assignment,
+      instructions: "Standing instructions. ".repeat(400),
+      toolSchemaText: JSON.stringify([{ name: "web_search", schema: { type: "object" } }]),
+      modelId: models.anthropic.haiku.id,
+    });
+    const modelTrim = trimModelMessagesToPreflight({
+      messages: await workerModelMessages(history, assignment),
+      instructions: "Standing instructions. ".repeat(400),
+      toolSchemaText: "[]",
+      modelId: models.anthropic.haiku.id,
+    });
+
+    expect(trimmed.inspection.fits).toBe(true);
+    expect(trimmed.inspection.budget.inputLimitTokens).toBe(24_000);
+    expect(trimmed.inspection.budget.reservedToolTokens).toBe(4_000);
+    expect(
+      trimmed.inspection.budget.estimatedInputTokens + trimmed.inspection.budget.reservedToolTokens
+    ).toBeLessThanOrEqual(24_000);
+    expect(trimmed.history.length).toBeLessThan(history.length);
+    expect(trimmed.history.at(-1)?.id).toBe(history.at(-1)?.id);
+    expect(modelTrim.inspection.fits).toBe(true);
+    expect(JSON.stringify(modelTrim.messages.at(-1))).toContain("Summarize the newest turn.");
   });
 
   test("budget covers instructions, tool schemas, history, and tool-result headroom", () => {

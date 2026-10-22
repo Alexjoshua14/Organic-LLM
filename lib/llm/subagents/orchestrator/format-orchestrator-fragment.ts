@@ -15,6 +15,10 @@ import {
   ORCHESTRATOR_MAX_DISPATCHES_PER_TURN,
 } from "@/lib/llm/subagents/orchestrator/constants";
 import { formatWorkbenchCompactGuide } from "@/lib/llm/subagents/worktable/manpages";
+import {
+  formatConnectorSpecialistRouting,
+  type UserConnectorsProfile,
+} from "@/lib/schemas/user-connectors";
 
 function autonomyLine(
   autonomous: boolean,
@@ -42,7 +46,10 @@ export function formatOrchestratorFragment(args: {
   autonomousRemaining: number | null;
   budget?: SubagentBudgetSnapshot | SubagentPlanBudgetInput | null;
   maxDispatchesPerTurn?: number;
+  /** Private Settings → Connectors profile. Adds Reed / Lyra / Archer routing when populated. */
+  connectors?: UserConnectorsProfile | null;
 }): string {
+  const connectorRouting = formatConnectorSpecialistRouting(args.connectors);
   const maxDispatchesPerTurn =
     args.maxDispatchesPerTurn ??
     (args.budget && "maxParallelDispatches" in args.budget
@@ -80,5 +87,6 @@ export function formatOrchestratorFragment(args: {
     ...roster,
     "",
     formatWorkbenchCompactGuide(),
+    ...(connectorRouting ? ["", connectorRouting] : []),
   ].join("\n");
 }

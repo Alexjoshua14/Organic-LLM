@@ -16,6 +16,7 @@ import type {
   RabbitHoleNodeLike,
   ShorthandResolutionResult,
 } from "@/lib/llm/subagents/worktable/shorthand";
+import type { GithubConnectorSnapshot, UserConnectorsProfile } from "@/lib/schemas/user-connectors";
 
 import { createHash } from "crypto";
 
@@ -121,6 +122,12 @@ export type OrchestratorToolsInput = {
   rabbitHoleNodes?: Record<string, RabbitHoleNodeLike> | null;
   rabbitHoleActiveNodeId?: string | null;
   rabbitHoleRootNodeId?: string | null;
+  /** Private connectors profile for `connector:<slice>` shorthand. */
+  userConnectors?: UserConnectorsProfile | null;
+  /** Optional live GitHub snapshot. Defaults to `userConnectors.cachedGithubSnapshot`. */
+  githubSnapshot?: GithubConnectorSnapshot | null;
+  /** Loads connectors when a `connector:` ref is expanded and `userConnectors` was not passed. */
+  loadUserConnectors?: () => Promise<UserConnectorsProfile | null>;
   /** Optional plan budget snapshot or turn hard limit for self-managed USD gating. */
   planBudget?: SubagentPlanBudgetInput | null;
   hardLimitUsd?: number;
@@ -178,7 +185,7 @@ export function countAutonomousDispatchesSinceUser(messages: ReadonlyArray<UIMes
 export const ORCHESTRATOR_TOOL_INSTRUCTIONS = [
   "Use dispatch_subagent only when the budget-first policy in [Orchestrator] warrants a specialist. Prefer one economy worker; additional parallel dispatches need additionalDispatchReason, and standard/frontier modelTier needs modelReason.",
   'Use worktable to keep reusable context bundles — create once, update single items, and send again. Call worktable({ action: "man", topic }) for detailed LLM manpages on shorthand, budget, rabbit_hole, or any specialist.',
-  "Use shorthand references (node:<id>, out:<agentId>, msg:<id>, th:<threadId>, bundle:<id>) to bundle context without copying bulky text. Select only relevant bundle items and source excerpts. Use dryRun to inspect complete input and USD budget sizing.",
+  "Use shorthand references (node:<id>, connector:<slice>, out:<agentId>, msg:<id>, th:<threadId>, bundle:<id>) to bundle context without copying bulky text. Route connector:github to Reed, connector:dossier|education|career|resume to Lyra, and connector:preferences to Archer. Select only relevant bundle items and source excerpts. Use dryRun to inspect complete input and USD budget sizing.",
 ].join(" ");
 
 export const WorktableActionSchema = z.enum([
@@ -202,7 +209,7 @@ const WorktableToolInputSchema = z.object({
     .max(64)
     .optional()
     .describe(
-      "man: topic to read (overview, worktable, dispatch_subagent, budget, shorthand, rabbit_hole, lyra, reed, archer, mira, cass, vesper)."
+      "man: topic to read (overview, worktable, dispatch_subagent, budget, shorthand, connectors, rabbit_hole, lyra, reed, archer, mira, cass, vesper)."
     ),
   bundle: z
     .string()
@@ -234,7 +241,7 @@ const WorktableToolInputSchema = z.object({
     .max(WORKTABLE_LIMITS.itemsPerBundle)
     .optional()
     .describe(
-      "create/add_items: shorthand refs to expand into items (node:<id>, out:<agentId>, msg:<id>, th:<threadId>)."
+      "create/add_items: shorthand refs to expand into items (node:<id>, connector:<slice>, out:<agentId>, msg:<id>, th:<threadId>)."
     ),
   itemIds: z
     .array(z.string().max(32))
@@ -290,7 +297,7 @@ const DispatchToolInputSchema = z.object({
     .max(WORKTABLE_LIMITS.itemsPerBundle)
     .optional()
     .describe(
-      "Compact shorthand refs for this dispatch (node:<id>, out:<agentId>, msg:<id>, th:<threadId>, bundle:<id>)."
+      "Compact shorthand refs for this dispatch (node:<id>, connector:<slice>, out:<agentId>, msg:<id>, th:<threadId>, bundle:<id>)."
     ),
   history: z
     .enum(["continue", "fresh"])
@@ -457,6 +464,13 @@ export function createOrchestratorTools(input: OrchestratorToolsInput): ToolSet 
       }
     }
 
+    const needsConnectors = refs.some((ref) => /^connector:/i.test(ref.trim()));
+    let userConnectors = input.userConnectors ?? null;
+
+    if (needsConnectors && !userConnectors && input.loadUserConnectors) {
+      userConnectors = await input.loadUserConnectors();
+    }
+
     const resolvedItems: ResolvedWorktableItem[] = [];
     const resolvedBundles: string[] = [];
 
@@ -470,6 +484,8 @@ export function createOrchestratorTools(input: OrchestratorToolsInput): ToolSet 
             children,
             messages,
             resolveAgentId: (agent) => resolveDispatchTarget(agent, children),
+            userConnectors,
+            githubSnapshot: input.githubSnapshot ?? userConnectors?.cachedGithubSnapshot ?? null,
           });
 
       if (!outcome.ok) {
@@ -858,7 +874,7 @@ export function createOrchestratorTools(input: OrchestratorToolsInput): ToolSet 
         error: error instanceof Error ? error.message : "History selection failed.",
       };
     }
-    const assignment = buildSubagentGoalMessage({
+    let assignment = buildSubagentGoalMessage({
       goal: brief,
       goalId: goal.goalId,
       id: goal.goalId,
@@ -896,6 +912,28 @@ export function createOrchestratorTools(input: OrchestratorToolsInput): ToolSet 
         error: "Could not inspect worker input; nothing was queued.",
       };
     }
+
+    if (inspection.windowedHistory && selectedHistory.selection.mode === "continue") {
+      const kept = inspection.windowedHistory;
+
+      selectedHistory = {
+        messages: kept,
+        selection: { mode: "continue", messageIds: kept.map((message) => message.id) },
+      };
+      const prior = readSubagentContext(assignment);
+      const metadata = assignment.metadata;
+
+      if (prior && metadata) {
+        assignment = {
+          ...assignment,
+          metadata: {
+            ...metadata,
+            subagentContext: { ...prior, history: selectedHistory.selection },
+          },
+        };
+      }
+    }
+
     const manifest = {
       items: rendered.manifest,
       omittedBundleItems,
@@ -1059,7 +1097,7 @@ export function createOrchestratorTools(input: OrchestratorToolsInput): ToolSet 
 
   const dispatch_subagent = tool({
     description:
-      "Send necessary work to one idle specialist under the budget-first policy. Defaults to an economy model (or micro/standard/frontier with budget check). Additional dispatches need a reason for independent work; standard and frontier tiers need a model justification. Supports shorthand context refs (node:<id>, out:<agentId>, msg:<id>, bundle:<id>). Returns immediately.",
+      "Send necessary work to one idle specialist under the budget-first policy. Defaults to an economy model (or micro/standard/frontier with budget check). Additional dispatches need a reason for independent work; standard and frontier tiers need a model justification. Supports shorthand context refs (node:<id>, connector:<slice>, out:<agentId>, msg:<id>, bundle:<id>). Route GitHub to Reed, research and career slices to Lyra, and architecture preferences to Archer. Returns immediately.",
     inputSchema: DispatchToolInputSchema,
     // One at a time: parallel calls in a step must not overrun the caps or race a child thread.
     execute: (args) => {
