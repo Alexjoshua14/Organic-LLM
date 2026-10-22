@@ -183,6 +183,8 @@ describe("subagents inside the conversation", () => {
     "only the owning orchestrator renders live rows (%s)",
     async (chatId) => {
       const originalFetch = globalThis.fetch;
+      const originalVisibility = Object.getOwnPropertyDescriptor(document, "visibilityState");
+      Object.defineProperty(document, "visibilityState", { configurable: true, value: "visible" });
       globalThis.fetch = (async () =>
         Response.json({
           enabled: false,
@@ -223,6 +225,9 @@ describe("subagents inside the conversation", () => {
       } finally {
         cleanup();
         globalThis.fetch = originalFetch;
+        if (originalVisibility)
+          Object.defineProperty(document, "visibilityState", originalVisibility);
+        else Reflect.deleteProperty(document, "visibilityState");
       }
     }
   );
