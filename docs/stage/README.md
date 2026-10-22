@@ -61,3 +61,22 @@ not cached. Request authorization is checked before owner-scoped state or chat a
 
 Changes to the registry, concurrency rules, and encryption require focused unit coverage.
 Use the repository's `bun run lint:check` and `bun run test:unit` commands for validation.
+
+## Thread references
+
+Copy thread writes the canonical thread UUID to the device clipboard immediately and
+independently saves it to the signed-in account's recent clipboard (20 entries, 30-day
+inactivity retention). The saved clipboard picker works across signed-in browsers and
+devices; operating-system clipboard synchronization remains platform controlled.
+
+Pasting a pointer produces a compact eight-word essence card with an explicit fallback
+when generation is unavailable. The card links to the source and can seed a new voice
+conversation using bounded, quoted partial context. Stage accepts up to three references
+per turn; chat and subagents resolve references through an authenticated ownership-bound
+tool. Source content cannot grant access to another account's threads.
+
+`/admin/thread-reference-performance` reports p50/p95/p99 from the most recent 512
+samples per operation across server instances. Anonymous timings are stored asynchronously
+in Redis, with 30-day inactivity retention. Native clipboard latency and network transit
+are outside these server measurements. Clipboard inserts use a bounded sorted set;
+percentiles are calculated on demand, away from the copy operation.

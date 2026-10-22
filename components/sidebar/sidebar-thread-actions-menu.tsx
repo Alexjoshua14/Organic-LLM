@@ -129,14 +129,23 @@ export function SidebarThreadActionsMenu({
       <DropdownMenu open={open} onOpenChange={onOpenChange}>
         <DropdownMenuTrigger asChild>{children}</DropdownMenuTrigger>
         <DropdownMenuContent align="end" className="min-w-40">
-          <DropdownMenuItem onSelect={() => {
-            void copyThreadToClipboard(thread.id).then(({ copied, saved }) => {
-              if (copied && saved) toast.success("Thread copied and saved to your thread clipboard");
-              else if (copied) toast.success("Thread copied", { description: "Saved clipboard is currently unavailable." });
-              else if (saved) toast.success("Saved to your thread clipboard", { description: "Native clipboard access was unavailable." });
-              else toast.error("Couldn’t copy thread");
-            });
-          }}>
+          <DropdownMenuItem
+            onSelect={() => {
+              void copyThreadToClipboard(thread.id).then(({ copied, saved }) => {
+                if (copied && saved)
+                  toast.success("Thread copied and saved to your thread clipboard");
+                else if (copied)
+                  toast.success("Thread copied", {
+                    description: "Saved clipboard is currently unavailable.",
+                  });
+                else if (saved)
+                  toast.success("Saved to your thread clipboard", {
+                    description: "Native clipboard access was unavailable.",
+                  });
+                else toast.error("Couldn’t copy thread");
+              });
+            }}
+          >
             <Copy className="size-4" />
             Copy thread
           </DropdownMenuItem>

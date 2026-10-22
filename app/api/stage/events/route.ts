@@ -20,9 +20,16 @@ export async function GET(req: Request) {
     const limitRaw = params.get("limit");
     const before = beforeRaw === null ? undefined : Number(beforeRaw);
     const limit = limitRaw === null ? 20 : Number(limitRaw);
-    if ((before !== undefined && (!Number.isSafeInteger(before) || before < 1)) || !Number.isSafeInteger(limit) || limit < 1 || limit > 50) {
+    if (
+      (before !== undefined && (!Number.isSafeInteger(before) || before < 1)) ||
+      !Number.isSafeInteger(limit) ||
+      limit < 1 ||
+      limit > 50
+    ) {
       return json({ error: "Invalid cursor or limit" }, 400);
     }
     return json(await listStageEvents(profile.data, before, limit));
-  } catch { return json({ error: "Could not load stage history" }, 500); }
+  } catch {
+    return json({ error: "Could not load stage history" }, 500);
+  }
 }

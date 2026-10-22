@@ -32,7 +32,9 @@ describe("stage client concurrency", () => {
       if (init?.method === "POST") {
         requests.push(init);
 
-        return new Promise<Response>((resolve) => { resolveSend = resolve; });
+        return new Promise<Response>((resolve) => {
+          resolveSend = resolve;
+        });
       }
 
       return response(initial);
@@ -60,7 +62,9 @@ describe("stage client concurrency", () => {
       reads++;
       if (reads === 1) return response(initial);
 
-      return new Promise<Response>((resolve) => { resolveOldRead = resolve; });
+      return new Promise<Response>((resolve) => {
+        resolveOldRead = resolve;
+      });
     }) as typeof fetch;
     render(<Harness />);
     await waitFor(() => expect(stage.loading).toBe(false));
@@ -82,15 +86,21 @@ describe("stage client concurrency", () => {
       if (init?.method === "POST") {
         ids.push(JSON.parse(String(init.body)).requestId);
 
-        return ids.length === 1 ? Response.json({ error: "Connection lost" }, { status: 503 }) : response({ ...initial, revision: 1 });
+        return ids.length === 1
+          ? Response.json({ error: "Connection lost" }, { status: 503 })
+          : response({ ...initial, revision: 1 });
       }
 
       return response(initial);
     }) as typeof fetch;
     render(<Harness />);
     await waitFor(() => expect(stage.loading).toBe(false));
-    await act(async () => { expect(await stage.send("An idea")).toBe(false); });
-    await act(async () => { expect(await stage.send("An idea")).toBe(true); });
+    await act(async () => {
+      expect(await stage.send("An idea")).toBe(false);
+    });
+    await act(async () => {
+      expect(await stage.send("An idea")).toBe(true);
+    });
     expect(ids).toHaveLength(2);
     expect(ids[0]).toBe(ids[1]);
   });

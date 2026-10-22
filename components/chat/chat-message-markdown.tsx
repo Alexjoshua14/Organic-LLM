@@ -87,7 +87,13 @@ export const ChatMessageMarkdown = memo(
         {blocks.map((block, index) => {
           // Whole marker blocks only: fenced/inline code and ordinary UUID prose stay literal.
           const threadId = block.trim().startsWith("[thread:") ? parseThreadPointer(block) : null;
-          return threadId ? <div key={`${id}-block_${index}`} className="my-2"><ThreadReferenceCard id={threadId} /></div> : <MemoizedMarkdownBlock key={`${id}-block_${index}`} content={block} />;
+          return threadId ? (
+            <div key={`${id}-block_${index}`} className="my-2">
+              <ThreadReferenceCard id={threadId} />
+            </div>
+          ) : (
+            <MemoizedMarkdownBlock key={`${id}-block_${index}`} content={block} />
+          );
         })}
       </WrapCodeBlocksContext.Provider>
     );

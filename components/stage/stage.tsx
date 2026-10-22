@@ -10,6 +10,10 @@ import { StageWidget } from "./stage-widget";
 import { StageInspector } from "./stage-inspector";
 import { StageHistory } from "./stage-history";
 
+import { ThreadReferenceCard } from "@/components/chat/thread-reference/thread-reference-card";
+import { ThreadClipboardPicker } from "@/components/chat/thread-reference/thread-clipboard-picker";
+import { parseThreadPointer, threadReferenceMarker } from "@/lib/chat/thread-reference";
+
 import { OrganicActivityMark } from "@/components/agents/organic-activity-mark";
 
 const STARTERS = [
@@ -30,6 +34,9 @@ export function Stage() {
   const [panel, setPanel] = useState<"conversation" | "activity" | null>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [draft, setDraft] = useState("");
+  const [references, setReferences] = useState<string[]>([]);
+  const addReference = (id: string) =>
+    setReferences((current) => [...new Set([...current, id])].slice(0, 3));
   const composer = useRef<HTMLTextAreaElement>(null);
   const selected = state?.widgets.find((widget) => widget.id === selectedId);
   const working = state?.design?.status === "working";
@@ -68,10 +75,17 @@ export function Stage() {
 
   async function submit(event: FormEvent) {
     event.preventDefault();
-    const message = draft.trim();
+    const text = draft.trim();
+    const sentReferences = references;
+    const message = [text, ...sentReferences.map(threadReferenceMarker)]
+      .filter(Boolean)
+      .join("\n\n");
 
     if (!message || sending || !state) return;
-    if (await send(message)) setDraft((current) => (current.trim() === message ? "" : current));
+    if (await send(message)) {
+      setDraft((current) => (current.trim() === text ? "" : current));
+      setReferences((current) => current.filter((id) => !sentReferences.includes(id)));
+    }
     composer.current?.focus();
   }
 
@@ -264,17 +278,32 @@ export function Stage() {
             </div>
           )}
         </div>
+        <div className="stage-references">
+          {references.map((id) => (
+            <ThreadReferenceCard
+              key={id}
+              id={id}
+              onRemove={() => setReferences((current) => current.filter((item) => item !== id))}
+            />
+          ))}
+        </div>
         <form aria-label="Talk to Organic" className="stage-composer" onSubmit={submit}>
           <span aria-hidden className="stage-composer-dot" data-working={sending} />
           <textarea
             ref={composer}
             aria-label="Message Organic"
             disabled={!state}
-            maxLength={8000}
+            maxLength={7800}
             placeholder={loading ? "Opening your space…" : "What’s on your mind?"}
             rows={1}
             value={draft}
             onChange={(e) => setDraft(e.target.value)}
+            onPaste={(event) => {
+              const id = parseThreadPointer(event.clipboardData.getData("text/plain"));
+              if (!id || references.length >= 3) return;
+              event.preventDefault();
+              addReference(id);
+            }}
             onKeyDown={(event) => {
               if (event.key === "Enter" && !event.shiftKey && !event.nativeEvent.isComposing) {
                 event.preventDefault();
@@ -282,10 +311,11 @@ export function Stage() {
               }
             }}
           />
+          <ThreadClipboardPicker onSelect={addReference} />
           <button
             aria-label={sending ? "Organic is responding" : "Send message"}
             className="stage-send"
-            disabled={!state || sending || !draft.trim()}
+            disabled={!state || sending || (!draft.trim() && !references.length)}
             type="submit"
           >
             <ArrowUp size={19} />

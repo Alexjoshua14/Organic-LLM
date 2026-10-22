@@ -16,7 +16,13 @@ export function threadReferenceMarker(id: string): string {
 }
 
 export function extractThreadPointers(text: string): string[] {
-  return [...new Set(Array.from(text.matchAll(new RegExp(`\\[thread:(${UUID})\\]`, "gi")), (m) => m[1]!.toLowerCase()))].slice(0, 8);
+  return [
+    ...new Set(
+      Array.from(text.matchAll(new RegExp(`\\[thread:(${UUID})\\]`, "gi")), (m) =>
+        m[1]!.toLowerCase()
+      )
+    ),
+  ].slice(0, 8);
 }
 
 export type ThreadReference = {
@@ -35,9 +41,14 @@ export function validThreadEssence(value: string): boolean {
 
 export function boundThreadContext(messages: Array<{ role: string; text: string }>) {
   let remaining = 8_000;
-  return messages.slice(-6).reverse().map((message) => {
-    const text = message.text.slice(0, Math.min(remaining, 2_000));
-    remaining -= text.length;
-    return { role: message.role, text };
-  }).reverse().filter((message) => message.text.length > 0);
+  return messages
+    .slice(-6)
+    .reverse()
+    .map((message) => {
+      const text = message.text.slice(0, Math.min(remaining, 2_000));
+      remaining -= text.length;
+      return { role: message.role, text };
+    })
+    .reverse()
+    .filter((message) => message.text.length > 0);
 }

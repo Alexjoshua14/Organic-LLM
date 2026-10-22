@@ -361,6 +361,14 @@
 .stage-error p {
   flex: 1;
 }
+.stage-references {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.stage-references:not(:empty) {
+  margin-bottom: 10px;
+}
 .stage-composer {
   display: flex;
   align-items: center;

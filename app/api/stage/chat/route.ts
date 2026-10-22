@@ -19,7 +19,8 @@ export async function GET(req: Request) {
     if (profile.error || !profile.data) return json({ error: "User not found" }, 404);
     if (!(await checkStageLimit(profile.data))) return json({ error: "Too many requests" }, 429);
     const widgetId = new URL(req.url).searchParams.get("widgetId");
-    if (!z.string().uuid().safeParse(widgetId).success) return json({ error: "Invalid widget ID" }, 400);
+    if (!z.string().uuid().safeParse(widgetId).success)
+      return json({ error: "Invalid widget ID" }, 400);
     const { state } = await readStage(profile.data);
     const widget = state.widgets.find((item) => item.id === widgetId);
     if (!widget || widget.kind !== "chat") return json({ error: "Chat widget not found" }, 404);
@@ -30,7 +31,10 @@ export async function GET(req: Request) {
       await createChat(widget.threadId);
       loaded = await loadChat(widget.threadId);
     }
-    if (loaded.error || !loaded.data || loaded.data.thread.owner_id !== profile.data) return json({ error: "Chat not found" }, 404);
+    if (loaded.error || !loaded.data || loaded.data.thread.owner_id !== profile.data)
+      return json({ error: "Chat not found" }, 404);
     return json({ chatData: loaded.data });
-  } catch { return json({ error: "Could not load chat" }, 500); }
+  } catch {
+    return json({ error: "Could not load chat" }, 500);
+  }
 }

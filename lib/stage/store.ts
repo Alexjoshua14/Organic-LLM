@@ -2,7 +2,11 @@ import "server-only";
 
 import { createHash } from "node:crypto";
 
-import { decryptFromStorage, encryptForStorage, isEncryptedPayload } from "@/lib/crypto/message-encryption";
+import {
+  decryptFromStorage,
+  encryptForStorage,
+  isEncryptedPayload,
+} from "@/lib/crypto/message-encryption";
 import { redis } from "@/lib/redis/redis";
 import { StageEventSchema, emptyStageState, type StageEvent, type StageState } from "./schema";
 
@@ -20,7 +24,13 @@ return 1
 function keys(ownerId: string) {
   const hash = createHash("sha256").update(ownerId).digest("hex");
   const prefix = `{stage:${hash}}`;
-  return { head: `${prefix}:head`, events: `${prefix}:events`, requests: `${prefix}:requests`, turnLease: `${prefix}:turn-lease`, designLease: `${prefix}:design-lease` };
+  return {
+    head: `${prefix}:head`,
+    events: `${prefix}:events`,
+    requests: `${prefix}:requests`,
+    turnLease: `${prefix}:turn-lease`,
+    designLease: `${prefix}:design-lease`,
+  };
 }
 
 function decode(ownerId: string, value: string): StageEvent {
@@ -32,7 +42,9 @@ function decode(ownerId: string, value: string): StageEvent {
     throw new Error("Invalid encrypted stage event");
   }
   const plaintext = decryptFromStorage(ciphertext, {
-    userId: ownerId, threadId: `stage:${revision}`, fieldName: "stage.events",
+    userId: ownerId,
+    threadId: `stage:${revision}`,
+    fieldName: "stage.events",
   });
   const event = StageEventSchema.parse(JSON.parse(plaintext));
   if (event.revision !== revision || event.bundle.revision !== revision) {
@@ -43,7 +55,9 @@ function decode(ownerId: string, value: string): StageEvent {
 
 function encode(ownerId: string, event: StageEvent) {
   const ciphertext = encryptForStorage(JSON.stringify(event), {
-    userId: ownerId, threadId: `stage:${event.revision}`, fieldName: "stage.events",
+    userId: ownerId,
+    threadId: `stage:${event.revision}`,
+    fieldName: "stage.events",
   });
   return `${event.revision}|${ciphertext}`;
 }
@@ -55,10 +69,25 @@ export async function readStage(ownerId: string): Promise<{ state: StageState; r
 
 export type StageLease = { scope: "turn" | "design"; token: string };
 
-export async function appendStageEvent(ownerId: string, expectedRaw: string, event: StageEvent, options: { deduplicate?: boolean; lease?: StageLease } = {}): Promise<boolean> {
+export async function appendStageEvent(
+  ownerId: string,
+  expectedRaw: string,
+  event: StageEvent,
+  options: { deduplicate?: boolean; lease?: StageLease } = {}
+): Promise<boolean> {
   const pair = keys(ownerId);
   const leaseKey = options.lease?.scope === "design" ? pair.designLease : pair.turnLease;
-  const actual = await redis.eval(CAS_SCRIPT, [pair.head, pair.events, pair.requests, leaseKey], [expectedRaw, encode(ownerId, event), options.deduplicate ? event.requestId ?? "" : "", options.lease?.token ?? "", String(event.revision)]);
+  const actual = await redis.eval(
+    CAS_SCRIPT,
+    [pair.head, pair.events, pair.requests, leaseKey],
+    [
+      expectedRaw,
+      encode(ownerId, event),
+      options.deduplicate ? (event.requestId ?? "") : "",
+      options.lease?.token ?? "",
+      String(event.revision),
+    ]
+  );
   if (actual === -2) throw new Error("Stage generation lease expired");
   return actual === 1;
 }
@@ -67,20 +96,37 @@ export async function mutateStage(
   ownerId: string,
   cause: StageEvent["cause"],
   mutate: (current: StageState) => StageState | null,
-  options: { requestId?: string | null; usage?: StageEvent["usage"]; maxRetries?: number; deduplicate?: boolean; lease?: StageLease; call?: StageEvent["call"] } = {}
+  options: {
+    requestId?: string | null;
+    usage?: StageEvent["usage"];
+    maxRetries?: number;
+    deduplicate?: boolean;
+    lease?: StageLease;
+    call?: StageEvent["call"];
+  } = {}
 ): Promise<StageState | null> {
   for (let attempt = 0; attempt < (options.maxRetries ?? 6); attempt++) {
     const { state, raw } = await readStage(ownerId);
-    if (options.deduplicate && options.requestId && await hasStageRequest(ownerId, options.requestId)) return null;
+    if (
+      options.deduplicate &&
+      options.requestId &&
+      (await hasStageRequest(ownerId, options.requestId))
+    )
+      return null;
     const changed = mutate(state);
     if (!changed) return null;
     const at = new Date().toISOString();
     const bundle = { ...changed, revision: state.revision + 1, updatedAt: at };
     const event = StageEventSchema.parse({
-      revision: bundle.revision, at, cause,
+      revision: bundle.revision,
+      at,
+      cause,
       requestId: options.requestId ?? null,
-      lastModel: bundle.lastModel, nextModel: bundle.nextModel,
-      usage: options.usage ?? null, call: options.call ?? null, bundle,
+      lastModel: bundle.lastModel,
+      nextModel: bundle.nextModel,
+      usage: options.usage ?? null,
+      call: options.call ?? null,
+      bundle,
     });
     if (await appendStageEvent(ownerId, raw, event, options)) return bundle;
   }
@@ -104,7 +150,11 @@ export async function listStageEvents(ownerId: string, before?: number, limit = 
   const bounded = Math.max(1, Math.min(50, limit));
   const pair = keys(ownerId);
   // Read the head revision and matching list range in one Redis command; concurrent appends cannot shift the page.
-  const raw = await redis.eval<string[], string[]>(PAGE_SCRIPT, [pair.head, pair.events], [String(before ?? 0), String(bounded)]);
+  const raw = await redis.eval<string[], string[]>(
+    PAGE_SCRIPT,
+    [pair.head, pair.events],
+    [String(before ?? 0), String(bounded)]
+  );
   const events = raw.map((item) => decode(ownerId, item));
   const last = events.at(-1)?.revision;
   return { events, nextCursor: last && last > 1 ? last : null };
@@ -116,7 +166,10 @@ export async function hasStageRequest(ownerId: string, requestId: string) {
 }
 
 // Independent scopes let the central agent keep talking while the designer works.
-export async function acquireStageLease(ownerId: string, scope: StageLease["scope"]): Promise<StageLease | null> {
+export async function acquireStageLease(
+  ownerId: string,
+  scope: StageLease["scope"]
+): Promise<StageLease | null> {
   const token = crypto.randomUUID();
   const pair = keys(ownerId);
   const key = scope === "turn" ? pair.turnLease : pair.designLease;
@@ -127,5 +180,9 @@ export async function acquireStageLease(ownerId: string, scope: StageLease["scop
 export async function releaseStageLease(ownerId: string, lease: StageLease) {
   const pair = keys(ownerId);
   const key = lease.scope === "turn" ? pair.turnLease : pair.designLease;
-  await redis.eval("if redis.call('GET', KEYS[1]) == ARGV[1] then return redis.call('DEL', KEYS[1]) end return 0", [key], [lease.token]);
+  await redis.eval(
+    "if redis.call('GET', KEYS[1]) == ARGV[1] then return redis.call('DEL', KEYS[1]) end return 0",
+    [key],
+    [lease.token]
+  );
 }

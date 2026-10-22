@@ -315,7 +315,9 @@ export const CoreInput: React.FC<CoreInputProps> = ({
     const pointer = parseThreadPointer(id);
     if (pointer) setThreadReferences((current) => [...new Set([...current, pointer])].slice(0, 8));
   };
-  useEffect(() => { setThreadReferences([]); }, [chatId]);
+  useEffect(() => {
+    setThreadReferences([]);
+  }, [chatId, sideThreadKey]);
   const toolsRef = useRef<HTMLDivElement | null>(null);
   const showLabelsRef = useRef(false);
   const isCondensedRef = useRef(false);
@@ -824,7 +826,9 @@ export const CoreInput: React.FC<CoreInputProps> = ({
       return;
     }
 
-    const finalText = [textToSend, ...threadReferences.map(threadReferenceMarker)].filter(Boolean).join("\n\n") || "Sent with attachments";
+    const finalText =
+      [textToSend, ...threadReferences.map(threadReferenceMarker)].filter(Boolean).join("\n\n") ||
+      "Sent with attachments";
 
     // Sending mid-morph sends the settings being morphed to; finishing writes the refs now.
     morphRef.current?.finish();
@@ -952,7 +956,10 @@ export const CoreInput: React.FC<CoreInputProps> = ({
     : pendingSend !== null && pendingSend.threadId === chatId && status === "ready"
       ? "submitted"
       : status;
-  const organicSubmitState = resolveOrganicSubmitState(composerStatus, text.trim().length > 0 || threadReferences.length > 0);
+  const organicSubmitState = resolveOrganicSubmitState(
+    composerStatus,
+    text.trim().length > 0 || threadReferences.length > 0
+  );
 
   const showSentShimmer =
     !queueEnabled &&
@@ -1186,7 +1193,11 @@ export const CoreInput: React.FC<CoreInputProps> = ({
     <PromptInputSubmit
       className={cn(submitVariant === "organic-glass" && organicGlassSubmitClassName)}
       // Multi-mode: always submit (never stop). Default: keep stop available while streaming.
-      disabled={queueEnabled ? (!text.trim() && threadReferences.length === 0) || disabled : (!text && !status && threadReferences.length === 0) || disabled}
+      disabled={
+        queueEnabled
+          ? (!text.trim() && threadReferences.length === 0) || disabled
+          : (!text && !status && threadReferences.length === 0) || disabled
+      }
       status={composerStatus}
       stop={queueEnabled ? undefined : stop}
     >
@@ -1213,9 +1224,19 @@ export const CoreInput: React.FC<CoreInputProps> = ({
       {/* Carries no padding of its own: the attachment rail brings `p-3`, and an
           empty header would otherwise reserve a blank band above the textarea. */}
       <PromptInputHeader className="p-0">
-        {threadReferences.length > 0 ? <div className="flex flex-wrap gap-1.5 px-3 pt-3">
-          {threadReferences.map((id) => <ThreadReferenceCard key={id} id={id} onRemove={() => setThreadReferences((current) => current.filter((item) => item !== id))} />)}
-        </div> : null}
+        {threadReferences.length > 0 ? (
+          <div className="flex flex-wrap gap-1.5 px-3 pt-3">
+            {threadReferences.map((id) => (
+              <ThreadReferenceCard
+                key={id}
+                id={id}
+                onRemove={() =>
+                  setThreadReferences((current) => current.filter((item) => item !== id))
+                }
+              />
+            ))}
+          </div>
+        ) : null}
         <PromptInputAttachments>
           {(attachment) => <PromptInputAttachment data={attachment} />}
         </PromptInputAttachments>
