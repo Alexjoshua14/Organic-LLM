@@ -16,6 +16,7 @@ const FOCUS_RING =
 
 export function revealSubagentActivity(id: string) {
   const details = document.getElementById(id);
+
   if (!(details instanceof window.HTMLDetailsElement)) return;
   details.open = true;
   details.querySelector("summary")?.focus({ preventScroll: true });
@@ -32,6 +33,7 @@ export function ActiveSubagentStrip({
   onReveal: (agent: ArcadiaSubagent) => void;
 }) {
   const active = agents.filter((agent) => agent.status === "working" || agent.status === "blocked");
+
   if (active.length === 0) return null;
 
   return (

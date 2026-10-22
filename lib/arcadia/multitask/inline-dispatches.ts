@@ -30,6 +30,7 @@ export function inlineSubagentDispatch(
   )
     return null;
   const output = record(part.output);
+
   if (
     output?.success !== true ||
     output.dryRun === true ||
