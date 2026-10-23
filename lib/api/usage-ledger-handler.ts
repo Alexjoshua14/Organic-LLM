@@ -1,7 +1,7 @@
-import { z } from "zod";
-
 import type { AdminContext } from "@/lib/admin/require-admin";
 import type { UsageAdjustmentInput } from "@/data/supabase/usage-ledger";
+
+import { z } from "zod";
 
 const PageSchema = z.object({
   ownerId: z.string().uuid(),
@@ -36,6 +36,7 @@ export function createUsageLedgerHandlers(deps: LedgerDeps) {
     GET: async (req: Request) => {
       if (!(await deps.requireAdmin())) return json({ error: "Forbidden" }, 403);
       const parsed = PageSchema.safeParse(Object.fromEntries(new URL(req.url).searchParams));
+
       if (!parsed.success) return json({ error: "Invalid ledger query" }, 400);
       try {
         return json(await deps.read(parsed.data.ownerId, parsed.data.offset));
@@ -45,6 +46,7 @@ export function createUsageLedgerHandlers(deps: LedgerDeps) {
     },
     POST: async (req: Request) => {
       const admin = await deps.requireAdmin();
+
       if (!admin) return json({ error: "Forbidden" }, 403);
       if (
         req.headers.get("sec-fetch-site") === "cross-site" ||
@@ -55,9 +57,11 @@ export function createUsageLedgerHandlers(deps: LedgerDeps) {
       if (!req.headers.get("content-type")?.startsWith("application/json"))
         return json({ error: "JSON body required" }, 415);
       const parsed = AdjustmentSchema.safeParse(await req.json().catch(() => null));
+
       if (!parsed.success) return json({ error: "Invalid adjustment" }, 400);
       try {
         const adjustment = await deps.append({ ...parsed.data, actorId: admin.sbUserId });
+
         return adjustment
           ? json({ adjustment })
           : json({ error: "Adjustment ID already used for different data" }, 409);

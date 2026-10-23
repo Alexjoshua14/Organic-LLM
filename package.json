@@ -1,6 +1,6 @@
 {
   "name": "organic-llm",
-  "version": "0.15.2",
+  "version": "0.16.0",
   "private": true,
   "engines": {
     "node": "22.x"
@@ -26,6 +26,7 @@
   "dependencies": {
     "@ai-sdk/elevenlabs": "^3.0.59",
     "@ai-sdk/gateway": "^4.0.110",
+    "@ai-sdk/mcp": "^2.0.73",
     "@ai-sdk/openai": "^4.0.91",
     "@ai-sdk/otel": "^1.0.136",
     "@ai-sdk/react": "^4.0.139",

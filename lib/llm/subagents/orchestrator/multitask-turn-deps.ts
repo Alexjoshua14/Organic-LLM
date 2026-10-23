@@ -17,13 +17,18 @@ import { insertQueuedMessage } from "@/data/supabase/message-send-queue";
 import { getHardSetShellAgentId } from "@/data/supabase/subagent-shells";
 import { createSupabaseWorktableStore } from "@/data/supabase/subagent-worktable";
 import { recordGatewayCallUsage } from "@/lib/usage/record-gateway-call";
-
+import { resolveSubagentIdentity } from "@/lib/arcadia/multitask/subagent-identity";
+import { getHardSetSubagent } from "@/lib/llm/subagents/hard-set/registry";
 
 /**
  * Real persistence for {@link prepareArcadiaMultitaskTurn}: Supabase (admin, owner-scoped),
  * usage events, and Next `after` so subagent runs outlive the orchestrator's stream.
  */
-export function createMultitaskTurnDeps(args: { ownerId: string; clerkUserId: string; route: string }): MultitaskTurnDeps {
+export function createMultitaskTurnDeps(args: {
+  ownerId: string;
+  clerkUserId: string;
+  route: string;
+}): MultitaskTurnDeps {
   const { ownerId, route } = args;
 
   return {
@@ -34,6 +39,18 @@ export function createMultitaskTurnDeps(args: { ownerId: string; clerkUserId: st
     ensureChild: ({ parentThreadId, agentId, title }) =>
       ensureSubagentThread({ ownerId, parentThreadId, agentId, title }),
     loadMessages: (threadId, limit) => readThreadMessagesWithAdmin({ threadId, ownerId, limit }),
+    inspectWorkerInput: async (input) => {
+      const { inspectWorkerInput } = await import("@/lib/llm/subagents/worker/prepare-input");
+      const identity = resolveSubagentIdentity(input.agentId);
+
+      return inspectWorkerInput({
+        ...input,
+        ownerId,
+        workerName: identity.name,
+        workerRole: identity.role,
+        lockedPersona: getHardSetSubagent(input.agentId) ?? undefined,
+      });
+    },
     appendMessages: (threadId, messages) =>
       appendThreadMessagesWithAdmin({ threadId, ownerId, messages }),
     setStatus: (threadId, status) => setSubagentThreadStatus({ threadId, ownerId, status }),
@@ -47,11 +64,17 @@ export function createMultitaskTurnDeps(args: { ownerId: string; clerkUserId: st
         ownerId,
         threadId,
         body: "Subagent assignment",
-        payload: { experience: "arcadia", zeroDataRetention, subagentRun: { ...reference, modelId } },
+        payload: {
+          experience: "arcadia",
+          zeroDataRetention,
+          subagentRun: { ...reference, modelId },
+        },
       });
+
       if (!queued) throw new Error("Could not queue subagent assignment");
       after(async () => {
         const { tryDispatchThreadQueue } = await import("@/lib/message-queue/dispatch");
+
         await tryDispatchThreadQueue({ ownerId, clerkUserId: args.clerkUserId, threadId });
       });
     },

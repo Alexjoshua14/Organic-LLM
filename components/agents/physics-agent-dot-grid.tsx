@@ -22,6 +22,7 @@ function PhysicsDot({
   active,
   scheduler,
   performanceId,
+  intensity,
 }: {
   state: AgentDotState;
   seed: string;
@@ -29,6 +30,7 @@ function PhysicsDot({
   active: boolean;
   scheduler: DotPhysicsScheduler;
   performanceId?: string;
+  intensity?: number;
 }) {
   const ref = useRef<SVGGElement>(null);
   const physics = useRef<DotMorphPhysics | null>(null);
@@ -41,6 +43,7 @@ function PhysicsDot({
     const instance = physics.current ?? new DotMorphPhysics(restScale, index);
 
     physics.current = instance;
+    instance.setIntensity(intensity);
     instance.setState(state);
     if (!active || instance.complete) return;
     let remove = () => {};
@@ -54,7 +57,7 @@ function PhysicsDot({
     }, performanceId);
 
     return remove;
-  }, [active, state, restScale, index, scheduler, performanceId]);
+  }, [active, state, restScale, index, scheduler, performanceId, intensity]);
 
   const dot = AGENT_DOTS[index]!;
 
@@ -83,12 +86,14 @@ export function PhysicsAgentDotGrid({
   onFailure,
   scheduler = dotPhysicsScheduler,
   performanceId,
+  intensity,
 }: {
   state?: AgentDotState;
   seed?: string;
   onFailure: () => void;
   scheduler?: DotPhysicsScheduler;
   performanceId?: string;
+  intensity?: number;
 }) {
   const ref = useRef<SVGSVGElement>(null);
   const [active, setActive] = useState(false);
@@ -126,6 +131,7 @@ export function PhysicsAgentDotGrid({
           key={`${seed}:${index}`}
           active={active}
           index={index}
+          intensity={intensity}
           scheduler={scheduler}
           performanceId={performanceId}
           seed={seed}

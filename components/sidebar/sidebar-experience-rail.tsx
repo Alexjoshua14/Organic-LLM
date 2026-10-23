@@ -66,6 +66,13 @@ const RAIL_ROWS: RailItem[][] = [
   ],
   [
     {
+      id: "stage",
+      label: "Stage",
+      type: "link",
+      href: "/stage",
+      match: (p) => p === "/stage",
+    },
+    {
       id: "speak",
       label: "Speak",
       type: "link",

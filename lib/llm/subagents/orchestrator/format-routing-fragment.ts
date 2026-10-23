@@ -1,9 +1,7 @@
 import type { MultitaskInboundDispatch } from "@/lib/schemas/thought-routing";
 
 /** Compact system-prompt fragment so the turn LLM sees the routing decision. */
-export function formatMultitaskRoutingSystemFragment(
-  dispatch: MultitaskInboundDispatch
-): string {
+export function formatMultitaskRoutingSystemFragment(dispatch: MultitaskInboundDispatch): string {
   if (dispatch.mode === "direct_to_subagent") {
     return [
       "[Multitask send target]",

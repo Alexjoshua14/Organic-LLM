@@ -5,6 +5,8 @@
  */
 import { QdrantClient } from "@qdrant/js-client-rest";
 
+import { cloudflareAccessHeaders } from "@/lib/cloudflare-access";
+
 const MEMORY_HOST = process.env.MEMORY_API_HOST ?? "localhost";
 const MEMORY_PORT = MEMORY_HOST === "localhost" ? 6333 : 443;
 const MEMORY_KEY = process.env.MEMORY_API_SECRET;
@@ -18,6 +20,7 @@ export function getMemoryQdrantClient(): QdrantClient {
       port: MEMORY_PORT,
       https: true,
       apiKey: MEMORY_KEY,
+      headers: cloudflareAccessHeaders("memory"),
     });
   }
 

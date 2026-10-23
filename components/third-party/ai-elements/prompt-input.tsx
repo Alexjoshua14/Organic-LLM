@@ -924,8 +924,10 @@ export const PromptInputTextarea = ({
     <TextareaAutosize
       {...props}
       className={cn(
-        // Minimal styles - let TextareaAutosize control height
-        "w-full bg-transparent px-3 py-3 text-base outline-none resize-none",
+        // Minimal styles - let TextareaAutosize control height.
+        // Vertical margin + inner padding + soft edge mask prevent scrolled lines from slicing hard against the top border.
+        "my-1.5 w-full scroll-py-2 bg-transparent px-3 py-1.5 text-base outline-none resize-none",
+        "[mask-image:linear-gradient(to_bottom,transparent_0px,black_6px,black_calc(100%-6px),transparent_100%)]",
         "placeholder:text-muted-foreground",
         "border-0 shadow-none focus-visible:ring-0 rounded-none",
         "disabled:cursor-not-allowed disabled:opacity-50 md:text-sm",

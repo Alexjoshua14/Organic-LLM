@@ -10,19 +10,17 @@ import { installTestJsdom } from "../helpers/install-test-jsdom";
 describe("sampleLiquidChromeFrames", () => {
   beforeEach(() => {
     installTestJsdom();
-    document.documentElement.innerHTML = `
-      <body>
+    document.body.innerHTML = `
         <section
           data-page-chrome="inset"
           class="page-liquid-chrome app-shell"
           style="background: radial-gradient(ellipse 120% 80% at 50% 40%, rgb(128, 122, 117) 0%, rgb(138, 132, 127) 100%);"
         ></section>
-      </body>
     `;
   });
 
   afterEach(() => {
-    document.documentElement.innerHTML = "";
+    document.body.innerHTML = "";
   });
 
   test("reports filled backgrounds for the first four animation frames", async () => {
@@ -44,13 +42,11 @@ describe("sampleLiquidChromeFrames", () => {
   });
 
   test("samples fixed SSR fill div when section is absent", async () => {
-    document.documentElement.innerHTML = `
-      <body>
+    document.body.innerHTML = `
         <div
           class="liquid-chrome-page-fill"
           style="background: radial-gradient(ellipse 120% 80% at 50% 40%, rgb(128, 122, 117) 0%, rgb(138, 132, 127) 100%);"
         ></div>
-      </body>
     `;
 
     const samples = await sampleLiquidChromeFrames(2);
@@ -60,10 +56,8 @@ describe("sampleLiquidChromeFrames", () => {
   });
 
   test("detects white flash on unfilled fixed div", async () => {
-    document.documentElement.innerHTML = `
-      <body>
+    document.body.innerHTML = `
         <div class="liquid-chrome-page-fill" style="background: rgb(255, 255, 255);"></div>
-      </body>
     `;
 
     const samples = await sampleLiquidChromeFrames(1);

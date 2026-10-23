@@ -23,6 +23,7 @@ export async function readUsageLedger(ownerId: string, offset: number) {
       .order("id", { ascending: false })
       .range(offset, offset + 99),
   ]);
+
   if (charges.error || adjustments.error) throw new Error("Usage ledger unavailable");
 
   return {
@@ -51,6 +52,7 @@ export async function appendUsageAdjustment(input: UsageAdjustmentInput) {
     p_reason: input.reason,
     p_actor: input.actorId,
   });
+
   logger.log("appendUsageAdjustment", "Ledger adjustment", {
     id: input.id,
     ownerId: input.ownerId,
@@ -58,5 +60,6 @@ export async function appendUsageAdjustment(input: UsageAdjustmentInput) {
     outcome: error ? "denied-or-unavailable" : data?.length ? "recorded" : "conflict",
   });
   if (error) throw new Error("Adjustment could not be recorded");
+
   return data?.[0] ?? null;
 }

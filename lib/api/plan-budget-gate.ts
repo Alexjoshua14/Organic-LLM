@@ -11,6 +11,7 @@ export const PLAN_LIMIT_ERROR_CODE = "plan_limit";
 export function planLimitResponse(budget: PlanBudgetSnapshot): Response {
   const unavailable = budget.status === "unavailable";
   const status = unavailable ? 503 : 429;
+
   return new Response(
     JSON.stringify({
       error: budget.holdReason ?? "Plan usage limit reached",

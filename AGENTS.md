@@ -69,6 +69,8 @@ run; `-t "name"` filters by test name.
 
 **Always**
 
+- Route Organic LLM code changes through a PR the user reviews before they reach `develop`
+  or `main`. Prefer updating an existing related PR over creating additional PRs.
 - Read [`docs/hub/README.md`](docs/hub/README.md) before product or feature-spec work, and
   follow its [maintenance protocol](docs/hub/maintenance-protocol.md) when you decide something.
 - Follow [`docs/design/README.md`](docs/design/README.md) for anything the user sees or feels.
