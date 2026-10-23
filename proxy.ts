@@ -59,11 +59,13 @@ export default clerkMiddleware(async (auth, req) => {
   // Create a base response we can mutate
   const res = NextResponse.next();
 
-  // Exclude webhooks and the cron-secret-guarded good-news job from Clerk protection
+  // Exclude webhooks and cron jobs from Clerk protection. Schedulers carry no session, so every
+  // route under /api/cron must check CRON_SECRET itself (see lib/cron/authorize-cron-request.ts).
   if (
     isProtectedRoute(req) &&
     !req.nextUrl.pathname.startsWith("/api/webhooks") &&
-    !req.nextUrl.pathname.startsWith("/api/good-news/cron")
+    !req.nextUrl.pathname.startsWith("/api/good-news/cron") &&
+    !req.nextUrl.pathname.startsWith("/api/cron/")
   ) {
     await auth.protect();
   }
