@@ -76,8 +76,13 @@ describe("optional memory copy", () => {
       ui.getByText(/This exact memory content will be shared with the admin of Organic LLM/)
     ).toBeTruthy();
     expect(shareMemory).not.toHaveBeenCalled();
+    // The preview can render before React finishes its async transition. Wait until its
+    // controls accept input, as a user must, before testing cancellation or consent.
+    await waitFor(() =>
+      expect((ui.getByRole("button", { name: "Cancel" }) as HTMLButtonElement).disabled).toBe(false)
+    );
     fireEvent.click(ui.getByRole("button", { name: "Cancel" }));
-    expect(ui.queryByText("Exact memory content")).toBeNull();
+    await waitFor(() => expect(ui.queryByText("Exact memory content")).toBeNull());
     expect(shareMemory).not.toHaveBeenCalled();
   });
 
@@ -87,7 +92,9 @@ describe("optional memory copy", () => {
 
     fireEvent.click(ui.getByRole("button", { name: "Share memory too…" }));
     await waitFor(() =>
-      expect(ui.getByRole("button", { name: "Share memory with admin" })).toBeTruthy()
+      expect(
+        (ui.getByRole("button", { name: "Share memory with admin" }) as HTMLButtonElement).disabled
+      ).toBe(false)
     );
     fireEvent.click(ui.getByRole("button", { name: "Share memory with admin" }));
     await waitFor(() => expect(saved).toHaveBeenCalledTimes(1));

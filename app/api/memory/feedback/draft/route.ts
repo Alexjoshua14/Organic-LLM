@@ -1,3 +1,6 @@
+import { auth } from "@clerk/nextjs/server";
+
+import { requirePlanBudget } from "@/lib/api/plan-budget-gate";
 import { resolveFeedbackUser } from "@/lib/memory/feedback";
 import { draftFeedbackNote } from "@/lib/memory/feedback-draft";
 import { FEEDBACK_CONFLICT } from "@/lib/memory/feedback-service";
@@ -11,7 +14,13 @@ export async function POST(request: Request) {
   try {
     const userId = await resolveFeedbackUser();
 
-    if (!userId) return Response.json({ error: "Not signed in" }, { status: 401, headers });
+    const { userId: clerkUserId } = await auth();
+
+    if (!userId || !clerkUserId)
+      return Response.json({ error: "Not signed in" }, { status: 401, headers });
+    const planGate = await requirePlanBudget({ clerkUserId, sbUserId: userId });
+
+    if (planGate) return planGate;
     const limit = await checkLlmMessageLimit(userId);
 
     if (!limit.success)
