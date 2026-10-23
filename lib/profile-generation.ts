@@ -1,4 +1,4 @@
-import { createAuthenticatedLlmBudgetHooks, budgetModelId } from "@/lib/plans/llm-budget-hooks";
+import { createOwnerLlmBudgetHooks, budgetModelId } from "@/lib/plans/llm-budget-hooks";
 import "server-only";
 
 import type { GatewayProviderOptions } from "@ai-sdk/gateway";
@@ -7,7 +7,7 @@ import type { ProfileSection, ProfileTree } from "@/lib/schemas/profileTree";
 import type { Usage } from "@/lib/rate-limit/llm-cost";
 import type { Json } from "@/lib/supabase/types";
 
-import { generateText, NoObjectGeneratedError, Output } from "ai";
+import { generateText, NoObjectGeneratedError, Output, parsePartialJson } from "ai";
 import { z } from "zod";
 
 import { createProfileTreeRevisionForCurrentUser } from "@/data/supabase/profiles";
@@ -27,17 +27,18 @@ const REVIEW_MODEL = models.openai.sol.id;
 const BASELINE_MEMORY_SEARCH_LIMIT = 50;
 const BASELINE_MEMORY_PROMPT_LIMIT = 30;
 const BASELINE_MEMORY_MIN_SCORE = 0.45;
-const MAX_COST_USD = 0.35;
+const MAX_COST_USD = 0.75;
 const TARGET_SECTION_COUNT = 7;
 const MAX_SECTION_COUNT = 8;
 const MAX_SECTION_MEMORY_QUERIES = 3;
 const MAX_SECTION_MEMORY_RESULTS = 6;
 const MAX_SECTION_REWRITES = 3;
-// Output caps include reasoning tokens. Sonnet 5.5 thinks by default and will cut the JSON
-// off mid-string once that budget is gone (`finishReason: "length"`). Thinking is turned off
-// for these calls, and a length failure retries once with a larger cap.
+// Sonnet 5.5 counts reasoning against this cap. A live section call stopped at exactly 1200
+// tokens with ~850 of them spent on reasoning and the JSON cut mid-string (`finishReason: "length"`).
+// The cap has to cover that reasoning plus the object. Thinking is also turned off, a cut-off
+// section is kept when the partial JSON is usable, and a length failure retries once.
 const PLANNER_MAX_OUTPUT_TOKENS = 2000;
-const SECTION_MAX_OUTPUT_TOKENS = 1200;
+const SECTION_MAX_OUTPUT_TOKENS = 4096;
 const SECTION_REVIEW_MAX_OUTPUT_TOKENS = 3000;
 const TREE_REVIEW_MAX_OUTPUT_TOKENS = 1500;
 const TRUNCATION_RETRY_NOTE =
@@ -243,6 +244,7 @@ type GeneratedProfileSectionState =
   | { status: "failed"; plan: ProfileSectionPlanItem; reason: string; reviewScore?: number };
 
 type ProfileGenerationBudget = {
+  ownerId: string;
   maxCostUsd: number;
   estimatedCostUsd: number;
   actualCostUsd: number;
@@ -303,8 +305,9 @@ function estimateCostUsd(model: string, inputTokens: number, outputTokens: numbe
   return usageCostUsd(model, { inputTokens, outputTokens });
 }
 
-function createBudget(): ProfileGenerationBudget {
+function createBudget(ownerId: string): ProfileGenerationBudget {
   return {
+    ownerId,
     maxCostUsd: MAX_COST_USD,
     estimatedCostUsd: 0,
     actualCostUsd: 0,
@@ -431,6 +434,96 @@ function structuredProviderOptions(model: string) {
   };
 }
 
+function textEndsMidValue(text: string): boolean {
+  const trimmed = text.trimEnd();
+
+  return trimmed.length > 0 && !/[}\]"]$/.test(trimmed);
+}
+
+/** Drop the string the model was still writing when the token cap cut the JSON. */
+function popLastIncompleteString(node: unknown): boolean {
+  if (Array.isArray(node)) {
+    for (let index = node.length - 1; index >= 0; index -= 1) {
+      if (popLastIncompleteString(node[index])) return true;
+    }
+
+    if (typeof node[node.length - 1] === "string") {
+      node.pop();
+
+      return true;
+    }
+
+    return false;
+  }
+
+  if (node && typeof node === "object") {
+    const values = Object.values(node as Record<string, unknown>);
+
+    for (let index = values.length - 1; index >= 0; index -= 1) {
+      if (popLastIncompleteString(values[index])) return true;
+    }
+  }
+
+  return false;
+}
+
+function stringList(value: unknown): string[] {
+  return Array.isArray(value)
+    ? value.filter((item): item is string => typeof item === "string" && item.trim().length > 0)
+    : [];
+}
+
+function subsectionFromPartial(
+  value: unknown
+): { id: string; title: string; body: string | null; items: string[] } | null {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return null;
+  const row = value as Record<string, unknown>;
+
+  if (typeof row.id !== "string" || !row.id.trim()) return null;
+  if (typeof row.title !== "string" || !row.title.trim()) return null;
+
+  return {
+    id: row.id,
+    title: row.title,
+    body: typeof row.body === "string" && row.body.trim() ? row.body : null,
+    items: stringList(row.items),
+  };
+}
+
+/** Keep a section whose JSON was cut off by the output cap, dropping the unfinished tail. */
+export async function salvageTruncatedSection(
+  text: string | undefined
+): Promise<z.infer<typeof GeneratedSectionSchema> | null> {
+  if (!text?.trim()) return null;
+  const parsed = await parsePartialJson(text);
+
+  if (
+    parsed.state === "failed-parse" ||
+    parsed.state === "undefined-input" ||
+    !parsed.value ||
+    typeof parsed.value !== "object" ||
+    Array.isArray(parsed.value)
+  ) {
+    return null;
+  }
+
+  if (textEndsMidValue(text)) popLastIncompleteString(parsed.value);
+  const part = subsectionFromPartial(parsed.value);
+
+  if (!part) return null;
+  const row = parsed.value as Record<string, unknown>;
+  const children = Array.isArray(row.children)
+    ? row.children.flatMap((child) => {
+        const subsection = subsectionFromPartial(child);
+
+        return subsection ? [subsection] : [];
+      })
+    : [];
+  const result = GeneratedSectionSchema.safeParse({ ...part, children });
+
+  return result.success ? result.data : null;
+}
+
 function truncatedStructuredOutput(err: unknown): NoObjectGeneratedError | null {
   if (NoObjectGeneratedError.isInstance(err)) {
     return err.finishReason === "length" ? err : null;
@@ -467,9 +560,11 @@ async function callStructured<T>({
   const start = performance.now();
   const generate = async (nextPrompt: string, tokens: number) =>
     generateText({
-      ...(await createAuthenticatedLlmBudgetHooks({
+      ...(await createOwnerLlmBudgetHooks({
+        ownerId: budget.ownerId,
         modelId: budgetModelId(model),
         operation: "profile-generation",
+        route: "/api/profile/summary",
       })),
       model,
       instructions,
@@ -502,6 +597,18 @@ async function callStructured<T>({
 
     if (!truncated) throw err;
     record(truncated.usage);
+    if (schemaName === "ProfileSection") {
+      const salvaged = await salvageTruncatedSection(truncated.text);
+
+      if (salvaged) {
+        logger.warn(
+          "callStructured",
+          `${operation} hit the output limit; kept the finished part of the section`
+        );
+
+        return salvaged as T;
+      }
+    }
     logger.warn(
       "callStructured",
       `${operation} hit the output limit and returned truncated JSON; retrying shorter`
@@ -922,7 +1029,7 @@ export async function generateProfileFromMemory({
   email,
 }: GenerateProfileFromMemoryInput): Promise<GenerateProfileFromMemoryResult> {
   const emailDomain = email ? (email.split("@")[1] ?? "unknown") : "unknown";
-  const budget = createBudget();
+  const budget = createBudget(userId);
 
   try {
     const baselineMemoryContext = await getBaselineMemoryContext(userId);

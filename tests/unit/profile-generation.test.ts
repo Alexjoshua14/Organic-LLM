@@ -12,6 +12,7 @@ import {
   generateProfileFromMemory,
   normalizePlan,
   PROFILE_MODEL_SCHEMAS,
+  salvageTruncatedSection,
   toProfileSection,
 } from "@/lib/profile-generation";
 
@@ -67,7 +68,7 @@ const fakeGenerateText = mock(async (args: FakeCall) => {
         truncateOnce.delete(id);
         throw new NoObjectGeneratedError({
           message: "No object generated: could not parse the response.",
-          text: `{"id":"${id}","title":"Title","body":"Wants a`,
+          text: `{"title":"Title","body":"Wants a`,
           finishReason: "length",
           response: { id: "resp", timestamp: new Date(), modelId: "anthropic/claude-sonnet-5.5" },
           usage: {
@@ -138,7 +139,7 @@ beforeAll(() => {
   restores.push(
     mockModulePreservingReal("ai", ai, { generateText: fakeGenerateText }),
     mockModulePreservingReal("@/lib/plans/llm-budget-hooks", budgetHooks, {
-      createAuthenticatedLlmBudgetHooks: async () => ({}),
+      createOwnerLlmBudgetHooks: async () => ({}),
     }),
     mockModulePreservingReal("@/lib/memory/operations", memoryOperations, {
       searchMemoriesForUser: async () => ({ data: { results: memories }, error: null }),
@@ -213,7 +214,21 @@ describe("profile generation", () => {
 
     expect(workCalls).toHaveLength(2);
     expect(workCalls[1]?.prompt).toContain("cut off before the JSON finished");
-    expect(workCalls[1]?.maxOutputTokens).toBe(2400);
+    expect(workCalls[1]?.maxOutputTokens).toBe(8000);
+  });
+
+  test("keeps a section whose JSON was cut off inside the last item", async () => {
+    const salvaged = await salvageTruncatedSection(
+      `{"id":"career-direction","title":"Career & Growth","body":"Alex has production software engineering experience automating complex infrastructure at scale.","items":["About 2.5 years of production software engineering experience","Wants a`
+    );
+
+    expect(salvaged).toMatchObject({
+      id: "career-direction",
+      title: "Career & Growth",
+      body: "Alex has production software engineering experience automating complex infrastructure at scale.",
+      items: ["About 2.5 years of production software engineering experience"],
+      children: [],
+    });
   });
 
   test("a section that cannot be written is dropped with a warning instead of failing the run", async () => {
