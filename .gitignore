@@ -61,3 +61,6 @@ memory.db
 .local-profile.md
 .local-profile-overrides.ts
 
+
+# clerk configuration (can include secrets)
+/.clerk/

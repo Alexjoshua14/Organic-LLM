@@ -1,6 +1,6 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
-import { beforeEach, describe, expect, test } from "bun:test";
+import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 
 import {
   buildBootstrapPayloadFromContent,
@@ -21,6 +21,7 @@ import {
 const FIXTURES = join(import.meta.dir, "fixtures");
 const TEST_SECRET = Buffer.alloc(32, 7).toString("base64");
 const GOLDEN_IV = new Uint8Array(12).fill(1);
+const originalSecret = process.env.INTROSPECTION_ORGANIC_SHARED_SECRET;
 
 function loadJson<T>(name: string): T {
   return JSON.parse(readFileSync(join(FIXTURES, name), "utf8")) as T;
@@ -28,6 +29,11 @@ function loadJson<T>(name: string): T {
 
 beforeEach(() => {
   process.env.INTROSPECTION_ORGANIC_SHARED_SECRET = TEST_SECRET;
+});
+
+afterEach(() => {
+  if (originalSecret === undefined) delete process.env.INTROSPECTION_ORGANIC_SHARED_SECRET;
+  else process.env.INTROSPECTION_ORGANIC_SHARED_SECRET = originalSecret;
 });
 
 describe("organic-relay contract", () => {
@@ -47,9 +53,7 @@ describe("organic-relay contract", () => {
   });
 
   test("golden wire round-trip with fixed IV", () => {
-    const bootstrap = IntrospectionBootstrapPayloadSchema.parse(
-      loadJson("bootstrap-v1.json"),
-    );
+    const bootstrap = IntrospectionBootstrapPayloadSchema.parse(loadJson("bootstrap-v1.json"));
     const expectedWire = readFileSync(join(FIXTURES, "wire-v1.txt"), "utf8").trim();
     const wire = encryptBootstrapPayload(bootstrap, {
       secret: TEST_SECRET,
@@ -57,7 +61,10 @@ describe("organic-relay contract", () => {
     });
 
     expect(wire).toBe(expectedWire);
-    expect(decryptBootstrapPayload(wire, { secret: TEST_SECRET })).toEqual(bootstrap);
+    // The golden ciphertext stays valid as a contract fixture after its fixed expiry.
+    expect(decryptBootstrapPayload(wire, { secret: TEST_SECRET, skipExpiryCheck: true })).toEqual(
+      bootstrap
+    );
   });
 
   test("organic handoff content fixture parses", () => {
@@ -93,7 +100,7 @@ describe("organic-relay contract", () => {
 
   test("rejects malformed wire format", () => {
     expect(() => decryptBootstrapPayload("not-a-payload", { secret: TEST_SECRET })).toThrow(
-      "Malformed",
+      "Malformed"
     );
   });
 
@@ -110,7 +117,7 @@ describe("organic-relay contract", () => {
         goal: "x",
         systemInstructions: "x",
         initialOverview: "x",
-      }),
+      })
     ).toThrow();
 
     expect(() =>
@@ -119,7 +126,7 @@ describe("organic-relay contract", () => {
         exp: 1,
         nonce: "short",
         systemInstructions: "x",
-      }),
+      })
     ).toThrow();
   });
 });

@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, mock, test } from "bun:test";
+import { afterEach, beforeEach, describe, expect, jest, mock, test } from "bun:test";
 import { act, cleanup, fireEvent, waitFor } from "@testing-library/react";
 import type { HTMLAttributes, ReactNode } from "react";
 
@@ -75,13 +75,8 @@ mock.module("@heroui/modal", () => {
         onOpenChange: (open: boolean) => setIsOpen(open),
       };
     },
-    Modal: ({
-      children,
-      isOpen,
-    }: {
-      children: ReactNode;
-      isOpen: boolean;
-    }) => (isOpen ? <div>{children}</div> : null),
+    Modal: ({ children, isOpen }: { children: ReactNode; isOpen: boolean }) =>
+      isOpen ? <div>{children}</div> : null,
     ModalContent: ({ children }: { children: ReactNode }) => <div>{children}</div>,
     ModalHeader: ({ children }: { children: ReactNode }) => <h2>{children}</h2>,
     ModalBody: ({ children }: { children: ReactNode }) => <div>{children}</div>,
@@ -90,13 +85,9 @@ mock.module("@heroui/modal", () => {
 });
 
 mock.module("@heroui/button", () => ({
-  Button: ({
-    children,
-    onPress,
-  }: {
-    children: ReactNode;
-    onPress?: () => void;
-  }) => <button onClick={() => onPress?.()}>{children}</button>,
+  Button: ({ children, onPress }: { children: ReactNode; onPress?: () => void }) => (
+    <button onClick={() => onPress?.()}>{children}</button>
+  ),
 }));
 
 mock.module("@/components/sidebar/sidebar-chat-title", () => ({
@@ -110,9 +101,7 @@ mock.module("@/components/sidebar/sidebar-chat-title", () => ({
     onSave: (title: string) => void;
   }) =>
     editing ? (
-      <button onClick={() => onSave("Renamed Thread")}>
-        Save edited title
-      </button>
+      <button onClick={() => onSave("Renamed Thread")}>Save edited title</button>
     ) : (
       <h3>{title}</h3>
     ),
@@ -132,6 +121,7 @@ const thread = {
 describe("SidebarChatList", () => {
   afterEach(() => {
     cleanup();
+    jest.useRealTimers();
     document.body.innerHTML = "";
     mock.restore();
   });
@@ -173,7 +163,7 @@ describe("SidebarChatList", () => {
         <SidebarProvider>
           <SidebarChatList threads={[thread]} />
         </SidebarProvider>
-      </ChatContext.Provider>,
+      </ChatContext.Provider>
     );
   }
 
@@ -193,10 +183,7 @@ describe("SidebarChatList", () => {
     fireEvent.click(await view.findByText("Save edited title"));
 
     await waitFor(() => {
-      expect(mockUpdateChatTitle).toHaveBeenCalledWith(
-        "thread-1",
-        "Renamed Thread",
-      );
+      expect(mockUpdateChatTitle).toHaveBeenCalledWith("thread-1", "Renamed Thread");
     });
     expect(mockRefreshSidebarChats).toHaveBeenCalled();
   });
@@ -212,15 +199,16 @@ describe("SidebarChatList", () => {
     expect(mockRefreshSidebarChats).toHaveBeenCalled();
   });
 
-  test("ignores the first title click immediately after a mobile long press", async () => {
+  test("ignores the first title click immediately after a mobile long press", () => {
+    jest.useFakeTimers();
     currentIsMobile = true;
     const view = renderList();
 
     const openThreadButton = view.getByLabelText("Open Thread One");
 
     fireEvent.touchStart(openThreadButton);
-    await act(async () => {
-      await new Promise((resolve) => setTimeout(resolve, 550));
+    act(() => {
+      jest.advanceTimersByTime(500);
     });
     fireEvent.click(openThreadButton);
 

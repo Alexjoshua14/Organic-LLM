@@ -1,4 +1,4 @@
-import { describe, expect, mock, test } from "bun:test";
+import { afterEach, describe, expect, mock, test } from "bun:test";
 
 mock.module("server-only", () => ({}));
 mock.module("@/config/memory-qdrant-client", () => ({
@@ -19,11 +19,22 @@ describe("mem0-config embedder", () => {
 });
 
 describe("installMem0OllamaFetch", () => {
+  const originalFetch = globalThis.fetch;
+  const originalUrl = process.env.OLLAMA_URL;
+  const originalApiKey = process.env.OLLAMA_API_KEY;
+
+  afterEach(() => {
+    globalThis.fetch = originalFetch;
+    if (originalUrl === undefined) delete process.env.OLLAMA_URL;
+    else process.env.OLLAMA_URL = originalUrl;
+    if (originalApiKey === undefined) delete process.env.OLLAMA_API_KEY;
+    else process.env.OLLAMA_API_KEY = originalApiKey;
+  });
+
   test("adds Authorization for requests to OLLAMA_URL", async () => {
     process.env.OLLAMA_URL = "https://ollama.example.com";
     process.env.OLLAMA_API_KEY = "test-token";
 
-    const originalFetch = globalThis.fetch;
     const calls: Array<{ url: string; headers: Headers }> = [];
 
     globalThis.fetch = async (input: RequestInfo | URL, init?: RequestInit) => {
@@ -37,7 +48,10 @@ describe("installMem0OllamaFetch", () => {
       return new Response(JSON.stringify({ embeddings: [[0.1]] }), { status: 200 });
     };
 
-    const { installMem0OllamaFetch } = await import("@/lib/memory/install-mem0-ollama-fetch");
+    // Each run needs a fresh installation guard because it replaces global fetch.
+    const { installMem0OllamaFetch } = await import(
+      `@/lib/memory/install-mem0-ollama-fetch?test=${crypto.randomUUID()}`
+    );
 
     installMem0OllamaFetch();
 
@@ -53,9 +67,5 @@ describe("installMem0OllamaFetch", () => {
     expect(calls).toHaveLength(2);
     expect(calls[0]?.headers.get("Authorization")).toBe("Bearer test-token");
     expect(calls[1]?.headers.get("Authorization")).toBeNull();
-
-    globalThis.fetch = originalFetch;
-    delete process.env.OLLAMA_API_KEY;
-    delete process.env.OLLAMA_URL;
   });
 });
