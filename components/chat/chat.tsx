@@ -704,7 +704,7 @@ export const Chat: React.FC<ChatProps> = ({
             <ConversationScrollButton className="bottom-14" />
           </Conversation>
           <div className="shrink-0 px-4 sm:px-7 pb-1 md:pb-4 w-full -mt-10 flex flex-col gap-2">
-            <div className="mx-auto flex w-full max-w-4xl flex-col gap-2">
+            <div className="relative mx-auto flex w-full max-w-4xl flex-col gap-2">
               {persona === "remy" && (
                 <Sheet>
                   <SheetTrigger asChild>
@@ -732,6 +732,7 @@ export const Chat: React.FC<ChatProps> = ({
                 {btw.isOpen ? (
                   <BtwPanel
                     key={btw.sessionId}
+                    className="absolute inset-x-0 bottom-full z-30 mb-2"
                     error={btw.error}
                     messages={btw.messages}
                     status={btw.status}

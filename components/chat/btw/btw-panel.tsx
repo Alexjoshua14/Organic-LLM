@@ -23,13 +23,17 @@ type BtwPanelProps = {
   status: "submitted" | "streaming" | "ready" | "error";
   error?: Error;
   onClose: () => void;
+  /** Placement is the parent's call: the panel floats over the conversation, above the composer. */
+  className?: string;
 };
 
 /**
- * The `/btw` side thread, docked above CoreInput. While it is open CoreInput sends here,
- * with its own settings; closing drops the exchange and snaps CoreInput back.
+ * The `/btw` side thread, floating above CoreInput on the glass material. While it is open
+ * CoreInput sends here, with its own settings; closing drops the exchange and snaps CoreInput back.
+ * The question reads as a right-aligned glass bubble, as in the main chat; the answer is plain
+ * prose, so the two never blend.
  */
-export function BtwPanel({ messages, status, error, onClose }: BtwPanelProps) {
+export function BtwPanel({ messages, status, error, onClose, className }: BtwPanelProps) {
   const reduceMotion = useReducedMotion();
   const scrollRef = useRef<HTMLDivElement | null>(null);
   const waiting = status === "submitted";
@@ -58,7 +62,11 @@ export function BtwPanel({ messages, status, error, onClose }: BtwPanelProps) {
     <motion.section
       animate={{ opacity: 1, y: 0, transition: { duration: BTW_PANEL_ENTER_S, ease: "easeOut" } }}
       aria-label="Side question"
-      className={cn(glass({ opaque: true }), "w-full overflow-hidden rounded-xl")}
+      className={cn(
+        glass(),
+        "w-full overflow-hidden rounded-xl shadow-lg shadow-black/10",
+        className
+      )}
       data-btw-panel
       exit={{
         opacity: 0,
@@ -94,7 +102,7 @@ export function BtwPanel({ messages, status, error, onClose }: BtwPanelProps) {
       </span>
       <div
         ref={scrollRef}
-        className="max-h-[min(40dvh,22rem)] space-y-stack-md overflow-y-auto px-3 py-2.5 text-sm"
+        className="max-h-[min(55dvh,28rem)] space-y-stack-md overflow-y-auto px-3 py-3 text-sm"
       >
         {messages.length === 0 && !waiting ? (
           <p className="text-muted-foreground">
@@ -107,11 +115,22 @@ export function BtwPanel({ messages, status, error, onClose }: BtwPanelProps) {
           if (!text) return null;
 
           return message.role === "user" ? (
-            <p key={message.id} className="text-muted-foreground">
+            <div
+              key={message.id}
+              className={cn(
+                glass(),
+                "ml-auto w-fit max-w-[85%] rounded-lg px-3 py-2 text-foreground"
+              )}
+              data-btw-message="user"
+            >
               {text}
-            </p>
+            </div>
           ) : (
-            <div key={message.id} className="prose prose-sm dark:prose-invert max-w-none">
+            <div
+              key={message.id}
+              className="prose prose-sm dark:prose-invert max-w-none"
+              data-btw-message="assistant"
+            >
               <ChatMessageMarkdown wrapCodeBlocks content={text} id={`btw-${message.id}`} />
             </div>
           );
