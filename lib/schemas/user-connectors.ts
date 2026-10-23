@@ -1,6 +1,13 @@
 import { z } from "zod";
 
+import {
+  ErgonConnectionPublicSchema,
+  type ErgonConnectionPublic,
+} from "@/lib/schemas/ergon-connection";
+
 const GITHUB_USERNAME_RE = /^[a-zA-Z0-9](?:[a-zA-Z0-9]|-(?=[a-zA-Z0-9])){0,38}$/;
+
+export type { ErgonConnectionPublic };
 
 export const GithubRepoSummarySchema = z.object({
   name: z.string().min(1).max(200),
@@ -60,6 +67,8 @@ export const UserConnectorsProfileSchema = z.object({
   workingPreferences: z.string().max(USER_CONNECTORS_LIMITS.preferencesChars).default(""),
   autoShareWithSubagents: z.boolean().default(true),
   cachedGithubSnapshot: GithubConnectorSnapshotSchema.nullable().optional().default(null),
+  /** Public Ergon connection status only — OAuth access/refresh never live here. */
+  ergonConnection: ErgonConnectionPublicSchema.nullable().optional().default(null),
   updatedAt: z.string().nullable().optional().default(null),
 });
 
@@ -79,6 +88,7 @@ export function defaultUserConnectorsProfile(): UserConnectorsProfile {
     workingPreferences: "",
     autoShareWithSubagents: true,
     cachedGithubSnapshot: null,
+    ergonConnection: null,
     updatedAt: null,
   };
 }
@@ -191,7 +201,8 @@ export function hasPopulatedConnectorsProfile(
       profile.careerHistory.trim() ||
       profile.resumeText.trim() ||
       profile.workingPreferences.trim() ||
-      (profile.cachedGithubSnapshot?.repos.length ?? 0) > 0
+      (profile.cachedGithubSnapshot?.repos.length ?? 0) > 0 ||
+      profile.ergonConnection?.connected === true
   );
 }
 
@@ -403,6 +414,15 @@ export const CONNECTOR_SPECIALIST_ROUTES = [
     description:
       "Designs systems around your hardware, home servers, stack conventions, and infrastructure constraints.",
     when: "Architecture and infrastructure preferences",
+  },
+  {
+    agent: "Mira",
+    agentId: "agent-planner",
+    role: "Ergon / Planning",
+    shorthand: ["connector:ergon"],
+    description:
+      "Reads Ergon docs, briefs, and tickets via your connected Ergon REST token, and can start Ergon agent runs. Main chat handles write tickets when write scope is present.",
+    when: "Ergon planning, docs, tickets, and agent runs",
   },
 ] as const;
 

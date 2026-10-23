@@ -35,16 +35,19 @@ describe("chat tool schema compilation budget", () => {
       const unused = async () => {
         throw new Error("Schema checks must not execute tools");
       };
+      const ticketTools = await createErgonTicketTools("synthetic-owner", {
+        env: {
+          ERGON_URL: "https://ergon.example.com",
+          ERGON_TOKEN: "test-only",
+          ERGON_OWNER_PROFILE_ID: "synthetic-owner",
+        },
+        loadConnection: async () => null,
+        resolveToken: async () => null,
+        fetch: unused,
+      });
       const tools = {
         ...compiled.tools,
-        ...createErgonTicketTools("synthetic-owner", {
-          env: {
-            ERGON_URL: "https://ergon.example.com",
-            ERGON_TOKEN: "test-only",
-            ERGON_OWNER_PROFILE_ID: "synthetic-owner",
-          },
-          fetch: unused,
-        }),
+        ...ticketTools,
         ...createOrchestratorTools({
           orchestratorThreadId: "synthetic-thread",
           modelId: "synthetic-model",

@@ -17,6 +17,7 @@ import {
   type GithubConnectorSnapshot,
   type UserConnectorsProfile,
 } from "@/lib/schemas/user-connectors";
+import { formatErgonConnectorForWorktable } from "@/lib/schemas/ergon-connection";
 
 export type ShorthandPrefix = "node" | "rh" | "out" | "th" | "msg" | "bundle" | "connector";
 
@@ -267,6 +268,28 @@ function resolveConnectorShorthand(
     };
   }
 
+  if (slice === "ergon" || slice === "tickets" || slice === "issues") {
+    const status = connectors?.ergonConnection ?? null;
+    const sourceRef = "connector:ergon";
+    const label = status?.connected
+      ? `connector:ergon · ${status.url ?? "connected"}`
+      : "connector:ergon · not connected";
+
+    return {
+      ok: true,
+      kind: "item",
+      sourceRef,
+      item: {
+        kind: "note",
+        label,
+        text: formatErgonConnectorForWorktable(status),
+        sourceMessageId: null,
+        sourceRef,
+        agentId: "agent-planner",
+      },
+    };
+  }
+
   if (slice === "dossier" || slice === "profile" || slice === "all") {
     if (!connectors || !hasPopulatedConnectorsProfile(connectors)) {
       return {
@@ -398,7 +421,7 @@ function resolveConnectorShorthand(
 
   return {
     ok: false,
-    error: `Unknown connector shorthand "${raw}". Expected connector:github, connector:dossier, connector:education, connector:career, connector:resume, or connector:preferences.`,
+    error: `Unknown connector shorthand "${raw}". Expected connector:github, connector:ergon, connector:dossier, connector:education, connector:career, connector:resume, or connector:preferences.`,
   };
 }
 

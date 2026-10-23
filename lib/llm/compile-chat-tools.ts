@@ -273,8 +273,8 @@ async function compileBaseChatTools({
   tools["manage_tasks"] = createManageTasksTool();
   toolInstructions += `${MANAGE_TASKS_TOOL_INSTRUCTIONS}\n`;
 
-  // Mira's read,agents token stands in for the chat's read,write ticket tools.
-  const ticketTools = useErgonAgent ? {} : createErgonTicketTools(sbUserId);
+  // Mira's agents-scoped path stands in for the chat's write ticket tools on her turns.
+  const ticketTools = useErgonAgent ? {} : await createErgonTicketTools(sbUserId);
 
   if (Object.keys(ticketTools).length > 0) {
     Object.assign(tools, ticketTools);
@@ -289,7 +289,7 @@ async function compileBaseChatTools({
     toolInstructions += `${CHRONOS_TOOL_INSTRUCTIONS}\n`;
   }
 
-  const ergonAgentTools = useErgonAgent ? createErgonAgentTools(sbUserId) : {};
+  const ergonAgentTools = useErgonAgent ? await createErgonAgentTools(sbUserId) : {};
 
   if (Object.keys(ergonAgentTools).length > 0) {
     Object.assign(tools, ergonAgentTools);

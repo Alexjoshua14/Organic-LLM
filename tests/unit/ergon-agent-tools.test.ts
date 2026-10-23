@@ -10,6 +10,10 @@ const env = {
   ERGON_OWNER_PROFILE_ID: "owner-profile",
 };
 const options = { toolCallId: "test", messages: [] };
+const noUserConnection = {
+  loadConnection: async () => null,
+  resolveToken: async () => null,
+};
 
 function recordingFetch(body: (name: string) => unknown, status = 200) {
   const calls: Array<{ url: string; init: RequestInit }> = [];
@@ -23,12 +27,17 @@ function recordingFetch(body: (name: string) => unknown, status = 200) {
 }
 
 describe("Mira's Ergon tools", () => {
-  test("need the owner profile and the agent token, never the chat's write token", () => {
-    expect(createErgonAgentTools("stranger", { env })).toEqual({});
+  test("need the owner profile and the agent token, never the chat's write token", async () => {
+    expect(await createErgonAgentTools("stranger", { env, ...noUserConnection })).toEqual({});
     expect(
-      createErgonAgentTools("owner-profile", { env: { ...env, ERGON_AGENT_TOKEN: "" } })
+      await createErgonAgentTools("owner-profile", {
+        env: { ...env, ERGON_AGENT_TOKEN: "" },
+        ...noUserConnection,
+      })
     ).toEqual({});
-    expect(Object.keys(createErgonAgentTools("owner-profile", { env })).sort()).toEqual([
+    expect(
+      Object.keys(await createErgonAgentTools("owner-profile", { env, ...noUserConnection })).sort()
+    ).toEqual([
       "ergon_get_agent_run",
       "ergon_get_clause",
       "ergon_get_document",
@@ -48,7 +57,11 @@ describe("Mira's Ergon tools", () => {
       content: "x".repeat(20_000),
       clauses: [{ anchor: "ORCH-CTX-1" }],
     }));
-    const tools = createErgonAgentTools("owner-profile", { env, fetch });
+    const tools = await createErgonAgentTools("owner-profile", {
+      env,
+      fetch,
+      ...noUserConnection,
+    });
 
     const doc = (await tools.ergon_get_document!.execute!(
       { id: "organic-llm/aion/async-subagents.md" },
@@ -68,7 +81,11 @@ describe("Mira's Ergon tools", () => {
 
   test("start agent runs once, validating the budget and reporting Ergon's scope errors", async () => {
     const ok = recordingFetch(() => ({ id: "run_9", status: "queued", branch: "coa-123-x" }));
-    const tools = createErgonAgentTools("owner-profile", { env, fetch: ok.fetch });
+    const tools = await createErgonAgentTools("owner-profile", {
+      env,
+      fetch: ok.fetch,
+      ...noUserConnection,
+    });
 
     expect(
       await tools.ergon_start_agent_run!.execute!(
@@ -88,14 +105,19 @@ describe("Mira's Ergon tools", () => {
       () => ({ error: "forbidden", message: 'Token "organic-mira" lacks the "agents" scope' }),
       403
     );
-    const denied = createErgonAgentTools("owner-profile", { env, fetch: forbidden.fetch });
+    const denied = await createErgonAgentTools("owner-profile", {
+      env,
+      fetch: forbidden.fetch,
+      ...noUserConnection,
+    });
 
     expect(
       await denied.ergon_start_agent_run!.execute!({ issue: "COA-1", repo: "organic-llm" }, options)
     ).toEqual({ error: 'Ergon returned HTTP 403: Token "organic-mira" lacks the "agents" scope' });
 
-    const lost = createErgonAgentTools("owner-profile", {
+    const lost = await createErgonAgentTools("owner-profile", {
       env,
+      ...noUserConnection,
       fetch: async () => {
         throw new Error("timeout");
       },
@@ -107,7 +129,9 @@ describe("Mira's Ergon tools", () => {
   });
 
   test("schemas avoid unions so the assembled toolset stays inside provider limits", async () => {
-    for (const definition of Object.values(createErgonAgentTools("owner-profile", { env }))) {
+    for (const definition of Object.values(
+      await createErgonAgentTools("owner-profile", { env, ...noUserConnection })
+    )) {
       const schema = JSON.stringify(await asSchema(definition.inputSchema).jsonSchema);
 
       expect(schema).not.toContain("anyOf");

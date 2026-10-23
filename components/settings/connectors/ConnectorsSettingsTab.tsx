@@ -10,8 +10,10 @@ import {
   FileText,
   GitBranch,
   Globe,
+  Link2,
   RefreshCw,
   ShieldCheck,
+  Unplug,
 } from "lucide-react";
 
 import { Switch } from "@/components/design-system/switch";
@@ -27,6 +29,12 @@ import {
   type GithubConnectorSnapshot,
   type UserConnectorsProfile,
 } from "@/lib/schemas/user-connectors";
+import {
+  DEFAULT_ERGON_MCP_URL,
+  ErgonConnectionPublicSchema,
+  toPublicErgonConnection,
+  type ErgonConnectionPublic,
+} from "@/lib/schemas/ergon-connection";
 import { getUserConnectors, setUserConnectors } from "@/lib/user-settings";
 
 export type ConnectorsSettingsTabProps = {
@@ -53,6 +61,12 @@ export function ConnectorsSettingsTab({
   const [githubSnapshot, setGithubSnapshot] = useState<GithubConnectorSnapshot | null>(
     () => formState.cachedGithubSnapshot ?? null
   );
+
+  const [ergonStatus, setErgonStatus] = useState<ErgonConnectionPublic>(
+    () => formState.ergonConnection ?? toPublicErgonConnection(null)
+  );
+  const [ergonBusy, setErgonBusy] = useState(false);
+  const [ergonError, setErgonError] = useState<string | null>(null);
 
   const doFetch = useMemo(() => fetchImpl ?? fetch, [fetchImpl]);
 
@@ -98,10 +112,35 @@ export function ConnectorsSettingsTab({
             if (merged.cachedGithubSnapshot) {
               setGithubSnapshot(merged.cachedGithubSnapshot);
             }
+            if (merged.ergonConnection) {
+              setErgonStatus(merged.ergonConnection);
+            }
           }
         }
       } catch {
         // Offline or unauthenticated: local settings remain authoritative.
+      }
+
+      try {
+        const ergonRes = await doFetch("/api/profile/connectors/ergon");
+
+        if (!ergonRes.ok || cancelled) return;
+        const ergonPayload = (await ergonRes.json().catch(() => ({}))) as { data?: unknown };
+        const ergonParsed = ErgonConnectionPublicSchema.safeParse(ergonPayload.data);
+
+        if (!cancelled && ergonParsed.success) {
+          const status = ergonParsed.data;
+
+          setErgonStatus(status);
+          setFormState((prev) =>
+            setUserConnectors({
+              ...prev,
+              ergonConnection: status.connected ? status : null,
+            })
+          );
+        }
+      } catch {
+        // Ergon status is optional when offline.
       }
     }
 
@@ -195,6 +234,79 @@ export function ConnectorsSettingsTab({
     },
     [doFetch, formState, githubSnapshot, onSave]
   );
+
+  const handleConnectErgonOAuth = useCallback(async () => {
+    setErgonBusy(true);
+    setErgonError(null);
+
+    try {
+      const res = await doFetch("/api/profile/connectors/ergon/oauth/start", {
+        headers: { Accept: "application/json" },
+      });
+      const payload = (await res.json().catch(() => ({}))) as {
+        data?: { authorizeUrl?: string };
+        error?: string;
+        oauthReady?: boolean;
+      };
+
+      if (res.status === 503 || payload.oauthReady === false) {
+        setErgonError(
+          payload.error ??
+            "Ergon MCP OAuth is not configured on this deployment yet (missing ERGON_OAUTH_CLIENT_ID / redirect)."
+        );
+        setErgonBusy(false);
+
+        return;
+      }
+
+      if (!res.ok) {
+        throw new Error(payload.error ?? "Could not start Ergon OAuth.");
+      }
+
+      const authorizeUrl = payload.data?.authorizeUrl;
+
+      if (!authorizeUrl) {
+        throw new Error("Ergon OAuth start did not return an authorize URL.");
+      }
+
+      window.location.assign(authorizeUrl);
+    } catch (error) {
+      setErgonError(error instanceof Error ? error.message : "Could not start Ergon OAuth.");
+      setErgonBusy(false);
+    }
+  }, [doFetch]);
+
+  const handleDisconnectErgon = useCallback(async () => {
+    setErgonBusy(true);
+    setErgonError(null);
+
+    try {
+      const res = await doFetch("/api/profile/connectors/ergon", { method: "DELETE" });
+      const payload = (await res.json().catch(() => ({}))) as {
+        data?: unknown;
+        error?: string;
+      };
+
+      if (!res.ok) {
+        throw new Error(payload.error ?? "Could not disconnect Ergon.");
+      }
+
+      const parsed = ErgonConnectionPublicSchema.safeParse(payload.data);
+      const next = parsed.success ? parsed.data : toPublicErgonConnection(null);
+
+      setErgonStatus(next);
+      await handleSave({ ergonConnection: next.connected ? next : null });
+      setSaveMessage(
+        next.source === "env"
+          ? "Disconnected your Ergon OAuth session. Admin env bridge still applies for this account."
+          : "Disconnected Ergon. Reconnect with OAuth to restore Mira and ticket tools."
+      );
+    } catch (error) {
+      setErgonError(error instanceof Error ? error.message : "Could not disconnect Ergon.");
+    } finally {
+      setErgonBusy(false);
+    }
+  }, [doFetch, handleSave]);
 
   const handleSyncGithub = useCallback(async () => {
     const rawTarget = formState.githubUrl.trim() || formState.githubUsername.trim();
@@ -357,12 +469,100 @@ export function ConnectorsSettingsTab({
             </h3>
           </div>
           <p className="text-xs text-muted-foreground">
-            Link your GitHub, LinkedIn, and personal site so Organic can inspect your public
-            repositories and professional footprint on demand.
+            Link your GitHub, LinkedIn, personal site, and Ergon workspace so Organic can inspect
+            your public repositories and work engineering tickets on demand.
           </p>
         </div>
 
         <div className="space-y-4">
+          {/* Ergon — MCP OAuth (product path for Mira + ticket tools) */}
+          <div className="space-y-2 rounded-lg border border-border/60 bg-muted/10 p-3.5">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <div className="flex items-center gap-1.5 text-xs font-medium text-foreground">
+                <Link2 className="size-3.5 text-muted-foreground" />
+                Ergon (MCP OAuth)
+              </div>
+              {ergonStatus.connected ? (
+                <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/15 px-2 py-0.5 text-[11px] font-medium text-emerald-700 dark:text-emerald-300">
+                  <CheckCircle2 className="size-3" />
+                  Connected
+                  {ergonStatus.authMode === "oauth" ? " · OAuth" : ""}
+                  {ergonStatus.source === "env" ? " · admin" : ""}
+                </span>
+              ) : (
+                <span className="rounded-full bg-muted px-2 py-0.5 text-[11px] text-muted-foreground">
+                  Not connected
+                </span>
+              )}
+            </div>
+            <p className="text-[11px] text-muted-foreground leading-relaxed">
+              Connect via Ergon MCP OAuth (
+              <code className="mx-1">{DEFAULT_ERGON_MCP_URL}</code>
+              ). Organic stores access tokens server-side only; refresh tokens never reach the
+              browser. Mira (<code>agent-planner</code> / <code>connector:ergon</code>) uses the MCP
+              session. Main chat gets write ticket tools when write scope is present.
+            </p>
+
+            {ergonStatus.connected ? (
+              <div className="space-y-2">
+                <div className="rounded-lg border border-border/50 bg-background/80 px-3 py-2 text-xs text-foreground space-y-1">
+                  <div className="font-mono text-[11px] text-muted-foreground break-all">
+                    {ergonStatus.mcpUrl ?? ergonStatus.url}
+                  </div>
+                  {(ergonStatus.authMode || ergonStatus.transport) && (
+                    <div className="text-[11px] text-muted-foreground">
+                      {[
+                        ergonStatus.authMode ? `Auth: ${ergonStatus.authMode}` : null,
+                        ergonStatus.transport ? `Transport: ${ergonStatus.transport}` : null,
+                      ]
+                        .filter(Boolean)
+                        .join(" · ")}
+                    </div>
+                  )}
+                  {ergonStatus.scopes.length > 0 && (
+                    <div className="text-[11px] text-muted-foreground">
+                      Scopes: {ergonStatus.scopes.join(", ")}
+                    </div>
+                  )}
+                  {ergonStatus.connectedAt && (
+                    <div className="text-[11px] text-muted-foreground">
+                      Connected {new Date(ergonStatus.connectedAt).toLocaleString()}
+                    </div>
+                  )}
+                </div>
+                {ergonStatus.source === "user" && (
+                  <button
+                    aria-label="Disconnect Ergon"
+                    className="inline-flex items-center justify-center gap-1.5 rounded-lg border border-border bg-muted/40 px-3 py-2 text-xs font-medium text-foreground transition-colors hover:bg-muted disabled:opacity-50"
+                    disabled={ergonBusy}
+                    type="button"
+                    onClick={() => void handleDisconnectErgon()}
+                  >
+                    <Unplug className="size-3.5" />
+                    {ergonBusy ? "Disconnecting…" : "Disconnect Ergon"}
+                  </button>
+                )}
+              </div>
+            ) : (
+              <button
+                aria-label="Connect Ergon with OAuth"
+                className="inline-flex w-full items-center justify-center gap-1.5 rounded-lg border border-border bg-foreground px-3 py-2 text-xs font-medium text-background transition-opacity hover:opacity-90 disabled:opacity-50"
+                disabled={ergonBusy}
+                type="button"
+                onClick={() => void handleConnectErgonOAuth()}
+              >
+                <Link2 className={`size-3.5 ${ergonBusy ? "animate-pulse" : ""}`} />
+                {ergonBusy ? "Starting OAuth…" : "Connect with Ergon (OAuth)"}
+              </button>
+            )}
+
+            {ergonError && (
+              <div className="rounded-lg border border-destructive/30 bg-destructive/5 px-3 py-2 text-xs text-destructive">
+                {ergonError}
+              </div>
+            )}
+          </div>
+
           {/* GitHub */}
           <div className="space-y-2">
             <div className="flex items-center justify-between gap-2">

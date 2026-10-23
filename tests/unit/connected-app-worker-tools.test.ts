@@ -59,12 +59,12 @@ describe("connected-app tools in hard-set worker runs", () => {
 
       expect(names.some((name) => name.startsWith("chronos_"))).toBe(agent.tools.chronos === true);
       expect(names.includes("ergon_start_agent_run")).toBe(agent.tools.ergon === true);
-      // Worker runs never get the read,write ticket tools, so Mira stays read-plus-agent-runs.
+      // Mira (`tools.ergon`) stays agents-only; write ticket tools stay on main chat.
       expect(names.includes("ergon_save_issue")).toBe(false);
     }
   });
 
-  test("Reed's and Mira's assembled worker toolsets stay under the union limit", async () => {
+  test("Reed and Mira assembled worker toolsets stay under the union limit", async () => {
     for (const id of ["subagent-coder", "subagent-planner"]) {
       const agent = HARD_SET_SUBAGENTS.find((candidate) => candidate.id === id)!;
       const sent = JSON.parse((await prepare(agent)).toolSchemaText) as Array<{ schema: unknown }>;

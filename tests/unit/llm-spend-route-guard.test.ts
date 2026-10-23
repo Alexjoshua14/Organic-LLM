@@ -20,6 +20,10 @@ const GATED =
   /requireLlmChatActor\((?!\{ planBudget: false \})|requirePlanBudget|getPlanBudgetForUser|requireTtsActor|checkSpeakRealtimeSessionStart|assertSpeakBudgetOrClose|createAion(Event)?Handler/;
 
 const EXEMPT: Record<string, string> = {
+  "app/api/profile/connectors/ergon/route.ts":
+    "Reads or disconnects an owned Ergon connection; no model call.",
+  "app/api/profile/connectors/ergon/oauth/callback/route.ts":
+    "Exchanges OAuth credentials and probes MCP list_projects; no model call.",
   "app/api/ai/ideas/route.ts": "Model call is commented out; returns a static response.",
   "app/api/subagents/shells/route.ts": "Creates a shell thread; no model call.",
   "app/api/chat/[id]/stream/route.ts": "Resumes an existing stream; starts no new generation.",

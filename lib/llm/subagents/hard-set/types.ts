@@ -43,7 +43,10 @@ export const HardSetSubagentSchema = z.object({
       research: z.boolean().optional(),
       /** Chronos MCP: allowlisted read-only git over the owner's local repositories. */
       chronos: z.boolean().optional(),
-      /** Ergon core: docs, clauses, briefs, hooks and agent runs (read; starts agent runs). */
+      /**
+       * Mira's Ergon MCP session: docs, clauses, briefs, hooks and agent runs
+       * (Organic `agents` scope; write tickets stay on main chat).
+       */
       ergon: z.boolean().optional(),
     })
     .default({}),
