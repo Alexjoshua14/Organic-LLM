@@ -31,6 +31,7 @@ export const FEATURE_HINT_IDS = [
   "arcadia-style-ergon",
   "arcadia-style-remy",
   "arcadia-style-scribe",
+  "arcadia-style-jev",
 ] as const;
 
 export type FeatureHintId = (typeof FEATURE_HINT_IDS)[number];
@@ -168,8 +169,8 @@ export const FEATURE_HINTS: Record<FeatureHintId, FeatureHintDefinition> = {
     id: "arcadia-starters",
     enabled: true,
     title: "Arcadia styles",
-    body: "Four ways to work — Standard, Ergon board, Remy, and Scribe. Pick one, then a starter chip below.",
-    version: 5,
+    body: "Five ways to work — Standard, Ergon board, Remy, Scribe, and Jev. Pick one, then a starter chip below.",
+    version: 6,
     presentation: "spotlight",
     side: "bottom",
     align: "start",
@@ -221,6 +222,19 @@ export const FEATURE_HINTS: Record<FeatureHintId, FeatureHintDefinition> = {
     enabled: true,
     title: "Scribe",
     body: "Organizes your words only — no web search or invented facts. Paste a draft or outline and ask for structure.",
+    version: 1,
+    presentation: "spotlight",
+    side: "bottom",
+    align: "center",
+    pathPrefix: "/sandbox/arcadia",
+    deferUntilNavigationSettled: true,
+    contextualBackdrop: "blur",
+  },
+  "arcadia-style-jev": {
+    id: "arcadia-style-jev",
+    enabled: true,
+    title: "Jev",
+    body: "Jev reads each message first and picks the intent, tools, model, and whether you get text, voice, or just the result. When no reply is needed it sends a quick “Acknowledged” — tap Respond anyway for a full answer.",
     version: 1,
     presentation: "spotlight",
     side: "bottom",

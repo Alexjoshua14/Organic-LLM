@@ -3,7 +3,7 @@ import type { Logger } from "@/lib/logger";
 import type { ChatExperience } from "@/lib/chat/chat-experience";
 import type { Result } from "@/types";
 
-import { smoothStream, stepCountIs, streamText } from "ai";
+import { hasToolCall, smoothStream, stepCountIs, streamText } from "ai";
 import { GatewayProviderOptions } from "@ai-sdk/gateway";
 import { OpenAIResponsesProviderOptions } from "@ai-sdk/openai";
 
@@ -39,6 +39,13 @@ export type RunLLMChatStreamParams = {
   experience: ChatExperience | undefined;
   userMessage: UIMessage;
   threadHasTitlePromise: Promise<Result<boolean>>;
+  /**
+   * Parts the route wrote to the stream before the model's own (Arcadia Jev's `data-jev`). The
+   * client already shows them; they are prepended to the saved assistant message so a reload does.
+   */
+  persistedAssistantParts?: UIMessage["parts"];
+  /** End the step loop right after the model calls one of these tools (e.g. `voice_reply`). */
+  stopAfterToolNames?: readonly string[];
 };
 
 export async function runLLMChatStream(params: RunLLMChatStreamParams): Promise<void> {
@@ -61,6 +68,8 @@ export async function runLLMChatStream(params: RunLLMChatStreamParams): Promise<
     experience,
     userMessage,
     threadHasTitlePromise,
+    persistedAssistantParts,
+    stopAfterToolNames,
   } = params;
 
   const toolNames = Object.keys(tools);
@@ -177,7 +186,7 @@ export async function runLLMChatStream(params: RunLLMChatStreamParams): Promise<
     },
     tools,
     toolChoice: hasTools ? "auto" : "none",
-    stopWhen: stepCountIs(maxSteps),
+    stopWhen: [stepCountIs(maxSteps), ...(stopAfterToolNames ?? []).map((name) => hasToolCall(name))],
   });
 
   void result.usage
@@ -298,11 +307,16 @@ export async function runLLMChatStream(params: RunLLMChatStreamParams): Promise<
         );
 
         try {
-          const messagesWithModel = messages.map((savedMessage) =>
-            savedMessage.role === "assistant"
-              ? { ...savedMessage, model: selectedModel.id }
-              : savedMessage
-          );
+          const messagesWithModel = messages.map((savedMessage) => {
+            if (savedMessage.role !== "assistant") return savedMessage;
+
+            const parts =
+              persistedAssistantParts?.length && savedMessage.id === assistantMessageId
+                ? [...persistedAssistantParts, ...savedMessage.parts]
+                : savedMessage.parts;
+
+            return { ...savedMessage, parts, model: selectedModel.id };
+          });
 
           // Use admin client so save succeeds even if the user JWT expired during a long stream (e.g. finish_reason length).
           const { result: saveResult, durationMs: saveChatMs } = await measureAsync(() =>

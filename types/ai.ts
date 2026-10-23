@@ -1,6 +1,7 @@
 import type { KanbanCommand } from "@/lib/schemas/kanban";
 import type { IntrospectionGuidedState } from "@/lib/schemas/introspection";
 import type { ContextBudgetEstimate } from "@/lib/chat/context-budget";
+import type { JevTurnData } from "@/lib/arcadia/jev/types";
 
 import { UIMessage } from "ai";
 
@@ -35,6 +36,8 @@ export type ChatUIMessage = UIMessage<
     "introspection-view"?: IntrospectionGuidedState;
     /** Server-measured context budget for the assembled turn. */
     "context-budget"?: ContextBudgetEstimate;
+    /** Arcadia Jev mode: what Jev decided for this turn. Persisted with the assistant message. */
+    jev?: JevTurnData;
   }
 >;
 

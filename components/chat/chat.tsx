@@ -65,6 +65,15 @@ import { DiagramTakeoverProvider } from "@/lib/mermaid/diagram-takeover-context"
 import { isEditableEventTarget } from "@/lib/dom/is-editable-event-target";
 const logger = createLogger("components/chat/chat");
 
+/** The browser's IANA zone, so server-written times (e.g. rate-limit retry) read as local. */
+function resolveClientTimeZone(): string | undefined {
+  try {
+    return Intl.DateTimeFormat().resolvedOptions().timeZone || undefined;
+  } catch {
+    return undefined;
+  }
+}
+
 export type ChatProps = {
   chatData: { thread: Thread; messages: UIMessage[] } | null;
   initialMessage?: string;
@@ -164,8 +173,17 @@ export const Chat: React.FC<ChatProps> = ({
   // Temporary
   const stop = () => logger.log("chat", "stop called but functionality is currently disabled");
 
-  const { messages, sendMessage, id, status, setMessages, addToolOutput, error, clearError } =
-    useChat({
+  const {
+    messages,
+    sendMessage,
+    regenerate,
+    id,
+    status,
+    setMessages,
+    addToolOutput,
+    error,
+    clearError,
+  } = useChat({
       id: chatData?.thread.id ?? "",
       messages: chatData?.messages ?? [],
       resume: true,
@@ -178,7 +196,7 @@ export const Chat: React.FC<ChatProps> = ({
               : persona === "strata"
                 ? "/api/chat"
                 : (endpoint ?? `/api/chat/${persona ?? ""}`),
-        prepareSendMessagesRequest({ messages, id }) {
+        prepareSendMessagesRequest({ messages, id, body }) {
           const lastMessage = messages[messages.length - 1];
           const message = isClientPIIRedactionEnabled()
             ? redactUIMessages([lastMessage])[0]
@@ -217,7 +235,11 @@ export const Chat: React.FC<ChatProps> = ({
               ...strataPageTools,
               speechFriendly: useSpeechFriendlyRef.current,
               experience,
-              ...(experience === "arcadia" ? { chatStyle: getChatStyle(id) } : {}),
+              ...(experience === "arcadia"
+                ? { chatStyle: getChatStyle(id), timeZone: resolveClientTimeZone() }
+                : {}),
+              // Arcadia Jev "Respond anyway" (passed through `regenerate({ body })`).
+              ...(body?.jevOverride ? { jevOverride: body.jevOverride } : {}),
               ...(strataPageId ? { strataPageId } : {}),
               zeroDataRetention: settings.zeroDataRetention,
               coalescenceMode: settings.coalescenceMode,
@@ -367,6 +389,14 @@ export const Chat: React.FC<ChatProps> = ({
       },
     });
 
+  /** Arcadia Jev mode: replace an acknowledgement with a real reply to the same user message. */
+  const handleJevRespondAnyway = useCallback(
+    (messageId: string) => {
+      void regenerate({ messageId, body: { jevOverride: { messageId } } });
+    },
+    [regenerate]
+  );
+
   // Ambient awareness: while this thread is on screen, a live voice session is told its title,
   // latest messages and rolling summary — re-pushed after each finished exchange.
   useVoiceScreenContext(useChatVoiceSurface(chatData?.thread.id, messages, status));
@@ -500,6 +530,7 @@ export const Chat: React.FC<ChatProps> = ({
               status={status}
               contentClassName={persona === "remy" ? MEMORY_PANEL_RESERVE_PADDING : undefined}
               messages={messages}
+              onJevRespondAnyway={experience === "arcadia" ? handleJevRespondAnyway : undefined}
               renderEmptyState={
                 experience === "arcadia"
                   ? () => (
