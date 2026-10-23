@@ -24,6 +24,7 @@ import {
   shouldShowFirstSessionChecklist,
 } from "@/lib/onboarding/first-session-storage";
 import { requestFeatureGuideResume } from "@/lib/onboarding/feature-hint-explicit-request";
+import { threadEntryPrefetch } from "@/lib/chat/thread-entry-navigation";
 import { cn } from "@/lib/utils";
 
 /**
@@ -153,6 +154,7 @@ export function FirstSessionSheet() {
                       done && "border-accent/25 bg-accent/5"
                     )}
                     href={step.href}
+                    prefetch={threadEntryPrefetch(step.href)}
                     onClick={() => {
                       const next = completeFirstSessionStep(window.localStorage, step.id);
 
