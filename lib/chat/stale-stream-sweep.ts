@@ -104,8 +104,8 @@ async function defaultDeps(): Promise<StaleStreamSweepDeps> {
   return {
     listIdle: listIdleActiveStreams,
     // Throws without REDIS_URL, which the loop records as a failure rather than clearing blind.
-    streamStatus: (streamId) =>
-      (context ??= createChatResumableStreamContext()).hasExistingStream(streamId),
+    streamStatus: async (streamId) =>
+      (await (context ??= createChatResumableStreamContext())).hasExistingStream(streamId),
     clear: clearActiveStreamIfUnchanged,
   };
 }
