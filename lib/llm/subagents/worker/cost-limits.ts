@@ -9,7 +9,12 @@ export const SUBAGENT_TOTAL_OUTPUT_TOKENS = 16_000;
 /** Estimated input includes messages, instructions and serialized tool schemas on every step. */
 /** Lives here, not in prepare-input, so orchestrator-tools can read it at module load. */
 export const SUBAGENT_THREAD_CONTEXT_MESSAGES = 30;
-export const SUBAGENT_MAX_INPUT_TOKENS = 24_000;
+/**
+ * Per-step input ceiling for a worker. 24k blocked research assignments (a Lyra dispatch estimated
+ * 38k) before they could run. The USD ceiling below, not this, bounds spend, and workers default
+ * to the economy (Haiku) tier, so the larger window stays cheap.
+ */
+export const SUBAGENT_MAX_INPUT_TOKENS = 64_000;
 /**
  * Hard per-run USD ceiling. The next step wraps up once spend reaches 80% of this,
  * and no further model call starts once spend reaches the ceiling.
@@ -17,7 +22,7 @@ export const SUBAGENT_MAX_INPUT_TOKENS = 24_000;
 export const SUBAGENT_MAX_RUN_COST_USD = 0.25;
 const SUBAGENT_RUN_COST_FINISH_RATIO = 0.8;
 
-const COMPACTION_MARKER = "\n…[compacted to stay within 24k token budget]…\n";
+const COMPACTION_MARKER = "\n…[compacted to stay within the token budget]…\n";
 const FINISHING_INSTRUCTIONS_SUFFIX =
   "\n\nThis is the final step of this bounded assignment. Use the evidence already gathered, produce the requested result, and state any missing inputs or unfinished work. Do not claim completion of work you did not finish.";
 
@@ -285,7 +290,7 @@ function summarizeDroppedStepMessages(dropped: ReadonlyArray<ModelMessage>): str
 
 /**
  * Multi-pass compaction for subagent worker steps when accumulated tool results or thread history
- * push the next step above `SUBAGENT_MAX_INPUT_TOKENS` (24k).
+ * push the next step above `SUBAGENT_MAX_INPUT_TOKENS`.
  *
  * A single uncompactable step-0 user message is left untouched so preflight hard-gate contracts hold.
  */
