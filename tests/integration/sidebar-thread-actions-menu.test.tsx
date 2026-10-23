@@ -8,6 +8,7 @@ const mockDeleteChat = mock(async () => ({ ok: true, error: null }));
 const mockRefreshSidebarChats = mock(() => {});
 const mockRouterPush = mock(() => {});
 const mockOnOpenChange = mock(() => {});
+const mockOnGenerateTitle = mock(() => {});
 
 let currentPathname = "/";
 
@@ -98,11 +99,12 @@ describe("SidebarThreadActionsMenu", () => {
     mockRefreshSidebarChats.mockReset();
     mockRouterPush.mockReset();
     mockOnOpenChange.mockReset();
+    mockOnGenerateTitle.mockReset();
     mockDeleteChat.mockResolvedValue({ ok: true, error: null });
     currentPathname = "/";
   });
 
-  function renderMenu() {
+  function renderMenu(menuThread: typeof thread & { feature?: string } = thread) {
     return render(
       <ChatContext.Provider
         value={
@@ -119,10 +121,11 @@ describe("SidebarThreadActionsMenu", () => {
         }
       >
         <SidebarThreadActionsMenu
-          thread={thread}
+          thread={menuThread}
           open={true}
           onOpenChange={mockOnOpenChange}
           onEditTitle={() => {}}
+          onGenerateTitle={mockOnGenerateTitle}
           onTogglePin={() => {}}
         >
           <button>Open menu</button>
@@ -130,6 +133,29 @@ describe("SidebarThreadActionsMenu", () => {
       </ChatContext.Provider>,
     );
   }
+
+  test("regenerating a title closes the menu and hands the work to the row", () => {
+    const view = renderMenu();
+
+    fireEvent.click(view.getByText("Regenerate title (AI)"));
+
+    expect(mockOnOpenChange).toHaveBeenCalledWith(false);
+    expect(mockOnGenerateTitle).toHaveBeenCalledTimes(1);
+  });
+
+  test("offers title editing for ordinary threads", () => {
+    const view = renderMenu();
+
+    expect(view.getByText("Edit title")).toBeDefined();
+  });
+
+  test("rabbit-hole threads cannot be retitled — the rabbit hole owns the title", () => {
+    const view = renderMenu({ ...thread, feature: "rabbit_hole" });
+
+    expect(view.queryByText("Edit title")).toBeNull();
+    expect(view.queryByText(/title \(AI\)/)).toBeNull();
+    expect(view.getByText("Delete thread")).toBeDefined();
+  });
 
   test("deletes the active thread, refreshes chats, and redirects home", async () => {
     currentPathname = "/chat/thread-1";

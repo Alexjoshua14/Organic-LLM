@@ -10,9 +10,9 @@ const mockGetSupabaseUserId = mock(async () => ({
   data: "sb_test_user",
   error: null,
 }));
-const mockGetChats = mock(async () => ({
-  data: [],
-  error: null,
+const mockGetSidebarThreads = mock(async () => ({
+  data: [] as unknown[] | null,
+  error: null as Error | null,
 }));
 const mockCheckChatsListLimit = mock(async () => ({
   success: true,
@@ -27,8 +27,8 @@ mock.module("@/data/supabase/profiles", () => ({
   getSupabaseUserId: mockGetSupabaseUserId,
 }));
 
-mock.module("@/data/supabase/chat", () => ({
-  getChats: mockGetChats,
+mock.module("@/data/supabase/sidebar-threads", () => ({
+  getSidebarThreads: mockGetSidebarThreads,
 }));
 
 mock.module("@/lib/rate-limit/chats", () => ({
@@ -41,7 +41,7 @@ describe("GET /api/chats", () => {
   beforeEach(() => {
     mockAuth.mockClear();
     mockGetSupabaseUserId.mockClear();
-    mockGetChats.mockClear();
+    mockGetSidebarThreads.mockClear();
     mockCheckChatsListLimit.mockClear();
 
     mockAuth.mockResolvedValue(createMockClerkUser());
@@ -49,7 +49,7 @@ describe("GET /api/chats", () => {
       data: "sb_test_user",
       error: null,
     });
-    mockGetChats.mockResolvedValue({
+    mockGetSidebarThreads.mockResolvedValue({
       data: [],
       error: null,
     });
@@ -67,7 +67,7 @@ describe("GET /api/chats", () => {
 
     expect(res.status).toBe(429);
     expect(body.error).toContain("240");
-    expect(mockGetChats).not.toHaveBeenCalled();
+    expect(mockGetSidebarThreads).not.toHaveBeenCalled();
   });
 
   test("returns 401 when the user is not authenticated", async () => {
@@ -80,7 +80,7 @@ describe("GET /api/chats", () => {
     expect(body).toEqual({ error: "Unauthorized" });
     expect(mockCheckChatsListLimit).not.toHaveBeenCalled();
     expect(mockGetSupabaseUserId).not.toHaveBeenCalled();
-    expect(mockGetChats).not.toHaveBeenCalled();
+    expect(mockGetSidebarThreads).not.toHaveBeenCalled();
   });
 
   test("returns 404 when the Clerk user has no Supabase profile", async () => {
@@ -94,11 +94,11 @@ describe("GET /api/chats", () => {
 
     expect(res.status).toBe(404);
     expect(body).toEqual({ error: "User not found" });
-    expect(mockGetChats).not.toHaveBeenCalled();
+    expect(mockGetSidebarThreads).not.toHaveBeenCalled();
   });
 
   test("returns 500 when fetching chats fails", async () => {
-    mockGetChats.mockResolvedValueOnce({
+    mockGetSidebarThreads.mockResolvedValueOnce({
       data: null,
       error: new Error("db down"),
     });
@@ -111,7 +111,7 @@ describe("GET /api/chats", () => {
   });
 
   test("returns an empty data array when chats data is null", async () => {
-    mockGetChats.mockResolvedValueOnce({
+    mockGetSidebarThreads.mockResolvedValueOnce({
       data: null,
       error: null,
     });
@@ -123,37 +123,29 @@ describe("GET /api/chats", () => {
     expect(body).toEqual({ data: [] });
   });
 
-  test("passes the resolved owner id into getChats and returns chat data", async () => {
+  test("queries the sidebar rows for the resolved owner and returns them as-is", async () => {
     mockGetSupabaseUserId.mockResolvedValueOnce({
       data: "sb_owner_123",
       error: null,
     });
-    mockGetChats.mockResolvedValueOnce({
-      data: [
-        {
-          id: "thread-1",
-          title: "First thread",
-          owner_id: "sb_owner_123",
-          created_at: "2026-03-08T00:00:00.000Z",
-          updated_at: "2026-03-08T01:00:00.000Z",
-          pinned: true,
-        },
-      ],
-      error: null,
-    });
+    const rows = [
+      {
+        id: "thread-1",
+        title: "First thread",
+        updated_at: "2026-03-08T01:00:00.000Z",
+        pinned: true,
+        feature: "main",
+        path: null,
+      },
+    ];
+
+    mockGetSidebarThreads.mockResolvedValueOnce({ data: rows, error: null });
 
     const res = await GET();
     const body = await res.json();
 
     expect(res.status).toBe(200);
-    expect(mockGetChats).toHaveBeenCalledWith({ ownerId: "sb_owner_123" });
-    expect(body).toEqual({
-      data: [
-        expect.objectContaining({
-          id: "thread-1",
-          owner_id: "sb_owner_123",
-        }),
-      ],
-    });
+    expect(mockGetSidebarThreads).toHaveBeenCalledWith("sb_owner_123");
+    expect(body).toEqual({ data: rows });
   });
 });

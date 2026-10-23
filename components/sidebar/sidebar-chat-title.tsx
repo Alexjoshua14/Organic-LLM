@@ -1,6 +1,9 @@
 "use client";
 
 import React, { useCallback, useEffect, useRef, useState } from "react";
+import { motion, useReducedMotion } from "framer-motion";
+
+import { SESSION_TITLE_SETTLE_S } from "@/lib/sidebar/session-signal-timing";
 
 type SidebarChatTitleProps = {
   title: string;
@@ -22,6 +25,15 @@ export function SidebarChatTitle({
   const [editedTitle, setEditedTitle] = useState<string>(title);
   const inputRef = useRef<HTMLInputElement>(null);
   const editStartedAtRef = useRef(0);
+  const reduceMotion = useReducedMotion();
+  // A title that changes in place (regenerated, or first auto-title) settles in rather than
+  // snapping, so the eye registers that the new words are the answer.
+  const shownTitleRef = useRef(title);
+  const titleChanged = shownTitleRef.current !== title;
+
+  useEffect(() => {
+    shownTitleRef.current = title;
+  }, [title]);
 
   useEffect(() => {
     if (!editing) {
@@ -99,14 +111,21 @@ export function SidebarChatTitle({
     );
   }
 
+  // The heading itself animates, never a wrapper inside it: gradient titles (Arcadia) paint with
+  // `bg-clip-text text-transparent`, and a filtered child is composited on its own layer where
+  // the parent's clipped background cannot reach — the text would render fully transparent.
   return (
-    <h3
+    <motion.h3
+      key={title}
+      animate={{ opacity: 1, filter: "blur(0px)", transitionEnd: { filter: "none" } }}
       className={["flex-1 truncate py-1 min-w-0 cursor-pointer", className]
         .filter(Boolean)
         .join(" ")}
+      initial={titleChanged && !reduceMotion ? { opacity: 0, filter: "blur(3px)" } : false}
       title={title}
+      transition={{ duration: SESSION_TITLE_SETTLE_S, ease: [0.25, 0.46, 0.45, 0.94] }}
     >
       {title}
-    </h3>
+    </motion.h3>
   );
 }

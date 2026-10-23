@@ -38,6 +38,7 @@ import { createLogger } from "@/lib/logger";
 import { PERF_PHASES } from "@/lib/perf/journeys";
 import { completeForJourney } from "@/lib/perf/trace-store";
 import { useChatVoiceSurface } from "@/hooks/use-chat-voice-surface";
+import { nudgeSidebarActivity } from "@/hooks/use-sidebar-activity";
 import { useVoiceScreenContext } from "@/hooks/use-voice-screen-context";
 import { useSharedChatContext } from "@/lib/context/chat-context";
 import { ChatModel } from "@/lib/schemas/chat";
@@ -407,6 +408,10 @@ export const Chat: React.FC<ChatProps> = ({
     if (wasStreamingRef.current && status === "ready") {
       setContextBudgetRefreshKey((key) => key + 1);
     }
+
+    // Sidebar working signal: the server marks the stream when the first chunk is on its way.
+    if (status === "streaming" && !wasStreamingRef.current) nudgeSidebarActivity();
+    if (wasStreamingRef.current && !streaming) nudgeSidebarActivity();
 
     wasStreamingRef.current = streaming;
   }, [status]);

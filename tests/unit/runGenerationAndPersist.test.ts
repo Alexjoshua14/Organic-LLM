@@ -10,6 +10,7 @@ const mockRunOneGenerationStep = mock(async () => ({
   data: null,
   error: new Error("Step failed"),
 }));
+const mockRecordThreadActivity = mock(async () => ({ ok: true, error: null }));
 
 let updatePayload: Record<string, unknown> | null = null;
 let eqColumn: string | null = null;
@@ -51,6 +52,9 @@ const defaultRunOneGenerationStep = {
 const defaultSupabaseAdmin = {
   ...(await import("@/lib/supabase/supabase-admin")),
 };
+const realChatAdmin = {
+  ...(await import("@/data/supabase/chat-admin")),
+};
 
 mock.module("@/lib/rabbit-holes/runOneGenerationStep", () => ({
   runOneGenerationStep: mockRunOneGenerationStep,
@@ -64,6 +68,10 @@ mock.module("@/data/supabase/rabbitholes", () => ({
 mock.module("@/lib/supabase/supabase-admin", () => ({
   supabaseAdmin: createSupabaseMock(),
 }));
+mock.module("@/data/supabase/chat-admin", () => ({
+  ...realChatAdmin,
+  recordThreadActivityWithAdmin: mockRecordThreadActivity,
+}));
 
 const { clearGeneratingNodeId, runGenerationAndPersist } = await import(
   "@/lib/rabbit-holes/runGenerationAndPersist?run-generation-test"
@@ -73,6 +81,7 @@ afterAll(() => {
   mock.module("@/data/supabase/rabbitholes", () => realRabbitholes);
   mock.module("@/lib/rabbit-holes/runOneGenerationStep", () => defaultRunOneGenerationStep);
   mock.module("@/lib/supabase/supabase-admin", () => defaultSupabaseAdmin);
+  mock.module("@/data/supabase/chat-admin", () => realChatAdmin);
 });
 
 describe("with mocked rabbitholes", () => {
@@ -86,6 +95,8 @@ describe("with mocked rabbitholes", () => {
     mockAdvanceGenerationStep.mockReset();
     mockAdvanceGenerationStep.mockResolvedValue({ updated: true });
     mockRunOneGenerationStep.mockReset();
+    mockRecordThreadActivity.mockReset();
+    mockRecordThreadActivity.mockResolvedValue({ ok: true, error: null });
   });
 
   afterEach(() => {
@@ -296,6 +307,53 @@ describe("with mocked rabbitholes", () => {
       expect(advanceCalls[1]?.[3]).toBe("branch_suggestions");
       expect(advanceCalls[2]?.[2]).toBe("branch_suggestions");
       expect(advanceCalls[2]?.[3]).toBeNull();
+      // No chat thread → no sidebar row → nothing to mark new.
+      expect(mockRecordThreadActivity.mock.calls.length).toBe(0);
+    });
+
+    test("marks the session's sidebar thread new once the last step completes", async () => {
+      const CHAT_THREAD_ID = "880e8400-e29b-41d4-a716-446655440003";
+      const node = {
+        id: NODE_ID,
+        rawPrompt: "P",
+        userQuestion: "Q",
+        keyTakeaways: ["K1", "K2", "K3"],
+        articleHtml: "<p>Content</p>",
+        sources: [{ id: "s1", title: "S", url: "https://example.com/", status: "none" as const }],
+        branchSuggestions: [],
+        createdAt: new Date().toISOString(),
+      };
+      const session = {
+        sessionId: SESSION_ID,
+        rootQuestion: "Q",
+        path: [{ nodeId: NODE_ID, label: "L", parentNodeId: null }],
+        nodesById: { [NODE_ID]: { ...node, articleHtml: "" } },
+        activeNodeId: NODE_ID,
+        edges: [],
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+        chatThreadId: CHAT_THREAD_ID,
+        generationStep: "branch_suggestions" as const,
+      };
+
+      mockGetSessionById.mockResolvedValue({ data: session, error: null } as any);
+      mockRunOneGenerationStep.mockResolvedValue({
+        data: {
+          ...session,
+          nodesById: {
+            [NODE_ID]: { ...node, branchSuggestions: [{ id: "b1", label: "Branch 1" }] },
+          },
+        },
+        error: null,
+      } as any);
+
+      await runGenerationAndPersist(SESSION_ID, NODE_ID);
+
+      expect(mockAdvanceGenerationStep.mock.calls.length).toBe(1);
+      expect(mockRecordThreadActivity.mock.calls.length).toBe(1);
+      expect(
+        (mockRecordThreadActivity.mock.calls as unknown as Array<[{ threadId: string }]>)[0]?.[0]
+      ).toEqual({ threadId: CHAT_THREAD_ID });
     });
 
     test("exits when advanceGenerationStep returns updated false (singularity)", async () => {

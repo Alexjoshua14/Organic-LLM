@@ -95,6 +95,7 @@ export async function upsertMessagesWithAdmin(params: {
 
 /**
  * Updates active_stream_id using the admin client. Use when the user JWT may be expired (e.g. in onFinish).
+ * Clearing the stream also clears `active_stream_started_at`, which ends the sidebar's working signal.
  */
 export async function updateChatStreamWithAdmin(params: {
   chatId: string;
@@ -105,7 +106,11 @@ export async function updateChatStreamWithAdmin(params: {
   const sb = supabaseAdmin;
   const { error } = await sb
     .from("threads")
-    .update({ active_stream_id: activeStreamId })
+    .update(
+      activeStreamId === null
+        ? { active_stream_id: null, active_stream_started_at: null }
+        : { active_stream_id: activeStreamId }
+    )
     .eq("id", chatId);
 
   if (error) {
@@ -119,4 +124,52 @@ export async function updateChatStreamWithAdmin(params: {
     ok: true,
     error: null,
   };
+}
+
+/**
+ * Stamps `thread_attention.last_activity_at` — content just landed on this thread, so the sidebar
+ * shows it as new until the owner sees it. Admin client: callers run after long generations
+ * (onFinish, background rabbit-hole steps) where the user JWT may have expired. Never call for
+ * Speak; voice is realtime and is never "new".
+ */
+export async function recordThreadActivityWithAdmin(params: {
+  threadId: string;
+  /** Looked up from `threads` when omitted. */
+  ownerId?: string;
+}): Promise<SimpleResult> {
+  const sb = supabaseAdmin;
+  let ownerId = params.ownerId;
+
+  if (!ownerId) {
+    const { data, error } = await sb
+      .from("threads")
+      .select("owner_id")
+      .eq("id", params.threadId)
+      .maybeSingle();
+
+    if (error || !data?.owner_id) {
+      return { ok: false, error: new Error(error?.message ?? "Thread owner not found") };
+    }
+    ownerId = String(data.owner_id);
+  }
+
+  const { error } = await sb.from("thread_attention").upsert(
+    {
+      thread_id: params.threadId,
+      owner_id: ownerId,
+      last_activity_at: new Date().toISOString(),
+    },
+    { onConflict: "thread_id" }
+  );
+
+  if (error) {
+    logger.error(
+      "recordThreadActivityWithAdmin",
+      `Error stamping activity: ${error.code ?? "unknown"}`
+    );
+
+    return { ok: false, error: new Error(error.message) };
+  }
+
+  return { ok: true, error: null };
 }

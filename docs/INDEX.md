@@ -8,6 +8,7 @@
 - [Context building](./architecture/context-building.md) — how chat context is assembled before `streamText`
 - [Chat model aliases](./architecture/decisions/20260909-chat-model-aliases.md) — `models.provider.family` vs picker `name` / persisted gateway ids
 - [Arcadia context effort](./architecture/decisions/20260914-arcadia-context-effort.md) — Instant / Quick / Heavy memory compilation; 50k history window unchanged
+- [Sidebar seen state](./architecture/decisions/20260924-sidebar-seen-state.md) — "new since last look" is a server column; Speak threads are never new
 - [End-to-end encryption overview](./e2ee.md)
 
 ## Product hub
@@ -40,6 +41,7 @@ Canon for the product: what we're building, who owns which kind of truth, how ag
 ## Design & UI
 
 - **[Design backbone](./design/README.md)** — agent-facing design standards (start here for UI/motion quality)
+- [Sidebar session signals](./design/sidebar-session-signals.md) — experience glyphs, working / new signals, gaze hierarchy
   - [Spacing](./design/spacing.md) — stack/gap/inset tokens, card density
   - [Motion & character text timing](./design/motion-and-text-timing.md) — status labels, loading burns, stagger budgets
 - [Adaptive background](./adaptive-background.md)

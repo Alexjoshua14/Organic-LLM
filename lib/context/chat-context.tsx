@@ -10,7 +10,7 @@ import React, {
   useState,
 } from "react";
 import { Chat } from "@ai-sdk/react";
-import useSWR from "swr";
+import useSWR, { mutate as mutateGlobal } from "swr";
 import { DefaultChatTransport, UIMessage } from "ai";
 
 import { ThreadLink } from "@/types";
@@ -21,20 +21,36 @@ import { mark } from "@/lib/perf/trace-store";
  * SWR key for the sidebar chat list; shared so mutate(key) revalidates everywhere.
  * See docs/thread-session-architecture.md for client cache contract and when to refresh.
  */
-const SIDEBAR_CHATS_KEY = "/api/chats";
+export const SIDEBAR_CHATS_KEY = "/api/chats";
 
 /** API response shape from GET /api/chats */
 interface ChatsApiResponse {
   data?: Array<{
     id: string;
     title: string | null;
-    owner_id?: string;
-    created_at: string;
     updated_at: string;
-    pinned?: boolean;
+    pinned?: boolean | null;
     feature?: string | null;
     path?: string | null;
   }>;
+}
+
+/**
+ * Retitles one thread in the cached sidebar list right away (no revalidation). Callers follow
+ * with `refreshSidebarChats()` so the server confirms.
+ */
+export function setSidebarChatTitle(threadId: string, title: string) {
+  return mutateGlobal<ChatsApiResponse>(
+    SIDEBAR_CHATS_KEY,
+    (current) =>
+      current?.data
+        ? {
+            ...current,
+            data: current.data.map((row) => (row.id === threadId ? { ...row, title } : row)),
+          }
+        : current,
+    { revalidate: false }
+  );
 }
 
 /**

@@ -25,6 +25,8 @@ type SidebarThreadActionsMenuProps = {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onEditTitle: () => void;
+  /** Starts AI title regeneration; the row owns the progress feedback. */
+  onGenerateTitle: () => void;
   onTogglePin: () => void;
   children: React.ReactNode;
 };
@@ -34,6 +36,7 @@ export function SidebarThreadActionsMenu({
   open,
   onOpenChange,
   onEditTitle,
+  onGenerateTitle,
   onTogglePin,
   children,
 }: SidebarThreadActionsMenuProps) {
@@ -41,6 +44,7 @@ export function SidebarThreadActionsMenu({
   const pathname = usePathname();
   const router = useRouter();
   const { refreshSidebarChats } = useSharedChatContext();
+  const titleOwnedByExperience = thread.feature === "rabbit_hole";
 
   const handleEditTitle = useCallback(() => {
     onOpenChange(false);
@@ -59,20 +63,8 @@ export function SidebarThreadActionsMenu({
 
   const handleGenerateTitle = useCallback(() => {
     onOpenChange(false);
-    const threadId = thread.id;
-
-    fetch(`/api/chat/${threadId}/generate-title`, { method: "POST" })
-      .then((res) => {
-        if (res.ok) {
-          refreshSidebarChats();
-        } else {
-          logger.error("handleGenerateTitle", `Failed to generate title: ${res.status}`);
-        }
-      })
-      .catch((err) => {
-        logger.error("handleGenerateTitle", err);
-      });
-  }, [thread.id, onOpenChange, refreshSidebarChats]);
+    onGenerateTitle();
+  }, [onOpenChange, onGenerateTitle]);
 
   const deleteThread = useCallback(() => {
     const handleDeleteThread = async () => {
@@ -99,14 +91,19 @@ export function SidebarThreadActionsMenu({
       <DropdownMenu open={open} onOpenChange={onOpenChange}>
         <DropdownMenuTrigger asChild>{children}</DropdownMenuTrigger>
         <DropdownMenuContent align="end" className="min-w-40">
-          <DropdownMenuItem onSelect={handleEditTitle}>
-            <Pencil className="size-4" />
-            Edit title
-          </DropdownMenuItem>
-          <DropdownMenuItem onSelect={handleGenerateTitle}>
-            <Sparkles className="size-4" />
-            {thread.hasNoTitle === true ? "Generate title (AI)" : "Regenerate title (AI)"}
-          </DropdownMenuItem>
+          {/* A rabbit hole's title comes from the rabbit hole itself (see GET /api/chats). */}
+          {!titleOwnedByExperience && (
+            <>
+              <DropdownMenuItem onSelect={handleEditTitle}>
+                <Pencil className="size-4" />
+                Edit title
+              </DropdownMenuItem>
+              <DropdownMenuItem onSelect={handleGenerateTitle}>
+                <Sparkles className="size-4" />
+                {thread.hasNoTitle === true ? "Generate title (AI)" : "Regenerate title (AI)"}
+              </DropdownMenuItem>
+            </>
+          )}
           <DropdownMenuItem onSelect={handleTogglePin}>
             {thread.pinned ? (
               <>

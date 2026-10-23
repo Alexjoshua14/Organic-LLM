@@ -10,6 +10,7 @@ feel — so improvements stay consistent and do not regress quality.
 |-----|----------------|
 | [Spacing](./spacing.md) | Card density, stack/gap/inset tokens, gen-ui vertical rhythm |
 | [Motion & character text timing](./motion-and-text-timing.md) | Any char-by-char / stagger / status-label / loading-state animation |
+| [Sidebar session signals](./sidebar-session-signals.md) | Sidebar rows: experience glyphs, working / new / live signals, gaze hierarchy |
 | [Adaptive background](../adaptive-background.md) + [timing](../adaptive-background-timing.md) | Ambient dim / focus atmospheres |
 | [Organic presence](../organic-presence.md) | Presence indicators and ambient life |
 | [Mermaid diagram design](../mermaid-diagram-design.md) | Diagram wells, reveal, takeover |

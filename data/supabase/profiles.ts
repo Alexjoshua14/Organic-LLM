@@ -4,6 +4,7 @@ import type { Json } from "@/lib/supabase/types";
 import { auth } from "@clerk/nextjs/server";
 import { z } from "zod";
 
+import { cachedProfileId } from "@/lib/supabase/profile-id-cache";
 import { supabaseServer } from "@/lib/supabase/server";
 import { Result } from "@/types";
 import { Profile, ProfileSchema } from "@/lib/schemas/profiles";
@@ -187,25 +188,28 @@ export async function getProfile(clerkUserId: string): Promise<Result<Profile>> 
  * @param clerkUserId
  * @returns User's supabase ID
  */
+/** Cached per server instance — see `lib/supabase/profile-id-cache.ts` for why that is safe. */
 export async function getSupabaseUserId(clerkUserId: string): Promise<Result<string>> {
-  const sb = await supabaseServer();
-  const { data, error } = await sb
-    .from("profiles")
-    .select("id")
-    .eq("clerk_user_id", clerkUserId)
-    .single();
+  return cachedProfileId(clerkUserId, async () => {
+    const sb = await supabaseServer();
+    const { data, error } = await sb
+      .from("profiles")
+      .select("id")
+      .eq("clerk_user_id", clerkUserId)
+      .single();
 
-  if (error) {
+    if (error) {
+      return {
+        data: null,
+        error: new Error(error?.message ?? "Unknown error"),
+      };
+    }
+
     return {
-      data: null,
-      error: new Error(error?.message ?? "Unknown error"),
+      data: data.id,
+      error: null,
     };
-  }
-
-  return {
-    data: data.id,
-    error: null,
-  };
+  });
 }
 
 /**

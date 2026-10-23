@@ -1,8 +1,8 @@
 import { auth } from "@clerk/nextjs/server";
 import { NextResponse } from "next/server";
 
-import { getChats } from "@/data/supabase/chat";
 import { getSupabaseUserId } from "@/data/supabase/profiles";
+import { getSidebarThreads } from "@/data/supabase/sidebar-threads";
 import { createLogger } from "@/lib/logger";
 import { checkChatsListLimit } from "@/lib/rate-limit/chats";
 
@@ -11,10 +11,11 @@ const logger = createLogger("app/api/chats/route.ts");
 /**
  * GET /api/chats
  *
- * Returns the authenticated user's chat threads for the sidebar list.
- * Rate-limited (240/hour per user). Protected by Clerk (401 when unauthenticated)
- * and by explicit owner_id filtering as a defense-in-depth safeguard alongside RLS.
- * See docs/thread-session-architecture.md for API and cache contract.
+ * Returns the authenticated user's non-archived threads for the sidebar list, in one query:
+ * rabbit-hole threads carry their rabbit hole's title, and unlinked ones are omitted
+ * (`getSidebarThreads`). Rate-limited (240/hour per user). Protected by Clerk (401 when
+ * unauthenticated) and by explicit owner_id filtering as a defense-in-depth safeguard alongside
+ * RLS. See docs/thread-session-architecture.md for API and cache contract.
  */
 export async function GET() {
   const { userId } = await auth();
@@ -40,8 +41,7 @@ export async function GET() {
     return NextResponse.json({ error: "User not found" }, { status: 404 });
   }
 
-  const ownerId = sbUserIdResult.data;
-  const result = await getChats({ ownerId });
+  const result = await getSidebarThreads(sbUserIdResult.data);
 
   if (result.error) {
     logger.error("GET", "Failed to fetch chats");

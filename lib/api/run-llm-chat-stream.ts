@@ -8,7 +8,8 @@ import { GatewayProviderOptions } from "@ai-sdk/gateway";
 import { OpenAIResponsesProviderOptions } from "@ai-sdk/openai";
 
 import { shouldSkipMemoryWriteForExperience } from "@/lib/chat/chat-experience";
-import { getMessageCount } from "@/data/supabase/chat";
+import { getMessageCount, markChatStreamStarted } from "@/data/supabase/chat";
+import { recordThreadActivityWithAdmin } from "@/data/supabase/chat-admin";
 import { shouldAttemptInitialTitle } from "@/lib/chat/summary-title-cadence";
 import { saveChat } from "@/lib/chat/chat-store";
 import { ensureChatHasTitle, updateChatSummary } from "@/lib/llm/chat-helpers";
@@ -75,6 +76,11 @@ export async function runLLMChatStream(params: RunLLMChatStreamParams): Promise<
   });
 
   logger.log("POST", `Calling streamText with model: ${selectedModel.id}`);
+
+  // Sidebar working signal. Fire-and-forget: it must not delay the first token.
+  void markChatStreamStarted(chatId).then((res) => {
+    if (res.error) logger.warn("POST", "Could not mark stream started", { err: res.error.message });
+  });
 
   const streamStartTime = performance.now();
 
@@ -325,6 +331,15 @@ export async function runLLMChatStream(params: RunLLMChatStreamParams): Promise<
 
             return; // Don't continue if save fails
           }
+
+          // The reply is persisted: the sidebar shows this thread as new until the user sees it.
+          void recordThreadActivityWithAdmin({ threadId: chatId, ownerId: sbUserId }).then(
+            (res) => {
+              if (res.error) {
+                logger.warn("POST", "Could not record thread activity", { err: res.error.message });
+              }
+            }
+          );
 
           // Fire-and-forget post-processing (don't block `onFinish`)
           void (async () => {
