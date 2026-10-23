@@ -5,6 +5,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { useRef, useState } from "react";
 
 import { FeatureHint } from "@/components/onboarding/feature-hint";
+import { useIsAdmin } from "@/hooks/use-is-admin";
 import { Logger } from "@/lib/logger";
 import { PERF_PHASES } from "@/lib/perf/journeys";
 import { mark, startJourney } from "@/lib/perf/trace-store";
@@ -23,6 +24,8 @@ type RailItem =
       type: "link";
       href: string;
       match: (p: string) => boolean;
+      /** Unfinished surface: shown to admins only (it 404s for everyone else). */
+      adminOnly?: boolean;
     };
 
 const RAIL_ROWS: RailItem[][] = [
@@ -41,6 +44,7 @@ const RAIL_ROWS: RailItem[][] = [
       type: "link",
       href: "/sandbox/prototypes/strata",
       match: (p) => p.startsWith("/sandbox/prototypes/strata"),
+      adminOnly: true,
     },
     {
       id: "rabbitholes",
@@ -71,6 +75,7 @@ const RAIL_ROWS: RailItem[][] = [
       type: "link",
       href: "/stage",
       match: (p) => p === "/stage",
+      adminOnly: true,
     },
     {
       id: "speak",
@@ -104,6 +109,10 @@ export function SidebarExperienceRail() {
   const { refreshSidebarChats } = useSharedChatContext();
   const creatingRef = useRef(false);
   const [creating, setCreating] = useState(false);
+  const isAdmin = useIsAdmin();
+  const rows = RAIL_ROWS.map((row) =>
+    row.filter((item) => item.type === "action" || !item.adminOnly || isAdmin === true)
+  ).filter((row) => row.length > 0);
 
   const onNewChat = (experience: "chat" | "arcadia") => {
     async function run() {
@@ -173,7 +182,7 @@ export function SidebarExperienceRail() {
   return (
     <FeatureHint id="experience-rail">
       <div className="flex w-full min-w-0 flex-col gap-1" data-sidebar-experience-rail>
-        {RAIL_ROWS.map((row, rowIndex) => (
+        {rows.map((row, rowIndex) => (
           <div
             key={row.map((item) => item.id).join("-")}
             className="flex w-full min-w-0 overflow-hidden rounded-md"
