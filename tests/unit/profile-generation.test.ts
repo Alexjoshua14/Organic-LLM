@@ -1,5 +1,6 @@
 import { afterAll, beforeAll, describe, expect, mock, test } from "bun:test";
 import * as ai from "ai";
+import { NoObjectGeneratedError } from "ai";
 import * as budgetHooks from "@/lib/plans/llm-budget-hooks";
 import * as memoryOperations from "@/lib/memory/operations";
 import * as metrics from "@/lib/llm/metrics";
@@ -16,10 +17,23 @@ import {
 
 const { asSchema } = ai;
 
-type FakeCall = { schemaName?: string; prompt: string };
+type FakeCall = {
+  prompt: string;
+  maxOutputTokens?: number;
+  providerOptions?: { anthropic?: { thinking?: { type?: string } } };
+};
 let failSectionIds = new Set<string>();
+let truncateOnce = new Set<string>();
 let planOverride: Record<string, unknown> | null = null;
 let calls: FakeCall[] = [];
+
+function callKind(prompt: string) {
+  if (prompt.includes("Plan the ideal ProfileTree")) return "ProfileSectionPlan";
+  if (prompt.includes("Review every generated section")) return "ProfileSectionBatchReview";
+  if (prompt.includes("Section-scoped memory evidence")) return "ProfileSection";
+
+  return "ProfileTreeReview";
+}
 
 const usage = { inputTokens: 100, outputTokens: 100 };
 const memories = [1, 2, 3, 4, 5].map((n) => ({ id: `m${n}`, memory: `Fact ${n}`, score: 0.9 }));
@@ -40,18 +54,38 @@ function plan() {
   };
 }
 
-const fakeGenerateObject = mock(async (args: FakeCall) => {
+const fakeGenerateText = mock(async (args: FakeCall) => {
   calls.push(args);
-  switch (args.schemaName) {
+  switch (callKind(args.prompt)) {
     case "ProfileSectionPlan":
-      return { object: planOverride ?? plan(), usage };
+      return { output: planOverride ?? plan(), usage };
     case "ProfileSection": {
       const id = /"id":"([^"]+)"/.exec(args.prompt)![1]!;
 
       if (failSectionIds.has(id)) throw new Error("model returned an invalid object");
+      if (truncateOnce.has(id)) {
+        truncateOnce.delete(id);
+        throw new NoObjectGeneratedError({
+          message: "No object generated: could not parse the response.",
+          text: `{"id":"${id}","title":"Title","body":"Wants a`,
+          finishReason: "length",
+          response: { id: "resp", timestamp: new Date(), modelId: "anthropic/claude-sonnet-5.5" },
+          usage: {
+            inputTokens: 100,
+            outputTokens: 1200,
+            totalTokens: 1300,
+            inputTokenDetails: {
+              noCacheTokens: 100,
+              cacheReadTokens: undefined,
+              cacheWriteTokens: undefined,
+            },
+            outputTokenDetails: { textTokens: 300, reasoningTokens: 900 },
+          },
+        });
+      }
 
       return {
-        object: {
+        output: {
           // The model is free to rename the id; the pipeline must keep the plan's.
           id: `${id}-renamed`,
           title: `Title ${id}`,
@@ -66,7 +100,7 @@ const fakeGenerateObject = mock(async (args: FakeCall) => {
       const ids = [...args.prompt.matchAll(/"id":"([^"]+)","title":"Title/g)].map((m) => m[1]!);
 
       return {
-        object: {
+        output: {
           overallScore: 1.4,
           sections: ids.map((sectionId) => ({
             sectionId,
@@ -81,7 +115,7 @@ const fakeGenerateObject = mock(async (args: FakeCall) => {
     }
     default:
       return {
-        object: {
+        output: {
           score: 0.9,
           decision: "accept",
           weakSectionIds: [],
@@ -102,7 +136,7 @@ const restores: Array<() => void> = [];
 
 beforeAll(() => {
   restores.push(
-    mockModulePreservingReal("ai", ai, { generateObject: fakeGenerateObject }),
+    mockModulePreservingReal("ai", ai, { generateText: fakeGenerateText }),
     mockModulePreservingReal("@/lib/plans/llm-budget-hooks", budgetHooks, {
       createAuthenticatedLlmBudgetHooks: async () => ({}),
     }),
@@ -130,6 +164,7 @@ const run = () =>
 describe("profile generation", () => {
   test("writes every planned section and keeps the plan's section ids", async () => {
     failSectionIds = new Set();
+    truncateOnce = new Set();
     planOverride = null;
     calls = [];
     saved.length = 0;
@@ -146,7 +181,7 @@ describe("profile generation", () => {
     ]);
     expect(result.data.reviewScore).toBe(0.9);
     expect(saved[0]?.status).toBe("active");
-    expect(calls.map((call) => call.schemaName)).toEqual([
+    expect(calls.map((call) => callKind(call.prompt))).toEqual([
       "ProfileSectionPlan",
       "ProfileSection",
       "ProfileSection",
@@ -155,10 +190,35 @@ describe("profile generation", () => {
       "ProfileSectionBatchReview",
       "ProfileTreeReview",
     ]);
+    const sectionCall = calls.find((call) => callKind(call.prompt) === "ProfileSection");
+    const planCall = calls.find((call) => callKind(call.prompt) === "ProfileSectionPlan");
+
+    expect(sectionCall?.providerOptions?.anthropic?.thinking?.type).toBe("between_tools");
+    expect(planCall?.providerOptions?.anthropic).toBeUndefined();
+  });
+
+  test("retries a section once when the model stops mid-JSON at the output limit", async () => {
+    failSectionIds = new Set();
+    truncateOnce = new Set(["work"]);
+    planOverride = null;
+    calls = [];
+    const result = await run();
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.data.tree.sections.map((section) => section.id)).toContain("work");
+    const workCalls = calls.filter(
+      (call) => callKind(call.prompt) === "ProfileSection" && call.prompt.includes('"id":"work"')
+    );
+
+    expect(workCalls).toHaveLength(2);
+    expect(workCalls[1]?.prompt).toContain("cut off before the JSON finished");
+    expect(workCalls[1]?.maxOutputTokens).toBe(2400);
   });
 
   test("a section that cannot be written is dropped with a warning instead of failing the run", async () => {
     failSectionIds = new Set(["interests"]);
+    truncateOnce = new Set();
     planOverride = null;
     const result = await run();
 
@@ -174,6 +234,7 @@ describe("profile generation", () => {
 
   test("fails only when no section could be written", async () => {
     failSectionIds = new Set(["about", "work", "teaching", "interests"]);
+    truncateOnce = new Set();
     const result = await run();
 
     expect(result).toEqual({ ok: false, status: 500, error: "Failed to generate profile tree" });
@@ -181,6 +242,7 @@ describe("profile generation", () => {
 
   test("clamps an over-long headline and out-of-range scores rather than rejecting the plan", async () => {
     failSectionIds = new Set();
+    truncateOnce = new Set();
     planOverride = {
       ...plan(),
       headlineDirection: "word ".repeat(40).trim(),

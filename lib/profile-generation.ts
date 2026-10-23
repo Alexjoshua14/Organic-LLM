@@ -7,7 +7,7 @@ import type { ProfileSection, ProfileTree } from "@/lib/schemas/profileTree";
 import type { Usage } from "@/lib/rate-limit/llm-cost";
 import type { Json } from "@/lib/supabase/types";
 
-import { generateObject } from "ai";
+import { generateText, NoObjectGeneratedError, Output } from "ai";
 import { z } from "zod";
 
 import { createProfileTreeRevisionForCurrentUser } from "@/data/supabase/profiles";
@@ -33,11 +33,15 @@ const MAX_SECTION_COUNT = 8;
 const MAX_SECTION_MEMORY_QUERIES = 3;
 const MAX_SECTION_MEMORY_RESULTS = 6;
 const MAX_SECTION_REWRITES = 3;
-// Output caps include reasoning tokens: a cap that is too tight returns a truncated object.
+// Output caps include reasoning tokens. Sonnet 5.5 thinks by default and will cut the JSON
+// off mid-string once that budget is gone (`finishReason: "length"`). Thinking is turned off
+// for these calls, and a length failure retries once with a larger cap.
 const PLANNER_MAX_OUTPUT_TOKENS = 2000;
 const SECTION_MAX_OUTPUT_TOKENS = 1200;
 const SECTION_REVIEW_MAX_OUTPUT_TOKENS = 3000;
 const TREE_REVIEW_MAX_OUTPUT_TOKENS = 1500;
+const TRUNCATION_RETRY_NOTE =
+  "The previous answer was cut off before the JSON finished. Reply again with complete JSON. Keep every string under 80 characters and every array to at most 6 items.";
 
 const PROVIDER_OPTIONS = {
   gateway: {
@@ -417,7 +421,29 @@ async function getBaselineMemoryContext(userId: string): Promise<
   };
 }
 
-async function callGenerateObject<T>({
+/** Sonnet 5.5 rejects `thinking: disabled`; `between_tools` is its off switch, and these calls use no tools. */
+function structuredProviderOptions(model: string) {
+  if (!model.startsWith("anthropic/")) return PROVIDER_OPTIONS;
+
+  return {
+    ...PROVIDER_OPTIONS,
+    anthropic: { thinking: { type: "between_tools" } },
+  };
+}
+
+function truncatedStructuredOutput(err: unknown): NoObjectGeneratedError | null {
+  if (NoObjectGeneratedError.isInstance(err)) {
+    return err.finishReason === "length" ? err : null;
+  }
+
+  if (err instanceof Error && err.cause && err.cause !== err) {
+    return truncatedStructuredOutput(err.cause);
+  }
+
+  return null;
+}
+
+async function callStructured<T>({
   model,
   operation,
   schema,
@@ -439,32 +465,57 @@ async function callGenerateObject<T>({
   budget: ProfileGenerationBudget;
 }): Promise<T> {
   const start = performance.now();
-  const { object, usage } = await generateObject({
-    ...(await createAuthenticatedLlmBudgetHooks({
-      modelId: budgetModelId(model),
-      operation: "profile-generation",
-    })),
-    model,
-    instructions,
-    prompt,
-    schema,
-    schemaName,
-    schemaDescription,
-    providerOptions: PROVIDER_OPTIONS,
-    maxOutputTokens,
-  });
+  const generate = async (nextPrompt: string, tokens: number) =>
+    generateText({
+      ...(await createAuthenticatedLlmBudgetHooks({
+        modelId: budgetModelId(model),
+        operation: "profile-generation",
+      })),
+      model,
+      instructions,
+      prompt: nextPrompt,
+      output: Output.object({
+        schema,
+        name: schemaName,
+        description: schemaDescription,
+      }),
+      providerOptions: structuredProviderOptions(model),
+      maxOutputTokens: tokens,
+    });
+  const record = (usage: Parameters<typeof recordBudgetUsage>[2]) => {
+    recordBudgetUsage(budget, model, usage);
+    recordLlmCall({
+      persist: false,
+      model,
+      usage,
+      durationMs: performance.now() - start,
+      metadata: { operation, route: "/api/profile/summary" },
+    });
+  };
 
-  budget.reviewCalls += operation.includes("review") ? 1 : 0;
-  recordBudgetUsage(budget, model, usage);
-  recordLlmCall({
-    persist: false,
-    model,
-    usage,
-    durationMs: performance.now() - start,
-    metadata: { operation, route: "/api/profile/summary" },
-  });
+  let result: Awaited<ReturnType<typeof generate>>;
 
-  return schema.parse(object);
+  try {
+    result = await generate(prompt, maxOutputTokens);
+  } catch (err) {
+    const truncated = truncatedStructuredOutput(err);
+
+    if (!truncated) throw err;
+    record(truncated.usage);
+    logger.warn(
+      "callStructured",
+      `${operation} hit the output limit and returned truncated JSON; retrying shorter`
+    );
+    result = await generate(
+      `${prompt}\n\n${TRUNCATION_RETRY_NOTE}`,
+      Math.min(maxOutputTokens * 2, 8_000)
+    );
+  }
+
+  if (operation.includes("review")) budget.reviewCalls += 1;
+  record(result.usage);
+
+  return schema.parse(result.output);
 }
 
 const PLANNER_SYSTEM = `You are planning a memory-grounded profile architecture. ${INJECTION_GUARDRAIL}
@@ -496,7 +547,7 @@ async function planProfileSections({
   budget.plannerCalls += 1;
 
   const prompt = buildPlannerPrompt(displayName, emailDomain, baselineMemories);
-  const plan = await callGenerateObject({
+  const plan = await callStructured({
     model: PLANNER_MODEL,
     operation: "profile-section-plan",
     schema: ProfileSectionPlanSchema,
@@ -595,7 +646,7 @@ async function generateProfileSection({
 }): Promise<ProfileSection> {
   budget.sectionCalls += 1;
   const sectionMemories = await searchSectionMemories(userId, plan, budget);
-  const generated = await callGenerateObject({
+  const generated = await callStructured({
     model: SECTION_MODEL,
     operation: feedback ? "profile-section-regenerate" : "profile-section-generate",
     schema: GeneratedSectionSchema,
@@ -604,7 +655,7 @@ async function generateProfileSection({
       "One memory-grounded profile section: a title with either a short paragraph or a list of short items, and optional subsections.",
     instructions: `You write one section of a memory-grounded profile. ${INJECTION_GUARDRAIL}
 Write only this section, in the shape the plan's desiredShape asks for: "body" is a paragraph (items empty), "items" is a list (body null), "body-items" has both, "children" uses subsections. Use the plan's id.
-Write the finished profile text only. Never mention memory, evidence, sources, or what is unknown or missing; when the evidence is thin, write less. Each item is one distinct fact, not a fragment of another item. Other sections cover the rest of the profile, so include only facts that belong to this section's purpose.`,
+Write the finished profile text only. Never mention memory, evidence, sources, or what is unknown or missing; when the evidence is thin, write less. Each item is one distinct fact, not a fragment of another item. Other sections cover the rest of the profile, so include only facts that belong to this section's purpose. Keep the body under 500 characters and each item under 100 characters, with at most 8 items.`,
     prompt: `Display name: ${displayName}
 
 Section plan:
@@ -640,7 +691,7 @@ async function reviewGeneratedSections({
   budget: ProfileGenerationBudget;
 }): Promise<ProfileSectionBatchReview> {
   return normalizeSectionReview(
-    await callGenerateObject({
+    await callStructured({
       model: REVIEW_MODEL,
       operation: "profile-section-batch-review",
       schema: ProfileSectionBatchReviewSchema,
@@ -778,7 +829,7 @@ async function reviewProfileTree({
   budget: ProfileGenerationBudget;
 }): Promise<ProfileTreeReview> {
   return normalizeTreeReview(
-    await callGenerateObject({
+    await callStructured({
       model: REVIEW_MODEL,
       operation: "profile-tree-review",
       schema: ProfileTreeReviewSchema,
