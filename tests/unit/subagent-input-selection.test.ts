@@ -3,6 +3,7 @@ import { describe, expect, mock, test } from "bun:test";
 
 import { estimateTokenCountSync } from "@/lib/chat/context-budget";
 import { buildSubagentGoalMessage } from "@/lib/llm/subagents/threads/messages";
+import { SUBAGENT_MAX_INPUT_TOKENS } from "@/lib/llm/subagents/worker/cost-limits";
 import { runSubagentThreadTurn } from "@/lib/llm/subagents/worker/run-in-thread";
 import {
   SUBAGENT_PREFLIGHT_INPUT_LIMIT_TOKENS,
@@ -50,14 +51,14 @@ describe("worker context selection and preflight", () => {
     expect(prefix.slice(0, 2)).toEqual(await workerModelMessages(history.slice(0, 1), history[1]!));
   });
 
-  test("continue mode keeps the newest history that fits the 20k preflight window", () => {
+  test("continue mode keeps the newest history that fits the preflight window", () => {
     const history: UIMessage[] = [];
 
     while (
       estimateTokenCountSync(JSON.stringify(history)) <= SUBAGENT_PREFLIGHT_INPUT_LIMIT_TOKENS
     ) {
       history.push(
-        message(`h${history.length}`, `turn ${history.length} ${"evidence ".repeat(1_500)}`)
+        message(`h${history.length}`, `turn ${history.length} ${"evidence ".repeat(6_000)}`)
       );
       if (history.length > 30) break;
     }
@@ -80,14 +81,14 @@ describe("worker context selection and preflight", () => {
     ).toEqual(["h0"]);
   });
 
-  test("history trimming reserves the 4k tool headroom under the 24k input limit", async () => {
+  test("history trimming reserves the 4k tool headroom under the input limit", async () => {
     const history: UIMessage[] = [];
 
     while (
       estimateTokenCountSync(JSON.stringify(history)) <= SUBAGENT_PREFLIGHT_INPUT_LIMIT_TOKENS
     ) {
       history.push(
-        message(`t${history.length}`, `turn ${history.length} ${"evidence ".repeat(1_500)}`)
+        message(`t${history.length}`, `turn ${history.length} ${"evidence ".repeat(6_000)}`)
       );
       if (history.length > 30) break;
     }
@@ -108,11 +109,11 @@ describe("worker context selection and preflight", () => {
     });
 
     expect(trimmed.inspection.fits).toBe(true);
-    expect(trimmed.inspection.budget.inputLimitTokens).toBe(24_000);
+    expect(trimmed.inspection.budget.inputLimitTokens).toBe(SUBAGENT_MAX_INPUT_TOKENS);
     expect(trimmed.inspection.budget.reservedToolTokens).toBe(4_000);
     expect(
       trimmed.inspection.budget.estimatedInputTokens + trimmed.inspection.budget.reservedToolTokens
-    ).toBeLessThanOrEqual(24_000);
+    ).toBeLessThanOrEqual(SUBAGENT_MAX_INPUT_TOKENS);
     expect(trimmed.history.length).toBeLessThan(history.length);
     expect(trimmed.history.at(-1)?.id).toBe(history.at(-1)?.id);
     expect(modelTrim.inspection.fits).toBe(true);
@@ -127,7 +128,7 @@ describe("worker context selection and preflight", () => {
       modelId: models.anthropic.haiku.id,
     };
     const baseline = estimateWorkerInput(common);
-    const large = "extensive source material ".repeat(10_000);
+    const large = "extensive source material ".repeat(40_000);
     expect(baseline.fits).toBe(true);
     expect(baseline.budget.reservedToolTokens).toBe(4_000);
     expect(estimateWorkerInput({ ...common, instructions: large }).fits).toBe(false);

@@ -431,7 +431,7 @@ describe("dispatch_subagent", () => {
       statusAt: NOW,
     });
     continued.threads.set(CODER_THREAD, [
-      userMessage("large-old", "captured evidence ".repeat(20_000)),
+      userMessage("large-old", "captured evidence ".repeat(50_000)),
     ]);
     const windowed = await continued.run("dispatch_subagent", {
       agent: "coder",
@@ -451,7 +451,7 @@ describe("dispatch_subagent", () => {
       status: "idle",
       statusAt: NOW,
     });
-    threads.set(CODER_THREAD, [userMessage("large-old", "captured evidence ".repeat(20_000))]);
+    threads.set(CODER_THREAD, [userMessage("large-old", "captured evidence ".repeat(50_000))]);
     const rejected = await run("dispatch_subagent", {
       agent: "coder",
       brief: "Say hello.",

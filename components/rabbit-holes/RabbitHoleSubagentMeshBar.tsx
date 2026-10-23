@@ -295,6 +295,7 @@ export function RabbitHoleSubagentMeshBar({
               data-mesh-budget-gauge
               data-budget-tone={isBlocked ? "blocked" : isNearLimit ? "warning" : "normal"}
               className="flex items-center gap-1.5"
+              title="Your plan spend this week across all of Organic, not just this research"
             >
               <span
                 className={cn(
@@ -309,9 +310,11 @@ export function RabbitHoleSubagentMeshBar({
                 {budget.spentUsd !== null && budget.limitUsd !== null
                   ? `${formatCompactUsd(budget.spentUsd)} / ${formatCompactUsd(budget.limitUsd)}`
                   : `${budget.usedPct}% used`}
+                <span className="hidden text-muted-foreground/70 sm:inline"> this week</span>
               </span>
               <span className="sr-only">
-                {budget.remainingPct}% remaining ({budget.usedPct}% used)
+                {budget.remainingPct}% of this week&apos;s plan budget remaining ({budget.usedPct}%
+                used)
               </span>
               <div
                 role="progressbar"

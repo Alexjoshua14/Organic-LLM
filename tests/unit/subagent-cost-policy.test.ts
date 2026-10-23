@@ -51,7 +51,7 @@ describe("bounded worker steps", () => {
   test("ordinary workers and research workers have smaller distinct loop allowances", () => {
     expect(subagentRunLimits(false).maxSteps).toBe(8);
     expect(subagentRunLimits(true).maxSteps).toBe(12);
-    expect(subagentRunLimits(true).maxInputTokens).toBe(24_000);
+    expect(subagentRunLimits(true).maxInputTokens).toBe(64_000);
     expect(subagentRunLimits(true).maxRunCostUsd).toBe(0.25);
     expect(prepareSubagentStep(step).maxOutputTokens).toBe(4_000);
   });
@@ -160,7 +160,7 @@ describe("bounded worker steps", () => {
     expect(prepared.toolChoice).toBe("none");
     expect(prepared.instructions).toContain("unfinished work");
     expect(serialized).toContain("Compare the lease options");
-    expect(serialized).toContain("compacted to stay within 24k");
+    expect(serialized).toContain("compacted to stay within the token budget");
     expect(
       estimateTokenCountSync(`${prepared.instructions}\n[]\n${serialized}`)
     ).toBeLessThanOrEqual(SUBAGENT_MAX_INPUT_TOKENS);
