@@ -10,6 +10,7 @@ import { FEEDBACK_CONFLICT } from "@/lib/memory/feedback-service";
 import { gatherFeedbackContext } from "@/lib/memory/feedback-context";
 import { getMemoriesOwnershipSnapshotForUser } from "@/lib/memory/operations";
 import { models } from "@/lib/schemas/chat-models";
+import { createOwnerLlmBudgetHooks } from "@/lib/plans/llm-budget-hooks";
 import { FeedbackDraftResultSchema, type FeedbackDraftInput } from "@/lib/schemas/memory-quality";
 import { recordLlmCall } from "@/lib/llm/metrics";
 import { isClientPIIRedactionEnabled, redactPII } from "@/lib/pii/redact";
@@ -65,8 +66,14 @@ export async function draftFeedbackNote(
   });
   const start = performance.now();
   const { object, usage } = await generateObject({
+    ...(await createOwnerLlmBudgetHooks({
+      ownerId: userId,
+      modelId: models.openai.luna.id,
+      operation: "memory-feedback-draft",
+      route: "/api/memory/feedback/draft",
+    })),
     model: models.openai.luna.id,
-    system: SYSTEM,
+    instructions: SYSTEM,
     prompt: isClientPIIRedactionEnabled() ? redactPII(prompt) : prompt,
     schema: FeedbackDraftResultSchema,
     maxOutputTokens: 1000,

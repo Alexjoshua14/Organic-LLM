@@ -18,7 +18,8 @@ Implementation: `lib/memory/feedback.ts`, `feedback-service.ts`, `feedback-draft
    encryption keys needed by `lib/crypto/message-encryption.ts`. Keep keys outside Supabase.
    Votes can save without this key; sharing a note or memory copy fails without it. Never substitute plaintext.
 3. The developer view also needs the existing server-only `SUPABASE_SERVICE_ROLE_KEY`, and
-   the signed-in profile must have `admin=true`. The role receives SELECT only on feedback.
+   the signed-in user must pass the current `admin_access` membership gate in
+   `lib/admin/require-admin.ts`. The service role receives SELECT only on feedback.
 4. Existing Qdrant records can be initialized with
    `bun run scripts/backfill-memory-reference-count.ts` (count-only), then
    `bun run scripts/backfill-memory-reference-count.ts --apply` after checking the target.
