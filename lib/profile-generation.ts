@@ -7,7 +7,7 @@ import type { ProfileSection, ProfileTree } from "@/lib/schemas/profileTree";
 import type { Usage } from "@/lib/rate-limit/llm-cost";
 import type { Json } from "@/lib/supabase/types";
 
-import { generateObject, generateText, isStepCount, tool } from "ai";
+import { generateText, NoObjectGeneratedError, Output } from "ai";
 import { z } from "zod";
 
 import { createProfileTreeRevisionForCurrentUser } from "@/data/supabase/profiles";
@@ -15,7 +15,6 @@ import { createLogger } from "@/lib/logger";
 import { recordLlmCall } from "@/lib/llm/metrics";
 import { searchMemoriesForUser } from "@/lib/memory/operations";
 import { getModelCost } from "@/lib/rate-limit/llm-cost";
-import { SearchMemoryToolSchema } from "@/lib/schemas/llm-tools";
 import { ProfileSectionSchema, ProfileTreeSchema } from "@/lib/schemas/profileTree";
 import { models } from "@/lib/schemas/chat-models";
 
@@ -34,7 +33,15 @@ const MAX_SECTION_COUNT = 8;
 const MAX_SECTION_MEMORY_QUERIES = 3;
 const MAX_SECTION_MEMORY_RESULTS = 6;
 const MAX_SECTION_REWRITES = 3;
-const PLANNER_MAX_OUTPUT_TOKENS = 1500;
+// Output caps include reasoning tokens. Sonnet 5.5 thinks by default and will cut the JSON
+// off mid-string once that budget is gone (`finishReason: "length"`). Thinking is turned off
+// for these calls, and a length failure retries once with a larger cap.
+const PLANNER_MAX_OUTPUT_TOKENS = 2000;
+const SECTION_MAX_OUTPUT_TOKENS = 1200;
+const SECTION_REVIEW_MAX_OUTPUT_TOKENS = 3000;
+const TREE_REVIEW_MAX_OUTPUT_TOKENS = 1500;
+const TRUNCATION_RETRY_NOTE =
+  "The previous answer was cut off before the JSON finished. Reply again with complete JSON. Keep every string under 80 characters and every array to at most 6 items.";
 
 const PROVIDER_OPTIONS = {
   gateway: {
@@ -49,51 +56,175 @@ export const ProfileGenerationRequestSchema = z.object({
 
 export type ProfileGenerationRequest = z.infer<typeof ProfileGenerationRequestSchema>;
 
+// Schemas sent to the model use strict structured output: every key must be required, so
+// "absent" is `null` or an empty array, never `.optional()` or `.default()`. Models do not
+// reliably honor length and count limits, and a violation would discard the whole run, so
+// limits are asked for in the descriptions and enforced by the normalizers below.
 const ProfileSectionPlanItemSchema = z.object({
-  id: z.string().min(1).max(64),
-  title: z.string().min(1).max(80),
-  purpose: z.string().min(1).max(240),
-  memoryQueries: z.array(z.string().min(1).max(160)).min(1).max(MAX_SECTION_MEMORY_QUERIES),
+  id: z.string().min(1).describe("Short kebab-case id, unique in the plan, e.g. about."),
+  title: z.string().min(1).describe("Section title, under 60 characters."),
+  purpose: z.string().min(1).describe("What this section says, under 160 characters."),
+  memoryQueries: z
+    .array(z.string().min(1))
+    .describe("1-3 short memory search queries, each under 120 characters."),
   desiredShape: z.enum(["body", "items", "body-items", "children"]),
-  priority: z.number().int().min(1).max(10),
+  priority: z.number().describe("Integer from 1 to 10; higher means more important."),
 });
 
 const ProfileSectionPlanSchema = z.object({
-  headlineDirection: z.string().min(1).max(180),
-  roles: z.array(z.string().min(1).max(32)).max(6).default([]),
-  signatureDirection: z.string().max(180).optional(),
-  sections: z.array(ProfileSectionPlanItemSchema).min(3).max(MAX_SECTION_COUNT),
+  headlineDirection: z
+    .string()
+    .min(1)
+    .describe("The finished one-line headline for the profile, at most 120 characters."),
+  roles: z
+    .array(z.string().min(1))
+    .describe("Up to 6 short role badges, each under 32 characters. Empty array when unsupported."),
+  signatureDirection: z
+    .string()
+    .nullable()
+    .describe("A finished one-line signature, at most 160 characters. Null when unsupported."),
+  sections: z
+    .array(ProfileSectionPlanItemSchema)
+    .min(3)
+    .describe("3 to 8 sections, each supported by memory evidence."),
+});
+
+// What the model writes for one section; `toProfileSection` converts it to the stored shape.
+const GeneratedSubsectionSchema = z.object({
+  id: z.string().min(1),
+  title: z.string().min(1).describe("Under 60 characters."),
+  body: z
+    .string()
+    .nullable()
+    .describe("A grounded paragraph under 600 characters, or null for a list."),
+  items: z
+    .array(z.string().min(1))
+    .describe("Up to 12 short grounded items, each under 100 characters; empty for prose."),
+});
+const GeneratedSectionSchema = GeneratedSubsectionSchema.extend({
+  children: z
+    .array(GeneratedSubsectionSchema)
+    .describe("Up to 4 subsections; empty unless the plan's shape is children."),
 });
 
 type ProfileSectionPlan = z.infer<typeof ProfileSectionPlanSchema>;
 type ProfileSectionPlanItem = z.infer<typeof ProfileSectionPlanItemSchema>;
 
 const ProfileSectionBatchReviewSchema = z.object({
-  overallScore: z.number().min(0).max(1),
-  sections: z
-    .array(
-      z.object({
-        sectionId: z.string().max(64),
-        score: z.number().min(0).max(1),
-        decision: z.enum(["accept", "revise", "drop"]),
-        issues: z.array(z.string().max(160)).max(5).default([]),
-        rewriteInstructions: z.string().max(600).optional(),
-      })
-    )
-    .max(MAX_SECTION_COUNT),
+  overallScore: z.number().describe("0 to 1."),
+  sections: z.array(
+    z.object({
+      sectionId: z.string(),
+      score: z.number().describe("0 to 1."),
+      decision: z.enum(["accept", "revise", "drop"]),
+      issues: z
+        .array(z.string())
+        .describe("At most 3 issues, each under 100 characters. Empty array when there are none."),
+      rewriteInstructions: z
+        .string()
+        .nullable()
+        .describe("At most two sentences, only when decision is revise; otherwise null."),
+    })
+  ),
 });
 
 type ProfileSectionBatchReview = z.infer<typeof ProfileSectionBatchReviewSchema>;
 
 const ProfileTreeReviewSchema = z.object({
-  score: z.number().min(0).max(1),
+  score: z.number().describe("0 to 1."),
   decision: z.enum(["accept", "revise"]),
-  weakSectionIds: z.array(z.string().max(64)).max(4).default([]),
-  issues: z.array(z.string().max(180)).max(8).default([]),
-  rewriteInstructions: z.string().max(1000).optional(),
+  weakSectionIds: z.array(z.string()).describe("At most 4 ids. Empty array when none are weak."),
+  issues: z
+    .array(z.string())
+    .describe("At most 5 issues, each under 120 characters. Empty array when there are none."),
+  rewriteInstructions: z
+    .string()
+    .nullable()
+    .describe("At most two sentences, only when decision is revise; otherwise null."),
 });
 
 type ProfileTreeReview = z.infer<typeof ProfileTreeReviewSchema>;
+
+/** The schemas sent to models; tests check that they stay compatible with strict structured output. */
+export const PROFILE_MODEL_SCHEMAS = {
+  plan: ProfileSectionPlanSchema,
+  section: GeneratedSectionSchema,
+  sectionReview: ProfileSectionBatchReviewSchema,
+  treeReview: ProfileTreeReviewSchema,
+} as const;
+
+/** Cut to `max` characters at a word boundary, marking the cut. */
+export function clampText(text: string, max: number): string {
+  const trimmed = text.trim();
+
+  if (trimmed.length <= max) return trimmed;
+  const cut = trimmed.slice(0, max - 1);
+  const space = cut.lastIndexOf(" ");
+
+  return `${(space > max * 0.6 ? cut.slice(0, space) : cut).trimEnd()}…`;
+}
+
+const clampScore = (value: number) =>
+  Number.isFinite(value) ? Math.min(1, Math.max(0, value)) : 0.5;
+
+export function normalizePlan(plan: ProfileSectionPlan): ProfileSectionPlan {
+  const seen = new Set<string>();
+  const sections = plan.sections.slice(0, MAX_SECTION_COUNT * 2).map((item, index) => {
+    let id =
+      clampText(item.id, 56)
+        .toLowerCase()
+        .replace(/[^a-z0-9-]+/g, "-") || `section-${index}`;
+
+    while (seen.has(id)) id = `${id}-${index}`;
+    seen.add(id);
+
+    return {
+      ...item,
+      id,
+      title: clampText(item.title, 80),
+      purpose: clampText(item.purpose, 240),
+      memoryQueries: (item.memoryQueries.length ? item.memoryQueries : [item.title])
+        .slice(0, MAX_SECTION_MEMORY_QUERIES)
+        .map((query) => clampText(query, 160)),
+      priority: Number.isFinite(item.priority)
+        ? Math.min(10, Math.max(1, Math.round(item.priority)))
+        : 5,
+    };
+  });
+
+  return {
+    headlineDirection: clampText(plan.headlineDirection, 120),
+    roles: plan.roles.slice(0, 6).map((role) => clampText(role, 32)),
+    signatureDirection: plan.signatureDirection ? clampText(plan.signatureDirection, 160) : null,
+    sections,
+  };
+}
+
+function normalizeSectionReview(review: ProfileSectionBatchReview): ProfileSectionBatchReview {
+  return {
+    overallScore: clampScore(review.overallScore),
+    sections: review.sections.slice(0, MAX_SECTION_COUNT * 2).map((section) => ({
+      ...section,
+      score: clampScore(section.score),
+      issues: section.issues.slice(0, 5).map((issue) => clampText(issue, 160)),
+      rewriteInstructions: section.rewriteInstructions
+        ? clampText(section.rewriteInstructions, 600)
+        : null,
+    })),
+  };
+}
+
+function normalizeTreeReview(review: ProfileTreeReview): ProfileTreeReview {
+  return {
+    ...review,
+    score: clampScore(review.score),
+    weakSectionIds: review.weakSectionIds.slice(0, 4),
+    issues: review.issues.slice(0, 8).map((issue) => clampText(issue, 180)),
+    rewriteInstructions: review.rewriteInstructions
+      ? clampText(review.rewriteInstructions, 1000)
+      : null,
+  };
+}
 
 type GeneratedProfileSectionState =
   | {
@@ -134,7 +265,7 @@ export type GenerateProfileFromMemoryResult =
       status: 200;
       data: {
         tree: ProfileTree;
-        revisionId: string;
+        revisionId: string | null;
         revisionStatus: "active" | "draft";
         reviewScore: number;
         warnings: string[];
@@ -151,7 +282,7 @@ export type GenerateProfileFromMemoryResult =
       error: string;
       data?: {
         tree?: ProfileTree;
-        revisionId?: string;
+        revisionId?: string | null;
         revisionStatus?: "failed";
         reviewScore?: number;
         warnings?: string[];
@@ -202,26 +333,11 @@ function assertBudgetRoom(budget: ProfileGenerationBudget, reserveUsd = 0) {
 function estimateWorstCaseCost(sectionCount: number, rewriteCount: number): number {
   return (
     estimateCostUsd(PLANNER_MODEL, 3000, PLANNER_MAX_OUTPUT_TOKENS) +
-    estimateCostUsd(SECTION_MODEL, 1500, 450) * sectionCount +
-    estimateCostUsd(REVIEW_MODEL, 4000, 800) +
-    estimateCostUsd(SECTION_MODEL, 1800, 450) * rewriteCount +
-    estimateCostUsd(REVIEW_MODEL, 2500, 400)
+    estimateCostUsd(SECTION_MODEL, 1500, SECTION_MAX_OUTPUT_TOKENS) * sectionCount +
+    estimateCostUsd(REVIEW_MODEL, 4000, SECTION_REVIEW_MAX_OUTPUT_TOKENS) +
+    estimateCostUsd(SECTION_MODEL, 1800, SECTION_MAX_OUTPUT_TOKENS) * rewriteCount +
+    estimateCostUsd(REVIEW_MODEL, 2500, TREE_REVIEW_MAX_OUTPUT_TOKENS)
   );
-}
-
-function parseJsonObjectFromText(text: string): unknown {
-  try {
-    return JSON.parse(text);
-  } catch {
-    const firstBrace = text.indexOf("{");
-    const lastBrace = text.lastIndexOf("}");
-
-    if (firstBrace === -1 || lastBrace === -1 || lastBrace <= firstBrace) {
-      throw new Error("Profile JSON response did not contain an object");
-    }
-
-    return JSON.parse(text.slice(firstBrace, lastBrace + 1));
-  }
 }
 
 function selectProfileMemories(memories: MemoryItemType[]): MemoryItemType[] {
@@ -305,38 +421,29 @@ async function getBaselineMemoryContext(userId: string): Promise<
   };
 }
 
-function createProfileMemorySearchTool(userId: string, budget: ProfileGenerationBudget) {
-  return tool({
-    description:
-      "Search the signed-in user's stored memories for profile-relevant facts, preferences, projects, goals, interests, and context.",
-    inputSchema: SearchMemoryToolSchema,
-    execute: async ({ query }) => {
-      budget.toolSearchCalls += 1;
-      const result = await searchMemoriesForUser(userId, query, {
-        limit: MAX_SECTION_MEMORY_RESULTS,
-      });
+/** Sonnet 5.5 rejects `thinking: disabled`; `between_tools` is its off switch, and these calls use no tools. */
+function structuredProviderOptions(model: string) {
+  if (!model.startsWith("anthropic/")) return PROVIDER_OPTIONS;
 
-      if (result.error || !result.data) {
-        return {
-          success: false,
-          query,
-          error: result.error ?? "Memory search failed",
-          memories: [],
-          count: 0,
-        };
-      }
-
-      return {
-        success: true,
-        query,
-        memories: result.data.results,
-        count: result.data.results.length,
-      };
-    },
-  });
+  return {
+    ...PROVIDER_OPTIONS,
+    anthropic: { thinking: { type: "between_tools" } },
+  };
 }
 
-async function callGenerateObject<T>({
+function truncatedStructuredOutput(err: unknown): NoObjectGeneratedError | null {
+  if (NoObjectGeneratedError.isInstance(err)) {
+    return err.finishReason === "length" ? err : null;
+  }
+
+  if (err instanceof Error && err.cause && err.cause !== err) {
+    return truncatedStructuredOutput(err.cause);
+  }
+
+  return null;
+}
+
+async function callStructured<T>({
   model,
   operation,
   schema,
@@ -358,82 +465,62 @@ async function callGenerateObject<T>({
   budget: ProfileGenerationBudget;
 }): Promise<T> {
   const start = performance.now();
-  const { object, usage } = await generateObject({
-    ...(await createAuthenticatedLlmBudgetHooks({
-      modelId: budgetModelId(model),
-      operation: "profile-generation",
-    })),
-    model,
-    instructions,
-    prompt,
-    schema,
-    schemaName,
-    schemaDescription,
-    providerOptions: PROVIDER_OPTIONS,
-    maxOutputTokens,
-  });
+  const generate = async (nextPrompt: string, tokens: number) =>
+    generateText({
+      ...(await createAuthenticatedLlmBudgetHooks({
+        modelId: budgetModelId(model),
+        operation: "profile-generation",
+      })),
+      model,
+      instructions,
+      prompt: nextPrompt,
+      output: Output.object({
+        schema,
+        name: schemaName,
+        description: schemaDescription,
+      }),
+      providerOptions: structuredProviderOptions(model),
+      maxOutputTokens: tokens,
+    });
+  const record = (usage: Parameters<typeof recordBudgetUsage>[2]) => {
+    recordBudgetUsage(budget, model, usage);
+    recordLlmCall({
+      persist: false,
+      model,
+      usage,
+      durationMs: performance.now() - start,
+      metadata: { operation, route: "/api/profile/summary" },
+    });
+  };
 
-  budget.reviewCalls += operation.includes("review") ? 1 : 0;
-  recordBudgetUsage(budget, model, usage);
-  recordLlmCall({
-    persist: false,
-    model,
-    usage,
-    durationMs: performance.now() - start,
-    metadata: { operation, route: "/api/profile/summary" },
-  });
+  let result: Awaited<ReturnType<typeof generate>>;
 
-  return schema.parse(object);
-}
+  try {
+    result = await generate(prompt, maxOutputTokens);
+  } catch (err) {
+    const truncated = truncatedStructuredOutput(err);
 
-async function callGenerateText({
-  model,
-  operation,
-  instructions,
-  prompt,
-  maxOutputTokens,
-  budget,
-  tools,
-  stopWhen,
-}: {
-  model: string;
-  operation: string;
-  instructions: string;
-  prompt: string;
-  maxOutputTokens: number;
-  budget: ProfileGenerationBudget;
-  tools?: Parameters<typeof generateText>[0]["tools"];
-  stopWhen?: Parameters<typeof generateText>[0]["stopWhen"];
-}): Promise<string> {
-  const start = performance.now();
-  const { text, usage } = await generateText({
-    ...(await createAuthenticatedLlmBudgetHooks({
-      modelId: budgetModelId(model),
-      operation: "profile-generation",
-    })),
-    model,
-    instructions,
-    prompt,
-    tools,
-    stopWhen,
-    providerOptions: PROVIDER_OPTIONS,
-    maxOutputTokens,
-  });
+    if (!truncated) throw err;
+    record(truncated.usage);
+    logger.warn(
+      "callStructured",
+      `${operation} hit the output limit and returned truncated JSON; retrying shorter`
+    );
+    result = await generate(
+      `${prompt}\n\n${TRUNCATION_RETRY_NOTE}`,
+      Math.min(maxOutputTokens * 2, 8_000)
+    );
+  }
 
-  recordBudgetUsage(budget, model, usage);
-  recordLlmCall({
-    persist: false,
-    model,
-    usage,
-    durationMs: performance.now() - start,
-    metadata: { operation, route: "/api/profile/summary" },
-  });
+  if (operation.includes("review")) budget.reviewCalls += 1;
+  record(result.usage);
 
-  return text;
+  return schema.parse(result.output);
 }
 
 const PLANNER_SYSTEM = `You are planning a memory-grounded profile architecture. ${INJECTION_GUARDRAIL}
 Return only sections supported by memory evidence. Always consider common sections like About and Lifestyle & Interests, but only include them when supported. Add user-specific sections when evidence supports them.
+Give every section a distinct purpose with no overlap: each fact should belong to exactly one section, and About is a brief overview, not a summary of the other sections.
 Keep every string field short: titles under 60 characters, purposes under 160 characters, and memory queries under 120 characters.`;
 
 function buildPlannerPrompt(displayName: string, emailDomain: string, baselineMemories: string) {
@@ -460,7 +547,7 @@ async function planProfileSections({
   budget.plannerCalls += 1;
 
   const prompt = buildPlannerPrompt(displayName, emailDomain, baselineMemories);
-  const plan = await callGenerateObject({
+  const plan = await callStructured({
     model: PLANNER_MODEL,
     operation: "profile-section-plan",
     schema: ProfileSectionPlanSchema,
@@ -473,7 +560,7 @@ async function planProfileSections({
     budget,
   });
 
-  return trimPlanToBudget(plan);
+  return trimPlanToBudget(normalizePlan(plan));
 }
 
 function trimPlanToBudget(plan: ProfileSectionPlan): ProfileSectionPlan {
@@ -518,9 +605,31 @@ async function searchSectionMemories(
   return formatMemoriesForPrompt(Array.from(byId.values()).slice(0, BASELINE_MEMORY_PROMPT_LIMIT));
 }
 
+export function toProfileSection(
+  generated: z.infer<typeof GeneratedSectionSchema>,
+  plan: ProfileSectionPlanItem
+): ProfileSection {
+  const part = (item: z.infer<typeof GeneratedSubsectionSchema>) => ({
+    id: clampText(item.id, 64),
+    title: clampText(item.title, 80),
+    ...(item.body?.trim() ? { body: clampText(item.body, 1200) } : {}),
+    ...(item.items.length
+      ? { items: item.items.slice(0, 12).map((entry) => clampText(entry, 120)) }
+      : {}),
+  });
+
+  return ProfileSectionSchema.parse({
+    ...part(generated),
+    // The review step matches sections to plans by id, so the plan's id is authoritative.
+    id: plan.id,
+    ...(generated.children.length ? { children: generated.children.slice(0, 6).map(part) } : {}),
+  });
+}
+
 async function generateProfileSection({
   userId,
   plan,
+  otherSections,
   displayName,
   baselineMemories,
   feedback,
@@ -528,6 +637,8 @@ async function generateProfileSection({
 }: {
   userId: string;
   plan: ProfileSectionPlanItem;
+  /** The rest of the profile, so this section does not repeat what they cover. */
+  otherSections: ProfileSectionPlanItem[];
   displayName: string;
   baselineMemories: string;
   feedback?: string;
@@ -535,15 +646,23 @@ async function generateProfileSection({
 }): Promise<ProfileSection> {
   budget.sectionCalls += 1;
   const sectionMemories = await searchSectionMemories(userId, plan, budget);
-  const text = await callGenerateText({
+  const generated = await callStructured({
     model: SECTION_MODEL,
     operation: feedback ? "profile-section-regenerate" : "profile-section-generate",
+    schema: GeneratedSectionSchema,
+    schemaName: "ProfileSection",
+    schemaDescription:
+      "One memory-grounded profile section: a title with either a short paragraph or a list of short items, and optional subsections.",
     instructions: `You write one section of a memory-grounded profile. ${INJECTION_GUARDRAIL}
-Return exactly one raw JSON object matching the ProfileSection shape. Do not wrap it in Markdown. Write only this section.`,
+Write only this section, in the shape the plan's desiredShape asks for: "body" is a paragraph (items empty), "items" is a list (body null), "body-items" has both, "children" uses subsections. Use the plan's id.
+Write the finished profile text only. Never mention memory, evidence, sources, or what is unknown or missing; when the evidence is thin, write less. Each item is one distinct fact, not a fragment of another item. Other sections cover the rest of the profile, so include only facts that belong to this section's purpose. Keep the body under 500 characters and each item under 100 characters, with at most 8 items.`,
     prompt: `Display name: ${displayName}
 
 Section plan:
 ${JSON.stringify(plan)}
+
+Other sections in this profile (do not repeat their facts):
+${otherSections.map((other) => `- ${other.title}: ${other.purpose}`).join("\n") || "- none"}
 
 Baseline memory evidence:
 ${baselineMemories}
@@ -553,15 +672,11 @@ ${sectionMemories}
 
 ${feedback ? `Reviewer feedback to address:\n${feedback}\n` : ""}
 Write this section with concrete, grounded details. Omit unsupported claims and avoid generic resume phrasing.`,
-    tools: {
-      search_memories: createProfileMemorySearchTool(userId, budget),
-    },
-    stopWhen: isStepCount(1),
-    maxOutputTokens: 450,
+    maxOutputTokens: SECTION_MAX_OUTPUT_TOKENS,
     budget,
   });
 
-  return ProfileSectionSchema.parse(parseJsonObjectFromText(text));
+  return toProfileSection(generated, plan);
 }
 
 async function reviewGeneratedSections({
@@ -575,16 +690,17 @@ async function reviewGeneratedSections({
   baselineMemories: string;
   budget: ProfileGenerationBudget;
 }): Promise<ProfileSectionBatchReview> {
-  return callGenerateObject({
-    model: REVIEW_MODEL,
-    operation: "profile-section-batch-review",
-    schema: ProfileSectionBatchReviewSchema,
-    schemaName: "ProfileSectionBatchReview",
-    schemaDescription:
-      "A batched quality review for all generated profile sections, with per-section score, decision, issues, and rewrite instructions.",
-    instructions: `You are a strict quality reviewer for memory-grounded profile sections. ${INJECTION_GUARDRAIL}
+  return normalizeSectionReview(
+    await callStructured({
+      model: REVIEW_MODEL,
+      operation: "profile-section-batch-review",
+      schema: ProfileSectionBatchReviewSchema,
+      schemaName: "ProfileSectionBatchReview",
+      schemaDescription:
+        "A batched quality review for all generated profile sections, with per-section score, decision, issues, and rewrite instructions.",
+      instructions: `You are a strict quality reviewer for memory-grounded profile sections. ${INJECTION_GUARDRAIL}
 Score specificity, groundedness, section fit, voice, and UI fit. Flag generic labels like Builder, Visionary, and Lifelong Learner when unsupported.`,
-    prompt: `Section plan:
+      prompt: `Section plan:
 ${JSON.stringify(plan)}
 
 Memory evidence:
@@ -594,9 +710,10 @@ Generated sections:
 ${JSON.stringify(sections)}
 
 Review every generated section in one batch. Return schema-valid JSON only.`,
-    maxOutputTokens: 800,
-    budget,
-  });
+      maxOutputTokens: SECTION_REVIEW_MAX_OUTPUT_TOKENS,
+      budget,
+    })
+  );
 }
 
 function sectionReviewFor(review: ProfileSectionBatchReview, sectionId: string) {
@@ -647,26 +764,32 @@ async function applySectionReview({
       rewrites < MAX_SECTION_REWRITES &&
       sectionPlan.priority >= 7
     ) {
-      assertBudgetRoom(budget, estimateCostUsd(SECTION_MODEL, 1800, 450));
-      rewrites += 1;
-      budget.rewriteCalls += 1;
-      const revisedSection = await generateProfileSection({
-        userId,
-        plan: sectionPlan,
-        displayName,
-        baselineMemories,
-        feedback: sectionReview?.rewriteInstructions ?? sectionReview?.issues.join("; "),
-        budget,
-      });
+      try {
+        assertBudgetRoom(budget, estimateCostUsd(SECTION_MODEL, 1800, SECTION_MAX_OUTPUT_TOKENS));
+        rewrites += 1;
+        budget.rewriteCalls += 1;
+        const revisedSection = await generateProfileSection({
+          userId,
+          plan: sectionPlan,
+          otherSections: plan.sections.filter((other) => other.id !== sectionPlan.id),
+          displayName,
+          baselineMemories,
+          feedback: sectionReview?.rewriteInstructions ?? sectionReview?.issues.join("; "),
+          budget,
+        });
 
-      states.push({
-        status: "revised",
-        plan: sectionPlan,
-        section: revisedSection,
-        reviewScore: Math.max(score, 0.72),
-        originalScore: score,
-      });
-      continue;
+        states.push({
+          status: "revised",
+          plan: sectionPlan,
+          section: revisedSection,
+          reviewScore: Math.max(score, 0.72),
+          originalScore: score,
+        });
+        continue;
+      } catch (err) {
+        // Keep the original section; the final review still judges the whole tree.
+        logger.error("applySectionReview", `Rewrite of ${sectionPlan.id} failed`, err);
+      }
     }
 
     states.push({
@@ -689,9 +812,9 @@ function assembleProfileTree(
   );
 
   return ProfileTreeSchema.parse({
-    headline: plan.headlineDirection,
+    headline: clampText(plan.headlineDirection, 120),
     roles: plan.roles,
-    signature: plan.signatureDirection,
+    signature: plan.signatureDirection ?? undefined,
     sections,
   });
 }
@@ -705,25 +828,27 @@ async function reviewProfileTree({
   baselineMemories: string;
   budget: ProfileGenerationBudget;
 }): Promise<ProfileTreeReview> {
-  return callGenerateObject({
-    model: REVIEW_MODEL,
-    operation: "profile-tree-review",
-    schema: ProfileTreeReviewSchema,
-    schemaName: "ProfileTreeReview",
-    schemaDescription:
-      "A final quality review for a complete ProfileTree, with score, decision, weak section ids, issues, and optional rewrite instructions.",
-    instructions: `You are a final reviewer for a memory-grounded ProfileTree. ${INJECTION_GUARDRAIL}
+  return normalizeTreeReview(
+    await callStructured({
+      model: REVIEW_MODEL,
+      operation: "profile-tree-review",
+      schema: ProfileTreeReviewSchema,
+      schemaName: "ProfileTreeReview",
+      schemaDescription:
+        "A final quality review for a complete ProfileTree, with score, decision, weak section ids, issues, and optional rewrite instructions.",
+      instructions: `You are a final reviewer for a memory-grounded ProfileTree. ${INJECTION_GUARDRAIL}
 Reject unsupported claims, generic resume filler, or weak coverage. Prefer draft over publishing low-quality output.`,
-    prompt: `Memory evidence:
+      prompt: `Memory evidence:
 ${baselineMemories}
 
 ProfileTree:
 ${JSON.stringify(tree)}
 
 Review the full tree for publish quality. Return schema-valid JSON only.`,
-    maxOutputTokens: 400,
-    budget,
-  });
+      maxOutputTokens: TREE_REVIEW_MAX_OUTPUT_TOKENS,
+      budget,
+    })
+  );
 }
 
 function buildGenerationMetadata({
@@ -823,18 +948,51 @@ export async function generateProfileFromMemory({
     );
 
     const generatedSections: ProfileSection[] = [];
+    const unwrittenSections: GeneratedProfileSectionState[] = [];
 
-    for (const sectionPlan of plan.sections) {
-      assertBudgetRoom(budget, estimateCostUsd(SECTION_MODEL, 1500, 450));
-      generatedSections.push(
-        await generateProfileSection({
-          userId,
+    assertBudgetRoom(
+      budget,
+      estimateCostUsd(SECTION_MODEL, 1500, SECTION_MAX_OUTPUT_TOKENS) * plan.sections.length
+    );
+
+    // Sections are independent, so write them concurrently. One that fails is dropped with a
+    // warning; it does not sink the profile.
+    const written = await Promise.all(
+      plan.sections.map(async (sectionPlan) => {
+        try {
+          return {
+            sectionPlan,
+            section: await generateProfileSection({
+              userId,
+              plan: sectionPlan,
+              otherSections: plan.sections.filter((other) => other.id !== sectionPlan.id),
+              displayName,
+              baselineMemories: baselineMemoryContext.formatted,
+              budget,
+            }),
+          };
+        } catch (err) {
+          logger.error("generateProfileFromMemory", `Section ${sectionPlan.id} failed`, err);
+
+          return { sectionPlan, section: null };
+        }
+      })
+    );
+
+    for (const { sectionPlan, section } of written) {
+      if (section) {
+        generatedSections.push(section);
+      } else {
+        unwrittenSections.push({
+          status: "failed",
           plan: sectionPlan,
-          displayName,
-          baselineMemories: baselineMemoryContext.formatted,
-          budget,
-        })
-      );
+          reason: "Could not be written",
+        });
+      }
+    }
+
+    if (!generatedSections.length) {
+      return { ok: false, status: 500, error: "Failed to generate profile tree" };
     }
 
     const sectionReview = await reviewGeneratedSections({
@@ -843,15 +1001,18 @@ export async function generateProfileFromMemory({
       baselineMemories: baselineMemoryContext.formatted,
       budget,
     });
-    const sectionStates = await applySectionReview({
-      userId,
-      displayName,
-      plan,
-      sections: generatedSections,
-      review: sectionReview,
-      baselineMemories: baselineMemoryContext.formatted,
-      budget,
-    });
+    const sectionStates = [
+      ...(await applySectionReview({
+        userId,
+        displayName,
+        plan,
+        sections: generatedSections,
+        review: sectionReview,
+        baselineMemories: baselineMemoryContext.formatted,
+        budget,
+      })),
+      ...unwrittenSections,
+    ];
     const tree = assembleProfileTree(plan, sectionStates);
     const finalReview = await reviewProfileTree({
       tree,
