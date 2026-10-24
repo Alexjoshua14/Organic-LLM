@@ -1,5 +1,5 @@
 import { afterAll, afterEach, beforeEach, describe, expect, mock, test } from "bun:test";
-import { renderHook, act } from "@testing-library/react";
+import { renderHook, act, cleanup } from "@testing-library/react";
 import { createElement, type ReactNode } from "react";
 
 import { RabbitHoleContext } from "@/lib/context/rabbithole-context";
@@ -84,6 +84,7 @@ beforeEach(() => {
 });
 
 afterEach(() => {
+  cleanup();
   globalThis.fetch = originalFetch;
 });
 

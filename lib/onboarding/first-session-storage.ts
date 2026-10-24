@@ -4,7 +4,7 @@ export const FIRST_SESSION_STORAGE_KEY = "organic-llm-first-session-checklist";
 
 export type FirstSessionStepId =
   | "start-chat"
-  | "explore-noesis"
+  | "try-arcadia"
   | "browse-showcase"
   | "open-rabbit-holes";
 
@@ -31,11 +31,11 @@ export const FIRST_SESSION_STEPS: Array<{
     cta: "New chat",
   },
   {
-    id: "explore-noesis",
-    title: "Try Noesis",
-    body: "Topic exploration with sparks and reply suggestions.",
-    href: "/sandbox/topic-explore",
-    cta: "Open Noesis",
+    id: "try-arcadia",
+    title: "Try Arcadia",
+    body: "Fast, tool-forward chat when you want concise answers.",
+    href: "/sandbox/arcadia",
+    cta: "Open Arcadia",
   },
   {
     id: "browse-showcase",
@@ -144,6 +144,6 @@ export function shouldShowFirstSessionChecklist(state: FirstSessionState): boole
 
 /** Maps checklist steps to related feature hints for cross-dismiss analytics later. */
 export const FIRST_SESSION_HINT_LINKS: Partial<Record<FirstSessionStepId, FeatureHintId>> = {
-  "explore-noesis": "noesis-sparks",
+  "try-arcadia": "arcadia-starters",
   "start-chat": "composer-search-memory",
 };

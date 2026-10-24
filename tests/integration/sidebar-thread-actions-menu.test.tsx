@@ -13,6 +13,7 @@ const mockIsTitleRegenerating = mock((_id: string) => false);
 const mockRemoveSidebarChat = mock((_id: string) => {});
 const mockRouterPush = mock(() => {});
 const mockOnOpenChange = mock(() => {});
+const mockOnGenerateTitle = mock(() => {});
 
 let currentPathname = "/";
 let fetchImpl: typeof fetch = async () => new Response(null, { status: 500 });
@@ -63,13 +64,8 @@ mock.module("@heroui/modal", () => {
         onOpenChange: (open: boolean) => setIsOpen(open),
       };
     },
-    Modal: ({
-      children,
-      isOpen,
-    }: {
-      children: ReactNode;
-      isOpen: boolean;
-    }) => (isOpen ? <div>{children}</div> : null),
+    Modal: ({ children, isOpen }: { children: ReactNode; isOpen: boolean }) =>
+      isOpen ? <div>{children}</div> : null,
     ModalContent: ({ children }: { children: ReactNode }) => <div>{children}</div>,
     ModalHeader: ({ children }: { children: ReactNode }) => <h2>{children}</h2>,
     ModalBody: ({ children }: { children: ReactNode }) => <div>{children}</div>,
@@ -78,13 +74,9 @@ mock.module("@heroui/modal", () => {
 });
 
 mock.module("@heroui/button", () => ({
-  Button: ({
-    children,
-    onPress,
-  }: {
-    children: ReactNode;
-    onPress?: () => void;
-  }) => <button onClick={() => onPress?.()}>{children}</button>,
+  Button: ({ children, onPress }: { children: ReactNode; onPress?: () => void }) => (
+    <button onClick={() => onPress?.()}>{children}</button>
+  ),
 }));
 
 import { SidebarThreadActionsMenu } from "@/components/sidebar/sidebar-thread-actions-menu";
@@ -115,6 +107,7 @@ describe("SidebarThreadActionsMenu", () => {
     mockRemoveSidebarChat.mockReset();
     mockRouterPush.mockReset();
     mockOnOpenChange.mockReset();
+    mockOnGenerateTitle.mockReset();
     mockDeleteChat.mockResolvedValue({ ok: true, error: null });
     resetTitleRegenStore();
     mockIsTitleRegenerating.mockImplementation(() => false);
@@ -127,7 +120,7 @@ describe("SidebarThreadActionsMenu", () => {
     globalThis.fetch = ((...args: Parameters<typeof fetch>) => fetchImpl(...args)) as typeof fetch;
   });
 
-  function renderMenu() {
+  function renderMenu(menuThread: typeof thread & { feature?: string } = thread) {
     return render(
       <ChatContext.Provider
         value={
@@ -152,17 +145,41 @@ describe("SidebarThreadActionsMenu", () => {
         }
       >
         <SidebarThreadActionsMenu
-          thread={thread}
+          thread={menuThread}
           open={true}
           onOpenChange={mockOnOpenChange}
           onEditTitle={() => {}}
+          onGenerateTitle={mockOnGenerateTitle}
           onTogglePin={() => {}}
         >
           <button>Open menu</button>
         </SidebarThreadActionsMenu>
-      </ChatContext.Provider>,
+      </ChatContext.Provider>
     );
   }
+
+  test("regenerating a title closes the menu and hands the work to the row", () => {
+    const view = renderMenu();
+
+    fireEvent.click(view.getByText("Regenerate title (AI)"));
+
+    expect(mockOnOpenChange).toHaveBeenCalledWith(false);
+    expect(mockOnGenerateTitle).toHaveBeenCalledTimes(1);
+  });
+
+  test("offers title editing for ordinary threads", () => {
+    const view = renderMenu();
+
+    expect(view.getByText("Edit title")).toBeDefined();
+  });
+
+  test("rabbit-hole threads cannot be retitled — the rabbit hole owns the title", () => {
+    const view = renderMenu({ ...thread, feature: "rabbit_hole" });
+
+    expect(view.queryByText("Edit title")).toBeNull();
+    expect(view.queryByText(/title \(AI\)/)).toBeNull();
+    expect(view.getByText("Delete thread")).toBeDefined();
+  });
 
   test("deletes the active thread, drops it from the cache, and redirects home", async () => {
     currentPathname = "/chat/thread-1";
@@ -192,20 +209,6 @@ describe("SidebarThreadActionsMenu", () => {
       expect(mockRefreshSidebarChats).not.toHaveBeenCalled();
       expect(mockRouterPush).not.toHaveBeenCalled();
     });
-  });
-
-  test("starts title regen and resolves when the API returns", async () => {
-    const view = renderMenu();
-
-    fireEvent.click(view.getByText("Regenerate title (AI)"));
-
-    expect(mockBeginTitleRegen).toHaveBeenCalledWith("thread-1", "Thread One");
-    expect(mockOnOpenChange).toHaveBeenCalledWith(false);
-
-    await waitFor(() => {
-      expect(mockResolveTitleRegen).toHaveBeenCalledWith("thread-1", "Fresh Title");
-    });
-    expect(mockFinishTitleRegen).not.toHaveBeenCalled();
   });
 
   test("blocks regenerate while that thread is already regenerating", () => {

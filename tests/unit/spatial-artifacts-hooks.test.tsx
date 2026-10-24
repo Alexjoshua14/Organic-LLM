@@ -1,5 +1,5 @@
-import { beforeEach, describe, expect, mock, test } from "bun:test";
-import { act, renderHook, waitFor } from "@testing-library/react";
+import { afterEach, beforeEach, describe, expect, jest, mock, test } from "bun:test";
+import { act, cleanup, renderHook, waitFor } from "@testing-library/react";
 
 import { mockModulePreservingReal } from "../helpers/module-mock";
 import { render, ensureDom } from "../helpers/render";
@@ -11,6 +11,11 @@ import * as ttsContext from "@/lib/context/tts-context";
 import * as userSettings from "@/lib/user-settings";
 
 ensureDom();
+
+afterEach(() => {
+  cleanup();
+  jest.useRealTimers();
+});
 
 const mockGetSettings = mock(() => ({ coalescenceMode: false }));
 
@@ -85,14 +90,18 @@ describe("useHoverTtsPreview", () => {
     mockStop.mockClear();
   });
 
-  test("speaks truncated text after hover delay", async () => {
+  test("speaks truncated text after hover delay", () => {
+    jest.useFakeTimers();
     const { result } = renderHook(() => useHoverTtsPreview("artifact-1"));
 
     act(() => {
       result.current.onPointerEnter("one two three four five");
     });
 
-    await new Promise((r) => setTimeout(r, 450));
+    expect(mockSpeak).not.toHaveBeenCalled();
+    act(() => {
+      jest.advanceTimersByTime(400);
+    });
 
     expect(mockStop).toHaveBeenCalled();
     expect(mockSpeak).toHaveBeenCalledWith("one two three four five");

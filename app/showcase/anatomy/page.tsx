@@ -9,7 +9,6 @@ import { ShowcaseOverview } from "@/components/showcase/ShowcaseOverview";
 import { StageMiniMap } from "@/components/showcase/StageMiniMap";
 import { StageRail } from "@/components/showcase/StageRail";
 import Page from "@/components/layout/page";
-import { PublicSiteHeader } from "@/components/layout/public-site-header";
 import { PageContentFrame, PageNavBack } from "@/components/layout/page-content-frame";
 import { demoTrace } from "@/lib/showcase/demo-trace";
 
@@ -33,7 +32,6 @@ export default function AnatomyShowcasePage() {
     >
       <AdaptiveLiquidChrome dimIntensity={0.45} />
       <div className="relative z-10 h-full min-h-0 w-full overflow-y-auto pb-16">
-        <PublicSiteHeader className="text-foreground" />
         <PageContentFrame maxWidth="6xl" className="pt-8 sm:pt-12" clearNavChrome={false}>
           <PageNavBack href="/showcase">← Showcase</PageNavBack>
 

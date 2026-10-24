@@ -27,6 +27,37 @@ import {
 } from "@/lib/usage/processing-intensity";
 import { ChatAIActionEnum } from "@/types/ai";
 
+type SessionChatThreadPayload = { threadId: string; messages: UIMessage[] };
+
+/**
+ * One in-flight bootstrap per session. The rabbit-hole page mounts several chat composers at
+ * once; each used to request the thread separately, and concurrent requests created duplicate
+ * threads. The server now resolves that race too — this just stops asking twice.
+ */
+const pendingThreadRequests = new Map<string, Promise<SessionChatThreadPayload>>();
+
+function fetchSessionChatThread(sessionId: string): Promise<SessionChatThreadPayload> {
+  const pending = pendingThreadRequests.get(sessionId);
+
+  if (pending) return pending;
+
+  const request = fetch(`/api/rabbitholes/${sessionId}/chat-thread`)
+    .then(async (res) => {
+      if (!res.ok) {
+        const body = (await res.json().catch(() => ({}))) as { error?: string };
+
+        throw new Error(body.error ?? `HTTP ${res.status}`);
+      }
+
+      return res.json() as Promise<SessionChatThreadPayload>;
+    })
+    .finally(() => pendingThreadRequests.delete(sessionId));
+
+  pendingThreadRequests.set(sessionId, request);
+
+  return request;
+}
+
 export type UseRabbitHoleSessionChatOptions = {
   sessionId: string | null;
   drawerDisplayRef?: React.RefObject<DrawerChatDisplayInput | null>;
@@ -221,19 +252,7 @@ export function useRabbitHoleSessionChat({
     setBootstrapping(true);
     setBootError(null);
 
-    fetch(`/api/rabbitholes/${sessionId}/chat-thread`)
-      .then(async (res) => {
-        if (!res.ok) {
-          const body = (await res.json().catch(() => ({}))) as { error?: string };
-
-          throw new Error(body.error ?? `HTTP ${res.status}`);
-        }
-
-        return res.json() as Promise<{
-          threadId: string;
-          messages: UIMessage[];
-        }>;
-      })
+    fetchSessionChatThread(sessionId)
       .then((data) => {
         if (cancelled) return;
 

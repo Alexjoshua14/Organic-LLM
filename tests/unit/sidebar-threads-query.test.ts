@@ -64,7 +64,12 @@ describe("getSidebarThreadsPage", () => {
       { data: [row("p", "2026-09-01T00:00:00Z", true)], error: null },
     ];
 
-    const result = await getSidebarThreadsPage({ ownerId: "owner", scope: "main", cursor: null, limit: 1 });
+    const result = await getSidebarThreadsPage({
+      ownerId: "owner",
+      scope: "main",
+      cursor: null,
+      limit: 1,
+    });
 
     expect(result.error).toBeNull();
     expect(result.data?.data.map((r) => r.id)).toEqual(["b"]);
@@ -75,6 +80,13 @@ describe("getSidebarThreadsPage", () => {
 
     expect(page).toContainEqual(["eq", "owner_id", "owner"]);
     expect(page).toContainEqual(["not", "pinned", "is", true]);
+    expect(page).toContainEqual(["not", "archived", "is", true]);
+    expect(pinned).toContainEqual(["not", "archived", "is", true]);
+    expect(page).toContainEqual([
+      "eq",
+      "rabbit_hole_sessions.rabbit_hole_path_segments.position",
+      0,
+    ]);
     expect(page).toContainEqual(["filter", "feature", "eq", "main"]);
     expect(page).toContainEqual(["order", "updated_at", { ascending: false }]);
     expect(page).toContainEqual(["order", "id", { ascending: false }]);
@@ -82,6 +94,37 @@ describe("getSidebarThreadsPage", () => {
     expect(pinned).toContainEqual(["eq", "owner_id", "owner"]);
     expect(pinned).toContainEqual(["eq", "pinned", true]);
     expect(pinned).toContainEqual(["filter", "feature", "eq", "main"]);
+  });
+
+  test("resolves rabbit-hole titles without losing the raw paging cursor", async () => {
+    const at = "2026-10-01T00:00:00Z";
+
+    client.results = [
+      {
+        data: [
+          { ...row("orphan", at), feature: "rabbit_hole", rabbit_hole_sessions: [] },
+          {
+            ...row("linked", at),
+            feature: "rabbit_hole",
+            rabbit_hole_sessions: [
+              { root_question: "Question", rabbit_hole_path_segments: [{ label: "Article" }] },
+            ],
+          },
+          row("extra", at),
+        ],
+        error: null,
+      },
+    ];
+    const result = await getSidebarThreadsPage({
+      ownerId: "owner",
+      scope: "all",
+      cursor: null,
+      limit: 2,
+    });
+
+    expect(result.data?.data.map((r) => [r.id, r.title])).toEqual([["linked", "Article"]]);
+    expect(result.data?.nextCursor).not.toBeNull();
+    expect(result.data?.data[0]?.created_at).toBe(at);
   });
 
   test("later pages apply the cursor and skip the pinned query", async () => {
@@ -103,7 +146,12 @@ describe("getSidebarThreadsPage", () => {
       { data: null, error: { message: "pinned failed" } },
     ];
 
-    const result = await getSidebarThreadsPage({ ownerId: "owner", scope: "main", cursor: null, limit: 50 });
+    const result = await getSidebarThreadsPage({
+      ownerId: "owner",
+      scope: "main",
+      cursor: null,
+      limit: 50,
+    });
 
     expect(result.data).toBeNull();
     expect(result.error?.message).toBe("pinned failed");

@@ -9,6 +9,7 @@ import {
   saveSession,
   type RabbitHolesSupabaseClient,
 } from "@/data/supabase/rabbitholes";
+import { recordThreadActivityWithAdmin } from "@/data/supabase/chat-admin";
 import { createLogger } from "@/lib/logger";
 import { supabaseServer } from "@/lib/supabase/server";
 import { supabaseAdmin } from "@/lib/supabase/supabase-admin";
@@ -50,6 +51,32 @@ function nextStep(step: GenerationStep): GenerationStep | null {
   return STEP_ORDER[i + 1];
 }
 
+/** Marks the session as updated now. Best effort: a failure only delays the sidebar signal. */
+async function touchSession(sessionId: string, client: RabbitHolesSupabaseClient): Promise<void> {
+  const { error } = await client
+    .from("rabbit_hole_sessions")
+    .update({ updated_at: new Date().toISOString() })
+    .eq("session_id", sessionId);
+
+  if (error) {
+    logger.warn("runGenerationAndPersist", "Could not refresh session updated_at", error.message);
+  }
+}
+
+/**
+ * A node finished: the session's sidebar thread shows as new until the owner sees it. Sessions
+ * whose chat thread was never created have no sidebar row, so there is nothing to mark.
+ */
+async function recordNodeCompleted(chatThreadId: string | null | undefined): Promise<void> {
+  if (!chatThreadId) return;
+
+  const res = await recordThreadActivityWithAdmin({ threadId: chatThreadId });
+
+  if (res.error) {
+    logger.warn("runGenerationAndPersist", "Could not record node activity", res.error.message);
+  }
+}
+
 /**
  * Step-aware orchestrator: loads session, reads generation_step, runs that step (with idempotency),
  * saves, advances step via conditional update (singularity). Loops until step is cleared.
@@ -82,6 +109,9 @@ export async function runGenerationAndPersist(sessionId: string, nodeId: string)
   }
 
   const ownerId = await getRabbitHoleSessionOwnerId(sessionId, admin);
+  // `saveSession` writes the client's copy of `updated_at`, which can be old when generation is
+  // scheduled. Refresh it so the sidebar's working signal (stale after 5 min) sees a live run.
+  await touchSession(sessionId, admin);
 
   try {
     let step: GenerationStep | null = session.generationStep ?? "sources";
@@ -148,7 +178,10 @@ export async function runGenerationAndPersist(sessionId: string, nodeId: string)
         return;
       }
 
-      if (toStep === null) break;
+      if (toStep === null) {
+        await recordNodeCompleted(sessionToSave.chatThreadId ?? session.chatThreadId);
+        break;
+      }
       session = sessionToSave;
       step = toStep;
     }

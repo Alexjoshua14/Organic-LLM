@@ -9,9 +9,12 @@ import { GatewayProviderOptions } from "@ai-sdk/gateway";
 import { OpenAIResponsesProviderOptions } from "@ai-sdk/openai";
 
 import { shouldSkipMemoryWriteForExperience } from "@/lib/chat/chat-experience";
-import { getMessageCount } from "@/data/supabase/chat";
+import { getMessageCount, markChatStreamStarted } from "@/data/supabase/chat";
+import { recordThreadActivityWithAdmin } from "@/data/supabase/chat-admin";
 import { shouldAttemptInitialTitle } from "@/lib/chat/summary-title-cadence";
 import { saveChat } from "@/lib/chat/chat-store";
+import { createActivityTrailTimer } from "@/lib/chat/activity-trail";
+import { finalizeStreamingParts } from "@/lib/chat/finalize-message-parts";
 import { ensureChatHasTitle, updateChatSummary } from "@/lib/llm/chat-helpers";
 import { CHAT_MODEL, measureAsync } from "@/lib/llm/helpers";
 import { CHAT_STREAM_CHUNKING } from "@/lib/llm/chat-stream-chunking";
@@ -60,6 +63,8 @@ export type RunLLMChatStreamParams = {
   persistedAssistantParts?: ChatUIMessage["parts"];
   /** End the step loop right after the model calls one of these tools (e.g. `voice_reply`). */
   stopAfterToolNames?: readonly string[];
+  /** Called with the saved assistant reply's text; the unified persona logs it. */
+  onAssistantMessage?: (text: string) => void;
 };
 
 export async function runLLMChatStream(params: RunLLMChatStreamParams): Promise<void> {
@@ -85,6 +90,7 @@ export async function runLLMChatStream(params: RunLLMChatStreamParams): Promise<
     threadHasTitlePromise,
     persistedAssistantParts,
     stopAfterToolNames,
+    onAssistantMessage,
   } = params;
 
   const toolNames = Object.keys(tools);
@@ -114,6 +120,11 @@ export async function runLLMChatStream(params: RunLLMChatStreamParams): Promise<
 
   logger.log("POST", `Calling streamText with model: ${selectedModel.id}`);
 
+  // Sidebar working signal. Fire-and-forget: it must not delay the first token.
+  void markChatStreamStarted(chatId).then((res) => {
+    if (res.error) logger.warn("POST", "Could not mark stream started", { err: res.error.message });
+  });
+
   const streamStartTime = performance.now();
 
   type ChunkBreadcrumb = {
@@ -134,6 +145,7 @@ export async function runLLMChatStream(params: RunLLMChatStreamParams): Promise<
 
   // Effort plus reasoning-summary opt-ins so the chat can show provider reasoning.
   const effortProviderOptions = buildChatReasoningProviderOptions(selectedModel.id, effort);
+  const observeActivityTrail = createActivityTrailTimer();
 
   const providerOptionsSummary = {
     zeroDataRetention: isZeroDataRetention,
@@ -274,6 +286,8 @@ export async function runLLMChatStream(params: RunLLMChatStreamParams): Promise<
   writer.merge(
     result.toUIMessageStream({
       generateMessageId: () => assistantMessageId,
+      // Per-trail "Thought for Ns", measured in stream order and saved with the message.
+      messageMetadata: ({ part }) => observeActivityTrail(part),
       sendStart: false, // The outer stream announces this ID before context and progress data.
       onError: (error) => {
         logger.error("POST", "UI stream error", {
@@ -357,9 +371,11 @@ export async function runLLMChatStream(params: RunLLMChatStreamParams): Promise<
         );
 
         try {
-          const messagesWithModel = messages.map((savedMessage) => {
-            if (savedMessage.role !== "assistant") return savedMessage;
+          const messagesWithModel = messages.map((message) => {
+            if (message.role !== "assistant") return message;
 
+            // Saved after the stream ends, so any part still `streaming` was cut off.
+            const savedMessage = finalizeStreamingParts(message);
             let parts = savedMessage.parts;
 
             if (savedMessage.id === assistantMessageId) {
@@ -401,6 +417,16 @@ export async function runLLMChatStream(params: RunLLMChatStreamParams): Promise<
             return; // Don't continue if save fails
           }
 
+          if (onAssistantMessage) {
+            const reply = messages.findLast((saved) => saved.role === "assistant");
+            const text = reply?.parts
+              .flatMap((part) => (part.type === "text" ? [part.text] : []))
+              .join("")
+              .trim();
+
+            if (text) onAssistantMessage(text);
+          }
+
           // Multi-mode queue: after this stream clears, try to send the next queued message.
           if (clerkUserId) {
             const { kickDispatchAfterStream } = await import("@/lib/message-queue/dispatch");
@@ -411,6 +437,14 @@ export async function runLLMChatStream(params: RunLLMChatStreamParams): Promise<
               threadId: chatId,
             });
           }
+          // The reply is persisted: the sidebar shows this thread as new until the user sees it.
+          void recordThreadActivityWithAdmin({ threadId: chatId, ownerId: sbUserId }).then(
+            (res) => {
+              if (res.error) {
+                logger.warn("POST", "Could not record thread activity", { err: res.error.message });
+              }
+            }
+          );
 
           // Fire-and-forget post-processing (don't block `onFinish`)
           void (async () => {

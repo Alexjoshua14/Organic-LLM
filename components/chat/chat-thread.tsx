@@ -19,6 +19,7 @@ import {
   inlineSubagentDispatch,
   liveAgentForDispatch,
 } from "@/lib/arcadia/multitask/inline-dispatches";
+import { PersonaHeardMark } from "@/components/personas/persona-heard-mark";
 import { ChatEmptyStateGuide } from "@/components/onboarding/chat-empty-state-guide";
 import { ARCADIA_HELP_LATEST_ONLY, isArcadiaHelpMessage } from "@/lib/arcadia/help-response";
 import { resolveThreadLiveAiAction } from "@/lib/chat/optimistic-ai-action";
@@ -51,6 +52,8 @@ type ChatThreadProps = {
   };
   /** When set and there are no messages, replaces the default empty state (e.g. Noesis starters). */
   renderEmptyState?: () => React.ReactNode;
+  /** Unified persona: user messages it heard and chose not to answer, by message id. */
+  heardMarks?: Readonly<Record<string, { label: string; pulseKey: number | null }>>;
 };
 
 export const ChatThread: FC<ChatThreadProps> = ({
@@ -62,6 +65,7 @@ export const ChatThread: FC<ChatThreadProps> = ({
   showActions = true,
   aiActionPayload,
   renderEmptyState,
+  heardMarks,
 }) => {
   const activityId = useId();
   const multitask = useArcadiaMultitaskOptional();
@@ -159,6 +163,7 @@ export const ChatThread: FC<ChatThreadProps> = ({
                 !ARCADIA_HELP_LATEST_ONLY ||
                 (lastArcadiaHelpMessageId != null && message.id === lastArcadiaHelpMessageId);
 
+              const heard = heardMarks?.[message.id];
               const messageDispatches = dispatchesByMessage.get(message.id) ?? [];
               const displayMessage =
                 messageDispatches.length > 0
@@ -186,6 +191,7 @@ export const ChatThread: FC<ChatThreadProps> = ({
                       showModelBadge={!modelSummary.shouldUseThreadBadge}
                     />
                   )}
+                  {heard ? <PersonaHeardMark label={heard.label} pulseKey={heard.pulseKey} /> : null}
                   {messageDispatches.length > 0 && (
                     <div className="space-y-stack-sm px-4" aria-label="Delegated work">
                       {messageDispatches.map((dispatch) => (

@@ -22,6 +22,8 @@ export type EncryptionFieldName =
   | "strata_sections.design_instructions"
   | "strata_sections.ai_instructions"
   | "memory.cache.semantic_search"
+  | "memory_feedback.note"
+  | "memory_feedback.memory"
   | "threads.introspection_config"
   | "threads.introspection_guided_state"
   | "threads.subagent_heartbeat_baseline"
@@ -31,6 +33,9 @@ export type EncryptionFieldName =
   | "ergon_connection.oauth"
   | "threads.research_ledger"
   | "research_ledgers.payload"
+  | "persona_sessions.state"
+  | "persona_sessions.log"
+  | "persona_sessions.photo"
   | "stage.events";
 
 export type EncryptionContext = {

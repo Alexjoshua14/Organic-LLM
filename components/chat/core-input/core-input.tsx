@@ -45,7 +45,10 @@ import { ChatMessageMarkdown } from "../chat-message-markdown";
 import { ComposerAddFilesButton } from "../composer-add-files-button";
 import { ComposerMicButton } from "../composer-mic-button";
 import { ComposerSettingsMenu } from "../composer-settings-menu";
-import { ContextBudgetIndicator } from "../context-budget-indicator";
+import {
+  CONTEXT_BUDGET_DRAFT_RESERVE_CLASS,
+  ContextBudgetIndicator,
+} from "../context-budget-indicator";
 import { HomeComposerLumenShell } from "../home-composer-lumen-shell";
 
 import {
@@ -62,6 +65,9 @@ import { CORE_INPUT_LAYOUT } from "./layout-breakpoints";
 import { organicGlassSubmitClassName, PromptInputSubmit } from "./submit/submit-button";
 import { OrganicSubmitGlyph, resolveOrganicSubmitState } from "./submit/submit-glyph";
 
+import { ComposerPersonaChip } from "@/components/personas/persona-chip";
+import { PersonaSpark } from "@/components/personas/persona-spark";
+import { usePersonaSessionOptional } from "@/components/personas/persona-session-provider";
 import { DiagramNodeChip } from "@/components/mermaid/diagram-node-chip";
 import { FeatureHint } from "@/components/onboarding/feature-hint";
 import { CoreInputVoiceDrawerSlot } from "@/components/voice/core-input-voice-drawer-slot";
@@ -185,6 +191,11 @@ type CoreInputProps = {
   /** Optional multitask subagent id stored with the queue row. */
   queueTargetAgentId?: string;
   /**
+   * Surfaces that forward the unified persona (main chat, Arcadia) show its chip, and its Spark
+   * replaces the send button while it is on.
+   */
+  personaEnabled?: boolean;
+  /**
    * Remembers settings per thread or area, and morphs between them when the scope changes.
    * Omit to keep the legacy global prefs (sandbox labs and prototypes).
    */
@@ -275,6 +286,7 @@ export const CoreInput: React.FC<CoreInputProps> = ({
   chatStyle,
   queueSendMode = false,
   queueTargetAgentId,
+  personaEnabled = false,
   snapshotScope,
   contextEffortRef,
   slashCommands,
@@ -282,6 +294,8 @@ export const CoreInput: React.FC<CoreInputProps> = ({
   placeholder,
 }) => {
   const { refreshSidebarChats } = useSharedChatContext();
+  const persona = usePersonaSessionOptional();
+  const personaActive = personaEnabled && Boolean(persona?.session);
   const diagramNodeLinks = useDiagramNodeLinksOptional();
   const queueEnabled = shouldEnqueueInsteadOfSend(queueSendMode) && Boolean(chatId);
   const messageQueue = useMessageSendQueue({
@@ -1012,7 +1026,11 @@ export const CoreInput: React.FC<CoreInputProps> = ({
       <PromptInputTextarea
         ref={textareaRef}
         value={text}
-        className={cn(variant === "compact" && "min-h-8 max-h-24 resize-none")}
+        className={cn(
+          variant === "compact" && "min-h-8 max-h-24 resize-none",
+          // The corner badge widens to show the draft's token count; wrap text before it.
+          showContextBudget && text.trim() && CONTEXT_BUDGET_DRAFT_RESERVE_CLASS
+        )}
         {...(placeholder ? { placeholder } : {})}
         onChange={handleInputChange}
         onPasteCapture={(event) => {
@@ -1191,7 +1209,14 @@ export const CoreInput: React.FC<CoreInputProps> = ({
 
   const submitControl = (
     <PromptInputSubmit
-      className={cn(submitVariant === "organic-glass" && organicGlassSubmitClassName)}
+      // Spread only when set: an explicit `aria-label={undefined}` would override the button's
+      // own "Submit"/"Abort" label, which PromptInputSubmit applies before `...props`.
+      {...(personaActive && status === "ready" ? { "aria-label": "Send to Artist assistant" } : {})}
+      className={cn(
+        submitVariant === "organic-glass" && !personaActive && organicGlassSubmitClassName,
+        personaActive && "overflow-hidden rounded-lg bg-transparent p-0 hover:bg-transparent"
+      )}
+      variant={personaActive ? "ghost" : undefined}
       // Multi-mode: always submit (never stop). Default: keep stop available while streaming.
       disabled={
         queueEnabled
@@ -1201,7 +1226,20 @@ export const CoreInput: React.FC<CoreInputProps> = ({
       status={composerStatus}
       stop={queueEnabled ? undefined : stop}
     >
-      {submitVariant === "organic-glass" ? (
+      {personaActive ? (
+        // The persona's visual is where its reply comes from: idle, deciding, then speaking.
+        <PersonaSpark
+          pulseKey={persona?.lastReceipt?.at ?? null}
+          size={32}
+          state={
+            queueEnabled || status === "ready" || status === "error"
+              ? "idle"
+              : status === "submitted"
+                ? "deciding"
+                : "speaking"
+          }
+        />
+      ) : submitVariant === "organic-glass" ? (
         <OrganicSubmitGlyph state={organicSubmitState} />
       ) : undefined}
     </PromptInputSubmit>
@@ -1267,6 +1305,7 @@ export const CoreInput: React.FC<CoreInputProps> = ({
             {/* `gap-3` separates control groups; the tighter `gap-1` inside each
                 group is owned by the group itself. */}
             <div className="flex min-w-0 items-center gap-3 overflow-visible">
+              {personaEnabled ? <ComposerPersonaChip showLabel={showLabels} /> : null}
               {toolToggles}
 
               {!useCondensedLayout && useSpeechFriendlyRef && !hideWebMemorySpeechToggles ? (
