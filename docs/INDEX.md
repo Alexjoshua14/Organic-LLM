@@ -89,6 +89,7 @@ Public routes under `/blog` — see the [blog index](../app/blog/page.tsx) or ru
 ## Maintainer notes
 
 - [Profile generation](./architecture/decisions/20261022-profile-generation-structured-output.md) — strict structured output, clamped in code; why every generation failed
+- [Invites](./invites.md) — invite-only sign-up, branded invitation email, and which surfaces invited accounts can open
 - [Shared gateway visibility](./architecture/decisions/20261009-shared-gateway-visibility.md) — request deduplication, session isolation, fresh server authorization, and identifier logging
 - [Performance journeys](./perf-journeys.md) — dev HUD for home load, Chat, and Arcadia transition timings (`?perf=1`)
 - [Chat and Arcadia initial load](./architecture/decisions/20261009-chat-arcadia-initial-load.md) — direct creation navigation, parallel owned reads, stream resumption, and worker discovery

@@ -75,13 +75,15 @@ export function SurfacePostLayout({ surface, markdown }: SurfacePostLayoutProps)
           </p>
         ) : null}
 
-        <div className="mb-6 flex flex-wrap items-center gap-3">
-          <Button asChild size="sm" variant="secondary">
-            <Link href={surface.tryHref} prefetch={threadEntryPrefetch(surface.tryHref)}>
-              Open {surface.label}
-            </Link>
-          </Button>
-        </div>
+        {surface.adminOnly ? null : (
+          <div className="mb-6 flex flex-wrap items-center gap-3">
+            <Button asChild size="sm" variant="secondary">
+              <Link href={surface.tryHref} prefetch={threadEntryPrefetch(surface.tryHref)}>
+                Open {surface.label}
+              </Link>
+            </Button>
+          </div>
+        )}
 
         <BlogProse content={markdown} />
 

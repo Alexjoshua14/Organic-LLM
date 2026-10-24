@@ -32,6 +32,7 @@ import {
 } from "@/lib/chat/thread-routing-candidates";
 import { createAndOpenStrataPageAction } from "@/app/sandbox/prototypes/strata/actions";
 import { useSharedChatContext } from "@/lib/context/chat-context";
+import { useIsAdmin } from "@/hooks/use-is-admin";
 import { getSettings } from "@/lib/user-settings";
 import { isEditableEventTarget } from "@/lib/dom/is-editable-event-target";
 import { createLogger } from "@/lib/logger";
@@ -79,6 +80,7 @@ export function AionLauncherProvider({ children }: { children: React.ReactNode }
   const [creatingArcadia, setCreatingArcadia] = useState(false);
   const [creatingStrata, setCreatingStrata] = useState(false);
   const router = useRouter();
+  const isAdmin = useIsAdmin();
   const { refreshSidebarChats } = useSharedChatContext();
 
   const toggle = useCallback(() => {
@@ -330,24 +332,28 @@ export function AionLauncherProvider({ children }: { children: React.ReactNode }
                   <Sparkles className="text-muted-foreground" />
                   <span>New Arcadia</span>
                 </CommandItem>
-                <CommandItem
-                  disabled={busy || creatingStrata}
-                  keywords={["strata", "page", "new"]}
-                  onSelect={() => void onNewStrata()}
-                  value="action-new-strata"
-                >
-                  <Layers className="text-muted-foreground" />
-                  <span>New Strata page</span>
-                </CommandItem>
-                <CommandItem
-                  disabled={busy}
-                  keywords={["strata", "hub", "browse", "list"]}
-                  onSelect={onStrataHub}
-                  value="action-strata-hub"
-                >
-                  <Compass className="text-muted-foreground" />
-                  <span>Open Strata hub</span>
-                </CommandItem>
+                {isAdmin === true && (
+                  <>
+                    <CommandItem
+                      disabled={busy || creatingStrata}
+                      keywords={["strata", "page", "new"]}
+                      onSelect={() => void onNewStrata()}
+                      value="action-new-strata"
+                    >
+                      <Layers className="text-muted-foreground" />
+                      <span>New Strata page</span>
+                    </CommandItem>
+                    <CommandItem
+                      disabled={busy}
+                      keywords={["strata", "hub", "browse", "list"]}
+                      onSelect={onStrataHub}
+                      value="action-strata-hub"
+                    >
+                      <Compass className="text-muted-foreground" />
+                      <span>Open Strata hub</span>
+                    </CommandItem>
+                  </>
+                )}
                 <CommandItem
                   disabled={busy}
                   keywords={["rabbit", "hole", "explore"]}

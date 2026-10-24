@@ -28,6 +28,9 @@ export default async function AdminLayout({ children }: { children: React.ReactN
             <Link className="hover:text-foreground" href="/admin/thread-reference-performance">
               Thread performance
             </Link>
+            <Link className="hover:text-foreground" href="/admin/invites">
+              Invites
+            </Link>
             <Link
               className="text-xs text-muted-foreground hover:text-foreground transition-colors"
               href="/"
