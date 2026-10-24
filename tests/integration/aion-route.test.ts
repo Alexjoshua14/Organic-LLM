@@ -1,0 +1,280 @@
+import { describe, test, expect, mock, beforeEach } from "bun:test";
+
+import * as llmRateLimit from "@/lib/rate-limit/llm";
+
+import { mockModulePreservingReal } from "../helpers/module-mock";
+
+// Keep the module's other exports: a bare stub leaks into later files and drops
+// `checkLlmCostLimit` / `recordLlmCost` for `aion-presence`. No restore — see module-mock.ts.
+mockModulePreservingReal("@/lib/rate-limit/llm", llmRateLimit, {
+  checkLlmMessageLimit: async () => ({ success: true, remaining: 10 }),
+});
+
+const mockGetMessageCount = mock(async () => ({ data: 2, error: null }));
+const mockGetThreadHasTitle = mock(async () => ({ data: true, error: null }));
+
+mock.module("@/data/supabase/chat", () => ({
+  getMessageCount: mockGetMessageCount,
+  getThreadHasTitle: mockGetThreadHasTitle,
+  getChats: mock(async () => ({ data: [], error: null })),
+  getNMessages: mock(async () => ({ data: [], error: null })),
+  getMessages: mock(async () => ({ data: [], error: null })),
+  getMessagesSince: mock(async () => ({ data: [], error: null })),
+  updateChatTitle: mock(async () => ({ ok: true, error: null })),
+  updateChatPinned: mock(async () => ({ ok: true, error: null })),
+  updateConversationSummary: mock(async () => ({ ok: true, error: null })),
+  updateChatStream: mock(async () => ({ ok: true, error: null })),
+  updateThreadRouting: mock(async () => ({ ok: true, error: null })),
+  addMessage: mock(async () => ({ ok: true, error: null })),
+  updateMessage: mock(async () => ({ ok: true, error: null })),
+  deleteChat: mock(async () => ({ ok: true, error: null })),
+  deleteEmptyChat: mock(async () => ({ ok: true, error: null })),
+  getConversationSummary: mock(async () => ({ data: null, error: null })),
+  getChatsForSettingsForCurrentUser: mock(async () => ({ data: [], error: null })),
+}));
+
+const { createAionHandler } = await import("@/lib/api/aion-handler");
+
+import { createMockStreamText } from "../helpers/mock-stream-text";
+import {
+  createTestChatRequest,
+  createTestContext,
+  createTestUIMessage,
+} from "../helpers/test-fixtures";
+
+function createJsonRequest(body: unknown, signal?: AbortSignal) {
+  return new Request("http://test/api/ai/aion", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify(body),
+    signal,
+  });
+}
+
+describe("POST /api/ai/aion (integration)", () => {
+  const mockAuth = mock(async () => ({ userId: "clerk_test_user" }));
+  const mockGetSupabaseUserId = mock(async () => ({
+    data: "sb_test_user",
+    error: null,
+  }));
+
+  const mockGetContext = mock(async () => ({
+    data: createTestContext(),
+    error: null,
+  }));
+
+  const mockSaveChat = mock(async () => ({ ok: true, error: null }));
+  const mockDeleteChatMessage = mock(async () => ({ ok: true, error: null }));
+
+  const mockEnsureChatHasTitle = mock(async () => ({ ok: true, error: null }));
+  const mockUpdateChatSummary = mock(async () => ({ ok: true, error: null }));
+
+  const mockAddLatestMessagesToMemory = mock(async () => ({
+    data: { results: [], relations: [] },
+    error: null,
+  }));
+
+  const mockCreateMemorySearchTool = mock((userId: string) => ({
+    type: "tool",
+    name: "search_memories",
+    userId,
+  }));
+
+  let streamTextMock: ReturnType<typeof createMockStreamText>;
+
+  const makeHandler = () =>
+    createAionHandler({
+      auth: mockAuth,
+      getSupabaseUserId: mockGetSupabaseUserId,
+      getContext: mockGetContext as any,
+      saveChat: mockSaveChat as any,
+      deleteChatMessage: mockDeleteChatMessage as any,
+      streamText: streamTextMock.streamText as any,
+      ensureChatHasTitle: mockEnsureChatHasTitle as any,
+      updateChatSummary: mockUpdateChatSummary as any,
+      addLatestMessagesToMemory: mockAddLatestMessagesToMemory as any,
+      createMemorySearchTool: mockCreateMemorySearchTool as any,
+    });
+
+  beforeEach(() => {
+    mockAuth.mockClear();
+    mockGetSupabaseUserId.mockClear();
+    mockGetContext.mockClear();
+    mockSaveChat.mockClear();
+    mockDeleteChatMessage.mockClear();
+    mockEnsureChatHasTitle.mockClear();
+    mockUpdateChatSummary.mockClear();
+    mockAddLatestMessagesToMemory.mockClear();
+    mockCreateMemorySearchTool.mockClear();
+    mockGetMessageCount.mockClear();
+    mockGetThreadHasTitle.mockClear();
+    mockGetMessageCount.mockResolvedValue({ data: 2, error: null });
+    mockGetThreadHasTitle.mockResolvedValue({ data: true, error: null });
+  });
+
+  test("returns 400 for invalid body", async () => {
+    streamTextMock = createMockStreamText();
+    const handler = makeHandler();
+
+    const res = await handler(createJsonRequest({}));
+    expect(res.status).toBe(400);
+  });
+
+  test("returns 401 when user is not authenticated", async () => {
+    streamTextMock = createMockStreamText();
+    const handler = makeHandler();
+    mockAuth.mockResolvedValueOnce(null as any);
+
+    const res = await handler(createJsonRequest(createTestChatRequest()));
+    expect(res.status).toBe(401);
+  });
+
+  test("returns 404 when user not found in supabase", async () => {
+    streamTextMock = createMockStreamText();
+    const handler = makeHandler();
+    mockGetSupabaseUserId.mockResolvedValueOnce(
+      { data: null, error: new Error("not found") } as any
+    );
+
+    const res = await handler(createJsonRequest(createTestChatRequest()));
+    expect(res.status).toBe(404);
+  });
+
+  test("saves user message optimistically when role is user", async () => {
+    streamTextMock = createMockStreamText({ onFinishMessages: [] });
+    const handler = makeHandler();
+    const reqBody = createTestChatRequest({
+      message: createTestUIMessage({ role: "user" }),
+    });
+
+    const res = await handler(createJsonRequest(reqBody));
+    await res.text(); // consume to drive stream execution
+
+    expect(res.status).toBe(200);
+    expect(mockSaveChat.mock.calls.length >= 1).toBe(true);
+  });
+
+  test("calls getContext with expected parameters", async () => {
+    streamTextMock = createMockStreamText({ onFinishMessages: [] });
+    const handler = makeHandler();
+
+    const reqBody = createTestChatRequest({
+      memory: true,
+      message: createTestUIMessage({ role: "user" }),
+    });
+
+    const res = await handler(createJsonRequest(reqBody));
+    await res.text();
+
+    expect(res.status).toBe(200);
+    expect(mockGetContext.mock.calls.length >= 1).toBe(true);
+    const ctxCall = mockGetContext.mock.calls[0];
+    expect(ctxCall != null).toBe(true);
+    const ctxArg = (ctxCall as unknown as [{ limit?: number; memoryEnabled?: boolean; persistedSchemasEnabled?: boolean }])[0];
+    expect(ctxArg?.limit).toBe(30);
+    expect(ctxArg?.memoryEnabled).toBe(true);
+    expect(ctxArg?.persistedSchemasEnabled).toBe(true);
+  });
+
+  test("invokes streamText with model, system, messages and tools", async () => {
+    streamTextMock = createMockStreamText({ onFinishMessages: [] });
+    const handler = makeHandler();
+
+    const reqBody = createTestChatRequest({
+      memory: true,
+      message: createTestUIMessage({ role: "user" }),
+    });
+
+    const res = await handler(createJsonRequest(reqBody));
+    await res.text();
+
+    expect(res.status).toBe(200);
+    expect(streamTextMock.calls).toHaveLength(1);
+
+    const call = streamTextMock.calls[0]!;
+    expect(typeof call.model).toBe("string");
+    expect(call.model.length > 0).toBe(true);
+    expect(typeof call.instructions).toBe("string");
+    expect(call.instructions).toMatch(/\n\nAdditional Info:\nThe current date is \S+Z$/);
+    expect(call.tools != null).toBe(true);
+    expect(call.tools!.search_memories != null).toBe(true);
+    expect(call.tools!.show_memories != null).toBe(true);
+    expect(call.tools!.set_state_archetype != null).toBe(true);
+    expect(call.tools!.view_archetype != null).toBe(true);
+  });
+
+  test("when memory is enabled, onFinish triggers addLatestMessagesToMemory", async () => {
+    const previousAionTestMode = process.env.AION_TEST_MODE;
+    const userMsg = createTestUIMessage({ role: "user" });
+    const assistantMsg = createTestUIMessage({ role: "assistant" });
+
+    try {
+      delete process.env.AION_TEST_MODE;
+
+      streamTextMock = createMockStreamText({
+        onFinishMessages: [userMsg, assistantMsg],
+      });
+      const handler = makeHandler();
+
+      const reqBody = createTestChatRequest({
+        memory: true,
+        message: userMsg,
+      });
+
+      const res = await handler(createJsonRequest(reqBody));
+      await res.text();
+
+      expect(res.status).toBe(200);
+      expect(mockAddLatestMessagesToMemory.mock.calls.length >= 1).toBe(true);
+    } finally {
+      if (previousAionTestMode === undefined) {
+        delete process.env.AION_TEST_MODE;
+      } else {
+        process.env.AION_TEST_MODE = previousAionTestMode;
+      }
+    }
+  });
+
+  test("when memory is disabled, onFinish does not call addLatestMessagesToMemory", async () => {
+    const userMsg = createTestUIMessage({ role: "user" });
+    const assistantMsg = createTestUIMessage({ role: "assistant" });
+
+    streamTextMock = createMockStreamText({
+      onFinishMessages: [userMsg, assistantMsg],
+    });
+    const handler = makeHandler();
+
+    const reqBody = createTestChatRequest({
+      memory: false,
+      message: userMsg,
+    });
+
+    const res = await handler(createJsonRequest(reqBody));
+    await res.text();
+
+    expect(res.status).toBe(200);
+    expect(mockAddLatestMessagesToMemory.mock.calls.length).toBe(0);
+  });
+
+  test("when aborted, deletes the optimistic user message", async () => {
+    const ac = new AbortController();
+    ac.abort();
+
+    streamTextMock = createMockStreamText({
+      isAborted: true,
+      onFinishMessages: [],
+    });
+    const handler = makeHandler();
+
+    const reqBody = createTestChatRequest({
+      message: createTestUIMessage({ role: "user" }),
+    });
+
+    const res = await handler(createJsonRequest(reqBody, ac.signal));
+    await res.text();
+
+    expect(res.status).toBe(200);
+    expect(mockDeleteChatMessage.mock.calls.length >= 1).toBe(true);
+  });
+});
+

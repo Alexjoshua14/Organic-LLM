@@ -5,10 +5,7 @@ import type { ComponentProps, HTMLAttributes, ReactNode } from "react";
 import { CheckIcon, CopyIcon } from "lucide-react";
 import { createContext, useContext, useState } from "react";
 import { Prism as SyntaxHighlighter } from "react-syntax-highlighter";
-import {
-  oneDark,
-  oneLight,
-} from "react-syntax-highlighter/dist/esm/styles/prism";
+import { oneDark, oneLight } from "react-syntax-highlighter/dist/esm/styles/prism";
 
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/third-party/ui/button";
@@ -40,7 +37,7 @@ export const CodeBlock = ({
     <div
       className={cn(
         "relative w-full overflow-hidden rounded-md border bg-background text-foreground",
-        className,
+        className
       )}
       {...props}
     >
@@ -92,9 +89,7 @@ export const CodeBlock = ({
           {code}
         </SyntaxHighlighter>
         {children && (
-          <div className="absolute top-2 right-2 flex items-center gap-2">
-            {children}
-          </div>
+          <div className="absolute top-2 right-2 flex items-center gap-2">{children}</div>
         )}
       </div>
     </div>

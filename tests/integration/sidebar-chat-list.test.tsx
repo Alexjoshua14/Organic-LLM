@@ -1,0 +1,303 @@
+import { afterAll, afterEach, beforeEach, describe, expect, mock, test } from "bun:test";
+import { act, cleanup, fireEvent, waitFor } from "@testing-library/react";
+import type { HTMLAttributes, ReactNode } from "react";
+import * as framerMotion from "framer-motion";
+
+import { mockModulePreservingReal } from "../helpers/module-mock";
+import { render } from "../helpers/render";
+
+const mockRouterPush = mock(() => {});
+const mockSetChatId = mock(() => {});
+const mockRefreshSidebarChats = mock(() => {});
+const mockUpdateSidebarChat = mock((_id: string, _patch: unknown) => {});
+const mockSetOpenMobile = mock(() => {});
+const mockUpdateChatTitle = mock(async () => ({ ok: true, error: null }));
+const mockUpdateChatPinned = mock(async () => ({ ok: true, error: null }));
+const mockDeleteChat = mock(async () => ({ ok: true, error: null }));
+
+let currentPathname = "/";
+let currentChatId: string | null = null;
+let currentIsMobile = false;
+
+mock.module("next/navigation", () => ({
+  useRouter: () => ({ push: mockRouterPush }),
+  usePathname: () => currentPathname,
+}));
+
+mock.module("@/hooks/use-chat-id", () => ({
+  useChatId: () => currentChatId,
+}));
+
+mock.module("@/hooks/use-mobile", () => ({
+  useIsMobile: () => currentIsMobile,
+}));
+
+/**
+ * Only `motion.div` is swapped for a plain element. `motion` is a Proxy, so the rest is
+ * forwarded to the real one: a stub that dropped `motion.svg` used to leak into later files
+ * and break any component animating an icon.
+ */
+const restoreFramerMotion = mockModulePreservingReal("framer-motion", framerMotion, (real) => ({
+  AnimatePresence: ({ children }: { children: ReactNode }) => <>{children}</>,
+  motion: new Proxy(real.motion, {
+    get: (target, prop) =>
+      prop === "div"
+        ? (props: HTMLAttributes<HTMLDivElement>) => <div {...props} />
+        : Reflect.get(target, prop),
+  }),
+}));
+
+afterAll(restoreFramerMotion);
+
+mock.module("@/data/supabase/chat", () => ({
+  updateChatTitle: mockUpdateChatTitle,
+  updateChatPinned: mockUpdateChatPinned,
+  deleteChat: mockDeleteChat,
+}));
+
+/**
+ * Every export is stubbed, deliberately: this mock stays installed for later files, and a
+ * partial one left real Radix items rendering inside these plain-`div` roots, which throws
+ * "`MenuItem` must be used within `Menu`". Merging the real module back in would reintroduce
+ * exactly that mix, so the stub has to cover the whole surface instead.
+ */
+const passthrough = ({ children }: { children?: ReactNode }) => <div>{children}</div>;
+const menuItemStub = ({
+  children,
+  onSelect,
+  onCheckedChange,
+  className,
+}: {
+  children?: ReactNode;
+  onSelect?: () => void;
+  onCheckedChange?: (checked: boolean) => void;
+  className?: string;
+}) => (
+  <button
+    className={className}
+    onClick={() => {
+      onSelect?.();
+      onCheckedChange?.(true);
+    }}
+  >
+    {children}
+  </button>
+);
+
+mock.module("@/components/third-party/ui/dropdown-menu", () => ({
+  DropdownMenu: passthrough,
+  DropdownMenuTrigger: passthrough,
+  DropdownMenuContent: passthrough,
+  DropdownMenuGroup: passthrough,
+  DropdownMenuPortal: passthrough,
+  DropdownMenuSub: passthrough,
+  DropdownMenuSubContent: passthrough,
+  DropdownMenuSubTrigger: passthrough,
+  DropdownMenuRadioGroup: passthrough,
+  DropdownMenuLabel: passthrough,
+  DropdownMenuShortcut: passthrough,
+  DropdownMenuItem: menuItemStub,
+  DropdownMenuCheckboxItem: menuItemStub,
+  DropdownMenuRadioItem: menuItemStub,
+  DropdownMenuSeparator: () => <hr />,
+  DropdownMenuPrimitive: {},
+}));
+
+mock.module("@heroui/modal", () => {
+  const React = require("react") as typeof import("react");
+
+  return {
+    useDisclosure: () => {
+      const [isOpen, setIsOpen] = React.useState(false);
+      return {
+        isOpen,
+        onOpen: () => setIsOpen(true),
+        onClose: () => setIsOpen(false),
+        onOpenChange: (open: boolean) => setIsOpen(open),
+      };
+    },
+    Modal: ({
+      children,
+      isOpen,
+    }: {
+      children: ReactNode;
+      isOpen: boolean;
+    }) => (isOpen ? <div>{children}</div> : null),
+    ModalContent: ({ children }: { children: ReactNode }) => <div>{children}</div>,
+    ModalHeader: ({ children }: { children: ReactNode }) => <h2>{children}</h2>,
+    ModalBody: ({ children }: { children: ReactNode }) => <div>{children}</div>,
+    ModalFooter: ({ children }: { children: ReactNode }) => <div>{children}</div>,
+  };
+});
+
+mock.module("@heroui/button", () => ({
+  Button: ({
+    children,
+    onPress,
+  }: {
+    children: ReactNode;
+    onPress?: () => void;
+  }) => <button onClick={() => onPress?.()}>{children}</button>,
+}));
+
+mock.module("@/components/sidebar/sidebar-chat-title", () => ({
+  SidebarChatTitle: ({
+    title,
+    editing,
+    onSave,
+  }: {
+    title: string;
+    editing: boolean;
+    onSave: (title: string) => void;
+  }) =>
+    editing ? (
+      <button onClick={() => onSave("Renamed Thread")}>
+        Save edited title
+      </button>
+    ) : (
+      <h3>{title}</h3>
+    ),
+}));
+
+import { SidebarProvider } from "@/components/third-party/ui/sidebar";
+import { ChatContext, type ChatContextValue } from "@/lib/context/chat-context";
+import { SidebarChatList } from "@/components/sidebar/sidebar-chat-list";
+
+const thread = {
+  id: "thread-1",
+  title: "Thread One",
+  pinned: false,
+  date: "2026-03-08T01:00:00.000Z",
+};
+
+describe("SidebarChatList", () => {
+  afterEach(() => {
+    cleanup();
+    document.body.innerHTML = "";
+    mock.restore();
+  });
+
+  beforeEach(() => {
+    mockRouterPush.mockReset();
+    mockSetChatId.mockReset();
+    mockRefreshSidebarChats.mockReset();
+    mockUpdateSidebarChat.mockReset();
+    mockSetOpenMobile.mockReset();
+    mockUpdateChatTitle.mockReset();
+    mockUpdateChatPinned.mockReset();
+    mockDeleteChat.mockReset();
+
+    mockUpdateChatTitle.mockResolvedValue({ ok: true, error: null });
+    mockUpdateChatPinned.mockResolvedValue({ ok: true, error: null });
+    mockDeleteChat.mockResolvedValue({ ok: true, error: null });
+
+    currentPathname = "/";
+    currentChatId = null;
+    currentIsMobile = false;
+  });
+
+  function renderList() {
+    return render(
+      <ChatContext.Provider
+        value={
+          {
+            chat: {} as ChatContextValue["chat"],
+            clearChat: () => {},
+            setChatId: mockSetChatId,
+            chatId: "",
+            sidebarChats: [thread],
+            isSidebarChatsLoading: false,
+            sidebarChatsError: null,
+            refreshSidebarChats: mockRefreshSidebarChats,
+            updateSidebarChat: mockUpdateSidebarChat,
+          } as ChatContextValue
+        }
+      >
+        <SidebarProvider>
+          <SidebarChatList threads={[thread]} />
+        </SidebarProvider>
+      </ChatContext.Provider>,
+    );
+  }
+
+  test("navigates to the selected thread and records the active chat id", async () => {
+    const view = renderList();
+
+    fireEvent.click(view.getByLabelText("Open Thread One"));
+
+    expect(mockSetChatId).toHaveBeenCalledWith("thread-1");
+    expect(mockRouterPush).toHaveBeenCalledWith("/chat/thread-1");
+  });
+
+  test("mounts a row's actions menu only once its trigger is pointed at", () => {
+    const view = renderList();
+
+    expect(view.queryByText("Edit title")).toBeNull();
+
+    fireEvent.pointerEnter(view.getByLabelText("Thread options"));
+
+    expect(view.getByText("Edit title")).toBeDefined();
+  });
+
+  test("renames a thread and patches the cached title without a refetch", async () => {
+    const view = renderList();
+
+    fireEvent.pointerEnter(view.getByLabelText("Thread options"));
+    fireEvent.click(view.getByText("Edit title"));
+    fireEvent.click(await view.findByText("Save edited title"));
+
+    await waitFor(() => {
+      expect(mockUpdateChatTitle).toHaveBeenCalledWith(
+        "thread-1",
+        "Renamed Thread",
+      );
+    });
+    expect(mockUpdateSidebarChat).toHaveBeenCalledWith("thread-1", { title: "Renamed Thread" });
+    expect(mockRefreshSidebarChats).not.toHaveBeenCalled();
+  });
+
+  test("toggles pin state and patches the cache on success", async () => {
+    const view = renderList();
+
+    fireEvent.pointerEnter(view.getByLabelText("Thread options"));
+    fireEvent.click(view.getByText("Pin"));
+
+    await waitFor(() => {
+      expect(mockUpdateChatPinned).toHaveBeenCalledWith("thread-1", true);
+    });
+    expect(mockUpdateSidebarChat).toHaveBeenCalledWith("thread-1", { pinned: true });
+    expect(mockRefreshSidebarChats).not.toHaveBeenCalled();
+  });
+
+  test("leaves the cache alone when pinning fails", async () => {
+    mockUpdateChatPinned.mockResolvedValueOnce({ ok: false, error: new Error("nope") } as never);
+    const view = renderList();
+
+    fireEvent.pointerEnter(view.getByLabelText("Thread options"));
+    fireEvent.click(view.getByText("Pin"));
+
+    await waitFor(() => {
+      expect(mockUpdateChatPinned).toHaveBeenCalled();
+    });
+    expect(mockUpdateSidebarChat).not.toHaveBeenCalled();
+  });
+
+  test("ignores the first title click immediately after a mobile long press", async () => {
+    currentIsMobile = true;
+    const view = renderList();
+
+    const openThreadButton = view.getByLabelText("Open Thread One");
+
+    fireEvent.touchStart(openThreadButton);
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 550));
+    });
+    fireEvent.click(openThreadButton);
+
+    expect(mockRouterPush).not.toHaveBeenCalled();
+
+    fireEvent.click(openThreadButton);
+
+    expect(mockRouterPush).toHaveBeenCalledWith("/chat/thread-1");
+  });
+});

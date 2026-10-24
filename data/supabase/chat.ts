@@ -1,16 +1,22 @@
 "use server";
 
+import { randomUUID } from "crypto";
+
 import { UIMessage } from "ai";
 import { auth } from "@clerk/nextjs/server";
 
 import { getSupabaseUserId } from "./profiles";
 
-import { Thread, ThreadSchema } from "@/lib/schemas/chat";
+import { Message, Thread, ThreadSchema } from "@/lib/schemas/chat";
 import { Result, SimpleResult } from "@/types";
+import { clearFlag, setFlag, THREAD_FLAGS } from "@/lib/thread-flags";
 import {
-  convertMessageToUIMessage,
-  convertUIMessageToMessage,
-} from "@/lib/chat/message-transform";
+  type EncryptionContext,
+  decryptFromStorage,
+  encryptForStorage,
+} from "@/lib/crypto/message-encryption";
+import { convertMessageToUIMessage, convertUIMessageToMessage } from "@/lib/chat/message-transform";
+import { threadHrefFromRow, type ThreadListRow } from "@/lib/chat/thread-routing-candidates";
 import { supabaseServer } from "@/lib/supabase/server";
 import { createLogger } from "@/lib/logger";
 
@@ -18,16 +24,297 @@ const logger = createLogger("data/supabase/chat.ts");
 
 const DEFAULT_MESSAGE_LIMIT = 10;
 
-export async function getChats(): Promise<Result<Thread[]>> {
+type ThreadOwnerContext = {
+  threadId: string;
+  ownerId: string;
+};
+
+function normalizeStoredString(value: unknown): string {
+  return typeof value === "string" ? value : JSON.stringify(value);
+}
+
+function buildMessageContentContext(ownerId: string, threadId: string): EncryptionContext {
+  return {
+    userId: ownerId,
+    threadId,
+    fieldName: "messages.content",
+  };
+}
+
+function buildThreadSummaryContext(ownerId: string, threadId: string): EncryptionContext {
+  return {
+    userId: ownerId,
+    threadId,
+    fieldName: "thread_summaries.summary_text",
+  };
+}
+
+function buildConversationSummaryContext(ownerId: string, threadId: string): EncryptionContext {
+  return {
+    userId: ownerId,
+    threadId,
+    fieldName: "threads.conversation_summary",
+  };
+}
+
+function encryptMessageRowContent(message: Message, ownerId: string): Message {
+  return {
+    ...message,
+    content: encryptForStorage(
+      normalizeStoredString(message.content),
+      buildMessageContentContext(ownerId, message.thread_id)
+    ),
+  };
+}
+
+function decryptMessageRowContent(message: Message, ownerId: string): Message {
+  return {
+    ...message,
+    content: decryptFromStorage(
+      normalizeStoredString(message.content),
+      buildMessageContentContext(ownerId, message.thread_id)
+    ),
+  };
+}
+
+function decodeThreadMessages(messages: Message[], ownerId: string): UIMessage[] {
+  const uiMessages = messages
+    .map((message) => convertMessageToUIMessage(decryptMessageRowContent(message, ownerId)))
+    .filter((message) => message !== null);
+
+  if (uiMessages.length !== messages.length) {
+    logger.error("getMessages", "A message was not converted to UIMessage");
+  }
+
+  return uiMessages;
+}
+
+/** Newest-first rows (as queried) → chronological `UIMessage`s, decrypted for `ownerId`. */
+function decodeRecentMessageRows(rows: Message[], ownerId: string): UIMessage[] {
+  return rows
+    .map((message) => convertMessageToUIMessage(decryptMessageRowContent(message, ownerId)))
+    .filter((message) => message !== null)
+    .reverse();
+}
+
+function encryptThreadSummaryText(summaryText: string, ownerId: string, chatId: string): string {
+  return encryptForStorage(summaryText, buildThreadSummaryContext(ownerId, chatId));
+}
+
+function decryptThreadSummaryText(summaryText: string, ownerId: string, chatId: string): string {
+  return decryptFromStorage(summaryText, buildThreadSummaryContext(ownerId, chatId));
+}
+
+function encryptConversationSummaryValue(
+  conversationSummary: string,
+  ownerId: string,
+  chatId: string
+): string {
+  return encryptForStorage(conversationSummary, buildConversationSummaryContext(ownerId, chatId));
+}
+
+async function getThreadOwnerContextWithClient(
+  sb: Awaited<ReturnType<typeof supabaseServer>>,
+  chatId: string
+): Promise<Result<ThreadOwnerContext>> {
+  const { data, error } = await sb.from("threads").select("id, owner_id").eq("id", chatId).single();
+
+  if (error || !data) {
+    return {
+      data: null,
+      error: new Error(error?.message ?? "Thread not found"),
+    };
+  }
+
+  return {
+    data: {
+      threadId: data.id,
+      ownerId: data.owner_id,
+    },
+    error: null,
+  };
+}
+
+export async function getThreadOwnerContext(chatId: string): Promise<Result<ThreadOwnerContext>> {
   const sb = await supabaseServer();
-  const { data, error } = await sb
+
+  return getThreadOwnerContextWithClient(sb, chatId);
+}
+
+/**
+ * Fetches thread list for the current (or specified) user.
+ * Needs to run with local user credentials; cannot use service role.
+ *
+ * When `ownerId` is provided, the query explicitly filters by `owner_id` as a
+ * defense-in-depth safeguard alongside RLS. When omitted, RLS alone enforces
+ * row access (existing callers).
+ *
+ * @param options.ownerId - Optional Supabase profile ID; when set, only threads
+ *   with this owner_id are returned.
+ */
+export async function getChats(options?: { ownerId?: string }): Promise<Result<Thread[]>> {
+  const sb = await supabaseServer();
+  const baseQuery = sb
     .from("threads")
-    .select("id, title, owner_id, created_at, updated_at, pinned");
+    .select("id, title, owner_id, created_at, updated_at, pinned, feature, path")
+    .order("updated_at", { ascending: false });
+
+  const { data, error } = options?.ownerId
+    ? await baseQuery.eq("owner_id", options.ownerId)
+    : await baseQuery;
 
   return {
     data: data,
     error: error,
   };
+}
+
+/**
+ * Most recently active, non-archived thread for an owner with the given
+ * `feature`, or `null` when none exists. Used by the Memory ingest chamber to
+ * decide whether to resume a recent session or start a fresh one.
+ *
+ * `updated_at` advances on every thread write (e.g. the per-turn
+ * `active_stream_id` update), so it tracks last activity — the same signal the
+ * sidebar orders on.
+ */
+export async function getLatestThreadByFeature(
+  ownerId: string,
+  feature: string
+): Promise<Result<{ id: string; updatedAt: string; title: string | null } | null>> {
+  const sb = await supabaseServer();
+  const { data, error } = await sb
+    .from("threads")
+    .select("id, updated_at, title")
+    .eq("owner_id", ownerId)
+    .eq("feature", feature)
+    .not("archived", "is", true)
+    .order("updated_at", { ascending: false })
+    .limit(1);
+
+  if (error) {
+    return { data: null, error: new Error(error?.message ?? "Unknown error") };
+  }
+
+  const row = data?.[0];
+
+  if (row == null) {
+    return { data: null, error: null };
+  }
+
+  return { data: { id: row.id, updatedAt: row.updated_at, title: row.title ?? null }, error: null };
+}
+
+/** Thread row for Settings → Chats (decrypted summary for display). */
+export type ChatThreadSettingsRow = {
+  id: string;
+  title: string | null;
+  owner_id: string;
+  created_at: string;
+  updated_at: string;
+  pinned: boolean;
+  archived: boolean | null;
+  feature: string;
+  path: string | null;
+  href: string;
+  conversationSummary: string | null;
+};
+
+/**
+ * All threads for a single owner (Supabase `profiles.id`) with fields needed by Settings → Chats.
+ * Decrypts `threads.conversation_summary` per row when present.
+ *
+ * Always pass an explicit `ownerId`; never query without filtering by owner.
+ */
+export async function getChatsForSettings(
+  ownerId: string
+): Promise<Result<ChatThreadSettingsRow[]>> {
+  const owner = ownerId.trim();
+
+  if (owner === "") {
+    return { data: null, error: new Error("ownerId is required") };
+  }
+
+  const sb = await supabaseServer();
+  const { data, error } = await sb
+    .from("threads")
+    .select(
+      "id, title, owner_id, created_at, updated_at, pinned, archived, feature, path, conversation_summary"
+    )
+    .eq("owner_id", owner)
+    .order("updated_at", { ascending: false });
+
+  if (error) {
+    return { data: null, error: new Error(error.message ?? "Unknown error") };
+  }
+  if (!data) {
+    return { data: null, error: new Error("Unknown error") };
+  }
+
+  const rows: ChatThreadSettingsRow[] = data.map((row) => {
+    const raw = row.conversation_summary;
+    let conversationSummary: string | null = null;
+
+    if (raw != null && String(raw).trim() !== "") {
+      try {
+        conversationSummary = decryptFromStorage(
+          normalizeStoredString(raw),
+          buildConversationSummaryContext(row.owner_id, row.id)
+        );
+      } catch (e) {
+        logger.error("getChatsForSettings", "Failed to decrypt conversation_summary", e);
+      }
+    }
+
+    const href = threadHrefFromRow({
+      id: row.id,
+      title: row.title,
+      owner_id: row.owner_id,
+      created_at: row.created_at,
+      updated_at: row.updated_at,
+      pinned: row.pinned ?? false,
+      feature: row.feature,
+      path: row.path,
+    } as ThreadListRow);
+
+    return {
+      id: row.id,
+      title: row.title,
+      owner_id: row.owner_id,
+      created_at: row.created_at,
+      updated_at: row.updated_at,
+      pinned: row.pinned ?? false,
+      archived: row.archived ?? null,
+      feature: row.feature ?? "main",
+      path: row.path ?? null,
+      href,
+      conversationSummary,
+    };
+  });
+
+  return { data: rows, error: null };
+}
+
+/** Settings → Chats: threads for the signed-in Clerk user only (resolves Supabase profile id). */
+export async function getChatsForSettingsForCurrentUser(): Promise<
+  Result<ChatThreadSettingsRow[]>
+> {
+  const { userId } = await auth();
+
+  if (!userId) {
+    return { data: null, error: new Error("Unauthorized") };
+  }
+
+  const ownerResult = await getSupabaseUserId(userId);
+
+  if (ownerResult.error || ownerResult.data === null) {
+    return {
+      data: null,
+      error: ownerResult.error ?? new Error("Profile not found"),
+    };
+  }
+
+  return getChatsForSettings(ownerResult.data);
 }
 
 // Message management functions
@@ -37,15 +324,21 @@ export async function getChats(): Promise<Result<Thread[]>> {
  * @returns Array of UIMessage objects
  */
 export async function loadChat(
-  chatId: string,
+  chatId: string
 ): Promise<Result<{ thread: Thread; messages: UIMessage[] }>> {
   const sb = await supabaseServer();
 
-  const { data: thread, error: threadErr } = await sb
-    .from("threads")
-    .select("*")
-    .eq("id", chatId)
-    .single();
+  // Both reads use the same authenticated RLS client. The loaded thread supplies the
+  // decryption owner, avoiding another client/token setup and ownership read.
+  const [{ data: thread, error: threadErr }, { data: messages, error: messagesErr }] =
+    await Promise.all([
+      sb.from("threads").select("*").eq("id", chatId).single(),
+      sb
+        .from("messages")
+        .select("*")
+        .eq("thread_id", chatId)
+        .order("created_at", { ascending: true }),
+    ]);
 
   if (threadErr || !thread) {
     return {
@@ -53,9 +346,7 @@ export async function loadChat(
       error: new Error(threadErr?.message ?? "Unknown error"),
     };
   }
-  const { data: uiMessages, error: messagesErr } = await getMessages(chatId);
-
-  if (messagesErr || !uiMessages) {
+  if (messagesErr || !messages) {
     return {
       data: null,
       error: new Error(messagesErr?.message ?? "Unknown error"),
@@ -64,7 +355,7 @@ export async function loadChat(
 
   const chat = {
     thread: ThreadSchema.parse(thread),
-    messages: uiMessages,
+    messages: decodeThreadMessages(messages as Message[], thread.owner_id),
   };
 
   return {
@@ -80,29 +371,32 @@ export async function loadChat(
 export async function saveChat(params: {
   chatId: string;
   messages: UIMessage[];
+  activeStreamId?: string;
 }): Promise<SimpleResult> {
   const { chatId, messages } = params;
 
   const sb = await supabaseServer();
 
-  // Check if Chat thread exists
-  const { data: thread, error: threadErr } = await sb
-    .from("threads")
-    .select("*")
-    .eq("id", chatId)
-    .single();
+  let threadOwnerContextResult = await getThreadOwnerContextWithClient(sb, chatId);
 
-  if (threadErr || !thread) {
+  if (threadOwnerContextResult.error || !threadOwnerContextResult.data) {
     const { error } = await createChat(chatId);
 
     if (error) {
       return {
         ok: false,
-        error: new Error(
-          error?.message ?? "Error occured creating chat thread..",
-        ),
+        error: new Error(error?.message ?? "Error occured creating chat thread.."),
       };
     }
+
+    threadOwnerContextResult = await getThreadOwnerContextWithClient(sb, chatId);
+  }
+
+  if (threadOwnerContextResult.error || !threadOwnerContextResult.data) {
+    return {
+      ok: false,
+      error: threadOwnerContextResult.error ?? new Error("Thread owner not found"),
+    };
   }
 
   const { count, error: countErr } = await sb
@@ -117,6 +411,20 @@ export async function saveChat(params: {
     };
   }
 
+  if (params.activeStreamId !== undefined) {
+    const { error: streamError } = await sb
+      .from("threads")
+      .update({ active_stream_id: params.activeStreamId })
+      .eq("id", chatId);
+
+    if (streamError) {
+      return {
+        ok: false,
+        error: new Error(streamError?.message ?? "Unknown error"),
+      };
+    }
+  }
+
   const alreadySaved = Math.max(0, count ?? 0);
   const tail = messages.slice(alreadySaved);
 
@@ -127,9 +435,12 @@ export async function saveChat(params: {
     };
   }
 
+  const ownerId = threadOwnerContextResult.data.ownerId;
+
   const rows = tail
     .map((message) => convertUIMessageToMessage(message, chatId))
-    .filter((message) => message !== null);
+    .filter((message): message is Message => message !== null)
+    .map((message) => encryptMessageRowContent(message, ownerId));
 
   if (rows.length !== tail.length) {
     logger.error("saveChat", "A message was not converted to supabase message");
@@ -155,7 +466,10 @@ export async function saveChat(params: {
  * @param chatId - The chat ID
  * @returns Chat ID
  */
-export async function createChat(chatId?: string): Promise<Result<string>> {
+export async function createChat(chatId?: string, experience?: "arcadia"): Promise<Result<string>> {
+  if (experience !== undefined && experience !== "arcadia") {
+    return { data: null, error: new Error("Invalid chat experience") };
+  }
   const { userId: clerkUserId } = await auth();
 
   if (!clerkUserId) {
@@ -176,11 +490,13 @@ export async function createChat(chatId?: string): Promise<Result<string>> {
     };
   }
 
+  const id = chatId ?? randomUUID();
   const { data, error } = await sb
     .from("threads")
     .insert({
-      id: chatId ?? undefined,
+      id,
       owner_id: supabaseUserId.data,
+      ...(experience === "arcadia" ? { feature: "arcadia", path: `/sandbox/arcadia/${id}` } : {}),
     })
     .select("id")
     .single();
@@ -204,10 +520,17 @@ export async function createChat(chatId?: string): Promise<Result<string>> {
  * @param message - The UIMessage to add
  * @returns The created message record
  */
-export async function addMessage(
-  threadId: string,
-  message: UIMessage,
-): Promise<SimpleResult> {
+export async function addMessage(threadId: string, message: UIMessage): Promise<SimpleResult> {
+  const sb = await supabaseServer();
+  const threadOwnerContext = await getThreadOwnerContextWithClient(sb, threadId);
+
+  if (threadOwnerContext.error || !threadOwnerContext.data) {
+    return {
+      ok: false,
+      error: threadOwnerContext.error ?? new Error("Thread owner not found"),
+    };
+  }
+
   const supabaseMessage = convertUIMessageToMessage(message, threadId);
 
   if (!supabaseMessage) {
@@ -217,11 +540,66 @@ export async function addMessage(
     };
   }
 
-  const sb = await supabaseServer();
-
-  const { error } = await sb.from("messages").insert(supabaseMessage);
+  const { error } = await sb
+    .from("messages")
+    .insert(encryptMessageRowContent(supabaseMessage, threadOwnerContext.data.ownerId));
 
   if (error) {
+    return {
+      ok: false,
+      error: new Error(error?.message ?? "Unknown error"),
+    };
+  }
+
+  return {
+    ok: true,
+    error: null,
+  };
+}
+
+/**
+ * Updates a single message by id (e.g. after editing wine list content).
+ * Message must belong to the given thread.
+ */
+export async function updateMessage(
+  threadId: string,
+  messageId: string,
+  uiMessage: UIMessage
+): Promise<SimpleResult> {
+  const sb = await supabaseServer();
+  const threadOwnerContext = await getThreadOwnerContextWithClient(sb, threadId);
+
+  if (threadOwnerContext.error || !threadOwnerContext.data) {
+    return {
+      ok: false,
+      error: threadOwnerContext.error ?? new Error("Thread owner not found"),
+    };
+  }
+
+  const supabaseMessage = convertUIMessageToMessage(uiMessage, threadId);
+
+  if (!supabaseMessage) {
+    return {
+      ok: false,
+      error: new Error("Invalid message"),
+    };
+  }
+
+  const row = encryptMessageRowContent(supabaseMessage, threadOwnerContext.data.ownerId);
+  // text_excerpt is NOT NULL. UI messages often omit it; writing null rejects the update.
+  const { error } = await sb
+    .from("messages")
+    .update({
+      content: row.content,
+      role: row.role,
+      ...(typeof row.text_excerpt === "string" ? { text_excerpt: row.text_excerpt } : {}),
+    })
+    .eq("id", messageId)
+    .eq("thread_id", threadId);
+
+  if (error) {
+    logger.error("updateMessage", `Error updating message: ${error?.code ?? "unknown"}`);
+
     return {
       ok: false,
       error: new Error(error?.message ?? "Unknown error"),
@@ -242,36 +620,41 @@ export async function upsertMessages(params: {
 
   const sb = await supabaseServer();
 
-  // Check if Chat thread exists
-  const { data: thread, error: threadErr } = await sb
-    .from("threads")
-    .select("*")
-    .eq("id", chatId)
-    .single();
+  let threadOwnerContextResult = await getThreadOwnerContextWithClient(sb, chatId);
 
-  if (threadErr || !thread) {
+  if (threadOwnerContextResult.error || !threadOwnerContextResult.data) {
     const { error } = await createChat(chatId);
 
     if (error) {
       return {
         ok: false,
-        error: new Error(
-          error?.message ?? "Error occured creating chat thread..",
-        ),
+        error: new Error(error?.message ?? "Error occured creating chat thread.."),
       };
     }
+
+    threadOwnerContextResult = await getThreadOwnerContextWithClient(sb, chatId);
   }
 
-  const rows = messages.map((message) =>
-    convertUIMessageToMessage(message, chatId),
-  );
+  if (threadOwnerContextResult.error || !threadOwnerContextResult.data) {
+    return {
+      ok: false,
+      error: threadOwnerContextResult.error ?? new Error("Thread owner not found"),
+    };
+  }
+
+  const ownerId = threadOwnerContextResult.data.ownerId;
+
+  const rows = messages
+    .map((message) => convertUIMessageToMessage(message, chatId))
+    .filter((message): message is Message => message !== null)
+    .map((message) => encryptMessageRowContent(message, ownerId));
 
   const { error } = await sb.from("messages").upsert(rows, {
     ignoreDuplicates: true,
   });
 
   if (error) {
-    logger.error("upsertMessages", "Error upserting messages:", error);
+    logger.error("upsertMessages", `Error upserting messages: ${error?.code ?? "unknown"}`);
 
     return {
       ok: false,
@@ -287,9 +670,7 @@ export async function upsertMessages(params: {
   };
 }
 
-export async function getMessages(
-  chatId: string,
-): Promise<Result<UIMessage[]>> {
+export async function getMessages(chatId: string): Promise<Result<UIMessage[]>> {
   const sb = await supabaseServer();
 
   const { data: messages, error: messagesErr } = await sb
@@ -305,23 +686,101 @@ export async function getMessages(
     };
   }
 
-  const uiMessages = messages
-    .map((message) => convertMessageToUIMessage(message))
-    .filter((message) => message !== null);
-
-  if (uiMessages.length !== messages.length) {
-    logger.error("getMessages", "A message was not converted to UIMessage");
+  if (messages.length === 0) {
+    return {
+      data: [],
+      error: null,
+    };
   }
 
+  const threadOwnerContext = await getThreadOwnerContextWithClient(sb, chatId);
+
+  if (threadOwnerContext.error || !threadOwnerContext.data) {
+    return {
+      data: null,
+      error: threadOwnerContext.error ?? new Error("Thread owner not found"),
+    };
+  }
+
+  const ownerId = threadOwnerContext.data.ownerId;
+
   return {
-    data: uiMessages,
+    data: decodeThreadMessages(messages as Message[], ownerId),
     error: null,
   };
+}
+
+/**
+ * Returns messages in a thread on or after a given date (UTC).
+ * @param chatId - Thread ID
+ * @param since - ISO date string (YYYY-MM-DD); messages with created_at >= that day (00:00:00 UTC) are included
+ */
+export async function getMessagesSince(
+  chatId: string,
+  since: string
+): Promise<Result<UIMessage[], string>> {
+  try {
+    const sb = await supabaseServer();
+    const sinceTimestamp = `${since.trim()}T00:00:00.000Z`;
+
+    const { data: messages, error } = await sb
+      .from("messages")
+      .select("*")
+      .eq("thread_id", chatId)
+      .gte("created_at", sinceTimestamp)
+      .order("created_at", { ascending: true });
+
+    if (error || !messages) {
+      return {
+        data: [],
+        error: error?.message ?? "Unknown error",
+      };
+    }
+
+    if (messages.length === 0) {
+      return {
+        data: [],
+        error: null,
+      };
+    }
+
+    const threadOwnerContext = await getThreadOwnerContextWithClient(sb, chatId);
+
+    if (threadOwnerContext.error || !threadOwnerContext.data) {
+      return {
+        data: [],
+        error: threadOwnerContext.error?.message ?? "Thread owner not found",
+      };
+    }
+
+    const ownerId = threadOwnerContext.data.ownerId;
+
+    const uiMessages = messages
+      .map((message) =>
+        convertMessageToUIMessage(decryptMessageRowContent(message as Message, ownerId))
+      )
+      .filter((message) => message !== null);
+
+    if (uiMessages.length !== messages.length) {
+      logger.error("getMessagesSince", "A message was not converted to UIMessage");
+    }
+
+    return {
+      data: uiMessages,
+      error: null,
+    };
+  } catch (err) {
+    return {
+      data: [],
+      error: err instanceof Error ? err.message : "Unknown error",
+    };
+  }
 }
 
 export async function getNMessages(
   chatId: string,
   limit?: number,
+  debug: boolean = false
 ): Promise<Result<UIMessage[], string>> {
   if (limit === 0) {
     return {
@@ -338,8 +797,7 @@ export async function getNMessages(
       .select("*")
       .eq("thread_id", chatId)
       .order("created_at", { ascending: false })
-      .limit(limit ?? DEFAULT_MESSAGE_LIMIT)
-      .order("created_at", { ascending: true });
+      .limit(limit ?? DEFAULT_MESSAGE_LIMIT);
 
     if (error || !messages) {
       return {
@@ -348,12 +806,41 @@ export async function getNMessages(
       };
     }
 
-    const uiMessages = messages
-      .map((message) => convertMessageToUIMessage(message))
-      .filter((message) => message !== null);
+    if (messages.length === 0) {
+      return {
+        data: [],
+        error: null,
+      };
+    }
+
+    const threadOwnerContext = await getThreadOwnerContextWithClient(sb, chatId);
+
+    if (threadOwnerContext.error || !threadOwnerContext.data) {
+      return {
+        data: [],
+        error: threadOwnerContext.error?.message ?? "Thread owner not found",
+      };
+    }
+
+    const ownerId = threadOwnerContext.data.ownerId;
+
+    const uiMessages = decodeRecentMessageRows(messages as Message[], ownerId);
 
     if (uiMessages.length !== messages.length) {
       logger.error("getNMessages", "A message was not converted to UIMessage");
+    }
+
+    if (debug) {
+      logger.log(
+        "getNMessages",
+        uiMessages
+          .map((m, idx) => {
+            const textPartCount = m.parts.filter((p) => p.type === "text").length;
+
+            return `${idx}: role=${m.role} text_parts=${textPartCount}`;
+          })
+          .join("\n")
+      );
     }
 
     return {
@@ -368,12 +855,222 @@ export async function getNMessages(
   }
 }
 
-export async function updateChatTitle(
-  chatId: string,
-  title: string,
-): Promise<SimpleResult> {
+/**
+ * Returns the total number of messages in a thread (for LLM context).
+ */
+export async function getMessageCount(chatId: string): Promise<Result<number, string>> {
+  try {
+    const sb = await supabaseServer();
+    const { count, error } = await sb
+      .from("messages")
+      .select("*", { count: "exact", head: true })
+      .eq("thread_id", chatId);
+
+    if (error) {
+      return { data: null, error: error.message };
+    }
+
+    return { data: Math.max(0, count ?? 0), error: null };
+  } catch (err) {
+    return {
+      data: null,
+      error: err instanceof Error ? err.message : "Unknown error",
+    };
+  }
+}
+
+/** Returns the persisted Arcadia starter key for a thread, if any. */
+export async function getThreadArcadiaStarterKey(chatId: string): Promise<Result<string | null>> {
   const sb = await supabaseServer();
-  const { error } = await sb.from("threads").update({ title }).eq("id", chatId);
+  const { data, error } = await sb
+    .from("threads")
+    .select("arcadia_starter_key")
+    .eq("id", chatId)
+    .single();
+
+  if (error) {
+    return {
+      data: null,
+      error: new Error(error.message ?? "Unknown error"),
+    };
+  }
+
+  const key = data?.arcadia_starter_key;
+
+  return {
+    data: typeof key === "string" && key.trim() !== "" ? key : null,
+    error: null,
+  };
+}
+
+/**
+ * Arcadia multitask dashboard flag + live stream id for the toggle gate.
+ * Column `arcadia_multitask_view` is additive (see docs/migrations/threads_arcadia_multitask_view.sql).
+ */
+export async function getThreadArcadiaMultitaskView(
+  chatId: string
+): Promise<Result<{ enabled: boolean; activeStreamId: string | null }>> {
+  const sb = await supabaseServer();
+  // Column is additive; cast until supabase gen types catch up.
+  const { data, error } = await sb
+    .from("threads")
+    .select("active_stream_id, arcadia_multitask_view")
+    .eq("id", chatId)
+    .single();
+
+  if (error) {
+    // Column missing until migration — treat as off rather than breaking Arcadia.
+    if (error.message?.includes("arcadia_multitask_view")) {
+      const streamOnly = await sb
+        .from("threads")
+        .select("active_stream_id")
+        .eq("id", chatId)
+        .single();
+
+      return {
+        data: {
+          enabled: false,
+          activeStreamId: (streamOnly.data?.active_stream_id as string | null) ?? null,
+        },
+        error: null,
+      };
+    }
+
+    return {
+      data: null,
+      error: new Error(error.message ?? "Unknown error"),
+    };
+  }
+
+  const row = data as { active_stream_id?: string | null; arcadia_multitask_view?: boolean | null };
+
+  return {
+    data: {
+      enabled: row.arcadia_multitask_view === true,
+      activeStreamId: row.active_stream_id ?? null,
+    },
+    error: null,
+  };
+}
+
+/**
+ * Sets the multitask view flag. Refuses while `active_stream_id` is set.
+ */
+export async function setThreadArcadiaMultitaskView(
+  chatId: string,
+  enabled: boolean
+): Promise<SimpleResult & { activeStreamId?: string | null }> {
+  const sb = await supabaseServer();
+  const current = await getThreadArcadiaMultitaskView(chatId);
+
+  if (current.error || !current.data) {
+    return {
+      ok: false,
+      error: current.error ?? new Error("Failed to read multitask view"),
+    };
+  }
+
+  if (current.data.activeStreamId) {
+    return {
+      ok: false,
+      error: new Error("Thread still has an active stream"),
+      activeStreamId: current.data.activeStreamId,
+    };
+  }
+
+  const { error } = await sb
+    .from("threads")
+    .update({ arcadia_multitask_view: enabled } as { arcadia_multitask_view: boolean })
+    .eq("id", chatId);
+
+  if (error) {
+    return {
+      ok: false,
+      error: new Error(error.message ?? "Failed to update multitask view"),
+    };
+  }
+
+  return { ok: true, error: null };
+}
+
+/**
+ * Sets or clears the Arcadia starter key. Rejects when the thread already has messages.
+ */
+export async function setThreadArcadiaStarterKey(
+  chatId: string,
+  key: string | null
+): Promise<SimpleResult> {
+  const countResult = await getMessageCount(chatId);
+
+  if (countResult.error || countResult.data === null) {
+    return {
+      ok: false,
+      error: new Error(countResult.error ?? "Failed to read message count"),
+    };
+  }
+
+  if (countResult.data > 0) {
+    return {
+      ok: false,
+      error: new Error("Arcadia starter can only be changed on an empty thread"),
+    };
+  }
+
+  const sb = await supabaseServer();
+  const { error } = await sb.from("threads").update({ arcadia_starter_key: key }).eq("id", chatId);
+
+  if (error) {
+    return {
+      ok: false,
+      error: new Error(error.message ?? "Unknown error"),
+    };
+  }
+
+  return { ok: true, error: null };
+}
+
+/**
+ * Returns whether the thread already has a title.
+ * Always reads from the DB so we never skip title generation due to stale state.
+ */
+export async function getThreadHasTitle(
+  chatId: string,
+  _options?: { knownHasTitle?: boolean }
+): Promise<Result<boolean>> {
+  const sb = await supabaseServer();
+  const { data, error } = await sb.from("threads").select("title").eq("id", chatId).single();
+
+  if (error) {
+    return {
+      data: null,
+      error: new Error(error?.message ?? "Unknown error"),
+    };
+  }
+  const hasTitle = data?.title != null && String(data.title).trim() !== "";
+
+  return {
+    data: hasTitle,
+    error: null,
+  };
+}
+
+export async function updateChatTitle(chatId: string, title: string): Promise<SimpleResult> {
+  const sb = await supabaseServer();
+  const hasTitle = title.trim() !== "";
+  const updatePayload: { title: string; flags?: number } = { title };
+  // Set or clear HAS_TITLE bit when flags column exists (after migration)
+  const { data: row, error: flagsErr } = await sb
+    .from("threads")
+    .select("flags")
+    .eq("id", chatId)
+    .single();
+
+  if (!flagsErr && row != null) {
+    updatePayload.flags = hasTitle
+      ? setFlag(row.flags ?? 0, THREAD_FLAGS.HAS_TITLE)
+      : clearFlag(row.flags ?? 0, THREAD_FLAGS.HAS_TITLE);
+  }
+  const { error } = await sb.from("threads").update(updatePayload).eq("id", chatId);
 
   if (error) {
     return {
@@ -388,15 +1085,72 @@ export async function updateChatTitle(
   };
 }
 
-export async function updateChatPinned(
+export async function updateChatPinned(chatId: string, pinned: boolean): Promise<SimpleResult> {
+  const sb = await supabaseServer();
+  const { error } = await sb.from("threads").update({ pinned }).eq("id", chatId);
+
+  if (error) {
+    return {
+      ok: false,
+      error: new Error(error?.message ?? "Unknown error"),
+    };
+  }
+
+  return {
+    ok: true,
+    error: null,
+  };
+}
+
+export async function updateChatArchived(chatId: string, archived: boolean): Promise<SimpleResult> {
+  const sb = await supabaseServer();
+  const { error } = await sb.from("threads").update({ archived }).eq("id", chatId);
+
+  if (error) {
+    return {
+      ok: false,
+      error: new Error(error?.message ?? "Unknown error"),
+    };
+  }
+
+  return {
+    ok: true,
+    error: null,
+  };
+}
+
+/**
+ * Updates the thread's routing metadata used by the unified sidebar.
+ * Keep values non-sensitive (thread list metadata is not encrypted).
+ */
+export async function updateThreadRouting(
   chatId: string,
-  pinned: boolean,
+  routing: { feature?: string; path?: string }
 ): Promise<SimpleResult> {
   const sb = await supabaseServer();
-  const { error } = await sb
-    .from("threads")
-    .update({ pinned })
-    .eq("id", chatId);
+  const payload: { feature?: string; path?: string } = {};
+
+  if (routing.feature != null) payload.feature = routing.feature;
+  if (routing.path != null) payload.path = routing.path;
+
+  const { error } = await sb.from("threads").update(payload).eq("id", chatId);
+
+  if (error) {
+    return {
+      ok: false,
+      error: new Error(error?.message ?? "Unknown error"),
+    };
+  }
+
+  return {
+    ok: true,
+    error: null,
+  };
+}
+
+export async function deleteMessage(messageId: string): Promise<SimpleResult> {
+  const sb = await supabaseServer();
+  const { error } = await sb.from("messages").delete().eq("id", messageId);
 
   if (error) {
     return {
@@ -428,32 +1182,170 @@ export async function deleteChat(chatId: string): Promise<SimpleResult> {
   };
 }
 
-export async function getConversationSummary(
-  chatId: string,
-): Promise<Result<string>> {
+/**
+ * Deletes a chat only if it has no messages. Use for auto-cleanup of blank chats.
+ * Returns error if the chat has any messages (so we check emptiness in two places: UI + server).
+ */
+export async function deleteEmptyChat(chatId: string): Promise<SimpleResult> {
   const sb = await supabaseServer();
+  const { data: threadMeta, error: threadMetaErr } = await sb
+    .from("threads")
+    .select("feature")
+    .eq("id", chatId)
+    .maybeSingle();
+
+  if (threadMetaErr) {
+    return {
+      ok: false,
+      error: new Error(threadMetaErr.message ?? "Unknown error"),
+    };
+  }
+
+  if (threadMeta?.feature === "strata_agent") {
+    return {
+      ok: false,
+      error: new Error("Strata assistant threads are not auto-deleted"),
+    };
+  }
+
+  const countResult = await getMessageCount(chatId);
+
+  if (countResult.error !== null) {
+    return {
+      ok: false,
+      error: new Error(countResult.error),
+    };
+  }
+  const count = countResult.data ?? 0;
+
+  if (count > 0) {
+    return {
+      ok: false,
+      error: new Error("Chat is not empty"),
+    };
+  }
+
+  return deleteChat(chatId);
+}
+
+export type ThreadScreen = {
+  title: string | null;
+  /** Chronological, newest last. */
+  messages: UIMessage[];
+  summary: string | null;
+};
+
+/**
+ * What a live voice session needs to describe an open chat — title, latest messages, rolling
+ * summary — in one thread-row read plus two parallel reads. Calling `getNMessages` and
+ * `getConversationSummary` separately looks the owner up once each, on top of the ownership check.
+ *
+ * `expectedOwnerId` is compared against the thread row **before** any message or summary is read
+ * or decrypted, so it can only narrow access: the row read is RLS-scoped like every reader here,
+ * and a mismatch returns `"not-owner"` having touched nothing else. That matters because this is a
+ * Server Action — any client can call it with any arguments.
+ *
+ * Content reads are best-effort: a failed message or summary query yields an empty value rather
+ * than failing the whole screen, since the title alone still orients the listener.
+ */
+export async function getThreadScreen(
+  chatId: string,
+  options: { expectedOwnerId: string; messageLimit: number }
+): Promise<Result<ThreadScreen, "not-found" | "not-owner" | "error">> {
+  try {
+    const sb = await supabaseServer();
+    const { data: thread, error: threadError } = await sb
+      .from("threads")
+      .select("owner_id, title")
+      .eq("id", chatId)
+      .maybeSingle();
+
+    if (threadError) {
+      logger.error("getThreadScreen", `Thread read failed: ${threadError.message}`);
+
+      return { data: null, error: "error" };
+    }
+
+    if (!thread) return { data: null, error: "not-found" };
+    if (thread.owner_id !== options.expectedOwnerId) return { data: null, error: "not-owner" };
+
+    const ownerId = thread.owner_id as string;
+    const [messagesRes, summaryRes] = await Promise.all([
+      sb
+        .from("messages")
+        .select("*")
+        .eq("thread_id", chatId)
+        .order("created_at", { ascending: false })
+        .limit(options.messageLimit),
+      sb.from("thread_summaries").select("summary_text").eq("thread_id", chatId).maybeSingle(),
+    ]);
+
+    if (messagesRes.error) {
+      logger.warn("getThreadScreen", `Message read failed: ${messagesRes.error.message}`);
+    }
+    if (summaryRes.error) {
+      logger.warn("getThreadScreen", `Summary read failed: ${summaryRes.error.message}`);
+    }
+
+    const title = thread.title != null ? String(thread.title).trim() : "";
+
+    return {
+      data: {
+        title: title || null,
+        messages: decodeRecentMessageRows((messagesRes.data ?? []) as Message[], ownerId),
+        summary: summaryRes.data
+          ? decryptThreadSummaryText(summaryRes.data.summary_text, ownerId, chatId)
+          : null,
+      },
+      error: null,
+    };
+  } catch (err) {
+    logger.error("getThreadScreen", err instanceof Error ? err.message : String(err));
+
+    return { data: null, error: "error" };
+  }
+}
+
+export async function getConversationSummary(chatId: string): Promise<Result<string>> {
+  const sb = await supabaseServer();
+  const threadOwnerContext = await getThreadOwnerContextWithClient(sb, chatId);
+
+  if (threadOwnerContext.error || !threadOwnerContext.data) {
+    return {
+      data: null,
+      error: threadOwnerContext.error ?? new Error("Thread owner not found"),
+    };
+  }
+
   const { data, error } = await sb
     .from("thread_summaries")
     .select("summary_text")
     .eq("thread_id", chatId)
-    .single();
+    .maybeSingle();
 
-  if (error || !data) {
+  if (error) {
     return {
       data: null,
-      error: new Error(error?.message ?? "Unknown error"),
+      error: new Error(error.message),
+    };
+  }
+
+  if (!data) {
+    return {
+      data: null,
+      error: null,
     };
   }
 
   return {
-    data: data.summary_text,
+    data: decryptThreadSummaryText(data.summary_text, threadOwnerContext.data.ownerId, chatId),
     error: null,
   };
 }
 
 export async function updateConversationSummary(
   chatId: string,
-  conversationSummary: string,
+  conversationSummary: string
 ): Promise<SimpleResult> {
   if (conversationSummary.trim().length === 0) {
     return {
@@ -463,10 +1355,49 @@ export async function updateConversationSummary(
   }
 
   const sb = await supabaseServer();
+  const threadOwnerContext = await getThreadOwnerContextWithClient(sb, chatId);
+
+  if (threadOwnerContext.error || !threadOwnerContext.data) {
+    return {
+      ok: false,
+      error: threadOwnerContext.error ?? new Error("Thread owner not found"),
+    };
+  }
 
   const { error } = await sb
     .from("threads")
-    .update({ conversation_summary: conversationSummary })
+    .update({
+      conversation_summary: encryptConversationSummaryValue(
+        conversationSummary,
+        threadOwnerContext.data.ownerId,
+        chatId
+      ),
+    })
+    .eq("id", chatId);
+
+  if (error) {
+    return {
+      ok: false,
+      error: new Error(error?.message ?? "Unknown error"),
+    };
+  }
+
+  return {
+    ok: true,
+    error: null,
+  };
+}
+
+export async function updateChatStream(params: {
+  chatId: string;
+  activeStreamId: string | null;
+}): Promise<SimpleResult> {
+  const { chatId, activeStreamId } = params;
+
+  const sb = await supabaseServer();
+  const { error } = await sb
+    .from("threads")
+    .update({ active_stream_id: activeStreamId })
     .eq("id", chatId);
 
   if (error) {

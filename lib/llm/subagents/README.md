@@ -1,0 +1,22 @@
+# Subagent System
+
+Runtime roles and orchestration live under this tree (not docs-only):
+
+| Concern                                                      | Path                                                                                                                             |
+| ------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------- |
+| Roles `orchestrator` \| `worker`                             | `roles.ts`                                                                                                                       |
+| Delegate + 7s return budget                                  | `orchestrator/`                                                                                                                  |
+| Multi-thought routing (ZDR, **Jev** `openai/gpt-6-jev`)      | `orchestrator/thought-router.ts`, `dispatch-inbound.ts`, `router-zdr.ts`                                                         |
+| Worker progress / milestones / completion                    | `worker/run.ts` + awareness bus                                                                                                  |
+| Live worker model runs                                       | `worker/run-with-model.ts` + `orchestrator/execute-assigned-workers.ts`                                                          |
+| Orchestrator-authored dispatch + context worktable (COA-258) | `orchestrator/orchestrator-tools.ts`, `worktable/`                                                                               |
+| Budget-first worker selection and run limits                 | `orchestrator/cost-policy.ts`, `worker/cost-limits.ts` ([policy](../../../docs/aion/decisions/20261010-subagent-cost-policy.md)) |
+| Hard-set subagents, shells, and the Jev help reflex          | `hard-set/` ([README](hard-set/README.md))                                                                                       |
+| Lyra research adapters, evidence ledger, and reports         | `research/` ([README](research/README.md))                                                                                       |
+| Abstract identity images                                     | `identity/`                                                                                                                      |
+
+Arcadia display roles (`researcher`, `coder`, …) and Speak voice assignment stay in
+`lib/arcadia/multitask/`. Condensed cards expose `identityImageUrl`; bind
+`ensureSubagentIdentityImage` on create.
+
+See [ADR](../../../docs/aion/decisions/20260925-orchestrator-worker-identity.md).

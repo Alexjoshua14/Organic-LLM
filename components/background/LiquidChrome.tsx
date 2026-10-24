@@ -1,13 +1,26 @@
 "use client";
+import { useMemo } from "react";
+import { useTheme } from "next-themes";
+
 import { LiquidChrome as LiquidChromeComponent } from "@/components/third-party/reactbits/LiquidChrome/LiquidChrome";
+import { PAPER_INK_MATERIAL } from "@/lib/background/liquid-chrome-material";
 
 interface LiquidChromeProps {
   speed?: number;
 }
 
-export default function LiquidChrome({ speed = 0.05 }: LiquidChromeProps) {
+export default function LiquidChrome({ speed = 0.03 }: LiquidChromeProps) {
+  const { resolvedTheme } = useTheme();
+  const isDark = resolvedTheme === "dark";
+
+  const baseColor = useMemo<[number, number, number]>(
+    () => (isDark ? [0.03, 0.05, 0.07] : PAPER_INK_MATERIAL.paperColor),
+    [isDark]
+  );
+
   return (
     <div
+      className="liquid-chrome-fallback"
       style={{
         width: "100dvw",
         height: "100dvh",
@@ -18,12 +31,15 @@ export default function LiquidChrome({ speed = 0.05 }: LiquidChromeProps) {
         bottom: 0,
       }}
     >
-      <LiquidChromeComponent
-        amplitude={0.42}
-        baseColor={[0.05, 0.08, 0.1]}
-        interactive={true}
-        speed={speed}
-      />
+      {resolvedTheme && (
+        <LiquidChromeComponent
+          amplitude={isDark ? 0.2 : PAPER_INK_MATERIAL.amplitude}
+          baseColor={baseColor}
+          interactive={true}
+          material={isDark ? "chrome" : "paper-ink"}
+          speed={speed}
+        />
+      )}
     </div>
   );
 }

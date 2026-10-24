@@ -1,10 +1,6 @@
 import type { OrganicState } from "@/lib/schemas/organicStateSchema";
 
-export function getInsightsView(
-  state: OrganicState,
-  filterTags?: string[],
-  limit = 10,
-) {
+export function getInsightsView(state: OrganicState, filterTags?: string[], limit = 10) {
   let list = state.keyInsights;
 
   if (filterTags?.length) {

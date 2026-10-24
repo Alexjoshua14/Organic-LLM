@@ -1,108 +1,624 @@
-import { openai, OpenAIProvider } from "@ai-sdk/openai";
+import type { PlanBudgetSnapshot } from "@/lib/plans/plan-tags";
+import type { RabbitHoleNode } from "@/lib/schemas/rabbitHoleSchemas";
+
+import { randomUUID } from "crypto";
+
 import {
-  streamText,
   UIMessage,
   convertToModelMessages,
-  TypeValidationError,
-  createIdGenerator,
-  smoothStream,
+  createUIMessageStream,
+  createUIMessageStreamResponse,
 } from "ai";
 
-// import systemPrompt from "@/lib/system-prompt";
-import { getMessagesForChatPrompt, saveChat } from "@/lib/chat/chat-store";
-import { ensureChatHasTitle, updateChatSummary } from "@/lib/llm/chat-helpers";
+import { saveChat } from "@/lib/chat/chat-store";
+import { stampTurnWithActivatedMemories } from "@/lib/chat/stamp-activated-memories";
+import { expandActivatedMemoriesForModel } from "@/lib/memory/activated-thread-memories";
+import { consumeChatSseStream } from "@/lib/chat/resumable-sse-stream";
+import { getThreadArcadiaStarterKey, getThreadHasTitle } from "@/data/supabase/chat";
+import { isAdminUser } from "@/data/supabase/profiles";
 import { createLogger } from "@/lib/logger";
-import { SYSTEM_PROMPT } from "@/lib/system-prompt/prompt-v0";
+import { getLastUserMessageText } from "@/lib/arcadia/help-response";
+import { augmentUserMessageWithDiagramLinks } from "@/lib/mermaid/augment-message";
+import { resolveChatModel } from "@/lib/api/resolve-chat-model";
+import { getChatModel } from "@/lib/llm/helpers";
+import {
+  AUTO_CHAT_MODEL_ID,
+  ChatModels,
+  ChatRequestSchema,
+  DEFAULT_CHAT_MODEL,
+} from "@/lib/schemas/chat";
+import { ChatUIMessage, ChatAIActionEnum } from "@/types/ai";
+import { tryArcadiaChatHelpShortcut } from "@/lib/api/arcadia-chat-help-shortcut";
+import { respondWithShellHelpReflex, startShellHelpReflex } from "@/lib/api/subagent-help-reflex";
+import { getHardSetSubagent } from "@/lib/llm/subagents/hard-set/registry";
+import { requireLlmChatActor } from "@/lib/api/chat-llm-gate";
+import { loadMainChatTurnContext, getContextMessageLimit } from "@/lib/api/chat-turn-context";
+import { loadArcadiaChatTurnContext } from "@/lib/api/arcadia-chat-turn-context";
+import { scheduleArcadiaContextCondensation } from "@/lib/api/schedule-arcadia-context-condensation";
+import {
+  assertLlmInputWithinHardCap,
+  estimateLlmInputTokens,
+} from "@/lib/api/llm-input-token-guard";
+import { buildBudgetFromAssembledTurn } from "@/lib/api/main-chat-context-budget";
+import { computeMainChatMaxSteps } from "@/lib/api/chat-max-steps";
+import {
+  appendMainChatPostToolSystemFragments,
+  appendStrataMainChatSystemFragments,
+  appendTopicExploreCustomSystemPrompt,
+  wrapSystemPromptWithResponseLength,
+} from "@/lib/api/chat-system-prompt";
+import { appendIntrospectionMainChatSystemFragments } from "@/lib/api/introspection-system-prompt";
+import { appendCurrentDate } from "@/lib/system-prompt/current-date";
+import { resolveMemoryEnabledForExperience } from "@/lib/chat/chat-experience";
+import { resolveChatStarterPromptByKey } from "@/lib/chat/chat-style-starters";
+import { compileChatTools } from "@/lib/llm/compile-chat-tools";
+import { runLLMChatStream } from "@/lib/api/run-llm-chat-stream";
+import {
+  prepareArcadiaMultitaskTurn,
+  prepareRabbitHoleMultitaskTurn,
+  type PrepareMultitaskTurnResult,
+} from "@/lib/llm/subagents/orchestrator/prepare-multitask-turn";
+import { RABBIT_HOLE_MAX_DISPATCHES_PER_TURN } from "@/lib/llm/subagents/orchestrator/constants";
+import { createMultitaskTurnDeps } from "@/lib/llm/subagents/orchestrator/multitask-turn-deps";
+import { withArcadiaOrchestratorTools } from "@/lib/llm/subagents/orchestrator/orchestrator-tools";
+import { foldSystemNoticesForModel } from "@/lib/llm/subagents/threads/fold-system-notices";
+import { loadUserConnectorsProfile } from "@/lib/connectors/user-connectors-store";
+import { getPlanBudgetForUser } from "@/lib/plans/plan-budget";
 
-// Allow streaming responses up to 30 seconds
-export const maxDuration = 30;
+// The stream still ends with the orchestrator's reply. The higher ceiling is for Arcadia subagent
+// runs scheduled with `after()`, which share this route's budget — keep in step with
+// SUBAGENT_RUN_MAX_DURATION_MS (lib/llm/subagents/threads/status.ts).
+export const maxDuration = 300;
 
 // const tools = {};
 
 const logger = createLogger(`app/api/chat/route.ts`);
 
-let systemPrompt = SYSTEM_PROMPT;
-
-const model: Parameters<OpenAIProvider>[0] = "gpt-5";
-
 export async function POST(req: Request) {
-  const { message, id }: { message: UIMessage; id: string } = await req.json();
-
-  logger.log("POST", `Recieved Message: ${JSON.stringify(message)}`);
-
-  let validatedMessages: UIMessage[];
+  let body: unknown;
 
   try {
-    const chatContextResult = await getMessagesForChatPrompt(id);
+    body = await req.json();
+  } catch {
+    logger.error("POST", "Invalid request body: malformed_json");
 
-    if (chatContextResult.error) {
-      logger.error(
-        "POST",
-        `Error getting chat context: ${chatContextResult.error}`,
-      );
-      validatedMessages = [message];
-    } else {
-      validatedMessages = [
-        ...(chatContextResult.data?.messages ?? []),
-        message,
-      ];
-      systemPrompt = chatContextResult.data?.prompt ?? systemPrompt;
-    }
+    return new Response(JSON.stringify({ error: "Invalid JSON", status: 400 }), {
+      status: 400,
+      headers: { "Content-Type": "application/json" },
+    });
+  }
 
-    // const previousMessages = await loadChat(id).then(
-    //   (res) => res.data?.messages ?? [],
-    // );
+  const parseResult = ChatRequestSchema.safeParse(body);
 
-    // validatedMessages = await validateUIMessages({
-    //   messages: [...previousMessages, message],
-    //   tools,
-    // });
-  } catch (err) {
-    if (err instanceof TypeValidationError) {
-      logger.error(
-        "POST",
-        `Database messages validation failed: ${err.message}`,
-      );
-      validatedMessages = [message];
-    } else {
-      throw err;
-    }
+  if (!parseResult.success) {
+    logger.error("POST", "Invalid request body: validation_failed");
+
+    return new Response(JSON.stringify({ error: "Invalid request body", status: 400 }), {
+      status: 400,
+      headers: { "Content-Type": "application/json" },
+    });
+  }
+
+  const {
+    message: incomingMessage,
+    id,
+    zeroDataRetention,
+    coalescenceMode,
+    experience,
+    chatStyle,
+    strataPageId,
+    messageSearch,
+    knowledgeSearch,
+    strataAssistantPersona,
+    model: requestedModel,
+    effort: requestedEffort,
+    memory: requestedMemory,
+    contextEffort,
+    delphiDisplay,
+    drawerDisplay,
+    rabbitHoleSessionId,
+    diagramNodeLinks,
+    customSystemPromptOverride,
+    multitaskSendTarget,
+  } = parseResult.data;
+  const message = incomingMessage as UIMessage;
+  const messageForLlm = augmentUserMessageWithDiagramLinks(message, diagramNodeLinks);
+  const memoryEnabled = resolveMemoryEnabledForExperience(experience, requestedMemory);
+
+  // Zero Data Retention Policy is in regards to external LLMs, not Organic LLM at this time
+  // If enabled, we only use LLMs that have ZDR compatibility
+  const isZeroDataRetention = zeroDataRetention === true;
+
+  let selectedModel = requestedModel ? getChatModel(requestedModel) : DEFAULT_CHAT_MODEL;
+  const requestedModelId = selectedModel.id;
+
+  if (selectedModel.id === AUTO_CHAT_MODEL_ID) {
+    selectedModel = resolveChatModel({
+      modelId: selectedModel.id,
+      draftText: getLastUserMessageText(message),
+      experience,
+      zeroDataRetention: isZeroDataRetention,
+    });
+    logger.log("POST", `Model selection branch: auto_resolved -> ${selectedModel.id}`);
+  } else {
+    logger.log("POST", `Model selection explicit -> ${selectedModel.id}`);
   }
 
   logger.log(
     "POST",
-    `
-    System Prompt: ${systemPrompt.length} characters
-    \n\n--------------------------------\n\n
-    ${validatedMessages.length} messages being sent to LLM
-    `,
+    `Model selection - Requested: ${JSON.stringify(requestedModel) ?? "none"}, Using: ${JSON.stringify(selectedModel)}`
   );
 
-  const result = streamText({
-    model: openai(model),
-    messages: convertToModelMessages(validatedMessages),
-    system: systemPrompt,
-    experimental_transform: smoothStream({
-      delayInMs: 20, // optional: defaults to 10ms
-      chunking: "word", // optional: defaults to 'word'
-    }),
-    maxOutputTokens: 3000,
+  const authGate = await requireLlmChatActor();
+
+  if (authGate.error != null) {
+    return authGate.error;
+  }
+
+  const { sbUserId, clerkUserId } = authGate.data!;
+
+  // Admin-only models: check the canonical registry entry (the client payload isn't trusted
+  // to carry the adminOnly flag) and fall back to the default model for non-admins.
+  const canonicalModel = ChatModels.find((m) => m.id === selectedModel.id);
+
+  if (canonicalModel?.adminOnly) {
+    const isAdmin = await isAdminUser(clerkUserId);
+
+    if (!isAdmin) {
+      logger.error(
+        "POST",
+        `Non-admin requested admin-only model ${selectedModel.id}; falling back to ${DEFAULT_CHAT_MODEL.id}`
+      );
+      selectedModel = DEFAULT_CHAT_MODEL;
+    }
+  }
+
+  // Start fetching thread title status early; result is only needed in onFinish (non-blocking).
+  // We rely on DB state here to avoid false positives from stale client hints.
+  const threadHasTitlePromise = getThreadHasTitle(id);
+
+  /**
+   * Generate stable message ID for this entire response
+   */
+  const assistantMessageId = randomUUID();
+
+  logger.log(
+    "POST",
+    `Received message metadata: id=${message.id ?? "unknown"} role=${message.role} parts=${message.parts?.length ?? 0}`
+  );
+
+  // Save the user message
+
+  const userMessageSave = saveChat({ chatId: id, messages: [message] })
+    .then(() => {
+      logger.log("POST", "User message saved optimistically");
+    })
+    .catch((err) => {
+      const e = err instanceof Error ? err : new Error(String(err));
+
+      logger.error("POST", `Failed to save user message: ${e.name}`);
+    });
+
+  const stream = createUIMessageStream<ChatUIMessage>({
+    execute: async ({ writer }) => {
+      // Identify the response before data parts can create a client-side message during replay.
+      writer.write({ type: "start", messageId: assistantMessageId });
+      writer.write({
+        type: "data-aiAction",
+        data: {
+          action: ChatAIActionEnum.Processing,
+          message: "Gathering context",
+        },
+        transient: true,
+      });
+
+      // Arcadia & Rabbit Hole multitask: subagents run in their own threads after this response,
+      // so the orchestrator frees CoreInput / Drawer as soon as its reply ends.
+      let multitask: PrepareMultitaskTurnResult | null = null;
+      let rabbitHoleActiveNodeId: string | null = null;
+      let rabbitHoleRootNodeId: string | null = null;
+      let rabbitHoleNodes: Record<string, RabbitHoleNode> | null = null;
+      let orchestratorThreadId = id;
+      let livePlanBudget: PlanBudgetSnapshot | null = null;
+      const multitaskDeps = createMultitaskTurnDeps({
+        ownerId: sbUserId,
+        clerkUserId,
+        route: "/api/chat",
+      });
+      const userConnectors =
+        experience === "arcadia" || experience === "rabbit_hole"
+          ? await loadUserConnectorsProfile(clerkUserId).catch(() => null)
+          : null;
+
+      if (experience === "arcadia") {
+        multitask = await prepareArcadiaMultitaskTurn({
+          chatId: id,
+          ownerId: sbUserId,
+          userText: getLastUserMessageText(messageForLlm),
+          sendTarget: multitaskSendTarget,
+          modelId: selectedModel.id,
+          zeroDataRetention: isZeroDataRetention,
+          writer,
+          deps: multitaskDeps,
+          userConnectors,
+        });
+      } else if (experience === "rabbit_hole" && id) {
+        if (rabbitHoleSessionId) {
+          const { getSessionById } = await import("@/data/supabase/rabbitholes");
+          const sessionRes = await getSessionById(rabbitHoleSessionId);
+
+          if (sessionRes.data) {
+            rabbitHoleActiveNodeId = sessionRes.data.activeNodeId ?? null;
+            rabbitHoleRootNodeId = sessionRes.data.rootNodeId ?? null;
+            rabbitHoleNodes = sessionRes.data.nodesById ?? null;
+            orchestratorThreadId = sessionRes.data.chatThreadId ?? id;
+          }
+        }
+        livePlanBudget = await getPlanBudgetForUser({
+          clerkUserId,
+          ownerId: sbUserId,
+        }).catch(() => null);
+        multitask = await prepareRabbitHoleMultitaskTurn({
+          chatId: orchestratorThreadId,
+          ownerId: sbUserId,
+          userText: getLastUserMessageText(messageForLlm),
+          sendTarget: multitaskSendTarget,
+          modelId: selectedModel.id,
+          zeroDataRetention: isZeroDataRetention,
+          writer,
+          deps: multitaskDeps,
+          planBudget: livePlanBudget,
+          maxDispatchesPerTurn: RABBIT_HOLE_MAX_DISPATCHES_PER_TURN,
+          userConnectors,
+        });
+      }
+
+      // Hard-set subagent shell: Jev decides help reflex vs. a normal turn, alongside context load.
+      const shellAgent = getHardSetSubagent(multitask?.hardSetAgentId);
+      const shellReflex = shellAgent
+        ? startShellHelpReflex({
+            agent: shellAgent,
+            message: messageForLlm,
+            ownerId: sbUserId,
+            route: "/api/chat",
+          })
+        : null;
+
+      const loadTurnContext =
+        experience === "arcadia"
+          ? () =>
+              loadArcadiaChatTurnContext({
+                logger,
+                chatId: id,
+                message: messageForLlm,
+                memoryEnabled,
+                contextEffort,
+              })
+          : () =>
+              loadMainChatTurnContext({
+                logger,
+                chatId: id,
+                message: messageForLlm,
+                memoryEnabled,
+                experience,
+              });
+
+      let {
+        validatedMessages,
+        systemPromptForRequest: afterContext,
+        tokenBreakdown,
+        packedMessageCount,
+        totalThreadMessages,
+        scheduleBackgroundCondensation,
+        memoriesInjected,
+        memoryContext,
+        activatedMemories,
+      } = await loadTurnContext();
+
+      validatedMessages = await stampTurnWithActivatedMemories({
+        chatId: id,
+        validatedMessages,
+        savedUserMessage: message,
+        activatedMemories,
+        userMessageSave,
+      });
+
+      if (experience === "arcadia" && scheduleBackgroundCondensation) {
+        scheduleArcadiaContextCondensation({
+          chatId: id,
+          modelId: selectedModel.id,
+        });
+      }
+
+      let systemPromptForRequest = await appendStrataMainChatSystemFragments({
+        systemPromptForRequest: afterContext,
+        experience,
+        strataPageId,
+        sbUserId,
+        strataAssistantPersona,
+      });
+
+      systemPromptForRequest = await appendIntrospectionMainChatSystemFragments({
+        systemPromptForRequest,
+        experience,
+        chatId: id,
+        sbUserId,
+      });
+
+      // Noesis authored-spark override: when a spark drives a topic_explore thread.
+      systemPromptForRequest = appendTopicExploreCustomSystemPrompt({
+        systemPromptForRequest,
+        experience,
+        customSystemPromptOverride,
+      });
+      for (const fragment of multitask?.systemFragments ?? []) {
+        systemPromptForRequest = `${systemPromptForRequest}\n\n${fragment}`;
+      }
+
+      logger.log(
+        "POST",
+        `
+    System Prompt: ${systemPromptForRequest.length} characters
+    \n\n--------------------------------\n\n
+    ${validatedMessages.length} messages being sent to LLM
+    Model: ${selectedModel.id} (${selectedModel.name})
+    `
+      );
+
+      logger.debug("messages", "Messages being sent to LLM", {
+        count: validatedMessages.length,
+        summary: validatedMessages.map((m) => {
+          const msg = m as {
+            role?: string;
+            id?: string;
+            content?: string | unknown[];
+          };
+          const content = msg.content;
+
+          return {
+            role: msg.role ?? "unknown",
+            id: msg.id,
+            contentLength:
+              typeof content === "string"
+                ? content.length
+                : Array.isArray(content)
+                  ? content.length
+                  : 0,
+          };
+        }),
+      });
+
+      if (shellAgent && shellReflex) {
+        if ((await shellReflex).reflex) {
+          await respondWithShellHelpReflex({
+            agent: shellAgent,
+            assistantMessageId,
+            validatedMessages,
+            chatId: id,
+            sbUserId,
+            writer,
+            logger,
+          });
+
+          return;
+        }
+      } else if (
+        await tryArcadiaChatHelpShortcut({
+          experience,
+          message,
+          validatedMessages,
+          assistantMessageId,
+          chatId: id,
+          sbUserId,
+          writer,
+          logger,
+        })
+      ) {
+        return;
+      }
+
+      writer.write({
+        type: "data-notification",
+        data: { message: `Using ${selectedModel.name}`, level: "info" },
+        transient: true,
+      });
+
+      const messages = await convertToModelMessages(
+        foldSystemNoticesForModel(expandActivatedMemoriesForModel(validatedMessages))
+      );
+      const initialMessageCount = validatedMessages.length;
+
+      const orchestratorToolsConfig = {
+        multitask,
+        orchestratorThreadId,
+        deps: multitaskDeps,
+        modelId: selectedModel.id,
+        zeroDataRetention: isZeroDataRetention,
+        autonomous: false,
+        currentUserMessage: { id: message.id, text: getLastUserMessageText(messageForLlm) },
+        writer,
+        rabbitHoleNodes,
+        rabbitHoleActiveNodeId,
+        rabbitHoleRootNodeId,
+        userConnectors,
+        planBudget: livePlanBudget,
+        maxDispatchesPerTurn:
+          experience === "rabbit_hole" ? RABBIT_HOLE_MAX_DISPATCHES_PER_TURN : undefined,
+        alwaysIncludeReadSubagentThread: experience === "rabbit_hole",
+      };
+
+      const compiledTools = await compileChatTools({
+        useSearch: shellAgent?.tools.webSearch ?? parseResult.data.webSearch ?? false,
+        useResearch: shellAgent?.tools.research ?? false,
+        useChronos: shellAgent?.tools.chronos ?? false,
+        useErgonAgent: shellAgent?.tools.ergon ?? false,
+        researchModelId: selectedModel.id,
+        researchGenerationContext: { messages, system: systemPromptForRequest },
+        useMemory: shellAgent?.tools.memory ?? parseResult.data.memory ?? false,
+        useGetMoreMessages: shellAgent?.tools.chatHistory ?? messageSearch ?? true,
+        useKnowledgeSearch: Boolean(knowledgeSearch) && experience === "strata_page",
+        experience,
+        chatStyle,
+        chatId: id,
+        initialMessageCount,
+        sbUserId,
+        writer,
+        rabbitHoleSessionId,
+        rabbitHoleActiveNodeId,
+        rabbitHoleRootNodeId,
+        rabbitHoleNodes,
+        multitaskOrchestrator: experience === "rabbit_hole" ? orchestratorToolsConfig : undefined,
+      });
+      const { tools, toolInstructions } = withArcadiaOrchestratorTools(
+        compiledTools,
+        orchestratorToolsConfig
+      );
+
+      const toolNames = Object.keys(tools);
+
+      logger.debug("tools", "Compiled tools", {
+        toolNames,
+        toolCount: toolNames.length,
+        toolInstructionsLength: toolInstructions.length,
+      });
+
+      const hasTools = toolNames.length > 0;
+      const maxSteps = computeMainChatMaxSteps({ experience, hasTools });
+
+      let arcadiaStarterPriming: string | undefined;
+
+      if (experience === "arcadia") {
+        const starterKeyResult = await getThreadArcadiaStarterKey(id);
+
+        if (starterKeyResult.error) {
+          logger.error("POST", "Failed to load Arcadia starter key", {
+            error: starterKeyResult.error.message,
+          });
+        } else if (starterKeyResult.data) {
+          arcadiaStarterPriming = resolveChatStarterPromptByKey(starterKeyResult.data);
+          if (!arcadiaStarterPriming) {
+            logger.warn("POST", "Ignoring unknown Arcadia starter key", {
+              key: starterKeyResult.data,
+            });
+          }
+        }
+      }
+
+      systemPromptForRequest = appendMainChatPostToolSystemFragments({
+        systemPromptForRequest,
+        hasTools,
+        toolInstructions,
+        speechFriendly: parseResult.data.speechFriendly,
+        experience,
+        chatStyle,
+        delphiDisplay,
+        drawerDisplay,
+        arcadiaStarterPriming,
+      });
+
+      writer.write({
+        type: "data-aiAction",
+        data: { action: ChatAIActionEnum.Processing, message: "Thinking..." },
+        transient: true,
+      });
+
+      const systemPromptWithLength = appendCurrentDate(
+        wrapSystemPromptWithResponseLength(systemPromptForRequest, {
+          experience,
+          delphiDisplay,
+        })
+      );
+
+      const inputTokenEstimate = estimateLlmInputTokens({
+        systemPrompt: systemPromptWithLength,
+        toolInstructions,
+        messages: validatedMessages,
+      });
+
+      try {
+        assertLlmInputWithinHardCap(inputTokenEstimate);
+      } catch (capError) {
+        logger.error("POST", "LLM input hard cap exceeded", {
+          totalTokens: inputTokenEstimate.totalTokens,
+          hardCap: inputTokenEstimate.hardCapTokens,
+          err: capError instanceof Error ? capError.message : String(capError),
+        });
+
+        writer.write({
+          type: "data-notification",
+          data: {
+            message:
+              "This turn would exceed the safe 300k input token limit. Shorten your message or start a new thread.",
+            level: "error",
+          },
+          transient: true,
+        });
+        writer.write({
+          type: "data-aiAction",
+          data: {
+            action: ChatAIActionEnum.Errored,
+            message: "Input too large for safe LLM call",
+          },
+          transient: true,
+        });
+
+        return;
+      }
+
+      const contextBudget = await buildBudgetFromAssembledTurn({
+        modelId: requestedModelId,
+        resolvedModelId: selectedModel.id,
+        draftMessage: message,
+        validatedMessages,
+        contextSystemPrompt: afterContext,
+        finalSystemPrompt: systemPromptWithLength,
+        toolInstructions,
+        activeToolNames: toolNames,
+        tokenBreakdown,
+        packedMessageCount,
+        totalThreadMessages,
+        contextMessageLimit:
+          experience === "arcadia" ? undefined : getContextMessageLimit(experience),
+        memoriesInjected,
+        memoryContext,
+        recordLastTurn: true,
+      });
+
+      writer.write({
+        type: "data-context-budget",
+        id: "context-budget",
+        data: contextBudget,
+      });
+
+      await runLLMChatStream({
+        writer,
+        contextBudget,
+        logger,
+        chatId: id,
+        sbUserId,
+        clerkUserId,
+        assistantMessageId,
+        selectedModel,
+        effort: requestedEffort,
+        messages,
+        systemPromptWithLength,
+        tools,
+        hasTools,
+        maxSteps,
+        isZeroDataRetention,
+        coalescenceMode: coalescenceMode === true,
+        memoryEnabled,
+        experience,
+        userMessage: message,
+        threadHasTitlePromise,
+      });
+    },
   });
 
-  // logger.log("POST", `Result: ${JSON.stringify(result)}`);
-
-  return result.toUIMessageStreamResponse({
-    originalMessages: validatedMessages,
-    onFinish: async ({ messages }) => {
-      await saveChat({ chatId: id, messages });
-      if (messages.length > 3 && messages.length < 5) {
-        ensureChatHasTitle(id);
-      }
-      await updateChatSummary(id);
+  return createUIMessageStreamResponse({
+    stream,
+    async consumeSseStream({ stream: sseStream }) {
+      await consumeChatSseStream({ stream: sseStream, chatId: id, logger });
     },
-    generateMessageId: createIdGenerator({
-      prefix: "msg",
-      size: 16,
-    }),
   });
 }

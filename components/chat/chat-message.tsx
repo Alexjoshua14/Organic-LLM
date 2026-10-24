@@ -1,99 +1,832 @@
-import { FC, memo } from "react";
-import { UIMessage } from "ai";
+import type { ExaSearchResultSource } from "@/lib/exa/types";
 
-import { ClipboardCopyButton } from "../shared/clipboardCopyButton";
-import { TTSButton } from "../tts/ttsButton";
+import { FC, memo, useCallback, useState } from "react";
+import { getToolOrDynamicToolName, isToolUIPart, UIMessage } from "ai";
+
 import { glass } from "../design-system/primitives";
 
+import { AssistantMessageActions } from "./assistant-message-actions";
 import { ChatMessageMarkdown } from "./chat-message-markdown";
-import { ChatReasoning, ChatThinking } from "./chat-loading";
+import { ArcadiaHelpMessage } from "./arcadia-help-message";
+import { ChatReasoningBlock } from "./chat-reasoning-block";
+import { ChatReasoning, ChatThinking, ChatSearching } from "./chat-loading";
+import {
+  FullChatHistoryToolResultCard,
+  tryParseFullChatHistoryToolOutput,
+} from "./full-chat-history-tool-result";
+import {
+  GetMoreChatHistoryToolResultCard,
+  tryParseGetMoreChatHistoryToolOutput,
+} from "./get-more-chat-history-tool-result";
+import { MermaidToolAckCard, tryParseMermaidToolOutput } from "./mermaid-tool-ack-card";
+import {
+  MemorySearchToolResultCard,
+  tryParseMemorySearchToolOutput,
+} from "./memory-search-tool-result";
+import { tryParseWebSearchToolOutput, WebSearchToolResultCard } from "./web-search-tool-result";
+import { OrganicToolCallPresence } from "./organic-tool-call-presence";
+
+import { ErgonTaskResult } from "@/components/ergon/ErgonTaskResult";
+import { GenUIStreamingPart } from "@/components/chat/gen-ui/GenUIStreamingPart";
+import { ResearchToolResult } from "@/components/chat/gen-ui/ResearchToolResult";
+import { GenUIToolResult } from "@/components/chat/gen-ui/GenUIToolResult";
+import { KanbanInFlight } from "@/components/chat/kanban/KanbanInFlight";
+import { KanbanToolResult } from "@/components/chat/kanban/KanbanToolResult";
+import { MiseLoadingShell } from "@/components/chat/mise/MiseLoadingShell";
+import { MiseToolResult } from "@/components/chat/mise/MiseToolResult";
+import { ARCADIA_HELP_PREFIX } from "@/lib/arcadia/help-response";
+import { messagePartsToCopyMarkdown } from "@/lib/chat/message-copy-markdown";
+import { groupReasoningParts } from "@/lib/chat/reasoning-parts";
+import {
+  collectWebSearchSnapshotsFromParts,
+  foldWebSearchResults,
+  isClosedWebSearchResult,
+} from "@/lib/chat/web-search-results-fold";
+import { RENDER_GEN_UI_TOOL_NAME } from "@/lib/llm/gen-ui-tool";
+import { KANBAN_BOARD_TOOL_NAME } from "@/lib/llm/kanban-tool";
+import { MISE_PLAN_TOOL_NAME } from "@/lib/llm/mise-tool";
+import { MANAGE_TASKS_TOOL_NAME } from "@/lib/schemas/ergon-tasks";
+import { peekKanbanCommandType } from "@/lib/schemas/kanban";
+import { cn } from "@/lib/utils";
+import { ChatAIActionEnum } from "@/types/ai";
+import { MermaidToolDiagram } from "@/components/mermaid/mermaid-tool-diagram";
+import { getMessageModelId, getModelDisplayName } from "@/lib/chat/message-model";
 
 type ChatMessageProps = {
   message: UIMessage;
+  /** Owning thread id; required for stateful gen-UI like the Ergon kanban board. */
+  chatId?: string;
+  isLastMessage?: boolean;
+  showModelBadge?: boolean;
+  /**
+   * When true, omits the outer standalone bubble chrome/padding because the caller
+   * (e.g. Rabbit Hole controller turn pair) already wraps the message.
+   */
+  embedded?: boolean;
+  /**
+   * When false, hide assistant action row (TTS / pin / copy).
+   * Showcase pages pass false so signed-in viewers cannot trigger paid TTS.
+   * @default true
+   */
+  showActions?: boolean;
+  /** When true, show custom Arcadia help UI; when false, show markdown. Omitted for non-help messages. */
+  isLatestArcadiaHelp?: boolean;
+  aiActionPayload?: {
+    action: ChatAIActionEnum;
+    message?: string;
+    sources?: ExaSearchResultSource[];
+  };
 };
 
-export const ChatMessage = memo<ChatMessageProps>(({ message }) => {
-  // console.log("Rendering ChatMessage: ", message.id, message.role);
+export const ChatMessage = memo<ChatMessageProps>(function ChatMessage(props) {
+  const {
+    message,
+    chatId,
+    aiActionPayload,
+    isLatestArcadiaHelp,
+    showModelBadge,
+    embedded = false,
+    showActions = true,
+  } = props;
+
   switch (message.role) {
     case "assistant":
-      return <AIMessage message={message} />;
+      return (
+        <AIMessage
+          aiActionPayload={aiActionPayload}
+          chatId={chatId}
+          embedded={embedded}
+          isLatestArcadiaHelp={isLatestArcadiaHelp}
+          message={message}
+          showActions={showActions}
+          showModelBadge={showModelBadge}
+        />
+      );
     case "user":
-      return <UserMessage message={message} />;
-    case "system":
-      return <SystemMessage message={message} />;
+      return <UserMessage embedded={embedded} message={message} />;
+    // Removing system message for now to accomodate Multiagent Heartbeats
+    // case "system":
+    //   return <SystemMessage message={message} />;
   }
 });
 
 ChatMessage.displayName = "ChatMessage";
 
-const AIMessage: FC<ChatMessageProps> = ({ message }) => {
-  const text = message.parts
-    .map((part) => {
-      switch (part.type) {
-        case "text":
-          if (part.state === "done") {
-          }
+const AIMessage: FC<ChatMessageProps> = ({
+  message,
+  chatId,
+  aiActionPayload,
+  isLatestArcadiaHelp,
+  showModelBadge,
+  embedded = false,
+  showActions = true,
+}) => {
+  const [pinnedToolIds, setPinnedToolIds] = useState<Record<string, boolean>>({});
 
-          return part.text;
-      }
-    })
-    .join("");
+  const toggleToolPinned = useCallback((toolInvocationId: string) => {
+    setPinnedToolIds((prev) => ({ ...prev, [toolInvocationId]: !prev[toolInvocationId] }));
+  }, []);
+
+  const copyMarkdown = messagePartsToCopyMarkdown(message.parts);
+  const text = copyMarkdown;
+  const isArcadiaHelp = text.startsWith(ARCADIA_HELP_PREFIX);
+  const showCustomArcadiaHelp =
+    isArcadiaHelp && (isLatestArcadiaHelp === undefined || isLatestArcadiaHelp);
+
+  const isActivelyStreaming =
+    Boolean(aiActionPayload) || messagePartsIndicateStreaming(message.parts);
+  const modelLabel = showModelBadge ? getModelDisplayName(getMessageModelId(message)) : null;
+
+  const webSearchFold = foldWebSearchResults(collectWebSearchSnapshotsFromParts(message.parts));
+  const reasoningRuns = groupReasoningParts(message.parts);
+
+  let arcadiaHelpRendered = false;
 
   return (
-    <div className="group/ai-message rounded-lg p-4 flex flex-col gap-2">
+    <div
+      className={cn("group/ai-message flex flex-col gap-2 rounded-lg", embedded ? "p-0" : "p-4")}
+    >
+      {modelLabel ? (
+        <div className="not-prose mb-1 flex justify-start">
+          <span className="rounded-full border border-border/50 bg-background-tertiary/35 px-2 py-0.5 text-[11px] font-medium text-muted-foreground">
+            LLM · {modelLabel}
+          </span>
+        </div>
+      ) : null}
       <div className="ai-message space-y-2 text-foreground max-w-full prose dark:prose-invert">
-        {message.parts.length <= 1 ? (
-          <ChatThinking />
-        ) : (
-          message.parts.map((part, i) => {
-            console.log("/n/nPART: ", JSON.stringify(part, null, 2));
-            switch (part.type) {
-              case "reasoning":
-                if (part.state === "streaming") {
-                  console.log(
-                    `REASONING_STREAMING: ${part.text}\n${JSON.stringify(part, null, 2)}`,
-                  );
+        {message.parts.map((part, i) => {
+          switch (part.type) {
+            case "reasoning": {
+              // Consecutive reasoning parts render once, as a single disclosure.
+              const run = reasoningRuns.runsByStartIndex.get(i);
 
-                  return <ChatReasoning key={`${message.id}-${i}`} />;
+              if (!run) return null;
+
+              return (
+                <ChatReasoningBlock
+                  key={`${message.id}-${i}`}
+                  id={`${message.id}-${i}`}
+                  isStreaming={run.isStreaming}
+                  text={run.text}
+                />
+              );
+            }
+
+            case "text":
+              if (showCustomArcadiaHelp) {
+                if (arcadiaHelpRendered) return null;
+                arcadiaHelpRendered = true;
+
+                return <ArcadiaHelpMessage key={`${message.id}-${i}`} />;
+              }
+
+              return (
+                <ChatMessageMarkdown
+                  key={`${message.id}-${i}`}
+                  content={part.text}
+                  id={message.id}
+                />
+              );
+
+            default:
+              if (isToolUIPart(part)) {
+                const toolName = getToolOrDynamicToolName(part);
+                const toolCallId = part.toolCallId;
+
+                if (toolName.startsWith("research_")) {
+                  if (part.state === "input-streaming" || part.state === "input-available") {
+                    return (
+                      <ChatThinking
+                        key={`${message.id}-${i}-research-pending`}
+                        text={toolInvocationInFlightLabel(toolName)}
+                      />
+                    );
+                  }
+                  if (part.state === "output-available" || part.state === "output-error") {
+                    return (
+                      <ResearchToolResult
+                        key={`${message.id}-${i}-research-result`}
+                        toolName={toolName}
+                        output={
+                          part.state === "output-available"
+                            ? part.output
+                            : { error: part.errorText }
+                        }
+                        threadId={chatId}
+                      />
+                    );
+                  }
+
+                  return null;
+                }
+
+                if (toolName === KANBAN_BOARD_TOOL_NAME) {
+                  if (part.state === "input-streaming" || part.state === "input-available") {
+                    const commandType = peekKanbanCommandType(
+                      "input" in part && part.input && typeof part.input === "object"
+                        ? (part.input as { command?: unknown }).command
+                        : undefined
+                    );
+                    const showFullShell =
+                      commandType === "INITIATE_KANBAN" || commandType === "SHOW_VIEW";
+
+                    return (
+                      <KanbanInFlight
+                        key={`${message.id}-${i}-kanban-stream`}
+                        input={"input" in part ? part.input : undefined}
+                        showFullShell={showFullShell}
+                        thinkingLabel={toolInvocationInFlightLabel(toolName)}
+                        threadId={chatId ?? message.id}
+                      />
+                    );
+                  }
+                  if (part.state === "output-available") {
+                    return (
+                      <KanbanToolResult
+                        key={`${message.id}-${i}-kanban-result`}
+                        output={part.output}
+                        threadId={chatId ?? message.id}
+                      />
+                    );
+                  }
+
+                  return null;
+                }
+
+                if (toolName === MANAGE_TASKS_TOOL_NAME) {
+                  if (part.state === "output-available") {
+                    return (
+                      <ErgonTaskResult
+                        key={`${message.id}-${i}-ergon-tasks`}
+                        output={part.output}
+                      />
+                    );
+                  }
+
+                  return null;
+                }
+
+                if (toolName === MISE_PLAN_TOOL_NAME) {
+                  if (part.state === "input-streaming" || part.state === "input-available") {
+                    return <MiseLoadingShell key={`${message.id}-${i}-mise-stream`} />;
+                  }
+                  if (part.state === "output-available") {
+                    return (
+                      <MiseToolResult
+                        key={`${message.id}-${i}-mise-result`}
+                        output={part.output}
+                        threadId={chatId ?? message.id}
+                      />
+                    );
+                  }
+
+                  return null;
+                }
+
+                if (toolName === "gather_restaurant") {
+                  if (part.state === "input-streaming" || part.state === "input-available") {
+                    return (
+                      <OrganicToolCallPresence
+                        key={`${message.id}-${i}-gather-restaurant-active`}
+                        inFlightLabel={toolInvocationInFlightLabel(toolName)}
+                        input={"input" in part ? part.input : undefined}
+                        state="in-flight"
+                        toolName={toolName}
+                      />
+                    );
+                  }
+
+                  // Prefetch only — restaurant-card UI comes from render_gen_ui.
+                  return null;
+                }
+
+                if (toolName === RENDER_GEN_UI_TOOL_NAME) {
+                  if (part.state === "input-streaming" || part.state === "input-available") {
+                    return (
+                      <GenUIStreamingPart
+                        key={`${message.id}-${i}-gen-ui-stream`}
+                        input={"input" in part ? part.input : undefined}
+                      />
+                    );
+                  }
+                  if (part.state === "output-available") {
+                    return (
+                      <GenUIToolResult
+                        key={`${message.id}-${i}-gen-ui-result`}
+                        messageId={message.id}
+                        output={part.output}
+                        partIndex={i}
+                      />
+                    );
+                  }
+                  if (part.state === "output-error") {
+                    return (
+                      <GenUIToolResult
+                        key={`${message.id}-${i}-gen-ui-error`}
+                        messageId={message.id}
+                        output={part.errorText}
+                        partIndex={i}
+                      />
+                    );
+                  }
+
+                  return null;
+                }
+
+                if (toolName.toLowerCase() === "make_mermaid_diagram") {
+                  if (part.state === "input-streaming" || part.state === "input-available") {
+                    return (
+                      <OrganicToolCallPresence
+                        key={`${message.id}-${i}-mermaid-active`}
+                        inFlightLabel={toolInvocationInFlightLabel(toolName)}
+                        input={"input" in part ? part.input : undefined}
+                        state="in-flight"
+                        toolName={toolName}
+                      />
+                    );
+                  }
+
+                  if (part.state === "output-available" || part.state === "output-error") {
+                    const displayBody =
+                      part.state === "output-error" ? part.errorText : part.output;
+                    const parsed = tryParseMermaidToolOutput(displayBody) ?? {
+                      kind: "error" as const,
+                      message: "Unexpected tool output.",
+                    };
+
+                    return (
+                      <div key={`${message.id}-${i}-mermaid-result`} className="not-prose">
+                        <MermaidToolAckCard
+                          isPinned={pinnedToolIds[toolCallId] === true}
+                          parsed={parsed}
+                          onTogglePin={() => toggleToolPinned(toolCallId)}
+                        />
+                        {part.state === "output-available" && parsed.kind === "ok" ? (
+                          <MermaidToolDiagram output={part.output} toolCallId={toolCallId} />
+                        ) : null}
+                      </div>
+                    );
+                  }
+
+                  return null;
+                }
+
+                if (toolName.toLowerCase() === "web_search") {
+                  if (part.state === "input-streaming" || part.state === "input-available") {
+                    return (
+                      <OrganicToolCallPresence
+                        key={`${message.id}-${i}-tool-active`}
+                        inFlightLabel={toolInvocationInFlightLabel(toolName)}
+                        input={"input" in part ? part.input : undefined}
+                        state="in-flight"
+                        toolName={toolName}
+                      />
+                    );
+                  }
+
+                  if (part.state === "output-available" || part.state === "output-error") {
+                    if (isClosedWebSearchResult(webSearchFold, toolCallId)) {
+                      return null;
+                    }
+
+                    const parsed =
+                      webSearchFold.anchorToolCallId === toolCallId && webSearchFold.combined
+                        ? webSearchFold.combined
+                        : tryParseWebSearchToolOutput(
+                            part.state === "output-error" ? part.errorText : part.output
+                          );
+
+                    if (parsed !== null) {
+                      return (
+                        <WebSearchToolResultCard
+                          key={`${message.id}-${i}-tool-result`}
+                          isPinned={pinnedToolIds[toolCallId] === true}
+                          parsed={parsed}
+                          onTogglePin={() => toggleToolPinned(toolCallId)}
+                        />
+                      );
+                    }
+
+                    return (
+                      <ArcadiaToolResultCard
+                        key={`${message.id}-${i}-tool-result`}
+                        displayBody={part.state === "output-error" ? part.errorText : part.output}
+                        input={"input" in part ? part.input : undefined}
+                        isError={part.state === "output-error"}
+                        isPinned={pinnedToolIds[toolCallId] === true}
+                        toolName={toolName}
+                        onTogglePin={() => toggleToolPinned(toolCallId)}
+                      />
+                    );
+                  }
+
+                  return null;
+                }
+
+                if (part.state === "input-streaming" || part.state === "input-available") {
+                  return (
+                    <OrganicToolCallPresence
+                      key={`${message.id}-${i}-tool-active`}
+                      inFlightLabel={toolInvocationInFlightLabel(toolName)}
+                      input={"input" in part ? part.input : undefined}
+                      state="in-flight"
+                      toolName={toolName}
+                    />
+                  );
+                }
+                if (part.state === "output-available") {
+                  return (
+                    <ArcadiaToolResultCard
+                      key={`${message.id}-${i}-tool-result`}
+                      displayBody={part.output}
+                      input={"input" in part ? part.input : undefined}
+                      isPinned={pinnedToolIds[toolCallId] === true}
+                      toolName={toolName}
+                      onTogglePin={() => toggleToolPinned(toolCallId)}
+                    />
+                  );
+                }
+                if (part.state === "output-error") {
+                  return (
+                    <ArcadiaToolResultCard
+                      key={`${message.id}-${i}-tool-result`}
+                      displayBody={part.errorText}
+                      input={"input" in part ? part.input : undefined}
+                      isError
+                      isPinned={pinnedToolIds[toolCallId] === true}
+                      toolName={toolName}
+                      onTogglePin={() => toggleToolPinned(toolCallId)}
+                    />
+                  );
                 }
 
                 return null;
+              }
+              const legacyTool = getLegacyToolInvocationPart(part);
 
-              case "text":
-                return (
-                  <ChatMessageMarkdown
-                    key={`${message.id}-${i}`}
-                    content={part.text}
-                    id={message.id}
-                  />
-                );
-            }
-          })
+              if (legacyTool) {
+                const tp = legacyTool;
+
+                if (tp.state === "partial-call" || tp.state === "call") {
+                  return (
+                    <OrganicToolCallPresence
+                      key={`${message.id}-${i}-tool-active`}
+                      inFlightLabel={toolInvocationInFlightLabel(tp.toolName)}
+                      input={tp.args}
+                      state="in-flight"
+                      toolName={tp.toolName}
+                    />
+                  );
+                }
+                if (tp.state === "result" || tp.state === "output-error") {
+                  if (tp.toolName === "gather_restaurant") {
+                    return null;
+                  }
+
+                  if (tp.toolName.toLowerCase() === "web_search") {
+                    if (isClosedWebSearchResult(webSearchFold, tp.toolInvocationId)) {
+                      return null;
+                    }
+
+                    const displayBody = tp.state === "output-error" ? tp.errorText : tp.result;
+                    const parsed =
+                      webSearchFold.anchorToolCallId === tp.toolInvocationId &&
+                      webSearchFold.combined
+                        ? webSearchFold.combined
+                        : tryParseWebSearchToolOutput(displayBody);
+
+                    if (parsed !== null) {
+                      return (
+                        <WebSearchToolResultCard
+                          key={`${message.id}-${i}-tool-result`}
+                          isPinned={pinnedToolIds[tp.toolInvocationId] === true}
+                          parsed={parsed}
+                          onTogglePin={() => toggleToolPinned(tp.toolInvocationId)}
+                        />
+                      );
+                    }
+                  }
+
+                  return (
+                    <ArcadiaToolResultCard
+                      key={`${message.id}-${i}-tool-result`}
+                      displayBody={tp.state === "output-error" ? tp.errorText : tp.result}
+                      input={tp.args}
+                      isError={tp.state === "output-error"}
+                      isPinned={pinnedToolIds[tp.toolInvocationId] === true}
+                      toolName={tp.toolName}
+                      onTogglePin={() => toggleToolPinned(tp.toolInvocationId)}
+                    />
+                  );
+                }
+              }
+
+              return null;
+          }
+        })}
+
+        {aiActionPayload && shouldShowTailAiAction(aiActionPayload, message.parts) && (
+          <ChatAIAction aiActionPayload={aiActionPayload} />
         )}
       </div>
-      <div className="w-full flex gap-2 h-8">
-        <TTSButton iconOnly text={text} />
-        <ClipboardCopyButton text={text} />
-      </div>
+      {showActions && !isActivelyStreaming && (
+        <AssistantMessageActions showPinAndCopy={!showCustomArcadiaHelp} text={text} />
+      )}
     </div>
   );
 };
 
-const UserMessage: FC<ChatMessageProps> = ({ message }) => {
-  return (
-    <div
-      className={
-        "max-w-4/5 w-fit mb-4 text-foreground place-self-end overflow-hidden"
+type MessageParts = UIMessage["parts"];
+
+type ToolInvocationPartLike = {
+  type: "tool-invocation";
+  toolInvocationId: string;
+  toolName: string;
+  state: "partial-call" | "call" | "result" | "output-error";
+  args?: unknown;
+  result?: unknown;
+  errorText?: string;
+};
+
+/** Runtime parts may include legacy tool-invocation entries not in the UIMessage union. */
+type MessagePartLike = MessageParts[number] | ToolInvocationPartLike;
+
+function getLegacyToolInvocationPart(part: MessagePartLike): ToolInvocationPartLike | null {
+  if (part.type !== "tool-invocation") return null;
+  if (!("toolInvocationId" in part) || typeof part.toolInvocationId !== "string") return null;
+
+  return part;
+}
+
+function messagePartsIndicateStreaming(parts: MessageParts): boolean {
+  for (const part of parts) {
+    if (part.type === "reasoning" && part.state === "streaming") return true;
+    if (part.type === "text" && part.state === "streaming") return true;
+    if (isToolUIPart(part)) {
+      if (part.state === "input-streaming" || part.state === "input-available") return true;
+      continue;
+    }
+
+    const legacy = getLegacyToolInvocationPart(part);
+
+    if (legacy?.state === "partial-call" || legacy?.state === "call") return true;
+  }
+
+  return false;
+}
+
+function partListHasStreamingReasoning(parts: MessageParts): boolean {
+  return parts.some((part) => part.type === "reasoning" && part.state === "streaming");
+}
+
+/** True when the message already has inline tool UI (loading or result). */
+function partListHasToolUIPart(parts: MessageParts): boolean {
+  return parts.some((part) => isToolUIPart(part) || getLegacyToolInvocationPart(part) !== null);
+}
+
+function partListHasMemorySearchToolPart(parts: MessageParts): boolean {
+  const names = new Set(["search_memories", "memory_search"]);
+
+  return parts.some((part) => {
+    if (isToolUIPart(part)) {
+      return names.has(getToolOrDynamicToolName(part).toLowerCase());
+    }
+
+    const legacy = getLegacyToolInvocationPart(part);
+
+    return legacy !== null && names.has(legacy.toolName.toLowerCase());
+  });
+}
+
+function partListHasInFlightWebSearch(parts: MessageParts): boolean {
+  return parts.some((part) => {
+    if (isToolUIPart(part)) {
+      const inFlight = part.state === "input-streaming" || part.state === "input-available";
+
+      return inFlight && getToolOrDynamicToolName(part).toLowerCase() === "web_search";
+    }
+
+    const legacy = getLegacyToolInvocationPart(part);
+
+    return (
+      legacy !== null &&
+      (legacy.state === "partial-call" || legacy.state === "call") &&
+      legacy.toolName.toLowerCase() === "web_search"
+    );
+  });
+}
+
+function shouldShowTailAiAction(
+  payload: NonNullable<ChatMessageProps["aiActionPayload"]>,
+  parts: MessageParts
+): boolean {
+  switch (payload.action) {
+    case ChatAIActionEnum.Processing:
+      // Inline reasoning/tool/text parts own loading UI once the stream starts.
+      return !messagePartsIndicateStreaming(parts);
+    case ChatAIActionEnum.Search:
+      if (
+        partListHasInFlightWebSearch(parts) &&
+        (!payload.sources || payload.sources.length === 0)
+      ) {
+        return false;
       }
-    >
-      <div className={`${glass()} p-4 rounded-lg`}>
+
+      return true;
+    case ChatAIActionEnum.Memory:
+      // Inline memory-search tool parts own loading/result UI.
+      return !partListHasMemorySearchToolPart(parts);
+    case ChatAIActionEnum.Tool:
+      // Inline tool parts own loading/result UI; tail shimmer only covers the gap before parts arrive.
+      return !partListHasToolUIPart(parts);
+    case ChatAIActionEnum.Reasoning:
+      return !partListHasStreamingReasoning(parts);
+    case ChatAIActionEnum.Errored:
+      return false;
+    default:
+      return true;
+  }
+}
+
+const KNOWN_TOOL_IN_FLIGHT_LABELS: Record<string, string> = {
+  render_gen_ui: "Structuring response…",
+  research_capabilities: "Checking research access…",
+  research_search: "Finding research sources…",
+  research_read: "Reading sources…",
+  research_scrape: "Capturing source material…",
+  research_map: "Exploring site pages…",
+  research_crawl: "Collecting site pages…",
+  research_parse_document: "Reading document pages…",
+  research_source: "Reading captured text…",
+  research_record_claim: "Linking findings to evidence…",
+  research_audit: "Reviewing evidence…",
+  research_publish: "Preparing research report…",
+  gather_restaurant: "Looking up restaurant…",
+  kanban_board: "Updating board…",
+  manage_tasks: "Updating tasks…",
+  mise_plan: "Updating plan…",
+  fetch_recipe: "Reading recipe…",
+  make_mermaid_diagram: "Creating diagram...",
+  search_memories: "Searching memories...",
+  memory_search: "Searching memories...",
+  web_search: "Searching the web...",
+  get_full_chat_history: "Getting full chat history...",
+  get_more_chat_history: "Getting more chat history...",
+  get_messages_from_date: "Getting chat history for that date...",
+  read_subagent_thread: "Reading a subagent's thread...",
+  worktable: "Updating the worktable...",
+  dispatch_subagent: "Briefing a subagent...",
+  generate_rabbit_hole_node: "Branching rabbit hole node…",
+  propose_rabbit_hole_node: "Branching rabbit hole node…",
+  create_rabbit_hole_node: "Branching rabbit hole node…",
+  navigate_rabbit_hole_node: "Navigating branch…",
+  search_rabbit_hole_context: "Reading rabbit hole graph…",
+  read_rabbit_hole_node: "Reading rabbit hole graph…",
+};
+
+function toolInvocationInFlightLabel(toolName: string): string {
+  const key = toolName.toLowerCase();
+
+  if (KNOWN_TOOL_IN_FLIGHT_LABELS[key]) return KNOWN_TOOL_IN_FLIGHT_LABELS[key];
+  const readable = toolName.replace(/_/g, " ").replace(/-/g, " ").trim();
+
+  if (readable.length > 0) {
+    return `${readable[0].toUpperCase()}${readable.slice(1)}...`;
+  }
+
+  return "Using a tool...";
+}
+
+/** Generic collapsible tool output (JSON / Mermaid); specialized tools use dedicated cards. */
+export const ArcadiaToolResultCard = memo(function ArcadiaToolResultCard({
+  toolName,
+  displayBody,
+  input,
+  isError = false,
+  isPinned,
+  onTogglePin,
+}: {
+  toolName: string;
+  displayBody: unknown;
+  input?: unknown;
+  isError?: boolean;
+  isPinned: boolean;
+  onTogglePin: () => void;
+}) {
+  if (toolName.toLowerCase() === "web_search") {
+    const parsed = tryParseWebSearchToolOutput(displayBody);
+
+    if (parsed !== null) {
+      return (
+        <WebSearchToolResultCard isPinned={isPinned} parsed={parsed} onTogglePin={onTogglePin} />
+      );
+    }
+  }
+
+  if (toolName.toLowerCase() === "get_full_chat_history") {
+    const parsed = tryParseFullChatHistoryToolOutput(displayBody);
+
+    if (parsed !== null) {
+      return (
+        <FullChatHistoryToolResultCard
+          isPinned={isPinned}
+          parsed={parsed}
+          onTogglePin={onTogglePin}
+        />
+      );
+    }
+  }
+
+  if (toolName.toLowerCase() === "get_more_chat_history") {
+    const parsed = tryParseGetMoreChatHistoryToolOutput(displayBody);
+
+    if (parsed !== null) {
+      return <GetMoreChatHistoryToolResultCard parsed={parsed} />;
+    }
+  }
+
+  if (toolName.toLowerCase() === "search_memories") {
+    const parsed = tryParseMemorySearchToolOutput(displayBody);
+
+    if (parsed !== null) {
+      return (
+        <MemorySearchToolResultCard isPinned={isPinned} parsed={parsed} onTogglePin={onTogglePin} />
+      );
+    }
+  }
+
+  if (toolName.toLowerCase() === "make_mermaid_diagram") {
+    const parsed = tryParseMermaidToolOutput(displayBody) ?? {
+      kind: "error" as const,
+      message: "Unexpected tool output.",
+    };
+
+    return <MermaidToolAckCard isPinned={isPinned} parsed={parsed} onTogglePin={onTogglePin} />;
+  }
+
+  return (
+    <OrganicToolCallPresence
+      input={input}
+      isPinned={isPinned}
+      output={displayBody}
+      state={isError ? "error" : "complete"}
+      toolName={toolName}
+      onTogglePin={onTogglePin}
+    />
+  );
+});
+
+ArcadiaToolResultCard.displayName = "ArcadiaToolResultCard";
+
+const COLLAPSED_LINES = 6;
+const COLLAPSED_CHAR_THRESHOLD = 500;
+
+function isLongUserMessage(text: string): boolean {
+  const lines = text.split(/\n/).length;
+
+  return lines > COLLAPSED_LINES || text.length > COLLAPSED_CHAR_THRESHOLD;
+}
+
+const UserMessage: FC<ChatMessageProps> = ({ message, embedded = false }) => {
+  const [expanded, setExpanded] = useState(false);
+  const text = message.parts.map((part) => (part.type === "text" ? part.text : "")).join("");
+  const long = isLongUserMessage(text);
+
+  const innerContent = (
+    <>
+      <div className={cn(long && !expanded && "line-clamp-6")}>
         {message.parts.map((part, i) => {
           switch (part.type) {
             case "text":
-              return <div key={`${message.id}-${i}`}>{part.text}</div>;
+              return (
+                <ChatMessageMarkdown
+                  key={`${message.id}-${i}`}
+                  content={part.text}
+                  id={message.id}
+                />
+              );
           }
         })}
       </div>
+      {long && (
+        <button
+          className="mt-2 text-sm text-muted-foreground hover:text-foreground underline underline-offset-2"
+          type="button"
+          onClick={() => setExpanded((e) => !e)}
+        >
+          {expanded ? "Show less" : "Show more"}
+        </button>
+      )}
+    </>
+  );
+
+  if (embedded) {
+    return <div className="min-w-0 text-foreground">{innerContent}</div>;
+  }
+
+  return (
+    <div className={"max-w-4/5 w-fit mb-4 text-foreground place-self-end overflow-hidden"}>
+      <div className={`${glass()} p-4 rounded-lg`}>{innerContent}</div>
     </div>
   );
 };
@@ -107,6 +840,73 @@ const SystemMessage: FC<ChatMessageProps> = ({ message }) => {
             return <div key={`${message.id}-${i}`}>{part.text}</div>;
         }
       })}
+    </div>
+  );
+};
+
+type ChatAIActionProps = {
+  aiActionPayload?: {
+    action: ChatAIActionEnum;
+    message?: string;
+    sources?: ExaSearchResultSource[];
+  };
+};
+
+/** Human-readable label for generic "Using tool: …" chunks from the API. */
+function toolActionDisplayText(message: string | undefined): string {
+  const trimmed = message?.trim();
+
+  if (!trimmed) return "Using a tool...";
+
+  const usingToolMatch = trimmed.match(/^Using tool:\s*([a-z0-9_]+)$/i);
+
+  if (usingToolMatch?.[1]) {
+    const toolName = usingToolMatch[1].toLowerCase();
+    const knownLabels: Record<string, string> = {
+      make_mermaid_diagram: "Creating diagram...",
+      search_memories: "Searching memories...",
+      web_search: "Searching the web...",
+      get_full_chat_history: "Getting full chat history...",
+      get_more_chat_history: "Getting more chat history...",
+      get_messages_from_date: "Getting chat history for that date...",
+    };
+
+    if (knownLabels[toolName]) {
+      return knownLabels[toolName];
+    }
+
+    const readableToolName = toolName.replace(/_/g, " ").trim();
+
+    if (readableToolName.length > 0) {
+      return `${readableToolName[0].toUpperCase()}${readableToolName.slice(1)}...`;
+    }
+  }
+
+  return trimmed;
+}
+
+/** Ephemeral “tail” UI driven by `data-aiAction` (processing, search sources, memory, tool label, etc.). */
+export const ChatAIAction: FC<ChatAIActionProps> = ({ aiActionPayload }) => {
+  return (
+    <div className="rounded-lg p-4 mb-4 text-foreground">
+      {(() => {
+        switch (aiActionPayload?.action) {
+          case "reasoning":
+            return <ChatReasoning />;
+          case "processing":
+            return <ChatThinking text={aiActionPayload?.message ?? "Processing..."} />;
+          case "search":
+            return <ChatSearching sources={aiActionPayload?.sources} text="Searching the web..." />;
+          case "memory":
+            return (
+              <ChatThinking text={aiActionPayload?.message?.trim() || "Searching memories..."} />
+            );
+          case "tool":
+            return <ChatThinking text={toolActionDisplayText(aiActionPayload?.message)} />;
+          default:
+            return <ChatThinking />;
+        }
+      })()}
     </div>
   );
 };

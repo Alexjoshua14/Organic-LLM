@@ -1,132 +1,798 @@
 "use client";
 
+import type { ExaSearchResultSource } from "@/lib/exa/types";
+import type { StrataPageAssistantSession } from "@/lib/strata/assistant-session";
+import type { ChatExperience } from "@/lib/chat/chat-experience";
+import type { ContextBudgetEstimate } from "@/lib/chat/context-budget";
+import type { DiagramNodeLink } from "@/lib/mermaid/types";
+
 import { UIMessage, useChat } from "@ai-sdk/react";
-import { StickToBottom } from "use-stick-to-bottom";
-import { DefaultChatTransport } from "ai";
-import { useEffect, useState } from "react";
+import { DefaultChatTransport, type ChatTransport, type HttpChatTransportInitOptions } from "ai";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { BrainCircuit } from "lucide-react";
+import { AnimatePresence, useReducedMotion } from "framer-motion";
+import { toast } from "sonner";
 
-import { ChatInput } from "./chat-input";
-import { ChatThread } from "./chat-thread";
-import { ChatScrollButton } from "./chat-scroll-button";
+import { Conversation, ConversationScrollButton } from "../third-party/ai-elements/conversation";
 
+import { ChatThread, MEMORY_PANEL_RESERVE_PADDING } from "./chat-thread";
+import { ArcadiaChatSettingsDialog } from "./arcadia-chat-settings-dialog";
+import { CoreInput } from "./core-input";
+import { ChatStylePicker } from "./chat-style-picker";
+import { ChatThreadStyleOverlay } from "./chat-thread-style-overlay";
+import { BtwPanel } from "./btw/btw-panel";
+
+import { DiagramTakeoverShell } from "@/components/mermaid/diagram-takeover-shell";
+import { MemoryEphemeralCards } from "@/components/memory/memory-ephemeral-cards";
+import { MemoryLens } from "@/components/memory/memory-lens";
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+  SheetTrigger,
+} from "@/components/third-party/ui/sheet";
+import { isClientPIIRedactionEnabled, redactUIMessages } from "@/lib/pii/redact";
+import { getSettings } from "@/lib/user-settings";
+import {
+  contextEffortForRequest,
+  DEFAULT_CONTEXT_EFFORT,
+  type ContextEffortLevel,
+} from "@/lib/memory/context-effort";
+import { coreInputScopes } from "@/lib/core-input/scopes";
+import { useBtwSession } from "@/hooks/use-btw-session";
 import { Thread } from "@/lib/schemas/chat";
-import { updateChatSummary } from "@/lib/llm/chat-helpers";
 import { createLogger } from "@/lib/logger";
+import { PERF_PHASES } from "@/lib/perf/journeys";
+import { completeForJourney } from "@/lib/perf/trace-store";
+import { useChatVoiceSurface } from "@/hooks/use-chat-voice-surface";
+import { useVoiceScreenContext } from "@/hooks/use-voice-screen-context";
 import { useSharedChatContext } from "@/lib/context/chat-context";
-
+import { ChatModel } from "@/lib/schemas/chat";
+import { ChatEffortLevel } from "@/lib/schemas/chat-effort";
+import {
+  DEFAULT_COMPOSER_EFFORT,
+  DEFAULT_COMPOSER_MEMORIES,
+  DEFAULT_COMPOSER_MODEL,
+  DEFAULT_COMPOSER_WEB_SEARCH,
+} from "@/lib/chat/composer-tool-defaults";
+import {
+  getLatestContextBudgetFromMessages,
+  withLastTurnSnapshot,
+} from "@/lib/chat/context-budget";
+import { getStrataAssistantPersona } from "@/lib/personas/strata-assistant";
+import { ChatAIActionEnum } from "@/types/ai";
+import { getChatErrorMessage } from "@/lib/chat/error-messages";
+import { getChatStyle } from "@/lib/chat/chat-style-store";
+import { applyKanbanCommand } from "@/lib/kanban/store";
+import { safeParseKanbanCommand } from "@/lib/schemas/kanban";
+import { applyMiseCommand } from "@/lib/mise/store";
+import { safeParseMiseCommand } from "@/lib/schemas/mise";
+import { DiagramNodeLinksProvider } from "@/lib/mermaid/diagram-node-links-context";
+import { DiagramTakeoverProvider } from "@/lib/mermaid/diagram-takeover-context";
+import { isEditableEventTarget } from "@/lib/dom/is-editable-event-target";
+import { useBackgroundThreadMessages } from "@/hooks/use-background-thread-messages";
+import { useMorphFlip } from "@/hooks/use-morph-flip";
+import { COMPOSER_SHIFT_MIN_PX, COMPOSER_SHIFT_SPRING } from "@/lib/chat/composer-shift-spring";
+import { useMultitaskComposerSlot } from "@/app/sandbox/arcadia/_components/multitask-composer-slot";
+import { useArcadiaMultitaskOptional } from "@/app/sandbox/arcadia/_components/multitask-provider";
 const logger = createLogger("components/chat/chat");
 
-type ChatProps = {
+function createChatTransport({
+  onResumeCheck,
+  ...options
+}: HttpChatTransportInitOptions<UIMessage> & {
+  onResumeCheck: (threadId: string) => () => void;
+}): ChatTransport<UIMessage> {
+  const transport = new DefaultChatTransport<UIMessage>(options);
+
+  return {
+    sendMessages: (options) => transport.sendMessages(options),
+    reconnectToStream: async (options) => {
+      const finishCheck = onResumeCheck(options.chatId);
+
+      try {
+        return await transport.reconnectToStream(options);
+      } finally {
+        finishCheck();
+      }
+    },
+  };
+}
+
+export type ChatProps = {
   chatData: { thread: Thread; messages: UIMessage[] } | null;
   initialMessage?: string;
-  persona?: "prometheus" | "spark";
+  /** Prefills the composer without sending (e.g. homepage semantic route). */
+  initialDraft?: string;
+  persona?: "prometheus" | "spark" | "aion" | "remy" | "strata";
   endpoint?: string;
+  experience?: string;
+  /** When using the Strata page assistant, the server loads this page for grounding. */
+  strataPageId?: string;
+  /** Strata page: tool + persona controls from Source tab session. */
+  assistantSession?: StrataPageAssistantSession | null;
 };
 
 export const Chat: React.FC<ChatProps> = ({
   chatData,
-  initialMessage,
   endpoint,
   persona,
+  initialMessage,
+  initialDraft,
+  experience,
+  strataPageId,
+  assistantSession,
 }) => {
-  const [updatingSummary, setUpdatingSummary] = useState(false);
+  const { refreshSidebarChats } = useSharedChatContext();
+  const arcadiaMultitask = useArcadiaMultitaskOptional();
+  const multitaskSendTargetRef = useRef(
+    arcadiaMultitask?.multitaskViewEnabled ? arcadiaMultitask.sendTarget : null
+  );
+  const applyInboundDispatchRef = useRef(arcadiaMultitask?.applyInboundDispatch);
+  const applyAwarenessEventRef = useRef(arcadiaMultitask?.applyAwarenessEvent);
+  const confineInMultitaskDashboard = arcadiaMultitask?.layoutMode === "dashboard";
+  // Condensed multiagent row sits above CoreInput; CoreInput itself keeps its place.
+  const composerSlot = useMultitaskComposerSlot();
+  const composerAnchorRef = useRef<HTMLDivElement | null>(null);
+  const reduceMotion = useReducedMotion();
 
-  const { setChatId } = useSharedChatContext();
+  // Multitask dashboard uses live sendMessage → /api/chat (same as Arcadia idle chat).
+  // Do not enable CoreInput queueSendMode here: enqueue never appends/streams into the
+  // thread UI, so orchestrator turns look like a no-op. Subagent targeting still rides on
+  // multitaskSendTarget in the request body.
 
-  useEffect(() => {
-    setChatId(chatData?.thread.id ?? "");
+  multitaskSendTargetRef.current = arcadiaMultitask?.multitaskViewEnabled
+    ? arcadiaMultitask.sendTarget
+    : null;
+  applyInboundDispatchRef.current = arcadiaMultitask?.applyInboundDispatch;
+  applyAwarenessEventRef.current = arcadiaMultitask?.applyAwarenessEvent;
 
-    return () => {
-      setChatId("");
-    };
-  }, [chatData]);
+  const selectedModelRef = useRef<ChatModel>(DEFAULT_COMPOSER_MODEL);
+  const selectedEffortRef = useRef<ChatEffortLevel>(DEFAULT_COMPOSER_EFFORT);
+  const useWebSearchRef = useRef<boolean>(DEFAULT_COMPOSER_WEB_SEARCH);
+  const useMemoriesRef = useRef<boolean>(DEFAULT_COMPOSER_MEMORIES);
+  const useSpeechFriendlyRef = useRef<boolean>(false);
+  const contextEffortRef = useRef<ContextEffortLevel>(DEFAULT_CONTEXT_EFFORT);
+  const assistantSessionRef = useRef<StrataPageAssistantSession | null | undefined>(
+    assistantSession
+  );
 
-  const { messages, sendMessage, id } = useChat({
-    id: chatData?.thread.id ?? "",
-    messages: chatData?.messages ?? [],
-    transport: new DefaultChatTransport({
-      api: endpoint ?? `/api/chat/${persona ?? ""}`,
-      prepareSendMessagesRequest({ messages, id }) {
-        return { body: { message: messages[messages.length - 1], id } };
-      },
-    }),
-    onToolCall({ toolCall }) {
-      console.log("TOOL_CALL", toolCall);
-    },
+  // Per-thread CoreInput settings. Strata's assistant drives its own model, so it stays on
+  // the legacy global prefs.
+  const threadId = chatData?.thread.id;
+  const coreInputArea = experience ?? persona ?? "chat";
+  const scopesEnabled = Boolean(threadId) && experience !== "strata_page" && persona !== "strata";
+  const threadScope = useMemo(
+    () => (scopesEnabled && threadId ? coreInputScopes.thread(coreInputArea, threadId) : undefined),
+    [scopesEnabled, threadId, coreInputArea]
+  );
+  const btwScope = useMemo(
+    () => (threadId ? coreInputScopes.btw(coreInputArea, threadId) : undefined),
+    [threadId, coreInputArea]
+  );
+  const btw = useBtwSession({
+    threadId: threadId ?? "",
+    modelRef: selectedModelRef,
+    effortRef: selectedEffortRef,
+    ephemeralScopeKey: btwScope?.key,
   });
 
-  // useEffect(() => {
-  //   // Simply ensure chat has title when the user leaves
-  //   return () => {
-  //     if (chatData?.thread.title === null && messages.length > 3) {
-  //       ensureChatHasTitle(chatData.thread.id);
-  //     }
-  //   };
-  // }, [chatData, messages]);
-
-  // useEffect(() => {
-  //   if (initialMessage && messages.length === 0) {
-  //     logger.log("Chat", `Sending initial message: ${initialMessage}`);
-  //     sendMessage({
-  //       text: initialMessage,
-  //     });
-  //   } else {
-  //     logger.log("Chat", `Didn't send initial message.. intialMessage: ${initialMessage}, messages.length: ${messages.length}`)
-  //   }
-  // }, []);
-
-  const handleUpdateSummary = async () => {
-    if (!chatData?.thread.id) {
-      logger.error("handleUpdateSummary", "Chat ID is missing");
-
-      return;
+  useMorphFlip(
+    composerAnchorRef,
+    [
+      arcadiaMultitask?.layoutMode ?? "none",
+      arcadiaMultitask?.chatOpen ?? true,
+      arcadiaMultitask?.shellOpen ?? false,
+      composerSlot ? "slot" : "no-slot",
+      btw.isOpen ? "btw" : "main",
+    ].join(":"),
+    {
+      spring: COMPOSER_SHIFT_SPRING,
+      minShiftPx: COMPOSER_SHIFT_MIN_PX,
+      disabled: Boolean(reduceMotion),
     }
-    if (updatingSummary) {
-      logger.error("handleUpdateSummary", "Already updating summary");
+  );
 
-      return;
-    }
+  assistantSessionRef.current = assistantSession;
+  const usePersistedSchemas = useRef<boolean>(persona === "aion" || persona === "strata");
+  const initialMessageSent = useRef<boolean>(false);
+  const composerInjectSeq = useRef(0);
 
-    setUpdatingSummary(true);
-    try {
-      const { data, error } = await updateChatSummary(chatData.thread.id);
+  useEffect(() => {
+    const id = requestAnimationFrame(() => {
+      completeForJourney(["to-chat", "to-arcadia"], PERF_PHASES.chatReady, {
+        experience: experience ?? "chat",
+      });
+    });
 
-      if (error) {
-        logger.error(
-          "handleUpdateSummary",
-          `Failed to update chat summary: ${error}`,
-        );
-      } else {
-        logger.log("handleUpdateSummary", `Updated chat summary: ${data}`);
+    return () => cancelAnimationFrame(id);
+  }, [experience]);
+
+  const [composerInject, setComposerInject] = useState<{ id: number; text: string } | null>(null);
+  const [aiAction, setAiAction] = useState<
+    | {
+        action: ChatAIActionEnum;
+        message?: string;
+        sources?: ExaSearchResultSource[];
       }
-    } catch (error) {
-      logger.error(
-        "handleUpdateSummary",
-        `Failed to update chat summary: ${error}`,
-      );
-    } finally {
-      setUpdatingSummary(false);
+    | undefined
+  >(undefined);
+  const [mem0Retrieved, setMem0Retrieved] = useState<{ memory: string }[]>([]);
+  const [mem0Added, setMem0Added] = useState<{ memory: string }[]>([]);
+  const errorRef = useRef<Error | undefined>(undefined);
+  /** Stored when onError runs; useChat may not expose error/status for pre-stream failures (e.g. 429). */
+  const [chatError, setChatError] = useState<unknown>(undefined);
+  // Match the server defaults until the settings effect restores local preferences.
+  const [experimentalArcadiaMarkdownPreview, setExperimentalArcadiaMarkdownPreview] =
+    useState(false);
+  const [arcadiaStarterKey, setArcadiaStarterKey] = useState<string | null>(
+    () => chatData?.thread.arcadia_starter_key ?? null
+  );
+  const [streamBudgetThreadId, setStreamBudgetThreadId] = useState(chatData?.thread.id ?? "");
+  const [streamContextBudget, setStreamContextBudget] = useState<ContextBudgetEstimate | null>(() =>
+    getLatestContextBudgetFromMessages(chatData?.messages ?? [])
+  );
+  const [contextBudgetRefreshKey, setContextBudgetRefreshKey] = useState(0);
+  const [arcadiaSettingsOpen, setArcadiaSettingsOpen] = useState(false);
+  const wasStreamingRef = useRef(false);
+  const diagramNodeLinksRef = useRef<DiagramNodeLink[]>([]);
+  const [resumeCheck, setResumeCheck] = useState({
+    threadId: chatData?.thread.id ?? "",
+    pending: true,
+  });
+  const pendingSendRef = useRef<{ threadId: string } | null>(null);
+
+  useEffect(() => {
+    const sync = () =>
+      setExperimentalArcadiaMarkdownPreview(getSettings().experimentalArcadiaMarkdownPreview);
+
+    sync();
+    window.addEventListener("organic-llm-settings", sync);
+
+    return () => window.removeEventListener("organic-llm-settings", sync);
+  }, []);
+
+  useEffect(() => {
+    if (experience !== "strata_page" || !assistantSession) return;
+    selectedModelRef.current = getStrataAssistantPersona(
+      assistantSession.personaId
+    ).getDefaultModel();
+  }, [assistantSession, experience]);
+
+  // Temporary
+  const stop = () => logger.log("chat", "stop called but functionality is currently disabled");
+
+  const { messages, sendMessage, id, status, setMessages, addToolOutput, error, clearError } =
+    useChat({
+      id: chatData?.thread.id ?? "",
+      messages: chatData?.messages ?? [],
+      // Navigation can reuse stale thread metadata; the resume endpoint checks current state.
+      resume: true,
+      transport: createChatTransport({
+        api:
+          persona === "aion"
+            ? "/api/ai/aion"
+            : persona === "remy"
+              ? "/api/ai/remy"
+              : persona === "strata"
+                ? "/api/chat"
+                : (endpoint ?? (persona ? `/api/chat/${persona}` : "/api/chat")),
+        prepareSendMessagesRequest({ messages, id }) {
+          const lastMessage = messages[messages.length - 1];
+          const message = isClientPIIRedactionEnabled()
+            ? redactUIMessages([lastMessage])[0]
+            : lastMessage;
+          const sess = assistantSessionRef.current;
+          const strataPageTools =
+            experience === "strata_page" && sess
+              ? {
+                  webSearch: sess.tools.toolWebSearch,
+                  memory: sess.tools.toolMemory,
+                  messageSearch: sess.tools.toolMessageSearch,
+                  knowledgeSearch: sess.tools.toolKnowledgeSearch,
+                  strataAssistantPersona: sess.personaId,
+                }
+              : {
+                  webSearch: useWebSearchRef.current,
+                  memory: useMemoriesRef.current,
+                  messageSearch: true as const,
+                  knowledgeSearch: false as const,
+                };
+
+          const settings = getSettings();
+          const contextEffort = contextEffortForRequest({
+            experience,
+            memoryEnabled: strataPageTools.memory,
+            experimentalContextEffort: settings.experimentalContextEffort,
+            contextEffortLevel: contextEffortRef.current,
+          });
+
+          const req = {
+            body: {
+              message,
+              id,
+              model: selectedModelRef.current,
+              effort: selectedEffortRef.current,
+              ...strataPageTools,
+              speechFriendly: useSpeechFriendlyRef.current,
+              experience,
+              ...(experience === "arcadia" ? { chatStyle: getChatStyle(id) } : {}),
+              ...(strataPageId ? { strataPageId } : {}),
+              zeroDataRetention: settings.zeroDataRetention,
+              coalescenceMode: settings.coalescenceMode,
+              ...(contextEffort ? { contextEffort } : {}),
+              // Arcadia multitask dashboard: explicit orchestrator vs subagent destination.
+              // Sent only while Multiagent is enabled; the server checks the saved thread flag.
+              ...(experience === "arcadia" && multitaskSendTargetRef.current
+                ? { multitaskSendTarget: multitaskSendTargetRef.current }
+                : {}),
+              // Only include persistedSchemas in payload if true
+              ...(usePersistedSchemas.current ? { persistedSchemas: true } : {}),
+              ...(diagramNodeLinksRef.current.length > 0
+                ? { diagramNodeLinks: diagramNodeLinksRef.current }
+                : {}),
+            },
+          };
+
+          logger.log("chat", `Request being sent: ${JSON.stringify(req, null, 2)}`);
+
+          return req;
+        },
+        onResumeCheck(threadId) {
+          const check = { threadId, pending: true };
+
+          setResumeCheck(check);
+
+          return () =>
+            setResumeCheck((current) =>
+              current === check ? { threadId, pending: false } : current
+            );
+        },
+      }),
+      onData: (data) => {
+        /** Side channel for UI events */
+        logger.log("chat", JSON.stringify(data, null, 2));
+
+        if (data.type === "data-kanban") {
+          const parsed = safeParseKanbanCommand(data.data);
+
+          if (parsed.ok && id) {
+            applyKanbanCommand(id, parsed.command);
+          }
+        } else if (data.type === "data-mise") {
+          const parsed = safeParseMiseCommand(data.data);
+
+          if (parsed.ok && id) {
+            applyMiseCommand(id, parsed.command);
+          }
+        } else if (data.type === "data-mem0-get") {
+          const payload = data.data as { memories?: { memory: string }[] };
+
+          setMem0Retrieved(payload.memories ?? []);
+          setMem0Added([]);
+        } else if (data.type === "data-mem0-update") {
+          const payload = data.data as { memories?: { memory: string }[] };
+
+          setMem0Added(payload.memories ?? []);
+        } else if (data.type === "data-notification") {
+          logger.log("chat", `DATA_NOTIFICATION ${JSON.stringify(data.data, null, 2)}`);
+          const dataObject = data.data as { message?: string };
+
+          if (dataObject.message === "chat-title-generated") {
+            refreshSidebarChats();
+          }
+        } else if (data.type === "data-aiAction") {
+          logger.log("chat", `DATA_AIACTION ${JSON.stringify(data.data, null, 2)}`);
+
+          const dataObject = data.data as {
+            action: ChatAIActionEnum;
+            message?: string;
+            sources?: ExaSearchResultSource[];
+            /** Emitted by memory search tool progress (server stream). */
+            query?: string;
+          };
+
+          switch (dataObject.action) {
+            case ChatAIActionEnum.Reasoning:
+              setAiAction({
+                action: ChatAIActionEnum.Reasoning,
+                message: dataObject.message,
+              });
+              break;
+            case ChatAIActionEnum.Tool:
+              let toolName = undefined;
+
+              if (dataObject.message) {
+                toolName = dataObject.message.split(": ")[1];
+              }
+              switch (toolName) {
+                case "web_search":
+                  setAiAction((prev) => {
+                    let sources: ExaSearchResultSource[] | undefined = undefined;
+
+                    if (prev && prev.action === ChatAIActionEnum.Search) {
+                      sources = [...(prev.sources ?? []), ...(dataObject.sources ?? [])];
+                      // Make sources unique based on id
+                      sources = sources.filter(
+                        (source, index, self) => index === self.findIndex((t) => t.id === source.id)
+                      );
+                    } else {
+                      sources = dataObject.sources;
+                    }
+
+                    return {
+                      action: ChatAIActionEnum.Search,
+                      message: dataObject.message,
+                      sources: sources,
+                    };
+                  });
+                  break;
+                case "memory_search":
+                  setAiAction({
+                    action: ChatAIActionEnum.Memory,
+                    message: dataObject.message,
+                  });
+                  break;
+                default:
+                  setAiAction({
+                    action: ChatAIActionEnum.Tool,
+                    message: dataObject.message,
+                  });
+                  break;
+              }
+              break;
+            case ChatAIActionEnum.Memory: {
+              const q = dataObject.query?.trim();
+
+              setAiAction({
+                action: ChatAIActionEnum.Memory,
+                message:
+                  q && q.length > 0
+                    ? `Searching memories for "${q.length > 56 ? `${q.slice(0, 56)}…` : q}"`
+                    : (dataObject.message ?? "Searching memories..."),
+              });
+              break;
+            }
+            default:
+              setAiAction({
+                action: dataObject.action,
+                message: dataObject.message,
+                sources: dataObject.sources,
+              });
+              break;
+          }
+        } else if (data.type === "data-context-budget") {
+          setStreamContextBudget(withLastTurnSnapshot(data.data as ContextBudgetEstimate));
+        } else if (data.type === "data-multitask-routing") {
+          applyInboundDispatchRef.current?.(
+            data.data as import("@/lib/schemas/thought-routing").MultitaskInboundDispatch
+          );
+        } else if (data.type === "data-multitask-worker") {
+          applyAwarenessEventRef.current?.(
+            data.data as import("@/lib/schemas/subagent-runtime").WorkerAwarenessEvent
+          );
+        }
+      },
+      onError: (error) => {
+        logger.error("chat", `ERROR ${JSON.stringify(error, null, 2)}`);
+        setAiAction({ action: ChatAIActionEnum.Errored, message: undefined });
+        errorRef.current = error;
+        setChatError(error);
+        const errorMessage = getChatErrorMessage(error);
+
+        toast.error(errorMessage);
+        logger.error("chat", `Chat onError: ${errorMessage}`);
+      },
+      onFinish: () => {
+        setAiAction(undefined);
+        setContextBudgetRefreshKey((key) => key + 1);
+      },
+    });
+
+  const isCheckingStream = resumeCheck.threadId !== id || resumeCheck.pending;
+  const messageCountRef = useRef(messages.length);
+
+  messageCountRef.current = messages.length;
+  const openBtw = btw.open;
+  const slashCommands = useMemo(
+    () =>
+      experience === "arcadia" && threadId
+        ? {
+            btw: (question: string) => {
+              if (messageCountRef.current === 0) {
+                toast.info("/btw asks about this thread, so it needs a message first.");
+
+                return;
+              }
+              openBtw(question);
+            },
+          }
+        : undefined,
+    [experience, threadId, openBtw]
+  );
+  const sendStateRef = useRef({ id, status, isCheckingStream });
+
+  sendStateRef.current = { id, status, isCheckingStream };
+  const sendMessageIfIdle = useCallback<typeof sendMessage>(
+    async (...args) => {
+      const current = sendStateRef.current;
+
+      if (
+        current.isCheckingStream ||
+        current.status === "submitted" ||
+        current.status === "streaming" ||
+        pendingSendRef.current?.threadId === current.id
+      )
+        return;
+
+      const submission = { threadId: current.id };
+
+      pendingSendRef.current = submission;
+      try {
+        await sendMessage(...args);
+      } finally {
+        if (pendingSendRef.current === submission) pendingSendRef.current = null;
+      }
+    },
+    [sendMessage]
+  );
+
+  useBackgroundThreadMessages({
+    threadId: id,
+    enabled: experience === "arcadia" && (arcadiaMultitask?.hasSubagentThreads ?? false),
+    status,
+    setMessages,
+  });
+
+  // Ambient awareness: while this thread is on screen, a live voice session is told its title,
+  // latest messages and rolling summary — re-pushed after each finished exchange.
+  useVoiceScreenContext(useChatVoiceSurface(chatData?.thread.id, messages, status));
+
+  if (streamBudgetThreadId !== id) {
+    setStreamBudgetThreadId(id);
+    setStreamContextBudget(getLatestContextBudgetFromMessages(messages));
+    setContextBudgetRefreshKey(0);
+  }
+
+  // Send initial message if provided
+  useEffect(() => {
+    if (
+      initialMessage &&
+      !initialMessageSent.current &&
+      messages.length === 0 &&
+      !isCheckingStream &&
+      status === "ready"
+    ) {
+      initialMessageSent.current = true;
+      sendMessageIfIdle({ text: initialMessage });
     }
-  };
+  }, [initialMessage, messages.length, status, isCheckingStream, sendMessageIfIdle]);
+
+  useEffect(() => {
+    const fromMessages = getLatestContextBudgetFromMessages(messages);
+
+    setStreamContextBudget((current) => {
+      if (current?.lastTurn) return current;
+      if (!fromMessages) return current;
+
+      return fromMessages;
+    });
+  }, [messages]);
+
+  useEffect(() => {
+    const streaming = status === "streaming" || status === "submitted";
+
+    if (wasStreamingRef.current && status === "ready") {
+      setContextBudgetRefreshKey((key) => key + 1);
+    }
+
+    wasStreamingRef.current = streaming;
+  }, [status]);
+
+  useEffect(() => {
+    if (experience !== "arcadia" || !id) return;
+
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key !== "." || !(e.metaKey || e.ctrlKey) || e.altKey || e.shiftKey || e.repeat) {
+        return;
+      }
+
+      if (isEditableEventTarget(e.target)) return;
+
+      e.preventDefault();
+      setArcadiaSettingsOpen(true);
+    };
+
+    window.addEventListener("keydown", onKeyDown);
+
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [experience, id]);
+
+  const handleStop = useCallback(async () => {
+    // Remove the latest user message and partially completed AI message from messages
+    // Remove the latest user message and any partially completed AI response
+    stop();
+
+    /** The following commented out section would revert messages, fully aborting current generation */
+    // setMessages((prevMessages) => {
+    //   // Find the last user message
+    //   const lastUserIndex = [...prevMessages]
+    //     .reverse()
+    //     .findIndex((msg) => msg.role === "user");
+    //   if (lastUserIndex === -1) {
+    //     return prevMessages;
+    //   }
+    //   // Calculate the index in the original array
+    //   const lastUserMsgIdx = prevMessages.length - 1 - lastUserIndex;
+
+    //   // Remove the last user message and any AI message immediately after it (if exists)
+    //   let newMessages = prevMessages.slice(0, lastUserMsgIdx);
+    //   // Check if there's an AI message after the last user
+    //   if (
+    //     prevMessages[lastUserMsgIdx + 1] &&
+    //     prevMessages[lastUserMsgIdx + 1].role === "assistant"
+    //   ) {
+    //     // Remove the AI message as well
+    //     newMessages = prevMessages.slice(0, lastUserMsgIdx);
+    //   } else {
+    //     // If not, just slice off including the user message
+    //     newMessages = prevMessages.slice(0, lastUserMsgIdx);
+    //   }
+    //   return newMessages;
+    // });
+  }, [messages]);
 
   return (
-    <StickToBottom
-      className="h-full w-full relative mx-2 flex flex-col items-center"
-      initial="instant"
-      resize="smooth"
-    >
-      <ChatThread messages={messages} />
-      <ChatScrollButton />
-      <ChatInput id={id} sendMessage={sendMessage} />
-      {/* <div className="absolute top-20 right-0 z-40">
-        <button
-          className="px-4 py-2 bg-blue-500 hover:bg-blue-600 disabled:bg-gray-400 text-white rounded-md transition-colors"
-          disabled={updatingSummary}
-          onClick={handleUpdateSummary}
+    <DiagramNodeLinksProvider linksRef={diagramNodeLinksRef}>
+      <DiagramTakeoverProvider>
+        <div
+          data-arcadia-chat-root
+          className={[
+            "w-full",
+            "min-w-0",
+            "h-full",
+            confineInMultitaskDashboard ? "max-h-none" : "sm:max-h-[calc(100dvh-2rem)]",
+            "flex",
+            "flex-col",
+            "overflow-x-hidden",
+          ].join(" ")}
         >
-          {updatingSummary ? "Updating..." : "Update Summary"}
-        </button>
-      </div> */}
-    </StickToBottom>
+          <Conversation
+            className={[
+              "flex-1",
+              "min-h-0",
+              "w-full",
+              "relative",
+              "flex",
+              "flex-col",
+              "items-center",
+              "overflow-x-hidden",
+              "overscroll-x-none",
+            ].join(" ")}
+          >
+            {experience === "arcadia" && id && !confineInMultitaskDashboard ? (
+              <ChatThreadStyleOverlay threadId={id} visible={messages.length > 0} />
+            ) : null}
+            <ChatThread
+              aiActionPayload={aiAction}
+              chatId={id}
+              status={status}
+              contentClassName={persona === "remy" ? MEMORY_PANEL_RESERVE_PADDING : undefined}
+              messages={messages}
+              renderEmptyState={
+                experience === "arcadia" && !confineInMultitaskDashboard
+                  ? () => (
+                      <ChatStylePicker
+                        chatId={id}
+                        showStartersHint={messages.length === 0}
+                        starterKey={arcadiaStarterKey}
+                        onStarterKeyChange={setArcadiaStarterKey}
+                      />
+                    )
+                  : undefined
+              }
+            />
+            {persona === "remy" && (
+              <MemoryEphemeralCards
+                overlay
+                added={mem0Added}
+                autoClearMs={12000}
+                retrieved={mem0Retrieved}
+              />
+            )}
+            <ConversationScrollButton className="bottom-14" />
+          </Conversation>
+          <div className="shrink-0 px-4 sm:px-7 pb-1 md:pb-4 w-full -mt-10 flex flex-col gap-2">
+            <div className="relative mx-auto flex w-full max-w-4xl flex-col gap-2">
+              {persona === "remy" && (
+                <Sheet>
+                  <SheetTrigger asChild>
+                    <button
+                      className="flex items-center gap-2 text-xs text-muted-foreground hover:text-cyan-600 dark:hover:text-cyan-400 transition-colors"
+                      type="button"
+                    >
+                      <BrainCircuit className="size-3.5" />
+                      View persisted memory
+                    </button>
+                  </SheetTrigger>
+                  <SheetContent
+                    overlayPriority
+                    className="w-full sm:max-w-md overflow-y-auto flex flex-col top-0 bottom-20 right-0 h-auto border-t-0"
+                    side="right"
+                  >
+                    <SheetHeader>
+                      <SheetTitle className="sr-only">Persisted memory</SheetTitle>
+                    </SheetHeader>
+                    <MemoryLens className="flex-1 min-h-0" variant="sheet" />
+                  </SheetContent>
+                </Sheet>
+              )}
+              <AnimatePresence initial={false}>
+                {btw.isOpen ? (
+                  <BtwPanel
+                    key={btw.sessionId}
+                    className="absolute inset-x-0 bottom-full z-30 mb-2"
+                    error={btw.error}
+                    messages={btw.messages}
+                    status={btw.status}
+                    onClose={btw.close}
+                  />
+                ) : null}
+              </AnimatePresence>
+              {composerSlot}
+              <div ref={composerAnchorRef}>
+                {/* While a /btw side thread is open it owns the composer: sends, status,
+                    and settings all switch to it, then snap back when it closes. */}
+                <CoreInput
+                  chatId={chatData?.thread.id}
+                  clearError={btw.isOpen ? btw.clearError : clearError}
+                  disabled={btw.isOpen ? false : isCheckingStream}
+                  composerInject={composerInject}
+                  enableMarkdownInputPreview={
+                    experience === "arcadia" && experimentalArcadiaMarkdownPreview
+                  }
+                  error={btw.isOpen ? btw.error : (error ?? chatError)}
+                  featureHints={!(experience === "arcadia" && messages.length === 0)}
+                  hideWebMemorySpeechToggles={
+                    experience === "strata_page" && Boolean(assistantSession)
+                  }
+                  initialDraft={initialDraft}
+                  isBlankChat={messages.length === 0 && persona !== "strata"}
+                  modelRef={selectedModelRef}
+                  effortRef={selectedEffortRef}
+                  sendMessage={btw.isOpen ? btw.sendMessage : sendMessageIfIdle}
+                  status={btw.isOpen ? btw.status : status}
+                  stop={btw.isOpen ? btw.stop : handleStop}
+                  snapshotScope={btw.isOpen ? btwScope : threadScope}
+                  contextEffortRef={contextEffortRef}
+                  slashCommands={slashCommands}
+                  sideThreadKey={btw.sessionId}
+                  placeholder={btw.isOpen ? "Ask a side question…" : undefined}
+                  useMemoriesRef={useMemoriesRef}
+                  useSpeechFriendlyRef={useSpeechFriendlyRef}
+                  useWebSearchRef={useWebSearchRef}
+                  streamContextBudget={streamContextBudget}
+                  contextBudgetRefreshKey={contextBudgetRefreshKey}
+                  threadMessages={messages}
+                  experience={experience as ChatExperience | undefined}
+                  chatStyle={experience === "arcadia" && id ? getChatStyle(id) : undefined}
+                  onErrorCleared={() => setChatError(undefined)}
+                />
+              </div>
+            </div>
+          </div>
+          <DiagramTakeoverShell />
+          {experience === "arcadia" && id ? (
+            <ArcadiaChatSettingsDialog
+              chatId={id}
+              initialTitle={chatData?.thread.title}
+              open={arcadiaSettingsOpen}
+              onOpenChange={setArcadiaSettingsOpen}
+            />
+          ) : null}
+        </div>
+      </DiagramTakeoverProvider>
+    </DiagramNodeLinksProvider>
   );
 };

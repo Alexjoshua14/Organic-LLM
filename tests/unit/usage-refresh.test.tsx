@@ -1,0 +1,236 @@
+import type { UsageApiPayload } from "@/lib/usage/types";
+
+import { afterEach, beforeEach, describe, expect, jest, spyOn, test } from "bun:test";
+import { act, cleanup, fireEvent } from "@testing-library/react";
+import * as clerk from "@clerk/nextjs";
+
+import { UsageOverlay } from "@/components/usage/usage-overlay";
+import { USAGE_REFRESH_MS } from "@/components/usage/usage-refresh-progress";
+import { mockModulePreservingReal } from "../helpers/module-mock";
+import { render } from "../helpers/render";
+
+const totals = {
+  inputTokens: 0,
+  cachedInputTokens: 0,
+  outputTokens: 0,
+  reasoningTokens: 0,
+  totalTokens: 0,
+  costUsd: 0,
+  callCount: 0,
+};
+const payload: UsageApiPayload = {
+  range: { start: "2026-10-05", end: "2026-10-10", preset: "current" },
+  billingCycle: { start: "2026-10-05T00:00:00.000Z", end: "2026-10-12T00:00:00.000Z" },
+  plan: {
+    status: "available",
+    plan: "free",
+    source: "entitlements",
+    cycleStart: "2026-10-05T00:00:00.000Z",
+    cycleEnd: "2026-10-12T00:00:00.000Z",
+    capUsd: 10,
+    usedUsd: 0,
+    remainingUsd: 10,
+    resetsRemaining: 5,
+    resetVersion: "2026-10-05T00:00:00.000000+00:00",
+    canDispatch: true,
+    holdReason: null,
+  },
+  totals,
+  billingCycleTotals: totals,
+  daily: [],
+  byModel: [],
+  planAllotments: [],
+  pricingAsOf: "2026-10-10",
+};
+
+let clock: number;
+let visibility: DocumentVisibilityState;
+let visibilityDescriptor: PropertyDescriptor | undefined;
+let fetchSpy: ReturnType<typeof spyOn<typeof globalThis, "fetch">>;
+let clockSpy: ReturnType<typeof spyOn<typeof Date, "now">>;
+let restoreAuth: () => void;
+
+beforeEach(() => {
+  jest.useFakeTimers();
+  clock = Date.parse("2026-10-10T12:00:00Z");
+  clockSpy = spyOn(Date, "now").mockImplementation(() => clock);
+  visibility = "visible";
+  visibilityDescriptor = Object.getOwnPropertyDescriptor(document, "visibilityState");
+  Object.defineProperty(document, "visibilityState", { configurable: true, get: () => visibility });
+  restoreAuth = mockModulePreservingReal("@clerk/nextjs", clerk, {
+    useAuth: (() => ({ isSignedIn: true })) as never,
+  });
+  fetchSpy = spyOn(globalThis, "fetch").mockImplementation(async () => Response.json(payload));
+});
+
+afterEach(() => {
+  cleanup();
+  fetchSpy.mockRestore();
+  clockSpy.mockRestore();
+  restoreAuth();
+  if (visibilityDescriptor)
+    Object.defineProperty(document, "visibilityState", visibilityDescriptor);
+  else Reflect.deleteProperty(document, "visibilityState");
+  jest.useRealTimers();
+});
+
+async function advance(ms: number) {
+  await act(async () => {
+    clock += ms;
+    jest.advanceTimersByTime(ms);
+  });
+}
+
+async function openUsage() {
+  const view = render(<UsageOverlay />);
+
+  await act(async () => fireEvent.click(view.getByRole("button", { name: "Usage and cost" })));
+
+  return view;
+}
+
+describe("usage refresh timing", () => {
+  test("a pending first load shows the dashboard skeleton, not a zero-usage or sign-in state", async () => {
+    let resolve!: (response: Response) => void;
+    fetchSpy.mockImplementation(
+      () =>
+        new Promise<Response>((done) => {
+          resolve = done;
+        })
+    );
+    const view = await openUsage();
+    const panel = view.getByRole("dialog");
+    const content = view.getByRole("region", { name: "Usage data" });
+
+    expect(view.getByText("Loading usage…")).toBeTruthy();
+    expect(content.getAttribute("aria-busy")).toBe("true");
+    expect(view.queryByText("Free plan")).toBeNull();
+    expect(view.queryByText("$0.00")).toBeNull();
+    expect(view.queryByText(/Sign in to track usage/)).toBeNull();
+
+    await act(async () => resolve(Response.json(payload)));
+
+    expect(view.getByRole("dialog")).toBe(panel);
+    expect(view.getByRole("region", { name: "Usage data" })).toBe(content);
+    expect(content.getAttribute("aria-busy")).toBe("false");
+    expect(view.queryByText("Loading usage…")).toBeNull();
+    expect(view.getByText("Free plan")).toBeTruthy();
+  });
+
+  test("a failed background refresh preserves the dashboard and offers a retry without a skeleton", async () => {
+    const view = await openUsage();
+    const plan = view
+      .getByRole("region", { name: "Usage data" })
+      .querySelector('[aria-label="Plan status"]');
+    let resolve!: (response: Response) => void;
+    fetchSpy.mockImplementation(
+      () =>
+        new Promise<Response>((done) => {
+          resolve = done;
+        })
+    );
+
+    await advance(USAGE_REFRESH_MS);
+    expect(view.queryByText("Loading usage…")).toBeNull();
+    expect(view.getByRole("region", { name: "Usage data" }).getAttribute("aria-busy")).toBe("true");
+    expect(view.getByText("Free plan").closest("section")).toBe(plan);
+
+    await act(async () => resolve(Response.json({ error: "Unavailable" }, { status: 503 })));
+    expect(view.getByText(/Showing previous data/)).toBeTruthy();
+    expect(view.getByText("Free plan").closest("section")).toBe(plan);
+    expect(view.queryByText("Loading usage…")).toBeNull();
+
+    await act(async () => fireEvent.click(view.getByRole("button", { name: "Retry refresh" })));
+    expect(view.queryByText(/Showing previous data/)).toBeNull();
+    await act(async () => resolve(Response.json(payload)));
+    expect(view.getByText("Free plan").closest("section")).toBe(plan);
+  });
+
+  test("retrying an initial failure restores the skeleton until data is available", async () => {
+    fetchSpy.mockResolvedValueOnce(Response.json({ error: "Unavailable" }, { status: 503 }));
+    const view = await openUsage();
+    const panel = view.getByRole("dialog");
+    expect(view.getByText("Could not load usage")).toBeTruthy();
+    let resolve!: (response: Response) => void;
+    fetchSpy.mockImplementation(
+      () =>
+        new Promise<Response>((done) => {
+          resolve = done;
+        })
+    );
+
+    await act(async () => fireEvent.click(view.getByRole("button", { name: "Retry" })));
+    expect(view.getByText("Loading usage…")).toBeTruthy();
+    expect(view.getByRole("dialog")).toBe(panel);
+    await act(async () => resolve(Response.json(payload)));
+    expect(view.queryByText("Loading usage…")).toBeNull();
+    expect(view.getByText("Free plan")).toBeTruthy();
+  });
+
+  test("the compact header's indicator reaches the actual next refresh and resets", async () => {
+    const view = await openUsage();
+
+    expect(view.getByRole("heading", { name: "Organic • Usage" })).toBeTruthy();
+    expect(view.queryByRole("heading", { name: "Usage", exact: true })).toBeNull();
+    expect(fetchSpy).toHaveBeenCalledTimes(1);
+    await advance(5_000);
+    expect(
+      view.getByRole("progressbar", { name: "Next usage refresh" }).getAttribute("aria-valuetext")
+    ).toBe("Next refresh in 10 seconds");
+    await advance(USAGE_REFRESH_MS - 5_000);
+    expect(fetchSpy).toHaveBeenCalledTimes(2);
+    expect(
+      view.getByRole("progressbar", { name: "Next usage refresh" }).getAttribute("aria-valuenow")
+    ).toBe("0");
+  });
+
+  test("range and focus refreshes reset the deadline; a pending request never overlaps", async () => {
+    const view = await openUsage();
+
+    await advance(10_000);
+    await act(async () => fireEvent.click(view.getByRole("button", { name: "Previous" })));
+    expect(fetchSpy).toHaveBeenCalledTimes(2);
+    expect(fetchSpy.mock.calls[1]?.[0]).toBe("/api/usage?range=previous");
+    await advance(5_000);
+    expect(fetchSpy).toHaveBeenCalledTimes(2);
+    await act(async () => window.dispatchEvent(new Event("focus")));
+    expect(fetchSpy).toHaveBeenCalledTimes(3);
+
+    let resolve!: (response: Response) => void;
+    fetchSpy.mockImplementation(
+      () =>
+        new Promise<Response>((done) => {
+          resolve = done;
+        })
+    );
+    await advance(USAGE_REFRESH_MS);
+    expect(
+      view.getByRole("progressbar", { name: "Next usage refresh" }).getAttribute("aria-valuetext")
+    ).toBe("Refreshing usage");
+    await advance(USAGE_REFRESH_MS * 2);
+    await act(async () => window.dispatchEvent(new Event("focus")));
+    expect(fetchSpy).toHaveBeenCalledTimes(4);
+    await act(async () => resolve(Response.json(payload)));
+    expect(
+      view.getByRole("progressbar", { name: "Next usage refresh" }).getAttribute("aria-valuenow")
+    ).toBe("0");
+    await advance(USAGE_REFRESH_MS);
+    expect(fetchSpy).toHaveBeenCalledTimes(5);
+    await act(async () => resolve(Response.json(payload)));
+  });
+
+  test("hidden and closed panels stop polling; returning to a visible tab refreshes immediately", async () => {
+    const view = await openUsage();
+
+    visibility = "hidden";
+    await act(async () => document.dispatchEvent(new Event("visibilitychange")));
+    await advance(USAGE_REFRESH_MS * 2);
+    expect(fetchSpy).toHaveBeenCalledTimes(1);
+    visibility = "visible";
+    await act(async () => document.dispatchEvent(new Event("visibilitychange")));
+    expect(fetchSpy).toHaveBeenCalledTimes(2);
+    await act(async () => fireEvent.click(view.getByRole("button", { name: "Close" })));
+    await advance(USAGE_REFRESH_MS * 2);
+    expect(fetchSpy).toHaveBeenCalledTimes(2);
+  });
+});

@@ -1,29 +1,25 @@
-// import { NewChatNew } from "@/components/chat/new-chat-new";
+import type { Metadata } from "next";
+
+import { auth } from "@clerk/nextjs/server";
+
+import { LiquidChromeSsrFill } from "@/components/background/LiquidChromeSsrFill";
 import Home from "@/components/pages/home";
+import { welcomeCopy } from "@/lib/welcome/copy";
 
-export default function HomePage() {
-  return <Home />;
-}
+export const metadata: Metadata = {
+  title: {
+    absolute: welcomeCopy.meta.title,
+  },
+  description: welcomeCopy.meta.description,
+};
 
-// <Page>
-//   <div className="relative inline-block max-w-4xl h-full w-full text-center justify-center">
+export default async function HomePage() {
+  const { userId } = await auth();
 
-{
-  /*<NewChatNew />*/
+  return (
+    <>
+      <LiquidChromeSsrFill id="home-liquid-chrome-ssr-fill" />
+      <Home initialSignedOut={!userId} />
+    </>
+  );
 }
-{
-  /* <NewChat /> */
-}
-{
-  /*<span className={title()}>Make&nbsp;</span>
-    <span className={title({ color: "violet" })}>beautiful&nbsp;</span>
-    <br />
-    <span className={title()}>
-      websites regardless of your design experience.
-    </span>
-    <div className={subtitle({ class: "mt-4" })}>
-      Beautiful, fast and modern React UI library.
-    </div>*/
-}
-//   </div>
-// </Page>

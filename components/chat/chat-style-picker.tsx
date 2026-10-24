@@ -1,0 +1,222 @@
+"use client";
+
+import { ChefHat, LayoutGrid, MessagesSquare, NotebookPen } from "lucide-react";
+import { AnimatePresence, motion } from "framer-motion";
+import { useCallback, useRef } from "react";
+import { toast } from "sonner";
+
+import { ChatStarterCard } from "./chat-starter-card";
+import { ChatStyleCard } from "./chat-style-card";
+
+import { FeatureHint } from "@/components/onboarding/feature-hint";
+import { patchArcadiaStarterKey } from "@/lib/chat/arcadia-starter-client";
+import { CHAT_STYLES, type ChatStyle } from "@/lib/chat/chat-style";
+import {
+  CHAT_STYLE_STARTERS,
+  encodeChatStarterKey,
+  parseChatStarterKey,
+  resolveChatStarterId,
+  resolveChatStarterLabel,
+} from "@/lib/chat/chat-style-starters";
+import { setChatStyle, useChatStyle } from "@/lib/chat/chat-style-store";
+import { ARCADIA_CHAT_STYLE_HINT_IDS } from "@/lib/onboarding/arcadia-chat-style-hints";
+import { cn } from "@/lib/utils";
+
+const STYLE_ICONS: Record<ChatStyle, React.ReactNode> = {
+  default: <MessagesSquare className="size-4" />,
+  ergon: <LayoutGrid className="size-4" />,
+  remy: <ChefHat className="size-4" />,
+  scribe: <NotebookPen className="size-4" />,
+};
+
+const PROMPT_MOTION = { duration: 0.24, ease: [0.25, 0.46, 0.45, 0.94] as const };
+
+/** Fixed slot for three starter rows — cross-fade without changing page height. */
+const STARTER_PROMPTS_SLOT_H = "h-[8.75rem] sm:h-[9.25rem]";
+
+type ChatStylePickerProps = {
+  chatId?: string;
+  starterKey?: string | null;
+  onStarterKeyChange?: (key: string | null) => void;
+  /** Gate Arcadia starters coachmark until empty thread is painted. */
+  showStartersHint?: boolean;
+};
+
+/** Arcadia empty state — compact, fits above composer without scrolling. */
+export function ChatStylePicker({
+  chatId,
+  starterKey = null,
+  onStarterKeyChange,
+  showStartersHint = true,
+}: ChatStylePickerProps) {
+  const selected = useChatStyle(chatId ?? "");
+  const starters = CHAT_STYLE_STARTERS[selected];
+  const pendingPatch = useRef<Promise<void> | null>(null);
+  const styleButtonRefs = useRef<Array<HTMLButtonElement | null>>([]);
+
+  const focusStyleAtIndex = useCallback((index: number) => {
+    styleButtonRefs.current[index]?.focus();
+  }, []);
+
+  const persistStarterKey = useCallback(
+    async (nextKey: string | null) => {
+      if (!chatId || !onStarterKeyChange) return;
+
+      const previousKey = starterKey;
+
+      onStarterKeyChange(nextKey);
+
+      const patch = patchArcadiaStarterKey(chatId, nextKey).then((result) => {
+        if (!result.ok) {
+          onStarterKeyChange(previousKey ?? null);
+          toast.error(result.error);
+        }
+      });
+
+      pendingPatch.current = patch;
+      await patch;
+      pendingPatch.current = null;
+    },
+    [chatId, onStarterKeyChange, starterKey]
+  );
+
+  const selectChatStyle = useCallback(
+    async (style: ChatStyle) => {
+      if (!chatId) return;
+
+      const parsed = starterKey ? parseChatStarterKey(starterKey) : null;
+
+      setChatStyle(chatId, style);
+
+      if (parsed && parsed.style !== style) {
+        await persistStarterKey(null);
+      }
+    },
+    [chatId, persistStarterKey, starterKey]
+  );
+
+  const toggleStarter = useCallback(
+    async (style: ChatStyle, starterId: string) => {
+      const encoded = encodeChatStarterKey(style, starterId);
+
+      if (starterKey === encoded) {
+        await persistStarterKey(null);
+      } else {
+        await persistStarterKey(encoded);
+      }
+    },
+    [persistStarterKey, starterKey]
+  );
+
+  const handleStyleRadiogroupKeyDown = useCallback(
+    (event: React.KeyboardEvent<HTMLDivElement>) => {
+      const currentIndex = CHAT_STYLES.findIndex((style) => style.id === selected);
+
+      if (currentIndex < 0) return;
+
+      let nextIndex = currentIndex;
+
+      switch (event.key) {
+        case "ArrowRight":
+        case "ArrowDown":
+          nextIndex = (currentIndex + 1) % CHAT_STYLES.length;
+          break;
+        case "ArrowLeft":
+        case "ArrowUp":
+          nextIndex = (currentIndex - 1 + CHAT_STYLES.length) % CHAT_STYLES.length;
+          break;
+        default:
+          return;
+      }
+
+      event.preventDefault();
+      const nextStyle = CHAT_STYLES[nextIndex]!.id;
+
+      void selectChatStyle(nextStyle);
+      focusStyleAtIndex(nextIndex);
+    },
+    [focusStyleAtIndex, selectChatStyle, selected]
+  );
+
+  const parsedStarter = starterKey ? parseChatStarterKey(starterKey) : null;
+
+  return (
+    <FeatureHint id="arcadia-starters" showWhen={showStartersHint}>
+      <div className="mx-auto flex w-full max-w-4xl flex-col items-center gap-4 px-1 sm:gap-5 pt-12">
+        <div
+          aria-label="Chat style"
+          className="grid w-full min-w-0 grid-cols-2 lg:grid-cols-4 gap-1.5 place-items-center sm:gap-2.5 [&>*]:min-w-0"
+          role="radiogroup"
+          onKeyDown={handleStyleRadiogroupKeyDown}
+        >
+          {CHAT_STYLES.map((style, styleIndex) => (
+            <FeatureHint
+              key={style.id}
+              id={ARCADIA_CHAT_STYLE_HINT_IDS[style.id]}
+              showWhen={showStartersHint && selected === style.id}
+            >
+              <ChatStyleCard
+                buttonRef={(node) => {
+                  styleButtonRefs.current[styleIndex] = node;
+                }}
+                description={style.description}
+                guide={style.guide}
+                icon={STYLE_ICONS[style.id]}
+                label={style.label}
+                selected={selected === style.id}
+                tabIndex={0}
+                onFocus={() => void selectChatStyle(style.id)}
+                onSelect={() => void selectChatStyle(style.id)}
+              />
+            </FeatureHint>
+          ))}
+        </div>
+
+        <div className="w-full min-w-0 space-y-2 text-left">
+          <p className="text-center text-2xs uppercase tracking-[0.16em] text-muted-foreground/70 sm:text-xs">
+            Launchpad
+          </p>
+          <div className={cn("relative w-full", STARTER_PROMPTS_SLOT_H)}>
+            <AnimatePresence initial={false}>
+              <motion.ul
+                key={selected}
+                animate={{ opacity: 1, x: 0 }}
+                className="absolute inset-0 flex w-full flex-col gap-1.5 sm:gap-2"
+                exit={{ opacity: 0, x: 8 }}
+                initial={{ opacity: 0, x: -8 }}
+                transition={PROMPT_MOTION}
+              >
+                {starters.map((starter, index) => {
+                  const label = resolveChatStarterLabel(starter);
+                  const starterId = resolveChatStarterId(starter);
+                  const encoded = encodeChatStarterKey(selected, starterId);
+                  const isSelected =
+                    parsedStarter?.style === selected &&
+                    parsedStarter.id === starterId &&
+                    starterKey === encoded;
+
+                  return (
+                    <motion.li
+                      key={starterId}
+                      animate={{ opacity: 1, x: 0 }}
+                      className="min-h-0 min-w-0"
+                      initial={{ opacity: 0, x: -10 }}
+                      transition={{ ...PROMPT_MOTION, delay: index * 0.04 }}
+                    >
+                      <ChatStarterCard
+                        label={label}
+                        selected={isSelected}
+                        tabIndex={-1}
+                        onToggle={() => void toggleStarter(selected, starterId)}
+                      />
+                    </motion.li>
+                  );
+                })}
+              </motion.ul>
+            </AnimatePresence>
+          </div>
+        </div>
+      </div>
+    </FeatureHint>
+  );
+}

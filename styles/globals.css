@@ -5,9 +5,32 @@
 @import "tailwindcss";
 @import "tw-animate-css";
 
+@source "../components/**/*.{js,ts,jsx,tsx,mdx}";
+@source "../app/**/*.{js,ts,jsx,tsx,mdx}";
+@source "../packages/**/*.{js,ts,jsx,tsx,mdx}";
+
 @custom-variant dark (&:is(.dark *));
 
 @theme inline {
+  --text-2xs: 0.625rem; /* 10px, smaller than xs (12px) */
+
+  /* Spacing primitives (4px base grid) — see docs/design/spacing.md */
+  --spacing-stack-xs: 0.25rem; /* 4px */
+  --spacing-stack-sm: 0.5rem; /* 8px */
+  --spacing-stack-md: 0.75rem; /* 12px */
+  --spacing-stack-lg: 1rem; /* 16px */
+  --spacing-stack-xl: 1.25rem; /* 20px */
+  --spacing-stack-2xl: 1.5rem; /* 24px */
+  --spacing-stack-3xl: 2rem; /* 32px */
+
+  --spacing-inline-sm: 0.5rem; /* 8px — min touch gap (Apple HIG) */
+  --spacing-inline-md: 0.75rem; /* 12px */
+  --spacing-inline-lg: 1rem; /* 16px */
+
+  --spacing-inset-sm: 0.5rem;
+  --spacing-inset-md: 0.75rem;
+  --spacing-inset-lg: 1rem;
+
   --radius-sm: calc(var(--radius) - 4px);
 
   --radius-md: calc(var(--radius) - 2px);
@@ -77,6 +100,12 @@
   --color-sidebar-border: var(--sidebar-border);
 
   --color-sidebar-ring: var(--sidebar-ring);
+
+  --color-lumen: var(--lumen-oklch);
+
+  --color-lumen-rim: var(--lumen-rim-oklch);
+
+  --color-lumen-deep: var(--lumen-deep-oklch);
 }
 
 :root {
@@ -84,35 +113,36 @@
 
   --background: oklch(1 0 0);
 
-  --foreground: oklch(0.141 0.005 285.823);
+  --foreground: oklch(0.22 0.012 70); /* #2D2B26 - warm brown-gray */
+  --context-usage-amber: #916020;
 
-  --card: oklch(1 0 0);
+  --card: oklch(1 0 0); /* Use with /80% opacity + backdrop-blur in components */
 
-  --card-foreground: oklch(0.141 0.005 285.823);
+  --card-foreground: oklch(0.22 0.012 70); /* #2D2B26 */
 
   --popover: oklch(1 0 0);
 
-  --popover-foreground: oklch(0.141 0.005 285.823);
+  --popover-foreground: oklch(0.22 0.012 70);
 
-  --primary: oklch(0.21 0.006 285.885);
+  --primary: oklch(0.22 0.012 70); /* #2D2B26 */
 
   --primary-foreground: oklch(0.985 0 0);
 
   --secondary: oklch(0.967 0.001 286.375);
 
-  --secondary-foreground: oklch(0.21 0.006 285.885);
+  --secondary-foreground: oklch(0.22 0.012 70);
 
   --muted: oklch(0.967 0.001 286.375);
 
-  --muted-foreground: oklch(0.552 0.016 285.938);
+  --muted-foreground: oklch(0.44 0.006 200); /* #5C5E5E - cool neutral gray */
 
-  --accent: oklch(0.967 0.001 286.375);
+  --accent: oklch(0.573 0.1049 174.44); /* #128C74 */
 
-  --accent-foreground: oklch(0.21 0.006 285.885);
+  --accent-foreground: oklch(0.985 0 0);
 
   --destructive: oklch(0.577 0.245 27.325);
 
-  --border: oklch(0.92 0.004 286.32);
+  --border: oklch(0.92 0.004 286.32); /* #DCDDDC */
 
   --input: oklch(0.92 0.004 286.32);
 
@@ -130,55 +160,80 @@
 
   --sidebar: oklch(0.985 0 0);
 
-  --sidebar-foreground: oklch(0.141 0.005 285.823);
+  --sidebar-foreground: oklch(0.22 0.012 70);
 
-  --sidebar-primary: oklch(0.21 0.006 285.885);
+  --sidebar-primary: oklch(0.22 0.012 70);
 
   --sidebar-primary-foreground: oklch(0.985 0 0);
 
   --sidebar-accent: oklch(0.967 0.001 286.375);
 
-  --sidebar-accent-foreground: oklch(0.21 0.006 285.885);
+  --sidebar-accent-foreground: oklch(0.22 0.012 70);
 
   --sidebar-border: oklch(0.92 0.004 286.32);
 
   --sidebar-ring: oklch(0.705 0.015 286.067);
+
+  /*
+   * Lumen — canonical UI light source (~3000K blackbody family).
+   * RGB channels for glows/shadows (rgb(var(--lumen) / α)); oklch for solid fills (text-lumen, bg-lumen).
+   * Kelvin reference: rim 3200K · base 3000K · deep 2800K.
+   */
+  --lumen-rim: 255 188 115;
+  --lumen: 255 178 102;
+  --lumen-deep: 255 168 92;
+  --lumen-rim-oklch: oklch(0.835 0.07 68);
+  --lumen-oklch: oklch(0.805 0.075 65);
+  --lumen-deep-oklch: oklch(0.78 0.08 62);
+
+  /* Static fallback while Liquid Chrome WebGL initializes (matches AdaptiveLiquidChrome reduced-motion). */
+  --liquid-chrome-fallback-light: radial-gradient(
+    ellipse 120% 80% at 50% 40%,
+    rgb(247, 245, 239) 0%,
+    rgb(241, 239, 233) 100%
+  );
+  --liquid-chrome-fallback-dark: radial-gradient(
+    ellipse 120% 80% at 50% 40%,
+    rgb(8, 13, 18) 0%,
+    rgb(5, 8, 11) 100%
+  );
 }
 
 .dark {
-  --background: oklch(0.141 0.005 285.823);
+  --context-usage-amber: #bb8334;
+  --background: oklch(0.141 0.005 285.823); /* #141516 */
 
-  --foreground: oklch(0.985 0 0);
+  --foreground: oklch(0.96 0.003 145); /* #F3F4F3 - slight green tint */
 
-  --card: oklch(0.21 0.006 285.885);
+  --card: oklch(0.17 0.006 220); /* #1C1E1F - use with /80% opacity + backdrop-blur */
 
-  --card-foreground: oklch(0.985 0 0);
+  --card-foreground: oklch(0.96 0.003 145); /* #F3F4F3 */
 
-  --popover: oklch(0.21 0.006 285.885);
+  --popover: oklch(0.17 0.006 220);
 
-  --popover-foreground: oklch(0.985 0 0);
+  --popover-foreground: oklch(0.96 0.003 145);
 
-  --primary: oklch(0.92 0.004 286.32);
+  --primary: oklch(0.96 0.003 145); /* #F3F4F3 */
 
-  --primary-foreground: oklch(0.21 0.006 285.885);
+  --primary-foreground: oklch(0.22 0.012 70);
 
-  --secondary: oklch(0.274 0.006 286.033);
+  --secondary: oklch(0.17 0.006 220); /* #1C1E1F - background-secondary */
 
-  --secondary-foreground: oklch(0.985 0 0);
+  --secondary-foreground: oklch(0.68 0.006 200);
 
-  --muted: oklch(0.274 0.006 286.033);
+  --muted: oklch(0.22 0.006 220); /* #2A2C2D */
 
-  --muted-foreground: oklch(0.705 0.015 286.067);
+  --muted-foreground: oklch(0.68 0.006 200); /* #A0A2A2 - cool neutral */
 
-  --accent: oklch(0.274 0.006 286.033);
+  --accent: oklch(0.573 0.1049 174.44);
 
-  --accent-foreground: oklch(0.985 0 0);
+  --accent-foreground: oklch(0.96 0.003 145);
 
   --destructive: oklch(0.704 0.191 22.216);
 
-  --border: oklch(1 0 0 / 10%);
+  --border: oklch(0.22 0.006 220); /* #2A2C2D - solid border */
 
-  --input: oklch(1 0 0 / 15%);
+  --input: oklch(0.22 0.006 220);
 
   --ring: oklch(0.552 0.016 285.938);
 
@@ -192,19 +247,19 @@
 
   --chart-5: oklch(0.645 0.246 16.439);
 
-  --sidebar: oklch(0.21 0.006 285.885);
+  --sidebar: oklch(0.17 0.006 220); /* #1C1E1F */
 
-  --sidebar-foreground: oklch(0.985 0 0);
+  --sidebar-foreground: oklch(0.96 0.003 145);
 
   --sidebar-primary: oklch(0.488 0.243 264.376);
 
-  --sidebar-primary-foreground: oklch(0.985 0 0);
+  --sidebar-primary-foreground: oklch(0.96 0.003 145);
 
-  --sidebar-accent: oklch(0.274 0.006 286.033);
+  --sidebar-accent: oklch(0.22 0.006 220);
 
-  --sidebar-accent-foreground: oklch(0.985 0 0);
+  --sidebar-accent-foreground: oklch(0.96 0.003 145);
 
-  --sidebar-border: oklch(1 0 0 / 10%);
+  --sidebar-border: oklch(0.22 0.006 220);
 
   --sidebar-ring: oklch(0.552 0.016 285.938);
 }
@@ -236,7 +291,12 @@
   }
 
   p {
-    @apply text-base leading-normal;
+    @apply text-base leading-snug sm:leading-normal;
+  }
+
+  ul li,
+  ol li {
+    @apply leading-snug;
   }
 
   h1,
@@ -245,8 +305,55 @@
   h4,
   h5,
   h6 {
-    @apply cursor-default select-none;
+    @apply cursor-default select-none font-commissioner;
   }
+
+  .page-transform {
+    @apply transition-all duration-150;
+  }
+}
+
+/* User font preference (applied by FontProvider) */
+body.font-theme-satoshi {
+  font-family: var(--font-satoshi), sans-serif;
+}
+body.font-theme-inter {
+  font-family: var(--font-inter), sans-serif;
+}
+body.font-theme-commissioner {
+  font-family: var(--font-commissioner), sans-serif;
+}
+
+/* Welcome hero — accent gradient drift + bloom breathe */
+@keyframes welcome-accent-shift {
+  0%,
+  100% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+}
+
+@keyframes welcome-bloom-breathe {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.88;
+  }
+}
+
+/* Liquid chrome: instant fill before WebGL hydrates (Page section or fixed Ergon layout layer). */
+.page-liquid-chrome,
+.liquid-chrome-page-fill {
+  background: var(--liquid-chrome-fallback-light);
+}
+
+.dark .page-liquid-chrome,
+.dark .liquid-chrome-page-fill {
+  background: var(--liquid-chrome-fallback-dark);
 }
 
 /* Mobile safe area — padding on content, not the background layer */
@@ -267,5 +374,478 @@
 @supports (padding: env(safe-area-inset-bottom)) {
   .mobile-safe-bottom {
     padding-bottom: max(0px, env(safe-area-inset-bottom));
+  }
+}
+
+/* Rabbit Holes — mobile Safari */
+.rabbit-hole-mobile-scroll {
+  -webkit-overflow-scrolling: touch;
+  scroll-padding-bottom: max(1rem, env(safe-area-inset-bottom));
+}
+
+.rabbit-hole-mobile-source-pills {
+  scroll-snap-type: x proximity;
+}
+
+.rabbit-hole-mobile-source-analysis {
+  -webkit-overflow-scrolling: touch;
+}
+
+.rabbit-hole-mobile-bottom-sheet {
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+/* Full-bleed pages (e.g. welcome) skip the inset card; keep the control cluster flush with the top edge. */
+@media (min-width: 768px) {
+  body:has([data-page-chrome="full-bleed"]) .control-cluster {
+    transform: translateY(0) !important;
+  }
+}
+
+/* Rabbit Holes explorer only: hide global mobile chrome (browse still shows control cluster) */
+@media (max-width: 767px) {
+  body:has([data-rabbit-hole-explorer]) [data-mobile-nav-chrome="sidebar-trigger"],
+  body:has([data-rabbit-hole-explorer]) .control-cluster {
+    display: none !important;
+  }
+}
+
+/* Organic glass working (lab): refraction filter URL for backdrop-filter. */
+@utility backdrop-refract {
+  backdrop-filter: url(#organic-glass-refract);
+  -webkit-backdrop-filter: url(#organic-glass-refract);
+}
+
+@supports not (backdrop-filter: url(#x)) {
+  .backdrop-refract {
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+  }
+}
+
+/* Organic Glass preview + smoke fallback: solid readable fill when blur is unavailable. */
+/* Active chip — glass panel only (dark). Lumen entity sits in .lumen-rim-backlight behind. */
+.dark .composer-tool-chip-active {
+  background: color-mix(in oklch, var(--background) 22%, transparent) !important;
+  border-color: color-mix(in oklch, white 8%, transparent) !important;
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.05) !important;
+}
+
+/* Toggle stays neutral on hover — no teal; underglow handles feedback in dark. */
+.dark .composer-tool-chip:hover:not(:disabled) {
+  background: transparent !important;
+  color: var(--foreground) !important;
+  box-shadow: none !important;
+}
+
+.dark .composer-tool-chip-active:hover:not(:disabled) {
+  background: color-mix(in oklch, var(--background) 22%, transparent) !important;
+  border-color: color-mix(in oklch, white 8%, transparent) !important;
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.05) !important;
+}
+
+/* Host — bleed room for outer extent + blur spread. */
+.dark .composer-tool-chip-host {
+  overflow: visible;
+  padding: var(--lumen-bleed, 6px);
+  margin: calc(-1 * var(--lumen-bleed, 6px));
+}
+
+/* Stage shrink-wraps the button. */
+.dark .composer-tool-chip-stage {
+  overflow: visible;
+}
+
+/*
+ * Lumen rim backlight — canonical spec in use-composer-chip-lumen.ts
+ * Rounded-rect border ring (−3% to +10% band); not an ellipse gradient.
+ */
+.dark .lumen-rim-backlight {
+  position: absolute;
+  inset: calc(-1 * var(--lumen-outset, 4px));
+  z-index: 0;
+  box-sizing: border-box;
+  border: var(--lumen-band, 5px) solid rgb(var(--lumen) / 0.19);
+  border-radius: var(--chip-radius, 0.3125rem);
+  background: transparent;
+  pointer-events: none;
+  transition: opacity 200ms cubic-bezier(0.25, 0.46, 0.45, 0.94);
+  filter: blur(var(--lumen-blur, 3px));
+}
+
+.dark .lumen-rim-backlight--on {
+  opacity: 0.36;
+}
+
+.dark .composer-tool-chip-host:hover .lumen-rim-backlight--on {
+  opacity: 0.18;
+}
+
+/* ~50% intensity peek on hover — inactive toggles only. */
+.dark .lumen-rim-backlight--hover {
+  opacity: 0;
+}
+
+.dark .composer-tool-chip-host:hover .lumen-rim-backlight--hover {
+  opacity: 0.18;
+}
+
+.dark .lumen-rim-backlight--pulse.lumen-rim-backlight--on {
+  animation: lumen-rim-breathe 2.4s cubic-bezier(0.25, 0.46, 0.45, 0.94) infinite;
+}
+
+/* Gen UI Lab — Reforge-style full-page gallery snap (native, not wheel-hijack). */
+.gen-ui-gallery-scroll {
+  scroll-snap-type: y mandatory;
+  scroll-behavior: smooth;
+  overscroll-behavior-y: contain;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .gen-ui-gallery-scroll {
+    scroll-behavior: auto;
+  }
+}
+
+.gen-ui-gallery-section {
+  scroll-snap-stop: always;
+}
+
+.dmz-lume-host .lumen-rim-backlight {
+  border-radius: 0.75rem;
+}
+
+.dmz-lume-stage {
+  width: 100%;
+}
+
+@keyframes lumen-rim-breathe {
+  0%,
+  100% {
+    opacity: 0.36;
+  }
+
+  50% {
+    opacity: 0.26;
+  }
+}
+
+/* Homepage composer — lumen rim behind the main prompt shell. */
+.home-composer-lumen-host {
+  overflow: visible;
+  width: 100%;
+}
+
+.home-composer-lumen-stage {
+  overflow: visible;
+}
+
+.home-composer-lumen-rim {
+  position: absolute;
+  inset: calc(-1 * var(--lumen-outset, 6px));
+  z-index: 0;
+  box-sizing: border-box;
+  border: var(--lumen-band, 7px) solid rgb(var(--lumen) / 0.16);
+  border-radius: var(--composer-radius, 0.75rem);
+  pointer-events: none;
+  filter: blur(var(--lumen-blur, 5px));
+  opacity: 0.22;
+  animation: home-composer-lumen-breathe 4.2s cubic-bezier(0.25, 0.46, 0.45, 0.94) infinite;
+  transition: opacity 320ms cubic-bezier(0.25, 0.46, 0.45, 0.94);
+}
+
+.dark .home-composer-lumen-rim {
+  border-color: rgb(var(--lumen) / 0.19);
+  opacity: 0.3;
+  animation-name: home-composer-lumen-breathe-dark;
+}
+
+.home-composer-lumen-host:focus-within .home-composer-lumen-rim {
+  animation-play-state: paused;
+  opacity: 0.34;
+}
+
+.dark .home-composer-lumen-host:focus-within .home-composer-lumen-rim {
+  opacity: 0.42;
+}
+
+/* Hover/press micro-interactions for lumen-shell action buttons (homepage top row). */
+.home-composer-lumen-host--interactive .home-composer-lumen-stage {
+  transition: transform 200ms cubic-bezier(0.25, 0.46, 0.45, 0.94);
+}
+
+.home-composer-lumen-host--interactive:not(:has(:disabled)):hover .home-composer-lumen-stage {
+  transform: translateY(-1px);
+}
+
+.home-composer-lumen-host--interactive:not(:has(:disabled)):active .home-composer-lumen-stage {
+  transform: translateY(0) scale(0.97);
+  transition-duration: 100ms;
+}
+
+.home-composer-lumen-host--interactive:not(:has(:disabled)):hover .home-composer-lumen-rim {
+  animation-play-state: paused;
+  opacity: 0.34;
+}
+
+.dark .home-composer-lumen-host--interactive:not(:has(:disabled)):hover .home-composer-lumen-rim {
+  opacity: 0.42;
+}
+
+@keyframes home-composer-lumen-breathe {
+  0%,
+  100% {
+    opacity: 0.2;
+  }
+
+  50% {
+    opacity: 0.3;
+  }
+}
+
+@keyframes home-composer-lumen-breathe-dark {
+  0%,
+  100% {
+    opacity: 0.28;
+  }
+
+  50% {
+    opacity: 0.38;
+  }
+}
+
+/* Core input — warm lumen halo when memory retrieval is enabled. */
+.core-input-memory-lumen .home-composer-lumen-rim {
+  animation: core-input-memory-lumen-breathe 6.4s cubic-bezier(0.33, 0.86, 0.45, 0.94) infinite;
+  opacity: 0.16;
+  border-color: rgb(var(--lumen) / 0.14);
+}
+
+.dark .core-input-memory-lumen .home-composer-lumen-rim {
+  opacity: 0.22;
+  border-color: rgb(var(--lumen) / 0.17);
+  animation-name: core-input-memory-lumen-breathe-dark;
+}
+
+.core-input-memory-lumen:focus-within .home-composer-lumen-rim {
+  animation-play-state: paused;
+  opacity: 0.26;
+}
+
+.dark .core-input-memory-lumen:focus-within .home-composer-lumen-rim {
+  opacity: 0.34;
+}
+
+@keyframes core-input-memory-lumen-breathe {
+  0%,
+  100% {
+    opacity: 0.14;
+  }
+
+  50% {
+    opacity: 0.22;
+  }
+}
+
+@keyframes core-input-memory-lumen-breathe-dark {
+  0%,
+  100% {
+    opacity: 0.2;
+  }
+
+  50% {
+    opacity: 0.3;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .home-composer-lumen-rim {
+    animation: none;
+  }
+
+  .core-input-memory-lumen .home-composer-lumen-rim {
+    opacity: 0.18;
+  }
+
+  .dark .core-input-memory-lumen .home-composer-lumen-rim {
+    opacity: 0.24;
+  }
+
+  .home-composer-lumen-host--interactive .home-composer-lumen-stage {
+    transition: none;
+    transform: none;
+  }
+}
+
+.chat-style-card-host {
+  overflow: visible;
+  /* Fixed bleed on every card so selection does not reflow the grid. */
+  padding: 10px;
+  margin: -10px;
+}
+
+.dark .chat-style-card-stage {
+  overflow: visible;
+}
+
+.chat-style-lumen-rim {
+  position: absolute;
+  inset: calc(-1 * var(--lumen-outset, 4px));
+  z-index: 0;
+  box-sizing: border-box;
+  border: var(--lumen-band, 5px) solid rgb(var(--lumen) / 0.16);
+  border-radius: var(--chip-radius, 0.75rem);
+  background: transparent;
+  pointer-events: none;
+  filter: blur(var(--lumen-blur, 3px));
+  opacity: 0.26;
+}
+
+.dark .chat-style-lumen-rim {
+  border-color: rgb(var(--lumen) / 0.19);
+  opacity: 0.36;
+}
+
+/* A small dark-mode lift beneath the material; both renderers retain linked dot opacity. */
+.dark .organic-agent-dot-grid {
+  color: oklch(0.99 0.003 145);
+  filter: drop-shadow(0 0 0.65px rgb(255 255 255 / 0.18));
+}
+
+/*
+ * Shared frosted-grain tile, also used beneath the activity mark's glass cover.
+ * Static texture: the browser can reuse the rasterized data URI without regenerating
+ * a noise filter per frame (unlike a live feTurbulence backdrop-filter). This separates
+ * "blurred panel" from "frosted pane".
+ */
+.organic-glass-frost::before,
+.organic-activity-grain {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  border-radius: inherit;
+  pointer-events: none;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='160' height='160'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/><feColorMatrix type='saturate' values='0'/></filter><rect width='160' height='160' filter='url(%23n)'/></svg>");
+  background-size: 160px 160px;
+  background-repeat: repeat;
+  opacity: 0.05;
+  mix-blend-mode: overlay;
+}
+
+.dark .organic-glass-frost::before,
+.dark .organic-activity-grain {
+  opacity: 0.07;
+}
+
+@keyframes mermaid-reveal {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/* Prototype browser cards: one-shot staggered entrance, transform/opacity only. */
+@keyframes prototype-card-in {
+  from {
+    opacity: 0;
+    transform: translateY(14px) scale(0.985);
+  }
+
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.prototype-card-enter {
+  animation: prototype-card-in 0.55s cubic-bezier(0.22, 1, 0.36, 1) both;
+  animation-delay: var(--prototype-enter-delay, 0s);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .prototype-card-enter {
+    animation: none;
+  }
+
+  .organic-glass-distorted-backdrop {
+    filter: none !important;
+  }
+}
+
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  .organic-glass-preview {
+    background: color-mix(in oklch, var(--background) 94%, transparent) !important;
+  }
+
+  .dark .organic-glass-preview {
+    background: color-mix(in oklch, var(--secondary) 96%, transparent) !important;
+  }
+
+  .organic-glass-smoke {
+    background: color-mix(in oklch, var(--background) 90%, transparent) !important;
+  }
+
+  .dark .organic-glass-smoke {
+    background: color-mix(in oklch, var(--secondary) 92%, transparent) !important;
+  }
+
+  .organic-glass-frost {
+    background: color-mix(in oklch, var(--background) 93%, transparent) !important;
+  }
+
+  .dark .organic-glass-frost {
+    background: color-mix(in oklch, var(--secondary) 95%, transparent) !important;
+  }
+}
+
+@media (prefers-reduced-transparency: reduce), (prefers-contrast: more) {
+  .organic-agent-dot-grid {
+    filter: none !important;
+  }
+
+  .organic-activity-backdrop {
+    filter: none !important;
+  }
+
+  .organic-glass-distorted-backdrop {
+    filter: none !important;
+  }
+
+  .organic-glass-preview {
+    background: color-mix(in oklch, var(--background) 95%, transparent) !important;
+    backdrop-filter: none !important;
+  }
+
+  .dark .organic-glass-preview {
+    background: color-mix(in oklch, var(--secondary) 96%, transparent) !important;
+  }
+
+  .organic-glass-smoke {
+    background: color-mix(in oklch, var(--background) 92%, transparent) !important;
+    backdrop-filter: none !important;
+  }
+
+  .dark .organic-glass-smoke {
+    background: color-mix(in oklch, var(--secondary) 94%, transparent) !important;
+  }
+
+  .organic-glass-frost {
+    background: color-mix(in oklch, var(--background) 94%, transparent) !important;
+    backdrop-filter: none !important;
+  }
+
+  .dark .organic-glass-frost {
+    background: color-mix(in oklch, var(--secondary) 95%, transparent) !important;
+  }
+
+  .organic-glass-frost::before,
+  .organic-activity-grain {
+    display: none;
   }
 }

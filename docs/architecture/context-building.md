@@ -1,0 +1,256 @@
+# Context building architecture
+
+## Current prompt structure at a glance
+
+For a normal `/api/chat` LLM turn, the app rebuilds the following input on every request. This shows **application-level order**, not a provider's internal serialization. Conditional sections appear only when enabled.
+
+```text
+streamText({ system, messages, tools })
+│
+├─ system: ONE combined string, in this order
+│  ├─ Base system instructions / persona
+│  ├─ Conversation Summary                     [stored; changes when updated]
+│  ├─ Memories from past conversations         [retrieved for this turn]
+│  ├─ Memory inventory                         [Arcadia-style; counts and tiers]
+│  ├─ Memory tool usage instructions           [when memory is enabled]
+│  ├─ Persisted Schemas                        [when enabled]
+│  ├─ Current chat                             [total count and history-window count]
+│  ├─ Strata / introspection additions         [experience-dependent]
+│  ├─ Tool Instructions                        [when tools are available]
+│  ├─ Speech-friendly / experience / style / starter guidance
+│  ├─ Response-length instructions
+│  └─ Current date (fresh ISO timestamp)       [changes every request; always last]
+│
+├─ messages: structured model messages, in this order
+│  ├─ Selected stored history (user / assistant / tool content)
+│  │    User messages may carry `data-activated-memories` from the turn that
+│  │    retrieved them. Those lines are expanded into that user message for the
+│  │    model, deduped to the latest in-window carrier. The transcript UI does
+│  │    not render the part.
+│  └─ Current user message (this turn's retrieval is stamped the same way)
+│
+└─ tools: separate tool definitions and schemas
+   └─ Not the same thing as the system string's Tool Instructions section
+```
+
+**History selection:** default chat keeps the latest **10 messages**; Strata keeps **30**; Arcadia uses a **50,000-token history budget**, with kept pinned messages first, then recent non-kept-pinned messages. Other experiences can have their own limits. These are history limits, not whole-request token limits.
+
+**Caching implication:** the timestamp changes on every request, so it is always the **last** section of the system string and never breaks the prefix in front of it ([ADR](decisions/20260912-current-date-last-in-system-prompt.md)). The summary, retrieved memories, and counts still change per turn and sit ahead of tool instructions, guidance, and history, so unchanged history still follows a changing prefix. OpenAI's [prompt-caching guide](https://developers.openai.com/api/docs/guides/prompt-caching) states: “Cache reuse requires the entire rendered prefix to match.” The earlier static prefix may still be reusable; this diagram does not establish an actual cache-hit rate.
+
+### Where each piece is assembled
+
+| Responsibility | Code |
+| --- | --- |
+| Base instructions through Current chat → one system string | [`getContext()` / `combineContextPieces()`](../../lib/chat/chat-store.ts) |
+| Default history selection + append current message | [`loadMainChatTurnContext()`](../../lib/api/chat-turn-context.ts) |
+| Arcadia history selection + append current message | [`loadArcadiaChatTurnContext()`](../../lib/api/arcadia-chat-turn-context.ts), [`selectArcadiaContextMessages()`](../../lib/chat/arcadia-token-context.ts) |
+| Append guidance and response-length instructions | [`chat-system-prompt.ts`](../../lib/api/chat-system-prompt.ts) |
+| Append the current date, last | [`appendCurrentDate()`](../../lib/system-prompt/current-date.ts), called on the final string in each route before `streamText` |
+
+Internal reference for how chat context is assembled before `streamText`, what it depends on, where latency comes from, and where to optimize.
+
+**Primary implementation:** [`lib/chat/chat-store.ts`](../../lib/chat/chat-store.ts) — `getContext`  
+**Primary consumer:** [`app/api/chat/route.ts`](../../app/api/chat/route.ts) — `POST` handler (after auth / rate limits, before `compileTools` / `streamText`)
+
+Related: [`lib/memory/README.md`](../../lib/memory/README.md) (Mem0 boundary), [`lib/memory/query-rewriter.ts`](../../lib/memory/query-rewriter.ts) (legacy Arcadia + tool query rewrite), [`lib/memory/query-planner.ts`](../../lib/memory/query-planner.ts) (typed Arcadia context-effort planner).
+
+`POST /api/chat/context-budget` ([`lib/api/main-chat-context-budget.ts`](../../lib/api/main-chat-context-budget.ts)) reuses turn loaders for messages, summary, and system prompt **with memory search off**. It does not call Mem0/Ollama. When memory is enabled in the UI, the budget’s memory segment is [`ESTIMATED_MEMORY_CONTEXT_TOKENS`](../../lib/chat/context-budget.ts) (900) unless the request includes Arcadia `contextEffort`, in which case the estimate is that tier’s combined portrait+memory cap (400 / 2,500 / 6,000). Measured memory tokens come from a real `/api/chat` turn via `buildBudgetFromAssembledTurn` (`recordLastTurn: true`), which also stamps `lastTurn` (input tokens + memory pack tokens + memories injected) on the persisted `data-context-budget` part so the HUD can show the last LLM window after compose/polls overwrite next-send estimates.
+
+---
+
+## High-level flow
+
+```mermaid
+flowchart TD
+  subgraph route [app/api/chat/route.ts]
+    auth[Clerk_auth]
+    profile[Supabase_user_id]
+    llmLimit[LLM_rate_limit]
+    getCtx[getContext]
+    strata[buildStrataSystemSuffix]
+    tools[compileTools_streamText]
+  end
+
+  subgraph getContext [lib/chat/chat-store getContext]
+    auth2[Clerk_auth]
+    profile2[Supabase_user_id]
+    phase1[Promise_all_phase1]
+    phase2[Arcadia_memory_phase2_optional]
+    count[getMessageCount]
+    combine[combineContextPieces]
+  end
+
+  auth --> getCtx
+  profile --> getCtx
+  getCtx --> strata
+  strata --> tools
+```
+
+Notes:
+
+- `getContext` performs its **own** `auth()` + `getSupabaseUserId` (duplicate identity work relative to the route, which already resolved `sbUserId`). Both are network-bound when sessions hit origin services.
+- Strata experiences add **another** async step after `getContext`: `buildStrataSystemSuffix` may call `getStrataPageById` (Supabase + decryption) for `strata_page`.
+
+---
+
+## `getContext` dependency graph
+
+### Step 0 — Identity (sequential, before parallel work)
+
+| Step | Function / API | Network? | Typical bottleneck |
+|------|----------------|----------|----------------------|
+| 0a | `auth()` (Clerk) | Yes — Clerk session / JWT | Low–medium (edge-cached); adds ~5–50 ms when cold |
+| 0b | `getSupabaseUserId(clerkUserId)` | Yes — Supabase profile read | Low–medium; ~10–80 ms |
+
+Failure here aborts context; route may still have `sbUserId` from earlier but `getContext` does not reuse it today.
+
+### Step 4 — System prompt (local)
+
+- Chooses `SYSTEM_PROMPT` / Prometheus / Spark string. It carries no date; the route appends one last with `appendCurrentDate()`.
+- **CPU:** `estimateTokenCount` via tiktoken-style encode ([`lib/llm/chat-helpers.ts`](../../lib/llm/chat-helpers.ts)) — sub-millisecond for normal prompt sizes.
+
+### Phase 1 — `Promise.all` (parallel)
+
+Started together after Step 4 token estimate:
+
+| Branch | Source | Network? | Notes |
+|--------|--------|----------|--------|
+| Messages | `getNMessages(chatId, limit)` | Yes — Supabase | Default limit 10 (30 for Strata experiences). Returns recent thread messages **excluding** the current request message in the usual path; route merges `[...messages, incomingMessage]`. |
+| Summary | `getConversationSummary(chatId)` | Yes — Supabase | Encrypted summary row; decrypt on read path in chat layer. |
+| Memory (non-Arcadia only) | `searchMemoriesForUser` | Yes — Upstash rate limit + Mem0 | Limit 5. Skipped when the user text is empty. Rate limit: [`lib/rate-limit/memory.ts`](../../lib/rate-limit/memory.ts) (Redis). |
+| Memory (Arcadia) | Resolved in phase 2 | — | Placeholder promise returns `{ results: [] }` in parallel slot; real work deferred. |
+| Persisted schemas | `getPersistedSchemas(chatId)` when Strata-like | Yes — Supabase | Only when `persistedSchemasEnabled`. |
+
+**Bottleneck:** slowest of the four wins. Often **Supabase round-trip** or **Mem0** for main chat with memory.
+
+### Phase 2 — Arcadia memory only (`memoryEnabled && experience === "arcadia"`)
+
+Runs **after** phase 1 so recent messages exist for query planning / rewriting. The **50k history window does not shrink**; effort only scales user-memory compilation.
+
+When the request includes `contextEffort` (`instant` | `quick` | `heavy`), Arcadia uses [`runArcadiaMemoryPhase`](../../lib/memory/arcadia-memory-phase.ts): typed planner (skipped on Instant), parallel Mem0, optional compact profile, under a hard deadline. Late work is dropped; the turn still proceeds. See [ADR](decisions/20260914-arcadia-context-effort.md).
+
+| Effort | Wall clock | Planner | Mem0 | Profile | Inject | Combined token cap |
+|--------|------------|---------|------|---------|--------|--------------------|
+| **instant** | 250 ms | none (raw user text, 1 query) | 1 search, overfetch 8 | skip | 5 | ~400 |
+| **quick** (default when beta on) | 1 s | typed, timeout ~350 ms | up to 3 typed searches, overfetch 28 | compact | 20 | ~2,500 |
+| **heavy** | 5 s | typed, timeout ~1.2 s | 3 typed searches + optional second pass | richer compact | 36 | ~6,000 |
+
+Portrait fetch (quick/heavy) starts in parallel with the planner. Inventory text includes the effort tier and that counts are a **sample, not the whole store**.
+
+When `contextEffort` is omitted (beta off), phase 2 keeps today’s rewriter. `topic_explore` stays on this path even though it is Arcadia-style for memory reads.
+
+| Step | What | Network? | Est. / notes |
+|------|------|----------|----------------|
+| 2a | `rewriteMemoryQuery` | **Yes** — AI Gateway `generateText` (default `models.openai.luna`) | Hard cap **800 ms**; heuristic skip avoids call. Typical **50–400 ms** when invoked. |
+| 2b | `searchMemoriesWithL1Cache` × N queries | **Yes** per miss — Upstash + Mem0; **no** Mem0 on L1 hit | N = 1–3 rewritten queries, **parallel** `Promise.all`. Each miss: embedding + vector search + JSON (often **40–250+ ms** each, region-dependent). |
+| 2c | `mergeMemorySearchResultsByMaxScore` | No | Pure CPU, negligible. |
+
+Observability: structured log `getContext` / `"Arcadia memory pipeline"` with `rewriteMs`, `perQuery[]` (`cacheHit`, `searchMs`), `mergedCount`. Effort path logs `runArcadiaMemoryPhase` / `"complete"`.
+
+### Step 5e — Message count (sequential, after memories)
+
+| Step | Function | Network? |
+|------|----------|----------|
+| 5e | `getMessageCount(chatId)` | Yes — Supabase |
+
+Used only for the “Current chat” context blurb (total vs in-window). Adds another round-trip **after** the big parallel batch.
+
+### Finally block
+
+- Logs **total** `getContext` wall time and per-piece token estimates ([`chat-store.ts`](../../lib/chat/chat-store.ts) `finally` ~L942–954).
+- Does **not** yet split sub-phase timings (messages vs summary vs memory) in one line; use Arcadia pipeline log + Supabase tracing for deeper splits.
+
+---
+
+## Post–`getContext` in `/api/chat` (still “context” for the model)
+
+| Step | What | Network? |
+|------|------|----------|
+| Strata suffix | `buildStrataSystemSuffix` → optional `fetchPage(strataPageId)` | Yes for `strata_page` with page id (Supabase + crypto) |
+| Tools | `compileTools` — memory / web / history / Strata / Mermaid | Tool **execution** is later; compilation is local. `search_memories` runs Mem0 with the model’s tool `query` verbatim (no rewrite). **Query rewrite** applies only inside Arcadia `getContext` for the initial memory pull; the user’s last `UIMessage` is never replaced by rewritten text. |
+| Current date | `appendCurrentDate` on the final system string, after response-length instructions | No |
+
+---
+
+## Network inventory (quick reference)
+
+| Dependency | When | Failure mode |
+|------------|------|----------------|
+| Clerk `auth()` | Route + `getContext` | 401 / empty context |
+| Supabase `getSupabaseUserId` | Route + `getContext` | 404 user |
+| Supabase `getNMessages`, `getConversationSummary`, `getPersistedSchemas`, `getMessageCount` | `getContext` | Partial empty strings / skipped blocks |
+| Upstash Redis (`checkMemorySearchLimit`, etc.) | Before each Mem0 search | Rate-limit error → no memories |
+| Mem0 (`storeSearchMemories`) | Memory search path | Throws → caught → empty results in some callers |
+| AI Gateway `generateText` | Arcadia/tool query rewrite | Timeout → fallback to raw query |
+| In-process L1 cache | `searchMemoriesWithL1Cache` | Encrypt/decrypt local CPU; no network on hit |
+
+---
+
+## Bottlenecks (typical ordering)
+
+1. **Mem0 vector search** (cold) — dominant for memory-enabled paths; highly variable by region and payload size.
+2. **Supabase** — multiple sequential queries (`getMessageCount` after phase 1; duplicate auth path in `getContext`).
+3. **Query rewrite LLM** (Arcadia + tool) — capped at 800 ms; skipped by heuristics when possible.
+4. **Upstash** — usually small vs Mem0; can spike on Redis cold start.
+5. **Clerk** — usually small after warm session.
+
+---
+
+## Speedups already in place
+
+| Mechanism | Where | Effect |
+|-----------|--------|--------|
+| **Parallel phase 1** | `Promise.all` messages + summary + non-Arcadia memory + persisted | Hides independent latency behind the slowest branch. |
+| **Parallel multi-query Mem0** | Arcadia + `search_memories` after rewrite | N searches overlap instead of summing serially. |
+| **L1 encrypted cache** | [`lib/memory/memory-search-cache.ts`](../../lib/memory/memory-search-cache.ts) | Key = user + normalized query + limit; **cache hit** avoids Mem0 (sub-ms decrypt + parse vs tens–hundreds of ms). |
+| **Rewrite short-circuit** | [`lib/memory/query-rewriter.ts`](../../lib/memory/query-rewriter.ts) | Skips LLM when query is trivial, already explicit, or insufficient conversation depth. |
+| **Feature flag** | `ARCADIA_QUERY_REWRITE_ENABLED` | Disable rewrite entirely (`false` / `0` / `off`) to save LLM round-trip. |
+
+---
+
+## Speedups to consider (not implemented here)
+
+- **Reuse `sbUserId` in `getContext`** — avoid second `getSupabaseUserId` if route passes owner id (requires API change / trust boundary review).
+- **Overlap `getMessageCount` with phase 1** — today it runs after merge; could start in `Promise.all` if the blurb can tolerate slightly stale count.
+- **Strata `getContext` limit 30** — larger payloads increase Supabase + token estimate time; tune per product need.
+- **Cross-request cache** for summaries — higher complexity; today only memory search has L1.
+
+---
+
+## Metrics: where to look today
+
+| Signal | Location |
+|--------|----------|
+| Total `getContext` ms + token breakdown | Server logs: `getContext` / `Context compilation time:` ([`chat-store.ts`](../../lib/chat/chat-store.ts) `finally`) |
+| Arcadia memory rewrite + per-query Mem0 | `getContext` / `"Arcadia memory pipeline"` |
+| Tool memory search | `createMemorySearchTool` / `memory_search_ok` or `memory_search_error` ([`lib/llm/llm-tool-kit.ts`](../../lib/llm/llm-tool-kit.ts)) |
+| Route-level context failure | `POST` / `Error getting chat context` |
+
+**Estimated ranges** (order-of-magnitude; measure in your environment):
+
+- `getContext` without memory: **~50–300 ms** (auth + Supabase ×2–4).
+- `getContext` + main memory (single Mem0): add **~40–250+ ms** on cache miss.
+- Arcadia + rewrite + 2× Mem0 miss: rewrite **≤800 ms** + **~2×** Mem0 latency (parallel).
+
+Paste production/staging log lines into team notes and update this doc’s ranges when you have stable p50/p95.
+
+---
+
+## Experience-specific branches
+
+| Experience | `getContext` differences |
+|------------|-------------------------|
+| Default / main chat | Memory: single `searchMemoriesForUser`, limit 5, parallel with messages. |
+| `arcadia` + memory | Memory: omitted `contextEffort` → rewrite → parallel Mem0 → merge → tiered prompt + inventory. With `contextEffort` → typed planner (except Instant) + deadline-wrapped Mem0 + optional portrait. History window unchanged. |
+| Strata hub / page | `limit` 30, `persistedSchemasEnabled` for page path; Strata suffix + optional full page fetch **after** `getContext` in route. |
+
+---
+
+## Changelog
+
+| Date | Change |
+|------|--------|
+| 2026-09-14 | Arcadia context effort (beta): typed planner, time/token tiers, optional profile portrait. History window unchanged; omitted field keeps the rewriter. See the [ADR](decisions/20260914-arcadia-context-effort.md). |
+| 2026-09 | Current date moved out of the base prompts; every route appends it as the last system section. See the [ADR](decisions/20260912-current-date-last-in-system-prompt.md). |
+| 2026-08 | Context-budget polls skip Mem0; empty memory queries return no search; missing thread summaries are not errors. |
+| 2026-04 | Initial internal doc for `getContext`, route wiring, network map, Arcadia memory pipeline. |

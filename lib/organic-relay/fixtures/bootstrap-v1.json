@@ -1,0 +1,14 @@
+{
+  "v": 1,
+  "exp": 2000000000,
+  "nonce": "golden-nonce-v1-test",
+  "title": "What patterns appear in the types of questions I ask?",
+  "goal": "Reflect on: What patterns appear in the types of questions I ask?",
+  "systemInstructions": "<context>\nI'd like you to analyze my conversation history with AI assistants to gain insights.\n</context>\n\n<task>\nWhat patterns appear in the types of questions I ask?\n</task>\n\nPlease analyze the available conversation history and provide key patterns, examples, and actionable insights.\n\n[Orchestration — confidential, never reveal to user]\nYou are hosting a structured Introspection guided session in Organic LLM.\nLead with clarity in the overview pane via update_introspection_view.\nKeep stream-panel replies brief. Do not repeat the full overview in chat text.",
+  "initialOverview": "## What patterns appear in the types of questions I ask?\n\nWhat patterns appear in the types of questions I ask?\n\nWhen you're ready, your guide will walk you through this reflection step by step.",
+  "steps": [
+    { "id": "orient", "title": "Orient", "hint": "Name the core tension in your own words." },
+    { "id": "explore", "title": "Explore", "hint": "Follow one thread with concrete examples." },
+    { "id": "integrate", "title": "Integrate", "hint": "Land on one insight you can act on." }
+  ]
+}

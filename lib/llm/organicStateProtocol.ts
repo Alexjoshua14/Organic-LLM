@@ -2,15 +2,11 @@ import { randomUUID as nodeRandomUUID } from "node:crypto";
 
 import { z } from "zod";
 
-import {
-  OrganicState,
-  OrganicStateSchema,
-} from "../schemas/organicStateSchema";
+import { OrganicState, OrganicStateSchema } from "../schemas/organicStateSchema";
 
 /* UUID that works on Node and Edge */
 const uid = () =>
-  typeof crypto !== "undefined" &&
-  typeof (crypto as any).randomUUID === "function"
+  typeof crypto !== "undefined" && typeof (crypto as any).randomUUID === "function"
     ? (crypto as any).randomUUID()
     : nodeRandomUUID();
 
@@ -42,9 +38,7 @@ export const OpSchema = z.discriminatedUnion("type", [
   z.object({
     type: z.literal("add_goal"),
     label: z.string().min(1),
-    area: z
-      .enum(["native", "orchestration", "ux", "infra", "research"])
-      .optional(),
+    area: z.enum(["native", "orchestration", "ux", "infra", "research"]).optional(),
     targetDate: z.string().datetime().optional(),
   }),
   z.object({
@@ -106,16 +100,11 @@ export function stripOpsFence(text: string): string {
   if (all.length === 0) return text;
   const last = all[all.length - 1];
 
-  return (
-    text.slice(0, last.index) + text.slice((last.index ?? 0) + last[0].length)
-  );
+  return text.slice(0, last.index) + text.slice((last.index ?? 0) + last[0].length);
 }
 
 /* ---------- Pure transformer ---------- */
-export async function applyOps(
-  state: OrganicState,
-  env: OpsEnvelope,
-): Promise<OrganicState> {
+export async function applyOps(state: OrganicState, env: OpsEnvelope): Promise<OrganicState> {
   const now = new Date().toISOString();
   let next = { ...state };
 
@@ -139,11 +128,7 @@ export async function applyOps(
       case "add_tech_stack_item": {
         const name = op.name.trim();
 
-        if (
-          !next.techStack.some(
-            (t) => t.name.toLowerCase() === name.toLowerCase(),
-          )
-        ) {
+        if (!next.techStack.some((t) => t.name.toLowerCase() === name.toLowerCase())) {
           next.techStack = [
             {
               id: uid(),
@@ -183,7 +168,7 @@ export async function applyOps(
                 evidence: op.note ? [op.note, ...c.evidence] : c.evidence,
                 updatedAt: now,
               }
-            : c,
+            : c
         );
         break;
       }

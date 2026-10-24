@@ -53,9 +53,7 @@ export type Checkpoint = z.infer<typeof CheckpointSchema>;
 export const GoalSchema = z.object({
   id: z.string().uuid(),
   label: z.string().min(1),
-  area: z
-    .enum(["native", "orchestration", "ux", "infra", "research"])
-    .default("native"),
+  area: z.enum(["native", "orchestration", "ux", "infra", "research"]).default("native"),
   targetDate: z.string().datetime().optional(),
   status: z.enum(["planned", "in_progress", "done"]).default("planned"),
   createdAt: z.string().datetime(),
@@ -67,7 +65,7 @@ export const OrganicStateSchema = z.object({
   version: z.literal(1),
   profile: z.object({
     name: z.string(),
-    org: z.string().default("Coalescence Labs"),
+    org: z.string().default("Independent"),
   }),
   keyInsights: z.array(InsightSchema),
   techStack: z.array(TechItemSchema),
@@ -83,7 +81,7 @@ export const defaultOrganicState = (): OrganicState => {
 
   return {
     version: 1,
-    profile: { name: "Alex Joshua", org: "Coalescence Labs" },
+    profile: { name: "User", org: "Independent" },
     keyInsights: [],
     techStack: [],
     goals: [],

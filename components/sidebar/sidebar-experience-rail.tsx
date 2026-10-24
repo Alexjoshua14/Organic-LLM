@@ -1,0 +1,188 @@
+"use client";
+
+import Link from "next/link";
+import { usePathname, useRouter } from "next/navigation";
+import { useRef, useState } from "react";
+
+import { FeatureHint } from "@/components/onboarding/feature-hint";
+import { Logger } from "@/lib/logger";
+import { PERF_PHASES } from "@/lib/perf/journeys";
+import { mark, startJourney } from "@/lib/perf/trace-store";
+import { createChat } from "@/lib/chat/chat-store";
+import { createArcadiaThreadAction } from "@/lib/chat/create-arcadia-thread";
+import { useSharedChatContext } from "@/lib/context/chat-context";
+import { cn } from "@/lib/utils";
+
+const logger = new Logger(`components/sidebar/sidebar-experience-rail.tsx`);
+
+type RailItem =
+  | { id: "chat" | "arcadia"; label: string; type: "action" }
+  | {
+      id: string;
+      label: string;
+      type: "link";
+      href: string;
+      match: (p: string) => boolean;
+    };
+
+const RAIL_ROWS: RailItem[][] = [
+  [
+    { id: "chat", label: "Chat", type: "action" },
+    {
+      id: "arcadia",
+      label: "Arcadia",
+      type: "action",
+    },
+  ],
+  [
+    {
+      id: "strata",
+      label: "Strata",
+      type: "link",
+      href: "/sandbox/prototypes/strata",
+      match: (p) => p.startsWith("/sandbox/prototypes/strata"),
+    },
+    {
+      id: "rabbitholes",
+      label: "Rabbit Holes",
+      type: "link",
+      href: "/rabbitholes/browse",
+      match: (p) => p.startsWith("/rabbitholes"),
+    },
+    {
+      id: "remy",
+      label: "Remy",
+      type: "link",
+      href: "/remy",
+      match: (p) => p.startsWith("/remy"),
+    },
+    {
+      id: "ergon",
+      label: "Ergon",
+      type: "link",
+      href: "/ergon",
+      match: (p) => p.startsWith("/ergon"),
+    },
+  ],
+  [
+    {
+      id: "stage",
+      label: "Stage",
+      type: "link",
+      href: "/stage",
+      match: (p) => p === "/stage",
+    },
+    {
+      id: "speak",
+      label: "Speak",
+      type: "link",
+      href: "/speak",
+      match: (p) => p.startsWith("/speak"),
+    },
+  ],
+];
+
+const segmentClass = cn(
+  "flex-1 min-w-0 cursor-pointer select-none text-center text-2xs font-medium leading-tight",
+  "px-1.5 py-2.5 sm:px-2 sm:py-3 sm:text-xs",
+  "bg-background-tertiary text-foreground transition-colors",
+  "hover:bg-sidebar-accent hover:text-sidebar-accent-foreground",
+  "active:bg-sidebar-accent active:text-sidebar-accent-foreground",
+  "focus-visible:z-10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sidebar-ring",
+  "data-[active=true]:bg-sidebar-accent data-[active=true]:text-sidebar-accent-foreground",
+  "border-0 border-border/20 [&:not(:first-child)]:border-l"
+);
+
+/**
+ * Experimental segmented rail: grouped rows of contiguous strips (no gutter between cells).
+ * Hover uses the same fill as the sidebar “active” treatment (`bg-sidebar-accent`).
+ * Surface descriptions live in onboarding guides — not hover tooltips here.
+ */
+export function SidebarExperienceRail() {
+  const router = useRouter();
+  const pathname = usePathname() ?? "";
+  const { refreshSidebarChats } = useSharedChatContext();
+  const creatingRef = useRef(false);
+  const [creating, setCreating] = useState(false);
+
+  const onNewChat = (experience: "chat" | "arcadia") => {
+    async function run() {
+      if (creatingRef.current) return;
+      creatingRef.current = true;
+      setCreating(true);
+      startJourney(experience === "arcadia" ? "to-arcadia" : "to-chat", `rail-${experience}`);
+
+      try {
+        let path: string;
+
+        if (experience === "arcadia") {
+          const res = await createArcadiaThreadAction();
+
+          if (!res.ok) throw new Error("Error creating Arcadia chat");
+          path = res.path;
+        } else {
+          const res = await createChat();
+
+          if (res.error || res.data === null) throw new Error("Error creating chat");
+          path = `/chat/${res.data}`;
+        }
+        mark(PERF_PHASES.chatCreated);
+        refreshSidebarChats();
+        mark(PERF_PHASES.navPush);
+        router.push(path);
+      } catch {
+        logger.error("SidebarExperienceRail", "Error creating chat");
+      } finally {
+        creatingRef.current = false;
+        setCreating(false);
+      }
+    }
+    void run();
+  };
+
+  const renderItem = (item: RailItem) => {
+    if (item.type === "action") {
+      return (
+        <button
+          key={item.id}
+          className={segmentClass}
+          data-active={pathname.startsWith(item.id === "arcadia" ? "/sandbox/arcadia" : "/chat")}
+          type="button"
+          disabled={creating}
+          onClick={() => onNewChat(item.id)}
+        >
+          {item.label}
+        </button>
+      );
+    }
+
+    const active = item.match(pathname);
+
+    return (
+      <Link
+        key={item.id}
+        className={cn(segmentClass, "inline-flex items-center justify-center no-underline")}
+        data-active={active}
+        href={item.href}
+      >
+        {item.label}
+      </Link>
+    );
+  };
+
+  return (
+    <FeatureHint id="experience-rail">
+      <div className="flex w-full min-w-0 flex-col gap-1" data-sidebar-experience-rail>
+        {RAIL_ROWS.map((row, rowIndex) => (
+          <div
+            key={row.map((item) => item.id).join("-")}
+            className="flex w-full min-w-0 overflow-hidden rounded-md"
+            data-sidebar-experience-rail-row={rowIndex}
+          >
+            {row.map(renderItem)}
+          </div>
+        ))}
+      </div>
+    </FeatureHint>
+  );
+}

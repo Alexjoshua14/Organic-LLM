@@ -1,0 +1,32 @@
+name: morph-physics
+
+on:
+  push:
+    paths:
+      - "llm/morph-physics/**"
+      - ".github/workflows/morph-physics.yml"
+  pull_request:
+    paths:
+      - "llm/morph-physics/**"
+      - ".github/workflows/morph-physics.yml"
+
+jobs:
+  morph-physics:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: llm/morph-physics
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Install and verify
+        run: |
+          bun install
+          bun run build
+          bun run test
+          npm pack --dry-run

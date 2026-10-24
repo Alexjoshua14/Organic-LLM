@@ -1,0 +1,80 @@
+import { auth } from "@clerk/nextjs/server";
+import { NextResponse } from "next/server";
+
+import { claimRabbitHoleGeneration, getSessionById } from "@/data/supabase/rabbitholes";
+import { clientErrorJson, logRouteError } from "@/lib/api/client-safe-error";
+import { createLogger } from "@/lib/logger";
+import { incompleteGenerationStep } from "@/lib/rabbit-holes/generation-step";
+import { runGenerationAndPersist } from "@/lib/rabbit-holes/runGenerationAndPersist";
+import { supabaseAdmin } from "@/lib/supabase/supabase-admin";
+import { requirePlanBudget } from "@/lib/api/plan-budget-gate";
+import { getSupabaseUserId } from "@/data/supabase/profiles";
+
+export const maxDuration = 60;
+
+const logger = createLogger("app/api/rabbitholes/[sessionId]/resume/route.ts");
+
+/**
+ * POST /api/rabbitholes/[sessionId]/resume
+ *
+ * Resumes generation for a session that has generating_node_id set.
+ * Used by Aion or manual retry when generation was interrupted.
+ */
+export async function POST(_req: Request, { params }: { params: Promise<{ sessionId: string }> }) {
+  const clerkUser = await auth();
+
+  if (!clerkUser?.userId) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  const sbUserIdResult = await getSupabaseUserId(clerkUser.userId);
+
+  if (sbUserIdResult.error || !sbUserIdResult.data) {
+    return NextResponse.json({ error: "User not found" }, { status: 404 });
+  }
+
+  const planGate = await requirePlanBudget({
+    clerkUserId: clerkUser.userId,
+    sbUserId: sbUserIdResult.data,
+  });
+
+  if (planGate) return planGate;
+
+  const { sessionId } = await params;
+
+  const res = await getSessionById(sessionId);
+
+  if (res.error || !res.data) {
+    logger.error("POST", "Session not found or error loading");
+
+    return NextResponse.json({ error: "Session not found" }, { status: 404 });
+  }
+
+  const session = res.data;
+  let nodeId = session.generatingNodeId ?? null;
+
+  if (!nodeId && session.activeNodeId) {
+    const active = session.nodesById[session.activeNodeId];
+
+    if (active && !active.articleHtml?.trim()) {
+      nodeId = active.id;
+      const step = incompleteGenerationStep(active) ?? "sources";
+
+      await claimRabbitHoleGeneration(sessionId, nodeId, step, supabaseAdmin);
+    }
+  }
+
+  if (!nodeId) {
+    return NextResponse.json({ message: "No generation in progress", sessionId }, { status: 200 });
+  }
+
+  try {
+    await runGenerationAndPersist(sessionId, nodeId);
+
+    return NextResponse.json({ message: "Resume completed", sessionId, nodeId }, { status: 200 });
+  } catch (error) {
+    logRouteError(logger, "POST", error);
+
+    return clientErrorJson(500);
+  }
+}

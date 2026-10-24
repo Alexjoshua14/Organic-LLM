@@ -200,12 +200,8 @@ export function EventCard({
               >
                 {event.description && (
                   <div>
-                    <h4 className="text-white text-lg mb-3">
-                      About This Event
-                    </h4>
-                    <p className="text-white/80 leading-relaxed">
-                      {event.description}
-                    </p>
+                    <h4 className="text-white text-lg mb-3">About This Event</h4>
+                    <p className="text-white/80 leading-relaxed">{event.description}</p>
                   </div>
                 )}
 

@@ -8,58 +8,129 @@ import {
   smoothStream,
 } from "ai";
 
+import { createAuthenticatedLlmBudgetHooks, budgetModelId } from "@/lib/plans/llm-budget-hooks";
+
 // import systemPrompt from "@/lib/system-prompt";
 import { saveChat } from "@/lib/chat/chat-store";
+import { shouldAttemptInitialTitle } from "@/lib/chat/summary-title-cadence";
+import { getMessageCount, getThreadHasTitle } from "@/data/supabase/chat";
+import { GUARDRAIL_MAX_OUTPUT_TOKENS } from "@/lib/llm/helpers";
 import { ensureChatHasTitle } from "@/lib/llm/chat-helpers";
 import { createLogger } from "@/lib/logger";
 import { getContext } from "@/lib/llm/context";
+import { requireLlmChatActor } from "@/lib/api/chat-llm-gate";
+import { ChatRequestSchema } from "@/lib/schemas/chat";
+import { models, providerModelSlug } from "@/lib/schemas/chat-models";
+import { appendCurrentDate } from "@/lib/system-prompt/current-date";
 
 // Allow streaming responses up to 30 seconds
 export const maxDuration = 30;
 
-const model: LanguageModel = openai("gpt-5-mini");
+const model: LanguageModel = openai(providerModelSlug(models.openai.terra.id));
 
 // const tools = {};
 
-const logger = createLogger(`app/api/chat/route.ts`);
+const logger = createLogger(`app/api/chat/prometheus/route.ts`);
 
 export async function POST(req: Request) {
-  const { message, id }: { message: UIMessage; id: string } = await req.json();
+  const authGate = await requireLlmChatActor();
 
-  logger.log("POST", `Recieved Message: ${JSON.stringify(message)}`);
+  if (authGate.error != null) {
+    return authGate.error;
+  }
+
+  let body: unknown;
+
+  try {
+    body = await req.json();
+  } catch {
+    logger.error("POST", "Invalid request body: malformed_json");
+
+    return new Response(JSON.stringify({ error: "Invalid JSON", status: 400 }), {
+      status: 400,
+      headers: { "Content-Type": "application/json" },
+    });
+  }
+
+  const parseResult = ChatRequestSchema.safeParse(body);
+
+  if (!parseResult.success) {
+    logger.error("POST", "Invalid request body: validation_failed");
+
+    return new Response(JSON.stringify({ error: "Invalid request body", status: 400 }), {
+      status: 400,
+      headers: { "Content-Type": "application/json" },
+    });
+  }
+
+  const { message: incomingMessage, id } = parseResult.data;
+  const message = incomingMessage as UIMessage;
+
+  logger.log(
+    "POST",
+    `Received message metadata: id=${message.id ?? "unknown"} role=${message.role} parts=${message.parts?.length ?? 0}`
+  );
 
   const res = await getContext({ chatId: id, message, persona: "prometheus" });
 
   if (res.error) {
     logger.error("POST", `Error getting context: ${res.error}`);
 
-    return new Response("Error getting context", { status: 500 });
+    return new Response(JSON.stringify({ error: "Internal server error", status: 500 }), {
+      status: 500,
+      headers: { "Content-Type": "application/json" },
+    });
   } else if (res.data === null) {
-    logger.error("POST", `Error getting context: Context is null`);
+    logger.error("POST", "Error getting context: Context is null");
 
-    return new Response("Error getting context", { status: 500 });
+    return new Response(JSON.stringify({ error: "Internal server error", status: 500 }), {
+      status: 500,
+      headers: { "Content-Type": "application/json" },
+    });
   }
 
   const { prompt, messages } = res.data;
 
   const result = streamText({
+    ...(await createAuthenticatedLlmBudgetHooks({
+      modelId: budgetModelId(model),
+      operation: "/api/chat/prometheus",
+    })),
     model: model,
-    system: prompt,
-    messages: convertToModelMessages(messages),
+    instructions: appendCurrentDate(prompt),
+    messages: await convertToModelMessages(messages),
+    maxOutputTokens: GUARDRAIL_MAX_OUTPUT_TOKENS,
     experimental_transform: smoothStream({
       delayInMs: 20, // optional: defaults to 10ms
       chunking: "word", // optional: defaults to 'word'
     }),
   });
 
-  logger.log("POST", `Result: ${JSON.stringify(result)}`);
+  logger.log("POST", `Stream started, messageCount: ${messages.length}`);
 
   return result.toUIMessageStreamResponse({
     originalMessages: messages,
-    onFinish: ({ messages }) => {
-      saveChat({ chatId: id, messages });
-      if (messages.length > 3 && messages.length < 5) {
-        ensureChatHasTitle(id);
+    onEnd: async ({ messages }) => {
+      const saveResult = await saveChat({ chatId: id, messages });
+
+      if (!saveResult.ok) {
+        logger.error("POST", `Error saving chat: ${saveResult.error?.message ?? "unknown error"}`);
+
+        return;
+      }
+
+      const messageCountResult = await getMessageCount(id);
+      const threadHasTitleResult = await getThreadHasTitle(id);
+      const persistedMessageCount = messageCountResult.data ?? messages.length;
+      const threadAlreadyHasTitle = threadHasTitleResult.data === true;
+
+      if (
+        shouldAttemptInitialTitle({
+          persistedMessageCount,
+          threadAlreadyHasTitle,
+        })
+      ) {
+        void ensureChatHasTitle(id);
       }
     },
     generateMessageId: createIdGenerator({

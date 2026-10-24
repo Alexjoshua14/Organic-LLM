@@ -3,6 +3,8 @@ import { ChevronDown } from "lucide-react";
 import { FC } from "react";
 import { useStickToBottom } from "use-stick-to-bottom";
 
+import { glass } from "../design-system/primitives";
+
 //TODO: MAKE THIS WORK
 
 export const ChatScrollButton: FC = () => {
@@ -11,7 +13,7 @@ export const ChatScrollButton: FC = () => {
   return (
     !isAtBottom && (
       <Button
-        className="absolute text-4xl rounded-lg left-1/2 -tranlsate-x-1/2 bottom-36"
+        className={`${glass()} backdrop-blur absolute rounded-lg w-14 left-1/2 -tranlsate-x-1/2 bottom-44 z-40`}
         onPress={() => scrollToBottom()}
       >
         <ChevronDown size={24} />

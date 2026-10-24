@@ -12,9 +12,10 @@ const config = {
   theme: {
     extend: {
       fontFamily: {
-        sans: ["var(--font-sans)"],
+        sans: ["var(--font-satoshi)", "var(--font-inter)"],
         mono: ["var(--font-mono)"],
         commissioner: ["var(--font-commissioner)"],
+        satoshi: ["var(--font-satoshi)", "sans-serif"],
       },
     },
   },
@@ -22,16 +23,17 @@ const config = {
   plugins: [
     typography,
     heroui({
+      addCommonColors: true,
       themes: {
         light: {
           colors: {
             foreground: {
-              DEFAULT: "#141516",
+              DEFAULT: "#2D2B26",
               secondary: "#5C5E5E",
             },
             background: {
-              DEFAULT: "#F6F7F6",
-              secondary: "#EAECEA",
+              DEFAULT: "#FFFFFF",
+              secondary: "#F7F7F7",
               tertiary: "#DCDDDC",
             },
             border: {

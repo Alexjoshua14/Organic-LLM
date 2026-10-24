@@ -1,0 +1,39 @@
+# Design backbone
+
+Living design guidance for Organic LLM. Agents and humans should consult these docs
+**before** changing motion, typography animation, chat loading states, or related UI
+feel — so improvements stay consistent and do not regress quality.
+
+## Documents
+
+| Doc | When to read |
+|-----|----------------|
+| [Spacing](./spacing.md) | Card density, stack/gap/inset tokens, gen-ui vertical rhythm |
+| [Switches & quick settings](./switches-and-quick-settings.md) | Compact glass switches, caption popovers, quick-settings density |
+| [Context usage](./context-usage.md) | Composer context charts, source colors, percentage ramp, hover labels |
+| [Conversation scrolling](./conversation-scrolling.md) | Native reading, reduced-motion following, and isolated browser regression checks |
+| [Reasoning display](./reasoning-display.md) | Secondary summary typography, stable streaming disclosure, and provider-stream verification |
+| [Subagent identity mark](./subagent-identity-mark.md) | Layered SVG dots, glass diffusion, agent-state motion |
+| [Welcome scene](./welcome-scene.md) | Photographic pane projection, camera motion, and themed floor continuity |
+| [Glass distortion](./glass-distortion.md) | Opt-in refraction of owned backgrounds, Safari compatibility |
+| [Liquid chrome materials](./liquid-chrome-materials.md) | Light-mode paper and ink, dark-mode preservation, refraction and fallback parity |
+| [CoreInput snapshot morph](./core-input-morph.md) | Composer settings morphing between threads, areas, and `/btw`; fast-forward on touch |
+| [Motion & character text timing](./motion-and-text-timing.md) | Any char-by-char / stagger / status-label / loading-state animation |
+| [Adaptive background](../adaptive-background.md) + [timing](../adaptive-background-timing.md) | Ambient dim / focus atmospheres |
+| [Organic presence](../organic-presence.md) | Presence indicators and ambient life |
+| [Mermaid diagram design](../mermaid-diagram-design.md) | Diagram wells, reveal, takeover |
+
+## Principles (product-wide)
+
+1. **Functional motion stays brief.** Status and feedback should not feel like waiting.
+2. **Exits faster than entrances.** Outgoing clears; incoming settles with slightly more presence.
+3. **Honor reduced motion.** Prefer instant or simple cross-fades when `prefers-reduced-motion: reduce`.
+4. **Source of truth in code.** Timing tokens live next to the effect (e.g. `lib/chat/processing-text-burn-timing.ts`); docs record *why* and the approved ranges.
+5. **Prototype before shipping feel.** Use sandbox labs (`/sandbox/prototypes/…`) to compare, then promote constants — not one-off magic numbers in components.
+
+## How to extend this backbone
+
+1. Add a focused doc under `docs/design/` (one concern per file).
+2. Link it from this README and from [docs/INDEX.md](../INDEX.md) → Design & UI.
+3. If agents must apply it automatically, update `.cursor/rules/design-backbone.mdc` with a short pointer (keep the rule lean; put detail in the doc).
+4. When shipping a new timing system, note the **approved Organic LLM values** and the research band they sit in.

@@ -4,14 +4,26 @@ import { openai } from "@ai-sdk/openai";
 import {
   GeneratedAudioFile,
   generateObject,
-  experimental_generateSpeech as generateSpeech,
+  generateSpeech as generateSpeech,
   generateText,
 } from "ai";
 import z from "zod";
 
 import { createLogger } from "../logger";
 
+import { GUARDRAIL_MAX_OUTPUT_TOKENS } from "./helpers";
+
+import { createAuthenticatedLlmBudgetHooks, budgetModelId } from "@/lib/plans/llm-budget-hooks";
+import { recordLlmCall } from "@/lib/llm/metrics";
+import { models, providerModelSlug } from "@/lib/schemas/chat-models";
+import { requireTtsActor } from "@/lib/api/tts-gate";
+
 const logger = createLogger("lib/llm/text-to-speech.ts");
+const luna = openai(providerModelSlug(models.openai.luna.id));
+const terra = openai(providerModelSlug(models.openai.terra.id));
+
+const textCache = new Map<string, { text: string; timestamp: number }>();
+const CACHE_TTL = 1000 * 60 * 60; // 1 hour
 
 const SpeechFriendlySystemPrompt = `
 You are a helpful assistant that transforms text to speech-friendly text.
@@ -67,6 +79,9 @@ const CorrectionSystemPrompt =
 `;
 
 export async function textToSpeech(text: string): Promise<GeneratedAudioFile> {
+  const actor = await requireTtsActor(text.length);
+
+  if (actor.error) throw new Error(await actor.error.text());
   const { audio } = await generateSpeech({
     model: openai.speech("gpt-4o-mini-tts"),
     text: text,
@@ -76,66 +91,108 @@ export async function textToSpeech(text: string): Promise<GeneratedAudioFile> {
   return audio;
 }
 
-export async function transformTextToSpeechFriendly(
-  text: string,
-): Promise<string> {
+export async function transformTextToSpeechFriendly(text: string): Promise<string> {
   let result = text;
 
   const speechFriendlyTextStartGeneration = performance.now();
 
   const firstAttemptSpeechFriendlyTextStartGeneration = performance.now();
   const speechFriendlyText = await generateText({
-    model: openai("gpt-5-nano"),
-    system: SpeechFriendlySystemPrompt,
+    ...(await createAuthenticatedLlmBudgetHooks({
+      modelId: budgetModelId(luna),
+      operation: "llm/text-to-speech",
+    })),
+    model: luna,
+    instructions: SpeechFriendlySystemPrompt,
     prompt: text,
     temperature: 0,
+    maxOutputTokens: GUARDRAIL_MAX_OUTPUT_TOKENS,
   });
 
   const firstAttemptSpeechFriendlyTextEndGeneration = performance.now();
 
   logger.log(
     "transformTextToSpeechFriendly",
-    `First attempt speech-friendly text generation completed in ${firstAttemptSpeechFriendlyTextEndGeneration - firstAttemptSpeechFriendlyTextStartGeneration} milliseconds`,
+    `First attempt speech-friendly text generation completed in ${firstAttemptSpeechFriendlyTextEndGeneration - firstAttemptSpeechFriendlyTextStartGeneration} milliseconds`
   );
 
   const validatedTranscriptStartGeneration = performance.now();
   const validatedTranscript = await generateObject({
-    model: openai("gpt-5-nano"),
-    system: ValidationSystemPrompt,
+    ...(await createAuthenticatedLlmBudgetHooks({
+      modelId: budgetModelId(luna),
+      operation: "llm/text-to-speech",
+    })),
+    model: luna,
+    instructions: ValidationSystemPrompt,
     prompt: `Original text: ${text}\n\nTransformed text: ${speechFriendlyText.text}`,
     temperature: 0,
     schema: ValidationSchema,
+    maxOutputTokens: GUARDRAIL_MAX_OUTPUT_TOKENS,
   });
   const validatedTranscriptEndGeneration = performance.now();
 
   logger.log(
     "transformTextToSpeechFriendly",
-    `Validated transcript generation completed in ${validatedTranscriptEndGeneration - validatedTranscriptStartGeneration} milliseconds`,
+    `Validated transcript generation completed in ${validatedTranscriptEndGeneration - validatedTranscriptStartGeneration} milliseconds`
   );
+
+  recordLlmCall({
+    persist: false,
+    model: models.openai.luna.id,
+    usage: speechFriendlyText.usage,
+    durationMs:
+      firstAttemptSpeechFriendlyTextEndGeneration - firstAttemptSpeechFriendlyTextStartGeneration,
+    metadata: { operation: "tts-speech-friendly-v1" },
+  });
+
+  recordLlmCall({
+    persist: false,
+    model: models.openai.luna.id,
+    usage: validatedTranscript.usage,
+    durationMs: validatedTranscriptEndGeneration - validatedTranscriptStartGeneration,
+    metadata: { operation: "tts-validate-v1" },
+  });
 
   if (!validatedTranscript.object.valid) {
     // Try to regenerate text, use slightly stronger model
     const regeneratedTranscriptStartGeneration = performance.now();
     const regeneratedTranscript = await generateText({
-      model: openai("gpt-5-mini"),
-      system: CorrectionSystemPrompt.replace(
+      ...(await createAuthenticatedLlmBudgetHooks({
+        modelId: budgetModelId(terra),
+        operation: "llm/text-to-speech",
+      })),
+      model: terra,
+      instructions: CorrectionSystemPrompt.replace(
         "{{validationErrorReasoning}}",
-        validatedTranscript.object.reason,
+        validatedTranscript.object.reason
       ),
       prompt: `Original text: ${text}\n\nTransformed text: ${speechFriendlyText.text}`,
       temperature: 0,
+      maxOutputTokens: GUARDRAIL_MAX_OUTPUT_TOKENS,
     });
     const regeneratedTranscriptEndGeneration = performance.now();
 
     logger.log(
       "transformTextToSpeechFriendly",
-      `Regenerated transcript generation completed in ${regeneratedTranscriptEndGeneration - regeneratedTranscriptStartGeneration} milliseconds`,
+      `Regenerated transcript generation completed in ${regeneratedTranscriptEndGeneration - regeneratedTranscriptStartGeneration} milliseconds`
     );
+
+    recordLlmCall({
+      persist: false,
+      model: models.openai.terra.id,
+      usage: regeneratedTranscript.usage,
+      durationMs: regeneratedTranscriptEndGeneration - regeneratedTranscriptStartGeneration,
+      metadata: { operation: "tts-regenerate-v1" },
+    });
 
     const betterVersionOfTranscriptStartGeneration = performance.now();
     const betterVersionOfTranscript = await generateObject({
-      model: openai("gpt-5-nano"),
-      system: `Based on the validation criteria, determine whether transcript A, B, or C is best. \nValidation criteria: ${ValidationCriteria}`,
+      ...(await createAuthenticatedLlmBudgetHooks({
+        modelId: budgetModelId(luna),
+        operation: "llm/text-to-speech",
+      })),
+      model: luna,
+      instructions: `Based on the validation criteria, determine whether transcript A, B, or C is best. \nValidation criteria: ${ValidationCriteria}`,
       prompt: `Option A: ${text}\n\nOption B: ${speechFriendlyText.text}\n\nOption C: ${regeneratedTranscript.text}`,
       temperature: 0,
       schema: z.object({
@@ -143,17 +200,26 @@ export async function transformTextToSpeechFriendly(
           .enum(["A", "B", "C"])
           .describe("The best transcript based on the validation criteria"),
       }),
+      maxOutputTokens: GUARDRAIL_MAX_OUTPUT_TOKENS,
     });
     const betterVersionOfTranscriptEndGeneration = performance.now();
 
     logger.log(
       "transformTextToSpeechFriendly",
-      `Better version of transcript generation completed in ${betterVersionOfTranscriptEndGeneration - betterVersionOfTranscriptStartGeneration} milliseconds`,
+      `Better version of transcript generation completed in ${betterVersionOfTranscriptEndGeneration - betterVersionOfTranscriptStartGeneration} milliseconds`
     );
+
+    recordLlmCall({
+      persist: false,
+      model: models.openai.luna.id,
+      usage: betterVersionOfTranscript.usage,
+      durationMs: betterVersionOfTranscriptEndGeneration - betterVersionOfTranscriptStartGeneration,
+      metadata: { operation: "tts-compare-abc-v1" },
+    });
 
     logger.log(
       "transformTextToSpeechFriendly",
-      `Better version of transcript: ${betterVersionOfTranscript.object.bestTranscript}`,
+      `Better version of transcript: ${betterVersionOfTranscript.object.bestTranscript}`
     );
     switch (betterVersionOfTranscript.object.bestTranscript) {
       case "A":
@@ -168,8 +234,12 @@ export async function transformTextToSpeechFriendly(
   } else {
     const betterVersionOfTranscriptStartGeneration = performance.now();
     const betterVersionOfTranscript = await generateObject({
-      model: openai("gpt-5-nano"),
-      system: `Based on the validation criteria, determine whether transcript A, B, or C is best. \nValidation criteria: ${ValidationCriteria}`,
+      ...(await createAuthenticatedLlmBudgetHooks({
+        modelId: budgetModelId(luna),
+        operation: "llm/text-to-speech",
+      })),
+      model: luna,
+      instructions: `Based on the validation criteria, determine whether transcript A, B, or C is best. \nValidation criteria: ${ValidationCriteria}`,
       prompt: `Option A: ${text}\n\nOption B: ${speechFriendlyText.text}}`,
       temperature: 0,
       schema: z.object({
@@ -177,17 +247,26 @@ export async function transformTextToSpeechFriendly(
           .enum(["A", "B"])
           .describe("The best transcript based on the validation criteria"),
       }),
+      maxOutputTokens: GUARDRAIL_MAX_OUTPUT_TOKENS,
     });
     const betterVersionOfTranscriptEndGeneration = performance.now();
 
     logger.log(
       "transformTextToSpeechFriendly",
-      `Better version of transcript generation completed in ${betterVersionOfTranscriptEndGeneration - betterVersionOfTranscriptStartGeneration} milliseconds`,
+      `Better version of transcript generation completed in ${betterVersionOfTranscriptEndGeneration - betterVersionOfTranscriptStartGeneration} milliseconds`
     );
+
+    recordLlmCall({
+      persist: false,
+      model: models.openai.luna.id,
+      usage: betterVersionOfTranscript.usage,
+      durationMs: betterVersionOfTranscriptEndGeneration - betterVersionOfTranscriptStartGeneration,
+      metadata: { operation: "tts-compare-ab-v1" },
+    });
 
     logger.log(
       "transformTextToSpeechFriendly",
-      `Better version of transcript: ${betterVersionOfTranscript.object.bestTranscript}`,
+      `Better version of transcript: ${betterVersionOfTranscript.object.bestTranscript}`
     );
     switch (betterVersionOfTranscript.object.bestTranscript) {
       case "A":
@@ -202,81 +281,129 @@ export async function transformTextToSpeechFriendly(
 
   logger.log(
     "transformTextToSpeechFriendly",
-    `Speech-friendly text generation completed in ${speechFriendlyTextEndGeneration - speechFriendlyTextStartGeneration} milliseconds`,
+    `Speech-friendly text generation completed in ${speechFriendlyTextEndGeneration - speechFriendlyTextStartGeneration} milliseconds`
   );
 
   return result;
 }
 
 const SpeechFriendlySystemPromptV2 = `
-Developer: You are a helpful assistant that converts text into speech-friendly output.
+Developer: You are a helpful assistant that converts text into speech-friendly output and adds optional speech-control tags for better delivery.
+
 Instructions:
 - Only edit the text as needed to make it suitable for speech.
-- If the text is already speech-friendly, return the text as is as quickly as possible.
+- If the text is already speech-friendly, return the text as is (you may still add a few tags for pace/breath).
 - Describe visible elements (like code blocks, lists, images) for listener clarity.
 - Output should closely match the original text in sequence.
 - Convert special characters to be easy for speech.
 - Ensure the result is ready for AI TTS audio generation and aligns with the input.
-- Output ONLY the transformed text.
-- Do not include any other text in your response.
+
+Speech-control tags (use sparingly; a downstream pipeline will interpret or strip them):
+- <breath/> or <breath length="short|medium|long"/> — natural breath or micro-pause (e.g. between clauses, after a list item).
+- <pause length="short|medium|long"/> — deliberate pause (e.g. before emphasis, after a heading, between sections).
+- <pace speed="slower|normal|faster"/> — hint for speaking rate (e.g. <pace speed="slower"/> before important or complex phrases).
+- <tone type="softer|emphatic|neutral|warm"/> — delivery hint (e.g. <tone type="softer"/> for asides, <tone type="emphatic"/> for key points).
+
+Output ONLY the transformed text (including any tags). Do not include any other text in your response.
 `;
 
 const SpeechResultSchema = z.object({
   speechFriendlyText: z
     .string()
     .describe(
-      "The speech-friendly text. Do not include any other text in your response.",
+      'The speech-friendly text, optionally including speech-control tags: <breath/>, <pause length="short|medium|long"/>, <pace speed="slower|normal|faster"/>, <tone type="softer|emphatic|neutral|warm"/>.'
     ),
   grade: z
     .number()
-    .describe(
-      "Grade for the quality of the speech-friendly text. 100 is the highest grade.",
-    ),
+    .describe("Grade for the quality of the speech-friendly text. 100 is the highest grade."),
   reason: z
     .string()
     .describe(
-      "Reason for the grade. Be as detailed as possible but keep response under 300 tokens MAX.",
+      "Reason for the grade. Be as detailed as possible but keep response under 300 tokens MAX."
     ),
 });
 
-export async function transformTextToSpeechFriendlyV2(
-  text: string,
-): Promise<string> {
+export async function transformTextToSpeechFriendlyV2(text: string): Promise<string> {
+  // Check cache first
+  const cacheKey = text.trim().toLowerCase();
+  const cached = textCache.get(cacheKey);
+
+  if (cached && Date.now() - cached.timestamp < CACHE_TTL) {
+    logger.log("transformTextToSpeechFriendlyV2", "Returning cached result");
+
+    return cached.text;
+  }
+
   const result = await generateObject({
-    model: openai("gpt-5-nano"),
-    system: SpeechFriendlySystemPromptV2,
+    ...(await createAuthenticatedLlmBudgetHooks({
+      modelId: budgetModelId(luna),
+      operation: "llm/text-to-speech",
+    })),
+    model: luna,
+    instructions: SpeechFriendlySystemPromptV2,
     prompt: text,
     temperature: 0,
     schema: SpeechResultSchema,
+    maxOutputTokens: GUARDRAIL_MAX_OUTPUT_TOKENS,
   });
 
-  if (result.object.grade <= 80) {
-    return result.object.speechFriendlyText;
+  if (result.object.grade >= 80) {
+    const finalResult = result.object.speechFriendlyText;
+
+    textCache.set(cacheKey, { text: finalResult, timestamp: Date.now() });
+
+    return finalResult;
   }
 
   const regeneratedTranscriptStartGeneration = performance.now();
 
   const regeneratedTranscript = await generateObject({
-    model: openai("gpt-5-nano"),
-    system: CorrectionSystemPrompt.replace(
+    ...(await createAuthenticatedLlmBudgetHooks({
+      modelId: budgetModelId(luna),
+      operation: "llm/text-to-speech",
+    })),
+    model: luna,
+    instructions: CorrectionSystemPrompt.replace(
       "{{validationErrorReasoning}}",
-      result.object.reason,
+      result.object.reason
     ),
     prompt: `Original text: ${text}\n\nTransformed text: ${result.object.speechFriendlyText}`,
     temperature: 0,
     schema: SpeechResultSchema,
+    maxOutputTokens: GUARDRAIL_MAX_OUTPUT_TOKENS,
   });
 
   const regeneratedTranscriptEndGeneration = performance.now();
 
   logger.log(
     "transformTextToSpeechFriendlyV2",
-    `Regenerated transcript generation completed in ${regeneratedTranscriptEndGeneration - regeneratedTranscriptStartGeneration} milliseconds`,
+    `Regenerated transcript generation completed in ${regeneratedTranscriptEndGeneration - regeneratedTranscriptStartGeneration} milliseconds`
   );
 
+  recordLlmCall({
+    persist: false,
+    model: models.openai.luna.id,
+    usage: result.usage,
+    durationMs: 0,
+    metadata: { operation: "tts-v2-initial" },
+  });
+
+  recordLlmCall({
+    persist: false,
+    model: models.openai.luna.id,
+    usage: regeneratedTranscript.usage,
+    durationMs: regeneratedTranscriptEndGeneration - regeneratedTranscriptStartGeneration,
+    metadata: { operation: "tts-v2-regenerate" },
+  });
+
+  let finalResult = text;
+
   if (regeneratedTranscript.object.grade >= result.object.grade) {
-    return regeneratedTranscript.object.speechFriendlyText;
+    finalResult = regeneratedTranscript.object.speechFriendlyText;
   } else {
-    return result.object.speechFriendlyText;
+    finalResult = result.object.speechFriendlyText;
   }
+  textCache.set(cacheKey, { text: finalResult, timestamp: Date.now() });
+
+  return finalResult;
 }

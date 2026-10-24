@@ -1,0 +1,49 @@
+import { auth } from "@clerk/nextjs/server";
+import { UI_MESSAGE_STREAM_HEADERS } from "ai";
+
+import { createChatResumableStreamContext } from "@/lib/chat/resumable-sse-stream";
+import { createLogger } from "@/lib/logger";
+import { readChat } from "@/lib/chat/chat-store";
+
+const logger = createLogger("app/api/chat/[id]/stream/route.ts");
+const STREAM_HEADERS = { ...UI_MESSAGE_STREAM_HEADERS, "cache-control": "no-store" };
+
+export async function GET(_: Request, { params }: { params: Promise<{ id: string }> }) {
+  const clerkUser = await auth();
+
+  if (!clerkUser || !clerkUser.userId) {
+    return new Response("Unauthorized", { status: 401 });
+  }
+
+  const { id } = await params;
+
+  const chatRes = await readChat(id);
+
+  if (chatRes.error) {
+    logger.error("GET", "Error reading chat");
+
+    return new Response(null, { status: 500 });
+  } else if (chatRes.data === null) {
+    logger.error("GET", "Error reading chat: Chat is null");
+
+    return new Response(null, { status: 500 });
+  }
+
+  const chat = chatRes.data;
+
+  if (chat.thread.active_stream_id == null) {
+    // no content response when there is no active stream
+    return new Response(null, { status: 204, headers: STREAM_HEADERS });
+  }
+
+  const streamContext = await createChatResumableStreamContext();
+  const stream = await streamContext.resumeExistingStream(chat.thread.active_stream_id);
+
+  if (!stream) {
+    return new Response(null, { status: 204, headers: STREAM_HEADERS });
+  }
+
+  return new Response(stream.pipeThrough(new TextEncoderStream()), {
+    headers: STREAM_HEADERS,
+  });
+}

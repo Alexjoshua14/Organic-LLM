@@ -1,9 +1,17 @@
 import z from "zod";
 
+import { ProfileTreeSchema, ProfileTreeSourceSchema } from "@/lib/schemas/profileTree";
+
 export const ProfileSchema = z.object({
   clerk_user_id: z.string().min(1),
-  display_name: z.string().min(1).max(255).optional(),
-  email: z.email().optional(),
+  display_name: z.string().min(1).max(255).nullable().optional(),
+  email: z.union([z.email(), z.null()]).optional(),
+  profile_tree: ProfileTreeSchema.nullable().optional(),
+  /** Stored as timestamptz in Supabase; keep as string for client-safe serialization. */
+  profile_tree_updated_at: z.string().nullable().optional(),
+  profile_tree_source: ProfileTreeSourceSchema.nullable().optional(),
+  /** Legacy profile field. Authorization uses the separate admin_access table. */
+  admin: z.boolean().optional(),
 });
 
 export const ProfileCreate = ProfileSchema;

@@ -1,12 +1,20 @@
 import { openai } from "@ai-sdk/openai";
 import { generateText } from "ai";
+import { auth } from "@clerk/nextjs/server";
 
+import { createAuthenticatedLlmBudgetHooks, budgetModelId } from "@/lib/plans/llm-budget-hooks";
+import { getSupabaseUserId } from "@/data/supabase/profiles";
+import { checkLlmMessageLimit } from "@/lib/rate-limit/llm";
 import { createLogger } from "@/lib/logger";
+import { recordLlmCall } from "@/lib/llm/metrics";
+import { models, providerModelSlug } from "@/lib/schemas/chat-models";
+import { requirePlanBudget } from "@/lib/api/plan-budget-gate";
 
 // Allow responses up to 30 seconds
 export const maxDuration = 30;
 
 const logger = createLogger(`app/api/speech/route.ts`);
+const speechModel = models.openai.gpt4oMini;
 
 // Speech-friendly system prompt that encourages natural, conversational responses
 const speechSystemPrompt = `You are a helpful AI assistant optimized for text-to-speech output. Your responses should be:
@@ -28,21 +36,47 @@ export async function POST(req: Request) {
   try {
     const { message }: { message: string } = await req.json();
 
-    logger.log("POST", `Received message for speech generation: ${message}`);
+    logger.log("POST", `Received message for speech generation, length: ${message?.length ?? 0}`);
 
-    if (
-      !message ||
-      typeof message !== "string" ||
-      message.trim().length === 0
-    ) {
+    if (!message || typeof message !== "string" || message.trim().length === 0) {
       return Response.json(
         { error: "Message is required and must be a non-empty string" },
-        { status: 400 },
+        { status: 400 }
       );
     }
 
+    const clerkUser = await auth();
+
+    if (!clerkUser?.userId) {
+      return new Response("Unauthorized", { status: 401 });
+    }
+    const sbUserIdResult = await getSupabaseUserId(clerkUser.userId);
+
+    if (sbUserIdResult.error || sbUserIdResult.data === null) {
+      return new Response("User not found in supabase", { status: 404 });
+    }
+    const sbUserId = sbUserIdResult.data;
+
+    const planGate = await requirePlanBudget({ clerkUserId: clerkUser.userId, sbUserId: sbUserId });
+
+    if (planGate) return planGate;
+
+    const messageLimitResult = await checkLlmMessageLimit(sbUserId);
+
+    if (!messageLimitResult.success) {
+      return Response.json(
+        { error: messageLimitResult.error ?? "Too many requests" },
+        { status: 429 }
+      );
+    }
+
+    const start = performance.now();
     const result = await generateText({
-      model: openai("gpt-4o-mini"), // Using a faster model for speech generation
+      ...(await createAuthenticatedLlmBudgetHooks({
+        modelId: budgetModelId(openai(providerModelSlug(speechModel.id))),
+        operation: "/api/ai/speech",
+      })),
+      model: openai(providerModelSlug(speechModel.id)), // Using a faster model for speech generation
       messages: [
         {
           role: "system",
@@ -56,11 +90,17 @@ export async function POST(req: Request) {
       maxOutputTokens: 500, // Reasonable limit for speech responses
       temperature: 0.7, // Slightly creative but consistent
     });
+    const durationMs = performance.now() - start;
 
-    logger.log(
-      "POST",
-      `Generated speech-friendly response: ${result.text.substring(0, 100)}...`,
-    );
+    recordLlmCall({
+      persist: false,
+      model: speechModel.id,
+      usage: result.usage,
+      durationMs,
+      metadata: { operation: "speech-route", route: "/api/ai/speech" },
+    });
+
+    logger.log("POST", `Generated speech-friendly response, length: ${result.text.length}`);
 
     return Response.json({
       text: result.text,
@@ -68,11 +108,10 @@ export async function POST(req: Request) {
       finishReason: result.finishReason,
     });
   } catch (error) {
-    logger.error("POST", `Error generating speech response: ${error}`);
+    const err = error instanceof Error ? error : new Error(String(error));
 
-    return Response.json(
-      { error: "Failed to generate speech-friendly response" },
-      { status: 500 },
-    );
+    logger.error("POST", `Error generating speech response: ${err.name}`);
+
+    return Response.json({ error: "Failed to generate speech-friendly response" }, { status: 500 });
   }
 }

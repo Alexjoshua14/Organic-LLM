@@ -1,5 +1,120 @@
-import { tool } from "ai";
+import type { ExaSearchResultSource } from "../exa/types";
+import type { MermaidDiagramDensity } from "@/lib/mermaid/types";
+
+import { GatewayModelId, generateText, tool } from "ai";
 import { z } from "zod";
+import { UIMessage } from "ai";
+import { ContentsOptions } from "exa-js";
+
+import { createLogger } from "../logger";
+import { exaSearchOptionsSchema, searchOptionsSchema } from "../exa/types";
+import { searchWeb, searchWebWithQuery } from "../exa/client";
+import { mapSearchResponseToExaSources } from "../exa/utils";
+
+import { createLlmBudgetHooks } from "@/lib/plans/llm-budget-hooks";
+import { models } from "@/lib/schemas/chat-models";
+import { getMessages, getMessagesSince, getMessageCount, getNMessages } from "@/data/supabase/chat";
+import { checkExternalFetchLimit } from "@/lib/rate-limit/external-fetch";
+import { wrapWebSearchResultsForModel } from "@/lib/security/external-content";
+import { estimateTokenCount } from "@/lib/llm/chat-helpers";
+import { searchMemoriesWithL1Cache } from "@/lib/memory/memory-search-cache";
+import {
+  formatActivatedMemoriesBlock,
+  readActivatedMemories,
+} from "@/lib/memory/activated-thread-memories";
+import {
+  ARCADIA_MEMORY_MIN_SCORE,
+  MEMORY_TOOL_OVERFETCH_CAP,
+  MEMORY_TOOL_OVERFETCH_MIN,
+  bucketMemoriesByTier,
+  selectMemoriesForPrompt,
+  toMemorySearchInventory,
+} from "@/lib/memory/memory-relevance";
+import {
+  GetMoreMessagesToolSchema,
+  ListRecentMemoriesToolSchema,
+  SearchMemoryToolSchema,
+  clampHistoryMessageLimit,
+} from "@/lib/llm/chat-tool-schemas";
+import { getMemoriesForUser } from "@/lib/memory/operations";
+import {
+  filterMemoriesSince,
+  LIST_RECENT_MEMORIES_MAX,
+  memoryActivityAt,
+  recentMemoryWindowSinceMs,
+  type RecentMemoryWindow,
+} from "@/lib/memory/recent-memories";
+import { ChatAIActionEnum } from "@/types/ai";
+import {
+  MERMAID_DIAGRAM_FIX_SYSTEM_PROMPT,
+  MERMAID_DIAGRAM_GENERATOR_SYSTEM_PROMPT,
+} from "@/lib/system-prompt/mermaid-diagram-prompt";
+import { normalizeMermaidCode, parseDualMermaidGeneratorJson } from "@/lib/mermaid/source";
+import { validateSharedNodeIds } from "@/lib/mermaid/node-graph";
+import {
+  getMermaidForValidation,
+  validateMermaidCode,
+  verifyMermaidValidationWorks,
+} from "@/lib/mermaid/validate";
+
+const logger = createLogger("llm-tool-kit");
+
+/** Max tokens to return from get_more_chat_history so we don't blow up the context window. */
+const MAX_TOKENS_FOR_HISTORY = 4000;
+
+/** Max tokens for full history and date-filtered history tools. */
+const MAX_TOKENS_FULL_HISTORY = 24000;
+/** Token cap for the Mermaid generator sub-call to avoid unbounded tool latency/cost. */
+const MERMAID_GENERATOR_MAX_OUTPUT_TOKENS = 2200;
+
+/** Format UIMessage[] into a plain string for the model (role + text content). */
+function formatMessagesForContext(messages: UIMessage[]): string {
+  return messages
+    .map((m) => {
+      const text = m.parts
+        .filter((p): p is { type: "text"; text: string } => p.type === "text")
+        .map((p) => p.text)
+        .join("");
+      const memoryBlock = formatActivatedMemoriesBlock(readActivatedMemories(m));
+      const body = [text.trim(), memoryBlock].filter(Boolean).join("\n\n");
+
+      return `[${m.role}]: ${body || "(no text)"}`;
+    })
+    .join("\n\n");
+}
+
+/** Truncate messages from the start (oldest) until formatted string is within token cap. */
+async function formatAndCapMessagesByTokens(
+  messages: UIMessage[],
+  maxTokens: number
+): Promise<{
+  formatted: string;
+  messagesUsed: UIMessage[];
+  tokenCount: number;
+}> {
+  let slice = messages;
+  let formatted = formatMessagesForContext(slice);
+  let tokenCount = (await estimateTokenCount(formatted)) ?? 0;
+
+  while (tokenCount > maxTokens && slice.length > 1) {
+    slice = slice.slice(1);
+    formatted = formatMessagesForContext(slice);
+    tokenCount = (await estimateTokenCount(formatted)) ?? 0;
+  }
+  if (tokenCount > maxTokens && slice.length === 1) {
+    return {
+      formatted: "(Messages exceed token limit; skipping to protect context window.)",
+      messagesUsed: [],
+      tokenCount: 0,
+    };
+  }
+
+  return {
+    formatted: formatted || "(No messages.)",
+    messagesUsed: slice,
+    tokenCount,
+  };
+}
 
 export const weatherTool = tool({
   description: "Get the weather in a location",
@@ -12,3 +127,775 @@ export const weatherTool = tool({
     temperature: 31415.926,
   }),
 });
+
+/**
+ * AI SDK tool: **`search_memories`** — vector recall over the user’s Mem0 graph.
+ *
+ * - **Query:** Uses `query` from the model **verbatim** (no LLM rewrite in the tool path).
+ * - **Over-fetch:** Requests a wide Mem0 `limit`, then {@link selectMemoriesForPrompt} slices to
+ *   the tool’s requested `limit` so the model still sees high-signal rows.
+ * - **Cache:** Delegates to {@link searchMemoriesWithL1Cache} for per-process dedupe.
+ *
+ * @param userId - Supabase user id (resolved server-side).
+ * @param writer - Optional UI stream for transient “memory search” actions.
+ * @returns A `tool({ ... })` instance registered under the key `search_memories`.
+ */
+export function createMemorySearchTool(
+  userId: string,
+  writer?: WebSearchStreamWriter,
+  options?: { description?: string }
+) {
+  const description =
+    options?.description ??
+    "Search through the user's stored memories to find relevant information from past conversations. Use this when you need to recall specific details, preferences, or context from previous interactions.";
+
+  return tool({
+    description,
+    inputSchema: SearchMemoryToolSchema,
+    execute: async ({ query }) => {
+      logger.log("createMemorySearchTool", "LLM has invoked memory search");
+      const trimmedQuery = query?.trim() ?? "";
+
+      if (!trimmedQuery) {
+        return {
+          success: false,
+          query: query ?? "",
+          rawQuery: query ?? "",
+          queryRewriteUsed: false,
+          rewrittenQueries: [],
+          error: "Search query is required",
+          memories: [],
+          count: 0,
+        };
+      }
+
+      if (writer) {
+        writer.write({
+          type: "data-aiAction",
+          data: { action: ChatAIActionEnum.Memory, query: trimmedQuery },
+          transient: true,
+        });
+      }
+
+      try {
+        const requestedLimit = 3;
+        const limitForStore = Math.min(
+          MEMORY_TOOL_OVERFETCH_CAP,
+          Math.max(requestedLimit, MEMORY_TOOL_OVERFETCH_MIN)
+        );
+
+        const searchRun = await searchMemoriesWithL1Cache(userId, trimmedQuery, limitForStore);
+        const perQuery = [
+          {
+            queryLength: trimmedQuery.length,
+            cacheHit: searchRun.metrics.cacheHit,
+            searchMs: searchRun.metrics.memorySearchMs,
+            error: searchRun.result.error ?? null,
+          },
+        ];
+
+        const full = searchRun.result.error ? [] : (searchRun.result.data?.results ?? []);
+
+        if (searchRun.result.error) {
+          logger.log("createMemorySearchTool", "memory_search_error", {
+            queryLength: trimmedQuery.length,
+            queryRewriteUsed: false,
+            rewriteMs: 0,
+            perQuery,
+            error: searchRun.result.error,
+          });
+
+          return {
+            success: false,
+            query: trimmedQuery,
+            rawQuery: trimmedQuery,
+            queryRewriteUsed: false,
+            rewrittenQueries: [trimmedQuery],
+            error: searchRun.result.error,
+            memories: [],
+            count: 0,
+          };
+        }
+
+        logger.log("createMemorySearchTool", "memory_search_ok", {
+          queryLength: trimmedQuery.length,
+          queryRewriteUsed: false,
+          rewriteMs: 0,
+          perQuery,
+          mergedCount: full.length,
+          limitForStore,
+        });
+
+        const tiers = bucketMemoriesByTier(full, ARCADIA_MEMORY_MIN_SCORE);
+        const sliced = selectMemoriesForPrompt(full, {
+          maxIncluded: requestedLimit,
+          minScore: ARCADIA_MEMORY_MIN_SCORE,
+        });
+        const memoryInventory = toMemorySearchInventory(tiers, limitForStore, requestedLimit);
+
+        return {
+          success: true,
+          query: trimmedQuery,
+          rawQuery: trimmedQuery,
+          queryRewriteUsed: false,
+          rewrittenQueries: [trimmedQuery],
+          memories: sliced,
+          count: sliced.length,
+          memoryInventory,
+        };
+      } catch (error) {
+        return {
+          success: false,
+          query: trimmedQuery,
+          rawQuery: trimmedQuery,
+          queryRewriteUsed: false,
+          rewrittenQueries: [trimmedQuery],
+          error: error instanceof Error ? error.message : "Unknown error",
+          memories: [],
+          count: 0,
+        };
+      }
+    },
+  });
+}
+
+/**
+ * AI SDK tool: **`list_recent_memories`** — wall-clock list of memories created/updated
+ * in the last hour or day. Arcadia-only registration; not a substitute for semantic
+ * {@link createMemorySearchTool}.
+ *
+ * Mem0 has no server-side `since` filter in this app — we getAll (rate-limited) then
+ * filter on `createdAt` / `updatedAt` and cap the return set.
+ */
+export function createListRecentMemoriesTool(userId: string, writer?: WebSearchStreamWriter) {
+  return tool({
+    description:
+      "List memories that were newly created or updated in the recent past (last hour or last day). Use when the user asks what is new, what changed recently, or wants a digest of recent memory activity — not for topical recall (use search_memories for that).",
+    inputSchema: ListRecentMemoriesToolSchema,
+    execute: async ({ window }) => {
+      const windowKey = (
+        window === "hour" || window === "day" ? window : "day"
+      ) as RecentMemoryWindow;
+      const sinceMs = recentMemoryWindowSinceMs(windowKey);
+      const sinceIso = new Date(sinceMs).toISOString();
+
+      logger.log("createListRecentMemoriesTool", `window=${windowKey} since=${sinceIso}`);
+
+      if (writer) {
+        writer.write({
+          type: "data-aiAction",
+          data: { action: ChatAIActionEnum.Memory, query: `recent:${windowKey}` },
+          transient: true,
+        });
+      }
+
+      try {
+        const listResult = await getMemoriesForUser(userId);
+
+        if (listResult.error || !listResult.data) {
+          return {
+            success: false,
+            window: windowKey,
+            since: sinceIso,
+            error: listResult.error ?? "Failed to list memories",
+            memories: [],
+            count: 0,
+            truncated: false,
+          };
+        }
+
+        const all = listResult.data.results ?? [];
+        const matchingCount = all.filter((m) => {
+          const at = memoryActivityAt(m);
+
+          return at != null && at >= sinceMs;
+        }).length;
+        const filtered = filterMemoriesSince(all, sinceMs, LIST_RECENT_MEMORIES_MAX);
+        const truncated = matchingCount > filtered.length;
+
+        return {
+          success: true,
+          window: windowKey,
+          since: sinceIso,
+          memories: filtered.map((m) => ({
+            id: m.id,
+            memory: m.memory,
+            createdAt: m.createdAt ?? null,
+            updatedAt: m.updatedAt ?? null,
+          })),
+          count: filtered.length,
+          truncated,
+        };
+      } catch (error) {
+        return {
+          success: false,
+          window: windowKey,
+          since: sinceIso,
+          error: error instanceof Error ? error.message : "Unknown error",
+          memories: [],
+          count: 0,
+          truncated: false,
+        };
+      }
+    },
+  });
+}
+
+/**
+ * Creates a tool that lets the LLM fetch additional (older) messages from the current chat.
+ * Use when the model needs more conversation history than was initially provided.
+ *
+ * @param chatId - Current chat/thread ID
+ * @param alreadySentCount - Number of messages already in context (so we fetch only older ones)
+ */
+export function createGetMoreMessagesTool(chatId: string, alreadySentCount: number) {
+  return tool({
+    description:
+      "Fetch older messages from this conversation when you need more context to answer the user. Call this when the user refers to something earlier in the chat that you don't have in your current context (e.g. a prior decision, topic, or detail).",
+    inputSchema: GetMoreMessagesToolSchema,
+    execute: async ({ limit }) => {
+      const clampedLimit = clampHistoryMessageLimit(limit);
+
+      logger.log(
+        "createGetMoreMessagesTool",
+        `Fetching ${clampedLimit} older messages for chat ${chatId} (already have ${alreadySentCount})`
+      );
+      try {
+        const result = await getNMessages(chatId, alreadySentCount + clampedLimit);
+
+        if (result.error) {
+          return {
+            success: false,
+            error: result.error,
+            messages: "",
+            count: 0,
+          };
+        }
+        const all = result.data ?? [];
+        const olderOnly = all.slice(0, clampedLimit);
+        const { formatted, messagesUsed, tokenCount } = await formatAndCapMessagesByTokens(
+          olderOnly,
+          MAX_TOKENS_FOR_HISTORY
+        );
+
+        logger.log(
+          "createGetMoreMessagesTool",
+          `Returning ${messagesUsed.length} message(s), ~${tokenCount} tokens${messagesUsed.length < olderOnly.length ? " (truncated to stay under cap)" : ""}`
+        );
+
+        const totalCountResult = await getMessageCount(chatId);
+        const totalMessagesInThread = totalCountResult.data ?? null;
+        const messagesInContext = alreadySentCount + messagesUsed.length;
+
+        return {
+          success: true,
+          count: messagesUsed.length,
+          messagesInContext,
+          totalMessagesInThread,
+          messages: formatted || "(No older messages in this thread.)",
+        };
+      } catch (error) {
+        logger.error(
+          "createGetMoreMessagesTool",
+          `Error: ${error instanceof Error ? error.message : String(error)}`
+        );
+
+        return {
+          success: false,
+          error: error instanceof Error ? error.message : "Unknown error",
+          messages: "",
+          count: 0,
+        };
+      }
+    },
+  });
+}
+
+/**
+ * Fetches the entire conversation history (capped at 24000 tokens). Use only when the user
+ * explicitly asks for the full thread, a full summary, or "everything we discussed."
+ */
+export function createGetFullChatHistoryTool(chatId: string) {
+  return tool({
+    description:
+      "Fetch the entire conversation history for this thread (up to 24000 tokens). Use only when the user explicitly asks for the full conversation, a complete summary of the thread, or 'everything we discussed'—not for routine context. Prefer get_more_chat_history for targeted lookbacks.",
+    inputSchema: z.object({}),
+    execute: async () => {
+      logger.log("createGetFullChatHistoryTool", `Fetching full history for chat ${chatId}`);
+      try {
+        const result = await getMessages(chatId);
+
+        if (result.error || !result.data) {
+          return {
+            success: false,
+            error: result.error?.message ?? "Failed to load messages",
+            messages: "",
+            count: 0,
+          };
+        }
+        const messages = result.data;
+        const { formatted, messagesUsed, tokenCount } = await formatAndCapMessagesByTokens(
+          messages,
+          MAX_TOKENS_FULL_HISTORY
+        );
+
+        logger.log(
+          "createGetFullChatHistoryTool",
+          `Returning ${messagesUsed.length} message(s), ~${tokenCount} tokens`
+        );
+
+        return {
+          success: true,
+          count: messagesUsed.length,
+          messages: formatted,
+        };
+      } catch (error) {
+        logger.error(
+          "createGetFullChatHistoryTool",
+          `Error: ${error instanceof Error ? error.message : String(error)}`
+        );
+
+        return {
+          success: false,
+          error: error instanceof Error ? error.message : "Unknown error",
+          messages: "",
+          count: 0,
+        };
+      }
+    },
+  });
+}
+
+const GetMessagesFromDateToolSchema = z.object({
+  date: z
+    .string()
+    .describe(
+      "Date in YYYY-MM-DD format (e.g. 2025-02-01). Returns all messages on or after this date (UTC)."
+    ),
+});
+
+/**
+ * Fetches all messages from a specific date onward (UTC), capped at 24000 tokens.
+ */
+export function createGetMessagesFromDateTool(chatId: string) {
+  return tool({
+    description:
+      "Fetch all messages from this conversation on or after a specific date. Use when the user asks about 'what we said on [date]', 'messages from [date]', or to recall a past session. Date must be YYYY-MM-DD.",
+    inputSchema: GetMessagesFromDateToolSchema,
+    execute: async ({ date }) => {
+      logger.log(
+        "createGetMessagesFromDateTool",
+        `Fetching messages since ${date} for chat ${chatId}`
+      );
+      try {
+        const result = await getMessagesSince(chatId, date);
+
+        if (result.error) {
+          return {
+            success: false,
+            error: result.error,
+            messages: "",
+            count: 0,
+          };
+        }
+        const messages = result.data ?? [];
+        const { formatted, messagesUsed, tokenCount } = await formatAndCapMessagesByTokens(
+          messages,
+          MAX_TOKENS_FULL_HISTORY
+        );
+
+        logger.log(
+          "createGetMessagesFromDateTool",
+          `Returning ${messagesUsed.length} message(s) since ${date}, ~${tokenCount} tokens`
+        );
+
+        return {
+          success: true,
+          count: messagesUsed.length,
+          messages: formatted || `(No messages on or after ${date}.)`,
+        };
+      } catch (error) {
+        logger.error(
+          "createGetMessagesFromDateTool",
+          `Error: ${error instanceof Error ? error.message : String(error)}`
+        );
+
+        return {
+          success: false,
+          error: error instanceof Error ? error.message : "Unknown error",
+          messages: "",
+          count: 0,
+        };
+      }
+    },
+  });
+}
+
+/** Minimal writer type for streaming sources to the client; avoids importing ChatUIMessage here. */
+export type WebSearchStreamWriter = {
+  write: (part: {
+    type: "data-aiAction";
+    data:
+      | {
+          action: ChatAIActionEnum.Search;
+          sources?: ExaSearchResultSource[];
+        }
+      | {
+          action: ChatAIActionEnum.Memory;
+          query?: string;
+        }
+      | {
+          action: ChatAIActionEnum.Tool;
+          message?: string;
+        };
+    transient?: boolean;
+  }) => void;
+};
+
+export const createWebSearchTool = ({
+  maxNumResults,
+  writer,
+  sbUserId,
+}: {
+  maxNumResults?: number;
+  writer?: WebSearchStreamWriter;
+  sbUserId?: string;
+}) => {
+  return tool({
+    description:
+      "Search the web for information. Don't repeat the same query if the first result answers the question.",
+    inputSchema: z.object({
+      query: z.string().describe("The query to search for"),
+      options: searchOptionsSchema.partial().optional(),
+    }),
+    execute: async ({ query, options }) => {
+      if (sbUserId) {
+        const limit = await checkExternalFetchLimit(sbUserId);
+
+        if (!limit.success) {
+          return { error: limit.error ?? "Too many external fetch requests" };
+        }
+      }
+
+      const numResultsToUse = Math.min(options?.numResults ?? 3, maxNumResults ?? 10);
+
+      const contentsToUse: ContentsOptions = {
+        highlights: true,
+      };
+
+      const webSearchResult = await searchWebWithQuery(query, {
+        ...options,
+        numResults: numResultsToUse,
+        contents: contentsToUse,
+      });
+
+      if (writer && webSearchResult.data?.results?.length) {
+        const sources = mapSearchResponseToExaSources(webSearchResult.data.results);
+
+        writer.write({
+          type: "data-aiAction",
+          data: { action: ChatAIActionEnum.Search, sources },
+          transient: true,
+        });
+      }
+
+      if (webSearchResult.error) {
+        return webSearchResult;
+      }
+
+      const results = webSearchResult.data?.results ?? [];
+
+      return {
+        ...webSearchResult,
+        wrappedResults: wrapWebSearchResultsForModel(
+          results.map((r) => {
+            const row = r as {
+              title?: string | null;
+              url: string;
+              text?: string;
+              highlights?: string[];
+            };
+
+            return {
+              title: row.title ?? undefined,
+              url: row.url,
+              snippet: row.text ?? row.highlights?.join("\n"),
+              highlights: row.highlights,
+              text: row.text,
+            };
+          })
+        ),
+      };
+    },
+  });
+};
+
+export const webSearchTool = tool({
+  description: "Search the web for information",
+  inputSchema: z.object({
+    query: z.string().describe("The query to search for"),
+    options: exaSearchOptionsSchema.optional(),
+    sbUserId: z.string().optional().describe("Internal user id for rate limiting"),
+  }),
+  execute: async ({ query, options, sbUserId }) => {
+    if (sbUserId) {
+      const limit = await checkExternalFetchLimit(sbUserId);
+
+      if (!limit.success) {
+        return { error: limit.error ?? "Too many external fetch requests" };
+      }
+    }
+
+    const result = await searchWeb(query, options);
+
+    if (result.error) {
+      return result;
+    }
+
+    return {
+      ...result,
+      wrappedResults: wrapWebSearchResultsForModel(
+        result.sources.map((s) => ({
+          title: s.title,
+          url: s.url,
+          snippet: s.snippet ?? undefined,
+        }))
+      ),
+    };
+  },
+});
+/**
+ * Deferred schema tools — not registered in `compileChatTools` until persistence ships.
+ * Wire in via compile path when ready.
+ */
+export const addSchemaTool = tool({
+  description:
+    "Request to add a new persisted schema. Use this when you want to suggest a new data type or schema for long-term storage. (Note: Not yet implemented, always returns a not-implemented message.)",
+  inputSchema: z.object({
+    schemaName: z.string().describe("Proposed name for the new schema"),
+    schemaDefinition: z
+      .string()
+      .describe("Definition of the schema, such as a JSON schema or description."),
+    reason: z.string().optional().describe("Reason or motivation for adding this new schema"),
+  }),
+  execute: async ({ schemaName, schemaDefinition, reason }) => {
+    switch (schemaName) {
+      // Add cases here, can group schema update logic
+      default:
+        return {
+          success: false,
+          message: `The ability to add persisted schemas (${schemaName}) is not yet implemented.`,
+          schemaName,
+          schemaDefinition,
+          reason,
+          notImplemented: true,
+        };
+    }
+  },
+});
+
+/**
+ * A pseudo tool allowing the LLM to request updating a persisted schema.
+ * Returns a "not yet implemented" message to the LLM.
+ */
+export const updateSchemaTool = tool({
+  description:
+    "Request to update the definition of an existing persisted schema. Use this when you want to modify a data type or schema previously defined for long-term storage. (Note: Not yet implemented, always returns a not-implemented message.)",
+  inputSchema: z.object({
+    schemaName: z.string().describe("Name of the schema to update"),
+    newSchemaDefinition: z
+      .string()
+      .describe("New definition of the schema, such as a JSON schema or updated description."),
+    reason: z.string().optional().describe("Reason or motivation for updating this schema"),
+  }),
+  execute: async ({ schemaName, newSchemaDefinition, reason }) => {
+    // In a real implementation, you would update the schema definition here
+    // For now, return a not-implemented message
+    return {
+      success: false,
+      message: `The ability to update persisted schemas (${schemaName}) is not yet implemented.`,
+      schemaName,
+      newSchemaDefinition,
+      reason,
+      notImplemented: true,
+    };
+  },
+});
+
+const MermaidDiagramToolSchema = z.object({
+  prompt: z
+    .string()
+    .describe(
+      "What the diagram should show (entities + relationships + any ordering). Include any constraints like diagram type or nodes to include/exclude."
+    ),
+  diagramType: z
+    .enum(["flowchart", "sequence", "state", "class", "entityRelationship", ""])
+    .describe(
+      "Diagram kind: flowchart, sequence, state, class, entityRelationship, or empty string when unspecified."
+    ),
+});
+
+/**
+ * Arcadia tool: generate overview + detailed Mermaid sources in one call,
+ * validate both independently, and enforce shared node IDs across them.
+ */
+export function createMermaidDiagramTool(options?: {
+  ownerId?: string;
+  generatorModelId?: GatewayModelId;
+  writer?: WebSearchStreamWriter;
+}) {
+  const generatorModelId: GatewayModelId =
+    options?.generatorModelId ?? (models.google.flash.id as GatewayModelId);
+  const writer = options?.writer;
+
+  void getMermaidForValidation().catch(() => {});
+  void verifyMermaidValidationWorks();
+
+  return tool({
+    description:
+      "Generate a Mermaid diagram (overview + detailed) for the user's request. Use when a visual diagram would clarify the answer.",
+    inputSchema: MermaidDiagramToolSchema,
+    execute: async ({ prompt, diagramType }) => {
+      const generatorSystem = MERMAID_DIAGRAM_GENERATOR_SYSTEM_PROMPT;
+      const fixSystem = MERMAID_DIAGRAM_FIX_SYSTEM_PROMPT;
+
+      const MAX_VALIDATION_RETRIES = 2;
+
+      let lastValidationError: string | undefined;
+      let lastJsonText = "";
+
+      for (let attempt = 0; attempt <= MAX_VALIDATION_RETRIES; attempt++) {
+        if (writer) {
+          writer.write({
+            type: "data-aiAction",
+            data: {
+              action: ChatAIActionEnum.Tool,
+              message:
+                attempt === 0
+                  ? "Generating Mermaid code..."
+                  : `Fixing Mermaid code (attempt ${attempt}...)`,
+            },
+            transient: true,
+          });
+        }
+
+        const genOrFixPrompt =
+          attempt === 0
+            ? "Create the Mermaid diagram JSON for this request.\n\n" +
+              `REQUEST:\n${prompt}\n` +
+              (diagramType ? `\nDIAGRAM_TYPE_HINT:\n${diagramType}\n` : "")
+            : "INVALID_MERMAID_JSON:\n" +
+              lastJsonText +
+              "\n\n" +
+              `MERMAID_ERROR_MESSAGE:\n${lastValidationError ?? "Unknown error"}\n` +
+              (diagramType ? `\nDIAGRAM_TYPE_HINT:\n${diagramType}\n` : "") +
+              "\n\n" +
+              `REQUEST:\n${prompt}\n`;
+
+        const system = attempt === 0 ? generatorSystem : fixSystem;
+
+        if (!options?.ownerId)
+          throw new Error("Diagram generation requires an authenticated owner");
+        const gen = await generateText({
+          ...createLlmBudgetHooks({
+            ownerId: options.ownerId,
+            modelId: generatorModelId,
+            operation: "mermaid-diagram",
+          }),
+          model: generatorModelId,
+          instructions: system,
+          prompt: genOrFixPrompt,
+          maxOutputTokens: MERMAID_GENERATOR_MAX_OUTPUT_TOKENS,
+        });
+
+        lastJsonText = gen.text.trim();
+        const parsed = parseDualMermaidGeneratorJson(gen.text);
+
+        if (!parsed) {
+          lastValidationError = "Model did not return valid dual-source JSON.";
+          continue;
+        }
+
+        const overviewCode = normalizeMermaidCode(parsed.overviewCode);
+        const detailedCode = normalizeMermaidCode(parsed.detailedCode);
+        const idMismatch = validateSharedNodeIds(overviewCode, detailedCode);
+
+        if (idMismatch) {
+          lastValidationError = idMismatch;
+          continue;
+        }
+
+        if (writer) {
+          writer.write({
+            type: "data-aiAction",
+            data: { action: ChatAIActionEnum.Tool, message: "Validating Mermaid syntax..." },
+            transient: true,
+          });
+        }
+
+        const [overviewResult, detailedResult] = await Promise.all([
+          validateMermaidCode(overviewCode),
+          validateMermaidCode(detailedCode),
+        ]);
+
+        const overviewOk =
+          overviewResult.status === "valid" || overviewResult.status === "unverifiable";
+        const detailedOk =
+          detailedResult.status === "valid" || detailedResult.status === "unverifiable";
+
+        if (overviewOk && detailedOk) {
+          const density: MermaidDiagramDensity = parsed.density ?? "overview";
+
+          return {
+            success: true,
+            density,
+            title: parsed.title ?? null,
+            diagramType: diagramType ?? null,
+            overviewCode,
+            detailedCode,
+            code: overviewCode,
+            generatorModelId,
+          };
+        }
+
+        lastValidationError =
+          overviewResult.status === "invalid"
+            ? `overview: ${overviewResult.error}`
+            : detailedResult.status === "invalid"
+              ? `detailed: ${detailedResult.error}`
+              : "Validation failed";
+        logger.warn(
+          "mermaid_validation",
+          `Invalid mermaid (attempt ${attempt}): ${lastValidationError}`
+        );
+      }
+
+      if (writer) {
+        writer.write({
+          type: "data-aiAction",
+          data: {
+            action: ChatAIActionEnum.Tool,
+            message: "Returning Mermaid code (validation may fail)...",
+          },
+          transient: true,
+        });
+      }
+
+      const fallback = parseDualMermaidGeneratorJson(lastJsonText);
+      const overviewCode = normalizeMermaidCode(fallback?.overviewCode ?? lastJsonText);
+      const detailedCode = normalizeMermaidCode(fallback?.detailedCode ?? overviewCode);
+
+      return {
+        success: true,
+        density: fallback?.density ?? "overview",
+        title: fallback?.title ?? null,
+        diagramType: diagramType ?? null,
+        overviewCode,
+        detailedCode,
+        code: overviewCode,
+        generatorModelId,
+        validationError: lastValidationError ?? null,
+      };
+    },
+  });
+}

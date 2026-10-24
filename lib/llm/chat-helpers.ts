@@ -1,46 +1,78 @@
 "use server";
 
-import { openai } from "@ai-sdk/openai";
 import {
   convertToModelMessages,
   generateObject,
   generateText,
+  LanguageModel,
   ModelMessage,
+  type UIMessage,
 } from "ai";
 import { encodingForModel } from "js-tiktoken";
 
 import { supabaseServer } from "../supabase/server";
 import { Message, ThreadSummarySchema } from "../schemas/chat";
 import { ValidSummary, ValidSummarySchema } from "../schemas/llm-tools";
+import { decryptFromStorage, encryptForStorage } from "../crypto/message-encryption";
 
+import { GUARDRAIL_MAX_OUTPUT_TOKENS } from "@/lib/llm/helpers";
+import {
+  appendSummarizerTask,
+  convertToolCallsToTextForSummarizer,
+} from "@/lib/llm/summarizer-message-format";
 import { createLogger } from "@/lib/logger";
 import { convertMessageToUIMessage } from "@/lib/chat/message-transform";
 import {
   getMessages,
+  getMessageCount,
+  getThreadOwnerContext,
   updateChatTitle,
   updateConversationSummary,
 } from "@/data/supabase/chat";
 import { Result } from "@/types";
+import { createLlmBudgetHooks } from "@/lib/plans/llm-budget-hooks";
+import { recordLlmCall } from "@/lib/llm/metrics";
+import { generateShortTitleFromSummary } from "@/lib/llm/short-title-from-summary";
+import { TITLE_PIPELINE_SUMMARIZER_MODEL } from "@/lib/llm/title-models";
+import { models } from "@/lib/schemas/chat-models";
+import {
+  exchangeCountFromPersistedMessageCount,
+  shouldRefreshSummary,
+} from "@/lib/chat/summary-title-cadence";
 
-const MODEL_SELECTION = {
-  summarizer: openai("gpt-5"),
-  updater: openai("gpt-5"),
-  validator: openai("gpt-5-mini"),
-  reviser: openai("gpt-5-mini"),
+/** Model Selections: Each ZDR compatible */
+const MODEL_SELECTION: Record<string, LanguageModel> = {
+  summarizer: TITLE_PIPELINE_SUMMARIZER_MODEL,
+  updater: models.google.flash.id,
+  validator: models.google.flash.id,
+  reviser: models.google.flash.id,
 };
 
+/** Max input tokens for title generation (allows long-thread context). */
+const CHAT_TITLE_MAX_INPUT_TOKENS = 100_000;
+
+/** First step of title pipeline: summary tuned for short-title + low-signal threads. */
+const ChatTitleSummarizerSystemPrompt = `
+You are Organic LLM's title-pipeline summarizer.
+Summarize the conversation into ONE clear paragraph (2–4 sentences, under 600 tokens) so a separate model can name the chat in the sidebar.
+Include, when relevant: main objectives/tasks, important decisions or open questions, and current focus/next step.
+For low-signal threads, stay proportional: if the user only greets or chats briefly with no real task, say so plainly (e.g. greeting / small talk, no substantive topic).
+For ephemeral one-off lookups (weather, time, quick facts), name the topic and any concrete anchors (place, date) from the messages without dramatizing.
+Be concise, neutral, plain text only—no lists, markdown, or citations.
+`;
+
 const SummarizerSystemPrompt = `
-You are Organic LLM's summarizer. 
-Summarize the entire conversation into ONE clear paragraph (2–4 sentences, under 600 tokens). 
-Include: main objectives/tasks, important decisions or open questions, and the current focus/next step. 
+You are Organic LLM's summarizer.
+Summarize the entire conversation into ONE clear paragraph (2–4 sentences, under 600 tokens).
+Include: main objectives/tasks, important decisions or open questions, and the current focus/next step.
 Be concise, neutral, and free of lists, formatting, or citations. Output plain text only.
 `;
 
 const UpdateSummarizerSystemPrompt = `
-You are Organic LLM's summarizer. 
-Update the previous summary by integrating NEW messages since it was last written. 
-Produce ONE clear paragraph (2–4 sentences, under 600 tokens) that preserves all key details from the prior summary while adding new information. 
-Include: objectives/tasks, decisions or questions, and current focus/next step. 
+You are Organic LLM's summarizer.
+Update the previous summary by integrating NEW messages since it was last written.
+Produce ONE clear paragraph (2–4 sentences, under 600 tokens) that preserves all key details from the prior summary while adding new information.
+Include: objectives/tasks, decisions or questions, and current focus/next step.
 Be concise, neutral, and output plain text only.
 
 Previous summary:
@@ -48,12 +80,12 @@ Previous summary:
 `;
 
 const ValidatorSystemPrompt = `
-You are a strict validator. 
+You are a strict validator.
 Given a proposed conversation summary, return valid = TRUE if it clearly includes:
-1. Main objectives or tasks, 
-2. Important decisions or open questions, 
-3. Current focus or next step. 
-Otherwise return valid = FALSE. 
+1. Main objectives or tasks,
+2. Important decisions or open questions,
+3. Current focus or next step.
+Otherwise return valid = FALSE.
 Reply only with the boolean value and a short reason for the validity of the summary.
 
 Proposed summary:
@@ -63,9 +95,9 @@ Current persisted summary (if any):
 `;
 
 const ReviserSystemPrompt = `
-You are Organic LLM's summary reviser. 
-Rewrite the current summary into ONE concise paragraph (2–4 sentences, under 600 tokens). 
-It must include: objectives/tasks, important decisions or open questions, and the current focus/next step. 
+You are Organic LLM's summary reviser.
+Rewrite the current summary into ONE concise paragraph (2–4 sentences, under 600 tokens).
+It must include: objectives/tasks, important decisions or open questions, and the current focus/next step.
 Be clear, compact, neutral, and output plain text only—no lists or formatting.
 
 Current summary:
@@ -80,18 +112,118 @@ Previous persisted summary (if any):
 
 const logger = createLogger(`lib/llm/chat-helpers.ts`);
 
-export async function ensureChatHasTitle(
-  chatId: string,
-): Promise<Result<string>> {
+/**
+ * Gemini 3 requires thought_signature on functionCall parts when replaying history.
+ * When we don't have one (e.g. stored messages from another model or gateway), we can use
+ * this sentinel so the API skips validation. See:
+ * https://ai.google.dev/gemini-api/docs/thought-signatures
+ */
+const GEMINI_SKIP_THOUGHT_SIGNATURE = "skip_thought_signature_validator";
+
+/**
+ * Ensures every tool-invocation part has a thoughtSignature so Gemini 3 accepts the request.
+ * Use when sending UIMessages that may contain tool calls to Gemini (e.g. summarizer).
+ * If the gateway does not forward this field, use convertToolCallsToTextForSummarizer instead.
+ */
+function ensureThoughtSignaturesForGemini(messages: UIMessage[]): UIMessage[] {
+  return messages.map((msg) => ({
+    ...msg,
+    parts: (msg.parts ?? []).map((part) => {
+      if (part.type === "tool-invocation") {
+        return {
+          ...part,
+          thoughtSignature:
+            (part as { thoughtSignature?: string }).thoughtSignature ??
+            GEMINI_SKIP_THOUGHT_SIGNATURE,
+        };
+      }
+
+      return part;
+    }),
+  }));
+}
+
+function decryptMessageForThread(message: Message, ownerId: string): Message {
+  return {
+    ...message,
+    content: decryptFromStorage(String(message.content), {
+      userId: ownerId,
+      threadId: message.thread_id,
+      fieldName: "messages.content",
+    }),
+  };
+}
+
+function encryptThreadSummary(summaryText: string, ownerId: string, chatId: string) {
+  return encryptForStorage(summaryText, {
+    userId: ownerId,
+    threadId: chatId,
+    fieldName: "thread_summaries.summary_text",
+  });
+}
+
+function decryptThreadSummary(summaryText: string, ownerId: string, chatId: string) {
+  return decryptFromStorage(summaryText, {
+    userId: ownerId,
+    threadId: chatId,
+    fieldName: "thread_summaries.summary_text",
+  });
+}
+
+/** Extract plain text from a UIMessage for token estimation. */
+function getMessageTextForTokenEstimate(message: UIMessage): string {
+  const parts = message.parts ?? [];
+  const text = parts
+    .map((p) => (p.type === "text" && "text" in p ? (p as { text: string }).text : ""))
+    .join("");
+  const role = message.role ?? "user";
+
+  return `${role}: ${text}`;
+}
+
+/**
+ * Trim messages to fit within a token budget, keeping the most recent (relevant for title).
+ * Chronological order = oldest first; we keep the tail that fits.
+ * Uses tiktoken (cl100k_base) for token counting.
+ */
+let sharedCl100kEncoding: ReturnType<typeof encodingForModel> | null = null;
+
+function getCl100kEncoding() {
+  if (!sharedCl100kEncoding) {
+    sharedCl100kEncoding = encodingForModel("gpt-5");
+  }
+
+  return sharedCl100kEncoding;
+}
+
+function trimMessagesToTokenBudget(
+  chronologicalMessages: UIMessage[],
+  maxTokens: number
+): UIMessage[] {
+  if (chronologicalMessages.length === 0) return [];
+  const encoding = getCl100kEncoding();
+  let total = 0;
+  let startIndex = chronologicalMessages.length;
+
+  // Walk from newest (end) backward, counting tokens until we'd exceed budget
+  for (let i = chronologicalMessages.length - 1; i >= 0; i--) {
+    const text = getMessageTextForTokenEstimate(chronologicalMessages[i]);
+    const n = encoding.encode(text).length;
+
+    if (total + n > maxTokens) break;
+    total += n;
+    startIndex = i;
+  }
+
+  return chronologicalMessages.slice(startIndex);
+}
+
+export async function ensureChatHasTitle(chatId: string): Promise<Result<string>> {
   const sb = await supabaseServer();
 
   logger.log("ensureChatHasTitle", `Ensuring chat has title: ${chatId}`);
 
-  const res = await sb
-    .from("threads")
-    .select("title")
-    .eq("id", chatId)
-    .single();
+  const res = await sb.from("threads").select("title").eq("id", chatId).single();
 
   if (res.error) {
     return {
@@ -100,18 +232,13 @@ export async function ensureChatHasTitle(
     };
   }
 
-  if (
-    res.data?.title !== null &&
-    res.data?.title.trim() !== "" &&
-    res.data?.title !== undefined
-  ) {
-    logger.log(
-      "ensureChatHasTitle",
-      `Chat already has title: ${res.data.title}`,
-    );
+  const hasTitle = res.data?.title != null && String(res.data.title).trim() !== "";
+
+  if (hasTitle) {
+    logger.log("ensureChatHasTitle", `Chat already has title: ${res.data!.title}`);
 
     return {
-      data: res.data.title,
+      data: String(res.data!.title).trim(),
       error: null,
     };
   }
@@ -120,22 +247,28 @@ export async function ensureChatHasTitle(
   return await generateChatTitle(chatId);
 }
 
-export async function generateChatTitle(
-  chatId: string,
-): Promise<Result<string>> {
+export async function generateChatTitle(chatId: string): Promise<Result<string>> {
   const sb = await supabaseServer();
+  const threadOwnerContext = await getThreadOwnerContext(chatId);
+
+  if (threadOwnerContext.error || !threadOwnerContext.data) {
+    return {
+      data: null,
+      error: threadOwnerContext.error ?? new Error("Thread owner not found"),
+    };
+  }
+
+  const ownerId = threadOwnerContext.data.ownerId;
 
   const messages = await sb
     .from("messages")
     .select("*")
     .eq("thread_id", chatId)
+    .filter("role", "not.eq", "system")
     .order("created_at", { ascending: false });
 
   if (messages.error) {
-    logger.error(
-      "updateChatTitle",
-      `Error getting message: ${messages.error?.message}`,
-    );
+    logger.error("updateChatTitle", `Error getting message: ${messages.error?.message}`);
 
     return {
       data: null,
@@ -144,8 +277,10 @@ export async function generateChatTitle(
   }
 
   const uiMessages = messages.data
-    .map((message) => convertMessageToUIMessage(message as Message))
-    .filter((message) => message !== null);
+    .map((message) =>
+      convertMessageToUIMessage(decryptMessageForThread(message as Message, ownerId))
+    )
+    .filter((message): message is UIMessage => message !== null);
 
   if (uiMessages.length === 0) {
     logger.error("updateChatTitle", `No messages found for chat: ${chatId}`);
@@ -156,35 +291,85 @@ export async function generateChatTitle(
     };
   }
 
-  const { text: conversationSummary } = await generateText({
-    model: MODEL_SELECTION.summarizer,
-    system: `
-    You are a helpful assistant that generates a summary of a chat.
-    The chat messages will be provided to you.
-    Generate a summary of the chat.
-    `,
-    messages: convertToModelMessages(uiMessages),
+  // Chronological order (oldest first) for coherent summary/title
+  const chronologicalMessages = [...uiMessages].reverse();
+  const messagesForTitle = trimMessagesToTokenBudget(
+    chronologicalMessages,
+    CHAT_TITLE_MAX_INPUT_TOKENS
+  );
+
+  if (messagesForTitle.length < chronologicalMessages.length) {
+    logger.log(
+      "generateChatTitle",
+      `Trimmed ${chronologicalMessages.length} messages to ${messagesForTitle.length} (${CHAT_TITLE_MAX_INPUT_TOKENS} token cap)`
+    );
+  }
+
+  // Serialize tool parts to plain text (same as updateChatSummary) so Gemini gets no
+  // structured functionCall parts (thought_signature) while Arcadia/tool-heavy threads
+  // still contribute Mermaid, memory search, etc. to the title summary.
+  const messagesForTitleClean = convertToolCallsToTextForSummarizer(messagesForTitle);
+
+  let conversationSummary: string;
+
+  try {
+    const summaryStart = performance.now();
+    const summaryResult = await generateText({
+      model: MODEL_SELECTION.summarizer,
+      ...createLlmBudgetHooks({
+        ownerId,
+        modelId: MODEL_SELECTION.summarizer as string,
+        operation: "chat-summary",
+      }),
+      instructions: ChatTitleSummarizerSystemPrompt,
+      messages: appendSummarizerTask(
+        await convertToModelMessages(messagesForTitleClean),
+        "Summarize the conversation above for a short chat title."
+      ),
+      maxOutputTokens: GUARDRAIL_MAX_OUTPUT_TOKENS,
+    });
+    const summaryDuration = performance.now() - summaryStart;
+
+    recordLlmCall({
+      model: MODEL_SELECTION.summarizer as string,
+      usage: summaryResult.usage,
+      durationMs: summaryDuration,
+      metadata: { operation: "chatTitle-summary", contextId: chatId },
+    });
+    conversationSummary = summaryResult.text ?? "";
+  } catch (err) {
+    logger.error(
+      "generateChatTitle",
+      `Error generating conversation summary: ${err instanceof Error ? err.message : String(err)}`
+    );
+
+    return {
+      data: null,
+      error: new Error(err instanceof Error ? err.message : "Failed to generate summary"),
+    };
+  }
+
+  const shortTitleResult = await generateShortTitleFromSummary(conversationSummary, {
+    contextId: chatId,
+    operation: "chatTitle-title",
+    ownerId,
+    subject: "chat",
   });
 
-  const { text: titleIdea } = await generateText({
-    model: MODEL_SELECTION.summarizer,
-    system: `
-    You are a helpful assistant that generates a title for a chat.
-    Generate a title for the chat based on the conversation summary.
-    The title should be no more than 20 characters.
-    But can be up to 40 characters if truly necessary.
-    Return only the title, no other text.
-    `,
-    prompt: conversationSummary,
-  });
+  if (shortTitleResult.error) {
+    return {
+      data: null,
+      error: shortTitleResult.error,
+    };
+  }
 
-  const res = await updateChatTitle(chatId, titleIdea);
+  const titleIdea = shortTitleResult.data ?? "";
+  const finalTitle = titleIdea.length > 0 ? titleIdea : "Chat";
+
+  const res = await updateChatTitle(chatId, finalTitle);
 
   if (res.error) {
-    logger.error(
-      "updateChatTitle",
-      `Error updating chat title: ${res.error.message}`,
-    );
+    logger.error("updateChatTitle", `Error updating chat title: ${res.error.message}`);
 
     return {
       data: null,
@@ -193,14 +378,17 @@ export async function generateChatTitle(
   }
 
   return {
-    data: titleIdea,
+    data: finalTitle,
     error: null,
   };
 }
 
-export async function summarizeChat(
-  chatId: string,
-): Promise<Result<string, string>> {
+export async function summarizeChat(chatId: string): Promise<Result<string, string>> {
+  const owner = await getThreadOwnerContext(chatId);
+
+  if (!owner.data || owner.error) return { data: null, error: "Thread owner unavailable" };
+  const ownerId = owner.data.ownerId;
+
   logger.log("summarizeChat", `Summarizing chat ${chatId}`);
   // Get all chat messages
   let { data: messages, error } = await getMessages(chatId);
@@ -216,44 +404,55 @@ export async function summarizeChat(
 
   // Safeguard for development, cap messages to 200
   if (messages.length > 75) {
-    logger.warn(
-      "summarizeChat",
-      `Chat ${chatId} has more than 75 messages, truncating`,
-    );
+    logger.warn("summarizeChat", `Chat ${chatId} has more than 75 messages, truncating`);
     messages = messages.slice(-75);
   }
 
-  const modelMessages = convertToModelMessages(messages);
+  // Convert tool-invocation parts to text so Gemini 3 does not require thought_signature.
+  // Preserves tool semantics (name, args, result) for the summarizer.
+  const messagesForSummary = convertToolCallsToTextForSummarizer(messages);
+  const modelMessages = await convertToModelMessages(messagesForSummary);
 
   // logger.log(
   //   "summarizeChat",
   //   `Messages to be summarized\n${JSON.stringify(modelMessages)}`
   // );
 
-  logger.log(
-    "summarizeChat",
-    `Summarizing chat ${chatId} with ${modelMessages.length} messages`,
-  );
+  logger.log("summarizeChat", `Summarizing chat ${chatId} with ${modelMessages.length} messages`);
 
-  let { text: conversationSummary } = await generateText({
+  const summarizeStart = performance.now();
+  const summarizeResult = await generateText({
     model: MODEL_SELECTION.summarizer,
-    system: SummarizerSystemPrompt,
+    ...createLlmBudgetHooks({
+      ownerId,
+      modelId: MODEL_SELECTION.summarizer as string,
+      operation: "chat-summary",
+    }),
+    instructions: SummarizerSystemPrompt,
     temperature: 0.2,
-    messages: modelMessages,
+    messages: appendSummarizerTask(modelMessages, "Summarize the conversation above."),
+    maxOutputTokens: GUARDRAIL_MAX_OUTPUT_TOKENS,
   });
+  const summarizeDuration = performance.now() - summarizeStart;
+
+  recordLlmCall({
+    model: MODEL_SELECTION.summarizer as string,
+    usage: summarizeResult.usage,
+    durationMs: summarizeDuration,
+    metadata: { operation: "chat-summary", contextId: chatId },
+  });
+
+  let conversationSummary = summarizeResult.text ?? "";
 
   summaryGenerationCount++;
 
   logger.log(
     "summarizeChat",
-    `Generated initial conversation summary for chat ${chatId}\n`,
+    `Generated initial conversation summary for chat ${chatId}\n`
     //`Conversation Summary (v${summaryGenerationCount}): ${conversationSummary}`,
   );
 
-  const validatedSummaryRes = await validateSummary(
-    conversationSummary,
-    modelMessages,
-  );
+  const validatedSummaryRes = await validateSummary(ownerId, conversationSummary, modelMessages);
 
   if (validatedSummaryRes.error || !validatedSummaryRes.data) {
     return {
@@ -265,10 +464,7 @@ export async function summarizeChat(
   conversationSummary = validatedSummaryRes.data;
 
   if (conversationSummary === null) {
-    logger.error(
-      "summarizeChat",
-      "Conversation summary could not be generated.",
-    );
+    logger.error("summarizeChat", "Conversation summary could not be generated.");
 
     return {
       data: null,
@@ -276,17 +472,10 @@ export async function summarizeChat(
     };
   }
 
-  const { error: sbError } = await updateConversationSummary(
-    chatId,
-    conversationSummary,
-  );
+  const { error: sbError } = await updateConversationSummary(chatId, conversationSummary);
 
   if (sbError) {
-    logger.error(
-      "summarizeChat",
-      "Conversation summary could not be updated.",
-      sbError,
-    );
+    logger.error("summarizeChat", "Conversation summary could not be updated.", sbError);
 
     return {
       data: conversationSummary,
@@ -300,9 +489,7 @@ export async function summarizeChat(
   };
 }
 
-export async function summarizeNewChat(
-  chatId: string,
-): Promise<Result<string, string>> {
+export async function summarizeNewChat(chatId: string): Promise<Result<string, string>> {
   logger.log("summarizeChatNEW", `Summarizing chat ${chatId}`);
 
   const { data: summary, error } = await summarizeChat(chatId);
@@ -338,10 +525,21 @@ export async function summarizeNewChat(
     tokens = 600;
   }
 
+  const threadOwnerContext = await getThreadOwnerContext(chatId);
+
+  if (threadOwnerContext.error || !threadOwnerContext.data) {
+    return {
+      data: null,
+      error: threadOwnerContext.error?.message ?? "Thread owner not found",
+    };
+  }
+
+  const ownerId = threadOwnerContext.data.ownerId;
+
   // logger.log("summarizeChatNEW", `Generated summary: ${summary}`);
   const { error: sbError } = await sb.from("thread_summaries").insert({
     thread_id: chatId,
-    summary_text: summary,
+    summary_text: encryptThreadSummary(summary, ownerId, chatId),
     summary_tokens: tokens,
     last_summarized_message_id: latest_message.id,
     last_summarized_at: new Date().toISOString(),
@@ -360,43 +558,98 @@ export async function summarizeNewChat(
   };
 }
 
-export async function updateChatSummary(
-  chatId: string,
-): Promise<Result<string, string>> {
+export async function updateChatSummary(chatId: string): Promise<Result<string, string>> {
   logger.log("updateChatSummary", `Updating chat summary for chat ${chatId}`);
   const sb = await supabaseServer();
+  const threadOwnerContext = await getThreadOwnerContext(chatId);
+
+  if (threadOwnerContext.error || !threadOwnerContext.data) {
+    return {
+      data: null,
+      error: threadOwnerContext.error?.message ?? "Thread owner not found",
+    };
+  }
+
+  const ownerId = threadOwnerContext.data.ownerId;
 
   const { data: threadSummaryData, error } = await sb
     .from("thread_summaries")
     .select(
       `
       *
-      `,
+      `
     )
     .eq("thread_id", chatId)
     .maybeSingle();
 
   if (error) {
-    logger.error(
-      "updateChatSummary",
-      `Error getting thread summary: ${error.message}`,
-    );
+    logger.error("updateChatSummary", `Error getting thread summary: ${error.message}`);
 
     return {
       data: null,
       error: error.message,
     };
   } else if (!threadSummaryData) {
-    // If no thread summary data, generate a new one
+    const messageCountResult = await getMessageCount(chatId);
+    const persistedMessageCount = messageCountResult.data ?? 0;
+
+    if (messageCountResult.error) {
+      logger.error(
+        "updateChatSummary",
+        `Error getting message count for initial summary: ${messageCountResult.error}`
+      );
+    }
+
+    const exchangeCount = exchangeCountFromPersistedMessageCount(persistedMessageCount);
+
+    if (!shouldRefreshSummary(exchangeCount)) {
+      logger.log(
+        "updateChatSummary",
+        `Skipping initial thread summary: exchangeCount=${exchangeCount} (not a refresh milestone)`
+      );
+
+      return {
+        data: null,
+        error: null,
+      };
+    }
+
     return await summarizeNewChat(chatId);
   }
 
-  const threadSummary = ThreadSummarySchema.parse(threadSummaryData);
+  const threadSummary = ThreadSummarySchema.parse({
+    ...threadSummaryData,
+    summary_text: decryptThreadSummary(threadSummaryData.summary_text, ownerId, chatId),
+  });
 
   // logger.log(
   //   "updateChatSummary",
   //   `Current thread summary: ${JSON.stringify(threadSummary)}`,
   // );
+
+  const messageCountResult = await getMessageCount(chatId);
+  const persistedMessageCount = messageCountResult.data ?? 0;
+
+  if (messageCountResult.error) {
+    logger.error(
+      "updateChatSummary",
+      `Error getting message count for summary refresh: ${messageCountResult.error}`
+    );
+  }
+
+  const exchangeCount = exchangeCountFromPersistedMessageCount(persistedMessageCount);
+
+  if (!shouldRefreshSummary(exchangeCount)) {
+    logger.log(
+      "updateChatSummary",
+      `Skipping summary refresh: exchangeCount=${exchangeCount} (not a milestone)`
+    );
+
+    return {
+      data: null,
+      error: null,
+    };
+  }
 
   const latestMessageRes = await sb
     .from("messages")
@@ -420,7 +673,7 @@ export async function updateChatSummary(
 
   logger.log(
     "updateChatSummary",
-    `Messages since latest message: ${messagesRes.data?.length ?? 0} messages`,
+    `Messages since latest summary: ${messagesRes.data?.length ?? 0} messages`
   );
 
   if (messagesRes.data?.length === 0) {
@@ -433,10 +686,7 @@ export async function updateChatSummary(
   }
 
   if (messagesRes.error || !messagesRes.data) {
-    logger.error(
-      "updateChatSummary",
-      `Error getting messages: ${messagesRes.error.message}`,
-    );
+    logger.error("updateChatSummary", `Error getting messages: ${messagesRes.error.message}`);
 
     return {
       data: null,
@@ -445,34 +695,39 @@ export async function updateChatSummary(
   }
 
   const uiMessages = messagesRes.data
-    .map((message) => convertMessageToUIMessage(message))
+    .map((message) => convertMessageToUIMessage(decryptMessageForThread(message, ownerId)))
     .filter((message) => message !== null);
 
   if (uiMessages.length !== messagesRes.data.length) {
-    logger.error(
-      "updateChatSummary",
-      "A message was not converted to UIMessage",
-    );
+    logger.error("updateChatSummary", "A message was not converted to UIMessage");
   }
 
-  const modelMessages = convertToModelMessages(uiMessages);
+  // Convert tool-invocation parts to text so Gemini 3 does not require thought_signature.
+  const messagesForSummary = convertToolCallsToTextForSummarizer(uiMessages as UIMessage[]);
+  const modelMessages = await convertToModelMessages(messagesForSummary);
 
   const { text: updatedSummary } = await generateText({
     model: MODEL_SELECTION.updater,
-    system: UpdateSummarizerSystemPrompt.replace(
+    ...createLlmBudgetHooks({
+      ownerId,
+      modelId: MODEL_SELECTION.updater as string,
+      operation: "chat-summary-update",
+    }),
+    instructions: UpdateSummarizerSystemPrompt.replace(
       "{{conversationSummary}}",
-      threadSummary.summary_text,
+      threadSummary.summary_text
     ),
     temperature: 0.3,
-    messages: modelMessages,
+    messages: appendSummarizerTask(
+      modelMessages,
+      "Update the previous summary using the conversation above."
+    ),
+    maxOutputTokens: GUARDRAIL_MAX_OUTPUT_TOKENS,
   });
 
   // logger.log("updateChatSummary", `Updated summary: ${updatedSummary}`);
 
-  const validatedSummaryRes = await validateSummary(
-    updatedSummary,
-    modelMessages,
-  );
+  const validatedSummaryRes = await validateSummary(ownerId, updatedSummary, modelMessages);
 
   if (validatedSummaryRes.error) {
     return {
@@ -507,7 +762,11 @@ export async function updateChatSummary(
   const { error: sbError } = await sb
     .from("thread_summaries")
     .update({
-      summary_text: validatedSummaryRes.data,
+      summary_text: encryptThreadSummary(
+        validatedSummaryRes.data,
+        threadOwnerContext.data.ownerId,
+        chatId
+      ),
       summary_tokens: tokens,
       last_summarized_message_id: messagesRes.data[0].id,
       last_summarized_at: new Date().toISOString(),
@@ -540,24 +799,46 @@ export async function updateChatSummary(
  * @returns The validated summary
  */
 const validateSummary = async (
+  ownerId: string,
   conversationSummary: string,
   messages: ModelMessage[],
   currentPersistedConversationSummary?: string,
-  forceGeneration?: boolean,
+  forceGeneration?: boolean
 ): Promise<Result<string, string>> => {
   let validSummary: ValidSummary | null = null;
 
   // Generate conversation summary and validate result
   for (let i = 1; i <= 3; i++) {
+    const validatorStart = performance.now();
+    const validatorBudget = createLlmBudgetHooks({
+      ownerId,
+      modelId: MODEL_SELECTION.validator as string,
+      operation: "summary-validator",
+    });
+
+    await validatorBudget.prepareStep();
     const validatorRes = await generateObject({
+      onStepFinish: validatorBudget.onStepFinish,
       model: MODEL_SELECTION.validator,
-      system: ValidatorSystemPrompt.replace(
+      instructions: ValidatorSystemPrompt.replace(
         "{{currentPersistedConversationSummary}}",
-        currentPersistedConversationSummary ?? "null",
+        currentPersistedConversationSummary ?? "null"
       ).replace("{{conversationSummary}}", conversationSummary),
       temperature: 0.1,
-      messages: messages,
+      messages: appendSummarizerTask(
+        messages,
+        "Validate the proposed summary against the conversation above."
+      ),
       schema: ValidSummarySchema,
+      maxOutputTokens: GUARDRAIL_MAX_OUTPUT_TOKENS,
+    });
+    const validatorDuration = performance.now() - validatorStart;
+
+    recordLlmCall({
+      model: MODEL_SELECTION.validator as string,
+      usage: validatorRes.usage,
+      durationMs: validatorDuration,
+      metadata: { operation: "summary-validator" },
     });
 
     validSummary = validatorRes.object;
@@ -571,23 +852,40 @@ const validateSummary = async (
 
     logger.log(
       "validateSummary",
-      `Validator has rejected summary v${i}\nWith response: ${JSON.stringify(validSummary)}`,
+      `Validator has rejected summary v${i}\nWith response: ${JSON.stringify(validSummary)}`
     );
 
-    let { text: updatedConversationSummary } = await generateText({
+    const reviserStart = performance.now();
+    const reviserResult = await generateText({
       model: MODEL_SELECTION.reviser,
-      system: ReviserSystemPrompt.replace(
-        "{{conversationSummary}}",
-        conversationSummary,
-      )
+      ...createLlmBudgetHooks({
+        ownerId,
+        modelId: MODEL_SELECTION.reviser as string,
+        operation: "summary-reviser",
+      }),
+      instructions: ReviserSystemPrompt.replace("{{conversationSummary}}", conversationSummary)
         .replace(
           "{{currentPersistedConversationSummary}}",
-          currentPersistedConversationSummary ?? "null",
+          currentPersistedConversationSummary ?? "null"
         )
         .replace("{{reason}}", validSummary.reason),
       temperature: 0.2,
-      messages: messages,
+      messages: appendSummarizerTask(
+        messages,
+        "Revise the proposed summary using the conversation above and the validation feedback."
+      ),
+      maxOutputTokens: GUARDRAIL_MAX_OUTPUT_TOKENS,
     });
+    const reviserDuration = performance.now() - reviserStart;
+
+    recordLlmCall({
+      model: MODEL_SELECTION.reviser as string,
+      usage: reviserResult.usage,
+      durationMs: reviserDuration,
+      metadata: { operation: "summary-reviser" },
+    });
+
+    let { text: updatedConversationSummary } = reviserResult;
 
     conversationSummary = updatedConversationSummary;
 
@@ -615,22 +913,114 @@ const validateSummary = async (
 };
 
 /**
- * Count tokens in text using OpenAI's tiktoken tokenizer.
- * Uses the cl100k_base encoding which is compatible with GPT-4 and GPT-3.5-turbo models.
- * This is a close approximation for newer models like GPT-4o and GPT-5.
- * @param text - The text to count tokens for
- * @returns The number of tokens, or null if encoding fails
+ * Regenerates the full conversation summary from all messages and syncs both
+ * `threads.conversation_summary` (via summarizeChat) and `thread_summaries`.
  */
-export const estimateTokenCount = async (
-  text: string,
-): Promise<number | null> => {
+export async function regenerateChatSummary(chatId: string): Promise<Result<string, string>> {
+  const summarizeResult = await summarizeChat(chatId);
+
+  if (summarizeResult.error || !summarizeResult.data) {
+    return {
+      data: null,
+      error: summarizeResult.error,
+    };
+  }
+
+  const summary = summarizeResult.data;
+  const sb = await supabaseServer();
+  const threadOwnerContext = await getThreadOwnerContext(chatId);
+
+  if (threadOwnerContext.error || !threadOwnerContext.data) {
+    return {
+      data: null,
+      error: threadOwnerContext.error?.message ?? "Thread owner not found",
+    };
+  }
+
+  const ownerId = threadOwnerContext.data.ownerId;
+
+  const { data: latestMessage, error: messagesError } = await sb
+    .from("messages")
+    .select("id")
+    .eq("thread_id", chatId)
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .single();
+
+  if (messagesError || !latestMessage) {
+    return {
+      data: null,
+      error: messagesError?.message ?? "No latest message id found",
+    };
+  }
+
+  let tokens = await estimateTokenCount(summary);
+
+  if (tokens === null) {
+    tokens = 600;
+  }
+
+  const encryptedSummary = encryptThreadSummary(summary, ownerId, chatId);
+  const lastSummarizedAt = new Date().toISOString();
+
+  const { data: existingRow, error: existingError } = await sb
+    .from("thread_summaries")
+    .select("thread_id")
+    .eq("thread_id", chatId)
+    .maybeSingle();
+
+  if (existingError) {
+    return {
+      data: null,
+      error: existingError.message,
+    };
+  }
+
+  if (existingRow) {
+    const { error: updateError } = await sb
+      .from("thread_summaries")
+      .update({
+        summary_text: encryptedSummary,
+        summary_tokens: tokens,
+        last_summarized_message_id: latestMessage.id,
+        last_summarized_at: lastSummarizedAt,
+      })
+      .eq("thread_id", chatId);
+
+    if (updateError) {
+      return {
+        data: null,
+        error: updateError.message,
+      };
+    }
+  } else {
+    const { error: insertError } = await sb.from("thread_summaries").insert({
+      thread_id: chatId,
+      summary_text: encryptedSummary,
+      summary_tokens: tokens,
+      last_summarized_message_id: latestMessage.id,
+      last_summarized_at: lastSummarizedAt,
+    });
+
+    if (insertError) {
+      return {
+        data: null,
+        error: insertError.message,
+      };
+    }
+  }
+
+  return {
+    data: summary,
+    error: null,
+  };
+}
+
+export const estimateTokenCount = async (text: string): Promise<number | null> => {
   // TODO: CLEAN UP THIS FUNCTION TO ENSURE IT'S ACCURACY
   try {
-    // Use gpt-4 encoding (cl100k_base) which is compatible with most modern OpenAI models
-    const encoding = encodingForModel("gpt-5");
-    const tokens = encoding.encode(text);
-
-    return tokens.length;
+    // Reuse one cl100k_base encoder (via gpt-5) — constructing per call is expensive.
+    return getCl100kEncoding().encode(text).length;
   } catch (error) {
     logger.error("estimateTokenCount", `Error counting tokens: ${error}`);
 

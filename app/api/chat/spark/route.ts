@@ -7,26 +7,26 @@ import {
   createIdGenerator,
   smoothStream,
 } from "ai";
+import { auth } from "@clerk/nextjs/server";
 
-import {
-  extractOpsEnvelopeFromText,
-  applyOps,
-} from "@/lib/llm/organicStateProtocol";
+import { createAuthenticatedLlmBudgetHooks, budgetModelId } from "@/lib/plans/llm-budget-hooks";
+import { extractOpsEnvelopeFromText, applyOps } from "@/lib/llm/organicStateProtocol";
 import { getState, saveState } from "@/lib/supabase/organicStateStore";
+import { checkLlmMessageLimit } from "@/lib/rate-limit/llm";
 
 // import systemPrompt from "@/lib/system-prompt";
-import {
-  getContextAndMessagesChatPrompt,
-  saveChat,
-} from "@/lib/chat/chat-store";
-import {
-  ensureChatHasTitle,
-  estimateTokenCount,
-  updateChatSummary,
-} from "@/lib/llm/chat-helpers";
+import { getContextAndMessagesChatPrompt, saveChat } from "@/lib/chat/chat-store";
+import { shouldAttemptInitialTitle } from "@/lib/chat/summary-title-cadence";
+import { getMessageCount, getThreadHasTitle } from "@/data/supabase/chat";
+import { GUARDRAIL_MAX_OUTPUT_TOKENS } from "@/lib/llm/helpers";
+import { ensureChatHasTitle, estimateTokenCount, updateChatSummary } from "@/lib/llm/chat-helpers";
 import { createLogger } from "@/lib/logger";
 // import SYSTEM_PROMPT from "@/lib/system-prompt";
 import SYSTEM_PROMPT from "@/lib/system-prompt";
+import { appendCurrentDate } from "@/lib/system-prompt/current-date";
+import { getSupabaseUserId } from "@/data/supabase/profiles";
+import { models, providerModelSlug } from "@/lib/schemas/chat-models";
+import { requirePlanBudget } from "@/lib/api/plan-budget-gate";
 
 // Allow streaming responses up to 30 seconds
 export const maxDuration = 30;
@@ -46,6 +46,35 @@ const model: Parameters<OpenAIProvider>[0] = "gpt-5";
 
 export async function POST(req: Request) {
   const { message, id }: { message: UIMessage; id: string } = await req.json();
+  const clerkUser = await auth();
+
+  if (!clerkUser || !clerkUser.userId) {
+    return new Response("Unauthorized", { status: 401 });
+  }
+
+  const sbUserId = await getSupabaseUserId(clerkUser.userId);
+
+  if (sbUserId.error || sbUserId.data === null) {
+    return new Response("User not found in supabase", { status: 404 });
+  }
+
+  const planGate = await requirePlanBudget({
+    clerkUserId: clerkUser.userId,
+    sbUserId: sbUserId.data,
+  });
+
+  if (planGate) return planGate;
+
+  const messageLimitResult = await checkLlmMessageLimit(sbUserId.data);
+
+  if (!messageLimitResult.success) {
+    return new Response(
+      JSON.stringify({
+        error: messageLimitResult.error ?? "Too many requests",
+      }),
+      { status: 429, headers: { "Content-Type": "application/json" } }
+    );
+  }
 
   logger.log("POST", `Recieved Message. Processing now...`);
 
@@ -55,11 +84,12 @@ export async function POST(req: Request) {
 
   try {
     const start_gather_context_time = performance.now();
-    const chatContextPromise = getContextAndMessagesChatPrompt(
-      id,
-      10,
-      "spark" as const,
-    );
+    const chatContextPromise = getContextAndMessagesChatPrompt({
+      chatId: id,
+      limit: 10,
+      persona: "spark" as const,
+      message,
+    });
 
     const preprocess_limit = setTimeout(() => {
       throw new Error("Preprocessing time limit exceeded");
@@ -70,16 +100,10 @@ export async function POST(req: Request) {
     clearTimeout(preprocess_limit);
 
     if (chatContextResult.error) {
-      logger.error(
-        "POST",
-        `Error getting chat context: ${chatContextResult.error}`,
-      );
+      logger.error("POST", `Error getting chat context: ${chatContextResult.error}`);
       validatedMessages = [message];
     } else {
-      validatedMessages = [
-        ...(chatContextResult.data?.messages ?? []),
-        message,
-      ];
+      validatedMessages = [...(chatContextResult.data?.messages ?? []), message];
       if (chatContextResult.data?.prompt) {
         systemPrompt = chatContextResult.data?.prompt;
       }
@@ -87,33 +111,15 @@ export async function POST(req: Request) {
 
       logger.log(
         "POST",
-        `Time from initial request recieved to gather context complete: ${end_gather_context_time - start_gather_context_time} milliseconds`,
+        `Time from initial request recieved to gather context complete: ${end_gather_context_time - start_gather_context_time} milliseconds`
       );
     }
-
-    // const previousMessages = await loadChat(id).then(
-    //   (res) => res.data?.messages ?? [],
-    // );
-
-    // validatedMessages = await validateUIMessages({
-    //   messages: [...previousMessages, message],
-    //   tools,
-    // });
   } catch (err) {
     if (err instanceof TypeValidationError) {
-      logger.error(
-        "POST",
-        `Database messages validation failed: ${err.message}`,
-      );
+      logger.error("POST", "Database messages validation failed");
       validatedMessages = [message];
-    } else if (
-      err instanceof Error &&
-      err.message === "Preprocessing time limit exceeded"
-    ) {
-      logger.error(
-        "POST",
-        `\n\n\nPreprocessing time limit exceeded: ${err.message}\n\n`,
-      );
+    } else if (err instanceof Error && err.message === "Preprocessing time limit exceeded") {
+      logger.error("POST", "Preprocessing time limit exceeded");
       validatedMessages = [message];
     } else {
       throw err;
@@ -126,7 +132,7 @@ export async function POST(req: Request) {
 
   logger.log(
     "POST",
-    `Time to estimate token count: ${end_estimate_token_count_time - start_estimate_token_count_time} milliseconds`,
+    `Time to estimate token count: ${end_estimate_token_count_time - start_estimate_token_count_time} milliseconds`
   );
 
   logger.log(
@@ -136,23 +142,28 @@ export async function POST(req: Request) {
     `System Prompt ${systemPromptTokens} tokens\n`,
     minimize_logging ? "" : `System Prompt: ${systemPrompt}\n`,
     `\n\n--------------------------------\n\n`,
-    `${validatedMessages.length} messages being sent to LLM`,
+    `${validatedMessages.length} messages being sent to LLM`
   );
 
   const end_preprocessing_time = performance.now();
 
   logger.log(
     "POST",
-    `Preprocessing time: ${end_preprocessing_time - start_preprocessing_time} milliseconds`,
+    `Preprocessing time: ${end_preprocessing_time - start_preprocessing_time} milliseconds`
   );
 
   logger.log("POST", `Sending messages to LLM...`);
   const start = performance.now();
 
   const result = streamText({
-    model: openai("gpt-5-mini"),
-    messages: convertToModelMessages(validatedMessages),
-    system: systemPrompt,
+    ...(await createAuthenticatedLlmBudgetHooks({
+      modelId: budgetModelId(openai(providerModelSlug(models.openai.terra.id))),
+      operation: "/api/chat/spark",
+    })),
+    model: openai(providerModelSlug(models.openai.terra.id)),
+    messages: await convertToModelMessages(validatedMessages),
+    instructions: appendCurrentDate(systemPrompt),
+    maxOutputTokens: GUARDRAIL_MAX_OUTPUT_TOKENS,
     tools: {
       web_search_preview: openai.tools.webSearchPreview({}),
     },
@@ -164,10 +175,7 @@ export async function POST(req: Request) {
 
   const end = performance.now();
 
-  logger.log(
-    "POST",
-    `Messages sent to LLM in ${end - start} milliseconds returning stream now...`,
-  );
+  logger.log("POST", `Messages sent to LLM in ${end - start} milliseconds returning stream now...`);
 
   // logger.log("POST", `Result: ${JSON.stringify(result)}`);
 
@@ -183,7 +191,7 @@ export async function POST(req: Request) {
         case "finish":
           logger.log(
             "POST",
-            `Finish message: ${JSON.stringify(part, null, 2)}`,
+            `Finish message: type=${part.type}, totalTokens=${part.totalUsage?.totalTokens ?? "—"}`
           );
 
           return {
@@ -191,10 +199,21 @@ export async function POST(req: Request) {
           };
       }
     },
-    onFinish: async ({ messages }) => {
+    onEnd: async ({ messages }) => {
       await saveChat({ chatId: id, messages });
-      if (messages.length > 3 && messages.length < 5) {
-        ensureChatHasTitle(id);
+
+      const messageCountResult = await getMessageCount(id);
+      const threadHasTitleResult = await getThreadHasTitle(id);
+      const persistedMessageCount = messageCountResult.data ?? messages.length;
+      const threadAlreadyHasTitle = threadHasTitleResult.data === true;
+
+      if (
+        shouldAttemptInitialTitle({
+          persistedMessageCount,
+          threadAlreadyHasTitle,
+        })
+      ) {
+        void ensureChatHasTitle(id);
       }
       await updateChatSummary(id);
 
@@ -204,7 +223,7 @@ export async function POST(req: Request) {
 
       logger.log(
         "POST",
-        `Time from initial request recieved to stream complete: ${endStream - start} milliseconds`,
+        `Time from initial request recieved to stream complete: ${endStream - start} milliseconds`
       );
 
       /** Ensure this only run on AI messages */
@@ -215,17 +234,14 @@ export async function POST(req: Request) {
           .map((part) => part.text)
           .join("");
 
-        logger.log("POST", `Processing message for ops: ${assistantText}...`);
+        logger.log("POST", `Processing message for ops, length: ${assistantText.length}`);
 
         const startOps = performance.now();
 
         const env = extractOpsEnvelopeFromText(assistantText);
 
         if (env) {
-          logger.log(
-            "POST",
-            `Extracted ops envelope: ${JSON.stringify(env, null, 2)}`,
-          );
+          logger.log("POST", `Extracted ops envelope, op count: ${env.ops?.length ?? 0}`);
           const current = await getState(id);
           const next = await applyOps(current, env);
 
@@ -233,31 +249,22 @@ export async function POST(req: Request) {
         }
         const endOps = performance.now();
 
-        logger.log(
-          "POST",
-          `Ops processed in ${endOps - startOps} milliseconds`,
-        );
+        logger.log("POST", `Ops processed in ${endOps - startOps} milliseconds`);
 
         logger.log("POST", "--------------------------------");
-        // logger.log("POST", "ASSISTANT_RAW_START");
-        // logger.log("POST", JSON.stringify(assistantText, null, 2));
-        // logger.log("POST", "ASSISTANT_RAW_END");
-        logger.log(
-          "POST",
-          `OPS_ENV_EXTRACTED: ${JSON.stringify(env, null, 2)}`,
-        );
+        logger.log("POST", `OPS_ENV_EXTRACTED op count: ${env?.ops?.length ?? 0}`);
         logger.log("POST", "--------------------------------");
 
         logger.log(
           "POST",
-          `Time from stream complete to ops processed: ${endOps - endStream} milliseconds`,
+          `Time from stream complete to ops processed: ${endOps - endStream} milliseconds`
         );
       }
       const endOnFinish = performance.now();
 
       logger.log(
         "POST",
-        `Time from initial request recieved to stream's onFinish complete: ${endOnFinish - start} milliseconds`,
+        `Time from initial request recieved to stream's onFinish complete: ${endOnFinish - start} milliseconds`
       );
     },
     generateMessageId: createIdGenerator({

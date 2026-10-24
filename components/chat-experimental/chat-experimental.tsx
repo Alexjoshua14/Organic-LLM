@@ -3,13 +3,14 @@
 import { UIMessage, useChat } from "@ai-sdk/react";
 import { StickToBottom } from "use-stick-to-bottom";
 import { DefaultChatTransport } from "ai";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 import { ChatThreadExperimental } from "./chat-thread-experimental";
 
-import { ChatInput } from "@/components/chat/chat-input";
 import { ChatScrollButton } from "@/components/chat/chat-scroll-button";
-import { Thread } from "@/lib/schemas/chat";
+import { CoreInput } from "@/components/chat/core-input";
+import { isClientPIIRedactionEnabled, redactUIMessages } from "@/lib/pii/redact";
+import { ChatModel, DEFAULT_CHAT_MODEL, Thread } from "@/lib/schemas/chat";
 import { updateChatSummary } from "@/lib/llm/chat-helpers";
 import { createLogger } from "@/lib/logger";
 import { useSharedChatContext } from "@/lib/context/chat-context";
@@ -32,6 +33,9 @@ export const ChatExperimental: React.FC<ChatProps> = ({
   const [updatingSummary, setUpdatingSummary] = useState(false);
 
   const { setChatId } = useSharedChatContext();
+  const selectedModelRef = useRef<ChatModel>(DEFAULT_CHAT_MODEL);
+  const useWebSearchRef = useRef<boolean>(false);
+  const useMemoriesRef = useRef<boolean>(false);
 
   useEffect(() => {
     setChatId(chatData?.thread.id ?? "");
@@ -41,13 +45,25 @@ export const ChatExperimental: React.FC<ChatProps> = ({
     };
   }, [chatData]);
 
-  const { messages, sendMessage, id } = useChat({
+  const { messages, sendMessage, stop, setMessages, status } = useChat({
     id: chatData?.thread.id ?? "",
     messages: chatData?.messages ?? [],
     transport: new DefaultChatTransport({
       api: endpoint ?? `/api/chat/${persona ?? ""}`,
       prepareSendMessagesRequest({ messages, id }) {
-        return { body: { message: messages[messages.length - 1], id } };
+        const lastMessage = messages?.length ? messages[messages.length - 1] : undefined;
+        const message =
+          lastMessage && isClientPIIRedactionEnabled()
+            ? redactUIMessages([lastMessage])[0]
+            : lastMessage;
+
+        return {
+          body: {
+            message,
+            id,
+            model: selectedModelRef.current,
+          },
+        };
       },
     }),
     onToolCall({ toolCall }) {
@@ -89,22 +105,49 @@ export const ChatExperimental: React.FC<ChatProps> = ({
       const { data, error } = await updateChatSummary(chatData.thread.id);
 
       if (error) {
-        logger.error(
-          "handleUpdateSummary",
-          `Failed to update chat summary: ${error}`,
-        );
+        logger.error("handleUpdateSummary", `Failed to update chat summary: ${error}`);
       } else {
         logger.log("handleUpdateSummary", `Updated chat summary: ${data}`);
       }
     } catch (error) {
-      logger.error(
-        "handleUpdateSummary",
-        `Failed to update chat summary: ${error}`,
-      );
+      logger.error("handleUpdateSummary", `Failed to update chat summary: ${error}`);
     } finally {
       setUpdatingSummary(false);
     }
   };
+
+  const handleStop = useCallback(async () => {
+    // Remove the latest user message and partially completed AI message from messages
+    // Remove the latest user message and any partially completed AI response
+    stop();
+    setMessages((prevMessages) => {
+      // Find the last user message
+      const lastUserIndex = [...prevMessages].reverse().findIndex((msg) => msg.role === "user");
+
+      if (lastUserIndex === -1) {
+        return prevMessages;
+      }
+      // Calculate the index in the original array
+      const lastUserMsgIdx = prevMessages.length - 1 - lastUserIndex;
+
+      // Remove the last user message and any AI message immediately after it (if exists)
+      let newMessages = prevMessages.slice(0, lastUserMsgIdx);
+
+      // Check if there's an AI message after the last user
+      if (
+        prevMessages[lastUserMsgIdx + 1] &&
+        prevMessages[lastUserMsgIdx + 1].role === "assistant"
+      ) {
+        // Remove the AI message as well
+        newMessages = prevMessages.slice(0, lastUserMsgIdx);
+      } else {
+        // If not, just slice off including the user message
+        newMessages = prevMessages.slice(0, lastUserMsgIdx);
+      }
+
+      return newMessages;
+    });
+  }, [messages]);
 
   return (
     <StickToBottom
@@ -114,7 +157,19 @@ export const ChatExperimental: React.FC<ChatProps> = ({
     >
       <ChatThreadExperimental messages={messages} />
       <ChatScrollButton />
-      <ChatInput id={id} sendMessage={sendMessage} />
+      {/* CoreInput does not position itself; this wrapper reproduces the pinned placement
+          UnifiedChatInput used to own. Horizontal centering comes from the static position
+          inside StickToBottom's `items-center`, so the sidebar offset is preserved. */}
+      <div className="fixed bottom-0 shrink-0 min-h-10 w-full max-w-3xl px-4 pb-4 sm:max-w-4xl mobile-safe-bottom">
+        <CoreInput
+          modelRef={selectedModelRef}
+          sendMessage={sendMessage}
+          status={status}
+          stop={handleStop}
+          useMemoriesRef={useMemoriesRef}
+          useWebSearchRef={useWebSearchRef}
+        />
+      </div>
       {/* <div className="absolute top-20 right-0 z-40">
         <button
           className="px-4 py-2 bg-blue-500 hover:bg-blue-600 disabled:bg-gray-400 text-white rounded-md transition-colors"

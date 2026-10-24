@@ -1,0 +1,538 @@
+import type { ModelMessage, ToolSet, UIMessage, UIMessageStreamWriter } from "ai";
+import type { Logger } from "@/lib/logger";
+import type { ChatExperience } from "@/lib/chat/chat-experience";
+import type { Result } from "@/types";
+import type { ContextBudgetEstimate } from "@/lib/chat/context-budget";
+
+import { smoothStream, isStepCount, streamText } from "ai";
+import { GatewayProviderOptions } from "@ai-sdk/gateway";
+import { OpenAIResponsesProviderOptions } from "@ai-sdk/openai";
+
+import { shouldSkipMemoryWriteForExperience } from "@/lib/chat/chat-experience";
+import { getMessageCount } from "@/data/supabase/chat";
+import { shouldAttemptInitialTitle } from "@/lib/chat/summary-title-cadence";
+import { saveChat } from "@/lib/chat/chat-store";
+import { ensureChatHasTitle, updateChatSummary } from "@/lib/llm/chat-helpers";
+import { CHAT_MODEL, measureAsync } from "@/lib/llm/helpers";
+import { CHAT_STREAM_CHUNKING } from "@/lib/llm/chat-stream-chunking";
+import { serializeError } from "@/lib/llm/log-error";
+import { addLatestMessagesToMemoryForUser } from "@/lib/memory/operations";
+import { buildChatReasoningProviderOptions, type ChatEffortLevel } from "@/lib/schemas/chat-effort";
+import { gatewayAttribution } from "@/lib/usage/gateway-attribution";
+import { createLlmBudgetHooks } from "@/lib/plans/llm-budget-hooks";
+import { ChatAIActionEnum, type ChatUIMessage } from "@/types/ai";
+import {
+  memoryReferencesFromToolResult,
+  mergeContextMemoryReferences,
+} from "@/lib/chat/context-memory";
+import {
+  summarizeContextBudgetUsage,
+  type ContextBudgetUsageStep,
+} from "@/lib/chat/context-budget-usage";
+
+export type RunLLMChatStreamParams = {
+  writer: UIMessageStreamWriter<ChatUIMessage>;
+  contextBudget?: ContextBudgetEstimate;
+  logger: Logger;
+  chatId: string;
+  sbUserId: string;
+  /** When set, kick multi-mode queue dispatch after the stream clears. */
+  clerkUserId?: string;
+  assistantMessageId: string;
+  selectedModel: { id: string; name: string };
+  effort?: ChatEffortLevel;
+  messages: ModelMessage[];
+  systemPromptWithLength: string;
+  tools: ToolSet;
+  hasTools: boolean;
+  maxSteps: number;
+  isZeroDataRetention: boolean;
+  coalescenceMode: boolean;
+  memoryEnabled: boolean | undefined;
+  /** When `delphi` or `topic_explore`, automatic transcript ingest to Mem0 is skipped. */
+  experience: ChatExperience | undefined;
+  userMessage: UIMessage;
+  threadHasTitlePromise: Promise<Result<boolean>>;
+};
+
+export async function runLLMChatStream(params: RunLLMChatStreamParams): Promise<void> {
+  const {
+    writer,
+    logger,
+    chatId,
+    sbUserId,
+    clerkUserId,
+    assistantMessageId,
+    selectedModel,
+    effort,
+    messages,
+    systemPromptWithLength,
+    tools,
+    hasTools,
+    maxSteps,
+    isZeroDataRetention,
+    coalescenceMode,
+    memoryEnabled,
+    experience,
+    userMessage,
+    threadHasTitlePromise,
+  } = params;
+
+  const toolNames = Object.keys(tools);
+  let contextBudget = params.contextBudget;
+  const usageSteps: ContextBudgetUsageStep[] = [];
+  const publishContextBudget = (complete = false) => {
+    if (!contextBudget?.lastTurn) return;
+
+    contextBudget = {
+      ...contextBudget,
+      lastTurn: {
+        ...contextBudget.lastTurn,
+        usage: summarizeContextBudgetUsage(selectedModel.id, usageSteps, complete),
+      },
+    };
+    writer.write({ type: "data-context-budget", id: "context-budget", data: contextBudget });
+  };
+
+  logger.debug("streamText", "Calling streamText", {
+    model: selectedModel.id,
+    modelName: selectedModel.name,
+    messageCount: messages.length,
+    systemPromptLength: systemPromptWithLength.length,
+    maxSteps,
+    toolChoice: hasTools ? "auto" : "none",
+  });
+
+  logger.log("POST", `Calling streamText with model: ${selectedModel.id}`);
+
+  const streamStartTime = performance.now();
+
+  type ChunkBreadcrumb = {
+    tMs: number;
+    type: string;
+    toolName?: string;
+    step?: number;
+  };
+  const chunkRing: ChunkBreadcrumb[] = [];
+  const pushChunk = (type: string, extra?: Partial<ChunkBreadcrumb>) => {
+    chunkRing.push({
+      tMs: Math.round(performance.now() - streamStartTime),
+      type,
+      ...extra,
+    });
+    if (chunkRing.length > 24) chunkRing.shift();
+  };
+
+  // Effort plus reasoning-summary opt-ins so the chat can show provider reasoning.
+  const effortProviderOptions = buildChatReasoningProviderOptions(selectedModel.id, effort);
+
+  const providerOptionsSummary = {
+    zeroDataRetention: isZeroDataRetention,
+    effort: effort ?? "auto",
+    openaiInclude: ["reasoning.encrypted_content"] as const,
+  };
+
+  logger.debug("streamText", "providerOptions", providerOptionsSummary);
+
+  const budgetHooks = createLlmBudgetHooks({
+    ownerId: sbUserId,
+    clerkUserId,
+    modelId: selectedModel.id,
+    operation: "chat",
+    route: "/api/chat",
+  });
+  const result = streamText({
+    ...budgetHooks,
+    model: selectedModel.id,
+    messages,
+    instructions: systemPromptWithLength,
+    experimental_transform: smoothStream({
+      delayInMs: 20, // optional: defaults to 10ms
+      chunking: CHAT_STREAM_CHUNKING,
+    }),
+    maxOutputTokens: CHAT_MODEL.maxOutputTokens, // Cap output for dev guardrails
+    onError({ error }) {
+      logger.error("POST", "Stream error", {
+        err: serializeError(error),
+        model: selectedModel.id,
+        providerOptions: providerOptionsSummary,
+        recentChunks: chunkRing.slice(-12),
+        toolNames,
+      });
+    },
+    async onStepEnd(step) {
+      await budgetHooks.onStepFinish(step);
+      usageSteps.push({ usage: step.usage, providerMetadata: step.providerMetadata });
+
+      if (contextBudget) {
+        contextBudget = {
+          ...contextBudget,
+          memoryContext: mergeContextMemoryReferences([
+            ...(contextBudget.memoryContext ?? []),
+            ...step.toolResults.flatMap((result) =>
+              memoryReferencesFromToolResult(result.toolName, result.output, assistantMessageId)
+            ),
+          ]),
+        };
+      }
+
+      publishContextBudget();
+    },
+    onFinish() {
+      publishContextBudget(true);
+      writer.write({
+        type: "data-notification",
+        data: { message: "Request completed", level: "info" },
+        transient: true,
+      });
+    },
+    onChunk: (chunk) => {
+      const c = chunk.chunk as {
+        type: string;
+        toolName?: string;
+        stepIndex?: number;
+      };
+
+      if (c.type === "tool-call") {
+        pushChunk(c.type, { toolName: c.toolName, step: c.stepIndex });
+      } else {
+        pushChunk(c.type, { step: c.stepIndex });
+      }
+      if (c.type !== "text-delta") {
+        logger.debug("streamChunk", c.type, {
+          toolName: c.type === "tool-call" ? c.toolName : undefined,
+          step: c.stepIndex,
+        });
+      }
+      if (chunk.chunk.type === "reasoning-delta") {
+        writer.write({
+          type: "data-aiAction",
+          data: { action: ChatAIActionEnum.Reasoning },
+          transient: true,
+        });
+      } else if (chunk.chunk.type === "tool-call") {
+        writer.write({
+          type: "data-aiAction",
+          data: {
+            action: ChatAIActionEnum.Tool,
+            message: `Using tool: ${chunk.chunk.toolName}`,
+          },
+          transient: true,
+        });
+      }
+    },
+    providerOptions: {
+      openai: {
+        include: ["reasoning.encrypted_content"],
+        ...effortProviderOptions.openai,
+      } satisfies OpenAIResponsesProviderOptions,
+      gateway: {
+        zeroDataRetention: isZeroDataRetention,
+        ...gatewayAttribution({ userId: sbUserId, operation: "chat" }),
+      } satisfies GatewayProviderOptions,
+      ...(effortProviderOptions.anthropic ? { anthropic: effortProviderOptions.anthropic } : {}),
+      ...(effortProviderOptions.google ? { google: effortProviderOptions.google } : {}),
+    },
+    tools,
+    toolChoice: hasTools ? "auto" : "none",
+    stopWhen: isStepCount(maxSteps),
+  });
+
+  void Promise.resolve(result.totalUsage)
+    .then(async (usage) => {
+      if (!usage) return;
+
+      try {
+        const { recordLlmCost, recordLlmTokenUsage } = await import("@/lib/rate-limit/llm");
+
+        await recordLlmTokenUsage(sbUserId, usage.totalTokens ?? 0);
+        await recordLlmCost(sbUserId, selectedModel.id, {
+          inputTokens: usage.inputTokens ?? 0,
+          outputTokens: usage.outputTokens ?? 0,
+          cachedInputTokens: usage.inputTokenDetails.cacheReadTokens ?? 0,
+        });
+      } catch {
+        /* optional Redis cost/token recording */
+      }
+    })
+    .catch(() => {
+      /* optional — usage may be unavailable on abort */
+    });
+
+  writer.merge(
+    result.toUIMessageStream({
+      generateMessageId: () => assistantMessageId,
+      sendStart: false, // The outer stream announces this ID before context and progress data.
+      onError: (error) => {
+        logger.error("POST", "UI stream error", {
+          err: serializeError(error),
+          model: selectedModel.id,
+          stage: "uiStream.toUIMessageStream",
+          recentChunks: chunkRing.slice(-12),
+        });
+
+        if (error instanceof Error) {
+          return error.message;
+        }
+        if (typeof error === "string") {
+          return error;
+        }
+
+        return "An unexpected error occurred";
+      },
+      onEnd: async ({ messages, isAborted, finishReason }) => {
+        logger.log("POST", "Stream finished", {
+          finishReason: finishReason ?? "unknown",
+          isAborted,
+          model: selectedModel.id,
+          totalChunks: chunkRing.length,
+          recentChunks: chunkRing.slice(-12),
+        });
+        if (!finishReason && !isAborted) {
+          logger.error("POST", "No finish reason provided, assuming failure", {
+            model: selectedModel.id,
+            recentChunks: chunkRing.slice(-12),
+          });
+
+          writer.write({
+            type: "data-notification",
+            data: {
+              message: "The model stream ended unexpectedly. Try sending again.",
+              level: "error",
+            },
+            transient: true,
+          });
+          writer.write({
+            type: "data-aiAction",
+            data: {
+              action: ChatAIActionEnum.Errored,
+              message: "Stream ended unexpectedly",
+            },
+            transient: true,
+          });
+        }
+        switch (finishReason) {
+          case "error":
+            logger.error("POST", "LLM encountered an error.");
+            break;
+          case "length":
+            logger.warn("POST", "LLM response stopped due to reaching max limit.");
+            break;
+        }
+
+        // Handle abort
+        if (isAborted) {
+          // Remove optimistically saved user message
+          logger.log("POST", `Abort detected`);
+
+          /** The following commented out section would full abort, dropping current generation */
+          // logger.log("POST", "Removing optimistically saved user message");
+          // deleteChatMessage(message.id);
+          // return;
+        }
+
+        const onFinishStart = performance.now();
+        const streamEndTime = performance.now();
+        const modelGenerationTime = streamEndTime - streamStartTime;
+
+        const metrics: Record<string, number> = {
+          modelGenerationTimeMs: modelGenerationTime,
+        };
+
+        logger.log(
+          "POST",
+          `Model (${selectedModel.id}) generated response in ${modelGenerationTime.toFixed(2)}ms (${(modelGenerationTime / 1000).toFixed(2)}s)`
+        );
+
+        try {
+          const messagesWithModel = messages.map((savedMessage) =>
+            savedMessage.role === "assistant"
+              ? {
+                  ...savedMessage,
+                  model: selectedModel.id,
+                  ...(savedMessage.id === assistantMessageId && contextBudget
+                    ? {
+                        parts: [
+                          ...savedMessage.parts.filter(
+                            (part) => part.type !== "data-context-budget"
+                          ),
+                          {
+                            type: "data-context-budget" as const,
+                            id: "context-budget",
+                            data: contextBudget,
+                          },
+                        ],
+                      }
+                    : {}),
+                }
+              : savedMessage
+          );
+
+          // Use admin client so save succeeds even if the user JWT expired during a long stream (e.g. finish_reason length).
+          const { result: saveResult, durationMs: saveChatMs } = await measureAsync(() =>
+            saveChat({
+              chatId,
+              messages: messagesWithModel,
+              activeStreamId: null,
+              useAdminForSave: true,
+              ownerId: sbUserId,
+            })
+          );
+
+          metrics.saveChatMs = saveChatMs;
+
+          if (saveResult.error) {
+            const err = saveResult.error;
+            const msg = err instanceof Error ? err.message : String(err);
+
+            logger.error("POST", `Error saving chat: ${msg}`);
+
+            return; // Don't continue if save fails
+          }
+
+          // Multi-mode queue: after this stream clears, try to send the next queued message.
+          if (clerkUserId) {
+            const { kickDispatchAfterStream } = await import("@/lib/message-queue/dispatch");
+
+            void kickDispatchAfterStream({
+              ownerId: sbUserId,
+              clerkUserId,
+              threadId: chatId,
+            });
+          }
+
+          // Fire-and-forget post-processing (don't block `onFinish`)
+          void (async () => {
+            let ensureChatHasTitleMs: number | undefined;
+
+            // Use title status fetched earlier (or from request); by now the promise has had time to resolve
+            const threadHasTitleResult = await threadHasTitlePromise;
+            const threadAlreadyHasTitle = threadHasTitleResult.data === true;
+
+            // Use persisted message count so title generation is based on DB state, not transient stream state.
+            const messageCountResult = await getMessageCount(chatId);
+            const persistedMessageCount = messageCountResult.data ?? messages.length;
+
+            if (messageCountResult.error) {
+              logger.error("POST", "Error getting message count for title generation");
+            }
+
+            // First completed user/assistant turn (persisted count ≥ 2), when thread still has no title
+            if (
+              shouldAttemptInitialTitle({
+                persistedMessageCount,
+                threadAlreadyHasTitle,
+              })
+            ) {
+              const { result: titleResult, durationMs } = await measureAsync(() =>
+                ensureChatHasTitle(chatId)
+              );
+
+              ensureChatHasTitleMs = durationMs;
+
+              if (titleResult.error) {
+                logger.error("POST", "Error ensuring chat has title");
+              } else {
+                writer.write({
+                  type: "data-notification",
+                  data: {
+                    message: "chat-title-generated",
+                    level: "info",
+                  },
+                  transient: true,
+                });
+              }
+            } else if (threadAlreadyHasTitle) {
+              logger.log("POST", "Chat already has title; skipping title generation");
+            } else {
+              logger.log(
+                "POST",
+                `Skipping title generation: only ${persistedMessageCount} persisted messages (need >= 2 for first exchange) or thread already titled`
+              );
+            }
+
+            const aiResponse = messages[messages.length - 1];
+
+            if (!aiResponse) {
+              logger.error("POST", "No AI response found in messages; skipping post-processing");
+
+              return;
+            }
+
+            if (experience !== "arcadia") {
+              const updateSummaryResult = await measureAsync(() => updateChatSummary(chatId));
+
+              metrics.updateChatSummaryMs = updateSummaryResult.durationMs;
+
+              if (updateSummaryResult.result?.error) {
+                logger.error("POST", "Error updating chat summary");
+              }
+            } else {
+              logger.log(
+                "POST",
+                "Skipping exchange-cadence summary refresh for Arcadia token context"
+              );
+            }
+
+            if (memoryEnabled && !shouldSkipMemoryWriteForExperience(experience)) {
+              const addMemoryResult = await measureAsync(() =>
+                addLatestMessagesToMemoryForUser(sbUserId, [userMessage, aiResponse], chatId).then(
+                  (r) => {
+                    if (r.error) {
+                      logger.error("POST", "Error adding latest messages to memory");
+                    }
+
+                    return r.data;
+                  }
+                )
+              );
+
+              metrics.addLatestMessagesToMemoryMs = addMemoryResult.durationMs;
+            }
+
+            if (coalescenceMode && !isZeroDataRetention) {
+              const { enqueueArtifactSyncFromChat } = await import(
+                "@/lib/spatial-artifacts/sync/sync-worker"
+              );
+
+              enqueueArtifactSyncFromChat({
+                ownerId: sbUserId,
+                threadId: chatId,
+                coalescenceMode: true,
+                messages: messagesWithModel,
+              });
+            }
+
+            metrics.onFinishTotalMs = performance.now() - onFinishStart;
+            if (ensureChatHasTitleMs !== undefined) {
+              metrics.ensureChatHasTitleMs = ensureChatHasTitleMs;
+            }
+
+            logger.log("POST", `onFinish metrics: ${JSON.stringify(metrics)}`);
+          })().catch((err) => {
+            logger.error("POST", "Error in post-processing task", {
+              err: serializeError(err),
+              model: selectedModel.id,
+            });
+          });
+        } catch (err) {
+          logger.error("POST", "Error in onFinish callback", {
+            err: serializeError(err),
+            model: selectedModel.id,
+            metrics,
+          });
+        }
+      },
+    })
+  );
+
+  await result.consumeStream({
+    onError: (error) => {
+      logger.error("POST", "consumeStream error", {
+        err: serializeError(error),
+        model: selectedModel.id,
+        recentChunks: chunkRing.slice(-12),
+      });
+    },
+  });
+}

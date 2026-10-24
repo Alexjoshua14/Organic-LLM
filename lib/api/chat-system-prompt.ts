@@ -1,0 +1,206 @@
+import type { z } from "zod";
+import type { ChatStyle } from "@/lib/chat/chat-style";
+import type { DelphiDisplayInput } from "@/lib/memory-ingest/delphi-caption-budget";
+import type { DrawerChatDisplayInput } from "@/lib/rabbit-holes/drawer-chat-ui-budget";
+
+import {
+  type ChatExperience,
+  isArcadiaStyleMemoryReadExperience,
+} from "@/lib/chat/chat-experience";
+import { SCRIBE_SYSTEM_APPEND } from "@/lib/system-prompt/scribe";
+import { getStrataPageById } from "@/data/supabase/strata";
+import { getStrataAssistantPersona } from "@/lib/personas/strata-assistant";
+import { buildStrataSystemSuffix } from "@/lib/llm/strata-chat-augmentation";
+import { getChatResponseLengthInstruction } from "@/lib/llm/helpers";
+import {
+  getDelphiDisplayContextAugmentation,
+  getDelphiSystemPromptAugmentation,
+} from "@/lib/personas/delphi";
+import { StrataAssistantPersonaRequestSchema } from "@/lib/schemas/chat";
+import { appendRabbitHoleDrawerSystemFragments } from "@/lib/llm/rabbit-hole-chat-augmentation";
+import {
+  computeDelphiCaptionBudget,
+  delphiScrollCharBudget,
+} from "@/lib/memory-ingest/delphi-caption-budget";
+
+type StrataAssistantPersona = z.infer<typeof StrataAssistantPersonaRequestSchema>;
+
+export type AppendStrataMainChatSystemParams = {
+  systemPromptForRequest: string;
+  experience: ChatExperience | undefined;
+  strataPageId: string | undefined;
+  sbUserId: string;
+  strataAssistantPersona: StrataAssistantPersona | undefined;
+};
+
+/** buildStrataSystemSuffix + optional strata page persona augmentation. */
+export async function appendStrataMainChatSystemFragments(
+  params: AppendStrataMainChatSystemParams
+): Promise<string> {
+  const { systemPromptForRequest, experience, strataPageId, sbUserId, strataAssistantPersona } =
+    params;
+
+  let out = systemPromptForRequest;
+
+  out += await buildStrataSystemSuffix({
+    experience,
+    strataPageId,
+    sbUserId,
+    fetchPage: getStrataPageById,
+  });
+
+  if (experience === "strata_page" && strataAssistantPersona) {
+    out += getStrataAssistantPersona(strataAssistantPersona).getSystemPromptAugmentation();
+  }
+
+  return out;
+}
+
+export type AppendTopicExploreCustomSystemPromptParams = {
+  systemPromptForRequest: string;
+  experience: ChatExperience | undefined;
+  customSystemPromptOverride: string | undefined;
+};
+
+/**
+ * Noesis authored-spark override. When a user taps an authored spark, its system prompt
+ * is sent as `customSystemPromptOverride`; here it is prepended as an authoritative
+ * directive that governs the `topic_explore` thread, while the platform's base context
+ * (and the later post-tool fragments) still apply. No-op for other experiences or when
+ * no override is supplied.
+ */
+export function appendTopicExploreCustomSystemPrompt(
+  params: AppendTopicExploreCustomSystemPromptParams
+): string {
+  const { systemPromptForRequest, experience, customSystemPromptOverride } = params;
+
+  const override = customSystemPromptOverride?.trim();
+
+  if (experience !== "topic_explore" || !override) {
+    return systemPromptForRequest;
+  }
+
+  return (
+    "[Noesis spark directive — authoritative; governs this conversation]\n" +
+    override +
+    "\n\n[End spark directive]\n\n" +
+    systemPromptForRequest
+  );
+}
+
+const SPEECH_FRIENDLY_APPEND =
+  "\n\nOutput format (speech-friendly mode): Format your response for both clear on-screen reading and later use as a script for audio. Use clear structure, headings, and visually appealing formatting. A separate pipeline will convert your text into a speech-friendly script and handle text-to-speech, so focus on clarity, structure, and readability—not on pronouncing abbreviations or avoiding punctuation.";
+
+const ARCADIA_SHORT_REPLY_APPEND =
+  "\n\n[Arcadia mode — keep replies short]\n" +
+  "- Aim for ~50–120 words per reply; treat that as a ceiling, not a target. The UI fits itself to your reply, so a one-sentence answer is ideal when it suffices — never pad to reach a length.\n" +
+  "- Minimize vertical height; mobile should rarely need to scroll for a single answer.\n" +
+  "- Lead with the answer in 1–2 sentences. Use bullets or a tiny list only when necessary; avoid long paragraphs.\n" +
+  '- If more is needed: give a one-screen summary and say "I can expand on X or Y" instead of expanding in the same message.\n' +
+  "- Prefer tool use over prose for complex tasks; then respond with a compact synthesis, not raw output.\n" +
+  "- When the user asks for depth, add a little at a time (one focused follow-up), not a long block.\n";
+
+export type AppendMainChatPostToolSystemFragmentsParams = {
+  systemPromptForRequest: string;
+  hasTools: boolean;
+  toolInstructions: string;
+  speechFriendly: boolean | undefined;
+  experience: ChatExperience | undefined;
+  chatStyle?: ChatStyle;
+  delphiDisplay?: DelphiDisplayInput;
+  drawerDisplay?: DrawerChatDisplayInput;
+  arcadiaStarterPriming?: string;
+};
+
+/** Tool Instructions block + speech-friendly + Arcadia length/style guidance. */
+export function appendMainChatPostToolSystemFragments(
+  params: AppendMainChatPostToolSystemFragmentsParams
+): string {
+  const {
+    systemPromptForRequest,
+    hasTools,
+    toolInstructions,
+    speechFriendly,
+    experience,
+    chatStyle,
+    delphiDisplay,
+    drawerDisplay,
+    arcadiaStarterPriming,
+  } = params;
+
+  let out = systemPromptForRequest;
+
+  if (hasTools) {
+    out += `\n\nTool Instructions:\n${toolInstructions}`;
+  }
+
+  if (speechFriendly) {
+    out += SPEECH_FRIENDLY_APPEND;
+  }
+
+  if (isArcadiaStyleMemoryReadExperience(experience)) {
+    out += ARCADIA_SHORT_REPLY_APPEND;
+
+    if (chatStyle === "scribe") {
+      out += SCRIBE_SYSTEM_APPEND;
+    }
+
+    const priming = arcadiaStarterPriming?.trim();
+
+    if (priming) {
+      out += `\n\n[Arcadia starter prompt]\n${priming}`;
+    }
+  }
+
+  if (experience === "delphi") {
+    out += getDelphiSystemPromptAugmentation();
+
+    if (delphiDisplay) {
+      const budget = computeDelphiCaptionBudget(delphiDisplay);
+
+      out += getDelphiDisplayContextAugmentation(budget);
+    }
+  }
+
+  if (experience === "rabbit_hole") {
+    out = appendRabbitHoleDrawerSystemFragments(out, {
+      drawerDisplay,
+      includeToolInstructions: false,
+    });
+  }
+
+  return out;
+}
+
+export type WrapSystemPromptWithResponseLengthParams = {
+  experience?: ChatExperience;
+  delphiDisplay?: DelphiDisplayInput;
+};
+
+/** Same wrapper as the main chat route before streamText. */
+export function wrapSystemPromptWithResponseLength(
+  systemPromptForRequest: string,
+  params?: WrapSystemPromptWithResponseLengthParams
+): string {
+  if (params?.experience === "delphi" && params.delphiDisplay) {
+    const budget = computeDelphiCaptionBudget(params.delphiDisplay);
+    const charBudget = delphiScrollCharBudget(budget);
+    const approxWords = Math.round(charBudget / 5);
+
+    return (
+      systemPromptForRequest +
+      "\n\n<response_length>\n" +
+      `The caption display fits itself to your reply — the character budget below is a ceiling, not a target. ` +
+      `Shorter is better; never pad to fill it. Approximate ceiling: ${charBudget.toLocaleString()} characters (~${approxWords.toLocaleString()} words). ` +
+      `Prefer staying within ${budget.visibleLines} visible lines; do not exceed ${budget.scrollMaxLines} lines total.\n` +
+      "</response_length>"
+    );
+  }
+
+  return (
+    systemPromptForRequest +
+    "\n\n<response_length>\n" +
+    getChatResponseLengthInstruction() +
+    "\n</response_length>"
+  );
+}

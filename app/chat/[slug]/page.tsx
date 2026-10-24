@@ -1,62 +1,85 @@
+import type { Metadata } from "next";
+
 import { UIMessage } from "ai";
+import { cache } from "react";
+
+import { ChatLoadError } from "./chat-load-error";
 
 import Page from "@/components/layout/page";
 import { Chat } from "@/components/chat/chat";
+import { PerfServerPhases } from "@/components/perf/perf-server-phases";
 import { loadChat } from "@/lib/chat/chat-store";
-import { generateChatTitle } from "@/lib/llm/chat-helpers";
-import { updateChatTitle } from "@/data/supabase/chat";
+import { PERF_PHASES } from "@/lib/perf/journeys";
+import { createRequestPhaseCollector, timeServerPhase } from "@/lib/perf/server-phase";
+import { resolveChatBrowserTabTitlePrimary } from "@/lib/metadata/resolve-browser-tab-title";
+import { tabTitleMetadata } from "@/lib/metadata/tab-title";
 import { Thread } from "@/lib/schemas/chat";
 import { createLogger } from "@/lib/logger";
 
 const logger = createLogger(`app/chat/[slug]/page.tsx`);
 
-export default async function ChatPage({
+const getPhaseCollector = createRequestPhaseCollector;
+
+const loadChatForRequest = cache(async (id: string) =>
+  timeServerPhase(getPhaseCollector(), PERF_PHASES.serverLoadChat, () => loadChat(id))
+);
+
+export async function generateMetadata({
   params,
 }: {
   params: Promise<{ slug: string }>;
+}): Promise<Metadata> {
+  const { slug: chatId } = await params;
+  const res = await loadChatForRequest(chatId);
+
+  if (res.error || res.data === null) {
+    return tabTitleMetadata(null, "Chat");
+  }
+  const primary = await resolveChatBrowserTabTitlePrimary({
+    experience: "chat",
+    thread: res.data.thread,
+    messages: res.data.messages,
+  });
+
+  return tabTitleMetadata(primary, "Chat");
+}
+
+export default async function ChatPage({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ slug: string }>;
+  searchParams: Promise<{ draft?: string }>;
 }) {
   const { slug: chatId } = await params;
-
-  const initialMessage = "Are white holes real?";
+  const { draft } = await searchParams;
 
   const id = chatId;
 
   let chatData: { thread: Thread; messages: UIMessage[] } | null = null;
 
   try {
-    const chatDataRes = await loadChat(id);
+    const chatDataRes = await loadChatForRequest(id);
 
     if (chatDataRes.error || chatDataRes.data === null) {
       throw chatDataRes.error;
     }
 
     chatData = chatDataRes.data;
-
-    if (chatData.thread.title === null && chatData.messages.length > 3) {
-      const titleRes = await generateChatTitle(id);
-
-      if (titleRes.error) {
-        throw titleRes.error;
-      }
-      chatData.thread.title = titleRes.data;
-      await updateChatTitle(id, titleRes.data ?? "");
-    }
   } catch (err) {
     logger.error("ChatPage", `Error while loading chat: ${err}`);
 
-    // const id = await createChat().then((res) => res.data ?? "");
-    // console.log(`Chat created with ID: ${id}.. Redirecting user..`);
-    // if (id === null || id === "") {
-    //   console.error("Chat creation failed");
-    //   return <div>Chat creation failed</div>;
-    // }
-    // redirect(`/chat/${id}`);
-    return <div>Chat creation failed</div>;
+    return <ChatLoadError />;
   }
 
   return (
-    <Page>
-      <Chat chatData={chatData} initialMessage={initialMessage} />
-    </Page>
+    <>
+      <PerfServerPhases journey="to-chat" phases={getPhaseCollector()} />
+      <Page>
+        <div className="w-full h-full">
+          <Chat chatData={chatData} initialDraft={draft} />
+        </div>
+      </Page>
+    </>
   );
 }

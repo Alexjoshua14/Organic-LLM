@@ -1,17 +1,18 @@
+"use client";
+
 import { Search } from "lucide-react";
 import { Input } from "@heroui/input";
-import {
-  SignedIn,
-  SignedOut,
-  SignInButton,
-  SignOutButton,
-  SignUpButton,
-} from "@clerk/nextjs";
+import { SignedIn, SignedOut, SignOutButton } from "@clerk/nextjs";
 import Link from "next/link";
+import { Suspense } from "react";
 
 import { SidebarChats } from "./sidebar-chats";
-import { SidebarNewChat } from "./sidebar-new-chat";
+import { SidebarChatsSkeleton } from "./sidebar-chats-skeleton";
+import { SidebarContentSwitcher } from "./sidebar-content-switcher";
+import { SidebarExperienceRail } from "./sidebar-experience-rail";
+import { PrototypesSidebarContent, PrototypesSidebarFallback } from "./prototypes-sidebar-content";
 
+import { SignedOutAuthButtons } from "@/components/pages/signed-out-auth-buttons";
 import {
   Sidebar as ShadcnSidebar,
   SidebarContent,
@@ -19,71 +20,96 @@ import {
   SidebarGroup,
   SidebarGroupContent,
   SidebarHeader,
-  SidebarMenuButton,
 } from "@/components/third-party/ui/sidebar";
+import { useIsTallViewport } from "@/hooks/use-is-tall-viewport";
+import { APP_VERSION_LABEL } from "@/lib/app-version";
+import { welcomeCopy } from "@/lib/welcome/copy";
+
+function NormalSidebarContent() {
+  return (
+    <>
+      <SidebarGroup className="shrink-0">
+        <SidebarGroupContent className="flex flex-col gap-3">
+          <SidebarExperienceRail />
+          <Input
+            classNames={{
+              input: ["bg-transparent", "hover:bg-transparent"],
+              innerWrapper: ["bg-transparent", "hover:bg-transparent"],
+              inputWrapper: [
+                "bg-transparent",
+                "hover:bg-transparent",
+                "group-data-[focus=true]:bg-transparent",
+                "data-[hover=true]:bg-transparent",
+              ],
+              mainWrapper: ["bg-transparent", "focus-within:bg-transparent"],
+            }}
+            label={<Search size={18} />}
+            labelPlacement="outside-left"
+            placeholder="Search your threads..."
+          />
+        </SidebarGroupContent>
+      </SidebarGroup>
+      <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden">
+        <Suspense fallback={<SidebarChatsSkeleton />}>
+          <SidebarChats />
+        </Suspense>
+      </div>
+    </>
+  );
+}
 
 export function Sidebar() {
+  const { isTall, maxHeightCss } = useIsTallViewport();
+
   return (
-    <ShadcnSidebar>
-      <SidebarHeader className="h-12 pl-7 grid place-content-center bg-background-secondary subpixel-antialiased">
+    <ShadcnSidebar
+      compactHeight={isTall}
+      compactMaxHeight={maxHeightCss}
+      variant={isTall ? "floating" : "sidebar"}
+    >
+      <SidebarHeader className="h-16 pl-7 grid place-content-center bg-background-secondary subpixel-antialiased">
         <Link
-          className="group/brand cursor-pointer active:scale-95 transition-transform duration-150"
+          className="group/brand cursor-pointer active:scale-95 transition-transform duration-150 font-commissioner"
           href="/"
         >
-          <h1 className="font-bold tracking-tight text-lg bg-gradient-to-tl from-foreground-secondary to-foreground text-transparent bg-clip-text group-hover/brand:from-foreground duration-300 transition-colors">
+          <h1 className="font-medium tracking-tight text-lg bg-linear-to-tl from-foreground-secondary to-foreground text-transparent bg-clip-text group-hover/brand:from-foreground duration-300 transition-colors cursor-pointer">
             Organic LLM
           </h1>
         </Link>
       </SidebarHeader>
-      <SidebarContent className="bg-background-secondary subpixel-antialiased">
+      <SidebarContent className="bg-background-secondary subpixel-antialiased flex flex-col overflow-hidden ">
         <SignedOut>
           <SidebarGroup>
-            <SidebarGroupContent className="w-full flex flex-col gap-4 items-center justify-center">
-              <SidebarMenuButton asChild>
-                <SignInButton />
-              </SidebarMenuButton>
-
-              <SidebarMenuButton asChild>
-                <SignUpButton />
-              </SidebarMenuButton>
+            <SidebarGroupContent className="flex w-full flex-col items-center justify-center gap-4 px-4 py-6">
+              <p className="text-center text-xs leading-relaxed text-muted-foreground">
+                {welcomeCopy.sidebar}
+              </p>
+              <SignedOutAuthButtons size="compact" />
             </SidebarGroupContent>
           </SidebarGroup>
         </SignedOut>
         <SignedIn>
-          <>
-            <SidebarGroup>
-              <SidebarGroupContent>
-                <SidebarNewChat />
-                <Input
-                  classNames={{
-                    input: ["bg-transparent", "hover:bg-transparent"],
-                    innerWrapper: ["bg-transparent", "hover:bg-transparent"],
-                    inputWrapper: [
-                      "bg-transparent",
-                      "hover:bg-transparent",
-                      "group-data-[focus=true]:bg-transparent",
-                      "data-[hover=true]:bg-transparent",
-                    ],
-                    mainWrapper: [
-                      "bg-transparent",
-                      "focus-within:bg-transparent",
-                    ],
-                    base: ["border-b-1", "border-background-tertiary"],
-                  }}
-                  label={<Search size={18} />}
-                  labelPlacement="outside-left"
-                  placeholder="Search your threads..."
-                />
-              </SidebarGroupContent>
-            </SidebarGroup>
-            <SidebarChats />
-          </>
+          <SidebarContentSwitcher
+            normalContent={<NormalSidebarContent />}
+            prototypeContent={
+              <Suspense fallback={<PrototypesSidebarFallback />}>
+                <PrototypesSidebarContent />
+              </Suspense>
+            }
+          />
         </SignedIn>
       </SidebarContent>
-      <SidebarFooter>
+      <SidebarFooter className="flex flex-col gap-2">
         <SignedIn>
           <SignOutButton />
         </SignedIn>
+        <Link
+          href="/release-notes"
+          className="px-2 pb-1 text-center text-2xs font-light tabular-nums tracking-wide text-muted-foreground/70 transition-colors hover:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50 rounded-sm"
+          aria-label={`App version ${APP_VERSION_LABEL}. Open release notes.`}
+        >
+          {APP_VERSION_LABEL}
+        </Link>
       </SidebarFooter>
     </ShadcnSidebar>
   );

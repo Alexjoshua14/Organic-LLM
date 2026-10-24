@@ -11,10 +11,7 @@ type PrometheusResponseProps = {
   isLoading: boolean;
 };
 
-export const PrometheusResponse: React.FC<PrometheusResponseProps> = ({
-  response,
-  isLoading,
-}) => {
+export const PrometheusResponse: React.FC<PrometheusResponseProps> = ({ response, isLoading }) => {
   return (
     <div className="h-full flex flex-col">
       <div
@@ -32,9 +29,7 @@ export const PrometheusResponse: React.FC<PrometheusResponseProps> = ({
         {/* Header */}
         <div className="p-4 border-b border-white/10">
           <div className="flex items-center justify-between">
-            <h3 className="text-lg font-light tracking-wide text-foreground/90">
-              Response
-            </h3>
+            <h3 className="text-lg font-light tracking-wide text-foreground/90">Response</h3>
             <div className="flex items-center gap-2">
               {isLoading && (
                 <div className="flex items-center gap-2 text-sm text-foreground/60">
@@ -55,8 +50,7 @@ export const PrometheusResponse: React.FC<PrometheusResponseProps> = ({
                   <div
                     className="text-foreground/80 leading-relaxed font-light whitespace-pre-wrap"
                     style={{
-                      fontFamily:
-                        "var(--font-commissioner), system-ui, sans-serif",
+                      fontFamily: "var(--font-commissioner), system-ui, sans-serif",
                       lineHeight: "1.7",
                     }}
                   >
