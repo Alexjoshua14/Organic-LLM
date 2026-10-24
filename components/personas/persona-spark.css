@@ -1,0 +1,212 @@
+/*
+ * Spark's fluted glass, from Stratum's lessons branch (app/lessons/lessons.css), renamed to the
+ * persona-spark namespace. One inherited angle, --persona-spark-t, drives every mark on a shared
+ * stepped clock; persona states only adjust light and scale around it.
+ */
+@property --persona-spark-t {
+  syntax: "<angle>";
+  inherits: true;
+  initial-value: 0deg;
+}
+
+.persona-spark-mark {
+  display: block;
+  flex-shrink: 0;
+  pointer-events: none;
+  /* The grain blends with the glass only, never with the page. */
+  isolation: isolate;
+  --persona-spark-deep: color-mix(in oklab, currentColor 20%, #05070b);
+  --persona-spark-edge: currentColor;
+  --persona-spark-mid: color-mix(in oklab, currentColor 72%, #fff);
+  --persona-spark-light: color-mix(in oklab, currentColor 50%, #fff);
+  --persona-spark-hot: color-mix(in oklab, currentColor 14%, #fff0e6);
+}
+/* Dark theme: teal ink is already light, so the orb's body sinks toward the panel instead. */
+.dark .persona-spark-mark {
+  --persona-spark-deep: color-mix(in oklab, currentColor 12%, #05070b);
+  --persona-spark-edge: color-mix(in oklab, currentColor 40%, #05070b);
+  --persona-spark-mid: color-mix(in oklab, currentColor 74%, #05070b);
+  --persona-spark-light: currentColor;
+  --persona-spark-hot: color-mix(in oklab, currentColor 34%, #fff0e6);
+}
+
+@supports (transform: translateY(calc(sin(0deg) * 1px))) {
+  .persona-spark-mark {
+    /* 11s = PERIOD_S in persona-spark.tsx. */
+    animation: persona-spark-drift 11s steps(var(--persona-spark-steps, 132)) infinite;
+  }
+}
+
+@keyframes persona-spark-drift {
+  to {
+    --persona-spark-t: 360deg;
+  }
+}
+
+.persona-spark-panel {
+  fill: var(--persona-spark-deep);
+}
+
+/* The orb drifts and breathes; each flute's copy also rides its own wave. */
+.persona-spark-orb {
+  transform-box: fill-box;
+  transform-origin: center;
+  transform: translate(
+      calc(1.6px * sin(var(--persona-spark-t))),
+      calc(
+        1.2px * sin(var(--persona-spark-t) * 2) + 3.4px *
+          sin(var(--persona-spark-t) + var(--phase, 0deg))
+      )
+    )
+    scale(calc(1 + 0.05 * cos(var(--persona-spark-t))));
+}
+
+.persona-spark-glow stop:nth-child(1) {
+  stop-color: var(--persona-spark-hot);
+}
+.persona-spark-glow stop:nth-child(2) {
+  stop-color: var(--persona-spark-light);
+}
+.persona-spark-glow stop:nth-child(3) {
+  stop-color: var(--persona-spark-mid);
+}
+.persona-spark-glow stop:nth-child(4) {
+  stop-color: var(--persona-spark-edge);
+  stop-opacity: 0.7;
+}
+.persona-spark-glow stop:nth-child(5) {
+  stop-color: var(--persona-spark-edge);
+  stop-opacity: 0;
+}
+
+.persona-spark-rod stop {
+  stop-color: #000;
+  stop-opacity: 0;
+}
+.persona-spark-rod stop:nth-child(-n + 2) {
+  stop-color: #fff;
+  stop-opacity: 0.28;
+}
+.persona-spark-rod stop:nth-child(3) {
+  stop-opacity: 0.42;
+}
+.persona-spark-rod stop:nth-child(4) {
+  stop-opacity: 0.06;
+}
+.persona-spark-rod stop:nth-child(5) {
+  stop-color: #fff;
+  stop-opacity: 0.1;
+}
+.persona-spark-rod stop:nth-child(6) {
+  stop-color: #fff;
+  stop-opacity: 0.22;
+}
+
+.persona-spark-vignette stop {
+  stop-color: #000;
+  stop-opacity: 0;
+}
+.persona-spark-vignette stop:last-child {
+  stop-opacity: 0.36;
+}
+
+.persona-spark-grain {
+  mix-blend-mode: overlay;
+  opacity: 0.3;
+}
+
+.persona-spark-rim {
+  fill: none;
+  stroke: #fff;
+  stroke-opacity: 0.08;
+  stroke-width: 0.5;
+}
+
+/* ---------- persona states (layered on the glass; the clock is untouched) ---------- */
+
+.persona-spark-light {
+  transform-box: fill-box;
+  transform-origin: center;
+  opacity: 1;
+  transition:
+    opacity var(--persona-spark-exit-ms, 180ms) ease-out,
+    transform var(--persona-spark-exit-ms, 180ms) ease-out;
+}
+
+.persona-spark[data-state="inactive"] .persona-spark-light {
+  opacity: 0.55;
+}
+
+.persona-spark[data-state="listening"] .persona-spark-light {
+  transform: scale(1.06);
+  transition-duration: var(--persona-spark-enter-ms, 280ms);
+}
+
+.persona-spark[data-state="deciding"] .persona-spark-light {
+  animation: persona-spark-breath var(--persona-spark-deciding-ms, 1600ms) ease-in-out infinite;
+}
+
+.persona-spark[data-state="speaking"] .persona-spark-light {
+  animation: persona-spark-breath var(--persona-spark-speaking-ms, 1100ms) ease-in-out infinite;
+  transform: scale(1.1);
+}
+
+@keyframes persona-spark-breath {
+  0%,
+  100% {
+    opacity: 0.82;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+/* The heard receipt: a ring leaving the glass once. Remounted per receipt to replay. */
+.persona-spark-pulse {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  box-shadow: 0 0 0 0 color-mix(in oklab, currentColor 55%, transparent);
+  animation: persona-spark-pulse var(--persona-spark-pulse-ms, 480ms) cubic-bezier(0.2, 0.7, 0.3, 1)
+    both;
+}
+
+@keyframes persona-spark-pulse {
+  from {
+    box-shadow: 0 0 0 0 color-mix(in oklab, currentColor 55%, transparent);
+  }
+  to {
+    box-shadow: 0 0 0 0.45em color-mix(in oklab, currentColor 0%, transparent);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .persona-spark-mark {
+    animation: none;
+  }
+  .persona-spark[data-state] .persona-spark-light {
+    animation: none;
+    transform: none;
+  }
+  /* A receipt still has to show: a brief static ring instead of a moving one. */
+  .persona-spark-pulse {
+    animation: persona-spark-pulse-static var(--persona-spark-pulse-ms, 480ms) step-end both;
+  }
+  @keyframes persona-spark-pulse-static {
+    from {
+      box-shadow: 0 0 0 2px color-mix(in oklab, currentColor 60%, transparent);
+    }
+    to {
+      box-shadow: none;
+    }
+  }
+}
+
+@media (forced-colors: active) {
+  .persona-spark-mark > g > :not(.persona-spark-panel) {
+    display: none;
+  }
+  .persona-spark-panel {
+    fill: CanvasText;
+  }
+}
