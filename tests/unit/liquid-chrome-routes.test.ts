@@ -27,10 +27,10 @@ describe("liquid-chrome-routes", () => {
 
   test("syncErgonSsrFillVisibility toggles layout SSR fill", () => {
     installTestJsdom();
-    document.documentElement.innerHTML = `
-      <body>
-        <div id="ergon-liquid-chrome-ssr-fill" class="liquid-chrome-page-fill"></div>
-      </body>
+    // Edit the body's contents, never replace <body> or <html>: Testing Library's `screen` is bound
+    // to the original body element, and JSDOM is shared by every DOM test in the process.
+    document.body.innerHTML = `
+      <div id="ergon-liquid-chrome-ssr-fill" class="liquid-chrome-page-fill"></div>
     `;
 
     syncErgonSsrFillVisibility(false);
@@ -43,6 +43,6 @@ describe("liquid-chrome-routes", () => {
       false
     );
 
-    document.documentElement.innerHTML = "";
+    document.body.innerHTML = "";
   });
 });

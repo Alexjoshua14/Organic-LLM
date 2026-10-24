@@ -36,6 +36,7 @@ export type SubagentThreadSnapshot = {
   statusAt: string | null;
   lastMessageId: string | null;
   lastGoal: string | null;
+  latestGoalId?: string | null;
   lastOutcome: string | null;
   /** Model recorded on the latest assignment or reply; null when it is unknown. */
   modelId?: string | null;
@@ -53,7 +54,10 @@ export function clampExcerpt(text: string, max = SUBAGENT_SNAPSHOT_EXCERPT_CHARS
   return cleaned.length > max ? `${cleaned.slice(0, max - 1)}…` : cleaned;
 }
 
-function lastTextOfRole(messages: ReadonlyArray<UIMessage>, role: UIMessage["role"]): string | null {
+function lastTextOfRole(
+  messages: ReadonlyArray<UIMessage>,
+  role: UIMessage["role"]
+): string | null {
   for (let i = messages.length - 1; i >= 0; i -= 1) {
     const message = messages[i]!;
 
@@ -89,6 +93,27 @@ function latestModelId(messages: ReadonlyArray<UIMessage>): string | null {
   return null;
 }
 
+/** A reply retains its goal identity even if the assignment falls outside the read window. */
+function latestAssignmentId(messages: ReadonlyArray<UIMessage>): string | null {
+  for (let i = messages.length - 1; i >= 0; i -= 1) {
+    const message = messages[i]!;
+    const metadata = message.metadata as { source?: string; goalId?: unknown } | undefined;
+
+    if (
+      message.role === "user" ||
+      (message.role === "assistant" && metadata?.source === SUBAGENT_REPLY_MESSAGE_SOURCE)
+    ) {
+      return (metadata?.source === SUBAGENT_GOAL_MESSAGE_SOURCE ||
+        metadata?.source === SUBAGENT_REPLY_MESSAGE_SOURCE) &&
+        typeof metadata.goalId === "string"
+        ? metadata.goalId
+        : null;
+    }
+  }
+
+  return null;
+}
+
 /** Build one snapshot from a child row and its recent messages (chronological). */
 export function buildSubagentThreadSnapshot(
   row: SubagentThreadRow,
@@ -96,6 +121,7 @@ export function buildSubagentThreadSnapshot(
   now: number = Date.now()
 ): SubagentThreadSnapshot {
   const identity = resolveSubagentIdentity(row.agentId);
+  const latestGoalId = latestAssignmentId(messages);
 
   return {
     agentId: row.agentId,
@@ -106,6 +132,7 @@ export function buildSubagentThreadSnapshot(
     statusAt: row.statusAt,
     lastMessageId: messages.at(-1)?.id ?? null,
     lastGoal: lastTextOfRole(messages, "user"),
+    latestGoalId,
     lastOutcome: lastTextOfRole(messages, "assistant"),
     modelId: latestModelId(messages),
   };
@@ -118,7 +145,14 @@ export function buildSubagentThreadSnapshot(
 export function digestSubagentSnapshots(snapshots: ReadonlyArray<SubagentThreadSnapshot>): string {
   const keyed = [...snapshots]
     .sort((a, b) => a.threadId.localeCompare(b.threadId))
-    .map((s) => [s.threadId, s.agentId, s.status, s.lastMessageId ?? "", s.lastGoal, s.lastOutcome]);
+    .map((s) => [
+      s.threadId,
+      s.agentId,
+      s.status,
+      s.lastMessageId ?? "",
+      s.lastGoal,
+      s.lastOutcome,
+    ]);
 
   return createHash("sha256").update(JSON.stringify(keyed)).digest("hex");
 }

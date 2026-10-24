@@ -1,5 +1,6 @@
 // @ts-nocheck
 import { afterEach, beforeEach, describe, expect, mock, test } from "bun:test";
+import * as ai from "ai";
 import * as budgetGate from "@/lib/api/plan-budget-gate";
 import { mockModulePreservingReal } from "../helpers/module-mock";
 import { mockAllowedAuthenticatedBudget } from "../helpers/llm-budget";
@@ -143,12 +144,11 @@ mock.module("@clerk/nextjs/server", () => ({
   auth: mockAuth,
 }));
 
-mock.module("ai", () => ({
+// Keep real SDK predicates: a global stepCountIs stub also replaces its isStepCount alias.
+mockModulePreservingReal("ai", ai, {
   generateText: mockGenerateText,
   generateObject: mockGenerateObject,
-  stepCountIs: mock((count: number) => ({ stepCount: count })),
-  tool: mock((definition: unknown) => definition),
-}));
+});
 
 mock.module("@/data/supabase/profiles", () => ({
   getSupabaseUserId: mockGetSupabaseUserId,

@@ -33,6 +33,7 @@ export async function POST(req: Request) {
   }
 
   const planGate = await requirePlanBudget({ clerkUserId: user.userId, sbUserId: sbUserId.data });
+
   if (planGate) return planGate;
 
   let body;

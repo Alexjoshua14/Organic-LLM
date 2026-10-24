@@ -1,3 +1,5 @@
+import type { LiquidChromeMaterial } from "@/lib/background/liquid-chrome-material";
+
 import React, { memo, useEffect, useLayoutEffect, useRef } from "react";
 import { Renderer, Program, Mesh, Triangle } from "ogl";
 
@@ -15,6 +17,7 @@ import {
 
 interface LiquidChromeProps extends React.HTMLAttributes<HTMLDivElement> {
   baseColor?: [number, number, number];
+  material?: LiquidChromeMaterial;
   speed?: number;
   amplitude?: number;
   frequencyX?: number;
@@ -26,6 +29,7 @@ interface LiquidChromeProps extends React.HTMLAttributes<HTMLDivElement> {
 
 type LiquidChromeRuntimeProps = {
   baseColor: [number, number, number];
+  material: LiquidChromeMaterial;
   speed: number;
   amplitude: number;
   frequencyX: number;
@@ -42,6 +46,7 @@ function rgb01ToCss([r, g, b]: [number, number, number]): string {
 function runtimePropsEqual(a: LiquidChromeRuntimeProps, b: LiquidChromeRuntimeProps): boolean {
   return (
     a.speed === b.speed &&
+    a.material === b.material &&
     a.amplitude === b.amplitude &&
     a.frequencyX === b.frequencyX &&
     a.frequencyY === b.frequencyY &&
@@ -53,6 +58,7 @@ function runtimePropsEqual(a: LiquidChromeRuntimeProps, b: LiquidChromeRuntimePr
 
 export const LiquidChrome = memo(function LiquidChrome({
   baseColor = [0.1, 0.1, 0.1],
+  material = "chrome",
   speed = 0.2,
   amplitude = 0.5,
   frequencyX = 3,
@@ -65,6 +71,7 @@ export const LiquidChrome = memo(function LiquidChrome({
   const pausedRef = useRef(paused);
   const propsRef = useRef<LiquidChromeRuntimeProps>({
     baseColor,
+    material,
     speed,
     amplitude,
     frequencyX,
@@ -74,7 +81,7 @@ export const LiquidChrome = memo(function LiquidChrome({
   const startLoopRef = useRef<(() => void) | null>(null);
 
   pausedRef.current = paused;
-  propsRef.current = { baseColor, speed, amplitude, frequencyX, frequencyY };
+  propsRef.current = { baseColor, material, speed, amplitude, frequencyX, frequencyY };
 
   useLayoutEffect(() => {
     if (!containerRef.current) return;
@@ -125,6 +132,8 @@ export const LiquidChrome = memo(function LiquidChrome({
           ]),
         },
         uBaseColor: { value: new Float32Array(initial.baseColor) },
+        uPaperInk: { value: initial.material === "paper-ink" ? 1 : 0 },
+        uPixelRatio: { value: 1 },
         uAmplitude: { value: initial.amplitude },
         uFrequencyX: { value: initial.frequencyX },
         uFrequencyY: { value: initial.frequencyY },
@@ -146,6 +155,7 @@ export const LiquidChrome = memo(function LiquidChrome({
       resUniform[0] = gl.canvas.width;
       resUniform[1] = gl.canvas.height;
       resUniform[2] = gl.canvas.width / gl.canvas.height;
+      program.uniforms.uPixelRatio.value = dpr;
     }
     window.addEventListener("resize", resize);
     resize();
@@ -194,6 +204,7 @@ export const LiquidChrome = memo(function LiquidChrome({
       baseColorUniform[1] = runtime.baseColor[1];
       baseColorUniform[2] = runtime.baseColor[2];
       program.uniforms.uAmplitude.value = runtime.amplitude;
+      program.uniforms.uPaperInk.value = runtime.material === "paper-ink" ? 1 : 0;
       program.uniforms.uFrequencyX.value = runtime.frequencyX;
       program.uniforms.uFrequencyY.value = runtime.frequencyY;
       syncedProps = { ...runtime };

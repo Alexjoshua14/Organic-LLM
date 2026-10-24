@@ -35,7 +35,11 @@ import {
   shoppingListToMarkdown,
   shoppingListToMarkdownLoose,
 } from "./shopping-list";
-import { ResearchReportBlockSchema, researchReportToMarkdown, researchReportToMarkdownLoose } from "./research-report";
+import {
+  ResearchReportBlockSchema,
+  researchReportToMarkdown,
+  researchReportToMarkdownLoose,
+} from "./research-report";
 import { GEN_UI_BLOCK_TYPES, type GenUIBlockType } from "./shared";
 
 export { GEN_UI_VERSION, GEN_UI_BLOCK_TYPES, type GenUIBlockType } from "./shared";
@@ -136,6 +140,7 @@ function tryLenientParse(type: GenUIBlockType, raw: unknown): GenUIBlock | null 
     }
     case "research-report": {
       const r = ResearchReportBlockSchema.safeParse(raw);
+
       return r.success ? r.data : null;
     }
     default:

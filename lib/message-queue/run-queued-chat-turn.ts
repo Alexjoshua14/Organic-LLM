@@ -39,6 +39,7 @@ import { stampTurnWithActivatedMemories } from "@/lib/chat/stamp-activated-memor
 import { expandActivatedMemoriesForModel } from "@/lib/memory/activated-thread-memories";
 import { resolveMemoryEnabledForExperience } from "@/lib/chat/chat-experience";
 import { getLastUserMessageText } from "@/lib/arcadia/help-response";
+import { loadUserConnectorsProfile } from "@/lib/connectors/user-connectors-store";
 import { compileChatTools } from "@/lib/llm/compile-chat-tools";
 import { getHardSetSubagent } from "@/lib/llm/subagents/hard-set/registry";
 import { getChatModel } from "@/lib/llm/helpers";
@@ -68,8 +69,10 @@ export async function runQueuedChatTurn(args: {
   clerkUserId: string;
 }): Promise<{ ok: true } | { ok: false; error: string }> {
   const { item, sbUserId, clerkUserId } = args;
+
   if (item.payload?.subagentRun) {
     const { runQueuedSubagentTurn } = await import("@/lib/message-queue/run-queued-subagent-turn");
+
     return runQueuedSubagentTurn(item, sbUserId);
   }
   const chatId = item.thread_id;
@@ -83,7 +86,14 @@ export async function runQueuedChatTurn(args: {
   const userMessage: UIMessage = {
     id: isHeartbeat ? heartbeatMessageId : randomUUID(),
     role: isHeartbeat ? "system" : "user",
-    parts: [{ type: "text", text: isHeartbeat ? "Review the latest subagent update. Read the relevant subagent thread if needed, then give the user a concise update and any next steps. This is an automatic heartbeat, not a new message from the user." : item.body }],
+    parts: [
+      {
+        type: "text",
+        text: isHeartbeat
+          ? "Review the latest subagent update. Read the relevant subagent thread if needed, then give the user a concise update and any next steps. This is an automatic heartbeat, not a new message from the user."
+          : item.body,
+      },
+    ],
   };
 
   let selectedModel = payload.model ? getChatModel(payload.model) : DEFAULT_CHAT_MODEL;
@@ -138,6 +148,11 @@ export async function runQueuedChatTurn(args: {
       // `after()` (nested inside the queue route's `after` drain).
       let multitask: PrepareMultitaskTurnResult | null = null;
 
+      const userConnectors =
+        experience === "arcadia"
+          ? await loadUserConnectorsProfile(clerkUserId).catch(() => null)
+          : null;
+
       if (experience === "arcadia") {
         multitask = await prepareArcadiaMultitaskTurn({
           chatId,
@@ -147,8 +162,13 @@ export async function runQueuedChatTurn(args: {
           modelId: selectedModel.id,
           zeroDataRetention: payload.zeroDataRetention === true,
           writer,
-          deps: createMultitaskTurnDeps({ ownerId: sbUserId, clerkUserId, route: "/api/chat/queue" }),
+          deps: createMultitaskTurnDeps({
+            ownerId: sbUserId,
+            clerkUserId,
+            route: "/api/chat/queue",
+          }),
           autonomous: isHeartbeat,
+          userConnectors,
         });
       }
 
@@ -228,6 +248,8 @@ export async function runQueuedChatTurn(args: {
       const compiledTools = await compileChatTools({
         useSearch: shellAgent?.tools.webSearch ?? payload.webSearch ?? false,
         useResearch: shellAgent?.tools.research ?? false,
+        useChronos: shellAgent?.tools.chronos ?? false,
+        useErgonAgent: shellAgent?.tools.ergon ?? false,
         researchModelId: selectedModel.id,
         researchGenerationContext: { messages, system: systemPromptForRequest },
         useMemory: shellAgent?.tools.memory ?? payload.memory ?? false,
@@ -250,6 +272,7 @@ export async function runQueuedChatTurn(args: {
           ? null
           : { id: userMessage.id, text: getLastUserMessageText(userMessage) },
         writer,
+        userConnectors,
       });
 
       const toolNames = Object.keys(tools);
@@ -341,7 +364,6 @@ export async function runQueuedChatTurn(args: {
         userMessage,
         threadHasTitlePromise,
       });
-
     },
   });
 

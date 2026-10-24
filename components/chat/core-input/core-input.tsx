@@ -5,9 +5,13 @@ import type { ChatExperience } from "@/lib/chat/chat-experience";
 import type { ChatStyle } from "@/lib/chat/chat-style";
 import type { ContextBudgetEstimate } from "@/lib/chat/context-budget";
 import type { ContextEffortLevel } from "@/lib/memory/context-effort";
+import type { CoreInputScope } from "@/lib/core-input/scopes";
+import type { CoreInputSettings, CoreInputSettingField } from "@/lib/core-input/settings";
 
 import {
   ChangeEventHandler,
+  CSSProperties,
+  SetStateAction,
   FormEvent,
   KeyboardEventHandler,
   useCallback,
@@ -19,7 +23,10 @@ import {
 } from "react";
 import { flushSync } from "react-dom";
 import { useChat } from "@ai-sdk/react";
+import { useReducedMotion } from "framer-motion";
 import { Loader2 } from "lucide-react";
+
+import "@/styles/CoreInputMorph.css";
 
 import {
   PromptInput,
@@ -69,12 +76,23 @@ import {
   DEFAULT_COMPOSER_WEB_SEARCH,
 } from "@/lib/chat/composer-tool-defaults";
 import { ChatModel, ChatModels, getSelectableChatModels } from "@/lib/schemas/chat";
-import { setSettings } from "@/lib/user-settings";
+import { getSettings, setSettings } from "@/lib/user-settings";
 import {
   CHAT_EFFORT_LEVELS,
   ChatEffortLevel,
   clampEffortForModel,
 } from "@/lib/schemas/chat-effort";
+import { DEFAULT_CONTEXT_EFFORT } from "@/lib/memory/context-effort";
+import { readLegacyComposerPrefs, writeLegacyComposerPrefs } from "@/lib/core-input/legacy-prefs";
+import { createMorphTimeline, type MorphTimeline } from "@/lib/core-input/morph-timeline";
+import {
+  CORE_INPUT_MORPH_FAST_FORWARD_RATE,
+  CORE_INPUT_MORPH_PULSE_MS,
+} from "@/lib/core-input/morph-timing";
+import { changedSettingFields, settingsEqual } from "@/lib/core-input/settings";
+import { coreInputSnapshots } from "@/lib/core-input/snapshot-store";
+import { coreInputSnapshotSync } from "@/lib/core-input/snapshot-sync";
+import { parseSlashCommand } from "@/lib/chat/slash-command";
 import { useContextEffortSettings } from "@/hooks/use-context-effort-settings";
 import { useIsAdmin } from "@/hooks/use-is-admin";
 import { deleteEmptyChat } from "@/data/supabase/chat";
@@ -85,10 +103,14 @@ import {
 } from "@/lib/chat/blank-chat-mount-registry";
 import { useSharedChatContext } from "@/lib/context/chat-context";
 import { useComposerDraft } from "@/hooks/use-composer-draft";
+import { useAutoModelPreview } from "@/hooks/use-auto-model-preview";
 import { useDiagramNodeLinksOptional } from "@/lib/mermaid/diagram-node-links-context";
 import { useMessageSendQueue } from "@/hooks/use-message-send-queue";
 import { MessageSendQueueStrip } from "@/components/chat/message-send-queue-strip";
 import { shouldEnqueueInsteadOfSend } from "@/lib/message-queue/dispatch-gates";
+import { ThreadReferenceCard } from "@/components/chat/thread-reference/thread-reference-card";
+import { ThreadClipboardPicker } from "@/components/chat/thread-reference/thread-clipboard-picker";
+import { parseThreadPointer, threadReferenceMarker } from "@/lib/chat/thread-reference";
 
 type CoreInputProps = {
   modelRef: React.RefObject<ChatModel>;
@@ -170,7 +192,42 @@ type CoreInputProps = {
    * replaces the send button while it is on.
    */
   personaEnabled?: boolean;
+  /**
+   * Remembers settings per thread or area, and morphs between them when the scope changes.
+   * Omit to keep the legacy global prefs (sandbox labs and prototypes).
+   */
+  snapshotScope?: CoreInputScope;
+  /** Mirrors the selected context effort for the caller's request builder. */
+  contextEffortRef?: React.RefObject<ContextEffortLevel>;
+  /**
+   * `/name argument` commands run instead of sending. They pass the busy-stream gate, so a
+   * command still works while the thread is answering.
+   */
+  slashCommands?: Partial<Record<string, (argument: string) => void>>;
+  /**
+   * Set while a side thread (e.g. `/btw`) owns the composer: drafts are not saved to
+   * `chatId` and the context budget hides. Changing it clears the composer text.
+   */
+  sideThreadKey?: string | null;
+  placeholder?: string;
 };
+
+/** Settings currently on screen in any CoreInput: the starting frame for the next morph. */
+let lastDisplayedSettings: CoreInputSettings | null = null;
+
+/** Morph pulses target controls through these `data-core-input-morph-*` names. */
+const MORPH_PULSE_ATTRIBUTE: Record<CoreInputSettingField, string> = {
+  modelId: "data-core-input-morph-model",
+  effort: "data-core-input-morph-effort",
+  contextEffort: "data-core-input-morph-context-effort",
+  webSearch: "data-core-input-morph-search",
+  memories: "data-core-input-morph-memory",
+  speechFriendly: "data-core-input-morph-speech",
+};
+
+function resolveAction(action: SetStateAction<boolean>, previous: boolean): boolean {
+  return typeof action === "function" ? action(previous) : action;
+}
 
 /** Max length for the in-flight shimmer copy (matches AiInputForm). */
 const SENT_MESSAGE_DISPLAY_MAX = 2000;
@@ -227,6 +284,11 @@ export const CoreInput: React.FC<CoreInputProps> = ({
   queueSendMode = false,
   queueTargetAgentId,
   personaEnabled = false,
+  snapshotScope,
+  contextEffortRef,
+  slashCommands,
+  sideThreadKey = null,
+  placeholder,
 }) => {
   const { refreshSidebarChats } = useSharedChatContext();
   const persona = usePersonaSessionOptional();
@@ -241,10 +303,10 @@ export const CoreInput: React.FC<CoreInputProps> = ({
   const modelStorageKey = modelLocalStorageKey ?? "organic-llm-selected-model";
   const effortStorageKey = effortLocalStorageKey ?? "organic-llm-selected-effort";
   const memoriesStorageKey = memoryLocalStorageKey ?? "organic-llm-memories";
-  const STORAGE_KEY_WEB_SEARCH = "organic-llm-web-search";
-  const STORAGE_KEY_SPEECH_FRIENDLY = "organic-llm-speech-friendly";
-  const STORAGE_KEY_TIMESTAMP = "organic-llm-prefs-timestamp";
-  const EXPIRY_MS = 24 * 60 * 60 * 1000; // 24 hours in milliseconds
+  const legacyPrefKeys = useMemo(
+    () => ({ model: modelStorageKey, effort: effortStorageKey, memories: memoriesStorageKey }),
+    [modelStorageKey, effortStorageKey, memoriesStorageKey]
+  );
 
   const [text, setText] = useState<string>("");
   const [recentlySentText, setRecentlySentText] = useState<string>(""); // For failed/aborted sends
@@ -259,19 +321,41 @@ export const CoreInput: React.FC<CoreInputProps> = ({
   const [useMemories, setUseMemories] = useState<boolean>(defaultMemories);
   const [useSpeechFriendly, setUseSpeechFriendly] = useState<boolean>(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const [threadReferences, setThreadReferences] = useState<string[]>([]);
+  const addThreadReference = (id: string) => {
+    const pointer = parseThreadPointer(id);
+    if (pointer) setThreadReferences((current) => [...new Set([...current, pointer])].slice(0, 8));
+  };
+  useEffect(() => {
+    setThreadReferences([]);
+  }, [chatId, sideThreadKey]);
   const toolsRef = useRef<HTMLDivElement | null>(null);
   const showLabelsRef = useRef(false);
   const isCondensedRef = useRef(false);
   const [showLabels, setShowLabels] = useState(false);
   const [isCondensed, setIsCondensed] = useState(false);
-  const { enabled: experimentalContextEffort, level: contextEffortLevel } =
+  const { enabled: experimentalContextEffort, level: savedContextEffort } =
     useContextEffortSettings();
+  const [contextEffort, setContextEffort] = useState<ContextEffortLevel>(DEFAULT_CONTEXT_EFFORT);
   const showContextEffort = experience === "arcadia" && useMemories && experimentalContextEffort;
-  const handleContextEffortChange = useCallback((level: ContextEffortLevel) => {
-    setSettings({ contextEffortLevel: level });
-  }, []);
   const [inputMarkdownMode, setInputMarkdownMode] = useState<InputMarkdownMode>("edit");
-  const hasLoadedPrefs = useRef(false);
+  const reduceMotion = useReducedMotion();
+  const morphRootRef = useRef<HTMLDivElement | null>(null);
+  const morphRef = useRef<MorphTimeline | null>(null);
+  const [morphing, setMorphing] = useState(false);
+  const settingsRef = useRef<CoreInputSettings>({
+    modelId: defaultModel.id,
+    effort: defaultEffort,
+    contextEffort: DEFAULT_CONTEXT_EFFORT,
+    webSearch: defaultWebSearch,
+    memories: defaultMemories,
+    speechFriendly: false,
+  });
+  const snapshotScopeRef = useRef(snapshotScope);
+
+  snapshotScopeRef.current = snapshotScope;
+  const scopeKey = snapshotScope?.key ?? null;
+  const hasHydratedRef = useRef(false);
   const appliedInitialDraft = useRef(false);
   const appliedComposerInjectId = useRef<number | null>(null);
 
@@ -280,7 +364,7 @@ export const CoreInput: React.FC<CoreInputProps> = ({
   const statusRef = useRef<typeof status>("ready");
   const isBlankChatRef = useRef(Boolean(isBlankChat));
 
-  inputEmptyRef.current = text.trim() === "";
+  inputEmptyRef.current = text.trim() === "" && threadReferences.length === 0;
   statusRef.current = status ?? "ready";
   isBlankChatRef.current = Boolean(isBlankChat);
   // Mirror the toggle state into the caller-owned refs every render, so the value
@@ -414,7 +498,8 @@ export const CoreInput: React.FC<CoreInputProps> = ({
   }, [composerInject, initialDraft]);
 
   const { clearDraftOnSend, draftRestored } = useComposerDraft({
-    chatId,
+    // A side thread's text belongs to that thread, not to `chatId`'s saved draft.
+    chatId: sideThreadKey ? undefined : chatId,
     text,
     setText,
     textareaRef,
@@ -424,148 +509,240 @@ export const CoreInput: React.FC<CoreInputProps> = ({
     hasHigherPriorityHydration,
   });
 
-  // Load preferences from localStorage on mount
-  useLayoutEffect(() => {
-    if (hasLoadedPrefs.current) return;
-    hasLoadedPrefs.current = true;
+  const appliedModelIdRef = useRef<string | null>(null);
+  const userChangedInScopeRef = useRef(false);
 
-    const timestamp = localStorage.getItem(STORAGE_KEY_TIMESTAMP);
-    const isExpired = !timestamp || Date.now() - parseInt(timestamp, 10) > EXPIRY_MS;
+  // State and the caller's refs move together. Refs update synchronously so a send right
+  // after (e.g. finishing a morph on submit) reads the settled values, not the last render's.
+  const applySettings = useCallback(
+    (next: CoreInputSettings) => {
+      const nextModel = ChatModels.find((m) => m.id === next.modelId) ?? defaultModel;
+      const settled = { ...next, modelId: nextModel.id };
 
-    if (isExpired) {
-      // Clear expired preferences
-      localStorage.removeItem(modelStorageKey);
-      localStorage.removeItem(effortStorageKey);
-      localStorage.removeItem(memoriesStorageKey);
-      localStorage.removeItem(STORAGE_KEY_WEB_SEARCH);
-      localStorage.removeItem(STORAGE_KEY_SPEECH_FRIENDLY);
-      localStorage.removeItem(STORAGE_KEY_TIMESTAMP);
+      settingsRef.current = settled;
+      lastDisplayedSettings = settled;
+      setModel((current) => (current.id === nextModel.id ? current : nextModel));
+      setEffort(settled.effort);
+      setContextEffort(settled.contextEffort);
+      setUseWebSearch(settled.webSearch);
+      setUseMemories(settled.memories);
+      setUseSpeechFriendly(settled.speechFriendly);
+      // Only on a real model change: callers such as the Strata assistant override this ref.
+      if (modelRef && appliedModelIdRef.current !== nextModel.id) modelRef.current = nextModel;
+      appliedModelIdRef.current = nextModel.id;
+      if (effortRef) effortRef.current = settled.effort;
+      if (contextEffortRef) contextEffortRef.current = settled.contextEffort;
+      if (useWebSearchRef) useWebSearchRef.current = settled.webSearch;
+      if (useMemoriesRef) useMemoriesRef.current = settled.memories;
+      if (useSpeechFriendlyRef) useSpeechFriendlyRef.current = settled.speechFriendly;
+    },
+    [
+      contextEffortRef,
+      defaultModel,
+      effortRef,
+      modelRef,
+      useMemoriesRef,
+      useSpeechFriendlyRef,
+      useWebSearchRef,
+    ]
+  );
 
-      setUseWebSearch(defaultWebSearch);
-      setUseMemories(defaultMemories);
-      setEffort(defaultEffort);
-      if (modelRef) modelRef.current = defaultModel;
-      if (effortRef) effortRef.current = defaultEffort;
+  const persistUserSettings = useCallback(
+    (next: CoreInputSettings, previous: CoreInputSettings) => {
+      const scope = snapshotScopeRef.current;
 
-      return;
-    }
+      // A side thread's changes end with it: no cache, no sync, no legacy prefs.
+      if (scope?.ephemeral) {
+        coreInputSnapshots.writeEphemeral(scope.key, next);
 
-    // Load stored preferences
-    const storedModel = localStorage.getItem(modelStorageKey);
-    let nextModel = defaultModel;
-
-    if (storedModel) {
-      const found = ChatModels.find((m) => m.id === storedModel);
-
-      if (found) {
-        nextModel = found;
-        setModel(found);
+        return;
       }
-    }
 
-    const storedEffort = localStorage.getItem(effortStorageKey);
-    let nextEffort = defaultEffort;
+      if (scope) {
+        coreInputSnapshots.commit(scope, next);
+        coreInputSnapshotSync.schedulePush();
+      }
 
-    if (storedEffort && CHAT_EFFORT_LEVELS.some((row) => row.id === storedEffort)) {
-      nextEffort = storedEffort as ChatEffortLevel;
-      setEffort(nextEffort);
-    }
+      writeLegacyComposerPrefs(localStorage, legacyPrefKeys, next);
+      if (next.contextEffort !== previous.contextEffort) {
+        setSettings({ contextEffortLevel: next.contextEffort });
+      }
+    },
+    [legacyPrefKeys]
+  );
 
-    const storedWebSearch = localStorage.getItem(STORAGE_KEY_WEB_SEARCH);
-    let nextWebSearch = defaultWebSearch;
+  /** The only path that persists: settings the user chose, never settings they were shown. */
+  const commitUserChange = useCallback(
+    (partial: Partial<CoreInputSettings>) => {
+      // Land the user's change on the morph's final frame rather than under a pending step.
+      morphRef.current?.finish();
+      const previous = settingsRef.current;
+      const next = { ...previous, ...partial };
 
-    if (storedWebSearch === "true") nextWebSearch = true;
-    else if (storedWebSearch === "false") nextWebSearch = false;
-    setUseWebSearch(nextWebSearch);
+      next.effort = clampEffortForModel(next.modelId, next.effort);
+      if (settingsEqual(previous, next)) return;
+      userChangedInScopeRef.current = true;
+      applySettings(next);
+      persistUserSettings(next, previous);
+    },
+    [applySettings, persistUserSettings]
+  );
 
-    const storedMemories = localStorage.getItem(memoriesStorageKey);
-    let nextMemories = defaultMemories;
+  const commitToggle = useCallback(
+    (field: "webSearch" | "memories" | "speechFriendly", action: SetStateAction<boolean>) => {
+      morphRef.current?.finish();
+      commitUserChange({ [field]: resolveAction(action, settingsRef.current[field]) });
+    },
+    [commitUserChange]
+  );
+  const setUseWebSearchFromUser = useCallback(
+    (action: SetStateAction<boolean>) => commitToggle("webSearch", action),
+    [commitToggle]
+  );
+  const setUseMemoriesFromUser = useCallback(
+    (action: SetStateAction<boolean>) => commitToggle("memories", action),
+    [commitToggle]
+  );
+  const setUseSpeechFriendlyFromUser = useCallback(
+    (action: SetStateAction<boolean>) => commitToggle("speechFriendly", action),
+    [commitToggle]
+  );
+  const handleContextEffortChange = useCallback(
+    (level: ContextEffortLevel) => commitUserChange({ contextEffort: level }),
+    [commitUserChange]
+  );
 
-    if (storedMemories === "true") nextMemories = true;
-    else if (storedMemories === "false") nextMemories = false;
-    setUseMemories(nextMemories);
+  /**
+   * Moves CoreInput from `from` to `target`, one changed field at a time across the morph.
+   * No `from` (first paint of an unscoped composer), no changes, or reduced motion: instant.
+   */
+  const morphTo = useCallback(
+    (target: CoreInputSettings, from: CoreInputSettings | null) => {
+      morphRef.current?.cancel();
+      morphRef.current = null;
+      const root = morphRootRef.current;
+      const fields = from ? changedSettingFields(from, target) : [];
 
-    const storedSpeechFriendly = localStorage.getItem(STORAGE_KEY_SPEECH_FRIENDLY);
+      if (!from || fields.length === 0 || reduceMotion || !root) {
+        setMorphing(false);
+        applySettings(target);
 
-    if (storedSpeechFriendly === "true") setUseSpeechFriendly(true);
+        return;
+      }
 
-    if (modelRef) modelRef.current = nextModel;
-    if (effortRef) effortRef.current = nextEffort;
+      if (!settingsEqual(settingsRef.current, from)) applySettings(from);
+      setMorphing(true);
+      morphRef.current = createMorphTimeline({
+        steps: fields,
+        onStep: (field) => {
+          applySettings({ ...settingsRef.current, [field]: target[field] });
+          const attribute = MORPH_PULSE_ATTRIBUTE[field];
+
+          root.setAttribute(attribute, "");
+          window.setTimeout(() => root.removeAttribute(attribute), CORE_INPUT_MORPH_PULSE_MS);
+        },
+        onProgress: (progress) => {
+          root.style.setProperty("--core-input-morph-progress", String(progress));
+        },
+        onDone: () => {
+          morphRef.current = null;
+          setMorphing(false);
+        },
+      });
+    },
+    [applySettings, reduceMotion]
+  );
+
+  useEffect(() => () => morphRef.current?.cancel(), []);
+
+  // Resolve settings on mount and on every scope change, morphing from what was on screen.
+  useLayoutEffect(() => {
+    const scope = snapshotScopeRef.current;
+    const legacy = readLegacyComposerPrefs(localStorage, legacyPrefKeys, {
+      modelId: defaultModel.id,
+      effort: defaultEffort,
+      contextEffort: getSettings().contextEffortLevel ?? DEFAULT_CONTEXT_EFFORT,
+      webSearch: defaultWebSearch,
+      memories: defaultMemories,
+      speechFriendly: false,
+    });
+    const target = scope ? coreInputSnapshots.resolve(scope, legacy) : legacy;
+    // A remount (navigating between areas) has no frame of its own; start from the last shown.
+    const from = hasHydratedRef.current
+      ? settingsRef.current
+      : scope
+        ? lastDisplayedSettings
+        : null;
+
+    hasHydratedRef.current = true;
+    userChangedInScopeRef.current = false;
+    if (scope) coreInputSnapshotSync.start();
+    // Unscoped composers own the legacy prefs outright and re-save them on load, as before
+    // snapshots. Scoped ones only write them on a user change, never by being viewed.
+    else writeLegacyComposerPrefs(localStorage, legacyPrefKeys, target);
+    morphTo(target, from);
   }, [
+    scopeKey,
+    legacyPrefKeys,
     defaultEffort,
     defaultMemories,
     defaultModel,
     defaultWebSearch,
-    effortRef,
-    effortStorageKey,
-    memoriesStorageKey,
-    modelRef,
-    modelStorageKey,
-    useMemoriesRef,
-    useWebSearchRef,
+    morphTo,
   ]);
 
-  // Update timestamp whenever preferences are saved
-  const updatePrefsTimestamp = () => {
-    localStorage.setItem(STORAGE_KEY_TIMESTAMP, String(Date.now()));
-  };
-
-  // Sync model to ref and persist to localStorage
+  // A server pull can land after mount with this scope's settings from another device.
+  // Follow it unless the user has already changed something here.
   useEffect(() => {
-    if (modelRef && modelRef.current !== model) {
-      modelRef.current = model;
-    }
-    if (hasLoadedPrefs.current) {
-      localStorage.setItem(modelStorageKey, model.id);
-      updatePrefsTimestamp();
-    }
-  }, [model, modelRef, modelStorageKey]);
+    if (!scopeKey) return;
 
+    return coreInputSnapshots.subscribe(() => {
+      const scope = snapshotScopeRef.current;
+
+      if (!scope || userChangedInScopeRef.current) return;
+      const target = coreInputSnapshots.resolve(scope, settingsRef.current);
+
+      if (!settingsEqual(target, settingsRef.current)) morphTo(target, settingsRef.current);
+    });
+  }, [scopeKey, morphTo]);
+
+  // Unscoped composers follow the global context-effort setting (e.g. changed in Settings).
   useEffect(() => {
-    if (effortRef && effortRef.current !== effort) {
-      effortRef.current = effort;
-    }
-    if (hasLoadedPrefs.current) {
-      localStorage.setItem(effortStorageKey, effort);
-      updatePrefsTimestamp();
-    }
-  }, [effort, effortRef, effortStorageKey]);
+    if (scopeKey || !hasHydratedRef.current) return;
+    if (savedContextEffort === settingsRef.current.contextEffort) return;
+    applySettings({ ...settingsRef.current, contextEffort: savedContextEffort });
+  }, [savedContextEffort, scopeKey, applySettings]);
 
-  // Snap effort when the selected model doesn't support the current level.
+  // Snap effort when the selected model doesn't support the current level. A correction,
+  // not a choice, so it is applied without persisting.
   useEffect(() => {
     const next = clampEffortForModel(model.id, effort);
 
     if (next !== effort) {
-      setEffort(next);
+      applySettings({ ...settingsRef.current, effort: next });
     }
-  }, [model.id, effort]);
+  }, [model.id, effort, applySettings]);
 
-  // Persist web search to localStorage (ref is mirrored at render time).
-  useEffect(() => {
-    if (hasLoadedPrefs.current) {
-      localStorage.setItem(STORAGE_KEY_WEB_SEARCH, String(useWebSearch));
-      updatePrefsTimestamp();
-    }
-  }, [useWebSearch]);
+  // Entering or leaving a side thread hands the composer over with an empty field.
+  const sideThreadKeyRef = useRef(sideThreadKey);
 
-  // Persist memories to localStorage (ref is mirrored at render time).
   useEffect(() => {
-    if (hasLoadedPrefs.current) {
-      localStorage.setItem(memoriesStorageKey, String(useMemories));
-      updatePrefsTimestamp();
-    }
-  }, [useMemories, memoriesStorageKey]);
+    if (sideThreadKeyRef.current === sideThreadKey) return;
+    sideThreadKeyRef.current = sideThreadKey;
+    setText("");
+    onComposerTextChange?.("");
+    const el = textareaRef.current;
 
-  // Sync speech-friendly to ref and persist to localStorage
-  useEffect(() => {
-    if (useSpeechFriendlyRef && useSpeechFriendlyRef.current !== useSpeechFriendly) {
-      useSpeechFriendlyRef.current = useSpeechFriendly;
+    if (el) {
+      el.value = "";
+      el.dispatchEvent(new Event("input", { bubbles: true }));
+      el.focus();
     }
-    if (hasLoadedPrefs.current) {
-      localStorage.setItem(STORAGE_KEY_SPEECH_FRIENDLY, String(useSpeechFriendly));
-      updatePrefsTimestamp();
-    }
-  }, [useSpeechFriendly, useSpeechFriendlyRef]);
+  }, [sideThreadKey, onComposerTextChange]);
+
+  const fastForwardMorph = useCallback(() => {
+    morphRef.current?.speedUp(CORE_INPUT_MORPH_FAST_FORWARD_RATE);
+  }, []);
 
   useLayoutEffect(() => {
     const el = toolsRef.current;
@@ -616,7 +793,16 @@ export const CoreInput: React.FC<CoreInputProps> = ({
         statusRef.current === "streaming" ||
         (pendingSendRef.current !== null && pendingSendRef.current.threadId === chatId)));
 
+  const matchSlashCommand = (raw: string) => {
+    const command = parseSlashCommand(raw);
+    const run = command ? slashCommands?.[command.name] : undefined;
+
+    return command && run ? { run, argument: command.argument } : null;
+  };
+
   const handleSubmitCapture = (event: FormEvent<HTMLFormElement>) => {
+    // Commands never send to the thread, so a busy thread must not swallow them.
+    if (matchSlashCommand(textareaRef.current?.value ?? text)) return;
     if (!isSubmitBlocked()) return;
     // Block before PromptInput clears text or converts and removes attachments.
     event.preventDefault();
@@ -625,20 +811,39 @@ export const CoreInput: React.FC<CoreInputProps> = ({
 
   const handleSubmit = (message: PromptInputMessage, event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    // File conversion can finish after status changes, or before React publishes the first send.
-    if (isSubmitBlocked()) return;
     // Use form payload first; fallback to current input state (covers FormData quirks e.g. when no PromptInputProvider)
     const textFromForm = (message.text ?? "").trim();
     const textFromState = text.trim();
     const textToSend = textFromForm || textFromState || (textareaRef.current?.value ?? "").trim();
+    const slashCommand = matchSlashCommand(textToSend);
+
+    if (slashCommand) {
+      flushSync(() => {
+        setText("");
+        onComposerTextChange?.("");
+      });
+      clearDraftOnSend();
+      slashCommand.run(slashCommand.argument);
+
+      return;
+    }
+
+    // File conversion can finish after status changes, or before React publishes the first send.
+    if (isSubmitBlocked()) return;
     const hasText = Boolean(textToSend);
-    const hasAttachments = Boolean(message.files?.length);
+    const hasAttachments = Boolean(message.files?.length) || threadReferences.length > 0;
 
     if (!(hasText || hasAttachments)) {
       return;
     }
 
-    const finalText = textToSend || "Sent with attachments";
+    const finalText =
+      [textToSend, ...threadReferences.map(threadReferenceMarker)].filter(Boolean).join("\n\n") ||
+      "Sent with attachments";
+
+    // Sending mid-morph sends the settings being morphed to; finishing writes the refs now.
+    morphRef.current?.finish();
+    const settled = settingsRef.current;
     const submission = queueEnabled ? null : { threadId: chatId };
 
     if (submission) {
@@ -657,6 +862,7 @@ export const CoreInput: React.FC<CoreInputProps> = ({
 
     flushSync(() => {
       setText("");
+      setThreadReferences([]);
       onComposerTextChange?.("");
       if (enableMarkdownInputPreview) {
         setInputMarkdownMode("edit");
@@ -669,11 +875,11 @@ export const CoreInput: React.FC<CoreInputProps> = ({
       void messageQueue.enqueue(
         finalText,
         {
-          model,
-          effort,
-          webSearch: useWebSearch,
-          memory: useMemories,
-          speechFriendly: useSpeechFriendly,
+          model: ChatModels.find((m) => m.id === settled.modelId) ?? model,
+          effort: settled.effort,
+          webSearch: settled.webSearch,
+          memory: settled.memories,
+          speechFriendly: settled.speechFriendly,
           experience,
           messageSearch: true,
         },
@@ -701,18 +907,18 @@ export const CoreInput: React.FC<CoreInputProps> = ({
   // Restored prefs may hold an admin-only model; downgrade once admin status resolves.
   useEffect(() => {
     if (isAdmin === false && model.adminOnly) {
-      setModel(defaultModel);
+      applySettings({ ...settingsRef.current, modelId: defaultModel.id });
     }
-  }, [isAdmin, model, defaultModel]);
+  }, [isAdmin, model, defaultModel, applySettings]);
 
   const handleModelSelection = useCallback(
     (id: string) => {
       // Find the model object among the models this user may select
       const selectedModel = selectableModels.find((modelObj) => modelObj.id === id);
 
-      if (selectedModel) setModel(selectedModel);
+      if (selectedModel) commitUserChange({ modelId: selectedModel.id });
     },
-    [selectableModels]
+    [selectableModels, commitUserChange]
   );
 
   const handleEffortSelection = useCallback(
@@ -720,19 +926,28 @@ export const CoreInput: React.FC<CoreInputProps> = ({
       const selectedEffort = CHAT_EFFORT_LEVELS.find((row) => row.id === id);
 
       if (!selectedEffort) return;
-      setEffort(clampEffortForModel(model.id, selectedEffort.id));
+      commitUserChange({ effort: selectedEffort.id });
     },
-    [model.id]
+    [commitUserChange]
   );
+
+  const autoModelPreview = useAutoModelPreview({
+    selectedModelId: model.id,
+    text,
+    experience,
+    webSearch: useWebSearch,
+    memory: useMemories,
+  });
 
   const handleInputChange: ChangeEventHandler<HTMLTextAreaElement> = useCallback(
     (e) => {
       const v = e.target.value;
 
       setText(v);
+      autoModelPreview.notifyKeystroke();
       onComposerTextChange?.(v);
     },
-    [onComposerTextChange]
+    [autoModelPreview, onComposerTextChange]
   );
 
   const handleTextareaKeyDown: KeyboardEventHandler<HTMLTextAreaElement> = useCallback(
@@ -752,7 +967,10 @@ export const CoreInput: React.FC<CoreInputProps> = ({
     : pendingSend !== null && pendingSend.threadId === chatId && status === "ready"
       ? "submitted"
       : status;
-  const organicSubmitState = resolveOrganicSubmitState(composerStatus, text.trim().length > 0);
+  const organicSubmitState = resolveOrganicSubmitState(
+    composerStatus,
+    text.trim().length > 0 || threadReferences.length > 0
+  );
 
   const showSentShimmer =
     !queueEnabled &&
@@ -805,9 +1023,18 @@ export const CoreInput: React.FC<CoreInputProps> = ({
       <PromptInputTextarea
         ref={textareaRef}
         value={text}
-        className={cn(variant === "compact" && "min-h-10 max-h-24 resize-none")}
+        className={cn(variant === "compact" && "min-h-8 max-h-24 resize-none")}
+        {...(placeholder ? { placeholder } : {})}
         onChange={handleInputChange}
+        onPasteCapture={(event) => {
+          const id = parseThreadPointer(event.clipboardData.getData("text/plain"));
+          if (!id || threadReferences.length >= 8) return;
+          event.preventDefault();
+          event.stopPropagation();
+          addThreadReference(id);
+        }}
         onKeyDown={onSecondarySubmit ? handleTextareaKeyDown : undefined}
+        onSelect={autoModelPreview.notifySelectionOrCursorMove}
       />
     );
 
@@ -825,11 +1052,11 @@ export const CoreInput: React.FC<CoreInputProps> = ({
       showLabels,
       useCondensedLayout,
       useWebSearch,
-      setUseWebSearch,
+      setUseWebSearch: setUseWebSearchFromUser,
       useMemories,
-      setUseMemories,
+      setUseMemories: setUseMemoriesFromUser,
       useSpeechFriendly,
-      setUseSpeechFriendly,
+      setUseSpeechFriendly: setUseSpeechFriendlyFromUser,
       inputMarkdownMode,
       setInputMarkdownMode,
       model,
@@ -838,15 +1065,19 @@ export const CoreInput: React.FC<CoreInputProps> = ({
       effort,
       onEffortChange: handleEffortSelection,
       showContextEffort,
-      contextEffort: contextEffortLevel,
+      contextEffort,
       onContextEffortChange: handleContextEffortChange,
+      autoModelPreview,
     }),
     [
       showLabels,
       useCondensedLayout,
       useWebSearch,
+      setUseWebSearchFromUser,
       useMemories,
+      setUseMemoriesFromUser,
       useSpeechFriendly,
+      setUseSpeechFriendlyFromUser,
       inputMarkdownMode,
       model,
       selectableModels,
@@ -854,8 +1085,9 @@ export const CoreInput: React.FC<CoreInputProps> = ({
       effort,
       handleEffortSelection,
       showContextEffort,
-      contextEffortLevel,
+      contextEffort,
       handleContextEffortChange,
+      autoModelPreview,
     ]
   );
 
@@ -893,7 +1125,7 @@ export const CoreInput: React.FC<CoreInputProps> = ({
           : undefined
       }
       onSpeechFriendlyChange={
-        useSpeechFriendlyRef ? (value) => setUseSpeechFriendly(value) : undefined
+        useSpeechFriendlyRef ? (value) => setUseSpeechFriendlyFromUser(value) : undefined
       }
     />
   ) : null;
@@ -901,28 +1133,30 @@ export const CoreInput: React.FC<CoreInputProps> = ({
   const attachmentActions = (
     <>
       <ComposerAddFilesButton />
+      <ThreadClipboardPicker onSelect={addThreadReference} />
       {(!enableMarkdownInputPreview || inputMarkdownMode === "edit") && (
         <ComposerMicButton textareaRef={textareaRef} onTranscriptionChange={setText} />
       )}
     </>
   );
 
-  const contextBudgetControl = showContextBudget ? (
-    <ContextBudgetIndicator
-      chatId={chatId}
-      chatStyle={chatStyle}
-      draftText={text}
-      experience={experience}
-      memoryEnabled={useMemories}
-      messageSearchEnabled
-      modelId={model.id}
-      refreshKey={contextBudgetRefreshKey}
-      speechFriendly={useSpeechFriendly}
-      streamBudget={streamContextBudget}
-      threadMessages={threadMessages}
-      webSearchEnabled={useWebSearch}
-    />
-  ) : null;
+  const contextBudgetControl =
+    showContextBudget && !sideThreadKey ? (
+      <ContextBudgetIndicator
+        chatId={chatId}
+        chatStyle={chatStyle}
+        draftText={text}
+        experience={experience}
+        memoryEnabled={useMemories}
+        messageSearchEnabled
+        modelId={model.id}
+        refreshKey={contextBudgetRefreshKey}
+        speechFriendly={useSpeechFriendly}
+        streamBudget={streamContextBudget}
+        threadMessages={threadMessages}
+        webSearchEnabled={useWebSearch}
+      />
+    ) : null;
 
   const steerButton =
     onSecondarySubmit && !useCondensedLayout
@@ -975,7 +1209,11 @@ export const CoreInput: React.FC<CoreInputProps> = ({
       )}
       variant={personaActive ? "ghost" : undefined}
       // Multi-mode: always submit (never stop). Default: keep stop available while streaming.
-      disabled={queueEnabled ? !text.trim() || disabled : (!text && !status) || disabled}
+      disabled={
+        queueEnabled
+          ? (!text.trim() && threadReferences.length === 0) || disabled
+          : (!text && !status && threadReferences.length === 0) || disabled
+      }
       status={composerStatus}
       stop={queueEnabled ? undefined : stop}
     >
@@ -1015,6 +1253,19 @@ export const CoreInput: React.FC<CoreInputProps> = ({
       {/* Carries no padding of its own: the attachment rail brings `p-3`, and an
           empty header would otherwise reserve a blank band above the textarea. */}
       <PromptInputHeader className="p-0">
+        {threadReferences.length > 0 ? (
+          <div className="flex flex-wrap gap-1.5 px-3 pt-3">
+            {threadReferences.map((id) => (
+              <ThreadReferenceCard
+                key={id}
+                id={id}
+                onRemove={() =>
+                  setThreadReferences((current) => current.filter((item) => item !== id))
+                }
+              />
+            ))}
+          </div>
+        ) : null}
         <PromptInputAttachments>
           {(attachment) => <PromptInputAttachment data={attachment} />}
         </PromptInputAttachments>
@@ -1085,8 +1336,16 @@ export const CoreInput: React.FC<CoreInputProps> = ({
 
   return (
     <CoreInputControlsProvider value={controlsValue}>
-      {/* Positioning context for the live voice drawer; layout-neutral otherwise. */}
-      <div className="relative w-full min-w-0">
+      {/* Positioning context for the live voice drawer; layout-neutral otherwise. Touching
+          the composer mid-morph fast-forwards the morph (see morph-timing). */}
+      <div
+        ref={morphRootRef}
+        className="relative w-full min-w-0"
+        data-core-input-morph={morphing ? "running" : undefined}
+        style={{ "--core-input-morph-pulse-ms": `${CORE_INPUT_MORPH_PULSE_MS}ms` } as CSSProperties}
+        onKeyDownCapture={fastForwardMorph}
+        onPointerDownCapture={fastForwardMorph}
+      >
         <CoreInputVoiceDrawerSlot />
         {queueEnabled ? (
           <MessageSendQueueStrip
@@ -1095,7 +1354,10 @@ export const CoreInput: React.FC<CoreInputProps> = ({
             items={messageQueue.items}
           />
         ) : null}
-        {shell}
+        <div className="relative">
+          {shell}
+          {morphing ? <span aria-hidden className="core-input-morph-sheen" /> : null}
+        </div>
       </div>
     </CoreInputControlsProvider>
   );

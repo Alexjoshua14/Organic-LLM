@@ -1,18 +1,17 @@
 import type { LanguageModelUsage } from "ai";
-
-import { randomUUID } from "crypto";
-
-import { generateObject } from "ai";
-import { createLlmBudgetHooks } from "@/lib/plans/llm-budget-hooks";
-import { z } from "zod";
-
 import type {
   RoutedThought,
   ThoughtDisposition,
   ThoughtRoutingResult,
 } from "@/lib/schemas/thought-routing";
-import { ThoughtDispositionSchema } from "@/lib/schemas/thought-routing";
 
+import { randomUUID } from "crypto";
+
+import { generateObject } from "ai";
+import { z } from "zod";
+
+import { createLlmBudgetHooks } from "@/lib/plans/llm-budget-hooks";
+import { ThoughtDispositionSchema } from "@/lib/schemas/thought-routing";
 import {
   JEV_GATEWAY_MODEL_ID,
   ORCHESTRATOR_ROUTER_ZDR_PROVIDER_OPTIONS,
@@ -60,12 +59,14 @@ const TASK_HINT =
 /** True when the orchestrator should answer this thought itself (not spawn/delegate). */
 export function isOrchestratorDirectThought(thought: string): boolean {
   const trimmed = thought.trim();
+
   if (!trimmed) return true;
 
   if (GREETING_ONLY.test(trimmed)) return true;
 
   // Short conversational beats with no task verb — greetings, small talk, pings.
   const wordCount = trimmed.split(/\s+/).filter(Boolean).length;
+
   if (wordCount <= 6 && trimmed.length <= 48 && !TASK_HINT.test(trimmed)) {
     return true;
   }
@@ -98,21 +99,28 @@ export type JevRouteGenerate = (args: {
 
 function splitIntoThoughtTexts(text: string): string[] {
   const trimmed = text.trim();
+
   if (!trimmed) return [text];
 
   const byBlank = trimmed
     .split(/\n\s*\n/)
     .map((s) => s.trim())
     .filter(Boolean);
+
   if (byBlank.length > 1) return byBlank;
 
-  const lines = trimmed.split(/\n/).map((s) => s.trim()).filter(Boolean);
+  const lines = trimmed
+    .split(/\n/)
+    .map((s) => s.trim())
+    .filter(Boolean);
   const bulletish = lines.filter((l) => /^(\d+[.)]\s+|[-*•]\s+)/.test(l));
+
   if (bulletish.length >= 2 && bulletish.length === lines.length) {
     return lines.map((l) => l.replace(/^(\d+[.)]\s+|[-*•]\s+)/, "").trim());
   }
 
   const alsoSplit = trimmed.split(/\s+Also,\s+/i);
+
   if (alsoSplit.length === 2 && alsoSplit.every((p) => p.trim().length > 12)) {
     return alsoSplit.map((p) => p.trim());
   }
@@ -127,6 +135,7 @@ function scoreWorkerMatch(thought: string, worker: ThoughtRouterWorker): number 
     .split(/[^a-z0-9]+/)
     .filter((t) => t.length > 3);
   let score = 0;
+
   for (const token of tokens) {
     if (hay.includes(token)) score += 1;
   }
@@ -151,8 +160,10 @@ function decideDisposition(
 
   let best: ThoughtRouterWorker | null = null;
   let bestScore = 0;
+
   for (const worker of workers) {
     const score = scoreWorkerMatch(thought, worker);
+
     if (score > bestScore) {
       bestScore = score;
       best = worker;
@@ -180,9 +191,7 @@ function decideDisposition(
  * Reclaim greetings / short conversational pings that a model misrouted to a worker.
  * Only rewrites dispositions that are clearly orchestrator-owned; real tasks stay assigned.
  */
-export function reclaimMisroutedDirectThoughts(
-  thoughts: RoutedThought[]
-): RoutedThought[] {
+export function reclaimMisroutedDirectThoughts(thoughts: RoutedThought[]): RoutedThought[] {
   return thoughts.map((thought) => {
     if (thought.disposition.kind === "direct") return thought;
     if (!isOrchestratorDirectThought(thought.text)) return thought;
@@ -252,9 +261,7 @@ export function createHeuristicThoughtRouter(options?: {
 function formatWorkersForPrompt(workers: ReadonlyArray<ThoughtRouterWorker>): string {
   if (workers.length === 0) return "(no existing workers)";
 
-  return workers
-    .map((w) => `- id=${w.id} name=${w.name} role=${w.role} goal=${w.goal}`)
-    .join("\n");
+  return workers.map((w) => `- id=${w.id} name=${w.name} role=${w.role} goal=${w.goal}`).join("\n");
 }
 
 const JEV_ROUTER_SYSTEM = `You are Jev, Organic LLM's cheap thought router for the orchestrator.
@@ -330,7 +337,11 @@ export function createJevThoughtRouter(options?: CreateJevThoughtRouterOptions):
       try {
         if (!options?.generate) {
           if (!options?.ownerId) throw new Error("Routing requires a verified owner");
-          await createLlmBudgetHooks({ ownerId: options.ownerId, modelId: call.model, operation: "multitask_router" }).prepareStep();
+          await createLlmBudgetHooks({
+            ownerId: options.ownerId,
+            modelId: call.model,
+            operation: "multitask_router",
+          }).prepareStep();
         }
         const { object, usage, providerMetadata } = await generate({
           model: call.model,
@@ -364,6 +375,7 @@ export function createJevThoughtRouter(options?: CreateJevThoughtRouterOptions):
         };
       } catch (err) {
         const message = err instanceof Error ? err.message : String(err);
+
         logger.warn("createJevThoughtRouter", `Jev failed; heuristic fallback: ${message}`);
 
         return buildHeuristicResult(input, {
@@ -377,7 +389,6 @@ export function createJevThoughtRouter(options?: CreateJevThoughtRouterOptions):
 /** Assert ZDR is forced on the router instance (unit tests). */
 export function assertRouterForcesZdr(router: ThoughtRouter): boolean {
   return (
-    router.zeroDataRetention === true &&
-    router.providerOptions.gateway.zeroDataRetention === true
+    router.zeroDataRetention === true && router.providerOptions.gateway.zeroDataRetention === true
   );
 }

@@ -7,6 +7,7 @@ import { useRef } from "react";
 
 import { CoreInput } from "@/components/chat/core-input";
 import { ChatModel, DEFAULT_CHAT_MODEL } from "@/lib/schemas/chat";
+import { coreInputScopes } from "@/lib/core-input/scopes";
 import { PromptInputProvider } from "@/components/third-party/ai-elements/prompt-input";
 
 interface RabbitHolePromptBarProps {
@@ -18,6 +19,8 @@ interface RabbitHolePromptBarProps {
   isLoading: boolean;
   disabled?: boolean;
 }
+
+const RABBIT_HOLE_COMPOSER_SCOPE = coreInputScopes.area("rabbit-holes");
 
 export function RabbitHolePromptBar({
   sendMessage,
@@ -41,6 +44,7 @@ export function RabbitHolePromptBar({
         hideWebMemorySpeechToggles
         modelRef={modelRef}
         sendMessage={sendMessage}
+        snapshotScope={RABBIT_HOLE_COMPOSER_SCOPE}
         status={status}
         stop={stop ?? (async () => {})}
         useMemoriesRef={useMemoriesRef}

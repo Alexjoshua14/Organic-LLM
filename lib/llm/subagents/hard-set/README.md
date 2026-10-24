@@ -16,7 +16,7 @@ One file per subagent in `agents/<slug>.ts`, built with `defineHardSetSubagent` 
 | `name`, `role`, `blurb` | Identity. The blurb is the one line shown in the lab. |
 | `instructions` | The subagent's own system prompt fragment, sent on every model turn in its shell. |
 | `helpMenu` | Markdown sent as the reflex, with no model call. It also seeds every new shell. It must not start with Arcadia's help prefix. |
-| `tools` | `webSearch`, `memory`, `chatHistory`, `research`. Each flag forces a capability on or off. An omitted flag follows the turn's defaults. The research toolbox is server-selected. |
+| `tools` | `webSearch`, `memory`, `chatHistory`, `research`, `chronos`, `ergon`. Each flag forces a capability on or off. An omitted flag follows the turn's defaults; `chronos` and `ergon` default off. The research toolbox is server-selected, and the connected-app sets are owner-gated ([chat tools](../../../../docs/chat-tools.md#connected-app-tools-hard-set-tool-policy)). |
 | `roster` | Include the fixed persona in orchestration. |
 | `rosterSlotId` | Optional binding to an existing `agent-*` slot; dispatch uses that id and does not add a duplicate roster entry. |
 
@@ -24,7 +24,9 @@ Register the subagent in `registry.ts`. `tests/unit/hard-set-subagents.test.ts` 
 definition: valid schema, unique id, no clash with the orchestrator's roster, and a help menu
 that won't render as Arcadia's help card.
 
-`agents/architect.ts` defines Archer. `agents/researcher.ts` defines Lyra, bound to the existing
+`agents/architect.ts` defines Archer. `agents/coder.ts` defines Reed and `agents/planner.ts` defines
+Mira, Ergon's representative; both are bound to existing slots and use connected-app tools.
+`agents/researcher.ts` defines Lyra, bound to the existing
 researcher slot. Her [research guide](../research/README.md) owns provider setup, evidence
 storage and the browsable research UI.
 

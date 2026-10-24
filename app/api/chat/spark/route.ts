@@ -1,4 +1,3 @@
-import { createAuthenticatedLlmBudgetHooks, budgetModelId } from "@/lib/plans/llm-budget-hooks";
 import { openai, OpenAIProvider } from "@ai-sdk/openai";
 import {
   streamText,
@@ -10,6 +9,7 @@ import {
 } from "ai";
 import { auth } from "@clerk/nextjs/server";
 
+import { createAuthenticatedLlmBudgetHooks, budgetModelId } from "@/lib/plans/llm-budget-hooks";
 import { extractOpsEnvelopeFromText, applyOps } from "@/lib/llm/organicStateProtocol";
 import { getState, saveState } from "@/lib/supabase/organicStateStore";
 import { checkLlmMessageLimit } from "@/lib/rate-limit/llm";
