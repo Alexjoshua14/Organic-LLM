@@ -12,6 +12,7 @@ import {
   type ExperienceSurface,
 } from "@/lib/onboarding/experience-surfaces";
 import { blogArticlePage } from "@/lib/rabbit-holes/designTokens";
+import { threadEntryPrefetch } from "@/lib/chat/thread-entry-navigation";
 import { cn } from "@/lib/utils";
 
 type SurfacePostLayoutProps = {
@@ -76,7 +77,9 @@ export function SurfacePostLayout({ surface, markdown }: SurfacePostLayoutProps)
 
         <div className="mb-6 flex flex-wrap items-center gap-3">
           <Button asChild size="sm" variant="secondary">
-            <Link href={surface.tryHref}>Open {surface.label}</Link>
+            <Link href={surface.tryHref} prefetch={threadEntryPrefetch(surface.tryHref)}>
+              Open {surface.label}
+            </Link>
           </Button>
         </div>
 
